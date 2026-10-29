@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -183,7 +184,10 @@ func streamTo(cmd *cobra.Command, w io.Writer, url string) (int64, error) {
 	if resp.StatusCode != http.StatusOK {
 		// The presigned URL is short-TTL; an expired one is the likeliest
 		// non-2xx and is worth naming, since retrying just works.
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		body, fault := api.ReadPlainHTTPFault(resp.Header, resp.Body, 512)
+		if fault != nil {
+			return 0, fault
+		}
 		hint := ""
 		if resp.StatusCode == http.StatusForbidden {
 			hint = " (the presigned link may have expired — re-run to mint a new one)"

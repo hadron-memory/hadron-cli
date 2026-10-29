@@ -877,7 +877,7 @@ func TestMapErrorMCPOnlyStripsTheApolloPrefixFromEveryMessage(t *testing.T) {
 // server#1220 types the shared memory-write gate. Its ordinary denial is the
 // wire shape pinned by server#1308, and it must never read as a credential
 // refusal, before the fix or after. The message is the LIVE one, not a
-// paraphrase. Only the code changes: INTERNAL_SERVER_ERROR today (exit 1),
+// paraphrase. Only the code changes: an untyped code today (exit 1),
 // FORBIDDEN with no reason once typed (exit 8, "ask for access"). A future
 // non-OAuth reason on the same denial also stays exit 8. Exit 3 is reserved
 // for OAUTH_SCOPE_INSUFFICIENT/UNSUPPORTED, which a different credential
@@ -889,7 +889,7 @@ func TestMemoryWriteDenialIsNotAScopeRefusal(t *testing.T) {
 		ext  map[string]any
 		want int
 	}{
-		{"before #1220: untyped", map[string]any{"code": "INTERNAL_SERVER_ERROR"}, exitcode.Error},
+		{"before #1220: untyped", map[string]any{"code": "UNTYPED_SERVER_ERROR"}, exitcode.Error},
 		{"after #1220: typed, no reason", map[string]any{"code": "FORBIDDEN"}, exitcode.Forbidden},
 		{"typed, a non-OAuth reason", map[string]any{"code": "FORBIDDEN", "reason": "MEMORY_WRITE_DENIED"}, exitcode.Forbidden},
 	} {

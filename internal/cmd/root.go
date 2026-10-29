@@ -40,6 +40,7 @@ import (
 	memorycmd "github.com/hadron-memory/hadron-cli/internal/cmd/memory"
 	nodecmd "github.com/hadron-memory/hadron-cli/internal/cmd/node"
 	objectcmd "github.com/hadron-memory/hadron-cli/internal/cmd/object"
+	orcacmd "github.com/hadron-memory/hadron-cli/internal/cmd/orca"
 	orgcmd "github.com/hadron-memory/hadron-cli/internal/cmd/org"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/replacecmd"
 	runcmd "github.com/hadron-memory/hadron-cli/internal/cmd/run"
@@ -148,6 +149,7 @@ the binding is verified. Otherwise this does not apply to you.`,
 	root.AddCommand(orgcmd.NewCmdOrg(f))
 	root.AddCommand(scopecmd.NewCmdScope(f))
 	root.AddCommand(agentcmd.NewCmdAgent(f))
+	root.AddCommand(orcacmd.NewCmdOrca(f))
 	root.AddCommand(teamcmd.NewCmdTeam(f))
 	root.AddCommand(tickercmd.NewCmdTicker(f))
 	root.AddCommand(usercmd.NewCmdUser(f))
@@ -348,6 +350,14 @@ func renderError(f *cmdutil.Factory, err error) int {
 
 	if !errors.Is(err, exitcode.ErrSilent) {
 		failure := map[string]any{"code": code, "message": err.Error()}
+		// cli#898: additive fields for an internal fault; `code` already means
+		// the exit code, so the server's code is a new key.
+		if fault, ok := api.InternalFaultOf(err); ok {
+			failure["serverCode"] = fault.ServerCode
+			if fault.RequestID != "" {
+				failure["requestId"] = fault.RequestID
+			}
+		}
 		details := api.CommentRecoveryDetails(err)
 		if details == nil {
 			details = api.WorkerReportingDetails(err)

@@ -445,11 +445,23 @@ var (
 // ScreenAgentFamily is the agent family a rendered screen POSITIVELY shows,
 // or "": a shell, or both families' chrome at once (hold, never guess).
 func ScreenAgentFamily(sc *Screen) string {
-	if !sc.usable() {
-		return ""
+	claude, codex := screenFamilies(sc)
+	switch {
+	case claude && !codex:
+		return "claude"
+	case codex && !claude:
+		return "codex"
 	}
-	claude := len(ruleIndexes(sc.Tail)) >= 2
-	codex := false
+	return ""
+}
+
+// screenFamilies is which families' chrome a screen shows. Both true is
+// ambiguity, which callers that must tell it from "neither" read here.
+func screenFamilies(sc *Screen) (claude, codex bool) {
+	if !sc.usable() {
+		return false, false
+	}
+	claude = len(ruleIndexes(sc.Tail)) >= 2
 	for _, l := range sc.Tail {
 		if strings.HasPrefix(l, "✻ ") || strings.HasPrefix(l, "⏺ ") || claudeBanner.MatchString(l) {
 			claude = true
@@ -459,11 +471,5 @@ func ScreenAgentFamily(sc *Screen) string {
 			codex = true
 		}
 	}
-	switch {
-	case claude && !codex:
-		return "claude"
-	case codex && !claude:
-		return "codex"
-	}
-	return ""
+	return claude, codex
 }

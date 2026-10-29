@@ -47,6 +47,12 @@ const (
 	// server refuses it with the same code, but the next action is a different
 	// credential, not anyone's permission.
 	Forbidden = 8
+	// OrcaUnreachable (cli#1187) is `hadron orca ...` run where Orca is not:
+	// the Orca CLI/app did not answer, so no terminal could be read. It is
+	// command-specific like push's 9-12 (and distinct from a worker that
+	// simply has no terminal, which is a dark/no_terminal answer with exit 0).
+	// 9 is the #1181 health check's DARK alarm.
+	OrcaUnreachable = 10
 )
 
 // CodedError carries an exit code alongside an error. The root

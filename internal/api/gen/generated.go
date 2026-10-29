@@ -23919,6 +23919,145 @@ func (v *DriveReadFile) GetModifiedAt() *string { return v.ModifiedAt }
 // GetWebLink returns DriveReadFile.WebLink, and is useful for accessing the field via an interface.
 func (v *DriveReadFile) GetWebLink() *string { return v.WebLink }
 
+// DueTickWakesDueWakesDueWakePage includes the requested fields of the GraphQL type DueWakePage.
+// The GraphQL type's documentation follows.
+//
+// #1748 — one page of due wakes. Counts and ranges only (hrn:node:hadronmemory.com:specs:cor:agt:080:23).
+type DueTickWakesDueWakesDueWakePage struct {
+	Status   DueWakeStatus                                           `json:"status"`
+	Wakes    []*DueTickWakesDueWakesDueWakePageWakesDueWake          `json:"wakes"`
+	PageInfo *DueTickWakesDueWakesDueWakePagePageInfoDueWakePageInfo `json:"pageInfo"`
+}
+
+// GetStatus returns DueTickWakesDueWakesDueWakePage.Status, and is useful for accessing the field via an interface.
+func (v *DueTickWakesDueWakesDueWakePage) GetStatus() DueWakeStatus { return v.Status }
+
+// GetWakes returns DueTickWakesDueWakesDueWakePage.Wakes, and is useful for accessing the field via an interface.
+func (v *DueTickWakesDueWakesDueWakePage) GetWakes() []*DueTickWakesDueWakesDueWakePageWakesDueWake {
+	return v.Wakes
+}
+
+// GetPageInfo returns DueTickWakesDueWakesDueWakePage.PageInfo, and is useful for accessing the field via an interface.
+func (v *DueTickWakesDueWakesDueWakePage) GetPageInfo() *DueTickWakesDueWakesDueWakePagePageInfoDueWakePageInfo {
+	return v.PageInfo
+}
+
+// DueTickWakesDueWakesDueWakePagePageInfoDueWakePageInfo includes the requested fields of the GraphQL type DueWakePageInfo.
+type DueTickWakesDueWakesDueWakePagePageInfoDueWakePageInfo struct {
+	HasNextPage bool    `json:"hasNextPage"`
+	EndCursor   *string `json:"endCursor"`
+}
+
+// GetHasNextPage returns DueTickWakesDueWakesDueWakePagePageInfoDueWakePageInfo.HasNextPage, and is useful for accessing the field via an interface.
+func (v *DueTickWakesDueWakesDueWakePagePageInfoDueWakePageInfo) GetHasNextPage() bool {
+	return v.HasNextPage
+}
+
+// GetEndCursor returns DueTickWakesDueWakesDueWakePagePageInfoDueWakePageInfo.EndCursor, and is useful for accessing the field via an interface.
+func (v *DueTickWakesDueWakesDueWakePagePageInfoDueWakePageInfo) GetEndCursor() *string {
+	return v.EndCursor
+}
+
+// DueTickWakesDueWakesDueWakePageWakesDueWake includes the requested fields of the GraphQL type DueWake.
+// The GraphQL type's documentation follows.
+//
+// One merged wake: every reason, one seq range per channel. A wake never moves a read position.
+type DueTickWakesDueWakesDueWakePageWakesDueWake struct {
+	Worker *DueTickWakesDueWakesDueWakePageWakesDueWakeWorker `json:"worker"`
+	// #2017 R63 — when the earliest waiting reason became due: a mention's first still-due post, a tick's OLDEST unacknowledged
+	// tick time, a task event's time. Never restarted by a re-offer or a join (hrn:node:hadronmemory.com:specs:cor:agt:080:27).
+	AnchorAt string                                                          `json:"anchorAt"`
+	Reasons  []*DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason `json:"reasons"`
+}
+
+// GetWorker returns DueTickWakesDueWakesDueWakePageWakesDueWake.Worker, and is useful for accessing the field via an interface.
+func (v *DueTickWakesDueWakesDueWakePageWakesDueWake) GetWorker() *DueTickWakesDueWakesDueWakePageWakesDueWakeWorker {
+	return v.Worker
+}
+
+// GetAnchorAt returns DueTickWakesDueWakesDueWakePageWakesDueWake.AnchorAt, and is useful for accessing the field via an interface.
+func (v *DueTickWakesDueWakesDueWakePageWakesDueWake) GetAnchorAt() string { return v.AnchorAt }
+
+// GetReasons returns DueTickWakesDueWakesDueWakePageWakesDueWake.Reasons, and is useful for accessing the field via an interface.
+func (v *DueTickWakesDueWakesDueWakePageWakesDueWake) GetReasons() []*DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason {
+	return v.Reasons
+}
+
+// DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason includes the requested fields of the GraphQL type WakeReason.
+type DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason struct {
+	Kind   WakeKind                                                            `json:"kind"`
+	Ticker *DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker `json:"ticker"`
+}
+
+// GetKind returns DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason.Kind, and is useful for accessing the field via an interface.
+func (v *DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetKind() WakeKind {
+	return v.Kind
+}
+
+// GetTicker returns DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason.Ticker, and is useful for accessing the field via an interface.
+func (v *DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetTicker() *DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker {
+	return v.Ticker
+}
+
+// DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker includes the requested fields of the GraphQL type Ticker.
+// The GraphQL type's documentation follows.
+//
+// #1747 — a named wake schedule owned by one team App (hrn:node:hadronmemory.com:specs:cor:agt:080:01). Its URN is hrn:ticker:ROOT:APP-SLUG:SLUG,
+// computed from the App and the permanent slug. Ticks are computed, not stored; nothing reads a ticker until due wakes ship.
+type DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+	// The moment of the current tick; null when none has fired or it cannot tick.
+	LastTickAt *string `json:"lastTickAt"`
+}
+
+// GetId returns DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker.Id, and is useful for accessing the field via an interface.
+func (v *DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker) GetId() string {
+	return v.Id
+}
+
+// GetName returns DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker.Name, and is useful for accessing the field via an interface.
+func (v *DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker) GetName() string {
+	return v.Name
+}
+
+// GetLastTickAt returns DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker.LastTickAt, and is useful for accessing the field via an interface.
+func (v *DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker) GetLastTickAt() *string {
+	return v.LastTickAt
+}
+
+// DueTickWakesDueWakesDueWakePageWakesDueWakeWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type DueTickWakesDueWakesDueWakePageWakesDueWakeWorker struct {
+	Id string `json:"id"`
+}
+
+// GetId returns DueTickWakesDueWakesDueWakePageWakesDueWakeWorker.Id, and is useful for accessing the field via an interface.
+func (v *DueTickWakesDueWakesDueWakePageWakesDueWakeWorker) GetId() string { return v.Id }
+
+// DueTickWakesResponse is returned by DueTickWakes on success.
+type DueTickWakesResponse struct {
+	// #1748 — the wakes due now (hrn:node:hadronmemory.com:specs:cor:agt:080:08). Counts and seq ranges only; reads nothing it does not return.
+	// accepts (#2169, hrn:node:hadronmemory.com:specs:cor:agt:090:04): the reason kinds this caller can deliver. Omit it and no STOP notice is
+	// ever returned (the shipped ticker-wake). A call that lists STOP is offered the worker's newest undelivered stop notice, and
+	// declares the lane it serves (a host key: its own registration; a person who manages the App, or a key without a host:
+	// the unhosted lane) for STOP_CONSUMER_FRESH_SECONDS (default 600), but only when it read the lane from its start to its end in one call:
+	// no workerRefs, no after, and no next page (ask for first: 200; a lane larger than a page cannot declare). A worker whose host is lost has no serving lane until the host returns. Setting a stop signal is refused (STOP_SIGNAL_UNAVAILABLE)
+	// while any worker it would cover is on a lane with no fresh declaration.
+	DueWakes *DueTickWakesDueWakesDueWakePage `json:"dueWakes"`
+}
+
+// GetDueWakes returns DueTickWakesResponse.DueWakes, and is useful for accessing the field via an interface.
+func (v *DueTickWakesResponse) GetDueWakes() *DueTickWakesDueWakesDueWakePage { return v.DueWakes }
+
 type DueWakeStatus string
 
 const (
@@ -67112,6 +67251,26 @@ func (v *__DriveListInput) GetTop() int { return v.Top }
 // GetPageToken returns __DriveListInput.PageToken, and is useful for accessing the field via an interface.
 func (v *__DriveListInput) GetPageToken() *string { return v.PageToken }
 
+// __DueTickWakesInput is used internally by genqlient
+type __DueTickWakesInput struct {
+	AppRef     string   `json:"appRef"`
+	First      int      `json:"first"`
+	WorkerRefs []string `json:"workerRefs"`
+	After      *string  `json:"after,omitempty"`
+}
+
+// GetAppRef returns __DueTickWakesInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__DueTickWakesInput) GetAppRef() string { return v.AppRef }
+
+// GetFirst returns __DueTickWakesInput.First, and is useful for accessing the field via an interface.
+func (v *__DueTickWakesInput) GetFirst() int { return v.First }
+
+// GetWorkerRefs returns __DueTickWakesInput.WorkerRefs, and is useful for accessing the field via an interface.
+func (v *__DueTickWakesInput) GetWorkerRefs() []string { return v.WorkerRefs }
+
+// GetAfter returns __DueTickWakesInput.After, and is useful for accessing the field via an interface.
+func (v *__DueTickWakesInput) GetAfter() *string { return v.After }
+
 // __DueWakesInput is used internally by genqlient
 type __DueWakesInput struct {
 	AppRef string  `json:"appRef"`
@@ -79425,6 +79584,70 @@ func DriveList(
 	}
 
 	data_ = &DriveListResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by DueTickWakes.
+const DueTickWakes_Operation = `
+query DueTickWakes ($appRef: String!, $first: Int!, $workerRefs: [String!], $after: String) {
+	dueWakes(appRef: $appRef, first: $first, workerRefs: $workerRefs, after: $after) {
+		status
+		wakes {
+			worker {
+				id
+			}
+			anchorAt
+			reasons {
+				kind
+				ticker {
+					id
+					name
+					lastTickAt
+				}
+			}
+		}
+		pageInfo {
+			hasNextPage
+			endCursor
+		}
+	}
+}
+`
+
+// hadron-cli#1187: `hadron orca terminal status` reads the unanswered ticks of
+// the named workers. anchorAt is the OLDEST unacknowledged tick time, which the
+// dark rule compares with the fastest subscribed ticker's interval (never
+// Ticker.lastTickAt). No accepts and never acknowledged: a read only. A caller
+// the server does not let read another worker's wakes is refused, and the
+// command fails closed on it.
+func DueTickWakes(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	first int,
+	workerRefs []string,
+	after *string,
+) (data_ *DueTickWakesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DueTickWakes",
+		Query:  DueTickWakes_Operation,
+		Variables: &__DueTickWakesInput{
+			AppRef:     appRef,
+			First:      first,
+			WorkerRefs: workerRefs,
+			After:      after,
+		},
+	}
+
+	data_ = &DueTickWakesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
