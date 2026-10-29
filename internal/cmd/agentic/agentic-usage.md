@@ -97,6 +97,11 @@ self-hosted backend.
 | 6    | cancelled / timed out waiting for the user |
 | 7    | unavailable — the request never got an answer (gateway 5xx, reset, timeout) |
 | 8    | forbidden — authenticated, but not permitted |
+| 10   | Orca not reachable — `hadron orca …` run off the Orca host (command-specific; see below) |
+
+`hadron orca …` exits **10** when the Orca CLI/app does not answer (this is not the host that runs
+Orca). A worker with no terminal is NOT that: it is a `dark`/`no_terminal` status and exit 0. The other
+command-specific 9–12 below belong to `team push` / `team chat check` and are never emitted by `orca`.
 
 **Internal server faults exit 1, never 7** (cli#898, cor:api:260:01). The server
 answered, so it is not "unavailable". A response whose GraphQL `extensions.code` is
@@ -387,6 +392,7 @@ hadron team roster (uses --app or the binding)   # states are plan-derived, rend
 hadron team composition [--json] (uses --app or the binding)   # cli#1085: the server teamComposition read, rendered as returned: direct-report lanes in the server order (coordinator name, the unassigned lane last), a retired coordinator stays named and flagged, non-retired workers per lane with URN/role/family/state (the coordinator URN rides the lane heading; a missing URN is a dash), plain countsByRole and countsByRoleFamily where a null role or family is its own bucket (a dash in text, null in --json); --json {appId,asOf,lanes:[{coordinator|null,coordinatorRetired,countsByRole,countsByRoleFamily,workers}]} with [] never null. A read, not a capacity policy: no balance judgment, no second roster join. A refused read, a server without teamComposition, or a null result is a failure (mapped exit code, nothing rendered), never an empty team; only a server-confirmed empty team prints lanes [].
 # Deleted-node recovery (cli#985; writers only): `node recovery list|get|graph` and `node restore` are the ONLY way to read or bring back a soft-deleted node — `node get|list|rm` stay live-only. A ref goes to the server unresolved (an ordinary resolve omits deleted nodes). `recovery list|graph` page 20 by default with an explicit `--limit` (1-200); when more exist, STDERR says `showing a-b of N; more: --offset b` (stdout/--json unchanged) and `--json` carries `{items,total,limit,offset,hasMore}`; `--all` reads every page and fails as a whole if any page fails (never a partial list; pages are not a snapshot, so concurrent restores can move rows). `recovery get` never reads the body unless `--content`, which writes the raw stored body byte for byte (text) or `content` + `contentIncluded:true` (--json); an unreadable body is an error, never an empty one. A `recovery get` miss is exit 4 with one fixed sentence whatever the cause (live, absent, not a writer). `node restore` restores ONE node (and the comment threads its own deletion removed), sends one request and never retries: refusals keep the server's message (`NODE_PARENT_DELETED` exit 5 names the ancestor to restore first; governed/comment/compiled-boot-prompt/protected exit 2; `ROLE_WRITER_LEVEL_REQUIRED`/`ROLE_WRITERS_UNSUPPORTED` exit 8); a lost response is exit 7 and means VERIFY with `node recovery get` before retrying. The receipt is the plain node (id, urn, memoryId, loc, name, nodeType, updatedAt, deletedAt) with no changed/idempotent flag.
 # Paging (cli#967): `agent list`, `node list` and `team session list` list EVERYTHING unless you pass --limit/--offset (one page). `team task list|mine`, `team events`, `team host ops`, `comment list`, `node revision list`, `node edge-removals` and a bounded `team chat read` default to 20 per page; a full default page prints "more may exist" on STDERR (stdout and --json shapes are unchanged), and `team chat read --all` walks every page. A list with no total (`node revision list`, `node edge-removals`, `team task list`) cannot prove it ended, so treat a full default page as "there may be more". A scan that drains a list (`chat read`, `memory export`, `spec` scans, `node import` overwrite probes, …) stops only on an empty page; a server that keeps returning a page already read makes it FAIL with exit 7 (`Unavailable`: "the server returned a page already read … the list is not advancing"), never succeed with a partial list.
+hadron orca terminal status (<worker|terminal-id> | --all) [--json]   # ORCA INTEGRATION: reads Orca terminals, needs the Orca CLI/app on THIS host (exit 10 off-host); never types. One worker, or --all = ONE JSON array, one entry per active App worker. Contract `terminal-status@1`, see "Orca terminal status" below.
 hadron team push <worker> (--text <message> | --message-file <path>) [--seq N] [--wait-timeout 120s] [--draft-wait 30s] [--draft-stable-for 30s] [--confirm-timeout 10s] [--poll-interval 250ms]   # bound sender, one guarded console input; CPU-only busy/unknown/draft decisions and fresh on-screen turn confirmation. Command-only exits: 0 sent, 9 sent-with-draft (SUCCESS: NEVER RETRY), 10 held-busy, 11 held-unknown (zero composer input), 12 unconfirmed (mutation may have occurred: DO NOT RETRY). Draft wait and exact-byte stability overlap; stability cannot be below30s. JSON: outcome/phase/reason/draftIncluded/recipient/seq; no message/draft/screen text. Prefer --message-file (text argv is visible); no chat post or mark. Own-attempt lock only; ms read-to-input race remains and process death can lose a draft. Existing unguarded callers are not migrated by this command.
 hadron team events [--alarms] [--since <iso>] [--after <eventId>] [--task <id>] [--type <t>]… [--limit N] (uses --app or the binding)   # oldest-first; --after pages forward
 hadron team alarm ack <eventId>   # stops the alarm waking higher owners (cor:agt:050:20)
@@ -3332,6 +3338,54 @@ Comment refusals expose their bounded recovery details on curated output:
 are not forwarded. `COMMENT_MERGE_FOLDS_THREADS` exits 2: the caller must
 resolve the anchored-thread conflict before merging, rather than retry blind.
 
+
+## Orca terminal status (`hadron orca terminal status`, cli#1187)
+
+**An Orca integration command.** It reads terminals of the Orca app, so it works only on the host that
+runs Orca and needs the `orca` CLI on PATH. Off that host it exits **10** (no output). It only lists and
+reads terminals: it never types, and it writes nothing to the server (it reads tickers, their
+subscribers and `dueWakes`, and never acknowledges a wake).
+
+`hadron orca terminal status <worker|terminal-id> [--json]` or `--all` (one JSON array, one entry per
+active worker of the App, in the App's worker order). The terminal is the Orca terminal whose worktree's
+session binding names the worker, or one named directly by id. Text mode prints one line per worker:
+`Joshua idle`, `Joshua locked (menu_or_question)`; a `dark` line also carries the local detail.
+
+```json
+{"contract":"terminal-status@1","worker":"Joshua","terminal":"term_50a6…","status":"idle",
+ "prompt":"empty","reason":null,"lastTurnAt":"2026-10-29T16:12:03Z","checkedAt":"2026-10-29T16:31:40Z"}
+```
+
+| key | values |
+|-----|--------|
+| `contract` | always `terminal-status@1`; a breaking change ships as `@2` |
+| `worker` | the worker's name; `null` for a terminal bound to no worker |
+| `terminal` | the Orca terminal handle; `null` when the worker has none or has several agent terminals |
+| `status` | `busy` a turn is running · `idle` empty prompt, safe to push one line · `locked` cannot take work · `dark` broken |
+| `prompt` | `empty` · `not_empty` · `menu` · `unknown`: the terminal-level fact, separate from `status` |
+| `reason` | `null` unless `locked`/`dark`. `locked`: `menu_or_question` (a selection menu, permission dialog or pending question: never send), `unrecognized` (blocked, or a screen no rule matches: fail closed, never idle). `dark`: `no_turn_for_due_ticker`, `no_terminal`, `bare_shell`, `no_agent` |
+| `lastTurnAt` | when the harness's screen shows its last finished turn (Claude Code, Codex adapters); `null` when not shown, never guessed. It does not influence `status` |
+| `checkedAt` | when the status was produced, UTC |
+
+Precedence: `locked`, then `busy`, then `dark`, then `idle`. **Push only when `prompt` is `empty` and
+`status` is `idle` or `dark`.** `dark` means a ticker owed the worker a turn and none came: a tick of a
+ticker the worker is subscribed to has been due and unanswered for at least the interval of **the worker's
+fastest subscribed ticker** (read from `dueWakes`' oldest unacknowledged tick, never `Ticker.lastTickAt`).
+A merged wake (a tick plus a mention, a task or another ticker's tick) cannot say how old the tick is, so its ticker's own tick time stands in: never a false dark, but a truly overdue merged tick may be missed (v1 limit; closure: hadron-server#2790 + hadron-cli#1216). A worker with nothing due is never dark, however old its last turn. Also `dark`: no terminal, a bare
+shell, an agent that is not connected.
+
+Fail closed: a terminal Orca reports as not writable, both agents' chrome at once, a shell that shows no shell prompt, missing subscription data, and a screen the classifier does not positively recognize is `locked`/`unrecognized`, and so is
+an otherwise-idle worker whose due-wake evidence could not be read or was refused for this caller (a
+coordinator asking about another worker is gated by the server). A busy or locked worker keeps its
+status. A terminal named by id that no worker's binding claims has no ticker evidence, so it is never `dark` by the ticker rule. Text mode prints `scope: App <ref> (from --app | the App context | a worker-session binding)` on stderr whenever it read the server; JSON mode prints nothing extra. If the wake budget is spent (`WAKE_BUDGET_EXHAUSTED`) due wakes are withheld, which also fails an otherwise-idle worker closed. The reason codes `model_at_capacity`, `rate_limited`, `token_budget_exhausted`,
+`guardrail_triggered` and `shed_staged_not_relaunched` are deferred until a captured screen exists for
+each: such a screen is `locked`/`unrecognized` (or `idle`/`busy` where the existing completion and
+running-turn rules already say so). A fresh Codex launch whose banner has scrolled out of the
+idle-proof window is `locked`/`unrecognized` too, as delivery treats it.
+
+The output carries codes only. The local `detail` (the ticker and due time behind a `dark`, or why a read
+was refused) is never in the JSON, so a sweep can never send screen text anywhere. The team health sweep
+(#1181) consumes this JSON and never imports the classifier.
 
 ## Orca worker onboarding
 

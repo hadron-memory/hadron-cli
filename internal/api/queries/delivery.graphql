@@ -84,3 +84,24 @@ mutation AcknowledgeWakes($proofs: [String!]!) {
     unchanged
   }
 }
+
+# hadron-cli#1187: `hadron orca terminal status` reads the unanswered ticks of
+# the named workers. anchorAt is the OLDEST unacknowledged tick time, which the
+# dark rule compares with the fastest subscribed ticker's interval (never
+# Ticker.lastTickAt). No accepts and never acknowledged: a read only. A caller
+# the server does not let read another worker's wakes is refused, and the
+# command fails closed on it.
+query DueTickWakes($appRef: String!, $first: Int!, $workerRefs: [String!],
+ # @genqlient(omitempty: true)
+ $after: String
+) {
+  dueWakes(appRef: $appRef, first: $first, workerRefs: $workerRefs, after: $after) {
+    status
+    wakes {
+      worker { id }
+      anchorAt
+      reasons { kind ticker { id name lastTickAt } }
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
