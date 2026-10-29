@@ -3220,6 +3220,10 @@ hadron node merge hrn:node:acme.com:kb:findings:dup --into hrn:node:acme.com:kb:
 # with --yes the affected node count is printed to stderr before writing;
 # --max-nodes N refuses the write if more than N nodes would change (a guard
 # against a whole-memory rewrite from a wrong -m URN or a forgotten --prefix).
+# Each changed node first gets a revision holding its previous text (labelled
+# with --reason): undo with `node revision restore <that revision-id>`.
+# Comments, governed nodes (specs, reviews), compiled boot prompts and protected
+# addresses are skipped silently: not scanned, not counted, no skip count shown.
 hadron replace text "old-url.com" "new-url.com" \
   -m hrn:mem:acme.com:kb --field content --field description --dry-run
 
@@ -3309,7 +3313,9 @@ hadron comment list <target-ref> [-m <memory>] [--state OPEN,RESOLVED] [--limit 
 
 Refs are node IDs, qualified node URNs, or bare locs with `-m`. Create anchors
 to the current target revision unless `--anchor-revision` chooses a retained
-one. Replies to resolved threads remain resolved. Editing preserves omitted
+one. A reply to a reply joins the same (one-level) thread; replies to resolved
+threads remain resolved; a deleted root takes no replies (exit 5). Each author
+may hold one open thread per target node. Editing preserves omitted
 body/quote; `--quote ""` clears the quote on edit and is omitted on create. `--body -` requires piped stdin;
 use `--body-file` interactively. Guarded writes require the comment's own
 observed write counter (`revSeq`), not its target or anchor revision; conflicts
