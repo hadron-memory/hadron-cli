@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	neturl "net/url"
 	"os"
 	"strings"
 
+	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/urlsec"
 )
@@ -44,6 +46,10 @@ func DiscoverResource(ctx context.Context, serverURL string, httpClient *http.Cl
 		return "", nil
 	}
 	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		if fault := api.PlainHTTPInternalFault(resp.Header, body); fault != nil {
+			return "", fault
+		}
 		return "", exitcode.Newf(exitcode.Error, "protected-resource discovery at %s returned HTTP %d", url, resp.StatusCode)
 	}
 	var meta struct {
@@ -68,6 +74,10 @@ func Discover(ctx context.Context, serverURL string, httpClient *http.Client) (*
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		if fault := api.PlainHTTPInternalFault(resp.Header, body); fault != nil {
+			return nil, fault
+		}
 		return nil, exitcode.Newf(exitcode.Error, "OAuth discovery at %s returned HTTP %d", url, resp.StatusCode)
 	}
 	var meta Metadata

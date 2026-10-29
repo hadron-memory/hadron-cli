@@ -139,7 +139,7 @@ func PlainHTTPInternalFault(h http.Header, body []byte) error {
 	if json.Unmarshal(body, &b) != nil {
 		return nil
 	}
-	if b.Code != InternalServerErrorCode && (b.Error != "server_error" || b.RequestId == "") {
+	if b.Code != InternalServerErrorCode && b.Error != "server_error" {
 		return nil
 	}
 	id := SanitizeRequestID(b.RequestID)
