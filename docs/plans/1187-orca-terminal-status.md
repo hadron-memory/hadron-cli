@@ -70,8 +70,11 @@ The team health sweep (#1181) consumes the JSON only and never imports the class
   reason of any kind (wakeRule.ts takes the min over mentions, ticks and tasks),
   so a worker whose tick is merged with a mention/task is aged by the ticker's
   latest tick time, the youngest bound: no false dark, but also no dark until a
-  per-tick oldest-unacknowledged field exists server-side (asked of the
-  coordinator, not guessed here).
+  per-tick oldest-unacknowledged field exists server-side (ruled by
+  Marco, #45577/#45645: accepted as a v1 limit; closure is server#2790
+  `WakeReason.tickDueAt` plus cli#1216). Several tick reasons in one wake share
+  that anchor too, so each ticker is aged by its own `lastTickAt`; a merged tick
+  without one fails closed (an error, `locked/unrecognized`).
 - A bare shell needs a positive shell prompt on the last line; both families'
   chrome at once is ambiguity and holds, whatever Orca's identity says.
 - Foreign text (worker names, handles, `detail`) goes through

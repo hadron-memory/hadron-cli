@@ -13,13 +13,17 @@ type Ticker struct {
 }
 
 // DueTick is the time of an unacknowledged tick of one ticker the server still
-// offers the worker: DueWake.anchorAt for a wake made only of ticks, else the
-// ticker's own tick time (a merged wake's anchorAt belongs to its oldest
-// reason of any kind, so it cannot age a tick). A turn answers and
+// offers the worker: DueWake.anchorAt for a wake whose only reason is that one
+// tick, else the ticker's own tick time (anchorAt belongs to the oldest reason
+// of any kind, so beside a mention, a task or another ticker's tick it cannot
+// age this tick). That youngest bound never raises a false dark but can miss a
+// truly overdue merged tick: a v1 limit closed by hadron-server#2790
+// (WakeReason.tickDueAt) and hadron-cli#1216. A turn answers and
 // acknowledges its wake, so an old unanswered tick is the evidence that no
-// turn happened. The ticker's lastTickAt is deliberately not an input: with a
+// turn happened. The ticker's lastTickAt is not the tick-only input: with a
 // 5-minute ticker and 5 minutes of slack it is never old enough, so a rule
-// built on it never fires (#1181).
+// built on it never fires (#1181). It stands in only for a merged wake, where
+// it is the youngest bound.
 type DueTick struct {
 	TickerID   string
 	TickerName string

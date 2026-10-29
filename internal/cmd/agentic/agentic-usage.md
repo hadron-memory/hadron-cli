@@ -3348,7 +3348,7 @@ Precedence: `locked`, then `busy`, then `dark`, then `idle`. **Push only when `p
 `status` is `idle` or `dark`.** `dark` means a ticker owed the worker a turn and none came: a tick of a
 ticker the worker is subscribed to has been due and unanswered for at least the interval of **the worker's
 fastest subscribed ticker** (read from `dueWakes`' oldest unacknowledged tick, never `Ticker.lastTickAt`).
-A merged wake (a tick plus a mention or task) cannot say how old the tick is, so its ticker's own tick time stands in: never a false dark. A worker with nothing due is never dark, however old its last turn. Also `dark`: no terminal, a bare
+A merged wake (a tick plus a mention, a task or another ticker's tick) cannot say how old the tick is, so its ticker's own tick time stands in: never a false dark, but a truly overdue merged tick may be missed (v1 limit; closure: hadron-server#2790 + hadron-cli#1216). A worker with nothing due is never dark, however old its last turn. Also `dark`: no terminal, a bare
 shell, an agent that is not connected.
 
 Fail closed: a terminal Orca reports as not writable, both agents' chrome at once, a shell that shows no shell prompt, missing subscription data, and a screen the classifier does not positively recognize is `locked`/`unrecognized`, and so is
