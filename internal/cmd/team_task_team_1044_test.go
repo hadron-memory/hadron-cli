@@ -49,6 +49,7 @@ func roster1044() []string {
 
 type task1044 struct {
 	id, status, owner, assignee, parent string
+	createdBy                           string // "" = the owner created it
 	createdAt, updatedAt, startedAt     string // "" renders null (createdAt is required)
 }
 
@@ -68,6 +69,10 @@ func (t task1044) json() string {
 	if t.parent != "" {
 		parent = strconv.Quote(t.parent)
 	}
+	creator := t.createdBy
+	if creator == "" {
+		creator = t.owner
+	}
 	created := t.createdAt
 	if created == "" {
 		created = "2026-10-20T00:00:00Z"
@@ -81,7 +86,7 @@ func (t task1044) json() string {
 		"createdBy":%s,"parentTaskId":%s,"tags":[],"source":null,"startBy":null,
 		"createdAt":%q,"updatedAt":%s,"startedAt":%s,"finishedAt":null,"cancelledAt":null,
 		"closeSessionWhenDone":false,"requirements":null,"result":null}`,
-		t.id, t.id, status, t.owner, assignee, t.owner, parent, created, ts1044(t.updatedAt), ts1044(t.startedAt))
+		t.id, t.id, status, t.owner, assignee, creator, parent, created, ts1044(t.updatedAt), ts1044(t.startedAt))
 }
 
 func taskPage1044(tasks []task1044) string {
@@ -440,5 +445,51 @@ func TestTeamTaskListTeamUsageRefusals(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// ---- slice 2: the creator joins the team view -----------------------------------
+
+// A task owned and assigned outside the team joins when a team WORKER created
+// it (match stays "party"); a task a person created, or a worker outside the
+// team created, does not. The one read gate is unchanged.
+func TestTeamTaskListTeamCreatorJoins(t *testing.T) {
+	tasks := []task1044{
+		// Created by Jonas (team), owned and assigned in Ada's subtree: joins.
+		{id: "c1", owner: worker1044("Cameron"), assignee: worker1044("Cameron"), createdBy: worker1044("Jonas")},
+		// Its child, all parties outside: joins as a descendant.
+		{id: "c2", owner: worker1044("Cameron"), assignee: worker1044("Cameron"), createdBy: worker1044("Cameron"), parent: "c1"},
+		// Created by a person for Ada's subtree: out.
+		{id: "c3", owner: worker1044("Cameron"), assignee: worker1044("Cameron"), createdBy: user1044},
+		// Created by a worker outside the team: out.
+		{id: "c4", owner: worker1044("Cameron"), assignee: worker1044("Cameron"), createdBy: worker1044("Ada")},
+		// A person named Jonas must not count: kind is part of the match.
+		{id: "c5", owner: worker1044("Cameron"), assignee: worker1044("Cameron"),
+			createdBy: `{"id":"w-Jonas","kind":"USER","name":"Jonas","urn":null}`},
+	}
+	calls, out, _, err := run1044(t, roster1044(), [][]task1044{tasks},
+		"team", "task", "list", "--team=worker:Marco", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := decode1044(t, out)
+	if ids := strings.Join(taskIDs1044(got.Tasks), ","); ids != "c1,c2" {
+		t.Fatalf("tasks %s, want c1,c2 (creator c1 + descendant c2; person/outside creators stay out)", ids)
+	}
+	if got.Tasks[0]["match"] != "party" || got.Tasks[1]["match"] != "descendant" {
+		t.Errorf("match %v / %v, want party / descendant", got.Tasks[0]["match"], got.Tasks[1]["match"])
+	}
+	if got.Tasks[0]["ownerTeam"] != "outside" || got.Tasks[0]["assigneeTeam"] != "outside" {
+		t.Errorf("c1 cells %v/%v: parties stay labelled outside", got.Tasks[0]["ownerTeam"], got.Tasks[0]["assigneeTeam"])
+	}
+	for _, c := range *calls {
+		if c.Op != "AgentTaskList" {
+			continue
+		}
+		for _, k := range []string{"owner", "assignee", "creator", "status"} {
+			if _, ok := c.Vars[k]; ok {
+				t.Errorf("AgentTaskList sent %q: the view must stay one unfiltered read", k)
+			}
+		}
 	}
 }
