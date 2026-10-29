@@ -7246,6 +7246,135 @@ type AppMembersResponse struct {
 // GetApp returns AppMembersResponse.App, and is useful for accessing the field via an interface.
 func (v *AppMembersResponse) GetApp() *AppMembersApp { return v.App }
 
+// AppMemoryScopeAppMemoryScopeAppScopedMemoryPage includes the requested fields of the GraphQL type AppScopedMemoryPage.
+// The GraphQL type's documentation follows.
+//
+// #2190: one page of an App's memory scope.
+type AppMemoryScopeAppMemoryScopeAppScopedMemoryPage struct {
+	// Size of the caller's whole scope, so a client knows when it has every page.
+	Total int                                                                    `json:"total"`
+	Items []*AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory `json:"items"`
+}
+
+// GetTotal returns AppMemoryScopeAppMemoryScopeAppScopedMemoryPage.Total, and is useful for accessing the field via an interface.
+func (v *AppMemoryScopeAppMemoryScopeAppScopedMemoryPage) GetTotal() int { return v.Total }
+
+// GetItems returns AppMemoryScopeAppMemoryScopeAppScopedMemoryPage.Items, and is useful for accessing the field via an interface.
+func (v *AppMemoryScopeAppMemoryScopeAppScopedMemoryPage) GetItems() []*AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory {
+	return v.Items
+}
+
+// AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory includes the requested fields of the GraphQL type AppScopedMemory.
+// The GraphQL type's documentation follows.
+//
+// #2190 (hrn:node:hadronmemory.com:specs:cor:dmo:050:17): one memory in an App's scope. A leaf: no nested Memory or Agent.
+type AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory struct {
+	MemoryId  string      `json:"memoryId"`
+	MemoryUrn string      `json:"memoryUrn"`
+	Name      string      `json:"name"`
+	Class     MemoryClass `json:"class"`
+	// Every reason this memory is in scope. Never empty. Ordered by kind (AGENT_SYSTEM, AGENT_LINK, INHERITED_BASE, TEAM_SPACE), then by agent install order.
+	Sources []*AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemorySourcesAppMemorySource `json:"sources"`
+	// Advisory: whether this caller, in this request's context, may create a node
+	// in this memory (the createNode gate). Memory-level only: it never makes an
+	// inherited node editable, and every write is still decided by the server.
+	// Offer a row as an upload or new-node target only when viewerCanWrite is true
+	// AND at least one of its sources has a kind other than INHERITED_BASE. A
+	// memory present only as an inherited base belongs to the base Agent, and
+	// other Apps read it too.
+	ViewerCanWrite bool `json:"viewerCanWrite"`
+}
+
+// GetMemoryId returns AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory.MemoryId, and is useful for accessing the field via an interface.
+func (v *AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory) GetMemoryId() string {
+	return v.MemoryId
+}
+
+// GetMemoryUrn returns AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory.MemoryUrn, and is useful for accessing the field via an interface.
+func (v *AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory) GetMemoryUrn() string {
+	return v.MemoryUrn
+}
+
+// GetName returns AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory.Name, and is useful for accessing the field via an interface.
+func (v *AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory) GetName() string {
+	return v.Name
+}
+
+// GetClass returns AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory.Class, and is useful for accessing the field via an interface.
+func (v *AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory) GetClass() MemoryClass {
+	return v.Class
+}
+
+// GetSources returns AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory.Sources, and is useful for accessing the field via an interface.
+func (v *AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory) GetSources() []*AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemorySourcesAppMemorySource {
+	return v.Sources
+}
+
+// GetViewerCanWrite returns AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory.ViewerCanWrite, and is useful for accessing the field via an interface.
+func (v *AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory) GetViewerCanWrite() bool {
+	return v.ViewerCanWrite
+}
+
+// AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemorySourcesAppMemorySource includes the requested fields of the GraphQL type AppMemorySource.
+// The GraphQL type's documentation follows.
+//
+// #2190: one reason a memory is in an App's scope.
+type AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemorySourcesAppMemorySource struct {
+	Kind AppMemorySourceKind `json:"kind"`
+	// The installed or base Agent, for AGENT_SYSTEM, AGENT_LINK and INHERITED_BASE; null for TEAM_SPACE. An id only: when it does not resolve to an Agent this caller may read, show the source kind without a name.
+	AgentId *string `json:"agentId"`
+}
+
+// GetKind returns AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemorySourcesAppMemorySource.Kind, and is useful for accessing the field via an interface.
+func (v *AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemorySourcesAppMemorySource) GetKind() AppMemorySourceKind {
+	return v.Kind
+}
+
+// GetAgentId returns AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemorySourcesAppMemorySource.AgentId, and is useful for accessing the field via an interface.
+func (v *AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemorySourcesAppMemorySource) GetAgentId() *string {
+	return v.AgentId
+}
+
+// AppMemoryScopeResponse is returned by AppMemoryScope on success.
+type AppMemoryScopeResponse struct {
+	// #2190 (hrn:node:hadronmemory.com:specs:cor:dmo:050:17): the memories appNodes
+	// reads for this caller, one row per memory with every reason it is in scope,
+	// ordered by memoryUrn and paged (default 20, cap 200; over the cap returns a
+	// page of the cap). Same entry and admission as appNodes, so an external App
+	// participant appNodes admits is answered here too, and a refused caller gets
+	// appNodes' error. Every memory in the caller's scope is listed, including
+	// empty ones, so nothing is withheld; total 0 means no memories, and is also
+	// the answer for an App in a soft-deleted organization. Rows are leaves.
+	//
+	// Accepts the App's ID or URN.
+	AppMemoryScope *AppMemoryScopeAppMemoryScopeAppScopedMemoryPage `json:"appMemoryScope"`
+}
+
+// GetAppMemoryScope returns AppMemoryScopeResponse.AppMemoryScope, and is useful for accessing the field via an interface.
+func (v *AppMemoryScopeResponse) GetAppMemoryScope() *AppMemoryScopeAppMemoryScopeAppScopedMemoryPage {
+	return v.AppMemoryScope
+}
+
+type AppMemorySourceKind string
+
+const (
+	// A memory linked to an Agent installed in this App.
+	AppMemorySourceKindAgentLink AppMemorySourceKind = "AGENT_LINK"
+	// The system memory of an Agent installed in this App.
+	AppMemorySourceKindAgentSystem AppMemorySourceKind = "AGENT_SYSTEM"
+	// A base Agent's system memory, with nodes inherited by an installed Agent's system memory (hrn:node:hadronmemory.com:specs:cor:dmo:050:14).
+	AppMemorySourceKindInheritedBase AppMemorySourceKind = "INHERITED_BASE"
+	// The App's own team space, listed for App participants only.
+	AppMemorySourceKindTeamSpace AppMemorySourceKind = "TEAM_SPACE"
+)
+
+var AllAppMemorySourceKind = []AppMemorySourceKind{
+	AppMemorySourceKindAgentLink,
+	AppMemorySourceKindAgentSystem,
+	AppMemorySourceKindInheritedBase,
+	AppMemorySourceKindTeamSpace,
+}
+
 // AppRunAppRun includes the requested fields of the GraphQL type AppRun.
 // The GraphQL type's documentation follows.
 //
@@ -7846,6 +7975,38 @@ type AppRunsResponse struct {
 
 // GetAppRuns returns AppRunsResponse.AppRuns, and is useful for accessing the field via an interface.
 func (v *AppRunsResponse) GetAppRuns() *AppRunsAppRunsAppRunsPage { return v.AppRuns }
+
+// AppScopeAgentNameAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type AppScopeAgentNameAgent struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetId returns AppScopeAgentNameAgent.Id, and is useful for accessing the field via an interface.
+func (v *AppScopeAgentNameAgent) GetId() string { return v.Id }
+
+// GetName returns AppScopeAgentNameAgent.Name, and is useful for accessing the field via an interface.
+func (v *AppScopeAgentNameAgent) GetName() string { return v.Name }
+
+// AppScopeAgentNameResponse is returned by AppScopeAgentName on success.
+type AppScopeAgentNameResponse struct {
+	// The uniform single-agent read. Uses the shared Agent read gate, including
+	// PUBLIC visibility and owner-aware access to user-owned Agents. An absent
+	// or unreadable Agent returns null; malformed or under-qualified refs remain
+	// input errors. Nested fields keep their own exposure gates.
+	//
+	// 'ref' accepts the entity's ID or URN.
+	Agent *AppScopeAgentNameAgent `json:"agent"`
+}
+
+// GetAgent returns AppScopeAgentNameResponse.Agent, and is useful for accessing the field via an interface.
+func (v *AppScopeAgentNameResponse) GetAgent() *AppScopeAgentNameAgent { return v.Agent }
 
 type AppType string
 
@@ -63743,6 +63904,22 @@ type __AppMembersInput struct {
 // GetAppRef returns __AppMembersInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__AppMembersInput) GetAppRef() string { return v.AppRef }
 
+// __AppMemoryScopeInput is used internally by genqlient
+type __AppMemoryScopeInput struct {
+	AppRef string `json:"appRef"`
+	Limit  *int   `json:"limit,omitempty"`
+	Offset *int   `json:"offset,omitempty"`
+}
+
+// GetAppRef returns __AppMemoryScopeInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AppMemoryScopeInput) GetAppRef() string { return v.AppRef }
+
+// GetLimit returns __AppMemoryScopeInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AppMemoryScopeInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __AppMemoryScopeInput.Offset, and is useful for accessing the field via an interface.
+func (v *__AppMemoryScopeInput) GetOffset() *int { return v.Offset }
+
 // __AppRunInput is used internally by genqlient
 type __AppRunInput struct {
 	Ref string `json:"ref"`
@@ -63774,6 +63951,14 @@ func (v *__AppRunsInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __AppRunsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__AppRunsInput) GetOffset() *int { return v.Offset }
+
+// __AppScopeAgentNameInput is used internally by genqlient
+type __AppScopeAgentNameInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __AppScopeAgentNameInput.Ref, and is useful for accessing the field via an interface.
+func (v *__AppScopeAgentNameInput) GetRef() string { return v.Ref }
 
 // __ApplyMemoryConfigTemplateInput is used internally by genqlient
 type __ApplyMemoryConfigTemplateInput struct {
@@ -71283,6 +71468,58 @@ func AppMembers(
 	return data_, err_
 }
 
+// The query executed by AppMemoryScope.
+const AppMemoryScope_Operation = `
+query AppMemoryScope ($appRef: ID!, $limit: Int, $offset: Int) {
+	appMemoryScope(appRef: $appRef, limit: $limit, offset: $offset) {
+		total
+		items {
+			memoryId
+			memoryUrn
+			name
+			class
+			sources {
+				kind
+				agentId
+			}
+			viewerCanWrite
+		}
+	}
+}
+`
+
+// cli#1209 (server#2190, cor:dmo:050:17): the memories appNodes reads for the
+// caller, one row per memory with every reason it is in scope. The CLI always
+// sends limit; offset is omitted at 0.
+func AppMemoryScope(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	limit *int,
+	offset *int,
+) (data_ *AppMemoryScopeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AppMemoryScope",
+		Query:  AppMemoryScope_Operation,
+		Variables: &__AppMemoryScopeInput{
+			AppRef: appRef,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &AppMemoryScopeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by AppRun.
 const AppRun_Operation = `
 query AppRun ($ref: ID!) {
@@ -71404,6 +71641,43 @@ func AppRuns(
 	}
 
 	data_ = &AppRunsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AppScopeAgentName.
+const AppScopeAgentName_Operation = `
+query AppScopeAgentName ($ref: ID!) {
+	agent(ref: $ref) {
+		id
+		name
+	}
+}
+`
+
+// cli#1209: the display name of one source agent. Null when the caller may not
+// read it — the row then shows the source kind alone, as the SDL says.
+func AppScopeAgentName(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *AppScopeAgentNameResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AppScopeAgentName",
+		Query:  AppScopeAgentName_Operation,
+		Variables: &__AppScopeAgentNameInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &AppScopeAgentNameResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

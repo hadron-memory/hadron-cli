@@ -220,3 +220,38 @@ mutation UpdateApp(
     sessionTimeoutSeconds
   }
 }
+
+# cli#1209 (server#2190, cor:dmo:050:17): the memories appNodes reads for the
+# caller, one row per memory with every reason it is in scope. The CLI always
+# sends limit; offset is omitted at 0.
+query AppMemoryScope(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  appMemoryScope(appRef: $appRef, limit: $limit, offset: $offset) {
+    total
+    items {
+      memoryId
+      memoryUrn
+      name
+      class
+      sources {
+        kind
+        agentId
+      }
+      viewerCanWrite
+    }
+  }
+}
+
+# cli#1209: the display name of one source agent. Null when the caller may not
+# read it — the row then shows the source kind alone, as the SDL says.
+query AppScopeAgentName($ref: ID!) {
+  agent(ref: $ref) {
+    id
+    name
+  }
+}

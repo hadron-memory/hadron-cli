@@ -5,7 +5,7 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 61 unbound
+[Query] 62 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
@@ -52,6 +52,7 @@ previewAutomation  # server main schema refresh for cli#836; separate CLI parity
 principalGrant
 quotaCounters
 registerRoleCandidates  # arrived with the cli#1176 schema refresh; no CLI parity filed yet
+registerRolePick  # arrived with the cli#1209 schema refresh (experimental register routing); no CLI parity filed yet
 renderRunNode
 resendSender
 resendSenders

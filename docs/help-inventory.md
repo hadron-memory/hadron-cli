@@ -251,6 +251,7 @@ section between the markers.
 | `app member add` |  |  | y | #1053 |  | unread |  |
 | `app member list` | ls |  | y | #1053 |  | unread |  |
 | `app member remove` | rm |  | y | #1053 |  | unread |  |
+| `app memories` |  |  | y | #1053 |  | unread |  |
 | `app set-active` | use |  | y | #1053 |  | unread |  |
 | `app uninstall` | rm |  | y | #1053 |  | unread |  |
 | `app update` |  |  | y | #1053 |  | unread |  |
