@@ -1751,6 +1751,32 @@ func TestMemorySetCreateAppMemory(t *testing.T) {
 	}
 }
 
+// Optional inputs: a supplied description is sent, and an omitted --tag is
+// omitted from the request (preserve semantics), never sent as null or [].
+func TestMemorySetCreateAppMemoryOptionalInputs(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateAppMemory": `{"data":{"createAppMemory":{"id":"m3","urn":"hrn:mem:acme.com:runbook","name":"Runbook","shortDescription":null,
+			"class":"app","visibility":null,"organizationId":"o1","isEncrypted":false,"maxRevCount":25,"updatedAt":"2026-10-29T00:00:00Z"}}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "set", "--app", "acme.com::coach", "--class", "app", "--name", "Runbook",
+		"--description", "Long text", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateAppMemory"], &vars)
+	if vars["description"] != "Long text" {
+		t.Errorf("description not sent: %v", vars)
+	}
+	for _, absent := range []string{"tags", "shortDescription"} {
+		if _, present := vars[absent]; present {
+			t.Errorf("%s must be omitted when its flag is unset: %v", absent, vars)
+		}
+	}
+}
+
 func TestMemorySetCreateAppMemoryText(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"CreateAppMemory": `{"data":{"createAppMemory":{"id":"m3","urn":"hrn:mem:acme.com:runbook","name":"Runbook","shortDescription":null,
@@ -1782,6 +1808,8 @@ func TestMemorySetCreateAppMemoryUsageMatrix(t *testing.T) {
 		want string
 	}{
 		{"explicitly empty agent", with("--agent=", "--class", "app", "--name", "Runbook"), "--app and --agent"},
+		{"explicitly empty app", []string{"--app=", "--class", "app", "--name", "Runbook"}, "--app was given but is empty"},
+		{"explicitly empty app, ordinary shape", []string{"--app=", "--org", "acme.com", "--name", "Runbook"}, "--app was given but is empty"},
 		{"class missing", with("--name", "Runbook"), "pass --class app (or add --agent for an App-scoped personal/private memory)"},
 		{"class personal", with("--class", "personal", "--name", "Runbook"), "pass --class app (or add --agent for an App-scoped personal/private memory)"},
 		{"class private", with("--class", "private", "--name", "Runbook"), "pass --class app (or add --agent for an App-scoped personal/private memory)"},

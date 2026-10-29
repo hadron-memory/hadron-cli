@@ -70,7 +70,8 @@ acting as themselves — not an App key or a worker session. It takes only
 --name, --short, --description and --tag; every other create flag is refused
 before anything is sent, and an existing memory cannot be attached to an App
 this way. The server's refusals (FORBIDDEN, AGENT_NOT_INSTALLED,
-USER_OWNED_APP_UNSUPPORTED, BAD_USER_INPUT) are shown with their codes.
+USER_OWNED_APP_UNSUPPORTED, BAD_USER_INPUT) are shown as the server's message
+and exit with the status mapped from their code (see hadron agentic-usage).
 
 App-scoped creation accepts class app, personal, or private. It has no
 --slug input: app-class URNs are name-derived by the server, while
@@ -110,6 +111,11 @@ create-only and is refused with --app/--agent.`,
 			// agent that came out empty, and must not fall through to the
 			// no-agent route (an-empty-flag-is-not-an-absent-flag).
 			agentGiven := cmd.Flags().Changed("agent")
+			// Same rule for --app: --app="$UNSET" must not fall through to an
+			// ordinary create outside the App the caller meant.
+			if cmd.Flags().Changed("app") && app == "" {
+				return exitcode.Newf(exitcode.Usage, "--app was given but is empty: pass an App ID or URN (nothing was sent)")
+			}
 			appOnly := app != "" && !agentGiven
 			appScoped := (app != "" || agentGiven) && !appOnly
 			if (app == "" && agentGiven) || (agentGiven && agent == "") {
