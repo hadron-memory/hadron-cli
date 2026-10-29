@@ -96,3 +96,42 @@ func TestStatusFileCarriesNoText(t *testing.T) {
 		t.Fatalf("the span is per batch, not status: %s", b)
 	}
 }
+
+// hadron-cli#1178: a worker's current run of holds keeps the time it began,
+// so `team host status` can flag a worker held too long (the #2746 class
+// held four workers for two days with no readable reason). Only a delivered
+// or reconciled event ends the run; a deferral or skip in between does not.
+func TestStatusBookKeepsWhenAHoldRunBegan(t *testing.T) {
+	dir := t.TempDir()
+	at := time.Date(2026, 10, 29, 1, 0, 0, 0, time.UTC)
+	book := NewStatusBook(dir)
+	ev := func(off time.Duration, k Kind, reason string) {
+		book.Observe(Event{Time: at.Add(off), Worker: "iris", WorkerID: "wkr1", Kind: k, Reason: reason, Wake: true})
+	}
+	read := func() WorkerStatus {
+		t.Helper()
+		if err := book.Step(at.Add(time.Hour), StepRead); err != nil {
+			t.Fatal(err)
+		}
+		st, err := ReadStatus(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return st.Workers["wkr1"]
+	}
+	ev(0, Delivered, "")
+	if w := read(); w.HeldSince != nil {
+		t.Fatalf("no hold yet: %+v", w)
+	}
+	ev(time.Minute, Held, HoldNotSubmitted)
+	ev(2*time.Minute, Deferred, "busy")
+	ev(3*time.Minute, Skipped, "locked")
+	ev(4*time.Minute, Held, HoldNotSubmitted)
+	if w := read(); w.HeldSince == nil || !w.HeldSince.Equal(at.Add(time.Minute)) || w.Kind != Held {
+		t.Fatalf("the run began at the first hold: %+v", w)
+	}
+	ev(5*time.Minute, Reconciled, "")
+	if w := read(); w.HeldSince != nil {
+		t.Fatalf("a reconciled event ends the run: %+v", w)
+	}
+}
