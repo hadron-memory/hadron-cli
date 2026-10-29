@@ -1,6 +1,7 @@
 package team
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -95,6 +96,10 @@ func renderShedPrompt(workerName, memoryRef, loc string, watermark *int) string 
 		}
 		if watermark != nil {
 			cmd = strings.Replace(cmd, "<watermark>", fmt.Sprint(*watermark), 1)
+		} else {
+			// No validated read cursor: never invent one (head would skip the
+			// unread interval); read from the saved server-side cursor.
+			cmd = strings.Replace(cmd, " --since <watermark>", "", 1)
 		}
 		fmt.Fprintf(&b, "%d. `%s` — %s\n", n, cmd, s.Text)
 		n++
@@ -174,15 +179,46 @@ func shedName(now time.Time, auto bool, b *binding) string {
 
 // shedTailOf returns the last whole lines of the host's transcript file, at
 // most shedTranscriptTail bytes. The file is the host's and is NOT scrubbed.
+//
+// Only a regular file is read (stat BEFORE open: opening a FIFO named by
+// mistake would block the shed ahead of the checkpoint and claim), and only
+// its last shedTranscriptTail bytes.
 func shedTailOf(path string) (string, error) {
-	data, err := os.ReadFile(path) // #nosec G304 — an explicit, opt-in path the operator named
+	pre, err := os.Stat(path)
 	if err != nil {
 		return "", err
 	}
-	if len(data) > shedTranscriptTail {
-		data = data[len(data)-shedTranscriptTail:]
-		if i := strings.IndexByte(string(data), '\n'); i >= 0 {
+	if !pre.Mode().IsRegular() {
+		return "", fmt.Errorf("not a regular file")
+	}
+	fh, err := os.Open(path) // #nosec G304 — an explicit, opt-in path the operator named
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = fh.Close() }()
+	info, err := fh.Stat()
+	if err != nil {
+		return "", err
+	}
+	if !info.Mode().IsRegular() {
+		return "", fmt.Errorf("not a regular file")
+	}
+	size := info.Size()
+	off := int64(0)
+	if size > shedTranscriptTail {
+		off = size - shedTranscriptTail
+	}
+	data := make([]byte, size-off)
+	n, err := fh.ReadAt(data, off)
+	if err != nil && err != io.EOF {
+		return "", err
+	}
+	data = data[:n]
+	if off > 0 { // the window starts mid-line: drop the partial first line
+		if i := bytes.IndexByte(data, '\n'); i >= 0 {
 			data = data[i+1:]
+		} else {
+			data = nil
 		}
 	}
 	return strings.TrimRight(string(data), "\n"), nil
@@ -341,7 +377,7 @@ func runShed(ctx context.Context, f *cmdutil.Factory, o shedOptions) shedOutcome
 	}
 	memoryID := *w.Worker.MemoryId
 	snap := gather(ctx, client, b, now)
-	prompt := renderShedPrompt(b.WorkerName, memoryID, loc, snap.HeadSeq)
+	prompt := renderShedPrompt(b.WorkerName, memoryID, loc, snap.CursorSeq)
 	if o.printPrompt {
 		return shedOutcome{shedDTO{Status: shedPrinted, Claim: shedClaimNone, Prompt: &prompt}}
 	}
@@ -505,7 +541,7 @@ func runShedCommand(cmd *cobra.Command, f *cmdutil.Factory, o *shedOptions, args
 
 func shedEmit(f *cmdutil.Factory, auto bool, out shedOutcome) error {
 	d := out.dto
-	if d.Status == shedFailed && d.Reason != nil {
+	if d.Reason != nil && (d.Status == shedFailed || d.Claim == shedClaimFailed) {
 		_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "hadron: team session shed: %s\n", *d.Reason)
 	}
 	if auto && !f.JSON {
