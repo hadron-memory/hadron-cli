@@ -131,9 +131,10 @@ saved value. A key that was never set shows empty, except server, which shows
 the default. It shows the saved values only: the HADRON_SERVER environment
 variable and the --server flag are not applied.
 
-The output never contains your sign-in token or any other credential (those
-are kept by 'hadron auth', not here), so it is safe to paste into a bug report.
-It does show the server URL and the App, memory and org you work with.`,
+This does not read the sign-in credential store ('hadron auth' keeps that).
+It does show the server URL and the App, memory and org you work with.
+Review the saved values before sharing them: a server URL or another setting
+can itself contain sensitive information.`,
 		Example: `  hadron config list
   hadron config list --json`,
 		Args: cobra.NoArgs,
