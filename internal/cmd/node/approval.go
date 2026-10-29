@@ -68,10 +68,11 @@ func renderMintStatus(w io.Writer, indent string, s *mintStatusDTO) {
 }
 
 type approvalReceiptDTO struct {
-	NodeID   string      `json:"nodeId"`
-	URN      string      `json:"urn"`
-	Loc      string      `json:"loc"`
-	Approval approvalDTO `json:"approval"`
+	LintWarnings **lintWarningPageDTO `json:"lintWarnings,omitempty"`
+	NodeID       string               `json:"nodeId"`
+	URN          string               `json:"urn"`
+	Loc          string               `json:"loc"`
+	Approval     approvalDTO          `json:"approval"`
 }
 
 type integrityDTO struct {
@@ -154,7 +155,8 @@ existing approval unchanged.`,
 			}
 			r := resp.ApproveNode
 			dto := approvalReceiptDTO{NodeID: r.NodeId, URN: r.Urn, Loc: r.Loc, Approval: *approvalFrom(&r.Approval.NodeApprovalFields)}
-			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+			dto.LintWarnings = loadLintWarnings(cmd, client, dto.NodeID)
+			return writeWithLint(f, dto, dto.LintWarnings, func(w io.Writer) error {
 				_, err := fmt.Fprintf(w, "approved %s revision %d by %s at %s\n  hash: %s\n",
 					dto.URN, dto.Approval.Revision, approverLabel(dto.Approval), dto.Approval.ApprovedAt, dto.Approval.Hash)
 				return err
@@ -163,6 +165,7 @@ existing approval unchanged.`,
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to resolve a bare node loc against")
 	cmd.Flags().IntVar(&revision, "revision", 0, "approve only this previously read node revision")
+	enableLintWarnings(cmd)
 	return cmd
 }
 

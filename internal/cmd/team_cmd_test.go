@@ -104,7 +104,7 @@ func TestTeamWorkerCast(t *testing.T) {
 	// Unset optionals are OMITTED, never null: no agent means the role picks
 	// it. teamAgentRef is not in the operation at all now (hadron-cli#496), so
 	// its presence would mean the removed argument came back.
-	for _, k := range []string{"agentRef", "teamAgentRef", "promptOverride"} {
+	for _, k := range []string{"agentRef", "teamAgentRef"} {
 		if _, present := vars[k]; present {
 			t.Errorf("unset %q must be omitted, got %v", k, vars[k])
 		}
@@ -129,14 +129,13 @@ func TestTeamWorkerCastExplicitNameAndBriefing(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "worker", "cast", "--app", "acme.com:eng-team",
 		"--agent", "hrn:agent:acme.com:backend", "--name", "Iris",
-		"--prompt-override", "You keep the release calm.", "--server", gql.URL})
+		"--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CastWorker"], &vars)
-	if vars["agentRef"] != "hrn:agent:acme.com:backend" || vars["name"] != "Iris" ||
-		vars["promptOverride"] != "You keep the release calm." {
+	if vars["agentRef"] != "hrn:agent:acme.com:backend" || vars["name"] != "Iris" {
 		t.Errorf("cast vars: %v", vars)
 	}
 	if !strings.Contains(out.String(), "You are Iris.") {
@@ -509,7 +508,7 @@ func TestTeamWorkerListOmitsThePromptButGetKeepsIt(t *testing.T) {
 	// Everything else a roster reader needs survives, promptOverride included:
 	// it is the short per-worker individuality, not the composed briefing.
 	for _, k := range []string{"id", "urn", "slug", "appId", "agentId", "name", "role",
-		"promptOverride", "memoryId", "retiredAt", "retiredBy", "createdAt", "createdBy", "retired"} {
+		"memoryId", "retiredAt", "retiredBy", "createdAt", "createdBy", "retired"} {
 		if _, ok := rows[0][k]; !ok {
 			t.Errorf("roster key %q must survive the trim: %s", k, out.String())
 		}
@@ -939,14 +938,14 @@ func TestTeamRoleList(t *testing.T) {
 		}
 	}
 
-	// Human table, and the nameless-template warning that survived.
+	// Human table, without the retired S12 name-placeholder advice.
 	f2, out2 := testFactory(t)
 	root2 := NewRootCmd(f2)
 	root2.SetArgs([]string{"team", "role", "list", "--app", "acme.com:eng-team", "--server", gql.URL})
 	if err := root2.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	for _, want := range []string{"ROLE", "backend-engineer", "never binds {{name}}"} {
+	for _, want := range []string{"ROLE", "backend-engineer"} {
 		if !strings.Contains(out2.String(), want) {
 			t.Errorf("table must carry %q: %s", want, out2.String())
 		}
@@ -1277,7 +1276,7 @@ func TestTeamWorkerCastDryRun(t *testing.T) {
 		t.Errorf("preview vars: %v", vars)
 	}
 	// teamAgentRef is not in the operation at all now (hadron-cli#496).
-	for _, k := range []string{"agentRef", "teamAgentRef", "promptOverride"} {
+	for _, k := range []string{"agentRef", "teamAgentRef"} {
 		if _, present := vars[k]; present {
 			t.Errorf("unset %q must be omitted, got %v", k, vars[k])
 		}
@@ -1316,7 +1315,7 @@ func TestTeamWorkerCastDryRun(t *testing.T) {
 	if dto.Name != "Joe" || dto.AgentID != "agt1" ||
 		dto.Role == nil || *dto.Role != "backend-engineer" ||
 		dto.Prompt == nil || *dto.Prompt != "You are Joe." ||
-		dto.HasNamePlaceholder == nil || !*dto.HasNamePlaceholder {
+		dto.HasNamePlaceholder != nil {
 		t.Errorf("preview --json contract: %s", out2.String())
 	}
 	if dto.Reserved {

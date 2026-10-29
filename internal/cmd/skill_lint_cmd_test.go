@@ -45,8 +45,15 @@ func listOf(ids ...string) string {
 	return `{"data":{"nodes":[` + strings.Join(rows, ",") + `]}}`
 }
 
+const emptyIncludeLintPlan = `{"data":{"skillPlan":{"scanned":0,"judged":0,"entries":[],"orphans":[]}}}`
+
 func runSkillLint(t *testing.T, responses map[string]string, args ...string) (string, error) {
 	t.Helper()
+	// Existing corpus-rule tests have no S11d include findings. New C5 tests
+	// provide their own plan; an omitted fixture explicitly means empty here.
+	if _, ok := responses["SkillPlan"]; !ok {
+		responses["SkillPlan"] = emptyIncludeLintPlan
+	}
 	gql, _ := captureGraphQL(t, responses)
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -248,6 +255,8 @@ func TestSkillLintAllLintsAPublicOnlyMemory(t *testing.T) {
 			resp = `{"data":{"memories":{"total":0,"items":[]}}}`
 		case "FindNodes":
 			resp = translateFindNodesAt(offsetOfVars(body.Variables), "FindNodes", `{"data":{"nodes":[{"id":"01a0a5ba59a377d2a01a8ea32ae98195","memoryId":"mempub","loc":"tasks:rotate","name":"rotate","nodeType":"task","tags":[],"isRunnable":true,"updatedAt":"2026-06-11T00:00:00Z"}]}}`)
+		case "SkillPlan":
+			resp = emptyIncludeLintPlan
 		case "NodeBatch":
 			resp = batchOf(node)
 		default:
@@ -339,7 +348,7 @@ func TestSkillLintOneNodeInTwoSpellingsLintsOnce(t *testing.T) {
 	// with itself.
 	good := skillNode(nodeID, "mem1", "hrn:node:hadronmemory.com:core:tasks:a", "tasks:a", true,
 		`{"exports":{"claudeSkill":{"name":"hadron-a","description":"Use when a.","enable":true}}}`, `"# A"`)
-	gql, _ := captureGraphQL(t, map[string]string{"GetMemory": skillMemOrg, "NodeBatch": batchOf(good, good)})
+	gql, _ := captureGraphQL(t, map[string]string{"SkillPlan": emptyIncludeLintPlan, "GetMemory": skillMemOrg, "NodeBatch": batchOf(good, good)})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"skill", "lint", "--node", nodeID, "--node", "hrn:node:hadronmemory.com:core:tasks:a", "--json", "--server", gql.URL})
@@ -356,7 +365,7 @@ func TestSkillLintRepeatedNodeRefLintsOnce(t *testing.T) {
 	// LintCollisions reports a node colliding with itself.
 	good := skillNode(nodeID, "mem1", "hrn:node:hadronmemory.com:core:tasks:a", "tasks:a", true,
 		`{"exports":{"claudeSkill":{"name":"hadron-a","description":"Use when a.","enable":true}}}`, `"# A"`)
-	gql, captured := captureGraphQL(t, map[string]string{"GetMemory": skillMemOrg, "NodeBatch": batchOf(good)})
+	gql, captured := captureGraphQL(t, map[string]string{"SkillPlan": emptyIncludeLintPlan, "GetMemory": skillMemOrg, "NodeBatch": batchOf(good)})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"skill", "lint", "--node", nodeID, "--node", nodeID, "--json", "--server", gql.URL})

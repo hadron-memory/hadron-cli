@@ -90,6 +90,9 @@ saved INTO it. --body-only implies --raw and takes one ref; with --json it is
   hadron node get tasks:start-worker-session -m hrn:mem:hadronmemory.com:core --raw --json
   hadron node get tasks:start-worker-session -m hrn:mem:hadronmemory.com:core --body-only > body.md`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if bodyOnly && wantsLintWarnings(cmd) {
+				return exitcode.Newf(exitcode.Usage, "--lint-warnings cannot be combined with --body-only")
+			}
 			target, err := installTarget(cmd, install, args)
 			if err != nil {
 				return err
@@ -157,6 +160,7 @@ saved INTO it. --body-only implies --raw and takes one ref; with --json it is
 				// resolved here, and the raw spelling is ambiguous across
 				// memories (Andi's cycle-1 P2).
 				loadSignatureSummary(cmd.Context(), f, client, id, &dto)
+				dto.LintWarnings = loadLintWarnings(cmd, client, id)
 				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 					return renderNodeDetail(w, dto)
 				})
@@ -194,6 +198,9 @@ saved INTO it. --body-only implies --raw and takes one ref; with --json it is
 				ptrs[i] = &dto.Nodes[i]
 			}
 			loadCommentSummaries(cmd.Context(), f, client, ptrs)
+			for _, n := range ptrs {
+				n.LintWarnings = loadLintWarnings(cmd, client, n.ID)
+			}
 			return emitNodeBatch(f, dto)
 		},
 	}
@@ -204,6 +211,7 @@ saved INTO it. --body-only implies --raw and takes one ref; with --json it is
 	cmd.Flags().BoolVar(&bodyOnly, "body-only", false, "print only the stored body of one node, byte for byte — the read to edit from (implies --raw; alias: --content-only)")
 	// The spelling `spec get` already accepts (#99 item 5).
 	cmdutil.WithFlagAliases(cmd, map[string]string{"content-only": "body-only"})
+	enableLintWarnings(cmd, "--body-only")
 	return cmd
 }
 
@@ -322,6 +330,9 @@ func renderNodeDetail(w io.Writer, dto nodeDetailDTO) error {
 		for _, e := range dto.IncomingEdges {
 			fmt.Fprintf(w, "    ← %s (%s)\n", e.Loc, edgeRel(e))
 		}
+	}
+	if err := renderLintWarnings(w, dto.LintWarnings); err != nil {
+		return err
 	}
 	if dto.Content != nil && *dto.Content != "" {
 		if !dto.Rendered {
@@ -702,11 +713,28 @@ func liveRevisions(cmd *cobra.Command, client graphql.Client, sel revisionSelect
 		}
 		return resp.NodeBatch, nil
 	}
+	// byRefs reads the revisions of refs, following a truncated answer through
+	// its omitted refs until none remain (#1185): the server caps a nodeBatch
+	// response by content bytes whatever the query selects, so a revision-only
+	// read of several large nodes comes back truncated, and a node it left out
+	// is not a node that changed. A pass that omits as many refs as it was
+	// asked for read nothing, and repeating it would never end.
 	byRefs := func(refs []string) error {
 		for start := 0; start < len(refs); start += api.NodeBatchCap {
 			end := min(start+api.NodeBatchCap, len(refs))
-			if _, err := ask(refs[start:end], nil, nil); err != nil {
-				return err
+			pending := refs[start:end]
+			for len(pending) > 0 {
+				r, err := ask(pending, nil, nil)
+				if err != nil {
+					return err
+				}
+				if r == nil || !r.Truncated || len(r.Omitted) == 0 {
+					break
+				}
+				if len(r.Omitted) >= len(pending) {
+					return exitcode.Newf(exitcode.Error, "the server made no progress reading node revisions: it left out all %d requested nodes", len(pending))
+				}
+				pending = r.Omitted
 			}
 		}
 		return nil

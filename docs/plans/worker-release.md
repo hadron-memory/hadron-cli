@@ -1,3 +1,8 @@
+> **Partly superseded by #1173:** literal Agent/App systemPrompt and Worker
+> promptOverride reads, writes and flags described below are retired. Use the
+> source → compile → node approval workflow; the other behavior below is historical
+> context or remains applicable as stated. See [1173-retired-prompts.md](1173-retired-prompts.md).
+
 # Design as built: `team worker release` (#495)
 
 Wraps `releaseWorker(workerRef: ID!)` from hadron-server#1050 (holding half,

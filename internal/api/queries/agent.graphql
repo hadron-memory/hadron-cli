@@ -12,7 +12,6 @@ fragment AgentFields on Agent {
   organizationId
   surfaces
   systemMemoryId
-  systemPrompt
   # #874 read-back: the two index refs, null when unset — agent get shows
   # what agent update set, so the write is verifiable through the CLI.
   tasksIndexRef
@@ -28,8 +27,6 @@ fragment AgentFields on Agent {
   aiProvider
   aiModel
   hasAiApiKey
-  # The persona role is metadata. systemPrompt is the shared template with
-  # {{name}}/{{role}} bound when a Worker is cast or its prompt is resolved.
   personaRole
   usesTasks
   createdAt
@@ -99,8 +96,6 @@ mutation CreateAgent(
   # @genqlient(omitempty: true)
   $visibility: AgentVisibility
   # @genqlient(omitempty: true)
-  $systemPrompt: String
-  # @genqlient(omitempty: true)
   $systemMemoryId: String
   # @genqlient(omitempty: true)
   $surfaces: [String!]
@@ -113,7 +108,6 @@ mutation CreateAgent(
     description: $description
     type: $agentType
     visibility: $visibility
-    systemPrompt: $systemPrompt
     systemMemoryId: $systemMemoryId
     surfaces: $surfaces
     personaRole: $personaRole
@@ -133,8 +127,6 @@ mutation UpdateAgent(
   # @genqlient(omitempty: true)
   $visibility: AgentVisibility
   # @genqlient(omitempty: true)
-  $systemPrompt: String
-  # @genqlient(omitempty: true)
   $systemMemoryId: String
   # omitempty: unset (nil) is omitted → preserved. The CLI's --surface
   # (StringArrayVar) only ever yields nil or a NON-empty slice, so the
@@ -145,7 +137,6 @@ mutation UpdateAgent(
   # @genqlient(omitempty: true)
   $urn: String
   # An unset role is omitted and preserved; the shared prompt follows the
-  # same rule via systemPrompt above.
   # @genqlient(omitempty: true)
   $personaRole: String
   # @genqlient(omitempty: true)
@@ -157,7 +148,6 @@ mutation UpdateAgent(
     description: $description
     type: $agentType
     visibility: $visibility
-    systemPrompt: $systemPrompt
     systemMemoryId: $systemMemoryId
     surfaces: $surfaces
     urn: $urn

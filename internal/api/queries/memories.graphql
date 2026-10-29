@@ -210,6 +210,41 @@ mutation CreateMemoryInApp(
   }
 }
 
+# Add a NEW free-standing app-class memory to an org-owned App that has at least
+# one installed Agent (hadron-server#2661, cor:acl:010:01). An org admin/owner
+# acting as themselves; no Agent, class, visibility, slug or maxRevCount input —
+# the server owns the class (app) and composes the URN from the name.
+mutation CreateAppMemory(
+  $appRef: ID!
+  $name: String!
+  # @genqlient(omitempty: true)
+  $shortDescription: String
+  # @genqlient(omitempty: true)
+  $description: String
+  # bound to *[]string so an explicitly-passed empty list still serializes as [].
+  # @genqlient(omitempty: true, bind: "*[]string")
+  $tags: [String!]
+) {
+  createAppMemory(
+    appRef: $appRef
+    name: $name
+    shortDescription: $shortDescription
+    description: $description
+    tags: $tags
+  ) {
+    id
+    urn
+    name
+    shortDescription
+    class
+    visibility
+    organizationId
+    isEncrypted
+    maxRevCount
+    updatedAt
+  }
+}
+
 # Bind an existing free-standing personal/private memory to an App. All refs
 # accept either IDs or URNs and are resolved by the server.
 mutation AttachMemoryToApp($memoryRef: ID!, $appRef: ID!, $agentRef: ID!) {

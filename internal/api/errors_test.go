@@ -68,6 +68,13 @@ func TestMapError(t *testing.T) {
 		{"BOOT_PROMPT_INCLUDE_SOURCE_DISALLOWED", gqlErr("BOOT_PROMPT_INCLUDE_SOURCE_DISALLOWED"), exitcode.Usage},
 		{"BOOT_PROMPT_INCLUDE_MALFORMED", gqlErr("BOOT_PROMPT_INCLUDE_MALFORMED"), exitcode.Usage},
 		{"BOOT_PROMPT_COMPILE_LIMIT_EXCEEDED", gqlErr("BOOT_PROMPT_COMPILE_LIMIT_EXCEEDED"), exitcode.Usage},
+		// createAppMemory (cli#1176): each refusal's exit is decided, not left to
+		// the default. USER_OWNED_APP_UNSUPPORTED stays on Error (1): it is a
+		// platform limit pending a ruling, so no input or state change helps.
+		{"app memory forbidden", gqlErr("FORBIDDEN"), exitcode.Forbidden},
+		{"app memory bad input", gqlErr("BAD_USER_INPUT"), exitcode.Usage},
+		{"app memory agent not installed", gqlErr("AGENT_NOT_INSTALLED"), exitcode.Usage},
+		{"app memory user-owned app", gqlErr("USER_OWNED_APP_UNSUPPORTED"), exitcode.Error},
 		{"delivery range", gqlErr("DELIVERY_SETTINGS_OUT_OF_RANGE"), exitcode.Usage},
 		{"delivery relation", gqlErr("DELIVERY_SETTINGS_CONFLICT"), exitcode.Usage},
 		{"ticker settings range", gqlErr("TICKER_SETTINGS_OUT_OF_RANGE"), exitcode.Usage},
