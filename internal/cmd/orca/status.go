@@ -146,7 +146,8 @@ func runStatus(ctx context.Context, f *cmdutil.Factory, env Env, args []string, 
 	}
 	var targets []target
 	var reads Reads
-	var scope string // which App answered, for text mode (the review's ambient-scope rule)
+	var pinnedApp string // a terminal chosen by id is judged against its own App
+	var scope string     // which App answered, for text mode (the review's ambient-scope rule)
 	needReads := func() (Reads, error) {
 		if reads != nil {
 			return reads, nil
@@ -159,13 +160,26 @@ func runStatus(ctx context.Context, f *cmdutil.Factory, env Env, args []string, 
 		if f.AppFlag != "" {
 			source = "from --app"
 		}
+		if pinnedApp != "" {
+			app, source = pinnedApp, "from the terminal's worker-session binding"
+		}
 		if app == "" {
-			source = "from a worker-session binding"
+			// Terminals bound to several Apps make the fallback ambiguous:
+			// never pick one by map order.
+			apps := map[string]bool{}
 			for _, b := range bound {
 				if b.AppID != "" {
-					app = b.AppID
-					break
+					apps[b.AppID] = true
 				}
+			}
+			switch len(apps) {
+			case 0:
+			case 1:
+				for a := range apps {
+					app, source = a, "from a worker-session binding"
+				}
+			default:
+				return nil, exitcode.Newf(exitcode.Usage, "terminals on this host are bound to more than one App: pass --app")
 			}
 		}
 		if app == "" {
@@ -197,6 +211,7 @@ func runStatus(ctx context.Context, f *cmdutil.Factory, env Env, args []string, 
 			w := Worker{}
 			if b, ok := bound[t.Handle]; ok {
 				w = Worker{ID: b.WorkerID, Name: b.WorkerName}
+				pinnedApp = b.AppID
 			}
 			targets = append(targets, target{worker: w, term: t})
 			break

@@ -3348,10 +3348,10 @@ Precedence: `locked`, then `busy`, then `dark`, then `idle`. **Push only when `p
 `status` is `idle` or `dark`.** `dark` means a ticker owed the worker a turn and none came: a tick of a
 ticker the worker is subscribed to has been due and unanswered for at least the interval of **the worker's
 fastest subscribed ticker** (read from `dueWakes`' oldest unacknowledged tick, never `Ticker.lastTickAt`).
-A worker with nothing due is never dark, however old its last turn. Also `dark`: no terminal, a bare
+A merged wake (a tick plus a mention or task) cannot say how old the tick is, so its ticker's own tick time stands in: never a false dark. A worker with nothing due is never dark, however old its last turn. Also `dark`: no terminal, a bare
 shell, an agent that is not connected.
 
-Fail closed: a screen the classifier does not positively recognize is `locked`/`unrecognized`, and so is
+Fail closed: a terminal Orca reports as not writable, missing subscription data, and a screen the classifier does not positively recognize is `locked`/`unrecognized`, and so is
 an otherwise-idle worker whose due-wake evidence could not be read or was refused for this caller (a
 coordinator asking about another worker is gated by the server). A busy or locked worker keeps its
 status. A terminal named by id that no worker's binding claims has no ticker evidence, so it is never `dark` by the ticker rule. Text mode prints `scope: App <ref> (from --app | the App context | a worker-session binding)` on stderr whenever it read the server; JSON mode prints nothing extra. If the wake budget is spent (`WAKE_BUDGET_EXHAUSTED`) due wakes are withheld, which also fails an otherwise-idle worker closed. The reason codes `model_at_capacity`, `rate_limited`, `token_budget_exhausted`,

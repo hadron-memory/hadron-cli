@@ -41,7 +41,8 @@ func Classify(t Terminal, sc *Screen, now time.Time) Observation {
 	if !t.Connected {
 		return Observation{Status: ts.Dark, Prompt: ts.PromptUnknown, Reason: ts.NoAgent}
 	}
-	if !sc.usable() {
+	// A terminal that cannot be typed into is never sendable.
+	if !t.Writable || !sc.usable() {
 		return held(ts.PromptUnknown, "")
 	}
 	shown, id := ScreenAgentFamily(sc), t.Identity()

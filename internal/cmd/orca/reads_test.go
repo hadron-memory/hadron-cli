@@ -42,9 +42,7 @@ func graphFixture(t *testing.T, responses map[string]string) (graphReads, map[st
 func TestDueTicksReadsAnchorNotLastTickAt(t *testing.T) {
 	g, seen := graphFixture(t, map[string]string{"DueTickWakes": `{"data":{"dueWakes":{"status":"OK","wakes":[
 	  {"worker":{"id":"w_j"},"anchorAt":"2026-10-29T16:10:00Z","reasons":[
-	    {"kind":"TICK","ticker":{"id":"tk5","name":"base"}},
-	    {"kind":"MENTION","ticker":null},
-	    {"kind":"TASK","ticker":null}]}],
+	    {"kind":"TICK","ticker":{"id":"tk5","name":"base","lastTickAt":"2026-10-29T16:30:00Z"}}]}],
 	  "pageInfo":{"hasNextPage":false,"endCursor":null}}}}`})
 	got, err := g.DueTicks(context.Background(), []string{"w_j"})
 	if err != nil {
@@ -108,5 +106,76 @@ func TestDueTicksBudgetExhaustedIsAnErrorNotNothingDue(t *testing.T) {
 	g, _ := graphFixture(t, map[string]string{"DueTickWakes": `{"data":{"dueWakes":{"status":"WAKE_BUDGET_EXHAUSTED","wakes":[],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}`})
 	if _, err := g.DueTicks(context.Background(), []string{"w_j"}); err == nil {
 		t.Fatal("an exhausted budget hides due wakes; it must not read as nothing due")
+	}
+}
+
+// BLIND P2-1: anchorAt is the earliest waiting reason of ANY kind. An old
+// mention merged with a recent tick must not make the tick look old: a merged
+// wake uses the ticker's own tick time (the conservative, youngest bound);
+// only a tick-only wake's anchor is the tick's.
+func TestDueTicksMergedWakeDoesNotAgeTheTick(t *testing.T) {
+	g, _ := graphFixture(t, map[string]string{"DueTickWakes": `{"data":{"dueWakes":{"status":"OK","wakes":[
+	  {"worker":{"id":"w_j"},"anchorAt":"2026-10-29T15:00:00Z","reasons":[
+	    {"kind":"MENTION","ticker":null},
+	    {"kind":"TICK","ticker":{"id":"tk5","name":"base","lastTickAt":"2026-10-29T16:30:00Z"}}]},
+	  {"worker":{"id":"w_a"},"anchorAt":"2026-10-29T16:10:00Z","reasons":[
+	    {"kind":"TICK","ticker":{"id":"tk5","name":"base","lastTickAt":"2026-10-29T16:30:00Z"}}]}],
+	  "pageInfo":{"hasNextPage":false,"endCursor":null}}}}`})
+	got, err := g.DueTicks(context.Background(), []string{"w_j", "w_a"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if at := got["w_j"][0].DueAt; !at.Equal(time.Date(2026, 10, 29, 16, 30, 0, 0, time.UTC)) {
+		t.Fatalf("merged wake aged the tick to %v", at)
+	}
+	if at := got["w_a"][0].DueAt; !at.Equal(time.Date(2026, 10, 29, 16, 10, 0, 0, time.UTC)) {
+		t.Fatalf("tick-only wake must use its anchor, got %v", at)
+	}
+}
+
+// BLIND P2-4: a null ticker or subscribers connection is not an empty read.
+func TestSubscriptionsNullConnectionIsAnError(t *testing.T) {
+	tk := `{"id":"tk5","name":"b","slug":"b","cadenceSeconds":300,"enabled":true,"channels":[],"relevance":"ALWAYS","reasons":[]}`
+	for name, sub := range map[string]string{"null ticker": `{"data":{"ticker":null}}`, "null subscribers": `{"data":{"ticker":{"subscribers":null}}}`} {
+		g, _ := graphFixture(t, map[string]string{"ListTickers": `{"data":{"tickers":[` + tk + `]}}`, "TickerSubscribers": sub})
+		if _, err := g.Subscriptions(context.Background()); err == nil {
+			t.Errorf("%s read as success", name)
+		}
+	}
+}
+
+// BLIND P2-5: every paged read is bounded, changing cursors included.
+func TestDueTicksPageBound(t *testing.T) {
+	n := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n++
+		_, _ = w.Write([]byte(`{"data":{"dueWakes":{"status":"OK","wakes":[],"pageInfo":{"hasNextPage":true,"endCursor":"c` + itoa(n) + `"}}}}`))
+	}))
+	defer srv.Close()
+	c, _ := api.NewClient(srv.URL, "hdr_user_test", srv.Client())
+	if _, err := (graphReads{client: c, app: "a"}).DueTicks(context.Background(), []string{"w"}); err == nil || n > maxPages+1 {
+		t.Fatalf("unbounded: %d requests, err %v", n, err)
+	}
+}
+
+func TestSubscriptionsRepeatedCursorStopsAtOnce(t *testing.T) {
+	n := 0
+	tk := `{"id":"tk5","name":"b","slug":"b","cadenceSeconds":300,"enabled":true,"channels":[],"relevance":"ALWAYS","reasons":[]}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var b struct {
+			OperationName string `json:"operationName"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&b)
+		if b.OperationName == "ListTickers" {
+			_, _ = w.Write([]byte(`{"data":{"tickers":[` + tk + `]}}`))
+			return
+		}
+		n++
+		_, _ = w.Write([]byte(`{"data":{"ticker":{"subscribers":{"items":[],"hasNextPage":true,"endCursor":"same"}}}}`))
+	}))
+	defer srv.Close()
+	c, _ := api.NewClient(srv.URL, "hdr_user_test", srv.Client())
+	if _, err := (graphReads{client: c, app: "a"}).Subscriptions(context.Background()); err == nil || n > 2 {
+		t.Fatalf("repeated cursor made %d requests, err %v", n, err)
 	}
 }

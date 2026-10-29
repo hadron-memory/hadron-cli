@@ -100,7 +100,7 @@ query DueTickWakes($appRef: String!, $first: Int!, $workerRefs: [String!],
     wakes {
       worker { id }
       anchorAt
-      reasons { kind ticker { id name } }
+      reasons { kind ticker { id name lastTickAt } }
     }
     pageInfo { hasNextPage endCursor }
   }

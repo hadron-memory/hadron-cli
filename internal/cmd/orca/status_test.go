@@ -373,3 +373,36 @@ func TestStatusTextNamesTheAmbientApp(t *testing.T) {
 		t.Fatalf("JSON mode wrote to stderr: %q", r.errs.String())
 	}
 }
+
+// BLIND P2-2: with no --app, terminals bound to different Apps make the
+// fallback ambiguous: refuse rather than pick one at random.
+func TestStatusAmbiguousBindingAppsRequireAppFlag(t *testing.T) {
+	r := newRig(t)
+	r.f.AppFlag = ""
+	r.joshua(idleScreen)
+	r.orca.terms = append(r.orca.terms, term("term_o", "/w/other-team", "claude"))
+	r.orca.screens["term_o"] = idleScreen
+	inner := r.env.BoundAt
+	r.env.BoundAt = func(ctx context.Context, wt string) (Bound, bool) {
+		if wt == "/w/other-team" {
+			return Bound{WorkerID: "w_o", WorkerName: "Other", AppID: "app2"}, true
+		}
+		return inner(ctx, wt)
+	}
+	if code, _ := r.run(t, true, "Joshua"); code != exitcode.Usage {
+		t.Fatalf("exit %d, want usage", code)
+	}
+}
+
+// A terminal chosen by id is judged against ITS binding's App, not an
+// ambient one.
+func TestStatusTerminalIDUsesItsOwnBindingApp(t *testing.T) {
+	r := newRig(t)
+	var asked string
+	r.env.Reads = func(_ context.Context, app string) (Reads, error) { asked = app; return r.reads, nil }
+	r.joshua(idleScreen)
+	r.run(t, true, "term_j")
+	if asked != "app1" {
+		t.Fatalf("read evidence from App %q, want the terminal's own app1", asked)
+	}
+}

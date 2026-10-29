@@ -123,12 +123,25 @@ func TestLastTurnAt(t *testing.T) {
 // The dark rule is blind to lastTurnAt: the same screen classifies the same
 // with and without a readable turn time.
 func TestClassifyStatusIndependentOfLastTurnAt(t *testing.T) {
-	with := Classify(agent("claude"), fix(claudeIdleRecapYuri), now)
-	without := Classify(agent("claude"), fix(append([]string{}, claudeIdleRecapYuri[4:]...)), now)
+	// Same completed-turn marker; only the stamp's readability differs.
+	unreadable := append([]string{}, codexIdle...)
+	unreadable[0] = "  Worked for 33s • later"
+	with := Classify(agent("codex"), fix(codexIdle), now)
+	without := Classify(agent("codex"), fix(unreadable), now)
 	if with.LastTurnAt == nil || without.LastTurnAt != nil {
 		t.Fatalf("fixtures do not isolate the stamp: %v / %v", with.LastTurnAt, without.LastTurnAt)
 	}
-	if with.Status != ts.Idle {
-		t.Fatalf("with stamp: %s", with.Status)
+	if with.Status != ts.Idle || without.Status != ts.Idle {
+		t.Fatalf("status depends on the stamp: %s vs %s", with.Status, without.Status)
+	}
+}
+
+// BLIND P2-3: a terminal that cannot be typed into is never sendable.
+func TestClassifyNonWritableIsNeverIdle(t *testing.T) {
+	tm := agent("claude")
+	tm.Writable = false
+	got := Classify(tm, fix(claudeIdle), now)
+	if got.Status == ts.Idle || got.Status != ts.Locked || got.Reason != ts.Unrecognized {
+		t.Fatalf("non-writable classified %s/%q", got.Status, got.Reason)
 	}
 }

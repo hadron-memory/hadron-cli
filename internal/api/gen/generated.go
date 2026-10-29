@@ -22349,6 +22349,8 @@ func (v *DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetTicker
 type DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker struct {
 	Id   string `json:"id"`
 	Name string `json:"name"`
+	// The moment of the current tick; null when none has fired or it cannot tick.
+	LastTickAt *string `json:"lastTickAt"`
 }
 
 // GetId returns DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker.Id, and is useful for accessing the field via an interface.
@@ -22359,6 +22361,11 @@ func (v *DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker) Get
 // GetName returns DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker.Name, and is useful for accessing the field via an interface.
 func (v *DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker) GetName() string {
 	return v.Name
+}
+
+// GetLastTickAt returns DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker.LastTickAt, and is useful for accessing the field via an interface.
+func (v *DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker) GetLastTickAt() *string {
+	return v.LastTickAt
 }
 
 // DueTickWakesDueWakesDueWakePageWakesDueWakeWorker includes the requested fields of the GraphQL type Worker.
@@ -77252,6 +77259,7 @@ query DueTickWakes ($appRef: String!, $first: Int!, $workerRefs: [String!], $aft
 				ticker {
 					id
 					name
+					lastTickAt
 				}
 			}
 		}

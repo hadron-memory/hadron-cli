@@ -82,13 +82,15 @@ func (g graphReads) Subscriptions(ctx context.Context) (map[string][]terminalsta
 		}
 		tk := terminalstatus.Ticker{ID: t.Id, Name: t.Name, Interval: time.Duration(t.CadenceSeconds) * time.Second}
 		var after *string
+		seen := map[string]bool{}
 		for page := 0; ; page++ {
 			sub, err := gen.TickerSubscribers(ctx, g.client, t.Id, pageSize, after)
 			if err != nil {
 				return nil, api.MapError(err)
 			}
+			// A missing connection is unreadable evidence, not "no subscribers".
 			if sub.Ticker == nil || sub.Ticker.Subscribers == nil {
-				break
+				return nil, errors.New("subscriptions unreadable for ticker " + t.Id)
 			}
 			s := sub.Ticker.Subscribers
 			for _, it := range s.Items {
@@ -99,9 +101,10 @@ func (g graphReads) Subscriptions(ctx context.Context) (map[string][]terminalsta
 			if !s.HasNextPage {
 				break
 			}
-			if s.EndCursor == nil || *s.EndCursor == "" || page+1 >= maxPages {
+			if s.EndCursor == nil || *s.EndCursor == "" || seen[*s.EndCursor] || page+1 >= maxPages {
 				return nil, errCursor
 			}
+			seen[*s.EndCursor] = true
 			after = s.EndCursor
 		}
 	}
@@ -115,7 +118,7 @@ func (g graphReads) DueTicks(ctx context.Context, workerIDs []string) (map[strin
 	}
 	var after *string
 	seen := map[string]bool{}
-	for {
+	for n := 0; ; n++ {
 		resp, err := gen.DueTickWakes(ctx, g.client, g.app, pageSize, workerIDs, after)
 		if err != nil {
 			return nil, api.MapError(err)
@@ -137,17 +140,38 @@ func (g graphReads) DueTicks(ctx context.Context, workerIDs []string) (map[strin
 			if err != nil {
 				return nil, errors.New("due wakes: bad anchorAt")
 			}
+			// anchorAt is the earliest waiting reason of ANY kind. It is a tick's
+			// age only when every reason is a tick; in a merged wake (an old
+			// mention beside a fresh tick) it would age the tick, so the
+			// ticker's own tick time stands in: the youngest bound, which can
+			// never raise a false dark.
+			tickOnly := true
 			for _, r := range w.Reasons {
-				if r != nil && r.Kind == gen.WakeKindTick && r.Ticker != nil {
-					out[w.Worker.Id] = append(out[w.Worker.Id], terminalstatus.DueTick{TickerID: r.Ticker.Id, TickerName: r.Ticker.Name, DueAt: due})
+				if r == nil || r.Kind != gen.WakeKindTick {
+					tickOnly = false
 				}
+			}
+			for _, r := range w.Reasons {
+				if r == nil || r.Kind != gen.WakeKindTick || r.Ticker == nil {
+					continue
+				}
+				at := due
+				if !tickOnly {
+					if r.Ticker.LastTickAt == nil {
+						continue
+					}
+					if at, err = time.Parse(time.RFC3339, *r.Ticker.LastTickAt); err != nil {
+						return nil, errors.New("due wakes: bad lastTickAt")
+					}
+				}
+				out[w.Worker.Id] = append(out[w.Worker.Id], terminalstatus.DueTick{TickerID: r.Ticker.Id, TickerName: r.Ticker.Name, DueAt: at})
 			}
 		}
 		if !page.PageInfo.HasNextPage {
 			return out, nil
 		}
 		next := page.PageInfo.EndCursor
-		if next == nil || *next == "" || seen[*next] {
+		if next == nil || *next == "" || seen[*next] || n+1 >= maxPages {
 			return nil, errCursor
 		}
 		seen[*next] = true
