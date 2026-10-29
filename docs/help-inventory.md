@@ -43,14 +43,14 @@ section between the markers.
 | `asset rm` | delete |  | y | #1051 |  | unread |  |
 | `asset upload` |  |  | y | #1051 |  | unread |  |
 | `asset url` |  |  | y | #1051 |  | unread |  |
-| `comment` |  |  | n | #1051 |  | unread |  |
-| `comment create` | add |  | n | #1051 |  | unread |  |
-| `comment delete` |  |  | n | #1051 |  | unread |  |
-| `comment edit` |  |  | n | #1051 |  | unread |  |
-| `comment get` |  |  | n | #1051 |  | unread |  |
-| `comment list` | ls |  | n | #1051 |  | unread |  |
-| `comment reply` |  |  | n | #1051 |  | unread |  |
-| `comment resolve` |  |  | n | #1051 |  | unread |  |
+| `comment` |  |  | y | #1051 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508443001) |
+| `comment create` | add |  | y | #1051 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508443001) |
+| `comment delete` |  |  | y | #1051 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508443001) |
+| `comment edit` |  |  | y | #1051 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508443001) |
+| `comment get` |  |  | y | #1051 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508443001) |
+| `comment list` | ls |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508443001): no P1/P2, P3s only; result set at reassessment |
+| `comment reply` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508443001): no P1/P2, P3s only; result set at reassessment |
+| `comment resolve` |  |  | y | #1051 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508443001) |
 | `edge` | edges |  | n | #1051 |  | unread |  |
 | `edge create` | add |  | y | #1051 |  | unread |  |
 | `edge list` | ls |  | y | #1051 |  | unread |  |
@@ -144,8 +144,8 @@ section between the markers.
 | `object find` | list, ls |  | y | #1051 |  | unread |  |
 | `object get` |  |  | y | #1051 |  | unread |  |
 | `object update` |  |  | y | #1051 |  | unread |  |
-| `replace` |  |  | n | #1051 |  | unread |  |
-| `replace text` |  |  | y | #1051 |  | unread |  |
+| `replace` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508443001): no P1/P2, P3s only; result set at reassessment |
+| `replace text` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508443001): no P1/P2, P3s only; result set at reassessment |
 | `search` |  |  | y | #1051 |  | unread |  |
 <!-- group:1051 end -->
 
