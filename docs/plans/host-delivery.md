@@ -295,6 +295,15 @@ adapter and activation wait on hadron-server#2068/#2069/#2072 and S1 slice
   `budgetExhaustedAt` (shown only while the budget is spent), and per worker
   `lastFor` (batch or wake) and `ticksUnacked`. No reason key reaches
   status, events or logs: an event's span is reason counts only.
+- **Hold runs (cli#1178):** the snapshot keeps `heldSince` per worker, the
+  start of its current run of holds. Later holds, deferrals, skips and errors
+  keep it; only a delivered or reconciled event clears it. `team host status`
+  adds `lastAgeSeconds` and `heldOver30m`, and the text row reads `HELD OVER
+  30m: no delivery since <time>`. The #2746 class (one ambiguous receipt
+  holding every later wake) is pinned in
+  `internal/delivery/wake_hold_class_1178_test.go`: a refused send leaves no
+  record, and an accepted but unsubmitted line is submitted with Enter alone
+  or cleared, never retyped.
 
 ## Config
 
