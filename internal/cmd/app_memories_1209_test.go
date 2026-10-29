@@ -14,11 +14,11 @@ import (
 // (advisory: NOT a write target, per the SDL rule on
 // AppScopedMemory.viewerCanWrite) and a TEAM_SPACE row with a null agent.
 const appMemoryScopeResp = `{"data":{"appMemoryScope":{"total":3,"items":[
-	{"memoryId":"m1","memoryUrn":"hrn:mem:acme.com:iris-system","name":"Iris system","class":"AGENT_SYSTEM",
+	{"memoryId":"m1","memoryUrn":"hrn:mem:acme.com:iris-system","name":"Iris system","class":"system",
 	 "sources":[{"kind":"AGENT_SYSTEM","agentId":"agt-iris"}],"viewerCanWrite":true},
-	{"memoryId":"m2","memoryUrn":"hrn:mem:acme.com:base-system","name":"Base system","class":"AGENT_SYSTEM",
+	{"memoryId":"m2","memoryUrn":"hrn:mem:acme.com:base-system","name":"Base system","class":"system",
 	 "sources":[{"kind":"INHERITED_BASE","agentId":"agt-base"}],"viewerCanWrite":true},
-	{"memoryId":"m3","memoryUrn":"hrn:mem:acme.com:eng-team","name":"Eng team space","class":"TEAM_SPACE",
+	{"memoryId":"m3","memoryUrn":"hrn:mem:acme.com:eng-team","name":"Eng team space","class":"app",
 	 "sources":[{"kind":"TEAM_SPACE","agentId":null}],"viewerCanWrite":true}]}}}`
 
 // appMemoriesFake answers the scope read, then the per-agent name lookups in
@@ -52,12 +52,18 @@ func TestAppMemories1209TextNamesSourcesAndAdvisoryWrite(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	var vars map[string]any
+	var vars map[string]json.RawMessage
 	if err := json.Unmarshal(captured["AppMemoryScope"], &vars); err != nil {
 		t.Fatalf("captured vars: %v", err)
 	}
-	if vars["appRef"] != "hrn:app:acme.com:eng-team" {
-		t.Errorf("appRef = %v", vars["appRef"])
+	if string(vars["appRef"]) != `"hrn:app:acme.com:eng-team"` {
+		t.Errorf("appRef = %s", vars["appRef"])
+	}
+	if _, sent := vars["offset"]; sent {
+		t.Errorf("offset 0 is omitted, not sent: %s", captured["AppMemoryScope"])
+	}
+	if string(vars["limit"]) != "20" {
+		t.Errorf("limit is always sent (default 20): %s", captured["AppMemoryScope"])
 	}
 	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
 	if len(lines) != 4 {
@@ -151,9 +157,9 @@ func TestAppMemories1209JSONIsThePagePlusAdditiveFields(t *testing.T) {
 
 func TestAppMemories1209PagingReachesVariablesAndContinues(t *testing.T) {
 	full := `{"data":{"appMemoryScope":{"total":5,"items":[
-		{"memoryId":"m3","memoryUrn":"hrn:mem:acme.com:eng-team","name":"Eng","class":"TEAM_SPACE",
+		{"memoryId":"m3","memoryUrn":"hrn:mem:acme.com:eng-team","name":"Eng","class":"app",
 		 "sources":[{"kind":"TEAM_SPACE","agentId":null}],"viewerCanWrite":false},
-		{"memoryId":"m4","memoryUrn":"hrn:mem:acme.com:notes","name":"Notes","class":"STANDARD",
+		{"memoryId":"m4","memoryUrn":"hrn:mem:acme.com:notes","name":"Notes","class":"app",
 		 "sources":[{"kind":"TEAM_SPACE","agentId":null}],"viewerCanWrite":false}]}}}`
 	url, captured, _ := appMemoriesFake(t, full)
 	f, out := testFactory(t)
@@ -204,5 +210,20 @@ func TestAppMemories1209RefusalSurfaces(t *testing.T) {
 	}
 	if err == nil || !strings.Contains(err.Error(), "You do not have access to this App") {
 		t.Errorf("the server's message surfaces unchanged: %v", err)
+	}
+}
+
+// An empty scope (also the answer for an App in a soft-deleted organization)
+// renders items as [], not null.
+func TestAppMemories1209EmptyPageRendersEmptyArray(t *testing.T) {
+	url, _, _ := appMemoriesFake(t, `{"data":{"appMemoryScope":{"total":0,"items":[]}}}`)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"app", "memories", "hrn:app:acme.com:eng-team", "--json", "--server", url})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.Contains(out.String(), `"items": []`) || strings.Contains(out.String(), "null") {
+		t.Errorf("empty page: %s", out.String())
 	}
 }

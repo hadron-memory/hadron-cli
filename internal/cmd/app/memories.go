@@ -79,9 +79,8 @@ func newCmdMemories(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "memories [<app-ref>] [--limit N] [--offset N]",
 		Short: "List the memories in an App's scope, and why each is there",
-		Long: fmt.Sprintf(`List the memories an App reads for you: the scope that App-wide reads (the
-GraphQL appNodes query) search. One row per memory, with every reason it is
-in scope:
+		Long: fmt.Sprintf(`List the memories an App reads for you: the memories that a search across the
+whole App covers. One row per memory, with every reason it is in scope:
 
   AGENT_SYSTEM    the system memory of an Agent installed in the App
   AGENT_LINK      a memory linked to an installed Agent
@@ -100,11 +99,13 @@ inherited base. That memory belongs to the base Agent and other Apps read it,
 so it is not a write target here. The column is advice: the server still
 decides every write.
 
-The App is the positional ref (ID or URN); omit it to use --app or the
-configured App context. Returns ONE page, ordered by memory URN: --limit
+The App is the positional ref (ID or URN); omit it to use --app or the App
+set with 'hadron app set-active'. Exit 8 when you may not read the App's
+scope, 4 when the App is not found. Returns ONE page, ordered by memory URN: --limit
 1..%d (default %d) and --offset N. When more rows exist, stderr says how to
 fetch the next page. --json prints the page ({items, total}); each source
-adds agentName and each row adds writeTarget. Spec: cor:dmo:050:17.`, memoriesMaxLimit, memoriesDefaultLimit),
+adds agentName and each row adds writeTarget. The rule is in the Hadron specs
+corpus at cor:dmo:050:17.`, memoriesMaxLimit, memoriesDefaultLimit),
 		Example: `  hadron app memories hrn:app:acme.com:eng-team
   hadron app memories --app hrn:app:acme.com:eng-team --json
   hadron app memories hrn:app:acme.com:eng-team --limit 50 --offset 50`,

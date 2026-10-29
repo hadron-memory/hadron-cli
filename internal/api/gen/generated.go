@@ -71330,8 +71330,8 @@ query AppMemoryScope ($appRef: ID!, $limit: Int, $offset: Int) {
 `
 
 // cli#1209 (server#2190, cor:dmo:050:17): the memories appNodes reads for the
-// caller, one row per memory with every reason it is in scope. limit/offset
-// are omitted when unset so the server's own default (20) applies.
+// caller, one row per memory with every reason it is in scope. The CLI always
+// sends limit; offset is omitted at 0.
 func AppMemoryScope(
 	ctx_ context.Context,
 	client_ graphql.Client,
