@@ -5,7 +5,7 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 63 unbound
+[Query] 62 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
@@ -13,7 +13,6 @@ agentTickerTemplates
 aiModelPrice
 aiServiceConfigs
 appAIConfig
-appMemoryScope  # server#2190 schema refresh for cli#1209; bound by `app memories` in the same PR
 appMemoryWriteGrants  # server#2484; separate App-memory grant CLI parity outside C3b
 appNodes
 appTickerSettings  # server ticker settings (named-heartbeats epic, in flight — #1750/#1791 cycle); CLI parity follows the surface settling
