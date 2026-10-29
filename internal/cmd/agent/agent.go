@@ -42,7 +42,10 @@ type agentDTO struct {
 	HasAiApiKey             bool    `json:"hasAiApiKey"`
 	PersonaRole             *string `json:"personaRole"`
 	UsesTasks               bool    `json:"usesTasks"`
-	CreatedAt               string  `json:"createdAt"`
+	// MemberRoles is the Agent's installationPolicy.memberRoles (#1226, R211):
+	// the roles an App it is installed in may offer. [] when none came back.
+	MemberRoles []string `json:"memberRoles"`
+	CreatedAt   string   `json:"createdAt"`
 }
 
 func agentDTOFromFields(a gen.AgentFields) agentDTO {
@@ -50,8 +53,15 @@ func agentDTOFromFields(a gen.AgentFields) agentDTO {
 	if surfaces == nil {
 		surfaces = []string{}
 	}
+	// installationPolicy is non-null on the server, but a withheld or older
+	// answer must render [] rather than crash.
+	roles := []string{}
+	if a.InstallationPolicy != nil {
+		roles = append(roles, a.InstallationPolicy.MemberRoles...)
+	}
 	return agentDTO{
-		ID: a.Id, URN: a.Urn, Name: a.Name, Description: a.Description,
+		MemberRoles: roles,
+		ID:          a.Id, URN: a.Urn, Name: a.Name, Description: a.Description,
 		Type: string(a.Type), Visibility: string(a.Visibility), OrganizationID: a.OrganizationId,
 		Surfaces: surfaces, SystemMemoryID: a.SystemMemoryId,
 		TasksIndexRef: a.TasksIndexRef, ProcessesIndex: a.ProcessesIndexRef, ExtendsAgentID: a.ExtendsAgentId,
@@ -59,6 +69,31 @@ func agentDTOFromFields(a gen.AgentFields) agentDTO {
 		AiProvider: a.AiProvider, AiModel: a.AiModel, HasAiApiKey: a.HasAiApiKey,
 		PersonaRole: a.PersonaRole, UsesTasks: a.UsesTasks, CreatedAt: a.CreatedAt,
 	}
+}
+
+// memberRolesArg turns --member-roles into the wire value: nil when the flag
+// was not passed (the field is then omitted: create takes the server default,
+// update preserves), the list verbatim when it was. An empty value is refused
+// here because the server refuses [] and an empty list must never be sent.
+// Role validity (format, duplicates, case, count) is the server's alone.
+func memberRolesArg(cmd *cobra.Command, roles []string) ([]string, error) {
+	if !cmd.Flags().Changed("member-roles") {
+		return nil, nil
+	}
+	for _, r := range roles {
+		if strings.TrimSpace(r) != "" {
+			return roles, nil
+		}
+	}
+	return nil, exitcode.Newf(exitcode.Usage,
+		"--member-roles needs at least one role (comma-separated, e.g. owner,member); it was passed empty — drop the flag to keep the default (create) or the current roles (update)")
+}
+
+func dashList(items []string) string {
+	if len(items) == 0 {
+		return "—"
+	}
+	return strings.Join(items, ", ")
 }
 
 func dash(s *string) string {
@@ -323,6 +358,7 @@ JSON includes the nullable clonedFromAgentRef key. No source lookup is made.`,
 					fmt.Fprintf(w, "  Cloned from: %s\n", output.SafeCell(*dto.ClonedFromAgentRef))
 				}
 				fmt.Fprintf(w, "  uses tasks: %t\n", dto.UsesTasks)
+				fmt.Fprintf(w, "  member roles: %s\n", output.SafeCell(dashList(dto.MemberRoles)))
 				if len(dto.Surfaces) > 0 {
 					fmt.Fprintf(w, "  surfaces: %s\n", output.SafeCell(strings.Join(dto.Surfaces, ", ")))
 				}
@@ -356,7 +392,7 @@ func registerRetiredPersonaPromptFlags(cmd *cobra.Command) {
 func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 	var org, name, description, typ, vis, systemMemory string
 	var personaRole, installInto string
-	var surfaces []string
+	var surfaces, memberRoles []string
 	var ownerMe bool
 	cmd := &cobra.Command{
 		Use:   "create --name <n> [--org <id> | --owner-me] [--install-into <app>]",
@@ -435,6 +471,10 @@ the Agent system memory, then use hadron agent compile and hadron node approve.`
 			if installInto, err = cmdutil.CanonicalAppRef("--install-into", installInto); err != nil {
 				return err
 			}
+			rolesArg, err := memberRolesArg(cmd, memberRoles)
+			if err != nil {
+				return err
+			}
 			at, err := parseAgentType(typ)
 			if err != nil {
 				return err
@@ -449,7 +489,7 @@ the Agent system memory, then use hadron agent compile and hadron node approve.`
 			}
 			resp, err := gen.CreateAgent(cmd.Context(), client, name, optStr(org),
 				optStr(description), at, av, optStr(systemMemory), surfaces,
-				optStr(personaRole))
+				optStr(personaRole), rolesArg)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -489,6 +529,7 @@ the Agent system memory, then use hadron agent compile and hadron node approve.`
 	cmd.Flags().StringVar(&systemMemory, "system-memory", "", "system memory ID")
 	cmd.Flags().StringArrayVar(&surfaces, "surface", nil, "surface the agent is available on (repeatable)")
 	cmd.Flags().StringVar(&personaRole, "persona-role", "", "persona dressing: the role this agent presents as (metadata)")
+	cmd.Flags().StringSliceVar(&memberRoles, "member-roles", nil, "roles the agent offers an App's members, comma-separated (default owner,member; the server validates them)")
 	cmd.Flags().StringVar(&installInto, "install-into", "", "App (ID or URN) to install the new agent into, so it is castable in one run")
 	registerRetiredPersonaPromptFlags(cmd)
 	_ = cmd.MarkFlagRequired("name")
@@ -500,7 +541,7 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	var personaRole string
 	var usesTasks bool
 	var tasksIndex, processesIndex string
-	var surfaces []string
+	var surfaces, memberRoles []string
 	cmd := &cobra.Command{
 		Use:   "update <ref>",
 		Short: "Update an agent by ID or URN (only the fields you pass change)",
@@ -520,7 +561,7 @@ start without a prompt.`,
 			if !changed("name") && !changed("description") && !changed("type") && !changed("visibility") &&
 				!changed("system-memory") && !changed("surface") && !changed("urn") &&
 				!changed("persona-role") && !changed("uses-tasks") &&
-				!changed("tasks-index") && !changed("processes-index") {
+				!changed("tasks-index") && !changed("processes-index") && !changed("member-roles") {
 				return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
 			}
 			// The server prepends the owner namespace, so --urn is the agent
@@ -530,6 +571,10 @@ start without a prompt.`,
 				if err := cmdutil.ValidateAgentURNPath("--urn", urn); err != nil {
 					return err
 				}
+			}
+			rolesArg, err := memberRolesArg(cmd, memberRoles)
+			if err != nil {
+				return err
 			}
 			at, err := parseAgentType(typ)
 			if err != nil {
@@ -550,7 +595,7 @@ start without a prompt.`,
 			var updated *gen.AgentFields
 			if changed("name") || changed("description") || changed("type") || changed("visibility") ||
 				changed("system-memory") || changed("surface") || changed("urn") ||
-				changed("persona-role") || changed("uses-tasks") {
+				changed("persona-role") || changed("uses-tasks") || changed("member-roles") {
 				var usesTasksArg *bool
 				if changed("uses-tasks") {
 					usesTasksArg = &usesTasks
@@ -559,7 +604,7 @@ start without a prompt.`,
 					changedStr(cmd, "name", name), changedStr(cmd, "description", description),
 					at, av,
 					changedStr(cmd, "system-memory", systemMemory), surfacesArg, changedStr(cmd, "urn", urn),
-					changedStr(cmd, "persona-role", personaRole), usesTasksArg)
+					changedStr(cmd, "persona-role", personaRole), usesTasksArg, rolesArg)
 				if err != nil {
 					return api.MapError(err)
 				}
@@ -592,6 +637,7 @@ start without a prompt.`,
 	cmd.Flags().StringArrayVar(&surfaces, "surface", nil, "surface the agent is available on (repeatable; replaces the set)")
 	cmd.Flags().StringVar(&urn, "urn", "", "agent URN path")
 	cmd.Flags().StringVar(&personaRole, "persona-role", "", "persona dressing: the role this agent presents as (metadata)")
+	cmd.Flags().StringSliceVar(&memberRoles, "member-roles", nil, "replace the roles the agent offers an App's members, comma-separated (existing members keep theirs; the server validates)")
 	cmd.Flags().StringVar(&tasksIndex, "tasks-index", "", `the Agent's tasks index node (a ref; an explicit empty clears it)`)
 	cmd.Flags().StringVar(&processesIndex, "processes-index", "", `the Agent's processes index node (a ref; an explicit empty clears it)`)
 	cmd.Flags().BoolVar(&usesTasks, "uses-tasks", false, "Whether workers from this Agent use assigned tasks; false keeps them expected to check the team channel without a task (omitted preserves)")

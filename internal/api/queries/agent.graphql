@@ -29,6 +29,10 @@ fragment AgentFields on Agent {
   hasAiApiKey
   personaRole
   usesTasks
+  # #1226 (R211, cor:dmo:050:04): the member roles this Agent offers.
+  installationPolicy {
+    memberRoles
+  }
   createdAt
 }
 
@@ -101,6 +105,8 @@ mutation CreateAgent(
   $surfaces: [String!]
   # @genqlient(omitempty: true)
   $personaRole: String
+  # @genqlient(omitempty: true)
+  $memberRoles: [String!]
 ) {
   createAgent(
     name: $name
@@ -111,6 +117,7 @@ mutation CreateAgent(
     systemMemoryId: $systemMemoryId
     surfaces: $surfaces
     personaRole: $personaRole
+    memberRoles: $memberRoles
   ) {
     ...AgentFields
   }
@@ -141,6 +148,8 @@ mutation UpdateAgent(
   $personaRole: String
   # @genqlient(omitempty: true)
   $usesTasks: Boolean
+  # @genqlient(omitempty: true)
+  $memberRoles: [String!]
 ) {
   updateAgent(
     ref: $ref
@@ -153,6 +162,7 @@ mutation UpdateAgent(
     urn: $urn
     personaRole: $personaRole
     usesTasks: $usesTasks
+    memberRoles: $memberRoles
   ) {
     ...AgentFields
   }

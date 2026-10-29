@@ -68,12 +68,15 @@ The App is the root --app flag, else the active App (` + "`hadron app use`" + `)
 there is no positional App. --user is passed to the server unchanged — an id,
 email, handle or hrn:user: URN — and is never resolved here.
 
-Roles are owned by the server (the App's primary Agent policy), so no role list
-is shown or checked locally; an invalid role is refused with the server's own
-list. Authority is the server's too: an App member manager, or the member
-themselves for remove.`,
+The roles an App offers are the union of its installed Agents' member roles
+(cor:dmo:050:04); ` + "`hadron app member roles`" + ` prints them, and
+` + "`hadron agent update <ref> --member-roles …`" + ` changes an Agent's. Roles are
+validated by the server only, so ` + "`add --role`" + ` is never checked locally: an
+invalid role is refused with the server's own message. Authority is the
+server's too: an App member manager, or the member themselves for remove.`,
 	}
 	cmd.AddCommand(newCmdMemberList(f))
+	cmd.AddCommand(newCmdMemberRoles(f))
 	cmd.AddCommand(newCmdMemberAdd(f))
 	cmd.AddCommand(newCmdMemberRemove(f))
 	return cmd
@@ -180,6 +183,54 @@ returns [] when the App's member list is not readable by you.`,
 					t.Row(output.SafeCell(m.User.ID), memberCell(m.User.Handle), memberText(m.Role), output.SafeCell(m.CreatedAt))
 				}
 				return t.Flush()
+			})
+		},
+	}
+}
+
+// newCmdMemberRoles reads App.availableMemberRoles (#1226, R211): the roles
+// `member add --role` may name. The list is the server's, in its order.
+func newCmdMemberRoles(f *cmdutil.Factory) *cobra.Command {
+	return &cobra.Command{
+		Use:   "roles",
+		Short: "List the member roles an App offers",
+		Long: `List the member roles the App (--app, else the active App) offers: the union of
+its installed Agents' member roles, primary Agent first (cor:dmo:050:04). These
+are the values ` + "`app member add --role`" + ` accepts. Change an Agent's roles with
+` + "`hadron agent update <ref> --member-roles …`" + `.
+
+Text is one role per line; --json is an array of role strings.`,
+		Example: `  hadron app member roles
+  hadron app member roles --app hrn:app:acme.com:eng-team --json`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			appRef, _, err := memberTargetApp(cmd, f)
+			if err != nil {
+				return err
+			}
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			resp, err := gen.AppMemberRoles(cmd.Context(), client, appRef)
+			if err != nil {
+				return api.MapError(err)
+			}
+			if resp == nil || resp.App == nil {
+				return exitcode.Newf(exitcode.NotFound, "app %q not found, or not visible to you", appRef)
+			}
+			roles := append([]string{}, resp.App.AvailableMemberRoles...)
+			return output.Write(f.IOStreams, f.JSON, roles, func(w io.Writer) error {
+				if len(roles) == 0 {
+					_, err := fmt.Fprintln(w, "no member roles offered")
+					return err
+				}
+				for _, r := range roles {
+					if _, err := fmt.Fprintln(w, memberText(r)); err != nil {
+						return err
+					}
+				}
+				return nil
 			})
 		},
 	}
