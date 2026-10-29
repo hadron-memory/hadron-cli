@@ -41,8 +41,10 @@ may approve, with their state: "approved" or "not approved".
 
 "approved" means approved at some point, not that nothing has changed since:
 whether an approved automation has changed shows only on ` + "`hadron automation approval <name>`" + `.
-Only an adopter sees any row, so an empty list never proves the App has no
-automations. Manual runs are not listed: each is approved from the run that
+Only someone the server allows to approve this App's automations (an "adopter")
+sees any row, so an empty list does not mean the App has none: you may simply not
+be an adopter, and the person who administers the App can tell you. Manual runs
+are not listed: each is approved from the run that
 needs it (--run).`,
 		Example: `  hadron automation ls
   hadron automation ls --app hrn:app:acme.com:ops --json`,
