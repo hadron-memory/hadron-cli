@@ -19,7 +19,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -162,7 +161,7 @@ func readAllTasks(ctx context.Context, f *cmdutil.Factory, appRef string) ([]tas
 		offset := page * limit
 		resp, err := gen.AgentTaskList(ctx, client, appRef, nil, &limit, &offset, nil, nil, nil, nil, nil, nil)
 		if err != nil {
-			return nil, api.MapError(err)
+			return nil, mapTaskError(err)
 		}
 		added := 0
 		for _, t := range resp.AgentTasks {
@@ -215,7 +214,7 @@ func listTeamTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, b *b
 	}
 	roster, err := gen.TeamReportingLines(ctx, client, scope.Ref)
 	if err != nil {
-		return api.MapError(err)
+		return mapTaskError(err)
 	}
 	workers := []rosterWorker{}
 	for _, w := range roster.TeamRoster.Workers {
@@ -359,10 +358,14 @@ func listTeamTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, b *b
 		if q.tree {
 			return renderTeamTree(w, dto.Tasks)
 		}
-		t := output.NewTable(w, "ID", "STATUS", "PRIORITY", "BLOCKED", "IDLE", "TITLE", "OWNER", "ASSIGNEE", "ALARMS")
+		withHandle := false
 		for _, task := range dto.Tasks {
-			t.Row(output.SafeCell(task.ID), output.SafeCell(task.Status), fmt.Sprint(task.Priority), fmt.Sprint(task.Blocked), output.SafeCell(idleCell(task.AgeSeconds)), output.SafeCell(task.Title),
-				output.SafeCell(teamPartyCell(task.Owner, task.OwnerTeam)), output.SafeCell(teamAssigneeCell(task)), output.SafeCell(alarmCell(task.OpenAlarms)))
+			withHandle = withHandle || task.Handle != ""
+		}
+		t := output.NewTable(w, handleHeaders(withHandle, "ID", "STATUS", "PRIORITY", "BLOCKED", "IDLE", "TITLE", "OWNER", "ASSIGNEE", "ALARMS")...)
+		for _, task := range dto.Tasks {
+			t.Row(handleCells(withHandle, task.Handle, output.SafeCell(task.ID), output.SafeCell(task.Status), fmt.Sprint(task.Priority), fmt.Sprint(task.Blocked), output.SafeCell(idleCell(task.AgeSeconds)), output.SafeCell(task.Title),
+				output.SafeCell(teamPartyCell(task.Owner, task.OwnerTeam)), output.SafeCell(teamAssigneeCell(task)), output.SafeCell(alarmCell(task.OpenAlarms)))...)
 		}
 		return t.Flush()
 	})
@@ -437,7 +440,7 @@ func renderTeamTree(w io.Writer, tasks []teamTaskDTO) error {
 		if t.OpenAlarms != nil && *t.OpenAlarms > 0 {
 			alarm = fmt.Sprintf("  ⏰ %d open alarm%s", *t.OpenAlarms, plural(*t.OpenAlarms))
 		}
-		if _, err := fmt.Fprintf(w, "%s• %s [%s] idle %s  %s → %s  %s%s\n", strings.Repeat("  ", depth), t.ID, t.Status,
+		if _, err := fmt.Fprintf(w, "%s• %s [%s] idle %s  %s → %s  %s%s\n", strings.Repeat("  ", depth), taskRef(t.Handle, t.ID), t.Status,
 			idleCell(t.AgeSeconds), teamPartyCell(t.Owner, t.OwnerTeam), teamAssigneeCell(t), t.Title, alarm); err != nil {
 			return err
 		}
