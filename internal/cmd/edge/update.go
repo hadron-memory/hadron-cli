@@ -25,11 +25,25 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "update <edge-id>",
-		Short: "Update an edge's name, loc, description, runnable, priority, condition, or data",
-		Long: `Update an edge by its ID (shown by hadron edge list and in node get
---json output). Only the fields you pass change.`,
-		Example: `  hadron edge update edg_123 --name complements
-  hadron edge update edg_123 --priority 10`,
+		Short: "Change an edge's name, description or automation settings",
+		Long: `Change one edge, named by its edge id (the EDGE-ID column of
+hadron edge list <node>, or node get --json). Only the fields you pass change;
+everything else stays as it was. The two nodes it links cannot be changed:
+to point a link elsewhere, edge rm it and edge create a new one.
+
+To undo a setting:
+  --runnable=false     the edge is no longer runnable
+  --description ""     empties the description
+  --condition null     removes the condition, so the edge always applies
+  --data null          removes the stored data
+
+--name changes only the displayed name; the edge keeps its loc (and so its
+URN). --loc changes the loc. The automation settings (--runnable,
+--priority, --condition, --data) mean the same as in edge create --help.
+On success it prints the link and its id, like edge create.`,
+		Example: `  hadron edge update 019f0c2a5e7b7d3e9a1c4b6d8e0f2a35 --name complements
+  hadron edge update 019f0c2a5e7b7d3e9a1c4b6d8e0f2a35 --priority 10
+  hadron edge update 019f0c2a5e7b7d3e9a1c4b6d8e0f2a35 --runnable=false --condition null`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			changed := cmd.Flags().Changed
@@ -102,10 +116,10 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	}
 	cmd.Flags().StringVar(&name, "name", "", "new relationship name")
 	cmd.Flags().StringVar(&loc, "loc", "", "new edge loc")
-	cmd.Flags().StringVar(&description, "description", "", "new edge description")
-	cmd.Flags().BoolVar(&runnable, "runnable", false, "set the edge runnable flag")
-	cmd.Flags().IntVar(&priority, "priority", 0, "new edge priority")
-	cmd.Flags().StringVar(&condition, "condition", "", "new JSONLogic gate condition (JSON)")
-	cmd.Flags().StringVar(&data, "data", "", "new edge data (JSON)")
+	cmd.Flags().StringVar(&description, "description", "", "new description (\"\" empties it)")
+	cmd.Flags().BoolVar(&runnable, "runnable", false, "automation: runnable or not (--runnable=false turns it off)")
+	cmd.Flags().IntVar(&priority, "priority", 0, "automation: new order among the edges leaving one node; lower goes first")
+	cmd.Flags().StringVar(&condition, "condition", "", "automation: new JSONLogic condition (null removes it)")
+	cmd.Flags().StringVar(&data, "data", "", "new JSON value to store on the edge (null removes it)")
 	return cmd
 }

@@ -493,7 +493,9 @@ Conventions:
   <node> --name <rel>` creates one (plus optional `--loc`/`--description`/
   `--runnable`); `edge update`/`edge rm` address it by its edge ID (shown by
   `edge list` and in `node get --json`). A nameless edge prints its loc instead.
-  Cross-memory edges are allowed.
+  Cross-memory edges are allowed. `edge rm` is permanent and removes only the
+  link, never a node; `edge update --name` keeps the loc, and `--condition null`
+  / `--data null` clear those fields.
 - Destructive / bulk-write commands (`memory rm`, `node rm`, `node merge`,
   `user merge`, `user set-roles`, `edge rm`, `app uninstall`, a real `replace` /
   `spec replace`, `memory link-user`, `memory config rule rm`, `memory config template rm`,

@@ -130,15 +130,24 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 		Use:     "list <node-urn> | <loc> -m <memory>",
 		Aliases: []string{"ls"},
 		Short:   "List a node's edges (both directions)",
-		Long: `List a node's edges, outgoing and incoming.
+		Long: `List a node's edges: the links it makes (outgoing) and the links other
+nodes make to it (incoming). Name the node by its node URN, or by a bare loc
+with -m/--memory.
+
+Each row shows the direction (→ outgoing, ← incoming), the relationship name
+(the edge's loc when it has none), the node at the other end, and the edge id
+that edge update and edge rm take:
+
+  DIR  REL        NODE               EDGE-ID
+  ←    routes-to  findings:flaky-ci  <edge-id>
+
+A node at the other end that lives in a memory you cannot read is shown
+without its loc.
 
 Without filters every edge is listed. --direction, --name, --to and --from
-narrow that client-side; the row shape is unchanged, so a filtered --json
-run is a subset of an unfiltered one.
-
---to and --from are directional: --to names a node this one points AT
-(outgoing), --from a node pointing at THIS one (incoming). Either takes the
-far endpoint's loc or its id.`,
+only narrow that list, so a filtered --json run is a subset of an unfiltered
+one. --to and --from name the node at the other end, by its loc or id: --to
+keeps the links this node makes to it, --from the links it makes to this node.`,
 		Example: `  hadron edge list hrn:node:hadronmemory.com:dev:start-here
   hadron edge list start-here -m hrn:mem:hadronmemory.com:dev
   hadron edge list review -m hrn:mem:micromentor.org:mmdata --direction incoming
@@ -209,7 +218,7 @@ far endpoint's loc or its id.`,
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve a bare <loc> against")
 	cmd.Flags().StringVar(&fl.Direction, "direction", "", `only "incoming" or only "outgoing" edges`)
-	cmd.Flags().StringVar(&fl.Name, "name", "", "only edges whose label contains this (case-insensitive)")
+	cmd.Flags().StringVar(&fl.Name, "name", "", "only edges whose relationship name contains this (case-insensitive)")
 	cmd.Flags().StringVar(&fl.To, "to", "", "only outgoing edges whose target is this loc or id")
 	cmd.Flags().StringVar(&fl.From, "from", "", "only incoming edges whose source is this loc or id")
 	return cmd
