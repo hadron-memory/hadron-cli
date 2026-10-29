@@ -3034,12 +3034,13 @@ GraphQL response envelope, `errors` included, is printed to stdout
 (indented) and the errors set the exit code. A null result with no errors
 (an unreadable or absent record, `me` signed out) is exit 0, so check
 `data`. When the server refuses with an HTTP error status (400 or above),
-nothing is printed on stdout: the status and the server's body go to
-stderr as the error (in the CLI's JSON error envelope with `--json`), and
-the exit comes from the body's `extensions.code` where it has one. A
-document the server rejects as invalid (HTTP 400, e.g. an unknown field)
-is exit 2. `hadron api` sends no App context
-(`--app` has no effect); its output is JSON with or without `--json`.
+the server's envelope is not printed, and the exit comes from the body's
+`extensions.code` where it has one. In text mode, stdout stays empty and
+the status and the server's body go to stderr. With `--json`, the CLI's
+`{"error": …}` envelope goes to stdout and stderr stays empty. A document
+the server rejects as invalid (HTTP 400, e.g. an unknown field) is exit 2.
+`hadron api` sends no App context (`--app` has no effect). A server answer
+on stdout is JSON with or without `--json`.
 `hadron api -` is for a PIPE: like `--content -`, it is **refused (exit 2)
 when stdin is an interactive terminal** (#648), whose line discipline can
 truncate a large document before the CLI reads it. Through a PTY, use

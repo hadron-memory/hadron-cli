@@ -44,9 +44,10 @@ interactive terminal, which can silently cut a long document short.
 
 When the server answers normally (HTTP 200), the output on stdout is its
 JSON response, with or without --json. When it refuses with an HTTP error
-status (400 or above), nothing is printed on stdout: the status and the
-server's message go to stderr as the error (inside the CLI's JSON error
-with --json). Read the exit code as well as the output:
+status (400 or above), the server's JSON is not printed. In text mode,
+stdout stays empty and the status and the server's message go to stderr.
+With --json, the CLI's JSON error goes to stdout and stderr stays empty.
+Read the exit code as well as the output:
   0  the server answered with no errors. A record you cannot see, or that
      does not exist, usually comes back as null with exit 0: check the data
      (signed out, 'me' is null too).
