@@ -405,7 +405,7 @@ hadron connection grant create --connection <ref> --app <ref> --scopes <s>[,...]
 hadron mcp-server list [--org <ref>] | get <id> | tools <id> | create --org <ref> --slug <s> --name <n> --url <u> [--header 'Name: value']... [--allow <tool>]... [--disabled] | update <id> [--name <n>] [--url <u>] [--header ...]... [--clear-headers] [--allow <tool>]... [--clear-allow] [--enabled|--disabled] | delete <id> --yes
 hadron ha list [--org <ref>] [--limit 1..200] [--offset N] | get <id> | ops <id>   # Home Assistant registry READS only (cli#231). list is ONE explicit page (default --limit 20, sent explicitly; the server default is 50), slug-ascending; --json is a bare array and, when more rows exist, stderr prints `showing N of TOTAL; next page: --offset M --limit L`. get/ops: null = absent OR not visible to you (one answer, exit 4; no existence proof). opAllowlist [] means EVERY op, not deny-all. runToolName/inputSchema are the provider's strings. A disabled instance's `ops` is refused by the server (HA_INSTANCE_DISABLED), message shown unchanged. The access token is write-only and never shown; no host/device is contacted. No create/update/delete yet (separately gated)
 hadron secret create --name <n> --scope user|org [--owner <ref>] --kind generic|webfetch-auth [--value-file -|@file] | list --scope user|org [--owner <ref>] | rm <id> --yes
-hadron config get | set | list
+hadron config get <key> | set <key> <value> (an empty value removes the key; server then returns to its default) | list
 hadron api <query-or-mutation>                       # raw GraphQL
 hadron version
 hadron completion <shell>
@@ -3025,13 +3025,23 @@ GraphQL against the Hadron API:
 
 ```
 hadron api 'query { me { id email } }'
-hadron api 'query($id: ID!) { memory(id: $id) { urn name } }' -F id=mem_123
+hadron api 'query($ref: ID!) { memory(ref: $ref) { urn name } }' -F ref=hrn:mem:acme.com:kb
 cat op.graphql | hadron api -
 ```
 
 `-F key=value` sets variables (values that parse as JSON are sent as
-JSON, otherwise as strings). The verbatim GraphQL response envelope
-is printed to stdout; GraphQL errors are reflected in the exit code.
+JSON, otherwise as strings). When the server answers HTTP 200, its
+GraphQL response envelope, `errors` included, is printed to stdout
+(indented) and the errors set the exit code. A null result with no errors
+(an unreadable or absent record, `me` signed out) is exit 0, so check
+`data`. When the server refuses with an HTTP error status (400 or above),
+the server's envelope is not printed, and the exit comes from the body's
+`extensions.code` where it has one. In text mode, stdout stays empty and
+the status and the server's body go to stderr. With `--json`, the CLI's
+`{"error": …}` envelope goes to stdout and stderr stays empty. A document
+the server rejects as invalid (HTTP 400, e.g. an unknown field) is exit 2.
+`hadron api` sends no App context (`--app` has no effect). A server answer
+on stdout is JSON with or without `--json`.
 `hadron api -` is for a PIPE: like `--content -`, it is **refused (exit 2)
 when stdin is an interactive terminal** (#648), whose line discipline can
 truncate a large document before the CLI reads it. Through a PTY, use
