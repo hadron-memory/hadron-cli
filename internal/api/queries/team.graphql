@@ -1402,3 +1402,31 @@ query TeamComposition($appRef: ID!) {
     }
   }
 }
+
+# cli#1181: `team health check`, a read-only monitor. Only the fields its DARK
+# rule reads: role, last activity, the own pause, and the server's check
+# status (whose PENDING reasons are the skip reasons).
+query TeamHealthRoster($appRef: ID!) {
+  teamRoster(appRef: $appRef) {
+    appId
+    asOf
+    workers {
+      worker {
+        ...AgentTaskPartyFields
+      }
+      role
+      liveSession
+      lastActiveAt
+      pausedUntil
+      checkStatus { ...ChannelCheckFields }
+    }
+  }
+}
+
+# cli#1181: the team pause, which skips every key worker with or without a session.
+query TeamHealthApp($ref: ID!) {
+  app(ref: $ref) {
+    id
+    teamPausedAt
+  }
+}

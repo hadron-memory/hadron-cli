@@ -47,6 +47,12 @@ const (
 	// server refuses it with the same code, but the next action is a different
 	// credential, not anyone's permission.
 	Forbidden = 8
+	// HealthDark (cli#1181) is `team health check`'s alarm: a key worker did
+	// not react to its latest tick, or there is no key worker to watch. It is
+	// command-specific, like `team chat check`'s 9 (an empty tagged range) —
+	// the number is shared, the meaning is the command's — and fail-closed:
+	// a scheduler treats any non-zero exit as the alarm.
+	HealthDark = 9
 )
 
 // CodedError carries an exit code alongside an error. The root

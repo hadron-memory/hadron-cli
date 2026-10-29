@@ -50453,6 +50453,275 @@ func (v *TeamDeliverySettingsSetSetAppDeliverySettings) __premarshalJSON() (*__p
 	return &retval, nil
 }
 
+// TeamHealthAppApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type TeamHealthAppApp struct {
+	Id string `json:"id"`
+	// #2138: when the whole team was paused (setTeamPause), or null. Separate from every worker's own pause.
+	TeamPausedAt *string `json:"teamPausedAt"`
+}
+
+// GetId returns TeamHealthAppApp.Id, and is useful for accessing the field via an interface.
+func (v *TeamHealthAppApp) GetId() string { return v.Id }
+
+// GetTeamPausedAt returns TeamHealthAppApp.TeamPausedAt, and is useful for accessing the field via an interface.
+func (v *TeamHealthAppApp) GetTeamPausedAt() *string { return v.TeamPausedAt }
+
+// TeamHealthAppResponse is returned by TeamHealthApp on success.
+type TeamHealthAppResponse struct {
+	// Fetch an App (member of the App's org, or platform ADMIN — the myApps
+	// exposure bar; #473 relaxed this from org ADMIN for read parity with the
+	// list).
+	//
+	// 'ref' accepts the entity's ID or URN.
+	App *TeamHealthAppApp `json:"app"`
+}
+
+// GetApp returns TeamHealthAppResponse.App, and is useful for accessing the field via an interface.
+func (v *TeamHealthAppResponse) GetApp() *TeamHealthAppApp { return v.App }
+
+// TeamHealthRosterResponse is returned by TeamHealthRoster on success.
+type TeamHealthRosterResponse struct {
+	// #1707 — every worker's derived state in an App (plan design:agent-tasks
+	// §7.4), computed server-side so the CLI and portal render one answer. Plan-
+	// derived, not a spec (hrn:node:hadronmemory.com:specs:cor:agt:050 leaves the roster out of scope). Readers:
+	// the App's task audience (hrn:node:hadronmemory.com:specs:cor:agt:050:21). Retired workers are left out.
+	TeamRoster *TeamHealthRosterTeamRoster `json:"teamRoster"`
+}
+
+// GetTeamRoster returns TeamHealthRosterResponse.TeamRoster, and is useful for accessing the field via an interface.
+func (v *TeamHealthRosterResponse) GetTeamRoster() *TeamHealthRosterTeamRoster { return v.TeamRoster }
+
+// TeamHealthRosterTeamRoster includes the requested fields of the GraphQL type TeamRoster.
+// The GraphQL type's documentation follows.
+//
+// #1707 — the team roster of one App.
+type TeamHealthRosterTeamRoster struct {
+	AppId   string                                              `json:"appId"`
+	AsOf    string                                              `json:"asOf"`
+	Workers []*TeamHealthRosterTeamRosterWorkersTeamRosterEntry `json:"workers"`
+}
+
+// GetAppId returns TeamHealthRosterTeamRoster.AppId, and is useful for accessing the field via an interface.
+func (v *TeamHealthRosterTeamRoster) GetAppId() string { return v.AppId }
+
+// GetAsOf returns TeamHealthRosterTeamRoster.AsOf, and is useful for accessing the field via an interface.
+func (v *TeamHealthRosterTeamRoster) GetAsOf() string { return v.AsOf }
+
+// GetWorkers returns TeamHealthRosterTeamRoster.Workers, and is useful for accessing the field via an interface.
+func (v *TeamHealthRosterTeamRoster) GetWorkers() []*TeamHealthRosterTeamRosterWorkersTeamRosterEntry {
+	return v.Workers
+}
+
+// TeamHealthRosterTeamRosterWorkersTeamRosterEntry includes the requested fields of the GraphQL type TeamRosterEntry.
+// The GraphQL type's documentation follows.
+//
+// #1707 — one worker on the team roster.
+type TeamHealthRosterTeamRosterWorkersTeamRosterEntry struct {
+	Worker *TeamHealthRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty `json:"worker"`
+	Role   *string                                                               `json:"role"`
+	// Has a live session (hrn:node:hadronmemory.com:specs:cor:agt:020:11). The matcher assigns to a BOUND worker only while it has one and has reported a family; an unbound worker is matched when a live host can launch it.
+	LiveSession  bool    `json:"liveSession"`
+	LastActiveAt *string `json:"lastActiveAt"`
+	// The worker's own stored pause timestamp, including expired history; use checkStatus for current pause state. Separate from team pause and availability.
+	PausedUntil *string `json:"pausedUntil"`
+	// #2138 §3.4 (experimental) — whether it is checking its team channel as expected.
+	CheckStatus *TeamHealthRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus `json:"checkStatus"`
+}
+
+// GetWorker returns TeamHealthRosterTeamRosterWorkersTeamRosterEntry.Worker, and is useful for accessing the field via an interface.
+func (v *TeamHealthRosterTeamRosterWorkersTeamRosterEntry) GetWorker() *TeamHealthRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty {
+	return v.Worker
+}
+
+// GetRole returns TeamHealthRosterTeamRosterWorkersTeamRosterEntry.Role, and is useful for accessing the field via an interface.
+func (v *TeamHealthRosterTeamRosterWorkersTeamRosterEntry) GetRole() *string { return v.Role }
+
+// GetLiveSession returns TeamHealthRosterTeamRosterWorkersTeamRosterEntry.LiveSession, and is useful for accessing the field via an interface.
+func (v *TeamHealthRosterTeamRosterWorkersTeamRosterEntry) GetLiveSession() bool {
+	return v.LiveSession
+}
+
+// GetLastActiveAt returns TeamHealthRosterTeamRosterWorkersTeamRosterEntry.LastActiveAt, and is useful for accessing the field via an interface.
+func (v *TeamHealthRosterTeamRosterWorkersTeamRosterEntry) GetLastActiveAt() *string {
+	return v.LastActiveAt
+}
+
+// GetPausedUntil returns TeamHealthRosterTeamRosterWorkersTeamRosterEntry.PausedUntil, and is useful for accessing the field via an interface.
+func (v *TeamHealthRosterTeamRosterWorkersTeamRosterEntry) GetPausedUntil() *string {
+	return v.PausedUntil
+}
+
+// GetCheckStatus returns TeamHealthRosterTeamRosterWorkersTeamRosterEntry.CheckStatus, and is useful for accessing the field via an interface.
+func (v *TeamHealthRosterTeamRosterWorkersTeamRosterEntry) GetCheckStatus() *TeamHealthRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus {
+	return v.CheckStatus
+}
+
+// TeamHealthRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus includes the requested fields of the GraphQL type WorkerCheckStatus.
+// The GraphQL type's documentation follows.
+//
+// #2138 §3.4 — a worker's check status. A worker HAS A TASK when an open task is
+// assigned to it or its Agent has usesTasks: false. The OVERDUE clock runs from
+// the latest of lastCheckedAt, its newest open assignment, its live session's
+// start and the end of its own pause.
+type TeamHealthRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus struct {
+	ChannelCheckFields `json:"-"`
+}
+
+// GetStatus returns TeamHealthRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus.Status, and is useful for accessing the field via an interface.
+func (v *TeamHealthRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus) GetStatus() WorkerCheckState {
+	return v.ChannelCheckFields.Status
+}
+
+// GetPendingReason returns TeamHealthRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus.PendingReason, and is useful for accessing the field via an interface.
+func (v *TeamHealthRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus) GetPendingReason() *WorkerPendingReason {
+	return v.ChannelCheckFields.PendingReason
+}
+
+// GetLastCheckedAt returns TeamHealthRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus.LastCheckedAt, and is useful for accessing the field via an interface.
+func (v *TeamHealthRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus) GetLastCheckedAt() *string {
+	return v.ChannelCheckFields.LastCheckedAt
+}
+
+func (v *TeamHealthRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamHealthRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamHealthRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ChannelCheckFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamHealthRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus struct {
+	Status WorkerCheckState `json:"status"`
+
+	PendingReason *WorkerPendingReason `json:"pendingReason"`
+
+	LastCheckedAt *string `json:"lastCheckedAt"`
+}
+
+func (v *TeamHealthRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamHealthRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus) __premarshalJSON() (*__premarshalTeamHealthRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus, error) {
+	var retval __premarshalTeamHealthRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus
+
+	retval.Status = v.ChannelCheckFields.Status
+	retval.PendingReason = v.ChannelCheckFields.PendingReason
+	retval.LastCheckedAt = v.ChannelCheckFields.LastCheckedAt
+	return &retval, nil
+}
+
+// TeamHealthRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty includes the requested fields of the GraphQL type AgentTaskParty.
+// The GraphQL type's documentation follows.
+//
+// A task's owner, assignee or audit actor, as a sanitized projection: the
+// Worker's name and URN, or the person's handle. Never the User object, so a
+// task never exposes another person's account fields.
+type TeamHealthRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty struct {
+	AgentTaskPartyFields `json:"-"`
+}
+
+// GetId returns TeamHealthRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty.Id, and is useful for accessing the field via an interface.
+func (v *TeamHealthRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty) GetId() string {
+	return v.AgentTaskPartyFields.Id
+}
+
+// GetKind returns TeamHealthRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty.Kind, and is useful for accessing the field via an interface.
+func (v *TeamHealthRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty) GetKind() AgentTaskPartyKind {
+	return v.AgentTaskPartyFields.Kind
+}
+
+// GetName returns TeamHealthRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty.Name, and is useful for accessing the field via an interface.
+func (v *TeamHealthRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty) GetName() *string {
+	return v.AgentTaskPartyFields.Name
+}
+
+// GetUrn returns TeamHealthRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty.Urn, and is useful for accessing the field via an interface.
+func (v *TeamHealthRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty) GetUrn() *string {
+	return v.AgentTaskPartyFields.Urn
+}
+
+func (v *TeamHealthRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamHealthRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamHealthRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskPartyFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamHealthRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty struct {
+	Id string `json:"id"`
+
+	Kind AgentTaskPartyKind `json:"kind"`
+
+	Name *string `json:"name"`
+
+	Urn *string `json:"urn"`
+}
+
+func (v *TeamHealthRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamHealthRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty) __premarshalJSON() (*__premarshalTeamHealthRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty, error) {
+	var retval __premarshalTeamHealthRosterTeamRosterWorkersTeamRosterEntryWorkerAgentTaskParty
+
+	retval.Id = v.AgentTaskPartyFields.Id
+	retval.Kind = v.AgentTaskPartyFields.Kind
+	retval.Name = v.AgentTaskPartyFields.Name
+	retval.Urn = v.AgentTaskPartyFields.Urn
+	return &retval, nil
+}
+
 // TeamMemoryAppMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
 //
@@ -67070,6 +67339,22 @@ func (v *__TeamDeliverySettingsSetInput) GetAppRef() string { return v.AppRef }
 
 // GetInput returns __TeamDeliverySettingsSetInput.Input, and is useful for accessing the field via an interface.
 func (v *__TeamDeliverySettingsSetInput) GetInput() *AppDeliverySettingsInput { return v.Input }
+
+// __TeamHealthAppInput is used internally by genqlient
+type __TeamHealthAppInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __TeamHealthAppInput.Ref, and is useful for accessing the field via an interface.
+func (v *__TeamHealthAppInput) GetRef() string { return v.Ref }
+
+// __TeamHealthRosterInput is used internally by genqlient
+type __TeamHealthRosterInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __TeamHealthRosterInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamHealthRosterInput) GetAppRef() string { return v.AppRef }
 
 // __TeamMemoryAppInput is used internally by genqlient
 type __TeamMemoryAppInput struct {
@@ -86488,6 +86773,103 @@ func TeamDeliverySettingsSet(
 	}
 
 	data_ = &TeamDeliverySettingsSetResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamHealthApp.
+const TeamHealthApp_Operation = `
+query TeamHealthApp ($ref: ID!) {
+	app(ref: $ref) {
+		id
+		teamPausedAt
+	}
+}
+`
+
+// cli#1181: the team pause, which skips every key worker with or without a session.
+func TeamHealthApp(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *TeamHealthAppResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamHealthApp",
+		Query:  TeamHealthApp_Operation,
+		Variables: &__TeamHealthAppInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &TeamHealthAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamHealthRoster.
+const TeamHealthRoster_Operation = `
+query TeamHealthRoster ($appRef: ID!) {
+	teamRoster(appRef: $appRef) {
+		appId
+		asOf
+		workers {
+			worker {
+				... AgentTaskPartyFields
+			}
+			role
+			liveSession
+			lastActiveAt
+			pausedUntil
+			checkStatus {
+				... ChannelCheckFields
+			}
+		}
+	}
+}
+fragment AgentTaskPartyFields on AgentTaskParty {
+	id
+	kind
+	name
+	urn
+}
+fragment ChannelCheckFields on WorkerCheckStatus {
+	status
+	pendingReason
+	lastCheckedAt
+}
+`
+
+// cli#1181: `team health check`, a read-only monitor. Only the fields its DARK
+// rule reads: role, last activity, the own pause, and the server's check
+// status (whose PENDING reasons are the skip reasons).
+func TeamHealthRoster(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *TeamHealthRosterResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamHealthRoster",
+		Query:  TeamHealthRoster_Operation,
+		Variables: &__TeamHealthRosterInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &TeamHealthRosterResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
