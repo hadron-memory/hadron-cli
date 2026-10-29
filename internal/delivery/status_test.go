@@ -178,3 +178,36 @@ func TestStatusBookKeepsAHoldRunAcrossARestart(t *testing.T) {
 		t.Fatalf("a corrupt snapshot starts empty: %+v %v", st, err)
 	}
 }
+
+// cli#1197 (Gaby's carry on #1179): a snapshot that parses with workers null
+// or absent restores an empty book, and the first Observe writes to it
+// rather than to a nil map.
+func TestStatusBookRestoresNullOrAbsentWorkers(t *testing.T) {
+	at := time.Date(2026, 10, 29, 1, 0, 0, 0, time.UTC)
+	for name, body := range map[string]string{
+		"null":   `{"version":1,"workers":null}`,
+		"absent": `{"version":1}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			if err := os.MkdirAll(filepath.Join(dir, "delivery"), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(dir, "delivery", "status.json"), []byte(body), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			b := NewStatusBook(dir)
+			b.Observe(Event{Time: at, Worker: "iris", WorkerID: "wkr1", Kind: Held, Reason: HoldDraft})
+			if err := b.Step(at, StepRead); err != nil {
+				t.Fatal(err)
+			}
+			st, err := ReadStatus(dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if w := st.Workers["wkr1"]; len(st.Workers) != 1 || w.HeldSince == nil || !w.HeldSince.Equal(at) {
+				t.Fatalf("restored book records the hold: %+v", st.Workers)
+			}
+		})
+	}
+}

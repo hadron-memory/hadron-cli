@@ -109,7 +109,15 @@ is older than 30 minutes, the row reads `HELD OVER 30m: no delivery since
 | `screen-unknown` | The screen proves neither an empty composer nor the expected agent (a dialog, another interface, a disconnected or read-only terminal). | Fix the terminal. |
 | `two-agents` | More than one agent terminal is in the worker's worktrees. | Close the extra one. |
 | `binding-mismatch` | The worktree's session binding names another worker. | Rebind the right worker there. |
-| `timing-unavailable` | A wake came without the server's timing (`deliverAfter`, or `busyDeadline` for a busy agent). | Server-side. The wake stays due. |
+| `timing-unavailable` | A wake's timing parsed as zero (`deliverAfter`, or `busyDeadline` for a busy agent). | Server-side. The wake stays due. |
+
+A wake whose timing is missing or unparseable is not a worker hold. Both
+fields are required, so the poller refuses the host's whole wake read and
+types no wake that pass, for any worker. `team host status` shows
+`wakes: read-failed` (JSON `wakeRead: "read-failed"`), not a worker row.
+The run log's `delivery-failed` line names the code: `reading wakes
+failed: bad-deliver-after` (or `bad-busy-deadline`). Report it to the
+server owner.
 
 A refused or unconfirmed send leaves no record that holds the worker's later
 wakes or chat. Each pass judges the terminal afresh. So a run that keeps

@@ -280,10 +280,14 @@ adds the GraphQL adapter (`internal/cmd/team/host_wakes.go`) and wires it in
 - **The terminal path** is the batch's (`typeLine`): the same lock, recipient,
   R2 composer, liveness, send and confirmation. There are two differences.
   - A wake's hold is logged and shown in status, never reported to S5.
-  - Timing is the server's alone (Xylon, team chat #21827). With no
+  - Timing is the server's alone (Xylon, team chat #21827). With a zero
     `deliverAfter`, the wake holds as `timing-unavailable`, even for an idle
-    agent. With no `busyDeadline`, a busy or unproven agent holds the same
-    way. A proven-idle, empty composer past `deliverAfter` needs no deadline.
+    agent. With a zero `busyDeadline`, a busy or unproven agent holds the
+    same way. A proven-idle, empty composer past `deliverAfter` needs no
+    deadline. Both fields are `DateTime!`: a missing or unparseable one
+    never reaches the deliverer. The adapter refuses the host's whole wake
+    read (`bad-deliver-after` or `bad-busy-deadline`), like any other
+    broken page (cli#1197).
 - **Records** (`delivery/wakes/<worker>/`, 0600) hold one file per reason
   key: `tick:<tickerId>:<lastTickAt>` or `task:<eventId>:<chainIndex>`. Each
   file is in one of two states.
