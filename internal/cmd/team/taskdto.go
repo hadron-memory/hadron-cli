@@ -371,18 +371,29 @@ func mapTaskError(err error) error {
 	if mapped == nil {
 		return nil
 	}
-	var coded *exitcode.CodedError
-	if errors.As(mapped, &coded) {
-		mapped = &exitcode.CodedError{Code: coded.Code, Err: safeTaskError{coded.Err}}
-	} else {
-		mapped = safeTaskError{mapped}
-	}
-	for _, code := range []string{"TASK_BLOCKED", "TASK_BLOCKER_CYCLE", "TASK_NOT_FOUND", "TASK_NOT_OWNER", "TASK_INVALID_TRANSITION", "BAD_USER_INPUT"} {
+	// The prefix goes INSIDE the terminal-safe wrapper: the root renderer
+	// prints the innermost HumanMessage, so a prefix added outside it would
+	// show in --json and vanish on the terminal. The codes are constants, never
+	// server text.
+	prefix := ""
+	for _, code := range []string{"TASK_BLOCKED", "TASK_BLOCKER_CYCLE", "TASK_NOT_FOUND", "TASK_NOT_OWNER", "TASK_INVALID_TRANSITION", "TASK_HANDLE_QUALIFY", "BAD_USER_INPUT"} {
 		if api.HasErrorCode(err, code) {
-			return fmt.Errorf("%s: %w", code, mapped)
+			prefix = code
+			break
 		}
 	}
-	return mapped
+	var coded *exitcode.CodedError
+	if errors.As(mapped, &coded) {
+		inner := coded.Err
+		if prefix != "" {
+			inner = fmt.Errorf("%s: %w", prefix, inner)
+		}
+		return &exitcode.CodedError{Code: coded.Code, Err: safeTaskError{inner}}
+	}
+	if prefix != "" {
+		mapped = fmt.Errorf("%s: %w", prefix, mapped)
+	}
+	return safeTaskError{mapped}
 }
 
 // handleHeaders and handleCells add the HANDLE column only when at least one

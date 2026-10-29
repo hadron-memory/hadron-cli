@@ -329,6 +329,10 @@ func TestTeamTaskQualifyRefusalIsSafeAtTheRealSink1131(t *testing.T) {
 	if strings.Count(got, "\n") != 1 {
 		t.Fatalf("refusal must be one line: %q", got)
 	}
+	// The public code survives at the terminal sink, not only in --json.
+	if !strings.Contains(got, "TASK_HANDLE_QUALIFY") {
+		t.Fatalf("code dropped at the terminal: %q", got)
+	}
 }
 
 // --json keeps the raw refusal text in the envelope (stdout), unsanitised.
@@ -357,6 +361,9 @@ func TestTeamTaskQualifyRefusalJSONStaysRaw1131(t *testing.T) {
 	}
 	if !strings.Contains(env.Error.Message, "\x1b[31m") || len([]rune(env.Error.Message)) < 1500 {
 		t.Fatalf("json message was altered: %d runes", len([]rune(env.Error.Message)))
+	}
+	if !strings.Contains(env.Error.Message, "TASK_HANDLE_QUALIFY") {
+		t.Fatalf("code missing from the json message: %q", env.Error.Message[:40])
 	}
 }
 
