@@ -45,8 +45,8 @@ JSON object.
 
 The file is rendered by the server (one renderer shared with the portal and
 every other API client), so the bytes are identical everywhere; it round-trips
-back through ` + "`hadron node import`" + `. Requires a server that supports
-server-side export (hadron-server #386).
+back through ` + "`hadron node import`" + `. An older server without export
+support is refused with a message saying so.
 
 --format pdf renders a PDF server-side (the same renderer the portal's
 "Download → PDF" uses). It's binary, so it must go to a file: pass -o <file>

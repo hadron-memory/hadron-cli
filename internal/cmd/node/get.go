@@ -21,68 +21,58 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <node-urn>... | <loc>... (-m <memory> | --install <app>/<agent>) | --prefix <loc>",
 		Short: "Show one or more nodes, including content and edges",
-		Long: `Show a node by its fully-qualified URN: hrn:node:<root>:<slug>:<loc>
-(e.g. hrn:node:hadronmemory.com:dev:start-here). The prefix is REQUIRED for
-this flat form — scheme-less <org>:<memory>:<loc> is ambiguous, since a loc
-carries its own single colons. The legacy scheme-less <org>::<memory>::<loc>
-(and urn:node:) remain accepted. Pass -m/--memory to name a
-node by a bare <loc> within that memory instead; without -m or --install a bare loc
-is rejected, since the same loc can exist in several memories.
+		Long: `Show a node: its name, content, data and edges. Name it by its URN, or by its
+loc (its path inside a memory, such as findings:flaky-ci) together with -m:
 
---install <app>/<agent> selects an App's customisation memory instead of
---memory. Both refs must be ids or fully-qualified URNs, separated by /.
-This excludes --memory (even an empty value). Reads create nothing; an
-unavailable memory is exit 4, not an unscoped read. Only an App manager may
-write while the App is live and the Agent installed. Metadata visibility
-does not confer permission to read content or write. Get/update take bare locs inside that memory, not separate node ids or URNs.
+  hadron node get findings:flaky-ci -m hrn:mem:acme.com:kb
 
-Pass SEVERAL refs to read them together. They are sent as one batched read —
-the server takes a URN as happily as an id, so nothing is resolved first — and a
-ref that is missing or unreadable is reported under "unavailable" rather than
-failing the whole read. Up to 200 nodes that is a single content request; beyond the
-server's cap the set is split into as few requests as the cap allows.
+A node URN is hrn:node:<root>:<memory>:<loc>. The hrn:node: prefix is required
+because a loc has colons of its own. The legacy <org>::<memory>::<loc> form is
+still accepted. A bare loc without -m (or --install) is refused, since the
+same loc can exist in several memories.
 
---prefix <loc> -m <memory> reads a whole subtree — every node whose loc starts
-with the prefix — in a SINGLE call, without naming each node. That is the way
-to pull a branch you have not enumerated, and unlike ` + "`node list`" + ` it
-returns full content and edges. An empty --prefix means the whole memory. The
-server caps the node count and fails loudly rather than truncating silently.
+To edit a node's content, read it with --body-only, edit the file, and write
+it back with node update --content-file:
 
-With one ref the output is the node object, unchanged. With several refs, or
-with --prefix, it is {nodes, unavailable}. "unavailable" names refs that are
-missing OR not readable by you — the server reports those identically — and any
-unavailable ref exits 4, so a partial read is never mistaken for a complete one.
+  hadron node get findings:flaky-ci -m hrn:mem:acme.com:kb --body-only > body.md
+  hadron node update findings:flaky-ci -m hrn:mem:acme.com:kb --content-file body.md
 
-Feedback counts are read separately as an optional advisory snapshot. The JSON
-commentSummary is null (text: unavailable) on older servers or failed reads,
-never a guessed zero. Feedback can change without advancing the target revision.
+--body-only prints the content exactly as stored and nothing else, so the
+round trip changes only what you edited. Do not save an ordinary read back
+into a node: it has filled in the content's placeholders (see Details), and
+the text form of --raw prints a header above the content.
 
-A malformed ref is a different thing and fails the whole call with exit 2, so a
-typo never hides among the denials.
+To read several nodes at once, pass several refs, or --prefix <loc> -m
+<memory> for every node whose loc starts with <loc> (an empty --prefix is the
+whole memory). Unlike node list, this returns full content and edges. The
+output is then {nodes, unavailable}.
 
-A server or transport failure is neither: it exits 1 (or 7 when the request
-never got an answer). Named because it is the code a caller is least likely to
-guess, and the one that means "this says nothing about whether the node
-exists" — #334 was filed after an intermittent 502 was read as missing data.
-Under --json the envelope explaining it is on stdout with the rest.
+Exit codes: 4 when the node is missing or you cannot read it (the server does
+not say which), and also when any ref of several is "unavailable", so a partial
+read is never mistaken for a complete one; 2 for a malformed ref, which fails
+the whole call so a typo is not mistaken for a missing node; 1 for a server or
+transport failure, or 7 when no answer arrived. Exit 1 and 7 say nothing about
+whether the node exists. With --json the error envelope is on stdout.
 
-RENDERED OR RAW (#736). A single-ref read COMPILES the node's Mustache
-templates by default: every {{…}} placeholder is replaced by its value against
-the node's data, or by nothing when there is none. --raw returns the STORED
-body instead, placeholders intact. Batch and --prefix reads are always raw —
-the batch is a bulk SOURCE read for lint/audit/migration, and compiling per
-node would reintroduce the N+1 it removes — so --raw changes nothing there.
---json says which you hold: "rendered" is true only for a compiled body.
+Details:
 
-TO EDIT A NODE'S CONTENT, READ IT WITH --body-only (#873). It prints the STORED
-body and nothing else, byte for byte — no header, no trailing newline added
-when piped — so ` + "`node get <ref> --body-only > body.md`" + `, an edit, and
-` + "`node update <ref> --content-file body.md`" + ` round-trip exactly. Two other reads
-corrupt a body written back from them: a rendered read (no --raw) has already
-compiled away every {{…}} placeholder and {{=…=}} delimiter change, and the
-text-mode --raw read prints a metadata header above the body, which would be
-saved INTO it. --body-only implies --raw and takes one ref; with --json it is
-{id, urn, loc, content, rendered: false}.`,
+Rendered or raw. A node's content can hold template placeholders, written
+{{name}}, that are filled in from the node's data when it is read. A
+one-node read fills them in by default (a placeholder with no value becomes
+empty); --raw shows the content as stored, placeholders intact. Reads of
+several nodes or of a --prefix are always raw. In --json, "rendered" is true
+only when placeholders were filled in. With --json, --body-only prints
+{id, urn, loc, content, rendered: false}.
+
+Several nodes go in one request up to 200; a larger set is split into as few
+requests as the server allows. --prefix fails, rather than truncating, past the
+server's cap on nodes.
+
+Feedback counts (commentSummary in --json) come from a separate read: they are
+null (text: unavailable) when that read fails or the server is older, never a
+guessed zero.
+
+` + installDetails("") + ``,
 		Example: `  hadron node get hrn:node:hadronmemory.com:dev:start-here
   hadron node get start-here -m hrn:mem:hadronmemory.com:dev --json
   hadron node get start-here preflight instructions -m hrn:mem:hadronmemory.com:dev --json

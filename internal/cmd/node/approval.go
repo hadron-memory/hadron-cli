@@ -117,11 +117,13 @@ func newCmdApprove(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "approve <node-ref>",
 		Short: "Approve a node's current revision",
-		Long: `Record approval of the node's current revision. The server records the
-approver, time and full SHA-256 of the title, abstract and content. A later
-change to the title, abstract or content supersedes the approval; a
-metadata-only revision (tags, properties, role, description, alias, loc, edges)
-leaves it valid.
+		Long: `Record that you approved the node's current version: that you reviewed this
+exact text and accept it. node verify later checks whether the content still
+matches what was approved, and node mint (spec memories) needs it. The server
+records the approver, the time and a hash (SHA-256) of the title, abstract
+and content. A later change to the title, abstract or content supersedes the
+approval; a metadata-only change (tags, properties, role, description,
+alias, loc, edges) leaves it valid.
 
 Pass --revision from a prior node read to refuse if the node changed since
 you saw it. Without that flag, the server approves the revision current when
@@ -174,8 +176,9 @@ func newCmdVerify(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "verify <node-ref>",
 		Short: "Check a node's current content against its recorded approval",
-		Long: `Recompute the server's approval hash over the current title, abstract
-and content. INTACT means the approval still covers the current text, even when
+		Long: `Check whether a node's approval (recorded by node approve) still covers its
+current text. It recomputes the server's approval hash over the current title,
+abstract and content. INTACT means the approval still covers the current text, even when
 it was recorded at an older revision (a metadata-only revision keeps it).
 TAMPERED means approved content changed outside revisioned editing;
 SUPERSEDED means a legitimate edit changed the title, abstract or content
