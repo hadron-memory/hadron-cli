@@ -107,6 +107,7 @@ section between the markers.
 | `node clone` |  |  | y | #1051 |  | unread |  |
 | `node create` | add |  | y | #1051 |  | unread |  |
 | `node delete` | rm |  | y | #1051 |  | unread |  |
+| `node edge-removals` |  |  | y | #1051 |  | unread |  |
 | `node export` |  |  | y | #1051 |  | unread |  |
 | `node get` |  |  | y | #1051 |  | unread |  |
 | `node import` |  |  | y | #1051 |  | unread |  |
