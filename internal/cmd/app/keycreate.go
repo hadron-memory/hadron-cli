@@ -115,15 +115,24 @@ App key, an impersonated session and a bound worker's session (exit 8).`,
 			}
 			resp, err := gen.CreateAppKey(cmd.Context(), client, ref, labelArg)
 			if err != nil {
-				pending.Abort()
+				if aerr := pending.Abort(); aerr != nil {
+					return leftBehind(aerr, "the key request failed")
+				}
 				return createFailure(err, ref, label)
 			}
 			if resp == nil || resp.CreateAppKey == nil || resp.CreateAppKey.Key == nil || resp.CreateAppKey.RawKey == "" {
-				pending.Abort()
+				if aerr := pending.Abort(); aerr != nil {
+					return leftBehind(aerr, "the server returned no key")
+				}
 				return exitcode.Newf(exitcode.Error, "the server returned no key; run `hadron app key list %s` and revoke any unexpected key labelled %s", ref, labelOrDefault(label))
 			}
 			created := resp.CreateAppKey
 			if err := pending.Commit([]byte(created.RawKey + "\n")); err != nil {
+				var lb *secretfile.LeftBehindError
+				if errors.As(err, &lb) {
+					return exitcode.Newf(exitcode.Error, "could not write the key file, and %v; key %s (%s) exists and its value may be partly on disk: revoke it (%s)",
+						err, created.Key.Id, created.Key.KeyPreview, revokeRoute)
+				}
 				return exitcode.Newf(exitcode.Error, "%v after the key was minted: key %s (%s) exists and its value is lost; revoke it (%s)",
 					err, created.Key.Id, created.Key.KeyPreview, revokeRoute)
 			}
@@ -168,4 +177,9 @@ func createFailure(err error, ref, label string) error {
 			labelOrDefault(label), ref, revokeRoute, cause)
 	}
 	return exitcode.Newf(code, "%s", cause)
+}
+
+// leftBehind reports a cleanup that could not remove the reserved key file.
+func leftBehind(err error, why string) error {
+	return exitcode.Newf(exitcode.Error, "%s, and %v", why, err)
 }

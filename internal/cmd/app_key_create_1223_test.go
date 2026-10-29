@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -28,15 +29,33 @@ const createdKey1223 = `{"data":{"createAppKey":{"rawKey":"` + rawKey1223 + `","
 // keyServer counts createAppKey requests and answers with the given status/body.
 func keyServer(t *testing.T, status int, body string) (*httptest.Server, *atomic.Int32) {
 	t.Helper()
+	srv, n, _ := keyServerCapture(t, status, body)
+	return srv, n
+}
+
+// keyServerCapture also returns the decoded request bodies it received.
+func keyServerCapture(t *testing.T, status int, body string) (*httptest.Server, *atomic.Int32, func() []map[string]any) {
+	t.Helper()
 	var n atomic.Int32
+	var mu sync.Mutex
+	var reqs []map[string]any
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		n.Add(1)
+		var req map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		mu.Lock()
+		reqs = append(reqs, req)
+		mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(status)
 		_, _ = w.Write([]byte(body))
 	}))
 	t.Cleanup(srv.Close)
-	return srv, &n
+	return srv, &n, func() []map[string]any {
+		mu.Lock()
+		defer mu.Unlock()
+		return append([]map[string]any(nil), reqs...)
+	}
 }
 
 type keyRun struct {
@@ -388,4 +407,80 @@ func TestAppKeyCreateHelpNamesScopeGrantFollowOn(t *testing.T) {
 	if !strings.Contains(out.String(), "app key scope grant") {
 		t.Errorf("help must name the scope grant follow-on:\n%s", out.String())
 	}
+}
+
+func TestAppKeyCreateSendsTheMutationWithAppRefAndLabelOnly(t *testing.T) {
+	for name, tc := range map[string]struct {
+		args      []string
+		wantLabel any
+	}{
+		"label":    {[]string{"--label", "orca1 poller"}, "orca1 poller"},
+		"no label": {nil, nil},
+	} {
+		t.Run(name, func(t *testing.T) {
+			srv, _, reqs := keyServerCapture(t, 200, createdKey1223)
+			out := filepath.Join(t.TempDir(), "host.key")
+			r := runKeyCreate(t, srv, append([]string{app1223, "--out", out}, tc.args...)...)
+			if r.err != nil {
+				t.Fatalf("execute: %v", r.err)
+			}
+			got := reqs()
+			if len(got) != 1 {
+				t.Fatalf("requests = %d, want 1", len(got))
+			}
+			if op, _ := got[0]["operationName"].(string); op != "CreateAppKey" {
+				t.Errorf("operationName = %q", op)
+			}
+			vars, _ := got[0]["variables"].(map[string]any)
+			if vars["appRef"] != app1223 {
+				t.Errorf("appRef = %v, want %s", vars["appRef"], app1223)
+			}
+			label, hasLabel := vars["label"]
+			if (tc.wantLabel == nil) == hasLabel || (hasLabel && label != tc.wantLabel) {
+				t.Errorf("label = %v (present %v), want %v", label, hasLabel, tc.wantLabel)
+			}
+			for k := range vars {
+				if k != "appRef" && k != "label" {
+					t.Errorf("unexpected variable %q", k)
+				}
+			}
+			if strings.Contains(strings.ToLower(string(mustJSON(t, got[0]))), "session") {
+				t.Errorf("request carries a session field: %v", got[0])
+			}
+		})
+	}
+}
+
+func mustJSON(t *testing.T, v any) []byte {
+	t.Helper()
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
+func TestAppKeyCreateReportsAFileItCouldNotRemove(t *testing.T) {
+	srv, _ := keyServer(t, 200, createdKey1223)
+	oldW, oldR := secretfile.Write, secretfile.Remove
+	secretfile.Write = func(f *os.File, b []byte) error { _, _ = f.Write(b[:4]); return errors.New("injected partial write") }
+	secretfile.Remove = func(string) error { return errors.New("injected remove failure") }
+	defer func() { secretfile.Write, secretfile.Remove = oldW, oldR }()
+	dir := t.TempDir()
+	out := filepath.Join(dir, "host.key")
+	r := runKeyCreate(t, srv, app1223, "--out", out)
+	if r.err == nil || exitCodeFor(r.err) == 0 {
+		t.Fatalf("must fail, got %v", r.err)
+	}
+	ents, _ := os.ReadDir(dir)
+	if len(ents) != 1 {
+		t.Fatalf("expected the undeleted file to remain, got %v", ents)
+	}
+	left := filepath.Join(dir, ents[0].Name())
+	for _, want := range []string{left, "delete it yourself", "key_1", "revoke"} {
+		if !strings.Contains(r.all(), want) {
+			t.Errorf("message missing %q: %q", want, r.all())
+		}
+	}
+	assertNoRawKey(t, r)
 }

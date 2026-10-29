@@ -1,6 +1,6 @@
 // Package secretfile creates a file that is going to hold a secret, so that
-// the file is never wider than 0600 and never reached through a symlink
-// (cli#1223). The destination is opened BEFORE the secret exists, and the
+// the file is never wider than 0600 and never reached through a symlink as its
+// final component (cli#1223). The destination is opened BEFORE the secret exists, and the
 // caller commits or aborts afterwards.
 package secretfile
 
@@ -14,10 +14,12 @@ import (
 	"syscall"
 )
 
-// Rename and Write are seams so a test can force the two late failures (the
-// ones that happen after the secret was minted); production never changes them.
+// Rename, Write and Remove are seams so a test can force the late failures
+// (the ones that happen after the secret was minted); production never changes
+// them.
 var (
 	Rename = os.Rename
+	Remove = os.Remove
 	Write  = func(f *os.File, b []byte) error { _, err := f.Write(b); return err }
 )
 
@@ -29,6 +31,27 @@ var ErrExists = errors.New("path already exists")
 // replaces.
 var ErrIsDir = errors.New("path is a directory")
 
+// LeftBehindError reports that cleanup could not remove the file Open created,
+// so it may still hold part or all of the secret. Path is the file to delete.
+type LeftBehindError struct {
+	Path string
+	Err  error
+}
+
+func (e *LeftBehindError) Error() string {
+	return fmt.Sprintf("could not remove %s, which may hold key material; delete it yourself", e.Path)
+}
+
+func (e *LeftBehindError) Unwrap() error { return e.Err }
+
+// remove deletes the file Open created; an already-missing file is success.
+func (p *Pending) remove() error {
+	if err := Remove(p.path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return &LeftBehindError{Path: p.path, Err: err}
+	}
+	return nil
+}
+
 // Pending is an opened, still empty destination.
 type Pending struct {
 	final string // the path the caller asked for
@@ -39,7 +62,8 @@ type Pending struct {
 
 // Open creates the destination: O_CREAT|O_EXCL|O_NOFOLLOW at 0600 on the path
 // itself, or — with force — on a fresh temp file in the same directory, which
-// Commit renames over the path. Nothing is ever opened through a symlink.
+// Commit renames over the path. The final path component is never followed if it is a symlink (O_NOFOLLOW);
+// symlinked parent directories are followed like any other path.
 func Open(final string, force bool) (*Pending, error) {
 	p := &Pending{final: final, path: final, force: force}
 	flags := os.O_CREATE | os.O_EXCL | os.O_WRONLY | syscall.O_NOFOLLOW
@@ -66,17 +90,19 @@ func Open(final string, force bool) (*Pending, error) {
 
 // Abort closes and removes the file Open created. Safe to call after a failed
 // Commit and more than once. Under force an existing destination is untouched.
-func (p *Pending) Abort() {
+// A *LeftBehindError means the file could not be removed and the caller must
+// tell the user where it is.
+func (p *Pending) Abort() error {
 	if p.f != nil {
 		_ = p.f.Close()
 		p.f = nil
 	}
-	_ = os.Remove(p.path)
+	return p.remove()
 }
 
 // Commit writes the secret and, under force, renames the temp over the
-// destination. On any failure the file Open created is removed and the secret
-// is not left on disk. The error never contains the secret unless the
+// destination. On any failure the file Open created is removed; if that removal
+// fails too the error is a *LeftBehindError naming the file. The error never contains the secret unless the
 // underlying write error does, so callers must not print it raw.
 func (p *Pending) Commit(secret []byte) error {
 	if p.f == nil {
@@ -91,7 +117,9 @@ func (p *Pending) Commit(secret []byte) error {
 		err = Rename(p.path, p.final)
 	}
 	if err != nil {
-		_ = os.Remove(p.path)
+		if rerr := p.remove(); rerr != nil {
+			return rerr
+		}
 		return errors.New("could not write the key file")
 	}
 	return nil
