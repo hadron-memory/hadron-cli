@@ -24,7 +24,7 @@ func NewCmdAPI(f *cmdutil.Factory) *cobra.Command {
 		Use:   "api <query-or-mutation>",
 		Short: "Send a raw GraphQL query or mutation",
 		Long: `Send one GraphQL query or mutation to the Hadron server, as you, and print
-the server's JSON response exactly as it came back. Use this when no other
+the server's JSON response, indented. Use this when no other
 hadron command does what you need. The fields you can ask for are listed in
 the server's GraphQL schema (introspect it with a '__schema' query, or read
 schema/schema.graphql in the hadron-cli repository).
@@ -42,13 +42,20 @@ strings. An id-typed ref such as memory(ref:) takes a memory id or URN
 pipe, or use --input <file>. "-" is refused when standard input is an
 interactive terminal, which can silently cut a long document short.
 
-The output is always the JSON response, with or without --json. Success is
-exit 0. If the response carries GraphQL errors, the JSON (with its "errors")
-is still printed and the exit code is not 0: for example 3 not signed in,
-4 not found, 8 forbidden, 1 an error with no more specific code. If the server
-never answers (a gateway error, a reset, a timeout) it is exit 7; after a
-mutation that means it may or may not have been applied, so check before you
-retry. The full table is in 'hadron agentic-usage'.`,
+The output is the server's JSON response, with or without --json. Read the
+exit code as well as the JSON:
+  0  the server answered with no errors. A record you cannot see, or that
+     does not exist, usually comes back as null with exit 0: check the data
+     (signed out, 'me' is null too).
+  3, 4, 8 and others: the response carries GraphQL errors (3 not signed in,
+     4 not found or not visible to you, 8 forbidden). The JSON, with its
+     "errors", is still printed.
+  2  the document is not valid GraphQL for this server (a typo, an unknown
+     field): nothing ran, and the server's message is printed as the error.
+  7  the server never answered (unreachable, a gateway error, a timeout).
+     After a mutation that means it may or may not have been applied, so
+     check before you retry.
+The full table is in 'hadron agentic-usage'.`,
 		Example: `  # Read: who am I signed in as?
   hadron api 'query { me { id email } }'
 

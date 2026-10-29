@@ -3029,8 +3029,13 @@ cat op.graphql | hadron api -
 ```
 
 `-F key=value` sets variables (values that parse as JSON are sent as
-JSON, otherwise as strings). The verbatim GraphQL response envelope
-is printed to stdout; GraphQL errors are reflected in the exit code.
+JSON, otherwise as strings). The GraphQL response envelope is printed
+to stdout (indented); GraphQL errors are reflected in the exit code. A
+null result with no errors (an unreadable or absent record, `me` signed
+out) is exit 0, so check `data`. A document the server rejects as invalid
+(HTTP 400, e.g. an unknown field) prints nothing on stdout: the message
+goes to stderr and the exit is 2. `hadron api` sends no App context
+(`--app` has no effect); its output is JSON with or without `--json`.
 `hadron api -` is for a PIPE: like `--content -`, it is **refused (exit 2)
 when stdin is an interactive terminal** (#648), whose line discipline can
 truncate a large document before the CLI reads it. Through a PTY, use
