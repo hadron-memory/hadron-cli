@@ -161,25 +161,26 @@ func ReadPlainHTTPFault(h http.Header, r io.Reader, keep int) ([]byte, error) {
 // server_error with request_id), returns the CLI error for it. nil for
 // every other body: typed refusals and gateway pages keep their own handling.
 func PlainHTTPInternalFault(h http.Header, body []byte) error {
-	var b struct {
-		Code      any `json:"code"`
-		Error     any `json:"error"`
-		RequestID any `json:"requestId"`
-		RequestId any `json:"request_id"`
-	}
+	var b map[string]json.RawMessage
 	if json.Unmarshal(body, &b) != nil {
 		return nil
 	}
-	// Fields are any so a wrongly-typed id (a number, an object) cannot fail
-	// the decode and send a fault body down the raw-diagnostic path.
-	if b.Code != InternalServerErrorCode && b.Error != "server_error" {
+	// Each field is read on its own and only as a string: a wrongly-typed or
+	// out-of-range value (1e1000, an object) is simply absent, and can never
+	// fail the whole decode and send a fault body down the raw-diagnostic path.
+	str := func(key string) string {
+		var v string
+		if json.Unmarshal(b[key], &v) != nil {
+			return ""
+		}
+		return v
+	}
+	if str("code") != InternalServerErrorCode && str("error") != "server_error" {
 		return nil
 	}
-	id, _ := b.RequestID.(string)
-	id = SanitizeRequestID(id)
+	id := SanitizeRequestID(str("requestId"))
 	if id == "" {
-		alt, _ := b.RequestId.(string)
-		id = SanitizeRequestID(alt)
+		id = SanitizeRequestID(str("request_id"))
 	}
 	if id == "" && h != nil {
 		id = SanitizeRequestID(h.Get(requestIDHeader))
