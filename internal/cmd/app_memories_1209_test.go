@@ -228,19 +228,21 @@ func TestAppMemories1209EmptyPageRendersEmptyArray(t *testing.T) {
 	}
 }
 
-// A null or missing page, a null row, a null source or a row without sources
-// is a broken answer (all are non-null / non-empty in the SDL): refused, never
+// A null or missing page, null or missing items, a null row, a null source or
+// a row without sources is a broken answer (all are non-null / non-empty in the SDL): refused, never
 // printed as an empty scope. The genuine empty page above is the control.
 func TestAppMemories1209MalformedPageIsRefusedNotEmpty(t *testing.T) {
 	row := func(sources string) string {
 		return `{"data":{"appMemoryScope":{"total":1,"items":[{"memoryId":"m1","memoryUrn":"hrn:mem:acme.com:x","name":"X","class":"app","sources":` + sources + `,"viewerCanWrite":true}]}}}`
 	}
 	for name, resp := range map[string]string{
-		"null page":    `{"data":{"appMemoryScope":null}}`,
-		"missing page": `{"data":{}}`,
-		"null row":     `{"data":{"appMemoryScope":{"total":1,"items":[null]}}}`,
-		"null source":  row(`[null]`),
-		"no sources":   row(`[]`),
+		"null page":     `{"data":{"appMemoryScope":null}}`,
+		"missing page":  `{"data":{}}`,
+		"null items":    `{"data":{"appMemoryScope":{"total":5,"items":null}}}`,
+		"missing items": `{"data":{"appMemoryScope":{"total":5}}}`,
+		"null row":      `{"data":{"appMemoryScope":{"total":1,"items":[null]}}}`,
+		"null source":   row(`[null]`),
+		"no sources":    row(`[]`),
 	} {
 		t.Run(name, func(t *testing.T) {
 			url, _, _ := appMemoriesFake(t, resp)

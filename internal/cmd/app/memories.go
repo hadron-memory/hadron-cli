@@ -147,11 +147,16 @@ corpus at cor:dmo:050:17.`, memoriesMaxLimit, memoriesDefaultLimit),
 			if err != nil {
 				return api.MapError(err)
 			}
-			// The page, its rows and their sources are all non-null in the SDL,
+			// The page, its items, rows and sources are all non-null in the SDL,
 			// and every row has at least one source. A missing piece is a broken
 			// answer, not an empty scope: refuse it rather than print a success.
 			if resp == nil || resp.AppMemoryScope == nil {
 				return exitcode.Newf(exitcode.Error, "the server returned no appMemoryScope page for %s; nothing is shown", appRef)
+			}
+			// A genuine empty page decodes to a non-nil empty slice; nil means
+			// items was null or omitted.
+			if resp.AppMemoryScope.Items == nil {
+				return exitcode.Newf(exitcode.Error, "the server returned no items in the appMemoryScope page for %s; nothing is shown", appRef)
 			}
 			page := appMemoryScopePageDTO{Items: []appScopedMemoryDTO{}, Total: resp.AppMemoryScope.Total}
 			for i, it := range resp.AppMemoryScope.Items {
