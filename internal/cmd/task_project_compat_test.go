@@ -15,8 +15,12 @@ func TestTaskCreateOmitsUnsupportedProjectInput(t *testing.T) {
 	}
 	call := c2Mutation(t, calls, "AgentTaskCreate")
 	input := call.Vars["input"].(map[string]any)
-	if value, exists := input["project"]; exists {
-		t.Fatalf("new field sent to old provider: project=%v, vars=%s", value, call.RawVars)
+	// project, priority and blockedBy arrived with schema refreshes; an
+	// existing create must not send them (as null) to a provider without them.
+	for _, key := range []string{"project", "priority", "blockedBy"} {
+		if value, exists := input[key]; exists {
+			t.Fatalf("new field sent to old provider: %s=%v, vars=%s", key, value, call.RawVars)
+		}
 	}
 	for _, value := range []bool{false, true} {
 		raw, err := json.Marshal(gen.CreateAgentTaskInput{Title: "explicit control", Project: &value})

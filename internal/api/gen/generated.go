@@ -15809,7 +15809,7 @@ type CreateAgentTaskInput struct {
 	AppRef *string `json:"appRef"`
 	// Omit to leave the task queued.
 	Assignee  *AgentTaskPartyInput `json:"assignee,omitempty"`
-	BlockedBy []string             `json:"blockedBy"`
+	BlockedBy []string             `json:"blockedBy,omitempty"`
 	// Defaults to false: the assignee's session ends only when whoever assigns the task asks (hrn:node:hadronmemory.com:specs:cor:agt:050:10).
 	CloseSessionWhenDone *bool   `json:"closeSessionWhenDone"`
 	Description          *string `json:"description"`
@@ -15820,7 +15820,7 @@ type CreateAgentTaskInput struct {
 	Owner        *AgentTaskPartyInput `json:"owner,omitempty"`
 	ParentTaskId *string              `json:"parentTaskId"`
 	// #2644 — naming priority or blockers requires the task assigner authority; otherwise creation refuses atomically.
-	Priority *int `json:"priority"`
+	Priority *int `json:"priority,omitempty"`
 	// Make a top-level PROJECT (AT1, AT2, ...) instead of a task under the reserved project AT0. Not with parentTaskId.
 	Project      *bool                       `json:"project,omitempty"`
 	Requirements *AgentTaskRequirementsInput `json:"requirements,omitempty"`
