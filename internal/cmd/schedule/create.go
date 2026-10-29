@@ -17,6 +17,7 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 		app, name, cron, tz, entry, aiConfig, agent, policy string
 		args                                                []string
 		asSelf, disabled                                    bool
+		budget                                              cmdutil.BudgetFlags
 	)
 	cmd := &cobra.Command{
 		Use:   "create --app <ref> --name <n> --cron '<expr>' --entry <node-urn>",
@@ -27,7 +28,11 @@ evaluated in --tz (default UTC).
 --as-self runs on behalf of you (reaches your personal memories; authenticated
 user only — an App-key caller gets UNAUTHENTICATED). --arg sets static template
 args merged into each run (repeatable). --policy is a trigger-layer allow-list
-{ "allow": [...] } (cor:acl:040). --ai-config selects a named AI config.`,
+{ "allow": [...] } (cor:acl:040). --ai-config selects a named AI config.
+
+--budget-tokens / --budget-actions cap each run this schedule spawns (positive whole numbers;
+omitted = the platform default). A value above the platform default is refused
+by the server. Requires a server with trigger budgets.`,
 		Example: `  hadron schedule create --app acme.com:ops --name nightly-digest \
     --cron '0 6 * * *' --tz America/New_York \
     --entry hrn:node:acme.com:ops:tasks:nightly-digest --as-self`,
@@ -49,6 +54,10 @@ args merged into each run (repeatable). --policy is a trigger-layer allow-list
 			if err != nil {
 				return err
 			}
+			budgetTokens, budgetActions, err := budget.Values(cmd)
+			if err != nil {
+				return err
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -56,13 +65,15 @@ args merged into each run (repeatable). --policy is a trigger-layer allow-list
 
 			enabled := !disabled
 			input := &gen.CreateAgentScheduleInput{
-				AppRef:       appRef,
-				Name:         name,
-				Cron:         &cron,
-				EntryNodeUrn: entryURN,
-				Enabled:      &enabled,
-				EventData:    eventData,
-				Policy:       policyJSON,
+				AppRef:        appRef,
+				Name:          name,
+				Cron:          &cron,
+				EntryNodeUrn:  entryURN,
+				Enabled:       &enabled,
+				EventData:     eventData,
+				Policy:        policyJSON,
+				BudgetTokens:  budgetTokens,
+				BudgetActions: budgetActions,
 			}
 			if tz != "" {
 				input.Timezone = &tz
@@ -101,6 +112,7 @@ args merged into each run (repeatable). --policy is a trigger-layer allow-list
 	cmd.Flags().StringVar(&aiConfig, "ai-config", "", "named AI config for the runs (spec-036 walk override)")
 	cmd.Flags().StringVar(&agent, "agent", "", "specific installed Agent (ID or URN)")
 	cmd.Flags().BoolVar(&disabled, "disabled", false, "create the schedule disabled")
+	budget.Add(cmd, false)
 	_ = cmd.MarkFlagRequired("name")
 	_ = cmd.MarkFlagRequired("cron")
 	_ = cmd.MarkFlagRequired("entry")

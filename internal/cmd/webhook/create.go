@@ -17,6 +17,7 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 		app, name, entry, aiConfig, agent, policy, argsSchema string
 		args                                                  []string
 		asSelf, disabled                                      bool
+		budget                                                cmdutil.BudgetFlags
 	)
 	cmd := &cobra.Command{
 		Use:   "create --app <ref> --name <n> --entry <node-urn>",
@@ -26,7 +27,11 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 The URL path and platform token are printed ONCE — store them now; the secret is
 never queryable again. --name is lowercase alphanumeric/dash, 1-64 chars, and is
 part of the URL. --args-schema stores a JSON Schema for POST args (enforcement is
-follow-on). --as-self runs on behalf of you (authenticated user only).`,
+follow-on). --as-self runs on behalf of you (authenticated user only).
+
+--budget-tokens / --budget-actions cap each run this webhook spawns (positive whole numbers;
+omitted = the platform default). A value above the platform default is refused
+by the server. Requires a server with trigger budgets.`,
 		Example: `  hadron webhook create --app acme.com:ops --name deploy-notify \
     --entry hrn:node:acme.com:ops:tasks:on-deploy`,
 		Args: cobra.NoArgs,
@@ -51,6 +56,10 @@ follow-on). --as-self runs on behalf of you (authenticated user only).`,
 			if err != nil {
 				return err
 			}
+			budgetTokens, budgetActions, err := budget.Values(cmd)
+			if err != nil {
+				return err
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -58,13 +67,15 @@ follow-on). --as-self runs on behalf of you (authenticated user only).`,
 
 			enabled := !disabled
 			input := &gen.CreateAgentWebhookInput{
-				AppRef:       appRef,
-				Name:         name,
-				EntryNodeUrn: entryURN,
-				Enabled:      &enabled,
-				EventData:    eventData,
-				Policy:       policyJSON,
-				ArgsSchema:   schemaJSON,
+				AppRef:        appRef,
+				Name:          name,
+				EntryNodeUrn:  entryURN,
+				Enabled:       &enabled,
+				EventData:     eventData,
+				Policy:        policyJSON,
+				ArgsSchema:    schemaJSON,
+				BudgetTokens:  budgetTokens,
+				BudgetActions: budgetActions,
 			}
 			if aiConfig != "" {
 				input.AiConfigName = &aiConfig
@@ -99,6 +110,7 @@ follow-on). --as-self runs on behalf of you (authenticated user only).`,
 	cmd.Flags().StringVar(&aiConfig, "ai-config", "", "named AI config for the runs (spec-036 walk override)")
 	cmd.Flags().StringVar(&agent, "agent", "", "specific installed Agent (ID or URN)")
 	cmd.Flags().BoolVar(&disabled, "disabled", false, "create the webhook disabled")
+	budget.Add(cmd, false)
 	_ = cmd.MarkFlagRequired("name")
 	_ = cmd.MarkFlagRequired("entry")
 	return cmd
