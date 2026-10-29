@@ -25,7 +25,7 @@ func TestDarkRule(t *testing.T) {
 		"a due tick of an unsubscribed ticker is noise": {[]Ticker{min5()}, []DueTick{{TickerID: "tk_x", DueAt: t0.Add(-time.Hour)}}, false},
 	} {
 		t.Run(name, func(t *testing.T) {
-			got, _ := Dark(t0, c.subs, c.due)
+			got, _ := IsDark(t0, c.subs, c.due)
 			if got != c.want {
 				t.Fatalf("dark = %v, want %v", got, c.want)
 			}
@@ -38,10 +38,10 @@ func TestDarkRule(t *testing.T) {
 // ticker joins.
 func TestDarkRuleFasterTickerSubscribedLaterShortensInterval(t *testing.T) {
 	due := []DueTick{{TickerID: "tk_30", DueAt: t0.Add(-10 * time.Minute)}}
-	if d, _ := Dark(t0, []Ticker{min30()}, due); d {
+	if d, _ := IsDark(t0, []Ticker{min30()}, due); d {
 		t.Fatal("dark before the fast ticker joined")
 	}
-	if d, _ := Dark(t0, []Ticker{min30(), min5()}, due); !d {
+	if d, _ := IsDark(t0, []Ticker{min30(), min5()}, due); !d {
 		t.Fatal("not dark after the fast ticker joined")
 	}
 }
@@ -51,7 +51,7 @@ func TestDarkRuleFasterTickerSubscribedLaterShortensInterval(t *testing.T) {
 // always within slack) still has an older tick nobody answered.
 func TestDarkRuleUsesTheDueTickNotTheLatestTick(t *testing.T) {
 	due := []DueTick{{TickerID: "tk_5", DueAt: t0.Add(-11 * time.Minute)}}
-	d, detail := Dark(t0, []Ticker{min5()}, due)
+	d, detail := IsDark(t0, []Ticker{min5()}, due)
 	if !d {
 		t.Fatal("a due tick 11m old on a 5m ticker must be dark")
 	}
@@ -61,7 +61,7 @@ func TestDarkRuleUsesTheDueTickNotTheLatestTick(t *testing.T) {
 }
 
 func TestDarkRuleNamesTheOldestOverdueTick(t *testing.T) {
-	_, detail := Dark(t0, []Ticker{min5(), min30()}, []DueTick{
+	_, detail := IsDark(t0, []Ticker{min5(), min30()}, []DueTick{
 		{TickerID: "tk_5", TickerName: "base", DueAt: t0.Add(-7 * time.Minute)},
 		{TickerID: "tk_30", TickerName: "slow", DueAt: t0.Add(-20 * time.Minute)},
 	})

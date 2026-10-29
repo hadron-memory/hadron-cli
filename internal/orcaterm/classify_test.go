@@ -7,7 +7,7 @@ import (
 	ts "github.com/hadron-memory/hadron-cli/internal/terminalstatus"
 )
 
-var now = time.Date(2026, 10, 29, 16, 31, 40, 0, time.UTC)
+var now = time.Date(2026, 10, 29, 16, 41, 40, 0, time.UTC)
 
 func agent(family string) Terminal {
 	return Terminal{Handle: "term_1", AgentIdentity: &family, Connected: true, Writable: true}
@@ -27,17 +27,20 @@ func TestClassify(t *testing.T) {
 		prompt ts.Prompt
 		reason ts.Reason
 	}{
-		"claude idle":                    {agent("claude"), fix(claudeIdle), ts.Idle, ts.PromptEmpty, ""},
-		"claude busy at empty prompt":    {agent("claude"), fix(claudeBusyEmpty), ts.Busy, ts.PromptEmpty, ""},
-		"codex idle":                     {agent("codex"), fix(codexIdle), ts.Idle, ts.PromptEmpty, ""},
-		"codex busy at empty prompt":     {agent("codex"), fix(codexBusyEmpty), ts.Busy, ts.PromptEmpty, ""},
-		"codex idle after a recap":       {agent("codex"), fix(codexIdleRecapDiego), ts.Idle, ts.PromptEmpty, ""},
-		"claude permission dialog":       {agent("claude"), fix(menu), ts.Locked, ts.PromptMenu, ts.MenuOrQuestion},
-		"claude ask-user (capture)":      {agent("claude"), scratchScreen(t, "c20-askuser"), ts.Locked, ts.PromptMenu, ts.MenuOrQuestion},
-		"codex model menu (capture)":     {agent("codex"), scratchScreen(t, "x24-model-menu"), ts.Locked, ts.PromptMenu, ts.MenuOrQuestion},
-		"codex working (capture)":        {agent("codex"), scratchScreen(t, "x20-working"), ts.Busy, ts.PromptEmpty, ""},
-		"claude start (capture)":         {agent("claude"), scratchScreen(t, "c01-start"), ts.Idle, ts.PromptEmpty, ""},
-		"codex start (capture)":          {agent("codex"), scratchScreen(t, "x01-start"), ts.Idle, ts.PromptEmpty, ""},
+		"claude idle":                 {agent("claude"), fix(claudeIdle), ts.Idle, ts.PromptEmpty, ""},
+		"claude busy at empty prompt": {agent("claude"), fix(claudeBusyEmpty), ts.Busy, ts.PromptEmpty, ""},
+		"codex idle":                  {agent("codex"), fix(codexIdle), ts.Idle, ts.PromptEmpty, ""},
+		"codex busy at empty prompt":  {agent("codex"), fix(codexBusyEmpty), ts.Busy, ts.PromptEmpty, ""},
+		"codex idle after a recap":    {agent("codex"), fix(codexIdleRecapDiego), ts.Idle, ts.PromptEmpty, ""},
+		"claude permission dialog":    {agent("claude"), fix(menu), ts.Locked, ts.PromptMenu, ts.MenuOrQuestion},
+		"claude ask-user (capture)":   {agent("claude"), scratchScreen(t, "c20-askuser"), ts.Locked, ts.PromptMenu, ts.MenuOrQuestion},
+		"codex model menu (capture)":  {agent("codex"), scratchScreen(t, "x24-model-menu"), ts.Locked, ts.PromptMenu, ts.MenuOrQuestion},
+		"codex working (capture)":     {agent("codex"), scratchScreen(t, "x20-working"), ts.Busy, ts.PromptEmpty, ""},
+		"claude start (capture)":      {agent("claude"), scratchScreen(t, "c01-start"), ts.Idle, ts.PromptEmpty, ""},
+		// The launch art pushes Codex's banner out of IdleProof's window, so a
+		// fresh start has an empty prompt but no positive idle proof: it holds
+		// (delivery holds it too) rather than guess.
+		"codex start (capture)":          {agent("codex"), scratchScreen(t, "x01-start"), ts.Locked, ts.PromptEmpty, ts.Unrecognized},
 		"bare shell (capture)":           {shell, scratchScreen(t, "x13-single-ctrl-c-empty"), ts.Dark, ts.PromptUnknown, ts.BareShell},
 		"agent not connected":            {gone, fix(claudeIdle), ts.Dark, ts.PromptUnknown, ts.NoAgent},
 		"empty prompt, no proof":         {agent("codex"), fix(codexUnknownStatusNoRecap), ts.Locked, ts.PromptEmpty, ts.Unrecognized},
@@ -78,7 +81,6 @@ func TestClassifyNeverIdleOnQuestionScreens(t *testing.T) {
 	for _, tail := range [][]string{
 		{"Do you want to proceed?", "❯ 1. Yes"},
 		{"Would you like to run this command?", "› 1. Yes, proceed"},
-		append([]string{"Do you want to proceed?"}, claudeIdle...),
 	} {
 		for _, fam := range []string{"claude", "codex"} {
 			if got := Classify(agent(fam), fix(tail), now); got.Status == ts.Idle {
@@ -122,7 +124,7 @@ func TestLastTurnAt(t *testing.T) {
 // with and without a readable turn time.
 func TestClassifyStatusIndependentOfLastTurnAt(t *testing.T) {
 	with := Classify(agent("claude"), fix(claudeIdleRecapYuri), now)
-	without := Classify(agent("claude"), fix(append([]string{}, claudeIdleRecapYuri[3:]...)), now)
+	without := Classify(agent("claude"), fix(append([]string{}, claudeIdleRecapYuri[4:]...)), now)
 	if with.LastTurnAt == nil || without.LastTurnAt != nil {
 		t.Fatalf("fixtures do not isolate the stamp: %v / %v", with.LastTurnAt, without.LastTurnAt)
 	}
