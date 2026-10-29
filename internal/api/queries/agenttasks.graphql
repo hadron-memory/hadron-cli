@@ -67,6 +67,8 @@ fragment AgentTaskFields on AgentTask {
 # sent as null — the wire-semantics rule from CLAUDE.md.
 # Schema-only optional fields must stay absent for older providers.
 # @genqlient(for: "CreateAgentTaskInput.project", omitempty: true)
+# @genqlient(for: "CreateAgentTaskInput.priority", omitempty: true)
+# @genqlient(for: "CreateAgentTaskInput.blockedBy", omitempty: true)
 mutation AgentTaskCreate(
   $input: CreateAgentTaskInput!
 ) {
