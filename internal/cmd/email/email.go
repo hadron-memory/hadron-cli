@@ -31,7 +31,7 @@ type connectionDTO struct {
 
 // NewCmdEmail builds the read-only email group; mailbox operations remain separate.
 func NewCmdEmail(f *cmdutil.Factory) *cobra.Command {
-	c := &cobra.Command{Use: "email <command>", Short: "Read organization email connection metadata"}
+	c := &cobra.Command{Use: "email <command>", Short: "List an organization's connected email, calendar and Drive accounts", Long: "See which accounts an organization has connected (email, calendar and Drive) and\nwhether they are syncing. It only lists them; mail itself is never read here.\nThe ID it prints is what \"hadron calendar\" and \"hadron drive\" take as --connection.", Example: "  hadron email connections --org hrn:org:acme.com"}
 	c.AddCommand(newConnections(f))
 	return c
 }
@@ -39,22 +39,29 @@ func NewCmdEmail(f *cmdutil.Factory) *cobra.Command {
 func newConnections(f *cmdutil.Factory) *cobra.Command {
 	var org string
 	c := &cobra.Command{Use: "connections --org <ref>", Short: "List visible connection metadata for an explicit organization", Args: cobra.NoArgs,
-		Long: `Read sanitized email connection metadata using the server's organization-admin
-list gate. Supply an organization id or fully-qualified URN with --org; there is
-no implicit organization discovery. The server resolves the ref and enforces
-access. Listing does not authorize mailbox reads, reconnects, consent or sends.
+		Long: `List the connected accounts of an organization: for each one the ID, who owns
+it, its mailbox address, the provider (mail, calendar and Drive connections all
+appear here), whether syncing is on, the sync status and when it last synced.
+Requires org admin. --org is the organization's ID or hrn:org:<slug> URN; no
+organization is picked for you.
 
-This command deliberately uses the existing unpaginated exchangeConnections list
-in one request, rather than exchangeConnectionsPage. It reports the returned
-visible rows without inventing a page total or a completeness guarantee. An empty
-array means no rows were returned to this caller, not proof about hidden data.
+The ID column is the value to pass as --connection to "hadron calendar" and
+"hadron drive". Run without --json it prints a table with the columns ID, ORG ID,
+USER ID, MAILBOX, PROVIDER, DISPLAY NAME, SYNC ENABLED, SYNC STATUS, LAST SYNC,
+CREATED and UPDATED; text values are quoted. An empty result means no
+connections were returned to you, not that none exist. This only lists: it does
+not read mail, reconnect an account or send anything.
 
-JSON is an array of id, organizationId, userId, mailboxEmail, provider,
-displayName, syncEnabled, syncStatus, lastSyncAt, createdAt and updatedAt.
-Nullable metadata stays null; empty arrays stay []. Credentials and lastError
-are not requested or printed. Human strings are quoted as data.
-Existing error mapping is preserved; unknown provider errors do not imply a
-reconnect instruction. No messages, drafts or mailbox mutations are exposed.`,
+Details:
+  Uses the existing unpaginated connection list in one request, so it reports
+  the rows returned with no page total and no completeness guarantee. --json is
+  an array of id, organizationId, userId, mailboxEmail, provider, displayName,
+  syncEnabled, syncStatus, lastSyncAt, createdAt and updatedAt; unset values are
+  null and an empty result is []. Credentials and lastError are never requested.
+  Errors keep the usual exit codes; unknown provider errors do not tell you to
+  reconnect.`,
+		Example: `  hadron email connections --org hrn:org:acme.com
+  hadron email connections --org hrn:org:acme.com --json`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			org = strings.TrimSpace(org)
 			if org == "" {

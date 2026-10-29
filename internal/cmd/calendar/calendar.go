@@ -16,19 +16,33 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const readHelp = `Read external calendar data through the server's owner or ConnectionGrant gate.
-An organization-admin connection list is not calendar access. Supply an explicit
---connection reference; no connection or calendar discovery fallback is made.
-calendar.read covers list/events/get, calendar.freebusy covers only busy windows.
+// connectionHelp tells the user where the required --connection value comes
+// from (cli#1184, R2): the calendar commands never discover one themselves.
+const connectionHelp = `--connection is the ID of a connected calendar account. Get
+it from the ID column of "hadron email connections --org <org>" (the list
+includes calendar and Drive connections, not only mail); an org admin can run
+that, otherwise ask the owner of the connection, or the admin, for the ID. The
+command never picks a connection for you.`
 
-No create/update/delete/respond, invites, notification, consent or retry is done.
-Provider errors retain existing exit mapping and the server's refusal sentence;
-unknown codes do not imply a reconnect instruction. External text is data.
+// detailsHelp is the maintainer-level contract, kept last on every page so the
+// answer to "what do I type" comes first (cli#1184, R1).
+const detailsHelp = `Details:
+  Access is the server's: you need to own the connection or hold a grant on it.
+  An organization-admin connection list is not by itself calendar access.
+  The commands only read. Nothing is created, changed, deleted or answered, no
+  invites or notifications are sent, and nothing is retried. Free/busy needs a
+  separate permission (calendar.freebusy) from reading events (calendar.read).
+  Event text comes from the calendar provider and is shown as data, not
+  instructions. If the provider refuses, you see the server's own sentence and
+  the usual exit code; it never tells you to reconnect unless the server does.
+  An all-day event keeps its date as YYYY-MM-DD, never as midnight. Timed events
+  keep the instant and the zone apart. Fields with no value are null and empty
+  lists are []. Human output is the same JSON, labelled; --json prints only that
+  JSON.`
 
-Event boundaries keep {date,dateTime,timeZone}: all-day date is a YYYY-MM-DD
-string, never converted to midnight. Timed instants and zones stay separate.
-Nullable metadata and response enums (including NONE) are preserved; arrays are
-[]. Human output is labelled JSON data; --json emits only the stable DTO.`
+func readHelp(intro string) string {
+	return intro + "\n\n" + connectionHelp + "\n\n" + detailsHelp
+}
 
 type options struct {
 	connection, calendar, from, to, query string
@@ -38,16 +52,16 @@ type options struct {
 
 // NewCmdCalendar builds only the four gated read operations.
 func NewCmdCalendar(f *cmdutil.Factory) *cobra.Command {
-	c := &cobra.Command{Use: "calendar <command>", Short: "Read calendars, events and free/busy", Long: readHelp}
+	c := &cobra.Command{Use: "calendar <command>", Short: "Read calendars, events and free/busy", Long: readHelp("Look at a connected calendar without changing it: list its calendars, list the events\nin a time window, read one event, or see when people are busy. Start with\n\"calendar list\" to find a calendar ID, then \"calendar events\"."), Example: "  hadron calendar list --connection <connection-id>\n  hadron calendar events --connection <connection-id> --from 2026-10-30T00:00:00-07:00 --to 2026-10-31T00:00:00-07:00"}
 	c.AddCommand(list(f), events(f), freebusy(f))
-	e := &cobra.Command{Use: "event <command>", Short: "Read a calendar event"}
+	e := &cobra.Command{Use: "event <command>", Short: "Read one calendar event by its ID", Long: "Read a single event when you already have its ID (from \"calendar events\"). To list\nseveral events, use \"calendar events\" (plural) instead."}
 	e.AddCommand(get(f))
 	c.AddCommand(e)
 	return c
 }
 
 func scope(c *cobra.Command, o *options) {
-	c.Flags().StringVar(&o.connection, "connection", "", "explicit connection reference (required)")
+	c.Flags().StringVar(&o.connection, "connection", "", "connection ID (required; see \"hadron email connections --org <org>\")")
 	_ = c.MarkFlagRequired("connection")
 }
 func calendarFlag(c *cobra.Command, o *options) {
@@ -118,7 +132,7 @@ func render(f *cmdutil.Factory, connection, label string, value any) error {
 
 func list(f *cmdutil.Factory) *cobra.Command {
 	o := &options{}
-	c := &cobra.Command{Use: "list", Aliases: []string{"ls"}, Short: "List calendars visible on an explicit connection", Long: readHelp, Args: cobra.NoArgs, RunE: func(c *cobra.Command, _ []string) error {
+	c := &cobra.Command{Use: "list", Aliases: []string{"ls"}, Short: "List the calendars on a connection", Long: readHelp("List the calendars you can see on a connection, with each calendar's ID (use it as\n--calendar on the other commands), name, time zone, whether it is the primary\ncalendar and whether you can edit it."), Example: "  hadron calendar list --connection <connection-id>", Args: cobra.NoArgs, RunE: func(c *cobra.Command, _ []string) error {
 		if e := o.validate(); e != nil {
 			return e
 		}
@@ -147,7 +161,7 @@ func list(f *cmdutil.Factory) *cobra.Command {
 }
 func events(f *cmdutil.Factory) *cobra.Command {
 	o := &options{}
-	c := &cobra.Command{Use: "events", Short: "Read one bounded list of events (default 25, maximum 100)", Long: readHelp + "\n\nEvents returns one bounded bare list, not a cursor page or an exhaustive history.\n--top defaults to 25 (1..100); there is no total or continuation claim.\nOptional --from/--to are exact RFC3339 instants, not all-day dates.", Args: cobra.NoArgs, RunE: func(c *cobra.Command, _ []string) error {
+	c := &cobra.Command{Use: "events", Short: "List events in a time window (default 25, at most 100)", Long: readHelp("List events, optionally only those between --from and --to, or matching --query.\nYou get one list of at most --top events (default 25, 1 to 100); there is no\nnext page, so narrow the window or the query to see more. --from and --to are\ndate-times with a UTC offset, for example 2026-10-30T00:00:00-07:00 (a bare\ndate such as 2026-10-30 is refused). For \"tomorrow\", give midnight to midnight\nin your own offset. Without --calendar the provider's default calendar is used."), Example: "  hadron calendar events --connection <connection-id> \\\n    --from 2026-10-30T00:00:00-07:00 --to 2026-10-31T00:00:00-07:00\n  hadron calendar events --connection <connection-id> --query standup --top 10 --json", Args: cobra.NoArgs, RunE: func(c *cobra.Command, _ []string) error {
 		if e := o.validate(); e != nil {
 			return e
 		}
@@ -199,7 +213,7 @@ func events(f *cmdutil.Factory) *cobra.Command {
 }
 func get(f *cmdutil.Factory) *cobra.Command {
 	o := &options{}
-	c := &cobra.Command{Use: "get <eventId>", Short: "Read one event", Long: readHelp, Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, args []string) error {
+	c := &cobra.Command{Use: "get <eventId>", Short: "Read one event", Long: readHelp("Read one event by its ID. The ID is the \"id\" of an event returned by \"calendar\nevents\". Add --calendar when the event is not on the provider's default calendar."), Example: "  hadron calendar event get <event-id> --connection <connection-id>", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, args []string) error {
 		if e := o.validate(); e != nil {
 			return e
 		}
@@ -234,7 +248,7 @@ func get(f *cmdutil.Factory) *cobra.Command {
 }
 func freebusy(f *cmdutil.Factory) *cobra.Command {
 	o := &options{}
-	c := &cobra.Command{Use: "freebusy", Short: "Read free/busy windows without event contents", Long: readHelp + "\n\n--from and --to are required. Repeat --schedule for calendar IDs or addresses;\nabsent schedules uses the provider default. Returned schedule errors stay data,\nnot an invented all-free result.", Args: cobra.NoArgs, RunE: func(c *cobra.Command, _ []string) error {
+	c := &cobra.Command{Use: "freebusy", Short: "See when calendars are busy, without event details", Long: readHelp("Show the busy windows for one or more calendars between --from and --to (both\nrequired, date-times with a UTC offset). Titles and attendees are not returned.\nRepeat --schedule for each calendar ID or email address; without it, the\nprovider's default calendar is used. If a calendar is not shared with you, its\nentry carries an \"error\" message instead of busy windows: that is not the same\nas free, so do not read it as free."), Example: "  hadron calendar freebusy --connection <connection-id> \\\n    --from 2026-10-30T09:00:00-07:00 --to 2026-10-30T17:00:00-07:00 \\\n    --schedule alice@example.com --schedule bob@example.com", Args: cobra.NoArgs, RunE: func(c *cobra.Command, _ []string) error {
 		if e := o.validate(); e != nil {
 			return e
 		}

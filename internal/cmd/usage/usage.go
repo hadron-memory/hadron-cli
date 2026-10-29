@@ -34,7 +34,7 @@ type summaryDTO struct {
 }
 
 func NewCmdUsage(f *cmdutil.Factory) *cobra.Command {
-	cmd := &cobra.Command{Use: "usage <command>", Short: "Read usage metadata (not billing balances)"}
+	cmd := &cobra.Command{Use: "usage <command>", Short: "See what AI usage happened (not billing balances)", Long: "Look at the record of AI calls made in your memories: when, which model, how many\ntokens, and what it cost. This is the activity log; for how much credit an\norganization has left, use \"hadron billing balance\". Start with \"usage events\".", Example: "  hadron usage events --memory hrn:mem:acme.com:notes --limit 50"}
 	cmd.AddCommand(newEvents(f))
 	return cmd
 }
@@ -44,22 +44,38 @@ func newEvents(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "events [--memory <ref>] [--loc <loc>] [--type <type>] [--limit N] [--offset N]",
 		Short: "Read one page of accessible usage events",
-		Long: `Read provider usage metadata, most recent first, scoped by the server to
-readable memories. Optional --memory accepts a memory id or URN (short forms
-are normalized locally). --loc is an exact, verbatim loc filter, including
-hierarchical locs; it is never sent as nodeId. --type is an exact event type.
+		Long: `List recent AI usage events, newest first: when each happened, its type, the
+memory and node it was for, the provider and model, tokens in and out, and what
+it cost. You only see events in memories you can read.
 
-This is ONE page: default limit 20, locally bounded to 1-200, nonnegative offset.
-The provider supplies no total or time filter. Stderr labels the offset and
-limit and says no total is available; a full page says more may exist. There
-is no --since, automatic paging, cost sum or billing balance.
+You get ONE page: 20 events by default, or --limit (1 to 200). To go further
+back, run the command again with --offset set to the number of events already
+seen (after a full page, stderr says "more may exist; request another page with
+--offset N").
+There is no total and no filter by date or cost, and no cost sum: to answer
+"what happened last week", page back until the CREATED column passes the start
+of that week, or narrow with --memory, --loc or --type, or use --json and
+filter the result yourself.
 
-costMicroCents stays an arbitrary-size base-10 integer string (units: 1e-8 USD),
-not a floating point value. Null means unpriced and prints unpriced, never 0.
-Token nulls remain unknown. JSON is an array of metadata objects; empty is [].
-A malformed null event row fails before any rows or page note are printed.
-Action arguments and caller identity payloads are not selected. No accounting
-record is written and no model/provider call is made.`,
+--memory is a memory ID or URN (for example hrn:mem:acme.com:notes). --loc is an exact
+node loc, including hierarchical ones such as notes:ideas. --type is an exact
+event type. Leave a flag out for no filter; an empty value is refused.
+
+COST is in micro-cents: 1 USD = 100,000,000 micro-cents (so 5000000 is 0.05 USD,
+five cents). "unpriced" means the event has no price recorded; it does not mean
+free. "unknown" under TOKENS IN or TOKENS OUT means the count was not recorded;
+a "-" under MEMORY ID, LOC, PROVIDER or MODEL means the event has none.
+
+Details:
+  Cost is an arbitrary-size base-10 integer kept as a string in --json
+  (costMicroCents), never a floating point number; null is unpriced. Token
+  counts that are null stay unknown. --json prints an array of event objects
+  (empty is []). If the server returns a malformed row, the command fails
+  before printing any rows. The action's arguments and caller identity are not
+  requested. Nothing is recorded and no model or provider is called.`,
+		Example: `  hadron usage events
+  hadron usage events --memory hrn:mem:acme.com:notes --limit 100
+  hadron usage events --type <event-type> --offset 20 --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if limit < 1 || limit > 200 {

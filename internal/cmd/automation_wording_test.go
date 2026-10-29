@@ -29,12 +29,12 @@ func TestAutomationDeclineWarningUsesPlainWords(t *testing.T) {
 	}
 }
 
-func TestAutomationRunHelpExplainsIgnoredApp(t *testing.T) {
+func TestAutomationRunHelpExplainsTheRunLookupAndTheAppRequirement(t *testing.T) {
 	s := oneRowServer(t, "UNADOPTED", nil)
 	for _, verb := range []string{"approve", "decline", "approval"} {
 		help := runAuto(t, s, false, "", verb, "--help")
 		text := strings.Join(strings.Fields(help.out), " ")
-		if !strings.Contains(text, "--app is ignored for this lookup") || strings.Contains(text, "carries no hash") {
+		if !strings.Contains(text, "found by its id alone") || !strings.Contains(text, "an App must still be given") || strings.Contains(text, "carries no hash") {
 			t.Errorf("%s help must explain run lookup without hash jargon:\n%s", verb, help.out)
 		}
 	}
