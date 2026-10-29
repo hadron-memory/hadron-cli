@@ -183,6 +183,9 @@ func (d *bearerDoer) Do(req *http.Request) (*http.Response, error) {
 	if err != nil {
 		return resp, err
 	}
+	if hc, ok := req.Context().Value(headerCaptureKey{}).(*headerCapture); ok {
+		hc.h = resp.Header.Clone()
+	}
 	secrets := requestSecrets(req)
 	if len(secrets) == 0 {
 		if resp.StatusCode < 500 {
@@ -483,7 +486,8 @@ func NewClient(serverURL, token string, httpClient *http.Client) (graphql.Client
 type nullSafeGraphQLClient struct{ inner graphql.Client }
 
 func (c *nullSafeGraphQLClient) MakeRequest(ctx context.Context, req *graphql.Request, resp *graphql.Response) error {
-	err := c.inner.MakeRequest(ctx, req, resp)
+	hc := &headerCapture{}
+	err := c.inner.MakeRequest(context.WithValue(ctx, headerCaptureKey{}, hc), req, resp)
 	if err == nil {
 		// Only a successful response's warnings are kept (cli#962): a failed
 		// invocation reports its error, never a success warning.
@@ -496,7 +500,7 @@ func (c *nullSafeGraphQLClient) MakeRequest(ctx context.Context, req *graphql.Re
 		if len(clean) == 0 {
 			return errors.New("malformed GraphQL response: errors contains only null entries")
 		}
-		return clean
+		return withHeaderRequestID(clean, hc.h)
 	case *graphql.HTTPError: // non-200 with a parsed GraphQL body
 		if len(e.Response.Errors) == 0 {
 			return err
@@ -507,7 +511,7 @@ func (c *nullSafeGraphQLClient) MakeRequest(ctx context.Context, req *graphql.Re
 		if len(clean) == 0 {
 			return fmt.Errorf("malformed GraphQL response (HTTP %d): errors contains only null entries: %w", e.StatusCode, &copy)
 		}
-		return &copy
+		return withHeaderRequestID(&copy, hc.h)
 	default:
 		return err
 	}

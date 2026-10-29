@@ -221,6 +221,13 @@ func MapError(err error) error {
 		return exitcode.Newf(exitcode.Usage, "%s", msg)
 	}
 
+	// cli#898: an internal fault is the server ANSWERING, with the one generic
+	// code and a request id. Keyed on the code alone and checked before the
+	// transport class, so a 500 carrying the envelope is exit 1, not 7.
+	if id, ok := classifyInternalFault(err); ok {
+		return NewInternalFaultError(id, err)
+	}
+
 	// #394: a request that never got an answer is not a refusal. Classified
 	// before the status switch, because it is the ONLY class that is safe to
 	// retry blind — and, after a write, the only one whose outcome is unknown.

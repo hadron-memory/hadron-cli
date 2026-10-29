@@ -299,6 +299,14 @@ func renderError(f *cmdutil.Factory, err error) int {
 
 	if !errors.Is(err, exitcode.ErrSilent) {
 		failure := map[string]any{"code": code, "message": err.Error()}
+		// cli#898: additive fields for an internal fault; `code` already means
+		// the exit code, so the server's code is a new key.
+		if fault, ok := api.InternalFaultOf(err); ok {
+			failure["serverCode"] = fault.ServerCode
+			if fault.RequestID != "" {
+				failure["requestId"] = fault.RequestID
+			}
+		}
 		details := api.CommentRecoveryDetails(err)
 		if details == nil {
 			details = api.WorkerReportingDetails(err)
