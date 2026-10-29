@@ -68,6 +68,11 @@ func TestClaudeEmptyNeedsTheModeFooter(t *testing.T) {
 		"no footer":       "",
 		"another line":    "  ctrl+g to edit in Vim",
 		"two footer rows": "  ⏵⏵ auto mode on (shift+tab to cycle)\n  esc to interrupt",
+		// Fail closed: only a mode phrase ending in " on" is the mode line.
+		"unknown phrase":       "  ⏵⏵ something else entirely",
+		"bare marker":          "  ⏵⏵",
+		"marker and space":     "  ⏵⏵ ",
+		"two hintless footers": "  ⏵⏵ bypass permissions on · 1 shell\n  ⏵⏵ auto mode on · 2 shells",
 	} {
 		t.Run(name, func(t *testing.T) {
 			tail := []string{rule, "❯ ", rule}
@@ -86,6 +91,10 @@ func TestClaudeEmptyNeedsTheModeFooter(t *testing.T) {
 		claudeHint,
 		// A live worker's footer (fleet read, 2026-10-18).
 		"  ⏵⏵ bypass permissions on (shift+tab to cycle) · PR #435 · ← for agents",
+		// A background shell drops the cycle hint (cli#1155; server#2695).
+		"  ⏵⏵ bypass permissions on · 1 shell",
+		"  ⏵⏵ auto mode on · 2 shells · ← for agents",
+		"  ⏵⏵ auto mode on",
 	} {
 		if !PromptLineIsEmpty([]string{rule, "❯ ", rule, footer}, "claude") {
 			t.Errorf("%q not judged empty", footer)
