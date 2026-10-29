@@ -183,6 +183,7 @@ func authoredWriteField(field string) bool {
 		"createAgentTask", "assignAgentTask", "reassignAgentTask",
 		"startAgentTask", "recordAgentTaskProgress", "finishAgentTask",
 		"cancelAgentTask", "parkAgentTask", "makeAgentTaskReady",
+		"setAgentTaskPriority", "addAgentTaskBlocker", "removeAgentTaskBlocker",
 		"acknowledgeAlarm",
 		// setModelFamilyAvailability is deliberately absent (#868), like
 		// setAgentTaskStallSchedule (#866): both are the App manager's

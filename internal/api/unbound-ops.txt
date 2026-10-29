@@ -69,9 +69,8 @@ verifyDecision  # server main schema refresh for cli#836; separate CLI parity ou
 verifyMemoryNodes  # cli#802 exposes per-node verifyNode; memory-wide integrity audit needs a separate memory verify command
 workerWakeSettings  # wake-surface v2; cli#828 tracks the paged attention surface, wake settings follow it
 
-[Mutation] 117 unbound
+[Mutation] 114 unbound
 acquireEditorLock
-addAgentTaskBlocker  # arrived with the cli#1176 schema refresh; no CLI parity filed yet
 addAgentToApp
 addMemoryToAgent
 allocateSpecNode  # server schema refresh for cli#1087; spec-node allocation CLI parity is a separate issue
@@ -140,7 +139,6 @@ registerContextResetRecovery  # server#2162 context-reset host protocol; host ru
 releaseEditorLock
 removeAgentFromApp
 removeAgentImport
-removeAgentTaskBlocker  # arrived with the cli#1176 schema refresh; no CLI parity filed yet
 removeMemoryFromAgent
 repairAgentSystemMemory
 replaceSubtree  # server#1407: deprecated field; authorized calls return REPLACE_SUBTREE_RETIRED without writes
@@ -157,7 +155,6 @@ saveChatSummary
 sendChatMessage
 sendContactMessage
 setAgentAssetUploadEnabled
-setAgentTaskPriority  # arrived with the cli#1176 schema refresh; no CLI parity filed yet
 setAiModelPrice
 setAppMemoryWriteGrant  # server#2484; separate App-memory grant CLI parity outside C3b
 setAppTickerSettings  # server ticker settings (named-heartbeats epic, in flight); CLI parity follows the surface settling

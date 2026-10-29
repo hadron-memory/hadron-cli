@@ -37,30 +37,34 @@ type taskResultDTO struct {
 // unacknowledged alarms onto the nodes it renders; omitempty keeps the other
 // commands' shapes identical to the plain task read.
 type taskDTO struct {
-	ID                   string               `json:"id"`
-	AppID                string               `json:"appId"`
-	Title                string               `json:"title"`
-	Description          *string              `json:"description"`
-	Status               string               `json:"status"`
-	Queued               bool                 `json:"queued"`
-	WaitingOnChildren    bool                 `json:"waitingOnChildren"`
-	Owner                *taskPartyDTO        `json:"owner"`
-	Assignee             *taskPartyDTO        `json:"assignee"`
-	AssignedBy           *taskPartyDTO        `json:"assignedBy"`
-	CreatedBy            *taskPartyDTO        `json:"createdBy"`
-	ParentTaskID         *string              `json:"parentTaskId"`
-	Tags                 []string             `json:"tags"`
-	Source               *string              `json:"source"`
-	StartBy              *string              `json:"startBy"`
-	CreatedAt            string               `json:"createdAt"`
-	UpdatedAt            *string              `json:"updatedAt"`
-	StartedAt            *string              `json:"startedAt"`
-	FinishedAt           *string              `json:"finishedAt"`
-	CancelledAt          *string              `json:"cancelledAt"`
-	CloseSessionWhenDone bool                 `json:"closeSessionWhenDone"`
-	Requirements         *taskRequirementsDTO `json:"requirements"`
-	Result               *taskResultDTO       `json:"result"`
-	OpenAlarms           *int                 `json:"openAlarms,omitempty"`
+	Priority             int                    `json:"priority"`
+	Blocked              bool                   `json:"blocked"`
+	BlockedBy            *taskDependencyPageDTO `json:"blockedBy"`
+	Blocks               *taskDependencyPageDTO `json:"blocks"`
+	ID                   string                 `json:"id"`
+	AppID                string                 `json:"appId"`
+	Title                string                 `json:"title"`
+	Description          *string                `json:"description"`
+	Status               string                 `json:"status"`
+	Queued               bool                   `json:"queued"`
+	WaitingOnChildren    bool                   `json:"waitingOnChildren"`
+	Owner                *taskPartyDTO          `json:"owner"`
+	Assignee             *taskPartyDTO          `json:"assignee"`
+	AssignedBy           *taskPartyDTO          `json:"assignedBy"`
+	CreatedBy            *taskPartyDTO          `json:"createdBy"`
+	ParentTaskID         *string                `json:"parentTaskId"`
+	Tags                 []string               `json:"tags"`
+	Source               *string                `json:"source"`
+	StartBy              *string                `json:"startBy"`
+	CreatedAt            string                 `json:"createdAt"`
+	UpdatedAt            *string                `json:"updatedAt"`
+	StartedAt            *string                `json:"startedAt"`
+	FinishedAt           *string                `json:"finishedAt"`
+	CancelledAt          *string                `json:"cancelledAt"`
+	CloseSessionWhenDone bool                   `json:"closeSessionWhenDone"`
+	Requirements         *taskRequirementsDTO   `json:"requirements"`
+	Result               *taskResultDTO         `json:"result"`
+	OpenAlarms           *int                   `json:"openAlarms,omitempty"`
 }
 
 // taskPartyGetter is the one shape every generated party projection shares;
@@ -116,7 +120,7 @@ func taskResultDTOFrom(r *gen.AgentTaskFieldsResultAgentTaskResult) *taskResultD
 }
 
 func taskDTOFrom(fields gen.AgentTaskFields) taskDTO {
-	dto := taskDTO{
+	dto := taskDTO{Priority: fields.Priority, Blocked: fields.Blocked,
 		ID:                   fields.Id,
 		AppID:                fields.AppId,
 		Title:                fields.Title,
@@ -140,6 +144,12 @@ func taskDTOFrom(fields gen.AgentTaskFields) taskDTO {
 		CloseSessionWhenDone: fields.CloseSessionWhenDone,
 		Requirements:         taskRequirementsDTOFrom(fields.Requirements),
 		Result:               taskResultDTOFrom(fields.Result),
+	}
+	if p := fields.BlockedBy; p != nil {
+		dto.BlockedBy = dependencyPage(p.Total, p.HasMore, p.Items)
+	}
+	if p := fields.Blocks; p != nil {
+		dto.Blocks = dependencyPage(p.Total, p.HasMore, p.Items)
 	}
 	if fields.Tags != nil {
 		dto.Tags = fields.Tags

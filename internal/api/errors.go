@@ -1082,6 +1082,7 @@ func codeForExtension(code string) int {
 	// whose first acknowledgement already stands. The state must change
 	// before the same call can succeed, like every other Conflict here.
 	case code == "TASK_INVALID_TRANSITION" || code == "TASK_ENDED" ||
+		code == "TASK_BLOCKER_CYCLE" || code == "TASK_BLOCKED" ||
 		code == "ALARM_ALREADY_ACKNOWLEDGED":
 		return exitcode.Conflict
 	// A party ref that names nobody valid (TASK_OWNER_INVALID /

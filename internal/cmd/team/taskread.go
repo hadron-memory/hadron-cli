@@ -57,7 +57,8 @@ func newCmdTeamTaskGet(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <taskId>",
 		Short: "Show one task",
-		Long: `Show one task in full. A task you may not read answers "not found"
+		Long: `Show one task, with priority, blocked state and the first 20 dependencies in
+each direction (total/hasMore included). Use task dependencies for later pages. A task you may not read answers "not found"
 (no existence oracle) — the server's shape, kept honest here.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -91,6 +92,15 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 		return err
 	}
 	if err := line("%s  %s  (%s)", task.ID, task.Title, task.Status); err != nil {
+		return err
+	}
+	if err := line("  priority: %d (1 = highest); blocked: %t", task.Priority, task.Blocked); err != nil {
+		return err
+	}
+	if err := renderDependencyPage(w, "blocked by", task.BlockedBy); err != nil {
+		return err
+	}
+	if err := renderDependencyPage(w, "blocks", task.Blocks); err != nil {
 		return err
 	}
 	if task.Description != nil {
@@ -377,7 +387,7 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 		if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {
 			return err
 		}
-		t := output.NewTable(w, "ID", "STATUS", "TITLE", "OWNER", "ASSIGNEE")
+		t := output.NewTable(w, "ID", "STATUS", "PRIORITY", "BLOCKED", "BLOCKED BY", "BLOCKS", "TITLE", "OWNER", "ASSIGNEE")
 		for _, task := range tasks {
 			assignee := "—"
 			if task.Queued {
@@ -385,7 +395,7 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 			} else if task.Assignee != nil {
 				assignee = partyCell(task.Assignee)
 			}
-			t.Row(output.SafeCell(task.ID), output.SafeCell(task.Status), output.SafeCell(task.Title), output.SafeCell(partyCell(task.Owner)), output.SafeCell(assignee))
+			t.Row(output.SafeCell(task.ID), output.SafeCell(task.Status), strconv.Itoa(task.Priority), strconv.FormatBool(task.Blocked), dependencySummary(task.BlockedBy), dependencySummary(task.Blocks), output.SafeCell(task.Title), output.SafeCell(partyCell(task.Owner)), output.SafeCell(assignee))
 		}
 		return t.Flush()
 	})
