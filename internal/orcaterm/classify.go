@@ -31,8 +31,8 @@ type Observation struct {
 	LastTurnAt *time.Time
 }
 
-func held(prompt ts.Prompt, family string) Observation {
-	return Observation{Status: ts.Locked, Prompt: prompt, Reason: ts.Unrecognized, Family: family}
+func held(family string) Observation {
+	return Observation{Status: ts.Locked, Prompt: ts.PromptUnknown, Reason: ts.Unrecognized, Family: family}
 }
 
 // Classify judges terminal t showing sc. now resolves the clock time a
@@ -43,12 +43,12 @@ func Classify(t Terminal, sc *Screen, now time.Time) Observation {
 	}
 	// A terminal that cannot be typed into is never sendable.
 	if !t.Writable || !sc.usable() {
-		return held(ts.PromptUnknown, "")
+		return held("")
 	}
 	// Both families' chrome at once is ambiguity: Orca's identity must not
 	// break the tie.
 	if c, x := screenFamilies(sc); c && x {
-		return held(ts.PromptUnknown, "")
+		return held("")
 	}
 	shown, id := ScreenAgentFamily(sc), t.Identity()
 	if shown == "" && id == "" {
@@ -57,7 +57,7 @@ func Classify(t Terminal, sc *Screen, now time.Time) Observation {
 		if endsInShellPrompt(sc.Tail) {
 			return Observation{Status: ts.Dark, Prompt: ts.PromptUnknown, Reason: ts.BareShell}
 		}
-		return held(ts.PromptUnknown, "")
+		return held("")
 	}
 	// A dialog can hide the agent's chrome, so Orca's identity stands in;
 	// two disagreeing signals hold.
@@ -66,9 +66,9 @@ func Classify(t Terminal, sc *Screen, now time.Time) Observation {
 		family = id
 	}
 	if id != "" && shown != "" && id != shown {
-		return held(ts.PromptUnknown, family)
+		return held(family)
 	}
-	obs := held(ts.PromptUnknown, family)
+	obs := held(family)
 	state, _ := ReadComposer(sc, family)
 	live, _ := IdleProof(sc.Tail, family)
 	switch state {
