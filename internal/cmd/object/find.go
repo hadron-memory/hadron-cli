@@ -36,7 +36,7 @@ func newCmdFind(f *cmdutil.Factory) *cobra.Command {
 		Aliases: []string{"list", "ls"},
 		Short:   "Query a collection",
 		Long: `List the records of one collection in a memory, then a count line
-("2 shown, 2 total"). With no filter, every record of the type is listed.
+("2 shown, 2 total"). With no filter, every record of the type matches.
 
 --match keeps records whose fields equal the given values: a JSON object
 {"field": value, ...}; all must match.
@@ -45,8 +45,10 @@ in the JSON grammar of search --where; the second example keeps records with
 fundingUsd over 10,000,000. --where and --match can be combined (both must hold).
 --sort orders by one field: {"<field>": "asc"} or {"<field>": "desc"}.
 
-At most 20 records are returned unless --limit says otherwise (at most 200).
-When "total" is larger than "shown", fetch the next page with --offset.`,
+At most 20 records are returned per page unless --limit says otherwise (at
+most 200). "shown" counts this page only. To page, add each page's "shown" to
+--offset and run again; stop when --offset plus "shown" reaches "total", or
+when a page shows 0.`,
 		Example: `  hadron object find -m hrn:mem:acme.com:market --type competitor --match '{"stage":"series-a"}'
   hadron object find -m hrn:mem:acme.com:market --type competitor \
     --where '{"path":["fundingUsd"],"as":"number","gt":10000000}' \

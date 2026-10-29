@@ -60,8 +60,11 @@ extension is unknown. Pass --mime when the extension is wrong or missing.
 Every upload is scanned for viruses. A file that fails the scan is refused, its
 contents are discarded, and only a record of it is kept (status BLOCKED, shown
 by asset list --include-deleted); uploading the same file again fails the same
-way. If an upload fails for any other reason, nothing appears in asset list;
-run it again.`,
+way. If the upload is refused up front (size or type) or the file transfer
+fails, nothing appears in asset list and you can run it again. If a network or
+proxy error comes after the file was sent, the upload may still have
+completed: check asset list before uploading again, or you may end up with two
+copies.`,
 		Example: `  hadron asset upload ./report.pdf -m hrn:mem:acme.com:kb
   hadron asset upload ./notes.md -m hrn:mem:acme.com:kb --description "meeting notes"
   hadron asset upload ./data -m hrn:mem:acme.com:kb --mime application/json --name data.json`,
