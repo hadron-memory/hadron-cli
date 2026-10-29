@@ -191,3 +191,38 @@ func TestWireDeliveryAcknowledgesWakesThroughTheHostServer(t *testing.T) {
 		t.Fatal("wake status hook and delivery not wired")
 	}
 }
+
+// Joost's BLIND P2 on #1183: a cursor cycle longer than one page (A, B, A)
+// must refuse the read, not page forever.
+func TestWakesRefuseAMultiPageCursorCycle(t *testing.T) {
+	page := func(cursor string) string {
+		return strings.Replace(strings.Replace(wakePage2, `"hasNextPage":false`, `"hasNextPage":true`, 1), `"c2"`, `"`+cursor+`"`, 1)
+	}
+	s, calls := deliveryFake(t, map[string][]string{"DueWakes": {page("A"), page("B"), page("A"), page("B"), page("A")}})
+	got, err := s.Wakes(context.Background())
+	if err == nil || len(got.Wakes) != 0 {
+		t.Fatalf("page %+v err %v, want the cycle refused", got, err)
+	}
+	if n := len(calls()); n != 3 {
+		t.Fatalf("%d reads, want the third page's repeated cursor to stop it", n)
+	}
+}
+
+// Cooper's QA gap on #1183: the flag's exact boundary. A run of exactly 30
+// minutes is not flagged; one second more is.
+func TestHeldOver30mBoundary(t *testing.T) {
+	dir := t.TempDir()
+	cfg := &hostpoller.Config{StateFile: filepath.Join(dir, "state.json"), PollIntervalSeconds: 30, Delivery: hostpoller.DeliveryConfig{Enabled: true, OrcaBin: "/bin/true"}}
+	now := time.Date(2026, 10, 29, 12, 0, 0, 0, time.UTC)
+	book := delivery.NewStatusBook(cfg.DeliveryStateDir())
+	book.Observe(delivery.Event{Time: now.Add(-30 * time.Minute), Worker: "iris", WorkerID: "wkr1", Kind: delivery.Held, Reason: delivery.HoldDraft})
+	if err := book.Step(now, delivery.StepRead); err != nil {
+		t.Fatal(err)
+	}
+	if d := hostDeliveryStatus(cfg, now); len(d.Workers) != 1 || d.Workers[0].HeldOver30m || d.Workers[0].LastAgeSeconds != 1800 {
+		t.Fatalf("at exactly 30m: %+v", d.Workers)
+	}
+	if d := hostDeliveryStatus(cfg, now.Add(time.Second)); !d.Workers[0].HeldOver30m {
+		t.Fatalf("at 30m1s: %+v", d.Workers)
+	}
+}
