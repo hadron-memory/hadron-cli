@@ -1620,6 +1620,31 @@ enum AppMemoryKind {
   user
 }
 
+"""#2190: one reason a memory is in an App's scope."""
+type AppMemorySource {
+  """
+  The installed or base Agent, for AGENT_SYSTEM, AGENT_LINK and INHERITED_BASE; null for TEAM_SPACE. An id only: when it does not resolve to an Agent this caller may read, show the source kind without a name.
+  """
+  agentId: ID
+  kind: AppMemorySourceKind!
+}
+
+enum AppMemorySourceKind {
+  """A memory linked to an Agent installed in this App."""
+  AGENT_LINK
+
+  """The system memory of an Agent installed in this App."""
+  AGENT_SYSTEM
+
+  """
+  A base Agent's system memory, with nodes inherited by an installed Agent's system memory (hrn:node:hadronmemory.com:specs:cor:dmo:050:14).
+  """
+  INHERITED_BASE
+
+  """The App's own team space, listed for App participants only."""
+  TEAM_SPACE
+}
+
 """
 #2484: an App's write grant on one memory under one loc prefix, for the App's userless runs only. It permits node create and update at the prefix and its colon-boundary descendants, checked live at each write; never delete, edges, memory settings or stored files, and nothing for another App's run, a user-backed run, an App key or a worker. A revoked grant stays as a terminal row. hrn:node:hadronmemory.com:specs:cor:agt:010:01
 """
@@ -1867,6 +1892,42 @@ enum AppRunTriggerKind {
 
 type AppRunsPage {
   items: [AppRun!]!
+  total: Int!
+}
+
+"""
+#2190 (hrn:node:hadronmemory.com:specs:cor:dmo:050:17): one memory in an App's scope. A leaf: no nested Memory or Agent.
+"""
+type AppScopedMemory {
+  class: MemoryClass!
+  memoryId: ID!
+  memoryUrn: String!
+  name: String!
+
+  """
+  Every reason this memory is in scope. Never empty. Ordered by kind (AGENT_SYSTEM, AGENT_LINK, INHERITED_BASE, TEAM_SPACE), then by agent install order.
+  """
+  sources: [AppMemorySource!]!
+
+  """
+  Advisory: whether this caller, in this request's context, may create a node
+  in this memory (the createNode gate). Memory-level only: it never makes an
+  inherited node editable, and every write is still decided by the server.
+  Offer a row as an upload or new-node target only when viewerCanWrite is true
+  AND at least one of its sources has a kind other than INHERITED_BASE. A
+  memory present only as an inherited base belongs to the base Agent, and
+  other Apps read it too.
+  """
+  viewerCanWrite: Boolean!
+}
+
+"""#2190: one page of an App's memory scope."""
+type AppScopedMemoryPage {
+  items: [AppScopedMemory!]!
+
+  """
+  Size of the caller's whole scope, so a client knows when it has every page.
+  """
   total: Int!
 }
 
@@ -11246,6 +11307,11 @@ type Query {
 
     """Match at least one tag. Empty arrays do not narrow the list."""
     tagsAny: [String!]
+
+    """
+    Case-insensitive substring of the title or description, 1 to 200 characters after trimming (else BAD_USER_INPUT). Percent, underscore and backslash match literally. ANDed with every other filter.
+    """
+    text: String
   ): [AgentTask!]!
 
   """
@@ -11361,6 +11427,20 @@ type Query {
   Accepts the entity's ID or URN.
   """
   appKeys(appRef: ID!): [AppKey!]!
+
+  """
+  #2190 (hrn:node:hadronmemory.com:specs:cor:dmo:050:17): the memories appNodes
+  reads for this caller, one row per memory with every reason it is in scope,
+  ordered by memoryUrn and paged (default 20, cap 200; over the cap returns a
+  page of the cap). Same entry and admission as appNodes, so an external App
+  participant appNodes admits is answered here too, and a refused caller gets
+  appNodes' error. Every memory in the caller's scope is listed, including
+  empty ones, so nothing is withheld; total 0 means no memories, and is also
+  the answer for an App in a soft-deleted organization. Rows are leaves.
+  
+  Accepts the App's ID or URN.
+  """
+  appMemoryScope(appRef: ID!, limit: Int, offset: Int): AppScopedMemoryPage!
 
   """
   #2484: the write grants an App holds for its userless runs, oldest first; revoked rows only with includeRevoked. Only whoever manages the App, acting as themselves, may list them; a grant on a personal or private memory is listed to its owner alone. hrn:node:hadronmemory.com:specs:cor:agt:010:01
@@ -11885,6 +11965,10 @@ type Query {
     fields: [NodeField!]
     filter: NodeFilter
     granularity: SearchGranularity
+
+    """
+    #437 — primary page size, default 20 (also null), clamped to 1–200. Expansion neighbors are additional. hrn:node:hadronmemory.com:specs:cor:api:090
+    """
     limit: Int
 
     """
@@ -11892,6 +11976,10 @@ type Query {
     """
     minScore: Float
     mode: FindNodesMode
+
+    """
+    #437 — page offset, default 0 (also null); negative values become 0. No offset ceiling. hrn:node:hadronmemory.com:specs:cor:api:090
+    """
     offset: Int
     orgId: ID
     query: String
@@ -12510,6 +12598,11 @@ type Query {
   Experimental register role picker: all readable workers tied at the nearest task depth, paged. Never assigns or routes.
   """
   registerRoleCandidates(appRef: ID!, code: String!, limit: Int = 20, offset: Int = 0): RegisterRoleCandidatePage!
+
+  """
+  Experimental: the routed pick for a register code: the named worker, else one role holder (matcher least-recently-assigned), else one coordinator-role holder, else the App's managers (shown only to a manager). Empty when nothing matches. Never assigns or delivers.
+  """
+  registerRolePick(appRef: ID!, code: String!, workerRef: ID): RegisterRolePick!
 
   """
   Render a run/action node WITHOUT executing it (#818) — the GraphQL twin of
@@ -13406,6 +13499,26 @@ type RegisterRoleCandidatePage {
 
   """Total nearest-depth ties, independent of the requested page."""
   total: Int!
+}
+
+type RegisterRolePick {
+  appId: ID!
+  code: String!
+
+  """
+  Worker arms carry exactly one WORKER entry; the managers arm one USER entry per manager, nearest first.
+  """
+  entries: [RegisterRouteEntry!]!
+}
+
+type RegisterRouteEntry {
+  id: ID!
+  kind: RegisterRouteKind!
+}
+
+enum RegisterRouteKind {
+  USER
+  WORKER
 }
 
 """
