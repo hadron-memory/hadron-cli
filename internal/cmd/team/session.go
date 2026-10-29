@@ -61,6 +61,7 @@ holds nothing), so it has nothing to release.`,
 	cmd.AddCommand(newCmdSessionLog(f))
 	cmd.AddCommand(newCmdSessionEnd(f))
 	cmd.AddCommand(newCmdSessionResumeClaim(f))
+	cmd.AddCommand(newCmdSessionShed(f))
 	cmd.AddCommand(newCmdSessionList(f))
 	cmd.AddCommand(newCmdSessionSyncModel(f))
 	cmd.AddCommand(newCmdSessionSetModel(f))
