@@ -40,6 +40,7 @@ import (
 	memorycmd "github.com/hadron-memory/hadron-cli/internal/cmd/memory"
 	nodecmd "github.com/hadron-memory/hadron-cli/internal/cmd/node"
 	objectcmd "github.com/hadron-memory/hadron-cli/internal/cmd/object"
+	orcacmd "github.com/hadron-memory/hadron-cli/internal/cmd/orca"
 	orgcmd "github.com/hadron-memory/hadron-cli/internal/cmd/org"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/replacecmd"
 	runcmd "github.com/hadron-memory/hadron-cli/internal/cmd/run"
@@ -128,6 +129,7 @@ Supporting servers record the worker and agent alongside the authenticated user.
 	root.AddCommand(orgcmd.NewCmdOrg(f))
 	root.AddCommand(scopecmd.NewCmdScope(f))
 	root.AddCommand(agentcmd.NewCmdAgent(f))
+	root.AddCommand(orcacmd.NewCmdOrca(f))
 	root.AddCommand(teamcmd.NewCmdTeam(f))
 	root.AddCommand(tickercmd.NewCmdTicker(f))
 	root.AddCommand(usercmd.NewCmdUser(f))

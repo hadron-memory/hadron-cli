@@ -94,14 +94,14 @@ type Result struct {
 func (r Result) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
 		Contract   string     `json:"contract"`
-		Worker     string     `json:"worker"`
+		Worker     *string    `json:"worker"`
 		Terminal   *string    `json:"terminal"`
 		Status     Status     `json:"status"`
 		Prompt     Prompt     `json:"prompt"`
 		Reason     *Reason    `json:"reason"`
 		LastTurnAt *time.Time `json:"lastTurnAt"`
 		CheckedAt  time.Time  `json:"checkedAt"`
-	}{Contract, r.Worker, nonEmpty(r.Terminal), r.Status, r.Prompt, r.Reason, utc(r.LastTurnAt), r.CheckedAt.UTC()})
+	}{Contract, nonEmpty(r.Worker), nonEmpty(r.Terminal), r.Status, r.Prompt, r.Reason, utc(r.LastTurnAt), r.CheckedAt.UTC().Truncate(time.Second)})
 }
 
 func nonEmpty(s string) *string {
