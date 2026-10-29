@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -44,17 +43,6 @@ func dependencyPage[T taskDependencyGetter](total int, more bool, items []T) *ta
 	return d
 }
 
-// Server owns range, state, authority and cycle decisions. Preserve its public
-// code beside the mapped message; never retry a mutation or print partial data.
-func mapTaskError(err error) error {
-	mapped := api.MapError(err)
-	for _, code := range []string{"TASK_BLOCKED", "TASK_BLOCKER_CYCLE", "TASK_NOT_FOUND", "TASK_NOT_OWNER", "TASK_INVALID_TRANSITION", "BAD_USER_INPUT"} {
-		if api.HasErrorCode(err, code) {
-			return fmt.Errorf("%s: %w", code, mapped)
-		}
-	}
-	return mapped
-}
 func newCmdTaskDependencyWrite(f *cmdutil.Factory, verb string) *cobra.Command {
 	priority := verb == "set-priority"
 	arg := "<blocker-task>"

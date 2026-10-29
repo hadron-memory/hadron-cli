@@ -20,14 +20,18 @@ const cellMaxRunes = 256
 //
 // Text mode only: --json carries the original value. Other commands' tables are
 // unchanged (roster, automation and member keep their own guards).
-func SafeCell(s string) string {
+func SafeCell(s string) string { return SafeLine(s, cellMaxRunes) }
+
+// SafeLine is SafeCell with the caller's rune bound, for one-line messages
+// (an error refusal) that need more room than a table cell.
+func SafeLine(s string, maxRunes int) string {
 	var b strings.Builder
 	n := 0
 	for _, r := range s {
-		if n == cellMaxRunes {
+		if n == maxRunes {
 			// Over the bound: drop the last kept rune for the ellipsis.
 			out := []rune(b.String())
-			return string(out[:cellMaxRunes-1]) + "…"
+			return string(out[:maxRunes-1]) + "…"
 		}
 		if unicode.IsControl(r) || unicode.In(r, unicode.Cf, unicode.Zl, unicode.Zp) {
 			r = ' '

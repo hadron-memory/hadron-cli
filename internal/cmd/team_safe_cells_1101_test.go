@@ -536,12 +536,14 @@ func TestTeamSafeCells1101(t *testing.T) {
 					// (?:PENDING|STARTED) pair — leaves it one status rename
 					// from silently no-oping again, and the golden then hashes
 					// the raw IDLE cell (day-granular at ≥48h) and detonates
-					// at the next 01:00 UTC boundary.
-					cleanSnapshot = regexp.MustCompile(`(?m)^(task1 +\S+ +)\S+`).ReplaceAllString(cleanSnapshot, "${1}AGE")
+					// at the next 01:00 UTC boundary. The IDLE cell is the fifth column
+					// (ID STATUS PRIORITY BLOCKED IDLE): the normalizer skips the two
+					// columns main's priority/blocked work put in front of it.
+					cleanSnapshot = regexp.MustCompile(`(?m)^(task1 +\S+ +\S+ +\S+ +)\S+`).ReplaceAllString(cleanSnapshot, "${1}AGE")
 					jsonSnapshot = regexp.MustCompile(`"ageSeconds": -?[0-9]+`).ReplaceAllString(jsonSnapshot, `"ageSeconds": 0`)
 					// The pin: prove the substitution FIRED, so the golden
 					// cannot silently go back to hashing a clock-derived cell.
-					if !regexp.MustCompile(`(?m)^task1 +\S+ +AGE(?:\s|$)`).MatchString(cleanSnapshot) {
+					if !regexp.MustCompile(`(?m)^task1 +\S+ +\S+ +\S+ +AGE(?:\s|$)`).MatchString(cleanSnapshot) {
 						t.Fatalf("%s: age normalization did not fire; the golden would hash a clock-derived IDLE cell", tc.name)
 					}
 				}

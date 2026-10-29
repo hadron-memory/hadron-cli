@@ -1227,6 +1227,16 @@ func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetBlocks() *AgentTask
 // GetId returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Id, and is useful for accessing the field via an interface.
 func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetId() string { return v.AgentTaskFields.Id }
 
+// GetHandle returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetHandle() string {
+	return v.AgentTaskFields.Handle
+}
+
+// GetTaskNumber returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.TaskNumber, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetTaskNumber() string {
+	return v.AgentTaskFields.TaskNumber
+}
+
 // GetAppId returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.AppId, and is useful for accessing the field via an interface.
 func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetAppId() string {
 	return v.AgentTaskFields.AppId
@@ -1373,6 +1383,10 @@ type __premarshalAgentTaskAddBlockerAddAgentTaskBlockerAgentTask struct {
 
 	Id string `json:"id"`
 
+	Handle string `json:"handle"`
+
+	TaskNumber string `json:"taskNumber"`
+
 	AppId string `json:"appId"`
 
 	Title string `json:"title"`
@@ -1434,6 +1448,8 @@ func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) __premarshalJSON() (*_
 	retval.BlockedBy = v.AgentTaskFields.BlockedBy
 	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
+	retval.Handle = v.AgentTaskFields.Handle
+	retval.TaskNumber = v.AgentTaskFields.TaskNumber
 	retval.AppId = v.AgentTaskFields.AppId
 	retval.Title = v.AgentTaskFields.Title
 	retval.Description = v.AgentTaskFields.Description
@@ -1493,6 +1509,12 @@ func (v *AgentTaskAssignAssignAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgent
 
 // GetId returns AgentTaskAssignAssignAgentTask.Id, and is useful for accessing the field via an interface.
 func (v *AgentTaskAssignAssignAgentTask) GetId() string { return v.AgentTaskFields.Id }
+
+// GetHandle returns AgentTaskAssignAssignAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskAssignAssignAgentTask) GetHandle() string { return v.AgentTaskFields.Handle }
+
+// GetTaskNumber returns AgentTaskAssignAssignAgentTask.TaskNumber, and is useful for accessing the field via an interface.
+func (v *AgentTaskAssignAssignAgentTask) GetTaskNumber() string { return v.AgentTaskFields.TaskNumber }
 
 // GetAppId returns AgentTaskAssignAssignAgentTask.AppId, and is useful for accessing the field via an interface.
 func (v *AgentTaskAssignAssignAgentTask) GetAppId() string { return v.AgentTaskFields.AppId }
@@ -1618,6 +1640,10 @@ type __premarshalAgentTaskAssignAssignAgentTask struct {
 
 	Id string `json:"id"`
 
+	Handle string `json:"handle"`
+
+	TaskNumber string `json:"taskNumber"`
+
 	AppId string `json:"appId"`
 
 	Title string `json:"title"`
@@ -1679,6 +1705,8 @@ func (v *AgentTaskAssignAssignAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.BlockedBy = v.AgentTaskFields.BlockedBy
 	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
+	retval.Handle = v.AgentTaskFields.Handle
+	retval.TaskNumber = v.AgentTaskFields.TaskNumber
 	retval.AppId = v.AgentTaskFields.AppId
 	retval.Title = v.AgentTaskFields.Title
 	retval.Description = v.AgentTaskFields.Description
@@ -1744,6 +1772,12 @@ func (v *AgentTaskCancelCancelAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgent
 
 // GetId returns AgentTaskCancelCancelAgentTask.Id, and is useful for accessing the field via an interface.
 func (v *AgentTaskCancelCancelAgentTask) GetId() string { return v.AgentTaskFields.Id }
+
+// GetHandle returns AgentTaskCancelCancelAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskCancelCancelAgentTask) GetHandle() string { return v.AgentTaskFields.Handle }
+
+// GetTaskNumber returns AgentTaskCancelCancelAgentTask.TaskNumber, and is useful for accessing the field via an interface.
+func (v *AgentTaskCancelCancelAgentTask) GetTaskNumber() string { return v.AgentTaskFields.TaskNumber }
 
 // GetAppId returns AgentTaskCancelCancelAgentTask.AppId, and is useful for accessing the field via an interface.
 func (v *AgentTaskCancelCancelAgentTask) GetAppId() string { return v.AgentTaskFields.AppId }
@@ -1869,6 +1903,10 @@ type __premarshalAgentTaskCancelCancelAgentTask struct {
 
 	Id string `json:"id"`
 
+	Handle string `json:"handle"`
+
+	TaskNumber string `json:"taskNumber"`
+
 	AppId string `json:"appId"`
 
 	Title string `json:"title"`
@@ -1930,6 +1968,8 @@ func (v *AgentTaskCancelCancelAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.BlockedBy = v.AgentTaskFields.BlockedBy
 	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
+	retval.Handle = v.AgentTaskFields.Handle
+	retval.TaskNumber = v.AgentTaskFields.TaskNumber
 	retval.AppId = v.AgentTaskFields.AppId
 	retval.Title = v.AgentTaskFields.Title
 	retval.Description = v.AgentTaskFields.Description
@@ -1995,6 +2035,12 @@ func (v *AgentTaskCreateCreateAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgent
 
 // GetId returns AgentTaskCreateCreateAgentTask.Id, and is useful for accessing the field via an interface.
 func (v *AgentTaskCreateCreateAgentTask) GetId() string { return v.AgentTaskFields.Id }
+
+// GetHandle returns AgentTaskCreateCreateAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateCreateAgentTask) GetHandle() string { return v.AgentTaskFields.Handle }
+
+// GetTaskNumber returns AgentTaskCreateCreateAgentTask.TaskNumber, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateCreateAgentTask) GetTaskNumber() string { return v.AgentTaskFields.TaskNumber }
 
 // GetAppId returns AgentTaskCreateCreateAgentTask.AppId, and is useful for accessing the field via an interface.
 func (v *AgentTaskCreateCreateAgentTask) GetAppId() string { return v.AgentTaskFields.AppId }
@@ -2120,6 +2166,10 @@ type __premarshalAgentTaskCreateCreateAgentTask struct {
 
 	Id string `json:"id"`
 
+	Handle string `json:"handle"`
+
+	TaskNumber string `json:"taskNumber"`
+
 	AppId string `json:"appId"`
 
 	Title string `json:"title"`
@@ -2181,6 +2231,8 @@ func (v *AgentTaskCreateCreateAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.BlockedBy = v.AgentTaskFields.BlockedBy
 	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
+	retval.Handle = v.AgentTaskFields.Handle
+	retval.TaskNumber = v.AgentTaskFields.TaskNumber
 	retval.AppId = v.AgentTaskFields.AppId
 	retval.Title = v.AgentTaskFields.Title
 	retval.Description = v.AgentTaskFields.Description
@@ -2533,12 +2585,21 @@ type AgentTaskFields struct {
 	// Same-App tasks this task waits for, including ended blockers.
 	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
 	// Same-App tasks that name this task as a blocker.
-	Blocks      *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
-	Id          string                                        `json:"id"`
-	AppId       string                                        `json:"appId"`
-	Title       string                                        `json:"title"`
-	Description *string                                       `json:"description"`
-	Status      AgentTaskStatus                               `json:"status"`
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+	Id     string                                        `json:"id"`
+	// The short handle of this task, for example "AT3.405": its project (AT3, a top-level task counted per App) and its
+	// number within each parent down to it (hrn:node:hadronmemory.com:specs:cor:agt:050:01). "AT0" is the reserved
+	// project "No project": a task made with no project is AT0.<n>. An alias for the id, which stays canonical; every
+	// task operation that takes a task id also takes the handle. Immutable: parentage is fixed at creation. A person who
+	// belongs to several Apps qualifies it as hrn:agenttask:<app-urn>:AT3.405, where the App URN is the App's urn.
+	// The handle is not the number of any GitHub issue the task's source names.
+	Handle string `json:"handle"`
+	// This task's own number inside its handle (the last segment), counted per parent. Permanent: never changed, never given to another task.
+	TaskNumber  string          `json:"taskNumber"`
+	AppId       string          `json:"appId"`
+	Title       string          `json:"title"`
+	Description *string         `json:"description"`
+	Status      AgentTaskStatus `json:"status"`
 	// Derived (hrn:node:hadronmemory.com:specs:cor:agt:050:03): pending with no assignee. Never stored.
 	Queued bool `json:"queued"`
 	// Derived (hrn:node:hadronmemory.com:specs:cor:agt:050:04): started with at least one pending or started child task. Never stored.
@@ -2583,6 +2644,12 @@ func (v *AgentTaskFields) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyP
 
 // GetId returns AgentTaskFields.Id, and is useful for accessing the field via an interface.
 func (v *AgentTaskFields) GetId() string { return v.Id }
+
+// GetHandle returns AgentTaskFields.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskFields) GetHandle() string { return v.Handle }
+
+// GetTaskNumber returns AgentTaskFields.TaskNumber, and is useful for accessing the field via an interface.
+func (v *AgentTaskFields) GetTaskNumber() string { return v.TaskNumber }
 
 // GetAppId returns AgentTaskFields.AppId, and is useful for accessing the field via an interface.
 func (v *AgentTaskFields) GetAppId() string { return v.AppId }
@@ -3242,6 +3309,12 @@ func (v *AgentTaskFinishFinishAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgent
 // GetId returns AgentTaskFinishFinishAgentTask.Id, and is useful for accessing the field via an interface.
 func (v *AgentTaskFinishFinishAgentTask) GetId() string { return v.AgentTaskFields.Id }
 
+// GetHandle returns AgentTaskFinishFinishAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskFinishFinishAgentTask) GetHandle() string { return v.AgentTaskFields.Handle }
+
+// GetTaskNumber returns AgentTaskFinishFinishAgentTask.TaskNumber, and is useful for accessing the field via an interface.
+func (v *AgentTaskFinishFinishAgentTask) GetTaskNumber() string { return v.AgentTaskFields.TaskNumber }
+
 // GetAppId returns AgentTaskFinishFinishAgentTask.AppId, and is useful for accessing the field via an interface.
 func (v *AgentTaskFinishFinishAgentTask) GetAppId() string { return v.AgentTaskFields.AppId }
 
@@ -3366,6 +3439,10 @@ type __premarshalAgentTaskFinishFinishAgentTask struct {
 
 	Id string `json:"id"`
 
+	Handle string `json:"handle"`
+
+	TaskNumber string `json:"taskNumber"`
+
 	AppId string `json:"appId"`
 
 	Title string `json:"title"`
@@ -3427,6 +3504,8 @@ func (v *AgentTaskFinishFinishAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.BlockedBy = v.AgentTaskFields.BlockedBy
 	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
+	retval.Handle = v.AgentTaskFields.Handle
+	retval.TaskNumber = v.AgentTaskFields.TaskNumber
 	retval.AppId = v.AgentTaskFields.AppId
 	retval.Title = v.AgentTaskFields.Title
 	retval.Description = v.AgentTaskFields.Description
@@ -3488,6 +3567,12 @@ func (v *AgentTaskGetAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDepen
 
 // GetId returns AgentTaskGetAgentTask.Id, and is useful for accessing the field via an interface.
 func (v *AgentTaskGetAgentTask) GetId() string { return v.AgentTaskFields.Id }
+
+// GetHandle returns AgentTaskGetAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTask) GetHandle() string { return v.AgentTaskFields.Handle }
+
+// GetTaskNumber returns AgentTaskGetAgentTask.TaskNumber, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTask) GetTaskNumber() string { return v.AgentTaskFields.TaskNumber }
 
 // GetAppId returns AgentTaskGetAgentTask.AppId, and is useful for accessing the field via an interface.
 func (v *AgentTaskGetAgentTask) GetAppId() string { return v.AgentTaskFields.AppId }
@@ -3607,6 +3692,10 @@ type __premarshalAgentTaskGetAgentTask struct {
 
 	Id string `json:"id"`
 
+	Handle string `json:"handle"`
+
+	TaskNumber string `json:"taskNumber"`
+
 	AppId string `json:"appId"`
 
 	Title string `json:"title"`
@@ -3668,6 +3757,8 @@ func (v *AgentTaskGetAgentTask) __premarshalJSON() (*__premarshalAgentTaskGetAge
 	retval.BlockedBy = v.AgentTaskFields.BlockedBy
 	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
+	retval.Handle = v.AgentTaskFields.Handle
+	retval.TaskNumber = v.AgentTaskFields.TaskNumber
 	retval.AppId = v.AgentTaskFields.AppId
 	retval.Title = v.AgentTaskFields.Title
 	retval.Description = v.AgentTaskFields.Description
@@ -3819,6 +3910,14 @@ func (v *AgentTaskListAgentTasksAgentTask) GetBlocks() *AgentTaskFieldsBlocksAge
 // GetId returns AgentTaskListAgentTasksAgentTask.Id, and is useful for accessing the field via an interface.
 func (v *AgentTaskListAgentTasksAgentTask) GetId() string { return v.AgentTaskFields.Id }
 
+// GetHandle returns AgentTaskListAgentTasksAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskListAgentTasksAgentTask) GetHandle() string { return v.AgentTaskFields.Handle }
+
+// GetTaskNumber returns AgentTaskListAgentTasksAgentTask.TaskNumber, and is useful for accessing the field via an interface.
+func (v *AgentTaskListAgentTasksAgentTask) GetTaskNumber() string {
+	return v.AgentTaskFields.TaskNumber
+}
+
 // GetAppId returns AgentTaskListAgentTasksAgentTask.AppId, and is useful for accessing the field via an interface.
 func (v *AgentTaskListAgentTasksAgentTask) GetAppId() string { return v.AgentTaskFields.AppId }
 
@@ -3947,6 +4046,10 @@ type __premarshalAgentTaskListAgentTasksAgentTask struct {
 
 	Id string `json:"id"`
 
+	Handle string `json:"handle"`
+
+	TaskNumber string `json:"taskNumber"`
+
 	AppId string `json:"appId"`
 
 	Title string `json:"title"`
@@ -4008,6 +4111,8 @@ func (v *AgentTaskListAgentTasksAgentTask) __premarshalJSON() (*__premarshalAgen
 	retval.BlockedBy = v.AgentTaskFields.BlockedBy
 	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
+	retval.Handle = v.AgentTaskFields.Handle
+	retval.TaskNumber = v.AgentTaskFields.TaskNumber
 	retval.AppId = v.AgentTaskFields.AppId
 	retval.Title = v.AgentTaskFields.Title
 	retval.Description = v.AgentTaskFields.Description
@@ -4095,6 +4200,12 @@ func (v *AgentTaskParkParkAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTask
 
 // GetId returns AgentTaskParkParkAgentTask.Id, and is useful for accessing the field via an interface.
 func (v *AgentTaskParkParkAgentTask) GetId() string { return v.AgentTaskFields.Id }
+
+// GetHandle returns AgentTaskParkParkAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetHandle() string { return v.AgentTaskFields.Handle }
+
+// GetTaskNumber returns AgentTaskParkParkAgentTask.TaskNumber, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetTaskNumber() string { return v.AgentTaskFields.TaskNumber }
 
 // GetAppId returns AgentTaskParkParkAgentTask.AppId, and is useful for accessing the field via an interface.
 func (v *AgentTaskParkParkAgentTask) GetAppId() string { return v.AgentTaskFields.AppId }
@@ -4214,6 +4325,10 @@ type __premarshalAgentTaskParkParkAgentTask struct {
 
 	Id string `json:"id"`
 
+	Handle string `json:"handle"`
+
+	TaskNumber string `json:"taskNumber"`
+
 	AppId string `json:"appId"`
 
 	Title string `json:"title"`
@@ -4275,6 +4390,8 @@ func (v *AgentTaskParkParkAgentTask) __premarshalJSON() (*__premarshalAgentTaskP
 	retval.BlockedBy = v.AgentTaskFields.BlockedBy
 	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
+	retval.Handle = v.AgentTaskFields.Handle
+	retval.TaskNumber = v.AgentTaskFields.TaskNumber
 	retval.AppId = v.AgentTaskFields.AppId
 	retval.Title = v.AgentTaskFields.Title
 	retval.Description = v.AgentTaskFields.Description
@@ -4394,6 +4511,16 @@ func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetBlocks() *AgentTa
 // GetId returns AgentTaskProgressRecordAgentTaskProgressAgentTask.Id, and is useful for accessing the field via an interface.
 func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetId() string {
 	return v.AgentTaskFields.Id
+}
+
+// GetHandle returns AgentTaskProgressRecordAgentTaskProgressAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetHandle() string {
+	return v.AgentTaskFields.Handle
+}
+
+// GetTaskNumber returns AgentTaskProgressRecordAgentTaskProgressAgentTask.TaskNumber, and is useful for accessing the field via an interface.
+func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetTaskNumber() string {
+	return v.AgentTaskFields.TaskNumber
 }
 
 // GetAppId returns AgentTaskProgressRecordAgentTaskProgressAgentTask.AppId, and is useful for accessing the field via an interface.
@@ -4542,6 +4669,10 @@ type __premarshalAgentTaskProgressRecordAgentTaskProgressAgentTask struct {
 
 	Id string `json:"id"`
 
+	Handle string `json:"handle"`
+
+	TaskNumber string `json:"taskNumber"`
+
 	AppId string `json:"appId"`
 
 	Title string `json:"title"`
@@ -4603,6 +4734,8 @@ func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) __premarshalJSON() (
 	retval.BlockedBy = v.AgentTaskFields.BlockedBy
 	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
+	retval.Handle = v.AgentTaskFields.Handle
+	retval.TaskNumber = v.AgentTaskFields.TaskNumber
 	retval.AppId = v.AgentTaskFields.AppId
 	retval.Title = v.AgentTaskFields.Title
 	retval.Description = v.AgentTaskFields.Description
@@ -4667,6 +4800,16 @@ func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetBlocks() *AgentTaskFields
 
 // GetId returns AgentTaskReadyMakeAgentTaskReadyAgentTask.Id, and is useful for accessing the field via an interface.
 func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetId() string { return v.AgentTaskFields.Id }
+
+// GetHandle returns AgentTaskReadyMakeAgentTaskReadyAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetHandle() string {
+	return v.AgentTaskFields.Handle
+}
+
+// GetTaskNumber returns AgentTaskReadyMakeAgentTaskReadyAgentTask.TaskNumber, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetTaskNumber() string {
+	return v.AgentTaskFields.TaskNumber
+}
 
 // GetAppId returns AgentTaskReadyMakeAgentTaskReadyAgentTask.AppId, and is useful for accessing the field via an interface.
 func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetAppId() string { return v.AgentTaskFields.AppId }
@@ -4806,6 +4949,10 @@ type __premarshalAgentTaskReadyMakeAgentTaskReadyAgentTask struct {
 
 	Id string `json:"id"`
 
+	Handle string `json:"handle"`
+
+	TaskNumber string `json:"taskNumber"`
+
 	AppId string `json:"appId"`
 
 	Title string `json:"title"`
@@ -4867,6 +5014,8 @@ func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) __premarshalJSON() (*__prema
 	retval.BlockedBy = v.AgentTaskFields.BlockedBy
 	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
+	retval.Handle = v.AgentTaskFields.Handle
+	retval.TaskNumber = v.AgentTaskFields.TaskNumber
 	retval.AppId = v.AgentTaskFields.AppId
 	retval.Title = v.AgentTaskFields.Title
 	retval.Description = v.AgentTaskFields.Description
@@ -4931,6 +5080,14 @@ func (v *AgentTaskReassignReassignAgentTask) GetBlocks() *AgentTaskFieldsBlocksA
 
 // GetId returns AgentTaskReassignReassignAgentTask.Id, and is useful for accessing the field via an interface.
 func (v *AgentTaskReassignReassignAgentTask) GetId() string { return v.AgentTaskFields.Id }
+
+// GetHandle returns AgentTaskReassignReassignAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskReassignReassignAgentTask) GetHandle() string { return v.AgentTaskFields.Handle }
+
+// GetTaskNumber returns AgentTaskReassignReassignAgentTask.TaskNumber, and is useful for accessing the field via an interface.
+func (v *AgentTaskReassignReassignAgentTask) GetTaskNumber() string {
+	return v.AgentTaskFields.TaskNumber
+}
 
 // GetAppId returns AgentTaskReassignReassignAgentTask.AppId, and is useful for accessing the field via an interface.
 func (v *AgentTaskReassignReassignAgentTask) GetAppId() string { return v.AgentTaskFields.AppId }
@@ -5066,6 +5223,10 @@ type __premarshalAgentTaskReassignReassignAgentTask struct {
 
 	Id string `json:"id"`
 
+	Handle string `json:"handle"`
+
+	TaskNumber string `json:"taskNumber"`
+
 	AppId string `json:"appId"`
 
 	Title string `json:"title"`
@@ -5127,6 +5288,8 @@ func (v *AgentTaskReassignReassignAgentTask) __premarshalJSON() (*__premarshalAg
 	retval.BlockedBy = v.AgentTaskFields.BlockedBy
 	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
+	retval.Handle = v.AgentTaskFields.Handle
+	retval.TaskNumber = v.AgentTaskFields.TaskNumber
 	retval.AppId = v.AgentTaskFields.AppId
 	retval.Title = v.AgentTaskFields.Title
 	retval.Description = v.AgentTaskFields.Description
@@ -5195,6 +5358,16 @@ func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetBlocks() *Age
 // GetId returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Id, and is useful for accessing the field via an interface.
 func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetId() string {
 	return v.AgentTaskFields.Id
+}
+
+// GetHandle returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetHandle() string {
+	return v.AgentTaskFields.Handle
+}
+
+// GetTaskNumber returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.TaskNumber, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetTaskNumber() string {
+	return v.AgentTaskFields.TaskNumber
 }
 
 // GetAppId returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.AppId, and is useful for accessing the field via an interface.
@@ -5343,6 +5516,10 @@ type __premarshalAgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask struct {
 
 	Id string `json:"id"`
 
+	Handle string `json:"handle"`
+
+	TaskNumber string `json:"taskNumber"`
+
 	AppId string `json:"appId"`
 
 	Title string `json:"title"`
@@ -5404,6 +5581,8 @@ func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) __premarshalJSON
 	retval.BlockedBy = v.AgentTaskFields.BlockedBy
 	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
+	retval.Handle = v.AgentTaskFields.Handle
+	retval.TaskNumber = v.AgentTaskFields.TaskNumber
 	retval.AppId = v.AgentTaskFields.AppId
 	retval.Title = v.AgentTaskFields.Title
 	retval.Description = v.AgentTaskFields.Description
@@ -5516,6 +5695,16 @@ func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetBlocks() *AgentTa
 // GetId returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Id, and is useful for accessing the field via an interface.
 func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetId() string {
 	return v.AgentTaskFields.Id
+}
+
+// GetHandle returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetHandle() string {
+	return v.AgentTaskFields.Handle
+}
+
+// GetTaskNumber returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.TaskNumber, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetTaskNumber() string {
+	return v.AgentTaskFields.TaskNumber
 }
 
 // GetAppId returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.AppId, and is useful for accessing the field via an interface.
@@ -5664,6 +5853,10 @@ type __premarshalAgentTaskSetPrioritySetAgentTaskPriorityAgentTask struct {
 
 	Id string `json:"id"`
 
+	Handle string `json:"handle"`
+
+	TaskNumber string `json:"taskNumber"`
+
 	AppId string `json:"appId"`
 
 	Title string `json:"title"`
@@ -5725,6 +5918,8 @@ func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) __premarshalJSON() (
 	retval.BlockedBy = v.AgentTaskFields.BlockedBy
 	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
+	retval.Handle = v.AgentTaskFields.Handle
+	retval.TaskNumber = v.AgentTaskFields.TaskNumber
 	retval.AppId = v.AgentTaskFields.AppId
 	retval.Title = v.AgentTaskFields.Title
 	retval.Description = v.AgentTaskFields.Description
@@ -5842,6 +6037,12 @@ func (v *AgentTaskStartStartAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTa
 
 // GetId returns AgentTaskStartStartAgentTask.Id, and is useful for accessing the field via an interface.
 func (v *AgentTaskStartStartAgentTask) GetId() string { return v.AgentTaskFields.Id }
+
+// GetHandle returns AgentTaskStartStartAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskStartStartAgentTask) GetHandle() string { return v.AgentTaskFields.Handle }
+
+// GetTaskNumber returns AgentTaskStartStartAgentTask.TaskNumber, and is useful for accessing the field via an interface.
+func (v *AgentTaskStartStartAgentTask) GetTaskNumber() string { return v.AgentTaskFields.TaskNumber }
 
 // GetAppId returns AgentTaskStartStartAgentTask.AppId, and is useful for accessing the field via an interface.
 func (v *AgentTaskStartStartAgentTask) GetAppId() string { return v.AgentTaskFields.AppId }
@@ -5963,6 +6164,10 @@ type __premarshalAgentTaskStartStartAgentTask struct {
 
 	Id string `json:"id"`
 
+	Handle string `json:"handle"`
+
+	TaskNumber string `json:"taskNumber"`
+
 	AppId string `json:"appId"`
 
 	Title string `json:"title"`
@@ -6024,6 +6229,8 @@ func (v *AgentTaskStartStartAgentTask) __premarshalJSON() (*__premarshalAgentTas
 	retval.BlockedBy = v.AgentTaskFields.BlockedBy
 	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
+	retval.Handle = v.AgentTaskFields.Handle
+	retval.TaskNumber = v.AgentTaskFields.TaskNumber
 	retval.AppId = v.AgentTaskFields.AppId
 	retval.Title = v.AgentTaskFields.Title
 	retval.Description = v.AgentTaskFields.Description
@@ -6192,6 +6399,14 @@ func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetBlocks() *AgentTaskFieldsBlocks
 // GetId returns AgentTaskTreeAgentTaskTreeAgentTask.Id, and is useful for accessing the field via an interface.
 func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetId() string { return v.AgentTaskFields.Id }
 
+// GetHandle returns AgentTaskTreeAgentTaskTreeAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetHandle() string { return v.AgentTaskFields.Handle }
+
+// GetTaskNumber returns AgentTaskTreeAgentTaskTreeAgentTask.TaskNumber, and is useful for accessing the field via an interface.
+func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetTaskNumber() string {
+	return v.AgentTaskFields.TaskNumber
+}
+
 // GetAppId returns AgentTaskTreeAgentTaskTreeAgentTask.AppId, and is useful for accessing the field via an interface.
 func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetAppId() string { return v.AgentTaskFields.AppId }
 
@@ -6326,6 +6541,10 @@ type __premarshalAgentTaskTreeAgentTaskTreeAgentTask struct {
 
 	Id string `json:"id"`
 
+	Handle string `json:"handle"`
+
+	TaskNumber string `json:"taskNumber"`
+
 	AppId string `json:"appId"`
 
 	Title string `json:"title"`
@@ -6387,6 +6606,8 @@ func (v *AgentTaskTreeAgentTaskTreeAgentTask) __premarshalJSON() (*__premarshalA
 	retval.BlockedBy = v.AgentTaskFields.BlockedBy
 	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
+	retval.Handle = v.AgentTaskFields.Handle
+	retval.TaskNumber = v.AgentTaskFields.TaskNumber
 	retval.AppId = v.AgentTaskFields.AppId
 	retval.Title = v.AgentTaskFields.Title
 	retval.Description = v.AgentTaskFields.Description
@@ -71730,6 +71951,8 @@ fragment AgentTaskFields on AgentTask {
 		}
 	}
 	id
+	handle
+	taskNumber
 	appId
 	title
 	description
@@ -71836,6 +72059,8 @@ fragment AgentTaskFields on AgentTask {
 		}
 	}
 	id
+	handle
+	taskNumber
 	appId
 	title
 	description
@@ -71946,6 +72171,8 @@ fragment AgentTaskFields on AgentTask {
 		}
 	}
 	id
+	handle
+	taskNumber
 	appId
 	title
 	description
@@ -72050,6 +72277,8 @@ fragment AgentTaskFields on AgentTask {
 		}
 	}
 	id
+	handle
+	taskNumber
 	appId
 	title
 	description
@@ -72108,6 +72337,9 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 // and inherited from the parent for a child. Optional party/requirements
 // inputs are omitempty so a nil pointer is OMITTED (preserve/default), never
 // sent as null — the wire-semantics rule from CLAUDE.md.
+// `project` is omitted unless --project is given: the server reads an absent
+// project as the reserved no-project AT0 (cor:agt:050:01), so a nil pointer
+// must not be sent as null. Per-field omitempty on this one input field.
 // Schema-only optional fields must stay absent for older providers.
 func AgentTaskCreate(
 	ctx_ context.Context,
@@ -72217,6 +72449,8 @@ fragment AgentTaskFields on AgentTask {
 		}
 	}
 	id
+	handle
+	taskNumber
 	appId
 	title
 	description
@@ -72323,6 +72557,8 @@ fragment AgentTaskFields on AgentTask {
 		}
 	}
 	id
+	handle
+	taskNumber
 	appId
 	title
 	description
@@ -72470,6 +72706,8 @@ fragment AgentTaskFields on AgentTask {
 		}
 	}
 	id
+	handle
+	taskNumber
 	appId
 	title
 	description
@@ -72594,6 +72832,8 @@ fragment AgentTaskFields on AgentTask {
 		}
 	}
 	id
+	handle
+	taskNumber
 	appId
 	title
 	description
@@ -72702,6 +72942,8 @@ fragment AgentTaskFields on AgentTask {
 		}
 	}
 	id
+	handle
+	taskNumber
 	appId
 	title
 	description
@@ -72806,6 +73048,8 @@ fragment AgentTaskFields on AgentTask {
 		}
 	}
 	id
+	handle
+	taskNumber
 	appId
 	title
 	description
@@ -72913,6 +73157,8 @@ fragment AgentTaskFields on AgentTask {
 		}
 	}
 	id
+	handle
+	taskNumber
 	appId
 	title
 	description
@@ -73021,6 +73267,8 @@ fragment AgentTaskFields on AgentTask {
 		}
 	}
 	id
+	handle
+	taskNumber
 	appId
 	title
 	description
@@ -73127,6 +73375,8 @@ fragment AgentTaskFields on AgentTask {
 		}
 	}
 	id
+	handle
+	taskNumber
 	appId
 	title
 	description
@@ -73234,6 +73484,8 @@ fragment AgentTaskFields on AgentTask {
 		}
 	}
 	id
+	handle
+	taskNumber
 	appId
 	title
 	description
@@ -73392,6 +73644,8 @@ fragment AgentTaskFields on AgentTask {
 		}
 	}
 	id
+	handle
+	taskNumber
 	appId
 	title
 	description

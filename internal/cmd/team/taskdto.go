@@ -7,8 +7,13 @@ package team
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 
+	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 // taskPartyDTO is the sanitized party projection: a worker's name and URN, or
@@ -42,6 +47,8 @@ type taskDTO struct {
 	BlockedBy            *taskDependencyPageDTO `json:"blockedBy"`
 	Blocks               *taskDependencyPageDTO `json:"blocks"`
 	ID                   string                 `json:"id"`
+	Handle               string                 `json:"handle"`
+	TaskNumber           string                 `json:"taskNumber"`
 	AppID                string                 `json:"appId"`
 	Title                string                 `json:"title"`
 	Description          *string                `json:"description"`
@@ -65,6 +72,22 @@ type taskDTO struct {
 	Requirements         *taskRequirementsDTO   `json:"requirements"`
 	Result               *taskResultDTO         `json:"result"`
 	OpenAlarms           *int                   `json:"openAlarms,omitempty"`
+}
+
+// taskRef is how a human-readable line names a task: the server's short handle
+// (AT3.405) first, then the canonical id, which stays the identity. A server
+// that returns no handle keeps the id alone. The handle is server text and
+// goes through the same sanitiser as every other rendered value.
+func taskRef(handle, id string) string {
+	if handle == "" {
+		return id
+	}
+	return output.SafeCell(handle) + " " + id
+}
+
+// taskHandleCell is the HANDLE column of a task table.
+func taskHandleCell(handle string) string {
+	return output.SafeCell(handle)
 }
 
 // taskPartyGetter is the one shape every generated party projection shares;
@@ -122,6 +145,8 @@ func taskResultDTOFrom(r *gen.AgentTaskFieldsResultAgentTaskResult) *taskResultD
 func taskDTOFrom(fields gen.AgentTaskFields) taskDTO {
 	dto := taskDTO{Priority: fields.Priority, Blocked: fields.Blocked,
 		ID:                   fields.Id,
+		Handle:               fields.Handle,
+		TaskNumber:           fields.TaskNumber,
 		AppID:                fields.AppId,
 		Title:                fields.Title,
 		Description:          fields.Description,
@@ -317,4 +342,72 @@ type familyAvailabilityDTO struct {
 type teamAvailabilityDTO struct {
 	Workers  []workerAvailabilityDTO `json:"workers"`
 	Families []familyAvailabilityDTO `json:"families"`
+}
+
+// safeTaskError keeps the mapped error's chain and exit code but renders its
+// text through SafeCell: a task refusal quotes server-supplied handles (the
+// bare-handle qualification refusal names the handle), and the root renderer
+// prints err.Error() raw, so ESC, bidi and newlines would otherwise reach the
+// terminal. Unwrap keeps errors.As/Is (details, codes) working; the --json envelope
+// uses Error() and still carries the original text (cli#1131).
+// taskErrorMaxRunes bounds a rendered refusal; room for the schema-skew hint.
+const taskErrorMaxRunes = 1024
+
+type safeTaskError struct{ err error }
+
+// Error stays raw (the --json envelope's message); HumanMessage is what the
+// terminal branch of the root renderer prints.
+func (e safeTaskError) Error() string { return e.err.Error() }
+func (e safeTaskError) HumanMessage() string {
+	return output.SafeLine(e.err.Error(), taskErrorMaxRunes)
+}
+func (e safeTaskError) Unwrap() error { return e.err }
+
+// mapTaskError is api.MapError for the task commands: the server owns range,
+// state, authority and cycle decisions, so its public code is preserved beside
+// the mapped message, and the human message is made terminal-safe.
+func mapTaskError(err error) error {
+	mapped := api.MapError(err)
+	if mapped == nil {
+		return nil
+	}
+	// The prefix goes INSIDE the terminal-safe wrapper: the root renderer
+	// prints the innermost HumanMessage, so a prefix added outside it would
+	// show in --json and vanish on the terminal. The codes are constants, never
+	// server text.
+	prefix := ""
+	for _, code := range []string{"TASK_BLOCKED", "TASK_BLOCKER_CYCLE", "TASK_NOT_FOUND", "TASK_NOT_OWNER", "TASK_INVALID_TRANSITION", "TASK_HANDLE_QUALIFY", "BAD_USER_INPUT"} {
+		if api.HasErrorCode(err, code) {
+			prefix = code
+			break
+		}
+	}
+	var coded *exitcode.CodedError
+	if errors.As(mapped, &coded) {
+		inner := coded.Err
+		if prefix != "" {
+			inner = fmt.Errorf("%s: %w", prefix, inner)
+		}
+		return &exitcode.CodedError{Code: coded.Code, Err: safeTaskError{inner}}
+	}
+	if prefix != "" {
+		mapped = fmt.Errorf("%s: %w", prefix, mapped)
+	}
+	return safeTaskError{mapped}
+}
+
+// handleHeaders and handleCells add the HANDLE column only when at least one
+// task carries a handle, so a server that returns none keeps the table it had.
+func handleHeaders(any bool, headers ...string) []string {
+	if any {
+		return append([]string{"HANDLE"}, headers...)
+	}
+	return headers
+}
+
+func handleCells(any bool, handle string, cells ...string) []string {
+	if any {
+		return append([]string{taskHandleCell(handle)}, cells...)
+	}
+	return cells
 }
