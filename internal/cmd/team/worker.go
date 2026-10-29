@@ -1629,8 +1629,8 @@ Only an App manager may edit them. A bound worktree sends the edit through
 its verified worker session; the server may refuse it (exit 8).
 
 For per-worker boot customisation write boot:workers:<id>:source (role
-boot-prompt) in the App install memory, then use hadron team worker compile and
-hadron node approve for that worker.`,
+boot-prompt) in the App install memory, then use hadron team worker compile <worker>.
+Approve the returned compiled node with hadron node approve <compiled-node-ref>.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			setSignature := cmd.Flags().Changed("signature")
