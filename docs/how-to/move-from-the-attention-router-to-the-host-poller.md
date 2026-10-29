@@ -11,9 +11,9 @@ configuration onto the other.
 `ticker-wake`, enabling `delivery`, and changing a host are the cutover's, and
 the cutover has its own owner and sign-off. With `delivery.enabled`,
 `team host run` reads and types this host's chat batches, so turning it on
-for a live host is that cutover step. Tick and task wakes are not delivered
-by the poller yet (hadron-cli#906). `team host status` reads such a config,
-so you can check it beforehand.
+for a live host is that cutover step. Since hadron-cli#1178 it also reads and
+types the host's due tick and task wakes, so it replaces `ticker-wake` too.
+`team host status` reads such a config, so you can check it beforehand.
 
 ## Order, per worker
 
@@ -116,11 +116,10 @@ later wake behind one ambiguous receipt.
 
 ## Cut over and roll back (hadron-cli#1178)
 
-**Precondition: the installed `hadron` delivers tick and task wakes.** On
-`main` at the time of writing it does not: `team host run` delivers chat
-batches only, and nothing reads `dueWakes` yet. While
-`hadron team host run --help` still says wakes are not delivered,
-`ticker-wake` must stay on.
+**Precondition: the installed `hadron` includes hadron-cli#1178.** Earlier
+releases deliver chat batches only and never read `dueWakes`. Check that
+`hadron team host run --help` says it reads due tick and task wakes. If it
+doesn't, `ticker-wake` must stay on.
 
 The cutover is cold: no soak (Holger, 2026-10-29,
 `hrn:node:hadronmemory.com:hadron-business:decisions:wake-delivery-cli-cold-cutover`).

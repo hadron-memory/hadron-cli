@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -170,5 +171,23 @@ func TestAckWakeSendsOneProofAndMapsTheCounts(t *testing.T) {
 				t.Fatalf("call %+v", c)
 			}
 		})
+	}
+}
+
+// The wired deliverer hands typed wakes' proofs back through the host
+// server: without it a wake is typed and recorded but never acknowledged.
+func TestWireDeliveryAcknowledgesWakesThroughTheHostServer(t *testing.T) {
+	s, _ := deliveryFake(t, map[string][]string{})
+	cfg := &hostpoller.Config{StateFile: filepath.Join(t.TempDir(), "state.json"), Delivery: hostpoller.DeliveryConfig{Enabled: true, OrcaBin: "/bin/true"}}
+	p := hostpoller.New(cfg, nil, nil, &hostpoller.State{}, "", func(hostpoller.Event) {})
+	d := wireDelivery(p, cfg, s, func(hostpoller.Event) {})
+	if ws, ok := d.Wakes.(*hostServer); !ok || ws != s {
+		t.Fatalf("deliverer acks wakes through %T %v, want the host server", d.Wakes, d.Wakes)
+	}
+	if d.AckMixed {
+		t.Fatal("AckMixed stays off until A′ is verified deployed")
+	}
+	if p.WakeStep == nil || !p.DeliveryEnabled() {
+		t.Fatal("wake status hook and delivery not wired")
 	}
 }

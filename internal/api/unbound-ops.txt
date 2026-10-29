@@ -5,7 +5,7 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 62 unbound
+[Query] 61 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
@@ -26,7 +26,6 @@ dashboardWidgets
 decision  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
 decisionLog  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
 decisions  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
-dueWakes  # wake-surface v2; cli#828 tracks the paged attention surface, wake reads follow it
 edge
 edges
 effectiveActionPolicy
@@ -69,8 +68,7 @@ verifyDecision  # server main schema refresh for cli#836; separate CLI parity ou
 verifyMemoryNodes  # cli#802 exposes per-node verifyNode; memory-wide integrity audit needs a separate memory verify command
 workerWakeSettings  # wake-surface v2; cli#828 tracks the paged attention surface, wake settings follow it
 
-[Mutation] 115 unbound
-acknowledgeWakes  # wake-surface v2 (cor:agt:080:16); cli#828 lane
+[Mutation] 114 unbound
 acquireEditorLock
 addAgentToApp
 addMemoryToAgent

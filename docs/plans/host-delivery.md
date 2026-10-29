@@ -45,10 +45,10 @@ Built on S1 (`internal/cmd/team/host_delivery.go`):
     only in their plain shape, else `withheld`. Worker names are printed as
     the host's other events already print them.
 - **Hold:** `ErrHoldUnavailable`, with no call (#940).
-- **Wiring:** `team host run` with `delivery.enabled` wires batches only. It
-  writes the status snapshot after each step and prints each outcome as a
-  `delivery-<kind>` event (codes, ids and spans). Wakes stay unwired until
-  hadron-server#2069/#2072 (#906 row 1).
+- **Wiring:** `team host run` with `delivery.enabled` wires batches and,
+  since hadron-cli#1178, the due tick and task wakes. It writes the status
+  snapshot after each step and prints each outcome as a `delivery-<kind>`
+  event (codes, ids and spans).
 
 ## The split
 
@@ -245,9 +245,18 @@ split on #907, 2026-10-19 05:11Z). The adapter answers `Hold` with
 ## Tick and task wakes (#906 row 1)
 
 Gated at #906 issuecomment-6257655782, under R53 (A′) and R63. Built behind
-typed seams (`hostpoller.WakeSource`, `delivery.WakeServer`). The `dueWakes`
-adapter and activation wait on hadron-server#2068/#2069/#2072 and S1 slice
-(c), so nothing here is wired into `team host run` yet.
+typed seams (`hostpoller.WakeSource`, `delivery.WakeServer`). hadron-cli#1178
+adds the GraphQL adapter (`internal/cmd/team/host_wakes.go`) and wires it in
+`wireDelivery`:
+
+- `dueWakes` is read paged to exhaustion with the host key. It sends no
+  `accepts`, so no STOP notice is offered, and no `workerRefs`.
+- A broken page (bad `deliverAfter`/`busyDeadline`, no page, a looping
+  cursor) refuses the whole read.
+- `WAKE_BUDGET_EXHAUSTED` returns no wakes.
+- `acknowledgeWakes` sends one proof per call.
+- `AckMixed` stays off: A′ (#2072) is on server main, but its deployment
+  was not verified from the CLI.
 
 - **The read:** in the same step, after the batches, while chat delivery is
   on. Each wake goes on its worker's chain behind that worker's batches.

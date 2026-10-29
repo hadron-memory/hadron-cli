@@ -367,6 +367,8 @@ func TestTeamHostRunNeverPrintsUpstreamDeliveryText(t *testing.T) {
 		srv, _ := hostServerFake(t, map[string]string{
 			"RegisterHost": hostRegistrationAnswer, "CollectHostOperations": noOps,
 			"DeliveryBatches": `{"errors":[{"message":"echo hk_host_key PRIVATE-CHAT-TEXT","extensions":{"code":"FORBIDDEN"}},{"message":"y","extensions":{"code":"PRIVATE_TOKEN_42"}}],"data":null}`,
+			// cli#1178: the wake read's errors are held to the same rule.
+			"DueWakes": `{"errors":[{"message":"echo hk_host_key PRIVATE-WAKE-PROOF","extensions":{"code":"FORBIDDEN"}}],"data":null}`,
 		})
 		f, out := testFactory(t)
 		root := NewRootCmd(f)
@@ -398,8 +400,8 @@ func TestTeamHostRunOnceWithoutDeliveryReadsNoBatches(t *testing.T) {
 		t.Fatalf("run --once: %v", err)
 	}
 	for _, c := range calls() {
-		if c.op == "DeliveryBatches" {
-			t.Fatalf("read batches with delivery off: %+v", calls())
+		if c.op == "DeliveryBatches" || c.op == "DueWakes" {
+			t.Fatalf("read batches or wakes with delivery off: %+v", calls())
 		}
 	}
 }

@@ -257,8 +257,11 @@ With delivery.enabled (and orca_bin), each poll also reads this host's
 ready chat batches (the key needs attention:deliver too) and types each
 into its worker's agent terminal, only into an empty composer, then
 acknowledges it. A key without attention:deliver turns delivery off for the
-run (a delivery-off event); operations carry on. Tick and task wakes are
-not delivered yet (hadron-cli#906). A held delivery is not reported to the
+run (a delivery-off event); operations carry on. It also reads this host's
+due tick and task wakes (dueWakes) and types each as one line through the
+same path, then hands its proof back (hadron-cli#1178). A wake that names
+channels or a mention is typed once and acknowledged only once it no longer
+does. A held delivery is not reported to the
 server yet (hadron-cli#940): it raises no server alarm, and team host
 status shows it as UNREPORTED.
 
