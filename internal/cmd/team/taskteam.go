@@ -65,6 +65,7 @@ type teamTaskListDTO struct {
 
 type teamTaskQuery struct {
 	team      string
+	text      *string
 	status    map[string]bool
 	staleOver time.Duration
 	tree      bool
@@ -85,7 +86,7 @@ func checkTeamListFlags(cmd *cobra.Command, args []string, team, staleOver strin
 	}
 	for _, name := range teamListFlagConflicts {
 		if cmd.Flags().Changed(name) {
-			return 0, exitcode.Newf(exitcode.Usage, "--%s does not combine with --team: the team view reads the whole App and selects by the roster (combine --status, --tree, --stale-over)", name)
+			return 0, exitcode.Newf(exitcode.Usage, "--%s does not combine with --team: the team view reads the whole App and selects by the roster (combine --status, --text, --tree, --stale-over)", name)
 		}
 	}
 	if team != teamFlagBound {
@@ -146,7 +147,7 @@ func resolveTeam(workers []rosterWorker, coordinatorRef string) (taskPartyDTO, [
 
 // readAllTasks pages the App's task read to the end. A page that adds no new
 // task is a server ignoring the offset: refused, never silently repeated.
-func readAllTasks(ctx context.Context, f *cmdutil.Factory, appRef string) ([]taskDTO, error) {
+func readAllTasks(ctx context.Context, f *cmdutil.Factory, appRef string, text *string) ([]taskDTO, error) {
 	client, err := f.GraphQLClient()
 	if err != nil {
 		return nil, err
@@ -159,20 +160,20 @@ func readAllTasks(ctx context.Context, f *cmdutil.Factory, appRef string) ([]tas
 			return nil, exitcode.Newf(exitcode.Error, "the App's task read did not end after %d pages of %d; nothing shown", page, limit)
 		}
 		offset := page * limit
-		resp, err := gen.AgentTaskList(ctx, client, appRef, nil, &limit, &offset, nil, nil, nil, nil, nil, nil)
+		rows, count, err := taskListPage(ctx, client, appRef, taskListQuery{limit: limit, offset: offset, text: text})
 		if err != nil {
-			return nil, mapTaskError(err)
+			return nil, err
 		}
 		added := 0
-		for _, t := range resp.AgentTasks {
-			if t == nil || seen[t.Id] {
+		for _, t := range rows {
+			if seen[t.ID] {
 				continue
 			}
-			seen[t.Id] = true
+			seen[t.ID] = true
 			added++
-			tasks = append(tasks, taskDTOFrom(t.AgentTaskFields))
+			tasks = append(tasks, t)
 		}
-		if len(resp.AgentTasks) < limit {
+		if count < limit {
 			return tasks, nil
 		}
 		if added == 0 {
@@ -231,9 +232,22 @@ func listTeamTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, b *b
 	if !ok {
 		return exitcode.Newf(exitcode.NotFound, "worker %s is not on the roster of %s (the roster lists active workers; a retired worker leads no team here)", coordinatorRef, appLabel())
 	}
-	all, err := readAllTasks(ctx, f, scope.Ref)
+	all, err := readAllTasks(ctx, f, scope.Ref, nil)
 	if err != nil {
 		return err
+	}
+	// Keep the ancestry read unfiltered. Ask the server for matching IDs in a
+	// separate paged read, then intersect after the full descendant join.
+	var textMatches map[string]bool
+	if q.text != nil {
+		filtered, err := readAllTasks(ctx, f, scope.Ref, q.text)
+		if err != nil {
+			return err
+		}
+		textMatches = map[string]bool{}
+		for _, task := range filtered {
+			textMatches[task.ID] = true
+		}
 	}
 	alarms, err := openAlarmsByTask(ctx, client, f.IOStreams.ErrOut, roster.TeamRoster.AppId)
 	if err != nil {
@@ -310,7 +324,7 @@ func listTeamTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, b *b
 	}
 	for _, t := range all {
 		how, ok := match[t.ID]
-		if !ok {
+		if !ok || (textMatches != nil && !textMatches[t.ID]) {
 			continue
 		}
 		if len(q.status) > 0 && !q.status[t.Status] {

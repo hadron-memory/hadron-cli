@@ -208,6 +208,47 @@ query AgentTaskList(
   }
 }
 
+# Explicit text search only: keep the legacy document valid on older servers.
+query AgentTaskListText(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $assignee: AgentTaskPartyInput
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+  # @genqlient(omitempty: true)
+  $owner: AgentTaskPartyInput
+  # @genqlient(omitempty: true)
+  $parentTaskId: ID
+  # @genqlient(omitempty: true)
+  $queued: Boolean
+  # @genqlient(omitempty: true)
+  $rootsOnly: Boolean
+  # @genqlient(omitempty: true)
+  $status: [AgentTaskStatus!]
+  # @genqlient(omitempty: true)
+  $tag: String
+  # @genqlient(omitempty: true)
+  $text: String
+) {
+  agentTasks(
+    appRef: $appRef
+    assignee: $assignee
+    limit: $limit
+    offset: $offset
+    owner: $owner
+    parentTaskId: $parentTaskId
+    queued: $queued
+    rootsOnly: $rootsOnly
+    status: $status
+    tag: $tag
+    text: $text
+  ) {
+    ...AgentTaskFields
+  }
+}
+
 query AgentTaskTree($root: ID!) {
   agentTaskTree(root: $root) {
     ...AgentTaskFields

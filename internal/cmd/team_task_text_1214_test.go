@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 )
 
 func TestTaskListText1214(t *testing.T) {
@@ -14,7 +16,7 @@ func TestTaskListText1214(t *testing.T) {
 			if invalid {
 				response = memberGQLError("text must contain 1 to 200 characters", "BAD_USER_INPUT")
 			}
-			srv, captured := captureGraphQL(t, map[string]string{"AgentTaskList": response})
+			srv, captured := captureGraphQL(t, map[string]string{"AgentTaskListText": response})
 			f, out := testFactory(t)
 			root := NewRootCmd(f)
 			root.SetArgs([]string{"team", "task", "list", "--app", "capp100000000000000000000", "--text", text, "--status", "PENDING", "--tag", "release", "--json", "--server", srv.URL})
@@ -29,7 +31,7 @@ func TestTaskListText1214(t *testing.T) {
 				t.Fatalf("output changed: %q", out.String())
 			}
 			var vars map[string]any
-			raw, ok := captured["AgentTaskList"]
+			raw, ok := captured["AgentTaskListText"]
 			if !ok {
 				t.Fatal("no request")
 			}
@@ -74,7 +76,7 @@ func TestTaskListTextOmitted1214(t *testing.T) {
 func TestTaskTeamTextPreservesDescendantJoin1214(t *testing.T) {
 	anchor := task1044{id: "anchor", owner: worker1044("Marco")}
 	child := task1044{id: "child", owner: worker1044("Cameron"), parent: "anchor"}
-	calls, out, _, err := run1044(t, roster1044(), [][]task1044{{anchor, child}, {child}}, "team", "task", "list", "--team=worker:Marco", "--text", "needle", "--status", "STARTED", "--json")
+	calls, out, _, err := runText1214(t, roster1044(), [][]task1044{{anchor, child}, {child}}, "team", "task", "list", "--team=worker:Marco", "--text", "needle", "--status", "STARTED", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +94,7 @@ func TestTaskTeamTextPreservesDescendantJoin1214(t *testing.T) {
 	}
 	n := 0
 	for _, c := range *calls {
-		if c.Op != "AgentTaskList" {
+		if c.Op != "AgentTaskList" && c.Op != "AgentTaskListText" {
 			continue
 		}
 		n++
@@ -106,5 +108,46 @@ func TestTaskTeamTextPreservesDescendantJoin1214(t *testing.T) {
 	}
 	if n != 2 {
 		t.Fatalf("task reads %d", n)
+	}
+}
+
+// The pinned schema adds this unrelated nullable input. Never introduce an
+// explicit null into an existing settings write while refreshing the schema.
+func TestTaskTextSchemaRefreshPreservesSettingsOmission1214(t *testing.T) {
+	b, err := json.Marshal(gen.AppDeliverySettingsInput{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var vars map[string]any
+	if err := json.Unmarshal(b, &vars); err != nil {
+		t.Fatal(err)
+	}
+	if _, present := vars["darkAlarmWindowSeconds"]; present {
+		t.Fatal("schema refresh sends an unselected nullable setting")
+	}
+}
+
+func runText1214(t *testing.T, roster []string, pages [][]task1044, argv ...string) (*[]attnCall, string, string, error) {
+	t.Helper()
+	writeTeamBinding(t)
+	responses := rosterResponses993(roster...)
+	responses["TeamReportingLines"] = responses["TeamRoster"]
+	responses["AgentTeamEvents"] = `{"data":{"agentTeamEvents":[]}}`
+	responses["AgentTaskList"] = taskPage1044(pages[0])
+	responses["AgentTaskListText"] = taskPage1044(pages[1])
+	srv, calls := attnServer(t, responses)
+	setTeamBindingServer(t, srv.URL)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(append([]string{"--server", srv.URL}, argv...))
+	err := root.Execute()
+	return calls, out.String(), f.IOStreams.ErrOut.(*strings.Builder).String(), err
+}
+func TestTaskTextLegacyDocumentUnchanged1214(t *testing.T) {
+	if strings.Contains(gen.AgentTaskList_Operation, "$text") {
+		t.Fatal("legacy document gained a new server argument")
+	}
+	if !strings.Contains(gen.AgentTaskListText_Operation, "text: $text") {
+		t.Fatal("text operation does not apply its filter")
 	}
 }
