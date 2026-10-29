@@ -12,7 +12,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"regexp"
 
 	"github.com/spf13/cobra"
 
@@ -30,14 +29,6 @@ type appKeyCreatedDTO struct {
 	Label      *string `json:"label"`
 	Out        string  `json:"out"`
 }
-
-// keyLikeToken matches a credential-shaped token (hdr_app_…, hdr_user_…) so a
-// server or transport message that quotes one is never echoed. The prefix is a
-// tunable (cor:dmo:050:05); this is a belt over the rule that no raw key is ever
-// formatted into a message.
-var keyLikeToken = regexp.MustCompile(`hdr_[A-Za-z0-9]+_[A-Za-z0-9_\-]{6,}`)
-
-func redactKeys(s string) string { return keyLikeToken.ReplaceAllString(s, "[redacted]") }
 
 const revokeRoute = "hadron api 'mutation($id: ID!) { revokeAppKey(id: $id) }' -F id=<key-id>"
 
@@ -171,12 +162,33 @@ func labelOrDefault(label string) string {
 func createFailure(err error, ref, label string) error {
 	mapped := api.MapError(err)
 	code := exitcode.FromError(mapped)
-	cause := redactKeys(mapped.Error())
 	if code == exitcode.Unavailable || code == exitcode.Error {
 		return exitcode.Newf(code, "createAppKey was sent and its answer was lost, so a key labelled %s may exist whose value nobody has. It was not retried and no file was kept. Run `hadron app key list %s` and revoke any unexpected key with that label (%s). Cause: %s",
-			labelOrDefault(label), ref, revokeRoute, cause)
+			labelOrDefault(label), ref, revokeRoute, failureClass(code))
 	}
-	return exitcode.Newf(code, "%s", cause)
+	return exitcode.Newf(code, "createAppKey refused: %s; no key was minted", failureClass(code))
+}
+
+// failureClass names a failure by its exit code. Server and transport message
+// text is never echoed on this credential-minting path: the raw-key prefix is
+// tunable (cor:dmo:050:05), so no pattern can recognise every key a message
+// might quote.
+func failureClass(code int) string {
+	switch code {
+	case exitcode.AuthRequired:
+		return "not signed in or credentials rejected"
+	case exitcode.Forbidden:
+		return "not permitted to create keys for this app"
+	case exitcode.NotFound:
+		return "app not found or not visible"
+	case exitcode.Conflict:
+		return "state conflict"
+	case exitcode.Usage:
+		return "invalid input"
+	case exitcode.Unavailable:
+		return "server or network unavailable"
+	}
+	return "server error"
 }
 
 // leftBehind reports a cleanup that could not remove the reserved key file.

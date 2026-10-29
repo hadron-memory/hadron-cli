@@ -484,3 +484,48 @@ func TestAppKeyCreateReportsAFileItCouldNotRemove(t *testing.T) {
 	}
 	assertNoRawKey(t, r)
 }
+
+func TestAppKeyCreateNeverEchoesAKeyOutsideTheDefaultPrefix(t *testing.T) {
+	const custom = "customkey_RAWSECRET0123456789abcdef"
+	for name, body := range map[string]string{
+		"refusal":  `{"errors":[{"message":"nope ` + custom + `","extensions":{"code":"FORBIDDEN"}}],"data":null}`,
+		"internal": `{"errors":[{"message":"boom ` + custom + `","extensions":{"code":"INTERNAL_SERVER_ERROR"}}],"data":null}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			srv, _ := keyServer(t, 200, body)
+			r := runKeyCreate(t, srv, app1223, "--out", filepath.Join(t.TempDir(), "host.key"))
+			if r.err == nil || exitCodeFor(r.err) == 0 {
+				t.Fatalf("must fail, got %v", r.err)
+			}
+			if strings.Contains(r.all(), custom) || strings.Contains(r.all(), "RAWSECRET") {
+				t.Errorf("custom-prefix key echoed: %q", r.all())
+			}
+		})
+	}
+}
+
+func TestAppKeyCreateEmptyKeyAnswerLeavesNoFile(t *testing.T) {
+	srv, _ := keyServer(t, 200, `{"data":{"createAppKey":{"rawKey":"","key":{"id":"key_1","keyPreview":"x","label":null}}}}`)
+	dir := t.TempDir()
+	out := filepath.Join(dir, "host.key")
+	r := runKeyCreate(t, srv, app1223, "--out", out)
+	if r.err == nil || exitCodeFor(r.err) == 0 {
+		t.Fatalf("must fail, got %v", r.err)
+	}
+	if _, err := os.Lstat(out); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("--out must be absent: %v", err)
+	}
+	if err := os.WriteFile(out, []byte("old"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	r = runKeyCreate(t, srv, app1223, "--out", out, "--force")
+	if r.err == nil {
+		t.Fatal("--force must fail too")
+	}
+	if b, _ := os.ReadFile(out); string(b) != "old" {
+		t.Errorf("--force kept %q, want the prior file", b)
+	}
+	if ents, _ := os.ReadDir(dir); len(ents) != 1 {
+		t.Errorf("temp file left behind: %v", ents)
+	}
+}
