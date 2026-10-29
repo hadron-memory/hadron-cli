@@ -54,6 +54,12 @@ func NewCmdReplace(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "replace",
 		Short: "Search and replace text in nodes",
+		Long: `Search and replace text in nodes. Its one command, replace text, finds a
+piece of text across many nodes (a whole memory, a branch of it, or a list of
+nodes) and replaces it in one step, after showing how many matches each node
+has. Every change is saved to the node's version history and can be undone.
+Comments, governed nodes and protected nodes are skipped; see replace text.`,
+		Example: `  hadron replace text "Acme Corp" "Acme Inc" -m hrn:mem:acme.com:kb --field content --dry-run`,
 	}
 	cmd.AddCommand(newCmdReplaceText(f))
 	return cmd
@@ -76,35 +82,56 @@ func newCmdReplaceText(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "text <old> <new> --field <field> (--node <urn> | -m <memory>)",
 		Short: "Search and replace text across many nodes",
-		Long: `Search-and-replace a piece of text across many nodes in one call
-(the CLI mirror of the MCP tool hadron_replace_globally).
+		Long: `Replace a piece of text across many nodes in one step, for example to correct
+a wrong term everywhere it appears.
 
-Select nodes by any combination of explicit --node references and whole
---memory scopes; --prefix narrows a --memory scope to a parent loc plus its
-descendants (matched on ':' path boundaries, so 'auth' matches 'auth' and
-'auth:tokens' but not 'authoring'). At least one --node or --memory is
-required.
+Choose the nodes with --node (a node URN or id, repeatable), with -m/--memory
+(every node in that memory, repeatable), or both; at least one is required.
 
---field chooses which text fields to search (repeatable): content, name,
-alias, description, abstract, tags. Matching is literal by default; --regex
-treats <old> as a regular expression and <new> as a replacement pattern
-(with $1/$& backrefs). -i/--ignore-case folds case.
+Some nodes are never changed, and are skipped without a warning: comments
+(change them with comment edit), governed nodes such as specs and reviews
+(they have their own commands), compiled boot prompts, and nodes at protected
+addresses. Skipped nodes are not counted in "scanned", and this command does
+not report how many were skipped.
+--prefix narrows a --memory to one branch: the node at that loc and
+everything below it (it matches on ':' boundaries, so 'auth' matches 'auth'
+and 'auth:tokens' but not 'authoring').
 
-A real run previews the per-node match counts and asks for confirmation
-before writing; pass --yes to skip the prompt (required in non-interactive
-use), or --dry-run to preview without writing. Even with --yes the affected
-count is printed to stderr before applying, and --max-nodes N refuses the
-write if more than N nodes would change — a guard against a whole-memory
-rewrite from a wrong --memory URN or a forgotten --prefix. Every change is
-saved to version history, so replacements are undoable.`,
-		Example: `  # Preview only
-  hadron replace text oldtext newtext -m hrn:mem:acme.com:kb --field content --dry-run
+--field is required: it names the text to search, and can be repeated:
+content (the body), name, alias (the node's alternative name), description,
+abstract (the summary) or tags. Matching is exact and case-sensitive unless
+you pass -i/--ignore-case. With --regex, <old> is a regular expression and
+<new> may use $1 for the first group in parentheses and $& for the whole match.
 
-  # Apply across a subtree, two fields (prompts before writing)
-  hadron replace text foo bar -m hrn:mem:acme.com:kb --prefix services: --field content --field description
+It always counts the matches first. --dry-run stops there and writes nothing.
+Otherwise it shows the count per node and asks before writing; without a
+terminal (a script or an AI agent) pass --yes, which skips the question but
+still prints the totals to stderr before writing. --max-nodes N refuses the
+whole change if more than N nodes would change: a guard against rewriting a
+memory by mistake (a wrong --memory, a forgotten --prefix).
 
-  # Regex with a backreference on specific nodes, no prompt
-  hadron replace text '(\w+)@old\.com' '$1@new.com' --node hrn:node:acme.com:kb:contacts:bob --field content --regex --yes`,
+It prints the totals ("Replaced 3 occurrence(s) across 2 of 40 node(s)
+scanned."), then a table of the changed nodes: LOC, REPLACEMENTS and FIELDS
+(content×2 means two matches in the body). --json prints nodesScanned,
+nodesChanged, totalReplacements, dryRun and results.
+
+Before it changes a node, it saves the node's previous text as a revision
+in its version history, labelled with --reason if you give one. To undo the
+replacement on a node, find that revision in hadron node revision list <node>
+(its LABEL is your --reason; it is the newest only until the node is edited
+again) and restore it with hadron node revision restore <revision-id>.`,
+		Example: `  # Preview only: count the matches, write nothing
+  hadron replace text "Acme Corp" "Acme Inc" -m hrn:mem:acme.com:kb --field content --dry-run
+
+  # Apply across one branch, in two fields (asks before writing)
+  hadron replace text foo bar -m hrn:mem:acme.com:kb --prefix services --field content --field description
+
+  # Regex with a group, on one node, no question
+  hadron replace text '(\w+)@old\.com' '$1@new.com' --node hrn:node:acme.com:kb:contacts:bob --field content --regex --yes
+
+  # Undo on one node
+  hadron node revision list hrn:node:acme.com:kb:contacts:bob
+  hadron node revision restore <revision-id>`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			oldText, newText := args[0], args[1]
@@ -220,7 +247,7 @@ saved to version history, so replacements are undoable.`,
 			return writeReport(f, dto)
 		},
 	}
-	cmd.Flags().StringVar(&prefix, "prefix", "", "restrict --memory selection to a loc prefix (parent + descendants)")
+	cmd.Flags().StringVar(&prefix, "prefix", "", "only the node at this loc in --memory and everything below it")
 	cmd.Flags().StringArrayVar(&nodes, "node", nil, "node URN or ID to edit (repeatable)")
 	cmd.Flags().StringArrayVarP(&memories, "memory", "m", nil, "memory to edit every node in (ID or URN; repeatable)")
 	cmd.Flags().StringArrayVar(&fields, "field", nil, "text field to search, repeatable: content, name, alias, description, abstract, tags")
