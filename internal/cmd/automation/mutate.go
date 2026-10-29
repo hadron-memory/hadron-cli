@@ -114,7 +114,9 @@ func newCmdApprove(f *cmdutil.Factory) *cobra.Command {
 		Short: "Approve an automation as shown",
 		Long: `Approve one automation (--app, else the active App). Approving records your
 consent so the automation may run, on its own and without asking again, with
-the access listed in the summary; it affects everyone who relies on that App.
+the access listed in the summary; it affects everyone who relies on the
+automation's App. With --run, the run id alone selects the automation: --app
+does not verify which App owns it. The summary warns about this before approval.
 The summary is shown first (on stderr), you confirm, and the hash just shown (a
 fingerprint of exactly what you were shown) is what is sent. If the
 automation changed in the meantime the server refuses it (exit 5): nothing is

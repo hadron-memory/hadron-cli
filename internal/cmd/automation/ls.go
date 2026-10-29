@@ -37,8 +37,8 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 		Aliases: []string{"ls"},
 		Short:   "List the automations of an App that you can approve",
 		Long: `List the schedules and webhooks of the App (--app, else the active App) that you
-may approve, with their state: "not approved", "approved (approval may be stale)"
-or "changed since it was approved".
+may approve, with their stored approval state: "not approved" or
+"approved (approval may be stale)".
 
 "approved" means approved at some point, which is why the list adds "approval
 may be stale": it cannot tell whether an approved automation has changed since.
