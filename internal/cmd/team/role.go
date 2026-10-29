@@ -352,8 +352,8 @@ existing role refuses (TEAM_ROLE_EXISTS); ` + "`role update`" + ` is the edit pa
 --names, --name-range, --name-convention and --allow-out-of-range are gone
 (hadron-server#1050): there is no name register for them to describe.
 
-The prompt TEMPLATE is not here either: it is the role AGENT's systemPrompt
-(` + "`agent create/update --system-prompt`" + `). Authorization is the
+The boot prompt is compiled from boot:source in the Agent system memory
+(use hadron agent compile and hadron node approve). Authorization is the
 Team Agent's definition-edit gate — whoever may write its system memory.`,
 		Example: `  hadron team role create backend-engineer --description "Go services" --app acme.com:eng-team`,
 		Args:    cobra.ExactArgs(1),

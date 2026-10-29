@@ -67,8 +67,6 @@ func TestC4SigningUpdateSerializesPresenceExactly(t *testing.T) {
 		{"trailer empty", []string{"--trailer", ""}, []string{`"trailer":""`}, []string{`"signature"`, `"promptOverride"`}},
 		{"trailer text", []string{"--trailer", "Worker: {{worker.name}}"}, []string{`"trailer":"Worker: {{worker.name}}"`}, []string{`"signature"`, `"promptOverride"`}},
 		{"both", []string{"--signature", "s", "--trailer", "t"}, []string{`"signature":"s"`, `"trailer":"t"`}, []string{`"promptOverride"`}},
-		{"with override", []string{"--signature", "s", "--prompt-override", "p"}, []string{`"signature":"s"`, `"promptOverride":"p"`}, []string{`"trailer"`}},
-		{"with cleared override", []string{"--trailer", "t", "--clear-prompt-override"}, []string{`"trailer":"t"`, `"promptOverride":""`}, []string{`"signature"`}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, calls, err := runWorkerUpdate(t, signingStubs(signingOK), tc.flags...)
@@ -99,17 +97,6 @@ func TestC4SigningUpdateSerializesPresenceExactly(t *testing.T) {
 
 // Pin 2: a prompt-override-only update keeps today's operation and wire,
 // explicit-null clear included (TestWorkerUpdateClearSendsAnExplicitNull).
-func TestC4PromptOnlyUpdateKeepsItsOperation(t *testing.T) {
-	r := signingStubs(signingOK)
-	r["UpdateWorker"] = `{"data":{"updateWorker":` + updatedWorkerJSON + `}}`
-	_, calls, err := runWorkerUpdate(t, r, "--prompt-override", "p")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(callsFor(calls, "UpdateWorkerSigning")) != 0 || len(callsFor(calls, "UpdateWorker")) != 1 {
-		t.Errorf("a prompt-only update must use UpdateWorker alone: %+v", *calls)
-	}
-}
 
 // Pin 3: nothing to update is refused before any write, and the message
 // names every field.
@@ -118,7 +105,7 @@ func TestC4NothingToUpdateNamesAllFields(t *testing.T) {
 	if exitCodeFor(err) != exitcode.Usage {
 		t.Fatalf("exit = %d, want Usage", exitCodeFor(err))
 	}
-	for _, flag := range []string{"--signature", "--trailer", "--prompt-override"} {
+	for _, flag := range []string{"--signature", "--trailer"} {
 		if !strings.Contains(err.Error(), flag) {
 			t.Errorf("the refusal must name %s: %v", flag, err)
 		}
@@ -140,8 +127,6 @@ func TestC4BoundWorktreeAttachesSessionForSigningOnly(t *testing.T) {
 	}{
 		{"signature", []string{"--signature", "s"}, "UpdateWorkerSigning", "s-new"},
 		{"trailer", []string{"--trailer", ""}, "UpdateWorkerSigning", "s-new"},
-		{"mixed", []string{"--trailer", "t", "--prompt-override", "p"}, "UpdateWorkerSigning", "s-new"},
-		{"prompt only", []string{"--prompt-override", "p"}, "UpdateWorker", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			writeTeamBinding(t)

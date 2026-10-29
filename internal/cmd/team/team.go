@@ -1,7 +1,6 @@
 // Package team implements `hadron team ...` — the team-coordination
 // surface (#369, re-keyed to the Worker model in #428 / hadron-server#974).
-// An Agent carries personaRole metadata and a {{name}}-templated systemPrompt;
-// the named identity
+// An Agent carries role metadata and a compiled boot-prompt pointer; the named identity
 // ("Iris") is a WORKER, the casting of an installed Agent into an App
 // (cor:dmo:050:11).
 //
@@ -53,13 +52,10 @@ Two of the steps are not in this group, so the sequence is not discoverable
 from ` + "`hadron team --help`" + ` alone (#402).
 
   1. hadron agent create --org <org> --name backend-engineer \
-       --persona-role backend-engineer \
-       --system-prompt 'You are {{name}}, the {{role}} ...'
-       The ROLE AGENT, born with role metadata and a shared prompt
-       TEMPLATE ({{name}}/{{role}} bind at casting time; refine later with
-       ` + "`agent update`" + `). The template is reusable —
-       one backend-engineer agent can be cast into many Apps, under many
-       names.
+       --persona-role backend-engineer
+       Create the role Agent, then write boot:source (role boot-prompt) in
+       its system memory. Compile with hadron agent compile and approve
+       with hadron node approve before serving it.
 
        Adding a role to a team App you ALREADY have? Pass
        --install-into <app> here and skip step 2 — a new agent is in no
@@ -160,14 +156,14 @@ type workerDTO struct {
 	// <origin>/app/u/<urn> by hand. Null means the deployment has no usable web
 	// origin, or there is no URN to build from; both render as nothing and
 	// neither is a cue to compose one.
-	PortalURL      *string `json:"portalUrl"`
-	Slug           string  `json:"slug"`
-	AppID          string  `json:"appId"`
-	AgentID        string  `json:"agentId"`
-	Name           string  `json:"name"`
-	Role           *string `json:"role"`
-	Prompt         *string `json:"prompt"`
-	PromptOverride *string `json:"promptOverride"`
+	PortalURL *string `json:"portalUrl"`
+	Slug      string  `json:"slug"`
+	AppID     string  `json:"appId"`
+	AgentID   string  `json:"agentId"`
+	Name      string  `json:"name"`
+	Role      *string `json:"role"`
+	Prompt    *string `json:"prompt"`
+
 	// Signature / Trailer are the raw per-worker templates (cli#916 C4,
 	// cor:agt:040:04), unrendered. NOT omitempty: null means WITHHELD (the
 	// read gate masked it), and "" is a real, empty template (D8), so the
@@ -236,7 +232,7 @@ func workerDTOFromFields(w gen.WorkerFields) workerDTO {
 	dto := workerDTO{
 		ID: w.Id, URN: w.Urn, PortalURL: w.PortalUrl, Slug: w.Slug, AppID: w.AppId, AgentID: w.AgentId,
 		Name: w.Name, Role: w.Role,
-		Prompt: w.Prompt, PromptOverride: w.PromptOverride,
+		Prompt:    w.Prompt,
 		Signature: w.Signature, Trailer: w.Trailer,
 		BootPromptRef: w.BootPromptRef, BootPromptTargetDeleted: w.BootPromptTargetDeleted,
 		Repos: nonNilRepos(w.Repos), MemoryID: w.MemoryId, Family: w.Family,
@@ -273,13 +269,13 @@ type workerRosterDTO struct {
 	// deployment, or no URN to build one from — and it stays null: the CLI
 	// never composes a replacement, which is the defect the field exists to
 	// remove. URN beside it is unaffected by the link's absence.
-	PortalURL      *string `json:"portalUrl"`
-	Slug           string  `json:"slug"`
-	AppID          string  `json:"appId"`
-	AgentID        string  `json:"agentId"`
-	Name           string  `json:"name"`
-	Role           *string `json:"role"`
-	PromptOverride *string `json:"promptOverride"`
+	PortalURL *string `json:"portalUrl"`
+	Slug      string  `json:"slug"`
+	AppID     string  `json:"appId"`
+	AgentID   string  `json:"agentId"`
+	Name      string  `json:"name"`
+	Role      *string `json:"role"`
+
 	// Same field and same [] semantics as workerDTO.Repos.
 	Repos    []string `json:"repos"`
 	MemoryID *string  `json:"memoryId"`
@@ -311,7 +307,7 @@ type workerRosterDTO struct {
 func workerRosterDTOFromFields(w gen.WorkerRosterFields) workerRosterDTO {
 	dto := workerRosterDTO{
 		ID: w.Id, URN: w.Urn, PortalURL: w.PortalUrl, Slug: w.Slug, AppID: w.AppId, AgentID: w.AgentId,
-		Name: w.Name, Role: w.Role, PromptOverride: w.PromptOverride,
+		Name: w.Name, Role: w.Role,
 		Repos:          nonNilRepos(w.Repos),
 		MemoryID:       w.MemoryId,
 		Family:         w.Family,

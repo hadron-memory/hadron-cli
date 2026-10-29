@@ -642,8 +642,6 @@ type AgentFields struct {
 	OrganizationId *string         `json:"organizationId"`
 	Surfaces       []string        `json:"surfaces"`
 	SystemMemoryId *string         `json:"systemMemoryId"`
-	// Templated Agent prompt. {{name}}/{{role}} bind to the Agent in chats or the named Worker in briefings.
-	SystemPrompt *string `json:"systemPrompt"`
 	// #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15) - the id of the index node whose incoming,
 	// trigger-labelled edges list this Agent's own tasks, or null. Set or clear
 	// it with setAgentIndexRefs; read the Agent's whole task list with agentTaskList.
@@ -699,9 +697,6 @@ func (v *AgentFields) GetSurfaces() []string { return v.Surfaces }
 
 // GetSystemMemoryId returns AgentFields.SystemMemoryId, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetSystemMemoryId() *string { return v.SystemMemoryId }
-
-// GetSystemPrompt returns AgentFields.SystemPrompt, and is useful for accessing the field via an interface.
-func (v *AgentFields) GetSystemPrompt() *string { return v.SystemPrompt }
 
 // GetTasksIndexRef returns AgentFields.TasksIndexRef, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetTasksIndexRef() *string { return v.TasksIndexRef }
@@ -5968,11 +5963,6 @@ func (v *AgentsAgentsAgentsPageItemsAgent) GetSystemMemoryId() *string {
 	return v.AgentFields.SystemMemoryId
 }
 
-// GetSystemPrompt returns AgentsAgentsAgentsPageItemsAgent.SystemPrompt, and is useful for accessing the field via an interface.
-func (v *AgentsAgentsAgentsPageItemsAgent) GetSystemPrompt() *string {
-	return v.AgentFields.SystemPrompt
-}
-
 // GetTasksIndexRef returns AgentsAgentsAgentsPageItemsAgent.TasksIndexRef, and is useful for accessing the field via an interface.
 func (v *AgentsAgentsAgentsPageItemsAgent) GetTasksIndexRef() *string {
 	return v.AgentFields.TasksIndexRef
@@ -6060,8 +6050,6 @@ type __premarshalAgentsAgentsAgentsPageItemsAgent struct {
 
 	SystemMemoryId *string `json:"systemMemoryId"`
 
-	SystemPrompt *string `json:"systemPrompt"`
-
 	TasksIndexRef *string `json:"tasksIndexRef"`
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
@@ -6105,7 +6093,6 @@ func (v *AgentsAgentsAgentsPageItemsAgent) __premarshalJSON() (*__premarshalAgen
 	retval.OrganizationId = v.AgentFields.OrganizationId
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
-	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
@@ -10625,9 +10612,6 @@ func (v *CastWorkerCastWorker) GetRole() *string { return v.WorkerFields.Role }
 // GetPrompt returns CastWorkerCastWorker.Prompt, and is useful for accessing the field via an interface.
 func (v *CastWorkerCastWorker) GetPrompt() *string { return v.WorkerFields.Prompt }
 
-// GetPromptOverride returns CastWorkerCastWorker.PromptOverride, and is useful for accessing the field via an interface.
-func (v *CastWorkerCastWorker) GetPromptOverride() *string { return v.WorkerFields.PromptOverride }
-
 // GetSignature returns CastWorkerCastWorker.Signature, and is useful for accessing the field via an interface.
 func (v *CastWorkerCastWorker) GetSignature() *string { return v.WorkerFields.Signature }
 
@@ -10728,8 +10712,6 @@ type __premarshalCastWorkerCastWorker struct {
 
 	Prompt *string `json:"prompt"`
 
-	PromptOverride *string `json:"promptOverride"`
-
 	Signature *string `json:"signature"`
 
 	Trailer *string `json:"trailer"`
@@ -10785,7 +10767,6 @@ func (v *CastWorkerCastWorker) __premarshalJSON() (*__premarshalCastWorkerCastWo
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
-	retval.PromptOverride = v.WorkerFields.PromptOverride
 	retval.Signature = v.WorkerFields.Signature
 	retval.Trailer = v.WorkerFields.Trailer
 	retval.BootPromptRef = v.WorkerFields.BootPromptRef
@@ -12172,11 +12153,6 @@ func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetSystemMemoryId() *st
 	return v.AgentFields.SystemMemoryId
 }
 
-// GetSystemPrompt returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.SystemPrompt, and is useful for accessing the field via an interface.
-func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetSystemPrompt() *string {
-	return v.AgentFields.SystemPrompt
-}
-
 // GetTasksIndexRef returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.TasksIndexRef, and is useful for accessing the field via an interface.
 func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetTasksIndexRef() *string {
 	return v.AgentFields.TasksIndexRef
@@ -12276,8 +12252,6 @@ type __premarshalClearAgentProcessesIndexSetAgentIndexRefsAgent struct {
 
 	SystemMemoryId *string `json:"systemMemoryId"`
 
-	SystemPrompt *string `json:"systemPrompt"`
-
 	TasksIndexRef *string `json:"tasksIndexRef"`
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
@@ -12321,7 +12295,6 @@ func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) __premarshalJSON() (*__
 	retval.OrganizationId = v.AgentFields.OrganizationId
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
-	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
@@ -12398,11 +12371,6 @@ func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetSurfaces() []string {
 // GetSystemMemoryId returns ClearAgentTasksIndexSetAgentIndexRefsAgent.SystemMemoryId, and is useful for accessing the field via an interface.
 func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetSystemMemoryId() *string {
 	return v.AgentFields.SystemMemoryId
-}
-
-// GetSystemPrompt returns ClearAgentTasksIndexSetAgentIndexRefsAgent.SystemPrompt, and is useful for accessing the field via an interface.
-func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetSystemPrompt() *string {
-	return v.AgentFields.SystemPrompt
 }
 
 // GetTasksIndexRef returns ClearAgentTasksIndexSetAgentIndexRefsAgent.TasksIndexRef, and is useful for accessing the field via an interface.
@@ -12504,8 +12472,6 @@ type __premarshalClearAgentTasksIndexSetAgentIndexRefsAgent struct {
 
 	SystemMemoryId *string `json:"systemMemoryId"`
 
-	SystemPrompt *string `json:"systemPrompt"`
-
 	TasksIndexRef *string `json:"tasksIndexRef"`
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
@@ -12549,7 +12515,6 @@ func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) __premarshalJSON() (*__prem
 	retval.OrganizationId = v.AgentFields.OrganizationId
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
-	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
@@ -12613,9 +12578,6 @@ func (v *CloneAgentCloneAgent) GetSurfaces() []string { return v.AgentFields.Sur
 
 // GetSystemMemoryId returns CloneAgentCloneAgent.SystemMemoryId, and is useful for accessing the field via an interface.
 func (v *CloneAgentCloneAgent) GetSystemMemoryId() *string { return v.AgentFields.SystemMemoryId }
-
-// GetSystemPrompt returns CloneAgentCloneAgent.SystemPrompt, and is useful for accessing the field via an interface.
-func (v *CloneAgentCloneAgent) GetSystemPrompt() *string { return v.AgentFields.SystemPrompt }
 
 // GetTasksIndexRef returns CloneAgentCloneAgent.TasksIndexRef, and is useful for accessing the field via an interface.
 func (v *CloneAgentCloneAgent) GetTasksIndexRef() *string { return v.AgentFields.TasksIndexRef }
@@ -12696,8 +12658,6 @@ type __premarshalCloneAgentCloneAgent struct {
 
 	SystemMemoryId *string `json:"systemMemoryId"`
 
-	SystemPrompt *string `json:"systemPrompt"`
-
 	TasksIndexRef *string `json:"tasksIndexRef"`
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
@@ -12741,7 +12701,6 @@ func (v *CloneAgentCloneAgent) __premarshalJSON() (*__premarshalCloneAgentCloneA
 	retval.OrganizationId = v.AgentFields.OrganizationId
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
-	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
@@ -15479,9 +15438,6 @@ func (v *CreateAgentCreateAgent) GetSurfaces() []string { return v.AgentFields.S
 // GetSystemMemoryId returns CreateAgentCreateAgent.SystemMemoryId, and is useful for accessing the field via an interface.
 func (v *CreateAgentCreateAgent) GetSystemMemoryId() *string { return v.AgentFields.SystemMemoryId }
 
-// GetSystemPrompt returns CreateAgentCreateAgent.SystemPrompt, and is useful for accessing the field via an interface.
-func (v *CreateAgentCreateAgent) GetSystemPrompt() *string { return v.AgentFields.SystemPrompt }
-
 // GetTasksIndexRef returns CreateAgentCreateAgent.TasksIndexRef, and is useful for accessing the field via an interface.
 func (v *CreateAgentCreateAgent) GetTasksIndexRef() *string { return v.AgentFields.TasksIndexRef }
 
@@ -15563,8 +15519,6 @@ type __premarshalCreateAgentCreateAgent struct {
 
 	SystemMemoryId *string `json:"systemMemoryId"`
 
-	SystemPrompt *string `json:"systemPrompt"`
-
 	TasksIndexRef *string `json:"tasksIndexRef"`
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
@@ -15608,7 +15562,6 @@ func (v *CreateAgentCreateAgent) __premarshalJSON() (*__premarshalCreateAgentCre
 	retval.OrganizationId = v.AgentFields.OrganizationId
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
-	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
@@ -23700,9 +23653,6 @@ func (v *GetAgentAgent) GetSurfaces() []string { return v.AgentFields.Surfaces }
 // GetSystemMemoryId returns GetAgentAgent.SystemMemoryId, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetSystemMemoryId() *string { return v.AgentFields.SystemMemoryId }
 
-// GetSystemPrompt returns GetAgentAgent.SystemPrompt, and is useful for accessing the field via an interface.
-func (v *GetAgentAgent) GetSystemPrompt() *string { return v.AgentFields.SystemPrompt }
-
 // GetTasksIndexRef returns GetAgentAgent.TasksIndexRef, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetTasksIndexRef() *string { return v.AgentFields.TasksIndexRef }
 
@@ -23784,8 +23734,6 @@ type __premarshalGetAgentAgent struct {
 
 	SystemMemoryId *string `json:"systemMemoryId"`
 
-	SystemPrompt *string `json:"systemPrompt"`
-
 	TasksIndexRef *string `json:"tasksIndexRef"`
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
@@ -23830,7 +23778,6 @@ func (v *GetAgentAgent) __premarshalJSON() (*__premarshalGetAgentAgent, error) {
 	retval.OrganizationId = v.AgentFields.OrganizationId
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
-	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
@@ -26696,9 +26643,6 @@ func (v *GetWorkerWorker) GetRole() *string { return v.WorkerFields.Role }
 // GetPrompt returns GetWorkerWorker.Prompt, and is useful for accessing the field via an interface.
 func (v *GetWorkerWorker) GetPrompt() *string { return v.WorkerFields.Prompt }
 
-// GetPromptOverride returns GetWorkerWorker.PromptOverride, and is useful for accessing the field via an interface.
-func (v *GetWorkerWorker) GetPromptOverride() *string { return v.WorkerFields.PromptOverride }
-
 // GetSignature returns GetWorkerWorker.Signature, and is useful for accessing the field via an interface.
 func (v *GetWorkerWorker) GetSignature() *string { return v.WorkerFields.Signature }
 
@@ -26799,8 +26743,6 @@ type __premarshalGetWorkerWorker struct {
 
 	Prompt *string `json:"prompt"`
 
-	PromptOverride *string `json:"promptOverride"`
-
 	Signature *string `json:"signature"`
 
 	Trailer *string `json:"trailer"`
@@ -26856,7 +26798,6 @@ func (v *GetWorkerWorker) __premarshalJSON() (*__premarshalGetWorkerWorker, erro
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
-	retval.PromptOverride = v.WorkerFields.PromptOverride
 	retval.Signature = v.WorkerFields.Signature
 	retval.Trailer = v.WorkerFields.Trailer
 	retval.BootPromptRef = v.WorkerFields.BootPromptRef
@@ -37109,11 +37050,6 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetSystemMemoryId() *stri
 	return v.AgentFields.SystemMemoryId
 }
 
-// GetSystemPrompt returns PublicAgentsPublicAgentsAgentsPageItemsAgent.SystemPrompt, and is useful for accessing the field via an interface.
-func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetSystemPrompt() *string {
-	return v.AgentFields.SystemPrompt
-}
-
 // GetTasksIndexRef returns PublicAgentsPublicAgentsAgentsPageItemsAgent.TasksIndexRef, and is useful for accessing the field via an interface.
 func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetTasksIndexRef() *string {
 	return v.AgentFields.TasksIndexRef
@@ -37213,8 +37149,6 @@ type __premarshalPublicAgentsPublicAgentsAgentsPageItemsAgent struct {
 
 	SystemMemoryId *string `json:"systemMemoryId"`
 
-	SystemPrompt *string `json:"systemPrompt"`
-
 	TasksIndexRef *string `json:"tasksIndexRef"`
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
@@ -37258,7 +37192,6 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) __premarshalJSON() (*__pr
 	retval.OrganizationId = v.AgentFields.OrganizationId
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
-	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
@@ -38823,11 +38756,6 @@ func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetPrompt() *stri
 	return v.WorkerFields.Prompt
 }
 
-// GetPromptOverride returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.PromptOverride, and is useful for accessing the field via an interface.
-func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetPromptOverride() *string {
-	return v.WorkerFields.PromptOverride
-}
-
 // GetSignature returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.Signature, and is useful for accessing the field via an interface.
 func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetSignature() *string {
 	return v.WorkerFields.Signature
@@ -38956,8 +38884,6 @@ type __premarshalReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker struct {
 
 	Prompt *string `json:"prompt"`
 
-	PromptOverride *string `json:"promptOverride"`
-
 	Signature *string `json:"signature"`
 
 	Trailer *string `json:"trailer"`
@@ -39013,7 +38939,6 @@ func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) __premarshalJSON(
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
-	retval.PromptOverride = v.WorkerFields.PromptOverride
 	retval.Signature = v.WorkerFields.Signature
 	retval.Trailer = v.WorkerFields.Trailer
 	retval.BootPromptRef = v.WorkerFields.BootPromptRef
@@ -41438,9 +41363,6 @@ func (v *RetireWorkerRetireWorker) GetRole() *string { return v.WorkerFields.Rol
 // GetPrompt returns RetireWorkerRetireWorker.Prompt, and is useful for accessing the field via an interface.
 func (v *RetireWorkerRetireWorker) GetPrompt() *string { return v.WorkerFields.Prompt }
 
-// GetPromptOverride returns RetireWorkerRetireWorker.PromptOverride, and is useful for accessing the field via an interface.
-func (v *RetireWorkerRetireWorker) GetPromptOverride() *string { return v.WorkerFields.PromptOverride }
-
 // GetSignature returns RetireWorkerRetireWorker.Signature, and is useful for accessing the field via an interface.
 func (v *RetireWorkerRetireWorker) GetSignature() *string { return v.WorkerFields.Signature }
 
@@ -41541,8 +41463,6 @@ type __premarshalRetireWorkerRetireWorker struct {
 
 	Prompt *string `json:"prompt"`
 
-	PromptOverride *string `json:"promptOverride"`
-
 	Signature *string `json:"signature"`
 
 	Trailer *string `json:"trailer"`
@@ -41598,7 +41518,6 @@ func (v *RetireWorkerRetireWorker) __premarshalJSON() (*__premarshalRetireWorker
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
-	retval.PromptOverride = v.WorkerFields.PromptOverride
 	retval.Signature = v.WorkerFields.Signature
 	retval.Trailer = v.WorkerFields.Trailer
 	retval.BootPromptRef = v.WorkerFields.BootPromptRef
@@ -45032,9 +44951,6 @@ func (v *SetAgentBaseSetAgentBaseAgent) GetSystemMemoryId() *string {
 	return v.AgentFields.SystemMemoryId
 }
 
-// GetSystemPrompt returns SetAgentBaseSetAgentBaseAgent.SystemPrompt, and is useful for accessing the field via an interface.
-func (v *SetAgentBaseSetAgentBaseAgent) GetSystemPrompt() *string { return v.AgentFields.SystemPrompt }
-
 // GetTasksIndexRef returns SetAgentBaseSetAgentBaseAgent.TasksIndexRef, and is useful for accessing the field via an interface.
 func (v *SetAgentBaseSetAgentBaseAgent) GetTasksIndexRef() *string {
 	return v.AgentFields.TasksIndexRef
@@ -45122,8 +45038,6 @@ type __premarshalSetAgentBaseSetAgentBaseAgent struct {
 
 	SystemMemoryId *string `json:"systemMemoryId"`
 
-	SystemPrompt *string `json:"systemPrompt"`
-
 	TasksIndexRef *string `json:"tasksIndexRef"`
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
@@ -45167,7 +45081,6 @@ func (v *SetAgentBaseSetAgentBaseAgent) __premarshalJSON() (*__premarshalSetAgen
 	retval.OrganizationId = v.AgentFields.OrganizationId
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
-	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
@@ -45248,11 +45161,6 @@ func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetSurfaces() []string {
 // GetSystemMemoryId returns SetAgentBootPromptSetAgentBootPromptAgent.SystemMemoryId, and is useful for accessing the field via an interface.
 func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetSystemMemoryId() *string {
 	return v.AgentFields.SystemMemoryId
-}
-
-// GetSystemPrompt returns SetAgentBootPromptSetAgentBootPromptAgent.SystemPrompt, and is useful for accessing the field via an interface.
-func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetSystemPrompt() *string {
-	return v.AgentFields.SystemPrompt
 }
 
 // GetTasksIndexRef returns SetAgentBootPromptSetAgentBootPromptAgent.TasksIndexRef, and is useful for accessing the field via an interface.
@@ -45354,8 +45262,6 @@ type __premarshalSetAgentBootPromptSetAgentBootPromptAgent struct {
 
 	SystemMemoryId *string `json:"systemMemoryId"`
 
-	SystemPrompt *string `json:"systemPrompt"`
-
 	TasksIndexRef *string `json:"tasksIndexRef"`
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
@@ -45399,7 +45305,6 @@ func (v *SetAgentBootPromptSetAgentBootPromptAgent) __premarshalJSON() (*__prema
 	retval.OrganizationId = v.AgentFields.OrganizationId
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
-	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
@@ -45476,11 +45381,6 @@ func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetSurfaces() []string {
 // GetSystemMemoryId returns SetAgentIndexRefsSetAgentIndexRefsAgent.SystemMemoryId, and is useful for accessing the field via an interface.
 func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetSystemMemoryId() *string {
 	return v.AgentFields.SystemMemoryId
-}
-
-// GetSystemPrompt returns SetAgentIndexRefsSetAgentIndexRefsAgent.SystemPrompt, and is useful for accessing the field via an interface.
-func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetSystemPrompt() *string {
-	return v.AgentFields.SystemPrompt
 }
 
 // GetTasksIndexRef returns SetAgentIndexRefsSetAgentIndexRefsAgent.TasksIndexRef, and is useful for accessing the field via an interface.
@@ -45578,8 +45478,6 @@ type __premarshalSetAgentIndexRefsSetAgentIndexRefsAgent struct {
 
 	SystemMemoryId *string `json:"systemMemoryId"`
 
-	SystemPrompt *string `json:"systemPrompt"`
-
 	TasksIndexRef *string `json:"tasksIndexRef"`
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
@@ -45623,7 +45521,6 @@ func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) __premarshalJSON() (*__premars
 	retval.OrganizationId = v.AgentFields.OrganizationId
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
-	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
@@ -45953,11 +45850,6 @@ func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetPrompt() *string {
 	return v.WorkerFields.Prompt
 }
 
-// GetPromptOverride returns SetWorkerBootPromptSetWorkerBootPromptWorker.PromptOverride, and is useful for accessing the field via an interface.
-func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetPromptOverride() *string {
-	return v.WorkerFields.PromptOverride
-}
-
 // GetSignature returns SetWorkerBootPromptSetWorkerBootPromptWorker.Signature, and is useful for accessing the field via an interface.
 func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetSignature() *string {
 	return v.WorkerFields.Signature
@@ -46086,8 +45978,6 @@ type __premarshalSetWorkerBootPromptSetWorkerBootPromptWorker struct {
 
 	Prompt *string `json:"prompt"`
 
-	PromptOverride *string `json:"promptOverride"`
-
 	Signature *string `json:"signature"`
 
 	Trailer *string `json:"trailer"`
@@ -46143,7 +46033,6 @@ func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) __premarshalJSON() (*__pr
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
-	retval.PromptOverride = v.WorkerFields.PromptOverride
 	retval.Signature = v.WorkerFields.Signature
 	retval.Trailer = v.WorkerFields.Trailer
 	retval.BootPromptRef = v.WorkerFields.BootPromptRef
@@ -46238,11 +46127,6 @@ func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetRole() *string { return 
 // GetPrompt returns SetWorkerReportsToSetWorkerReportsToWorker.Prompt, and is useful for accessing the field via an interface.
 func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetPrompt() *string {
 	return v.WorkerFields.Prompt
-}
-
-// GetPromptOverride returns SetWorkerReportsToSetWorkerReportsToWorker.PromptOverride, and is useful for accessing the field via an interface.
-func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetPromptOverride() *string {
-	return v.WorkerFields.PromptOverride
 }
 
 // GetSignature returns SetWorkerReportsToSetWorkerReportsToWorker.Signature, and is useful for accessing the field via an interface.
@@ -46371,8 +46255,6 @@ type __premarshalSetWorkerReportsToSetWorkerReportsToWorker struct {
 
 	Prompt *string `json:"prompt"`
 
-	PromptOverride *string `json:"promptOverride"`
-
 	Signature *string `json:"signature"`
 
 	Trailer *string `json:"trailer"`
@@ -46428,7 +46310,6 @@ func (v *SetWorkerReportsToSetWorkerReportsToWorker) __premarshalJSON() (*__prem
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
-	retval.PromptOverride = v.WorkerFields.PromptOverride
 	retval.Signature = v.WorkerFields.Signature
 	retval.Trailer = v.WorkerFields.Trailer
 	retval.BootPromptRef = v.WorkerFields.BootPromptRef
@@ -54978,9 +54859,6 @@ func (v *UpdateAgentUpdateAgent) GetSurfaces() []string { return v.AgentFields.S
 // GetSystemMemoryId returns UpdateAgentUpdateAgent.SystemMemoryId, and is useful for accessing the field via an interface.
 func (v *UpdateAgentUpdateAgent) GetSystemMemoryId() *string { return v.AgentFields.SystemMemoryId }
 
-// GetSystemPrompt returns UpdateAgentUpdateAgent.SystemPrompt, and is useful for accessing the field via an interface.
-func (v *UpdateAgentUpdateAgent) GetSystemPrompt() *string { return v.AgentFields.SystemPrompt }
-
 // GetTasksIndexRef returns UpdateAgentUpdateAgent.TasksIndexRef, and is useful for accessing the field via an interface.
 func (v *UpdateAgentUpdateAgent) GetTasksIndexRef() *string { return v.AgentFields.TasksIndexRef }
 
@@ -55062,8 +54940,6 @@ type __premarshalUpdateAgentUpdateAgent struct {
 
 	SystemMemoryId *string `json:"systemMemoryId"`
 
-	SystemPrompt *string `json:"systemPrompt"`
-
 	TasksIndexRef *string `json:"tasksIndexRef"`
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
@@ -55107,7 +54983,6 @@ func (v *UpdateAgentUpdateAgent) __premarshalJSON() (*__premarshalUpdateAgentUpd
 	retval.OrganizationId = v.AgentFields.OrganizationId
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
-	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
@@ -60145,37 +60020,6 @@ func (v *UpdateUserRolesUpdateUserRolesUser) __premarshalJSON() (*__premarshalUp
 	return &retval, nil
 }
 
-// UpdateWorkerResponse is returned by UpdateWorker on success.
-type UpdateWorkerResponse struct {
-	// #1010 — amend a casting's individuality after the fact.
-	//
-	// `promptOverride` is the per-worker escape hatch (cor:agt:020:01), but it
-	// could only be set at CASTING time — fixing a casting's individuality at the
-	// one moment nobody yet knows what makes it individual. The role agent's
-	// `systemPrompt` cannot stand in (it is SHARED by every casting of that
-	// role), and re-casting is barred by `WORKER_IN_USE` for any worker that has
-	// done work — precisely the ones with an identity to record.
-	//
-	// Signature/trailer edits require an App manager; a bound worker is provisionally refused (H26).
-	// Omitted preserves, null refuses, whitespace-only becomes empty text; other text is raw, max 2000 characters, no NUL.
-	// A mixed update is atomic. These values reach the next compose/bind via S4.
-	//
-	// `name` is permanent by law (hrn:node:hadronmemory.com:specs:cor:agt:020:02). The agent
-	// (and with it the role) is changed by changeWorkerAgent, not here. OMITTING promptOverride
-	// preserves it; explicit `null` or a blank string CLEARS it, matching the
-	// nullable column and castWorker's blank-is-absent normalization.
-	//
-	// Refuses WORKER_RETIRED for a retired worker: an override is briefing text
-	// delivered at bind time, and a retired worker takes no new bindings, so the
-	// edit could never reach anyone.
-	//
-	// promptOverride alone keeps castWorker staffing authorization. workerRef is the worker's id or URN (#991).
-	UpdateWorker *UpdateWorkerUpdateWorker `json:"updateWorker"`
-}
-
-// GetUpdateWorker returns UpdateWorkerResponse.UpdateWorker, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerResponse) GetUpdateWorker() *UpdateWorkerUpdateWorker { return v.UpdateWorker }
-
 // UpdateWorkerSigningResponse is returned by UpdateWorkerSigning on success.
 type UpdateWorkerSigningResponse struct {
 	// #1010 — amend a casting's individuality after the fact.
@@ -60259,11 +60103,6 @@ func (v *UpdateWorkerSigningUpdateWorker) GetRole() *string { return v.WorkerFie
 
 // GetPrompt returns UpdateWorkerSigningUpdateWorker.Prompt, and is useful for accessing the field via an interface.
 func (v *UpdateWorkerSigningUpdateWorker) GetPrompt() *string { return v.WorkerFields.Prompt }
-
-// GetPromptOverride returns UpdateWorkerSigningUpdateWorker.PromptOverride, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerSigningUpdateWorker) GetPromptOverride() *string {
-	return v.WorkerFields.PromptOverride
-}
 
 // GetSignature returns UpdateWorkerSigningUpdateWorker.Signature, and is useful for accessing the field via an interface.
 func (v *UpdateWorkerSigningUpdateWorker) GetSignature() *string { return v.WorkerFields.Signature }
@@ -60373,8 +60212,6 @@ type __premarshalUpdateWorkerSigningUpdateWorker struct {
 
 	Prompt *string `json:"prompt"`
 
-	PromptOverride *string `json:"promptOverride"`
-
 	Signature *string `json:"signature"`
 
 	Trailer *string `json:"trailer"`
@@ -60430,236 +60267,6 @@ func (v *UpdateWorkerSigningUpdateWorker) __premarshalJSON() (*__premarshalUpdat
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
-	retval.PromptOverride = v.WorkerFields.PromptOverride
-	retval.Signature = v.WorkerFields.Signature
-	retval.Trailer = v.WorkerFields.Trailer
-	retval.BootPromptRef = v.WorkerFields.BootPromptRef
-	retval.BootPromptTargetDeleted = v.WorkerFields.BootPromptTargetDeleted
-	retval.Repos = v.WorkerFields.Repos
-	retval.MemoryId = v.WorkerFields.MemoryId
-	retval.Family = v.WorkerFields.Family
-	retval.HeldByUserId = v.WorkerFields.HeldByUserId
-	retval.HeldAt = v.WorkerFields.HeldAt
-	retval.HasLiveSession = v.WorkerFields.HasLiveSession
-	retval.LastActiveAt = v.WorkerFields.LastActiveAt
-	retval.CheckStatus = v.WorkerFields.CheckStatus
-	retval.RetiredAt = v.WorkerFields.RetiredAt
-	retval.RetiredBy = v.WorkerFields.RetiredBy
-	retval.CreatedAt = v.WorkerFields.CreatedAt
-	retval.CreatedBy = v.WorkerFields.CreatedBy
-	return &retval, nil
-}
-
-// UpdateWorkerUpdateWorker includes the requested fields of the GraphQL type Worker.
-// The GraphQL type's documentation follows.
-//
-// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
-// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
-// The Agent carries the reusable persona dressing; the Worker is the local
-// named identity that does attributable work. Names are unique per App,
-// case-insensitively, forever (retirement and uninstall never free them —
-// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
-// by its id or by the computed `urn` below (#991).
-type UpdateWorkerUpdateWorker struct {
-	WorkerFields `json:"-"`
-}
-
-// GetId returns UpdateWorkerUpdateWorker.Id, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetId() string { return v.WorkerFields.Id }
-
-// GetUrn returns UpdateWorkerUpdateWorker.Urn, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetUrn() *string { return v.WorkerFields.Urn }
-
-// GetPortalUrl returns UpdateWorkerUpdateWorker.PortalUrl, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetPortalUrl() *string { return v.WorkerFields.PortalUrl }
-
-// GetSlug returns UpdateWorkerUpdateWorker.Slug, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetSlug() string { return v.WorkerFields.Slug }
-
-// GetAppId returns UpdateWorkerUpdateWorker.AppId, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetAppId() string { return v.WorkerFields.AppId }
-
-// GetAgentId returns UpdateWorkerUpdateWorker.AgentId, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetAgentId() string { return v.WorkerFields.AgentId }
-
-// GetName returns UpdateWorkerUpdateWorker.Name, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetName() string { return v.WorkerFields.Name }
-
-// GetReportsTo returns UpdateWorkerUpdateWorker.ReportsTo, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetReportsTo() *WorkerFieldsReportsToWorker {
-	return v.WorkerFields.ReportsTo
-}
-
-// GetReportsToRetired returns UpdateWorkerUpdateWorker.ReportsToRetired, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetReportsToRetired() bool { return v.WorkerFields.ReportsToRetired }
-
-// GetRole returns UpdateWorkerUpdateWorker.Role, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetRole() *string { return v.WorkerFields.Role }
-
-// GetPrompt returns UpdateWorkerUpdateWorker.Prompt, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetPrompt() *string { return v.WorkerFields.Prompt }
-
-// GetPromptOverride returns UpdateWorkerUpdateWorker.PromptOverride, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetPromptOverride() *string { return v.WorkerFields.PromptOverride }
-
-// GetSignature returns UpdateWorkerUpdateWorker.Signature, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetSignature() *string { return v.WorkerFields.Signature }
-
-// GetTrailer returns UpdateWorkerUpdateWorker.Trailer, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetTrailer() *string { return v.WorkerFields.Trailer }
-
-// GetBootPromptRef returns UpdateWorkerUpdateWorker.BootPromptRef, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetBootPromptRef() *string { return v.WorkerFields.BootPromptRef }
-
-// GetBootPromptTargetDeleted returns UpdateWorkerUpdateWorker.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetBootPromptTargetDeleted() *bool {
-	return v.WorkerFields.BootPromptTargetDeleted
-}
-
-// GetRepos returns UpdateWorkerUpdateWorker.Repos, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetRepos() []string { return v.WorkerFields.Repos }
-
-// GetMemoryId returns UpdateWorkerUpdateWorker.MemoryId, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetMemoryId() *string { return v.WorkerFields.MemoryId }
-
-// GetFamily returns UpdateWorkerUpdateWorker.Family, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetFamily() *string { return v.WorkerFields.Family }
-
-// GetHeldByUserId returns UpdateWorkerUpdateWorker.HeldByUserId, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetHeldByUserId() *string { return v.WorkerFields.HeldByUserId }
-
-// GetHeldAt returns UpdateWorkerUpdateWorker.HeldAt, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetHeldAt() *string { return v.WorkerFields.HeldAt }
-
-// GetHasLiveSession returns UpdateWorkerUpdateWorker.HasLiveSession, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetHasLiveSession() *bool { return v.WorkerFields.HasLiveSession }
-
-// GetLastActiveAt returns UpdateWorkerUpdateWorker.LastActiveAt, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetLastActiveAt() *string { return v.WorkerFields.LastActiveAt }
-
-// GetCheckStatus returns UpdateWorkerUpdateWorker.CheckStatus, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetCheckStatus() *WorkerFieldsCheckStatusWorkerCheckStatus {
-	return v.WorkerFields.CheckStatus
-}
-
-// GetRetiredAt returns UpdateWorkerUpdateWorker.RetiredAt, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetRetiredAt() *string { return v.WorkerFields.RetiredAt }
-
-// GetRetiredBy returns UpdateWorkerUpdateWorker.RetiredBy, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetRetiredBy() *string { return v.WorkerFields.RetiredBy }
-
-// GetCreatedAt returns UpdateWorkerUpdateWorker.CreatedAt, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetCreatedAt() string { return v.WorkerFields.CreatedAt }
-
-// GetCreatedBy returns UpdateWorkerUpdateWorker.CreatedBy, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetCreatedBy() *string { return v.WorkerFields.CreatedBy }
-
-func (v *UpdateWorkerUpdateWorker) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*UpdateWorkerUpdateWorker
-		graphql.NoUnmarshalJSON
-	}
-	firstPass.UpdateWorkerUpdateWorker = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(
-		b, &v.WorkerFields)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-type __premarshalUpdateWorkerUpdateWorker struct {
-	Id string `json:"id"`
-
-	Urn *string `json:"urn"`
-
-	PortalUrl *string `json:"portalUrl"`
-
-	Slug string `json:"slug"`
-
-	AppId string `json:"appId"`
-
-	AgentId string `json:"agentId"`
-
-	Name string `json:"name"`
-
-	ReportsTo *WorkerFieldsReportsToWorker `json:"reportsTo"`
-
-	ReportsToRetired bool `json:"reportsToRetired"`
-
-	Role *string `json:"role"`
-
-	Prompt *string `json:"prompt"`
-
-	PromptOverride *string `json:"promptOverride"`
-
-	Signature *string `json:"signature"`
-
-	Trailer *string `json:"trailer"`
-
-	BootPromptRef *string `json:"bootPromptRef"`
-
-	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
-
-	Repos []string `json:"repos"`
-
-	MemoryId *string `json:"memoryId"`
-
-	Family *string `json:"family"`
-
-	HeldByUserId *string `json:"heldByUserId"`
-
-	HeldAt *string `json:"heldAt"`
-
-	HasLiveSession *bool `json:"hasLiveSession"`
-
-	LastActiveAt *string `json:"lastActiveAt"`
-
-	CheckStatus *WorkerFieldsCheckStatusWorkerCheckStatus `json:"checkStatus"`
-
-	RetiredAt *string `json:"retiredAt"`
-
-	RetiredBy *string `json:"retiredBy"`
-
-	CreatedAt string `json:"createdAt"`
-
-	CreatedBy *string `json:"createdBy"`
-}
-
-func (v *UpdateWorkerUpdateWorker) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *UpdateWorkerUpdateWorker) __premarshalJSON() (*__premarshalUpdateWorkerUpdateWorker, error) {
-	var retval __premarshalUpdateWorkerUpdateWorker
-
-	retval.Id = v.WorkerFields.Id
-	retval.Urn = v.WorkerFields.Urn
-	retval.PortalUrl = v.WorkerFields.PortalUrl
-	retval.Slug = v.WorkerFields.Slug
-	retval.AppId = v.WorkerFields.AppId
-	retval.AgentId = v.WorkerFields.AgentId
-	retval.Name = v.WorkerFields.Name
-	retval.ReportsTo = v.WorkerFields.ReportsTo
-	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
-	retval.Role = v.WorkerFields.Role
-	retval.Prompt = v.WorkerFields.Prompt
-	retval.PromptOverride = v.WorkerFields.PromptOverride
 	retval.Signature = v.WorkerFields.Signature
 	retval.Trailer = v.WorkerFields.Trailer
 	retval.BootPromptRef = v.WorkerFields.BootPromptRef
@@ -61563,8 +61170,6 @@ type WorkerFields struct {
 	// paragraph. Null when the agent carries no template and the worker no
 	// override.
 	Prompt *string `json:"prompt"`
-	// Per-worker individuality layered over the agent's template prompt.
-	PromptOverride *string `json:"promptOverride"`
 	// Per-worker signature template, masked for nonreaders (hrn:node:hadronmemory.com:specs:cor:agt:040:04).
 	Signature *string `json:"signature"`
 	// Per-worker commit trailer template, masked for nonreaders (hrn:node:hadronmemory.com:specs:cor:agt:040:04).
@@ -61700,9 +61305,6 @@ func (v *WorkerFields) GetRole() *string { return v.Role }
 
 // GetPrompt returns WorkerFields.Prompt, and is useful for accessing the field via an interface.
 func (v *WorkerFields) GetPrompt() *string { return v.Prompt }
-
-// GetPromptOverride returns WorkerFields.PromptOverride, and is useful for accessing the field via an interface.
-func (v *WorkerFields) GetPromptOverride() *string { return v.PromptOverride }
 
 // GetSignature returns WorkerFields.Signature, and is useful for accessing the field via an interface.
 func (v *WorkerFields) GetSignature() *string { return v.Signature }
@@ -62117,20 +61719,16 @@ func (v *WorkerReportingWorkerReportsToWorker) __premarshalJSON() (*__premarshal
 	return &retval, nil
 }
 
-// The ROSTER projection (#459): WorkerFields minus `prompt`.
+// WorkerRosterFields includes the GraphQL fields of Worker requested by the fragment WorkerRosterFields.
+// The GraphQL type's documentation follows.
 //
-// `prompt` is the resolved boot briefing — multi-KB per worker. It is a detail
-// of ONE worker, not something you scan a roster for, and the primary consumer
-// of `worker list --json` is an agent piping the output into context. Seven
-// workers meant seven briefings to answer "who is on staff".
-//
-// This mirrors TeamSessionFields, which already refuses ...WorkerFields for the
-// same reason and says so in its own comment. `worker get` remains the prompt
-// surface, which is what the shipped task nodes already tell readers.
-//
-// Deliberately KEEPS promptOverride: it is the short per-worker individuality
-// (#1010), not the composed briefing, and dropping it would widen the contract
-// break for no stated benefit.
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
 type WorkerRosterFields struct {
 	Id string `json:"id"`
 	// hrn:worker:<root>:<app-slug>:<slug> (#991) — computed from the App's URN
@@ -62165,8 +61763,6 @@ type WorkerRosterFields struct {
 	ReportsToRetired bool `json:"reportsToRetired"`
 	// The cast-list role this filling answers ('backend-engineer').
 	Role *string `json:"role"`
-	// Per-worker individuality layered over the agent's template prompt.
-	PromptOverride *string `json:"promptOverride"`
 	// #1024 — the repo affinity of this worker's ROLE, resolved so a client that
 	// already holds the worker needs no second round-trip to teamRoles. Clients
 	// may use it to warn on a role/repo mismatch at session start; the server
@@ -62295,9 +61891,6 @@ func (v *WorkerRosterFields) GetReportsToRetired() bool { return v.ReportsToReti
 
 // GetRole returns WorkerRosterFields.Role, and is useful for accessing the field via an interface.
 func (v *WorkerRosterFields) GetRole() *string { return v.Role }
-
-// GetPromptOverride returns WorkerRosterFields.PromptOverride, and is useful for accessing the field via an interface.
-func (v *WorkerRosterFields) GetPromptOverride() *string { return v.PromptOverride }
 
 // GetRepos returns WorkerRosterFields.Repos, and is useful for accessing the field via an interface.
 func (v *WorkerRosterFields) GetRepos() []string { return v.Repos }
@@ -62702,11 +62295,6 @@ func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetRole() *string {
 	return v.WorkerRosterFields.Role
 }
 
-// GetPromptOverride returns WorkersRosterWorkersWorkersPageItemsWorker.PromptOverride, and is useful for accessing the field via an interface.
-func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetPromptOverride() *string {
-	return v.WorkerRosterFields.PromptOverride
-}
-
 // GetRepos returns WorkersRosterWorkersWorkersPageItemsWorker.Repos, and is useful for accessing the field via an interface.
 func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetRepos() []string {
 	return v.WorkerRosterFields.Repos
@@ -62823,8 +62411,6 @@ type __premarshalWorkersRosterWorkersWorkersPageItemsWorker struct {
 
 	Role *string `json:"role"`
 
-	PromptOverride *string `json:"promptOverride"`
-
 	Repos []string `json:"repos"`
 
 	MemoryId *string `json:"memoryId"`
@@ -62875,7 +62461,6 @@ func (v *WorkersRosterWorkersWorkersPageItemsWorker) __premarshalJSON() (*__prem
 	retval.ReportsTo = v.WorkerRosterFields.ReportsTo
 	retval.ReportsToRetired = v.WorkerRosterFields.ReportsToRetired
 	retval.Role = v.WorkerRosterFields.Role
-	retval.PromptOverride = v.WorkerRosterFields.PromptOverride
 	retval.Repos = v.WorkerRosterFields.Repos
 	retval.MemoryId = v.WorkerRosterFields.MemoryId
 	retval.HeldByUserId = v.WorkerRosterFields.HeldByUserId
@@ -62959,11 +62544,6 @@ func (v *WorkersWorkersWorkersPageItemsWorker) GetRole() *string { return v.Work
 
 // GetPrompt returns WorkersWorkersWorkersPageItemsWorker.Prompt, and is useful for accessing the field via an interface.
 func (v *WorkersWorkersWorkersPageItemsWorker) GetPrompt() *string { return v.WorkerFields.Prompt }
-
-// GetPromptOverride returns WorkersWorkersWorkersPageItemsWorker.PromptOverride, and is useful for accessing the field via an interface.
-func (v *WorkersWorkersWorkersPageItemsWorker) GetPromptOverride() *string {
-	return v.WorkerFields.PromptOverride
-}
 
 // GetSignature returns WorkersWorkersWorkersPageItemsWorker.Signature, and is useful for accessing the field via an interface.
 func (v *WorkersWorkersWorkersPageItemsWorker) GetSignature() *string {
@@ -63081,8 +62661,6 @@ type __premarshalWorkersWorkersWorkersPageItemsWorker struct {
 
 	Prompt *string `json:"prompt"`
 
-	PromptOverride *string `json:"promptOverride"`
-
 	Signature *string `json:"signature"`
 
 	Trailer *string `json:"trailer"`
@@ -63138,7 +62716,6 @@ func (v *WorkersWorkersWorkersPageItemsWorker) __premarshalJSON() (*__premarshal
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
-	retval.PromptOverride = v.WorkerFields.PromptOverride
 	retval.Signature = v.WorkerFields.Signature
 	retval.Trailer = v.WorkerFields.Trailer
 	retval.BootPromptRef = v.WorkerFields.BootPromptRef
@@ -63870,11 +63447,10 @@ func (v *__CancelAppRunInput) GetId() string { return v.Id }
 
 // __CastWorkerInput is used internally by genqlient
 type __CastWorkerInput struct {
-	AppRef         string  `json:"appRef"`
-	AgentRef       *string `json:"agentRef,omitempty"`
-	Role           *string `json:"role,omitempty"`
-	Name           *string `json:"name,omitempty"`
-	PromptOverride *string `json:"promptOverride,omitempty"`
+	AppRef   string  `json:"appRef"`
+	AgentRef *string `json:"agentRef,omitempty"`
+	Role     *string `json:"role,omitempty"`
+	Name     *string `json:"name,omitempty"`
 }
 
 // GetAppRef returns __CastWorkerInput.AppRef, and is useful for accessing the field via an interface.
@@ -63889,16 +63465,12 @@ func (v *__CastWorkerInput) GetRole() *string { return v.Role }
 // GetName returns __CastWorkerInput.Name, and is useful for accessing the field via an interface.
 func (v *__CastWorkerInput) GetName() *string { return v.Name }
 
-// GetPromptOverride returns __CastWorkerInput.PromptOverride, and is useful for accessing the field via an interface.
-func (v *__CastWorkerInput) GetPromptOverride() *string { return v.PromptOverride }
-
 // __CastWorkerPreviewInput is used internally by genqlient
 type __CastWorkerPreviewInput struct {
-	AppRef         string  `json:"appRef"`
-	AgentRef       *string `json:"agentRef,omitempty"`
-	Role           *string `json:"role,omitempty"`
-	Name           *string `json:"name,omitempty"`
-	PromptOverride *string `json:"promptOverride,omitempty"`
+	AppRef   string  `json:"appRef"`
+	AgentRef *string `json:"agentRef,omitempty"`
+	Role     *string `json:"role,omitempty"`
+	Name     *string `json:"name,omitempty"`
 }
 
 // GetAppRef returns __CastWorkerPreviewInput.AppRef, and is useful for accessing the field via an interface.
@@ -63912,9 +63484,6 @@ func (v *__CastWorkerPreviewInput) GetRole() *string { return v.Role }
 
 // GetName returns __CastWorkerPreviewInput.Name, and is useful for accessing the field via an interface.
 func (v *__CastWorkerPreviewInput) GetName() *string { return v.Name }
-
-// GetPromptOverride returns __CastWorkerPreviewInput.PromptOverride, and is useful for accessing the field via an interface.
-func (v *__CastWorkerPreviewInput) GetPromptOverride() *string { return v.PromptOverride }
 
 // __ChannelMessagesInput is used internally by genqlient
 type __ChannelMessagesInput struct {
@@ -64299,7 +63868,6 @@ type __CreateAgentInput struct {
 	Description    *string          `json:"description,omitempty"`
 	AgentType      *AgentType       `json:"agentType,omitempty"`
 	Visibility     *AgentVisibility `json:"visibility,omitempty"`
-	SystemPrompt   *string          `json:"systemPrompt,omitempty"`
 	SystemMemoryId *string          `json:"systemMemoryId,omitempty"`
 	Surfaces       []string         `json:"surfaces,omitempty"`
 	PersonaRole    *string          `json:"personaRole,omitempty"`
@@ -64319,9 +63887,6 @@ func (v *__CreateAgentInput) GetAgentType() *AgentType { return v.AgentType }
 
 // GetVisibility returns __CreateAgentInput.Visibility, and is useful for accessing the field via an interface.
 func (v *__CreateAgentInput) GetVisibility() *AgentVisibility { return v.Visibility }
-
-// GetSystemPrompt returns __CreateAgentInput.SystemPrompt, and is useful for accessing the field via an interface.
-func (v *__CreateAgentInput) GetSystemPrompt() *string { return v.SystemPrompt }
 
 // GetSystemMemoryId returns __CreateAgentInput.SystemMemoryId, and is useful for accessing the field via an interface.
 func (v *__CreateAgentInput) GetSystemMemoryId() *string { return v.SystemMemoryId }
@@ -67799,7 +67364,6 @@ type __UpdateAgentInput struct {
 	Description    *string          `json:"description,omitempty"`
 	AgentType      *AgentType       `json:"agentType,omitempty"`
 	Visibility     *AgentVisibility `json:"visibility,omitempty"`
-	SystemPrompt   *string          `json:"systemPrompt,omitempty"`
 	SystemMemoryId *string          `json:"systemMemoryId,omitempty"`
 	Surfaces       []string         `json:"surfaces,omitempty"`
 	Urn            *string          `json:"urn,omitempty"`
@@ -67821,9 +67385,6 @@ func (v *__UpdateAgentInput) GetAgentType() *AgentType { return v.AgentType }
 
 // GetVisibility returns __UpdateAgentInput.Visibility, and is useful for accessing the field via an interface.
 func (v *__UpdateAgentInput) GetVisibility() *AgentVisibility { return v.Visibility }
-
-// GetSystemPrompt returns __UpdateAgentInput.SystemPrompt, and is useful for accessing the field via an interface.
-func (v *__UpdateAgentInput) GetSystemPrompt() *string { return v.SystemPrompt }
 
 // GetSystemMemoryId returns __UpdateAgentInput.SystemMemoryId, and is useful for accessing the field via an interface.
 func (v *__UpdateAgentInput) GetSystemMemoryId() *string { return v.SystemMemoryId }
@@ -67925,7 +67486,6 @@ type __UpdateAppInput struct {
 	Ref                   string          `json:"ref"`
 	Name                  *string         `json:"name,omitempty"`
 	Description           json.RawMessage `json:"description,omitempty"`
-	SystemPrompt          json.RawMessage `json:"systemPrompt,omitempty"`
 	SessionTimeoutSeconds *int            `json:"sessionTimeoutSeconds,omitempty"`
 }
 
@@ -67937,9 +67497,6 @@ func (v *__UpdateAppInput) GetName() *string { return v.Name }
 
 // GetDescription returns __UpdateAppInput.Description, and is useful for accessing the field via an interface.
 func (v *__UpdateAppInput) GetDescription() json.RawMessage { return v.Description }
-
-// GetSystemPrompt returns __UpdateAppInput.SystemPrompt, and is useful for accessing the field via an interface.
-func (v *__UpdateAppInput) GetSystemPrompt() json.RawMessage { return v.SystemPrompt }
 
 // GetSessionTimeoutSeconds returns __UpdateAppInput.SessionTimeoutSeconds, and is useful for accessing the field via an interface.
 func (v *__UpdateAppInput) GetSessionTimeoutSeconds() *int { return v.SessionTimeoutSeconds }
@@ -68824,31 +68381,15 @@ func (v *__UpdateUserRolesInput) GetUserId() string { return v.UserId }
 // GetRoles returns __UpdateUserRolesInput.Roles, and is useful for accessing the field via an interface.
 func (v *__UpdateUserRolesInput) GetRoles() []Role { return v.Roles }
 
-// __UpdateWorkerInput is used internally by genqlient
-type __UpdateWorkerInput struct {
-	WorkerRef      string  `json:"workerRef"`
-	PromptOverride *string `json:"promptOverride"`
-}
-
-// GetWorkerRef returns __UpdateWorkerInput.WorkerRef, and is useful for accessing the field via an interface.
-func (v *__UpdateWorkerInput) GetWorkerRef() string { return v.WorkerRef }
-
-// GetPromptOverride returns __UpdateWorkerInput.PromptOverride, and is useful for accessing the field via an interface.
-func (v *__UpdateWorkerInput) GetPromptOverride() *string { return v.PromptOverride }
-
 // __UpdateWorkerSigningInput is used internally by genqlient
 type __UpdateWorkerSigningInput struct {
-	WorkerRef      string  `json:"workerRef"`
-	PromptOverride *string `json:"promptOverride,omitempty"`
-	Signature      *string `json:"signature,omitempty"`
-	Trailer        *string `json:"trailer,omitempty"`
+	WorkerRef string  `json:"workerRef"`
+	Signature *string `json:"signature,omitempty"`
+	Trailer   *string `json:"trailer,omitempty"`
 }
 
 // GetWorkerRef returns __UpdateWorkerSigningInput.WorkerRef, and is useful for accessing the field via an interface.
 func (v *__UpdateWorkerSigningInput) GetWorkerRef() string { return v.WorkerRef }
-
-// GetPromptOverride returns __UpdateWorkerSigningInput.PromptOverride, and is useful for accessing the field via an interface.
-func (v *__UpdateWorkerSigningInput) GetPromptOverride() *string { return v.PromptOverride }
 
 // GetSignature returns __UpdateWorkerSigningInput.Signature, and is useful for accessing the field via an interface.
 func (v *__UpdateWorkerSigningInput) GetSignature() *string { return v.Signature }
@@ -70646,7 +70187,6 @@ fragment AgentFields on Agent {
 	organizationId
 	surfaces
 	systemMemoryId
-	systemPrompt
 	tasksIndexRef
 	processesIndexRef
 	extendsAgentId
@@ -72168,8 +71708,8 @@ func CancelAppRun(
 
 // The mutation executed by CastWorker.
 const CastWorker_Operation = `
-mutation CastWorker ($appRef: ID!, $agentRef: ID, $role: String, $name: String, $promptOverride: String) {
-	castWorker(appRef: $appRef, agentRef: $agentRef, role: $role, name: $name, promptOverride: $promptOverride) {
+mutation CastWorker ($appRef: ID!, $agentRef: ID, $role: String, $name: String) {
+	castWorker(appRef: $appRef, agentRef: $agentRef, role: $role, name: $name) {
 		... WorkerFields
 	}
 }
@@ -72187,7 +71727,6 @@ fragment WorkerFields on Worker {
 	reportsToRetired
 	role
 	prompt
-	promptOverride
 	signature
 	trailer
 	bootPromptRef
@@ -72239,17 +71778,15 @@ func CastWorker(
 	agentRef *string,
 	role *string,
 	name *string,
-	promptOverride *string,
 ) (data_ *CastWorkerResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CastWorker",
 		Query:  CastWorker_Operation,
 		Variables: &__CastWorkerInput{
-			AppRef:         appRef,
-			AgentRef:       agentRef,
-			Role:           role,
-			Name:           name,
-			PromptOverride: promptOverride,
+			AppRef:   appRef,
+			AgentRef: agentRef,
+			Role:     role,
+			Name:     name,
 		},
 	}
 
@@ -72267,8 +71804,8 @@ func CastWorker(
 
 // The query executed by CastWorkerPreview.
 const CastWorkerPreview_Operation = `
-query CastWorkerPreview ($appRef: ID!, $agentRef: ID, $role: String, $name: String, $promptOverride: String) {
-	castWorkerPreview(appRef: $appRef, agentRef: $agentRef, role: $role, name: $name, promptOverride: $promptOverride) {
+query CastWorkerPreview ($appRef: ID!, $agentRef: ID, $role: String, $name: String) {
+	castWorkerPreview(appRef: $appRef, agentRef: $agentRef, role: $role, name: $name) {
 		name
 		role
 		agentId
@@ -72292,17 +71829,15 @@ func CastWorkerPreview(
 	agentRef *string,
 	role *string,
 	name *string,
-	promptOverride *string,
 ) (data_ *CastWorkerPreviewResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CastWorkerPreview",
 		Query:  CastWorkerPreview_Operation,
 		Variables: &__CastWorkerPreviewInput{
-			AppRef:         appRef,
-			AgentRef:       agentRef,
-			Role:           role,
-			Name:           name,
-			PromptOverride: promptOverride,
+			AppRef:   appRef,
+			AgentRef: agentRef,
+			Role:     role,
+			Name:     name,
 		},
 	}
 
@@ -72827,7 +72362,6 @@ fragment AgentFields on Agent {
 	organizationId
 	surfaces
 	systemMemoryId
-	systemPrompt
 	tasksIndexRef
 	processesIndexRef
 	extendsAgentId
@@ -72886,7 +72420,6 @@ fragment AgentFields on Agent {
 	organizationId
 	surfaces
 	systemMemoryId
-	systemPrompt
 	tasksIndexRef
 	processesIndexRef
 	extendsAgentId
@@ -72983,7 +72516,6 @@ fragment AgentFields on Agent {
 	organizationId
 	surfaces
 	systemMemoryId
-	systemPrompt
 	tasksIndexRef
 	processesIndexRef
 	extendsAgentId
@@ -73639,8 +73171,8 @@ func ConnectionGrants(
 
 // The mutation executed by CreateAgent.
 const CreateAgent_Operation = `
-mutation CreateAgent ($name: String!, $orgId: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemPrompt: String, $systemMemoryId: String, $surfaces: [String!], $personaRole: String) {
-	createAgent(name: $name, orgId: $orgId, description: $description, type: $agentType, visibility: $visibility, systemPrompt: $systemPrompt, systemMemoryId: $systemMemoryId, surfaces: $surfaces, personaRole: $personaRole) {
+mutation CreateAgent ($name: String!, $orgId: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $personaRole: String) {
+	createAgent(name: $name, orgId: $orgId, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, personaRole: $personaRole) {
 		... AgentFields
 	}
 }
@@ -73654,7 +73186,6 @@ fragment AgentFields on Agent {
 	organizationId
 	surfaces
 	systemMemoryId
-	systemPrompt
 	tasksIndexRef
 	processesIndexRef
 	extendsAgentId
@@ -73677,7 +73208,6 @@ func CreateAgent(
 	description *string,
 	agentType *AgentType,
 	visibility *AgentVisibility,
-	systemPrompt *string,
 	systemMemoryId *string,
 	surfaces []string,
 	personaRole *string,
@@ -73691,7 +73221,6 @@ func CreateAgent(
 			Description:    description,
 			AgentType:      agentType,
 			Visibility:     visibility,
-			SystemPrompt:   systemPrompt,
 			SystemMemoryId: systemMemoryId,
 			Surfaces:       surfaces,
 			PersonaRole:    personaRole,
@@ -77625,7 +77154,6 @@ fragment AgentFields on Agent {
 	organizationId
 	surfaces
 	systemMemoryId
-	systemPrompt
 	tasksIndexRef
 	processesIndexRef
 	extendsAgentId
@@ -78952,7 +78480,6 @@ fragment WorkerFields on Worker {
 	reportsToRetired
 	role
 	prompt
-	promptOverride
 	signature
 	trailer
 	bootPromptRef
@@ -82239,7 +81766,6 @@ fragment AgentFields on Agent {
 	organizationId
 	surfaces
 	systemMemoryId
-	systemPrompt
 	tasksIndexRef
 	processesIndexRef
 	extendsAgentId
@@ -82789,7 +82315,6 @@ fragment WorkerFields on Worker {
 	reportsToRetired
 	role
 	prompt
-	promptOverride
 	signature
 	trailer
 	bootPromptRef
@@ -83887,7 +83412,6 @@ fragment WorkerFields on Worker {
 	reportsToRetired
 	role
 	prompt
-	promptOverride
 	signature
 	trailer
 	bootPromptRef
@@ -85149,7 +84673,6 @@ fragment AgentFields on Agent {
 	organizationId
 	surfaces
 	systemMemoryId
-	systemPrompt
 	tasksIndexRef
 	processesIndexRef
 	extendsAgentId
@@ -85212,7 +84735,6 @@ fragment AgentFields on Agent {
 	organizationId
 	surfaces
 	systemMemoryId
-	systemPrompt
 	tasksIndexRef
 	processesIndexRef
 	extendsAgentId
@@ -85276,7 +84798,6 @@ fragment AgentFields on Agent {
 	organizationId
 	surfaces
 	systemMemoryId
-	systemPrompt
 	tasksIndexRef
 	processesIndexRef
 	extendsAgentId
@@ -85440,7 +84961,6 @@ fragment WorkerFields on Worker {
 	reportsToRetired
 	role
 	prompt
-	promptOverride
 	signature
 	trailer
 	bootPromptRef
@@ -85522,7 +85042,6 @@ fragment WorkerFields on Worker {
 	reportsToRetired
 	role
 	prompt
-	promptOverride
 	signature
 	trailer
 	bootPromptRef
@@ -88052,8 +87571,8 @@ func UnsubscribeTicker(
 
 // The mutation executed by UpdateAgent.
 const UpdateAgent_Operation = `
-mutation UpdateAgent ($ref: ID!, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemPrompt: String, $systemMemoryId: String, $surfaces: [String!], $urn: String, $personaRole: String, $usesTasks: Boolean) {
-	updateAgent(ref: $ref, name: $name, description: $description, type: $agentType, visibility: $visibility, systemPrompt: $systemPrompt, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn, personaRole: $personaRole, usesTasks: $usesTasks) {
+mutation UpdateAgent ($ref: ID!, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $urn: String, $personaRole: String, $usesTasks: Boolean) {
+	updateAgent(ref: $ref, name: $name, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn, personaRole: $personaRole, usesTasks: $usesTasks) {
 		... AgentFields
 	}
 }
@@ -88067,7 +87586,6 @@ fragment AgentFields on Agent {
 	organizationId
 	surfaces
 	systemMemoryId
-	systemPrompt
 	tasksIndexRef
 	processesIndexRef
 	extendsAgentId
@@ -88090,7 +87608,6 @@ func UpdateAgent(
 	description *string,
 	agentType *AgentType,
 	visibility *AgentVisibility,
-	systemPrompt *string,
 	systemMemoryId *string,
 	surfaces []string,
 	urn *string,
@@ -88106,7 +87623,6 @@ func UpdateAgent(
 			Description:    description,
 			AgentType:      agentType,
 			Visibility:     visibility,
-			SystemPrompt:   systemPrompt,
 			SystemMemoryId: systemMemoryId,
 			Surfaces:       surfaces,
 			Urn:            urn,
@@ -88319,8 +87835,8 @@ func UpdateAiServiceConfigWithEndpoint(
 
 // The mutation executed by UpdateApp.
 const UpdateApp_Operation = `
-mutation UpdateApp ($ref: ID!, $name: String, $description: String, $systemPrompt: String, $sessionTimeoutSeconds: Int) {
-	updateApp(ref: $ref, name: $name, description: $description, systemPrompt: $systemPrompt, sessionTimeoutSeconds: $sessionTimeoutSeconds) {
+mutation UpdateApp ($ref: ID!, $name: String, $description: String, $sessionTimeoutSeconds: Int) {
+	updateApp(ref: $ref, name: $name, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds) {
 		id
 		urn
 		name
@@ -88330,8 +87846,7 @@ mutation UpdateApp ($ref: ID!, $name: String, $description: String, $systemPromp
 `
 
 // cli#1058 — bounded App update. Omitted = preserve, so every optional variable
-// carries omitempty and a nil never reaches the wire. description and
-// systemPrompt additionally have an explicit CLEAR (a JSON null): they bind to
+// carries omitempty and a nil never reaches the wire. description uses
 // json.RawMessage, where nil is omitted, `null` is sent as null and a quoted
 // string (including "") is sent as that string — a *string cannot express all
 // three. name and sessionTimeoutSeconds have no null-clear and stay pointers.
@@ -88341,7 +87856,6 @@ func UpdateApp(
 	ref string,
 	name *string,
 	description json.RawMessage,
-	systemPrompt json.RawMessage,
 	sessionTimeoutSeconds *int,
 ) (data_ *UpdateAppResponse, err_ error) {
 	req_ := &graphql.Request{
@@ -88351,7 +87865,6 @@ func UpdateApp(
 			Ref:                   ref,
 			Name:                  name,
 			Description:           description,
-			SystemPrompt:          systemPrompt,
 			SessionTimeoutSeconds: sessionTimeoutSeconds,
 		},
 	}
@@ -90387,108 +89900,10 @@ func UpdateUserRoles(
 	return data_, err_
 }
 
-// The mutation executed by UpdateWorker.
-const UpdateWorker_Operation = `
-mutation UpdateWorker ($workerRef: ID!, $promptOverride: String) {
-	updateWorker(workerRef: $workerRef, promptOverride: $promptOverride) {
-		... WorkerFields
-	}
-}
-fragment WorkerFields on Worker {
-	id
-	urn
-	portalUrl
-	slug
-	appId
-	agentId
-	name
-	reportsTo {
-		... WorkerReportingRefFields
-	}
-	reportsToRetired
-	role
-	prompt
-	promptOverride
-	signature
-	trailer
-	bootPromptRef
-	bootPromptTargetDeleted
-	repos
-	memoryId
-	family
-	heldByUserId
-	heldAt
-	hasLiveSession
-	lastActiveAt
-	checkStatus {
-		... ChannelCheckFields
-	}
-	retiredAt
-	retiredBy
-	createdAt
-	createdBy
-}
-fragment WorkerReportingRefFields on Worker {
-	id
-	name
-	urn
-}
-fragment ChannelCheckFields on WorkerCheckStatus {
-	status
-	pendingReason
-	lastCheckedAt
-}
-`
-
-// Amend a casting's promptOverride after the fact (#452, server #1010/#1019).
-//
-// promptOverride could only be set at CASTING time, which fixed a casting's
-// individuality at the one moment nobody yet knows what makes it individual.
-// Neither escape hatch covered it: the role agent's systemPrompt is SHARED by
-// every casting of that role, and re-casting is barred by WORKER_IN_USE for any
-// worker that has done work — precisely the ones with an identity to record.
-//
-// NO omitempty on $promptOverride, deliberately, and unlike most optional
-// variables in this file. The clear path MUST put an explicit `null` on the
-// wire: omitting the field preserves the current override, so an omitempty here
-// would make `--clear-prompt-override` a silent no-op — the failure the
-// convention-field annotations on UpdateTeamRoleMeta exist to avoid, arriving on
-// a field whose whole point is that it can be removed.
-//
-// WorkerFields already selects both `prompt` and `promptOverride`, so the
-// receipt can show the RE-RENDERED briefing — what a session driver actually
-// adopts — without a second read.
-func UpdateWorker(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	workerRef string,
-	promptOverride *string,
-) (data_ *UpdateWorkerResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "UpdateWorker",
-		Query:  UpdateWorker_Operation,
-		Variables: &__UpdateWorkerInput{
-			WorkerRef:      workerRef,
-			PromptOverride: promptOverride,
-		},
-	}
-
-	data_ = &UpdateWorkerResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
 // The mutation executed by UpdateWorkerSigning.
 const UpdateWorkerSigning_Operation = `
-mutation UpdateWorkerSigning ($workerRef: ID!, $promptOverride: String, $signature: String, $trailer: String) {
-	updateWorker(workerRef: $workerRef, promptOverride: $promptOverride, signature: $signature, trailer: $trailer) {
+mutation UpdateWorkerSigning ($workerRef: ID!, $signature: String, $trailer: String) {
+	updateWorker(workerRef: $workerRef, signature: $signature, trailer: $trailer) {
 		... WorkerFields
 	}
 }
@@ -90506,7 +89921,6 @@ fragment WorkerFields on Worker {
 	reportsToRetired
 	role
 	prompt
-	promptOverride
 	signature
 	trailer
 	bootPromptRef
@@ -90538,18 +89952,11 @@ fragment ChannelCheckFields on WorkerCheckStatus {
 }
 `
 
-// cli#916 C4 (hadron-server#2120, cor:agt:040:04): the per-worker signature
-// and trailer templates, with the override when it rides the same call.
-// A SEPARATE operation from UpdateWorker, which keeps its explicit-null clear
-// unchanged. Here every field is presence-preserving: omitempty on the
-// optional pointer, so nil is OMITTED (the server preserves it) and &"" is an
-// explicit empty string (an empty template, or a cleared override). Null is
-// never sent: the server refuses a null signature/trailer (D2).
+// Signature and trailer templates; omitted fields remain unchanged.
 func UpdateWorkerSigning(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	workerRef string,
-	promptOverride *string,
 	signature *string,
 	trailer *string,
 ) (data_ *UpdateWorkerSigningResponse, err_ error) {
@@ -90557,10 +89964,9 @@ func UpdateWorkerSigning(
 		OpName: "UpdateWorkerSigning",
 		Query:  UpdateWorkerSigning_Operation,
 		Variables: &__UpdateWorkerSigningInput{
-			WorkerRef:      workerRef,
-			PromptOverride: promptOverride,
-			Signature:      signature,
-			Trailer:        trailer,
+			WorkerRef: workerRef,
+			Signature: signature,
+			Trailer:   trailer,
 		},
 	}
 
@@ -90989,7 +90395,6 @@ fragment WorkerFields on Worker {
 	reportsToRetired
 	role
 	prompt
-	promptOverride
 	signature
 	trailer
 	bootPromptRef
@@ -91078,7 +90483,6 @@ fragment WorkerRosterFields on Worker {
 	}
 	reportsToRetired
 	role
-	promptOverride
 	repos
 	memoryId
 	heldByUserId
