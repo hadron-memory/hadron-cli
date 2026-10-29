@@ -12,8 +12,10 @@ type Ticker struct {
 	Interval time.Duration
 }
 
-// DueTick is the OLDEST unacknowledged tick of one ticker the server still
-// offers the worker (DueWake.anchorAt of a TICK reason). A turn answers and
+// DueTick is the time of an unacknowledged tick of one ticker the server still
+// offers the worker: DueWake.anchorAt for a wake made only of ticks, else the
+// ticker's own tick time (a merged wake's anchorAt belongs to its oldest
+// reason of any kind, so it cannot age a tick). A turn answers and
 // acknowledges its wake, so an old unanswered tick is the evidence that no
 // turn happened. The ticker's lastTickAt is deliberately not an input: with a
 // 5-minute ticker and 5 minutes of slack it is never old enough, so a rule

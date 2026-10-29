@@ -31,8 +31,9 @@ The team health sweep (#1181) consumes the JSON only and never imports the class
   ticker's `subscribers` (the worker's active subscriptions and their cadence;
   `TickerSubscribers` is the only subscription read there is, so it is one call
   per ticker per run, not per worker), and `dueWakes(appRef, workerRefs)` (new
-  operation `DueTickWakes`, never acknowledged). A worker is dark when a TICK
-  reason's `anchorAt` (the OLDEST unacknowledged tick) is at least one
+  operation `DueTickWakes`, never acknowledged). A worker is dark when an
+  unanswered tick, aged by `anchorAt` for a tick-only wake or by the ticker's own
+  tick time for a merged wake, is at least one
   **fastest subscribed ticker** interval old. `Ticker.lastTickAt` is
   deliberately not an input (Jonas's #1181 lesson: with a 5-minute ticker and
   5 minutes of slack it is never old enough). `lastTurnAt` is deliberately not
@@ -65,3 +66,13 @@ The team health sweep (#1181) consumes the JSON only and never imports the class
   such time not in the future of now, in the host's zone.
 - Follow-up outside this issue: the on-base-tick task node uses this command
   once it ships; `send --if-idle` is a separate slice.
+- **Merged wakes cannot prove a dark.** `anchorAt` is the earliest waiting
+  reason of any kind (wakeRule.ts takes the min over mentions, ticks and tasks),
+  so a worker whose tick is merged with a mention/task is aged by the ticker's
+  latest tick time, the youngest bound: no false dark, but also no dark until a
+  per-tick oldest-unacknowledged field exists server-side (asked of the
+  coordinator, not guessed here).
+- A bare shell needs a positive shell prompt on the last line; both families'
+  chrome at once is ambiguity and holds, whatever Orca's identity says.
+- Foreign text (worker names, handles, `detail`) goes through
+  `output.SafeCell` at the human sink.

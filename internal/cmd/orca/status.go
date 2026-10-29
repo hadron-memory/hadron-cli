@@ -249,7 +249,7 @@ func runStatus(ctx context.Context, f *cmdutil.Factory, env Env, args []string, 
 	}
 
 	if scope != "" && !f.JSON {
-		if _, err := fmt.Fprintln(f.IOStreams.ErrOut, "scope:", scope); err != nil {
+		if _, err := fmt.Fprintln(f.IOStreams.ErrOut, "scope:", output.SafeCell(scope)); err != nil {
 			return err
 		}
 	}
@@ -278,16 +278,18 @@ func terminalByHandle(terms []orcaterm.Terminal, arg string) *orcaterm.Terminal 
 
 // textLine is one line per worker: "Joshua idle", "Joshua dark (reason)".
 func textLine(r ts.Result) string {
+	// Worker names, handles and detail are foreign text (the server's, a
+	// refusal's, Orca's): none reaches the terminal raw.
 	name := r.Worker
 	if name == "" {
 		name = r.Terminal
 	}
-	line := fmt.Sprintf("%s %s", name, r.Status)
+	line := fmt.Sprintf("%s %s", output.SafeCell(name), r.Status)
 	if r.Reason != nil {
 		line += " (" + string(*r.Reason) + ")"
 	}
 	if r.Detail != "" {
-		line += ": " + r.Detail
+		line += ": " + output.SafeCell(r.Detail)
 	}
 	return line
 }

@@ -145,3 +145,37 @@ func TestClassifyNonWritableIsNeverIdle(t *testing.T) {
 		t.Fatalf("non-writable classified %s/%q", got.Status, got.Reason)
 	}
 }
+
+// LOCAL P2-1: both families' chrome at once is ambiguity, and Orca's identity
+// must not break the tie: held, never idle.
+func TestClassifyMixedChromeFailsClosed(t *testing.T) {
+	mixed := append([]string{"OpenAI Codex (v1.0)"}, claudeIdle...)
+	for _, fam := range []string{"claude", "codex"} {
+		if got := Classify(agent(fam), fix(mixed), now); got.Status != ts.Locked || got.Reason != ts.Unrecognized {
+			t.Errorf("identity %s: mixed chrome classified %s/%q", fam, got.Status, got.Reason)
+		}
+	}
+}
+
+// LOCAL P2-1: a bare shell needs POSITIVE shell evidence (a shell prompt as
+// the last line); arbitrary unrecognized output is not proof of a shell.
+func TestClassifyBareShellNeedsPositiveEvidence(t *testing.T) {
+	shell := Terminal{Handle: "term_sh", Connected: true, Writable: true}
+	for name, tail := range map[string][]string{
+		"bash prompt": {"user@host:~/w$"},
+		"root prompt": {"root@host:/# "},
+		"zsh prompt":  {"host% "},
+	} {
+		if got := Classify(shell, fix(tail), now); got.Status != ts.Dark || got.Reason != ts.BareShell {
+			t.Errorf("%s: %s/%q", name, got.Status, got.Reason)
+		}
+	}
+	for name, tail := range map[string][]string{
+		"unrecognized output": {"Compiling... 42%", "some tui frame"},
+		"empty screen":        {},
+	} {
+		if got := Classify(shell, fix(tail), now); got.Status != ts.Locked || got.Reason != ts.Unrecognized {
+			t.Errorf("%s: %s/%q", name, got.Status, got.Reason)
+		}
+	}
+}

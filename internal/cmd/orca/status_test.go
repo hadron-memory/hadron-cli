@@ -3,6 +3,7 @@ package orca
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -404,5 +405,27 @@ func TestStatusTerminalIDUsesItsOwnBindingApp(t *testing.T) {
 	r.run(t, true, "term_j")
 	if asked != "app1" {
 		t.Fatalf("read evidence from App %q, want the terminal's own app1", asked)
+	}
+}
+
+// LOCAL P2-4: server-controlled text (a refusal's message, ticker names, worker
+// names) must not reach the human sink as terminal control bytes. JSON is
+// unaffected (detail is never in it).
+func TestStatusTextSanitizesForeignText(t *testing.T) {
+	r := newRig(t)
+	r.joshua(idleScreen)
+	r.reads.workers[0].Name = "Josh\x1b[2Jua"
+	r.env.BoundAt = func(context.Context, string) (Bound, bool) {
+		return Bound{WorkerID: "w_j", WorkerName: "Josh\x1b[2Jua", AppID: "app1"}, true
+	}
+	r.reads.dueErr = errors.New("refused \x1b]52;c;ZXZpbA==\x07 \x1b[2J")
+	_, out := r.run(t, false, "w_j")
+	for _, bad := range []string{"\x1b", "\x07"} {
+		if strings.Contains(out, bad) || strings.Contains(r.errs.String(), bad) {
+			t.Fatalf("control byte %q reached the text sink: %q", bad, out)
+		}
+	}
+	if !strings.Contains(out, "locked") {
+		t.Fatalf("status lost: %q", out)
 	}
 }

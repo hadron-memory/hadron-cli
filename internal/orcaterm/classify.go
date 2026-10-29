@@ -45,9 +45,19 @@ func Classify(t Terminal, sc *Screen, now time.Time) Observation {
 	if !t.Writable || !sc.usable() {
 		return held(ts.PromptUnknown, "")
 	}
+	// Both families' chrome at once is ambiguity: Orca's identity must not
+	// break the tie.
+	if c, x := screenFamilies(sc); c && x {
+		return held(ts.PromptUnknown, "")
+	}
 	shown, id := ScreenAgentFamily(sc), t.Identity()
 	if shown == "" && id == "" {
-		return Observation{Status: ts.Dark, Prompt: ts.PromptUnknown, Reason: ts.BareShell}
+		// A shell needs POSITIVE evidence, a shell prompt on the last line:
+		// output nothing recognizes is not proof of a shell.
+		if endsInShellPrompt(sc.Tail) {
+			return Observation{Status: ts.Dark, Prompt: ts.PromptUnknown, Reason: ts.BareShell}
+		}
+		return held(ts.PromptUnknown, "")
 	}
 	// A dialog can hide the agent's chrome, so Orca's identity stands in;
 	// two disagreeing signals hold.
@@ -81,6 +91,18 @@ func Classify(t Terminal, sc *Screen, now time.Time) Observation {
 	}
 	obs.LastTurnAt = LastTurnAt(sc, family, now)
 	return obs
+}
+
+// shellPrompt: "user@host:~/dir$", "root@host:/# ", "host% ".
+var shellPrompt = regexp.MustCompile(`^(?:[\w.-]+@[\w.-]+:\S*[$#]|[\w.-]+[%$#])$`)
+
+func endsInShellPrompt(tail []string) bool {
+	for i := len(tail) - 1; i >= 0; i-- {
+		if s := squash(tail[i]); s != "" {
+			return shellPrompt.MatchString(s)
+		}
+	}
+	return false
 }
 
 // The clock time each harness draws for a finished turn: Claude Code's
