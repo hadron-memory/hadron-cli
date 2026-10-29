@@ -112,8 +112,11 @@ func newCmdApprove(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "approve [<name>]",
 		Short: "Approve an automation as shown",
-		Long: `Approve one automation (--app, else the active App). The summary is shown first
-(on stderr), you confirm, and the hash just shown is what is sent. If the
+		Long: `Approve one automation (--app, else the active App). Approving records your
+consent so the automation may run, on its own and without asking again, with
+the access listed in the summary; it affects everyone who relies on that App.
+The summary is shown first (on stderr), you confirm, and the hash just shown (a
+fingerprint of exactly what you were shown) is what is sent. If the
 automation changed in the meantime the server refuses it (exit 5): nothing is
 retried, and the next step is ` + "`hadron automation approval <name>`" + ` again.
 

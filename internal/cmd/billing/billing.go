@@ -25,13 +25,22 @@ func NewCmdBilling(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "billing <command>",
 		Short: "Read AI-credit rates, balances and ledgers",
-		Long: `Read the AI-credit metering records (spec 046, cor:dmo:100).
+		Long: `See an organization's AI credit: what the models cost ("prices"), how much
+credit is left ("balance") and every grant and charge ("ledger").
 
-Money is shown exactly as the server keeps it: a base-10 integer of
-micro-cents (1e-8 USD), signed on the ledger, never rounded or converted.
+Money is shown in micro-cents, never converted to dollars:
+1 USD = 100,000,000 micro-cents, so 100000000 is 1 USD, 5000000 is 5 cents and
+1000000 is 1 cent. Divide by 100000000 to get dollars.
 
-These are reads only. Setting a rate and granting credits are platform-admin
-writes and have no command here yet.`,
+These commands only read. Setting a rate or granting credit is a platform-admin
+action and has no command here.
+
+Details:
+  Amounts are base-10 integers exactly as the server keeps them, signed on the
+  ledger, never rounded; the credit metering records are described in spec 046.`,
+		Example: `  hadron billing prices --provider anthropic
+  hadron billing balance hrn:org:acme.com
+  hadron billing ledger hrn:org:acme.com --limit 20`,
 	}
 	cmd.AddCommand(newCmdPrices(f))
 	cmd.AddCommand(newCmdBalance(f))
@@ -110,13 +119,20 @@ func newCmdPrices(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "prices [--provider <p>] [--model <m>] [--tier <n>]",
 		Short: "List provider rate rows",
-		Long: `List provider rate rows, ordered by provider, model and tier, newest
-effective first. Any signed-in caller can read them.
+		Long: `List what each AI model costs: one row per provider, model and tier, newest
+effective date first. Any signed-in caller can read them. Narrow with
+--provider, --model or --tier (the tier is the number in each row's tier
+column; it separates rate rows for the same model).
 
-Rates are micro-cents per million tokens. A null markupBasisPoints means the
-row sets no markup of its own and the server's default applies.`,
-		Example: `  hadron billing prices --provider anthropic --json`,
-		Args:    cobra.NoArgs,
+Rates are micro-cents per million tokens, for input and for output
+separately: a rate of 300000000 micro-cents per million tokens is 3 USD per
+million tokens (divide by 100000000 to get dollars). markupBasisPoints is a
+markup added on top of the rate, in hundredths of a percent (100 = 1%); when it
+is null this row sets no markup of its own and the server's default markup
+applies (the default's value is not shown here).`,
+		Example: `  hadron billing prices
+  hadron billing prices --provider anthropic --json`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			lim, off, err := page.pointers(cmd)
 			if err != nil {
@@ -202,12 +218,15 @@ func newCmdBalance(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "balance <org>",
 		Short: "Show an organization's credit balance",
-		Long: `Show an organization's credit balance: the sum of its append-only ledger,
-in micro-cents. Requires org ADMIN.
+		Long: `Show how much AI credit an organization has left: grants minus charges, as one
+number in micro-cents (1 USD = 100,000,000 micro-cents). Requires org ADMIN.
 
-<org> is an organization ID or its hrn:org:<slug> URN.`,
-		Example: `  hadron billing balance hrn:org:acme.com --json`,
-		Args:    cobra.ExactArgs(1),
+<org> is an organization ID or its hrn:org:<slug> URN. The output is one line,
+for example "250000000 micro-cents (organization <id>)", which is 2.50 USD. To
+see what made up the number, run "hadron billing ledger".`,
+		Example: `  hadron billing balance hrn:org:acme.com
+  hadron billing balance hrn:org:acme.com --json`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -237,12 +256,16 @@ func newCmdLedger(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ledger <org>",
 		Short: "List an organization's credit ledger",
-		Long: `List an organization's credit ledger, newest first. Grants are positive
-and debits negative, in micro-cents. Requires org ADMIN.
+		Long: `List every credit grant and charge for an organization, newest first, so you can
+see what produced the balance. Grants are positive and charges negative, in
+micro-cents (1 USD = 100,000,000 micro-cents; a charge of -1500000 is 1.5
+cents). Requires org ADMIN. Without --limit the whole ledger is listed; --limit
+and --offset ask for one page.
 
 <org> is an organization ID or its hrn:org:<slug> URN.`,
-		Example: `  hadron billing ledger hrn:org:acme.com --limit 20`,
-		Args:    cobra.ExactArgs(1),
+		Example: `  hadron billing ledger hrn:org:acme.com --limit 20
+  hadron billing ledger hrn:org:acme.com --limit 20 --offset 20`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			lim, off, err := page.pointers(cmd)
 			if err != nil {
