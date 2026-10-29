@@ -63,6 +63,16 @@ your own @handle namespace, so its URN roots on your handle
 org-shared knowledge/group classes still require --org. The server derives
 the handle and bare URN; it is never constructed client-side.
 
+--app alone, with --class app and --name and no --agent, adds a new
+free-standing app memory to an org-owned App that has at least one installed
+Agent (createAppMemory). Only an admin or owner of the App's org may do it,
+acting as themselves — not an App key or a worker session. It takes only
+--name, --short, --description and --tag; every other create flag is refused
+before anything is sent, and an existing memory cannot be attached to an App
+this way. The server's refusals (FORBIDDEN, AGENT_NOT_INSTALLED,
+USER_OWNED_APP_UNSUPPORTED, BAD_USER_INPUT) are shown as the server's message
+and exit with the status mapped from their code (see hadron agentic-usage).
+
 App-scoped creation accepts class app, personal, or private. It has no
 --slug input: app-class URNs are name-derived by the server, while
 personal/private URNs use an opaque per-owner identity. Use memory
@@ -90,13 +100,40 @@ create-only and is refused with --app/--agent.`,
   hadron memory set --org acme.com --name "Notes" --class personal
   hadron memory set --owner-me --name "Jens" --class personal
   hadron memory set --app hrn:app:acme.com:coach --agent hrn:agent:acme.com:agent --class app --name "Runbook"
+  hadron memory set --app hrn:app:acme.com:coach --class app --name "Shared runbook"
   hadron memory set acme.com:project-kb --description "Long-form description"
   hadron memory set acme.com:research --schema-file schema.json`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			appScoped := app != "" || agent != ""
-			if (app == "") != (agent == "") {
-				return exitcode.Newf(exitcode.Usage, "--app and --agent must be passed together")
+			// --app alone creates a free-standing app memory (createAppMemory,
+			// cli#1176); --agent without --app is still refused.
+			// Gated on Changed, not agent == "": --agent="$UNSET" is an explicit
+			// agent that came out empty, and must not fall through to the
+			// no-agent route (an-empty-flag-is-not-an-absent-flag).
+			agentGiven := cmd.Flags().Changed("agent")
+			// Same rule for --app: --app="$UNSET" must not fall through to an
+			// ordinary create outside the App the caller meant.
+			if cmd.Flags().Changed("app") && app == "" {
+				return exitcode.Newf(exitcode.Usage, "--app was given but is empty: pass an App ID or URN (nothing was sent)")
+			}
+			appOnly := app != "" && !agentGiven
+			appScoped := (app != "" || agentGiven) && !appOnly
+			if (app == "" && agentGiven) || (agentGiven && agent == "") {
+				return exitcode.Newf(exitcode.Usage, "--app and --agent must be passed together to create an App-scoped memory (--app alone creates an app memory with --class app)")
+			}
+			if appOnly {
+				if err := refuseAppMemoryFlags(cmd); err != nil {
+					return err
+				}
+				if len(args) > 0 {
+					return exitcode.Newf(exitcode.Usage, "--app applies only when creating: drop the positional memory (an existing memory cannot be attached to an App this way)")
+				}
+				if class != "app" {
+					return exitcode.Newf(exitcode.Usage, "--app without --agent creates an app memory: pass --class app (or add --agent for an App-scoped personal/private memory)")
+				}
+				if name == "" {
+					return exitcode.Newf(exitcode.Usage, "creating an app memory requires --name")
+				}
 			}
 			// Refused before any request: draft is chosen only at creation, and
 			// only createMemory takes it (hadron-server#1447). Gated on Changed so
@@ -204,6 +241,19 @@ create-only and is refused with --app/--agent.`,
 					return exitcode.Newf(exitcode.Usage, "--listed-on-marketplace only applies when updating (pass the memory as the positional argument)")
 				}
 				switch {
+				case appOnly:
+					appRef, err := cmdutil.CanonicalAppRef("--app", app)
+					if err != nil {
+						return err
+					}
+					resp, err := gen.CreateAppMemory(cmd.Context(), client, appRef, name, optional(short), optional(description), tagsArg)
+					if err != nil {
+						return api.MapError(err)
+					}
+					if resp == nil || resp.CreateAppMemory == nil {
+						return exitcode.Newf(exitcode.Error, "server returned no memory")
+					}
+					m = dtoFromMemory(resp.CreateAppMemory)
 				case appScoped:
 					if ownerMe {
 						return exitcode.Newf(exitcode.Usage, "--owner-me cannot be used with --app/--agent; an App-scoped memory belongs to the App, not to you")
@@ -324,7 +374,7 @@ create-only and is refused with --app/--agent.`,
 					}
 				}
 			} else {
-				if org != "" || class != "" || appScoped || ownerMe {
+				if org != "" || class != "" || app != "" || agentGiven || ownerMe {
 					return exitcode.Newf(exitcode.Usage, "--org, --class, --app, --agent, and --owner-me only apply when creating (no positional argument)")
 				}
 				if name == "" && short == "" && description == "" && visibility == "" && tagsArg == nil && slug == "" && maxRevArg == nil && schemaArg == nil && listedArg == nil {
@@ -403,19 +453,33 @@ create-only and is refused with --app/--agent.`,
 	cmd.Flags().BoolVar(&draftCorpus, "draft-corpus", false, "ignored since hadron-server#1591 (draft rights are per node); accepted for compatibility (create only; not App-scoped)")
 	cmd.Flags().BoolVar(&ownerMe, "owner-me", false, "create a user-owned memory in your own @handle namespace (org-less; class personal|private only; create only)")
 	cmd.Flags().StringVar(&name, "name", "", "memory name")
-	cmd.Flags().StringVar(&class, "class", "", "memory class: knowledge|group|personal|private, or app with --app/--agent (create only; free-standing server default: knowledge)")
+	cmd.Flags().StringVar(&class, "class", "", "memory class: knowledge|group|personal|private, or app with --app (create only; free-standing server default: knowledge)")
 	cmd.Flags().StringVar(&short, "short", "", "short description")
 	cmd.Flags().StringVar(&description, "description", "", "long description")
 	cmd.Flags().StringVar(&visibility, "visibility", "", "visibility: PUBLIC|ORGANIZATION|GROUP (unset uses the server default; the create output echoes the effective value)")
 	cmd.Flags().StringVar(&slug, "slug", "", "URN slug (bare, e.g. hadrontool-pdf): set it on free-standing create instead of deriving from --name; renames the memory on update")
-	cmd.Flags().StringVar(&app, "app", "", "App ID or URN (App-scoped create only; requires --agent)")
-	cmd.Flags().StringVar(&agent, "agent", "", "installed Agent ID or URN (App-scoped create only; requires --app)")
+	cmd.Flags().StringVar(&app, "app", "", "App ID or URN (create only; with --agent an App-scoped memory, alone with --class app a free-standing app memory)")
+	cmd.Flags().StringVar(&agent, "agent", "", "installed Agent ID or URN (App-scoped create only; requires --app; omit it for --app --class app)")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "tag (repeatable; replaces tags on update)")
 	cmd.Flags().IntVar(&maxRevCount, "max-rev-count", 0, "per-node revision-history cap (min 1; unset leaves the server default / current value)")
 	cmd.Flags().StringVar(&schema, "schema", "", `structured-storage property schema as JSON (#725); "" or "null" clears it`)
 	cmd.Flags().StringVar(&schemaFile, "schema-file", "", "read the property schema JSON from a file")
 	cmd.Flags().BoolVar(&listed, "listed-on-marketplace", false, "list the memory in the marketplace catalogue, or =false to de-list it (update only; advertisement, not access; omitted keeps the current value)")
 	return cmd
+}
+
+// appMemoryRefused are the flags createAppMemory does not take. Accepting one
+// and dropping it would be the defect, so each is a usage error naming it,
+// before any request (cli#1176).
+var appMemoryRefused = []string{"max-rev-count", "visibility", "slug", "org", "owner-me", "draft-corpus", "schema", "schema-file", "listed-on-marketplace"}
+
+func refuseAppMemoryFlags(cmd *cobra.Command) error {
+	for _, name := range appMemoryRefused {
+		if cmd.Flags().Changed(name) {
+			return exitcode.Newf(exitcode.Usage, "--%s cannot be used with --app alone: createAppMemory takes only --name, --short, --description and --tag. Nothing was sent", name)
+		}
+	}
+	return nil
 }
 
 // resolveSchema reads the Memory.schema JSON from --schema (inline) or

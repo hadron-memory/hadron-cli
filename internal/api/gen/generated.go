@@ -18101,6 +18101,91 @@ func (v *CreateAppCreateApp) GetMemberCount() int { return v.MemberCount }
 // GetCreatedAt returns CreateAppCreateApp.CreatedAt, and is useful for accessing the field via an interface.
 func (v *CreateAppCreateApp) GetCreatedAt() string { return v.CreatedAt }
 
+// CreateAppMemoryCreateAppMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
+type CreateAppMemoryCreateAppMemory struct {
+	Id string `json:"id"`
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
+	Urn              string  `json:"urn"`
+	Name             string  `json:"name"`
+	ShortDescription *string `json:"shortDescription"`
+	// Which memory typology this row belongs to. See MemoryClass for the
+	// members — deliberately not restated here, because the count is what
+	// went stale: this said "four-way" from 005-agent-subscription until
+	// #1232, long after `group` (023) and `private` made it six.
+	Class MemoryClass `json:"class"`
+	// 035-visibility-enum-cleanup: nullable — set only for knowledge/group.
+	Visibility     *MemoryVisibility `json:"visibility"`
+	OrganizationId *string           `json:"organizationId"`
+	IsEncrypted    bool              `json:"isEncrypted"`
+	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
+	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
+	MaxRevCount int    `json:"maxRevCount"`
+	UpdatedAt   string `json:"updatedAt"`
+}
+
+// GetId returns CreateAppMemoryCreateAppMemory.Id, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryCreateAppMemory) GetId() string { return v.Id }
+
+// GetUrn returns CreateAppMemoryCreateAppMemory.Urn, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryCreateAppMemory) GetUrn() string { return v.Urn }
+
+// GetName returns CreateAppMemoryCreateAppMemory.Name, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryCreateAppMemory) GetName() string { return v.Name }
+
+// GetShortDescription returns CreateAppMemoryCreateAppMemory.ShortDescription, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryCreateAppMemory) GetShortDescription() *string { return v.ShortDescription }
+
+// GetClass returns CreateAppMemoryCreateAppMemory.Class, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryCreateAppMemory) GetClass() MemoryClass { return v.Class }
+
+// GetVisibility returns CreateAppMemoryCreateAppMemory.Visibility, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryCreateAppMemory) GetVisibility() *MemoryVisibility { return v.Visibility }
+
+// GetOrganizationId returns CreateAppMemoryCreateAppMemory.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryCreateAppMemory) GetOrganizationId() *string { return v.OrganizationId }
+
+// GetIsEncrypted returns CreateAppMemoryCreateAppMemory.IsEncrypted, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryCreateAppMemory) GetIsEncrypted() bool { return v.IsEncrypted }
+
+// GetMaxRevCount returns CreateAppMemoryCreateAppMemory.MaxRevCount, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryCreateAppMemory) GetMaxRevCount() int { return v.MaxRevCount }
+
+// GetUpdatedAt returns CreateAppMemoryCreateAppMemory.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryCreateAppMemory) GetUpdatedAt() string { return v.UpdatedAt }
+
+// CreateAppMemoryResponse is returned by CreateAppMemory on success.
+type CreateAppMemoryResponse struct {
+	// Create a NEW free-standing app-class memory in an org-owned App with at
+	// least one installed Agent. The caller must act as themselves, outside a
+	// worker/session, App-key, headless-run or impersonation principal, through
+	// the existing org ADMIN/OWNER gate. User-owned Apps are refused with
+	// USER_OWNED_APP_UNSUPPORTED until ruled. App participants read and write it;
+	// the installed Agent's owning org gains no access. Existing memories cannot
+	// be attached through this operation. Name determines the slug as createMemory
+	// does. Refusals: FORBIDDEN, AGENT_NOT_INSTALLED, USER_OWNED_APP_UNSUPPORTED,
+	// BAD_USER_INPUT (empty name). Installation and membership are checked in the
+	// inserting transaction, fenced against uninstall and revocation.
+	// See hrn:node:hadronmemory.com:specs:cor:acl:010:01.
+	CreateAppMemory *CreateAppMemoryCreateAppMemory `json:"createAppMemory"`
+}
+
+// GetCreateAppMemory returns CreateAppMemoryResponse.CreateAppMemory, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryResponse) GetCreateAppMemory() *CreateAppMemoryCreateAppMemory {
+	return v.CreateAppMemory
+}
+
 // CreateAppResponse is returned by CreateApp on success.
 type CreateAppResponse struct {
 	// Create an App and install its initial Agent. With orgRef, the App is owned
@@ -66027,6 +66112,30 @@ func (v *__CreateAppInput) GetAppType() *AppType { return v.AppType }
 // GetDescription returns __CreateAppInput.Description, and is useful for accessing the field via an interface.
 func (v *__CreateAppInput) GetDescription() *string { return v.Description }
 
+// __CreateAppMemoryInput is used internally by genqlient
+type __CreateAppMemoryInput struct {
+	AppRef           string    `json:"appRef"`
+	Name             string    `json:"name"`
+	ShortDescription *string   `json:"shortDescription,omitempty"`
+	Description      *string   `json:"description,omitempty"`
+	Tags             *[]string `json:"tags,omitempty"`
+}
+
+// GetAppRef returns __CreateAppMemoryInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__CreateAppMemoryInput) GetAppRef() string { return v.AppRef }
+
+// GetName returns __CreateAppMemoryInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateAppMemoryInput) GetName() string { return v.Name }
+
+// GetShortDescription returns __CreateAppMemoryInput.ShortDescription, and is useful for accessing the field via an interface.
+func (v *__CreateAppMemoryInput) GetShortDescription() *string { return v.ShortDescription }
+
+// GetDescription returns __CreateAppMemoryInput.Description, and is useful for accessing the field via an interface.
+func (v *__CreateAppMemoryInput) GetDescription() *string { return v.Description }
+
+// GetTags returns __CreateAppMemoryInput.Tags, and is useful for accessing the field via an interface.
+func (v *__CreateAppMemoryInput) GetTags() *[]string { return v.Tags }
+
 // __CreateAssetReferenceNodeInput is used internally by genqlient
 type __CreateAssetReferenceNodeInput struct {
 	AssetRef    string  `json:"assetRef"`
@@ -76220,6 +76329,61 @@ func CreateApp(
 	}
 
 	data_ = &CreateAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateAppMemory.
+const CreateAppMemory_Operation = `
+mutation CreateAppMemory ($appRef: ID!, $name: String!, $shortDescription: String, $description: String, $tags: [String!]) {
+	createAppMemory(appRef: $appRef, name: $name, shortDescription: $shortDescription, description: $description, tags: $tags) {
+		id
+		urn
+		name
+		shortDescription
+		class
+		visibility
+		organizationId
+		isEncrypted
+		maxRevCount
+		updatedAt
+	}
+}
+`
+
+// Add a NEW free-standing app-class memory to an org-owned App that has at least
+// one installed Agent (hadron-server#2661, cor:acl:010:01). An org admin/owner
+// acting as themselves; no Agent, class, visibility, slug or maxRevCount input —
+// the server owns the class (app) and composes the URN from the name.
+func CreateAppMemory(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	name string,
+	shortDescription *string,
+	description *string,
+	tags *[]string,
+) (data_ *CreateAppMemoryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateAppMemory",
+		Query:  CreateAppMemory_Operation,
+		Variables: &__CreateAppMemoryInput{
+			AppRef:           appRef,
+			Name:             name,
+			ShortDescription: shortDescription,
+			Description:      description,
+			Tags:             tags,
+		},
+	}
+
+	data_ = &CreateAppMemoryResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

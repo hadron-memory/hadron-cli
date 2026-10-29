@@ -6764,6 +6764,21 @@ type Mutation {
   createAppKey(appRef: ID!, label: String): AppKeyCreated!
 
   """
+  Create a NEW free-standing app-class memory in an org-owned App with at
+  least one installed Agent. The caller must act as themselves, outside a
+  worker/session, App-key, headless-run or impersonation principal, through
+  the existing org ADMIN/OWNER gate. User-owned Apps are refused with
+  USER_OWNED_APP_UNSUPPORTED until ruled. App participants read and write it;
+  the installed Agent's owning org gains no access. Existing memories cannot
+  be attached through this operation. Name determines the slug as createMemory
+  does. Refusals: FORBIDDEN, AGENT_NOT_INSTALLED, USER_OWNED_APP_UNSUPPORTED,
+  BAD_USER_INPUT (empty name). Installation and membership are checked in the
+  inserting transaction, fenced against uninstall and revocation.
+  See hrn:node:hadronmemory.com:specs:cor:acl:010:01.
+  """
+  createAppMemory(appRef: ID!, description: String, name: String!, shortDescription: String, tags: [String!]): Memory!
+
+  """
   App Key callers only: vouch for a user, creating (or returning) the User
   this App knows by `externalId`. Managing that user's SESSIONS is the
   startAgentSession / endAgentSession pair below, not this call.
@@ -12492,6 +12507,11 @@ type Query {
   registerEntry(ref: ID!): RegisterEntry
 
   """
+  Experimental register role picker: all readable workers tied at the nearest task depth, paged. Never assigns or routes.
+  """
+  registerRoleCandidates(appRef: ID!, code: String!, limit: Int = 20, offset: Int = 0): RegisterRoleCandidatePage!
+
+  """
   Render a run/action node WITHOUT executing it (#818) — the GraphQL twin of
   hadron_run_action, which despite its name executes nothing: it loads the
   node, resolves its dependency edges, and renders with args.
@@ -13364,6 +13384,28 @@ enum RegisterRole {
   BOTH
   POST
   WATCH
+}
+
+type RegisterRoleCandidate {
+  """Own Agent is zero; each base link adds one."""
+  depth: Int!
+  role: String
+  taskUrn: String!
+  worker: AgentTaskParty!
+}
+
+"""
+Experimental action register role-picking projection. No routing or assignment.
+"""
+type RegisterRoleCandidatePage {
+  appId: ID!
+  candidates: [RegisterRoleCandidate!]!
+  code: String!
+  depth: Int
+  taskLoc: String
+
+  """Total nearest-depth ties, independent of the requested page."""
+  total: Int!
 }
 
 """
@@ -17150,6 +17192,11 @@ enum WorkerTeamPlacement {
 #1747 — a worker wake settings (hrn:node:hadronmemory.com:specs:cor:agt:080:03).
 """
 type WorkerWakeSettings {
+  """
+  Whether this caller, acting as a person, may set or clear isolation: whoever manages the App or holds the worker. False for worker sessions and impersonation. Reports permission even while isolation is unavailable; does not grant read access. hrn:node:hadronmemory.com:specs:cor:agt:080:29
+  """
+  canManageIsolation: Boolean!
+
   """
   None of the worker's sessions has had activity within the App's dormancy period (hrn:node:hadronmemory.com:specs:cor:agt:080:07). A dormant worker is never woken.
   """

@@ -5,7 +5,7 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 61 unbound
+[Query] 62 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
@@ -52,6 +52,7 @@ nodeUsage  # deprecated by server #986 — never wrap it; usageEvents(loc:) is t
 previewAutomation  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
 principalGrant
 quotaCounters
+registerRoleCandidates  # arrived with the cli#1176 schema refresh; no CLI parity filed yet
 renderRunNode
 resendSender
 resendSenders
