@@ -713,11 +713,28 @@ func liveRevisions(cmd *cobra.Command, client graphql.Client, sel revisionSelect
 		}
 		return resp.NodeBatch, nil
 	}
+	// byRefs reads the revisions of refs, following a truncated answer through
+	// its omitted refs until none remain (#1185): the server caps a nodeBatch
+	// response by content bytes whatever the query selects, so a revision-only
+	// read of several large nodes comes back truncated, and a node it left out
+	// is not a node that changed. A pass that omits as many refs as it was
+	// asked for read nothing, and repeating it would never end.
 	byRefs := func(refs []string) error {
 		for start := 0; start < len(refs); start += api.NodeBatchCap {
 			end := min(start+api.NodeBatchCap, len(refs))
-			if _, err := ask(refs[start:end], nil, nil); err != nil {
-				return err
+			pending := refs[start:end]
+			for len(pending) > 0 {
+				r, err := ask(pending, nil, nil)
+				if err != nil {
+					return err
+				}
+				if r == nil || !r.Truncated || len(r.Omitted) == 0 {
+					break
+				}
+				if len(r.Omitted) >= len(pending) {
+					return exitcode.Newf(exitcode.Error, "the server made no progress reading node revisions: it left out all %d requested nodes", len(pending))
+				}
+				pending = r.Omitted
 			}
 		}
 		return nil
