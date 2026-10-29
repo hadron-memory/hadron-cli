@@ -95,7 +95,9 @@ proof. `--json` puts these in `delivery.workers[]` as `lastKind`,
 
 A worker's **run of holds** starts at its first `held` event. Later holds,
 deferrals, skips and errors don't end it; only a `delivered` or `reconciled`
-event does. The row shows `held since <time>` (JSON `heldSince`). Once the run
+event does. The run survives a restart of `team host run`: the poller starts from
+the workers its last snapshot saved. So a worker removed from the config
+keeps its last row, with its age, until the state is cleared. The row shows `held since <time>` (JSON `heldSince`). Once the run
 is older than 30 minutes, the row reads `HELD OVER 30m: no delivery since
 <time>` (JSON `heldOver30m: true`). Check the poller for that worker first.
 

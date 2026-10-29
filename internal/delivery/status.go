@@ -104,9 +104,15 @@ type StatusBook struct {
 }
 
 // NewStatusBook keeps the snapshot under stateDir, beside the records and
-// locks.
+// locks. It starts from the workers the last snapshot saved, so a worker's
+// run of holds and its newest event survive a poller restart (Jane's LOCAL
+// P2 on #1183). A missing or unreadable snapshot starts empty.
 func NewStatusBook(stateDir string) *StatusBook {
-	return &StatusBook{dir: stateDir, st: Status{Version: 1, Workers: map[string]WorkerStatus{}}}
+	b := &StatusBook{dir: stateDir, st: Status{Version: 1, Workers: map[string]WorkerStatus{}}}
+	if prev, err := ReadStatus(stateDir); err == nil {
+		b.st.Workers = prev.Workers
+	}
+	return b
 }
 
 // Observe records e as its worker's newest event, unless an event already
