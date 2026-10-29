@@ -73,6 +73,11 @@ func TestClaudeEmptyNeedsTheModeFooter(t *testing.T) {
 		"bare marker":          "  ⏵⏵",
 		"marker and space":     "  ⏵⏵ ",
 		"two hintless footers": "  ⏵⏵ bypass permissions on · 1 shell\n  ⏵⏵ auto mode on · 2 shells",
+		// The mode phrase cannot swallow a " · " segment (BLIND P2, #1189).
+		"later segment ends on": "  ⏵⏵ something else entirely · notification on",
+		"truncated hint":        "  ⏵⏵ auto mode on (shift+tab",
+		"text after mode":       "  ⏵⏵ auto mode on trailing",
+		"empty mode phrase":     "  ⏵⏵  on",
 	} {
 		t.Run(name, func(t *testing.T) {
 			tail := []string{rule, "❯ ", rule}
