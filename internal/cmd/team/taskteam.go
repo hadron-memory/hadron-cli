@@ -3,11 +3,11 @@ package team
 // `team task list --team [--tree] [--stale-over <d>]` — #1044 slice 1: a
 // coordinator's work in flight. The team is the coordinator plus every worker
 // whose roster reportsTo chain reaches them, within the one App read. The
-// rows are that App's tasks a team member owns or is assigned, plus every
+// rows are that App's tasks a team member owns, is assigned or created, plus every
 // descendant of those (a child's owner is its parent's assignee, so a seat
 // task's own children can sit wholly outside the team). One read gate: the
 // existing agentTasks read, paged to the end, joined to the roster
-// client-side. The creator criterion and cross-App rows are slice 2
+// client-side. The creator counts (slice 2); cross-App rows are not read
 // (hadron-server#2370).
 
 import (

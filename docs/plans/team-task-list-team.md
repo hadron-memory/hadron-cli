@@ -7,8 +7,8 @@ with no update" took a hand-written script over `--json`. This slice adds `--tea
 
 **Gate.** Xan stamped it CHECKED for slice 1, T1, in issue comment
 https://github.com/hadron-memory/hadron-cli/issues/1044 (01:28Z). Patrick posted a correction from
-Vera's FIT at 01:37Z. Slice 2 (the creator criterion and any cross-App rows) waits on
-hadron-server#2370.
+Vera's FIT at 01:37Z. Slice 2 (the creator criterion, see "Which rows") needs no server change; cross-App rows
+are not built (hadron-server#2370).
 
 ## What the team is
 
