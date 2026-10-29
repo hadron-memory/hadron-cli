@@ -1145,12 +1145,6 @@ func (v *AgentSchedulesResponse) GetAgentSchedules() *AgentSchedulesAgentSchedul
 }
 
 // AgentTaskAssignAssignAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskAssignAssignAgentTask struct {
 	AgentTaskFields `json:"-"`
 }
@@ -1374,12 +1368,6 @@ func (v *AgentTaskAssignResponse) GetAssignAgentTask() *AgentTaskAssignAssignAge
 }
 
 // AgentTaskCancelCancelAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskCancelCancelAgentTask struct {
 	AgentTaskFields `json:"-"`
 }
@@ -1603,12 +1591,6 @@ func (v *AgentTaskCancelResponse) GetCancelAgentTask() *AgentTaskCancelCancelAge
 }
 
 // AgentTaskCreateCreateAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskCreateCreateAgentTask struct {
 	AgentTaskFields `json:"-"`
 }
@@ -1862,12 +1844,6 @@ var AllAgentTaskCreateStatus = []AgentTaskCreateStatus{
 }
 
 // AgentTaskFields includes the GraphQL fields of AgentTask requested by the fragment AgentTaskFields.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskFields struct {
 	Id          string          `json:"id"`
 	AppId       string          `json:"appId"`
@@ -2336,12 +2312,6 @@ func (v *AgentTaskFieldsResultAgentTaskResult) GetSummary() *string { return v.S
 func (v *AgentTaskFieldsResultAgentTaskResult) GetEvidence() *string { return v.Evidence }
 
 // AgentTaskFinishFinishAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskFinishFinishAgentTask struct {
 	AgentTaskFields `json:"-"`
 }
@@ -2561,12 +2531,6 @@ func (v *AgentTaskFinishResponse) GetFinishAgentTask() *AgentTaskFinishFinishAge
 }
 
 // AgentTaskGetAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskGetAgentTask struct {
 	AgentTaskFields `json:"-"`
 }
@@ -2869,12 +2833,6 @@ func (v *AgentTaskIndexListResponse) GetAgentTaskList() []*AgentTaskIndexListAge
 }
 
 // AgentTaskListAgentTasksAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskListAgentTasksAgentTask struct {
 	AgentTaskFields `json:"-"`
 }
@@ -3087,6 +3045,7 @@ func (v *AgentTaskListAgentTasksAgentTask) __premarshalJSON() (*__premarshalAgen
 // AgentTaskListResponse is returned by AgentTaskList on success.
 type AgentTaskListResponse struct {
 	// #1705 — a team App's agent tasks, newest first. Party filters combine with the other selectors;
+	// All tag, source and date filters combine with the other selectors using AND.
 	// owner / assignee / creator name a party of the App (a ref naming nobody matches
 	// nothing; a retired worker is no party to name, so it matches nothing). creator is
 	// the task's creator as createdBy projects it: a worker, or a person for a task they created
@@ -3123,12 +3082,6 @@ var AllAgentTaskMatchedBy = []AgentTaskMatchedBy{
 }
 
 // AgentTaskParkParkAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskParkParkAgentTask struct {
 	AgentTaskFields `json:"-"`
 }
@@ -3395,12 +3348,6 @@ var AllAgentTaskPartyKind = []AgentTaskPartyKind{
 }
 
 // AgentTaskProgressRecordAgentTaskProgressAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskProgressRecordAgentTaskProgressAgentTask struct {
 	AgentTaskFields `json:"-"`
 }
@@ -3643,12 +3590,6 @@ func (v *AgentTaskProgressResponse) GetRecordAgentTaskProgress() *AgentTaskProgr
 }
 
 // AgentTaskReadyMakeAgentTaskReadyAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskReadyMakeAgentTaskReadyAgentTask struct {
 	AgentTaskFields `json:"-"`
 }
@@ -3885,12 +3826,6 @@ func (v *AgentTaskReadyResponse) GetMakeAgentTaskReady() *AgentTaskReadyMakeAgen
 }
 
 // AgentTaskReassignReassignAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskReassignReassignAgentTask struct {
 	AgentTaskFields `json:"-"`
 }
@@ -4228,12 +4163,6 @@ func (v *AgentTaskStartResponse) GetStartAgentTask() *AgentTaskStartStartAgentTa
 }
 
 // AgentTaskStartStartAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskStartStartAgentTask struct {
 	AgentTaskFields `json:"-"`
 }
@@ -4555,12 +4484,6 @@ func (v *AgentTaskSymptomSearchResponse) GetAgentTaskList() []*AgentTaskSymptomS
 }
 
 // AgentTaskTreeAgentTaskTreeAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskTreeAgentTaskTreeAgentTask struct {
 	AgentTaskFields `json:"-"`
 }
@@ -15856,7 +15779,8 @@ type CreateAgentTaskInput struct {
 	// The team App (id or URN). Required for a root task; for a child task it is taken from the parent and, if given, must match.
 	AppRef *string `json:"appRef"`
 	// Omit to leave the task queued.
-	Assignee *AgentTaskPartyInput `json:"assignee,omitempty"`
+	Assignee  *AgentTaskPartyInput `json:"assignee,omitempty"`
+	BlockedBy []string             `json:"blockedBy"`
 	// Defaults to false: the assignee's session ends only when whoever assigns the task asks (hrn:node:hadronmemory.com:specs:cor:agt:050:10).
 	CloseSessionWhenDone *bool   `json:"closeSessionWhenDone"`
 	Description          *string `json:"description"`
@@ -15866,6 +15790,8 @@ type CreateAgentTaskInput struct {
 	// child task, whose owner is its parent's assignee (TASK_CHILD_OWNER_MISMATCH).
 	Owner        *AgentTaskPartyInput `json:"owner,omitempty"`
 	ParentTaskId *string              `json:"parentTaskId"`
+	// #2644 — naming priority or blockers requires the task assigner authority; otherwise creation refuses atomically.
+	Priority *int `json:"priority"`
 	// Make a top-level PROJECT (AT1, AT2, ...) instead of a task under the reserved project AT0. Not with parentTaskId.
 	Project      *bool                       `json:"project,omitempty"`
 	Requirements *AgentTaskRequirementsInput `json:"requirements,omitempty"`
@@ -15885,6 +15811,9 @@ func (v *CreateAgentTaskInput) GetAppRef() *string { return v.AppRef }
 // GetAssignee returns CreateAgentTaskInput.Assignee, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetAssignee() *AgentTaskPartyInput { return v.Assignee }
 
+// GetBlockedBy returns CreateAgentTaskInput.BlockedBy, and is useful for accessing the field via an interface.
+func (v *CreateAgentTaskInput) GetBlockedBy() []string { return v.BlockedBy }
+
 // GetCloseSessionWhenDone returns CreateAgentTaskInput.CloseSessionWhenDone, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetCloseSessionWhenDone() *bool { return v.CloseSessionWhenDone }
 
@@ -15896,6 +15825,9 @@ func (v *CreateAgentTaskInput) GetOwner() *AgentTaskPartyInput { return v.Owner 
 
 // GetParentTaskId returns CreateAgentTaskInput.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetParentTaskId() *string { return v.ParentTaskId }
+
+// GetPriority returns CreateAgentTaskInput.Priority, and is useful for accessing the field via an interface.
+func (v *CreateAgentTaskInput) GetPriority() *int { return v.Priority }
 
 // GetProject returns CreateAgentTaskInput.Project, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetProject() *bool { return v.Project }
@@ -16481,6 +16413,91 @@ func (v *CreateAppCreateApp) GetMemberCount() int { return v.MemberCount }
 
 // GetCreatedAt returns CreateAppCreateApp.CreatedAt, and is useful for accessing the field via an interface.
 func (v *CreateAppCreateApp) GetCreatedAt() string { return v.CreatedAt }
+
+// CreateAppMemoryCreateAppMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
+type CreateAppMemoryCreateAppMemory struct {
+	Id string `json:"id"`
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
+	Urn              string  `json:"urn"`
+	Name             string  `json:"name"`
+	ShortDescription *string `json:"shortDescription"`
+	// Which memory typology this row belongs to. See MemoryClass for the
+	// members — deliberately not restated here, because the count is what
+	// went stale: this said "four-way" from 005-agent-subscription until
+	// #1232, long after `group` (023) and `private` made it six.
+	Class MemoryClass `json:"class"`
+	// 035-visibility-enum-cleanup: nullable — set only for knowledge/group.
+	Visibility     *MemoryVisibility `json:"visibility"`
+	OrganizationId *string           `json:"organizationId"`
+	IsEncrypted    bool              `json:"isEncrypted"`
+	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
+	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
+	MaxRevCount int    `json:"maxRevCount"`
+	UpdatedAt   string `json:"updatedAt"`
+}
+
+// GetId returns CreateAppMemoryCreateAppMemory.Id, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryCreateAppMemory) GetId() string { return v.Id }
+
+// GetUrn returns CreateAppMemoryCreateAppMemory.Urn, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryCreateAppMemory) GetUrn() string { return v.Urn }
+
+// GetName returns CreateAppMemoryCreateAppMemory.Name, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryCreateAppMemory) GetName() string { return v.Name }
+
+// GetShortDescription returns CreateAppMemoryCreateAppMemory.ShortDescription, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryCreateAppMemory) GetShortDescription() *string { return v.ShortDescription }
+
+// GetClass returns CreateAppMemoryCreateAppMemory.Class, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryCreateAppMemory) GetClass() MemoryClass { return v.Class }
+
+// GetVisibility returns CreateAppMemoryCreateAppMemory.Visibility, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryCreateAppMemory) GetVisibility() *MemoryVisibility { return v.Visibility }
+
+// GetOrganizationId returns CreateAppMemoryCreateAppMemory.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryCreateAppMemory) GetOrganizationId() *string { return v.OrganizationId }
+
+// GetIsEncrypted returns CreateAppMemoryCreateAppMemory.IsEncrypted, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryCreateAppMemory) GetIsEncrypted() bool { return v.IsEncrypted }
+
+// GetMaxRevCount returns CreateAppMemoryCreateAppMemory.MaxRevCount, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryCreateAppMemory) GetMaxRevCount() int { return v.MaxRevCount }
+
+// GetUpdatedAt returns CreateAppMemoryCreateAppMemory.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryCreateAppMemory) GetUpdatedAt() string { return v.UpdatedAt }
+
+// CreateAppMemoryResponse is returned by CreateAppMemory on success.
+type CreateAppMemoryResponse struct {
+	// Create a NEW free-standing app-class memory in an org-owned App with at
+	// least one installed Agent. The caller must act as themselves, outside a
+	// worker/session, App-key, headless-run or impersonation principal, through
+	// the existing org ADMIN/OWNER gate. User-owned Apps are refused with
+	// USER_OWNED_APP_UNSUPPORTED until ruled. App participants read and write it;
+	// the installed Agent's owning org gains no access. Existing memories cannot
+	// be attached through this operation. Name determines the slug as createMemory
+	// does. Refusals: FORBIDDEN, AGENT_NOT_INSTALLED, USER_OWNED_APP_UNSUPPORTED,
+	// BAD_USER_INPUT (empty name). Installation and membership are checked in the
+	// inserting transaction, fenced against uninstall and revocation.
+	// See hrn:node:hadronmemory.com:specs:cor:acl:010:01.
+	CreateAppMemory *CreateAppMemoryCreateAppMemory `json:"createAppMemory"`
+}
+
+// GetCreateAppMemory returns CreateAppMemoryResponse.CreateAppMemory, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryResponse) GetCreateAppMemory() *CreateAppMemoryCreateAppMemory {
+	return v.CreateAppMemory
+}
 
 // CreateAppResponse is returned by CreateApp on success.
 type CreateAppResponse struct {
@@ -24777,7 +24794,7 @@ func (v *GetNodeLintWarningsNodeLintWarningsLintWarningPage) GetNextCursor() *st
 // #2048 — one link-lint warning. A fixed set of fields: there is no free-form detail.
 type GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning struct {
 	Kind LintKind `json:"kind"`
-	// 0-based offset of the include tag in the node's source text.
+	// 0-based source-tag offset, or immutable occurrence ordinal for compiled-revision lint.
 	Position int    `json:"position"`
 	Text     string `json:"text"`
 	// The target's URN, only for a target the caller can read; null for BROKEN_INCLUDE.
@@ -28680,6 +28697,10 @@ const (
 	LintKindNoQualifyingRevision LintKind = "NO_QUALIFYING_REVISION"
 	// The include pins a revision and a newer revision is approved.
 	LintKindPinnedNewerApproved LintKind = "PINNED_NEWER_APPROVED"
+	// An install-memory node replaces an Agent node.
+	LintKindPolicyOverride LintKind = "POLICY_OVERRIDE"
+	// A recompile would select a newer revision; shown only to a compiler, without hidden target details.
+	LintKindRecompileAvailable LintKind = "RECOMPILE_AVAILABLE"
 	// The include's target is soft-deleted (hrn:node:hadronmemory.com:specs:cor:agt:040:13, R20 A).
 	LintKindRetiredTarget LintKind = "RETIRED_TARGET"
 	// The include says signed; signing is not checked yet.
@@ -28692,6 +28713,8 @@ var AllLintKind = []LintKind{
 	LintKindBrokenInclude,
 	LintKindNoQualifyingRevision,
 	LintKindPinnedNewerApproved,
+	LintKindPolicyOverride,
+	LintKindRecompileAvailable,
 	LintKindRetiredTarget,
 	LintKindSigningNotChecked,
 	LintKindWorkerLinkMissing,
@@ -64019,6 +64042,30 @@ func (v *__CreateAppInput) GetAppType() *AppType { return v.AppType }
 // GetDescription returns __CreateAppInput.Description, and is useful for accessing the field via an interface.
 func (v *__CreateAppInput) GetDescription() *string { return v.Description }
 
+// __CreateAppMemoryInput is used internally by genqlient
+type __CreateAppMemoryInput struct {
+	AppRef           string    `json:"appRef"`
+	Name             string    `json:"name"`
+	ShortDescription *string   `json:"shortDescription,omitempty"`
+	Description      *string   `json:"description,omitempty"`
+	Tags             *[]string `json:"tags,omitempty"`
+}
+
+// GetAppRef returns __CreateAppMemoryInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__CreateAppMemoryInput) GetAppRef() string { return v.AppRef }
+
+// GetName returns __CreateAppMemoryInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateAppMemoryInput) GetName() string { return v.Name }
+
+// GetShortDescription returns __CreateAppMemoryInput.ShortDescription, and is useful for accessing the field via an interface.
+func (v *__CreateAppMemoryInput) GetShortDescription() *string { return v.ShortDescription }
+
+// GetDescription returns __CreateAppMemoryInput.Description, and is useful for accessing the field via an interface.
+func (v *__CreateAppMemoryInput) GetDescription() *string { return v.Description }
+
+// GetTags returns __CreateAppMemoryInput.Tags, and is useful for accessing the field via an interface.
+func (v *__CreateAppMemoryInput) GetTags() *[]string { return v.Tags }
+
 // __CreateAssetReferenceNodeInput is used internally by genqlient
 type __CreateAssetReferenceNodeInput struct {
 	AssetRef    string  `json:"assetRef"`
@@ -73520,6 +73567,61 @@ func CreateApp(
 	}
 
 	data_ = &CreateAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateAppMemory.
+const CreateAppMemory_Operation = `
+mutation CreateAppMemory ($appRef: ID!, $name: String!, $shortDescription: String, $description: String, $tags: [String!]) {
+	createAppMemory(appRef: $appRef, name: $name, shortDescription: $shortDescription, description: $description, tags: $tags) {
+		id
+		urn
+		name
+		shortDescription
+		class
+		visibility
+		organizationId
+		isEncrypted
+		maxRevCount
+		updatedAt
+	}
+}
+`
+
+// Add a NEW free-standing app-class memory to an org-owned App that has at least
+// one installed Agent (hadron-server#2661, cor:acl:010:01). An org admin/owner
+// acting as themselves; no Agent, class, visibility, slug or maxRevCount input —
+// the server owns the class (app) and composes the URN from the name.
+func CreateAppMemory(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	name string,
+	shortDescription *string,
+	description *string,
+	tags *[]string,
+) (data_ *CreateAppMemoryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateAppMemory",
+		Query:  CreateAppMemory_Operation,
+		Variables: &__CreateAppMemoryInput{
+			AppRef:           appRef,
+			Name:             name,
+			ShortDescription: shortDescription,
+			Description:      description,
+			Tags:             tags,
+		},
+	}
+
+	data_ = &CreateAppMemoryResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

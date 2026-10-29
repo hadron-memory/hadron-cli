@@ -1685,7 +1685,7 @@ func TestMemorySetCreateInAppValidatesFlags(t *testing.T) {
 		args []string
 		want string
 	}{
-		{"paired refs", []string{"--app", "capp100000000000000000000", "--class", "app", "--name", "Runbook"}, "--app and --agent"},
+		{"agent without app", []string{"--agent", "agent1", "--class", "app", "--name", "Runbook"}, "--app and --agent"},
 		{"class required", []string{"--app", "capp100000000000000000000", "--agent", "agent1", "--name", "Runbook"}, "requires --class"},
 		{"supported class", []string{"--app", "capp100000000000000000000", "--agent", "agent1", "--class", "knowledge", "--name", "KB"}, "requires --class app, personal, or private"},
 		{"org rejected", []string{"--app", "capp100000000000000000000", "--agent", "agent1", "--class", "app", "--name", "Runbook", "--org", "acme.com"}, "--org cannot be used"},
@@ -1702,6 +1702,144 @@ func TestMemorySetCreateInAppValidatesFlags(t *testing.T) {
 			err := root.Execute()
 			if err == nil || !strings.Contains(err.Error(), tt.want) {
 				t.Fatalf("expected %q error, got %v", tt.want, err)
+			}
+		})
+	}
+}
+
+// cli#1176: --app without --agent creates a free-standing app memory through
+// createAppMemory (hadron-server#2661, cor:acl:010:01).
+func TestMemorySetCreateAppMemory(t *testing.T) {
+	appMemoryJSON := `{"id":"m3","urn":"hrn:mem:acme.com:runbook","name":"Runbook","shortDescription":"Shared ops",
+		"class":"app","visibility":null,"organizationId":"o1",
+		"isEncrypted":false,"maxRevCount":25,"updatedAt":"2026-10-29T00:00:00Z"}`
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateAppMemory": `{"data":{"createAppMemory":` + appMemoryJSON + `}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "set", "--app", "acme.com::coach", "--class", "app", "--name", "Runbook",
+		"--short", "Shared ops", "--tag", "ops", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if _, called := captured["CreateMemoryInApp"]; called {
+		t.Fatal("no --agent must not use createMemoryInApp")
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateAppMemory"], &vars)
+	for key, want := range map[string]any{"appRef": "hrn:app:acme.com:coach", "name": "Runbook", "shortDescription": "Shared ops"} {
+		if vars[key] != want {
+			t.Errorf("%s = %v, want %v (all vars: %v)", key, vars[key], want, vars)
+		}
+	}
+	for _, absent := range []string{"description", "agentRef", "memoryClass", "maxRevCount", "visibility", "orgId"} {
+		if _, present := vars[absent]; present {
+			t.Errorf("%s must be omitted on the createAppMemory route: %v", absent, vars)
+		}
+	}
+	tags, _ := vars["tags"].([]any)
+	if len(tags) != 1 || tags[0] != "ops" {
+		t.Errorf("unexpected tags: %v", vars["tags"])
+	}
+	var dto map[string]any
+	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+		t.Fatalf("invalid JSON output: %v\n%s", err, out.String())
+	}
+	if dto["urn"] != "hrn:mem:acme.com:runbook" || dto["class"] != "app" {
+		t.Errorf("unexpected stable memory DTO: %v", dto)
+	}
+}
+
+func TestMemorySetCreateAppMemoryText(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"CreateAppMemory": `{"data":{"createAppMemory":{"id":"m3","urn":"hrn:mem:acme.com:runbook","name":"Runbook","shortDescription":null,
+			"class":"app","visibility":null,"organizationId":"o1","isEncrypted":false,"maxRevCount":25,"updatedAt":"2026-10-29T00:00:00Z"}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "set", "--app", "acme.com::coach", "--class", "app", "--name", "Runbook", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if s := out.String(); !strings.Contains(s, "hrn:mem:acme.com:runbook") || !strings.Contains(s, "class: app") {
+		t.Errorf("text output must echo the created memory, got:\n%s", s)
+	}
+}
+
+// Every refused shape is a usage error (exit 2) before any request: a flag the
+// server operation does not take must never be accepted and dropped.
+func TestMemorySetCreateAppMemoryUsageMatrix(t *testing.T) {
+	schemaFile := filepath.Join(t.TempDir(), "schema.json")
+	if err := os.WriteFile(schemaFile, []byte(`{"collections":{}}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	base := []string{"--app", "acme.com::coach"}
+	with := func(extra ...string) []string { return append(append([]string{}, base...), extra...) }
+	tests := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{"explicitly empty agent", with("--agent=", "--class", "app", "--name", "Runbook"), "--app and --agent"},
+		{"class missing", with("--name", "Runbook"), "pass --class app (or add --agent for an App-scoped personal/private memory)"},
+		{"class personal", with("--class", "personal", "--name", "Runbook"), "pass --class app (or add --agent for an App-scoped personal/private memory)"},
+		{"class private", with("--class", "private", "--name", "Runbook"), "pass --class app (or add --agent for an App-scoped personal/private memory)"},
+		{"name missing", with("--class", "app"), "--name"},
+		{"max-rev-count", with("--class", "app", "--name", "R", "--max-rev-count", "5"), "--max-rev-count"},
+		{"visibility", with("--class", "app", "--name", "R", "--visibility", "ORGANIZATION"), "--visibility"},
+		{"slug", with("--class", "app", "--name", "R", "--slug", "runbook"), "--slug"},
+		{"org", with("--class", "app", "--name", "R", "--org", "acme.com"), "--org"},
+		{"owner-me", with("--class", "app", "--name", "R", "--owner-me"), "--owner-me"},
+		{"draft-corpus", with("--class", "app", "--name", "R", "--draft-corpus"), "--draft-corpus"},
+		{"schema", with("--class", "app", "--name", "R", "--schema", "{}"), "--schema"},
+		// A real, valid file: a missing one would be refused by the file read
+		// whether or not the app-memory guard exists.
+		{"schema-file", with("--class", "app", "--name", "R", "--schema-file", schemaFile), "--schema-file"},
+		{"listed-on-marketplace", with("--class", "app", "--name", "R", "--listed-on-marketplace"), "--listed-on-marketplace"},
+		{"positional ref", []string{"acme.com:kb", "--app", "acme.com::coach", "--class", "app", "--name", "R"}, "--app applies only when creating"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append(append([]string{"memory", "set"}, tt.args...), "--server", gql.URL))
+			err := root.Execute()
+			if err == nil || exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("want usage error containing %q, got %v (code %d)", tt.want, err, exitCodeFor(err))
+			}
+			if len(captured) != 0 {
+				t.Errorf("nothing may be sent on a usage error, got operations %v", captured)
+			}
+		})
+	}
+}
+
+// The repo-wide rule (#566) renders the server's own sentence and carries the
+// extensions.code as the documented exit code; the raw code string is not
+// echoed. Each refusal must therefore arrive as its sentence with the exit code
+// api.MapError assigns that code, never as a success or a bare generic error.
+func TestMemorySetCreateAppMemoryServerRefusals(t *testing.T) {
+	for code, wantExit := range map[string]int{
+		"FORBIDDEN":                  exitcode.Forbidden,
+		"BAD_USER_INPUT":             exitcode.Usage,
+		"AGENT_NOT_INSTALLED":        exitcode.Usage,
+		"USER_OWNED_APP_UNSUPPORTED": exitcode.Error,
+	} {
+		t.Run(code, func(t *testing.T) {
+			gql, _ := captureGraphQL(t, map[string]string{
+				"CreateAppMemory": `{"errors":[{"message":"the server said no","extensions":{"code":"` + code + `"}}]}`,
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"memory", "set", "--app", "acme.com::coach", "--class", "app", "--name", "Runbook", "--server", gql.URL})
+			err := root.Execute()
+			if err == nil || !strings.Contains(err.Error(), "the server said no") {
+				t.Fatalf("the server's refusal must reach the user, got %v", err)
+			}
+			if got := exitCodeFor(err); got != wantExit {
+				t.Errorf("%s exit code = %d, want %d", code, got, wantExit)
 			}
 		})
 	}
