@@ -184,8 +184,8 @@ func streamTo(cmd *cobra.Command, w io.Writer, url string) (int64, error) {
 	if resp.StatusCode != http.StatusOK {
 		// The presigned URL is short-TTL; an expired one is the likeliest
 		// non-2xx and is worth naming, since retrying just works.
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		if fault := api.PlainHTTPInternalFault(resp.Header, body); fault != nil {
+		body, fault := api.ReadPlainHTTPFault(resp.Header, resp.Body, 512)
+		if fault != nil {
 			return 0, fault
 		}
 		hint := ""

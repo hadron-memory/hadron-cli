@@ -59,3 +59,26 @@ func TestPutBytesInternalFaultEnvelope(t *testing.T) {
 	err := putBytes(cmd, f, src, 2, &gen.BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResult{PutUrl: srv.URL})
 	assertFault(t, err)
 }
+
+// An envelope larger than the read cap must still be a fault, and the overflow
+// is never echoed (BLIND Greta, #1212).
+func TestOversizedInternalFaultEnvelope(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Request-Id", "r-42")
+		w.WriteHeader(500)
+		_, _ = w.Write([]byte(`{"code":"INTERNAL_SERVER_ERROR","error":"` + strings.Repeat("secret stack ", 40000) + `"}`))
+	}))
+	t.Cleanup(srv.Close)
+	cmd := &cobra.Command{}
+	cmd.SetContext(t.Context())
+	_, err := streamTo(cmd, io.Discard, srv.URL)
+	assertFault(t, err)
+
+	src := filepath.Join(t.TempDir(), "a.txt")
+	if werr := os.WriteFile(src, []byte("hi"), 0o600); werr != nil {
+		t.Fatal(werr)
+	}
+	io2, _, _ := output.Test()
+	err = putBytes(cmd, &cmdutil.Factory{IOStreams: io2}, src, 2, &gen.BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResult{PutUrl: srv.URL})
+	assertFault(t, err)
+}

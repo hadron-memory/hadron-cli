@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	neturl "net/url"
 	"os"
@@ -46,8 +45,7 @@ func DiscoverResource(ctx context.Context, serverURL string, httpClient *http.Cl
 		return "", nil
 	}
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		if fault := api.PlainHTTPInternalFault(resp.Header, body); fault != nil {
+		if _, fault := api.ReadPlainHTTPFault(resp.Header, resp.Body, 0); fault != nil {
 			return "", fault
 		}
 		return "", exitcode.Newf(exitcode.Error, "protected-resource discovery at %s returned HTTP %d", url, resp.StatusCode)
@@ -74,8 +72,7 @@ func Discover(ctx context.Context, serverURL string, httpClient *http.Client) (*
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		if fault := api.PlainHTTPInternalFault(resp.Header, body); fault != nil {
+		if _, fault := api.ReadPlainHTTPFault(resp.Header, resp.Body, 0); fault != nil {
 			return nil, fault
 		}
 		return nil, exitcode.Newf(exitcode.Error, "OAuth discovery at %s returned HTTP %d", url, resp.StatusCode)

@@ -1,8 +1,10 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"regexp"
 	"strings"
@@ -123,6 +125,30 @@ func classifyInternalFault(err error) (string, bool) {
 		return "", true
 	}
 	return "", false
+}
+
+// plainFaultReadCap bounds how much of a non-2xx plain HTTP body is read to look
+// for a fault envelope. A real envelope is tiny; the cap only stops a hostile
+// or broken endpoint from being buffered whole.
+const plainFaultReadCap = 256 << 10
+
+// ReadPlainHTTPFault reads a non-2xx plain HTTP body (bounded) and returns the
+// internal-fault error for it, or nil with the leading bytes for the caller's
+// own diagnostic (at most keep bytes). A body larger than the cap that carries
+// a fault marker in its prefix is still a fault: the overflow is never echoed.
+func ReadPlainHTTPFault(h http.Header, r io.Reader, keep int) ([]byte, error) {
+	body, _ := io.ReadAll(io.LimitReader(r, plainFaultReadCap+1))
+	truncated := len(body) > plainFaultReadCap
+	if fault := PlainHTTPInternalFault(h, body); fault != nil {
+		return nil, fault
+	}
+	if truncated && (bytes.Contains(body, []byte(`"`+InternalServerErrorCode+`"`)) || bytes.Contains(body, []byte(`"server_error"`))) {
+		return nil, NewInternalFaultError(SanitizeRequestID(h.Get(requestIDHeader)), nil)
+	}
+	if len(body) > keep {
+		body = body[:keep]
+	}
+	return body, nil
 }
 
 // PlainHTTPInternalFault inspects a non-2xx plain HTTP body (asset endpoints,

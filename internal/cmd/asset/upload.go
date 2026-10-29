@@ -198,8 +198,8 @@ func putBytes(cmd *cobra.Command, f *cmdutil.Factory, src string, size int64, b 
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
-		if fault := api.PlainHTTPInternalFault(resp.Header, body); fault != nil {
+		body, fault := api.ReadPlainHTTPFault(resp.Header, resp.Body, 512)
+		if fault != nil {
 			return fault
 		}
 		hint := ""
