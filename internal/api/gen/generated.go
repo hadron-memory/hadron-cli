@@ -6405,7 +6405,7 @@ type AgentTeamEventFields struct {
 	Id     string  `json:"id"`
 	AppId  string  `json:"appId"`
 	TaskId *string `json:"taskId"`
-	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled; the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable; availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02).
+	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled; the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02).
 	Type string `json:"type"`
 	// ALARM for an alarm; null for an ordinary event.
 	Severity  *AgentTeamEventSeverity `json:"severity"`
@@ -6415,7 +6415,8 @@ type AgentTeamEventFields struct {
 	// #1833 — the headless run that acted, when a run made this event (actor is then null: a run is never a person or a worker). Null otherwise. Matches AgentTask.createdByRunId for the task a run created.
 	ActorRunId *string `json:"actorRunId"`
 	// The worker the event concerns, e.g. a new assignee.
-	SubjectWorker  *AgentTeamEventFieldsSubjectWorkerAgentTaskParty  `json:"subjectWorker"`
+	SubjectWorker *AgentTeamEventFieldsSubjectWorkerAgentTaskParty `json:"subjectWorker"`
+	// A dark-worker alarm's payload carries its reason (overdue, wake-unacked) and window for every reader; its evidence (lastCheckedAt, oldestWakeAgeSeconds) only for a reader of the worker's internals.
 	Payload        json.RawMessage                                   `json:"payload"`
 	AcknowledgedAt *string                                           `json:"acknowledgedAt"`
 	AcknowledgedBy *AgentTeamEventFieldsAcknowledgedByAgentTaskParty `json:"acknowledgedBy"`
@@ -8696,6 +8697,8 @@ type AppDeliverySettingsInput struct {
 	BusyDelaySeconds   *int `json:"busyDelaySeconds,omitempty"`
 	// #2138: whole seconds, 60..86400.
 	CheckPeriodSeconds *int `json:"checkPeriodSeconds,omitempty"`
+	// #2755: whole seconds, 300..86400.
+	DarkAlarmWindowSeconds *int `json:"darkAlarmWindowSeconds"`
 	// #2138: whole number, 1..100.
 	FailedChecksToOverdue *int  `json:"failedChecksToOverdue,omitempty"`
 	StandbyEnabled        *bool `json:"standbyEnabled,omitempty"`
@@ -8710,6 +8713,9 @@ func (v *AppDeliverySettingsInput) GetBusyDelaySeconds() *int { return v.BusyDel
 
 // GetCheckPeriodSeconds returns AppDeliverySettingsInput.CheckPeriodSeconds, and is useful for accessing the field via an interface.
 func (v *AppDeliverySettingsInput) GetCheckPeriodSeconds() *int { return v.CheckPeriodSeconds }
+
+// GetDarkAlarmWindowSeconds returns AppDeliverySettingsInput.DarkAlarmWindowSeconds, and is useful for accessing the field via an interface.
+func (v *AppDeliverySettingsInput) GetDarkAlarmWindowSeconds() *int { return v.DarkAlarmWindowSeconds }
 
 // GetFailedChecksToOverdue returns AppDeliverySettingsInput.FailedChecksToOverdue, and is useful for accessing the field via an interface.
 func (v *AppDeliverySettingsInput) GetFailedChecksToOverdue() *int { return v.FailedChecksToOverdue }
@@ -17552,6 +17558,10 @@ type CreateAgentScheduleInput struct {
 	AiConfigName *string `json:"aiConfigName,omitempty"`
 	// App the run executes as — ref: PK or fully-qualified URN.
 	AppRef string `json:"appRef"`
+	// Optional per-run action limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
+	BudgetActions *int `json:"budgetActions"`
+	// Optional per-run token limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
+	BudgetTokens *int `json:"budgetTokens"`
 	// Recurring: 5-field cron expression, evaluated in timezone (default UTC). Provide exactly one of cron / runAt.
 	Cron    *string `json:"cron"`
 	Enabled *bool   `json:"enabled,omitempty"`
@@ -17579,6 +17589,12 @@ func (v *CreateAgentScheduleInput) GetAiConfigName() *string { return v.AiConfig
 
 // GetAppRef returns CreateAgentScheduleInput.AppRef, and is useful for accessing the field via an interface.
 func (v *CreateAgentScheduleInput) GetAppRef() string { return v.AppRef }
+
+// GetBudgetActions returns CreateAgentScheduleInput.BudgetActions, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleInput) GetBudgetActions() *int { return v.BudgetActions }
+
+// GetBudgetTokens returns CreateAgentScheduleInput.BudgetTokens, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleInput) GetBudgetTokens() *int { return v.BudgetTokens }
 
 // GetCron returns CreateAgentScheduleInput.Cron, and is useful for accessing the field via an interface.
 func (v *CreateAgentScheduleInput) GetCron() *string { return v.Cron }
@@ -17778,7 +17794,11 @@ type CreateAgentWebhookInput struct {
 	// App — ref: PK or fully-qualified URN.
 	AppRef string `json:"appRef"`
 	// JSON Schema for POST args (stored in v1; enforcement is follow-on).
-	ArgsSchema   *json.RawMessage `json:"argsSchema,omitempty"`
+	ArgsSchema *json.RawMessage `json:"argsSchema,omitempty"`
+	// Optional per-run action limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
+	BudgetActions *int `json:"budgetActions"`
+	// Optional per-run token limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
+	BudgetTokens *int             `json:"budgetTokens"`
 	Enabled      *bool            `json:"enabled,omitempty"`
 	EntryNodeUrn string           `json:"entryNodeUrn"`
 	EventData    *json.RawMessage `json:"eventData,omitempty"`
@@ -17801,6 +17821,12 @@ func (v *CreateAgentWebhookInput) GetAppRef() string { return v.AppRef }
 
 // GetArgsSchema returns CreateAgentWebhookInput.ArgsSchema, and is useful for accessing the field via an interface.
 func (v *CreateAgentWebhookInput) GetArgsSchema() *json.RawMessage { return v.ArgsSchema }
+
+// GetBudgetActions returns CreateAgentWebhookInput.BudgetActions, and is useful for accessing the field via an interface.
+func (v *CreateAgentWebhookInput) GetBudgetActions() *int { return v.BudgetActions }
+
+// GetBudgetTokens returns CreateAgentWebhookInput.BudgetTokens, and is useful for accessing the field via an interface.
+func (v *CreateAgentWebhookInput) GetBudgetTokens() *int { return v.BudgetTokens }
 
 // GetEnabled returns CreateAgentWebhookInput.Enabled, and is useful for accessing the field via an interface.
 func (v *CreateAgentWebhookInput) GetEnabled() *bool { return v.Enabled }
@@ -35261,6 +35287,9 @@ type NodeBatchResponse struct {
 	// templates are NOT compiled (unlike the single-node 'node' read), since this
 	// is a bulk source read for lint / audit / migration and compiling per node
 	// would re-introduce the N+1 it eliminates.
+	// Requested edge fields share a 2000-row budget for this batch result; exceeding
+	// it returns BAD_USER_INPUT. Read large edge sets through the paged edges query.
+	// Unselected edges and endpoint bodies are not prefetched by the batch read.
 	NodeBatch *NodeBatchNodeBatchNodeBatchResult `json:"nodeBatch"`
 }
 
@@ -35367,6 +35396,9 @@ type NodeCommentSummariesResponse struct {
 	// templates are NOT compiled (unlike the single-node 'node' read), since this
 	// is a bulk source read for lint / audit / migration and compiling per node
 	// would re-introduce the N+1 it eliminates.
+	// Requested edge fields share a 2000-row budget for this batch result; exceeding
+	// it returns BAD_USER_INPUT. Read large edge sets through the paged edges query.
+	// Unselected edges and endpoint bodies are not prefetched by the batch read.
 	NodeBatch *NodeCommentSummariesNodeBatchNodeBatchResult `json:"nodeBatch"`
 }
 
@@ -36109,6 +36141,9 @@ type NodeLiveRevisionsApprovedResponse struct {
 	// templates are NOT compiled (unlike the single-node 'node' read), since this
 	// is a bulk source read for lint / audit / migration and compiling per node
 	// would re-introduce the N+1 it eliminates.
+	// Requested edge fields share a 2000-row budget for this batch result; exceeding
+	// it returns BAD_USER_INPUT. Read large edge sets through the paged edges query.
+	// Unselected edges and endpoint bodies are not prefetched by the batch read.
 	NodeBatch *NodeLiveRevisionsApprovedNodeBatchNodeBatchResult `json:"nodeBatch"`
 }
 
@@ -36529,6 +36564,9 @@ type NodeLiveRevisionsMintedResponse struct {
 	// templates are NOT compiled (unlike the single-node 'node' read), since this
 	// is a bulk source read for lint / audit / migration and compiling per node
 	// would re-introduce the N+1 it eliminates.
+	// Requested edge fields share a 2000-row budget for this batch result; exceeding
+	// it returns BAD_USER_INPUT. Read large edge sets through the paged edges query.
+	// Unselected edges and endpoint bodies are not prefetched by the batch read.
 	NodeBatch *NodeLiveRevisionsMintedNodeBatchNodeBatchResult `json:"nodeBatch"`
 }
 
@@ -36607,6 +36645,9 @@ type NodeLiveRevisionsResponse struct {
 	// templates are NOT compiled (unlike the single-node 'node' read), since this
 	// is a bulk source read for lint / audit / migration and compiling per node
 	// would re-introduce the N+1 it eliminates.
+	// Requested edge fields share a 2000-row budget for this batch result; exceeding
+	// it returns BAD_USER_INPUT. Read large edge sets through the paged edges query.
+	// Unselected edges and endpoint bodies are not prefetched by the batch read.
 	NodeBatch *NodeLiveRevisionsNodeBatchNodeBatchResult `json:"nodeBatch"`
 }
 
@@ -36851,6 +36892,9 @@ type NodeLiveRevisionsStampedResponse struct {
 	// templates are NOT compiled (unlike the single-node 'node' read), since this
 	// is a bulk source read for lint / audit / migration and compiling per node
 	// would re-introduce the N+1 it eliminates.
+	// Requested edge fields share a 2000-row budget for this batch result; exceeding
+	// it returns BAD_USER_INPUT. Read large edge sets through the paged edges query.
+	// Unselected edges and endpoint bodies are not prefetched by the batch read.
 	NodeBatch *NodeLiveRevisionsStampedNodeBatchNodeBatchResult `json:"nodeBatch"`
 }
 
@@ -56181,7 +56225,11 @@ func (v *TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPrevie
 type TriggerAppRunInput struct {
 	AiConfigName *string `json:"aiConfigName,omitempty"`
 	// App — ref: PK or fully-qualified URN.
-	AppRef       string           `json:"appRef"`
+	AppRef string `json:"appRef"`
+	// Optional per-run action limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
+	BudgetActions *int `json:"budgetActions"`
+	// Optional per-run token limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
+	BudgetTokens *int             `json:"budgetTokens"`
 	EntryNodeUrn string           `json:"entryNodeUrn"`
 	EventData    *json.RawMessage `json:"eventData,omitempty"`
 	RunAsSelf    *bool            `json:"runAsSelf,omitempty"`
@@ -56192,6 +56240,12 @@ func (v *TriggerAppRunInput) GetAiConfigName() *string { return v.AiConfigName }
 
 // GetAppRef returns TriggerAppRunInput.AppRef, and is useful for accessing the field via an interface.
 func (v *TriggerAppRunInput) GetAppRef() string { return v.AppRef }
+
+// GetBudgetActions returns TriggerAppRunInput.BudgetActions, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunInput) GetBudgetActions() *int { return v.BudgetActions }
+
+// GetBudgetTokens returns TriggerAppRunInput.BudgetTokens, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunInput) GetBudgetTokens() *int { return v.BudgetTokens }
 
 // GetEntryNodeUrn returns TriggerAppRunInput.EntryNodeUrn, and is useful for accessing the field via an interface.
 func (v *TriggerAppRunInput) GetEntryNodeUrn() string { return v.EntryNodeUrn }
@@ -56954,6 +57008,10 @@ type UpdateAgentScheduleInput struct {
 	// Agent — ref: PK or URN; must be installed in the App.
 	AgentRef     *string `json:"agentRef,omitempty"`
 	AiConfigName *string `json:"aiConfigName,omitempty"`
+	// Optional per-run action limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
+	BudgetActions *int `json:"budgetActions"`
+	// Optional per-run token limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
+	BudgetTokens *int `json:"budgetTokens"`
 	// Providing cron switches the schedule to recurring (clears runAt).
 	Cron         *string          `json:"cron,omitempty"`
 	Enabled      *bool            `json:"enabled,omitempty"`
@@ -56974,6 +57032,12 @@ func (v *UpdateAgentScheduleInput) GetAgentRef() *string { return v.AgentRef }
 
 // GetAiConfigName returns UpdateAgentScheduleInput.AiConfigName, and is useful for accessing the field via an interface.
 func (v *UpdateAgentScheduleInput) GetAiConfigName() *string { return v.AiConfigName }
+
+// GetBudgetActions returns UpdateAgentScheduleInput.BudgetActions, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleInput) GetBudgetActions() *int { return v.BudgetActions }
+
+// GetBudgetTokens returns UpdateAgentScheduleInput.BudgetTokens, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleInput) GetBudgetTokens() *int { return v.BudgetTokens }
 
 // GetCron returns UpdateAgentScheduleInput.Cron, and is useful for accessing the field via an interface.
 func (v *UpdateAgentScheduleInput) GetCron() *string { return v.Cron }

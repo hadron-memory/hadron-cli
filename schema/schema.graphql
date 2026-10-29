@@ -444,6 +444,16 @@ type AgentSchedule {
   agentId: ID
   aiConfigName: String
   appId: ID!
+
+  """
+  Optional per-run action limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
+  """
+  budgetActions: Int
+
+  """
+  Optional per-run token limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
+  """
+  budgetTokens: Int
   createdAt: DateTime!
   createdBy: String
 
@@ -841,6 +851,10 @@ type AgentTeamEvent {
   """
   episodeStart: DateTime
   id: ID!
+
+  """
+  A dark-worker alarm's payload carries its reason (overdue, wake-unacked) and window for every reader; its evidence (lastCheckedAt, oldestWakeAgeSeconds) only for a reader of the worker's internals.
+  """
   payload: JSON!
 
   """ALARM for an alarm; null for an ordinary event."""
@@ -851,7 +865,7 @@ type AgentTeamEvent {
   taskId: ID
 
   """
-  e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled; the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable; availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02).
+  e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled; the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02).
   """
   type: String!
 
@@ -940,6 +954,16 @@ type AgentWebhook {
   aiConfigName: String
   appId: ID!
   argsSchema: JSON
+
+  """
+  Optional per-run action limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
+  """
+  budgetActions: Int
+
+  """
+  Optional per-run token limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
+  """
+  budgetTokens: Int
   createdAt: DateTime!
   createdBy: String
   enabled: Boolean!
@@ -1465,6 +1489,11 @@ type AppDeliverySettings {
   checkPeriodSeconds: Int!
 
   """
+  #2755: a worker's due wake left unacknowledged this long raises the dark-worker alarm. Whole seconds, 300..86400; default 1800. Independent of stuckWindowSeconds.
+  """
+  darkAlarmWindowSeconds: Int!
+
+  """
   #2138: a worker with a task is OVERDUE after this many missed periods plus 5 minutes. Whole number, 1..100; default 2.
   """
   failedChecksToOverdue: Int!
@@ -1497,6 +1526,9 @@ input AppDeliverySettingsInput {
 
   """#2138: whole seconds, 60..86400."""
   checkPeriodSeconds: Int
+
+  """#2755: whole seconds, 300..86400."""
+  darkAlarmWindowSeconds: Int
 
   """#2138: whole number, 1..100."""
   failedChecksToOverdue: Int
@@ -3140,6 +3172,16 @@ input CreateAgentScheduleInput {
   appRef: String!
 
   """
+  Optional per-run action limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
+  """
+  budgetActions: Int
+
+  """
+  Optional per-run token limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
+  """
+  budgetTokens: Int
+
+  """
   Recurring: 5-field cron expression, evaluated in timezone (default UTC). Provide exactly one of cron / runAt.
   """
   cron: String
@@ -3237,6 +3279,16 @@ input CreateAgentWebhookInput {
 
   """JSON Schema for POST args (stored in v1; enforcement is follow-on)."""
   argsSchema: JSON
+
+  """
+  Optional per-run action limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
+  """
+  budgetActions: Int
+
+  """
+  Optional per-run token limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
+  """
+  budgetTokens: Int
   enabled: Boolean
   entryNodeUrn: String!
   eventData: JSON
@@ -8910,6 +8962,17 @@ type Mutation {
   setHostWorkerAvailability(input: SetHostWorkerAvailabilityInput!): WorkerAvailability!
 
   """
+  #2771 (proposed hrn:node:hadronmemory.com:specs:cor:agt:070:09) — a host reports the terminal state of workers it
+  registers, as classified by its on-host sweep. The server builds what it stores (Worker.terminal): the host comes
+  from the key and its registration, the time from the server, and no screen text of any kind is accepted. A
+  malformed input refuses the whole call and stores nothing (BAD_USER_INPUT); a worker this host does not register is
+  refused for that item only (WORKER_NOT_FOUND, as setHostWorkerAvailability); an older report than the stored one
+  is skipped (TERMINAL_REPORT_STALE). The result carries the alarm verdict, computed and returned, never stored.
+  The report decides nothing: it feeds no check status, availability, matcher, stall rule or alarm.
+  """
+  setHostWorkerTerminals(input: SetHostWorkerTerminalsInput!): SetHostWorkerTerminalsResult!
+
+  """
   Set encrypted source token for non-GitHub-App repos.
   
   Accepts the entity's ID or URN.
@@ -12406,6 +12469,9 @@ type Query {
   templates are NOT compiled (unlike the single-node 'node' read), since this
   is a bulk source read for lint / audit / migration and compiling per node
   would re-introduce the N+1 it eliminates.
+  Requested edge fields share a 2000-row budget for this batch result; exceeding
+  it returns BAD_USER_INPUT. Read large edge sets through the paged edges query.
+  Unselected edges and endpoint bodies are not prefetched by the batch read.
   """
   nodeBatch(locPrefix: String, memory: ID, refs: [ID!]): NodeBatchResult!
 
@@ -14709,6 +14775,28 @@ input SetHostWorkerAvailabilityInput {
   worker: String!
 }
 
+input SetHostWorkerTerminalsInput {
+  appRef: String!
+
+  """One to 200 reports, a worker at most once."""
+  reports: [WorkerTerminalReportInput!]!
+}
+
+type SetHostWorkerTerminalsResult {
+  """
+  The alarm verdict, computed after the write and returned, never stored: coordinators of the App this host registers
+  whose stored status is locked or dark, leaving out a paused or stopped worker and a paused or halted team.
+  """
+  alarm: [WorkerTerminalAlarm!]!
+
+  """
+  True when the App has no coordinator (a worker with the coordinator role that is not retired).
+  """
+  noCoordinator: Boolean!
+  refused: [WorkerTerminalRefusal!]!
+  stored: [WorkerTerminalRef!]!
+}
+
 input SetModelFamilyAvailabilityInput {
   appRef: ID!
 
@@ -16042,6 +16130,11 @@ type TeamRosterEntry {
   teamPlacement: WorkerTeamPlacement
 
   """
+  #2771 — the latest terminal report a host made for it (Worker.terminal); null on the same read gate as checkStatus.
+  """
+  terminal: WorkerTerminal
+
+  """
   Coarse tier from the server model mapping: high, mid or low. Null when unbound, unreported or unmapped; advisory, never authorization.
   """
   tier: String
@@ -16338,6 +16431,16 @@ input TriggerAppRunInput {
 
   """App — ref: PK or fully-qualified URN."""
   appRef: String!
+
+  """
+  Optional per-run action limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
+  """
+  budgetActions: Int
+
+  """
+  Optional per-run token limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
+  """
+  budgetTokens: Int
   entryNodeUrn: String!
   eventData: JSON
   runAsSelf: Boolean
@@ -16367,6 +16470,16 @@ input UpdateAgentScheduleInput {
   """Agent — ref: PK or URN; must be installed in the App."""
   agentRef: String
   aiConfigName: String
+
+  """
+  Optional per-run action limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
+  """
+  budgetActions: Int
+
+  """
+  Optional per-run token limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
+  """
+  budgetTokens: Int
 
   """Providing cron switches the schedule to recurring (clears runAt)."""
   cron: String
@@ -17096,6 +17209,12 @@ type Worker {
   teamPlacement: WorkerTeamPlacement
 
   """
+  #2771 (proposed hrn:node:hadronmemory.com:specs:cor:agt:070:09) — the latest terminal report a host made for this worker. Stored, decides nothing;
+  judge its age from checkedAt. Null until a host reports, and masked to null on the same read gate as checkStatus.
+  """
+  terminal: WorkerTerminal
+
+  """
   #2252 (R189) — the coarse tier of model from the platform's one model-to-tier mapping: high (opus-class),
   mid (sonnet-class), low (haiku-class); null when the model is unmapped (no guessed equivalence for another
   family). Advisory: a coordinator's reading aid, never an authorization or routing input in this slice.
@@ -17299,6 +17418,113 @@ enum WorkerTeamPlacement {
   NO_TEAM
   REPORTS_TO
   UNSET
+}
+
+"""
+#2771 (proposed hrn:node:hadronmemory.com:specs:cor:agt:070:09) — a worker's latest terminal report, stored as the
+server built it. It decides nothing (no check status, availability, matcher, stall rule or alarm). Judge its age
+from checkedAt and reportedAt. Null until a host first reports; null to a reader without the Working-state gate.
+"""
+type WorkerTerminal {
+  """When the host classified the terminal."""
+  checkedAt: DateTime!
+  host: WorkerTerminalHost!
+  lastTurnAt: DateTime
+  prompt: WorkerTerminalPrompt!
+
+  """Required for locked and dark, null otherwise."""
+  reason: WorkerTerminalReason
+
+  """When the server stored the report."""
+  reportedAt: DateTime!
+  status: WorkerTerminalState!
+}
+
+"""
+#2771 — a coordinator this host registers whose stored status is locked or dark.
+"""
+type WorkerTerminalAlarm {
+  reason: WorkerTerminalReason
+  status: WorkerTerminalState!
+  worker: WorkerTerminalRef!
+}
+
+"""
+#2771 — the host that made a worker's latest terminal report: its id from the key, its label from its registration.
+"""
+type WorkerTerminalHost {
+  id: String!
+  label: String!
+}
+
+"""#2771 — what the terminal's input prompt looked like."""
+enum WorkerTerminalPrompt {
+  empty
+  menu
+  not_empty
+  unknown
+}
+
+"""
+#2771 — why a terminal is locked or dark: a closed code (hadron-cli#1187), never text from the screen.
+"""
+enum WorkerTerminalReason {
+  bare_shell
+  guardrail_triggered
+  menu_or_question
+  model_at_capacity
+  no_agent
+  no_terminal
+  no_turn_for_due_ticker
+  rate_limited
+  shed_staged_not_relaunched
+  token_budget_exhausted
+  unrecognized
+}
+
+"""
+#2771 — a worker by id and URN only: a host key is not given a Worker object.
+"""
+type WorkerTerminalRef {
+  id: ID!
+  urn: String!
+}
+
+"""
+#2771 — a report not stored for one worker: WORKER_NOT_FOUND or TERMINAL_REPORT_STALE.
+"""
+type WorkerTerminalRefusal {
+  code: String!
+
+  """The worker as the host named it."""
+  worker: String!
+}
+
+"""#2771 — one worker's terminal report. There is no free-text field."""
+input WorkerTerminalReportInput {
+  """
+  When the host classified the terminal, not more than two minutes ahead of the server.
+  """
+  checkedAt: DateTime!
+
+  """When the worker's last turn ended, not after checkedAt."""
+  lastTurnAt: DateTime
+  prompt: WorkerTerminalPrompt!
+
+  """Required for locked and dark; refused for busy and idle."""
+  reason: WorkerTerminalReason
+  status: WorkerTerminalState!
+
+  """A worker this host registers: its id, URN or name within the App."""
+  worker: String!
+}
+
+"""#2771 — what a host's sweep saw in a worker's terminal."""
+enum WorkerTerminalState {
+  busy
+  dark
+  idle
+  locked
 }
 
 """
