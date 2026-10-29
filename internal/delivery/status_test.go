@@ -135,3 +135,46 @@ func TestStatusBookKeepsWhenAHoldRunBegan(t *testing.T) {
 		t.Fatalf("a reconciled event ends the run: %+v", w)
 	}
 }
+
+// Jane's LOCAL P2 on #1183: a run of holds survives a poller restart. A new
+// book over the same state picks up the saved workers, so heldSince keeps
+// its start and a long hold stays flagged; a delivery still ends the run.
+// A missing or corrupt snapshot starts empty.
+func TestStatusBookKeepsAHoldRunAcrossARestart(t *testing.T) {
+	dir := t.TempDir()
+	at := time.Date(2026, 10, 29, 1, 0, 0, 0, time.UTC)
+	first := NewStatusBook(dir)
+	first.Observe(Event{Time: at, Worker: "iris", WorkerID: "wkr1", Kind: Held, Reason: HoldNotSubmitted, Wake: true})
+	if err := first.Step(at, StepRead); err != nil {
+		t.Fatal(err)
+	}
+	again := NewStatusBook(dir)
+	again.Observe(Event{Time: at.Add(2 * time.Hour), Worker: "iris", WorkerID: "wkr1", Kind: Held, Reason: HoldNotSubmitted, Wake: true})
+	if err := again.Step(at.Add(2*time.Hour), StepRead); err != nil {
+		t.Fatal(err)
+	}
+	st, err := ReadStatus(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w := st.Workers["wkr1"]; w.HeldSince == nil || !w.HeldSince.Equal(at) {
+		t.Fatalf("after a restart the run still began at %v: %+v", at, w)
+	}
+	again.Observe(Event{Time: at.Add(3 * time.Hour), Worker: "iris", WorkerID: "wkr1", Kind: Delivered, Wake: true})
+	_ = again.Step(at.Add(3*time.Hour), StepRead)
+	if st, _ := ReadStatus(dir); st.Workers["wkr1"].HeldSince != nil {
+		t.Fatalf("a delivery ends the run: %+v", st.Workers["wkr1"])
+	}
+
+	if err := os.WriteFile(filepath.Join(dir, "delivery", "status.json"), []byte("{not json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	fresh := NewStatusBook(dir)
+	fresh.Observe(Event{Time: at, Worker: "dara", WorkerID: "wkr2", Kind: Held, Reason: HoldDraft})
+	if err := fresh.Step(at, StepRead); err != nil {
+		t.Fatal(err)
+	}
+	if st, err := ReadStatus(dir); err != nil || len(st.Workers) != 1 {
+		t.Fatalf("a corrupt snapshot starts empty: %+v %v", st, err)
+	}
+}

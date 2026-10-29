@@ -117,6 +117,17 @@ func TestWakesBudgetExhaustedTypesNothing(t *testing.T) {
 	}
 }
 
+// Riana's §10 P3 on #1183: the wake read's own error carries a code only,
+// never the server's message, pinned at this layer (not only by the
+// poller's diagnostic()).
+func TestWakeReadErrorsCarryNoUpstreamText(t *testing.T) {
+	s, _ := deliveryFake(t, map[string][]string{"DueWakes": {`{"errors":[{"message":"echo WAKE-PROOF-9-SECRET hk_host_key","extensions":{"code":"FORBIDDEN"}}],"data":null}`}})
+	_, err := s.Wakes(context.Background())
+	if err == nil || strings.Contains(err.Error(), "SECRET") || strings.Contains(err.Error(), "hk_host_key") || !strings.Contains(err.Error(), "FORBIDDEN") {
+		t.Fatalf("err %v", err)
+	}
+}
+
 func TestWakesScopeRefusalSwitchesDeliveryOff(t *testing.T) {
 	s, _ := deliveryFake(t, map[string][]string{"DueWakes": {`{"errors":[{"message":"x","extensions":{"code":"APP_KEY_SCOPE_REQUIRED"}}],"data":null}`}})
 	if _, err := s.Wakes(context.Background()); !errors.Is(err, hostpoller.ErrDeliveryScope) {
