@@ -69,7 +69,7 @@ verifyDecision  # server main schema refresh for cli#836; separate CLI parity ou
 verifyMemoryNodes  # cli#802 exposes per-node verifyNode; memory-wide integrity audit needs a separate memory verify command
 workerWakeSettings  # wake-surface v2; cli#828 tracks the paged attention surface, wake settings follow it
 
-[Mutation] 114 unbound
+[Mutation] 115 unbound
 acquireEditorLock
 addAgentToApp
 addMemoryToAgent
@@ -161,6 +161,7 @@ setAppTickerSettings  # server ticker settings (named-heartbeats epic, in flight
 setDashboardWidgets
 setDecisionLogDeciders  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
 setHostWorkerAvailability  # host-side OUT_OF_TOKENS/HOST_DOWN marks: the cli#831 poller sets none yet (no signal for them is ruled); follow-up
+setHostWorkerTerminals  # arrived with the cli#1194 schema refresh (server main dd69e480); no CLI command reaches it yet — separate parity follow-up
 setMemorySourceToken
 setQuotaLimit
 setTeamPause  # #2138 server/MCP control; this dispatched CLI slice covers status, settings, live-check and usesTasks only

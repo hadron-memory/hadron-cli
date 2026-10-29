@@ -14,7 +14,6 @@ import (
 	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
-	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -72,7 +71,7 @@ each direction (total/hasMore included). Use task dependencies for later pages. 
 			}
 			resp, err := gen.AgentTaskGet(cmd.Context(), client, taskId)
 			if err != nil {
-				return api.MapError(err)
+				return mapTaskError(err)
 			}
 			if resp.AgentTask == nil {
 				return exitcode.Newf(exitcode.NotFound, "task %s not found", taskId)
@@ -91,7 +90,11 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 		_, err := fmt.Fprintf(w, format+"\n", a...)
 		return err
 	}
-	if err := line("%s  %s  (%s)", task.ID, task.Title, task.Status); err != nil {
+	head := task.ID
+	if task.Handle != "" {
+		head = output.SafeCell(task.Handle) + "  " + task.ID
+	}
+	if err := line("%s  %s  (%s)", head, task.Title, task.Status); err != nil {
 		return err
 	}
 	if err := line("  priority: %d (1 = highest); blocked: %t", task.Priority, task.Blocked); err != nil {
@@ -367,7 +370,7 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 	}
 	resp, err := gen.AgentTaskList(ctx, client, scope.Ref, q.assignee, &q.limit, &q.offset, q.owner, q.parent, q.queued, q.rootsOnly, q.status, q.tag)
 	if err != nil {
-		return api.MapError(err)
+		return mapTaskError(err)
 	}
 	tasks := []taskDTO{}
 	for _, t := range resp.AgentTasks {
@@ -387,7 +390,11 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 		if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {
 			return err
 		}
-		t := output.NewTable(w, "ID", "STATUS", "PRIORITY", "BLOCKED", "BLOCKED BY", "BLOCKS", "TITLE", "OWNER", "ASSIGNEE")
+		withHandle := false
+		for _, task := range tasks {
+			withHandle = withHandle || task.Handle != ""
+		}
+		t := output.NewTable(w, handleHeaders(withHandle, "ID", "STATUS", "PRIORITY", "BLOCKED", "BLOCKED BY", "BLOCKS", "TITLE", "OWNER", "ASSIGNEE")...)
 		for _, task := range tasks {
 			assignee := "—"
 			if task.Queued {
@@ -395,7 +402,7 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 			} else if task.Assignee != nil {
 				assignee = partyCell(task.Assignee)
 			}
-			t.Row(output.SafeCell(task.ID), output.SafeCell(task.Status), strconv.Itoa(task.Priority), strconv.FormatBool(task.Blocked), dependencySummary(task.BlockedBy), dependencySummary(task.Blocks), output.SafeCell(task.Title), output.SafeCell(partyCell(task.Owner)), output.SafeCell(assignee))
+			t.Row(handleCells(withHandle, task.Handle, output.SafeCell(task.ID), output.SafeCell(task.Status), strconv.Itoa(task.Priority), strconv.FormatBool(task.Blocked), dependencySummary(task.BlockedBy), dependencySummary(task.Blocks), output.SafeCell(task.Title), output.SafeCell(partyCell(task.Owner)), output.SafeCell(assignee))...)
 		}
 		return t.Flush()
 	})
@@ -504,7 +511,7 @@ alarm facts are the server's.`,
 			}
 			resp, err := gen.AgentTaskTree(ctx, client, rootId)
 			if err != nil {
-				return api.MapError(err)
+				return mapTaskError(err)
 			}
 			if len(resp.AgentTaskTree) == 0 {
 				return exitcode.Newf(exitcode.NotFound, "task %s not found", rootId)
@@ -611,7 +618,7 @@ func openAlarmsByTask(ctx context.Context, client graphql.Client, errOut io.Writ
 	for page := 0; ; page++ {
 		events, err := gen.AgentTeamEvents(ctx, client, appID, after, boolPtr(true), &alarmPageSize, nil, nil, nil)
 		if err != nil {
-			return nil, api.MapError(err)
+			return nil, mapTaskError(err)
 		}
 		pageSize := len(events.AgentTeamEvents)
 		last := ""
@@ -660,7 +667,7 @@ func renderTreeNode(w io.Writer, task *taskDTO, depth int) error {
 	if task.WaitingOnChildren {
 		flags += "  waiting-on-children"
 	}
-	if _, err := fmt.Fprintf(w, "%s• %s [%s] %s → %s%s%s\n", indent, task.ID, task.Status, partyCell(task.Owner), assignee, flags, alarm); err != nil {
+	if _, err := fmt.Fprintf(w, "%s• %s [%s] %s → %s%s%s\n", indent, taskRef(task.Handle, task.ID), task.Status, partyCell(task.Owner), assignee, flags, alarm); err != nil {
 		return err
 	}
 	return nil

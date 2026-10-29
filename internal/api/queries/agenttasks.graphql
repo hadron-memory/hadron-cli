@@ -31,6 +31,8 @@ fragment AgentTaskFields on AgentTask {
   blockedBy(limit: 20, offset: 0) { total hasMore items { ...AgentTaskDependencyFields } }
   blocks(limit: 20, offset: 0) { total hasMore items { ...AgentTaskDependencyFields } }
   id
+  handle
+  taskNumber
   appId
   title
   description
@@ -76,6 +78,9 @@ fragment AgentTaskFields on AgentTask {
 # and inherited from the parent for a child. Optional party/requirements
 # inputs are omitempty so a nil pointer is OMITTED (preserve/default), never
 # sent as null — the wire-semantics rule from CLAUDE.md.
+# `project` is omitted unless --project is given: the server reads an absent
+# project as the reserved no-project AT0 (cor:agt:050:01), so a nil pointer
+# must not be sent as null. Per-field omitempty on this one input field.
 # Schema-only optional fields must stay absent for older providers.
 # @genqlient(for: "CreateAgentTaskInput.project", omitempty: true)
 # @genqlient(for: "CreateAgentTaskInput.priority", omitempty: true)

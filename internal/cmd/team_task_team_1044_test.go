@@ -49,6 +49,7 @@ func roster1044() []string {
 
 type task1044 struct {
 	id, status, owner, assignee, parent string
+	handle                              string // "" omits handle/taskNumber (an older server)
 	createdBy                           string // "" = the owner created it
 	createdAt, updatedAt, startedAt     string // "" renders null (createdAt is required)
 }
@@ -81,12 +82,16 @@ func (t task1044) json() string {
 	if status == "" {
 		status = "STARTED"
 	}
-	return fmt.Sprintf(`{"id":%q,"appId":"capp100000000000000000000","title":"title of %s","description":null,
+	ident := fmt.Sprintf("%q", t.id)
+	if t.handle != "" {
+		ident += fmt.Sprintf(`,"handle":%q,"taskNumber":"1"`, t.handle)
+	}
+	return fmt.Sprintf(`{"id":%s,"appId":"capp100000000000000000000","title":"title of %s","description":null,
 		"status":%q,"queued":false,"waitingOnChildren":false,"owner":%s,"assignee":%s,"assignedBy":null,
 		"createdBy":%s,"parentTaskId":%s,"tags":[],"source":null,"startBy":null,
 		"createdAt":%q,"updatedAt":%s,"startedAt":%s,"finishedAt":null,"cancelledAt":null,
 		"closeSessionWhenDone":false,"requirements":null,"result":null}`,
-		t.id, t.id, status, t.owner, assignee, creator, parent, created, ts1044(t.updatedAt), ts1044(t.startedAt))
+		ident, t.id, status, t.owner, assignee, creator, parent, created, ts1044(t.updatedAt), ts1044(t.startedAt))
 }
 
 func taskPage1044(tasks []task1044) string {

@@ -45,6 +45,8 @@ fragment AgentScheduleFields on AgentSchedule {
   createdBy
   eventData
   policy
+  budgetTokens
+  budgetActions
   lastRunAt
   nextRunAt
   createdAt
@@ -64,6 +66,8 @@ fragment AgentWebhookFields on AgentWebhook {
   argsSchema
   eventData
   policy
+  budgetTokens
+  budgetActions
   lastCalledAt
   createdAt
 }
@@ -101,6 +105,8 @@ fragment ActionTicketFields on ActionTicket {
 # @genqlient(for: "TriggerAppRunInput.aiConfigName", omitempty: true)
 # @genqlient(for: "TriggerAppRunInput.eventData", omitempty: true)
 # @genqlient(for: "TriggerAppRunInput.runAsSelf", omitempty: true)
+# @genqlient(for: "TriggerAppRunInput.budgetTokens", omitempty: true)
+# @genqlient(for: "TriggerAppRunInput.budgetActions", omitempty: true)
 mutation TriggerAppRun(
   $input: TriggerAppRunInput!
 ) {
@@ -156,6 +162,8 @@ mutation CancelAppRun($id: ID!) {
 # @genqlient(for: "CreateAgentScheduleInput.runAt", omitempty: true)
 # @genqlient(for: "CreateAgentScheduleInput.timezone", omitempty: true)
 # @genqlient(for: "CreateAgentScheduleInput.scopeRef", omitempty: true)
+# @genqlient(for: "CreateAgentScheduleInput.budgetTokens", omitempty: true)
+# @genqlient(for: "CreateAgentScheduleInput.budgetActions", omitempty: true)
 mutation CreateAgentSchedule(
   $input: CreateAgentScheduleInput!
 ) {
@@ -195,6 +203,11 @@ query AgentSchedules(
 # scopeRef arrived with spec-049 Phase 3b (hadron-server#1163); without this an
 # unrelated `schedule update --name …` sends scopeRef:null and CLEARS the scope.
 # @genqlient(for: "UpdateAgentScheduleInput.scopeRef", omitempty: true)
+# budgetTokens/budgetActions are the only fields where a limit must be CLEARED
+# (explicit null = back to the platform default) yet omitted must PRESERVE, which
+# a *int cannot say: bound to json.RawMessage like `policy`, nil omits, "null" clears.
+# @genqlient(for: "UpdateAgentScheduleInput.budgetTokens", omitempty: true, bind: "encoding/json.RawMessage")
+# @genqlient(for: "UpdateAgentScheduleInput.budgetActions", omitempty: true, bind: "encoding/json.RawMessage")
 mutation UpdateAgentSchedule(
   $id: ID!
   $input: UpdateAgentScheduleInput!
@@ -219,6 +232,8 @@ mutation DeleteAgentSchedule($id: ID!) {
 # @genqlient(for: "CreateAgentWebhookInput.policy", omitempty: true)
 # @genqlient(for: "CreateAgentWebhookInput.runAsSelf", omitempty: true)
 # @genqlient(for: "CreateAgentWebhookInput.scopeRef", omitempty: true)
+# @genqlient(for: "CreateAgentWebhookInput.budgetTokens", omitempty: true)
+# @genqlient(for: "CreateAgentWebhookInput.budgetActions", omitempty: true)
 mutation CreateAgentWebhook(
   $input: CreateAgentWebhookInput!
 ) {
