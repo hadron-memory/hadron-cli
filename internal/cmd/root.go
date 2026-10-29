@@ -68,11 +68,31 @@ func NewRootCmd(f *cmdutil.Factory) *cobra.Command {
 	root := &cobra.Command{
 		Use:   "hadron <command> <subcommand>",
 		Short: "The Hadron platform CLI",
-		Long: `Work with Hadron memories, nodes, and Apps from the command line.
+		Long: `Read and write your Hadron memory from the command line. A memory is a
+collection of notes (nodes) joined by links (edges); an App bundles memories,
+agents and settings for a team or product.
 
-In a worker-bound worktree, authored node and edge writes inherit the worker's
-session attribution when the binding's App and deployment are verified.
-Supporting servers record the worker and agent alongside the authenticated user.`,
+Getting started:
+  hadron auth login          sign in (opens your browser)
+  hadron auth status         check you are signed in, and to which server
+  hadron server-info         check the server answers (works signed out)
+  hadron memory list         see the memories you can read
+  hadron search "<words>"    find notes across them
+
+Which server, App and memory a command uses: by default the hosted server
+(https://srv.hadronmemory.com) and no App. A setting saved with
+'hadron config set' (or 'app set-active', 'memory set-active') applies to
+every later command until you change it; 'hadron config list' shows them. The
+--server and --app flags override the saved setting for one command; the
+HADRON_SERVER environment variable overrides the saved server too.
+
+--json prints machine-readable JSON instead of text on commands that have a
+JSON form (most do); 'hadron agentic-usage' documents every shape. -v and
+--version print the same line as 'hadron version'.
+
+If you work as a team worker in a worktree bound with 'hadron team session',
+the node and edge writes you make are also recorded against that worker once
+the binding is verified. Otherwise this does not apply to you.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		// #914's ended-binding check is armed HERE, on the root that actually
@@ -154,7 +174,36 @@ Supporting servers record the worker and agent alongside the authenticated user.
 	root.AddCommand(agentic.NewCmdAgenticUsage(f))
 
 	installNodeWriteWarnings(root, f)
+	describeGeneratedCommands(root)
 	return root
+}
+
+// describeGeneratedCommands replaces cobra's stock text on `help` and
+// `completion` with text a user can act on (#1056). Cobra adds both lazily at
+// execute time; initializing them here lets the text be set, and cobra then
+// reuses them rather than adding its own.
+func describeGeneratedCommands(root *cobra.Command) {
+	root.InitDefaultHelpCmd()
+	root.InitDefaultCompletionCmd()
+	for _, c := range root.Commands() {
+		switch c.Name() {
+		case "help":
+			c.Short = "Show help for any command"
+			c.Long = `Show the help page for a command. 'hadron help <command>' and
+'hadron <command> --help' print the same page; every command takes --help.
+
+For the full reference an AI assistant uses (every command, the --json shapes
+and exit codes), see 'hadron agentic-usage'.`
+			c.Example = `  hadron help node create
+  hadron node create --help`
+		case "completion":
+			c.Short = "Print a tab-completion script for your shell"
+			c.Long = `Print a script that lets your shell complete hadron commands and flags
+when you press Tab. It only prints the script; nothing changes until you load
+it. Run 'hadron completion <shell> --help' for how to install it in bash, zsh,
+fish or powershell. 'echo $SHELL' tells you which shell you use.`
+		}
+	}
 }
 
 // Execute runs the CLI and returns the process exit code.

@@ -469,17 +469,17 @@ section between the markers.
 <!-- group:1056 start -->
 | path | aliases | generated | has-examples | child | evaluator | result | finding |
 |---|---|---|---|---|---|---|---|
-| `(root)` |  |  | n | #1056 |  | unread |  |
-| `agentic-usage` |  |  | n | #1056 |  | unread |  |
-| `api` |  |  | y | #1056 |  | unread |  |
-| `completion` |  | generated | n | #1056 |  | unread |  |
-| `config` |  |  | n | #1056 |  | unread |  |
-| `config get` |  |  | n | #1056 |  | unread |  |
-| `config list` | ls |  | n | #1056 |  | unread |  |
-| `config set` |  |  | n | #1056 |  | unread |  |
-| `help` |  | generated | n | #1056 |  | unread |  |
-| `server-info` | serverinfo |  | y | #1056 |  | unread |  |
-| `version` |  |  | n | #1056 |  | unread |  |
+| `(root)` |  |  | n | #1056 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6503039560) |
+| `agentic-usage` |  |  | y | #1056 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6503039560) |
+| `api` |  |  | y | #1056 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6503039560) |
+| `completion` |  | generated | n | #1056 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6503039560): no P1/P2, P3s only; result set at reassessment |
+| `config` |  |  | n | #1056 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6503039560) |
+| `config get` |  |  | y | #1056 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6503039560) |
+| `config list` | ls |  | y | #1056 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6503039560) |
+| `config set` |  |  | y | #1056 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6503039560) |
+| `help` |  | generated | y | #1056 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6503039560): no P1/P2, P3s only; result set at reassessment |
+| `server-info` | serverinfo |  | y | #1056 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6503039560) |
+| `version` |  |  | y | #1056 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6503039560): no P1/P2, P3s only; result set at reassessment |
 <!-- group:1056 end -->
 
 ## Group: integration and account commands (#1184)
