@@ -109,10 +109,11 @@ is older than 30 minutes, the row reads `HELD OVER 30m: no delivery since
 | `binding-mismatch` | The worktree's session binding names another worker. | Rebind the right worker there. |
 | `timing-unavailable` | A wake came without the server's timing (`deliverAfter`, or `busyDeadline` for a busy agent). | Server-side. The wake stays due. |
 
-A refused or unconfirmed send never blocks the worker's later wakes or chat,
-so a run that keeps growing points at the terminal, not at a stuck record.
-That is the opposite of hadron-server#2746, where `ticker-wake` held every
-later wake behind one ambiguous receipt.
+A refused or unconfirmed send leaves no record that holds the worker's later
+wakes or chat. Each pass judges the terminal afresh. So a run that keeps
+growing points at the terminal (a composer that won't clear or submit), not
+at a stuck record. That is the opposite of hadron-server#2746, where
+`ticker-wake` held every later wake behind one ambiguous receipt.
 
 ## Cut over and roll back (hadron-cli#1178)
 
