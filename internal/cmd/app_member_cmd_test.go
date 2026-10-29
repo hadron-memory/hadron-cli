@@ -350,7 +350,7 @@ func TestAppMemberDefiniteRefusalsKeepServerText(t *testing.T) {
 		{`role "boss" is not valid; allowed: owner, member`, "InvalidRoleError"},
 		{"App already has the maximum number of members", "MaxMembersExceededError"},
 		{"this would leave the App with no owner", "OrphanAppError"},
-		{"Forbidden: only an App member manager may do this", "INTERNAL_SERVER_ERROR"},
+		{"Forbidden: only an App member manager may do this", "UNTYPED_SERVER_ERROR"},
 	}
 	for _, c := range cases {
 		srv, calls, _ := countingGraphQL(t, map[string]string{"EnsureAppMember": memberGQLError(c.msg, c.code)})
@@ -463,7 +463,7 @@ func TestAppMemberOutcomeUnknown(t *testing.T) {
 // as-is, never "not found" (that would reopen the user-existence oracle).
 func TestAppMemberRemoveForbiddenIsNotTranslated(t *testing.T) {
 	msg := "Forbidden: you must manage this App or be the user themselves"
-	srv, _, _ := countingGraphQL(t, map[string]string{"RemoveAppMember": memberGQLError(msg, "INTERNAL_SERVER_ERROR")})
+	srv, _, _ := countingGraphQL(t, map[string]string{"RemoveAppMember": memberGQLError(msg, "UNTYPED_SERVER_ERROR")})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"app", "member", "remove", "--user", "nobody@example.com", "--app", memberApp, "--yes", "--server", srv.URL})

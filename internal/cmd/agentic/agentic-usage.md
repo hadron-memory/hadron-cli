@@ -98,6 +98,19 @@ self-hosted backend.
 | 7    | unavailable — the request never got an answer (gateway 5xx, reset, timeout) |
 | 8    | forbidden — authenticated, but not permitted |
 
+**Internal server faults exit 1, never 7** (cli#898, cor:api:260:01). The server
+answered, so it is not "unavailable". A response whose GraphQL `extensions.code` is
+`INTERNAL_SERVER_ERROR` (also the plain-HTTP `code` of asset calls, and an OAuth
+`server_error` carrying `request_id`) prints one CLI-written sentence,
+`the server hit an internal error (request id: <id>); report this id when you ask for help`
+(`…internal error; no request id was returned` when there is none), and never the
+server's own text. The code alone decides: not the text, not the HTTP status, and no
+other code gets this message. The id is `extensions.requestId` (else the body's
+`requestId`/`request_id`, else the `X-Request-Id` header) and is printed only if it
+matches `^[A-Za-z0-9._:-]{1,64}$`; otherwise it is treated as absent. Under `--json`
+the failure envelope gains `serverCode` (`"INTERNAL_SERVER_ERROR"`) and, when an id is
+known, `requestId`, additively; `code` stays the exit code. `hadron api` stays verbatim.
+
 `team chat check` additionally uses **9** for an empty tagged range whose sampled
 head is marked, (9 is not an error; handle it explicitly in `set -e` scripts), and **10** for an uncertain mark outcome. These are command-specific;
 0 means messages were written and coverage confirmed, not that an agent read the file.
