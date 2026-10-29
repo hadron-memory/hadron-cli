@@ -255,3 +255,21 @@ query AppScopeAgentName($ref: ID!) {
     name
   }
 }
+
+# cli#1223 — mint an App key. rawKey is returned exactly once; the command
+# writes it to a 0600 file and never prints it unless --print-key. An omitted
+# label is the server's default, so it carries omitempty.
+mutation CreateAppKey(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $label: String
+) {
+  createAppKey(appRef: $appRef, label: $label) {
+    rawKey
+    key {
+      id
+      keyPreview
+      label
+    }
+  }
+}
