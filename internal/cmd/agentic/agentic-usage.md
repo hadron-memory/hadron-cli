@@ -343,14 +343,14 @@ hadron spec label-report [-m <memory>] [--prefix <citation>] | list [-m <memory>
 hadron skill lint (-m <memory>... | --all | --node <ref>...) [--strict] [--json] | status (-m <memory>... | --all) [--host <host>] [--to user|project|plugin|<dir>] [--strict] [--json] | export [--node <ref>...] [--dry-run] [--force] [--prune] [--json] | plugin --out <dir> [--name <name>] [--scope <name|id>] [--zip] [--dry-run] [--json]
 hadron coding review run [-m <memory>] [--base <ref>] [--head <ref>] [--diff <path|->] [--root <loc>] [--all] [--limit N] [--offset N] [--json] | review list [-m <memory>] [--root <loc>] [--broken] [--json] | review create <check-name> [-m <memory>] --trigger <cond> --description <d> [--scope <s>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] | review lint [-m <memory>] [--root <loc>] [--toolchain <t>|-] [--strict] [--suggest] [--fix [--yes]] [--json] | preflight list [-m <memory>] [--root <loc>] [--broken] [--json] | preflight create <loc> [-m <memory>] --route <action> --description <d> [--name <n>] [--symptom <s>] [--section <heading>] [--type <t>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight route <node-ref> [-m <memory>] --route <action> [--description <d>] [--symptom <s>] [--section <heading>] [--no-back-edge] [--no-body-line] [--dry-run] | preflight lint [-m <memory>] [--root <loc>] [--strict] [--json]
 hadron app agent customize <app> <agent> | agent compile <app> <agent> | get <app-ref> | key list <app-ref> | agent list [<app-ref>] (uses --app) | agent add <app> <agent> [--training-mode] | agent remove <app> <agent> --yes | agent set-boot-prompt <app> <agent> (<node-ref> [-m <memory>] | --clear) | list (--org <org> | --owned-by-me) | install (--org <id> | --owner-me) --agent <ref> --name <n> [--type <t>] [--urn <slug>] [--description <d>] | uninstall <ref> | set-active <ref> | key scope grant <key-id> <scope> [--host-id <host>] | key scope revoke <key-id> <scope>   # scopes: attention:deliver, host:operate; the App manager's, as themselves (never a worker session); host:operate names ONE host (exit 5 APP_KEY_SCOPE_HOST_CONFLICT: revoke first); scope-write output never carries key material
-hadron app update <app-ref> [--name <n>] [--description <d> | --clear-description] [--system-prompt <p> | --system-prompt-file <path> | --clear-system-prompt] [--session-timeout-seconds <n>] [--yes]   # cli#1058: only the passed fields are sent (omitted = preserved; a clear is an explicit null, description/systemPrompt only); no flags = usage error; confirms the target + field NAMES (never the prompt text), --yes non-interactively; --json {app,id,urn,name,sessionTimeoutSeconds,status,changed}; a lost response is exit 7 "outcome unknown", sent once, never retried
+hadron app update <app-ref> [--name <n>] [--description <d> | --clear-description] [--session-timeout-seconds <n>] [--yes]   # cli#1058: only the passed fields are sent (omitted = preserved; a clear is an explicit null, description only); no flags = usage error; confirms the target + field NAMES (never field values), --yes non-interactively; --json {app,id,urn,name,sessionTimeoutSeconds,status,changed}; a lost response is exit 7 "outcome unknown", sent once, never retried
 hadron ai-config list [--app <ref>] [--agent <id>] [--with-endpoints] | get <id> | endpoints <provider> | create (--app|--agent|--org <ref>) --name <n> --provider <p> --model <m> [--endpoint <url>] [--api-key -] [--file <path>] | update <id> [--endpoint <url|"">] ... | rm <id>
 hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <org-ref> | update <id> | rm <id> | member list|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug> | set-active|use <orgRef> [--no-verify]   # "" clears; the active org is what --scope global resolves against
 hadron scope list [--owner-org <ref> | --owner-app <ref> | --owner-agent <ref>] [--name <n>] | get <name|id> [--by-name] | create <name> (--owner-org|--owner-app|--owner-agent <ref>) -m <memory>… [--description <d>] | update <name|id> [--by-name] [--name <new>] [-m <memory>…] [--description <d>] | rm <name|id> [--by-name] [--yes] | explain <name|id> [--by-name] [--loc <address>] | set-active|use <name|id|app|global> [--no-verify]   # "" clears; applied when search omits --scope, and reported as scope.selectedBy="config". a NAME needs an App context (--app or the active App); an ID never does. --description cannot clear.
-hadron agent compile <agent> [--no-set-pointer] | list [--org <id> | --owned-by-me] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-prompt <p>|--system-prompt-file <path>] [--system-memory <id>] [--surface <s>]… [--persona-role <r>] | update <id> [<field flags>] [--tasks-index <node-ref> | --processes-index <node-ref>] (explicit empty clears) | rm <id> --yes | tasks list <agentRef> [--symptom <text> [--limit N]] (experimental, hadron-server#2421: up to 3 tasks matched on the abstract, adds MATCHED BY VECTOR/KEYWORD/BOTH and `matchedBy` in --json; --limit is ignored without --symptom, sent as given, server rules) | processes list <agentRef> | set-base <agent> (<base> | --clear) | set-boot-prompt <agent> (<node-ref> [-m <memory>] | --clear)
+hadron agent compile <agent> [--no-set-pointer] | list [--org <id> | --owned-by-me] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-memory <id>] [--surface <s>]… [--persona-role <r>] | update <id> [<field flags>] [--tasks-index <node-ref> | --processes-index <node-ref>] (explicit empty clears) | rm <id> --yes | tasks list <agentRef> [--symptom <text> [--limit N]] (experimental, hadron-server#2421: up to 3 tasks matched on the abstract, adds MATCHED BY VECTOR/KEYWORD/BOTH and `matchedBy` in --json; --limit is ignored without --symptom, sent as given, server rules) | processes list <agentRef> | set-base <agent> (<base> | --clear) | set-boot-prompt <agent> (<node-ref> [-m <memory>] | --clear)
 hadron agent clone <source> --to <org> [--name N] [--slug S]   # one server clone mutation into an organization you administer; new PERSONAL draft with its own system-memory copy, links/imports retained; linked memories stay links. Source must be PUBLIC or managed in its own org. Text prints returned NEW URN; --json normal Agent DTO, no origin field. No install/subscription second CLI step, manual-copy fallback or automatic retry. Clone refusals preserve server code/reason/retryable and blocker counts/positions/optional supplied names, never enrich hidden subjects; source-changed retryable metadata does not retry. A lost answer is UNKNOWN (exit7): verify before cloning again. Requires server cloneAgent S1; older providers reject as schema skew.
 hadron team init [--app <ref> | -m <team-memory>] (uses --app, the context, or the binding)
-hadron team worker cast --name <n> (--role <role> | --agent <ref>) [--prompt-override <text>] [--dry-run] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | update <name-or-id> [--signature <text>] [--trailer <text>] [--prompt-override <text> | --clear-prompt-override] | set-reports-to <worker> (<target> | --clear) | set-boot-prompt <worker> (<node-ref> [-m <memory>] | --clear) | release <name-or-id> [--yes] | retire <name-or-id> --yes | rm <name-or-id> --yes
+hadron team worker cast --name <n> (--role <role> | --agent <ref>) [--dry-run] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | update <name-or-id> [--signature <text>] [--trailer <text>] | set-reports-to <worker> (<target> | --clear) | set-boot-prompt <worker> (<node-ref> [-m <memory>] | --clear) | release <name-or-id> [--yes] | retire <name-or-id> --yes | rm <name-or-id> --yes
 hadron team worker onboard --name <worker> --host <id> --repo <token> --branch <branch> --label <label> --family <family> --worktrees-root <absolute-path> --config <router.json> [--base main] [--display-name <text>] [--coordinator] [--apply] [--as-person] [--timeout 2m]   # Orca-hosted workers only; dry-run by default, submits nothing; --family is compared and queued as the server's canonical family (anthropic=claude, openai=codex, case/space folded; custom tokens stay themselves); prerequisites and partial-outcome contract below
 hadron team role list [--team-agent <ref>] (uses --app or the binding) | get <role> [--team-agent <ref>] | create <role> [--description <d>] [--team-agent <ref>] | update <role> --description <d> | rm <role> [--yes]
 hadron team session start (--as <worker> | --launch-grant <g>) [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--reports-to <worker>] [--force] | start [--session <id>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>]   (no worker named: RESUME, cli#842) | whoami [--check] | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [--model <m>] [-m <team-memory>] | end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>] [--resume-claim] | resume-claim [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>] | sync-model [--hook] | set-model [<model>] [--family <token>]
@@ -1954,17 +1954,12 @@ Conventions:
   shape is unchanged otherwise: `appRef` (what you passed, an ID or a URN),
   `status` (`installed`/`failed`/`unknown`), `error` on the latter two, and the
   server-resolved `appId`/`appUrn` on success only. Optional
-  `--type`/`--visibility`/`--description`/`--system-prompt`/
-  `--system-memory`/`--surface` (repeatable). The shared `systemPrompt` is the
-  Agent prompt and the Worker `{{name}}`/`{{role}}` template. It accepts
-  `--system-prompt-file <path>` for multiline text or `--system-prompt -` from
-  piped stdin; inline and file flags are mutually exclusive. A terminal read
-  with `-` is refused (exit 2, #648). Prefer a file for templates containing
-  backticks, shell syntax, and braces. The retired `--persona-prompt` and
-  `--persona-prompt-file` flags fail locally with exit 2 and point to the
-  system-prompt flags, before any server request. Agent `--json` no longer
-  emits `personaPrompt`: the server removed that field, and `systemPrompt`
-  now contains the shared template. `agent update <ref> [<field flags>]`
+  `--type`/`--visibility`/`--description`/`--system-memory`/`--surface`
+  (repeatable) and `--persona-role` configure metadata. A new Agent starts
+  without a prompt: write `boot:source` (role `boot-prompt`) in its system
+  memory, then run `hadron agent compile` and `hadron node approve`.
+  Retired prompt flags do not write prompts. Agent JSON omits the retired
+  literal prompt fields. `agent update <ref> [<field flags>]`
   changes only the fields you pass (`--surface` replaces the set); `agent rm <ref>`
   requires `--yes`. `<ref>` is an agent ID **or** a fully-qualified URN
   (`hrn:agent:acme.com:support-bot`) — no need to resolve an ID first. Memory-attach, AI-config wiring, and app-wiring land next.
@@ -2062,11 +2057,8 @@ Conventions:
   worker is the NAMED CASTING of an installed agent into the App
   (`cor:dmo:050:11`): "Iris" is the backend-engineer agent cast into the
   eng-team App, re-driven across many sessions by the same or a different
-  human. The agent carries `personaRole` metadata plus one shared
-  `systemPrompt` TEMPLATE with `{{name}}`/`{{role}}` placeholders, set at
-  `agent create` or edited via `agent update` (`--persona-role` and
-  `--system-prompt` or `--system-prompt-file <path>` / `--system-prompt -`);
-  the name lives on the Worker, never the agent. Commands take the worker's
+  human. The agent carries `personaRole` metadata and a compiled boot-prompt
+  pointer; the name lives on the Worker. Commands take the worker's
   name (resolved within the App from `--app`, the App context, or the binding), its URN, or its
   id. A NAME with no App scope at all — outside a worktree, no `--app`, no
   App context — refuses **exit 4** naming the remedy (`#464`); before that it
@@ -2119,8 +2111,7 @@ Conventions:
   reader who wanted the briefing nothing while looking like an answer.
   `worker get <ref>` is the prompt surface and is unchanged. This is a
   deliberate breaking change to a documented `--json` key, taken while the
-  surface is young; `promptOverride` stays on the roster, being the short
-  per-worker override rather than the composed briefing.
+  surface is young. The retired prompt override key is also omitted.
   `team worker cast` mints one in ONE platform call (`castWorker`): the
   server resolves the agent (`--agent`, which must name an agent installed
   in THIS App — `WORKER_AGENT_NOT_INSTALLED` **exit 2, not 4**: the ref
@@ -2150,7 +2141,9 @@ Conventions:
   before any call (`--dry-run` included); the server's own refusal,
   `WORKER_ROLE_OVERRIDE_REFUSED`, is also exit 2 and its message names the
   agent's role. `--role` alone and `--agent` alone are unchanged.
-  `--prompt-override` layers per-worker individuality over the template.
+  Per-worker sources use `boot:workers:<id>:source` (role `boot-prompt`)
+  in the App install memory; use `hadron team worker compile <worker>`, then
+  `hadron node approve <compiled-node-ref>` before serving.
   Because `--role` resolves an AGENT and consults no role DEFINITION, a
   successful `--role` cast whose role has no `team role` definition prints a
   note on **stderr** (#542) — the divergence is created here, and stderr keeps
@@ -2160,14 +2153,14 @@ Conventions:
   EXACT resolution — same arguments, same typed refusals — up to but not
   including the writes, and shows what would be created: the
   name, the resolved agent (ids in `--json`), the composed boot
-  prompt, and a warning when the template never binds `{{name}}`. A refusal
+  prompt. A refusal
   on the dry run IS the answer that the real cast would refuse the same
   way. The preview RESERVES NOTHING (no lease exists): a previewed name may
   be gone at cast time — the cast's uniqueness constraint stays the only
   allocation primitive.
   **`team role list|get`** (#403, `teamRoles`) reads the App's role
   definitions: the role, its loc/nodeId, the description, the resolved role
-  agent, and the `{{name}}`-placeholder check. **The register projection is
+  agent. **The register projection is
   GONE** (hadron-server#1050): `register`, `freeCount`, `exhausted`,
   `nameRange` and `nameConvention` are removed from the `--json` shape
   rather than emitted empty, because a permanent `[]`/0 would keep promising
@@ -2222,24 +2215,8 @@ Conventions:
   touched: `app agent remove <app> <agent> --yes`, then `agent rm <agent>
   --yes`.
   Names bind **forever** per App (`cor:agt:020:02`, case-insensitive):
-  **`worker update <name-or-id>`** amends the casting's `promptOverride` —
-  the individuality layered over the SHARED role template (#452,
-  `updateWorker`). Until it existed the override could only be set at cast
-  time, and neither escape hatch covered a change of mind: the role agent's
-  `systemPrompt` is shared by every casting of that role, and re-casting is
-  barred by `WORKER_IN_USE` once a worker has done work. Scope is that ONE
-  field — a name is permanent per App (`cor:agt:020:02`) and role/agent define
-  the casting.
-  It REPLACES rather than appends: to extend an override, read the current one
-  (`worker get` prints it under "Prompt override") and pass the whole amended
-  text. Do NOT paste the composed boot briefing back in — that folds the shared
-  template into the override and prepends it again on every render.
-  An empty `--prompt-override` is REFUSED; use `--clear-prompt-override` to
-  remove one deliberately (the server treats a blank string as a clear, so an
-  unset shell variable would otherwise wipe it silently). A retired worker
-  refuses with `WORKER_RETIRED`, exit 5 — an override is briefing text
-  delivered at bind time, so the edit could never reach anyone. The receipt
-  prints the RE-RENDERED briefing, which is what a bind actually delivers.
+  **`worker update <name-or-id>`** edits signature and trailer templates.
+  For boot customisation use the worker source and compile workflow above.
   **`--signature` / `--trailer`** (cli#916 C4, `cor:agt:040:04`) replace the
   worker's raw signature and commit-trailer TEMPLATES (`{{worker.name}}`-style
   variables, rendered into the next briefing; nothing already delivered
@@ -2248,7 +2225,7 @@ Conventions:
   it. App managers only; the length limit is the server's (exit 2). From a
   bound worktree these edits carry the worktree session, and a refusal exits 8
   with the server's sentence plus a hedged note to retry from an unbound shell
-  (the bound-session rule is provisional). A prompt-only update is unchanged.
+  (the bound-session rule is provisional).
   `worker get` and every worker `--json` gain `signature` / `trailer`: a string
   (`""` = empty template) or `null` = WITHHELD (masked), never "empty".
   `worker retire` (requires `--yes`, idempotent) stops the worker and keeps
@@ -2388,7 +2365,7 @@ Conventions:
   beside `live`, because an age there reads as presence.
   **`hasLiveSession` is also the VISIBILITY SIGNAL for this row's working
   state.** It is `null` only when the read gate masked it — the same gate that
-  masks `heldByUserId`/`heldAt`/`memoryId`/`promptOverride` — and otherwise
+  masks `heldByUserId`/`heldAt`/`memoryId` — and otherwise
   `true`/`false`. So `hasLiveSession: null` means every other working-state
   null on that row is a mask and both columns render **`?`** — "not available
   to you", never "nobody" and never "idle". `?` rather than the `—` this table

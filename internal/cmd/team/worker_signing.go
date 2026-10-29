@@ -22,7 +22,7 @@ import (
 // nil is omitted on the wire (the server keeps the stored value) and a pointer
 // to "" is an explicit empty string. Null is never sent.
 type signingEdit struct {
-	override, signature, trailer *string
+	signature, trailer *string
 }
 
 func optionalFlag(set bool, v string) *string {
@@ -30,19 +30,6 @@ func optionalFlag(set bool, v string) *string {
 		return nil
 	}
 	return &v
-}
-
-// overrideEdit: on this operation a clear is an explicit "" (the server's
-// blank-clears rule), since omitempty cannot carry a null.
-func overrideEdit(set, clear bool, v string) *string {
-	switch {
-	case set:
-		return &v
-	case clear:
-		empty := ""
-		return &empty
-	}
-	return nil
 }
 
 const boundSigningHint = "note: this edit was sent from your bound worker session; if you manage this App, an edit made through a worker session may be what was refused — try from an unbound shell"
@@ -109,7 +96,7 @@ func updateWorkerSigning(cmd *cobra.Command, f *cmdutil.Factory, client graphql.
 	if session != "" {
 		ctx = api.WithSession(ctx, session)
 	}
-	resp, err := gen.UpdateWorkerSigning(ctx, client, workerID, e.override, e.signature, e.trailer)
+	resp, err := gen.UpdateWorkerSigning(ctx, client, workerID, e.signature, e.trailer)
 	if err != nil {
 		mapped := api.MapError(err)
 		// FORBIDDEN covers a non-manager AND a session-bound edit, and the CLI
@@ -154,12 +141,6 @@ func changedFields(e signingEdit) string {
 	}
 	if e.trailer != nil {
 		parts = append(parts, "trailer template")
-	}
-	switch {
-	case e.override != nil && *e.override == "":
-		parts = append(parts, "prompt override (cleared)")
-	case e.override != nil:
-		parts = append(parts, "prompt override")
 	}
 	return strings.Join(parts, ", ")
 }
