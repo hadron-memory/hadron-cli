@@ -5,7 +5,7 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 62 unbound
+[Query] 63 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
@@ -53,6 +53,7 @@ nodeUsage  # deprecated by server #986 — never wrap it; usageEvents(loc:) is t
 previewAutomation  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
 principalGrant
 quotaCounters
+registerRoleCandidates  # arrived with the cli#1176 schema refresh; no CLI parity filed yet
 renderRunNode
 resendSender
 resendSenders
@@ -69,9 +70,10 @@ verifyDecision  # server main schema refresh for cli#836; separate CLI parity ou
 verifyMemoryNodes  # cli#802 exposes per-node verifyNode; memory-wide integrity audit needs a separate memory verify command
 workerWakeSettings  # wake-surface v2; cli#828 tracks the paged attention surface, wake settings follow it
 
-[Mutation] 115 unbound
+[Mutation] 118 unbound
 acknowledgeWakes  # wake-surface v2 (cor:agt:080:16); cli#828 lane
 acquireEditorLock
+addAgentTaskBlocker  # arrived with the cli#1176 schema refresh; no CLI parity filed yet
 addAgentToApp
 addMemoryToAgent
 allocateSpecNode  # server schema refresh for cli#1087; spec-node allocation CLI parity is a separate issue
@@ -140,6 +142,7 @@ registerContextResetRecovery  # server#2162 context-reset host protocol; host ru
 releaseEditorLock
 removeAgentFromApp
 removeAgentImport
+removeAgentTaskBlocker  # arrived with the cli#1176 schema refresh; no CLI parity filed yet
 removeMemoryFromAgent
 repairAgentSystemMemory
 replaceSubtree  # server#1407: deprecated field; authorized calls return REPLACE_SUBTREE_RETIRED without writes
@@ -156,6 +159,7 @@ saveChatSummary
 sendChatMessage
 sendContactMessage
 setAgentAssetUploadEnabled
+setAgentTaskPriority
 setAiModelPrice
 setAppMemoryWriteGrant  # server#2484; separate App-memory grant CLI parity outside C3b
 setAppTickerSettings  # server ticker settings (named-heartbeats epic, in flight); CLI parity follows the surface settling
