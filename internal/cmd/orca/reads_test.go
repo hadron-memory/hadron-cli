@@ -179,3 +179,39 @@ func TestSubscriptionsRepeatedCursorStopsAtOnce(t *testing.T) {
 		t.Fatalf("repeated cursor made %d requests, err %v", n, err)
 	}
 }
+
+// BLIND delta P2-1: with several tick reasons anchorAt cannot say which
+// ticker it ages, so each ticker is aged by its own lastTickAt (an old tick of
+// ticker A must not age the fresh tick of ticker B).
+func TestDueTicksSeveralTicksUseEachTickersOwnTime(t *testing.T) {
+	g, _ := graphFixture(t, map[string]string{"DueTickWakes": `{"data":{"dueWakes":{"status":"OK","wakes":[
+	  {"worker":{"id":"w_j"},"anchorAt":"2026-10-29T10:00:00Z","reasons":[
+	    {"kind":"TICK","ticker":{"id":"tkA","name":"a","lastTickAt":"2026-10-29T10:00:00Z"}},
+	    {"kind":"TICK","ticker":{"id":"tkB","name":"b","lastTickAt":"2026-10-29T16:30:00Z"}}]}],
+	  "pageInfo":{"hasNextPage":false,"endCursor":null}}}}`})
+	got, err := g.DueTicks(context.Background(), []string{"w_j"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range got["w_j"] {
+		if d.TickerID == "tkB" && !d.DueAt.Equal(time.Date(2026, 10, 29, 16, 30, 0, 0, time.UTC)) {
+			t.Fatalf("ticker B aged by ticker A's anchor: %v", d.DueAt)
+		}
+	}
+}
+
+// BLIND delta P2-2: a merged or multi-tick wake whose ticker has no
+// lastTickAt has lost its age evidence; that is an error, not "idle".
+func TestDueTicksMissingLastTickAtFailsClosed(t *testing.T) {
+	for name, reasons := range map[string]string{
+		"merged": `{"kind":"MENTION","ticker":null},{"kind":"TICK","ticker":{"id":"tk5","name":"b","lastTickAt":null}}`,
+		"multi":  `{"kind":"TICK","ticker":{"id":"tk4","name":"a","lastTickAt":null}},{"kind":"TICK","ticker":{"id":"tk5","name":"b","lastTickAt":"2026-10-29T16:30:00Z"}}`,
+	} {
+		g, _ := graphFixture(t, map[string]string{"DueTickWakes": `{"data":{"dueWakes":{"status":"OK","wakes":[
+		  {"worker":{"id":"w_j"},"anchorAt":"2026-10-29T10:00:00Z","reasons":[` + reasons + `]}],
+		  "pageInfo":{"hasNextPage":false,"endCursor":null}}}}`})
+		if _, err := g.DueTicks(context.Background(), []string{"w_j"}); err == nil {
+			t.Errorf("%s: missing lastTickAt read as success", name)
+		}
+	}
+}

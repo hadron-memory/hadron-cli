@@ -141,16 +141,12 @@ func (g graphReads) DueTicks(ctx context.Context, workerIDs []string) (map[strin
 				return nil, errors.New("due wakes: bad anchorAt")
 			}
 			// anchorAt is the earliest waiting reason of ANY kind. It is a tick's
-			// age only when every reason is a tick; in a merged wake (an old
-			// mention beside a fresh tick) it would age the tick, so the
-			// ticker's own tick time stands in: the youngest bound, which can
-			// never raise a false dark.
-			tickOnly := true
-			for _, r := range w.Reasons {
-				if r == nil || r.Kind != gen.WakeKindTick {
-					tickOnly = false
-				}
-			}
+			// age only when the wake holds exactly one reason and it is a tick;
+			// beside a mention, or beside another ticker's tick, it would age
+			// the tick, so the ticker's own tick time stands in: the youngest
+			// bound, which can never raise a false dark. A tick without that
+			// time has lost its age evidence, which is an error, not "idle".
+			tickOnly := len(w.Reasons) == 1 && w.Reasons[0] != nil && w.Reasons[0].Kind == gen.WakeKindTick
 			for _, r := range w.Reasons {
 				if r == nil || r.Kind != gen.WakeKindTick || r.Ticker == nil {
 					continue
@@ -158,7 +154,7 @@ func (g graphReads) DueTicks(ctx context.Context, workerIDs []string) (map[strin
 				at := due
 				if !tickOnly {
 					if r.Ticker.LastTickAt == nil {
-						continue
+						return nil, errors.New("due wakes: merged tick without lastTickAt")
 					}
 					if at, err = time.Parse(time.RFC3339, *r.Ticker.LastTickAt); err != nil {
 						return nil, errors.New("due wakes: bad lastTickAt")
