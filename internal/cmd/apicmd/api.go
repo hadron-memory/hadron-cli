@@ -42,14 +42,17 @@ strings. An id-typed ref such as memory(ref:) takes a memory id or URN
 pipe, or use --input <file>. "-" is refused when standard input is an
 interactive terminal, which can silently cut a long document short.
 
-The output is the server's JSON response, with or without --json. Read the
-exit code as well as the JSON:
+When the server answers normally (HTTP 200), the output on stdout is its
+JSON response, with or without --json. When it refuses with an HTTP error
+status (400 or above), nothing is printed on stdout: the status and the
+server's message go to stderr as the error (inside the CLI's JSON error
+with --json). Read the exit code as well as the output:
   0  the server answered with no errors. A record you cannot see, or that
      does not exist, usually comes back as null with exit 0: check the data
      (signed out, 'me' is null too).
-  3, 4, 8 and others: the response carries GraphQL errors (3 not signed in,
-     4 not found or not visible to you, 8 forbidden). The JSON, with its
-     "errors", is still printed.
+  3, 4, 8 and others: the server reported errors (3 not signed in, 4 not
+     found or not visible to you, 8 forbidden). On an HTTP 200 answer the
+     JSON, with its "errors", is still printed on stdout.
   2  the document is not valid GraphQL for this server (a typo, an unknown
      field): nothing ran, and the server's message is printed as the error.
   7  the server never answered (unreachable, a gateway error, a timeout).
@@ -67,7 +70,7 @@ The full table is in 'hadron agentic-usage'.`,
   cat op.graphql | hadron api -
 
   # WRITES: a mutation runs for real, with no confirmation
-  hadron api 'mutation($id: String!, $d: String!) { updateNode(input: {id: $id, description: $d}) { id description } }' -F id=<node-id> -F d="New description"`,
+  hadron api 'mutation($id: String!, $d: String!) { updateNode(input: {id: $id, description: $d}) { id description } }' -F id='<node-id>' -F d="New description"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			query, err := readQuery(args, inputFile, f.IOStreams.In, f.IOStreams.IsInputTerminal())
