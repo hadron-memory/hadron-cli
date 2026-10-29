@@ -257,8 +257,11 @@ With delivery.enabled (and orca_bin), each poll also reads this host's
 ready chat batches (the key needs attention:deliver too) and types each
 into its worker's agent terminal, only into an empty composer, then
 acknowledges it. A key without attention:deliver turns delivery off for the
-run (a delivery-off event); operations carry on. Tick and task wakes are
-not delivered yet (hadron-cli#906). A held delivery is not reported to the
+run (a delivery-off event); operations carry on. It also reads this host's
+due tick and task wakes (dueWakes) and types each as one line through the
+same path, then hands its proof back (hadron-cli#1178). A wake that names
+channels or a mention is typed once and acknowledged only once it no longer
+does. A held delivery is not reported to the
 server yet (hadron-cli#940): it raises no server alarm, and team host
 status shows it as UNREPORTED.
 
@@ -434,7 +437,19 @@ type hostDeliveryWorkerDTO struct {
 	// Unreported: the last event was a hold the server was not told about
 	// (cli#940): no server hold, alarm or escalation exists for it.
 	Unreported bool `json:"unreported"`
+	// LastAgeSeconds is the last event's age at this read (cli#1178).
+	LastAgeSeconds int64 `json:"lastAgeSeconds"`
+	// HeldSince is when the worker's current run of holds began, null when
+	// none is outstanding; only a delivery or reconciliation ends one.
+	// HeldOver30m flags a run older than heldTooLong.
+	HeldSince   *string `json:"heldSince"`
+	HeldOver30m bool    `json:"heldOver30m"`
 }
+
+// heldTooLong is when `team host status` flags a worker's run of holds
+// (cli#1178): the #2746 class held workers for two days with no readable
+// reason.
+const heldTooLong = 30 * time.Minute
 
 // hostDeliveryStatus builds the delivery block from local state only.
 func hostDeliveryStatus(cfg *hostpoller.Config, now time.Time) hostDeliveryDTO {
@@ -474,7 +489,12 @@ func hostDeliveryStatus(cfg *hostpoller.Config, now time.Time) hostDeliveryDTO {
 	for _, id := range sortedKeys(st.Workers) {
 		w := st.Workers[id]
 		last := w.At.UTC().Format(time.RFC3339)
-		row := hostDeliveryWorkerDTO{Worker: w.Name, WorkerID: id, LastKind: string(w.Kind), LastReason: w.Reason, LastAt: &last, ResolvedBy: w.ResolvedBy, Unreported: w.Unreported}
+		row := hostDeliveryWorkerDTO{Worker: w.Name, WorkerID: id, LastKind: string(w.Kind), LastReason: w.Reason, LastAt: &last, ResolvedBy: w.ResolvedBy, Unreported: w.Unreported,
+			LastAgeSeconds: max(int64(now.Sub(w.At)/time.Second), 0)}
+		if w.HeldSince != nil {
+			since := w.HeldSince.UTC().Format(time.RFC3339)
+			row.HeldSince, row.HeldOver30m = &since, now.Sub(*w.HeldSince) > heldTooLong
+		}
 		if list, err := recs.List(id); err == nil {
 			row.ConfirmedUnacked = len(list)
 		}
@@ -522,8 +542,15 @@ func writeHostDelivery(w io.Writer, d hostDeliveryDTO) {
 		if wk.Unreported {
 			unreported = ", UNREPORTED: no server hold, alarm or escalation"
 		}
-		fmt.Fprintf(w, "  %s: %s %s (%s)%s at %s, confirmed-unacked %d, ticks typed-unacked %d, resolved by %s\n",
-			wk.Worker, wk.LastKind, wk.LastReason, wk.LastFor, unreported, *wk.LastAt, wk.ConfirmedUnacked, wk.TicksUnacked, orDash(wk.ResolvedBy))
+		held := ""
+		switch {
+		case wk.HeldOver30m:
+			held = ", HELD OVER 30m: no delivery since " + *wk.HeldSince
+		case wk.HeldSince != nil:
+			held = ", held since " + *wk.HeldSince
+		}
+		fmt.Fprintf(w, "  %s: %s %s (%s)%s at %s (%s ago)%s, confirmed-unacked %d, ticks typed-unacked %d, resolved by %s\n",
+			wk.Worker, wk.LastKind, wk.LastReason, wk.LastFor, unreported, *wk.LastAt, time.Duration(wk.LastAgeSeconds)*time.Second, held, wk.ConfirmedUnacked, wk.TicksUnacked, orDash(wk.ResolvedBy))
 	}
 }
 
@@ -548,7 +575,12 @@ nothing.
 
 Displayed host/app labels, worker rows, registration metadata and read errors
 replace controls with spaces and cap each value at 256 runes. Use --json for
-original values. This does not describe kept-worktree diagnostics.`,
+original values. This does not describe kept-worktree diagnostics.
+
+With delivery enabled it also shows the poller's local delivery snapshot:
+each worker's newest event (outcome, reason code, time and age), when its
+current run of holds began, and HELD OVER 30m once that run is older than
+30 minutes without a delivery. Codes only: no text, draft or proof.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, _, srv, err := loadHostPoller(f, configPath)
