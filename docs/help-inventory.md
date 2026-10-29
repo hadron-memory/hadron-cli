@@ -486,31 +486,31 @@ section between the markers.
 <!-- group:1184 start -->
 | path | aliases | generated | has-examples | child | evaluator | result | finding |
 |---|---|---|---|---|---|---|---|
-| `automation` | automations |  | n | #1184 |  | unread |  |
-| `automation approval` |  |  | y | #1184 |  | unread |  |
-| `automation approve` |  |  | y | #1184 |  | unread |  |
-| `automation decline` |  |  | y | #1184 |  | unread |  |
-| `automation list` | ls |  | y | #1184 |  | unread |  |
-| `billing` |  |  | n | #1184 |  | unread |  |
-| `billing balance` |  |  | y | #1184 |  | unread |  |
-| `billing ledger` |  |  | y | #1184 |  | unread |  |
-| `billing prices` |  |  | y | #1184 |  | unread |  |
-| `calendar` |  |  | n | #1184 |  | unread |  |
-| `calendar event` |  |  | n | #1184 |  | unread |  |
-| `calendar event get` |  |  | n | #1184 |  | unread |  |
-| `calendar events` |  |  | n | #1184 |  | unread |  |
-| `calendar freebusy` |  |  | n | #1184 |  | unread |  |
-| `calendar list` | ls |  | n | #1184 |  | unread |  |
-| `drive` |  |  | n | #1184 |  | unread |  |
-| `drive export` |  |  | n | #1184 |  | unread |  |
-| `drive get` |  |  | n | #1184 |  | unread |  |
-| `drive list` | ls |  | n | #1184 |  | unread |  |
-| `email` |  |  | n | #1184 |  | unread |  |
-| `email connections` |  |  | n | #1184 |  | unread |  |
-| `ha` |  |  | n | #1184 |  | unread |  |
-| `ha get` | show |  | y | #1184 |  | unread |  |
-| `ha list` | ls |  | y | #1184 |  | unread |  |
-| `ha ops` |  |  | y | #1184 |  | unread |  |
-| `usage` |  |  | n | #1184 |  | unread |  |
-| `usage events` |  |  | n | #1184 |  | unread |  |
+| `automation` | automations |  | n | #1184 | Caspian | pass | [eval](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6504151303) |
+| `automation approval` |  |  | y | #1184 | Caspian | pass | [eval](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6504151303) |
+| `automation approve` |  |  | y | #1184 | Caspian | fail | [eval](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6504151303) |
+| `automation decline` |  |  | y | #1184 | Caspian | pass | [eval](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6504151303) |
+| `automation list` | ls |  | y | #1184 | Caspian | fail | [eval](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6504151303) |
+| `billing` |  |  | n | #1184 | Caspian | pass | [eval](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6504151303) |
+| `billing balance` |  |  | y | #1184 | Caspian | pass | [eval](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6504151303) |
+| `billing ledger` |  |  | y | #1184 | Caspian | pass | [eval](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6504151303) |
+| `billing prices` |  |  | y | #1184 | Caspian | fail | [eval](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6504151303) |
+| `calendar` |  |  | n | #1184 | Caspian | fail | [eval](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6504151303) [#1201](https://github.com/hadron-memory/hadron-cli/issues/1201) |
+| `calendar event` |  |  | n | #1184 | Caspian | pass | [eval](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6504151303) |
+| `calendar event get` |  |  | n | #1184 | Caspian | fail | [eval](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6504151303) [#1201](https://github.com/hadron-memory/hadron-cli/issues/1201) |
+| `calendar events` |  |  | n | #1184 | Caspian | fail | [eval](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6504151303) [#1201](https://github.com/hadron-memory/hadron-cli/issues/1201) |
+| `calendar freebusy` |  |  | n | #1184 | Caspian | fail | [eval](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6504151303) [#1201](https://github.com/hadron-memory/hadron-cli/issues/1201) |
+| `calendar list` | ls |  | n | #1184 | Caspian | fail | [eval](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6504151303) [#1201](https://github.com/hadron-memory/hadron-cli/issues/1201) |
+| `drive` |  |  | n | #1184 | Caspian | fail | [eval](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6504151303) [#1201](https://github.com/hadron-memory/hadron-cli/issues/1201) [#1203](https://github.com/hadron-memory/hadron-cli/issues/1203) |
+| `drive export` |  |  | n | #1184 | Caspian | fail | [eval](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6504151303) [#1201](https://github.com/hadron-memory/hadron-cli/issues/1201) |
+| `drive get` |  |  | n | #1184 | Caspian | fail | [eval](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6504151303) [#1201](https://github.com/hadron-memory/hadron-cli/issues/1201) |
+| `drive list` | ls |  | n | #1184 | Caspian | fail | [eval](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6504151303) [#1201](https://github.com/hadron-memory/hadron-cli/issues/1201) |
+| `email` |  |  | n | #1184 | Caspian | pass | [eval](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6504151303) [#1203](https://github.com/hadron-memory/hadron-cli/issues/1203) |
+| `email connections` |  |  | n | #1184 | Caspian | fail | [eval](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6504151303) [#1203](https://github.com/hadron-memory/hadron-cli/issues/1203) |
+| `ha` |  |  | n | #1184 | Caspian | fail | [eval](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6504151303) |
+| `ha get` | show |  | y | #1184 | Caspian | fail | [eval](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6504151303) |
+| `ha list` | ls |  | y | #1184 | Caspian | pass | [eval](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6504151303) |
+| `ha ops` |  |  | y | #1184 | Caspian | fail | [eval](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6504151303) |
+| `usage` |  |  | n | #1184 | Caspian | pass | [eval](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6504151303) |
+| `usage events` |  |  | n | #1184 | Caspian | fail | [eval](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6504151303) [#1203](https://github.com/hadron-memory/hadron-cli/issues/1203)  |
 <!-- group:1184 end -->
