@@ -162,20 +162,24 @@ func ReadPlainHTTPFault(h http.Header, r io.Reader, keep int) ([]byte, error) {
 // every other body: typed refusals and gateway pages keep their own handling.
 func PlainHTTPInternalFault(h http.Header, body []byte) error {
 	var b struct {
-		Code      string `json:"code"`
-		Error     string `json:"error"`
-		RequestID string `json:"requestId"`
-		RequestId string `json:"request_id"`
+		Code      any `json:"code"`
+		Error     any `json:"error"`
+		RequestID any `json:"requestId"`
+		RequestId any `json:"request_id"`
 	}
 	if json.Unmarshal(body, &b) != nil {
 		return nil
 	}
+	// Fields are any so a wrongly-typed id (a number, an object) cannot fail
+	// the decode and send a fault body down the raw-diagnostic path.
 	if b.Code != InternalServerErrorCode && b.Error != "server_error" {
 		return nil
 	}
-	id := SanitizeRequestID(b.RequestID)
+	id, _ := b.RequestID.(string)
+	id = SanitizeRequestID(id)
 	if id == "" {
-		id = SanitizeRequestID(b.RequestId)
+		alt, _ := b.RequestId.(string)
+		id = SanitizeRequestID(alt)
 	}
 	if id == "" && h != nil {
 		id = SanitizeRequestID(h.Get(requestIDHeader))

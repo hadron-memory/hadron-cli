@@ -122,6 +122,8 @@ func TestPlainHTTPInternalFault(t *testing.T) {
 		{"typed body", `{"error":"forbidden","code":"FORBIDDEN"}`, ""},
 		{"oauth server_error without id uses header", `{"error":"server_error","error_description":"secret"}`, "request id: h-7"},
 		{"oauth server_error hostile id uses header", `{"error":"server_error","error_description":"secret","request_id":"a\u001bb"}`, "request id: h-7"},
+		{"numeric requestId uses header", `{"error":"secret","code":"INTERNAL_SERVER_ERROR","requestId":123}`, "request id: h-7"},
+		{"object request_id uses header", `{"error":"server_error","error_description":"secret","request_id":{"a":1}}`, "request id: h-7"},
 		{"not json", `<html>`, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
