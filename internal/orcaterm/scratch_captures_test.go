@@ -77,7 +77,6 @@ func TestClaudeEmptyNeedsTheModeFooter(t *testing.T) {
 		"later segment ends on": "  ⏵⏵ something else entirely · notification on",
 		"truncated hint":        "  ⏵⏵ auto mode on (shift+tab",
 		"text after mode":       "  ⏵⏵ auto mode on trailing",
-		"empty mode phrase":     "  ⏵⏵  on",
 	} {
 		t.Run(name, func(t *testing.T) {
 			tail := []string{rule, "❯ ", rule}
@@ -103,6 +102,16 @@ func TestClaudeEmptyNeedsTheModeFooter(t *testing.T) {
 	} {
 		if !PromptLineIsEmpty([]string{rule, "❯ ", rule, footer}, "claude") {
 			t.Errorf("%q not judged empty", footer)
+		}
+	}
+}
+
+// The caller squashes whitespace runs, so an empty mode phrase cannot reach the
+// footer match through PromptLineIsEmpty; the regexp itself must still refuse it.
+func TestClaudeModeFooterNeedsAModePhrase(t *testing.T) {
+	for _, line := range []string{"⏵⏵  on", "⏵⏵ on", "⏵⏵ · on"} {
+		if claudeModeFooter.MatchString(line) {
+			t.Errorf("%q matched the mode footer", line)
 		}
 	}
 }

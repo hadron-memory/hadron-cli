@@ -51,7 +51,7 @@ var codexPlaceholders = map[string]bool{"Ask Codex to do anything": true}
 // permissions on · 1 shell", cli#1155), so the hint is optional and the mode
 // text must still end in " on". If Claude Code reshapes the line, every
 // Claude worker holds: fail closed.
-var claudeModeFooter = regexp.MustCompile(`^⏵⏵ \S.*? on(?: \(shift\+tab to cycle\))?(?: · .+)?$`)
+var claudeModeFooter = regexp.MustCompile(`^⏵⏵ [^·\s][^·]* on(?: \(shift\+tab to cycle\))?(?: · .+)?$`)
 
 func ruleIndexes(lines []string) []int {
 	var out []int
