@@ -288,18 +288,33 @@ const noOps = `{"data":{"collectHostOperations":[]}}`
 
 const noBatches = `{"data":{"deliveryBatches":{"batches":[],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}`
 
+const noWakes = `{"data":{"dueWakes":{"status":"OK","withheld":0,"dormant":[],"wakes":[],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}`
+
 // cli#907: with delivery on, each step also reads this host's batches, with
 // the host key and no session, and the status snapshot records the read.
 func TestTeamHostRunOnceReadsBatchesWithTheHostKey(t *testing.T) {
 	cfg := writeHostConfig(t, deliveryOn)
 	srv, calls := hostServerFake(t, map[string]string{
 		"RegisterHost": hostRegistrationAnswer, "CollectHostOperations": noOps, "DeliveryBatches": noBatches,
+		"DueWakes": noWakes,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "host", "run", "--once", "--config", cfg, "--server", srv.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("run --once: %v", err)
+	}
+	// cli#1178: with delivery on, the step also reads this host's due wakes,
+	// with the host key, and status records the wake read.
+	wakeRead := false
+	for _, c := range calls() {
+		wakeRead = wakeRead || c.op == "DueWakes"
+	}
+	if !wakeRead {
+		t.Errorf("no wake read: %+v", calls())
+	}
+	if d := hostStatusJSON(t, cfg).Delivery; d.WakeRead == nil || *d.WakeRead != "read" {
+		t.Errorf("status wakeRead %v", d.WakeRead)
 	}
 	var read *hostCall
 	for i, c := range calls() {
