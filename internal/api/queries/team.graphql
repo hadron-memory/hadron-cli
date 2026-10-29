@@ -1,8 +1,6 @@
 # `hadron team` — workers and sessions (Worker model, #428 / hadron-server#974).
 #
-# An Agent carries personaRole metadata and a shared {{name}}-templated
-# systemPrompt, edited via `agent update`. The named identity
-# ("Iris") is the WORKER: the casting of an installed Agent into an App
+# The named identity ("Iris") is the WORKER: the casting of an installed Agent into an App
 # (cor:dmo:050:11, cor:agt:020:01). A worker IS addressable — hrn:worker:<root>:<app-slug>:<slug>
 # (#991) — but the URN keys on a DERIVED, permanent slug, never on the name:
 # two names may legally slugify to one token ("Mary Jane"/"Mary-Jane"), so a
@@ -49,11 +47,8 @@ fragment WorkerFields on Worker {
   reportsTo { ...WorkerReportingRefFields }
   reportsToRetired
   role
-  # The resolved boot briefing: the agent's systemPrompt template with
-  # {{name}}/{{role}} bound, then promptOverride appended. Printed on cast and
-  # surfaced by `worker get` — it is what a session driver adopts.
+  # The served boot briefing, surfaced by `worker get` — it is what a session driver adopts.
   prompt
-  promptOverride
   # cli#916 C4: the raw signature and trailer templates ({{worker.name}} and
   # friends, unrendered). Working-state fields: NULL MEANS WITHHELD (masked for
   # a reader who may not see this worker's internals), never empty — an empty
@@ -84,8 +79,7 @@ fragment WorkerFields on Worker {
   # since when. A name is held by a PERSON and only an explicit release frees
   # one — no session end, idle window, expiry or reap does.
   #
-  # Both are MASKED TO NULL ON DENY, like prompt/promptOverride/memoryId. So a
-  # bare null means "unheld OR not visible to you" and must never be rendered
+  # Holder fields are masked to null on deny; a bare null means "unheld OR not visible to you" and must never be rendered
   # as "free" on its own. `hasLiveSession` below is what tells the two apart —
   # see the note there, and note that `worker release` still hedges, because
   # collapsing its classification is a separate change from rendering a column
@@ -131,7 +125,7 @@ fragment WorkerFields on Worker {
   # to null on deny and otherwise coalesces to `false` — a worker with no
   # sessions answers false, never null — so the ONLY null path is the read gate,
   # and it is the same `maySeeWorkerInternals(appId)` predicate that masks
-  # heldByUserId/heldAt/memoryId/promptOverride, memoized per request per App.
+  # heldByUserId/heldAt/memoryId, memoized per request per App.
   # Therefore, on a row where `hasLiveSession != null`, every other null here is
   # a genuine absence rather than a mask. Verified against
   # resolvers.worker.ts on hadron-server main @ e5c6ff2, and NOT yet stated as a
@@ -166,15 +160,12 @@ mutation CastWorker(
   $role: String
   # @genqlient(omitempty: true)
   $name: String
-  # @genqlient(omitempty: true)
-  $promptOverride: String
 ) {
   castWorker(
     appRef: $appRef
     agentRef: $agentRef
     role: $role
     name: $name
-    promptOverride: $promptOverride
   ) {
     ...WorkerFields
   }
@@ -327,10 +318,7 @@ query GetWorkerContinuity($ref: ID!) {
 # This mirrors TeamSessionFields, which already refuses ...WorkerFields for the
 # same reason and says so in its own comment. `worker get` remains the prompt
 # surface, which is what the shipped task nodes already tell readers.
-#
-# Deliberately KEEPS promptOverride: it is the short per-worker individuality
-# (#1010), not the composed briefing, and dropping it would widen the contract
-# break for no stated benefit.
+
 fragment WorkerRosterFields on Worker {
   id
   urn
@@ -347,7 +335,6 @@ fragment WorkerRosterFields on Worker {
   reportsTo { ...WorkerReportingRefFields }
   reportsToRetired
   role
-  promptOverride
   # Carried on the roster too, so the mismatch warning can name the worker the
   # caller probably meant without a third query. Same [] semantics as above.
   repos
@@ -977,7 +964,6 @@ fragment TeamRoleFields on TeamRole {
     name
     personaRole
   }
-  hasNamePlaceholder
 }
 
 query TeamRoles(
@@ -1012,22 +998,18 @@ query CastWorkerPreview(
   $role: String
   # @genqlient(omitempty: true)
   $name: String
-  # @genqlient(omitempty: true)
-  $promptOverride: String
 ) {
   castWorkerPreview(
     appRef: $appRef
     agentRef: $agentRef
     role: $role
     name: $name
-    promptOverride: $promptOverride
   ) {
     name
     role
     agentId
     agentName
     prompt
-    hasNamePlaceholder
   }
 }
 
@@ -1090,47 +1072,15 @@ mutation DeleteTeamRole(
   }
 }
 
-# Amend a casting's promptOverride after the fact (#452, server #1010/#1019).
-#
-# promptOverride could only be set at CASTING time, which fixed a casting's
-# individuality at the one moment nobody yet knows what makes it individual.
-# Neither escape hatch covered it: the role agent's systemPrompt is SHARED by
-# every casting of that role, and re-casting is barred by WORKER_IN_USE for any
-# worker that has done work — precisely the ones with an identity to record.
-#
-# NO omitempty on $promptOverride, deliberately, and unlike most optional
-# variables in this file. The clear path MUST put an explicit `null` on the
-# wire: omitting the field preserves the current override, so an omitempty here
-# would make `--clear-prompt-override` a silent no-op — the failure the
-# convention-field annotations on UpdateTeamRoleMeta exist to avoid, arriving on
-# a field whose whole point is that it can be removed.
-#
-# WorkerFields already selects both `prompt` and `promptOverride`, so the
-# receipt can show the RE-RENDERED briefing — what a session driver actually
-# adopts — without a second read.
-mutation UpdateWorker($workerRef: ID!, $promptOverride: String) {
-  updateWorker(workerRef: $workerRef, promptOverride: $promptOverride) {
-    ...WorkerFields
-  }
-}
-
-# cli#916 C4 (hadron-server#2120, cor:agt:040:04): the per-worker signature
-# and trailer templates, with the override when it rides the same call.
-# A SEPARATE operation from UpdateWorker, which keeps its explicit-null clear
-# unchanged. Here every field is presence-preserving: omitempty on the
-# optional pointer, so nil is OMITTED (the server preserves it) and &"" is an
-# explicit empty string (an empty template, or a cleared override). Null is
-# never sent: the server refuses a null signature/trailer (D2).
+# Signature and trailer templates; omitted fields remain unchanged.
 mutation UpdateWorkerSigning(
   $workerRef: ID!
-  # @genqlient(omitempty: true)
-  $promptOverride: String
   # @genqlient(omitempty: true)
   $signature: String
   # @genqlient(omitempty: true)
   $trailer: String
 ) {
-  updateWorker(workerRef: $workerRef, promptOverride: $promptOverride, signature: $signature, trailer: $trailer) {
+  updateWorker(workerRef: $workerRef, signature: $signature, trailer: $trailer) {
     ...WorkerFields
   }
 }

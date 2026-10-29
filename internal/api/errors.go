@@ -746,6 +746,21 @@ func DescendantCount(err error) int {
 
 func codeForExtension(code string) int {
 	switch {
+	// Install-memory target ownership changed while the native write acquired
+	// its locks: a state conflict, never a request to retry automatically.
+	case code == "INSTALL_TARGET_CHANGED":
+		return exitcode.Conflict
+	// Boot compile: explicit classifications precede generic suffix handling
+	// (GRANT_REQUIRED is an authority refusal, not a missing argument).
+	case code == "BOOT_PROMPT_COMPILE_NOT_PERMITTED" || code == "BOOT_PROMPT_GRANT_REQUIRED":
+		return exitcode.Forbidden
+	case code == "BOOT_PROMPT_TARGET_RETIRED" || code == "BOOT_PROMPT_NO_SOURCE" || code == "BOOT_PROMPT_SOURCE_INVALID" || code == "BOOT_PROMPT_INCLUDE_RETIRED" || code == "BOOT_PROMPT_INCLUDE_REVISION_UNAVAILABLE":
+		return exitcode.Conflict
+	case code == "BOOT_PROMPT_INCLUDE_UNAVAILABLE":
+		return exitcode.NotFound
+	case code == "BOOT_PROMPT_INCLUDE_CYCLE" || code == "BOOT_PROMPT_INCLUDE_TOO_DEEP" || code == "BOOT_PROMPT_INCLUDE_SOURCE_DISALLOWED" || code == "BOOT_PROMPT_INCLUDE_MALFORMED" || code == "BOOT_PROMPT_COMPILE_LIMIT_EXCEEDED":
+		return exitcode.Usage
+
 	// S1/R57 self delivery: stale session/proof requires a fresh binding/read.
 	case code == "WAKE_PROOF_STALE":
 		return exitcode.Conflict

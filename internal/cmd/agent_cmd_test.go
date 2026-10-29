@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -92,28 +91,6 @@ func TestAgentCreate(t *testing.T) {
 }
 
 // A role agent is born with role metadata and a shared Worker template.
-func TestAgentCreateWithSharedTemplate(t *testing.T) {
-	gql, captured := captureGraphQL(t, map[string]string{
-		"CreateAgent": `{"data":{"createAgent":` + agentJSON + `}}`,
-	})
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"agent", "create", "--org", "acme.com", "--name", "backend-engineer",
-		"--persona-role", "backend-engineer",
-		"--system-prompt", "You are {{name}}, the {{role}}.", "--json", "--server", gql.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	var vars map[string]any
-	_ = json.Unmarshal(captured["CreateAgent"], &vars)
-	if vars["personaRole"] != "backend-engineer" ||
-		vars["systemPrompt"] != "You are {{name}}, the {{role}}." {
-		t.Errorf("role and shared template must ride the create: %v", vars)
-	}
-	if _, exists := vars["personaPrompt"]; exists {
-		t.Errorf("removed personaPrompt argument reached the wire: %v", vars)
-	}
-}
 
 func TestAgentCreateUserOwnedOmitsOrg(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
@@ -274,7 +251,7 @@ func TestAgentGet(t *testing.T) {
 	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
 		t.Fatalf("agent JSON: %v", err)
 	}
-	if dto["id"] != "agt1" || dto["systemPrompt"] != "You are {{name}}, the {{role}}." {
+	if dto["id"] != "agt1" || dto["systemPrompt"] != nil {
 		t.Errorf("output: %s", out.String())
 	}
 	if _, exists := dto["personaPrompt"]; exists {
@@ -405,116 +382,14 @@ func TestAgentRmWithYes(t *testing.T) {
 // carries it verbatim, which is the whole point:
 // a prompt documenting CLI usage is full of backticks BY NATURE, and inline
 // they are command substitution the shell runs before hadron sees them.
-func TestAgentCreateSystemPromptFileCarriesHostileCharsVerbatim(t *testing.T) {
-	// A template that would be mauled inline: backtick command spans, {{name}}
-	// placeholders, a $VAR, quotes, an em-dash, and blank-line paragraph breaks.
-	prompt := "You are {{name}}, the {{role}}.\n\n" +
-		"Use `spec new` to allocate a citation and `hadron team worker cast` to staff.\n" +
-		"Never run $(rm -rf /) — obviously. Prices are in \"USD\".\n"
-	dir := t.TempDir()
-	path := filepath.Join(dir, "system.md")
-	if err := os.WriteFile(path, []byte(prompt), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	gql, captured := captureGraphQL(t, map[string]string{
-		"CreateAgent": `{"data":{"createAgent":` + agentJSON + `}}`,
-	})
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"agent", "create", "--org", "acme.com", "--name", "Specs Engineer",
-		"--persona-role", "specs-engineer", "--system-prompt-file", path, "--json", "--server", gql.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	var vars map[string]any
-	_ = json.Unmarshal(captured["CreateAgent"], &vars)
-	if vars["systemPrompt"] != prompt {
-		t.Errorf("the file must reach the server byte-for-byte:\n got %q\nwant %q", vars["systemPrompt"], prompt)
-	}
-}
 
 // --system-prompt - reads the template from stdin, so it can be piped or
 // heredoc'd rather than quoted.
-func TestAgentCreateSystemPromptFromStdin(t *testing.T) {
-	prompt := "You are {{name}}. Use `spec new`.\n"
-	gql, captured := captureGraphQL(t, map[string]string{
-		"CreateAgent": `{"data":{"createAgent":` + agentJSON + `}}`,
-	})
-	f, _ := testFactory(t)
-	f.IOStreams.In = strings.NewReader(prompt)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"agent", "create", "--org", "acme.com", "--name", "Specs Engineer",
-		"--system-prompt", "-", "--json", "--server", gql.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	var vars map[string]any
-	_ = json.Unmarshal(captured["CreateAgent"], &vars)
-	if vars["systemPrompt"] != prompt {
-		t.Errorf("stdin must reach the server verbatim: got %q", vars["systemPrompt"])
-	}
-}
 
 // --system-prompt-file has the identical shape (issue #541 asked for both).
-func TestAgentUpdateSystemPromptFile(t *testing.T) {
-	prompt := "System rules.\n\nBe terse.\n"
-	dir := t.TempDir()
-	path := filepath.Join(dir, "sys.md")
-	if err := os.WriteFile(path, []byte(prompt), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	gql, captured := captureGraphQL(t, map[string]string{
-		"UpdateAgent": `{"data":{"updateAgent":` + agentJSON + `}}`,
-	})
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"agent", "update", "agt1", "--system-prompt-file", path, "--server", gql.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	var vars map[string]any
-	_ = json.Unmarshal(captured["UpdateAgent"], &vars)
-	if vars["systemPrompt"] != prompt {
-		t.Errorf("systemPrompt = %q, want the file contents verbatim", vars["systemPrompt"])
-	}
-}
-
-func TestAgentUpdateSystemPromptExplicitEmptyClears(t *testing.T) {
-	gql, captured := captureGraphQL(t, map[string]string{
-		"UpdateAgent": `{"data":{"updateAgent":` + agentJSON + `}}`,
-	})
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"agent", "update", "agt1", "--system-prompt", "", "--server", gql.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	var vars map[string]any
-	_ = json.Unmarshal(captured["UpdateAgent"], &vars)
-	if value, present := vars["systemPrompt"]; !present || value != "" {
-		t.Fatalf("explicit empty system prompt must reach update (clear), got %v", vars)
-	}
-}
 
 // Inline and file for the same field are mutually exclusive, refused by cobra
 // before any request.
-func TestAgentSystemPromptInlineAndFileConflict(t *testing.T) {
-	gql, captured := captureGraphQL(t, map[string]string{})
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"agent", "create", "--org", "acme.com", "--name", "X",
-		"--system-prompt", "inline", "--system-prompt-file", "/tmp/whatever", "--server", gql.URL})
-	err := root.Execute()
-	if code := exitCodeFor(err); code != exitcode.Usage {
-		t.Fatalf("exit = %d, want Usage; err %v", code, err)
-	}
-	if len(captured) != 0 {
-		t.Errorf("a usage error must cost no round trip; sent %v", captured)
-	}
-	if err == nil || !strings.Contains(err.Error(), "system-prompt") {
-		t.Errorf("message should name the conflicting flag: %v", err)
-	}
-}
 
 func TestAgentRetiredPersonaPromptFlagsRefuseBeforeRequest(t *testing.T) {
 	for _, tc := range []struct {
@@ -546,7 +421,7 @@ func TestAgentRetiredPersonaPromptFlagsRefuseBeforeRequest(t *testing.T) {
 				if len(captured) != 0 {
 					t.Fatalf("retired flag must refuse before any request; sent %v", captured)
 				}
-				if err == nil || !strings.Contains(err.Error(), "--system-prompt") {
+				if err == nil || !strings.Contains(err.Error(), "boot:source") {
 					t.Fatalf("retired flag error must name replacement: %v", err)
 				}
 			})
@@ -556,23 +431,6 @@ func TestAgentRetiredPersonaPromptFlagsRefuseBeforeRequest(t *testing.T) {
 
 // An unreadable --system-prompt-file is a usage error naming the flag, before
 // any request — not a raw os error, and not a round trip.
-func TestAgentSystemPromptFileMissing(t *testing.T) {
-	gql, captured := captureGraphQL(t, map[string]string{})
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"agent", "create", "--org", "acme.com", "--name", "X",
-		"--system-prompt-file", filepath.Join(t.TempDir(), "nope.md"), "--server", gql.URL})
-	err := root.Execute()
-	if code := exitCodeFor(err); code != exitcode.Usage {
-		t.Fatalf("exit = %d, want Usage; err %v", code, err)
-	}
-	if len(captured) != 0 {
-		t.Errorf("must refuse before any request; sent %v", captured)
-	}
-	if err == nil || !strings.Contains(err.Error(), "system-prompt-file") {
-		t.Errorf("message should name the flag: %v", err)
-	}
-}
 
 // The -file flags are optional: not passing them changes nothing, and the
 // prompt fields stay omitted (preserve) exactly as before #541.
@@ -599,33 +457,6 @@ func TestAgentUpdateWithoutPromptFlagsOmitsThem(t *testing.T) {
 // Changed-but-empty. Without a guard, ResolveTextInput reads the empty path as
 // an empty value and `update` silently CLEARS the prompt. It must be a usage
 // error, before any request, on both update and create.
-func TestAgentSystemPromptFileEmptyPathRefused(t *testing.T) {
-	for _, tc := range []struct {
-		name string
-		args []string
-	}{
-		{"update", []string{"agent", "update", "agt1", "--system-prompt-file", ""}},
-		{"create", []string{"agent", "create", "--org", "acme.com", "--name", "X", "--system-prompt-file", ""}},
-		{"update whitespace", []string{"agent", "update", "agt1", "--system-prompt-file", "   "}},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			gql, captured := captureGraphQL(t, map[string]string{})
-			f, _ := testFactory(t)
-			root := NewRootCmd(f)
-			root.SetArgs(append(tc.args, "--server", gql.URL))
-			err := root.Execute()
-			if code := exitCodeFor(err); code != exitcode.Usage {
-				t.Fatalf("exit = %d, want Usage; err %v", code, err)
-			}
-			if len(captured) != 0 {
-				t.Errorf("must refuse before any request; sent %v", captured)
-			}
-			if err == nil || !strings.Contains(err.Error(), "empty path") {
-				t.Errorf("message should name the empty path: %v", err)
-			}
-		})
-	}
-}
 
 // ---- cli#874: the Agent's two index refs (cor:dmo:050:15 / :16) ----------
 //

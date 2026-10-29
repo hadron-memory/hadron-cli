@@ -3,6 +3,7 @@ package run
 import (
 	"github.com/spf13/cobra"
 
+	"github.com/hadron-memory/hadron-cli/internal/cmd/servedprompt"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 )
 
@@ -21,6 +22,7 @@ cost, and the kill switch.`,
 	cmd.AddCommand(newCmdTrigger(f))
 	cmd.AddCommand(newCmdLs(f))
 	cmd.AddCommand(newCmdGet(f))
+	cmd.AddCommand(servedprompt.NewRun(f))
 	cmd.AddCommand(newCmdCancel(f))
 	return cmd
 }

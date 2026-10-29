@@ -37,8 +37,6 @@ var agentAIConfigStdinCases = []struct {
 	args   []string
 	remedy string
 }{
-	{"agent create --system-prompt -", []string{"agent", "create", "--org", "acme.com", "--name", "Bot", "--system-prompt", "-"}, "--system-prompt-file <path>"},
-	{"agent update --system-prompt -", []string{"agent", "update", "agt1", "--system-prompt", "-"}, "--system-prompt-file <path>"},
 	{"ai-config create --file -", []string{"ai-config", "create", "--file", "-"}, "--file <path>"},
 }
 

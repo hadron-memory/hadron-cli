@@ -60,12 +60,18 @@ refuses as an XML tag (a "<" followed later by a ">" with at least one
 character between, such as <memory>); isRunnable is true; the body is non-empty and carries no
 frontmatter of its own; no two selected nodes ENABLE the same name for the same
 host (a declaration that is not enabled claims no name, cor:agt:030:06). Warnings: the declaration still uses a retired key; the description never
-says when to use the skill; the body contains a {{…}} placeholder, which export
-ships verbatim; a key under exports names no host (reported once, with no
+says when to use the skill; the stored body contains {{…}} template syntax (ordinary variables ship
+verbatim; include tags are resolved by the provider); a key under exports names no host (reported once, with no
 host — it is never read as an alias and never blocks a known host beside it).
 
 Note what cannot be checked: with no prefix source, a name's PREFIX is
 unverifiable — "hadon-foo" lints clean. Shape is checkable, correctness is not.
+
+The server also checks include resolution using your access and reports
+skill-include-broken warnings. Missing/deleted/unreadable include targets share
+a neutral warning; this client never diagnoses them by searching body text.
+This requires the S11d provider. It does not fetch rendered skill bodies or
+write files; provider failure does not become a clean lint result.
 
 Errors exit 5; warnings alone exit 0 unless --strict promotes them to errors.
 
@@ -124,8 +130,13 @@ listing by the server; lint it by naming it with -m.`,
 					acc.addUnhosted(fnd)
 				}
 			}
+			includeFindings, err := providerIncludeFindings(cmd.Context(), client, s.nodes)
+			if err != nil {
+				return err
+			}
 			// Initialized, never nil: a clean corpus is `[]` on --json, not `null`.
 			findings := append([]lintFindingDTO{}, acc.rows...)
+			findings = append(findings, includeFindings...)
 			for _, ref := range s.unavailable {
 				findings = append(findings, lintFindingDTO{Node: ref, Memory: "-", Rule: "skill-node-unavailable", Severity: skilldoc.SevWarning, Message: describeUnavailable(ref), Hosts: []string{}})
 			}
