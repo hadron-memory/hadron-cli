@@ -60,25 +60,40 @@ func TestPutBytesInternalFaultEnvelope(t *testing.T) {
 	assertFault(t, err)
 }
 
-// An envelope larger than the read cap must still be a fault, and the overflow
-// is never echoed (BLIND Greta, #1212).
-func TestOversizedInternalFaultEnvelope(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("X-Request-Id", "r-42")
-		w.WriteHeader(500)
-		_, _ = w.Write([]byte(`{"code":"INTERNAL_SERVER_ERROR","error":"` + strings.Repeat("secret stack ", 40000) + `"}`))
-	}))
-	t.Cleanup(srv.Close)
-	cmd := &cobra.Command{}
-	cmd.SetContext(t.Context())
-	_, err := streamTo(cmd, io.Discard, srv.URL)
-	assertFault(t, err)
-
-	src := filepath.Join(t.TempDir(), "a.txt")
-	if werr := os.WriteFile(src, []byte("hi"), 0o600); werr != nil {
-		t.Fatal(werr)
+// A body over the read cap is neither classified nor echoed: the code may sit
+// anywhere past the cap (Greta, Joost, Clark on #1212).
+func TestOversizedBodyIsNeverEchoedOrClassified(t *testing.T) {
+	pad := strings.Repeat("secret stack ", 40000)
+	for name, body := range map[string]string{
+		"code before the pad":           `{"code":"INTERNAL_SERVER_ERROR","error":"` + pad + `"}`,
+		"code after the pad":            `{"error":"` + pad + `","code":"INTERNAL_SERVER_ERROR"}`,
+		"typed code quoting the marker": `{"code":"FORBIDDEN","note":"INTERNAL_SERVER_ERROR","error":"` + pad + `"}`,
+	} {
+		for _, header := range []string{"r-42", ""} {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if header != "" {
+					w.Header().Set("X-Request-Id", header)
+				}
+				w.WriteHeader(500)
+				_, _ = w.Write([]byte(body))
+			}))
+			cmd := &cobra.Command{}
+			cmd.SetContext(t.Context())
+			_, gerr := streamTo(cmd, io.Discard, srv.URL)
+			src := filepath.Join(t.TempDir(), "a.txt")
+			if werr := os.WriteFile(src, []byte("hi"), 0o600); werr != nil {
+				t.Fatal(werr)
+			}
+			io2, _, _ := output.Test()
+			perr := putBytes(cmd, &cmdutil.Factory{IOStreams: io2}, src, 2, &gen.BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResult{PutUrl: srv.URL})
+			for _, err := range []error{gerr, perr} {
+				if err == nil || strings.Contains(err.Error(), "secret") || strings.Contains(err.Error(), "INTERNAL_SERVER_ERROR") || strings.Contains(err.Error(), "FORBIDDEN") {
+					t.Errorf("%s/%q: raw body leaked or no error: %v", name, header, err)
+				} else if !strings.Contains(err.Error(), "too large to show") {
+					t.Errorf("%s/%q: want the oversize note: %v", name, header, err)
+				}
+			}
+			srv.Close()
+		}
 	}
-	io2, _, _ := output.Test()
-	err = putBytes(cmd, &cmdutil.Factory{IOStreams: io2}, src, 2, &gen.BeginAssetUploadBeginAssetUploadV2BeginAssetUploadResult{PutUrl: srv.URL})
-	assertFault(t, err)
 }

@@ -1,7 +1,6 @@
 package api
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"io"
@@ -132,18 +131,24 @@ func classifyInternalFault(err error) (string, bool) {
 // or broken endpoint from being buffered whole.
 const plainFaultReadCap = 256 << 10
 
+// OversizedBodyNote stands in for a body the CLI refused to read whole.
+const OversizedBodyNote = "(response body too large to show)"
+
 // ReadPlainHTTPFault reads a non-2xx plain HTTP body (bounded) and returns the
-// internal-fault error for it, or nil with the leading bytes for the caller's
-// own diagnostic (at most keep bytes). A body larger than the cap that carries
-// a fault marker in its prefix is still a fault: the overflow is never echoed.
+// leading bytes for the caller's own diagnostic (at most keep bytes) and the
+// internal-fault error when the body is one (then no bytes).
+//
+// A body over the cap is never classified and never echoed: the code could sit
+// anywhere past the cap, so a marker in the prefix proves nothing (it may be a
+// typed refusal quoting the word), and any prefix could be fault text. The
+// caller gets OversizedBodyNote instead.
 func ReadPlainHTTPFault(h http.Header, r io.Reader, keep int) ([]byte, error) {
 	body, _ := io.ReadAll(io.LimitReader(r, plainFaultReadCap+1))
-	truncated := len(body) > plainFaultReadCap
+	if len(body) > plainFaultReadCap {
+		return []byte(OversizedBodyNote), nil
+	}
 	if fault := PlainHTTPInternalFault(h, body); fault != nil {
 		return nil, fault
-	}
-	if truncated && (bytes.Contains(body, []byte(`"`+InternalServerErrorCode+`"`)) || bytes.Contains(body, []byte(`"server_error"`))) {
-		return nil, NewInternalFaultError(SanitizeRequestID(h.Get(requestIDHeader)), nil)
 	}
 	if len(body) > keep {
 		body = body[:keep]
