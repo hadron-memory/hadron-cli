@@ -152,8 +152,14 @@ operations too.
 
 **Roll back:**
 
-1. Set `delivery.enabled: false`, or stop `team host run`.
-2. Restart `ticker-wake` per the host runbook. Again, never run both.
+1. Stop `team host run` (SIGTERM or Ctrl-C) and **wait for the process to
+   exit**. It reads its config only at start, so editing `delivery.enabled`
+   under a running poller changes nothing. On a stop signal it finishes
+   in-flight deliveries, each bounded, before it exits.
+2. Set `delivery.enabled: false`. If the host still needs its operations,
+   restart `team host run` with delivery off.
+3. Only then restart `ticker-wake` per the host runbook. Never run both
+   deliverers at once.
 
 The poller's records under `delivery/` stay. When delivery is switched on
 again, it reconciles from them and never retypes a line it confirmed.

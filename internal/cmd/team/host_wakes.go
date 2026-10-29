@@ -29,6 +29,9 @@ type (
 func (s *hostServer) Wakes(ctx context.Context) (hostpoller.WakePage, error) {
 	out := hostpoller.WakePage{Wakes: []delivery.Wake{}}
 	var after *string
+	// Every cursor seen: a repeat at any distance is a cycle (Joost's BLIND
+	// P2 on #1183), and refuses the read rather than paging forever.
+	seen := map[string]bool{}
 	for {
 		resp, err := gen.DueWakes(ctx, s.client, s.app, dueWakesPage, after)
 		if err != nil {
@@ -59,9 +62,10 @@ func (s *hostServer) Wakes(ctx context.Context) (hostpoller.WakePage, error) {
 			return out, nil
 		}
 		next := page.PageInfo.EndCursor
-		if next == nil || *next == "" || (after != nil && *after == *next) {
+		if next == nil || *next == "" || seen[*next] {
 			return hostpoller.WakePage{}, callError("wake-read", "no-cursor")
 		}
+		seen[*next] = true
 		after = next
 	}
 }
