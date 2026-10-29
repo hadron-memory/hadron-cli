@@ -45,28 +45,24 @@ func newCmdUpload(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "upload <file> -m <memory>",
 		Short: "Upload a file as an asset",
-		Long: `Upload a local file into a memory as an asset.
+		Long: `Upload a local file into a memory. Prints the stored filename, size and type,
+then the asset's URN on its own line: the other asset commands take that URN.
+--json prints the whole record.
 
-The upload is three steps: the server reserves the asset and returns a
-presigned URL, the bytes go straight to object storage, and a final call marks
-the asset usable. The size and MIME type are declared up front, so the size cap
-and MIME allowlist are enforced BEFORE any bytes move — a rejected upload costs
-one round-trip, not a full transfer.
+Accepted: files up to 25 MB (26,214,400 bytes) of these types: PDF, PNG, JPEG,
+WebP, plain text, Markdown, CSV, JSON, and Word, Excel and PowerPoint (.docx,
+.xlsx, .pptx). A larger file or another type is refused before the file is
+sent (exit 1), with the reason.
 
-The MIME type is derived from the file extension, falling back to content
-sniffing. Pass --mime when the file's extension lies or is absent; the server
-rejects a type outside its allowlist and names the type it expected.
+The type comes from the file extension, or from the content when the
+extension is unknown. Pass --mime when the extension is wrong or missing.
 
-If the upload fails after the bytes are sent, the asset is usually left
-reserved but not completed — it does not appear in "asset list" and can be
-re-uploaded.
-
-The malware scan is the exception, because it runs on that final step. A file
-that fails it leaves a BLOCKED record behind on purpose: the bytes are
-discarded, the row is kept for audit ("asset list --include-deleted" shows it
-with the engine signature), and re-uploading the same file fails the same way
-every time.`,
-		Example: `  hadron asset upload ./logo.png -m hrn:mem:acme.com:kb
+Every upload is scanned for viruses. A file that fails the scan is refused, its
+contents are discarded, and only a record of it is kept (status BLOCKED, shown
+by asset list --include-deleted); uploading the same file again fails the same
+way. If an upload fails for any other reason, nothing appears in asset list;
+run it again.`,
+		Example: `  hadron asset upload ./report.pdf -m hrn:mem:acme.com:kb
   hadron asset upload ./notes.md -m hrn:mem:acme.com:kb --description "meeting notes"
   hadron asset upload ./data -m hrn:mem:acme.com:kb --mime application/json --name data.json`,
 		Args: cobra.ExactArgs(1),

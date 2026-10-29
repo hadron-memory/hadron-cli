@@ -24,19 +24,31 @@ func NewCmdAsset(f *cmdutil.Factory) *cobra.Command {
 		Use:     "asset <command>",
 		Aliases: []string{"assets"},
 		Short:   "Upload, list, download, link, and delete files",
-		Long: `Work with assets — files uploaded against a memory.
+		Example: `  hadron asset upload ./report.pdf -m hrn:mem:acme.com:kb
+  hadron asset public-link hrn:asset:acme.com:kb:assets:01a189a840f4717c98af75cf4d7aed09 --on --yes
+  hadron asset url hrn:asset:acme.com:kb:assets:01a189a840f4717c98af75cf4d7aed09
+  hadron asset rm hrn:asset:acme.com:kb:assets:01a189a840f4717c98af75cf4d7aed09 --yes
+  hadron asset restore hrn:asset:acme.com:kb:assets:01a189a840f4717c98af75cf4d7aed09`,
+		Long: `Store files (PDFs, images, spreadsheets, text) in a memory, share them, and
+download them. A note is text the graph reads; an asset is a file it points at.
+Everyone who can read the memory can list and download its assets.
 
-An asset is bytes the graph points at, as opposed to a node, which is text the
-graph reasons over. Assets are held by a memory and inherit its read access:
-anyone who can read the memory can list and download its assets.
+Name an asset by its id or its URN (hrn:asset:<org>:<memory>:assets:<id>);
+upload prints the URN and list prints the id. Every command that names an asset
+takes either form, but asset url also needs the memory: give it the URN, or the
+id with -m <memory>.
 
-Assets are addressed by id or by URN. The URN carries its memory
-(hrn:asset:<root>:<memory>:assets:<id>), so a command that needs the holding
-memory can take a URN alone; with a bare id, pass -m.
+To share a file with people who have no Hadron account: upload it, switch its
+public link on (this prints the link; it needs admin access to the memory),
+and print the link again later with asset url. The examples below are that
+sequence. If no link is printed, asset url --help says why and what to do.
 
-Downloads are gated on virus scanning: an asset is fetchable only once its
-scan status is CLEAN. Deletion is soft — "asset restore" brings an asset back
-within its retention window.`,
+Deleting is reversible for 24 hours: asset rm hides the file, asset restore
+brings it back, and after 24 hours it is gone for good. asset list
+--include-deleted shows what can still be restored.
+
+Every upload is scanned for viruses; a file can be downloaded or shared only
+once its scan status is CLEAN.`,
 	}
 	cmd.AddCommand(newCmdList(f))
 	cmd.AddCommand(newCmdGet(f))

@@ -567,8 +567,10 @@ Conventions:
   same way. All three exit 1.
   `asset public-link <ref> --on|--off` records the anonymous-download switch.
   ON confirms “anyone with the link” (`--yes` for non-interactive callers);
-  OFF needs no confirmation. The server decides management authority; no local
-  role calculation or retry. The result and `asset list --json` expose
+  OFF needs no confirmation. The server decides management authority (today:
+  admin on the asset's memory; a refusal exits 8); no local role calculation or
+  retry. After OFF, or after `asset rm`, the hotlink 404s; ON again or
+  `asset restore` brings back the same URL. The result and `asset list --json` expose
   `publicLinkEnabled` (stored opt-in), `canManagePublicLink` (server capability),
   `publicLinkAvailable` (deployment gate), and nullable `publicUrl` independently.
   An ON flag does not prove anonymous serving: deployment gates and asset
@@ -581,13 +583,16 @@ Conventions:
   server reserves the asset and returns a presigned PUT, the bytes go straight
   to object storage, and a final call marks it usable. Size and MIME are
   declared UP FRONT, so the size cap and MIME allowlist reject a bad upload
-  before any bytes move — one round-trip, not a wasted transfer. The MIME type
+  before any bytes move — one round-trip, not a wasted transfer (exit 1). The
+  platform-wide limits: 25 MB (26,214,400 bytes); PDF, PNG, JPEG, WebP,
+  text/plain, text/markdown, text/csv, application/json, .docx, .xlsx, .pptx.
+  Success prints `uploaded <name> (<size>, <mime>)` then the asset URN. The MIME type
   comes from the extension, else content sniffing; `--mime` overrides when the
   extension lies. A failure after the PUT leaves the asset reserved but not
   completed: it does not appear in `asset list` and can simply be re-uploaded.
   Fresh uploads are `scanStatus: PENDING` and NOT downloadable until CLEAN.
   `asset rm` is a SOFT delete — restorable via `asset restore` within the
-  retention window, and visible meanwhile with `asset list --include-deleted` —
+  24-hour retention window (then purged; restore keeps the public-link setting), and visible meanwhile with `asset list --include-deleted` —
   so it prompts on a TTY and needs `--yes` non-interactively, but says
   "restorable" rather than "permanent". `asset link <ref> --node <new-node-urn>`
   creates a `nodeType: reference` node carrying the asset in `data.asset`, the
@@ -3187,6 +3192,10 @@ hadron node update hrn:node:acme.com:research:competitors:acme --properties '{"t
 # create validates against the schema; update is an atomic shallow MERGE (unlike
 # node --properties, which replaces); find desugars --match/--sort to the
 # where/sort-property grammar. Use it when you want records, not graph nodes.
+# find returns 20 by default (--limit up to 200); page with --offset until
+# "shown" reaches "total". {"f":null} keeps the key with a null value (drop a
+# key by replacing the bag: node update <ref> --properties). A soft delete is
+# undone by `node restore <id|urn>`; --hard is final.
 hadron object create -m hrn:mem:acme.com:research --type competitor \
   --fields '{"name":"Letta","stage":"series-a","fundingUsd":12000000}' --key letta
 hadron object update hrn:node:acme.com:research:competitor:letta --fields '{"stage":"series-b"}'
