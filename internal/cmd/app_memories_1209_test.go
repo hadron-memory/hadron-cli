@@ -227,3 +227,33 @@ func TestAppMemories1209EmptyPageRendersEmptyArray(t *testing.T) {
 		t.Errorf("empty page: %s", out.String())
 	}
 }
+
+// A null or missing page, a null row, a null source or a row without sources
+// is a broken answer (all are non-null / non-empty in the SDL): refused, never
+// printed as an empty scope. The genuine empty page above is the control.
+func TestAppMemories1209MalformedPageIsRefusedNotEmpty(t *testing.T) {
+	row := func(sources string) string {
+		return `{"data":{"appMemoryScope":{"total":1,"items":[{"memoryId":"m1","memoryUrn":"hrn:mem:acme.com:x","name":"X","class":"app","sources":` + sources + `,"viewerCanWrite":true}]}}}`
+	}
+	for name, resp := range map[string]string{
+		"null page":    `{"data":{"appMemoryScope":null}}`,
+		"missing page": `{"data":{}}`,
+		"null row":     `{"data":{"appMemoryScope":{"total":1,"items":[null]}}}`,
+		"null source":  row(`[null]`),
+		"no sources":   row(`[]`),
+	} {
+		t.Run(name, func(t *testing.T) {
+			url, _, _ := appMemoriesFake(t, resp)
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"app", "memories", "hrn:app:acme.com:eng-team", "--json", "--server", url})
+			err := root.Execute()
+			if code := exitCodeFor(err); code != exitcode.Error {
+				t.Errorf("exit %d, want Error; err %v", code, err)
+			}
+			if strings.Contains(out.String(), `"items"`) {
+				t.Errorf("a broken answer must not print a page: %s", out.String())
+			}
+		})
+	}
+}

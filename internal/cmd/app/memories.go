@@ -147,34 +147,40 @@ corpus at cor:dmo:050:17.`, memoriesMaxLimit, memoriesDefaultLimit),
 			if err != nil {
 				return api.MapError(err)
 			}
-			page := appMemoryScopePageDTO{Items: []appScopedMemoryDTO{}}
-			if resp != nil && resp.AppMemoryScope != nil {
-				page.Total = resp.AppMemoryScope.Total
-				for _, it := range resp.AppMemoryScope.Items {
-					if it == nil {
-						continue
-					}
-					row := appScopedMemoryDTO{
-						MemoryID:       it.MemoryId,
-						MemoryURN:      it.MemoryUrn,
-						Name:           it.Name,
-						Class:          string(it.Class),
-						Sources:        []appMemorySourceDTO{},
-						ViewerCanWrite: it.ViewerCanWrite,
-					}
-					ownSource := false
-					for _, s := range it.Sources {
-						if s == nil {
-							continue
-						}
-						row.Sources = append(row.Sources, appMemorySourceDTO{Kind: string(s.Kind), AgentID: s.AgentId})
-						if s.Kind != gen.AppMemorySourceKindInheritedBase {
-							ownSource = true
-						}
-					}
-					row.WriteTarget = row.ViewerCanWrite && ownSource
-					page.Items = append(page.Items, row)
+			// The page, its rows and their sources are all non-null in the SDL,
+			// and every row has at least one source. A missing piece is a broken
+			// answer, not an empty scope: refuse it rather than print a success.
+			if resp == nil || resp.AppMemoryScope == nil {
+				return exitcode.Newf(exitcode.Error, "the server returned no appMemoryScope page for %s; nothing is shown", appRef)
+			}
+			page := appMemoryScopePageDTO{Items: []appScopedMemoryDTO{}, Total: resp.AppMemoryScope.Total}
+			for i, it := range resp.AppMemoryScope.Items {
+				if it == nil {
+					return exitcode.Newf(exitcode.Error, "the server returned a null row %d in the appMemoryScope page; nothing is shown", offset+i+1)
 				}
+				if len(it.Sources) == 0 {
+					return exitcode.Newf(exitcode.Error, "the server returned no sources for %s in the appMemoryScope page; nothing is shown", it.MemoryUrn)
+				}
+				row := appScopedMemoryDTO{
+					MemoryID:       it.MemoryId,
+					MemoryURN:      it.MemoryUrn,
+					Name:           it.Name,
+					Class:          string(it.Class),
+					Sources:        []appMemorySourceDTO{},
+					ViewerCanWrite: it.ViewerCanWrite,
+				}
+				ownSource := false
+				for _, s := range it.Sources {
+					if s == nil {
+						return exitcode.Newf(exitcode.Error, "the server returned a null source for %s in the appMemoryScope page; nothing is shown", it.MemoryUrn)
+					}
+					row.Sources = append(row.Sources, appMemorySourceDTO{Kind: string(s.Kind), AgentID: s.AgentId})
+					if s.Kind != gen.AppMemorySourceKindInheritedBase {
+						ownSource = true
+					}
+				}
+				row.WriteTarget = row.ViewerCanWrite && ownSource
+				page.Items = append(page.Items, row)
 			}
 			// One lookup per distinct agent, in first-appearance order. A null
 			// answer is an Agent the caller may not read: the kind stands alone.
