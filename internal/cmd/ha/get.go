@@ -18,12 +18,17 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 		Use:     "get <id>",
 		Aliases: []string{"show"},
 		Short:   "Show one registered Home Assistant instance",
-		Long: `Show one registered Home Assistant instance by registry id.
+		Long: `Show one registered Home Assistant instance: its name, slug, address, owning
+organization, whether it is enabled, which ops are allowed ("allowlist": "all"
+means every op the server offers, not none) and who created and last changed it.
 
-A null answer means the row is absent OR you are not a member of its org; the
-server deliberately does not distinguish the two, so neither does this command.`,
-		Example: `  hadron ha get 01h... --json`,
-		Args:    cobra.ExactArgs(1),
+<id> is the instance ID: the ID column of "hadron ha list". If you get "not
+found or not visible", either no instance has that ID or it belongs to an
+organization you are not a member of; the server does not say which. Check the
+ID with "hadron ha list" and ask an organization admin if it should be yours.`,
+		Example: `  hadron ha get <instance-id>
+  hadron ha get <instance-id> --json`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
 			if err != nil {

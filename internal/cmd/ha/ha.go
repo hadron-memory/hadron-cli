@@ -24,13 +24,23 @@ func NewCmdHa(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ha <command>",
 		Short: "Read the Home Assistant instance registry",
-		Long: `Read registered Home Assistant instances (hadrontool-home-assistant).
+		Long: `See which Home Assistant instances (smart-home hubs) are registered for your
+organizations, and which actions ("ops") an AI agent may take on each one.
+Start with "ha list", then "ha ops <id>" for one instance's actions.
 
-Each row exposes its ops to headless runs as ha__<slug>__<op>, which an author
-declares in a node's data.tools. These commands only read the registry: they
-never contact a Home Assistant host, and the access token is write-only — no
-command here can show it. Registration alone grants nothing; a run must still
-be allowed 'tool.ha__<slug>__<op>' by the policy chain.`,
+These commands only read the registry. They never contact the Home Assistant
+host and cannot show its access token. There is no command here to register,
+change or remove an instance: an organization admin registers one with the
+GraphQL mutation createHomeAssistantInstance, for example through "hadron api".
+
+Details:
+  Each registered instance offers its ops to headless (unattended) runs under
+  the name ha__<slug>__<op>, which an author lists in a node's data.tools.
+  Registering an instance grants nothing by itself: a run must still be allowed
+  tool.ha__<slug>__<op> by the policy chain (the rules that decide what a run
+  may use). The registry is the hadrontool-home-assistant tool's.`,
+		Example: `  hadron ha list --org hrn:org:acme.com
+  hadron ha ops <instance-id>`,
 	}
 	cmd.AddCommand(newCmdList(f))
 	cmd.AddCommand(newCmdGet(f))

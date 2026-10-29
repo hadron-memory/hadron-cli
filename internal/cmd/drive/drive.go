@@ -16,16 +16,31 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const help = `Read external Drive data with an explicit --connection reference through the
-server's owner/drive.read ConnectionGrant gate. Org-admin connection listing is
-not Drive access. No discovery fallback, auth flow or remote document creation
-is performed; exportNodeToGoogleDoc remains separate. No automatic retry.
+// connectionHelp tells the user where the required --connection value comes
+// from (cli#1184, R2): the drive commands never discover one themselves.
+const connectionHelp = `--connection is the ID of a connected Drive account. Get it from the ID column
+of "hadron email connections --org <org>" (the list includes calendar and Drive
+connections, not only mail); an org admin can run that, otherwise ask the owner
+of the connection, or the admin, for the ID. The command never picks a
+connection for you.`
 
-Metadata is escaped external data. Nullable Float size is BYTES (including null
-for native documents/folders), not an integer guarantee or a zero substitute.
-Export format/binary/size guarantees are delegated by the server to its tool;
-provider refusals, including file_too_large, are kept, never silently truncated.
-Existing error mapping and unknown-code fallback remain; no guessed reconnect.`
+// detailsHelp is the maintainer-level contract, kept last on every page so the
+// answer to "what do I type" comes first (cli#1184, R1).
+const detailsHelp = `Details:
+  Access is the server's: you need to own the connection or hold the drive.read
+  grant on it. An organization-admin connection list is not by itself Drive
+  access. The commands only read; no sign-in flow is started, no document is
+  created in Drive (that is a separate operation) and nothing is retried.
+  File names and other metadata come from Drive and are shown as data.
+  "size" is in bytes, and is null (not 0) for Google documents and folders,
+  which have no byte size. How exports are converted, and how large a file may
+  be, is decided by the server; a refusal such as file_too_large is shown as it
+  came, and a file is never silently cut short. Errors keep the usual exit
+  codes and never tell you to reconnect unless the server does.`
+
+func helpText(intro string) string {
+	return intro + "\n\n" + connectionHelp + "\n\n" + detailsHelp
+}
 
 type options struct {
 	connection, folder, query, name, mime, after, token, format string
@@ -34,12 +49,12 @@ type options struct {
 
 // NewCmdDrive builds only the gated list/get/export read operations.
 func NewCmdDrive(f *cmdutil.Factory) *cobra.Command {
-	c := &cobra.Command{Use: "drive <command>", Short: "Read Drive metadata or export text to stdout", Long: help}
+	c := &cobra.Command{Use: "drive <command>", Short: "Browse Drive files and export a file's text", Long: helpText("Look at files in a connected Drive without changing them: list or search files,\nread one file's details, or print a file's text to the terminal. Start with\n\"drive list\" to find a file ID, then \"drive export\" to get its text."), Example: "  hadron drive list --connection <connection-id> --name-contains budget\n  hadron drive export <file-id> --connection <connection-id> --format MARKDOWN > notes.md"}
 	c.AddCommand(list(f), get(f), export(f))
 	return c
 }
 func scope(c *cobra.Command, o *options) {
-	c.Flags().StringVar(&o.connection, "connection", "", "explicit connection reference (required)")
+	c.Flags().StringVar(&o.connection, "connection", "", "connection ID (required; see \"hadron email connections --org <org>\")")
 	_ = c.MarkFlagRequired("connection")
 }
 func (o *options) validate() error {
@@ -79,7 +94,7 @@ func render(f *cmdutil.Factory, connection, label string, value any, hint bool) 
 }
 func list(f *cmdutil.Factory) *cobra.Command {
 	o := &options{}
-	c := &cobra.Command{Use: "list", Aliases: []string{"ls"}, Short: "Read one bounded Drive page", Long: help + "\n\nOne bounded page: files and nextPageToken (null on the last page). No --all,\ntotal or completeness claim. Omitted --top sends 50 for browse, 25 when any\nquery/name-contains/mime-type/modified-after search criterion is supplied. Folder\nand page-token alone stay browse. Explicit --top is 1..100. Preserve the same\nfilters when passing the returned opaque token for the next page.", Args: cobra.NoArgs, RunE: func(c *cobra.Command, _ []string) error {
+	c := &cobra.Command{Use: "list", Aliases: []string{"ls"}, Short: "List or search files, one page at a time", Long: helpText("List the files in a Drive, or narrow them with --folder, --query (text inside\nfiles), --name-contains, --mime-type or --modified-after. You get one page, not\nthe whole Drive: 50 files when browsing, 25 when you search, or --top (1 to 100).\nWhen more files exist the output ends with a nextPageToken; to read the next\npage, run the same command again with the same filters plus --page-token\n<that token>. The last page has a null nextPageToken. --modified-after is a\ndate-time with a UTC offset, for example 2026-10-01T00:00:00-07:00."), Example: "  hadron drive list --connection <connection-id>\n  hadron drive list --connection <connection-id> --folder <folder-id> --top 100\n  hadron drive list --connection <connection-id> --query invoice --page-token <nextPageToken>", Args: cobra.NoArgs, RunE: func(c *cobra.Command, _ []string) error {
 		if e := o.validate(); e != nil {
 			return e
 		}
@@ -149,7 +164,7 @@ func list(f *cmdutil.Factory) *cobra.Command {
 		return render(f, o.connection, fmt.Sprintf("Bounded Drive page (top %d; no completeness claim):", top), page, page.NextPageToken != nil)
 	}}
 	scope(c, o)
-	c.Flags().StringVar(&o.folder, "folder", "", "folder ID")
+	c.Flags().StringVar(&o.folder, "folder", "", "only files in this folder (folder ID from \"drive list\")")
 	c.Flags().StringVar(&o.query, "query", "", "full-text search criterion")
 	c.Flags().StringVar(&o.name, "name-contains", "", "name search criterion")
 	c.Flags().StringVar(&o.mime, "mime-type", "", "exact MIME type search criterion")
@@ -167,7 +182,7 @@ func fileID(args []string) (string, error) {
 }
 func get(f *cmdutil.Factory) *cobra.Command {
 	o := &options{}
-	c := &cobra.Command{Use: "get <fileId>", Short: "Read one file's metadata", Long: help, Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, args []string) error {
+	c := &cobra.Command{Use: "get <fileId>", Short: "Read one file's details", Long: helpText("Show one file's details (name, kind, MIME type, size, parent folders, times and web link), not its text. The\nfile ID is the \"id\" of a file returned by \"drive list\". To read the text, use\n\"drive export\"."), Example: "  hadron drive get <file-id> --connection <connection-id>", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, args []string) error {
 		if e := o.validate(); e != nil {
 			return e
 		}
@@ -197,7 +212,7 @@ func get(f *cmdutil.Factory) *cobra.Command {
 }
 func export(f *cmdutil.Factory) *cobra.Command {
 	o := &options{}
-	c := &cobra.Command{Use: "export <fileId>", Short: "Write original exported content to stdout", Long: help + "\n\nText mode writes the original content bytes to stdout, without a banner or added\nnewline. Treat those bytes as untrusted external content; the CLI never executes\nor evaluates them. --json emits {file,format,mimeType,content}. No output-file\noption or implicit upload exists. Optional --format accepts MARKDOWN, TEXT or HTML\n(case-insensitive); absent delegates the provider default without guessing.", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, args []string) error {
+	c := &cobra.Command{Use: "export <fileId>", Short: "Print a file's text to the terminal", Long: helpText("Print a file's text to standard output, with no heading and no added newline. The\nfile ID is the \"id\" of a file returned by \"drive list\". There is no output-file\noption: to save the text, redirect it with your shell (> notes.md). --format\nchooses MARKDOWN, TEXT or HTML (any letter case); without it the server picks\nthe default for that file type. With --json you get an object with the file's\ndetails, the format, the MIME type and the text in \"content\". Treat the text as\nuntrusted: the CLI only prints it and never runs it."), Example: "  hadron drive export <file-id> --connection <connection-id> --format MARKDOWN > notes.md", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, args []string) error {
 		if e := o.validate(); e != nil {
 			return e
 		}

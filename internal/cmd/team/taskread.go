@@ -221,13 +221,13 @@ filters by tag. --limit/--offset page (default 20, cap 200); a full default page
 --team is a coordinator's view of work in flight (#1044). The team is the
 coordinator — the bound worker for a bare --team, or --team=worker:<id, URN
 or name> (attached with =) — plus every worker whose roster reportsTo chain
-reaches them, in this App. It lists the App's tasks a team member OWNS or is
-ASSIGNED, plus every descendant of those, even where the descendant's parties
+reaches them, in this App. It lists the App's tasks a team member OWNS, is
+ASSIGNED or CREATED, plus every descendant of those, even where the descendant's parties
 sit outside the team; owner/assignee cells say "(outside)" for a worker in
 another reporting subtree and "(not on roster)" for one the roster does not
 list (a retired worker: the roster omits them, so their tasks join only as a
-descendant or through a current team member). Who CREATED a task does not
-count yet, and other Apps are never read (hadron-server#2370). It reads every
+descendant or through a current team member). A task a person created does not
+join through its creator, and other Apps are never read (hadron-server#2370). It reads every
 page of the App's tasks (no truncation; a page that does not advance is
 refused, exit 1), then applies --status after the join, so an open task under
 a finished team task stays in view. It combines only with --status, --tree
