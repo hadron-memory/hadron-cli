@@ -51,11 +51,11 @@ section between the markers.
 | `comment list` | ls |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508443001): no P1/P2, P3s only; result set at reassessment |
 | `comment reply` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508443001): no P1/P2, P3s only; result set at reassessment |
 | `comment resolve` |  |  | y | #1051 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508443001) |
-| `edge` | edges |  | n | #1051 |  | unread |  |
-| `edge create` | add |  | y | #1051 |  | unread |  |
-| `edge list` | ls |  | y | #1051 |  | unread |  |
-| `edge rm` | delete |  | y | #1051 |  | unread |  |
-| `edge update` |  |  | y | #1051 |  | unread |  |
+| `edge` | edges |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508430204), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1221#issuecomment-6508892415) |
+| `edge create` | add |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508430204), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1221#issuecomment-6508892415) |
+| `edge list` | ls |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508430204), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1221#issuecomment-6508892415) |
+| `edge rm` | delete |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508430204), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1221#issuecomment-6508892415) |
+| `edge update` |  |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508430204), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1221#issuecomment-6508892415) |
 | `memory` | memories |  | n | #1051 |  | unread |  |
 | `memory approve-all` |  |  | y | #1051 |  | unread |  |
 | `memory attach` |  |  | y | #1051 |  | unread |  |
@@ -146,7 +146,7 @@ section between the markers.
 | `object update` |  |  | y | #1051 |  | unread |  |
 | `replace` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508443001): no P1/P2, P3s only; result set at reassessment |
 | `replace text` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508443001): no P1/P2, P3s only; result set at reassessment |
-| `search` |  |  | y | #1051 |  | unread |  |
+| `search` |  |  | y | #1051 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508430204) |
 <!-- group:1051 end -->
 
 ## Group: identity and access commands (#1052)
