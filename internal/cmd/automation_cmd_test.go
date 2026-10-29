@@ -1078,3 +1078,22 @@ func TestAutomationOversizeRecoveryCommand(t *testing.T) {
 		}
 	})
 }
+
+func TestAutomationManualRunWithoutAppSendsNothing(t *testing.T) {
+	for _, verb := range []string{"approval", "approve", "decline"} {
+		t.Run(verb, func(t *testing.T) {
+			calls := 0
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				calls++
+				t.Error("missing App must refuse before any request")
+			}))
+			defer srv.Close()
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"automation", verb, "--run", "run-1", "--server", srv.URL})
+			if err := root.Execute(); exitCodeFor(err) != exitcode.Usage || calls != 0 {
+				t.Fatalf("want Usage and no requests, got %v, requests=%d", err, calls)
+			}
+		})
+	}
+}
