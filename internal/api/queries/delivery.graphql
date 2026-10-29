@@ -50,3 +50,37 @@ query SessionInbox($appRef: String!, $workerRefs: [String!]!,
   pageInfo { hasNextPage endCursor }
  }
 }
+
+# hadron-cli#1178: the host poller's tick and task wakes (cor:agt:080:08,
+# :16), with the host key. No accepts, so no STOP notice is offered (this
+# deliverer cannot type one); no workerRefs, so the key's host is the lane.
+query DueWakes($appRef: String!, $first: Int!,
+ # @genqlient(omitempty: true)
+ $after: String
+) {
+  dueWakes(appRef: $appRef, first: $first, after: $after) {
+    status
+    withheld
+    dormant { worker { id } }
+    wakes {
+      proof
+      worker { id }
+      deliverAfter
+      busyDeadline
+      channels { channel { id } }
+      reasons {
+        kind
+        ticker { id name lastTickAt }
+        task { eventId chainIndex event id title }
+      }
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
+
+mutation AcknowledgeWakes($proofs: [String!]!) {
+  acknowledgeWakes(proofs: $proofs) {
+    acknowledged
+    unchanged
+  }
+}

@@ -288,18 +288,33 @@ const noOps = `{"data":{"collectHostOperations":[]}}`
 
 const noBatches = `{"data":{"deliveryBatches":{"batches":[],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}`
 
+const noWakes = `{"data":{"dueWakes":{"status":"OK","withheld":0,"dormant":[],"wakes":[],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}`
+
 // cli#907: with delivery on, each step also reads this host's batches, with
 // the host key and no session, and the status snapshot records the read.
 func TestTeamHostRunOnceReadsBatchesWithTheHostKey(t *testing.T) {
 	cfg := writeHostConfig(t, deliveryOn)
 	srv, calls := hostServerFake(t, map[string]string{
 		"RegisterHost": hostRegistrationAnswer, "CollectHostOperations": noOps, "DeliveryBatches": noBatches,
+		"DueWakes": noWakes,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "host", "run", "--once", "--config", cfg, "--server", srv.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("run --once: %v", err)
+	}
+	// cli#1178: with delivery on, the step also reads this host's due wakes,
+	// with the host key, and status records the wake read.
+	wakeRead := false
+	for _, c := range calls() {
+		wakeRead = wakeRead || c.op == "DueWakes"
+	}
+	if !wakeRead {
+		t.Errorf("no wake read: %+v", calls())
+	}
+	if d := hostStatusJSON(t, cfg).Delivery; d.WakeRead == nil || *d.WakeRead != "read" {
+		t.Errorf("status wakeRead %v", d.WakeRead)
 	}
 	var read *hostCall
 	for i, c := range calls() {
@@ -352,6 +367,8 @@ func TestTeamHostRunNeverPrintsUpstreamDeliveryText(t *testing.T) {
 		srv, _ := hostServerFake(t, map[string]string{
 			"RegisterHost": hostRegistrationAnswer, "CollectHostOperations": noOps,
 			"DeliveryBatches": `{"errors":[{"message":"echo hk_host_key PRIVATE-CHAT-TEXT","extensions":{"code":"FORBIDDEN"}},{"message":"y","extensions":{"code":"PRIVATE_TOKEN_42"}}],"data":null}`,
+			// cli#1178: the wake read's errors are held to the same rule.
+			"DueWakes": `{"errors":[{"message":"echo hk_host_key PRIVATE-WAKE-PROOF","extensions":{"code":"FORBIDDEN"}}],"data":null}`,
 		})
 		f, out := testFactory(t)
 		root := NewRootCmd(f)
@@ -383,8 +400,8 @@ func TestTeamHostRunOnceWithoutDeliveryReadsNoBatches(t *testing.T) {
 		t.Fatalf("run --once: %v", err)
 	}
 	for _, c := range calls() {
-		if c.op == "DeliveryBatches" {
-			t.Fatalf("read batches with delivery off: %+v", calls())
+		if c.op == "DeliveryBatches" || c.op == "DueWakes" {
+			t.Fatalf("read batches or wakes with delivery off: %+v", calls())
 		}
 	}
 }
@@ -443,6 +460,10 @@ type hostDeliveryStatus struct {
 			LastFor          string  `json:"lastFor"`
 			TicksUnacked     int     `json:"ticksUnacked"`
 			Unreported       bool    `json:"unreported"`
+			// cli#1178.
+			LastAgeSeconds *int64  `json:"lastAgeSeconds"`
+			HeldSince      *string `json:"heldSince"`
+			HeldOver30m    bool    `json:"heldOver30m"`
 		} `json:"workers"`
 	} `json:"delivery"`
 }
@@ -626,5 +647,49 @@ func TestTeamHostStatusDeliveryDisabled(t *testing.T) {
 	d := hostStatusJSON(t, writeHostConfig(t, "")).Delivery
 	if d.Enabled || d.Mode != "disabled" || d.Stale || d.Error != nil || d.Workers == nil || len(d.Workers) != 0 {
 		t.Fatalf("%+v", d)
+	}
+}
+
+// cli#1178: each worker's newest event has an age, and a worker whose holds
+// have run longer than 30 minutes without a delivery is flagged, in both
+// forms. Codes and times only.
+func TestTeamHostStatusFlagsAWorkerHeldTooLong(t *testing.T) {
+	cfg := writeHostConfig(t, deliveryOn)
+	stateDir := filepath.Dir(cfg)
+	now := time.Now().UTC()
+	book := delivery.NewStatusBook(stateDir)
+	book.Observe(delivery.Event{Time: now.Add(-45 * time.Minute), Worker: "iris", WorkerID: "wkr1", Kind: delivery.Held, Reason: delivery.HoldNotSubmitted, Wake: true})
+	book.Observe(delivery.Event{Time: now.Add(-2 * time.Minute), Worker: "iris", WorkerID: "wkr1", Kind: delivery.Held, Reason: delivery.HoldNotSubmitted, Wake: true})
+	book.Observe(delivery.Event{Time: now.Add(-10 * time.Minute), Worker: "dara", WorkerID: "wkr2", Kind: delivery.Held, Reason: delivery.HoldDraft})
+	book.Observe(delivery.Event{Time: now.Add(-time.Minute), Worker: "eli", WorkerID: "wkr3", Kind: delivery.Delivered, Wake: true})
+	if err := book.Step(now, delivery.StepRead); err != nil {
+		t.Fatal(err)
+	}
+	d := hostStatusJSON(t, cfg).Delivery
+	if len(d.Workers) != 3 {
+		t.Fatalf("workers %+v", d.Workers)
+	}
+	iris, dara, eli := d.Workers[0], d.Workers[1], d.Workers[2]
+	if iris.HeldSince == nil || !iris.HeldOver30m || iris.LastAgeSeconds == nil || *iris.LastAgeSeconds < 110 || *iris.LastAgeSeconds > 600 {
+		t.Fatalf("iris %+v: held 45m, newest event 2m old", iris)
+	}
+	if since, err := time.Parse(time.RFC3339, *iris.HeldSince); err != nil || now.Sub(since) < 44*time.Minute {
+		t.Fatalf("iris heldSince %q", *iris.HeldSince)
+	}
+	if dara.HeldSince == nil || dara.HeldOver30m {
+		t.Fatalf("dara %+v: held 10m is not flagged", dara)
+	}
+	if eli.HeldSince != nil || eli.HeldOver30m || eli.LastAgeSeconds == nil {
+		t.Fatalf("eli %+v: delivered, not held", eli)
+	}
+	human, err := runHostStatus(t, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(human, "HELD OVER 30m") != 1 || !strings.Contains(human, "HELD OVER 30m: no delivery since") {
+		t.Errorf("only iris is flagged:\n%s", human)
+	}
+	if !strings.Contains(human, "ago") || !strings.Contains(human, "held since") {
+		t.Errorf("human status lacks the age and the hold start:\n%s", human)
 	}
 }
