@@ -34,15 +34,15 @@ section between the markers.
 <!-- group:1051 start -->
 | path | aliases | generated | has-examples | child | evaluator | result | finding |
 |---|---|---|---|---|---|---|---|
-| `asset` | assets |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230): no P1/P2, P3s only; result set at reassessment |
-| `asset get` | download |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230): no P1/P2, P3s only; result set at reassessment |
-| `asset link` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230): no P1/P2, P3s only; result set at reassessment |
-| `asset list` | ls |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230): no P1/P2, P3s only; result set at reassessment |
-| `asset public-link` |  |  | y | #1051 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230) |
-| `asset restore` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230): no P1/P2, P3s only; result set at reassessment |
-| `asset rm` | delete |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230): no P1/P2, P3s only; result set at reassessment |
-| `asset upload` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230): no P1/P2, P3s only; result set at reassessment |
-| `asset url` |  |  | y | #1051 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230) |
+| `asset` | assets |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1225#issuecomment-6509482888) |
+| `asset get` | download |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1225#issuecomment-6509482888) |
+| `asset link` |  |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1225#issuecomment-6509482888) |
+| `asset list` | ls |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1225#issuecomment-6509482888) |
+| `asset public-link` |  |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1225#issuecomment-6509482888) |
+| `asset restore` |  |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1225#issuecomment-6509482888) |
+| `asset rm` | delete |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1225#issuecomment-6509482888) |
+| `asset upload` |  |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1225#issuecomment-6509482888) |
+| `asset url` |  |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1225#issuecomment-6509482888) |
 | `comment` |  |  | n | #1051 |  | unread |  |
 | `comment create` | add |  | n | #1051 |  | unread |  |
 | `comment delete` |  |  | n | #1051 |  | unread |  |
@@ -138,12 +138,12 @@ section between the markers.
 | `node signing-request withdraw` |  |  | n | #1051 |  | unread |  |
 | `node update` |  |  | y | #1051 |  | unread |  |
 | `node verify` |  |  | n | #1051 |  | unread |  |
-| `object` | objects, obj |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230): no P1/P2, P3s only; result set at reassessment |
-| `object create` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230): no P1/P2, P3s only; result set at reassessment |
-| `object delete` | rm |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230): no P1/P2, P3s only; result set at reassessment |
-| `object find` | list, ls |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230): no P1/P2, P3s only; result set at reassessment |
-| `object get` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230): no P1/P2, P3s only; result set at reassessment |
-| `object update` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230): no P1/P2, P3s only; result set at reassessment |
+| `object` | objects, obj |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1225#issuecomment-6509482888) |
+| `object create` |  |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1225#issuecomment-6509482888) |
+| `object delete` | rm |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1225#issuecomment-6509482888) |
+| `object find` | list, ls |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1225#issuecomment-6509482888) |
+| `object get` |  |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1225#issuecomment-6509482888) |
+| `object update` |  |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508456230), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1225#issuecomment-6509482888) |
 | `replace` |  |  | n | #1051 |  | unread |  |
 | `replace text` |  |  | y | #1051 |  | unread |  |
 | `search` |  |  | y | #1051 |  | unread |  |
