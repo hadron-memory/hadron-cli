@@ -46,9 +46,12 @@ var codexPlaceholders = map[string]bool{"Ask Codex to do anything": true}
 // after start (scratch captures, cli#907), and live workers' footers carry
 // it or not, and other " · " segments such as a "PR #435" badge (a read of
 // the fleet on 2026-10-18). So any trailing segments are allowed. The mode
-// text varies ("bypass permissions on", "auto mode on"). If Claude Code
-// reshapes the line, every Claude worker holds: fail closed.
-var claudeModeFooter = regexp.MustCompile(`^⏵⏵ .+ \(shift\+tab to cycle\)( · .+)?$`)
+// text varies ("bypass permissions on", "auto mode on"). With a background
+// shell running the line drops the "(shift+tab to cycle)" hint ("⏵⏵ bypass
+// permissions on · 1 shell", cli#1155), so the hint is optional and the mode
+// text must still end in " on". If Claude Code reshapes the line, every
+// Claude worker holds: fail closed.
+var claudeModeFooter = regexp.MustCompile(`^⏵⏵ \S.*? on(?: \(shift\+tab to cycle\))?(?: · .+)?$`)
 
 func ruleIndexes(lines []string) []int {
 	var out []int
