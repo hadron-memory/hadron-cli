@@ -75,3 +75,34 @@ func TestSessionShedTranscriptPartialOversizedLineIsDropped(t *testing.T) {
 		t.Errorf("the shed still completes: %v", rig.calls)
 	}
 }
+
+// A cursor from a previous channel incarnation (or a legacy null) is not a
+// watermark: same rule as `team chat check`.
+func TestSessionShedPromptValidatesTheCursorIncarnation(t *testing.T) {
+	cursor := func(channel, cur string) string {
+		return `{"data":{"channelReadState":{"channelId":"ch1","channelIncarnation":` + channel + `,"cursorIncarnation":` + cur + `,"lastSeenSeq":41432}}}`
+	}
+	for _, tc := range []struct {
+		name, resp string
+		usable     bool
+	}{
+		{"equal", cursor("2", "2"), true},
+		{"mismatch", cursor("2", "1"), false},
+		{"null", cursor("2", "null"), false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			bindWorktree(t)
+			url, _ := shedServer(t, map[string]string{"CheckChatCursor": tc.resp})
+			out, _, err := runShed(t, url, "--print-prompt")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := strings.Contains(out, "--since 41432"); got != tc.usable {
+				t.Errorf("--since 41432 present=%v, want %v:\n%s", got, tc.usable, out)
+			}
+			if !tc.usable && (strings.Contains(out, "<watermark>") || strings.Contains(out, "saved") || !strings.Contains(out, "from the start of the channel")) {
+				t.Errorf("an invalid cursor must say it reads from the start, not invent or claim a saved cursor:\n%s", out)
+			}
+		})
+	}
+}

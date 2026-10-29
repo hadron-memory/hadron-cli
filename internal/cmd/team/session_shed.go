@@ -90,18 +90,19 @@ func renderShedPrompt(workerName, memoryRef, loc string, watermark *int) string 
 	fmt.Fprintf(&b, "You are %s, recovering from a shed. Your transcript was cleared on purpose and your worker binding is intact.\n", workerName)
 	n := 1
 	for _, s := range shedRecoverySteps() {
-		cmd := "hadron " + strings.Join(s.Command, " ")
+		cmd, text := "hadron "+strings.Join(s.Command, " "), s.Text
 		if i := strings.Index(cmd, "<worker name>"); i >= 0 {
 			cmd = strings.Replace(cmd, "<worker name>", workerName, 1)
 		}
 		if watermark != nil {
 			cmd = strings.Replace(cmd, "<watermark>", fmt.Sprint(*watermark), 1)
 		} else {
-			// No validated read cursor: never invent one (head would skip the
-			// unread interval); read from the saved server-side cursor.
+			// No validated read cursor: never invent one (the head would skip the
+			// unread interval). `chat read --all` then starts at the beginning.
 			cmd = strings.Replace(cmd, " --since <watermark>", "", 1)
+			text = strings.Replace(text, "from the watermark", "from the start of the channel (no valid read cursor was available to name a watermark)", 1)
 		}
-		fmt.Fprintf(&b, "%d. `%s` — %s\n", n, cmd, s.Text)
+		fmt.Fprintf(&b, "%d. `%s` — %s\n", n, cmd, text)
 		n++
 	}
 	fmt.Fprintf(&b, "%d. Read the handoff checkpoint, the source of truth for where you are: `hadron node get -m %s %s`. Then continue its next action unless the human redirects you.\n", n, memoryRef, loc)
@@ -180,18 +181,12 @@ func shedName(now time.Time, auto bool, b *binding) string {
 // shedTailOf returns the last whole lines of the host's transcript file, at
 // most shedTranscriptTail bytes. The file is the host's and is NOT scrubbed.
 //
-// Only a regular file is read (stat BEFORE open: opening a FIFO named by
-// mistake would block the shed ahead of the checkpoint and claim), and only
-// its last shedTranscriptTail bytes.
+// Only a regular file is read, and only its last shedTranscriptTail bytes. The
+// path is opened non-blocking and the OPENED handle is validated (a path check
+// before the open would race a swap, and a FIFO would hang the shed ahead of
+// the checkpoint and claim).
 func shedTailOf(path string) (string, error) {
-	pre, err := os.Stat(path)
-	if err != nil {
-		return "", err
-	}
-	if !pre.Mode().IsRegular() {
-		return "", fmt.Errorf("not a regular file")
-	}
-	fh, err := os.Open(path) // #nosec G304 — an explicit, opt-in path the operator named
+	fh, err := shedOpenTranscript(path)
 	if err != nil {
 		return "", err
 	}
@@ -294,6 +289,10 @@ func gather(ctx context.Context, client graphql.Client, b *binding, now time.Tim
 		s.Cursor = unavailable("channel read failed")
 	} else if c, err := gen.CheckChatCursor(ctx, client, ch.App.DefaultChannel.Id, b.WorkerID, b.AppID); err != nil || c.ChannelReadState == nil {
 		s.Cursor = unavailable("cursor read failed")
+	} else if ci := c.ChannelReadState.CursorIncarnation; ci == nil || *ci != c.ChannelReadState.ChannelIncarnation {
+		// A legacy or previous-incarnation cursor is not a watermark; the same
+		// rule as `team chat check` (checkScanFloor).
+		s.Cursor = unavailable("cursor is from a previous channel incarnation")
 	} else {
 		seq := c.ChannelReadState.LastSeenSeq
 		s.CursorSeq, s.Cursor = &seq, shedField{Text: fmt.Sprintf("#%d", seq), OK: true}
