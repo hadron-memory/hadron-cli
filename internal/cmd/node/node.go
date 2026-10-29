@@ -189,6 +189,7 @@ func NewCmdNode(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdSign(f))
 	cmd.AddCommand(newCmdSignatures(f))
 	cmd.AddCommand(newCmdSigningRequest(f))
+	cmd.AddCommand(newCmdEdgeRemovals(f))
 	return cmd
 }
 
