@@ -3760,3 +3760,14 @@ Refusals preserve the server code/message and mapped exit code, print no task,
 and never retry the mutation.
 
 hadron team task set-priority <task> <priority> | add-blocker|remove-blocker <task> <blocker-task> | dependencies <task> [--limit N] [--offset N]
+
+Task priority/blocker fields require server #2726 (cf9bcfece) or later on every
+target deployment before releasing/installing this CLI; old servers reject the
+shared task GraphQL documents. This PR does not authorize a release or deploy.
+The task error mapper prefixes the known codes TASK_BLOCKED, TASK_BLOCKER_CYCLE,
+TASK_NOT_FOUND, TASK_NOT_OWNER, TASK_INVALID_TRANSITION and BAD_USER_INPUT onto
+the mapped server message, including existing create/assign/reassign/start/
+progress/cancel/park/ready/finish refusals. Exit classification is unchanged;
+the underlying error chain is preserved. Task-ref commands do not use --app to
+qualify a handle: use an id or hrn:agenttask:<root>:<app-slug>:AT1.2 when the bare
+handle is ambiguous in the server-side caller context.

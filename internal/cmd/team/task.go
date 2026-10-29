@@ -266,7 +266,7 @@ the assign that first names the assignee of a queued task.`,
 			mctx, sink := api.WithWarningSink(ctx)
 			resp, err := gen.AgentTaskCreate(mctx, client, &input)
 			if err != nil {
-				return mapTaskDependencyError(err)
+				return mapTaskError(err)
 			}
 			task := taskDTOFrom(resp.CreateAgentTask.AgentTaskFields)
 			return writeTaskMutation(f, task, taskWarningsFor(sink, "createAgentTask"), func(w io.Writer) error {
@@ -367,13 +367,13 @@ the task already has. The server refuses a queued task to reassign and an assign
 				key = "reassignAgentTask"
 				resp, err := gen.AgentTaskReassign(mctx, client, taskId, party, closeWhenDone)
 				if err != nil {
-					return mapTaskDependencyError(err)
+					return mapTaskError(err)
 				}
 				task = taskDTOFrom(resp.ReassignAgentTask.AgentTaskFields)
 			} else {
 				resp, err := gen.AgentTaskAssign(mctx, client, taskId, party, closeWhenDone)
 				if err != nil {
-					return mapTaskDependencyError(err)
+					return mapTaskError(err)
 				}
 				task = taskDTOFrom(resp.AssignAgentTask.AgentTaskFields)
 			}
@@ -417,7 +417,7 @@ func newSimpleTaskMutation(
 			}
 			task, err := call(cmd.Context(), client, taskId)
 			if err != nil {
-				return mapTaskDependencyError(err)
+				return mapTaskError(err)
 			}
 			return output.Write(f.IOStreams, f.JSON, task, func(w io.Writer) error {
 				return receipt(w, task)
@@ -558,7 +558,7 @@ state.`,
 			mctx, sink := api.WithWarningSink(ctx)
 			resp, err := gen.AgentTaskFinish(mctx, client, taskId, &result)
 			if err != nil {
-				return mapTaskDependencyError(err)
+				return mapTaskError(err)
 			}
 			task := taskDTOFrom(resp.FinishAgentTask.AgentTaskFields)
 			return writeTaskMutation(f, task, taskWarningsFor(sink, "finishAgentTask"), func(w io.Writer) error {

@@ -46,11 +46,11 @@ func dependencyPage[T taskDependencyGetter](total int, more bool, items []T) *ta
 
 // Server owns range, state, authority and cycle decisions. Preserve its public
 // code beside the mapped message; never retry a mutation or print partial data.
-func mapTaskDependencyError(err error) error {
+func mapTaskError(err error) error {
 	mapped := api.MapError(err)
 	for _, code := range []string{"TASK_BLOCKED", "TASK_BLOCKER_CYCLE", "TASK_NOT_FOUND", "TASK_NOT_OWNER", "TASK_INVALID_TRANSITION", "BAD_USER_INPUT"} {
 		if api.HasErrorCode(err, code) {
-			return exitcode.Newf(exitcode.FromError(mapped), "%s: %s", code, mapped.Error())
+			return fmt.Errorf("%s: %w", code, mapped)
 		}
 	}
 	return mapped
@@ -71,7 +71,10 @@ Priority defaults to 1 on creation; range 1-5, 1 = highest. It affects matching,
 not authority or the task list's ordering. Only whoever may assign the task
 may change priority or blockers. Blockers change only on pending/backlog tasks;
 the server checks same-App references, cycles and every transition.
-Use the active App (--app or the worktree binding) and sign in first.
+Sign in first. Task references determine the App on the server; --app does not
+qualify these references. When a bare handle is ambiguous across your Apps,
+pass an id or a qualified handle such as
+hrn:agenttask:example.com:team:AT1.2.
 Success prints the returned task, priority and dependency summaries; --json
 returns the same fields as structured data. A server refusal prints its code
 and message with no task output; check task get before changing the request.
@@ -101,7 +104,7 @@ Each invocation sends one mutation and never retries it.`, Example: "  hadron te
 			case "set-priority":
 				r, e := gen.AgentTaskSetPriority(cmd.Context(), client, ref, n)
 				if e != nil {
-					return mapTaskDependencyError(e)
+					return mapTaskError(e)
 				}
 				if r.SetAgentTaskPriority == nil {
 					return exitcode.Newf(exitcode.Error, "server returned no task")
@@ -110,7 +113,7 @@ Each invocation sends one mutation and never retries it.`, Example: "  hadron te
 			case "add-blocker":
 				r, e := gen.AgentTaskAddBlocker(cmd.Context(), client, ref, second)
 				if e != nil {
-					return mapTaskDependencyError(e)
+					return mapTaskError(e)
 				}
 				if r.AddAgentTaskBlocker == nil {
 					return exitcode.Newf(exitcode.Error, "server returned no task")
@@ -119,7 +122,7 @@ Each invocation sends one mutation and never retries it.`, Example: "  hadron te
 			case "remove-blocker":
 				r, e := gen.AgentTaskRemoveBlocker(cmd.Context(), client, ref, second)
 				if e != nil {
-					return mapTaskDependencyError(e)
+					return mapTaskError(e)
 				}
 				if r.RemoveAgentTaskBlocker == nil {
 					return exitcode.Newf(exitcode.Error, "server returned no task")
@@ -151,8 +154,9 @@ func newCmdTaskDependencies(f *cmdutil.Factory) *cobra.Command {
 	c := &cobra.Command{Use: "dependencies <task>", Short: "Read pages of a task's blockers and what it blocks", Long: `Read both dependency directions with explicit total/hasMore metadata.
 Task get/list and write JSON show the first 20 of each. This command pages
 both directions with --limit/--offset; follow hasMore, never infer completeness
-from a short page. Refs are ids or server-supported handles. Use the active App (--app or the
-worktree binding) and sign in first. Text prints each direction's page and
+from a short page. Refs are ids or server-supported handles. Sign in first. --app does not qualify
+these references. For an ambiguous bare handle, pass an id or a qualified handle
+such as hrn:agenttask:example.com:team:AT1.2. Text prints each direction's page and
 counts; --json returns id, blockedBy and blocks with items/total/hasMore.
 A hidden or missing task exits 4. Reads write nothing.`, Example: "  hadron team task dependencies AT1.2 --limit 20 --offset 20 --json", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, a []string) error {
 		if err := checkTaskPage(limit, offset); err != nil {
@@ -168,7 +172,7 @@ A hidden or missing task exits 4. Reads write nothing.`, Example: "  hadron team
 		}
 		r, err := gen.AgentTaskDependencies(c.Context(), client, ref, limit, offset)
 		if err != nil {
-			return mapTaskDependencyError(err)
+			return mapTaskError(err)
 		}
 		if r.AgentTask == nil {
 			return exitcode.Newf(exitcode.NotFound, "task not found")

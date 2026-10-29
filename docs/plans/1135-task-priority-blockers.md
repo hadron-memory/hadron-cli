@@ -29,3 +29,16 @@ create and read round trips, refusal codes/exits/no stdout, single mutations,
 server ordering and dependency paging. Independent QA must exercise a compiled
 CLI against a private S1 server, including authority and atomic refusals. No
 production mutation or rollout is part of this change.
+
+## Fix-cycle constraints
+
+Release/install prerequisite: every target server must carry #2726 (cf9bcfece)
+or later. Shared task fragments require these fields even on existing task
+commands; a merged server SHA alone is not a deployment receipt. Self-hosted
+operators must update the server before this CLI. No release is authorized here.
+
+The task mapper also prefixes known refusal codes on existing task commands
+(create, assign, reassign, simple transitions and finish). It wraps the mapped
+error so classification and GraphQL extension readers retain the original chain.
+Task-ref operations do not resolve --app: server-side caller context resolves
+bare handles, and callers with ambiguous handles use ids or qualified handles.

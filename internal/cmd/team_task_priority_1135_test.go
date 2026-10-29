@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/api"
 )
 
 func priorityTask1135() string {
@@ -118,6 +120,9 @@ func TestTaskPriorityRefusalsHaveCodeAndNoOutput1135(t *testing.T) {
 			if exitCodeFor(err) != tc.want || !strings.Contains(err.Error(), tc.code) || !strings.Contains(err.Error(), "Exact server refusal.") {
 				t.Fatalf("refusal:%v", err)
 			}
+			if !api.HasErrorCode(err, tc.code) {
+				t.Fatalf("error chain lost %s: %v", tc.code, err)
+			}
 			if out != "" {
 				t.Fatalf("partial stdout:%s", out)
 			}
@@ -206,6 +211,54 @@ func TestTaskPriorityBadLocalInputDoesNotWrite1135(t *testing.T) {
 				if strings.Contains(c.Op, "Create") || strings.Contains(c.Op, "Priority") || strings.Contains(c.Op, "Blocker") {
 					t.Fatalf("unexpected write: %+v", c)
 				}
+			}
+		})
+	}
+}
+
+func TestTaskPriorityExplicitCreateValues1135(t *testing.T) {
+	for _, value := range []string{"1", "0", "6"} {
+		t.Run(value, func(t *testing.T) {
+			r := taskResponses()
+			if value != "1" {
+				r["AgentTaskCreate"] = `{"errors":[{"message":"priority must be an integer from 1 to 5.","extensions":{"code":"BAD_USER_INPUT"}}]}`
+			}
+			calls, out, err := runTeamTask(t, r, "team", "task", "create", "new", "--priority", value, "--json")
+			if value == "1" {
+				if err != nil {
+					t.Fatal(err)
+				}
+			} else if exitCodeFor(err) != 2 || out != "" {
+				t.Fatalf("out=%q err=%v", out, err)
+			}
+			n := 0
+			for _, c := range *calls {
+				if c.Op == "AgentTaskCreate" {
+					n++
+					in := c.Vars["input"].(map[string]any)
+					if fmt.Sprint(in["priority"]) != value {
+						t.Fatalf("explicit priority changed: %s", c.RawVars)
+					}
+				}
+			}
+			if n != 1 {
+				t.Fatalf("create count=%d", n)
+			}
+		})
+	}
+}
+
+func TestTaskPriorityHelpReferenceScope1135(t *testing.T) {
+	for _, verb := range []string{"set-priority", "add-blocker", "remove-blocker", "dependencies"} {
+		t.Run(verb, func(t *testing.T) {
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"team", "task", verb, "--help"})
+			if err := root.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			if strings.Contains(out.String(), "active App") || !strings.Contains(out.String(), "--app does not") || !strings.Contains(out.String(), "hrn:agenttask:example.com:team:AT1.2") {
+				t.Fatalf("misleading task ref scope: %s", out.String())
 			}
 		})
 	}
