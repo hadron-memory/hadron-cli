@@ -47,7 +47,23 @@ func NewCmdEdge(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "edge <command>",
 		Aliases: []string{"edges"},
-		Short:   "Work with edges between nodes",
+		Short:   "Link two nodes, see a node's links, change or remove a link",
+		Long: `An edge is a one-way link from one node (a note) to another, with a
+relationship name such as routes-to or supersedes. Edges connect your notes:
+
+  edge create   link two nodes
+  edge list     see what a node links to, and what links to it
+  edge update   change a link's name or settings
+  edge rm       remove a link (neither node is deleted)
+
+Edges are addressed by an edge id, which edge create prints and edge list
+shows in its EDGE-ID column.
+
+An edge can also carry settings that only automation reads (flows and
+runnable tasks): runnable, priority, condition and data. An ordinary link
+needs none of them; edge create --help explains each.`,
+		Example: `  hadron edge create -m hrn:mem:acme.com:kb --from findings:flaky-ci --to start-here --name routes-to
+  hadron edge list start-here -m hrn:mem:acme.com:kb`,
 	}
 	cmd.AddCommand(newCmdLs(f))
 	cmd.AddCommand(newCmdAdd(f))
