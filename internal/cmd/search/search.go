@@ -110,15 +110,20 @@ first:
 
   hadron search "how do users report a bad actor"
 
-Without -m it searches every memory you can read; -m/--memory (an id or
-hrn:mem: URN, repeatable) narrows it to those memories.
+Without -m or --scope it searches every memory you can read, unless you have
+saved a default scope (hadron scope use <scope>): then it searches that scope,
+and the first line of the result says so ("scope: ... [your default scope
+...]"). --scope on the command line wins over the default, and
+hadron scope use "" clears it. -m/--memory (an id or hrn:mem: URN,
+repeatable) narrows the search to those memories, inside the scope if one
+applies.
 
 The result is a table of SCORE, LOC (where the note sits in its memory) and
 NAME. A higher score is a better match; scores only compare hits within one
 search, not across searches or modes. Read a hit with
 hadron node get <loc> -m <memory>, or add --long to see each hit's
 description and abstract here (--json always carries them). No rows means
-nothing matched.
+no hits in what was searched (with --offset, none past that point).
 
 How it matches (--mode):
   hybrid   (default) meaning and keywords together; on a memory without a
@@ -135,9 +140,13 @@ free-form envelope a tool or import attached (for example authorName). To see
 which a note has, run hadron node get <loc> -m <memory> --json. --where is a
 JSON condition: a path plus one test (eq, ne, in, lt, lte, gt, gte, between,
 exists, contains), combined with and/or/not. It reads "properties" unless the
-condition says "field":"data"; aimed at the wrong one it matches nothing (a
-note on stderr says so). --with-properties / --with-data show those fields
-for each hit, and --sort-property orders by one instead of by score.
+condition says "field":"data". Aimed at the wrong one it usually finds
+nothing (a test such as "exists":false can instead match notes that lack the
+field), and only one case warns: a condition that names no field and finds
+nothing gets a note on stderr suggesting "field":"data". So when a --where
+search is empty, check which of the two the note keeps the value in.
+--with-properties / --with-data show those fields for each hit, and
+--sort-property orders by one instead of by score.
 --object-type keeps only records of one collection (for example competitor).
 
 --comments-only searches feedback comments instead of notes. Comment hits are
