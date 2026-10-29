@@ -404,7 +404,7 @@ hadron connection grant create --connection <ref> --app <ref> --scopes <s>[,...]
 hadron mcp-server list [--org <ref>] | get <id> | tools <id> | create --org <ref> --slug <s> --name <n> --url <u> [--header 'Name: value']... [--allow <tool>]... [--disabled] | update <id> [--name <n>] [--url <u>] [--header ...]... [--clear-headers] [--allow <tool>]... [--clear-allow] [--enabled|--disabled] | delete <id> --yes
 hadron ha list [--org <ref>] [--limit 1..200] [--offset N] | get <id> | ops <id>   # Home Assistant registry READS only (cli#231). list is ONE explicit page (default --limit 20, sent explicitly; the server default is 50), slug-ascending; --json is a bare array and, when more rows exist, stderr prints `showing N of TOTAL; next page: --offset M --limit L`. get/ops: null = absent OR not visible to you (one answer, exit 4; no existence proof). opAllowlist [] means EVERY op, not deny-all. runToolName/inputSchema are the provider's strings. A disabled instance's `ops` is refused by the server (HA_INSTANCE_DISABLED), message shown unchanged. The access token is write-only and never shown; no host/device is contacted. No create/update/delete yet (separately gated)
 hadron secret create --name <n> --scope user|org [--owner <ref>] --kind generic|webfetch-auth [--value-file -|@file] | list --scope user|org [--owner <ref>] | rm <id> --yes
-hadron config get | set | list
+hadron config get <key> | set <key> <value> (an empty value removes the key; server then returns to its default) | list
 hadron api <query-or-mutation>                       # raw GraphQL
 hadron version
 hadron completion <shell>
@@ -3024,7 +3024,7 @@ GraphQL against the Hadron API:
 
 ```
 hadron api 'query { me { id email } }'
-hadron api 'query($id: ID!) { memory(id: $id) { urn name } }' -F id=mem_123
+hadron api 'query($ref: ID!) { memory(ref: $ref) { urn name } }' -F ref=hrn:mem:acme.com:kb
 cat op.graphql | hadron api -
 ```
 

@@ -23,19 +23,44 @@ func NewCmdAPI(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "api <query-or-mutation>",
 		Short: "Send a raw GraphQL query or mutation",
-		Long: `Send an arbitrary GraphQL document to the Hadron server and print
-the raw JSON response. Use this when a curated command doesn't cover
-what you need.
+		Long: `Send one GraphQL query or mutation to the Hadron server, as you, and print
+the server's JSON response exactly as it came back. Use this when no other
+hadron command does what you need. The fields you can ask for are listed in
+the server's GraphQL schema (introspect it with a '__schema' query, or read
+schema/schema.graphql in the hadron-cli repository).
 
-Variables are passed with repeated -F key=value flags. Values are
-sent as JSON when they parse as JSON, otherwise as strings. Pass "-"
-as the query to read the document from standard input, or use
---input <file>. "-" is refused when stdin is an interactive terminal,
-whose line discipline can silently truncate a large document: pipe it
-in, or use --input.`,
-		Example: `  hadron api 'query { me { id email } }'
-  hadron api 'query($ref: ID!) { memory(ref: $ref) { urn name } }' -F ref=mem_123
-  cat op.graphql | hadron api -`,
+A query only reads. A MUTATION CHANGES REAL DATA, on the server this command
+talks to (--server, HADRON_SERVER, or 'hadron config get server'), with your
+sign-in's permissions, and nothing asks you to confirm. There is no dry run:
+try a mutation on a test server first. 'hadron api' sends no App context, so
+--app has no effect here; an operation that needs one takes it as an argument.
+
+Variables are passed with repeated -F key=value flags. Values are sent as
+JSON when they parse as JSON (numbers, true/false, objects), otherwise as
+strings. An id-typed ref such as memory(ref:) takes a memory id or URN
+(hrn:mem:<root>:<slug>). Pass "-" as the query to read the document from a
+pipe, or use --input <file>. "-" is refused when standard input is an
+interactive terminal, which can silently cut a long document short.
+
+The output is always the JSON response, with or without --json. Success is
+exit 0. If the response carries GraphQL errors, the JSON (with its "errors")
+is still printed and the exit code is not 0: for example 3 not signed in,
+4 not found, 8 forbidden, 1 an error with no more specific code. If the server
+never answers (a gateway error, a reset, a timeout) it is exit 7; after a
+mutation that means it may or may not have been applied, so check before you
+retry. The full table is in 'hadron agentic-usage'.`,
+		Example: `  # Read: who am I signed in as?
+  hadron api 'query { me { id email } }'
+
+  # Read with a variable (a memory URN or id)
+  hadron api 'query($ref: ID!) { memory(ref: $ref) { urn name } }' -F ref=hrn:mem:acme.com:kb
+
+  # A longer document from a file or a pipe
+  hadron api --input op.graphql
+  cat op.graphql | hadron api -
+
+  # WRITES: a mutation runs for real, with no confirmation
+  hadron api 'mutation($id: String!, $d: String!) { updateNode(input: {id: $id, description: $d}) { id description } }' -F id=<node-id> -F d="New description"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			query, err := readQuery(args, inputFile, f.IOStreams.In, f.IOStreams.IsInputTerminal())
