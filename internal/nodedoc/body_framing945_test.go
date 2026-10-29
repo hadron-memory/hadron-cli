@@ -1,14 +1,19 @@
 package nodedoc
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"strings"
 	"testing"
 )
 
-// Server-owned fixture v1, copied byte-for-byte from hadron-server#2585 at
-// 0aab43f5a45e1fb5b79ed6c3b380d8c9925ec85a. Keep copies synchronized.
+// Server-owned fixture, copied byte-for-byte from hadron-server (v1 from #2585
+// at 0aab43f5; v2 adds the NUL row, #2587/#2775 at f2ea31f0). Keep copies
+// synchronized: the hash below is the server copy's, so any edit here fails.
+const framingFixtureSHA256 = "e78bc371f4ef10e313bfa8d7e932ab53dd86a7f50b08b85dc6e1a676b34e125b"
+
 func TestMarkdownBodyFraming945(t *testing.T) {
 	var fixture struct {
 		Version     string `json:"version"`
@@ -17,6 +22,7 @@ func TestMarkdownBodyFraming945(t *testing.T) {
 			Name, Kind     string
 			Stored, Loaded *string
 			Body           string
+			Store          string
 		}
 	}
 	raw, err := os.ReadFile("testdata/markdownBodyFraming.fixture.json")
@@ -26,8 +32,22 @@ func TestMarkdownBodyFraming945(t *testing.T) {
 	if err = json.Unmarshal(raw, &fixture); err != nil {
 		t.Fatal(err)
 	}
-	if fixture.Version != "markdown-body-framing-v1" {
+	if sum := sha256.Sum256(raw); hex.EncodeToString(sum[:]) != framingFixtureSHA256 {
+		t.Fatalf("fixture drifted from the server copy: sha256 %x", sum)
+	}
+	if fixture.Version != "markdown-body-framing-v2" {
 		t.Fatalf("unknown fixture %q", fixture.Version)
+	}
+	// #2587: the NUL row round-trips through the codecs; only the server's
+	// write path (Postgres text) refuses it, which is not this CLI's to pin.
+	nul := false
+	for _, c := range fixture.Cases {
+		if c.Name == "nul-in-body" {
+			nul = c.Store == "refused" && c.Kind == "roundtrip" && c.Stored != nil && strings.Contains(*c.Stored, "\x00")
+		}
+	}
+	if !nul {
+		t.Fatal("fixture v2 lost its NUL row")
 	}
 	for _, c := range fixture.Cases {
 		t.Run(c.Name, func(t *testing.T) {
