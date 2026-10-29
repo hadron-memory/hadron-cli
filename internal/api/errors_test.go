@@ -277,6 +277,8 @@ func TestMapError(t *testing.T) {
 		{"bad host op args", gqlErr("BAD_HOST_OPERATION_ARGS"), exitcode.Usage},
 		{"host not found", gqlErr("HOST_NOT_FOUND"), exitcode.NotFound},
 		{"key scope host conflict", gqlErr("APP_KEY_SCOPE_HOST_CONFLICT"), exitcode.Conflict},
+		{"task blocked", gqlErr("TASK_BLOCKED"), exitcode.Conflict},
+		{"task blocker cycle", gqlErr("TASK_BLOCKER_CYCLE"), exitcode.Conflict},
 		{"task invalid transition", gqlErr("TASK_INVALID_TRANSITION"), exitcode.Conflict},
 		{"task ended", gqlErr("TASK_ENDED"), exitcode.Conflict},
 		{"alarm already acknowledged", gqlErr("ALARM_ALREADY_ACKNOWLEDGED"), exitcode.Conflict},

@@ -18,7 +18,18 @@ fragment AgentTaskPartyFields on AgentTaskParty {
   urn
 }
 
+fragment AgentTaskDependencyFields on AgentTask {
+  id
+  handle
+  title
+  status
+}
+
 fragment AgentTaskFields on AgentTask {
+  priority
+  blocked
+  blockedBy(limit: 20, offset: 0) { total hasMore items { ...AgentTaskDependencyFields } }
+  blocks(limit: 20, offset: 0) { total hasMore items { ...AgentTaskDependencyFields } }
   id
   appId
   title
@@ -67,6 +78,8 @@ fragment AgentTaskFields on AgentTask {
 # sent as null — the wire-semantics rule from CLAUDE.md.
 # Schema-only optional fields must stay absent for older providers.
 # @genqlient(for: "CreateAgentTaskInput.project", omitempty: true)
+# @genqlient(for: "CreateAgentTaskInput.priority", omitempty: true)
+# @genqlient(for: "CreateAgentTaskInput.blockedBy", omitempty: true)
 mutation AgentTaskCreate(
   $input: CreateAgentTaskInput!
 ) {
@@ -429,5 +442,23 @@ query TeamReportingLines($appRef: ID!) {
         ...AgentTaskPartyFields
       }
     }
+  }
+}
+
+# #1135, merged server#2726 at cf9bcfece: all task refs are passed to the server.
+mutation AgentTaskSetPriority($taskRef: ID!, $priority: Int!) {
+  setAgentTaskPriority(taskRef: $taskRef, priority: $priority) { ...AgentTaskFields }
+}
+mutation AgentTaskAddBlocker($taskRef: ID!, $blockerTaskRef: ID!) {
+  addAgentTaskBlocker(taskRef: $taskRef, blockerTaskRef: $blockerTaskRef) { ...AgentTaskFields }
+}
+mutation AgentTaskRemoveBlocker($taskRef: ID!, $blockerTaskRef: ID!) {
+  removeAgentTaskBlocker(taskRef: $taskRef, blockerTaskRef: $blockerTaskRef) { ...AgentTaskFields }
+}
+query AgentTaskDependencies($taskRef: ID!, $limit: Int!, $offset: Int!) {
+  agentTask(id: $taskRef) {
+    id
+    blockedBy(limit: $limit, offset: $offset) { total hasMore items { ...AgentTaskDependencyFields } }
+    blocks(limit: $limit, offset: $offset) { total hasMore items { ...AgentTaskDependencyFields } }
   }
 }

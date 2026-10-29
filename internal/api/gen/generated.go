@@ -1144,15 +1144,296 @@ func (v *AgentSchedulesResponse) GetAgentSchedules() *AgentSchedulesAgentSchedul
 	return v.AgentSchedules
 }
 
+// AgentTaskAddBlockerAddAgentTaskBlockerAgentTask includes the requested fields of the GraphQL type AgentTask.
+type AgentTaskAddBlockerAddAgentTaskBlockerAgentTask struct {
+	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetPriority() int {
+	return v.AgentTaskFields.Priority
+}
+
+// GetBlocked returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetBlocked() bool {
+	return v.AgentTaskFields.Blocked
+}
+
+// GetBlockedBy returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
+}
+
+// GetId returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetId() string { return v.AgentTaskFields.Id }
+
+// GetAppId returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.AppId, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetAppId() string {
+	return v.AgentTaskFields.AppId
+}
+
+// GetTitle returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Title, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetTitle() string {
+	return v.AgentTaskFields.Title
+}
+
+// GetDescription returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Description, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetDescription() *string {
+	return v.AgentTaskFields.Description
+}
+
+// GetStatus returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetStatus() AgentTaskStatus {
+	return v.AgentTaskFields.Status
+}
+
+// GetQueued returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Queued, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetQueued() bool {
+	return v.AgentTaskFields.Queued
+}
+
+// GetWaitingOnChildren returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.WaitingOnChildren, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetWaitingOnChildren() bool {
+	return v.AgentTaskFields.WaitingOnChildren
+}
+
+// GetOwner returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Owner, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetOwner() *AgentTaskFieldsOwnerAgentTaskParty {
+	return v.AgentTaskFields.Owner
+}
+
+// GetAssignee returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Assignee, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetAssignee() *AgentTaskFieldsAssigneeAgentTaskParty {
+	return v.AgentTaskFields.Assignee
+}
+
+// GetAssignedBy returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.AssignedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetAssignedBy() *AgentTaskFieldsAssignedByAgentTaskParty {
+	return v.AgentTaskFields.AssignedBy
+}
+
+// GetCreatedBy returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.CreatedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
+	return v.AgentTaskFields.CreatedBy
+}
+
+// GetParentTaskId returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetParentTaskId() *string {
+	return v.AgentTaskFields.ParentTaskId
+}
+
+// GetTags returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Tags, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetTags() []string {
+	return v.AgentTaskFields.Tags
+}
+
+// GetSource returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Source, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetSource() *string {
+	return v.AgentTaskFields.Source
+}
+
+// GetStartBy returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.StartBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetStartBy() *string {
+	return v.AgentTaskFields.StartBy
+}
+
+// GetCreatedAt returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetCreatedAt() string {
+	return v.AgentTaskFields.CreatedAt
+}
+
+// GetUpdatedAt returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetUpdatedAt() *string {
+	return v.AgentTaskFields.UpdatedAt
+}
+
+// GetStartedAt returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.StartedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetStartedAt() *string {
+	return v.AgentTaskFields.StartedAt
+}
+
+// GetFinishedAt returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.FinishedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetFinishedAt() *string {
+	return v.AgentTaskFields.FinishedAt
+}
+
+// GetCancelledAt returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.CancelledAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetCancelledAt() *string {
+	return v.AgentTaskFields.CancelledAt
+}
+
+// GetCloseSessionWhenDone returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.CloseSessionWhenDone, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetCloseSessionWhenDone() bool {
+	return v.AgentTaskFields.CloseSessionWhenDone
+}
+
+// GetRequirements returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Requirements, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
+	return v.AgentTaskFields.Requirements
+}
+
+// GetResult returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Result, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetResult() *AgentTaskFieldsResultAgentTaskResult {
+	return v.AgentTaskFields.Result
+}
+
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTaskAddBlockerAddAgentTaskBlockerAgentTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTaskAddBlockerAddAgentTaskBlockerAgentTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTaskAddBlockerAddAgentTaskBlockerAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	Title string `json:"title"`
+
+	Description *string `json:"description"`
+
+	Status AgentTaskStatus `json:"status"`
+
+	Queued bool `json:"queued"`
+
+	WaitingOnChildren bool `json:"waitingOnChildren"`
+
+	Owner *AgentTaskFieldsOwnerAgentTaskParty `json:"owner"`
+
+	Assignee *AgentTaskFieldsAssigneeAgentTaskParty `json:"assignee"`
+
+	AssignedBy *AgentTaskFieldsAssignedByAgentTaskParty `json:"assignedBy"`
+
+	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
+
+	ParentTaskId *string `json:"parentTaskId"`
+
+	Tags []string `json:"tags"`
+
+	Source *string `json:"source"`
+
+	StartBy *string `json:"startBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	StartedAt *string `json:"startedAt"`
+
+	FinishedAt *string `json:"finishedAt"`
+
+	CancelledAt *string `json:"cancelledAt"`
+
+	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
+
+	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
+
+	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+}
+
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) __premarshalJSON() (*__premarshalAgentTaskAddBlockerAddAgentTaskBlockerAgentTask, error) {
+	var retval __premarshalAgentTaskAddBlockerAddAgentTaskBlockerAgentTask
+
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
+	retval.Id = v.AgentTaskFields.Id
+	retval.AppId = v.AgentTaskFields.AppId
+	retval.Title = v.AgentTaskFields.Title
+	retval.Description = v.AgentTaskFields.Description
+	retval.Status = v.AgentTaskFields.Status
+	retval.Queued = v.AgentTaskFields.Queued
+	retval.WaitingOnChildren = v.AgentTaskFields.WaitingOnChildren
+	retval.Owner = v.AgentTaskFields.Owner
+	retval.Assignee = v.AgentTaskFields.Assignee
+	retval.AssignedBy = v.AgentTaskFields.AssignedBy
+	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
+	retval.Tags = v.AgentTaskFields.Tags
+	retval.Source = v.AgentTaskFields.Source
+	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.CreatedAt = v.AgentTaskFields.CreatedAt
+	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
+	retval.StartedAt = v.AgentTaskFields.StartedAt
+	retval.FinishedAt = v.AgentTaskFields.FinishedAt
+	retval.CancelledAt = v.AgentTaskFields.CancelledAt
+	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.Requirements = v.AgentTaskFields.Requirements
+	retval.Result = v.AgentTaskFields.Result
+	return &retval, nil
+}
+
+// AgentTaskAddBlockerResponse is returned by AgentTaskAddBlocker on success.
+type AgentTaskAddBlockerResponse struct {
+	// #2644 (hrn:node:hadronmemory.com:specs:cor:agt:050:02) — add a same-App blocker to a backlog/pending task, refusing cycles serially. Assigner authority.
+	AddAgentTaskBlocker *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask `json:"addAgentTaskBlocker"`
+}
+
+// GetAddAgentTaskBlocker returns AgentTaskAddBlockerResponse.AddAgentTaskBlocker, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerResponse) GetAddAgentTaskBlocker() *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask {
+	return v.AddAgentTaskBlocker
+}
+
 // AgentTaskAssignAssignAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskAssignAssignAgentTask struct {
 	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskAssignAssignAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskAssignAssignAgentTask) GetPriority() int { return v.AgentTaskFields.Priority }
+
+// GetBlocked returns AgentTaskAssignAssignAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskAssignAssignAgentTask) GetBlocked() bool { return v.AgentTaskFields.Blocked }
+
+// GetBlockedBy returns AgentTaskAssignAssignAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskAssignAssignAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskAssignAssignAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskAssignAssignAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
 }
 
 // GetId returns AgentTaskAssignAssignAgentTask.Id, and is useful for accessing the field via an interface.
@@ -1272,6 +1553,14 @@ func (v *AgentTaskAssignAssignAgentTask) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalAgentTaskAssignAssignAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
 	Id string `json:"id"`
 
 	AppId string `json:"appId"`
@@ -1330,6 +1619,10 @@ func (v *AgentTaskAssignAssignAgentTask) MarshalJSON() ([]byte, error) {
 func (v *AgentTaskAssignAssignAgentTask) __premarshalJSON() (*__premarshalAgentTaskAssignAssignAgentTask, error) {
 	var retval __premarshalAgentTaskAssignAssignAgentTask
 
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
 	retval.AppId = v.AgentTaskFields.AppId
 	retval.Title = v.AgentTaskFields.Title
@@ -1374,14 +1667,24 @@ func (v *AgentTaskAssignResponse) GetAssignAgentTask() *AgentTaskAssignAssignAge
 }
 
 // AgentTaskCancelCancelAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskCancelCancelAgentTask struct {
 	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskCancelCancelAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskCancelCancelAgentTask) GetPriority() int { return v.AgentTaskFields.Priority }
+
+// GetBlocked returns AgentTaskCancelCancelAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskCancelCancelAgentTask) GetBlocked() bool { return v.AgentTaskFields.Blocked }
+
+// GetBlockedBy returns AgentTaskCancelCancelAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskCancelCancelAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskCancelCancelAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskCancelCancelAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
 }
 
 // GetId returns AgentTaskCancelCancelAgentTask.Id, and is useful for accessing the field via an interface.
@@ -1501,6 +1804,14 @@ func (v *AgentTaskCancelCancelAgentTask) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalAgentTaskCancelCancelAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
 	Id string `json:"id"`
 
 	AppId string `json:"appId"`
@@ -1559,6 +1870,10 @@ func (v *AgentTaskCancelCancelAgentTask) MarshalJSON() ([]byte, error) {
 func (v *AgentTaskCancelCancelAgentTask) __premarshalJSON() (*__premarshalAgentTaskCancelCancelAgentTask, error) {
 	var retval __premarshalAgentTaskCancelCancelAgentTask
 
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
 	retval.AppId = v.AgentTaskFields.AppId
 	retval.Title = v.AgentTaskFields.Title
@@ -1603,14 +1918,24 @@ func (v *AgentTaskCancelResponse) GetCancelAgentTask() *AgentTaskCancelCancelAge
 }
 
 // AgentTaskCreateCreateAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskCreateCreateAgentTask struct {
 	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskCreateCreateAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateCreateAgentTask) GetPriority() int { return v.AgentTaskFields.Priority }
+
+// GetBlocked returns AgentTaskCreateCreateAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateCreateAgentTask) GetBlocked() bool { return v.AgentTaskFields.Blocked }
+
+// GetBlockedBy returns AgentTaskCreateCreateAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateCreateAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskCreateCreateAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateCreateAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
 }
 
 // GetId returns AgentTaskCreateCreateAgentTask.Id, and is useful for accessing the field via an interface.
@@ -1730,6 +2055,14 @@ func (v *AgentTaskCreateCreateAgentTask) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalAgentTaskCreateCreateAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
 	Id string `json:"id"`
 
 	AppId string `json:"appId"`
@@ -1788,6 +2121,10 @@ func (v *AgentTaskCreateCreateAgentTask) MarshalJSON() ([]byte, error) {
 func (v *AgentTaskCreateCreateAgentTask) __premarshalJSON() (*__premarshalAgentTaskCreateCreateAgentTask, error) {
 	var retval __premarshalAgentTaskCreateCreateAgentTask
 
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
 	retval.AppId = v.AgentTaskFields.AppId
 	retval.Title = v.AgentTaskFields.Title
@@ -1861,19 +2198,292 @@ var AllAgentTaskCreateStatus = []AgentTaskCreateStatus{
 	AgentTaskCreateStatusPending,
 }
 
-// AgentTaskFields includes the GraphQL fields of AgentTask requested by the fragment AgentTaskFields.
+// AgentTaskDependenciesAgentTask includes the requested fields of the GraphQL type AgentTask.
+type AgentTaskDependenciesAgentTask struct {
+	Id string `json:"id"`
+	// Same-App tasks this task waits for, including ended blockers.
+	BlockedBy *AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+	// Same-App tasks that name this task as a blocker.
+	Blocks *AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPage `json:"blocks"`
+}
+
+// GetId returns AgentTaskDependenciesAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTask) GetId() string { return v.Id }
+
+// GetBlockedBy returns AgentTaskDependenciesAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTask) GetBlockedBy() *AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPage {
+	return v.BlockedBy
+}
+
+// GetBlocks returns AgentTaskDependenciesAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTask) GetBlocks() *AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPage {
+	return v.Blocks
+}
+
+// AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPage includes the requested fields of the GraphQL type AgentTaskDependencyPage.
 // The GraphQL type's documentation follows.
 //
 // One piece of work a team App has assigned, or wants assigned
 // (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
 // ended; it never reads what the work is. Readable by the App's participants,
 // workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPage struct {
+	Total   int                                                                             `json:"total"`
+	HasMore bool                                                                            `json:"hasMore"`
+	Items   []*AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask `json:"items"`
+}
+
+// GetTotal returns AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPage.Total, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPage) GetTotal() int {
+	return v.Total
+}
+
+// GetHasMore returns AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPage.HasMore, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPage) GetHasMore() bool {
+	return v.HasMore
+}
+
+// GetItems returns AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPage.Items, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPage) GetItems() []*AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask {
+	return v.Items
+}
+
+// AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask includes the requested fields of the GraphQL type AgentTask.
+type AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask struct {
+	AgentTaskDependencyFields `json:"-"`
+}
+
+// GetId returns AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask) GetId() string {
+	return v.AgentTaskDependencyFields.Id
+}
+
+// GetHandle returns AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask) GetHandle() string {
+	return v.AgentTaskDependencyFields.Handle
+}
+
+// GetTitle returns AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask.Title, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask) GetTitle() string {
+	return v.AgentTaskDependencyFields.Title
+}
+
+// GetStatus returns AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask) GetStatus() AgentTaskStatus {
+	return v.AgentTaskDependencyFields.Status
+}
+
+func (v *AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskDependencyFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask struct {
+	Id string `json:"id"`
+
+	Handle string `json:"handle"`
+
+	Title string `json:"title"`
+
+	Status AgentTaskStatus `json:"status"`
+}
+
+func (v *AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask) __premarshalJSON() (*__premarshalAgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask, error) {
+	var retval __premarshalAgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask
+
+	retval.Id = v.AgentTaskDependencyFields.Id
+	retval.Handle = v.AgentTaskDependencyFields.Handle
+	retval.Title = v.AgentTaskDependencyFields.Title
+	retval.Status = v.AgentTaskDependencyFields.Status
+	return &retval, nil
+}
+
+// AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPage includes the requested fields of the GraphQL type AgentTaskDependencyPage.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPage struct {
+	Total   int                                                                          `json:"total"`
+	HasMore bool                                                                         `json:"hasMore"`
+	Items   []*AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask `json:"items"`
+}
+
+// GetTotal returns AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPage.Total, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPage) GetTotal() int { return v.Total }
+
+// GetHasMore returns AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPage.HasMore, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPage) GetHasMore() bool {
+	return v.HasMore
+}
+
+// GetItems returns AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPage.Items, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPage) GetItems() []*AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask {
+	return v.Items
+}
+
+// AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask includes the requested fields of the GraphQL type AgentTask.
+type AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask struct {
+	AgentTaskDependencyFields `json:"-"`
+}
+
+// GetId returns AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask) GetId() string {
+	return v.AgentTaskDependencyFields.Id
+}
+
+// GetHandle returns AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask) GetHandle() string {
+	return v.AgentTaskDependencyFields.Handle
+}
+
+// GetTitle returns AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask.Title, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask) GetTitle() string {
+	return v.AgentTaskDependencyFields.Title
+}
+
+// GetStatus returns AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask) GetStatus() AgentTaskStatus {
+	return v.AgentTaskDependencyFields.Status
+}
+
+func (v *AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskDependencyFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask struct {
+	Id string `json:"id"`
+
+	Handle string `json:"handle"`
+
+	Title string `json:"title"`
+
+	Status AgentTaskStatus `json:"status"`
+}
+
+func (v *AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask) __premarshalJSON() (*__premarshalAgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask, error) {
+	var retval __premarshalAgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask
+
+	retval.Id = v.AgentTaskDependencyFields.Id
+	retval.Handle = v.AgentTaskDependencyFields.Handle
+	retval.Title = v.AgentTaskDependencyFields.Title
+	retval.Status = v.AgentTaskDependencyFields.Status
+	return &retval, nil
+}
+
+// AgentTaskDependenciesResponse is returned by AgentTaskDependencies on success.
+type AgentTaskDependenciesResponse struct {
+	// #1705 — one agent task, or null when it does not exist or the caller may
+	// not read it (no existence oracle). Readers: the App's participants, workers
+	// acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+	AgentTask *AgentTaskDependenciesAgentTask `json:"agentTask"`
+}
+
+// GetAgentTask returns AgentTaskDependenciesResponse.AgentTask, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesResponse) GetAgentTask() *AgentTaskDependenciesAgentTask {
+	return v.AgentTask
+}
+
+// AgentTaskDependencyFields includes the GraphQL fields of AgentTask requested by the fragment AgentTaskDependencyFields.
+type AgentTaskDependencyFields struct {
+	Id string `json:"id"`
+	// The short handle of this task, for example "AT3.405": its project (AT3, a top-level task counted per App) and its
+	// number within each parent down to it (hrn:node:hadronmemory.com:specs:cor:agt:050:01). "AT0" is the reserved
+	// project "No project": a task made with no project is AT0.<n>. An alias for the id, which stays canonical; every
+	// task operation that takes a task id also takes the handle. Immutable: parentage is fixed at creation. A person who
+	// belongs to several Apps qualifies it as hrn:agenttask:<app-urn>:AT3.405, where the App URN is the App's urn.
+	// The handle is not the number of any GitHub issue the task's source names.
+	Handle string          `json:"handle"`
+	Title  string          `json:"title"`
+	Status AgentTaskStatus `json:"status"`
+}
+
+// GetId returns AgentTaskDependencyFields.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependencyFields) GetId() string { return v.Id }
+
+// GetHandle returns AgentTaskDependencyFields.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependencyFields) GetHandle() string { return v.Handle }
+
+// GetTitle returns AgentTaskDependencyFields.Title, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependencyFields) GetTitle() string { return v.Title }
+
+// GetStatus returns AgentTaskDependencyFields.Status, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependencyFields) GetStatus() AgentTaskStatus { return v.Status }
+
+// AgentTaskFields includes the GraphQL fields of AgentTask requested by the fragment AgentTaskFields.
 type AgentTaskFields struct {
-	Id          string          `json:"id"`
-	AppId       string          `json:"appId"`
-	Title       string          `json:"title"`
-	Description *string         `json:"description"`
-	Status      AgentTaskStatus `json:"status"`
+	// #2644 (hrn:node:hadronmemory.com:specs:cor:agt:050:01) — priority1 is highest; range1..5, default1. Matching only, never authority.
+	Priority int `json:"priority"`
+	// Whether at least one blocker remains open. Never a status; manual assignment is preserved.
+	Blocked bool `json:"blocked"`
+	// Same-App tasks this task waits for, including ended blockers.
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+	// Same-App tasks that name this task as a blocker.
+	Blocks      *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+	Id          string                                        `json:"id"`
+	AppId       string                                        `json:"appId"`
+	Title       string                                        `json:"title"`
+	Description *string                                       `json:"description"`
+	Status      AgentTaskStatus                               `json:"status"`
 	// Derived (hrn:node:hadronmemory.com:specs:cor:agt:050:03): pending with no assignee. Never stored.
 	Queued bool `json:"queued"`
 	// Derived (hrn:node:hadronmemory.com:specs:cor:agt:050:04): started with at least one pending or started child task. Never stored.
@@ -1901,6 +2511,20 @@ type AgentTaskFields struct {
 	// Set only on a finished task.
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
 }
+
+// GetPriority returns AgentTaskFields.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskFields) GetPriority() int { return v.Priority }
+
+// GetBlocked returns AgentTaskFields.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskFields) GetBlocked() bool { return v.Blocked }
+
+// GetBlockedBy returns AgentTaskFields.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskFields) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.BlockedBy
+}
+
+// GetBlocks returns AgentTaskFields.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskFields) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage { return v.Blocks }
 
 // GetId returns AgentTaskFields.Id, and is useful for accessing the field via an interface.
 func (v *AgentTaskFields) GetId() string { return v.Id }
@@ -2131,6 +2755,210 @@ func (v *AgentTaskFieldsAssigneeAgentTaskParty) __premarshalJSON() (*__premarsha
 	return &retval, nil
 }
 
+// AgentTaskFieldsBlockedByAgentTaskDependencyPage includes the requested fields of the GraphQL type AgentTaskDependencyPage.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type AgentTaskFieldsBlockedByAgentTaskDependencyPage struct {
+	Total   int                                                              `json:"total"`
+	HasMore bool                                                             `json:"hasMore"`
+	Items   []*AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask `json:"items"`
+}
+
+// GetTotal returns AgentTaskFieldsBlockedByAgentTaskDependencyPage.Total, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsBlockedByAgentTaskDependencyPage) GetTotal() int { return v.Total }
+
+// GetHasMore returns AgentTaskFieldsBlockedByAgentTaskDependencyPage.HasMore, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsBlockedByAgentTaskDependencyPage) GetHasMore() bool { return v.HasMore }
+
+// GetItems returns AgentTaskFieldsBlockedByAgentTaskDependencyPage.Items, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsBlockedByAgentTaskDependencyPage) GetItems() []*AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask {
+	return v.Items
+}
+
+// AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask includes the requested fields of the GraphQL type AgentTask.
+type AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask struct {
+	AgentTaskDependencyFields `json:"-"`
+}
+
+// GetId returns AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask) GetId() string {
+	return v.AgentTaskDependencyFields.Id
+}
+
+// GetHandle returns AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask) GetHandle() string {
+	return v.AgentTaskDependencyFields.Handle
+}
+
+// GetTitle returns AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask.Title, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask) GetTitle() string {
+	return v.AgentTaskDependencyFields.Title
+}
+
+// GetStatus returns AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask) GetStatus() AgentTaskStatus {
+	return v.AgentTaskDependencyFields.Status
+}
+
+func (v *AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskDependencyFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask struct {
+	Id string `json:"id"`
+
+	Handle string `json:"handle"`
+
+	Title string `json:"title"`
+
+	Status AgentTaskStatus `json:"status"`
+}
+
+func (v *AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask) __premarshalJSON() (*__premarshalAgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask, error) {
+	var retval __premarshalAgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask
+
+	retval.Id = v.AgentTaskDependencyFields.Id
+	retval.Handle = v.AgentTaskDependencyFields.Handle
+	retval.Title = v.AgentTaskDependencyFields.Title
+	retval.Status = v.AgentTaskDependencyFields.Status
+	return &retval, nil
+}
+
+// AgentTaskFieldsBlocksAgentTaskDependencyPage includes the requested fields of the GraphQL type AgentTaskDependencyPage.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type AgentTaskFieldsBlocksAgentTaskDependencyPage struct {
+	Total   int                                                           `json:"total"`
+	HasMore bool                                                          `json:"hasMore"`
+	Items   []*AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask `json:"items"`
+}
+
+// GetTotal returns AgentTaskFieldsBlocksAgentTaskDependencyPage.Total, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsBlocksAgentTaskDependencyPage) GetTotal() int { return v.Total }
+
+// GetHasMore returns AgentTaskFieldsBlocksAgentTaskDependencyPage.HasMore, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsBlocksAgentTaskDependencyPage) GetHasMore() bool { return v.HasMore }
+
+// GetItems returns AgentTaskFieldsBlocksAgentTaskDependencyPage.Items, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsBlocksAgentTaskDependencyPage) GetItems() []*AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask {
+	return v.Items
+}
+
+// AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask includes the requested fields of the GraphQL type AgentTask.
+type AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask struct {
+	AgentTaskDependencyFields `json:"-"`
+}
+
+// GetId returns AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask) GetId() string {
+	return v.AgentTaskDependencyFields.Id
+}
+
+// GetHandle returns AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask) GetHandle() string {
+	return v.AgentTaskDependencyFields.Handle
+}
+
+// GetTitle returns AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask.Title, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask) GetTitle() string {
+	return v.AgentTaskDependencyFields.Title
+}
+
+// GetStatus returns AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask) GetStatus() AgentTaskStatus {
+	return v.AgentTaskDependencyFields.Status
+}
+
+func (v *AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskDependencyFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask struct {
+	Id string `json:"id"`
+
+	Handle string `json:"handle"`
+
+	Title string `json:"title"`
+
+	Status AgentTaskStatus `json:"status"`
+}
+
+func (v *AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask) __premarshalJSON() (*__premarshalAgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask, error) {
+	var retval __premarshalAgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask
+
+	retval.Id = v.AgentTaskDependencyFields.Id
+	retval.Handle = v.AgentTaskDependencyFields.Handle
+	retval.Title = v.AgentTaskDependencyFields.Title
+	retval.Status = v.AgentTaskDependencyFields.Status
+	return &retval, nil
+}
+
 // AgentTaskFieldsCreatedByAgentTaskParty includes the requested fields of the GraphQL type AgentTaskParty.
 // The GraphQL type's documentation follows.
 //
@@ -2336,14 +3164,24 @@ func (v *AgentTaskFieldsResultAgentTaskResult) GetSummary() *string { return v.S
 func (v *AgentTaskFieldsResultAgentTaskResult) GetEvidence() *string { return v.Evidence }
 
 // AgentTaskFinishFinishAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskFinishFinishAgentTask struct {
 	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskFinishFinishAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskFinishFinishAgentTask) GetPriority() int { return v.AgentTaskFields.Priority }
+
+// GetBlocked returns AgentTaskFinishFinishAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskFinishFinishAgentTask) GetBlocked() bool { return v.AgentTaskFields.Blocked }
+
+// GetBlockedBy returns AgentTaskFinishFinishAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskFinishFinishAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskFinishFinishAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskFinishFinishAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
 }
 
 // GetId returns AgentTaskFinishFinishAgentTask.Id, and is useful for accessing the field via an interface.
@@ -2463,6 +3301,14 @@ func (v *AgentTaskFinishFinishAgentTask) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalAgentTaskFinishFinishAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
 	Id string `json:"id"`
 
 	AppId string `json:"appId"`
@@ -2521,6 +3367,10 @@ func (v *AgentTaskFinishFinishAgentTask) MarshalJSON() ([]byte, error) {
 func (v *AgentTaskFinishFinishAgentTask) __premarshalJSON() (*__premarshalAgentTaskFinishFinishAgentTask, error) {
 	var retval __premarshalAgentTaskFinishFinishAgentTask
 
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
 	retval.AppId = v.AgentTaskFields.AppId
 	retval.Title = v.AgentTaskFields.Title
@@ -2561,14 +3411,24 @@ func (v *AgentTaskFinishResponse) GetFinishAgentTask() *AgentTaskFinishFinishAge
 }
 
 // AgentTaskGetAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskGetAgentTask struct {
 	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskGetAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTask) GetPriority() int { return v.AgentTaskFields.Priority }
+
+// GetBlocked returns AgentTaskGetAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTask) GetBlocked() bool { return v.AgentTaskFields.Blocked }
+
+// GetBlockedBy returns AgentTaskGetAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskGetAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
 }
 
 // GetId returns AgentTaskGetAgentTask.Id, and is useful for accessing the field via an interface.
@@ -2682,6 +3542,14 @@ func (v *AgentTaskGetAgentTask) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalAgentTaskGetAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
 	Id string `json:"id"`
 
 	AppId string `json:"appId"`
@@ -2740,6 +3608,10 @@ func (v *AgentTaskGetAgentTask) MarshalJSON() ([]byte, error) {
 func (v *AgentTaskGetAgentTask) __premarshalJSON() (*__premarshalAgentTaskGetAgentTask, error) {
 	var retval __premarshalAgentTaskGetAgentTask
 
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
 	retval.AppId = v.AgentTaskFields.AppId
 	retval.Title = v.AgentTaskFields.Title
@@ -2869,14 +3741,24 @@ func (v *AgentTaskIndexListResponse) GetAgentTaskList() []*AgentTaskIndexListAge
 }
 
 // AgentTaskListAgentTasksAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskListAgentTasksAgentTask struct {
 	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskListAgentTasksAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskListAgentTasksAgentTask) GetPriority() int { return v.AgentTaskFields.Priority }
+
+// GetBlocked returns AgentTaskListAgentTasksAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskListAgentTasksAgentTask) GetBlocked() bool { return v.AgentTaskFields.Blocked }
+
+// GetBlockedBy returns AgentTaskListAgentTasksAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskListAgentTasksAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskListAgentTasksAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskListAgentTasksAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
 }
 
 // GetId returns AgentTaskListAgentTasksAgentTask.Id, and is useful for accessing the field via an interface.
@@ -3000,6 +3882,14 @@ func (v *AgentTaskListAgentTasksAgentTask) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalAgentTaskListAgentTasksAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
 	Id string `json:"id"`
 
 	AppId string `json:"appId"`
@@ -3058,6 +3948,10 @@ func (v *AgentTaskListAgentTasksAgentTask) MarshalJSON() ([]byte, error) {
 func (v *AgentTaskListAgentTasksAgentTask) __premarshalJSON() (*__premarshalAgentTaskListAgentTasksAgentTask, error) {
 	var retval __premarshalAgentTaskListAgentTasksAgentTask
 
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
 	retval.AppId = v.AgentTaskFields.AppId
 	retval.Title = v.AgentTaskFields.Title
@@ -3087,6 +3981,7 @@ func (v *AgentTaskListAgentTasksAgentTask) __premarshalJSON() (*__premarshalAgen
 // AgentTaskListResponse is returned by AgentTaskList on success.
 type AgentTaskListResponse struct {
 	// #1705 — a team App's agent tasks, newest first. Party filters combine with the other selectors;
+	// All tag, source and date filters combine with the other selectors using AND.
 	// owner / assignee / creator name a party of the App (a ref naming nobody matches
 	// nothing; a retired worker is no party to name, so it matches nothing). creator is
 	// the task's creator as createdBy projects it: a worker, or a person for a task they created
@@ -3123,14 +4018,24 @@ var AllAgentTaskMatchedBy = []AgentTaskMatchedBy{
 }
 
 // AgentTaskParkParkAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskParkParkAgentTask struct {
 	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskParkParkAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetPriority() int { return v.AgentTaskFields.Priority }
+
+// GetBlocked returns AgentTaskParkParkAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetBlocked() bool { return v.AgentTaskFields.Blocked }
+
+// GetBlockedBy returns AgentTaskParkParkAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskParkParkAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
 }
 
 // GetId returns AgentTaskParkParkAgentTask.Id, and is useful for accessing the field via an interface.
@@ -3244,6 +4149,14 @@ func (v *AgentTaskParkParkAgentTask) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalAgentTaskParkParkAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
 	Id string `json:"id"`
 
 	AppId string `json:"appId"`
@@ -3302,6 +4215,10 @@ func (v *AgentTaskParkParkAgentTask) MarshalJSON() ([]byte, error) {
 func (v *AgentTaskParkParkAgentTask) __premarshalJSON() (*__premarshalAgentTaskParkParkAgentTask, error) {
 	var retval __premarshalAgentTaskParkParkAgentTask
 
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
 	retval.AppId = v.AgentTaskFields.AppId
 	retval.Title = v.AgentTaskFields.Title
@@ -3395,14 +4312,28 @@ var AllAgentTaskPartyKind = []AgentTaskPartyKind{
 }
 
 // AgentTaskProgressRecordAgentTaskProgressAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskProgressRecordAgentTaskProgressAgentTask struct {
 	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskProgressRecordAgentTaskProgressAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetPriority() int {
+	return v.AgentTaskFields.Priority
+}
+
+// GetBlocked returns AgentTaskProgressRecordAgentTaskProgressAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetBlocked() bool {
+	return v.AgentTaskFields.Blocked
+}
+
+// GetBlockedBy returns AgentTaskProgressRecordAgentTaskProgressAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskProgressRecordAgentTaskProgressAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
 }
 
 // GetId returns AgentTaskProgressRecordAgentTaskProgressAgentTask.Id, and is useful for accessing the field via an interface.
@@ -3546,6 +4477,14 @@ func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) UnmarshalJSON(b []by
 }
 
 type __premarshalAgentTaskProgressRecordAgentTaskProgressAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
 	Id string `json:"id"`
 
 	AppId string `json:"appId"`
@@ -3604,6 +4543,10 @@ func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) MarshalJSON() ([]byt
 func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) __premarshalJSON() (*__premarshalAgentTaskProgressRecordAgentTaskProgressAgentTask, error) {
 	var retval __premarshalAgentTaskProgressRecordAgentTaskProgressAgentTask
 
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
 	retval.AppId = v.AgentTaskFields.AppId
 	retval.Title = v.AgentTaskFields.Title
@@ -3643,14 +4586,28 @@ func (v *AgentTaskProgressResponse) GetRecordAgentTaskProgress() *AgentTaskProgr
 }
 
 // AgentTaskReadyMakeAgentTaskReadyAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskReadyMakeAgentTaskReadyAgentTask struct {
 	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskReadyMakeAgentTaskReadyAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetPriority() int {
+	return v.AgentTaskFields.Priority
+}
+
+// GetBlocked returns AgentTaskReadyMakeAgentTaskReadyAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetBlocked() bool {
+	return v.AgentTaskFields.Blocked
+}
+
+// GetBlockedBy returns AgentTaskReadyMakeAgentTaskReadyAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskReadyMakeAgentTaskReadyAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
 }
 
 // GetId returns AgentTaskReadyMakeAgentTaskReadyAgentTask.Id, and is useful for accessing the field via an interface.
@@ -3784,6 +4741,14 @@ func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) UnmarshalJSON(b []byte) erro
 }
 
 type __premarshalAgentTaskReadyMakeAgentTaskReadyAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
 	Id string `json:"id"`
 
 	AppId string `json:"appId"`
@@ -3842,6 +4807,10 @@ func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) MarshalJSON() ([]byte, error
 func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) __premarshalJSON() (*__premarshalAgentTaskReadyMakeAgentTaskReadyAgentTask, error) {
 	var retval __premarshalAgentTaskReadyMakeAgentTaskReadyAgentTask
 
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
 	retval.AppId = v.AgentTaskFields.AppId
 	retval.Title = v.AgentTaskFields.Title
@@ -3885,14 +4854,24 @@ func (v *AgentTaskReadyResponse) GetMakeAgentTaskReady() *AgentTaskReadyMakeAgen
 }
 
 // AgentTaskReassignReassignAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskReassignReassignAgentTask struct {
 	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskReassignReassignAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskReassignReassignAgentTask) GetPriority() int { return v.AgentTaskFields.Priority }
+
+// GetBlocked returns AgentTaskReassignReassignAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskReassignReassignAgentTask) GetBlocked() bool { return v.AgentTaskFields.Blocked }
+
+// GetBlockedBy returns AgentTaskReassignReassignAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskReassignReassignAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskReassignReassignAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskReassignReassignAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
 }
 
 // GetId returns AgentTaskReassignReassignAgentTask.Id, and is useful for accessing the field via an interface.
@@ -4022,6 +5001,14 @@ func (v *AgentTaskReassignReassignAgentTask) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalAgentTaskReassignReassignAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
 	Id string `json:"id"`
 
 	AppId string `json:"appId"`
@@ -4080,6 +5067,10 @@ func (v *AgentTaskReassignReassignAgentTask) MarshalJSON() ([]byte, error) {
 func (v *AgentTaskReassignReassignAgentTask) __premarshalJSON() (*__premarshalAgentTaskReassignReassignAgentTask, error) {
 	var retval __premarshalAgentTaskReassignReassignAgentTask
 
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
 	retval.AppId = v.AgentTaskFields.AppId
 	retval.Title = v.AgentTaskFields.Title
@@ -4121,6 +5112,279 @@ func (v *AgentTaskReassignResponse) GetReassignAgentTask() *AgentTaskReassignRea
 	return v.ReassignAgentTask
 }
 
+// AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask includes the requested fields of the GraphQL type AgentTask.
+type AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask struct {
+	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetPriority() int {
+	return v.AgentTaskFields.Priority
+}
+
+// GetBlocked returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetBlocked() bool {
+	return v.AgentTaskFields.Blocked
+}
+
+// GetBlockedBy returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
+}
+
+// GetId returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetId() string {
+	return v.AgentTaskFields.Id
+}
+
+// GetAppId returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.AppId, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetAppId() string {
+	return v.AgentTaskFields.AppId
+}
+
+// GetTitle returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Title, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetTitle() string {
+	return v.AgentTaskFields.Title
+}
+
+// GetDescription returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Description, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetDescription() *string {
+	return v.AgentTaskFields.Description
+}
+
+// GetStatus returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetStatus() AgentTaskStatus {
+	return v.AgentTaskFields.Status
+}
+
+// GetQueued returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Queued, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetQueued() bool {
+	return v.AgentTaskFields.Queued
+}
+
+// GetWaitingOnChildren returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.WaitingOnChildren, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetWaitingOnChildren() bool {
+	return v.AgentTaskFields.WaitingOnChildren
+}
+
+// GetOwner returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Owner, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetOwner() *AgentTaskFieldsOwnerAgentTaskParty {
+	return v.AgentTaskFields.Owner
+}
+
+// GetAssignee returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Assignee, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetAssignee() *AgentTaskFieldsAssigneeAgentTaskParty {
+	return v.AgentTaskFields.Assignee
+}
+
+// GetAssignedBy returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.AssignedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetAssignedBy() *AgentTaskFieldsAssignedByAgentTaskParty {
+	return v.AgentTaskFields.AssignedBy
+}
+
+// GetCreatedBy returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.CreatedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
+	return v.AgentTaskFields.CreatedBy
+}
+
+// GetParentTaskId returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetParentTaskId() *string {
+	return v.AgentTaskFields.ParentTaskId
+}
+
+// GetTags returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Tags, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetTags() []string {
+	return v.AgentTaskFields.Tags
+}
+
+// GetSource returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Source, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetSource() *string {
+	return v.AgentTaskFields.Source
+}
+
+// GetStartBy returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.StartBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetStartBy() *string {
+	return v.AgentTaskFields.StartBy
+}
+
+// GetCreatedAt returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetCreatedAt() string {
+	return v.AgentTaskFields.CreatedAt
+}
+
+// GetUpdatedAt returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetUpdatedAt() *string {
+	return v.AgentTaskFields.UpdatedAt
+}
+
+// GetStartedAt returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.StartedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetStartedAt() *string {
+	return v.AgentTaskFields.StartedAt
+}
+
+// GetFinishedAt returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.FinishedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetFinishedAt() *string {
+	return v.AgentTaskFields.FinishedAt
+}
+
+// GetCancelledAt returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.CancelledAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetCancelledAt() *string {
+	return v.AgentTaskFields.CancelledAt
+}
+
+// GetCloseSessionWhenDone returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.CloseSessionWhenDone, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetCloseSessionWhenDone() bool {
+	return v.AgentTaskFields.CloseSessionWhenDone
+}
+
+// GetRequirements returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Requirements, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
+	return v.AgentTaskFields.Requirements
+}
+
+// GetResult returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Result, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetResult() *AgentTaskFieldsResultAgentTaskResult {
+	return v.AgentTaskFields.Result
+}
+
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	Title string `json:"title"`
+
+	Description *string `json:"description"`
+
+	Status AgentTaskStatus `json:"status"`
+
+	Queued bool `json:"queued"`
+
+	WaitingOnChildren bool `json:"waitingOnChildren"`
+
+	Owner *AgentTaskFieldsOwnerAgentTaskParty `json:"owner"`
+
+	Assignee *AgentTaskFieldsAssigneeAgentTaskParty `json:"assignee"`
+
+	AssignedBy *AgentTaskFieldsAssignedByAgentTaskParty `json:"assignedBy"`
+
+	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
+
+	ParentTaskId *string `json:"parentTaskId"`
+
+	Tags []string `json:"tags"`
+
+	Source *string `json:"source"`
+
+	StartBy *string `json:"startBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	StartedAt *string `json:"startedAt"`
+
+	FinishedAt *string `json:"finishedAt"`
+
+	CancelledAt *string `json:"cancelledAt"`
+
+	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
+
+	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
+
+	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+}
+
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) __premarshalJSON() (*__premarshalAgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask, error) {
+	var retval __premarshalAgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask
+
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
+	retval.Id = v.AgentTaskFields.Id
+	retval.AppId = v.AgentTaskFields.AppId
+	retval.Title = v.AgentTaskFields.Title
+	retval.Description = v.AgentTaskFields.Description
+	retval.Status = v.AgentTaskFields.Status
+	retval.Queued = v.AgentTaskFields.Queued
+	retval.WaitingOnChildren = v.AgentTaskFields.WaitingOnChildren
+	retval.Owner = v.AgentTaskFields.Owner
+	retval.Assignee = v.AgentTaskFields.Assignee
+	retval.AssignedBy = v.AgentTaskFields.AssignedBy
+	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
+	retval.Tags = v.AgentTaskFields.Tags
+	retval.Source = v.AgentTaskFields.Source
+	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.CreatedAt = v.AgentTaskFields.CreatedAt
+	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
+	retval.StartedAt = v.AgentTaskFields.StartedAt
+	retval.FinishedAt = v.AgentTaskFields.FinishedAt
+	retval.CancelledAt = v.AgentTaskFields.CancelledAt
+	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.Requirements = v.AgentTaskFields.Requirements
+	retval.Result = v.AgentTaskFields.Result
+	return &retval, nil
+}
+
+// AgentTaskRemoveBlockerResponse is returned by AgentTaskRemoveBlocker on success.
+type AgentTaskRemoveBlockerResponse struct {
+	// #2644 (hrn:node:hadronmemory.com:specs:cor:agt:050:02) — remove a blocker from a backlog/pending task. Last-blocker release restarts stall clocks and preserves status/assignee. Assigner authority.
+	RemoveAgentTaskBlocker *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask `json:"removeAgentTaskBlocker"`
+}
+
+// GetRemoveAgentTaskBlocker returns AgentTaskRemoveBlockerResponse.RemoveAgentTaskBlocker, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerResponse) GetRemoveAgentTaskBlocker() *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask {
+	return v.RemoveAgentTaskBlocker
+}
+
 type AgentTaskRequirementsInput struct {
 	// Workers of this App (id, URN or name) the matcher must not pick.
 	ExcludeWorkers []string `json:"excludeWorkers"`
@@ -4157,6 +5421,279 @@ func (v *AgentTaskResultInput) GetOutcome() string { return v.Outcome }
 
 // GetSummary returns AgentTaskResultInput.Summary, and is useful for accessing the field via an interface.
 func (v *AgentTaskResultInput) GetSummary() *string { return v.Summary }
+
+// AgentTaskSetPriorityResponse is returned by AgentTaskSetPriority on success.
+type AgentTaskSetPriorityResponse struct {
+	// #2644 (hrn:node:hadronmemory.com:specs:cor:agt:050:01) — assigner authority; priority1..5, default1.
+	SetAgentTaskPriority *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask `json:"setAgentTaskPriority"`
+}
+
+// GetSetAgentTaskPriority returns AgentTaskSetPriorityResponse.SetAgentTaskPriority, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPriorityResponse) GetSetAgentTaskPriority() *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask {
+	return v.SetAgentTaskPriority
+}
+
+// AgentTaskSetPrioritySetAgentTaskPriorityAgentTask includes the requested fields of the GraphQL type AgentTask.
+type AgentTaskSetPrioritySetAgentTaskPriorityAgentTask struct {
+	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetPriority() int {
+	return v.AgentTaskFields.Priority
+}
+
+// GetBlocked returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetBlocked() bool {
+	return v.AgentTaskFields.Blocked
+}
+
+// GetBlockedBy returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
+}
+
+// GetId returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetId() string {
+	return v.AgentTaskFields.Id
+}
+
+// GetAppId returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.AppId, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetAppId() string {
+	return v.AgentTaskFields.AppId
+}
+
+// GetTitle returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Title, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetTitle() string {
+	return v.AgentTaskFields.Title
+}
+
+// GetDescription returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Description, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetDescription() *string {
+	return v.AgentTaskFields.Description
+}
+
+// GetStatus returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetStatus() AgentTaskStatus {
+	return v.AgentTaskFields.Status
+}
+
+// GetQueued returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Queued, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetQueued() bool {
+	return v.AgentTaskFields.Queued
+}
+
+// GetWaitingOnChildren returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.WaitingOnChildren, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetWaitingOnChildren() bool {
+	return v.AgentTaskFields.WaitingOnChildren
+}
+
+// GetOwner returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Owner, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetOwner() *AgentTaskFieldsOwnerAgentTaskParty {
+	return v.AgentTaskFields.Owner
+}
+
+// GetAssignee returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Assignee, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetAssignee() *AgentTaskFieldsAssigneeAgentTaskParty {
+	return v.AgentTaskFields.Assignee
+}
+
+// GetAssignedBy returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.AssignedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetAssignedBy() *AgentTaskFieldsAssignedByAgentTaskParty {
+	return v.AgentTaskFields.AssignedBy
+}
+
+// GetCreatedBy returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.CreatedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
+	return v.AgentTaskFields.CreatedBy
+}
+
+// GetParentTaskId returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetParentTaskId() *string {
+	return v.AgentTaskFields.ParentTaskId
+}
+
+// GetTags returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Tags, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetTags() []string {
+	return v.AgentTaskFields.Tags
+}
+
+// GetSource returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Source, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetSource() *string {
+	return v.AgentTaskFields.Source
+}
+
+// GetStartBy returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.StartBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetStartBy() *string {
+	return v.AgentTaskFields.StartBy
+}
+
+// GetCreatedAt returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetCreatedAt() string {
+	return v.AgentTaskFields.CreatedAt
+}
+
+// GetUpdatedAt returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetUpdatedAt() *string {
+	return v.AgentTaskFields.UpdatedAt
+}
+
+// GetStartedAt returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.StartedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetStartedAt() *string {
+	return v.AgentTaskFields.StartedAt
+}
+
+// GetFinishedAt returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.FinishedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetFinishedAt() *string {
+	return v.AgentTaskFields.FinishedAt
+}
+
+// GetCancelledAt returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.CancelledAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetCancelledAt() *string {
+	return v.AgentTaskFields.CancelledAt
+}
+
+// GetCloseSessionWhenDone returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.CloseSessionWhenDone, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetCloseSessionWhenDone() bool {
+	return v.AgentTaskFields.CloseSessionWhenDone
+}
+
+// GetRequirements returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Requirements, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
+	return v.AgentTaskFields.Requirements
+}
+
+// GetResult returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Result, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetResult() *AgentTaskFieldsResultAgentTaskResult {
+	return v.AgentTaskFields.Result
+}
+
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTaskSetPrioritySetAgentTaskPriorityAgentTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTaskSetPrioritySetAgentTaskPriorityAgentTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTaskSetPrioritySetAgentTaskPriorityAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	Title string `json:"title"`
+
+	Description *string `json:"description"`
+
+	Status AgentTaskStatus `json:"status"`
+
+	Queued bool `json:"queued"`
+
+	WaitingOnChildren bool `json:"waitingOnChildren"`
+
+	Owner *AgentTaskFieldsOwnerAgentTaskParty `json:"owner"`
+
+	Assignee *AgentTaskFieldsAssigneeAgentTaskParty `json:"assignee"`
+
+	AssignedBy *AgentTaskFieldsAssignedByAgentTaskParty `json:"assignedBy"`
+
+	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
+
+	ParentTaskId *string `json:"parentTaskId"`
+
+	Tags []string `json:"tags"`
+
+	Source *string `json:"source"`
+
+	StartBy *string `json:"startBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	StartedAt *string `json:"startedAt"`
+
+	FinishedAt *string `json:"finishedAt"`
+
+	CancelledAt *string `json:"cancelledAt"`
+
+	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
+
+	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
+
+	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+}
+
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) __premarshalJSON() (*__premarshalAgentTaskSetPrioritySetAgentTaskPriorityAgentTask, error) {
+	var retval __premarshalAgentTaskSetPrioritySetAgentTaskPriorityAgentTask
+
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
+	retval.Id = v.AgentTaskFields.Id
+	retval.AppId = v.AgentTaskFields.AppId
+	retval.Title = v.AgentTaskFields.Title
+	retval.Description = v.AgentTaskFields.Description
+	retval.Status = v.AgentTaskFields.Status
+	retval.Queued = v.AgentTaskFields.Queued
+	retval.WaitingOnChildren = v.AgentTaskFields.WaitingOnChildren
+	retval.Owner = v.AgentTaskFields.Owner
+	retval.Assignee = v.AgentTaskFields.Assignee
+	retval.AssignedBy = v.AgentTaskFields.AssignedBy
+	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
+	retval.Tags = v.AgentTaskFields.Tags
+	retval.Source = v.AgentTaskFields.Source
+	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.CreatedAt = v.AgentTaskFields.CreatedAt
+	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
+	retval.StartedAt = v.AgentTaskFields.StartedAt
+	retval.FinishedAt = v.AgentTaskFields.FinishedAt
+	retval.CancelledAt = v.AgentTaskFields.CancelledAt
+	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.Requirements = v.AgentTaskFields.Requirements
+	retval.Result = v.AgentTaskFields.Result
+	return &retval, nil
+}
 
 // An App's stall schedule (#864 over server #1706/#1707, #1863): the four
 // stall windows (cor:agt:050:14–:17), the host-registration lapse count
@@ -4228,14 +5765,24 @@ func (v *AgentTaskStartResponse) GetStartAgentTask() *AgentTaskStartStartAgentTa
 }
 
 // AgentTaskStartStartAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskStartStartAgentTask struct {
 	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskStartStartAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskStartStartAgentTask) GetPriority() int { return v.AgentTaskFields.Priority }
+
+// GetBlocked returns AgentTaskStartStartAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskStartStartAgentTask) GetBlocked() bool { return v.AgentTaskFields.Blocked }
+
+// GetBlockedBy returns AgentTaskStartStartAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskStartStartAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskStartStartAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskStartStartAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
 }
 
 // GetId returns AgentTaskStartStartAgentTask.Id, and is useful for accessing the field via an interface.
@@ -4351,6 +5898,14 @@ func (v *AgentTaskStartStartAgentTask) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalAgentTaskStartStartAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
 	Id string `json:"id"`
 
 	AppId string `json:"appId"`
@@ -4409,6 +5964,10 @@ func (v *AgentTaskStartStartAgentTask) MarshalJSON() ([]byte, error) {
 func (v *AgentTaskStartStartAgentTask) __premarshalJSON() (*__premarshalAgentTaskStartStartAgentTask, error) {
 	var retval __premarshalAgentTaskStartStartAgentTask
 
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
 	retval.AppId = v.AgentTaskFields.AppId
 	retval.Title = v.AgentTaskFields.Title
@@ -4555,14 +6114,24 @@ func (v *AgentTaskSymptomSearchResponse) GetAgentTaskList() []*AgentTaskSymptomS
 }
 
 // AgentTaskTreeAgentTaskTreeAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskTreeAgentTaskTreeAgentTask struct {
 	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskTreeAgentTaskTreeAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetPriority() int { return v.AgentTaskFields.Priority }
+
+// GetBlocked returns AgentTaskTreeAgentTaskTreeAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetBlocked() bool { return v.AgentTaskFields.Blocked }
+
+// GetBlockedBy returns AgentTaskTreeAgentTaskTreeAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskTreeAgentTaskTreeAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
 }
 
 // GetId returns AgentTaskTreeAgentTaskTreeAgentTask.Id, and is useful for accessing the field via an interface.
@@ -4692,6 +6261,14 @@ func (v *AgentTaskTreeAgentTaskTreeAgentTask) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalAgentTaskTreeAgentTaskTreeAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
 	Id string `json:"id"`
 
 	AppId string `json:"appId"`
@@ -4750,6 +6327,10 @@ func (v *AgentTaskTreeAgentTaskTreeAgentTask) MarshalJSON() ([]byte, error) {
 func (v *AgentTaskTreeAgentTaskTreeAgentTask) __premarshalJSON() (*__premarshalAgentTaskTreeAgentTaskTreeAgentTask, error) {
 	var retval __premarshalAgentTaskTreeAgentTaskTreeAgentTask
 
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
 	retval.AppId = v.AgentTaskFields.AppId
 	retval.Title = v.AgentTaskFields.Title
@@ -15856,7 +17437,8 @@ type CreateAgentTaskInput struct {
 	// The team App (id or URN). Required for a root task; for a child task it is taken from the parent and, if given, must match.
 	AppRef *string `json:"appRef"`
 	// Omit to leave the task queued.
-	Assignee *AgentTaskPartyInput `json:"assignee,omitempty"`
+	Assignee  *AgentTaskPartyInput `json:"assignee,omitempty"`
+	BlockedBy []string             `json:"blockedBy,omitempty"`
 	// Defaults to false: the assignee's session ends only when whoever assigns the task asks (hrn:node:hadronmemory.com:specs:cor:agt:050:10).
 	CloseSessionWhenDone *bool   `json:"closeSessionWhenDone"`
 	Description          *string `json:"description"`
@@ -15866,6 +17448,8 @@ type CreateAgentTaskInput struct {
 	// child task, whose owner is its parent's assignee (TASK_CHILD_OWNER_MISMATCH).
 	Owner        *AgentTaskPartyInput `json:"owner,omitempty"`
 	ParentTaskId *string              `json:"parentTaskId"`
+	// #2644 — naming priority or blockers requires the task assigner authority; otherwise creation refuses atomically.
+	Priority *int `json:"priority,omitempty"`
 	// Make a top-level PROJECT (AT1, AT2, ...) instead of a task under the reserved project AT0. Not with parentTaskId.
 	Project      *bool                       `json:"project,omitempty"`
 	Requirements *AgentTaskRequirementsInput `json:"requirements,omitempty"`
@@ -15885,6 +17469,9 @@ func (v *CreateAgentTaskInput) GetAppRef() *string { return v.AppRef }
 // GetAssignee returns CreateAgentTaskInput.Assignee, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetAssignee() *AgentTaskPartyInput { return v.Assignee }
 
+// GetBlockedBy returns CreateAgentTaskInput.BlockedBy, and is useful for accessing the field via an interface.
+func (v *CreateAgentTaskInput) GetBlockedBy() []string { return v.BlockedBy }
+
 // GetCloseSessionWhenDone returns CreateAgentTaskInput.CloseSessionWhenDone, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetCloseSessionWhenDone() *bool { return v.CloseSessionWhenDone }
 
@@ -15896,6 +17483,9 @@ func (v *CreateAgentTaskInput) GetOwner() *AgentTaskPartyInput { return v.Owner 
 
 // GetParentTaskId returns CreateAgentTaskInput.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetParentTaskId() *string { return v.ParentTaskId }
+
+// GetPriority returns CreateAgentTaskInput.Priority, and is useful for accessing the field via an interface.
+func (v *CreateAgentTaskInput) GetPriority() *int { return v.Priority }
 
 // GetProject returns CreateAgentTaskInput.Project, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetProject() *bool { return v.Project }
@@ -24777,7 +26367,7 @@ func (v *GetNodeLintWarningsNodeLintWarningsLintWarningPage) GetNextCursor() *st
 // #2048 — one link-lint warning. A fixed set of fields: there is no free-form detail.
 type GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning struct {
 	Kind LintKind `json:"kind"`
-	// 0-based offset of the include tag in the node's source text.
+	// 0-based source-tag offset, or immutable occurrence ordinal for compiled-revision lint.
 	Position int    `json:"position"`
 	Text     string `json:"text"`
 	// The target's URN, only for a target the caller can read; null for BROKEN_INCLUDE.
@@ -28680,6 +30270,10 @@ const (
 	LintKindNoQualifyingRevision LintKind = "NO_QUALIFYING_REVISION"
 	// The include pins a revision and a newer revision is approved.
 	LintKindPinnedNewerApproved LintKind = "PINNED_NEWER_APPROVED"
+	// An install-memory node replaces an Agent node.
+	LintKindPolicyOverride LintKind = "POLICY_OVERRIDE"
+	// A recompile would select a newer revision; shown only to a compiler, without hidden target details.
+	LintKindRecompileAvailable LintKind = "RECOMPILE_AVAILABLE"
 	// The include's target is soft-deleted (hrn:node:hadronmemory.com:specs:cor:agt:040:13, R20 A).
 	LintKindRetiredTarget LintKind = "RETIRED_TARGET"
 	// The include says signed; signing is not checked yet.
@@ -28692,6 +30286,8 @@ var AllLintKind = []LintKind{
 	LintKindBrokenInclude,
 	LintKindNoQualifyingRevision,
 	LintKindPinnedNewerApproved,
+	LintKindPolicyOverride,
+	LintKindRecompileAvailable,
 	LintKindRetiredTarget,
 	LintKindSigningNotChecked,
 	LintKindWorkerLinkMissing,
@@ -62847,6 +64443,18 @@ func (v *__AgentSchedulesInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __AgentSchedulesInput.Offset, and is useful for accessing the field via an interface.
 func (v *__AgentSchedulesInput) GetOffset() *int { return v.Offset }
 
+// __AgentTaskAddBlockerInput is used internally by genqlient
+type __AgentTaskAddBlockerInput struct {
+	TaskRef        string `json:"taskRef"`
+	BlockerTaskRef string `json:"blockerTaskRef"`
+}
+
+// GetTaskRef returns __AgentTaskAddBlockerInput.TaskRef, and is useful for accessing the field via an interface.
+func (v *__AgentTaskAddBlockerInput) GetTaskRef() string { return v.TaskRef }
+
+// GetBlockerTaskRef returns __AgentTaskAddBlockerInput.BlockerTaskRef, and is useful for accessing the field via an interface.
+func (v *__AgentTaskAddBlockerInput) GetBlockerTaskRef() string { return v.BlockerTaskRef }
+
 // __AgentTaskAssignInput is used internally by genqlient
 type __AgentTaskAssignInput struct {
 	TaskId               string               `json:"taskId"`
@@ -62878,6 +64486,22 @@ type __AgentTaskCreateInput struct {
 
 // GetInput returns __AgentTaskCreateInput.Input, and is useful for accessing the field via an interface.
 func (v *__AgentTaskCreateInput) GetInput() *CreateAgentTaskInput { return v.Input }
+
+// __AgentTaskDependenciesInput is used internally by genqlient
+type __AgentTaskDependenciesInput struct {
+	TaskRef string `json:"taskRef"`
+	Limit   int    `json:"limit"`
+	Offset  int    `json:"offset"`
+}
+
+// GetTaskRef returns __AgentTaskDependenciesInput.TaskRef, and is useful for accessing the field via an interface.
+func (v *__AgentTaskDependenciesInput) GetTaskRef() string { return v.TaskRef }
+
+// GetLimit returns __AgentTaskDependenciesInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AgentTaskDependenciesInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __AgentTaskDependenciesInput.Offset, and is useful for accessing the field via an interface.
+func (v *__AgentTaskDependenciesInput) GetOffset() int { return v.Offset }
 
 // __AgentTaskFinishInput is used internally by genqlient
 type __AgentTaskFinishInput struct {
@@ -62990,6 +64614,30 @@ func (v *__AgentTaskReassignInput) GetAssignee() *AgentTaskPartyInput { return v
 
 // GetCloseSessionWhenDone returns __AgentTaskReassignInput.CloseSessionWhenDone, and is useful for accessing the field via an interface.
 func (v *__AgentTaskReassignInput) GetCloseSessionWhenDone() *bool { return v.CloseSessionWhenDone }
+
+// __AgentTaskRemoveBlockerInput is used internally by genqlient
+type __AgentTaskRemoveBlockerInput struct {
+	TaskRef        string `json:"taskRef"`
+	BlockerTaskRef string `json:"blockerTaskRef"`
+}
+
+// GetTaskRef returns __AgentTaskRemoveBlockerInput.TaskRef, and is useful for accessing the field via an interface.
+func (v *__AgentTaskRemoveBlockerInput) GetTaskRef() string { return v.TaskRef }
+
+// GetBlockerTaskRef returns __AgentTaskRemoveBlockerInput.BlockerTaskRef, and is useful for accessing the field via an interface.
+func (v *__AgentTaskRemoveBlockerInput) GetBlockerTaskRef() string { return v.BlockerTaskRef }
+
+// __AgentTaskSetPriorityInput is used internally by genqlient
+type __AgentTaskSetPriorityInput struct {
+	TaskRef  string `json:"taskRef"`
+	Priority int    `json:"priority"`
+}
+
+// GetTaskRef returns __AgentTaskSetPriorityInput.TaskRef, and is useful for accessing the field via an interface.
+func (v *__AgentTaskSetPriorityInput) GetTaskRef() string { return v.TaskRef }
+
+// GetPriority returns __AgentTaskSetPriorityInput.Priority, and is useful for accessing the field via an interface.
+func (v *__AgentTaskSetPriorityInput) GetPriority() int { return v.Priority }
 
 // __AgentTaskStartInput is used internally by genqlient
 type __AgentTaskStartInput struct {
@@ -68902,14 +70550,30 @@ func AgentSchedules(
 	return data_, err_
 }
 
-// The mutation executed by AgentTaskAssign.
-const AgentTaskAssign_Operation = `
-mutation AgentTaskAssign ($taskId: ID!, $assignee: AgentTaskPartyInput!, $closeSessionWhenDone: Boolean) {
-	assignAgentTask(taskId: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone) {
+// The mutation executed by AgentTaskAddBlocker.
+const AgentTaskAddBlocker_Operation = `
+mutation AgentTaskAddBlocker ($taskRef: ID!, $blockerTaskRef: ID!) {
+	addAgentTaskBlocker(taskRef: $taskRef, blockerTaskRef: $blockerTaskRef) {
 		... AgentTaskFields
 	}
 }
 fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
 	id
 	appId
 	title
@@ -68950,6 +70614,118 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
+}
+fragment AgentTaskPartyFields on AgentTaskParty {
+	id
+	kind
+	name
+	urn
+}
+`
+
+func AgentTaskAddBlocker(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	taskRef string,
+	blockerTaskRef string,
+) (data_ *AgentTaskAddBlockerResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentTaskAddBlocker",
+		Query:  AgentTaskAddBlocker_Operation,
+		Variables: &__AgentTaskAddBlockerInput{
+			TaskRef:        taskRef,
+			BlockerTaskRef: blockerTaskRef,
+		},
+	}
+
+	data_ = &AgentTaskAddBlockerResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by AgentTaskAssign.
+const AgentTaskAssign_Operation = `
+mutation AgentTaskAssign ($taskId: ID!, $assignee: AgentTaskPartyInput!, $closeSessionWhenDone: Boolean) {
+	assignAgentTask(taskId: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone) {
+		... AgentTaskFields
+	}
+}
+fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	id
+	appId
+	title
+	description
+	status
+	queued
+	waitingOnChildren
+	owner {
+		... AgentTaskPartyFields
+	}
+	assignee {
+		... AgentTaskPartyFields
+	}
+	assignedBy {
+		... AgentTaskPartyFields
+	}
+	createdBy {
+		... AgentTaskPartyFields
+	}
+	parentTaskId
+	tags
+	source
+	startBy
+	createdAt
+	updatedAt
+	startedAt
+	finishedAt
+	cancelledAt
+	closeSessionWhenDone
+	requirements {
+		role
+		familyIn
+		familyNotIn
+		excludeWorkerIds
+	}
+	result {
+		outcome
+		summary
+		evidence
+	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
 }
 fragment AgentTaskPartyFields on AgentTaskParty {
 	id
@@ -68998,6 +70774,22 @@ mutation AgentTaskCancel ($taskId: ID!) {
 	}
 }
 fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
 	id
 	appId
 	title
@@ -69038,6 +70830,12 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
 }
 fragment AgentTaskPartyFields on AgentTaskParty {
 	id
@@ -69080,6 +70878,22 @@ mutation AgentTaskCreate ($input: CreateAgentTaskInput!) {
 	}
 }
 fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
 	id
 	appId
 	title
@@ -69120,6 +70934,12 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
 }
 fragment AgentTaskPartyFields on AgentTaskParty {
 	id
@@ -69159,6 +70979,64 @@ func AgentTaskCreate(
 	return data_, err_
 }
 
+// The query executed by AgentTaskDependencies.
+const AgentTaskDependencies_Operation = `
+query AgentTaskDependencies ($taskRef: ID!, $limit: Int!, $offset: Int!) {
+	agentTask(id: $taskRef) {
+		id
+		blockedBy(limit: $limit, offset: $offset) {
+			total
+			hasMore
+			items {
+				... AgentTaskDependencyFields
+			}
+		}
+		blocks(limit: $limit, offset: $offset) {
+			total
+			hasMore
+			items {
+				... AgentTaskDependencyFields
+			}
+		}
+	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
+}
+`
+
+func AgentTaskDependencies(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	taskRef string,
+	limit int,
+	offset int,
+) (data_ *AgentTaskDependenciesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentTaskDependencies",
+		Query:  AgentTaskDependencies_Operation,
+		Variables: &__AgentTaskDependenciesInput{
+			TaskRef: taskRef,
+			Limit:   limit,
+			Offset:  offset,
+		},
+	}
+
+	data_ = &AgentTaskDependenciesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by AgentTaskFinish.
 const AgentTaskFinish_Operation = `
 mutation AgentTaskFinish ($taskId: ID!, $result: AgentTaskResultInput!) {
@@ -69167,6 +71045,22 @@ mutation AgentTaskFinish ($taskId: ID!, $result: AgentTaskResultInput!) {
 	}
 }
 fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
 	id
 	appId
 	title
@@ -69207,6 +71101,12 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
 }
 fragment AgentTaskPartyFields on AgentTaskParty {
 	id
@@ -69251,6 +71151,22 @@ query AgentTaskGet ($id: ID!) {
 	}
 }
 fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
 	id
 	appId
 	title
@@ -69291,6 +71207,12 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
 }
 fragment AgentTaskPartyFields on AgentTaskParty {
 	id
@@ -69376,6 +71298,22 @@ query AgentTaskList ($appRef: ID!, $assignee: AgentTaskPartyInput, $limit: Int, 
 	}
 }
 fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
 	id
 	appId
 	title
@@ -69416,6 +71354,12 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
 }
 fragment AgentTaskPartyFields on AgentTaskParty {
 	id
@@ -69478,6 +71422,22 @@ mutation AgentTaskPark ($taskId: ID!) {
 	}
 }
 fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
 	id
 	appId
 	title
@@ -69518,6 +71478,12 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
 }
 fragment AgentTaskPartyFields on AgentTaskParty {
 	id
@@ -69564,6 +71530,22 @@ mutation AgentTaskProgress ($taskId: ID!) {
 	}
 }
 fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
 	id
 	appId
 	title
@@ -69604,6 +71586,12 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
 }
 fragment AgentTaskPartyFields on AgentTaskParty {
 	id
@@ -69646,6 +71634,22 @@ mutation AgentTaskReady ($taskId: ID!) {
 	}
 }
 fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
 	id
 	appId
 	title
@@ -69686,6 +71690,12 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
 }
 fragment AgentTaskPartyFields on AgentTaskParty {
 	id
@@ -69731,6 +71741,22 @@ mutation AgentTaskReassign ($taskId: ID!, $assignee: AgentTaskPartyInput!, $clos
 	}
 }
 fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
 	id
 	appId
 	title
@@ -69771,6 +71797,12 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
 }
 fragment AgentTaskPartyFields on AgentTaskParty {
 	id
@@ -69809,14 +71841,30 @@ func AgentTaskReassign(
 	return data_, err_
 }
 
-// The mutation executed by AgentTaskStart.
-const AgentTaskStart_Operation = `
-mutation AgentTaskStart ($taskId: ID!) {
-	startAgentTask(taskId: $taskId) {
+// The mutation executed by AgentTaskRemoveBlocker.
+const AgentTaskRemoveBlocker_Operation = `
+mutation AgentTaskRemoveBlocker ($taskRef: ID!, $blockerTaskRef: ID!) {
+	removeAgentTaskBlocker(taskRef: $taskRef, blockerTaskRef: $blockerTaskRef) {
 		... AgentTaskFields
 	}
 }
 fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
 	id
 	appId
 	title
@@ -69857,6 +71905,225 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
+}
+fragment AgentTaskPartyFields on AgentTaskParty {
+	id
+	kind
+	name
+	urn
+}
+`
+
+func AgentTaskRemoveBlocker(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	taskRef string,
+	blockerTaskRef string,
+) (data_ *AgentTaskRemoveBlockerResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentTaskRemoveBlocker",
+		Query:  AgentTaskRemoveBlocker_Operation,
+		Variables: &__AgentTaskRemoveBlockerInput{
+			TaskRef:        taskRef,
+			BlockerTaskRef: blockerTaskRef,
+		},
+	}
+
+	data_ = &AgentTaskRemoveBlockerResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by AgentTaskSetPriority.
+const AgentTaskSetPriority_Operation = `
+mutation AgentTaskSetPriority ($taskRef: ID!, $priority: Int!) {
+	setAgentTaskPriority(taskRef: $taskRef, priority: $priority) {
+		... AgentTaskFields
+	}
+}
+fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	id
+	appId
+	title
+	description
+	status
+	queued
+	waitingOnChildren
+	owner {
+		... AgentTaskPartyFields
+	}
+	assignee {
+		... AgentTaskPartyFields
+	}
+	assignedBy {
+		... AgentTaskPartyFields
+	}
+	createdBy {
+		... AgentTaskPartyFields
+	}
+	parentTaskId
+	tags
+	source
+	startBy
+	createdAt
+	updatedAt
+	startedAt
+	finishedAt
+	cancelledAt
+	closeSessionWhenDone
+	requirements {
+		role
+		familyIn
+		familyNotIn
+		excludeWorkerIds
+	}
+	result {
+		outcome
+		summary
+		evidence
+	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
+}
+fragment AgentTaskPartyFields on AgentTaskParty {
+	id
+	kind
+	name
+	urn
+}
+`
+
+// #1135, merged server#2726 at cf9bcfece: all task refs are passed to the server.
+func AgentTaskSetPriority(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	taskRef string,
+	priority int,
+) (data_ *AgentTaskSetPriorityResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentTaskSetPriority",
+		Query:  AgentTaskSetPriority_Operation,
+		Variables: &__AgentTaskSetPriorityInput{
+			TaskRef:  taskRef,
+			Priority: priority,
+		},
+	}
+
+	data_ = &AgentTaskSetPriorityResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by AgentTaskStart.
+const AgentTaskStart_Operation = `
+mutation AgentTaskStart ($taskId: ID!) {
+	startAgentTask(taskId: $taskId) {
+		... AgentTaskFields
+	}
+}
+fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	id
+	appId
+	title
+	description
+	status
+	queued
+	waitingOnChildren
+	owner {
+		... AgentTaskPartyFields
+	}
+	assignee {
+		... AgentTaskPartyFields
+	}
+	assignedBy {
+		... AgentTaskPartyFields
+	}
+	createdBy {
+		... AgentTaskPartyFields
+	}
+	parentTaskId
+	tags
+	source
+	startBy
+	createdAt
+	updatedAt
+	startedAt
+	finishedAt
+	cancelledAt
+	closeSessionWhenDone
+	requirements {
+		role
+		familyIn
+		familyNotIn
+		excludeWorkerIds
+	}
+	result {
+		outcome
+		summary
+		evidence
+	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
 }
 fragment AgentTaskPartyFields on AgentTaskParty {
 	id
@@ -69953,6 +72220,22 @@ query AgentTaskTree ($root: ID!) {
 	}
 }
 fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
 	id
 	appId
 	title
@@ -69993,6 +72276,12 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
 }
 fragment AgentTaskPartyFields on AgentTaskParty {
 	id

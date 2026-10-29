@@ -354,9 +354,9 @@ func listTeamTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, b *b
 		if q.tree {
 			return renderTeamTree(w, dto.Tasks)
 		}
-		t := output.NewTable(w, "ID", "STATUS", "IDLE", "TITLE", "OWNER", "ASSIGNEE", "ALARMS")
+		t := output.NewTable(w, "ID", "STATUS", "PRIORITY", "BLOCKED", "IDLE", "TITLE", "OWNER", "ASSIGNEE", "ALARMS")
 		for _, task := range dto.Tasks {
-			t.Row(output.SafeCell(task.ID), output.SafeCell(task.Status), output.SafeCell(idleCell(task.AgeSeconds)), output.SafeCell(task.Title),
+			t.Row(output.SafeCell(task.ID), output.SafeCell(task.Status), fmt.Sprint(task.Priority), fmt.Sprint(task.Blocked), output.SafeCell(idleCell(task.AgeSeconds)), output.SafeCell(task.Title),
 				output.SafeCell(teamPartyCell(task.Owner, task.OwnerTeam)), output.SafeCell(teamAssigneeCell(task)), output.SafeCell(alarmCell(task.OpenAlarms)))
 		}
 		return t.Flush()
