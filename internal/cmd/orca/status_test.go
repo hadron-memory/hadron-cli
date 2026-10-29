@@ -93,15 +93,19 @@ type rig struct {
 	orca  *fakeOrca
 	reads *fakeReads
 	out   *strings.Builder
+	errs  *strings.Builder
 	env   Env
 	f     *cmdutil.Factory
 }
 
 func newRig(t *testing.T) *rig {
 	t.Helper()
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("HADRON_APP", "")
 	io, _, _ := output.Test()
-	out := &strings.Builder{}
+	out, errs := &strings.Builder{}, &strings.Builder{}
 	io.Out = output.Tracked(out)
+	io.ErrOut = errs
 	r := &rig{
 		orca: &fakeOrca{screens: map[string][]string{}},
 		reads: &fakeReads{
@@ -109,9 +113,10 @@ func newRig(t *testing.T) *rig {
 			subs:    map[string][]ts.Ticker{"w_j": {{ID: "tk5", Name: "base", Interval: 5 * time.Minute}}, "w_a": {{ID: "tk5", Name: "base", Interval: 5 * time.Minute}}},
 			due:     map[string][]ts.DueTick{},
 		},
-		out: out,
+		out:  out,
+		errs: errs,
 		f: &cmdutil.Factory{IOStreams: io, AppFlag: "hrn:app:x:team",
-			ConfigFn: func() (*config.Config, error) { return &config.Config{}, nil }},
+			ConfigFn: config.Load},
 	}
 	r.env = Env{
 		Orca: r.orca.run,
@@ -136,6 +141,7 @@ func (r *rig) run(t *testing.T, json bool, args ...string) (int, string) {
 	t.Helper()
 	r.f.JSON = json
 	r.out.Reset()
+	r.errs.Reset()
 	cmd := newCmdStatus(r.f, r.env)
 	cmd.SetArgs(args)
 	cmd.SetOut(r.out)
@@ -344,5 +350,26 @@ func TestStatusOnlyListsAndReads(t *testing.T) {
 		if !strings.HasPrefix(c, "terminal list") && !strings.HasPrefix(c, "terminal read") {
 			t.Fatalf("unexpected orca call %q", c)
 		}
+	}
+}
+
+// The App is resolved through a fallback chain (--app, the App context, a
+// worker-session binding). Text mode says which branch answered, on stderr so
+// the one-line stdout contract and the JSON stay untouched.
+func TestStatusTextNamesTheAmbientApp(t *testing.T) {
+	r := newRig(t)
+	r.joshua(idleScreen)
+	r.run(t, false, "Joshua")
+	if got := r.errs.String(); !strings.Contains(got, "hrn:app:x:team") || !strings.Contains(got, "--app") {
+		t.Fatalf("scope line missing: %q", got)
+	}
+	r.f.AppFlag = ""
+	r.run(t, false, "Joshua")
+	if got := r.errs.String(); !strings.Contains(got, "app1") || !strings.Contains(got, "worker-session binding") {
+		t.Fatalf("binding fallback not named: %q", got)
+	}
+	r.run(t, true, "Joshua")
+	if r.errs.String() != "" {
+		t.Fatalf("JSON mode wrote to stderr: %q", r.errs.String())
 	}
 }

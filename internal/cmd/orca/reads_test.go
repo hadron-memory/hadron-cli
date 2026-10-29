@@ -100,3 +100,13 @@ func boolStr(b bool) string {
 	}
 	return "false"
 }
+
+// A spent wake budget withholds due wakes: an empty page then proves nothing,
+// so the read is an error and the command fails closed rather than reporting
+// "nothing due".
+func TestDueTicksBudgetExhaustedIsAnErrorNotNothingDue(t *testing.T) {
+	g, _ := graphFixture(t, map[string]string{"DueTickWakes": `{"data":{"dueWakes":{"status":"WAKE_BUDGET_EXHAUSTED","wakes":[],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}`})
+	if _, err := g.DueTicks(context.Background(), []string{"w_j"}); err == nil {
+		t.Fatal("an exhausted budget hides due wakes; it must not read as nothing due")
+	}
+}

@@ -3354,7 +3354,7 @@ shell, an agent that is not connected.
 Fail closed: a screen the classifier does not positively recognize is `locked`/`unrecognized`, and so is
 an otherwise-idle worker whose due-wake evidence could not be read or was refused for this caller (a
 coordinator asking about another worker is gated by the server). A busy or locked worker keeps its
-status. The reason codes `model_at_capacity`, `rate_limited`, `token_budget_exhausted`,
+status. A terminal named by id that no worker's binding claims has no ticker evidence, so it is never `dark` by the ticker rule. Text mode prints `scope: App <ref> (from --app | the App context | a worker-session binding)` on stderr whenever it read the server; JSON mode prints nothing extra. If the wake budget is spent (`WAKE_BUDGET_EXHAUSTED`) due wakes are withheld, which also fails an otherwise-idle worker closed. The reason codes `model_at_capacity`, `rate_limited`, `token_budget_exhausted`,
 `guardrail_triggered` and `shed_staged_not_relaunched` are deferred until a captured screen exists for
 each: such a screen is `locked`/`unrecognized` (or `idle`/`busy` where the existing completion and
 running-turn rules already say so). A fresh Codex launch whose banner has scrolled out of the

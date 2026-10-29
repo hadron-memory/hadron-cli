@@ -146,6 +146,7 @@ func runStatus(ctx context.Context, f *cmdutil.Factory, env Env, args []string, 
 	}
 	var targets []target
 	var reads Reads
+	var scope string // which App answered, for text mode (the review's ambient-scope rule)
 	needReads := func() (Reads, error) {
 		if reads != nil {
 			return reads, nil
@@ -154,7 +155,12 @@ func runStatus(ctx context.Context, f *cmdutil.Factory, env Env, args []string, 
 		if err != nil {
 			return nil, err
 		}
+		source := "from the App context"
+		if f.AppFlag != "" {
+			source = "from --app"
+		}
 		if app == "" {
+			source = "from a worker-session binding"
 			for _, b := range bound {
 				if b.AppID != "" {
 					app = b.AppID
@@ -169,7 +175,7 @@ func runStatus(ctx context.Context, f *cmdutil.Factory, env Env, args []string, 
 		if err != nil {
 			return nil, api.MapError(err)
 		}
-		reads = r
+		reads, scope = r, "App "+app+" ("+source+")"
 		return r, nil
 	}
 	switch {
@@ -227,6 +233,11 @@ func runStatus(ctx context.Context, f *cmdutil.Factory, env Env, args []string, 
 		applyDarkRule(ctx, env, needReads, targets, results, idle)
 	}
 
+	if scope != "" && !f.JSON {
+		if _, err := fmt.Fprintln(f.IOStreams.ErrOut, "scope:", scope); err != nil {
+			return err
+		}
+	}
 	var dto any = results
 	if f.JSON && !all {
 		dto = results[0]

@@ -124,6 +124,11 @@ func (g graphReads) DueTicks(ctx context.Context, workerIDs []string) (map[strin
 		if page == nil || page.PageInfo == nil {
 			return nil, errors.New("due wakes: no page")
 		}
+		if page.Status != gen.DueWakeStatusOk {
+			// WAKE_BUDGET_EXHAUSTED withholds due wakes: an empty page then
+			// proves nothing, so it must not read as "nothing due".
+			return nil, errors.New("due wakes withheld: " + string(page.Status))
+		}
 		for _, w := range page.Wakes {
 			if w == nil || w.Worker == nil {
 				continue
