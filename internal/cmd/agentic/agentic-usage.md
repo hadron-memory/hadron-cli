@@ -3771,3 +3771,7 @@ progress/cancel/park/ready/finish refusals. Exit classification is unchanged;
 the underlying error chain is preserved. Task-ref commands do not use --app to
 qualify a handle: use an id or hrn:agenttask:<root>:<app-slug>:AT1.2 when the bare
 handle is ambiguous in the server-side caller context.
+Dependency list cost: each row resolves both bounded pages independently on the
+current server; --team scans all task pages. These reads are not batched yet
+(server#2764). Prefer get/dependencies for a known task when you do not need a
+whole-App or team view.

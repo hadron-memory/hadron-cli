@@ -42,3 +42,11 @@ The task mapper also prefixes known refusal codes on existing task commands
 error so classification and GraphQL extension readers retain the original chain.
 Task-ref operations do not resolve --app: server-side caller context resolves
 bare handles, and callers with ambiguous handles use ids or qualified handles.
+
+List cost is explicit and accepted for this slice (Ada, team chat #44472): each
+row resolves two bounded 20-item dependency pages. The selected server performs
+readability checks and findMany/count separately per direction; there is no
+request-local dataloader. A 200-row list page therefore invokes 400 relation
+sub-resolutions, and list --team scans every task page. Retaining these summaries
+meets the requested list detail, not a claim of batching or measured throughput.
+Server follow-up: hadron-server#2764. Non-blocking CLI review follow-ups: #1182.
