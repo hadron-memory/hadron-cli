@@ -198,11 +198,13 @@ func (s *hostServer) Hold(context.Context, string, string, string) error {
 	return delivery.ErrHoldUnavailable
 }
 
-// wireDelivery turns chat delivery on for this run: S1's batches, typed
-// through Orca, with the status snapshot written after each step. Tick and
-// task wakes stay unwired (#906 row 1 waits on hadron-server#2069/#2072),
-// and holds are unreported until S5 (#940).
-func wireDelivery(p *hostpoller.Poller, cfg *hostpoller.Config, srv *hostServer, emit func(hostpoller.Event)) {
+// wireDelivery turns delivery on for this run: S1's chat batches and the
+// host's due tick and task wakes (hadron-cli#1178), typed through Orca on
+// the same per-worker chain, with the status snapshot written after each
+// step. AckMixed stays off: a wake naming channels or a mention is typed
+// once and acknowledged only once it no longer does. Holds are unreported
+// until S5 (#940). It returns the deliverer it wired.
+func wireDelivery(p *hostpoller.Poller, cfg *hostpoller.Config, srv *hostServer, emit func(hostpoller.Event)) *delivery.Deliverer {
 	stateDir := cfg.DeliveryStateDir()
 	book := delivery.NewStatusBook(stateDir)
 	d := delivery.New(srv, orcaterm.NewClient(orcaterm.Exec(cfg.Delivery.OrcaBin, orcaterm.CallTimeout)), stateDir)
@@ -215,7 +217,11 @@ func wireDelivery(p *hostpoller.Poller, cfg *hostpoller.Config, srv *hostServer,
 			emit(hostpoller.Event{Time: at.UTC(), Kind: "delivery-failed", Detail: "writing the delivery status: " + err.Error()})
 		}
 	}
+	d.Wakes = srv
+	p.WakeStep = book.ObserveWakes
 	p.EnableDelivery(srv, d)
+	p.EnableWakes(srv, d)
+	return d
 }
 
 // Upstream machine fields an event prints: Orca's terminal handle and the

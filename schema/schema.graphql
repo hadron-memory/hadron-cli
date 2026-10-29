@@ -488,12 +488,6 @@ type AgentSubscription {
   userId: ID!
 }
 
-"""
-One piece of work a team App has assigned, or wants assigned
-(hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-ended; it never reads what the work is. Readable by the App's participants,
-workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
-"""
 type AgentTask {
   appId: ID!
   assignedAt: DateTime
@@ -501,6 +495,17 @@ type AgentTask {
 
   """Null while the task is queued."""
   assignee: AgentTaskParty
+
+  """
+  Whether at least one blocker remains open. Never a status; manual assignment is preserved.
+  """
+  blocked: Boolean!
+
+  """Same-App tasks this task waits for, including ended blockers."""
+  blockedBy(limit: Int = 20, offset: Int = 0): AgentTaskDependencyPage!
+
+  """Same-App tasks that name this task as a blocker."""
+  blocks(limit: Int = 20, offset: Int = 0): AgentTaskDependencyPage!
   cancelledAt: DateTime
 
   """
@@ -532,6 +537,11 @@ type AgentTask {
 
   """Null for a root task."""
   parentTaskId: ID
+
+  """
+  #2644 (hrn:node:hadronmemory.com:specs:cor:agt:050:01) — priority1 is highest; range1..5, default1. Matching only, never authority.
+  """
+  priority: Int!
 
   """
   Derived (hrn:node:hadronmemory.com:specs:cor:agt:050:03): pending with no assignee. Never stored.
@@ -576,6 +586,18 @@ The statuses a task may be CREATED in (#1754, hrn:node:hadronmemory.com:specs:co
 enum AgentTaskCreateStatus {
   BACKLOG
   PENDING
+}
+
+"""
+One piece of work a team App has assigned, or wants assigned
+(hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+ended; it never reads what the work is. Readable by the App's participants,
+workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+"""
+type AgentTaskDependencyPage {
+  hasMore: Boolean!
+  items: [AgentTask!]!
+  total: Int!
 }
 
 """
@@ -1598,6 +1620,31 @@ enum AppMemoryKind {
   user
 }
 
+"""#2190: one reason a memory is in an App's scope."""
+type AppMemorySource {
+  """
+  The installed or base Agent, for AGENT_SYSTEM, AGENT_LINK and INHERITED_BASE; null for TEAM_SPACE. An id only: when it does not resolve to an Agent this caller may read, show the source kind without a name.
+  """
+  agentId: ID
+  kind: AppMemorySourceKind!
+}
+
+enum AppMemorySourceKind {
+  """A memory linked to an Agent installed in this App."""
+  AGENT_LINK
+
+  """The system memory of an Agent installed in this App."""
+  AGENT_SYSTEM
+
+  """
+  A base Agent's system memory, with nodes inherited by an installed Agent's system memory (hrn:node:hadronmemory.com:specs:cor:dmo:050:14).
+  """
+  INHERITED_BASE
+
+  """The App's own team space, listed for App participants only."""
+  TEAM_SPACE
+}
+
 """
 #2484: an App's write grant on one memory under one loc prefix, for the App's userless runs only. It permits node create and update at the prefix and its colon-boundary descendants, checked live at each write; never delete, edges, memory settings or stored files, and nothing for another App's run, a user-backed run, an App key or a worker. A revoked grant stays as a terminal row. hrn:node:hadronmemory.com:specs:cor:agt:010:01
 """
@@ -1845,6 +1892,42 @@ enum AppRunTriggerKind {
 
 type AppRunsPage {
   items: [AppRun!]!
+  total: Int!
+}
+
+"""
+#2190 (hrn:node:hadronmemory.com:specs:cor:dmo:050:17): one memory in an App's scope. A leaf: no nested Memory or Agent.
+"""
+type AppScopedMemory {
+  class: MemoryClass!
+  memoryId: ID!
+  memoryUrn: String!
+  name: String!
+
+  """
+  Every reason this memory is in scope. Never empty. Ordered by kind (AGENT_SYSTEM, AGENT_LINK, INHERITED_BASE, TEAM_SPACE), then by agent install order.
+  """
+  sources: [AppMemorySource!]!
+
+  """
+  Advisory: whether this caller, in this request's context, may create a node
+  in this memory (the createNode gate). Memory-level only: it never makes an
+  inherited node editable, and every write is still decided by the server.
+  Offer a row as an upload or new-node target only when viewerCanWrite is true
+  AND at least one of its sources has a kind other than INHERITED_BASE. A
+  memory present only as an inherited base belongs to the base Agent, and
+  other Apps read it too.
+  """
+  viewerCanWrite: Boolean!
+}
+
+"""#2190: one page of an App's memory scope."""
+type AppScopedMemoryPage {
+  items: [AppScopedMemory!]!
+
+  """
+  Size of the caller's whole scope, so a client knows when it has every page.
+  """
   total: Int!
 }
 
@@ -2869,6 +2952,11 @@ type CompiledBootPrompt {
 
   """SHA-256 hex of the compiled text."""
   contentHash: String!
+
+  """
+  Current warnings for the revision just compiled; null when unavailable.
+  """
+  lintWarnings(after: String, first: Int = 50): LintWarningPage
   node: Node!
 
   """Whether this compile wrote the pointer."""
@@ -2876,6 +2964,58 @@ type CompiledBootPrompt {
 
   """The revision this compile wrote."""
   revNo: Int!
+}
+
+"""
+One recorded source/include occurrence; contains no source text (hrn:node:hadronmemory.com:specs:cor:agt:040:12).
+"""
+type CompiledPromptOccurrence {
+  depth: Int!
+  hash: String!
+  kind: String!
+  nodeId: ID!
+  order: Int!
+  parent: Int
+  position: CompiledPromptTagPosition
+
+  """
+  Null when the source or its retained snapshot is unreadable; otherwise whether revision text is absent.
+  """
+  pruned: Boolean
+  replacesNodeId: ID
+  revNo: Int!
+  selection: CompiledPromptSelection!
+}
+
+"""
+A page of one compiled revision's immutable provenance (hrn:node:hadronmemory.com:specs:cor:agt:040:12).
+"""
+type CompiledPromptProvenancePage {
+  contentHash: String!
+  hasMore: Boolean!
+  items: [CompiledPromptOccurrence!]!
+  nodeId: ID!
+  pruned: Boolean!
+  revNo: Int!
+  total: Int!
+  version: Int!
+}
+
+"""
+Effective include selection settings recorded by the compiler (hrn:node:hadronmemory.com:specs:cor:agt:040:12).
+"""
+type CompiledPromptSelection {
+  approved: Boolean!
+  rev: Int
+  signed: Boolean!
+}
+
+"""
+One-based position of an include tag (hrn:node:hadronmemory.com:specs:cor:agt:040:12).
+"""
+type CompiledPromptTagPosition {
+  column: Int!
+  line: Int!
 }
 
 input CompleteAssetUploadInput {
@@ -3047,6 +3187,7 @@ input CreateAgentTaskInput {
 
   """Omit to leave the task queued."""
   assignee: AgentTaskPartyInput
+  blockedBy: [ID!]
 
   """
   Defaults to false: the assignee's session ends only when whoever assigns the task asks (hrn:node:hadronmemory.com:specs:cor:agt:050:10).
@@ -3062,6 +3203,11 @@ input CreateAgentTaskInput {
   """
   owner: AgentTaskPartyInput
   parentTaskId: ID
+
+  """
+  #2644 — naming priority or blockers requires the task assigner authority; otherwise creation refuses atomically.
+  """
+  priority: Int
 
   """
   Make a top-level PROJECT (AT1, AT2, ...) instead of a task under the reserved project AT0. Not with parentTaskId.
@@ -4962,6 +5108,14 @@ enum LintKind {
   """The include pins a revision and a newer revision is approved."""
   PINNED_NEWER_APPROVED
 
+  """An install-memory node replaces an Agent node."""
+  POLICY_OVERRIDE
+
+  """
+  A recompile would select a newer revision; shown only to a compiler, without hidden target details.
+  """
+  RECOMPILE_AVAILABLE
+
   """
   The include's target is soft-deleted (hrn:node:hadronmemory.com:specs:cor:agt:040:13, R20 A).
   """
@@ -4991,7 +5145,9 @@ type LintWarning {
   """The revision the include pins, when it pins one."""
   pinnedRevision: Int
 
-  """0-based offset of the include tag in the node's source text."""
+  """
+  0-based source-tag offset, or immutable occurrence ordinal for compiled-revision lint.
+  """
   position: Int!
 
   """
@@ -5945,6 +6101,11 @@ type Mutation {
   acquireEditorLock(agentId: ID!): EditorLockResult!
 
   """
+  #2644 (hrn:node:hadronmemory.com:specs:cor:agt:050:02) — add a same-App blocker to a backlog/pending task, refusing cycles serially. Assigner authority.
+  """
+  addAgentTaskBlocker(blockerTaskRef: ID!, taskRef: ID!): AgentTask!
+
+  """
   DEPRECATED: use installAgentIntoApp. Carried for source-compat with
   pre-023 portal callers.
   
@@ -6662,6 +6823,21 @@ type Mutation {
   Accepts the entity's ID or URN.
   """
   createAppKey(appRef: ID!, label: String): AppKeyCreated!
+
+  """
+  Create a NEW free-standing app-class memory in an org-owned App with at
+  least one installed Agent. The caller must act as themselves, outside a
+  worker/session, App-key, headless-run or impersonation principal, through
+  the existing org ADMIN/OWNER gate. User-owned Apps are refused with
+  USER_OWNED_APP_UNSUPPORTED until ruled. App participants read and write it;
+  the installed Agent's owning org gains no access. Existing memories cannot
+  be attached through this operation. Name determines the slug as createMemory
+  does. Refusals: FORBIDDEN, AGENT_NOT_INSTALLED, USER_OWNED_APP_UNSUPPORTED,
+  BAD_USER_INPUT (empty name). Installation and membership are checked in the
+  inserting transaction, fenced against uninstall and revocation.
+  See hrn:node:hadronmemory.com:specs:cor:acl:010:01.
+  """
+  createAppMemory(appRef: ID!, description: String, name: String!, shortDescription: String, tags: [String!]): Memory!
 
   """
   App Key callers only: vouch for a user, creating (or returning) the User
@@ -8257,6 +8433,11 @@ type Mutation {
   removeAgentImport(importedAgentRef: ID!, parentAgentRef: ID!): Boolean!
 
   """
+  #2644 (hrn:node:hadronmemory.com:specs:cor:agt:050:02) — remove a blocker from a backlog/pending task. Last-blocker release restarts stall clocks and preserves status/assignee. Assigner authority.
+  """
+  removeAgentTaskBlocker(blockerTaskRef: ID!, taskRef: ID!): AgentTask!
+
+  """
   Delete an AppMember row. Idempotent (no-op when the row doesn't exist).
   Personal-class memory at (appId, userId) is retained as an orphan per
   FR-015 — re-attaches automatically if the user later rejoins the same
@@ -8661,6 +8842,11 @@ type Mutation {
   setAgentIndexRefs(processesIndexRef: ID, ref: ID!, tasksIndexRef: ID): Agent!
 
   """
+  #2644 (hrn:node:hadronmemory.com:specs:cor:agt:050:01) — assigner authority; priority1..5, default1.
+  """
+  setAgentTaskPriority(priority: Int!, taskRef: ID!): AgentTask!
+
+  """
   #1706 — set an App's stall windows, and (#1763) its host-registration lapse: whoever manages the App. Refusals:
   APP_NOT_FOUND, APP_MANAGER_REQUIRED, BAD_USER_INPUT, SESSION_NOT_BOUND,
   APP_UNINSTALLED.
@@ -8685,7 +8871,7 @@ type Mutation {
   setAppDeliverySettings(appRef: String!, input: AppDeliverySettingsInput!): AppDeliverySettings!
 
   """
-  #2484: let an App's userless runs create or update a node in one memory under one loc prefix (required; no memory-wide grant). The caller is a person acting as themselves who manages the App and can write the memory. A shared memory must be one the App's own org or team space holds; a personal or private memory only by its owner, who must also manage the App; an encrypted memory is never grantable. Granting the same prefix again returns the live grant. One content-free event is recorded. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+  #2484: let an App's userless runs create or update a node in one memory under one loc prefix (required; no memory-wide grant). The caller is a person acting as themselves who manages the App and can write the memory. A shared memory must be one the App's own org or team space holds; a personal or private memory only by its owner, who must also manage the App; an encrypted memory is never grantable; nor is a system-class memory (#2710: an Agent's system memory, its boot-prompt source included, is written only by whoever manages the Agent, hrn:node:hadronmemory.com:specs:cor:agt:040:11), and a grant made on one before that rule authorizes no write. Granting the same prefix again returns the live grant. One content-free event is recorded. hrn:node:hadronmemory.com:specs:cor:agt:010:01
   """
   setAppMemoryWriteGrant(appRef: String!, memoryRef: String!, prefix: String!, registerNodeUrn: String): AppMemoryWriteGrant!
 
@@ -11058,6 +11244,7 @@ type Query {
 
   """
   #1705 — a team App's agent tasks, newest first. Party filters combine with the other selectors;
+  All tag, source and date filters combine with the other selectors using AND.
   owner / assignee / creator name a party of the App (a ref naming nobody matches
   nothing; a retired worker is no party to name, so it matches nothing). creator is
   the task's creator as createdBy projects it: a worker, or a person for a task they created
@@ -11068,7 +11255,64 @@ type Query {
   An App you do not participate in answers APP_NOT_FOUND, exactly like an
   absent one.
   """
-  agentTasks(appRef: ID!, assignee: AgentTaskPartyInput, creator: AgentTaskPartyInput, limit: Int, offset: Int, owner: AgentTaskPartyInput, parentTaskId: ID, queued: Boolean, rootsOnly: Boolean, status: [AgentTaskStatus!], tag: String): [AgentTask!]!
+  agentTasks(
+    appRef: ID!
+    assignee: AgentTaskPartyInput
+
+    """Inclusive creation-time lower bound."""
+    createdAfter: DateTime
+
+    """Inclusive creation-time upper bound."""
+    createdBefore: DateTime
+    creator: AgentTaskPartyInput
+
+    """
+    Inclusive finish-time lower bound; tasks with no finish time never match.
+    """
+    finishedAfter: DateTime
+
+    """
+    Inclusive finish-time upper bound; tasks with no finish time never match.
+    """
+    finishedBefore: DateTime
+    limit: Int
+    offset: Int
+
+    """
+    True: start-by passed on the database clock, not started, not ended, not backlog. False: all other tasks. Not an alarm.
+    """
+    overdue: Boolean
+    owner: AgentTaskPartyInput
+    parentTaskId: ID
+    queued: Boolean
+    rootsOnly: Boolean
+
+    """Exact opaque source value, without interpretation or prefix matching."""
+    source: String
+
+    """
+    Inclusive start-time lower bound; tasks with no start time never match.
+    """
+    startedAfter: DateTime
+
+    """
+    Inclusive start-time upper bound; tasks with no start time never match.
+    """
+    startedBefore: DateTime
+    status: [AgentTaskStatus!]
+    tag: String
+
+    """Match every tag. Empty arrays do not narrow the list."""
+    tagsAll: [String!]
+
+    """Match at least one tag. Empty arrays do not narrow the list."""
+    tagsAny: [String!]
+
+    """
+    Case-insensitive substring of the title or description, 1 to 200 characters after trimming (else BAD_USER_INPUT). Percent, underscore and backslash match literally. ANDed with every other filter.
+    """
+    text: String
+  ): [AgentTask!]!
 
   """
   #1705 — a team App's event stream (hrn:node:hadronmemory.com:specs:cor:agt:050:11), in (createdAt, id)
@@ -11183,6 +11427,20 @@ type Query {
   Accepts the entity's ID or URN.
   """
   appKeys(appRef: ID!): [AppKey!]!
+
+  """
+  #2190 (hrn:node:hadronmemory.com:specs:cor:dmo:050:17): the memories appNodes
+  reads for this caller, one row per memory with every reason it is in scope,
+  ordered by memoryUrn and paged (default 20, cap 200; over the cap returns a
+  page of the cap). Same entry and admission as appNodes, so an external App
+  participant appNodes admits is answered here too, and a refused caller gets
+  appNodes' error. Every memory in the caller's scope is listed, including
+  empty ones, so nothing is withheld; total 0 means no memories, and is also
+  the answer for an App in a soft-deleted organization. Rows are leaves.
+  
+  Accepts the App's ID or URN.
+  """
+  appMemoryScope(appRef: ID!, limit: Int, offset: Int): AppScopedMemoryPage!
 
   """
   #2484: the write grants an App holds for its userless runs, oldest first; revoked rows only with includeRevoked. Only whoever manages the App, acting as themselves, may list them; a grant on a personal or private memory is listed to its owner alone. hrn:node:hadronmemory.com:specs:cor:agt:010:01
@@ -11470,6 +11728,16 @@ type Query {
   commentThreads(limit: Int = 20, offset: Int = 0, state: [CommentThreadState!], targetRef: ID!): CommentThreadPage!
 
   """
+  Recorded source revisions for exactly revNo of a compiled boot prompt (hrn:node:hadronmemory.com:specs:cor:agt:040:12).
+  Uses the compiled node's read gate; denied, missing, deleted or noncompiled nodes return null.
+  Provenance survives pruning; pruned marks absent revision text. Source status is null when unreadable.
+  No source text is returned.
+  Limit defaults to 20, clamps to 0..100; offset defaults to 0 and clamps negative values to 0.
+  A missing or malformed provenance record is an integrity error, never an empty page.
+  """
+  compiledPromptProvenance(limit: Int, nodeRef: ID!, offset: Int, revNo: Int!): CompiledPromptProvenancePage
+
+  """
   One connection grant the caller created, by ID; null if not theirs (no existence oracle).
   """
   connectionGrant(ref: ID!): ConnectionGrant
@@ -11697,6 +11965,10 @@ type Query {
     fields: [NodeField!]
     filter: NodeFilter
     granularity: SearchGranularity
+
+    """
+    #437 — primary page size, default 20 (also null), clamped to 1–200. Expansion neighbors are additional. hrn:node:hadronmemory.com:specs:cor:api:090
+    """
     limit: Int
 
     """
@@ -11704,6 +11976,10 @@ type Query {
     """
     minScore: Float
     mode: FindNodesMode
+
+    """
+    #437 — page offset, default 0 (also null); negative values become 0. No offset ceiling. hrn:node:hadronmemory.com:specs:cor:api:090
+    """
     offset: Int
     orgId: ID
     query: String
@@ -12317,6 +12593,16 @@ type Query {
   neither read its Channel's host memory nor stand on the row's owner side.
   """
   registerEntry(ref: ID!): RegisterEntry
+
+  """
+  Experimental register role picker: all readable workers tied at the nearest task depth, paged. Never assigns or routes.
+  """
+  registerRoleCandidates(appRef: ID!, code: String!, limit: Int = 20, offset: Int = 0): RegisterRoleCandidatePage!
+
+  """
+  Experimental: the routed pick for a register code: the named worker, else one role holder (matcher least-recently-assigned), else one coordinator-role holder, else the App's managers (shown only to a manager). Empty when nothing matches. Never assigns or delivers.
+  """
+  registerRolePick(appRef: ID!, code: String!, workerRef: ID): RegisterRolePick!
 
   """
   Render a run/action node WITHOUT executing it (#818) — the GraphQL twin of
@@ -13193,6 +13479,48 @@ enum RegisterRole {
   WATCH
 }
 
+type RegisterRoleCandidate {
+  """Own Agent is zero; each base link adds one."""
+  depth: Int!
+  role: String
+  taskUrn: String!
+  worker: AgentTaskParty!
+}
+
+"""
+Experimental action register role-picking projection. No routing or assignment.
+"""
+type RegisterRoleCandidatePage {
+  appId: ID!
+  candidates: [RegisterRoleCandidate!]!
+  code: String!
+  depth: Int
+  taskLoc: String
+
+  """Total nearest-depth ties, independent of the requested page."""
+  total: Int!
+}
+
+type RegisterRolePick {
+  appId: ID!
+  code: String!
+
+  """
+  Worker arms carry exactly one WORKER entry; the managers arm one USER entry per manager, nearest first.
+  """
+  entries: [RegisterRouteEntry!]!
+}
+
+type RegisterRouteEntry {
+  id: ID!
+  kind: RegisterRouteKind!
+}
+
+enum RegisterRouteKind {
+  USER
+  WORKER
+}
+
 """
 The Channel half of a register view row; the host memory's URN only when the viewer may read it.
 """
@@ -13923,6 +14251,11 @@ chose it, that revision's own provenance and the values the platform variables w
 type ServedPrompt {
   compiledContentHash: String!
   compiledNodeId: ID!
+
+  """
+  Current warnings for this record's provenanceRevSeq, never the newest compile.
+  """
+  currentLint(after: String, first: Int = 50): LintWarningPage
   id: ID!
   kind: ServedPromptKind!
 
@@ -16676,6 +17009,11 @@ type Worker {
   """
   prompt: String
 
+  """
+  Current lint of the compiled revision recorded for the open session; null when unavailable.
+  """
+  promptLintWarnings(after: String, first: Int = 50): LintWarningPage
+
   """Per-worker individuality layered over the agent's template prompt."""
   promptOverride: String
 
@@ -16967,6 +17305,11 @@ enum WorkerTeamPlacement {
 #1747 — a worker wake settings (hrn:node:hadronmemory.com:specs:cor:agt:080:03).
 """
 type WorkerWakeSettings {
+  """
+  Whether this caller, acting as a person, may set or clear isolation: whoever manages the App or holds the worker. False for worker sessions and impersonation. Reports permission even while isolation is unavailable; does not grant read access. hrn:node:hadronmemory.com:specs:cor:agt:080:29
+  """
+  canManageIsolation: Boolean!
+
   """
   None of the worker's sessions has had activity within the App's dormancy period (hrn:node:hadronmemory.com:specs:cor:agt:080:07). A dormant worker is never woken.
   """

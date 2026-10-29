@@ -8,6 +8,7 @@ package team
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
@@ -41,32 +42,36 @@ type taskResultDTO struct {
 // unacknowledged alarms onto the nodes it renders; omitempty keeps the other
 // commands' shapes identical to the plain task read.
 type taskDTO struct {
-	ID                   string               `json:"id"`
-	Handle               string               `json:"handle"`
-	TaskNumber           string               `json:"taskNumber"`
-	AppID                string               `json:"appId"`
-	Title                string               `json:"title"`
-	Description          *string              `json:"description"`
-	Status               string               `json:"status"`
-	Queued               bool                 `json:"queued"`
-	WaitingOnChildren    bool                 `json:"waitingOnChildren"`
-	Owner                *taskPartyDTO        `json:"owner"`
-	Assignee             *taskPartyDTO        `json:"assignee"`
-	AssignedBy           *taskPartyDTO        `json:"assignedBy"`
-	CreatedBy            *taskPartyDTO        `json:"createdBy"`
-	ParentTaskID         *string              `json:"parentTaskId"`
-	Tags                 []string             `json:"tags"`
-	Source               *string              `json:"source"`
-	StartBy              *string              `json:"startBy"`
-	CreatedAt            string               `json:"createdAt"`
-	UpdatedAt            *string              `json:"updatedAt"`
-	StartedAt            *string              `json:"startedAt"`
-	FinishedAt           *string              `json:"finishedAt"`
-	CancelledAt          *string              `json:"cancelledAt"`
-	CloseSessionWhenDone bool                 `json:"closeSessionWhenDone"`
-	Requirements         *taskRequirementsDTO `json:"requirements"`
-	Result               *taskResultDTO       `json:"result"`
-	OpenAlarms           *int                 `json:"openAlarms,omitempty"`
+	Priority             int                    `json:"priority"`
+	Blocked              bool                   `json:"blocked"`
+	BlockedBy            *taskDependencyPageDTO `json:"blockedBy"`
+	Blocks               *taskDependencyPageDTO `json:"blocks"`
+	ID                   string                 `json:"id"`
+	Handle               string                 `json:"handle"`
+	TaskNumber           string                 `json:"taskNumber"`
+	AppID                string                 `json:"appId"`
+	Title                string                 `json:"title"`
+	Description          *string                `json:"description"`
+	Status               string                 `json:"status"`
+	Queued               bool                   `json:"queued"`
+	WaitingOnChildren    bool                   `json:"waitingOnChildren"`
+	Owner                *taskPartyDTO          `json:"owner"`
+	Assignee             *taskPartyDTO          `json:"assignee"`
+	AssignedBy           *taskPartyDTO          `json:"assignedBy"`
+	CreatedBy            *taskPartyDTO          `json:"createdBy"`
+	ParentTaskID         *string                `json:"parentTaskId"`
+	Tags                 []string               `json:"tags"`
+	Source               *string                `json:"source"`
+	StartBy              *string                `json:"startBy"`
+	CreatedAt            string                 `json:"createdAt"`
+	UpdatedAt            *string                `json:"updatedAt"`
+	StartedAt            *string                `json:"startedAt"`
+	FinishedAt           *string                `json:"finishedAt"`
+	CancelledAt          *string                `json:"cancelledAt"`
+	CloseSessionWhenDone bool                   `json:"closeSessionWhenDone"`
+	Requirements         *taskRequirementsDTO   `json:"requirements"`
+	Result               *taskResultDTO         `json:"result"`
+	OpenAlarms           *int                   `json:"openAlarms,omitempty"`
 }
 
 // taskRef is how a human-readable line names a task: the server's short handle
@@ -138,7 +143,7 @@ func taskResultDTOFrom(r *gen.AgentTaskFieldsResultAgentTaskResult) *taskResultD
 }
 
 func taskDTOFrom(fields gen.AgentTaskFields) taskDTO {
-	dto := taskDTO{
+	dto := taskDTO{Priority: fields.Priority, Blocked: fields.Blocked,
 		ID:                   fields.Id,
 		Handle:               fields.Handle,
 		TaskNumber:           fields.TaskNumber,
@@ -164,6 +169,12 @@ func taskDTOFrom(fields gen.AgentTaskFields) taskDTO {
 		CloseSessionWhenDone: fields.CloseSessionWhenDone,
 		Requirements:         taskRequirementsDTOFrom(fields.Requirements),
 		Result:               taskResultDTOFrom(fields.Result),
+	}
+	if p := fields.BlockedBy; p != nil {
+		dto.BlockedBy = dependencyPage(p.Total, p.HasMore, p.Items)
+	}
+	if p := fields.Blocks; p != nil {
+		dto.Blocks = dependencyPage(p.Total, p.HasMore, p.Items)
 	}
 	if fields.Tags != nil {
 		dto.Tags = fields.Tags
@@ -352,8 +363,9 @@ func (e safeTaskError) HumanMessage() string {
 }
 func (e safeTaskError) Unwrap() error { return e.err }
 
-// mapTaskError is api.MapError for the task commands, with the human message
-// made terminal-safe.
+// mapTaskError is api.MapError for the task commands: the server owns range,
+// state, authority and cycle decisions, so its public code is preserved beside
+// the mapped message, and the human message is made terminal-safe.
 func mapTaskError(err error) error {
 	mapped := api.MapError(err)
 	if mapped == nil {
@@ -361,9 +373,16 @@ func mapTaskError(err error) error {
 	}
 	var coded *exitcode.CodedError
 	if errors.As(mapped, &coded) {
-		return &exitcode.CodedError{Code: coded.Code, Err: safeTaskError{coded.Err}}
+		mapped = &exitcode.CodedError{Code: coded.Code, Err: safeTaskError{coded.Err}}
+	} else {
+		mapped = safeTaskError{mapped}
 	}
-	return safeTaskError{mapped}
+	for _, code := range []string{"TASK_BLOCKED", "TASK_BLOCKER_CYCLE", "TASK_NOT_FOUND", "TASK_NOT_OWNER", "TASK_INVALID_TRANSITION", "BAD_USER_INPUT"} {
+		if api.HasErrorCode(err, code) {
+			return fmt.Errorf("%s: %w", code, mapped)
+		}
+	}
+	return mapped
 }
 
 // handleHeaders and handleCells add the HANDLE column only when at least one

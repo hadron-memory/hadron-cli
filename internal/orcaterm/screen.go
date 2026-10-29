@@ -46,9 +46,12 @@ var codexPlaceholders = map[string]bool{"Ask Codex to do anything": true}
 // after start (scratch captures, cli#907), and live workers' footers carry
 // it or not, and other " · " segments such as a "PR #435" badge (a read of
 // the fleet on 2026-10-18). So any trailing segments are allowed. The mode
-// text varies ("bypass permissions on", "auto mode on"). If Claude Code
-// reshapes the line, every Claude worker holds: fail closed.
-var claudeModeFooter = regexp.MustCompile(`^⏵⏵ .+ \(shift\+tab to cycle\)( · .+)?$`)
+// text varies ("bypass permissions on", "auto mode on"). With a background
+// shell running the line drops the "(shift+tab to cycle)" hint ("⏵⏵ bypass
+// permissions on · 1 shell", cli#1155), so the hint is optional and the mode
+// text must still end in " on". If Claude Code reshapes the line, every
+// Claude worker holds: fail closed.
+var claudeModeFooter = regexp.MustCompile(`^⏵⏵ [^·\s][^·]* on(?: \(shift\+tab to cycle\))?(?: · .+)?$`)
 
 func ruleIndexes(lines []string) []int {
 	var out []int
@@ -442,11 +445,23 @@ var (
 // ScreenAgentFamily is the agent family a rendered screen POSITIVELY shows,
 // or "": a shell, or both families' chrome at once (hold, never guess).
 func ScreenAgentFamily(sc *Screen) string {
-	if !sc.usable() {
-		return ""
+	claude, codex := screenFamilies(sc)
+	switch {
+	case claude && !codex:
+		return "claude"
+	case codex && !claude:
+		return "codex"
 	}
-	claude := len(ruleIndexes(sc.Tail)) >= 2
-	codex := false
+	return ""
+}
+
+// screenFamilies is which families' chrome a screen shows. Both true is
+// ambiguity, which callers that must tell it from "neither" read here.
+func screenFamilies(sc *Screen) (claude, codex bool) {
+	if !sc.usable() {
+		return false, false
+	}
+	claude = len(ruleIndexes(sc.Tail)) >= 2
 	for _, l := range sc.Tail {
 		if strings.HasPrefix(l, "✻ ") || strings.HasPrefix(l, "⏺ ") || claudeBanner.MatchString(l) {
 			claude = true
@@ -456,11 +471,5 @@ func ScreenAgentFamily(sc *Screen) string {
 			codex = true
 		}
 	}
-	switch {
-	case claude && !codex:
-		return "claude"
-	case codex && !claude:
-		return "codex"
-	}
-	return ""
+	return claude, codex
 }

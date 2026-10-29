@@ -56,7 +56,8 @@ func newCmdTeamTaskGet(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <taskId>",
 		Short: "Show one task",
-		Long: `Show one task in full. A task you may not read answers "not found"
+		Long: `Show one task, with priority, blocked state and the first 20 dependencies in
+each direction (total/hasMore included). Use task dependencies for later pages. A task you may not read answers "not found"
 (no existence oracle) — the server's shape, kept honest here.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -94,6 +95,15 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 		head = output.SafeCell(task.Handle) + "  " + task.ID
 	}
 	if err := line("%s  %s  (%s)", head, task.Title, task.Status); err != nil {
+		return err
+	}
+	if err := line("  priority: %d (1 = highest); blocked: %t", task.Priority, task.Blocked); err != nil {
+		return err
+	}
+	if err := renderDependencyPage(w, "blocked by", task.BlockedBy); err != nil {
+		return err
+	}
+	if err := renderDependencyPage(w, "blocks", task.Blocks); err != nil {
 		return err
 	}
 	if task.Description != nil {
@@ -224,13 +234,13 @@ filters by tag. --limit/--offset page (default 20, cap 200); a full default page
 --team is a coordinator's view of work in flight (#1044). The team is the
 coordinator — the bound worker for a bare --team, or --team=worker:<id, URN
 or name> (attached with =) — plus every worker whose roster reportsTo chain
-reaches them, in this App. It lists the App's tasks a team member OWNS or is
-ASSIGNED, plus every descendant of those, even where the descendant's parties
+reaches them, in this App. It lists the App's tasks a team member OWNS, is
+ASSIGNED or CREATED, plus every descendant of those, even where the descendant's parties
 sit outside the team; owner/assignee cells say "(outside)" for a worker in
 another reporting subtree and "(not on roster)" for one the roster does not
 list (a retired worker: the roster omits them, so their tasks join only as a
-descendant or through a current team member). Who CREATED a task does not
-count yet, and other Apps are never read (hadron-server#2370). It reads every
+descendant or through a current team member). A task a person created does not
+join through its creator, and other Apps are never read (hadron-server#2370). It reads every
 page of the App's tasks (no truncation; a page that does not advance is
 refused, exit 1), then applies --status after the join, so an open task under
 a finished team task stays in view. It combines only with --status, --tree
@@ -384,7 +394,7 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 		for _, task := range tasks {
 			withHandle = withHandle || task.Handle != ""
 		}
-		t := output.NewTable(w, handleHeaders(withHandle, "ID", "STATUS", "TITLE", "OWNER", "ASSIGNEE")...)
+		t := output.NewTable(w, handleHeaders(withHandle, "ID", "STATUS", "PRIORITY", "BLOCKED", "BLOCKED BY", "BLOCKS", "TITLE", "OWNER", "ASSIGNEE")...)
 		for _, task := range tasks {
 			assignee := "—"
 			if task.Queued {
@@ -392,7 +402,7 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 			} else if task.Assignee != nil {
 				assignee = partyCell(task.Assignee)
 			}
-			t.Row(handleCells(withHandle, task.Handle, output.SafeCell(task.ID), output.SafeCell(task.Status), output.SafeCell(task.Title), output.SafeCell(partyCell(task.Owner)), output.SafeCell(assignee))...)
+			t.Row(handleCells(withHandle, task.Handle, output.SafeCell(task.ID), output.SafeCell(task.Status), strconv.Itoa(task.Priority), strconv.FormatBool(task.Blocked), dependencySummary(task.BlockedBy), dependencySummary(task.Blocks), output.SafeCell(task.Title), output.SafeCell(partyCell(task.Owner)), output.SafeCell(assignee))...)
 		}
 		return t.Flush()
 	})

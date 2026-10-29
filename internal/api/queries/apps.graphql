@@ -195,8 +195,7 @@ query AppKeysMetadata($appRef: ID!) {
 }
 
 # cli#1058 — bounded App update. Omitted = preserve, so every optional variable
-# carries omitempty and a nil never reaches the wire. description and
-# systemPrompt additionally have an explicit CLEAR (a JSON null): they bind to
+# carries omitempty and a nil never reaches the wire. description uses
 # json.RawMessage, where nil is omitted, `null` is sent as null and a quoted
 # string (including "") is sent as that string — a *string cannot express all
 # three. name and sessionTimeoutSeconds have no null-clear and stay pointers.
@@ -206,8 +205,6 @@ mutation UpdateApp(
   $name: String
   # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
   $description: String
-  # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
-  $systemPrompt: String
   # @genqlient(omitempty: true)
   $sessionTimeoutSeconds: Int
 ) {
@@ -215,12 +212,46 @@ mutation UpdateApp(
     ref: $ref
     name: $name
     description: $description
-    systemPrompt: $systemPrompt
     sessionTimeoutSeconds: $sessionTimeoutSeconds
   ) {
     id
     urn
     name
     sessionTimeoutSeconds
+  }
+}
+
+# cli#1209 (server#2190, cor:dmo:050:17): the memories appNodes reads for the
+# caller, one row per memory with every reason it is in scope. The CLI always
+# sends limit; offset is omitted at 0.
+query AppMemoryScope(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  appMemoryScope(appRef: $appRef, limit: $limit, offset: $offset) {
+    total
+    items {
+      memoryId
+      memoryUrn
+      name
+      class
+      sources {
+        kind
+        agentId
+      }
+      viewerCanWrite
+    }
+  }
+}
+
+# cli#1209: the display name of one source agent. Null when the caller may not
+# read it — the row then shows the source kind alone, as the SDL says.
+query AppScopeAgentName($ref: ID!) {
+  agent(ref: $ref) {
+    id
+    name
   }
 }

@@ -91,6 +91,35 @@ func (v *AcknowledgeDeliveryBatchesResponse) GetAcknowledgeDeliveryBatches() *Ac
 	return v.AcknowledgeDeliveryBatches
 }
 
+// AcknowledgeWakesAcknowledgeWakesAcknowledgeWakesResult includes the requested fields of the GraphQL type AcknowledgeWakesResult.
+type AcknowledgeWakesAcknowledgeWakesAcknowledgeWakesResult struct {
+	// Wakes that moved the delivery record.
+	Acknowledged int `json:"acknowledged"`
+	// Repeats: already delivered, counted nowhere twice.
+	Unchanged int `json:"unchanged"`
+}
+
+// GetAcknowledged returns AcknowledgeWakesAcknowledgeWakesAcknowledgeWakesResult.Acknowledged, and is useful for accessing the field via an interface.
+func (v *AcknowledgeWakesAcknowledgeWakesAcknowledgeWakesResult) GetAcknowledged() int {
+	return v.Acknowledged
+}
+
+// GetUnchanged returns AcknowledgeWakesAcknowledgeWakesAcknowledgeWakesResult.Unchanged, and is useful for accessing the field via an interface.
+func (v *AcknowledgeWakesAcknowledgeWakesAcknowledgeWakesResult) GetUnchanged() int {
+	return v.Unchanged
+}
+
+// AcknowledgeWakesResponse is returned by AcknowledgeWakes on success.
+type AcknowledgeWakesResponse struct {
+	// #1748 — record that wakes were delivered (hrn:node:hadronmemory.com:specs:cor:agt:080:16). Never moves a read position.
+	AcknowledgeWakes *AcknowledgeWakesAcknowledgeWakesAcknowledgeWakesResult `json:"acknowledgeWakes"`
+}
+
+// GetAcknowledgeWakes returns AcknowledgeWakesResponse.AcknowledgeWakes, and is useful for accessing the field via an interface.
+func (v *AcknowledgeWakesResponse) GetAcknowledgeWakes() *AcknowledgeWakesAcknowledgeWakesAcknowledgeWakesResult {
+	return v.AcknowledgeWakes
+}
+
 // ActionTicketFields includes the GraphQL fields of ActionTicket requested by the fragment ActionTicketFields.
 // The GraphQL type's documentation follows.
 //
@@ -642,8 +671,6 @@ type AgentFields struct {
 	OrganizationId *string         `json:"organizationId"`
 	Surfaces       []string        `json:"surfaces"`
 	SystemMemoryId *string         `json:"systemMemoryId"`
-	// Templated Agent prompt. {{name}}/{{role}} bind to the Agent in chats or the named Worker in briefings.
-	SystemPrompt *string `json:"systemPrompt"`
 	// #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15) - the id of the index node whose incoming,
 	// trigger-labelled edges list this Agent's own tasks, or null. Set or clear
 	// it with setAgentIndexRefs; read the Agent's whole task list with agentTaskList.
@@ -699,9 +726,6 @@ func (v *AgentFields) GetSurfaces() []string { return v.Surfaces }
 
 // GetSystemMemoryId returns AgentFields.SystemMemoryId, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetSystemMemoryId() *string { return v.SystemMemoryId }
-
-// GetSystemPrompt returns AgentFields.SystemPrompt, and is useful for accessing the field via an interface.
-func (v *AgentFields) GetSystemPrompt() *string { return v.SystemPrompt }
 
 // GetTasksIndexRef returns AgentFields.TasksIndexRef, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetTasksIndexRef() *string { return v.TasksIndexRef }
@@ -1149,15 +1173,312 @@ func (v *AgentSchedulesResponse) GetAgentSchedules() *AgentSchedulesAgentSchedul
 	return v.AgentSchedules
 }
 
+// AgentTaskAddBlockerAddAgentTaskBlockerAgentTask includes the requested fields of the GraphQL type AgentTask.
+type AgentTaskAddBlockerAddAgentTaskBlockerAgentTask struct {
+	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetPriority() int {
+	return v.AgentTaskFields.Priority
+}
+
+// GetBlocked returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetBlocked() bool {
+	return v.AgentTaskFields.Blocked
+}
+
+// GetBlockedBy returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
+}
+
+// GetId returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetId() string { return v.AgentTaskFields.Id }
+
+// GetHandle returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetHandle() string {
+	return v.AgentTaskFields.Handle
+}
+
+// GetTaskNumber returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.TaskNumber, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetTaskNumber() string {
+	return v.AgentTaskFields.TaskNumber
+}
+
+// GetAppId returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.AppId, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetAppId() string {
+	return v.AgentTaskFields.AppId
+}
+
+// GetTitle returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Title, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetTitle() string {
+	return v.AgentTaskFields.Title
+}
+
+// GetDescription returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Description, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetDescription() *string {
+	return v.AgentTaskFields.Description
+}
+
+// GetStatus returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetStatus() AgentTaskStatus {
+	return v.AgentTaskFields.Status
+}
+
+// GetQueued returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Queued, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetQueued() bool {
+	return v.AgentTaskFields.Queued
+}
+
+// GetWaitingOnChildren returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.WaitingOnChildren, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetWaitingOnChildren() bool {
+	return v.AgentTaskFields.WaitingOnChildren
+}
+
+// GetOwner returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Owner, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetOwner() *AgentTaskFieldsOwnerAgentTaskParty {
+	return v.AgentTaskFields.Owner
+}
+
+// GetAssignee returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Assignee, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetAssignee() *AgentTaskFieldsAssigneeAgentTaskParty {
+	return v.AgentTaskFields.Assignee
+}
+
+// GetAssignedBy returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.AssignedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetAssignedBy() *AgentTaskFieldsAssignedByAgentTaskParty {
+	return v.AgentTaskFields.AssignedBy
+}
+
+// GetCreatedBy returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.CreatedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
+	return v.AgentTaskFields.CreatedBy
+}
+
+// GetParentTaskId returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetParentTaskId() *string {
+	return v.AgentTaskFields.ParentTaskId
+}
+
+// GetTags returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Tags, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetTags() []string {
+	return v.AgentTaskFields.Tags
+}
+
+// GetSource returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Source, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetSource() *string {
+	return v.AgentTaskFields.Source
+}
+
+// GetStartBy returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.StartBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetStartBy() *string {
+	return v.AgentTaskFields.StartBy
+}
+
+// GetCreatedAt returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetCreatedAt() string {
+	return v.AgentTaskFields.CreatedAt
+}
+
+// GetUpdatedAt returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetUpdatedAt() *string {
+	return v.AgentTaskFields.UpdatedAt
+}
+
+// GetStartedAt returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.StartedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetStartedAt() *string {
+	return v.AgentTaskFields.StartedAt
+}
+
+// GetFinishedAt returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.FinishedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetFinishedAt() *string {
+	return v.AgentTaskFields.FinishedAt
+}
+
+// GetCancelledAt returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.CancelledAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetCancelledAt() *string {
+	return v.AgentTaskFields.CancelledAt
+}
+
+// GetCloseSessionWhenDone returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.CloseSessionWhenDone, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetCloseSessionWhenDone() bool {
+	return v.AgentTaskFields.CloseSessionWhenDone
+}
+
+// GetRequirements returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Requirements, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
+	return v.AgentTaskFields.Requirements
+}
+
+// GetResult returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Result, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetResult() *AgentTaskFieldsResultAgentTaskResult {
+	return v.AgentTaskFields.Result
+}
+
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTaskAddBlockerAddAgentTaskBlockerAgentTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTaskAddBlockerAddAgentTaskBlockerAgentTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTaskAddBlockerAddAgentTaskBlockerAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
+	Id string `json:"id"`
+
+	Handle string `json:"handle"`
+
+	TaskNumber string `json:"taskNumber"`
+
+	AppId string `json:"appId"`
+
+	Title string `json:"title"`
+
+	Description *string `json:"description"`
+
+	Status AgentTaskStatus `json:"status"`
+
+	Queued bool `json:"queued"`
+
+	WaitingOnChildren bool `json:"waitingOnChildren"`
+
+	Owner *AgentTaskFieldsOwnerAgentTaskParty `json:"owner"`
+
+	Assignee *AgentTaskFieldsAssigneeAgentTaskParty `json:"assignee"`
+
+	AssignedBy *AgentTaskFieldsAssignedByAgentTaskParty `json:"assignedBy"`
+
+	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
+
+	ParentTaskId *string `json:"parentTaskId"`
+
+	Tags []string `json:"tags"`
+
+	Source *string `json:"source"`
+
+	StartBy *string `json:"startBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	StartedAt *string `json:"startedAt"`
+
+	FinishedAt *string `json:"finishedAt"`
+
+	CancelledAt *string `json:"cancelledAt"`
+
+	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
+
+	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
+
+	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+}
+
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) __premarshalJSON() (*__premarshalAgentTaskAddBlockerAddAgentTaskBlockerAgentTask, error) {
+	var retval __premarshalAgentTaskAddBlockerAddAgentTaskBlockerAgentTask
+
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
+	retval.Id = v.AgentTaskFields.Id
+	retval.Handle = v.AgentTaskFields.Handle
+	retval.TaskNumber = v.AgentTaskFields.TaskNumber
+	retval.AppId = v.AgentTaskFields.AppId
+	retval.Title = v.AgentTaskFields.Title
+	retval.Description = v.AgentTaskFields.Description
+	retval.Status = v.AgentTaskFields.Status
+	retval.Queued = v.AgentTaskFields.Queued
+	retval.WaitingOnChildren = v.AgentTaskFields.WaitingOnChildren
+	retval.Owner = v.AgentTaskFields.Owner
+	retval.Assignee = v.AgentTaskFields.Assignee
+	retval.AssignedBy = v.AgentTaskFields.AssignedBy
+	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
+	retval.Tags = v.AgentTaskFields.Tags
+	retval.Source = v.AgentTaskFields.Source
+	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.CreatedAt = v.AgentTaskFields.CreatedAt
+	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
+	retval.StartedAt = v.AgentTaskFields.StartedAt
+	retval.FinishedAt = v.AgentTaskFields.FinishedAt
+	retval.CancelledAt = v.AgentTaskFields.CancelledAt
+	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.Requirements = v.AgentTaskFields.Requirements
+	retval.Result = v.AgentTaskFields.Result
+	return &retval, nil
+}
+
+// AgentTaskAddBlockerResponse is returned by AgentTaskAddBlocker on success.
+type AgentTaskAddBlockerResponse struct {
+	// #2644 (hrn:node:hadronmemory.com:specs:cor:agt:050:02) — add a same-App blocker to a backlog/pending task, refusing cycles serially. Assigner authority.
+	AddAgentTaskBlocker *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask `json:"addAgentTaskBlocker"`
+}
+
+// GetAddAgentTaskBlocker returns AgentTaskAddBlockerResponse.AddAgentTaskBlocker, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerResponse) GetAddAgentTaskBlocker() *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask {
+	return v.AddAgentTaskBlocker
+}
+
 // AgentTaskAssignAssignAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskAssignAssignAgentTask struct {
 	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskAssignAssignAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskAssignAssignAgentTask) GetPriority() int { return v.AgentTaskFields.Priority }
+
+// GetBlocked returns AgentTaskAssignAssignAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskAssignAssignAgentTask) GetBlocked() bool { return v.AgentTaskFields.Blocked }
+
+// GetBlockedBy returns AgentTaskAssignAssignAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskAssignAssignAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskAssignAssignAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskAssignAssignAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
 }
 
 // GetId returns AgentTaskAssignAssignAgentTask.Id, and is useful for accessing the field via an interface.
@@ -1283,6 +1604,14 @@ func (v *AgentTaskAssignAssignAgentTask) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalAgentTaskAssignAssignAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
 	Id string `json:"id"`
 
 	Handle string `json:"handle"`
@@ -1345,6 +1674,10 @@ func (v *AgentTaskAssignAssignAgentTask) MarshalJSON() ([]byte, error) {
 func (v *AgentTaskAssignAssignAgentTask) __premarshalJSON() (*__premarshalAgentTaskAssignAssignAgentTask, error) {
 	var retval __premarshalAgentTaskAssignAssignAgentTask
 
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
 	retval.Handle = v.AgentTaskFields.Handle
 	retval.TaskNumber = v.AgentTaskFields.TaskNumber
@@ -1391,14 +1724,24 @@ func (v *AgentTaskAssignResponse) GetAssignAgentTask() *AgentTaskAssignAssignAge
 }
 
 // AgentTaskCancelCancelAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskCancelCancelAgentTask struct {
 	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskCancelCancelAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskCancelCancelAgentTask) GetPriority() int { return v.AgentTaskFields.Priority }
+
+// GetBlocked returns AgentTaskCancelCancelAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskCancelCancelAgentTask) GetBlocked() bool { return v.AgentTaskFields.Blocked }
+
+// GetBlockedBy returns AgentTaskCancelCancelAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskCancelCancelAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskCancelCancelAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskCancelCancelAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
 }
 
 // GetId returns AgentTaskCancelCancelAgentTask.Id, and is useful for accessing the field via an interface.
@@ -1524,6 +1867,14 @@ func (v *AgentTaskCancelCancelAgentTask) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalAgentTaskCancelCancelAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
 	Id string `json:"id"`
 
 	Handle string `json:"handle"`
@@ -1586,6 +1937,10 @@ func (v *AgentTaskCancelCancelAgentTask) MarshalJSON() ([]byte, error) {
 func (v *AgentTaskCancelCancelAgentTask) __premarshalJSON() (*__premarshalAgentTaskCancelCancelAgentTask, error) {
 	var retval __premarshalAgentTaskCancelCancelAgentTask
 
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
 	retval.Handle = v.AgentTaskFields.Handle
 	retval.TaskNumber = v.AgentTaskFields.TaskNumber
@@ -1632,14 +1987,24 @@ func (v *AgentTaskCancelResponse) GetCancelAgentTask() *AgentTaskCancelCancelAge
 }
 
 // AgentTaskCreateCreateAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskCreateCreateAgentTask struct {
 	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskCreateCreateAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateCreateAgentTask) GetPriority() int { return v.AgentTaskFields.Priority }
+
+// GetBlocked returns AgentTaskCreateCreateAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateCreateAgentTask) GetBlocked() bool { return v.AgentTaskFields.Blocked }
+
+// GetBlockedBy returns AgentTaskCreateCreateAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateCreateAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskCreateCreateAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateCreateAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
 }
 
 // GetId returns AgentTaskCreateCreateAgentTask.Id, and is useful for accessing the field via an interface.
@@ -1765,6 +2130,14 @@ func (v *AgentTaskCreateCreateAgentTask) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalAgentTaskCreateCreateAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
 	Id string `json:"id"`
 
 	Handle string `json:"handle"`
@@ -1827,6 +2200,10 @@ func (v *AgentTaskCreateCreateAgentTask) MarshalJSON() ([]byte, error) {
 func (v *AgentTaskCreateCreateAgentTask) __premarshalJSON() (*__premarshalAgentTaskCreateCreateAgentTask, error) {
 	var retval __premarshalAgentTaskCreateCreateAgentTask
 
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
 	retval.Handle = v.AgentTaskFields.Handle
 	retval.TaskNumber = v.AgentTaskFields.TaskNumber
@@ -1902,15 +2279,288 @@ var AllAgentTaskCreateStatus = []AgentTaskCreateStatus{
 	AgentTaskCreateStatusPending,
 }
 
-// AgentTaskFields includes the GraphQL fields of AgentTask requested by the fragment AgentTaskFields.
+// AgentTaskDependenciesAgentTask includes the requested fields of the GraphQL type AgentTask.
+type AgentTaskDependenciesAgentTask struct {
+	Id string `json:"id"`
+	// Same-App tasks this task waits for, including ended blockers.
+	BlockedBy *AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+	// Same-App tasks that name this task as a blocker.
+	Blocks *AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPage `json:"blocks"`
+}
+
+// GetId returns AgentTaskDependenciesAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTask) GetId() string { return v.Id }
+
+// GetBlockedBy returns AgentTaskDependenciesAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTask) GetBlockedBy() *AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPage {
+	return v.BlockedBy
+}
+
+// GetBlocks returns AgentTaskDependenciesAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTask) GetBlocks() *AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPage {
+	return v.Blocks
+}
+
+// AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPage includes the requested fields of the GraphQL type AgentTaskDependencyPage.
 // The GraphQL type's documentation follows.
 //
 // One piece of work a team App has assigned, or wants assigned
 // (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
 // ended; it never reads what the work is. Readable by the App's participants,
 // workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
-type AgentTaskFields struct {
+type AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPage struct {
+	Total   int                                                                             `json:"total"`
+	HasMore bool                                                                            `json:"hasMore"`
+	Items   []*AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask `json:"items"`
+}
+
+// GetTotal returns AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPage.Total, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPage) GetTotal() int {
+	return v.Total
+}
+
+// GetHasMore returns AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPage.HasMore, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPage) GetHasMore() bool {
+	return v.HasMore
+}
+
+// GetItems returns AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPage.Items, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPage) GetItems() []*AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask {
+	return v.Items
+}
+
+// AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask includes the requested fields of the GraphQL type AgentTask.
+type AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask struct {
+	AgentTaskDependencyFields `json:"-"`
+}
+
+// GetId returns AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask) GetId() string {
+	return v.AgentTaskDependencyFields.Id
+}
+
+// GetHandle returns AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask) GetHandle() string {
+	return v.AgentTaskDependencyFields.Handle
+}
+
+// GetTitle returns AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask.Title, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask) GetTitle() string {
+	return v.AgentTaskDependencyFields.Title
+}
+
+// GetStatus returns AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask) GetStatus() AgentTaskStatus {
+	return v.AgentTaskDependencyFields.Status
+}
+
+func (v *AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskDependencyFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask struct {
 	Id string `json:"id"`
+
+	Handle string `json:"handle"`
+
+	Title string `json:"title"`
+
+	Status AgentTaskStatus `json:"status"`
+}
+
+func (v *AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask) __premarshalJSON() (*__premarshalAgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask, error) {
+	var retval __premarshalAgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask
+
+	retval.Id = v.AgentTaskDependencyFields.Id
+	retval.Handle = v.AgentTaskDependencyFields.Handle
+	retval.Title = v.AgentTaskDependencyFields.Title
+	retval.Status = v.AgentTaskDependencyFields.Status
+	return &retval, nil
+}
+
+// AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPage includes the requested fields of the GraphQL type AgentTaskDependencyPage.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPage struct {
+	Total   int                                                                          `json:"total"`
+	HasMore bool                                                                         `json:"hasMore"`
+	Items   []*AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask `json:"items"`
+}
+
+// GetTotal returns AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPage.Total, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPage) GetTotal() int { return v.Total }
+
+// GetHasMore returns AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPage.HasMore, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPage) GetHasMore() bool {
+	return v.HasMore
+}
+
+// GetItems returns AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPage.Items, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPage) GetItems() []*AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask {
+	return v.Items
+}
+
+// AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask includes the requested fields of the GraphQL type AgentTask.
+type AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask struct {
+	AgentTaskDependencyFields `json:"-"`
+}
+
+// GetId returns AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask) GetId() string {
+	return v.AgentTaskDependencyFields.Id
+}
+
+// GetHandle returns AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask) GetHandle() string {
+	return v.AgentTaskDependencyFields.Handle
+}
+
+// GetTitle returns AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask.Title, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask) GetTitle() string {
+	return v.AgentTaskDependencyFields.Title
+}
+
+// GetStatus returns AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask) GetStatus() AgentTaskStatus {
+	return v.AgentTaskDependencyFields.Status
+}
+
+func (v *AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskDependencyFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask struct {
+	Id string `json:"id"`
+
+	Handle string `json:"handle"`
+
+	Title string `json:"title"`
+
+	Status AgentTaskStatus `json:"status"`
+}
+
+func (v *AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask) __premarshalJSON() (*__premarshalAgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask, error) {
+	var retval __premarshalAgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask
+
+	retval.Id = v.AgentTaskDependencyFields.Id
+	retval.Handle = v.AgentTaskDependencyFields.Handle
+	retval.Title = v.AgentTaskDependencyFields.Title
+	retval.Status = v.AgentTaskDependencyFields.Status
+	return &retval, nil
+}
+
+// AgentTaskDependenciesResponse is returned by AgentTaskDependencies on success.
+type AgentTaskDependenciesResponse struct {
+	// #1705 — one agent task, or null when it does not exist or the caller may
+	// not read it (no existence oracle). Readers: the App's participants, workers
+	// acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+	AgentTask *AgentTaskDependenciesAgentTask `json:"agentTask"`
+}
+
+// GetAgentTask returns AgentTaskDependenciesResponse.AgentTask, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependenciesResponse) GetAgentTask() *AgentTaskDependenciesAgentTask {
+	return v.AgentTask
+}
+
+// AgentTaskDependencyFields includes the GraphQL fields of AgentTask requested by the fragment AgentTaskDependencyFields.
+type AgentTaskDependencyFields struct {
+	Id string `json:"id"`
+	// The short handle of this task, for example "AT3.405": its project (AT3, a top-level task counted per App) and its
+	// number within each parent down to it (hrn:node:hadronmemory.com:specs:cor:agt:050:01). "AT0" is the reserved
+	// project "No project": a task made with no project is AT0.<n>. An alias for the id, which stays canonical; every
+	// task operation that takes a task id also takes the handle. Immutable: parentage is fixed at creation. A person who
+	// belongs to several Apps qualifies it as hrn:agenttask:<app-urn>:AT3.405, where the App URN is the App's urn.
+	// The handle is not the number of any GitHub issue the task's source names.
+	Handle string          `json:"handle"`
+	Title  string          `json:"title"`
+	Status AgentTaskStatus `json:"status"`
+}
+
+// GetId returns AgentTaskDependencyFields.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependencyFields) GetId() string { return v.Id }
+
+// GetHandle returns AgentTaskDependencyFields.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependencyFields) GetHandle() string { return v.Handle }
+
+// GetTitle returns AgentTaskDependencyFields.Title, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependencyFields) GetTitle() string { return v.Title }
+
+// GetStatus returns AgentTaskDependencyFields.Status, and is useful for accessing the field via an interface.
+func (v *AgentTaskDependencyFields) GetStatus() AgentTaskStatus { return v.Status }
+
+// AgentTaskFields includes the GraphQL fields of AgentTask requested by the fragment AgentTaskFields.
+type AgentTaskFields struct {
+	// #2644 (hrn:node:hadronmemory.com:specs:cor:agt:050:01) — priority1 is highest; range1..5, default1. Matching only, never authority.
+	Priority int `json:"priority"`
+	// Whether at least one blocker remains open. Never a status; manual assignment is preserved.
+	Blocked bool `json:"blocked"`
+	// Same-App tasks this task waits for, including ended blockers.
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+	// Same-App tasks that name this task as a blocker.
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+	Id     string                                        `json:"id"`
 	// The short handle of this task, for example "AT3.405": its project (AT3, a top-level task counted per App) and its
 	// number within each parent down to it (hrn:node:hadronmemory.com:specs:cor:agt:050:01). "AT0" is the reserved
 	// project "No project": a task made with no project is AT0.<n>. An alias for the id, which stays canonical; every
@@ -1951,6 +2601,20 @@ type AgentTaskFields struct {
 	// Set only on a finished task.
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
 }
+
+// GetPriority returns AgentTaskFields.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskFields) GetPriority() int { return v.Priority }
+
+// GetBlocked returns AgentTaskFields.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskFields) GetBlocked() bool { return v.Blocked }
+
+// GetBlockedBy returns AgentTaskFields.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskFields) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.BlockedBy
+}
+
+// GetBlocks returns AgentTaskFields.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskFields) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage { return v.Blocks }
 
 // GetId returns AgentTaskFields.Id, and is useful for accessing the field via an interface.
 func (v *AgentTaskFields) GetId() string { return v.Id }
@@ -2187,6 +2851,210 @@ func (v *AgentTaskFieldsAssigneeAgentTaskParty) __premarshalJSON() (*__premarsha
 	return &retval, nil
 }
 
+// AgentTaskFieldsBlockedByAgentTaskDependencyPage includes the requested fields of the GraphQL type AgentTaskDependencyPage.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type AgentTaskFieldsBlockedByAgentTaskDependencyPage struct {
+	Total   int                                                              `json:"total"`
+	HasMore bool                                                             `json:"hasMore"`
+	Items   []*AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask `json:"items"`
+}
+
+// GetTotal returns AgentTaskFieldsBlockedByAgentTaskDependencyPage.Total, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsBlockedByAgentTaskDependencyPage) GetTotal() int { return v.Total }
+
+// GetHasMore returns AgentTaskFieldsBlockedByAgentTaskDependencyPage.HasMore, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsBlockedByAgentTaskDependencyPage) GetHasMore() bool { return v.HasMore }
+
+// GetItems returns AgentTaskFieldsBlockedByAgentTaskDependencyPage.Items, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsBlockedByAgentTaskDependencyPage) GetItems() []*AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask {
+	return v.Items
+}
+
+// AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask includes the requested fields of the GraphQL type AgentTask.
+type AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask struct {
+	AgentTaskDependencyFields `json:"-"`
+}
+
+// GetId returns AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask) GetId() string {
+	return v.AgentTaskDependencyFields.Id
+}
+
+// GetHandle returns AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask) GetHandle() string {
+	return v.AgentTaskDependencyFields.Handle
+}
+
+// GetTitle returns AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask.Title, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask) GetTitle() string {
+	return v.AgentTaskDependencyFields.Title
+}
+
+// GetStatus returns AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask) GetStatus() AgentTaskStatus {
+	return v.AgentTaskDependencyFields.Status
+}
+
+func (v *AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskDependencyFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask struct {
+	Id string `json:"id"`
+
+	Handle string `json:"handle"`
+
+	Title string `json:"title"`
+
+	Status AgentTaskStatus `json:"status"`
+}
+
+func (v *AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask) __premarshalJSON() (*__premarshalAgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask, error) {
+	var retval __premarshalAgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask
+
+	retval.Id = v.AgentTaskDependencyFields.Id
+	retval.Handle = v.AgentTaskDependencyFields.Handle
+	retval.Title = v.AgentTaskDependencyFields.Title
+	retval.Status = v.AgentTaskDependencyFields.Status
+	return &retval, nil
+}
+
+// AgentTaskFieldsBlocksAgentTaskDependencyPage includes the requested fields of the GraphQL type AgentTaskDependencyPage.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type AgentTaskFieldsBlocksAgentTaskDependencyPage struct {
+	Total   int                                                           `json:"total"`
+	HasMore bool                                                          `json:"hasMore"`
+	Items   []*AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask `json:"items"`
+}
+
+// GetTotal returns AgentTaskFieldsBlocksAgentTaskDependencyPage.Total, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsBlocksAgentTaskDependencyPage) GetTotal() int { return v.Total }
+
+// GetHasMore returns AgentTaskFieldsBlocksAgentTaskDependencyPage.HasMore, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsBlocksAgentTaskDependencyPage) GetHasMore() bool { return v.HasMore }
+
+// GetItems returns AgentTaskFieldsBlocksAgentTaskDependencyPage.Items, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsBlocksAgentTaskDependencyPage) GetItems() []*AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask {
+	return v.Items
+}
+
+// AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask includes the requested fields of the GraphQL type AgentTask.
+type AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask struct {
+	AgentTaskDependencyFields `json:"-"`
+}
+
+// GetId returns AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask) GetId() string {
+	return v.AgentTaskDependencyFields.Id
+}
+
+// GetHandle returns AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask) GetHandle() string {
+	return v.AgentTaskDependencyFields.Handle
+}
+
+// GetTitle returns AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask.Title, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask) GetTitle() string {
+	return v.AgentTaskDependencyFields.Title
+}
+
+// GetStatus returns AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask) GetStatus() AgentTaskStatus {
+	return v.AgentTaskDependencyFields.Status
+}
+
+func (v *AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskDependencyFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask struct {
+	Id string `json:"id"`
+
+	Handle string `json:"handle"`
+
+	Title string `json:"title"`
+
+	Status AgentTaskStatus `json:"status"`
+}
+
+func (v *AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask) __premarshalJSON() (*__premarshalAgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask, error) {
+	var retval __premarshalAgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask
+
+	retval.Id = v.AgentTaskDependencyFields.Id
+	retval.Handle = v.AgentTaskDependencyFields.Handle
+	retval.Title = v.AgentTaskDependencyFields.Title
+	retval.Status = v.AgentTaskDependencyFields.Status
+	return &retval, nil
+}
+
 // AgentTaskFieldsCreatedByAgentTaskParty includes the requested fields of the GraphQL type AgentTaskParty.
 // The GraphQL type's documentation follows.
 //
@@ -2392,14 +3260,24 @@ func (v *AgentTaskFieldsResultAgentTaskResult) GetSummary() *string { return v.S
 func (v *AgentTaskFieldsResultAgentTaskResult) GetEvidence() *string { return v.Evidence }
 
 // AgentTaskFinishFinishAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskFinishFinishAgentTask struct {
 	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskFinishFinishAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskFinishFinishAgentTask) GetPriority() int { return v.AgentTaskFields.Priority }
+
+// GetBlocked returns AgentTaskFinishFinishAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskFinishFinishAgentTask) GetBlocked() bool { return v.AgentTaskFields.Blocked }
+
+// GetBlockedBy returns AgentTaskFinishFinishAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskFinishFinishAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskFinishFinishAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskFinishFinishAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
 }
 
 // GetId returns AgentTaskFinishFinishAgentTask.Id, and is useful for accessing the field via an interface.
@@ -2525,6 +3403,14 @@ func (v *AgentTaskFinishFinishAgentTask) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalAgentTaskFinishFinishAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
 	Id string `json:"id"`
 
 	Handle string `json:"handle"`
@@ -2587,6 +3473,10 @@ func (v *AgentTaskFinishFinishAgentTask) MarshalJSON() ([]byte, error) {
 func (v *AgentTaskFinishFinishAgentTask) __premarshalJSON() (*__premarshalAgentTaskFinishFinishAgentTask, error) {
 	var retval __premarshalAgentTaskFinishFinishAgentTask
 
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
 	retval.Handle = v.AgentTaskFields.Handle
 	retval.TaskNumber = v.AgentTaskFields.TaskNumber
@@ -2629,14 +3519,24 @@ func (v *AgentTaskFinishResponse) GetFinishAgentTask() *AgentTaskFinishFinishAge
 }
 
 // AgentTaskGetAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskGetAgentTask struct {
 	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskGetAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTask) GetPriority() int { return v.AgentTaskFields.Priority }
+
+// GetBlocked returns AgentTaskGetAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTask) GetBlocked() bool { return v.AgentTaskFields.Blocked }
+
+// GetBlockedBy returns AgentTaskGetAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskGetAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
 }
 
 // GetId returns AgentTaskGetAgentTask.Id, and is useful for accessing the field via an interface.
@@ -2756,6 +3656,14 @@ func (v *AgentTaskGetAgentTask) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalAgentTaskGetAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
 	Id string `json:"id"`
 
 	Handle string `json:"handle"`
@@ -2818,6 +3726,10 @@ func (v *AgentTaskGetAgentTask) MarshalJSON() ([]byte, error) {
 func (v *AgentTaskGetAgentTask) __premarshalJSON() (*__premarshalAgentTaskGetAgentTask, error) {
 	var retval __premarshalAgentTaskGetAgentTask
 
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
 	retval.Handle = v.AgentTaskFields.Handle
 	retval.TaskNumber = v.AgentTaskFields.TaskNumber
@@ -2949,14 +3861,24 @@ func (v *AgentTaskIndexListResponse) GetAgentTaskList() []*AgentTaskIndexListAge
 }
 
 // AgentTaskListAgentTasksAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskListAgentTasksAgentTask struct {
 	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskListAgentTasksAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskListAgentTasksAgentTask) GetPriority() int { return v.AgentTaskFields.Priority }
+
+// GetBlocked returns AgentTaskListAgentTasksAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskListAgentTasksAgentTask) GetBlocked() bool { return v.AgentTaskFields.Blocked }
+
+// GetBlockedBy returns AgentTaskListAgentTasksAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskListAgentTasksAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskListAgentTasksAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskListAgentTasksAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
 }
 
 // GetId returns AgentTaskListAgentTasksAgentTask.Id, and is useful for accessing the field via an interface.
@@ -3088,6 +4010,14 @@ func (v *AgentTaskListAgentTasksAgentTask) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalAgentTaskListAgentTasksAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
 	Id string `json:"id"`
 
 	Handle string `json:"handle"`
@@ -3150,6 +4080,10 @@ func (v *AgentTaskListAgentTasksAgentTask) MarshalJSON() ([]byte, error) {
 func (v *AgentTaskListAgentTasksAgentTask) __premarshalJSON() (*__premarshalAgentTaskListAgentTasksAgentTask, error) {
 	var retval __premarshalAgentTaskListAgentTasksAgentTask
 
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
 	retval.Handle = v.AgentTaskFields.Handle
 	retval.TaskNumber = v.AgentTaskFields.TaskNumber
@@ -3181,6 +4115,7 @@ func (v *AgentTaskListAgentTasksAgentTask) __premarshalJSON() (*__premarshalAgen
 // AgentTaskListResponse is returned by AgentTaskList on success.
 type AgentTaskListResponse struct {
 	// #1705 — a team App's agent tasks, newest first. Party filters combine with the other selectors;
+	// All tag, source and date filters combine with the other selectors using AND.
 	// owner / assignee / creator name a party of the App (a ref naming nobody matches
 	// nothing; a retired worker is no party to name, so it matches nothing). creator is
 	// the task's creator as createdBy projects it: a worker, or a person for a task they created
@@ -3217,14 +4152,24 @@ var AllAgentTaskMatchedBy = []AgentTaskMatchedBy{
 }
 
 // AgentTaskParkParkAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskParkParkAgentTask struct {
 	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskParkParkAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetPriority() int { return v.AgentTaskFields.Priority }
+
+// GetBlocked returns AgentTaskParkParkAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetBlocked() bool { return v.AgentTaskFields.Blocked }
+
+// GetBlockedBy returns AgentTaskParkParkAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskParkParkAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
 }
 
 // GetId returns AgentTaskParkParkAgentTask.Id, and is useful for accessing the field via an interface.
@@ -3344,6 +4289,14 @@ func (v *AgentTaskParkParkAgentTask) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalAgentTaskParkParkAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
 	Id string `json:"id"`
 
 	Handle string `json:"handle"`
@@ -3406,6 +4359,10 @@ func (v *AgentTaskParkParkAgentTask) MarshalJSON() ([]byte, error) {
 func (v *AgentTaskParkParkAgentTask) __premarshalJSON() (*__premarshalAgentTaskParkParkAgentTask, error) {
 	var retval __premarshalAgentTaskParkParkAgentTask
 
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
 	retval.Handle = v.AgentTaskFields.Handle
 	retval.TaskNumber = v.AgentTaskFields.TaskNumber
@@ -3501,14 +4458,28 @@ var AllAgentTaskPartyKind = []AgentTaskPartyKind{
 }
 
 // AgentTaskProgressRecordAgentTaskProgressAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskProgressRecordAgentTaskProgressAgentTask struct {
 	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskProgressRecordAgentTaskProgressAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetPriority() int {
+	return v.AgentTaskFields.Priority
+}
+
+// GetBlocked returns AgentTaskProgressRecordAgentTaskProgressAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetBlocked() bool {
+	return v.AgentTaskFields.Blocked
+}
+
+// GetBlockedBy returns AgentTaskProgressRecordAgentTaskProgressAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskProgressRecordAgentTaskProgressAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
 }
 
 // GetId returns AgentTaskProgressRecordAgentTaskProgressAgentTask.Id, and is useful for accessing the field via an interface.
@@ -3662,6 +4633,14 @@ func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) UnmarshalJSON(b []by
 }
 
 type __premarshalAgentTaskProgressRecordAgentTaskProgressAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
 	Id string `json:"id"`
 
 	Handle string `json:"handle"`
@@ -3724,6 +4703,10 @@ func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) MarshalJSON() ([]byt
 func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) __premarshalJSON() (*__premarshalAgentTaskProgressRecordAgentTaskProgressAgentTask, error) {
 	var retval __premarshalAgentTaskProgressRecordAgentTaskProgressAgentTask
 
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
 	retval.Handle = v.AgentTaskFields.Handle
 	retval.TaskNumber = v.AgentTaskFields.TaskNumber
@@ -3765,14 +4748,28 @@ func (v *AgentTaskProgressResponse) GetRecordAgentTaskProgress() *AgentTaskProgr
 }
 
 // AgentTaskReadyMakeAgentTaskReadyAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskReadyMakeAgentTaskReadyAgentTask struct {
 	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskReadyMakeAgentTaskReadyAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetPriority() int {
+	return v.AgentTaskFields.Priority
+}
+
+// GetBlocked returns AgentTaskReadyMakeAgentTaskReadyAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetBlocked() bool {
+	return v.AgentTaskFields.Blocked
+}
+
+// GetBlockedBy returns AgentTaskReadyMakeAgentTaskReadyAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskReadyMakeAgentTaskReadyAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
 }
 
 // GetId returns AgentTaskReadyMakeAgentTaskReadyAgentTask.Id, and is useful for accessing the field via an interface.
@@ -3916,6 +4913,14 @@ func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) UnmarshalJSON(b []byte) erro
 }
 
 type __premarshalAgentTaskReadyMakeAgentTaskReadyAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
 	Id string `json:"id"`
 
 	Handle string `json:"handle"`
@@ -3978,6 +4983,10 @@ func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) MarshalJSON() ([]byte, error
 func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) __premarshalJSON() (*__premarshalAgentTaskReadyMakeAgentTaskReadyAgentTask, error) {
 	var retval __premarshalAgentTaskReadyMakeAgentTaskReadyAgentTask
 
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
 	retval.Handle = v.AgentTaskFields.Handle
 	retval.TaskNumber = v.AgentTaskFields.TaskNumber
@@ -4023,14 +5032,24 @@ func (v *AgentTaskReadyResponse) GetMakeAgentTaskReady() *AgentTaskReadyMakeAgen
 }
 
 // AgentTaskReassignReassignAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskReassignReassignAgentTask struct {
 	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskReassignReassignAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskReassignReassignAgentTask) GetPriority() int { return v.AgentTaskFields.Priority }
+
+// GetBlocked returns AgentTaskReassignReassignAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskReassignReassignAgentTask) GetBlocked() bool { return v.AgentTaskFields.Blocked }
+
+// GetBlockedBy returns AgentTaskReassignReassignAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskReassignReassignAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskReassignReassignAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskReassignReassignAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
 }
 
 // GetId returns AgentTaskReassignReassignAgentTask.Id, and is useful for accessing the field via an interface.
@@ -4168,6 +5187,14 @@ func (v *AgentTaskReassignReassignAgentTask) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalAgentTaskReassignReassignAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
 	Id string `json:"id"`
 
 	Handle string `json:"handle"`
@@ -4230,6 +5257,10 @@ func (v *AgentTaskReassignReassignAgentTask) MarshalJSON() ([]byte, error) {
 func (v *AgentTaskReassignReassignAgentTask) __premarshalJSON() (*__premarshalAgentTaskReassignReassignAgentTask, error) {
 	var retval __premarshalAgentTaskReassignReassignAgentTask
 
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
 	retval.Handle = v.AgentTaskFields.Handle
 	retval.TaskNumber = v.AgentTaskFields.TaskNumber
@@ -4273,6 +5304,295 @@ func (v *AgentTaskReassignResponse) GetReassignAgentTask() *AgentTaskReassignRea
 	return v.ReassignAgentTask
 }
 
+// AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask includes the requested fields of the GraphQL type AgentTask.
+type AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask struct {
+	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetPriority() int {
+	return v.AgentTaskFields.Priority
+}
+
+// GetBlocked returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetBlocked() bool {
+	return v.AgentTaskFields.Blocked
+}
+
+// GetBlockedBy returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
+}
+
+// GetId returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetId() string {
+	return v.AgentTaskFields.Id
+}
+
+// GetHandle returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetHandle() string {
+	return v.AgentTaskFields.Handle
+}
+
+// GetTaskNumber returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.TaskNumber, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetTaskNumber() string {
+	return v.AgentTaskFields.TaskNumber
+}
+
+// GetAppId returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.AppId, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetAppId() string {
+	return v.AgentTaskFields.AppId
+}
+
+// GetTitle returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Title, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetTitle() string {
+	return v.AgentTaskFields.Title
+}
+
+// GetDescription returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Description, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetDescription() *string {
+	return v.AgentTaskFields.Description
+}
+
+// GetStatus returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetStatus() AgentTaskStatus {
+	return v.AgentTaskFields.Status
+}
+
+// GetQueued returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Queued, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetQueued() bool {
+	return v.AgentTaskFields.Queued
+}
+
+// GetWaitingOnChildren returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.WaitingOnChildren, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetWaitingOnChildren() bool {
+	return v.AgentTaskFields.WaitingOnChildren
+}
+
+// GetOwner returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Owner, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetOwner() *AgentTaskFieldsOwnerAgentTaskParty {
+	return v.AgentTaskFields.Owner
+}
+
+// GetAssignee returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Assignee, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetAssignee() *AgentTaskFieldsAssigneeAgentTaskParty {
+	return v.AgentTaskFields.Assignee
+}
+
+// GetAssignedBy returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.AssignedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetAssignedBy() *AgentTaskFieldsAssignedByAgentTaskParty {
+	return v.AgentTaskFields.AssignedBy
+}
+
+// GetCreatedBy returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.CreatedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
+	return v.AgentTaskFields.CreatedBy
+}
+
+// GetParentTaskId returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetParentTaskId() *string {
+	return v.AgentTaskFields.ParentTaskId
+}
+
+// GetTags returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Tags, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetTags() []string {
+	return v.AgentTaskFields.Tags
+}
+
+// GetSource returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Source, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetSource() *string {
+	return v.AgentTaskFields.Source
+}
+
+// GetStartBy returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.StartBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetStartBy() *string {
+	return v.AgentTaskFields.StartBy
+}
+
+// GetCreatedAt returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetCreatedAt() string {
+	return v.AgentTaskFields.CreatedAt
+}
+
+// GetUpdatedAt returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetUpdatedAt() *string {
+	return v.AgentTaskFields.UpdatedAt
+}
+
+// GetStartedAt returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.StartedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetStartedAt() *string {
+	return v.AgentTaskFields.StartedAt
+}
+
+// GetFinishedAt returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.FinishedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetFinishedAt() *string {
+	return v.AgentTaskFields.FinishedAt
+}
+
+// GetCancelledAt returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.CancelledAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetCancelledAt() *string {
+	return v.AgentTaskFields.CancelledAt
+}
+
+// GetCloseSessionWhenDone returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.CloseSessionWhenDone, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetCloseSessionWhenDone() bool {
+	return v.AgentTaskFields.CloseSessionWhenDone
+}
+
+// GetRequirements returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Requirements, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
+	return v.AgentTaskFields.Requirements
+}
+
+// GetResult returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Result, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetResult() *AgentTaskFieldsResultAgentTaskResult {
+	return v.AgentTaskFields.Result
+}
+
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
+	Id string `json:"id"`
+
+	Handle string `json:"handle"`
+
+	TaskNumber string `json:"taskNumber"`
+
+	AppId string `json:"appId"`
+
+	Title string `json:"title"`
+
+	Description *string `json:"description"`
+
+	Status AgentTaskStatus `json:"status"`
+
+	Queued bool `json:"queued"`
+
+	WaitingOnChildren bool `json:"waitingOnChildren"`
+
+	Owner *AgentTaskFieldsOwnerAgentTaskParty `json:"owner"`
+
+	Assignee *AgentTaskFieldsAssigneeAgentTaskParty `json:"assignee"`
+
+	AssignedBy *AgentTaskFieldsAssignedByAgentTaskParty `json:"assignedBy"`
+
+	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
+
+	ParentTaskId *string `json:"parentTaskId"`
+
+	Tags []string `json:"tags"`
+
+	Source *string `json:"source"`
+
+	StartBy *string `json:"startBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	StartedAt *string `json:"startedAt"`
+
+	FinishedAt *string `json:"finishedAt"`
+
+	CancelledAt *string `json:"cancelledAt"`
+
+	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
+
+	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
+
+	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+}
+
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) __premarshalJSON() (*__premarshalAgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask, error) {
+	var retval __premarshalAgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask
+
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
+	retval.Id = v.AgentTaskFields.Id
+	retval.Handle = v.AgentTaskFields.Handle
+	retval.TaskNumber = v.AgentTaskFields.TaskNumber
+	retval.AppId = v.AgentTaskFields.AppId
+	retval.Title = v.AgentTaskFields.Title
+	retval.Description = v.AgentTaskFields.Description
+	retval.Status = v.AgentTaskFields.Status
+	retval.Queued = v.AgentTaskFields.Queued
+	retval.WaitingOnChildren = v.AgentTaskFields.WaitingOnChildren
+	retval.Owner = v.AgentTaskFields.Owner
+	retval.Assignee = v.AgentTaskFields.Assignee
+	retval.AssignedBy = v.AgentTaskFields.AssignedBy
+	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
+	retval.Tags = v.AgentTaskFields.Tags
+	retval.Source = v.AgentTaskFields.Source
+	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.CreatedAt = v.AgentTaskFields.CreatedAt
+	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
+	retval.StartedAt = v.AgentTaskFields.StartedAt
+	retval.FinishedAt = v.AgentTaskFields.FinishedAt
+	retval.CancelledAt = v.AgentTaskFields.CancelledAt
+	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.Requirements = v.AgentTaskFields.Requirements
+	retval.Result = v.AgentTaskFields.Result
+	return &retval, nil
+}
+
+// AgentTaskRemoveBlockerResponse is returned by AgentTaskRemoveBlocker on success.
+type AgentTaskRemoveBlockerResponse struct {
+	// #2644 (hrn:node:hadronmemory.com:specs:cor:agt:050:02) — remove a blocker from a backlog/pending task. Last-blocker release restarts stall clocks and preserves status/assignee. Assigner authority.
+	RemoveAgentTaskBlocker *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask `json:"removeAgentTaskBlocker"`
+}
+
+// GetRemoveAgentTaskBlocker returns AgentTaskRemoveBlockerResponse.RemoveAgentTaskBlocker, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerResponse) GetRemoveAgentTaskBlocker() *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask {
+	return v.RemoveAgentTaskBlocker
+}
+
 type AgentTaskRequirementsInput struct {
 	// Workers of this App (id, URN or name) the matcher must not pick.
 	ExcludeWorkers []string `json:"excludeWorkers"`
@@ -4309,6 +5629,295 @@ func (v *AgentTaskResultInput) GetOutcome() string { return v.Outcome }
 
 // GetSummary returns AgentTaskResultInput.Summary, and is useful for accessing the field via an interface.
 func (v *AgentTaskResultInput) GetSummary() *string { return v.Summary }
+
+// AgentTaskSetPriorityResponse is returned by AgentTaskSetPriority on success.
+type AgentTaskSetPriorityResponse struct {
+	// #2644 (hrn:node:hadronmemory.com:specs:cor:agt:050:01) — assigner authority; priority1..5, default1.
+	SetAgentTaskPriority *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask `json:"setAgentTaskPriority"`
+}
+
+// GetSetAgentTaskPriority returns AgentTaskSetPriorityResponse.SetAgentTaskPriority, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPriorityResponse) GetSetAgentTaskPriority() *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask {
+	return v.SetAgentTaskPriority
+}
+
+// AgentTaskSetPrioritySetAgentTaskPriorityAgentTask includes the requested fields of the GraphQL type AgentTask.
+type AgentTaskSetPrioritySetAgentTaskPriorityAgentTask struct {
+	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetPriority() int {
+	return v.AgentTaskFields.Priority
+}
+
+// GetBlocked returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetBlocked() bool {
+	return v.AgentTaskFields.Blocked
+}
+
+// GetBlockedBy returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
+}
+
+// GetId returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetId() string {
+	return v.AgentTaskFields.Id
+}
+
+// GetHandle returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetHandle() string {
+	return v.AgentTaskFields.Handle
+}
+
+// GetTaskNumber returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.TaskNumber, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetTaskNumber() string {
+	return v.AgentTaskFields.TaskNumber
+}
+
+// GetAppId returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.AppId, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetAppId() string {
+	return v.AgentTaskFields.AppId
+}
+
+// GetTitle returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Title, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetTitle() string {
+	return v.AgentTaskFields.Title
+}
+
+// GetDescription returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Description, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetDescription() *string {
+	return v.AgentTaskFields.Description
+}
+
+// GetStatus returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetStatus() AgentTaskStatus {
+	return v.AgentTaskFields.Status
+}
+
+// GetQueued returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Queued, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetQueued() bool {
+	return v.AgentTaskFields.Queued
+}
+
+// GetWaitingOnChildren returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.WaitingOnChildren, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetWaitingOnChildren() bool {
+	return v.AgentTaskFields.WaitingOnChildren
+}
+
+// GetOwner returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Owner, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetOwner() *AgentTaskFieldsOwnerAgentTaskParty {
+	return v.AgentTaskFields.Owner
+}
+
+// GetAssignee returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Assignee, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetAssignee() *AgentTaskFieldsAssigneeAgentTaskParty {
+	return v.AgentTaskFields.Assignee
+}
+
+// GetAssignedBy returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.AssignedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetAssignedBy() *AgentTaskFieldsAssignedByAgentTaskParty {
+	return v.AgentTaskFields.AssignedBy
+}
+
+// GetCreatedBy returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.CreatedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
+	return v.AgentTaskFields.CreatedBy
+}
+
+// GetParentTaskId returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetParentTaskId() *string {
+	return v.AgentTaskFields.ParentTaskId
+}
+
+// GetTags returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Tags, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetTags() []string {
+	return v.AgentTaskFields.Tags
+}
+
+// GetSource returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Source, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetSource() *string {
+	return v.AgentTaskFields.Source
+}
+
+// GetStartBy returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.StartBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetStartBy() *string {
+	return v.AgentTaskFields.StartBy
+}
+
+// GetCreatedAt returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetCreatedAt() string {
+	return v.AgentTaskFields.CreatedAt
+}
+
+// GetUpdatedAt returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetUpdatedAt() *string {
+	return v.AgentTaskFields.UpdatedAt
+}
+
+// GetStartedAt returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.StartedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetStartedAt() *string {
+	return v.AgentTaskFields.StartedAt
+}
+
+// GetFinishedAt returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.FinishedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetFinishedAt() *string {
+	return v.AgentTaskFields.FinishedAt
+}
+
+// GetCancelledAt returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.CancelledAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetCancelledAt() *string {
+	return v.AgentTaskFields.CancelledAt
+}
+
+// GetCloseSessionWhenDone returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.CloseSessionWhenDone, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetCloseSessionWhenDone() bool {
+	return v.AgentTaskFields.CloseSessionWhenDone
+}
+
+// GetRequirements returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Requirements, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
+	return v.AgentTaskFields.Requirements
+}
+
+// GetResult returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Result, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetResult() *AgentTaskFieldsResultAgentTaskResult {
+	return v.AgentTaskFields.Result
+}
+
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTaskSetPrioritySetAgentTaskPriorityAgentTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTaskSetPrioritySetAgentTaskPriorityAgentTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTaskSetPrioritySetAgentTaskPriorityAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
+	Id string `json:"id"`
+
+	Handle string `json:"handle"`
+
+	TaskNumber string `json:"taskNumber"`
+
+	AppId string `json:"appId"`
+
+	Title string `json:"title"`
+
+	Description *string `json:"description"`
+
+	Status AgentTaskStatus `json:"status"`
+
+	Queued bool `json:"queued"`
+
+	WaitingOnChildren bool `json:"waitingOnChildren"`
+
+	Owner *AgentTaskFieldsOwnerAgentTaskParty `json:"owner"`
+
+	Assignee *AgentTaskFieldsAssigneeAgentTaskParty `json:"assignee"`
+
+	AssignedBy *AgentTaskFieldsAssignedByAgentTaskParty `json:"assignedBy"`
+
+	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
+
+	ParentTaskId *string `json:"parentTaskId"`
+
+	Tags []string `json:"tags"`
+
+	Source *string `json:"source"`
+
+	StartBy *string `json:"startBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	StartedAt *string `json:"startedAt"`
+
+	FinishedAt *string `json:"finishedAt"`
+
+	CancelledAt *string `json:"cancelledAt"`
+
+	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
+
+	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
+
+	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+}
+
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) __premarshalJSON() (*__premarshalAgentTaskSetPrioritySetAgentTaskPriorityAgentTask, error) {
+	var retval __premarshalAgentTaskSetPrioritySetAgentTaskPriorityAgentTask
+
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
+	retval.Id = v.AgentTaskFields.Id
+	retval.Handle = v.AgentTaskFields.Handle
+	retval.TaskNumber = v.AgentTaskFields.TaskNumber
+	retval.AppId = v.AgentTaskFields.AppId
+	retval.Title = v.AgentTaskFields.Title
+	retval.Description = v.AgentTaskFields.Description
+	retval.Status = v.AgentTaskFields.Status
+	retval.Queued = v.AgentTaskFields.Queued
+	retval.WaitingOnChildren = v.AgentTaskFields.WaitingOnChildren
+	retval.Owner = v.AgentTaskFields.Owner
+	retval.Assignee = v.AgentTaskFields.Assignee
+	retval.AssignedBy = v.AgentTaskFields.AssignedBy
+	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
+	retval.Tags = v.AgentTaskFields.Tags
+	retval.Source = v.AgentTaskFields.Source
+	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.CreatedAt = v.AgentTaskFields.CreatedAt
+	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
+	retval.StartedAt = v.AgentTaskFields.StartedAt
+	retval.FinishedAt = v.AgentTaskFields.FinishedAt
+	retval.CancelledAt = v.AgentTaskFields.CancelledAt
+	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.Requirements = v.AgentTaskFields.Requirements
+	retval.Result = v.AgentTaskFields.Result
+	return &retval, nil
+}
 
 // An App's stall schedule (#864 over server #1706/#1707, #1863): the four
 // stall windows (cor:agt:050:14–:17), the host-registration lapse count
@@ -4380,14 +5989,24 @@ func (v *AgentTaskStartResponse) GetStartAgentTask() *AgentTaskStartStartAgentTa
 }
 
 // AgentTaskStartStartAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskStartStartAgentTask struct {
 	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskStartStartAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskStartStartAgentTask) GetPriority() int { return v.AgentTaskFields.Priority }
+
+// GetBlocked returns AgentTaskStartStartAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskStartStartAgentTask) GetBlocked() bool { return v.AgentTaskFields.Blocked }
+
+// GetBlockedBy returns AgentTaskStartStartAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskStartStartAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskStartStartAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskStartStartAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
 }
 
 // GetId returns AgentTaskStartStartAgentTask.Id, and is useful for accessing the field via an interface.
@@ -4509,6 +6128,14 @@ func (v *AgentTaskStartStartAgentTask) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalAgentTaskStartStartAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
 	Id string `json:"id"`
 
 	Handle string `json:"handle"`
@@ -4571,6 +6198,10 @@ func (v *AgentTaskStartStartAgentTask) MarshalJSON() ([]byte, error) {
 func (v *AgentTaskStartStartAgentTask) __premarshalJSON() (*__premarshalAgentTaskStartStartAgentTask, error) {
 	var retval __premarshalAgentTaskStartStartAgentTask
 
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
 	retval.Handle = v.AgentTaskFields.Handle
 	retval.TaskNumber = v.AgentTaskFields.TaskNumber
@@ -4719,14 +6350,24 @@ func (v *AgentTaskSymptomSearchResponse) GetAgentTaskList() []*AgentTaskSymptomS
 }
 
 // AgentTaskTreeAgentTaskTreeAgentTask includes the requested fields of the GraphQL type AgentTask.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskTreeAgentTaskTreeAgentTask struct {
 	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskTreeAgentTaskTreeAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetPriority() int { return v.AgentTaskFields.Priority }
+
+// GetBlocked returns AgentTaskTreeAgentTaskTreeAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetBlocked() bool { return v.AgentTaskFields.Blocked }
+
+// GetBlockedBy returns AgentTaskTreeAgentTaskTreeAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskTreeAgentTaskTreeAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
 }
 
 // GetId returns AgentTaskTreeAgentTaskTreeAgentTask.Id, and is useful for accessing the field via an interface.
@@ -4864,6 +6505,14 @@ func (v *AgentTaskTreeAgentTaskTreeAgentTask) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalAgentTaskTreeAgentTaskTreeAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
 	Id string `json:"id"`
 
 	Handle string `json:"handle"`
@@ -4926,6 +6575,10 @@ func (v *AgentTaskTreeAgentTaskTreeAgentTask) MarshalJSON() ([]byte, error) {
 func (v *AgentTaskTreeAgentTaskTreeAgentTask) __premarshalJSON() (*__premarshalAgentTaskTreeAgentTaskTreeAgentTask, error) {
 	var retval __premarshalAgentTaskTreeAgentTaskTreeAgentTask
 
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
 	retval.Id = v.AgentTaskFields.Id
 	retval.Handle = v.AgentTaskFields.Handle
 	retval.TaskNumber = v.AgentTaskFields.TaskNumber
@@ -6141,11 +7794,6 @@ func (v *AgentsAgentsAgentsPageItemsAgent) GetSystemMemoryId() *string {
 	return v.AgentFields.SystemMemoryId
 }
 
-// GetSystemPrompt returns AgentsAgentsAgentsPageItemsAgent.SystemPrompt, and is useful for accessing the field via an interface.
-func (v *AgentsAgentsAgentsPageItemsAgent) GetSystemPrompt() *string {
-	return v.AgentFields.SystemPrompt
-}
-
 // GetTasksIndexRef returns AgentsAgentsAgentsPageItemsAgent.TasksIndexRef, and is useful for accessing the field via an interface.
 func (v *AgentsAgentsAgentsPageItemsAgent) GetTasksIndexRef() *string {
 	return v.AgentFields.TasksIndexRef
@@ -6233,8 +7881,6 @@ type __premarshalAgentsAgentsAgentsPageItemsAgent struct {
 
 	SystemMemoryId *string `json:"systemMemoryId"`
 
-	SystemPrompt *string `json:"systemPrompt"`
-
 	TasksIndexRef *string `json:"tasksIndexRef"`
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
@@ -6278,7 +7924,6 @@ func (v *AgentsAgentsAgentsPageItemsAgent) __premarshalJSON() (*__premarshalAgen
 	retval.OrganizationId = v.AgentFields.OrganizationId
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
-	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
@@ -7480,6 +9125,135 @@ type AppMembersResponse struct {
 // GetApp returns AppMembersResponse.App, and is useful for accessing the field via an interface.
 func (v *AppMembersResponse) GetApp() *AppMembersApp { return v.App }
 
+// AppMemoryScopeAppMemoryScopeAppScopedMemoryPage includes the requested fields of the GraphQL type AppScopedMemoryPage.
+// The GraphQL type's documentation follows.
+//
+// #2190: one page of an App's memory scope.
+type AppMemoryScopeAppMemoryScopeAppScopedMemoryPage struct {
+	// Size of the caller's whole scope, so a client knows when it has every page.
+	Total int                                                                    `json:"total"`
+	Items []*AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory `json:"items"`
+}
+
+// GetTotal returns AppMemoryScopeAppMemoryScopeAppScopedMemoryPage.Total, and is useful for accessing the field via an interface.
+func (v *AppMemoryScopeAppMemoryScopeAppScopedMemoryPage) GetTotal() int { return v.Total }
+
+// GetItems returns AppMemoryScopeAppMemoryScopeAppScopedMemoryPage.Items, and is useful for accessing the field via an interface.
+func (v *AppMemoryScopeAppMemoryScopeAppScopedMemoryPage) GetItems() []*AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory {
+	return v.Items
+}
+
+// AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory includes the requested fields of the GraphQL type AppScopedMemory.
+// The GraphQL type's documentation follows.
+//
+// #2190 (hrn:node:hadronmemory.com:specs:cor:dmo:050:17): one memory in an App's scope. A leaf: no nested Memory or Agent.
+type AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory struct {
+	MemoryId  string      `json:"memoryId"`
+	MemoryUrn string      `json:"memoryUrn"`
+	Name      string      `json:"name"`
+	Class     MemoryClass `json:"class"`
+	// Every reason this memory is in scope. Never empty. Ordered by kind (AGENT_SYSTEM, AGENT_LINK, INHERITED_BASE, TEAM_SPACE), then by agent install order.
+	Sources []*AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemorySourcesAppMemorySource `json:"sources"`
+	// Advisory: whether this caller, in this request's context, may create a node
+	// in this memory (the createNode gate). Memory-level only: it never makes an
+	// inherited node editable, and every write is still decided by the server.
+	// Offer a row as an upload or new-node target only when viewerCanWrite is true
+	// AND at least one of its sources has a kind other than INHERITED_BASE. A
+	// memory present only as an inherited base belongs to the base Agent, and
+	// other Apps read it too.
+	ViewerCanWrite bool `json:"viewerCanWrite"`
+}
+
+// GetMemoryId returns AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory.MemoryId, and is useful for accessing the field via an interface.
+func (v *AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory) GetMemoryId() string {
+	return v.MemoryId
+}
+
+// GetMemoryUrn returns AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory.MemoryUrn, and is useful for accessing the field via an interface.
+func (v *AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory) GetMemoryUrn() string {
+	return v.MemoryUrn
+}
+
+// GetName returns AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory.Name, and is useful for accessing the field via an interface.
+func (v *AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory) GetName() string {
+	return v.Name
+}
+
+// GetClass returns AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory.Class, and is useful for accessing the field via an interface.
+func (v *AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory) GetClass() MemoryClass {
+	return v.Class
+}
+
+// GetSources returns AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory.Sources, and is useful for accessing the field via an interface.
+func (v *AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory) GetSources() []*AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemorySourcesAppMemorySource {
+	return v.Sources
+}
+
+// GetViewerCanWrite returns AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory.ViewerCanWrite, and is useful for accessing the field via an interface.
+func (v *AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory) GetViewerCanWrite() bool {
+	return v.ViewerCanWrite
+}
+
+// AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemorySourcesAppMemorySource includes the requested fields of the GraphQL type AppMemorySource.
+// The GraphQL type's documentation follows.
+//
+// #2190: one reason a memory is in an App's scope.
+type AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemorySourcesAppMemorySource struct {
+	Kind AppMemorySourceKind `json:"kind"`
+	// The installed or base Agent, for AGENT_SYSTEM, AGENT_LINK and INHERITED_BASE; null for TEAM_SPACE. An id only: when it does not resolve to an Agent this caller may read, show the source kind without a name.
+	AgentId *string `json:"agentId"`
+}
+
+// GetKind returns AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemorySourcesAppMemorySource.Kind, and is useful for accessing the field via an interface.
+func (v *AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemorySourcesAppMemorySource) GetKind() AppMemorySourceKind {
+	return v.Kind
+}
+
+// GetAgentId returns AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemorySourcesAppMemorySource.AgentId, and is useful for accessing the field via an interface.
+func (v *AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemorySourcesAppMemorySource) GetAgentId() *string {
+	return v.AgentId
+}
+
+// AppMemoryScopeResponse is returned by AppMemoryScope on success.
+type AppMemoryScopeResponse struct {
+	// #2190 (hrn:node:hadronmemory.com:specs:cor:dmo:050:17): the memories appNodes
+	// reads for this caller, one row per memory with every reason it is in scope,
+	// ordered by memoryUrn and paged (default 20, cap 200; over the cap returns a
+	// page of the cap). Same entry and admission as appNodes, so an external App
+	// participant appNodes admits is answered here too, and a refused caller gets
+	// appNodes' error. Every memory in the caller's scope is listed, including
+	// empty ones, so nothing is withheld; total 0 means no memories, and is also
+	// the answer for an App in a soft-deleted organization. Rows are leaves.
+	//
+	// Accepts the App's ID or URN.
+	AppMemoryScope *AppMemoryScopeAppMemoryScopeAppScopedMemoryPage `json:"appMemoryScope"`
+}
+
+// GetAppMemoryScope returns AppMemoryScopeResponse.AppMemoryScope, and is useful for accessing the field via an interface.
+func (v *AppMemoryScopeResponse) GetAppMemoryScope() *AppMemoryScopeAppMemoryScopeAppScopedMemoryPage {
+	return v.AppMemoryScope
+}
+
+type AppMemorySourceKind string
+
+const (
+	// A memory linked to an Agent installed in this App.
+	AppMemorySourceKindAgentLink AppMemorySourceKind = "AGENT_LINK"
+	// The system memory of an Agent installed in this App.
+	AppMemorySourceKindAgentSystem AppMemorySourceKind = "AGENT_SYSTEM"
+	// A base Agent's system memory, with nodes inherited by an installed Agent's system memory (hrn:node:hadronmemory.com:specs:cor:dmo:050:14).
+	AppMemorySourceKindInheritedBase AppMemorySourceKind = "INHERITED_BASE"
+	// The App's own team space, listed for App participants only.
+	AppMemorySourceKindTeamSpace AppMemorySourceKind = "TEAM_SPACE"
+)
+
+var AllAppMemorySourceKind = []AppMemorySourceKind{
+	AppMemorySourceKindAgentLink,
+	AppMemorySourceKindAgentSystem,
+	AppMemorySourceKindInheritedBase,
+	AppMemorySourceKindTeamSpace,
+}
+
 // AppRunAppRun includes the requested fields of the GraphQL type AppRun.
 // The GraphQL type's documentation follows.
 //
@@ -8080,6 +9854,38 @@ type AppRunsResponse struct {
 
 // GetAppRuns returns AppRunsResponse.AppRuns, and is useful for accessing the field via an interface.
 func (v *AppRunsResponse) GetAppRuns() *AppRunsAppRunsAppRunsPage { return v.AppRuns }
+
+// AppScopeAgentNameAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type AppScopeAgentNameAgent struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetId returns AppScopeAgentNameAgent.Id, and is useful for accessing the field via an interface.
+func (v *AppScopeAgentNameAgent) GetId() string { return v.Id }
+
+// GetName returns AppScopeAgentNameAgent.Name, and is useful for accessing the field via an interface.
+func (v *AppScopeAgentNameAgent) GetName() string { return v.Name }
+
+// AppScopeAgentNameResponse is returned by AppScopeAgentName on success.
+type AppScopeAgentNameResponse struct {
+	// The uniform single-agent read. Uses the shared Agent read gate, including
+	// PUBLIC visibility and owner-aware access to user-owned Agents. An absent
+	// or unreadable Agent returns null; malformed or under-qualified refs remain
+	// input errors. Nested fields keep their own exposure gates.
+	//
+	// 'ref' accepts the entity's ID or URN.
+	Agent *AppScopeAgentNameAgent `json:"agent"`
+}
+
+// GetAgent returns AppScopeAgentNameResponse.Agent, and is useful for accessing the field via an interface.
+func (v *AppScopeAgentNameResponse) GetAgent() *AppScopeAgentNameAgent { return v.Agent }
 
 type AppType string
 
@@ -9870,6 +11676,46 @@ func (v *BeginAssetUploadResponse) GetBeginAssetUploadV2() *BeginAssetUploadBegi
 	return v.BeginAssetUploadV2
 }
 
+// BootCompileResult includes the GraphQL fields of CompiledBootPrompt requested by the fragment BootCompileResult.
+// The GraphQL type's documentation follows.
+//
+// #2046 — the result of a compile: the new unapproved revision of the compiled node.
+type BootCompileResult struct {
+	Node *BootCompileResultNode `json:"node"`
+	// The revision this compile wrote.
+	RevNo int `json:"revNo"`
+	// SHA-256 hex of the compiled text.
+	ContentHash string `json:"contentHash"`
+	// Whether this compile wrote the pointer.
+	PointerSet bool `json:"pointerSet"`
+	// Always false: a compile never approves or signs.
+	ApprovalIssued bool `json:"approvalIssued"`
+}
+
+// GetNode returns BootCompileResult.Node, and is useful for accessing the field via an interface.
+func (v *BootCompileResult) GetNode() *BootCompileResultNode { return v.Node }
+
+// GetRevNo returns BootCompileResult.RevNo, and is useful for accessing the field via an interface.
+func (v *BootCompileResult) GetRevNo() int { return v.RevNo }
+
+// GetContentHash returns BootCompileResult.ContentHash, and is useful for accessing the field via an interface.
+func (v *BootCompileResult) GetContentHash() string { return v.ContentHash }
+
+// GetPointerSet returns BootCompileResult.PointerSet, and is useful for accessing the field via an interface.
+func (v *BootCompileResult) GetPointerSet() bool { return v.PointerSet }
+
+// GetApprovalIssued returns BootCompileResult.ApprovalIssued, and is useful for accessing the field via an interface.
+func (v *BootCompileResult) GetApprovalIssued() bool { return v.ApprovalIssued }
+
+// BootCompileResultNode includes the requested fields of the GraphQL type Node.
+type BootCompileResultNode struct {
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn string `json:"urn"`
+}
+
+// GetUrn returns BootCompileResultNode.Urn, and is useful for accessing the field via an interface.
+func (v *BootCompileResultNode) GetUrn() string { return v.Urn }
+
 // Provider-neutral attendee response. NONE = invited, not yet answered.
 type CalendarEventResponse string
 
@@ -10758,9 +12604,6 @@ func (v *CastWorkerCastWorker) GetRole() *string { return v.WorkerFields.Role }
 // GetPrompt returns CastWorkerCastWorker.Prompt, and is useful for accessing the field via an interface.
 func (v *CastWorkerCastWorker) GetPrompt() *string { return v.WorkerFields.Prompt }
 
-// GetPromptOverride returns CastWorkerCastWorker.PromptOverride, and is useful for accessing the field via an interface.
-func (v *CastWorkerCastWorker) GetPromptOverride() *string { return v.WorkerFields.PromptOverride }
-
 // GetSignature returns CastWorkerCastWorker.Signature, and is useful for accessing the field via an interface.
 func (v *CastWorkerCastWorker) GetSignature() *string { return v.WorkerFields.Signature }
 
@@ -10861,8 +12704,6 @@ type __premarshalCastWorkerCastWorker struct {
 
 	Prompt *string `json:"prompt"`
 
-	PromptOverride *string `json:"promptOverride"`
-
 	Signature *string `json:"signature"`
 
 	Trailer *string `json:"trailer"`
@@ -10918,7 +12759,6 @@ func (v *CastWorkerCastWorker) __premarshalJSON() (*__premarshalCastWorkerCastWo
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
-	retval.PromptOverride = v.WorkerFields.PromptOverride
 	retval.Signature = v.WorkerFields.Signature
 	retval.Trailer = v.WorkerFields.Trailer
 	retval.BootPromptRef = v.WorkerFields.BootPromptRef
@@ -10958,8 +12798,6 @@ type CastWorkerPreviewCastWorkerPreview struct {
 	// reviewable BEFORE the name is permanent. Null when the agent carries no
 	// template and no override was given.
 	Prompt *string `json:"prompt"`
-	// Always null. The name-placeholder check was retired with the old variable logic (#2049).
-	HasNamePlaceholder *bool `json:"hasNamePlaceholder"`
 }
 
 // GetName returns CastWorkerPreviewCastWorkerPreview.Name, and is useful for accessing the field via an interface.
@@ -10976,11 +12814,6 @@ func (v *CastWorkerPreviewCastWorkerPreview) GetAgentName() string { return v.Ag
 
 // GetPrompt returns CastWorkerPreviewCastWorkerPreview.Prompt, and is useful for accessing the field via an interface.
 func (v *CastWorkerPreviewCastWorkerPreview) GetPrompt() *string { return v.Prompt }
-
-// GetHasNamePlaceholder returns CastWorkerPreviewCastWorkerPreview.HasNamePlaceholder, and is useful for accessing the field via an interface.
-func (v *CastWorkerPreviewCastWorkerPreview) GetHasNamePlaceholder() *bool {
-	return v.HasNamePlaceholder
-}
 
 // CastWorkerPreviewResponse is returned by CastWorkerPreview on success.
 type CastWorkerPreviewResponse struct {
@@ -12312,11 +14145,6 @@ func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetSystemMemoryId() *st
 	return v.AgentFields.SystemMemoryId
 }
 
-// GetSystemPrompt returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.SystemPrompt, and is useful for accessing the field via an interface.
-func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetSystemPrompt() *string {
-	return v.AgentFields.SystemPrompt
-}
-
 // GetTasksIndexRef returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.TasksIndexRef, and is useful for accessing the field via an interface.
 func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetTasksIndexRef() *string {
 	return v.AgentFields.TasksIndexRef
@@ -12416,8 +14244,6 @@ type __premarshalClearAgentProcessesIndexSetAgentIndexRefsAgent struct {
 
 	SystemMemoryId *string `json:"systemMemoryId"`
 
-	SystemPrompt *string `json:"systemPrompt"`
-
 	TasksIndexRef *string `json:"tasksIndexRef"`
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
@@ -12461,7 +14287,6 @@ func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) __premarshalJSON() (*__
 	retval.OrganizationId = v.AgentFields.OrganizationId
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
-	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
@@ -12538,11 +14363,6 @@ func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetSurfaces() []string {
 // GetSystemMemoryId returns ClearAgentTasksIndexSetAgentIndexRefsAgent.SystemMemoryId, and is useful for accessing the field via an interface.
 func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetSystemMemoryId() *string {
 	return v.AgentFields.SystemMemoryId
-}
-
-// GetSystemPrompt returns ClearAgentTasksIndexSetAgentIndexRefsAgent.SystemPrompt, and is useful for accessing the field via an interface.
-func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetSystemPrompt() *string {
-	return v.AgentFields.SystemPrompt
 }
 
 // GetTasksIndexRef returns ClearAgentTasksIndexSetAgentIndexRefsAgent.TasksIndexRef, and is useful for accessing the field via an interface.
@@ -12644,8 +14464,6 @@ type __premarshalClearAgentTasksIndexSetAgentIndexRefsAgent struct {
 
 	SystemMemoryId *string `json:"systemMemoryId"`
 
-	SystemPrompt *string `json:"systemPrompt"`
-
 	TasksIndexRef *string `json:"tasksIndexRef"`
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
@@ -12689,7 +14507,6 @@ func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) __premarshalJSON() (*__prem
 	retval.OrganizationId = v.AgentFields.OrganizationId
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
-	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
@@ -12753,9 +14570,6 @@ func (v *CloneAgentCloneAgent) GetSurfaces() []string { return v.AgentFields.Sur
 
 // GetSystemMemoryId returns CloneAgentCloneAgent.SystemMemoryId, and is useful for accessing the field via an interface.
 func (v *CloneAgentCloneAgent) GetSystemMemoryId() *string { return v.AgentFields.SystemMemoryId }
-
-// GetSystemPrompt returns CloneAgentCloneAgent.SystemPrompt, and is useful for accessing the field via an interface.
-func (v *CloneAgentCloneAgent) GetSystemPrompt() *string { return v.AgentFields.SystemPrompt }
 
 // GetTasksIndexRef returns CloneAgentCloneAgent.TasksIndexRef, and is useful for accessing the field via an interface.
 func (v *CloneAgentCloneAgent) GetTasksIndexRef() *string { return v.AgentFields.TasksIndexRef }
@@ -12836,8 +14650,6 @@ type __premarshalCloneAgentCloneAgent struct {
 
 	SystemMemoryId *string `json:"systemMemoryId"`
 
-	SystemPrompt *string `json:"systemPrompt"`
-
 	TasksIndexRef *string `json:"tasksIndexRef"`
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
@@ -12881,7 +14693,6 @@ func (v *CloneAgentCloneAgent) __premarshalJSON() (*__premarshalCloneAgentCloneA
 	retval.OrganizationId = v.AgentFields.OrganizationId
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
-	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
@@ -14741,6 +16552,508 @@ func (v *CommentThreadsResponse) GetCommentThreads() *CommentThreadsCommentThrea
 	return v.CommentThreads
 }
 
+// CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt includes the requested fields of the GraphQL type CompiledBootPrompt.
+// The GraphQL type's documentation follows.
+//
+// #2046 — the result of a compile: the new unapproved revision of the compiled node.
+type CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt struct {
+	BootCompileResult `json:"-"`
+}
+
+// GetNode returns CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt.Node, and is useful for accessing the field via an interface.
+func (v *CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt) GetNode() *BootCompileResultNode {
+	return v.BootCompileResult.Node
+}
+
+// GetRevNo returns CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt.RevNo, and is useful for accessing the field via an interface.
+func (v *CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt) GetRevNo() int {
+	return v.BootCompileResult.RevNo
+}
+
+// GetContentHash returns CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt.ContentHash, and is useful for accessing the field via an interface.
+func (v *CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt) GetContentHash() string {
+	return v.BootCompileResult.ContentHash
+}
+
+// GetPointerSet returns CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt.PointerSet, and is useful for accessing the field via an interface.
+func (v *CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt) GetPointerSet() bool {
+	return v.BootCompileResult.PointerSet
+}
+
+// GetApprovalIssued returns CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt.ApprovalIssued, and is useful for accessing the field via an interface.
+func (v *CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt) GetApprovalIssued() bool {
+	return v.BootCompileResult.ApprovalIssued
+}
+
+func (v *CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.BootCompileResult)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt struct {
+	Node *BootCompileResultNode `json:"node"`
+
+	RevNo int `json:"revNo"`
+
+	ContentHash string `json:"contentHash"`
+
+	PointerSet bool `json:"pointerSet"`
+
+	ApprovalIssued bool `json:"approvalIssued"`
+}
+
+func (v *CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt) __premarshalJSON() (*__premarshalCompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt, error) {
+	var retval __premarshalCompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt
+
+	retval.Node = v.BootCompileResult.Node
+	retval.RevNo = v.BootCompileResult.RevNo
+	retval.ContentHash = v.BootCompileResult.ContentHash
+	retval.PointerSet = v.BootCompileResult.PointerSet
+	retval.ApprovalIssued = v.BootCompileResult.ApprovalIssued
+	return &retval, nil
+}
+
+// CompileAgentBootPromptResponse is returned by CompileAgentBootPrompt on success.
+type CompileAgentBootPromptResponse struct {
+	// #2046 (S9-4, hrn:node:hadronmemory.com:specs:cor:agt:040:12) — compile an Agent's boot prompt from its source ('boot:source') in the Agent's
+	// system memory into the compiled node 'boot:compiled' there, as a NEW unapproved revision (every compile writes
+	// one, even when the text is unchanged), with its provenance and a derived 'compiled-from' edge to the source.
+	// Sets 'Agent.bootPromptRef' unless 'setPointer: false'. Never approves or signs ('approvalIssued' is always false).
+	//
+	// Whoever manages the Agent, as themselves: a request bound to a worker session, a non-manager, an App key, an
+	// impersonation, a run, and a target that does not exist are alike refused BOOT_PROMPT_COMPILE_NOT_PERMITTED. Only then: BOOT_PROMPT_TARGET_RETIRED, BOOT_PROMPT_NO_SOURCE, BOOT_PROMPT_SOURCE_INVALID, the
+	// include refusals (BOOT_PROMPT_INCLUDE_*, _GRANT_REQUIRED, _COMPILE_LIMIT_EXCEEDED, with the tag's 'position'),
+	// and CONFLICT when the compile could not settle inside its 30-second budget (retry).
+	// A refusal changes nothing. No MCP twin.
+	CompileAgentBootPrompt *CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt `json:"compileAgentBootPrompt"`
+}
+
+// GetCompileAgentBootPrompt returns CompileAgentBootPromptResponse.CompileAgentBootPrompt, and is useful for accessing the field via an interface.
+func (v *CompileAgentBootPromptResponse) GetCompileAgentBootPrompt() *CompileAgentBootPromptCompileAgentBootPromptCompiledBootPrompt {
+	return v.CompileAgentBootPrompt
+}
+
+// CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt includes the requested fields of the GraphQL type CompiledBootPrompt.
+// The GraphQL type's documentation follows.
+//
+// #2046 — the result of a compile: the new unapproved revision of the compiled node.
+type CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt struct {
+	BootCompileResult `json:"-"`
+}
+
+// GetNode returns CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt.Node, and is useful for accessing the field via an interface.
+func (v *CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt) GetNode() *BootCompileResultNode {
+	return v.BootCompileResult.Node
+}
+
+// GetRevNo returns CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt.RevNo, and is useful for accessing the field via an interface.
+func (v *CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt) GetRevNo() int {
+	return v.BootCompileResult.RevNo
+}
+
+// GetContentHash returns CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt.ContentHash, and is useful for accessing the field via an interface.
+func (v *CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt) GetContentHash() string {
+	return v.BootCompileResult.ContentHash
+}
+
+// GetPointerSet returns CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt.PointerSet, and is useful for accessing the field via an interface.
+func (v *CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt) GetPointerSet() bool {
+	return v.BootCompileResult.PointerSet
+}
+
+// GetApprovalIssued returns CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt.ApprovalIssued, and is useful for accessing the field via an interface.
+func (v *CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt) GetApprovalIssued() bool {
+	return v.BootCompileResult.ApprovalIssued
+}
+
+func (v *CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.BootCompileResult)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt struct {
+	Node *BootCompileResultNode `json:"node"`
+
+	RevNo int `json:"revNo"`
+
+	ContentHash string `json:"contentHash"`
+
+	PointerSet bool `json:"pointerSet"`
+
+	ApprovalIssued bool `json:"approvalIssued"`
+}
+
+func (v *CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt) __premarshalJSON() (*__premarshalCompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt, error) {
+	var retval __premarshalCompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt
+
+	retval.Node = v.BootCompileResult.Node
+	retval.RevNo = v.BootCompileResult.RevNo
+	retval.ContentHash = v.BootCompileResult.ContentHash
+	retval.PointerSet = v.BootCompileResult.PointerSet
+	retval.ApprovalIssued = v.BootCompileResult.ApprovalIssued
+	return &retval, nil
+}
+
+// CompileAppAgentBootPromptResponse is returned by CompileAppAgentBootPrompt on success.
+type CompileAppAgentBootPromptResponse struct {
+	// #2046 — compile an installed Agent's boot prompt for one App into 'boot:compiled' in the App's install memory
+	// (the App's own 'boot:source' if it has a live one, else the Agent's, with the App's replacing nodes). Always sets
+	// 'AppAgent.bootPromptRef'. Whoever manages the App; otherwise as compileAgentBootPrompt.
+	CompileAppAgentBootPrompt *CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt `json:"compileAppAgentBootPrompt"`
+}
+
+// GetCompileAppAgentBootPrompt returns CompileAppAgentBootPromptResponse.CompileAppAgentBootPrompt, and is useful for accessing the field via an interface.
+func (v *CompileAppAgentBootPromptResponse) GetCompileAppAgentBootPrompt() *CompileAppAgentBootPromptCompileAppAgentBootPromptCompiledBootPrompt {
+	return v.CompileAppAgentBootPrompt
+}
+
+// CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt includes the requested fields of the GraphQL type CompiledBootPrompt.
+// The GraphQL type's documentation follows.
+//
+// #2046 — the result of a compile: the new unapproved revision of the compiled node.
+type CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt struct {
+	BootCompileResult `json:"-"`
+}
+
+// GetNode returns CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt.Node, and is useful for accessing the field via an interface.
+func (v *CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt) GetNode() *BootCompileResultNode {
+	return v.BootCompileResult.Node
+}
+
+// GetRevNo returns CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt.RevNo, and is useful for accessing the field via an interface.
+func (v *CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt) GetRevNo() int {
+	return v.BootCompileResult.RevNo
+}
+
+// GetContentHash returns CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt.ContentHash, and is useful for accessing the field via an interface.
+func (v *CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt) GetContentHash() string {
+	return v.BootCompileResult.ContentHash
+}
+
+// GetPointerSet returns CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt.PointerSet, and is useful for accessing the field via an interface.
+func (v *CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt) GetPointerSet() bool {
+	return v.BootCompileResult.PointerSet
+}
+
+// GetApprovalIssued returns CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt.ApprovalIssued, and is useful for accessing the field via an interface.
+func (v *CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt) GetApprovalIssued() bool {
+	return v.BootCompileResult.ApprovalIssued
+}
+
+func (v *CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.BootCompileResult)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt struct {
+	Node *BootCompileResultNode `json:"node"`
+
+	RevNo int `json:"revNo"`
+
+	ContentHash string `json:"contentHash"`
+
+	PointerSet bool `json:"pointerSet"`
+
+	ApprovalIssued bool `json:"approvalIssued"`
+}
+
+func (v *CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt) __premarshalJSON() (*__premarshalCompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt, error) {
+	var retval __premarshalCompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt
+
+	retval.Node = v.BootCompileResult.Node
+	retval.RevNo = v.BootCompileResult.RevNo
+	retval.ContentHash = v.BootCompileResult.ContentHash
+	retval.PointerSet = v.BootCompileResult.PointerSet
+	retval.ApprovalIssued = v.BootCompileResult.ApprovalIssued
+	return &retval, nil
+}
+
+// CompileWorkerBootPromptResponse is returned by CompileWorkerBootPrompt on success.
+type CompileWorkerBootPromptResponse struct {
+	// #2046 — compile a customised worker's boot prompt from 'boot:workers:<workerId>:source' into
+	// 'boot:workers:<workerId>:compiled' in the App's install memory. Sets the worker's pointer unless 'setPointer: false'.
+	// Whoever manages the worker's App; otherwise as compileAgentBootPrompt. workerRef is the worker's id or URN.
+	CompileWorkerBootPrompt *CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt `json:"compileWorkerBootPrompt"`
+}
+
+// GetCompileWorkerBootPrompt returns CompileWorkerBootPromptResponse.CompileWorkerBootPrompt, and is useful for accessing the field via an interface.
+func (v *CompileWorkerBootPromptResponse) GetCompileWorkerBootPrompt() *CompileWorkerBootPromptCompileWorkerBootPromptCompiledBootPrompt {
+	return v.CompileWorkerBootPrompt
+}
+
+// CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage includes the requested fields of the GraphQL type CompiledPromptProvenancePage.
+// The GraphQL type's documentation follows.
+//
+// A page of one compiled revision's immutable provenance (hrn:node:hadronmemory.com:specs:cor:agt:040:12).
+type CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage struct {
+	NodeId      string                                                                                                       `json:"nodeId"`
+	RevNo       int                                                                                                          `json:"revNo"`
+	ContentHash string                                                                                                       `json:"contentHash"`
+	Version     int                                                                                                          `json:"version"`
+	Pruned      bool                                                                                                         `json:"pruned"`
+	Total       int                                                                                                          `json:"total"`
+	HasMore     bool                                                                                                         `json:"hasMore"`
+	Items       []*CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence `json:"items"`
+}
+
+// GetNodeId returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage.NodeId, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage) GetNodeId() string {
+	return v.NodeId
+}
+
+// GetRevNo returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage.RevNo, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage) GetRevNo() int {
+	return v.RevNo
+}
+
+// GetContentHash returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage.ContentHash, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage) GetContentHash() string {
+	return v.ContentHash
+}
+
+// GetVersion returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage.Version, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage) GetVersion() int {
+	return v.Version
+}
+
+// GetPruned returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage.Pruned, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage) GetPruned() bool {
+	return v.Pruned
+}
+
+// GetTotal returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage.Total, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage) GetTotal() int {
+	return v.Total
+}
+
+// GetHasMore returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage.HasMore, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage) GetHasMore() bool {
+	return v.HasMore
+}
+
+// GetItems returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage.Items, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage) GetItems() []*CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence {
+	return v.Items
+}
+
+// CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence includes the requested fields of the GraphQL type CompiledPromptOccurrence.
+// The GraphQL type's documentation follows.
+//
+// One recorded source/include occurrence; contains no source text (hrn:node:hadronmemory.com:specs:cor:agt:040:12).
+type CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence struct {
+	Order          int     `json:"order"`
+	Depth          int     `json:"depth"`
+	Parent         *int    `json:"parent"`
+	Kind           string  `json:"kind"`
+	NodeId         string  `json:"nodeId"`
+	RevNo          int     `json:"revNo"`
+	Hash           string  `json:"hash"`
+	ReplacesNodeId *string `json:"replacesNodeId"`
+	// Null when the source or its retained snapshot is unreadable; otherwise whether revision text is absent.
+	Pruned    *bool                                                                                                                                       `json:"pruned"`
+	Position  *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrencePositionCompiledPromptTagPosition `json:"position"`
+	Selection *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrenceSelectionCompiledPromptSelection  `json:"selection"`
+}
+
+// GetOrder returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.Order, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetOrder() int {
+	return v.Order
+}
+
+// GetDepth returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.Depth, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetDepth() int {
+	return v.Depth
+}
+
+// GetParent returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.Parent, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetParent() *int {
+	return v.Parent
+}
+
+// GetKind returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.Kind, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetKind() string {
+	return v.Kind
+}
+
+// GetNodeId returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.NodeId, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetNodeId() string {
+	return v.NodeId
+}
+
+// GetRevNo returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.RevNo, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetRevNo() int {
+	return v.RevNo
+}
+
+// GetHash returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.Hash, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetHash() string {
+	return v.Hash
+}
+
+// GetReplacesNodeId returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.ReplacesNodeId, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetReplacesNodeId() *string {
+	return v.ReplacesNodeId
+}
+
+// GetPruned returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.Pruned, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetPruned() *bool {
+	return v.Pruned
+}
+
+// GetPosition returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.Position, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetPosition() *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrencePositionCompiledPromptTagPosition {
+	return v.Position
+}
+
+// GetSelection returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence.Selection, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrence) GetSelection() *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrenceSelectionCompiledPromptSelection {
+	return v.Selection
+}
+
+// CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrencePositionCompiledPromptTagPosition includes the requested fields of the GraphQL type CompiledPromptTagPosition.
+// The GraphQL type's documentation follows.
+//
+// One-based position of an include tag (hrn:node:hadronmemory.com:specs:cor:agt:040:12).
+type CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrencePositionCompiledPromptTagPosition struct {
+	Line   int `json:"line"`
+	Column int `json:"column"`
+}
+
+// GetLine returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrencePositionCompiledPromptTagPosition.Line, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrencePositionCompiledPromptTagPosition) GetLine() int {
+	return v.Line
+}
+
+// GetColumn returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrencePositionCompiledPromptTagPosition.Column, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrencePositionCompiledPromptTagPosition) GetColumn() int {
+	return v.Column
+}
+
+// CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrenceSelectionCompiledPromptSelection includes the requested fields of the GraphQL type CompiledPromptSelection.
+// The GraphQL type's documentation follows.
+//
+// Effective include selection settings recorded by the compiler (hrn:node:hadronmemory.com:specs:cor:agt:040:12).
+type CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrenceSelectionCompiledPromptSelection struct {
+	Rev      *int `json:"rev"`
+	Approved bool `json:"approved"`
+	Signed   bool `json:"signed"`
+}
+
+// GetRev returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrenceSelectionCompiledPromptSelection.Rev, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrenceSelectionCompiledPromptSelection) GetRev() *int {
+	return v.Rev
+}
+
+// GetApproved returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrenceSelectionCompiledPromptSelection.Approved, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrenceSelectionCompiledPromptSelection) GetApproved() bool {
+	return v.Approved
+}
+
+// GetSigned returns CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrenceSelectionCompiledPromptSelection.Signed, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePageItemsCompiledPromptOccurrenceSelectionCompiledPromptSelection) GetSigned() bool {
+	return v.Signed
+}
+
+// CompiledPromptProvenanceResponse is returned by CompiledPromptProvenance on success.
+type CompiledPromptProvenanceResponse struct {
+	// Recorded source revisions for exactly revNo of a compiled boot prompt (hrn:node:hadronmemory.com:specs:cor:agt:040:12).
+	// Uses the compiled node's read gate; denied, missing, deleted or noncompiled nodes return null.
+	// Provenance survives pruning; pruned marks absent revision text. Source status is null when unreadable.
+	// No source text is returned.
+	// Limit defaults to 20, clamps to 0..100; offset defaults to 0 and clamps negative values to 0.
+	// A missing or malformed provenance record is an integrity error, never an empty page.
+	CompiledPromptProvenance *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage `json:"compiledPromptProvenance"`
+}
+
+// GetCompiledPromptProvenance returns CompiledPromptProvenanceResponse.CompiledPromptProvenance, and is useful for accessing the field via an interface.
+func (v *CompiledPromptProvenanceResponse) GetCompiledPromptProvenance() *CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage {
+	return v.CompiledPromptProvenance
+}
+
 // CompleteAssetUploadCompleteAssetUploadAsset includes the requested fields of the GraphQL type Asset.
 type CompleteAssetUploadCompleteAssetUploadAsset struct {
 	Id string `json:"id"`
@@ -15117,9 +17430,6 @@ func (v *CreateAgentCreateAgent) GetSurfaces() []string { return v.AgentFields.S
 // GetSystemMemoryId returns CreateAgentCreateAgent.SystemMemoryId, and is useful for accessing the field via an interface.
 func (v *CreateAgentCreateAgent) GetSystemMemoryId() *string { return v.AgentFields.SystemMemoryId }
 
-// GetSystemPrompt returns CreateAgentCreateAgent.SystemPrompt, and is useful for accessing the field via an interface.
-func (v *CreateAgentCreateAgent) GetSystemPrompt() *string { return v.AgentFields.SystemPrompt }
-
 // GetTasksIndexRef returns CreateAgentCreateAgent.TasksIndexRef, and is useful for accessing the field via an interface.
 func (v *CreateAgentCreateAgent) GetTasksIndexRef() *string { return v.AgentFields.TasksIndexRef }
 
@@ -15201,8 +17511,6 @@ type __premarshalCreateAgentCreateAgent struct {
 
 	SystemMemoryId *string `json:"systemMemoryId"`
 
-	SystemPrompt *string `json:"systemPrompt"`
-
 	TasksIndexRef *string `json:"tasksIndexRef"`
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
@@ -15246,7 +17554,6 @@ func (v *CreateAgentCreateAgent) __premarshalJSON() (*__premarshalCreateAgentCre
 	retval.OrganizationId = v.AgentFields.OrganizationId
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
-	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
@@ -15541,7 +17848,8 @@ type CreateAgentTaskInput struct {
 	// The team App (id or URN). Required for a root task; for a child task it is taken from the parent and, if given, must match.
 	AppRef *string `json:"appRef"`
 	// Omit to leave the task queued.
-	Assignee *AgentTaskPartyInput `json:"assignee,omitempty"`
+	Assignee  *AgentTaskPartyInput `json:"assignee,omitempty"`
+	BlockedBy []string             `json:"blockedBy,omitempty"`
 	// Defaults to false: the assignee's session ends only when whoever assigns the task asks (hrn:node:hadronmemory.com:specs:cor:agt:050:10).
 	CloseSessionWhenDone *bool   `json:"closeSessionWhenDone"`
 	Description          *string `json:"description"`
@@ -15551,6 +17859,8 @@ type CreateAgentTaskInput struct {
 	// child task, whose owner is its parent's assignee (TASK_CHILD_OWNER_MISMATCH).
 	Owner        *AgentTaskPartyInput `json:"owner,omitempty"`
 	ParentTaskId *string              `json:"parentTaskId"`
+	// #2644 — naming priority or blockers requires the task assigner authority; otherwise creation refuses atomically.
+	Priority *int `json:"priority,omitempty"`
 	// Make a top-level PROJECT (AT1, AT2, ...) instead of a task under the reserved project AT0. Not with parentTaskId.
 	Project      *bool                       `json:"project,omitempty"`
 	Requirements *AgentTaskRequirementsInput `json:"requirements,omitempty"`
@@ -15570,6 +17880,9 @@ func (v *CreateAgentTaskInput) GetAppRef() *string { return v.AppRef }
 // GetAssignee returns CreateAgentTaskInput.Assignee, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetAssignee() *AgentTaskPartyInput { return v.Assignee }
 
+// GetBlockedBy returns CreateAgentTaskInput.BlockedBy, and is useful for accessing the field via an interface.
+func (v *CreateAgentTaskInput) GetBlockedBy() []string { return v.BlockedBy }
+
 // GetCloseSessionWhenDone returns CreateAgentTaskInput.CloseSessionWhenDone, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetCloseSessionWhenDone() *bool { return v.CloseSessionWhenDone }
 
@@ -15581,6 +17894,9 @@ func (v *CreateAgentTaskInput) GetOwner() *AgentTaskPartyInput { return v.Owner 
 
 // GetParentTaskId returns CreateAgentTaskInput.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetParentTaskId() *string { return v.ParentTaskId }
+
+// GetPriority returns CreateAgentTaskInput.Priority, and is useful for accessing the field via an interface.
+func (v *CreateAgentTaskInput) GetPriority() *int { return v.Priority }
 
 // GetProject returns CreateAgentTaskInput.Project, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetProject() *bool { return v.Project }
@@ -16166,6 +18482,91 @@ func (v *CreateAppCreateApp) GetMemberCount() int { return v.MemberCount }
 
 // GetCreatedAt returns CreateAppCreateApp.CreatedAt, and is useful for accessing the field via an interface.
 func (v *CreateAppCreateApp) GetCreatedAt() string { return v.CreatedAt }
+
+// CreateAppMemoryCreateAppMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
+type CreateAppMemoryCreateAppMemory struct {
+	Id string `json:"id"`
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
+	Urn              string  `json:"urn"`
+	Name             string  `json:"name"`
+	ShortDescription *string `json:"shortDescription"`
+	// Which memory typology this row belongs to. See MemoryClass for the
+	// members — deliberately not restated here, because the count is what
+	// went stale: this said "four-way" from 005-agent-subscription until
+	// #1232, long after `group` (023) and `private` made it six.
+	Class MemoryClass `json:"class"`
+	// 035-visibility-enum-cleanup: nullable — set only for knowledge/group.
+	Visibility     *MemoryVisibility `json:"visibility"`
+	OrganizationId *string           `json:"organizationId"`
+	IsEncrypted    bool              `json:"isEncrypted"`
+	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
+	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
+	MaxRevCount int    `json:"maxRevCount"`
+	UpdatedAt   string `json:"updatedAt"`
+}
+
+// GetId returns CreateAppMemoryCreateAppMemory.Id, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryCreateAppMemory) GetId() string { return v.Id }
+
+// GetUrn returns CreateAppMemoryCreateAppMemory.Urn, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryCreateAppMemory) GetUrn() string { return v.Urn }
+
+// GetName returns CreateAppMemoryCreateAppMemory.Name, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryCreateAppMemory) GetName() string { return v.Name }
+
+// GetShortDescription returns CreateAppMemoryCreateAppMemory.ShortDescription, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryCreateAppMemory) GetShortDescription() *string { return v.ShortDescription }
+
+// GetClass returns CreateAppMemoryCreateAppMemory.Class, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryCreateAppMemory) GetClass() MemoryClass { return v.Class }
+
+// GetVisibility returns CreateAppMemoryCreateAppMemory.Visibility, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryCreateAppMemory) GetVisibility() *MemoryVisibility { return v.Visibility }
+
+// GetOrganizationId returns CreateAppMemoryCreateAppMemory.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryCreateAppMemory) GetOrganizationId() *string { return v.OrganizationId }
+
+// GetIsEncrypted returns CreateAppMemoryCreateAppMemory.IsEncrypted, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryCreateAppMemory) GetIsEncrypted() bool { return v.IsEncrypted }
+
+// GetMaxRevCount returns CreateAppMemoryCreateAppMemory.MaxRevCount, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryCreateAppMemory) GetMaxRevCount() int { return v.MaxRevCount }
+
+// GetUpdatedAt returns CreateAppMemoryCreateAppMemory.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryCreateAppMemory) GetUpdatedAt() string { return v.UpdatedAt }
+
+// CreateAppMemoryResponse is returned by CreateAppMemory on success.
+type CreateAppMemoryResponse struct {
+	// Create a NEW free-standing app-class memory in an org-owned App with at
+	// least one installed Agent. The caller must act as themselves, outside a
+	// worker/session, App-key, headless-run or impersonation principal, through
+	// the existing org ADMIN/OWNER gate. User-owned Apps are refused with
+	// USER_OWNED_APP_UNSUPPORTED until ruled. App participants read and write it;
+	// the installed Agent's owning org gains no access. Existing memories cannot
+	// be attached through this operation. Name determines the slug as createMemory
+	// does. Refusals: FORBIDDEN, AGENT_NOT_INSTALLED, USER_OWNED_APP_UNSUPPORTED,
+	// BAD_USER_INPUT (empty name). Installation and membership are checked in the
+	// inserting transaction, fenced against uninstall and revocation.
+	// See hrn:node:hadronmemory.com:specs:cor:acl:010:01.
+	CreateAppMemory *CreateAppMemoryCreateAppMemory `json:"createAppMemory"`
+}
+
+// GetCreateAppMemory returns CreateAppMemoryResponse.CreateAppMemory, and is useful for accessing the field via an interface.
+func (v *CreateAppMemoryResponse) GetCreateAppMemory() *CreateAppMemoryCreateAppMemory {
+	return v.CreateAppMemory
+}
 
 // CreateAppResponse is returned by CreateApp on success.
 type CreateAppResponse struct {
@@ -18045,7 +20446,7 @@ type CreateNodeInput struct {
 	// URN (per spec 007 ID-or-URN dispatch). URN inputs MUST be fully
 	// qualified (hrn:mem:<root>:<memory>) per spec 022 — relative-form URNs are
 	// rejected as GraphQL errors with extensions.code "URN_NOT_QUALIFIED".
-	MemoryId string  `json:"memoryId"`
+	MemoryId string  `json:"memoryId,omitempty"`
 	Name     string  `json:"name"`
 	NodeType *string `json:"nodeType,omitempty"`
 	// #725 — collection discriminator (e.g. "competitor" / "insight"). NULL for an ordinary node.
@@ -19849,11 +22250,6 @@ func (v *CreateTeamRoleCreateTeamRole) GetRoleAgent() *TeamRoleFieldsRoleAgent {
 	return v.TeamRoleFields.RoleAgent
 }
 
-// GetHasNamePlaceholder returns CreateTeamRoleCreateTeamRole.HasNamePlaceholder, and is useful for accessing the field via an interface.
-func (v *CreateTeamRoleCreateTeamRole) GetHasNamePlaceholder() *bool {
-	return v.TeamRoleFields.HasNamePlaceholder
-}
-
 func (v *CreateTeamRoleCreateTeamRole) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -19889,8 +22285,6 @@ type __premarshalCreateTeamRoleCreateTeamRole struct {
 	Description *string `json:"description"`
 
 	RoleAgent *TeamRoleFieldsRoleAgent `json:"roleAgent"`
-
-	HasNamePlaceholder *bool `json:"hasNamePlaceholder"`
 }
 
 func (v *CreateTeamRoleCreateTeamRole) MarshalJSON() ([]byte, error) {
@@ -19909,7 +22303,6 @@ func (v *CreateTeamRoleCreateTeamRole) __premarshalJSON() (*__premarshalCreateTe
 	retval.NodeId = v.TeamRoleFields.NodeId
 	retval.Description = v.TeamRoleFields.Description
 	retval.RoleAgent = v.TeamRoleFields.RoleAgent
-	retval.HasNamePlaceholder = v.TeamRoleFields.HasNamePlaceholder
 	return &retval, nil
 }
 
@@ -21908,6 +24301,425 @@ func (v *DriveReadFile) GetModifiedAt() *string { return v.ModifiedAt }
 // GetWebLink returns DriveReadFile.WebLink, and is useful for accessing the field via an interface.
 func (v *DriveReadFile) GetWebLink() *string { return v.WebLink }
 
+// DueTickWakesDueWakesDueWakePage includes the requested fields of the GraphQL type DueWakePage.
+// The GraphQL type's documentation follows.
+//
+// #1748 — one page of due wakes. Counts and ranges only (hrn:node:hadronmemory.com:specs:cor:agt:080:23).
+type DueTickWakesDueWakesDueWakePage struct {
+	Status   DueWakeStatus                                           `json:"status"`
+	Wakes    []*DueTickWakesDueWakesDueWakePageWakesDueWake          `json:"wakes"`
+	PageInfo *DueTickWakesDueWakesDueWakePagePageInfoDueWakePageInfo `json:"pageInfo"`
+}
+
+// GetStatus returns DueTickWakesDueWakesDueWakePage.Status, and is useful for accessing the field via an interface.
+func (v *DueTickWakesDueWakesDueWakePage) GetStatus() DueWakeStatus { return v.Status }
+
+// GetWakes returns DueTickWakesDueWakesDueWakePage.Wakes, and is useful for accessing the field via an interface.
+func (v *DueTickWakesDueWakesDueWakePage) GetWakes() []*DueTickWakesDueWakesDueWakePageWakesDueWake {
+	return v.Wakes
+}
+
+// GetPageInfo returns DueTickWakesDueWakesDueWakePage.PageInfo, and is useful for accessing the field via an interface.
+func (v *DueTickWakesDueWakesDueWakePage) GetPageInfo() *DueTickWakesDueWakesDueWakePagePageInfoDueWakePageInfo {
+	return v.PageInfo
+}
+
+// DueTickWakesDueWakesDueWakePagePageInfoDueWakePageInfo includes the requested fields of the GraphQL type DueWakePageInfo.
+type DueTickWakesDueWakesDueWakePagePageInfoDueWakePageInfo struct {
+	HasNextPage bool    `json:"hasNextPage"`
+	EndCursor   *string `json:"endCursor"`
+}
+
+// GetHasNextPage returns DueTickWakesDueWakesDueWakePagePageInfoDueWakePageInfo.HasNextPage, and is useful for accessing the field via an interface.
+func (v *DueTickWakesDueWakesDueWakePagePageInfoDueWakePageInfo) GetHasNextPage() bool {
+	return v.HasNextPage
+}
+
+// GetEndCursor returns DueTickWakesDueWakesDueWakePagePageInfoDueWakePageInfo.EndCursor, and is useful for accessing the field via an interface.
+func (v *DueTickWakesDueWakesDueWakePagePageInfoDueWakePageInfo) GetEndCursor() *string {
+	return v.EndCursor
+}
+
+// DueTickWakesDueWakesDueWakePageWakesDueWake includes the requested fields of the GraphQL type DueWake.
+// The GraphQL type's documentation follows.
+//
+// One merged wake: every reason, one seq range per channel. A wake never moves a read position.
+type DueTickWakesDueWakesDueWakePageWakesDueWake struct {
+	Worker *DueTickWakesDueWakesDueWakePageWakesDueWakeWorker `json:"worker"`
+	// #2017 R63 — when the earliest waiting reason became due: a mention's first still-due post, a tick's OLDEST unacknowledged
+	// tick time, a task event's time. Never restarted by a re-offer or a join (hrn:node:hadronmemory.com:specs:cor:agt:080:27).
+	AnchorAt string                                                          `json:"anchorAt"`
+	Reasons  []*DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason `json:"reasons"`
+}
+
+// GetWorker returns DueTickWakesDueWakesDueWakePageWakesDueWake.Worker, and is useful for accessing the field via an interface.
+func (v *DueTickWakesDueWakesDueWakePageWakesDueWake) GetWorker() *DueTickWakesDueWakesDueWakePageWakesDueWakeWorker {
+	return v.Worker
+}
+
+// GetAnchorAt returns DueTickWakesDueWakesDueWakePageWakesDueWake.AnchorAt, and is useful for accessing the field via an interface.
+func (v *DueTickWakesDueWakesDueWakePageWakesDueWake) GetAnchorAt() string { return v.AnchorAt }
+
+// GetReasons returns DueTickWakesDueWakesDueWakePageWakesDueWake.Reasons, and is useful for accessing the field via an interface.
+func (v *DueTickWakesDueWakesDueWakePageWakesDueWake) GetReasons() []*DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason {
+	return v.Reasons
+}
+
+// DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason includes the requested fields of the GraphQL type WakeReason.
+type DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason struct {
+	Kind   WakeKind                                                            `json:"kind"`
+	Ticker *DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker `json:"ticker"`
+}
+
+// GetKind returns DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason.Kind, and is useful for accessing the field via an interface.
+func (v *DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetKind() WakeKind {
+	return v.Kind
+}
+
+// GetTicker returns DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason.Ticker, and is useful for accessing the field via an interface.
+func (v *DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetTicker() *DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker {
+	return v.Ticker
+}
+
+// DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker includes the requested fields of the GraphQL type Ticker.
+// The GraphQL type's documentation follows.
+//
+// #1747 — a named wake schedule owned by one team App (hrn:node:hadronmemory.com:specs:cor:agt:080:01). Its URN is hrn:ticker:ROOT:APP-SLUG:SLUG,
+// computed from the App and the permanent slug. Ticks are computed, not stored; nothing reads a ticker until due wakes ship.
+type DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+	// The moment of the current tick; null when none has fired or it cannot tick.
+	LastTickAt *string `json:"lastTickAt"`
+}
+
+// GetId returns DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker.Id, and is useful for accessing the field via an interface.
+func (v *DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker) GetId() string {
+	return v.Id
+}
+
+// GetName returns DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker.Name, and is useful for accessing the field via an interface.
+func (v *DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker) GetName() string {
+	return v.Name
+}
+
+// GetLastTickAt returns DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker.LastTickAt, and is useful for accessing the field via an interface.
+func (v *DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker) GetLastTickAt() *string {
+	return v.LastTickAt
+}
+
+// DueTickWakesDueWakesDueWakePageWakesDueWakeWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type DueTickWakesDueWakesDueWakePageWakesDueWakeWorker struct {
+	Id string `json:"id"`
+}
+
+// GetId returns DueTickWakesDueWakesDueWakePageWakesDueWakeWorker.Id, and is useful for accessing the field via an interface.
+func (v *DueTickWakesDueWakesDueWakePageWakesDueWakeWorker) GetId() string { return v.Id }
+
+// DueTickWakesResponse is returned by DueTickWakes on success.
+type DueTickWakesResponse struct {
+	// #1748 — the wakes due now (hrn:node:hadronmemory.com:specs:cor:agt:080:08). Counts and seq ranges only; reads nothing it does not return.
+	// accepts (#2169, hrn:node:hadronmemory.com:specs:cor:agt:090:04): the reason kinds this caller can deliver. Omit it and no STOP notice is
+	// ever returned (the shipped ticker-wake). A call that lists STOP is offered the worker's newest undelivered stop notice, and
+	// declares the lane it serves (a host key: its own registration; a person who manages the App, or a key without a host:
+	// the unhosted lane) for STOP_CONSUMER_FRESH_SECONDS (default 600), but only when it read the lane from its start to its end in one call:
+	// no workerRefs, no after, and no next page (ask for first: 200; a lane larger than a page cannot declare). A worker whose host is lost has no serving lane until the host returns. Setting a stop signal is refused (STOP_SIGNAL_UNAVAILABLE)
+	// while any worker it would cover is on a lane with no fresh declaration.
+	DueWakes *DueTickWakesDueWakesDueWakePage `json:"dueWakes"`
+}
+
+// GetDueWakes returns DueTickWakesResponse.DueWakes, and is useful for accessing the field via an interface.
+func (v *DueTickWakesResponse) GetDueWakes() *DueTickWakesDueWakesDueWakePage { return v.DueWakes }
+
+type DueWakeStatus string
+
+const (
+	DueWakeStatusOk DueWakeStatus = "OK"
+	// The App's daily wake budget is spent; the withheld wakes stay due (hrn:node:hadronmemory.com:specs:cor:agt:080:15).
+	DueWakeStatusWakeBudgetExhausted DueWakeStatus = "WAKE_BUDGET_EXHAUSTED"
+)
+
+var AllDueWakeStatus = []DueWakeStatus{
+	DueWakeStatusOk,
+	DueWakeStatusWakeBudgetExhausted,
+}
+
+// DueWakesDueWakesDueWakePage includes the requested fields of the GraphQL type DueWakePage.
+// The GraphQL type's documentation follows.
+//
+// #1748 — one page of due wakes. Counts and ranges only (hrn:node:hadronmemory.com:specs:cor:agt:080:23).
+type DueWakesDueWakesDueWakePage struct {
+	Status DueWakeStatus `json:"status"`
+	// Wakes held back by the daily budget; each stays due.
+	Withheld int `json:"withheld"`
+	// Dormant workers with relevant mentions, and how many: withheld, never dropped silently.
+	Dormant  []*DueWakesDueWakesDueWakePageDormantDormantWithheld `json:"dormant"`
+	Wakes    []*DueWakesDueWakesDueWakePageWakesDueWake           `json:"wakes"`
+	PageInfo *DueWakesDueWakesDueWakePagePageInfoDueWakePageInfo  `json:"pageInfo"`
+}
+
+// GetStatus returns DueWakesDueWakesDueWakePage.Status, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePage) GetStatus() DueWakeStatus { return v.Status }
+
+// GetWithheld returns DueWakesDueWakesDueWakePage.Withheld, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePage) GetWithheld() int { return v.Withheld }
+
+// GetDormant returns DueWakesDueWakesDueWakePage.Dormant, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePage) GetDormant() []*DueWakesDueWakesDueWakePageDormantDormantWithheld {
+	return v.Dormant
+}
+
+// GetWakes returns DueWakesDueWakesDueWakePage.Wakes, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePage) GetWakes() []*DueWakesDueWakesDueWakePageWakesDueWake {
+	return v.Wakes
+}
+
+// GetPageInfo returns DueWakesDueWakesDueWakePage.PageInfo, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePage) GetPageInfo() *DueWakesDueWakesDueWakePagePageInfoDueWakePageInfo {
+	return v.PageInfo
+}
+
+// DueWakesDueWakesDueWakePageDormantDormantWithheld includes the requested fields of the GraphQL type DormantWithheld.
+type DueWakesDueWakesDueWakePageDormantDormantWithheld struct {
+	Worker *DueWakesDueWakesDueWakePageDormantDormantWithheldWorker `json:"worker"`
+}
+
+// GetWorker returns DueWakesDueWakesDueWakePageDormantDormantWithheld.Worker, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageDormantDormantWithheld) GetWorker() *DueWakesDueWakesDueWakePageDormantDormantWithheldWorker {
+	return v.Worker
+}
+
+// DueWakesDueWakesDueWakePageDormantDormantWithheldWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type DueWakesDueWakesDueWakePageDormantDormantWithheldWorker struct {
+	Id string `json:"id"`
+}
+
+// GetId returns DueWakesDueWakesDueWakePageDormantDormantWithheldWorker.Id, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageDormantDormantWithheldWorker) GetId() string { return v.Id }
+
+// DueWakesDueWakesDueWakePagePageInfoDueWakePageInfo includes the requested fields of the GraphQL type DueWakePageInfo.
+type DueWakesDueWakesDueWakePagePageInfoDueWakePageInfo struct {
+	HasNextPage bool    `json:"hasNextPage"`
+	EndCursor   *string `json:"endCursor"`
+}
+
+// GetHasNextPage returns DueWakesDueWakesDueWakePagePageInfoDueWakePageInfo.HasNextPage, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePagePageInfoDueWakePageInfo) GetHasNextPage() bool {
+	return v.HasNextPage
+}
+
+// GetEndCursor returns DueWakesDueWakesDueWakePagePageInfoDueWakePageInfo.EndCursor, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePagePageInfoDueWakePageInfo) GetEndCursor() *string {
+	return v.EndCursor
+}
+
+// DueWakesDueWakesDueWakePageWakesDueWake includes the requested fields of the GraphQL type DueWake.
+// The GraphQL type's documentation follows.
+//
+// One merged wake: every reason, one seq range per channel. A wake never moves a read position.
+type DueWakesDueWakesDueWakePageWakesDueWake struct {
+	// Hand this back to acknowledgeWakes after delivering. Bound to the requester; good for 15 minutes.
+	Proof  string                                         `json:"proof"`
+	Worker *DueWakesDueWakesDueWakePageWakesDueWakeWorker `json:"worker"`
+	// Not before this moment: the anchor plus the App's batching window (the shared cadence floor).
+	DeliverAfter string `json:"deliverAfter"`
+	// The latest a busy worker may be made to wait: the anchor plus the App's busy delay.
+	BusyDeadline string                                                       `json:"busyDeadline"`
+	Channels     []*DueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannel `json:"channels"`
+	Reasons      []*DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason  `json:"reasons"`
+}
+
+// GetProof returns DueWakesDueWakesDueWakePageWakesDueWake.Proof, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWake) GetProof() string { return v.Proof }
+
+// GetWorker returns DueWakesDueWakesDueWakePageWakesDueWake.Worker, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWake) GetWorker() *DueWakesDueWakesDueWakePageWakesDueWakeWorker {
+	return v.Worker
+}
+
+// GetDeliverAfter returns DueWakesDueWakesDueWakePageWakesDueWake.DeliverAfter, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWake) GetDeliverAfter() string { return v.DeliverAfter }
+
+// GetBusyDeadline returns DueWakesDueWakesDueWakePageWakesDueWake.BusyDeadline, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWake) GetBusyDeadline() string { return v.BusyDeadline }
+
+// GetChannels returns DueWakesDueWakesDueWakePageWakesDueWake.Channels, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWake) GetChannels() []*DueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannel {
+	return v.Channels
+}
+
+// GetReasons returns DueWakesDueWakesDueWakePageWakesDueWake.Reasons, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWake) GetReasons() []*DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason {
+	return v.Reasons
+}
+
+// DueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannel includes the requested fields of the GraphQL type DueChannel.
+type DueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannel struct {
+	Channel *DueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannelChannel `json:"channel"`
+}
+
+// GetChannel returns DueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannel.Channel, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannel) GetChannel() *DueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannelChannel {
+	return v.Channel
+}
+
+// DueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannelChannel includes the requested fields of the GraphQL type Channel.
+// The GraphQL type's documentation follows.
+//
+// A CHANNEL (spec 049, D-2026-09-13-006): a durable, ordered message stream
+// hosted in ONE memory at ONE reserved address, server-ordered and
+// server-attributed — a platform entity, created one-to-one with its chat root.
+// Creating it RESERVES and PROTECTS the address: generic node writes under it
+// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage,
+// hadron_team_chat_post) are the only writers. The audience is the host
+// memory's (cor:acl:030:01) — a Channel has no access layer of its own.
+// `lastSeq` / `lastMessageAt` are the platform-maintained watermark.
+type DueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannelChannel struct {
+	Id string `json:"id"`
+}
+
+// GetId returns DueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannelChannel.Id, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannelChannel) GetId() string {
+	return v.Id
+}
+
+// DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason includes the requested fields of the GraphQL type WakeReason.
+type DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason struct {
+	Kind   WakeKind                                                        `json:"kind"`
+	Ticker *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker `json:"ticker"`
+	// Set for kind TASK.
+	Task *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason `json:"task"`
+}
+
+// GetKind returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason.Kind, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetKind() WakeKind { return v.Kind }
+
+// GetTicker returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason.Ticker, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetTicker() *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker {
+	return v.Ticker
+}
+
+// GetTask returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason.Task, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetTask() *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason {
+	return v.Task
+}
+
+// DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason includes the requested fields of the GraphQL type DueTaskReason.
+// The GraphQL type's documentation follows.
+//
+// #1708 — the task a TASK reason is for: shown only to a caller who may read the App's tasks (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason struct {
+	// The event delivered; acknowledging the wake records delivery on it.
+	EventId string `json:"eventId"`
+	// 0, or the alarm chain position woken.
+	ChainIndex int           `json:"chainIndex"`
+	Event      TaskWakeEvent `json:"event"`
+	// The task's id (for CHILD_FINISHED, the child's).
+	Id string `json:"id"`
+	// The task's title, for the nudge text.
+	Title string `json:"title"`
+}
+
+// GetEventId returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason.EventId, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason) GetEventId() string {
+	return v.EventId
+}
+
+// GetChainIndex returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason.ChainIndex, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason) GetChainIndex() int {
+	return v.ChainIndex
+}
+
+// GetEvent returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason.Event, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason) GetEvent() TaskWakeEvent {
+	return v.Event
+}
+
+// GetId returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason.Id, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason) GetId() string {
+	return v.Id
+}
+
+// GetTitle returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason.Title, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason) GetTitle() string {
+	return v.Title
+}
+
+// DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker includes the requested fields of the GraphQL type Ticker.
+// The GraphQL type's documentation follows.
+//
+// #1747 — a named wake schedule owned by one team App (hrn:node:hadronmemory.com:specs:cor:agt:080:01). Its URN is hrn:ticker:ROOT:APP-SLUG:SLUG,
+// computed from the App and the permanent slug. Ticks are computed, not stored; nothing reads a ticker until due wakes ship.
+type DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+	// The moment of the current tick; null when none has fired or it cannot tick.
+	LastTickAt *string `json:"lastTickAt"`
+}
+
+// GetId returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker.Id, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker) GetId() string { return v.Id }
+
+// GetName returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker.Name, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker) GetName() string {
+	return v.Name
+}
+
+// GetLastTickAt returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker.LastTickAt, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker) GetLastTickAt() *string {
+	return v.LastTickAt
+}
+
+// DueWakesDueWakesDueWakePageWakesDueWakeWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type DueWakesDueWakesDueWakePageWakesDueWakeWorker struct {
+	Id string `json:"id"`
+}
+
+// GetId returns DueWakesDueWakesDueWakePageWakesDueWakeWorker.Id, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeWorker) GetId() string { return v.Id }
+
+// DueWakesResponse is returned by DueWakes on success.
+type DueWakesResponse struct {
+	// #1748 — the wakes due now (hrn:node:hadronmemory.com:specs:cor:agt:080:08). Counts and seq ranges only; reads nothing it does not return.
+	// accepts (#2169, hrn:node:hadronmemory.com:specs:cor:agt:090:04): the reason kinds this caller can deliver. Omit it and no STOP notice is
+	// ever returned (the shipped ticker-wake). A call that lists STOP is offered the worker's newest undelivered stop notice, and
+	// declares the lane it serves (a host key: its own registration; a person who manages the App, or a key without a host:
+	// the unhosted lane) for STOP_CONSUMER_FRESH_SECONDS (default 600), but only when it read the lane from its start to its end in one call:
+	// no workerRefs, no after, and no next page (ask for first: 200; a lane larger than a page cannot declare). A worker whose host is lost has no serving lane until the host returns. Setting a stop signal is refused (STOP_SIGNAL_UNAVAILABLE)
+	// while any worker it would cover is on a lane with no fresh declaration.
+	DueWakes *DueWakesDueWakesDueWakePage `json:"dueWakes"`
+}
+
+// GetDueWakes returns DueWakesResponse.DueWakes, and is useful for accessing the field via an interface.
+func (v *DueWakesResponse) GetDueWakes() *DueWakesDueWakesDueWakePage { return v.DueWakes }
+
 // EditCommentEditComment includes the requested fields of the GraphQL type Comment.
 // The GraphQL type's documentation follows.
 //
@@ -23346,9 +26158,6 @@ func (v *GetAgentAgent) GetSurfaces() []string { return v.AgentFields.Surfaces }
 // GetSystemMemoryId returns GetAgentAgent.SystemMemoryId, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetSystemMemoryId() *string { return v.AgentFields.SystemMemoryId }
 
-// GetSystemPrompt returns GetAgentAgent.SystemPrompt, and is useful for accessing the field via an interface.
-func (v *GetAgentAgent) GetSystemPrompt() *string { return v.AgentFields.SystemPrompt }
-
 // GetTasksIndexRef returns GetAgentAgent.TasksIndexRef, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetTasksIndexRef() *string { return v.AgentFields.TasksIndexRef }
 
@@ -23430,8 +26239,6 @@ type __premarshalGetAgentAgent struct {
 
 	SystemMemoryId *string `json:"systemMemoryId"`
 
-	SystemPrompt *string `json:"systemPrompt"`
-
 	TasksIndexRef *string `json:"tasksIndexRef"`
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
@@ -23476,7 +26283,6 @@ func (v *GetAgentAgent) __premarshalJSON() (*__premarshalGetAgentAgent, error) {
 	retval.OrganizationId = v.AgentFields.OrganizationId
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
-	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
@@ -24433,6 +27239,132 @@ type GetMemoryResponse struct {
 
 // GetMemory returns GetMemoryResponse.Memory, and is useful for accessing the field via an interface.
 func (v *GetMemoryResponse) GetMemory() *GetMemoryMemory { return v.Memory }
+
+// GetNodeLintWarningsNode includes the requested fields of the GraphQL type Node.
+type GetNodeLintWarningsNode struct {
+	// #2048 (hrn:node:hadronmemory.com:specs:cor:agt:040:13) — link lint for a boot-prompt source: the warnings that hold for this node as it is now, read as the caller (a target the caller cannot read is a position-only BROKEN_INCLUDE). An empty page is a real answer; null means the warnings are unavailable (a fault, or a compiled boot prompt, whose warnings read its recorded provenance). Lint never blocks a write, and nothing is stored or pushed. Pages default to 50 and clamp at 100.
+	LintWarnings *GetNodeLintWarningsNodeLintWarningsLintWarningPage `json:"lintWarnings"`
+}
+
+// GetLintWarnings returns GetNodeLintWarningsNode.LintWarnings, and is useful for accessing the field via an interface.
+func (v *GetNodeLintWarningsNode) GetLintWarnings() *GetNodeLintWarningsNodeLintWarningsLintWarningPage {
+	return v.LintWarnings
+}
+
+// GetNodeLintWarningsNodeLintWarningsLintWarningPage includes the requested fields of the GraphQL type LintWarningPage.
+// The GraphQL type's documentation follows.
+//
+// #2048 — one page of warnings, ordered by position.
+type GetNodeLintWarningsNodeLintWarningsLintWarningPage struct {
+	Items []*GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning `json:"items"`
+	// All warnings that hold, not just this page.
+	Total int `json:"total"`
+	// Pass as after for the next page; null on the last.
+	NextCursor *string `json:"nextCursor"`
+}
+
+// GetItems returns GetNodeLintWarningsNodeLintWarningsLintWarningPage.Items, and is useful for accessing the field via an interface.
+func (v *GetNodeLintWarningsNodeLintWarningsLintWarningPage) GetItems() []*GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning {
+	return v.Items
+}
+
+// GetTotal returns GetNodeLintWarningsNodeLintWarningsLintWarningPage.Total, and is useful for accessing the field via an interface.
+func (v *GetNodeLintWarningsNodeLintWarningsLintWarningPage) GetTotal() int { return v.Total }
+
+// GetNextCursor returns GetNodeLintWarningsNodeLintWarningsLintWarningPage.NextCursor, and is useful for accessing the field via an interface.
+func (v *GetNodeLintWarningsNodeLintWarningsLintWarningPage) GetNextCursor() *string {
+	return v.NextCursor
+}
+
+// GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning includes the requested fields of the GraphQL type LintWarning.
+// The GraphQL type's documentation follows.
+//
+// #2048 — one link-lint warning. A fixed set of fields: there is no free-form detail.
+type GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning struct {
+	Kind LintKind `json:"kind"`
+	// 0-based source-tag offset, or immutable occurrence ordinal for compiled-revision lint.
+	Position int    `json:"position"`
+	Text     string `json:"text"`
+	// The target's URN, only for a target the caller can read; null for BROKEN_INCLUDE.
+	TargetUrn *string `json:"targetUrn"`
+	// The revision the include pins, when it pins one.
+	PinnedRevision *int `json:"pinnedRevision"`
+	// The newest approved revision, for PINNED_NEWER_APPROVED.
+	NewerRevision *int `json:"newerRevision"`
+	// Reserved for the policy-agent override notice; null for source lint.
+	OverriddenNodeLoc *string `json:"overriddenNodeLoc"`
+	// For WORKER_LINK_MISSING, which stored field lacks the worker link: signature or trailer. Null otherwise.
+	WorkerField *string `json:"workerField"`
+}
+
+// GetKind returns GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning.Kind, and is useful for accessing the field via an interface.
+func (v *GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning) GetKind() LintKind {
+	return v.Kind
+}
+
+// GetPosition returns GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning.Position, and is useful for accessing the field via an interface.
+func (v *GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning) GetPosition() int {
+	return v.Position
+}
+
+// GetText returns GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning.Text, and is useful for accessing the field via an interface.
+func (v *GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning) GetText() string {
+	return v.Text
+}
+
+// GetTargetUrn returns GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning.TargetUrn, and is useful for accessing the field via an interface.
+func (v *GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning) GetTargetUrn() *string {
+	return v.TargetUrn
+}
+
+// GetPinnedRevision returns GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning.PinnedRevision, and is useful for accessing the field via an interface.
+func (v *GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning) GetPinnedRevision() *int {
+	return v.PinnedRevision
+}
+
+// GetNewerRevision returns GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning.NewerRevision, and is useful for accessing the field via an interface.
+func (v *GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning) GetNewerRevision() *int {
+	return v.NewerRevision
+}
+
+// GetOverriddenNodeLoc returns GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning.OverriddenNodeLoc, and is useful for accessing the field via an interface.
+func (v *GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning) GetOverriddenNodeLoc() *string {
+	return v.OverriddenNodeLoc
+}
+
+// GetWorkerField returns GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning.WorkerField, and is useful for accessing the field via an interface.
+func (v *GetNodeLintWarningsNodeLintWarningsLintWarningPageItemsLintWarning) GetWorkerField() *string {
+	return v.WorkerField
+}
+
+// GetNodeLintWarningsResponse is returned by GetNodeLintWarnings on success.
+type GetNodeLintWarningsResponse struct {
+	// The uniform single-node read (#473) — subsumes the former nodeById(id:)
+	// and node(loc:, memory:) split. 'ref' accepts, in dispatch order:
+	//
+	// 1. a primary key (the unambiguous read — the old nodeById),
+	// 2. a fully-qualified node URN (`hrn:node:<root>:<memory>:<loc>`,
+	// legacy `urn:` scheme accepted),
+	// 3. a bare loc — scoped by 'memoryRef' (an ID or URN) when given; unscoped,
+	// it resolves across every readable memory and a cross-memory loc
+	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
+	// (listing the candidate memoryIds) rather than silently returning
+	// one (#335). An unprefixed 3+-segment ref whose first two segments
+	// name a live memory is treated as form 2 (a full URN); pass
+	// 'memoryRef' to force loc interpretation.
+	//
+	// raw: true selects stored content without include or variable resolution.
+	// Soft-deleted nodes do not resolve. Access uses the caller's readable-memory
+	// set. A denied or missing node returns null; an explicit memoryRef that is
+	// missing or unreadable raises MEMORY_NOT_FOUND. When addressed in a system
+	// memory by memoryRef or a full node URN, a loc with no local node may read
+	// through to an eligible inherited node under its own address; overrides and
+	// boot prompts are excluded. An unscoped bare loc does not search inheritance.
+	Node *GetNodeLintWarningsNode `json:"node"`
+}
+
+// GetNode returns GetNodeLintWarningsResponse.Node, and is useful for accessing the field via an interface.
+func (v *GetNodeLintWarningsResponse) GetNode() *GetNodeLintWarningsNode { return v.Node }
 
 // GetNodeNode includes the requested fields of the GraphQL type Node.
 type GetNodeNode struct {
@@ -26216,9 +29148,6 @@ func (v *GetWorkerWorker) GetRole() *string { return v.WorkerFields.Role }
 // GetPrompt returns GetWorkerWorker.Prompt, and is useful for accessing the field via an interface.
 func (v *GetWorkerWorker) GetPrompt() *string { return v.WorkerFields.Prompt }
 
-// GetPromptOverride returns GetWorkerWorker.PromptOverride, and is useful for accessing the field via an interface.
-func (v *GetWorkerWorker) GetPromptOverride() *string { return v.WorkerFields.PromptOverride }
-
 // GetSignature returns GetWorkerWorker.Signature, and is useful for accessing the field via an interface.
 func (v *GetWorkerWorker) GetSignature() *string { return v.WorkerFields.Signature }
 
@@ -26319,8 +29248,6 @@ type __premarshalGetWorkerWorker struct {
 
 	Prompt *string `json:"prompt"`
 
-	PromptOverride *string `json:"promptOverride"`
-
 	Signature *string `json:"signature"`
 
 	Trailer *string `json:"trailer"`
@@ -26376,7 +29303,6 @@ func (v *GetWorkerWorker) __premarshalJSON() (*__premarshalGetWorkerWorker, erro
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
-	retval.PromptOverride = v.WorkerFields.PromptOverride
 	retval.Signature = v.WorkerFields.Signature
 	retval.Trailer = v.WorkerFields.Trailer
 	retval.BootPromptRef = v.WorkerFields.BootPromptRef
@@ -27821,6 +30747,49 @@ func (v *InstallAgentIntoAppResponse) GetInstallAgentIntoApp() *InstallAgentInto
 	return v.InstallAgentIntoApp
 }
 
+// InstallMemoryInstallMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
+type InstallMemoryInstallMemory struct {
+	Id string `json:"id"`
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
+	Urn  string `json:"urn"`
+	Name string `json:"name"`
+}
+
+// GetId returns InstallMemoryInstallMemory.Id, and is useful for accessing the field via an interface.
+func (v *InstallMemoryInstallMemory) GetId() string { return v.Id }
+
+// GetUrn returns InstallMemoryInstallMemory.Urn, and is useful for accessing the field via an interface.
+func (v *InstallMemoryInstallMemory) GetUrn() string { return v.Urn }
+
+// GetName returns InstallMemoryInstallMemory.Name, and is useful for accessing the field via an interface.
+func (v *InstallMemoryInstallMemory) GetName() string { return v.Name }
+
+// InstallMemoryResponse is returned by InstallMemory on success.
+type InstallMemoryResponse struct {
+	// #2044 (hrn:node:hadronmemory.com:specs:cor:agt:040:06) — the App's install memory for an Agent: where the App
+	// keeps its customisation of that Agent. Null when the App has not customised it
+	// yet (this read creates nothing), and null for anyone the memory's record is not
+	// open to: the App's participants, and whoever manages the App.
+	InstallMemory *InstallMemoryInstallMemory `json:"installMemory"`
+}
+
+// GetInstallMemory returns InstallMemoryResponse.InstallMemory, and is useful for accessing the field via an interface.
+func (v *InstallMemoryResponse) GetInstallMemory() *InstallMemoryInstallMemory {
+	return v.InstallMemory
+}
+
 // #2044 (hrn:node:hadronmemory.com:specs:cor:agt:040:06) — names an App's INSTALL MEMORY by the pair that
 // identifies it: the App and the Agent it customises. Both are ID-or-URN refs
 // like every other entity ref (relative URNs are refused, URN_NOT_QUALIFIED).
@@ -28204,6 +31173,39 @@ type LinkMemoryToUserResponse struct {
 // GetLinkMemoryToUser returns LinkMemoryToUserResponse.LinkMemoryToUser, and is useful for accessing the field via an interface.
 func (v *LinkMemoryToUserResponse) GetLinkMemoryToUser() *LinkMemoryToUserLinkMemoryToUserMemory {
 	return v.LinkMemoryToUser
+}
+
+// #2048 (hrn:node:hadronmemory.com:specs:cor:agt:040:13) — what link lint warns about.
+type LintKind string
+
+const (
+	// The target is missing or the caller cannot read it. Position only: it never says which, or anything about the target.
+	LintKindBrokenInclude LintKind = "BROKEN_INCLUDE"
+	// The target is readable but has no revision that meets the include's settings (approved and/or rev=N).
+	LintKindNoQualifyingRevision LintKind = "NO_QUALIFYING_REVISION"
+	// The include pins a revision and a newer revision is approved.
+	LintKindPinnedNewerApproved LintKind = "PINNED_NEWER_APPROVED"
+	// An install-memory node replaces an Agent node.
+	LintKindPolicyOverride LintKind = "POLICY_OVERRIDE"
+	// A recompile would select a newer revision; shown only to a compiler, without hidden target details.
+	LintKindRecompileAvailable LintKind = "RECOMPILE_AVAILABLE"
+	// The include's target is soft-deleted (hrn:node:hadronmemory.com:specs:cor:agt:040:13, R20 A).
+	LintKindRetiredTarget LintKind = "RETIRED_TARGET"
+	// The include says signed; signing is not checked yet.
+	LintKindSigningNotChecked LintKind = "SIGNING_NOT_CHECKED"
+	// A worker's signature or trailer does not carry the worker link (hrn:node:hadronmemory.com:specs:cor:agt:040:04 S3). workerField names which.
+	LintKindWorkerLinkMissing LintKind = "WORKER_LINK_MISSING"
+)
+
+var AllLintKind = []LintKind{
+	LintKindBrokenInclude,
+	LintKindNoQualifyingRevision,
+	LintKindPinnedNewerApproved,
+	LintKindPolicyOverride,
+	LintKindRecompileAvailable,
+	LintKindRetiredTarget,
+	LintKindSigningNotChecked,
+	LintKindWorkerLinkMissing,
 }
 
 // ListTickersResponse is returned by ListTickers on success.
@@ -32723,6 +35725,64 @@ func (v *NodeEdgeInput) GetName() *string { return v.Name }
 // GetTargetId returns NodeEdgeInput.TargetId, and is useful for accessing the field via an interface.
 func (v *NodeEdgeInput) GetTargetId() string { return v.TargetId }
 
+// NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval includes the requested fields of the GraphQL type NodeEdgeRemoval.
+// The GraphQL type's documentation follows.
+//
+// #2517 — one edge a hard delete removed from this node (hrn:node:hadronmemory.com:specs:cor:dmo:010:04). The deleted target's address (targetLoc) and the removed edge's loc, which is derived from it, are shown only when you can read the memory the target lived in. Entries are gated per entry by the memory the source was in when the edge was removed. A derived include edge is not recorded.
+type NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval struct {
+	Id        string `json:"id"`
+	CreatedAt string `json:"createdAt"`
+	// The removed edge's loc; null when the deleted target's memory is not one you can read (the loc is derived from the target's address).
+	EdgeLoc  *string `json:"edgeLoc"`
+	EdgeName *string `json:"edgeName"`
+	// TARGET_HARD_DELETED: the edge's target was hard-deleted.
+	Reason string `json:"reason"`
+	// Who deleted: the same user, app or client id a soft delete stamps as deletedBy; null when unattributed.
+	RemovedBy *string `json:"removedBy"`
+	// Stable id of the deleted target; the row itself is gone.
+	TargetId string `json:"targetId"`
+	// The deleted target's loc; null when its memory is not one you can read (a cross-memory edge).
+	TargetLoc *string `json:"targetLoc"`
+}
+
+// GetId returns NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval.Id, and is useful for accessing the field via an interface.
+func (v *NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval) GetId() string { return v.Id }
+
+// GetCreatedAt returns NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval.CreatedAt, and is useful for accessing the field via an interface.
+func (v *NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval) GetCreatedAt() string { return v.CreatedAt }
+
+// GetEdgeLoc returns NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval.EdgeLoc, and is useful for accessing the field via an interface.
+func (v *NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval) GetEdgeLoc() *string { return v.EdgeLoc }
+
+// GetEdgeName returns NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval.EdgeName, and is useful for accessing the field via an interface.
+func (v *NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval) GetEdgeName() *string { return v.EdgeName }
+
+// GetReason returns NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval.Reason, and is useful for accessing the field via an interface.
+func (v *NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval) GetReason() string { return v.Reason }
+
+// GetRemovedBy returns NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval.RemovedBy, and is useful for accessing the field via an interface.
+func (v *NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval) GetRemovedBy() *string { return v.RemovedBy }
+
+// GetTargetId returns NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval.TargetId, and is useful for accessing the field via an interface.
+func (v *NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval) GetTargetId() string { return v.TargetId }
+
+// GetTargetLoc returns NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval.TargetLoc, and is useful for accessing the field via an interface.
+func (v *NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval) GetTargetLoc() *string { return v.TargetLoc }
+
+// NodeEdgeRemovalsResponse is returned by NodeEdgeRemovals on success.
+type NodeEdgeRemovalsResponse struct {
+	// #2517 — the audit entries a HARD delete left on this node when it removed edges the node held to the deleted
+	// target, newest first (default 20). A separate record, never a NodeRevision: revisions stay snapshots of the node's
+	// own fields. A soft delete keeps its edges and records nothing. Same read gate as nodeRevisions; a node you cannot
+	// read returns an empty list. hrn:node:hadronmemory.com:specs:cor:dmo:010:04
+	NodeEdgeRemovals []*NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval `json:"nodeEdgeRemovals"`
+}
+
+// GetNodeEdgeRemovals returns NodeEdgeRemovalsResponse.NodeEdgeRemovals, and is useful for accessing the field via an interface.
+func (v *NodeEdgeRemovalsResponse) GetNodeEdgeRemovals() []*NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval {
+	return v.NodeEdgeRemovals
+}
+
 // Single-node export (#386). MD/JSON are the canonical, round-trippable files;
 // PDF is a presentation render (content only) produced by the internal
 // hadrontool-pdf service and delivered BASE64. HTML remains reserved.
@@ -36559,11 +39619,6 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetSystemMemoryId() *stri
 	return v.AgentFields.SystemMemoryId
 }
 
-// GetSystemPrompt returns PublicAgentsPublicAgentsAgentsPageItemsAgent.SystemPrompt, and is useful for accessing the field via an interface.
-func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetSystemPrompt() *string {
-	return v.AgentFields.SystemPrompt
-}
-
 // GetTasksIndexRef returns PublicAgentsPublicAgentsAgentsPageItemsAgent.TasksIndexRef, and is useful for accessing the field via an interface.
 func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetTasksIndexRef() *string {
 	return v.AgentFields.TasksIndexRef
@@ -36663,8 +39718,6 @@ type __premarshalPublicAgentsPublicAgentsAgentsPageItemsAgent struct {
 
 	SystemMemoryId *string `json:"systemMemoryId"`
 
-	SystemPrompt *string `json:"systemPrompt"`
-
 	TasksIndexRef *string `json:"tasksIndexRef"`
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
@@ -36708,7 +39761,6 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) __premarshalJSON() (*__pr
 	retval.OrganizationId = v.AgentFields.OrganizationId
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
-	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
@@ -38273,11 +41325,6 @@ func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetPrompt() *stri
 	return v.WorkerFields.Prompt
 }
 
-// GetPromptOverride returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.PromptOverride, and is useful for accessing the field via an interface.
-func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetPromptOverride() *string {
-	return v.WorkerFields.PromptOverride
-}
-
 // GetSignature returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.Signature, and is useful for accessing the field via an interface.
 func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetSignature() *string {
 	return v.WorkerFields.Signature
@@ -38406,8 +41453,6 @@ type __premarshalReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker struct {
 
 	Prompt *string `json:"prompt"`
 
-	PromptOverride *string `json:"promptOverride"`
-
 	Signature *string `json:"signature"`
 
 	Trailer *string `json:"trailer"`
@@ -38463,7 +41508,6 @@ func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) __premarshalJSON(
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
-	retval.PromptOverride = v.WorkerFields.PromptOverride
 	retval.Signature = v.WorkerFields.Signature
 	retval.Trailer = v.WorkerFields.Trailer
 	retval.BootPromptRef = v.WorkerFields.BootPromptRef
@@ -40888,9 +43932,6 @@ func (v *RetireWorkerRetireWorker) GetRole() *string { return v.WorkerFields.Rol
 // GetPrompt returns RetireWorkerRetireWorker.Prompt, and is useful for accessing the field via an interface.
 func (v *RetireWorkerRetireWorker) GetPrompt() *string { return v.WorkerFields.Prompt }
 
-// GetPromptOverride returns RetireWorkerRetireWorker.PromptOverride, and is useful for accessing the field via an interface.
-func (v *RetireWorkerRetireWorker) GetPromptOverride() *string { return v.WorkerFields.PromptOverride }
-
 // GetSignature returns RetireWorkerRetireWorker.Signature, and is useful for accessing the field via an interface.
 func (v *RetireWorkerRetireWorker) GetSignature() *string { return v.WorkerFields.Signature }
 
@@ -40991,8 +44032,6 @@ type __premarshalRetireWorkerRetireWorker struct {
 
 	Prompt *string `json:"prompt"`
 
-	PromptOverride *string `json:"promptOverride"`
-
 	Signature *string `json:"signature"`
 
 	Trailer *string `json:"trailer"`
@@ -41048,7 +44087,6 @@ func (v *RetireWorkerRetireWorker) __premarshalJSON() (*__premarshalRetireWorker
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
-	retval.PromptOverride = v.WorkerFields.PromptOverride
 	retval.Signature = v.WorkerFields.Signature
 	retval.Trailer = v.WorkerFields.Trailer
 	retval.BootPromptRef = v.WorkerFields.BootPromptRef
@@ -41748,6 +44786,178 @@ type RouterRegisterResponse struct {
 func (v *RouterRegisterResponse) GetAttendeeRegister() []*RouterRegisterAttendeeRegisterRegisterViewRow {
 	return v.AttendeeRegister
 }
+
+// RunServedPromptAppRun includes the requested fields of the GraphQL type AppRun.
+// The GraphQL type's documentation follows.
+//
+// One headless run — the audit record AND (v1) the activation: policy
+// snapshot, live budgets (zeroing halts the run), lifecycle, trigger
+// provenance. Spec hrn:node:hadronmemory.com:specs:cor:agt:010:02.
+type RunServedPromptAppRun struct {
+	// #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: the boot prompt this run was served. Readable by whoever may read the run; null for anyone
+	// else, and while boot-prompt serving is off.
+	ServedPrompt *RunServedPromptAppRunServedPrompt `json:"servedPrompt"`
+}
+
+// GetServedPrompt returns RunServedPromptAppRun.ServedPrompt, and is useful for accessing the field via an interface.
+func (v *RunServedPromptAppRun) GetServedPrompt() *RunServedPromptAppRunServedPrompt {
+	return v.ServedPrompt
+}
+
+// RunServedPromptAppRunServedPrompt includes the requested fields of the GraphQL type ServedPrompt.
+// The GraphQL type's documentation follows.
+//
+// #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: what a bind, a chatbot chat or a headless run was given. Immutable platform data, never
+// editable and never exported. Names the compiled revision served by (compiledNodeId, servedRevSeq), the pointer level that
+// chose it, that revision's own provenance and the values the platform variables were filled with. No composed text.
+type RunServedPromptAppRunServedPrompt struct {
+	ServedPromptRecord `json:"-"`
+}
+
+// GetId returns RunServedPromptAppRunServedPrompt.Id, and is useful for accessing the field via an interface.
+func (v *RunServedPromptAppRunServedPrompt) GetId() string { return v.ServedPromptRecord.Id }
+
+// GetKind returns RunServedPromptAppRunServedPrompt.Kind, and is useful for accessing the field via an interface.
+func (v *RunServedPromptAppRunServedPrompt) GetKind() ServedPromptKind {
+	return v.ServedPromptRecord.Kind
+}
+
+// GetOrdinal returns RunServedPromptAppRunServedPrompt.Ordinal, and is useful for accessing the field via an interface.
+func (v *RunServedPromptAppRunServedPrompt) GetOrdinal() int { return v.ServedPromptRecord.Ordinal }
+
+// GetPointerLevel returns RunServedPromptAppRunServedPrompt.PointerLevel, and is useful for accessing the field via an interface.
+func (v *RunServedPromptAppRunServedPrompt) GetPointerLevel() ServedPromptPointerLevel {
+	return v.ServedPromptRecord.PointerLevel
+}
+
+// GetCompiledNodeId returns RunServedPromptAppRunServedPrompt.CompiledNodeId, and is useful for accessing the field via an interface.
+func (v *RunServedPromptAppRunServedPrompt) GetCompiledNodeId() string {
+	return v.ServedPromptRecord.CompiledNodeId
+}
+
+// GetCompiledContentHash returns RunServedPromptAppRunServedPrompt.CompiledContentHash, and is useful for accessing the field via an interface.
+func (v *RunServedPromptAppRunServedPrompt) GetCompiledContentHash() string {
+	return v.ServedPromptRecord.CompiledContentHash
+}
+
+// GetServedRevSeq returns RunServedPromptAppRunServedPrompt.ServedRevSeq, and is useful for accessing the field via an interface.
+func (v *RunServedPromptAppRunServedPrompt) GetServedRevSeq() int {
+	return v.ServedPromptRecord.ServedRevSeq
+}
+
+// GetProvenanceRevSeq returns RunServedPromptAppRunServedPrompt.ProvenanceRevSeq, and is useful for accessing the field via an interface.
+func (v *RunServedPromptAppRunServedPrompt) GetProvenanceRevSeq() int {
+	return v.ServedPromptRecord.ProvenanceRevSeq
+}
+
+// GetServedAt returns RunServedPromptAppRunServedPrompt.ServedAt, and is useful for accessing the field via an interface.
+func (v *RunServedPromptAppRunServedPrompt) GetServedAt() string {
+	return v.ServedPromptRecord.ServedAt
+}
+
+// GetVariables returns RunServedPromptAppRunServedPrompt.Variables, and is useful for accessing the field via an interface.
+func (v *RunServedPromptAppRunServedPrompt) GetVariables() json.RawMessage {
+	return v.ServedPromptRecord.Variables
+}
+
+// GetPruned returns RunServedPromptAppRunServedPrompt.Pruned, and is useful for accessing the field via an interface.
+func (v *RunServedPromptAppRunServedPrompt) GetPruned() bool { return v.ServedPromptRecord.Pruned }
+
+// GetProvenance returns RunServedPromptAppRunServedPrompt.Provenance, and is useful for accessing the field via an interface.
+func (v *RunServedPromptAppRunServedPrompt) GetProvenance() *ServedPromptRecordProvenanceServedPromptProvenancePage {
+	return v.ServedPromptRecord.Provenance
+}
+
+func (v *RunServedPromptAppRunServedPrompt) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*RunServedPromptAppRunServedPrompt
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.RunServedPromptAppRunServedPrompt = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ServedPromptRecord)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalRunServedPromptAppRunServedPrompt struct {
+	Id string `json:"id"`
+
+	Kind ServedPromptKind `json:"kind"`
+
+	Ordinal int `json:"ordinal"`
+
+	PointerLevel ServedPromptPointerLevel `json:"pointerLevel"`
+
+	CompiledNodeId string `json:"compiledNodeId"`
+
+	CompiledContentHash string `json:"compiledContentHash"`
+
+	ServedRevSeq int `json:"servedRevSeq"`
+
+	ProvenanceRevSeq int `json:"provenanceRevSeq"`
+
+	ServedAt string `json:"servedAt"`
+
+	Variables json.RawMessage `json:"variables"`
+
+	Pruned bool `json:"pruned"`
+
+	Provenance *ServedPromptRecordProvenanceServedPromptProvenancePage `json:"provenance"`
+}
+
+func (v *RunServedPromptAppRunServedPrompt) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *RunServedPromptAppRunServedPrompt) __premarshalJSON() (*__premarshalRunServedPromptAppRunServedPrompt, error) {
+	var retval __premarshalRunServedPromptAppRunServedPrompt
+
+	retval.Id = v.ServedPromptRecord.Id
+	retval.Kind = v.ServedPromptRecord.Kind
+	retval.Ordinal = v.ServedPromptRecord.Ordinal
+	retval.PointerLevel = v.ServedPromptRecord.PointerLevel
+	retval.CompiledNodeId = v.ServedPromptRecord.CompiledNodeId
+	retval.CompiledContentHash = v.ServedPromptRecord.CompiledContentHash
+	retval.ServedRevSeq = v.ServedPromptRecord.ServedRevSeq
+	retval.ProvenanceRevSeq = v.ServedPromptRecord.ProvenanceRevSeq
+	retval.ServedAt = v.ServedPromptRecord.ServedAt
+	retval.Variables = v.ServedPromptRecord.Variables
+	retval.Pruned = v.ServedPromptRecord.Pruned
+	retval.Provenance = v.ServedPromptRecord.Provenance
+	return &retval, nil
+}
+
+// RunServedPromptResponse is returned by RunServedPrompt on success.
+type RunServedPromptResponse struct {
+	// One run (cor:agt:010:02). ref is an AppRun ID or an
+	// hrn:apprun:<root>:<app>:<run-id> URN (#696). Readable by a platform admin,
+	// a READER of the run's organization, the run's own App key, or a user with a
+	// live App relationship for a run on their behalf or a MANUAL run they
+	// started. A run the caller may not read returns null, exactly like a
+	// missing one (#1577: no existence oracle).
+	AppRun *RunServedPromptAppRun `json:"appRun"`
+}
+
+// GetAppRun returns RunServedPromptResponse.AppRun, and is useful for accessing the field via an interface.
+func (v *RunServedPromptResponse) GetAppRun() *RunServedPromptAppRun { return v.AppRun }
 
 // RunTaskResponse is returned by RunTask on success.
 type RunTaskResponse struct {
@@ -43687,6 +46897,142 @@ func (v *SelectedSkillFilePlanSelectedSkillFilePlanSkillPlanSelectionResultsSkil
 	return v.Message
 }
 
+// The kind of served prompt: bind, chat, or run.
+type ServedPromptKind string
+
+const (
+	ServedPromptKindBind ServedPromptKind = "BIND"
+	ServedPromptKindChat ServedPromptKind = "CHAT"
+	ServedPromptKindRun  ServedPromptKind = "RUN"
+)
+
+var AllServedPromptKind = []ServedPromptKind{
+	ServedPromptKindBind,
+	ServedPromptKindChat,
+	ServedPromptKindRun,
+}
+
+type ServedPromptPointerLevel string
+
+const (
+	ServedPromptPointerLevelAgent    ServedPromptPointerLevel = "AGENT"
+	ServedPromptPointerLevelAppAgent ServedPromptPointerLevel = "APP_AGENT"
+	ServedPromptPointerLevelWorker   ServedPromptPointerLevel = "WORKER"
+)
+
+var AllServedPromptPointerLevel = []ServedPromptPointerLevel{
+	ServedPromptPointerLevelAgent,
+	ServedPromptPointerLevelAppAgent,
+	ServedPromptPointerLevelWorker,
+}
+
+// The served record is scalar-only. Never read live source nodes/edges or text
+// to reconstruct it: its revision/hash/provenance/variables are the audit fact.
+type ServedPromptRecord struct {
+	Id   string           `json:"id"`
+	Kind ServedPromptKind `json:"kind"`
+	// 1 for a bind or a run; a chat counts up each time its served revision changes.
+	Ordinal             int                      `json:"ordinal"`
+	PointerLevel        ServedPromptPointerLevel `json:"pointerLevel"`
+	CompiledNodeId      string                   `json:"compiledNodeId"`
+	CompiledContentHash string                   `json:"compiledContentHash"`
+	// Node.revSeq of the revision served (never contentRevSeq).
+	ServedRevSeq int `json:"servedRevSeq"`
+	// The compile revision that owns the provenance.
+	ProvenanceRevSeq int             `json:"provenanceRevSeq"`
+	ServedAt         string          `json:"servedAt"`
+	Variables        json.RawMessage `json:"variables"`
+	// True when the served revision is no longer retained (neither current nor in history).
+	Pruned bool `json:"pruned"`
+	// Provenance of the served revision, one page at a time (default 50, cap 200).
+	Provenance *ServedPromptRecordProvenanceServedPromptProvenancePage `json:"provenance"`
+}
+
+// GetId returns ServedPromptRecord.Id, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecord) GetId() string { return v.Id }
+
+// GetKind returns ServedPromptRecord.Kind, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecord) GetKind() ServedPromptKind { return v.Kind }
+
+// GetOrdinal returns ServedPromptRecord.Ordinal, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecord) GetOrdinal() int { return v.Ordinal }
+
+// GetPointerLevel returns ServedPromptRecord.PointerLevel, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecord) GetPointerLevel() ServedPromptPointerLevel { return v.PointerLevel }
+
+// GetCompiledNodeId returns ServedPromptRecord.CompiledNodeId, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecord) GetCompiledNodeId() string { return v.CompiledNodeId }
+
+// GetCompiledContentHash returns ServedPromptRecord.CompiledContentHash, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecord) GetCompiledContentHash() string { return v.CompiledContentHash }
+
+// GetServedRevSeq returns ServedPromptRecord.ServedRevSeq, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecord) GetServedRevSeq() int { return v.ServedRevSeq }
+
+// GetProvenanceRevSeq returns ServedPromptRecord.ProvenanceRevSeq, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecord) GetProvenanceRevSeq() int { return v.ProvenanceRevSeq }
+
+// GetServedAt returns ServedPromptRecord.ServedAt, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecord) GetServedAt() string { return v.ServedAt }
+
+// GetVariables returns ServedPromptRecord.Variables, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecord) GetVariables() json.RawMessage { return v.Variables }
+
+// GetPruned returns ServedPromptRecord.Pruned, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecord) GetPruned() bool { return v.Pruned }
+
+// GetProvenance returns ServedPromptRecord.Provenance, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecord) GetProvenance() *ServedPromptRecordProvenanceServedPromptProvenancePage {
+	return v.Provenance
+}
+
+// ServedPromptRecordProvenanceServedPromptProvenancePage includes the requested fields of the GraphQL type ServedPromptProvenancePage.
+type ServedPromptRecordProvenanceServedPromptProvenancePage struct {
+	Total int                                                                                       `json:"total"`
+	Items []*ServedPromptRecordProvenanceServedPromptProvenancePageItemsServedPromptProvenanceEntry `json:"items"`
+}
+
+// GetTotal returns ServedPromptRecordProvenanceServedPromptProvenancePage.Total, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecordProvenanceServedPromptProvenancePage) GetTotal() int { return v.Total }
+
+// GetItems returns ServedPromptRecordProvenanceServedPromptProvenancePage.Items, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecordProvenanceServedPromptProvenancePage) GetItems() []*ServedPromptRecordProvenanceServedPromptProvenancePageItemsServedPromptProvenanceEntry {
+	return v.Items
+}
+
+// ServedPromptRecordProvenanceServedPromptProvenancePageItemsServedPromptProvenanceEntry includes the requested fields of the GraphQL type ServedPromptProvenanceEntry.
+// The GraphQL type's documentation follows.
+//
+// #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: one entry of a served revision's provenance. Ids, revisions and hashes only: never a loc, a
+// title, a node or text, so reading provenance hands the caller no included part. pruned is true when that revision is
+// no longer retained.
+type ServedPromptRecordProvenanceServedPromptProvenancePageItemsServedPromptProvenanceEntry struct {
+	NodeId string `json:"nodeId"`
+	RevSeq int    `json:"revSeq"`
+	Hash   string `json:"hash"`
+	Pruned bool   `json:"pruned"`
+}
+
+// GetNodeId returns ServedPromptRecordProvenanceServedPromptProvenancePageItemsServedPromptProvenanceEntry.NodeId, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecordProvenanceServedPromptProvenancePageItemsServedPromptProvenanceEntry) GetNodeId() string {
+	return v.NodeId
+}
+
+// GetRevSeq returns ServedPromptRecordProvenanceServedPromptProvenancePageItemsServedPromptProvenanceEntry.RevSeq, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecordProvenanceServedPromptProvenancePageItemsServedPromptProvenanceEntry) GetRevSeq() int {
+	return v.RevSeq
+}
+
+// GetHash returns ServedPromptRecordProvenanceServedPromptProvenancePageItemsServedPromptProvenanceEntry.Hash, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecordProvenanceServedPromptProvenancePageItemsServedPromptProvenanceEntry) GetHash() string {
+	return v.Hash
+}
+
+// GetPruned returns ServedPromptRecordProvenanceServedPromptProvenancePageItemsServedPromptProvenanceEntry.Pruned, and is useful for accessing the field via an interface.
+func (v *ServedPromptRecordProvenanceServedPromptProvenancePageItemsServedPromptProvenanceEntry) GetPruned() bool {
+	return v.Pruned
+}
+
 // ServerInfoResponse is returned by ServerInfo on success.
 type ServerInfoResponse struct {
 	// Identity of the hadron-server this GraphQL endpoint is bound to: the
@@ -44174,9 +47520,6 @@ func (v *SetAgentBaseSetAgentBaseAgent) GetSystemMemoryId() *string {
 	return v.AgentFields.SystemMemoryId
 }
 
-// GetSystemPrompt returns SetAgentBaseSetAgentBaseAgent.SystemPrompt, and is useful for accessing the field via an interface.
-func (v *SetAgentBaseSetAgentBaseAgent) GetSystemPrompt() *string { return v.AgentFields.SystemPrompt }
-
 // GetTasksIndexRef returns SetAgentBaseSetAgentBaseAgent.TasksIndexRef, and is useful for accessing the field via an interface.
 func (v *SetAgentBaseSetAgentBaseAgent) GetTasksIndexRef() *string {
 	return v.AgentFields.TasksIndexRef
@@ -44264,8 +47607,6 @@ type __premarshalSetAgentBaseSetAgentBaseAgent struct {
 
 	SystemMemoryId *string `json:"systemMemoryId"`
 
-	SystemPrompt *string `json:"systemPrompt"`
-
 	TasksIndexRef *string `json:"tasksIndexRef"`
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
@@ -44309,7 +47650,6 @@ func (v *SetAgentBaseSetAgentBaseAgent) __premarshalJSON() (*__premarshalSetAgen
 	retval.OrganizationId = v.AgentFields.OrganizationId
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
-	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
@@ -44390,11 +47730,6 @@ func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetSurfaces() []string {
 // GetSystemMemoryId returns SetAgentBootPromptSetAgentBootPromptAgent.SystemMemoryId, and is useful for accessing the field via an interface.
 func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetSystemMemoryId() *string {
 	return v.AgentFields.SystemMemoryId
-}
-
-// GetSystemPrompt returns SetAgentBootPromptSetAgentBootPromptAgent.SystemPrompt, and is useful for accessing the field via an interface.
-func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetSystemPrompt() *string {
-	return v.AgentFields.SystemPrompt
 }
 
 // GetTasksIndexRef returns SetAgentBootPromptSetAgentBootPromptAgent.TasksIndexRef, and is useful for accessing the field via an interface.
@@ -44496,8 +47831,6 @@ type __premarshalSetAgentBootPromptSetAgentBootPromptAgent struct {
 
 	SystemMemoryId *string `json:"systemMemoryId"`
 
-	SystemPrompt *string `json:"systemPrompt"`
-
 	TasksIndexRef *string `json:"tasksIndexRef"`
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
@@ -44541,7 +47874,6 @@ func (v *SetAgentBootPromptSetAgentBootPromptAgent) __premarshalJSON() (*__prema
 	retval.OrganizationId = v.AgentFields.OrganizationId
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
-	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
@@ -44618,11 +47950,6 @@ func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetSurfaces() []string {
 // GetSystemMemoryId returns SetAgentIndexRefsSetAgentIndexRefsAgent.SystemMemoryId, and is useful for accessing the field via an interface.
 func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetSystemMemoryId() *string {
 	return v.AgentFields.SystemMemoryId
-}
-
-// GetSystemPrompt returns SetAgentIndexRefsSetAgentIndexRefsAgent.SystemPrompt, and is useful for accessing the field via an interface.
-func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetSystemPrompt() *string {
-	return v.AgentFields.SystemPrompt
 }
 
 // GetTasksIndexRef returns SetAgentIndexRefsSetAgentIndexRefsAgent.TasksIndexRef, and is useful for accessing the field via an interface.
@@ -44720,8 +48047,6 @@ type __premarshalSetAgentIndexRefsSetAgentIndexRefsAgent struct {
 
 	SystemMemoryId *string `json:"systemMemoryId"`
 
-	SystemPrompt *string `json:"systemPrompt"`
-
 	TasksIndexRef *string `json:"tasksIndexRef"`
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
@@ -44765,7 +48090,6 @@ func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) __premarshalJSON() (*__premars
 	retval.OrganizationId = v.AgentFields.OrganizationId
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
-	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
@@ -45095,11 +48419,6 @@ func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetPrompt() *string {
 	return v.WorkerFields.Prompt
 }
 
-// GetPromptOverride returns SetWorkerBootPromptSetWorkerBootPromptWorker.PromptOverride, and is useful for accessing the field via an interface.
-func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetPromptOverride() *string {
-	return v.WorkerFields.PromptOverride
-}
-
 // GetSignature returns SetWorkerBootPromptSetWorkerBootPromptWorker.Signature, and is useful for accessing the field via an interface.
 func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetSignature() *string {
 	return v.WorkerFields.Signature
@@ -45228,8 +48547,6 @@ type __premarshalSetWorkerBootPromptSetWorkerBootPromptWorker struct {
 
 	Prompt *string `json:"prompt"`
 
-	PromptOverride *string `json:"promptOverride"`
-
 	Signature *string `json:"signature"`
 
 	Trailer *string `json:"trailer"`
@@ -45285,7 +48602,6 @@ func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) __premarshalJSON() (*__pr
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
-	retval.PromptOverride = v.WorkerFields.PromptOverride
 	retval.Signature = v.WorkerFields.Signature
 	retval.Trailer = v.WorkerFields.Trailer
 	retval.BootPromptRef = v.WorkerFields.BootPromptRef
@@ -45380,11 +48696,6 @@ func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetRole() *string { return 
 // GetPrompt returns SetWorkerReportsToSetWorkerReportsToWorker.Prompt, and is useful for accessing the field via an interface.
 func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetPrompt() *string {
 	return v.WorkerFields.Prompt
-}
-
-// GetPromptOverride returns SetWorkerReportsToSetWorkerReportsToWorker.PromptOverride, and is useful for accessing the field via an interface.
-func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetPromptOverride() *string {
-	return v.WorkerFields.PromptOverride
 }
 
 // GetSignature returns SetWorkerReportsToSetWorkerReportsToWorker.Signature, and is useful for accessing the field via an interface.
@@ -45513,8 +48824,6 @@ type __premarshalSetWorkerReportsToSetWorkerReportsToWorker struct {
 
 	Prompt *string `json:"prompt"`
 
-	PromptOverride *string `json:"promptOverride"`
-
 	Signature *string `json:"signature"`
 
 	Trailer *string `json:"trailer"`
@@ -45570,7 +48879,6 @@ func (v *SetWorkerReportsToSetWorkerReportsToWorker) __premarshalJSON() (*__prem
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
-	retval.PromptOverride = v.WorkerFields.PromptOverride
 	retval.Signature = v.WorkerFields.Signature
 	retval.Trailer = v.WorkerFields.Trailer
 	retval.BootPromptRef = v.WorkerFields.BootPromptRef
@@ -47603,6 +50911,31 @@ var AllSyncStatus = []SyncStatus{
 	SyncStatusOk,
 	SyncStatusPending,
 	SyncStatusSyncing,
+}
+
+// #1708 — which task event a TASK reason is for.
+type TaskWakeEvent string
+
+const (
+	// An unacknowledged alarm's currently-woken chain position (hrn:node:hadronmemory.com:specs:cor:agt:050:19). Delivering it never acknowledges the alarm.
+	TaskWakeEventAlarm    TaskWakeEvent = "ALARM"
+	TaskWakeEventAssigned TaskWakeEvent = "ASSIGNED"
+	// A child task finished; the reason names the child (hrn:node:hadronmemory.com:specs:cor:agt:050:16).
+	TaskWakeEventChildFinished TaskWakeEvent = "CHILD_FINISHED"
+	// #1709 — the task was cancelled and asks its assignee to end its session (hrn:node:hadronmemory.com:specs:cor:agt:050:10). Due while that session is open and the platform has not yet ended it through a host.
+	TaskWakeEventEndSession TaskWakeEvent = "END_SESSION"
+	// The platform's matcher assigned it (hrn:node:hadronmemory.com:specs:cor:agt:060:06).
+	TaskWakeEventMatched    TaskWakeEvent = "MATCHED"
+	TaskWakeEventReassigned TaskWakeEvent = "REASSIGNED"
+)
+
+var AllTaskWakeEvent = []TaskWakeEvent{
+	TaskWakeEventAlarm,
+	TaskWakeEventAssigned,
+	TaskWakeEventChildFinished,
+	TaskWakeEventEndSession,
+	TaskWakeEventMatched,
+	TaskWakeEventReassigned,
 }
 
 // TeamAppIdentityApp includes the requested fields of the GraphQL type App.
@@ -49984,8 +53317,6 @@ type TeamRoleFields struct {
 	// Runs Query.agent's own read gate and masks to null on deny (the #552
 	// posture), like Worker.agent.
 	RoleAgent *TeamRoleFieldsRoleAgent `json:"roleAgent"`
-	// Always null. The name-placeholder check was retired with the old variable logic (#2049).
-	HasNamePlaceholder *bool `json:"hasNamePlaceholder"`
 }
 
 // GetRole returns TeamRoleFields.Role, and is useful for accessing the field via an interface.
@@ -50002,9 +53333,6 @@ func (v *TeamRoleFields) GetDescription() *string { return v.Description }
 
 // GetRoleAgent returns TeamRoleFields.RoleAgent, and is useful for accessing the field via an interface.
 func (v *TeamRoleFields) GetRoleAgent() *TeamRoleFieldsRoleAgent { return v.RoleAgent }
-
-// GetHasNamePlaceholder returns TeamRoleFields.HasNamePlaceholder, and is useful for accessing the field via an interface.
-func (v *TeamRoleFields) GetHasNamePlaceholder() *bool { return v.HasNamePlaceholder }
 
 // TeamRoleFieldsRoleAgent includes the requested fields of the GraphQL type Agent.
 // The GraphQL type's documentation follows.
@@ -50099,11 +53427,6 @@ func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) GetRoleAgent() *TeamRoleF
 	return v.TeamRoleFields.RoleAgent
 }
 
-// GetHasNamePlaceholder returns TeamRolesTeamRolesTeamRolesPageItemsTeamRole.HasNamePlaceholder, and is useful for accessing the field via an interface.
-func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) GetHasNamePlaceholder() *bool {
-	return v.TeamRoleFields.HasNamePlaceholder
-}
-
 func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -50139,8 +53462,6 @@ type __premarshalTeamRolesTeamRolesTeamRolesPageItemsTeamRole struct {
 	Description *string `json:"description"`
 
 	RoleAgent *TeamRoleFieldsRoleAgent `json:"roleAgent"`
-
-	HasNamePlaceholder *bool `json:"hasNamePlaceholder"`
 }
 
 func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) MarshalJSON() ([]byte, error) {
@@ -50159,7 +53480,6 @@ func (v *TeamRolesTeamRolesTeamRolesPageItemsTeamRole) __premarshalJSON() (*__pr
 	retval.NodeId = v.TeamRoleFields.NodeId
 	retval.Description = v.TeamRoleFields.Description
 	retval.RoleAgent = v.TeamRoleFields.RoleAgent
-	retval.HasNamePlaceholder = v.TeamRoleFields.HasNamePlaceholder
 	return &retval, nil
 }
 
@@ -54133,9 +57453,6 @@ func (v *UpdateAgentUpdateAgent) GetSurfaces() []string { return v.AgentFields.S
 // GetSystemMemoryId returns UpdateAgentUpdateAgent.SystemMemoryId, and is useful for accessing the field via an interface.
 func (v *UpdateAgentUpdateAgent) GetSystemMemoryId() *string { return v.AgentFields.SystemMemoryId }
 
-// GetSystemPrompt returns UpdateAgentUpdateAgent.SystemPrompt, and is useful for accessing the field via an interface.
-func (v *UpdateAgentUpdateAgent) GetSystemPrompt() *string { return v.AgentFields.SystemPrompt }
-
 // GetTasksIndexRef returns UpdateAgentUpdateAgent.TasksIndexRef, and is useful for accessing the field via an interface.
 func (v *UpdateAgentUpdateAgent) GetTasksIndexRef() *string { return v.AgentFields.TasksIndexRef }
 
@@ -54217,8 +57534,6 @@ type __premarshalUpdateAgentUpdateAgent struct {
 
 	SystemMemoryId *string `json:"systemMemoryId"`
 
-	SystemPrompt *string `json:"systemPrompt"`
-
 	TasksIndexRef *string `json:"tasksIndexRef"`
 
 	ProcessesIndexRef *string `json:"processesIndexRef"`
@@ -54262,7 +57577,6 @@ func (v *UpdateAgentUpdateAgent) __premarshalJSON() (*__premarshalUpdateAgentUpd
 	retval.OrganizationId = v.AgentFields.OrganizationId
 	retval.Surfaces = v.AgentFields.Surfaces
 	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
-	retval.SystemPrompt = v.AgentFields.SystemPrompt
 	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
 	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
 	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
@@ -58749,11 +62063,6 @@ func (v *UpdateTeamRoleMetaUpdateTeamRole) GetRoleAgent() *TeamRoleFieldsRoleAge
 	return v.TeamRoleFields.RoleAgent
 }
 
-// GetHasNamePlaceholder returns UpdateTeamRoleMetaUpdateTeamRole.HasNamePlaceholder, and is useful for accessing the field via an interface.
-func (v *UpdateTeamRoleMetaUpdateTeamRole) GetHasNamePlaceholder() *bool {
-	return v.TeamRoleFields.HasNamePlaceholder
-}
-
 func (v *UpdateTeamRoleMetaUpdateTeamRole) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -58789,8 +62098,6 @@ type __premarshalUpdateTeamRoleMetaUpdateTeamRole struct {
 	Description *string `json:"description"`
 
 	RoleAgent *TeamRoleFieldsRoleAgent `json:"roleAgent"`
-
-	HasNamePlaceholder *bool `json:"hasNamePlaceholder"`
 }
 
 func (v *UpdateTeamRoleMetaUpdateTeamRole) MarshalJSON() ([]byte, error) {
@@ -58809,7 +62116,6 @@ func (v *UpdateTeamRoleMetaUpdateTeamRole) __premarshalJSON() (*__premarshalUpda
 	retval.NodeId = v.TeamRoleFields.NodeId
 	retval.Description = v.TeamRoleFields.Description
 	retval.RoleAgent = v.TeamRoleFields.RoleAgent
-	retval.HasNamePlaceholder = v.TeamRoleFields.HasNamePlaceholder
 	return &retval, nil
 }
 
@@ -59308,37 +62614,6 @@ func (v *UpdateUserRolesUpdateUserRolesUser) __premarshalJSON() (*__premarshalUp
 	return &retval, nil
 }
 
-// UpdateWorkerResponse is returned by UpdateWorker on success.
-type UpdateWorkerResponse struct {
-	// #1010 — amend a casting's individuality after the fact.
-	//
-	// `promptOverride` is the per-worker escape hatch (cor:agt:020:01), but it
-	// could only be set at CASTING time — fixing a casting's individuality at the
-	// one moment nobody yet knows what makes it individual. The role agent's
-	// `systemPrompt` cannot stand in (it is SHARED by every casting of that
-	// role), and re-casting is barred by `WORKER_IN_USE` for any worker that has
-	// done work — precisely the ones with an identity to record.
-	//
-	// Signature/trailer edits require an App manager; a bound worker is provisionally refused (H26).
-	// Omitted preserves, null refuses, whitespace-only becomes empty text; other text is raw, max 2000 characters, no NUL.
-	// A mixed update is atomic. These values reach the next compose/bind via S4.
-	//
-	// `name` is permanent by law (hrn:node:hadronmemory.com:specs:cor:agt:020:02). The agent
-	// (and with it the role) is changed by changeWorkerAgent, not here. OMITTING promptOverride
-	// preserves it; explicit `null` or a blank string CLEARS it, matching the
-	// nullable column and castWorker's blank-is-absent normalization.
-	//
-	// Refuses WORKER_RETIRED for a retired worker: an override is briefing text
-	// delivered at bind time, and a retired worker takes no new bindings, so the
-	// edit could never reach anyone.
-	//
-	// promptOverride alone keeps castWorker staffing authorization. workerRef is the worker's id or URN (#991).
-	UpdateWorker *UpdateWorkerUpdateWorker `json:"updateWorker"`
-}
-
-// GetUpdateWorker returns UpdateWorkerResponse.UpdateWorker, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerResponse) GetUpdateWorker() *UpdateWorkerUpdateWorker { return v.UpdateWorker }
-
 // UpdateWorkerSigningResponse is returned by UpdateWorkerSigning on success.
 type UpdateWorkerSigningResponse struct {
 	// #1010 — amend a casting's individuality after the fact.
@@ -59422,11 +62697,6 @@ func (v *UpdateWorkerSigningUpdateWorker) GetRole() *string { return v.WorkerFie
 
 // GetPrompt returns UpdateWorkerSigningUpdateWorker.Prompt, and is useful for accessing the field via an interface.
 func (v *UpdateWorkerSigningUpdateWorker) GetPrompt() *string { return v.WorkerFields.Prompt }
-
-// GetPromptOverride returns UpdateWorkerSigningUpdateWorker.PromptOverride, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerSigningUpdateWorker) GetPromptOverride() *string {
-	return v.WorkerFields.PromptOverride
-}
 
 // GetSignature returns UpdateWorkerSigningUpdateWorker.Signature, and is useful for accessing the field via an interface.
 func (v *UpdateWorkerSigningUpdateWorker) GetSignature() *string { return v.WorkerFields.Signature }
@@ -59536,8 +62806,6 @@ type __premarshalUpdateWorkerSigningUpdateWorker struct {
 
 	Prompt *string `json:"prompt"`
 
-	PromptOverride *string `json:"promptOverride"`
-
 	Signature *string `json:"signature"`
 
 	Trailer *string `json:"trailer"`
@@ -59593,236 +62861,6 @@ func (v *UpdateWorkerSigningUpdateWorker) __premarshalJSON() (*__premarshalUpdat
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
-	retval.PromptOverride = v.WorkerFields.PromptOverride
-	retval.Signature = v.WorkerFields.Signature
-	retval.Trailer = v.WorkerFields.Trailer
-	retval.BootPromptRef = v.WorkerFields.BootPromptRef
-	retval.BootPromptTargetDeleted = v.WorkerFields.BootPromptTargetDeleted
-	retval.Repos = v.WorkerFields.Repos
-	retval.MemoryId = v.WorkerFields.MemoryId
-	retval.Family = v.WorkerFields.Family
-	retval.HeldByUserId = v.WorkerFields.HeldByUserId
-	retval.HeldAt = v.WorkerFields.HeldAt
-	retval.HasLiveSession = v.WorkerFields.HasLiveSession
-	retval.LastActiveAt = v.WorkerFields.LastActiveAt
-	retval.CheckStatus = v.WorkerFields.CheckStatus
-	retval.RetiredAt = v.WorkerFields.RetiredAt
-	retval.RetiredBy = v.WorkerFields.RetiredBy
-	retval.CreatedAt = v.WorkerFields.CreatedAt
-	retval.CreatedBy = v.WorkerFields.CreatedBy
-	return &retval, nil
-}
-
-// UpdateWorkerUpdateWorker includes the requested fields of the GraphQL type Worker.
-// The GraphQL type's documentation follows.
-//
-// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
-// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
-// The Agent carries the reusable persona dressing; the Worker is the local
-// named identity that does attributable work. Names are unique per App,
-// case-insensitively, forever (retirement and uninstall never free them —
-// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
-// by its id or by the computed `urn` below (#991).
-type UpdateWorkerUpdateWorker struct {
-	WorkerFields `json:"-"`
-}
-
-// GetId returns UpdateWorkerUpdateWorker.Id, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetId() string { return v.WorkerFields.Id }
-
-// GetUrn returns UpdateWorkerUpdateWorker.Urn, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetUrn() *string { return v.WorkerFields.Urn }
-
-// GetPortalUrl returns UpdateWorkerUpdateWorker.PortalUrl, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetPortalUrl() *string { return v.WorkerFields.PortalUrl }
-
-// GetSlug returns UpdateWorkerUpdateWorker.Slug, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetSlug() string { return v.WorkerFields.Slug }
-
-// GetAppId returns UpdateWorkerUpdateWorker.AppId, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetAppId() string { return v.WorkerFields.AppId }
-
-// GetAgentId returns UpdateWorkerUpdateWorker.AgentId, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetAgentId() string { return v.WorkerFields.AgentId }
-
-// GetName returns UpdateWorkerUpdateWorker.Name, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetName() string { return v.WorkerFields.Name }
-
-// GetReportsTo returns UpdateWorkerUpdateWorker.ReportsTo, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetReportsTo() *WorkerFieldsReportsToWorker {
-	return v.WorkerFields.ReportsTo
-}
-
-// GetReportsToRetired returns UpdateWorkerUpdateWorker.ReportsToRetired, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetReportsToRetired() bool { return v.WorkerFields.ReportsToRetired }
-
-// GetRole returns UpdateWorkerUpdateWorker.Role, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetRole() *string { return v.WorkerFields.Role }
-
-// GetPrompt returns UpdateWorkerUpdateWorker.Prompt, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetPrompt() *string { return v.WorkerFields.Prompt }
-
-// GetPromptOverride returns UpdateWorkerUpdateWorker.PromptOverride, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetPromptOverride() *string { return v.WorkerFields.PromptOverride }
-
-// GetSignature returns UpdateWorkerUpdateWorker.Signature, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetSignature() *string { return v.WorkerFields.Signature }
-
-// GetTrailer returns UpdateWorkerUpdateWorker.Trailer, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetTrailer() *string { return v.WorkerFields.Trailer }
-
-// GetBootPromptRef returns UpdateWorkerUpdateWorker.BootPromptRef, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetBootPromptRef() *string { return v.WorkerFields.BootPromptRef }
-
-// GetBootPromptTargetDeleted returns UpdateWorkerUpdateWorker.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetBootPromptTargetDeleted() *bool {
-	return v.WorkerFields.BootPromptTargetDeleted
-}
-
-// GetRepos returns UpdateWorkerUpdateWorker.Repos, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetRepos() []string { return v.WorkerFields.Repos }
-
-// GetMemoryId returns UpdateWorkerUpdateWorker.MemoryId, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetMemoryId() *string { return v.WorkerFields.MemoryId }
-
-// GetFamily returns UpdateWorkerUpdateWorker.Family, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetFamily() *string { return v.WorkerFields.Family }
-
-// GetHeldByUserId returns UpdateWorkerUpdateWorker.HeldByUserId, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetHeldByUserId() *string { return v.WorkerFields.HeldByUserId }
-
-// GetHeldAt returns UpdateWorkerUpdateWorker.HeldAt, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetHeldAt() *string { return v.WorkerFields.HeldAt }
-
-// GetHasLiveSession returns UpdateWorkerUpdateWorker.HasLiveSession, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetHasLiveSession() *bool { return v.WorkerFields.HasLiveSession }
-
-// GetLastActiveAt returns UpdateWorkerUpdateWorker.LastActiveAt, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetLastActiveAt() *string { return v.WorkerFields.LastActiveAt }
-
-// GetCheckStatus returns UpdateWorkerUpdateWorker.CheckStatus, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetCheckStatus() *WorkerFieldsCheckStatusWorkerCheckStatus {
-	return v.WorkerFields.CheckStatus
-}
-
-// GetRetiredAt returns UpdateWorkerUpdateWorker.RetiredAt, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetRetiredAt() *string { return v.WorkerFields.RetiredAt }
-
-// GetRetiredBy returns UpdateWorkerUpdateWorker.RetiredBy, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetRetiredBy() *string { return v.WorkerFields.RetiredBy }
-
-// GetCreatedAt returns UpdateWorkerUpdateWorker.CreatedAt, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetCreatedAt() string { return v.WorkerFields.CreatedAt }
-
-// GetCreatedBy returns UpdateWorkerUpdateWorker.CreatedBy, and is useful for accessing the field via an interface.
-func (v *UpdateWorkerUpdateWorker) GetCreatedBy() *string { return v.WorkerFields.CreatedBy }
-
-func (v *UpdateWorkerUpdateWorker) UnmarshalJSON(b []byte) error {
-
-	if string(b) == "null" {
-		return nil
-	}
-
-	var firstPass struct {
-		*UpdateWorkerUpdateWorker
-		graphql.NoUnmarshalJSON
-	}
-	firstPass.UpdateWorkerUpdateWorker = v
-
-	err := json.Unmarshal(b, &firstPass)
-	if err != nil {
-		return err
-	}
-
-	err = json.Unmarshal(
-		b, &v.WorkerFields)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-type __premarshalUpdateWorkerUpdateWorker struct {
-	Id string `json:"id"`
-
-	Urn *string `json:"urn"`
-
-	PortalUrl *string `json:"portalUrl"`
-
-	Slug string `json:"slug"`
-
-	AppId string `json:"appId"`
-
-	AgentId string `json:"agentId"`
-
-	Name string `json:"name"`
-
-	ReportsTo *WorkerFieldsReportsToWorker `json:"reportsTo"`
-
-	ReportsToRetired bool `json:"reportsToRetired"`
-
-	Role *string `json:"role"`
-
-	Prompt *string `json:"prompt"`
-
-	PromptOverride *string `json:"promptOverride"`
-
-	Signature *string `json:"signature"`
-
-	Trailer *string `json:"trailer"`
-
-	BootPromptRef *string `json:"bootPromptRef"`
-
-	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
-
-	Repos []string `json:"repos"`
-
-	MemoryId *string `json:"memoryId"`
-
-	Family *string `json:"family"`
-
-	HeldByUserId *string `json:"heldByUserId"`
-
-	HeldAt *string `json:"heldAt"`
-
-	HasLiveSession *bool `json:"hasLiveSession"`
-
-	LastActiveAt *string `json:"lastActiveAt"`
-
-	CheckStatus *WorkerFieldsCheckStatusWorkerCheckStatus `json:"checkStatus"`
-
-	RetiredAt *string `json:"retiredAt"`
-
-	RetiredBy *string `json:"retiredBy"`
-
-	CreatedAt string `json:"createdAt"`
-
-	CreatedBy *string `json:"createdBy"`
-}
-
-func (v *UpdateWorkerUpdateWorker) MarshalJSON() ([]byte, error) {
-	premarshaled, err := v.__premarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(premarshaled)
-}
-
-func (v *UpdateWorkerUpdateWorker) __premarshalJSON() (*__premarshalUpdateWorkerUpdateWorker, error) {
-	var retval __premarshalUpdateWorkerUpdateWorker
-
-	retval.Id = v.WorkerFields.Id
-	retval.Urn = v.WorkerFields.Urn
-	retval.PortalUrl = v.WorkerFields.PortalUrl
-	retval.Slug = v.WorkerFields.Slug
-	retval.AppId = v.WorkerFields.AppId
-	retval.AgentId = v.WorkerFields.AgentId
-	retval.Name = v.WorkerFields.Name
-	retval.ReportsTo = v.WorkerFields.ReportsTo
-	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
-	retval.Role = v.WorkerFields.Role
-	retval.Prompt = v.WorkerFields.Prompt
-	retval.PromptOverride = v.WorkerFields.PromptOverride
 	retval.Signature = v.WorkerFields.Signature
 	retval.Trailer = v.WorkerFields.Trailer
 	retval.BootPromptRef = v.WorkerFields.BootPromptRef
@@ -60238,6 +63276,24 @@ func (v *VerifyNodeVerifyNodeNodeIntegrityCheck) GetExpectedHash() *string { ret
 
 // GetActualHash returns VerifyNodeVerifyNodeNodeIntegrityCheck.ActualHash, and is useful for accessing the field via an interface.
 func (v *VerifyNodeVerifyNodeNodeIntegrityCheck) GetActualHash() string { return v.ActualHash }
+
+type WakeKind string
+
+const (
+	WakeKindMention WakeKind = "MENTION"
+	// #2022 — a stop-signal notice (hrn:node:hadronmemory.com:specs:cor:agt:090:04): ahead of everything else, past the floor, the busy delay and the budget's refusal. Offered only to a dueWakes call that lists STOP in accepts (#2169).
+	WakeKindStop WakeKind = "STOP"
+	// #1708 — a task event the worker must act on (an assignment, a child's finish, an alarm's woken position, #1709 a request to end its session). Wakes at once, like a mention.
+	WakeKindTask WakeKind = "TASK"
+	WakeKindTick WakeKind = "TICK"
+)
+
+var AllWakeKind = []WakeKind{
+	WakeKindMention,
+	WakeKindStop,
+	WakeKindTask,
+	WakeKindTick,
+}
 
 // WithdrawSigningRequestResponse is returned by WithdrawSigningRequest on success.
 type WithdrawSigningRequestResponse struct {
@@ -60726,8 +63782,6 @@ type WorkerFields struct {
 	// paragraph. Null when the agent carries no template and the worker no
 	// override.
 	Prompt *string `json:"prompt"`
-	// Per-worker individuality layered over the agent's template prompt.
-	PromptOverride *string `json:"promptOverride"`
 	// Per-worker signature template, masked for nonreaders (hrn:node:hadronmemory.com:specs:cor:agt:040:04).
 	Signature *string `json:"signature"`
 	// Per-worker commit trailer template, masked for nonreaders (hrn:node:hadronmemory.com:specs:cor:agt:040:04).
@@ -60863,9 +63917,6 @@ func (v *WorkerFields) GetRole() *string { return v.Role }
 
 // GetPrompt returns WorkerFields.Prompt, and is useful for accessing the field via an interface.
 func (v *WorkerFields) GetPrompt() *string { return v.Prompt }
-
-// GetPromptOverride returns WorkerFields.PromptOverride, and is useful for accessing the field via an interface.
-func (v *WorkerFields) GetPromptOverride() *string { return v.PromptOverride }
 
 // GetSignature returns WorkerFields.Signature, and is useful for accessing the field via an interface.
 func (v *WorkerFields) GetSignature() *string { return v.Signature }
@@ -61280,20 +64331,16 @@ func (v *WorkerReportingWorkerReportsToWorker) __premarshalJSON() (*__premarshal
 	return &retval, nil
 }
 
-// The ROSTER projection (#459): WorkerFields minus `prompt`.
+// WorkerRosterFields includes the GraphQL fields of Worker requested by the fragment WorkerRosterFields.
+// The GraphQL type's documentation follows.
 //
-// `prompt` is the resolved boot briefing — multi-KB per worker. It is a detail
-// of ONE worker, not something you scan a roster for, and the primary consumer
-// of `worker list --json` is an agent piping the output into context. Seven
-// workers meant seven briefings to answer "who is on staff".
-//
-// This mirrors TeamSessionFields, which already refuses ...WorkerFields for the
-// same reason and says so in its own comment. `worker get` remains the prompt
-// surface, which is what the shipped task nodes already tell readers.
-//
-// Deliberately KEEPS promptOverride: it is the short per-worker individuality
-// (#1010), not the composed briefing, and dropping it would widen the contract
-// break for no stated benefit.
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
 type WorkerRosterFields struct {
 	Id string `json:"id"`
 	// hrn:worker:<root>:<app-slug>:<slug> (#991) — computed from the App's URN
@@ -61328,8 +64375,6 @@ type WorkerRosterFields struct {
 	ReportsToRetired bool `json:"reportsToRetired"`
 	// The cast-list role this filling answers ('backend-engineer').
 	Role *string `json:"role"`
-	// Per-worker individuality layered over the agent's template prompt.
-	PromptOverride *string `json:"promptOverride"`
 	// #1024 — the repo affinity of this worker's ROLE, resolved so a client that
 	// already holds the worker needs no second round-trip to teamRoles. Clients
 	// may use it to warn on a role/repo mismatch at session start; the server
@@ -61459,9 +64504,6 @@ func (v *WorkerRosterFields) GetReportsToRetired() bool { return v.ReportsToReti
 // GetRole returns WorkerRosterFields.Role, and is useful for accessing the field via an interface.
 func (v *WorkerRosterFields) GetRole() *string { return v.Role }
 
-// GetPromptOverride returns WorkerRosterFields.PromptOverride, and is useful for accessing the field via an interface.
-func (v *WorkerRosterFields) GetPromptOverride() *string { return v.PromptOverride }
-
 // GetRepos returns WorkerRosterFields.Repos, and is useful for accessing the field via an interface.
 func (v *WorkerRosterFields) GetRepos() []string { return v.Repos }
 
@@ -61577,6 +64619,192 @@ func (v *WorkerRosterFieldsReportsToWorker) __premarshalJSON() (*__premarshalWor
 	return &retval, nil
 }
 
+// WorkerServedPromptResponse is returned by WorkerServedPrompt on success.
+type WorkerServedPromptResponse struct {
+	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
+	// NAME (#1015), the ergonomic handle a human already knows. The name form is
+	// ADDITIVE: it is activated by appRef, since a name is unique only within an
+	// App. Without appRef the ref must be an id or URN, and anything else refuses
+	// WORKER_NOT_FOUND as before. An id or URN wins over appRef rather than being
+	// checked against it, so a typo'd URN never degrades into a roster search.
+	//
+	// Selecting `prompt` re-renders the worker's boot briefing live from the
+	// role agent's template — the read that lets an agent recover a briefing it
+	// lost to a context compaction, instead of opening a second session or
+	// forcing a takeover of itself.
+	//
+	// Authorization: an AppMember of the worker's App (any role), an org member
+	// with CONTRIBUTOR+ on its org, the owner of a user-owned App, or the App's
+	// own key. For the NAME form the gate runs BEFORE the lookup and a denial is
+	// reported as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	Worker *WorkerServedPromptWorker `json:"worker"`
+}
+
+// GetWorker returns WorkerServedPromptResponse.Worker, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptResponse) GetWorker() *WorkerServedPromptWorker { return v.Worker }
+
+// WorkerServedPromptWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type WorkerServedPromptWorker struct {
+	// #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: the boot prompt served to this worker's open session. Readable by whoever may read the worker's
+	// internals; null for anyone else, when no session is open, and while boot-prompt serving is off.
+	ServedPrompt *WorkerServedPromptWorkerServedPrompt `json:"servedPrompt"`
+}
+
+// GetServedPrompt returns WorkerServedPromptWorker.ServedPrompt, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptWorker) GetServedPrompt() *WorkerServedPromptWorkerServedPrompt {
+	return v.ServedPrompt
+}
+
+// WorkerServedPromptWorkerServedPrompt includes the requested fields of the GraphQL type ServedPrompt.
+// The GraphQL type's documentation follows.
+//
+// #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: what a bind, a chatbot chat or a headless run was given. Immutable platform data, never
+// editable and never exported. Names the compiled revision served by (compiledNodeId, servedRevSeq), the pointer level that
+// chose it, that revision's own provenance and the values the platform variables were filled with. No composed text.
+type WorkerServedPromptWorkerServedPrompt struct {
+	ServedPromptRecord `json:"-"`
+}
+
+// GetId returns WorkerServedPromptWorkerServedPrompt.Id, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptWorkerServedPrompt) GetId() string { return v.ServedPromptRecord.Id }
+
+// GetKind returns WorkerServedPromptWorkerServedPrompt.Kind, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptWorkerServedPrompt) GetKind() ServedPromptKind {
+	return v.ServedPromptRecord.Kind
+}
+
+// GetOrdinal returns WorkerServedPromptWorkerServedPrompt.Ordinal, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptWorkerServedPrompt) GetOrdinal() int { return v.ServedPromptRecord.Ordinal }
+
+// GetPointerLevel returns WorkerServedPromptWorkerServedPrompt.PointerLevel, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptWorkerServedPrompt) GetPointerLevel() ServedPromptPointerLevel {
+	return v.ServedPromptRecord.PointerLevel
+}
+
+// GetCompiledNodeId returns WorkerServedPromptWorkerServedPrompt.CompiledNodeId, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptWorkerServedPrompt) GetCompiledNodeId() string {
+	return v.ServedPromptRecord.CompiledNodeId
+}
+
+// GetCompiledContentHash returns WorkerServedPromptWorkerServedPrompt.CompiledContentHash, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptWorkerServedPrompt) GetCompiledContentHash() string {
+	return v.ServedPromptRecord.CompiledContentHash
+}
+
+// GetServedRevSeq returns WorkerServedPromptWorkerServedPrompt.ServedRevSeq, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptWorkerServedPrompt) GetServedRevSeq() int {
+	return v.ServedPromptRecord.ServedRevSeq
+}
+
+// GetProvenanceRevSeq returns WorkerServedPromptWorkerServedPrompt.ProvenanceRevSeq, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptWorkerServedPrompt) GetProvenanceRevSeq() int {
+	return v.ServedPromptRecord.ProvenanceRevSeq
+}
+
+// GetServedAt returns WorkerServedPromptWorkerServedPrompt.ServedAt, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptWorkerServedPrompt) GetServedAt() string {
+	return v.ServedPromptRecord.ServedAt
+}
+
+// GetVariables returns WorkerServedPromptWorkerServedPrompt.Variables, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptWorkerServedPrompt) GetVariables() json.RawMessage {
+	return v.ServedPromptRecord.Variables
+}
+
+// GetPruned returns WorkerServedPromptWorkerServedPrompt.Pruned, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptWorkerServedPrompt) GetPruned() bool { return v.ServedPromptRecord.Pruned }
+
+// GetProvenance returns WorkerServedPromptWorkerServedPrompt.Provenance, and is useful for accessing the field via an interface.
+func (v *WorkerServedPromptWorkerServedPrompt) GetProvenance() *ServedPromptRecordProvenanceServedPromptProvenancePage {
+	return v.ServedPromptRecord.Provenance
+}
+
+func (v *WorkerServedPromptWorkerServedPrompt) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*WorkerServedPromptWorkerServedPrompt
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.WorkerServedPromptWorkerServedPrompt = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ServedPromptRecord)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalWorkerServedPromptWorkerServedPrompt struct {
+	Id string `json:"id"`
+
+	Kind ServedPromptKind `json:"kind"`
+
+	Ordinal int `json:"ordinal"`
+
+	PointerLevel ServedPromptPointerLevel `json:"pointerLevel"`
+
+	CompiledNodeId string `json:"compiledNodeId"`
+
+	CompiledContentHash string `json:"compiledContentHash"`
+
+	ServedRevSeq int `json:"servedRevSeq"`
+
+	ProvenanceRevSeq int `json:"provenanceRevSeq"`
+
+	ServedAt string `json:"servedAt"`
+
+	Variables json.RawMessage `json:"variables"`
+
+	Pruned bool `json:"pruned"`
+
+	Provenance *ServedPromptRecordProvenanceServedPromptProvenancePage `json:"provenance"`
+}
+
+func (v *WorkerServedPromptWorkerServedPrompt) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *WorkerServedPromptWorkerServedPrompt) __premarshalJSON() (*__premarshalWorkerServedPromptWorkerServedPrompt, error) {
+	var retval __premarshalWorkerServedPromptWorkerServedPrompt
+
+	retval.Id = v.ServedPromptRecord.Id
+	retval.Kind = v.ServedPromptRecord.Kind
+	retval.Ordinal = v.ServedPromptRecord.Ordinal
+	retval.PointerLevel = v.ServedPromptRecord.PointerLevel
+	retval.CompiledNodeId = v.ServedPromptRecord.CompiledNodeId
+	retval.CompiledContentHash = v.ServedPromptRecord.CompiledContentHash
+	retval.ServedRevSeq = v.ServedPromptRecord.ServedRevSeq
+	retval.ProvenanceRevSeq = v.ServedPromptRecord.ProvenanceRevSeq
+	retval.ServedAt = v.ServedPromptRecord.ServedAt
+	retval.Variables = v.ServedPromptRecord.Variables
+	retval.Pruned = v.ServedPromptRecord.Pruned
+	retval.Provenance = v.ServedPromptRecord.Provenance
+	return &retval, nil
+}
+
 // WorkersResponse is returned by Workers on success.
 type WorkersResponse struct {
 	// A team App's STAFF (#974, cor:agt:020:01 — Workers are the staff; the
@@ -61677,11 +64905,6 @@ func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetReportsToRetired() bool 
 // GetRole returns WorkersRosterWorkersWorkersPageItemsWorker.Role, and is useful for accessing the field via an interface.
 func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetRole() *string {
 	return v.WorkerRosterFields.Role
-}
-
-// GetPromptOverride returns WorkersRosterWorkersWorkersPageItemsWorker.PromptOverride, and is useful for accessing the field via an interface.
-func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetPromptOverride() *string {
-	return v.WorkerRosterFields.PromptOverride
 }
 
 // GetRepos returns WorkersRosterWorkersWorkersPageItemsWorker.Repos, and is useful for accessing the field via an interface.
@@ -61800,8 +65023,6 @@ type __premarshalWorkersRosterWorkersWorkersPageItemsWorker struct {
 
 	Role *string `json:"role"`
 
-	PromptOverride *string `json:"promptOverride"`
-
 	Repos []string `json:"repos"`
 
 	MemoryId *string `json:"memoryId"`
@@ -61852,7 +65073,6 @@ func (v *WorkersRosterWorkersWorkersPageItemsWorker) __premarshalJSON() (*__prem
 	retval.ReportsTo = v.WorkerRosterFields.ReportsTo
 	retval.ReportsToRetired = v.WorkerRosterFields.ReportsToRetired
 	retval.Role = v.WorkerRosterFields.Role
-	retval.PromptOverride = v.WorkerRosterFields.PromptOverride
 	retval.Repos = v.WorkerRosterFields.Repos
 	retval.MemoryId = v.WorkerRosterFields.MemoryId
 	retval.HeldByUserId = v.WorkerRosterFields.HeldByUserId
@@ -61936,11 +65156,6 @@ func (v *WorkersWorkersWorkersPageItemsWorker) GetRole() *string { return v.Work
 
 // GetPrompt returns WorkersWorkersWorkersPageItemsWorker.Prompt, and is useful for accessing the field via an interface.
 func (v *WorkersWorkersWorkersPageItemsWorker) GetPrompt() *string { return v.WorkerFields.Prompt }
-
-// GetPromptOverride returns WorkersWorkersWorkersPageItemsWorker.PromptOverride, and is useful for accessing the field via an interface.
-func (v *WorkersWorkersWorkersPageItemsWorker) GetPromptOverride() *string {
-	return v.WorkerFields.PromptOverride
-}
 
 // GetSignature returns WorkersWorkersWorkersPageItemsWorker.Signature, and is useful for accessing the field via an interface.
 func (v *WorkersWorkersWorkersPageItemsWorker) GetSignature() *string {
@@ -62058,8 +65273,6 @@ type __premarshalWorkersWorkersWorkersPageItemsWorker struct {
 
 	Prompt *string `json:"prompt"`
 
-	PromptOverride *string `json:"promptOverride"`
-
 	Signature *string `json:"signature"`
 
 	Trailer *string `json:"trailer"`
@@ -62115,7 +65328,6 @@ func (v *WorkersWorkersWorkersPageItemsWorker) __premarshalJSON() (*__premarshal
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
-	retval.PromptOverride = v.WorkerFields.PromptOverride
 	retval.Signature = v.WorkerFields.Signature
 	retval.Trailer = v.WorkerFields.Trailer
 	retval.BootPromptRef = v.WorkerFields.BootPromptRef
@@ -62154,6 +65366,14 @@ func (v *__AcknowledgeDeliveryBatchesInput) GetBatchIds() []string { return v.Ba
 
 // GetThrough returns __AcknowledgeDeliveryBatchesInput.Through, and is useful for accessing the field via an interface.
 func (v *__AcknowledgeDeliveryBatchesInput) GetThrough() []*BatchThrough { return v.Through }
+
+// __AcknowledgeWakesInput is used internally by genqlient
+type __AcknowledgeWakesInput struct {
+	Proofs []string `json:"proofs"`
+}
+
+// GetProofs returns __AcknowledgeWakesInput.Proofs, and is useful for accessing the field via an interface.
+func (v *__AcknowledgeWakesInput) GetProofs() []string { return v.Proofs }
 
 // __ActionTicketsInput is used internally by genqlient
 type __ActionTicketsInput struct {
@@ -62247,6 +65467,18 @@ func (v *__AgentSchedulesInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __AgentSchedulesInput.Offset, and is useful for accessing the field via an interface.
 func (v *__AgentSchedulesInput) GetOffset() *int { return v.Offset }
 
+// __AgentTaskAddBlockerInput is used internally by genqlient
+type __AgentTaskAddBlockerInput struct {
+	TaskRef        string `json:"taskRef"`
+	BlockerTaskRef string `json:"blockerTaskRef"`
+}
+
+// GetTaskRef returns __AgentTaskAddBlockerInput.TaskRef, and is useful for accessing the field via an interface.
+func (v *__AgentTaskAddBlockerInput) GetTaskRef() string { return v.TaskRef }
+
+// GetBlockerTaskRef returns __AgentTaskAddBlockerInput.BlockerTaskRef, and is useful for accessing the field via an interface.
+func (v *__AgentTaskAddBlockerInput) GetBlockerTaskRef() string { return v.BlockerTaskRef }
+
 // __AgentTaskAssignInput is used internally by genqlient
 type __AgentTaskAssignInput struct {
 	TaskId               string               `json:"taskId"`
@@ -62278,6 +65510,22 @@ type __AgentTaskCreateInput struct {
 
 // GetInput returns __AgentTaskCreateInput.Input, and is useful for accessing the field via an interface.
 func (v *__AgentTaskCreateInput) GetInput() *CreateAgentTaskInput { return v.Input }
+
+// __AgentTaskDependenciesInput is used internally by genqlient
+type __AgentTaskDependenciesInput struct {
+	TaskRef string `json:"taskRef"`
+	Limit   int    `json:"limit"`
+	Offset  int    `json:"offset"`
+}
+
+// GetTaskRef returns __AgentTaskDependenciesInput.TaskRef, and is useful for accessing the field via an interface.
+func (v *__AgentTaskDependenciesInput) GetTaskRef() string { return v.TaskRef }
+
+// GetLimit returns __AgentTaskDependenciesInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AgentTaskDependenciesInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __AgentTaskDependenciesInput.Offset, and is useful for accessing the field via an interface.
+func (v *__AgentTaskDependenciesInput) GetOffset() int { return v.Offset }
 
 // __AgentTaskFinishInput is used internally by genqlient
 type __AgentTaskFinishInput struct {
@@ -62390,6 +65638,30 @@ func (v *__AgentTaskReassignInput) GetAssignee() *AgentTaskPartyInput { return v
 
 // GetCloseSessionWhenDone returns __AgentTaskReassignInput.CloseSessionWhenDone, and is useful for accessing the field via an interface.
 func (v *__AgentTaskReassignInput) GetCloseSessionWhenDone() *bool { return v.CloseSessionWhenDone }
+
+// __AgentTaskRemoveBlockerInput is used internally by genqlient
+type __AgentTaskRemoveBlockerInput struct {
+	TaskRef        string `json:"taskRef"`
+	BlockerTaskRef string `json:"blockerTaskRef"`
+}
+
+// GetTaskRef returns __AgentTaskRemoveBlockerInput.TaskRef, and is useful for accessing the field via an interface.
+func (v *__AgentTaskRemoveBlockerInput) GetTaskRef() string { return v.TaskRef }
+
+// GetBlockerTaskRef returns __AgentTaskRemoveBlockerInput.BlockerTaskRef, and is useful for accessing the field via an interface.
+func (v *__AgentTaskRemoveBlockerInput) GetBlockerTaskRef() string { return v.BlockerTaskRef }
+
+// __AgentTaskSetPriorityInput is used internally by genqlient
+type __AgentTaskSetPriorityInput struct {
+	TaskRef  string `json:"taskRef"`
+	Priority int    `json:"priority"`
+}
+
+// GetTaskRef returns __AgentTaskSetPriorityInput.TaskRef, and is useful for accessing the field via an interface.
+func (v *__AgentTaskSetPriorityInput) GetTaskRef() string { return v.TaskRef }
+
+// GetPriority returns __AgentTaskSetPriorityInput.Priority, and is useful for accessing the field via an interface.
+func (v *__AgentTaskSetPriorityInput) GetPriority() int { return v.Priority }
 
 // __AgentTaskStartInput is used internally by genqlient
 type __AgentTaskStartInput struct {
@@ -62563,6 +65835,22 @@ type __AppMembersInput struct {
 // GetAppRef returns __AppMembersInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__AppMembersInput) GetAppRef() string { return v.AppRef }
 
+// __AppMemoryScopeInput is used internally by genqlient
+type __AppMemoryScopeInput struct {
+	AppRef string `json:"appRef"`
+	Limit  *int   `json:"limit,omitempty"`
+	Offset *int   `json:"offset,omitempty"`
+}
+
+// GetAppRef returns __AppMemoryScopeInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AppMemoryScopeInput) GetAppRef() string { return v.AppRef }
+
+// GetLimit returns __AppMemoryScopeInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AppMemoryScopeInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __AppMemoryScopeInput.Offset, and is useful for accessing the field via an interface.
+func (v *__AppMemoryScopeInput) GetOffset() *int { return v.Offset }
+
 // __AppRunInput is used internally by genqlient
 type __AppRunInput struct {
 	Ref string `json:"ref"`
@@ -62594,6 +65882,14 @@ func (v *__AppRunsInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __AppRunsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__AppRunsInput) GetOffset() *int { return v.Offset }
+
+// __AppScopeAgentNameInput is used internally by genqlient
+type __AppScopeAgentNameInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __AppScopeAgentNameInput.Ref, and is useful for accessing the field via an interface.
+func (v *__AppScopeAgentNameInput) GetRef() string { return v.Ref }
 
 // __ApplyMemoryConfigTemplateInput is used internally by genqlient
 type __ApplyMemoryConfigTemplateInput struct {
@@ -62847,11 +66143,10 @@ func (v *__CancelAppRunInput) GetId() string { return v.Id }
 
 // __CastWorkerInput is used internally by genqlient
 type __CastWorkerInput struct {
-	AppRef         string  `json:"appRef"`
-	AgentRef       *string `json:"agentRef,omitempty"`
-	Role           *string `json:"role,omitempty"`
-	Name           *string `json:"name,omitempty"`
-	PromptOverride *string `json:"promptOverride,omitempty"`
+	AppRef   string  `json:"appRef"`
+	AgentRef *string `json:"agentRef,omitempty"`
+	Role     *string `json:"role,omitempty"`
+	Name     *string `json:"name,omitempty"`
 }
 
 // GetAppRef returns __CastWorkerInput.AppRef, and is useful for accessing the field via an interface.
@@ -62866,16 +66161,12 @@ func (v *__CastWorkerInput) GetRole() *string { return v.Role }
 // GetName returns __CastWorkerInput.Name, and is useful for accessing the field via an interface.
 func (v *__CastWorkerInput) GetName() *string { return v.Name }
 
-// GetPromptOverride returns __CastWorkerInput.PromptOverride, and is useful for accessing the field via an interface.
-func (v *__CastWorkerInput) GetPromptOverride() *string { return v.PromptOverride }
-
 // __CastWorkerPreviewInput is used internally by genqlient
 type __CastWorkerPreviewInput struct {
-	AppRef         string  `json:"appRef"`
-	AgentRef       *string `json:"agentRef,omitempty"`
-	Role           *string `json:"role,omitempty"`
-	Name           *string `json:"name,omitempty"`
-	PromptOverride *string `json:"promptOverride,omitempty"`
+	AppRef   string  `json:"appRef"`
+	AgentRef *string `json:"agentRef,omitempty"`
+	Role     *string `json:"role,omitempty"`
+	Name     *string `json:"name,omitempty"`
 }
 
 // GetAppRef returns __CastWorkerPreviewInput.AppRef, and is useful for accessing the field via an interface.
@@ -62889,9 +66180,6 @@ func (v *__CastWorkerPreviewInput) GetRole() *string { return v.Role }
 
 // GetName returns __CastWorkerPreviewInput.Name, and is useful for accessing the field via an interface.
 func (v *__CastWorkerPreviewInput) GetName() *string { return v.Name }
-
-// GetPromptOverride returns __CastWorkerPreviewInput.PromptOverride, and is useful for accessing the field via an interface.
-func (v *__CastWorkerPreviewInput) GetPromptOverride() *string { return v.PromptOverride }
 
 // __ChannelMessagesInput is used internally by genqlient
 type __ChannelMessagesInput struct {
@@ -63177,6 +66465,62 @@ func (v *__CommentThreadsInput) GetLimit() int { return v.Limit }
 // GetOffset returns __CommentThreadsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__CommentThreadsInput) GetOffset() int { return v.Offset }
 
+// __CompileAgentBootPromptInput is used internally by genqlient
+type __CompileAgentBootPromptInput struct {
+	AgentRef   string `json:"agentRef"`
+	SetPointer *bool  `json:"setPointer,omitempty"`
+}
+
+// GetAgentRef returns __CompileAgentBootPromptInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__CompileAgentBootPromptInput) GetAgentRef() string { return v.AgentRef }
+
+// GetSetPointer returns __CompileAgentBootPromptInput.SetPointer, and is useful for accessing the field via an interface.
+func (v *__CompileAgentBootPromptInput) GetSetPointer() *bool { return v.SetPointer }
+
+// __CompileAppAgentBootPromptInput is used internally by genqlient
+type __CompileAppAgentBootPromptInput struct {
+	AppRef   string `json:"appRef"`
+	AgentRef string `json:"agentRef"`
+}
+
+// GetAppRef returns __CompileAppAgentBootPromptInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__CompileAppAgentBootPromptInput) GetAppRef() string { return v.AppRef }
+
+// GetAgentRef returns __CompileAppAgentBootPromptInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__CompileAppAgentBootPromptInput) GetAgentRef() string { return v.AgentRef }
+
+// __CompileWorkerBootPromptInput is used internally by genqlient
+type __CompileWorkerBootPromptInput struct {
+	WorkerRef  string `json:"workerRef"`
+	SetPointer *bool  `json:"setPointer,omitempty"`
+}
+
+// GetWorkerRef returns __CompileWorkerBootPromptInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__CompileWorkerBootPromptInput) GetWorkerRef() string { return v.WorkerRef }
+
+// GetSetPointer returns __CompileWorkerBootPromptInput.SetPointer, and is useful for accessing the field via an interface.
+func (v *__CompileWorkerBootPromptInput) GetSetPointer() *bool { return v.SetPointer }
+
+// __CompiledPromptProvenanceInput is used internally by genqlient
+type __CompiledPromptProvenanceInput struct {
+	NodeRef string `json:"nodeRef"`
+	RevNo   int    `json:"revNo"`
+	Limit   int    `json:"limit"`
+	Offset  int    `json:"offset"`
+}
+
+// GetNodeRef returns __CompiledPromptProvenanceInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__CompiledPromptProvenanceInput) GetNodeRef() string { return v.NodeRef }
+
+// GetRevNo returns __CompiledPromptProvenanceInput.RevNo, and is useful for accessing the field via an interface.
+func (v *__CompiledPromptProvenanceInput) GetRevNo() int { return v.RevNo }
+
+// GetLimit returns __CompiledPromptProvenanceInput.Limit, and is useful for accessing the field via an interface.
+func (v *__CompiledPromptProvenanceInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __CompiledPromptProvenanceInput.Offset, and is useful for accessing the field via an interface.
+func (v *__CompiledPromptProvenanceInput) GetOffset() int { return v.Offset }
+
 // __CompleteAssetUploadInput is used internally by genqlient
 type __CompleteAssetUploadInput struct {
 	UploadId string `json:"uploadId"`
@@ -63220,7 +66564,6 @@ type __CreateAgentInput struct {
 	Description    *string          `json:"description,omitempty"`
 	AgentType      *AgentType       `json:"agentType,omitempty"`
 	Visibility     *AgentVisibility `json:"visibility,omitempty"`
-	SystemPrompt   *string          `json:"systemPrompt,omitempty"`
 	SystemMemoryId *string          `json:"systemMemoryId,omitempty"`
 	Surfaces       []string         `json:"surfaces,omitempty"`
 	PersonaRole    *string          `json:"personaRole,omitempty"`
@@ -63240,9 +66583,6 @@ func (v *__CreateAgentInput) GetAgentType() *AgentType { return v.AgentType }
 
 // GetVisibility returns __CreateAgentInput.Visibility, and is useful for accessing the field via an interface.
 func (v *__CreateAgentInput) GetVisibility() *AgentVisibility { return v.Visibility }
-
-// GetSystemPrompt returns __CreateAgentInput.SystemPrompt, and is useful for accessing the field via an interface.
-func (v *__CreateAgentInput) GetSystemPrompt() *string { return v.SystemPrompt }
 
 // GetSystemMemoryId returns __CreateAgentInput.SystemMemoryId, and is useful for accessing the field via an interface.
 func (v *__CreateAgentInput) GetSystemMemoryId() *string { return v.SystemMemoryId }
@@ -63374,6 +66714,30 @@ func (v *__CreateAppInput) GetAppType() *AppType { return v.AppType }
 
 // GetDescription returns __CreateAppInput.Description, and is useful for accessing the field via an interface.
 func (v *__CreateAppInput) GetDescription() *string { return v.Description }
+
+// __CreateAppMemoryInput is used internally by genqlient
+type __CreateAppMemoryInput struct {
+	AppRef           string    `json:"appRef"`
+	Name             string    `json:"name"`
+	ShortDescription *string   `json:"shortDescription,omitempty"`
+	Description      *string   `json:"description,omitempty"`
+	Tags             *[]string `json:"tags,omitempty"`
+}
+
+// GetAppRef returns __CreateAppMemoryInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__CreateAppMemoryInput) GetAppRef() string { return v.AppRef }
+
+// GetName returns __CreateAppMemoryInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateAppMemoryInput) GetName() string { return v.Name }
+
+// GetShortDescription returns __CreateAppMemoryInput.ShortDescription, and is useful for accessing the field via an interface.
+func (v *__CreateAppMemoryInput) GetShortDescription() *string { return v.ShortDescription }
+
+// GetDescription returns __CreateAppMemoryInput.Description, and is useful for accessing the field via an interface.
+func (v *__CreateAppMemoryInput) GetDescription() *string { return v.Description }
+
+// GetTags returns __CreateAppMemoryInput.Tags, and is useful for accessing the field via an interface.
+func (v *__CreateAppMemoryInput) GetTags() *[]string { return v.Tags }
 
 // __CreateAssetReferenceNodeInput is used internally by genqlient
 type __CreateAssetReferenceNodeInput struct {
@@ -64293,6 +67657,42 @@ func (v *__DriveListInput) GetTop() int { return v.Top }
 // GetPageToken returns __DriveListInput.PageToken, and is useful for accessing the field via an interface.
 func (v *__DriveListInput) GetPageToken() *string { return v.PageToken }
 
+// __DueTickWakesInput is used internally by genqlient
+type __DueTickWakesInput struct {
+	AppRef     string   `json:"appRef"`
+	First      int      `json:"first"`
+	WorkerRefs []string `json:"workerRefs"`
+	After      *string  `json:"after,omitempty"`
+}
+
+// GetAppRef returns __DueTickWakesInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__DueTickWakesInput) GetAppRef() string { return v.AppRef }
+
+// GetFirst returns __DueTickWakesInput.First, and is useful for accessing the field via an interface.
+func (v *__DueTickWakesInput) GetFirst() int { return v.First }
+
+// GetWorkerRefs returns __DueTickWakesInput.WorkerRefs, and is useful for accessing the field via an interface.
+func (v *__DueTickWakesInput) GetWorkerRefs() []string { return v.WorkerRefs }
+
+// GetAfter returns __DueTickWakesInput.After, and is useful for accessing the field via an interface.
+func (v *__DueTickWakesInput) GetAfter() *string { return v.After }
+
+// __DueWakesInput is used internally by genqlient
+type __DueWakesInput struct {
+	AppRef string  `json:"appRef"`
+	First  int     `json:"first"`
+	After  *string `json:"after,omitempty"`
+}
+
+// GetAppRef returns __DueWakesInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__DueWakesInput) GetAppRef() string { return v.AppRef }
+
+// GetFirst returns __DueWakesInput.First, and is useful for accessing the field via an interface.
+func (v *__DueWakesInput) GetFirst() int { return v.First }
+
+// GetAfter returns __DueWakesInput.After, and is useful for accessing the field via an interface.
+func (v *__DueWakesInput) GetAfter() *string { return v.After }
+
 // __EditCommentInput is used internally by genqlient
 type __EditCommentInput struct {
 	Ref      string  `json:"ref"`
@@ -64569,6 +67969,18 @@ type __GetNodeInput struct {
 // GetRef returns __GetNodeInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetNodeInput) GetRef() string { return v.Ref }
 
+// __GetNodeLintWarningsInput is used internally by genqlient
+type __GetNodeLintWarningsInput struct {
+	Ref   string  `json:"ref"`
+	After *string `json:"after"`
+}
+
+// GetRef returns __GetNodeLintWarningsInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetNodeLintWarningsInput) GetRef() string { return v.Ref }
+
+// GetAfter returns __GetNodeLintWarningsInput.After, and is useful for accessing the field via an interface.
+func (v *__GetNodeLintWarningsInput) GetAfter() *string { return v.After }
+
 // __GetNodeRawInput is used internally by genqlient
 type __GetNodeRawInput struct {
 	Ref string `json:"ref"`
@@ -64780,6 +68192,18 @@ func (v *__InstallAgentIntoAppInput) GetAgentRef() string { return v.AgentRef }
 
 // GetTrainingMode returns __InstallAgentIntoAppInput.TrainingMode, and is useful for accessing the field via an interface.
 func (v *__InstallAgentIntoAppInput) GetTrainingMode() *bool { return v.TrainingMode }
+
+// __InstallMemoryInput is used internally by genqlient
+type __InstallMemoryInput struct {
+	AppRef   string `json:"appRef"`
+	AgentRef string `json:"agentRef"`
+}
+
+// GetAppRef returns __InstallMemoryInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__InstallMemoryInput) GetAppRef() string { return v.AppRef }
+
+// GetAgentRef returns __InstallMemoryInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__InstallMemoryInput) GetAgentRef() string { return v.AgentRef }
 
 // __IssueHostOperationInput is used internally by genqlient
 type __IssueHostOperationInput struct {
@@ -65102,6 +68526,18 @@ type __NodeCommentSummariesInput struct {
 
 // GetRefs returns __NodeCommentSummariesInput.Refs, and is useful for accessing the field via an interface.
 func (v *__NodeCommentSummariesInput) GetRefs() []string { return v.Refs }
+
+// __NodeEdgeRemovalsInput is used internally by genqlient
+type __NodeEdgeRemovalsInput struct {
+	NodeRef string `json:"nodeRef"`
+	Limit   *int   `json:"limit"`
+}
+
+// GetNodeRef returns __NodeEdgeRemovalsInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__NodeEdgeRemovalsInput) GetNodeRef() string { return v.NodeRef }
+
+// GetLimit returns __NodeEdgeRemovalsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__NodeEdgeRemovalsInput) GetLimit() *int { return v.Limit }
 
 // __NodeExportInput is used internally by genqlient
 type __NodeExportInput struct {
@@ -65806,6 +69242,22 @@ func (v *__RouterRegisterInput) GetWorkerRef() string { return v.WorkerRef }
 
 // GetAppRef returns __RouterRegisterInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__RouterRegisterInput) GetAppRef() string { return v.AppRef }
+
+// __RunServedPromptInput is used internally by genqlient
+type __RunServedPromptInput struct {
+	Ref    string `json:"ref"`
+	Limit  int    `json:"limit"`
+	Offset int    `json:"offset"`
+}
+
+// GetRef returns __RunServedPromptInput.Ref, and is useful for accessing the field via an interface.
+func (v *__RunServedPromptInput) GetRef() string { return v.Ref }
+
+// GetLimit returns __RunServedPromptInput.Limit, and is useful for accessing the field via an interface.
+func (v *__RunServedPromptInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __RunServedPromptInput.Offset, and is useful for accessing the field via an interface.
+func (v *__RunServedPromptInput) GetOffset() int { return v.Offset }
 
 // __RunTaskInput is used internally by genqlient
 type __RunTaskInput struct {
@@ -66680,7 +70132,6 @@ type __UpdateAgentInput struct {
 	Description    *string          `json:"description,omitempty"`
 	AgentType      *AgentType       `json:"agentType,omitempty"`
 	Visibility     *AgentVisibility `json:"visibility,omitempty"`
-	SystemPrompt   *string          `json:"systemPrompt,omitempty"`
 	SystemMemoryId *string          `json:"systemMemoryId,omitempty"`
 	Surfaces       []string         `json:"surfaces,omitempty"`
 	Urn            *string          `json:"urn,omitempty"`
@@ -66702,9 +70153,6 @@ func (v *__UpdateAgentInput) GetAgentType() *AgentType { return v.AgentType }
 
 // GetVisibility returns __UpdateAgentInput.Visibility, and is useful for accessing the field via an interface.
 func (v *__UpdateAgentInput) GetVisibility() *AgentVisibility { return v.Visibility }
-
-// GetSystemPrompt returns __UpdateAgentInput.SystemPrompt, and is useful for accessing the field via an interface.
-func (v *__UpdateAgentInput) GetSystemPrompt() *string { return v.SystemPrompt }
 
 // GetSystemMemoryId returns __UpdateAgentInput.SystemMemoryId, and is useful for accessing the field via an interface.
 func (v *__UpdateAgentInput) GetSystemMemoryId() *string { return v.SystemMemoryId }
@@ -66806,7 +70254,6 @@ type __UpdateAppInput struct {
 	Ref                   string          `json:"ref"`
 	Name                  *string         `json:"name,omitempty"`
 	Description           json.RawMessage `json:"description,omitempty"`
-	SystemPrompt          json.RawMessage `json:"systemPrompt,omitempty"`
 	SessionTimeoutSeconds *int            `json:"sessionTimeoutSeconds,omitempty"`
 }
 
@@ -66818,9 +70265,6 @@ func (v *__UpdateAppInput) GetName() *string { return v.Name }
 
 // GetDescription returns __UpdateAppInput.Description, and is useful for accessing the field via an interface.
 func (v *__UpdateAppInput) GetDescription() json.RawMessage { return v.Description }
-
-// GetSystemPrompt returns __UpdateAppInput.SystemPrompt, and is useful for accessing the field via an interface.
-func (v *__UpdateAppInput) GetSystemPrompt() json.RawMessage { return v.SystemPrompt }
 
 // GetSessionTimeoutSeconds returns __UpdateAppInput.SessionTimeoutSeconds, and is useful for accessing the field via an interface.
 func (v *__UpdateAppInput) GetSessionTimeoutSeconds() *int { return v.SessionTimeoutSeconds }
@@ -67705,31 +71149,15 @@ func (v *__UpdateUserRolesInput) GetUserId() string { return v.UserId }
 // GetRoles returns __UpdateUserRolesInput.Roles, and is useful for accessing the field via an interface.
 func (v *__UpdateUserRolesInput) GetRoles() []Role { return v.Roles }
 
-// __UpdateWorkerInput is used internally by genqlient
-type __UpdateWorkerInput struct {
-	WorkerRef      string  `json:"workerRef"`
-	PromptOverride *string `json:"promptOverride"`
-}
-
-// GetWorkerRef returns __UpdateWorkerInput.WorkerRef, and is useful for accessing the field via an interface.
-func (v *__UpdateWorkerInput) GetWorkerRef() string { return v.WorkerRef }
-
-// GetPromptOverride returns __UpdateWorkerInput.PromptOverride, and is useful for accessing the field via an interface.
-func (v *__UpdateWorkerInput) GetPromptOverride() *string { return v.PromptOverride }
-
 // __UpdateWorkerSigningInput is used internally by genqlient
 type __UpdateWorkerSigningInput struct {
-	WorkerRef      string  `json:"workerRef"`
-	PromptOverride *string `json:"promptOverride,omitempty"`
-	Signature      *string `json:"signature,omitempty"`
-	Trailer        *string `json:"trailer,omitempty"`
+	WorkerRef string  `json:"workerRef"`
+	Signature *string `json:"signature,omitempty"`
+	Trailer   *string `json:"trailer,omitempty"`
 }
 
 // GetWorkerRef returns __UpdateWorkerSigningInput.WorkerRef, and is useful for accessing the field via an interface.
 func (v *__UpdateWorkerSigningInput) GetWorkerRef() string { return v.WorkerRef }
-
-// GetPromptOverride returns __UpdateWorkerSigningInput.PromptOverride, and is useful for accessing the field via an interface.
-func (v *__UpdateWorkerSigningInput) GetPromptOverride() *string { return v.PromptOverride }
 
 // GetSignature returns __UpdateWorkerSigningInput.Signature, and is useful for accessing the field via an interface.
 func (v *__UpdateWorkerSigningInput) GetSignature() *string { return v.Signature }
@@ -67804,6 +71232,22 @@ type __WorkerReportingInput struct {
 
 // GetRef returns __WorkerReportingInput.Ref, and is useful for accessing the field via an interface.
 func (v *__WorkerReportingInput) GetRef() string { return v.Ref }
+
+// __WorkerServedPromptInput is used internally by genqlient
+type __WorkerServedPromptInput struct {
+	Ref    string `json:"ref"`
+	Limit  int    `json:"limit"`
+	Offset int    `json:"offset"`
+}
+
+// GetRef returns __WorkerServedPromptInput.Ref, and is useful for accessing the field via an interface.
+func (v *__WorkerServedPromptInput) GetRef() string { return v.Ref }
+
+// GetLimit returns __WorkerServedPromptInput.Limit, and is useful for accessing the field via an interface.
+func (v *__WorkerServedPromptInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __WorkerServedPromptInput.Offset, and is useful for accessing the field via an interface.
+func (v *__WorkerServedPromptInput) GetOffset() int { return v.Offset }
 
 // __WorkersInput is used internally by genqlient
 type __WorkersInput struct {
@@ -67903,6 +71347,41 @@ func AcknowledgeDeliveryBatches(
 	}
 
 	data_ = &AcknowledgeDeliveryBatchesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by AcknowledgeWakes.
+const AcknowledgeWakes_Operation = `
+mutation AcknowledgeWakes ($proofs: [String!]!) {
+	acknowledgeWakes(proofs: $proofs) {
+		acknowledged
+		unchanged
+	}
+}
+`
+
+func AcknowledgeWakes(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	proofs []string,
+) (data_ *AcknowledgeWakesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AcknowledgeWakes",
+		Query:  AcknowledgeWakes_Operation,
+		Variables: &__AcknowledgeWakesInput{
+			Proofs: proofs,
+		},
+	}
+
+	data_ = &AcknowledgeWakesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -68226,14 +71705,30 @@ func AgentSchedules(
 	return data_, err_
 }
 
-// The mutation executed by AgentTaskAssign.
-const AgentTaskAssign_Operation = `
-mutation AgentTaskAssign ($taskId: ID!, $assignee: AgentTaskPartyInput!, $closeSessionWhenDone: Boolean) {
-	assignAgentTask(taskId: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone) {
+// The mutation executed by AgentTaskAddBlocker.
+const AgentTaskAddBlocker_Operation = `
+mutation AgentTaskAddBlocker ($taskRef: ID!, $blockerTaskRef: ID!) {
+	addAgentTaskBlocker(taskRef: $taskRef, blockerTaskRef: $blockerTaskRef) {
 		... AgentTaskFields
 	}
 }
 fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
 	id
 	handle
 	taskNumber
@@ -68276,6 +71771,120 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
+}
+fragment AgentTaskPartyFields on AgentTaskParty {
+	id
+	kind
+	name
+	urn
+}
+`
+
+func AgentTaskAddBlocker(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	taskRef string,
+	blockerTaskRef string,
+) (data_ *AgentTaskAddBlockerResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentTaskAddBlocker",
+		Query:  AgentTaskAddBlocker_Operation,
+		Variables: &__AgentTaskAddBlockerInput{
+			TaskRef:        taskRef,
+			BlockerTaskRef: blockerTaskRef,
+		},
+	}
+
+	data_ = &AgentTaskAddBlockerResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by AgentTaskAssign.
+const AgentTaskAssign_Operation = `
+mutation AgentTaskAssign ($taskId: ID!, $assignee: AgentTaskPartyInput!, $closeSessionWhenDone: Boolean) {
+	assignAgentTask(taskId: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone) {
+		... AgentTaskFields
+	}
+}
+fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	id
+	handle
+	taskNumber
+	appId
+	title
+	description
+	status
+	queued
+	waitingOnChildren
+	owner {
+		... AgentTaskPartyFields
+	}
+	assignee {
+		... AgentTaskPartyFields
+	}
+	assignedBy {
+		... AgentTaskPartyFields
+	}
+	createdBy {
+		... AgentTaskPartyFields
+	}
+	parentTaskId
+	tags
+	source
+	startBy
+	createdAt
+	updatedAt
+	startedAt
+	finishedAt
+	cancelledAt
+	closeSessionWhenDone
+	requirements {
+		role
+		familyIn
+		familyNotIn
+		excludeWorkerIds
+	}
+	result {
+		outcome
+		summary
+		evidence
+	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
 }
 fragment AgentTaskPartyFields on AgentTaskParty {
 	id
@@ -68324,6 +71933,22 @@ mutation AgentTaskCancel ($taskId: ID!) {
 	}
 }
 fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
 	id
 	handle
 	taskNumber
@@ -68366,6 +71991,12 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
 }
 fragment AgentTaskPartyFields on AgentTaskParty {
 	id
@@ -68408,6 +72039,22 @@ mutation AgentTaskCreate ($input: CreateAgentTaskInput!) {
 	}
 }
 fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
 	id
 	handle
 	taskNumber
@@ -68451,6 +72098,12 @@ fragment AgentTaskFields on AgentTask {
 		evidence
 	}
 }
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
+}
 fragment AgentTaskPartyFields on AgentTaskParty {
 	id
 	kind
@@ -68466,6 +72119,7 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 // `project` is omitted unless --project is given: the server reads an absent
 // project as the reserved no-project AT0 (cor:agt:050:01), so a nil pointer
 // must not be sent as null. Per-field omitempty on this one input field.
+// Schema-only optional fields must stay absent for older providers.
 func AgentTaskCreate(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -68491,6 +72145,64 @@ func AgentTaskCreate(
 	return data_, err_
 }
 
+// The query executed by AgentTaskDependencies.
+const AgentTaskDependencies_Operation = `
+query AgentTaskDependencies ($taskRef: ID!, $limit: Int!, $offset: Int!) {
+	agentTask(id: $taskRef) {
+		id
+		blockedBy(limit: $limit, offset: $offset) {
+			total
+			hasMore
+			items {
+				... AgentTaskDependencyFields
+			}
+		}
+		blocks(limit: $limit, offset: $offset) {
+			total
+			hasMore
+			items {
+				... AgentTaskDependencyFields
+			}
+		}
+	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
+}
+`
+
+func AgentTaskDependencies(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	taskRef string,
+	limit int,
+	offset int,
+) (data_ *AgentTaskDependenciesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentTaskDependencies",
+		Query:  AgentTaskDependencies_Operation,
+		Variables: &__AgentTaskDependenciesInput{
+			TaskRef: taskRef,
+			Limit:   limit,
+			Offset:  offset,
+		},
+	}
+
+	data_ = &AgentTaskDependenciesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by AgentTaskFinish.
 const AgentTaskFinish_Operation = `
 mutation AgentTaskFinish ($taskId: ID!, $result: AgentTaskResultInput!) {
@@ -68499,6 +72211,22 @@ mutation AgentTaskFinish ($taskId: ID!, $result: AgentTaskResultInput!) {
 	}
 }
 fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
 	id
 	handle
 	taskNumber
@@ -68541,6 +72269,12 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
 }
 fragment AgentTaskPartyFields on AgentTaskParty {
 	id
@@ -68585,6 +72319,22 @@ query AgentTaskGet ($id: ID!) {
 	}
 }
 fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
 	id
 	handle
 	taskNumber
@@ -68627,6 +72377,12 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
 }
 fragment AgentTaskPartyFields on AgentTaskParty {
 	id
@@ -68712,6 +72468,22 @@ query AgentTaskList ($appRef: ID!, $assignee: AgentTaskPartyInput, $limit: Int, 
 	}
 }
 fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
 	id
 	handle
 	taskNumber
@@ -68754,6 +72526,12 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
 }
 fragment AgentTaskPartyFields on AgentTaskParty {
 	id
@@ -68816,6 +72594,22 @@ mutation AgentTaskPark ($taskId: ID!) {
 	}
 }
 fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
 	id
 	handle
 	taskNumber
@@ -68858,6 +72652,12 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
 }
 fragment AgentTaskPartyFields on AgentTaskParty {
 	id
@@ -68904,6 +72704,22 @@ mutation AgentTaskProgress ($taskId: ID!) {
 	}
 }
 fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
 	id
 	handle
 	taskNumber
@@ -68946,6 +72762,12 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
 }
 fragment AgentTaskPartyFields on AgentTaskParty {
 	id
@@ -68988,6 +72810,22 @@ mutation AgentTaskReady ($taskId: ID!) {
 	}
 }
 fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
 	id
 	handle
 	taskNumber
@@ -69030,6 +72868,12 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
 }
 fragment AgentTaskPartyFields on AgentTaskParty {
 	id
@@ -69075,6 +72919,22 @@ mutation AgentTaskReassign ($taskId: ID!, $assignee: AgentTaskPartyInput!, $clos
 	}
 }
 fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
 	id
 	handle
 	taskNumber
@@ -69117,6 +72977,12 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
 }
 fragment AgentTaskPartyFields on AgentTaskParty {
 	id
@@ -69155,14 +73021,30 @@ func AgentTaskReassign(
 	return data_, err_
 }
 
-// The mutation executed by AgentTaskStart.
-const AgentTaskStart_Operation = `
-mutation AgentTaskStart ($taskId: ID!) {
-	startAgentTask(taskId: $taskId) {
+// The mutation executed by AgentTaskRemoveBlocker.
+const AgentTaskRemoveBlocker_Operation = `
+mutation AgentTaskRemoveBlocker ($taskRef: ID!, $blockerTaskRef: ID!) {
+	removeAgentTaskBlocker(taskRef: $taskRef, blockerTaskRef: $blockerTaskRef) {
 		... AgentTaskFields
 	}
 }
 fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
 	id
 	handle
 	taskNumber
@@ -69205,6 +73087,229 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
+}
+fragment AgentTaskPartyFields on AgentTaskParty {
+	id
+	kind
+	name
+	urn
+}
+`
+
+func AgentTaskRemoveBlocker(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	taskRef string,
+	blockerTaskRef string,
+) (data_ *AgentTaskRemoveBlockerResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentTaskRemoveBlocker",
+		Query:  AgentTaskRemoveBlocker_Operation,
+		Variables: &__AgentTaskRemoveBlockerInput{
+			TaskRef:        taskRef,
+			BlockerTaskRef: blockerTaskRef,
+		},
+	}
+
+	data_ = &AgentTaskRemoveBlockerResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by AgentTaskSetPriority.
+const AgentTaskSetPriority_Operation = `
+mutation AgentTaskSetPriority ($taskRef: ID!, $priority: Int!) {
+	setAgentTaskPriority(taskRef: $taskRef, priority: $priority) {
+		... AgentTaskFields
+	}
+}
+fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	id
+	handle
+	taskNumber
+	appId
+	title
+	description
+	status
+	queued
+	waitingOnChildren
+	owner {
+		... AgentTaskPartyFields
+	}
+	assignee {
+		... AgentTaskPartyFields
+	}
+	assignedBy {
+		... AgentTaskPartyFields
+	}
+	createdBy {
+		... AgentTaskPartyFields
+	}
+	parentTaskId
+	tags
+	source
+	startBy
+	createdAt
+	updatedAt
+	startedAt
+	finishedAt
+	cancelledAt
+	closeSessionWhenDone
+	requirements {
+		role
+		familyIn
+		familyNotIn
+		excludeWorkerIds
+	}
+	result {
+		outcome
+		summary
+		evidence
+	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
+}
+fragment AgentTaskPartyFields on AgentTaskParty {
+	id
+	kind
+	name
+	urn
+}
+`
+
+// #1135, merged server#2726 at cf9bcfece: all task refs are passed to the server.
+func AgentTaskSetPriority(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	taskRef string,
+	priority int,
+) (data_ *AgentTaskSetPriorityResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentTaskSetPriority",
+		Query:  AgentTaskSetPriority_Operation,
+		Variables: &__AgentTaskSetPriorityInput{
+			TaskRef:  taskRef,
+			Priority: priority,
+		},
+	}
+
+	data_ = &AgentTaskSetPriorityResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by AgentTaskStart.
+const AgentTaskStart_Operation = `
+mutation AgentTaskStart ($taskId: ID!) {
+	startAgentTask(taskId: $taskId) {
+		... AgentTaskFields
+	}
+}
+fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	id
+	handle
+	taskNumber
+	appId
+	title
+	description
+	status
+	queued
+	waitingOnChildren
+	owner {
+		... AgentTaskPartyFields
+	}
+	assignee {
+		... AgentTaskPartyFields
+	}
+	assignedBy {
+		... AgentTaskPartyFields
+	}
+	createdBy {
+		... AgentTaskPartyFields
+	}
+	parentTaskId
+	tags
+	source
+	startBy
+	createdAt
+	updatedAt
+	startedAt
+	finishedAt
+	cancelledAt
+	closeSessionWhenDone
+	requirements {
+		role
+		familyIn
+		familyNotIn
+		excludeWorkerIds
+	}
+	result {
+		outcome
+		summary
+		evidence
+	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
 }
 fragment AgentTaskPartyFields on AgentTaskParty {
 	id
@@ -69301,6 +73406,22 @@ query AgentTaskTree ($root: ID!) {
 	}
 }
 fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
 	id
 	handle
 	taskNumber
@@ -69343,6 +73464,12 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
 }
 fragment AgentTaskPartyFields on AgentTaskParty {
 	id
@@ -69537,7 +73664,6 @@ fragment AgentFields on Agent {
 	organizationId
 	surfaces
 	systemMemoryId
-	systemPrompt
 	tasksIndexRef
 	processesIndexRef
 	extendsAgentId
@@ -69947,6 +74073,58 @@ func AppMembers(
 	return data_, err_
 }
 
+// The query executed by AppMemoryScope.
+const AppMemoryScope_Operation = `
+query AppMemoryScope ($appRef: ID!, $limit: Int, $offset: Int) {
+	appMemoryScope(appRef: $appRef, limit: $limit, offset: $offset) {
+		total
+		items {
+			memoryId
+			memoryUrn
+			name
+			class
+			sources {
+				kind
+				agentId
+			}
+			viewerCanWrite
+		}
+	}
+}
+`
+
+// cli#1209 (server#2190, cor:dmo:050:17): the memories appNodes reads for the
+// caller, one row per memory with every reason it is in scope. The CLI always
+// sends limit; offset is omitted at 0.
+func AppMemoryScope(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	limit *int,
+	offset *int,
+) (data_ *AppMemoryScopeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AppMemoryScope",
+		Query:  AppMemoryScope_Operation,
+		Variables: &__AppMemoryScopeInput{
+			AppRef: appRef,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &AppMemoryScopeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by AppRun.
 const AppRun_Operation = `
 query AppRun ($ref: ID!) {
@@ -70068,6 +74246,43 @@ func AppRuns(
 	}
 
 	data_ = &AppRunsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AppScopeAgentName.
+const AppScopeAgentName_Operation = `
+query AppScopeAgentName ($ref: ID!) {
+	agent(ref: $ref) {
+		id
+		name
+	}
+}
+`
+
+// cli#1209: the display name of one source agent. Null when the caller may not
+// read it — the row then shows the source kind alone, as the SDL says.
+func AppScopeAgentName(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *AppScopeAgentNameResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AppScopeAgentName",
+		Query:  AppScopeAgentName_Operation,
+		Variables: &__AppScopeAgentNameInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &AppScopeAgentNameResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -71059,8 +75274,8 @@ func CancelAppRun(
 
 // The mutation executed by CastWorker.
 const CastWorker_Operation = `
-mutation CastWorker ($appRef: ID!, $agentRef: ID, $role: String, $name: String, $promptOverride: String) {
-	castWorker(appRef: $appRef, agentRef: $agentRef, role: $role, name: $name, promptOverride: $promptOverride) {
+mutation CastWorker ($appRef: ID!, $agentRef: ID, $role: String, $name: String) {
+	castWorker(appRef: $appRef, agentRef: $agentRef, role: $role, name: $name) {
 		... WorkerFields
 	}
 }
@@ -71078,7 +75293,6 @@ fragment WorkerFields on Worker {
 	reportsToRetired
 	role
 	prompt
-	promptOverride
 	signature
 	trailer
 	bootPromptRef
@@ -71130,17 +75344,15 @@ func CastWorker(
 	agentRef *string,
 	role *string,
 	name *string,
-	promptOverride *string,
 ) (data_ *CastWorkerResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CastWorker",
 		Query:  CastWorker_Operation,
 		Variables: &__CastWorkerInput{
-			AppRef:         appRef,
-			AgentRef:       agentRef,
-			Role:           role,
-			Name:           name,
-			PromptOverride: promptOverride,
+			AppRef:   appRef,
+			AgentRef: agentRef,
+			Role:     role,
+			Name:     name,
 		},
 	}
 
@@ -71158,14 +75370,13 @@ func CastWorker(
 
 // The query executed by CastWorkerPreview.
 const CastWorkerPreview_Operation = `
-query CastWorkerPreview ($appRef: ID!, $agentRef: ID, $role: String, $name: String, $promptOverride: String) {
-	castWorkerPreview(appRef: $appRef, agentRef: $agentRef, role: $role, name: $name, promptOverride: $promptOverride) {
+query CastWorkerPreview ($appRef: ID!, $agentRef: ID, $role: String, $name: String) {
+	castWorkerPreview(appRef: $appRef, agentRef: $agentRef, role: $role, name: $name) {
 		name
 		role
 		agentId
 		agentName
 		prompt
-		hasNamePlaceholder
 	}
 }
 `
@@ -71184,17 +75395,15 @@ func CastWorkerPreview(
 	agentRef *string,
 	role *string,
 	name *string,
-	promptOverride *string,
 ) (data_ *CastWorkerPreviewResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CastWorkerPreview",
 		Query:  CastWorkerPreview_Operation,
 		Variables: &__CastWorkerPreviewInput{
-			AppRef:         appRef,
-			AgentRef:       agentRef,
-			Role:           role,
-			Name:           name,
-			PromptOverride: promptOverride,
+			AppRef:   appRef,
+			AgentRef: agentRef,
+			Role:     role,
+			Name:     name,
 		},
 	}
 
@@ -71719,7 +75928,6 @@ fragment AgentFields on Agent {
 	organizationId
 	surfaces
 	systemMemoryId
-	systemPrompt
 	tasksIndexRef
 	processesIndexRef
 	extendsAgentId
@@ -71778,7 +75986,6 @@ fragment AgentFields on Agent {
 	organizationId
 	surfaces
 	systemMemoryId
-	systemPrompt
 	tasksIndexRef
 	processesIndexRef
 	extendsAgentId
@@ -71875,7 +76082,6 @@ fragment AgentFields on Agent {
 	organizationId
 	surfaces
 	systemMemoryId
-	systemPrompt
 	tasksIndexRef
 	processesIndexRef
 	extendsAgentId
@@ -72191,6 +76397,207 @@ func CommentThreads(
 	return data_, err_
 }
 
+// The mutation executed by CompileAgentBootPrompt.
+const CompileAgentBootPrompt_Operation = `
+mutation CompileAgentBootPrompt ($agentRef: String!, $setPointer: Boolean) {
+	compileAgentBootPrompt(agentRef: $agentRef, setPointer: $setPointer) {
+		... BootCompileResult
+	}
+}
+fragment BootCompileResult on CompiledBootPrompt {
+	node {
+		urn
+	}
+	revNo
+	contentHash
+	pointerSet
+	approvalIssued
+}
+`
+
+func CompileAgentBootPrompt(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentRef string,
+	setPointer *bool,
+) (data_ *CompileAgentBootPromptResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CompileAgentBootPrompt",
+		Query:  CompileAgentBootPrompt_Operation,
+		Variables: &__CompileAgentBootPromptInput{
+			AgentRef:   agentRef,
+			SetPointer: setPointer,
+		},
+	}
+
+	data_ = &CompileAgentBootPromptResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CompileAppAgentBootPrompt.
+const CompileAppAgentBootPrompt_Operation = `
+mutation CompileAppAgentBootPrompt ($appRef: String!, $agentRef: String!) {
+	compileAppAgentBootPrompt(appRef: $appRef, agentRef: $agentRef) {
+		... BootCompileResult
+	}
+}
+fragment BootCompileResult on CompiledBootPrompt {
+	node {
+		urn
+	}
+	revNo
+	contentHash
+	pointerSet
+	approvalIssued
+}
+`
+
+func CompileAppAgentBootPrompt(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	agentRef string,
+) (data_ *CompileAppAgentBootPromptResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CompileAppAgentBootPrompt",
+		Query:  CompileAppAgentBootPrompt_Operation,
+		Variables: &__CompileAppAgentBootPromptInput{
+			AppRef:   appRef,
+			AgentRef: agentRef,
+		},
+	}
+
+	data_ = &CompileAppAgentBootPromptResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CompileWorkerBootPrompt.
+const CompileWorkerBootPrompt_Operation = `
+mutation CompileWorkerBootPrompt ($workerRef: ID!, $setPointer: Boolean) {
+	compileWorkerBootPrompt(workerRef: $workerRef, setPointer: $setPointer) {
+		... BootCompileResult
+	}
+}
+fragment BootCompileResult on CompiledBootPrompt {
+	node {
+		urn
+	}
+	revNo
+	contentHash
+	pointerSet
+	approvalIssued
+}
+`
+
+func CompileWorkerBootPrompt(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	workerRef string,
+	setPointer *bool,
+) (data_ *CompileWorkerBootPromptResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CompileWorkerBootPrompt",
+		Query:  CompileWorkerBootPrompt_Operation,
+		Variables: &__CompileWorkerBootPromptInput{
+			WorkerRef:  workerRef,
+			SetPointer: setPointer,
+		},
+	}
+
+	data_ = &CompileWorkerBootPromptResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by CompiledPromptProvenance.
+const CompiledPromptProvenance_Operation = `
+query CompiledPromptProvenance ($nodeRef: ID!, $revNo: Int!, $limit: Int!, $offset: Int!) {
+	compiledPromptProvenance(nodeRef: $nodeRef, revNo: $revNo, limit: $limit, offset: $offset) {
+		nodeId
+		revNo
+		contentHash
+		version
+		pruned
+		total
+		hasMore
+		items {
+			order
+			depth
+			parent
+			kind
+			nodeId
+			revNo
+			hash
+			replacesNodeId
+			pruned
+			position {
+				line
+				column
+			}
+			selection {
+				rev
+				approved
+				signed
+			}
+		}
+	}
+}
+`
+
+func CompiledPromptProvenance(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	nodeRef string,
+	revNo int,
+	limit int,
+	offset int,
+) (data_ *CompiledPromptProvenanceResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CompiledPromptProvenance",
+		Query:  CompiledPromptProvenance_Operation,
+		Variables: &__CompiledPromptProvenanceInput{
+			NodeRef: nodeRef,
+			RevNo:   revNo,
+			Limit:   limit,
+			Offset:  offset,
+		},
+	}
+
+	data_ = &CompiledPromptProvenanceResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CompleteAssetUpload.
 const CompleteAssetUpload_Operation = `
 mutation CompleteAssetUpload ($uploadId: ID!) {
@@ -72330,8 +76737,8 @@ func ConnectionGrants(
 
 // The mutation executed by CreateAgent.
 const CreateAgent_Operation = `
-mutation CreateAgent ($name: String!, $orgId: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemPrompt: String, $systemMemoryId: String, $surfaces: [String!], $personaRole: String) {
-	createAgent(name: $name, orgId: $orgId, description: $description, type: $agentType, visibility: $visibility, systemPrompt: $systemPrompt, systemMemoryId: $systemMemoryId, surfaces: $surfaces, personaRole: $personaRole) {
+mutation CreateAgent ($name: String!, $orgId: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $personaRole: String) {
+	createAgent(name: $name, orgId: $orgId, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, personaRole: $personaRole) {
 		... AgentFields
 	}
 }
@@ -72345,7 +76752,6 @@ fragment AgentFields on Agent {
 	organizationId
 	surfaces
 	systemMemoryId
-	systemPrompt
 	tasksIndexRef
 	processesIndexRef
 	extendsAgentId
@@ -72368,7 +76774,6 @@ func CreateAgent(
 	description *string,
 	agentType *AgentType,
 	visibility *AgentVisibility,
-	systemPrompt *string,
 	systemMemoryId *string,
 	surfaces []string,
 	personaRole *string,
@@ -72382,7 +76787,6 @@ func CreateAgent(
 			Description:    description,
 			AgentType:      agentType,
 			Visibility:     visibility,
-			SystemPrompt:   systemPrompt,
 			SystemMemoryId: systemMemoryId,
 			Surfaces:       surfaces,
 			PersonaRole:    personaRole,
@@ -72682,6 +77086,61 @@ func CreateApp(
 	}
 
 	data_ = &CreateAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateAppMemory.
+const CreateAppMemory_Operation = `
+mutation CreateAppMemory ($appRef: ID!, $name: String!, $shortDescription: String, $description: String, $tags: [String!]) {
+	createAppMemory(appRef: $appRef, name: $name, shortDescription: $shortDescription, description: $description, tags: $tags) {
+		id
+		urn
+		name
+		shortDescription
+		class
+		visibility
+		organizationId
+		isEncrypted
+		maxRevCount
+		updatedAt
+	}
+}
+`
+
+// Add a NEW free-standing app-class memory to an org-owned App that has at least
+// one installed Agent (hadron-server#2661, cor:acl:010:01). An org admin/owner
+// acting as themselves; no Agent, class, visibility, slug or maxRevCount input —
+// the server owns the class (app) and composes the URN from the name.
+func CreateAppMemory(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	name string,
+	shortDescription *string,
+	description *string,
+	tags *[]string,
+) (data_ *CreateAppMemoryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateAppMemory",
+		Query:  CreateAppMemory_Operation,
+		Variables: &__CreateAppMemoryInput{
+			AppRef:           appRef,
+			Name:             name,
+			ShortDescription: shortDescription,
+			Description:      description,
+			Tags:             tags,
+		},
+	}
+
+	data_ = &CreateAppMemoryResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -73517,8 +77976,8 @@ mutation CreateNode ($input: CreateNodeInput!) {
 // Optional fields the caller leaves unset must be omitted from the wire, not
 // serialized as null — hence the per-field omitempty annotations.
 // #994 schema refresh picks up the provider's optional install target (#2044).
-// Existing CLI node writers still always supply memoryId: retain their string
-// binding and omit the unused install alternative, with no caller/wire change.
+// C7 install writes omit memoryId and supply install; retain the string binding
+// so ordinary memory-target callers keep their nonempty selector unchanged.
 func CreateNode(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -74215,7 +78674,6 @@ fragment TeamRoleFields on TeamRole {
 		name
 		personaRole
 	}
-	hasNamePlaceholder
 }
 `
 
@@ -75665,6 +80123,149 @@ func DriveList(
 	return data_, err_
 }
 
+// The query executed by DueTickWakes.
+const DueTickWakes_Operation = `
+query DueTickWakes ($appRef: String!, $first: Int!, $workerRefs: [String!], $after: String) {
+	dueWakes(appRef: $appRef, first: $first, workerRefs: $workerRefs, after: $after) {
+		status
+		wakes {
+			worker {
+				id
+			}
+			anchorAt
+			reasons {
+				kind
+				ticker {
+					id
+					name
+					lastTickAt
+				}
+			}
+		}
+		pageInfo {
+			hasNextPage
+			endCursor
+		}
+	}
+}
+`
+
+// hadron-cli#1187: `hadron orca terminal status` reads the unanswered ticks of
+// the named workers. anchorAt is the OLDEST unacknowledged tick time, which the
+// dark rule compares with the fastest subscribed ticker's interval (never
+// Ticker.lastTickAt). No accepts and never acknowledged: a read only. A caller
+// the server does not let read another worker's wakes is refused, and the
+// command fails closed on it.
+func DueTickWakes(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	first int,
+	workerRefs []string,
+	after *string,
+) (data_ *DueTickWakesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DueTickWakes",
+		Query:  DueTickWakes_Operation,
+		Variables: &__DueTickWakesInput{
+			AppRef:     appRef,
+			First:      first,
+			WorkerRefs: workerRefs,
+			After:      after,
+		},
+	}
+
+	data_ = &DueTickWakesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by DueWakes.
+const DueWakes_Operation = `
+query DueWakes ($appRef: String!, $first: Int!, $after: String) {
+	dueWakes(appRef: $appRef, first: $first, after: $after) {
+		status
+		withheld
+		dormant {
+			worker {
+				id
+			}
+		}
+		wakes {
+			proof
+			worker {
+				id
+			}
+			deliverAfter
+			busyDeadline
+			channels {
+				channel {
+					id
+				}
+			}
+			reasons {
+				kind
+				ticker {
+					id
+					name
+					lastTickAt
+				}
+				task {
+					eventId
+					chainIndex
+					event
+					id
+					title
+				}
+			}
+		}
+		pageInfo {
+			hasNextPage
+			endCursor
+		}
+	}
+}
+`
+
+// hadron-cli#1178: the host poller's tick and task wakes (cor:agt:080:08,
+// :16), with the host key. No accepts, so no STOP notice is offered (this
+// deliverer cannot type one); no workerRefs, so the key's host is the lane.
+func DueWakes(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	first int,
+	after *string,
+) (data_ *DueWakesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DueWakes",
+		Query:  DueWakes_Operation,
+		Variables: &__DueWakesInput{
+			AppRef: appRef,
+			First:  first,
+			After:  after,
+		},
+	}
+
+	data_ = &DueWakesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by EditComment.
 const EditComment_Operation = `
 mutation EditComment ($ref: ID!, $body: String, $quote: String, $expected: Int!) {
@@ -76317,7 +80918,6 @@ fragment AgentFields on Agent {
 	organizationId
 	surfaces
 	systemMemoryId
-	systemPrompt
 	tasksIndexRef
 	processesIndexRef
 	extendsAgentId
@@ -76911,6 +81511,56 @@ func GetNode(
 	}
 
 	data_ = &GetNodeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetNodeLintWarnings.
+const GetNodeLintWarnings_Operation = `
+query GetNodeLintWarnings ($ref: ID!, $after: String) {
+	node(ref: $ref) {
+		lintWarnings(first: 100, after: $after) {
+			items {
+				kind
+				position
+				text
+				targetUrn
+				pinnedRevision
+				newerRevision
+				overriddenNodeLoc
+				workerField
+			}
+			total
+			nextCursor
+		}
+	}
+}
+`
+
+// Explicit opt-in only: keep server-new lint fields out of ordinary documents.
+func GetNodeLintWarnings(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	after *string,
+) (data_ *GetNodeLintWarningsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetNodeLintWarnings",
+		Query:  GetNodeLintWarnings_Operation,
+		Variables: &__GetNodeLintWarningsInput{
+			Ref:   ref,
+			After: after,
+		},
+	}
+
+	data_ = &GetNodeLintWarningsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -77594,7 +82244,6 @@ fragment WorkerFields on Worker {
 	reportsToRetired
 	role
 	prompt
-	promptOverride
 	signature
 	trailer
 	bootPromptRef
@@ -78113,6 +82762,44 @@ func InstallAgentIntoApp(
 	}
 
 	data_ = &InstallAgentIntoAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by InstallMemory.
+const InstallMemory_Operation = `
+query InstallMemory ($appRef: String!, $agentRef: String!) {
+	installMemory(appRef: $appRef, agentRef: $agentRef) {
+		id
+		urn
+		name
+	}
+}
+`
+
+func InstallMemory(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	agentRef string,
+) (data_ *InstallMemoryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "InstallMemory",
+		Query:  InstallMemory_Operation,
+		Variables: &__InstallMemoryInput{
+			AppRef:   appRef,
+			AgentRef: agentRef,
+		},
+	}
+
+	data_ = &InstallMemoryResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -79746,6 +84433,54 @@ func NodeCommentSummaries(
 	return data_, err_
 }
 
+// The query executed by NodeEdgeRemovals.
+const NodeEdgeRemovals_Operation = `
+query NodeEdgeRemovals ($nodeRef: ID!, $limit: Int) {
+	nodeEdgeRemovals(nodeRef: $nodeRef, limit: $limit) {
+		id
+		createdAt
+		edgeLoc
+		edgeName
+		reason
+		removedBy
+		targetId
+		targetLoc
+	}
+}
+`
+
+// #1160 — the hard-delete edge audit trail (hadron-server#2562,
+// cor:dmo:010:04): one entry per edge a hard delete removed from this node,
+// newest first. targetLoc and edgeLoc are null when the caller cannot read the
+// memory the deleted target lived in (the edge loc is derived from the target's
+// address); removedBy is null when the delete is unattributed.
+func NodeEdgeRemovals(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	nodeRef string,
+	limit *int,
+) (data_ *NodeEdgeRemovalsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "NodeEdgeRemovals",
+		Query:  NodeEdgeRemovals_Operation,
+		Variables: &__NodeEdgeRemovalsInput{
+			NodeRef: nodeRef,
+			Limit:   limit,
+		},
+	}
+
+	data_ = &NodeEdgeRemovalsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by NodeExport.
 const NodeExport_Operation = `
 query NodeExport ($id: ID!, $format: NodeExportFormat!) {
@@ -80843,7 +85578,6 @@ fragment AgentFields on Agent {
 	organizationId
 	surfaces
 	systemMemoryId
-	systemPrompt
 	tasksIndexRef
 	processesIndexRef
 	extendsAgentId
@@ -81393,7 +86127,6 @@ fragment WorkerFields on Worker {
 	reportsToRetired
 	role
 	prompt
-	promptOverride
 	signature
 	trailer
 	bootPromptRef
@@ -82491,7 +87224,6 @@ fragment WorkerFields on Worker {
 	reportsToRetired
 	role
 	prompt
-	promptOverride
 	signature
 	trailer
 	bootPromptRef
@@ -82969,6 +87701,68 @@ func RouterRegister(
 	}
 
 	data_ = &RouterRegisterResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by RunServedPrompt.
+const RunServedPrompt_Operation = `
+query RunServedPrompt ($ref: ID!, $limit: Int!, $offset: Int!) {
+	appRun(ref: $ref) {
+		servedPrompt {
+			... ServedPromptRecord
+		}
+	}
+}
+fragment ServedPromptRecord on ServedPrompt {
+	id
+	kind
+	ordinal
+	pointerLevel
+	compiledNodeId
+	compiledContentHash
+	servedRevSeq
+	provenanceRevSeq
+	servedAt
+	variables
+	pruned
+	provenance(limit: $limit, offset: $offset) {
+		total
+		items {
+			nodeId
+			revSeq
+			hash
+			pruned
+		}
+	}
+}
+`
+
+func RunServedPrompt(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	limit int,
+	offset int,
+) (data_ *RunServedPromptResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RunServedPrompt",
+		Query:  RunServedPrompt_Operation,
+		Variables: &__RunServedPromptInput{
+			Ref:    ref,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &RunServedPromptResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -83691,7 +88485,6 @@ fragment AgentFields on Agent {
 	organizationId
 	surfaces
 	systemMemoryId
-	systemPrompt
 	tasksIndexRef
 	processesIndexRef
 	extendsAgentId
@@ -83754,7 +88547,6 @@ fragment AgentFields on Agent {
 	organizationId
 	surfaces
 	systemMemoryId
-	systemPrompt
 	tasksIndexRef
 	processesIndexRef
 	extendsAgentId
@@ -83818,7 +88610,6 @@ fragment AgentFields on Agent {
 	organizationId
 	surfaces
 	systemMemoryId
-	systemPrompt
 	tasksIndexRef
 	processesIndexRef
 	extendsAgentId
@@ -83982,7 +88773,6 @@ fragment WorkerFields on Worker {
 	reportsToRetired
 	role
 	prompt
-	promptOverride
 	signature
 	trailer
 	bootPromptRef
@@ -84064,7 +88854,6 @@ fragment WorkerFields on Worker {
 	reportsToRetired
 	role
 	prompt
-	promptOverride
 	signature
 	trailer
 	bootPromptRef
@@ -85632,7 +90421,6 @@ fragment TeamRoleFields on TeamRole {
 		name
 		personaRole
 	}
-	hasNamePlaceholder
 }
 `
 
@@ -86595,8 +91383,8 @@ func UnsubscribeTicker(
 
 // The mutation executed by UpdateAgent.
 const UpdateAgent_Operation = `
-mutation UpdateAgent ($ref: ID!, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemPrompt: String, $systemMemoryId: String, $surfaces: [String!], $urn: String, $personaRole: String, $usesTasks: Boolean) {
-	updateAgent(ref: $ref, name: $name, description: $description, type: $agentType, visibility: $visibility, systemPrompt: $systemPrompt, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn, personaRole: $personaRole, usesTasks: $usesTasks) {
+mutation UpdateAgent ($ref: ID!, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $urn: String, $personaRole: String, $usesTasks: Boolean) {
+	updateAgent(ref: $ref, name: $name, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn, personaRole: $personaRole, usesTasks: $usesTasks) {
 		... AgentFields
 	}
 }
@@ -86610,7 +91398,6 @@ fragment AgentFields on Agent {
 	organizationId
 	surfaces
 	systemMemoryId
-	systemPrompt
 	tasksIndexRef
 	processesIndexRef
 	extendsAgentId
@@ -86633,7 +91420,6 @@ func UpdateAgent(
 	description *string,
 	agentType *AgentType,
 	visibility *AgentVisibility,
-	systemPrompt *string,
 	systemMemoryId *string,
 	surfaces []string,
 	urn *string,
@@ -86649,7 +91435,6 @@ func UpdateAgent(
 			Description:    description,
 			AgentType:      agentType,
 			Visibility:     visibility,
-			SystemPrompt:   systemPrompt,
 			SystemMemoryId: systemMemoryId,
 			Surfaces:       surfaces,
 			Urn:            urn,
@@ -86862,8 +91647,8 @@ func UpdateAiServiceConfigWithEndpoint(
 
 // The mutation executed by UpdateApp.
 const UpdateApp_Operation = `
-mutation UpdateApp ($ref: ID!, $name: String, $description: String, $systemPrompt: String, $sessionTimeoutSeconds: Int) {
-	updateApp(ref: $ref, name: $name, description: $description, systemPrompt: $systemPrompt, sessionTimeoutSeconds: $sessionTimeoutSeconds) {
+mutation UpdateApp ($ref: ID!, $name: String, $description: String, $sessionTimeoutSeconds: Int) {
+	updateApp(ref: $ref, name: $name, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds) {
 		id
 		urn
 		name
@@ -86873,8 +91658,7 @@ mutation UpdateApp ($ref: ID!, $name: String, $description: String, $systemPromp
 `
 
 // cli#1058 — bounded App update. Omitted = preserve, so every optional variable
-// carries omitempty and a nil never reaches the wire. description and
-// systemPrompt additionally have an explicit CLEAR (a JSON null): they bind to
+// carries omitempty and a nil never reaches the wire. description uses
 // json.RawMessage, where nil is omitted, `null` is sent as null and a quoted
 // string (including "") is sent as that string — a *string cannot express all
 // three. name and sessionTimeoutSeconds have no null-clear and stay pointers.
@@ -86884,7 +91668,6 @@ func UpdateApp(
 	ref string,
 	name *string,
 	description json.RawMessage,
-	systemPrompt json.RawMessage,
 	sessionTimeoutSeconds *int,
 ) (data_ *UpdateAppResponse, err_ error) {
 	req_ := &graphql.Request{
@@ -86894,7 +91677,6 @@ func UpdateApp(
 			Ref:                   ref,
 			Name:                  name,
 			Description:           description,
-			SystemPrompt:          systemPrompt,
 			SessionTimeoutSeconds: sessionTimeoutSeconds,
 		},
 	}
@@ -88688,7 +93470,6 @@ fragment TeamRoleFields on TeamRole {
 		name
 		personaRole
 	}
-	hasNamePlaceholder
 }
 `
 
@@ -88931,108 +93712,10 @@ func UpdateUserRoles(
 	return data_, err_
 }
 
-// The mutation executed by UpdateWorker.
-const UpdateWorker_Operation = `
-mutation UpdateWorker ($workerRef: ID!, $promptOverride: String) {
-	updateWorker(workerRef: $workerRef, promptOverride: $promptOverride) {
-		... WorkerFields
-	}
-}
-fragment WorkerFields on Worker {
-	id
-	urn
-	portalUrl
-	slug
-	appId
-	agentId
-	name
-	reportsTo {
-		... WorkerReportingRefFields
-	}
-	reportsToRetired
-	role
-	prompt
-	promptOverride
-	signature
-	trailer
-	bootPromptRef
-	bootPromptTargetDeleted
-	repos
-	memoryId
-	family
-	heldByUserId
-	heldAt
-	hasLiveSession
-	lastActiveAt
-	checkStatus {
-		... ChannelCheckFields
-	}
-	retiredAt
-	retiredBy
-	createdAt
-	createdBy
-}
-fragment WorkerReportingRefFields on Worker {
-	id
-	name
-	urn
-}
-fragment ChannelCheckFields on WorkerCheckStatus {
-	status
-	pendingReason
-	lastCheckedAt
-}
-`
-
-// Amend a casting's promptOverride after the fact (#452, server #1010/#1019).
-//
-// promptOverride could only be set at CASTING time, which fixed a casting's
-// individuality at the one moment nobody yet knows what makes it individual.
-// Neither escape hatch covered it: the role agent's systemPrompt is SHARED by
-// every casting of that role, and re-casting is barred by WORKER_IN_USE for any
-// worker that has done work — precisely the ones with an identity to record.
-//
-// NO omitempty on $promptOverride, deliberately, and unlike most optional
-// variables in this file. The clear path MUST put an explicit `null` on the
-// wire: omitting the field preserves the current override, so an omitempty here
-// would make `--clear-prompt-override` a silent no-op — the failure the
-// convention-field annotations on UpdateTeamRoleMeta exist to avoid, arriving on
-// a field whose whole point is that it can be removed.
-//
-// WorkerFields already selects both `prompt` and `promptOverride`, so the
-// receipt can show the RE-RENDERED briefing — what a session driver actually
-// adopts — without a second read.
-func UpdateWorker(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	workerRef string,
-	promptOverride *string,
-) (data_ *UpdateWorkerResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "UpdateWorker",
-		Query:  UpdateWorker_Operation,
-		Variables: &__UpdateWorkerInput{
-			WorkerRef:      workerRef,
-			PromptOverride: promptOverride,
-		},
-	}
-
-	data_ = &UpdateWorkerResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
 // The mutation executed by UpdateWorkerSigning.
 const UpdateWorkerSigning_Operation = `
-mutation UpdateWorkerSigning ($workerRef: ID!, $promptOverride: String, $signature: String, $trailer: String) {
-	updateWorker(workerRef: $workerRef, promptOverride: $promptOverride, signature: $signature, trailer: $trailer) {
+mutation UpdateWorkerSigning ($workerRef: ID!, $signature: String, $trailer: String) {
+	updateWorker(workerRef: $workerRef, signature: $signature, trailer: $trailer) {
 		... WorkerFields
 	}
 }
@@ -89050,7 +93733,6 @@ fragment WorkerFields on Worker {
 	reportsToRetired
 	role
 	prompt
-	promptOverride
 	signature
 	trailer
 	bootPromptRef
@@ -89082,18 +93764,11 @@ fragment ChannelCheckFields on WorkerCheckStatus {
 }
 `
 
-// cli#916 C4 (hadron-server#2120, cor:agt:040:04): the per-worker signature
-// and trailer templates, with the override when it rides the same call.
-// A SEPARATE operation from UpdateWorker, which keeps its explicit-null clear
-// unchanged. Here every field is presence-preserving: omitempty on the
-// optional pointer, so nil is OMITTED (the server preserves it) and &"" is an
-// explicit empty string (an empty template, or a cleared override). Null is
-// never sent: the server refuses a null signature/trailer (D2).
+// Signature and trailer templates; omitted fields remain unchanged.
 func UpdateWorkerSigning(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	workerRef string,
-	promptOverride *string,
 	signature *string,
 	trailer *string,
 ) (data_ *UpdateWorkerSigningResponse, err_ error) {
@@ -89101,10 +93776,9 @@ func UpdateWorkerSigning(
 		OpName: "UpdateWorkerSigning",
 		Query:  UpdateWorkerSigning_Operation,
 		Variables: &__UpdateWorkerSigningInput{
-			WorkerRef:      workerRef,
-			PromptOverride: promptOverride,
-			Signature:      signature,
-			Trailer:        trailer,
+			WorkerRef: workerRef,
+			Signature: signature,
+			Trailer:   trailer,
 		},
 	}
 
@@ -89447,6 +94121,68 @@ func WorkerReporting(
 	return data_, err_
 }
 
+// The query executed by WorkerServedPrompt.
+const WorkerServedPrompt_Operation = `
+query WorkerServedPrompt ($ref: ID!, $limit: Int!, $offset: Int!) {
+	worker(ref: $ref) {
+		servedPrompt {
+			... ServedPromptRecord
+		}
+	}
+}
+fragment ServedPromptRecord on ServedPrompt {
+	id
+	kind
+	ordinal
+	pointerLevel
+	compiledNodeId
+	compiledContentHash
+	servedRevSeq
+	provenanceRevSeq
+	servedAt
+	variables
+	pruned
+	provenance(limit: $limit, offset: $offset) {
+		total
+		items {
+			nodeId
+			revSeq
+			hash
+			pruned
+		}
+	}
+}
+`
+
+func WorkerServedPrompt(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	limit int,
+	offset int,
+) (data_ *WorkerServedPromptResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "WorkerServedPrompt",
+		Query:  WorkerServedPrompt_Operation,
+		Variables: &__WorkerServedPromptInput{
+			Ref:    ref,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &WorkerServedPromptResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by Workers.
 const Workers_Operation = `
 query Workers ($appRef: ID!, $includeRetired: Boolean, $limit: Int, $offset: Int) {
@@ -89471,7 +94207,6 @@ fragment WorkerFields on Worker {
 	reportsToRetired
 	role
 	prompt
-	promptOverride
 	signature
 	trailer
 	bootPromptRef
@@ -89560,7 +94295,6 @@ fragment WorkerRosterFields on Worker {
 	}
 	reportsToRetired
 	role
-	promptOverride
 	repos
 	memoryId
 	heldByUserId

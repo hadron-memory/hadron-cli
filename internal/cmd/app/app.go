@@ -21,6 +21,7 @@ func NewCmdApp(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdLs(f))
 	cmd.AddCommand(newCmdGet(f))
 	cmd.AddCommand(newCmdAgent(f))
+	cmd.AddCommand(newCmdMemories(f))
 	cmd.AddCommand(newCmdInstall(f))
 	cmd.AddCommand(newCmdUpdate(f))
 	cmd.AddCommand(newCmdUninstall(f))

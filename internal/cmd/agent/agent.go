@@ -12,6 +12,7 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/cmd/bootcompile"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -36,7 +37,6 @@ type agentDTO struct {
 	// withheld, and the key must stay to say it.
 	BootPromptRef           *string `json:"bootPromptRef"`
 	BootPromptTargetDeleted *bool   `json:"bootPromptTargetDeleted"`
-	SystemPrompt            *string `json:"systemPrompt"`
 	AiProvider              *string `json:"aiProvider"`
 	AiModel                 *string `json:"aiModel"`
 	HasAiApiKey             bool    `json:"hasAiApiKey"`
@@ -53,7 +53,7 @@ func agentDTOFromFields(a gen.AgentFields) agentDTO {
 	return agentDTO{
 		ID: a.Id, URN: a.Urn, Name: a.Name, Description: a.Description,
 		Type: string(a.Type), Visibility: string(a.Visibility), OrganizationID: a.OrganizationId,
-		Surfaces: surfaces, SystemMemoryID: a.SystemMemoryId, SystemPrompt: a.SystemPrompt,
+		Surfaces: surfaces, SystemMemoryID: a.SystemMemoryId,
 		TasksIndexRef: a.TasksIndexRef, ProcessesIndex: a.ProcessesIndexRef, ExtendsAgentID: a.ExtendsAgentId,
 		BootPromptRef: a.BootPromptRef, BootPromptTargetDeleted: a.BootPromptTargetDeleted,
 		AiProvider: a.AiProvider, AiModel: a.AiModel, HasAiApiKey: a.HasAiApiKey,
@@ -124,6 +124,7 @@ func NewCmdAgent(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdAgentProcesses(f))
 	cmd.AddCommand(newCmdAgentSetBase(f))
 	cmd.AddCommand(newCmdAgentSetBootPrompt(f))
+	cmd.AddCommand(bootcompile.NewAgent(f))
 	return cmd
 }
 
@@ -328,9 +329,6 @@ JSON includes the nullable clonedFromAgentRef key. No source lookup is made.`,
 				if dto.PersonaRole != nil {
 					fmt.Fprintf(w, "  persona role: %s\n", output.SafeCell(dash(dto.PersonaRole)))
 				}
-				if dto.SystemPrompt != nil && *dto.SystemPrompt != "" {
-					fmt.Fprintf(w, "  system prompt: %s\n", output.SafeCell(*dto.SystemPrompt))
-				}
 				return nil
 			})
 		},
@@ -339,63 +337,25 @@ JSON includes the nullable clonedFromAgentRef key. No source lookup is made.`,
 
 // The old flags remain parseable only to give scripts a local, actionable
 // refusal before credentials or a request are touched. They no longer map to
-// a server field, and silently forwarding them to systemPrompt would risk
-// overwriting a different template.
+// a server field and do not write a prompt.
 func refuseRetiredPersonaPromptFlags(cmd *cobra.Command) error {
 	if cmd.Flags().Changed("persona-prompt") || cmd.Flags().Changed("persona-prompt-file") {
 		return exitcode.Newf(exitcode.Usage,
-			"--persona-prompt and --persona-prompt-file were retired; use --system-prompt or --system-prompt-file for the shared {{name}}/{{role}} template")
+			"--persona-prompt and --persona-prompt-file were retired; write boot:source, then use hadron agent compile and hadron node approve")
 	}
 	return nil
 }
 
 func registerRetiredPersonaPromptFlags(cmd *cobra.Command) {
-	cmd.Flags().String("persona-prompt", "", "retired; use --system-prompt")
-	cmd.Flags().String("persona-prompt-file", "", "retired; use --system-prompt-file")
+	cmd.Flags().String("persona-prompt", "", "retired; write boot:source and compile")
+	cmd.Flags().String("persona-prompt-file", "", "retired; write boot:source and compile")
 	_ = cmd.Flags().MarkHidden("persona-prompt")
 	_ = cmd.Flags().MarkHidden("persona-prompt-file")
 }
 
-// refuseBlankPromptFile rejects a --<flag>-file passed with an empty path — an
-// unset shell variable is the usual cause. ResolveTextInput reads an empty
-// path as an empty VALUE, so without this an `agent update --system-prompt-file
-// "$UNSET"` is Changed-but-empty and silently CLEARS the prompt instead of
-// reporting that no file was supplied (#541 codex P1; the
-// an-empty-flag-is-not-an-absent-flag class). The inline --<flag> "" is left
-// alone on purpose: an explicit empty there is a deliberate clear. flag is the
-// base name; the file flag is derived as <flag>-file, and its value is read
-// from the registry so the vars need not be threaded here.
-func refuseBlankPromptFile(cmd *cobra.Command, flags ...string) error {
-	for _, flag := range flags {
-		name := flag + "-file"
-		if cmd.Flags().Changed(name) && strings.TrimSpace(cmd.Flags().Lookup(name).Value.String()) == "" {
-			return exitcode.Newf(exitcode.Usage,
-				"--%s was given an empty path — pass a file, or drop the flag (an unset variable is the usual cause)", name)
-		}
-	}
-	return nil
-}
-
-// resolvePromptFlag resolves an UPDATE-side long-text field to the pointer
-// UpdateAgent wants: nil (preserve) when neither --<flag> nor --<flag>-file was
-// passed, otherwise a pointer to the resolved value — so an explicit empty
-// clears, matching changedStr. The value may come inline, from --<flag>-file,
-// or from stdin ("-"), via the shared cmdutil resolver.
-func resolvePromptFlag(cmd *cobra.Command, flag, value, file string, stdin io.Reader) (*string, error) {
-	if !cmd.Flags().Changed(flag) && !cmd.Flags().Changed(flag+"-file") {
-		return nil, nil
-	}
-	resolved, err := cmdutil.ResolveTextInput(flag, value, file, stdin)
-	if err != nil {
-		return nil, err
-	}
-	return &resolved, nil
-}
-
 func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
-	var org, name, description, typ, vis, systemPrompt, systemMemory string
+	var org, name, description, typ, vis, systemMemory string
 	var personaRole, installInto string
-	var systemPromptFile string
 	var surfaces []string
 	var ownerMe bool
 	cmd := &cobra.Command{
@@ -413,7 +373,7 @@ A NEW AGENT IS IN NO APP'S CAST POOL, so it cannot be cast as a worker yet
 common case when the agent is a role agent for a team you already have:
 
   hadron agent create --org acme.com --name "DevOps Engineer" \
-      --persona-role devops-engineer --system-prompt 'You are {{name}}…' \
+      --persona-role devops-engineer \
       --install-into hrn:app:acme.com:eng-team
 
 It is deliberately NOT spelled --app: that is the persistent App-CONTEXT flag,
@@ -431,7 +391,10 @@ to check ` + "`app agent list`" + ` rather than to retry blind into a duplicate.
 
 Authorization for the install is CONTRIBUTOR+ on the App's owning org (or
 ownership of a user-owned App) — a stricter gate than creating the agent, so
-it can refuse after the create succeeds.`,
+it can refuse after the create succeeds.
+
+New Agents start without a prompt. Write boot:source (role boot-prompt) in
+the Agent system memory, then use hadron agent compile and hadron node approve.`,
 		Example: `  hadron agent create --owner-me --name "My Agent" --type ASSISTANT
   hadron agent create --org acme.com --name "Support Bot" --type CHATBOT --visibility ORGANIZATION
   hadron agent create --org acme.com --name "DevOps Engineer" --persona-role devops-engineer --install-into hrn:app:acme.com:eng-team`,
@@ -480,22 +443,12 @@ it can refuse after the create succeeds.`,
 			if err != nil {
 				return err
 			}
-			if err := refusePromptStdin(f.IOStreams.IsInputTerminal(), systemPrompt); err != nil {
-				return err
-			}
-			if err := refuseBlankPromptFile(cmd, "system-prompt"); err != nil {
-				return err
-			}
-			systemPrompt, err = cmdutil.ResolveTextInput("system-prompt", systemPrompt, systemPromptFile, f.IOStreams.In)
-			if err != nil {
-				return err
-			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
 			resp, err := gen.CreateAgent(cmd.Context(), client, name, optStr(org),
-				optStr(description), at, av, optStr(systemPrompt), optStr(systemMemory), surfaces,
+				optStr(description), at, av, optStr(systemMemory), surfaces,
 				optStr(personaRole))
 			if err != nil {
 				return api.MapError(err)
@@ -533,23 +486,19 @@ it can refuse after the create succeeds.`,
 	cmd.Flags().StringVar(&description, "description", "", "agent description")
 	cmd.Flags().StringVar(&typ, "type", "", "type: ASSISTANT or CHATBOT (server default when unset)")
 	cmd.Flags().StringVar(&vis, "visibility", "", "visibility: ORGANIZATION, PERSONAL, or PUBLIC (server default when unset)")
-	cmd.Flags().StringVar(&systemPrompt, "system-prompt", "", "shared agent and Worker prompt template; {{name}}/{{role}} bind for Workers (a lone - reads piped stdin)")
 	cmd.Flags().StringVar(&systemMemory, "system-memory", "", "system memory ID")
 	cmd.Flags().StringArrayVar(&surfaces, "surface", nil, "surface the agent is available on (repeatable)")
 	cmd.Flags().StringVar(&personaRole, "persona-role", "", "persona dressing: the role this agent presents as (metadata)")
-	cmd.Flags().StringVar(&systemPromptFile, "system-prompt-file", "", "read the shared prompt template from a file (multi-line safe); mutually exclusive with --system-prompt")
 	cmd.Flags().StringVar(&installInto, "install-into", "", "App (ID or URN) to install the new agent into, so it is castable in one run")
 	registerRetiredPersonaPromptFlags(cmd)
-	cmd.MarkFlagsMutuallyExclusive("system-prompt", "system-prompt-file")
 	_ = cmd.MarkFlagRequired("name")
 	return cmd
 }
 
 func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
-	var name, description, typ, vis, systemPrompt, systemMemory, urn string
+	var name, description, typ, vis, systemMemory, urn string
 	var personaRole string
 	var usesTasks bool
-	var systemPromptFile string
 	var tasksIndex, processesIndex string
 	var surfaces []string
 	cmd := &cobra.Command{
@@ -557,10 +506,9 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 		Short: "Update an agent by ID or URN (only the fields you pass change)",
 		Long: `Update an agent. Only the fields you pass change.
 
---persona-role is metadata. --system-prompt sets the shared prompt TEMPLATE:
-{{name}} and {{role}} bind when the agent is cast into an App as a named
-Worker (` + "`hadron team worker cast`" + `). Existing workers also resolve
-their prompt from this field.`,
+--persona-role is metadata. Write the Agent source at boot:source in its system
+memory, then use hadron agent compile and hadron node approve. New Agents
+start without a prompt.`,
 		Example: `  hadron agent update hrn:agent:acme.com:support-bot --name "Support Bot v2" --visibility PUBLIC
   hadron agent update agt_123 --description "…"`,
 		Args: cobra.ExactArgs(1),
@@ -570,7 +518,6 @@ their prompt from this field.`,
 			}
 			changed := cmd.Flags().Changed
 			if !changed("name") && !changed("description") && !changed("type") && !changed("visibility") &&
-				!changed("system-prompt") && !changed("system-prompt-file") &&
 				!changed("system-memory") && !changed("surface") && !changed("urn") &&
 				!changed("persona-role") && !changed("uses-tasks") &&
 				!changed("tasks-index") && !changed("processes-index") {
@@ -596,27 +543,12 @@ their prompt from this field.`,
 			if changed("surface") {
 				surfacesArg = surfaces
 			}
-			if err := refusePromptStdin(f.IOStreams.IsInputTerminal(), systemPrompt); err != nil {
-				return err
-			}
-			if err := refuseBlankPromptFile(cmd, "system-prompt"); err != nil {
-				return err
-			}
-			systemPromptArg, err := resolvePromptFlag(cmd, "system-prompt", systemPrompt, systemPromptFile, f.IOStreams.In)
-			if err != nil {
-				return err
-			}
-			// The client is built only after every argument-only check and the
-			// prompt reads: building it resolves the server and credentials, and
-			// a local refusal (#648's terminal guard above all) must not be
-			// masked by an auth error, nor touch the credential store.
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
 			var updated *gen.AgentFields
 			if changed("name") || changed("description") || changed("type") || changed("visibility") ||
-				changed("system-prompt") || changed("system-prompt-file") ||
 				changed("system-memory") || changed("surface") || changed("urn") ||
 				changed("persona-role") || changed("uses-tasks") {
 				var usesTasksArg *bool
@@ -625,7 +557,7 @@ their prompt from this field.`,
 				}
 				resp, err := gen.UpdateAgent(cmd.Context(), client, args[0],
 					changedStr(cmd, "name", name), changedStr(cmd, "description", description),
-					at, av, systemPromptArg,
+					at, av,
 					changedStr(cmd, "system-memory", systemMemory), surfacesArg, changedStr(cmd, "urn", urn),
 					changedStr(cmd, "persona-role", personaRole), usesTasksArg)
 				if err != nil {
@@ -656,17 +588,14 @@ their prompt from this field.`,
 	cmd.Flags().StringVar(&description, "description", "", "agent description")
 	cmd.Flags().StringVar(&typ, "type", "", "type: ASSISTANT or CHATBOT")
 	cmd.Flags().StringVar(&vis, "visibility", "", "visibility: ORGANIZATION, PERSONAL, or PUBLIC")
-	cmd.Flags().StringVar(&systemPrompt, "system-prompt", "", "shared agent and Worker prompt template; {{name}}/{{role}} bind for Workers (a lone - reads piped stdin)")
 	cmd.Flags().StringVar(&systemMemory, "system-memory", "", "system memory ID")
 	cmd.Flags().StringArrayVar(&surfaces, "surface", nil, "surface the agent is available on (repeatable; replaces the set)")
 	cmd.Flags().StringVar(&urn, "urn", "", "agent URN path")
 	cmd.Flags().StringVar(&personaRole, "persona-role", "", "persona dressing: the role this agent presents as (metadata)")
 	cmd.Flags().StringVar(&tasksIndex, "tasks-index", "", `the Agent's tasks index node (a ref; an explicit empty clears it)`)
 	cmd.Flags().StringVar(&processesIndex, "processes-index", "", `the Agent's processes index node (a ref; an explicit empty clears it)`)
-	cmd.Flags().StringVar(&systemPromptFile, "system-prompt-file", "", "read the shared prompt template from a file (multi-line safe); mutually exclusive with --system-prompt")
 	cmd.Flags().BoolVar(&usesTasks, "uses-tasks", false, "Whether workers from this Agent use assigned tasks; false keeps them expected to check the team channel without a task (omitted preserves)")
 	registerRetiredPersonaPromptFlags(cmd)
-	cmd.MarkFlagsMutuallyExclusive("system-prompt", "system-prompt-file")
 	return cmd
 }
 

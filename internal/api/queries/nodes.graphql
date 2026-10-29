@@ -339,9 +339,9 @@ query GetNodeRaw($ref: ID!) {
 # @genqlient(for: "CreateNodeInput.data", omitempty: true)
 # @genqlient(for: "CreateNodeInput.description", omitempty: true)
 # #994 schema refresh picks up the provider's optional install target (#2044).
-# Existing CLI node writers still always supply memoryId: retain their string
-# binding and omit the unused install alternative, with no caller/wire change.
-# @genqlient(for: "CreateNodeInput.memoryId", pointer: false)
+# C7 install writes omit memoryId and supply install; retain the string binding
+# so ordinary memory-target callers keep their nonempty selector unchanged.
+# @genqlient(for: "CreateNodeInput.memoryId", pointer: false, omitempty: true)
 # @genqlient(for: "CreateNodeInput.install", omitempty: true)
 # @genqlient(for: "CreateNodeInput.edges", omitempty: true)
 # @genqlient(for: "CreateNodeInput.id", omitempty: true)
@@ -1090,5 +1090,23 @@ fragment NodeContentValidationFields on NodeContentValidationStatus {
     reportedAt
     validationTaskRef
     validationTaskRevision
+  }
+}
+
+# #1160 — the hard-delete edge audit trail (hadron-server#2562,
+# cor:dmo:010:04): one entry per edge a hard delete removed from this node,
+# newest first. targetLoc and edgeLoc are null when the caller cannot read the
+# memory the deleted target lived in (the edge loc is derived from the target's
+# address); removedBy is null when the delete is unattributed.
+query NodeEdgeRemovals($nodeRef: ID!, $limit: Int) {
+  nodeEdgeRemovals(nodeRef: $nodeRef, limit: $limit) {
+    id
+    createdAt
+    edgeLoc
+    edgeName
+    reason
+    removedBy
+    targetId
+    targetLoc
   }
 }

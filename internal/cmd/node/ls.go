@@ -69,6 +69,7 @@ func paginateAllNodes(fetch func(limit, offset int) ([]*api.ListNode, *int, erro
 func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 	var (
 		memory         string
+		install        string
 		prefix         string
 		nodeType       string
 		objectType     string
@@ -89,6 +90,13 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 		Aliases: []string{"ls"},
 		Short:   "List nodes",
 		Long: `List nodes you can access, optionally scoped to a memory.
+
+--install <app>/<agent> selects an App's customisation memory instead of
+--memory. Both refs must be ids or fully-qualified URNs, separated by /.
+This excludes --memory (even an empty value). Reads create nothing; an
+unavailable memory is exit 4, not an unscoped read. Only an App manager may
+write while the App is live and the Agent installed. Metadata visibility
+does not confer permission to read content or write. Listing never creates an install memory.
 
 -m/--memory takes a memory ID or fully-qualified URN (hrn:mem:<root>:<slug>) and
 scopes the listing to that memory. --prefix filters on the node loc
@@ -120,6 +128,10 @@ output either flag switches the table for a per-node block.`,
   hadron node list -m hrn:mem:acme.com:kb --sort-property '{"path":["rank"],"as":"number","direction":"desc"}'`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			target, err := installTarget(cmd, install, nil)
+			if err != nil {
+				return err
+			}
 			whereArg, err := cmdutil.ParseNodeWhere(where)
 			if err != nil {
 				return err
@@ -131,6 +143,13 @@ output either flag switches the table for a per-node block.`,
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
+			}
+
+			if target != nil {
+				memory, err = cmdutil.InstallMemoryRef(cmd.Context(), client, target)
+				if err != nil {
+					return err
+				}
 			}
 
 			var searchArg *string
@@ -381,6 +400,7 @@ output either flag switches the table for a per-node block.`,
 			})
 		},
 	}
+	cmd.Flags().StringVar(&install, "install", "", installFlagHelp)
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "scope to a memory (ID or URN)")
 	cmd.Flags().StringVar(&prefix, "prefix", "", "filter by node loc prefix")
 	cmd.Flags().StringVar(&nodeType, "type", "", "filter by node type")

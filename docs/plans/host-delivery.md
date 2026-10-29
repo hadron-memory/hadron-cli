@@ -45,10 +45,10 @@ Built on S1 (`internal/cmd/team/host_delivery.go`):
     only in their plain shape, else `withheld`. Worker names are printed as
     the host's other events already print them.
 - **Hold:** `ErrHoldUnavailable`, with no call (#940).
-- **Wiring:** `team host run` with `delivery.enabled` wires batches only. It
-  writes the status snapshot after each step and prints each outcome as a
-  `delivery-<kind>` event (codes, ids and spans). Wakes stay unwired until
-  hadron-server#2069/#2072 (#906 row 1).
+- **Wiring:** `team host run` with `delivery.enabled` wires batches and,
+  since hadron-cli#1178, the due tick and task wakes. It writes the status
+  snapshot after each step and prints each outcome as a `delivery-<kind>`
+  event (codes, ids and spans).
 
 ## The split
 
@@ -245,9 +245,18 @@ split on #907, 2026-10-19 05:11Z). The adapter answers `Hold` with
 ## Tick and task wakes (#906 row 1)
 
 Gated at #906 issuecomment-6257655782, under R53 (A′) and R63. Built behind
-typed seams (`hostpoller.WakeSource`, `delivery.WakeServer`). The `dueWakes`
-adapter and activation wait on hadron-server#2068/#2069/#2072 and S1 slice
-(c), so nothing here is wired into `team host run` yet.
+typed seams (`hostpoller.WakeSource`, `delivery.WakeServer`). hadron-cli#1178
+adds the GraphQL adapter (`internal/cmd/team/host_wakes.go`) and wires it in
+`wireDelivery`:
+
+- `dueWakes` is read paged to exhaustion with the host key. It sends no
+  `accepts`, so no STOP notice is offered, and no `workerRefs`.
+- A broken page (bad `deliverAfter`/`busyDeadline`, no page, a looping
+  cursor) refuses the whole read.
+- `WAKE_BUDGET_EXHAUSTED` returns no wakes.
+- `acknowledgeWakes` sends one proof per call.
+- `AckMixed` stays off: A′ (#2072) is on server main, but its deployment
+  was not verified from the CLI.
 
 - **The read:** in the same step, after the batches, while chat delivery is
   on. Each wake goes on its worker's chain behind that worker's batches.
@@ -271,10 +280,14 @@ adapter and activation wait on hadron-server#2068/#2069/#2072 and S1 slice
 - **The terminal path** is the batch's (`typeLine`): the same lock, recipient,
   R2 composer, liveness, send and confirmation. There are two differences.
   - A wake's hold is logged and shown in status, never reported to S5.
-  - Timing is the server's alone (Xylon, team chat #21827). With no
+  - Timing is the server's alone (Xylon, team chat #21827). With a zero
     `deliverAfter`, the wake holds as `timing-unavailable`, even for an idle
-    agent. With no `busyDeadline`, a busy or unproven agent holds the same
-    way. A proven-idle, empty composer past `deliverAfter` needs no deadline.
+    agent. With a zero `busyDeadline`, a busy or unproven agent holds the
+    same way. A proven-idle, empty composer past `deliverAfter` needs no
+    deadline. Both fields are `DateTime!`: a missing or unparseable one
+    never reaches the deliverer. The adapter refuses the host's whole wake
+    read (`bad-deliver-after` or `bad-busy-deadline`), like any other
+    broken page (cli#1197).
 - **Records** (`delivery/wakes/<worker>/`, 0600) hold one file per reason
   key: `tick:<tickerId>:<lastTickAt>` or `task:<eventId>:<chainIndex>`. Each
   file is in one of two states.
@@ -295,6 +308,15 @@ adapter and activation wait on hadron-server#2068/#2069/#2072 and S1 slice
   `budgetExhaustedAt` (shown only while the budget is spent), and per worker
   `lastFor` (batch or wake) and `ticksUnacked`. No reason key reaches
   status, events or logs: an event's span is reason counts only.
+- **Hold runs (cli#1178):** the snapshot keeps `heldSince` per worker, the
+  start of its current run of holds. Later holds, deferrals, skips and errors
+  keep it; only a delivered or reconciled event clears it. `team host status`
+  adds `lastAgeSeconds` and `heldOver30m`, and the text row reads `HELD OVER
+  30m: no delivery since <time>`. The #2746 class (one ambiguous receipt
+  holding every later wake) is pinned in
+  `internal/delivery/wake_hold_class_1178_test.go`: a refused send leaves no
+  record, and an accepted but unsubmitted line is submitted with Enter alone
+  or cleared, never retyped.
 
 ## Config
 

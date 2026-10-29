@@ -530,8 +530,20 @@ func TestTeamSafeCells1101(t *testing.T) {
 				cleanSnapshot := regexp.MustCompile(`http://127\.0\.0\.1:[0-9]+`).ReplaceAllString(clean, "http://127.0.0.1:PORT")
 				jsonSnapshot := rawJSON
 				if tc.name == "task-list-team" || tc.name == "task-list-team-assignee" {
-					cleanSnapshot = regexp.MustCompile(`(?m)^( *task1 +(?:PENDING|STARTED) +)\S+`).ReplaceAllString(cleanSnapshot, "${1}AGE")
+					// Status-agnostic: the two cases carry different fixture
+					// statuses (PENDING, STARTED), and keying the normalizer on
+					// literals — the pre-#1151 PENDING, or #1151's
+					// (?:PENDING|STARTED) pair — leaves it one status rename
+					// from silently no-oping again, and the golden then hashes
+					// the raw IDLE cell (day-granular at ≥48h) and detonates
+					// at the next 01:00 UTC boundary.
+					cleanSnapshot = regexp.MustCompile(`(?m)^(task1 +\S+ +)\S+`).ReplaceAllString(cleanSnapshot, "${1}AGE")
 					jsonSnapshot = regexp.MustCompile(`"ageSeconds": -?[0-9]+`).ReplaceAllString(jsonSnapshot, `"ageSeconds": 0`)
+					// The pin: prove the substitution FIRED, so the golden
+					// cannot silently go back to hashing a clock-derived cell.
+					if !regexp.MustCompile(`(?m)^task1 +\S+ +AGE(?:\s|$)`).MatchString(cleanSnapshot) {
+						t.Fatalf("%s: age normalization did not fire; the golden would hash a clock-derived IDLE cell", tc.name)
+					}
 				}
 				snapshot := fmt.Sprintf("clean-text %x\nattacked-json %x\n", sha256.Sum256([]byte(cleanSnapshot)), sha256.Sum256([]byte(jsonSnapshot)))
 				spath := filepath.Join("testdata", "safe-cells-1101", path)

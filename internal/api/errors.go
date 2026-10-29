@@ -221,6 +221,13 @@ func MapError(err error) error {
 		return exitcode.Newf(exitcode.Usage, "%s", msg)
 	}
 
+	// cli#898: an internal fault is the server ANSWERING, with the one generic
+	// code and a request id. Keyed on the code alone and checked before the
+	// transport class, so a 500 carrying the envelope is exit 1, not 7.
+	if id, ok := classifyInternalFault(err); ok {
+		return NewInternalFaultError(id, err)
+	}
+
 	// #394: a request that never got an answer is not a refusal. Classified
 	// before the status switch, because it is the ONLY class that is safe to
 	// retry blind — and, after a write, the only one whose outcome is unknown.
@@ -746,6 +753,21 @@ func DescendantCount(err error) int {
 
 func codeForExtension(code string) int {
 	switch {
+	// Install-memory target ownership changed while the native write acquired
+	// its locks: a state conflict, never a request to retry automatically.
+	case code == "INSTALL_TARGET_CHANGED":
+		return exitcode.Conflict
+	// Boot compile: explicit classifications precede generic suffix handling
+	// (GRANT_REQUIRED is an authority refusal, not a missing argument).
+	case code == "BOOT_PROMPT_COMPILE_NOT_PERMITTED" || code == "BOOT_PROMPT_GRANT_REQUIRED":
+		return exitcode.Forbidden
+	case code == "BOOT_PROMPT_TARGET_RETIRED" || code == "BOOT_PROMPT_NO_SOURCE" || code == "BOOT_PROMPT_SOURCE_INVALID" || code == "BOOT_PROMPT_INCLUDE_RETIRED" || code == "BOOT_PROMPT_INCLUDE_REVISION_UNAVAILABLE":
+		return exitcode.Conflict
+	case code == "BOOT_PROMPT_INCLUDE_UNAVAILABLE":
+		return exitcode.NotFound
+	case code == "BOOT_PROMPT_INCLUDE_CYCLE" || code == "BOOT_PROMPT_INCLUDE_TOO_DEEP" || code == "BOOT_PROMPT_INCLUDE_SOURCE_DISALLOWED" || code == "BOOT_PROMPT_INCLUDE_MALFORMED" || code == "BOOT_PROMPT_COMPILE_LIMIT_EXCEEDED":
+		return exitcode.Usage
+
 	// S1/R57 self delivery: stale session/proof requires a fresh binding/read.
 	case code == "WAKE_PROOF_STALE":
 		return exitcode.Conflict
@@ -1060,6 +1082,7 @@ func codeForExtension(code string) int {
 	// whose first acknowledgement already stands. The state must change
 	// before the same call can succeed, like every other Conflict here.
 	case code == "TASK_INVALID_TRANSITION" || code == "TASK_ENDED" ||
+		code == "TASK_BLOCKER_CYCLE" || code == "TASK_BLOCKED" ||
 		code == "ALARM_ALREADY_ACKNOWLEDGED":
 		return exitcode.Conflict
 	// A party ref that names nobody valid (TASK_OWNER_INVALID /

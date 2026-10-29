@@ -16,18 +16,25 @@ import (
 )
 
 func newCmdGet(f *cmdutil.Factory) *cobra.Command {
-	var memory, locPrefix string
+	var memory, locPrefix, install string
 	var raw, bodyOnly bool
 	cmd := &cobra.Command{
-		Use:   "get <node-urn>... | <loc>... -m <memory> | --prefix <loc> -m <memory>",
+		Use:   "get <node-urn>... | <loc>... (-m <memory> | --install <app>/<agent>) | --prefix <loc>",
 		Short: "Show one or more nodes, including content and edges",
 		Long: `Show a node by its fully-qualified URN: hrn:node:<root>:<slug>:<loc>
 (e.g. hrn:node:hadronmemory.com:dev:start-here). The prefix is REQUIRED for
 this flat form — scheme-less <org>:<memory>:<loc> is ambiguous, since a loc
 carries its own single colons. The legacy scheme-less <org>::<memory>::<loc>
 (and urn:node:) remain accepted. Pass -m/--memory to name a
-node by a bare <loc> within that memory instead; without -m a bare loc
+node by a bare <loc> within that memory instead; without -m or --install a bare loc
 is rejected, since the same loc can exist in several memories.
+
+--install <app>/<agent> selects an App's customisation memory instead of
+--memory. Both refs must be ids or fully-qualified URNs, separated by /.
+This excludes --memory (even an empty value). Reads create nothing; an
+unavailable memory is exit 4, not an unscoped read. Only an App manager may
+write while the App is live and the Agent installed. Metadata visibility
+does not confer permission to read content or write. Get/update take bare locs inside that memory, not separate node ids or URNs.
 
 Pass SEVERAL refs to read them together. They are sent as one batched read —
 the server takes a URN as happily as an id, so nothing is resolved first — and a
@@ -83,6 +90,13 @@ saved INTO it. --body-only implies --raw and takes one ref; with --json it is
   hadron node get tasks:start-worker-session -m hrn:mem:hadronmemory.com:core --raw --json
   hadron node get tasks:start-worker-session -m hrn:mem:hadronmemory.com:core --body-only > body.md`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if bodyOnly && wantsLintWarnings(cmd) {
+				return exitcode.Newf(exitcode.Usage, "--lint-warnings cannot be combined with --body-only")
+			}
+			target, err := installTarget(cmd, install, args)
+			if err != nil {
+				return err
+			}
 			prefixMode := cmd.Flags().Changed("prefix")
 			// The two forms are mutually exclusive server-side, so reject the
 			// combination here with a message that names both rather than
@@ -91,7 +105,7 @@ saved INTO it. --body-only implies --raw and takes one ref; with --json it is
 				return exitcode.Newf(exitcode.Usage,
 					"--prefix reads a subtree and cannot be combined with explicit node refs — drop one")
 			}
-			if prefixMode && strings.TrimSpace(memory) == "" {
+			if prefixMode && strings.TrimSpace(memory) == "" && target == nil {
 				return exitcode.Newf(exitcode.Usage, "--prefix needs -m/--memory hrn:mem:<root>:<slug> to scope the subtree")
 			}
 			if !prefixMode && len(args) == 0 {
@@ -106,6 +120,13 @@ saved INTO it. --body-only implies --raw and takes one ref; with --json it is
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
+			}
+
+			if target != nil {
+				memory, err = cmdutil.InstallMemoryRef(cmd.Context(), client, target)
+				if err != nil {
+					return err
+				}
 			}
 
 			// One ref keeps the single-node shape: that output is a stable
@@ -139,6 +160,7 @@ saved INTO it. --body-only implies --raw and takes one ref; with --json it is
 				// resolved here, and the raw spelling is ambiguous across
 				// memories (Andi's cycle-1 P2).
 				loadSignatureSummary(cmd.Context(), f, client, id, &dto)
+				dto.LintWarnings = loadLintWarnings(cmd, client, id)
 				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 					return renderNodeDetail(w, dto)
 				})
@@ -176,15 +198,20 @@ saved INTO it. --body-only implies --raw and takes one ref; with --json it is
 				ptrs[i] = &dto.Nodes[i]
 			}
 			loadCommentSummaries(cmd.Context(), f, client, ptrs)
+			for _, n := range ptrs {
+				n.LintWarnings = loadLintWarnings(cmd, client, n.ID)
+			}
 			return emitNodeBatch(f, dto)
 		},
 	}
+	cmd.Flags().StringVar(&install, "install", "", installFlagHelp)
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve a bare <loc> against")
 	cmd.Flags().StringVar(&locPrefix, "prefix", "", "read every node under this loc prefix in one call (needs -m; empty means the whole memory)")
 	cmd.Flags().BoolVar(&raw, "raw", false, "return the stored body with {{…}} placeholders intact, not the rendered one (to edit content, use --body-only)")
 	cmd.Flags().BoolVar(&bodyOnly, "body-only", false, "print only the stored body of one node, byte for byte — the read to edit from (implies --raw; alias: --content-only)")
 	// The spelling `spec get` already accepts (#99 item 5).
 	cmdutil.WithFlagAliases(cmd, map[string]string{"content-only": "body-only"})
+	enableLintWarnings(cmd, "--body-only")
 	return cmd
 }
 
@@ -303,6 +330,9 @@ func renderNodeDetail(w io.Writer, dto nodeDetailDTO) error {
 		for _, e := range dto.IncomingEdges {
 			fmt.Fprintf(w, "    ← %s (%s)\n", e.Loc, edgeRel(e))
 		}
+	}
+	if err := renderLintWarnings(w, dto.LintWarnings); err != nil {
+		return err
 	}
 	if dto.Content != nil && *dto.Content != "" {
 		if !dto.Rendered {
@@ -683,11 +713,28 @@ func liveRevisions(cmd *cobra.Command, client graphql.Client, sel revisionSelect
 		}
 		return resp.NodeBatch, nil
 	}
+	// byRefs reads the revisions of refs, following a truncated answer through
+	// its omitted refs until none remain (#1185): the server caps a nodeBatch
+	// response by content bytes whatever the query selects, so a revision-only
+	// read of several large nodes comes back truncated, and a node it left out
+	// is not a node that changed. A pass that omits as many refs as it was
+	// asked for read nothing, and repeating it would never end.
 	byRefs := func(refs []string) error {
 		for start := 0; start < len(refs); start += api.NodeBatchCap {
 			end := min(start+api.NodeBatchCap, len(refs))
-			if _, err := ask(refs[start:end], nil, nil); err != nil {
-				return err
+			pending := refs[start:end]
+			for len(pending) > 0 {
+				r, err := ask(pending, nil, nil)
+				if err != nil {
+					return err
+				}
+				if r == nil || !r.Truncated || len(r.Omitted) == 0 {
+					break
+				}
+				if len(r.Omitted) >= len(pending) {
+					return exitcode.Newf(exitcode.Error, "the server made no progress reading node revisions: it left out all %d requested nodes", len(pending))
+				}
+				pending = r.Omitted
 			}
 		}
 		return nil

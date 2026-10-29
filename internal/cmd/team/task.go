@@ -42,6 +42,10 @@ prefix is required: a worker's name and a person's handle are both bare
 words, so a bare value is ambiguous and refused rather than guessed.`,
 	}
 	cmd.AddCommand(newCmdTeamTaskCreate(f))
+	for _, verb := range []string{"set-priority", "add-blocker", "remove-blocker"} {
+		cmd.AddCommand(newCmdTaskDependencyWrite(f, verb))
+	}
+	cmd.AddCommand(newCmdTaskDependencies(f))
 	cmd.AddCommand(newCmdTeamTaskAssign(f, "assign", "Assign a queued task", false))
 	cmd.AddCommand(newCmdTeamTaskAssign(f, "reassign", "Reassign an assigned task", true))
 	cmd.AddCommand(newCmdTeamTaskStart(f))
@@ -122,7 +126,8 @@ func writeCloseSessionLine(w io.Writer, task taskDTO) error {
 
 func newCmdTeamTaskCreate(f *cmdutil.Factory) *cobra.Command {
 	var description, owner, assignee, parent, source, startBy, status string
-	var tags []string
+	var tags, blockedBy []string
+	var priority int
 	var requireRole, familyIn, familyNotIn string
 	var excludeWorkers []string
 	var closeSession, noCloseSession, project bool
@@ -189,7 +194,17 @@ the assign that first names the assignee of a queued task.`,
 					return exitcode.Newf(exitcode.Usage, "--status is backlog or pending at creation (every other status is reached by a move), got %q", status)
 				}
 			}
-			input := gen.CreateAgentTaskInput{
+			var priorityArg *int
+			if cmd.Flags().Changed("priority") {
+				priorityArg = &priority
+			}
+			for i, v := range blockedBy {
+				blockedBy[i] = strings.TrimSpace(v)
+				if blockedBy[i] == "" {
+					return exitcode.Newf(exitcode.Usage, "--blocked-by must name a task")
+				}
+			}
+			input := gen.CreateAgentTaskInput{Priority: priorityArg, BlockedBy: blockedBy,
 				Title:        title,
 				Description:  optStr(description),
 				ParentTaskId: optStr(parent),
@@ -283,6 +298,8 @@ the assign that first names the assignee of a queued task.`,
 			})
 		},
 	}
+	cmd.Flags().IntVar(&priority, "priority", 1, "matching priority: 1-5, 1 = highest (default 1; omission uses the server default)")
+	cmd.Flags().StringArrayVar(&blockedBy, "blocked-by", nil, "task id or handle that blocks this task (repeatable; same-App/cycle rules are server-owned)")
 	cmd.Flags().StringVar(&description, "description", "", "what the task asks for")
 	cmd.Flags().StringVar(&assignee, "assignee", "", "party to assign it to (worker:<…> / user:<…>); omit to leave it queued")
 	cmd.Flags().StringVar(&owner, "owner", "", "task owner (defaults to you)")

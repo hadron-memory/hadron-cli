@@ -106,7 +106,8 @@ terminal and requires --yes non-interactively.`,
 				return exitcode.Newf(exitcode.Error, "merge returned no node")
 			}
 			dto := mergeNodesDTO(resp.MergeNodes)
-			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+			dto.LintWarnings = loadLintWarnings(cmd, client, dto.ID)
+			return writeWithLint(f, dto, dto.LintWarnings, func(w io.Writer) error {
 				t := output.NewTable(w)
 				t.Row("✓ merged", output.SafeCell(dto.Loc), output.SafeCell(dto.Name))
 				return t.Flush()
@@ -118,6 +119,7 @@ terminal and requires --yes non-interactively.`,
 	cmd.Flags().StringArrayVar(&fields, "field", nil, "field to fold in (repeatable): CONTENT|ABSTRACT|DESCRIPTION|TAGS|DATA|PROPERTIES|EDGES (default: all)")
 	cmd.Flags().BoolVar(&deleteSource, "delete-source", false, "hard-delete the source node after a successful merge")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
+	enableLintWarnings(cmd)
 	return cmd
 }
 

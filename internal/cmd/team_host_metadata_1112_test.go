@@ -62,7 +62,7 @@ func TestTeamHostMetadata1112(t *testing.T) {
 				write("hadron-host-state.json", state)
 				body, _ := json.Marshal(map[string]any{"data": map[string]any{"hostRegistrations": []any{reg}}})
 				if field == "read-error" {
-					body, _ = json.Marshal(map[string]any{"errors": []any{map[string]any{"message": value, "extensions": map[string]any{"code": "INTERNAL_SERVER_ERROR"}}}})
+					body, _ = json.Marshal(map[string]any{"errors": []any{map[string]any{"message": value, "extensions": map[string]any{"code": "UNTYPED_SERVER_ERROR"}}}})
 				}
 				srv, _ := hostServerFake(t, map[string]string{"HostRegistrations": string(body)})
 				run := func(asJSON bool) (string, error) {

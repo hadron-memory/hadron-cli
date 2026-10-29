@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -161,6 +162,9 @@ func exchangeCode(ctx context.Context, httpClient *http.Client, tokenEndpoint, c
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusOK {
+		if fault := api.PlainHTTPInternalFault(resp.Header, body); fault != nil {
+			return nil, fault
+		}
 		return nil, exitcode.Newf(exitcode.Error, "token exchange returned HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	var out struct {

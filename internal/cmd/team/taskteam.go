@@ -3,11 +3,11 @@ package team
 // `team task list --team [--tree] [--stale-over <d>]` — #1044 slice 1: a
 // coordinator's work in flight. The team is the coordinator plus every worker
 // whose roster reportsTo chain reaches them, within the one App read. The
-// rows are that App's tasks a team member owns or is assigned, plus every
+// rows are that App's tasks a team member owns, is assigned or created, plus every
 // descendant of those (a child's owner is its parent's assignee, so a seat
 // task's own children can sit wholly outside the team). One read gate: the
 // existing agentTasks read, paged to the end, joined to the roster
-// client-side. The creator criterion and cross-App rows are slice 2
+// client-side. The creator counts (slice 2); cross-App rows are not read
 // (hadron-server#2370).
 
 import (
@@ -42,7 +42,7 @@ var teamListFlagConflicts = []string{"assignee", "owner", "parent", "tag", "queu
 // OwnerTeam / AssigneeTeam: "team" (a worker in the requested team), "outside"
 // (a worker on this App's roster outside it), "unknown" (a worker the roster
 // does not list — retired), "user" (a person), null for no party. Match:
-// "party" (a team member owns or is assigned it) or "descendant" (under such
+// "party" (a team member owns, is assigned or created it) or "descendant" (under such
 // a task). AgeSeconds counts from AgeFrom: updatedAt, else startedAt, else
 // createdAt.
 type teamTaskDTO struct {
@@ -266,15 +266,20 @@ func listTeamTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, b *b
 		return &l
 	}
 
-	// Select: a team party, then every descendant of a selected task.
+	// Select: a team worker who owns, is assigned or created a task, then
+	// every descendant of a selected task (#1044 slice 2: the creator counts;
+	// createdBy is a person for a task they made themselves, never a team
+	// worker, so the worker kind is part of the test).
 	match := map[string]string{}
 	children := map[string][]string{}
 	for _, t := range all {
 		if t.ParentTaskID != nil {
 			children[*t.ParentTaskID] = append(children[*t.ParentTaskID], t.ID)
 		}
-		if (t.Owner != nil && inTeam[t.Owner.ID] && t.Owner.Kind == string(gen.AgentTaskPartyKindWorker)) ||
-			(t.Assignee != nil && inTeam[t.Assignee.ID] && t.Assignee.Kind == string(gen.AgentTaskPartyKindWorker)) {
+		isTeamWorker := func(p *taskPartyDTO) bool {
+			return p != nil && p.Kind == string(gen.AgentTaskPartyKindWorker) && inTeam[p.ID]
+		}
+		if isTeamWorker(t.Owner) || isTeamWorker(t.Assignee) || isTeamWorker(t.CreatedBy) {
 			match[t.ID] = "party"
 		}
 	}
@@ -357,9 +362,9 @@ func listTeamTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, b *b
 		for _, task := range dto.Tasks {
 			withHandle = withHandle || task.Handle != ""
 		}
-		t := output.NewTable(w, handleHeaders(withHandle, "ID", "STATUS", "IDLE", "TITLE", "OWNER", "ASSIGNEE", "ALARMS")...)
+		t := output.NewTable(w, handleHeaders(withHandle, "ID", "STATUS", "PRIORITY", "BLOCKED", "IDLE", "TITLE", "OWNER", "ASSIGNEE", "ALARMS")...)
 		for _, task := range dto.Tasks {
-			t.Row(handleCells(withHandle, task.Handle, output.SafeCell(task.ID), output.SafeCell(task.Status), output.SafeCell(idleCell(task.AgeSeconds)), output.SafeCell(task.Title),
+			t.Row(handleCells(withHandle, task.Handle, output.SafeCell(task.ID), output.SafeCell(task.Status), fmt.Sprint(task.Priority), fmt.Sprint(task.Blocked), output.SafeCell(idleCell(task.AgeSeconds)), output.SafeCell(task.Title),
 				output.SafeCell(teamPartyCell(task.Owner, task.OwnerTeam)), output.SafeCell(teamAssigneeCell(task)), output.SafeCell(alarmCell(task.OpenAlarms)))...)
 		}
 		return t.Flush()

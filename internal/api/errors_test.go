@@ -54,6 +54,27 @@ func TestMapError(t *testing.T) {
 		want int
 	}{
 		{"nil", nil, exitcode.OK},
+		{"install target changed", gqlErr("INSTALL_TARGET_CHANGED"), exitcode.Conflict},
+		{"BOOT_PROMPT_COMPILE_NOT_PERMITTED", gqlErr("BOOT_PROMPT_COMPILE_NOT_PERMITTED"), exitcode.Forbidden},
+		{"BOOT_PROMPT_GRANT_REQUIRED", gqlErr("BOOT_PROMPT_GRANT_REQUIRED"), exitcode.Forbidden},
+		{"BOOT_PROMPT_TARGET_RETIRED", gqlErr("BOOT_PROMPT_TARGET_RETIRED"), exitcode.Conflict},
+		{"BOOT_PROMPT_NO_SOURCE", gqlErr("BOOT_PROMPT_NO_SOURCE"), exitcode.Conflict},
+		{"BOOT_PROMPT_SOURCE_INVALID", gqlErr("BOOT_PROMPT_SOURCE_INVALID"), exitcode.Conflict},
+		{"BOOT_PROMPT_INCLUDE_RETIRED", gqlErr("BOOT_PROMPT_INCLUDE_RETIRED"), exitcode.Conflict},
+		{"BOOT_PROMPT_INCLUDE_REVISION_UNAVAILABLE", gqlErr("BOOT_PROMPT_INCLUDE_REVISION_UNAVAILABLE"), exitcode.Conflict},
+		{"BOOT_PROMPT_INCLUDE_UNAVAILABLE", gqlErr("BOOT_PROMPT_INCLUDE_UNAVAILABLE"), exitcode.NotFound},
+		{"BOOT_PROMPT_INCLUDE_CYCLE", gqlErr("BOOT_PROMPT_INCLUDE_CYCLE"), exitcode.Usage},
+		{"BOOT_PROMPT_INCLUDE_TOO_DEEP", gqlErr("BOOT_PROMPT_INCLUDE_TOO_DEEP"), exitcode.Usage},
+		{"BOOT_PROMPT_INCLUDE_SOURCE_DISALLOWED", gqlErr("BOOT_PROMPT_INCLUDE_SOURCE_DISALLOWED"), exitcode.Usage},
+		{"BOOT_PROMPT_INCLUDE_MALFORMED", gqlErr("BOOT_PROMPT_INCLUDE_MALFORMED"), exitcode.Usage},
+		{"BOOT_PROMPT_COMPILE_LIMIT_EXCEEDED", gqlErr("BOOT_PROMPT_COMPILE_LIMIT_EXCEEDED"), exitcode.Usage},
+		// createAppMemory (cli#1176): each refusal's exit is decided, not left to
+		// the default. USER_OWNED_APP_UNSUPPORTED stays on Error (1): it is a
+		// platform limit pending a ruling, so no input or state change helps.
+		{"app memory forbidden", gqlErr("FORBIDDEN"), exitcode.Forbidden},
+		{"app memory bad input", gqlErr("BAD_USER_INPUT"), exitcode.Usage},
+		{"app memory agent not installed", gqlErr("AGENT_NOT_INSTALLED"), exitcode.Usage},
+		{"app memory user-owned app", gqlErr("USER_OWNED_APP_UNSUPPORTED"), exitcode.Error},
 		{"delivery range", gqlErr("DELIVERY_SETTINGS_OUT_OF_RANGE"), exitcode.Usage},
 		{"delivery relation", gqlErr("DELIVERY_SETTINGS_CONFLICT"), exitcode.Usage},
 		{"ticker settings range", gqlErr("TICKER_SETTINGS_OUT_OF_RANGE"), exitcode.Usage},
@@ -263,6 +284,8 @@ func TestMapError(t *testing.T) {
 		{"bad host op args", gqlErr("BAD_HOST_OPERATION_ARGS"), exitcode.Usage},
 		{"host not found", gqlErr("HOST_NOT_FOUND"), exitcode.NotFound},
 		{"key scope host conflict", gqlErr("APP_KEY_SCOPE_HOST_CONFLICT"), exitcode.Conflict},
+		{"task blocked", gqlErr("TASK_BLOCKED"), exitcode.Conflict},
+		{"task blocker cycle", gqlErr("TASK_BLOCKER_CYCLE"), exitcode.Conflict},
 		{"task invalid transition", gqlErr("TASK_INVALID_TRANSITION"), exitcode.Conflict},
 		{"task ended", gqlErr("TASK_ENDED"), exitcode.Conflict},
 		{"alarm already acknowledged", gqlErr("ALARM_ALREADY_ACKNOWLEDGED"), exitcode.Conflict},
@@ -854,7 +877,7 @@ func TestMapErrorMCPOnlyStripsTheApolloPrefixFromEveryMessage(t *testing.T) {
 // server#1220 types the shared memory-write gate. Its ordinary denial is the
 // wire shape pinned by server#1308, and it must never read as a credential
 // refusal, before the fix or after. The message is the LIVE one, not a
-// paraphrase. Only the code changes: INTERNAL_SERVER_ERROR today (exit 1),
+// paraphrase. Only the code changes: an untyped code today (exit 1),
 // FORBIDDEN with no reason once typed (exit 8, "ask for access"). A future
 // non-OAuth reason on the same denial also stays exit 8. Exit 3 is reserved
 // for OAUTH_SCOPE_INSUFFICIENT/UNSUPPORTED, which a different credential
@@ -866,7 +889,7 @@ func TestMemoryWriteDenialIsNotAScopeRefusal(t *testing.T) {
 		ext  map[string]any
 		want int
 	}{
-		{"before #1220: untyped", map[string]any{"code": "INTERNAL_SERVER_ERROR"}, exitcode.Error},
+		{"before #1220: untyped", map[string]any{"code": "UNTYPED_SERVER_ERROR"}, exitcode.Error},
 		{"after #1220: typed, no reason", map[string]any{"code": "FORBIDDEN"}, exitcode.Forbidden},
 		{"typed, a non-OAuth reason", map[string]any{"code": "FORBIDDEN", "reason": "MEMORY_WRITE_DENIED"}, exitcode.Forbidden},
 	} {
