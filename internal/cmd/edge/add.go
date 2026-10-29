@@ -30,12 +30,32 @@ func newCmdAdd(f *cmdutil.Factory) *cobra.Command {
 		Use:     "create",
 		Aliases: []string{"add"},
 		Short:   "Create an edge between two nodes",
-		Long: `Create a directed, labeled edge from one node to another. Both
-endpoints are fully-qualified node URNs (hrn:node:<root>:<slug>:<loc>); pass
--m/--memory to give --from/--to as bare locs in that one memory instead.
-Cross-memory edges are allowed — use full URNs (omit -m) for those.`,
-		Example: `  hadron edge add --from hrn:node:acme.com:kb:findings:flaky-ci --to hrn:node:acme.com:kb:start-here --name routes-to
-  hadron edge add -m hrn:mem:acme.com:kb --from findings:flaky-ci --to start-here --name routes-to`,
+		Long: `Link one node to another: an edge from --from to --to, named --name
+(the relationship, for example routes-to). Give both nodes as full node URNs
+(hrn:node:<root>:<slug>:<loc>), or pass -m/--memory and give them as bare locs
+in that memory. To link nodes in two different memories, use full URNs and
+omit -m. You need write access to the --from node's memory.
+
+On success it prints the link and the new edge's id, which edge update and
+edge rm take:
+
+  ✓ created  findings:flaky-ci → start-here  (routes-to)  <edge-id>
+
+The edge's loc (its address inside the memory) is <from-loc>:<name>:<to-loc>
+unless you set --loc, and it must be unique in the memory: creating the same
+link twice fails and creates nothing. A node that does not exist, or that
+you cannot read, is refused before anything is written.
+
+Settings for automation (optional; an ordinary link needs none of them):
+  --runnable    marks the edge as one that flows and task runs may follow
+  --priority    orders the edges that leave one node; lower goes first (default 0)
+  --condition   a JSONLogic expression; the edge applies only when it is true
+                (no condition: always). It may read memory.*, chat.*, agent.*,
+                message.data.*, now() and today().
+  --data        any JSON value stored on the edge for your own use`,
+		Example: `  hadron edge create -m hrn:mem:acme.com:kb --from findings:flaky-ci --to start-here --name routes-to
+  hadron edge create --from hrn:node:acme.com:kb:findings:flaky-ci --to hrn:node:acme.com:ops:runbook --name documents
+  hadron edge create -m hrn:mem:acme.com:kb --from intake --to triage --name next --runnable --priority 1 --condition '{"==":[{"var":"message.data.kind"},"bug"]}'`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Validate local input before any network round-trip.
@@ -109,15 +129,15 @@ Cross-memory edges are allowed — use full URNs (omit -m) for those.`,
 		},
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve bare --from/--to locs against")
-	cmd.Flags().StringVar(&from, "from", "", "source node URN, or bare loc with -m (required)")
-	cmd.Flags().StringVar(&to, "to", "", "target node URN, or bare loc with -m (required)")
-	cmd.Flags().StringVar(&name, "name", "", "relationship name (required)")
-	cmd.Flags().StringVar(&loc, "loc", "", "explicit edge loc (default: derived <sourceLoc>:<name>:<targetLoc>)")
-	cmd.Flags().StringVar(&description, "description", "", "edge description")
-	cmd.Flags().BoolVar(&runnable, "runnable", false, "mark the edge runnable")
-	cmd.Flags().IntVar(&priority, "priority", 0, "edge priority")
-	cmd.Flags().StringVar(&condition, "condition", "", "JSONLogic gate condition (JSON)")
-	cmd.Flags().StringVar(&data, "data", "", "arbitrary edge data (JSON)")
+	cmd.Flags().StringVar(&from, "from", "", "the node the link starts from: a node URN, or a bare loc with -m (required)")
+	cmd.Flags().StringVar(&to, "to", "", "the node the link points to: a node URN, or a bare loc with -m (required)")
+	cmd.Flags().StringVar(&name, "name", "", "relationship name, for example routes-to (required)")
+	cmd.Flags().StringVar(&loc, "loc", "", "the edge's loc in the memory (default <from-loc>:<name>:<to-loc>)")
+	cmd.Flags().StringVar(&description, "description", "", "a description of the link")
+	cmd.Flags().BoolVar(&runnable, "runnable", false, "automation: flows and task runs may follow this edge")
+	cmd.Flags().IntVar(&priority, "priority", 0, "automation: order among the edges leaving one node; lower goes first")
+	cmd.Flags().StringVar(&condition, "condition", "", "automation: JSONLogic expression; the edge applies only when it is true")
+	cmd.Flags().StringVar(&data, "data", "", "any JSON value to store on the edge")
 	_ = cmd.MarkFlagRequired("from")
 	_ = cmd.MarkFlagRequired("to")
 	_ = cmd.MarkFlagRequired("name")
