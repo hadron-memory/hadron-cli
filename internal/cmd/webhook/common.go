@@ -29,6 +29,8 @@ type webhookDTO struct {
 	ArgsSchema     *json.RawMessage `json:"argsSchema"`
 	EventData      *json.RawMessage `json:"eventData"`
 	Policy         *json.RawMessage `json:"policy"`
+	BudgetTokens   *int             `json:"budgetTokens"`
+	BudgetActions  *int             `json:"budgetActions"`
 	LastCalledAt   *string          `json:"lastCalledAt"`
 	CreatedAt      string           `json:"createdAt"`
 }
@@ -56,6 +58,8 @@ func dtoFromFields(f gen.AgentWebhookFields) webhookDTO {
 		ArgsSchema:     f.ArgsSchema,
 		EventData:      f.EventData,
 		Policy:         f.Policy,
+		BudgetTokens:   f.BudgetTokens,
+		BudgetActions:  f.BudgetActions,
 		LastCalledAt:   f.LastCalledAt,
 		CreatedAt:      f.CreatedAt,
 	}

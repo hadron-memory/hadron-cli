@@ -908,9 +908,13 @@ type AgentScheduleFields struct {
 	CreatedBy *string          `json:"createdBy"`
 	EventData *json.RawMessage `json:"eventData"`
 	Policy    *json.RawMessage `json:"policy"`
-	LastRunAt *string          `json:"lastRunAt"`
-	NextRunAt *string          `json:"nextRunAt"`
-	CreatedAt string           `json:"createdAt"`
+	// Optional per-run token limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
+	BudgetTokens *int `json:"budgetTokens"`
+	// Optional per-run action limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
+	BudgetActions *int    `json:"budgetActions"`
+	LastRunAt     *string `json:"lastRunAt"`
+	NextRunAt     *string `json:"nextRunAt"`
+	CreatedAt     string  `json:"createdAt"`
 }
 
 // GetId returns AgentScheduleFields.Id, and is useful for accessing the field via an interface.
@@ -954,6 +958,12 @@ func (v *AgentScheduleFields) GetEventData() *json.RawMessage { return v.EventDa
 
 // GetPolicy returns AgentScheduleFields.Policy, and is useful for accessing the field via an interface.
 func (v *AgentScheduleFields) GetPolicy() *json.RawMessage { return v.Policy }
+
+// GetBudgetTokens returns AgentScheduleFields.BudgetTokens, and is useful for accessing the field via an interface.
+func (v *AgentScheduleFields) GetBudgetTokens() *int { return v.BudgetTokens }
+
+// GetBudgetActions returns AgentScheduleFields.BudgetActions, and is useful for accessing the field via an interface.
+func (v *AgentScheduleFields) GetBudgetActions() *int { return v.BudgetActions }
 
 // GetLastRunAt returns AgentScheduleFields.LastRunAt, and is useful for accessing the field via an interface.
 func (v *AgentScheduleFields) GetLastRunAt() *string { return v.LastRunAt }
@@ -1056,6 +1066,16 @@ func (v *AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule) GetPo
 	return v.AgentScheduleFields.Policy
 }
 
+// GetBudgetTokens returns AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule.BudgetTokens, and is useful for accessing the field via an interface.
+func (v *AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule) GetBudgetTokens() *int {
+	return v.AgentScheduleFields.BudgetTokens
+}
+
+// GetBudgetActions returns AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule.BudgetActions, and is useful for accessing the field via an interface.
+func (v *AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule) GetBudgetActions() *int {
+	return v.AgentScheduleFields.BudgetActions
+}
+
 // GetLastRunAt returns AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule.LastRunAt, and is useful for accessing the field via an interface.
 func (v *AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule) GetLastRunAt() *string {
 	return v.AgentScheduleFields.LastRunAt
@@ -1125,6 +1145,10 @@ type __premarshalAgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedul
 
 	Policy *json.RawMessage `json:"policy"`
 
+	BudgetTokens *int `json:"budgetTokens"`
+
+	BudgetActions *int `json:"budgetActions"`
+
 	LastRunAt *string `json:"lastRunAt"`
 
 	NextRunAt *string `json:"nextRunAt"`
@@ -1157,6 +1181,8 @@ func (v *AgentSchedulesAgentSchedulesAgentSchedulesPageItemsAgentSchedule) __pre
 	retval.CreatedBy = v.AgentScheduleFields.CreatedBy
 	retval.EventData = v.AgentScheduleFields.EventData
 	retval.Policy = v.AgentScheduleFields.Policy
+	retval.BudgetTokens = v.AgentScheduleFields.BudgetTokens
+	retval.BudgetActions = v.AgentScheduleFields.BudgetActions
 	retval.LastRunAt = v.AgentScheduleFields.LastRunAt
 	retval.NextRunAt = v.AgentScheduleFields.NextRunAt
 	retval.CreatedAt = v.AgentScheduleFields.CreatedAt
@@ -7161,6 +7187,16 @@ func (v *AgentWebhookCredentialFieldsWebhookAgentWebhook) GetPolicy() *json.RawM
 	return v.AgentWebhookFields.Policy
 }
 
+// GetBudgetTokens returns AgentWebhookCredentialFieldsWebhookAgentWebhook.BudgetTokens, and is useful for accessing the field via an interface.
+func (v *AgentWebhookCredentialFieldsWebhookAgentWebhook) GetBudgetTokens() *int {
+	return v.AgentWebhookFields.BudgetTokens
+}
+
+// GetBudgetActions returns AgentWebhookCredentialFieldsWebhookAgentWebhook.BudgetActions, and is useful for accessing the field via an interface.
+func (v *AgentWebhookCredentialFieldsWebhookAgentWebhook) GetBudgetActions() *int {
+	return v.AgentWebhookFields.BudgetActions
+}
+
 // GetLastCalledAt returns AgentWebhookCredentialFieldsWebhookAgentWebhook.LastCalledAt, and is useful for accessing the field via an interface.
 func (v *AgentWebhookCredentialFieldsWebhookAgentWebhook) GetLastCalledAt() *string {
 	return v.AgentWebhookFields.LastCalledAt
@@ -7223,6 +7259,10 @@ type __premarshalAgentWebhookCredentialFieldsWebhookAgentWebhook struct {
 
 	Policy *json.RawMessage `json:"policy"`
 
+	BudgetTokens *int `json:"budgetTokens"`
+
+	BudgetActions *int `json:"budgetActions"`
+
 	LastCalledAt *string `json:"lastCalledAt"`
 
 	CreatedAt string `json:"createdAt"`
@@ -7252,6 +7292,8 @@ func (v *AgentWebhookCredentialFieldsWebhookAgentWebhook) __premarshalJSON() (*_
 	retval.ArgsSchema = v.AgentWebhookFields.ArgsSchema
 	retval.EventData = v.AgentWebhookFields.EventData
 	retval.Policy = v.AgentWebhookFields.Policy
+	retval.BudgetTokens = v.AgentWebhookFields.BudgetTokens
+	retval.BudgetActions = v.AgentWebhookFields.BudgetActions
 	retval.LastCalledAt = v.AgentWebhookFields.LastCalledAt
 	retval.CreatedAt = v.AgentWebhookFields.CreatedAt
 	return &retval, nil
@@ -7275,8 +7317,12 @@ type AgentWebhookFields struct {
 	ArgsSchema     *json.RawMessage `json:"argsSchema"`
 	EventData      *json.RawMessage `json:"eventData"`
 	Policy         *json.RawMessage `json:"policy"`
-	LastCalledAt   *string          `json:"lastCalledAt"`
-	CreatedAt      string           `json:"createdAt"`
+	// Optional per-run token limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
+	BudgetTokens *int `json:"budgetTokens"`
+	// Optional per-run action limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
+	BudgetActions *int    `json:"budgetActions"`
+	LastCalledAt  *string `json:"lastCalledAt"`
+	CreatedAt     string  `json:"createdAt"`
 }
 
 // GetId returns AgentWebhookFields.Id, and is useful for accessing the field via an interface.
@@ -7317,6 +7363,12 @@ func (v *AgentWebhookFields) GetEventData() *json.RawMessage { return v.EventDat
 
 // GetPolicy returns AgentWebhookFields.Policy, and is useful for accessing the field via an interface.
 func (v *AgentWebhookFields) GetPolicy() *json.RawMessage { return v.Policy }
+
+// GetBudgetTokens returns AgentWebhookFields.BudgetTokens, and is useful for accessing the field via an interface.
+func (v *AgentWebhookFields) GetBudgetTokens() *int { return v.BudgetTokens }
+
+// GetBudgetActions returns AgentWebhookFields.BudgetActions, and is useful for accessing the field via an interface.
+func (v *AgentWebhookFields) GetBudgetActions() *int { return v.BudgetActions }
 
 // GetLastCalledAt returns AgentWebhookFields.LastCalledAt, and is useful for accessing the field via an interface.
 func (v *AgentWebhookFields) GetLastCalledAt() *string { return v.LastCalledAt }
@@ -7411,6 +7463,16 @@ func (v *AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook) GetPolicy
 	return v.AgentWebhookFields.Policy
 }
 
+// GetBudgetTokens returns AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook.BudgetTokens, and is useful for accessing the field via an interface.
+func (v *AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook) GetBudgetTokens() *int {
+	return v.AgentWebhookFields.BudgetTokens
+}
+
+// GetBudgetActions returns AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook.BudgetActions, and is useful for accessing the field via an interface.
+func (v *AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook) GetBudgetActions() *int {
+	return v.AgentWebhookFields.BudgetActions
+}
+
 // GetLastCalledAt returns AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook.LastCalledAt, and is useful for accessing the field via an interface.
 func (v *AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook) GetLastCalledAt() *string {
 	return v.AgentWebhookFields.LastCalledAt
@@ -7473,6 +7535,10 @@ type __premarshalAgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook st
 
 	Policy *json.RawMessage `json:"policy"`
 
+	BudgetTokens *int `json:"budgetTokens"`
+
+	BudgetActions *int `json:"budgetActions"`
+
 	LastCalledAt *string `json:"lastCalledAt"`
 
 	CreatedAt string `json:"createdAt"`
@@ -7502,6 +7568,8 @@ func (v *AgentWebhooksAgentWebhooksAgentWebhooksPageItemsAgentWebhook) __premars
 	retval.ArgsSchema = v.AgentWebhookFields.ArgsSchema
 	retval.EventData = v.AgentWebhookFields.EventData
 	retval.Policy = v.AgentWebhookFields.Policy
+	retval.BudgetTokens = v.AgentWebhookFields.BudgetTokens
+	retval.BudgetActions = v.AgentWebhookFields.BudgetActions
 	retval.LastCalledAt = v.AgentWebhookFields.LastCalledAt
 	retval.CreatedAt = v.AgentWebhookFields.CreatedAt
 	return &retval, nil
@@ -17438,6 +17506,16 @@ func (v *CreateAgentScheduleCreateAgentSchedule) GetPolicy() *json.RawMessage {
 	return v.AgentScheduleFields.Policy
 }
 
+// GetBudgetTokens returns CreateAgentScheduleCreateAgentSchedule.BudgetTokens, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleCreateAgentSchedule) GetBudgetTokens() *int {
+	return v.AgentScheduleFields.BudgetTokens
+}
+
+// GetBudgetActions returns CreateAgentScheduleCreateAgentSchedule.BudgetActions, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleCreateAgentSchedule) GetBudgetActions() *int {
+	return v.AgentScheduleFields.BudgetActions
+}
+
 // GetLastRunAt returns CreateAgentScheduleCreateAgentSchedule.LastRunAt, and is useful for accessing the field via an interface.
 func (v *CreateAgentScheduleCreateAgentSchedule) GetLastRunAt() *string {
 	return v.AgentScheduleFields.LastRunAt
@@ -17507,6 +17585,10 @@ type __premarshalCreateAgentScheduleCreateAgentSchedule struct {
 
 	Policy *json.RawMessage `json:"policy"`
 
+	BudgetTokens *int `json:"budgetTokens"`
+
+	BudgetActions *int `json:"budgetActions"`
+
 	LastRunAt *string `json:"lastRunAt"`
 
 	NextRunAt *string `json:"nextRunAt"`
@@ -17539,6 +17621,8 @@ func (v *CreateAgentScheduleCreateAgentSchedule) __premarshalJSON() (*__premarsh
 	retval.CreatedBy = v.AgentScheduleFields.CreatedBy
 	retval.EventData = v.AgentScheduleFields.EventData
 	retval.Policy = v.AgentScheduleFields.Policy
+	retval.BudgetTokens = v.AgentScheduleFields.BudgetTokens
+	retval.BudgetActions = v.AgentScheduleFields.BudgetActions
 	retval.LastRunAt = v.AgentScheduleFields.LastRunAt
 	retval.NextRunAt = v.AgentScheduleFields.NextRunAt
 	retval.CreatedAt = v.AgentScheduleFields.CreatedAt
@@ -17552,6 +17636,10 @@ type CreateAgentScheduleInput struct {
 	AiConfigName *string `json:"aiConfigName,omitempty"`
 	// App the run executes as — ref: PK or fully-qualified URN.
 	AppRef string `json:"appRef"`
+	// Optional per-run action limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
+	BudgetActions *int `json:"budgetActions,omitempty"`
+	// Optional per-run token limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
+	BudgetTokens *int `json:"budgetTokens,omitempty"`
 	// Recurring: 5-field cron expression, evaluated in timezone (default UTC). Provide exactly one of cron / runAt.
 	Cron    *string `json:"cron"`
 	Enabled *bool   `json:"enabled,omitempty"`
@@ -17579,6 +17667,12 @@ func (v *CreateAgentScheduleInput) GetAiConfigName() *string { return v.AiConfig
 
 // GetAppRef returns CreateAgentScheduleInput.AppRef, and is useful for accessing the field via an interface.
 func (v *CreateAgentScheduleInput) GetAppRef() string { return v.AppRef }
+
+// GetBudgetActions returns CreateAgentScheduleInput.BudgetActions, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleInput) GetBudgetActions() *int { return v.BudgetActions }
+
+// GetBudgetTokens returns CreateAgentScheduleInput.BudgetTokens, and is useful for accessing the field via an interface.
+func (v *CreateAgentScheduleInput) GetBudgetTokens() *int { return v.BudgetTokens }
 
 // GetCron returns CreateAgentScheduleInput.Cron, and is useful for accessing the field via an interface.
 func (v *CreateAgentScheduleInput) GetCron() *string { return v.Cron }
@@ -17778,7 +17872,11 @@ type CreateAgentWebhookInput struct {
 	// App — ref: PK or fully-qualified URN.
 	AppRef string `json:"appRef"`
 	// JSON Schema for POST args (stored in v1; enforcement is follow-on).
-	ArgsSchema   *json.RawMessage `json:"argsSchema,omitempty"`
+	ArgsSchema *json.RawMessage `json:"argsSchema,omitempty"`
+	// Optional per-run action limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
+	BudgetActions *int `json:"budgetActions,omitempty"`
+	// Optional per-run token limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
+	BudgetTokens *int             `json:"budgetTokens,omitempty"`
 	Enabled      *bool            `json:"enabled,omitempty"`
 	EntryNodeUrn string           `json:"entryNodeUrn"`
 	EventData    *json.RawMessage `json:"eventData,omitempty"`
@@ -17801,6 +17899,12 @@ func (v *CreateAgentWebhookInput) GetAppRef() string { return v.AppRef }
 
 // GetArgsSchema returns CreateAgentWebhookInput.ArgsSchema, and is useful for accessing the field via an interface.
 func (v *CreateAgentWebhookInput) GetArgsSchema() *json.RawMessage { return v.ArgsSchema }
+
+// GetBudgetActions returns CreateAgentWebhookInput.BudgetActions, and is useful for accessing the field via an interface.
+func (v *CreateAgentWebhookInput) GetBudgetActions() *int { return v.BudgetActions }
+
+// GetBudgetTokens returns CreateAgentWebhookInput.BudgetTokens, and is useful for accessing the field via an interface.
+func (v *CreateAgentWebhookInput) GetBudgetTokens() *int { return v.BudgetTokens }
 
 // GetEnabled returns CreateAgentWebhookInput.Enabled, and is useful for accessing the field via an interface.
 func (v *CreateAgentWebhookInput) GetEnabled() *bool { return v.Enabled }
@@ -35261,6 +35365,9 @@ type NodeBatchResponse struct {
 	// templates are NOT compiled (unlike the single-node 'node' read), since this
 	// is a bulk source read for lint / audit / migration and compiling per node
 	// would re-introduce the N+1 it eliminates.
+	// Requested edge fields share a 2000-row budget for this batch result; exceeding
+	// it returns BAD_USER_INPUT. Read large edge sets through the paged edges query.
+	// Unselected edges and endpoint bodies are not prefetched by the batch read.
 	NodeBatch *NodeBatchNodeBatchNodeBatchResult `json:"nodeBatch"`
 }
 
@@ -35367,6 +35474,9 @@ type NodeCommentSummariesResponse struct {
 	// templates are NOT compiled (unlike the single-node 'node' read), since this
 	// is a bulk source read for lint / audit / migration and compiling per node
 	// would re-introduce the N+1 it eliminates.
+	// Requested edge fields share a 2000-row budget for this batch result; exceeding
+	// it returns BAD_USER_INPUT. Read large edge sets through the paged edges query.
+	// Unselected edges and endpoint bodies are not prefetched by the batch read.
 	NodeBatch *NodeCommentSummariesNodeBatchNodeBatchResult `json:"nodeBatch"`
 }
 
@@ -36109,6 +36219,9 @@ type NodeLiveRevisionsApprovedResponse struct {
 	// templates are NOT compiled (unlike the single-node 'node' read), since this
 	// is a bulk source read for lint / audit / migration and compiling per node
 	// would re-introduce the N+1 it eliminates.
+	// Requested edge fields share a 2000-row budget for this batch result; exceeding
+	// it returns BAD_USER_INPUT. Read large edge sets through the paged edges query.
+	// Unselected edges and endpoint bodies are not prefetched by the batch read.
 	NodeBatch *NodeLiveRevisionsApprovedNodeBatchNodeBatchResult `json:"nodeBatch"`
 }
 
@@ -36529,6 +36642,9 @@ type NodeLiveRevisionsMintedResponse struct {
 	// templates are NOT compiled (unlike the single-node 'node' read), since this
 	// is a bulk source read for lint / audit / migration and compiling per node
 	// would re-introduce the N+1 it eliminates.
+	// Requested edge fields share a 2000-row budget for this batch result; exceeding
+	// it returns BAD_USER_INPUT. Read large edge sets through the paged edges query.
+	// Unselected edges and endpoint bodies are not prefetched by the batch read.
 	NodeBatch *NodeLiveRevisionsMintedNodeBatchNodeBatchResult `json:"nodeBatch"`
 }
 
@@ -36607,6 +36723,9 @@ type NodeLiveRevisionsResponse struct {
 	// templates are NOT compiled (unlike the single-node 'node' read), since this
 	// is a bulk source read for lint / audit / migration and compiling per node
 	// would re-introduce the N+1 it eliminates.
+	// Requested edge fields share a 2000-row budget for this batch result; exceeding
+	// it returns BAD_USER_INPUT. Read large edge sets through the paged edges query.
+	// Unselected edges and endpoint bodies are not prefetched by the batch read.
 	NodeBatch *NodeLiveRevisionsNodeBatchNodeBatchResult `json:"nodeBatch"`
 }
 
@@ -36851,6 +36970,9 @@ type NodeLiveRevisionsStampedResponse struct {
 	// templates are NOT compiled (unlike the single-node 'node' read), since this
 	// is a bulk source read for lint / audit / migration and compiling per node
 	// would re-introduce the N+1 it eliminates.
+	// Requested edge fields share a 2000-row budget for this batch result; exceeding
+	// it returns BAD_USER_INPUT. Read large edge sets through the paged edges query.
+	// Unselected edges and endpoint bodies are not prefetched by the batch read.
 	NodeBatch *NodeLiveRevisionsStampedNodeBatchNodeBatchResult `json:"nodeBatch"`
 }
 
@@ -56181,7 +56303,11 @@ func (v *TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPrevie
 type TriggerAppRunInput struct {
 	AiConfigName *string `json:"aiConfigName,omitempty"`
 	// App — ref: PK or fully-qualified URN.
-	AppRef       string           `json:"appRef"`
+	AppRef string `json:"appRef"`
+	// Optional per-run action limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
+	BudgetActions *int `json:"budgetActions,omitempty"`
+	// Optional per-run token limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
+	BudgetTokens *int             `json:"budgetTokens,omitempty"`
 	EntryNodeUrn string           `json:"entryNodeUrn"`
 	EventData    *json.RawMessage `json:"eventData,omitempty"`
 	RunAsSelf    *bool            `json:"runAsSelf,omitempty"`
@@ -56192,6 +56318,12 @@ func (v *TriggerAppRunInput) GetAiConfigName() *string { return v.AiConfigName }
 
 // GetAppRef returns TriggerAppRunInput.AppRef, and is useful for accessing the field via an interface.
 func (v *TriggerAppRunInput) GetAppRef() string { return v.AppRef }
+
+// GetBudgetActions returns TriggerAppRunInput.BudgetActions, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunInput) GetBudgetActions() *int { return v.BudgetActions }
+
+// GetBudgetTokens returns TriggerAppRunInput.BudgetTokens, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunInput) GetBudgetTokens() *int { return v.BudgetTokens }
 
 // GetEntryNodeUrn returns TriggerAppRunInput.EntryNodeUrn, and is useful for accessing the field via an interface.
 func (v *TriggerAppRunInput) GetEntryNodeUrn() string { return v.EntryNodeUrn }
@@ -56954,6 +57086,10 @@ type UpdateAgentScheduleInput struct {
 	// Agent — ref: PK or URN; must be installed in the App.
 	AgentRef     *string `json:"agentRef,omitempty"`
 	AiConfigName *string `json:"aiConfigName,omitempty"`
+	// Optional per-run action limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
+	BudgetActions json.RawMessage `json:"budgetActions,omitempty"`
+	// Optional per-run token limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
+	BudgetTokens json.RawMessage `json:"budgetTokens,omitempty"`
 	// Providing cron switches the schedule to recurring (clears runAt).
 	Cron         *string          `json:"cron,omitempty"`
 	Enabled      *bool            `json:"enabled,omitempty"`
@@ -56974,6 +57110,12 @@ func (v *UpdateAgentScheduleInput) GetAgentRef() *string { return v.AgentRef }
 
 // GetAiConfigName returns UpdateAgentScheduleInput.AiConfigName, and is useful for accessing the field via an interface.
 func (v *UpdateAgentScheduleInput) GetAiConfigName() *string { return v.AiConfigName }
+
+// GetBudgetActions returns UpdateAgentScheduleInput.BudgetActions, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleInput) GetBudgetActions() json.RawMessage { return v.BudgetActions }
+
+// GetBudgetTokens returns UpdateAgentScheduleInput.BudgetTokens, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleInput) GetBudgetTokens() json.RawMessage { return v.BudgetTokens }
 
 // GetCron returns UpdateAgentScheduleInput.Cron, and is useful for accessing the field via an interface.
 func (v *UpdateAgentScheduleInput) GetCron() *string { return v.Cron }
@@ -57087,6 +57229,16 @@ func (v *UpdateAgentScheduleUpdateAgentSchedule) GetPolicy() *json.RawMessage {
 	return v.AgentScheduleFields.Policy
 }
 
+// GetBudgetTokens returns UpdateAgentScheduleUpdateAgentSchedule.BudgetTokens, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleUpdateAgentSchedule) GetBudgetTokens() *int {
+	return v.AgentScheduleFields.BudgetTokens
+}
+
+// GetBudgetActions returns UpdateAgentScheduleUpdateAgentSchedule.BudgetActions, and is useful for accessing the field via an interface.
+func (v *UpdateAgentScheduleUpdateAgentSchedule) GetBudgetActions() *int {
+	return v.AgentScheduleFields.BudgetActions
+}
+
 // GetLastRunAt returns UpdateAgentScheduleUpdateAgentSchedule.LastRunAt, and is useful for accessing the field via an interface.
 func (v *UpdateAgentScheduleUpdateAgentSchedule) GetLastRunAt() *string {
 	return v.AgentScheduleFields.LastRunAt
@@ -57156,6 +57308,10 @@ type __premarshalUpdateAgentScheduleUpdateAgentSchedule struct {
 
 	Policy *json.RawMessage `json:"policy"`
 
+	BudgetTokens *int `json:"budgetTokens"`
+
+	BudgetActions *int `json:"budgetActions"`
+
 	LastRunAt *string `json:"lastRunAt"`
 
 	NextRunAt *string `json:"nextRunAt"`
@@ -57188,6 +57344,8 @@ func (v *UpdateAgentScheduleUpdateAgentSchedule) __premarshalJSON() (*__premarsh
 	retval.CreatedBy = v.AgentScheduleFields.CreatedBy
 	retval.EventData = v.AgentScheduleFields.EventData
 	retval.Policy = v.AgentScheduleFields.Policy
+	retval.BudgetTokens = v.AgentScheduleFields.BudgetTokens
+	retval.BudgetActions = v.AgentScheduleFields.BudgetActions
 	retval.LastRunAt = v.AgentScheduleFields.LastRunAt
 	retval.NextRunAt = v.AgentScheduleFields.NextRunAt
 	retval.CreatedAt = v.AgentScheduleFields.CreatedAt
@@ -71449,6 +71607,8 @@ fragment AgentScheduleFields on AgentSchedule {
 	createdBy
 	eventData
 	policy
+	budgetTokens
+	budgetActions
 	lastRunAt
 	nextRunAt
 	createdAt
@@ -73356,6 +73516,8 @@ fragment AgentWebhookFields on AgentWebhook {
 	argsSchema
 	eventData
 	policy
+	budgetTokens
+	budgetActions
 	lastCalledAt
 	createdAt
 }
@@ -76573,6 +76735,8 @@ fragment AgentScheduleFields on AgentSchedule {
 	createdBy
 	eventData
 	policy
+	budgetTokens
+	budgetActions
 	lastRunAt
 	nextRunAt
 	createdAt
@@ -76632,6 +76796,8 @@ fragment AgentWebhookFields on AgentWebhook {
 	argsSchema
 	eventData
 	policy
+	budgetTokens
+	budgetActions
 	lastCalledAt
 	createdAt
 }
@@ -87255,6 +87421,8 @@ fragment AgentWebhookFields on AgentWebhook {
 	argsSchema
 	eventData
 	policy
+	budgetTokens
+	budgetActions
 	lastCalledAt
 	createdAt
 }
@@ -91223,6 +91391,8 @@ fragment AgentScheduleFields on AgentSchedule {
 	createdBy
 	eventData
 	policy
+	budgetTokens
+	budgetActions
 	lastRunAt
 	nextRunAt
 	createdAt
@@ -91233,6 +91403,9 @@ fragment AgentScheduleFields on AgentSchedule {
 // so unset flags MUST be omitted (nil pointers dropped by these directives).
 // scopeRef arrived with spec-049 Phase 3b (hadron-server#1163); without this an
 // unrelated `schedule update --name …` sends scopeRef:null and CLEARS the scope.
+// budgetTokens/budgetActions are the only fields where a limit must be CLEARED
+// (explicit null = back to the platform default) yet omitted must PRESERVE, which
+// a *int cannot say: bound to json.RawMessage like `policy`, nil omits, "null" clears.
 func UpdateAgentSchedule(
 	ctx_ context.Context,
 	client_ graphql.Client,

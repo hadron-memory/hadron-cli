@@ -409,11 +409,11 @@ hadron team router poll | loop [--interval 60s] | status [--config <path>]   # t
 hadron user search [query] [--limit N] [--offset N] | set-roles <userRef> --role <r>... --yes | merge <source> --into <target> --yes
 hadron profile set [--name <n>] [--handle <h>] [--email <e>]   # --email is accepted and REFUSED locally (exit 2, "Changing your email address is not supported here.") — the flag stays so scripts fail loudly (#844)
 hadron server-info
-hadron run trigger --app <ref> --entry <node-urn> [--as-self] [--arg k=v]... [--ai-config <n>] [--wait] | list [--app <ref> | --org <ref>] [--status <s>] | get <id> | cancel <id> --yes
+hadron run trigger --app <ref> --entry <node-urn> [--as-self] [--arg k=v]... [--ai-config <n>] [--budget-tokens N] [--budget-actions N] [--wait] | list [--app <ref> | --org <ref>] [--status <s>] | get <id> | cancel <id> --yes
 hadron ticker list | get <id-or-URN> | create --name <n> --cadence-seconds <n> [--reasons read-team-channel,every-tick,live-check] | update <id-or-URN> [--reasons <list>] | delete <id-or-URN> --yes | subscribe <id-or-URN> --worker <id-or-URN> | unsubscribe <id-or-URN> --worker <id-or-URN>
-hadron schedule create --app <ref> --name <n> --cron '<expr>' [--tz <zone>] --entry <node-urn> [--as-self] [--policy <json>] [--ai-config <n>] [--arg k=v]... | list --app <ref> | update <id> ... | rm <id> --yes
+hadron schedule create --app <ref> --name <n> --cron '<expr>' [--tz <zone>] --entry <node-urn> [--as-self] [--policy <json>] [--ai-config <n>] [--arg k=v]... [--budget-tokens N] [--budget-actions N] | list --app <ref> | update <id> ... [--budget-tokens N|--clear-budget-tokens] [--budget-actions N|--clear-budget-actions] | rm <id> --yes
 hadron automation list | approval (<name> | --run <run-id>) [--depth] | approve (<name> | --run <run-id>) [--yes] | decline (<name> | --run <run-id>) [--yes]   # cli#1071: an App owner reviews and approves schedules/webhooks without a row id or hash; name is schedule/<name>, webhook/<name> or a bare <name> that exactly one trigger has; --app on every subcommand
-hadron webhook create --app <ref> --name <n> --entry <node-urn> [--as-self] [--policy <json>] [--args-schema <json>] [--ai-config <n>] | rotate <id> --yes | list --app <ref> | rm <id> --yes
+hadron webhook create --app <ref> --name <n> --entry <node-urn> [--as-self] [--policy <json>] [--args-schema <json>] [--ai-config <n>] [--budget-tokens N] [--budget-actions N] | rotate <id> --yes | list --app <ref> | rm <id> --yes
 hadron ticket mint --org <ref> [--app <ref>] --action comm.outbound --count <n> [--note <why>] [--expires <iso>] | list --org <ref>
 hadron billing prices [--provider <p>] [--model <m>] [--tier <n>] [--limit N] [--offset N] | balance <org> | ledger <org> [--limit N] [--offset N]   # spec-046 metering READS (cli#215); <org> is an ID or hrn:org:<slug>. Money fields (inputMicroCentsPerMTok, outputMicroCentsPerMTok, balanceMicroCents, amountMicroCents) are base-10 integer STRINGS of micro-cents (1e-8 USD), signed on the ledger and unbounded, passed through byte for byte: parse with a bigint, never a float. Null markupBasisPoints = the server's default markup. prices: any signed-in caller; balance/ledger: org ADMIN, else FORBIDDEN exit 8. No --limit/--offset lists everything. No write commands (setting rates, granting credits) yet
 hadron grant create --org <ref> --user <ref> --action <a>[,...] [--expires <iso>] | list [--org <ref>] [--user <ref>] | revoke <id> --yes
@@ -3017,6 +3017,16 @@ Conventions:
     instead EXECUTES it server-side — minting a MANUAL run under that App (a real
     LLM run) and printing the run id (`--json`: `mode:"execute"`, `runId`). Follow
     it with `run get <id>`. It's the fourth trigger into the same kernel.
+  - Per-trigger run limits (cli#1194, server#2479): `--budget-tokens N` /
+    `--budget-actions N` (positive whole numbers) on `run trigger`, `schedule
+    create|update`, `webhook create`. Omitted = platform default (create, trigger) or
+    preserved (update); `schedule update --clear-budget-tokens|--clear-budget-actions`
+    sends an explicit null (back to the default); a value with its clear flag, or a
+    value <= 0, is exit 2 before any call. Above-default values are NOT checked
+    client-side: the server's BAD_USER_INPUT refusal passes through (exit 2).
+    `schedule list` / `webhook list` show TOKENS/ACTIONS (`default` when none) and
+    `--json` carries `budgetTokens` / `budgetActions` (null = platform default).
+    Needs a server with trigger budgets (hadron-server#2780).
   - `--as-self` (on `run trigger`, `schedule create`, `webhook create`,
     `task run --app`) makes the
     run act on behalf of YOU — required to reach your personal memories, and only

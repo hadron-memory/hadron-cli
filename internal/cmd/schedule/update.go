@@ -18,13 +18,19 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	var (
 		name, cron, tz, entry, aiConfig, policy string
 		args                                    []string
+		budget                                  cmdutil.BudgetFlags
 	)
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a schedule",
 		Long: `Update a schedule. Only the fields you pass change; unset fields are preserved.
 --enabled / --enabled=false toggles it; --as-self / --as-self=false toggles the
-on-behalf-of-you flag.`,
+on-behalf-of-you flag.
+
+--budget-tokens / --budget-actions set the per-run limits; --clear-budget-tokens /
+--clear-budget-actions clear one back to the platform default (a value and its
+clear flag together is a usage error). A value above the platform default is
+refused by the server. Requires a server with trigger budgets.`,
 		Example: `  hadron schedule update sch_123 --cron '0 7 * * *' --enabled=false`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, cmdArgs []string) error {
@@ -88,6 +94,14 @@ on-behalf-of-you flag.`,
 				input.RunAsSelf = &v
 				changed = true
 			}
+			bt, ba, budgetChanged, err := budget.UpdateValues(cmd)
+			if err != nil {
+				return err
+			}
+			if budgetChanged {
+				input.BudgetTokens, input.BudgetActions = bt, ba
+				changed = true
+			}
 			if !changed {
 				return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field to change")
 			}
@@ -118,5 +132,6 @@ on-behalf-of-you flag.`,
 	cmd.Flags().StringArrayVar(&args, "arg", nil, "replace static template args (repeatable key=value)")
 	cmd.Flags().Bool("enabled", true, "enable or disable the schedule (--enabled=false to disable)")
 	cmd.Flags().Bool("as-self", false, "toggle the on-behalf-of-you flag")
+	budget.Add(cmd, true)
 	return cmd
 }
