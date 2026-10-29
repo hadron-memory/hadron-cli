@@ -29,6 +29,8 @@ type scheduleDTO struct {
 	CreatedBy      *string          `json:"createdBy"`
 	EventData      *json.RawMessage `json:"eventData"`
 	Policy         *json.RawMessage `json:"policy"`
+	BudgetTokens   *int             `json:"budgetTokens"`
+	BudgetActions  *int             `json:"budgetActions"`
 	LastRunAt      *string          `json:"lastRunAt"`
 	NextRunAt      *string          `json:"nextRunAt"`
 	CreatedAt      string           `json:"createdAt"`
@@ -56,6 +58,8 @@ func dtoFromFields(f gen.AgentScheduleFields) scheduleDTO {
 		CreatedBy:      f.CreatedBy,
 		EventData:      f.EventData,
 		Policy:         f.Policy,
+		BudgetTokens:   f.BudgetTokens,
+		BudgetActions:  f.BudgetActions,
 		LastRunAt:      f.LastRunAt,
 		NextRunAt:      f.NextRunAt,
 		CreatedAt:      f.CreatedAt,
