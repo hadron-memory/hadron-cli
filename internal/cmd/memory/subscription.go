@@ -19,8 +19,9 @@ func newCmdSubscription(f *cmdutil.Factory) *cobra.Command {
 		Aliases: []string{"subscriptions", "sub"},
 		Short:   "Manage organization subscriptions to a memory",
 		Long: `Give a whole other organization access to a public knowledge memory. Only a
-memory with visibility PUBLIC can be subscribed to, and only an admin of the
-subscribing organization may subscribe it, change its role or remove it. The
+memory with visibility PUBLIC can be subscribed to. An admin of the
+subscribing organization subscribes it; changing its role takes an admin of
+the organization that owns the memory; an admin of either may remove it. The
 organization that owns the memory cannot subscribe: its members already have
 access.
 
