@@ -8,6 +8,7 @@ import (
 	"github.com/Khan/genqlient/graphql"
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/terminalstatus"
 )
 
@@ -141,16 +142,22 @@ func (g graphReads) DueTicks(ctx context.Context, workerIDs []string) (map[strin
 			// without it (withheld, or a server before #2790) has lost its age
 			// evidence, which is an error, not "idle"; neither anchorAt (the
 			// oldest reason of any kind) nor lastTickAt (the newest tick) can
-			// stand in for it.
+			// stand in for it. A tick without its ticker is unattributable
+			// evidence and fails the same way; tickDueAt takes the strict
+			// shared shape, since time.Parse alone also accepts +24:00 and a
+			// comma fraction.
 			for _, r := range w.Reasons {
-				if r == nil || r.Kind != gen.WakeKindTick || r.Ticker == nil {
+				if r == nil || r.Kind != gen.WakeKindTick {
 					continue
+				}
+				if r.Ticker == nil {
+					return nil, errors.New("due wakes: tick without ticker")
 				}
 				if r.TickDueAt == nil {
 					return nil, errors.New("due wakes: tick without tickDueAt")
 				}
-				at, err := time.Parse(time.RFC3339, *r.TickDueAt)
-				if err != nil {
+				at, ok := cmdutil.ParseStrictDateTime(*r.TickDueAt)
+				if !ok {
 					return nil, errors.New("due wakes: bad tickDueAt")
 				}
 				out[w.Worker.Id] = append(out[w.Worker.Id], terminalstatus.DueTick{TickerID: r.Ticker.Id, TickerName: r.Ticker.Name, DueAt: at})

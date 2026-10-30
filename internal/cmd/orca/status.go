@@ -106,8 +106,8 @@ is never dark. Push only when prompt is empty and status is idle or dark.
 Each tick is aged by its own oldest unanswered tick (the server's per-reason
 tickDueAt), so a tick merged with a mention, a task or another ticker's tick in
 one wake is judged on its own. A tick the server gives no such time for (an
-older server, or withheld) is no evidence either way: an otherwise-idle worker
-then fails closed to locked/unrecognized.
+older server, or withheld), a malformed one, or no ticker is no evidence either
+way: an otherwise-idle worker then fails closed to locked/unrecognized.
 
 --all prints ONE JSON array, one entry per active worker of the App.
 

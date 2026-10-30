@@ -73,8 +73,9 @@ The team health sweep (#1181) consumes the JSON only and never imports the class
   a truly overdue merged tick was missed (ruled by Marco, #45577/#45645). Since
   cli#1216 every tick reason is aged by its own `WakeReason.tickDueAt`
   (server#2790), merged or not; a tick reason without it (an older server, or
-  withheld) fails closed (an error, `locked/unrecognized`), and neither
-  `anchorAt` nor `lastTickAt` stands in.
+  withheld), with a malformed one (the strict `cmdutil.ParseStrictDateTime`
+  shape, not bare `time.Parse`), or without its ticker fails closed (an error,
+  `locked/unrecognized`), and neither `anchorAt` nor `lastTickAt` stands in.
 - A bare shell needs a positive shell prompt on the last line; both families'
   chrome at once is ambiguity and holds, whatever Orca's identity says.
 - Foreign text (worker names, handles, `detail`) goes through
