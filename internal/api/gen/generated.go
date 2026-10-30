@@ -48862,6 +48862,210 @@ func (v *SessionInput) GetType() *string { return v.Type }
 // GetWorkerRef returns SessionInput.WorkerRef, and is useful for accessing the field via an interface.
 func (v *SessionInput) GetWorkerRef() *string { return v.WorkerRef }
 
+// SessionServedPromptsResponse is returned by SessionServedPrompts on success.
+type SessionServedPromptsResponse struct {
+	Session *SessionServedPromptsSession `json:"session"`
+}
+
+// GetSession returns SessionServedPromptsResponse.Session, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptsResponse) GetSession() *SessionServedPromptsSession { return v.Session }
+
+// SessionServedPromptsSession includes the requested fields of the GraphQL type Session.
+// The GraphQL type's documentation follows.
+//
+// A unit of work recorded against a user or App: the general row, and what the
+// bare word "session" means throughout this schema (#1034). `type` says which
+// kind — DEVELOPER, CHATBOT, AUTOMATION, EDGE — and `workerId` is optional.
+//
+// A **worker session** is the subtype with `workerId` set: a Worker (named
+// casting) bound to a driver, which is what makes work attributable to a
+// teammate and what a merged PR traces back through. Binding is optional, so a
+// list of these is not a staff view and may hold no worker sessions at all —
+// read `workerId` per row rather than assuming either way.
+//
+// A **chat session** is NOT one of these and has no row here: it is the
+// conversation a human is in — the Claude Desktop window, the Claude Code
+// session, the IDE chat. The two are independent and **ending one does not end
+// the other**: a chat session that closes leaves its worker session open
+// until endSession. Since #1114 nothing ends it for inactivity — silence is not
+// evidence of abandonment — but it stops reading as LIVE once nobody has driven
+// it inside its idle window, so the stale session stops blocking another bind
+// without being ended or losing its unwritten handoff. That changes no HOLD: a
+// human-held name stays held until explicit release, so only its holder can bind
+// it again. Do not use "chat session" for a Chat (the agent conversation entity)
+// — that is an **agent chat**, a third concept.
+type SessionServedPromptsSession struct {
+	// #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: the boot prompt this session was served at its bind. Readable by whoever may read the
+	// worker's internals; an empty page for anyone else, and while boot-prompt serving is off.
+	ServedPrompts *SessionServedPromptsSessionServedPromptsServedPromptsPage `json:"servedPrompts"`
+}
+
+// GetServedPrompts returns SessionServedPromptsSession.ServedPrompts, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptsSession) GetServedPrompts() *SessionServedPromptsSessionServedPromptsServedPromptsPage {
+	return v.ServedPrompts
+}
+
+// SessionServedPromptsSessionServedPromptsServedPromptsPage includes the requested fields of the GraphQL type ServedPromptsPage.
+type SessionServedPromptsSessionServedPromptsServedPromptsPage struct {
+	Total int                                                                           `json:"total"`
+	Items []*SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt `json:"items"`
+}
+
+// GetTotal returns SessionServedPromptsSessionServedPromptsServedPromptsPage.Total, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptsSessionServedPromptsServedPromptsPage) GetTotal() int { return v.Total }
+
+// GetItems returns SessionServedPromptsSessionServedPromptsServedPromptsPage.Items, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptsSessionServedPromptsServedPromptsPage) GetItems() []*SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt {
+	return v.Items
+}
+
+// SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt includes the requested fields of the GraphQL type ServedPrompt.
+// The GraphQL type's documentation follows.
+//
+// #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: what a bind, a chatbot chat or a headless run was given. Immutable platform data, never
+// editable and never exported. Names the compiled revision served by (compiledNodeId, servedRevSeq), the pointer level that
+// chose it, that revision's own provenance and the values the platform variables were filled with. No composed text.
+type SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt struct {
+	ServedPromptRecord `json:"-"`
+}
+
+// GetId returns SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt.Id, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt) GetId() string {
+	return v.ServedPromptRecord.Id
+}
+
+// GetKind returns SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt.Kind, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt) GetKind() ServedPromptKind {
+	return v.ServedPromptRecord.Kind
+}
+
+// GetOrdinal returns SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt.Ordinal, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt) GetOrdinal() int {
+	return v.ServedPromptRecord.Ordinal
+}
+
+// GetPointerLevel returns SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt.PointerLevel, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt) GetPointerLevel() ServedPromptPointerLevel {
+	return v.ServedPromptRecord.PointerLevel
+}
+
+// GetCompiledNodeId returns SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt.CompiledNodeId, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt) GetCompiledNodeId() string {
+	return v.ServedPromptRecord.CompiledNodeId
+}
+
+// GetCompiledContentHash returns SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt.CompiledContentHash, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt) GetCompiledContentHash() string {
+	return v.ServedPromptRecord.CompiledContentHash
+}
+
+// GetServedRevSeq returns SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt.ServedRevSeq, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt) GetServedRevSeq() int {
+	return v.ServedPromptRecord.ServedRevSeq
+}
+
+// GetProvenanceRevSeq returns SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt.ProvenanceRevSeq, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt) GetProvenanceRevSeq() int {
+	return v.ServedPromptRecord.ProvenanceRevSeq
+}
+
+// GetServedAt returns SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt.ServedAt, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt) GetServedAt() string {
+	return v.ServedPromptRecord.ServedAt
+}
+
+// GetVariables returns SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt.Variables, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt) GetVariables() json.RawMessage {
+	return v.ServedPromptRecord.Variables
+}
+
+// GetPruned returns SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt.Pruned, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt) GetPruned() bool {
+	return v.ServedPromptRecord.Pruned
+}
+
+// GetProvenance returns SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt.Provenance, and is useful for accessing the field via an interface.
+func (v *SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt) GetProvenance() *ServedPromptRecordProvenanceServedPromptProvenancePage {
+	return v.ServedPromptRecord.Provenance
+}
+
+func (v *SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ServedPromptRecord)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalSessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt struct {
+	Id string `json:"id"`
+
+	Kind ServedPromptKind `json:"kind"`
+
+	Ordinal int `json:"ordinal"`
+
+	PointerLevel ServedPromptPointerLevel `json:"pointerLevel"`
+
+	CompiledNodeId string `json:"compiledNodeId"`
+
+	CompiledContentHash string `json:"compiledContentHash"`
+
+	ServedRevSeq int `json:"servedRevSeq"`
+
+	ProvenanceRevSeq int `json:"provenanceRevSeq"`
+
+	ServedAt string `json:"servedAt"`
+
+	Variables json.RawMessage `json:"variables"`
+
+	Pruned bool `json:"pruned"`
+
+	Provenance *ServedPromptRecordProvenanceServedPromptProvenancePage `json:"provenance"`
+}
+
+func (v *SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *SessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt) __premarshalJSON() (*__premarshalSessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt, error) {
+	var retval __premarshalSessionServedPromptsSessionServedPromptsServedPromptsPageItemsServedPrompt
+
+	retval.Id = v.ServedPromptRecord.Id
+	retval.Kind = v.ServedPromptRecord.Kind
+	retval.Ordinal = v.ServedPromptRecord.Ordinal
+	retval.PointerLevel = v.ServedPromptRecord.PointerLevel
+	retval.CompiledNodeId = v.ServedPromptRecord.CompiledNodeId
+	retval.CompiledContentHash = v.ServedPromptRecord.CompiledContentHash
+	retval.ServedRevSeq = v.ServedPromptRecord.ServedRevSeq
+	retval.ProvenanceRevSeq = v.ServedPromptRecord.ProvenanceRevSeq
+	retval.ServedAt = v.ServedPromptRecord.ServedAt
+	retval.Variables = v.ServedPromptRecord.Variables
+	retval.Pruned = v.ServedPromptRecord.Pruned
+	retval.Provenance = v.ServedPromptRecord.Provenance
+	return &retval, nil
+}
+
 // SetAgentBaseResponse is returned by SetAgentBase on success.
 type SetAgentBaseResponse struct {
 	// #1885 (hrn:node:hadronmemory.com:specs:cor:dmo:050:14) - set, change or clear the one base Agent this
@@ -72018,6 +72222,30 @@ func (v *__SessionInboxInput) GetWorkerRefs() []string { return v.WorkerRefs }
 // GetAfter returns __SessionInboxInput.After, and is useful for accessing the field via an interface.
 func (v *__SessionInboxInput) GetAfter() *string { return v.After }
 
+// __SessionServedPromptsInput is used internally by genqlient
+type __SessionServedPromptsInput struct {
+	Id            string `json:"id"`
+	HistoryLimit  int    `json:"historyLimit"`
+	HistoryOffset int    `json:"historyOffset"`
+	Limit         int    `json:"limit"`
+	Offset        int    `json:"offset"`
+}
+
+// GetId returns __SessionServedPromptsInput.Id, and is useful for accessing the field via an interface.
+func (v *__SessionServedPromptsInput) GetId() string { return v.Id }
+
+// GetHistoryLimit returns __SessionServedPromptsInput.HistoryLimit, and is useful for accessing the field via an interface.
+func (v *__SessionServedPromptsInput) GetHistoryLimit() int { return v.HistoryLimit }
+
+// GetHistoryOffset returns __SessionServedPromptsInput.HistoryOffset, and is useful for accessing the field via an interface.
+func (v *__SessionServedPromptsInput) GetHistoryOffset() int { return v.HistoryOffset }
+
+// GetLimit returns __SessionServedPromptsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__SessionServedPromptsInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __SessionServedPromptsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__SessionServedPromptsInput) GetOffset() int { return v.Offset }
+
 // __SetAgentBaseInput is used internally by genqlient
 type __SetAgentBaseInput struct {
 	Ref     string  `json:"ref"`
@@ -91722,6 +91950,76 @@ func SessionInbox(
 	}
 
 	data_ = &SessionInboxResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by SessionServedPrompts.
+const SessionServedPrompts_Operation = `
+query SessionServedPrompts ($id: ID!, $historyLimit: Int!, $historyOffset: Int!, $limit: Int!, $offset: Int!) {
+	session(id: $id) {
+		servedPrompts(limit: $historyLimit, offset: $historyOffset) {
+			total
+			items {
+				... ServedPromptRecord
+			}
+		}
+	}
+}
+fragment ServedPromptRecord on ServedPrompt {
+	id
+	kind
+	ordinal
+	pointerLevel
+	compiledNodeId
+	compiledContentHash
+	servedRevSeq
+	provenanceRevSeq
+	servedAt
+	variables
+	pruned
+	provenance(limit: $limit, offset: $offset) {
+		total
+		items {
+			nodeId
+			revSeq
+			hash
+			pruned
+		}
+	}
+}
+`
+
+// History paging and each record's provenance paging are independent.
+func SessionServedPrompts(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	historyLimit int,
+	historyOffset int,
+	limit int,
+	offset int,
+) (data_ *SessionServedPromptsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SessionServedPrompts",
+		Query:  SessionServedPrompts_Operation,
+		Variables: &__SessionServedPromptsInput{
+			Id:            id,
+			HistoryLimit:  historyLimit,
+			HistoryOffset: historyOffset,
+			Limit:         limit,
+			Offset:        offset,
+		},
+	}
+
+	data_ = &SessionServedPromptsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

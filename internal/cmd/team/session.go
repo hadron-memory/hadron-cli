@@ -17,6 +17,7 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/cmd/servedprompt"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -44,6 +45,7 @@ WHICH COMMAND, IN ORDER:
   reset my context, keep work  session shed (or session resume-claim)
   stop being this worker       session end --handoff-file <notes> — only now
   see sessions                 session list
+  read one session's prompts  session served-prompts <session-id>
 
 TWO THINGS ARE CALLED A SESSION, AND ENDING ONE DOES NOT END THE OTHER
 (hadron-server#1034). This group manages the first:
@@ -78,6 +80,7 @@ holds nothing), so it has nothing to release.`,
 	cmd.AddCommand(newCmdSessionResumeClaim(f))
 	cmd.AddCommand(newCmdSessionShed(f))
 	cmd.AddCommand(newCmdSessionList(f))
+	cmd.AddCommand(servedprompt.NewSession(f))
 	cmd.AddCommand(newCmdSessionSyncModel(f))
 	cmd.AddCommand(newCmdSessionSetModel(f))
 	return cmd
