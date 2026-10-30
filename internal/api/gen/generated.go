@@ -23401,6 +23401,14 @@ func (v *CreateTickerCreateTicker) GetCreatedAt() string { return v.TickerFields
 // GetUpdatedAt returns CreateTickerCreateTicker.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *CreateTickerCreateTicker) GetUpdatedAt() *string { return v.TickerFields.UpdatedAt }
 
+// GetTickCode returns CreateTickerCreateTicker.TickCode, and is useful for accessing the field via an interface.
+func (v *CreateTickerCreateTicker) GetTickCode() string { return v.TickerFields.TickCode }
+
+// GetRegisterTaskLoc returns CreateTickerCreateTicker.RegisterTaskLoc, and is useful for accessing the field via an interface.
+func (v *CreateTickerCreateTicker) GetRegisterTaskLoc() *string {
+	return v.TickerFields.RegisterTaskLoc
+}
+
 func (v *CreateTickerCreateTicker) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -23460,6 +23468,10 @@ type __premarshalCreateTickerCreateTicker struct {
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt *string `json:"updatedAt"`
+
+	TickCode string `json:"tickCode"`
+
+	RegisterTaskLoc *string `json:"registerTaskLoc"`
 }
 
 func (v *CreateTickerCreateTicker) MarshalJSON() ([]byte, error) {
@@ -23490,6 +23502,8 @@ func (v *CreateTickerCreateTicker) __premarshalJSON() (*__premarshalCreateTicker
 	retval.LastTickAt = v.TickerFields.LastTickAt
 	retval.CreatedAt = v.TickerFields.CreatedAt
 	retval.UpdatedAt = v.TickerFields.UpdatedAt
+	retval.TickCode = v.TickerFields.TickCode
+	retval.RegisterTaskLoc = v.TickerFields.RegisterTaskLoc
 	return &retval, nil
 }
 
@@ -29718,6 +29732,12 @@ func (v *GetTickerTicker) GetCreatedAt() string { return v.TickerFields.CreatedA
 // GetUpdatedAt returns GetTickerTicker.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *GetTickerTicker) GetUpdatedAt() *string { return v.TickerFields.UpdatedAt }
 
+// GetTickCode returns GetTickerTicker.TickCode, and is useful for accessing the field via an interface.
+func (v *GetTickerTicker) GetTickCode() string { return v.TickerFields.TickCode }
+
+// GetRegisterTaskLoc returns GetTickerTicker.RegisterTaskLoc, and is useful for accessing the field via an interface.
+func (v *GetTickerTicker) GetRegisterTaskLoc() *string { return v.TickerFields.RegisterTaskLoc }
+
 func (v *GetTickerTicker) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -29777,6 +29797,10 @@ type __premarshalGetTickerTicker struct {
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt *string `json:"updatedAt"`
+
+	TickCode string `json:"tickCode"`
+
+	RegisterTaskLoc *string `json:"registerTaskLoc"`
 }
 
 func (v *GetTickerTicker) MarshalJSON() ([]byte, error) {
@@ -29807,6 +29831,8 @@ func (v *GetTickerTicker) __premarshalJSON() (*__premarshalGetTickerTicker, erro
 	retval.LastTickAt = v.TickerFields.LastTickAt
 	retval.CreatedAt = v.TickerFields.CreatedAt
 	retval.UpdatedAt = v.TickerFields.UpdatedAt
+	retval.TickCode = v.TickerFields.TickCode
+	retval.RegisterTaskLoc = v.TickerFields.RegisterTaskLoc
 	return &retval, nil
 }
 
@@ -32293,6 +32319,14 @@ func (v *ListTickersTickersTicker) GetCreatedAt() string { return v.TickerFields
 // GetUpdatedAt returns ListTickersTickersTicker.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *ListTickersTickersTicker) GetUpdatedAt() *string { return v.TickerFields.UpdatedAt }
 
+// GetTickCode returns ListTickersTickersTicker.TickCode, and is useful for accessing the field via an interface.
+func (v *ListTickersTickersTicker) GetTickCode() string { return v.TickerFields.TickCode }
+
+// GetRegisterTaskLoc returns ListTickersTickersTicker.RegisterTaskLoc, and is useful for accessing the field via an interface.
+func (v *ListTickersTickersTicker) GetRegisterTaskLoc() *string {
+	return v.TickerFields.RegisterTaskLoc
+}
+
 func (v *ListTickersTickersTicker) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -32352,6 +32386,10 @@ type __premarshalListTickersTickersTicker struct {
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt *string `json:"updatedAt"`
+
+	TickCode string `json:"tickCode"`
+
+	RegisterTaskLoc *string `json:"registerTaskLoc"`
 }
 
 func (v *ListTickersTickersTicker) MarshalJSON() ([]byte, error) {
@@ -32382,6 +32420,8 @@ func (v *ListTickersTickersTicker) __premarshalJSON() (*__premarshalListTickersT
 	retval.LastTickAt = v.TickerFields.LastTickAt
 	retval.CreatedAt = v.TickerFields.CreatedAt
 	retval.UpdatedAt = v.TickerFields.UpdatedAt
+	retval.TickCode = v.TickerFields.TickCode
+	retval.RegisterTaskLoc = v.TickerFields.RegisterTaskLoc
 	return &retval, nil
 }
 
@@ -57294,6 +57334,10 @@ type TickerFields struct {
 	LastTickAt *string `json:"lastTickAt"`
 	CreatedAt  string  `json:"createdAt"`
 	UpdatedAt  *string `json:"updatedAt"`
+	// Permanent stored action-register code; generated copies retain their template's code at generation (hrn:node:hadronmemory.com:specs:cor:agt:110:01).
+	TickCode string `json:"tickCode"`
+	// The readable Team Agent register entry's loc, without resolving any worker's task; null on absence, refusal or read failure (hrn:node:hadronmemory.com:specs:cor:agt:080:01).
+	RegisterTaskLoc *string `json:"registerTaskLoc"`
 }
 
 // GetId returns TickerFields.Id, and is useful for accessing the field via an interface.
@@ -57346,6 +57390,12 @@ func (v *TickerFields) GetCreatedAt() string { return v.CreatedAt }
 
 // GetUpdatedAt returns TickerFields.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *TickerFields) GetUpdatedAt() *string { return v.UpdatedAt }
+
+// GetTickCode returns TickerFields.TickCode, and is useful for accessing the field via an interface.
+func (v *TickerFields) GetTickCode() string { return v.TickCode }
+
+// GetRegisterTaskLoc returns TickerFields.RegisterTaskLoc, and is useful for accessing the field via an interface.
+func (v *TickerFields) GetRegisterTaskLoc() *string { return v.RegisterTaskLoc }
 
 // TickerFieldsApp includes the requested fields of the GraphQL type App.
 // The GraphQL type's documentation follows.
@@ -63939,6 +63989,14 @@ func (v *UpdateTickerUpdateTicker) GetCreatedAt() string { return v.TickerFields
 // GetUpdatedAt returns UpdateTickerUpdateTicker.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *UpdateTickerUpdateTicker) GetUpdatedAt() *string { return v.TickerFields.UpdatedAt }
 
+// GetTickCode returns UpdateTickerUpdateTicker.TickCode, and is useful for accessing the field via an interface.
+func (v *UpdateTickerUpdateTicker) GetTickCode() string { return v.TickerFields.TickCode }
+
+// GetRegisterTaskLoc returns UpdateTickerUpdateTicker.RegisterTaskLoc, and is useful for accessing the field via an interface.
+func (v *UpdateTickerUpdateTicker) GetRegisterTaskLoc() *string {
+	return v.TickerFields.RegisterTaskLoc
+}
+
 func (v *UpdateTickerUpdateTicker) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -63998,6 +64056,10 @@ type __premarshalUpdateTickerUpdateTicker struct {
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt *string `json:"updatedAt"`
+
+	TickCode string `json:"tickCode"`
+
+	RegisterTaskLoc *string `json:"registerTaskLoc"`
 }
 
 func (v *UpdateTickerUpdateTicker) MarshalJSON() ([]byte, error) {
@@ -64028,6 +64090,8 @@ func (v *UpdateTickerUpdateTicker) __premarshalJSON() (*__premarshalUpdateTicker
 	retval.LastTickAt = v.TickerFields.LastTickAt
 	retval.CreatedAt = v.TickerFields.CreatedAt
 	retval.UpdatedAt = v.TickerFields.UpdatedAt
+	retval.TickCode = v.TickerFields.TickCode
+	retval.RegisterTaskLoc = v.TickerFields.RegisterTaskLoc
 	return &retval, nil
 }
 
@@ -81038,6 +81102,8 @@ fragment TickerFields on Ticker {
 	lastTickAt
 	createdAt
 	updatedAt
+	tickCode
+	registerTaskLoc
 }
 `
 
@@ -84439,6 +84505,8 @@ fragment TickerFields on Ticker {
 	lastTickAt
 	createdAt
 	updatedAt
+	tickCode
+	registerTaskLoc
 }
 `
 
@@ -85264,6 +85332,8 @@ fragment TickerFields on Ticker {
 	lastTickAt
 	createdAt
 	updatedAt
+	tickCode
+	registerTaskLoc
 }
 `
 
@@ -96116,6 +96186,8 @@ fragment TickerFields on Ticker {
 	lastTickAt
 	createdAt
 	updatedAt
+	tickCode
+	registerTaskLoc
 }
 `
 
