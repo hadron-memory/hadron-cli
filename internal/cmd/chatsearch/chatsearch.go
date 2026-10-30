@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -87,4 +88,26 @@ func Render(f *cmdutil.Factory, page PageDTO, readHint func(seq int) string) err
 		_, err := fmt.Fprintf(w, "incomplete: stopped before the start of the history; continue with --cursor %s\n", next)
 		return err
 	})
+}
+
+// refusal marks a mapped search error whose server code must reach the --json
+// error envelope. The root handler reads it through ServerCode.
+type refusal struct {
+	error
+	code string
+}
+
+func (r *refusal) Unwrap() error      { return r.error }
+func (r *refusal) ServerCode() string { return r.code }
+
+// MapError is api.MapError plus the BAD_USER_INPUT code for `--limit` below 1,
+// which the issue lists among the typed refusals a search passes through. It is
+// scoped to these commands: BAD_USER_INPUT is the server's generic validation
+// code, so no other command's error envelope changes.
+func MapError(err error) error {
+	mapped := api.MapError(err)
+	if mapped != nil && api.HasErrorCode(err, "BAD_USER_INPUT") {
+		return &refusal{error: mapped, code: "BAD_USER_INPUT"}
+	}
+	return mapped
 }

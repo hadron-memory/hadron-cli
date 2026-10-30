@@ -45,7 +45,7 @@ func searchSurfaces() []searchSurface {
 				return append([]string{"team", "chat", "search", "--app", "hrn:app:acme.com:team"}, extra...)
 			},
 			refVar: "appRef", refWant: "hrn:app:acme.com:team",
-			hint: "hadron team chat read --since 141 --limit 1",
+			hint: "hadron team chat read --app hrn:app:acme.com:team --since 141 --limit 1",
 		},
 		{
 			name: "channel", op: "ChannelMessageSearch", field: "channelMessageSearch",
@@ -223,7 +223,7 @@ func TestC1327SearchRefusalsKeepTheServerCode(t *testing.T) {
 				if e := json.Unmarshal([]byte(out.String()), &env); e != nil {
 					t.Fatal(e, out.String())
 				}
-				if tc.code != "BAD_USER_INPUT" && env.Error.ServerCode != tc.code {
+				if env.Error.ServerCode != tc.code {
 					t.Errorf("server code %q not kept verbatim: %s", env.Error.ServerCode, out.String())
 				}
 			})

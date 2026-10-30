@@ -5,7 +5,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/chatsearch"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
@@ -77,11 +76,17 @@ worktree binding). To search another channel, use ` + "`hadron channel search`" 
 			}
 			resp, err := gen.TeamChatSearch(ctx, client, appRef, args[0], limitPtr, cursorPtr)
 			if err != nil {
-				return api.MapError(err)
+				return chatsearch.MapError(err)
 			}
 			page := chatsearch.FromGen(resp.TeamChatSearch.ChatSearchPageFields)
 			return chatsearch.Render(f, page, func(seq int) string {
-				return fmt.Sprintf("hadron team chat read --since %d --limit 1", seq-1)
+				// A search run with --app read THAT team; the hint must read it
+				// too, or it opens whichever team the worktree is bound to.
+				app := ""
+				if f.AppFlag != "" {
+					app = " --app " + f.AppFlag
+				}
+				return fmt.Sprintf("hadron team chat read%s --since %d --limit 1", app, seq-1)
 			})
 		},
 	}

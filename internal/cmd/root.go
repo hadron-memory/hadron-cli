@@ -390,6 +390,10 @@ func renderError(f *cmdutil.Factory, err error) int {
 				break
 			}
 		}
+		var coded interface{ ServerCode() string }
+		if errors.As(err, &coded) {
+			failure["serverCode"] = coded.ServerCode()
+		}
 		details := api.CommentRecoveryDetails(err)
 		if details == nil {
 			details = api.WorkerReportingDetails(err)

@@ -5,7 +5,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/chatsearch"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
@@ -59,7 +58,7 @@ chat use "hadron team chat search".`,
 			}
 			resp, err := gen.ChannelMessageSearch(cmd.Context(), client, args[0], args[1], limitPtr, cursorPtr)
 			if err != nil {
-				return api.MapError(err)
+				return chatsearch.MapError(err)
 			}
 			page := chatsearch.FromGen(resp.ChannelMessageSearch.ChatSearchPageFields)
 			return chatsearch.Render(f, page, func(seq int) string {
