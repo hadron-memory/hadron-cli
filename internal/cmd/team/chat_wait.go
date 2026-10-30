@@ -3,6 +3,9 @@ package team
 import (
 	"bytes"
 	"context"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -65,14 +68,19 @@ func chatWaitRunE(f *cmdutil.Factory, inner func(*cobra.Command, []string) error
 		defer func() { f.IOStreams.Out, f.IOStreams.ErrOut = outStream, errStream }()
 		// Every poll runs under the wait deadline, so a read that starts late or
 		// hangs is cancelled at the deadline instead of stretching the wait.
-		parent := cmd.Context()
-		if parent == nil {
-			parent = context.Background()
+		root := cmd.Context()
+		if root == nil {
+			root = context.Background()
 		}
+		// Nothing else in the CLI turns an interrupt into a context cancel, so
+		// without this Ctrl-C kills the process with 130 and never reaches the
+		// documented Cancelled exit (QA on cli#1269).
+		parent, stopSignals := signal.NotifyContext(root, os.Interrupt, syscall.SIGTERM)
+		defer stopSignals()
 		ctx, cancel := context.WithDeadline(parent, deadline)
 		defer cancel()
 		cmd.SetContext(ctx)
-		defer cmd.SetContext(parent)
+		defer cmd.SetContext(root)
 		var lastOut, lastErr []byte
 		var lastDone func()
 		// deliver writes a held poll to the real streams and only then runs the
@@ -105,6 +113,9 @@ func chatWaitRunE(f *cmdutil.Factory, inner func(*cobra.Command, []string) error
 			var done func()
 			cmd.SetContext(context.WithValue(ctx, chatReadDeferKey{}, &done))
 			err := inner(cmd, args)
+			if err != nil && *returned == 0 && parent.Err() != nil {
+				return exitcode.Newf(exitcode.Cancelled, "interrupted while waiting")
+			}
 			if err != nil && *returned == 0 && deadlineHit() {
 				// The deadline cut this poll short: a timeout, not a failure.
 				return timeout()
