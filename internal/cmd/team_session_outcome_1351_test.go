@@ -179,3 +179,61 @@ func TestSessionOutcomeHelpSaysWhoMayRunIt(t *testing.T) {
 		}
 	}
 }
+
+// A negative number reads as a flag unless it follows `--`; after `--` it is
+// sent, and the server's range refusal is what the caller sees.
+func TestSessionOutcomeNegativeAfterDoubleDashReachesTheServer(t *testing.T) {
+	srv, _, reqs := keyServerCapture(t, 200, `{"errors":[{"message":"outcome must be a number between 0 and 1","extensions":{"code":"BAD_USER_INPUT"}}],"data":null}`)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "outcome", "--json", "--server", srv.URL, session1351, "--", "-0.1"})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("the server's refusal must surface")
+	}
+	if vars := onlyOp(t, reqs(), "RecordSessionOutcome"); vars["outcome"] != -0.1 {
+		t.Errorf("variables = %v, want outcome -0.1", vars)
+	}
+	if code := renderError(f, err); code != 2 || !strings.Contains(out.String(), `"serverCode": "BAD_USER_INPUT"`) {
+		t.Errorf("exit %d, envelope %s", code, out.String())
+	}
+}
+
+// Without `--`, a negative outcome is refused locally with a hint, not a
+// bare unknown-flag error.
+func TestSessionOutcomeNegativeWithoutDoubleDashSaysHow(t *testing.T) {
+	srv, n := keyServer(t, 200, recorded1351)
+	r := runOutcome1351(t, srv, session1351, "-0.1")
+	if r.err == nil || exitCodeFor(r.err) != 2 || !strings.Contains(r.err.Error(), "--") {
+		t.Fatalf("want exit 2 naming `--`, got %v (%d)", r.err, exitCodeFor(r.err))
+	}
+	if n.Load() != 0 {
+		t.Errorf("%d request(s) sent, want none", n.Load())
+	}
+}
+
+// Given flags are sent as given: an empty --ref is an empty string and
+// --meta null is an explicit null, not an omission.
+func TestSessionOutcomeSendsEmptyRefAndNullMeta(t *testing.T) {
+	srv, _, reqs := keyServerCapture(t, 200, `{"data":{"recordSessionOutcome":{"id":"`+session1351+`","outcome":0.5,"outcomeRef":"","outcomeMeta":null}}}`)
+	r := runOutcome1351(t, srv, session1351, "0.5", "--ref", "", "--meta", "null")
+	if r.err != nil {
+		t.Fatalf("execute: %v", r.err)
+	}
+	vars := onlyOp(t, reqs(), "RecordSessionOutcome")
+	if v, ok := vars["outcomeRef"]; !ok || v != "" {
+		t.Errorf("outcomeRef = %v (present %v), want \"\"", v, ok)
+	}
+	if v, ok := vars["outcomeMeta"]; !ok || v != nil {
+		t.Errorf("outcomeMeta = %v (present %v), want an explicit null", v, ok)
+	}
+}
+
+// A success answer without the session is an error, never a panic.
+func TestSessionOutcomeNullAnswerIsAnError(t *testing.T) {
+	srv, _ := keyServer(t, 200, `{"data":{"recordSessionOutcome":null}}`)
+	r := runOutcome1351(t, srv, session1351, "0.5")
+	if r.err == nil || strings.Contains(r.out, "✓") {
+		t.Fatalf("want an error, got %v %q", r.err, r.out)
+	}
+}
