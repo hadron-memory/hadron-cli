@@ -83,7 +83,8 @@ command to the tool's hook settings. For Claude Code, a Stop hook in
 .claude/settings.json:
   {"hooks":{"Stop":[{"hooks":[{"type":"command",
     "command":"hadron team session sync-model --hook"}]}]}}`,
-		Example: `  # what a hook sends: stdin is the tool's JSON, not a terminal
+		Example: `  # try it by hand: pipe in the JSON a hook would send. No --hook here, so
+  # the exit code shows the outcome; the hook itself runs it WITH --hook (SETUP)
   echo '{"session_id":"4f0c…","transcript_path":"/home/me/.claude/projects/x/4f0c….jsonl","cwd":"/work/widgets"}' \
     | hadron team session sync-model
   # exit 0: reported; exit ` + fmt.Sprint(modelUnavailableExit) + `: unavailable, nothing sent
