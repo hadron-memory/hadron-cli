@@ -371,6 +371,17 @@ func renderError(f *cmdutil.Factory, err error) int {
 				failure["requestId"] = fault.RequestID
 			}
 		}
+		// #1306: scripts need the deliberate team-chat refusal's server code
+		// alongside numeric exit 5. Keep this bounded to the two named codes;
+		// unrelated refusal envelopes retain their established shape.
+		if code == exitcode.Conflict {
+			for _, serverCode := range []string{"TEAM_CHAT_DUPLICATE", "TEAM_CHAT_POST_RATE_LIMITED"} {
+				if api.HasErrorCode(err, serverCode) {
+					failure["serverCode"] = serverCode
+					break
+				}
+			}
+		}
 		details := api.CommentRecoveryDetails(err)
 		if details == nil {
 			details = api.WorkerReportingDetails(err)
