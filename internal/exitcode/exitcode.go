@@ -53,6 +53,11 @@ const (
 	// simply has no terminal, which is a dark/no_terminal answer with exit 0).
 	// 9 is the #1181 health check's DARK alarm.
 	OrcaUnreachable = 10
+	// WaitTimeout (cli#1261) is `team chat read --wait` giving up: the polls
+	// all succeeded and no new message arrived. Nothing is wrong and nothing
+	// changed beyond the reads, so it is not 1/4/7; 9-12 are taken by `team
+	// push` and `team chat check`, hence 13. A script re-waits on it.
+	WaitTimeout = 13
 )
 
 // CodedError carries an exit code alongside an error. The root
