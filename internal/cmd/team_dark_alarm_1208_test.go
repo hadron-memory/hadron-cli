@@ -16,7 +16,8 @@ func darkEvent1208(acked bool) string {
 		panic(err)
 	}
 	e["taskId"] = nil
-	e["type"] = "worker.dark"
+	e["type"] = "alarm.dark-worker"
+	e["severity"] = "alarm"
 	e["payload"] = map[string]any{"reason": "overdue", "lastCheckedAt": "PRIVATE-EVIDENCE"}
 	b, _ := json.Marshal(e)
 	return string(b)
