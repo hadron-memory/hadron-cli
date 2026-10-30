@@ -3558,8 +3558,15 @@ The CLI does not retry an uncertain write or attempt a narrower edit.
 
 JSON ticker objects use id, nullable urn, name, slug, appId, cadenceSeconds,
 anchorAt, quietHours, readableChannels, relevance, reasons, enabled, nullable
-owner/nextTickAt/lastTickAt/updatedAt, and createdAt. Reasons use lowercase
-hyphenated names. Get/list add subscribers, paged to exhaustion; empty arrays
+owner/nextTickAt/lastTickAt/updatedAt, and createdAt. `tickCode` is the server's
+stored tick code (`tick.<slug>`, derived, never set by a flag) and
+`registerTaskLoc` the register entry's loc exactly as returned: null means no
+entry or one you may not read, so it never means "unmapped". `ticker create`
+may succeed with warnings (`ticker.code.unmapped` when no register entry maps
+the new code): in text mode one `warning: [code] text` line per warning on
+stderr after the receipt, in `--json` an always-present `warnings` array
+(`code`, `text`, `register`) beside the ticker; the exit code is unchanged and
+`update` has none. Reasons use lowercase hyphenated names. Get/list add subscribers, paged to exhaustion; empty arrays
 are []. Readable channels are only the reader's view. Missing and unreadable
 get both report not found. The server's ticker list is currently unpaged: the
 CLI reports that response without claiming an exhaustive census.

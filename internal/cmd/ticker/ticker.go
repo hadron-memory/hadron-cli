@@ -56,6 +56,11 @@ type tickerDTO struct {
 	LastTickAt       *string          `json:"lastTickAt"`
 	CreatedAt        string           `json:"createdAt"`
 	UpdatedAt        *string          `json:"updatedAt"`
+	// TickCode is the server's stored tick code. RegisterTaskLoc is the
+	// register entry's loc as returned, unresolved; null means no entry or
+	// one the caller can't read (cor:agt:080:01), never "unmapped".
+	TickCode        string  `json:"tickCode"`
+	RegisterTaskLoc *string `json:"registerTaskLoc"`
 }
 type readDTO struct {
 	tickerDTO
@@ -63,7 +68,7 @@ type readDTO struct {
 }
 
 func tickerFrom(x gen.TickerFields) tickerDTO {
-	d := tickerDTO{ID: x.Id, URN: x.Urn, Name: x.Name, Slug: x.Slug, CadenceSeconds: x.CadenceSeconds, AnchorAt: x.AnchorAt, QuietHours: x.QuietHours, ReadableChannels: []channelDTO{}, Relevance: strings.ToLower(string(x.Relevance)), Reasons: []string{}, Enabled: x.Enabled, NextTickAt: x.NextTickAt, LastTickAt: x.LastTickAt, CreatedAt: x.CreatedAt, UpdatedAt: x.UpdatedAt}
+	d := tickerDTO{ID: x.Id, URN: x.Urn, Name: x.Name, Slug: x.Slug, CadenceSeconds: x.CadenceSeconds, AnchorAt: x.AnchorAt, QuietHours: x.QuietHours, ReadableChannels: []channelDTO{}, Relevance: strings.ToLower(string(x.Relevance)), Reasons: []string{}, Enabled: x.Enabled, NextTickAt: x.NextTickAt, LastTickAt: x.LastTickAt, CreatedAt: x.CreatedAt, UpdatedAt: x.UpdatedAt, TickCode: x.TickCode, RegisterTaskLoc: x.RegisterTaskLoc}
 	if x.App != nil {
 		d.AppID = x.App.Id
 	}
@@ -118,6 +123,13 @@ func writeTicker(w io.Writer, d tickerDTO) error {
 	if err != nil {
 		return err
 	}
+	loc := "no register entry you can read"
+	if d.RegisterTaskLoc != nil {
+		loc = "register task loc " + output.SafeCell(*d.RegisterTaskLoc)
+	}
+	if _, err = fmt.Fprintf(w, "  code %s · %s\n", output.SafeCell(d.TickCode), loc); err != nil {
+		return err
+	}
 	for _, channel := range d.ReadableChannels {
 		if _, e := fmt.Fprintf(w, "    %s · %s\n", channel.ID, channel.Name); e != nil {
 			return e
@@ -154,6 +166,27 @@ func writeOne(ctx context.Context, client graphql.Client, f *cmdutil.Factory, x 
 		}
 		return writeTicker(w, d)
 	})
+}
+
+// writeCreated is writeOne for create: the receipt (or the JSON object) as
+// before, plus the call's warnings, which never change stdout's receipt or the
+// exit code (cor:agt:110:02).
+func writeCreated(ctx context.Context, client graphql.Client, f *cmdutil.Factory, x gen.TickerFields, scope string, warnings []warningDTO) error {
+	d := tickerFrom(x)
+	if err := output.Write(f.IOStreams, f.JSON, createdDTO{tickerDTO: d, Warnings: warnings}, func(w io.Writer) error {
+		if scope != "" {
+			if err := writeScope(ctx, client, f, w, scope); err != nil {
+				return err
+			}
+		}
+		return writeTicker(w, d)
+	}); err != nil {
+		return err
+	}
+	if f.JSON {
+		return nil
+	}
+	return writeWarnings(f.IOStreams.ErrOut, warnings)
 }
 
 // NewCmdTicker builds ticker CRUD and subscription commands only.
@@ -423,14 +456,15 @@ Watched channels are those in the subscriber's WATCH or BOTH channel register.`
 			return writeOne(cmd.Context(), client, f, r.UpdateTicker.TickerFields, "")
 		}
 		in := &gen.TickerInput{Name: v.name, CadenceSeconds: v.cadence, AnchorAt: p.AnchorAt, QuietHours: p.QuietHours, ChannelIds: p.ChannelIds, Relevance: p.Relevance, Reasons: p.Reasons, Enabled: p.Enabled}
-		r, e := gen.CreateTicker(cmd.Context(), client, app, in)
+		mctx, sink := api.WithWarningSinkForFields(cmd.Context(), "createTicker")
+		r, e := gen.CreateTicker(mctx, client, app, in)
 		if e != nil {
 			return api.MapError(e)
 		}
 		if r.CreateTicker == nil {
 			return exitcode.Newf(exitcode.Error, "server returned no ticker")
 		}
-		return writeOne(cmd.Context(), client, f, r.CreateTicker.TickerFields, app)
+		return writeCreated(cmd.Context(), client, f, r.CreateTicker.TickerFields, app, warningsFor(sink, "createTicker"))
 	}
 	return c
 }
