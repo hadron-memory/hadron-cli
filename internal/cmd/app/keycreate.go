@@ -31,7 +31,7 @@ type appKeyCreatedDTO struct {
 	Out        string  `json:"out"`
 }
 
-const revokeRoute = "hadron api 'mutation($id: ID!) { revokeAppKey(id: $id) }' -F id=<key-id>"
+const revokeRoute = "hadron app key revoke <key-id>"
 
 func newCmdKeyCreate(f *cmdutil.Factory) *cobra.Command {
 	var out, label string
@@ -180,7 +180,7 @@ func failureClass(code int) string {
 	case exitcode.AuthRequired:
 		return "not signed in or credentials rejected"
 	case exitcode.Forbidden:
-		return "not permitted to create keys for this app"
+		return "not permitted to manage keys for this app"
 	case exitcode.NotFound:
 		return "app not found or not visible"
 	case exitcode.Conflict:
@@ -200,5 +200,11 @@ func withCleanup(failure, cleanup error) error {
 	if cleanup == nil {
 		return failure
 	}
-	return exitcode.Newf(exitcode.FromError(failure), "%v. Also: %v", failure, cleanup)
+	combined := exitcode.Newf(exitcode.FromError(failure), "%v. Also: %v", failure, cleanup)
+	// Rebuilding the error would drop the server code the --json envelope reads.
+	var coded interface{ ServerCode() string }
+	if errors.As(failure, &coded) {
+		return &codedError{error: combined, code: coded.ServerCode()}
+	}
+	return combined
 }

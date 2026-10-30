@@ -10140,6 +10140,202 @@ type AppKeysMetadataResponse struct {
 // GetAppKeys returns AppKeysMetadataResponse.AppKeys, and is useful for accessing the field via an interface.
 func (v *AppKeysMetadataResponse) GetAppKeys() []*AppKeysMetadataAppKeysAppKey { return v.AppKeys }
 
+// AppKeysScopesAppKeysAppKey includes the requested fields of the GraphQL type AppKey.
+type AppKeysScopesAppKeysAppKey struct {
+	Id         string  `json:"id"`
+	KeyPreview string  `json:"keyPreview"`
+	Label      *string `json:"label"`
+	CreatedAt  string  `json:"createdAt"`
+	LastUsedAt *string `json:"lastUsedAt"`
+	RevokedAt  *string `json:"revokedAt"`
+	// #1749 — the scopes this key holds now (hrn:node:hadronmemory.com:specs:cor:aut:010:03). Whoever manages the App only.
+	Scopes []*AppKeysScopesAppKeysAppKeyScopesAppKeyScope `json:"scopes"`
+}
+
+// GetId returns AppKeysScopesAppKeysAppKey.Id, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesAppKeysAppKey) GetId() string { return v.Id }
+
+// GetKeyPreview returns AppKeysScopesAppKeysAppKey.KeyPreview, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesAppKeysAppKey) GetKeyPreview() string { return v.KeyPreview }
+
+// GetLabel returns AppKeysScopesAppKeysAppKey.Label, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesAppKeysAppKey) GetLabel() *string { return v.Label }
+
+// GetCreatedAt returns AppKeysScopesAppKeysAppKey.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesAppKeysAppKey) GetCreatedAt() string { return v.CreatedAt }
+
+// GetLastUsedAt returns AppKeysScopesAppKeysAppKey.LastUsedAt, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesAppKeysAppKey) GetLastUsedAt() *string { return v.LastUsedAt }
+
+// GetRevokedAt returns AppKeysScopesAppKeysAppKey.RevokedAt, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesAppKeysAppKey) GetRevokedAt() *string { return v.RevokedAt }
+
+// GetScopes returns AppKeysScopesAppKeysAppKey.Scopes, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesAppKeysAppKey) GetScopes() []*AppKeysScopesAppKeysAppKeyScopesAppKeyScope {
+	return v.Scopes
+}
+
+// AppKeysScopesAppKeysAppKeyScopesAppKeyScope includes the requested fields of the GraphQL type AppKeyScope.
+// The GraphQL type's documentation follows.
+//
+// #1749 — a scope an App key holds. A closed list: attention:deliver, and (#1709) host:operate.
+type AppKeysScopesAppKeysAppKeyScopesAppKeyScope struct {
+	Scope string `json:"scope"`
+	// #1709 — the one host a host:operate scope is bound to (hrn:node:hadronmemory.com:specs:cor:agt:070:04); null for every other scope.
+	HostId    *string `json:"hostId"`
+	GrantedAt string  `json:"grantedAt"`
+	GrantedBy string  `json:"grantedBy"`
+}
+
+// GetScope returns AppKeysScopesAppKeysAppKeyScopesAppKeyScope.Scope, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesAppKeysAppKeyScopesAppKeyScope) GetScope() string { return v.Scope }
+
+// GetHostId returns AppKeysScopesAppKeysAppKeyScopesAppKeyScope.HostId, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesAppKeysAppKeyScopesAppKeyScope) GetHostId() *string { return v.HostId }
+
+// GetGrantedAt returns AppKeysScopesAppKeysAppKeyScopesAppKeyScope.GrantedAt, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesAppKeysAppKeyScopesAppKeyScope) GetGrantedAt() string { return v.GrantedAt }
+
+// GetGrantedBy returns AppKeysScopesAppKeysAppKeyScopesAppKeyScope.GrantedBy, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesAppKeysAppKeyScopesAppKeyScope) GetGrantedBy() string { return v.GrantedBy }
+
+// AppKeysScopesHostUsesAppKeysAppKey includes the requested fields of the GraphQL type AppKey.
+type AppKeysScopesHostUsesAppKeysAppKey struct {
+	Id         string  `json:"id"`
+	KeyPreview string  `json:"keyPreview"`
+	Label      *string `json:"label"`
+	CreatedAt  string  `json:"createdAt"`
+	LastUsedAt *string `json:"lastUsedAt"`
+	RevokedAt  *string `json:"revokedAt"`
+	// #1749 — the scopes this key holds now (hrn:node:hadronmemory.com:specs:cor:aut:010:03). Whoever manages the App only.
+	Scopes []*AppKeysScopesHostUsesAppKeysAppKeyScopesAppKeyScope `json:"scopes"`
+	// #1709 — what this key did as a host, newest first (hrn:node:hadronmemory.com:specs:cor:agt:070:07: every use is recorded). Whoever manages the App only.
+	HostUses []*AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse `json:"hostUses"`
+}
+
+// GetId returns AppKeysScopesHostUsesAppKeysAppKey.Id, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesAppKeysAppKey) GetId() string { return v.Id }
+
+// GetKeyPreview returns AppKeysScopesHostUsesAppKeysAppKey.KeyPreview, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesAppKeysAppKey) GetKeyPreview() string { return v.KeyPreview }
+
+// GetLabel returns AppKeysScopesHostUsesAppKeysAppKey.Label, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesAppKeysAppKey) GetLabel() *string { return v.Label }
+
+// GetCreatedAt returns AppKeysScopesHostUsesAppKeysAppKey.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesAppKeysAppKey) GetCreatedAt() string { return v.CreatedAt }
+
+// GetLastUsedAt returns AppKeysScopesHostUsesAppKeysAppKey.LastUsedAt, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesAppKeysAppKey) GetLastUsedAt() *string { return v.LastUsedAt }
+
+// GetRevokedAt returns AppKeysScopesHostUsesAppKeysAppKey.RevokedAt, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesAppKeysAppKey) GetRevokedAt() *string { return v.RevokedAt }
+
+// GetScopes returns AppKeysScopesHostUsesAppKeysAppKey.Scopes, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesAppKeysAppKey) GetScopes() []*AppKeysScopesHostUsesAppKeysAppKeyScopesAppKeyScope {
+	return v.Scopes
+}
+
+// GetHostUses returns AppKeysScopesHostUsesAppKeysAppKey.HostUses, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesAppKeysAppKey) GetHostUses() []*AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse {
+	return v.HostUses
+}
+
+// AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse includes the requested fields of the GraphQL type HostKeyUse.
+// The GraphQL type's documentation follows.
+//
+// #1709 — one use of a host key (hrn:node:hadronmemory.com:specs:cor:agt:070:07).
+type AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse struct {
+	HostId string `json:"hostId"`
+	// register, collect, report, availability, read, (#1969) session: a refused session write (updateSession, endSession), or (#1981) issue: a refused issueHostOperation.
+	Action string `json:"action"`
+	// How many operations a collection returned, or workers a registration listed.
+	Count *int `json:"count"`
+	// The operation a report was about.
+	OperationId *string `json:"operationId"`
+	// #1881 — the refusal code when the server refused this use (e.g. APP_KEY_SCOPE_REQUIRED); null for a use that succeeded. A refused use is recorded too (hrn:node:hadronmemory.com:specs:cor:agt:070:07: every use).
+	RefusedCode *string `json:"refusedCode"`
+	UsedAt      string  `json:"usedAt"`
+}
+
+// GetHostId returns AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse.HostId, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse) GetHostId() string { return v.HostId }
+
+// GetAction returns AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse.Action, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse) GetAction() string { return v.Action }
+
+// GetCount returns AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse.Count, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse) GetCount() *int { return v.Count }
+
+// GetOperationId returns AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse.OperationId, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse) GetOperationId() *string {
+	return v.OperationId
+}
+
+// GetRefusedCode returns AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse.RefusedCode, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse) GetRefusedCode() *string {
+	return v.RefusedCode
+}
+
+// GetUsedAt returns AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse.UsedAt, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse) GetUsedAt() string { return v.UsedAt }
+
+// AppKeysScopesHostUsesAppKeysAppKeyScopesAppKeyScope includes the requested fields of the GraphQL type AppKeyScope.
+// The GraphQL type's documentation follows.
+//
+// #1749 — a scope an App key holds. A closed list: attention:deliver, and (#1709) host:operate.
+type AppKeysScopesHostUsesAppKeysAppKeyScopesAppKeyScope struct {
+	Scope string `json:"scope"`
+	// #1709 — the one host a host:operate scope is bound to (hrn:node:hadronmemory.com:specs:cor:agt:070:04); null for every other scope.
+	HostId    *string `json:"hostId"`
+	GrantedAt string  `json:"grantedAt"`
+	GrantedBy string  `json:"grantedBy"`
+}
+
+// GetScope returns AppKeysScopesHostUsesAppKeysAppKeyScopesAppKeyScope.Scope, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesAppKeysAppKeyScopesAppKeyScope) GetScope() string { return v.Scope }
+
+// GetHostId returns AppKeysScopesHostUsesAppKeysAppKeyScopesAppKeyScope.HostId, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesAppKeysAppKeyScopesAppKeyScope) GetHostId() *string { return v.HostId }
+
+// GetGrantedAt returns AppKeysScopesHostUsesAppKeysAppKeyScopesAppKeyScope.GrantedAt, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesAppKeysAppKeyScopesAppKeyScope) GetGrantedAt() string {
+	return v.GrantedAt
+}
+
+// GetGrantedBy returns AppKeysScopesHostUsesAppKeysAppKeyScopesAppKeyScope.GrantedBy, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesAppKeysAppKeyScopesAppKeyScope) GetGrantedBy() string {
+	return v.GrantedBy
+}
+
+// AppKeysScopesHostUsesResponse is returned by AppKeysScopesHostUses on success.
+type AppKeysScopesHostUsesResponse struct {
+	// List keys for an App, only for whoever manages the App
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12; hrn:node:hadronmemory.com:specs:cor:acl:010:01).
+	// Never an App key, a bound worker session or an impersonated request.
+	//
+	// Accepts the entity's ID or URN.
+	AppKeys []*AppKeysScopesHostUsesAppKeysAppKey `json:"appKeys"`
+}
+
+// GetAppKeys returns AppKeysScopesHostUsesResponse.AppKeys, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesResponse) GetAppKeys() []*AppKeysScopesHostUsesAppKeysAppKey {
+	return v.AppKeys
+}
+
+// AppKeysScopesResponse is returned by AppKeysScopes on success.
+type AppKeysScopesResponse struct {
+	// List keys for an App, only for whoever manages the App
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12; hrn:node:hadronmemory.com:specs:cor:acl:010:01).
+	// Never an App key, a bound worker session or an impersonated request.
+	//
+	// Accepts the entity's ID or URN.
+	AppKeys []*AppKeysScopesAppKeysAppKey `json:"appKeys"`
+}
+
+// GetAppKeys returns AppKeysScopesResponse.AppKeys, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesResponse) GetAppKeys() []*AppKeysScopesAppKeysAppKey { return v.AppKeys }
+
 // AppMemberRolesApp includes the requested fields of the GraphQL type App.
 // The GraphQL type's documentation follows.
 //
@@ -42843,6 +43039,62 @@ func (v *RecoveryNodesResponse) GetRecoveryNodes() *RecoveryNodesRecoveryNodesRe
 	return v.RecoveryNodes
 }
 
+// RegenerateAppKeyRegenerateAppKeyAppCreated includes the requested fields of the GraphQL type AppCreated.
+// The GraphQL type's documentation follows.
+//
+// Returned once at App creation / regenerateAppKey — the raw key is never stored
+type RegenerateAppKeyRegenerateAppKeyAppCreated struct {
+	RawKey string                                         `json:"rawKey"`
+	App    *RegenerateAppKeyRegenerateAppKeyAppCreatedApp `json:"app"`
+}
+
+// GetRawKey returns RegenerateAppKeyRegenerateAppKeyAppCreated.RawKey, and is useful for accessing the field via an interface.
+func (v *RegenerateAppKeyRegenerateAppKeyAppCreated) GetRawKey() string { return v.RawKey }
+
+// GetApp returns RegenerateAppKeyRegenerateAppKeyAppCreated.App, and is useful for accessing the field via an interface.
+func (v *RegenerateAppKeyRegenerateAppKeyAppCreated) GetApp() *RegenerateAppKeyRegenerateAppKeyAppCreatedApp {
+	return v.App
+}
+
+// RegenerateAppKeyRegenerateAppKeyAppCreatedApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type RegenerateAppKeyRegenerateAppKeyAppCreatedApp struct {
+	Id   string `json:"id"`
+	Urn  string `json:"urn"`
+	Name string `json:"name"`
+}
+
+// GetId returns RegenerateAppKeyRegenerateAppKeyAppCreatedApp.Id, and is useful for accessing the field via an interface.
+func (v *RegenerateAppKeyRegenerateAppKeyAppCreatedApp) GetId() string { return v.Id }
+
+// GetUrn returns RegenerateAppKeyRegenerateAppKeyAppCreatedApp.Urn, and is useful for accessing the field via an interface.
+func (v *RegenerateAppKeyRegenerateAppKeyAppCreatedApp) GetUrn() string { return v.Urn }
+
+// GetName returns RegenerateAppKeyRegenerateAppKeyAppCreatedApp.Name, and is useful for accessing the field via an interface.
+func (v *RegenerateAppKeyRegenerateAppKeyAppCreatedApp) GetName() string { return v.Name }
+
+// RegenerateAppKeyResponse is returned by RegenerateAppKey on success.
+type RegenerateAppKeyResponse struct {
+	// App key management — revoke all active keys for an App and mint a
+	// fresh one. Only whoever manages the App, as themselves
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:05; hrn:node:hadronmemory.com:specs:cor:acl:010:01).
+	// Never an App key, a bound worker session or an impersonated request. The replacement key holds no scopes.
+	//
+	// Accepts the entity's ID or URN.
+	RegenerateAppKey *RegenerateAppKeyRegenerateAppKeyAppCreated `json:"regenerateAppKey"`
+}
+
+// GetRegenerateAppKey returns RegenerateAppKeyResponse.RegenerateAppKey, and is useful for accessing the field via an interface.
+func (v *RegenerateAppKeyResponse) GetRegenerateAppKey() *RegenerateAppKeyRegenerateAppKeyAppCreated {
+	return v.RegenerateAppKey
+}
+
 // RegisterEntriesRegisterEntriesRegisterEntriesPage includes the requested fields of the GraphQL type RegisterEntriesPage.
 type RegisterEntriesRegisterEntriesRegisterEntriesPage struct {
 	Total int                                                                    `json:"total"`
@@ -46390,6 +46642,17 @@ func (v *RevisionFieldsEditedByUserNodeRevisionEditor) GetHandle() *string { ret
 
 // GetUrn returns RevisionFieldsEditedByUserNodeRevisionEditor.Urn, and is useful for accessing the field via an interface.
 func (v *RevisionFieldsEditedByUserNodeRevisionEditor) GetUrn() *string { return v.Urn }
+
+// RevokeAppKeyResponse is returned by RevokeAppKey on success.
+type RevokeAppKeyResponse struct {
+	// Revoke an AppKey. Only whoever manages the App, as themselves
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:05; hrn:node:hadronmemory.com:specs:cor:acl:010:01).
+	// Never an App key, a bound worker session or an impersonated request. AppKey has no URN; the id is raw ID-only.
+	RevokeAppKey bool `json:"revokeAppKey"`
+}
+
+// GetRevokeAppKey returns RevokeAppKeyResponse.RevokeAppKey, and is useful for accessing the field via an interface.
+func (v *RevokeAppKeyResponse) GetRevokeAppKey() bool { return v.RevokeAppKey }
 
 // RevokeAppKeyScopeResponse is returned by RevokeAppKeyScope on success.
 type RevokeAppKeyScopeResponse struct {
@@ -69944,6 +70207,26 @@ type __AppKeysMetadataInput struct {
 // GetAppRef returns __AppKeysMetadataInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__AppKeysMetadataInput) GetAppRef() string { return v.AppRef }
 
+// __AppKeysScopesHostUsesInput is used internally by genqlient
+type __AppKeysScopesHostUsesInput struct {
+	AppRef string `json:"appRef"`
+	First  int    `json:"first"`
+}
+
+// GetAppRef returns __AppKeysScopesHostUsesInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AppKeysScopesHostUsesInput) GetAppRef() string { return v.AppRef }
+
+// GetFirst returns __AppKeysScopesHostUsesInput.First, and is useful for accessing the field via an interface.
+func (v *__AppKeysScopesHostUsesInput) GetFirst() int { return v.First }
+
+// __AppKeysScopesInput is used internally by genqlient
+type __AppKeysScopesInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __AppKeysScopesInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AppKeysScopesInput) GetAppRef() string { return v.AppRef }
+
 // __AppMemberRolesInput is used internally by genqlient
 type __AppMemberRolesInput struct {
 	AppRef string `json:"appRef"`
@@ -73116,6 +73399,14 @@ func (v *__RecoveryNodesInput) GetLimit() int { return v.Limit }
 // GetOffset returns __RecoveryNodesInput.Offset, and is useful for accessing the field via an interface.
 func (v *__RecoveryNodesInput) GetOffset() *int { return v.Offset }
 
+// __RegenerateAppKeyInput is used internally by genqlient
+type __RegenerateAppKeyInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __RegenerateAppKeyInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__RegenerateAppKeyInput) GetAppRef() string { return v.AppRef }
+
 // __RegisterEntriesInput is used internally by genqlient
 type __RegisterEntriesInput struct {
 	Filter *RegisterEntryFilter `json:"filter,omitempty"`
@@ -73375,6 +73666,14 @@ type __RetryFailedEmbeddingsInput struct {
 
 // GetMemoryRef returns __RetryFailedEmbeddingsInput.MemoryRef, and is useful for accessing the field via an interface.
 func (v *__RetryFailedEmbeddingsInput) GetMemoryRef() string { return v.MemoryRef }
+
+// __RevokeAppKeyInput is used internally by genqlient
+type __RevokeAppKeyInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __RevokeAppKeyInput.Id, and is useful for accessing the field via an interface.
+func (v *__RevokeAppKeyInput) GetId() string { return v.Id }
 
 // __RevokeAppKeyScopeInput is used internally by genqlient
 type __RevokeAppKeyScopeInput struct {
@@ -78855,6 +79154,111 @@ func AppKeysMetadata(
 	}
 
 	data_ = &AppKeysMetadataResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AppKeysScopes.
+const AppKeysScopes_Operation = `
+query AppKeysScopes ($appRef: ID!) {
+	appKeys(appRef: $appRef) {
+		id
+		keyPreview
+		label
+		createdAt
+		lastUsedAt
+		revokedAt
+		scopes {
+			scope
+			hostId
+			grantedAt
+			grantedBy
+		}
+	}
+}
+`
+
+// cli#1333 — `app key list --scopes`: the same active-key rows plus the scopes
+// each key holds. Separate operations from AppKeysMetadata so the default
+// listing keeps #1057's metadata-only selection (no scopes, no host uses).
+func AppKeysScopes(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *AppKeysScopesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AppKeysScopes",
+		Query:  AppKeysScopes_Operation,
+		Variables: &__AppKeysScopesInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &AppKeysScopesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AppKeysScopesHostUses.
+const AppKeysScopesHostUses_Operation = `
+query AppKeysScopesHostUses ($appRef: ID!, $first: Int!) {
+	appKeys(appRef: $appRef) {
+		id
+		keyPreview
+		label
+		createdAt
+		lastUsedAt
+		revokedAt
+		scopes {
+			scope
+			hostId
+			grantedAt
+			grantedBy
+		}
+		hostUses(first: $first) {
+			hostId
+			action
+			count
+			operationId
+			refusedCode
+			usedAt
+		}
+	}
+}
+`
+
+// cli#1333 — `app key list --scopes --host-uses N`: adds each key's newest N
+// host uses (cor:agt:070:07). N is always sent here, so no omitempty.
+func AppKeysScopesHostUses(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	first int,
+) (data_ *AppKeysScopesHostUsesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AppKeysScopesHostUses",
+		Query:  AppKeysScopesHostUses_Operation,
+		Variables: &__AppKeysScopesHostUsesInput{
+			AppRef: appRef,
+			First:  first,
+		},
+	}
+
+	data_ = &AppKeysScopesHostUsesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -91200,6 +91604,48 @@ func RecoveryNodes(
 	return data_, err_
 }
 
+// The mutation executed by RegenerateAppKey.
+const RegenerateAppKey_Operation = `
+mutation RegenerateAppKey ($appRef: ID!) {
+	regenerateAppKey(appRef: $appRef) {
+		rawKey
+		app {
+			id
+			urn
+			name
+		}
+	}
+}
+`
+
+// cli#1333 — rotate: revokes EVERY active key of the App and mints one
+// replacement that holds no scopes (cor:dmo:050:05). rawKey is returned once;
+// the command writes it to a 0600 file and never prints it unless --print-key.
+func RegenerateAppKey(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *RegenerateAppKeyResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RegenerateAppKey",
+		Query:  RegenerateAppKey_Operation,
+		Variables: &__RegenerateAppKeyInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &RegenerateAppKeyResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by RegisterEntries.
 const RegisterEntries_Operation = `
 query RegisterEntries ($filter: RegisterEntryFilter, $limit: Int, $offset: Int, $orgId: ID) {
@@ -92533,6 +92979,39 @@ func RetryFailedEmbeddings(
 	}
 
 	data_ = &RetryFailedEmbeddingsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RevokeAppKey.
+const RevokeAppKey_Operation = `
+mutation RevokeAppKey ($id: ID!) {
+	revokeAppKey(id: $id)
+}
+`
+
+// cli#1333 — revoke one App key. Irreversible; the answer is a bare Boolean.
+func RevokeAppKey(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *RevokeAppKeyResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RevokeAppKey",
+		Query:  RevokeAppKey_Operation,
+		Variables: &__RevokeAppKeyInput{
+			Id: id,
+		},
+	}
+
+	data_ = &RevokeAppKeyResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
