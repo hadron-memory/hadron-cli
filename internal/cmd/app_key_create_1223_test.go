@@ -357,7 +357,7 @@ func TestAppKeyCreateWriteAfterMintNamesTheKeyAndRevokeRoute(t *testing.T) {
 			if r.err == nil || exitCodeFor(r.err) == 0 {
 				t.Fatalf("must fail, got %v", r.err)
 			}
-			for _, want := range []string{"key_1", "hdr_app_RAWS…cdef", "revoke", "revokeAppKey"} {
+			for _, want := range []string{"key_1", "hdr_app_RAWS…cdef", "hadron app key revoke"} {
 				if !strings.Contains(r.all(), want) {
 					t.Errorf("message missing %q: %q", want, r.all())
 				}

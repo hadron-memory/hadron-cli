@@ -92,7 +92,8 @@ line doesn't spell. A positive control shows that each kind fails.
 
 ## Result at 94d33f45
 
-- 500 root fields: 326 reached by a command, 151 gaps, 23 excluded.
+- 500 root fields: 328 reached by a command, 149 gaps, 23 excluded (326 and 151
+  before #1348 wired `app key revoke` and `app key rotate`).
 - 189 argument lines (170 gaps, 19 server-deprecated arguments excluded).
 - 39 filter fields (30 flags, 9 gaps).
 
