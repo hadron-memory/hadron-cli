@@ -444,3 +444,51 @@ func TestHaUpdateEmptyTokenFileSourceIsRefusedWithPipedStdin(t *testing.T) {
 	}
 	assertNoHAToken(t, r)
 }
+
+// A server message that echoes the submitted token must not carry it to any
+// output (LOCAL, Joost, 8a978cdc): the token is redacted from the rendered
+// error, text and JSON, while the exit code, serverCode and the rest of the
+// message survive. Covers a 200 GraphQL error and a non-200 HTTP error.
+func TestHaWriteRedactsAnEchoedTokenFromServerErrors(t *testing.T) {
+	echo := `{"message":"token ` + haToken231 + ` rejected","extensions":{"code":"BAD_USER_INPUT"}}`
+	for _, status := range []int{200, 400} {
+		for _, args := range map[string][]string{
+			"create":        append(append([]string{}, haCreateArgs231...), "--token-file", "-"),
+			"replace token": {"update", "ha1", "--token-file", "-"},
+		} {
+			for _, jsonMode := range []bool{true, false} {
+				srv, _ := keyServer(t, status, `{"errors":[`+echo+`],"data":null}`)
+				f, out := testFactory(t)
+				f.IOStreams.In = strings.NewReader(haToken231)
+				root := NewRootCmd(f)
+				argv := append(append([]string{"ha"}, args...), "--server", srv.URL)
+				if jsonMode {
+					argv = append(argv, "--json")
+				}
+				root.SetArgs(argv)
+				err := root.Execute()
+				if err == nil {
+					t.Fatalf("%v: echoing refusal succeeded", argv)
+				}
+				if code := renderError(f, err); code != exitcode.Usage {
+					t.Errorf("%v: exit %d want 2", argv, code)
+				}
+				r := keyRun{out: out.String(), errOut: f.IOStreams.ErrOut.(*strings.Builder).String(), err: err}
+				assertNoHAToken(t, r)
+				if !strings.Contains(r.out+r.errOut, "rejected") {
+					t.Errorf("%v: server message lost: out=%q err=%q", argv, r.out, r.errOut)
+				}
+				if jsonMode {
+					var env struct {
+						Error struct {
+							ServerCode string `json:"serverCode"`
+						} `json:"error"`
+					}
+					if e := json.Unmarshal([]byte(r.out), &env); e != nil || env.Error.ServerCode != "BAD_USER_INPUT" {
+						t.Errorf("%v: serverCode lost: %s", argv, r.out)
+					}
+				}
+			}
+		}
+	}
+}
