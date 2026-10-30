@@ -103,7 +103,7 @@ first, or pass --root"). Create the router once with
 ` + "`hadron node create --loc preflight --name Preflight -m <memory> --content <body>`" + `, where
 the body holds at least one routing bullet, a list item written as
 ` + "`- **\"to fix a thing\"** → [[findings:x]] — why`" + ` (a plain bullet does not count as
-one). With no routing bullet yet, the first route needs --no-body-line, or
+one). In the mirrored model, with no routing bullet yet, the first route needs --no-body-line, or
 --section naming a heading that exists in the body; otherwise it is a usage
 error (exit 2) and nothing is written. Or point --root at the router your
 memory already has; ` + "`hadron coding preflight list`" + ` shows it.
