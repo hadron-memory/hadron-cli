@@ -500,3 +500,20 @@ func TestC1025LeafMissingEdgeIsNotMaskedByASameLocNodeElsewhere(t *testing.T) {
 		t.Errorf("the other memory's node must not satisfy the same-memory [[link]]:\n%s", out.String())
 	}
 }
+
+// The mirrored model's lint output is exactly what it was: two differently
+// labelled routes to one retired target are two findings, not one.
+func TestC1025MirroredLintKeepsPerRouteFindings(t *testing.T) {
+	gql := fakeGraphQL(t, map[string]string{
+		"GetNode": codingRootJSON("preflight", "",
+			outTo("o1", "to do one thing", "findings:old")+","+outTo("o2", "to do another thing", "findings:old")),
+		"NodeBatch": codingBatch([]string{codingBatchNode("findings:old", `"retired"`, "")}, ""),
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"coding", "preflight", "lint", "-m", codingMem, "--json", "--server", gql.URL})
+	_ = root.Execute()
+	if n := strings.Count(out.String(), `"route-target-retired"`); n != 2 {
+		t.Errorf("mirrored lint reports each route's finding (2), got %d:\n%s", n, out.String())
+	}
+}
