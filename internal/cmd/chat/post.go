@@ -65,9 +65,12 @@ to quote inline). Exactly one is required. --body - is for a PIPE: it is
 refused when stdin is an interactive terminal, which can truncate a long
 message before the CLI sees it; use --body-file there.
 
-WHERE IT GOES: the chat resolved from --node (or -m + --messages-loc), then
-HADRON_CHAT_NODE, then "chat" in .hadron/config.json; "hadron chat config show"
-prints the result and "chat doctor" checks it.
+WHERE IT GOES: each coordinate comes from a flag, then HADRON_CHAT_*, then
+"chat" in .hadron/config.json (nearest ancestor). A node URN (--node,
+HADRON_CHAT_NODE or chat.node, from ANY of those sources) beats the two-field
+form (-m + --messages-loc). "hadron chat config show" prints the result and
+where each value came from; "chat doctor" also checks the Channel is readable.
+With no flags it posts to the configured chat.
 
 AUTHORSHIP COMES FROM THE SESSION. --session <id> (printed by "hadron team
 session whoami") posts as the Worker bound to that session; with no --session

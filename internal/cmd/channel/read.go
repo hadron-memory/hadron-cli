@@ -66,13 +66,18 @@ position in a list other people are appending to, so under concurrent posting
 it skips or repeats; the server IGNORES --offset when --before is given, and so
 does this command's help.
 
-CATCHING UP. A first read returns the oldest page; to see the newest messages
-walk backward with --before, or pass --since with the last seq you recorded
-(see "channel read-state"). This command takes no attendee, so it records no
+CATCHING UP. A first read returns the oldest page. For the
+NEWEST messages when you do not know the latest seq, pass a bound larger than
+any seq: --before 999999999 --limit 20 returns the last 20, and --before with
+the oldest seq shown walks further back. To see what is new since you last
+looked, pass --since with the last seq you recorded (see "channel read-state").
+This command takes no attendee, so it records no
 progress: do that with "channel mark-read". --mentions narrows the page to
 messages that mention one worker or user (name, handle or id).
 
-FINDING ONE MESSAGE. To fetch seq N: --since <N-1> --limit 1. The text output
+FINDING ONE MESSAGE. --since <N-1> --limit 1 returns the first message with
+seq >= N: if N does not exist you get the next one (or "no messages"), so check
+the printed "#<seq>" is the one you asked for. The text output
 begins each message with "#<seq>", and a reply carries "↩<seq>" naming the
 message it answers (replyToSeq in --json).
 There is no command that reads a whole reply thread; read the surrounding range
@@ -81,8 +86,9 @@ wait; poll with --since at a sensible interval.
 
 For your own team chat use "hadron team chat read --mentions-me".`,
 		Example: `  hadron channel read hrn:node:acme.com:team-shared:chats:team --limit 20
-  hadron channel read <id> --since 41 --limit 1   # just message #42
+  hadron channel read <id> --since 41 --limit 1   # message #42 (check the printed seq)
   hadron channel read <id> --since 631
+  hadron channel read <id> --before 999999999 --limit 20   # the newest 20
   hadron channel read <id> --before 100   # the page before seq 100`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
