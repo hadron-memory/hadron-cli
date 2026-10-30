@@ -39,7 +39,12 @@ memory sees the message. The output prints the seq the message was given
 ("posted #N as <author>"); --reply-to takes that seq to answer a message, and
 the reply is linked to it (the message carries replyToSeq in --json).
 For your own team chat, "hadron team chat post --reply-to <seq>" needs no
-address or session id.`,
+address or session id.
+
+If the server refuses a post with TEAM_CHAT_DUPLICATE or
+TEAM_CHAT_POST_RATE_LIMITED, exit 5 keeps the server's message; --json adds
+error.serverCode beside numeric error.code. Read that message for the earlier
+seq or reset time before trying again. The CLI never retries these refusals.`,
 		Example: `  hadron channel post <address> "shipped #594" --session 01a0a78c…
   hadron channel post <address> - --as-me < note.md`,
 		Args: cobra.ExactArgs(2),
