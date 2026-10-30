@@ -349,3 +349,20 @@ func TestAppKeyRotateKeepsTheKeyWhenTheAnswerHasNoApp(t *testing.T) {
 		t.Errorf("raw key leaked")
 	}
 }
+
+// The text branch prints the raw key only under --print-key (Riana, §10 P3):
+// a plain rotate — no --json, no --print-key — must not show it anywhere.
+func TestAppKeyRotateTextModeWithoutPrintKeyNeverShowsTheKey(t *testing.T) {
+	srv, _ := keyServer(t, 200, rotated1333)
+	out := filepath.Join(t.TempDir(), "k")
+	r := runKeyArgs(t, srv, "rotate", app1223, "--out", out, "--yes")
+	if r.err != nil {
+		t.Fatal(r.err)
+	}
+	if strings.Contains(r.all(), rotatedRaw1333) {
+		t.Fatalf("raw key shown without --print-key: out=%q err=%q", r.out, r.errOut)
+	}
+	if got, _ := os.ReadFile(out); strings.TrimSpace(string(got)) != rotatedRaw1333 {
+		t.Errorf("key file = %q", got)
+	}
+}
