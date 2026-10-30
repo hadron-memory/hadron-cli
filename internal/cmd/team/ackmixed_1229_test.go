@@ -72,3 +72,30 @@ func TestAckMixed1229RejectsNonBoolean(t *testing.T) {
 		})
 	}
 }
+
+func TestAckMixed1229YAMLCompatibility(t *testing.T) {
+	for name, fragment := range map[string]string{
+		"merged":        "delivery: {<<: &d {enabled: true, orca_bin: /bin/true}, ack_mixed: true}\n",
+		"alias":         "<<: {delivery: &d {enabled: true, orca_bin: /bin/true, ack_mixed: true}}\ndelivery: *d\n",
+		"boolean alias": "delivery: {enabled: &on true, orca_bin: /bin/true, ack_mixed: *on}\n",
+		"boolean case":  "delivery: {enabled: true, orca_bin: /bin/true, ack_mixed: TRUE}\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "host.yaml")
+			body := "app: app1\nworkers:\n  iris:\n    family: claude\n    launch: [claude]\nworktrees_root: " + dir + "\n" + fragment
+			if err := os.WriteFile(path, []byte(body), 0600); err != nil {
+				t.Fatal(err)
+			}
+			cfg, err := hostpoller.LoadConfig(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			server, _ := deliveryFake(t, map[string][]string{})
+			p := hostpoller.New(cfg, nil, nil, &hostpoller.State{}, "", func(hostpoller.Event) {})
+			if !wireDelivery(p, cfg, server, func(hostpoller.Event) {}).AckMixed {
+				t.Fatal("boolean assertion not preserved")
+			}
+		})
+	}
+}
