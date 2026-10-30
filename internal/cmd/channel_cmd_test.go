@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 const channelJSON = `{
@@ -429,20 +431,66 @@ func TestChannelMarkReadReportsTheServerCursor(t *testing.T) {
 	}
 }
 
-// TestChannelReadStateAbsentIsNotAnError — "has read nothing" is a real answer;
-// reporting it as an error makes it indistinguishable from "unreadable".
-func TestChannelReadStateAbsentIsNotAnError(t *testing.T) {
+// TestChannelReadStateNeverReadIsNotAnError — "has read nothing" is a real
+// answer: the server returns a row with lastSeenSeq 0 for an attendee who never
+// checkpointed, and reporting that as an error would make it indistinguishable
+// from "no such attendee".
+func TestChannelReadStateNeverReadIsNotAnError(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"ChannelReadState": `{"data":{"channelReadState":null}}`,
+		"ChannelReadState": `{"data":{"channelReadState":{"channelId":"c1",
+			"attendeeUrn":"hrn:worker:acme.com:team:jonas","lastSeenSeq":0,
+			"updatedAt":"1970-01-01T00:00:00.000Z"}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"channel", "read-state", "r", "--attendee", "Jonas", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
-		t.Fatalf("an absent cursor is a real answer, not an error: %v", err)
+		t.Fatalf("a never-read cursor is a real answer, not an error: %v", err)
 	}
 	if !strings.Contains(out.String(), "seen nothing") {
 		t.Errorf("say so plainly, got:\n%s", out.String())
+	}
+}
+
+// TestChannelReadStateNullIsNotFound — #1259.
+//
+// channelReadState answers null for an attendee ref that resolves to nothing,
+// one the caller cannot read, and one not registered on that Channel. None of
+// those is "has read nothing", so null is exit 4 (as advanceChannelReadState's
+// NOT_FOUND is) — and one generic wording for all three, so the CLI is no finer
+// an existence oracle than the server (cor:api:140:03).
+func TestChannelReadStateNullIsNotFound(t *testing.T) {
+	for _, jsonMode := range []bool{false, true} {
+		gql, _ := captureGraphQL(t, map[string]string{
+			"ChannelReadState": `{"data":{"channelReadState":null}}`,
+		})
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		args := []string{"channel", "read-state", "r", "--attendee", "Jnoas", "--server", gql.URL}
+		if jsonMode {
+			args = append(args, "--json")
+		}
+		root.SetArgs(args)
+		err := root.Execute()
+		if err == nil {
+			t.Fatalf("json=%v: a null read state must not exit 0; stdout:\n%s", jsonMode, out.String())
+		}
+		if got := exitCodeFor(err); got != exitcode.NotFound {
+			t.Errorf("json=%v: want exit %d, got %d", jsonMode, exitcode.NotFound, got)
+		}
+		if out.Len() != 0 {
+			t.Errorf("json=%v: nothing may reach stdout, got:\n%s", jsonMode, out.String())
+		}
+		msg := err.Error()
+		if !strings.Contains(msg, `"Jnoas"`) {
+			t.Errorf("name the ref that failed, got: %s", msg)
+		}
+		low := strings.ToLower(msg)
+		for _, oracle := range []string{"seen nothing", "does not exist", "not registered", "no such", "unknown"} {
+			if strings.Contains(low, oracle) {
+				t.Errorf("null covers three cases; the text must not single one out (%q): %s", oracle, msg)
+			}
+		}
 	}
 }
 
