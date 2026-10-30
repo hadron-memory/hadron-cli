@@ -92,3 +92,47 @@ func (a *chatReadAttribution) page(ctx context.Context, client graphql.Client, a
 	}
 	return gen.TeamChatMessages(ctx, client, appRef, since, mentions, size, nil, before)
 }
+
+// thread is the --thread read (cli#1262): the direct replies to one seq,
+// filtered by the server. Separate operations from page, so an ordinary read
+// never carries the new replyToSeq argument to a server that predates it. The
+// result is shaped like page's so the caller's loop is shared.
+func (a *chatReadAttribution) thread(ctx context.Context, client graphql.Client, appRef string, replyTo int, since *int, mentions *string, size *int, before *int) (*gen.TeamChatMessagesResponse, error) {
+	if a.enabled(ctx) {
+		r, err := gen.TeamChatThreadAttributed(api.WithSession(ctx, a.session), client, appRef, replyTo, since, mentions, size, before)
+		if err != nil {
+			if !a.fallback(err) {
+				return nil, err
+			}
+		} else {
+			out := &gen.TeamChatMessagesResponse{}
+			if r.TeamChatMessages != nil {
+				out.TeamChatMessages = &gen.TeamChatMessagesTeamChatMessagesTeamChatMessagesPage{Total: r.TeamChatMessages.Total}
+				for _, m := range r.TeamChatMessages.Items {
+					if m == nil {
+						out.TeamChatMessages.Items = append(out.TeamChatMessages.Items, nil)
+					} else {
+						out.TeamChatMessages.Items = append(out.TeamChatMessages.Items, &gen.TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage{TeamChatMessageFields: m.TeamChatMessageFields})
+					}
+				}
+			}
+			return out, nil
+		}
+	}
+	r, err := gen.TeamChatThread(ctx, client, appRef, replyTo, since, mentions, size, before)
+	if err != nil {
+		return nil, err
+	}
+	out := &gen.TeamChatMessagesResponse{}
+	if r.TeamChatMessages != nil {
+		out.TeamChatMessages = &gen.TeamChatMessagesTeamChatMessagesTeamChatMessagesPage{Total: r.TeamChatMessages.Total}
+		for _, m := range r.TeamChatMessages.Items {
+			if m == nil {
+				out.TeamChatMessages.Items = append(out.TeamChatMessages.Items, nil)
+			} else {
+				out.TeamChatMessages.Items = append(out.TeamChatMessages.Items, &gen.TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage{TeamChatMessageFields: m.TeamChatMessageFields})
+			}
+		}
+	}
+	return out, nil
+}
