@@ -71,6 +71,7 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 		memory         string
 		install        string
 		prefix         string
+		childrenOf     string
 		nodeType       string
 		objectType     string
 		runnable       bool
@@ -97,7 +98,11 @@ is runnable. Use node get to read a node's content.
 
 -m takes a memory id or URN (hrn:mem:<root>:<slug>); without it the list
 covers every memory you can read. --prefix keeps nodes whose loc starts with
-the text (findings: is one branch). --type, --tag, --runnable and --search
+the text (findings: is one branch). --children-of <loc> lists
+direct children only: the nodes exactly one level below that loc, grandchildren
+excluded (--children-of "" lists the top-level nodes). It is judged on loc text alone,
+so a child whose parent has no node of its own is still listed, and it
+combines with --prefix and the other filters (all must match). --type, --tag, --runnable and --search
 (words in the name or description) narrow it further.
 
 Without --limit or --offset you get every matching node. --limit and --offset
@@ -124,6 +129,8 @@ Details:
 ` + installDetails("") + ``,
 		Example: `  hadron node list --memory hrn:mem:hadronmemory.com:dev
   hadron node list -m hrn:mem:hadronmemory.com:dev --prefix findings: --json
+  hadron node list -m hrn:mem:hadronmemory.com:dev --children-of findings
+  hadron node list -m hrn:mem:hadronmemory.com:dev --children-of ""
   hadron node list -m hrn:mem:hadronmemory.com:dev --seq-gt 42 --sort-seq asc
   hadron node list -m hrn:mem:acme.com:kb --object-type insight --where '{"path":["source"],"eq":"substack"}'
   hadron node list -m hrn:mem:acme.com:team --where '{"field":"data","path":["authorName"],"exists":true}' --with-data
@@ -173,6 +180,12 @@ Details:
 			}
 			if prefix != "" {
 				filter.LocPrefix = &prefix
+				filterSet = true
+			}
+			// "" is a value (the top level), so presence comes from Changed, not
+			// from the string: a nil pointer is omitted on the wire, &"" is sent.
+			if cmd.Flags().Changed("children-of") {
+				filter.ChildrenOf = &childrenOf
 				filterSet = true
 			}
 			if nodeType != "" {
@@ -405,6 +418,7 @@ Details:
 	cmd.Flags().StringVar(&install, "install", "", installFlagHelp)
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "scope to a memory (ID or URN)")
 	cmd.Flags().StringVar(&prefix, "prefix", "", "filter by node loc prefix")
+	cmd.Flags().StringVar(&childrenOf, "children-of", "", "list only the direct children of this loc (grandchildren excluded); \"\" is the top level")
 	cmd.Flags().StringVar(&nodeType, "type", "", "filter by node type")
 	cmd.Flags().StringVar(&objectType, "object-type", "", "filter by objectType collection facet (e.g. competitor)")
 	cmd.Flags().BoolVar(&runnable, "runnable", false, "filter by runnable status (--runnable / --runnable=false); omit for all")
