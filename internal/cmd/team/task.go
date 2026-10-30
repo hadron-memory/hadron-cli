@@ -22,7 +22,6 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
-	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 // taskAssignerDoc is the assigner authority (cor:agt:050:09) every
@@ -521,10 +520,11 @@ request does is described under ` + "`task create --help`" + `.`
 // ---- start / progress / cancel -------------------------------------------
 
 // newSimpleTaskMutation builds a one-argument verb whose whole body is one
-// mutation returning the task; receipt renders its human line.
+// mutation returning the task; receipt renders its human line. key is the
+// mutation's response field, under which its warnings are filed (cli#1283).
 func newSimpleTaskMutation(
 	f *cmdutil.Factory,
-	verb, short, long, example string,
+	verb, key, short, long, example string,
 	call func(context.Context, graphql.Client, string) (taskDTO, error),
 	receipt func(io.Writer, taskDTO) error,
 ) *cobra.Command {
@@ -543,11 +543,12 @@ func newSimpleTaskMutation(
 			if err != nil {
 				return err
 			}
-			task, err := call(cmd.Context(), client, taskId)
+			mctx, sink := api.WithWarningSink(cmd.Context())
+			task, err := call(mctx, client, taskId)
 			if err != nil {
 				return mapTaskError(err)
 			}
-			return output.Write(f.IOStreams, f.JSON, task, func(w io.Writer) error {
+			return writeTaskMutation(f, task, taskWarningsFor(sink, key), func(w io.Writer) error {
 				return receipt(w, task)
 			})
 		},
@@ -556,7 +557,7 @@ func newSimpleTaskMutation(
 }
 
 func newCmdTeamTaskStart(f *cmdutil.Factory) *cobra.Command {
-	return newSimpleTaskMutation(f, "start", "Start a pending task",
+	return newSimpleTaskMutation(f, "start", "startAgentTask", "Start a pending task",
 		`Start a task assigned to you: PENDING becomes STARTED and the server records
 task.started. Only the assignee may start it (cor:agt:050:08) — with a
 worktree binding that is the bound worker. Find yours with `+"`task mine`"+`.
@@ -569,7 +570,8 @@ has no assignee to start it: someone with assigner authority runs
 `+"`task assign`"+` first (see `+"`team task --help`"+`).
 
 Once started, record `+"`task progress`"+` while you work and `+"`task finish`"+`
-when done. Success prints the task, STARTED and the assignee.`,
+when done. Success prints the task, STARTED and the assignee; --json returns
+the task with a warnings list, and a server warning also prints on stderr.`,
 		"  hadron team task mine\n  hadron team task start AT0.7",
 		func(ctx context.Context, client graphql.Client, taskId string) (taskDTO, error) {
 			resp, err := gen.AgentTaskStart(ctx, client, taskId)
@@ -584,7 +586,7 @@ when done. Success prints the task, STARTED and the assignee.`,
 }
 
 func newCmdTeamTaskProgress(f *cmdutil.Factory) *cobra.Command {
-	return newSimpleTaskMutation(f, "progress", "Record progress on a started task",
+	return newSimpleTaskMutation(f, "progress", "recordAgentTaskProgress", "Record progress on a started task",
 		`Record that you are still working on a STARTED task: its assignee only
 (cor:agt:050:08). It carries no text. It writes task.progress to the event
 stream and resets the no-progress stall alarm's clock (cor:agt:050:15), which
@@ -598,7 +600,8 @@ progress note.
 
 Refusals: a task that is not STARTED exits 5 ("Start the task before
 recording progress"): run `+"`task start`"+` first. Someone else's task exits 8.
-Success prints the task and STARTED.`,
+Success prints the task and STARTED; --json returns the task with a warnings
+list, and a server warning also prints on stderr.`,
 		"  hadron team task progress AT0.7",
 		func(ctx context.Context, client graphql.Client, taskId string) (taskDTO, error) {
 			resp, err := gen.AgentTaskProgress(ctx, client, taskId)
@@ -614,7 +617,7 @@ Success prints the task and STARTED.`,
 }
 
 func newCmdTeamTaskCancel(f *cmdutil.Factory) *cobra.Command {
-	return newSimpleTaskMutation(f, "cancel", "Cancel a task",
+	return newSimpleTaskMutation(f, "cancel", "cancelAgentTask", "Cancel a task",
 		`Cancel a task that is no longer wanted, from BACKLOG, PENDING or STARTED.
 CANCELLED is an end state: nobody can start, progress or finish it afterwards,
 and it no longer blocks the tasks waiting for it. The command does not ask for
@@ -625,11 +628,14 @@ anyone else is refused with TASK_NOT_OWNER (exit 8). The assignee finishes its
 own work with `+"`task finish`"+` instead, and a task that should wait rather
 than end is parked (`+"`task park`"+`, queued tasks only).
 
-Cancelling a parent does not end its children: they stay open, and each is
-cancelled or finished on its own. If the task was created with
+Cancelling a parent does not end its children: they stay open, each to be
+cancelled or finished on its own, and the server adds the warning
+task.cancel.open-children. If the task was created with
 --close-session, cancelling asks the assignee to end its worker session, just
 as finishing does (see `+"`task create --help`"+`). An already-ended task is
-refused (exit 5). Success prints the task and CANCELLED.`,
+refused (exit 5). Success prints the task and CANCELLED. A warning prints on
+stderr after the receipt and does not change the exit code; --json returns the
+task with a warnings list ([] when none).`,
 		"  hadron team task cancel AT0.7",
 		func(ctx context.Context, client graphql.Client, taskId string) (taskDTO, error) {
 			resp, err := gen.AgentTaskCancel(ctx, client, taskId)
@@ -646,12 +652,14 @@ refused (exit 5). Success prints the task and CANCELLED.`,
 // ---- park / ready (the BACKLOG moves, #1754 / cor:agt:050:02) --------------
 
 func newCmdTeamTaskPark(f *cmdutil.Factory) *cobra.Command {
-	return newSimpleTaskMutation(f, "park", "Park a queued task (BACKLOG)",
+	return newSimpleTaskMutation(f, "park", "parkAgentTask", "Park a queued task (BACKLOG)",
 		`Park the task: a pending task with no assignee becomes BACKLOG —
 unassigned, never matched, never waited on, no alarms (cor:agt:050:02).
 A task that has an assignee, or is STARTED, is refused (exit 5); to stop
 started work for good, cancel it. Make it ready (`+"`team task ready`"+`) — or
-assign it — to move it back to PENDING. Success prints the task and BACKLOG.
+assign it — to move it back to PENDING. Success prints the task and BACKLOG;
+--json returns the task with a warnings list, and a server warning also
+prints on stderr.
 
 Who may: `+taskAssignerDoc+` (cor:agt:050:09).`,
 		"  hadron team task park AT0.7",
@@ -668,12 +676,13 @@ Who may: `+taskAssignerDoc+` (cor:agt:050:09).`,
 }
 
 func newCmdTeamTaskReady(f *cmdutil.Factory) *cobra.Command {
-	return newSimpleTaskMutation(f, "ready", "Make a backlog task ready to work",
+	return newSimpleTaskMutation(f, "ready", "makeAgentTaskReady", "Make a backlog task ready to work",
 		`Make the backlog task ready: BACKLOG becomes PENDING with no assignee and the
 task enters the queue, where the platform's matcher picks a worker
 (cor:agt:050:02). To choose the worker yourself, `+"`task assign`"+` the
 BACKLOG task instead. Success prints the task, PENDING, and "queued" while
-no one has it.
+no one has it; --json returns the task with a warnings list, and a server
+warning also prints on stderr.
 
 Who may: `+taskAssignerDoc+` (cor:agt:050:09).`,
 		"  hadron team task ready AT0.7",
