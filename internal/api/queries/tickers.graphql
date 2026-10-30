@@ -55,3 +55,14 @@ mutation SubscribeTicker($tickerRef: String!, $workerRef: String!) {
 mutation UnsubscribeTicker($tickerRef: String!, $workerRef: String!) {
  unsubscribeWorker(tickerRef: $tickerRef, workerRef: $workerRef) { subscription { ...TickerSubscriptionFields } announcement }
 }
+# #2096 repair (cli#1291): create the Agent's template tickers one worker is missing.
+mutation ApplyAgentTickerTemplates($workerRef: String!) {
+ applyAgentTickerTemplates(workerRef: $workerRef) {
+  created { ticker { ...TickerFields } template { id name } effectiveCadenceSeconds }
+  alreadyPresent { id name }
+ }
+}
+# The App's cadence floor, read only to label a created ticker made at it.
+query TickerAppFloor($appRef: String!) {
+ appTickerSettings(appRef: $appRef) { minCadenceSeconds }
+}
