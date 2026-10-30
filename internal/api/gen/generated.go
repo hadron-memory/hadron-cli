@@ -63547,7 +63547,10 @@ var AllUploadIntent = []UploadIntent{
 // UsageEventsResponse is returned by UsageEvents on success.
 type UsageEventsResponse struct {
 	// Usage events (most recent first), optionally filtered by type, memoryId,
-	// or nodeId.
+	// nodeId, or time. since is inclusive and until is exclusive: since <= createdAt < until.
+	// Bounds must be ISO date-times with Z or an explicit offset.
+	// Either bound may be omitted; invalid bounds or since >= until are BAD_USER_INPUT.
+	// Windowing does not change scope (hrn:node:hadronmemory.com:specs:cor:acl:090:01).
 	//
 	// Access control (#250): results are always scoped to memories the caller
 	// may read (org membership / subscriptions / public / owned personal+private
@@ -71904,6 +71907,8 @@ type __UsageEventsInput struct {
 	EventType *string `json:"eventType,omitempty"`
 	Limit     int     `json:"limit"`
 	Offset    *int    `json:"offset,omitempty"`
+	Since     *string `json:"since,omitempty"`
+	Until     *string `json:"until,omitempty"`
 }
 
 // GetMemoryId returns __UsageEventsInput.MemoryId, and is useful for accessing the field via an interface.
@@ -71920,6 +71925,12 @@ func (v *__UsageEventsInput) GetLimit() int { return v.Limit }
 
 // GetOffset returns __UsageEventsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__UsageEventsInput) GetOffset() *int { return v.Offset }
+
+// GetSince returns __UsageEventsInput.Since, and is useful for accessing the field via an interface.
+func (v *__UsageEventsInput) GetSince() *string { return v.Since }
+
+// GetUntil returns __UsageEventsInput.Until, and is useful for accessing the field via an interface.
+func (v *__UsageEventsInput) GetUntil() *string { return v.Until }
 
 // __ValidateMemoryInput is used internally by genqlient
 type __ValidateMemoryInput struct {
@@ -94794,8 +94805,8 @@ func UpdateWorkerSigning(
 
 // The query executed by UsageEvents.
 const UsageEvents_Operation = `
-query UsageEvents ($memoryId: ID, $loc: String, $eventType: String, $limit: Int!, $offset: Int) {
-	usageEvents(memoryId: $memoryId, loc: $loc, type: $eventType, limit: $limit, offset: $offset) {
+query UsageEvents ($memoryId: ID, $loc: String, $eventType: String, $limit: Int!, $offset: Int, $since: DateTime, $until: DateTime) {
+	usageEvents(memoryId: $memoryId, loc: $loc, type: $eventType, limit: $limit, offset: $offset, since: $since, until: $until) {
 		id
 		type
 		createdAt
@@ -94820,6 +94831,8 @@ func UsageEvents(
 	eventType *string,
 	limit int,
 	offset *int,
+	since *string,
+	until *string,
 ) (data_ *UsageEventsResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UsageEvents",
@@ -94830,6 +94843,8 @@ func UsageEvents(
 			EventType: eventType,
 			Limit:     limit,
 			Offset:    offset,
+			Since:     since,
+			Until:     until,
 		},
 	}
 

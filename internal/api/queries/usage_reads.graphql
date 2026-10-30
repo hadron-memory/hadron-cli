@@ -9,8 +9,12 @@ query UsageEvents(
   $limit: Int!
   # @genqlient(omitempty: true)
   $offset: Int
+  # @genqlient(omitempty: true)
+  $since: DateTime
+  # @genqlient(omitempty: true)
+  $until: DateTime
 ) {
-  usageEvents(memoryId: $memoryId, loc: $loc, type: $eventType, limit: $limit, offset: $offset) {
+  usageEvents(memoryId: $memoryId, loc: $loc, type: $eventType, limit: $limit, offset: $offset, since: $since, until: $until) {
     id type createdAt memoryId nodeLoc provider model keyOwnerType
     tokensIn tokensOut costMicroCents
   }

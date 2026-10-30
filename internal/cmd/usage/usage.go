@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
@@ -39,10 +40,10 @@ func NewCmdUsage(f *cmdutil.Factory) *cobra.Command {
 	return cmd
 }
 func newEvents(f *cmdutil.Factory) *cobra.Command {
-	var memory, loc, eventType string
+	var memory, loc, eventType, since, until string
 	var limit, offset int
 	cmd := &cobra.Command{
-		Use:   "events [--memory <ref>] [--loc <loc>] [--type <type>] [--limit N] [--offset N]",
+		Use:   "events [--memory <ref>] [--loc <loc>] [--type <type>] [--since <time>] [--until <time>] [--limit N] [--offset N]",
 		Short: "Read one page of accessible usage events",
 		Long: `List recent AI usage events, newest first: when each happened, its type, the
 memory and node it was for, the provider and model, tokens in and out, and what
@@ -52,10 +53,17 @@ You get ONE page: 20 events by default, or --limit (1 to 200). To go further
 back, run the command again with --offset set to the number of events already
 seen (after a full page, stderr says "more may exist; request another page with
 --offset N").
-There is no total and no filter by date or cost, and no cost sum: to answer
-"what happened last week", page back until the CREATED column passes the start
-of that week, or narrow with --memory, --loc or --type, or use --json and
-filter the result yourself.
+There is no total and no cost sum.
+
+--since and --until bound the window by creation time: --since is INCLUSIVE and
+--until is EXCLUSIVE, so you get events with since <= CREATED < until. Either
+may be left out. Each is an ISO date-time WITH a "Z" or an explicit offset (for
+example 2026-10-22T00:00:00Z or 2026-10-22T09:00:00+02:00); a date alone or a
+time without an offset is refused, and so is a window where --since is not
+before --until. Note that "hadron team events --since" is the opposite: it is
+EXCLUSIVE ("strictly after"). Windowing narrows by time only; you still see
+just the memories you can read. To answer "what happened last week", give both
+bounds and page with --offset.
 
 --memory is a memory ID or URN (for example hrn:mem:acme.com:notes). --loc is an exact
 node loc, including hierarchical ones such as notes:ideas. --type is an exact
@@ -75,6 +83,7 @@ Details:
   requested. Nothing is recorded and no model or provider is called.`,
 		Example: `  hadron usage events
   hadron usage events --memory hrn:mem:acme.com:notes --limit 100
+  hadron usage events --since 2026-10-22T00:00:00Z --until 2026-10-23T00:00:00Z
   hadron usage events --type <event-type> --offset 20 --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -100,6 +109,10 @@ Details:
 					*arg.dst = &v
 				}
 			}
+			sinceArg, untilArg, err := parseWindow(cmd, since, until)
+			if err != nil {
+				return err
+			}
 			var off *int
 			if offset != 0 {
 				off = &offset
@@ -108,7 +121,7 @@ Details:
 			if err != nil {
 				return err
 			}
-			resp, err := gen.UsageEvents(cmd.Context(), client, mem, locArg, typeArg, limit, off)
+			resp, err := gen.UsageEvents(cmd.Context(), client, mem, locArg, typeArg, limit, off, sinceArg, untilArg)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -139,10 +152,37 @@ Details:
 	cmd.Flags().StringVar(&memory, "memory", "", "memory id or URN to filter")
 	cmd.Flags().StringVar(&loc, "loc", "", "verbatim exact node loc to filter")
 	cmd.Flags().StringVar(&eventType, "type", "", "exact event type to filter")
+	cmd.Flags().StringVar(&since, "since", "", "ISO date-time with Z or an offset; events at or after it (inclusive)")
+	cmd.Flags().StringVar(&until, "until", "", "ISO date-time with Z or an offset; events before it (exclusive)")
 	cmd.Flags().IntVar(&limit, "limit", 20, "page size (1-200)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "rows to skip (nonnegative)")
 	return cmd
 }
+
+// parseWindow validates --since/--until client-side (RFC 3339 requires the Z or
+// numeric offset, so an offset-less or date-only value is refused) and returns
+// them verbatim for the wire; an unset flag stays nil so it is omitted.
+// since >= until is also refused here, before any request (cli#1205).
+func parseWindow(cmd *cobra.Command, since, until string) (*string, *string, error) {
+	var out [2]*string
+	var at [2]time.Time
+	for i, b := range []struct{ name, value string }{{"since", since}, {"until", until}} {
+		if !cmd.Flags().Changed(b.name) {
+			continue
+		}
+		t, err := time.Parse(time.RFC3339, strings.TrimSpace(b.value))
+		if err != nil {
+			return nil, nil, exitcode.Newf(exitcode.Usage, "--%s takes an ISO date-time with Z or an explicit offset, e.g. 2026-10-22T00:00:00Z, got %q", b.name, b.value)
+		}
+		v := strings.TrimSpace(b.value)
+		out[i], at[i] = &v, t
+	}
+	if out[0] != nil && out[1] != nil && !at[0].Before(at[1]) {
+		return nil, nil, exitcode.Newf(exitcode.Usage, "--since must be before --until (since is inclusive, until exclusive)")
+	}
+	return out[0], out[1], nil
+}
+
 func tokenLabel(v *int) string {
 	if v == nil {
 		return "unknown"
