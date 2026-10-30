@@ -12,7 +12,8 @@ import (
 // prints the innermost HumanMessage, so the prefix has to live inside the
 // terminal-safe wrapper (cli#1131 merge P2, Jane).
 func TestMapTaskErrorKeepsCodeAtHumanSink(t *testing.T) {
-	for _, code := range []string{"TASK_BLOCKED", "TASK_BLOCKER_CYCLE", "TASK_NOT_FOUND", "TASK_NOT_OWNER", "TASK_INVALID_TRANSITION", "TASK_HANDLE_QUALIFY", "BAD_USER_INPUT"} {
+	for _, code := range []string{"TASK_BLOCKED", "TASK_BLOCKER_CYCLE", "TASK_NOT_FOUND", "TASK_NOT_OWNER", "TASK_INVALID_TRANSITION", "TASK_HANDLE_QUALIFY", "BAD_USER_INPUT",
+		"TASK_ENDED", "TASK_NOT_ASSIGNEE", "TASK_CHILD_OWNER_MISMATCH", "TASK_OWNER_INVALID", "TASK_ASSIGNEE_INVALID", "TASK_STOPPED"} {
 		raw := gqlerror.List{&gqlerror.Error{Message: "refused \x1b[31m now", Extensions: map[string]any{"code": code}}}
 		err := mapTaskError(raw)
 		var h interface{ HumanMessage() string }
