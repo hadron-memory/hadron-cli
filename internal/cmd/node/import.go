@@ -98,58 +98,52 @@ func newCmdImport(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "import [<file>|<dir>|-]",
 		Short: "Import a node — reconstitute an export file, ingest external content, or map a directory tree",
-		Long: `Import into a node. Three modes:
+		Long: `Bring something into a memory as a node. Which mode runs depends on what you
+pass:
 
-RESTORE (default) — reconstitute a node-export file produced by ` + "`hadron node export`" + `
-(frontmatter-markdown, or ` + "`--format json`" + `). A node already at the target loc is
-updated, else created. Read "-" to import from stdin, so an export pipes straight
-into an import ("-" is for a pipe: it is refused when stdin is an interactive
-terminal, which can truncate large input — pass the file path instead).
-The target memory/loc come from the file's own keys; -m/--memory
-and --loc override them (re-homing a node into another memory). Outgoing edges
-are imported only with --with-edges (off by default).
+  You have                                  Mode      Pass
+  a file made by node export                restore   the file (the default)
+  a web page                                content   --url <address>
+  a PDF or an HTML file                     content   the file (automatic)
+  an ordinary Markdown file                 content   the file and --as-content
+  a folder of files                         folder    -r <folder>
 
-A file's role: and runnable: keys (isRunnable in JSON) are the node's kind: a
-task (runnable: true), a spec (spec or spec.*) or a review (review or review.*).
-The write goes through the door that
-kind requires, like node add and node update. memory export and the server's
-git sync write the keys, so their files re-import with the kind; node export
-does not write them yet, so its files carry no kind. A file without the keys
-has no opinion: on an existing node the stored kind is kept, and a new node is
-ordinary. A file that would make the node two governed kinds at once is refused
-before anything is written. The objectType: key is carried the same way (absent
-keeps the stored value); the server checks it against the memory's schema.
+Content mode is not picked automatically for a Markdown file: without
+--as-content it is read as an export file and refused ("not a node file:
+missing --- frontmatter", exit 2), and nothing is written.
 
-CONTENT — ingest RAW external source (a web page, a captured HTML DOM, a Markdown
-file, or a PDF) and let the server convert it to the node's Markdown body. This
-mode is selected by --url, by --as-content (force it for an otherwise-ambiguous
-.md/.json / stdin source), or automatically for a .pdf/.html file. A PDF's text
-layer is extracted to Markdown — the CLI base64-encodes the file for you
-(scanned/image-only PDFs error server-side). The content type is inferred from
-the file extension unless --content-type overrides it (required for a PDF over
-stdin). Target the node with -m/--memory + --loc or --node <urn>; a node already
-there is updated in place, else created (nodeType defaults to webpage, or info
-for a PDF).
+When the import lands on a node that already exists, it overwrites it (the
+old version is kept as a revision; see node revision). That asks first on a
+terminal and needs --yes otherwise. Creating a new node never asks.
 
-An import that lands on an EXISTING node overwrites it (a prior version is
-kept). Like the destructive commands, that prompts on a terminal and requires
---yes non-interactively; a create is never gated.
+RESTORE reads a file from node export (Markdown with a --- header, or
+--format json) and recreates the node: its memory and loc come from the file,
+or from -m and --loc, which override them (to copy a node into another
+memory). An existing node there is updated; --create-only refuses instead.
+Edges are imported only with --with-edges. "-" reads the file from a pipe
+(node export ... | node import -), and is refused when input is a terminal,
+which can cut long input short. The file's role:, runnable: and objectType:
+keys, when present, set the node's kind and collection as node create does
+(a file without them keeps the stored values); node export does not write
+these keys yet, memory export does.
 
---task <ref> (content mode) runs a task node against the freshly-stored node:
-the server mints a MANUAL run (the imported node's URN is passed to the task)
-and this prints the run id — follow it with 'hadron run get <id>'. --task-args
-adds template args and --app names the App to run under (default: your active
-App).
+CONTENT converts a web page, an HTML page, a Markdown file or a PDF into the
+node's Markdown content on the server. Name the target with -m and --loc, or
+--node <urn>. The type comes from the file extension; --content-type sets it
+(required for a PDF read from a pipe). Only a PDF with a text layer works: a
+scanned, image-only PDF is refused. The new node's type is webpage (info for a
+PDF). --task <ref> then runs a task on the new node and prints the run id
+(follow it with hadron run get <id>); --task-args passes arguments and --app
+names the App to run under (default: your active App).
 
-RECURSIVE (-r) — map a local DIRECTORY tree into the memory graph: each
-directory becomes a branch node, each text file a leaf node (loc = slugified
-path without the extension; name = filename), and the directory hierarchy
-becomes parent→child 'contains' edges. A directory's README.md / index.md folds
-into that directory's node instead of a separate child. Binary files are skipped
-and reported. Import is create-only: an existing loc is an error unless
---on-conflict skip. --under <loc> roots the tree under a prefix; --include /
---exclude globs, --hidden, and --max-file-size filter the walk; --dry-run prints
-the plan without writing.`,
+FOLDER (-r) maps a local folder into the memory: each folder becomes a node,
+each text file a node under it (loc: the path without its extension, made
+safe; name: the file name), linked by 'contains' edges. A folder's README.md
+or index.md becomes that folder's own node. Binary files are skipped and
+listed. It only creates: an existing loc is an error unless --on-conflict
+skip. --under <loc> puts the tree under a prefix; --include / --exclude
+(globs), --hidden and --max-file-size choose files; --dry-run shows the plan
+and writes nothing.`,
 		Example: `  hadron node import flaky.md                        # restore a node-export file
   hadron node export hrn:node:acme.com:kb:x | hadron node import -m hrn:mem:acme.com:kb2 -
   hadron node import paper.pdf -m hrn:mem:acme.com:kb --loc papers:attention

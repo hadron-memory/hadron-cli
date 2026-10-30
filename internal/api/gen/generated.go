@@ -4173,6 +4173,285 @@ func (v *AgentTaskListResponse) GetAgentTasks() []*AgentTaskListAgentTasksAgentT
 	return v.AgentTasks
 }
 
+// AgentTaskListTextAgentTasksAgentTask includes the requested fields of the GraphQL type AgentTask.
+type AgentTaskListTextAgentTasksAgentTask struct {
+	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskListTextAgentTasksAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetPriority() int { return v.AgentTaskFields.Priority }
+
+// GetBlocked returns AgentTaskListTextAgentTasksAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetBlocked() bool { return v.AgentTaskFields.Blocked }
+
+// GetBlockedBy returns AgentTaskListTextAgentTasksAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskListTextAgentTasksAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
+}
+
+// GetId returns AgentTaskListTextAgentTasksAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetId() string { return v.AgentTaskFields.Id }
+
+// GetHandle returns AgentTaskListTextAgentTasksAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetHandle() string { return v.AgentTaskFields.Handle }
+
+// GetTaskNumber returns AgentTaskListTextAgentTasksAgentTask.TaskNumber, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetTaskNumber() string {
+	return v.AgentTaskFields.TaskNumber
+}
+
+// GetAppId returns AgentTaskListTextAgentTasksAgentTask.AppId, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetAppId() string { return v.AgentTaskFields.AppId }
+
+// GetTitle returns AgentTaskListTextAgentTasksAgentTask.Title, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetTitle() string { return v.AgentTaskFields.Title }
+
+// GetDescription returns AgentTaskListTextAgentTasksAgentTask.Description, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetDescription() *string {
+	return v.AgentTaskFields.Description
+}
+
+// GetStatus returns AgentTaskListTextAgentTasksAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetStatus() AgentTaskStatus {
+	return v.AgentTaskFields.Status
+}
+
+// GetQueued returns AgentTaskListTextAgentTasksAgentTask.Queued, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetQueued() bool { return v.AgentTaskFields.Queued }
+
+// GetWaitingOnChildren returns AgentTaskListTextAgentTasksAgentTask.WaitingOnChildren, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetWaitingOnChildren() bool {
+	return v.AgentTaskFields.WaitingOnChildren
+}
+
+// GetOwner returns AgentTaskListTextAgentTasksAgentTask.Owner, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetOwner() *AgentTaskFieldsOwnerAgentTaskParty {
+	return v.AgentTaskFields.Owner
+}
+
+// GetAssignee returns AgentTaskListTextAgentTasksAgentTask.Assignee, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetAssignee() *AgentTaskFieldsAssigneeAgentTaskParty {
+	return v.AgentTaskFields.Assignee
+}
+
+// GetAssignedBy returns AgentTaskListTextAgentTasksAgentTask.AssignedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetAssignedBy() *AgentTaskFieldsAssignedByAgentTaskParty {
+	return v.AgentTaskFields.AssignedBy
+}
+
+// GetCreatedBy returns AgentTaskListTextAgentTasksAgentTask.CreatedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
+	return v.AgentTaskFields.CreatedBy
+}
+
+// GetParentTaskId returns AgentTaskListTextAgentTasksAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetParentTaskId() *string {
+	return v.AgentTaskFields.ParentTaskId
+}
+
+// GetTags returns AgentTaskListTextAgentTasksAgentTask.Tags, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetTags() []string { return v.AgentTaskFields.Tags }
+
+// GetSource returns AgentTaskListTextAgentTasksAgentTask.Source, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetSource() *string { return v.AgentTaskFields.Source }
+
+// GetStartBy returns AgentTaskListTextAgentTasksAgentTask.StartBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
+
+// GetCreatedAt returns AgentTaskListTextAgentTasksAgentTask.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetCreatedAt() string {
+	return v.AgentTaskFields.CreatedAt
+}
+
+// GetUpdatedAt returns AgentTaskListTextAgentTasksAgentTask.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetUpdatedAt() *string {
+	return v.AgentTaskFields.UpdatedAt
+}
+
+// GetStartedAt returns AgentTaskListTextAgentTasksAgentTask.StartedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetStartedAt() *string {
+	return v.AgentTaskFields.StartedAt
+}
+
+// GetFinishedAt returns AgentTaskListTextAgentTasksAgentTask.FinishedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetFinishedAt() *string {
+	return v.AgentTaskFields.FinishedAt
+}
+
+// GetCancelledAt returns AgentTaskListTextAgentTasksAgentTask.CancelledAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetCancelledAt() *string {
+	return v.AgentTaskFields.CancelledAt
+}
+
+// GetCloseSessionWhenDone returns AgentTaskListTextAgentTasksAgentTask.CloseSessionWhenDone, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetCloseSessionWhenDone() bool {
+	return v.AgentTaskFields.CloseSessionWhenDone
+}
+
+// GetRequirements returns AgentTaskListTextAgentTasksAgentTask.Requirements, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
+	return v.AgentTaskFields.Requirements
+}
+
+// GetResult returns AgentTaskListTextAgentTasksAgentTask.Result, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetResult() *AgentTaskFieldsResultAgentTaskResult {
+	return v.AgentTaskFields.Result
+}
+
+func (v *AgentTaskListTextAgentTasksAgentTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTaskListTextAgentTasksAgentTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTaskListTextAgentTasksAgentTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTaskListTextAgentTasksAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
+	Id string `json:"id"`
+
+	Handle string `json:"handle"`
+
+	TaskNumber string `json:"taskNumber"`
+
+	AppId string `json:"appId"`
+
+	Title string `json:"title"`
+
+	Description *string `json:"description"`
+
+	Status AgentTaskStatus `json:"status"`
+
+	Queued bool `json:"queued"`
+
+	WaitingOnChildren bool `json:"waitingOnChildren"`
+
+	Owner *AgentTaskFieldsOwnerAgentTaskParty `json:"owner"`
+
+	Assignee *AgentTaskFieldsAssigneeAgentTaskParty `json:"assignee"`
+
+	AssignedBy *AgentTaskFieldsAssignedByAgentTaskParty `json:"assignedBy"`
+
+	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
+
+	ParentTaskId *string `json:"parentTaskId"`
+
+	Tags []string `json:"tags"`
+
+	Source *string `json:"source"`
+
+	StartBy *string `json:"startBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	StartedAt *string `json:"startedAt"`
+
+	FinishedAt *string `json:"finishedAt"`
+
+	CancelledAt *string `json:"cancelledAt"`
+
+	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
+
+	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
+
+	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+}
+
+func (v *AgentTaskListTextAgentTasksAgentTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTaskListTextAgentTasksAgentTask) __premarshalJSON() (*__premarshalAgentTaskListTextAgentTasksAgentTask, error) {
+	var retval __premarshalAgentTaskListTextAgentTasksAgentTask
+
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
+	retval.Id = v.AgentTaskFields.Id
+	retval.Handle = v.AgentTaskFields.Handle
+	retval.TaskNumber = v.AgentTaskFields.TaskNumber
+	retval.AppId = v.AgentTaskFields.AppId
+	retval.Title = v.AgentTaskFields.Title
+	retval.Description = v.AgentTaskFields.Description
+	retval.Status = v.AgentTaskFields.Status
+	retval.Queued = v.AgentTaskFields.Queued
+	retval.WaitingOnChildren = v.AgentTaskFields.WaitingOnChildren
+	retval.Owner = v.AgentTaskFields.Owner
+	retval.Assignee = v.AgentTaskFields.Assignee
+	retval.AssignedBy = v.AgentTaskFields.AssignedBy
+	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
+	retval.Tags = v.AgentTaskFields.Tags
+	retval.Source = v.AgentTaskFields.Source
+	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.CreatedAt = v.AgentTaskFields.CreatedAt
+	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
+	retval.StartedAt = v.AgentTaskFields.StartedAt
+	retval.FinishedAt = v.AgentTaskFields.FinishedAt
+	retval.CancelledAt = v.AgentTaskFields.CancelledAt
+	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.Requirements = v.AgentTaskFields.Requirements
+	retval.Result = v.AgentTaskFields.Result
+	return &retval, nil
+}
+
+// AgentTaskListTextResponse is returned by AgentTaskListText on success.
+type AgentTaskListTextResponse struct {
+	// #1705 — a team App's agent tasks, newest first. Party filters combine with the other selectors;
+	// All tag, source and date filters combine with the other selectors using AND.
+	// owner / assignee / creator name a party of the App (a ref naming nobody matches
+	// nothing; a retired worker is no party to name, so it matches nothing). creator is
+	// the task's creator as createdBy projects it: a worker, or a person for a task they created
+	// themselves (not one their worker created, #2370). queued selects pending tasks with no assignee; rootsOnly selects roots. These
+	// take precedence over status and parentTaskId respectively. limit defaults to 20 (cap 200).
+	// Readers: the App's participants (hrn:node:hadronmemory.com:specs:cor:agt:050:21), or the App's own live key
+	// without a session binding (#1755).
+	// An App you do not participate in answers APP_NOT_FOUND, exactly like an
+	// absent one.
+	AgentTasks []*AgentTaskListTextAgentTasksAgentTask `json:"agentTasks"`
+}
+
+// GetAgentTasks returns AgentTaskListTextResponse.AgentTasks, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextResponse) GetAgentTasks() []*AgentTaskListTextAgentTasksAgentTask {
+	return v.AgentTasks
+}
+
 // #2421 experimental symptom search: membership in the hybrid ranking inputs.
 type AgentTaskMatchedBy string
 
@@ -65902,6 +66181,54 @@ func (v *__AgentTaskListInput) GetStatus() []AgentTaskStatus { return v.Status }
 // GetTag returns __AgentTaskListInput.Tag, and is useful for accessing the field via an interface.
 func (v *__AgentTaskListInput) GetTag() *string { return v.Tag }
 
+// __AgentTaskListTextInput is used internally by genqlient
+type __AgentTaskListTextInput struct {
+	AppRef       string               `json:"appRef"`
+	Assignee     *AgentTaskPartyInput `json:"assignee,omitempty"`
+	Limit        *int                 `json:"limit,omitempty"`
+	Offset       *int                 `json:"offset,omitempty"`
+	Owner        *AgentTaskPartyInput `json:"owner,omitempty"`
+	ParentTaskId *string              `json:"parentTaskId,omitempty"`
+	Queued       *bool                `json:"queued,omitempty"`
+	RootsOnly    *bool                `json:"rootsOnly,omitempty"`
+	Status       []AgentTaskStatus    `json:"status,omitempty"`
+	Tag          *string              `json:"tag,omitempty"`
+	Text         *string              `json:"text,omitempty"`
+}
+
+// GetAppRef returns __AgentTaskListTextInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListTextInput) GetAppRef() string { return v.AppRef }
+
+// GetAssignee returns __AgentTaskListTextInput.Assignee, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListTextInput) GetAssignee() *AgentTaskPartyInput { return v.Assignee }
+
+// GetLimit returns __AgentTaskListTextInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListTextInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __AgentTaskListTextInput.Offset, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListTextInput) GetOffset() *int { return v.Offset }
+
+// GetOwner returns __AgentTaskListTextInput.Owner, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListTextInput) GetOwner() *AgentTaskPartyInput { return v.Owner }
+
+// GetParentTaskId returns __AgentTaskListTextInput.ParentTaskId, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListTextInput) GetParentTaskId() *string { return v.ParentTaskId }
+
+// GetQueued returns __AgentTaskListTextInput.Queued, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListTextInput) GetQueued() *bool { return v.Queued }
+
+// GetRootsOnly returns __AgentTaskListTextInput.RootsOnly, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListTextInput) GetRootsOnly() *bool { return v.RootsOnly }
+
+// GetStatus returns __AgentTaskListTextInput.Status, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListTextInput) GetStatus() []AgentTaskStatus { return v.Status }
+
+// GetTag returns __AgentTaskListTextInput.Tag, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListTextInput) GetTag() *string { return v.Tag }
+
+// GetText returns __AgentTaskListTextInput.Text, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListTextInput) GetText() *string { return v.Text }
+
 // __AgentTaskParkInput is used internally by genqlient
 type __AgentTaskParkInput struct {
 	TaskId string `json:"taskId"`
@@ -72896,6 +73223,133 @@ func AgentTaskList(
 	}
 
 	data_ = &AgentTaskListResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AgentTaskListText.
+const AgentTaskListText_Operation = `
+query AgentTaskListText ($appRef: ID!, $assignee: AgentTaskPartyInput, $limit: Int, $offset: Int, $owner: AgentTaskPartyInput, $parentTaskId: ID, $queued: Boolean, $rootsOnly: Boolean, $status: [AgentTaskStatus!], $tag: String, $text: String) {
+	agentTasks(appRef: $appRef, assignee: $assignee, limit: $limit, offset: $offset, owner: $owner, parentTaskId: $parentTaskId, queued: $queued, rootsOnly: $rootsOnly, status: $status, tag: $tag, text: $text) {
+		... AgentTaskFields
+	}
+}
+fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	id
+	handle
+	taskNumber
+	appId
+	title
+	description
+	status
+	queued
+	waitingOnChildren
+	owner {
+		... AgentTaskPartyFields
+	}
+	assignee {
+		... AgentTaskPartyFields
+	}
+	assignedBy {
+		... AgentTaskPartyFields
+	}
+	createdBy {
+		... AgentTaskPartyFields
+	}
+	parentTaskId
+	tags
+	source
+	startBy
+	createdAt
+	updatedAt
+	startedAt
+	finishedAt
+	cancelledAt
+	closeSessionWhenDone
+	requirements {
+		role
+		familyIn
+		familyNotIn
+		excludeWorkerIds
+	}
+	result {
+		outcome
+		summary
+		evidence
+	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
+}
+fragment AgentTaskPartyFields on AgentTaskParty {
+	id
+	kind
+	name
+	urn
+}
+`
+
+// Explicit text search only: keep the legacy document valid on older servers.
+func AgentTaskListText(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	assignee *AgentTaskPartyInput,
+	limit *int,
+	offset *int,
+	owner *AgentTaskPartyInput,
+	parentTaskId *string,
+	queued *bool,
+	rootsOnly *bool,
+	status []AgentTaskStatus,
+	tag *string,
+	text *string,
+) (data_ *AgentTaskListTextResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentTaskListText",
+		Query:  AgentTaskListText_Operation,
+		Variables: &__AgentTaskListTextInput{
+			AppRef:       appRef,
+			Assignee:     assignee,
+			Limit:        limit,
+			Offset:       offset,
+			Owner:        owner,
+			ParentTaskId: parentTaskId,
+			Queued:       queued,
+			RootsOnly:    rootsOnly,
+			Status:       status,
+			Tag:          tag,
+			Text:         text,
+		},
+	}
+
+	data_ = &AgentTaskListTextResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

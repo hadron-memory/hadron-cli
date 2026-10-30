@@ -1972,49 +1972,51 @@ func TestMemorySetOwnerMeValidatesFlags(t *testing.T) {
 	}
 }
 
-// #279 review: an --owner-me create whose --slug already matches the server's
-// derived slug must NOT fire a redundant UpdateMemory. The derived URN is the
-// flat handle form (hrn:mem:holger:jens), which the old memorySlugIs (final "::"
-// only) never recognized — so it always saw a mismatch and renamed, risking a
-// partial-write error on a plain create.
-func TestMemorySetOwnerMeMatchingSlugSkipsUpdate(t *testing.T) {
-	gql, captured := captureGraphQL(t, map[string]string{
-		"CreateMemory": `{"data":{"createMemory":` + ownerMemoryJSON + `}}`,
-	})
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	// The server derives slug "jens"; passing --slug jens must be a no-op rename.
-	root.SetArgs([]string{"memory", "set", "--owner-me", "--name", "Jens", "--slug", "jens", "--server", gql.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	if _, renamed := captured["UpdateMemory"]; renamed {
-		t.Error("a matching --slug on the flat user-owned URN must not trigger UpdateMemory")
+// cli#1240: a user-owned memory's URN slug is derived from --name and the
+// server refuses to rename it, so --slug used to create the memory under the
+// derived name and THEN fail the rename (exit 1), leaving a stray memory. It is
+// now refused before any create — whether or not it equals the derived slug
+// (one rule, no guessing the server's kebab-casing).
+func TestMemorySetOwnerMeSlugRefusedBeforeCreate(t *testing.T) {
+	for name, slug := range map[string]string{"differs": "jens-notes", "equals the derived slug": "jens"} {
+		t.Run(name, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{
+				"CreateMemory": `{"data":{"createMemory":` + ownerMemoryJSON + `}}`,
+				"UpdateMemory": `{"data":{"updateMemory":` + ownerMemoryJSON + `}}`,
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"memory", "set", "--owner-me", "--name", "Jens", "--slug", slug, "--server", gql.URL})
+			err := root.Execute()
+			if err == nil || exitCodeFor(err) != exitcode.Usage {
+				t.Fatalf("want a usage error (exit 2), got %v", err)
+			}
+			if !strings.Contains(err.Error(), "--slug") || !strings.Contains(err.Error(), "derived from --name") {
+				t.Errorf("message must say the slug is derived from --name, got %v", err)
+			}
+			for _, op := range []string{"CreateMemory", "UpdateMemory"} {
+				if _, sent := captured[op]; sent {
+					t.Errorf("%s was sent; the refusal must come before any mutation", op)
+				}
+			}
+		})
 	}
 }
 
-// A DIFFERENT --slug on the same create still renames via a follow-up
-// UpdateMemory — the fix narrows the no-op case, it doesn't disable renaming.
-func TestMemorySetOwnerMeDifferentSlugRenames(t *testing.T) {
+// cli#1240 acceptance b/c: the neighbours are unchanged.
+func TestMemorySetSlugStillWorksOutsideOwnerMe(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"CreateMemory": `{"data":{"createMemory":` + ownerMemoryJSON + `}}`,
 		"UpdateMemory": `{"data":{"updateMemory":` + ownerMemoryJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "set", "--owner-me", "--name", "Jens", "--slug", "jens-notes", "--server", gql.URL})
+	root.SetArgs([]string{"memory", "set", "--org", "acme.com", "--name", "Jens", "--slug", "jens-notes", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if _, renamed := captured["UpdateMemory"]; !renamed {
-		t.Fatal("a differing --slug must trigger UpdateMemory")
-	}
-	// The rename slug rides as the flat $urn variable (the server recomposes the
-	// memory URN from it).
-	var vars map[string]any
-	_ = json.Unmarshal(captured["UpdateMemory"], &vars)
-	if vars["urn"] != "jens-notes" {
-		t.Errorf("rename must send the new slug as $urn, got %v", vars["urn"])
+	if _, ok := captured["UpdateMemory"]; !ok {
+		t.Fatal("--org with a differing --slug must still rename via UpdateMemory")
 	}
 }
 

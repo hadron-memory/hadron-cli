@@ -82,7 +82,9 @@ On free-standing create, the URN slug is derived from --name (kebab-cased, e.g.
 "Project KB" → project-kb) unless you pass --slug to set it explicitly;
 the resulting URN, class, and visibility are echoed in the output. On
 update, --slug renames the memory — its URN, and therefore the URNs of
-every node under it, change.
+every node under it, change. --owner-me takes no --slug: a user-owned
+memory's URN slug is derived from --name and cannot be set or renamed, so
+--slug is refused (exit 2) before anything is created.
 
 --schema / --schema-file set the memory's structured-storage property schema
 (#725) — declared collections and typed fields that govern node objectType +
@@ -294,6 +296,13 @@ create-only and is refused with --app/--agent.`,
 					}
 					if name == "" {
 						return exitcode.Newf(exitcode.Usage, "creating a user-owned memory requires --name")
+					}
+					// cli#1240: the server refuses to rename a user-owned memory, so a
+					// --slug would create it under the derived name and then fail the
+					// follow-up rename, leaving a stray memory. Refused for any value,
+					// including the derived one, so no kebab-casing is guessed here.
+					if cmd.Flags().Changed("slug") {
+						return exitcode.Newf(exitcode.Usage, "--slug cannot be used with --owner-me; a user-owned memory's URN slug is derived from --name and cannot be set")
 					}
 					// The org-less path is owner-only: the server accepts only
 					// personal/private (knowledge/group are org-shared). Validate

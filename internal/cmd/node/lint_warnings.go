@@ -44,7 +44,14 @@ func enableLintWarnings(cmd *cobra.Command, incompatible ...string) {
 		usage += "; excludes " + strings.Join(incompatible, " and ")
 	}
 	cmd.Flags().Bool("lint-warnings", false, usage)
-	cmd.Long += "\n\n--lint-warnings opts into a separate, paginated source-lint read after success.\nIt reports warnings as they hold now, not a snapshot of the authored/read revision.\nThe JSON lintWarnings page is null when unavailable (including an older server),\notherwise {items,total,nextCursor:null}. Without the flag the field and extra\nread are absent. Lint never blocks a successful write or retries it. Empty items\nis a real no-warning answer. Advisory reads share a five-second command budget,\nincluding all nodes in batch get; timeout returns unavailable without retrying\nthe main operation. Human warning text is terminal-safe; JSON retains\nthe server's exact text."
+	cmd.Long += "\n\n" + detailsHeading(cmd.Long) + `--lint-warnings: after the command succeeds, also list the node's current
+lint warnings (advisory checks on its source, such as a link pinned to an
+older revision). They describe the node as it is now, never block or undo the
+command, and are not retried. With --json they are "lintWarnings":
+{items, total, nextCursor: null}; empty items means no warnings, and null
+means the check could not answer (an older server, or the 5-second budget the
+check shares across every node of the command ran out). Without the flag the
+field is absent.`
 	if len(incompatible) > 0 {
 		cmd.Long += " This option excludes " + strings.Join(incompatible, " and ") + "."
 	}
@@ -143,4 +150,13 @@ func writeWithLint(f *cmdutil.Factory, dto any, slot **lintWarningPageDTO, rende
 		}
 		return renderLintWarnings(w, slot)
 	})
+}
+
+// detailsHeading returns "Details:\n\n" unless the page already has a
+// Details block, so a shared paragraph lands inside it rather than above.
+func detailsHeading(long string) string {
+	if strings.Contains(long, "\nDetails:\n") || strings.HasPrefix(long, "Details:\n") {
+		return ""
+	}
+	return "Details:\n\n"
 }
