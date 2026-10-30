@@ -26,8 +26,10 @@ func TestUsageEventsWindowBoundsSent(t *testing.T) {
 		args         []string
 		since, until any
 	}{
+		{"neither bound", nil, nil, nil},
 		{"since only", []string{"--since", "2026-10-22T00:00:00Z"}, "2026-10-22T00:00:00Z", nil},
 		{"until only", []string{"--until", "2026-10-23T00:00:00Z"}, nil, "2026-10-23T00:00:00Z"},
+		{"fractional seconds and extreme valid offsets", []string{"--since", "2026-10-22T00:00:00.123Z", "--until", "2026-10-23T00:00:00+23:59"}, "2026-10-22T00:00:00.123Z", "2026-10-23T00:00:00+23:59"},
 		{"window with offsets", []string{"--since", "2026-10-22T00:00:00+02:00", "--until", "2026-10-23T00:00:00-05:00"}, "2026-10-22T00:00:00+02:00", "2026-10-23T00:00:00-05:00"},
 	}
 	for _, c := range cases {
@@ -63,6 +65,17 @@ func TestUsageEventsWindowRefusedBeforeAnyCall(t *testing.T) {
 		{"--since", "yesterday"},
 		{"--since", ""},
 		{"--until", " "},
+		// Malformed values Go's RFC 3339 parser alone would let through (LOCAL P2).
+		{"--since", "2026-10-22T00:00:00+24:00"},
+		{"--until", "2026-10-22T00:00:00+24:00"},
+		{"--since", "2026-10-22T00:00:00+00:60"},
+		{"--until", "2026-10-22T00:00:00+00:60"},
+		{"--since", "2026-10-22T00:00:00,5Z"},
+		{"--until", "2026-10-22T00:00:00,5Z"},
+		{"--since", "2026-10-22T5:00:00Z"},
+		{"--until", "2026-10-22T5:00:00Z"},
+		{"--since", "2026-10-22T00:00:00+5:00"},
+		{"--until", "2026-10-22T00:00:00+0200"},
 		{"--since", "2026-10-22T00:00:00Z", "--until", "2026-10-22T00:00:00Z"},
 		{"--since", "2026-10-23T00:00:00Z", "--until", "2026-10-22T00:00:00Z"},
 		{"--since", "2026-10-22T02:00:00+02:00", "--until", "2026-10-21T23:00:00Z"},
