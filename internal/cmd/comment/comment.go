@@ -87,7 +87,7 @@ type Service interface {
 type Connect func(context.Context) (Service, error)
 
 func NewCmd(f *cmdutil.Factory, connect Connect) *cobra.Command {
-	cmd := &cobra.Command{Use: "comment <command>", Short: "Read and write feedback beside a node", Long: "Comments use governed operations and anchor to a target revision. Generic node writes cannot create or edit comments. Use a node URN, a node id, or a bare loc with -m/--memory."}
+	cmd := &cobra.Command{Use: "comment <command>", Short: "Read and write feedback beside a node", Long: groupLong, Example: groupExample}
 	cmd.AddCommand(readCmd(f, connect, false), readCmd(f, connect, true))
 	for _, verb := range []string{"create", "reply", "edit", "delete", "resolve"} {
 		cmd.AddCommand(writeCmd(f, connect, verb))
@@ -106,12 +106,12 @@ func readCmd(f *cmdutil.Factory, connect Connect, list bool) *cobra.Command {
 	if list {
 		refLabel = "<target-ref>"
 	}
-	cmd := &cobra.Command{Use: verb + " " + refLabel, Short: map[bool]string{true: "List threads anchored to a target", false: "Read one comment, including a deleted stub"}[list], Args: cobra.ExactArgs(1)}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory for a bare loc")
+	cmd := &cobra.Command{Use: verb + " " + refLabel, Short: map[bool]string{true: "List the comment threads on a node", false: "Show one comment and its write counter"}[list], Long: verbLong[verb], Example: verbExample[verb], Args: cobra.ExactArgs(1)}
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to resolve a bare <loc> against")
 	if list {
 		cmd.Aliases = []string{"ls"}
 		cmd.Flags().StringSliceVar(&states, "state", nil, "OPEN or RESOLVED (comma-separated)")
-		cmd.Flags().IntVar(&limit, "limit", 20, "threads in this page (1 to 200, default 20)")
+		cmd.Flags().IntVar(&limit, "limit", 20, "threads per page, 1 to 200")
 		cmd.Flags().IntVar(&offset, "offset", 0, "threads to skip")
 	}
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
@@ -188,40 +188,34 @@ func writeCmd(f *cmdutil.Factory, connect Connect, verb string) *cobra.Command {
 	if verb == "create" {
 		refLabel = "<target-ref>"
 	}
-	cmd := &cobra.Command{Use: verb + " " + refLabel, Short: map[string]string{"create": "Start a comment thread on a target", "reply": "Reply within a comment thread", "edit": "Edit your comment body or quote", "delete": "Delete a comment (author or memory manager)", "resolve": "Resolve or reopen a top-level thread"}[verb], Args: cobra.ExactArgs(1)}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory for a bare loc")
+	cmd := &cobra.Command{Use: verb + " " + refLabel, Short: map[string]string{"create": "Start a comment thread on a node", "reply": "Reply in a comment thread", "edit": "Change the text or quote of your comment", "delete": "Delete a comment (yours, or any as a memory manager)", "resolve": "Mark a thread resolved, or reopen it"}[verb], Long: verbLong[verb], Example: verbExample[verb], Args: cobra.ExactArgs(1)}
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to resolve a bare <loc> against")
 	text := verb == "create" || verb == "reply" || verb == "edit"
 	guarded := verb == "edit" || verb == "delete" || verb == "resolve"
 	if verb == "delete" {
-		cmd.Flags().BoolVar(&yes, "yes", false, "skip deletion confirmation")
+		cmd.Flags().BoolVar(&yes, "yes", false, "delete without asking (required when not on a terminal)")
 	}
 	if text {
-		cmd.Flags().StringVar(&body, "body", "", "Markdown body, or - for piped stdin")
-		cmd.Flags().StringVar(&bodyFile, "body-file", "", "read Markdown from a file")
+		cmd.Flags().StringVar(&body, "body", "", "comment text (Markdown), or - to read it from a pipe")
+		cmd.Flags().StringVar(&bodyFile, "body-file", "", "read the comment text (Markdown) from a file")
 		cmd.MarkFlagsMutuallyExclusive("body", "body-file")
 	}
 	if verb == "create" || verb == "edit" {
-		cmd.Flags().StringVar(&quote, "quote", "", "plain-text quote (empty is omitted on create, clears on edit)")
+		usage := "the passage of the note the comment is about (plain text)"
+		if verb == "edit" {
+			usage = `a new quote (plain text); "" removes the quote`
+		}
+		cmd.Flags().StringVar(&quote, "quote", "", usage)
 	}
 	if verb == "create" {
 		cmd.Aliases = []string{"add"}
-		cmd.Flags().IntVar(&anchor, "anchor-revision", 0, "anchor to a specific readable target revision; omit for current")
+		cmd.Flags().IntVar(&anchor, "anchor-revision", 0, "attach to an earlier revision N of the node (default: its current revision)")
 	}
 	if guarded {
-		cmd.Flags().IntVar(&expected, "expected-revision", 0, "comment write counter (revSeq) observed by the caller (required)")
+		cmd.Flags().IntVar(&expected, "expected-revision", 0, "the comment's current write counter, from comment get (required)")
 	}
 	if verb == "resolve" {
-		cmd.Flags().BoolVar(&reopen, "reopen", false, "reopen a resolved root instead")
-	}
-	cmd.Long = "The server decides authorship, permission and thread state. Refused writes are not retried."
-	if text {
-		cmd.Long += " Use --body-file for a Markdown document, or --body - for a pipe."
-	}
-	if verb == "delete" {
-		cmd.Long += " The author or a memory manager may delete. Text is removed; a root stub remains only while live replies exist. Comments have no revision history. Deletion prompts on a terminal; pass --yes non-interactively."
-	}
-	if guarded {
-		cmd.Long += " Use the comment's write counter (revSeq) for --expected-revision, not its target or anchor revision."
+		cmd.Flags().BoolVar(&reopen, "reopen", false, "reopen a resolved thread instead")
 	}
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		changed := cmd.Flags().Changed
@@ -271,7 +265,7 @@ func writeCmd(f *cmdutil.Factory, connect Connect, verb string) *cobra.Command {
 			return err
 		}
 		if verb == "delete" {
-			if err := cmdutil.Confirm(f.IOStreams, yes, "Delete comment "+ref+"? Its text is removed; a root stub remains only while live replies exist."); err != nil {
+			if err := cmdutil.Confirm(f.IOStreams, yes, "Delete comment "+ref+"? Its text is removed and cannot be restored."); err != nil {
 				return err
 			}
 		}

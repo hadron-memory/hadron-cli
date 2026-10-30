@@ -24,14 +24,25 @@ func newCmdPublicLink(f *cmdutil.Factory) *cobra.Command {
 	var on, off, yes bool
 	cmd := &cobra.Command{
 		Use:   "public-link <asset-ref> (--on | --off)",
-		Short: "Set an asset's anonymous public-link opt-in",
-		Long: `Set the server-owned public-link switch for an asset ID or URN.
+		Short: "Let anyone with the link download a file, or stop it",
+		Long: `Let anyone with the link download this file (--on), or stop that (--off).
+--on asks for confirmation on a terminal; pass --yes in scripts. --off does not
+ask.
 
-ON records permission for anyone with the link to download. Serving still
-requires deployment availability and an eligible asset; the result reports
-stored opt-in, deployment availability and public URL independently. A null
-URL never proves the switch is OFF. ON requires confirmation (--yes for scripts).
-OFF needs no confirmation. Management rights and refusals come from the server.`,
+Prints the switch state and, when the server can serve the file, the link
+itself. Print the link again later with hadron asset url <asset>. Anyone who has
+the link can download the file without signing in. After --off, or after the
+asset is deleted, the link stops working; turning it back on, or restoring the
+asset, brings back the same link.
+
+Needs admin access to the asset's memory; otherwise exit 8 ("caller does not
+manage this asset's memory").
+
+If --on prints no link, the switch is on but the server cannot serve this file:
+the first line says why ("serving disabled on this deployment", or "no public
+URL on this server"). asset url --help explains each case.`,
+		Example: `  hadron asset public-link hrn:asset:acme.com:kb:assets:01a189a840f4717c98af75cf4d7aed09 --on --yes
+  hadron asset public-link 01a189a840f4717c98af75cf4d7aed09 --off`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if on == off || cmd.Flags().Changed("on") && cmd.Flags().Changed("off") {
