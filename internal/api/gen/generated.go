@@ -36761,6 +36761,14 @@ func (v *NodeExportResponse) GetNodeExport() *NodeExportNodeExportNodeExportResu
 type NodeFilter struct {
 	// #1591 — only nodes in this approval state (read from the stored revision; a node changed outside a revisioned writer is reconciled on its next read).
 	ApprovalState *NodeApprovalState `json:"approvalState,omitempty"`
+	// #2832 — direct children only (hrn:node:hadronmemory.com:specs:cor:api:090:02). Matches the nodes whose loc is
+	// exactly the given loc plus one more segment (no further colon); the empty string means the top-level nodes.
+	// Judged on loc strings alone: edges and parentRel play no part, and a loc whose parent has no node of its own is
+	// still listed. An absent or null value is no filter, so the empty string is a value. Applies in every mode
+	// (keyword, regex, vector, hybrid and filter-only), under the same access and default exclusions as the rest of
+	// the filter, and pages and counts like any findNodes read. With no query and no sort the order is the sibling
+	// order of hrn:node:hadronmemory.com:specs:cor:dmo:020:01 (positioned nodes first, then by loc). Not supported by appNodes.
+	ChildrenOf *string `json:"childrenOf,omitempty"`
 	// #1608 — content, comments or both (hrn:node:hadronmemory.com:specs:cor:dmo:110:08).
 	// Default CONTENT. Applied by the server before ranking, pagination and
 	// limits in every mode (keyword, regex, vector, hybrid and filter-only), so a
@@ -36792,6 +36800,9 @@ type NodeFilter struct {
 
 // GetApprovalState returns NodeFilter.ApprovalState, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetApprovalState() *NodeApprovalState { return v.ApprovalState }
+
+// GetChildrenOf returns NodeFilter.ChildrenOf, and is useful for accessing the field via an interface.
+func (v *NodeFilter) GetChildrenOf() *string { return v.ChildrenOf }
 
 // GetContentScope returns NodeFilter.ContentScope, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetContentScope() *NodeContentScope { return v.ContentScope }
