@@ -67,7 +67,7 @@ usageEventsPage
 verifyDecision  # server main schema refresh for cli#836; separate CLI parity outside comment API migration
 verifyMemoryNodes  # cli#802 exposes per-node verifyNode; memory-wide integrity audit needs a separate memory verify command
 
-[Mutation] 114 unbound
+[Mutation] 113 unbound
 acquireEditorLock
 addAgentToApp
 addMemoryToAgent
@@ -171,7 +171,6 @@ testExchangeConnection
 unlinkGithubApp
 updateAgentAIConfig
 updateAgentMemoryRole
-updateAgentTask  # server#2645; CLI slice is cli#1137 (team task update), outside cli#1291
 updateAgentTickerTemplate
 updateChatTitle
 updateDashboardWidgetPreset

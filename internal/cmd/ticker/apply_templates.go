@@ -3,6 +3,7 @@ package ticker
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
@@ -39,8 +40,9 @@ func applyFailure(err error) error {
 	mapped := api.MapError(err)
 	for _, code := range applyRefusalCodes {
 		if api.HasErrorCode(err, code) {
+			// The server's own message usually says so already (#1296).
 			suffix := ""
-			if code == "TICKER_LIMIT_REACHED" || code == "TICKER_NAME_TAKEN" {
+			if (code == "TICKER_LIMIT_REACHED" || code == "TICKER_NAME_TAKEN") && !strings.Contains(strings.ToLower(mapped.Error()), "nothing was created") {
 				suffix = "; nothing was created"
 			}
 			return exitcode.Newf(exitcode.FromError(mapped), "%s: %s%s", code, mapped.Error(), suffix)

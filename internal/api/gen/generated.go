@@ -7228,6 +7228,267 @@ func (v *AgentTaskTreeResponse) GetAgentTaskTree() []*AgentTaskTreeAgentTaskTree
 	return v.AgentTaskTree
 }
 
+// AgentTaskUpdateResponse is returned by AgentTaskUpdate on success.
+type AgentTaskUpdateResponse struct {
+	// #2645 — edit descriptive fields using assignment authority (Proposed Editing rule,
+	// hrn:node:hadronmemory.com:specs:cor:agt:050:09). Owner, reporting-chain coordinator or App manager;
+	// never an assignee alone or an App key. Ended tasks refuse TASK_ENDED. Omitted fields stay unchanged;
+	// empty optional fields clear, tags/requirements replace whole. An edit is not progress and clears no wake.
+	// Source is fixed. Event carries changed field names only (hrn:node:hadronmemory.com:specs:cor:agt:050:11).
+	UpdateAgentTask *AgentTaskUpdateUpdateAgentTask `json:"updateAgentTask"`
+}
+
+// GetUpdateAgentTask returns AgentTaskUpdateResponse.UpdateAgentTask, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateResponse) GetUpdateAgentTask() *AgentTaskUpdateUpdateAgentTask {
+	return v.UpdateAgentTask
+}
+
+// AgentTaskUpdateUpdateAgentTask includes the requested fields of the GraphQL type AgentTask.
+type AgentTaskUpdateUpdateAgentTask struct {
+	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskUpdateUpdateAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetPriority() int { return v.AgentTaskFields.Priority }
+
+// GetBlocked returns AgentTaskUpdateUpdateAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetBlocked() bool { return v.AgentTaskFields.Blocked }
+
+// GetBlockedBy returns AgentTaskUpdateUpdateAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskUpdateUpdateAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
+}
+
+// GetId returns AgentTaskUpdateUpdateAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetId() string { return v.AgentTaskFields.Id }
+
+// GetHandle returns AgentTaskUpdateUpdateAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetHandle() string { return v.AgentTaskFields.Handle }
+
+// GetTaskNumber returns AgentTaskUpdateUpdateAgentTask.TaskNumber, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetTaskNumber() string { return v.AgentTaskFields.TaskNumber }
+
+// GetAppId returns AgentTaskUpdateUpdateAgentTask.AppId, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetAppId() string { return v.AgentTaskFields.AppId }
+
+// GetTitle returns AgentTaskUpdateUpdateAgentTask.Title, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetTitle() string { return v.AgentTaskFields.Title }
+
+// GetDescription returns AgentTaskUpdateUpdateAgentTask.Description, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetDescription() *string {
+	return v.AgentTaskFields.Description
+}
+
+// GetStatus returns AgentTaskUpdateUpdateAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetStatus() AgentTaskStatus { return v.AgentTaskFields.Status }
+
+// GetQueued returns AgentTaskUpdateUpdateAgentTask.Queued, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetQueued() bool { return v.AgentTaskFields.Queued }
+
+// GetWaitingOnChildren returns AgentTaskUpdateUpdateAgentTask.WaitingOnChildren, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetWaitingOnChildren() bool {
+	return v.AgentTaskFields.WaitingOnChildren
+}
+
+// GetOwner returns AgentTaskUpdateUpdateAgentTask.Owner, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetOwner() *AgentTaskFieldsOwnerAgentTaskParty {
+	return v.AgentTaskFields.Owner
+}
+
+// GetAssignee returns AgentTaskUpdateUpdateAgentTask.Assignee, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetAssignee() *AgentTaskFieldsAssigneeAgentTaskParty {
+	return v.AgentTaskFields.Assignee
+}
+
+// GetAssignedBy returns AgentTaskUpdateUpdateAgentTask.AssignedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetAssignedBy() *AgentTaskFieldsAssignedByAgentTaskParty {
+	return v.AgentTaskFields.AssignedBy
+}
+
+// GetCreatedBy returns AgentTaskUpdateUpdateAgentTask.CreatedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
+	return v.AgentTaskFields.CreatedBy
+}
+
+// GetParentTaskId returns AgentTaskUpdateUpdateAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetParentTaskId() *string {
+	return v.AgentTaskFields.ParentTaskId
+}
+
+// GetTags returns AgentTaskUpdateUpdateAgentTask.Tags, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetTags() []string { return v.AgentTaskFields.Tags }
+
+// GetSource returns AgentTaskUpdateUpdateAgentTask.Source, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetSource() *string { return v.AgentTaskFields.Source }
+
+// GetStartBy returns AgentTaskUpdateUpdateAgentTask.StartBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
+
+// GetCreatedAt returns AgentTaskUpdateUpdateAgentTask.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetCreatedAt() string { return v.AgentTaskFields.CreatedAt }
+
+// GetUpdatedAt returns AgentTaskUpdateUpdateAgentTask.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetUpdatedAt() *string { return v.AgentTaskFields.UpdatedAt }
+
+// GetStartedAt returns AgentTaskUpdateUpdateAgentTask.StartedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetStartedAt() *string { return v.AgentTaskFields.StartedAt }
+
+// GetFinishedAt returns AgentTaskUpdateUpdateAgentTask.FinishedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetFinishedAt() *string { return v.AgentTaskFields.FinishedAt }
+
+// GetCancelledAt returns AgentTaskUpdateUpdateAgentTask.CancelledAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetCancelledAt() *string {
+	return v.AgentTaskFields.CancelledAt
+}
+
+// GetCloseSessionWhenDone returns AgentTaskUpdateUpdateAgentTask.CloseSessionWhenDone, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetCloseSessionWhenDone() bool {
+	return v.AgentTaskFields.CloseSessionWhenDone
+}
+
+// GetRequirements returns AgentTaskUpdateUpdateAgentTask.Requirements, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
+	return v.AgentTaskFields.Requirements
+}
+
+// GetResult returns AgentTaskUpdateUpdateAgentTask.Result, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetResult() *AgentTaskFieldsResultAgentTaskResult {
+	return v.AgentTaskFields.Result
+}
+
+func (v *AgentTaskUpdateUpdateAgentTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTaskUpdateUpdateAgentTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTaskUpdateUpdateAgentTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTaskUpdateUpdateAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
+	Id string `json:"id"`
+
+	Handle string `json:"handle"`
+
+	TaskNumber string `json:"taskNumber"`
+
+	AppId string `json:"appId"`
+
+	Title string `json:"title"`
+
+	Description *string `json:"description"`
+
+	Status AgentTaskStatus `json:"status"`
+
+	Queued bool `json:"queued"`
+
+	WaitingOnChildren bool `json:"waitingOnChildren"`
+
+	Owner *AgentTaskFieldsOwnerAgentTaskParty `json:"owner"`
+
+	Assignee *AgentTaskFieldsAssigneeAgentTaskParty `json:"assignee"`
+
+	AssignedBy *AgentTaskFieldsAssignedByAgentTaskParty `json:"assignedBy"`
+
+	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
+
+	ParentTaskId *string `json:"parentTaskId"`
+
+	Tags []string `json:"tags"`
+
+	Source *string `json:"source"`
+
+	StartBy *string `json:"startBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	StartedAt *string `json:"startedAt"`
+
+	FinishedAt *string `json:"finishedAt"`
+
+	CancelledAt *string `json:"cancelledAt"`
+
+	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
+
+	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
+
+	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+}
+
+func (v *AgentTaskUpdateUpdateAgentTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTaskUpdateUpdateAgentTask) __premarshalJSON() (*__premarshalAgentTaskUpdateUpdateAgentTask, error) {
+	var retval __premarshalAgentTaskUpdateUpdateAgentTask
+
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
+	retval.Id = v.AgentTaskFields.Id
+	retval.Handle = v.AgentTaskFields.Handle
+	retval.TaskNumber = v.AgentTaskFields.TaskNumber
+	retval.AppId = v.AgentTaskFields.AppId
+	retval.Title = v.AgentTaskFields.Title
+	retval.Description = v.AgentTaskFields.Description
+	retval.Status = v.AgentTaskFields.Status
+	retval.Queued = v.AgentTaskFields.Queued
+	retval.WaitingOnChildren = v.AgentTaskFields.WaitingOnChildren
+	retval.Owner = v.AgentTaskFields.Owner
+	retval.Assignee = v.AgentTaskFields.Assignee
+	retval.AssignedBy = v.AgentTaskFields.AssignedBy
+	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
+	retval.Tags = v.AgentTaskFields.Tags
+	retval.Source = v.AgentTaskFields.Source
+	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.CreatedAt = v.AgentTaskFields.CreatedAt
+	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
+	retval.StartedAt = v.AgentTaskFields.StartedAt
+	retval.FinishedAt = v.AgentTaskFields.FinishedAt
+	retval.CancelledAt = v.AgentTaskFields.CancelledAt
+	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.Requirements = v.AgentTaskFields.Requirements
+	retval.Result = v.AgentTaskFields.Result
+	return &retval, nil
+}
+
 // The team's append-only event stream. `after` continues strictly past an
 // event id; alarmsOnly is `team events --alarms` and the alarm leg of
 // `team task tree`.
@@ -60103,6 +60364,36 @@ func (v *UpdateAgentScheduleUpdateAgentSchedule) __premarshalJSON() (*__premarsh
 	return &retval, nil
 }
 
+// #2645: named fields replace; omission leaves unchanged. Title cannot be empty. Source and lifecycle fields are fixed.
+type UpdateAgentTaskInput struct {
+	// Null clears to false; omission preserves the stored choice.
+	CloseSessionWhenDone *bool           `json:"closeSessionWhenDone,omitempty"`
+	Description          json.RawMessage `json:"description,omitempty"`
+	Requirements         json.RawMessage `json:"requirements,omitempty"`
+	// Reanchors only the not-started deadline; null clears the explicit deadline. Existing alarms stay raised.
+	StartBy json.RawMessage `json:"startBy,omitempty"`
+	Tags    json.RawMessage `json:"tags,omitempty"`
+	Title   *string         `json:"title,omitempty"`
+}
+
+// GetCloseSessionWhenDone returns UpdateAgentTaskInput.CloseSessionWhenDone, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTaskInput) GetCloseSessionWhenDone() *bool { return v.CloseSessionWhenDone }
+
+// GetDescription returns UpdateAgentTaskInput.Description, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTaskInput) GetDescription() json.RawMessage { return v.Description }
+
+// GetRequirements returns UpdateAgentTaskInput.Requirements, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTaskInput) GetRequirements() json.RawMessage { return v.Requirements }
+
+// GetStartBy returns UpdateAgentTaskInput.StartBy, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTaskInput) GetStartBy() json.RawMessage { return v.StartBy }
+
+// GetTags returns UpdateAgentTaskInput.Tags, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTaskInput) GetTags() json.RawMessage { return v.Tags }
+
+// GetTitle returns UpdateAgentTaskInput.Title, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTaskInput) GetTitle() *string { return v.Title }
+
 // UpdateAgentUpdateAgent includes the requested fields of the GraphQL type Agent.
 // The GraphQL type's documentation follows.
 //
@@ -68868,6 +69159,18 @@ type __AgentTaskTreeInput struct {
 // GetRoot returns __AgentTaskTreeInput.Root, and is useful for accessing the field via an interface.
 func (v *__AgentTaskTreeInput) GetRoot() string { return v.Root }
 
+// __AgentTaskUpdateInput is used internally by genqlient
+type __AgentTaskUpdateInput struct {
+	TaskId string                `json:"taskId"`
+	Input  *UpdateAgentTaskInput `json:"input,omitempty"`
+}
+
+// GetTaskId returns __AgentTaskUpdateInput.TaskId, and is useful for accessing the field via an interface.
+func (v *__AgentTaskUpdateInput) GetTaskId() string { return v.TaskId }
+
+// GetInput returns __AgentTaskUpdateInput.Input, and is useful for accessing the field via an interface.
+func (v *__AgentTaskUpdateInput) GetInput() *UpdateAgentTaskInput { return v.Input }
+
 // __AgentTeamEventsInput is used internally by genqlient
 type __AgentTeamEventsInput struct {
 	AppRef     string   `json:"appRef"`
@@ -77181,6 +77484,123 @@ func AgentTaskTree(
 	}
 
 	data_ = &AgentTaskTreeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by AgentTaskUpdate.
+const AgentTaskUpdate_Operation = `
+mutation AgentTaskUpdate ($taskId: ID!, $input: UpdateAgentTaskInput!) {
+	updateAgentTask(taskId: $taskId, input: $input) {
+		... AgentTaskFields
+	}
+}
+fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	id
+	handle
+	taskNumber
+	appId
+	title
+	description
+	status
+	queued
+	waitingOnChildren
+	owner {
+		... AgentTaskPartyFields
+	}
+	assignee {
+		... AgentTaskPartyFields
+	}
+	assignedBy {
+		... AgentTaskPartyFields
+	}
+	createdBy {
+		... AgentTaskPartyFields
+	}
+	parentTaskId
+	tags
+	source
+	startBy
+	createdAt
+	updatedAt
+	startedAt
+	finishedAt
+	cancelledAt
+	closeSessionWhenDone
+	requirements {
+		role
+		familyIn
+		familyNotIn
+		excludeWorkerIds
+	}
+	result {
+		outcome
+		summary
+		evidence
+	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
+}
+fragment AgentTaskPartyFields on AgentTaskParty {
+	id
+	kind
+	name
+	urn
+}
+`
+
+// cli#1137 (server#2645, cor:agt:050:09) — edit a task's descriptive fields.
+// The server reads `input` as a STRICT PATCH: a key that is present is applied
+// and a present null CLEARS, a key that is absent is left alone. A nil pointer
+// would therefore never express "clear", and a plain omitempty slice would drop
+// an empty list. Every field is omitempty, and the four that can clear are
+// json.RawMessage: nil is omitted, `null` is sent as null, anything else is the
+// value (the UpdateApp description idiom). title and closeSessionWhenDone have
+// no null-clear (an empty title is refused; null would mean false), so they stay
+// pointers, where a pointer to false is still sent.
+func AgentTaskUpdate(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	taskId string,
+	input *UpdateAgentTaskInput,
+) (data_ *AgentTaskUpdateResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentTaskUpdate",
+		Query:  AgentTaskUpdate_Operation,
+		Variables: &__AgentTaskUpdateInput{
+			TaskId: taskId,
+			Input:  input,
+		},
+	}
+
+	data_ = &AgentTaskUpdateResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
