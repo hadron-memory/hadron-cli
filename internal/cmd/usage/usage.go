@@ -4,8 +4,6 @@ package usage
 import (
 	"fmt"
 	"io"
-	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -172,39 +170,17 @@ func parseWindow(cmd *cobra.Command, since, until string) (*string, *string, err
 		if !cmd.Flags().Changed(b.name) {
 			continue
 		}
-		v := strings.TrimSpace(b.value)
-		t, ok := parseStrictDateTime(v)
-		if !ok {
-			return nil, nil, exitcode.Newf(exitcode.Usage, "--%s takes an ISO date-time with Z or an explicit offset, e.g. 2026-10-22T00:00:00Z, got %q", b.name, b.value)
+		v, err := cmdutil.ParseTimeFlag(b.name, b.value)
+		if err != nil {
+			return nil, nil, err
 		}
-		out[i], at[i] = &v, t
+		out[i] = v
+		at[i], _ = cmdutil.ParseStrictDateTime(*v)
 	}
 	if out[0] != nil && out[1] != nil && !at[0].Before(at[1]) {
 		return nil, nil, exitcode.Newf(exitcode.Usage, "--since must be before --until (since is inclusive, until exclusive)")
 	}
 	return out[0], out[1], nil
-}
-
-// isoDateTime is the strict shape the server accepts: two-digit fields, a
-// dot (never comma) fraction, and Z or a +-HH:MM offset. time.Parse alone is too
-// lenient (it takes +24:00, +00:60 and a comma fraction), and anything it lets
-// through would cost a server round trip instead of a usage error.
-var isoDateTime = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-](\d{2}):(\d{2}))$`)
-
-func parseStrictDateTime(v string) (time.Time, bool) {
-	m := isoDateTime.FindStringSubmatch(v)
-	if m == nil {
-		return time.Time{}, false
-	}
-	if m[1] != "" { // numeric offset: hours 00-23, minutes 00-59
-		h, _ := strconv.Atoi(m[1])
-		mm, _ := strconv.Atoi(m[2])
-		if h > 23 || mm > 59 {
-			return time.Time{}, false
-		}
-	}
-	t, err := time.Parse(time.RFC3339, v)
-	return t, err == nil
 }
 
 func tokenLabel(v *int) string {
