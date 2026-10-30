@@ -58,12 +58,18 @@ func newCmdSupersede(f *cmdutil.Factory) *cobra.Command {
 	var copyBody, yes, dryRun bool
 	cmd := &cobra.Command{
 		Use:   "supersede <old-citation>",
-		Short: "Retire a spec and mint its replacement",
+		Short: "Retire a spec and create its replacement draft",
 		// Retiring a spec is the supersede flow, never a delete; point
 		// the deletion verbs here rather than at the generic node
 		// commands that do hard-delete a spec node.
 		SuggestFor: []string{"delete", "rm", "remove", "retire", "deprecate"},
-		Long: `Retire a spec and create its replacement.
+		Long: `Retire a spec and create its replacement as a new DRAFT.
+
+The replacement starts unminted and unapproved: its body is the scaffold
+(or a copy of the old body with --copy-body). Edit it (` + "`hadron spec edit`" + `),
+approve it (` + "`hadron node approve`" + `) and mint it (` + "`hadron spec mint`" + `) afterwards;
+until then it is not a permanent citation. Use supersede when the old spec is
+minted and cannot be renumbered.
 
 The old spec is never renumbered or deleted — it is tagged "superseded"
 and linked to the replacement with a "superseded-by" edge.

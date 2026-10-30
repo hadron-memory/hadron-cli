@@ -92,6 +92,16 @@ Without --content/--content-file the body is scaffolded Scope-first: a
 ` + "`> **Scope.**`" + ` blockquote (from --scope, or the trigger) that lets a
 reviewer skip the check without reading it, then TODO sections to fill in.
 
+The review parent must already exist: --root (default "review") names its
+loc, and this command does not create it. When it is missing, nothing is
+written and the command exits 4 ("no "review" node in <memory> — create the
+parent first, or pass --root"). Create it once with
+` + "`hadron node create --loc review --name Review -m <memory>`" + `, or point --root at the parent your
+memory already has; ` + "`hadron coding review list`" + ` shows the tree.
+
+<check-name> is one kebab-case segment; the node's loc is "review:" plus that
+name, so ` + "`thin-resolver-field`" + ` becomes ` + "`review:thin-resolver-field`" + `.
+
 A check created this way passes ` + "`coding review lint`" + ` as written.
 Creating a check that already exists fails rather than overwriting it — edit an
 existing one with ` + "`hadron node update`" + ` / ` + "`hadron edge update`" + `.

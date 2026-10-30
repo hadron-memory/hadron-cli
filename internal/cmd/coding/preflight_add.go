@@ -84,7 +84,15 @@ The routing line is spliced into the router's body as
 resolved BEFORE anything is written: a router with one bullet list takes it
 automatically, one with several sections needs --section, and a router that
 routes purely by edge label needs --no-body-line. An ambiguous router is a
-usage error, not a half-finished write.`,
+usage error, not a half-finished write.
+
+The router must already exist: --root (default "preflight") names its loc,
+and this command does not create it. When it is missing, nothing is written
+and the command exits 4 ("no "preflight" node in <memory> — create the router
+first, or pass --root"). Create the router once with ` + "`hadron node create --loc preflight --name Preflight -m <memory>`" + `
+(a body of one bullet list is enough to start), or point --root at the
+router your memory already has; ` + "`hadron coding preflight list`" + ` shows it.
+Add --dry-run first to see the edges and the routing line without writing.`,
 		Example: `  hadron coding preflight create findings:flaky-otp-timer -m hrn:mem:acme.com:kb \
     --route "fix a flaky OTP countdown test" \
     --description "The resend countdown must start before the network await, not after"

@@ -29,10 +29,15 @@ func newCmdFind(f *cmdutil.Factory) *cobra.Command {
 		Short: "Find specs by meaning (default) or literal keyword",
 		Long: `Find specs by meaning. By default the query is matched semantically
 (hybrid keyword + vector search); on a memory without a vector index this
-degrades to keyword search with a note. --match-exactly forces literal
-regex matching over name/loc/description/tags — use it for exact-fragment
-matches (e.g. a citation), since keyword search is now FTS-ranked/stemmed
-rather than substring.
+degrades to keyword search with a note. --match-exactly (alias
+--exact) matches your query as a REGULAR EXPRESSION against name, loc,
+description and tags — use it for exact fragments such as a citation, since
+keyword search is FTS-ranked and stemmed, not substring. Regex characters
+count: "msg:010" matches as written, but to find a literal "." or "(" escape
+it ("v1\.2").
+
+Without -m, the search covers the memory chosen by ` + "`hadron spec use`" + ` (noted
+on stderr) and, when none is chosen, every memory you can read.
 
 Results are filtered to spec nodes.`,
 		Example: `  hadron spec find "win back users who never engaged" -m hrn:mem:micromentor.org:platform-specs
@@ -106,7 +111,7 @@ Results are filtered to spec nodes.`,
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "scope to a memory (ID or fully-qualified URN)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to search (ID or fully-qualified URN; default: the memory from spec use, else every memory you can read)")
 	cmd.Flags().BoolVar(&matchExactly, "match-exactly", false, "literal keyword search instead of semantic (alias: --exact)")
 	cmd.Flags().IntVar(&limit, "limit", specFindDefaultLimit, "maximum number of spec results")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "additional tag filter (repeatable; --match-exactly only)")
