@@ -1586,7 +1586,14 @@ Conventions:
   `subscription` grants an entire organization
   access (the org-level counterpart, with the full Role set) — `subscription
   create|set-role <memory> --org <id> --role <owner|admin|contributor|reader>`,
-  and `subscription list <memory>` / `subscription rm <memory> --org <id>`. The
+  and `subscription list <memory>` / `subscription rm <memory> --org <id>`.
+  The server withholds the subscribing organization from a caller who may
+  manage the subscription but not read that org (e.g. the owning org's admin
+  on `set-role`, cli#1246): the command still succeeds, `organization` is
+  `{"id":"","name":"","urn":""}` (never filled in), `organizationHidden: true`
+  is added, and `create`/`set-role` echo your own `--org` as `orgRef`; `list`
+  keeps such rows (text shows `(hidden)`). Both keys are absent for a visible
+  org. The
   memory ref is an id or URN; `add`/`create` upsert; `member rm` / `share rm`
   / `subscription rm` require `--yes` non-interactively. Find user IDs via
   `org member list` or `auth whoami`.
