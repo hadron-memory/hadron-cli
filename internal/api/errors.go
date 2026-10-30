@@ -269,7 +269,7 @@ func MapError(err error) error {
 		// cli#1268: the server's sentence names its wire arg (agentRef); every
 		// CLI caller of a manual run spells that --agent.
 		if extensionCode(e) == "RUN_AGENT_REQUIRED" {
-			return exitcode.New(exitcode.Usage, &serverError{msg: strings.Join(ServerMessages(err), "; ") + " — pass --agent <ID or URN>", err: err})
+			return exitcode.New(exitcode.Usage, &serverError{msg: strings.Join(ServerMessages(err), "; ") + " — pass --agent <ID or URN> (list them with `hadron app agent list <app>`)", err: err})
 		}
 	}
 

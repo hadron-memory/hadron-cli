@@ -114,15 +114,27 @@ it, and an App with several refuses until you name one.`,
 			}
 
 			// Run the task via the runTask mutation, passing the resolved node ID.
-			resp, err := gen.RunTask(cmd.Context(), client, nodeID, taskArgs, appRef, asSelfPtr, agentRef)
-			if err != nil {
-				return api.MapError(err)
+			// --agent goes through its own document (RunTaskWithAgent), so a
+			// plain run still works on a server that predates agentRef.
+			var result string
+			if agentRef != nil {
+				resp, err := gen.RunTaskWithAgent(cmd.Context(), client, nodeID, taskArgs, *appRef, asSelfPtr, *agentRef)
+				if err != nil {
+					return api.MapError(err)
+				}
+				result = resp.RunTask
+			} else {
+				resp, err := gen.RunTask(cmd.Context(), client, nodeID, taskArgs, appRef, asSelfPtr)
+				if err != nil {
+					return api.MapError(err)
+				}
+				result = resp.RunTask
 			}
 
 			// In execute mode the returned string is the run id, not a prompt.
-			dto := runTaskDTO{Mode: "render", Result: resp.RunTask}
+			dto := runTaskDTO{Mode: "render", Result: result}
 			if appRef != nil {
-				dto.Mode, dto.RunID = "execute", resp.RunTask
+				dto.Mode, dto.RunID = "execute", result
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if dto.Mode == "execute" {

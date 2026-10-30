@@ -45844,6 +45844,30 @@ type RunTaskResponse struct {
 // GetRunTask returns RunTaskResponse.RunTask, and is useful for accessing the field via an interface.
 func (v *RunTaskResponse) GetRunTask() string { return v.RunTask }
 
+// RunTaskWithAgentResponse is returned by RunTaskWithAgent on success.
+type RunTaskWithAgentResponse struct {
+	// Render or execute a node identified by a single nodeRef (a node PK or a
+	// fully-qualified node URN, hrn:node:<root>:<memory>:<loc>). This explicit-reference
+	// operation does not require isRunnable=true. The runnable flag governs by-name
+	// task discovery, resolution and listing (hrn:node:hadronmemory.com:specs:cor:api:060:01).
+	// The reference is
+	// resolved by the shared resolveNodeRef (#542). A bare loc without a memory
+	// is rejected — pass a full URN or an ID. For loose-name matching and
+	// interactive task selection use the MCP hadron_run_task tool, which
+	// resolves to a concrete nodeRef before calling this.
+	// By default RENDERS the task: returns the assembled instructions (node content
+	// with {{arg}} substitution and referenced nodes) for an LLM agent to execute.
+	// Pass appRef (App PK or URN) to EXECUTE instead (#529): the server mints a
+	// MANUAL app run for the resolved task under that App and returns the run id
+	// (poll appRun(ref:) for status + output). runAsSelf attributes the run to
+	// the caller. Without appRef, behavior is unchanged.
+	// Spec cor:api:060.
+	RunTask string `json:"runTask"`
+}
+
+// GetRunTask returns RunTaskWithAgentResponse.RunTask, and is useful for accessing the field via an interface.
+func (v *RunTaskWithAgentResponse) GetRunTask() string { return v.RunTask }
+
 // ScopeExplainResponse is returned by ScopeExplain on success.
 type ScopeExplainResponse struct {
 	// Spec 049 Phase 2 — explain a scope for YOU. Pass scopeRef, or a bare name
@@ -70382,7 +70406,6 @@ type __RunTaskInput struct {
 	Args      *json.RawMessage `json:"args"`
 	AppRef    *string          `json:"appRef,omitempty"`
 	RunAsSelf *bool            `json:"runAsSelf,omitempty"`
-	AgentRef  *string          `json:"agentRef,omitempty"`
 }
 
 // GetNodeRef returns __RunTaskInput.NodeRef, and is useful for accessing the field via an interface.
@@ -70397,8 +70420,29 @@ func (v *__RunTaskInput) GetAppRef() *string { return v.AppRef }
 // GetRunAsSelf returns __RunTaskInput.RunAsSelf, and is useful for accessing the field via an interface.
 func (v *__RunTaskInput) GetRunAsSelf() *bool { return v.RunAsSelf }
 
-// GetAgentRef returns __RunTaskInput.AgentRef, and is useful for accessing the field via an interface.
-func (v *__RunTaskInput) GetAgentRef() *string { return v.AgentRef }
+// __RunTaskWithAgentInput is used internally by genqlient
+type __RunTaskWithAgentInput struct {
+	NodeRef   string           `json:"nodeRef"`
+	Args      *json.RawMessage `json:"args"`
+	AppRef    string           `json:"appRef"`
+	RunAsSelf *bool            `json:"runAsSelf,omitempty"`
+	AgentRef  string           `json:"agentRef"`
+}
+
+// GetNodeRef returns __RunTaskWithAgentInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__RunTaskWithAgentInput) GetNodeRef() string { return v.NodeRef }
+
+// GetArgs returns __RunTaskWithAgentInput.Args, and is useful for accessing the field via an interface.
+func (v *__RunTaskWithAgentInput) GetArgs() *json.RawMessage { return v.Args }
+
+// GetAppRef returns __RunTaskWithAgentInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__RunTaskWithAgentInput) GetAppRef() string { return v.AppRef }
+
+// GetRunAsSelf returns __RunTaskWithAgentInput.RunAsSelf, and is useful for accessing the field via an interface.
+func (v *__RunTaskWithAgentInput) GetRunAsSelf() *bool { return v.RunAsSelf }
+
+// GetAgentRef returns __RunTaskWithAgentInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__RunTaskWithAgentInput) GetAgentRef() string { return v.AgentRef }
 
 // __ScopeExplainInput is used internally by genqlient
 type __ScopeExplainInput struct {
@@ -89305,8 +89349,8 @@ func RunServedPrompt(
 
 // The mutation executed by RunTask.
 const RunTask_Operation = `
-mutation RunTask ($nodeRef: String!, $args: JSON, $appRef: ID, $runAsSelf: Boolean, $agentRef: ID) {
-	runTask(nodeRef: $nodeRef, args: $args, appRef: $appRef, runAsSelf: $runAsSelf, agentRef: $agentRef)
+mutation RunTask ($nodeRef: String!, $args: JSON, $appRef: ID, $runAsSelf: Boolean) {
+	runTask(nodeRef: $nodeRef, args: $args, appRef: $appRef, runAsSelf: $runAsSelf)
 }
 `
 
@@ -89316,10 +89360,8 @@ mutation RunTask ($nodeRef: String!, $args: JSON, $appRef: ID, $runAsSelf: Boole
 // Two modes (server #529): WITHOUT appRef, runTask renders and returns the
 // compiled prompt string. WITH appRef (App PK/URN), it mints a MANUAL app run
 // for the task under that App and returns the run id (poll via `run get`).
-// runAsSelf runs on behalf of the caller. agentRef names the Agent an executed
-// run is served as (hadron-server#2849); omitted, the App's single installed
-// Agent. Unset appRef/runAsSelf/agentRef must be omitted, not sent as null (a
-// null appRef would otherwise look like an explicit choice).
+// runAsSelf runs on behalf of the caller. Unset appRef/runAsSelf must be omitted,
+// not sent as null (a null appRef would otherwise look like an explicit choice).
 func RunTask(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -89327,7 +89369,6 @@ func RunTask(
 	args *json.RawMessage,
 	appRef *string,
 	runAsSelf *bool,
-	agentRef *string,
 ) (data_ *RunTaskResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "RunTask",
@@ -89337,11 +89378,55 @@ func RunTask(
 			Args:      args,
 			AppRef:    appRef,
 			RunAsSelf: runAsSelf,
-			AgentRef:  agentRef,
 		},
 	}
 
 	data_ = &RunTaskResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RunTaskWithAgent.
+const RunTaskWithAgent_Operation = `
+mutation RunTaskWithAgent ($nodeRef: String!, $args: JSON, $appRef: ID!, $runAsSelf: Boolean, $agentRef: ID!) {
+	runTask(nodeRef: $nodeRef, args: $args, appRef: $appRef, runAsSelf: $runAsSelf, agentRef: $agentRef)
+}
+`
+
+// RunTask naming the Agent an executed run is served as (hadron-server#2849,
+// cli#1268). A separate document, sent only with --agent: an argument in the
+// document is refused by a server that predates it even when its variable is
+// omitted, so folding agentRef into RunTask would break every plain task run
+// on an older server.
+func RunTaskWithAgent(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	nodeRef string,
+	args *json.RawMessage,
+	appRef string,
+	runAsSelf *bool,
+	agentRef string,
+) (data_ *RunTaskWithAgentResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RunTaskWithAgent",
+		Query:  RunTaskWithAgent_Operation,
+		Variables: &__RunTaskWithAgentInput{
+			NodeRef:   nodeRef,
+			Args:      args,
+			AppRef:    appRef,
+			RunAsSelf: runAsSelf,
+			AgentRef:  agentRef,
+		},
+	}
+
+	data_ = &RunTaskWithAgentResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

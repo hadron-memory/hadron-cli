@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -14,33 +15,36 @@ import (
 
 const runAgentURN = "hrn:agent:acme.com:coach"
 
+// op is the operation sent without --agent, opAgent the one sent with it:
+// task run switches documents (RunTaskWithAgent), the other two do not.
 type runAgentCase struct {
-	name, op, resp string
-	args           []string
+	name, op, opAgent, resp string
+	args                    []string
 }
 
 func runAgentCases() []runAgentCase {
 	importResp := `{"data":{"importNode":{"status":"FETCH_PENDING","jobId":"run_xyz","node":{` +
 		`"id":"n1","memoryId":"mem1","loc":"clips:p","name":"P","nodeType":"webpage","updatedAt":"2026-06-11T00:00:00Z"}}}}`
 	return []runAgentCase{
-		{"task run", "RunTask", `{"data":{"runTask":"run_abc"}}`,
+		{"task run", "RunTask", "RunTaskWithAgent", `{"data":{"runTask":"run_abc"}}`,
 			[]string{"task", "run", nodeURN, "--app", "acme.com:ops"}},
-		{"run trigger", "TriggerAppRun", `{"data":{"triggerAppRun":` + appRunJSON + `}}`,
+		{"run trigger", "TriggerAppRun", "TriggerAppRun", `{"data":{"triggerAppRun":` + appRunJSON + `}}`,
 			[]string{"run", "trigger", "--app", "capp100000000000000000000", "--entry", "hrn:node:acme.com::ops::x"}},
-		{"node import --task", "ImportNode", importResp,
+		{"node import --task", "ImportNode", "ImportNode", importResp,
 			[]string{"node", "import", "--url", "https://ex.com/p", "-m", "acme.com:kb", "--loc", "clips:p", "--task", "acme.com::kb::tasks:distill", "--yes"}},
 	}
 }
 
 // agentRefOf returns the agentRef the operation sent and whether the key was
-// present at all: top-level for runTask, inside input for the other two.
+// present at all: top-level for the runTask documents, inside input for the
+// other two.
 func agentRefOf(t *testing.T, raw json.RawMessage, op string) (any, bool) {
 	t.Helper()
 	var vars map[string]any
 	if err := json.Unmarshal(raw, &vars); err != nil {
 		t.Fatalf("%s variables: %v (%s)", op, err, raw)
 	}
-	if op != "RunTask" {
+	if op != "RunTask" && op != "RunTaskWithAgent" {
 		vars, _ = vars["input"].(map[string]any)
 	}
 	v, ok := vars["agentRef"]
@@ -49,7 +53,7 @@ func agentRefOf(t *testing.T, raw json.RawMessage, op string) (any, bool) {
 
 func runAgentCmd(t *testing.T, c runAgentCase, resp string, extra ...string) (map[string]json.RawMessage, error) {
 	t.Helper()
-	gql, captured := captureGraphQL(t, map[string]string{"ResolveUrn": resolveNodeJSON, c.op: resp})
+	gql, captured := captureGraphQL(t, map[string]string{"ResolveUrn": resolveNodeJSON, c.op: resp, c.opAgent: resp})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs(append(append(append([]string{}, c.args...), extra...), "--server", gql.URL))
@@ -63,7 +67,7 @@ func TestRunAgentFlagSendsAgentRef(t *testing.T) {
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
-			if v, ok := agentRefOf(t, captured[c.op], c.op); !ok || v != runAgentURN {
+			if v, ok := agentRefOf(t, captured[c.opAgent], c.opAgent); !ok || v != runAgentURN {
 				t.Errorf("agentRef = %v (present %v), want %q", v, ok, runAgentURN)
 			}
 		})
@@ -94,7 +98,7 @@ func TestRunAgentRequiredNamesTheFlag(t *testing.T) {
 			if err == nil || exitCodeFor(err) != exitcode.Usage {
 				t.Fatalf("want exit %d, got %v (code %d)", exitcode.Usage, err, exitCodeFor(err))
 			}
-			if msg := err.Error(); !strings.Contains(msg, "several installed Agents") || !strings.Contains(msg, "--agent") {
+			if msg := err.Error(); !strings.Contains(msg, "several installed Agents") || !strings.Contains(msg, "--agent") || !strings.Contains(msg, "hadron app agent list") {
 				t.Errorf("message must keep the server's sentence and name --agent, got %q", msg)
 			}
 		})
@@ -127,9 +131,9 @@ func TestRunAgentLocalRefusals(t *testing.T) {
 	}{
 		{"task run without --app", []string{"task", "run", nodeURN, "--agent", runAgentURN}, "--agent requires --app"},
 		{"node import without --task", []string{"node", "import", "--url", "https://ex.com/p", "-m", "acme.com:kb", "--loc", "clips:p", "--agent", runAgentURN}, "--agent requires --task"},
-		{"task run blank", append(append([]string{}, cases[0].args...), "--agent", " "), "--agent needs an Agent ID or URN"},
-		{"run trigger blank", append(append([]string{}, cases[1].args...), "--agent", ""), "--agent needs an Agent ID or URN"},
-		{"node import blank", append(append([]string{}, cases[2].args...), "--agent", ""), "--agent needs an Agent ID or URN"},
+		{"task run blank", append(append([]string{}, cases[0].args...), "--agent", " "), "--agent is empty"},
+		{"run trigger blank", append(append([]string{}, cases[1].args...), "--agent", ""), "--agent is empty"},
+		{"node import blank", append(append([]string{}, cases[2].args...), "--agent", ""), "--agent is empty"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			gql, captured := captureGraphQL(t, map[string]string{})
@@ -163,5 +167,17 @@ func TestNodeImportAgentRejectedOutsideContentMode(t *testing.T) {
 				t.Fatalf("want a usage refusal naming --agent, got %v (code %d)", err, exitCodeFor(err))
 			}
 		})
+	}
+}
+
+// A plain task run must keep working on a server that predates agentRef: an
+// argument named in the document is refused there even with its variable
+// omitted, so only RunTaskWithAgent may name it.
+func TestRunTaskPlainDocumentHasNoAgentRef(t *testing.T) {
+	if strings.Contains(gen.RunTask_Operation, "agentRef") {
+		t.Fatalf("RunTask must not name agentRef:\n%s", gen.RunTask_Operation)
+	}
+	if !strings.Contains(gen.RunTaskWithAgent_Operation, "agentRef: $agentRef") {
+		t.Fatalf("RunTaskWithAgent must send agentRef:\n%s", gen.RunTaskWithAgent_Operation)
 	}
 }

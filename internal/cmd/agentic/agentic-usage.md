@@ -3076,7 +3076,8 @@ Conventions:
     --app`, `node import --task`) names the installed Agent (ID or URN) a manual
     run is served as. Omitted, no `agentRef` is sent and the App's single
     installed Agent serves it; an App with several refuses `RUN_AGENT_REQUIRED`
-    (exit 2, the message says to pass `--agent`). An Agent that is unknown or not
+    (exit 2, the message says to pass `--agent`; `hadron app agent list <app>`
+    lists the App's installed Agents). An Agent that is unknown or not
     installed in the App is the server's BAD_USER_INPUT, its message shown (exit
     2). A blank `--agent`, or `--agent` without `--app` (task run) or `--task`
     (node import), is exit 2 before any call.

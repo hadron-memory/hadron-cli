@@ -117,7 +117,7 @@ func RunAgentFlag(cmd *cobra.Command, value string) (*string, error) {
 	}
 	v := strings.TrimSpace(value)
 	if v == "" {
-		return nil, exitcode.Newf(exitcode.Usage, "--agent needs an Agent ID or URN")
+		return nil, exitcode.Newf(exitcode.Usage, "--agent is empty (an unset variable?): pass an Agent ID or URN, or omit --agent")
 	}
 	return &v, nil
 }
