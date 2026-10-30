@@ -237,3 +237,68 @@ func TestHeldOver30mBoundary(t *testing.T) {
 		t.Fatalf("at 30m1s: %+v", d.Workers)
 	}
 }
+
+// cli#1322: a held record the poller no longer re-evaluates (the server lists
+// no wake for the worker) must not read as a live hold. A re-evaluated hold
+// is touched every cycle; one older than three cycles has not been.
+func TestHeldRecordNotRevisited1322(t *testing.T) {
+	dir := t.TempDir()
+	cfg := &hostpoller.Config{StateFile: filepath.Join(dir, "state.json"), PollIntervalSeconds: 30, Delivery: hostpoller.DeliveryConfig{Enabled: true, OrcaBin: "/bin/true"}}
+	now := time.Date(2026, 10, 30, 16, 40, 0, 0, time.UTC)
+	book := delivery.NewStatusBook(cfg.DeliveryStateDir())
+	book.Observe(delivery.Event{Time: now.Add(-9 * time.Hour), Worker: "fiona", WorkerID: "wkr1", Kind: delivery.Held, Reason: delivery.HoldDraft, Wake: true})
+	book.Observe(delivery.Event{Time: now.Add(-20 * time.Second), Worker: "tove", WorkerID: "wkr2", Kind: delivery.Held, Reason: delivery.HoldDraft, Wake: true})
+	book.Observe(delivery.Event{Time: now.Add(-9 * time.Hour), Worker: "dara", WorkerID: "wkr3", Kind: delivery.Delivered, Wake: true})
+	if err := book.Step(now, delivery.StepRead); err != nil {
+		t.Fatal(err)
+	}
+	d := hostDeliveryStatus(cfg, now)
+	by := map[string]hostDeliveryWorkerDTO{}
+	for _, w := range d.Workers {
+		by[w.Worker] = w
+	}
+	if !by["fiona"].NotRevisited {
+		t.Fatalf("fiona's 9h-old held record must be flagged not re-evaluated: %+v", by["fiona"])
+	}
+	if by["tove"].NotRevisited {
+		t.Fatalf("tove is re-evaluated every cycle: %+v", by["tove"])
+	}
+	if by["dara"].NotRevisited {
+		t.Fatalf("a delivered worker holds nothing to re-evaluate: %+v", by["dara"])
+	}
+	var buf strings.Builder
+	writeHostDelivery(&buf, d)
+	for _, line := range strings.Split(buf.String(), "\n") {
+		if strings.Contains(line, "fiona:") && !strings.Contains(line, "NOT RE-EVALUATED") {
+			t.Fatalf("human line hides it: %q", line)
+		}
+		if strings.Contains(line, "tove:") && strings.Contains(line, "NOT RE-EVALUATED") {
+			t.Fatalf("live hold mislabelled: %q", line)
+		}
+	}
+}
+
+// Bruno's BLIND P3 and Beckett's LOCAL on #1323: the three-interval boundary
+// is exact, and the text claims nothing about why a record is old.
+func TestNotRevisitedBoundaryAndWording1322(t *testing.T) {
+	dir := t.TempDir()
+	cfg := &hostpoller.Config{StateFile: filepath.Join(dir, "state.json"), PollIntervalSeconds: 30, Delivery: hostpoller.DeliveryConfig{Enabled: true, OrcaBin: "/bin/true"}}
+	now := time.Date(2026, 10, 30, 16, 40, 0, 0, time.UTC)
+	book := delivery.NewStatusBook(cfg.DeliveryStateDir())
+	book.Observe(delivery.Event{Time: now.Add(-90 * time.Second), Worker: "iris", WorkerID: "wkr1", Kind: delivery.Held, Reason: delivery.HoldDraft, Wake: true})
+	if err := book.Step(now, delivery.StepRead); err != nil {
+		t.Fatal(err)
+	}
+	if d := hostDeliveryStatus(cfg, now); d.Workers[0].NotRevisited {
+		t.Fatalf("exactly three intervals is not yet flagged: %+v", d.Workers[0])
+	}
+	d := hostDeliveryStatus(cfg, now.Add(time.Second))
+	if !d.Workers[0].NotRevisited {
+		t.Fatalf("one second past three intervals flags: %+v", d.Workers[0])
+	}
+	var buf strings.Builder
+	writeHostDelivery(&buf, d)
+	if out := buf.String(); strings.Contains(out, "server lists no wake") || strings.Contains(out, "long gone") {
+		t.Fatalf("the row asserts a cause the record cannot show: %q", out)
+	}
+}

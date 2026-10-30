@@ -449,6 +449,13 @@ type hostDeliveryWorkerDTO struct {
 	// HeldOver30m flags a run older than heldTooLong.
 	HeldSince   *string `json:"heldSince"`
 	HeldOver30m bool    `json:"heldOver30m"`
+	// NotRevisited: the worker is in a run of holds but its newest event is
+	// older than three poll intervals (cli#1322). A held worker is normally
+	// re-evaluated every cycle, so no newer local event means only that the
+	// hold shown may be stale. The record cannot say why: the server may list
+	// no wake for the worker, or the poller may have stopped or its reads
+	// failed (see the STALE and wakes lines).
+	NotRevisited bool `json:"notRevisited"`
 }
 
 // heldTooLong is when `team host status` flags a worker's run of holds
@@ -499,6 +506,7 @@ func hostDeliveryStatus(cfg *hostpoller.Config, now time.Time) hostDeliveryDTO {
 		if w.HeldSince != nil {
 			since := w.HeldSince.UTC().Format(time.RFC3339)
 			row.HeldSince, row.HeldOver30m = &since, now.Sub(*w.HeldSince) > heldTooLong
+			row.NotRevisited = now.Sub(w.At) > 3*interval
 		}
 		if list, err := recs.List(id); err == nil {
 			row.ConfirmedUnacked = len(list)
@@ -558,6 +566,9 @@ func writeHostDelivery(w io.Writer, d hostDeliveryDTO) {
 		case wk.HeldSince != nil:
 			held = ", held since " + *wk.HeldSince
 		}
+		if wk.NotRevisited {
+			held += ", NOT RE-EVALUATED recently: no newer local delivery event, so the hold shown may be stale (its cause is not known from this record)"
+		}
 		fmt.Fprintf(w, "  %s: %s %s (%s)%s at %s (%s ago)%s, confirmed-unacked %d, ticks typed-unacked %d, resolved by %s\n",
 			wk.Worker, wk.LastKind, wk.LastReason, wk.LastFor, unreported, *wk.LastAt, time.Duration(wk.LastAgeSeconds)*time.Second, held, wk.ConfirmedUnacked, wk.TicksUnacked, orDash(wk.ResolvedBy))
 	}
@@ -589,7 +600,12 @@ original values. This does not describe kept-worktree diagnostics.
 With delivery enabled it also shows the poller's local delivery snapshot:
 each worker's newest event (outcome, reason code, time and age), when its
 current run of holds began, and HELD OVER 30m once that run is older than
-30 minutes without a delivery. Codes only: no text, draft or proof.`,
+30 minutes without a delivery. A held worker is re-evaluated every cycle; a
+held record whose newest event is older than three poll intervals is marked
+NOT RE-EVALUATED (notRevisited in --json): no newer local event, so the
+hold shown may be stale; the cause is not recorded (the server may list no
+wake for that worker, or the poller stopped or its reads failed). Codes only: no text, draft or
+proof.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, _, srv, err := loadHostPoller(f, configPath)
