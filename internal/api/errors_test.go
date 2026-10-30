@@ -191,6 +191,7 @@ func TestMapError(t *testing.T) {
 		{"spec corpus encrypted", gqlErr("SPEC_CORPUS_ENCRYPTED_UNSUPPORTED"), exitcode.Conflict},
 		{"template not found", gqlErr("MEMORY_CONFIG_TEMPLATE_NOT_FOUND"), exitcode.NotFound},
 		{"no server row: an operator's fix, the generic 1", gqlErr("HADRON_SERVER_NOT_CONFIGURED"), exitcode.Error},
+		{"provider not configured on this server: an operator's fix, the generic 1 (cli#1352)", gqlErr("CONNECTION_PROVIDER_NOT_CONFIGURED"), exitcode.Error},
 		// #619 — the permission-denied class. Both reached scripts as the
 		// generic 1 before exitcode.Forbidden existed.
 		{"forbidden", gqlErr("FORBIDDEN"), exitcode.Forbidden},

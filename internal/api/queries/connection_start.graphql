@@ -1,0 +1,11 @@
+# Starts the OAuth flow for an org connection (hadron-server#2897). The
+# response carries a single-use, credential-bearing URL: callers print it once
+# and never log it.
+mutation StartConnection($provider: ConnectionProvider!, $orgRef: ID!) {
+  startConnection(provider: $provider, orgRef: $orgRef) {
+    provider
+    orgId
+    authorizeUrl
+    expiresAt
+  }
+}

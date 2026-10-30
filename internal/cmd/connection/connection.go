@@ -22,6 +22,7 @@ func NewCmdConnection(f *cmdutil.Factory) *cobra.Command {
 		Aliases: []string{"connections", "conn"},
 		Short:   "Manage external connections and their grants",
 	}
+	cmd.AddCommand(newCmdConnect(f))
 	cmd.AddCommand(newCmdGrant(f))
 	return cmd
 }

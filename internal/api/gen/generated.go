@@ -14420,7 +14420,7 @@ type CastWorkerPreviewCastWorkerPreview struct {
 	// The role-agent the casting would bind.
 	AgentId   string `json:"agentId"`
 	AgentName string `json:"agentName"`
-	// The composed boot prompt, post {{name}}/{{role}} substitution with
+	// The composed boot prompt, post {{worker.name}}/{{worker.role}} substitution with
 	// promptOverride appended — the same composition Worker.prompt performs,
 	// reviewable BEFORE the name is permanent. Null when the agent carries no
 	// template and no override was given.
@@ -19544,6 +19544,25 @@ func (v *ConnectionGrantsResponse) GetConnectionGrants() *ConnectionGrantsConnec
 	return v.ConnectionGrants
 }
 
+// The provider a connection is made to: a Microsoft 365 mailbox, a Gmail
+// mailbox, a Google Calendar or a Google Drive. Each is its own OAuth client
+// and its own capability tool.
+type ConnectionProvider string
+
+const (
+	ConnectionProviderGmail       ConnectionProvider = "GMAIL"
+	ConnectionProviderGoogleCal   ConnectionProvider = "GOOGLE_CAL"
+	ConnectionProviderGoogleDrive ConnectionProvider = "GOOGLE_DRIVE"
+	ConnectionProviderMsExchange  ConnectionProvider = "MS_EXCHANGE"
+)
+
+var AllConnectionProvider = []ConnectionProvider{
+	ConnectionProviderGmail,
+	ConnectionProviderGoogleCal,
+	ConnectionProviderGoogleDrive,
+	ConnectionProviderMsExchange,
+}
+
 type ContentValidator string
 
 const (
@@ -19762,7 +19781,7 @@ type CreateAgentResponse struct {
 	// (org XOR user).
 	//
 	// personaRole and systemPrompt are the persona dressing (cor:agt:020:01) —
-	// the reusable role plus the '{{name}}'-templated prompt. The NAMED
+	// the reusable role plus the '{{worker.name}}'-templated prompt. The NAMED
 	// identity is a Worker, cast with castWorker; names never live on agents.
 	//
 	// orgId accepts the org's ID or URN.
@@ -53102,6 +53121,64 @@ func (v *SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference) GetText(
 	return v.Text
 }
 
+// StartConnectionResponse is returned by StartConnection on success.
+type StartConnectionResponse struct {
+	// Start the OAuth flow that connects a mailbox, calendar or Drive to an org
+	// (#2897; hrn:node:hadronmemory.com:specs:cor:api:240:02). The same start as
+	// POST /auth/{provider}/start, which stays for the portal: the same org-ADMIN
+	// gate and the same single-use, provider-bound nonce. A flow started here ends
+	// on a page the server hosts, not on the portal.
+	//
+	// Only a signed-in user acting as themselves may call it: a portal sign-in or
+	// a user API key, who is an ADMIN of orgRef (ID or URN). An App key, a bound
+	// worker session, an impersonated request and an OAuth credential limited to
+	// the MCP surface are refused, because this mints a credential-bearing start
+	// for a person's mailbox, calendar or Drive (hrn:node:hadronmemory.com:specs:cor:dmo:050:05).
+	// A caller who is not an ADMIN, and an unknown org, get the same Forbidden.
+	// An unconfigured provider is CONNECTION_PROVIDER_NOT_CONFIGURED.
+	StartConnection *StartConnectionStartConnectionConnectionStart `json:"startConnection"`
+}
+
+// GetStartConnection returns StartConnectionResponse.StartConnection, and is useful for accessing the field via an interface.
+func (v *StartConnectionResponse) GetStartConnection() *StartConnectionStartConnectionConnectionStart {
+	return v.StartConnection
+}
+
+// StartConnectionStartConnectionConnectionStart includes the requested fields of the GraphQL type ConnectionStart.
+// The GraphQL type's documentation follows.
+//
+// The start of a connection's OAuth flow (#2897). Open authorizeUrl in a
+// browser; the consent step belongs to the provider and the browser ends on a
+// page this server hosts, so the portal is not involved. Confirm the result by
+// listing the org's connections.
+type StartConnectionStartConnectionConnectionStart struct {
+	Provider ConnectionProvider `json:"provider"`
+	// The org the connection will be attached to.
+	OrgId string `json:"orgId"`
+	// The server URL to open in a browser. Its nonce is single-use and short-lived
+	// (expiresAt); a second visit is refused. Treat the URL like a password until
+	// it has been opened once.
+	AuthorizeUrl string `json:"authorizeUrl"`
+	// When authorizeUrl stops working. Start again after this.
+	ExpiresAt string `json:"expiresAt"`
+}
+
+// GetProvider returns StartConnectionStartConnectionConnectionStart.Provider, and is useful for accessing the field via an interface.
+func (v *StartConnectionStartConnectionConnectionStart) GetProvider() ConnectionProvider {
+	return v.Provider
+}
+
+// GetOrgId returns StartConnectionStartConnectionConnectionStart.OrgId, and is useful for accessing the field via an interface.
+func (v *StartConnectionStartConnectionConnectionStart) GetOrgId() string { return v.OrgId }
+
+// GetAuthorizeUrl returns StartConnectionStartConnectionConnectionStart.AuthorizeUrl, and is useful for accessing the field via an interface.
+func (v *StartConnectionStartConnectionConnectionStart) GetAuthorizeUrl() string {
+	return v.AuthorizeUrl
+}
+
+// GetExpiresAt returns StartConnectionStartConnectionConnectionStart.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *StartConnectionStartConnectionConnectionStart) GetExpiresAt() string { return v.ExpiresAt }
+
 // StartImpersonationResponse is returned by StartImpersonation on success.
 type StartImpersonationResponse struct {
 	// Start impersonating another member of orgRef (admin support/diagnostics).
@@ -53445,7 +53522,7 @@ func (v *StartTeamSessionStartSession) __premarshalJSON() (*__premarshalStartTea
 // by its id or by the computed `urn` below (#991).
 type StartTeamSessionStartSessionBoundWorker struct {
 	// The worker's boot prompt, resolved: the agent's systemPrompt template
-	// with {{name}}/{{role}} bound, then promptOverride appended as its own
+	// with {{worker.name}}/{{worker.role}} bound, then promptOverride appended as its own
 	// paragraph. Null when the agent carries no template and the worker no
 	// override.
 	Prompt *string `json:"prompt"`
@@ -67686,7 +67763,7 @@ type WorkerFields struct {
 	// The cast-list role this filling answers ('backend-engineer').
 	Role *string `json:"role"`
 	// The worker's boot prompt, resolved: the agent's systemPrompt template
-	// with {{name}}/{{role}} bound, then promptOverride appended as its own
+	// with {{worker.name}}/{{worker.role}} bound, then promptOverride appended as its own
 	// paragraph. Null when the agent carries no template and the worker no
 	// override.
 	Prompt *string `json:"prompt"`
@@ -74194,6 +74271,18 @@ type __SpecUnresolvedReferencesInput struct {
 
 // GetMemoryRef returns __SpecUnresolvedReferencesInput.MemoryRef, and is useful for accessing the field via an interface.
 func (v *__SpecUnresolvedReferencesInput) GetMemoryRef() string { return v.MemoryRef }
+
+// __StartConnectionInput is used internally by genqlient
+type __StartConnectionInput struct {
+	Provider ConnectionProvider `json:"provider"`
+	OrgRef   string             `json:"orgRef"`
+}
+
+// GetProvider returns __StartConnectionInput.Provider, and is useful for accessing the field via an interface.
+func (v *__StartConnectionInput) GetProvider() ConnectionProvider { return v.Provider }
+
+// GetOrgRef returns __StartConnectionInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__StartConnectionInput) GetOrgRef() string { return v.OrgRef }
 
 // __StartImpersonationInput is used internally by genqlient
 type __StartImpersonationInput struct {
@@ -95165,6 +95254,48 @@ func SpecUnresolvedReferences(
 	}
 
 	data_ = &SpecUnresolvedReferencesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by StartConnection.
+const StartConnection_Operation = `
+mutation StartConnection ($provider: ConnectionProvider!, $orgRef: ID!) {
+	startConnection(provider: $provider, orgRef: $orgRef) {
+		provider
+		orgId
+		authorizeUrl
+		expiresAt
+	}
+}
+`
+
+// Starts the OAuth flow for an org connection (hadron-server#2897). The
+// response carries a single-use, credential-bearing URL: callers print it once
+// and never log it.
+func StartConnection(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	provider ConnectionProvider,
+	orgRef string,
+) (data_ *StartConnectionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "StartConnection",
+		Query:  StartConnection_Operation,
+		Variables: &__StartConnectionInput{
+			Provider: provider,
+			OrgRef:   orgRef,
+		},
+	}
+
+	data_ = &StartConnectionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

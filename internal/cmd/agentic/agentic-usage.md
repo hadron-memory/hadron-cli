@@ -431,6 +431,7 @@ hadron grant create --org <ref> --user <ref> --action <a>[,...] [--expires <iso>
 hadron calendar list --connection <ref> | events --connection <ref> [--calendar <id>] [--from <RFC3339>] [--to <RFC3339>] [--query <text>] [--top 1..100] | event get <event-id> --connection <ref> [--calendar <id>] | freebusy --connection <ref> --from <RFC3339> --to <RFC3339> [--schedule <id>]...
 hadron drive list --connection <ref> [--folder <id>] [--query <text>] [--name-contains <text>] [--mime-type <type>] [--modified-after <RFC3339>] [--top 1..100] [--page-token <token>] | get <file-id> --connection <ref> | export <file-id> --connection <ref> [--format MARKDOWN|TEXT|HTML]
 hadron email connections --org <id|urn> [--json]
+hadron connection connect <ms-exchange|gmail|google-cal|google-drive> --org <id|urn> [--no-browser] [--wait <duration>|--no-wait] [--json]
 hadron connection grant create --connection <ref> --app <ref> --scopes <s>[,...] [--expires-at <iso>] | list [--connection <ref>] | revoke <grant-id> --yes
 hadron mcp-server list [--org <ref>] | get <id> | tools <id> | create --org <ref> --slug <s> --name <n> --url <u> [--header 'Name: value']... [--allow <tool>]... [--disabled] | update <id> [--name <n>] [--url <u>] [--header ...]... [--clear-headers] [--allow <tool>]... [--clear-allow] [--enabled|--disabled] | delete <id> --yes
 hadron ha list [--org <ref>] [--limit 1..200] [--offset N] | get <id> | ops <id>   # Home Assistant registry READS only (cli#231). list is ONE explicit page (default --limit 20, sent explicitly; the server default is 50), slug-ascending; --json is a bare array and, when more rows exist, stderr prints `showing N of TOTAL; next page: --offset M --limit L`. get/ops: null = absent OR not visible to you (one answer, exit 4; no existence proof). opAllowlist [] means EVERY op, not deny-all. runToolName/inputSchema are the provider's strings. A disabled instance's `ops` is refused by the server (HA_INSTANCE_DISABLED), message shown unchanged. The access token is write-only and never shown; no host/device is contacted. No create/update/delete yet (separately gated)
@@ -3776,6 +3777,33 @@ or client completeness guarantee is invented. Empty JSON is []. Each row has
 lastSyncAt,createdAt,updatedAt}; displayName/lastSyncAt preserve null. No credentials
 or lastError are selected. Text quotes external strings. Error mapping remains
 unchanged, including unknown tool failures; no guessed reconnect remedy.
+
+
+`hadron connection connect <provider> --org REF` starts the OAuth flow that
+connects a mailbox, calendar or Drive to an org (startConnection, one call), with
+no portal. Only a signed-in user acting as themselves who is an org ADMIN may run
+it; an App key, bound worker session, impersonated request, MCP-only OAuth
+credential or a non-admin is refused by the server (FORBIDDEN / UNAUTHENTICATED /
+CONNECTION_PROVIDER_NOT_CONFIGURED), and --json errors carry that as
+error.serverCode. The authorize URL is a single-use credential: it is shown
+exactly once. The browser is opened and only a notice is printed; stdout gets the
+URL only under --no-browser or when the browser cannot be opened. With --json the
+URL is the `authorizeUrl` field of the one result document and nowhere else, so
+--json with --no-browser requires --no-wait (usage error, exit 2, before any
+start). After the start the command polls the metadata-only EmailConnections read
+(--wait, default 5m, never past the link's expiresAt; --no-wait skips it) for a
+connection of that provider, owned by the caller, that was not there before the
+start (the start carries no flow id, so another admin's connection or an
+existing one never counts; two flows the same caller starts at once for one
+provider cannot be told apart until hadron-server#2913, so run them one at a
+time). With --json a browser that cannot be opened ends the
+command at once with status "started" (no wait). Found: exit 0,
+{provider,orgId,authorizeUrl,expiresAt,browserOpened,status:"connected",
+connection:{id,provider,mailboxEmail,displayName}}. --no-wait: status "started",
+connection null. Not found in time: exit 13 (WaitTimeout), "not found yet" - the
+consent may still be completing, so check `hadron email connections --org REF`
+before starting again. Errors never contain the URL or its nonce; nothing is
+written to disk.
 
 
 `hadron calendar` is read-only: explicit --connection, no discovery fallback or
