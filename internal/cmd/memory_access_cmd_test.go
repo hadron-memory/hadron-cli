@@ -418,6 +418,29 @@ type hiddenOrgSubscription struct {
 	} `json:"organization"`
 }
 
+// assertHiddenOrgKeys checks the raw receipt, which a struct decode cannot:
+// `organization` is present as an object with empty id/name/urn (not omitted,
+// not null), and organizationHidden is true (#1248).
+func assertHiddenOrgKeys(t *testing.T, raw map[string]json.RawMessage) {
+	t.Helper()
+	org, ok := raw["organization"]
+	if !ok {
+		t.Fatalf("organization key omitted for a hidden org: %v", raw)
+	}
+	var fields map[string]string
+	if err := json.Unmarshal(org, &fields); err != nil || fields == nil {
+		t.Fatalf("organization = %s, want an object with empty id/name/urn", org)
+	}
+	for _, k := range []string{"id", "name", "urn"} {
+		if v, ok := fields[k]; !ok || v != "" {
+			t.Errorf("organization.%s = %q (present %v), want present and empty", k, v, ok)
+		}
+	}
+	if string(raw["organizationHidden"]) != "true" {
+		t.Errorf("organizationHidden = %s, want true", raw["organizationHidden"])
+	}
+}
+
 // A committed update must not report failure because the organization is
 // hidden; the receipt falls back to the caller's own --org, never inventing
 // the hidden org's id, name or URN (#1246).
@@ -451,6 +474,11 @@ func TestMemorySubscriptionMutationsSucceedWithHiddenOrg(t *testing.T) {
 			if err := json.Unmarshal([]byte(out.String()), &got); err != nil {
 				t.Fatalf("not JSON: %v\n%s", err, out.String())
 			}
+			var raw map[string]json.RawMessage
+			if err := json.Unmarshal([]byte(out.String()), &raw); err != nil {
+				t.Fatalf("not a JSON object: %v\n%s", err, out.String())
+			}
+			assertHiddenOrgKeys(t, raw)
 			if got.Role != "CONTRIBUTOR" || !got.Activated || !got.OrganizationHidden || got.OrgRef != "partnerco.com" {
 				t.Errorf("receipt: %+v", got)
 			}
@@ -483,6 +511,9 @@ func TestMemorySubscriptionVisibleOrgReceiptUnchanged(t *testing.T) {
 	if _, ok := raw["organizationHidden"]; ok {
 		t.Errorf("organizationHidden present for a visible org: %s", out.String())
 	}
+	if org, ok := raw["organization"].(map[string]any); !ok || org["urn"] != "partnerco.com" {
+		t.Errorf("organization = %v, want the visible org", raw["organization"])
+	}
 }
 
 // list must surface a subscription whose organization is hidden rather than
@@ -503,6 +534,14 @@ func TestMemorySubscriptionListSurfacesHiddenOrg(t *testing.T) {
 	var subs []hiddenOrgSubscription
 	if err := json.Unmarshal([]byte(out.String()), &subs); err != nil {
 		t.Fatalf("not a JSON array: %v\n%s", err, out.String())
+	}
+	var rawRows []map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(out.String()), &rawRows); err != nil || len(rawRows) != 2 {
+		t.Fatalf("raw rows: %v\n%s", err, out.String())
+	}
+	assertHiddenOrgKeys(t, rawRows[1])
+	if _, ok := rawRows[0]["organizationHidden"]; ok {
+		t.Errorf("organizationHidden present on the visible row: %s", out.String())
 	}
 	if len(subs) != 2 {
 		t.Fatalf("want both rows, got %d: %s", len(subs), out.String())
