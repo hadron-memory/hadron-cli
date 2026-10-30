@@ -376,7 +376,7 @@ func mapTaskError(err error) error {
 	// show in --json and vanish on the terminal. The codes are constants, never
 	// server text.
 	prefix := ""
-	for _, code := range []string{"TASK_BLOCKED", "TASK_BLOCKER_CYCLE", "TASK_NOT_FOUND", "TASK_NOT_OWNER", "TASK_INVALID_TRANSITION", "TASK_HANDLE_QUALIFY", "BAD_USER_INPUT"} {
+	for _, code := range []string{"TASK_ENDED", "TASK_BLOCKED", "TASK_BLOCKER_CYCLE", "TASK_NOT_FOUND", "TASK_NOT_OWNER", "TASK_INVALID_TRANSITION", "TASK_HANDLE_QUALIFY", "BAD_USER_INPUT"} {
 		if api.HasErrorCode(err, code) {
 			prefix = code
 			break

@@ -582,3 +582,27 @@ query AgentTaskListFiltered(
     ...AgentTaskFields
   }
 }
+
+# cli#1137 (server#2645, cor:agt:050:09) — edit a task's descriptive fields.
+# The server reads `input` as a STRICT PATCH: a key that is present is applied
+# and a present null CLEARS, a key that is absent is left alone. A nil pointer
+# would therefore never express "clear", and a plain omitempty slice would drop
+# an empty list. Every field is omitempty, and the four that can clear are
+# json.RawMessage: nil is omitted, `null` is sent as null, anything else is the
+# value (the UpdateApp description idiom). title and closeSessionWhenDone have
+# no null-clear (an empty title is refused; null would mean false), so they stay
+# pointers, where a pointer to false is still sent.
+# @genqlient(for: "UpdateAgentTaskInput.title", omitempty: true)
+# @genqlient(for: "UpdateAgentTaskInput.closeSessionWhenDone", omitempty: true)
+# @genqlient(for: "UpdateAgentTaskInput.description", omitempty: true, bind: "encoding/json.RawMessage")
+# @genqlient(for: "UpdateAgentTaskInput.tags", omitempty: true, bind: "encoding/json.RawMessage")
+# @genqlient(for: "UpdateAgentTaskInput.requirements", omitempty: true, bind: "encoding/json.RawMessage")
+# @genqlient(for: "UpdateAgentTaskInput.startBy", omitempty: true, bind: "encoding/json.RawMessage")
+mutation AgentTaskUpdate(
+  $taskId: ID!
+  $input: UpdateAgentTaskInput!
+) {
+  updateAgentTask(taskId: $taskId, input: $input) {
+    ...AgentTaskFields
+  }
+}
