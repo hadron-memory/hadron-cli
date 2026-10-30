@@ -110,7 +110,8 @@ sparse (a node with no description, content, or abstract), schema
 (objectType/properties violating the memory's declared schema), and
 stale-abstract.
 
-Read stale-abstract narrowly. It compares the abstract's origin hash against
+Read stale-abstract narrowly. An abstract is a node's short summary, shown
+in search results and in place of a missing body. The check compares the abstract's origin hash against
 the current content hash, so it says the body is not the version the abstract
 was written against — including when the difference changed nothing the abstract
 says, and not at all when a body was edited and then restored byte-for-byte. It

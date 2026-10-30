@@ -18,11 +18,20 @@ func newCmdSubscription(f *cmdutil.Factory) *cobra.Command {
 		Use:     "subscription <command>",
 		Aliases: []string{"subscriptions", "sub"},
 		Short:   "Manage organization subscriptions to a memory",
-		Long: `Manage organization subscriptions to a memory.
+		Long: `Give a whole other organization access to a public knowledge memory. Only a
+memory with visibility PUBLIC can be subscribed to. An admin of the
+subscribing organization subscribes it; changing its role takes an admin of
+the organization that owns the memory; an admin of either may remove it. The
+organization that owns the memory cannot subscribe: its members already have
+access.
 
-A subscription grants an entire organization a role on the memory — the
-org-level counterpart to ` + "`memory member`" + ` (team) and ` + "`memory share`" + ` (per
-user). The role is the full set: owner, admin, contributor, or reader.`,
+The role is the subscribing organization's level on the memory: reader (read
+every node) or contributor (also create, change and delete nodes). The server
+also accepts admin and owner.
+
+` + accessHelp,
+		Example: `  hadron memory subscription create hrn:mem:acme.com:style-guide --org partnerco.com --role reader
+  hadron memory subscription list hrn:mem:acme.com:style-guide`,
 	}
 	cmd.AddCommand(newCmdSubscriptionLs(f))
 	cmd.AddCommand(newCmdSubscriptionCreate(f))
@@ -36,7 +45,11 @@ func newCmdSubscriptionLs(f *cmdutil.Factory) *cobra.Command {
 		Use:     "list <memoryRef>",
 		Aliases: []string{"ls"},
 		Short:   "List a memory's organization subscriptions",
-		Args:    cobra.ExactArgs(1),
+		Long: `List the organizations subscribed to a memory: organization id, name and
+URN, the role it was given, and whether the subscription is activated.`,
+		Example: `  hadron memory subscription list hrn:mem:acme.com:style-guide
+  hadron memory subscription list hrn:mem:acme.com:style-guide --json`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -86,9 +99,14 @@ func newCmdSubscriptionLs(f *cmdutil.Factory) *cobra.Command {
 func newCmdSubscriptionCreate(f *cmdutil.Factory) *cobra.Command {
 	var org, role string
 	cmd := &cobra.Command{
-		Use:     "create <memoryRef> --org <org> --role <owner|admin|contributor|reader>",
-		Short:   "Subscribe an organization to a memory (or update its role)",
-		Example: `  hadron memory subscription create hrn:mem:acme.com:kb --org partnerco.com --role reader`,
+		Use:   "create <memoryRef> --org <org> --role <owner|admin|contributor|reader>",
+		Short: "Subscribe an organization to a memory",
+		Long: `Give another organization access to a public knowledge memory, with a role
+(see memory subscription). You must be an admin of that organization.
+
+To change the role of an organization already subscribed, use subscription
+set-role; create does not change an existing subscription and fails.`,
+		Example: `  hadron memory subscription create hrn:mem:acme.com:style-guide --org partnerco.com --role reader`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r, err := parseSubscriptionRole(role)
@@ -130,7 +148,7 @@ func newCmdSubscriptionSetRole(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "set-role <memoryRef> --org <org> --role <owner|admin|contributor|reader>",
 		Short:   "Change an organization subscription's role",
-		Example: `  hadron memory subscription set-role hrn:mem:acme.com:kb --org partnerco.com --role contributor`,
+		Example: `  hadron memory subscription set-role hrn:mem:acme.com:style-guide --org partnerco.com --role contributor`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r, err := parseSubscriptionRole(role)
@@ -174,7 +192,7 @@ func newCmdSubscriptionRm(f *cmdutil.Factory) *cobra.Command {
 		Use:     "rm <memoryRef> --org <org>",
 		Aliases: []string{"delete", "unsubscribe"},
 		Short:   "Remove an organization's subscription to a memory",
-		Example: `  hadron memory subscription rm hrn:mem:acme.com:kb --org partnerco.com --yes`,
+		Example: `  hadron memory subscription rm hrn:mem:acme.com:style-guide --org partnerco.com --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
