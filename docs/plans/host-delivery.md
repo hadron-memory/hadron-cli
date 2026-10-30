@@ -274,6 +274,15 @@ adds the GraphQL adapter (`internal/cmd/team/host_wakes.go`) and wires it in
   no record yet, joined by `; ` and capped at 1,000 characters. When cut, the
   line says how many reasons it left out.
   - TICK: `[hadron tick] <ticker>: scheduled check-in. Read your team chat and tasks.`
+    When the wake carries the server's tick text (`DueWake.tickText`, cli#1177;
+    the `dueWakes` adapter selects it), that one line is typed instead, whole
+    and first, after `[hadron tick] `: `[hadron tick] <tickText>; [hadron task] …`.
+    It is never reworded, joined, repaired or cut. A text with a control character, line break or escape can't be typed as one line and is dropped whole (cor:agt:080:26 R4, as ticker-wake does): the wake then types today's line, so a tick-only wake still names its ticker.
+    `MaxWakeRunes` bounds the TASK parts only. When any TICK reason is unrecorded
+    the whole text is typed once and every unrecorded key is recorded. The CLI
+    never composes a tick line from `WakeReason.action`. No text reaches a record
+    or event, and `Key()` ignores both. Nothing selects `tickText` until the
+    adapter (cli#906 row 1) lands, so today's line above is the live one.
   - TASK: `[hadron task] <event>: <title> (<task id>)`.
   - A task-less alarm (S5, hadron-server#2021 comment-6259060238: `taskId`
     null) renders as `[hadron task] alarm: <alarm type> (no task)`, or as

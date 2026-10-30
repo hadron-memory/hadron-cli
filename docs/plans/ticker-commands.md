@@ -159,3 +159,22 @@ confirmed that no authentic response envelope was retained: the author's fake
 response remains explicitly synthetic, never a historical capture. The exact
 replay substitution is escalated to Xylon/Ada rather than inventing evidence.
 New-head review/QA carries and green CI remain required.
+
+## Tick code and register loc (cli#1177, T-C1, server#2733)
+
+Built against hadron-server 43adbe50 (#2835). `TickerFields` selects `tickCode`
+and `registerTaskLoc`; both are on every ticker JSON object (`registerTaskLoc`
+null when there is no entry or the caller can't read it, so the CLI never says
+"unmapped" for it) and on one text line after the owner/anchor line, in the words
+MCP `hadron_ticker_list` prints. There is no flag: codes are derived by the
+server. `ticker create` installs a warning sink for `createTicker` only and
+shows `ticker.code.unmapped` like the task commands (cli#962): stderr after an
+unchanged receipt, an always-present `warnings` array in `--json`. `update` has
+no sink: the server never files this warning there.
+
+Minimum server is #2733 deployed: the new fields are in the shared fragment, so
+an older server refuses every ticker command but `delete` with the schema-skew
+message (exit 2). No `vX.Y.Z` tag until production serves `Ticker.tickCode`.
+
+The wake renderer (`delivery.RenderWakeWith`) types `Wake.TickText` whole and
+first behind the unwired seam; see `host-delivery.md`.

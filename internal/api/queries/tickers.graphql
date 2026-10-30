@@ -3,6 +3,7 @@ fragment TickerFields on Ticker {
  id urn name slug app { id } cadenceSeconds anchorAt quietHours
  channels { id name } relevance reasons enabled owner { id name urn }
  nextTickAt lastTickAt createdAt updatedAt
+ tickCode registerTaskLoc
 }
 fragment TickerSubscriptionFields on TickerSubscription {
  id worker { id name urn } createdBy { id name urn } viaGrant createdAt endedAt endedReason
