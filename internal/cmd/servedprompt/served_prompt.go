@@ -64,7 +64,8 @@ person's other open sessions on the worker, but a worker can still have several
 open: an App key's or another person's session is never ended by your bind.
 Only the newest-started one is read, live or not. The record is null when the worker has no open session, when that newest
 session has none (it began before serving was on), or when you may not see the
-worker's internals. Older or other sessions' records are not readable here.
+worker's internals. For older or other sessions, use ` + "`team session served-prompts <session-id>`" + `.
+Find session ids with ` + "`team session list`" + `.
 It is not the worker's current pointer or the latest compile: for those, use
 ` + "`team worker get`" + ` and ` + "`node get <compiled-node>`" + `.`
 	}
@@ -183,16 +184,7 @@ cannot guarantee one database snapshot across requests.`,
 					_, e := fmt.Fprintln(w, "served prompt: unavailable (unrecorded, unreadable or serving off)")
 					return e
 				}
-				r := result
-				if _, e := fmt.Fprintf(w, "record: %s\nkind: %s; ordinal: %d; pointer: %s\ncompiled node: %s\nserved revision: %d; provenance revision: %d\nhash: %s\nserved at: %s\npruned: %t\nvariables: %s\nprovenance: %d of %d (offset %d)\n", output.SafeCell(r.ID), output.SafeCell(r.Kind), r.Ordinal, output.SafeCell(r.PointerLevel), output.SafeCell(r.CompiledNodeID), r.ServedRevSeq, r.ProvenanceRevSeq, output.SafeCell(r.CompiledContentHash), output.SafeCell(r.ServedAt), r.Pruned, output.SafeCell(string(r.Variables)), len(r.Provenance.Items), r.Provenance.Total, offset); e != nil {
-					return e
-				}
-				t := output.NewTable(w)
-				t.Row("NODE ID", "REVISION", "HASH", "PRUNED")
-				for _, p := range r.Provenance.Items {
-					t.Row(output.SafeCell(p.NodeID), fmt.Sprint(p.RevSeq), output.SafeCell(p.Hash), fmt.Sprint(p.Pruned))
-				}
-				return t.Flush()
+				return writeRecord(w, result)
 			})
 		},
 	}
@@ -222,4 +214,16 @@ func recordFrom(r *gen.ServedPromptRecord, limit, offset int) (*recordDTO, error
 		dto.Provenance.Items = append(dto.Provenance.Items, entryDTO{NodeID: e.NodeId, RevSeq: e.RevSeq, Hash: e.Hash, Pruned: e.Pruned})
 	}
 	return dto, nil
+}
+
+func writeRecord(w io.Writer, r *recordDTO) error {
+	if _, e := fmt.Fprintf(w, "record: %s\nkind: %s; ordinal: %d; pointer: %s\ncompiled node: %s\nserved revision: %d; provenance revision: %d\nhash: %s\nserved at: %s\npruned: %t\nvariables: %s\nprovenance: %d of %d (offset %d)\n", output.SafeCell(r.ID), output.SafeCell(r.Kind), r.Ordinal, output.SafeCell(r.PointerLevel), output.SafeCell(r.CompiledNodeID), r.ServedRevSeq, r.ProvenanceRevSeq, output.SafeCell(r.CompiledContentHash), output.SafeCell(r.ServedAt), r.Pruned, output.SafeCell(string(r.Variables)), len(r.Provenance.Items), r.Provenance.Total, r.Provenance.Offset); e != nil {
+		return e
+	}
+	t := output.NewTable(w)
+	t.Row("NODE ID", "REVISION", "HASH", "PRUNED")
+	for _, p := range r.Provenance.Items {
+		t.Row(output.SafeCell(p.NodeID), fmt.Sprint(p.RevSeq), output.SafeCell(p.Hash), fmt.Sprint(p.Pruned))
+	}
+	return t.Flush()
 }

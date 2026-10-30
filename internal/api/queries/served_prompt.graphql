@@ -13,3 +13,12 @@ query WorkerServedPrompt($ref: ID!, $limit: Int!, $offset: Int!) {
 query RunServedPrompt($ref: ID!, $limit: Int!, $offset: Int!) {
  appRun(ref: $ref) { servedPrompt { ...ServedPromptRecord } }
 }
+
+# History paging and each record's provenance paging are independent.
+query SessionServedPrompts($id: ID!, $historyLimit: Int!, $historyOffset: Int!, $limit: Int!, $offset: Int!) {
+ session(id: $id) {
+  servedPrompts(limit: $historyLimit, offset: $historyOffset) {
+   total items { ...ServedPromptRecord }
+  }
+ }
+}

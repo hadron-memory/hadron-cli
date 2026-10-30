@@ -3865,6 +3865,8 @@ the server.
 
 `hadron team worker served-prompt <worker-id-or-qualified-URN>` and `hadron run served-prompt <run-ref>` read the recorded revision/hash/variables and scalar-only provenance. `--limit 0..200` (default 50), `--offset N`, or `--all` (all provenance pages, buffered before output). Explicit `--offset` excludes `--all`; `--all --limit 0` is refused. JSON is `{servedPrompt: record|null}`; null is unavailable (unrecorded, unreadable or serving off), never proof of which. No current prompt/source text is fetched. Pruned revisions remain recorded. Recorded variables may contain sensitive values. Ordinary worker/run get remains unchanged.
 
+`hadron team session served-prompts <session-id>` reads one explicit session’s history in server order (newest served time, then ordinal). Find ids with `team session list`; no ambient binding/App selects the session. `--limit 0..200` (default 50) and `--offset N` page records; `--limit 0` counts only. `--provenance-limit 0..200` (default 50) and `--provenance-offset N` independently page each record’s provenance. JSON is `{servedPrompts: {items: [], total, limit, offset}}`, or `{servedPrompts: null}` for a missing/unreadable session. Empty records can also mean concealment or serving off. Actual provider errors retain their mapped exit code. No source bodies are read; variables may contain sensitive values. This does not add agent-chat history reads.
+
 hadron node provenance <compiled-node-ref> --revision <n> [--limit 0..100] [--offset N | --all] [-m <memory>]
 
 ## Compiled prompt provenance (916 C1b)
@@ -3947,6 +3949,7 @@ hadron team worker compile <worker> [--no-set-pointer]
 
 `skill lint` also asks the S11d provider for `skill-include-broken` warnings, using LINT plans for the explicit selected memories and filtering exact selected node IDs. Warnings preserve the provider message and remain exit0 (`--strict` promotes to5). Literal notice text alone is never interpreted as a broken include. A failed/unavailable provider plan returns an error, not a clean lint. Existing local rules and selectors remain, no rendered body is fetched and no file is written. Skill export continues to use the provider-resolved body.
 
+hadron team session served-prompts <session-id> [--limit N] [--offset N] [--provenance-limit N] [--provenance-offset N]
 hadron run served-prompt <run-ref> [--limit N] [--offset N | --all]
 hadron team worker served-prompt <worker-id-or-qualified-URN> [--limit N] [--offset N | --all]
 
@@ -4002,8 +4005,9 @@ Task priority/blocker fields require server #2726 (cf9bcfece) or later on every
 target deployment before releasing/installing this CLI; old servers reject the
 shared task GraphQL documents. This PR does not authorize a release or deploy.
 The task error mapper prefixes the known codes TASK_BLOCKED, TASK_BLOCKER_CYCLE,
-TASK_NOT_FOUND, TASK_NOT_OWNER, TASK_INVALID_TRANSITION and BAD_USER_INPUT onto
-the mapped server message, including existing create/assign/reassign/start/
+TASK_NOT_FOUND, TASK_NOT_OWNER, TASK_INVALID_TRANSITION, TASK_HANDLE_QUALIFY,
+TASK_ENDED, TASK_NOT_ASSIGNEE, TASK_CHILD_OWNER_MISMATCH, TASK_OWNER_INVALID,
+TASK_ASSIGNEE_INVALID, TASK_STOPPED and BAD_USER_INPUT onto the mapped server message, including existing create/assign/reassign/start/
 progress/cancel/park/ready/finish refusals. Exit classification is unchanged;
 the underlying error chain is preserved. Task-ref commands do not use --app to
 qualify a handle: use an id or hrn:agenttask:<root>:<app-slug>:AT1.2 when the bare
