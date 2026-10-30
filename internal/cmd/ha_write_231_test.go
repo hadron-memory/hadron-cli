@@ -327,12 +327,15 @@ func TestHaUpdateWithoutTokenFileLeavesTheTokenAlone(t *testing.T) {
 }
 
 // Usage refusals send nothing: an empty patch, contradictory flags, a slug
-// change, a token on argv and an empty token.
+// change, a token on argv, an empty token, and --clear-allow-ops=false (which
+// must not clear the allowlist, alone or beside another field).
 func TestHaUpdateUsageRefusalsSendNothing(t *testing.T) {
 	for name, args := range map[string][]string{
 		"empty patch":           {"update", "ha1"},
 		"enabled and disabled":  {"update", "ha1", "--enabled", "--disabled"},
 		"allow and clear":       {"update", "ha1", "--allow-op", "get_state", "--clear-allow-ops"},
+		"clear=false alone":     {"update", "ha1", "--clear-allow-ops=false"},
+		"clear=false with name": {"update", "ha1", "--name", "x", "--clear-allow-ops=false"},
 		"slug is immutable":     {"update", "ha1", "--slug", "x"},
 		"argv token":            {"update", "ha1", "--token", haToken231},
 		"empty token from file": {"update", "ha1", "--token-file", "-"},
