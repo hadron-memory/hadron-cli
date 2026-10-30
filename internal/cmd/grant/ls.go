@@ -17,10 +17,19 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 		Use:     "list [--org <ref>] [--user <ref>]",
 		Aliases: []string{"ls"},
 		Short:   "List action grants (default: your own)",
-		Long: `List action grants. With no flags, lists YOUR OWN grants across orgs
-(self-audit is never gated). An org ADMIN passing --org sees that whole
-org's grants, optionally narrowed by --user; a non-admin passing --org stays
-pinned to their own grants there. Pages to exhaustion.`,
+		Long: `List action grants.
+
+  (no flags)                   your own grants in every org
+  --org <org>                  as an org ADMIN or OWNER: every grant in it;
+                               otherwise: only your own grants there
+  --org <org> --user <user>    an ADMIN's listing narrowed to one grantee
+
+--user is ignored without --org. Every page is fetched. Revoked grants are not
+listed.
+The table shows ID (what grant revoke takes), GRANTEE, ORG, ACTIONS, EXPIRY
+("perpetual" when none) and CREATED. --json gives an array of id,
+principalType, principalId, principalHandle, organizationId, organizationUrn,
+actions, expiresAt and createdAt; an empty list is [].`,
 		Example: `  hadron grant list
   hadron grant list --org acme.com
   hadron grant list --org acme.com --user jane --json`,
