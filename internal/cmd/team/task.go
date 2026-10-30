@@ -59,6 +59,7 @@ Who may do what, from which status (cor:agt:050:08-:09):
   park                      PENDING with no assignee                an assigner
   ready                     BACKLOG                                 an assigner
   cancel                    BACKLOG, PENDING or STARTED             an assigner
+  update                    BACKLOG, PENDING or STARTED             an assigner
   set-priority              BACKLOG, PENDING or STARTED             an assigner
   add-/remove-blocker       BACKLOG or PENDING                      an assigner
 An assigner is ` + taskAssignerDoc + `.
@@ -101,6 +102,7 @@ acknowledges one.`,
 	cmd.AddCommand(newCmdTeamTaskPark(f))
 	cmd.AddCommand(newCmdTeamTaskReady(f))
 	cmd.AddCommand(newCmdTeamTaskGet(f))
+	cmd.AddCommand(newCmdTeamTaskUpdate(f))
 	cmd.AddCommand(newCmdTeamTaskList(f))
 	cmd.AddCommand(newCmdTeamTaskMine(f))
 	cmd.AddCommand(newCmdTeamTaskTree(f))
@@ -228,10 +230,10 @@ By default finishing or cancelling does not ask the assignee to end its
 worker session. Pass --close-session to ask (cor:agt:050:10); the platform
 may end it through the worker's live host after a grace period, 10 minutes by
 default, set per App, and declining the request does not prevent that.
---no-close-session states the default explicitly. The choice cannot be
-changed in place afterwards, so when the assignee's session should end with
-the task, pass --close-session at create, or on the assign that first names
-the assignee of a queued task.
+--no-close-session states the default explicitly. ` + "`task update`" + ` changes
+the choice later; to set it up front, when the assignee's session should end
+with the task, pass --close-session at create, or on the assign that first
+names the assignee of a queued task.
 
 Success prints the task's handle, id and status, "queued" when it has no
 assignee, the App and the close-session choice; --json returns the task with a
@@ -508,11 +510,11 @@ choice; --json returns the task with a warnings list.
 (cor:agt:050:10); with neither, the task keeps its current value. Give at most
 one: both together is a usage error, and ` + "`--close-session=false`" + ` is
 indistinguishable from absence here and also means "keep the current value".
-The flags ride on a real assignment: there is no in-place setter, and
-reassigning a task to its current assignee is refused (TASK_INVALID_TRANSITION)
-with the choice unchanged. To have the assignee's session end with the task,
-pass --close-session at create, or on the assign that first names the assignee
-of a queued task. The default of not asking applies at creation; assign and
+The flags ride on a real assignment, and reassigning a task to its current
+assignee is refused (TASK_INVALID_TRANSITION) with the choice unchanged. To
+change the choice without assigning, use ` + "`task update`" + `. To have the
+assignee's session end with the task from the start, pass --close-session at
+create, or on the assign that first names the assignee of a queued task. The default of not asking applies at creation; assign and
 reassign with neither flag keep the value the task already has. What the
 request does is described under ` + "`task create --help`" + `.`
 }

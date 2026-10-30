@@ -3958,6 +3958,27 @@ hadron team worker served-prompt <worker-id-or-qualified-URN> [--limit N] [--off
 
 Role reads and cast previews no longer request the retired `hasNamePlaceholder` probe or infer nameless briefings from it. Existing JSON keeps that key as null for compatibility. Other role fields, preview prompt and `reserved:false` remain unchanged. This does not remove legacy platform-variable handling or alter the prompt a bind/run is served.
 
+# Editing a task (cli#1137)
+`hadron team task update <task>` edits a task after creation through one
+`updateAgentTask` mutation; the task keeps its id and handle. Only named flags
+are sent (the server reads the input as a strict patch): omitted means
+unchanged, and with no flag at all the command exits 2 locally and sends
+nothing. `--title` (cannot be emptied; the server refuses an empty one and its
+refusal is printed), `--description` / `--clear-description`, repeatable `--tag`
+(replaces the WHOLE list) / `--clear-tags`, `--require-role` / `--family-in` /
+`--family-not-in` / repeatable `--exclude-worker` (any of them replaces the
+WHOLE requirements) / `--clear-requirements`, `--start-by <RFC 3339>` /
+`--clear-start-by` (re-anchors only the not-started clock; a raised alarm stays
+raised), and the tri-state `--close-session` / `--no-close-session` (neither =
+unchanged; `--close-session=false` and `--no-close-session=false` exit 2, say no with `--no-close-session`). A value flag with its `--clear-…` twin, both close-session flags, or
+`--family-in` with `--family-not-in` exit 2 before any request. Not editable
+here: source, owner, assignee, status, parent, priority, blockers. Text output
+is `task get`'s; `--json` is the updated task. Refusals keep the server code and
+mapped exit and print no task: TASK_ENDED (exit 5), TASK_NOT_OWNER (8; an
+assignee alone may not edit), TASK_NOT_FOUND (4), BAD_USER_INPUT (2). Requires
+a server containing hadron-server#2645 (76792bd9 or later); older servers reject
+the unknown field as schema skew.
+
 # Task priority and dependencies (cli#1135)
 `hadron team task create <title> --priority 2 --blocked-by AT1.2 --blocked-by <id>`
 sets optional priority and blockers in the same create mutation. Omitted fields
@@ -3978,6 +3999,7 @@ text get displays the bounded pages. No local priority sort or dependency policy
 Refusals preserve the server code/message and mapped exit code, print no task,
 and never retry the mutation.
 
+hadron team task update <task> [--title <t>] [--description <d> | --clear-description] [--tag <t>… | --clear-tags] [--require-role <r>] [--family-in <f,…> | --family-not-in <f,…>] [--exclude-worker <w>…] [--clear-requirements] [--start-by <rfc3339> | --clear-start-by] [--close-session | --no-close-session]
 hadron team task set-priority <task> <priority> | add-blocker|remove-blocker <task> <blocker-task> | dependencies <task> [--limit N] [--offset N]
 
 Task priority/blocker fields require server #2726 (cf9bcfece) or later on every

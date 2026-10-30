@@ -1,0 +1,221 @@
+package team
+
+// `hadron team task update` (hadron-cli#1137, server#2645, cor:agt:050:09
+// Editing). A thin caller over updateAgentTask: the server decides who may edit,
+// which states refuse (TASK_ENDED), and every value's range. This file only
+// shapes the strict patch the server reads: a named field is applied, a named
+// null clears it, an unnamed field is not sent at all.
+
+import (
+	"encoding/json"
+	"io"
+	"strings"
+
+	"github.com/spf13/cobra"
+
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/output"
+)
+
+// taskRequirementsPatch is the requirements object, in the key order the wire
+// shows. Empty fields drop out, so only what a flag named is sent.
+type taskRequirementsPatch struct {
+	ExcludeWorkers []string `json:"excludeWorkers,omitempty"`
+	FamilyIn       []string `json:"familyIn,omitempty"`
+	FamilyNotIn    []string `json:"familyNotIn,omitempty"`
+	Role           string   `json:"role,omitempty"`
+}
+
+var jsonNull = json.RawMessage("null")
+
+func newCmdTeamTaskUpdate(f *cmdutil.Factory) *cobra.Command {
+	var title, description, startBy, requireRole, familyIn, familyNotIn string
+	var tags, excludeWorkers []string
+	var clearDescription, clearTags, clearRequirements, clearStartBy bool
+	var closeSession, noCloseSession bool
+	cmd := &cobra.Command{
+		Use:   "update <task> [flags]",
+		Short: "Edit a task's title, description, tags, requirements, start-by or close-session choice",
+		Long: `Change a task after creating it, without cancelling and recreating it. The task
+keeps its id and handle. Name it by id or handle (AT1.2), as task get does.
+
+Only the flags you name are sent; every other field stays as it is. With no
+flag at all the command is refused here and nothing is sent. A flag that
+replaces a value has a --clear-… twin that empties it; naming both is refused.
+
+- --title <text>: the new title. It cannot be emptied; the server refuses an
+  empty one and its refusal is shown.
+- --description <text> or --clear-description.
+- --tag <tag>, repeatable: --tag replaces the whole list, it never adds to it.
+  --clear-tags empties the list.
+- --require-role, --family-in, --family-not-in and --exclude-worker replace the
+  whole requirements, not one of them: name every requirement you want to keep.
+  --clear-requirements empties them.
+- --start-by <RFC 3339 time> or --clear-start-by. --start-by re-anchors only the
+  not-started clock (cor:agt:050:14): it moves the deadline that task list
+  --overdue and the not-started alarm read. An alarm already raised stays raised.
+- --close-session asks the assignee's worker session to end when the task
+  finishes or is cancelled; --no-close-session says it should not. Neither flag
+  leaves the choice as it is. ` + "`--close-session=false`" + ` is refused, because
+  it cannot be told from leaving the flag out: say no with --no-close-session.
+
+Not editable here: --source (fixed once the task exists), the owner and assignee
+(task assign, task reassign), the status (task start, finish, cancel, park, ready),
+the parent, the priority and the blockers (task set-priority, add-blocker).
+
+Who may edit: the task's owner, a worker the owner reports to, or a person who
+manages the App; an assignee alone may not (TASK_NOT_OWNER). A finished or
+cancelled task refuses (TASK_ENDED). An edit is not progress and does not clear
+a stall alarm. Success prints the task as task get does; --json returns it.`,
+		Example: `  # fix a title and clear the description
+  hadron team task update AT1.2 --title "Fix the login redirect" --clear-description
+
+  # replace the tags and the requirements with exactly these
+  hadron team task update AT1.2 --tag auth --tag urgent --require-role qa-engineer --family-not-in codex
+
+  # push the not-started deadline out, and ask the session to end with the task
+  hadron team task update AT1.2 --start-by 2026-11-02T09:00:00Z --close-session`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			taskId, err := taskRefArg(args)
+			if err != nil {
+				return err
+			}
+			fl := cmd.Flags()
+			usage := func(format string, a ...any) error { return exitcode.Newf(exitcode.Usage, format, a...) }
+			reqNamed := fl.Changed("require-role") || fl.Changed("family-in") || fl.Changed("family-not-in") || fl.Changed("exclude-worker")
+			anyField := fl.Changed("title") || fl.Changed("description") || clearDescription ||
+				fl.Changed("tag") || clearTags || reqNamed || clearRequirements ||
+				fl.Changed("start-by") || clearStartBy || fl.Changed("close-session") || fl.Changed("no-close-session")
+			if !anyField {
+				return usage("pass at least one field flag to change (--title, --description, --tag, --require-role, --start-by, --close-session, or a --clear-…); nothing was sent")
+			}
+			for _, c := range []struct {
+				set   bool
+				clear bool
+				a, b  string
+			}{
+				{fl.Changed("description"), clearDescription, "--description", "--clear-description"},
+				{fl.Changed("tag"), clearTags, "--tag", "--clear-tags"},
+				{reqNamed, clearRequirements, "--require-role, --family-in, --family-not-in or --exclude-worker", "--clear-requirements"},
+				{fl.Changed("start-by"), clearStartBy, "--start-by", "--clear-start-by"},
+			} {
+				if c.set && c.clear {
+					return usage("%s and %s contradict each other: replace the value or clear it", c.a, c.b)
+				}
+			}
+			// Presence, not value: `--close-session=false` is a supplied flag that
+			// a plain bool cannot tell from an absent one, so it is refused with
+			// the spelling that does say no, rather than silently keeping the
+			// stored choice (the cli-add-a-tri-state-flag gotcha).
+			for _, c := range []struct {
+				name string
+				on   bool
+				use  string
+			}{{"close-session", closeSession, "--no-close-session"}, {"no-close-session", noCloseSession, "--close-session"}} {
+				if fl.Changed(c.name) && !c.on {
+					return usage("--%s=false changes nothing; to say the opposite pass %s", c.name, c.use)
+				}
+			}
+			if closeSession && noCloseSession {
+				return usage("--close-session and --no-close-session contradict each other")
+			}
+			if familyIn != "" && familyNotIn != "" {
+				return usage("--family-in and --family-not-in: give one, not both")
+			}
+
+			input := gen.UpdateAgentTaskInput{}
+			if fl.Changed("title") {
+				// Presence, not value: an empty --title is sent and the server's
+				// refusal is the answer, rather than silently dropping the edit.
+				input.Title = &title
+			}
+			switch {
+			case clearDescription:
+				input.Description = jsonNull
+			case fl.Changed("description"):
+				input.Description = mustJSON(description)
+			}
+			switch {
+			case clearTags:
+				input.Tags = jsonNull
+			case fl.Changed("tag"):
+				for i, t := range tags {
+					if tags[i] = strings.TrimSpace(t); tags[i] == "" {
+						return usage("--tag must not be empty (use --clear-tags to empty the list)")
+					}
+				}
+				input.Tags = mustJSON(tags)
+			}
+			switch {
+			case clearRequirements:
+				input.Requirements = jsonNull
+			case reqNamed:
+				p := taskRequirementsPatch{ExcludeWorkers: excludeWorkers, FamilyIn: commaList(familyIn), FamilyNotIn: commaList(familyNotIn), Role: strings.TrimSpace(requireRole)}
+				for i, w := range p.ExcludeWorkers {
+					if p.ExcludeWorkers[i] = strings.TrimSpace(w); p.ExcludeWorkers[i] == "" {
+						return usage("--exclude-worker must name a worker")
+					}
+				}
+				if (fl.Changed("require-role") && p.Role == "") || (fl.Changed("family-in") && len(p.FamilyIn) == 0) || (fl.Changed("family-not-in") && len(p.FamilyNotIn) == 0) {
+					return usage("a requirement flag was given an empty value: name the requirement, or use --clear-requirements")
+				}
+				input.Requirements = mustJSON(p)
+			}
+			switch {
+			case clearStartBy:
+				input.StartBy = jsonNull
+			case fl.Changed("start-by"):
+				if _, ok := cmdutil.ParseStrictDateTime(startBy); !ok {
+					return usage("--start-by takes an RFC 3339 timestamp, e.g. 2026-10-13T09:00:00Z, got %q", startBy)
+				}
+				input.StartBy = mustJSON(startBy)
+			}
+			if closeSession {
+				input.CloseSessionWhenDone = boolPtr(true)
+			} else if noCloseSession {
+				input.CloseSessionWhenDone = boolPtr(false)
+			}
+
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			resp, err := gen.AgentTaskUpdate(cmd.Context(), client, taskId, &input)
+			if err != nil {
+				return mapTaskError(err)
+			}
+			task := taskDTOFrom(resp.UpdateAgentTask.AgentTaskFields)
+			return output.Write(f.IOStreams, f.JSON, task, func(w io.Writer) error {
+				return renderTaskDetail(w, task)
+			})
+		},
+	}
+	cmd.Flags().StringVar(&title, "title", "", "the new title (cannot be emptied)")
+	cmd.Flags().StringVar(&description, "description", "", "the new description")
+	cmd.Flags().BoolVar(&clearDescription, "clear-description", false, "remove the description")
+	cmd.Flags().StringArrayVar(&tags, "tag", nil, "a tag, repeatable; --tag replaces the whole list")
+	cmd.Flags().BoolVar(&clearTags, "clear-tags", false, "remove every tag")
+	cmd.Flags().StringVar(&requireRole, "require-role", "", "required role; replaces the whole requirements")
+	cmd.Flags().StringVar(&familyIn, "family-in", "", "comma list of model families the assignee must run as; replaces the whole requirements")
+	cmd.Flags().StringVar(&familyNotIn, "family-not-in", "", "comma list of model families the assignee must not run as; replaces the whole requirements")
+	cmd.Flags().StringArrayVar(&excludeWorkers, "exclude-worker", nil, "a worker the matcher must not pick, repeatable; replaces the whole requirements")
+	cmd.Flags().BoolVar(&clearRequirements, "clear-requirements", false, "remove every requirement")
+	cmd.Flags().StringVar(&startBy, "start-by", "", "RFC 3339 time; re-anchors only the not-started clock")
+	cmd.Flags().BoolVar(&clearStartBy, "clear-start-by", false, "remove the explicit start-by")
+	cmd.Flags().BoolVar(&closeSession, "close-session", false, "ask the assignee's session to end when the task finishes or is cancelled")
+	cmd.Flags().BoolVar(&noCloseSession, "no-close-session", false, "state that the session should not end with the task")
+	return cmd
+}
+
+// mustJSON marshals a value built from strings and string slices, which cannot
+// fail.
+func mustJSON(v any) json.RawMessage {
+	b, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return b
+}

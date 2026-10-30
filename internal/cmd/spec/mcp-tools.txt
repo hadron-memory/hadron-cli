@@ -122,6 +122,7 @@ hadron_task_priority_set
 hadron_task_progress
 hadron_task_reassign
 hadron_task_start
+hadron_task_update
 hadron_team_attention
 hadron_team_attention_page
 hadron_team_attention_switchover
