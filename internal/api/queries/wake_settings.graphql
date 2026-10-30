@@ -1,0 +1,31 @@
+# A worker's wake settings (cli#1292, cor:agt:080:03). One selection shared by
+# the read and the write, which both return WorkerWakeSettings. The isolation
+# fields are projected as the server returns them; the isolate/clear commands
+# are cli#911 slice B2 and reuse this fragment rather than adding a second copy.
+fragment WorkerWakeSettingsFields on WorkerWakeSettings {
+ worker { id name urn }
+ mentions
+ pausedUntil
+ subscriptions { id ticker { id urn name cadenceSeconds enabled } viaGrant createdAt }
+ effectiveCadenceSeconds
+ dormant
+ isolated
+ isolatedAt
+ isolatedByHandle
+ isolatedUntil
+ canManageIsolation
+}
+query WorkerWakeSettings($workerRef: String!) {
+ workerWakeSettings(workerRef: $workerRef) { ...WorkerWakeSettingsFields }
+}
+# Omitted keeps, null clears: only the flags given are sent (cor:agt:080:21).
+
+# @genqlient(for: "WorkerWakeSettingsInput.mentions", omitempty: true)
+# @genqlient(for: "WorkerWakeSettingsInput.pausedUntil", omitempty: true)
+# @genqlient(for: "WorkerWakeSettingsInput.clearPause", omitempty: true)
+mutation SetWorkerWakeSettings(
+ $workerRef: String!
+ $input: WorkerWakeSettingsInput!
+) {
+ setWorkerWakeSettings(workerRef: $workerRef, input: $input) { ...WorkerWakeSettingsFields }
+}
