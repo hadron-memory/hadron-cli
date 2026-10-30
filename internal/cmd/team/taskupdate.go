@@ -76,7 +76,8 @@ Not editable here: --source (fixed once the task exists), the owner and assignee
 the parent, the priority and the blockers (task set-priority, add-blocker).
 
 Who may edit: the task's owner, a worker the owner reports to, or a person who
-manages the App; an assignee alone may not (TASK_NOT_OWNER). A finished or
+manages the App; an assignee alone may edit --properties and nothing else, any
+other field is refused (TASK_NOT_OWNER). A finished or
 cancelled task refuses (TASK_ENDED). An edit is not progress and does not clear
 a stall alarm. Success prints the task as task get does; --json returns it.`,
 		Example: `  # fix a title and clear the description

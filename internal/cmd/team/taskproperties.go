@@ -20,8 +20,9 @@ import (
 
 // maxPropertiesFileBytes bounds what `@file` reads. The server's limit is 16 KiB
 // of canonical JSON; a file far past that is refused by the server with
-// PROPERTIES_TOO_LARGE, so this only stops an accidental huge or endless file
-// (a device, a pipe) from being slurped into memory first.
+// PROPERTIES_TOO_LARGE, so this is only a memory bound: it stops an accidental
+// huge file from being slurped whole. It does not stop a pipe or device that
+// blocks without ever producing the bytes.
 const maxPropertiesFileBytes = 1 << 20
 
 // parsePropertiesFlag turns --properties' value into the JSON to send. A value

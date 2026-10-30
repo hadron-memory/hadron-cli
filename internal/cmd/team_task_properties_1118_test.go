@@ -195,7 +195,8 @@ func TestTaskPropertiesRefusalsRenderCodeAndExit1118(t *testing.T) {
 		{"PROPERTIES_SCHEMA_VIOLATION", exitcode.Usage},
 		{"PROPERTIES_SCHEMA_UNUSABLE", exitcode.Conflict},
 		{"TASK_ENDED", exitcode.Conflict},
-		// An assignee combining --properties with another field.
+		// How an assignee's mixed edit is refused is the server's rule; this pins
+		// only that the code and its exit render for a properties write.
 		{"TASK_NOT_OWNER", exitcode.Forbidden},
 	} {
 		for _, verb := range []string{"update", "create"} {
@@ -221,6 +222,36 @@ func TestTaskPropertiesRefusalsRenderCodeAndExit1118(t *testing.T) {
 					t.Fatalf("partial stdout: %q", out)
 				}
 			})
+		}
+	}
+}
+
+// Diego's LOCAL P3: the @file cap is exact. One MiB of JSON plus whitespace is
+// read; one byte more is refused before any request.
+func TestPropertiesFileSizeBoundary1118(t *testing.T) {
+	const limit = 1 << 20
+	dir := t.TempDir()
+	write := func(name string, n int) string {
+		path := filepath.Join(dir, name)
+		if err := os.WriteFile(path, []byte("{}"+strings.Repeat(" ", n-2)), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+	calls, _, err := runTeamTask(t, taskPropsResponses1118(`null`), "team", "task", "update", "AT1.2", "--properties", "@"+write("exact.json", limit))
+	if err != nil {
+		t.Fatalf("exactly %d bytes must be accepted: %v", limit, err)
+	}
+	if got := string(sentInput1118(t, "AgentTaskUpdate", calls)["properties"]); got != "{}" {
+		t.Fatalf("properties = %s", got)
+	}
+	calls, _, err = runTeamTask(t, taskPropsResponses1118(`null`), "team", "task", "update", "AT1.2", "--properties", "@"+write("over.json", limit+1))
+	if exitCodeFor(err) != exitcode.Usage || strings.Contains(err.Error(), "unknown flag") {
+		t.Fatalf("one byte over must be a usage refusal, got %v", err)
+	}
+	for _, c := range *calls {
+		if c.Op == "AgentTaskUpdate" {
+			t.Fatal("a request was sent")
 		}
 	}
 }
