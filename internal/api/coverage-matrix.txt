@@ -1,5 +1,5 @@
 # CLI coverage matrix (hadron-cli#1334, #66; cor:api:240:02): every field hadron-server
-# exposes, and how the CLI reaches it. Regenerate with `make coverage`; `make coverage-check` fails when
+# exposes, and how the CLI reaches it. Regenerate with `make coverage-matrix`; `make coverage-matrix-check` fails when
 # the file is stale, a line is UNCLASSIFIED, or a disposition contradicts the code.
 #
 # What is reached is DERIVED from the code: a reached field has a document selecting it and

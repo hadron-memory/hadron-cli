@@ -52,17 +52,24 @@ type docOp struct {
 	args map[string]map[string]bool
 }
 
-// passedPaths records the paths a value passes under prefix.
+// passedPaths records the paths a value passes under prefix. A list's
+// elements pass at the list's own path, so a list of object literals passes
+// the union of their fields.
 func passedPaths(into map[string]bool, prefix string, v *gql.Value) {
-	if v.Kind != gql.ObjectValue {
+	switch v.Kind {
+	case gql.ObjectValue, gql.ListValue:
+		if _, ok := into[prefix]; !ok {
+			into[prefix] = false
+		}
+		for _, c := range v.Children {
+			sub := prefix
+			if v.Kind == gql.ObjectValue {
+				sub += "." + c.Name
+			}
+			passedPaths(into, sub, c.Value)
+		}
+	default:
 		into[prefix] = into[prefix] || v.Kind == gql.Variable
-		return
-	}
-	if _, ok := into[prefix]; !ok {
-		into[prefix] = false
-	}
-	for _, c := range v.Children {
-		passedPaths(into, prefix+"."+c.Name, c.Value)
 	}
 }
 
@@ -315,7 +322,7 @@ func (f *facts) argumentItems() (arguments, filters []item) {
 				if root == "Query" && isFilter(f.types[a.Type.Name()]) {
 					w.filterArg = a.Name
 				}
-				w.visit(a.Name, a.Type.Name(), deprecation(a.Directives), false, map[string]bool{})
+				w.visit(a.Name, a.Type.Name(), deprecation(a.Directives), false, false, map[string]bool{})
 				arguments = append(arguments, w.arguments...)
 				filters = append(filters, w.filters...)
 			}
@@ -357,8 +364,10 @@ func (w *walk) emit(path string, reached bool, deprecated string) {
 }
 
 // visit decides path (of type typeName) and descends into it. viaGo is true
-// once the walk is below a variable, where the Go code decides what is set.
-func (w *walk) visit(path, typeName, deprecated string, viaGo bool, onPath map[string]bool) {
+// once the walk is below a variable, where the Go code decides what is set;
+// decoded is true below an input the code decodes JSON into, which reaches
+// every input nested in it.
+func (w *walk) visit(path, typeName, deprecated string, viaGo, decoded bool, onPath map[string]bool) {
 	def := w.f.types[typeName]
 	if !viaGo {
 		opaque, passed := w.f.args[w.root][path]
@@ -383,15 +392,16 @@ func (w *walk) visit(path, typeName, deprecated string, viaGo bool, onPath map[s
 	}
 	onPath[typeName] = true
 	defer delete(onPath, typeName)
+	decoded = decoded || w.f.uses.decoded[typeName]
 	for _, fld := range def.Fields {
 		sub := path + "." + fld.Name
 		// Below a variable the Go code decides, unless another operation
 		// spells the same field out in its document.
 		_, literal := w.f.args[w.root][sub]
-		if viaGo && !literal && !w.f.uses.decoded[typeName] && !w.f.uses.fields[typeName+"."+fld.Name] {
+		if viaGo && !literal && !decoded && !w.f.uses.fields[typeName+"."+fld.Name] {
 			w.emit(sub, false, deprecation(fld.Directives))
 			continue
 		}
-		w.visit(sub, fld.Type.Name(), deprecation(fld.Directives), viaGo, onPath)
+		w.visit(sub, fld.Type.Name(), deprecation(fld.Directives), viaGo, decoded, onPath)
 	}
 }

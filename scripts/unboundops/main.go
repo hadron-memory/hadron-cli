@@ -176,7 +176,7 @@ func summary(c map[coveragematrix.Kind]int) string {
 func oneLine(s string) string { return strings.Join(strings.Fields(s), " ") }
 
 const header = `# CLI coverage matrix (hadron-cli#1334, #66; cor:api:240:02): every field hadron-server
-# exposes, and how the CLI reaches it. Regenerate with ` + "`make coverage`" + `; ` + "`make coverage-check`" + ` fails when
+# exposes, and how the CLI reaches it. Regenerate with ` + "`make coverage-matrix`" + `; ` + "`make coverage-matrix-check`" + ` fails when
 # the file is stale, a line is UNCLASSIFIED, or a disposition contradicts the code.
 #
 # What is reached is DERIVED from the code: a reached field has a document selecting it and
@@ -232,7 +232,7 @@ func run(check bool) error {
 		return fmt.Errorf("✗ %s: %d problem(s):\n  %s", coveragematrix.Path, len(problems), strings.Join(problems, "\n  "))
 	}
 	if string(committed) != out {
-		return fmt.Errorf("✗ %s is stale: the schema or the code changed what the CLI reaches.\n  Run `make coverage` and commit; then decide every UNCLASSIFIED line", coveragematrix.Path)
+		return fmt.Errorf("✗ %s is stale: the schema or the code changed what the CLI reaches.\n  Run `make coverage-matrix` and commit; then decide every UNCLASSIFIED line", coveragematrix.Path)
 	}
 	fmt.Printf("✓ %s in sync (%s)\n", coveragematrix.Path, firstLines(out))
 	return nil
