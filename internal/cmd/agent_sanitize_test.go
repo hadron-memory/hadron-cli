@@ -47,7 +47,7 @@ func TestAgentGetSanitizesDetailValues(t *testing.T) {
 	}
 	text := out.String()
 	assertSafeTableText(t, text, -1, 1)
-	assertDetailLineCount(t, text, 12)
+	assertDetailLineCount(t, text, 13)
 }
 
 // A hostile value carrying ONLY a newline is invisible to the control-rune
@@ -65,7 +65,7 @@ func TestAgentGetDetailNeutralizesNewlineOnlyForgery(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := out.String()
-	assertDetailLineCount(t, text, 12)
+	assertDetailLineCount(t, text, 13)
 	for _, line := range strings.Split(text, "\n") {
 		if strings.HasPrefix(line, "Forged:") {
 			t.Fatalf("a newline-only hostile value forged a detail line:\n%s", text)

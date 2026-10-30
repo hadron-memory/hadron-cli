@@ -696,8 +696,9 @@ type AgentFields struct {
 	// Persona role - free string with conventions ('backend-engineer').
 	PersonaRole *string `json:"personaRole"`
 	// #2138: false means every Worker cast from this Agent counts as having a task and is expected to check its team channel every period (coordinators, the lifecycle agent). Default true.
-	UsesTasks bool   `json:"usesTasks"`
-	CreatedAt string `json:"createdAt"`
+	UsesTasks          bool                           `json:"usesTasks"`
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+	CreatedAt          string                         `json:"createdAt"`
 }
 
 // GetId returns AgentFields.Id, and is useful for accessing the field via an interface.
@@ -757,8 +758,21 @@ func (v *AgentFields) GetPersonaRole() *string { return v.PersonaRole }
 // GetUsesTasks returns AgentFields.UsesTasks, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetUsesTasks() bool { return v.UsesTasks }
 
+// GetInstallationPolicy returns AgentFields.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.InstallationPolicy
+}
+
 // GetCreatedAt returns AgentFields.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetCreatedAt() string { return v.CreatedAt }
+
+// AgentFieldsInstallationPolicy includes the requested fields of the GraphQL type InstallationPolicy.
+type AgentFieldsInstallationPolicy struct {
+	MemberRoles []string `json:"memberRoles"`
+}
+
+// GetMemberRoles returns AgentFieldsInstallationPolicy.MemberRoles, and is useful for accessing the field via an interface.
+func (v *AgentFieldsInstallationPolicy) GetMemberRoles() []string { return v.MemberRoles }
 
 // Filter for the uniform agents() list (#473). Clauses AND-combine.
 type AgentFilter struct {
@@ -8182,6 +8196,11 @@ func (v *AgentsAgentsAgentsPageItemsAgent) GetPersonaRole() *string { return v.A
 // GetUsesTasks returns AgentsAgentsAgentsPageItemsAgent.UsesTasks, and is useful for accessing the field via an interface.
 func (v *AgentsAgentsAgentsPageItemsAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
 
+// GetInstallationPolicy returns AgentsAgentsAgentsPageItemsAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
 // GetCreatedAt returns AgentsAgentsAgentsPageItemsAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AgentsAgentsAgentsPageItemsAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
 
@@ -8249,6 +8268,8 @@ type __premarshalAgentsAgentsAgentsPageItemsAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -8282,6 +8303,7 @@ func (v *AgentsAgentsAgentsPageItemsAgent) __premarshalJSON() (*__premarshalAgen
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -9406,6 +9428,43 @@ type AppKeysMetadataResponse struct {
 
 // GetAppKeys returns AppKeysMetadataResponse.AppKeys, and is useful for accessing the field via an interface.
 func (v *AppKeysMetadataResponse) GetAppKeys() []*AppKeysMetadataAppKeysAppKey { return v.AppKeys }
+
+// AppMemberRolesApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type AppMemberRolesApp struct {
+	Id  string `json:"id"`
+	Urn string `json:"urn"`
+	// #2171 (R211): the member roles this App offers: the union over its installed Agents, primary first.
+	AvailableMemberRoles []string `json:"availableMemberRoles"`
+}
+
+// GetId returns AppMemberRolesApp.Id, and is useful for accessing the field via an interface.
+func (v *AppMemberRolesApp) GetId() string { return v.Id }
+
+// GetUrn returns AppMemberRolesApp.Urn, and is useful for accessing the field via an interface.
+func (v *AppMemberRolesApp) GetUrn() string { return v.Urn }
+
+// GetAvailableMemberRoles returns AppMemberRolesApp.AvailableMemberRoles, and is useful for accessing the field via an interface.
+func (v *AppMemberRolesApp) GetAvailableMemberRoles() []string { return v.AvailableMemberRoles }
+
+// AppMemberRolesResponse is returned by AppMemberRoles on success.
+type AppMemberRolesResponse struct {
+	// Fetch an App (member of the App's org, or platform ADMIN — the myApps
+	// exposure bar; #473 relaxed this from org ADMIN for read parity with the
+	// list).
+	//
+	// 'ref' accepts the entity's ID or URN.
+	App *AppMemberRolesApp `json:"app"`
+}
+
+// GetApp returns AppMemberRolesResponse.App, and is useful for accessing the field via an interface.
+func (v *AppMemberRolesResponse) GetApp() *AppMemberRolesApp { return v.App }
 
 // AppMembersApp includes the requested fields of the GraphQL type App.
 // The GraphQL type's documentation follows.
@@ -14548,6 +14607,11 @@ func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetUsesTasks() bool {
 	return v.AgentFields.UsesTasks
 }
 
+// GetInstallationPolicy returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
 // GetCreatedAt returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetCreatedAt() string {
 	return v.AgentFields.CreatedAt
@@ -14617,6 +14681,8 @@ type __premarshalClearAgentProcessesIndexSetAgentIndexRefsAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -14650,6 +14716,7 @@ func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) __premarshalJSON() (*__
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -14768,6 +14835,11 @@ func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetUsesTasks() bool {
 	return v.AgentFields.UsesTasks
 }
 
+// GetInstallationPolicy returns ClearAgentTasksIndexSetAgentIndexRefsAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
 // GetCreatedAt returns ClearAgentTasksIndexSetAgentIndexRefsAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetCreatedAt() string {
 	return v.AgentFields.CreatedAt
@@ -14837,6 +14909,8 @@ type __premarshalClearAgentTasksIndexSetAgentIndexRefsAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -14870,6 +14944,7 @@ func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) __premarshalJSON() (*__prem
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -14956,6 +15031,11 @@ func (v *CloneAgentCloneAgent) GetPersonaRole() *string { return v.AgentFields.P
 // GetUsesTasks returns CloneAgentCloneAgent.UsesTasks, and is useful for accessing the field via an interface.
 func (v *CloneAgentCloneAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
 
+// GetInstallationPolicy returns CloneAgentCloneAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *CloneAgentCloneAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
 // GetCreatedAt returns CloneAgentCloneAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *CloneAgentCloneAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
 
@@ -15023,6 +15103,8 @@ type __premarshalCloneAgentCloneAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -15056,6 +15138,7 @@ func (v *CloneAgentCloneAgent) __premarshalJSON() (*__premarshalCloneAgentCloneA
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -17817,6 +17900,11 @@ func (v *CreateAgentCreateAgent) GetPersonaRole() *string { return v.AgentFields
 // GetUsesTasks returns CreateAgentCreateAgent.UsesTasks, and is useful for accessing the field via an interface.
 func (v *CreateAgentCreateAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
 
+// GetInstallationPolicy returns CreateAgentCreateAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
 // GetCreatedAt returns CreateAgentCreateAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *CreateAgentCreateAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
 
@@ -17884,6 +17972,8 @@ type __premarshalCreateAgentCreateAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -17917,6 +18007,7 @@ func (v *CreateAgentCreateAgent) __premarshalJSON() (*__premarshalCreateAgentCre
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -26579,6 +26670,11 @@ func (v *GetAgentAgent) GetPersonaRole() *string { return v.AgentFields.PersonaR
 // GetUsesTasks returns GetAgentAgent.UsesTasks, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
 
+// GetInstallationPolicy returns GetAgentAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
 // GetCreatedAt returns GetAgentAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
 
@@ -26648,6 +26744,8 @@ type __premarshalGetAgentAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -26682,6 +26780,7 @@ func (v *GetAgentAgent) __premarshalJSON() (*__premarshalGetAgentAgent, error) {
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -40076,6 +40175,11 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetUsesTasks() bool {
 	return v.AgentFields.UsesTasks
 }
 
+// GetInstallationPolicy returns PublicAgentsPublicAgentsAgentsPageItemsAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
 // GetCreatedAt returns PublicAgentsPublicAgentsAgentsPageItemsAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetCreatedAt() string {
 	return v.AgentFields.CreatedAt
@@ -40145,6 +40249,8 @@ type __premarshalPublicAgentsPublicAgentsAgentsPageItemsAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -40178,6 +40284,7 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) __premarshalJSON() (*__pr
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -47967,6 +48074,11 @@ func (v *SetAgentBaseSetAgentBaseAgent) GetPersonaRole() *string { return v.Agen
 // GetUsesTasks returns SetAgentBaseSetAgentBaseAgent.UsesTasks, and is useful for accessing the field via an interface.
 func (v *SetAgentBaseSetAgentBaseAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
 
+// GetInstallationPolicy returns SetAgentBaseSetAgentBaseAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
 // GetCreatedAt returns SetAgentBaseSetAgentBaseAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *SetAgentBaseSetAgentBaseAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
 
@@ -48034,6 +48146,8 @@ type __premarshalSetAgentBaseSetAgentBaseAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -48067,6 +48181,7 @@ func (v *SetAgentBaseSetAgentBaseAgent) __premarshalJSON() (*__premarshalSetAgen
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -48189,6 +48304,11 @@ func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetUsesTasks() bool {
 	return v.AgentFields.UsesTasks
 }
 
+// GetInstallationPolicy returns SetAgentBootPromptSetAgentBootPromptAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
 // GetCreatedAt returns SetAgentBootPromptSetAgentBootPromptAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetCreatedAt() string {
 	return v.AgentFields.CreatedAt
@@ -48258,6 +48378,8 @@ type __premarshalSetAgentBootPromptSetAgentBootPromptAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -48291,6 +48413,7 @@ func (v *SetAgentBootPromptSetAgentBootPromptAgent) __premarshalJSON() (*__prema
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -48405,6 +48528,11 @@ func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetPersonaRole() *string {
 // GetUsesTasks returns SetAgentIndexRefsSetAgentIndexRefsAgent.UsesTasks, and is useful for accessing the field via an interface.
 func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
 
+// GetInstallationPolicy returns SetAgentIndexRefsSetAgentIndexRefsAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
 // GetCreatedAt returns SetAgentIndexRefsSetAgentIndexRefsAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetCreatedAt() string {
 	return v.AgentFields.CreatedAt
@@ -48474,6 +48602,8 @@ type __premarshalSetAgentIndexRefsSetAgentIndexRefsAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -48507,6 +48637,7 @@ func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) __premarshalJSON() (*__premars
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -57930,6 +58061,11 @@ func (v *UpdateAgentUpdateAgent) GetPersonaRole() *string { return v.AgentFields
 // GetUsesTasks returns UpdateAgentUpdateAgent.UsesTasks, and is useful for accessing the field via an interface.
 func (v *UpdateAgentUpdateAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
 
+// GetInstallationPolicy returns UpdateAgentUpdateAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
 // GetCreatedAt returns UpdateAgentUpdateAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *UpdateAgentUpdateAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
 
@@ -57997,6 +58133,8 @@ type __premarshalUpdateAgentUpdateAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -58030,6 +58168,7 @@ func (v *UpdateAgentUpdateAgent) __premarshalJSON() (*__premarshalUpdateAgentUpd
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -66318,6 +66457,14 @@ type __AppKeysMetadataInput struct {
 // GetAppRef returns __AppKeysMetadataInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__AppKeysMetadataInput) GetAppRef() string { return v.AppRef }
 
+// __AppMemberRolesInput is used internally by genqlient
+type __AppMemberRolesInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __AppMemberRolesInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AppMemberRolesInput) GetAppRef() string { return v.AppRef }
+
 // __AppMembersInput is used internally by genqlient
 type __AppMembersInput struct {
 	AppRef string `json:"appRef"`
@@ -67058,6 +67205,7 @@ type __CreateAgentInput struct {
 	SystemMemoryId *string          `json:"systemMemoryId,omitempty"`
 	Surfaces       []string         `json:"surfaces,omitempty"`
 	PersonaRole    *string          `json:"personaRole,omitempty"`
+	MemberRoles    []string         `json:"memberRoles,omitempty"`
 }
 
 // GetName returns __CreateAgentInput.Name, and is useful for accessing the field via an interface.
@@ -67083,6 +67231,9 @@ func (v *__CreateAgentInput) GetSurfaces() []string { return v.Surfaces }
 
 // GetPersonaRole returns __CreateAgentInput.PersonaRole, and is useful for accessing the field via an interface.
 func (v *__CreateAgentInput) GetPersonaRole() *string { return v.PersonaRole }
+
+// GetMemberRoles returns __CreateAgentInput.MemberRoles, and is useful for accessing the field via an interface.
+func (v *__CreateAgentInput) GetMemberRoles() []string { return v.MemberRoles }
 
 // __CreateAgentScheduleInput is used internally by genqlient
 type __CreateAgentScheduleInput struct {
@@ -70628,6 +70779,7 @@ type __UpdateAgentInput struct {
 	Urn            *string          `json:"urn,omitempty"`
 	PersonaRole    *string          `json:"personaRole,omitempty"`
 	UsesTasks      *bool            `json:"usesTasks,omitempty"`
+	MemberRoles    []string         `json:"memberRoles,omitempty"`
 }
 
 // GetRef returns __UpdateAgentInput.Ref, and is useful for accessing the field via an interface.
@@ -70659,6 +70811,9 @@ func (v *__UpdateAgentInput) GetPersonaRole() *string { return v.PersonaRole }
 
 // GetUsesTasks returns __UpdateAgentInput.UsesTasks, and is useful for accessing the field via an interface.
 func (v *__UpdateAgentInput) GetUsesTasks() *bool { return v.UsesTasks }
+
+// GetMemberRoles returns __UpdateAgentInput.MemberRoles, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentInput) GetMemberRoles() []string { return v.MemberRoles }
 
 // __UpdateAgentScheduleInput is used internally by genqlient
 type __UpdateAgentScheduleInput struct {
@@ -74296,6 +74451,9 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	installationPolicy {
+		memberRoles
+	}
 	createdAt
 }
 `
@@ -74637,6 +74795,45 @@ func AppKeysMetadata(
 	}
 
 	data_ = &AppKeysMetadataResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AppMemberRoles.
+const AppMemberRoles_Operation = `
+query AppMemberRoles ($appRef: ID!) {
+	app(ref: $appRef) {
+		id
+		urn
+		availableMemberRoles
+	}
+}
+`
+
+// #1226 (R211, cor:dmo:050:04): the roles the App offers, the union over its
+// installed Agents, in the server's order (primary Agent first). Read-only; the
+// CLI never derives or checks roles itself.
+func AppMemberRoles(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *AppMemberRolesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AppMemberRoles",
+		Query:  AppMemberRoles_Operation,
+		Variables: &__AppMemberRolesInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &AppMemberRolesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -76560,6 +76757,9 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	installationPolicy {
+		memberRoles
+	}
 	createdAt
 }
 `
@@ -76618,6 +76818,9 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	installationPolicy {
+		memberRoles
+	}
 	createdAt
 }
 `
@@ -76714,6 +76917,9 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	installationPolicy {
+		memberRoles
+	}
 	createdAt
 }
 `
@@ -77359,8 +77565,8 @@ func ConnectionGrants(
 
 // The mutation executed by CreateAgent.
 const CreateAgent_Operation = `
-mutation CreateAgent ($name: String!, $orgId: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $personaRole: String) {
-	createAgent(name: $name, orgId: $orgId, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, personaRole: $personaRole) {
+mutation CreateAgent ($name: String!, $orgId: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $personaRole: String, $memberRoles: [String!]) {
+	createAgent(name: $name, orgId: $orgId, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, personaRole: $personaRole, memberRoles: $memberRoles) {
 		... AgentFields
 	}
 }
@@ -77384,6 +77590,9 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	installationPolicy {
+		memberRoles
+	}
 	createdAt
 }
 `
@@ -77399,6 +77608,7 @@ func CreateAgent(
 	systemMemoryId *string,
 	surfaces []string,
 	personaRole *string,
+	memberRoles []string,
 ) (data_ *CreateAgentResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateAgent",
@@ -77412,6 +77622,7 @@ func CreateAgent(
 			SystemMemoryId: systemMemoryId,
 			Surfaces:       surfaces,
 			PersonaRole:    personaRole,
+			MemberRoles:    memberRoles,
 		},
 	}
 
@@ -81554,6 +81765,9 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	installationPolicy {
+		memberRoles
+	}
 	createdAt
 }
 `
@@ -86214,6 +86428,9 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	installationPolicy {
+		memberRoles
+	}
 	createdAt
 }
 `
@@ -89123,6 +89340,9 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	installationPolicy {
+		memberRoles
+	}
 	createdAt
 }
 `
@@ -89185,6 +89405,9 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	installationPolicy {
+		memberRoles
+	}
 	createdAt
 }
 `
@@ -89248,6 +89471,9 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	installationPolicy {
+		memberRoles
+	}
 	createdAt
 }
 `
@@ -92011,8 +92237,8 @@ func UnsubscribeTicker(
 
 // The mutation executed by UpdateAgent.
 const UpdateAgent_Operation = `
-mutation UpdateAgent ($ref: ID!, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $urn: String, $personaRole: String, $usesTasks: Boolean) {
-	updateAgent(ref: $ref, name: $name, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn, personaRole: $personaRole, usesTasks: $usesTasks) {
+mutation UpdateAgent ($ref: ID!, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $urn: String, $personaRole: String, $usesTasks: Boolean, $memberRoles: [String!]) {
+	updateAgent(ref: $ref, name: $name, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn, personaRole: $personaRole, usesTasks: $usesTasks, memberRoles: $memberRoles) {
 		... AgentFields
 	}
 }
@@ -92036,6 +92262,9 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	installationPolicy {
+		memberRoles
+	}
 	createdAt
 }
 `
@@ -92053,6 +92282,7 @@ func UpdateAgent(
 	urn *string,
 	personaRole *string,
 	usesTasks *bool,
+	memberRoles []string,
 ) (data_ *UpdateAgentResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateAgent",
@@ -92068,6 +92298,7 @@ func UpdateAgent(
 			Urn:            urn,
 			PersonaRole:    personaRole,
 			UsesTasks:      usesTasks,
+			MemberRoles:    memberRoles,
 		},
 	}
 

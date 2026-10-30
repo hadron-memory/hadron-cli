@@ -44,3 +44,14 @@ query AppMembers($appRef: ID!) {
     }
   }
 }
+
+# #1226 (R211, cor:dmo:050:04): the roles the App offers, the union over its
+# installed Agents, in the server's order (primary Agent first). Read-only; the
+# CLI never derives or checks roles itself.
+query AppMemberRoles($appRef: ID!) {
+  app(ref: $appRef) {
+    id
+    urn
+    availableMemberRoles
+  }
+}
