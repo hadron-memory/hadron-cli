@@ -31,9 +31,9 @@ type taskRequirementsPatch struct {
 var jsonNull = json.RawMessage("null")
 
 func newCmdTeamTaskUpdate(f *cmdutil.Factory) *cobra.Command {
-	var title, description, startBy, requireRole, familyIn, familyNotIn string
+	var title, description, startBy, requireRole, familyIn, familyNotIn, properties string
 	var tags, excludeWorkers []string
-	var clearDescription, clearTags, clearRequirements, clearStartBy bool
+	var clearDescription, clearTags, clearRequirements, clearStartBy, clearProperties bool
 	var closeSession, noCloseSession bool
 	cmd := &cobra.Command{
 		Use:   "update <task> [flags]",
@@ -56,6 +56,16 @@ replaces a value has a --clear-… twin that empties it; naming both is refused.
 - --start-by <RFC 3339 time> or --clear-start-by. --start-by re-anchors only the
   not-started clock (cor:agt:050:14): it moves the deadline that task list
   --overdue and the not-started alarm read. An alarm already raised stays raised.
+- --properties <json|@file>: the task's own JSON object (the team's schedule
+  and review notes, for example), which the platform stores and never reads.
+  It replaces the whole value, never merges: send every key you want to keep.
+  --clear-properties removes it. Properties are per task: a child task has its
+  own and does not inherit the root's. The server checks that it is an object
+  (PROPERTIES_NOT_AN_OBJECT), at most 16 KiB (PROPERTIES_TOO_LARGE) and valid
+  against the team's task-properties schema (PROPERTIES_SCHEMA_VIOLATION, or
+  PROPERTIES_SCHEMA_UNUSABLE when that schema itself cannot be used). The
+  assignee may edit properties alone: combined with any other field the whole
+  edit is refused (TASK_NOT_OWNER).
 - --close-session asks the assignee's worker session to end when the task
   finishes or is cancelled; --no-close-session says it should not. Neither flag
   leaves the choice as it is. ` + "`--close-session=false`" + ` is refused, because
@@ -88,7 +98,8 @@ a stall alarm. Success prints the task as task get does; --json returns it.`,
 			reqNamed := fl.Changed("require-role") || fl.Changed("family-in") || fl.Changed("family-not-in") || fl.Changed("exclude-worker")
 			anyField := fl.Changed("title") || fl.Changed("description") || clearDescription ||
 				fl.Changed("tag") || clearTags || reqNamed || clearRequirements ||
-				fl.Changed("start-by") || clearStartBy || fl.Changed("close-session") || fl.Changed("no-close-session")
+				fl.Changed("start-by") || clearStartBy || fl.Changed("close-session") || fl.Changed("no-close-session") ||
+				fl.Changed("properties") || clearProperties
 			if !anyField {
 				return usage("pass at least one field flag to change (--title, --description, --tag, --require-role, --start-by, --close-session, or a --clear-…); nothing was sent")
 			}
@@ -101,6 +112,7 @@ a stall alarm. Success prints the task as task get does; --json returns it.`,
 				{fl.Changed("tag"), clearTags, "--tag", "--clear-tags"},
 				{reqNamed, clearRequirements, "--require-role, --family-in, --family-not-in or --exclude-worker", "--clear-requirements"},
 				{fl.Changed("start-by"), clearStartBy, "--start-by", "--clear-start-by"},
+				{fl.Changed("properties"), clearProperties, "--properties", "--clear-properties"},
 			} {
 				if c.set && c.clear {
 					return usage("%s and %s contradict each other: replace the value or clear it", c.a, c.b)
@@ -178,6 +190,16 @@ a stall alarm. Success prints the task as task get does; --json returns it.`,
 			} else if noCloseSession {
 				input.CloseSessionWhenDone = boolPtr(false)
 			}
+			switch {
+			case clearProperties:
+				input.Properties = jsonNull
+			case fl.Changed("properties"):
+				p, err := parsePropertiesFlag(properties)
+				if err != nil {
+					return err
+				}
+				input.Properties = p
+			}
 
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -207,6 +229,8 @@ a stall alarm. Success prints the task as task get does; --json returns it.`,
 	cmd.Flags().BoolVar(&clearStartBy, "clear-start-by", false, "remove the explicit start-by")
 	cmd.Flags().BoolVar(&closeSession, "close-session", false, "ask the assignee's session to end when the task finishes or is cancelled")
 	cmd.Flags().BoolVar(&noCloseSession, "no-close-session", false, "state that the session should not end with the task")
+	cmd.Flags().StringVar(&properties, "properties", "", "the task's own JSON object, or @file; replaces the whole value")
+	cmd.Flags().BoolVar(&clearProperties, "clear-properties", false, "remove the task's properties")
 	return cmd
 }
 

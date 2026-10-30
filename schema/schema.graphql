@@ -554,6 +554,14 @@ type AgentTask {
   priority: Int!
 
   """
+  #2420 (hrn:node:hadronmemory.com:specs:cor:agt:050:28): this task's OWN optional JSON object, which the team organises
+  into its own namespaces (review schedule, complexity, a seat's reviewed head). The platform stores and returns it
+  and never reads a key: it is not matcher input and not authorization input. Nothing is inherited, so a child
+  returns its own value (null when unset), never its root's; read the root task for that. Null when none.
+  """
+  properties: JSON
+
+  """
   Derived (hrn:node:hadronmemory.com:specs:cor:agt:050:03): pending with no assignee. Never stored.
   """
   queued: Boolean!
@@ -3292,6 +3300,13 @@ input CreateAgentTaskInput {
   Make a top-level PROJECT (AT1, AT2, ...) instead of a task under the reserved project AT0. Not with parentTaskId.
   """
   project: Boolean
+
+  """
+  #2420 (hrn:node:hadronmemory.com:specs:cor:agt:050:28): the task's own properties, a JSON object with the same limits
+  and refusal codes as on update. Only set when the creator is one of the task's writers (its owner, someone above the
+  owner, a manager, or the assignee named here); any other creator gets the task made without them, not a refusal.
+  """
+  properties: JSON
   requirements: AgentTaskRequirementsInput
   source: String
   startBy: DateTime
@@ -6262,7 +6277,9 @@ type Mutation {
   """
   addMemoryToAgent(agentRef: ID!, memoryRef: ID!, role: String): Agent!
 
-  """Accepts the entity's ID or URN (orgId)."""
+  """
+  Accepts the entity's ID or URN (orgId). A user who is already a live member is refused with CONFLICT.
+  """
   addOrgMember(
     orgId: ID @deprecated(reason: "Use orgRef (accepts id / slug / URN).")
 
@@ -8616,7 +8633,9 @@ type Mutation {
     userRef: String
   ): RemoveMemoryMemberPayload!
 
-  """Accepts the entity's ID or URN (orgId)."""
+  """
+  Accepts the entity's ID or URN (orgId). Refused with NOT_FOUND when the user never held a membership, and with CONFLICT when it would remove the last live owner; removing an already-revoked member succeeds again.
+  """
   removeOrgMember(
     orgId: ID @deprecated(reason: "Use orgRef (accepts id / slug / URN).")
 
@@ -9656,7 +9675,9 @@ type Mutation {
   """
   updateOrgGithubApp(appId: String!, orgId: ID!, privateKey: String!): Organization!
 
-  """Accepts the entity's ID or URN (orgId)."""
+  """
+  Accepts the entity's ID or URN (orgId). Refused with NOT_FOUND when the user is not a live member, and with CONFLICT when it would demote the organization's last live owner.
+  """
   updateOrgMember(
     orgId: ID @deprecated(reason: "Use orgRef (accepts id / slug / URN).")
 
@@ -11466,7 +11487,7 @@ type Query {
   read; the cursor is the (createdAt, id) pair, so events sharing a
   timestamp are never skipped. since is a coarse time filter (strictly
   after), not a continuation. limit defaults to 20 (cap 200).
-  task.warning and task.edited are passive history (never wake, suppress a wake or count as activity); payload is {code} or changed field names only.
+  task.warning, task.edited and task.properties-changed are passive history (never wake, suppress a wake or count as activity); payload is {code}, changed field names only, or (task.properties-changed) the size and SHA-256 of the canonical JSON of the old and new properties, never their content.
   """
   agentTeamEvents(
     """
@@ -11776,6 +11797,12 @@ type Query {
   memory — identically, so this is never an existence oracle.
   """
   channel(ref: ID!): Channel
+
+  """
+  Search ANY Channel's history by ref (its id, or its address), the Channel-addressed twin of teamChatSearch with the
+  same contract (#2299). A Channel you may not read, or one that does not exist, is CHANNEL_NOT_FOUND, identically.
+  """
+  channelMessageSearch(channelRef: ID!, cursor: String, limit: Int, query: String!): TeamChatSearchPage!
 
   """
   Spec 049 Phase 8 — read ANY Channel by ref (its id, or its address —
@@ -13148,6 +13175,19 @@ type Query {
     """
     untagged: Boolean
   ): TeamChatMessagesPage!
+
+  """
+  Search a team App's chat history (#2299, hrn:node:hadronmemory.com:specs:cor:agt:020:04): a literal,
+  case-insensitive substring of the message text (% _ and the backslash are ordinary characters), newest first, one
+  channel at a time, through the same read gate as teamChatMessages. The search matches what a read shows (the canonical
+  read projection), returns references only, and never moves a read position, delivered mark or attention.
+  query is 2 to 200 characters (code points, untrimmed); outside that is TEAM_CHAT_SEARCH_QUERY_LENGTH, answered the same
+  for every caller before any message is read. limit defaults to 20 and is clamped to 50 (below 1 is BAD_USER_INPUT).
+  Each call scans at most 1,000 messages; see TeamChatSearchPage for complete and cursor. A chat hosted in an encrypted
+  memory is TEAM_CHAT_SEARCH_ENCRYPTED, never an empty page. An App with no team chat yet answers the complete empty page.
+  appRef accepts the entity's ID or URN.
+  """
+  teamChatSearch(appRef: ID!, cursor: String, limit: Int, query: String!): TeamChatSearchPage!
 
   """
   #2061 — direct-report lanes from the same roster projection and read gate as teamRoster.
@@ -15999,6 +16039,54 @@ type TeamChatMessagesPage {
   total: Int!
 }
 
+"""
+One match of a chat-history search (#2299, hrn:node:hadronmemory.com:specs:cor:agt:020:04): the canonical message
+reference a read returns, and nothing else. No body, no snippet: the caller reads the message to see it.
+"""
+type TeamChatSearchMatch {
+  """The Channel searched."""
+  channelId: ID!
+
+  """That Channel's incarnation at the search."""
+  channelIncarnation: Int!
+
+  """The message node's id."""
+  nodeId: ID!
+  seq: Int!
+
+  """
+  The message's canonical URN, as TeamChatMessage.urn (null when it would not resolve back to the message).
+  """
+  urn: String
+}
+
+"""
+One page of a chat-history search (#2299, hrn:node:hadronmemory.com:specs:cor:agt:020:04). Newest first. A call stops at
+a full page or at the scan bound, whichever comes first: complete is true only when the search reached the start of the
+history, and then there is no cursor. An empty page with complete false means the scan bound fired before any match: it
+may continue with the cursor. No matches is only ever an empty page with complete true.
+"""
+type TeamChatSearchPage {
+  """
+  The Channel searched. NULL only when the App has no team chat yet (then complete is true and the page empty).
+  """
+  channelId: ID
+  channelIncarnation: Int
+
+  """
+  True when the search reached the start of the history (no cursor), false when it stopped at a full page or the scan bound.
+  """
+  complete: Boolean!
+
+  """
+  Opaque continuation, bound to the query, the Channel, its incarnation and the caller; any other use is
+  TEAM_CHAT_SEARCH_CURSOR_INVALID. After a full page it resumes after the last match; after the scan bound it resumes
+  below the last scanned message, so nothing is scanned twice or skipped. Null when complete.
+  """
+  cursor: String
+  items: [TeamChatSearchMatch!]!
+}
+
 """Result of updateTeamCollections (hadron-cli#401)."""
 type TeamCollectionsPayload {
   """
@@ -16664,6 +16752,15 @@ input UpdateAgentTaskInput {
   """Null clears to false; omission preserves the stored choice."""
   closeSessionWhenDone: Boolean
   description: String
+
+  """
+  #2420 (hrn:node:hadronmemory.com:specs:cor:agt:050:28): omitted leaves the value, a JSON object replaces the whole of
+  it (no merge), null clears it. Writable by the task's owner, a worker the owner reports to, whoever manages the App,
+  and the task's assignee; an assignee's update may name this field and no other. Refused on a finished or cancelled
+  task. A non-object is PROPERTIES_NOT_AN_OBJECT, over 16 KiB of canonical JSON PROPERTIES_TOO_LARGE, a violation of the
+  Team Agent's schema:task-properties PROPERTIES_SCHEMA_VIOLATION, an unusable schema PROPERTIES_SCHEMA_UNUSABLE.
+  """
+  properties: JSON
   requirements: AgentTaskRequirementsInput
 
   """

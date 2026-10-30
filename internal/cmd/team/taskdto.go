@@ -71,7 +71,10 @@ type taskDTO struct {
 	CloseSessionWhenDone bool                   `json:"closeSessionWhenDone"`
 	Requirements         *taskRequirementsDTO   `json:"requirements"`
 	Result               *taskResultDTO         `json:"result"`
-	OpenAlarms           *int                   `json:"openAlarms,omitempty"`
+	// Properties is the task's OWN optional JSON object (#2420): never
+	// inherited, so a child shows its own value, and null when unset.
+	Properties json.RawMessage `json:"properties"`
+	OpenAlarms *int            `json:"openAlarms,omitempty"`
 }
 
 // taskRef is how a human-readable line names a task: the server's short handle
@@ -178,6 +181,9 @@ func taskDTOFrom(fields gen.AgentTaskFields) taskDTO {
 	}
 	if fields.Tags != nil {
 		dto.Tags = fields.Tags
+	}
+	if fields.Properties != nil {
+		dto.Properties = *fields.Properties
 	}
 	return dto
 }
@@ -371,6 +377,8 @@ var taskErrorCodes = []string{
 	"TASK_INVALID_TRANSITION", "TASK_HANDLE_QUALIFY", "BAD_USER_INPUT",
 	"TASK_ENDED", "TASK_NOT_ASSIGNEE", "TASK_CHILD_OWNER_MISMATCH",
 	"TASK_OWNER_INVALID", "TASK_ASSIGNEE_INVALID", "TASK_STOPPED",
+	"PROPERTIES_NOT_AN_OBJECT", "PROPERTIES_TOO_LARGE",
+	"PROPERTIES_SCHEMA_VIOLATION", "PROPERTIES_SCHEMA_UNUSABLE",
 }
 
 // mapTaskError is api.MapError for the task commands: the server owns range,

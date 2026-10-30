@@ -610,7 +610,7 @@ func (v *AddOrgMemberAddOrgMemberUser) __premarshalJSON() (*__premarshalAddOrgMe
 
 // AddOrgMemberResponse is returned by AddOrgMember on success.
 type AddOrgMemberResponse struct {
-	// Accepts the entity's ID or URN (orgId).
+	// Accepts the entity's ID or URN (orgId). A user who is already a live member is refused with CONFLICT.
 	AddOrgMember *AddOrgMemberAddOrgMember `json:"addOrgMember"`
 }
 
@@ -1366,6 +1366,11 @@ func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetResult() *AgentTask
 	return v.AgentTaskFields.Result
 }
 
+// GetProperties returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.Properties, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetProperties() *json.RawMessage {
+	return v.AgentTaskFields.Properties
+}
+
 func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -1449,6 +1454,8 @@ type __premarshalAgentTaskAddBlockerAddAgentTaskBlockerAgentTask struct {
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+
+	Properties *json.RawMessage `json:"properties"`
 }
 
 func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) MarshalJSON() ([]byte, error) {
@@ -1491,6 +1498,7 @@ func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) __premarshalJSON() (*_
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
+	retval.Properties = v.AgentTaskFields.Properties
 	return &retval, nil
 }
 
@@ -1623,6 +1631,11 @@ func (v *AgentTaskAssignAssignAgentTask) GetResult() *AgentTaskFieldsResultAgent
 	return v.AgentTaskFields.Result
 }
 
+// GetProperties returns AgentTaskAssignAssignAgentTask.Properties, and is useful for accessing the field via an interface.
+func (v *AgentTaskAssignAssignAgentTask) GetProperties() *json.RawMessage {
+	return v.AgentTaskFields.Properties
+}
+
 func (v *AgentTaskAssignAssignAgentTask) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -1706,6 +1719,8 @@ type __premarshalAgentTaskAssignAssignAgentTask struct {
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+
+	Properties *json.RawMessage `json:"properties"`
 }
 
 func (v *AgentTaskAssignAssignAgentTask) MarshalJSON() ([]byte, error) {
@@ -1748,6 +1763,7 @@ func (v *AgentTaskAssignAssignAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
+	retval.Properties = v.AgentTaskFields.Properties
 	return &retval, nil
 }
 
@@ -1886,6 +1902,11 @@ func (v *AgentTaskCancelCancelAgentTask) GetResult() *AgentTaskFieldsResultAgent
 	return v.AgentTaskFields.Result
 }
 
+// GetProperties returns AgentTaskCancelCancelAgentTask.Properties, and is useful for accessing the field via an interface.
+func (v *AgentTaskCancelCancelAgentTask) GetProperties() *json.RawMessage {
+	return v.AgentTaskFields.Properties
+}
+
 func (v *AgentTaskCancelCancelAgentTask) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -1969,6 +1990,8 @@ type __premarshalAgentTaskCancelCancelAgentTask struct {
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+
+	Properties *json.RawMessage `json:"properties"`
 }
 
 func (v *AgentTaskCancelCancelAgentTask) MarshalJSON() ([]byte, error) {
@@ -2011,6 +2034,7 @@ func (v *AgentTaskCancelCancelAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
+	retval.Properties = v.AgentTaskFields.Properties
 	return &retval, nil
 }
 
@@ -2149,6 +2173,11 @@ func (v *AgentTaskCreateCreateAgentTask) GetResult() *AgentTaskFieldsResultAgent
 	return v.AgentTaskFields.Result
 }
 
+// GetProperties returns AgentTaskCreateCreateAgentTask.Properties, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateCreateAgentTask) GetProperties() *json.RawMessage {
+	return v.AgentTaskFields.Properties
+}
+
 func (v *AgentTaskCreateCreateAgentTask) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -2232,6 +2261,8 @@ type __premarshalAgentTaskCreateCreateAgentTask struct {
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+
+	Properties *json.RawMessage `json:"properties"`
 }
 
 func (v *AgentTaskCreateCreateAgentTask) MarshalJSON() ([]byte, error) {
@@ -2274,6 +2305,7 @@ func (v *AgentTaskCreateCreateAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
+	retval.Properties = v.AgentTaskFields.Properties
 	return &retval, nil
 }
 
@@ -2646,6 +2678,11 @@ type AgentTaskFields struct {
 	Requirements         *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 	// Set only on a finished task.
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+	// #2420 (hrn:node:hadronmemory.com:specs:cor:agt:050:28): this task's OWN optional JSON object, which the team organises
+	// into its own namespaces (review schedule, complexity, a seat's reviewed head). The platform stores and returns it
+	// and never reads a key: it is not matcher input and not authorization input. Nothing is inherited, so a child
+	// returns its own value (null when unset), never its root's; read the root task for that. Null when none.
+	Properties *json.RawMessage `json:"properties"`
 }
 
 // GetPriority returns AgentTaskFields.Priority, and is useful for accessing the field via an interface.
@@ -2740,6 +2777,9 @@ func (v *AgentTaskFields) GetRequirements() *AgentTaskFieldsRequirementsAgentTas
 
 // GetResult returns AgentTaskFields.Result, and is useful for accessing the field via an interface.
 func (v *AgentTaskFields) GetResult() *AgentTaskFieldsResultAgentTaskResult { return v.Result }
+
+// GetProperties returns AgentTaskFields.Properties, and is useful for accessing the field via an interface.
+func (v *AgentTaskFields) GetProperties() *json.RawMessage { return v.Properties }
 
 // AgentTaskFieldsAssignedByAgentTaskParty includes the requested fields of the GraphQL type AgentTaskParty.
 // The GraphQL type's documentation follows.
@@ -3423,6 +3463,11 @@ func (v *AgentTaskFinishFinishAgentTask) GetResult() *AgentTaskFieldsResultAgent
 	return v.AgentTaskFields.Result
 }
 
+// GetProperties returns AgentTaskFinishFinishAgentTask.Properties, and is useful for accessing the field via an interface.
+func (v *AgentTaskFinishFinishAgentTask) GetProperties() *json.RawMessage {
+	return v.AgentTaskFields.Properties
+}
+
 func (v *AgentTaskFinishFinishAgentTask) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -3506,6 +3551,8 @@ type __premarshalAgentTaskFinishFinishAgentTask struct {
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+
+	Properties *json.RawMessage `json:"properties"`
 }
 
 func (v *AgentTaskFinishFinishAgentTask) MarshalJSON() ([]byte, error) {
@@ -3548,6 +3595,7 @@ func (v *AgentTaskFinishFinishAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
+	retval.Properties = v.AgentTaskFields.Properties
 	return &retval, nil
 }
 
@@ -3676,6 +3724,9 @@ func (v *AgentTaskGetAgentTask) GetResult() *AgentTaskFieldsResultAgentTaskResul
 	return v.AgentTaskFields.Result
 }
 
+// GetProperties returns AgentTaskGetAgentTask.Properties, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTask) GetProperties() *json.RawMessage { return v.AgentTaskFields.Properties }
+
 func (v *AgentTaskGetAgentTask) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -3759,6 +3810,8 @@ type __premarshalAgentTaskGetAgentTask struct {
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+
+	Properties *json.RawMessage `json:"properties"`
 }
 
 func (v *AgentTaskGetAgentTask) MarshalJSON() ([]byte, error) {
@@ -3801,6 +3854,7 @@ func (v *AgentTaskGetAgentTask) __premarshalJSON() (*__premarshalAgentTaskGetAge
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
+	retval.Properties = v.AgentTaskFields.Properties
 	return &retval, nil
 }
 
@@ -4030,6 +4084,11 @@ func (v *AgentTaskListAgentTasksAgentTask) GetResult() *AgentTaskFieldsResultAge
 	return v.AgentTaskFields.Result
 }
 
+// GetProperties returns AgentTaskListAgentTasksAgentTask.Properties, and is useful for accessing the field via an interface.
+func (v *AgentTaskListAgentTasksAgentTask) GetProperties() *json.RawMessage {
+	return v.AgentTaskFields.Properties
+}
+
 func (v *AgentTaskListAgentTasksAgentTask) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -4113,6 +4172,8 @@ type __premarshalAgentTaskListAgentTasksAgentTask struct {
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+
+	Properties *json.RawMessage `json:"properties"`
 }
 
 func (v *AgentTaskListAgentTasksAgentTask) MarshalJSON() ([]byte, error) {
@@ -4155,6 +4216,7 @@ func (v *AgentTaskListAgentTasksAgentTask) __premarshalJSON() (*__premarshalAgen
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
+	retval.Properties = v.AgentTaskFields.Properties
 	return &retval, nil
 }
 
@@ -4298,6 +4360,11 @@ func (v *AgentTaskListFilteredAgentTasksAgentTask) GetResult() *AgentTaskFieldsR
 	return v.AgentTaskFields.Result
 }
 
+// GetProperties returns AgentTaskListFilteredAgentTasksAgentTask.Properties, and is useful for accessing the field via an interface.
+func (v *AgentTaskListFilteredAgentTasksAgentTask) GetProperties() *json.RawMessage {
+	return v.AgentTaskFields.Properties
+}
+
 func (v *AgentTaskListFilteredAgentTasksAgentTask) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -4381,6 +4448,8 @@ type __premarshalAgentTaskListFilteredAgentTasksAgentTask struct {
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+
+	Properties *json.RawMessage `json:"properties"`
 }
 
 func (v *AgentTaskListFilteredAgentTasksAgentTask) MarshalJSON() ([]byte, error) {
@@ -4423,6 +4492,7 @@ func (v *AgentTaskListFilteredAgentTasksAgentTask) __premarshalJSON() (*__premar
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
+	retval.Properties = v.AgentTaskFields.Properties
 	return &retval, nil
 }
 
@@ -4598,6 +4668,11 @@ func (v *AgentTaskListTextAgentTasksAgentTask) GetResult() *AgentTaskFieldsResul
 	return v.AgentTaskFields.Result
 }
 
+// GetProperties returns AgentTaskListTextAgentTasksAgentTask.Properties, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetProperties() *json.RawMessage {
+	return v.AgentTaskFields.Properties
+}
+
 func (v *AgentTaskListTextAgentTasksAgentTask) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -4681,6 +4756,8 @@ type __premarshalAgentTaskListTextAgentTasksAgentTask struct {
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+
+	Properties *json.RawMessage `json:"properties"`
 }
 
 func (v *AgentTaskListTextAgentTasksAgentTask) MarshalJSON() ([]byte, error) {
@@ -4723,6 +4800,7 @@ func (v *AgentTaskListTextAgentTasksAgentTask) __premarshalJSON() (*__premarshal
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
+	retval.Properties = v.AgentTaskFields.Properties
 	return &retval, nil
 }
 
@@ -4877,6 +4955,11 @@ func (v *AgentTaskParkParkAgentTask) GetResult() *AgentTaskFieldsResultAgentTask
 	return v.AgentTaskFields.Result
 }
 
+// GetProperties returns AgentTaskParkParkAgentTask.Properties, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetProperties() *json.RawMessage {
+	return v.AgentTaskFields.Properties
+}
+
 func (v *AgentTaskParkParkAgentTask) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -4960,6 +5043,8 @@ type __premarshalAgentTaskParkParkAgentTask struct {
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+
+	Properties *json.RawMessage `json:"properties"`
 }
 
 func (v *AgentTaskParkParkAgentTask) MarshalJSON() ([]byte, error) {
@@ -5002,6 +5087,7 @@ func (v *AgentTaskParkParkAgentTask) __premarshalJSON() (*__premarshalAgentTaskP
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
+	retval.Properties = v.AgentTaskFields.Properties
 	return &retval, nil
 }
 
@@ -5221,6 +5307,11 @@ func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetResult() *AgentTa
 	return v.AgentTaskFields.Result
 }
 
+// GetProperties returns AgentTaskProgressRecordAgentTaskProgressAgentTask.Properties, and is useful for accessing the field via an interface.
+func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetProperties() *json.RawMessage {
+	return v.AgentTaskFields.Properties
+}
+
 func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -5304,6 +5395,8 @@ type __premarshalAgentTaskProgressRecordAgentTaskProgressAgentTask struct {
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+
+	Properties *json.RawMessage `json:"properties"`
 }
 
 func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) MarshalJSON() ([]byte, error) {
@@ -5346,6 +5439,7 @@ func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) __premarshalJSON() (
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
+	retval.Properties = v.AgentTaskFields.Properties
 	return &retval, nil
 }
 
@@ -5501,6 +5595,11 @@ func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetResult() *AgentTaskFields
 	return v.AgentTaskFields.Result
 }
 
+// GetProperties returns AgentTaskReadyMakeAgentTaskReadyAgentTask.Properties, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetProperties() *json.RawMessage {
+	return v.AgentTaskFields.Properties
+}
+
 func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -5584,6 +5683,8 @@ type __premarshalAgentTaskReadyMakeAgentTaskReadyAgentTask struct {
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+
+	Properties *json.RawMessage `json:"properties"`
 }
 
 func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) MarshalJSON() ([]byte, error) {
@@ -5626,6 +5727,7 @@ func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) __premarshalJSON() (*__prema
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
+	retval.Properties = v.AgentTaskFields.Properties
 	return &retval, nil
 }
 
@@ -5775,6 +5877,11 @@ func (v *AgentTaskReassignReassignAgentTask) GetResult() *AgentTaskFieldsResultA
 	return v.AgentTaskFields.Result
 }
 
+// GetProperties returns AgentTaskReassignReassignAgentTask.Properties, and is useful for accessing the field via an interface.
+func (v *AgentTaskReassignReassignAgentTask) GetProperties() *json.RawMessage {
+	return v.AgentTaskFields.Properties
+}
+
 func (v *AgentTaskReassignReassignAgentTask) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -5858,6 +5965,8 @@ type __premarshalAgentTaskReassignReassignAgentTask struct {
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+
+	Properties *json.RawMessage `json:"properties"`
 }
 
 func (v *AgentTaskReassignReassignAgentTask) MarshalJSON() ([]byte, error) {
@@ -5900,6 +6009,7 @@ func (v *AgentTaskReassignReassignAgentTask) __premarshalJSON() (*__premarshalAg
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
+	retval.Properties = v.AgentTaskFields.Properties
 	return &retval, nil
 }
 
@@ -6068,6 +6178,11 @@ func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetResult() *Age
 	return v.AgentTaskFields.Result
 }
 
+// GetProperties returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Properties, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetProperties() *json.RawMessage {
+	return v.AgentTaskFields.Properties
+}
+
 func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -6151,6 +6266,8 @@ type __premarshalAgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask struct {
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+
+	Properties *json.RawMessage `json:"properties"`
 }
 
 func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) MarshalJSON() ([]byte, error) {
@@ -6193,6 +6310,7 @@ func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) __premarshalJSON
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
+	retval.Properties = v.AgentTaskFields.Properties
 	return &retval, nil
 }
 
@@ -6405,6 +6523,11 @@ func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetResult() *AgentTa
 	return v.AgentTaskFields.Result
 }
 
+// GetProperties returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.Properties, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetProperties() *json.RawMessage {
+	return v.AgentTaskFields.Properties
+}
+
 func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -6488,6 +6611,8 @@ type __premarshalAgentTaskSetPrioritySetAgentTaskPriorityAgentTask struct {
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+
+	Properties *json.RawMessage `json:"properties"`
 }
 
 func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) MarshalJSON() ([]byte, error) {
@@ -6530,6 +6655,7 @@ func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) __premarshalJSON() (
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
+	retval.Properties = v.AgentTaskFields.Properties
 	return &retval, nil
 }
 
@@ -6716,6 +6842,11 @@ func (v *AgentTaskStartStartAgentTask) GetResult() *AgentTaskFieldsResultAgentTa
 	return v.AgentTaskFields.Result
 }
 
+// GetProperties returns AgentTaskStartStartAgentTask.Properties, and is useful for accessing the field via an interface.
+func (v *AgentTaskStartStartAgentTask) GetProperties() *json.RawMessage {
+	return v.AgentTaskFields.Properties
+}
+
 func (v *AgentTaskStartStartAgentTask) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -6799,6 +6930,8 @@ type __premarshalAgentTaskStartStartAgentTask struct {
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+
+	Properties *json.RawMessage `json:"properties"`
 }
 
 func (v *AgentTaskStartStartAgentTask) MarshalJSON() ([]byte, error) {
@@ -6841,6 +6974,7 @@ func (v *AgentTaskStartStartAgentTask) __premarshalJSON() (*__premarshalAgentTas
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
+	retval.Properties = v.AgentTaskFields.Properties
 	return &retval, nil
 }
 
@@ -7093,6 +7227,11 @@ func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetResult() *AgentTaskFieldsResult
 	return v.AgentTaskFields.Result
 }
 
+// GetProperties returns AgentTaskTreeAgentTaskTreeAgentTask.Properties, and is useful for accessing the field via an interface.
+func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetProperties() *json.RawMessage {
+	return v.AgentTaskFields.Properties
+}
+
 func (v *AgentTaskTreeAgentTaskTreeAgentTask) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -7176,6 +7315,8 @@ type __premarshalAgentTaskTreeAgentTaskTreeAgentTask struct {
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+
+	Properties *json.RawMessage `json:"properties"`
 }
 
 func (v *AgentTaskTreeAgentTaskTreeAgentTask) MarshalJSON() ([]byte, error) {
@@ -7218,6 +7359,7 @@ func (v *AgentTaskTreeAgentTaskTreeAgentTask) __premarshalJSON() (*__premarshalA
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
+	retval.Properties = v.AgentTaskFields.Properties
 	return &retval, nil
 }
 
@@ -7366,6 +7508,11 @@ func (v *AgentTaskUpdateUpdateAgentTask) GetResult() *AgentTaskFieldsResultAgent
 	return v.AgentTaskFields.Result
 }
 
+// GetProperties returns AgentTaskUpdateUpdateAgentTask.Properties, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetProperties() *json.RawMessage {
+	return v.AgentTaskFields.Properties
+}
+
 func (v *AgentTaskUpdateUpdateAgentTask) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -7449,6 +7596,8 @@ type __premarshalAgentTaskUpdateUpdateAgentTask struct {
 	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
 
 	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+
+	Properties *json.RawMessage `json:"properties"`
 }
 
 func (v *AgentTaskUpdateUpdateAgentTask) MarshalJSON() ([]byte, error) {
@@ -7491,6 +7640,7 @@ func (v *AgentTaskUpdateUpdateAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
+	retval.Properties = v.AgentTaskFields.Properties
 	return &retval, nil
 }
 
@@ -8125,7 +8275,7 @@ type AgentTeamEventsResponse struct {
 	// read; the cursor is the (createdAt, id) pair, so events sharing a
 	// timestamp are never skipped. since is a coarse time filter (strictly
 	// after), not a continuation. limit defaults to 20 (cap 200).
-	// task.warning and task.edited are passive history (never wake, suppress a wake or count as activity); payload is {code} or changed field names only.
+	// task.warning, task.edited and task.properties-changed are passive history (never wake, suppress a wake or count as activity); payload is {code}, changed field names only, or (task.properties-changed) the size and SHA-256 of the canonical JSON of the old and new properties, never their content.
 	AgentTeamEvents []*AgentTeamEventsAgentTeamEventsAgentTeamEvent `json:"agentTeamEvents"`
 }
 
@@ -19554,7 +19704,11 @@ type CreateAgentTaskInput struct {
 	// #2644 — naming priority or blockers requires the task assigner authority; otherwise creation refuses atomically.
 	Priority *int `json:"priority,omitempty"`
 	// Make a top-level PROJECT (AT1, AT2, ...) instead of a task under the reserved project AT0. Not with parentTaskId.
-	Project      *bool                       `json:"project,omitempty"`
+	Project *bool `json:"project,omitempty"`
+	// #2420 (hrn:node:hadronmemory.com:specs:cor:agt:050:28): the task's own properties, a JSON object with the same limits
+	// and refusal codes as on update. Only set when the creator is one of the task's writers (its owner, someone above the
+	// owner, a manager, or the assignee named here); any other creator gets the task made without them, not a refusal.
+	Properties   *json.RawMessage            `json:"properties,omitempty"`
 	Requirements *AgentTaskRequirementsInput `json:"requirements,omitempty"`
 	Source       *string                     `json:"source"`
 	StartBy      *string                     `json:"startBy"`
@@ -19592,6 +19746,9 @@ func (v *CreateAgentTaskInput) GetPriority() *int { return v.Priority }
 
 // GetProject returns CreateAgentTaskInput.Project, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetProject() *bool { return v.Project }
+
+// GetProperties returns CreateAgentTaskInput.Properties, and is useful for accessing the field via an interface.
+func (v *CreateAgentTaskInput) GetProperties() *json.RawMessage { return v.Properties }
 
 // GetRequirements returns CreateAgentTaskInput.Requirements, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetRequirements() *AgentTaskRequirementsInput { return v.Requirements }
@@ -43478,7 +43635,7 @@ func (v *RemoveMemoryMemberResponse) GetRemoveMemoryMember() *RemoveMemoryMember
 
 // RemoveOrgMemberResponse is returned by RemoveOrgMember on success.
 type RemoveOrgMemberResponse struct {
-	// Accepts the entity's ID or URN (orgId).
+	// Accepts the entity's ID or URN (orgId). Refused with NOT_FOUND when the user never held a membership, and with CONFLICT when it would remove the last live owner; removing an already-revoked member succeeds again.
 	RemoveOrgMember bool `json:"removeOrgMember"`
 }
 
@@ -60560,7 +60717,13 @@ type UpdateAgentTaskInput struct {
 	// Null clears to false; omission preserves the stored choice.
 	CloseSessionWhenDone *bool           `json:"closeSessionWhenDone,omitempty"`
 	Description          json.RawMessage `json:"description,omitempty"`
-	Requirements         json.RawMessage `json:"requirements,omitempty"`
+	// #2420 (hrn:node:hadronmemory.com:specs:cor:agt:050:28): omitted leaves the value, a JSON object replaces the whole of
+	// it (no merge), null clears it. Writable by the task's owner, a worker the owner reports to, whoever manages the App,
+	// and the task's assignee; an assignee's update may name this field and no other. Refused on a finished or cancelled
+	// task. A non-object is PROPERTIES_NOT_AN_OBJECT, over 16 KiB of canonical JSON PROPERTIES_TOO_LARGE, a violation of the
+	// Team Agent's schema:task-properties PROPERTIES_SCHEMA_VIOLATION, an unusable schema PROPERTIES_SCHEMA_UNUSABLE.
+	Properties   json.RawMessage `json:"properties,omitempty"`
+	Requirements json.RawMessage `json:"requirements,omitempty"`
 	// Reanchors only the not-started deadline; null clears the explicit deadline. Existing alarms stay raised.
 	StartBy json.RawMessage `json:"startBy,omitempty"`
 	Tags    json.RawMessage `json:"tags,omitempty"`
@@ -60572,6 +60735,9 @@ func (v *UpdateAgentTaskInput) GetCloseSessionWhenDone() *bool { return v.CloseS
 
 // GetDescription returns UpdateAgentTaskInput.Description, and is useful for accessing the field via an interface.
 func (v *UpdateAgentTaskInput) GetDescription() json.RawMessage { return v.Description }
+
+// GetProperties returns UpdateAgentTaskInput.Properties, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTaskInput) GetProperties() json.RawMessage { return v.Properties }
 
 // GetRequirements returns UpdateAgentTaskInput.Requirements, and is useful for accessing the field via an interface.
 func (v *UpdateAgentTaskInput) GetRequirements() json.RawMessage { return v.Requirements }
@@ -63969,7 +64135,7 @@ func (v *UpdateObjectResponse) GetUpdateObject() json.RawMessage { return v.Upda
 
 // UpdateOrgMemberResponse is returned by UpdateOrgMember on success.
 type UpdateOrgMemberResponse struct {
-	// Accepts the entity's ID or URN (orgId).
+	// Accepts the entity's ID or URN (orgId). Refused with NOT_FOUND when the user is not a live member, and with CONFLICT when it would demote the organization's last live owner.
 	UpdateOrgMember *UpdateOrgMemberUpdateOrgMember `json:"updateOrgMember"`
 }
 
@@ -75700,6 +75866,7 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+	properties
 }
 fragment AgentTaskDependencyFields on AgentTask {
 	id
@@ -75808,6 +75975,7 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+	properties
 }
 fragment AgentTaskDependencyFields on AgentTask {
 	id
@@ -75920,6 +76088,7 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+	properties
 }
 fragment AgentTaskDependencyFields on AgentTask {
 	id
@@ -76026,6 +76195,7 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+	properties
 }
 fragment AgentTaskDependencyFields on AgentTask {
 	id
@@ -76198,6 +76368,7 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+	properties
 }
 fragment AgentTaskDependencyFields on AgentTask {
 	id
@@ -76306,6 +76477,7 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+	properties
 }
 fragment AgentTaskDependencyFields on AgentTask {
 	id
@@ -76455,6 +76627,7 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+	properties
 }
 fragment AgentTaskDependencyFields on AgentTask {
 	id
@@ -76581,6 +76754,7 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+	properties
 }
 fragment AgentTaskDependencyFields on AgentTask {
 	id
@@ -76731,6 +76905,7 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+	properties
 }
 fragment AgentTaskDependencyFields on AgentTask {
 	id
@@ -76858,6 +77033,7 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+	properties
 }
 fragment AgentTaskDependencyFields on AgentTask {
 	id
@@ -76968,6 +77144,7 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+	properties
 }
 fragment AgentTaskDependencyFields on AgentTask {
 	id
@@ -77074,6 +77251,7 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+	properties
 }
 fragment AgentTaskDependencyFields on AgentTask {
 	id
@@ -77183,6 +77361,7 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+	properties
 }
 fragment AgentTaskDependencyFields on AgentTask {
 	id
@@ -77293,6 +77472,7 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+	properties
 }
 fragment AgentTaskDependencyFields on AgentTask {
 	id
@@ -77401,6 +77581,7 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+	properties
 }
 fragment AgentTaskDependencyFields on AgentTask {
 	id
@@ -77510,6 +77691,7 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+	properties
 }
 fragment AgentTaskDependencyFields on AgentTask {
 	id
@@ -77670,6 +77852,7 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+	properties
 }
 fragment AgentTaskDependencyFields on AgentTask {
 	id
@@ -77776,6 +77959,7 @@ fragment AgentTaskFields on AgentTask {
 		summary
 		evidence
 	}
+	properties
 }
 fragment AgentTaskDependencyFields on AgentTask {
 	id
