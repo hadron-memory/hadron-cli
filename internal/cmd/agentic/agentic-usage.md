@@ -785,6 +785,9 @@ Conventions:
   your handle (`hrn:mem:<handle>:<slug>`). That path is owner-only: `--class
   personal|private` (defaults to personal); knowledge/group still need `--org`.
   The server derives the handle and bare URN — never construct it client-side.
+  `--slug` does not work there yet: the memory is created under the slug from
+  `--name`, then the rename fails (exit 1), since the server cannot rename a
+  user-owned memory.
   App-scoped create requires `--app <ref> --agent <ref> --class
   app|personal|private --name <name>`; both refs accept an ID or URN, and the
   Agent must be installed in the App. Only fields passed as flags change. The

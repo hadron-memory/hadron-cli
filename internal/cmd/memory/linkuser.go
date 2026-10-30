@@ -30,8 +30,9 @@ func newCmdLinkUser(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "link-user <memoryRef> --external-user <id> [--data-key -] [--yes]",
 		Short: "Promote an anonymous memory to a registered user (App key only)",
-		Long: `Link an anonymous/session memory to a real user — the anonymous →
-registered promotion an App runs when an end user signs up.
+		Long: `Link an anonymous memory to a real user. An App runs this when someone who
+used it without an account signs up, so the notes they made as a guest become
+theirs instead of expiring.
 
 Requires an APP KEY. The server gates this on the calling App, so a personal
 user token is refused; authenticate with the App's key (HADRON_TOKEN, or
@@ -57,11 +58,10 @@ ciphertext and the memory lands private and owned by that user. Like
 ` + "`hadron memory encrypt`" + `, this is ONE-WAY — there is no decrypt command — so
 keep the key. Pass it on stdin with ` + "`--data-key -`" + ` to keep it out of shell
 history. The key must be canonical base64 for exactly 32 bytes (43 characters
-plus '='), is sent once in the x-hadron-operation-key request header — never in
+plus '='), is sent once in a request header — never in
 the request body, where logging would capture it — and is refused locally
-before any request when malformed. The key channel needs a server that
-supports the operation-key header: hadron-server#1817 or newer (server main
-1cedfa2e on).
+before any request when malformed. An older server ignores the key: the
+memory is still linked but stays unencrypted, and the command fails to say so.
 
 Because the promotion is irreversible, this prompts on a terminal and requires
 --yes when run non-interactively.`,

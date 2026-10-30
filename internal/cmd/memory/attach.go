@@ -18,11 +18,16 @@ func newCmdAttach(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "attach <memoryRef> --app <app-id-or-urn> --agent <agent-id-or-urn>",
 		Short: "Attach a free-standing personal/private memory to an App",
-		Long: `Attach an existing free-standing personal or private memory to an App.
+		Long: `Attach a personal or private memory you already own to an App, so it
+becomes your memory in that App for that Agent, as if you had created it there
+with memory set --app --agent. Use it for notes you kept before you joined the
+App, instead of copying them into a new memory.
 
-The memory must belong to you, the Agent must be installed in the App, and you
-must be an App member. The memory keeps its URN, class, and owner. Memory, App,
-and Agent references accept IDs, bare URNs, or prefixed URNs.`,
+The memory must belong to you, be in the App's organization (created with
+memory set --org, not --owner-me) and not belong to an App yet; the Agent must
+be installed in the App, and you must be a member of the App. The memory keeps its
+URN, class and owner, so links to it keep working. Memory, App and Agent
+references accept an ID or a URN, with or without the hrn: prefix.`,
 		Example: `  hadron memory attach hrn:mem:acme.com:my-notes --app hrn:app:acme.com:coach --agent hrn:agent:acme.com:agent
   hadron memory attach hrn:mem:acme.com:private-notes --app acme.com:coach --agent agent-id --json`,
 		Args: cobra.ExactArgs(1),

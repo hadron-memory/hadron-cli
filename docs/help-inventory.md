@@ -56,52 +56,52 @@ section between the markers.
 | `edge list` | ls |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508430204), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1221#issuecomment-6508892415) |
 | `edge rm` | delete |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508430204), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1221#issuecomment-6508892415) |
 | `edge update` |  |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508430204), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1221#issuecomment-6508892415) |
-| `memory` | memories |  | n | #1051 |  | unread |  |
-| `memory approve-all` |  |  | y | #1051 |  | unread |  |
-| `memory attach` |  |  | y | #1051 |  | unread |  |
-| `memory clone` | cp |  | y | #1051 |  | unread |  |
-| `memory config` |  |  | n | #1051 |  | unread |  |
-| `memory config get` |  |  | y | #1051 |  | unread |  |
-| `memory config rule` |  |  | n | #1051 |  | unread |  |
-| `memory config rule add` |  |  | y | #1051 |  | unread |  |
-| `memory config rule rm` | remove |  | y | #1051 |  | unread |  |
-| `memory config rule unlock` |  |  | y | #1051 |  | unread |  |
-| `memory config rule update` |  |  | y | #1051 |  | unread |  |
-| `memory config template` |  |  | n | #1051 |  | unread |  |
-| `memory config template apply` |  |  | y | #1051 |  | unread |  |
-| `memory config template create` |  |  | y | #1051 |  | unread |  |
-| `memory config template get` |  |  | y | #1051 |  | unread |  |
-| `memory config template list` | ls |  | y | #1051 |  | unread |  |
-| `memory config template rm` | remove |  | y | #1051 |  | unread |  |
-| `memory config template update` |  |  | y | #1051 |  | unread |  |
-| `memory encrypt` |  |  | y | #1051 |  | unread |  |
-| `memory export` |  |  | y | #1051 |  | unread |  |
-| `memory extract` |  |  | y | #1051 |  | unread |  |
-| `memory get` |  |  | n | #1051 |  | unread |  |
-| `memory link-user` |  |  | y | #1051 |  | unread |  |
-| `memory list` | ls |  | y | #1051 |  | unread |  |
-| `memory member` | members |  | n | #1051 |  | unread |  |
-| `memory member add` |  |  | y | #1051 |  | unread |  |
-| `memory member list` | ls |  | n | #1051 |  | unread |  |
-| `memory member rm` | remove |  | y | #1051 |  | unread |  |
-| `memory member set-role` |  |  | y | #1051 |  | unread |  |
-| `memory reembed-failed` |  |  | y | #1051 |  | unread |  |
-| `memory rm` | delete |  | y | #1051 |  | unread |  |
-| `memory set` | create, new, add |  | y | #1051 |  | unread |  |
-| `memory set-active` | use |  | y | #1051 |  | unread |  |
-| `memory share` | shares |  | n | #1051 |  | unread |  |
-| `memory share create` |  |  | y | #1051 |  | unread |  |
-| `memory share list` | ls |  | n | #1051 |  | unread |  |
-| `memory share rm` | revoke, delete |  | y | #1051 |  | unread |  |
-| `memory share set-role` |  |  | y | #1051 |  | unread |  |
-| `memory subscription` | subscriptions, sub |  | n | #1051 |  | unread |  |
-| `memory subscription create` |  |  | y | #1051 |  | unread |  |
-| `memory subscription list` | ls |  | n | #1051 |  | unread |  |
-| `memory subscription rm` | delete, unsubscribe |  | y | #1051 |  | unread |  |
-| `memory subscription set-role` |  |  | y | #1051 |  | unread |  |
-| `memory transfer` |  |  | y | #1051 |  | unread |  |
-| `memory usage` |  |  | n | #1051 |  | unread |  |
-| `memory validate` | audit, check |  | y | #1051 |  | unread |  |
+| `memory` | memories |  | y | #1051 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551) |
+| `memory approve-all` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory attach` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory clone` | cp |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory config` |  |  | y | #1051 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551) |
+| `memory config get` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory config rule` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory config rule add` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory config rule rm` | remove |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory config rule unlock` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory config rule update` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory config template` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory config template apply` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory config template create` |  |  | y | #1051 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551) |
+| `memory config template get` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory config template list` | ls |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory config template rm` | remove |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory config template update` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory encrypt` |  |  | y | #1051 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551) |
+| `memory export` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory extract` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory get` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory link-user` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory list` | ls |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory member` | members |  | y | #1051 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551) |
+| `memory member add` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory member list` | ls |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory member rm` | remove |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory member set-role` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory reembed-failed` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory rm` | delete |  | y | #1051 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551) |
+| `memory set` | create, new, add |  | y | #1051 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551) |
+| `memory set-active` | use |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory share` | shares |  | y | #1051 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551) |
+| `memory share create` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory share list` | ls |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory share rm` | revoke, delete |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory share set-role` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory subscription` | subscriptions, sub |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory subscription create` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory subscription list` | ls |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory subscription rm` | delete, unsubscribe |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory subscription set-role` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory transfer` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
+| `memory usage` |  |  | y | #1051 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551) |
+| `memory validate` | audit, check |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551): no P1/P2, P3s only; result set at reassessment |
 | `node` | nodes |  | n | #1051 |  | unread |  |
 | `node approve` |  |  | y | #1051 |  | unread |  |
 | `node clone` |  |  | y | #1051 |  | unread |  |

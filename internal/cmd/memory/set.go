@@ -44,57 +44,61 @@ func newCmdSet(f *cmdutil.Factory) *cobra.Command {
 		// aliases make the guess land; SuggestFor catches a near-miss too.
 		Aliases:    []string{"create", "new", "add"},
 		SuggestFor: []string{"create", "new", "add"},
-		Short:      "Create or update a memory",
-		Long: `Create or update a memory.
+		Short:      "Create a memory, or change one",
+		Long: `Create a memory, or change one.
 
---listed-on-marketplace[=false] lists or de-lists an existing memory in the
-marketplace catalogue (cor:acl:080:04: advertisement, not access). Update only;
-omitted keeps the current value. The server decides who may list a memory.
+To create one for your organization, give --org and --name. The URN's slug
+comes from the name ("Project KB" becomes project-kb) unless you give --slug.
+The output shows the new URN, class and visibility:
 
-With a positional memory ID or URN, updates that memory (only the
-fields you pass change). Without one, creates a new memory. A
-free-standing memory requires --org and --name. An App-scoped memory
-requires --app, --agent, --class, and --name.
+  hadron memory set --org acme.com --name "Project KB"
 
---owner-me creates a user-owned memory with no org: it is owned by you in
-your own @handle namespace, so its URN roots on your handle
-(hrn:mem:<handle>:<slug>) rather than an org name. This path is owner-only
-— it accepts --class personal or private (defaulting to personal), while the
-org-shared knowledge/group classes still require --org. The server derives
-the handle and bare URN; it is never constructed client-side.
+To work in it, pass that URN with -m (node create -m hrn:mem:acme.com:project-kb
+...). memory set-active saves it as the default for spec and coding commands.
 
---app alone, with --class app and --name and no --agent, adds a new
-free-standing app memory to an org-owned App that has at least one installed
-Agent (createAppMemory). Only an admin or owner of the App's org may do it,
-acting as themselves — not an App key or a worker session. It takes only
---name, --short, --description and --tag; every other create flag is refused
-before anything is sent, and an existing memory cannot be attached to an App
-this way. The server's refusals (FORBIDDEN, AGENT_NOT_INSTALLED,
-USER_OWNED_APP_UNSUPPORTED, BAD_USER_INPUT) are shown as the server's message
-and exit with the status mapped from their code (see hadron agentic-usage).
+To change a memory, name it first; only the fields you pass change. --slug on
+a change renames the memory, so its URN and the URN of every node in it change.
 
-App-scoped creation accepts class app, personal, or private. It has no
---slug input: app-class URNs are name-derived by the server, while
-personal/private URNs use an opaque per-owner identity. Use memory
-attach to bind an existing free-standing personal/private memory.
+  hadron memory set acme.com:project-kb --description "Long-form description"
 
-On free-standing create, the URN slug is derived from --name (kebab-cased, e.g.
-"Project KB" → project-kb) unless you pass --slug to set it explicitly;
-the resulting URN, class, and visibility are echoed in the output. On
-update, --slug renames the memory — its URN, and therefore the URNs of
-every node under it, change.
+Which class? --class decides who can read and write the memory. It is set when
+the memory is created (memory transfer can change it later):
+  knowledge  the default: your organization's shared notes. --visibility
+             ORGANIZATION (the default) lets its members read it, PUBLIC lets
+             anyone read it, and your organization's writers write it.
+  group      a team's notes, for the members you add with memory member add.
+  personal   your own notes; memory share gives one person access.
+  private    only you, ever. The only class that can be encrypted.
+  app        a memory that belongs to an App (see Apps below).
+--owner-me instead of --org creates a personal (the default) or private memory
+that belongs to you rather than an organization; its URN is
+hrn:mem:<your handle>:<slug>. Its slug always comes from --name: the server
+cannot rename such a memory yet, so --slug fails after the memory is created.
 
---schema / --schema-file set the memory's structured-storage property schema
-(#725) — declared collections and typed fields that govern node objectType +
-properties. Pass "" or "null" to clear it. The server validates the schema shape
-and rejects a malformed one. (createMemory takes no schema, so on create it is
-applied in a follow-up update.)
+Settings:
+  --max-rev-count <n>  how many earlier versions each node keeps (default 10);
+                       each new version deletes the oldest beyond n.
+  --schema, --schema-file  the collections and typed fields of the memory's
+                       records (see hadron object). "" or "null" clears it; a
+                       malformed schema is refused.
+  --listed-on-marketplace[=false]  list or de-list an existing memory in the
+                       marketplace catalogue. Listing advertises the memory; it
+                       gives nobody access. The server decides who may list.
+  --tag                on a change, replaces all tags.
 
---draft-corpus is accepted for compatibility and has no effect: since
-hadron-server#1591 draft rights are per node, not per corpus. Every new node
-starts unminted, with draft rights (reserve, renumber, delete), in any memory,
-until its first mint with ` + "`hadron spec mint`" + `. The flag is still
-create-only and is refused with --app/--agent.`,
+Apps:
+  --app <app> --agent <agent> --class app|personal|private --name <name>
+  creates a memory for an Agent installed in the App. There is no --slug: the
+  server names it. To attach a personal or private memory you already have,
+  use memory attach.
+
+  --app <app> --class app --name <name>, without --agent, adds a new app memory
+  that the App's participants read and write. The App must belong to an
+  organization and have an Agent installed, and only an admin or owner of that
+  organization may do it, as themselves (not with an App key or a worker
+  session). It takes only --name, --short, --description and --tag. The
+  server's refusals (FORBIDDEN, AGENT_NOT_INSTALLED, USER_OWNED_APP_UNSUPPORTED,
+  BAD_USER_INPUT) are shown with the exit code mapped from their code.`,
 		Example: `  hadron memory set --org acme.com --name "Project KB"
   hadron memory set --org acme.com --name "Hadron PDF Tool" --slug hadrontool-pdf
   hadron memory set --org acme.com --name "Notes" --class personal
@@ -450,19 +454,22 @@ create-only and is refused with --app/--agent.`,
 		},
 	}
 	cmd.Flags().StringVar(&org, "org", "", "organization ID or URN (create only)")
-	cmd.Flags().BoolVar(&draftCorpus, "draft-corpus", false, "ignored since hadron-server#1591 (draft rights are per node); accepted for compatibility (create only; not App-scoped)")
+	cmd.Flags().BoolVar(&draftCorpus, "draft-corpus", false, "has no effect; accepted for compatibility (create only; not App-scoped)")
+	// Still accepted so old scripts keep working, but it does nothing, so the
+	// help no longer offers it (cli#1051 slice 5).
+	_ = cmd.Flags().MarkHidden("draft-corpus")
 	cmd.Flags().BoolVar(&ownerMe, "owner-me", false, "create a user-owned memory in your own @handle namespace (org-less; class personal|private only; create only)")
 	cmd.Flags().StringVar(&name, "name", "", "memory name")
 	cmd.Flags().StringVar(&class, "class", "", "memory class: knowledge|group|personal|private, or app with --app (create only; free-standing server default: knowledge)")
 	cmd.Flags().StringVar(&short, "short", "", "short description")
 	cmd.Flags().StringVar(&description, "description", "", "long description")
-	cmd.Flags().StringVar(&visibility, "visibility", "", "visibility: PUBLIC|ORGANIZATION|GROUP (unset uses the server default; the create output echoes the effective value)")
+	cmd.Flags().StringVar(&visibility, "visibility", "", "who can read a knowledge memory: ORGANIZATION (default) or PUBLIC; GROUP for a group memory")
 	cmd.Flags().StringVar(&slug, "slug", "", "URN slug (bare, e.g. hadrontool-pdf): set it on free-standing create instead of deriving from --name; renames the memory on update")
 	cmd.Flags().StringVar(&app, "app", "", "App ID or URN (create only; with --agent an App-scoped memory, alone with --class app a free-standing app memory)")
 	cmd.Flags().StringVar(&agent, "agent", "", "installed Agent ID or URN (App-scoped create only; requires --app; omit it for --app --class app)")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "tag (repeatable; replaces tags on update)")
-	cmd.Flags().IntVar(&maxRevCount, "max-rev-count", 0, "per-node revision-history cap (min 1; unset leaves the server default / current value)")
-	cmd.Flags().StringVar(&schema, "schema", "", `structured-storage property schema as JSON (#725); "" or "null" clears it`)
+	cmd.Flags().IntVar(&maxRevCount, "max-rev-count", 0, "how many earlier versions each node keeps (min 1; default 10)")
+	cmd.Flags().StringVar(&schema, "schema", "", `the memory's record schema as JSON (see hadron object); "" or "null" clears it`)
 	cmd.Flags().StringVar(&schemaFile, "schema-file", "", "read the property schema JSON from a file")
 	cmd.Flags().BoolVar(&listed, "listed-on-marketplace", false, "list the memory in the marketplace catalogue, or =false to de-list it (update only; advertisement, not access; omitted keeps the current value)")
 	return cmd
