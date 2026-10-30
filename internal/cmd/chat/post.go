@@ -65,10 +65,15 @@ to quote inline). Exactly one is required. --body - is for a PIPE: it is
 refused when stdin is an interactive terminal, which can truncate a long
 message before the CLI sees it; use --body-file there.
 
-AUTHORSHIP COMES FROM THE SESSION. --session <id> posts as the Worker bound to
-that session; with no --session the server records you, the human. --handle,
---identity and --role are still accepted from flags, HADRON_CHAT_HANDLE and
-.hadron/config.json, but they no longer affect the post: hand-typed attribution
+WHERE IT GOES: the chat resolved from --node (or -m + --messages-loc), then
+HADRON_CHAT_NODE, then "chat" in .hadron/config.json; "hadron chat config show"
+prints the result and "chat doctor" checks it.
+
+AUTHORSHIP COMES FROM THE SESSION. --session <id> (printed by "hadron team
+session whoami") posts as the Worker bound to that session; with no --session
+the server records you, the human. --handle, --identity and --role are LEGACY:
+still accepted from flags, HADRON_CHAT_HANDLE and .hadron/config.json, but
+ignored — they no longer affect the post: hand-typed attribution
 is what the Worker model replaced. Reads still show the stored envelope on
 messages written before this, so old transcripts keep their author.
 
@@ -127,9 +132,9 @@ one read).`,
 	cmd.Flags().StringVar(&messagesLoc, "messages-loc", "", "message-parent loc prefix; the two-field form with -m")
 	cmd.MarkFlagsMutuallyExclusive("node", "memory")
 	cmd.MarkFlagsMutuallyExclusive("node", "messages-loc")
-	cmd.Flags().StringVar(&handle, "handle", "", "this agent's chat handle (overrides config/env)")
-	cmd.Flags().StringVar(&identity, "identity", "", "real identity, e.g. the model name (default \"human\" convention); optional")
-	cmd.Flags().StringVar(&role, "role", "", "this agent's role, e.g. \"Backend Engineer\"; optional")
+	cmd.Flags().StringVar(&handle, "handle", "", "legacy, ignored: no longer affects a post")
+	cmd.Flags().StringVar(&identity, "identity", "", "legacy, ignored: no longer affects a post")
+	cmd.Flags().StringVar(&role, "role", "", "legacy, ignored: no longer affects a post")
 	cmd.Flags().StringVar(&body, "body", "", "message body, or - to read from stdin")
 	cmd.Flags().StringVar(&bodyFile, "body-file", "", "read the message body from a file (multi-line safe)")
 	cmd.Flags().StringVar(&session, "session", "", "post as the Worker bound to this session id (replaces --handle/--identity/--role)")

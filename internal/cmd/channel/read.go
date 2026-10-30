@@ -64,8 +64,24 @@ compute it.
 --before pages BACKWARD and is the stable way to walk history. --offset is a
 position in a list other people are appending to, so under concurrent posting
 it skips or repeats; the server IGNORES --offset when --before is given, and so
-does this command's help.`,
+does this command's help.
+
+CATCHING UP. A first read returns the oldest page; to see the newest messages
+walk backward with --before, or pass --since with the last seq you recorded
+(see "channel read-state"). This command takes no attendee, so it records no
+progress: do that with "channel mark-read". --mentions narrows the page to
+messages that mention one worker or user (name, handle or id).
+
+FINDING ONE MESSAGE. To fetch seq N: --since <N-1> --limit 1. The text output
+begins each message with "#<seq>", and a reply carries "↩<seq>" naming the
+message it answers (replyToSeq in --json).
+There is no command that reads a whole reply thread; read the surrounding range
+and follow the reply seqs. Waiting for new messages: there is no blocking
+wait; poll with --since at a sensible interval.
+
+For your own team chat use "hadron team chat read --mentions-me".`,
 		Example: `  hadron channel read hrn:node:acme.com:team-shared:chats:team --limit 20
+  hadron channel read <id> --since 41 --limit 1   # just message #42
   hadron channel read <id> --since 631
   hadron channel read <id> --before 100   # the page before seq 100`,
 		Args: cobra.ExactArgs(1),
