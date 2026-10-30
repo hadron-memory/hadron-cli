@@ -69,6 +69,18 @@ type WakeReason struct {
 	// tick, so with the ticker it is the reason's stable identity.
 	LastTickAt time.Time
 	Task       *TaskReason
+	// Action is what the register says this tick asks of the woken worker
+	// (TICK only). Carried for the dueWakes adapter and status; never
+	// rendered, never part of Key().
+	Action *TickAction
+}
+
+// TickAction is WakeReason.action: the server's answer, shown never composed.
+type TickAction struct {
+	Code    string
+	State   string
+	TaskLoc string
+	TaskURN string
 }
 
 // Key is the reason's stable submitted identity: tick:<tickerId>:<lastTickAt>
@@ -101,6 +113,9 @@ type Wake struct {
 	// agent, and no BusyDeadline holds it so for a busy or unproven one.
 	DeliverAfter time.Time
 	BusyDeadline time.Time
+	// TickText is DueWake.tickText: the one line the server wrote for the
+	// wake's ticks (cor:agt:080:26). Typed unchanged, never recorded.
+	TickText string
 }
 
 // Span is the wake for logs: reason counts only, never keys, names or
@@ -186,6 +201,11 @@ func RenderWake(reasons []WakeReason) string {
 		text = string([]rune(text)[:MaxWakeRunes-1]) + "…"
 	}
 	return text
+}
+
+// RenderWakeWith is RenderWake for a wake that carries the server's tick text.
+func RenderWakeWith(reasons []WakeReason, tickText string) string {
+	return RenderWake(reasons)
 }
 
 // renderTask is one TASK reason. A task-less alarm says its alarm type, or
