@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"syscall"
 )
 
 // Rename, Write and Remove are seams so a test can force the late failures
@@ -62,11 +61,14 @@ type Pending struct {
 
 // Open creates the destination: O_CREAT|O_EXCL|O_NOFOLLOW at 0600 on the path
 // itself, or — with force — on a fresh temp file in the same directory, which
-// Commit renames over the path. The final path component is never followed if it is a symlink (O_NOFOLLOW);
-// symlinked parent directories are followed like any other path.
+// Commit renames over the path. The final path component is never followed if it is a symlink (O_NOFOLLOW;
+// on windows, CREATE_NEW with FILE_FLAG_OPEN_REPARSE_POINT — see noFollow);
+// symlinked parent directories are followed like any other path. On windows the
+// 0600 mode only clears the read-only bit: the file takes its directory's
+// inherited ACL.
 func Open(final string, force bool) (*Pending, error) {
 	p := &Pending{final: final, path: final, force: force}
-	flags := os.O_CREATE | os.O_EXCL | os.O_WRONLY | syscall.O_NOFOLLOW
+	flags := os.O_CREATE | os.O_EXCL | os.O_WRONLY | noFollow
 	if force {
 		if fi, err := os.Lstat(final); err == nil && fi.IsDir() {
 			return nil, fmt.Errorf("%w: %s", ErrIsDir, final)
