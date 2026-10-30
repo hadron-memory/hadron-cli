@@ -200,5 +200,11 @@ func withCleanup(failure, cleanup error) error {
 	if cleanup == nil {
 		return failure
 	}
-	return exitcode.Newf(exitcode.FromError(failure), "%v. Also: %v", failure, cleanup)
+	combined := exitcode.Newf(exitcode.FromError(failure), "%v. Also: %v", failure, cleanup)
+	// Rebuilding the error would drop the server code the --json envelope reads.
+	var coded interface{ ServerCode() string }
+	if errors.As(failure, &coded) {
+		return &codedError{error: combined, code: coded.ServerCode()}
+	}
+	return combined
 }
