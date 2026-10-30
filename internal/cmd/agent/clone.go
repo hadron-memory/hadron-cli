@@ -29,7 +29,8 @@ Agent fields.
 
 One clone mutation only: no install, manual-copy fallback or automatic retry.
 A source-changed conflict may be marked retryable by the server. If the
-connection is lost, the outcome may be unknown: check before cloning again.`,
+connection is lost, or the server answers without the new Agent, the outcome
+is unknown (exit 7): check 'hadron agent list --org <org>' before cloning again.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if strings.TrimSpace(args[0]) == "" || strings.TrimSpace(target) == "" {
@@ -49,6 +50,9 @@ connection is lost, the outcome may be unknown: check before cloning again.`,
 			resp, err := gen.CloneAgent(cmd.Context(), client, args[0], target, nameArg, slugArg)
 			if err != nil {
 				return api.MapCloneAgentError(err)
+			}
+			if resp == nil || resp.CloneAgent == nil {
+				return api.CloneOutcomeUnknownError("the server answered without the cloned Agent")
 			}
 			dto := agentDTOFromFields(resp.CloneAgent.AgentFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error { _, err := fmt.Fprintln(w, dto.URN); return err })
