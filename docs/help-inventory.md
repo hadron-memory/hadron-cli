@@ -167,21 +167,21 @@ section between the markers.
 | `auth token revoke` |  |  | y | #1052 |  | unread |  |
 | `auth token validate` |  |  | y | #1052 |  | unread |  |
 | `auth whoami` |  |  | y | #1052 |  | unread |  |
-| `grant` | grants |  | n | #1052 |  | unread |  |
+| `grant` | grants |  | y | #1052 |  | unread |  |
 | `grant create` |  |  | y | #1052 |  | unread |  |
 | `grant list` | ls |  | y | #1052 |  | unread |  |
 | `grant revoke` | rm |  | y | #1052 |  | unread |  |
-| `org` | orgs, organization |  | n | #1052 |  | unread |  |
+| `org` | orgs, organization |  | y | #1052 |  | unread |  |
 | `org create` |  |  | y | #1052 |  | unread |  |
 | `org get` |  |  | y | #1052 |  | unread |  |
-| `org invite` | invitation, invitations |  | n | #1052 |  | unread |  |
+| `org invite` | invitation, invitations |  | y | #1052 |  | unread |  |
 | `org invite accept` |  |  | y | #1052 |  | unread |  |
 | `org invite create` |  |  | y | #1052 |  | unread |  |
-| `org invite show` | get |  | n | #1052 |  | unread |  |
-| `org list` | ls |  | n | #1052 |  | unread |  |
-| `org member` | members |  | n | #1052 |  | unread |  |
+| `org invite show` | get |  | y | #1052 |  | unread |  |
+| `org list` | ls |  | y | #1052 |  | unread |  |
+| `org member` | members |  | y | #1052 |  | unread |  |
 | `org member add` |  |  | y | #1052 |  | unread |  |
-| `org member list` | ls |  | n | #1052 |  | unread |  |
+| `org member list` | ls |  | y | #1052 |  | unread |  |
 | `org member rm` | remove |  | y | #1052 |  | unread |  |
 | `org member set-role` |  |  | y | #1052 |  | unread |  |
 | `org public` | discover |  | y | #1052 |  | unread |  |
@@ -194,7 +194,7 @@ section between the markers.
 | `secret create` |  |  | y | #1052 |  | unread |  |
 | `secret list` | ls |  | y | #1052 |  | unread |  |
 | `secret rm` | delete |  | y | #1052 |  | unread |  |
-| `ticket` | tickets |  | n | #1052 |  | unread |  |
+| `ticket` | tickets |  | y | #1052 |  | unread |  |
 | `ticket list` | ls |  | y | #1052 |  | unread |  |
 | `ticket mint` |  |  | y | #1052 |  | unread |  |
 | `user` | users |  | y | #1052 |  | unread |  |

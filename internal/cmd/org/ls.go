@@ -22,7 +22,13 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 		Long: `List organizations.
 
 By default this spans every organization you can see (for a platform admin, all
-live orgs). Pass --mine to restrict to organizations you're a member of.`,
+live orgs). Pass --mine to restrict to organizations you're a member of.
+
+The table shows ID, URN and NAME; any of them can be passed to org get,
+org use and the other org commands. Every page is fetched, so the list is
+complete. --json gives an array of orgs (an empty list is []).`,
+		Example: `  hadron org list --mine
+  hadron org list --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()

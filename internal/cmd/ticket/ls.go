@@ -17,10 +17,19 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 		Use:     "list --org <ref>",
 		Aliases: []string{"ls"},
 		Short:   "List the org's action-ticket ledger",
-		Long: `List the org's action-ticket ledger — minted, consumed-by-which-run, and
-expiries (cor:acl:050:04). Pages to exhaustion.`,
-		Example: `  hadron ticket list --org acme.com --json`,
-		Args:    cobra.NoArgs,
+		Long: `List an org's ticket ledger: every ticket minted, which run used it, and
+when it expires. Needs ADMIN or OWNER in the org (else exit 8). --org is the
+org's id, URN or root. Every page is fetched.
+
+The table shows ID, ACTION, STATUS, RUN (the run that used it) and CREATED.
+STATUS is "available", "consumed", or "expires <time>" for an unused ticket
+with an expiry (the CLI does not judge whether that time has passed). --json
+gives an array of id, organizationId, appId (null when org-wide), action,
+mintedBy, note, consumedByRunId, consumedAt, expiresAt and createdAt; an empty
+ledger is [].`,
+		Example: `  hadron ticket list --org acme.com
+  hadron ticket list --org acme.com --json | jq '[.[] | select(.consumedAt == null)] | length'`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
 			if err != nil {

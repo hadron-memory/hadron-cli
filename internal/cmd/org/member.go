@@ -18,6 +18,14 @@ func newCmdMember(f *cmdutil.Factory) *cobra.Command {
 		Use:     "member <command>",
 		Aliases: []string{"members"},
 		Short:   "Manage an organization's members",
+		Long: `See and change who belongs to an organization, and with which role.
+
+member add puts an existing user in the org at once, with no invitation and
+no notification. To bring in someone by a link they accept themselves, use
+hadron org invite create. Adding, changing and removing members needs ADMIN or
+OWNER in the org. Roles, highest first: OWNER, ADMIN, CONTRIBUTOR, READER.`,
+		Example: `  hadron org member list acme.com
+  hadron org member add acme.com --user alice@acme.com --role CONTRIBUTOR`,
 	}
 	cmd.AddCommand(newCmdMemberLs(f))
 	cmd.AddCommand(newCmdMemberAdd(f))
@@ -28,10 +36,19 @@ func newCmdMember(f *cmdutil.Factory) *cobra.Command {
 
 func newCmdMemberLs(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
-		Use:     "list <org-id>",
+		Use:     "list <org>",
 		Aliases: []string{"ls"},
 		Short:   "List an organization's members",
-		Args:    cobra.ExactArgs(1),
+		Long: `List every member of an organization (the whole list, not a page). You
+must be a member yourself, or a platform admin. <org> is its id, URN or root.
+
+The table shows USER ID, NAME, EMAIL and ROLE. ROLE is filled in only for your
+own row, unless you are an ADMIN or OWNER of the org or a platform admin.
+--json gives an array of {id, role, canInvite, user}; the user id is what
+member set-role and member rm take.`,
+		Example: `  hadron org member list acme.com
+  hadron org member list hrn:org:acme.com --json`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -71,10 +88,19 @@ func newCmdMemberLs(f *cmdutil.Factory) *cobra.Command {
 func newCmdMemberAdd(f *cmdutil.Factory) *cobra.Command {
 	var user, role string
 	cmd := &cobra.Command{
-		Use:     "add <org-id> --user <user-id> --role <role>",
-		Short:   "Add a user to an organization",
-		Example: `  hadron org member add org_123 --user usr_456 --role CONTRIBUTOR`,
-		Args:    cobra.ExactArgs(1),
+		Use:   "add <org> --user <user> --role <role>",
+		Short: "Add a user to an organization",
+		Long: `Add an existing user to an organization with a role, at once. No invitation
+is created and no message is sent. Needs ADMIN or OWNER in the org; an ADMIN
+may add an OWNER.
+
+<org> is the org's id, URN or root. --user is the user's id, email, handle or
+hrn:user:<handle> (hadron user search finds them). Someone removed earlier is
+reinstated. A user who is already a member is refused: use member set-role to
+change their role.`,
+		Example: `  hadron user search alice
+  hadron org member add acme.com --user alice@acme.com --role CONTRIBUTOR`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r, err := parseRole(role)
 			if err != nil {
@@ -94,7 +120,7 @@ func newCmdMemberAdd(f *cmdutil.Factory) *cobra.Command {
 			return emitMember(f, "✓ added", resp.AddOrgMember.Id, roleString(resp.AddOrgMember.Role), resp.AddOrgMember.User.UserFields)
 		},
 	}
-	cmd.Flags().StringVar(&user, "user", "", "user ID to add (required)")
+	cmd.Flags().StringVar(&user, "user", "", "user id, email, handle or hrn:user URN (required)")
 	cmd.Flags().StringVar(&role, "role", "", "role: OWNER, ADMIN, CONTRIBUTOR, or READER (required)")
 	_ = cmd.MarkFlagRequired("user")
 	_ = cmd.MarkFlagRequired("role")
@@ -104,10 +130,19 @@ func newCmdMemberAdd(f *cmdutil.Factory) *cobra.Command {
 func newCmdMemberSetRole(f *cmdutil.Factory) *cobra.Command {
 	var user, role string
 	cmd := &cobra.Command{
-		Use:     "set-role <org-id> --user <user-id> --role <role>",
-		Short:   "Change a member's role",
-		Example: `  hadron org member set-role org_123 --user usr_456 --role ADMIN`,
-		Args:    cobra.ExactArgs(1),
+		Use:   "set-role <org> --user <user> --role <role>",
+		Short: "Change a member's role",
+		Long: `Replace a member's org role; the change applies at once and there is no
+prompt. Needs ADMIN or OWNER in the org; an ADMIN may promote to or demote from
+OWNER. The org's last OWNER cannot be demoted. Demoting an ADMIN or OWNER to
+CONTRIBUTOR or READER revokes the invitations they sent.
+
+<org> is the org's id, URN or root; --user is the member's id, email, handle
+or hrn:user:<handle> (see hadron org member list). Someone who is not a member
+is refused: use member add.`,
+		Example: `  hadron org member list acme.com
+  hadron org member set-role acme.com --user alice@acme.com --role ADMIN`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r, err := parseRole(role)
 			if err != nil {
@@ -127,7 +162,7 @@ func newCmdMemberSetRole(f *cmdutil.Factory) *cobra.Command {
 			return emitMember(f, "✓ set", resp.UpdateOrgMember.Id, roleString(resp.UpdateOrgMember.Role), resp.UpdateOrgMember.User.UserFields)
 		},
 	}
-	cmd.Flags().StringVar(&user, "user", "", "user ID (required)")
+	cmd.Flags().StringVar(&user, "user", "", "member's user id, email, handle or hrn:user URN (required)")
 	cmd.Flags().StringVar(&role, "role", "", "new role: OWNER, ADMIN, CONTRIBUTOR, or READER (required)")
 	_ = cmd.MarkFlagRequired("user")
 	_ = cmd.MarkFlagRequired("role")
@@ -138,11 +173,24 @@ func newCmdMemberRm(f *cmdutil.Factory) *cobra.Command {
 	var user string
 	var yes bool
 	cmd := &cobra.Command{
-		Use:     "rm <org-id> --user <user-id>",
+		Use:     "rm <org> --user <user>",
 		Aliases: []string{"remove"},
 		Short:   "Remove a user from an organization",
-		Example: `  hadron org member rm org_123 --user usr_456 --yes`,
-		Args:    cobra.ExactArgs(1),
+		Long: `Remove a member from an organization. Needs ADMIN or OWNER in the org;
+you may remove yourself. The org's last OWNER cannot be removed.
+
+The member loses the access their membership gave them, at once. The
+invitations they sent are revoked, and their grants in the org stop applying
+(they apply again if the user is re-added before they expire). Their content
+is not touched. Removing someone already removed succeeds again.
+
+<org> is the org's id, URN or root; --user is the member's id, email, handle
+or hrn:user:<handle>. On a terminal it asks for confirmation; in a script or
+agent pass --yes, or it refuses with exit 2.`,
+		Example: `  hadron org member list acme.com
+  hadron org member rm acme.com --user alice@acme.com
+  hadron org member rm acme.com --user alice@acme.com --yes`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -161,7 +209,7 @@ func newCmdMemberRm(f *cmdutil.Factory) *cobra.Command {
 			})
 		},
 	}
-	cmd.Flags().StringVar(&user, "user", "", "user ID to remove (required)")
+	cmd.Flags().StringVar(&user, "user", "", "member's user id, email, handle or hrn:user URN (required)")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
 	_ = cmd.MarkFlagRequired("user")
 	return cmd
