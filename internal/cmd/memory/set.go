@@ -93,12 +93,12 @@ Apps:
   use memory attach.
 
   --app <app> --class app --name <name>, without --agent, adds a new app memory
-  that the App's participants read and write. The App must belong to an
-  organization and have an Agent installed, and only an admin or owner of that
-  organization may do it, as themselves (not with an App key or a worker
-  session). It takes only --name, --short, --description and --tag. The
-  server's refusals (FORBIDDEN, AGENT_NOT_INSTALLED, USER_OWNED_APP_UNSUPPORTED,
-  BAD_USER_INPUT) are shown with the exit code mapped from their code.`,
+  that the App's participants read and write. The App must have an Agent
+  installed. The caller is an admin or owner of the App's organization or, for
+  a user-owned App (one with no organization), its owner, and acts as
+  themselves (not with an App key, a run, impersonation or a worker session).
+  It takes only --name, --short, --description and --tag. The server's refusals
+  (FORBIDDEN, AGENT_NOT_INSTALLED, BAD_USER_INPUT) are shown with the exit code mapped from their code.`,
 		Example: `  hadron memory set --org acme.com --name "Project KB"
   hadron memory set --org acme.com --name "Hadron PDF Tool" --slug hadrontool-pdf
   hadron memory set --org acme.com --name "Notes" --class personal
