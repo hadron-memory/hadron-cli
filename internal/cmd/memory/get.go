@@ -33,7 +33,16 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <memoryRef>",
 		Short: "Show a memory",
-		Args:  cobra.ExactArgs(1),
+		Long: `Show a memory's settings: name, URN, class, organization, description,
+tags, how many versions each node keeps, marketplace listing, schema and when
+it last changed.
+
+It does not list who has access. For that, use memory member list (group
+members), memory share list (people you shared it with) and memory
+subscription list (organizations). To see its nodes, use node list -m.`,
+		Example: `  hadron memory get hrn:mem:acme.com:project-kb
+  hadron memory get acme.com:project-kb --json`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validateMemoryRef(args[0]); err != nil {
 				return err

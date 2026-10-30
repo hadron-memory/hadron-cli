@@ -23,8 +23,9 @@ func newCmdExtract(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "extract <parentRef> <targetUrn> [--move]",
 		Short: "Extract a node subtree into a new memory",
-		Long: `Extract a parent node and its loc-subtree into a new memory, making
-the parent the new memory's root.
+		Long: `Copy, or with --move move, a node and everything under it into a new memory,
+making that node the new memory's root. "Under it" goes by loc, a node's path
+inside the memory: findings:auth:oauth is under findings:auth.
 
 The subtree is the node at the parent's loc plus every live descendant.
 Locs are REBASED so the parent becomes the root — "findings:auth"
@@ -47,7 +48,9 @@ who can read the content (a member-restricted group stays group, a
 personal/private source stays owner-owned).
 
 v1 limitation: node content is copied verbatim — because both the slug
-and node locs change, URN references among the moved nodes will break.`,
+and node locs change, URN references among the moved nodes will break.
+
+` + copyHelp,
 		Example: `  hadron memory extract hrn:node:acme.com:kb:findings:auth hrn:mem:acme.com:auth-kb
   hadron memory extract -m hrn:mem:acme.com:kb findings:auth hrn:mem:other-org:auth-kb --move`,
 		Args: cobra.ExactArgs(2),

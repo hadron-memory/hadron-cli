@@ -89,37 +89,39 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 		Use:     "list",
 		Aliases: []string{"ls"},
 		Short:   "List nodes",
-		Long: `List nodes you can access, optionally scoped to a memory.
+		Long: `List the nodes of a memory, one row each: loc, name, type, seq and whether it
+is runnable. Use node get to read a node's content.
 
---install <app>/<agent> selects an App's customisation memory instead of
---memory. Both refs must be ids or fully-qualified URNs, separated by /.
-This excludes --memory (even an empty value). Reads create nothing; an
-unavailable memory is exit 4, not an unscoped read. Only an App manager may
-write while the App is live and the Agent installed. Metadata visibility
-does not confer permission to read content or write. Listing never creates an install memory.
+  hadron node list -m hrn:mem:acme.com:kb
+  hadron node list -m hrn:mem:acme.com:kb --prefix findings:
 
--m/--memory takes a memory ID or fully-qualified URN (hrn:mem:<root>:<slug>) and
-scopes the listing to that memory. --prefix filters on the node loc
-(e.g. --prefix findings: lists one branch).
+-m takes a memory id or URN (hrn:mem:<root>:<slug>); without it the list
+covers every memory you can read. --prefix keeps nodes whose loc starts with
+the text (findings: is one branch). --type, --tag, --runnable and --search
+(words in the name or description) narrow it further.
 
---sort-seq [asc|desc] sorts results by seq in ascending or descending order.
---seq-gt N filters to nodes with seq > N (useful for reading new messages
-after a known seq number). Both scan the WHOLE collection in scope — not just
-the server's default first page — so the newest nodes are never hidden past a
-page boundary; with --sort-seq, --limit then means "the top N by seq".
+Without --limit or --offset you get every matching node. --limit and --offset
+fetch one page instead.
 
---where takes a JSON predicate over one of the node's two JSONB columns (a leaf
-is a path plus one of eq|ne|in|lt|lte|gt|gte|between|exists|contains; branch
-with and/or/not). A leaf reads "properties" UNLESS it sets "field":"data" — so
-a predicate aimed at a node's free-form data envelope must say so, or it
-searches the wrong column and returns a silent zero. --sort-property takes the
-same "field" key and the same default. --object-type filters the objectType
-collection facet.
+Some nodes, such as chat messages, carry a seq: a number that counts up as
+they are added (ordinary notes have none, so the column is empty). --sort-seq
+asc|desc sorts by it, and --seq-gt N keeps nodes whose seq is above N (for
+example, messages newer than the last one you read). With either flag the
+whole memory is read first and filtered; only --sort-seq sorts (without it the
+server's order is kept), and --limit then means "the first N" of that list.
 
---with-properties / --with-data add those columns to the output, so a listing
-can show the field it just filtered on. They are opt-in because a listing is an
-index: a large result with full envelopes is a much bigger payload. In text
-output either flag switches the table for a per-node block.`,
+Records: --object-type keeps one collection (for example competitor). --where
+filters on a record's fields with a JSON condition, in the same form as
+search --where: a path plus one test (eq, ne, in, lt, lte, gt, gte, between,
+exists, contains), combined with and/or/not. It reads the "properties" fields
+unless the condition says "field":"data", so a condition on the data object
+must say so or it usually finds nothing. --sort-property orders by one field,
+with the same "field" rule. --with-properties / --with-data add those fields
+to each row (the table becomes one block per node).
+
+Details:
+
+` + installDetails("") + ``,
 		Example: `  hadron node list --memory hrn:mem:hadronmemory.com:dev
   hadron node list -m hrn:mem:hadronmemory.com:dev --prefix findings: --json
   hadron node list -m hrn:mem:hadronmemory.com:dev --seq-gt 42 --sort-seq asc

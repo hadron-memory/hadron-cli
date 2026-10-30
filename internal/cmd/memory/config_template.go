@@ -130,11 +130,19 @@ func newCmdConfigTemplate(f *cmdutil.Factory) *cobra.Command {
 organization, a user or an App. Applying one COPIES its rules into a memory's
 config; it is never a live link.
 
+A template is either optional or required. An optional template only fills in
+roles the memory has no rule for. A required one also replaces the memory's
+own rules and locks the rules it writes, so nobody can change or remove them
+until a rule unlock. Use required for rules an organization must enforce.
+
 Only the owner's managers can see or change a template: a platform admin (server),
 an org ADMIN/OWNER (organization), the user themselves (user), the App's owner or
 an org ADMIN/OWNER (App). For anyone else it does not exist (exit 4).
 
 Templates are addressed by id; "template list" shows them.`,
+		Example: `  hadron memory config template list
+  hadron memory config template create --owner-org acme.com --file spec-template.json
+  hadron memory config template apply tmpl_123 hrn:mem:acme.com:kb --dry-run`,
 	}
 	cmd.AddCommand(newCmdTemplateList(f))
 	cmd.AddCommand(newCmdTemplateGet(f))
@@ -635,10 +643,32 @@ func newCmdTemplateCreate(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create --file <path> (--owner-server | --owner-org <ref> | --owner-me | --owner-app <ref>)",
 		Short: "Create a template from a file",
-		Long: `Create a template owned by exactly one owner. Its name, description, required
-flag and rules come from --file (JSON; "-" reads stdin): the shape "template get
---json" prints, so an existing template's output can be fed back to copy it.
-The server-owned keys it carries (id, revision, ownerType, …) are ignored.
+		Long: `Create a template owned by exactly one owner (the server, an organization,
+you, or an App). Its name, description, required flag and rules come from
+--file, a JSON file ("-" reads stdin). A first template looks like this:
+
+  {
+    "name": "product-specs",
+    "description": "How spec nodes are written and checked",
+    "required": false,
+    "rules": [
+      { "role": "spec", "writers": "admin",
+        "authorTask": "hrn:node:acme.com:kb:tasks:write-spec",
+        "validationTask": "hrn:node:acme.com:kb:tasks:check-spec",
+        "validateBy": "agent" },
+      { "role": "spec.rule", "writers": "admin", "strictSubRoles": true }
+    ]
+  }
+
+The name is 1-64 lower-case letters, digits, "-" or "_". Each rule takes the
+keys of config rule add: role, writers (all, admin or owner), authorTask,
+validationTask, validateBy (agent or platform), strictSubRoles and enabled. Tasks are runnable task nodes, by id or URN.
+"required": true makes config template apply overwrite a memory's own rule
+for the role and lock it.
+
+It is the same shape template get --json prints, so an existing template can
+be copied by piping one into the other; the keys the server sets (id,
+revision, ownerType and so on) are ignored.
 
 A name is unique per owner (exit 5 when taken). Rules are validated as a whole
 before anything is written; a role listed twice is exit 5.`,

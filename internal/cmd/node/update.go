@@ -48,75 +48,64 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update <node-urn> | <loc> (-m <memory> | --install <app>/<agent>)",
 		Short: "Update a node",
-		Long: `Update an existing node by its fully-qualified URN
-(hrn:node:<root>:<slug>:<loc>), or by a bare <loc> with -m/--memory. Only the
-fields you pass change; everything else is preserved (pass an explicit
-empty string, e.g. --description "", to clear a field).
+		Long: `Change an existing node. Only the fields you pass change; everything else is
+kept. Name the node by its URN (hrn:node:<root>:<memory>:<loc>), or by its loc
+with -m:
 
---install <app>/<agent> selects an App's customisation memory instead of
---memory. Both refs must be ids or fully-qualified URNs, separated by /.
-This excludes --memory (even an empty value). Reads create nothing; an
-unavailable memory is exit 4, not an unscoped read. Only an App manager may
-write while the App is live and the Agent installed. --data-merge and
---data-merge-file are refused with --install: use --data/--data-file replacement
-to keep the install selector on the write. Metadata visibility
-does not confer permission to read content or write. Get/update take bare locs inside that memory, not separate node ids or URNs.
+  hadron node update findings:flaky-ci -m hrn:mem:acme.com:kb --name "Flaky CI (fixed)"
 
-The data bag can be written two ways:
+On success it prints "✓ updated <loc> <name>"; --json prints the node. To
+clear a text field, pass it empty (--description ""). --reason records why in
+the node's version history (see node revision list).
 
-  --data / --data-file       REPLACE the whole data object (pass "null" to
-                             clear it).
-  --data-merge / --data-merge-file
-                             MERGE a JSON object into the existing data: its
-                             top-level keys overwrite, unmentioned keys are
-                             preserved (a shallow merge — nested object values
-                             are replaced wholesale, not deep-merged). The
-                             patch must be an object.
+To edit the content, read it with node get --body-only, edit the file, and
+write it back:
 
-Replace and merge are different operations, so --data and --data-merge are
-mutually exclusive.
+  hadron node get findings:flaky-ci -m hrn:mem:acme.com:kb --body-only > body.md
+  hadron node update findings:flaky-ci -m hrn:mem:acme.com:kb --content-file body.md
 
---expected-revision requires the node's live revision to match your supplied
-positive 32-bit baseline. Omitted means last-write-wins. A mismatch is a conflict
-(exit 5); re-read and retry deliberately. Drift can advance a revision without
-another user edit. The CLI never refreshes the baseline or retries a write.
-This guard cannot be used with --data-merge or --data-merge-file; use --data
-for a guarded full replacement. In --dry-run it is advisory, not validated by
-the server, and reserves no revision.
+Use --body-only for this. An ordinary node get fills in the content's {{…}}
+placeholders, so saving that text back would remove them; the text form of
+node get --raw prints a header above the content. A new content that starts
+with that header is refused (exit 2, nothing written) unless --force. A new
+content that drops a {{…}} placeholder the old one had is written, with a
+warning on stderr, since removing it may be the edit.
 
-EDITING EXISTING CONTENT: read it with ` + "`node get <ref> --body-only`" + `, which
-prints the stored body byte for byte (#873). A plain ` + "`node get`" + ` compiles the
-node's Mustache templates, so writing that text back deletes every {{…}}
-placeholder (#736); a text-mode ` + "`node get --raw`" + ` prints a metadata header above
-the body, which would be saved INTO it.
+--dry-run shows what would change, with a diff of the content, and writes
+nothing. It runs the CLI's own checks only; the server's checks (a memory's
+schema, for example) run on the real write.
 
-Two guards stand on a new body (--content / --content-file). One that starts
-with that header is REFUSED (exit 2, nothing written) unless --force. One that
-drops a {{…}} tag the stored body has — a placeholder or a {{=…=}} delimiter
-change — is written, with a warning on stderr: removing a placeholder can be
-the edit.
+--expected-revision <n> writes only if the node is still at revision n (see
+node get --json); if someone or something changed it since, the write is
+refused with exit 5 and your changes are not applied. Re-read and decide. The
+server may still record a new revision while refusing, when it reconciles
+drift it found in the stored node, so the revision number can move. Without the flag, the
+last write wins.
 
---dry-run writes nothing: it reads the node, runs every client-side check a
-write would (the header guard, the role and kind refusals, input parsing), and
-shows the fields that would change, with a diff of the stored body against the
-new one. The server's own validation (a schema-governed memory, the door's
-refusals) runs only on the write. It previews the field update only, so
---data-merge is refused with it. Empty or whitespace --role clears via literal
-null in the current kind's door; --data-merge cannot be combined with a role
-clear because it is a separate write (use --data for one atomic replacement).
+The data object: --data / --data-file REPLACE it ("null" clears it).
+--data-merge / --data-merge-file MERGE a JSON object into it: the keys you give
+overwrite, other keys stay (one level deep: a nested object is replaced
+whole). Replace and merge exclude each other.
 
---content - (or --content-file -), --abstract - and --data-merge - read
-standard input, and are for
-a PIPE (cat file | hadron node update ...). Each is REFUSED when stdin is an
-interactive terminal, which can truncate large input before the CLI sees it;
-use --content-file, --abstract-file or --data-merge-file instead.
+Content, --abstract and --data-merge take "-" to read piped input
+(cat new.md | hadron node update ... --content -). "-" is refused when input is
+a terminal rather than a pipe, because a terminal can cut long input short;
+use the matching -file flag instead.
 
---object-type sets the node's structured-storage collection (#725); pass "" to
-clear it (→ ordinary node), omit to preserve. --properties / --properties-file
-REPLACE the typed properties bag the schema governs (pass "null" to clear) —
-distinct from --data. (There is no --properties-merge yet; a shallow merge needs
-the server-side updateNodeProperties mutation, tracked as hadron-server#742. On a
-schema-governed memory the server validates the result and rejects a violation.)`,
+Records: --object-type sets the collection (pass "" to make it an ordinary
+node again). --properties / --properties-file REPLACE all of the record's
+fields ("null" clears them); object update merges fields instead. On a memory
+with a schema, the server refuses a record that does not fit. --role sets what
+the node is for in a governed workflow (see node create); pass "" to clear it.
+
+Details:
+
+--data-merge and --data-merge-file are a separate write, so they cannot be
+combined with --expected-revision, --dry-run, --install or a --role clear. Use
+--data instead: one complete replacement, which works with all of those. With
+--dry-run, --expected-revision is advisory only: the server does not check it.
+
+` + installDetails("") + ``,
 		Example: `  hadron node update hrn:node:acme.com:kb:findings:flaky-ci --name "Flaky CI (resolved)"
   cat updated.md | hadron node update findings:flaky-ci -m hrn:mem:acme.com:kb --content -
   hadron node update hrn:node:acme.com:kb:findings:flaky-ci --data-merge '{"status":"closed"}'`,
@@ -468,13 +457,13 @@ schema-governed memory the server validates the result and rejects a violation.)
 	cmd.Flags().BoolVar(&force, "force", false, "write a new body even though it starts with the metadata header a text-mode node get prints")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would change, with a diff of the body, without writing")
 	cmd.Flags().StringVar(&nodeType, "type", "", "new node type (comments cannot be retyped; use hadron comment edit)")
-	cmd.Flags().StringVar(&objectType, "object-type", "", `new structured-storage collection (#725; "" clears → ordinary node; omit to preserve)`)
+	cmd.Flags().StringVar(&objectType, "object-type", "", `new collection for the record ("" makes it an ordinary node; omit to keep)`)
 	// NOT the same word as `memory member --role` / `memory share --role`, which
 	// are MEMBERSHIP roles on a person. This is Node.role — what the node is FOR
 	// — and the usage says what it is not, the condition @Holger attached to
 	// there being three kind-ish fields at all (nodeType / objectType / role).
 	cmd.Flags().StringVar(&role, "role", "",
-		`what this node is FOR (#1201) — "spec"/"spec.*" and "review"/"review.*" use their governed doors; omit to preserve; empty or whitespace clears through an explicit null. NOT --type (the platform kind) and NOT a membership role`)
+		`what this node is for in a governed workflow ("spec", "spec.*", "review", "review.*"); "" clears it; omit to keep. Not --type, and not a membership role`)
 	cmd.Flags().StringVar(&description, "description", "", "new one-line description")
 	cmd.Flags().StringVar(&abstract, "abstract", "", `new paragraph-length summary ("-" reads stdin)`)
 	cmd.Flags().StringVar(&abstractFile, "abstract-file", "", "read the new abstract from a file")
@@ -482,7 +471,7 @@ schema-governed memory the server validates the result and rejects a violation.)
 	cmd.Flags().StringVar(&dataFile, "data-file", "", "read the replacement JSON data object from a file")
 	cmd.Flags().StringVar(&dataMerge, "data-merge", "", `merge a JSON object into data, preserving unmentioned keys ("-" reads stdin)`)
 	cmd.Flags().StringVar(&dataMergeFile, "data-merge-file", "", "read the JSON object to merge into data from a file")
-	cmd.Flags().StringVar(&properties, "properties", "", `replace the structured-storage JSON properties (#725; "null" clears)`)
+	cmd.Flags().StringVar(&properties, "properties", "", `replace all of the record's fields with this JSON object ("null" clears)`)
 	cmd.Flags().StringVar(&propertiesFile, "properties-file", "", "read the replacement JSON properties object from a file")
 	cmd.Flags().BoolVar(&runnable, "runnable", false, "mark the node runnable by 'hadron task run' (--runnable=false clears it; omit to preserve)")
 	cmd.Flags().IntVar(&expectedRevision, "expected-revision", 0, "require the supplied live revision (1-2147483647); omit for last-write-wins; unavailable with data merge")

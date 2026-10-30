@@ -19,9 +19,11 @@ func newCmdNext(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "next <parent> [--after <current>] [-m <memory>] [--raw]",
 		Short: "Read the next ordered child of a parent",
-		Long: `Read the first child of a parent, or the next sibling after --after.
-The server orders by seq ascending (unset seq last), then loc. This is a
-stateless read, not a session or traversal cursor.
+		Long: `Step through the notes under a parent in order, one at a time: with no
+--after it reads the parent's first child; with --after <current> it reads
+the one after <current>. Use it to read ordered notes such as the steps of a
+guide. Order is by seq, lowest first (nodes without one come last), then by
+loc. Each call stands alone; nothing remembers your place.
 
 Refs may be node ids, fully-qualified node URNs (including legacy forms), or
 bare locs with -m/--memory. They are normalized locally and sent directly to

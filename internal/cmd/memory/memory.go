@@ -93,7 +93,40 @@ func NewCmdMemory(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "memory <command>",
 		Aliases: []string{"memories"},
-		Short:   "Work with Hadron memories",
+		Short:   "Create memories, choose one to work in, and share, copy or delete them",
+		Long: `A memory is a collection of notes (nodes) with its own access rules: an
+organization's knowledge base, a team's shared notes, or your own. Each has a
+URN, hrn:mem:<root>:<slug>, and a class that decides who can read and write it
+(see member, share and subscription for giving access).
+
+Create and choose
+  set           create a memory, or change its name, description or settings
+  set-active    make it the default memory for spec and coding commands
+  list          list the memories you can access
+  get           show one memory's settings
+See who has access, and give it
+  member        group memories: add people as reader, writer or owner
+  share         personal memories: give one person read or write access
+  subscription  public knowledge memories: give another organization access
+Copy, move and delete
+  export        save every note to Markdown files
+  clone         copy the whole memory into a new one
+  extract       copy or move one branch of notes into a new memory
+  transfer      give the memory to another organization or user
+  rm            delete the memory and everything in it
+Health and maintenance
+  validate        find broken links, near-empty notes and other problems
+  reembed-failed  retry notes whose search indexing failed
+  usage           count reads and writes per note
+  approve-all     approve every note's current version
+  config          rules for which tasks write and check nodes of a role
+Encryption and Apps
+  encrypt       encrypt a private memory (cannot be undone)
+  attach        attach your personal or private memory to an App
+  link-user     move an anonymous App memory to a registered user`,
+		Example: `  hadron memory set --org acme.com --name "Project KB"
+  hadron memory set-active hrn:mem:acme.com:project-kb
+  hadron memory list`,
 	}
 	cmd.AddCommand(newCmdLs(f))
 	cmd.AddCommand(newCmdGet(f))
@@ -119,6 +152,18 @@ func NewCmdMemory(f *cmdutil.Factory) *cobra.Command {
 	return cmd
 }
 
+// copyHelp tells the four copy-or-move commands apart; each page carries it
+// so a reader who lands on the wrong one learns which they wanted.
+const copyHelp = `Which one to use:
+  memory export    save every note as Markdown files on your disk, as a
+                   backup or to read and compare
+  memory clone     copy the whole memory into a new memory, here or in
+                   another organization
+  memory extract   copy one branch of notes (a node and everything under it)
+                   into a new memory, or move it there with --move
+  memory transfer  keep the memory whole, but give it to another
+                   organization or user`
+
 // memoryRefToken is the placeholder every command in this group uses in
 // its usage line for the memory it acts on.
 const memoryRefToken = "<memoryRef>"
@@ -132,16 +177,10 @@ const memoryRefToken = "<memoryRef>"
 // handle), and cmdutil.MemoryParts normalizes urn: to hrn: before
 // matching, so both schemes work everywhere. memoryRefFormsAreAccepted
 // pins every form named here against the parser.
-const memoryRefHelp = `<memoryRef> identifies the memory. It accepts the memory's id, or any of the
-URN spellings below, where <root> is an organization name or a user handle
-(a memory created with --owner-me lives under your own handle):
-
-  hrn:mem:<root>:<slug>       canonical
-  hrn:memory:<root>::<slug>   legacy
-  <root>:<slug>               short form
-  <root>::<slug>              short form
-
-urn: is accepted in place of hrn: throughout.`
+const memoryRefHelp = `<memoryRef> is the memory's id or URN, hrn:mem:<root>:<slug>, where <root> is
+an organization name or a user handle (an --owner-me memory). The short forms
+<root>:<slug> and <root>::<slug>, the legacy hrn:memory:<root>::<slug>, and
+urn: in place of hrn: are accepted too.`
 
 // annotateMemoryRefHelp appends memoryRefHelp to the long help of every
 // command in the tree that takes a <memoryRef>. Doing it here rather

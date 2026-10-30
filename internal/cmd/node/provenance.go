@@ -54,32 +54,38 @@ func newCmdProvenance(f *cmdutil.Factory) *cobra.Command {
 	var all bool
 	cmd := &cobra.Command{
 		Use:   "provenance <compiled-node-ref> --revision <n>",
-		Short: "Read a compiled boot prompt's recorded source revisions",
-		Long: `Read the immutable provenance recorded for exactly one compiled boot-prompt
-revision, not the latest live include edges. --revision is required. The ref
-is a node id or fully-qualified node URN; a bare loc needs -m/--memory.
+		Short: "Show which sources a compiled boot prompt was built from (maintainers)",
+		Long: `For maintainers of Agent boot prompts. hadron agent compile builds an Agent's
+boot prompt (its standing instructions) from several source notes, and saves
+the result as a new revision of a compiled node. This command shows what went
+into one such revision: each source note it included, in order and nesting
+depth, with the source revision and content hash that were used. It shows no
+source text, and changes nothing.
 
-The page reports occurrence order/depth, recorded source ids/revisions/hashes,
-include position, replacement and effective selection settings.
---json includes the full recorded occurrence, including parent, hash, replacement,
-position and selection; the human table summarizes identity and source status.
-It contains
-no source bodies or related entity objects. Access is decided by the compiled
-node's existing read/history gate. A missing, deleted, noncompiled or unreadable
-target has one unavailable answer (exit 4), not an empty record. Missing or
-corrupt provenance is a server integrity error, never zero occurrences.
+Name the compiled node by its id or URN (a bare loc needs -m), and give
+--revision <n>, the revision number that agent compile printed (node get
+--json shows the current one). The answer is what was recorded when that
+revision was compiled, not the sources the node links to now.
 
-Compiled pruned describes whether that compiled revision's text is absent.
-Each source pruned is true/false only when its current source and any retained
-historical snapshot are readable; null is not visible, not proof of retention or
-pruning. Recorded ids/hashes/settings remain under the compiled node gate.
+The table lists each source and its status.
+--json includes the full recorded occurrence: its parent, hash, replacement,
+position and selection settings.
 
-One offset page is returned by default (--limit 20, cap 100). --limit 0 reads
-counts only. --offset skips occurrences. --all reads every page, buffering until
-complete; it excludes --offset and --limit 0. A page failure or changed identity,
-counts or compiled pruning state fails the whole read, never partial success.
-Separate pages are not one snapshot; source availability can change between
-pages. No content is exported, approval changed, compile retried or prompt served.`,
+Reading needs read access to the compiled node's history. A node that is
+missing, deleted, not compiled, or not readable by you exits 4. Missing or
+damaged provenance is a server error, never an empty list.
+
+"pruned" on the compiled revision says whether its text has been removed. On
+a source, pruned is true or false only when you can read that source's
+current version and any kept snapshot; null means you cannot see it, not that
+it was kept or removed.
+
+Paging: 20 sources per page by default (--limit, at most 100); --offset skips
+some; --limit 0 prints counts only. --all reads every page and prints only
+once all have arrived; it excludes --offset and --limit 0. If any page fails,
+or the compiled revision changes between pages, the whole read fails rather
+than returning part of it. Pages are not one snapshot: a source's
+availability can change between them.`,
 		Example: "  hadron node provenance hrn:node:acme.com:iris-system:boot:compiled --revision 7 --json\n  hadron node provenance boot:compiled -m hrn:mem:acme.com:iris-system --revision 7 --all\n  hadron node provenance hrn:node:acme.com:iris-system:boot:compiled --revision 7 --limit 0",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

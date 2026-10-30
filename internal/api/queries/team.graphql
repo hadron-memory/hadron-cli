@@ -1310,7 +1310,9 @@ query TeamDeliverySettings($appRef: String!) {
 # @genqlient(for: "AppDeliverySettingsInput.stuckWindowSeconds", omitempty: true)
 # @genqlient(for: "AppDeliverySettingsInput.standbyEnabled", omitempty: true)
 # @genqlient(for: "AppDeliverySettingsInput.checkPeriodSeconds", omitempty: true)
+# @genqlient(for: "AppDeliverySettingsInput.darkAlarmWindowSeconds", omitempty: true)
 # @genqlient(for: "AppDeliverySettingsInput.failedChecksToOverdue", omitempty: true)
+# @genqlient(for: "AppDeliverySettingsInput.darkAlarmWindowSeconds", omitempty: true)
 mutation TeamDeliverySettingsSet(
   $appRef: String!
   $input: AppDeliverySettingsInput!

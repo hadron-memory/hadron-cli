@@ -696,8 +696,9 @@ type AgentFields struct {
 	// Persona role - free string with conventions ('backend-engineer').
 	PersonaRole *string `json:"personaRole"`
 	// #2138: false means every Worker cast from this Agent counts as having a task and is expected to check its team channel every period (coordinators, the lifecycle agent). Default true.
-	UsesTasks bool   `json:"usesTasks"`
-	CreatedAt string `json:"createdAt"`
+	UsesTasks          bool                           `json:"usesTasks"`
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+	CreatedAt          string                         `json:"createdAt"`
 }
 
 // GetId returns AgentFields.Id, and is useful for accessing the field via an interface.
@@ -757,8 +758,21 @@ func (v *AgentFields) GetPersonaRole() *string { return v.PersonaRole }
 // GetUsesTasks returns AgentFields.UsesTasks, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetUsesTasks() bool { return v.UsesTasks }
 
+// GetInstallationPolicy returns AgentFields.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.InstallationPolicy
+}
+
 // GetCreatedAt returns AgentFields.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetCreatedAt() string { return v.CreatedAt }
+
+// AgentFieldsInstallationPolicy includes the requested fields of the GraphQL type InstallationPolicy.
+type AgentFieldsInstallationPolicy struct {
+	MemberRoles []string `json:"memberRoles"`
+}
+
+// GetMemberRoles returns AgentFieldsInstallationPolicy.MemberRoles, and is useful for accessing the field via an interface.
+func (v *AgentFieldsInstallationPolicy) GetMemberRoles() []string { return v.MemberRoles }
 
 // Filter for the uniform agents() list (#473). Clauses AND-combine.
 type AgentFilter struct {
@@ -4159,6 +4173,285 @@ func (v *AgentTaskListResponse) GetAgentTasks() []*AgentTaskListAgentTasksAgentT
 	return v.AgentTasks
 }
 
+// AgentTaskListTextAgentTasksAgentTask includes the requested fields of the GraphQL type AgentTask.
+type AgentTaskListTextAgentTasksAgentTask struct {
+	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskListTextAgentTasksAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetPriority() int { return v.AgentTaskFields.Priority }
+
+// GetBlocked returns AgentTaskListTextAgentTasksAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetBlocked() bool { return v.AgentTaskFields.Blocked }
+
+// GetBlockedBy returns AgentTaskListTextAgentTasksAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskListTextAgentTasksAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
+}
+
+// GetId returns AgentTaskListTextAgentTasksAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetId() string { return v.AgentTaskFields.Id }
+
+// GetHandle returns AgentTaskListTextAgentTasksAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetHandle() string { return v.AgentTaskFields.Handle }
+
+// GetTaskNumber returns AgentTaskListTextAgentTasksAgentTask.TaskNumber, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetTaskNumber() string {
+	return v.AgentTaskFields.TaskNumber
+}
+
+// GetAppId returns AgentTaskListTextAgentTasksAgentTask.AppId, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetAppId() string { return v.AgentTaskFields.AppId }
+
+// GetTitle returns AgentTaskListTextAgentTasksAgentTask.Title, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetTitle() string { return v.AgentTaskFields.Title }
+
+// GetDescription returns AgentTaskListTextAgentTasksAgentTask.Description, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetDescription() *string {
+	return v.AgentTaskFields.Description
+}
+
+// GetStatus returns AgentTaskListTextAgentTasksAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetStatus() AgentTaskStatus {
+	return v.AgentTaskFields.Status
+}
+
+// GetQueued returns AgentTaskListTextAgentTasksAgentTask.Queued, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetQueued() bool { return v.AgentTaskFields.Queued }
+
+// GetWaitingOnChildren returns AgentTaskListTextAgentTasksAgentTask.WaitingOnChildren, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetWaitingOnChildren() bool {
+	return v.AgentTaskFields.WaitingOnChildren
+}
+
+// GetOwner returns AgentTaskListTextAgentTasksAgentTask.Owner, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetOwner() *AgentTaskFieldsOwnerAgentTaskParty {
+	return v.AgentTaskFields.Owner
+}
+
+// GetAssignee returns AgentTaskListTextAgentTasksAgentTask.Assignee, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetAssignee() *AgentTaskFieldsAssigneeAgentTaskParty {
+	return v.AgentTaskFields.Assignee
+}
+
+// GetAssignedBy returns AgentTaskListTextAgentTasksAgentTask.AssignedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetAssignedBy() *AgentTaskFieldsAssignedByAgentTaskParty {
+	return v.AgentTaskFields.AssignedBy
+}
+
+// GetCreatedBy returns AgentTaskListTextAgentTasksAgentTask.CreatedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
+	return v.AgentTaskFields.CreatedBy
+}
+
+// GetParentTaskId returns AgentTaskListTextAgentTasksAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetParentTaskId() *string {
+	return v.AgentTaskFields.ParentTaskId
+}
+
+// GetTags returns AgentTaskListTextAgentTasksAgentTask.Tags, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetTags() []string { return v.AgentTaskFields.Tags }
+
+// GetSource returns AgentTaskListTextAgentTasksAgentTask.Source, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetSource() *string { return v.AgentTaskFields.Source }
+
+// GetStartBy returns AgentTaskListTextAgentTasksAgentTask.StartBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
+
+// GetCreatedAt returns AgentTaskListTextAgentTasksAgentTask.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetCreatedAt() string {
+	return v.AgentTaskFields.CreatedAt
+}
+
+// GetUpdatedAt returns AgentTaskListTextAgentTasksAgentTask.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetUpdatedAt() *string {
+	return v.AgentTaskFields.UpdatedAt
+}
+
+// GetStartedAt returns AgentTaskListTextAgentTasksAgentTask.StartedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetStartedAt() *string {
+	return v.AgentTaskFields.StartedAt
+}
+
+// GetFinishedAt returns AgentTaskListTextAgentTasksAgentTask.FinishedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetFinishedAt() *string {
+	return v.AgentTaskFields.FinishedAt
+}
+
+// GetCancelledAt returns AgentTaskListTextAgentTasksAgentTask.CancelledAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetCancelledAt() *string {
+	return v.AgentTaskFields.CancelledAt
+}
+
+// GetCloseSessionWhenDone returns AgentTaskListTextAgentTasksAgentTask.CloseSessionWhenDone, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetCloseSessionWhenDone() bool {
+	return v.AgentTaskFields.CloseSessionWhenDone
+}
+
+// GetRequirements returns AgentTaskListTextAgentTasksAgentTask.Requirements, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
+	return v.AgentTaskFields.Requirements
+}
+
+// GetResult returns AgentTaskListTextAgentTasksAgentTask.Result, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetResult() *AgentTaskFieldsResultAgentTaskResult {
+	return v.AgentTaskFields.Result
+}
+
+func (v *AgentTaskListTextAgentTasksAgentTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTaskListTextAgentTasksAgentTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTaskListTextAgentTasksAgentTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTaskListTextAgentTasksAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
+	Id string `json:"id"`
+
+	Handle string `json:"handle"`
+
+	TaskNumber string `json:"taskNumber"`
+
+	AppId string `json:"appId"`
+
+	Title string `json:"title"`
+
+	Description *string `json:"description"`
+
+	Status AgentTaskStatus `json:"status"`
+
+	Queued bool `json:"queued"`
+
+	WaitingOnChildren bool `json:"waitingOnChildren"`
+
+	Owner *AgentTaskFieldsOwnerAgentTaskParty `json:"owner"`
+
+	Assignee *AgentTaskFieldsAssigneeAgentTaskParty `json:"assignee"`
+
+	AssignedBy *AgentTaskFieldsAssignedByAgentTaskParty `json:"assignedBy"`
+
+	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
+
+	ParentTaskId *string `json:"parentTaskId"`
+
+	Tags []string `json:"tags"`
+
+	Source *string `json:"source"`
+
+	StartBy *string `json:"startBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	StartedAt *string `json:"startedAt"`
+
+	FinishedAt *string `json:"finishedAt"`
+
+	CancelledAt *string `json:"cancelledAt"`
+
+	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
+
+	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
+
+	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+}
+
+func (v *AgentTaskListTextAgentTasksAgentTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTaskListTextAgentTasksAgentTask) __premarshalJSON() (*__premarshalAgentTaskListTextAgentTasksAgentTask, error) {
+	var retval __premarshalAgentTaskListTextAgentTasksAgentTask
+
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
+	retval.Id = v.AgentTaskFields.Id
+	retval.Handle = v.AgentTaskFields.Handle
+	retval.TaskNumber = v.AgentTaskFields.TaskNumber
+	retval.AppId = v.AgentTaskFields.AppId
+	retval.Title = v.AgentTaskFields.Title
+	retval.Description = v.AgentTaskFields.Description
+	retval.Status = v.AgentTaskFields.Status
+	retval.Queued = v.AgentTaskFields.Queued
+	retval.WaitingOnChildren = v.AgentTaskFields.WaitingOnChildren
+	retval.Owner = v.AgentTaskFields.Owner
+	retval.Assignee = v.AgentTaskFields.Assignee
+	retval.AssignedBy = v.AgentTaskFields.AssignedBy
+	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
+	retval.Tags = v.AgentTaskFields.Tags
+	retval.Source = v.AgentTaskFields.Source
+	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.CreatedAt = v.AgentTaskFields.CreatedAt
+	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
+	retval.StartedAt = v.AgentTaskFields.StartedAt
+	retval.FinishedAt = v.AgentTaskFields.FinishedAt
+	retval.CancelledAt = v.AgentTaskFields.CancelledAt
+	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.Requirements = v.AgentTaskFields.Requirements
+	retval.Result = v.AgentTaskFields.Result
+	return &retval, nil
+}
+
+// AgentTaskListTextResponse is returned by AgentTaskListText on success.
+type AgentTaskListTextResponse struct {
+	// #1705 — a team App's agent tasks, newest first. Party filters combine with the other selectors;
+	// All tag, source and date filters combine with the other selectors using AND.
+	// owner / assignee / creator name a party of the App (a ref naming nobody matches
+	// nothing; a retired worker is no party to name, so it matches nothing). creator is
+	// the task's creator as createdBy projects it: a worker, or a person for a task they created
+	// themselves (not one their worker created, #2370). queued selects pending tasks with no assignee; rootsOnly selects roots. These
+	// take precedence over status and parentTaskId respectively. limit defaults to 20 (cap 200).
+	// Readers: the App's participants (hrn:node:hadronmemory.com:specs:cor:agt:050:21), or the App's own live key
+	// without a session binding (#1755).
+	// An App you do not participate in answers APP_NOT_FOUND, exactly like an
+	// absent one.
+	AgentTasks []*AgentTaskListTextAgentTasksAgentTask `json:"agentTasks"`
+}
+
+// GetAgentTasks returns AgentTaskListTextResponse.AgentTasks, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextResponse) GetAgentTasks() []*AgentTaskListTextAgentTasksAgentTask {
+	return v.AgentTasks
+}
+
 // #2421 experimental symptom search: membership in the hybrid ranking inputs.
 type AgentTaskMatchedBy string
 
@@ -6652,7 +6945,7 @@ type AgentTeamEventFields struct {
 	Id     string  `json:"id"`
 	AppId  string  `json:"appId"`
 	TaskId *string `json:"taskId"`
-	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled; the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable; availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02).
+	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled; the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02).
 	Type string `json:"type"`
 	// ALARM for an alarm; null for an ordinary event.
 	Severity  *AgentTeamEventSeverity `json:"severity"`
@@ -6662,7 +6955,8 @@ type AgentTeamEventFields struct {
 	// #1833 — the headless run that acted, when a run made this event (actor is then null: a run is never a person or a worker). Null otherwise. Matches AgentTask.createdByRunId for the task a run created.
 	ActorRunId *string `json:"actorRunId"`
 	// The worker the event concerns, e.g. a new assignee.
-	SubjectWorker  *AgentTeamEventFieldsSubjectWorkerAgentTaskParty  `json:"subjectWorker"`
+	SubjectWorker *AgentTeamEventFieldsSubjectWorkerAgentTaskParty `json:"subjectWorker"`
+	// A dark-worker alarm's payload carries its reason (overdue, wake-unacked) and window for every reader; its evidence (lastCheckedAt, oldestWakeAgeSeconds) only for a reader of the worker's internals.
 	Payload        json.RawMessage                                   `json:"payload"`
 	AcknowledgedAt *string                                           `json:"acknowledgedAt"`
 	AcknowledgedBy *AgentTeamEventFieldsAcknowledgedByAgentTaskParty `json:"acknowledgedBy"`
@@ -7902,6 +8196,11 @@ func (v *AgentsAgentsAgentsPageItemsAgent) GetPersonaRole() *string { return v.A
 // GetUsesTasks returns AgentsAgentsAgentsPageItemsAgent.UsesTasks, and is useful for accessing the field via an interface.
 func (v *AgentsAgentsAgentsPageItemsAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
 
+// GetInstallationPolicy returns AgentsAgentsAgentsPageItemsAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
 // GetCreatedAt returns AgentsAgentsAgentsPageItemsAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AgentsAgentsAgentsPageItemsAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
 
@@ -7969,6 +8268,8 @@ type __premarshalAgentsAgentsAgentsPageItemsAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -8002,6 +8303,7 @@ func (v *AgentsAgentsAgentsPageItemsAgent) __premarshalJSON() (*__premarshalAgen
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -8985,6 +9287,8 @@ type AppDeliverySettingsInput struct {
 	BusyDelaySeconds   *int `json:"busyDelaySeconds,omitempty"`
 	// #2138: whole seconds, 60..86400.
 	CheckPeriodSeconds *int `json:"checkPeriodSeconds,omitempty"`
+	// #2755: whole seconds, 300..86400.
+	DarkAlarmWindowSeconds *int `json:"darkAlarmWindowSeconds,omitempty"`
 	// #2138: whole number, 1..100.
 	FailedChecksToOverdue *int  `json:"failedChecksToOverdue,omitempty"`
 	StandbyEnabled        *bool `json:"standbyEnabled,omitempty"`
@@ -8999,6 +9303,9 @@ func (v *AppDeliverySettingsInput) GetBusyDelaySeconds() *int { return v.BusyDel
 
 // GetCheckPeriodSeconds returns AppDeliverySettingsInput.CheckPeriodSeconds, and is useful for accessing the field via an interface.
 func (v *AppDeliverySettingsInput) GetCheckPeriodSeconds() *int { return v.CheckPeriodSeconds }
+
+// GetDarkAlarmWindowSeconds returns AppDeliverySettingsInput.DarkAlarmWindowSeconds, and is useful for accessing the field via an interface.
+func (v *AppDeliverySettingsInput) GetDarkAlarmWindowSeconds() *int { return v.DarkAlarmWindowSeconds }
 
 // GetFailedChecksToOverdue returns AppDeliverySettingsInput.FailedChecksToOverdue, and is useful for accessing the field via an interface.
 func (v *AppDeliverySettingsInput) GetFailedChecksToOverdue() *int { return v.FailedChecksToOverdue }
@@ -9121,6 +9428,43 @@ type AppKeysMetadataResponse struct {
 
 // GetAppKeys returns AppKeysMetadataResponse.AppKeys, and is useful for accessing the field via an interface.
 func (v *AppKeysMetadataResponse) GetAppKeys() []*AppKeysMetadataAppKeysAppKey { return v.AppKeys }
+
+// AppMemberRolesApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type AppMemberRolesApp struct {
+	Id  string `json:"id"`
+	Urn string `json:"urn"`
+	// #2171 (R211): the member roles this App offers: the union over its installed Agents, primary first.
+	AvailableMemberRoles []string `json:"availableMemberRoles"`
+}
+
+// GetId returns AppMemberRolesApp.Id, and is useful for accessing the field via an interface.
+func (v *AppMemberRolesApp) GetId() string { return v.Id }
+
+// GetUrn returns AppMemberRolesApp.Urn, and is useful for accessing the field via an interface.
+func (v *AppMemberRolesApp) GetUrn() string { return v.Urn }
+
+// GetAvailableMemberRoles returns AppMemberRolesApp.AvailableMemberRoles, and is useful for accessing the field via an interface.
+func (v *AppMemberRolesApp) GetAvailableMemberRoles() []string { return v.AvailableMemberRoles }
+
+// AppMemberRolesResponse is returned by AppMemberRoles on success.
+type AppMemberRolesResponse struct {
+	// Fetch an App (member of the App's org, or platform ADMIN — the myApps
+	// exposure bar; #473 relaxed this from org ADMIN for read parity with the
+	// list).
+	//
+	// 'ref' accepts the entity's ID or URN.
+	App *AppMemberRolesApp `json:"app"`
+}
+
+// GetApp returns AppMemberRolesResponse.App, and is useful for accessing the field via an interface.
+func (v *AppMemberRolesResponse) GetApp() *AppMemberRolesApp { return v.App }
 
 // AppMembersApp includes the requested fields of the GraphQL type App.
 // The GraphQL type's documentation follows.
@@ -14263,6 +14607,11 @@ func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetUsesTasks() bool {
 	return v.AgentFields.UsesTasks
 }
 
+// GetInstallationPolicy returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
 // GetCreatedAt returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetCreatedAt() string {
 	return v.AgentFields.CreatedAt
@@ -14332,6 +14681,8 @@ type __premarshalClearAgentProcessesIndexSetAgentIndexRefsAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -14365,6 +14716,7 @@ func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) __premarshalJSON() (*__
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -14483,6 +14835,11 @@ func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetUsesTasks() bool {
 	return v.AgentFields.UsesTasks
 }
 
+// GetInstallationPolicy returns ClearAgentTasksIndexSetAgentIndexRefsAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
 // GetCreatedAt returns ClearAgentTasksIndexSetAgentIndexRefsAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetCreatedAt() string {
 	return v.AgentFields.CreatedAt
@@ -14552,6 +14909,8 @@ type __premarshalClearAgentTasksIndexSetAgentIndexRefsAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -14585,6 +14944,7 @@ func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) __premarshalJSON() (*__prem
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -14671,6 +15031,11 @@ func (v *CloneAgentCloneAgent) GetPersonaRole() *string { return v.AgentFields.P
 // GetUsesTasks returns CloneAgentCloneAgent.UsesTasks, and is useful for accessing the field via an interface.
 func (v *CloneAgentCloneAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
 
+// GetInstallationPolicy returns CloneAgentCloneAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *CloneAgentCloneAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
 // GetCreatedAt returns CloneAgentCloneAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *CloneAgentCloneAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
 
@@ -14738,6 +15103,8 @@ type __premarshalCloneAgentCloneAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -14771,6 +15138,7 @@ func (v *CloneAgentCloneAgent) __premarshalJSON() (*__premarshalCloneAgentCloneA
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -17532,6 +17900,11 @@ func (v *CreateAgentCreateAgent) GetPersonaRole() *string { return v.AgentFields
 // GetUsesTasks returns CreateAgentCreateAgent.UsesTasks, and is useful for accessing the field via an interface.
 func (v *CreateAgentCreateAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
 
+// GetInstallationPolicy returns CreateAgentCreateAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
 // GetCreatedAt returns CreateAgentCreateAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *CreateAgentCreateAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
 
@@ -17599,6 +17972,8 @@ type __premarshalCreateAgentCreateAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -17632,6 +18007,7 @@ func (v *CreateAgentCreateAgent) __premarshalJSON() (*__premarshalCreateAgentCre
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -26343,6 +26719,11 @@ func (v *GetAgentAgent) GetPersonaRole() *string { return v.AgentFields.PersonaR
 // GetUsesTasks returns GetAgentAgent.UsesTasks, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
 
+// GetInstallationPolicy returns GetAgentAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
 // GetCreatedAt returns GetAgentAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
 
@@ -26412,6 +26793,8 @@ type __premarshalGetAgentAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -26446,6 +26829,7 @@ func (v *GetAgentAgent) __premarshalJSON() (*__premarshalGetAgentAgent, error) {
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -39840,6 +40224,11 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetUsesTasks() bool {
 	return v.AgentFields.UsesTasks
 }
 
+// GetInstallationPolicy returns PublicAgentsPublicAgentsAgentsPageItemsAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
 // GetCreatedAt returns PublicAgentsPublicAgentsAgentsPageItemsAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetCreatedAt() string {
 	return v.AgentFields.CreatedAt
@@ -39909,6 +40298,8 @@ type __premarshalPublicAgentsPublicAgentsAgentsPageItemsAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -39942,6 +40333,7 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) __premarshalJSON() (*__pr
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -40680,7 +41072,7 @@ func (v *RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdgeTarget
 
 // RecoveryEdgesResponse is returned by RecoveryEdges on success.
 type RecoveryEdgesResponse struct {
-	// Inspect live edges and accessible deleted endpoints in one memory you can read and write. Default 20, maximum 200. hrn:node:hadronmemory.com:specs:cor:api:110:02
+	// Inspect live edges and accessible deleted endpoints in one memory you can read and write. Default 20, maximum 200. edgeIds (1 to 200 ids) restricts the result, total included, to those edges; an id that is not a visible edge of this memory is absent. hrn:node:hadronmemory.com:specs:cor:api:110:02
 	RecoveryEdges *RecoveryEdgesRecoveryEdgesRecoveryEdgesPage `json:"recoveryEdges"`
 }
 
@@ -47731,6 +48123,11 @@ func (v *SetAgentBaseSetAgentBaseAgent) GetPersonaRole() *string { return v.Agen
 // GetUsesTasks returns SetAgentBaseSetAgentBaseAgent.UsesTasks, and is useful for accessing the field via an interface.
 func (v *SetAgentBaseSetAgentBaseAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
 
+// GetInstallationPolicy returns SetAgentBaseSetAgentBaseAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
 // GetCreatedAt returns SetAgentBaseSetAgentBaseAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *SetAgentBaseSetAgentBaseAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
 
@@ -47798,6 +48195,8 @@ type __premarshalSetAgentBaseSetAgentBaseAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -47831,6 +48230,7 @@ func (v *SetAgentBaseSetAgentBaseAgent) __premarshalJSON() (*__premarshalSetAgen
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -47953,6 +48353,11 @@ func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetUsesTasks() bool {
 	return v.AgentFields.UsesTasks
 }
 
+// GetInstallationPolicy returns SetAgentBootPromptSetAgentBootPromptAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
 // GetCreatedAt returns SetAgentBootPromptSetAgentBootPromptAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetCreatedAt() string {
 	return v.AgentFields.CreatedAt
@@ -48022,6 +48427,8 @@ type __premarshalSetAgentBootPromptSetAgentBootPromptAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -48055,6 +48462,7 @@ func (v *SetAgentBootPromptSetAgentBootPromptAgent) __premarshalJSON() (*__prema
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -48169,6 +48577,11 @@ func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetPersonaRole() *string {
 // GetUsesTasks returns SetAgentIndexRefsSetAgentIndexRefsAgent.UsesTasks, and is useful for accessing the field via an interface.
 func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
 
+// GetInstallationPolicy returns SetAgentIndexRefsSetAgentIndexRefsAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
 // GetCreatedAt returns SetAgentIndexRefsSetAgentIndexRefsAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetCreatedAt() string {
 	return v.AgentFields.CreatedAt
@@ -48238,6 +48651,8 @@ type __premarshalSetAgentIndexRefsSetAgentIndexRefsAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -48271,6 +48686,7 @@ func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) __premarshalJSON() (*__premars
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -57694,6 +58110,11 @@ func (v *UpdateAgentUpdateAgent) GetPersonaRole() *string { return v.AgentFields
 // GetUsesTasks returns UpdateAgentUpdateAgent.UsesTasks, and is useful for accessing the field via an interface.
 func (v *UpdateAgentUpdateAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
 
+// GetInstallationPolicy returns UpdateAgentUpdateAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
 // GetCreatedAt returns UpdateAgentUpdateAgent.CreatedAt, and is useful for accessing the field via an interface.
 func (v *UpdateAgentUpdateAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
 
@@ -57761,6 +58182,8 @@ type __premarshalUpdateAgentUpdateAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
 	CreatedAt string `json:"createdAt"`
 }
 
@@ -57794,6 +58217,7 @@ func (v *UpdateAgentUpdateAgent) __premarshalJSON() (*__premarshalUpdateAgentUpd
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
 }
@@ -65806,6 +66230,54 @@ func (v *__AgentTaskListInput) GetStatus() []AgentTaskStatus { return v.Status }
 // GetTag returns __AgentTaskListInput.Tag, and is useful for accessing the field via an interface.
 func (v *__AgentTaskListInput) GetTag() *string { return v.Tag }
 
+// __AgentTaskListTextInput is used internally by genqlient
+type __AgentTaskListTextInput struct {
+	AppRef       string               `json:"appRef"`
+	Assignee     *AgentTaskPartyInput `json:"assignee,omitempty"`
+	Limit        *int                 `json:"limit,omitempty"`
+	Offset       *int                 `json:"offset,omitempty"`
+	Owner        *AgentTaskPartyInput `json:"owner,omitempty"`
+	ParentTaskId *string              `json:"parentTaskId,omitempty"`
+	Queued       *bool                `json:"queued,omitempty"`
+	RootsOnly    *bool                `json:"rootsOnly,omitempty"`
+	Status       []AgentTaskStatus    `json:"status,omitempty"`
+	Tag          *string              `json:"tag,omitempty"`
+	Text         *string              `json:"text,omitempty"`
+}
+
+// GetAppRef returns __AgentTaskListTextInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListTextInput) GetAppRef() string { return v.AppRef }
+
+// GetAssignee returns __AgentTaskListTextInput.Assignee, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListTextInput) GetAssignee() *AgentTaskPartyInput { return v.Assignee }
+
+// GetLimit returns __AgentTaskListTextInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListTextInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __AgentTaskListTextInput.Offset, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListTextInput) GetOffset() *int { return v.Offset }
+
+// GetOwner returns __AgentTaskListTextInput.Owner, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListTextInput) GetOwner() *AgentTaskPartyInput { return v.Owner }
+
+// GetParentTaskId returns __AgentTaskListTextInput.ParentTaskId, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListTextInput) GetParentTaskId() *string { return v.ParentTaskId }
+
+// GetQueued returns __AgentTaskListTextInput.Queued, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListTextInput) GetQueued() *bool { return v.Queued }
+
+// GetRootsOnly returns __AgentTaskListTextInput.RootsOnly, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListTextInput) GetRootsOnly() *bool { return v.RootsOnly }
+
+// GetStatus returns __AgentTaskListTextInput.Status, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListTextInput) GetStatus() []AgentTaskStatus { return v.Status }
+
+// GetTag returns __AgentTaskListTextInput.Tag, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListTextInput) GetTag() *string { return v.Tag }
+
+// GetText returns __AgentTaskListTextInput.Text, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListTextInput) GetText() *string { return v.Text }
+
 // __AgentTaskParkInput is used internally by genqlient
 type __AgentTaskParkInput struct {
 	TaskId string `json:"taskId"`
@@ -66033,6 +66505,14 @@ type __AppKeysMetadataInput struct {
 
 // GetAppRef returns __AppKeysMetadataInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__AppKeysMetadataInput) GetAppRef() string { return v.AppRef }
+
+// __AppMemberRolesInput is used internally by genqlient
+type __AppMemberRolesInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __AppMemberRolesInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AppMemberRolesInput) GetAppRef() string { return v.AppRef }
 
 // __AppMembersInput is used internally by genqlient
 type __AppMembersInput struct {
@@ -66774,6 +67254,7 @@ type __CreateAgentInput struct {
 	SystemMemoryId *string          `json:"systemMemoryId,omitempty"`
 	Surfaces       []string         `json:"surfaces,omitempty"`
 	PersonaRole    *string          `json:"personaRole,omitempty"`
+	MemberRoles    []string         `json:"memberRoles,omitempty"`
 }
 
 // GetName returns __CreateAgentInput.Name, and is useful for accessing the field via an interface.
@@ -66799,6 +67280,9 @@ func (v *__CreateAgentInput) GetSurfaces() []string { return v.Surfaces }
 
 // GetPersonaRole returns __CreateAgentInput.PersonaRole, and is useful for accessing the field via an interface.
 func (v *__CreateAgentInput) GetPersonaRole() *string { return v.PersonaRole }
+
+// GetMemberRoles returns __CreateAgentInput.MemberRoles, and is useful for accessing the field via an interface.
+func (v *__CreateAgentInput) GetMemberRoles() []string { return v.MemberRoles }
 
 // __CreateAgentScheduleInput is used internally by genqlient
 type __CreateAgentScheduleInput struct {
@@ -69060,9 +69544,10 @@ func (v *__RecordTeamWorkLegacyInput) GetDetail() *json.RawMessage { return v.De
 
 // __RecoveryEdgesInput is used internally by genqlient
 type __RecoveryEdgesInput struct {
-	MemoryRef string `json:"memoryRef"`
-	Limit     int    `json:"limit"`
-	Offset    *int   `json:"offset,omitempty"`
+	MemoryRef string   `json:"memoryRef"`
+	Limit     int      `json:"limit"`
+	Offset    *int     `json:"offset,omitempty"`
+	EdgeIds   []string `json:"edgeIds,omitempty"`
 }
 
 // GetMemoryRef returns __RecoveryEdgesInput.MemoryRef, and is useful for accessing the field via an interface.
@@ -69073,6 +69558,9 @@ func (v *__RecoveryEdgesInput) GetLimit() int { return v.Limit }
 
 // GetOffset returns __RecoveryEdgesInput.Offset, and is useful for accessing the field via an interface.
 func (v *__RecoveryEdgesInput) GetOffset() *int { return v.Offset }
+
+// GetEdgeIds returns __RecoveryEdgesInput.EdgeIds, and is useful for accessing the field via an interface.
+func (v *__RecoveryEdgesInput) GetEdgeIds() []string { return v.EdgeIds }
 
 // __RecoveryNodeContentInput is used internally by genqlient
 type __RecoveryNodeContentInput struct {
@@ -70356,6 +70844,7 @@ type __UpdateAgentInput struct {
 	Urn            *string          `json:"urn,omitempty"`
 	PersonaRole    *string          `json:"personaRole,omitempty"`
 	UsesTasks      *bool            `json:"usesTasks,omitempty"`
+	MemberRoles    []string         `json:"memberRoles,omitempty"`
 }
 
 // GetRef returns __UpdateAgentInput.Ref, and is useful for accessing the field via an interface.
@@ -70387,6 +70876,9 @@ func (v *__UpdateAgentInput) GetPersonaRole() *string { return v.PersonaRole }
 
 // GetUsesTasks returns __UpdateAgentInput.UsesTasks, and is useful for accessing the field via an interface.
 func (v *__UpdateAgentInput) GetUsesTasks() *bool { return v.UsesTasks }
+
+// GetMemberRoles returns __UpdateAgentInput.MemberRoles, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentInput) GetMemberRoles() []string { return v.MemberRoles }
 
 // __UpdateAgentScheduleInput is used internally by genqlient
 type __UpdateAgentScheduleInput struct {
@@ -72807,6 +73299,133 @@ func AgentTaskList(
 	return data_, err_
 }
 
+// The query executed by AgentTaskListText.
+const AgentTaskListText_Operation = `
+query AgentTaskListText ($appRef: ID!, $assignee: AgentTaskPartyInput, $limit: Int, $offset: Int, $owner: AgentTaskPartyInput, $parentTaskId: ID, $queued: Boolean, $rootsOnly: Boolean, $status: [AgentTaskStatus!], $tag: String, $text: String) {
+	agentTasks(appRef: $appRef, assignee: $assignee, limit: $limit, offset: $offset, owner: $owner, parentTaskId: $parentTaskId, queued: $queued, rootsOnly: $rootsOnly, status: $status, tag: $tag, text: $text) {
+		... AgentTaskFields
+	}
+}
+fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	id
+	handle
+	taskNumber
+	appId
+	title
+	description
+	status
+	queued
+	waitingOnChildren
+	owner {
+		... AgentTaskPartyFields
+	}
+	assignee {
+		... AgentTaskPartyFields
+	}
+	assignedBy {
+		... AgentTaskPartyFields
+	}
+	createdBy {
+		... AgentTaskPartyFields
+	}
+	parentTaskId
+	tags
+	source
+	startBy
+	createdAt
+	updatedAt
+	startedAt
+	finishedAt
+	cancelledAt
+	closeSessionWhenDone
+	requirements {
+		role
+		familyIn
+		familyNotIn
+		excludeWorkerIds
+	}
+	result {
+		outcome
+		summary
+		evidence
+	}
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
+}
+fragment AgentTaskPartyFields on AgentTaskParty {
+	id
+	kind
+	name
+	urn
+}
+`
+
+// Explicit text search only: keep the legacy document valid on older servers.
+func AgentTaskListText(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	assignee *AgentTaskPartyInput,
+	limit *int,
+	offset *int,
+	owner *AgentTaskPartyInput,
+	parentTaskId *string,
+	queued *bool,
+	rootsOnly *bool,
+	status []AgentTaskStatus,
+	tag *string,
+	text *string,
+) (data_ *AgentTaskListTextResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentTaskListText",
+		Query:  AgentTaskListText_Operation,
+		Variables: &__AgentTaskListTextInput{
+			AppRef:       appRef,
+			Assignee:     assignee,
+			Limit:        limit,
+			Offset:       offset,
+			Owner:        owner,
+			ParentTaskId: parentTaskId,
+			Queued:       queued,
+			RootsOnly:    rootsOnly,
+			Status:       status,
+			Tag:          tag,
+			Text:         text,
+		},
+	}
+
+	data_ = &AgentTaskListTextResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by AgentTaskPark.
 const AgentTaskPark_Operation = `
 mutation AgentTaskPark ($taskId: ID!) {
@@ -73897,6 +74516,9 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	installationPolicy {
+		memberRoles
+	}
 	createdAt
 }
 `
@@ -74238,6 +74860,45 @@ func AppKeysMetadata(
 	}
 
 	data_ = &AppKeysMetadataResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AppMemberRoles.
+const AppMemberRoles_Operation = `
+query AppMemberRoles ($appRef: ID!) {
+	app(ref: $appRef) {
+		id
+		urn
+		availableMemberRoles
+	}
+}
+`
+
+// #1226 (R211, cor:dmo:050:04): the roles the App offers, the union over its
+// installed Agents, in the server's order (primary Agent first). Read-only; the
+// CLI never derives or checks roles itself.
+func AppMemberRoles(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *AppMemberRolesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AppMemberRoles",
+		Query:  AppMemberRoles_Operation,
+		Variables: &__AppMemberRolesInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &AppMemberRolesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -76161,6 +76822,9 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	installationPolicy {
+		memberRoles
+	}
 	createdAt
 }
 `
@@ -76219,6 +76883,9 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	installationPolicy {
+		memberRoles
+	}
 	createdAt
 }
 `
@@ -76315,6 +76982,9 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	installationPolicy {
+		memberRoles
+	}
 	createdAt
 }
 `
@@ -76960,8 +77630,8 @@ func ConnectionGrants(
 
 // The mutation executed by CreateAgent.
 const CreateAgent_Operation = `
-mutation CreateAgent ($name: String!, $orgId: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $personaRole: String) {
-	createAgent(name: $name, orgId: $orgId, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, personaRole: $personaRole) {
+mutation CreateAgent ($name: String!, $orgId: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $personaRole: String, $memberRoles: [String!]) {
+	createAgent(name: $name, orgId: $orgId, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, personaRole: $personaRole, memberRoles: $memberRoles) {
 		... AgentFields
 	}
 }
@@ -76985,6 +77655,9 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	installationPolicy {
+		memberRoles
+	}
 	createdAt
 }
 `
@@ -77000,6 +77673,7 @@ func CreateAgent(
 	systemMemoryId *string,
 	surfaces []string,
 	personaRole *string,
+	memberRoles []string,
 ) (data_ *CreateAgentResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateAgent",
@@ -77013,6 +77687,7 @@ func CreateAgent(
 			SystemMemoryId: systemMemoryId,
 			Surfaces:       surfaces,
 			PersonaRole:    personaRole,
+			MemberRoles:    memberRoles,
 		},
 	}
 
@@ -81199,6 +81874,9 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	installationPolicy {
+		memberRoles
+	}
 	createdAt
 }
 `
@@ -85859,6 +86537,9 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	installationPolicy {
+		memberRoles
+	}
 	createdAt
 }
 `
@@ -86071,8 +86752,8 @@ func RecordTeamWorkLegacy(
 
 // The query executed by RecoveryEdges.
 const RecoveryEdges_Operation = `
-query RecoveryEdges ($memoryRef: ID!, $limit: Int!, $offset: Int) {
-	recoveryEdges(memoryRef: $memoryRef, limit: $limit, offset: $offset) {
+query RecoveryEdges ($memoryRef: ID!, $limit: Int!, $offset: Int, $edgeIds: [ID!]) {
+	recoveryEdges(memoryRef: $memoryRef, limit: $limit, offset: $offset, edgeIds: $edgeIds) {
 		total
 		items {
 			id
@@ -86102,6 +86783,7 @@ func RecoveryEdges(
 	memoryRef string,
 	limit int,
 	offset *int,
+	edgeIds []string,
 ) (data_ *RecoveryEdgesResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "RecoveryEdges",
@@ -86110,6 +86792,7 @@ func RecoveryEdges(
 			MemoryRef: memoryRef,
 			Limit:     limit,
 			Offset:    offset,
+			EdgeIds:   edgeIds,
 		},
 	}
 
@@ -88768,6 +89451,9 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	installationPolicy {
+		memberRoles
+	}
 	createdAt
 }
 `
@@ -88830,6 +89516,9 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	installationPolicy {
+		memberRoles
+	}
 	createdAt
 }
 `
@@ -88893,6 +89582,9 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	installationPolicy {
+		memberRoles
+	}
 	createdAt
 }
 `
@@ -91656,8 +92348,8 @@ func UnsubscribeTicker(
 
 // The mutation executed by UpdateAgent.
 const UpdateAgent_Operation = `
-mutation UpdateAgent ($ref: ID!, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $urn: String, $personaRole: String, $usesTasks: Boolean) {
-	updateAgent(ref: $ref, name: $name, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn, personaRole: $personaRole, usesTasks: $usesTasks) {
+mutation UpdateAgent ($ref: ID!, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $urn: String, $personaRole: String, $usesTasks: Boolean, $memberRoles: [String!]) {
+	updateAgent(ref: $ref, name: $name, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn, personaRole: $personaRole, usesTasks: $usesTasks, memberRoles: $memberRoles) {
 		... AgentFields
 	}
 }
@@ -91681,6 +92373,9 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	installationPolicy {
+		memberRoles
+	}
 	createdAt
 }
 `
@@ -91698,6 +92393,7 @@ func UpdateAgent(
 	urn *string,
 	personaRole *string,
 	usesTasks *bool,
+	memberRoles []string,
 ) (data_ *UpdateAgentResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateAgent",
@@ -91713,6 +92409,7 @@ func UpdateAgent(
 			Urn:            urn,
 			PersonaRole:    personaRole,
 			UsesTasks:      usesTasks,
+			MemberRoles:    memberRoles,
 		},
 	}
 

@@ -78,14 +78,23 @@ func newCmdRevision(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "revision <command>",
 		Aliases: []string{"revisions", "rev"},
-		Short:   "Inspect and manage a node's revision history",
-		Long: `Every node edit snapshots the previous state as a revision (#617/#620). These
-commands list that history, display, label, or restore a revision, and prune it.
+		Short:   "See and restore a node's earlier versions",
+		Long: `Each time a node is changed, the version it replaces is kept as a revision,
+so you can see what it said before and go back to it:
 
-A revision is addressed by its revision id (from ` + "`revision list`" + `). A node is
-addressed the same way as elsewhere — a fully-qualified hrn:node:<root>:<slug>:<loc>
-URN, or a bare <loc> with -m/--memory — plus a bare node id, which is the only
-way to reach a soft-deleted node's history for cleanup.`,
+  revision list      a node's earlier versions, newest first, with their ids
+  revision get       show one version, including its content
+  revision restore   make an earlier version current again (undoable)
+  revision label     name a version, such as "before the rewrite"
+  revision delete    permanently delete one earlier version
+  revision clear     permanently delete all of a node's earlier versions
+
+The current version is not a revision; node get shows it. A revision is named
+by its id, from revision list. A node is named as elsewhere: its URN, or its
+loc with -m; or by its node id, which is the only way to reach the history of
+a deleted node.`,
+		Example: `  hadron node revision list findings:flaky-ci -m hrn:mem:acme.com:kb
+  hadron node revision restore 01a18a07c32479fc9b69bf75dd8567e7`,
 	}
 	cmd.AddCommand(newCmdRevisionList(f))
 	cmd.AddCommand(newCmdRevisionGet(f))
@@ -107,6 +116,14 @@ func newCmdRevisionList(f *cmdutil.Factory) *cobra.Command {
 		Use:     "list <node-urn> | <loc> -m <memory> | <node-id>",
 		Aliases: []string{"ls"},
 		Short:   "List a node's revision history, most recent first",
+		Long: `List a node's earlier versions, newest first: each revision's id, when it was
+made, the node's name then, who edited it, its label (--reason on node update
+sets one; node revision label changes it) and its validation state. The
+current version is not listed; node get shows it.
+
+Use a revision id with node revision get to see that version's content, or
+with node revision restore to go back to it. 20 are listed unless --limit
+says otherwise; a full page of 20 means there may be more.`,
 		Example: `  hadron node revision list hrn:node:hadronmemory.com:dev:start-here
   hadron node revision list start-here -m hrn:mem:hadronmemory.com:dev --limit 5 --json`,
 		Args: cobra.ExactArgs(1),
@@ -180,8 +197,12 @@ func newCmdRevisionGet(f *cmdutil.Factory) *cobra.Command {
 		Use:     "get <revision-id>",
 		Aliases: []string{"show"},
 		Short:   "Display one revision, including its content",
-		Example: `  hadron node revision get clr8x2k9p0000
-  hadron node revision get clr8x2k9p0000 --json`,
+		Long: `Show one earlier version of a node, named by its revision id (from node
+revision list): the node's name, loc and id, when the version was replaced,
+who edited it, its label, which fields the edit changed, and the content as
+it was. An unknown id exits 4.`,
+		Example: `  hadron node revision get 01a18a07c32479fc9b69bf75dd8567e7
+  hadron node revision get 01a18a07c32479fc9b69bf75dd8567e7 --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
@@ -239,8 +260,8 @@ current state, so the restore is itself undoable.
 deletes every revision newer than it (the pre-restore snapshot is skipped), as
 one atomic transaction. This discards the intervening history and is not
 undoable, so it prompts for confirmation (gated by --yes non-interactively).`,
-		Example: `  hadron node revision restore clr8x2k9p0000
-  hadron node revision restore clr8x2k9p0000 --truncate --yes`,
+		Example: `  hadron node revision restore 01a18a07c32479fc9b69bf75dd8567e7
+  hadron node revision restore 01a18a07c32479fc9b69bf75dd8567e7 --truncate --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
@@ -297,7 +318,7 @@ func newCmdRevisionLabel(f *cmdutil.Factory) *cobra.Command {
 		Short: "Set a revision's label",
 		Long: `Set a revision's user-facing label (500-char cap). Pass --label "" to clear it.
 The label also captures the reason supplied with the edit that took the snapshot.`,
-		Example: `  hadron node revision label clr8x2k9p0000 --label "before the auth refactor"`,
+		Example: `  hadron node revision label 01a18a07c32479fc9b69bf75dd8567e7 --label "before the auth refactor"`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
@@ -326,8 +347,16 @@ func newCmdRevisionDelete(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "delete <revision-id>",
 		Aliases: []string{"rm"},
-		Short:   "Delete one revision from a node's history",
-		Example: `  hadron node revision delete clr8x2k9p0000 --yes`,
+		Short:   "Permanently delete one earlier version of a node",
+		Long: `Permanently delete one earlier version of a node, named by its revision id
+(from node revision list). The node itself and its current content are not
+changed. The deleted version can no longer be shown or restored with node
+revision restore, and this cannot be undone.
+
+It asks "Delete revision <id>? This cannot be undone." on a terminal; --yes
+skips the question and is required when input is not a terminal (otherwise
+exit 2). On success it prints "✓ Deleted revision <id>"; an unknown id exits 4.`,
+		Example: `  hadron node revision delete 01a18a07c32479fc9b69bf75dd8567e7 --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
@@ -363,12 +392,22 @@ func newCmdRevisionClear(f *cmdutil.Factory) *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{
 		Use:   "clear <node-urn> | <loc> -m <memory> | <node-id>",
-		Short: "Delete all of a node's revision history",
-		Long: `Delete every revision in a node's history, printing the count removed.
-Reachable on a soft-deleted node (cleanup) by passing its node id, since the
-read surfaces no longer resolve its URN.`,
-		Example: `  hadron node revision clear hrn:node:hadronmemory.com:dev:start-here --yes
-  hadron node revision clear clr8x2k9p0000 --yes`,
+		Short: "Permanently delete all earlier versions of a node",
+		Long: `Permanently delete every earlier version of a node, leaving only the current
+one. The node and its current content are not changed, but node revision list
+is empty afterwards: no earlier version can be shown or restored. This cannot
+be undone. On success it prints how many were deleted ("✓ Deleted 3
+revision(s)").
+
+It asks "Delete all revision history for <node>? This cannot be undone." on a
+terminal; --yes skips the question and is required when input is not a terminal
+(otherwise exit 2).
+
+A deleted node is named by its node id (shown by node recovery list), since
+its URN no longer resolves. Clearing its history does not stop node restore
+from bringing it back.`,
+		Example: `  hadron node revision clear findings:flaky-ci -m hrn:mem:acme.com:kb --yes
+  hadron node revision clear 01a18a0625eb76aaab18f053afd47205 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()

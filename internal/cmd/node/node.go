@@ -165,7 +165,44 @@ func NewCmdNode(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "node <command>",
 		Aliases: []string{"nodes"},
-		Short:   "Work with nodes in a memory",
+		Short:   "Create, read, change and delete the notes (nodes) in a memory",
+		Long: `A node is one note in a memory: a name, its content (usually Markdown), and
+optional fields. Each node has a loc, its path inside the memory such as
+findings:flaky-ci, and a URN, hrn:node:<root>:<memory>:<loc>, that names it
+anywhere. Nodes link to each other with edges (see hadron edge).
+
+Write
+  create      add a note
+  update      change its name, content or fields
+  move        give it a new loc, or move it to another memory
+  clone       copy it
+  merge       fold one note into another
+  import      bring in an export file, a web page or PDF, or a folder
+Read
+  get         show one or more notes, with content and edges
+  list        list the notes of a memory
+  next        step to the next note under a parent
+  open        open a note in the web portal
+  export      save a note to a file
+History
+  revision    see, label, restore or delete earlier versions
+Deletion and recovery
+  delete      delete a note (restorable, unless --hard)
+  recovery    see deleted notes and their links
+  restore     bring a deleted note back
+  edge-removals  see which links a permanent delete removed
+Approval and signing
+  approve     record that someone approved the current version
+  verify      check the content still matches its approval
+  mint        record approved notes as permanent citations
+  sign        ask a person for a passkey signature
+  signatures  show who signed
+  signing-request  see or withdraw a signature request
+Maintainers
+  provenance  see which sources a compiled boot prompt was built from`,
+		Example: `  hadron node create -m hrn:mem:acme.com:kb --loc findings:flaky-ci --name "Flaky CI" --content "CI fails on every third run."
+  hadron node get findings:flaky-ci -m hrn:mem:acme.com:kb
+  hadron node list -m hrn:mem:acme.com:kb --prefix findings:`,
 	}
 	cmd.AddCommand(newCmdLs(f))
 	cmd.AddCommand(newCmdGet(f))

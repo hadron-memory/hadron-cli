@@ -68,12 +68,12 @@ func writeTaskMutation(f *cmdutil.Factory, task taskDTO, warnings []taskWarningD
 		if w.Register != nil {
 			switch {
 			case w.Register.State == "mapped" && w.Register.TaskURN != nil:
-				where = " → " + *w.Register.TaskURN
+				where = " → " + output.SafeCell(*w.Register.TaskURN)
 			case w.Register.State == "unmapped":
 				where = " (no task mapped)"
 			}
 		}
-		if _, err := fmt.Fprintf(f.IOStreams.ErrOut, "warning: [%s] %s%s\n", w.Code, w.Text, where); err != nil {
+		if _, err := fmt.Fprintf(f.IOStreams.ErrOut, "warning: [%s] %s%s\n", output.SafeCell(w.Code), output.SafeCell(w.Text), where); err != nil {
 			return err
 		}
 	}

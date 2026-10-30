@@ -80,8 +80,24 @@ func newCmdMint(f *cmdutil.Factory) *cobra.Command {
 	var memory string
 	var dryRun, yes bool
 	cmd := &cobra.Command{
-		Use: "mint", Short: "Mint approved, unminted nodes in a memory",
-		Long:    "Mint approved, unminted nodes in a memory. The server checks approval, references, placeholders, and lint before writing any mint records. Minting currently records state without enforcing citation permanence.",
+		Use: "mint", Short: "Record a memory's approved notes as permanent citations",
+		Long: `Mark a memory's approved, not-yet-minted notes as minted: their loc becomes
+a citation that other notes and repos can rely on, the way a law code cites a
+section. It is used for spec memories (hadron spec mint is the same call); a
+note is approved with node approve. A writer of the memory can mint.
+
+The command checks first and prints a report: the nodes it would mint, and
+anything that blocks it (a current version that is not approved or whose
+approval no longer matches, a placeholder, a reference to a note that does
+not exist or is not minted, or a lint error). Any blocker refuses the whole
+mint with exit 5, and nothing is minted. Otherwise it asks before minting
+(--yes skips the question, and is required when not at a terminal). --dry-run
+prints the report only. If someone is writing to the memory at that moment,
+the mint is refused with exit 5; try again.
+
+Today a mint records that each node was minted; the server does not yet
+enforce that a minted citation stays permanent, so treat it as permanent
+yourself.`,
 		Example: "  hadron node mint -m hrn:mem:hadronmemory.com:dev --dry-run\n  hadron node mint -m hrn:mem:hadronmemory.com:dev --yes --json",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
