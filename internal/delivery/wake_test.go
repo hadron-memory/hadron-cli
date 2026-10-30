@@ -569,7 +569,11 @@ func TestAckMixed1229ReconcileUsesFreshProof(t *testing.T) {
 	h.wakeServer().errs = []error{errors.New("WAKE_PROOF_STALE")}
 	w = h.wake(tick("tk1", tickAt), mention())
 	w.Proof = "stale-proof"
-	_ = h.deliverWake(w)
+	stale := h.deliverWake(w)
+	if stale.Kind == Reconciled || len(h.orca.sends) != 1 {
+		t.Fatalf("stale %+v sends%d", stale, len(h.orca.sends))
+	}
+	h.wantWakeRecord(tick("tk1", tickAt).Key(), WakeTyped)
 	w = h.wake(tick("tk1", tickAt), mention())
 	w.Proof = "fresh-after-16m"
 	o := h.deliverWake(w)

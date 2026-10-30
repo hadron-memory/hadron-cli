@@ -67,28 +67,6 @@ type DeliveryConfig struct {
 	OrcaBin string `yaml:"orca_bin"`
 }
 
-// UnmarshalYAML preserves strict known-field checking and requires the new
-// opt-in assertion to be a YAML boolean, never a string, number or null.
-func (d *DeliveryConfig) UnmarshalYAML(n *yaml.Node) error {
-	if n.Kind != yaml.MappingNode {
-		return errors.New("delivery must be a mapping")
-	}
-	for i := 0; i < len(n.Content); i += 2 {
-		key, value := n.Content[i].Value, n.Content[i+1]
-		switch key {
-		case "enabled", "orca_bin":
-		case "ack_mixed":
-			if value.Tag != "!!bool" || (value.Value != "true" && value.Value != "false") {
-				return errors.New("delivery.ack_mixed must be true or false")
-			}
-		default:
-			return fmt.Errorf("unknown delivery field %q", key)
-		}
-	}
-	type plain DeliveryConfig
-	return n.Decode((*plain)(d))
-}
-
 // WorkerConfig is one worker this host can launch.
 type WorkerConfig struct {
 	// Family is the model family it runs as here, e.g. claude or codex.
@@ -182,6 +160,26 @@ func LoadConfig(path string) (*Config, error) {
 	if err := dec.Decode(&c); err != nil {
 		return nil, fmt.Errorf("parsing host config %s: %w", path, err)
 	}
+	// Inspect the source node as well: yaml.v3 accepts legacy bool strings and
+	// treats null as an omitted bool. Neither is an operator's explicit assertion.
+	var document yaml.Node
+	if err := yaml.Unmarshal(raw, &document); err != nil {
+		return nil, err
+	}
+	if err := yamlField(&document, "delivery", map[*yaml.Node]bool{}, func(delivery *yaml.Node) error {
+		return yamlField(delivery, "ack_mixed", map[*yaml.Node]bool{}, func(value *yaml.Node) error {
+			for value.Kind == yaml.AliasNode {
+				value = value.Alias
+			}
+			if value.Tag != "!!bool" {
+				return fmt.Errorf("delivery.ack_mixed at line %d must be a boolean", value.Line)
+			}
+			return nil
+		})
+	}); err != nil {
+		return nil, fmt.Errorf("host config %s: %w", path, err)
+	}
+
 	dir := filepath.Dir(path)
 	if c.StateFile == "" {
 		c.StateFile = filepath.Join(dir, "hadron-host-state.json")
@@ -195,6 +193,40 @@ func LoadConfig(path string) (*Config, error) {
 		return nil, fmt.Errorf("host config %s: %w", path, err)
 	}
 	return &c, nil
+}
+
+// yamlField visits a field through ordinary YAML aliases and merge mappings,
+// without replacing the normal KnownFields decoder or duplicating struct tags.
+func yamlField(n *yaml.Node, field string, seen map[*yaml.Node]bool, visit func(*yaml.Node) error) error {
+	if n == nil || seen[n] {
+		return nil
+	}
+	seen[n] = true
+	switch n.Kind {
+	case yaml.AliasNode:
+		return yamlField(n.Alias, field, seen, visit)
+	case yaml.DocumentNode, yaml.SequenceNode:
+		for _, child := range n.Content {
+			if err := yamlField(child, field, seen, visit); err != nil {
+				return err
+			}
+		}
+	case yaml.MappingNode:
+		for i := 0; i+1 < len(n.Content); i += 2 {
+			key, value := n.Content[i], n.Content[i+1]
+			if key.Value == field {
+				if err := visit(value); err != nil {
+					return err
+				}
+			}
+			if key.Tag == "!!merge" {
+				if err := yamlField(value, field, seen, visit); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (c *Config) validate() error {

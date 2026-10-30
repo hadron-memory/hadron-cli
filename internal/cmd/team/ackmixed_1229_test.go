@@ -32,7 +32,7 @@ func TestAckMixed1229ConfigWiringAndStatus(t *testing.T) {
 			p := hostpoller.New(cfg, nil, nil, &hostpoller.State{}, "", func(hostpoller.Event) {})
 			d := wireDelivery(p, cfg, s, func(hostpoller.Event) {})
 			if d.AckMixed != c.want {
-				t.Fatalf("AckMixed=%v want%v", d.AckMixed, c.want)
+				t.Fatalf("AckMixed=%v want %v", d.AckMixed, c.want)
 			}
 			status := hostDeliveryStatus(cfg, time.Now())
 			raw, err := json.Marshal(status)
@@ -97,5 +97,18 @@ func TestAckMixed1229YAMLCompatibility(t *testing.T) {
 				t.Fatal("boolean assertion not preserved")
 			}
 		})
+	}
+}
+
+func TestAckMixed1229KeepsKnownFieldDiagnostics(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "host.yaml")
+	body := "app: app1\nworkers: {iris: {family: claude, launch: [claude]}}\nworktrees_root: " + dir + "\ndelivery:\n  unexpected: true\n"
+	if err := os.WriteFile(p, []byte(body), 0600); err != nil {
+		t.Fatal(err)
+	}
+	_, err := hostpoller.LoadConfig(p)
+	if err == nil || !strings.Contains(err.Error(), "unexpected") || !strings.Contains(err.Error(), "line 5") {
+		t.Fatalf("lost known-field line diagnostic: %v", err)
 	}
 }

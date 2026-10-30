@@ -442,7 +442,6 @@ fresh proof on the next pass, not a proof older than 15 minutes. Host status
 adds `delivery.ackMixed` JSON and `ack-mixed on|off` text, configuration only,
 not capability detection. A live-host flip remains the host operator's step.
 
-
 Conventions:
 
 - A new URN slug/path or identity you supply is validated client-side before the
