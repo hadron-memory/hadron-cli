@@ -18587,6 +18587,55 @@ func (v *CreateAppCreateApp) GetMemberCount() int { return v.MemberCount }
 // GetCreatedAt returns CreateAppCreateApp.CreatedAt, and is useful for accessing the field via an interface.
 func (v *CreateAppCreateApp) GetCreatedAt() string { return v.CreatedAt }
 
+// CreateAppKeyCreateAppKeyAppKeyCreated includes the requested fields of the GraphQL type AppKeyCreated.
+// The GraphQL type's documentation follows.
+//
+// Returned once at creation — the raw key is never stored
+type CreateAppKeyCreateAppKeyAppKeyCreated struct {
+	Key    *CreateAppKeyCreateAppKeyAppKeyCreatedKeyAppKey `json:"key"`
+	RawKey string                                          `json:"rawKey"`
+}
+
+// GetKey returns CreateAppKeyCreateAppKeyAppKeyCreated.Key, and is useful for accessing the field via an interface.
+func (v *CreateAppKeyCreateAppKeyAppKeyCreated) GetKey() *CreateAppKeyCreateAppKeyAppKeyCreatedKeyAppKey {
+	return v.Key
+}
+
+// GetRawKey returns CreateAppKeyCreateAppKeyAppKeyCreated.RawKey, and is useful for accessing the field via an interface.
+func (v *CreateAppKeyCreateAppKeyAppKeyCreated) GetRawKey() string { return v.RawKey }
+
+// CreateAppKeyCreateAppKeyAppKeyCreatedKeyAppKey includes the requested fields of the GraphQL type AppKey.
+type CreateAppKeyCreateAppKeyAppKeyCreatedKeyAppKey struct {
+	Id         string  `json:"id"`
+	KeyPreview string  `json:"keyPreview"`
+	Label      *string `json:"label"`
+}
+
+// GetId returns CreateAppKeyCreateAppKeyAppKeyCreatedKeyAppKey.Id, and is useful for accessing the field via an interface.
+func (v *CreateAppKeyCreateAppKeyAppKeyCreatedKeyAppKey) GetId() string { return v.Id }
+
+// GetKeyPreview returns CreateAppKeyCreateAppKeyAppKeyCreatedKeyAppKey.KeyPreview, and is useful for accessing the field via an interface.
+func (v *CreateAppKeyCreateAppKeyAppKeyCreatedKeyAppKey) GetKeyPreview() string { return v.KeyPreview }
+
+// GetLabel returns CreateAppKeyCreateAppKeyAppKeyCreatedKeyAppKey.Label, and is useful for accessing the field via an interface.
+func (v *CreateAppKeyCreateAppKeyAppKeyCreatedKeyAppKey) GetLabel() *string { return v.Label }
+
+// CreateAppKeyResponse is returned by CreateAppKey on success.
+type CreateAppKeyResponse struct {
+	// Mint a new AppKey for an App. Only whoever manages the App, as themselves
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:05; hrn:node:hadronmemory.com:specs:cor:acl:010:01).
+	// Never an App key, a bound worker session or an impersonated request; new keys hold no scopes.
+	// Granting or revoking scopes uses the same manager audience.
+	//
+	// Accepts the entity's ID or URN.
+	CreateAppKey *CreateAppKeyCreateAppKeyAppKeyCreated `json:"createAppKey"`
+}
+
+// GetCreateAppKey returns CreateAppKeyResponse.CreateAppKey, and is useful for accessing the field via an interface.
+func (v *CreateAppKeyResponse) GetCreateAppKey() *CreateAppKeyCreateAppKeyAppKeyCreated {
+	return v.CreateAppKey
+}
+
 // CreateAppMemoryCreateAppMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
 //
@@ -66873,6 +66922,18 @@ func (v *__CreateAppInput) GetAppType() *AppType { return v.AppType }
 // GetDescription returns __CreateAppInput.Description, and is useful for accessing the field via an interface.
 func (v *__CreateAppInput) GetDescription() *string { return v.Description }
 
+// __CreateAppKeyInput is used internally by genqlient
+type __CreateAppKeyInput struct {
+	AppRef string  `json:"appRef"`
+	Label  *string `json:"label,omitempty"`
+}
+
+// GetAppRef returns __CreateAppKeyInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__CreateAppKeyInput) GetAppRef() string { return v.AppRef }
+
+// GetLabel returns __CreateAppKeyInput.Label, and is useful for accessing the field via an interface.
+func (v *__CreateAppKeyInput) GetLabel() *string { return v.Label }
+
 // __CreateAppMemoryInput is used internally by genqlient
 type __CreateAppMemoryInput struct {
 	AppRef           string    `json:"appRef"`
@@ -77252,6 +77313,49 @@ func CreateApp(
 	}
 
 	data_ = &CreateAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateAppKey.
+const CreateAppKey_Operation = `
+mutation CreateAppKey ($appRef: ID!, $label: String) {
+	createAppKey(appRef: $appRef, label: $label) {
+		key {
+			id
+			keyPreview
+			label
+		}
+		rawKey
+	}
+}
+`
+
+// cli#1223 — mint an App key. rawKey is the secret, shown once: the command
+// writes it to a 0600 file and never prints it unless --print-key.
+func CreateAppKey(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	label *string,
+) (data_ *CreateAppKeyResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateAppKey",
+		Query:  CreateAppKey_Operation,
+		Variables: &__CreateAppKeyInput{
+			AppRef: appRef,
+			Label:  label,
+		},
+	}
+
+	data_ = &CreateAppKeyResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

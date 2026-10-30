@@ -143,6 +143,23 @@ under `workers` in that host's config. That list is also the host's
 registration for operations, so narrowing it for a smoke check narrows
 operations too.
 
+**Mint the host key** (once per host, before step 1). A person who manages the
+App creates it as themselves; `app key create` sends no worker-session header,
+and the server refuses App keys, impersonated sessions and bound-worker
+sessions:
+
+```sh
+hadron app key create <app-ref> --out /etc/hadron/host.key --label "orca1 host poller"
+hadron app key scope grant <key-id> host:operate --host-id orca1
+hadron app key scope grant <key-id> attention:deliver
+```
+
+The key is written to the file at mode 0600 and never printed. Today
+`attention:deliver` is not scoped per host: the key reads every worker of its
+App (cor:agt:080:22 is not built; hadron-server#2017). If the answer to
+`create` is lost, the command does not retry: run `hadron app key list
+<app-ref>` and revoke any unexpected key with that label.
+
 1. **Before.** Run `hadron --version` and record it. Then run
    `hadron team host status --config host.yaml` and check that the config
    loads, the registration shows, and the key has `host:operate` and

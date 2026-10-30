@@ -255,3 +255,20 @@ query AppScopeAgentName($ref: ID!) {
     name
   }
 }
+
+# cli#1223 — mint an App key. rawKey is the secret, shown once: the command
+# writes it to a 0600 file and never prints it unless --print-key.
+mutation CreateAppKey(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $label: String
+) {
+  createAppKey(appRef: $appRef, label: $label) {
+    key {
+      id
+      keyPreview
+      label
+    }
+    rawKey
+  }
+}
