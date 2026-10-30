@@ -302,7 +302,7 @@ func TestUnpassedArgumentsAndFilters(t *testing.T) {
 }
 
 // The loader reads real type-checked Go: a call from production code reaches
-// an operation, a call from a test does not, a keyed literal sets a field and
+// an operation, a call from a test or a reference never called does not, a keyed literal sets a field and
 // json.Unmarshal into an input sets them all.
 func TestLoadGoUsesReadsProductionCodeOnly(t *testing.T) {
 	inputs := map[string]bool{"AgentFilter": true, "ThingInput": true}
@@ -315,6 +315,9 @@ func TestLoadGoUsesReadsProductionCodeOnly(t *testing.T) {
 	}
 	if u.funcs["Me"] {
 		t.Error("Me is called only from a test; tests never count")
+	}
+	if u.funcs["CreateThing"] {
+		t.Error("CreateThing is referenced but never called; a reference reaches nothing")
 	}
 	if !u.fields["AgentFilter.ownedByMe"] || u.fields["AgentFilter.type"] {
 		t.Errorf("only the keyed field is set, got %v", u.fields)
