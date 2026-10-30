@@ -297,7 +297,12 @@ func TestC1025BadConfigModelIsUsage(t *testing.T) {
 func mixedRouter() string {
 	return leafRouter("# Preflight\n\n- **\"x\"** → [[findings:leaf-a]] — a\n- **\"y\"** → [[findings:unlinked]] — b\n",
 		leafIn("i1", "to fix a build", "findings:leaf-a")+","+leafIn("i2", "fix without stem", "findings:leaf-b"),
-		outEdge("o1", "to fix a build", "findings:leaf-a")+","+outEdge("o2", "to read legacy", "findings:legacy"))
+		outTo("o1", "to fix a build", "findings:leaf-a")+","+outTo("o2", "to read legacy", "findings:legacy"))
+}
+
+// outTo is outEdge with the target id a real server gives it: the node's own.
+func outTo(id, label, targetLoc string) string {
+	return strings.Replace(outEdge(id, label, targetLoc), `"id":"t_`+id+`"`, `"id":"n_`+targetLoc+`"`, 1)
 }
 
 func mixedBatch() string {

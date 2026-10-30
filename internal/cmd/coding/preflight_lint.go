@@ -22,14 +22,17 @@ var retiredTags = []string{"retired", "superseded", "tombstone", "deprecated"}
 
 // preflightInput is everything the preflight rule engine needs.
 type preflightInput struct {
-	Routes      []graphEdge
+	Model       routeModel           // mirrored reads Routes only; leaf also reads Leaves (cli#1025)
+	Routes      []graphEdge          // the router's OUTGOING edges (the legacy routes under the leaf model)
+	Leaves      []graphEdge          // leaf model: edges INTO the router, one per leaf-owned route
+	RouterBody  string               // leaf model: the router's body, scanned for [[links]] with no leaf edge
 	Targets     map[string]checkNode // resolved route targets, by loc
 	Unavailable []string             // route targets that could not be read
 	HomeMemory  string               // the preflight node's own memory id
 }
 
 func newCmdPreflightLint(f *cmdutil.Factory) *cobra.Command {
-	var memory, root string
+	var memory, root, routeModelV string
 	var strict bool
 	cmd := &cobra.Command{
 		Use:     "lint",
@@ -42,7 +45,16 @@ a node that no longer resolves sends a reader nowhere — stale routing is
 worse than missing routing. That is the one error here; the labelling and
 lifecycle conventions are warnings.
 
-Errors exit 5; --strict promotes warnings to errors too.`,
+Errors exit 5; --strict promotes warnings to errors too.
+
+Under --route-model leaf (or preflightRouteModel in .hadron/config.json) the
+routes are the edges INTO the router, one per leaf, and the same conventions
+apply to them: the label, a retired leaf, a leaf in another memory. A route
+OUT of the router is a legacy route still to migrate (legacy-outgoing-route),
+and a [[link]] in the router's own body to a node with no edge to the router
+is leaf-missing-edge (area-node bodies are not scanned). Edges from memories
+you cannot read are invisible, so lint prints how many incoming edges it saw
+and never claims completeness. The default, mirrored, is unchanged.`,
 		Example: `  hadron coding preflight lint -m hrn:mem:micromentor.org:mmdata
   hadron coding preflight lint -m hrn:mem:hadronmemory.com:dev --json --strict`,
 		Args: cobra.NoArgs,
@@ -57,7 +69,11 @@ Errors exit 5; --strict promotes warnings to errors too.`,
 			}
 			ctx := cmd.Context()
 
-			in, err := collectPreflight(ctx, client, mem, root)
+			model, err := resolveRouteModel(cmd, routeModelV)
+			if err != nil {
+				return err
+			}
+			in, err := collectPreflight(ctx, client, mem, root, model)
 			if err != nil {
 				return err
 			}
@@ -78,15 +94,26 @@ Errors exit 5; --strict promotes warnings to errors too.`,
 			}
 
 			if err := output.Write(f.IOStreams, f.JSON, findings, func(w io.Writer) error {
+				// The note rides the human branch only: --json stays a bare array.
+				note := func() {
+					if in.Model == modelLeaf {
+						fmt.Fprintf(w, "note: %d incoming edges visible to this caller; edges from memories you cannot read are not counted\n", len(in.Leaves))
+					}
+				}
 				if len(findings) == 0 {
-					fmt.Fprintf(w, "✓ %d route(s) OK\n", len(in.Routes))
+					fmt.Fprintf(w, "✓ %d route(s) OK\n", len(routeRows(in, findings)))
+					note()
 					return nil
 				}
 				t := output.NewTable(w, "ROUTE", "SEVERITY", "RULE", "MESSAGE")
 				for _, fd := range findings {
 					t.Row(output.SafeCell(fd.Node), output.SafeCell(fd.Severity), output.SafeCell(fd.Rule), output.SafeCell(fd.Message))
 				}
-				return t.Flush()
+				if err := t.Flush(); err != nil {
+					return err
+				}
+				note()
+				return nil
 			}); err != nil {
 				return err
 			}
@@ -99,6 +126,7 @@ Errors exit 5; --strict promotes warnings to errors too.`,
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to lint (defaults to this repository's)")
 	cmd.Flags().StringVar(&root, "root", preflightRootLoc, "loc of the preflight router node")
 	cmd.Flags().BoolVar(&strict, "strict", false, "treat warnings as errors")
+	addRouteModelFlag(cmd, &routeModelV)
 	// -m is OPTIONAL since #551, and the comment #533 left here is why this one
 	// replaces it rather than sitting beside it: it said "there is no fallback",
 	// which was true when written and is the exact sentence the fallback
@@ -170,12 +198,79 @@ func lintPreflight(in preflightInput) []findingDTO {
 		}
 	}
 
+	if in.Model == modelLeaf {
+		out = append(out, lintLeafModel(in, unavailable)...)
+	}
+
+	// A leaf that is also a legacy route is read from both ends; say each
+	// finding once.
+	seen := map[findingDTO]bool{}
+	deduped := out[:0]
+	for _, fd := range out {
+		if !seen[fd] {
+			seen[fd] = true
+			deduped = append(deduped, fd)
+		}
+	}
+	out = deduped
+
 	sort.SliceStable(out, func(i, j int) bool {
 		if out[i].Node != out[j].Node {
 			return out[i].Node < out[j].Node
 		}
 		return out[i].Rule < out[j].Rule
 	})
+	return out
+}
+
+// lintLeafModel is what the leaf model adds (cli#1025): the conventions carried
+// over to leaf-owned incoming edges, plus the two rules that only exist there.
+// route-target-resolves does not carry: an incoming edge cannot dangle, because
+// deleting its leaf deletes the edge.
+func lintLeafModel(in preflightInput, unavailable map[string]bool) []findingDTO {
+	out := []findingDTO{}
+	linked := map[string]bool{} // locs carrying an edge TO the router
+	for _, l := range in.Leaves {
+		linked[l.Other] = true
+		if unavailable[l.Other] {
+			out = append(out, findingDTO{l.Other, "route-source-unreadable", sevWarning,
+				"this node routes to the router but could not be read"})
+			continue
+		}
+		label := strings.TrimSpace(l.Label)
+		switch {
+		case label == "":
+			out = append(out, findingDTO{l.Other, "route-label-phrasing", sevWarning,
+				"edge to the router has no label — preflight scans by label, so this route is unreadable"})
+		case !strings.HasPrefix(strings.ToLower(label), routePrefix):
+			out = append(out, findingDTO{l.Other, "route-label-phrasing", sevWarning,
+				fmt.Sprintf("edge label %q is not action-phrased — expected it to start %q", label, strings.TrimSpace(routePrefix))})
+		}
+		if t, ok := in.Targets[l.Other]; ok {
+			for _, rt := range retiredTags {
+				if hasTag(t.Tags, rt) {
+					out = append(out, findingDTO{l.Other, "route-target-retired", sevWarning,
+						fmt.Sprintf("route target is tagged %q — retired nodes should not be routed to", rt)})
+					break
+				}
+			}
+		}
+		if in.HomeMemory != "" && l.MemoryID != "" && !sameMemory(l.MemoryID, in.HomeMemory) {
+			out = append(out, findingDTO{l.Other, "route-target-moved-memory", sevWarning,
+				fmt.Sprintf("route target lives in %s, not the router's own memory", l.MemoryID)})
+		}
+	}
+	for _, r := range in.Routes {
+		out = append(out, findingDTO{r.endpointName(), "legacy-outgoing-route", sevWarning,
+			"the router still owns an outgoing route here — the leaf model has the leaf own the edge; run `hadron coding preflight route <this node> --route-model leaf --route "to …"`, then remove the router's edge (`hadron edge rm`)"})
+	}
+	for _, loc := range bodyWikilinks(in.RouterBody) {
+		if linked[loc] {
+			continue
+		}
+		out = append(out, findingDTO{loc, "leaf-missing-edge", sevWarning,
+			"the router's body links this node but it carries no edge to the router — a reader of the node never finds the route"})
+	}
 	return out
 }
 

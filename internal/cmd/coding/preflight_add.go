@@ -32,13 +32,14 @@ type newRouteDTO struct {
 	Route    string    `json:"route"`
 	Tags     []string  `json:"tags"`
 	Seq      *int      `json:"seq"`
-	Router   string    `json:"router"`
+	Router   string    `json:"router"` // the node the route attaches to: the router, or --attach-to
 	EdgeID   string    `json:"edgeId"`
 	BackEdge bool      `json:"backEdge"`
 	BodyLine string    `json:"bodyLine"` // the line written into the router; "" when none
 	Section  string    `json:"section"`  // the heading the line lands under; "" for the preamble
 	Links    []linkDTO `json:"links"`
 	DryRun   bool      `json:"dryRun"`
+	Model    string    `json:"model,omitempty"` // "leaf" only; absent under the default mirrored model
 }
 
 func newCmdPreflightAdd(f *cmdutil.Factory) *cobra.Command {
@@ -58,6 +59,8 @@ func newCmdPreflightAdd(f *cmdutil.Factory) *cobra.Command {
 		noBackEdge   bool
 		noBodyLine   bool
 		dryRun       bool
+		routeModelV  string
+		attachTo     string
 	)
 	cmd := &cobra.Command{
 		Use:     "create <loc>",
@@ -69,6 +72,13 @@ A route is three things, and a node is only reachable when it has all of
 them: the router's outgoing edge, the mirrored back-edge so the route reads
 the same when someone lands on the node from search, and the routing line in
 the router's BODY — which is what a human or an LLM actually scans.
+
+That is the mirrored model, the default. With ` + "`--route-model leaf`" + ` (or
+` + "`preflightRouteModel`" + ` in .hadron/config.json) the new node owns ONE edge,
+to the router or to the area node named by --attach-to, labelled ` + "`to <action>`" + `.
+Nothing is written on the router's outgoing set and there is no back-edge
+(--no-back-edge and --no-body-line are accepted and do nothing); the body line
+is off unless you pass --section, which splices it into the attach target.
 
 --route is the action, phrased the way a developer experiences the task.
 "to" is prepended when you leave it off, so ` + "`--route \"fix a flaky test\"`" + `
@@ -101,9 +111,21 @@ usage error, not a half-finished write.`,
 			if err != nil {
 				return err
 			}
+			model, err := resolveRouteModel(cmd, routeModelV)
+			if err != nil {
+				return err
+			}
+			leaf := model == modelLeaf
+			attachLoc, err := attachTarget(root, attachTo, leaf)
+			if err != nil {
+				return err
+			}
 			loc, err := routeTargetLoc(root, args[0])
 			if err != nil {
 				return err
+			}
+			if loc == attachLoc {
+				return exitcode.Newf(exitcode.Usage, "<loc> %q is the node it would attach to — a route must lead somewhere else", loc)
 			}
 			label, err := normalizeRoute(route)
 			if err != nil {
@@ -143,7 +165,7 @@ usage error, not a half-finished write.`,
 			// before writing anything: an unrouted node is the defect this
 			// command exists to prevent, and an ambiguous body must not leave
 			// one behind.
-			routerRef, err := mem.nodeRef(root)
+			routerRef, err := mem.nodeRef(attachLoc)
 			if err != nil {
 				return err
 			}
@@ -156,10 +178,11 @@ usage error, not a half-finished write.`,
 			}
 			if router.Node == nil {
 				return exitcode.Newf(exitcode.NotFound,
-					"no %q node in %s — create the router first, or pass --root", root, mem.raw)
+					"no %q node in %s — create the router first, or pass --root", attachLoc, mem.raw)
 			}
+			wantLine := bodyLineWanted(leaf, noBodyLine, cmd.Flags().Changed("section"))
 			plan := routingPlan{Skipped: true}
-			if !noBodyLine {
+			if wantLine {
 				if plan, err = planRoutingLine(routerBody(router.Node.Content), section, line, wikiLink(loc)); err != nil {
 					return err
 				}
@@ -171,9 +194,13 @@ usage error, not a half-finished write.`,
 			// Link resolution is read-only, so it runs under --dry-run too — a
 			// --link that resolves to nothing is exactly what a rehearsal is for.
 			edges := []*gen.NodeEdgeInput{}
-			if !noBackEdge {
-				back := label
-				edges = append(edges, &gen.NodeEdgeInput{TargetId: router.Node.Id, Name: &back})
+			// Mirrored: the back-edge, optional. Leaf: THE route, the leaf's one
+			// edge to the attach target, which createNode CAN embed because it
+			// runs out of the node being created.
+			backEdge := !leaf && !noBackEdge
+			if leaf || backEdge {
+				lbl := label
+				edges = append(edges, &gen.NodeEdgeInput{TargetId: router.Node.Id, Name: &lbl})
 			}
 			outLinks := []linkDTO{}
 			linkTargetIDs := []string{} // resolved ids, positionally aligned with outLinks
@@ -199,7 +226,7 @@ usage error, not a half-finished write.`,
 			if dryRun {
 				dto := newRouteDTO{
 					Loc: loc, Name: nodeName, Route: label, Tags: mergeTags(nil, tags),
-					Router: root, BackEdge: !noBackEdge, Links: outLinks, DryRun: true,
+					Router: attachLoc, BackEdge: backEdge, Links: outLinks, DryRun: true, Model: modelTag(leaf),
 				}
 				if !plan.Skipped {
 					dto.BodyLine, dto.Section = line, plan.Section
@@ -256,7 +283,7 @@ usage error, not a half-finished write.`,
 			dto := newRouteDTO{
 				Loc: created.Loc, ID: created.Id, Name: created.Name,
 				Route: label, Tags: created.Tags, Seq: created.Seq,
-				Router: root, BackEdge: !noBackEdge, Links: outLinks,
+				Router: attachLoc, BackEdge: backEdge, Links: outLinks, Model: modelTag(leaf),
 			}
 			if dto.Tags == nil {
 				dto.Tags = []string{}
@@ -267,11 +294,23 @@ usage error, not a half-finished write.`,
 			// re-reads for exactly this reason; without it the DTO would report
 			// `backEdge: true` and a full `links` list for edges that silently
 			// never materialised. The DTO is corrected to what actually landed.
-			landed, err := confirmEmbeddedEdges(ctx, client, created.Id)
+			landedIDs, err := embeddedEdgeIDs(ctx, client, created.Id)
+			landed := map[string]bool{}
+			for target := range landedIDs {
+				landed[target] = true
+			}
 			if err != nil {
 				return partialRoute(f, dto, true, err,
 					"created %s but could not read it back to confirm its edges — check it with `hadron node get %s -m %s`",
 					dto.Loc, dto.Loc, mem.raw)
+			}
+			if leaf {
+				if !landed[router.Node.Id] {
+					return partialRoute(f, dto, true, errors.New("the embedded edge is not on the node"),
+						"created %s but its edge to %q did not land — nothing leads to it; add it with `hadron edge create -m %s --from %s --to %s --name %s`",
+						dto.Loc, attachLoc, cmdutil.ShellQuote(mem.raw), cmdutil.ShellQuote(dto.Loc), cmdutil.ShellQuote(attachLoc), cmdutil.ShellQuote(label))
+				}
+				dto.EdgeID = landedIDs[router.Node.Id]
 			}
 			var missing []string
 			if dto.BackEdge && !landed[router.Node.Id] {
@@ -292,8 +331,11 @@ usage error, not a half-finished write.`,
 			}
 			dto.Links = kept
 
-			edgeResp, err := gen.CreateEdge(ctx, client, router.Node.Id, created.Id, label,
-				nil, nil, nil, nil, nil, nil)
+			var edgeResp *gen.CreateEdgeResponse
+			if !leaf {
+				edgeResp, err = gen.CreateEdge(ctx, client, router.Node.Id, created.Id, label,
+					nil, nil, nil, nil, nil, nil)
+			}
 			if err != nil {
 				// The node exists but nothing routes to it — a partial write,
 				// which exits 1 by contract so a caller branching on the exit
@@ -302,16 +344,16 @@ usage error, not a half-finished write.`,
 					"created %s but the route from %q was not written — nothing leads to it; wire it with `hadron edge create -m %s --from %s --to %s --name %s`",
 					dto.Loc, root, cmdutil.ShellQuote(mem.raw), cmdutil.ShellQuote(root), cmdutil.ShellQuote(dto.Loc), cmdutil.ShellQuote(label))
 			}
-			if edgeResp.CreateEdge != nil {
+			if edgeResp != nil && edgeResp.CreateEdge != nil {
 				dto.EdgeID = edgeResp.CreateEdge.Id
 			}
 
-			if !noBodyLine {
+			if wantLine {
 				written, err := appendRoutingLine(ctx, client, routerRef, section, line, wikiLink(loc))
 				if err != nil {
 					return partialRoute(f, dto, true, err,
 						"created and routed %s, but the router's body was not updated — the route is invisible to anyone READING %q; add this line yourself:\n  %s",
-						dto.Loc, root, line)
+						dto.Loc, attachLoc, line)
 				}
 				if !written.Skipped {
 					dto.BodyLine, dto.Section = line, written.Section
@@ -352,6 +394,8 @@ usage error, not a half-finished write.`,
 	cmd.Flags().BoolVar(&noBackEdge, "no-back-edge", false, "skip the mirrored back-edge to the router")
 	cmd.Flags().BoolVar(&noBodyLine, "no-body-line", false, "wire the edges only; leave the router's body alone")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would be written — including where the routing line lands — without writing it")
+	addRouteModelFlag(cmd, &routeModelV)
+	cmd.Flags().StringVar(&attachTo, "attach-to", "", "leaf model: loc of the router or area node the new node's edge points at (default: --root)")
 	// The same set as `review create` (hadron-cli#533): every genuinely-required
 	// flag marked, so cobra reports them together instead of one per re-run.
 	// --description is required HERE and optional on `preflight route`, where it
@@ -410,25 +454,59 @@ func plural(n int, one, many string) string {
 	return many
 }
 
-// confirmEmbeddedEdges re-reads a just-created node and returns the set of
-// target ids its outgoing edges actually reach. createNode's response selects
+// embeddedEdgeIDs re-reads a just-created node and returns, per target id its
+// outgoing edges actually reach, the edge's id. createNode's response selects
 // no edges, so the ones it was asked to embed are otherwise taken on trust —
 // the same gap `review create`'s confirmParentEdge closes.
-func confirmEmbeddedEdges(ctx context.Context, client graphql.Client, nodeID string) (map[string]bool, error) {
+func embeddedEdgeIDs(ctx context.Context, client graphql.Client, nodeID string) (map[string]string, error) {
 	resp, err := gen.GetNode(ctx, client, nodeID)
 	if err != nil {
 		return nil, api.MapError(err)
 	}
-	landed := map[string]bool{}
+	landed := map[string]string{}
 	if resp.Node == nil {
 		return landed, nil // readable-back failure is reported as "nothing landed"
 	}
 	for _, e := range resp.Node.OutgoingEdges {
 		if e != nil && e.Target != nil {
-			landed[e.Target.Id] = true
+			landed[e.Target.Id] = e.Id
 		}
 	}
 	return landed, nil
+}
+
+// attachTarget is the loc the route points at: the router by default, or the
+// area node --attach-to names. --attach-to is a leaf-model flag; under the
+// mirrored model the router owns the edge and there is nothing to attach to.
+func attachTarget(root, attachTo string, leaf bool) (string, error) {
+	a := strings.TrimSpace(attachTo)
+	if a == "" {
+		return root, nil
+	}
+	if !leaf {
+		return "", exitcode.Newf(exitcode.Usage, "--attach-to needs --route-model leaf (or %s in .hadron/config.json)", routeModelConfigKey)
+	}
+	if err := cmdutil.ValidateURNPath("--attach-to", a); err != nil {
+		return "", err
+	}
+	return a, nil
+}
+
+// bodyLineWanted: mirrored writes the router's body line unless --no-body-line;
+// leaf writes none unless --section opts in (the point of #1797 is to stop
+// regrowing the router's body). --no-body-line is a no-op under leaf.
+func bodyLineWanted(leaf, noBodyLine, sectionGiven bool) bool {
+	if leaf {
+		return sectionGiven && !noBodyLine
+	}
+	return !noBodyLine
+}
+
+func modelTag(leaf bool) string {
+	if leaf {
+		return string(modelLeaf)
+	}
+	return ""
 }
 
 // routeTargetLoc validates the loc a route points at. Unlike a review check

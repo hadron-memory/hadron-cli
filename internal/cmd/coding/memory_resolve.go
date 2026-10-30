@@ -74,6 +74,8 @@ func (s memorySource) String() string {
 type projectCodingConfig struct {
 	Memory       string `json:"memory"`
 	CodingMemory string
+	// RouteModel is `preflightRouteModel` (cli#1025), "" when unset.
+	RouteModel string
 	// Path and Err record a file that EXISTS but does not parse. Absent and
 	// malformed are different answers: absent means this source has nothing to
 	// say, malformed means it was trying to say something and could not.
@@ -113,15 +115,16 @@ func projectCodingConfigFrom(dir string) projectCodingConfig {
 		path := filepath.Join(dir, ".hadron", "config.json")
 		if raw, readErr := os.ReadFile(path); readErr == nil {
 			var c struct {
-				Memory string `json:"memory"`
-				Coding struct {
+				Memory     string `json:"memory"`
+				RouteModel string `json:"preflightRouteModel"`
+				Coding     struct {
 					Memory string `json:"memory"`
 				} `json:"coding"`
 			}
 			if err := json.Unmarshal(raw, &c); err != nil {
 				return projectCodingConfig{Path: path, Err: err}
 			}
-			return projectCodingConfig{Memory: c.Memory, CodingMemory: c.Coding.Memory}
+			return projectCodingConfig{Memory: c.Memory, CodingMemory: c.Coding.Memory, RouteModel: c.RouteModel}
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
