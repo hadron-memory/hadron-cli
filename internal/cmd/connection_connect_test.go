@@ -416,3 +416,62 @@ func TestConnectionConnectScrubsErrorsAfterTheLink(t *testing.T) {
 		t.Fatalf("serverCode lost: %q %q", r.out, r.errOut)
 	}
 }
+
+// Every read after the link is scrubbed, not just the baseline: the caller's
+// identity read and a later poll each get a server message carrying the link,
+// and the poll's server code survives the scrub.
+func TestConnectionConnectScrubsAuthContextAndPollErrors(t *testing.T) {
+	leakMsg := `upstream said ` + connectURL + ` nonce SECRETNONCE123456`
+	leak := func(code string) string {
+		return `{"errors":[{"message":"` + leakMsg + `","extensions":{"code":"` + code + `"}}],"data":null}`
+	}
+	prev := connection.Hooks
+	t.Cleanup(func() { connection.Hooks = prev })
+	connection.Hooks.Sleep = func(context.Context, time.Duration) error { return nil }
+	connection.Hooks.Open = func(string) error { return nil }
+
+	run := func(authCtx string, polls []string) (string, error) {
+		calls := 0
+		srv, _ := captureGraphQLFunc(t, func(op string) string {
+			switch op {
+			case "StartConnection":
+				return connectStart
+			case "AuthContext":
+				return authCtx
+			case "EmailConnections":
+				i := min(calls, len(polls)-1)
+				calls++
+				return polls[i]
+			}
+			return ""
+		})
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"--server", srv.URL, "connection", "connect", "gmail", "--org", "org_1", "--json"})
+		err := root.Execute()
+		if err != nil {
+			renderError(f, err)
+		}
+		return out.String() + f.IOStreams.ErrOut.(*strings.Builder).String(), err
+	}
+
+	for name, tc := range map[string]struct {
+		authCtx string
+		polls   []string
+		code    string
+	}{
+		"authContext": {leak("FORBIDDEN"), []string{connRows()}, "FORBIDDEN"},
+		"poll":        {connectMe, []string{connRows(), leak("FORBIDDEN")}, "FORBIDDEN"},
+	} {
+		got, err := run(tc.authCtx, tc.polls)
+		if err == nil {
+			t.Fatalf("%s: want a failure", name)
+		}
+		if strings.Contains(got, "SECRETNONCE") || strings.Contains(got, "hadron.example") {
+			t.Errorf("%s: leaked: %q", name, got)
+		}
+		if !strings.Contains(got, `"serverCode": "`+tc.code+`"`) {
+			t.Errorf("%s: serverCode lost: %q", name, got)
+		}
+	}
+}
