@@ -764,8 +764,8 @@ cor:agt:020:03 — never silent).
 Live is DERIVED, not stored (hadron-server#1114): the server computes it
 at read time from when the session was last driven, so a name whose
 driver stopped stops being taken on its own. Nothing ends the session to
-make that happen — it stays open, so the CHANCE to write a handoff is
-still there for its driver to take. There is no handoff until somebody
+make that happen — it stays open until its driver's next bind of that
+worker, so the CHANCE to write a handoff is still there for its driver to take. There is no handoff until somebody
 writes one: leaving the row open preserves the opportunity the old
 reaper foreclosed, not a record that does not exist.
 
@@ -773,22 +773,26 @@ So an OPEN session tells you nothing about whether the name is taken.
 Liveness does — and it means DRIVEN RECENTLY, not that somebody is at the
 keyboard: the window is generous. ` + "`worker list`'s" + ` LAST RECORDED ACTIVITY
 column is where to read it, and binding a name whose session is open but
-no longer live is NOT a takeover: it needs no --force, and it does not end
-that session, so its driver's handoff stays theirs to write.
+no longer live is NOT a takeover: it needs no --force.
+
+A BIND ENDS YOUR OTHER OPEN SESSIONS ON THAT WORKER (hadron-server#1617).
+Every bind, plain or --force, ends the same person's other open sessions
+on the worker, lapsed or live, without a handoff: their end reason is
+superseded and the new session chains to the newest of them. Write the old
+session's handoff first if you still can. Another person's session and an
+App-key session are never ended by your bind.
 
 WHEN LIVENESS IS NOT VISIBLE TO YOU, THE SERVER DECIDES. Liveness rides on
 the worker's working-state fields, which are gated: a caller outside that
 gate is shown null rather than an answer, and null is withheld, not "no".
 This command does not refuse on it — it binds, and the server applies the
 same rule atomically and refuses TAKEN or HELD if it must. In ` + "`--json`" + `
-that case is ` + "`tookOver: null`" + `, distinct from ` + "`false`" + `. --force starts
-your session alongside the taken-over one; it does not end another
-driver's session. When this worktree already has a binding, a plain start
-replaces an ended or lapsed binding once the server confirms it is not live.
-That leaves an open lapsed session intact for its own driver's handoff.
---force instead ends the previously bound session (best-effort) before
-replacing its local binding. It never separates two live agents working
-in one tree.
+that case is ` + "`tookOver: null`" + `, distinct from ` + "`false`" + `.
+
+When this worktree already has a binding, a plain start replaces an ended
+or lapsed binding once the server confirms it is not live; --force
+replaces a live one. Either way the rule above ends your old session. It
+never separates two live agents working in one tree.
 
 A LAUNCHED AGENT binds with --launch-grant instead (hadron-cli#831,
 cor:agt:070:08). The host poller (` + "`team host run`" + `) hands the agent it starts

@@ -59,10 +59,10 @@ func selectionHelp(worker bool) string {
 	which := "WHICH RECORD: the prompt served when this run started."
 	if worker {
 		which = `WHICH RECORD: the prompt served when the worker's most recently STARTED
-open session was bound — what that session was actually told. A worker can
-have several open sessions (` + "`session start --force`" + ` binds alongside a live one,
-and a lapsed session stays open); only the newest-started one is read, live or
-not. The record is null when the worker has no open session, when that newest
+open session was bound — what that session was actually told. A bind ends the same
+person's other open sessions on the worker, but a worker can still have several
+open: an App key's or another person's session is never ended by your bind.
+Only the newest-started one is read, live or not. The record is null when the worker has no open session, when that newest
 session has none (it began before serving was on), or when you may not see the
 worker's internals. Older or other sessions' records are not readable here.
 It is not the worker's current pointer or the latest compile: for those, use
