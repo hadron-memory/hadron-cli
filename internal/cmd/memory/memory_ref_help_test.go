@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -79,6 +80,24 @@ func TestMemoryRefHelpPromotesShortWhenLongIsEmpty(t *testing.T) {
 	}
 	if !strings.Contains(target.Use, memoryRefToken) {
 		t.Errorf("Use = %q does not take a %s", target.Use, memoryRefToken)
+	}
+}
+
+// `memory share list` is the exact command #282 was reported against, by
+// its `ls` spelling; #283 renamed it to `list` and kept `ls` as an alias.
+func TestMemoryShareListKeepsLsAlias(t *testing.T) {
+	const path = "memory share list"
+	var shareList *cobra.Command
+	walk(NewCmdMemory(cmdutil.NewFactory()), func(cmd *cobra.Command) {
+		if cmd.CommandPath() == path {
+			shareList = cmd
+		}
+	})
+	if shareList == nil {
+		t.Fatalf("%q not found", path)
+	}
+	if !slices.Contains(shareList.Aliases, "ls") {
+		t.Errorf("%q lost the `ls` alias the issue was reported against", path)
 	}
 }
 
