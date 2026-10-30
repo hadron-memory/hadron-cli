@@ -821,16 +821,17 @@ Conventions:
   rejects `--slug`: App-class URNs are name-derived by the server, while
   personal/private URNs use a per-owner opaque id.
 - `memory set --app <ref> --class app --name <name>` with NO `--agent` adds a
-  new free-standing app memory to an org-owned App that has an installed Agent
-  (`createAppMemory`, cli#1176): only an admin/owner of the App's org, as
-  themselves (not an App key or a worker session). It takes only `--name`,
+  new free-standing app memory to an App that has an installed Agent
+  (`createAppMemory`, cli#1176): only an admin/owner of the App's org (or, for
+  a user-owned App, its owner), as themselves (not an App key, a run,
+  impersonation or a worker session). It takes only `--name`,
   `--short`, `--description` and `--tag`; `--max-rev-count`, `--visibility`,
   `--slug`, `--org`, `--owner-me`, `--draft-corpus`, `--schema`/`--schema-file`
   and `--listed-on-marketplace` are refused (exit 2, nothing sent), as are a
   missing/non-`app` `--class`, a missing `--name` and a positional memory.
   `--agent` without `--app` is still exit 2. Server refusals keep their
   server sentence and mapped exit code (FORBIDDEN 8; BAD_USER_INPUT and
-  AGENT_NOT_INSTALLED 2; USER_OWNED_APP_UNSUPPORTED 1).
+  AGENT_NOT_INSTALLED 2).
 - `memory attach <memory> --app <ref> --agent <ref>` binds an existing
   free-standing personal/private memory to that App/installed Agent. The
   memory must be caller-owned and keeps its URN, class, and owner; server typed
