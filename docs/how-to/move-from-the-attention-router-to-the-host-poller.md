@@ -33,7 +33,7 @@ types the host's due tick and task wakes, so it replaces `ticker-wake` too.
 | `app` | `app` | Same App: an `hrn:app:` URN or an id. |
 | `channel` | none | The server picks the channels a batch carries. |
 | `hadronCli` | none | The poller is the CLI. |
-| none | `key_file` | **New.** The App key with `host:operate`, plus `attention:deliver` for delivery, at mode 0600 or tighter. Point at the file; never paste the key into the config, a ticket or chat. The router authenticated through `hadronCli`'s own login, so there is nothing to carry over. |
+| none | `key_file` | **New.** The App key with `host:operate`, plus `attention:deliver` for delivery, at mode 0600 or tighter. Point at the file; never paste the key into the config, a ticket or chat. Mint it with `hadron app key create` (see [Mint the host key](#mint-the-host-key)). The router authenticated through `hadronCli`'s own login, so there is nothing to carry over. |
 | `orcaCli` | `delivery.orca_bin` | Absolute path. |
 | `stateDir` | `state_file` (its directory) | Records, locks and the delivery status snapshot live beside the state file, under `delivery/`. Don't reuse the router's `stateDir`: the two must stay separate. |
 | `busyWaitMs` | none | Not ported. The server times deliveries (`deliverAfter`, `busyDeadline`), and C1 proves liveness from the screen. |
@@ -45,6 +45,28 @@ types the host's due tick and task wakes, so it replaces `ticker-wake` too.
 | none | `workers.<ref>.family` | **Required.** The model family it runs as (`claude`, `codex`, `glm`, …). |
 | none | `workers.<ref>.tui` | Optional: `claude` or `codex`, when the family doesn't name its interface (a `glm` worker runs in Claude Code). |
 | none | `workers.<ref>.launch` | **Required** by the host poller (`worker.start`), even when delivery is all you need. |
+
+## Mint the host key
+
+A person who manages the App mints the host key, as themselves: `app key create`
+sends no worker session, and the server refuses an App key, an impersonated
+session and a bound worker's session. The raw key is shown once and never
+recoverable, so it is written to a new 0600 file and never printed:
+
+```sh
+hadron app key create <app> --out /etc/hadron/host.key --label "orca1 host poller"
+hadron app key scope grant <key-id> host:operate --host-id <host>
+hadron app key scope grant <key-id> attention:deliver
+```
+
+Then point `key_file` at that file. A new key holds no scope until granted, so
+the two `scope grant` lines are required. `--out` must not exist (add `--force`
+to replace it); if the answer to the mint is lost, nothing is retried: run
+`hadron app key list <app>` and revoke any unexpected key with that label.
+
+`attention:deliver` does **not** limit the key to its own host's workers: today
+it reads every worker of its App (cor:agt:080:22 is not built;
+hadron-server#2017). Don't rely on per-host scoping of delivery.
 
 ## What the host config checks at load
 
