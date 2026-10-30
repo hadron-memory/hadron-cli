@@ -32,7 +32,21 @@ by its id, or by its ADDRESS — the chat root's node URN, which "channel list"
 prints and which is what "channel create" composes from --memory and --loc.
 
 Copy an address rather than composing one. Some Channels have no address the
-server can safely advertise; their id always works.`,
+server can safely advertise; their id always works.
+
+WHICH CHAT SURFACE?
+  - Your team's own chat (the room your worker and teammates talk in):
+    "hadron team chat read|post|mark-read" — it needs no address and posts as
+    your bound worker. Start there for catching up on messages that mention you.
+  - Any other room, named by id or address: this group. "channel list" finds
+    the rooms you can read.
+  - "hadron chat" is the older node-addressed chat; it reads and posts through
+    the same Channels but is configured by node URN.
+
+CATCHING UP: "channel read <room> --since <seq>" returns what came after seq and
+a "next watermark" to pass next time; "channel mark-read" records how far an
+attendee has seen. There is no blocking wait: poll with --since at an interval
+that suits you (not in a tight loop).`,
 	}
 	cmd.AddCommand(newCmdList(f))
 	cmd.AddCommand(newCmdGet(f))
