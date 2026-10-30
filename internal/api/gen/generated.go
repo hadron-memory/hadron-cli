@@ -35182,6 +35182,19 @@ var AllMemoryVisibility = []MemoryVisibility{
 	MemoryVisibilityPublic,
 }
 
+// #1747 — whether a mention wakes a worker at once. There is no ON_TICK mode.
+type MentionWake string
+
+const (
+	MentionWakeImmediate MentionWake = "IMMEDIATE"
+	MentionWakeOff       MentionWake = "OFF"
+)
+
+var AllMentionWake = []MentionWake{
+	MentionWakeImmediate,
+	MentionWakeOff,
+}
+
 type MergeNodesInput struct {
 	// Hard-delete the source node after a successful merge.
 	DeleteSource *bool `json:"deleteSource,omitempty"`
@@ -50328,6 +50341,155 @@ func (v *SetWorkerReportsToSetWorkerReportsToWorker) __premarshalJSON() (*__prem
 	retval.RetiredBy = v.WorkerFields.RetiredBy
 	retval.CreatedAt = v.WorkerFields.CreatedAt
 	retval.CreatedBy = v.WorkerFields.CreatedBy
+	return &retval, nil
+}
+
+// SetWorkerWakeSettingsResponse is returned by SetWorkerWakeSettings on success.
+type SetWorkerWakeSettingsResponse struct {
+	// #1747 — change a worker wake settings (hrn:node:hadronmemory.com:specs:cor:agt:080:03, :21): the worker itself, its holder, or whoever manages
+	// the App, in either direction. Never the may-subscribe-workers grant.
+	SetWorkerWakeSettings *SetWorkerWakeSettingsSetWorkerWakeSettings `json:"setWorkerWakeSettings"`
+}
+
+// GetSetWorkerWakeSettings returns SetWorkerWakeSettingsResponse.SetWorkerWakeSettings, and is useful for accessing the field via an interface.
+func (v *SetWorkerWakeSettingsResponse) GetSetWorkerWakeSettings() *SetWorkerWakeSettingsSetWorkerWakeSettings {
+	return v.SetWorkerWakeSettings
+}
+
+// SetWorkerWakeSettingsSetWorkerWakeSettings includes the requested fields of the GraphQL type WorkerWakeSettings.
+// The GraphQL type's documentation follows.
+//
+// #1747 — a worker wake settings (hrn:node:hadronmemory.com:specs:cor:agt:080:03).
+type SetWorkerWakeSettingsSetWorkerWakeSettings struct {
+	WorkerWakeSettingsFields `json:"-"`
+}
+
+// GetWorker returns SetWorkerWakeSettingsSetWorkerWakeSettings.Worker, and is useful for accessing the field via an interface.
+func (v *SetWorkerWakeSettingsSetWorkerWakeSettings) GetWorker() *WorkerWakeSettingsFieldsWorker {
+	return v.WorkerWakeSettingsFields.Worker
+}
+
+// GetMentions returns SetWorkerWakeSettingsSetWorkerWakeSettings.Mentions, and is useful for accessing the field via an interface.
+func (v *SetWorkerWakeSettingsSetWorkerWakeSettings) GetMentions() MentionWake {
+	return v.WorkerWakeSettingsFields.Mentions
+}
+
+// GetPausedUntil returns SetWorkerWakeSettingsSetWorkerWakeSettings.PausedUntil, and is useful for accessing the field via an interface.
+func (v *SetWorkerWakeSettingsSetWorkerWakeSettings) GetPausedUntil() *string {
+	return v.WorkerWakeSettingsFields.PausedUntil
+}
+
+// GetSubscriptions returns SetWorkerWakeSettingsSetWorkerWakeSettings.Subscriptions, and is useful for accessing the field via an interface.
+func (v *SetWorkerWakeSettingsSetWorkerWakeSettings) GetSubscriptions() []*WorkerWakeSettingsFieldsSubscriptionsTickerSubscription {
+	return v.WorkerWakeSettingsFields.Subscriptions
+}
+
+// GetEffectiveCadenceSeconds returns SetWorkerWakeSettingsSetWorkerWakeSettings.EffectiveCadenceSeconds, and is useful for accessing the field via an interface.
+func (v *SetWorkerWakeSettingsSetWorkerWakeSettings) GetEffectiveCadenceSeconds() *int {
+	return v.WorkerWakeSettingsFields.EffectiveCadenceSeconds
+}
+
+// GetDormant returns SetWorkerWakeSettingsSetWorkerWakeSettings.Dormant, and is useful for accessing the field via an interface.
+func (v *SetWorkerWakeSettingsSetWorkerWakeSettings) GetDormant() bool {
+	return v.WorkerWakeSettingsFields.Dormant
+}
+
+// GetIsolated returns SetWorkerWakeSettingsSetWorkerWakeSettings.Isolated, and is useful for accessing the field via an interface.
+func (v *SetWorkerWakeSettingsSetWorkerWakeSettings) GetIsolated() bool {
+	return v.WorkerWakeSettingsFields.Isolated
+}
+
+// GetIsolatedAt returns SetWorkerWakeSettingsSetWorkerWakeSettings.IsolatedAt, and is useful for accessing the field via an interface.
+func (v *SetWorkerWakeSettingsSetWorkerWakeSettings) GetIsolatedAt() *string {
+	return v.WorkerWakeSettingsFields.IsolatedAt
+}
+
+// GetIsolatedByHandle returns SetWorkerWakeSettingsSetWorkerWakeSettings.IsolatedByHandle, and is useful for accessing the field via an interface.
+func (v *SetWorkerWakeSettingsSetWorkerWakeSettings) GetIsolatedByHandle() *string {
+	return v.WorkerWakeSettingsFields.IsolatedByHandle
+}
+
+// GetIsolatedUntil returns SetWorkerWakeSettingsSetWorkerWakeSettings.IsolatedUntil, and is useful for accessing the field via an interface.
+func (v *SetWorkerWakeSettingsSetWorkerWakeSettings) GetIsolatedUntil() *string {
+	return v.WorkerWakeSettingsFields.IsolatedUntil
+}
+
+// GetCanManageIsolation returns SetWorkerWakeSettingsSetWorkerWakeSettings.CanManageIsolation, and is useful for accessing the field via an interface.
+func (v *SetWorkerWakeSettingsSetWorkerWakeSettings) GetCanManageIsolation() bool {
+	return v.WorkerWakeSettingsFields.CanManageIsolation
+}
+
+func (v *SetWorkerWakeSettingsSetWorkerWakeSettings) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*SetWorkerWakeSettingsSetWorkerWakeSettings
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.SetWorkerWakeSettingsSetWorkerWakeSettings = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.WorkerWakeSettingsFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalSetWorkerWakeSettingsSetWorkerWakeSettings struct {
+	Worker *WorkerWakeSettingsFieldsWorker `json:"worker"`
+
+	Mentions MentionWake `json:"mentions"`
+
+	PausedUntil *string `json:"pausedUntil"`
+
+	Subscriptions []*WorkerWakeSettingsFieldsSubscriptionsTickerSubscription `json:"subscriptions"`
+
+	EffectiveCadenceSeconds *int `json:"effectiveCadenceSeconds"`
+
+	Dormant bool `json:"dormant"`
+
+	Isolated bool `json:"isolated"`
+
+	IsolatedAt *string `json:"isolatedAt"`
+
+	IsolatedByHandle *string `json:"isolatedByHandle"`
+
+	IsolatedUntil *string `json:"isolatedUntil"`
+
+	CanManageIsolation bool `json:"canManageIsolation"`
+}
+
+func (v *SetWorkerWakeSettingsSetWorkerWakeSettings) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *SetWorkerWakeSettingsSetWorkerWakeSettings) __premarshalJSON() (*__premarshalSetWorkerWakeSettingsSetWorkerWakeSettings, error) {
+	var retval __premarshalSetWorkerWakeSettingsSetWorkerWakeSettings
+
+	retval.Worker = v.WorkerWakeSettingsFields.Worker
+	retval.Mentions = v.WorkerWakeSettingsFields.Mentions
+	retval.PausedUntil = v.WorkerWakeSettingsFields.PausedUntil
+	retval.Subscriptions = v.WorkerWakeSettingsFields.Subscriptions
+	retval.EffectiveCadenceSeconds = v.WorkerWakeSettingsFields.EffectiveCadenceSeconds
+	retval.Dormant = v.WorkerWakeSettingsFields.Dormant
+	retval.Isolated = v.WorkerWakeSettingsFields.Isolated
+	retval.IsolatedAt = v.WorkerWakeSettingsFields.IsolatedAt
+	retval.IsolatedByHandle = v.WorkerWakeSettingsFields.IsolatedByHandle
+	retval.IsolatedUntil = v.WorkerWakeSettingsFields.IsolatedUntil
+	retval.CanManageIsolation = v.WorkerWakeSettingsFields.CanManageIsolation
 	return &retval, nil
 }
 
@@ -67152,6 +67314,330 @@ func (v *WorkerServedPromptWorkerServedPrompt) __premarshalJSON() (*__premarshal
 	return &retval, nil
 }
 
+// A worker's wake settings (cli#1292, cor:agt:080:03). One selection shared by
+// the read and the write, which both return WorkerWakeSettings. The isolation
+// fields are projected as the server returns them; the isolate/clear commands
+// are cli#911 slice B2 and reuse this fragment rather than adding a second copy.
+type WorkerWakeSettingsFields struct {
+	Worker   *WorkerWakeSettingsFieldsWorker `json:"worker"`
+	Mentions MentionWake                     `json:"mentions"`
+	// A pause belongs to the worker, not to a session.
+	PausedUntil *string `json:"pausedUntil"`
+	// Live subscriptions.
+	Subscriptions []*WorkerWakeSettingsFieldsSubscriptionsTickerSubscription `json:"subscriptions"`
+	// The fastest live subscription on an enabled ticker; null when none.
+	EffectiveCadenceSeconds *int `json:"effectiveCadenceSeconds"`
+	// None of the worker's sessions has had activity within the App's dormancy period (hrn:node:hadronmemory.com:specs:cor:agt:080:07). A dormant worker is never woken.
+	Dormant bool `json:"dormant"`
+	// Live: isolatedUntil is in the future.
+	Isolated   bool    `json:"isolated"`
+	IsolatedAt *string `json:"isolatedAt"`
+	// The handle of the person who set it: only a person managing the App or holding the worker, acting as themselves, can.
+	IsolatedByHandle *string `json:"isolatedByHandle"`
+	// S7 (#2023, R85) — isolation is its own state, never pausedUntil. While live the worker gets no chat batches or ordinary wakes and is not matched.
+	IsolatedUntil *string `json:"isolatedUntil"`
+	// Whether this caller, acting as a person, may set or clear isolation: whoever manages the App or holds the worker. False for worker sessions and impersonation. Reports permission even while isolation is unavailable; does not grant read access. hrn:node:hadronmemory.com:specs:cor:agt:080:29
+	CanManageIsolation bool `json:"canManageIsolation"`
+}
+
+// GetWorker returns WorkerWakeSettingsFields.Worker, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsFields) GetWorker() *WorkerWakeSettingsFieldsWorker { return v.Worker }
+
+// GetMentions returns WorkerWakeSettingsFields.Mentions, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsFields) GetMentions() MentionWake { return v.Mentions }
+
+// GetPausedUntil returns WorkerWakeSettingsFields.PausedUntil, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsFields) GetPausedUntil() *string { return v.PausedUntil }
+
+// GetSubscriptions returns WorkerWakeSettingsFields.Subscriptions, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsFields) GetSubscriptions() []*WorkerWakeSettingsFieldsSubscriptionsTickerSubscription {
+	return v.Subscriptions
+}
+
+// GetEffectiveCadenceSeconds returns WorkerWakeSettingsFields.EffectiveCadenceSeconds, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsFields) GetEffectiveCadenceSeconds() *int {
+	return v.EffectiveCadenceSeconds
+}
+
+// GetDormant returns WorkerWakeSettingsFields.Dormant, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsFields) GetDormant() bool { return v.Dormant }
+
+// GetIsolated returns WorkerWakeSettingsFields.Isolated, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsFields) GetIsolated() bool { return v.Isolated }
+
+// GetIsolatedAt returns WorkerWakeSettingsFields.IsolatedAt, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsFields) GetIsolatedAt() *string { return v.IsolatedAt }
+
+// GetIsolatedByHandle returns WorkerWakeSettingsFields.IsolatedByHandle, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsFields) GetIsolatedByHandle() *string { return v.IsolatedByHandle }
+
+// GetIsolatedUntil returns WorkerWakeSettingsFields.IsolatedUntil, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsFields) GetIsolatedUntil() *string { return v.IsolatedUntil }
+
+// GetCanManageIsolation returns WorkerWakeSettingsFields.CanManageIsolation, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsFields) GetCanManageIsolation() bool { return v.CanManageIsolation }
+
+// WorkerWakeSettingsFieldsSubscriptionsTickerSubscription includes the requested fields of the GraphQL type TickerSubscription.
+// The GraphQL type's documentation follows.
+//
+// #1747 — a worker subscription to one ticker (hrn:node:hadronmemory.com:specs:cor:agt:080:02).
+type WorkerWakeSettingsFieldsSubscriptionsTickerSubscription struct {
+	Id     string                                                         `json:"id"`
+	Ticker *WorkerWakeSettingsFieldsSubscriptionsTickerSubscriptionTicker `json:"ticker"`
+	// True when made through the may-subscribe-workers grant.
+	ViaGrant  bool   `json:"viaGrant"`
+	CreatedAt string `json:"createdAt"`
+}
+
+// GetId returns WorkerWakeSettingsFieldsSubscriptionsTickerSubscription.Id, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsFieldsSubscriptionsTickerSubscription) GetId() string { return v.Id }
+
+// GetTicker returns WorkerWakeSettingsFieldsSubscriptionsTickerSubscription.Ticker, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsFieldsSubscriptionsTickerSubscription) GetTicker() *WorkerWakeSettingsFieldsSubscriptionsTickerSubscriptionTicker {
+	return v.Ticker
+}
+
+// GetViaGrant returns WorkerWakeSettingsFieldsSubscriptionsTickerSubscription.ViaGrant, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsFieldsSubscriptionsTickerSubscription) GetViaGrant() bool {
+	return v.ViaGrant
+}
+
+// GetCreatedAt returns WorkerWakeSettingsFieldsSubscriptionsTickerSubscription.CreatedAt, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsFieldsSubscriptionsTickerSubscription) GetCreatedAt() string {
+	return v.CreatedAt
+}
+
+// WorkerWakeSettingsFieldsSubscriptionsTickerSubscriptionTicker includes the requested fields of the GraphQL type Ticker.
+// The GraphQL type's documentation follows.
+//
+// #1747 — a named wake schedule owned by one team App (hrn:node:hadronmemory.com:specs:cor:agt:080:01). Its URN is hrn:ticker:ROOT:APP-SLUG:SLUG,
+// computed from the App and the permanent slug. Ticks are computed, not stored; nothing reads a ticker until due wakes ship.
+type WorkerWakeSettingsFieldsSubscriptionsTickerSubscriptionTicker struct {
+	Id string `json:"id"`
+	// The canonical URN. Null when it cannot be composed.
+	Urn            *string `json:"urn"`
+	Name           string  `json:"name"`
+	CadenceSeconds int     `json:"cadenceSeconds"`
+	Enabled        bool    `json:"enabled"`
+}
+
+// GetId returns WorkerWakeSettingsFieldsSubscriptionsTickerSubscriptionTicker.Id, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsFieldsSubscriptionsTickerSubscriptionTicker) GetId() string { return v.Id }
+
+// GetUrn returns WorkerWakeSettingsFieldsSubscriptionsTickerSubscriptionTicker.Urn, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsFieldsSubscriptionsTickerSubscriptionTicker) GetUrn() *string {
+	return v.Urn
+}
+
+// GetName returns WorkerWakeSettingsFieldsSubscriptionsTickerSubscriptionTicker.Name, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsFieldsSubscriptionsTickerSubscriptionTicker) GetName() string {
+	return v.Name
+}
+
+// GetCadenceSeconds returns WorkerWakeSettingsFieldsSubscriptionsTickerSubscriptionTicker.CadenceSeconds, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsFieldsSubscriptionsTickerSubscriptionTicker) GetCadenceSeconds() int {
+	return v.CadenceSeconds
+}
+
+// GetEnabled returns WorkerWakeSettingsFieldsSubscriptionsTickerSubscriptionTicker.Enabled, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsFieldsSubscriptionsTickerSubscriptionTicker) GetEnabled() bool {
+	return v.Enabled
+}
+
+// WorkerWakeSettingsFieldsWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type WorkerWakeSettingsFieldsWorker struct {
+	Id string `json:"id"`
+	// The worker's name ('Iris') — the identity every surface renders.
+	Name string `json:"name"`
+	// hrn:worker:<root>:<app-slug>:<slug> (#991) — computed from the App's URN
+	// plus `slug`, not stored. Accepted anywhere a workerRef is taken, and
+	// resolvable via Query.resolveUrn, so a client can address a worker without
+	// holding its id. Null only when the App's URN predates the flat grammar-v2
+	// shape this arity requires.
+	Urn *string `json:"urn"`
+}
+
+// GetId returns WorkerWakeSettingsFieldsWorker.Id, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsFieldsWorker) GetId() string { return v.Id }
+
+// GetName returns WorkerWakeSettingsFieldsWorker.Name, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsFieldsWorker) GetName() string { return v.Name }
+
+// GetUrn returns WorkerWakeSettingsFieldsWorker.Urn, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsFieldsWorker) GetUrn() *string { return v.Urn }
+
+type WorkerWakeSettingsInput struct {
+	ClearPause  *bool        `json:"clearPause,omitempty"`
+	Mentions    *MentionWake `json:"mentions,omitempty"`
+	PausedUntil *string      `json:"pausedUntil,omitempty"`
+}
+
+// GetClearPause returns WorkerWakeSettingsInput.ClearPause, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsInput) GetClearPause() *bool { return v.ClearPause }
+
+// GetMentions returns WorkerWakeSettingsInput.Mentions, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsInput) GetMentions() *MentionWake { return v.Mentions }
+
+// GetPausedUntil returns WorkerWakeSettingsInput.PausedUntil, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsInput) GetPausedUntil() *string { return v.PausedUntil }
+
+// WorkerWakeSettingsResponse is returned by WorkerWakeSettings on success.
+type WorkerWakeSettingsResponse struct {
+	// #1747 — one worker's wake settings (defaults when it has none), readable by the App's participants (hrn:node:hadronmemory.com:specs:cor:agt:080:03).
+	WorkerWakeSettings *WorkerWakeSettingsWorkerWakeSettings `json:"workerWakeSettings"`
+}
+
+// GetWorkerWakeSettings returns WorkerWakeSettingsResponse.WorkerWakeSettings, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsResponse) GetWorkerWakeSettings() *WorkerWakeSettingsWorkerWakeSettings {
+	return v.WorkerWakeSettings
+}
+
+// WorkerWakeSettingsWorkerWakeSettings includes the requested fields of the GraphQL type WorkerWakeSettings.
+// The GraphQL type's documentation follows.
+//
+// #1747 — a worker wake settings (hrn:node:hadronmemory.com:specs:cor:agt:080:03).
+type WorkerWakeSettingsWorkerWakeSettings struct {
+	WorkerWakeSettingsFields `json:"-"`
+}
+
+// GetWorker returns WorkerWakeSettingsWorkerWakeSettings.Worker, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsWorkerWakeSettings) GetWorker() *WorkerWakeSettingsFieldsWorker {
+	return v.WorkerWakeSettingsFields.Worker
+}
+
+// GetMentions returns WorkerWakeSettingsWorkerWakeSettings.Mentions, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsWorkerWakeSettings) GetMentions() MentionWake {
+	return v.WorkerWakeSettingsFields.Mentions
+}
+
+// GetPausedUntil returns WorkerWakeSettingsWorkerWakeSettings.PausedUntil, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsWorkerWakeSettings) GetPausedUntil() *string {
+	return v.WorkerWakeSettingsFields.PausedUntil
+}
+
+// GetSubscriptions returns WorkerWakeSettingsWorkerWakeSettings.Subscriptions, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsWorkerWakeSettings) GetSubscriptions() []*WorkerWakeSettingsFieldsSubscriptionsTickerSubscription {
+	return v.WorkerWakeSettingsFields.Subscriptions
+}
+
+// GetEffectiveCadenceSeconds returns WorkerWakeSettingsWorkerWakeSettings.EffectiveCadenceSeconds, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsWorkerWakeSettings) GetEffectiveCadenceSeconds() *int {
+	return v.WorkerWakeSettingsFields.EffectiveCadenceSeconds
+}
+
+// GetDormant returns WorkerWakeSettingsWorkerWakeSettings.Dormant, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsWorkerWakeSettings) GetDormant() bool {
+	return v.WorkerWakeSettingsFields.Dormant
+}
+
+// GetIsolated returns WorkerWakeSettingsWorkerWakeSettings.Isolated, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsWorkerWakeSettings) GetIsolated() bool {
+	return v.WorkerWakeSettingsFields.Isolated
+}
+
+// GetIsolatedAt returns WorkerWakeSettingsWorkerWakeSettings.IsolatedAt, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsWorkerWakeSettings) GetIsolatedAt() *string {
+	return v.WorkerWakeSettingsFields.IsolatedAt
+}
+
+// GetIsolatedByHandle returns WorkerWakeSettingsWorkerWakeSettings.IsolatedByHandle, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsWorkerWakeSettings) GetIsolatedByHandle() *string {
+	return v.WorkerWakeSettingsFields.IsolatedByHandle
+}
+
+// GetIsolatedUntil returns WorkerWakeSettingsWorkerWakeSettings.IsolatedUntil, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsWorkerWakeSettings) GetIsolatedUntil() *string {
+	return v.WorkerWakeSettingsFields.IsolatedUntil
+}
+
+// GetCanManageIsolation returns WorkerWakeSettingsWorkerWakeSettings.CanManageIsolation, and is useful for accessing the field via an interface.
+func (v *WorkerWakeSettingsWorkerWakeSettings) GetCanManageIsolation() bool {
+	return v.WorkerWakeSettingsFields.CanManageIsolation
+}
+
+func (v *WorkerWakeSettingsWorkerWakeSettings) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*WorkerWakeSettingsWorkerWakeSettings
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.WorkerWakeSettingsWorkerWakeSettings = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.WorkerWakeSettingsFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalWorkerWakeSettingsWorkerWakeSettings struct {
+	Worker *WorkerWakeSettingsFieldsWorker `json:"worker"`
+
+	Mentions MentionWake `json:"mentions"`
+
+	PausedUntil *string `json:"pausedUntil"`
+
+	Subscriptions []*WorkerWakeSettingsFieldsSubscriptionsTickerSubscription `json:"subscriptions"`
+
+	EffectiveCadenceSeconds *int `json:"effectiveCadenceSeconds"`
+
+	Dormant bool `json:"dormant"`
+
+	Isolated bool `json:"isolated"`
+
+	IsolatedAt *string `json:"isolatedAt"`
+
+	IsolatedByHandle *string `json:"isolatedByHandle"`
+
+	IsolatedUntil *string `json:"isolatedUntil"`
+
+	CanManageIsolation bool `json:"canManageIsolation"`
+}
+
+func (v *WorkerWakeSettingsWorkerWakeSettings) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *WorkerWakeSettingsWorkerWakeSettings) __premarshalJSON() (*__premarshalWorkerWakeSettingsWorkerWakeSettings, error) {
+	var retval __premarshalWorkerWakeSettingsWorkerWakeSettings
+
+	retval.Worker = v.WorkerWakeSettingsFields.Worker
+	retval.Mentions = v.WorkerWakeSettingsFields.Mentions
+	retval.PausedUntil = v.WorkerWakeSettingsFields.PausedUntil
+	retval.Subscriptions = v.WorkerWakeSettingsFields.Subscriptions
+	retval.EffectiveCadenceSeconds = v.WorkerWakeSettingsFields.EffectiveCadenceSeconds
+	retval.Dormant = v.WorkerWakeSettingsFields.Dormant
+	retval.Isolated = v.WorkerWakeSettingsFields.Isolated
+	retval.IsolatedAt = v.WorkerWakeSettingsFields.IsolatedAt
+	retval.IsolatedByHandle = v.WorkerWakeSettingsFields.IsolatedByHandle
+	retval.IsolatedUntil = v.WorkerWakeSettingsFields.IsolatedUntil
+	retval.CanManageIsolation = v.WorkerWakeSettingsFields.CanManageIsolation
+	return &retval, nil
+}
+
 // WorkersResponse is returned by Workers on success.
 type WorkersResponse struct {
 	// A team App's STAFF (#974, cor:agt:020:01 — Workers are the staff; the
@@ -72110,6 +72596,18 @@ func (v *__SetWorkerReportsToInput) GetWorkerRef() string { return v.WorkerRef }
 // GetReportsTo returns __SetWorkerReportsToInput.ReportsTo, and is useful for accessing the field via an interface.
 func (v *__SetWorkerReportsToInput) GetReportsTo() *string { return v.ReportsTo }
 
+// __SetWorkerWakeSettingsInput is used internally by genqlient
+type __SetWorkerWakeSettingsInput struct {
+	WorkerRef string                   `json:"workerRef"`
+	Input     *WorkerWakeSettingsInput `json:"input,omitempty"`
+}
+
+// GetWorkerRef returns __SetWorkerWakeSettingsInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__SetWorkerWakeSettingsInput) GetWorkerRef() string { return v.WorkerRef }
+
+// GetInput returns __SetWorkerWakeSettingsInput.Input, and is useful for accessing the field via an interface.
+func (v *__SetWorkerWakeSettingsInput) GetInput() *WorkerWakeSettingsInput { return v.Input }
+
 // __SkillExportPlanInput is used internally by genqlient
 type __SkillExportPlanInput struct {
 	Input *SkillPlanInput `json:"input,omitempty"`
@@ -73923,6 +74421,14 @@ func (v *__WorkerServedPromptInput) GetLimit() int { return v.Limit }
 
 // GetOffset returns __WorkerServedPromptInput.Offset, and is useful for accessing the field via an interface.
 func (v *__WorkerServedPromptInput) GetOffset() int { return v.Offset }
+
+// __WorkerWakeSettingsInput is used internally by genqlient
+type __WorkerWakeSettingsInput struct {
+	WorkerRef string `json:"workerRef"`
+}
+
+// GetWorkerRef returns __WorkerWakeSettingsInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__WorkerWakeSettingsInput) GetWorkerRef() string { return v.WorkerRef }
 
 // __WorkersInput is used internally by genqlient
 type __WorkersInput struct {
@@ -92187,6 +92693,70 @@ func SetWorkerReportsTo(
 	return data_, err_
 }
 
+// The mutation executed by SetWorkerWakeSettings.
+const SetWorkerWakeSettings_Operation = `
+mutation SetWorkerWakeSettings ($workerRef: String!, $input: WorkerWakeSettingsInput!) {
+	setWorkerWakeSettings(workerRef: $workerRef, input: $input) {
+		... WorkerWakeSettingsFields
+	}
+}
+fragment WorkerWakeSettingsFields on WorkerWakeSettings {
+	worker {
+		id
+		name
+		urn
+	}
+	mentions
+	pausedUntil
+	subscriptions {
+		id
+		ticker {
+			id
+			urn
+			name
+			cadenceSeconds
+			enabled
+		}
+		viaGrant
+		createdAt
+	}
+	effectiveCadenceSeconds
+	dormant
+	isolated
+	isolatedAt
+	isolatedByHandle
+	isolatedUntil
+	canManageIsolation
+}
+`
+
+func SetWorkerWakeSettings(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	workerRef string,
+	input *WorkerWakeSettingsInput,
+) (data_ *SetWorkerWakeSettingsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SetWorkerWakeSettings",
+		Query:  SetWorkerWakeSettings_Operation,
+		Variables: &__SetWorkerWakeSettingsInput{
+			WorkerRef: workerRef,
+			Input:     input,
+		},
+	}
+
+	data_ = &SetWorkerWakeSettingsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by SkillExportPlan.
 const SkillExportPlan_Operation = `
 query SkillExportPlan ($input: SkillPlanInput!) {
@@ -97729,6 +98299,68 @@ func WorkerServedPrompt(
 	}
 
 	data_ = &WorkerServedPromptResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by WorkerWakeSettings.
+const WorkerWakeSettings_Operation = `
+query WorkerWakeSettings ($workerRef: String!) {
+	workerWakeSettings(workerRef: $workerRef) {
+		... WorkerWakeSettingsFields
+	}
+}
+fragment WorkerWakeSettingsFields on WorkerWakeSettings {
+	worker {
+		id
+		name
+		urn
+	}
+	mentions
+	pausedUntil
+	subscriptions {
+		id
+		ticker {
+			id
+			urn
+			name
+			cadenceSeconds
+			enabled
+		}
+		viaGrant
+		createdAt
+	}
+	effectiveCadenceSeconds
+	dormant
+	isolated
+	isolatedAt
+	isolatedByHandle
+	isolatedUntil
+	canManageIsolation
+}
+`
+
+func WorkerWakeSettings(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	workerRef string,
+) (data_ *WorkerWakeSettingsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "WorkerWakeSettings",
+		Query:  WorkerWakeSettings_Operation,
+		Variables: &__WorkerWakeSettingsInput{
+			WorkerRef: workerRef,
+		},
+	}
+
+	data_ = &WorkerWakeSettingsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
