@@ -7859,7 +7859,7 @@ type AgentTeamEventsResponse struct {
 	// read; the cursor is the (createdAt, id) pair, so events sharing a
 	// timestamp are never skipped. since is a coarse time filter (strictly
 	// after), not a continuation. limit defaults to 20 (cap 200).
-	// task.warning is passive history (never wakes, suppresses a wake or counts as activity), payload {code} only.
+	// task.warning and task.edited are passive history (never wake, suppress a wake or count as activity); payload is {code} or changed field names only.
 	AgentTeamEvents []*AgentTeamEventsAgentTeamEventsAgentTeamEvent `json:"agentTeamEvents"`
 }
 
