@@ -35,6 +35,14 @@ func newCmdRead(f *cmdutil.Factory) *cobra.Command {
 		Long: `Read chat messages in one call, newest-tracking by the server-assigned seq.
 Pass --since <seq> to get only messages after that seq; omit it (or --since 0)
 for the whole history. The response's nextSince is the seq to pass next turn.
+With no --node (or -m + --messages-loc) it reads the configured chat: flag,
+then HADRON_CHAT_*, then "chat" in .hadron/config.json, a node URN beating the
+two-field form; "chat config show" prints which one is in use and "chat doctor"
+checks it. This command does not change any stored read position; for recent-only or
+mentions-me reads, mark-read and waiting on your own team chat, use
+"hadron team chat read --mentions-me" / "team chat mark-read". For a room named
+by id or address use "hadron channel read" (--before, --mentions). There is no
+blocking wait: poll with --since <nextSince> at an interval.
 
 Output is a compact transcript ("[<seq>] <author> (<role>): <body>"); --json
 returns { messages:[{seq,loc,author,identity,role,timestamp,body,sessionId,

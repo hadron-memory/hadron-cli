@@ -36,7 +36,14 @@ MONOTONIC: a seq lower than the stored one is a no-op that returns the cursor
 unchanged, so this is safe to call with a stale watermark. The output reports
 the cursor the server ended up with, not the seq you asked for — those differ
 exactly when the call was a no-op, and presenting the request as the result
-would report a rewind that did not happen.`,
+would report a rewind that did not happen.
+
+The cursor is the highest message seq (the "#N" "channel read" prints) the
+attendee has been recorded as seeing. --attendee must be a Worker or an Agent;
+a human user is refused (exit 4, "No match for attendeeRef"). --owner-app names
+the App the attendee is looked up in, when the name alone is ambiguous. Check
+the current cursor first with "channel read-state". For your own team chat use
+"hadron team chat mark-read --through <seq>".`,
 		Example: `  hadron channel mark-read <address> --attendee Jonas --seq 631`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -95,7 +102,17 @@ func newCmdReadState(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "read-state <id|address>",
 		Short: "Show where an attendee is up to on a Channel",
-		Args:  cobra.ExactArgs(1),
+		Long: `Show where an attendee is up to on a Channel: the highest message seq
+recorded as seen by that attendee, and when it was recorded. Unread messages
+are those with a higher seq ("channel read <room> --since <cursor>").
+
+--attendee must be a Worker or an Agent (name, URN or id), not a human user.
+When nothing is recorded for the attendee, the command prints "no read state"
+and exits 0 — that is also what a name that matches no attendee prints, so
+check the spelling if the answer surprises you. Record progress with
+"channel mark-read".`,
+		Example: `  hadron channel read-state <address> --attendee Jonas`,
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if attendee == "" {
 				return exitcode.Newf(exitcode.Usage, "--attendee is required (a Worker or Agent name, URN or id)")
