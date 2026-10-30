@@ -41023,7 +41023,7 @@ func (v *RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdgeTarget
 
 // RecoveryEdgesResponse is returned by RecoveryEdges on success.
 type RecoveryEdgesResponse struct {
-	// Inspect live edges and accessible deleted endpoints in one memory you can read and write. Default 20, maximum 200. hrn:node:hadronmemory.com:specs:cor:api:110:02
+	// Inspect live edges and accessible deleted endpoints in one memory you can read and write. Default 20, maximum 200. edgeIds (1 to 200 ids) restricts the result, total included, to those edges; an id that is not a visible edge of this memory is absent. hrn:node:hadronmemory.com:specs:cor:api:110:02
 	RecoveryEdges *RecoveryEdgesRecoveryEdgesRecoveryEdgesPage `json:"recoveryEdges"`
 }
 
