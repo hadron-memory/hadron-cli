@@ -22,8 +22,12 @@ func connRows(rows ...string) string {
 	return `{"data":{"exchangeConnections":[` + strings.Join(rows, ",") + `]}}`
 }
 
-func connRow(id, provider string) string {
-	return `{"id":"` + id + `","organizationId":"org_1","userId":"u1","mailboxEmail":"` + id + `@acme.com","provider":"` + provider +
+const connectMe = `{"data":{"me":{"id":"u1","name":"A","email":"a@acme.com","handle":"a","githubUsername":null,"roles":[]}}}`
+
+func connRow(id, provider string) string { return connRowOwned(id, provider, "u1") }
+
+func connRowOwned(id, provider, user string) string {
+	return `{"id":"` + id + `","organizationId":"org_1","userId":"` + user + `","mailboxEmail":"` + id + `@acme.com","provider":"` + provider +
 		`","displayName":null,"syncEnabled":true,"syncStatus":"IDLE","lastSyncAt":null,"createdAt":"2026-10-30T00:00:00Z","updatedAt":"2026-10-30T00:00:00Z"}`
 }
 
@@ -56,6 +60,8 @@ func runConnect(t *testing.T, start string, emailPolls []string, openErr error, 
 		switch op {
 		case "StartConnection":
 			return start
+		case "Me":
+			return connectMe
 		case "EmailConnections":
 			i := emailCalls
 			emailCalls++
@@ -113,7 +119,7 @@ func TestConnectionConnectWaitSuccess(t *testing.T) {
 		t.Fatalf("out %q", r.out)
 	}
 	// Baseline read happens before the browser is opened.
-	if r.ops[0] != "StartConnection" || r.ops[1] != "EmailConnections" {
+	if r.ops[0] != "StartConnection" || r.ops[2] != "EmailConnections" {
 		t.Fatalf("ops %v", r.ops)
 	}
 }
@@ -312,21 +318,26 @@ func TestConnectionConnectRefusalsKeepServerCode(t *testing.T) {
 	}
 }
 
-// The wait bounds the in-flight read too: a hung poll cannot outlast --wait.
-func TestConnectionConnectHungPollDoesNotOutlastWait(t *testing.T) {
+// The wait bounds the in-flight read too, measured AFTER the sleep: with one
+// second left, a read that would take longer cannot hold the command past it.
+func TestConnectionConnectSlowPollDoesNotOutlastWait(t *testing.T) {
 	prev := connection.Hooks
 	t.Cleanup(func() { connection.Hooks = prev })
-	connection.Hooks.Sleep = func(context.Context, time.Duration) error { return nil }
+	clock := time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC)
+	connection.Hooks.Now = func() time.Time { return clock }
+	connection.Hooks.Sleep = func(_ context.Context, d time.Duration) error { clock = clock.Add(d); return nil }
 	connection.Hooks.Open = func(string) error { return nil }
 	calls := 0
 	srv, _ := captureGraphQLFunc(t, func(op string) string {
 		switch op {
 		case "StartConnection":
 			return connectStart
+		case "Me":
+			return connectMe
 		case "EmailConnections":
 			calls++
-			if calls > 1 {
-				time.Sleep(1500 * time.Millisecond)
+			if calls > 2 { // baseline + the first poll are prompt; the one after the sleep hangs
+				time.Sleep(3 * time.Second)
 			}
 			return connRows()
 		}
@@ -334,13 +345,72 @@ func TestConnectionConnectHungPollDoesNotOutlastWait(t *testing.T) {
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"--server", srv.URL, "connection", "connect", "gmail", "--org", "org_1", "--wait", "300ms"})
+	root.SetArgs([]string{"--server", srv.URL, "connection", "connect", "gmail", "--org", "org_1", "--wait", "4s"})
 	began := time.Now()
 	err := root.Execute()
 	if code := exitCodeFor(err); code != exitcode.WaitTimeout {
 		t.Fatalf("exit %d (%v), want %d", code, err, exitcode.WaitTimeout)
 	}
-	if took := time.Since(began); took > 1200*time.Millisecond {
-		t.Fatalf("a hung poll held the command for %s, past --wait 300ms", took)
+	if took := time.Since(began); took > 2*time.Second {
+		t.Fatalf("a slow poll held the command for %s with 1s of the wait left", took)
+	}
+}
+
+// Another admin's connection for the same provider is not this flow's result.
+func TestConnectionConnectOtherUsersConnectionDoesNotCount(t *testing.T) {
+	r := runConnect(t, connectStart, []string{connRows(), connRows(connRowOwned("theirs", "gmail", "u2"))}, nil, "gmail", "--org", "org_1", "--wait", "9s")
+	if r.code != exitcode.WaitTimeout {
+		t.Fatalf("exit %d (%v), want %d", r.code, r.err, exitcode.WaitTimeout)
+	}
+}
+
+// With --json a failed browser launch hands the URL over at once and does not
+// wait (the document is only written at the end, so a wait would hide it).
+func TestConnectionConnectJSONOpenFailureReturnsStarted(t *testing.T) {
+	r := runConnect(t, connectStart, []string{connRows()}, errors.New("no display"), "gmail", "--org", "org_1", "--json")
+	if r.err != nil {
+		t.Fatal(r.err)
+	}
+	var dto struct {
+		AuthorizeURL  string `json:"authorizeUrl"`
+		Status        string `json:"status"`
+		BrowserOpened bool   `json:"browserOpened"`
+	}
+	if err := json.Unmarshal([]byte(r.out), &dto); err != nil || dto.AuthorizeURL != connectURL || dto.Status != "started" || dto.BrowserOpened {
+		t.Fatalf("dto %+v err %v out %q", dto, err, r.out)
+	}
+	polls := 0
+	for _, op := range r.ops {
+		if op == "EmailConnections" {
+			polls++
+		}
+	}
+	if polls > 1 || r.slept != 0 {
+		t.Fatalf("waited after a failed launch: ops %v slept %s", r.ops, r.slept)
+	}
+}
+
+// An unreadable expiry would lift the expiry bound, so the link is not shown.
+func TestConnectionConnectMalformedExpiryRefused(t *testing.T) {
+	bad := strings.Replace(connectStart, "2099-01-01T00:00:00Z", "soon", 1)
+	r := runConnect(t, bad, []string{connRows()}, nil, "gmail", "--org", "org_1")
+	if r.code != exitcode.Unavailable || len(r.opened) != 0 || strings.Contains(r.out+r.errOut, "SECRETNONCE") {
+		t.Fatalf("exit %d opened %v out %q err %q", r.code, r.opened, r.out, r.errOut)
+	}
+}
+
+// An error raised after the link was received never carries it, even when the
+// server's own message does.
+func TestConnectionConnectScrubsErrorsAfterTheLink(t *testing.T) {
+	leak := `{"errors":[{"message":"upstream said ` + connectURL + ` nonce SECRETNONCE123456","extensions":{"code":"FORBIDDEN"}}],"data":null}`
+	r := runConnect(t, connectStart, []string{leak}, nil, "gmail", "--org", "org_1", "--json")
+	if r.code == 0 {
+		t.Fatal("want a failure")
+	}
+	if strings.Contains(r.out+r.errOut, "SECRETNONCE") || strings.Contains(r.out+r.errOut, "hadron.example") {
+		t.Fatalf("leaked: %q %q", r.out, r.errOut)
+	}
+	if !strings.Contains(r.out+r.errOut, `"serverCode": "FORBIDDEN"`) {
+		t.Fatalf("serverCode lost: %q %q", r.out, r.errOut)
 	}
 }

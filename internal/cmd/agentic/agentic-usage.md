@@ -3792,7 +3792,10 @@ URL is the `authorizeUrl` field of the one result document and nowhere else, so
 --json with --no-browser requires --no-wait (usage error, exit 2, before any
 start). After the start the command polls the metadata-only EmailConnections read
 (--wait, default 5m, never past the link's expiresAt; --no-wait skips it) for a
-connection of that provider that was not there before the start. Found: exit 0,
+connection of that provider, owned by the caller, that was not there before the
+start (the start carries no flow id, so another admin's connection or an
+existing one never counts). With --json a browser that cannot be opened ends the
+command at once with status "started" (no wait). Found: exit 0,
 {provider,orgId,authorizeUrl,expiresAt,browserOpened,status:"connected",
 connection:{id,provider,mailboxEmail,displayName}}. --no-wait: status "started",
 connection null. Not found in time: exit 13 (WaitTimeout), "not found yet" - the

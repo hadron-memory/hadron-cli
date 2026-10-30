@@ -170,8 +170,11 @@ command finishes, --json with --no-browser needs --no-wait. Error output never
 contains the URL or its nonce, and nothing is written to disk.
 
 --wait <duration> bounds the wait for the new connection (default 5m, never
-past the link's expiry). A connection that already existed before the start
-does not count. --no-wait returns right after the start. If nothing appears in
+past the link's expiry). Only a new connection for that provider owned by you
+counts: one that existed before the start, or that another admin connects
+meanwhile, does not. With --json, if the browser cannot be opened the command
+does not wait: it returns the result (status "started") at once. --no-wait
+returns right after the start. If nothing appears in
 time the command exits 13 with "not found yet": the consent may still be
 completing, so check "hadron email connections --org <org>" before starting
 again.`,
@@ -216,13 +219,33 @@ again.`,
 			redact := redactor(start.AuthorizeUrl)
 			ioStreams := f.IOStreams
 
+			// An unreadable expiry would silently lift the "never past the link's
+			// expiry" bound, so it is refused before the link is shown.
+			expiry, perr := time.Parse(time.RFC3339, start.ExpiresAt)
+			if perr != nil {
+				return exitcode.Newf(exitcode.Unavailable, "server returned an unreadable link expiry (%q); the link was not shown", start.ExpiresAt)
+			}
+
+			// The flow runs as the signed-in caller, so only a connection owned
+			// by them can be this flow's result (another admin's concurrent
+			// connection for the same provider is not). The server's start
+			// carries no flow id to correlate on.
+			var self string
 			// The "before" snapshot is taken BEFORE the link is shown, so a
 			// connection that appears cannot predate it by consent timing.
 			baseline := map[string]bool{}
 			if !noWait {
+				meResp, err := gen.Me(cmd.Context(), client)
+				if err != nil {
+					return scrub(withServerCode(api.MapError(err), err), redact)
+				}
+				if meResp == nil || meResp.Me == nil {
+					return exitcode.Newf(exitcode.Unavailable, "server did not say who the signed-in caller is")
+				}
+				self = meResp.Me.Id
 				rows, err := listConnections(cmd.Context(), client, start.OrgId)
 				if err != nil {
-					return withServerCode(api.MapError(err), err)
+					return scrub(withServerCode(api.MapError(err), err), redact)
 				}
 				for _, r := range rows {
 					baseline[r.ID] = true
@@ -243,7 +266,11 @@ again.`,
 			case opened:
 				fmt.Fprintf(ioStreams.ErrOut, "Opened your browser to connect %s. Finish consent there; the link expires %s.\n", output.SafeCell(rowKey), output.SafeCell(start.ExpiresAt))
 			case f.JSON:
-				fmt.Fprintln(ioStreams.ErrOut, "The link was not opened and is in the result's authorizeUrl field; with --json rerun with --no-wait to receive it before consent.")
+				// The result document is the only place the URL may appear, and
+				// it is written when the command ends: waiting would hold it
+				// back until the link is useless. Hand it over now instead.
+				fmt.Fprintln(ioStreams.ErrOut, "The browser could not be opened: not waiting; the link is in the result's authorizeUrl field.")
+				noWait = true
 			default:
 				fmt.Fprintf(ioStreams.ErrOut, "Open this link in a browser to connect %s (single-use, expires %s; treat it like a password):\n", output.SafeCell(rowKey), output.SafeCell(start.ExpiresAt))
 				fmt.Fprintf(ioStreams.Out, "%s\n", start.AuthorizeUrl)
@@ -251,17 +278,17 @@ again.`,
 
 			if !noWait {
 				deadline := Hooks.Now().Add(wait)
-				if exp, perr := time.Parse(time.RFC3339, start.ExpiresAt); perr == nil && exp.Before(deadline) {
-					deadline = exp
+				if expiry.Before(deadline) {
+					deadline = expiry
 					fmt.Fprintf(ioStreams.ErrOut, "Waiting only until the link expires (%s), not the full --wait.\n", output.SafeCell(start.ExpiresAt))
 				}
-				found, err := awaitConnection(cmd.Context(), client, start.OrgId, rowKey, baseline, deadline)
+				found, err := awaitConnection(cmd.Context(), client, start.OrgId, rowKey, self, baseline, deadline)
 				if err != nil {
 					var ce *exitcode.CodedError
 					if errors.As(err, &ce) {
-						return err
+						return scrub(err, redact)
 					}
-					return withServerCode(api.MapError(err), err)
+					return scrub(withServerCode(api.MapError(err), err), redact)
 				}
 				dto.Status = "connected"
 				dto.Connection = found
@@ -289,7 +316,7 @@ again.`,
 
 // listConnections reads the org's connection metadata (never credentials or
 // lastError: the operation does not select them).
-func listConnections(ctx context.Context, client graphql.Client, orgID string) ([]connectedDTO, error) {
+func listConnections(ctx context.Context, client graphql.Client, orgID string) ([]connectionRow, error) {
 	r, err := gen.EmailConnections(ctx, client, orgID)
 	if err != nil {
 		return nil, err
@@ -297,29 +324,33 @@ func listConnections(ctx context.Context, client graphql.Client, orgID string) (
 	if r == nil {
 		return nil, exitcode.Newf(exitcode.Unavailable, "server returned no connection list")
 	}
-	rows := make([]connectedDTO, 0, len(r.ExchangeConnections))
+	rows := make([]connectionRow, 0, len(r.ExchangeConnections))
 	for _, v := range r.ExchangeConnections {
 		if v == nil {
 			continue
 		}
-		rows = append(rows, connectedDTO{ID: v.Id, Provider: v.Provider, MailboxEmail: v.MailboxEmail, DisplayName: v.DisplayName})
+		rows = append(rows, connectionRow{connectedDTO: connectedDTO{ID: v.Id, Provider: v.Provider, MailboxEmail: v.MailboxEmail, DisplayName: v.DisplayName}, userID: v.UserId})
 	}
 	return rows, nil
 }
 
-// awaitConnection polls until a connection for rowKey that is not in baseline
-// appears, or the deadline passes (exit 13, "not found yet").
-func awaitConnection(ctx context.Context, client graphql.Client, orgID, rowKey string, baseline map[string]bool, deadline time.Time) (*connectedDTO, error) {
+// connectionRow is a listed connection plus its owner, which only the match
+// uses (the owner is not part of the --json result).
+type connectionRow struct {
+	connectedDTO
+	userID string
+}
+
+// awaitConnection polls until a connection for rowKey, owned by self and not in
+// baseline, appears, or the deadline passes (exit 13, "not found yet"). Each
+// read is bounded by what is left of the wait at the moment it starts, so no
+// read can run past the deadline; it reads first and sleeps after.
+func awaitConnection(ctx context.Context, client graphql.Client, orgID, rowKey, self string, baseline map[string]bool, deadline time.Time) (*connectedDTO, error) {
 	for {
 		remaining := deadline.Sub(Hooks.Now())
 		if remaining <= 0 {
 			return nil, notFoundYet(rowKey, orgID)
 		}
-		if err := Hooks.Sleep(ctx, min(connectPollEvery, remaining)); err != nil {
-			return nil, exitcode.Newf(exitcode.Error, "interrupted while waiting for the connection: %v", err)
-		}
-		// The wait bounds the in-flight read too, not only the gaps between
-		// reads: a hung poll cannot outlast --wait.
 		pctx, cancel := context.WithTimeout(ctx, remaining)
 		rows, err := listConnections(pctx, client, orgID)
 		expired := pctx.Err() != nil && ctx.Err() == nil
@@ -331,12 +362,37 @@ func awaitConnection(ctx context.Context, client graphql.Client, orgID, rowKey s
 			return nil, err
 		}
 		for _, r := range rows {
-			if r.Provider == rowKey && !baseline[r.ID] {
-				c := r
+			if r.Provider == rowKey && r.userID == self && !baseline[r.ID] {
+				c := r.connectedDTO
 				return &c, nil
 			}
 		}
+		remaining = deadline.Sub(Hooks.Now())
+		if remaining <= 0 {
+			return nil, notFoundYet(rowKey, orgID)
+		}
+		if err := Hooks.Sleep(ctx, min(connectPollEvery, remaining)); err != nil {
+			return nil, exitcode.Newf(exitcode.Error, "interrupted while waiting for the connection: %v", err)
+		}
 	}
+}
+
+// scrubbedError is err with the link and its nonce removed from the message;
+// errors.As still reaches the original (exit code, server code).
+type scrubbedError struct {
+	error
+	msg string
+}
+
+func (e *scrubbedError) Error() string { return e.msg }
+func (e *scrubbedError) Unwrap() error { return e.error }
+
+// scrub makes sure nothing raised after the link was received can carry it.
+func scrub(err error, redact func(string) string) error {
+	if msg := err.Error(); redact(msg) != msg {
+		return &scrubbedError{error: err, msg: redact(msg)}
+	}
+	return err
 }
 
 func notFoundYet(rowKey, orgID string) error {
