@@ -12632,9 +12632,9 @@ type Query {
   quotaCounters(appRef: String, orgRef: String!): [QuotaCounter!]!
 
   """
-  Inspect live edges and accessible deleted endpoints in one memory you can read and write. Default 20, maximum 200. hrn:node:hadronmemory.com:specs:cor:api:110:02
+  Inspect live edges and accessible deleted endpoints in one memory you can read and write. Default 20, maximum 200. edgeIds (1 to 200 ids) restricts the result, total included, to those edges; an id that is not a visible edge of this memory is absent. hrn:node:hadronmemory.com:specs:cor:api:110:02
   """
-  recoveryEdges(limit: Int = 20, memoryRef: ID!, offset: Int = 0): RecoveryEdgesPage!
+  recoveryEdges(edgeIds: [ID!], limit: Int = 20, memoryRef: ID!, offset: Int = 0): RecoveryEdgesPage!
 
   """
   Read a retained deleted node in a live memory that you can read and write. Returns the stored body without expanding templates or includes. hrn:node:hadronmemory.com:specs:cor:dmo:010:04
