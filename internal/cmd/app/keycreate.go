@@ -31,7 +31,7 @@ type appKeyCreatedDTO struct {
 	Out        string  `json:"out"`
 }
 
-const revokeRoute = "hadron api 'mutation($id: ID!) { revokeAppKey(id: $id) }' -F id=<key-id>"
+const revokeRoute = "hadron app key revoke <key-id>"
 
 func newCmdKeyCreate(f *cmdutil.Factory) *cobra.Command {
 	var out, label string
@@ -180,7 +180,7 @@ func failureClass(code int) string {
 	case exitcode.AuthRequired:
 		return "not signed in or credentials rejected"
 	case exitcode.Forbidden:
-		return "not permitted to create keys for this app"
+		return "not permitted to manage keys for this app"
 	case exitcode.NotFound:
 		return "app not found or not visible"
 	case exitcode.Conflict:
