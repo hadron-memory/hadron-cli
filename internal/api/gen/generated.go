@@ -69504,9 +69504,10 @@ func (v *__RecordTeamWorkLegacyInput) GetDetail() *json.RawMessage { return v.De
 
 // __RecoveryEdgesInput is used internally by genqlient
 type __RecoveryEdgesInput struct {
-	MemoryRef string `json:"memoryRef"`
-	Limit     int    `json:"limit"`
-	Offset    *int   `json:"offset,omitempty"`
+	MemoryRef string   `json:"memoryRef"`
+	Limit     int      `json:"limit"`
+	Offset    *int     `json:"offset,omitempty"`
+	EdgeIds   []string `json:"edgeIds,omitempty"`
 }
 
 // GetMemoryRef returns __RecoveryEdgesInput.MemoryRef, and is useful for accessing the field via an interface.
@@ -69517,6 +69518,9 @@ func (v *__RecoveryEdgesInput) GetLimit() int { return v.Limit }
 
 // GetOffset returns __RecoveryEdgesInput.Offset, and is useful for accessing the field via an interface.
 func (v *__RecoveryEdgesInput) GetOffset() *int { return v.Offset }
+
+// GetEdgeIds returns __RecoveryEdgesInput.EdgeIds, and is useful for accessing the field via an interface.
+func (v *__RecoveryEdgesInput) GetEdgeIds() []string { return v.EdgeIds }
 
 // __RecoveryNodeContentInput is used internally by genqlient
 type __RecoveryNodeContentInput struct {
@@ -86664,8 +86668,8 @@ func RecordTeamWorkLegacy(
 
 // The query executed by RecoveryEdges.
 const RecoveryEdges_Operation = `
-query RecoveryEdges ($memoryRef: ID!, $limit: Int!, $offset: Int) {
-	recoveryEdges(memoryRef: $memoryRef, limit: $limit, offset: $offset) {
+query RecoveryEdges ($memoryRef: ID!, $limit: Int!, $offset: Int, $edgeIds: [ID!]) {
+	recoveryEdges(memoryRef: $memoryRef, limit: $limit, offset: $offset, edgeIds: $edgeIds) {
 		total
 		items {
 			id
@@ -86695,6 +86699,7 @@ func RecoveryEdges(
 	memoryRef string,
 	limit int,
 	offset *int,
+	edgeIds []string,
 ) (data_ *RecoveryEdgesResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "RecoveryEdges",
@@ -86703,6 +86708,7 @@ func RecoveryEdges(
 			MemoryRef: memoryRef,
 			Limit:     limit,
 			Offset:    offset,
+			EdgeIds:   edgeIds,
 		},
 	}
 

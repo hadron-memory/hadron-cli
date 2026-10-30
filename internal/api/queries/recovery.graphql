@@ -53,8 +53,10 @@ query RecoveryEdges(
   $limit: Int!
   # @genqlient(omitempty: true)
   $offset: Int
+  # @genqlient(omitempty: true)
+  $edgeIds: [ID!]
 ) {
-  recoveryEdges(memoryRef: $memoryRef, limit: $limit, offset: $offset) {
+  recoveryEdges(memoryRef: $memoryRef, limit: $limit, offset: $offset, edgeIds: $edgeIds) {
     total
     items {
       id
