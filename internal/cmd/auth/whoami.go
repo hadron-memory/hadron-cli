@@ -41,7 +41,17 @@ func newCmdWhoami(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "whoami",
 		Short: "Show the signed-in user",
-		Args:  cobra.NoArgs,
+		Long: `Show who the current credential belongs to, as the server sees it: name,
+email, handle and platform roles (--json adds the user id, principal type and,
+during impersonation, the session).
+
+It asks the server, so it fails with exit 3 when you are not signed in or the
+credential is rejected; run hadron auth login. To see WHERE the credential
+comes from (HADRON_TOKEN, the keychain, an impersonation session) and which
+key it is, use hadron auth status instead.`,
+		Example: `  hadron auth whoami
+  hadron auth whoami --json`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
 			if err != nil {

@@ -54,7 +54,12 @@ func newCmdToken(f *cmdutil.Factory) *cobra.Command {
 A token is minted for the signed-in user, so you sign in once interactively
 (hadron auth login) and then mint long-lived tokens to use via the
 HADRON_TOKEN env var or "hadron auth login --with-token". Token operations
-require a user login — an app or agent key cannot manage user tokens.`,
+require a user login — an app or agent key cannot manage user tokens.
+
+A token acts as you, with your access, until you revoke it; it has no expiry of
+its own. Only "create" ever shows the token itself; "list" shows metadata
+(id, label, a short preview, created and last-used times, status), and the id
+is what "revoke" takes.`,
 	}
 	cmd.AddCommand(newCmdTokenCreate(f))
 	cmd.AddCommand(newCmdTokenLs(f))
@@ -92,9 +97,13 @@ func newCmdTokenValidate(f *cmdutil.Factory) *cobra.Command {
 
 The token is read from standard input, so it never lands in your shell history
 or the process table. A valid token prints the user it belongs to and exits 0;
-a rejected or revoked token exits 3.`,
-		Example: `  echo $TOKEN | hadron auth token validate
-  hadron auth token validate --json < token.txt`,
+a rejected or revoked token exits 3. A network or server failure is an error
+(not "invalid"), so a script can tell the two apart.
+
+--json gives valid, then for a valid token principalType, userId, name, email,
+handle, roles and key (its id, label, preview and times; never the token).`,
+		Example: `  hadron auth token validate < ci-token
+  printf '%s' "$HADRON_TOKEN" | hadron auth token validate --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			token, err := readToken(f.IOStreams.In, "token validate")
@@ -214,12 +223,18 @@ func newCmdTokenCreate(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Mint a new personal API token (shown once)",
-		Long: `Mint a new personal access token for the signed-in user.
+		Long: `Mint a new personal access token for the signed-in user (requires a user
+login; see hadron auth token). It acts as you, with your access, until revoked.
 
 The raw token is printed ONCE and is never recoverable — store it now (e.g. in
-a CI secret). Only the token's hash is kept server-side.`,
+a CI secret). Only the token's hash is kept server-side. The printout also
+shows the token's id, which hadron auth token revoke takes. Give each use its
+own --label, so the list tells you what to revoke.
+
+Avoid leaving the token in terminal scrollback or logs: --json with jq, as
+below, writes it straight to a file.`,
 		Example: `  hadron auth token create --label ci-deploy
-  TOKEN=$(hadron auth token create --label ci --json | jq -r .rawKey)`,
+  hadron auth token create --label ci --json | jq -r .rawKey > ci-token && chmod 600 ci-token`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
@@ -258,7 +273,17 @@ func newCmdTokenLs(f *cmdutil.Factory) *cobra.Command {
 		Use:     "list",
 		Aliases: []string{"ls"},
 		Short:   "List your personal API tokens",
-		Args:    cobra.NoArgs,
+		Long: `List the personal tokens you have minted, including revoked ones. Shows
+metadata only, never the token itself: ID (what revoke takes), LABEL, PREVIEW
+(the last characters, to recognise a token), CREATED, LAST USED and STATUS
+(active or revoked).
+
+Requires a user login. You see only your own tokens. --json gives the same
+fields as id, label, keyPreview, issuedVia, createdAt, lastUsedAt, revokedAt
+and revoked; an empty list is [].`,
+		Example: `  hadron auth token list
+  hadron auth token list --json | jq -r '.[] | select(.revoked | not) | .id'`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -293,10 +318,21 @@ func newCmdTokenLs(f *cmdutil.Factory) *cobra.Command {
 func newCmdTokenRevoke(f *cmdutil.Factory) *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{
-		Use:     "revoke <id>",
-		Short:   "Revoke a personal API token",
-		Example: `  hadron auth token revoke uak_123 --yes`,
-		Args:    cobra.ExactArgs(1),
+		Use:   "revoke <id>",
+		Short: "Revoke a personal API token",
+		Long: `Revoke one of your personal tokens, so anything using it stops working
+at once. Revoking cannot be undone; mint a new token if you need one.
+
+<id> is the token's ID from hadron auth token list (not its label and not the
+token itself). You can revoke only your own tokens; an unknown id is refused.
+
+On a terminal it asks for confirmation; in a script or agent pass --yes, or it
+refuses with exit 2. Prints "✓ Revoked API token <id>". The token stays in the
+list with STATUS revoked.`,
+		Example: `  hadron auth token list
+  hadron auth token revoke 01a18cf6400b7fcc8d2f51e7401c55c1
+  hadron auth token revoke 01a18cf6400b7fcc8d2f51e7401c55c1 --yes   # non-interactive`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
 			if err != nil {

@@ -37,10 +37,28 @@ func newCmdImpersonate(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "impersonate <user>",
 		Short: "View Hadron read-only as another member of your org (admin support)",
-		Long: "Start a read-only impersonation session as another member of an\n" +
-			"organization you administer (ADMIN/OWNER), for support and diagnostics.\n" +
-			"The session is scoped to that one org, cannot mutate anything, and\n" +
-			"expires automatically. Run with --stop to end it early.",
+		Long: `Start a read-only impersonation session as another member of an
+organization you administer (ADMIN/OWNER), for support and diagnostics: you
+see Hadron as they do, within that one org.
+
+  Start:  hadron auth impersonate <user> --org <org> [--reason <text>]
+  Stop:   hadron auth impersonate --stop        (no user, no --org)
+
+<user> is a user id, handle, @handle or email; it must match exactly one user.
+--org (required to start) is the org's id or URN, and the user must be a member.
+It asks for confirmation on a terminal; pass --yes in a script. --reason is
+recorded with the session for audit.
+
+While it runs, every command on this server uses the impersonation session
+instead of your own login: reads show the target's view, and any write is
+refused. The session ends after an hour by default (the server can set 1 minute
+to 24 hours; the start message prints the expiry) or when you run --stop,
+and your own login is then used again; it is never changed. hadron auth status
+shows "IMPERSONATING" while one is active. Unset HADRON_TOKEN first: it would
+override the session, so starting one while it is set is refused.`,
+		Example: `  hadron auth impersonate alice@acme.com --org hrn:org:acme.com --reason "ticket 4521"
+  hadron auth status
+  hadron auth impersonate --stop`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if stop {
 				return cobra.NoArgs(cmd, args)
