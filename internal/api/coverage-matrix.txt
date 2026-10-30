@@ -208,7 +208,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 313: 202 command, 100 gap, 11 excluded
+[Mutation] 314: 203 command, 100 gap, 11 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -464,6 +464,7 @@ softDeleteAsset  command asset rm
 startAgentSession  gap #58
 startAgentTask  command team task start
 startChat  gap #64
+startConnection  command connection connect
 startImpersonation  command auth impersonate
 startSession  command team session start
 stopImpersonation  command auth impersonate

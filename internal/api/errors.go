@@ -1171,6 +1171,8 @@ func codeForExtension(code string) int {
 	// so the same literal case. HADRON_SERVER_NOT_CONFIGURED is deliberately
 	// NOT mapped: it means the deployment has no hadron_server row — an
 	// operator's fix, not the caller's — so the generic 1 is the honest code.
+	// CONNECTION_PROVIDER_NOT_CONFIGURED (startConnection, cli#1352) is the same
+	// class: the server has no OAuth client for that provider, so it too stays 1.
 	case code == "MEMORY_CONFIG_TEMPLATE_EXISTS":
 		return exitcode.Conflict
 	// Draft spec corpora (hadron-server#1447; cli#777). These are the
