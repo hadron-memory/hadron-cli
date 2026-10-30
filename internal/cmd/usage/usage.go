@@ -152,10 +152,15 @@ func tokenLabel(v *int) string {
 
 // NewCmdMemoryUsage is registered under memory; the server owns the aggregation.
 func NewCmdMemoryUsage(f *cmdutil.Factory) *cobra.Command {
-	return &cobra.Command{Use: "usage <memoryRef>", Short: "Read server-reported usage counts by node loc and type", Long: `Read the provider's per-loc, per-type usage counts for one readable memory.
-This is not a client sum over event pages, and not a cost or billing balance.
-Historical events without an attributable memory/loc may be absent. The server
-owns access and refusals. JSON is an array of {nodeLoc,type,count}; empty is [].`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+	return &cobra.Command{Use: "usage <memoryRef>", Short: "Count how often each node in a memory was read and written", Long: `Count how often each node in a memory was read and written: one row per node
+loc and kind (read or write), with the number of times, as the server
+recorded them. Counts stay after a node is deleted. Use it to see which notes
+are used and which are not. It is not a cost or billing figure; AI calls and
+their cost are in hadron usage events.
+
+You need read access to the memory. Old activity that was recorded without a
+node may be missing. --json prints an array of {nodeLoc,type,count}, [] when
+there is none.`, Example: `  hadron memory usage hrn:mem:acme.com:kb`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		if strings.TrimSpace(args[0]) == "" {
 			return exitcode.Newf(exitcode.Usage, "memory reference must not be empty")
 		}

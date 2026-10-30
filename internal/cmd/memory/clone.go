@@ -25,16 +25,18 @@ func newCmdClone(f *cmdutil.Factory) *cobra.Command {
 hrn:mem:<root>:<slug> (the short <root>:<slug> and legacy
 <root>::<slug> spellings are accepted too). Its root segment may
 differ from the source's, cloning the memory into another
-organization (you must be a non-reader member of that target org).
+organization (you need more than reader access there).
 The clone's display name is derived from the slug.
 
 Copies the memory plus all live nodes, edges, and pending edges;
 references to the source memory's URN inside node content and
 abstracts are rewritten to the clone's URN. Version history,
-subscriptions, shares, assets, and git-sync config are not copied —
-the clone starts DB-only.
+subscriptions, shares, assets, and git sync settings are not copied, so the
+clone is not linked to a git repository.
 
-Encrypted memories and agent system / app memories cannot be cloned.`,
+Encrypted memories and agent system / app memories cannot be cloned.
+
+` + copyHelp,
 		Example: `  hadron memory clone acme.com:project-kb --target-urn hrn:mem:acme.com:project-kb-fork
   hadron memory clone acme.com:project-kb --target-urn hrn:mem:other-org:project-kb`,
 		Args: cobra.ExactArgs(1),

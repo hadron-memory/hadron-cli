@@ -11,6 +11,23 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
+// accessHelp is the shared "which command gives access" guide on the member,
+// share and subscription group pages: the server accepts each grant on one
+// memory class only, so the class decides the command.
+const accessHelp = `Which command gives access depends on the memory's class (memory get shows
+it). The server refuses any other combination.
+
+  memory class      command                     who gets access
+  group             memory member add           one person: reader, writer or owner
+  personal          memory share create         one person: reader or writer
+  public knowledge  memory subscription create  a whole other organization
+  private           none                        only the owner, ever
+
+A reader can read every node. A writer can also create, change and delete
+nodes. A group owner can also add, change and remove members. Access starts
+at once and ends when the grant is removed. Members of an organization
+already read its knowledge memories, so they need no grant.`
+
 // accessUserDTO is the user shape carried by member/share output.
 type accessUserDTO struct {
 	ID     string  `json:"id"`

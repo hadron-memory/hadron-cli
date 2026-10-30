@@ -59,8 +59,9 @@ repo, but on your disk and without a configured remote.
 Each node becomes <out>/<loc>.md (colons in the loc become path segments):
 YAML frontmatter (name, id, type, description, abstract, tags, edges, …)
 followed by the node content as the markdown body. The layout matches the
-server's git export, so the tree round-trips back through the importer — an
-export is a faithful, reviewable mirror of the memory.
+server's git export, so an export is a faithful, reviewable mirror of the
+memory. hadron node import <file> brings one exported file back as a node (a
+folder import, node import -r, would keep the header as text).
 
 Nodes are pulled in bulk (up to 200 per request). data-type nodes are
 skipped (they carry no markdown body), matching the server's git export.
@@ -70,7 +71,9 @@ left in place — export never deletes.
 With no --out this writes to the current directory, EXCEPT when that directory
 is inside a git repository and is not empty: exporting a whole memory there
 scatters hundreds of files among your own, and the overwrite is silent. Pass
---out <dir>, or --out . to say you meant the current directory.`,
+--out <dir>, or --out . to say you meant the current directory.
+
+` + copyHelp,
 		Example: `  hadron memory export acme.com:project-kb --out ./kb
   hadron memory export acme.com:project-kb -o ./kb --json
   hadron memory export acme.com:project-kb --out .      # explicit: the current directory`,

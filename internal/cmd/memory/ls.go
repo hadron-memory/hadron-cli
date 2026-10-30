@@ -26,32 +26,20 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 		Short:   "List memories you can access",
 		Long: `List memories you can access.
 
-By default that is your own union: org-owned, org-subscribed, and your own
-personal/private memories.
+By default: the memories of your organizations, the ones your organizations
+subscribe to, and your own personal and private memories.
 
---owned-by-me NARROWS that union to the memories you own outright: the
-org-less ones (no organizationId) whose owner is you. It is the "my
-memories" slice, and it is answered by the server — the ownership columns
-are not something a client can reconstruct, which is why this is a flag and
-not a filter you apply to the default listing yourself.
+--owned-by-me narrows that to the memories that belong to you and to no
+organization, such as the ones made with memory set --owner-me. A
+knowledge-class memory under your own handle is included; a memory of an
+organization never is, even a personal one. Your active organization (org use)
+does not change it. Only a person gets an answer: with an App key, or while
+acting as another user, the list is empty.
 
-Ownership is per class, matching the read gates: a personal/private memory
-is yours when you are its strict owner, every other class when you are its
-user-tenant owner. So a knowledge-class memory under your own handle IS in
-this slice — filtering the default listing by class would miss exactly
-those rows. An org-owned memory is never in it, however personal, because
-it has an organization.
-
-Your active organization is not consulted: the slice is org-less by
-definition, so ` + "`org use`" + ` does not change it. An App-key caller or an
-impersonated session gets an empty list — this is a question about a user.
-(To CREATE a memory in this slice, see ` + "`memory set --owner-me`" + `.)
-
---shared-with-me SWITCHES the listing to the memories other users have
-shared with you (via ` + "`memory share`" + `). That is a separate slice rather
-than a subset, so the two listings never overlap — your own memories are
-absent from it, and shared ones are absent from the default listing. It
-also reports the role you were granted and who shared it.`,
+--shared-with-me lists instead the memories other users have
+shared with you (with memory share), with the role you were given and who
+shared it. It does not overlap the default listing: your own memories are not
+in it, and shared ones are not in the default listing.`,
 		Example: `  hadron memory ls
   hadron memory ls --owned-by-me
   hadron memory ls --owned-by-me --json

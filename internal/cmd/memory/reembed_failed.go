@@ -29,14 +29,16 @@ func newCmdReembedFailed(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "reembed-failed <memoryRef>",
 		Short: "Ask the server to retry every node whose embedding failed",
-		Long: `Re-drive a memory's failed embeddings: the server re-stamps each live node whose
-embedding failed (a failure awaiting its backoff, or a permanent-class one) so
-the embedding worker attempts it again, and returns how many it re-stamped.
+		Long: `Retry every node in a memory whose embedding failed. An embedding is the
+vector the server computes from a node's text so that search can find it by
+meaning (search --mode vector or hybrid); a node whose embedding failed is
+missing from those results. The server marks each such node (one waiting to
+retry, or one that failed for good) to be tried again, and returns how many it
+marked.
 
-The number is RE-STAMPED, not "now indexed". A node that fails deterministically
-(for example one that always exceeds the provider's invocation timeout,
-hadron-server#887) fails again, and 0 is a legitimate answer — it also means the
-memory is not vector-indexed. Confirm the outcome afterwards with
+The number is marked, not "now indexed". A node that fails every time (for
+example one too long for the embedding provider's time limit) fails again. 0 is
+a normal answer; it also means the memory has no vector index. Confirm the outcome afterwards with
 ` + "`hadron memory validate <memoryRef> --check embed-failed`" + `.
 
 This is a mutation, kept apart from the read-only ` + "`memory validate`" + ` so an audit
