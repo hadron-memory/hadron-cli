@@ -72,8 +72,8 @@ the memory is created (memory transfer can change it later):
   app        a memory that belongs to an App (see Apps below).
 --owner-me instead of --org creates a personal (the default) or private memory
 that belongs to you rather than an organization; its URN is
-hrn:mem:<your handle>:<slug>. Its slug always comes from --name: the server
-cannot rename such a memory yet, so --slug fails after the memory is created.
+hrn:mem:<your handle>:<slug>. Its slug always comes from --name and cannot be
+changed, so --slug is refused (exit 2) before anything is created.
 
 Settings:
   --max-rev-count <n>  how many earlier versions each node keeps (default 10);
@@ -298,6 +298,13 @@ Apps:
 					}
 					if name == "" {
 						return exitcode.Newf(exitcode.Usage, "creating a user-owned memory requires --name")
+					}
+					// cli#1240: the server refuses to rename a user-owned memory, so a
+					// --slug would create it under the derived name and then fail the
+					// follow-up rename, leaving a stray memory. Refused for any value,
+					// including the derived one, so no kebab-casing is guessed here.
+					if cmd.Flags().Changed("slug") {
+						return exitcode.Newf(exitcode.Usage, "--slug cannot be used with --owner-me; a user-owned memory's URN slug is derived from --name and cannot be set")
 					}
 					// The org-less path is owner-only: the server accepts only
 					// personal/private (knowledge/group are org-shared). Validate
