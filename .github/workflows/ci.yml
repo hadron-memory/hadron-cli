@@ -23,6 +23,10 @@ jobs:
           go-version-file: go.mod
       - name: Build
         run: go build ./...
+      # #1324: goreleaser builds darwin and windows too; build them here so a
+      # platform-only identifier fails the PR, not the release tag.
+      - name: Cross-build release targets
+        run: make cross-build
       - name: Test
         run: go test ./...
       - name: Codegen freshness

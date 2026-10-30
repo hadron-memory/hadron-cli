@@ -30,10 +30,21 @@ SDL_SOURCES   ?= src/api/graphql/schema/typeDefs.ts scripts/export-graphql-sdl.m
 # review, Codex P2 + Copilot; the same gap for split MCP modules, #901).
 TOOLS_SOURCES ?= src/mcp src/lib/runner/tools
 
-.PHONY: build test lint fmt generate schema schema-check tools-manifest tools-manifest-check help-inventory help-inventory-check clean
+.PHONY: build cross-build test lint fmt generate schema schema-check tools-manifest tools-manifest-check help-inventory help-inventory-check clean
 
 build:
 	go build -ldflags "$(LDFLAGS)" -o $(BIN) ./cmd/hadron
+
+# Every target .goreleaser.yaml builds (keep the two in step). CI builds only
+# linux, so a unix-only identifier passed every check and first failed at the
+# v0.32.0 tag (#1324).
+CROSS_TARGETS := darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64
+
+cross-build:
+	@for t in $(CROSS_TARGETS); do \
+	  echo "go build $$t"; \
+	  GOOS=$${t%/*} GOARCH=$${t#*/} go build ./... || exit 1; \
+	done
 
 test:
 	go test ./...
