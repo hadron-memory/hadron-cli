@@ -8452,6 +8452,18 @@ type Mutation {
   recordAgentTaskProgress(taskId: ID!): AgentTask!
 
   """
+  #2896 — report a session's outcome: outcome is a number from 0 to 1, outcomeRef an opaque reference of the
+  reporter's (a ticket, a survey id) and outcomeMeta any JSON it wants kept. The same implementation as
+  POST /sessions/:id/outcome, which stays for edge devices and webhooks. An outcome is a WRITE to the session, so
+  it takes the session write gate: the attributed user, or a pure App key for its own App's user-less session
+  (hrn:node:hadronmemory.com:specs:cor:dmo:070:05); the strict owner of a personal or private memory's session wins
+  over a platform admin (hrn:node:hadronmemory.com:specs:cor:acl:010:02). Reporting is not driving: a lapsed session
+  stays lapsed. A number outside 0..1 is BAD_USER_INPUT; an unknown or deleted session is BAD_USER_INPUT; a refused
+  write is FORBIDDEN, and an OAuth credential limited to the MCP surface is FORBIDDEN with its reason.
+  """
+  recordSessionOutcome(outcome: Float!, outcomeMeta: JSON, outcomeRef: String, sessionId: ID!): Session!
+
+  """
   Record an externally visible work milestone into the team App's worklog
   (#947) — the append-only, authoritative PR-session join (spec
   cor:agt:020:03). The session must be writable by the caller and a session
@@ -13498,10 +13510,16 @@ type Query {
   lost to a context compaction, instead of opening a second session or
   forcing a takeover of itself.
   
-  Authorization: an AppMember of the worker's App (any role), an org member
-  with CONTRIBUTOR+ on its org, the owner of a user-owned App, or the App's
-  own key. For the NAME form the gate runs BEFORE the lookup and a denial is
-  reported as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+  Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+  any signed-in user reads the worker's PROFILE (identity scalars, appName,
+  ownerName, appUrn), and `agent` when the Agent's own visibility admits
+  them; the working-state fields stay masked unless the caller participates
+  in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+  user-owned App, or the App's own key). An anonymous caller, another App's
+  key or run, a support session outside the App's org and a deleted App are
+  refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+  participant-only: its gate runs BEFORE the lookup and a denial is reported
+  as WORKER_NOT_FOUND, so the roster is not an existence oracle.
   """
   worker(appRef: ID, ref: ID!): Worker
 
@@ -17286,18 +17304,34 @@ cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
 by its id or by the computed `urn` below (#991).
 """
 type Worker {
-  """The role-agent behind the casting."""
+  """
+  The role-agent behind the casting. DETAILS tier (#1149,
+  hrn:node:hadronmemory.com:specs:cor:dmo:050:11): resolved for whoever the Agent's own
+  visibility admits (PUBLIC, else READER on the Agent), evaluated per read;
+  null otherwise and for a deleted Agent.
+  """
   agent: Agent
   agentId: ID!
 
-  """The App whose staff this casting fills."""
+  """
+  The App whose staff this casting fills. Never part of a worker's profile (#1149): null unless the caller may read the App itself.
+  """
   app: App
   appId: ID!
 
   """
+  #1149 — the App's display name ('Team'), so a worker's profile page can say
+  whose staff it is without the App object. PROFILE field
+  (hrn:node:hadronmemory.com:specs:cor:dmo:050:11): readable by any signed-in user who
+  names the worker; null for a caller who may not see its profile.
+  """
+  appName: String
+
+  """
   The App's canonical URN (the same value App.urn returns, e.g.
   hrn:app:acme.com:team), as a scalar identity suitable for cross-App
-  worker lists. Null when the caller cannot inspect this App's workers. This
+  worker lists. PROFILE field (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11):
+  null only for a caller who may not see this worker's profile. This
   intentionally does not return the App object, whose nested keys and
   members have a narrower read audience.
   """
@@ -17334,6 +17368,10 @@ type Worker {
   """
   continuity: WorkerContinuity
   createdAt: DateTime!
+
+  """
+  Who cast this worker. WORKING-STATE field (#1149): null for a caller who may see only the worker's profile.
+  """
   createdBy: String
 
   """
@@ -17436,6 +17474,14 @@ type Worker {
   name: String!
 
   """
+  #1149 — the owner atom of the worker's URN: the user handle of a user-owned
+  App or the organization slug of an org App, and nothing more (no display
+  name, no email). PROFILE field, gated like appName; also null when the App's
+  URN predates the grammar-v2 shape (as urn).
+  """
+  ownerName: String
+
+  """
   #1026 — the portal link that opens this worker, mirroring Node.portalUrl
   (#881), so a worker signing an artifact under #1008 hands over a URL
   instead of assembling one out of a URN spelling the /app/u route may not
@@ -17505,6 +17551,10 @@ type Worker {
   Retirement instant — a retired worker stops authoring and takes no new sessions; the name stays reserved.
   """
   retiredAt: DateTime
+
+  """
+  Who retired this worker. WORKING-STATE field (#1149), masked like createdBy.
+  """
   retiredBy: String
 
   """The cast-list role this filling answers ('backend-engineer')."""

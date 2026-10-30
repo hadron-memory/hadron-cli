@@ -108,6 +108,10 @@ func unstubbedDefault(op string) (string, bool) {
 		// answered as a server that predates draft corpora — describe then
 		// omits the state. Tests of the state stub it.
 		return `{"errors":[{"message":"Cannot query field \"corpusState\" on type \"Memory\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
+	case "GetWorkerProfile":
+		// `team worker get`'s separate PROFILE-names read (#1355). An older
+		// server does not know Worker.appName; the ordinary lookup must work.
+		return `{"errors":[{"message":"Cannot query field \"appName\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
 	case "GetWorkerContinuity":
 		// `session start`'s separate handoff read (#790). An older server
 		// does not know Worker.continuity; ordinary binds must still work.

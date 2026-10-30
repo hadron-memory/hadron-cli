@@ -680,7 +680,7 @@ func TestTeamWorkerGetTolueratesNullURN(t *testing.T) {
 func TestTeamWorkerGetNamesTheApp(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
-		"GetWorker":       `{"data":{"worker":` + irisWorkerJSON + `}}`,
+		"GetWorker":       `{"data":{"worker":` + withLiveness(irisWorkerJSON, "false") + `}}`,
 		"TeamAppIdentity": teamAppIdentityJSON,
 	})
 	f, out := testFactory(t)

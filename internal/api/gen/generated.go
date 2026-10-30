@@ -31284,10 +31284,16 @@ type GetWorkerContinuityResponse struct {
 	// lost to a context compaction, instead of opening a second session or
 	// forcing a takeover of itself.
 	//
-	// Authorization: an AppMember of the worker's App (any role), an org member
-	// with CONTRIBUTOR+ on its org, the owner of a user-owned App, or the App's
-	// own key. For the NAME form the gate runs BEFORE the lookup and a denial is
-	// reported as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
 	Worker *GetWorkerContinuityWorker `json:"worker"`
 }
 
@@ -31412,6 +31418,75 @@ func (v *GetWorkerContinuityWorkerContinuityPreviousSessionWorkerContinuitySessi
 	return v.AutoExpiredAt
 }
 
+// GetWorkerProfileResponse is returned by GetWorkerProfile on success.
+type GetWorkerProfileResponse struct {
+	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
+	// NAME (#1015), the ergonomic handle a human already knows. The name form is
+	// ADDITIVE: it is activated by appRef, since a name is unique only within an
+	// App. Without appRef the ref must be an id or URN, and anything else refuses
+	// WORKER_NOT_FOUND as before. An id or URN wins over appRef rather than being
+	// checked against it, so a typo'd URN never degrades into a roster search.
+	//
+	// Selecting `prompt` re-renders the worker's boot briefing live from the
+	// role agent's template — the read that lets an agent recover a briefing it
+	// lost to a context compaction, instead of opening a second session or
+	// forcing a takeover of itself.
+	//
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	Worker *GetWorkerProfileWorker `json:"worker"`
+}
+
+// GetWorker returns GetWorkerProfileResponse.Worker, and is useful for accessing the field via an interface.
+func (v *GetWorkerProfileResponse) GetWorker() *GetWorkerProfileWorker { return v.Worker }
+
+// GetWorkerProfileWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type GetWorkerProfileWorker struct {
+	// #1149 — the App's display name ('Team'), so a worker's profile page can say
+	// whose staff it is without the App object. PROFILE field
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:11): readable by any signed-in user who
+	// names the worker; null for a caller who may not see its profile.
+	AppName *string `json:"appName"`
+	// #1149 — the owner atom of the worker's URN: the user handle of a user-owned
+	// App or the organization slug of an org App, and nothing more (no display
+	// name, no email). PROFILE field, gated like appName; also null when the App's
+	// URN predates the grammar-v2 shape (as urn).
+	OwnerName *string `json:"ownerName"`
+	// The App's canonical URN (the same value App.urn returns, e.g.
+	// hrn:app:acme.com:team), as a scalar identity suitable for cross-App
+	// worker lists. PROFILE field (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11):
+	// null only for a caller who may not see this worker's profile. This
+	// intentionally does not return the App object, whose nested keys and
+	// members have a narrower read audience.
+	AppUrn *string `json:"appUrn"`
+}
+
+// GetAppName returns GetWorkerProfileWorker.AppName, and is useful for accessing the field via an interface.
+func (v *GetWorkerProfileWorker) GetAppName() *string { return v.AppName }
+
+// GetOwnerName returns GetWorkerProfileWorker.OwnerName, and is useful for accessing the field via an interface.
+func (v *GetWorkerProfileWorker) GetOwnerName() *string { return v.OwnerName }
+
+// GetAppUrn returns GetWorkerProfileWorker.AppUrn, and is useful for accessing the field via an interface.
+func (v *GetWorkerProfileWorker) GetAppUrn() *string { return v.AppUrn }
+
 // GetWorkerResponse is returned by GetWorker on success.
 type GetWorkerResponse struct {
 	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
@@ -31426,10 +31501,16 @@ type GetWorkerResponse struct {
 	// lost to a context compaction, instead of opening a second session or
 	// forcing a takeover of itself.
 	//
-	// Authorization: an AppMember of the worker's App (any role), an org member
-	// with CONTRIBUTOR+ on its org, the owner of a user-owned App, or the App's
-	// own key. For the NAME form the gate runs BEFORE the lookup and a denial is
-	// reported as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
 	Worker *GetWorkerWorker `json:"worker"`
 }
 
@@ -67865,8 +67946,10 @@ type WorkerFields struct {
 	CheckStatus *WorkerFieldsCheckStatusWorkerCheckStatus `json:"checkStatus"`
 	// Retirement instant — a retired worker stops authoring and takes no new sessions; the name stays reserved.
 	RetiredAt *string `json:"retiredAt"`
+	// Who retired this worker. WORKING-STATE field (#1149), masked like createdBy.
 	RetiredBy *string `json:"retiredBy"`
 	CreatedAt string  `json:"createdAt"`
+	// Who cast this worker. WORKING-STATE field (#1149): null for a caller who may see only the worker's profile.
 	CreatedBy *string `json:"createdBy"`
 }
 
@@ -68174,10 +68257,16 @@ type WorkerReportingResponse struct {
 	// lost to a context compaction, instead of opening a second session or
 	// forcing a takeover of itself.
 	//
-	// Authorization: an AppMember of the worker's App (any role), an org member
-	// with CONTRIBUTOR+ on its org, the owner of a user-owned App, or the App's
-	// own key. For the NAME form the gate runs BEFORE the lookup and a denial is
-	// reported as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
 	Worker *WorkerReportingWorker `json:"worker"`
 }
 
@@ -68453,9 +68542,11 @@ type WorkerRosterFields struct {
 	// #2252 (R189) — the coarse tier of model from the platform's one model-to-tier mapping: high (opus-class),
 	// mid (sonnet-class), low (haiku-class); null when the model is unmapped (no guessed equivalence for another
 	// family). Advisory: a coordinator's reading aid, never an authorization or routing input in this slice.
-	Tier      *string `json:"tier"`
+	Tier *string `json:"tier"`
+	// Who retired this worker. WORKING-STATE field (#1149), masked like createdBy.
 	RetiredBy *string `json:"retiredBy"`
 	CreatedAt string  `json:"createdAt"`
+	// Who cast this worker. WORKING-STATE field (#1149): null for a caller who may see only the worker's profile.
 	CreatedBy *string `json:"createdBy"`
 }
 
@@ -68618,10 +68709,16 @@ type WorkerServedPromptResponse struct {
 	// lost to a context compaction, instead of opening a second session or
 	// forcing a takeover of itself.
 	//
-	// Authorization: an AppMember of the worker's App (any role), an org member
-	// with CONTRIBUTOR+ on its org, the owner of a user-owned App, or the App's
-	// own key. For the NAME form the gate runs BEFORE the lookup and a denial is
-	// reported as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
 	Worker *WorkerServedPromptWorker `json:"worker"`
 }
 
@@ -72669,6 +72766,14 @@ type __GetWorkerInput struct {
 
 // GetRef returns __GetWorkerInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetWorkerInput) GetRef() string { return v.Ref }
+
+// __GetWorkerProfileInput is used internally by genqlient
+type __GetWorkerProfileInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetWorkerProfileInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetWorkerProfileInput) GetRef() string { return v.Ref }
 
 // __GrantAppKeyScopeInput is used internally by genqlient
 type __GrantAppKeyScopeInput struct {
@@ -88048,6 +88153,49 @@ func GetWorkerContinuity(
 	}
 
 	data_ = &GetWorkerContinuityResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetWorkerProfile.
+const GetWorkerProfile_Operation = `
+query GetWorkerProfile ($ref: ID!) {
+	worker(ref: $ref) {
+		appName
+		ownerName
+		appUrn
+	}
+}
+`
+
+// cli#1355 / server#1149 (cor:dmo:050:11): the PROFILE scalars that say whose
+// worker this is — the App's display name, the owner atom of its URN and the
+// App's URN. Deliberately a separate operation from GetWorker, for the same
+// reason as GetWorkerContinuity below: a server that predates #1149 rejects a
+// document selecting Worker.appName / ownerName / appUrn before execution, and
+// the ordinary lookup must still bind there. All three are nullable and null
+// means unavailable (masked, or a URN that predates the grammar), never "none".
+func GetWorkerProfile(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetWorkerProfileResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetWorkerProfile",
+		Query:  GetWorkerProfile_Operation,
+		Variables: &__GetWorkerProfileInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetWorkerProfileResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
