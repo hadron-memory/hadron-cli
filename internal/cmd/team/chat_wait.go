@@ -59,11 +59,31 @@ func chatWaitRunE(f *cmdutil.Factory, inner func(*cobra.Command, []string) error
 		deadline := time.Now().Add(*wait)
 		outStream, errStream := f.IOStreams.Out, f.IOStreams.ErrOut
 		defer func() { f.IOStreams.Out, f.IOStreams.ErrOut = outStream, errStream }()
+		// Every poll runs under the wait deadline, so a read that starts late or
+		// hangs is cancelled at the deadline instead of stretching the wait.
+		parent := cmd.Context()
+		if parent == nil {
+			parent = context.Background()
+		}
+		ctx, cancel := context.WithDeadline(parent, deadline)
+		defer cancel()
+		cmd.SetContext(ctx)
+		defer cmd.SetContext(parent)
+		var lastOut, lastErr []byte
 		for {
 			var out, errOut bytes.Buffer
 			f.IOStreams.Out, f.IOStreams.ErrOut = &out, &errOut
 			*returned = 0
 			err := inner(cmd, args)
+			if err != nil && *returned == 0 && ctx.Err() == context.DeadlineExceeded && parent.Err() == nil {
+				// The deadline cut this poll short: that is a timeout, not a
+				// failure. Show the last completed (empty) poll, if any.
+				f.IOStreams.Out, f.IOStreams.ErrOut = outStream, errStream
+				_, _ = outStream.Write(lastOut)
+				_, _ = errStream.Write(lastErr)
+				return exitcode.Newf(exitcode.WaitTimeout, "no new message after %s of polling every %s; nothing changed", *wait, *interval)
+			}
+			lastOut, lastErr = out.Bytes(), errOut.Bytes()
 			if err != nil || *returned > 0 || !time.Now().Before(deadline) {
 				f.IOStreams.Out, f.IOStreams.ErrOut = outStream, errStream
 				_, _ = outStream.Write(out.Bytes())
@@ -76,7 +96,7 @@ func chatWaitRunE(f *cmdutil.Factory, inner func(*cobra.Command, []string) error
 				}
 				return exitcode.Newf(exitcode.WaitTimeout, "no new message after %s of polling every %s; nothing changed", *wait, *interval)
 			}
-			if serr := chatWaitSleep(cmd.Context(), min(*interval, time.Until(deadline))); serr != nil {
+			if serr := chatWaitSleep(ctx, min(*interval, time.Until(deadline))); serr != nil {
 				return exitcode.Newf(exitcode.Cancelled, "interrupted while waiting")
 			}
 		}

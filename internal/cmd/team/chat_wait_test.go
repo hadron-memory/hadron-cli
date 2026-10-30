@@ -117,3 +117,37 @@ func TestChatReadWithoutWaitIsTheOrdinaryRead(t *testing.T) {
 		t.Fatalf("polls=%d slept=%v err=%v", polls, slept, err)
 	}
 }
+
+// A read that is still in flight at the deadline is cancelled and reported as
+// the timeout — the wait is never stretched by a late poll (cli#1269 review).
+func TestChatWaitDeadlineCancelsInFlightRead(t *testing.T) {
+	prevMin := chatWaitMinInterval
+	t.Cleanup(func() { chatWaitMinInterval = prevMin })
+	chatWaitMinInterval = time.Millisecond
+
+	io, _, _ := output.Test()
+	f := &cmdutil.Factory{IOStreams: io}
+	var wait, interval time.Duration
+	var returned int
+	cmd := &cobra.Command{Use: "read"}
+	cmd.Flags().Int("since", 0, "")
+	cmd.Flags().Int("before", 0, "")
+	cmd.Flags().Bool("all", false, "")
+	cmd.Flags().DurationVar(&wait, "wait", 0, "")
+	cmd.Flags().DurationVar(&interval, "poll-interval", chatWaitDefaultInterval, "")
+	inner := func(c *cobra.Command, _ []string) error {
+		<-c.Context().Done() // a hung network read
+		return c.Context().Err()
+	}
+	cmd.RunE = chatWaitRunE(f, inner, &wait, &interval, &returned)
+	cmd.SetArgs([]string{"--since", "5", "--wait", "50ms", "--poll-interval", "10ms"})
+	cmd.SilenceUsage, cmd.SilenceErrors = true, true
+	start := time.Now()
+	err := cmd.ExecuteContext(context.Background())
+	if got := exitcode.FromError(err); got != exitcode.WaitTimeout {
+		t.Fatalf("exit %d (%v), want %d", got, err, exitcode.WaitTimeout)
+	}
+	if d := time.Since(start); d > 2*time.Second {
+		t.Fatalf("wait overran its deadline: %s", d)
+	}
+}
