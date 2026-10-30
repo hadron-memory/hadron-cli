@@ -34,7 +34,28 @@ func newCmdStatus(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
 		Short: "Show authentication state for the current server",
-		Args:  cobra.NoArgs,
+		Long: `Check the credential the CLI would use for the current server: where it comes
+from, whether the server accepts it, who it belongs to and which key it is.
+
+It reads the credential locally (HADRON_TOKEN first, then a live impersonation
+session, then the stored login) and then asks the server about it, so it
+reports a revoked or expired token rather than just "something is stored".
+
+Results:
+  ✓ <server>: signed in as <user> (token from <source>)   exit 0
+    key <label/preview>, last used <time>
+  ✓ <server>: IMPERSONATING <user> (read-only)            exit 0
+  <server>: not signed in                                 exit 3
+  ✗ <server>: token from <source> was rejected            exit 3
+
+--json gives server, authenticated, tokenSource, tokenStorage, user,
+principalType, key (id, label, keyPreview, createdAt, lastUsedAt, revoked; never
+the token itself) and impersonating. A network or server failure is reported
+as an error, not as "not signed in". hadron auth whoami shows the user's
+profile instead.`,
+		Example: `  hadron auth status
+  hadron --server https://hadron.example.com auth status --json`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			server, err := f.Server()
 			if err != nil {

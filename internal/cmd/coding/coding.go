@@ -201,35 +201,53 @@ func (m codingMemory) nodeRef(loc string) (string, error) {
 // against an endpoint's MemoryId — both come from the same projection, whereas
 // the -m flag's canonical ref is a URN and would never match.
 func fetchRootEdges(ctx context.Context, client graphql.Client, mem codingMemory, rootLoc string, incoming bool) ([]graphEdge, string, error) {
-	ref, err := mem.nodeRef(rootLoc)
+	g, err := fetchRootGraph(ctx, client, mem, rootLoc)
 	if err != nil {
 		return nil, "", err
 	}
+	if incoming {
+		return g.Incoming, g.MemoryID, nil
+	}
+	return g.Outgoing, g.MemoryID, nil
+}
+
+// rootGraph is a lint root with BOTH edge sets projected, plus its body. The
+// leaf route model (cli#1025) reads both directions from the one GetNode.
+type rootGraph struct {
+	Incoming, Outgoing []graphEdge
+	MemoryID           string
+	Content            string
+}
+
+func fetchRootGraph(ctx context.Context, client graphql.Client, mem codingMemory, rootLoc string) (rootGraph, error) {
+	ref, err := mem.nodeRef(rootLoc)
+	if err != nil {
+		return rootGraph{}, err
+	}
 	resp, err := gen.GetNode(ctx, client, ref)
 	if err != nil {
-		return nil, "", api.MapError(err)
+		return rootGraph{}, api.MapError(err)
 	}
 	if resp.Node == nil {
-		return nil, "", exitcode.Newf(exitcode.NotFound,
+		return rootGraph{}, exitcode.Newf(exitcode.NotFound,
 			"no %q node in %s — nothing to lint", rootLoc, mem.raw)
 	}
-	rootMemoryID := resp.Node.MemoryId
-	var out []graphEdge
-	if incoming {
-		for _, e := range resp.Node.IncomingEdges {
-			if e == nil {
-				continue
-			}
-			ge := graphEdge{ID: e.Id, Loc: e.Loc}
-			if e.Name != nil {
-				ge.Label = *e.Name
-			}
-			if e.Source != nil {
-				ge.OtherID, ge.Other, ge.MemoryID = e.Source.Id, e.Source.Loc, e.Source.MemoryId
-			}
-			out = append(out, ge)
+	g := rootGraph{MemoryID: resp.Node.MemoryId}
+	if resp.Node.Content != nil {
+		g.Content = *resp.Node.Content
+	}
+	for _, e := range resp.Node.IncomingEdges {
+		if e == nil {
+			continue
 		}
-		return out, rootMemoryID, nil
+		ge := graphEdge{ID: e.Id, Loc: e.Loc}
+		if e.Name != nil {
+			ge.Label = *e.Name
+		}
+		if e.Source != nil {
+			ge.OtherID, ge.Other, ge.MemoryID = e.Source.Id, e.Source.Loc, e.Source.MemoryId
+		}
+		g.Incoming = append(g.Incoming, ge)
 	}
 	for _, e := range resp.Node.OutgoingEdges {
 		if e == nil {
@@ -242,9 +260,9 @@ func fetchRootEdges(ctx context.Context, client graphql.Client, mem codingMemory
 		if e.Target != nil {
 			ge.OtherID, ge.Other, ge.MemoryID = e.Target.Id, e.Target.Loc, e.Target.MemoryId
 		}
-		out = append(out, ge)
+		g.Outgoing = append(g.Outgoing, ge)
 	}
-	return out, rootMemoryID, nil
+	return g, nil
 }
 
 // fetchNodes bulk-reads locs into the lint model. The second return is the refs

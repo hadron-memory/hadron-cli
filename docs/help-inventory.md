@@ -154,53 +154,53 @@ section between the markers.
 <!-- group:1052 start -->
 | path | aliases | generated | has-examples | child | evaluator | result | finding |
 |---|---|---|---|---|---|---|---|
-| `access` |  |  | n | #1052 |  | unread |  |
-| `access check` |  |  | y | #1052 |  | unread |  |
-| `auth` |  |  | n | #1052 |  | unread |  |
-| `auth impersonate` |  |  | n | #1052 |  | unread |  |
-| `auth login` |  |  | y | #1052 |  | unread |  |
-| `auth logout` |  |  | n | #1052 |  | unread |  |
-| `auth status` |  |  | n | #1052 |  | unread |  |
-| `auth token` |  |  | n | #1052 |  | unread |  |
-| `auth token create` |  |  | y | #1052 |  | unread |  |
-| `auth token list` | ls |  | n | #1052 |  | unread |  |
-| `auth token revoke` |  |  | y | #1052 |  | unread |  |
-| `auth token validate` |  |  | y | #1052 |  | unread |  |
-| `auth whoami` |  |  | n | #1052 |  | unread |  |
-| `grant` | grants |  | n | #1052 |  | unread |  |
-| `grant create` |  |  | y | #1052 |  | unread |  |
-| `grant list` | ls |  | y | #1052 |  | unread |  |
-| `grant revoke` | rm |  | y | #1052 |  | unread |  |
-| `org` | orgs, organization |  | n | #1052 |  | unread |  |
-| `org create` |  |  | y | #1052 |  | unread |  |
-| `org get` |  |  | y | #1052 |  | unread |  |
-| `org invite` | invitation, invitations |  | n | #1052 |  | unread |  |
-| `org invite accept` |  |  | y | #1052 |  | unread |  |
-| `org invite create` |  |  | y | #1052 |  | unread |  |
-| `org invite show` | get |  | n | #1052 |  | unread |  |
-| `org list` | ls |  | n | #1052 |  | unread |  |
-| `org member` | members |  | n | #1052 |  | unread |  |
-| `org member add` |  |  | y | #1052 |  | unread |  |
-| `org member list` | ls |  | n | #1052 |  | unread |  |
-| `org member rm` | remove |  | y | #1052 |  | unread |  |
-| `org member set-role` |  |  | y | #1052 |  | unread |  |
-| `org public` | discover |  | y | #1052 |  | unread |  |
-| `org rm` | delete |  | y | #1052 |  | unread |  |
-| `org set-active` | use |  | y | #1052 |  | unread |  |
-| `org update` |  |  | y | #1052 |  | unread |  |
-| `profile` | me |  | n | #1052 |  | unread |  |
-| `profile set` |  |  | y | #1052 |  | unread |  |
-| `secret` | secrets |  | n | #1052 |  | unread |  |
-| `secret create` |  |  | y | #1052 |  | unread |  |
-| `secret list` | ls |  | y | #1052 |  | unread |  |
-| `secret rm` | delete |  | y | #1052 |  | unread |  |
-| `ticket` | tickets |  | n | #1052 |  | unread |  |
-| `ticket list` | ls |  | y | #1052 |  | unread |  |
-| `ticket mint` |  |  | y | #1052 |  | unread |  |
-| `user` | users |  | n | #1052 |  | unread |  |
-| `user merge` |  |  | y | #1052 |  | unread |  |
-| `user search` | ls, list |  | y | #1052 |  | unread |  |
-| `user set-roles` |  |  | y | #1052 |  | unread |  |
+| `access` |  |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `access check` |  |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `auth` |  |  | n | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `auth impersonate` |  |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `auth login` |  |  | y | #1052 | Cameron | fail | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): wording passes; NOT example-verified. Examples 1-3 (browser OAuth) unrun under the scoped exception (Patrick #51131, accepted by gate owner Xabat #51143); example 4 run. Follow-up #1309 carries the browser leg |
+| `auth logout` |  |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `auth status` |  |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `auth token` |  |  | n | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `auth token create` |  |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `auth token list` | ls |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `auth token revoke` |  |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `auth token validate` |  |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `auth whoami` |  |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `grant` | grants |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `grant create` |  |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `grant list` | ls |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: restate/link accepted --user reference forms |
+| `grant revoke` | rm |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `org` | orgs, organization |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `org create` |  |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `org get` |  |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `org invite` | invitation, invitations |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: opening says link but workflow delivers a slug/code |
+| `org invite accept` |  |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `org invite create` |  |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: negative-value bounds could be stated; ordinary defaults/examples clear |
+| `org invite show` | get |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: explicit sign-in requirement for public slug-holder read would help |
+| `org list` | ls |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `org member` | members |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `org member add` |  |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: ordinary success printout could be shown; backend2871 separate |
+| `org member list` | ls |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `org member rm` | remove |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: ordinary success printout could be shown; effects clear; backend2871 separate |
+| `org member set-role` |  |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: ordinary success printout could be shown; effects clear; backend2871 separate |
+| `org public` | discover |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: activated/output/not-found exit guidance could be clearer |
+| `org rm` | delete |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `org set-active` | use |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: read-back/representative success output would help |
+| `org update` |  |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: empty-field/result guidance could be clearer; rename/authority/effects clear |
+| `profile` | me |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `profile set` |  |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: ordinary taken-handle recovery could be clearer; legacy-handle server2868 separate |
+| `secret` | secrets |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `secret create` |  |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `secret list` | ls |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `secret rm` | delete |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `ticket` | tickets |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `ticket list` | ls |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `ticket mint` |  |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: make expiry timezone requirement explicit; count-cap P3 CLOSED |
+| `user` | users |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
+| `user merge` |  |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: put current CLI consent limitation earlier. Product gap cli1304 explicit; no successful merge attested |
+| `user search` | ls, list |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: numeric explicit-page default/bounds delegated to server |
+| `user set-roles` |  |  | y | #1052 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: ordinary confirmation/noninteractive refusal example would help; replacement/authority clear |
 <!-- group:1052 end -->
 
 ## Group: App and automation commands (#1053)
