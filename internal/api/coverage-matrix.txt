@@ -208,7 +208,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 315: 204 command, 100 gap, 11 excluded
+[Mutation] 315: 207 command, 97 gap, 11 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -275,7 +275,7 @@ createConnectionGrant  command connection grant create
 createDashboardWidgetPreset  excluded graphical: saved display settings for a portal dashboard widget type
 createDecisionLog  gap #1335
 createEdge  command edge create
-createHomeAssistantInstance  gap #231
+createHomeAssistantInstance  command ha create
 createMcpServer  command mcp-server create
 createMemory  command memory set
 createMemoryConfigTemplate  command memory config template create
@@ -316,7 +316,7 @@ deleteCommentThread  gap #1341
 deleteDashboardWidgetPreset  excluded graphical: saved display settings for a portal dashboard widget type
 deleteEdge  command edge rm
 deleteExchangeConnection  gap #198
-deleteHomeAssistantInstance  gap #231
+deleteHomeAssistantInstance  command ha rm
 deleteMcpServer  command mcp-server delete
 deleteMemory  command memory rm
 deleteMemoryConfigTemplate  command memory config template rm
@@ -491,7 +491,7 @@ updateChannel  command channel update
 updateChatTitle  gap #64
 updateDashboardWidgetPreset  excluded graphical: saved display settings for a portal dashboard widget type
 updateEdge  command edge update
-updateHomeAssistantInstance  gap #231
+updateHomeAssistantInstance  command ha update
 updateMcpServer  command mcp-server update
 updateMemory  command memory set
 updateMemoryConfigTemplate  command memory config template update
