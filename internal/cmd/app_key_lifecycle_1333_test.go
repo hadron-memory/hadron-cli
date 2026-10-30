@@ -284,3 +284,68 @@ func TestAppKeyCreateHelpNoLongerPrintsTheRawAPIRevokeRoute(t *testing.T) {
 		t.Errorf("create help still routes revoke through `hadron api`: %q", out.String())
 	}
 }
+
+// Acceptance 4: a refusal keeps its server code in the --json envelope beside
+// the typed exit, on every new command, for both access refusals.
+func TestAppKeyLifecycleRefusalJSONKeepsServerCode(t *testing.T) {
+	dir := t.TempDir()
+	for _, tc := range []struct {
+		code string
+		exit int
+	}{{"FORBIDDEN", 8}, {"UNAUTHENTICATED", 3}} {
+		for name, args := range map[string][]string{
+			"revoke":      {"revoke", "key_9", "--yes", "--json"},
+			"rotate":      {"rotate", app1223, "--out", filepath.Join(dir, tc.code+"-rot"), "--yes", "--json"},
+			"list-scopes": {"list", app1223, "--scopes", "--json"},
+			"list-uses":   {"list", app1223, "--scopes", "--host-uses", "3", "--json"},
+		} {
+			t.Run(tc.code+"/"+name, func(t *testing.T) {
+				srv, _ := keyServer(t, 200, `{"errors":[{"message":"nope","extensions":{"code":"`+tc.code+`"}}],"data":null}`)
+				f, out := testFactory(t)
+				root := NewRootCmd(f)
+				root.SetArgs(append(append([]string{"app", "key"}, args...), "--server", srv.URL))
+				err := root.Execute()
+				if err == nil {
+					t.Fatal("refusal succeeded")
+				}
+				if code := renderError(f, err); code != tc.exit {
+					t.Errorf("exit %d want %d", code, tc.exit)
+				}
+				var env struct {
+					Error struct {
+						Code       int    `json:"code"`
+						ServerCode string `json:"serverCode"`
+					} `json:"error"`
+				}
+				if e := json.Unmarshal([]byte(out.String()), &env); e != nil {
+					t.Fatal(e, out.String())
+				}
+				if env.Error.ServerCode != tc.code || env.Error.Code != tc.exit {
+					t.Errorf("envelope %s", out.String())
+				}
+			})
+		}
+	}
+}
+
+// A rotation whose answer has a key but no app (the SDL makes it non-null)
+// still lands: the old keys are already revoked, so the only new key must be
+// kept, and the command must not crash after committing it.
+func TestAppKeyRotateKeepsTheKeyWhenTheAnswerHasNoApp(t *testing.T) {
+	srv, _ := keyServer(t, 200, `{"data":{"regenerateAppKey":{"rawKey":"`+rotatedRaw1333+`","app":null}}}`)
+	out := filepath.Join(t.TempDir(), "k")
+	r := runKeyArgs(t, srv, "rotate", app1223, "--out", out, "--yes", "--json")
+	if r.err != nil {
+		t.Fatalf("must not fail after the key was minted: %v", r.err)
+	}
+	if got, _ := os.ReadFile(out); strings.TrimSpace(string(got)) != rotatedRaw1333 {
+		t.Errorf("the new key must be on disk: %q", got)
+	}
+	var m map[string]any
+	if err := json.Unmarshal([]byte(r.out), &m); err != nil || m["appUrn"] != app1223 {
+		t.Errorf("shape = %v %q", err, r.out)
+	}
+	if strings.Contains(r.all(), rotatedRaw1333) {
+		t.Errorf("raw key leaked")
+	}
+}

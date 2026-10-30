@@ -428,6 +428,17 @@ func HasErrorCode(err error, code string) bool {
 	return false
 }
 
+// ServerCodeOf returns the first non-empty extensions.code of err's GraphQL
+// errors, or "" when it carries none. Call it on the RAW error.
+func ServerCodeOf(err error) string {
+	for _, e := range graphQLErrors(err) {
+		if code := extensionCode(e); code != "" {
+			return code
+		}
+	}
+	return ""
+}
+
 // graphQLErrors extracts the GraphQL error list from any of the shapes an
 // operation can fail as: a bare list, a single error, or a non-200 HTTPError
 // whose parsed body carries them.

@@ -35,6 +35,29 @@ type appKeyRotatedDTO struct {
 	AllOtherKeysRevoked bool   `json:"allOtherKeysRevoked"`
 }
 
+// codedError carries the server's code to the --json error envelope (the root
+// handler reads it through ServerCode), so a script can tell FORBIDDEN from
+// UNAUTHENTICATED behind the same message. The message is the mapped error's,
+// untouched.
+type codedError struct {
+	error
+	code string
+}
+
+func (c *codedError) Unwrap() error      { return c.error }
+func (c *codedError) ServerCode() string { return c.code }
+
+// withServerCode maps a raw failure and keeps the server's code on it.
+func withServerCode(mapped, raw error) error {
+	if mapped == nil {
+		return nil
+	}
+	if code := api.ServerCodeOf(raw); code != "" {
+		return &codedError{error: mapped, code: code}
+	}
+	return mapped
+}
+
 func newCmdKeyRevoke(f *cmdutil.Factory) *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{
@@ -66,7 +89,7 @@ an App key, an impersonated session and a bound worker's session (exit 8).`,
 			}
 			resp, err := gen.RevokeAppKey(cmd.Context(), client, id)
 			if err != nil {
-				return api.MapError(err)
+				return withServerCode(api.MapError(err), err)
 			}
 			if resp == nil || !resp.RevokeAppKey {
 				return exitcode.Newf(exitcode.Error, "the server did not confirm the revocation of key %s; run `hadron app key list <app-ref>` to see whether it is still active", id)
@@ -173,7 +196,13 @@ an App key, an impersonated session and a bound worker's session (exit 8).`,
 				return exitcode.Newf(exitcode.Error, "%v after the keys were rotated: every old key of %s is revoked and the new key's value is lost; rotate again for a key you hold", err, ref)
 			}
 
-			dto := appKeyRotatedDTO{AppID: rotated.App.Id, AppURN: rotated.App.Urn, Out: abs, AllOtherKeysRevoked: true}
+			// The SDL makes `app` non-null, but the key is already written and the
+			// old keys already revoked, so a missing app must not turn a good
+			// rotation into a crash: report what we were asked about instead.
+			dto := appKeyRotatedDTO{AppURN: ref, Out: abs, AllOtherKeysRevoked: true}
+			if rotated.App != nil {
+				dto.AppID, dto.AppURN = rotated.App.Id, rotated.App.Urn
+			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if _, err := fmt.Fprintf(w, "✓ rotated the keys of %s: EVERY other active key is revoked\n  the new key holds no scopes: grant them again (hadron app key scope grant <key-id> <scope>)\n  written to %s (mode 0600)\n",
 					output.SafeCell(dto.AppURN), output.SafeCell(abs)); err != nil {
@@ -203,5 +232,5 @@ func rotateFailure(err error, ref string) error {
 		return exitcode.Newf(code, "regenerateAppKey was sent and its answer was lost, so EVERY key of %s may already be revoked and a new key may exist whose value nobody has. It was not retried and no file was kept. Run `hadron app key list %s` to see what is active; rotate again if you need a key you hold. Cause: %s",
 			ref, ref, failureClass(code))
 	}
-	return exitcode.Newf(code, "regenerateAppKey refused: %s; no key was rotated", failureClass(code))
+	return withServerCode(exitcode.Newf(code, "regenerateAppKey refused: %s; no key was rotated", failureClass(code)), err)
 }

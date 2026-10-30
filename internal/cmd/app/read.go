@@ -194,7 +194,7 @@ func listKeysDetail(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clien
 	if withUses {
 		resp, err := gen.AppKeysScopesHostUses(cmd.Context(), client, ref, first)
 		if err != nil {
-			return api.MapError(err)
+			return withServerCode(api.MapError(err), err)
 		}
 		for _, k := range resp.AppKeys {
 			if k == nil {
@@ -217,7 +217,7 @@ func listKeysDetail(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clien
 	} else {
 		resp, err := gen.AppKeysScopes(cmd.Context(), client, ref)
 		if err != nil {
-			return api.MapError(err)
+			return withServerCode(api.MapError(err), err)
 		}
 		for _, k := range resp.AppKeys {
 			if k == nil {
