@@ -75,6 +75,9 @@ func TestMapError(t *testing.T) {
 		{"app memory bad input", gqlErr("BAD_USER_INPUT"), exitcode.Usage},
 		{"app memory agent not installed", gqlErr("AGENT_NOT_INSTALLED"), exitcode.Usage},
 		{"app memory user-owned app", gqlErr("USER_OWNED_APP_UNSUPPORTED"), exitcode.Error},
+		// Manual runs in an App with several installed Agents (cli#1268,
+		// hadron-server#2849): the caller fixes it by naming one with --agent.
+		{"run agent required", gqlErr("RUN_AGENT_REQUIRED"), exitcode.Usage},
 		{"delivery range", gqlErr("DELIVERY_SETTINGS_OUT_OF_RANGE"), exitcode.Usage},
 		{"delivery relation", gqlErr("DELIVERY_SETTINGS_CONFLICT"), exitcode.Usage},
 		{"ticker settings range", gqlErr("TICKER_SETTINGS_OUT_OF_RANGE"), exitcode.Usage},
