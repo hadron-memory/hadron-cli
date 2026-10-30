@@ -266,6 +266,11 @@ func MapError(err error) error {
 		if extensionCode(e) == "ROLE_GOVERNED" && e.Extensions["kind"] == "comment" {
 			return exitcode.New(exitcode.Usage, &serverError{msg: strings.Join(ServerMessages(err), "; ") + " — use `hadron comment` for comment writes", err: err})
 		}
+		// cli#1268: the server's sentence names its wire arg (agentRef); every
+		// CLI caller of a manual run spells that --agent.
+		if extensionCode(e) == "RUN_AGENT_REQUIRED" {
+			return exitcode.New(exitcode.Usage, &serverError{msg: strings.Join(ServerMessages(err), "; ") + " — pass --agent <ID or URN>", err: err})
+		}
 	}
 
 	var httpErr *graphql.HTTPError

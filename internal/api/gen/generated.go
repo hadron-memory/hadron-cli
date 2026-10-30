@@ -31337,7 +31337,7 @@ func (v *ImportNodeImportNodeImportNodeResultNode) GetUpdatedAt() string { retur
 // exactly one of 'url' | 'content'.
 type ImportNodeInput struct {
 	// The Agent the task run is served as (PK or URN), installed in the App. Omit to use the App's single installed Agent; an App with several refuses with RUN_AGENT_REQUIRED before anything is written (#2735). Only meaningful with taskRef.
-	AgentRef *string `json:"agentRef"`
+	AgentRef *string `json:"agentRef,omitempty"`
 	// App to run the task under — PK or URN. Falls back to the caller's active App. Only meaningful with taskRef.
 	AppRef *string `json:"appRef,omitempty"`
 	// Inline source content (e.g. the Web Clipper's authenticated-DOM capture). XOR with 'url'.
@@ -57302,7 +57302,7 @@ func (v *TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPrevie
 
 type TriggerAppRunInput struct {
 	// The Agent the run is served as (PK or URN), installed in the App. Omit to use the App's single installed Agent; an App with several refuses with RUN_AGENT_REQUIRED (#2735).
-	AgentRef     *string `json:"agentRef"`
+	AgentRef     *string `json:"agentRef,omitempty"`
 	AiConfigName *string `json:"aiConfigName,omitempty"`
 	// App — ref: PK or fully-qualified URN.
 	AppRef string `json:"appRef"`
@@ -70382,6 +70382,7 @@ type __RunTaskInput struct {
 	Args      *json.RawMessage `json:"args"`
 	AppRef    *string          `json:"appRef,omitempty"`
 	RunAsSelf *bool            `json:"runAsSelf,omitempty"`
+	AgentRef  *string          `json:"agentRef,omitempty"`
 }
 
 // GetNodeRef returns __RunTaskInput.NodeRef, and is useful for accessing the field via an interface.
@@ -70395,6 +70396,9 @@ func (v *__RunTaskInput) GetAppRef() *string { return v.AppRef }
 
 // GetRunAsSelf returns __RunTaskInput.RunAsSelf, and is useful for accessing the field via an interface.
 func (v *__RunTaskInput) GetRunAsSelf() *bool { return v.RunAsSelf }
+
+// GetAgentRef returns __RunTaskInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__RunTaskInput) GetAgentRef() *string { return v.AgentRef }
 
 // __ScopeExplainInput is used internally by genqlient
 type __ScopeExplainInput struct {
@@ -89301,8 +89305,8 @@ func RunServedPrompt(
 
 // The mutation executed by RunTask.
 const RunTask_Operation = `
-mutation RunTask ($nodeRef: String!, $args: JSON, $appRef: ID, $runAsSelf: Boolean) {
-	runTask(nodeRef: $nodeRef, args: $args, appRef: $appRef, runAsSelf: $runAsSelf)
+mutation RunTask ($nodeRef: String!, $args: JSON, $appRef: ID, $runAsSelf: Boolean, $agentRef: ID) {
+	runTask(nodeRef: $nodeRef, args: $args, appRef: $appRef, runAsSelf: $runAsSelf, agentRef: $agentRef)
 }
 `
 
@@ -89312,8 +89316,10 @@ mutation RunTask ($nodeRef: String!, $args: JSON, $appRef: ID, $runAsSelf: Boole
 // Two modes (server #529): WITHOUT appRef, runTask renders and returns the
 // compiled prompt string. WITH appRef (App PK/URN), it mints a MANUAL app run
 // for the task under that App and returns the run id (poll via `run get`).
-// runAsSelf runs on behalf of the caller. Unset appRef/runAsSelf must be omitted,
-// not sent as null (a null appRef would otherwise look like an explicit choice).
+// runAsSelf runs on behalf of the caller. agentRef names the Agent an executed
+// run is served as (hadron-server#2849); omitted, the App's single installed
+// Agent. Unset appRef/runAsSelf/agentRef must be omitted, not sent as null (a
+// null appRef would otherwise look like an explicit choice).
 func RunTask(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -89321,6 +89327,7 @@ func RunTask(
 	args *json.RawMessage,
 	appRef *string,
 	runAsSelf *bool,
+	agentRef *string,
 ) (data_ *RunTaskResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "RunTask",
@@ -89330,6 +89337,7 @@ func RunTask(
 			Args:      args,
 			AppRef:    appRef,
 			RunAsSelf: runAsSelf,
+			AgentRef:  agentRef,
 		},
 	}
 

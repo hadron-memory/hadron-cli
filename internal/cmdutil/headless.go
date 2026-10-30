@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	urnlib "github.com/hadron-memory/urn-lib-go"
+	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
@@ -102,4 +103,21 @@ func ParseJSONArg(s, what string) (*json.RawMessage, error) {
 	}
 	raw := json.RawMessage(s)
 	return &raw, nil
+}
+
+// RunAgentFlag reads a manual-run command's --agent (cli#1268,
+// hadron-server#2849): the Agent the run is served as, an ID or URN the server
+// resolves and checks is installed in the App. Not given, it is nil, so
+// agentRef is omitted and the server picks the App's single installed Agent
+// (an App with several refuses RUN_AGENT_REQUIRED). Given but blank is
+// refused: the server reads "" as omitted, which would drop the choice.
+func RunAgentFlag(cmd *cobra.Command, value string) (*string, error) {
+	if !cmd.Flags().Changed("agent") {
+		return nil, nil
+	}
+	v := strings.TrimSpace(value)
+	if v == "" {
+		return nil, exitcode.Newf(exitcode.Usage, "--agent needs an Agent ID or URN")
+	}
+	return &v, nil
 }

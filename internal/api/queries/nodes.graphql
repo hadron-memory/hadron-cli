@@ -734,6 +734,7 @@ mutation DeleteNode(
 # @genqlient(for: "ImportNodeInput.taskRef", omitempty: true)
 # @genqlient(for: "ImportNodeInput.taskArgs", omitempty: true)
 # @genqlient(for: "ImportNodeInput.appRef", omitempty: true)
+# @genqlient(for: "ImportNodeInput.agentRef", omitempty: true)
 mutation ImportNode(
   $input: ImportNodeInput!
 ) {
