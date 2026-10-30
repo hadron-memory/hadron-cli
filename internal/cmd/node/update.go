@@ -77,7 +77,9 @@ schema, for example) run on the real write.
 
 --expected-revision <n> writes only if the node is still at revision n (see
 node get --json); if someone or something changed it since, the write is
-refused with exit 5 and nothing changes. Re-read and decide. Without it, the
+refused with exit 5 and your changes are not applied. Re-read and decide. The
+server may still record a new revision while refusing, when it reconciles
+drift it found in the stored node, so the revision number can move. Without the flag, the
 last write wins.
 
 The data object: --data / --data-file REPLACE it ("null" clears it).

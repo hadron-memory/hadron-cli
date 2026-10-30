@@ -107,7 +107,8 @@ Some nodes, such as chat messages, carry a seq: a number that counts up as
 they are added (ordinary notes have none, so the column is empty). --sort-seq
 asc|desc sorts by it, and --seq-gt N keeps nodes whose seq is above N (for
 example, messages newer than the last one you read). With either flag the
-whole memory is scanned first, and --limit means "the first N after sorting".
+whole memory is read first and filtered; only --sort-seq sorts (without it the
+server's order is kept), and --limit then means "the first N" of that list.
 
 Records: --object-type keeps one collection (for example competitor). --where
 filters on a record's fields with a JSON condition, in the same form as

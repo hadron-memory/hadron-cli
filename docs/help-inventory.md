@@ -102,42 +102,42 @@ section between the markers.
 | `memory transfer` |  |  | y | #1051 |  | unread |  |
 | `memory usage` |  |  | n | #1051 |  | unread |  |
 | `memory validate` | audit, check |  | y | #1051 |  | unread |  |
-| `node` | nodes |  | y | #1051 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770) |
-| `node approve` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770): no P1/P2, P3s only; result set at reassessment |
-| `node clone` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770): no P1/P2, P3s only; result set at reassessment |
-| `node create` | add |  | y | #1051 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770) |
-| `node delete` | rm |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770): no P1/P2, P3s only; result set at reassessment |
-| `node edge-removals` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770): no P1/P2, P3s only; result set at reassessment |
-| `node export` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770): no P1/P2, P3s only; result set at reassessment |
-| `node get` |  |  | y | #1051 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770) |
-| `node import` |  |  | y | #1051 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770) |
-| `node list` | ls |  | y | #1051 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770) |
-| `node merge` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770): no P1/P2, P3s only; result set at reassessment |
-| `node mint` |  |  | y | #1051 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770) |
-| `node move` | mv |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770): no P1/P2, P3s only; result set at reassessment |
-| `node next` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770): no P1/P2, P3s only; result set at reassessment |
-| `node open` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770): no P1/P2, P3s only; result set at reassessment |
-| `node provenance` |  |  | y | #1051 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770) |
-| `node recovery` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770): no P1/P2, P3s only; result set at reassessment |
-| `node recovery get` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770): no P1/P2, P3s only; result set at reassessment |
-| `node recovery graph` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770): no P1/P2, P3s only; result set at reassessment |
-| `node recovery list` | ls |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770): no P1/P2, P3s only; result set at reassessment |
-| `node restore` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770): no P1/P2, P3s only; result set at reassessment |
-| `node revision` | revisions, rev |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770): no P1/P2, P3s only; result set at reassessment |
-| `node revision clear` |  |  | y | #1051 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770) |
-| `node revision delete` | rm |  | y | #1051 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770) |
-| `node revision get` | show |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770): no P1/P2, P3s only; result set at reassessment |
-| `node revision label` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770): no P1/P2, P3s only; result set at reassessment |
-| `node revision list` | ls |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770): no P1/P2, P3s only; result set at reassessment |
-| `node revision restore` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770): no P1/P2, P3s only; result set at reassessment |
-| `node sign` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770): no P1/P2, P3s only; result set at reassessment |
-| `node signatures` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770): no P1/P2, P3s only; result set at reassessment |
-| `node signing-request` | signing-requests |  | n | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770): no P1/P2, P3s only; result set at reassessment |
-| `node signing-request get` |  |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770): no P1/P2, P3s only; result set at reassessment |
-| `node signing-request list` | ls |  | y | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770): no P1/P2, P3s only; result set at reassessment |
-| `node signing-request withdraw` |  |  | n | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770): no P1/P2, P3s only; result set at reassessment |
-| `node update` |  |  | y | #1051 | Taylor | fail | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770) |
-| `node verify` |  |  | n | #1051 | Taylor | unread | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770): no P1/P2, P3s only; result set at reassessment |
+| `node` | nodes |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node approve` |  |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node clone` |  |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node create` | add |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node delete` | rm |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node edge-removals` |  |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node export` |  |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node get` |  |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node import` |  |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node list` | ls |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node merge` |  |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node mint` |  |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node move` | mv |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node next` |  |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node open` |  |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node provenance` |  |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node recovery` |  |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node recovery get` |  |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node recovery graph` |  |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node recovery list` | ls |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node restore` |  |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node revision` | revisions, rev |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node revision clear` |  |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node revision delete` | rm |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node revision get` | show |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node revision label` |  |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node revision list` | ls |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node revision restore` |  |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node sign` |  |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node signatures` |  |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node signing-request` | signing-requests |  | n | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node signing-request get` |  |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node signing-request list` | ls |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node signing-request withdraw` |  |  | n | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node update` |  |  | y | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node verify` |  |  | n | #1051 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
 | `object` | objects, obj |  | n | #1051 |  | unread |  |
 | `object create` |  |  | y | #1051 |  | unread |  |
 | `object delete` | rm |  | y | #1051 |  | unread |  |

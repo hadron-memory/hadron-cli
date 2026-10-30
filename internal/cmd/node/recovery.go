@@ -98,7 +98,7 @@ Only a memory's writers can use it. For anyone else a deleted node and a node
 that never existed are indistinguishable, so a miss here does not say which.
 
   recovery list    the deleted nodes of a memory, with their ids
-  recovery get     one deleted node, with its content
+  recovery get     one deleted node (--content adds its content)
   recovery graph   the links among live and restorable nodes`,
 		Example: `  hadron node recovery list -m hrn:mem:acme.com:kb
   hadron node restore hrn:node:acme.com:kb:findings:flaky-ci`,
