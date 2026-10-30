@@ -21730,6 +21730,162 @@ type CreateEdgeResponse struct {
 // GetCreateEdge returns CreateEdgeResponse.CreateEdge, and is useful for accessing the field via an interface.
 func (v *CreateEdgeResponse) GetCreateEdge() *CreateEdgeCreateEdge { return v.CreateEdge }
 
+// CreateHomeAssistantInstanceCreateHomeAssistantInstance includes the requested fields of the GraphQL type HomeAssistantInstance.
+// The GraphQL type's documentation follows.
+//
+// One registered Home Assistant instance (hadrontool-home-assistant
+// registry, hadron-server#640). Org-owned. The long-lived access token
+// is encrypted at rest and WRITE-ONLY: no field here ever returns it.
+// The row grants nothing by itself; every run-time call walks the policy
+// chain as 'tool.ha__<slug>__<op>' plus the run's action budget.
+type CreateHomeAssistantInstanceCreateHomeAssistantInstance struct {
+	HomeAssistantInstanceFields `json:"-"`
+}
+
+// GetId returns CreateHomeAssistantInstanceCreateHomeAssistantInstance.Id, and is useful for accessing the field via an interface.
+func (v *CreateHomeAssistantInstanceCreateHomeAssistantInstance) GetId() string {
+	return v.HomeAssistantInstanceFields.Id
+}
+
+// GetOrganizationId returns CreateHomeAssistantInstanceCreateHomeAssistantInstance.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreateHomeAssistantInstanceCreateHomeAssistantInstance) GetOrganizationId() string {
+	return v.HomeAssistantInstanceFields.OrganizationId
+}
+
+// GetSlug returns CreateHomeAssistantInstanceCreateHomeAssistantInstance.Slug, and is useful for accessing the field via an interface.
+func (v *CreateHomeAssistantInstanceCreateHomeAssistantInstance) GetSlug() string {
+	return v.HomeAssistantInstanceFields.Slug
+}
+
+// GetName returns CreateHomeAssistantInstanceCreateHomeAssistantInstance.Name, and is useful for accessing the field via an interface.
+func (v *CreateHomeAssistantInstanceCreateHomeAssistantInstance) GetName() string {
+	return v.HomeAssistantInstanceFields.Name
+}
+
+// GetUrl returns CreateHomeAssistantInstanceCreateHomeAssistantInstance.Url, and is useful for accessing the field via an interface.
+func (v *CreateHomeAssistantInstanceCreateHomeAssistantInstance) GetUrl() string {
+	return v.HomeAssistantInstanceFields.Url
+}
+
+// GetEnabled returns CreateHomeAssistantInstanceCreateHomeAssistantInstance.Enabled, and is useful for accessing the field via an interface.
+func (v *CreateHomeAssistantInstanceCreateHomeAssistantInstance) GetEnabled() bool {
+	return v.HomeAssistantInstanceFields.Enabled
+}
+
+// GetOpAllowlist returns CreateHomeAssistantInstanceCreateHomeAssistantInstance.OpAllowlist, and is useful for accessing the field via an interface.
+func (v *CreateHomeAssistantInstanceCreateHomeAssistantInstance) GetOpAllowlist() []string {
+	return v.HomeAssistantInstanceFields.OpAllowlist
+}
+
+// GetCreatedAt returns CreateHomeAssistantInstanceCreateHomeAssistantInstance.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateHomeAssistantInstanceCreateHomeAssistantInstance) GetCreatedAt() string {
+	return v.HomeAssistantInstanceFields.CreatedAt
+}
+
+// GetUpdatedAt returns CreateHomeAssistantInstanceCreateHomeAssistantInstance.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateHomeAssistantInstanceCreateHomeAssistantInstance) GetUpdatedAt() string {
+	return v.HomeAssistantInstanceFields.UpdatedAt
+}
+
+// GetCreatedBy returns CreateHomeAssistantInstanceCreateHomeAssistantInstance.CreatedBy, and is useful for accessing the field via an interface.
+func (v *CreateHomeAssistantInstanceCreateHomeAssistantInstance) GetCreatedBy() *string {
+	return v.HomeAssistantInstanceFields.CreatedBy
+}
+
+// GetUpdatedBy returns CreateHomeAssistantInstanceCreateHomeAssistantInstance.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *CreateHomeAssistantInstanceCreateHomeAssistantInstance) GetUpdatedBy() *string {
+	return v.HomeAssistantInstanceFields.UpdatedBy
+}
+
+func (v *CreateHomeAssistantInstanceCreateHomeAssistantInstance) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateHomeAssistantInstanceCreateHomeAssistantInstance
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateHomeAssistantInstanceCreateHomeAssistantInstance = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.HomeAssistantInstanceFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateHomeAssistantInstanceCreateHomeAssistantInstance struct {
+	Id string `json:"id"`
+
+	OrganizationId string `json:"organizationId"`
+
+	Slug string `json:"slug"`
+
+	Name string `json:"name"`
+
+	Url string `json:"url"`
+
+	Enabled bool `json:"enabled"`
+
+	OpAllowlist []string `json:"opAllowlist"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	UpdatedBy *string `json:"updatedBy"`
+}
+
+func (v *CreateHomeAssistantInstanceCreateHomeAssistantInstance) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateHomeAssistantInstanceCreateHomeAssistantInstance) __premarshalJSON() (*__premarshalCreateHomeAssistantInstanceCreateHomeAssistantInstance, error) {
+	var retval __premarshalCreateHomeAssistantInstanceCreateHomeAssistantInstance
+
+	retval.Id = v.HomeAssistantInstanceFields.Id
+	retval.OrganizationId = v.HomeAssistantInstanceFields.OrganizationId
+	retval.Slug = v.HomeAssistantInstanceFields.Slug
+	retval.Name = v.HomeAssistantInstanceFields.Name
+	retval.Url = v.HomeAssistantInstanceFields.Url
+	retval.Enabled = v.HomeAssistantInstanceFields.Enabled
+	retval.OpAllowlist = v.HomeAssistantInstanceFields.OpAllowlist
+	retval.CreatedAt = v.HomeAssistantInstanceFields.CreatedAt
+	retval.UpdatedAt = v.HomeAssistantInstanceFields.UpdatedAt
+	retval.CreatedBy = v.HomeAssistantInstanceFields.CreatedBy
+	retval.UpdatedBy = v.HomeAssistantInstanceFields.UpdatedBy
+	return &retval, nil
+}
+
+// CreateHomeAssistantInstanceResponse is returned by CreateHomeAssistantInstance on success.
+type CreateHomeAssistantInstanceResponse struct {
+	// Register a Home Assistant instance (org ADMIN/OWNER). orgRef accepts
+	// ID or URN (cor:api:140). accessToken is an HA long-lived access token
+	// — encrypted at rest, write-only, never returned. Registration grants
+	// nothing by itself: runs still need the policy chain to allow
+	// tool.ha__<slug>__<op>.
+	CreateHomeAssistantInstance *CreateHomeAssistantInstanceCreateHomeAssistantInstance `json:"createHomeAssistantInstance"`
+}
+
+// GetCreateHomeAssistantInstance returns CreateHomeAssistantInstanceResponse.CreateHomeAssistantInstance, and is useful for accessing the field via an interface.
+func (v *CreateHomeAssistantInstanceResponse) GetCreateHomeAssistantInstance() *CreateHomeAssistantInstanceCreateHomeAssistantInstance {
+	return v.CreateHomeAssistantInstance
+}
+
 // CreateMcpServerCreateMcpServer includes the requested fields of the GraphQL type McpServer.
 // The GraphQL type's documentation follows.
 //
@@ -25661,6 +25817,17 @@ type DeleteEdgeResponse struct {
 
 // GetDeleteEdge returns DeleteEdgeResponse.DeleteEdge, and is useful for accessing the field via an interface.
 func (v *DeleteEdgeResponse) GetDeleteEdge() bool { return v.DeleteEdge }
+
+// DeleteHomeAssistantInstanceResponse is returned by DeleteHomeAssistantInstance on success.
+type DeleteHomeAssistantInstanceResponse struct {
+	// Hard-delete a registered Home Assistant instance (org ADMIN/OWNER); runs referencing its ops fail loud afterwards.
+	DeleteHomeAssistantInstance bool `json:"deleteHomeAssistantInstance"`
+}
+
+// GetDeleteHomeAssistantInstance returns DeleteHomeAssistantInstanceResponse.DeleteHomeAssistantInstance, and is useful for accessing the field via an interface.
+func (v *DeleteHomeAssistantInstanceResponse) GetDeleteHomeAssistantInstance() bool {
+	return v.DeleteHomeAssistantInstance
+}
 
 // DeleteMcpServerResponse is returned by DeleteMcpServer on success.
 type DeleteMcpServerResponse struct {
@@ -62339,6 +62506,161 @@ func (v *UpdateEdgeUpdateEdgeTargetNode) GetId() string { return v.Id }
 // GetLoc returns UpdateEdgeUpdateEdgeTargetNode.Loc, and is useful for accessing the field via an interface.
 func (v *UpdateEdgeUpdateEdgeTargetNode) GetLoc() string { return v.Loc }
 
+// UpdateHomeAssistantInstanceResponse is returned by UpdateHomeAssistantInstance on success.
+type UpdateHomeAssistantInstanceResponse struct {
+	// Update a registered Home Assistant instance (org ADMIN/OWNER). The
+	// slug is immutable — flow nodes reference it in data.tools names.
+	// accessToken REPLACES the stored token (never cleared: an instance
+	// without a token is unusable).
+	UpdateHomeAssistantInstance *UpdateHomeAssistantInstanceUpdateHomeAssistantInstance `json:"updateHomeAssistantInstance"`
+}
+
+// GetUpdateHomeAssistantInstance returns UpdateHomeAssistantInstanceResponse.UpdateHomeAssistantInstance, and is useful for accessing the field via an interface.
+func (v *UpdateHomeAssistantInstanceResponse) GetUpdateHomeAssistantInstance() *UpdateHomeAssistantInstanceUpdateHomeAssistantInstance {
+	return v.UpdateHomeAssistantInstance
+}
+
+// UpdateHomeAssistantInstanceUpdateHomeAssistantInstance includes the requested fields of the GraphQL type HomeAssistantInstance.
+// The GraphQL type's documentation follows.
+//
+// One registered Home Assistant instance (hadrontool-home-assistant
+// registry, hadron-server#640). Org-owned. The long-lived access token
+// is encrypted at rest and WRITE-ONLY: no field here ever returns it.
+// The row grants nothing by itself; every run-time call walks the policy
+// chain as 'tool.ha__<slug>__<op>' plus the run's action budget.
+type UpdateHomeAssistantInstanceUpdateHomeAssistantInstance struct {
+	HomeAssistantInstanceFields `json:"-"`
+}
+
+// GetId returns UpdateHomeAssistantInstanceUpdateHomeAssistantInstance.Id, and is useful for accessing the field via an interface.
+func (v *UpdateHomeAssistantInstanceUpdateHomeAssistantInstance) GetId() string {
+	return v.HomeAssistantInstanceFields.Id
+}
+
+// GetOrganizationId returns UpdateHomeAssistantInstanceUpdateHomeAssistantInstance.OrganizationId, and is useful for accessing the field via an interface.
+func (v *UpdateHomeAssistantInstanceUpdateHomeAssistantInstance) GetOrganizationId() string {
+	return v.HomeAssistantInstanceFields.OrganizationId
+}
+
+// GetSlug returns UpdateHomeAssistantInstanceUpdateHomeAssistantInstance.Slug, and is useful for accessing the field via an interface.
+func (v *UpdateHomeAssistantInstanceUpdateHomeAssistantInstance) GetSlug() string {
+	return v.HomeAssistantInstanceFields.Slug
+}
+
+// GetName returns UpdateHomeAssistantInstanceUpdateHomeAssistantInstance.Name, and is useful for accessing the field via an interface.
+func (v *UpdateHomeAssistantInstanceUpdateHomeAssistantInstance) GetName() string {
+	return v.HomeAssistantInstanceFields.Name
+}
+
+// GetUrl returns UpdateHomeAssistantInstanceUpdateHomeAssistantInstance.Url, and is useful for accessing the field via an interface.
+func (v *UpdateHomeAssistantInstanceUpdateHomeAssistantInstance) GetUrl() string {
+	return v.HomeAssistantInstanceFields.Url
+}
+
+// GetEnabled returns UpdateHomeAssistantInstanceUpdateHomeAssistantInstance.Enabled, and is useful for accessing the field via an interface.
+func (v *UpdateHomeAssistantInstanceUpdateHomeAssistantInstance) GetEnabled() bool {
+	return v.HomeAssistantInstanceFields.Enabled
+}
+
+// GetOpAllowlist returns UpdateHomeAssistantInstanceUpdateHomeAssistantInstance.OpAllowlist, and is useful for accessing the field via an interface.
+func (v *UpdateHomeAssistantInstanceUpdateHomeAssistantInstance) GetOpAllowlist() []string {
+	return v.HomeAssistantInstanceFields.OpAllowlist
+}
+
+// GetCreatedAt returns UpdateHomeAssistantInstanceUpdateHomeAssistantInstance.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateHomeAssistantInstanceUpdateHomeAssistantInstance) GetCreatedAt() string {
+	return v.HomeAssistantInstanceFields.CreatedAt
+}
+
+// GetUpdatedAt returns UpdateHomeAssistantInstanceUpdateHomeAssistantInstance.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateHomeAssistantInstanceUpdateHomeAssistantInstance) GetUpdatedAt() string {
+	return v.HomeAssistantInstanceFields.UpdatedAt
+}
+
+// GetCreatedBy returns UpdateHomeAssistantInstanceUpdateHomeAssistantInstance.CreatedBy, and is useful for accessing the field via an interface.
+func (v *UpdateHomeAssistantInstanceUpdateHomeAssistantInstance) GetCreatedBy() *string {
+	return v.HomeAssistantInstanceFields.CreatedBy
+}
+
+// GetUpdatedBy returns UpdateHomeAssistantInstanceUpdateHomeAssistantInstance.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *UpdateHomeAssistantInstanceUpdateHomeAssistantInstance) GetUpdatedBy() *string {
+	return v.HomeAssistantInstanceFields.UpdatedBy
+}
+
+func (v *UpdateHomeAssistantInstanceUpdateHomeAssistantInstance) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateHomeAssistantInstanceUpdateHomeAssistantInstance
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateHomeAssistantInstanceUpdateHomeAssistantInstance = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.HomeAssistantInstanceFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateHomeAssistantInstanceUpdateHomeAssistantInstance struct {
+	Id string `json:"id"`
+
+	OrganizationId string `json:"organizationId"`
+
+	Slug string `json:"slug"`
+
+	Name string `json:"name"`
+
+	Url string `json:"url"`
+
+	Enabled bool `json:"enabled"`
+
+	OpAllowlist []string `json:"opAllowlist"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	UpdatedBy *string `json:"updatedBy"`
+}
+
+func (v *UpdateHomeAssistantInstanceUpdateHomeAssistantInstance) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateHomeAssistantInstanceUpdateHomeAssistantInstance) __premarshalJSON() (*__premarshalUpdateHomeAssistantInstanceUpdateHomeAssistantInstance, error) {
+	var retval __premarshalUpdateHomeAssistantInstanceUpdateHomeAssistantInstance
+
+	retval.Id = v.HomeAssistantInstanceFields.Id
+	retval.OrganizationId = v.HomeAssistantInstanceFields.OrganizationId
+	retval.Slug = v.HomeAssistantInstanceFields.Slug
+	retval.Name = v.HomeAssistantInstanceFields.Name
+	retval.Url = v.HomeAssistantInstanceFields.Url
+	retval.Enabled = v.HomeAssistantInstanceFields.Enabled
+	retval.OpAllowlist = v.HomeAssistantInstanceFields.OpAllowlist
+	retval.CreatedAt = v.HomeAssistantInstanceFields.CreatedAt
+	retval.UpdatedAt = v.HomeAssistantInstanceFields.UpdatedAt
+	retval.CreatedBy = v.HomeAssistantInstanceFields.CreatedBy
+	retval.UpdatedBy = v.HomeAssistantInstanceFields.UpdatedBy
+	return &retval, nil
+}
+
 // UpdateMcpServerResponse is returned by UpdateMcpServer on success.
 type UpdateMcpServerResponse struct {
 	// Update a registered MCP server (org ADMIN/OWNER). The slug is
@@ -71614,6 +71936,38 @@ func (v *__CreateEdgeInput) GetCondition() *json.RawMessage { return v.Condition
 // GetData returns __CreateEdgeInput.Data, and is useful for accessing the field via an interface.
 func (v *__CreateEdgeInput) GetData() *json.RawMessage { return v.Data }
 
+// __CreateHomeAssistantInstanceInput is used internally by genqlient
+type __CreateHomeAssistantInstanceInput struct {
+	OrgRef      string    `json:"orgRef"`
+	Slug        string    `json:"slug"`
+	Name        string    `json:"name"`
+	Url         string    `json:"url"`
+	AccessToken string    `json:"accessToken"`
+	OpAllowlist *[]string `json:"opAllowlist,omitempty"`
+	Enabled     *bool     `json:"enabled,omitempty"`
+}
+
+// GetOrgRef returns __CreateHomeAssistantInstanceInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__CreateHomeAssistantInstanceInput) GetOrgRef() string { return v.OrgRef }
+
+// GetSlug returns __CreateHomeAssistantInstanceInput.Slug, and is useful for accessing the field via an interface.
+func (v *__CreateHomeAssistantInstanceInput) GetSlug() string { return v.Slug }
+
+// GetName returns __CreateHomeAssistantInstanceInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateHomeAssistantInstanceInput) GetName() string { return v.Name }
+
+// GetUrl returns __CreateHomeAssistantInstanceInput.Url, and is useful for accessing the field via an interface.
+func (v *__CreateHomeAssistantInstanceInput) GetUrl() string { return v.Url }
+
+// GetAccessToken returns __CreateHomeAssistantInstanceInput.AccessToken, and is useful for accessing the field via an interface.
+func (v *__CreateHomeAssistantInstanceInput) GetAccessToken() string { return v.AccessToken }
+
+// GetOpAllowlist returns __CreateHomeAssistantInstanceInput.OpAllowlist, and is useful for accessing the field via an interface.
+func (v *__CreateHomeAssistantInstanceInput) GetOpAllowlist() *[]string { return v.OpAllowlist }
+
+// GetEnabled returns __CreateHomeAssistantInstanceInput.Enabled, and is useful for accessing the field via an interface.
+func (v *__CreateHomeAssistantInstanceInput) GetEnabled() *bool { return v.Enabled }
+
 // __CreateMcpServerInput is used internally by genqlient
 type __CreateMcpServerInput struct {
 	OrgRef        string           `json:"orgRef"`
@@ -72153,6 +72507,14 @@ type __DeleteEdgeInput struct {
 
 // GetEdgeId returns __DeleteEdgeInput.EdgeId, and is useful for accessing the field via an interface.
 func (v *__DeleteEdgeInput) GetEdgeId() string { return v.EdgeId }
+
+// __DeleteHomeAssistantInstanceInput is used internally by genqlient
+type __DeleteHomeAssistantInstanceInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __DeleteHomeAssistantInstanceInput.Ref, and is useful for accessing the field via an interface.
+func (v *__DeleteHomeAssistantInstanceInput) GetRef() string { return v.Ref }
 
 // __DeleteMcpServerInput is used internally by genqlient
 type __DeleteMcpServerInput struct {
@@ -75295,6 +75657,34 @@ func (v *__UpdateEdgeInput) GetCondition() *json.RawMessage { return v.Condition
 
 // GetData returns __UpdateEdgeInput.Data, and is useful for accessing the field via an interface.
 func (v *__UpdateEdgeInput) GetData() *json.RawMessage { return v.Data }
+
+// __UpdateHomeAssistantInstanceInput is used internally by genqlient
+type __UpdateHomeAssistantInstanceInput struct {
+	Ref         string    `json:"ref"`
+	Name        *string   `json:"name,omitempty"`
+	Url         *string   `json:"url,omitempty"`
+	AccessToken *string   `json:"accessToken,omitempty"`
+	OpAllowlist *[]string `json:"opAllowlist,omitempty"`
+	Enabled     *bool     `json:"enabled,omitempty"`
+}
+
+// GetRef returns __UpdateHomeAssistantInstanceInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateHomeAssistantInstanceInput) GetRef() string { return v.Ref }
+
+// GetName returns __UpdateHomeAssistantInstanceInput.Name, and is useful for accessing the field via an interface.
+func (v *__UpdateHomeAssistantInstanceInput) GetName() *string { return v.Name }
+
+// GetUrl returns __UpdateHomeAssistantInstanceInput.Url, and is useful for accessing the field via an interface.
+func (v *__UpdateHomeAssistantInstanceInput) GetUrl() *string { return v.Url }
+
+// GetAccessToken returns __UpdateHomeAssistantInstanceInput.AccessToken, and is useful for accessing the field via an interface.
+func (v *__UpdateHomeAssistantInstanceInput) GetAccessToken() *string { return v.AccessToken }
+
+// GetOpAllowlist returns __UpdateHomeAssistantInstanceInput.OpAllowlist, and is useful for accessing the field via an interface.
+func (v *__UpdateHomeAssistantInstanceInput) GetOpAllowlist() *[]string { return v.OpAllowlist }
+
+// GetEnabled returns __UpdateHomeAssistantInstanceInput.Enabled, and is useful for accessing the field via an interface.
+func (v *__UpdateHomeAssistantInstanceInput) GetEnabled() *bool { return v.Enabled }
 
 // __UpdateMcpServerInput is used internally by genqlient
 type __UpdateMcpServerInput struct {
@@ -83425,6 +83815,68 @@ func CreateEdge(
 	return data_, err_
 }
 
+// The mutation executed by CreateHomeAssistantInstance.
+const CreateHomeAssistantInstance_Operation = `
+mutation CreateHomeAssistantInstance ($orgRef: ID!, $slug: String!, $name: String!, $url: String!, $accessToken: String!, $opAllowlist: [String!], $enabled: Boolean) {
+	createHomeAssistantInstance(orgRef: $orgRef, slug: $slug, name: $name, url: $url, accessToken: $accessToken, opAllowlist: $opAllowlist, enabled: $enabled) {
+		... HomeAssistantInstanceFields
+	}
+}
+fragment HomeAssistantInstanceFields on HomeAssistantInstance {
+	id
+	organizationId
+	slug
+	name
+	url
+	enabled
+	opAllowlist
+	createdAt
+	updatedAt
+	createdBy
+	updatedBy
+}
+`
+
+// Register an instance (org ADMIN/OWNER). accessToken is write-only: it goes in
+// and is never selected back. opAllowlist and enabled are omitted when unset so
+// the server's defaults (every catalog op; enabled) apply.
+func CreateHomeAssistantInstance(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgRef string,
+	slug string,
+	name string,
+	url string,
+	accessToken string,
+	opAllowlist *[]string,
+	enabled *bool,
+) (data_ *CreateHomeAssistantInstanceResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateHomeAssistantInstance",
+		Query:  CreateHomeAssistantInstance_Operation,
+		Variables: &__CreateHomeAssistantInstanceInput{
+			OrgRef:      orgRef,
+			Slug:        slug,
+			Name:        name,
+			Url:         url,
+			AccessToken: accessToken,
+			OpAllowlist: opAllowlist,
+			Enabled:     enabled,
+		},
+	}
+
+	data_ = &CreateHomeAssistantInstanceResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateMcpServer.
 const CreateMcpServer_Operation = `
 mutation CreateMcpServer ($orgRef: ID!, $slug: String!, $name: String!, $url: String!, $headers: JSON, $toolAllowlist: [String!], $enabled: Boolean) {
@@ -85210,6 +85662,40 @@ func DeleteEdge(
 	}
 
 	data_ = &DeleteEdgeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteHomeAssistantInstance.
+const DeleteHomeAssistantInstance_Operation = `
+mutation DeleteHomeAssistantInstance ($ref: ID!) {
+	deleteHomeAssistantInstance(ref: $ref)
+}
+`
+
+// Hard delete. Returns a BOOLEAN: false is not a delete, and is never reported
+// as one.
+func DeleteHomeAssistantInstance(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *DeleteHomeAssistantInstanceResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteHomeAssistantInstance",
+		Query:  DeleteHomeAssistantInstance_Operation,
+		Variables: &__DeleteHomeAssistantInstanceInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &DeleteHomeAssistantInstanceResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -98442,6 +98928,68 @@ func UpdateEdge(
 	}
 
 	data_ = &UpdateEdgeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateHomeAssistantInstance.
+const UpdateHomeAssistantInstance_Operation = `
+mutation UpdateHomeAssistantInstance ($ref: ID!, $name: String, $url: String, $accessToken: String, $opAllowlist: [String!], $enabled: Boolean) {
+	updateHomeAssistantInstance(ref: $ref, name: $name, url: $url, accessToken: $accessToken, opAllowlist: $opAllowlist, enabled: $enabled) {
+		... HomeAssistantInstanceFields
+	}
+}
+fragment HomeAssistantInstanceFields on HomeAssistantInstance {
+	id
+	organizationId
+	slug
+	name
+	url
+	enabled
+	opAllowlist
+	createdAt
+	updatedAt
+	createdBy
+	updatedBy
+}
+`
+
+// WIRE SEMANTICS: an omitted argument preserves the stored value, so every
+// optional one carries omitempty and a nil pointer is omitted, never sent as
+// null. An explicit [] opAllowlist is a real value: it restores EVERY catalog
+// op (not deny-all), so the allowlist binds to *[]string: a plain []string with
+// omitempty would drop an explicit [] on the floor. The slug is immutable and has no argument here.
+func UpdateHomeAssistantInstance(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	name *string,
+	url *string,
+	accessToken *string,
+	opAllowlist *[]string,
+	enabled *bool,
+) (data_ *UpdateHomeAssistantInstanceResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateHomeAssistantInstance",
+		Query:  UpdateHomeAssistantInstance_Operation,
+		Variables: &__UpdateHomeAssistantInstanceInput{
+			Ref:         ref,
+			Name:        name,
+			Url:         url,
+			AccessToken: accessToken,
+			OpAllowlist: opAllowlist,
+			Enabled:     enabled,
+		},
+	}
+
+	data_ = &UpdateHomeAssistantInstanceResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

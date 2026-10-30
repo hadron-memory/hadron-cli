@@ -7,11 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"regexp"
-	"strings"
-
-	"golang.org/x/term"
 
 	"github.com/spf13/cobra"
 
@@ -127,39 +123,9 @@ func validateKind(kind string) error {
 	}
 }
 
+// readSecretMaterial reads the --value-file material (cmdutil.ReadSecretInput).
 func readSecretMaterial(ioStreams *output.IOStreams, source, label string) (string, error) {
-	var data []byte
-	var err error
-	switch {
-	case source == "-":
-		data, err = io.ReadAll(ioStreams.In)
-	case strings.HasPrefix(source, "@"):
-		data, err = os.ReadFile(strings.TrimPrefix(source, "@"))
-	case source != "":
-		data, err = os.ReadFile(source)
-	case !ioStreams.IsInputTerminal():
-		data, err = io.ReadAll(ioStreams.In)
-	default:
-		fmt.Fprintf(ioStreams.ErrOut, "%s: ", label)
-		input, ok := ioStreams.In.(*os.File)
-		if !ok {
-			fmt.Fprintln(ioStreams.ErrOut)
-			return "", exitcode.Newf(exitcode.Usage, "interactive secret prompt requires file-backed stdin")
-		}
-		data, err = term.ReadPassword(int(input.Fd()))
-		fmt.Fprintln(ioStreams.ErrOut)
-	}
-	if err != nil {
-		if source != "" && source != "-" {
-			return "", exitcode.Newf(exitcode.Usage, "reading --value-file: %v", err)
-		}
-		return "", err
-	}
-	value := strings.TrimRight(string(data), "\r\n")
-	if value == "" {
-		return "", exitcode.Newf(exitcode.Usage, "no secret value provided; pipe it on stdin, pass --value-file, or run interactively")
-	}
-	return value, nil
+	return cmdutil.ReadSecretInput(ioStreams, source, "value-file", label, "secret value")
 }
 
 func jsonStringValue(s string) (json.RawMessage, error) {
