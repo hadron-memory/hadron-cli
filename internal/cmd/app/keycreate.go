@@ -12,6 +12,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/spf13/cobra"
 
@@ -51,6 +52,11 @@ a symlink) is refused with exit 2 and nothing is sent. --force writes a temp
 file beside it and renames it over --out, so the key never sits in a file wider
 than 0600 and a symlink is replaced, never followed. If the server refuses, the
 file this command created is removed.
+
+On Windows, mode 0600 only clears the read-only attribute. The key file is
+private only because of the access list it inherits from its directory: private
+under your user profile, readable by others in a shared directory. Keep key
+files under your user profile.
 
 createAppKey is never retried. If its answer is lost (timeout, gateway error),
 a key may exist whose value nobody has: the message names the label; run
@@ -96,7 +102,9 @@ App key, an impersonated session and a bound worker's session (exit 8).`,
 				}
 				return exitcode.Newf(exitcode.Error, "cannot create %s: %v; nothing was minted", abs, err)
 			}
-			if fi, err := os.Stat(filepath.Dir(abs)); err == nil && fi.Mode().Perm()&0o077 != 0 {
+			// On windows a directory's Go mode reads 0777 whatever its ACL says, so the
+			// check would always fire; the help states the windows boundary instead.
+			if fi, err := os.Stat(filepath.Dir(abs)); err == nil && runtime.GOOS != "windows" && fi.Mode().Perm()&0o077 != 0 {
 				fmt.Fprintf(f.IOStreams.ErrOut, "warning: %s is accessible to group or others (mode %o); the key file is 0600 but keep it in a private directory\n", filepath.Dir(abs), fi.Mode().Perm())
 			}
 
