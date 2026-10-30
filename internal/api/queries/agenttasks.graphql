@@ -72,6 +72,9 @@ fragment AgentTaskFields on AgentTask {
     summary
     evidence
   }
+  # #2420: the task's OWN optional JSON object (never inherited, so a child
+  # returns its own value, null when unset).
+  properties
 }
 
 # createAgentTask takes one input object; appRef is required for a root task

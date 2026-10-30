@@ -176,7 +176,7 @@ func newCmdTeamTaskCreate(f *cmdutil.Factory) *cobra.Command {
 	var description, owner, assignee, parent, source, startBy, status string
 	var tags, blockedBy []string
 	var priority int
-	var requireRole, familyIn, familyNotIn string
+	var requireRole, familyIn, familyNotIn, properties string
 	var excludeWorkers []string
 	var closeSession, noCloseSession, project bool
 	cmd := &cobra.Command{
@@ -201,6 +201,15 @@ Who goes on it:
 - --status backlog parks it instead: no assignee (the server refuses both),
   never matched, no alarms, until ` + "`task assign`" + ` or ` + "`task ready`" + `
   moves it to PENDING. --status pending is the default.
+
+--properties <json|@file> gives it its own JSON object (the team's schedule
+and review notes, for example), which the platform stores and never reads. It
+is set only when the creator may write properties (the owner, someone above
+the owner, a manager, or the assignee named here); any other creator gets the
+task without them, not a refusal. The server checks it is an object, at most
+16 KiB and valid against the team's task-properties schema
+(PROPERTIES_NOT_AN_OBJECT, PROPERTIES_TOO_LARGE, PROPERTIES_SCHEMA_VIOLATION,
+PROPERTIES_SCHEMA_UNUSABLE). Change it later with ` + "`task update --properties`" + `.
 
 --owner defaults to you (the bound worker, or you as a person when no session
 is bound); a root task's creator may name any other participating worker or
@@ -311,6 +320,13 @@ warnings list.`,
 			if cmd.Flags().Changed("project") {
 				input.Project = &project
 			}
+			if cmd.Flags().Changed("properties") {
+				p, err := parsePropertiesFlag(properties)
+				if err != nil {
+					return err
+				}
+				input.Properties = &p
+			}
 			if closeSession && noCloseSession {
 				return exitcode.Newf(exitcode.Usage, "--close-session and --no-close-session contradict each other")
 			}
@@ -407,6 +423,7 @@ warnings list.`,
 	cmd.Flags().StringVar(&status, "status", "", "create-time status: backlog (parked) or pending (the default)")
 	cmd.Flags().BoolVar(&closeSession, "close-session", false, "finishing or cancelling asks the assignee to end its worker session")
 	cmd.Flags().BoolVar(&noCloseSession, "no-close-session", false, "finishing or cancelling does not ask the assignee to end its worker session (the default)")
+	cmd.Flags().StringVar(&properties, "properties", "", "the task's own JSON object, or @file")
 	return cmd
 }
 
