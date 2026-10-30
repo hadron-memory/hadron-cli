@@ -5,7 +5,7 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 62 unbound
+[Query] 61 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
@@ -15,7 +15,6 @@ aiServiceConfigs
 appAIConfig
 appMemoryWriteGrants  # server#2484; separate App-memory grant CLI parity outside C3b
 appNodes
-appTickerSettings  # server ticker settings (named-heartbeats epic, in flight — #1750/#1791 cycle); CLI parity follows the surface settling
 assets
 chatHistory
 connectionGrant
@@ -69,7 +68,7 @@ verifyDecision  # server main schema refresh for cli#836; separate CLI parity ou
 verifyMemoryNodes  # cli#802 exposes per-node verifyNode; memory-wide integrity audit needs a separate memory verify command
 workerWakeSettings  # wake-surface v2; cli#828 tracks the paged attention surface, wake settings follow it
 
-[Mutation] 114 unbound
+[Mutation] 115 unbound
 acquireEditorLock
 addAgentToApp
 addMemoryToAgent
@@ -174,6 +173,7 @@ testExchangeConnection
 unlinkGithubApp
 updateAgentAIConfig
 updateAgentMemoryRole
+updateAgentTask  # server#2645; CLI slice is cli#1137 (team task update), outside cli#1291
 updateAgentTickerTemplate
 updateChatTitle
 updateDashboardWidgetPreset
