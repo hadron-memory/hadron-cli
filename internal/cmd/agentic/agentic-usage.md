@@ -2486,9 +2486,12 @@ Conventions:
   ending one does not end the other** (hadron-server#1034): a **worker
   session** is the Hadron binding below, and a **chat session** is the
   conversation the human is in — the Desktop window, the Claude Code session.
-  Closing a chat session does NOT end the worker session; only `session end`
-  does — since hadron-server#1114 nothing else ends a developer session, no
-  idle window and no reap. Being TAKEN is separate and DOES clear on its own,
+  Closing a chat session does NOT end the worker session, and since
+  hadron-server#1114 no idle window does either. `session end` does (the only
+  path with a handoff), and so does the same person's next bind of that worker
+  (not a resume of the same session), which supersedes their old open sessions
+  on it without a handoff; a session given a hard deadline at start also
+  auto-expires. Being TAKEN is separate and DOES clear on its own,
   because the server derives it from recent driving rather than from the row
   being open.
   And `session end` frees the SESSION, never the NAME: a person who binds a
@@ -2801,8 +2804,10 @@ Conventions:
   was started against a different `--server` than the current one.
   `session list` lists sessions newest first, worker names joined in.
   **It is NOT a presence view**: `--active` narrows to sessions that never
-  ENDED, and since hadron-server#1114 nothing ends a developer session but an
-  explicit `session end`, so an abandoned one stays listed indefinitely. For
+  ENDED, and since hadron-server#1114 no idle window ends a developer session:
+  only `session end`, the same person's next bind of that worker (it
+  supersedes their old open sessions without a handoff) or a hard deadline set
+  at start does, so an abandoned one stays listed until then. For
   "was this name driven recently, and does the server still count it as
   taken", read `worker list`'s LAST RECORDED ACTIVITY. Neither view answers "is somebody
   at the keyboard" — nothing here does. `--as` narrows SERVER-side

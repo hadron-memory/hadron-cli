@@ -75,6 +75,19 @@ Operator prerequisites: a live host registration with this worker and family,
 the host poller's repo mapping and launch argv, a matching worktrees root,
 and the worker's mention-only register row on the router's Channel. The
 worker must already be cast and held. This command never casts or binds it.
+
+WHERE EACH PREREQUISITE COMES FROM:
+  worker cast and held   team worker cast; a person binds it once
+                         (team session start --as <worker>)
+  --host <id>            team host list: the host's id, live, and the workers
+                         and families it can launch
+  --repo <token>         the key under repos: in the host poller's YAML
+                         (team host run --help), e.g. hadron-memory/hadron-cli
+  --worktrees-root       the poller's worktrees_root for that worker
+  register row           channel register add --channel <router channel>
+                         --owner <app> --attendee <worker> --mention-only
+  --config               the router's JSON config (team router --help)
+Run the dry-run first: it checks Orca and reads these without queuing work.
 Starting a worker requires the App manager; --as-person uses your authority
 instead of the bound worker's. Server authority checks still apply.
 
@@ -92,7 +105,7 @@ running; it never cancels, rolls back, or reissues an ambiguous operation.
 Orca must be reachable before any operation is queued, including on dry-run.
 --repo is the registered queue token, not a local path. The printed human
 remainder includes checking the worker's own session pickup and routing.`,
-		Example: "  hadron team worker onboard --name Iris --host orca1 --repo hadron-memory/hadron-cli --branch iris/work --label iris --family codex --worktrees-root /home/orca/orca/workspaces --config /home/orca/router.json\n  # inspect the dry-run, then repeat with --apply --as-person",
+		Example: "  hadron team host list --app acme.com:eng-team      # host id, live, launchable workers\n  hadron team worker onboard --app acme.com:eng-team --name Iris --host orca1 --repo hadron-memory/hadron-cli --branch iris/work --label iris --family codex --worktrees-root /home/orca/orca/workspaces --config /home/orca/router.json\n  # inspect the dry-run, then repeat with --apply --as-person",
 		Args:    cobra.NoArgs,
 		RunE:    func(cmd *cobra.Command, _ []string) error { return runWorkerOnboard(cmd, f, o) },
 	}
