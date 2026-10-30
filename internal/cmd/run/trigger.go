@@ -21,11 +21,11 @@ var pollInterval = 2 * time.Second
 
 func newCmdTrigger(f *cmdutil.Factory) *cobra.Command {
 	var (
-		app, entry, aiConfig string
-		args                 []string
-		asSelf, wait         bool
-		waitTimeout          time.Duration
-		budget               cmdutil.BudgetFlags
+		app, entry, aiConfig, agent string
+		args                        []string
+		asSelf, wait                bool
+		waitTimeout                 time.Duration
+		budget                      cmdutil.BudgetFlags
 	)
 	cmd := &cobra.Command{
 		Use:   "trigger --app <ref> --entry <node-urn> [--arg k=v ...]",
@@ -40,6 +40,10 @@ string). --ai-config selects a named AI config for the run (spec-036 walk
 override). --wait polls the run to a terminal status before returning, then
 exits non-zero if it ended in a non-COMPLETED status (FAILED/TIMED_OUT/CANCELLED),
 so a script can branch on the run's outcome.
+
+--agent names the installed Agent the run is served as (an ID or URN). Omitted,
+the App's single installed Agent serves it; an App with several refuses until
+you name one.
 
 --budget-tokens / --budget-actions cap this run (positive whole numbers; omitted =
 the platform default). A value above the platform default is refused by the
@@ -65,6 +69,10 @@ server. Requires a server with trigger budgets.`,
 			if err != nil {
 				return err
 			}
+			agentRef, err := cmdutil.RunAgentFlag(cmd, agent)
+			if err != nil {
+				return err
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -76,6 +84,7 @@ server. Requires a server with trigger budgets.`,
 				EventData:     eventData,
 				BudgetTokens:  budgetTokens,
 				BudgetActions: budgetActions,
+				AgentRef:      agentRef,
 			}
 			if asSelf {
 				input.RunAsSelf = &asSelf
@@ -132,6 +141,7 @@ server. Requires a server with trigger budgets.`,
 	cmd.Flags().BoolVar(&asSelf, "as-self", false, "run on behalf of you (reaches your personal memories; authenticated user only)")
 	cmd.Flags().StringArrayVar(&args, "arg", nil, "template arg key=value (repeatable; value parsed as JSON or string)")
 	cmd.Flags().StringVar(&aiConfig, "ai-config", "", "named AI config for the run (spec-036 walk override)")
+	cmd.Flags().StringVar(&agent, "agent", "", "installed Agent (ID or URN) the run is served as; required when the App has several")
 	cmd.Flags().BoolVar(&wait, "wait", false, "poll the run to a terminal status before returning")
 	cmd.Flags().DurationVar(&waitTimeout, "wait-timeout", 5*time.Minute, "max time to wait with --wait")
 	budget.Add(cmd, false)

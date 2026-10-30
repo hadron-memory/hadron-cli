@@ -4980,6 +4980,11 @@ exactly one of 'url' | 'content'.
 """
 input ImportNodeInput {
   """
+  The Agent the task run is served as (PK or URN), installed in the App. Omit to use the App's single installed Agent; an App with several refuses with RUN_AGENT_REQUIRED before anything is written (#2735). Only meaningful with taskRef.
+  """
+  agentRef: ID
+
+  """
   App to run the task under — PK or URN. Falls back to the caller's active App. Only meaningful with taskRef.
   """
   appRef: ID
@@ -8815,7 +8820,7 @@ type Mutation {
   the caller. Without appRef, behavior is unchanged.
   Spec cor:api:060.
   """
-  runTask(appRef: ID, args: JSON, nodeRef: String!, runAsSelf: Boolean): String!
+  runTask(agentRef: ID, appRef: ID, args: JSON, nodeRef: String!, runAsSelf: Boolean): String!
 
   """
   Persist a caller-produced chat summary.
@@ -16434,6 +16439,10 @@ type TickerSubscriptionPage {
 }
 
 input TriggerAppRunInput {
+  """
+  The Agent the run is served as (PK or URN), installed in the App. Omit to use the App's single installed Agent; an App with several refuses with RUN_AGENT_REQUIRED (#2735).
+  """
+  agentRef: ID
   aiConfigName: String
 
   """App — ref: PK or fully-qualified URN."""
