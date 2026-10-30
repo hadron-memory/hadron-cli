@@ -17,14 +17,25 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	var name, urn string
 	var marketplace bool
 	cmd := &cobra.Command{
-		Use:   "update <id>",
+		Use:   "update <org>",
 		Short: "Update an organization",
-		Long: `Update an organization by id. Only the fields you pass change.
-Pass --marketplace (or --marketplace=true) to list the org on the marketplace
-catalogue, --marketplace=false to unlist it.`,
-		Example: `  hadron org update org_123 --name "Acme Inc"
-  hadron org update org_123 --marketplace         # list on the marketplace
-  hadron org update org_123 --marketplace=false   # unlist`,
+		Long: `Update an organization; only the fields you pass change. Needs ADMIN or
+OWNER in the org (else exit 8). <org> is its id, URN or root.
+
+--name changes the display name.
+
+--urn renames the org's root, which changes its URN and the URNs of its
+memories, Apps and agents. The old URNs keep working as aliases and the old
+root stays reserved to the org. A root that is already taken is refused, and
+so is a rename that would clash with an existing URN inside the org.
+
+--marketplace (or --marketplace=true) lists the org on the marketplace
+catalogue and --marketplace=false unlists it. Listing advertises the org; it
+grants nobody access.`,
+		Example: `  hadron org update acme.com --name "Acme Inc"
+  hadron org update acme.com --urn acme-inc.com
+  hadron org update acme.com --marketplace         # list on the marketplace
+  hadron org update acme.com --marketplace=false   # unlist`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			changed := cmd.Flags().Changed

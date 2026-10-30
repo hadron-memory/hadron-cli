@@ -22,3 +22,10 @@ query SessionServedPrompts($id: ID!, $historyLimit: Int!, $historyOffset: Int!, 
   }
  }
 }
+
+# Record-only chat history; never use myChats (a different audience) or fetch a Chat object.
+query ChatServedPrompts($chatId: ID!, $historyLimit: Int!, $historyOffset: Int!, $limit: Int!, $offset: Int!) {
+ chatServedPrompts(chatId: $chatId, limit: $historyLimit, offset: $historyOffset) {
+  total items { ...ServedPromptRecord }
+ }
+}

@@ -19,6 +19,18 @@ func newCmdInvite(f *cmdutil.Factory) *cobra.Command {
 		Use:     "invite <command>",
 		Aliases: []string{"invitation", "invitations"},
 		Short:   "Create, inspect, and accept organization invitations",
+		Long: `Invite people to an organization with a link they accept themselves.
+
+  1. An ADMIN or OWNER runs hadron org invite create; it prints a slug.
+  2. You send the slug to the invitee yourself. Hadron sends no email.
+  3. The invitee runs hadron org invite show <slug> to see what it is, then
+     hadron org invite accept <slug> while signed in.
+
+The slug is the key: anyone signed in who has it can accept, so share it only
+with the invitee. To add an existing user directly, use hadron org member add.`,
+		Example: `  hadron org invite create alice@partner.com --org acme.com --role CONTRIBUTOR
+  hadron org invite show <slug>
+  hadron org invite accept <slug>`,
 	}
 	cmd.AddCommand(newCmdInviteCreate(f))
 	cmd.AddCommand(newCmdInviteAccept(f))
@@ -30,14 +42,26 @@ func newCmdInviteCreate(f *cmdutil.Factory) *cobra.Command {
 	var org, role, name, github string
 	var expiresDays, maxActivations int
 	cmd := &cobra.Command{
-		Use:   "create <email> --org <org-id> --role <role>",
+		Use:   "create <email> --org <org> --role <role>",
 		Short: "Invite a user to an organization",
-		Long: `Invite a user to an organization by email.
+		Long: `Create an invitation to an organization and print its slug, which the
+invitee accepts with hadron org invite accept <slug>. Needs ADMIN or OWNER in
+the org; an ADMIN may invite an OWNER.
 
-The returned "slug" is the acceptance token — the invitee redeems it with
-'hadron org invite accept <slug>'.`,
-		Example: `  hadron org invite create alice@partner.com --org acme.com --role CONTRIBUTOR`,
-		Args:    cobra.ExactArgs(1),
+No email is sent: deliver the slug to the invitee yourself, privately. The
+email, --name and --github are recorded so you know who it was for; they are
+not checked when it is accepted, so whoever holds the slug can accept it.
+
+By default an invitation can be accepted once and never expires.
+--max-activations sets how many times it can be accepted (0 = unlimited);
+--expires-days sets how many days it stays valid (0 = never).
+
+Prints "✓ invited <email> as <role>" and "accept with: hadron org invite accept
+<slug>"; --json gives the invitation, including slug, maxActivations and
+expiresAt. Its id is internal: the slug is what the other commands take.`,
+		Example: `  hadron org invite create alice@partner.com --org acme.com --role CONTRIBUTOR
+  hadron org invite create team@partner.com --org acme.com --role READER --max-activations 5 --expires-days 7`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r, err := parseRole(role)
 			if err != nil {
@@ -78,8 +102,8 @@ The returned "slug" is the acceptance token — the invitee redeems it with
 	cmd.Flags().StringVar(&role, "role", "", "member role: OWNER, ADMIN, CONTRIBUTOR, or READER (required)")
 	cmd.Flags().StringVar(&name, "name", "", "invitee display name (optional)")
 	cmd.Flags().StringVar(&github, "github", "", "invitee GitHub username (optional)")
-	cmd.Flags().IntVar(&expiresDays, "expires-days", 0, "days until the invitation expires (server default when unset)")
-	cmd.Flags().IntVar(&maxActivations, "max-activations", 0, "max times the invitation can be accepted (server default when unset)")
+	cmd.Flags().IntVar(&expiresDays, "expires-days", 0, "days until the invitation expires (default and 0: never)")
+	cmd.Flags().IntVar(&maxActivations, "max-activations", 0, "times the invitation can be accepted (default 1; 0: unlimited)")
 	_ = cmd.MarkFlagRequired("org")
 	_ = cmd.MarkFlagRequired("role")
 	return cmd
@@ -87,10 +111,24 @@ The returned "slug" is the acceptance token — the invitee redeems it with
 
 func newCmdInviteAccept(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
-		Use:     "accept <slug>",
-		Short:   "Accept an organization invitation",
-		Example: `  hadron org invite accept inv_abc123`,
-		Args:    cobra.ExactArgs(1),
+		Use:   "accept <slug>",
+		Short: "Accept an organization invitation",
+		Long: `Accept an invitation and join the organization with the role it carries.
+<slug> is the code the inviter sent you (the 16-character value printed by
+invite create), not the invitation id; check it first with hadron org invite
+show <slug>.
+
+You must be signed in, as the account that should join: the invitation is not
+tied to an email, so it adds whoever accepts it. If you are already a member
+your role stays the same, but the acceptance still counts as one use. Someone
+removed earlier is reinstated. It does not change your active org.
+
+Prints "✓ accepted invitation <slug>". An expired, used-up or revoked
+invitation is refused; an invitation is revoked when its sender leaves the org
+or stops being an ADMIN or OWNER.`,
+		Example: `  hadron org invite show <slug>
+  hadron org invite accept <slug>`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -124,7 +162,9 @@ func newCmdInviteShow(f *cmdutil.Factory) *cobra.Command {
 
 The result contains the role, activation limit, expiry, sender display, and
 organization name. It does not expose the invitee's identity. The slug is
-the acceptance token; treat it as a secret.`,
+the acceptance token; treat it as a secret. An unknown or revoked slug exits 4.`,
+		Example: `  hadron org invite show <slug>
+  hadron org invite show <slug> --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()

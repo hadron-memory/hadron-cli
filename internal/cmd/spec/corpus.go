@@ -338,6 +338,12 @@ refused, or keeps conflicting with a concurrent edit, is reported FAILED
 without undoing the move, and the command exits 1 so a script doesn't read a
 clean success. --dry-run shows the plan and writes nothing.
 
+After exit 1 the spec is already at its new citation; running the command
+again does not undo it. Recover by hand: the report names each FAILED node, so
+open it (` + "`hadron spec get <citation>`" + `), fix the old citation in its text with
+` + "`hadron spec edit`" + `, and use ` + "`hadron spec unresolved`" + ` and ` + "`hadron spec backlinks <new-citation>`" + `
+to confirm nothing still points at the old one.
+
 If any node in the moved subtree is minted, the renumber refuses with
 NODE_MINTED (exit 5). Supersede that spec instead.`,
 		Example: `  hadron spec renumber pas:010:04 pas:010:02 -m hrn:mem:micromentor.org:specs-draft --dry-run
@@ -586,7 +592,14 @@ func newCmdMint(f *cmdutil.Factory) *cobra.Command {
 		Short: "Mint approved, unminted nodes in a spec corpus",
 		Long: `Mint the approved, unminted nodes in a spec corpus. The report lists
 the nodes this call would mint and any blockers. Minting records a per-node
-state; it does not currently enforce citation permanence.
+state; most citation-permanence checks are currently off, but a minted spec
+can no longer be renumbered by "spec renumber", so treat a mint as not
+freely reversible.
+
+Approval comes first: a node's CURRENT text must be approved (any later edit
+to its title, abstract or body needs a fresh approval). Approve with
+` + "`hadron node approve <node-urn>`" + `; check one with ` + "`hadron node verify <node-urn>`" + `
+and see what is unapproved with ` + "`hadron spec list --unapproved`" + `.
 
 The command always checks first and prints the mint report:
   blockers         a placeholder, unresolved reference, structural lint
