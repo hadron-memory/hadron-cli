@@ -426,7 +426,7 @@ const TeamChatPageSize = 200
 const teamChatDefaultLimit = 20
 
 func newCmdTeamChatRead(f *cmdutil.Factory) *cobra.Command {
-	var since, before, limit int
+	var since, before, limit, thread int
 	var all bool
 	var mentionsMe bool
 	var mentions string
@@ -518,6 +518,16 @@ printed, so a read that fails partway marks nothing. A --mentions/--mentions-me,
 for those. An older server that still refuses attention skips the mark; other
 mark failures produce a note on stderr and the read still succeeds.
 
+READING A THREAD (--thread, cli#1262). --thread <seq> returns the DIRECT replies
+to that message — never the message itself, and never replies to those replies
+(a reply's own thread is --thread <its seq>; find the seq in the "↩N"/replyToSeq
+of a message). The server filters, so --since, --before, --limit and --all page
+through the replies, not the whole chat. A seq that names no message in this
+chat is exit 4 (not found), never an empty page; a message that exists with no
+replies is a valid empty page. A thread read is a filtered window: like
+--mentions it never advances your watermark or server read state (use
+` + "`team chat mark-read`" + `), and it skips the freshness comparison.
+
 WAITING (--wait, cli#1261). Team chat is never pushed to you (cor:agt:020:04),
 so there is no event to block on: --wait <duration> POLLS. With --since <seq>
 (the nextSince of your last read) it runs this same read every --poll-interval
@@ -541,6 +551,7 @@ them "(human)" / "(worker)".`,
   hadron team chat read --since 42
   hadron team chat read --all --since 0
   hadron team chat read --mentions-me --json
+  hadron team chat read --thread 42 --since 0   # the direct replies to message #42
   hadron team chat read --since 42 --mentions-me --wait 2m   # poll for up to 2 minutes; exit 13 on timeout`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -573,6 +584,8 @@ them "(human)" / "(worker)".`,
 			case cmd.Flags().Changed("limit") && limit == 0:
 				return exitcode.Newf(exitcode.Usage,
 					"--limit must be at least 1 (the server reads 0 as \"count only\", which returns an empty page and is indistinguishable from the end of the chat)")
+			case cmd.Flags().Changed("thread") && thread < 1:
+				return exitcode.Newf(exitcode.Usage, "--thread takes the seq of the message whose replies you want (seqs start at 1)")
 			case limit < 0:
 				return exitcode.Newf(exitcode.Usage, "--limit must not be negative")
 			case limit > TeamChatPageSize:
@@ -629,6 +642,7 @@ them "(human)" / "(worker)".`,
 			// newest page. An explicit --since 0 starts at the oldest page;
 			// --all without --since does the same for a full forward walk.
 			sinceGiven := cmd.Flags().Changed("since")
+			threadGiven := cmd.Flags().Changed("thread")
 			tailRead := !sinceGiven && !cmd.Flags().Changed("before") && !all
 			pageSize := TeamChatPageSize
 			if cmd.Flags().Changed("limit") {
@@ -655,7 +669,13 @@ them "(human)" / "(worker)".`,
 					b := before
 					beforeArg = &b
 				}
-				resp, err := attribution.page(ctx, client, appRef, sinceArg, mentionsRef, &size, beforeArg)
+				var resp *gen.TeamChatMessagesResponse
+				var err error
+				if threadGiven {
+					resp, err = attribution.thread(ctx, client, appRef, thread, sinceArg, mentionsRef, &size, beforeArg)
+				} else {
+					resp, err = attribution.page(ctx, client, appRef, sinceArg, mentionsRef, &size, beforeArg)
+				}
 				if err != nil {
 					return api.MapError(err)
 				}
@@ -711,7 +731,7 @@ them "(human)" / "(worker)".`,
 			if state.Head != nil {
 				head := *state.Head
 				newest := tailRead || (beforeGiven && before > head && head > since)
-				state.SuspectedStale = chatPageBehindHead(head, highest, cursor, lastPageCount, pageSize, newest, sinceGiven || all, beforeGiven && !newest, mentionsRef != nil)
+				state.SuspectedStale = chatPageBehindHead(head, highest, cursor, lastPageCount, pageSize, newest, sinceGiven || all, beforeGiven && !newest, mentionsRef != nil || threadGiven)
 			}
 			// The watermark the binding records is NOT `next`. `next` is a PAGING
 			// cursor: it answers "where do I resume", falls back to whatever the
@@ -767,7 +787,7 @@ them "(human)" / "(worker)".`,
 			//    holding an unrelated chat. `chat post` and the session mutations
 			//    already REFUSE on that mismatch; a read is legitimate, so only
 			//    the bookkeeping is skipped.
-			unfiltered := mentionsRef == nil
+			unfiltered := mentionsRef == nil && !threadGiven
 			// recordWatermark reports whether this read COUNTS as having read
 			// through `verified` — the same evidence decides the server-side
 			// mark below (#1353), so the two claims cannot disagree.
@@ -919,6 +939,7 @@ them "(human)" / "(worker)".`,
 	cmd.Flags().BoolVar(&all, "all", false, "walk every page forward (from seq 0, or --since)")
 	cmd.Flags().BoolVar(&mentionsMe, "mentions-me", false, "only messages mentioning the bound worker")
 	cmd.Flags().StringVar(&mentions, "mentions", "", "only messages mentioning this staff/App member (worker name or id, or user handle)")
+	cmd.Flags().IntVar(&thread, "thread", 0, "only the direct replies to this seq (the message itself is not included); an unknown seq is exit 4, a message with no replies is an empty page")
 	cmd.Flags().DurationVar(&wait, "wait", 0, "poll until a new message arrives or this long has passed (needs --since); exit 13 on timeout")
 	cmd.Flags().DurationVar(&pollInterval, "poll-interval", chatWaitDefaultInterval, "with --wait: time between polls (at least 2s)")
 	cmd.RunE = chatWaitRunE(f, cmd.RunE, &wait, &pollInterval, &returned)
