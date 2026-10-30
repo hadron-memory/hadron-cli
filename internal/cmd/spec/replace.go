@@ -70,9 +70,11 @@ func newCmdReplace(f *cmdutil.Factory) *cobra.Command {
 		Long: `Search-and-replace a token across every spec's body and abstract in one
 call — the spec-scoped, citation-aware analogue of ` + "`hadron replace text`" + `.
 
-In a DRAFT corpus, the server's spec-only bulk door may rewrite governed specs
-and binds apply to the exact dry-run plan. A changed plan is refused with no
-writes. In a MINTED corpus, governed specs are NOT searched (cor:acl:130:02);
+In a DRAFT corpus, the server's spec-only bulk door may rewrite governed specs.
+A real run first computes the same preview as --dry-run, shows it (or, with
+--yes, just counts it), and then applies exactly that plan: if a spec changed
+in between, the server refuses with no writes and you run it again. --yes
+approves that one run; it does not carry a plan from an earlier --dry-run. In a MINTED corpus, governed specs are NOT searched (cor:acl:130:02);
 find their text with ` + "`hadron spec grep`" + ` and edit with ` + "`hadron spec edit`" + `.
 The report distinguishes searched and skipped specs so zero matches cannot
 be mistaken for a search of the whole scope.

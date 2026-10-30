@@ -44,8 +44,9 @@ func NewCmdSkill(f *cmdutil.Factory) *cobra.Command {
 		Short:   "Maintain the skills exported from runnable task nodes",
 		Long: `Maintain the skill surface exported from Hadron task nodes.
 
-A task node opts in by declaring properties.exports.<host> — an object keyed
-by skill host, each entry carrying:
+A task node (a RUNNABLE node) opts in by declaring properties.exports.<host> —
+an object keyed by skill host: claudeSkill (Claude) or codexSkill (Codex).
+Each entry carries:
 
   name         the skill's name, STORED whole (prefix included)
   description  the trigger text the host matches against
@@ -55,6 +56,17 @@ by skill host, each entry carrying:
 The node is the source and the skill file is a build artifact. The retired
 properties.skill and properties.claudeSkill are read as aliases for the
 claudeSkill host, so nothing has to be migrated to keep working.
+
+A complete declaration, in the node's properties:
+
+  {"exports": {"claudeSkill": {"name": "review-pr",
+     "description": "Use when asked to review a pull request",
+     "enable": true}}}
+
+To add one to an existing task without losing its other properties, follow
+"ENABLING A TASK FOR AN APPLICATION" in ` + "`hadron skill export --help`" + `: read the
+node's properties, add the entry, write the whole object back, then run
+` + "`hadron skill lint --node <task-urn>`" + `.
 
   lint    check declaring nodes against the corpus rules (no disk)
   status  compare the files on disk against the corpus (reads both, writes nothing)

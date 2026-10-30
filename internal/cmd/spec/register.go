@@ -31,7 +31,11 @@ in --json), never dropped.
 
 The register node is treated as advisory and is never modified. With
 --check, the live nodes are diffed against the register node's
-hand-written ledger and any drift is reported (exit 5 if drift is found).`,
+hand-written ledger and any drift is reported (exit 5 if drift is found).
+The register node is the node at loc "register" in the memory (it holds the
+module codes and the number ledger; read it with ` + "`hadron spec get register`" + `). To
+fix drift, edit its ledger by hand with ` + "`hadron spec edit register`" + ` to match
+this command's live output, then re-run --check.`,
 		Example: `  hadron spec register -m hrn:mem:micromentor.org:platform-specs
   hadron spec register -m hrn:mem:micromentor.org:platform-specs --check`,
 		Args: cobra.NoArgs,
