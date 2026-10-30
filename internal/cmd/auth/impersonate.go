@@ -46,7 +46,9 @@ see Hadron as they do, within that one org.
 
 <user> is a user id, handle, @handle or email; it must match exactly one user.
 --org (required to start) is the org's id or URN, and the user must be a member.
-It asks for confirmation on a terminal; pass --yes in a script. --reason is
+You cannot impersonate yourself, and an ADMIN cannot impersonate an OWNER. Start
+it from your own login: a worker-bound session, an App key, a run or another
+impersonation is refused. It asks for confirmation on a terminal; pass --yes in a script. --reason is
 recorded with the session for audit.
 
 While it runs, every command on this server uses the impersonation session

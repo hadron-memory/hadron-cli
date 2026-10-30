@@ -154,19 +154,19 @@ section between the markers.
 <!-- group:1052 start -->
 | path | aliases | generated | has-examples | child | evaluator | result | finding |
 |---|---|---|---|---|---|---|---|
-| `access` |  |  | n | #1052 |  | unread |  |
+| `access` |  |  | y | #1052 |  | unread |  |
 | `access check` |  |  | y | #1052 |  | unread |  |
 | `auth` |  |  | n | #1052 |  | unread |  |
-| `auth impersonate` |  |  | n | #1052 |  | unread |  |
+| `auth impersonate` |  |  | y | #1052 |  | unread |  |
 | `auth login` |  |  | y | #1052 |  | unread |  |
-| `auth logout` |  |  | n | #1052 |  | unread |  |
-| `auth status` |  |  | n | #1052 |  | unread |  |
+| `auth logout` |  |  | y | #1052 |  | unread |  |
+| `auth status` |  |  | y | #1052 |  | unread |  |
 | `auth token` |  |  | n | #1052 |  | unread |  |
 | `auth token create` |  |  | y | #1052 |  | unread |  |
-| `auth token list` | ls |  | n | #1052 |  | unread |  |
+| `auth token list` | ls |  | y | #1052 |  | unread |  |
 | `auth token revoke` |  |  | y | #1052 |  | unread |  |
 | `auth token validate` |  |  | y | #1052 |  | unread |  |
-| `auth whoami` |  |  | n | #1052 |  | unread |  |
+| `auth whoami` |  |  | y | #1052 |  | unread |  |
 | `grant` | grants |  | n | #1052 |  | unread |  |
 | `grant create` |  |  | y | #1052 |  | unread |  |
 | `grant list` | ls |  | y | #1052 |  | unread |  |
@@ -188,16 +188,16 @@ section between the markers.
 | `org rm` | delete |  | y | #1052 |  | unread |  |
 | `org set-active` | use |  | y | #1052 |  | unread |  |
 | `org update` |  |  | y | #1052 |  | unread |  |
-| `profile` | me |  | n | #1052 |  | unread |  |
+| `profile` | me |  | y | #1052 |  | unread |  |
 | `profile set` |  |  | y | #1052 |  | unread |  |
-| `secret` | secrets |  | n | #1052 |  | unread |  |
+| `secret` | secrets |  | y | #1052 |  | unread |  |
 | `secret create` |  |  | y | #1052 |  | unread |  |
 | `secret list` | ls |  | y | #1052 |  | unread |  |
 | `secret rm` | delete |  | y | #1052 |  | unread |  |
 | `ticket` | tickets |  | n | #1052 |  | unread |  |
 | `ticket list` | ls |  | y | #1052 |  | unread |  |
 | `ticket mint` |  |  | y | #1052 |  | unread |  |
-| `user` | users |  | n | #1052 |  | unread |  |
+| `user` | users |  | y | #1052 |  | unread |  |
 | `user merge` |  |  | y | #1052 |  | unread |  |
 | `user search` | ls, list |  | y | #1052 |  | unread |  |
 | `user set-roles` |  |  | y | #1052 |  | unread |  |

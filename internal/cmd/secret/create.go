@@ -28,19 +28,38 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create --name <name> --scope <user|org> [--owner <ref>] --kind <generic|webfetch-auth>",
 		Short: "Create an owner-scoped encrypted secret",
-		Long: `Create an encrypted secret. The secret value is never accepted as an argv
-flag. Use --value-file - to read stdin, --value-file @path to read a file, or
-omit --value-file and run interactively for a no-echo prompt.
+		Long: `Create an encrypted secret and print its id. The value is never taken as an
+argument:
+  --value-file -       read stdin
+  --value-file @path   read a file (a plain path works too)
+  (omitted)            read piped stdin, or prompt without echo on a terminal
+Trailing newlines are trimmed; an empty value is refused (exit 2).
 
-For --kind generic, the value is stored as an opaque string. Metadata is
-optional via --meta key=value or --meta-json '{"key":"value"}'.
+--name is lowercase letters, digits and "-", up to 64 characters, not starting
+with "-". It must be unique within the owner: a second secret with the same
+name exits 2; delete the old one first.
 
-For --kind webfetch-auth, pass --type bearer|basic|header and --url-prefix.
-The secret material is the bearer token, basic password, or header value; the
-server derives metadata.type from the payload.`,
-		Example: `  printf '%s' "$TOKEN" | hadron secret create --name github-token --scope user --kind generic --value-file -
+--scope user makes it yours (--owner may be left out). --scope org needs
+--owner <org id or URN> and an org ADMIN or OWNER role (else exit 8). See
+hadron secret for who can then use it.
+
+--kind generic stores any string, which the agent's model can read. Add
+optional metadata with --meta key=value (repeatable) or --meta-json '<object>',
+not both.
+
+--kind webfetch-auth stores a credential that is only injected into web
+requests whose URL starts with --url-prefix (required; http or https, without
+user info, query or fragment). --type says what the value is:
+  bearer   a bearer token
+  basic    a password; also pass --username
+  header   a header value; also pass --header-name
+--meta and --meta-json are refused for this kind.
+
+Prints "✓ created secret <name>  <kind>/<id>  owner <type> <id>"; --json gives
+id, ownerType, ownerId, name, kind, metadata and the created/updated fields.`,
+		Example: `  printf '%s' "$GITHUB_TOKEN" | hadron secret create --name github-token --scope user --kind generic --value-file -
   hadron secret create --name poll-auth --scope org --owner hrn:org:acme.com \
-    --kind webfetch-auth --type bearer --url-prefix https://api.example.com/`,
+    --kind webfetch-auth --type bearer --url-prefix https://api.example.com/ --value-file @token.txt`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validateName(name); err != nil {

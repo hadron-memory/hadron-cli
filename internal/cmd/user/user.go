@@ -67,7 +67,17 @@ func NewCmdUser(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "user <command>",
 		Aliases: []string{"users"},
-		Short:   "Look up users",
+		Short:   "Find users and manage platform accounts (admin)",
+		Long: `Find user accounts and, as a platform admin, change them.
+
+  search      find users by handle, GitHub username or email (anyone)
+  set-roles   replace a user's platform roles (platform admin)
+  merge       fold a duplicate account into another (admin, irreversible)
+
+These act on platform accounts. Membership and roles inside one organization
+are hadron org member; your own name and handle are hadron profile set.`,
+		Example: `  hadron user search alice
+  hadron user set-roles @jane --role contributor`,
 	}
 	cmd.AddCommand(newCmdSearch(f))
 	cmd.AddCommand(newCmdSetRoles(f))
@@ -102,9 +112,15 @@ boundary.
 Authorization is enforced by the server (platform ADMIN/OWNER, or an
 organization ADMIN/OWNER when source and target are both live members of an
 organization you administer); the CLI adds no local authorization or collision
-checks. Spec cor:api:010:02.`,
-		Example: `  hadron user merge dup-handle --into canonical-handle --yes
-  hadron user merge usr_0abc --into alice --json`,
+checks. Spec cor:api:010:02.
+
+Both account owners must consent. The server refuses a merge without proof
+that both people signed in to agree, and refuses API-token callers, so from
+the CLI it currently ends with exit 2 "Both accounts must consent before
+merging." (hadron-cli#1304). Check both accounts first with hadron user search.`,
+		Example: `  hadron user search dup-handle
+  hadron user merge dup-handle --into canonical-handle
+  hadron user merge dup-handle --into canonical-handle --yes --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Validate refs before anything else so a bad invocation is a usage
@@ -175,7 +191,12 @@ accounts it won't show you exist.
 
 Without an explicit --limit/--offset the listing pages to exhaustion, so a
 population larger than one 200-row server page is never silently truncated.
-Passing either flag selects a single explicit page instead.`,
+Passing either flag selects a single explicit page instead: --offset alone
+uses the server's default page size.
+
+The table shows ID, NAME, EMAIL, HANDLE, GITHUB and PROVIDER. --json gives an
+array with the same fields (an empty result is []). A search with no match
+prints only the header.`,
 		Example: `  hadron user search alice --json
   hadron user search --json          # every user (platform admin)`,
 		Args: cobra.MaximumNArgs(1),
@@ -272,6 +293,10 @@ func NewCmdProfile(f *cmdutil.Factory) *cobra.Command {
 		Use:     "profile <command>",
 		Aliases: []string{"me"},
 		Short:   "Manage your own user profile",
+		Long: `Change your own name and handle with hadron profile set. To see your
+profile, run hadron auth whoami; to change accounts, hadron auth login.`,
+		Example: `  hadron profile set --name "Alice A"
+  hadron auth whoami`,
 	}
 	cmd.AddCommand(newCmdProfileSet(f))
 	return cmd
@@ -282,15 +307,17 @@ func newCmdProfileSet(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "set [--name <n>] [--handle <h>]",
 		Short: "Update your own profile — name and handle (email changes are not supported)",
-		Long: `Update your own profile — only the fields you pass change.
+		Long: `Update your own profile; only the fields you pass change, the rest are kept.
 
---email is accepted and REFUSED, before any request:
-Changing your email address is not supported here.
-(#844, hadron-server#1801 compat: the server stopped serving email changes
-through profile updates — they need verification — and clearing is a change
-too. The flag stays so scripts fail loudly instead of silently; no recovery
-flow exists.)
-`,
+--name sets your display name (an empty value clears it). --handle sets your
+unique handle: lowercase letters, digits and "-" (a malformed handle exits 2,
+and a handle cannot be cleared).
+
+Changing your email address is not supported here. --email is refused with
+exit 2 before anything is sent, even together with other flags.
+
+Prints "✓ updated your profile <id> (handle: …, email: …)"; --json gives the
+updated user.`,
 		Example: `  hadron profile set --name "Alice A" --handle alice`,
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -347,7 +374,7 @@ flow exists.)
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "", "display name")
-	cmd.Flags().StringVar(&email, "email", "", "email address")
+	cmd.Flags().StringVar(&email, "email", "", "not supported: refused with exit 2")
 	cmd.Flags().StringVar(&handle, "handle", "", "unique handle")
 	return cmd
 }

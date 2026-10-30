@@ -321,10 +321,12 @@ func newCmdTokenRevoke(f *cmdutil.Factory) *cobra.Command {
 		Use:   "revoke <id>",
 		Short: "Revoke a personal API token",
 		Long: `Revoke one of your personal tokens, so anything using it stops working
-at once. Revoking cannot be undone; mint a new token if you need one.
+at once, together with every token minted from it. Revoking cannot be undone;
+mint a new token if you need one.
 
 <id> is the token's ID from hadron auth token list (not its label and not the
-token itself). You can revoke only your own tokens; an unknown id is refused.
+token itself). You can revoke only your own tokens: an unknown id, or someone
+else's, exits 4. Revoking a token that is already revoked succeeds again.
 
 On a terminal it asks for confirmation; in a script or agent pass --yes, or it
 refuses with exit 2. Prints "✓ Revoked API token <id>". The token stays in the
