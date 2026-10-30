@@ -134,3 +134,18 @@ func TestTaskListHelpStatesFilterSemantics1250(t *testing.T) {
 		}
 	}
 }
+
+// An inverted range is refused before any request (pins from Jonas's
+// jonas/1250-task-list-filters); the same instant in two offsets is valid.
+func TestTaskListInvertedRange1250(t *testing.T) {
+	for _, field := range []string{"created", "started", "finished"} {
+		_, ok, err := filters1250Run(t, "AgentTaskListFiltered", "--"+field+"-after", "2026-10-30T00:00:00Z", "--"+field+"-before", "2026-10-29T00:00:00Z")
+		if err == nil || exitCodeFor(err) != 2 || ok {
+			t.Fatalf("%s: inverted range sent=%v err=%v", field, ok, err)
+		}
+		_, ok, err = filters1250Run(t, "AgentTaskListFiltered", "--"+field+"-after", "2026-10-30T02:00:00+02:00", "--"+field+"-before", "2026-10-30T00:00:00Z")
+		if err != nil || !ok {
+			t.Fatalf("%s: equal instants must pass: sent=%v err=%v", field, ok, err)
+		}
+	}
+}
