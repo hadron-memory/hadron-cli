@@ -22,7 +22,7 @@ func connRows(rows ...string) string {
 	return `{"data":{"exchangeConnections":[` + strings.Join(rows, ",") + `]}}`
 }
 
-const connectMe = `{"data":{"me":{"id":"u1","name":"A","email":"a@acme.com","handle":"a","githubUsername":null,"roles":[]}}}`
+const connectMe = `{"data":{"authContext":{"principalType":"USER","appId":null,"agentId":null,"user":{"id":"u1","name":"A","email":"a@acme.com","handle":"a","githubUsername":null,"roles":[]},"apiKey":null,"impersonation":null}}}`
 
 func connRow(id, provider string) string { return connRowOwned(id, provider, "u1") }
 
@@ -60,7 +60,7 @@ func runConnect(t *testing.T, start string, emailPolls []string, openErr error, 
 		switch op {
 		case "StartConnection":
 			return start
-		case "Me":
+		case "AuthContext":
 			return connectMe
 		case "EmailConnections":
 			i := emailCalls
@@ -332,7 +332,7 @@ func TestConnectionConnectSlowPollDoesNotOutlastWait(t *testing.T) {
 		switch op {
 		case "StartConnection":
 			return connectStart
-		case "Me":
+		case "AuthContext":
 			return connectMe
 		case "EmailConnections":
 			calls++

@@ -235,14 +235,14 @@ again.`,
 			// connection that appears cannot predate it by consent timing.
 			baseline := map[string]bool{}
 			if !noWait {
-				meResp, err := gen.Me(cmd.Context(), client)
+				ac, err := gen.AuthContext(cmd.Context(), client)
 				if err != nil {
 					return scrub(withServerCode(api.MapError(err), err), redact)
 				}
-				if meResp == nil || meResp.Me == nil {
+				if ac == nil || ac.AuthContext == nil || ac.AuthContext.User == nil {
 					return exitcode.Newf(exitcode.Unavailable, "server did not say who the signed-in caller is")
 				}
-				self = meResp.Me.Id
+				self = ac.AuthContext.User.Id
 				rows, err := listConnections(cmd.Context(), client, start.OrgId)
 				if err != nil {
 					return scrub(withServerCode(api.MapError(err), err), redact)
