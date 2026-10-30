@@ -262,7 +262,7 @@ func lintLeafModel(in preflightInput, unavailable map[string]bool) []findingDTO 
 	}
 	for _, r := range in.Routes {
 		out = append(out, findingDTO{r.endpointName(), "legacy-outgoing-route", sevWarning,
-			"the router still owns an outgoing route here — the leaf model has the leaf own the edge; run `hadron coding preflight route <this node> --route-model leaf --route "to …"`, then remove the router's edge (`hadron edge rm`)"})
+			"the router still owns an outgoing route here — the leaf model has the leaf own the edge; run `hadron coding preflight route <this node> --route-model leaf --route <to-action>`, then remove the router's edge (`hadron edge rm`)"})
 	}
 	for _, loc := range bodyWikilinks(in.RouterBody) {
 		if linked[loc] {
