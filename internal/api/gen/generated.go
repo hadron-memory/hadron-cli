@@ -76219,6 +76219,7 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 // project as the reserved no-project AT0 (cor:agt:050:01), so a nil pointer
 // must not be sent as null. Per-field omitempty on this one input field.
 // Schema-only optional fields must stay absent for older providers.
+// #2420: the task's own properties object. A pointer field, omitted when nil.
 func AgentTaskCreate(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -77984,6 +77985,9 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 // value (the UpdateApp description idiom). title and closeSessionWhenDone have
 // no null-clear (an empty title is refused; null would mean false), so they stay
 // pointers, where a pointer to false is still sent.
+// #2420: nil = key omitted (unchanged), RawMessage("null") = explicit clear. The
+// global JSON binding is a slice, so without omitempty a nil value would be sent
+// as null and clear the task's properties on every unrelated update (#1331).
 func AgentTaskUpdate(
 	ctx_ context.Context,
 	client_ graphql.Client,

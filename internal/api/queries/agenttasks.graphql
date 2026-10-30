@@ -88,6 +88,7 @@ fragment AgentTaskFields on AgentTask {
 # @genqlient(for: "CreateAgentTaskInput.project", omitempty: true)
 # @genqlient(for: "CreateAgentTaskInput.priority", omitempty: true)
 # @genqlient(for: "CreateAgentTaskInput.blockedBy", omitempty: true)
+# #2420: the task's own properties object. A pointer field, omitted when nil.
 # @genqlient(for: "CreateAgentTaskInput.properties", omitempty: true)
 mutation AgentTaskCreate(
   $input: CreateAgentTaskInput!
@@ -602,6 +603,9 @@ query AgentTaskListFiltered(
 # @genqlient(for: "UpdateAgentTaskInput.tags", omitempty: true, bind: "encoding/json.RawMessage")
 # @genqlient(for: "UpdateAgentTaskInput.requirements", omitempty: true, bind: "encoding/json.RawMessage")
 # @genqlient(for: "UpdateAgentTaskInput.startBy", omitempty: true, bind: "encoding/json.RawMessage")
+# #2420: nil = key omitted (unchanged), RawMessage("null") = explicit clear. The
+# global JSON binding is a slice, so without omitempty a nil value would be sent
+# as null and clear the task's properties on every unrelated update (#1331).
 # @genqlient(for: "UpdateAgentTaskInput.properties", omitempty: true, bind: "encoding/json.RawMessage")
 mutation AgentTaskUpdate(
   $taskId: ID!
