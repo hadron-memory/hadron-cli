@@ -18,6 +18,7 @@ import (
 	urnlib "github.com/hadron-memory/urn-lib-go"
 	"github.com/spf13/cobra"
 
+	"github.com/hadron-memory/hadron-cli/internal/cmd/servedprompt"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
@@ -53,6 +54,10 @@ without it, from you.
 POLLING: there is no blocking wait. Read with --since <nextSince> at an
 interval that suits you rather than in a tight loop.
 
+EXCEPTION: ` + "`chat served-prompts <chat-id>`" + ` reads a chatbot chat's recorded
+prompt history, not this Channel surface. It takes an explicit chatbot chat id,
+uses no chat configuration, and returns no conversation text.
+
 'chat config show' prints what those resolve to from here and where each
 value came from; 'chat doctor' also checks the Channel is readable and says how
 to repair each failure. Both are read-only.`,
@@ -61,6 +66,7 @@ to repair each failure. Both are read-only.`,
 	cmd.AddCommand(newCmdPost(f))
 	cmd.AddCommand(newCmdConfig(f))
 	cmd.AddCommand(newCmdDoctor(f))
+	cmd.AddCommand(servedprompt.NewChat(f))
 	return cmd
 }
 

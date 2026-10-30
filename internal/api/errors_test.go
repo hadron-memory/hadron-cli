@@ -244,6 +244,9 @@ func TestMapError(t *testing.T) {
 		// (hadron-server#1050) — pinning an exit code for a refusal the server
 		// cannot produce documents a contract nobody can exercise.
 		{"role exists", gqlErr("TEAM_ROLE_EXISTS"), exitcode.Conflict},
+		{"team chat duplicate", gqlErr("TEAM_CHAT_DUPLICATE"), exitcode.Conflict},
+		{"team chat post rate limited", gqlErr("TEAM_CHAT_POST_RATE_LIMITED"), exitcode.Conflict},
+		{"team chat body too large", gqlErr("TEAM_CHAT_BODY_TOO_LARGE"), exitcode.Usage},
 		{"worker external attribution needs an explicit input", gqlErr("WORKER_EXTERNAL_ATTRIBUTION_UNCONFIRMED"), exitcode.Usage},
 		// #608: a duplicate node loc. PascalCase, because the server stamps this
 		// extensions.code from an Error CLASS NAME rather than from the

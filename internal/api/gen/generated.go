@@ -12,6 +12,11 @@ import (
 
 // AcceptInvitationResponse is returned by AcceptInvitation on success.
 type AcceptInvitationResponse struct {
+	// Accepts an invitation by its acceptance slug (not its id). Refusals are typed:
+	// NOT_FOUND for an unknown slug, an id supplied as the slug, or a revoked-by-removal
+	// invitation; UNAUTHENTICATED when signed out; BAD_USER_INPUT for an expired invitation or
+	// one whose issuer lost the authority to invite; CONFLICT when the invitation has reached
+	// its maximum uses or the caller already accepted it. A refusal changes nothing.
 	AcceptInvitation bool `json:"acceptInvitation"`
 }
 
@@ -10120,7 +10125,7 @@ type AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory struct 
 	MemoryUrn string      `json:"memoryUrn"`
 	Name      string      `json:"name"`
 	Class     MemoryClass `json:"class"`
-	// Every reason this memory is in scope. Never empty. Ordered by kind (AGENT_SYSTEM, AGENT_LINK, INHERITED_BASE, TEAM_SPACE), then by agent install order.
+	// Every reason this memory is in scope. Never empty. Ordered by kind (AGENT_SYSTEM, AGENT_LINK, INHERITED_BASE, TEAM_SPACE, APP_MEMORY), then by agent install order.
 	Sources []*AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemorySourcesAppMemorySource `json:"sources"`
 	// Advisory: whether this caller, in this request's context, may create a node
 	// in this memory (the createNode gate). Memory-level only: it never makes an
@@ -10168,7 +10173,7 @@ func (v *AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemory) Ge
 // #2190: one reason a memory is in an App's scope.
 type AppMemoryScopeAppMemoryScopeAppScopedMemoryPageItemsAppScopedMemorySourcesAppMemorySource struct {
 	Kind AppMemorySourceKind `json:"kind"`
-	// The installed or base Agent, for AGENT_SYSTEM, AGENT_LINK and INHERITED_BASE; null for TEAM_SPACE. An id only: when it does not resolve to an Agent this caller may read, show the source kind without a name.
+	// The installed or base Agent, for AGENT_SYSTEM, AGENT_LINK and INHERITED_BASE; null for TEAM_SPACE and APP_MEMORY. An id only: when it does not resolve to an Agent this caller may read, show the source kind without a name.
 	AgentId *string `json:"agentId"`
 }
 
@@ -10209,6 +10214,8 @@ const (
 	AppMemorySourceKindAgentLink AppMemorySourceKind = "AGENT_LINK"
 	// The system memory of an Agent installed in this App.
 	AppMemorySourceKindAgentSystem AppMemorySourceKind = "AGENT_SYSTEM"
+	// A free-standing app memory of this App, the kind createAppMemory makes: app-class, no Agent links it, not the team space. Listed for App participants only, never for an org reader who is not one (hrn:node:hadronmemory.com:specs:cor:dmo:050:17, hadron-server#2861).
+	AppMemorySourceKindAppMemory AppMemorySourceKind = "APP_MEMORY"
 	// A base Agent's system memory, with nodes inherited by an installed Agent's system memory (hrn:node:hadronmemory.com:specs:cor:dmo:050:14).
 	AppMemorySourceKindInheritedBase AppMemorySourceKind = "INHERITED_BASE"
 	// The App's own team space, listed for App participants only.
@@ -10218,6 +10225,7 @@ const (
 var AllAppMemorySourceKind = []AppMemorySourceKind{
 	AppMemorySourceKindAgentLink,
 	AppMemorySourceKindAgentSystem,
+	AppMemorySourceKindAppMemory,
 	AppMemorySourceKindInheritedBase,
 	AppMemorySourceKindTeamSpace,
 }
@@ -15065,6 +15073,181 @@ type ChatMessagesResponse struct {
 // GetFindNodes returns ChatMessagesResponse.FindNodes, and is useful for accessing the field via an interface.
 func (v *ChatMessagesResponse) GetFindNodes() *ChatMessagesFindNodesFindNodesResult {
 	return v.FindNodes
+}
+
+// ChatServedPromptsChatServedPromptsServedPromptsPage includes the requested fields of the GraphQL type ServedPromptsPage.
+type ChatServedPromptsChatServedPromptsServedPromptsPage struct {
+	Total int                                                                     `json:"total"`
+	Items []*ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt `json:"items"`
+}
+
+// GetTotal returns ChatServedPromptsChatServedPromptsServedPromptsPage.Total, and is useful for accessing the field via an interface.
+func (v *ChatServedPromptsChatServedPromptsServedPromptsPage) GetTotal() int { return v.Total }
+
+// GetItems returns ChatServedPromptsChatServedPromptsServedPromptsPage.Items, and is useful for accessing the field via an interface.
+func (v *ChatServedPromptsChatServedPromptsServedPromptsPage) GetItems() []*ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt {
+	return v.Items
+}
+
+// ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt includes the requested fields of the GraphQL type ServedPrompt.
+// The GraphQL type's documentation follows.
+//
+// #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: what a bind, a chatbot chat or a headless run was given. Immutable platform data, never
+// editable and never exported. Names the compiled revision served by (compiledNodeId, servedRevSeq), the pointer level that
+// chose it, that revision's own provenance and the values the platform variables were filled with. No composed text.
+type ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt struct {
+	ServedPromptRecord `json:"-"`
+}
+
+// GetId returns ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt.Id, and is useful for accessing the field via an interface.
+func (v *ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt) GetId() string {
+	return v.ServedPromptRecord.Id
+}
+
+// GetKind returns ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt.Kind, and is useful for accessing the field via an interface.
+func (v *ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt) GetKind() ServedPromptKind {
+	return v.ServedPromptRecord.Kind
+}
+
+// GetOrdinal returns ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt.Ordinal, and is useful for accessing the field via an interface.
+func (v *ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt) GetOrdinal() int {
+	return v.ServedPromptRecord.Ordinal
+}
+
+// GetPointerLevel returns ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt.PointerLevel, and is useful for accessing the field via an interface.
+func (v *ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt) GetPointerLevel() ServedPromptPointerLevel {
+	return v.ServedPromptRecord.PointerLevel
+}
+
+// GetCompiledNodeId returns ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt.CompiledNodeId, and is useful for accessing the field via an interface.
+func (v *ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt) GetCompiledNodeId() string {
+	return v.ServedPromptRecord.CompiledNodeId
+}
+
+// GetCompiledContentHash returns ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt.CompiledContentHash, and is useful for accessing the field via an interface.
+func (v *ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt) GetCompiledContentHash() string {
+	return v.ServedPromptRecord.CompiledContentHash
+}
+
+// GetServedRevSeq returns ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt.ServedRevSeq, and is useful for accessing the field via an interface.
+func (v *ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt) GetServedRevSeq() int {
+	return v.ServedPromptRecord.ServedRevSeq
+}
+
+// GetProvenanceRevSeq returns ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt.ProvenanceRevSeq, and is useful for accessing the field via an interface.
+func (v *ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt) GetProvenanceRevSeq() int {
+	return v.ServedPromptRecord.ProvenanceRevSeq
+}
+
+// GetServedAt returns ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt.ServedAt, and is useful for accessing the field via an interface.
+func (v *ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt) GetServedAt() string {
+	return v.ServedPromptRecord.ServedAt
+}
+
+// GetVariables returns ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt.Variables, and is useful for accessing the field via an interface.
+func (v *ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt) GetVariables() json.RawMessage {
+	return v.ServedPromptRecord.Variables
+}
+
+// GetPruned returns ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt.Pruned, and is useful for accessing the field via an interface.
+func (v *ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt) GetPruned() bool {
+	return v.ServedPromptRecord.Pruned
+}
+
+// GetProvenance returns ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt.Provenance, and is useful for accessing the field via an interface.
+func (v *ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt) GetProvenance() *ServedPromptRecordProvenanceServedPromptProvenancePage {
+	return v.ServedPromptRecord.Provenance
+}
+
+func (v *ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ServedPromptRecord)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt struct {
+	Id string `json:"id"`
+
+	Kind ServedPromptKind `json:"kind"`
+
+	Ordinal int `json:"ordinal"`
+
+	PointerLevel ServedPromptPointerLevel `json:"pointerLevel"`
+
+	CompiledNodeId string `json:"compiledNodeId"`
+
+	CompiledContentHash string `json:"compiledContentHash"`
+
+	ServedRevSeq int `json:"servedRevSeq"`
+
+	ProvenanceRevSeq int `json:"provenanceRevSeq"`
+
+	ServedAt string `json:"servedAt"`
+
+	Variables json.RawMessage `json:"variables"`
+
+	Pruned bool `json:"pruned"`
+
+	Provenance *ServedPromptRecordProvenanceServedPromptProvenancePage `json:"provenance"`
+}
+
+func (v *ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt) __premarshalJSON() (*__premarshalChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt, error) {
+	var retval __premarshalChatServedPromptsChatServedPromptsServedPromptsPageItemsServedPrompt
+
+	retval.Id = v.ServedPromptRecord.Id
+	retval.Kind = v.ServedPromptRecord.Kind
+	retval.Ordinal = v.ServedPromptRecord.Ordinal
+	retval.PointerLevel = v.ServedPromptRecord.PointerLevel
+	retval.CompiledNodeId = v.ServedPromptRecord.CompiledNodeId
+	retval.CompiledContentHash = v.ServedPromptRecord.CompiledContentHash
+	retval.ServedRevSeq = v.ServedPromptRecord.ServedRevSeq
+	retval.ProvenanceRevSeq = v.ServedPromptRecord.ProvenanceRevSeq
+	retval.ServedAt = v.ServedPromptRecord.ServedAt
+	retval.Variables = v.ServedPromptRecord.Variables
+	retval.Pruned = v.ServedPromptRecord.Pruned
+	retval.Provenance = v.ServedPromptRecord.Provenance
+	return &retval, nil
+}
+
+// ChatServedPromptsResponse is returned by ChatServedPrompts on success.
+type ChatServedPromptsResponse struct {
+	// #2862 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: a chatbot chat's served-prompt records, by chat id, and nothing
+	// else about the chat. The same read as Chat.servedPrompts (newest first, default 50, cap 200): readable only by
+	// whoever manages the App named by the chat's first record, and only that App's records. Everyone else, an unknown
+	// chat id and serving switched off all get an empty page, never an error. Never returns a Chat.
+	ChatServedPrompts *ChatServedPromptsChatServedPromptsServedPromptsPage `json:"chatServedPrompts"`
+}
+
+// GetChatServedPrompts returns ChatServedPromptsResponse.ChatServedPrompts, and is useful for accessing the field via an interface.
+func (v *ChatServedPromptsResponse) GetChatServedPrompts() *ChatServedPromptsChatServedPromptsServedPromptsPage {
+	return v.ChatServedPrompts
 }
 
 // CheckChatCursorChannelReadState includes the requested fields of the GraphQL type ChannelReadState.
@@ -20540,7 +20723,8 @@ type CreateChannelMessageResponse struct {
 	// `@team.<head>.all` target refuses the whole post TEAM_CHAT_TEAM_HEAD_INVALID. createTeamChatMessage is the
 	// appRef → App.defaultChannel convenience over this — one gate, two entry
 	// points. A Channel you may not read is CHANNEL_NOT_FOUND; one you may read
-	// but not post into is FORBIDDEN.
+	// but not post into is FORBIDDEN. A worker's identical repeat within ten minutes is
+	// refused TEAM_CHAT_DUPLICATE, exactly as createTeamChatMessage documents.
 	CreateChannelMessage *CreateChannelMessageCreateChannelMessageTeamChatMessage `json:"createChannelMessage"`
 }
 
@@ -23768,7 +23952,14 @@ type CreateTeamChatMessageResponse struct {
 	// SESSION_WORKER_NOT_IN_APP are retired; CHANNEL_HOST_NOT_WRITABLE is the
 	// successor code.
 	//
-	// Error codes (extensions.code): TEAM_CHAT_BODY_TOO_LARGE,
+	// A worker's post that repeats its own earlier message is refused: the same worker
+	// (across its sessions), the same Channel, exactly the same body and the same reply
+	// target (or none on both sides), earlier than ten minutes ago, with TEAM_CHAT_DUPLICATE.
+	// The earlier message was posted, so do not retry: the text and the typed fields
+	// (earlierSeq, channelId) name it. Nothing is stored. A post made as the human
+	// (no session) is not judged.
+	//
+	// Error codes (extensions.code): TEAM_CHAT_BODY_TOO_LARGE, TEAM_CHAT_DUPLICATE,
 	// TEAM_CHAT_REPLY_NOT_FOUND, SESSION_NOT_FOUND, SESSION_ENDED,
 	// SESSION_NOT_LIVE (dormant or ineligible for lapsed-session resume),
 	// SESSION_NOT_WORKER_BOUND, CHANNEL_HOST_NOT_WRITABLE, WORKER_RETIRED,
@@ -69785,6 +69976,30 @@ func (v *__ChatMessagesInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __ChatMessagesInput.Offset, and is useful for accessing the field via an interface.
 func (v *__ChatMessagesInput) GetOffset() *int { return v.Offset }
 
+// __ChatServedPromptsInput is used internally by genqlient
+type __ChatServedPromptsInput struct {
+	ChatId        string `json:"chatId"`
+	HistoryLimit  int    `json:"historyLimit"`
+	HistoryOffset int    `json:"historyOffset"`
+	Limit         int    `json:"limit"`
+	Offset        int    `json:"offset"`
+}
+
+// GetChatId returns __ChatServedPromptsInput.ChatId, and is useful for accessing the field via an interface.
+func (v *__ChatServedPromptsInput) GetChatId() string { return v.ChatId }
+
+// GetHistoryLimit returns __ChatServedPromptsInput.HistoryLimit, and is useful for accessing the field via an interface.
+func (v *__ChatServedPromptsInput) GetHistoryLimit() int { return v.HistoryLimit }
+
+// GetHistoryOffset returns __ChatServedPromptsInput.HistoryOffset, and is useful for accessing the field via an interface.
+func (v *__ChatServedPromptsInput) GetHistoryOffset() int { return v.HistoryOffset }
+
+// GetLimit returns __ChatServedPromptsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__ChatServedPromptsInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __ChatServedPromptsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__ChatServedPromptsInput) GetOffset() int { return v.Offset }
+
 // __CheckChatCursorInput is used internally by genqlient
 type __CheckChatCursorInput struct {
 	ChannelRef string `json:"channelRef"`
@@ -79936,6 +80151,74 @@ func ChatMessages(
 	}
 
 	data_ = &ChatMessagesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by ChatServedPrompts.
+const ChatServedPrompts_Operation = `
+query ChatServedPrompts ($chatId: ID!, $historyLimit: Int!, $historyOffset: Int!, $limit: Int!, $offset: Int!) {
+	chatServedPrompts(chatId: $chatId, limit: $historyLimit, offset: $historyOffset) {
+		total
+		items {
+			... ServedPromptRecord
+		}
+	}
+}
+fragment ServedPromptRecord on ServedPrompt {
+	id
+	kind
+	ordinal
+	pointerLevel
+	compiledNodeId
+	compiledContentHash
+	servedRevSeq
+	provenanceRevSeq
+	servedAt
+	variables
+	pruned
+	provenance(limit: $limit, offset: $offset) {
+		total
+		items {
+			nodeId
+			revSeq
+			hash
+			pruned
+		}
+	}
+}
+`
+
+// Record-only chat history; never use myChats (a different audience) or fetch a Chat object.
+func ChatServedPrompts(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	chatId string,
+	historyLimit int,
+	historyOffset int,
+	limit int,
+	offset int,
+) (data_ *ChatServedPromptsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ChatServedPrompts",
+		Query:  ChatServedPrompts_Operation,
+		Variables: &__ChatServedPromptsInput{
+			ChatId:        chatId,
+			HistoryLimit:  historyLimit,
+			HistoryOffset: historyOffset,
+			Limit:         limit,
+			Offset:        offset,
+		},
+	}
+
+	data_ = &ChatServedPromptsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

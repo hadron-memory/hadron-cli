@@ -1660,7 +1660,7 @@ enum AppMemoryKind {
 """#2190: one reason a memory is in an App's scope."""
 type AppMemorySource {
   """
-  The installed or base Agent, for AGENT_SYSTEM, AGENT_LINK and INHERITED_BASE; null for TEAM_SPACE. An id only: when it does not resolve to an Agent this caller may read, show the source kind without a name.
+  The installed or base Agent, for AGENT_SYSTEM, AGENT_LINK and INHERITED_BASE; null for TEAM_SPACE and APP_MEMORY. An id only: when it does not resolve to an Agent this caller may read, show the source kind without a name.
   """
   agentId: ID
   kind: AppMemorySourceKind!
@@ -1672,6 +1672,11 @@ enum AppMemorySourceKind {
 
   """The system memory of an Agent installed in this App."""
   AGENT_SYSTEM
+
+  """
+  A free-standing app memory of this App, the kind createAppMemory makes: app-class, no Agent links it, not the team space. Listed for App participants only, never for an org reader who is not one (hrn:node:hadronmemory.com:specs:cor:dmo:050:17, hadron-server#2861).
+  """
+  APP_MEMORY
 
   """
   A base Agent's system memory, with nodes inherited by an installed Agent's system memory (hrn:node:hadronmemory.com:specs:cor:dmo:050:14).
@@ -1942,7 +1947,7 @@ type AppScopedMemory {
   name: String!
 
   """
-  Every reason this memory is in scope. Never empty. Ordered by kind (AGENT_SYSTEM, AGENT_LINK, INHERITED_BASE, TEAM_SPACE), then by agent install order.
+  Every reason this memory is in scope. Never empty. Ordered by kind (AGENT_SYSTEM, AGENT_LINK, INHERITED_BASE, TEAM_SPACE, APP_MEMORY), then by agent install order.
   """
   sources: [AppMemorySource!]!
 
@@ -6159,6 +6164,13 @@ type ModelFamilyAvailability {
 }
 
 type Mutation {
+  """
+  Accepts an invitation by its acceptance slug (not its id). Refusals are typed:
+  NOT_FOUND for an unknown slug, an id supplied as the slug, or a revoked-by-removal
+  invitation; UNAUTHENTICATED when signed out; BAD_USER_INPUT for an expired invitation or
+  one whose issuer lost the authority to invite; CONFLICT when the invitation has reached
+  its maximum uses or the caller already accepted it. A refusal changes nothing.
+  """
   acceptInvitation(slug: String!): Boolean!
 
   """
@@ -6972,7 +6984,8 @@ type Mutation {
   `@team.<head>.all` target refuses the whole post TEAM_CHAT_TEAM_HEAD_INVALID. createTeamChatMessage is the
   appRef → App.defaultChannel convenience over this — one gate, two entry
   points. A Channel you may not read is CHANNEL_NOT_FOUND; one you may read
-  but not post into is FORBIDDEN.
+  but not post into is FORBIDDEN. A worker's identical repeat within ten minutes is
+  refused TEAM_CHAT_DUPLICATE, exactly as createTeamChatMessage documents.
   """
   createChannelMessage(body: String!, channelRef: ID!, replyToSeq: Int, sessionRef: ID): TeamChatMessage!
 
@@ -7422,7 +7435,14 @@ type Mutation {
   SESSION_WORKER_NOT_IN_APP are retired; CHANNEL_HOST_NOT_WRITABLE is the
   successor code.
   
-  Error codes (extensions.code): TEAM_CHAT_BODY_TOO_LARGE,
+  A worker's post that repeats its own earlier message is refused: the same worker
+  (across its sessions), the same Channel, exactly the same body and the same reply
+  target (or none on both sides), earlier than ten minutes ago, with TEAM_CHAT_DUPLICATE.
+  The earlier message was posted, so do not retry: the text and the typed fields
+  (earlierSeq, channelId) name it. Nothing is stored. A post made as the human
+  (no session) is not judged.
+  
+  Error codes (extensions.code): TEAM_CHAT_BODY_TOO_LARGE, TEAM_CHAT_DUPLICATE,
   TEAM_CHAT_REPLY_NOT_FOUND, SESSION_NOT_FOUND, SESSION_ENDED,
   SESSION_NOT_LIVE (dormant or ineligible for lapsed-session resume),
   SESSION_NOT_WORKER_BOUND, CHANNEL_HOST_NOT_WRITABLE, WORKER_RETIRED,
@@ -11850,6 +11870,14 @@ type Query {
       so paging can skip the sibling. See #992 for the underlying gap.
   """
   chatHistory(beforeSeq: Int, chatId: String!, limit: Int): [ChatMessage!]!
+
+  """
+  #2862 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: a chatbot chat's served-prompt records, by chat id, and nothing
+  else about the chat. The same read as Chat.servedPrompts (newest first, default 50, cap 200): readable only by
+  whoever manages the App named by the chat's first record, and only that App's records. Everyone else, an unknown
+  chat id and serving switched off all get an empty page, never an error. Never returns a Chat.
+  """
+  chatServedPrompts(chatId: ID!, limit: Int, offset: Int): ServedPromptsPage!
 
   """#1606 — one comment by ID or URN; null when missing or unreadable."""
   comment(ref: ID!): Comment

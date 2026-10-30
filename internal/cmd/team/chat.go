@@ -238,6 +238,11 @@ refused when stdin is an interactive terminal (use --body-file there).
 --reply-to takes the seq of the message being answered, as shown by
 ` + "`team chat read`" + `.
 
+TEAM_CHAT_DUPLICATE and TEAM_CHAT_POST_RATE_LIMITED are deliberate post
+refusals (exit 5): read the server's message for the earlier seq or the reset
+time before trying again. The CLI sends the post once and never retries these
+refusals. --json keeps their names in error.serverCode (error.code is numeric).
+
 With --orca-host-config PATH, validate this host before posting, then attempt
 already-due batches for it after confirmed post output (including older unrelated
 batches). Without the flag no host config, key or Orca is touched. The host uses
