@@ -1592,9 +1592,12 @@ Conventions:
   on `set-role`, cli#1246): the command still succeeds, `organization` is
   `{"id":"","name":"","urn":""}` (never filled in), `organizationHidden: true`
   is added, and `create`/`set-role` echo your own `--org` as `orgRef`; `list`
-  keeps such rows (text shows `(hidden)`). Both keys are absent for a visible
-  org. The
-  memory ref is an id or URN; `add`/`create` upsert; `member rm` / `share rm`
+  keeps such rows (text shows `(hidden)`). For a visible org, `organization`
+  carries its id/name/urn and `organizationHidden` and `orgRef` are omitted;
+  `organization` itself is always present. The memory ref is an id or URN.
+  `member add` and `share create` upsert (a repeat changes the role);
+  `subscription create` does not: an existing subscription is refused, so
+  change its role with `subscription set-role`. `member rm` / `share rm`
   / `subscription rm` require `--yes` non-interactively. Find user IDs via
   `org member list` or `auth whoami`.
 - `spec` manages product-spec nodes: a node is a spec when it carries the
