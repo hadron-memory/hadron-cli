@@ -46,7 +46,12 @@ func newCmdSubscriptionLs(f *cmdutil.Factory) *cobra.Command {
 		Aliases: []string{"ls"},
 		Short:   "List a memory's organization subscriptions",
 		Long: `List the organizations subscribed to a memory: organization id, name and
-URN, the role it was given, and whether the subscription is activated.`,
+URN, the role it was given, and whether the subscription is activated.
+
+An organization you may not see is still listed, with (hidden) in place of
+its id and no name or URN (--json: empty organization fields and
+organizationHidden: true). Changing such a subscription's role succeeds the
+same way: the confirmation names the --org you gave.`,
 		Example: `  hadron memory subscription list hrn:mem:acme.com:style-guide
   hadron memory subscription list hrn:mem:acme.com:style-guide --json`,
 		Args: cobra.ExactArgs(1),
