@@ -31336,6 +31336,8 @@ func (v *ImportNodeImportNodeImportNodeResultNode) GetUpdatedAt() string { retur
 // the URN may name a not-yet-existing node (import creates it). Source:
 // exactly one of 'url' | 'content'.
 type ImportNodeInput struct {
+	// The Agent the task run is served as (PK or URN), installed in the App. Omit to use the App's single installed Agent; an App with several refuses with RUN_AGENT_REQUIRED before anything is written (#2735). Only meaningful with taskRef.
+	AgentRef *string `json:"agentRef"`
 	// App to run the task under — PK or URN. Falls back to the caller's active App. Only meaningful with taskRef.
 	AppRef *string `json:"appRef,omitempty"`
 	// Inline source content (e.g. the Web Clipper's authenticated-DOM capture). XOR with 'url'.
@@ -31361,6 +31363,9 @@ type ImportNodeInput struct {
 	// Source URL (http/https) — fetched server-side, SSRF-guarded, WITHOUT user credentials.
 	Url *string `json:"url,omitempty"`
 }
+
+// GetAgentRef returns ImportNodeInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *ImportNodeInput) GetAgentRef() *string { return v.AgentRef }
 
 // GetAppRef returns ImportNodeInput.AppRef, and is useful for accessing the field via an interface.
 func (v *ImportNodeInput) GetAppRef() *string { return v.AppRef }
@@ -57296,6 +57301,8 @@ func (v *TransferMemoryOwnershipTransferMemoryOwnershipMemoryOwnerTransferPrevie
 }
 
 type TriggerAppRunInput struct {
+	// The Agent the run is served as (PK or URN), installed in the App. Omit to use the App's single installed Agent; an App with several refuses with RUN_AGENT_REQUIRED (#2735).
+	AgentRef     *string `json:"agentRef"`
 	AiConfigName *string `json:"aiConfigName,omitempty"`
 	// App — ref: PK or fully-qualified URN.
 	AppRef string `json:"appRef"`
@@ -57307,6 +57314,9 @@ type TriggerAppRunInput struct {
 	EventData    *json.RawMessage `json:"eventData,omitempty"`
 	RunAsSelf    *bool            `json:"runAsSelf,omitempty"`
 }
+
+// GetAgentRef returns TriggerAppRunInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunInput) GetAgentRef() *string { return v.AgentRef }
 
 // GetAiConfigName returns TriggerAppRunInput.AiConfigName, and is useful for accessing the field via an interface.
 func (v *TriggerAppRunInput) GetAiConfigName() *string { return v.AiConfigName }
