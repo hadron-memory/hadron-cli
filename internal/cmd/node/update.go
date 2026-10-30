@@ -6,6 +6,7 @@ import (
 	"io"
 	"math"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/aymanbagabas/go-udiff"
@@ -555,7 +556,9 @@ type contentPreviewDTO struct {
 
 func writeUpdatePreview(f *cmdutil.Factory, stored *gen.GetNodeNode, changed func(string) bool, body string, contentChanged bool, warnings []string, expectedRevision *int) error {
 	if expectedRevision != nil {
-		warnings = append(warnings, fmt.Sprintf("expected revision %d is advisory and not validated by the server in a dry run", *expectedRevision))
+		// Copy first: appending to the caller's slice could write into its
+		// spare capacity (#1075).
+		warnings = append(slices.Clone(warnings), fmt.Sprintf("expected revision %d is advisory and not validated by the server in a dry run", *expectedRevision))
 	}
 	dto := updatePreviewDTO{DryRun: true, ID: stored.Id, URN: stored.Urn, Loc: stored.Loc, Fields: []string{}, Warnings: warnings, ExpectedRevision: expectedRevision}
 	for _, uf := range updateFields {
