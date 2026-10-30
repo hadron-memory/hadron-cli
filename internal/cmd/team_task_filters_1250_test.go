@@ -88,7 +88,7 @@ func TestTaskListNoNewFlagKeepsLegacyRequest1250(t *testing.T) {
 
 func TestTaskListMalformedTimeIsUsageError1250(t *testing.T) {
 	for _, flag := range []string{"created-after", "created-before", "started-after", "started-before", "finished-after", "finished-before"} {
-		for _, bad := range []string{"2026-10-01", "2026-10-01T00:00:00", "yesterday", ""} {
+		for _, bad := range []string{"2026-10-01", "2026-10-01T00:00:00", "yesterday", "", "2026-10-01T00:00:00+24:00", "2026-10-01T00:00:00+00:60", "2026-10-01T00:00:00,5Z"} {
 			t.Run(flag+"="+bad, func(t *testing.T) {
 				srv, captured := captureGraphQL(t, map[string]string{})
 				f, _ := testFactory(t)
