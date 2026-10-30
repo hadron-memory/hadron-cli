@@ -80,7 +80,8 @@ func TestC1292GetTextNamesEveryField(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Iris", "mentions", "OFF", "2026-11-01T00:00:00Z", "standup", "1800", "dormant", "isolated", "holger", "2026-10-31T00:00:00Z"} {
+	for _, want := range []string{"Iris", "mentions", "OFF", "2026-11-01T00:00:00Z", "standup", "1800", "dormant", "isolated", "holger", "2026-10-31T00:00:00Z",
+		"w1", c1292Worker, "tk1", "hrn:ticker:acme.com:ops:standup", "sub1", "2026-10-30T00:00:00Z"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("text lacks %q:\n%s", want, out)
 		}
@@ -158,6 +159,7 @@ func TestC1292RefusalsKeepTheirCodeAndExit(t *testing.T) {
 		exit int
 	}{
 		{"FORBIDDEN", exitcode.Forbidden},
+		{"WAKE_SETTINGS_FORBIDDEN", exitcode.Forbidden},
 		{"WORKER_NOT_FOUND", exitcode.NotFound},
 	} {
 		for _, argv := range [][]string{

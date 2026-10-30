@@ -82,7 +82,7 @@ func wakeSettingsDTOFrom(s *gen.WorkerWakeSettingsFields) wakeSettingsDTO {
 
 // wakeSettingsRefusalCodes are the refusals these two calls document, kept as the
 // message prefix; the exit code is the mapped one, unchanged.
-var wakeSettingsRefusalCodes = []string{"FORBIDDEN", "WORKER_NOT_FOUND", "BAD_USER_INPUT"}
+var wakeSettingsRefusalCodes = []string{"WAKE_SETTINGS_FORBIDDEN", "FORBIDDEN", "WORKER_NOT_FOUND", "BAD_USER_INPUT"}
 
 func wakeSettingsError(err error) error {
 	mapped := api.MapError(err)
@@ -242,6 +242,8 @@ func renderWakeSettings(w io.Writer, d wakeSettingsDTO) error {
 	}
 	for _, kv := range [][2]string{
 		{"worker", name},
+		{"worker id", d.Worker.ID},
+		{"worker urn", strOr(d.Worker.Urn)},
 		{"mentions", d.Mentions},
 		{"paused until", strOr(d.PausedUntil)},
 		{"effective cadence", cadence},
@@ -259,13 +261,14 @@ func renderWakeSettings(w io.Writer, d wakeSettingsDTO) error {
 	if len(d.Subscriptions) == 0 {
 		return line("subscriptions", "none")
 	}
-	t := output.NewTable(w, "SUBSCRIPTION", "TICKER", "CADENCE", "ENABLED", "VIA GRANT")
+	t := output.NewTable(w, "SUBSCRIPTION", "TICKER", "TICKER ID", "TICKER URN", "CADENCE", "ENABLED", "VIA GRANT", "CREATED")
 	for _, s := range d.Subscriptions {
-		tk, cad, en := "-", "-", "-"
+		tk, tkID, tkURN, cad, en := "-", "-", "-", "-", "-"
 		if s.Ticker != nil {
-			tk, cad, en = output.SafeCell(s.Ticker.Name), fmt.Sprintf("%d s", s.Ticker.CadenceSeconds), yesNo(s.Ticker.Enabled)
+			tk, tkID, tkURN = output.SafeCell(s.Ticker.Name), s.Ticker.ID, strOr(s.Ticker.URN)
+			cad, en = fmt.Sprintf("%d s", s.Ticker.CadenceSeconds), yesNo(s.Ticker.Enabled)
 		}
-		t.Row(s.ID, tk, cad, en, yesNo(s.ViaGrant))
+		t.Row(s.ID, tk, tkID, tkURN, cad, en, yesNo(s.ViaGrant), s.CreatedAt)
 	}
 	return t.Flush()
 }
