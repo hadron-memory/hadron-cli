@@ -219,3 +219,26 @@ func TestC1291HelpSaysWhoMayRunIt(t *testing.T) {
 func c1291Errors(code string) string {
 	return `{"data":null,"errors":[{"message":"refused","extensions":{"code":"` + code + `"}}]}`
 }
+
+// cli#1296: the server's all-or-nothing messages already end "nothing was
+// created." (resolvers.ticker.ts), so the CLI adds the clause only when the
+// message lacks it: exactly once either way.
+func TestC1296NothingCreatedSaidOnce(t *testing.T) {
+	for _, code := range []string{"TICKER_LIMIT_REACHED", "TICKER_NAME_TAKEN"} {
+		for _, msg := range []string{"refused; nothing was created.", "Refused; Nothing Was Created", "refused"} {
+			t.Run(code+"/"+msg, func(t *testing.T) {
+				body := `{"data":null,"errors":[{"message":"` + msg + `","extensions":{"code":"` + code + `"}}]}`
+				_, _, err := runTeamTask(t, c1291Responses(body, 600), "ticker", "apply-templates", "--worker", c1291Worker)
+				if err == nil || !strings.HasPrefix(err.Error(), code+": ") {
+					t.Fatalf("err %v, want %s prefix", err, code)
+				}
+				if exitCodeFor(err) != exitcode.Conflict {
+					t.Fatalf("exit %d, want %d", exitCodeFor(err), exitcode.Conflict)
+				}
+				if n := strings.Count(strings.ToLower(err.Error()), "nothing was created"); n != 1 {
+					t.Fatalf("clause %d times: %v", n, err)
+				}
+			})
+		}
+	}
+}
