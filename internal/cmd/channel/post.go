@@ -31,7 +31,15 @@ AUTHORSHIP IS EXPLICIT. --session <id> posts as the Worker bound to that
 session; --as-me posts as you. One of the two is required, because the server
 treats the session as OPTIONAL and omitting it silently records the human as
 the author with no error — the wrong authorship, indistinguishable from success.
-Refusing here is the only place that can be caught.`,
+Refusing here is the only place that can be caught.
+
+Your worker session id is printed by "hadron team session whoami". Get the
+<address> from "hadron channel list". Everyone who can read the Channel's host
+memory sees the message. The output prints the seq the message was given
+("posted #N as <author>"); --reply-to takes that seq to answer a message, and
+the reply is linked to it (the message carries replyToSeq in --json).
+For your own team chat, "hadron team chat post --reply-to <seq>" needs no
+address or session id.`,
 		Example: `  hadron channel post <address> "shipped #594" --session 01a0a78c…
   hadron channel post <address> - --as-me < note.md`,
 		Args: cobra.ExactArgs(2),
