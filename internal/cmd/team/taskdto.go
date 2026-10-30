@@ -363,6 +363,16 @@ func (e safeTaskError) HumanMessage() string {
 }
 func (e safeTaskError) Unwrap() error { return e.err }
 
+// taskErrorCodes are the public refusal codes shown as the message prefix: every
+// TASK_ code the schema documents on the task mutations, plus BAD_USER_INPUT
+// (#1285). Add a new TASK_ code here when the server documents one.
+var taskErrorCodes = []string{
+	"TASK_BLOCKED", "TASK_BLOCKER_CYCLE", "TASK_NOT_FOUND", "TASK_NOT_OWNER",
+	"TASK_INVALID_TRANSITION", "TASK_HANDLE_QUALIFY", "BAD_USER_INPUT",
+	"TASK_ENDED", "TASK_NOT_ASSIGNEE", "TASK_CHILD_OWNER_MISMATCH",
+	"TASK_OWNER_INVALID", "TASK_ASSIGNEE_INVALID", "TASK_STOPPED",
+}
+
 // mapTaskError is api.MapError for the task commands: the server owns range,
 // state, authority and cycle decisions, so its public code is preserved beside
 // the mapped message, and the human message is made terminal-safe.
@@ -376,7 +386,7 @@ func mapTaskError(err error) error {
 	// show in --json and vanish on the terminal. The codes are constants, never
 	// server text.
 	prefix := ""
-	for _, code := range []string{"TASK_BLOCKED", "TASK_BLOCKER_CYCLE", "TASK_NOT_FOUND", "TASK_NOT_OWNER", "TASK_INVALID_TRANSITION", "TASK_HANDLE_QUALIFY", "BAD_USER_INPUT"} {
+	for _, code := range taskErrorCodes {
 		if api.HasErrorCode(err, code) {
 			prefix = code
 			break
