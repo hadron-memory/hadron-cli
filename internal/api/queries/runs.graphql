@@ -107,6 +107,7 @@ fragment ActionTicketFields on ActionTicket {
 # @genqlient(for: "TriggerAppRunInput.runAsSelf", omitempty: true)
 # @genqlient(for: "TriggerAppRunInput.budgetTokens", omitempty: true)
 # @genqlient(for: "TriggerAppRunInput.budgetActions", omitempty: true)
+# @genqlient(for: "TriggerAppRunInput.agentRef", omitempty: true)
 mutation TriggerAppRun(
   $input: TriggerAppRunInput!
 ) {

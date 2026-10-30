@@ -16,3 +16,19 @@ mutation RunTask(
 ) {
   runTask(nodeRef: $nodeRef, args: $args, appRef: $appRef, runAsSelf: $runAsSelf)
 }
+
+# RunTask naming the Agent an executed run is served as (hadron-server#2849,
+# cli#1268). A separate document, sent only with --agent: an argument in the
+# document is refused by a server that predates it even when its variable is
+# omitted, so folding agentRef into RunTask would break every plain task run
+# on an older server.
+mutation RunTaskWithAgent(
+  $nodeRef: String!
+  $args: JSON
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $runAsSelf: Boolean
+  $agentRef: ID!
+) {
+  runTask(nodeRef: $nodeRef, args: $args, appRef: $appRef, runAsSelf: $runAsSelf, agentRef: $agentRef)
+}
