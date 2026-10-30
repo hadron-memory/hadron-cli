@@ -255,8 +255,15 @@ adds the GraphQL adapter (`internal/cmd/team/host_wakes.go`) and wires it in
   cursor) refuses the whole read.
 - `WAKE_BUDGET_EXHAUSTED` returns no wakes.
 - `acknowledgeWakes` sends one proof per call.
-- `AckMixed` stays off: A′ (#2072) is on server main, but its deployment
-  was not verified from the CLI.
+- `AckMixed` follows `delivery.ack_mixed` (cli#1229), default false. An
+  operator sets true only after verifying A′ (#2072, ad7f1c2) is deployed.
+  Mixed wake acknowledgment records tick/task receipts without moving chat
+  delivered-through or read position; mention text still uses its own batch.
+  The setting is shown as text `ack-mixed on|off` and JSON `delivery.ackMixed`.
+  Previously typed records reconcile without retyping using the current pass's
+  newly issued proof, within the 15-minute proof window. Non-boolean values
+  (including strings/null) are refused. The existing deliverer/record algorithm
+  is unchanged; this slice exposes its already-supported A′ behavior.
 
 - **The read:** in the same step, after the batches, while chat delivery is
   on. Each wake goes on its worker's chain behind that worker's batches.

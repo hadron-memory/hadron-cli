@@ -201,9 +201,9 @@ func (s *hostServer) Hold(context.Context, string, string, string) error {
 // wireDelivery turns delivery on for this run: S1's chat batches and the
 // host's due tick and task wakes (hadron-cli#1178), typed through Orca on
 // the same per-worker chain, with the status snapshot written after each
-// step. AckMixed stays off: a wake naming channels or a mention is typed
-// once and acknowledged only once it no longer does. Holds are unreported
-// until S5 (#940). It returns the deliverer it wired.
+// step. AckMixed follows the operator's A′ (#2072) assertion in host.yaml;
+// its default is off. Holds remain unreported until S5 (#940).
+// It returns the deliverer it wired.
 func wireDelivery(p *hostpoller.Poller, cfg *hostpoller.Config, srv *hostServer, emit func(hostpoller.Event)) *delivery.Deliverer {
 	stateDir := cfg.DeliveryStateDir()
 	book := delivery.NewStatusBook(stateDir)
@@ -217,6 +217,7 @@ func wireDelivery(p *hostpoller.Poller, cfg *hostpoller.Config, srv *hostServer,
 			emit(hostpoller.Event{Time: at.UTC(), Kind: "delivery-failed", Detail: "writing the delivery status: " + err.Error()})
 		}
 	}
+	d.AckMixed = cfg.Delivery.AckMixed
 	d.Wakes = srv
 	p.WakeStep = book.ObserveWakes
 	p.EnableDelivery(srv, d)

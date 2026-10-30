@@ -26,6 +26,31 @@ types the host's due tick and task wakes, so it replaces `ticker-wake` too.
    own read does.
 2. Only then is that worker's delivery enabled on the host poller.
 
+## Acknowledge mixed tick/task wakes
+
+`delivery.ack_mixed` defaults to `false`. Set it to `true` only after verifying
+that the server carries A′ (hadron-server#2072, `ad7f1c2`). This is the
+operator's assertion of that deployed server behavior, not capability detection:
+
+```yaml
+delivery:
+  enabled: true
+  orca_bin: /usr/local/bin/orca
+  ack_mixed: true
+```
+
+With it on, a tick/task wake that also names a mention or channel is acknowledged
+after its tick/task text is confirmed, in the same pass. This records tick/task
+receipts but moves neither channel delivered-through nor the worker's read
+position (R53). The mention text still arrives and is acknowledged in its own
+chat batch. A mention-only wake is never typed or acknowledged by this path.
+With it absent or `false`, mixed wakes keep the existing `ack-held` behavior.
+A previously typed wake reconciles without retyping using the new pass's freshly
+issued proof, not an older proof beyond its 15-minute window. Non-boolean values
+are refused at config load. `team host status` reports `ack-mixed on|off` and
+JSON `delivery.ackMixed`; it describes the configuration, not server capability.
+Changing a live host remains the host operator's separately authorized step.
+
 ## Field mapping
 
 | Router `config.json` | Host config (`host.yaml`) | Notes |

@@ -29,6 +29,7 @@
   "readError": null,
   "delivery": {
     "enabled": false,
+    "ackMixed": false,
     "mode": "disabled",
     "orcaBin": "",
     "lastStepAt": null,

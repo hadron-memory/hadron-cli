@@ -176,3 +176,21 @@ func TestAFailedWakeReadIsReportedAndTheBatchesStillGo(t *testing.T) {
 		t.Fatalf("reads %+v", reads)
 	}
 }
+
+// cli#1229: a later pass reads its own newly issued proof rather than
+// replaying the proof the first pass delivered. Server expiry is QA's leg.
+func TestAckMixed1229PollerReadsCurrentProofEachPass(t *testing.T) {
+	p, _, source, d := wakePoller(t)
+	w := wakeFor("id-iris")
+	w.Proof = "first-issue"
+	source.page = WakePage{Wakes: []delivery.Wake{w}}
+	step(t, p)
+	p.now = func() time.Time { return time.Date(2026, 10, 30, 0, 16, 0, 0, time.UTC) }
+	w.Proof = "fresh-issue-after-16m"
+	source.page = WakePage{Wakes: []delivery.Wake{w}}
+	step(t, p)
+	got := d.deliveries()
+	if source.calls != 2 || len(got) != 2 || got[0].wake.Proof != "first-issue" || got[1].wake.Proof != "fresh-issue-after-16m" {
+		t.Fatalf("reads%d deliveries%+v", source.calls, got)
+	}
+}
