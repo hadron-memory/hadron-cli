@@ -158,3 +158,33 @@ func TestDarkAlarmJSONAndReasonVocabulary1208(t *testing.T) {
 		}
 	}
 }
+
+func TestNonDarkTasklessOutputUnchanged1208(t *testing.T) {
+	for _, ack := range []bool{false, true} {
+		raw := darkEvent1208(ack)
+		raw = strings.Replace(raw, "alarm.dark-worker", "availability.changed", 1)
+		r := taskResponses()
+		r["AgentTeamEvents"] = `{"data":{"agentTeamEvents":[` + raw + `]}}`
+		args := []string{"team", "events"}
+		if ack {
+			r["AlarmAcknowledge"] = `{"data":{"acknowledgeAlarm":` + raw + `}}`
+			args = []string{"team", "alarm", "ack", "evt2"}
+		}
+		_, out, err := runTeamTask(t, r, args...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(out, "worker Rufus") || strings.Contains(out, "overdue") {
+			t.Fatalf("non-dark taskless output changed: %q", out)
+		}
+	}
+}
+func TestDarkSettingsSoleFieldHumanReceipt1208(t *testing.T) {
+	_, out, err := runTeamTask(t, deliveryResponses(), "team", "delivery-settings", "set", "--dark-alarm-window-seconds", "1800")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "Delivery settings updated.\n") || strings.Contains(out, "No setting fields supplied") || !strings.Contains(out, "dark alarm window") {
+		t.Fatalf("sole-field receipt: %s", out)
+	}
+}
