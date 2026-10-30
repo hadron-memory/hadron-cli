@@ -103,11 +103,11 @@ versioned terminal-status@1 contract:
 Precedence: locked, then busy, then dark, then idle. A worker with nothing due
 is never dark. Push only when prompt is empty and status is idle or dark.
 
-Known v1 limit: a tick merged with a mention or task in one wake cannot be aged
-(the server's anchorAt is the oldest reason of any kind), so that worker is
-never reported dark, and a truly overdue merged tick may be missed. The status
-never errs toward a false dark. The closure is a per-tick server field
-(hadron-server#2790), read by hadron-cli#1216.
+Each tick is aged by its own oldest unanswered tick (the server's per-reason
+tickDueAt), so a tick merged with a mention, a task or another ticker's tick in
+one wake is judged on its own. A tick the server gives no such time for (an
+older server, or withheld), a malformed one, or no ticker is no evidence either
+way: an otherwise-idle worker then fails closed to locked/unrecognized.
 
 --all prints ONE JSON array, one entry per active worker of the App.
 
