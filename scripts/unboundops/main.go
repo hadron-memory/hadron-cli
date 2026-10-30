@@ -188,6 +188,8 @@ const header = `# CLI coverage matrix (hadron-cli#1334, #66; cor:api:240:02): ev
 #   excluded <class>: <reason> deliberately not in the CLI. Classes: internal, host-protocol,
 #                              deprecated, not-a-capability, graphical (name what is graphical).
 #                              "Not built yet" and "rarely used" are gaps, never exclusions.
+#                              Only graphical is ruled (cor:api:240:02); the other classes are
+#                              proposed and await a ruling, so the list is not closed.
 #
 # [Query] and [Mutation] list every root field. [Arguments] lists each argument or input field
 # a reached operation never passes (the shallowest one). [Filters] lists every field of a
