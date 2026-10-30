@@ -439,6 +439,31 @@ func ServerCodeOf(err error) string {
 	return ""
 }
 
+// serverCodeError carries the server's code to the --json error envelope (the
+// root handler reads it through ServerCode), so a script can tell FORBIDDEN
+// from UNAUTHENTICATED behind the same exit code. The message is the mapped
+// error's, untouched.
+type serverCodeError struct {
+	error
+	code string
+}
+
+func (e *serverCodeError) Unwrap() error      { return e.error }
+func (e *serverCodeError) ServerCode() string { return e.code }
+
+// MapErrorKeepingCode is MapError that also keeps the server's extensions.code
+// on the result, for the --json envelope's serverCode.
+func MapErrorKeepingCode(err error) error {
+	mapped := MapError(err)
+	if mapped == nil {
+		return nil
+	}
+	if code := ServerCodeOf(err); code != "" {
+		return &serverCodeError{error: mapped, code: code}
+	}
+	return mapped
+}
+
 // graphQLErrors extracts the GraphQL error list from any of the shapes an
 // operation can fail as: a bare list, a single error, or a non-200 HTTPError
 // whose parsed body carries them.
