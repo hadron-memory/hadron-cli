@@ -10,6 +10,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
@@ -335,6 +336,16 @@ ageFrom; --tree changes text only.`,
 					return err
 				}
 				bounds[i] = v
+			}
+			for i := 0; i < 6; i += 2 {
+				if bounds[i] == nil || bounds[i+1] == nil {
+					continue
+				}
+				a, _ := time.Parse(time.RFC3339, *bounds[i])
+				z, _ := time.Parse(time.RFC3339, *bounds[i+1])
+				if a.After(z) {
+					return exitcode.Newf(exitcode.Usage, "--%s is after --%s: the range is empty (bounds are inclusive; equal instants are valid)", taskTimeFlags[i], taskTimeFlags[i+1])
+				}
 			}
 			var overdueIn *bool
 			if cmd.Flags().Changed("overdue") {
