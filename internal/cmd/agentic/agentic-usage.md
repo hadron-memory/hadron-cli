@@ -3904,6 +3904,8 @@ the server.
 
 `hadron team session served-prompts <session-id>` reads one explicit session’s history in server order (newest served time, then ordinal). Find ids with `team session list`; no ambient binding/App selects the session. `--limit 0..200` (default 50) and `--offset N` page records; `--limit 0` counts only. `--provenance-limit 0..200` (default 50) and `--provenance-offset N` independently page each record’s provenance. JSON is `{servedPrompts: {items: [], total, limit, offset}}`, or `{servedPrompts: null}` for a missing/unreadable session. Empty records can also mean concealment or serving off. Actual provider errors retain their mapped exit code. No source bodies are read; variables may contain sensitive values. For chatbot chat records, use `chat served-prompts <chat-id>` (below); this is separate from team-chat Channels.
 
+`hadron team session outcome <session-id> <0..1> [--ref <text>] [--meta <json>]` (cli#1351, server#2896) records a session's outcome through `recordSessionOutcome`: a number from 0 to 1, an optional opaque `--ref` and optional `--meta` JSON. It works on any session the caller owns, not only the bound one. `--ref`/`--meta` are sent only when given, so leaving one out keeps the stored value. A malformed `--meta` or an outcome that is not a finite number exits 2 with nothing sent. The range, the owner gate (the attributed person, or an App key for its own App's person-less session; cor:dmo:070:05, cor:acl:010:02) and the MCP-only OAuth refusal are the server's: out of range or an unknown session exits 2 (`BAD_USER_INPUT`), not the owner exits 8 (`FORBIDDEN`), an MCP-only OAuth credential exits 3. `--json` errors keep `serverCode`. `--json` success is `{sessionId, outcome, outcomeRef, outcomeMeta}` (null when unset). Recording an outcome does not revive a lapsed session.
+
 hadron node provenance <compiled-node-ref> --revision <n> [--limit 0..100] [--offset N | --all] [-m <memory>]
 
 ## Compiled prompt provenance (916 C1b)
@@ -3987,6 +3989,7 @@ hadron team worker compile <worker> [--no-set-pointer]
 `skill lint` also asks the S11d provider for `skill-include-broken` warnings, using LINT plans for the explicit selected memories and filtering exact selected node IDs. Warnings preserve the provider message and remain exit0 (`--strict` promotes to5). Literal notice text alone is never interpreted as a broken include. A failed/unavailable provider plan returns an error, not a clean lint. Existing local rules and selectors remain, no rendered body is fetched and no file is written. Skill export continues to use the provider-resolved body.
 
 hadron team session served-prompts <session-id> [--limit N] [--offset N] [--provenance-limit N] [--provenance-offset N]
+hadron team session outcome <session-id> <0..1> [--ref <text>] [--meta <json>]
 hadron run served-prompt <run-ref> [--limit N] [--offset N | --all]
 hadron team worker served-prompt <worker-id-or-qualified-URN> [--limit N] [--offset N | --all]
 

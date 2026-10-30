@@ -46,6 +46,7 @@ WHICH COMMAND, IN ORDER:
   stop being this worker       session end --handoff-file <notes> — only now
   see sessions                 session list
   read one session's prompts  session served-prompts <session-id>
+  record how a session went    session outcome <session-id> <0..1>
 
 TWO THINGS ARE CALLED A SESSION, AND ENDING ONE DOES NOT END THE OTHER
 (hadron-server#1034). This group manages the first:
@@ -80,6 +81,7 @@ holds nothing), so it has nothing to release.`,
 	cmd.AddCommand(newCmdSessionResumeClaim(f))
 	cmd.AddCommand(newCmdSessionShed(f))
 	cmd.AddCommand(newCmdSessionList(f))
+	cmd.AddCommand(newCmdSessionOutcome(f))
 	cmd.AddCommand(servedprompt.NewSession(f))
 	cmd.AddCommand(newCmdSessionSyncModel(f))
 	cmd.AddCommand(newCmdSessionSetModel(f))
