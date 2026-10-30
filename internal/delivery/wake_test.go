@@ -553,3 +553,32 @@ func TestWakeRecordsAndEventsCarryNoProofTextOrKeys(t *testing.T) {
 		t.Fatalf("span %q", s)
 	}
 }
+
+// cli#1229: a mixed wake typed while AckMixed was off reconciles with the
+// freshly issued proof after the operator enables A-prime, even after 15m.
+func TestAckMixed1229ReconcileUsesFreshProof(t *testing.T) {
+	h := newHarness(t)
+	w := h.wake(tick("tk1", tickAt), mention())
+	w.NamesChannels = true
+	if o := h.deliverWake(w); o.Reason != "ack-held" {
+		t.Fatal(o)
+	}
+	h.now = h.now.Add(16 * time.Minute)
+	h.d.AckMixed = true
+	// A stale proof is refused; neither failure nor success may retype.
+	h.wakeServer().errs = []error{errors.New("WAKE_PROOF_STALE")}
+	w = h.wake(tick("tk1", tickAt), mention())
+	w.Proof = "stale-proof"
+	_ = h.deliverWake(w)
+	w = h.wake(tick("tk1", tickAt), mention())
+	w.Proof = "fresh-after-16m"
+	o := h.deliverWake(w)
+	if o.Kind != Reconciled || len(h.orca.sends) != 1 {
+		t.Fatalf("%+v sends%d", o, len(h.orca.sends))
+	}
+	a := h.wakeServer().acks
+	if len(a) != 2 || a[0] != "stale-proof" || a[1] != "fresh-after-16m" {
+		t.Fatal(a)
+	}
+	h.wantWakeRecord(tick("tk1", tickAt).Key(), WakeAcked)
+}
