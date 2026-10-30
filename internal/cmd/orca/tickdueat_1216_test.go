@@ -67,7 +67,7 @@ func TestStatusTickDueAtAgesEachMergedTick(t *testing.T) {
 		// unanswered tick is 16:10, over one interval old.
 		"old mention, overdue tick": {"2026-10-29T15:00:00Z", mention + "," + tickReason("tk5", "2026-10-29T16:30:00Z", "2026-10-29T16:10:00Z"), five, "dark", "no_turn_for_due_ticker"},
 		// Joost's #1211 fixture, per ticker: A overdue, B fresh, in one wake.
-		"two tickers, A overdue": {"2026-10-29T16:00:00Z", tickReason("tkA", "2026-10-29T16:30:00Z", "2026-10-29T16:00:00Z") + "," + tickReason("tkB", "2026-10-29T16:30:00Z", "2026-10-29T16:30:00Z"), two, "dark", "no_turn_for_due_ticker"},
+		"two tickers, A overdue":      {"2026-10-29T16:00:00Z", tickReason("tkA", "2026-10-29T16:30:00Z", "2026-10-29T16:00:00Z") + "," + tickReason("tkB", "2026-10-29T16:30:00Z", "2026-10-29T16:30:00Z"), two, "dark", "no_turn_for_due_ticker"},
 		"two tickers, A unsubscribed": {"2026-10-29T16:00:00Z", tickReason("tkA", "2026-10-29T16:30:00Z", "2026-10-29T16:00:00Z") + "," + tickReason("tkB", "2026-10-29T16:30:00Z", "2026-10-29T16:30:00Z"), onlyB, "idle", nil},
 		// A tick-only wake is aged by its tickDueAt too, not by anchorAt.
 		"tick only, tickDueAt fresh": {"2026-10-29T16:00:00Z", tickReason("tk5", "2026-10-29T16:30:00Z", "2026-10-29T16:30:00Z"), five, "idle", nil},
