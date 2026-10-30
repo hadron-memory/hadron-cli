@@ -22,11 +22,14 @@ type Query {
 type Mutation {
   beginUpload(input: UploadInput!): Boolean
   createThing(input: ThingInput!): Boolean
+  link(input: LinkInput!): Boolean
 }
 input AgentFilter { ownedByMe: Boolean type: String }
 input UploadInput { memoryId: ID! filename: String requestId: String }
 input ThingInput { name: String note: String }
 input Where { and: [Where!] column: String value: String }
+input LinkInput { edges: [EdgeIn!] meta: EdgeIn }
+input EdgeIn { loc: String weight: Int }
 type Agent { id: ID! }
 type User { id: ID! }
 `
@@ -236,6 +239,35 @@ func TestVariableInputFieldsFollowTheGoCode(t *testing.T) {
 	args, _ = deriveFacts(types, ops, u).argumentItems()
 	if len(args) != 0 {
 		t.Errorf("decoding JSON into the input reaches every field, got %v", keysOf(args))
+	}
+}
+
+// A list of object literals passes each element's fields at the list's own
+// path; a variable element hands that path to the Go code.
+func TestListOfObjectLiteralsPassesTheirFields(t *testing.T) {
+	ops := fixtureOps(t, `mutation Link($loc: String) { link(input: { edges: [{ loc: $loc }] }) }`)
+	args, _ := deriveFacts(fixtureTypes(t), ops, calls("Link")).argumentItems()
+	if got := strings.Join(keysOf(args), " "); got != "Mutation.link(input.edges.weight) Mutation.link(input.meta)" {
+		t.Errorf("want the element's unspelled field and the unpassed one as gaps, got %q", got)
+	}
+	ops = fixtureOps(t, `mutation Link($e: EdgeIn!) { link(input: { edges: [{ loc: "x" }, $e] }) }`)
+	u := calls("Link")
+	u.fields["EdgeIn.weight"] = true
+	args, _ = deriveFacts(fixtureTypes(t), ops, u).argumentItems()
+	if got := strings.Join(keysOf(args), " "); got != "Mutation.link(input.meta)" {
+		t.Errorf("a variable element lets the Go code reach the rest, got %q", got)
+	}
+}
+
+// Decoding JSON into an input reaches its nested inputs too, through objects
+// and lists alike.
+func TestDecodedInputReachesNestedInputs(t *testing.T) {
+	ops := fixtureOps(t, `mutation Link($input: LinkInput!) { link(input: $input) }`)
+	u := calls("Link")
+	u.decoded["LinkInput"] = true
+	args, _ := deriveFacts(fixtureTypes(t), ops, u).argumentItems()
+	if len(args) != 0 {
+		t.Errorf("decoding JSON into LinkInput reaches every nested field, got %v", keysOf(args))
 	}
 }
 
