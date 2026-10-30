@@ -8,6 +8,8 @@ import (
 	"testing"
 )
 
+// Jane's original dirty help page is unavailable; this pins the confirmed
+// synthetic large-page failure from #1312, not her exact scope-create run.
 // Exceed pipe capacity after the early heading so a reader that exits on its
 // first match cannot silently turn producer SIGPIPE into a negative result.
 const largeInventoryHelp = `#!/usr/bin/env bash
