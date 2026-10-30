@@ -2927,7 +2927,9 @@ Conventions:
   unavailable or inapplicable. Metadata is a separate best-effort App query:
   its stricter access gate never denies readable chat. A parsed old-schema
   `beforeSeq` validation refusal explicitly disables comparison (`head: null`);
-  other head-probe failures fail the read. Cursor lookup failures leave null.
+  other head-probe failures fail the read. Cursor lookup failures leave null,
+  and so does a worker with no read state on the default Channel (not
+  registered or not readable, #1272); a registered never-read worker reads 0.
   Shared connections or edge/backend pools can return two equally stale pages.
   **Session attribution (#817):** bound reads of the same App/deployment carry
   the session with `advanceReadState:false`, including the independent head.
