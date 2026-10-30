@@ -307,3 +307,51 @@ func TestAgentClone998LostResponseGuidanceIsCloneSpecific(t *testing.T) {
 		t.Fatal(stderr)
 	}
 }
+
+// cli#998 (LOCAL P2): MapError scans the whole envelope on several paths, so
+// the clone's category, serverCode and requestId must be scoped to the first
+// error on every HTTP status, not just a 200.
+func TestAgentClone998ClassificationIgnoresLaterErrorsOnEveryStatus(t *testing.T) {
+	run := func(status int, body string) (map[string]any, int, int) {
+		var calls atomic.Int32
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			calls.Add(1)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(status)
+			_, _ = w.Write([]byte(body))
+		}))
+		defer srv.Close()
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"--server", srv.URL, "agent", "clone", "source", "--to", "org", "--json"})
+		err := root.Execute()
+		if err == nil {
+			t.Fatal("succeeded")
+		}
+		code := renderError(f, err)
+		var envelope map[string]map[string]any
+		if e := json.Unmarshal([]byte(out.String()), &envelope); e != nil {
+			t.Fatalf("%d: %v %s", status, e, out.String())
+		}
+		return envelope["error"], code, int(calls.Load())
+	}
+	for _, status := range []int{200, 400, 403, 500} {
+		// Empty-details first error, later UNAUTHENTICATED: same exit on every status, no details.
+		failure, code, calls := run(status, `{"errors":[{"message":"first","extensions":{"unrelated":"X"}},{"message":"later","extensions":{"code":"UNAUTHENTICATED"}}]}`)
+		if code != 1 || calls != 1 || failure["extensions"] != nil {
+			t.Fatalf("status %d: code %d calls %d %v", status, code, calls, failure)
+		}
+		// First clone refusal, later internal fault: nothing of the later one leaks.
+		failure, code, calls = run(status, `{"errors":[{"message":"first","extensions":{"code":"CLONE_BASE_UNUSABLE","reason":"R"}},{"message":"later","extensions":{"code":"INTERNAL_SERVER_ERROR","requestId":"req-9"}}]}`)
+		details, _ := failure["extensions"].(map[string]any)
+		if code != 8 || calls != 1 || details["code"] != "CLONE_BASE_UNUSABLE" || details["reason"] != "R" {
+			t.Fatalf("status %d: code %d calls %d %v", status, code, calls, failure)
+		}
+		if _, ok := failure["serverCode"]; ok {
+			t.Fatalf("status %d borrowed serverCode: %v", status, failure)
+		}
+		if _, ok := failure["requestId"]; ok || strings.Contains(failure["message"].(string), "later") {
+			t.Fatalf("status %d borrowed later error: %v", status, failure)
+		}
+	}
+}

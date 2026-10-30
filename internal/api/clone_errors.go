@@ -35,11 +35,32 @@ func firstCloneError(err error) *gqlerror.Error {
 	return nil
 }
 
+// firstErrorView lets MapError see only the first GraphQL error, so the exit
+// category, internal-fault ids and message can't be borrowed from a later one
+// (MapError otherwise scans the whole envelope on several paths). The original
+// stays in the chain, so transport wrappers (request-id header) still resolve.
+func firstErrorView(err error) error {
+	first := firstCloneError(err)
+	if first == nil {
+		return err
+	}
+	return &firstErrorOnly{error: err, first: gqlerror.List{first}}
+}
+
+type firstErrorOnly struct {
+	error
+	first gqlerror.List
+}
+
+// The list is listed first: errors.As finds the one-error list before the
+// original's full one.
+func (e *firstErrorOnly) Unwrap() []error { return []error{e.first, e.error} }
+
 func MapCloneAgentError(err error) error {
 	if err == nil {
 		return nil
 	}
-	mapped := MapError(err)
+	mapped := MapError(firstErrorView(err))
 	if exitcode.FromError(mapped) == exitcode.Unavailable {
 		// MapError's generic "retry shortly" advice is wrong for a non-idempotent
 		// create: say what failed, then to inspect state before repeating.
