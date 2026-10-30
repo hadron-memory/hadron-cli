@@ -14565,6 +14565,110 @@ func (v *ChannelMessageFields) GetMentions() []string { return v.Mentions }
 // GetNodeId returns ChannelMessageFields.NodeId, and is useful for accessing the field via an interface.
 func (v *ChannelMessageFields) GetNodeId() string { return v.NodeId }
 
+// ChannelMessageSearchChannelMessageSearchTeamChatSearchPage includes the requested fields of the GraphQL type TeamChatSearchPage.
+// The GraphQL type's documentation follows.
+//
+// One page of a chat-history search (#2299, hrn:node:hadronmemory.com:specs:cor:agt:020:04). Newest first. A call stops at
+// a full page or at the scan bound, whichever comes first: complete is true only when the search reached the start of the
+// history, and then there is no cursor. An empty page with complete false means the scan bound fired before any match: it
+// may continue with the cursor. No matches is only ever an empty page with complete true.
+type ChannelMessageSearchChannelMessageSearchTeamChatSearchPage struct {
+	ChatSearchPageFields `json:"-"`
+}
+
+// GetChannelId returns ChannelMessageSearchChannelMessageSearchTeamChatSearchPage.ChannelId, and is useful for accessing the field via an interface.
+func (v *ChannelMessageSearchChannelMessageSearchTeamChatSearchPage) GetChannelId() *string {
+	return v.ChatSearchPageFields.ChannelId
+}
+
+// GetChannelIncarnation returns ChannelMessageSearchChannelMessageSearchTeamChatSearchPage.ChannelIncarnation, and is useful for accessing the field via an interface.
+func (v *ChannelMessageSearchChannelMessageSearchTeamChatSearchPage) GetChannelIncarnation() *int {
+	return v.ChatSearchPageFields.ChannelIncarnation
+}
+
+// GetComplete returns ChannelMessageSearchChannelMessageSearchTeamChatSearchPage.Complete, and is useful for accessing the field via an interface.
+func (v *ChannelMessageSearchChannelMessageSearchTeamChatSearchPage) GetComplete() bool {
+	return v.ChatSearchPageFields.Complete
+}
+
+// GetCursor returns ChannelMessageSearchChannelMessageSearchTeamChatSearchPage.Cursor, and is useful for accessing the field via an interface.
+func (v *ChannelMessageSearchChannelMessageSearchTeamChatSearchPage) GetCursor() *string {
+	return v.ChatSearchPageFields.Cursor
+}
+
+// GetItems returns ChannelMessageSearchChannelMessageSearchTeamChatSearchPage.Items, and is useful for accessing the field via an interface.
+func (v *ChannelMessageSearchChannelMessageSearchTeamChatSearchPage) GetItems() []*ChatSearchPageFieldsItemsTeamChatSearchMatch {
+	return v.ChatSearchPageFields.Items
+}
+
+func (v *ChannelMessageSearchChannelMessageSearchTeamChatSearchPage) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ChannelMessageSearchChannelMessageSearchTeamChatSearchPage
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ChannelMessageSearchChannelMessageSearchTeamChatSearchPage = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ChatSearchPageFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalChannelMessageSearchChannelMessageSearchTeamChatSearchPage struct {
+	ChannelId *string `json:"channelId"`
+
+	ChannelIncarnation *int `json:"channelIncarnation"`
+
+	Complete bool `json:"complete"`
+
+	Cursor *string `json:"cursor"`
+
+	Items []*ChatSearchPageFieldsItemsTeamChatSearchMatch `json:"items"`
+}
+
+func (v *ChannelMessageSearchChannelMessageSearchTeamChatSearchPage) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ChannelMessageSearchChannelMessageSearchTeamChatSearchPage) __premarshalJSON() (*__premarshalChannelMessageSearchChannelMessageSearchTeamChatSearchPage, error) {
+	var retval __premarshalChannelMessageSearchChannelMessageSearchTeamChatSearchPage
+
+	retval.ChannelId = v.ChatSearchPageFields.ChannelId
+	retval.ChannelIncarnation = v.ChatSearchPageFields.ChannelIncarnation
+	retval.Complete = v.ChatSearchPageFields.Complete
+	retval.Cursor = v.ChatSearchPageFields.Cursor
+	retval.Items = v.ChatSearchPageFields.Items
+	return &retval, nil
+}
+
+// ChannelMessageSearchResponse is returned by ChannelMessageSearch on success.
+type ChannelMessageSearchResponse struct {
+	// Search ANY Channel's history by ref (its id, or its address), the Channel-addressed twin of teamChatSearch with the
+	// same contract (#2299). A Channel you may not read, or one that does not exist, is CHANNEL_NOT_FOUND, identically.
+	ChannelMessageSearch *ChannelMessageSearchChannelMessageSearchTeamChatSearchPage `json:"channelMessageSearch"`
+}
+
+// GetChannelMessageSearch returns ChannelMessageSearchResponse.ChannelMessageSearch, and is useful for accessing the field via an interface.
+func (v *ChannelMessageSearchResponse) GetChannelMessageSearch() *ChannelMessageSearchChannelMessageSearchTeamChatSearchPage {
+	return v.ChannelMessageSearch
+}
+
 // ChannelMessagesChannelMessagesTeamChatMessagesPage includes the requested fields of the GraphQL type TeamChatMessagesPage.
 type ChannelMessagesChannelMessagesTeamChatMessagesPage struct {
 	// Number of canonical messages matching this read's sinceSeq/beforeSeq cursor
@@ -15224,6 +15328,75 @@ type ChatMessagesResponse struct {
 func (v *ChatMessagesResponse) GetFindNodes() *ChatMessagesFindNodesFindNodesResult {
 	return v.FindNodes
 }
+
+// Chat-history search (hadron-cli#1327 over hadron-server#2882, cor:agt:020:04).
+// Results are references only (seq + message URN): no body, no snippet. The
+// server owns the query bound, the default and maximum page, and the scan bound,
+// so the CLI passes limit/cursor through and never clamps them. Optional
+// variables are omitted, not null, when unset.
+type ChatSearchPageFields struct {
+	// The Channel searched. NULL only when the App has no team chat yet (then complete is true and the page empty).
+	ChannelId          *string `json:"channelId"`
+	ChannelIncarnation *int    `json:"channelIncarnation"`
+	// True when the search reached the start of the history (no cursor), false when it stopped at a full page or the scan bound.
+	Complete bool `json:"complete"`
+	// Opaque continuation, bound to the query, the Channel, its incarnation and the caller; any other use is
+	// TEAM_CHAT_SEARCH_CURSOR_INVALID. After a full page it resumes after the last match; after the scan bound it resumes
+	// below the last scanned message, so nothing is scanned twice or skipped. Null when complete.
+	Cursor *string                                         `json:"cursor"`
+	Items  []*ChatSearchPageFieldsItemsTeamChatSearchMatch `json:"items"`
+}
+
+// GetChannelId returns ChatSearchPageFields.ChannelId, and is useful for accessing the field via an interface.
+func (v *ChatSearchPageFields) GetChannelId() *string { return v.ChannelId }
+
+// GetChannelIncarnation returns ChatSearchPageFields.ChannelIncarnation, and is useful for accessing the field via an interface.
+func (v *ChatSearchPageFields) GetChannelIncarnation() *int { return v.ChannelIncarnation }
+
+// GetComplete returns ChatSearchPageFields.Complete, and is useful for accessing the field via an interface.
+func (v *ChatSearchPageFields) GetComplete() bool { return v.Complete }
+
+// GetCursor returns ChatSearchPageFields.Cursor, and is useful for accessing the field via an interface.
+func (v *ChatSearchPageFields) GetCursor() *string { return v.Cursor }
+
+// GetItems returns ChatSearchPageFields.Items, and is useful for accessing the field via an interface.
+func (v *ChatSearchPageFields) GetItems() []*ChatSearchPageFieldsItemsTeamChatSearchMatch {
+	return v.Items
+}
+
+// ChatSearchPageFieldsItemsTeamChatSearchMatch includes the requested fields of the GraphQL type TeamChatSearchMatch.
+// The GraphQL type's documentation follows.
+//
+// One match of a chat-history search (#2299, hrn:node:hadronmemory.com:specs:cor:agt:020:04): the canonical message
+// reference a read returns, and nothing else. No body, no snippet: the caller reads the message to see it.
+type ChatSearchPageFieldsItemsTeamChatSearchMatch struct {
+	// The Channel searched.
+	ChannelId string `json:"channelId"`
+	// That Channel's incarnation at the search.
+	ChannelIncarnation int `json:"channelIncarnation"`
+	// The message node's id.
+	NodeId string `json:"nodeId"`
+	Seq    int    `json:"seq"`
+	// The message's canonical URN, as TeamChatMessage.urn (null when it would not resolve back to the message).
+	Urn *string `json:"urn"`
+}
+
+// GetChannelId returns ChatSearchPageFieldsItemsTeamChatSearchMatch.ChannelId, and is useful for accessing the field via an interface.
+func (v *ChatSearchPageFieldsItemsTeamChatSearchMatch) GetChannelId() string { return v.ChannelId }
+
+// GetChannelIncarnation returns ChatSearchPageFieldsItemsTeamChatSearchMatch.ChannelIncarnation, and is useful for accessing the field via an interface.
+func (v *ChatSearchPageFieldsItemsTeamChatSearchMatch) GetChannelIncarnation() int {
+	return v.ChannelIncarnation
+}
+
+// GetNodeId returns ChatSearchPageFieldsItemsTeamChatSearchMatch.NodeId, and is useful for accessing the field via an interface.
+func (v *ChatSearchPageFieldsItemsTeamChatSearchMatch) GetNodeId() string { return v.NodeId }
+
+// GetSeq returns ChatSearchPageFieldsItemsTeamChatSearchMatch.Seq, and is useful for accessing the field via an interface.
+func (v *ChatSearchPageFieldsItemsTeamChatSearchMatch) GetSeq() int { return v.Seq }
+
+// GetUrn returns ChatSearchPageFieldsItemsTeamChatSearchMatch.Urn, and is useful for accessing the field via an interface.
+func (v *ChatSearchPageFieldsItemsTeamChatSearchMatch) GetUrn() *string { return v.Urn }
 
 // ChatServedPromptsChatServedPromptsServedPromptsPage includes the requested fields of the GraphQL type ServedPromptsPage.
 type ChatServedPromptsChatServedPromptsServedPromptsPage struct {
@@ -54957,6 +55130,117 @@ type TeamChatReadMetadataResponse struct {
 // GetApp returns TeamChatReadMetadataResponse.App, and is useful for accessing the field via an interface.
 func (v *TeamChatReadMetadataResponse) GetApp() *TeamChatReadMetadataApp { return v.App }
 
+// TeamChatSearchResponse is returned by TeamChatSearch on success.
+type TeamChatSearchResponse struct {
+	// Search a team App's chat history (#2299, hrn:node:hadronmemory.com:specs:cor:agt:020:04): a literal,
+	// case-insensitive substring of the message text (% _ and the backslash are ordinary characters), newest first, one
+	// channel at a time, through the same read gate as teamChatMessages. The search matches what a read shows (the canonical
+	// read projection), returns references only, and never moves a read position, delivered mark or attention.
+	// query is 2 to 200 characters (code points, untrimmed); outside that is TEAM_CHAT_SEARCH_QUERY_LENGTH, answered the same
+	// for every caller before any message is read. limit defaults to 20 and is clamped to 50 (below 1 is BAD_USER_INPUT).
+	// Each call scans at most 1,000 messages; see TeamChatSearchPage for complete and cursor. A chat hosted in an encrypted
+	// memory is TEAM_CHAT_SEARCH_ENCRYPTED, never an empty page. An App with no team chat yet answers the complete empty page.
+	// appRef accepts the entity's ID or URN.
+	TeamChatSearch *TeamChatSearchTeamChatSearchTeamChatSearchPage `json:"teamChatSearch"`
+}
+
+// GetTeamChatSearch returns TeamChatSearchResponse.TeamChatSearch, and is useful for accessing the field via an interface.
+func (v *TeamChatSearchResponse) GetTeamChatSearch() *TeamChatSearchTeamChatSearchTeamChatSearchPage {
+	return v.TeamChatSearch
+}
+
+// TeamChatSearchTeamChatSearchTeamChatSearchPage includes the requested fields of the GraphQL type TeamChatSearchPage.
+// The GraphQL type's documentation follows.
+//
+// One page of a chat-history search (#2299, hrn:node:hadronmemory.com:specs:cor:agt:020:04). Newest first. A call stops at
+// a full page or at the scan bound, whichever comes first: complete is true only when the search reached the start of the
+// history, and then there is no cursor. An empty page with complete false means the scan bound fired before any match: it
+// may continue with the cursor. No matches is only ever an empty page with complete true.
+type TeamChatSearchTeamChatSearchTeamChatSearchPage struct {
+	ChatSearchPageFields `json:"-"`
+}
+
+// GetChannelId returns TeamChatSearchTeamChatSearchTeamChatSearchPage.ChannelId, and is useful for accessing the field via an interface.
+func (v *TeamChatSearchTeamChatSearchTeamChatSearchPage) GetChannelId() *string {
+	return v.ChatSearchPageFields.ChannelId
+}
+
+// GetChannelIncarnation returns TeamChatSearchTeamChatSearchTeamChatSearchPage.ChannelIncarnation, and is useful for accessing the field via an interface.
+func (v *TeamChatSearchTeamChatSearchTeamChatSearchPage) GetChannelIncarnation() *int {
+	return v.ChatSearchPageFields.ChannelIncarnation
+}
+
+// GetComplete returns TeamChatSearchTeamChatSearchTeamChatSearchPage.Complete, and is useful for accessing the field via an interface.
+func (v *TeamChatSearchTeamChatSearchTeamChatSearchPage) GetComplete() bool {
+	return v.ChatSearchPageFields.Complete
+}
+
+// GetCursor returns TeamChatSearchTeamChatSearchTeamChatSearchPage.Cursor, and is useful for accessing the field via an interface.
+func (v *TeamChatSearchTeamChatSearchTeamChatSearchPage) GetCursor() *string {
+	return v.ChatSearchPageFields.Cursor
+}
+
+// GetItems returns TeamChatSearchTeamChatSearchTeamChatSearchPage.Items, and is useful for accessing the field via an interface.
+func (v *TeamChatSearchTeamChatSearchTeamChatSearchPage) GetItems() []*ChatSearchPageFieldsItemsTeamChatSearchMatch {
+	return v.ChatSearchPageFields.Items
+}
+
+func (v *TeamChatSearchTeamChatSearchTeamChatSearchPage) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamChatSearchTeamChatSearchTeamChatSearchPage
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamChatSearchTeamChatSearchTeamChatSearchPage = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ChatSearchPageFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamChatSearchTeamChatSearchTeamChatSearchPage struct {
+	ChannelId *string `json:"channelId"`
+
+	ChannelIncarnation *int `json:"channelIncarnation"`
+
+	Complete bool `json:"complete"`
+
+	Cursor *string `json:"cursor"`
+
+	Items []*ChatSearchPageFieldsItemsTeamChatSearchMatch `json:"items"`
+}
+
+func (v *TeamChatSearchTeamChatSearchTeamChatSearchPage) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamChatSearchTeamChatSearchTeamChatSearchPage) __premarshalJSON() (*__premarshalTeamChatSearchTeamChatSearchTeamChatSearchPage, error) {
+	var retval __premarshalTeamChatSearchTeamChatSearchTeamChatSearchPage
+
+	retval.ChannelId = v.ChatSearchPageFields.ChannelId
+	retval.ChannelIncarnation = v.ChatSearchPageFields.ChannelIncarnation
+	retval.Complete = v.ChatSearchPageFields.Complete
+	retval.Cursor = v.ChatSearchPageFields.Cursor
+	retval.Items = v.ChatSearchPageFields.Items
+	return &retval, nil
+}
+
 // TeamChatThreadAttributedResponse is returned by TeamChatThreadAttributed on success.
 type TeamChatThreadAttributedResponse struct {
 	// Read a team App's chat (#939), seq-ordered ascending, as a uniform
@@ -70030,6 +70314,26 @@ func (v *__CastWorkerPreviewInput) GetRole() *string { return v.Role }
 // GetName returns __CastWorkerPreviewInput.Name, and is useful for accessing the field via an interface.
 func (v *__CastWorkerPreviewInput) GetName() *string { return v.Name }
 
+// __ChannelMessageSearchInput is used internally by genqlient
+type __ChannelMessageSearchInput struct {
+	ChannelRef string  `json:"channelRef"`
+	Query      string  `json:"query"`
+	Limit      *int    `json:"limit,omitempty"`
+	Cursor     *string `json:"cursor,omitempty"`
+}
+
+// GetChannelRef returns __ChannelMessageSearchInput.ChannelRef, and is useful for accessing the field via an interface.
+func (v *__ChannelMessageSearchInput) GetChannelRef() string { return v.ChannelRef }
+
+// GetQuery returns __ChannelMessageSearchInput.Query, and is useful for accessing the field via an interface.
+func (v *__ChannelMessageSearchInput) GetQuery() string { return v.Query }
+
+// GetLimit returns __ChannelMessageSearchInput.Limit, and is useful for accessing the field via an interface.
+func (v *__ChannelMessageSearchInput) GetLimit() *int { return v.Limit }
+
+// GetCursor returns __ChannelMessageSearchInput.Cursor, and is useful for accessing the field via an interface.
+func (v *__ChannelMessageSearchInput) GetCursor() *string { return v.Cursor }
+
 // __ChannelMessagesInput is used internally by genqlient
 type __ChannelMessagesInput struct {
 	ChannelRef  string  `json:"channelRef"`
@@ -73787,6 +74091,26 @@ type __TeamChatReadMetadataInput struct {
 
 // GetAppRef returns __TeamChatReadMetadataInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__TeamChatReadMetadataInput) GetAppRef() string { return v.AppRef }
+
+// __TeamChatSearchInput is used internally by genqlient
+type __TeamChatSearchInput struct {
+	AppRef string  `json:"appRef"`
+	Query  string  `json:"query"`
+	Limit  *int    `json:"limit,omitempty"`
+	Cursor *string `json:"cursor,omitempty"`
+}
+
+// GetAppRef returns __TeamChatSearchInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamChatSearchInput) GetAppRef() string { return v.AppRef }
+
+// GetQuery returns __TeamChatSearchInput.Query, and is useful for accessing the field via an interface.
+func (v *__TeamChatSearchInput) GetQuery() string { return v.Query }
+
+// GetLimit returns __TeamChatSearchInput.Limit, and is useful for accessing the field via an interface.
+func (v *__TeamChatSearchInput) GetLimit() *int { return v.Limit }
+
+// GetCursor returns __TeamChatSearchInput.Cursor, and is useful for accessing the field via an interface.
+func (v *__TeamChatSearchInput) GetCursor() *string { return v.Cursor }
 
 // __TeamChatThreadAttributedInput is used internally by genqlient
 type __TeamChatThreadAttributedInput struct {
@@ -80041,6 +80365,59 @@ func CastWorkerPreview(
 	}
 
 	data_ = &CastWorkerPreviewResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by ChannelMessageSearch.
+const ChannelMessageSearch_Operation = `
+query ChannelMessageSearch ($channelRef: ID!, $query: String!, $limit: Int, $cursor: String) {
+	channelMessageSearch(channelRef: $channelRef, query: $query, limit: $limit, cursor: $cursor) {
+		... ChatSearchPageFields
+	}
+}
+fragment ChatSearchPageFields on TeamChatSearchPage {
+	channelId
+	channelIncarnation
+	complete
+	cursor
+	items {
+		channelId
+		channelIncarnation
+		nodeId
+		seq
+		urn
+	}
+}
+`
+
+func ChannelMessageSearch(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	channelRef string,
+	query string,
+	limit *int,
+	cursor *string,
+) (data_ *ChannelMessageSearchResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ChannelMessageSearch",
+		Query:  ChannelMessageSearch_Operation,
+		Variables: &__ChannelMessageSearchInput{
+			ChannelRef: channelRef,
+			Query:      query,
+			Limit:      limit,
+			Cursor:     cursor,
+		},
+	}
+
+	data_ = &ChannelMessageSearchResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -95138,6 +95515,59 @@ func TeamChatReadMetadata(
 	}
 
 	data_ = &TeamChatReadMetadataResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamChatSearch.
+const TeamChatSearch_Operation = `
+query TeamChatSearch ($appRef: ID!, $query: String!, $limit: Int, $cursor: String) {
+	teamChatSearch(appRef: $appRef, query: $query, limit: $limit, cursor: $cursor) {
+		... ChatSearchPageFields
+	}
+}
+fragment ChatSearchPageFields on TeamChatSearchPage {
+	channelId
+	channelIncarnation
+	complete
+	cursor
+	items {
+		channelId
+		channelIncarnation
+		nodeId
+		seq
+		urn
+	}
+}
+`
+
+func TeamChatSearch(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	query string,
+	limit *int,
+	cursor *string,
+) (data_ *TeamChatSearchResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamChatSearch",
+		Query:  TeamChatSearch_Operation,
+		Variables: &__TeamChatSearchInput{
+			AppRef: appRef,
+			Query:  query,
+			Limit:  limit,
+			Cursor: cursor,
+		},
+	}
+
+	data_ = &TeamChatSearchResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

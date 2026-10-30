@@ -933,6 +933,14 @@ func codeForExtension(code string) int {
 	// or rate window changes. Keep the server's message; never retry here.
 	case code == "TEAM_CHAT_DUPLICATE" || code == "TEAM_CHAT_POST_RATE_LIMITED":
 		return exitcode.Conflict
+	// Chat-history search refusals (#1327 over server#2882). A query outside
+	// the length bound and a cursor that is not this search's are inputs the
+	// caller fixes (2); a chat hosted in an encrypted memory is a state no
+	// argument changes, refused and never answered as an empty page (5).
+	case code == "TEAM_CHAT_SEARCH_QUERY_LENGTH" || code == "TEAM_CHAT_SEARCH_CURSOR_INVALID":
+		return exitcode.Usage
+	case code == "TEAM_CHAT_SEARCH_ENCRYPTED":
+		return exitcode.Conflict
 	// Transfer state refusals require a fresh preview or a change to the
 	// source/destination state; retrying the same apply cannot help.
 	case code == "CONFLICT" || strings.HasPrefix(code, "DUPLICATE_") ||

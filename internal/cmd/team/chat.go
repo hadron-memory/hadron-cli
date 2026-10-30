@@ -58,6 +58,7 @@ mentions unfired — so that signal comes early rather than in the receipt.`,
 	cmd.AddCommand(newCmdTeamChatMarkRead(f))
 	cmd.AddCommand(newCmdTeamChatCheck(f))
 	cmd.AddCommand(newCmdTeamChatInbox(f))
+	cmd.AddCommand(newCmdTeamChatSearch(f))
 	return cmd
 }
 
