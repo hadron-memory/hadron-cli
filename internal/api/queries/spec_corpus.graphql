@@ -152,6 +152,7 @@ mutation MintMemoryNodes($memoryRef: ID!, $dryRun: Boolean!) {
 # @genqlient(for: "NodeFilter.tags", omitempty: true)
 # @genqlient(for: "NodeFilter.isRunnable", omitempty: true)
 # @genqlient(for: "NodeFilter.locPrefix", omitempty: true)
+# @genqlient(for: "NodeFilter.childrenOf", omitempty: true)
 # @genqlient(for: "NodeFilter.createdBy", omitempty: true)
 # @genqlient(for: "NodeFilter.updatedAfter", omitempty: true)
 # @genqlient(for: "NodeFilter.updatedBefore", omitempty: true)
