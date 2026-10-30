@@ -5,7 +5,7 @@
 # operation and no command reaches it yet. Decide, then commit — either wire it
 # up (the line disappears) or leave it with a `# reason` noting why not.
 
-[Query] 60 unbound
+[Query] 62 unbound
 agentAIConfig
 agentAssets
 agentSubscriptions
@@ -16,6 +16,7 @@ appAIConfig
 appMemoryWriteGrants  # server#2484; separate App-memory grant CLI parity outside C3b
 appNodes
 assets
+channelMessageSearch  # server#2299 chat-history search; picked up by the cli#1118 schema refresh, CLI parity is a separate issue
 chatHistory
 connectionGrant
 dashboardWidgetData
@@ -60,6 +61,7 @@ secret
 sessionsPage
 slackConnection
 slackConnections
+teamChatSearch  # server#2299 chat-history search; picked up by the cli#1118 schema refresh, CLI parity is a separate issue
 teamSpecSchema  # cli#811 team-from-JSON consumer, outside cli#807 comments/search
 tickersPage
 usageActivity
