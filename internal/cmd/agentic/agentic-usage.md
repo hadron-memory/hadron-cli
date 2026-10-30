@@ -1647,7 +1647,11 @@ Conventions:
   the loc's shape — no parent it must have, no contract it inherits, no number
   allocated — so its only edge is an explicit `--inherit <loc>`, a loc that
   already holds a node is refused, and it can't be combined with the tier
-  flags below. Without a `<loc>`, `spec new` allocates the next number in the
+  flags below. For automatic citation-prefixed names, `--title` is only the human text after
+  "<loc> — "; an already-matching prefix is refused with exit 2 before any
+  write (also in --dry-run). Remove the prefix and retry. Explicit --role keeps
+  its literal-title behavior.
+  Without a `<loc>`, `spec new` allocates the next number in the
   legacy numbering and scaffolds a **tier-appropriate** skeleton — a `## Modules`/`## Features`
   index for a product/module root, a load-bearing-point + rule list for a
   feature root, a general-provisions skeleton for a contract, or the
