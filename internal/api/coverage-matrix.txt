@@ -208,7 +208,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 314: 203 command, 100 gap, 11 excluded
+[Mutation] 315: 204 command, 100 gap, 11 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -385,6 +385,7 @@ pushMemoryToGit  gap #60
 reAdoptAutomation  gap #1346
 reassignAgentTask  command team task reassign
 recordAgentTaskProgress  command team task progress
+recordSessionOutcome  command team session outcome
 recordTeamWork  command team session log
 recordUsage  gap #65
 regenerateAppKey  command app key rotate

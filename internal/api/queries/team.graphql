@@ -727,6 +727,31 @@ mutation ResumeTeamSession(
   }
 }
 
+# cli#1351 over server #2896: record a session's outcome (0..1), with an
+# optional opaque reference and JSON metadata. The range check, the owner
+# gate and the MCP-only OAuth refusal are the server's. An omitted ref or
+# meta is not sent, so it is not cleared.
+mutation RecordSessionOutcome(
+  $sessionId: ID!
+  $outcome: Float!
+  # @genqlient(omitempty: true)
+  $outcomeRef: String
+  # @genqlient(omitempty: true)
+  $outcomeMeta: JSON
+) {
+  recordSessionOutcome(
+    sessionId: $sessionId
+    outcome: $outcome
+    outcomeRef: $outcomeRef
+    outcomeMeta: $outcomeMeta
+  ) {
+    id
+    outcome
+    outcomeRef
+    outcomeMeta
+  }
+}
+
 # One session by id — the provenance query resolves worklog sessionIds
 # through this (sessions have no URN; id-only is the cor:api:140 genuine-PK
 # case). Null when not found or not visible.
