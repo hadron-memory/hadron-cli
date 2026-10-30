@@ -219,7 +219,10 @@ func strOrList(list []string) string {
 func newCmdTeamTaskList(f *cmdutil.Factory) *cobra.Command {
 	var statuses []string
 	var assignee, owner, parent, tag, team, staleOver, text string
-	var queued, rootsOnly, tree bool
+	var queued, rootsOnly, tree, overdue bool
+	var tagsAny, tagsAll []string
+	var source string
+	var times [6]string
 	var limit, offset int
 	cmd := &cobra.Command{
 		Use:     "list",
@@ -233,6 +236,16 @@ filters by tag. --text matches a case-insensitive substring of title and descrip
 only, ANDed with other filters. Text is sent unchanged; the server trims and
 refuses blank or over-200-character values (BAD_USER_INPUT, exit 2).
 --limit/--offset page (default 20, cap 200); a full default page says more may exist.
+
+--tag-any (at least one) and --tag-all (every one) repeat; a comma is part of a
+tag, not a separator. --source matches the exact value, never a prefix.
+--overdue lists tasks whose start-by has passed that are not started, not
+ended and not backlog (backlog is never overdue); --overdue=false lists all
+other tasks. This is a filter, not an alarm. --created-/--started-/
+--finished-after and -before take RFC 3339 times with Z or an offset and are
+inclusive bounds; a task with no start or finish time never matches a range
+on it. A malformed time is a usage error (exit 2) and nothing is sent. These
+filters AND with the rest and do not combine with --team.
 
 --team is a coordinator's view of work in flight (#1044). The team is the
 coordinator — the bound worker for a bare --team, or --team=worker:<id, URN
@@ -312,6 +325,21 @@ ageFrom; --tree changes text only.`,
 				}
 				ownerIn = p
 			}
+			var bounds [6]*string
+			for i, name := range taskTimeFlags {
+				if !cmd.Flags().Changed(name) {
+					continue
+				}
+				v, err := cmdutil.ParseTimeFlag(name, times[i])
+				if err != nil {
+					return err
+				}
+				bounds[i] = v
+			}
+			var overdueIn *bool
+			if cmd.Flags().Changed("overdue") {
+				overdueIn = &overdue
+			}
 			b, err := readBindingOrNilWithApp(ctx, f)
 			if err != nil {
 				return err
@@ -324,6 +352,9 @@ ageFrom; --tree changes text only.`,
 				assignee: assigneeIn, owner: ownerIn, parent: optStr(parent), queued: optBool(queued),
 				rootsOnly: optBool(rootsOnly), status: status, tag: optStr(tag), text: textArg, limit: limit, offset: offset,
 				limitExplicit: cmd.Flags().Changed("limit"),
+				tagsAny:       nilIfEmpty(tagsAny), tagsAll: nilIfEmpty(tagsAll), source: optStr(source), overdue: overdueIn,
+				createdAfter: bounds[0], createdBefore: bounds[1], startedAfter: bounds[2], startedBefore: bounds[3],
+				finishedAfter: bounds[4], finishedBefore: bounds[5],
 			})
 		},
 	}
@@ -332,6 +363,13 @@ ageFrom; --tree changes text only.`,
 	cmd.Flags().StringVar(&owner, "owner", "", "party filter (worker:<…> / user:<…>)")
 	cmd.Flags().StringVar(&parent, "parent", "", "list this task's children")
 	cmd.Flags().StringVar(&tag, "tag", "", "tag filter")
+	cmd.Flags().StringArrayVar(&tagsAny, "tag-any", nil, "match at least one of these tags, repeatable (a comma is part of the tag)")
+	cmd.Flags().StringArrayVar(&tagsAll, "tag-all", nil, "match every one of these tags, repeatable (a comma is part of the tag)")
+	cmd.Flags().StringVar(&source, "source", "", "exact source value (no prefix matching)")
+	cmd.Flags().BoolVar(&overdue, "overdue", false, "start-by passed, not started, not ended, not backlog; --overdue=false lists all other tasks")
+	for i, name := range taskTimeFlags {
+		cmd.Flags().StringVar(&times[i], name, "", "RFC 3339 time with Z or an offset; inclusive bound")
+	}
 	cmd.Flags().StringVar(&text, "text", "", "case-insensitive substring of title and description only (server validates 1–200 characters)")
 	cmd.Flags().BoolVar(&queued, "queued", false, "only queued tasks (pending, no assignee)")
 	cmd.Flags().BoolVar(&rootsOnly, "roots-only", false, "drop child tasks")
@@ -354,6 +392,30 @@ type taskListQuery struct {
 	// limitExplicit is true when the user passed --limit: a full page of the
 	// default size is then their own page, not a silent truncation.
 	limitExplicit bool
+	// The #1250 filters; any one set routes the read through AgentTaskListFiltered.
+	tagsAny, tagsAll              []string
+	source                        *string
+	overdue                       *bool
+	createdAfter, createdBefore   *string
+	startedAfter, startedBefore   *string
+	finishedAfter, finishedBefore *string
+}
+
+// taskTimeFlags are the six date-range flags, in taskListQuery's bound order.
+var taskTimeFlags = [6]string{"created-after", "created-before", "started-after", "started-before", "finished-after", "finished-before"}
+
+func nilIfEmpty(s []string) []string {
+	if len(s) == 0 {
+		return nil
+	}
+	return s
+}
+
+// filtered reports whether a #1250 filter is set.
+func (q taskListQuery) filtered() bool {
+	return q.tagsAny != nil || q.tagsAll != nil || q.source != nil || q.overdue != nil ||
+		q.createdAfter != nil || q.createdBefore != nil || q.startedAfter != nil || q.startedBefore != nil ||
+		q.finishedAfter != nil || q.finishedBefore != nil
 }
 
 // taskListDefaultLimit is the page `task list` and `task mine` ask for when
@@ -374,6 +436,20 @@ func checkTaskPage(limit, offset int) error {
 // Omitting a JSON variable alone does not hide an argument from GraphQL validation.
 func taskListPage(ctx context.Context, client graphql.Client, appRef string, q taskListQuery) ([]taskDTO, int, error) {
 	tasks := []taskDTO{}
+	if q.filtered() {
+		resp, err := gen.AgentTaskListFiltered(ctx, client, appRef, q.assignee, q.createdAfter, q.createdBefore, q.finishedAfter, q.finishedBefore,
+			&q.limit, &q.offset, q.overdue, q.owner, q.parent, q.queued, q.rootsOnly, q.source, q.startedAfter, q.startedBefore,
+			q.status, q.tag, q.tagsAll, q.tagsAny, q.text)
+		if err != nil {
+			return nil, 0, mapTaskError(err)
+		}
+		for _, t := range resp.AgentTasks {
+			if t != nil {
+				tasks = append(tasks, taskDTOFrom(t.AgentTaskFields))
+			}
+		}
+		return tasks, len(resp.AgentTasks), nil
+	}
 	if q.text != nil {
 		resp, err := gen.AgentTaskListText(ctx, client, appRef, q.assignee, &q.limit, &q.offset, q.owner, q.parent, q.queued, q.rootsOnly, q.status, q.tag, q.text)
 		if err != nil {
