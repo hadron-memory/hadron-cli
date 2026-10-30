@@ -1999,6 +1999,33 @@ enum AppType {
   WORKSTATION
 }
 
+"""
+#2096 — a template as the apply operation reports it: its id and name only. Deliberately NOT AgentTickerTemplate:
+that type's agent field default-resolves the whole Agent, and whoever manages an App need not be able to read
+the Agent it installed (the same reason ReleasedFromUser is not User, hrn:node:hadronmemory.com:specs:cor:acl:110:01).
+"""
+type AppliedTickerTemplate {
+  id: ID!
+  name: String!
+}
+
+"""
+#2096 — one ticker an apply created, with the template it came from and its effective cadence (the App's floor may have raised it, R92).
+"""
+type AppliedTickerTemplateTicker {
+  effectiveCadenceSeconds: Int!
+  template: AppliedTickerTemplate!
+  ticker: Ticker!
+}
+
+"""
+#2096 — what applyAgentTickerTemplates did: what it created, and the templates the worker already had (a second call is a visible no-op).
+"""
+type ApplyAgentTickerTemplatesResult {
+  alreadyPresent: [AppliedTickerTemplate!]!
+  created: [AppliedTickerTemplateTicker!]!
+}
+
 """#1591 — the outcome of approving every node of a memory."""
 type ApproveMemoryNodesResult {
   """Nodes whose current revision was already approved (left unchanged)."""
@@ -6269,6 +6296,17 @@ type Mutation {
   amendDecision(expectedRevision: Int!, input: AmendDecisionInput!, reason: String!, ref: ID!): Decision!
 
   """
+  #2096 — apply the Agent's current ticker templates to ONE existing worker (the repair for workers cast before the
+  templates existed; hrn:node:hadronmemory.com:specs:cor:agt:080:33, :20). Whoever manages the App, acting as themselves:
+  not the worker, not its holder as such, not a reportsTo chain. Creates only the template tickers the worker is missing,
+  each owned by and subscribed to it, and never edits or deletes any existing ticker or subscription; a template the
+  worker already has a live ticker for is reported under alreadyPresent and left as it is. A template below the App's
+  cadence floor is created at the floor; if the App's live-ticker cap cannot take every missing ticker, or a generated
+  name is already a live ticker's, the whole call is refused and nothing is created. Never automatic, never across workers.
+  """
+  applyAgentTickerTemplates(workerRef: String!): ApplyAgentTickerTemplatesResult!
+
+  """
   #1334 — copy a template's rules into ONE memory's config. A one-off copy:
   later template edits never reach this memory, and re-applying is explicit.
   
@@ -9277,6 +9315,15 @@ type Mutation {
   updateAgentSchedule(id: ID!, input: UpdateAgentScheduleInput!): AgentSchedule!
 
   """
+  #2645 — edit descriptive fields using assignment authority (Proposed Editing rule,
+  hrn:node:hadronmemory.com:specs:cor:agt:050:09). Owner, reporting-chain coordinator or App manager;
+  never an assignee alone or an App key. Ended tasks refuse TASK_ENDED. Omitted fields stay unchanged;
+  empty optional fields clear, tags/requirements replace whole. An edit is not progress and clears no wake.
+  Source is fixed. Event carries changed field names only (hrn:node:hadronmemory.com:specs:cor:agt:050:11).
+  """
+  updateAgentTask(input: UpdateAgentTaskInput!, taskId: ID!): AgentTask!
+
+  """
   #2024 — change a template; absent fields are unchanged. expectedRevision must be the revision you read, else
   TICKER_TEMPLATE_REVISION_MISMATCH and nothing is written. Affects only future casts.
   """
@@ -11399,7 +11446,7 @@ type Query {
   read; the cursor is the (createdAt, id) pair, so events sharing a
   timestamp are never skipped. since is a coarse time filter (strictly
   after), not a continuation. limit defaults to 20 (cap 200).
-  task.warning is passive history (never wakes, suppresses a wake or counts as activity), payload {code} only.
+  task.warning and task.edited are passive history (never wake, suppress a wake or count as activity); payload is {code} or changed field names only.
   """
   agentTeamEvents(
     """
@@ -16580,6 +16627,23 @@ input UpdateAgentScheduleInput {
   """
   scopeRef: ID
   timezone: String
+}
+
+"""
+#2645: named fields replace; omission leaves unchanged. Title cannot be empty. Source and lifecycle fields are fixed.
+"""
+input UpdateAgentTaskInput {
+  """Null clears to false; omission preserves the stored choice."""
+  closeSessionWhenDone: Boolean
+  description: String
+  requirements: AgentTaskRequirementsInput
+
+  """
+  Reanchors only the not-started deadline; null clears the explicit deadline. Existing alarms stay raised.
+  """
+  startBy: DateTime
+  tags: [String!]
+  title: String
 }
 
 input UpdateChannelInput {
