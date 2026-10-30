@@ -56,10 +56,18 @@ func newCmdTeamTaskGet(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <taskId>",
 		Short: "Show one task",
-		Long: `Show one task, with priority, blocked state and the first 20 dependencies in
-each direction (total/hasMore included). Use task dependencies for later pages. A task you may not read answers "not found"
-(no existence oracle) — the server's shape, kept honest here.`,
-		Args: cobra.ExactArgs(1),
+		Long: `Show one task: its status, owner, assignee, priority, blocked state, the
+close-session choice, its result once finished, and the first 20 dependencies
+in each direction (total/hasMore included; ` + "`task dependencies`" + ` pages the
+rest). Check it before a lifecycle command to see what the task allows (the
+table in ` + "`team task --help`" + `).
+
+The task is named by its id or handle (AT0.7, AT1.2); the server works out the
+App, and an ambiguous bare handle needs an id or a qualified handle such as
+hrn:agenttask:acme.com:eng-team:AT1.2. A task you may not read answers "not
+found", exit 4, exactly like a missing one (no existence oracle).`,
+		Example: "  hadron team task get AT0.7\n  hadron team task get AT0.7 --json",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			taskId, err := taskRefArg(args)
 			if err != nil {
@@ -228,8 +236,13 @@ func newCmdTeamTaskList(f *cmdutil.Factory) *cobra.Command {
 		Use:     "list",
 		Aliases: []string{"ls"},
 		Short:   "List the App's tasks (newest first)",
-		Long: `List the team App's tasks, newest first (the server's order). Filters
-combine with AND: --status (repeatable, ` + taskStatusDoc + `), --assignee and
+		Long: `List the team App's tasks, newest first (the server's order). The App comes
+from --app, else the configured App context, else the worktree binding; with
+none of them the command is refused.
+
+Filters combine with AND, except that repeated --status values are
+alternatives (--status PENDING --status STARTED lists both). --status takes
+` + taskStatusDoc + `; --assignee and
 --owner name a party, --queued keeps only pending tasks with no assignee,
 --roots-only drops children, --parent lists one task's children, --tag
 filters by tag. --text matches a case-insensitive substring of title and description
@@ -262,6 +275,8 @@ refused, exit 1), then applies --status after the join, so an open task under
 a finished team task stays in view. It combines with --status, --text, --tree
 and --stale-over. Text is selected by the server after the team join, using a
 second paged read, so nonmatching ancestors do not hide matching descendants.
+Every other filter, and --limit/--offset, is refused with --team (exit 2);
+--tree and --stale-over work only with --team.
   --tree draws parent/child trees with status, idle time, owner, assignee,
     title and open alarms; a row whose parent is not shown is a root.
   --stale-over <duration> (e.g. 1h) keeps PENDING/STARTED tasks idle longer
@@ -272,7 +287,10 @@ second paged read, so nonmatching ancestors do not hide matching descendants.
 staleOverSeconds, tasks}, each task the plain task plus ownerTeam/assigneeTeam
 (team|outside|unknown|user|null), match (party|descendant), ageSeconds and
 ageFrom; --tree changes text only.`,
-		Example: `  hadron team task list --text "release notes" --status PENDING`,
+		Example: `  hadron team task list --app acme.com:eng-team --assignee worker:Iris --status PENDING --status STARTED
+  hadron team task list --app acme.com:eng-team --queued
+  hadron team task list --app acme.com:eng-team --text "release notes" --status PENDING
+  hadron team task list --app acme.com:eng-team --team=worker:Iris --tree --stale-over 1h`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			var textArg *string
@@ -543,10 +561,12 @@ in the bound worker's App, with the same output. The filters are fixed.
 --limit/--offset page (default 20, cap 200); a full default page says more may exist.
 
 It needs a worker session binding: without one, start a session with
-` + "`hadron team session start`" + `. --app may name the bound App (by id, URN
+` + "`hadron team session start`" + ` (see its --help for resuming a session
+versus binding a worker for the first time). --app may name the bound App (by id, URN
 or <root>:<slug>) but no other: "mine" never means another App, and the
 binding's server must be the one this call targets.`,
-		Args: cobra.NoArgs,
+		Example: "  hadron team task mine\n  hadron team task mine --json",
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			if err := checkTaskPage(limit, offset); err != nil {
@@ -612,11 +632,15 @@ func newCmdTeamTaskTree(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tree <rootTaskId>",
 		Short: "Show a task's parent/child chain",
-		Long: `Render the task and its children as a tree, with status, owner,
-assignee and OPEN ALARMS per node. The alarms come from the App's unacknowledged
-alarm events, joined onto the tree client-side — the join is presentation, the
-alarm facts are the server's.`,
-		Args: cobra.ExactArgs(1),
+		Long: `Render the task and every task below it — children, their children and so
+on, up to 1000 rows — as a tree, with status, owner, assignee and OPEN ALARMS
+per node. The alarms come from the App's unacknowledged alarm events, joined
+onto the tree client-side — the join is presentation, the alarm facts are the
+server's. To see an alarm in full use ` + "`team events --alarms`" + `; to
+acknowledge one, ` + "`team alarm ack`" + `. The root is an id or handle; a hidden
+or missing root exits 4.`,
+		Example: "  hadron team task tree AT1",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			rootId, err := taskRefArg(args)
