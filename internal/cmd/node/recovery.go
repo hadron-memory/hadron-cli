@@ -95,7 +95,13 @@ func newCmdRecovery(f *cmdutil.Factory) *cobra.Command {
 stay live-only and never return a deleted node.
 
 Only a memory's writers can use it. For anyone else a deleted node and a node
-that never existed are indistinguishable, so a miss here does not say which.`,
+that never existed are indistinguishable, so a miss here does not say which.
+
+  recovery list    the deleted nodes of a memory, with their ids
+  recovery get     one deleted node (--content adds its content)
+  recovery graph   the links among live and restorable nodes`,
+		Example: `  hadron node recovery list -m hrn:mem:acme.com:kb
+  hadron node restore hrn:node:acme.com:kb:findings:flaky-ci`,
 	}
 	cmd.AddCommand(newCmdRecoveryLs(f))
 	cmd.AddCommand(newCmdRecoveryGet(f))
@@ -255,10 +261,12 @@ func newCmdRecoveryGraph(f *cmdutil.Factory) *cobra.Command {
 	var pf pageFlags
 	cmd := &cobra.Command{
 		Use:   "graph -m <memory>",
-		Short: "List edges whose endpoints are live or deleted-but-recoverable",
-		Long: `List the live edges in a memory whose two endpoints are each either live or a
-deleted node you can recover — the edges a restore would reconnect. Paging is
-the same as 'node recovery ls'.`,
+		Short: "List the links among live and restorable nodes",
+		Long: `List the links (edges) in a memory whose two ends are each a live node or a
+deleted node you can restore. A link that touches a deleted node is one a
+restore would reconnect; links between two live nodes are included too, so
+the result is the whole graph as it would be after restoring. Paging works as
+for node recovery list.`,
 		Example: `  hadron node recovery graph -m hrn:mem:acme.com:kb --json`,
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {

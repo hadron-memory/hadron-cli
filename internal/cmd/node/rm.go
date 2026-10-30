@@ -29,11 +29,12 @@ func newCmdRm(f *cmdutil.Factory) *cobra.Command {
 		Use:     "delete <node-urn> | <loc> -m <memory>",
 		Aliases: []string{"rm"},
 		Short:   "Delete a node",
-		Long: `Delete a node. By default this is a soft delete — the node disappears from
-reads but is recoverable from version history.
+		Long: `Delete a node. By default this is a soft delete: the node disappears from
+reads but can be brought back. node recovery list shows deleted nodes, and
+node restore <id|urn> restores one, with its links.
 
---hard removes the row entirely, cascading its edges and version history
-(#391). This bypasses version-history recovery and is irreversible, so it
+--hard removes the node entirely, with its edges and version history. It
+cannot be restored and cannot be undone, so it
 prompts with a distinct warning (still gated by --yes non-interactively).
 
 --recursive/-r deletes the node PLUS every descendant under its loc prefix.

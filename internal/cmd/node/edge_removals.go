@@ -41,7 +41,7 @@ func newCmdEdgeRemovals(f *cmdutil.Factory) *cobra.Command {
 		Use:   "edge-removals <node-urn> | <loc> -m <memory> | <node-id>",
 		Short: "List the edges a hard delete removed from this node",
 		Long: `List the audit entries a HARD delete left on this node when it removed
-edges the node held to the deleted target (#2517): one entry per removed
+edges the node held to the deleted target: one entry per removed
 edge, newest first. A soft delete keeps its edges and records nothing.
 
 An entry names the removed edge (its loc and name), the deleted target (its
