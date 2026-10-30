@@ -54,19 +54,7 @@ func newCmdTaskDependencyWrite(f *cmdutil.Factory, verb string) *cobra.Command {
 		short = "Remove a blocker from a task"
 	}
 	cmd := &cobra.Command{Use: verb + " <task> " + arg, Short: short,
-		Long: short + `. Task references are ids or server-supported handles (AT1.2).
-Priority defaults to 1 on creation; range 1-5, 1 = highest. It affects matching,
-not authority or the task list's ordering. Only whoever may assign the task
-may change priority or blockers. Blockers change only on pending/backlog tasks;
-the server checks same-App references, cycles and every transition.
-Sign in first. Task references determine the App on the server; --app does not
-qualify these references. When a bare handle is ambiguous across your Apps,
-pass an id or a qualified handle such as
-hrn:agenttask:example.com:team:AT1.2.
-Success prints the returned task, priority and dependency summaries; --json
-returns the same fields as structured data. A server refusal prints its code
-and message with no task output; check task get before changing the request.
-Each invocation sends one mutation and never retries it.`, Example: "  hadron team task " + verb + " AT1.2 " + map[bool]string{true: "2", false: "AT1.3"}[priority], Args: cobra.ExactArgs(2),
+		Long: dependencyWriteLong(verb), Example: dependencyWriteExample(verb), Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref, err := taskRefArg(args[:1])
 			if err != nil {
@@ -122,6 +110,68 @@ Each invocation sends one mutation and never retries it.`, Example: "  hadron te
 		}}
 	return cmd
 }
+
+// dependencyWriteLong is the page for set-priority/add-blocker/remove-blocker:
+// the verb's own effect first, then the authority and reference rules they
+// share (cor:agt:050:09).
+func dependencyWriteLong(verb string) string {
+	var head string
+	switch verb {
+	case "set-priority":
+		head = `Set a task's matching priority, 1 to 5, where 1 is the highest; a new task
+has 1. The task may be BACKLOG, PENDING or STARTED; an ended task is refused
+(exit 5), and a value outside 1-5 is BAD_USER_INPUT (exit 2).
+
+Priority only affects which queued task the platform's matcher offers first:
+among PENDING tasks with no assignee and no open blocker, priority 1 goes
+first, then the oldest. It does not change the task list's order, an assigned
+task, or who may act on the task, and it assigns nothing by itself.`
+	case "add-blocker":
+		head = `Make a task wait for another: add-blocker A B means A waits for B. Both must
+be in the same App, and A must be BACKLOG or PENDING (exit 5 otherwise). A
+blocker that would close a loop is TASK_BLOCKER_CYCLE (exit 5).
+
+While a blocker is open, A is never offered by the matcher and its assignee
+cannot start it (TASK_BLOCKED). B stops blocking when it is FINISHED or
+CANCELLED; when the last open blocker ends, A is released automatically and
+keeps its status and assignee. Adding a blocker that A already has changes
+nothing.`
+	default:
+		head = `Remove a blocker: remove-blocker A B means A no longer waits for B. A must be
+BACKLOG or PENDING (exit 5 otherwise). Removing a blocker that A does not
+have changes nothing.
+
+Removing the last open blocker makes A matchable again if it is queued, or
+startable by its assignee. It keeps its status and assignee and does not start
+by itself; its stall clocks restart from now. To release A because B is done,
+you need not remove anything: finishing or cancelling B releases it.`
+	}
+	return head + `
+
+Who may: ` + taskAssignerDoc + ` (cor:agt:050:09);
+anyone else is refused with TASK_NOT_OWNER (exit 8). Check a task's status and
+blockers first with ` + "`task get`" + `.
+
+Task references are ids or handles (AT1.2). Sign in first. The server works out
+the App from the references; --app does not qualify them. When a bare handle
+is ambiguous across your Apps, pass an id or a qualified handle such as
+hrn:agenttask:example.com:team:AT1.2 (TASK_HANDLE_QUALIFY otherwise).
+Success prints the returned task with its priority and dependency summaries;
+--json returns the same fields as structured data. A refusal prints its code
+and message with no task output. Each invocation sends one request and never
+retries it.`
+}
+
+func dependencyWriteExample(verb string) string {
+	switch verb {
+	case "set-priority":
+		return "  hadron team task set-priority AT1.2 2"
+	case "add-blocker":
+		return "  # AT1.3 waits for AT1.2\n  hadron team task add-blocker AT1.3 AT1.2"
+	}
+	return "  hadron team task remove-blocker AT1.3 AT1.2"
+}
+
 func renderDependencyPage(w io.Writer, label string, p *taskDependencyPageDTO) error {
 	if p == nil {
 		_, e := fmt.Fprintf(w, "  %s: unavailable\n", label)
@@ -139,14 +189,16 @@ func renderDependencyPage(w io.Writer, label string, p *taskDependencyPageDTO) e
 }
 func newCmdTaskDependencies(f *cmdutil.Factory) *cobra.Command {
 	var limit, offset int
-	c := &cobra.Command{Use: "dependencies <task>", Short: "Read pages of a task's blockers and what it blocks", Long: `Read both dependency directions with explicit total/hasMore metadata.
-Task get/list and write JSON show the first 20 of each. This command pages
-both directions with --limit/--offset; follow hasMore, never infer completeness
-from a short page. Refs are ids or server-supported handles. Sign in first. --app does not qualify
-these references. For an ambiguous bare handle, pass an id or a qualified handle
-such as hrn:agenttask:example.com:team:AT1.2. Text prints each direction's page and
-counts; --json returns id, blockedBy and blocks with items/total/hasMore.
-A hidden or missing task exits 4. Reads write nothing.`, Example: "  hadron team task dependencies AT1.2 --limit 20 --offset 20 --json", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, a []string) error {
+	c := &cobra.Command{Use: "dependencies <task>", Short: "Read pages of a task's blockers and what it blocks", Long: `Read a task's dependencies in both directions: "blocked by" lists the
+tasks it waits for, "blocks" the tasks waiting for it (see
+` + "`task add-blocker`" + `). Task get and list show the first 20 of each; this
+command pages both directions together with --limit/--offset and reports each
+direction's total and hasMore — follow hasMore, never infer completeness from
+a short page. Refs are ids or handles. Sign in first. --app does not qualify
+these references. For an ambiguous bare handle, pass an id or a qualified
+handle such as hrn:agenttask:example.com:team:AT1.2. Text prints each
+direction's page and counts; --json returns id, blockedBy and blocks with
+items/total/hasMore. A hidden or missing task exits 4. Reads write nothing.`, Example: "  hadron team task dependencies AT1.3\n  hadron team task dependencies AT1.3 --limit 20 --offset 20 --json", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, a []string) error {
 		if err := checkTaskPage(limit, offset); err != nil {
 			return err
 		}
