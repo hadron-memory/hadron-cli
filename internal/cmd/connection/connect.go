@@ -172,7 +172,9 @@ contains the URL or its nonce, and nothing is written to disk.
 --wait <duration> bounds the wait for the new connection (default 5m, never
 past the link's expiry). Only a new connection for that provider owned by you
 counts: one that existed before the start, or that another admin connects
-meanwhile, does not. With --json, if the browser cannot be opened the command
+meanwhile, does not. Known limit: the server's start carries no flow id
+(hadron-server#2913), so two flows you start yourself for the same provider at
+once cannot be told apart; run them one at a time. With --json, if the browser cannot be opened the command
 does not wait: it returns the result (status "started") at once. --no-wait
 returns right after the start. If nothing appears in
 time the command exits 13 with "not found yet": the consent may still be
@@ -223,7 +225,7 @@ again.`,
 			// expiry" bound, so it is refused before the link is shown.
 			expiry, perr := time.Parse(time.RFC3339, start.ExpiresAt)
 			if perr != nil {
-				return exitcode.Newf(exitcode.Unavailable, "server returned an unreadable link expiry (%q); the link was not shown", start.ExpiresAt)
+				return exitcode.Newf(exitcode.Unavailable, "server returned an unreadable link expiry; the link was not shown")
 			}
 
 			// The flow runs as the signed-in caller, so only a connection owned

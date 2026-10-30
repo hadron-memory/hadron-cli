@@ -392,9 +392,11 @@ func TestConnectionConnectJSONOpenFailureReturnsStarted(t *testing.T) {
 
 // An unreadable expiry would lift the expiry bound, so the link is not shown.
 func TestConnectionConnectMalformedExpiryRefused(t *testing.T) {
-	bad := strings.Replace(connectStart, "2099-01-01T00:00:00Z", "soon", 1)
+	// The malformed value even carries the link and its nonce: the refusal
+	// must not echo the server's value.
+	bad := strings.Replace(connectStart, "2099-01-01T00:00:00Z", connectURL+" SECRETNONCE123456", 1)
 	r := runConnect(t, bad, []string{connRows()}, nil, "gmail", "--org", "org_1")
-	if r.code != exitcode.Unavailable || len(r.opened) != 0 || strings.Contains(r.out+r.errOut, "SECRETNONCE") {
+	if r.code != exitcode.Unavailable || len(r.opened) != 0 || strings.Contains(r.out+r.errOut, "SECRETNONCE") || strings.Contains(r.err.Error(), "hadron.example") {
 		t.Fatalf("exit %d opened %v out %q err %q", r.code, r.opened, r.out, r.errOut)
 	}
 }

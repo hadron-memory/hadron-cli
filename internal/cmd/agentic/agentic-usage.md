@@ -3794,7 +3794,9 @@ start). After the start the command polls the metadata-only EmailConnections rea
 (--wait, default 5m, never past the link's expiresAt; --no-wait skips it) for a
 connection of that provider, owned by the caller, that was not there before the
 start (the start carries no flow id, so another admin's connection or an
-existing one never counts). With --json a browser that cannot be opened ends the
+existing one never counts; two flows the same caller starts at once for one
+provider cannot be told apart until hadron-server#2913, so run them one at a
+time). With --json a browser that cannot be opened ends the
 command at once with status "started" (no wait). Found: exit 0,
 {provider,orgId,authorizeUrl,expiresAt,browserOpened,status:"connected",
 connection:{id,provider,mailboxEmail,displayName}}. --no-wait: status "started",
