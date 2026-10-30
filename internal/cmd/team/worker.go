@@ -533,7 +533,9 @@ clear. What clears a due wake depends on its cause:
   ticker tick  only the deliverer acknowledges it: the host poller
                (` + "`team host run`" + `) after typing it in; ` + "`team host status`" + `
                shows a held, UNREPORTED delivery
-No CLI command lists one worker's due wakes or acknowledges a wake by hand.
+` + "`team wakes due --worker <name>`" + ` lists what is due to a worker and why, and
+` + "`team wakes ack <proof>`" + ` records a delivery by hand, as the worker's holder or
+the App's manager.
 To stop expecting checks, give it no task, or mark it unavailable
 (` + "`team availability set`" + `). Availability itself shows in ` + "`team availability get`" + `,
 and every worker's state in ` + "`team roster`" + `.`,

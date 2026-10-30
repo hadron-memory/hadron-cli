@@ -106,3 +106,44 @@ query DueTickWakes($appRef: String!, $first: Int!, $workerRefs: [String!],
     pageInfo { hasNextPage endCursor }
   }
 }
+
+# hadron-cli#1279: `team wakes due`, the person's read of the wakes due for
+# the workers they hold or (as manager) the App's lane (cor:agt:080:08). A
+# worker's session cannot read wakes (the server conceals the App), and reads
+# never carry one. accepts is sent only on --accept-stop: listing STOP
+# declares the lane this caller serves (cor:agt:090:04).
+query TeamDueWakes($appRef: String!,
+ # @genqlient(omitempty: true)
+ $workerRefs: [String!],
+ # @genqlient(omitempty: true)
+ $first: Int,
+ # @genqlient(omitempty: true)
+ $after: String,
+ # @genqlient(omitempty: true)
+ $accepts: [WakeKind!]
+) {
+  dueWakes(appRef: $appRef, workerRefs: $workerRefs, first: $first, after: $after, accepts: $accepts) {
+    status
+    withheld
+    dormant { worker { id name } mentions }
+    wakes {
+      proof
+      worker { id name }
+      tickText
+      unread
+      unreadMentions
+      anchorAt
+      deliverAfter
+      busyDeadline
+      channels { channel { id loc } fromSeq throughSeq latestMentionSeq }
+      reasons {
+        kind
+        tickDueAt
+        ticker { id name }
+        task { id handle title event chainIndex eventId }
+        stop { eventId signalId level notice interrupt }
+      }
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}
