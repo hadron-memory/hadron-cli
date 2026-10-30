@@ -149,7 +149,7 @@ after merging both spec markers.`,
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "scope to a memory (ID or fully-qualified URN)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to list (ID or fully-qualified URN; default: the memory from spec use, else every memory you can read)")
 	cmd.Flags().StringVar(&prefix, "prefix", "", "filter by citation prefix (e.g. msg:010)")
 	cmd.Flags().IntVar(&limit, "limit", 0, "maximum number of specs to display (default: all)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "pagination offset (implies a single page)")
