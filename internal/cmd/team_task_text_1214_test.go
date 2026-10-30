@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -150,4 +151,108 @@ func TestTaskTextLegacyDocumentUnchanged1214(t *testing.T) {
 	if !strings.Contains(gen.AgentTaskListText_Operation, "text: $text") {
 		t.Fatal("text operation does not apply its filter")
 	}
+}
+
+// Read refusals must fail before the unfiltered ancestry scan. Other tests
+// prove that the successful intersection still uses that complete ancestry.
+func TestTeamTextRefusalBeforeAncestry1214(t *testing.T) {
+	calls, out, err := textPages1214(t, [][]task1044{{{id: "anchor", owner: worker1044("Marco")}}}, []string{memberGQLError("text must contain 1 to 200 characters", "BAD_USER_INPUT")}, "   ")
+	if err == nil || exitCodeFor(err) != 2 || !strings.Contains(err.Error(), "BAD_USER_INPUT") || out != "" {
+		t.Fatalf("refusal: %v output %q", err, out)
+	}
+	for _, c := range *calls {
+		if c.Op == "AgentTaskList" {
+			t.Fatal("invalid text scanned unfiltered ancestry before the server refused it")
+		}
+	}
+}
+
+func TestTeamTextPagedIntersectionAndFailures1214(t *testing.T) {
+	anchor := task1044{id: "anchor", status: "STARTED", owner: worker1044("Marco")}
+	child := task1044{id: "child", status: "STARTED", owner: worker1044("Cameron"), parent: "anchor"}
+	noise := []task1044{}
+	for i := 0; i < 200; i++ {
+		noise = append(noise, task1044{id: fmt.Sprintf("noise-%d", i), owner: user1044})
+	}
+	all := append([]task1044{anchor}, noise...)
+	all = append(all, child)
+	for _, tc := range []struct {
+		name      string
+		responses []string
+		code      int
+	}{
+		{"two pages", []string{taskPage1044(noise), taskPage1044([]task1044{child})}, 0},
+		{"later error", []string{taskPage1044(noise), memberGQLError("text read unavailable", "INTERNAL_SERVER_ERROR")}, 1},
+		{"non advancing", []string{taskPage1044(noise), taskPage1044(noise)}, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			calls, out, err := textPages1214(t, [][]task1044{all[:200], all[200:]}, tc.responses, "needle")
+			if tc.code != 0 {
+				if err == nil || exitCodeFor(err) != tc.code || out != "" {
+					t.Fatalf("failure %v output %q", err, out)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			var result struct {
+				Tasks []struct {
+					ID    string `json:"id"`
+					Match string `json:"match"`
+				} `json:"tasks"`
+			}
+			if err := json.Unmarshal([]byte(out), &result); err != nil {
+				t.Fatal(err)
+			}
+			if len(result.Tasks) != 1 || result.Tasks[0].ID != "child" || result.Tasks[0].Match != "descendant" {
+				t.Fatalf("intersection: %s", out)
+			}
+			offsets := []float64{}
+			for _, c := range *calls {
+				if c.Op == "AgentTaskListText" {
+					if c.Vars["text"] != "needle" {
+						t.Fatal("lost text on a later page")
+					}
+					offsets = append(offsets, c.Vars["offset"].(float64))
+				}
+			}
+			if len(offsets) != 2 || offsets[0] != 0 || offsets[1] != 200 {
+				t.Fatalf("offsets %v", offsets)
+			}
+		})
+	}
+}
+
+func textPages1214(t *testing.T, base [][]task1044, text []string, value string) (*[]attnCall, string, error) {
+	t.Helper()
+	writeTeamBinding(t)
+	responses := rosterResponses993(roster1044()...)
+	responses["TeamReportingLines"] = responses["TeamRoster"]
+	responses["AgentTeamEvents"] = `{"data":{"agentTeamEvents":[]}}`
+	b, n := 0, 0
+	srv, calls := attnServerHook(t, responses, func(op string) {
+		switch op {
+		case "AgentTaskList":
+			r := `{"data":{"agentTasks":[]}}`
+			if b < len(base) {
+				r = taskPage1044(base[b])
+			}
+			responses[op] = r
+			b++
+		case "AgentTaskListText":
+			r := `{"data":{"agentTasks":[]}}`
+			if n < len(text) {
+				r = text[n]
+			}
+			responses[op] = r
+			n++
+		}
+	})
+	setTeamBindingServer(t, srv.URL)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "task", "list", "--team=worker:Marco", "--text", value, "--json", "--server", srv.URL})
+	err := root.Execute()
+	return calls, out.String(), err
 }
