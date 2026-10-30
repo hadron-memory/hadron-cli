@@ -234,7 +234,7 @@ own --label, so the list tells you what to revoke.
 Avoid leaving the token in terminal scrollback or logs: --json with jq, as
 below, writes it straight to a file.`,
 		Example: `  hadron auth token create --label ci-deploy
-  hadron auth token create --label ci --json | jq -r .rawKey > ci-token && chmod 600 ci-token`,
+  (umask 077; hadron auth token create --label ci --json | jq -r .rawKey > ci-token)   # file is private from the start`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()

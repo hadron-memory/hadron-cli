@@ -85,7 +85,7 @@ hadron ticket list.`,
 	cmd.Flags().StringVar(&org, "org", "", "organization to mint into (ID or URN; required)")
 	cmd.Flags().StringVar(&app, "app", "", "scope the tickets to one App (ID or URN; omit for org-wide)")
 	cmd.Flags().StringVar(&action, "action", "comm.outbound", "the action these tickets grant (v1: comm.outbound)")
-	cmd.Flags().IntVar(&count, "count", 0, "how many tickets to mint, 1 to 1000 (required)")
+	cmd.Flags().IntVar(&count, "count", 0, "how many tickets to mint, at least 1; more than 1000 mints 1000 (required)")
 	cmd.Flags().StringVar(&note, "note", "", "why these tickets exist (ledger legibility)")
 	cmd.Flags().StringVar(&expires, "expires", "", "ISO-8601 expiry timestamp (omit: never expires)")
 	_ = cmd.MarkFlagRequired("org")

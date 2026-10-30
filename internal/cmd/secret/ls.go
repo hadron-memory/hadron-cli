@@ -24,9 +24,8 @@ Values are never returned or printed.
   --scope org --owner <org ref>     an org's secrets (any member of the org)
 
 You only ever see your own user secrets, and an org's only if you are a member:
-listing another user's, or an org you don't belong to, comes back empty. The
-ID column is what
-hadron secret rm takes. --json gives an array of id, ownerType, ownerId, name,
+listing another user's, or an org you don't belong to, comes back empty.
+The ID column is what hadron secret rm takes. --json gives an array of id, ownerType, ownerId, name,
 kind, metadata, createdAt, createdBy, updatedAt and updatedBy; an empty list
 is [].`,
 		Example: `  hadron secret list --scope user

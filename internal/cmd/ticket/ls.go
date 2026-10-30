@@ -28,7 +28,7 @@ gives an array of id, organizationId, appId (null when org-wide), action,
 mintedBy, note, consumedByRunId, consumedAt, expiresAt and createdAt; an empty
 ledger is [].`,
 		Example: `  hadron ticket list --org acme.com
-  hadron ticket list --org acme.com --json | jq '[.[] | select(.consumedAt == null)] | length'`,
+  hadron ticket list --org acme.com --json | jq '[.[] | select(.consumedAt == null)] | length'   # unused (some may have expired)`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()

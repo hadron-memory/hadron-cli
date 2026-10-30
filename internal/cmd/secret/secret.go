@@ -38,8 +38,9 @@ func NewCmdSecret(f *cmdutil.Factory) *cobra.Command {
 		Aliases: []string{"secrets"},
 		Short:   "Manage owner-scoped encrypted secrets",
 		Long: `Store encrypted secrets (API tokens, passwords, header values) that agent
-runs use, without the value ever appearing in a prompt, a log or command
-output.
+runs use, without the value appearing in your shell history, a command's
+arguments or any hadron output. Whether the agent's model may see it depends
+on the kind (below).
 
 Each secret belongs to one owner:
   user  your own; only you can create, list or delete it (no admin override)

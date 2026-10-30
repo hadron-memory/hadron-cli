@@ -35,7 +35,7 @@ func newCmdImpersonate(f *cmdutil.Factory) *cobra.Command {
 	var stop, yes bool
 
 	cmd := &cobra.Command{
-		Use:   "impersonate <user>",
+		Use:   "impersonate (<user> --org <org> | --stop)",
 		Short: "View Hadron read-only as another member of your org (admin support)",
 		Long: `Start a read-only impersonation session as another member of an
 organization you administer (ADMIN/OWNER), for support and diagnostics: you

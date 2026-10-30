@@ -95,7 +95,7 @@ id, ownerType, ownerId, name, kind, metadata and the created/updated fields.`,
 			})
 		},
 	}
-	cmd.Flags().StringVar(&name, "name", "", "secret name (lowercase [a-z0-9-], max 64; required)")
+	cmd.Flags().StringVar(&name, "name", "", "secret name (lowercase [a-z0-9-], max 64, not starting with -; required)")
 	cmd.Flags().StringVar(&scope, "scope", "", "owner scope: user or org (required)")
 	cmd.Flags().StringVar(&owner, "owner", "", "owner ID or URN (required except --scope user, where empty means caller)")
 	cmd.Flags().StringVar(&kind, "kind", "", "secret kind: generic or webfetch-auth (required)")
