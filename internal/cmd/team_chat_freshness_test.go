@@ -65,6 +65,8 @@ func TestTeamChatReadDetectsStalePages(t *testing.T) {
 			r := chatReadResponses()
 			r["TeamChatMessages"] = tc.page
 			r["TeamChatReadHead"] = teamReadHeadFixture(teamChatPage(2, 2))
+			// A registered worker's real row: null is no longer a cursor (#1272).
+			r["ChannelReadState"] = `{"data":{"channelReadState":{"channelId":"ch1","lastSeenSeq":0,"updatedAt":"1970-01-01T00:00:00.000Z"}}}`
 			srv, calls := attnServer(t, r)
 			setTeamBindingServer(t, srv.URL)
 			bindingPath := filepath.Join(os.Getenv(team.GitDirEnv), "hadron-team-session.json")
