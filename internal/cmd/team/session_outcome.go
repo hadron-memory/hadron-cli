@@ -41,12 +41,16 @@ JSON metadata (--meta). It works on any session you own, not only the one
 this worktree is bound to; find the id with ` + "`team session list`" + `.
 
 --ref and --meta are written only when given: leaving one out keeps what
-the session already has. --meta must be valid JSON (an object, a list, a
+the session already has, --ref "" stores an empty reference and --meta null
+clears the metadata. --meta must be valid JSON (an object, a list, a
 number, or a string in JSON quotes); malformed JSON is refused with exit 2
 and nothing sent.
 
 Recording an outcome is not driving the session: a lapsed session stays
 lapsed, and an ended one can still be given its outcome.
+
+A negative number reads as a flag, so pass one after ` + "`--`" + ` (it is out of
+range, and the server refuses it with exit 2).
 
 On success it prints one line naming the outcome and the session; --json
 prints {sessionId, outcome, outcomeRef, outcomeMeta} as the server now
@@ -90,6 +94,9 @@ exit 2. --json keeps the server's code in the error's serverCode.`,
 			if err != nil {
 				return api.MapErrorKeepingCode(err)
 			}
+			if resp == nil || resp.RecordSessionOutcome == nil {
+				return exitcode.Newf(exitcode.Error, "the server did not return session %s; run `hadron team session list` to see whether the outcome was recorded", id)
+			}
 			s := resp.RecordSessionOutcome
 			dto := sessionOutcomeDTO{SessionID: s.Id, Outcome: s.Outcome, OutcomeRef: s.OutcomeRef}
 			if s.OutcomeMeta != nil {
@@ -101,6 +108,16 @@ exit 2. --json keeps the server's code in the error's serverCode.`,
 			})
 		},
 	}
+	// A negative number reads as a shorthand flag; say how to pass one rather
+	// than leave a bare "unknown shorthand flag".
+	cmd.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
+		if _, tok, ok := strings.Cut(err.Error(), " in "); ok {
+			if _, perr := strconv.ParseFloat(tok, 64); perr == nil {
+				return exitcode.Newf(exitcode.Usage, "%s reads as a flag: pass a negative outcome after `--` (hadron team session outcome <session-id> -- %s)", tok, tok)
+			}
+		}
+		return exitcode.New(exitcode.Usage, err)
+	})
 	cmd.Flags().StringVar(&ref, "ref", "", "your reference for the outcome (a ticket, a survey id); kept as given")
 	cmd.Flags().StringVar(&meta, "meta", "", "JSON metadata to keep with the outcome")
 	return cmd
