@@ -74,7 +74,22 @@ LIMITS, DISCLOSED. Last arrival wins: a delayed hook or a manual
 ` + "`set-model`" + ` can overwrite a newer report; there is no monotonic or
 latest-observation guarantee. This command parses Claude/GLM and Codex
 transcript formats; it does not install, or claim, any native hook — wiring
-it into a tool's settings is the operator's step.`,
+it into a tool's settings is the operator's step.
+
+SETUP, IN ORDER: start the session WITH --transcript
+(` + "`session start --as <w> --transcript <file>`" + `), so there is a recorded file
+to check; then add this
+command to the tool's hook settings. For Claude Code, a Stop hook in
+.claude/settings.json:
+  {"hooks":{"Stop":[{"hooks":[{"type":"command",
+    "command":"hadron team session sync-model --hook"}]}]}}`,
+		Example: `  # what a hook sends: stdin is the tool's JSON, not a terminal
+  echo '{"session_id":"4f0c…","transcript_path":"/home/me/.claude/projects/x/4f0c….jsonl","cwd":"/work/widgets"}' \
+    | hadron team session sync-model
+  # exit 0: reported; exit ` + fmt.Sprint(modelUnavailableExit) + `: unavailable, nothing sent
+
+  # if your tool has no hook, report by hand instead
+  hadron team session set-model claude-opus-5-5`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			err := runSyncModel(cmd.Context(), f, cmd, hook)

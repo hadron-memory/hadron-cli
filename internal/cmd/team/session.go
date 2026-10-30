@@ -35,6 +35,16 @@ who is driving it, from where, with which tool. The binding lives under the
 worktree's git dir, so it survives a context compaction — ` + "`whoami`" + ` reads
 it back.
 
+WHICH COMMAND, IN ORDER:
+  am I already bound?          session whoami (--check to test it in a script)
+  start working as a worker    session start --as <worker> (the worker must
+                               exist: ` + "`team worker list`" + `, or ` + "`team worker cast`" + `)
+  record a PR, commit, branch  session log
+  finished a task, PR or chat  NOTHING — keep the session; it spans tasks
+  reset my context, keep work  session shed (or session resume-claim)
+  stop being this worker       session end --handoff-file <notes> — only now
+  see sessions                 session list
+
 TWO THINGS ARE CALLED A SESSION, AND ENDING ONE DOES NOT END THE OTHER
 (hadron-server#1034). This group manages the first:
 
@@ -47,8 +57,9 @@ Closing your CHAT SESSION does not end the worker session. It outlives the
 chat, and since hadron-server#1114 NOTHING else ends it — no idle window,
 no reap — so it stays open until you run ` + "`session end`" + `. Being TAKEN is
 separate and does clear on its own: the server derives it from recent
-driving. End the worker session deliberately when you stop, because that
-is the only thing that ends it and the only chance to leave a handoff.
+driving. So when you do stop being this worker, end the session yourself:
+that is the only thing that ends it and the only chance to leave a handoff.
+Finishing a task, a PR or a chat is not stopping (` + "`session end --help`" + `).
 
 TAKEN is not HELD. Ending the session frees the SESSION; a PERSON binding a
 worker also claims its name, and that hold stays yours until you run
@@ -670,7 +681,25 @@ func newCmdSessionStart(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "start [--as <worker> | --launch-grant <grant> | --session <id>] [--transcript <path>] [--tool <t>] [--force]",
 		Short: "Start a worker session: bind this worktree to a worker",
-		Long: `Start a coding session as a worker. The session is recorded server-side
+		Long: `Start a coding session as a worker.
+
+BEFORE YOU START:
+  1. Sign in (` + "`hadron auth login`" + `, or HADRON_TOKEN) and work in a git worktree of
+     your own — one worktree per worker (below).
+  2. Check you are not already bound: ` + "`hadron team session whoami`" + `. If it names
+     a worker, you are already that worker; do not start again.
+  3. Pick a worker that EXISTS: ` + "`hadron team worker list --app <app>`" + `. If
+     none fits, cast one first (` + "`hadron team worker cast --help`" + `).
+  4. Start: ` + "`--as <worker> --tool <tool>`" + `, plus --repo owner/repo and --branch
+     if you want ` + "`session log`" + ` to accept bare refs (#371, a sha, a branch name).
+     Neither is guessed from git: omitted, nothing is recorded.
+
+THREE DIFFERENT STARTS — pick one:
+  first bind / ordinary start   start --as <worker>
+  recover after a context reset start            (no --as: RESUMES, below)
+  take over a live session      start --as <worker> --force (TAKEN, below)
+
+The session is recorded server-side
 (with the provenance fields: repo, branch, host, tool, transcript path,
 model) and the binding is written under this worktree's git dir so
 ` + "`whoami`" + ` can recover it. The session binds the WORKER (cor:agt:020:03);
@@ -790,9 +819,14 @@ behalf. A refused resume (exit 5, RESUME_REFUSED) has spent its claim.
 bound to a live session refuses first, before any claim is spent, as does a
 directory outside a git worktree. A failure after the server answered never
 ends the recovered session: run start again to pick it up.`,
-		Example: `  hadron team session start --as Iris --tool claude-code \
+		Example: `  # ordinary start, recording the repo and branch for ` + "`session log`" + `
+  hadron team session start --as Iris --app acme.com:eng-team --tool claude-code \
+      --repo acme/widgets --branch iris/work \
       --transcript ~/.claude/projects/x/transcript.jsonl
-  hadron team session start --tool claude-code   # resume after a context reset`,
+
+  # after a context reset, in a context with NO binding (a resume claim or
+  # your one live session is recovered; nothing new is bound)
+  hadron team session start --tool claude-code`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -1932,7 +1966,7 @@ func newCmdSessionLog(f *cmdutil.Factory) *cobra.Command {
 team worklog — the collection behind the provenance query
 (` + "`session list --pr <ref>`" + `: which sessions produced this PR?).
 
-No flag is needed (#399): the binding records the bound worker's App, the
+No memory flag is needed (#399) — just pick one artifact flag: the binding records the bound worker's App, the
 worklog is App-addressed, and the collection schema is the server's — no
 ` + "`team init`" + ` first (#401), no -m. --memory stays as an explicit override;
 it fails SESSION_NOT_IN_APP when it names a DIFFERENT App's memory than
@@ -1970,8 +2004,9 @@ if known; the CLI never copies a possibly stale model from its binding. The
 receipt and provenance query show the model stored on each worklog row. This
 is reported attribution, not cryptographic verification. An old server can
 still record ordinary milestones, but cannot accept an explicit --model.`,
-		Example: `  hadron team session log --pr 371
-  hadron team session log --pr acme/widgets#7 --action merged
+		Example: `  hadron team session log --pr acme/widgets#7 --action merged
+  # bare refs need the repo recorded at ` + "`session start --repo acme/widgets`" + `
+  hadron team session log --pr 371
   hadron team session log --commit 93200b2 --action pushed
   hadron team session log --branch team-chat --action pushed`,
 		Args: cobra.NoArgs,
@@ -2324,6 +2359,13 @@ func newCmdSessionEnd(f *cmdutil.Factory) *cobra.Command {
 		Use:   "end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>] [--resume-claim]",
 		Short: "End this worktree's worker session — the session, not the name",
 		Long: `End the WORKER SESSION this worktree is bound to and clear the binding.
+
+MOST OF THE TIME, DO NOT END IT (#623). End it only when you stop being this
+worker for good — not when a task, a chat session, a branch, a PR or a
+worktree ends; the session spans all of those. To reset your context and keep
+working as the same worker, use ` + "`session shed`" + ` instead. When you do end it,
+leave a handoff (--handoff-file below): it is what the next driver reads.
+
 This is the only thing that ends the session — unless another active worker
 session still has the worker (e.g. after a --force takeover; check
 ` + "`session list --active`" + `).
@@ -2336,12 +2378,10 @@ worker to be BOUND by you again; it does not hand the name to anyone else.
 Closing your CHAT SESSION does not do this. Archive the Desktop window or
 quit the Claude Code session and the worker session stays open, holding the
 worker until you end it here — since hadron-server#1114 nothing else does.
-So end it deliberately when you stop working, not when you close the window.
 
-MOST OF THE TIME, DO NOT END IT (#623). Worker sessions are meant to be
+WHY NOT END IT. Worker sessions are meant to be
 long-lived: #1114 removed the idle reaper on the principle that silence is
-not evidence of abandonment. Ending is for when the WORK ends — not when a
-chat session, a branch, a PR or a worktree does. Re-binding is not free: it
+not evidence of abandonment. Re-binding is not free: it
 re-renders the boot briefing, takes several manual steps that are not
 Hadron's, and a mistyped worker name has a known failure mode
 (hadron-server#1157). If you are ending a healthy session to tidy something
@@ -2411,6 +2451,12 @@ next session. The claim is redeemable only with your own token, and carries
 nothing to keep. If the server cannot write it, the end is refused and
 nothing ends. For a SHED, which keeps the session open, use
 ` + "`team session resume-claim`" + ` instead.`,
+		Example: `  # stop being this worker: write the handoff first, then end
+  hadron team session end --handoff-file handoff.md
+
+  # the worktree (and its binding) is gone but the session is open
+  hadron team session whoami                 # falls back to the server; prints the id
+  hadron team session end --session <id> --handoff-file handoff.md`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -2575,6 +2621,14 @@ func newCmdSessionList(f *cmdutil.Factory) *cobra.Command {
 		Aliases: []string{"ls"},
 		Short:   "List worker sessions — open sessions and provenance",
 		Long: `List sessions, newest first, with each session's worker joined in.
+
+WHOSE SESSIONS: every session the server lets you SEE, not only yours — the
+sessions of Apps in any org you belong to, of Apps you own, and the ones
+attributed to you. So rows from other people and other Apps are expected.
+--app does not narrow a plain listing; --as <worker> (one worker) and
+--repo <owner/repo> (the repository a session recorded at ` + "`session start`" + `)
+do.
+
 --active narrows to sessions that never ENDED, which is not the same as
 team presence: since hadron-server#1114 nothing ends a developer session
 but an explicit ` + "`session end`" + `, so an abandoned one stays listed
@@ -2596,9 +2650,11 @@ dropped. The provenance JSON includes each matching worklog milestone with
 its reported event-time model; the human output prints those milestones below
 the session table. SESSION MODEL is the session's initial model and may differ
 from a later milestone's REPORTED MODEL.`,
-		Example: `  hadron team session list --active
-  hadron team session list --pr 371 -m acme.com:eng-team
-  hadron team session list --commit 93200b2`,
+		Example: `  hadron team session list --active --as Iris --app acme.com:eng-team
+  hadron team session list --repo acme/widgets
+  # which sessions produced a PR or commit (refs as ` + "`session log`" + ` recorded them)
+  hadron team session list --pr acme/widgets#371 --app acme.com:eng-team
+  hadron team session list --commit acme/widgets@93200b2 --app acme.com:eng-team`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -2738,7 +2794,7 @@ from a later milestone's REPORTED MODEL.`,
 	// caught by TestFlagUsagePlaceholdersAreDeliberate).
 	cmd.Flags().BoolVar(&active, "active", false, "only sessions that never ENDED — not presence; see worker list's LAST RECORDED ACTIVITY")
 	cmd.Flags().StringVar(&as, "as", "", "only one worker's sessions (name within the team App, or worker id)")
-	cmd.Flags().StringVar(&repo, "repo", "", "filter by repository")
+	cmd.Flags().StringVar(&repo, "repo", "", "only sessions that recorded this repository at start (owner/repo)")
 	cmd.Flags().StringVar(&pr, "pr", "", "provenance query: sessions behind this PR (number, owner/repo#N, or URL)")
 	cmd.Flags().StringVar(&issue, "issue", "", "provenance query: sessions behind this issue")
 	cmd.Flags().StringVar(&commit, "commit", "", "provenance query: sessions behind this commit")

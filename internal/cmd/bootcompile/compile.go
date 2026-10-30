@@ -43,10 +43,29 @@ func newCommand(f *cmdutil.Factory, kind string, resolve func(*cobra.Command, st
 		example = "  hadron app agent compile hrn:app:acme.com:eng-team hrn:agent:acme.com:iris"
 		target = "App's install memory for this Agent"
 	}
+	recipe := ""
 	if kind == "worker" {
 		use = "compile <worker>"
-		example = "  hadron team worker compile Iris --no-set-pointer"
+		example = `  # 1. write the worker's source (needs its id: team worker get Iris --json)
+  hadron node add --install hrn:app:acme.com:eng-team/hrn:agent:acme.com:backend-engineer \
+      --loc boot:workers:<worker-id>:source --role boot-prompt --name "Iris boot" \
+      --content "You are {{worker.name}}, the {{worker.role}}. ..."
+  # 2. compile it (sets the worker's pointer), then 3. approve what it printed
+  hadron team worker compile Iris --app acme.com:eng-team
+  hadron node approve hrn:node:acme.com:eng-team-install:boot:workers:<worker-id>:compiled`
 		target = "worker's App install memory"
+		recipe = `
+
+A WORKER HAS NO SOURCE UNTIL YOU WRITE ONE (exit 5, BOOT_PROMPT_NO_SOURCE).
+The server reads it from boot:workers:<worker-id>:source, role boot-prompt, in
+the App's install memory for the worker's Agent, and writes the result to
+boot:workers:<worker-id>:compiled there. Three separate steps, three effects:
+  1. node add --install <app>/<agent> ...   write the source (example below)
+  2. team worker compile <worker>           compile; sets the worker's pointer
+  3. node approve <compiled node>           approve; only now is it served
+A served worker prompt replaces the App's and the Agent's (worker pointer,
+else the App install's, else the Agent's): the newest APPROVED revision is
+served, so a compile alone changes nothing a worker sees.`
 	}
 	pointerHelp := "The pointer is set by default; --no-set-pointer leaves it unchanged."
 	if kind == "app" {
@@ -75,7 +94,7 @@ Exit codes: 2 for malformed or disallowed include/input; 4 for an unavailable in
 invalid source, unavailable include revision or conflict; 8 for permission
 or grant refusals. A lost response is exit 7: check the compiled node with
 node get before compiling again. The command sends the mutation once and
-never retries it.`, target, pointerHelp),
+never retries it.%s`, target, pointerHelp, recipe),
 		Example: example, Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			for _, arg := range args {

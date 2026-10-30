@@ -40,7 +40,19 @@ App context, or the worktree binding), its URN, or its id. The URN
 (hrn:worker:<root>:<app-slug>:<slug>, #991) keys on a permanent DERIVED
 slug — never on the name, since two names may legally slugify to one token
 — and needs no App context, which makes it the portable way to name a
-worker in scripts.`,
+worker in scripts.
+
+LIFECYCLE: cast (create) → a person binds it with ` + "`team session start`" + ` →
+release (give up the name's hold) or retire (end the casting for good; the
+name stays reserved). rm deletes only a casting that never did anything.
+
+RELATED, NOT HERE:
+  who is free, working, OVERDUE   team roster (states and CHECK column)
+  take a worker off new work      team availability set --worker <w>
+                                  --state unavailable --reason <r>
+                                  (not retire, not release)
+  why a worker went dark          team events --alarms (alarm.dark-worker)
+  its open tasks                  team task list --assignee worker:<w>`,
 	}
 	cmd.AddCommand(newCmdWorkerCast(f))
 	cmd.AddCommand(newCmdWorkerList(f))
@@ -115,7 +127,17 @@ func newCmdWorkerCast(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "cast --name <n> (--role <role> | --agent <ref>) [--dry-run]",
 		Short: "Cast an installed agent as a named worker",
-		Long: `Cast a worker: ONE platform call (castWorker, cor:agt:020:01). The server
+		Long: `WHO MAY CAST: an org member with CONTRIBUTOR or higher on the App's org,
+a member of the App whose role is not reader, or the owner of a user-owned
+App. A pure App key may not. A refusal here is that rule (exit 8, FORBIDDEN):
+ask an App manager to cast it, or to raise your access. The agent must already
+be INSTALLED in the App (` + "`hadron app agent list <app>`" + `).
+
+Try it first: --dry-run (below) runs the same checks and writes nothing. After
+the cast, bind the worker to start driving it:
+` + "`hadron team session start --as <name> --app <app> --tool <tool>`" + `.
+
+Cast a worker: ONE platform call (castWorker, cor:agt:020:01). The server
 resolves the agent — --agent names it directly and it must be installed
 in THIS App (WORKER_AGENT_NOT_INSTALLED, exit 2 and NOT 4: the ref
 resolves, it is the install that is missing, so the remedy is to pass an
@@ -169,8 +191,10 @@ no lease exists, so a previewed name may be gone at cast time.
 
 The team App comes from the persistent --app flag (or the configured App
 context).`,
-		Example: `  hadron team worker cast --app acme.com:eng-team --role backend-engineer --name Iris
-  hadron team worker cast --app acme.com:eng-team --agent hrn:agent:acme.com:qa --name Uma`,
+		Example: `  hadron team worker cast --app acme.com:eng-team --role backend-engineer --name Iris --dry-run
+  hadron team worker cast --app acme.com:eng-team --role backend-engineer --name Iris
+  hadron team worker cast --app acme.com:eng-team --agent hrn:agent:acme.com:qa --name Uma
+  hadron team session start --as Iris --app acme.com:eng-team --tool claude-code`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			appRef, err := f.App()
@@ -477,9 +501,34 @@ func newCmdWorkerGet(f *cmdutil.Factory) *cobra.Command {
 		Short: "Show a worker (by name within the App, or by id)",
 		Long: `Show the worker and the server-derived team-channel check status.
 A known check result with no lastCheckedAt means never checked; an unavailable
-check result stays unavailable. No local clock or task-count inference is made.`,
-		Example: `  hadron team worker get Iris
-  hadron team worker get wkr_123 --json`,
+check result stays unavailable. No local clock or task-count inference is made.
+
+<name-or-id>: a NAME resolves within one App — --app, the App context, or this
+worktree's binding, in that order. An id or a worker URN
+(hrn:worker:<root>:<app-slug>:<slug>) needs no App.
+
+THE FIELDS:
+  held by        the person whose name it is ("nobody": binding it holds it)
+  driven         live (a session drove it recently), or when it last was
+  check status   whether it reads its team chat as expected:
+                   NO_SESSION  no live session
+                   PENDING     not expected to (paused, isolated, standby,
+                               or no open task), with the reason
+                   OK          has an open task and checked in time
+                   OVERDUE     has an open task and has not checked within
+                               the App's window (missed periods + 5 minutes)
+  last team-channel check   the last bound team chat read
+
+OVERDUE CLEARS when the worker's own session reads its team chat
+(` + "`team chat read`" + ` or ` + "`team chat check`" + ` from its bound worktree): that read is
+the check. A worker that is OVERDUE, or has left a delivered wake
+unacknowledged too long, is DARK: the platform raises one alarm.dark-worker
+to its reporting line (` + "`team events --alarms`" + `). The alarm ends when both
+causes clear. To stop expecting checks, give it no task, or mark it unavailable
+(` + "`team availability set`" + `). Availability itself shows in ` + "`team availability get`" + `,
+and every worker's state in ` + "`team roster`" + `.`,
+		Example: `  hadron team worker get Iris --app acme.com:eng-team
+  hadron team worker get hrn:worker:acme.com:eng-team:iris --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			w, err := workerForArg(cmd, f, args[0])
@@ -646,9 +695,18 @@ name, so it is never freed for a new casting (cor:agt:020:02). Retiring is
 idempotent; there is no un-retire.
 
 This is the normal end of a worker. The only removal is ` + "`worker rm`" + `, the
-hard-delete escape for a casting that NEVER did anything (a typo'd cast);
-anything with history refuses it and retires instead.`,
-		Example: `  hadron team worker retire Iris --yes`,
+hard-delete escape for a casting that NEVER did anything (a typo'd cast). On
+a worker with any history, rm is REFUSED (exit 5) and writes nothing — it does
+not retire it for you; run this command instead.
+
+Not the same as stepping away: to stop holding the name use ` + "`worker release`" + `,
+and to take a worker off new work for a while use ` + "`team availability set`" + `.
+
+Who may retire: the same people who may cast (` + "`worker cast --help`" + `). A NAME
+resolves within --app, the App context or the binding; an id or worker URN
+needs no App. On a terminal it asks first; without one, --yes is required
+(exit 2 otherwise).`,
+		Example: `  hadron team worker retire Iris --app acme.com:eng-team --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			w, err := workerForArg(cmd, f, args[0])
@@ -1625,12 +1683,26 @@ func newCmdWorkerUpdate(f *cmdutil.Factory) *cobra.Command {
 		Short: "Amend a worker's signature or trailer template",
 		Long: `Set signature and trailer templates for the next briefing. Omitted fields
 keep their stored value; an explicit empty string stores an empty template.
-Only an App manager may edit them. A bound worktree sends the edit through
-its verified worker session; the server may refuse it (exit 8).
+They are filled in when the worker's session is bound (the briefing prints the
+filled result), not when you run this.
 
-For per-worker boot customisation write boot:workers:<id>:source (role
-boot-prompt) in the App install memory, then use hadron team worker compile <worker>.
-Approve the returned compiled node with hadron node approve <compiled-node-ref>.`,
+TEMPLATE VARIABLES, written {{name}} — anything else stays literal text:
+  {{worker.name}}  {{worker.role}}  {{worker.url}}  {{agent.name}}
+  {{worker.reportsTo.name}}  {{session.llmModel}}
+At most 2000 characters each. The defaults are:
+  signature  — [{{worker.name}}, {{worker.role}}]({{worker.url}}) · {{session.llmModel}}
+  trailer    Worker: {{worker.name}} ({{worker.role}}) <{{worker.url}}>
+
+Only an App manager may edit them, as themselves. From a worktree bound to a
+worker the edit goes through that worker's session and is refused (exit 8):
+run it from a directory with no binding, signed in as the App manager.
+
+<name-or-id>: a NAME resolves within --app, the App context or the binding; an
+id or worker URN needs no App. Per-worker boot instructions are a different
+thing: see ` + "`team worker compile --help`" + `.`,
+		Example: `  hadron team worker update Iris --app acme.com:eng-team \
+      --signature '— [{{worker.name}}, {{worker.role}}]({{worker.url}})' \
+      --trailer 'Worker: {{worker.name}} <{{worker.url}}>'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			setSignature := cmd.Flags().Changed("signature")

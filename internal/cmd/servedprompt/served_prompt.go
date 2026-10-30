@@ -53,6 +53,31 @@ func NewWorker(f *cmdutil.Factory) *cobra.Command { return newCommand(f, true) }
 // NewRun reads the served record of an explicit run ref.
 func NewRun(f *cmdutil.Factory) *cobra.Command { return newCommand(f, false) }
 
+// selectionHelp says WHICH serve the one record is, and names the revision
+// fields in plain words (cli#1054: "revSeq" alone was undefined to a reader).
+func selectionHelp(worker bool) string {
+	which := "WHICH RECORD: the prompt served when this run started."
+	if worker {
+		which = `WHICH RECORD: the prompt served to the worker's OPEN session when it was
+bound — what that session was actually told. With no open session there is no
+record (null). It is not the worker's current pointer or the latest compile:
+for those, use ` + "`team worker get`" + ` and ` + "`node get <compiled-node>`" + `.`
+	}
+	return "\n" + which + `
+REVISIONS: servedRevSeq is the compiled node's revision number that was served
+(as ` + "`node get`" + ` numbers revisions); provenanceRevSeq is the compile behind it.
+pointerLevel says whose pointer chose it: WORKER, APP_AGENT or AGENT.`
+}
+
+func servedExample(worker bool) string {
+	if worker {
+		return `  hadron team worker served-prompt hrn:worker:acme.com:eng-team:iris
+  hadron team worker served-prompt hrn:worker:acme.com:eng-team:iris --limit 0   # counts only
+  hadron team worker served-prompt hrn:worker:acme.com:eng-team:iris --all --json`
+	}
+	return ""
+}
+
 func newCommand(f *cmdutil.Factory, worker bool) *cobra.Command {
 	var limit, offset int
 	var all bool
@@ -68,6 +93,7 @@ variables, with one page of scalar-only provenance. This never reconstructs a
 prompt from current pointers, source bodies or live edges. Revision numbers are
 revSeq, not contentRevSeq. Pruned revisions stay recorded; no replacement text
 is fetched. Variables are the recorded values and may contain sensitive text.
+` + selectionHelp(worker) + `
 
 A null record is unavailable: it may be unrecorded, unreadable or serving may
 be off. Null does not prove which. Worker refs must be ids or fully-qualified
@@ -78,7 +104,8 @@ are sent to the provider as given. Provider authorization remains authoritative.
 provenance page. --all buffers every provenance page before output and refuses
 an inconsistent record or failed page without printing a partial result. It
 cannot guarantee one database snapshot across requests.`,
-		Args: cobra.ExactArgs(1),
+		Example: servedExample(worker),
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref := strings.TrimSpace(args[0])
 			if ref == "" || (worker && !cmdutil.IsEntityID(ref) && !strings.HasPrefix(strings.ToLower(ref), "hrn:worker:") && !strings.HasPrefix(strings.ToLower(ref), "urn:worker:")) {
