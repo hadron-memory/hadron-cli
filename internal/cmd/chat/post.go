@@ -81,7 +81,15 @@ is what the Worker model replaced. Reads still show the stored envelope on
 messages written before this, so old transcripts keep their author.
 
 --reply-to takes the replied-to message's seq, or its loc/URN (resolved with
-one read).`,
+one read).
+
+REFUSALS ARE FINAL. A post the server refuses for a repeat (TEAM_CHAT_DUPLICATE:
+the identical message already landed, and the error names its seq) or for the
+post limit (TEAM_CHAT_POST_RATE_LIMITED: the error says when you may post again)
+exits 5 and is sent once, never retried; with --json the error carries
+serverCode. A body over the cap (TEAM_CHAT_BODY_TOO_LARGE) exits 2. Only a
+missing Channel (CHANNEL_NOT_FOUND) is handled for you: it is created and the
+post sent once more.`,
 		Example: `  hadron chat post --body "@rufus schema looks good, shipping it"
   hadron chat post --node hrn:node:acme.com:team-chats:team-chat:api:messages \
     --session 258ceeda-… --body "done" --reply-to 41`,
