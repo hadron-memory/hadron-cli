@@ -107,9 +107,10 @@ recorded as seen by that attendee, and when it was recorded. Unread messages
 are those with a higher seq ("channel read <room> --since <cursor>").
 
 --attendee must be a Worker or an Agent (name, URN or id), not a human user.
-When nothing is recorded for the attendee, the command prints "no read state"
-and exits 0 — that is also what a name that matches no attendee prints, so
-check the spelling if the answer surprises you. Record progress with
+When the attendee has seen nothing here yet, the command prints "no read
+state" and exits 0. An attendee that matches nothing you can read, or is not
+registered on this Channel, exits 4 (not found) instead — the same answer for
+each, so a typo never reads as "has seen nothing". Record progress with
 "channel mark-read".`,
 		Example: `  hadron channel read-state <address> --attendee Jonas`,
 		Args:    cobra.ExactArgs(1),
@@ -130,13 +131,12 @@ check the spelling if the answer surprises you. Record progress with
 				return api.MapError(err)
 			}
 			if resp == nil || resp.ChannelReadState == nil {
-				// No row is a real answer — the attendee has read nothing here
-				// — and is NOT an error. Reporting it as one would make "never
-				// read" indistinguishable from "unreadable".
-				return output.Write(f.IOStreams, f.JSON, readStateDTO{LastSeenSeq: 0}, func(w io.Writer) error {
-					_, err := io.WriteString(w, "no read state — this attendee has seen nothing here\n")
-					return err
-				})
+				// #1259: null is an unknown ref, an attendee the caller cannot
+				// read, or one not registered on this Channel — never "has read
+				// nothing", which the server answers with a lastSeenSeq-0 row.
+				// One wording for all three: the CLI must not be a finer
+				// existence oracle than advanceChannelReadState's NOT_FOUND.
+				return exitcode.Newf(exitcode.NotFound, "no readable attendee %q on this channel", attendee)
 			}
 			r := resp.ChannelReadState
 			dto := readStateDTO{
@@ -146,6 +146,12 @@ check the spelling if the answer surprises you. Record progress with
 				UpdatedAt:   r.UpdatedAt,
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				if dto.LastSeenSeq == 0 {
+					// Never checkpointed: the server's updatedAt is the epoch
+					// placeholder, so don't print it as a time.
+					_, err := io.WriteString(w, "no read state — this attendee has seen nothing here\n")
+					return err
+				}
 				_, err := fmt.Fprintf(w, "cursor at #%d (updated %s)\n", dto.LastSeenSeq, dto.UpdatedAt)
 				return err
 			})

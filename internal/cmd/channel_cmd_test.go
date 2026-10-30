@@ -475,7 +475,7 @@ func TestChannelReadStateNullIsNotFound(t *testing.T) {
 		if err == nil {
 			t.Fatalf("json=%v: a null read state must not exit 0; stdout:\n%s", jsonMode, out.String())
 		}
-		if got := exitcode.FromError(err); got != exitcode.NotFound {
+		if got := exitCodeFor(err); got != exitcode.NotFound {
 			t.Errorf("json=%v: want exit %d, got %d", jsonMode, exitcode.NotFound, got)
 		}
 		if out.Len() != 0 {
