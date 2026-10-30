@@ -517,3 +517,46 @@ func TestC1025MirroredLintKeepsPerRouteFindings(t *testing.T) {
 		t.Errorf("mirrored lint reports each route's finding (2), got %d:\n%s", n, out.String())
 	}
 }
+
+// One row per node holds for legacy routes too: a node the router routes to by
+// two labels is one row under leaf, and still two under mirrored.
+func TestC1025ListDedupsLegacyRoutesOnlyInLeafMode(t *testing.T) {
+	for _, tc := range []struct {
+		args []string
+		want int
+	}{{[]string{"--route-model", "leaf"}, 1}, {nil, 2}} {
+		gql := fakeGraphQL(t, map[string]string{
+			"GetNode":   leafRouter("# Preflight\n", "", outTo("o1", "to do one thing", "findings:legacy")+","+outTo("o2", "to do another", "findings:legacy")),
+			"NodeBatch": codingBatch([]string{codingBatchNode("findings:legacy", "", "")}, ""),
+		})
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append([]string{"coding", "preflight", "list", "-m", codingMem, "--json", "--server", gql.URL}, tc.args...))
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		var rows []map[string]any
+		_ = json.Unmarshal([]byte(out.String()), &rows)
+		if len(rows) != tc.want {
+			t.Errorf("%v: want %d row(s), got %d: %s", tc.args, tc.want, len(rows), out.String())
+		}
+	}
+}
+
+// The success line's arrow follows the edge: leaf mode runs node -> router.
+func TestC1025LeafSuccessLineArrowFollowsTheEdge(t *testing.T) {
+	gql, _ := queueGraphQL(t, map[string][]string{
+		"GetNodeRaw": {codingRouterWithBody(flatRouterBody)},
+		"GetNode":    {newRouteNodeRead(leafEdgeJSON("root", "preflight"))},
+		"CreateNode": {`{"data":{"createNode":` + newRouteNodeJSON + `}}`},
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(leafCreateArgs(gql.URL))
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "findings:flaky-otp-timer → preflight") {
+		t.Errorf("leaf route line must read node → router:\n%s", out.String())
+	}
+}

@@ -419,7 +419,13 @@ func renderRoutePlan(w io.Writer, dto newRouteDTO, created bool) error {
 	}[[2]bool{created, dto.DryRun}]
 	t := output.NewTable(w)
 	t.Row(verb, output.SafeCell(dto.Loc), output.SafeCell("("+dto.Route+")"))
-	t.Row("  route", output.SafeCell(dto.Router+" → "+dto.Loc), output.SafeCell(dto.EdgeID))
+	// The arrow follows the edge: the router owns it (router → node) under the
+	// mirrored model, the node owns it (node → router) under the leaf model.
+	from, to := dto.Router, dto.Loc
+	if dto.Model == string(modelLeaf) {
+		from, to = dto.Loc, dto.Router
+	}
+	t.Row("  route", output.SafeCell(from+" → "+to), output.SafeCell(dto.EdgeID))
 	if dto.BackEdge {
 		t.Row("  back-edge", output.SafeCell(dto.Loc+" → "+dto.Router), "")
 	}

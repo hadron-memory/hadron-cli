@@ -144,9 +144,18 @@ func routeRows(in preflightInput, findings []findingDTO) []routeDTO {
 			})
 		}
 	}
+	legacyIDs := map[string]bool{}
 	for _, r := range in.Routes {
 		if r.OtherID != "" && leafIDs[r.OtherID] {
 			continue // one row per leaf; the leaf-owned edge wins
+		}
+		// Leaf mode: a node the router routes to by two labels is one legacy
+		// row too. The mirrored listing keeps one row per edge, as it always did.
+		if in.Model == modelLeaf && r.OtherID != "" {
+			if legacyIDs[r.OtherID] {
+				continue
+			}
+			legacyIDs[r.OtherID] = true
 		}
 		status := statusOK
 		// A redacted endpoint has no loc to key a finding by, so it is matched
