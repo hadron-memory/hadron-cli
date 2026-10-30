@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"strings"
 	"testing"
 )
@@ -36,11 +37,17 @@ func TestSession1280ServerOrderAndPaging(t *testing.T) {
 	if len(*calls) != 1 || c.Vars["id"] != "session-123" || c.Vars["historyLimit"] != float64(2) || c.Vars["historyOffset"] != float64(3) {
 		t.Fatalf("wrong request: %+v", *calls)
 	}
-	for _, fragment := range []string{"content(", "edges(", "bootPromptNode", "promptOverride"} {
-		if strings.Contains(c.Query, fragment) {
-			t.Fatalf("source read: %s", c.Query)
+	for _, line := range strings.Split(gen.SessionServedPrompts_Operation, "\n") {
+		field := strings.Fields(strings.TrimSpace(line))
+		if len(field) == 0 {
+			continue
+		}
+		switch strings.TrimSuffix(strings.Split(field[0], "(")[0], ":") {
+		case "content", "edges", "bootPromptNode", "promptOverride":
+			t.Fatalf("history query reads source/live state: %s", gen.SessionServedPrompts_Operation)
 		}
 	}
+
 }
 
 func TestSession1280ConcealmentEmptyAndErrors(t *testing.T) {
@@ -82,5 +89,45 @@ func TestSession1280Help(t *testing.T) {
 	_, out, err = runTeamTask(t, nil, "team", "worker", "served-prompt", "--help")
 	if err != nil || !strings.Contains(out, "session served-prompts") {
 		t.Fatalf("missing history pointer: %v %s", err, out)
+	}
+}
+
+func TestSession1280RejectsBadPagesBeforeOutput(t *testing.T) {
+	for _, body := range []string{
+		`{"data":{"session":{"servedPrompts":null}}}`,
+		session1280Page("null", 0), session1280Page("[null]", 1), session1280Page("[]", -1),
+		session1280Page("["+c3bRecord+"]", 0),
+		session1280Page("["+strings.Replace(c3bRecord, `"servedRevSeq":7`, `"servedRevSeq":0`, 1)+"]", 1),
+	} {
+		_, out, err := runTeamTask(t, map[string]string{"SessionServedPrompts": body}, "team", "session", "served-prompts", "session-123", "--json")
+		if exitCodeFor(err) != 1 || out != "" {
+			t.Fatalf("invalid page emitted: %v %s", err, out)
+		}
+	}
+}
+
+func TestSession1280ProvenancePagingAndText(t *testing.T) {
+	calls, out, err := runTeamTask(t, map[string]string{"SessionServedPrompts": session1280Page("["+c3bRecord+"]", 1)}, "team", "session", "served-prompts", "session-123", "--provenance-limit", "1", "--provenance-offset", "1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range []string{"served prompts: 1 of 1", "record: rec1", "served revision: 7", "recorded signature", "source1", "provenance: 1 of 2 (offset 1)"} {
+		if !strings.Contains(out, s) {
+			t.Fatalf("missing %s: %s", s, out)
+		}
+	}
+	c := c2Mutation(t, calls, "SessionServedPrompts")
+	if c.Vars["limit"] != float64(1) || c.Vars["offset"] != float64(1) || c.Vars["historyLimit"] != float64(50) || c.Vars["historyOffset"] != float64(0) {
+		t.Fatalf("mixed paging: %s", c.RawVars)
+	}
+}
+
+func TestSession1280InvalidFlagsDoNotRead(t *testing.T) {
+	for _, flags := range [][]string{{"--limit", "-1"}, {"--limit", "201"}, {"--offset", "-1"}, {"--offset", "2147483648"}, {"--provenance-limit", "201"}, {"--provenance-offset", "-1"}, {"--provenance-offset", "2147483648"}} {
+		args := append([]string{"team", "session", "served-prompts", "session-123"}, flags...)
+		calls, _, err := runTeamTask(t, nil, args...)
+		if exitCodeFor(err) != 2 || len(*calls) != 0 {
+			t.Fatalf("flags %v: %v calls %v", flags, err, *calls)
+		}
 	}
 }
