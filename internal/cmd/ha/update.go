@@ -55,6 +55,11 @@ prints the instance as "ha get --json" does, without the token.`,
 			// Gate on flag presence (Changed), not the parsed value, so an
 			// explicit --enabled=false still counts as a change.
 			changed := cmd.Flags().Changed
+			// --clear-allow-ops=false has no meaning, and acting on its presence
+			// would widen the allowlist to every op: refuse it.
+			if changed("clear-allow-ops") && !clearAllowOps {
+				return exitcode.Newf(exitcode.Usage, "--clear-allow-ops takes no value: pass it to allow every op, or omit it to keep the allowlist")
+			}
 			if !changed("name") && !changed("url") && !changed("token-file") &&
 				!changed("allow-op") && !changed("clear-allow-ops") &&
 				!changed("enabled") && !changed("disabled") {
