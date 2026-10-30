@@ -247,6 +247,9 @@ func TestMapError(t *testing.T) {
 		{"team chat duplicate", gqlErr("TEAM_CHAT_DUPLICATE"), exitcode.Conflict},
 		{"team chat post rate limited", gqlErr("TEAM_CHAT_POST_RATE_LIMITED"), exitcode.Conflict},
 		{"team chat body too large", gqlErr("TEAM_CHAT_BODY_TOO_LARGE"), exitcode.Usage},
+		{"team chat search query length", gqlErr("TEAM_CHAT_SEARCH_QUERY_LENGTH"), exitcode.Usage},
+		{"team chat search cursor invalid", gqlErr("TEAM_CHAT_SEARCH_CURSOR_INVALID"), exitcode.Usage},
+		{"team chat search encrypted", gqlErr("TEAM_CHAT_SEARCH_ENCRYPTED"), exitcode.Conflict},
 		{"worker external attribution needs an explicit input", gqlErr("WORKER_EXTERNAL_ATTRIBUTION_UNCONFIRMED"), exitcode.Usage},
 		// #608: a duplicate node loc. PascalCase, because the server stamps this
 		// extensions.code from an Error CLASS NAME rather than from the

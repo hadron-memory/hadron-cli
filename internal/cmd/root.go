@@ -382,6 +382,18 @@ func renderError(f *cmdutil.Factory, err error) int {
 				}
 			}
 		}
+		// #1327: the chat-search refusals span exits 2 and 5, so they are keyed
+		// on the code itself rather than the exit.
+		for _, serverCode := range []string{"TEAM_CHAT_SEARCH_QUERY_LENGTH", "TEAM_CHAT_SEARCH_CURSOR_INVALID", "TEAM_CHAT_SEARCH_ENCRYPTED"} {
+			if api.HasErrorCode(err, serverCode) {
+				failure["serverCode"] = serverCode
+				break
+			}
+		}
+		var coded interface{ ServerCode() string }
+		if errors.As(err, &coded) {
+			failure["serverCode"] = coded.ServerCode()
+		}
 		details := api.CommentRecoveryDetails(err)
 		if details == nil {
 			details = api.WorkerReportingDetails(err)
