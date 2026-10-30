@@ -4,7 +4,11 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 )
+
+var chat1280Record = strings.NewReplacer(`"kind":"BIND"`, `"kind":"CHAT"`, `"pointerLevel":"WORKER"`, `"pointerLevel":"APP_AGENT"`).Replace(c3bRecord)
 
 func chat1280Page(items string, total int) string {
 	b, _ := json.Marshal(total)
@@ -39,8 +43,8 @@ func TestChat1280ConcealedOrEmptyIsExplicit(t *testing.T) {
 }
 
 func TestChat1280OrderAndIndependentPaging(t *testing.T) {
-	newer := strings.Replace(c3bRecord, `"kind":"BIND"`, `"kind":"CHAT"`, 1)
-	older := strings.Replace(newer, `"id":"rec1"`, `"id":"rec2"`, 1)
+	newer := strings.Replace(chat1280Record, `"ordinal":1`, `"ordinal":2`, 1)
+	older := strings.Replace(chat1280Record, `"id":"rec1"`, `"id":"rec2"`, 1)
 	calls, out, err := runTeamTask(t, map[string]string{"ChatServedPrompts": chat1280Page("["+newer+","+older+"]", 9)}, "chat", "served-prompts", "chat-123", "--limit", "2", "--offset", "3", "--provenance-limit", "1", "--provenance-offset", "1", "--json")
 	if err != nil {
 		t.Fatal(err)
@@ -68,7 +72,7 @@ func TestChat1280OrderAndIndependentPaging(t *testing.T) {
 }
 
 func TestChat1280TextAndCountsOnly(t *testing.T) {
-	_, out, err := runTeamTask(t, map[string]string{"ChatServedPrompts": chat1280Page("["+c3bRecord+"]", 1)}, "chat", "served-prompts", "chat-123", "--provenance-limit", "1", "--provenance-offset", "1")
+	_, out, err := runTeamTask(t, map[string]string{"ChatServedPrompts": chat1280Page("["+chat1280Record+"]", 1)}, "chat", "served-prompts", "chat-123", "--provenance-limit", "1", "--provenance-offset", "1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,8 +95,8 @@ func TestChat1280ProviderErrorsAndBadPages(t *testing.T) {
 		{gqlErrorJSON("FORBIDDEN"), 8}, {gqlErrorJSON("NOT_FOUND"), 4},
 		{`{"data":{"chatServedPrompts":null}}`, 1}, {chat1280Page("null", 0), 1},
 		{chat1280Page("[null]", 1), 1}, {chat1280Page("[]", -1), 1},
-		{chat1280Page("["+c3bRecord+"]", 0), 1},
-		{chat1280Page("["+strings.Replace(c3bRecord, `"servedRevSeq":7`, `"servedRevSeq":0`, 1)+"]", 1), 1},
+		{chat1280Page("["+chat1280Record+"]", 0), 1},
+		{chat1280Page("["+strings.Replace(chat1280Record, `"servedRevSeq":7`, `"servedRevSeq":0`, 1)+"]", 1), 1},
 	}
 	for _, tc := range cases {
 		_, out, err := runTeamTask(t, map[string]string{"ChatServedPrompts": tc.body}, "chat", "served-prompts", "chat-123", "--json")
@@ -120,6 +124,35 @@ func TestChat1280HelpDistinguishesChatbotFromChannel(t *testing.T) {
 	for _, want := range []string{"chat-id", "chatbot", "Channel", "newest", "--provenance-limit", "empty", "App", "sensitive"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("help lacks %q: %s", want, out)
+		}
+	}
+}
+
+func TestChat1280NoAmbientChatConfig(t *testing.T) {
+	t.Setenv("HADRON_CHAT_NODE", "not-a-node-URN")
+	calls, _, err := runTeamTask(t, map[string]string{"ChatServedPrompts": chat1280Page("[]", 0)}, "chat", "served-prompts", "explicit-chat", "--app", "irrelevant-context")
+	if err != nil || len(*calls) != 1 {
+		t.Fatalf("ambient context used: %v %v", err, *calls)
+	}
+	if c2Mutation(t, calls, "ChatServedPrompts").Vars["chatId"] != "explicit-chat" {
+		t.Fatal("explicit id lost")
+	}
+}
+
+func TestChat1280RecordOnlyOperation(t *testing.T) {
+	// Check the generated document sent on the wire, not captured variables.
+	op := gen.ChatServedPrompts_Operation
+	if !strings.Contains(op, "chatServedPrompts(chatId: $chatId, limit: $historyLimit, offset: $historyOffset)") {
+		t.Fatal("record-only query missing")
+	}
+	for _, line := range strings.Split(op, "\n") {
+		field := strings.Fields(strings.TrimSpace(line))
+		if len(field) == 0 {
+			continue
+		}
+		switch strings.Split(field[0], "(")[0] {
+		case "content", "prompt", "compiledNode", "node", "chat", "myChats":
+			t.Fatalf("query selects non-record field %q", line)
 		}
 	}
 }

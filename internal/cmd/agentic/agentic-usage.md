@@ -3871,7 +3871,7 @@ the server.
 
 `hadron team worker served-prompt <worker-id-or-qualified-URN>` and `hadron run served-prompt <run-ref>` read the recorded revision/hash/variables and scalar-only provenance. `--limit 0..200` (default 50), `--offset N`, or `--all` (all provenance pages, buffered before output). Explicit `--offset` excludes `--all`; `--all --limit 0` is refused. JSON is `{servedPrompt: record|null}`; null is unavailable (unrecorded, unreadable or serving off), never proof of which. No current prompt/source text is fetched. Pruned revisions remain recorded. Recorded variables may contain sensitive values. Ordinary worker/run get remains unchanged.
 
-`hadron team session served-prompts <session-id>` reads one explicit session’s history in server order (newest served time, then ordinal). Find ids with `team session list`; no ambient binding/App selects the session. `--limit 0..200` (default 50) and `--offset N` page records; `--limit 0` counts only. `--provenance-limit 0..200` (default 50) and `--provenance-offset N` independently page each record’s provenance. JSON is `{servedPrompts: {items: [], total, limit, offset}}`, or `{servedPrompts: null}` for a missing/unreadable session. Empty records can also mean concealment or serving off. Actual provider errors retain their mapped exit code. No source bodies are read; variables may contain sensitive values. This does not add agent-chat history reads.
+`hadron team session served-prompts <session-id>` reads one explicit session’s history in server order (newest served time, then ordinal). Find ids with `team session list`; no ambient binding/App selects the session. `--limit 0..200` (default 50) and `--offset N` page records; `--limit 0` counts only. `--provenance-limit 0..200` (default 50) and `--provenance-offset N` independently page each record’s provenance. JSON is `{servedPrompts: {items: [], total, limit, offset}}`, or `{servedPrompts: null}` for a missing/unreadable session. Empty records can also mean concealment or serving off. Actual provider errors retain their mapped exit code. No source bodies are read; variables may contain sensitive values. For chatbot chat records, use `chat served-prompts <chat-id>` (below); this is separate from team-chat Channels.
 
 hadron node provenance <compiled-node-ref> --revision <n> [--limit 0..100] [--offset N | --all] [-m <memory>]
 
@@ -4033,3 +4033,15 @@ A dark episode ends when checks recover and no wake is unacknowledged past
 the window. These commands do not activate delivery or calculate check state.
 
 # `team task list` filters (cli#1250): `--tag-any`/`--tag-all` (repeatable; a comma is part of a tag), `--source` (exact), `--overdue`/`--overdue=false` (tri-state; unset sends nothing; backlog is never overdue), and inclusive `--created-/--started-/--finished-after|before` bounds taking RFC 3339 with Z or an offset (a date-only or offset-less value is exit 2, nothing sent; a task with no start/finish time never matches a range on it). Filters AND together; none combine with `--team`. With none set the request and `--json` output are unchanged.
+
+# Chatbot served-prompt history (cli#1280, server#2865)
+hadron chat served-prompts <chat-id> [--limit N] [--offset N] [--provenance-limit N] [--provenance-offset N]
+# Explicit chatbot chat id from the application, NOT a team-chat Channel id or node URN.
+# Record-only chatServedPrompts query; no myChats scan, conversation, source bodies or live edges.
+# No chat config, ambient App or worktree session. Read as whoever manages the first-record App;
+# only that App's records are visible. No-App chats: platform admin, never impersonation, per current server rule.
+# Server order (newest served time, then ordinal), one page: --limit 0..200 default50, --offset >=0.
+# Each record has an independent provenance page (--provenance-limit/offset, same bounds); 0 counts only.
+# --json {servedPrompts:{items,total,limit,offset}}, items[] when empty; missing/denied/no-record/serving-off
+# all conceal as an empty page, exit0, never a manufactured refusal. Real provider errors retain mapped exits.
+# Recorded variables may be sensitive. Pages are separate requests, not a snapshot. Requires server6b3f1e15.
