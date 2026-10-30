@@ -57,6 +57,7 @@ that suits you (not in a tight loop).`,
 	cmd.AddCommand(newCmdPost(f))
 	cmd.AddCommand(newCmdMarkRead(f))
 	cmd.AddCommand(newCmdReadState(f))
+	cmd.AddCommand(newCmdSearch(f))
 	cmd.AddCommand(newCmdRegister(f))
 	return cmd
 }
