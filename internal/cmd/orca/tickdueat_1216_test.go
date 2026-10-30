@@ -110,3 +110,26 @@ func TestStatusNullTickDueAtFailsClosed(t *testing.T) {
 		})
 	}
 }
+
+// Joost's #1255 LOCAL P2s: a TICK reason is evidence only with both its ticker
+// and a strictly shaped tickDueAt. A TICK with a null ticker (the wire allows
+// it) and a tickDueAt time.Parse alone accepts (+24:00, a comma fraction) both
+// fail closed to locked/unrecognized instead of reading idle or dark.
+func TestStatusTickReasonEvidenceFailsClosed(t *testing.T) {
+	five := []ts.Ticker{{ID: "tk5", Name: "tk5", Interval: 5 * time.Minute}}
+	for name, reasons := range map[string]string{
+		"null ticker, null tickDueAt": `{"kind":"TICK","ticker":null,"tickDueAt":null}`,
+		"null ticker, bad tickDueAt":  `{"kind":"TICK","ticker":null,"tickDueAt":"not-a-time"}`,
+		"null ticker, fine tickDueAt": `{"kind":"TICK","ticker":null,"tickDueAt":"2026-10-29T16:00:00Z"}`,
+		"offset +24:00":               tickReason("tk5", "2026-10-29T16:30:00Z", "2026-10-29T16:00:00+24:00"),
+		"comma fraction":              tickReason("tk5", "2026-10-29T16:30:00Z", "2026-10-29T16:00:00,5Z"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			code, out := statusOverWire(t, "2026-10-29T16:00:00Z", reasons, five, true)
+			m := decode(t, out)
+			if code != 0 || m["status"] != "locked" || m["reason"] != "unrecognized" {
+				t.Fatalf("exit %d: %v", code, m)
+			}
+		})
+	}
+}
