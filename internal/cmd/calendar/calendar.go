@@ -1,4 +1,4 @@
-// Package calendar implements the read-only calendar slice; authorization belongs to the server.
+// Package calendar implements the calendar commands; authorization belongs to the server.
 package calendar
 
 import (
@@ -29,8 +29,9 @@ command never picks a connection for you.`
 const detailsHelp = `Details:
   Access is the server's: you need to own the connection or hold a grant on it.
   An organization-admin connection list is not by itself calendar access.
-  The commands only read. Nothing is created, changed, deleted or answered, no
-  invites or notifications are sent, and nothing is retried. Free/busy needs a
+  The read commands only read: nothing is created, changed, deleted or answered, no
+  invites or notifications are sent, and nothing is retried. The event commands
+  create, update, delete and respond are owner-only; see their help. Free/busy needs a
   separate permission (calendar.freebusy) from reading events (calendar.read).
   Event text comes from the calendar provider and is shown as data, not
   instructions. If the provider refuses, you see the server's own sentence and
@@ -50,12 +51,12 @@ type options struct {
 	schedules                             []string
 }
 
-// NewCmdCalendar builds only the four gated read operations.
+// NewCmdCalendar builds the read operations and the four owner-only event writes.
 func NewCmdCalendar(f *cmdutil.Factory) *cobra.Command {
-	c := &cobra.Command{Use: "calendar <command>", Short: "Read calendars, events and free/busy", Long: readHelp("Look at a connected calendar without changing it: list its calendars, list the events\nin a time window, read one event, or see when people are busy. Start with\n\"calendar list\" to find a calendar ID, then \"calendar events\"."), Example: "  hadron calendar list --connection <connection-id>\n  hadron calendar events --connection <connection-id> --from 2026-10-30T00:00:00-07:00 --to 2026-10-31T00:00:00-07:00"}
+	c := &cobra.Command{Use: "calendar <command>", Short: "Read calendars, events and free/busy; create and change events", Long: readHelp("Work with a connected calendar: list its calendars, list the events\nin a time window, read one event, see when people are busy, or (as the owner) create, change, delete or answer an event. Start with\n\"calendar list\" to find a calendar ID, then \"calendar events\"."), Example: "  hadron calendar list --connection <connection-id>\n  hadron calendar events --connection <connection-id> --from 2026-10-30T00:00:00-07:00 --to 2026-10-31T00:00:00-07:00"}
 	c.AddCommand(list(f), events(f), freebusy(f))
-	e := &cobra.Command{Use: "event <command>", Short: "Read one calendar event by its ID", Long: "Read a single event when you already have its ID (from \"calendar events\"). To list\nseveral events, use \"calendar events\" (plural) instead."}
-	e.AddCommand(get(f))
+	e := &cobra.Command{Use: "event <command>", Short: "Read, create, change, delete or answer one calendar event", Long: "Work on a single event: \"get\" reads it by its ID (from \"calendar events\"); \"create\",\n\"update\", \"delete\" and \"respond\" change it and are owner-only. To list several\nevents, use \"calendar events\" (plural) instead."}
+	e.AddCommand(get(f), create(f), update(f), del(f), respond(f))
 	c.AddCommand(e)
 	return c
 }

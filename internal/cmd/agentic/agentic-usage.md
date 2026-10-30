@@ -428,7 +428,7 @@ hadron webhook create --app <ref> --name <n> --entry <node-urn> [--as-self] [--p
 hadron ticket mint --org <ref> [--app <ref>] --action comm.outbound --count <n> [--note <why>] [--expires <iso>] | list --org <ref>
 hadron billing prices [--provider <p>] [--model <m>] [--tier <n>] [--limit N] [--offset N] | balance <org> | ledger <org> [--limit N] [--offset N]   # spec-046 metering READS (cli#215); <org> is an ID or hrn:org:<slug>. Money fields (inputMicroCentsPerMTok, outputMicroCentsPerMTok, balanceMicroCents, amountMicroCents) are base-10 integer STRINGS of micro-cents (1e-8 USD), signed on the ledger and unbounded, passed through byte for byte: parse with a bigint, never a float. Null markupBasisPoints = the server's default markup. prices: any signed-in caller; balance/ledger: org ADMIN, else FORBIDDEN exit 8. No --limit/--offset lists everything. No write commands (setting rates, granting credits) yet
 hadron grant create --org <ref> --user <ref> --action <a>[,...] [--expires <iso>] | list [--org <ref>] [--user <ref>] | revoke <id> --yes
-hadron calendar list --connection <ref> | events --connection <ref> [--calendar <id>] [--from <RFC3339>] [--to <RFC3339>] [--query <text>] [--top 1..100] | event get <event-id> --connection <ref> [--calendar <id>] | freebusy --connection <ref> --from <RFC3339> --to <RFC3339> [--schedule <id>]...
+hadron calendar list --connection <ref> | events --connection <ref> [--calendar <id>] [--from <RFC3339>] [--to <RFC3339>] [--query <text>] [--top 1..100] | event get <event-id> --connection <ref> [--calendar <id>] | event create --connection <ref> --title <t> --from <t> --to <t> [--all-day] [--tz <iana>] [--attendee <email>]... [--description <t>] [--location <t>] [--calendar <id>] [--no-notify] [--idempotency-key <k>] | event update <event-id> --connection <ref> [same flags, all optional] [--clear-attendees] | event delete <event-id> --connection <ref> --yes | event respond <event-id> --connection <ref> --response accepted|declined|tentative | freebusy --connection <ref> --from <RFC3339> --to <RFC3339> [--schedule <id>]...
 hadron drive list --connection <ref> [--folder <id>] [--query <text>] [--name-contains <text>] [--mime-type <type>] [--modified-after <RFC3339>] [--top 1..100] [--page-token <token>] | get <file-id> --connection <ref> | export <file-id> --connection <ref> [--format MARKDOWN|TEXT|HTML]
 hadron email connections --org <id|urn> [--json]
 hadron connection connect <ms-exchange|gmail|google-cal|google-drive> --org <id|urn> [--no-browser] [--wait <duration>|--no-wait] [--json]
@@ -3820,7 +3820,8 @@ before starting again. Errors never contain the URL or its nonce; nothing is
 written to disk.
 
 
-`hadron calendar` is read-only: explicit --connection, no discovery fallback or
+`hadron calendar` reads with list/events/event get/freebusy and (owner-only) changes
+with event create/update/delete/respond: explicit --connection, no discovery fallback or
 org-admin mailbox entitlement. `events` sends top=25 by default (1..100), one
 bounded bare list with no total/continuation. Absent optional calendar/query/time
 filters are omitted; explicit empty values are refused before requests. Bounds
@@ -3835,8 +3836,21 @@ rows; enum strings including NONE and nullable myResponse stay as returned.
 Freebusy DTO: [{id,error,busy:[{start,end}]}]. Arrays are [], nullable fields are
 null, and supplied offsets/zones are preserved. Human mode labels pretty JSON
 as external data and identifies the connection source; --json is the DTO only.
-No create/update/delete/respond/notifications. Existing error mapping/refusal
-sentences remain; unknown errors do not imply reconnect/retry.
+Writes (owner-only; a grant never allows them) print the Event DTO, except
+delete, which prints {eventId,deleted:true} only when the server returns true
+(false or null is an error, exit 7, never a success). Timed events take RFC3339
+with an offset, or a zone-less date-time plus --tz; --all-day takes YYYY-MM-DD
+dates (end is exclusive); a zone is never guessed. update sends only the flags
+given (nothing given is refused, exit 2); a non-empty --attendee list replaces
+the whole set, --clear-attendees empties it (exclusive with --attendee); an empty
+--title/--description/--location is sent, not omitted. --no-notify sends
+notifyAttendees=false (default: omitted, the provider notifies);
+--idempotency-key is passed through on create/update/delete. Nothing is retried:
+after a transport error or timeout the change may have been made, so read the
+event back before repeating, or repeat with the same key. respond takes
+accepted|declined|tentative, never NONE. delete needs --yes when not on a
+terminal. Existing error mapping/refusal sentences remain; unknown errors do not
+imply reconnect/retry.
 
 
 `hadron drive` is read-only with explicit --connection and the server's existing
