@@ -529,3 +529,38 @@ func TestAppKeyCreateEmptyKeyAnswerLeavesNoFile(t *testing.T) {
 		t.Errorf("temp file left behind: %v", ents)
 	}
 }
+
+func TestAppKeyCreateLostAnswerPlusFailedCleanupKeepsBothRoutes(t *testing.T) {
+	srv, _ := keyServer(t, 502, "<html>Bad Gateway</html>")
+	old := secretfile.Remove
+	secretfile.Remove = func(string) error { return errors.New("injected remove failure") }
+	defer func() { secretfile.Remove = old }()
+	dir := t.TempDir()
+	r := runKeyCreate(t, srv, app1223, "--out", filepath.Join(dir, "host.key"), "--label", "orca1 poller")
+	if r.err == nil || exitCodeFor(r.err) == 0 {
+		t.Fatalf("must fail, got %v", r.err)
+	}
+	ents, _ := os.ReadDir(dir)
+	if len(ents) != 1 {
+		t.Fatalf("expected the undeleted file, got %v", ents)
+	}
+	for _, want := range []string{"orca1 poller", "hadron app key list " + app1223, "revoke", filepath.Join(dir, ents[0].Name()), "delete it yourself"} {
+		if !strings.Contains(r.all(), want) {
+			t.Errorf("message missing %q: %q", want, r.all())
+		}
+	}
+	assertNoRawKey(t, r)
+}
+
+func TestAppKeyCreateEmptyKeyPlusFailedCleanupKeepsBothRoutes(t *testing.T) {
+	srv, _ := keyServer(t, 200, `{"data":{"createAppKey":{"rawKey":"","key":{"id":"key_1","keyPreview":"x","label":null}}}}`)
+	old := secretfile.Remove
+	secretfile.Remove = func(string) error { return errors.New("injected remove failure") }
+	defer func() { secretfile.Remove = old }()
+	r := runKeyCreate(t, srv, app1223, "--out", filepath.Join(t.TempDir(), "host.key"))
+	for _, want := range []string{"hadron app key list " + app1223, "revoke", "delete it yourself"} {
+		if r.err == nil || !strings.Contains(r.all(), want) {
+			t.Errorf("message missing %q: %q", want, r.all())
+		}
+	}
+}

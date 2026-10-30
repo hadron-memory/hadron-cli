@@ -106,16 +106,10 @@ App key, an impersonated session and a bound worker's session (exit 8).`,
 			}
 			resp, err := gen.CreateAppKey(cmd.Context(), client, ref, labelArg)
 			if err != nil {
-				if aerr := pending.Abort(); aerr != nil {
-					return leftBehind(aerr, "the key request failed")
-				}
-				return createFailure(err, ref, label)
+				return withCleanup(createFailure(err, ref, label), pending.Abort())
 			}
 			if resp == nil || resp.CreateAppKey == nil || resp.CreateAppKey.Key == nil || resp.CreateAppKey.RawKey == "" {
-				if aerr := pending.Abort(); aerr != nil {
-					return leftBehind(aerr, "the server returned no key")
-				}
-				return exitcode.Newf(exitcode.Error, "the server returned no key; run `hadron app key list %s` and revoke any unexpected key labelled %s", ref, labelOrDefault(label))
+				return withCleanup(exitcode.Newf(exitcode.Error, "the server returned no key; run `hadron app key list %s` and revoke any unexpected key labelled %s", ref, labelOrDefault(label)), pending.Abort())
 			}
 			created := resp.CreateAppKey
 			if err := pending.Commit([]byte(created.RawKey + "\n")); err != nil {
@@ -191,7 +185,12 @@ func failureClass(code int) string {
 	return "server error"
 }
 
-// leftBehind reports a cleanup that could not remove the reserved key file.
-func leftBehind(err error, why string) error {
-	return exitcode.Newf(exitcode.Error, "%s, and %v", why, err)
+// withCleanup keeps a failure's own message, exit code and recovery route and
+// appends a cleanup failure (the reserved key file could not be removed), so
+// neither hides the other. A nil cleanup returns the failure as it was.
+func withCleanup(failure, cleanup error) error {
+	if cleanup == nil {
+		return failure
+	}
+	return exitcode.Newf(exitcode.FromError(failure), "%v. Also: %v", failure, cleanup)
 }
