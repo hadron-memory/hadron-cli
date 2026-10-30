@@ -36,11 +36,13 @@ func newCmdTeamTask(f *cmdutil.Factory) *cobra.Command {
 		Use:   "task <command>",
 		Short: "A team App's agent tasks",
 		Long: `Create, assign, carry and finish the team App's agent tasks. The server
-owns the lifecycle, the matcher and every permission check; each command sends
-one request and prints the task the server returns.
+owns the lifecycle, the matcher and every permission check; each lifecycle
+write sends one mutation and prints the task the server returns, and each read
+prints the view its page describes.
 
 A typical flow, from the person or worker handing out the work to the
-assignee working in its bound worktree:
+assignee working in its bound worktree (the handles here and on every page are
+illustrative: use the one create, list or mine prints):
   hadron team task create "Fix login" --app acme.com:eng-team --assignee worker:Iris --source https://github.com/acme/app/issues/7
   hadron team task mine                        # as Iris: the PENDING and STARTED tasks
   hadron team task start AT0.7

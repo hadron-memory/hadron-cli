@@ -124,8 +124,9 @@ has 1. The task may be BACKLOG, PENDING or STARTED; an ended task is refused
 
 Priority only affects which queued task the platform's matcher offers first:
 among PENDING tasks with no assignee and no open blocker, priority 1 goes
-first, then the oldest. It does not change the task list's order, an assigned
-task, or who may act on the task, and it assigns nothing by itself.`
+first, then the oldest. It does not change the task list's order, an existing
+assignment, or who may act on the task; it preempts no started work and
+assigns nothing by itself.`
 	case "add-blocker":
 		head = `Make a task wait for another: add-blocker A B means A waits for B. Both must
 be in the same App, and A must be BACKLOG or PENDING (exit 5 otherwise). A
