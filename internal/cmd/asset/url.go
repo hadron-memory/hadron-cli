@@ -32,28 +32,35 @@ func newCmdURL(f *cmdutil.Factory) *cobra.Command {
 	var memory string
 	cmd := &cobra.Command{
 		Use:   "url <asset-ref>",
-		Short: "Print an asset's public hotlink",
-		Long: `Print the stable, UNAUTHENTICATED hotlink to an asset's bytes.
+		Short: "Print a file's public link",
+		Long: `Print the public link to a file. Anyone who has the link can download the file
+without signing in: share it only where you would share the file itself.
 
-Anyone with this URL can fetch the file — there is no read gate on it. Do not
-treat it as access-controlled, and do not paste it anywhere you would not paste
-the file itself.
+Pass the asset's URN (it names the memory), or its id with -m <memory>.
 
-The hotlink comes from the asset listing, which is memory-addressed, so this
-command needs to know the holding memory: pass the asset's URN (which carries
-it) or add -m.
+When there is no link, the command prints why and exits 5 (--json: publicUrl
+is null and reason says why):
 
-The URL is absent — and this command says why, as far as it can tell — when
-the stored public-link switch is off, the asset is not yet scanned CLEAN, or,
-for a CLEAN asset: when the deployment
-has public hotlinks switched off (the server's default), when it has no valid
-public origin configured (missing, or not an http/https URL), or when the asset's memory is encrypted (an anonymous
-request holds no session key, so an encrypted memory is never hotlinkable).
-The server reports stored opt-in and deployment availability separately; neither
-is inferred from an absent URL. Never construct the URL yourself from the id; an absent hotlink means
-there is genuinely nothing safe to hand out.`,
-		Example: `  hadron asset url hrn:asset:acme.com:kb:assets:01j2x…
-  hadron asset url 01j2x… -m hrn:mem:acme.com:kb`,
+  public link: off
+      The file's public link is off, which is the default. Turn it on with
+      hadron asset public-link <asset> --on --yes (needs admin access to the
+      memory).
+  its virus scan has not finished yet
+      Wait, then run the command again.
+  its virus scan blocked the file
+      The file is never served.
+  serving disabled on this deployment
+      This server does not serve public links; only its operator can change
+      that.
+  no valid public origin configured, or the asset's memory is encrypted
+      Either the server has no public address set (its operator can fix that),
+      or the file is in an encrypted memory, whose files are never served
+      publicly.
+
+Do not build the link from the id yourself: when there is no link, there is
+nothing safe to share.`,
+		Example: `  hadron asset url hrn:asset:acme.com:kb:assets:01a189a840f4717c98af75cf4d7aed09
+  hadron asset url 01a189a840f4717c98af75cf4d7aed09 -m hrn:mem:acme.com:kb`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref, err := parseAssetRef(args[0])
