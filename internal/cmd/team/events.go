@@ -40,8 +40,8 @@ func newCmdTeamEvents(f *cmdutil.Factory) *cobra.Command {
 		Short: "The team App's task-work event stream",
 		Long: `Read the team App's append-only stream of task work — task.created,
 task.assigned, task.started, task.progress, task.finished, task.cancelled,
-task-stall and dark-worker alarms, availability.changed and the assignment/host events. The
-payload carries ids, counts and outcome words only, never message text.
+task-stall and dark-worker alarms, availability.changed and the
+assignment/host events. The payload carries ids, counts and outcome words only, never message text.
 
 ORDER, so nobody is surprised by page one: the stream reads OLDEST-FIRST
 from the beginning of the App (the server's order, (createdAt, id)). Narrow
@@ -165,7 +165,7 @@ func eventActorCell(e teamEventDTO) string {
 // Task-less alarm metadata is server-owned. Only known reason words reach
 // human output; evidence and arbitrary payload strings remain JSON-only.
 func tasklessAlarmCell(e teamEventDTO) string {
-	if e.SubjectWorker == nil {
+	if e.Type != "alarm.dark-worker" || e.SubjectWorker == nil {
 		return "—"
 	}
 	cell := "worker " + partyCell(e.SubjectWorker)
@@ -229,7 +229,7 @@ stands (ALARM_ALREADY_ACKNOWLEDGED names the refusal).`,
 						return err
 					}
 				}
-				if event.TaskID == nil && event.SubjectWorker != nil {
+				if event.TaskID == nil && event.Type == "alarm.dark-worker" && event.SubjectWorker != nil {
 					if _, err := fmt.Fprintf(w, " on %s", output.SafeCell(tasklessAlarmCell(event))); err != nil {
 						return err
 					}
