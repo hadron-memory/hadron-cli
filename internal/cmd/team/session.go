@@ -698,7 +698,17 @@ BEFORE YOU START:
        server: ENDED   the binding outlived its session: an ordinary start
                 (step 4) replaces it.
        no binding, but it answers from the server with your open session:
-                recover it with a plain ` + "`start`" + ` (RESUMES, below).
+                OPEN is not LIVE, and this check does not tell them apart.
+                Try a plain ` + "`start`" + `: it RESUMES that session if it is
+                still live or you hold an unused resume claim (below). Exit 4
+                (NOTHING_TO_RESUME) means it is open but lapsed. To keep that
+                session, write a claim for it
+                (` + "`session resume-claim --session <id>`" + `) and run the plain
+                ` + "`start`" + ` again within 60 seconds. A DORMANT one (idle past
+                the App's dormancy threshold, 90 days by default) refuses
+                RESUME_REFUSED. ` + "`start --as <worker>`" + ` (no --force needed)
+                instead starts a NEW session and ends the old one without a
+                handoff.
        no binding and no open session (exit 4): go on.
      If the check cannot answer, do not assume the session ended and do not
      reach for --force: retry it.
@@ -710,7 +720,7 @@ BEFORE YOU START:
 
 THREE DIFFERENT STARTS — pick one:
   first bind / ordinary start   start --as <worker>
-  recover after a context reset start            (no --as: RESUMES, below)
+  recover after a context reset start            (no --as: RESUMES a live one, below)
   take over a live session      start --as <worker> --force (TAKEN, below)
 
 The session is recorded server-side
