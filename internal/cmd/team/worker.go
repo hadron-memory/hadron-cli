@@ -495,6 +495,77 @@ func workerForArg(cmd *cobra.Command, f *cmdutil.Factory, arg string) (gen.Worke
 	return resolveWorker(ctx, client, appRef, arg)
 }
 
+// workerGetDTO is the stable --json shape of `worker get`: workerDTO plus the
+// two PROFILE names (cli#1355, hadron-server#1149). Only this command carries
+// them — cast, update and the roster keep their wire shape. Both are present
+// nullable keys and null means UNAVAILABLE (masked, an older server, or an App
+// URN that predates the grammar), never evidence that no App or owner exists.
+type workerGetDTO struct {
+	workerDTO
+	AppName   *string `json:"appName"`
+	OwnerName *string `json:"ownerName"`
+
+	// appURN is render-only (the `app:` line); the contract adds two keys.
+	appURN *string
+}
+
+// directWorkerRef reports a reference that is self-contained: a worker URN or a
+// worker id (32 hex). It needs no App, so reading it must not first resolve an
+// ambient App or scan a roster (cli#1355) — which a non-participant could not
+// do anyway.
+func directWorkerRef(arg string) bool {
+	arg = strings.TrimSpace(arg)
+	if strings.HasPrefix(strings.ToLower(arg), "hrn:worker:") {
+		return true
+	}
+	if len(arg) != 32 {
+		return false
+	}
+	for _, c := range arg {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+// readWorkerProfile reads the PROFILE names in their own operation, so a server
+// that predates #1149 (it rejects an unknown Worker.appName before execution)
+// still serves the ordinary lookup. Only that documented capability absence
+// falls back to "unavailable"; an auth, transport or server error is returned,
+// never turned into an old-server-looking success.
+func readWorkerProfile(ctx context.Context, client graphql.Client, id string) (name, owner, appURN *string, err error) {
+	resp, err := gen.GetWorkerProfile(ctx, client, id)
+	if err != nil {
+		if api.IsGraphQLValidationFor(err, "appName") || api.IsGraphQLValidationFor(err, "ownerName") || api.IsGraphQLValidationFor(err, "appUrn") {
+			return nil, nil, nil, nil
+		}
+		return nil, nil, nil, api.MapError(err)
+	}
+	if resp.Worker == nil {
+		return nil, nil, nil, nil
+	}
+	return resp.Worker.AppName, resp.Worker.OwnerName, resp.Worker.AppUrn, nil
+}
+
+// appLine is the `app:` row. The server's scalars name the App without a second
+// lookup (and for a profile read, where the App object is never readable); when
+// they are unavailable a participant keeps today's lookup, and a profile reader
+// gets the bare id rather than a guess.
+func appLine(ctx context.Context, f *cmdutil.Factory, dto workerGetDTO) string {
+	if dto.AppName != nil && *dto.AppName != "" {
+		readable := dto.AppID
+		if dto.appURN != nil && *dto.appURN != "" {
+			readable = *dto.appURN
+		}
+		return readable + " — " + *dto.AppName
+	}
+	if workingStateVisible(dto.HasLiveSession) {
+		return describeApp(ctx, f, dto.AppID)
+	}
+	return dto.AppID
+}
+
 func newCmdWorkerGet(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <name-or-id>",
@@ -506,6 +577,17 @@ check result stays unavailable. No local clock or task-count inference is made.
 <name-or-id>: a NAME resolves within one App — --app, the App context, or this
 worktree's binding, in that order. An id or a worker URN
 (hrn:worker:<root>:<app-slug>:<slug>) needs no App.
+
+PROFILE READ: by id or worker URN any signed-in user can read a worker they do
+not participate in (cor:dmo:050:11). That read shows the name, role, App name
+and URN, owner, and active/retired, and says "working state: not visible to
+you": the prompt, session, holder, check, boot-pointer and reporting fields are
+masked, so none is printed as empty, free or never-checked. A name needs an
+App you participate in.
+
+--json adds appName and ownerName (nullable: null means unavailable — masked,
+an older server that predates them, or an App URN of the old shape — never
+"no such App" or "no owner"). The masked working-state keys stay null as ever.
 
 THE FIELDS:
   held by        the person whose name it is ("nobody": binding it holds it)
@@ -543,19 +625,47 @@ and every worker's state in ` + "`team roster`" + `.`,
   hadron team worker get hrn:worker:acme.com:eng-team:iris --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			w, err := workerForArg(cmd, f, args[0])
+			var w gen.WorkerFields
+			var err error
+			if directWorkerRef(args[0]) {
+				client, cerr := f.GraphQLClient()
+				if cerr != nil {
+					return cerr
+				}
+				w, err = resolveWorker(cmd.Context(), client, "", args[0])
+			} else {
+				w, err = workerForArg(cmd, f, args[0])
+			}
 			if err != nil {
 				return err
 			}
-			dto := workerDTOFromFields(w)
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			appName, ownerName, appURN, err := readWorkerProfile(cmd.Context(), client, w.Id)
+			if err != nil {
+				return err
+			}
+			dto := workerGetDTO{workerDTO: workerDTOFromFields(w), AppName: appName, OwnerName: ownerName, appURN: appURN}
 			return output.Write(f.IOStreams, f.JSON, dto, func(out io.Writer) error {
 				// The App gets its own line, named rather than spelled as the
 				// UUID it was parenthesised as (#458). No source phrase here: this
 				// is the WORKER's own App off the row, not an ambient scope that
 				// might have been the wrong one.
 				fmt.Fprintf(out, "%s%s\n  worker: %s\n  app: %s\n  agent: %s\n",
-					dto.Name, roleSuffix(dto.Role), dto.ID, describeApp(cmd.Context(), f, dto.AppID), dto.AgentID)
-				fmt.Fprintf(out, "  reports to: %s\n", reportsToLabel(dto.ReportsTo, dto.ReportsToRetired, dto.ReportsTo != nil || workingStateVisible(dto.HasLiveSession)))
+					dto.Name, roleSuffix(dto.Role), dto.ID, appLine(cmd.Context(), f, dto), dto.AgentID)
+				// A PROFILE read (cor:dmo:050:11): the server withholds the working
+				// state, signalled by hasLiveSession null. Say so once and omit what
+				// it masks — a reporting line, check status or boot pointer printed
+				// from those nulls would claim facts the server refused to give.
+				profile := !workingStateVisible(dto.HasLiveSession)
+				if dto.OwnerName != nil && *dto.OwnerName != "" {
+					fmt.Fprintf(out, "  owner: %s\n", *dto.OwnerName)
+				}
+				if !profile || dto.ReportsTo != nil {
+					fmt.Fprintf(out, "  reports to: %s\n", reportsToLabel(dto.ReportsTo, dto.ReportsToRetired, dto.ReportsTo != nil || workingStateVisible(dto.HasLiveSession)))
+				}
 				if dto.URN != nil && *dto.URN != "" {
 					fmt.Fprintf(out, "  urn: %s\n", *dto.URN)
 				}
@@ -630,18 +740,25 @@ and every worker's state in ` + "`team roster`" + `.`,
 				if workingStateVisible(dto.HasLiveSession) {
 					fmt.Fprintf(out, "  driven: %s\n", renderLastDriven(dto.HasLiveSession, dto.LastActiveAt, time.Now()))
 				}
-				fmt.Fprintf(out, "  check status: %s\n", channelCheckLabel(dto.CheckStatus))
-				if dto.CheckStatus != nil {
-					last := "never"
-					if dto.CheckStatus.LastCheckedAt != nil {
-						last = *dto.CheckStatus.LastCheckedAt
+				if profile {
+					fmt.Fprintln(out, "  working state: not visible to you (profile only)")
+				}
+				if !profile || dto.CheckStatus != nil {
+					fmt.Fprintf(out, "  check status: %s\n", channelCheckLabel(dto.CheckStatus))
+					if dto.CheckStatus != nil {
+						last := "never"
+						if dto.CheckStatus.LastCheckedAt != nil {
+							last = *dto.CheckStatus.LastCheckedAt
+						}
+						fmt.Fprintf(out, "  last team-channel check: %s\n", last)
 					}
-					fmt.Fprintf(out, "  last team-channel check: %s\n", last)
 				}
 				if dto.Retired {
 					fmt.Fprintf(out, "  retired: %s\n", *dto.RetiredAt)
 				}
-				fmt.Fprintf(out, "  boot prompt: %s\n", cmdutil.BootPromptLabel(dto.BootPromptRef, dto.BootPromptTargetDeleted))
+				if !profile || dto.BootPromptRef != nil {
+					fmt.Fprintf(out, "  boot prompt: %s\n", cmdutil.BootPromptLabel(dto.BootPromptRef, dto.BootPromptTargetDeleted))
+				}
 				fmt.Fprintf(out, "  created: %s\n", dto.CreatedAt)
 				// The RAW override, before the composed briefing and labelled
 				// separately (PR #588 review, @copilot).

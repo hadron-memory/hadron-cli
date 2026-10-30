@@ -285,6 +285,21 @@ query GetWorker($ref: ID!) {
   }
 }
 
+# cli#1355 / server#1149 (cor:dmo:050:11): the PROFILE scalars that say whose
+# worker this is — the App's display name, the owner atom of its URN and the
+# App's URN. Deliberately a separate operation from GetWorker, for the same
+# reason as GetWorkerContinuity below: a server that predates #1149 rejects a
+# document selecting Worker.appName / ownerName / appUrn before execution, and
+# the ordinary lookup must still bind there. All three are nullable and null
+# means unavailable (masked, or a URN that predates the grammar), never "none".
+query GetWorkerProfile($ref: ID!) {
+  worker(ref: $ref) {
+    appName
+    ownerName
+    appUrn
+  }
+}
+
 # #790 / server#1029: the handoff is deliberately a separate operation from
 # GetWorker and Workers. Older servers do not know Worker.continuity and reject
 # a document that selects it before execution, even if a caller ignores the
