@@ -69,6 +69,10 @@ A loc that already holds a node is refused, never overwritten.
 given, the title is used as the node name without a citation prefix, and only
 tags explicitly supplied with --tag are written. Without --role, the default
 is the base spec role, a citation-prefixed name, and the legacy spec tag.
+When the name is prefixed automatically, --title must be the human text after
+"<loc> — ". A title already starting with that exact prefix is refused (exit 2)
+before any write, including --dry-run; remove the prefix and run again. An
+explicit --role keeps its literal-title behavior.
 Roles use lower-case letter/digit/dash segments joined by dots, up to
 64 characters; a valid dotted subrole may still be refused by the memory's
 role rules.
@@ -160,8 +164,14 @@ is one call instead of four.`, abstractSoftMax),
 			// the memory is resolved, so an invalid one never costs a request
 			// (@copilot on #710). --new-path's legacy parse happens below.
 			if len(args) == 1 && !newPath {
-				if _, verr := validateSpecLoc(args[0]); verr != nil {
+				at, verr := validateSpecLoc(args[0])
+				if verr != nil {
 					return verr
+				}
+				if !cmd.Flags().Changed("role") {
+					if err := refuseNewTitlePrefix(title, at); err != nil {
+						return err
+					}
 				}
 				// A positional <loc> with the legacy tier flags is refused here
 				// too, before the memory is resolved (@codex on #710).
@@ -205,6 +215,9 @@ is one call instead of four.`, abstractSoftMax),
 					// created as-is without it (#708).
 					return exitcode.Newf(exitcode.Usage,
 						"--new-path scaffolds a legacy citation chain, and %q is not one (%v) — to create a spec at this loc, drop --new-path", args[0], perr)
+				}
+				if err := refuseNewTitlePrefix(title, target.Format()); err != nil {
+					return err
 				}
 				body, berr := resolveBody(content, contentFile, f.IOStreams.In, target, title)
 				if berr != nil {
@@ -279,6 +292,9 @@ is one call instead of four.`, abstractSoftMax),
 				return err
 			}
 
+			if err := refuseNewTitlePrefix(title, target.Format()); err != nil {
+				return err
+			}
 			body, err := resolveBody(content, contentFile, f.IOStreams.In, target, title)
 			if err != nil {
 				return err
@@ -420,7 +436,7 @@ is one call instead of four.`, abstractSoftMax),
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to the memory set by hadron spec use, then the active memory)")
 	cmd.Flags().StringVar(&product, "product", "", "3-letter product code (product-rooted corpora)")
 	cmd.Flags().StringVar(&module, "module", "", "3-letter module code")
-	cmd.Flags().StringVar(&title, "title", "", "human title for the spec (required)")
+	cmd.Flags().StringVar(&title, "title", "", "human title without the automatic loc prefix (required; explicit --role keeps it literal)")
 	cmd.Flags().StringVar(&role, "role", api.SpecNodeRole, "spec-family node role for spec new <loc> (default: spec)")
 	cmd.Flags().StringVar(&feature, "feature", "", "existing feature to create a rule under (3 digits)")
 	cmd.Flags().BoolVar(&newFeature, "new-feature", false, "allocate a new feature under the module")
@@ -1021,4 +1037,14 @@ func runNewPath(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, m
 		written = append(written, pn.cit.Format())
 	}
 	return render()
+}
+
+// refuseNewTitlePrefix prevents a copied full name being prefixed a second
+// time. Keep the same canonical separator as spec edit; do not rewrite titles.
+func refuseNewTitlePrefix(title, loc string) error {
+	prefix := loc + " — "
+	if strings.HasPrefix(strings.TrimSpace(title), prefix) {
+		return exitcode.Newf(exitcode.Usage, "--title is the text AFTER the citation: %q is added automatically, so drop it from the value", prefix)
+	}
+	return nil
 }
