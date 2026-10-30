@@ -65,6 +65,8 @@ func TestTeamChatReadDetectsStalePages(t *testing.T) {
 			r := chatReadResponses()
 			r["TeamChatMessages"] = tc.page
 			r["TeamChatReadHead"] = teamReadHeadFixture(teamChatPage(2, 2))
+			// A registered worker's real row: null is no longer a cursor (#1272).
+			r["ChannelReadState"] = `{"data":{"channelReadState":{"channelId":"ch1","lastSeenSeq":0,"updatedAt":"1970-01-01T00:00:00.000Z"}}}`
 			srv, calls := attnServer(t, r)
 			setTeamBindingServer(t, srv.URL)
 			bindingPath := filepath.Join(os.Getenv(team.GitDirEnv), "hadron-team-session.json")
@@ -178,6 +180,71 @@ func TestTeamChatReadCursorFailureIsVisibleAndDoesNotForgeZero(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), `"readCursor": null`) || !strings.Contains(notes.String(), "cursor unavailable") {
 		t.Fatalf("out=%s notes=%s", out.String(), notes.String())
+	}
+}
+
+// TestTeamChatReadNullCursorIsUnavailableNotZero — #1272.
+//
+// channelReadState answers null only when the worker is not registered on the
+// channel or cannot be read; a registered never-read worker gets a
+// lastSeenSeq-0 row. Mapping null to 0 forged a cursor the server never
+// reported, so null must read as unavailable, exactly like the error branch.
+func TestTeamChatReadNullCursorIsUnavailableNotZero(t *testing.T) {
+	for _, jsonMode := range []bool{false, true} {
+		writeTeamBinding(t)
+		r := chatReadResponses()
+		r["ChannelReadState"] = `{"data":{"channelReadState":null}}`
+		srv, _ := attnServer(t, r)
+		setTeamBindingServer(t, srv.URL)
+		f, out := testFactory(t)
+		var notes strings.Builder
+		f.IOStreams.ErrOut = &notes
+		root := NewRootCmd(f)
+		args := []string{"team", "chat", "read", "--server", srv.URL}
+		if jsonMode {
+			args = append(args, "--json")
+		}
+		root.SetArgs(args)
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		if jsonMode {
+			if !strings.Contains(out.String(), `"readCursor": null`) {
+				t.Errorf("json: a null read state must not forge a cursor: %s", out.String())
+			}
+		} else {
+			if strings.Contains(out.String(), "cursor #0") || !strings.Contains(out.String(), "cursor unavailable or inapplicable") {
+				t.Errorf("text: a null read state must render as unavailable: %s", out.String())
+			}
+		}
+		if !strings.Contains(notes.String(), "cursor unavailable") {
+			t.Errorf("json=%v: say why on stderr, as the error branch does: %s", jsonMode, notes.String())
+		}
+	}
+}
+
+// TestTeamChatReadNeverReadRowIsCursorZero — the other half of #1272: a
+// registered worker that has never read gets the server's affirmative 0 row,
+// and #0 is the correct answer there, not a display bug.
+func TestTeamChatReadNeverReadRowIsCursorZero(t *testing.T) {
+	writeTeamBinding(t)
+	r := chatReadResponses()
+	r["ChannelReadState"] = `{"data":{"channelReadState":{"channelId":"ch1","lastSeenSeq":0,"updatedAt":"1970-01-01T00:00:00.000Z"}}}`
+	srv, _ := attnServer(t, r)
+	setTeamBindingServer(t, srv.URL)
+	f, out := testFactory(t)
+	var notes strings.Builder
+	f.IOStreams.ErrOut = &notes
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "chat", "read", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "cursor #0;") {
+		t.Errorf("a never-read row is cursor #0: %s", out.String())
+	}
+	if strings.Contains(notes.String(), "cursor unavailable") {
+		t.Errorf("a real 0 row is not unavailable: %s", notes.String())
 	}
 }
 
