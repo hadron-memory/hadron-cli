@@ -55,7 +55,10 @@ hadron ha rm <id> [--yes]                                   (alias: delete)
 - **Errors.** Server refusals go through `api.MapErrorKeepingCode`, so `--json`
   keeps `serverCode`. A lost response (exit 7) is "outcome unknown": the write
   was sent once and is not retried, and the message names the `ha get` or
-  `ha list` read that checks it. This is the pattern of `app update`.
+  `ha list` read that checks it. This is the pattern of `app update`. When the
+  write sent a token, the error text has that token replaced by `[redacted]`
+  (raw and JSON-escaped), in both the terminal and `--json` forms, so a server
+  message that echoes it leaks nothing; exit code and `serverCode` are kept.
 - **No device contact.** Nothing calls the Home Assistant host. URL and SSRF
   policy and allowlist validation are the server's, and the CLI does not
   pre-validate them.
@@ -76,7 +79,10 @@ hadron ha rm <id> [--yes]                                   (alias: delete)
 - null and `false` answers are not success
 - a lost response is sent once and reported as outcome unknown
 - a sentinel token is absent from stdout, stderr and the error for create, for
-  replacement, and for server refusals
+  replacement, and for server refusals, including a refusal whose message
+  echoes the token (200 and non-200, text and `--json`)
+- `--clear-allow-ops=false` is refused before any request, alone or beside
+  another field, since acting on the flag's presence would allow every op
 
 The coverage matrix flips the three `gap #231` lines to `command ha …`.
 `make schema-check` is clean at `e213b813a`.

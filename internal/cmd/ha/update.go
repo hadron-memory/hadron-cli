@@ -66,6 +66,7 @@ prints the instance as "ha get --json" does, without the token.`,
 				return exitcode.Newf(exitcode.Usage, "nothing to update: pass at least one of --name, --url, --token-file, --allow-op, --clear-allow-ops, --enabled, --disabled")
 			}
 			var nameArg, urlArg, tokenArg *string
+			var token string
 			if changed("name") {
 				nameArg = &name
 			}
@@ -73,8 +74,8 @@ prints the instance as "ha get --json" does, without the token.`,
 				urlArg = &url
 			}
 			if changed("token-file") {
-				token, err := readToken(f.IOStreams, tokenFile, true)
-				if err != nil {
+				var err error
+				if token, err = readToken(f.IOStreams, tokenFile, true); err != nil {
 					return err
 				}
 				tokenArg = &token
@@ -104,7 +105,7 @@ prints the instance as "ha get --json" does, without the token.`,
 			id := args[0]
 			resp, err := gen.UpdateHomeAssistantInstance(cmd.Context(), client, id, nameArg, urlArg, tokenArg, allowArg, enabledArg)
 			if err != nil {
-				return writeError(err, "hadron ha get "+cmdutil.ShellQuote(id))
+				return writeError(err, "hadron ha get "+cmdutil.ShellQuote(id), token)
 			}
 			if resp == nil || resp.UpdateHomeAssistantInstance == nil {
 				return exitcode.Newf(exitcode.Error, "the server returned no instance; run `hadron ha get %s` to see whether the change applied", cmdutil.ShellQuote(id))

@@ -73,7 +73,7 @@ prints the registered instance as "ha get --json" does, without the token.`,
 			}
 			resp, err := gen.CreateHomeAssistantInstance(cmd.Context(), client, org, slug, name, url, token, allowArg, enabledArg)
 			if err != nil {
-				return writeError(err, "hadron ha list --org "+cmdutil.ShellQuote(org))
+				return writeError(err, "hadron ha list --org "+cmdutil.ShellQuote(org), token)
 			}
 			if resp == nil || resp.CreateHomeAssistantInstance == nil {
 				return exitcode.Newf(exitcode.Error, "the server returned no instance; run `hadron ha list --org %s` to see whether %s was registered", cmdutil.ShellQuote(org), cmdutil.ShellQuote(slug))

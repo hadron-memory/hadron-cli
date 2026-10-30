@@ -52,7 +52,7 @@ Prints "✓ deleted Home Assistant instance <id>"; --json prints
 			check := "hadron ha get " + cmdutil.ShellQuote(id)
 			resp, err := gen.DeleteHomeAssistantInstance(cmd.Context(), client, id)
 			if err != nil {
-				return writeError(err, check)
+				return writeError(err, check, "")
 			}
 			// The server refuses a missing row with NOT_FOUND; false is not a
 			// delete, so it is never reported as one.
