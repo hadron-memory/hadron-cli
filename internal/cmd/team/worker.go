@@ -521,10 +521,20 @@ THE FIELDS:
 
 OVERDUE CLEARS when the worker's own session reads its team chat
 (` + "`team chat read`" + ` or ` + "`team chat check`" + ` from its bound worktree): that read is
-the check. A worker that is OVERDUE, or has left a delivered wake
-unacknowledged too long, is DARK: the platform raises one alarm.dark-worker
-to its reporting line (` + "`team events --alarms`" + `). The alarm ends when both
-causes clear. To stop expecting checks, give it no task, or mark it unavailable
+the check. A worker that is OVERDUE, or has a wake due to it left
+unacknowledged past the App's dark alarm window, is DARK: the platform raises
+one alarm.dark-worker to its reporting line (` + "`team events --alarms`" + `; its
+reason says overdue or wake unacknowledged). The alarm ends when both causes
+clear. What clears a due wake depends on its cause:
+  chat         the worker's session reads past the message (` + "`team chat read`" + `)
+  task event   the worker acts on the task (` + "`team task start`" + `, ` + "`progress`" + `), the
+               task ends or moves on, or the deliverer acknowledges it
+  alarm        an owner acknowledges it (` + "`team alarm ack`" + `)
+  ticker tick  only the deliverer acknowledges it: the host poller
+               (` + "`team host run`" + `) after typing it in; ` + "`team host status`" + `
+               shows a held, UNREPORTED delivery
+No CLI command lists one worker's due wakes or acknowledges a wake by hand.
+To stop expecting checks, give it no task, or mark it unavailable
 (` + "`team availability set`" + `). Availability itself shows in ` + "`team availability get`" + `,
 and every worker's state in ` + "`team roster`" + `.`,
 		Example: `  hadron team worker get Iris --app acme.com:eng-team

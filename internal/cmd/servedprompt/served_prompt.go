@@ -58,10 +58,15 @@ func NewRun(f *cmdutil.Factory) *cobra.Command { return newCommand(f, false) }
 func selectionHelp(worker bool) string {
 	which := "WHICH RECORD: the prompt served when this run started."
 	if worker {
-		which = `WHICH RECORD: the prompt served to the worker's OPEN session when it was
-bound — what that session was actually told. With no open session there is no
-record (null). It is not the worker's current pointer or the latest compile:
-for those, use ` + "`team worker get`" + ` and ` + "`node get <compiled-node>`" + `.`
+		which = `WHICH RECORD: the prompt served when the worker's most recently STARTED
+open session was bound — what that session was actually told. A worker can
+have several open sessions (` + "`session start --force`" + ` binds alongside a live one,
+and a lapsed session stays open); only the newest-started one is read, live or
+not. The record is null when the worker has no open session, when that newest
+session has none (it began before serving was on), or when you may not see the
+worker's internals. Older or other sessions' records are not readable here.
+It is not the worker's current pointer or the latest compile: for those, use
+` + "`team worker get`" + ` and ` + "`node get <compiled-node>`" + `.`
 	}
 	return "\n" + which + `
 REVISIONS: servedRevSeq is the compiled node's revision number that was served

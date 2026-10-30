@@ -686,8 +686,18 @@ func newCmdSessionStart(f *cmdutil.Factory) *cobra.Command {
 BEFORE YOU START:
   1. Sign in (` + "`hadron auth login`" + `, or HADRON_TOKEN) and work in a git worktree of
      your own — one worktree per worker (below).
-  2. Check you are not already bound: ` + "`hadron team session whoami`" + `. If it names
-     a worker, you are already that worker; do not start again.
+  2. Ask the server whether this worktree is already bound:
+     ` + "`hadron team session whoami --check`" + `.
+       server: still open   you are already that worker, even after a
+                context reset: keep the session (` + "`team worker get <name>`" + `
+                re-prints the briefing); do not start again.
+       server: ENDED   the binding outlived its session: an ordinary start
+                (step 4) replaces it.
+       no binding, but it answers from the server with your open session:
+                recover it with a plain ` + "`start`" + ` (RESUMES, below).
+       no binding and no open session (exit 4): go on.
+     If the check cannot answer, do not assume the session ended and do not
+     reach for --force: retry it.
   3. Pick a worker that EXISTS: ` + "`hadron team worker list --app <app>`" + `. If
      none fits, cast one first (` + "`hadron team worker cast --help`" + `).
   4. Start: ` + "`--as <worker> --tool <tool>`" + `, plus --repo owner/repo and --branch
