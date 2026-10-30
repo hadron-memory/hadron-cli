@@ -12,7 +12,7 @@ import (
 // diagnostic line. --json carries the original values.
 
 const (
-	c1153Hostile = "a\x1b[31mb‮c\nwarning: [forged] line"
+	c1153Hostile = "a\x1b[31mb\u202ec\nwarning: [forged] line"
 	// c1153Safe is c1153Hostile rendered by SafeCell: ESC, bidi override and
 	// newline each become one space.
 	c1153Safe = "a [31mb c warning: [forged] line"
@@ -53,7 +53,7 @@ func TestC1153HostileWarningValuesAreEscapedInText(t *testing.T) {
 			if errOut != wantLine {
 				t.Fatalf("stderr %q\nwant   %q", errOut, wantLine)
 			}
-			if strings.ContainsAny(errOut, "\x1b‮") || strings.Count(errOut, "\n") != 1 {
+			if strings.ContainsAny(errOut, "\x1b\u202e") || strings.Count(errOut, "\n") != 1 {
 				t.Fatalf("live control or extra line reached stderr: %q", errOut)
 			}
 		})
