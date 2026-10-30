@@ -442,6 +442,8 @@ func legacyChatReadOperation(op string) string {
 		return "TeamChatReadHead"
 	case "TeamChatMessagesAttributed":
 		return "TeamChatMessages"
+	case "TeamChatThreadAttributed":
+		return "TeamChatThread"
 	default:
 		return op
 	}
