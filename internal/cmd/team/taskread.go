@@ -218,7 +218,7 @@ func strOrList(list []string) string {
 
 func newCmdTeamTaskList(f *cmdutil.Factory) *cobra.Command {
 	var statuses []string
-	var assignee, owner, parent, tag, team, staleOver string
+	var assignee, owner, parent, tag, team, staleOver, text string
 	var queued, rootsOnly, tree bool
 	var limit, offset int
 	cmd := &cobra.Command{
@@ -229,7 +229,10 @@ func newCmdTeamTaskList(f *cmdutil.Factory) *cobra.Command {
 combine with AND: --status (repeatable, ` + taskStatusDoc + `), --assignee and
 --owner name a party, --queued keeps only pending tasks with no assignee,
 --roots-only drops children, --parent lists one task's children, --tag
-filters by tag. --limit/--offset page (default 20, cap 200); a full default page says more may exist.
+filters by tag. --text matches a case-insensitive substring of title and description
+only, ANDed with other filters. Text is sent unchanged; the server trims and
+refuses blank or over-200-character values (BAD_USER_INPUT, exit 2).
+--limit/--offset page (default 20, cap 200); a full default page says more may exist.
 
 --team is a coordinator's view of work in flight (#1044). The team is the
 coordinator — the bound worker for a bare --team, or --team=worker:<id, URN
@@ -243,8 +246,9 @@ descendant or through a current team member). A task a person created does not
 join through its creator, and other Apps are never read (hadron-server#2370). It reads every
 page of the App's tasks (no truncation; a page that does not advance is
 refused, exit 1), then applies --status after the join, so an open task under
-a finished team task stays in view. It combines only with --status, --tree
-and --stale-over.
+a finished team task stays in view. It combines with --status, --text, --tree
+and --stale-over. Text is selected by the server after the team join, using a
+second paged read, so nonmatching ancestors do not hide matching descendants.
   --tree draws parent/child trees with status, idle time, owner, assignee,
     title and open alarms; a row whose parent is not shown is a root.
   --stale-over <duration> (e.g. 1h) keeps PENDING/STARTED tasks idle longer
@@ -255,8 +259,13 @@ and --stale-over.
 staleOverSeconds, tasks}, each task the plain task plus ownerTeam/assigneeTeam
 (team|outside|unknown|user|null), match (party|descendant), ageSeconds and
 ageFrom; --tree changes text only.`,
+		Example: `  hadron team task list --text "release notes" --status PENDING`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			var textArg *string
+			if cmd.Flags().Changed("text") {
+				textArg = &text
+			}
 			for _, s := range statuses {
 				if !taskStatuses[strings.ToUpper(s)] {
 					return exitcode.Newf(exitcode.Usage, "--status takes %s, got %q", taskStatusDoc, s)
@@ -279,7 +288,7 @@ ageFrom; --tree changes text only.`,
 				for _, s := range statuses {
 					wanted[strings.ToUpper(s)] = true
 				}
-				return listTeamTasks(ctx, f, scope, b, teamTaskQuery{team: team, status: wanted, staleOver: stale, tree: tree})
+				return listTeamTasks(ctx, f, scope, b, teamTaskQuery{team: team, status: wanted, staleOver: stale, tree: tree, text: textArg})
 			}
 			if err := checkTaskPage(limit, offset); err != nil {
 				return err
@@ -313,7 +322,7 @@ ageFrom; --tree changes text only.`,
 			}
 			return listTasks(ctx, f, scope, taskListQuery{
 				assignee: assigneeIn, owner: ownerIn, parent: optStr(parent), queued: optBool(queued),
-				rootsOnly: optBool(rootsOnly), status: status, tag: optStr(tag), limit: limit, offset: offset,
+				rootsOnly: optBool(rootsOnly), status: status, tag: optStr(tag), text: textArg, limit: limit, offset: offset,
 				limitExplicit: cmd.Flags().Changed("limit"),
 			})
 		},
@@ -323,6 +332,7 @@ ageFrom; --tree changes text only.`,
 	cmd.Flags().StringVar(&owner, "owner", "", "party filter (worker:<…> / user:<…>)")
 	cmd.Flags().StringVar(&parent, "parent", "", "list this task's children")
 	cmd.Flags().StringVar(&tag, "tag", "", "tag filter")
+	cmd.Flags().StringVar(&text, "text", "", "case-insensitive substring of title and description only (server validates 1–200 characters)")
 	cmd.Flags().BoolVar(&queued, "queued", false, "only queued tasks (pending, no assignee)")
 	cmd.Flags().BoolVar(&rootsOnly, "roots-only", false, "drop child tasks")
 	cmd.Flags().IntVar(&limit, "limit", taskListDefaultLimit, "page size (default 20, server cap 200)")
@@ -337,7 +347,7 @@ ageFrom; --tree changes text only.`,
 // taskListQuery is one AgentTaskList request's filters and page.
 type taskListQuery struct {
 	assignee, owner   *gen.AgentTaskPartyInput
-	parent, tag       *string
+	parent, tag, text *string
 	queued, rootsOnly *bool
 	status            []gen.AgentTaskStatus
 	limit, offset     int
@@ -360,6 +370,34 @@ func checkTaskPage(limit, offset int) error {
 	return nil
 }
 
+// taskListPage preserves the original operation document when text is absent.
+// Omitting a JSON variable alone does not hide an argument from GraphQL validation.
+func taskListPage(ctx context.Context, client graphql.Client, appRef string, q taskListQuery) ([]taskDTO, int, error) {
+	tasks := []taskDTO{}
+	if q.text != nil {
+		resp, err := gen.AgentTaskListText(ctx, client, appRef, q.assignee, &q.limit, &q.offset, q.owner, q.parent, q.queued, q.rootsOnly, q.status, q.tag, q.text)
+		if err != nil {
+			return nil, 0, mapTaskError(err)
+		}
+		for _, t := range resp.AgentTasks {
+			if t != nil {
+				tasks = append(tasks, taskDTOFrom(t.AgentTaskFields))
+			}
+		}
+		return tasks, len(resp.AgentTasks), nil
+	}
+	resp, err := gen.AgentTaskList(ctx, client, appRef, q.assignee, &q.limit, &q.offset, q.owner, q.parent, q.queued, q.rootsOnly, q.status, q.tag)
+	if err != nil {
+		return nil, 0, mapTaskError(err)
+	}
+	for _, t := range resp.AgentTasks {
+		if t != nil {
+			tasks = append(tasks, taskDTOFrom(t.AgentTaskFields))
+		}
+	}
+	return tasks, len(resp.AgentTasks), nil
+}
+
 // listTasks is `task list`'s request and render, shared with `task mine`
 // so the shortcut's output is the list's own.
 func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskListQuery) error {
@@ -368,19 +406,13 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 	if err != nil {
 		return err
 	}
-	resp, err := gen.AgentTaskList(ctx, client, scope.Ref, q.assignee, &q.limit, &q.offset, q.owner, q.parent, q.queued, q.rootsOnly, q.status, q.tag)
+	tasks, count, err := taskListPage(ctx, client, scope.Ref, q)
 	if err != nil {
-		return mapTaskError(err)
-	}
-	tasks := []taskDTO{}
-	for _, t := range resp.AgentTasks {
-		if t != nil {
-			tasks = append(tasks, taskDTOFrom(t.AgentTaskFields))
-		}
+		return err
 	}
 	// agentTasks returns no total, so a full DEFAULT page cannot show that the
 	// list ended: say so on stderr (the output shape stays a bare array).
-	if !q.limitExplicit && len(resp.AgentTasks) >= q.limit {
+	if !q.limitExplicit && count >= q.limit {
 		_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "Showing a full page of %d tasks; there may be more: --offset %d\n", q.limit, q.offset+q.limit)
 	}
 	return output.Write(f.IOStreams, f.JSON, tasks, func(w io.Writer) error {
