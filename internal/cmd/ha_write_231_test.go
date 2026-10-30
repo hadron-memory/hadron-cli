@@ -265,8 +265,9 @@ func TestHaUpdateSendsOnlyTheNamedFields(t *testing.T) {
 	}
 }
 
-// --enabled and --disabled send real booleans; --clear-allow-ops sends an
-// explicit [] (every catalog op); --allow-op replaces the list.
+// --enabled and --disabled send real booleans, including their =false
+// spellings; --clear-allow-ops sends an explicit [] (every catalog op);
+// --allow-op replaces the list.
 func TestHaUpdateSendsBooleansAndTheAllowlist(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -276,6 +277,8 @@ func TestHaUpdateSendsBooleansAndTheAllowlist(t *testing.T) {
 	}{
 		{"enabled", []string{"--enabled"}, "enabled", `true`},
 		{"disabled", []string{"--disabled"}, "enabled", `false`},
+		{"enabled=false", []string{"--enabled=false"}, "enabled", `false`},
+		{"disabled=false", []string{"--disabled=false"}, "enabled", `true`},
 		{"clear allowlist", []string{"--clear-allow-ops"}, "opAllowlist", `[]`},
 		{"replace allowlist", []string{"--allow-op", "get_state"}, "opAllowlist", `["get_state"]`},
 		{"url", []string{"--url", "https://ha2.example.com"}, "url", `"https://ha2.example.com"`},
