@@ -6,6 +6,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -429,6 +430,10 @@ func newCmdTeamChatRead(f *cmdutil.Factory) *cobra.Command {
 	var all bool
 	var mentionsMe bool
 	var mentions string
+	var wait, pollInterval time.Duration
+	// returned is how many messages the latest ordinary read returned; the
+	// --wait loop (chat_wait.go) polls until it is non-zero.
+	var returned int
 	cmd := &cobra.Command{
 		Use:     "read [--since <seq>] [--before <seq>] [--limit <n>] [--all] [--mentions-me | --mentions <ref>]",
 		Aliases: []string{"pull"},
@@ -513,6 +518,19 @@ printed, so a read that fails partway marks nothing. A --mentions/--mentions-me,
 for those. An older server that still refuses attention skips the mark; other
 mark failures produce a note on stderr and the read still succeeds.
 
+WAITING (--wait, cli#1261). Team chat is never pushed to you (cor:agt:020:04),
+so there is no event to block on: --wait <duration> POLLS. With --since <seq>
+(the nextSince of your last read) it runs this same read every --poll-interval
+(default 5s, at least 2s, so it is never a busy loop) until a poll returns a
+message, then prints that read and exits 0, or until <duration> has passed. On
+timeout it prints the last (empty) read and exits 13 — distinct from 2 (usage),
+4 (not found), 7 (unavailable) and 9 (` + "`team chat check`" + ` found nothing
+tagged); nothing was wrong, so wait again from the same --since. Every poll is
+an ordinary read — the same gates, mention filter, attribution and read-state
+rules — and a poll that returns nothing changes nothing; the read-state lines of
+empty polls are not printed. A failing poll stops the wait at once with its own
+error. --wait needs --since and cannot be combined with --before or --all.
+
 --json names the author as BOTH ` + "`authorName`" + ` and ` + "`author`" + ` — the latter is an
 alias for readers written against ` + "`hadron chat read`" + `, the retired academy
 dialect, which calls the field ` + "`author`" + ` (#406). Prefer authorName. Unlike
@@ -522,7 +540,8 @@ them "(human)" / "(worker)".`,
 		Example: `  hadron team chat read
   hadron team chat read --since 42
   hadron team chat read --all --since 0
-  hadron team chat read --mentions-me --json`,
+  hadron team chat read --mentions-me --json
+  hadron team chat read --since 42 --mentions-me --wait 2m   # poll for up to 2 minutes; exit 13 on timeout`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// FLAG VALIDATION FIRST — above the binding read and above
@@ -673,6 +692,7 @@ them "(human)" / "(worker)".`,
 			if !all && !cmd.Flags().Changed("limit") && lastPageCount >= pageSize {
 				_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "Showing a full page of %d messages; more may exist (--limit up to %d, --before/--since to walk, --all to read every page).\n", pageSize, TeamChatPageSize)
 			}
+			returned = len(msgs)
 			next := since
 			for _, m := range msgs {
 				if m.Seq > next {
@@ -889,5 +909,8 @@ them "(human)" / "(worker)".`,
 	cmd.Flags().BoolVar(&all, "all", false, "walk every page forward (from seq 0, or --since)")
 	cmd.Flags().BoolVar(&mentionsMe, "mentions-me", false, "only messages mentioning the bound worker")
 	cmd.Flags().StringVar(&mentions, "mentions", "", "only messages mentioning this staff/App member (worker name or id, or user handle)")
+	cmd.Flags().DurationVar(&wait, "wait", 0, "poll until a new message arrives or this long has passed (needs --since); exit 13 on timeout")
+	cmd.Flags().DurationVar(&pollInterval, "poll-interval", chatWaitDefaultInterval, "with --wait: time between polls (at least 2s)")
+	cmd.RunE = chatWaitRunE(f, cmd.RunE, &wait, &pollInterval, &returned)
 	return cmd
 }
