@@ -1,7 +1,8 @@
 package team
 
 // Action-register warnings (cli#962, server#2198/#2207): task create, assign,
-// reassign and finish may SUCCEED with typed warnings in the response's
+// reassign and finish — and since cli#1283 start, progress, cancel, park and
+// ready — may SUCCEED with typed warnings in the response's
 // extensions.warnings. Text mode prints them on stderr, after the unchanged
 // stdout receipt; --json adds an always-present `warnings` array beside the
 // task. The server's code and text are shown verbatim, unknown codes
@@ -32,7 +33,7 @@ type taskWarningDTO struct {
 	Register *taskWarningRegisterDTO `json:"register"`
 }
 
-// taskMutationDTO is the --json shape of the four warning-bearing verbs: the
+// taskMutationDTO is the --json shape of the warning-bearing verbs: the
 // task object, plus its warnings ([] when none).
 type taskMutationDTO struct {
 	taskDTO

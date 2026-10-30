@@ -27,7 +27,7 @@ var c1283Mutations = []struct {
 }
 
 func TestC1283CancelOpenChildrenWarning(t *testing.T) {
-	w := `[{"path":"cancelAgentTask","code":"task.cancel.open-children","text":"This task still has open child tasks.","register":{"state":"unmapped"}}]`
+	w := `[{"path":"cancelAgentTask","code":"task.cancel.open-children","text":"This task still has open child tasks; cancelling it does not end them.","register":{"state":"unmapped"}}]`
 	argv := []string{"team", "task", "cancel", "task1"}
 	baseOut, _, err := runTeamTaskStreams(t, taskResponses(), argv...)
 	if err != nil {
@@ -40,7 +40,7 @@ func TestC1283CancelOpenChildrenWarning(t *testing.T) {
 	if out != baseOut {
 		t.Fatalf("stdout receipt changed:\n got %q\nwant %q", out, baseOut)
 	}
-	if want := "warning: [task.cancel.open-children] This task still has open child tasks. (no task mapped)\n"; errOut != want {
+	if want := "warning: [task.cancel.open-children] This task still has open child tasks; cancelling it does not end them. (no task mapped)\n"; errOut != want {
 		t.Fatalf("stderr %q\nwant   %q", errOut, want)
 	}
 
@@ -58,7 +58,7 @@ func TestC1283CancelOpenChildrenWarning(t *testing.T) {
 	if err := json.Unmarshal([]byte(jsonOut), &dto); err != nil {
 		t.Fatalf("not JSON: %v\n%s", err, jsonOut)
 	}
-	want := []c962WarningJSON{{Code: "task.cancel.open-children", Text: "This task still has open child tasks.", Register: map[string]any{"state": "unmapped", "taskLoc": nil, "taskUrn": nil}}}
+	want := []c962WarningJSON{{Code: "task.cancel.open-children", Text: "This task still has open child tasks; cancelling it does not end them.", Register: map[string]any{"state": "unmapped", "taskLoc": nil, "taskUrn": nil}}}
 	if dto.ID == "" || !reflect.DeepEqual(dto.Warnings, want) {
 		t.Fatalf("got id %q warnings %+v\nwant %+v", dto.ID, dto.Warnings, want)
 	}
