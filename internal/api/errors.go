@@ -784,6 +784,10 @@ func codeForExtension(code string) int {
 	// person behind it does, as themselves (cli#1279).
 	case code == "WAKE_ACK_FORBIDDEN":
 		return exitcode.Forbidden
+	// Only the worker, its holder or the App manager may change a worker's
+	// wake settings (cor:agt:080:21; cli#1292).
+	case code == "WAKE_SETTINGS_FORBIDDEN":
+		return exitcode.Forbidden
 	// S9 settings (#911): invalid candidates are input errors; a live ticker
 	// conflict or unavailable standby behavior requires a state change.
 	case code == "DELIVERY_SETTINGS_OUT_OF_RANGE" || code == "DELIVERY_SETTINGS_CONFLICT" || code == "TICKER_SETTINGS_OUT_OF_RANGE":
