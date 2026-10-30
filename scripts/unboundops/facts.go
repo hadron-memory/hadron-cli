@@ -111,9 +111,9 @@ func parseDocuments(paths []string) ([]docOp, error) {
 	return out, nil
 }
 
-// goUses is what production code references: the generated operation
-// functions it calls, the input-object fields it names ("AgentFilter.ownedByMe"),
-// and the input objects it decodes JSON straight into ("CreateNodeInput"),
+// goUses is what production code uses: the generated operation functions it
+// calls (a reference alone is not a call), the input-object fields it names
+// ("AgentFilter.ownedByMe"), and the input objects it decodes JSON straight into ("CreateNodeInput"),
 // which reaches every field of that input.
 type goUses struct {
 	funcs   map[string]bool
@@ -187,12 +187,7 @@ func loadGoUses(dir string, patterns []string, inputs map[string]bool, bindings 
 			continue
 		}
 		for _, obj := range p.TypesInfo.Uses {
-			switch o := obj.(type) {
-			case *types.Func:
-				if o.Pkg() != nil && o.Pkg().Path() == genPkgPath && o.Parent() == o.Pkg().Scope() {
-					u.funcs[o.Name()] = true
-				}
-			case *types.Var:
+			if o, ok := obj.(*types.Var); ok {
 				if k, ok := fieldOf[o]; ok {
 					u.fields[k] = true
 				}
@@ -200,16 +195,42 @@ func loadGoUses(dir string, patterns []string, inputs map[string]bool, bindings 
 		}
 		for _, file := range p.Syntax {
 			ast.Inspect(file, func(n ast.Node) bool {
-				if call, ok := n.(*ast.CallExpr); ok {
-					if tn := decodeTarget(p.TypesInfo, call); tn != nil && inputOf[tn] != "" {
-						u.decoded[inputOf[tn]] = true
-					}
+				call, ok := n.(*ast.CallExpr)
+				if !ok {
+					return true
+				}
+				// Only a call reaches the server: a reference that is never
+				// called (`_ = gen.Agents`) does not.
+				if name := genFuncCalled(p.TypesInfo, call); name != "" {
+					u.funcs[name] = true
+				}
+				if tn := decodeTarget(p.TypesInfo, call); tn != nil && inputOf[tn] != "" {
+					u.decoded[inputOf[tn]] = true
 				}
 				return true
 			})
 		}
 	}
 	return u, nil
+}
+
+// genFuncCalled is the name of the generated operation function a call
+// invokes directly, or "" when it calls anything else.
+func genFuncCalled(info *types.Info, call *ast.CallExpr) string {
+	var id *ast.Ident
+	switch fn := ast.Unparen(call.Fun).(type) {
+	case *ast.SelectorExpr:
+		id = fn.Sel
+	case *ast.Ident:
+		id = fn
+	default:
+		return ""
+	}
+	o, ok := info.Uses[id].(*types.Func)
+	if !ok || o.Pkg() == nil || o.Pkg().Path() != genPkgPath || o.Parent() != o.Pkg().Scope() {
+		return ""
+	}
+	return o.Name()
 }
 
 // decodeTarget is the named type a json.Unmarshal or Decoder.Decode call
