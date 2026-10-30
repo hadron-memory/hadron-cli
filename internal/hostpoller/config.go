@@ -60,8 +60,33 @@ type DeliveryConfig struct {
 	// Enabled turns delivery on. The host key then also needs
 	// attention:deliver; without it delivery switches off for the run.
 	Enabled bool `yaml:"enabled"`
+	// AckMixed asserts that the server carries A-prime (#2072): mixed wake
+	// acknowledgment records ticks/tasks without advancing any chat mark.
+	AckMixed bool `yaml:"ack_mixed"`
 	// OrcaBin is the absolute path of the orca CLI.
 	OrcaBin string `yaml:"orca_bin"`
+}
+
+// UnmarshalYAML preserves strict known-field checking and requires the new
+// opt-in assertion to be a YAML boolean, never a string, number or null.
+func (d *DeliveryConfig) UnmarshalYAML(n *yaml.Node) error {
+	if n.Kind != yaml.MappingNode {
+		return errors.New("delivery must be a mapping")
+	}
+	for i := 0; i < len(n.Content); i += 2 {
+		key, value := n.Content[i].Value, n.Content[i+1]
+		switch key {
+		case "enabled", "orca_bin":
+		case "ack_mixed":
+			if value.Tag != "!!bool" || (value.Value != "true" && value.Value != "false") {
+				return errors.New("delivery.ack_mixed must be true or false")
+			}
+		default:
+			return fmt.Errorf("unknown delivery field %q", key)
+		}
+	}
+	type plain DeliveryConfig
+	return n.Decode((*plain)(d))
 }
 
 // WorkerConfig is one worker this host can launch.

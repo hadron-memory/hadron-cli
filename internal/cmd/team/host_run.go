@@ -260,8 +260,12 @@ acknowledges it. A key without attention:deliver turns delivery off for the
 run (a delivery-off event); operations carry on. It also reads this host's
 due tick and task wakes (dueWakes) and types each as one line through the
 same path, then hands its proof back (hadron-cli#1178). A wake that names
-channels or a mention is typed once and acknowledged only once it no longer
-does. A held delivery is not reported to the
+channels or a mention is typed once and, by default, held from acknowledgment.
+Set delivery.ack_mixed: true only when the server carries A-prime (#2072,
+ad7f1c2): its mixed acknowledgment records ticks/tasks without moving chat
+marks. Mention text still arrives through its own batch. Status reports the
+configured ack-mixed on/off setting; it does not detect server capability.
+A held delivery is not reported to the
 server yet (hadron-cli#940): it raises no server alarm, and team host
 status shows it as UNREPORTED.
 
@@ -397,7 +401,8 @@ type hostStatusDTO struct {
 }
 
 type hostDeliveryDTO struct {
-	Enabled bool `json:"enabled"`
+	Enabled  bool `json:"enabled"`
+	AckMixed bool `json:"ackMixed"`
 	// Mode is disabled, enabled, or off-by-scope (the host key lacked
 	// attention:deliver at the poller's last step).
 	Mode       string  `json:"mode"`
@@ -453,7 +458,7 @@ const heldTooLong = 30 * time.Minute
 
 // hostDeliveryStatus builds the delivery block from local state only.
 func hostDeliveryStatus(cfg *hostpoller.Config, now time.Time) hostDeliveryDTO {
-	d := hostDeliveryDTO{Enabled: cfg.Delivery.Enabled, Mode: "disabled", OrcaBin: cfg.Delivery.OrcaBin, Workers: []hostDeliveryWorkerDTO{}}
+	d := hostDeliveryDTO{Enabled: cfg.Delivery.Enabled, AckMixed: cfg.Delivery.AckMixed, Mode: "disabled", OrcaBin: cfg.Delivery.OrcaBin, Workers: []hostDeliveryWorkerDTO{}}
 	if !d.Enabled {
 		return d
 	}
@@ -515,11 +520,15 @@ func hostDeliveryStatus(cfg *hostpoller.Config, now time.Time) hostDeliveryDTO {
 }
 
 func writeHostDelivery(w io.Writer, d hostDeliveryDTO) {
+	ack := "off"
+	if d.AckMixed {
+		ack = "on"
+	}
 	if !d.Enabled {
-		fmt.Fprintln(w, "delivery: disabled")
+		fmt.Fprintln(w, "delivery: disabled, ack-mixed "+ack)
 		return
 	}
-	line := "delivery: " + d.Mode + ", orca " + d.OrcaBin
+	line := "delivery: " + d.Mode + ", ack-mixed " + ack + ", orca " + d.OrcaBin
 	if d.LastStepAt != nil {
 		line += ", last step " + *d.LastStepAt + " (" + *d.LastRead + ")"
 	}
