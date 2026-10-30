@@ -17,7 +17,15 @@ func newCmdMember(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "member <command>",
 		Aliases: []string{"members"},
-		Short:   "Manage a memory's members (team access)",
+		Short:   "Give people access to a group memory",
+		Long: `Give people access to a group memory, as reader, writer or owner. Only an
+owner of the memory may add, change or remove members, and the last owner
+cannot be removed or demoted. A member finds the memory in memory list.
+
+` + accessHelp,
+		Example: `  hadron memory member add hrn:mem:acme.com:team --user jane@acme.com --role writer
+  hadron memory member list hrn:mem:acme.com:team
+  hadron memory member rm hrn:mem:acme.com:team --user jane@acme.com --yes`,
 	}
 	cmd.AddCommand(newCmdMemberLs(f))
 	cmd.AddCommand(newCmdMemberAdd(f))
@@ -31,7 +39,12 @@ func newCmdMemberLs(f *cmdutil.Factory) *cobra.Command {
 		Use:     "list <memoryRef>",
 		Aliases: []string{"ls"},
 		Short:   "List a memory's members",
-		Args:    cobra.ExactArgs(1),
+		Long: `List the people with access to a group memory: their user id, name,
+email and role. People with access through a share or an organization
+subscription are not listed (memory share list, memory subscription list).`,
+		Example: `  hadron memory member list hrn:mem:acme.com:team
+  hadron memory member list hrn:mem:acme.com:team --json`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -70,9 +83,15 @@ func newCmdMemberAdd(f *cmdutil.Factory) *cobra.Command {
 	var user, role string
 	cmd := &cobra.Command{
 		Use:   "add <memoryRef> --user <user> --role <owner|writer|reader>",
-		Short: "Add (or upsert) a member on a memory",
-		Example: `  hadron memory member add hrn:mem:acme.com:kb --user jane@acme.com --role writer
-  hadron memory member add hrn:mem:acme.com:kb --user jane --role reader`,
+		Short: "Add a member to a group memory, or change their role",
+		Long: `Give a person access to a group memory with a role. If they are already a
+member, their role changes to the one you give, so running it twice is safe.
+The memory then shows in their memory list, and they can do what the role
+allows (see memory member). Only an owner of the memory may add members.
+
+--user takes a user id, email, handle or hrn:user:<handle> URN.`,
+		Example: `  hadron memory member add hrn:mem:acme.com:team --user jane@acme.com --role writer
+  hadron memory member add hrn:mem:acme.com:team --user jane --role reader`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r, err := parseMemberRole(role)
@@ -110,7 +129,7 @@ func newCmdMemberSetRole(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "set-role <memoryRef> --user <user> --role <owner|writer|reader>",
 		Short:   "Change a member's role",
-		Example: `  hadron memory member set-role hrn:mem:acme.com:kb --user jane --role reader`,
+		Example: `  hadron memory member set-role hrn:mem:acme.com:team --user jane --role reader`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r, err := parseMemberRole(role)
@@ -150,7 +169,7 @@ func newCmdMemberRm(f *cmdutil.Factory) *cobra.Command {
 		Use:     "rm <memoryRef> --user <user>",
 		Aliases: []string{"remove"},
 		Short:   "Remove a member from a memory",
-		Example: `  hadron memory member rm hrn:mem:acme.com:kb --user jane --yes`,
+		Example: `  hadron memory member rm hrn:mem:acme.com:team --user jane --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()

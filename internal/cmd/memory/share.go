@@ -17,7 +17,16 @@ func newCmdShare(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "share <command>",
 		Aliases: []string{"shares"},
-		Short:   "Share a memory with individual users",
+		Short:   "Give one person access to your personal memory",
+		Long: `Give one person access to a personal memory you own, as reader or writer. Only
+you, the owner, may share it, change a share or remove one; the person can
+leave a share themselves (share rm without --grantee). They find the memory
+with memory list --shared-with-me.
+
+` + accessHelp,
+		Example: `  hadron memory share create hrn:mem:jane:notes --grantee @sam --role reader
+  hadron memory share list hrn:mem:jane:notes
+  hadron memory share rm hrn:mem:jane:notes --grantee @sam --yes`,
 	}
 	cmd.AddCommand(newCmdShareLs(f))
 	cmd.AddCommand(newCmdShareCreate(f))
@@ -30,8 +39,14 @@ func newCmdShareLs(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:     "list <memoryRef>",
 		Aliases: []string{"ls"},
-		Short:   "List a memory's shares",
-		Args:    cobra.ExactArgs(1),
+		Short:   "List who a memory is shared with",
+		Long: `List the people a personal memory is shared with: their user id, name,
+email and role. These are shares of this memory, given by its owner. To see
+the memories other people have shared with you, use memory list
+--shared-with-me.`,
+		Example: `  hadron memory share list hrn:mem:jane:notes
+  hadron memory share list hrn:mem:jane:notes --json`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -70,10 +85,17 @@ func newCmdShareCreate(f *cmdutil.Factory) *cobra.Command {
 	var grantee, role string
 	cmd := &cobra.Command{
 		Use:   "create <memoryRef> --grantee <user> --role <writer|reader>",
-		Short: "Share a memory with a user (or update their share role)",
-		Example: `  hadron memory share create hrn:mem:acme.com:kb --grantee usr_789 --role reader
-  hadron memory share create hrn:mem:acme.com:kb --grantee jane@acme.com --role writer
-  hadron memory share create hrn:mem:acme.com:kb --grantee @jane --role reader`,
+		Short: "Share a personal memory with one person, or change their role",
+		Long: `Give one person access to a personal memory you own, as reader or writer.
+If it is already shared with them, their role changes to the one you give. They
+then find it with memory list --shared-with-me.
+
+--grantee takes a user id, email, handle or hrn:user:<handle> URN. It names a
+person just like --user on memory member; the flag is named for the person the
+share is granted to.`,
+		Example: `  hadron memory share create hrn:mem:jane:notes --grantee usr_789 --role reader
+  hadron memory share create hrn:mem:jane:notes --grantee jane@acme.com --role writer
+  hadron memory share create hrn:mem:jane:notes --grantee @jane --role reader`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r, err := parseShareRole(role)
@@ -115,7 +137,7 @@ func newCmdShareSetRole(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "set-role <memoryRef> --grantee <user> --role <writer|reader>",
 		Short:   "Change a share's role",
-		Example: `  hadron memory share set-role hrn:mem:acme.com:kb --grantee usr_789 --role writer`,
+		Example: `  hadron memory share set-role hrn:mem:jane:notes --grantee usr_789 --role writer`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r, err := parseShareRole(role)
@@ -164,8 +186,8 @@ func newCmdShareRm(f *cmdutil.Factory) *cobra.Command {
 With --grantee, the memory's owner removes that user's share. Without it, you
 remove YOUR OWN share of a memory someone shared with you (leave) — that path
 needs no ownership, only that the share is yours.`,
-		Example: `  hadron memory share rm hrn:mem:acme.com:kb --grantee usr_789 --yes
-  hadron memory share rm hrn:mem:acme.com:kb --yes   # leave a memory shared with you`,
+		Example: `  hadron memory share rm hrn:mem:jane:notes --grantee usr_789 --yes
+  hadron memory share rm hrn:mem:sam:notes --yes   # leave a memory shared with you`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
