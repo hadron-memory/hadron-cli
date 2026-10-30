@@ -25168,20 +25168,14 @@ func (v *DueTickWakesDueWakesDueWakePagePageInfoDueWakePageInfo) GetEndCursor() 
 //
 // One merged wake: every reason, one seq range per channel. A wake never moves a read position.
 type DueTickWakesDueWakesDueWakePageWakesDueWake struct {
-	Worker *DueTickWakesDueWakesDueWakePageWakesDueWakeWorker `json:"worker"`
-	// #2017 R63 — when the earliest waiting reason became due: a mention's first still-due post, a tick's OLDEST unacknowledged
-	// tick time, a task event's time. Never restarted by a re-offer or a join (hrn:node:hadronmemory.com:specs:cor:agt:080:27).
-	AnchorAt string                                                          `json:"anchorAt"`
-	Reasons  []*DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason `json:"reasons"`
+	Worker  *DueTickWakesDueWakesDueWakePageWakesDueWakeWorker              `json:"worker"`
+	Reasons []*DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason `json:"reasons"`
 }
 
 // GetWorker returns DueTickWakesDueWakesDueWakePageWakesDueWake.Worker, and is useful for accessing the field via an interface.
 func (v *DueTickWakesDueWakesDueWakePageWakesDueWake) GetWorker() *DueTickWakesDueWakesDueWakePageWakesDueWakeWorker {
 	return v.Worker
 }
-
-// GetAnchorAt returns DueTickWakesDueWakesDueWakePageWakesDueWake.AnchorAt, and is useful for accessing the field via an interface.
-func (v *DueTickWakesDueWakesDueWakePageWakesDueWake) GetAnchorAt() string { return v.AnchorAt }
 
 // GetReasons returns DueTickWakesDueWakesDueWakePageWakesDueWake.Reasons, and is useful for accessing the field via an interface.
 func (v *DueTickWakesDueWakesDueWakePageWakesDueWake) GetReasons() []*DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason {
@@ -25190,13 +25184,25 @@ func (v *DueTickWakesDueWakesDueWakePageWakesDueWake) GetReasons() []*DueTickWak
 
 // DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason includes the requested fields of the GraphQL type WakeReason.
 type DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason struct {
-	Kind   WakeKind                                                            `json:"kind"`
-	Ticker *DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker `json:"ticker"`
+	Kind WakeKind `json:"kind"`
+	// #2790 (hrn:node:hadronmemory.com:specs:cor:agt:080:23) — set for kind TICK only, null for MENTION, TASK and STOP: the
+	// time of THIS ticker's oldest tick the worker has not acknowledged, up to the tick that fired. It is per reason, so a
+	// wake with an old mention and a fresh tick, or ticks of two tickers, shows each tick's own time; `anchorAt` stays the
+	// earliest over all reasons (hrn:node:hadronmemory.com:specs:cor:agt:080:27) and is at or before every one of these.
+	// Computed at read time from the worker's acknowledged tick, never stored: a tick that joins an outstanding wake
+	// (hrn:node:hadronmemory.com:specs:cor:agt:080:12) leaves it at the oldest unacknowledged tick, not the joining one.
+	TickDueAt *string                                                             `json:"tickDueAt"`
+	Ticker    *DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker `json:"ticker"`
 }
 
 // GetKind returns DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason.Kind, and is useful for accessing the field via an interface.
 func (v *DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetKind() WakeKind {
 	return v.Kind
+}
+
+// GetTickDueAt returns DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason.TickDueAt, and is useful for accessing the field via an interface.
+func (v *DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetTickDueAt() *string {
+	return v.TickDueAt
 }
 
 // GetTicker returns DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason.Ticker, and is useful for accessing the field via an interface.
@@ -25212,8 +25218,6 @@ func (v *DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetTicker
 type DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker struct {
 	Id   string `json:"id"`
 	Name string `json:"name"`
-	// The moment of the current tick; null when none has fired or it cannot tick.
-	LastTickAt *string `json:"lastTickAt"`
 }
 
 // GetId returns DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker.Id, and is useful for accessing the field via an interface.
@@ -25224,11 +25228,6 @@ func (v *DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker) Get
 // GetName returns DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker.Name, and is useful for accessing the field via an interface.
 func (v *DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker) GetName() string {
 	return v.Name
-}
-
-// GetLastTickAt returns DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker.LastTickAt, and is useful for accessing the field via an interface.
-func (v *DueTickWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker) GetLastTickAt() *string {
-	return v.LastTickAt
 }
 
 // DueTickWakesDueWakesDueWakePageWakesDueWakeWorker includes the requested fields of the GraphQL type Worker.
@@ -81637,13 +81636,12 @@ query DueTickWakes ($appRef: String!, $first: Int!, $workerRefs: [String!], $aft
 			worker {
 				id
 			}
-			anchorAt
 			reasons {
 				kind
+				tickDueAt
 				ticker {
 					id
 					name
-					lastTickAt
 				}
 			}
 		}
@@ -81656,11 +81654,13 @@ query DueTickWakes ($appRef: String!, $first: Int!, $workerRefs: [String!], $aft
 `
 
 // hadron-cli#1187: `hadron orca terminal status` reads the unanswered ticks of
-// the named workers. anchorAt is the OLDEST unacknowledged tick time, which the
-// dark rule compares with the fastest subscribed ticker's interval (never
-// Ticker.lastTickAt). No accepts and never acknowledged: a read only. A caller
-// the server does not let read another worker's wakes is refused, and the
-// command fails closed on it.
+// the named workers. Each TICK reason's tickDueAt (hadron-server#2790,
+// hadron-cli#1216) is THAT ticker's oldest unacknowledged tick, which the dark
+// rule compares with the fastest subscribed ticker's interval: never anchorAt
+// (the oldest reason of any kind) and never Ticker.lastTickAt (its newest
+// tick). No accepts and never acknowledged: a read only. A caller the server
+// does not let read another worker's wakes is refused, and the command fails
+// closed on it.
 func DueTickWakes(
 	ctx_ context.Context,
 	client_ graphql.Client,

@@ -39,10 +39,12 @@ func graphFixture(t *testing.T, responses map[string]string) (graphReads, map[st
 	return graphReads{client: c, app: "app1"}, seen
 }
 
-func TestDueTicksReadsAnchorNotLastTickAt(t *testing.T) {
+// #1216: a tick is aged by its own tickDueAt, not by anchorAt and not by the
+// ticker's lastTickAt (its newest tick).
+func TestDueTicksReadsTickDueAt(t *testing.T) {
 	g, seen := graphFixture(t, map[string]string{"DueTickWakes": `{"data":{"dueWakes":{"status":"OK","wakes":[
-	  {"worker":{"id":"w_j"},"anchorAt":"2026-10-29T16:10:00Z","reasons":[
-	    {"kind":"TICK","ticker":{"id":"tk5","name":"base","lastTickAt":"2026-10-29T16:30:00Z"}}]}],
+	  {"worker":{"id":"w_j"},"anchorAt":"2026-10-29T16:00:00Z","reasons":[
+	    {"kind":"TICK","tickDueAt":"2026-10-29T16:10:00Z","ticker":{"id":"tk5","name":"base","lastTickAt":"2026-10-29T16:30:00Z"}}]}],
 	  "pageInfo":{"hasNextPage":false,"endCursor":null}}}}`})
 	got, err := g.DueTicks(context.Background(), []string{"w_j"})
 	if err != nil {
@@ -109,27 +111,26 @@ func TestDueTicksBudgetExhaustedIsAnErrorNotNothingDue(t *testing.T) {
 	}
 }
 
-// BLIND P2-1: anchorAt is the earliest waiting reason of ANY kind. An old
-// mention merged with a recent tick must not make the tick look old: a merged
-// wake uses the ticker's own tick time (the conservative, youngest bound);
-// only a tick-only wake's anchor is the tick's.
+// #1211 BLIND P2-1, closed by #1216: anchorAt is the earliest waiting reason
+// of ANY kind, so an old mention merged with a tick must not age the tick. The
+// tick's own tickDueAt does, in a merged wake as in a tick-only one.
 func TestDueTicksMergedWakeDoesNotAgeTheTick(t *testing.T) {
 	g, _ := graphFixture(t, map[string]string{"DueTickWakes": `{"data":{"dueWakes":{"status":"OK","wakes":[
 	  {"worker":{"id":"w_j"},"anchorAt":"2026-10-29T15:00:00Z","reasons":[
-	    {"kind":"MENTION","ticker":null},
-	    {"kind":"TICK","ticker":{"id":"tk5","name":"base","lastTickAt":"2026-10-29T16:30:00Z"}}]},
+	    {"kind":"MENTION","ticker":null,"tickDueAt":null},
+	    {"kind":"TICK","tickDueAt":"2026-10-29T16:20:00Z","ticker":{"id":"tk5","name":"base","lastTickAt":"2026-10-29T16:30:00Z"}}]},
 	  {"worker":{"id":"w_a"},"anchorAt":"2026-10-29T16:10:00Z","reasons":[
-	    {"kind":"TICK","ticker":{"id":"tk5","name":"base","lastTickAt":"2026-10-29T16:30:00Z"}}]}],
+	    {"kind":"TICK","tickDueAt":"2026-10-29T16:10:00Z","ticker":{"id":"tk5","name":"base","lastTickAt":"2026-10-29T16:30:00Z"}}]}],
 	  "pageInfo":{"hasNextPage":false,"endCursor":null}}}}`})
 	got, err := g.DueTicks(context.Background(), []string{"w_j", "w_a"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if at := got["w_j"][0].DueAt; !at.Equal(time.Date(2026, 10, 29, 16, 30, 0, 0, time.UTC)) {
-		t.Fatalf("merged wake aged the tick to %v", at)
+	if at := got["w_j"][0].DueAt; !at.Equal(time.Date(2026, 10, 29, 16, 20, 0, 0, time.UTC)) {
+		t.Fatalf("merged wake must use the tick's tickDueAt, got %v", at)
 	}
 	if at := got["w_a"][0].DueAt; !at.Equal(time.Date(2026, 10, 29, 16, 10, 0, 0, time.UTC)) {
-		t.Fatalf("tick-only wake must use its anchor, got %v", at)
+		t.Fatalf("tick-only wake must use its tickDueAt, got %v", at)
 	}
 }
 
@@ -180,38 +181,47 @@ func TestSubscriptionsRepeatedCursorStopsAtOnce(t *testing.T) {
 	}
 }
 
-// BLIND delta P2-1: with several tick reasons anchorAt cannot say which
-// ticker it ages, so each ticker is aged by its own lastTickAt (an old tick of
-// ticker A must not age the fresh tick of ticker B).
+// #1211 BLIND delta P2-1, closed by #1216: with several tick reasons anchorAt
+// cannot say which ticker it ages, so each ticker is aged by its own
+// tickDueAt (an old tick of ticker A must not age ticker B, nor B's newest
+// tick hide A's oldest).
 func TestDueTicksSeveralTicksUseEachTickersOwnTime(t *testing.T) {
 	g, _ := graphFixture(t, map[string]string{"DueTickWakes": `{"data":{"dueWakes":{"status":"OK","wakes":[
 	  {"worker":{"id":"w_j"},"anchorAt":"2026-10-29T10:00:00Z","reasons":[
-	    {"kind":"TICK","ticker":{"id":"tkA","name":"a","lastTickAt":"2026-10-29T10:00:00Z"}},
-	    {"kind":"TICK","ticker":{"id":"tkB","name":"b","lastTickAt":"2026-10-29T16:30:00Z"}}]}],
+	    {"kind":"TICK","tickDueAt":"2026-10-29T10:00:00Z","ticker":{"id":"tkA","name":"a","lastTickAt":"2026-10-29T16:30:00Z"}},
+	    {"kind":"TICK","tickDueAt":"2026-10-29T16:00:00Z","ticker":{"id":"tkB","name":"b","lastTickAt":"2026-10-29T16:30:00Z"}}]}],
 	  "pageInfo":{"hasNextPage":false,"endCursor":null}}}}`})
 	got, err := g.DueTicks(context.Background(), []string{"w_j"})
 	if err != nil {
 		t.Fatal(err)
 	}
+	want := map[string]time.Time{"tkA": time.Date(2026, 10, 29, 10, 0, 0, 0, time.UTC), "tkB": time.Date(2026, 10, 29, 16, 0, 0, 0, time.UTC)}
+	if len(got["w_j"]) != 2 {
+		t.Fatalf("want both ticks, got %+v", got["w_j"])
+	}
 	for _, d := range got["w_j"] {
-		if d.TickerID == "tkB" && !d.DueAt.Equal(time.Date(2026, 10, 29, 16, 30, 0, 0, time.UTC)) {
-			t.Fatalf("ticker B aged by ticker A's anchor: %v", d.DueAt)
+		if !d.DueAt.Equal(want[d.TickerID]) {
+			t.Fatalf("ticker %s aged to %v, want its tickDueAt %v", d.TickerID, d.DueAt, want[d.TickerID])
 		}
 	}
 }
 
-// BLIND delta P2-2: a merged or multi-tick wake whose ticker has no
-// lastTickAt has lost its age evidence; that is an error, not "idle".
-func TestDueTicksMissingLastTickAtFailsClosed(t *testing.T) {
+// #1216: a tick reason without tickDueAt (withheld, or a server before
+// hadron-server#2790) has lost its age evidence; that is an error, not
+// "idle", in every wake shape, and anchorAt or lastTickAt never stands in. A
+// malformed tickDueAt is an error too.
+func TestDueTicksMissingTickDueAtFailsClosed(t *testing.T) {
 	for name, reasons := range map[string]string{
-		"merged": `{"kind":"MENTION","ticker":null},{"kind":"TICK","ticker":{"id":"tk5","name":"b","lastTickAt":null}}`,
-		"multi":  `{"kind":"TICK","ticker":{"id":"tk4","name":"a","lastTickAt":null}},{"kind":"TICK","ticker":{"id":"tk5","name":"b","lastTickAt":"2026-10-29T16:30:00Z"}}`,
+		"tick only": `{"kind":"TICK","tickDueAt":null,"ticker":{"id":"tk5","name":"b","lastTickAt":"2026-10-29T10:00:00Z"}}`,
+		"merged":    `{"kind":"MENTION","ticker":null,"tickDueAt":null},{"kind":"TICK","tickDueAt":null,"ticker":{"id":"tk5","name":"b","lastTickAt":"2026-10-29T16:30:00Z"}}`,
+		"multi":     `{"kind":"TICK","tickDueAt":null,"ticker":{"id":"tk4","name":"a","lastTickAt":"2026-10-29T16:30:00Z"}},{"kind":"TICK","tickDueAt":"2026-10-29T16:30:00Z","ticker":{"id":"tk5","name":"b","lastTickAt":"2026-10-29T16:30:00Z"}}`,
+		"malformed": `{"kind":"TICK","tickDueAt":"2026-10-29 16:30","ticker":{"id":"tk5","name":"b","lastTickAt":"2026-10-29T16:30:00Z"}}`,
 	} {
 		g, _ := graphFixture(t, map[string]string{"DueTickWakes": `{"data":{"dueWakes":{"status":"OK","wakes":[
 		  {"worker":{"id":"w_j"},"anchorAt":"2026-10-29T10:00:00Z","reasons":[` + reasons + `]}],
 		  "pageInfo":{"hasNextPage":false,"endCursor":null}}}}`})
 		if _, err := g.DueTicks(context.Background(), []string{"w_j"}); err == nil {
-			t.Errorf("%s: missing lastTickAt read as success", name)
+			t.Errorf("%s: missing tickDueAt read as success", name)
 		}
 	}
 }
