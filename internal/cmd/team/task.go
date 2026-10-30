@@ -215,10 +215,15 @@ AT1.2); the parent needs an assignee first, and that assignee creates the
 children. --blocked-by <task> makes it wait for another task (see
 ` + "`task add-blocker`" + `).
 
---start-by <RFC 3339 time> sets when an assigned task must be started: after it,
-the not-started stall alarm fires and ` + "`task list --overdue`" + ` lists it. With
-none, the App's not-started window (` + "`team stall-schedule get`" + `) counts from
-the assignment.
+--start-by <RFC 3339 time> sets when the task should be started. Once it passes,
+` + "`task list --overdue`" + ` lists the task while it is still pending, whether or
+not it is assigned or blocked; that is a filter, not an alarm. The not-started
+stall alarm is separate (cor:agt:050:14): it fires only for an assigned,
+unblocked PENDING task, and its clock starts at the assignment, or at the
+release if the task was blocked. The deadline is the start-by when that falls
+after the clock starts; otherwise, and with no --start-by, it is the App's
+not-started window (` + "`team stall-schedule get`" + `) counted from then. So a
+task released or reassigned after its start-by gets a fresh window.
 
 By default finishing or cancelling does not ask the assignee to end its
 worker session. Pass --close-session to ask (cor:agt:050:10); the platform
