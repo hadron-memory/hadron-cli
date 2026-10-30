@@ -232,9 +232,11 @@ shows the token's id, which hadron auth token revoke takes. Give each use its
 own --label, so the list tells you what to revoke.
 
 Avoid leaving the token in terminal scrollback or logs: --json with jq, as
-below, writes it straight to a file.`,
+below, writes it straight to a file. The umask makes that file private only
+when it is newly created, so the example first checks that ci-token does not
+exist yet; it stops before minting rather than writing into an existing file.`,
 		Example: `  hadron auth token create --label ci-deploy
-  (umask 077; hadron auth token create --label ci --json | jq -r .rawKey > ci-token)   # file is private from the start`,
+  [ ! -e ci-token ] && (umask 077; hadron auth token create --label ci --json | jq -r .rawKey > ci-token)   # new file, private from the start`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
