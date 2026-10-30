@@ -63,18 +63,17 @@ func newCmdList(f *cmdutil.Factory) *cobra.Command {
 		Use:     "list -m <memory>",
 		Aliases: []string{"ls"},
 		Short:   "List a memory's assets",
-		Long: `List the assets held by a memory.
+		Long: `List the files held by one memory: id, filename, type, size, virus-scan status,
+upload time and public-link state. CAN MANAGE says whether you may switch the
+public link; AVAILABLE says whether this server serves public links at all.
 
--m is required. Asset listing is memory-addressed server-side, so there is no
-"every asset I can read" query; the CLI does not fan out across memories to
-fake one, because that would be an N+1 whose cost and partial-failure modes are
-invisible from the output. Track: hadron-server#891.
+-m is required. There is no listing across memories: run it once per memory.
 
-Listing is gated on READ access to the memory, so it returns every uploader's
-assets, not only your own — pass --mine to narrow to yours.
+Everyone who can read the memory sees every uploader's files; --mine keeps only
+yours. --include-deleted adds files deleted in the last 24 hours (asset restore
+can still bring them back) and files the virus scan blocked.
 
-By default every asset is listed (the query pages to exhaustion). Pass --limit
-or --offset to fetch a single explicit page instead.`,
+Every asset is listed by default. --limit and --offset fetch one page instead.`,
 		Example: `  hadron asset list -m hrn:mem:acme.com:kb
   hadron asset list -m hrn:mem:acme.com:kb --mine --mime image/png
   hadron asset list -m hrn:mem:acme.com:kb --include-deleted --json`,

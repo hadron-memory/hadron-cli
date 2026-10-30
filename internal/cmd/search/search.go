@@ -142,9 +142,9 @@ JSON condition: a path plus one test (eq, ne, in, lt, lte, gt, gte, between,
 exists, contains), combined with and/or/not. It reads "properties" unless the
 condition says "field":"data". Aimed at the wrong one it usually finds
 nothing (a test such as "exists":false can instead match notes that lack the
-field), and only one case warns: a condition that names no field and finds
-nothing gets a note on stderr suggesting "field":"data". So when a --where
-search is empty, check which of the two the note keeps the value in.
+field), and only one case warns: a condition that names no field and returns
+an empty first page gets a note on stderr suggesting "field":"data". So when
+a --where search is empty, check which of the two the note keeps the value in.
 --with-properties / --with-data show those fields for each hit, and
 --sort-property orders by one instead of by score.
 --object-type keeps only records of one collection (for example competitor).
