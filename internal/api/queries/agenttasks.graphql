@@ -249,6 +249,80 @@ query AgentTaskListText(
   }
 }
 
+# cli#1250: the server-side filters added by hadron-server#2647 (tags any/all,
+# exact source, overdue, inclusive created/started/finished bounds). Sent only
+# when one of them is set, so a plain list keeps the legacy document an older
+# server still validates.
+query AgentTaskListFiltered(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $assignee: AgentTaskPartyInput
+  # @genqlient(omitempty: true)
+  $createdAfter: DateTime
+  # @genqlient(omitempty: true)
+  $createdBefore: DateTime
+  # @genqlient(omitempty: true)
+  $finishedAfter: DateTime
+  # @genqlient(omitempty: true)
+  $finishedBefore: DateTime
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+  # @genqlient(omitempty: true)
+  $overdue: Boolean
+  # @genqlient(omitempty: true)
+  $owner: AgentTaskPartyInput
+  # @genqlient(omitempty: true)
+  $parentTaskId: ID
+  # @genqlient(omitempty: true)
+  $queued: Boolean
+  # @genqlient(omitempty: true)
+  $rootsOnly: Boolean
+  # @genqlient(omitempty: true)
+  $source: String
+  # @genqlient(omitempty: true)
+  $startedAfter: DateTime
+  # @genqlient(omitempty: true)
+  $startedBefore: DateTime
+  # @genqlient(omitempty: true)
+  $status: [AgentTaskStatus!]
+  # @genqlient(omitempty: true)
+  $tag: String
+  # @genqlient(omitempty: true)
+  $tagsAll: [String!]
+  # @genqlient(omitempty: true)
+  $tagsAny: [String!]
+  # @genqlient(omitempty: true)
+  $text: String
+) {
+  agentTasks(
+    appRef: $appRef
+    assignee: $assignee
+    createdAfter: $createdAfter
+    createdBefore: $createdBefore
+    finishedAfter: $finishedAfter
+    finishedBefore: $finishedBefore
+    limit: $limit
+    offset: $offset
+    overdue: $overdue
+    owner: $owner
+    parentTaskId: $parentTaskId
+    queued: $queued
+    rootsOnly: $rootsOnly
+    source: $source
+    startedAfter: $startedAfter
+    startedBefore: $startedBefore
+    status: $status
+    tag: $tag
+    tagsAll: $tagsAll
+    tagsAny: $tagsAny
+    text: $text
+  ) {
+    ...AgentTaskFields
+  }
+}
+
 query AgentTaskTree($root: ID!) {
   agentTaskTree(root: $root) {
     ...AgentTaskFields
