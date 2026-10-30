@@ -54,11 +54,15 @@ TWO THINGS ARE CALLED A SESSION, AND ENDING ONE DOES NOT END THE OTHER
                    the Claude Code session, the IDE chat
 
 Closing your CHAT SESSION does not end the worker session. It outlives the
-chat, and since hadron-server#1114 NOTHING else ends it — no idle window,
-no reap — so it stays open until you run ` + "`session end`" + `. Being TAKEN is
-separate and does clear on its own: the server derives it from recent
-driving. So when you do stop being this worker, end the session yourself:
-that is the only thing that ends it and the only chance to leave a handoff.
+chat, and since hadron-server#1114 no idle window ends it either. Apart from
+a hard deadline some sessions are given at start (whoami --check then says
+auto-expired), two things end it: ` + "`session end`" + `, and your own NEXT BIND of
+the same worker (from any worktree, --force or not), which ends your old open
+sessions on it without a handoff (` + "`session start --help`" + `). A resume of the
+same session is not a new bind. Being TAKEN is separate and does clear
+on its own: the server derives it from recent driving. So when you do stop
+being this worker, end the session yourself: ` + "`session end`" + ` is the only
+path that leaves a handoff.
 Finishing a task, a PR or a chat is not stopping (` + "`session end --help`" + `).
 
 TAKEN is not HELD. Ending the session frees the SESSION; a PERSON binding a
@@ -2380,9 +2384,12 @@ worktree ends; the session spans all of those. To reset your context and keep
 working as the same worker, use ` + "`session shed`" + ` instead. When you do end it,
 leave a handoff (--handoff-file below): it is what the next driver reads.
 
-This is the only thing that ends the session — unless another active worker
-session still has the worker (e.g. after a --force takeover; check
-` + "`session list --active`" + `).
+This is the deliberate way to end a session and the only one that leaves a
+handoff. The other one you cause is your own next bind of the same worker
+(a resume of the same session is not one), which ends your old open sessions
+on it WITHOUT a handoff — so write the handoff here first.
+Another person's or an App key's session on the worker is not ended by
+either; ` + "`session list --active --as <worker>`" + ` shows what is still open.
 
 IT DOES NOT RELEASE THE NAME. A person who binds a worker claims its name,
 and no session end, idle window, expiry or reap ever clears that hold
@@ -2644,10 +2651,11 @@ attributed to you. So rows from other people and other Apps are expected.
 do.
 
 --active narrows to sessions that never ENDED, which is not the same as
-team presence: since hadron-server#1114 nothing ends a developer session
-but an explicit ` + "`session end`" + `, so an abandoned one stays listed
-indefinitely. For "was this name driven recently, and does the server still
-count it as taken", read ` + "`worker list`'s" + ` LAST RECORDED ACTIVITY. --as narrows to one
+team presence: since hadron-server#1114 no idle window ends a developer
+session. Only ` + "`session end`" + `, the same person's next bind of that worker,
+or a hard deadline set at start does, so an abandoned one stays listed until
+then. For "was this name driven recently, and does the server still count it
+as taken", read ` + "`worker list`'s" + ` LAST RECORDED ACTIVITY. --as narrows to one
 worker's sessions (server-side, via the worker binding on the session).
 --active narrows client-side over the full list; plain listings page
 server-side.
