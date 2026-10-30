@@ -414,7 +414,7 @@ hadron user search [query] [--limit N] [--offset N] | set-roles <userRef> --role
 hadron profile set [--name <n>] [--handle <h>] [--email <e>]   # --email is accepted and REFUSED locally (exit 2, "Changing your email address is not supported here.") — the flag stays so scripts fail loudly (#844)
 hadron server-info
 hadron run trigger --app <ref> --entry <node-urn> [--as-self] [--agent <ref>] [--arg k=v]... [--ai-config <n>] [--budget-tokens N] [--budget-actions N] [--wait] | list [--app <ref> | --org <ref>] [--status <s>] | get <id> | cancel <id> --yes
-hadron ticker list | get <id-or-URN> | create --name <n> --cadence-seconds <n> [--reasons read-team-channel,every-tick,live-check] | update <id-or-URN> [--reasons <list>] | delete <id-or-URN> --yes | subscribe <id-or-URN> --worker <id-or-URN> | unsubscribe <id-or-URN> --worker <id-or-URN>
+hadron ticker list | get <id-or-URN> | create --name <n> --cadence-seconds <n> [--reasons read-team-channel,every-tick,live-check] | update <id-or-URN> [--reasons <list>] | delete <id-or-URN> --yes | subscribe <id-or-URN> --worker <id-or-URN> | unsubscribe <id-or-URN> --worker <id-or-URN> | apply-templates --worker <id-or-URN>
 hadron schedule create --app <ref> --name <n> --cron '<expr>' [--tz <zone>] --entry <node-urn> [--as-self] [--policy <json>] [--ai-config <n>] [--arg k=v]... [--budget-tokens N] [--budget-actions N] | list --app <ref> | update <id> ... [--budget-tokens N|--clear-budget-tokens] [--budget-actions N|--clear-budget-actions] | rm <id> --yes
 hadron automation list | approval (<name> | --run <run-id>) [--depth] | approve (<name> | --run <run-id>) [--yes] | decline (<name> | --run <run-id>) [--yes]   # cli#1071: an App owner reviews and approves schedules/webhooks without a row id or hash; name is schedule/<name>, webhook/<name> or a bare <name> that exactly one trigger has; --app on every subcommand
 hadron webhook create --app <ref> --name <n> --entry <node-urn> [--as-self] [--policy <json>] [--args-schema <json>] [--ai-config <n>] [--budget-tokens N] [--budget-actions N] | rotate <id> --yes | list --app <ref> | rm <id> --yes
@@ -3570,6 +3570,21 @@ stderr after the receipt, in `--json` an always-present `warnings` array
 are []. Readable channels are only the reader's view. Missing and unreadable
 get both report not found. The server's ticker list is currently unpaged: the
 CLI reports that response without claiming an exhaustive census.
+
+`ticker apply-templates --worker <id-or-URN>` (cli#1291, hadron-server#2096)
+creates the tickers its Agent's templates declare that ONE worker is missing,
+each owned by and subscribed to it; nothing existing is edited. Run it as the
+App's manager acting as yourself: it never sends a worker session, which the
+server refuses. A missing, empty or bare-name `--worker` is exit 2 before a
+request. Text prints each created ticker with its effective cadence, labelled
+"the App's floor" only when it equals `appTickerSettings.minCadenceSeconds`
+(read only when something was created; unreadable drops the label), then the
+templates already present; a second run prints "nothing to create", exit 0.
+`--json` is `{created:[{ticker,template:{id,name},effectiveCadenceSeconds}],
+alreadyPresent:[{id,name}]}`, arrays always present, no client label.
+Refusals keep their code as the message prefix: `FORBIDDEN` 8,
+`WORKER_NOT_FOUND` 4, `WORKER_AGENT_NOT_INSTALLED` 2, `TICKER_LIMIT_REACHED` and
+`TICKER_NAME_TAKEN` 5 (all-or-nothing: the message says nothing was created).
 
 Delete requires TTY confirmation or --yes and ends live subscriptions; there is
 no restore. A false delete response is an error, never a success receipt. Recreating a

@@ -10614,6 +10614,311 @@ var AllAppType = []AppType{
 	AppTypeWorkstation,
 }
 
+// ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResult includes the requested fields of the GraphQL type ApplyAgentTickerTemplatesResult.
+// The GraphQL type's documentation follows.
+//
+// #2096 — what applyAgentTickerTemplates did: what it created, and the templates the worker already had (a second call is a visible no-op).
+type ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResult struct {
+	Created        []*ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTicker  `json:"created"`
+	AlreadyPresent []*ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultAlreadyPresentAppliedTickerTemplate `json:"alreadyPresent"`
+}
+
+// GetCreated returns ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResult.Created, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResult) GetCreated() []*ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTicker {
+	return v.Created
+}
+
+// GetAlreadyPresent returns ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResult.AlreadyPresent, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResult) GetAlreadyPresent() []*ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultAlreadyPresentAppliedTickerTemplate {
+	return v.AlreadyPresent
+}
+
+// ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultAlreadyPresentAppliedTickerTemplate includes the requested fields of the GraphQL type AppliedTickerTemplate.
+// The GraphQL type's documentation follows.
+//
+// #2096 — a template as the apply operation reports it: its id and name only. Deliberately NOT AgentTickerTemplate:
+// that type's agent field default-resolves the whole Agent, and whoever manages an App need not be able to read
+// the Agent it installed (the same reason ReleasedFromUser is not User, hrn:node:hadronmemory.com:specs:cor:acl:110:01).
+type ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultAlreadyPresentAppliedTickerTemplate struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetId returns ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultAlreadyPresentAppliedTickerTemplate.Id, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultAlreadyPresentAppliedTickerTemplate) GetId() string {
+	return v.Id
+}
+
+// GetName returns ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultAlreadyPresentAppliedTickerTemplate.Name, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultAlreadyPresentAppliedTickerTemplate) GetName() string {
+	return v.Name
+}
+
+// ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTicker includes the requested fields of the GraphQL type AppliedTickerTemplateTicker.
+// The GraphQL type's documentation follows.
+//
+// #2096 — one ticker an apply created, with the template it came from and its effective cadence (the App's floor may have raised it, R92).
+type ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTicker struct {
+	Ticker                  *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker                        `json:"ticker"`
+	Template                *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTemplateAppliedTickerTemplate `json:"template"`
+	EffectiveCadenceSeconds int                                                                                                                                               `json:"effectiveCadenceSeconds"`
+}
+
+// GetTicker returns ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTicker.Ticker, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTicker) GetTicker() *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker {
+	return v.Ticker
+}
+
+// GetTemplate returns ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTicker.Template, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTicker) GetTemplate() *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTemplateAppliedTickerTemplate {
+	return v.Template
+}
+
+// GetEffectiveCadenceSeconds returns ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTicker.EffectiveCadenceSeconds, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTicker) GetEffectiveCadenceSeconds() int {
+	return v.EffectiveCadenceSeconds
+}
+
+// ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTemplateAppliedTickerTemplate includes the requested fields of the GraphQL type AppliedTickerTemplate.
+// The GraphQL type's documentation follows.
+//
+// #2096 — a template as the apply operation reports it: its id and name only. Deliberately NOT AgentTickerTemplate:
+// that type's agent field default-resolves the whole Agent, and whoever manages an App need not be able to read
+// the Agent it installed (the same reason ReleasedFromUser is not User, hrn:node:hadronmemory.com:specs:cor:acl:110:01).
+type ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTemplateAppliedTickerTemplate struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetId returns ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTemplateAppliedTickerTemplate.Id, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTemplateAppliedTickerTemplate) GetId() string {
+	return v.Id
+}
+
+// GetName returns ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTemplateAppliedTickerTemplate.Name, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTemplateAppliedTickerTemplate) GetName() string {
+	return v.Name
+}
+
+// ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker includes the requested fields of the GraphQL type Ticker.
+// The GraphQL type's documentation follows.
+//
+// #1747 — a named wake schedule owned by one team App (hrn:node:hadronmemory.com:specs:cor:agt:080:01). Its URN is hrn:ticker:ROOT:APP-SLUG:SLUG,
+// computed from the App and the permanent slug. Ticks are computed, not stored; nothing reads a ticker until due wakes ship.
+type ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker struct {
+	TickerFields `json:"-"`
+}
+
+// GetId returns ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.Id, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetId() string {
+	return v.TickerFields.Id
+}
+
+// GetUrn returns ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.Urn, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetUrn() *string {
+	return v.TickerFields.Urn
+}
+
+// GetName returns ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.Name, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetName() string {
+	return v.TickerFields.Name
+}
+
+// GetSlug returns ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.Slug, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetSlug() string {
+	return v.TickerFields.Slug
+}
+
+// GetApp returns ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.App, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetApp() *TickerFieldsApp {
+	return v.TickerFields.App
+}
+
+// GetCadenceSeconds returns ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.CadenceSeconds, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetCadenceSeconds() int {
+	return v.TickerFields.CadenceSeconds
+}
+
+// GetAnchorAt returns ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.AnchorAt, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetAnchorAt() string {
+	return v.TickerFields.AnchorAt
+}
+
+// GetQuietHours returns ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.QuietHours, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetQuietHours() *json.RawMessage {
+	return v.TickerFields.QuietHours
+}
+
+// GetChannels returns ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.Channels, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetChannels() []*TickerFieldsChannelsChannel {
+	return v.TickerFields.Channels
+}
+
+// GetRelevance returns ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.Relevance, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetRelevance() TickerRelevance {
+	return v.TickerFields.Relevance
+}
+
+// GetReasons returns ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.Reasons, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetReasons() []TickerReason {
+	return v.TickerFields.Reasons
+}
+
+// GetEnabled returns ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.Enabled, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetEnabled() bool {
+	return v.TickerFields.Enabled
+}
+
+// GetOwner returns ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.Owner, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetOwner() *TickerFieldsOwnerActorRef {
+	return v.TickerFields.Owner
+}
+
+// GetNextTickAt returns ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.NextTickAt, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetNextTickAt() *string {
+	return v.TickerFields.NextTickAt
+}
+
+// GetLastTickAt returns ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.LastTickAt, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetLastTickAt() *string {
+	return v.TickerFields.LastTickAt
+}
+
+// GetCreatedAt returns ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetCreatedAt() string {
+	return v.TickerFields.CreatedAt
+}
+
+// GetUpdatedAt returns ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetUpdatedAt() *string {
+	return v.TickerFields.UpdatedAt
+}
+
+// GetTickCode returns ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.TickCode, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetTickCode() string {
+	return v.TickerFields.TickCode
+}
+
+// GetRegisterTaskLoc returns ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker.RegisterTaskLoc, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) GetRegisterTaskLoc() *string {
+	return v.TickerFields.RegisterTaskLoc
+}
+
+func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TickerFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker struct {
+	Id string `json:"id"`
+
+	Urn *string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Slug string `json:"slug"`
+
+	App *TickerFieldsApp `json:"app"`
+
+	CadenceSeconds int `json:"cadenceSeconds"`
+
+	AnchorAt string `json:"anchorAt"`
+
+	QuietHours *json.RawMessage `json:"quietHours"`
+
+	Channels []*TickerFieldsChannelsChannel `json:"channels"`
+
+	Relevance TickerRelevance `json:"relevance"`
+
+	Reasons []TickerReason `json:"reasons"`
+
+	Enabled bool `json:"enabled"`
+
+	Owner *TickerFieldsOwnerActorRef `json:"owner"`
+
+	NextTickAt *string `json:"nextTickAt"`
+
+	LastTickAt *string `json:"lastTickAt"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	TickCode string `json:"tickCode"`
+
+	RegisterTaskLoc *string `json:"registerTaskLoc"`
+}
+
+func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker) __premarshalJSON() (*__premarshalApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker, error) {
+	var retval __premarshalApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResultCreatedAppliedTickerTemplateTickerTicker
+
+	retval.Id = v.TickerFields.Id
+	retval.Urn = v.TickerFields.Urn
+	retval.Name = v.TickerFields.Name
+	retval.Slug = v.TickerFields.Slug
+	retval.App = v.TickerFields.App
+	retval.CadenceSeconds = v.TickerFields.CadenceSeconds
+	retval.AnchorAt = v.TickerFields.AnchorAt
+	retval.QuietHours = v.TickerFields.QuietHours
+	retval.Channels = v.TickerFields.Channels
+	retval.Relevance = v.TickerFields.Relevance
+	retval.Reasons = v.TickerFields.Reasons
+	retval.Enabled = v.TickerFields.Enabled
+	retval.Owner = v.TickerFields.Owner
+	retval.NextTickAt = v.TickerFields.NextTickAt
+	retval.LastTickAt = v.TickerFields.LastTickAt
+	retval.CreatedAt = v.TickerFields.CreatedAt
+	retval.UpdatedAt = v.TickerFields.UpdatedAt
+	retval.TickCode = v.TickerFields.TickCode
+	retval.RegisterTaskLoc = v.TickerFields.RegisterTaskLoc
+	return &retval, nil
+}
+
+// ApplyAgentTickerTemplatesResponse is returned by ApplyAgentTickerTemplates on success.
+type ApplyAgentTickerTemplatesResponse struct {
+	// #2096 — apply the Agent's current ticker templates to ONE existing worker (the repair for workers cast before the
+	// templates existed; hrn:node:hadronmemory.com:specs:cor:agt:080:33, :20). Whoever manages the App, acting as themselves:
+	// not the worker, not its holder as such, not a reportsTo chain. Creates only the template tickers the worker is missing,
+	// each owned by and subscribed to it, and never edits or deletes any existing ticker or subscription; a template the
+	// worker already has a live ticker for is reported under alreadyPresent and left as it is. A template below the App's
+	// cadence floor is created at the floor; if the App's live-ticker cap cannot take every missing ticker, or a generated
+	// name is already a live ticker's, the whole call is refused and nothing is created. Never automatic, never across workers.
+	ApplyAgentTickerTemplates *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResult `json:"applyAgentTickerTemplates"`
+}
+
+// GetApplyAgentTickerTemplates returns ApplyAgentTickerTemplatesResponse.ApplyAgentTickerTemplates, and is useful for accessing the field via an interface.
+func (v *ApplyAgentTickerTemplatesResponse) GetApplyAgentTickerTemplates() *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResult {
+	return v.ApplyAgentTickerTemplates
+}
+
 // ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResult includes the requested fields of the GraphQL type MemoryConfigApplyResult.
 type ApplyMemoryConfigTemplateApplyMemoryConfigTemplateMemoryConfigApplyResult struct {
 	MemoryId string                                                                                                       `json:"memoryId"`
@@ -57308,6 +57613,28 @@ func (v *TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) __premars
 	return &retval, nil
 }
 
+// TickerAppFloorAppTickerSettings includes the requested fields of the GraphQL type AppTickerSettings.
+// The GraphQL type's documentation follows.
+//
+// #1747 — an App ticker settings (hrn:node:hadronmemory.com:specs:cor:agt:080:05).
+type TickerAppFloorAppTickerSettings struct {
+	MinCadenceSeconds int `json:"minCadenceSeconds"`
+}
+
+// GetMinCadenceSeconds returns TickerAppFloorAppTickerSettings.MinCadenceSeconds, and is useful for accessing the field via an interface.
+func (v *TickerAppFloorAppTickerSettings) GetMinCadenceSeconds() int { return v.MinCadenceSeconds }
+
+// TickerAppFloorResponse is returned by TickerAppFloor on success.
+type TickerAppFloorResponse struct {
+	// #1747 — an App's ticker settings: the cadence floor, the default self-subscription cadence, the live-ticker cap and the daily wake budget (hrn:node:hadronmemory.com:specs:cor:agt:080:05).
+	AppTickerSettings *TickerAppFloorAppTickerSettings `json:"appTickerSettings"`
+}
+
+// GetAppTickerSettings returns TickerAppFloorResponse.AppTickerSettings, and is useful for accessing the field via an interface.
+func (v *TickerAppFloorResponse) GetAppTickerSettings() *TickerAppFloorAppTickerSettings {
+	return v.AppTickerSettings
+}
+
 // Ticker commands only; wake transport belongs to #906.
 type TickerFields struct {
 	Id string `json:"id"`
@@ -67653,6 +67980,14 @@ type __AppScopeAgentNameInput struct {
 // GetRef returns __AppScopeAgentNameInput.Ref, and is useful for accessing the field via an interface.
 func (v *__AppScopeAgentNameInput) GetRef() string { return v.Ref }
 
+// __ApplyAgentTickerTemplatesInput is used internally by genqlient
+type __ApplyAgentTickerTemplatesInput struct {
+	WorkerRef string `json:"workerRef"`
+}
+
+// GetWorkerRef returns __ApplyAgentTickerTemplatesInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__ApplyAgentTickerTemplatesInput) GetWorkerRef() string { return v.WorkerRef }
+
 // __ApplyMemoryConfigTemplateInput is used internally by genqlient
 type __ApplyMemoryConfigTemplateInput struct {
 	TemplateRef              string `json:"templateRef"`
@@ -71926,6 +72261,14 @@ func (v *__TeamWorkItemsLegacyInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __TeamWorkItemsLegacyInput.Offset, and is useful for accessing the field via an interface.
 func (v *__TeamWorkItemsLegacyInput) GetOffset() *int { return v.Offset }
+
+// __TickerAppFloorInput is used internally by genqlient
+type __TickerAppFloorInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __TickerAppFloorInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TickerAppFloorInput) GetAppRef() string { return v.AppRef }
 
 // __TickerSubscribersInput is used internally by genqlient
 type __TickerSubscribersInput struct {
@@ -76512,6 +76855,84 @@ func AppScopeAgentName(
 	}
 
 	data_ = &AppScopeAgentNameResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by ApplyAgentTickerTemplates.
+const ApplyAgentTickerTemplates_Operation = `
+mutation ApplyAgentTickerTemplates ($workerRef: String!) {
+	applyAgentTickerTemplates(workerRef: $workerRef) {
+		created {
+			ticker {
+				... TickerFields
+			}
+			template {
+				id
+				name
+			}
+			effectiveCadenceSeconds
+		}
+		alreadyPresent {
+			id
+			name
+		}
+	}
+}
+fragment TickerFields on Ticker {
+	id
+	urn
+	name
+	slug
+	app {
+		id
+	}
+	cadenceSeconds
+	anchorAt
+	quietHours
+	channels {
+		id
+		name
+	}
+	relevance
+	reasons
+	enabled
+	owner {
+		id
+		name
+		urn
+	}
+	nextTickAt
+	lastTickAt
+	createdAt
+	updatedAt
+	tickCode
+	registerTaskLoc
+}
+`
+
+// #2096 repair (cli#1291): create the Agent's template tickers one worker is missing.
+func ApplyAgentTickerTemplates(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	workerRef string,
+) (data_ *ApplyAgentTickerTemplatesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ApplyAgentTickerTemplates",
+		Query:  ApplyAgentTickerTemplates_Operation,
+		Variables: &__ApplyAgentTickerTemplatesInput{
+			WorkerRef: workerRef,
+		},
+	}
+
+	data_ = &ApplyAgentTickerTemplatesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -93552,6 +93973,41 @@ func TeamWorkItemsLegacy(
 	}
 
 	data_ = &TeamWorkItemsLegacyResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TickerAppFloor.
+const TickerAppFloor_Operation = `
+query TickerAppFloor ($appRef: String!) {
+	appTickerSettings(appRef: $appRef) {
+		minCadenceSeconds
+	}
+}
+`
+
+// The App's cadence floor, read only to label a created ticker made at it.
+func TickerAppFloor(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *TickerAppFloorResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TickerAppFloor",
+		Query:  TickerAppFloor_Operation,
+		Variables: &__TickerAppFloorInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &TickerAppFloorResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

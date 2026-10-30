@@ -198,7 +198,7 @@ never computes due wakes. Wake delivery is a separate host operation.
 Current server behavior may change. Create defaults reasons to
 read-team-channel, relevance to all, anchor to now and enabled to true.
 The server determines edit/delete authority and reader access.`}
-	c.AddCommand(newWrite(f, false), newWrite(f, true), newRead(f, false), newRead(f, true), newDelete(f), newSubscribe(f, false), newSubscribe(f, true))
+	c.AddCommand(newWrite(f, false), newWrite(f, true), newRead(f, false), newRead(f, true), newDelete(f), newSubscribe(f, false), newSubscribe(f, true), newApplyTemplates(f))
 	return c
 }
 
