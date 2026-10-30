@@ -45,7 +45,7 @@ func searchSurfaces() []searchSurface {
 				return append([]string{"team", "chat", "search", "--app", "hrn:app:acme.com:team"}, extra...)
 			},
 			refVar: "appRef", refWant: "hrn:app:acme.com:team",
-			hint: "hadron team chat read --app hrn:app:acme.com:team --since 141 --limit 1",
+			hint: "hadron team chat read --server SRV --app hrn:app:acme.com:team --since 141 --limit 1",
 		},
 		{
 			name: "channel", op: "ChannelMessageSearch", field: "channelMessageSearch",
@@ -53,7 +53,7 @@ func searchSurfaces() []searchSurface {
 				return append([]string{"channel", "search", "c1"}, extra...)
 			},
 			refVar: "channelRef", refWant: "c1",
-			hint: "hadron channel read c1 --since 141 --limit 1",
+			hint: "hadron channel read --server SRV c1 --since 141 --limit 1",
 		},
 	}
 }
@@ -70,7 +70,7 @@ func runSearch(t *testing.T, s searchSurface, response string, extra ...string) 
 	if raw := captured[s.op]; raw != nil {
 		_ = json.Unmarshal(raw, &vars)
 	}
-	return vars, out.String(), f.IOStreams.ErrOut.(*strings.Builder).String(), err
+	return vars, strings.ReplaceAll(out.String(), srv.URL, "SRV"), f.IOStreams.ErrOut.(*strings.Builder).String(), err
 }
 
 func TestC1327SearchRequestAndRendering(t *testing.T) {
@@ -99,6 +99,16 @@ func TestC1327SearchRequestAndRendering(t *testing.T) {
 			}
 			if vars["limit"] != float64(500) || vars["cursor"] != "opaque-c" {
 				t.Errorf("not passed through (the server clamps): %v", vars)
+			}
+		})
+		t.Run(s.name+"/explicit empty cursor is sent, not dropped", func(t *testing.T) {
+			resp := `{"data":{"` + s.field + `":` + searchPage(true, "") + `}}`
+			vars, _, _, err := runSearch(t, s, resp, "deploy", "--cursor", "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if c, ok := vars["cursor"]; !ok || c != "" {
+				t.Errorf("explicit empty cursor not passed through: %v", vars)
 			}
 		})
 		t.Run(s.name+"/limit below one is sent, not fixed up", func(t *testing.T) {
@@ -173,6 +183,19 @@ func TestC1327SearchRequestAndRendering(t *testing.T) {
 			if dto.Items[0]["seq"] != float64(142) || dto.Items[0]["urn"] != searchURN1 || dto.Items[1]["urn"] != nil {
 				t.Errorf("items %v", dto.Items)
 			}
+			for _, key := range []string{"seq", "urn", "nodeId", "channelId", "channelIncarnation"} {
+				if _, ok := dto.Items[0][key]; !ok {
+					t.Errorf("item lacks %q: %v", key, dto.Items[0])
+				}
+			}
+			if dto.Items[0]["nodeId"] != "n1" || dto.Items[0]["channelId"] != "c1" || dto.Items[0]["channelIncarnation"] != float64(1) {
+				t.Errorf("item identity %v", dto.Items[0])
+			}
+			var page map[string]any
+			_ = json.Unmarshal([]byte(out), &page)
+			if page["channelIncarnation"] != float64(1) || len(page) != 5 {
+				t.Errorf("page keys %v", page)
+			}
 			if errOut != "" {
 				t.Errorf("stderr under --json: %q", errOut)
 			}
@@ -228,5 +251,47 @@ func TestC1327SearchRefusalsKeepTheServerCode(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// An App with no team chat yet answers the complete empty page with a null
+// channel identity; the DTO keeps the nulls rather than inventing values.
+func TestC1327SearchNoTeamChatYetKeepsNullIdentity(t *testing.T) {
+	for _, s := range searchSurfaces() {
+		resp := `{"data":{"` + s.field + `":{"channelId":null,"channelIncarnation":null,"complete":true,"cursor":null,"items":[]}}}`
+		_, out, _, err := runSearch(t, s, resp, "deploy", "--json")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var page map[string]any
+		if e := json.Unmarshal([]byte(out), &page); e != nil {
+			t.Fatal(e, out)
+		}
+		v, ok := page["channelId"]
+		if !ok || v != nil || page["channelIncarnation"] != nil || page["complete"] != true {
+			t.Errorf("%s page %v", s.name, page)
+		}
+	}
+}
+
+// The hint must not invent --app when only the worktree binding selected the
+// team, but still repeats the --server that was typed.
+func TestC1327TeamHintOmitsAppWhenOnlyBound(t *testing.T) {
+	writeTeamBinding(t)
+	resp := `{"data":{"teamChatSearch":` + searchPage(true, "", searchMatch(142, searchURN1)) + `}}`
+	srv, calls := attnServer(t, map[string]string{"TeamChatSearch": resp})
+	setTeamBindingServer(t, srv.URL)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"--server", srv.URL, "team", "chat", "search", "deploy"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(stopCalls(calls, "TeamChatSearch")); n != 1 {
+		t.Fatalf("search calls %d", n)
+	}
+	want := "hadron team chat read --server " + srv.URL + " --since 141 --limit 1"
+	if !strings.Contains(out.String(), want) || strings.Contains(out.String(), "--app") {
+		t.Errorf("hint %q want %q without --app", out.String(), want)
 	}
 }

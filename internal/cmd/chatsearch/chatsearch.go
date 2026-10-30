@@ -90,6 +90,20 @@ func Render(f *cmdutil.Factory, page PageDTO, readHint func(seq int) string) err
 	})
 }
 
+// ContextFlags returns the persistent flags that selected this search, quoted
+// for the shell, so a printed read hint reads the SAME server (and, with
+// withApp, the same team App) rather than whatever the environment resolves.
+func ContextFlags(f *cmdutil.Factory, withApp bool) string {
+	out := ""
+	if f.ServerFlag != "" {
+		out += " --server " + cmdutil.ShellQuote(f.ServerFlag)
+	}
+	if withApp && f.AppFlag != "" {
+		out += " --app " + cmdutil.ShellQuote(f.AppFlag)
+	}
+	return out
+}
+
 // refusal marks a mapped search error whose server code must reach the --json
 // error envelope. The root handler reads it through ServerCode.
 type refusal struct {

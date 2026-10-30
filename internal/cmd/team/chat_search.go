@@ -71,7 +71,9 @@ worktree binding). To search another channel, use ` + "`hadron channel search`" 
 				limitPtr = &limit
 			}
 			var cursorPtr *string
-			if cursor != "" {
+			if cmd.Flags().Changed("cursor") {
+				// Even an explicit empty one: the server validates it, the CLI
+				// does not quietly turn it into a first-page search.
 				cursorPtr = &cursor
 			}
 			resp, err := gen.TeamChatSearch(ctx, client, appRef, args[0], limitPtr, cursorPtr)
@@ -80,13 +82,9 @@ worktree binding). To search another channel, use ` + "`hadron channel search`" 
 			}
 			page := chatsearch.FromGen(resp.TeamChatSearch.ChatSearchPageFields)
 			return chatsearch.Render(f, page, func(seq int) string {
-				// A search run with --app read THAT team; the hint must read it
-				// too, or it opens whichever team the worktree is bound to.
-				app := ""
-				if f.AppFlag != "" {
-					app = " --app " + f.AppFlag
-				}
-				return fmt.Sprintf("hadron team chat read%s --since %d --limit 1", app, seq-1)
+				// A search run with --app or --server read THAT team on THAT
+				// server; the hint must too, or it opens the ambient one.
+				return fmt.Sprintf("hadron team chat read%s --since %d --limit 1", chatsearch.ContextFlags(f, true), seq-1)
 			})
 		},
 	}

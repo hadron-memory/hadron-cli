@@ -53,7 +53,7 @@ chat use "hadron team chat search".`,
 				limitPtr = &limit
 			}
 			var cursorPtr *string
-			if cursor != "" {
+			if cmd.Flags().Changed("cursor") {
 				cursorPtr = &cursor
 			}
 			resp, err := gen.ChannelMessageSearch(cmd.Context(), client, args[0], args[1], limitPtr, cursorPtr)
@@ -62,7 +62,7 @@ chat use "hadron team chat search".`,
 			}
 			page := chatsearch.FromGen(resp.ChannelMessageSearch.ChatSearchPageFields)
 			return chatsearch.Render(f, page, func(seq int) string {
-				return fmt.Sprintf("hadron channel read %s --since %d --limit 1", args[0], seq-1)
+				return fmt.Sprintf("hadron channel read%s %s --since %d --limit 1", chatsearch.ContextFlags(f, false), cmdutil.ShellQuote(args[0]), seq-1)
 			})
 		},
 	}
