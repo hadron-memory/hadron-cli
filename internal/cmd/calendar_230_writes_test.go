@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"strings"
 	"testing"
@@ -177,5 +179,81 @@ func TestCalendar230WriteDocumentsAreMutations(t *testing.T) {
 		if !strings.HasPrefix(strings.TrimSpace(d), "mutation") {
 			t.Fatal(d)
 		}
+	}
+}
+
+func TestCalendar230HelpNamesOnlyFlagsThePageHas(t *testing.T) {
+	for _, tc := range []struct {
+		sub        string
+		has, hasNo []string
+	}{
+		{"create", []string{"--idempotency-key", "--no-notify", "--tz"}, nil},
+		{"update", []string{"--idempotency-key", "--no-notify", "--tz"}, nil},
+		{"delete", []string{"--idempotency-key", "--no-notify", "{eventId, deleted: true}"}, []string{"--tz", "--all-day", `shows it`}},
+		{"respond", []string{"calendar event get"}, []string{"--idempotency-key", "--no-notify", "--tz", "--all-day", "--from"}},
+	} {
+		t.Run(tc.sub, func(t *testing.T) {
+			srv, _ := captureGraphQL(t, map[string]string{})
+			f, out := testFactory(t)
+			r := NewRootCmd(f)
+			r.SetArgs([]string{"calendar", "event", tc.sub, "--help", "--server", srv.URL})
+			_ = r.Execute()
+			help := out.String()
+			if i := strings.Index(help, "Usage:"); i >= 0 {
+				help = help[:i] // the prose only; the flag table is real by construction
+			}
+			for _, w := range tc.has {
+				if !strings.Contains(help, w) {
+					t.Fatal(tc.sub, "help lacks", w)
+				}
+			}
+			for _, w := range tc.hasNo {
+				if strings.Contains(help, w) {
+					t.Fatal(tc.sub, "help names", w, "which this command does not have")
+				}
+			}
+		})
+	}
+}
+
+func TestCalendar230TimeZoneLocalIsRefused(t *testing.T) {
+	for _, tz := range []string{"Local", "local"} {
+		_, n, _, code := runCalendarWrite(t, "Unused", `{}`, "create", "--title", "T", "--from", "2026-10-30T09:00:00", "--to", "2026-10-30T10:00:00", "--tz", tz)
+		if code != 2 || n != 0 {
+			t.Fatal(tz, code, n)
+		}
+	}
+}
+
+func TestCalendar230TransportFailureIsNotRetriedOrReportedAsSuccess(t *testing.T) {
+	var hits int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			_, _ = w.Write([]byte(`{"capabilities":[]}`))
+			return
+		}
+		hits++
+		hj, _ := w.(http.Hijacker)
+		c, _, _ := hj.Hijack()
+		_ = c.Close() // the request arrived, the answer never does
+	}))
+	defer srv.Close()
+	f, out := testFactory(t)
+	r := NewRootCmd(f)
+	r.SetArgs([]string{"calendar", "event", "delete", "e1", "--connection", "c", "--yes", "--json", "--server", srv.URL})
+	err := r.Execute()
+	if err == nil || hits != 1 || strings.Contains(out.String(), `"deleted"`) {
+		t.Fatal(err, hits, out.String())
+	}
+}
+
+func TestCalendar230DeleteCancelledAtThePromptSendsNothing(t *testing.T) {
+	srv, ops := captureGraphQL(t, map[string]string{"CalendarDeleteEvent": `{"data":{"calendarDeleteEvent":true}}`})
+	f, _, _ := testFactoryTTY(t, "n\n")
+	r := NewRootCmd(f)
+	r.SetArgs([]string{"calendar", "event", "delete", "e1", "--connection", "c", "--server", srv.URL})
+	_ = r.Execute()
+	if len(ops) != 0 {
+		t.Fatal(ops)
 	}
 }

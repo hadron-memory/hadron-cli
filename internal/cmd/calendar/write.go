@@ -14,21 +14,39 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// writeHelp is the owner-only contract for the four commands that change a
-// calendar (#230); the read pages keep detailsHelp.
-const writeHelp = `Details:
+// The four owner-only write commands (#230) share the authorization and
+// recovery text; each page then adds only the flags and output it really has.
+const ownerHelp = `Details:
   Only the owner of the connection may change a calendar: a grant, even
-  calendar.read, does not allow it. Nothing is retried. The provider emails
-  attendees about a change unless you pass --no-notify. Pass --idempotency-key
-  to make a repeat safe: the same key does not do the work twice. If the command
-  fails with a network error or a timeout, the change may or may not have been
-  made: read the event back with "calendar events" or "calendar event get"
-  before running it again, or repeat it with the same --idempotency-key.
+  calendar.read, does not allow it. Nothing is retried. If the command fails
+  with a network error or a timeout, the change may or may not have been made:`
+
+const keyedRecoveryHelp = ownerHelp + `
+  read the event back with "calendar events" or "calendar event get" before
+  running it again, or repeat it with the same --idempotency-key, which makes a
+  repeat safe: the same key does not do the work twice.`
+
+const readbackRecoveryHelp = ownerHelp + `
+  read the event back with "calendar event get" before running it again.`
+
+const notifyHelp = `
+  The provider emails attendees about a change unless you pass --no-notify.`
+
+const timeHelp = `
   A timed event takes RFC3339 instants (the UTC offset is the zone), or a
   date-time without an offset plus --tz; with --all-day, --from and --to are
   dates (YYYY-MM-DD; the end date is the day after the last day, as providers
-  store it). A time is never guessed from this machine's zone. The output is
-  the event as "calendar event get" shows it; --json prints only that JSON.`
+  store it). A time is never guessed from this machine's zone.`
+
+const eventOutHelp = `
+  The output is the event as "calendar event get" shows it; --json prints only
+  that JSON.`
+
+const writeHelp = keyedRecoveryHelp + notifyHelp + timeHelp + eventOutHelp
+const deleteHelp = keyedRecoveryHelp + notifyHelp + `
+  The output is {eventId, deleted: true}, printed only when the server confirms
+  the delete; --json prints only that JSON.`
+const respondHelp = readbackRecoveryHelp + eventOutHelp
 
 type writeOptions struct {
 	options
@@ -83,7 +101,8 @@ func (o *writeOptions) boundary(name, v string) (*gen.CalendarEventTimeInput, er
 
 func (o *writeOptions) bounds(c *cobra.Command, required bool) (*gen.CalendarEventTimeInput, *gen.CalendarEventTimeInput, error) {
 	if c.Flags().Changed("tz") {
-		if _, e := time.LoadLocation(o.tz); e != nil || strings.TrimSpace(o.tz) == "" {
+		// "Local" loads as this machine's zone, which the contract forbids.
+		if _, e := time.LoadLocation(o.tz); e != nil || strings.TrimSpace(o.tz) == "" || strings.EqualFold(o.tz, "local") {
 			return nil, nil, exitcode.Newf(exitcode.Usage, "--tz %q is not an IANA time zone", o.tz)
 		}
 		if o.allDay {
@@ -282,7 +301,7 @@ type deletedDTO struct {
 
 func del(f *cmdutil.Factory) *cobra.Command {
 	o := &writeOptions{}
-	c := &cobra.Command{Use: "delete <eventId>", Aliases: []string{"rm"}, Short: "Delete (cancel) an event (owner only)", Long: "Delete an event. Attendees are told it is cancelled unless you pass --no-notify.\nAsks first on a terminal; without one, --yes is required.\n\n" + connectionHelp + "\n\n" + writeHelp, Example: "  hadron calendar event delete <event-id> --connection <connection-id> --yes", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, args []string) error {
+	c := &cobra.Command{Use: "delete <eventId>", Aliases: []string{"rm"}, Short: "Delete (cancel) an event (owner only)", Long: "Delete an event. Attendees are told it is cancelled unless you pass --no-notify.\nAsks first on a terminal; without one, --yes is required.\n\n" + connectionHelp + "\n\n" + deleteHelp, Example: "  hadron calendar event delete <event-id> --connection <connection-id> --yes", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, args []string) error {
 		if e := o.validate(); e != nil {
 			return e
 		}
@@ -324,7 +343,7 @@ func del(f *cmdutil.Factory) *cobra.Command {
 
 func respond(f *cmdutil.Factory) *cobra.Command {
 	o := &writeOptions{}
-	c := &cobra.Command{Use: "respond <eventId>", Short: "Answer an invitation (owner only)", Long: "Set the connected account's own answer to an invitation: accepted, declined or\ntentative.\n\n" + connectionHelp + "\n\n" + writeHelp, Example: "  hadron calendar event respond <event-id> --connection <connection-id> --response accepted", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, args []string) error {
+	c := &cobra.Command{Use: "respond <eventId>", Short: "Answer an invitation (owner only)", Long: "Set the connected account's own answer to an invitation: accepted, declined or\ntentative.\n\n" + connectionHelp + "\n\n" + respondHelp, Example: "  hadron calendar event respond <event-id> --connection <connection-id> --response accepted", Args: cobra.ExactArgs(1), RunE: func(c *cobra.Command, args []string) error {
 		if e := o.validate(); e != nil {
 			return e
 		}
