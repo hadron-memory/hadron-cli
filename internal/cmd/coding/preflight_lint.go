@@ -202,18 +202,6 @@ func lintPreflight(in preflightInput) []findingDTO {
 		out = append(out, lintLeafModel(in, unavailable)...)
 	}
 
-	// A leaf that is also a legacy route is read from both ends; say each
-	// finding once.
-	seen := map[findingDTO]bool{}
-	deduped := out[:0]
-	for _, fd := range out {
-		if !seen[fd] {
-			seen[fd] = true
-			deduped = append(deduped, fd)
-		}
-	}
-	out = deduped
-
 	sort.SliceStable(out, func(i, j int) bool {
 		if out[i].Node != out[j].Node {
 			return out[i].Node < out[j].Node
@@ -229,9 +217,22 @@ func lintPreflight(in preflightInput) []findingDTO {
 // deleting its leaf deletes the edge.
 func lintLeafModel(in preflightInput, unavailable map[string]bool) []findingDTO {
 	out := []findingDTO{}
-	linked := map[string]bool{} // locs carrying an edge TO the router
+	// A node that is also a legacy route was already judged for retirement and
+	// memory by the outgoing pass; judge it once, by id (a loc is not unique
+	// across memories).
+	legacyIDs := map[string]bool{}
+	for _, r := range in.Routes {
+		if r.OtherID != "" {
+			legacyIDs[r.OtherID] = true
+		}
+	}
+	linked := map[string]bool{} // locs of SAME-memory nodes carrying an edge TO the router
 	for _, l := range in.Leaves {
-		linked[l.Other] = true
+		// A body [[link]] is same-memory, so a same-loc node in another memory
+		// must not count as the edge its target is missing.
+		if in.HomeMemory == "" || l.MemoryID == "" || sameMemory(l.MemoryID, in.HomeMemory) {
+			linked[l.Other] = true
+		}
 		if unavailable[l.Other] {
 			out = append(out, findingDTO{l.Other, "route-source-unreadable", sevWarning,
 				"this node routes to the router but could not be read"})
@@ -246,7 +247,7 @@ func lintLeafModel(in preflightInput, unavailable map[string]bool) []findingDTO 
 			out = append(out, findingDTO{l.Other, "route-label-phrasing", sevWarning,
 				fmt.Sprintf("edge label %q is not action-phrased — expected it to start %q", label, strings.TrimSpace(routePrefix))})
 		}
-		if t, ok := in.Targets[l.Other]; ok {
+		if t, ok := in.Targets[l.Other]; ok && !legacyIDs[l.OtherID] {
 			for _, rt := range retiredTags {
 				if hasTag(t.Tags, rt) {
 					out = append(out, findingDTO{l.Other, "route-target-retired", sevWarning,
@@ -255,7 +256,7 @@ func lintLeafModel(in preflightInput, unavailable map[string]bool) []findingDTO 
 				}
 			}
 		}
-		if in.HomeMemory != "" && l.MemoryID != "" && !sameMemory(l.MemoryID, in.HomeMemory) {
+		if !legacyIDs[l.OtherID] && in.HomeMemory != "" && l.MemoryID != "" && !sameMemory(l.MemoryID, in.HomeMemory) {
 			out = append(out, findingDTO{l.Other, "route-target-moved-memory", sevWarning,
 				fmt.Sprintf("route target lives in %s, not the router's own memory", l.MemoryID)})
 		}

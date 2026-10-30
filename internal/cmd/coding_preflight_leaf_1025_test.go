@@ -439,3 +439,64 @@ func TestC1025LeafListReadsEveryIncomingEdge(t *testing.T) {
 		t.Errorf("want all 160 incoming edges as rows, got %d", len(rows))
 	}
 }
+
+// A node is one leaf however many edges it has to the router (dedup by id)...
+func TestC1025ListIsOneRowPerNodeNotPerEdge(t *testing.T) {
+	gql := fakeGraphQL(t, map[string]string{
+		"GetNode": leafRouter("# Preflight\n",
+			leafIn("i1", "to fix a build", "findings:leaf-a")+","+leafIn("i2", "to fix a build another way", "findings:leaf-a"), ""),
+		"NodeBatch": codingBatch([]string{codingBatchNode("findings:leaf-a", "", "")}, ""),
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"coding", "preflight", "list", "-m", codingMem, "--route-model", "leaf", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var rows []map[string]any
+	_ = json.Unmarshal([]byte(out.String()), &rows)
+	if len(rows) != 1 {
+		t.Errorf("two edges from one node are one row, got %d: %s", len(rows), out.String())
+	}
+}
+
+// ...and a loc is NOT a node: the same loc in two memories is two leaves.
+func TestC1025ListKeepsSameLocNodesFromDifferentMemoriesApart(t *testing.T) {
+	other := strings.Replace(leafIn("i2", "to fix a build elsewhere", "findings:leaf-a"),
+		`"id":"n_findings:leaf-a","loc":"findings:leaf-a","memoryId":"mem1"`,
+		`"id":"n_other_leaf-a","loc":"findings:leaf-a","memoryId":"mem2"`, 1)
+	gql := fakeGraphQL(t, map[string]string{
+		"GetNode": leafRouter("# Preflight\n", leafIn("i1", "to fix a build", "findings:leaf-a")+","+other, ""),
+		"NodeBatch": codingBatch([]string{codingBatchNode("findings:leaf-a", "", ""),
+			strings.Replace(codingBatchNode("findings:leaf-a", "", ""), `"id":"n_findings:leaf-a"`, `"id":"n_other_leaf-a"`, 1)}, ""),
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"coding", "preflight", "list", "-m", codingMem, "--route-model", "leaf", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var rows []map[string]any
+	_ = json.Unmarshal([]byte(out.String()), &rows)
+	if len(rows) != 2 {
+		t.Errorf("distinct nodes sharing a loc across memories are two rows, got %d: %s", len(rows), out.String())
+	}
+}
+
+// A same-loc node in ANOTHER memory is not the edge the router's [[link]] lacks.
+func TestC1025LeafMissingEdgeIsNotMaskedByASameLocNodeElsewhere(t *testing.T) {
+	other := strings.Replace(leafIn("i2", "to fix a build", "findings:leaf-a"),
+		`"id":"n_findings:leaf-a","loc":"findings:leaf-a","memoryId":"mem1"`,
+		`"id":"n_other_leaf-a","loc":"findings:leaf-a","memoryId":"mem2"`, 1)
+	gql := fakeGraphQL(t, map[string]string{
+		"GetNode":   leafRouter("# Preflight\n\n- **\"x\"** → [[findings:leaf-a]] — a\n", other, ""),
+		"NodeBatch": codingBatch([]string{strings.Replace(codingBatchNode("findings:leaf-a", "", ""), `"id":"n_findings:leaf-a"`, `"id":"n_other_leaf-a"`, 1)}, ""),
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"coding", "preflight", "lint", "-m", codingMem, "--route-model", "leaf", "--json", "--server", gql.URL})
+	_ = root.Execute()
+	if !strings.Contains(out.String(), `"leaf-missing-edge"`) {
+		t.Errorf("the other memory's node must not satisfy the same-memory [[link]]:\n%s", out.String())
+	}
+}

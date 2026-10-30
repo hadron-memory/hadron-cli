@@ -123,10 +123,17 @@ func routeRows(in preflightInput, findings []findingDTO) []routeDTO {
 	}
 
 	rows := []routeDTO{}
-	leafIDs, leafLocs := map[string]bool{}, map[string]bool{}
+	leafIDs := map[string]bool{}
 	if in.Model == modelLeaf {
-		for _, l := range in.Leaves {
-			leafIDs[l.OtherID], leafLocs[l.Other] = true, true
+		leaves := append([]graphEdge(nil), in.Leaves...)
+		sort.SliceStable(leaves, func(i, j int) bool { return leaves[i].Label < leaves[j].Label })
+		for _, l := range leaves {
+			// One row per NODE, by id: a loc is not unique across memories, and a
+			// node with two edges to the router is still one leaf.
+			if leafIDs[l.OtherID] {
+				continue
+			}
+			leafIDs[l.OtherID] = true
 			status := statusOK
 			if broken[l.Other] || unavailable[l.Other] {
 				status = statusBroken
@@ -138,7 +145,7 @@ func routeRows(in preflightInput, findings []findingDTO) []routeDTO {
 		}
 	}
 	for _, r := range in.Routes {
-		if leafIDs[r.OtherID] || (r.Other != "" && leafLocs[r.Other]) {
+		if r.OtherID != "" && leafIDs[r.OtherID] {
 			continue // one row per leaf; the leaf-owned edge wins
 		}
 		status := statusOK
