@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"net/http"
 	"net/http/httptest"
@@ -336,8 +337,19 @@ func TestAgentClone998ClassificationIgnoresLaterErrorsOnEveryStatus(t *testing.T
 		return envelope["error"], code, int(calls.Load())
 	}
 	for _, status := range []int{200, 400, 403, 500} {
+		// Unstructured first error (no extensions: the raw-HTTP-body rendering path),
+		// later internal fault carrying a sentinel: none of it may surface.
+		failure, _, calls := run(status, `{"errors":[{"message":"plain first"},{"message":"SENTINEL_INTERNAL_DETAIL","extensions":{"code":"INTERNAL_SERVER_ERROR","requestId":"req-9","secret":"SENTINEL_INTERNAL_DETAIL"}}]}`)
+		if calls != 1 || failure["extensions"] != nil || failure["serverCode"] != nil || failure["requestId"] != nil || strings.Contains(fmt.Sprint(failure), "SENTINEL_INTERNAL_DETAIL") {
+			t.Fatalf("status %d leaked a later error: %v", status, failure)
+		}
+		// Generic first error, later GRAPHQL_VALIDATION_FAILED: not schema skew (exit 2) from a later error.
+		failure, code, calls := run(status, `{"errors":[{"message":"plain first"},{"message":"Cannot query field x","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`)
+		if code == 2 || calls != 1 || strings.Contains(fmt.Sprint(failure), "out of sync") {
+			t.Fatalf("status %d took a later error's skew classification: code %d %v", status, code, failure)
+		}
 		// Empty-details first error, later UNAUTHENTICATED: same exit on every status, no details.
-		failure, code, calls := run(status, `{"errors":[{"message":"first","extensions":{"unrelated":"X"}},{"message":"later","extensions":{"code":"UNAUTHENTICATED"}}]}`)
+		failure, code, calls = run(status, `{"errors":[{"message":"first","extensions":{"unrelated":"X"}},{"message":"later","extensions":{"code":"UNAUTHENTICATED"}}]}`)
 		if code != 1 || calls != 1 || failure["extensions"] != nil {
 			t.Fatalf("status %d: code %d calls %d %v", status, code, calls, failure)
 		}
