@@ -1443,7 +1443,9 @@ Conventions:
     listed under `skipped[]`; loc collisions are suffixed (`setup`, `setup-2`)
     and listed under `collisions[]`. Import is create-only: an existing loc is an
     error unless `--on-conflict skip` (which leaves it in place and lists it under
-    `existing[]`). `--under <loc>` roots the tree under a prefix; `--include`/
+    `existing[]`). When that refusal leaves nothing created, stdout stays empty
+    in both modes (exit 5, error on stderr); a failure after some node landed
+    still prints the summary of what landed, then the error (#1231). `--under <loc>` roots the tree under a prefix; `--include`/
     `--exclude` globs, `--hidden` (dotfiles; `.git` always skipped), and
     `--max-file-size` filter the walk (globs are root-relative and validated up
     front; symlinks/special files are skipped); `--dry-run` prints the plan
