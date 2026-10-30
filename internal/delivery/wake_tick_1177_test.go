@@ -48,9 +48,18 @@ func TestRenderWakeNeverComposesALineFromAction(t *testing.T) {
 }
 
 func TestRenderWakeTickTextIsOneLineAndNeverCut(t *testing.T) {
-	got := RenderWakeWith([]WakeReason{tick("tk1", tickAt)}, "tick a\nb\r\x1b[31m c")
-	if strings.ContainsAny(got, "\r\n\x1b") {
-		t.Fatalf("control characters typed: %q", got)
+	// R4 (cor:agt:080:26, Ada on cli#1281): a line the host can't type as one
+	// line is dropped whole, never repaired; the wake falls back to what it
+	// types without tick text, so a tick-only wake still names its ticker.
+	reasons := []WakeReason{tick("tk1", tickAt), task("ev9", 0, "Fix")}
+	for _, bad := range []string{"tick a\nb", "tick a\rb", "tick \x1b[31mred", "tick a\tb"} {
+		got := RenderWakeWith(reasons, bad)
+		if got != RenderWake(reasons) || strings.Contains(got, "tick a") || strings.ContainsAny(got, "\r\n\x1b\t") {
+			t.Fatalf("an untypeable tick text must be dropped whole, not repaired: %q", got)
+		}
+	}
+	if got := RenderWakeWith([]WakeReason{tick("tk1", tickAt)}, "tick a\nb"); got != tickLine {
+		t.Fatalf("a tick-only wake keeps naming its ticker: %q", got)
 	}
 	var tasks []WakeReason
 	for i := range 30 {
