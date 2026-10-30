@@ -333,3 +333,36 @@ mutation UpdateRegisterEntry(
 mutation DeleteRegisterEntry($ref: ID!) {
   deleteRegisterEntry(ref: $ref)
 }
+
+# cli#1262: the DIRECT replies to one seq of a Channel, filtered by the server
+# (hadron-server#2847). A separate document from ChannelMessages so an ordinary
+# read never carries the new argument to an older server.
+query ChannelThread(
+  $channelRef: ID!
+  $replyToSeq: Int!
+  # @genqlient(omitempty: true)
+  $sinceSeq: Int
+  # @genqlient(omitempty: true)
+  $beforeSeq: Int
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+  # @genqlient(omitempty: true)
+  $mentionsRef: ID
+) {
+  channelMessages(
+    channelRef: $channelRef
+    replyToSeq: $replyToSeq
+    sinceSeq: $sinceSeq
+    beforeSeq: $beforeSeq
+    limit: $limit
+    offset: $offset
+    mentionsRef: $mentionsRef
+  ) {
+    total
+    items {
+      ...ChannelMessageFields
+    }
+  }
+}

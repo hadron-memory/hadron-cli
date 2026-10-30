@@ -1404,3 +1404,51 @@ query TeamComposition($appRef: ID!) {
     }
   }
 }
+
+# cli#1262 thread read: the DIRECT replies to one seq, filtered by the server
+# (hadron-server#2847, spec cor:agt:020:04). SEPARATE documents from
+# TeamChatMessages/TeamChatMessagesAttributed on purpose: GraphQL validates the
+# static document, so an unset $replyToSeq would still put an unknown argument in
+# every ordinary read and break it on a server older than #2847. Only
+# `--thread` sends these. replyToSeq is required here, so it is never omitted.
+query TeamChatThread(
+  $appRef: ID!
+  $replyToSeq: Int!
+  # @genqlient(omitempty: true)
+  $sinceSeq: Int
+  # @genqlient(omitempty: true)
+  $mentionsRef: ID
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $beforeSeq: Int
+) {
+  teamChatMessages(appRef: $appRef, replyToSeq: $replyToSeq, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, beforeSeq: $beforeSeq) {
+    total
+    items {
+      ...TeamChatMessageFields
+    }
+  }
+}
+
+# The same read with the worker session carried and acknowledgement suppressed
+# (#817), mirroring TeamChatMessagesAttributed.
+query TeamChatThreadAttributed(
+  $appRef: ID!
+  $replyToSeq: Int!
+  # @genqlient(omitempty: true)
+  $sinceSeq: Int
+  # @genqlient(omitempty: true)
+  $mentionsRef: ID
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $beforeSeq: Int
+) {
+  teamChatMessages(appRef: $appRef, replyToSeq: $replyToSeq, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, beforeSeq: $beforeSeq, advanceReadState: false) {
+    total
+    items {
+      ...TeamChatMessageFields
+    }
+  }
+}
