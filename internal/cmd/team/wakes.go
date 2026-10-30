@@ -320,7 +320,12 @@ func writeDueWakes(w io.Writer, dto dueWakesDTO) error {
 		}
 	}
 	if len(dto.Wakes) == 0 {
-		if _, err := fmt.Fprintln(w, "no wakes due"); err != nil {
+		// Withheld wakes stay due, so only an OK page may say nothing is due.
+		empty := "no wakes due"
+		if dto.Status != string(gen.DueWakeStatusOk) {
+			empty = "no wakes returned"
+		}
+		if _, err := fmt.Fprintln(w, empty); err != nil {
 			return err
 		}
 	}

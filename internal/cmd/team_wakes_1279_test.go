@@ -133,13 +133,110 @@ func TestC1279DueEmptyIsExplicit(t *testing.T) {
 // names the status, in text and --json alike.
 func TestC1279DueWithheldExitsNonZero(t *testing.T) {
 	for _, argv := range [][]string{{"team", "wakes", "due"}, {"team", "wakes", "due", "--json"}} {
-		_, _, err := runTeamTask(t, c1279Responses(c1279Page("WAKE_BUDGET_EXHAUSTED", 4, "")), argv...)
+		_, out, err := runTeamTask(t, c1279Responses(c1279Page("WAKE_BUDGET_EXHAUSTED", 4, "")), argv...)
 		if err == nil || !strings.Contains(err.Error(), "WAKE_BUDGET_EXHAUSTED") {
 			t.Fatalf("%v: err %v", argv, err)
 		}
 		if exitCodeFor(err) != exitcode.Conflict {
 			t.Fatalf("%v: exit %v, want %d", argv, err, exitcode.Conflict)
 		}
+		// Withheld wakes stay due, so an empty withheld page must never
+		// read as nothing due (Jane, #1290 LOCAL P2).
+		if strings.Contains(out, "no wakes due") {
+			t.Fatalf("%v: withheld page claims nothing due:\n%s", argv, out)
+		}
+		if len(argv) == 3 && !strings.Contains(out, "no wakes returned") {
+			t.Fatalf("withheld empty page not explicit:\n%s", out)
+		}
+	}
+}
+
+// --first and --after reach the server as given, and a page with more after
+// it says how to continue, in text and --json alike.
+func TestC1279DuePagination(t *testing.T) {
+	page := `{"data":{"dueWakes":{"status":"OK","withheld":0,"dormant":[],"wakes":[` + c1279TickWake + `],"pageInfo":{"hasNextPage":true,"endCursor":"cur-2"}}}}`
+	calls, out, err := runTeamTask(t, c1279Responses(page), "team", "wakes", "due", "--first", "1", "--after", "cur-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	vars := stopCalls(calls, "TeamDueWakes")[0].Vars
+	if vars["first"] != float64(1) || vars["after"] != "cur-1" {
+		t.Fatalf("paging vars %v", vars)
+	}
+	if !strings.Contains(out, "more: --after cur-2") {
+		t.Fatalf("no continuation:\n%s", out)
+	}
+	_, out, err = runTeamTask(t, c1279Responses(page), "team", "wakes", "due", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var dto struct {
+		HasNextPage bool    `json:"hasNextPage"`
+		EndCursor   *string `json:"endCursor"`
+	}
+	if err := json.Unmarshal([]byte(out), &dto); err != nil || !dto.HasNextPage || dto.EndCursor == nil || *dto.EndCursor != "cur-2" {
+		t.Fatalf("page info %+v (%v): %s", dto, err, out)
+	}
+	calls, _, err = runTeamTask(t, c1279Responses(page), "team", "wakes", "due")
+	if err != nil {
+		t.Fatal(err)
+	}
+	vars = stopCalls(calls, "TeamDueWakes")[0].Vars
+	if _, ok := vars["first"]; ok {
+		t.Fatalf("first sent without --first: %v", vars)
+	}
+	if _, ok := vars["after"]; ok {
+		t.Fatalf("after sent without --after: %v", vars)
+	}
+}
+
+func TestC1279DuePaginationRefusesBadArgs(t *testing.T) {
+	for _, argv := range [][]string{
+		{"team", "wakes", "due", "--first", "0"},
+		{"team", "wakes", "due", "--after", " "},
+	} {
+		calls, _, err := runTeamTask(t, c1279Responses(c1279Page("OK", 0, "")), argv...)
+		if exitCodeFor(err) != exitcode.Usage {
+			t.Fatalf("%v: err %v, want exit %d", argv, err, exitcode.Usage)
+		}
+		if len(stopCalls(calls, "TeamDueWakes")) != 0 {
+			t.Fatalf("%v: reached the server", argv)
+		}
+	}
+}
+
+// A STOP reason keeps every field of its payload in --json.
+func TestC1279DueStopReasonJSON(t *testing.T) {
+	stopWake := `{"proof":"prf-stop-1","worker":{"id":"wkr1","name":"Iris"},"tickText":null,"unread":0,"unreadMentions":0,` +
+		`"anchorAt":"2026-10-30T09:00:00Z","deliverAfter":"2026-10-30T09:00:00Z","busyDeadline":null,"channels":[],` +
+		`"reasons":[{"kind":"STOP","tickDueAt":null,"ticker":null,"task":null,"stop":{"eventId":"ev-s1","signalId":"sig-1","level":"HALT","notice":"STOP","interrupt":true}}]}`
+	_, out, err := runTeamTask(t, c1279Responses(c1279Page("OK", 0, stopWake)), "team", "wakes", "due", "--accept-stop", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var dto struct {
+		Wakes []struct {
+			Reasons []struct {
+				Kind string `json:"kind"`
+				Stop *struct {
+					EventID   string `json:"eventId"`
+					SignalID  string `json:"signalId"`
+					Level     string `json:"level"`
+					Notice    string `json:"notice"`
+					Interrupt bool   `json:"interrupt"`
+				} `json:"stop"`
+			} `json:"reasons"`
+		} `json:"wakes"`
+	}
+	if err := json.Unmarshal([]byte(out), &dto); err != nil {
+		t.Fatalf("%v: %s", err, out)
+	}
+	if len(dto.Wakes) != 1 || len(dto.Wakes[0].Reasons) != 1 {
+		t.Fatalf("wakes %s", out)
+	}
+	r := dto.Wakes[0].Reasons[0]
+	if r.Kind != "STOP" || r.Stop == nil || r.Stop.EventID != "ev-s1" || r.Stop.SignalID != "sig-1" || r.Stop.Level != "HALT" || r.Stop.Notice != "STOP" || !r.Stop.Interrupt {
+		t.Fatalf("stop reason %s", out)
 	}
 }
 
