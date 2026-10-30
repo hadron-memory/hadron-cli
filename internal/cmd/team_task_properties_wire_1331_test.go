@@ -38,10 +38,17 @@ func TestTaskPropertiesOmittedUnlessNamed1331(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	creates := 0
 	for _, c := range *calls {
-		if c.Op == "AgentTaskCreate" && strings.Contains(string(c.RawVars), "properties") {
-			t.Fatalf("task create sent a properties key: %s", c.RawVars)
+		if c.Op == "AgentTaskCreate" {
+			creates++
+			if strings.Contains(string(c.RawVars), "properties") {
+				t.Fatalf("task create sent a properties key: %s", c.RawVars)
+			}
 		}
+	}
+	if creates != 1 {
+		t.Fatalf("AgentTaskCreate requests = %d, want exactly 1", creates)
 	}
 }
 
@@ -50,17 +57,27 @@ func TestTaskPropertiesOmittedUnlessNamed1331(t *testing.T) {
 func wireOf(t *testing.T, call func(ctx context.Context, c graphql.Client) error) string {
 	t.Helper()
 	var vars string
+	requests := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Variables json.RawMessage `json:"variables"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		vars = string(body.Variables)
+		requests++
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"data":null}`))
 	}))
 	defer srv.Close()
-	_ = call(context.Background(), graphql.NewClient(srv.URL, srv.Client())) // a null data answer is fine; only the request is read
+	// The server answers data:null, so the generated call may report a missing
+	// result: that is not the failure under test. A transport or request-build
+	// error is, and so is anything but exactly one request on the wire.
+	if err := call(context.Background(), graphql.NewClient(srv.URL, srv.Client())); err != nil && requests == 0 {
+		t.Fatalf("the operation never reached the server: %v", err)
+	}
+	if requests != 1 {
+		t.Fatalf("%d requests captured, want exactly 1", requests)
+	}
 	return vars
 }
 
