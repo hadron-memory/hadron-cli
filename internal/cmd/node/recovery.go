@@ -256,8 +256,12 @@ or deleted while --all runs can move between pages.`,
 	return cmd
 }
 
+// maxRecoveryEdgeIDs is the server's bound on recoveryEdges(edgeIds:).
+const maxRecoveryEdgeIDs = 200
+
 func newCmdRecoveryGraph(f *cmdutil.Factory) *cobra.Command {
 	var memory string
+	var edgeIDs []string
 	var pf pageFlags
 	cmd := &cobra.Command{
 		Use:   "graph -m <memory>",
@@ -277,12 +281,20 @@ for node recovery list.`,
 			if err := pf.validate(cmd); err != nil {
 				return err
 			}
+			if len(edgeIDs) > maxRecoveryEdgeIDs {
+				return exitcode.Newf(exitcode.Usage, "--edge takes at most %d ids, got %d", maxRecoveryEdgeIDs, len(edgeIDs))
+			}
+			for _, id := range edgeIDs {
+				if strings.TrimSpace(id) == "" {
+					return exitcode.Newf(exitcode.Usage, "--edge needs an edge id")
+				}
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
 			res, err := listPage(f, &pf, func(limit int, offset *int) ([]recoveryEdgeDTO, int, error) {
-				resp, err := gen.RecoveryEdges(cmd.Context(), client, memRef, limit, offset)
+				resp, err := gen.RecoveryEdges(cmd.Context(), client, memRef, limit, offset, edgeIDs)
 				if err != nil {
 					return nil, 0, api.MapError(err)
 				}
@@ -320,6 +332,7 @@ for node recovery list.`,
 		},
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "Memory to read (hrn:mem:<root>:<slug>)")
+	cmd.Flags().StringArrayVar(&edgeIDs, "edge", nil, "only this edge id (repeatable, at most 200)")
 	pf.bind(cmd)
 	return cmd
 }
