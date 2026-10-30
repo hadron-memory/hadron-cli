@@ -149,3 +149,24 @@ func TestTaskListInvertedRange1250(t *testing.T) {
 		}
 	}
 }
+
+// Filters AND together and keep the existing selectors (Bruno's blind P3).
+func TestTaskListFiltersCombine1250(t *testing.T) {
+	vars, ok, err := filters1250Run(t, "AgentTaskListFiltered", "--text", "needle", "--status", "PENDING", "--tag", "release",
+		"--tag-all", "a", "--source", "slack", "--overdue=false", "--started-after", "2026-10-01T00:00:00Z", "--started-before", "2026-10-02T00:00:00Z")
+	if err != nil || !ok {
+		t.Fatalf("ok=%v err=%v", ok, err)
+	}
+	want := map[string]string{"text": `"needle"`, "status": `["PENDING"]`, "tag": `"release"`, "tagsAll": `["a"]`, "source": `"slack"`,
+		"overdue": `false`, "startedAfter": `"2026-10-01T00:00:00Z"`, "startedBefore": `"2026-10-02T00:00:00Z"`}
+	for k, w := range want {
+		if got := mustJSON1250(vars[k]); got != w {
+			t.Errorf("%s = %s, want %s", k, got, w)
+		}
+	}
+	for _, k := range []string{"tagsAny", "createdAfter", "finishedBefore"} {
+		if _, sent := vars[k]; sent {
+			t.Errorf("unset %s was sent", k)
+		}
+	}
+}
