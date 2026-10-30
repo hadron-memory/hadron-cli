@@ -163,6 +163,13 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 			return err
 		}
 	}
+	if len(task.Properties) > 0 {
+		// Terminal-safe but not cut at a table cell's width: the server allows
+		// 16 KiB and --json carries the value verbatim either way.
+		if err := line("  properties: %s", output.SafeLine(string(task.Properties), 17000)); err != nil {
+			return err
+		}
+	}
 	if task.Requirements != nil {
 		if err := line("  requirements: role=%s familyIn=%s familyNotIn=%s exclude=%s",
 			strOr(task.Requirements.Role),
