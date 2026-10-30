@@ -8125,7 +8125,7 @@ type AgentTeamEventsResponse struct {
 	// read; the cursor is the (createdAt, id) pair, so events sharing a
 	// timestamp are never skipped. since is a coarse time filter (strictly
 	// after), not a continuation. limit defaults to 20 (cap 200).
-	// task.warning and task.edited are passive history (never wake, suppress a wake or count as activity); payload is {code} or changed field names only.
+	// task.warning, task.edited and task.properties-changed are passive history (never wake, suppress a wake or count as activity); payload is {code}, changed field names only, or (task.properties-changed) the size and SHA-256 of the canonical JSON of the old and new properties, never their content.
 	AgentTeamEvents []*AgentTeamEventsAgentTeamEventsAgentTeamEvent `json:"agentTeamEvents"`
 }
 
@@ -19727,7 +19727,11 @@ type CreateAgentTaskInput struct {
 	// #2644 — naming priority or blockers requires the task assigner authority; otherwise creation refuses atomically.
 	Priority *int `json:"priority,omitempty"`
 	// Make a top-level PROJECT (AT1, AT2, ...) instead of a task under the reserved project AT0. Not with parentTaskId.
-	Project      *bool                       `json:"project,omitempty"`
+	Project *bool `json:"project,omitempty"`
+	// #2420 (hrn:node:hadronmemory.com:specs:cor:agt:050:28): the task's own properties, a JSON object with the same limits
+	// and refusal codes as on update. Only set when the creator is one of the task's writers (its owner, someone above the
+	// owner, a manager, or the assignee named here); any other creator gets the task made without them, not a refusal.
+	Properties   *json.RawMessage            `json:"properties,omitempty"`
 	Requirements *AgentTaskRequirementsInput `json:"requirements,omitempty"`
 	Source       *string                     `json:"source"`
 	StartBy      *string                     `json:"startBy"`
@@ -19765,6 +19769,9 @@ func (v *CreateAgentTaskInput) GetPriority() *int { return v.Priority }
 
 // GetProject returns CreateAgentTaskInput.Project, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetProject() *bool { return v.Project }
+
+// GetProperties returns CreateAgentTaskInput.Properties, and is useful for accessing the field via an interface.
+func (v *CreateAgentTaskInput) GetProperties() *json.RawMessage { return v.Properties }
 
 // GetRequirements returns CreateAgentTaskInput.Requirements, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetRequirements() *AgentTaskRequirementsInput { return v.Requirements }
@@ -60844,7 +60851,13 @@ type UpdateAgentTaskInput struct {
 	// Null clears to false; omission preserves the stored choice.
 	CloseSessionWhenDone *bool           `json:"closeSessionWhenDone,omitempty"`
 	Description          json.RawMessage `json:"description,omitempty"`
-	Requirements         json.RawMessage `json:"requirements,omitempty"`
+	// #2420 (hrn:node:hadronmemory.com:specs:cor:agt:050:28): omitted leaves the value, a JSON object replaces the whole of
+	// it (no merge), null clears it. Writable by the task's owner, a worker the owner reports to, whoever manages the App,
+	// and the task's assignee; an assignee's update may name this field and no other. Refused on a finished or cancelled
+	// task. A non-object is PROPERTIES_NOT_AN_OBJECT, over 16 KiB of canonical JSON PROPERTIES_TOO_LARGE, a violation of the
+	// Team Agent's schema:task-properties PROPERTIES_SCHEMA_VIOLATION, an unusable schema PROPERTIES_SCHEMA_UNUSABLE.
+	Properties   json.RawMessage `json:"properties,omitempty"`
+	Requirements json.RawMessage `json:"requirements,omitempty"`
 	// Reanchors only the not-started deadline; null clears the explicit deadline. Existing alarms stay raised.
 	StartBy json.RawMessage `json:"startBy,omitempty"`
 	Tags    json.RawMessage `json:"tags,omitempty"`
@@ -60856,6 +60869,9 @@ func (v *UpdateAgentTaskInput) GetCloseSessionWhenDone() *bool { return v.CloseS
 
 // GetDescription returns UpdateAgentTaskInput.Description, and is useful for accessing the field via an interface.
 func (v *UpdateAgentTaskInput) GetDescription() json.RawMessage { return v.Description }
+
+// GetProperties returns UpdateAgentTaskInput.Properties, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTaskInput) GetProperties() json.RawMessage { return v.Properties }
 
 // GetRequirements returns UpdateAgentTaskInput.Requirements, and is useful for accessing the field via an interface.
 func (v *UpdateAgentTaskInput) GetRequirements() json.RawMessage { return v.Requirements }
@@ -76373,6 +76389,7 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 // project as the reserved no-project AT0 (cor:agt:050:01), so a nil pointer
 // must not be sent as null. Per-field omitempty on this one input field.
 // Schema-only optional fields must stay absent for older providers.
+// #2420: the task's own properties object. A pointer field, omitted when nil.
 func AgentTaskCreate(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -78124,6 +78141,9 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 // value (the UpdateApp description idiom). title and closeSessionWhenDone have
 // no null-clear (an empty title is refused; null would mean false), so they stay
 // pointers, where a pointer to false is still sent.
+// #2420: nil = key omitted (unchanged), RawMessage("null") = explicit clear. The
+// global JSON binding is a slice, so without omitempty a nil value would be sent
+// as null and clear the task's properties on every unrelated update (#1331).
 func AgentTaskUpdate(
 	ctx_ context.Context,
 	client_ graphql.Client,
