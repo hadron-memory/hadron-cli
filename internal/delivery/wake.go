@@ -207,11 +207,13 @@ func RenderWake(reasons []WakeReason) string {
 // text (DueWake.tickText). When reasons hold a TICK and the text is not
 // empty, the text is typed once, whole and first, after TickPrefix, and the
 // TICK reasons' own generic line is dropped; TASK parts follow. The tick text
-// is never reworded, joined or cut (cor:agt:080:26): MaxWakeRunes bounds the
-// TASK parts only, so a long tick text leaves fewer of them, or none, and a
-// text longer than the bound is typed whole. Line breaks and escapes are
-// folded to a space, the one change made. With no tick text, or no TICK
-// reason, this is RenderWake.
+// is never reworded, joined, repaired or cut (cor:agt:080:26): MaxWakeRunes
+// bounds the TASK parts only, so a long tick text leaves fewer of them, or
+// none, and a text longer than the bound is typed whole. A text the host
+// cannot type as one line (a control character, a line break or an escape) is
+// dropped whole, never repaired (R4): the wake then types what it would
+// without tick text, so a tick-only wake still names its ticker. With no tick
+// text, or no TICK reason, this is RenderWake.
 func RenderWakeWith(reasons []WakeReason, tickText string) string {
 	hasTick := false
 	var tasks []string
@@ -223,15 +225,10 @@ func RenderWakeWith(reasons []WakeReason, tickText string) string {
 			tasks = append(tasks, renderTask(r.Task))
 		}
 	}
-	if tickText == "" || !hasTick {
+	if tickText == "" || !hasTick || strings.ContainsFunc(tickText, unicode.IsControl) {
 		return RenderWake(reasons)
 	}
-	head := TickPrefix + " " + strings.Map(func(c rune) rune {
-		if unicode.IsControl(c) {
-			return ' '
-		}
-		return c
-	}, tickText)
+	head := TickPrefix + " " + tickText
 	text := strings.Join(append([]string{head}, tasks...), "; ")
 	for kept := len(tasks) - 1; utf8.RuneCountInString(text) > MaxWakeRunes && kept >= 0; kept-- {
 		text = strings.Join(append([]string{head}, tasks[:kept]...), "; ") + fmt.Sprintf("; (+%d more reasons)", len(tasks)-kept)

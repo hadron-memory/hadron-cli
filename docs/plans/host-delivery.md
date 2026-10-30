@@ -277,7 +277,7 @@ adds the GraphQL adapter (`internal/cmd/team/host_wakes.go`) and wires it in
     When the wake carries the server's tick text (`DueWake.tickText`, cli#1177;
     the `dueWakes` adapter selects it), that one line is typed instead, whole
     and first, after `[hadron tick] `: `[hadron tick] <tickText>; [hadron task] …`.
-    It is never reworded, joined or cut; line breaks and escapes fold to a space.
+    It is never reworded, joined, repaired or cut. A text with a control character, line break or escape can't be typed as one line and is dropped whole (cor:agt:080:26 R4, as ticker-wake does): the wake then types today's line, so a tick-only wake still names its ticker.
     `MaxWakeRunes` bounds the TASK parts only. When any TICK reason is unrecorded
     the whole text is typed once and every unrecorded key is recorded. The CLI
     never composes a tick line from `WakeReason.action`. No text reaches a record
