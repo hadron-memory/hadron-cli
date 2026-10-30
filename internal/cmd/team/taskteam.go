@@ -232,12 +232,9 @@ func listTeamTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, b *b
 	if !ok {
 		return exitcode.Newf(exitcode.NotFound, "worker %s is not on the roster of %s (the roster lists active workers; a retired worker leads no team here)", coordinatorRef, appLabel())
 	}
-	all, err := readAllTasks(ctx, f, scope.Ref, nil)
-	if err != nil {
-		return err
-	}
 	// Keep the ancestry read unfiltered. Ask the server for matching IDs in a
-	// separate paged read, then intersect after the full descendant join.
+	// separate paged read before scanning ancestry, so invalid text fails fast.
+	// Intersect only after the full descendant join.
 	var textMatches map[string]bool
 	if q.text != nil {
 		filtered, err := readAllTasks(ctx, f, scope.Ref, q.text)
@@ -248,6 +245,10 @@ func listTeamTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, b *b
 		for _, task := range filtered {
 			textMatches[task.ID] = true
 		}
+	}
+	all, err := readAllTasks(ctx, f, scope.Ref, nil)
+	if err != nil {
+		return err
 	}
 	alarms, err := openAlarmsByTask(ctx, client, f.IOStreams.ErrOut, roster.TeamRoster.AppId)
 	if err != nil {

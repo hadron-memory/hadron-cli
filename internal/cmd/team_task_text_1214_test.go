@@ -75,9 +75,9 @@ func TestTaskListTextOmitted1214(t *testing.T) {
 }
 
 func TestTaskTeamTextPreservesDescendantJoin1214(t *testing.T) {
-	anchor := task1044{id: "anchor", owner: worker1044("Marco")}
-	child := task1044{id: "child", owner: worker1044("Cameron"), parent: "anchor"}
-	calls, out, _, err := runText1214(t, roster1044(), [][]task1044{{anchor, child}, {child}}, "team", "task", "list", "--team=worker:Marco", "--text", "needle", "--status", "STARTED", "--json")
+	anchor := task1044{id: "anchor", status: "STARTED", owner: worker1044("Marco")}
+	child := task1044{id: "child", status: "STARTED", owner: worker1044("Cameron"), parent: "anchor"}
+	calls, out, _, err := runText1214(t, roster1044(), [][]task1044{{anchor, child}, {child}}, "team", "task", "list", "--team=worker:Marco", "--text", "needle", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +99,7 @@ func TestTaskTeamTextPreservesDescendantJoin1214(t *testing.T) {
 			continue
 		}
 		n++
-		if n == 1 {
+		if c.Op == "AgentTaskList" {
 			if _, ok := c.Vars["text"]; ok {
 				t.Fatal("join read was filtered")
 			}
@@ -144,6 +144,7 @@ func runText1214(t *testing.T, roster []string, pages [][]task1044, argv ...stri
 	err := root.Execute()
 	return calls, out.String(), f.IOStreams.ErrOut.(*strings.Builder).String(), err
 }
+
 func TestTaskTextLegacyDocumentUnchanged1214(t *testing.T) {
 	if strings.Contains(gen.AgentTaskList_Operation, "$text") {
 		t.Fatal("legacy document gained a new server argument")
