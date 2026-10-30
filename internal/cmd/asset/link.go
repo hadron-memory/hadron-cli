@@ -29,28 +29,27 @@ func newCmdLink(f *cmdutil.Factory) *cobra.Command {
 	var nodeURN, name, description string
 	cmd := &cobra.Command{
 		Use:   "link <asset-ref> --node <new-node-urn>",
-		Short: "Attach an asset to the graph as a reference node",
-		Long: `Create a reference node that points at an asset.
+		Short: "Attach a file to the graph as a new node",
+		Long: `Attach an uploaded file to the graph: create a new node that points at the
+asset, so people and agents reading that part of the memory find the file.
 
-The new node has nodeType "reference" and carries the asset's id, urn,
-filename, mimeType and sizeBytes in data.asset — the same shape an agent's
-hadron_store_file writes, so a reader handles both origins identically.
+--node is the URN of the NEW node to create (hrn:node:<org>:<memory>:<loc>),
+not of an existing note to attach to. The loc places it in the tree:
+...:kb:designs:report-v1 creates report-v1 under designs. If a node already
+exists there, the command is refused (exit 5); pick a free loc.
 
---node is the FULLY-QUALIFIED URN OF THE NODE TO CREATE, not of a parent to
-append under: hrn:node:<root>:<memory>:<loc>. The loc's colon-separated prefix
-places it in the tree, so ":designs:logo-v3" lands under ":designs". Naming an
-existing live node is refused by the server with a loc conflict — pick a free
-loc rather than expecting an append.
+The new node has type "reference" and keeps the asset's id, URN, filename, type
+and size in its data (hadron node get shows them). Files that agents store
+through Hadron's MCP tools (hadron_store_file) get the same kind of node.
 
-Its memory is where the node lands, which need not be the asset's own: this
-needs READ on the asset's holding memory and WRITE on the target memory.
+The node can be in a different memory from the asset: you need read access to
+the asset's memory and write access to the node's.
 
-The pointer is a soft reference. There is no schema-level asset-to-node link,
-so deleting the asset leaves the reference node in place with its asset
-resolving to null — the node records that a file WAS attached, which is often
-what you want in an audit trail.`,
-		Example: `  hadron asset link 01j2x… --node hrn:node:acme.com:kb:designs:logo-v3
-  hadron asset link hrn:asset:acme.com:kb:assets:01j2x… --node hrn:node:acme.com:kb:designs:logo-v3 --name "Logo v3"`,
+Deleting the asset later leaves the node in place, with the file's details, but
+the file can no longer be downloaded. Restore the asset within 24 hours (asset
+restore), or remove the node with hadron node rm.`,
+		Example: `  hadron asset link 01a189a840f4717c98af75cf4d7aed09 --node hrn:node:acme.com:kb:designs:report-v1
+  hadron asset link hrn:asset:acme.com:kb:assets:01a189a840f4717c98af75cf4d7aed09 --node hrn:node:acme.com:kb:designs:report-v1 --name "Q3 report"`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref, err := parseAssetRef(args[0])

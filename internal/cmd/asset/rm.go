@@ -28,15 +28,14 @@ func newCmdRm(f *cmdutil.Factory) *cobra.Command {
 		Use:     "rm <asset-ref>",
 		Aliases: []string{"delete"},
 		Short:   "Soft-delete an asset",
-		Long: `Soft-delete an asset.
+		Long: `Delete an asset. It stops appearing in listings, downloads and its public link
+at once. For 24 hours, hadron asset restore brings it back (with its public-link
+setting); after that it is deleted for good. asset list --include-deleted shows
+what can still be restored.
 
-The asset stops appearing in listings and downloads, but the bytes are kept for
-a retention window — "asset restore" brings it back, and
-"asset list --include-deleted" shows what is still recoverable.
-
-Prompts on a terminal; pass --yes to confirm non-interactively.`,
-		Example: `  hadron asset rm hrn:asset:acme.com:kb:assets:01j2x…
-  hadron asset rm 01j2x… --yes`,
+Asks for confirmation on a terminal; pass --yes in scripts.`,
+		Example: `  hadron asset rm hrn:asset:acme.com:kb:assets:01a189a840f4717c98af75cf4d7aed09
+  hadron asset rm 01a189a840f4717c98af75cf4d7aed09 --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref, err := parseAssetRef(args[0])
@@ -80,11 +79,12 @@ func newCmdRestore(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "restore <asset-ref>",
 		Short: "Restore a soft-deleted asset",
-		Long: `Restore an asset that was soft-deleted, within its retention window.
+		Long: `Bring back an asset deleted in the last 24 hours, with its public-link setting.
+After 24 hours it cannot be restored.
 
-Find restorable assets with "asset list --include-deleted". Restoring is not
-destructive, so it does not prompt.`,
-		Example: `  hadron asset restore 01j2x…`,
+asset list --include-deleted shows what can still be restored. Restoring does
+not ask for confirmation.`,
+		Example: `  hadron asset restore 01a189a840f4717c98af75cf4d7aed09`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref, err := parseAssetRef(args[0])

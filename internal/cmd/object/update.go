@@ -20,15 +20,22 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update <ref> --fields '<json>'",
 		Short: "Merge fields into an object",
-		Long: `Update an object by its id or node URN. --fields is a JSON object that is
-shallow-MERGED into the existing fields: the patch wins on key collision,
-unmentioned fields are preserved (the merge is atomic server-side). The merged
-result is validated against the collection schema when declared. Prints the
-updated flat record.
+		Long: `Change some fields of a record and keep the rest. --fields is a JSON object:
+each key you give replaces that field's value, keys you leave out keep theirs,
+and a new key adds a field. The merge happens on the server in one step. Prints
+the updated record.
 
---reason is recorded in the object's revision history.`,
-		Example: `  hadron object update 019f7d… --fields '{"stage":"series-b","fundingUsd":40000000}'`,
-		Args:    cobra.ExactArgs(1),
+To clear a field, set it to null ('{"stage":null}'): the key stays, with the
+value null. To remove a key, replace the whole record with
+hadron node update <ref> --properties '<every field you keep>'.
+
+Name the record by its id or node URN. --reason is saved with the change in the
+record's revision history (hadron node revision list <ref>). If the memory
+declares a schema for the collection, the result must satisfy it (exit 2
+otherwise).`,
+		Example: `  hadron object update 01a189a8175c7145b6c3680628ef0101 --fields '{"stage":"series-b","fundingUsd":40000000}'
+  hadron object update hrn:node:acme.com:market:competitor:letta --fields '{"stage":null}' --reason "stage unknown"`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			changed := cmd.Flags().Changed
 			if changed("fields") && changed("fields-file") {
