@@ -140,6 +140,10 @@ func TestTaskUpdateContradictionsAreRefusedBeforeAnyRequest1137(t *testing.T) {
 		{"--family-in", "claude", "--family-not-in", "codex"},
 		{"--start-by", "2026-11-02T09:00:00Z", "--clear-start-by"},
 		{"--close-session", "--no-close-session"},
+		{"--close-session=false"},
+		{"--no-close-session=false"},
+		{"--title", "T", "--close-session=false"},
+		{"--title", "T", "--no-close-session=false"},
 		{"--start-by", "tomorrow"},
 		{"--tag", ""},
 	} {

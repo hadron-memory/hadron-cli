@@ -59,7 +59,8 @@ replaces a value has a --clear-… twin that empties it; naming both is refused.
   --overdue and the not-started alarm read. An alarm already raised stays raised.
 - --close-session asks the assignee's worker session to end when the task
   finishes or is cancelled; --no-close-session says it should not. Neither flag
-  leaves the choice as it is.
+  leaves the choice as it is. ` + "`--close-session=false`" + ` is refused, because
+  it cannot be told from leaving the flag out: say no with --no-close-session.
 
 Not editable here: --source (fixed once the task exists), the owner and assignee
 (task assign, task reassign), the status (task start, finish, cancel, park, ready),
@@ -88,7 +89,7 @@ a stall alarm. Success prints the task as task get does; --json returns it.`,
 			reqNamed := fl.Changed("require-role") || fl.Changed("family-in") || fl.Changed("family-not-in") || fl.Changed("exclude-worker")
 			anyField := fl.Changed("title") || fl.Changed("description") || clearDescription ||
 				fl.Changed("tag") || clearTags || reqNamed || clearRequirements ||
-				fl.Changed("start-by") || clearStartBy || closeSession || noCloseSession
+				fl.Changed("start-by") || clearStartBy || fl.Changed("close-session") || fl.Changed("no-close-session")
 			if !anyField {
 				return usage("pass at least one field flag to change (--title, --description, --tag, --require-role, --start-by, --close-session, or a --clear-…); nothing was sent")
 			}
@@ -104,6 +105,19 @@ a stall alarm. Success prints the task as task get does; --json returns it.`,
 			} {
 				if c.set && c.clear {
 					return usage("%s and %s contradict each other: replace the value or clear it", c.a, c.b)
+				}
+			}
+			// Presence, not value: `--close-session=false` is a supplied flag that
+			// a plain bool cannot tell from an absent one, so it is refused with
+			// the spelling that does say no, rather than silently keeping the
+			// stored choice (the cli-add-a-tri-state-flag gotcha).
+			for _, c := range []struct {
+				name string
+				on   bool
+				use  string
+			}{{"close-session", closeSession, "--no-close-session"}, {"no-close-session", noCloseSession, "--close-session"}} {
+				if fl.Changed(c.name) && !c.on {
+					return usage("--%s=false changes nothing; to say the opposite pass %s", c.name, c.use)
 				}
 			}
 			if closeSession && noCloseSession {

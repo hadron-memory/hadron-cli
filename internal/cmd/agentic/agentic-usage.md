@@ -3966,7 +3966,7 @@ refusal is printed), `--description` / `--clear-description`, repeatable `--tag`
 WHOLE requirements) / `--clear-requirements`, `--start-by <RFC 3339>` /
 `--clear-start-by` (re-anchors only the not-started clock; a raised alarm stays
 raised), and the tri-state `--close-session` / `--no-close-session` (neither =
-unchanged). A value flag with its `--clear-…` twin, both close-session flags, or
+unchanged; `--close-session=false` and `--no-close-session=false` exit 2, say no with `--no-close-session`). A value flag with its `--clear-…` twin, both close-session flags, or
 `--family-in` with `--family-not-in` exit 2 before any request. Not editable
 here: source, owner, assignee, status, parent, priority, blockers. Text output
 is `task get`'s; `--json` is the updated task. Refusals keep the server code and
