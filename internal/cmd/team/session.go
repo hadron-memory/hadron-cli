@@ -2398,7 +2398,8 @@ worker to be BOUND by you again; it does not hand the name to anyone else.
 
 Closing your CHAT SESSION does not do this. Archive the Desktop window or
 quit the Claude Code session and the worker session stays open, holding the
-worker until you end it here — since hadron-server#1114 nothing else does.
+worker — since hadron-server#1114 no idle window ends it either. Only an end
+here, your own next bind of the worker, or a hard deadline set at start does.
 
 WHY NOT END IT. Worker sessions are meant to be
 long-lived: #1114 removed the idle reaper on the principle that silence is
