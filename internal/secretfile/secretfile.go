@@ -2,6 +2,11 @@
 // the file is never wider than 0600 and never reached through a symlink as its
 // final component (cli#1223). The destination is opened BEFORE the secret exists, and the
 // caller commits or aborts afterwards.
+//
+// On windows "0600" only clears the read-only attribute: the file's
+// confidentiality is the ACL it inherits from its directory, so it is private
+// under the user profile and not in a shared directory (#1324). An owner-only
+// DACL is not set here (#1325).
 package secretfile
 
 import (
