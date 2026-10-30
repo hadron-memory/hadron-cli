@@ -6,6 +6,7 @@ package team
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -308,7 +309,7 @@ ageFrom; --tree changes text only.`,
 			}
 			if cmd.Flags().Changed("team") {
 				b, err := readBindingOrNilWithApp(ctx, f)
-				if err != nil {
+				if err != nil && !errors.Is(err, errNoWorktree) {
 					return err
 				}
 				scope, err := resolveTeamAppScope(ctx, f, b)
@@ -368,8 +369,11 @@ ageFrom; --tree changes text only.`,
 			if cmd.Flags().Changed("overdue") {
 				overdueIn = &overdue
 			}
+			// Task listing needs App scope, not a worktree. Let the scope
+			// resolver name the remedies when neither is available; retain
+			// binding errors other than the absence of a worktree.
 			b, err := readBindingOrNilWithApp(ctx, f)
-			if err != nil {
+			if err != nil && !errors.Is(err, errNoWorktree) {
 				return err
 			}
 			scope, err := resolveTeamAppScope(ctx, f, b)
