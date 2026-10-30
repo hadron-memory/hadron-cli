@@ -36,7 +36,9 @@ const teamTaskPageLimit = 500
 // team view reads the whole App and selects by the roster join, so each of
 // these would either narrow the read below the recursion or page a view that
 // is not a page; refused rather than half-honoured.
-var teamListFlagConflicts = []string{"assignee", "owner", "parent", "tag", "queued", "roots-only", "limit", "offset"}
+var teamListFlagConflicts = []string{"assignee", "owner", "parent", "tag", "queued", "roots-only", "limit", "offset",
+	"tag-any", "tag-all", "source", "overdue",
+	"created-after", "created-before", "started-after", "started-before", "finished-after", "finished-before"}
 
 // teamTaskDTO is one row of the team view: the plain task plus how it joined.
 // OwnerTeam / AssigneeTeam: "team" (a worker in the requested team), "outside"

@@ -3944,3 +3944,5 @@ team events --alarms names a task-less alarm's worker and known reason
 team alarm ack <eventId> acknowledges escalation; it does not end the episode.
 A dark episode ends when checks recover and no wake is unacknowledged past
 the window. These commands do not activate delivery or calculate check state.
+
+# `team task list` filters (cli#1250): `--tag-any`/`--tag-all` (repeatable; a comma is part of a tag), `--source` (exact), `--overdue`/`--overdue=false` (tri-state; unset sends nothing; backlog is never overdue), and inclusive `--created-/--started-/--finished-after|before` bounds taking RFC 3339 with Z or an offset (a date-only or offset-less value is exit 2, nothing sent; a task with no start/finish time never matches a range on it). Filters AND together; none combine with `--team`. With none set the request and `--json` output are unchanged.
