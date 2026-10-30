@@ -2450,6 +2450,20 @@ Conventions:
   and a `driven:` line, but **only when `hasLiveSession` is non-null** (below);
   a caller who cannot see the working state gets NEITHER line rather than a
   dashed one, because a dash there would answer a question the server refused.
+
+**`worker get` profile read (cli#1355, hadron-server#1149).** By id or worker
+URN, a signed-in non-participant reads the worker's PROFILE; the command goes
+straight to the worker read with no App or roster lookup (a name still needs
+an App you participate in). `--json` adds `appName` and `ownerName`, always
+present and nullable: null is UNAVAILABLE (masked, an older server, or an App
+URN of the old shape), never proof there is no App or owner. Every
+working-state key (`prompt`, `memoryId`, `hasLiveSession`, `checkStatus`,
+`createdBy` ...) stays a present null on a profile read, and the human output
+says `working state: not visible to you` and omits the holder, driven, check,
+reporting and boot-pointer lines. The two names come from a separate
+operation, so a server that predates them still serves `worker get` as before
+(the fallback is only for that documented schema absence; an auth, transport or
+server error fails the command).
   **`worker list` now carries the hold too, alongside liveness** (#487,
   hadron-server#1086): the table gains `HELD BY` and `LAST RECORDED ACTIVITY` after
   `ROLE`, and `--json` gains `heldByUserId`/`heldAt`/`hasLiveSession`/
