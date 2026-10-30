@@ -145,6 +145,7 @@ func TestAppKeyCreate1223UsageBeforeNetwork(t *testing.T) {
 	for name, args := range map[string][]string{
 		"missing app-ref":    {"app", "key", "create", "--out", filepath.Join(d, "a")},
 		"missing out":        {"app", "key", "create", appRef1223},
+		"empty label":        {"app", "key", "create", appRef1223, "--out", filepath.Join(d, "c"), "--label="},
 		"print-key and json": {"app", "key", "create", appRef1223, "--out", filepath.Join(d, "b"), "--print-key", "--json"},
 	} {
 		t.Run(name, func(t *testing.T) {

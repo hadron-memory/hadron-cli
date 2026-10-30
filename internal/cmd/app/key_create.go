@@ -89,8 +89,14 @@ that you do not hold: the command never retries; run 'hadron app key list
 				return exitcode.Newf(exitcode.Usage, "--print-key cannot be combined with --json: the raw key is never part of the JSON output")
 			}
 			var labelPtr *string
+			// --label= (an unset variable) is passed-and-empty, not absent: refuse
+			// it here, before the file is opened or anything is minted.
 			if cmd.Flags().Changed("label") {
-				labelPtr = &label
+				l := strings.TrimSpace(label)
+				if l == "" {
+					return exitcode.Newf(exitcode.Usage, "--label was given empty (an unset variable?); name the key, or leave --label off")
+				}
+				labelPtr = &l
 			}
 			abs, err := filepath.Abs(out)
 			if err != nil {
