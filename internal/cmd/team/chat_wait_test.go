@@ -151,3 +151,81 @@ func TestChatWaitDeadlineCancelsInFlightRead(t *testing.T) {
 		t.Fatalf("wait overran its deadline: %s", d)
 	}
 }
+
+type brokenWriter struct{}
+
+func (brokenWriter) Write([]byte) (int, error) { return 0, errors.New("broken pipe") }
+
+func waitCmd(f *cmdutil.Factory, inner func(*cobra.Command, []string) error, args ...string) *cobra.Command {
+	var wait, interval time.Duration
+	var returned int
+	cmd := &cobra.Command{Use: "read"}
+	cmd.Flags().Int("since", 0, "")
+	cmd.Flags().Int("before", 0, "")
+	cmd.Flags().Bool("all", false, "")
+	cmd.Flags().DurationVar(&wait, "wait", 0, "")
+	cmd.Flags().DurationVar(&interval, "poll-interval", chatWaitDefaultInterval, "")
+	wrapped := func(c *cobra.Command, a []string) error {
+		err := inner(c, a)
+		if err == nil {
+			returned = chatWaitTestReturned
+		}
+		return err
+	}
+	cmd.RunE = chatWaitRunE(f, wrapped, &wait, &interval, &returned)
+	cmd.SetArgs(args)
+	cmd.SilenceUsage, cmd.SilenceErrors = true, true
+	return cmd
+}
+
+var chatWaitTestReturned int
+
+// The deadline expiring while the loop sleeps is the timeout (exit 13), not a
+// cancellation, however the context and the sleep timer race.
+func TestChatWaitSleepExpiryIsTimeoutNotCancelled(t *testing.T) {
+	prevMin := chatWaitMinInterval
+	t.Cleanup(func() { chatWaitMinInterval = prevMin })
+	chatWaitMinInterval = time.Millisecond
+	chatWaitTestReturned = 0
+	for i := 0; i < 100; i++ {
+		io, _, _ := output.Test()
+		f := &cmdutil.Factory{IOStreams: io}
+		cmd := waitCmd(f, func(*cobra.Command, []string) error { return nil },
+			"--since", "5", "--wait", "20ms", "--poll-interval", "1h")
+		err := cmd.ExecuteContext(context.Background())
+		if got := exitcode.FromError(err); got != exitcode.WaitTimeout {
+			t.Fatalf("iteration %d: exit %d (%v), want %d", i, got, err, exitcode.WaitTimeout)
+		}
+	}
+}
+
+// Bookkeeping (the read mark) runs only after the held output was delivered.
+func TestChatWaitDoesNotMarkReadWhenDeliveryFails(t *testing.T) {
+	prevMin := chatWaitMinInterval
+	t.Cleanup(func() { chatWaitMinInterval = prevMin })
+	chatWaitMinInterval = time.Millisecond
+	chatWaitTestReturned = 2
+	t.Cleanup(func() { chatWaitTestReturned = 0 })
+	for _, broken := range []bool{true, false} {
+		io, _, _ := output.Test()
+		if broken {
+			io.Out = brokenWriter{}
+		}
+		f := &cmdutil.Factory{IOStreams: io}
+		marked := false
+		cmd := waitCmd(f, func(c *cobra.Command, _ []string) error {
+			fmt.Fprintln(f.IOStreams.Out, "msg")
+			if d, ok := c.Context().Value(chatReadDeferKey{}).(*func()); ok {
+				*d = func() { marked = true }
+			}
+			return nil
+		}, "--since", "5", "--wait", "1h", "--poll-interval", "10ms")
+		err := cmd.ExecuteContext(context.Background())
+		if broken && (err == nil || marked) {
+			t.Fatalf("broken pipe: err=%v marked=%v, want error and no mark", err, marked)
+		}
+		if !broken && (err != nil || !marked) {
+			t.Fatalf("healthy: err=%v marked=%v, want nil and mark", err, marked)
+		}
+	}
+}

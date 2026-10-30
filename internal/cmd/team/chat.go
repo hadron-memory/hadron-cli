@@ -893,9 +893,19 @@ them "(human)" / "(worker)".`,
 			// shown it — a later page failing, or the render failing, would
 			// otherwise bury messages the reader never saw (PR #732, @codex
 			// P1). A failed mark errs the loss-safe way: a duplicate nudge.
-			if recordWatermark() && verified > 0 {
-				markDeliveredRead(ctx, f, client, scope.Ref, b, verified)
+			finish := func() {
+				if recordWatermark() && verified > 0 {
+					markDeliveredRead(ctx, f, client, scope.Ref, b, verified)
+				}
 			}
+			// --wait holds this read's output in a buffer, so the render above
+			// "succeeded" before anything reached the real stream: it takes the
+			// bookkeeping and runs it only once the output was delivered.
+			if d, ok := ctx.Value(chatReadDeferKey{}).(*func()); ok {
+				*d = finish
+				return nil
+			}
+			finish()
 			return nil
 		},
 	}

@@ -19,6 +19,10 @@ const chatWaitDefaultInterval = 5 * time.Second
 
 var chatWaitMinInterval = 2 * time.Second
 
+// chatReadDeferKey carries a *func() in the read's context: when present the
+// ordinary read leaves its post-render bookkeeping there instead of running it.
+type chatReadDeferKey struct{}
+
 // chatWaitSleep is replaceable in tests.
 var chatWaitSleep = func(ctx context.Context, d time.Duration) error {
 	t := time.NewTimer(d)
@@ -70,33 +74,61 @@ func chatWaitRunE(f *cmdutil.Factory, inner func(*cobra.Command, []string) error
 		cmd.SetContext(ctx)
 		defer cmd.SetContext(parent)
 		var lastOut, lastErr []byte
+		var lastDone func()
+		// deliver writes a held poll to the real streams and only then runs the
+		// read's bookkeeping (watermark, server read mark), so a closed pipe
+		// never marks messages read that were not shown.
+		deliver := func(out, errOut []byte, done func()) error {
+			f.IOStreams.Out, f.IOStreams.ErrOut = outStream, errStream
+			if _, err := outStream.Write(out); err != nil {
+				return err
+			}
+			if _, err := errStream.Write(errOut); err != nil {
+				return err
+			}
+			if done != nil {
+				done()
+			}
+			return nil
+		}
+		timeout := func() error {
+			if err := deliver(lastOut, lastErr, lastDone); err != nil {
+				return err
+			}
+			return exitcode.Newf(exitcode.WaitTimeout, "no new message after %s of polling every %s; nothing changed", *wait, *interval)
+		}
+		deadlineHit := func() bool { return ctx.Err() == context.DeadlineExceeded && parent.Err() == nil }
 		for {
 			var out, errOut bytes.Buffer
 			f.IOStreams.Out, f.IOStreams.ErrOut = &out, &errOut
 			*returned = 0
+			var done func()
+			cmd.SetContext(context.WithValue(ctx, chatReadDeferKey{}, &done))
 			err := inner(cmd, args)
-			if err != nil && *returned == 0 && ctx.Err() == context.DeadlineExceeded && parent.Err() == nil {
-				// The deadline cut this poll short: that is a timeout, not a
-				// failure. Show the last completed (empty) poll, if any.
-				f.IOStreams.Out, f.IOStreams.ErrOut = outStream, errStream
-				_, _ = outStream.Write(lastOut)
-				_, _ = errStream.Write(lastErr)
-				return exitcode.Newf(exitcode.WaitTimeout, "no new message after %s of polling every %s; nothing changed", *wait, *interval)
+			if err != nil && *returned == 0 && deadlineHit() {
+				// The deadline cut this poll short: a timeout, not a failure.
+				return timeout()
 			}
-			lastOut, lastErr = out.Bytes(), errOut.Bytes()
-			if err != nil || *returned > 0 || !time.Now().Before(deadline) {
-				f.IOStreams.Out, f.IOStreams.ErrOut = outStream, errStream
-				_, _ = outStream.Write(out.Bytes())
-				_, _ = errStream.Write(errOut.Bytes())
+			lastOut, lastErr, lastDone = out.Bytes(), errOut.Bytes(), done
+			if err != nil || *returned > 0 {
+				if derr := deliver(lastOut, lastErr, nil); derr != nil {
+					return derr
+				}
 				if err != nil {
 					return err
 				}
-				if *returned > 0 {
-					return nil
+				if done != nil {
+					done()
 				}
-				return exitcode.Newf(exitcode.WaitTimeout, "no new message after %s of polling every %s; nothing changed", *wait, *interval)
+				return nil
+			}
+			if !time.Now().Before(deadline) {
+				return timeout()
 			}
 			if serr := chatWaitSleep(ctx, min(*interval, time.Until(deadline))); serr != nil {
+				if deadlineHit() {
+					return timeout()
+				}
 				return exitcode.Newf(exitcode.Cancelled, "interrupted while waiting")
 			}
 		}
