@@ -112,7 +112,7 @@ Results are filtered to spec nodes.`,
 		},
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to search (ID or fully-qualified URN; default: the memory from spec use, else every memory you can read)")
-	cmd.Flags().BoolVar(&matchExactly, "match-exactly", false, "literal keyword search instead of semantic (alias: --exact)")
+	cmd.Flags().BoolVar(&matchExactly, "match-exactly", false, "regular-expression match over name/loc/description/tags instead of semantic search (alias: --exact)")
 	cmd.Flags().IntVar(&limit, "limit", specFindDefaultLimit, "maximum number of spec results")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "additional tag filter (repeatable; --match-exactly only)")
 	withFlagAliases(cmd, map[string]string{"exact": "match-exactly"})

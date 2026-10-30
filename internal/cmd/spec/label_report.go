@@ -39,22 +39,24 @@ func newCmdLabelReport(f *cmdutil.Factory) *cobra.Command {
   hadron spec label-report -m hrn:mem:acme.com:specs --prefix msg:cha --json`,
 		Long: `Read-only inventory of the selected spec corpus, paging to exhaustion.
 
-Each spec hangs under its citation parent by an edge (msg:cha:010:01 under
-msg:cha:010), and each edge carries a label, normally the child's title. This
-command lists, for every parent you can see, those parent→child edges and their
-labels, so you can eyeball labels that disagree with the child's name. It is an
-inventory, not a lint: it never says a label is wrong, and it is not a complete
-check of the corpus (it shows only what you may read). The memory is -m, else
-the one chosen by ` + "`hadron spec use`" + `. Example line:
+Each spec points at its citation parent with an edge (child → parent: the
+edge from msg:cha:010:01 to msg:cha:010), and each edge carries a label,
+normally the child's title. For every parent you can see, this command lists
+the incoming edges from its citation children, with their labels, so you can
+eyeball labels that disagree with the child's name. It is an inventory, not a
+lint: it never says a label is wrong, and it is not a complete check of the
+corpus (it shows only what you may read). The memory is -m, else the one chosen
+by ` + "`hadron spec use`" + `. Example line:
 
   verified direct relationship: msg:cha:010 edge="<edge id>" label="W4 7d check-in"
     child="msg:cha:010:01" ("<node id>") name="msg:cha:010:01 — W4 7d check-in" status=available
 
-"verified direct relationship" is a parent→child edge whose child is in the same
-memory and readable by you; "unclassified candidate" is an edge whose source you
-cannot read, so its child fields are null; status=unavailable means the child
-exists but its current name cannot be read. An empty label and a missing label
-are reported as different things.
+"verified direct relationship" is a child in the same memory that you can read
+as a citation source; it stays verified even when the child's current name
+cannot be read (then status=unavailable and the name is empty).
+"unclassified candidate" is an edge whose source you cannot read, so its child
+fields are null. An empty label and a missing label are reported as different
+things.
 
 Details. Verified direct relationships require a readable same-memory source whose citation
 parent is this node. Unequal editorial labels are not defects. No history,
