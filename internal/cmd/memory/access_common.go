@@ -34,10 +34,18 @@ type shareDTO struct {
 // subscriptionDTO is the stable --json shape for a memory subscription — an
 // ORGANIZATION granted a role on the memory (member/share are per-user).
 // `activated` reflects the server's activation state.
+//
+// The server withholds the subscribing organization from a caller who may
+// manage the subscription but not read that org (#1246). Organization is then
+// left empty, never filled from elsewhere, and OrganizationHidden says so;
+// create/set-role also echo the caller's own --org as OrgRef. Both keys are
+// omitted for a visible org, so that receipt is unchanged.
 type subscriptionDTO struct {
-	Role         string `json:"role"`
-	Activated    bool   `json:"activated"`
-	Organization orgRef `json:"organization"`
+	Role               string `json:"role"`
+	Activated          bool   `json:"activated"`
+	Organization       orgRef `json:"organization"`
+	OrganizationHidden bool   `json:"organizationHidden,omitempty"`
+	OrgRef             string `json:"orgRef,omitempty"`
 }
 
 type orgRef struct {
