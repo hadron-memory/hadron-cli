@@ -302,11 +302,11 @@ func TestUnpassedArgumentsAndFilters(t *testing.T) {
 }
 
 // The loader reads real type-checked Go: a call from production code reaches
-// an operation, a call from a test or a reference never called does not, a keyed literal sets a field and
+// an operation, a call from a test does not, a keyed literal sets a field and
 // json.Unmarshal into an input sets them all.
 func TestLoadGoUsesReadsProductionCodeOnly(t *testing.T) {
 	inputs := map[string]bool{"AgentFilter": true, "ThingInput": true}
-	u, err := loadGoUses(filepath.Join("testdata", "fixture"), []string{"./..."}, inputs, nil)
+	u, err := loadGoUses(filepath.Join("testdata", "fixture"), []string{"./internal/cmd/..."}, inputs, nil)
 	if err != nil {
 		t.Fatalf("load fixture: %v", err)
 	}
@@ -316,13 +316,26 @@ func TestLoadGoUsesReadsProductionCodeOnly(t *testing.T) {
 	if u.funcs["Me"] {
 		t.Error("Me is called only from a test; tests never count")
 	}
-	if u.funcs["CreateThing"] {
-		t.Error("CreateThing is referenced but never called; a reference reaches nothing")
-	}
+
 	if !u.fields["AgentFilter.ownedByMe"] || u.fields["AgentFilter.type"] {
 		t.Errorf("only the keyed field is set, got %v", u.fields)
 	}
 	if !u.decoded["ThingInput"] {
 		t.Error("json.Unmarshal into *gen.ThingInput reaches the whole input")
+	}
+}
+
+// Only a direct call reaches an operation. A reference never called reaches
+// nothing, and a call through a variable cannot be followed: the loader
+// refuses both rather than guess, naming each use.
+func TestLoadGoUsesRefusesIndirectUses(t *testing.T) {
+	inputs := map[string]bool{"AgentFilter": true, "ThingInput": true}
+	for pkg, want := range map[string]string{"blank": "gen.CreateThing", "viavar": "gen.Agents"} {
+		t.Run(pkg, func(t *testing.T) {
+			_, err := loadGoUses(filepath.Join("testdata", "fixture"), []string{"./internal/indirect/" + pkg}, inputs, nil)
+			if err == nil || !strings.Contains(err.Error(), want) {
+				t.Errorf("want a refusal naming %s, got %v", want, err)
+			}
+		})
 	}
 }

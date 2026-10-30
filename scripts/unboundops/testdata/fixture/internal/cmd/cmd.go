@@ -19,7 +19,4 @@ func createThing(raw []byte) error {
 	return nil
 }
 
-// A reference that is never called reaches nothing.
-var _ = gen.CreateThing
-
 var _, _ = listAgents, createThing
