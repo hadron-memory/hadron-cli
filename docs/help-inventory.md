@@ -470,7 +470,7 @@ section between the markers.
 | `spec link` |  |  | y | #1055 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `spec lint` | check, validate |  | y | #1055 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `spec list` | ls |  | y | #1055 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
-| `spec mint` |  |  | y | #1055 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 ; follow-up [#1307](https://github.com/hadron-memory/hadron-cli/issues/1307) |
+| `spec mint` |  |  | y | #1055 | Cloe | fail | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 : wording passes (Cloe pass2); NOT example-verified: the real mint was blocked, follow-up [#1307](https://github.com/hadron-memory/hadron-cli/issues/1307) carries the end-to-end leg |
 | `spec new` | scaffold |  | y | #1055 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `spec register` | reg |  | y | #1055 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `spec renumber` |  |  | y | #1055 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
