@@ -9243,6 +9243,8 @@ func (v *AppAgentRosterResponse) GetApp() *AppAgentRosterApp { return v.App }
 // C5 slice A (#911): one shared batching-window/ticker-floor dial. Settings
 // operations use the ordinary authenticated caller, not a worker attribution.
 type AppDeliverySettingsFields struct {
+	// #2755: a worker's due wake left unacknowledged this long raises the dark-worker alarm. Whole seconds, 300..86400; default 1800. Independent of stuckWindowSeconds.
+	DarkAlarmWindowSeconds int `json:"darkAlarmWindowSeconds"`
 	// The existing ticker cadence floor and wake-rate ceiling, also the batching window. Changing it affects ticker cadence. DEPRECATED (#2138): push batching is superseded by channel checks; kept readable, no new consumer.
 	BatchWindowSeconds int `json:"batchWindowSeconds"`
 	// Whole seconds, 1..86400; default 600. DEPRECATED (#2138): superseded by channel checks.
@@ -9258,6 +9260,9 @@ type AppDeliverySettingsFields struct {
 	// #2138: a worker with a task is OVERDUE after this many missed periods plus 5 minutes. Whole number, 1..100; default 2.
 	FailedChecksToOverdue int `json:"failedChecksToOverdue"`
 }
+
+// GetDarkAlarmWindowSeconds returns AppDeliverySettingsFields.DarkAlarmWindowSeconds, and is useful for accessing the field via an interface.
+func (v *AppDeliverySettingsFields) GetDarkAlarmWindowSeconds() int { return v.DarkAlarmWindowSeconds }
 
 // GetBatchWindowSeconds returns AppDeliverySettingsFields.BatchWindowSeconds, and is useful for accessing the field via an interface.
 func (v *AppDeliverySettingsFields) GetBatchWindowSeconds() int { return v.BatchWindowSeconds }
@@ -41023,7 +41028,7 @@ func (v *RecoveryEdgesRecoveryEdgesRecoveryEdgesPageItemsRecoveryGraphEdgeTarget
 
 // RecoveryEdgesResponse is returned by RecoveryEdges on success.
 type RecoveryEdgesResponse struct {
-	// Inspect live edges and accessible deleted endpoints in one memory you can read and write. Default 20, maximum 200. hrn:node:hadronmemory.com:specs:cor:api:110:02
+	// Inspect live edges and accessible deleted endpoints in one memory you can read and write. Default 20, maximum 200. edgeIds (1 to 200 ids) restricts the result, total included, to those edges; an id that is not a visible edge of this memory is absent. hrn:node:hadronmemory.com:specs:cor:api:110:02
 	RecoveryEdges *RecoveryEdgesRecoveryEdgesRecoveryEdgesPage `json:"recoveryEdges"`
 }
 
@@ -53361,6 +53366,11 @@ type TeamDeliverySettingsAppDeliverySettings struct {
 	AppDeliverySettingsFields `json:"-"`
 }
 
+// GetDarkAlarmWindowSeconds returns TeamDeliverySettingsAppDeliverySettings.DarkAlarmWindowSeconds, and is useful for accessing the field via an interface.
+func (v *TeamDeliverySettingsAppDeliverySettings) GetDarkAlarmWindowSeconds() int {
+	return v.AppDeliverySettingsFields.DarkAlarmWindowSeconds
+}
+
 // GetBatchWindowSeconds returns TeamDeliverySettingsAppDeliverySettings.BatchWindowSeconds, and is useful for accessing the field via an interface.
 func (v *TeamDeliverySettingsAppDeliverySettings) GetBatchWindowSeconds() int {
 	return v.AppDeliverySettingsFields.BatchWindowSeconds
@@ -53422,6 +53432,8 @@ func (v *TeamDeliverySettingsAppDeliverySettings) UnmarshalJSON(b []byte) error 
 }
 
 type __premarshalTeamDeliverySettingsAppDeliverySettings struct {
+	DarkAlarmWindowSeconds int `json:"darkAlarmWindowSeconds"`
+
 	BatchWindowSeconds int `json:"batchWindowSeconds"`
 
 	BusyDelaySeconds int `json:"busyDelaySeconds"`
@@ -53448,6 +53460,7 @@ func (v *TeamDeliverySettingsAppDeliverySettings) MarshalJSON() ([]byte, error) 
 func (v *TeamDeliverySettingsAppDeliverySettings) __premarshalJSON() (*__premarshalTeamDeliverySettingsAppDeliverySettings, error) {
 	var retval __premarshalTeamDeliverySettingsAppDeliverySettings
 
+	retval.DarkAlarmWindowSeconds = v.AppDeliverySettingsFields.DarkAlarmWindowSeconds
 	retval.BatchWindowSeconds = v.AppDeliverySettingsFields.BatchWindowSeconds
 	retval.BusyDelaySeconds = v.AppDeliverySettingsFields.BusyDelaySeconds
 	retval.StuckWindowSeconds = v.AppDeliverySettingsFields.StuckWindowSeconds
@@ -53486,6 +53499,11 @@ func (v *TeamDeliverySettingsSetResponse) GetSetAppDeliverySettings() *TeamDeliv
 // Delivery timing per App. Busy/stuck bounds and relation are Proposed (hrn:node:hadronmemory.com:specs:cor:agt:080:05).
 type TeamDeliverySettingsSetSetAppDeliverySettings struct {
 	AppDeliverySettingsFields `json:"-"`
+}
+
+// GetDarkAlarmWindowSeconds returns TeamDeliverySettingsSetSetAppDeliverySettings.DarkAlarmWindowSeconds, and is useful for accessing the field via an interface.
+func (v *TeamDeliverySettingsSetSetAppDeliverySettings) GetDarkAlarmWindowSeconds() int {
+	return v.AppDeliverySettingsFields.DarkAlarmWindowSeconds
 }
 
 // GetBatchWindowSeconds returns TeamDeliverySettingsSetSetAppDeliverySettings.BatchWindowSeconds, and is useful for accessing the field via an interface.
@@ -53549,6 +53567,8 @@ func (v *TeamDeliverySettingsSetSetAppDeliverySettings) UnmarshalJSON(b []byte) 
 }
 
 type __premarshalTeamDeliverySettingsSetSetAppDeliverySettings struct {
+	DarkAlarmWindowSeconds int `json:"darkAlarmWindowSeconds"`
+
 	BatchWindowSeconds int `json:"batchWindowSeconds"`
 
 	BusyDelaySeconds int `json:"busyDelaySeconds"`
@@ -53575,6 +53595,7 @@ func (v *TeamDeliverySettingsSetSetAppDeliverySettings) MarshalJSON() ([]byte, e
 func (v *TeamDeliverySettingsSetSetAppDeliverySettings) __premarshalJSON() (*__premarshalTeamDeliverySettingsSetSetAppDeliverySettings, error) {
 	var retval __premarshalTeamDeliverySettingsSetSetAppDeliverySettings
 
+	retval.DarkAlarmWindowSeconds = v.AppDeliverySettingsFields.DarkAlarmWindowSeconds
 	retval.BatchWindowSeconds = v.AppDeliverySettingsFields.BatchWindowSeconds
 	retval.BusyDelaySeconds = v.AppDeliverySettingsFields.BusyDelaySeconds
 	retval.StuckWindowSeconds = v.AppDeliverySettingsFields.StuckWindowSeconds
@@ -91085,6 +91106,7 @@ query TeamDeliverySettings ($appRef: String!) {
 	}
 }
 fragment AppDeliverySettingsFields on AppDeliverySettings {
+	darkAlarmWindowSeconds
 	batchWindowSeconds
 	busyDelaySeconds
 	stuckWindowSeconds
@@ -91128,6 +91150,7 @@ mutation TeamDeliverySettingsSet ($appRef: String!, $input: AppDeliverySettingsI
 	}
 }
 fragment AppDeliverySettingsFields on AppDeliverySettings {
+	darkAlarmWindowSeconds
 	batchWindowSeconds
 	busyDelaySeconds
 	stuckWindowSeconds

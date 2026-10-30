@@ -1294,6 +1294,7 @@ query WorkerReporting($ref: ID!) {
 # C5 slice A (#911): one shared batching-window/ticker-floor dial. Settings
 # operations use the ordinary authenticated caller, not a worker attribution.
 fragment AppDeliverySettingsFields on AppDeliverySettings {
+  darkAlarmWindowSeconds
   batchWindowSeconds
   busyDelaySeconds
   stuckWindowSeconds
@@ -1312,7 +1313,6 @@ query TeamDeliverySettings($appRef: String!) {
 # @genqlient(for: "AppDeliverySettingsInput.checkPeriodSeconds", omitempty: true)
 # @genqlient(for: "AppDeliverySettingsInput.darkAlarmWindowSeconds", omitempty: true)
 # @genqlient(for: "AppDeliverySettingsInput.failedChecksToOverdue", omitempty: true)
-# @genqlient(for: "AppDeliverySettingsInput.darkAlarmWindowSeconds", omitempty: true)
 mutation TeamDeliverySettingsSet(
   $appRef: String!
   $input: AppDeliverySettingsInput!

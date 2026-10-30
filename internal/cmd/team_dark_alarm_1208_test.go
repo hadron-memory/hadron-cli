@@ -84,3 +84,76 @@ func TestTaskAlarmBaseline1208(t *testing.T) {
 		t.Fatalf("task ack changed: %q", out)
 	}
 }
+
+func TestDarkSettingsGetAndPresence1208(t *testing.T) {
+	for _, jsonMode := range []bool{false, true} {
+		args := []string{"team", "delivery-settings", "get"}
+		if jsonMode {
+			args = append(args, "--json")
+		}
+		_, out, err := runTeamTask(t, deliveryResponses(), args...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(out, "1800") {
+			t.Fatal(out)
+		}
+	}
+	calls, _, err := runTeamTask(t, deliveryResponses(), "team", "delivery-settings", "set", "--busy-delay-seconds", "700")
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, c := range *calls {
+		if c.Op == "TeamDeliverySettingsSet" {
+			found = true
+			input := c.Vars["input"].(map[string]any)
+			if _, ok := input["darkAlarmWindowSeconds"]; ok {
+				t.Fatalf("omitted field sent %v", input)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("no mutation")
+	}
+	for _, value := range []string{"", "1.5", "null", "2147483648"} {
+		calls, _, err := runTeamTask(t, deliveryResponses(), "team", "delivery-settings", "set", "--dark-alarm-window-seconds", value)
+		if err == nil || exitCodeFor(err) != 2 {
+			t.Fatalf("%q: %v", value, err)
+		}
+		for _, c := range *calls {
+			if c.Op == "TeamDeliverySettingsSet" {
+				t.Fatal("invalid integer sent")
+			}
+		}
+	}
+	r := deliveryResponses()
+	r["TeamDeliverySettingsSet"] = `{"errors":[{"message":"window outside server bounds","extensions":{"code":"BAD_USER_INPUT"}}]}`
+	calls, _, err = runTeamTask(t, r, "team", "delivery-settings", "set", "--dark-alarm-window-seconds", "299")
+	if err == nil || exitCodeFor(err) != 2 || len(callsFor(calls, "TeamDeliverySettingsSet")) != 1 {
+		t.Fatalf("server refusal: %v %v", err, calls)
+	}
+}
+func TestDarkAlarmJSONAndReasonVocabulary1208(t *testing.T) {
+	for _, reason := range []string{"wake-unacked", "UNTRUSTED-REASON"} {
+		r := taskResponses()
+		r["AgentTeamEvents"] = `{"data":{"agentTeamEvents":[` + strings.Replace(darkEvent1208(false), "overdue", reason, 1) + `]}}`
+		_, out, err := runTeamTask(t, r, "team", "events", "--alarms")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(out, "worker Rufus") || strings.Contains(out, "UNTRUSTED-REASON") || strings.Contains(out, "PRIVATE-EVIDENCE") {
+			t.Fatal(out)
+		}
+		if reason == "wake-unacked" && !strings.Contains(out, reason) {
+			t.Fatal(out)
+		}
+		_, out, err = runTeamTask(t, r, "team", "events", "--alarms", "--json")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(out, "PRIVATE-EVIDENCE") || !strings.Contains(out, reason) {
+			t.Fatalf("JSON changed: %s", out)
+		}
+	}
+}
