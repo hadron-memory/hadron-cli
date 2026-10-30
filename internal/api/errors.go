@@ -780,6 +780,10 @@ func codeForExtension(code string) int {
 		return exitcode.Usage
 	case code == "WAKE_PROOF_REQUESTER_MISMATCH":
 		return exitcode.Forbidden
+	// A worker's session may not acknowledge wakes (cor:agt:080:17); the
+	// person behind it does, as themselves (cli#1279).
+	case code == "WAKE_ACK_FORBIDDEN":
+		return exitcode.Forbidden
 	// S9 settings (#911): invalid candidates are input errors; a live ticker
 	// conflict or unavailable standby behavior requires a state change.
 	case code == "DELIVERY_SETTINGS_OUT_OF_RANGE" || code == "DELIVERY_SETTINGS_CONFLICT" || code == "TICKER_SETTINGS_OUT_OF_RANGE":

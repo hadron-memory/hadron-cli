@@ -32,6 +32,7 @@ func jsonInt(n int) string {
 func c1279Responses(page string) map[string]string {
 	r := taskResponses()
 	r["Workers"] = `{"data":{"workers":{"total":1,"items":[` + irisWorkerJSON + `]}}}`
+	r["GetWorker"] = `{"data":{"worker":null}}`
 	r["TeamDueWakes"] = page
 	r["AcknowledgeWakes"] = `{"data":{"acknowledgeWakes":{"acknowledged":1,"unchanged":0}}}`
 	return r
@@ -61,7 +62,7 @@ func TestC1279DueShowsTickWake(t *testing.T) {
 	if reads[0].Session != "" {
 		t.Fatalf("read carried worker session %q", reads[0].Session)
 	}
-	for _, want := range []string{"Iris", "TICK standup", "TASK AT1.4 ASSIGNED", "chats:team 40-42", "prf-tick-1"} {
+	for _, want := range []string{"Iris", "TICK standup", "TASK AT1.4 t1 ASSIGNED", "chats:team 40-42", "prf-tick-1"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("output lacks %q:\n%s", want, out)
 		}
@@ -136,7 +137,7 @@ func TestC1279DueWithheldExitsNonZero(t *testing.T) {
 		if err == nil || !strings.Contains(err.Error(), "WAKE_BUDGET_EXHAUSTED") {
 			t.Fatalf("%v: err %v", argv, err)
 		}
-		if exitcode.FromError(err) != exitcode.Conflict {
+		if exitCodeFor(err) != exitcode.Conflict {
 			t.Fatalf("%v: exit %v, want %d", argv, err, exitcode.Conflict)
 		}
 	}
@@ -155,7 +156,7 @@ func TestC1279AcceptStopIsOptIn(t *testing.T) {
 
 func TestC1279UnknownWorkerRefusedLocally(t *testing.T) {
 	calls, _, err := runTeamTask(t, c1279Responses(c1279Page("OK", 0, "")), "team", "wakes", "due", "--worker", "Nobody")
-	if exitcode.FromError(err) != exitcode.NotFound {
+	if exitCodeFor(err) != exitcode.NotFound {
 		t.Fatalf("err %v, want exit %d", err, exitcode.NotFound)
 	}
 	if n := len(stopCalls(calls, "TeamDueWakes")); n != 0 {
@@ -166,7 +167,7 @@ func TestC1279UnknownWorkerRefusedLocally(t *testing.T) {
 func TestC1279DueRefusalKeepsServerCode(t *testing.T) {
 	r := c1279Responses(c1279Errors("APP_NOT_FOUND"))
 	_, _, err := runTeamTask(t, r, "team", "wakes", "due")
-	if exitcode.FromError(err) != exitcode.NotFound || !strings.Contains(err.Error(), "APP_NOT_FOUND") {
+	if exitCodeFor(err) != exitcode.NotFound || !strings.Contains(err.Error(), "APP_NOT_FOUND") {
 		t.Fatalf("err %v", err)
 	}
 }
@@ -203,7 +204,7 @@ func TestC1279AckRefusalsMapped(t *testing.T) {
 		r := c1279Responses("")
 		r["AcknowledgeWakes"] = c1279Errors(code)
 		_, _, err := runTeamTask(t, r, "team", "wakes", "ack", "prf-x")
-		if exitcode.FromError(err) != want || !strings.Contains(err.Error(), code) {
+		if exitCodeFor(err) != want || !strings.Contains(err.Error(), code) {
 			t.Fatalf("%s: err %v, want exit %d", code, err, want)
 		}
 	}
@@ -212,7 +213,7 @@ func TestC1279AckRefusalsMapped(t *testing.T) {
 func TestC1279AckNeedsAProof(t *testing.T) {
 	for _, argv := range [][]string{{"team", "wakes", "ack"}, {"team", "wakes", "ack", " "}} {
 		calls, _, err := runTeamTask(t, c1279Responses(""), argv...)
-		if exitcode.FromError(err) != exitcode.Usage {
+		if exitCodeFor(err) != exitcode.Usage {
 			t.Fatalf("%v: err %v", argv, err)
 		}
 		if n := len(stopCalls(calls, "AcknowledgeWakes")); n != 0 {

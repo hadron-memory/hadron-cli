@@ -51775,6 +51775,19 @@ func (v *StopImpersonationStopImpersonationImpersonationSession) GetEndedAt() *s
 	return v.EndedAt
 }
 
+// #2022 — whether a stop notice tells the worker to stop or that it may resume.
+type StopNoticeKind string
+
+const (
+	StopNoticeKindResume StopNoticeKind = "RESUME"
+	StopNoticeKindStop   StopNoticeKind = "STOP"
+)
+
+var AllStopNoticeKind = []StopNoticeKind{
+	StopNoticeKindResume,
+	StopNoticeKindStop,
+}
+
 type StopSignalEndKind string
 
 const (
@@ -54588,6 +54601,395 @@ func (v *TeamDeliverySettingsSetSetAppDeliverySettings) __premarshalJSON() (*__p
 	retval.FailedChecksToOverdue = v.AppDeliverySettingsFields.FailedChecksToOverdue
 	return &retval, nil
 }
+
+// TeamDueWakesDueWakesDueWakePage includes the requested fields of the GraphQL type DueWakePage.
+// The GraphQL type's documentation follows.
+//
+// #1748 — one page of due wakes. Counts and ranges only (hrn:node:hadronmemory.com:specs:cor:agt:080:23).
+type TeamDueWakesDueWakesDueWakePage struct {
+	Status DueWakeStatus `json:"status"`
+	// Wakes held back by the daily budget; each stays due.
+	Withheld int `json:"withheld"`
+	// Dormant workers with relevant mentions, and how many: withheld, never dropped silently.
+	Dormant  []*TeamDueWakesDueWakesDueWakePageDormantDormantWithheld `json:"dormant"`
+	Wakes    []*TeamDueWakesDueWakesDueWakePageWakesDueWake           `json:"wakes"`
+	PageInfo *TeamDueWakesDueWakesDueWakePagePageInfoDueWakePageInfo  `json:"pageInfo"`
+}
+
+// GetStatus returns TeamDueWakesDueWakesDueWakePage.Status, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePage) GetStatus() DueWakeStatus { return v.Status }
+
+// GetWithheld returns TeamDueWakesDueWakesDueWakePage.Withheld, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePage) GetWithheld() int { return v.Withheld }
+
+// GetDormant returns TeamDueWakesDueWakesDueWakePage.Dormant, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePage) GetDormant() []*TeamDueWakesDueWakesDueWakePageDormantDormantWithheld {
+	return v.Dormant
+}
+
+// GetWakes returns TeamDueWakesDueWakesDueWakePage.Wakes, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePage) GetWakes() []*TeamDueWakesDueWakesDueWakePageWakesDueWake {
+	return v.Wakes
+}
+
+// GetPageInfo returns TeamDueWakesDueWakesDueWakePage.PageInfo, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePage) GetPageInfo() *TeamDueWakesDueWakesDueWakePagePageInfoDueWakePageInfo {
+	return v.PageInfo
+}
+
+// TeamDueWakesDueWakesDueWakePageDormantDormantWithheld includes the requested fields of the GraphQL type DormantWithheld.
+type TeamDueWakesDueWakesDueWakePageDormantDormantWithheld struct {
+	Worker   *TeamDueWakesDueWakesDueWakePageDormantDormantWithheldWorker `json:"worker"`
+	Mentions int                                                          `json:"mentions"`
+}
+
+// GetWorker returns TeamDueWakesDueWakesDueWakePageDormantDormantWithheld.Worker, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageDormantDormantWithheld) GetWorker() *TeamDueWakesDueWakesDueWakePageDormantDormantWithheldWorker {
+	return v.Worker
+}
+
+// GetMentions returns TeamDueWakesDueWakesDueWakePageDormantDormantWithheld.Mentions, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageDormantDormantWithheld) GetMentions() int { return v.Mentions }
+
+// TeamDueWakesDueWakesDueWakePageDormantDormantWithheldWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type TeamDueWakesDueWakesDueWakePageDormantDormantWithheldWorker struct {
+	Id string `json:"id"`
+	// The worker's name ('Iris') — the identity every surface renders.
+	Name string `json:"name"`
+}
+
+// GetId returns TeamDueWakesDueWakesDueWakePageDormantDormantWithheldWorker.Id, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageDormantDormantWithheldWorker) GetId() string { return v.Id }
+
+// GetName returns TeamDueWakesDueWakesDueWakePageDormantDormantWithheldWorker.Name, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageDormantDormantWithheldWorker) GetName() string { return v.Name }
+
+// TeamDueWakesDueWakesDueWakePagePageInfoDueWakePageInfo includes the requested fields of the GraphQL type DueWakePageInfo.
+type TeamDueWakesDueWakesDueWakePagePageInfoDueWakePageInfo struct {
+	HasNextPage bool    `json:"hasNextPage"`
+	EndCursor   *string `json:"endCursor"`
+}
+
+// GetHasNextPage returns TeamDueWakesDueWakesDueWakePagePageInfoDueWakePageInfo.HasNextPage, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePagePageInfoDueWakePageInfo) GetHasNextPage() bool {
+	return v.HasNextPage
+}
+
+// GetEndCursor returns TeamDueWakesDueWakesDueWakePagePageInfoDueWakePageInfo.EndCursor, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePagePageInfoDueWakePageInfo) GetEndCursor() *string {
+	return v.EndCursor
+}
+
+// TeamDueWakesDueWakesDueWakePageWakesDueWake includes the requested fields of the GraphQL type DueWake.
+// The GraphQL type's documentation follows.
+//
+// One merged wake: every reason, one seq range per channel. A wake never moves a read position.
+type TeamDueWakesDueWakesDueWakePageWakesDueWake struct {
+	// Hand this back to acknowledgeWakes after delivering. Bound to the requester; good for 15 minutes.
+	Proof  string                                             `json:"proof"`
+	Worker *TeamDueWakesDueWakesDueWakePageWakesDueWakeWorker `json:"worker"`
+	// One server-written tick line, null without a tick (hrn:node:hadronmemory.com:specs:cor:agt:080:26). Names are flattened; repeated task URNs appear once.
+	TickText       *string `json:"tickText"`
+	Unread         int     `json:"unread"`
+	UnreadMentions int     `json:"unreadMentions"`
+	// #2017 R63 — when the earliest waiting reason became due: a mention's first still-due post, a tick's OLDEST unacknowledged
+	// tick time, a task event's time. Never restarted by a re-offer or a join (hrn:node:hadronmemory.com:specs:cor:agt:080:27).
+	AnchorAt string `json:"anchorAt"`
+	// Not before this moment: the anchor plus the App's batching window (the shared cadence floor).
+	DeliverAfter string `json:"deliverAfter"`
+	// The latest a busy worker may be made to wait: the anchor plus the App's busy delay.
+	BusyDeadline string                                                           `json:"busyDeadline"`
+	Channels     []*TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannel `json:"channels"`
+	Reasons      []*TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason  `json:"reasons"`
+}
+
+// GetProof returns TeamDueWakesDueWakesDueWakePageWakesDueWake.Proof, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWake) GetProof() string { return v.Proof }
+
+// GetWorker returns TeamDueWakesDueWakesDueWakePageWakesDueWake.Worker, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWake) GetWorker() *TeamDueWakesDueWakesDueWakePageWakesDueWakeWorker {
+	return v.Worker
+}
+
+// GetTickText returns TeamDueWakesDueWakesDueWakePageWakesDueWake.TickText, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWake) GetTickText() *string { return v.TickText }
+
+// GetUnread returns TeamDueWakesDueWakesDueWakePageWakesDueWake.Unread, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWake) GetUnread() int { return v.Unread }
+
+// GetUnreadMentions returns TeamDueWakesDueWakesDueWakePageWakesDueWake.UnreadMentions, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWake) GetUnreadMentions() int {
+	return v.UnreadMentions
+}
+
+// GetAnchorAt returns TeamDueWakesDueWakesDueWakePageWakesDueWake.AnchorAt, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWake) GetAnchorAt() string { return v.AnchorAt }
+
+// GetDeliverAfter returns TeamDueWakesDueWakesDueWakePageWakesDueWake.DeliverAfter, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWake) GetDeliverAfter() string { return v.DeliverAfter }
+
+// GetBusyDeadline returns TeamDueWakesDueWakesDueWakePageWakesDueWake.BusyDeadline, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWake) GetBusyDeadline() string { return v.BusyDeadline }
+
+// GetChannels returns TeamDueWakesDueWakesDueWakePageWakesDueWake.Channels, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWake) GetChannels() []*TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannel {
+	return v.Channels
+}
+
+// GetReasons returns TeamDueWakesDueWakesDueWakePageWakesDueWake.Reasons, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWake) GetReasons() []*TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason {
+	return v.Reasons
+}
+
+// TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannel includes the requested fields of the GraphQL type DueChannel.
+type TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannel struct {
+	Channel          *TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannelChannel `json:"channel"`
+	FromSeq          int                                                                   `json:"fromSeq"`
+	ThroughSeq       int                                                                   `json:"throughSeq"`
+	LatestMentionSeq *int                                                                  `json:"latestMentionSeq"`
+}
+
+// GetChannel returns TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannel.Channel, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannel) GetChannel() *TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannelChannel {
+	return v.Channel
+}
+
+// GetFromSeq returns TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannel.FromSeq, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannel) GetFromSeq() int {
+	return v.FromSeq
+}
+
+// GetThroughSeq returns TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannel.ThroughSeq, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannel) GetThroughSeq() int {
+	return v.ThroughSeq
+}
+
+// GetLatestMentionSeq returns TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannel.LatestMentionSeq, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannel) GetLatestMentionSeq() *int {
+	return v.LatestMentionSeq
+}
+
+// TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannelChannel includes the requested fields of the GraphQL type Channel.
+// The GraphQL type's documentation follows.
+//
+// A CHANNEL (spec 049, D-2026-09-13-006): a durable, ordered message stream
+// hosted in ONE memory at ONE reserved address, server-ordered and
+// server-attributed — a platform entity, created one-to-one with its chat root.
+// Creating it RESERVES and PROTECTS the address: generic node writes under it
+// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage,
+// hadron_team_chat_post) are the only writers. The audience is the host
+// memory's (cor:acl:030:01) — a Channel has no access layer of its own.
+// `lastSeq` / `lastMessageAt` are the platform-maintained watermark.
+type TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannelChannel struct {
+	Id string `json:"id"`
+	// The reserved address of the chat root (e.g. chats:team).
+	Loc string `json:"loc"`
+}
+
+// GetId returns TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannelChannel.Id, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannelChannel) GetId() string {
+	return v.Id
+}
+
+// GetLoc returns TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannelChannel.Loc, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannelChannel) GetLoc() string {
+	return v.Loc
+}
+
+// TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason includes the requested fields of the GraphQL type WakeReason.
+type TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason struct {
+	Kind WakeKind `json:"kind"`
+	// #2790 (hrn:node:hadronmemory.com:specs:cor:agt:080:23) — set for kind TICK only, null for MENTION, TASK and STOP: the
+	// time of THIS ticker's oldest tick the worker has not acknowledged, up to the tick that fired. It is per reason, so a
+	// wake with an old mention and a fresh tick, or ticks of two tickers, shows each tick's own time; `anchorAt` stays the
+	// earliest over all reasons (hrn:node:hadronmemory.com:specs:cor:agt:080:27) and is at or before every one of these.
+	// Computed at read time from the worker's acknowledged tick, never stored: a tick that joins an outstanding wake
+	// (hrn:node:hadronmemory.com:specs:cor:agt:080:12) leaves it at the oldest unacknowledged tick, not the joining one.
+	TickDueAt *string                                                             `json:"tickDueAt"`
+	Ticker    *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker `json:"ticker"`
+	// Set for kind TASK.
+	Task *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason `json:"task"`
+	// #2022 — set for kind STOP.
+	Stop *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason `json:"stop"`
+}
+
+// GetKind returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason.Kind, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetKind() WakeKind {
+	return v.Kind
+}
+
+// GetTickDueAt returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason.TickDueAt, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetTickDueAt() *string {
+	return v.TickDueAt
+}
+
+// GetTicker returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason.Ticker, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetTicker() *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker {
+	return v.Ticker
+}
+
+// GetTask returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason.Task, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetTask() *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason {
+	return v.Task
+}
+
+// GetStop returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason.Stop, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetStop() *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason {
+	return v.Stop
+}
+
+// TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason includes the requested fields of the GraphQL type DueStopReason.
+// The GraphQL type's documentation follows.
+//
+// #2022 — the stop-signal notice a STOP reason delivers. Acknowledging the wake records its delivery; it moves no chat mark.
+type TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason struct {
+	// The notice; acknowledging the wake records delivery on it.
+	EventId  string          `json:"eventId"`
+	SignalId string          `json:"signalId"`
+	Level    StopSignalLevel `json:"level"`
+	Notice   StopNoticeKind  `json:"notice"`
+	// True only for a halt's stop notice: the one notice that interrupts the worker.
+	Interrupt bool `json:"interrupt"`
+}
+
+// GetEventId returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason.EventId, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason) GetEventId() string {
+	return v.EventId
+}
+
+// GetSignalId returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason.SignalId, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason) GetSignalId() string {
+	return v.SignalId
+}
+
+// GetLevel returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason.Level, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason) GetLevel() StopSignalLevel {
+	return v.Level
+}
+
+// GetNotice returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason.Notice, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason) GetNotice() StopNoticeKind {
+	return v.Notice
+}
+
+// GetInterrupt returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason.Interrupt, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason) GetInterrupt() bool {
+	return v.Interrupt
+}
+
+// TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason includes the requested fields of the GraphQL type DueTaskReason.
+// The GraphQL type's documentation follows.
+//
+// #1708 — the task a TASK reason is for: shown only to a caller who may read the App's tasks (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason struct {
+	// The task's id (for CHILD_FINISHED, the child's).
+	Id string `json:"id"`
+	// The task's handle, e.g. AT3.405: an alias for the id, printed first in the nudge (hrn:node:hadronmemory.com:specs:cor:agt:050:01).
+	Handle string `json:"handle"`
+	// The task's title, for the nudge text.
+	Title string        `json:"title"`
+	Event TaskWakeEvent `json:"event"`
+	// 0, or the alarm chain position woken.
+	ChainIndex int `json:"chainIndex"`
+	// The event delivered; acknowledging the wake records delivery on it.
+	EventId string `json:"eventId"`
+}
+
+// GetId returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason.Id, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason) GetId() string {
+	return v.Id
+}
+
+// GetHandle returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason.Handle, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason) GetHandle() string {
+	return v.Handle
+}
+
+// GetTitle returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason.Title, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason) GetTitle() string {
+	return v.Title
+}
+
+// GetEvent returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason.Event, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason) GetEvent() TaskWakeEvent {
+	return v.Event
+}
+
+// GetChainIndex returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason.ChainIndex, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason) GetChainIndex() int {
+	return v.ChainIndex
+}
+
+// GetEventId returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason.EventId, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason) GetEventId() string {
+	return v.EventId
+}
+
+// TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker includes the requested fields of the GraphQL type Ticker.
+// The GraphQL type's documentation follows.
+//
+// #1747 — a named wake schedule owned by one team App (hrn:node:hadronmemory.com:specs:cor:agt:080:01). Its URN is hrn:ticker:ROOT:APP-SLUG:SLUG,
+// computed from the App and the permanent slug. Ticks are computed, not stored; nothing reads a ticker until due wakes ship.
+type TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetId returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker.Id, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker) GetId() string {
+	return v.Id
+}
+
+// GetName returns TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker.Name, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker) GetName() string {
+	return v.Name
+}
+
+// TeamDueWakesDueWakesDueWakePageWakesDueWakeWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type TeamDueWakesDueWakesDueWakePageWakesDueWakeWorker struct {
+	Id string `json:"id"`
+	// The worker's name ('Iris') — the identity every surface renders.
+	Name string `json:"name"`
+}
+
+// GetId returns TeamDueWakesDueWakesDueWakePageWakesDueWakeWorker.Id, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeWorker) GetId() string { return v.Id }
+
+// GetName returns TeamDueWakesDueWakesDueWakePageWakesDueWakeWorker.Name, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeWorker) GetName() string { return v.Name }
+
+// TeamDueWakesResponse is returned by TeamDueWakes on success.
+type TeamDueWakesResponse struct {
+	// #1748 — the wakes due now (hrn:node:hadronmemory.com:specs:cor:agt:080:08). Counts and seq ranges only; reads nothing it does not return.
+	// accepts (#2169, hrn:node:hadronmemory.com:specs:cor:agt:090:04): the reason kinds this caller can deliver. Omit it and no STOP notice is
+	// ever returned (the shipped ticker-wake). A call that lists STOP is offered the worker's newest undelivered stop notice, and
+	// declares the lane it serves (a host key: its own registration; a person who manages the App, or a key without a host:
+	// the unhosted lane) for STOP_CONSUMER_FRESH_SECONDS (default 600), but only when it read the lane from its start to its end in one call:
+	// no workerRefs, no after, and no next page (ask for first: 200; a lane larger than a page cannot declare). A worker whose host is lost has no serving lane until the host returns. Setting a stop signal is refused (STOP_SIGNAL_UNAVAILABLE)
+	// while any worker it would cover is on a lane with no fresh declaration.
+	DueWakes *TeamDueWakesDueWakesDueWakePage `json:"dueWakes"`
+}
+
+// GetDueWakes returns TeamDueWakesResponse.DueWakes, and is useful for accessing the field via an interface.
+func (v *TeamDueWakesResponse) GetDueWakes() *TeamDueWakesDueWakesDueWakePage { return v.DueWakes }
 
 // TeamMemoryAppMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
@@ -71732,6 +72134,30 @@ func (v *__TeamDeliverySettingsSetInput) GetAppRef() string { return v.AppRef }
 
 // GetInput returns __TeamDeliverySettingsSetInput.Input, and is useful for accessing the field via an interface.
 func (v *__TeamDeliverySettingsSetInput) GetInput() *AppDeliverySettingsInput { return v.Input }
+
+// __TeamDueWakesInput is used internally by genqlient
+type __TeamDueWakesInput struct {
+	AppRef     string     `json:"appRef"`
+	WorkerRefs []string   `json:"workerRefs,omitempty"`
+	First      *int       `json:"first,omitempty"`
+	After      *string    `json:"after,omitempty"`
+	Accepts    []WakeKind `json:"accepts,omitempty"`
+}
+
+// GetAppRef returns __TeamDueWakesInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamDueWakesInput) GetAppRef() string { return v.AppRef }
+
+// GetWorkerRefs returns __TeamDueWakesInput.WorkerRefs, and is useful for accessing the field via an interface.
+func (v *__TeamDueWakesInput) GetWorkerRefs() []string { return v.WorkerRefs }
+
+// GetFirst returns __TeamDueWakesInput.First, and is useful for accessing the field via an interface.
+func (v *__TeamDueWakesInput) GetFirst() *int { return v.First }
+
+// GetAfter returns __TeamDueWakesInput.After, and is useful for accessing the field via an interface.
+func (v *__TeamDueWakesInput) GetAfter() *string { return v.After }
+
+// GetAccepts returns __TeamDueWakesInput.Accepts, and is useful for accessing the field via an interface.
+func (v *__TeamDueWakesInput) GetAccepts() []WakeKind { return v.Accepts }
 
 // __TeamMemoryAppInput is used internally by genqlient
 type __TeamMemoryAppInput struct {
@@ -92855,6 +93281,110 @@ func TeamDeliverySettingsSet(
 	}
 
 	data_ = &TeamDeliverySettingsSetResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamDueWakes.
+const TeamDueWakes_Operation = `
+query TeamDueWakes ($appRef: String!, $workerRefs: [String!], $first: Int, $after: String, $accepts: [WakeKind!]) {
+	dueWakes(appRef: $appRef, workerRefs: $workerRefs, first: $first, after: $after, accepts: $accepts) {
+		status
+		withheld
+		dormant {
+			worker {
+				id
+				name
+			}
+			mentions
+		}
+		wakes {
+			proof
+			worker {
+				id
+				name
+			}
+			tickText
+			unread
+			unreadMentions
+			anchorAt
+			deliverAfter
+			busyDeadline
+			channels {
+				channel {
+					id
+					loc
+				}
+				fromSeq
+				throughSeq
+				latestMentionSeq
+			}
+			reasons {
+				kind
+				tickDueAt
+				ticker {
+					id
+					name
+				}
+				task {
+					id
+					handle
+					title
+					event
+					chainIndex
+					eventId
+				}
+				stop {
+					eventId
+					signalId
+					level
+					notice
+					interrupt
+				}
+			}
+		}
+		pageInfo {
+			hasNextPage
+			endCursor
+		}
+	}
+}
+`
+
+// hadron-cli#1279: `team wakes due`, the person's read of the wakes due for
+// the workers they hold or (as manager) the App's lane (cor:agt:080:08). A
+// worker's session cannot read wakes (the server conceals the App), and reads
+// never carry one. accepts is sent only on --accept-stop: listing STOP
+// declares the lane this caller serves (cor:agt:090:04).
+func TeamDueWakes(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	workerRefs []string,
+	first *int,
+	after *string,
+	accepts []WakeKind,
+) (data_ *TeamDueWakesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamDueWakes",
+		Query:  TeamDueWakes_Operation,
+		Variables: &__TeamDueWakesInput{
+			AppRef:     appRef,
+			WorkerRefs: workerRefs,
+			First:      first,
+			After:      after,
+			Accepts:    accepts,
+		},
+	}
+
+	data_ = &TeamDueWakesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
