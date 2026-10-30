@@ -521,7 +521,7 @@ updateWorker  command team worker update
 withdrawDecision  gap #1335
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 191: 172 gap, 19 excluded
+[Arguments] 189: 170 gap, 19 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.addOrgMember(orgRef)  gap #1342: the CLI passes the deprecated orgId/userId
@@ -535,7 +535,6 @@ Mutation.createAgent(systemPrompt)  gap #58
 Mutation.createAgent(usesTasks)  gap #58
 Mutation.createAgentSchedule(input.runAt)  gap #1346
 Mutation.createAgentSchedule(input.scopeRef)  gap #1346
-Mutation.createAgentTask(input.properties)  gap #1118: the field shipped as properties
 Mutation.createAgentWebhook(input.scopeRef)  gap #1346
 Mutation.createAiServiceConfig(apiStyle)  gap #1347
 Mutation.createApp(agentTools)  gap #63
@@ -625,7 +624,6 @@ Mutation.updateAgent(systemPrompt)  gap #58
 Mutation.updateAgentSchedule(input.agentRef)  gap #1346
 Mutation.updateAgentSchedule(input.runAt)  gap #1346
 Mutation.updateAgentSchedule(input.scopeRef)  gap #1346
-Mutation.updateAgentTask(input.properties)  gap #1118: the field shipped as properties
 Mutation.updateAiServiceConfig(apiStyle)  gap #1347
 Mutation.updateApp(agentSessionsExpire)  gap #63
 Mutation.updateApp(agentTools)  gap #63

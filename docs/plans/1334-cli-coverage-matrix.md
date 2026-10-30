@@ -93,11 +93,11 @@ line doesn't spell. A positive control shows that each kind fails.
 ## Result at 94d33f45
 
 - 500 root fields: 326 reached by a command, 151 gaps, 23 excluded.
-- 191 argument gaps (172 gaps, 19 server-deprecated arguments excluded).
+- 189 argument lines (170 gaps, 19 server-deprecated arguments excluded).
 - 39 filter fields (30 flags, 9 gaps).
 
 The gaps are filed by command group (#1335–#1347) or folded into existing
 issues (#58, #60, #61, #63, #64, #65, #198, #206, #215, #230, #231, #275, #811,
-#828, #878, #890, #911, #913, #933, #936, #1010, #1043, #1118, #1181, #1304,
+#828, #878, #890, #911, #913, #933, #936, #1010, #1043, #1181, #1304,
 #1333). Every exclusion is listed in the matrix with its reason, for the specs
 engineer's check against cor:api:240:02.
