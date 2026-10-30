@@ -89,9 +89,14 @@ usage error, not a half-finished write.
 The router must already exist: --root (default "preflight") names its loc,
 and this command does not create it. When it is missing, nothing is written
 and the command exits 4 ("no "preflight" node in <memory> — create the router
-first, or pass --root"). Create the router once with ` + "`hadron node create --loc preflight --name Preflight -m <memory>`" + `
-(a body of one bullet list is enough to start), or point --root at the
-router your memory already has; ` + "`hadron coding preflight list`" + ` shows it.
+first, or pass --root"). Create the router once with
+` + "`hadron node create --loc preflight --name Preflight -m <memory> --content <body>`" + `, where
+the body holds at least one routing bullet, a list item written as
+` + "`- **\"to fix a thing\"** → [[findings:x]] — why`" + ` (a plain bullet does not count as
+one). With no routing bullet yet, the first route needs --no-body-line, or
+--section naming a heading that exists in the body; otherwise it is a usage
+error (exit 2) and nothing is written. Or point --root at the router your
+memory already has; ` + "`hadron coding preflight list`" + ` shows it.
 Add --dry-run first to see the edges and the routing line without writing.`,
 		Example: `  hadron coding preflight create findings:flaky-otp-timer -m hrn:mem:acme.com:kb \
     --route "fix a flaky OTP countdown test" \

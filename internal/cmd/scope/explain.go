@@ -76,7 +76,7 @@ ignores --app.
 A name that two installed Agents both own is reported as ambiguous by the
 server; answer it by passing the scope's id instead.`,
 		Example: `  hadron scope explain research --app hrn:app:acme.com:dev-team
-  hadron scope explain research --loc findings:retrieval`,
+  hadron scope explain research --app hrn:app:acme.com:dev-team --loc findings:retrieval`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
