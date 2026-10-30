@@ -1130,6 +1130,16 @@ func codeForExtension(code string) int {
 	case code == "TASK_OWNER_INVALID" || code == "TASK_ASSIGNEE_INVALID" ||
 		code == "TASK_CHILD_OWNER_MISMATCH" || code == "NOT_AN_ALARM":
 		return exitcode.Usage
+	// Task properties (hadron-cli#1118, server#2420): a value that is not an
+	// object, over the 16 KiB bound, or against the team's task-properties schema
+	// is an input the caller changes. A schema the server cannot use is the
+	// team's configuration, not the caller's argument: a state that must change
+	// first, like the other Conflict cases here.
+	case code == "PROPERTIES_NOT_AN_OBJECT" || code == "PROPERTIES_TOO_LARGE" ||
+		code == "PROPERTIES_SCHEMA_VIOLATION":
+		return exitcode.Usage
+	case code == "PROPERTIES_SCHEMA_UNUSABLE":
+		return exitcode.Conflict
 	// A write into an App that is uninstalled: the App's state, not the
 	// caller's argument — Conflict, like WORKER_RETIRED above.
 	case code == "APP_UNINSTALLED":
