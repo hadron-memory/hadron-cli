@@ -28,9 +28,12 @@ Prints the new Agent URN returned by the server; --json returns the normal
 Agent fields.
 
 One clone mutation only: no install, manual-copy fallback or automatic retry.
-A source-changed conflict may be marked retryable by the server. If the
-connection is lost, or the server answers without the new Agent, the outcome
-is unknown (exit 7): check 'hadron agent list --org <org>' before cloning again.`,
+A typed refusal means nothing was created: fix the cause and rerun. A
+source-changed conflict may be marked retryable by the server, but is never
+retried for you. If the connection is lost, or the server answers without the
+new Agent, the outcome is unknown (exit 7) and the clone may exist: run
+'hadron agent list --org <org> --visibility PERSONAL' before cloning again.
+Without --name the clone carries the source's name.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if strings.TrimSpace(args[0]) == "" || strings.TrimSpace(target) == "" {
