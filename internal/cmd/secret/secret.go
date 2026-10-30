@@ -37,11 +37,27 @@ func NewCmdSecret(f *cmdutil.Factory) *cobra.Command {
 		Use:     "secret <command>",
 		Aliases: []string{"secrets"},
 		Short:   "Manage owner-scoped encrypted secrets",
-		Long: `Manage Hadron's owner-scoped encrypted secret store.
+		Long: `Store encrypted secrets (API tokens, passwords, header values) that agent
+runs use, without the value appearing in your shell history, a command's
+arguments or any hadron output. Whether the agent's model may see it depends
+on the kind (below).
 
-Values are write-only: create sends secret material to the server, but no
-command ever prints or selects it. Supply values via stdin, a file, or an
-interactive no-echo prompt — never argv.`,
+Each secret belongs to one owner:
+  user  your own; only you can create, list or delete it (no admin override)
+  org   an organization's; an org ADMIN or OWNER creates and deletes it, and
+        any member of the org can list its metadata
+
+When a run needs a secret it looks it up by name, in the user's secrets first,
+then the org's. A generic secret's value can be read by the agent's model; a
+webfetch-auth secret is only injected into matching web requests and the model
+never sees it.
+
+Values are write-only: secret create sends the value, and no command ever
+prints it. Pass it on stdin, from a file or at a no-echo prompt, never as an
+argument. Typical flow: secret create, then secret list to see what exists,
+then secret rm when it is no longer needed.`,
+		Example: `  printf '%s' "$GITHUB_TOKEN" | hadron secret create --name github-token --scope user --kind generic --value-file -
+  hadron secret list --scope user`,
 	}
 	cmd.AddCommand(newCmdCreate(f))
 	cmd.AddCommand(newCmdLs(f))
