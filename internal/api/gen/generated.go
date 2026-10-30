@@ -31284,10 +31284,16 @@ type GetWorkerContinuityResponse struct {
 	// lost to a context compaction, instead of opening a second session or
 	// forcing a takeover of itself.
 	//
-	// Authorization: an AppMember of the worker's App (any role), an org member
-	// with CONTRIBUTOR+ on its org, the owner of a user-owned App, or the App's
-	// own key. For the NAME form the gate runs BEFORE the lookup and a denial is
-	// reported as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
 	Worker *GetWorkerContinuityWorker `json:"worker"`
 }
 
@@ -31426,10 +31432,16 @@ type GetWorkerResponse struct {
 	// lost to a context compaction, instead of opening a second session or
 	// forcing a takeover of itself.
 	//
-	// Authorization: an AppMember of the worker's App (any role), an org member
-	// with CONTRIBUTOR+ on its org, the owner of a user-owned App, or the App's
-	// own key. For the NAME form the gate runs BEFORE the lookup and a denial is
-	// reported as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
 	Worker *GetWorkerWorker `json:"worker"`
 }
 
@@ -42441,6 +42453,71 @@ func (v *PublicResourceRefFields) GetUrn() string { return v.Urn }
 
 // GetDescription returns PublicResourceRefFields.Description, and is useful for accessing the field via an interface.
 func (v *PublicResourceRefFields) GetDescription() *string { return v.Description }
+
+// RecordSessionOutcomeRecordSessionOutcomeSession includes the requested fields of the GraphQL type Session.
+// The GraphQL type's documentation follows.
+//
+// A unit of work recorded against a user or App: the general row, and what the
+// bare word "session" means throughout this schema (#1034). `type` says which
+// kind — DEVELOPER, CHATBOT, AUTOMATION, EDGE — and `workerId` is optional.
+//
+// A **worker session** is the subtype with `workerId` set: a Worker (named
+// casting) bound to a driver, which is what makes work attributable to a
+// teammate and what a merged PR traces back through. Binding is optional, so a
+// list of these is not a staff view and may hold no worker sessions at all —
+// read `workerId` per row rather than assuming either way.
+//
+// A **chat session** is NOT one of these and has no row here: it is the
+// conversation a human is in — the Claude Desktop window, the Claude Code
+// session, the IDE chat. The two are independent and **ending one does not end
+// the other**: a chat session that closes leaves its worker session open
+// until endSession. Since #1114 nothing ends it for inactivity — silence is not
+// evidence of abandonment — but it stops reading as LIVE once nobody has driven
+// it inside its idle window, so the stale session stops blocking another bind
+// without being ended or losing its unwritten handoff. That changes no HOLD: a
+// human-held name stays held until explicit release, so only its holder can bind
+// it again. Do not use "chat session" for a Chat (the agent conversation entity)
+// — that is an **agent chat**, a third concept.
+type RecordSessionOutcomeRecordSessionOutcomeSession struct {
+	Id          string           `json:"id"`
+	Outcome     *float64         `json:"outcome"`
+	OutcomeRef  *string          `json:"outcomeRef"`
+	OutcomeMeta *json.RawMessage `json:"outcomeMeta"`
+}
+
+// GetId returns RecordSessionOutcomeRecordSessionOutcomeSession.Id, and is useful for accessing the field via an interface.
+func (v *RecordSessionOutcomeRecordSessionOutcomeSession) GetId() string { return v.Id }
+
+// GetOutcome returns RecordSessionOutcomeRecordSessionOutcomeSession.Outcome, and is useful for accessing the field via an interface.
+func (v *RecordSessionOutcomeRecordSessionOutcomeSession) GetOutcome() *float64 { return v.Outcome }
+
+// GetOutcomeRef returns RecordSessionOutcomeRecordSessionOutcomeSession.OutcomeRef, and is useful for accessing the field via an interface.
+func (v *RecordSessionOutcomeRecordSessionOutcomeSession) GetOutcomeRef() *string {
+	return v.OutcomeRef
+}
+
+// GetOutcomeMeta returns RecordSessionOutcomeRecordSessionOutcomeSession.OutcomeMeta, and is useful for accessing the field via an interface.
+func (v *RecordSessionOutcomeRecordSessionOutcomeSession) GetOutcomeMeta() *json.RawMessage {
+	return v.OutcomeMeta
+}
+
+// RecordSessionOutcomeResponse is returned by RecordSessionOutcome on success.
+type RecordSessionOutcomeResponse struct {
+	// #2896 — report a session's outcome: outcome is a number from 0 to 1, outcomeRef an opaque reference of the
+	// reporter's (a ticket, a survey id) and outcomeMeta any JSON it wants kept. The same implementation as
+	// POST /sessions/:id/outcome, which stays for edge devices and webhooks. An outcome is a WRITE to the session, so
+	// it takes the session write gate: the attributed user, or a pure App key for its own App's user-less session
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:070:05); the strict owner of a personal or private memory's session wins
+	// over a platform admin (hrn:node:hadronmemory.com:specs:cor:acl:010:02). Reporting is not driving: a lapsed session
+	// stays lapsed. A number outside 0..1 is BAD_USER_INPUT; an unknown or deleted session is BAD_USER_INPUT; a refused
+	// write is FORBIDDEN, and an OAuth credential limited to the MCP surface is FORBIDDEN with its reason.
+	RecordSessionOutcome *RecordSessionOutcomeRecordSessionOutcomeSession `json:"recordSessionOutcome"`
+}
+
+// GetRecordSessionOutcome returns RecordSessionOutcomeResponse.RecordSessionOutcome, and is useful for accessing the field via an interface.
+func (v *RecordSessionOutcomeResponse) GetRecordSessionOutcome() *RecordSessionOutcomeRecordSessionOutcomeSession {
+	return v.RecordSessionOutcome
+}
 
 // RecordTeamWorkLegacyRecordTeamWorkTeamWorkItem includes the requested fields of the GraphQL type TeamWorkItem.
 // The GraphQL type's documentation follows.
@@ -67865,8 +67942,10 @@ type WorkerFields struct {
 	CheckStatus *WorkerFieldsCheckStatusWorkerCheckStatus `json:"checkStatus"`
 	// Retirement instant — a retired worker stops authoring and takes no new sessions; the name stays reserved.
 	RetiredAt *string `json:"retiredAt"`
+	// Who retired this worker. WORKING-STATE field (#1149), masked like createdBy.
 	RetiredBy *string `json:"retiredBy"`
 	CreatedAt string  `json:"createdAt"`
+	// Who cast this worker. WORKING-STATE field (#1149): null for a caller who may see only the worker's profile.
 	CreatedBy *string `json:"createdBy"`
 }
 
@@ -68174,10 +68253,16 @@ type WorkerReportingResponse struct {
 	// lost to a context compaction, instead of opening a second session or
 	// forcing a takeover of itself.
 	//
-	// Authorization: an AppMember of the worker's App (any role), an org member
-	// with CONTRIBUTOR+ on its org, the owner of a user-owned App, or the App's
-	// own key. For the NAME form the gate runs BEFORE the lookup and a denial is
-	// reported as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
 	Worker *WorkerReportingWorker `json:"worker"`
 }
 
@@ -68453,9 +68538,11 @@ type WorkerRosterFields struct {
 	// #2252 (R189) — the coarse tier of model from the platform's one model-to-tier mapping: high (opus-class),
 	// mid (sonnet-class), low (haiku-class); null when the model is unmapped (no guessed equivalence for another
 	// family). Advisory: a coordinator's reading aid, never an authorization or routing input in this slice.
-	Tier      *string `json:"tier"`
+	Tier *string `json:"tier"`
+	// Who retired this worker. WORKING-STATE field (#1149), masked like createdBy.
 	RetiredBy *string `json:"retiredBy"`
 	CreatedAt string  `json:"createdAt"`
+	// Who cast this worker. WORKING-STATE field (#1149): null for a caller who may see only the worker's profile.
 	CreatedBy *string `json:"createdBy"`
 }
 
@@ -68618,10 +68705,16 @@ type WorkerServedPromptResponse struct {
 	// lost to a context compaction, instead of opening a second session or
 	// forcing a takeover of itself.
 	//
-	// Authorization: an AppMember of the worker's App (any role), an org member
-	// with CONTRIBUTOR+ on its org, the owner of a user-owned App, or the App's
-	// own key. For the NAME form the gate runs BEFORE the lookup and a denial is
-	// reported as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
 	Worker *WorkerServedPromptWorker `json:"worker"`
 }
 
@@ -73355,6 +73448,26 @@ type __PublicOrganizationInput struct {
 
 // GetRef returns __PublicOrganizationInput.Ref, and is useful for accessing the field via an interface.
 func (v *__PublicOrganizationInput) GetRef() string { return v.Ref }
+
+// __RecordSessionOutcomeInput is used internally by genqlient
+type __RecordSessionOutcomeInput struct {
+	SessionId   string           `json:"sessionId"`
+	Outcome     float64          `json:"outcome"`
+	OutcomeRef  *string          `json:"outcomeRef,omitempty"`
+	OutcomeMeta *json.RawMessage `json:"outcomeMeta,omitempty"`
+}
+
+// GetSessionId returns __RecordSessionOutcomeInput.SessionId, and is useful for accessing the field via an interface.
+func (v *__RecordSessionOutcomeInput) GetSessionId() string { return v.SessionId }
+
+// GetOutcome returns __RecordSessionOutcomeInput.Outcome, and is useful for accessing the field via an interface.
+func (v *__RecordSessionOutcomeInput) GetOutcome() float64 { return v.Outcome }
+
+// GetOutcomeRef returns __RecordSessionOutcomeInput.OutcomeRef, and is useful for accessing the field via an interface.
+func (v *__RecordSessionOutcomeInput) GetOutcomeRef() *string { return v.OutcomeRef }
+
+// GetOutcomeMeta returns __RecordSessionOutcomeInput.OutcomeMeta, and is useful for accessing the field via an interface.
+func (v *__RecordSessionOutcomeInput) GetOutcomeMeta() *json.RawMessage { return v.OutcomeMeta }
 
 // __RecordTeamWorkInput is used internally by genqlient
 type __RecordTeamWorkInput struct {
@@ -91379,6 +91492,53 @@ func PublicOrganization(
 	}
 
 	data_ = &PublicOrganizationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RecordSessionOutcome.
+const RecordSessionOutcome_Operation = `
+mutation RecordSessionOutcome ($sessionId: ID!, $outcome: Float!, $outcomeRef: String, $outcomeMeta: JSON) {
+	recordSessionOutcome(sessionId: $sessionId, outcome: $outcome, outcomeRef: $outcomeRef, outcomeMeta: $outcomeMeta) {
+		id
+		outcome
+		outcomeRef
+		outcomeMeta
+	}
+}
+`
+
+// cli#1351 over server #2896: record a session's outcome (0..1), with an
+// optional opaque reference and JSON metadata. The range check, the owner
+// gate and the MCP-only OAuth refusal are the server's. An omitted ref or
+// meta is not sent, so it is not cleared.
+func RecordSessionOutcome(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	sessionId string,
+	outcome float64,
+	outcomeRef *string,
+	outcomeMeta *json.RawMessage,
+) (data_ *RecordSessionOutcomeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RecordSessionOutcome",
+		Query:  RecordSessionOutcome_Operation,
+		Variables: &__RecordSessionOutcomeInput{
+			SessionId:   sessionId,
+			Outcome:     outcome,
+			OutcomeRef:  outcomeRef,
+			OutcomeMeta: outcomeMeta,
+		},
+	}
+
+	data_ = &RecordSessionOutcomeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
