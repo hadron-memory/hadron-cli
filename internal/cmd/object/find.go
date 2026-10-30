@@ -35,13 +35,20 @@ func newCmdFind(f *cmdutil.Factory) *cobra.Command {
 		Use:     "find -m <memory> --type <type>",
 		Aliases: []string{"list", "ls"},
 		Short:   "Query a collection",
-		Long: `Query one collection in a memory and print the matching objects plus a total.
+		Long: `List the records of one collection in a memory, then a count line
+("2 shown, 2 total"). With no filter, every record of the type matches.
 
---match is an equality shorthand — a JSON object { field: value, … } ANDed into
-an eq predicate per field (comparison type inferred from the schema).
---where is the full structured predicate (the same JSON grammar as
-'search --where'), AND-combined with --match.
---sort is a single-field shorthand: { "<field>": "asc" | "desc" }.`,
+--match keeps records whose fields equal the given values: a JSON object
+{"field": value, ...}; all must match.
+--where takes a full condition (greater than, less than, in, exists, and/or/not)
+in the JSON grammar of search --where; the second example keeps records with
+fundingUsd over 10,000,000. --where and --match can be combined (both must hold).
+--sort orders by one field: {"<field>": "asc"} or {"<field>": "desc"}.
+
+At most 20 records are returned per page unless --limit says otherwise (at
+most 200). "shown" counts this page only. To page, add each page's "shown" to
+--offset and run again; stop when --offset plus "shown" reaches "total", or
+when a page shows 0.`,
 		Example: `  hadron object find -m hrn:mem:acme.com:market --type competitor --match '{"stage":"series-a"}'
   hadron object find -m hrn:mem:acme.com:market --type competitor \
     --where '{"path":["fundingUsd"],"as":"number","gt":10000000}' \
@@ -104,8 +111,8 @@ an eq predicate per field (comparison type inferred from the schema).
 	cmd.Flags().StringVar(&match, "match", "", "equality shorthand: JSON object { field: value } ANDed into eq predicates")
 	cmd.Flags().StringVar(&where, "where", "", "full structured predicate as JSON (same grammar as 'search --where')")
 	cmd.Flags().StringVar(&sort, "sort", "", `single-field sort: {"<field>":"asc"|"desc"}`)
-	cmd.Flags().IntVar(&limit, "limit", 0, "maximum number of objects")
-	cmd.Flags().IntVar(&offset, "offset", 0, "pagination offset")
+	cmd.Flags().IntVar(&limit, "limit", 0, "maximum number of records (default 20, at most 200)")
+	cmd.Flags().IntVar(&offset, "offset", 0, "skip this many records (for the next page)")
 	_ = cmd.MarkFlagRequired("memory")
 	return cmd
 }
