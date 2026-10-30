@@ -27,9 +27,9 @@ func newCmdOpen(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "open <node-ref> [-m <memory>] [--print]",
 		Short: "Open a node's server-returned canonical portal URL",
-		Long: `Read the node's authorized canonical portal URL, never a guessed host or route.
-Refs may be node ids or qualified URNs; -m composes a bare loc. A qualified
-ref already names its memory, even alongside -m.
+		Long: `Open a node in the web portal, using the link the server gives for it (never a
+guessed address). Name the node by its id or URN, or by its loc with -m. A
+URN already names its memory, even alongside -m.
 
 Interactive text output requests the platform browser launcher and prints the
 URL. --print, --json and non-terminal stdout only print the pointer and never
@@ -39,9 +39,9 @@ that a browser loaded the page. A launcher failure is an error, not success.
 Missing or unreadable nodes share exit 4. A missing/null or invalid canonical
 URL exits 1: the server answered, so retrying blindly will not fix it. No
 fallback is constructed. This query selects only id, urn and portalUrl; the
-server still records a node read and may decrypt internally.
-Only node open is delivered here; memory/agent/app open wait for their provider
-canonical URL fields (hadron-server#2309).`,
+server still records a node read and may decrypt internally.`,
+		Example: `  hadron node open findings:flaky-ci -m hrn:mem:acme.com:kb
+  hadron node open hrn:node:acme.com:kb:findings:flaky-ci --print`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if cmd.Flags().Changed("memory") && strings.TrimSpace(memory) == "" {

@@ -338,7 +338,12 @@ func newCmdSigningRequestGet(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <request-id>",
 		Short: "Show one signing request and, once completed, its signature",
-		Args:  cobra.ExactArgs(1),
+		Long: `Show one signing request, named by its id (from node signing-request list or
+the output of node sign): its node and revision, its state (OPEN, COMPLETED,
+DECLINED, WITHDRAWN, EXPIRED or STALE) and, once a person has completed it,
+the signature.`,
+		Example: `  hadron node signing-request get 01a18a0b2c3d7e8f9a0b1c2d3e4f5a6b --json`,
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
 			if err != nil {
