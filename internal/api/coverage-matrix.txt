@@ -208,7 +208,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 315: 204 command, 100 gap, 11 excluded
+[Mutation] 315: 208 command, 96 gap, 11 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -235,10 +235,10 @@ authorizeContextResetStop  gap #1043: the host handler that performs the reset
 beginAssetUpload  excluded not-a-capability: the v1 twin of beginAssetUploadV2, which `asset upload` reaches; it adds no capability
 beginAssetUploadV2  command asset upload
 beginMergeUsersConsent  gap #1304
-calendarCreateEvent  gap #230
-calendarDeleteEvent  gap #230
-calendarRespondToEvent  gap #230
-calendarUpdateEvent  gap #230
+calendarCreateEvent  command calendar event create
+calendarDeleteEvent  command calendar event delete
+calendarRespondToEvent  command calendar event respond
+calendarUpdateEvent  command calendar event update
 cancelAgentTask  command team task cancel
 cancelAppRun  command run cancel
 castWorker  command team worker cast
