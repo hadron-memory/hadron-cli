@@ -9,7 +9,7 @@ import (
 func spec1148Server(t *testing.T) (string, map[string]json.RawMessage) {
 	t.Helper()
 	server, captured := captureGraphQL(t, map[string]string{
-		"FindNodes":      `{"data":{"nodes":[` + specNodeList("qat:api:010", `["spec"]`) + `]}}`,
+		"FindNodes":      `{"data":{"nodes":[` + specNodeList("qat", `["spec"]`) + `,` + specNodeList("qat:api", `["spec"]`) + `,` + specNodeList("qat:api:010", `["spec"]`) + `]}}`,
 		"ResolveUrn":     `{"errors":[{"message":"not found","extensions":{"code":"NOT_FOUND"}}]}`,
 		"CreateSpecNode": `{"data":{"createSpecNode":{"id":"new-spec","memoryId":"mem1","loc":"qa:api:010:04","name":"created","nodeType":"info","tags":["spec"],"updatedAt":"2026-10-30T00:00:00Z"}}}`,
 	})
@@ -93,5 +93,19 @@ func TestSpecNew1148PlainAndLiteralTitleControls(t *testing.T) {
 				t.Fatalf("payload/output changed: %q/%q want %q", in.Input.Name, result.Name, tc.want)
 			}
 		})
+	}
+}
+
+func TestSpecNew1148Help(t *testing.T) {
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "new", "--help"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range []string{"exact prefix is refused (exit 2)", "remove the prefix", "explicit --role keeps"} {
+		if !strings.Contains(out.String(), s) {
+			t.Fatalf("missing title guidance %q: %s", s, out.String())
+		}
 	}
 }
