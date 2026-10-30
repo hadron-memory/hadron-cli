@@ -8,10 +8,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/coveragematrix"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -803,18 +805,28 @@ func TestAutomationAppIsResolvedLikeOtherAppCommands(t *testing.T) {
 }
 
 func TestAutomationLegacyOperationsStayUnbound(t *testing.T) {
-	b, err := os.ReadFile("../api/unbound-ops.txt")
+	b, err := os.ReadFile(filepath.Join("..", "..", coveragematrix.Path))
 	if err != nil {
 		t.Fatal(err)
 	}
+	entries, err := coveragematrix.Parse(string(b))
+	if err != nil {
+		t.Fatal(err)
+	}
+	kind := map[string]coveragematrix.Kind{}
+	for _, e := range entries {
+		if e.Section == "Query" || e.Section == "Mutation" {
+			kind[e.Key] = e.Kind
+		}
+	}
 	for _, op := range []string{"previewAutomation", "reAdoptAutomation"} {
-		if !strings.Contains(string(b), op+" ") && !strings.Contains(string(b), op+"\n") {
-			t.Errorf("%s has no CLI call site and must stay in unbound-ops.txt", op)
+		if kind[op] == coveragematrix.Command {
+			t.Errorf("%s has no CLI call site and must not be mapped to a command", op)
 		}
 	}
 	for _, op := range []string{"automationApprovals", "automationApproval", "approveAutomation", "declineAutomation"} {
-		if strings.Contains(string(b), "\n"+op+" ") || strings.Contains(string(b), "\n"+op+"\n") {
-			t.Errorf("%s is bound by this slice and must not be listed unbound", op)
+		if kind[op] != coveragematrix.Command {
+			t.Errorf("%s is bound by this slice and must be mapped to its command, got %q", op, kind[op])
 		}
 	}
 }

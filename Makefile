@@ -30,7 +30,7 @@ SDL_SOURCES   ?= src/api/graphql/schema/typeDefs.ts scripts/export-graphql-sdl.m
 # review, Codex P2 + Copilot; the same gap for split MCP modules, #901).
 TOOLS_SOURCES ?= src/mcp src/lib/runner/tools
 
-.PHONY: build cross-build test lint fmt generate schema schema-check tools-manifest tools-manifest-check help-inventory help-inventory-check clean
+.PHONY: build cross-build test lint fmt generate schema schema-check tools-manifest tools-manifest-check help-inventory help-inventory-check coverage-matrix coverage-matrix-check unbound-ops unbound-ops-check clean
 
 build:
 	go build -ldflags "$(LDFLAGS)" -o $(BIN) ./cmd/hadron
@@ -190,24 +190,33 @@ help-inventory-check: build
 	fi; \
 	echo "✓ help inventory matches the command tree"
 
-# Report GraphQL operations hadron-server exposes that no CLI command wraps
-# (#397). The committed baseline turns that inventory into a DIFF: a schema
-# refresh that adds an unbound operation shows up as an added line in review.
+# The CLI coverage matrix (#1334, #66; cor:api:240:02): every Query and
+# Mutation field mapped to the command that reaches it, the issue tracking the
+# gap, or an exclusion with its reason, plus the arguments and filter fields a
+# reached operation leaves out. What is REACHED is derived from the code (an
+# operation document plus a production call); only the dispositions are
+# written by hand, and a regeneration carries them across. A refresh that adds
+# a field shows up as an added UNCLASSIFIED line in review.
 #
-# Via a TEMP file, not a redirect onto the baseline: the generator harvests the
-# existing `# reason` annotations out of that same file to carry them across a
-# regen, and `> internal/api/unbound-ops.txt` truncates it before the program
-# ever runs — so a plain redirect silently dropped every reason it was supposed
-# to preserve.
-unbound-ops:
-	go run ./scripts/unboundops > internal/api/unbound-ops.txt.tmp
-	mv internal/api/unbound-ops.txt.tmp internal/api/unbound-ops.txt
+# Via a TEMP file, not a redirect onto the matrix: the generator harvests the
+# existing dispositions out of that same file to carry them across a regen,
+# and `> internal/api/coverage-matrix.txt` truncates it before the program ever
+# runs — so a plain redirect silently dropped every disposition.
+coverage-matrix:
+	go run ./scripts/unboundops > internal/api/coverage-matrix.txt.tmp
+	mv internal/api/coverage-matrix.txt.tmp internal/api/coverage-matrix.txt
 
-# Drift detector for the above — fails when the baseline is stale, i.e. the
-# server shipped an operation no command reaches (or one was just wired up).
-# Cheap and offline: it reads the committed snapshot, not the server checkout.
-unbound-ops-check:
+# Drift detector for the above — fails when the matrix is stale (the schema or
+# the code changed what the CLI reaches), a line is UNCLASSIFIED, or a
+# disposition contradicts the code (a gap on a field a command now reaches).
+# Offline: it reads the committed snapshot, not the server checkout. That each
+# named command and flag exists is TestCoverageMatrixNamesRealCommands.
+coverage-matrix-check:
 	@go run ./scripts/unboundops -check
+
+# The names this check had before the matrix replaced unbound-ops.txt (#1334).
+unbound-ops: coverage-matrix
+unbound-ops-check: coverage-matrix-check
 
 clean:
 	rm -rf bin
