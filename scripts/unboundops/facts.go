@@ -6,6 +6,7 @@ import (
 	"go/types"
 	"os"
 	"reflect"
+	"sort"
 	"strings"
 
 	gql "github.com/vektah/gqlparser/v2/ast"
@@ -182,27 +183,25 @@ func loadGoUses(dir string, patterns []string, inputs map[string]bool, bindings 
 	})
 
 	u := &goUses{funcs: map[string]bool{}, fields: map[string]bool{}, decoded: map[string]bool{}}
+	var indirect []string
 	for _, p := range pkgs {
 		if p.PkgPath == genPkgPath || p.TypesInfo == nil {
 			continue
 		}
-		for _, obj := range p.TypesInfo.Uses {
-			if o, ok := obj.(*types.Var); ok {
-				if k, ok := fieldOf[o]; ok {
-					u.fields[k] = true
-				}
-			}
-		}
+		// Only a direct call reaches the server. A reference that is never
+		// called (`_ = gen.Agents`) does not, and one that is called through a
+		// variable or a parameter cannot be followed, so any use of an
+		// operation function other than a direct call is refused.
+		called := map[*ast.Ident]bool{}
 		for _, file := range p.Syntax {
 			ast.Inspect(file, func(n ast.Node) bool {
 				call, ok := n.(*ast.CallExpr)
 				if !ok {
 					return true
 				}
-				// Only a call reaches the server: a reference that is never
-				// called (`_ = gen.Agents`) does not.
-				if name := genFuncCalled(p.TypesInfo, call); name != "" {
-					u.funcs[name] = true
+				if id := callee(call); id != nil && genFunc(p.TypesInfo, id) != "" {
+					called[id] = true
+					u.funcs[genFunc(p.TypesInfo, id)] = true
 				}
 				if tn := decodeTarget(p.TypesInfo, call); tn != nil && inputOf[tn] != "" {
 					u.decoded[inputOf[tn]] = true
@@ -210,22 +209,39 @@ func loadGoUses(dir string, patterns []string, inputs map[string]bool, bindings 
 				return true
 			})
 		}
+		for id, obj := range p.TypesInfo.Uses {
+			if o, ok := obj.(*types.Var); ok {
+				if k, ok := fieldOf[o]; ok {
+					u.fields[k] = true
+				}
+			}
+			if name := genFunc(p.TypesInfo, id); name != "" && !called[id] {
+				indirect = append(indirect, fmt.Sprintf("%s: gen.%s", p.Fset.Position(id.Pos()), name))
+			}
+		}
+	}
+	if len(indirect) > 0 {
+		sort.Strings(indirect)
+		return nil, fmt.Errorf("an operation function is used other than by a direct call, so the coverage matrix cannot tell whether it is reached; call it directly:\n  %s", strings.Join(indirect, "\n  "))
 	}
 	return u, nil
 }
 
-// genFuncCalled is the name of the generated operation function a call
-// invokes directly, or "" when it calls anything else.
-func genFuncCalled(info *types.Info, call *ast.CallExpr) string {
-	var id *ast.Ident
+// callee is the identifier a call invokes directly (`gen.Agents(…)` or
+// `Agents(…)`), or nil when it calls an expression.
+func callee(call *ast.CallExpr) *ast.Ident {
 	switch fn := ast.Unparen(call.Fun).(type) {
 	case *ast.SelectorExpr:
-		id = fn.Sel
+		return fn.Sel
 	case *ast.Ident:
-		id = fn
-	default:
-		return ""
+		return fn
 	}
+	return nil
+}
+
+// genFunc is the name of the generated operation function id refers to, or
+// "" when it refers to anything else.
+func genFunc(info *types.Info, id *ast.Ident) string {
 	o, ok := info.Uses[id].(*types.Func)
 	if !ok || o.Pkg() == nil || o.Pkg().Path() != genPkgPath || o.Parent() != o.Pkg().Scope() {
 		return ""
