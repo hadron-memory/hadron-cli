@@ -3965,8 +3965,9 @@ Task priority/blocker fields require server #2726 (cf9bcfece) or later on every
 target deployment before releasing/installing this CLI; old servers reject the
 shared task GraphQL documents. This PR does not authorize a release or deploy.
 The task error mapper prefixes the known codes TASK_BLOCKED, TASK_BLOCKER_CYCLE,
-TASK_NOT_FOUND, TASK_NOT_OWNER, TASK_INVALID_TRANSITION and BAD_USER_INPUT onto
-the mapped server message, including existing create/assign/reassign/start/
+TASK_NOT_FOUND, TASK_NOT_OWNER, TASK_INVALID_TRANSITION, TASK_HANDLE_QUALIFY,
+TASK_ENDED, TASK_NOT_ASSIGNEE, TASK_CHILD_OWNER_MISMATCH, TASK_OWNER_INVALID,
+TASK_ASSIGNEE_INVALID, TASK_STOPPED and BAD_USER_INPUT onto the mapped server message, including existing create/assign/reassign/start/
 progress/cancel/park/ready/finish refusals. Exit classification is unchanged;
 the underlying error chain is preserved. Task-ref commands do not use --app to
 qualify a handle: use an id or hrn:agenttask:<root>:<app-slug>:AT1.2 when the bare
