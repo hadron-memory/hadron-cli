@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"io"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
 
@@ -160,7 +159,7 @@ a stall alarm. Success prints the task as task get does; --json returns it.`,
 						return usage("--exclude-worker must name a worker")
 					}
 				}
-				if (fl.Changed("require-role") && p.Role == "") || (fl.Changed("family-in") && p.FamilyIn == nil) || (fl.Changed("family-not-in") && p.FamilyNotIn == nil) {
+				if (fl.Changed("require-role") && p.Role == "") || (fl.Changed("family-in") && len(p.FamilyIn) == 0) || (fl.Changed("family-not-in") && len(p.FamilyNotIn) == 0) {
 					return usage("a requirement flag was given an empty value: name the requirement, or use --clear-requirements")
 				}
 				input.Requirements = mustJSON(p)
@@ -169,7 +168,7 @@ a stall alarm. Success prints the task as task get does; --json returns it.`,
 			case clearStartBy:
 				input.StartBy = jsonNull
 			case fl.Changed("start-by"):
-				if _, err := time.Parse(time.RFC3339, startBy); err != nil {
+				if _, ok := cmdutil.ParseStrictDateTime(startBy); !ok {
 					return usage("--start-by takes an RFC 3339 timestamp, e.g. 2026-10-13T09:00:00Z, got %q", startBy)
 				}
 				input.StartBy = mustJSON(startBy)
