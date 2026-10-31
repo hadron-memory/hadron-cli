@@ -43,7 +43,8 @@ the issue body plus Patrick's attach amendment 1 (the amendment wins).
   not in the checkpoint counts in full); older blocks are final and add nothing.
   So usage inside a block that was already running counts, and blocks evicted
   from a rolling ccusage file cannot skew the result. No previous checkpoint, no
-  ccusage file, or a known block whose totals went down: absent, never 0. The
+  ccusage file, a known block whose totals went down, or a checkpointed block
+  that is gone from the file (its final usage was never seen): absent, never 0. The
   ccusage `blocks --json` shape (`startTime`, `isGap`, `totalTokens`, `costUSD`)
   is read tolerantly but was not verified against a live ccusage run.
 - **Account identity** in `show` is host + family + label: labels are

@@ -459,6 +459,17 @@ func growth(blocks []Block, prev Previous) (tok, cost float64, ok bool) {
 		known[c.Start] = c
 	}
 	cutoff := prev.ObservedAt.Add(-ActiveWindow)
+	present := map[string]bool{}
+	for _, b := range blocks {
+		present[rfc(b.Start)] = true
+	}
+	// A checkpointed block that could still be growing but is no longer in the
+	// file has final usage we never saw: the interval is unknown, not smaller.
+	for start := range known {
+		if !present[start] {
+			return 0, 0, false
+		}
+	}
 	for _, b := range blocks {
 		if !b.Start.After(cutoff) {
 			continue

@@ -416,11 +416,17 @@ func TestTeamUsageSinceLastCountsGrowthInsideARunningBlock(t *testing.T) {
 	if a["tokensSinceLast"] != float64(2500) || a["estCostUsdSinceLast"] != 3.25 {
 		t.Errorf("growth inside a running block: %v", a)
 	}
-	// Eviction with net growth: the previous checkpoint held a 03:00 block the
-	// file no longer has. It must not reduce the interval: 0 + 2000 / $2.25.
-	a = collect(`{"observedAt":"2026-10-31T11:00:00Z","ccusageBlocks":[{"start":"2026-10-31T03:00:00Z","tokens":600,"costUsd":1},{"start":"2026-10-31T10:00:00Z","tokens":1000,"costUsd":1.5}]}`)
+	// Old blocks (final, so never checkpointed) can vanish from a rolling file
+	// without effect: the 10:00 block is unchanged, only the 16:00 block counts.
+	a = collect(`{"observedAt":"2026-10-31T11:00:00Z","ccusageBlocks":[{"start":"2026-10-31T10:00:00Z","tokens":1000,"costUsd":1.5}]}`)
 	if a["tokensSinceLast"] != float64(2000) || a["estCostUsdSinceLast"] != 2.25 {
-		t.Errorf("an evicted block must not distort the interval: %v", a)
+		t.Errorf("unchanged checkpointed block plus a new one: %v", a)
+	}
+	// A checkpointed, still-growing block that is gone from the file has final
+	// usage we never saw: the interval is unknown, not smaller.
+	a = collect(`{"observedAt":"2026-10-31T11:00:00Z","ccusageBlocks":[{"start":"2026-10-31T09:00:00Z","tokens":600,"costUsd":1},{"start":"2026-10-31T10:00:00Z","tokens":1000,"costUsd":1.5}]}`)
+	if _, has := a["tokensSinceLast"]; has {
+		t.Errorf("a vanished growing block must leave since-last absent: %v", a)
 	}
 	// A known block whose totals went down cannot be compared: absent.
 	a = collect(`{"observedAt":"2026-10-31T11:00:00Z","ccusageBlocks":[{"start":"2026-10-31T10:00:00Z","tokens":9000,"costUsd":9}]}`)

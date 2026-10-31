@@ -4360,7 +4360,7 @@ estCostUsdSinceLast, ccusageBlocks, workers, workersConfigured, schemaVersion`;
 `ccusageBlocks` is the checkpoint (blocks that started within 6h of the
 observation) and the since-last fields are the growth of those blocks since this
 account's previous record on this host and family (absent when that cannot be
-measured, e.g. a block's totals went down).
+measured, e.g. a block's totals went down or a checkpointed block left the file).
 The shape is pinned by a golden test and declared in the CLI, not in `team init`
 (a server-declared collection is a follow-up with the portal).
 
