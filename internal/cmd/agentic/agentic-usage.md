@@ -1822,7 +1822,14 @@ Conventions:
   reads as "not found" (#659) — change those with `spec grep` + `spec edit`;
   `spec register` is advisory/read-only (`--check` reports
   ledger drift, exit 5; the ledger is the legacy numbering, and specs at any
-  other loc are NAMED in `outsideNumbering`, never dropped); `spec lint` is
+  other loc are NAMED in `outsideNumbering`, never dropped); a spec `spec
+  supersede` retired reads `(replaced by <loc>)` (or bare `(replaced)` when its
+  `superseded-by` edge is missing, unreadable, in another memory or ambiguous;
+  an identity is never guessed) in `spec list` and in the `rules:` line of
+  `spec register`, where `--json` adds `replaced`/`replacedBy` per spec in
+  `spec list` and `replacedRules[]` per feature in `spec register` (`[]` when
+  none; every existing key unchanged). It is not the approval state SUPERSEDED,
+  and no "withdrawn" state exists; `spec lint` is
   STRUCTURAL: since #708 it enforces no content rubric at any loc (no missing
   abstract, "what invalidates", `data.version`, scaffold-body or
   placeholder-contract finding), because the sections a spec needs depend on

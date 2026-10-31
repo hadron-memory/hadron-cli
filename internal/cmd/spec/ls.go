@@ -121,10 +121,14 @@ after merging both spec markers.`,
 				return err
 			}
 			specs := make([]specDTO, 0, len(rawNodes))
+			var cands []replacedCandidate
+			var specIDs []string
 			for _, n := range rawNodes {
 				if n == nil || !underPrefix(n.Loc, prefix) {
 					continue // the server's prefix is character-wise; keep the branch
 				}
+				specIDs = append(specIDs, n.Id)
+				cands = append(cands, replacedCandidate{ID: n.Id, Loc: n.Loc, MemoryID: n.MemoryId, Tags: n.Tags})
 				specs = append(specs, specDTO{
 					Citation:       n.Loc,
 					MemoryID:       n.MemoryId,
@@ -144,8 +148,20 @@ after merging both spec markers.`,
 			}
 			annotateMemoryURNs(cmd, client, f.IOStreams.ErrOut, specs, scopedURN)
 
-			return output.Write(f.IOStreams, f.JSON, specs, func(w io.Writer) error {
-				return writeSpecListTable(w, specs)
+			repl, err := loadReplacements(cmd.Context(), client, cands)
+			if err != nil {
+				return err
+			}
+			listed := make([]specListDTO, len(specs))
+			marked := make([]specDTO, len(specs))
+			for i, sp := range specs {
+				r := repl[specIDs[i]]
+				listed[i] = specListDTO{specDTO: sp, Replaced: r.Replaced, ReplacedBy: r.By}
+				marked[i] = sp
+				marked[i].Name += replacedMarker(r, "")
+			}
+			return output.Write(f.IOStreams, f.JSON, listed, func(w io.Writer) error {
+				return writeSpecListTable(w, marked)
 			})
 		},
 	}
@@ -158,6 +174,15 @@ after merging both spec markers.`,
 	cmd.Flags().BoolVar(&minted, "minted", false, "show minted specs")
 	cmd.Flags().BoolVar(&unminted, "unminted", false, "show unminted specs")
 	return cmd
+}
+
+// specListDTO is `spec list`'s --json element: the shared specDTO unchanged,
+// plus the replaced state (cli#1145). Additive: every existing key keeps its
+// name, type and value, and `spec find`, which shares specDTO, is untouched.
+type specListDTO struct {
+	specDTO
+	Replaced   bool    `json:"replaced"`
+	ReplacedBy *string `json:"replacedBy"`
 }
 
 // Only this listing has an approval column. Other callers of writeSpecTable
