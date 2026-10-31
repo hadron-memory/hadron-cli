@@ -53589,6 +53589,193 @@ func (v *SkillPlanSkillPlanOrphansSkillOrphan) GetNodeId() *string { return v.No
 // GetSourceUrn returns SkillPlanSkillPlanOrphansSkillOrphan.SourceUrn, and is useful for accessing the field via an interface.
 func (v *SkillPlanSkillPlanOrphansSkillOrphan) GetSourceUrn() *string { return v.SourceUrn }
 
+// SlackConnectionResponse is returned by SlackConnection on success.
+type SlackConnectionResponse struct {
+	// Fetch one Slack connection by id (spec 043). Returns null when the row
+	// does not exist OR the caller is not a member of its org — no existence
+	// disclosure.
+	SlackConnection *SlackConnectionSlackConnection `json:"slackConnection"`
+}
+
+// GetSlackConnection returns SlackConnectionResponse.SlackConnection, and is useful for accessing the field via an interface.
+func (v *SlackConnectionResponse) GetSlackConnection() *SlackConnectionSlackConnection {
+	return v.SlackConnection
+}
+
+// SlackConnectionSlackConnection includes the requested fields of the GraphQL type SlackConnection.
+// The GraphQL type's documentation follows.
+//
+// One Slack workspace install of the Hadron Slack app (spec 043).
+// Org-owned, workspace granularity: defaultAppId names the Hadron App that
+// serves /hadron commands from this workspace. The bot + app tokens live
+// ENCRYPTED IN THE TOOL (hadrontool-slack) — they are write-only inputs on
+// createSlackConnection and no field here ever returns them.
+type SlackConnectionSlackConnection struct {
+	Id             string `json:"id"`
+	OrganizationId string `json:"organizationId"`
+	DefaultAppId   string `json:"defaultAppId"`
+	// Slack provider backing this connection ('slack' today).
+	Provider string `json:"provider"`
+	// 'ACTIVE' or 'ERROR' (the tool's connection-status vocabulary).
+	Status string `json:"status"`
+	// Slack workspace (team) id, e.g. T0123456789.
+	TeamId   string `json:"teamId"`
+	TeamName string `json:"teamName"`
+	// The bot's BOT id (B…) — what bot message events carry. Distinct from botUserId; the bridge loop filter needs both.
+	BotId string `json:"botId"`
+	// The bot's Slack USER id (U…) — the sender on messages it posts.
+	BotUserId string `json:"botUserId"`
+	CreatedAt string `json:"createdAt"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
+// GetId returns SlackConnectionSlackConnection.Id, and is useful for accessing the field via an interface.
+func (v *SlackConnectionSlackConnection) GetId() string { return v.Id }
+
+// GetOrganizationId returns SlackConnectionSlackConnection.OrganizationId, and is useful for accessing the field via an interface.
+func (v *SlackConnectionSlackConnection) GetOrganizationId() string { return v.OrganizationId }
+
+// GetDefaultAppId returns SlackConnectionSlackConnection.DefaultAppId, and is useful for accessing the field via an interface.
+func (v *SlackConnectionSlackConnection) GetDefaultAppId() string { return v.DefaultAppId }
+
+// GetProvider returns SlackConnectionSlackConnection.Provider, and is useful for accessing the field via an interface.
+func (v *SlackConnectionSlackConnection) GetProvider() string { return v.Provider }
+
+// GetStatus returns SlackConnectionSlackConnection.Status, and is useful for accessing the field via an interface.
+func (v *SlackConnectionSlackConnection) GetStatus() string { return v.Status }
+
+// GetTeamId returns SlackConnectionSlackConnection.TeamId, and is useful for accessing the field via an interface.
+func (v *SlackConnectionSlackConnection) GetTeamId() string { return v.TeamId }
+
+// GetTeamName returns SlackConnectionSlackConnection.TeamName, and is useful for accessing the field via an interface.
+func (v *SlackConnectionSlackConnection) GetTeamName() string { return v.TeamName }
+
+// GetBotId returns SlackConnectionSlackConnection.BotId, and is useful for accessing the field via an interface.
+func (v *SlackConnectionSlackConnection) GetBotId() string { return v.BotId }
+
+// GetBotUserId returns SlackConnectionSlackConnection.BotUserId, and is useful for accessing the field via an interface.
+func (v *SlackConnectionSlackConnection) GetBotUserId() string { return v.BotUserId }
+
+// GetCreatedAt returns SlackConnectionSlackConnection.CreatedAt, and is useful for accessing the field via an interface.
+func (v *SlackConnectionSlackConnection) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUpdatedAt returns SlackConnectionSlackConnection.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *SlackConnectionSlackConnection) GetUpdatedAt() string { return v.UpdatedAt }
+
+// SlackConnectionsResponse is returned by SlackConnections on success.
+type SlackConnectionsResponse struct {
+	// Uniform paginated Slack-connection list (cor:api:120). Default scope:
+	// the caller's member orgs. orgId follows cor:api:100:01 (member -> that
+	// org, non-member -> empty page, no disclosure, no admin bypass).
+	// Team-name-ascending order (id tiebreak); limit default 20 / cap 200;
+	// limit: 0 -> count only.
+	SlackConnections *SlackConnectionsSlackConnectionsSlackConnectionsPage `json:"slackConnections"`
+}
+
+// GetSlackConnections returns SlackConnectionsResponse.SlackConnections, and is useful for accessing the field via an interface.
+func (v *SlackConnectionsResponse) GetSlackConnections() *SlackConnectionsSlackConnectionsSlackConnectionsPage {
+	return v.SlackConnections
+}
+
+// SlackConnectionsSlackConnectionsSlackConnectionsPage includes the requested fields of the GraphQL type SlackConnectionsPage.
+// The GraphQL type's documentation follows.
+//
+// Uniform paginated list shape (cor:api:120).
+type SlackConnectionsSlackConnectionsSlackConnectionsPage struct {
+	Total int                                                                         `json:"total"`
+	Items []*SlackConnectionsSlackConnectionsSlackConnectionsPageItemsSlackConnection `json:"items"`
+}
+
+// GetTotal returns SlackConnectionsSlackConnectionsSlackConnectionsPage.Total, and is useful for accessing the field via an interface.
+func (v *SlackConnectionsSlackConnectionsSlackConnectionsPage) GetTotal() int { return v.Total }
+
+// GetItems returns SlackConnectionsSlackConnectionsSlackConnectionsPage.Items, and is useful for accessing the field via an interface.
+func (v *SlackConnectionsSlackConnectionsSlackConnectionsPage) GetItems() []*SlackConnectionsSlackConnectionsSlackConnectionsPageItemsSlackConnection {
+	return v.Items
+}
+
+// SlackConnectionsSlackConnectionsSlackConnectionsPageItemsSlackConnection includes the requested fields of the GraphQL type SlackConnection.
+// The GraphQL type's documentation follows.
+//
+// One Slack workspace install of the Hadron Slack app (spec 043).
+// Org-owned, workspace granularity: defaultAppId names the Hadron App that
+// serves /hadron commands from this workspace. The bot + app tokens live
+// ENCRYPTED IN THE TOOL (hadrontool-slack) — they are write-only inputs on
+// createSlackConnection and no field here ever returns them.
+type SlackConnectionsSlackConnectionsSlackConnectionsPageItemsSlackConnection struct {
+	Id             string `json:"id"`
+	OrganizationId string `json:"organizationId"`
+	DefaultAppId   string `json:"defaultAppId"`
+	// Slack provider backing this connection ('slack' today).
+	Provider string `json:"provider"`
+	// 'ACTIVE' or 'ERROR' (the tool's connection-status vocabulary).
+	Status string `json:"status"`
+	// Slack workspace (team) id, e.g. T0123456789.
+	TeamId   string `json:"teamId"`
+	TeamName string `json:"teamName"`
+	// The bot's BOT id (B…) — what bot message events carry. Distinct from botUserId; the bridge loop filter needs both.
+	BotId string `json:"botId"`
+	// The bot's Slack USER id (U…) — the sender on messages it posts.
+	BotUserId string `json:"botUserId"`
+	CreatedAt string `json:"createdAt"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
+// GetId returns SlackConnectionsSlackConnectionsSlackConnectionsPageItemsSlackConnection.Id, and is useful for accessing the field via an interface.
+func (v *SlackConnectionsSlackConnectionsSlackConnectionsPageItemsSlackConnection) GetId() string {
+	return v.Id
+}
+
+// GetOrganizationId returns SlackConnectionsSlackConnectionsSlackConnectionsPageItemsSlackConnection.OrganizationId, and is useful for accessing the field via an interface.
+func (v *SlackConnectionsSlackConnectionsSlackConnectionsPageItemsSlackConnection) GetOrganizationId() string {
+	return v.OrganizationId
+}
+
+// GetDefaultAppId returns SlackConnectionsSlackConnectionsSlackConnectionsPageItemsSlackConnection.DefaultAppId, and is useful for accessing the field via an interface.
+func (v *SlackConnectionsSlackConnectionsSlackConnectionsPageItemsSlackConnection) GetDefaultAppId() string {
+	return v.DefaultAppId
+}
+
+// GetProvider returns SlackConnectionsSlackConnectionsSlackConnectionsPageItemsSlackConnection.Provider, and is useful for accessing the field via an interface.
+func (v *SlackConnectionsSlackConnectionsSlackConnectionsPageItemsSlackConnection) GetProvider() string {
+	return v.Provider
+}
+
+// GetStatus returns SlackConnectionsSlackConnectionsSlackConnectionsPageItemsSlackConnection.Status, and is useful for accessing the field via an interface.
+func (v *SlackConnectionsSlackConnectionsSlackConnectionsPageItemsSlackConnection) GetStatus() string {
+	return v.Status
+}
+
+// GetTeamId returns SlackConnectionsSlackConnectionsSlackConnectionsPageItemsSlackConnection.TeamId, and is useful for accessing the field via an interface.
+func (v *SlackConnectionsSlackConnectionsSlackConnectionsPageItemsSlackConnection) GetTeamId() string {
+	return v.TeamId
+}
+
+// GetTeamName returns SlackConnectionsSlackConnectionsSlackConnectionsPageItemsSlackConnection.TeamName, and is useful for accessing the field via an interface.
+func (v *SlackConnectionsSlackConnectionsSlackConnectionsPageItemsSlackConnection) GetTeamName() string {
+	return v.TeamName
+}
+
+// GetBotId returns SlackConnectionsSlackConnectionsSlackConnectionsPageItemsSlackConnection.BotId, and is useful for accessing the field via an interface.
+func (v *SlackConnectionsSlackConnectionsSlackConnectionsPageItemsSlackConnection) GetBotId() string {
+	return v.BotId
+}
+
+// GetBotUserId returns SlackConnectionsSlackConnectionsSlackConnectionsPageItemsSlackConnection.BotUserId, and is useful for accessing the field via an interface.
+func (v *SlackConnectionsSlackConnectionsSlackConnectionsPageItemsSlackConnection) GetBotUserId() string {
+	return v.BotUserId
+}
+
+// GetCreatedAt returns SlackConnectionsSlackConnectionsSlackConnectionsPageItemsSlackConnection.CreatedAt, and is useful for accessing the field via an interface.
+func (v *SlackConnectionsSlackConnectionsSlackConnectionsPageItemsSlackConnection) GetCreatedAt() string {
+	return v.CreatedAt
+}
+
+// GetUpdatedAt returns SlackConnectionsSlackConnectionsSlackConnectionsPageItemsSlackConnection.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *SlackConnectionsSlackConnectionsSlackConnectionsPageItemsSlackConnection) GetUpdatedAt() string {
+	return v.UpdatedAt
+}
+
 // SoftDeleteAssetResponse is returned by SoftDeleteAsset on success.
 type SoftDeleteAssetResponse struct {
 	SoftDeleteAsset *SoftDeleteAssetSoftDeleteAsset `json:"softDeleteAsset"`
@@ -75513,6 +75700,30 @@ type __SkillPlanInput struct {
 // GetInput returns __SkillPlanInput.Input, and is useful for accessing the field via an interface.
 func (v *__SkillPlanInput) GetInput() *SkillPlanInput { return v.Input }
 
+// __SlackConnectionInput is used internally by genqlient
+type __SlackConnectionInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __SlackConnectionInput.Ref, and is useful for accessing the field via an interface.
+func (v *__SlackConnectionInput) GetRef() string { return v.Ref }
+
+// __SlackConnectionsInput is used internally by genqlient
+type __SlackConnectionsInput struct {
+	OrgId  *string `json:"orgId,omitempty"`
+	Limit  *int    `json:"limit,omitempty"`
+	Offset *int    `json:"offset,omitempty"`
+}
+
+// GetOrgId returns __SlackConnectionsInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__SlackConnectionsInput) GetOrgId() *string { return v.OrgId }
+
+// GetLimit returns __SlackConnectionsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__SlackConnectionsInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __SlackConnectionsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__SlackConnectionsInput) GetOffset() *int { return v.Offset }
+
 // __SoftDeleteAssetInput is used internally by genqlient
 type __SoftDeleteAssetInput struct {
 	AssetId string `json:"assetId"`
@@ -96844,6 +97055,103 @@ func SkillPlan(
 	}
 
 	data_ = &SkillPlanResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by SlackConnection.
+const SlackConnection_Operation = `
+query SlackConnection ($ref: ID!) {
+	slackConnection(ref: $ref) {
+		id
+		organizationId
+		defaultAppId
+		provider
+		status
+		teamId
+		teamName
+		botId
+		botUserId
+		createdAt
+		updatedAt
+	}
+}
+`
+
+func SlackConnection(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *SlackConnectionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SlackConnection",
+		Query:  SlackConnection_Operation,
+		Variables: &__SlackConnectionInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &SlackConnectionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by SlackConnections.
+const SlackConnections_Operation = `
+query SlackConnections ($orgId: ID, $limit: Int, $offset: Int) {
+	slackConnections(orgId: $orgId, limit: $limit, offset: $offset) {
+		total
+		items {
+			id
+			organizationId
+			defaultAppId
+			provider
+			status
+			teamId
+			teamName
+			botId
+			botUserId
+			createdAt
+			updatedAt
+		}
+	}
+}
+`
+
+// Read-only Slack connection metadata (cli#206). Never request lastError;
+// the server returns no token fields.
+func SlackConnections(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgId *string,
+	limit *int,
+	offset *int,
+) (data_ *SlackConnectionsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SlackConnections",
+		Query:  SlackConnections_Operation,
+		Variables: &__SlackConnectionsInput{
+			OrgId:  orgId,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &SlackConnectionsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

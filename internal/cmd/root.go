@@ -50,6 +50,7 @@ import (
 	secretcmd "github.com/hadron-memory/hadron-cli/internal/cmd/secret"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/serverinfo"
 	skillcmd "github.com/hadron-memory/hadron-cli/internal/cmd/skill"
+	slackcmd "github.com/hadron-memory/hadron-cli/internal/cmd/slack"
 	speccmd "github.com/hadron-memory/hadron-cli/internal/cmd/spec"
 	taskcmd "github.com/hadron-memory/hadron-cli/internal/cmd/task"
 	teamcmd "github.com/hadron-memory/hadron-cli/internal/cmd/team"
@@ -165,6 +166,7 @@ the binding is verified. Otherwise this does not apply to you.`,
 	root.AddCommand(connectioncmd.NewCmdConnection(f))
 	root.AddCommand(hacmd.NewCmdHa(f))
 	root.AddCommand(emailcmd.NewCmdEmail(f))
+	root.AddCommand(slackcmd.NewCmdSlack(f))
 	root.AddCommand(drivecmd.NewCmdDrive(f))
 	root.AddCommand(calendarcmd.NewCmdCalendar(f))
 	root.AddCommand(mcpservercmd.NewCmdMcpServer(f))
