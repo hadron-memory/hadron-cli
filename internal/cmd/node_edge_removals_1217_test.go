@@ -12,18 +12,18 @@ import (
 
 const edgeRemovalsHint1217 = "more may exist"
 
-func edgeRemovalsServer1217(t *testing.T) (string, map[string]json.RawMessage) {
+func edgeRemovalsServer1217(t *testing.T) string {
 	t.Helper()
-	gql, captured := captureGraphQL(t, map[string]string{
+	gql, _ := captureGraphQL(t, map[string]string{
 		"ResolveUrn":       `{"data":{"resolveUrn":{"id":"n1","kind":"node","memoryId":"mem1"}}}`,
 		"NodeEdgeRemovals": edgeRemovalsTwoRows,
 	})
-	return gql.URL, captured
+	return gql.URL
 }
 
 // A short default page (2 < 20) is the whole history: no hint.
 func TestNodeEdgeRemovalsShortDefaultPageNoHint(t *testing.T) {
-	url, _ := edgeRemovalsServer1217(t)
+	url := edgeRemovalsServer1217(t)
 	out, errOut, err := runEdgeRemovals(t, url)
 	if err != nil {
 		t.Fatalf("node edge-removals: %v", err)
@@ -39,7 +39,7 @@ func TestNodeEdgeRemovalsShortDefaultPageNoHint(t *testing.T) {
 // An explicit --limit names the page the caller asked for, so even a full
 // page (2 of --limit 2) prints no hint.
 func TestNodeEdgeRemovalsExplicitFullPageNoHint(t *testing.T) {
-	url, _ := edgeRemovalsServer1217(t)
+	url := edgeRemovalsServer1217(t)
 	out, errOut, err := runEdgeRemovals(t, url, "--limit", "2")
 	if err != nil {
 		t.Fatalf("node edge-removals: %v", err)

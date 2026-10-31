@@ -3372,12 +3372,13 @@ hadron node revision restore <revision-id>
 hadron node revision restore <revision-id> --truncate --yes
 hadron node revision clear hrn:node:acme.com:kb:findings:flaky-ci --yes
 
-# Hard-delete edge audit (server#2562): one entry per edge a HARD delete
+# Hard-delete edge audit (hadron-server#2517, built in #2562): one entry per edge a HARD delete
 # removed from this node, newest first. A nil edgeLoc/targetLoc in --json
 # (rendered "(withheld)" in text) is CONCEALMENT — the target's memory is not
 # readable — not missing data; targetId always names the deleted target.
-# Pages like revision list (default 20, no total; a full page says more may
-# exist on stderr).
+# Pages like revision list (default 20, no total, no upper bound; --limit 0 is
+# an empty page; a full DEFAULT page says more may exist on stderr, an explicit
+# --limit never does).
 hadron node edge-removals hrn:node:acme.com:kb:findings:flaky-ci --json
 
 # Ranked search (hybrid semantic+keyword by default; scores + abstracts in --json)
