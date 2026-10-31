@@ -233,8 +233,8 @@ func TestNodeRevisionListCarriesStampsAndFallsBack(t *testing.T) {
 	row := `{"id":"r1","nodeId":"n1","loc":"findings:flaky","name":"Flaky","description":null,"tags":[],"createdAt":"2026-09-20T00:00:00Z",` +
 		`"editedBy":null,"editedByInfo":null,"editedByUser":null,"revLabel":null,"changes":[]`
 	gql, _ := captureGraphQL(t, map[string]string{
-		"ResolveUrn":           `{"data":{"resolveUrn":{"id":"n1","kind":"node","memoryId":"mem1"}}}`,
-		"NodeRevisionsStamped": `{"data":{"nodeRevisions":[` + row + `,"authorship":null,"contentValidation":` + validation("STALE", "FAIL", 1) + `}]}}`,
+		"ResolveUrn":               `{"data":{"resolveUrn":{"id":"n1","kind":"node","memoryId":"mem1"}}}`,
+		"NodeRevisionsStampedPage": `{"data":{"nodeRevisionsPage":{"total":1,"hasMore":false,"items":[` + row + `,"authorship":null,"contentValidation":` + validation("STALE", "FAIL", 1) + `}]}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -248,8 +248,8 @@ func TestNodeRevisionListCarriesStampsAndFallsBack(t *testing.T) {
 
 	// An older server: the plain history, with null stamps — never invented.
 	gql, _ = captureGraphQL(t, map[string]string{
-		"ResolveUrn":    `{"data":{"resolveUrn":{"id":"n1","kind":"node","memoryId":"mem1"}}}`,
-		"NodeRevisions": `{"data":{"nodeRevisions":[` + row + `}]}}`,
+		"ResolveUrn":        `{"data":{"resolveUrn":{"id":"n1","kind":"node","memoryId":"mem1"}}}`,
+		"NodeRevisionsPage": `{"data":{"nodeRevisionsPage":{"total":1,"hasMore":false,"items":[` + row + `}]}}}`,
 	})
 	f, out = testFactory(t)
 	root = NewRootCmd(f)

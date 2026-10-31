@@ -199,21 +199,26 @@ func sessionDTOFromFields(s gen.TeamSessionFields, fallbackName *string) session
 
 const sessionPageSize = 200
 
-// scanSessions pages the sessions list (ordered startedAt desc; the server
-// has no active filter, issue-#23 style: an unbounded call is one default
-// page) and calls visit per session until visit returns false or the list is
-// exhausted. workerRef narrows server-side to one worker's sessions (#974).
+// scanSessions pages sessionsPage (cli#1339; ordered startedAt desc; the server
+// has no active filter) and calls visit per session until visit returns false
+// or the list is exhausted. workerRef narrows server-side to one worker's
+// sessions (#974). The page's own total proves the end: unique rows reaching it
+// with no more pages. A page that adds nothing new while the server says more
+// exist means the list is not advancing (a server ignoring the offset), which
+// fails the read rather than looping or returning a partial list; a row shifted
+// onto the next page by a concurrent insert is skipped as the duplicate it is.
 func scanSessions(ctx context.Context, client graphql.Client, repo, workerRef *string, visit func(gen.TeamSessionFields) bool) error {
 	limit := sessionPageSize
 	seen := map[string]bool{}
 	for offset := 0; ; {
 		off := offset
-		resp, err := gen.TeamSessions(ctx, client, repo, workerRef, &limit, &off)
+		resp, err := gen.TeamSessionsPage(ctx, client, repo, workerRef, &limit, &off)
 		if err != nil {
 			return api.MapError(err)
 		}
+		page := resp.SessionsPage
 		fresh := 0
-		for _, s := range resp.Sessions {
+		for _, s := range page.Items {
 			if s == nil || seen[s.Id] {
 				continue
 			}
@@ -223,16 +228,15 @@ func scanSessions(ctx context.Context, client graphql.Client, repo, workerRef *s
 				return nil
 			}
 		}
-		// The list has no total, so only an EMPTY page proves the end: a page
-		// shorter than asked for may just be a server clamp (cli#967). A page
-		// of nothing but sessions already visited means the list is not
-		// advancing (a server ignoring the offset), so stop rather than loop;
-		// a row shifted onto the next page by a concurrent insert is skipped
-		// as the duplicate it is.
-		if len(resp.Sessions) == 0 || fresh == 0 {
+		offset += len(page.Items)
+		if !page.HasMore && len(seen) >= page.Total {
 			return nil
 		}
-		offset += len(resp.Sessions)
+		if fresh == 0 {
+			// Nothing new while the total is still unmet is a partial list, whatever
+			// hasMore says: fail rather than return it.
+			return exitcode.Newf(exitcode.Unavailable, "the server's session list is not advancing: %d of %d read, offset %d", len(seen), page.Total, offset)
+		}
 	}
 }
 
@@ -2783,15 +2787,28 @@ from a later milestone's REPORTED MODEL.`,
 				if cmd.Flags().Changed("offset") {
 					off = &offset
 				}
-				resp, err := gen.TeamSessions(ctx, client, optStr(repo), asWorkerRef, lim, off)
+				resp, err := gen.TeamSessionsPage(ctx, client, optStr(repo), asWorkerRef, lim, off)
 				if err != nil {
 					return api.MapError(err)
 				}
-				for _, s := range resp.Sessions {
+				for _, s := range resp.SessionsPage.Items {
 					if s == nil {
 						continue
 					}
 					sessions = append(sessions, sessionDTOFromFields(s.TeamSessionFields, nil))
+				}
+				// The twin's real total (cli#1339); stdout and --json stay the bare array.
+				first := 0
+				if off != nil {
+					first = *off
+				}
+				if len(sessions) == 0 {
+					_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "no sessions at offset %d (total %d)\n", first, resp.SessionsPage.Total)
+				} else {
+					_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "showing %d-%d of %d\n", first+1, first+len(sessions), resp.SessionsPage.Total)
+				}
+				if resp.SessionsPage.HasMore {
+					_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "more: --offset %d\n", first+len(sessions))
 				}
 			}
 			return output.Write(f.IOStreams, f.JSON, sessions, func(w io.Writer) error {
