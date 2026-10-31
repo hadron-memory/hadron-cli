@@ -15,6 +15,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
 	"github.com/hadron-memory/hadron-cli/internal/orcaterm"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 	ts "github.com/hadron-memory/hadron-cli/internal/terminalstatus"
@@ -38,6 +39,12 @@ type Env struct {
 	Now     func() time.Time
 	Reads   func(ctx context.Context, app string) (Reads, error)
 	BoundAt func(ctx context.Context, worktree string) (Bound, bool)
+	// OrcaExec builds the runner for an Orca binary named by --config
+	// (delivery.orca_bin, or "orca" for PATH). Nil means the real one.
+	OrcaExec func(bin string) orcaterm.Runner
+	// HostReads builds the reads for --config: the host key's own client,
+	// never the factory's ambient one. Nil means the real one.
+	HostReads func(f *cmdutil.Factory, cfg *hostpoller.Config, key string) (Reads, error)
 }
 
 func defaultEnv(f *cmdutil.Factory) Env {
@@ -81,11 +88,13 @@ func boundAt(ctx context.Context, worktree string) (Bound, bool) {
 
 func newCmdStatus(f *cmdutil.Factory, env Env) *cobra.Command {
 	var all bool
+	var configPath string
 	cmd := &cobra.Command{
-		Use:   "status (<worker|terminal-id> | --all)",
+		Use:   "status (<worker|terminal-id> | --all) [--config <host.yaml>]",
 		Short: "Classify a worker's Orca terminal as busy|idle|locked|dark",
 		Long: `Orca integration: reads Orca terminals, so it works only on the host that runs
-Orca and needs the Orca CLI on PATH. It never types into a terminal.
+Orca and needs the Orca CLI on PATH (or delivery.orca_bin with --config). It
+never types into a terminal.
 
 Classifies one worker's Orca terminal (found by the worker's session binding in
 its worktree, or taken directly by terminal id) and prints the result as the
@@ -111,6 +120,19 @@ way: an otherwise-idle worker then fails closed to locked/unrecognized.
 
 --all prints ONE JSON array, one entry per active worker of the App.
 
+--config <host.yaml> is for an unattended run on the host (cron, systemd): the
+same file as ` + "`team host run --config`" + `. Orca is delivery.orca_bin when set
+(absolute), else orca on PATH. The server is read with the host's App key from
+key_file (mode 0600 or tighter; never HADRON_TOKEN, the token store or an
+environment variable), with no session. The key is never put in the Orca
+subprocess's argv or environment, and never printed. The App is the file's, so
+--app is refused with --config (exit 2); --all then covers only the App's
+active workers this file configures. A bad file or relative orca_bin is exit 2;
+a missing or too-open key file is exit 3, before Orca is listed. A host key may
+not read tickers, so an idle worker then fails closed (locked/unrecognized);
+the dark rule also needs attention:deliver on the key, whose due-wake read the
+server records.
+
 Exit 0 whenever a status was produced; the status is in the output. Exit 10
 means Orca is not reachable (off the Orca host), distinct from a worker with no
 terminal, which is dark/no_terminal and exit 0. The detail line (the ticker and
@@ -119,16 +141,29 @@ and is never part of the JSON.`,
 		Example: `  hadron orca terminal status Joshua
   hadron orca terminal status Joshua --json
   hadron orca terminal status term_50a6 --json
-  hadron orca terminal status --all --json`,
+  hadron orca terminal status --all --json
+  hadron orca terminal status --all --json --config /etc/hadron/host.yaml`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if all == (len(args) == 1) {
 				return exitcode.Newf(exitcode.Usage, "give exactly one of <worker|terminal-id> or --all")
 			}
-			return runStatus(cmd.Context(), f, env, args, all)
+			var host *hostMode
+			if cmd.Flags().Changed("config") {
+				// Resolved here, not at construction: the flag is parsed now,
+				// and a refusal (config, key, orca_bin) comes before Orca is
+				// listed so a cron run fails the same way every time.
+				h, err := loadHostMode(f, env, configPath, cmd.Flags().Changed("app"))
+				if err != nil {
+					return err
+				}
+				host, env = h, h.env
+			}
+			return runStatus(cmd.Context(), f, env, args, all, host)
 		},
 	}
 	cmd.Flags().BoolVar(&all, "all", false, "every active worker of the App: one JSON array")
+	cmd.Flags().StringVar(&configPath, "config", "", "host configuration `file` (the one team host run --config reads): read the server with its host key, run Orca from delivery.orca_bin")
 	return cmd
 }
 
@@ -138,7 +173,7 @@ type target struct {
 	term   *orcaterm.Terminal
 }
 
-func runStatus(ctx context.Context, f *cmdutil.Factory, env Env, args []string, all bool) error {
+func runStatus(ctx context.Context, f *cmdutil.Factory, env Env, args []string, all bool, host *hostMode) error {
 	client := orcaterm.NewClient(env.Orca)
 	terms, err := client.List(ctx)
 	if err != nil {
@@ -157,6 +192,17 @@ func runStatus(ctx context.Context, f *cmdutil.Factory, env Env, args []string, 
 	needReads := func() (Reads, error) {
 		if reads != nil {
 			return reads, nil
+		}
+		if host != nil {
+			// The key is the host's own: one App, the file's. The ambient App
+			// context and a terminal's binding do not apply (a binding to
+			// another App is judged here and fails closed).
+			r, err := env.Reads(ctx, host.cfg.App)
+			if err != nil {
+				return nil, api.MapError(err)
+			}
+			reads, scope = r, "App "+host.cfg.App+" (from --config "+host.path+")"
+			return r, nil
 		}
 		app, err := f.App()
 		if err != nil {
@@ -209,6 +255,11 @@ func runStatus(ctx context.Context, f *cmdutil.Factory, env Env, args []string, 
 			return err
 		}
 		for _, w := range ws {
+			// A host's sweep covers the workers this host is configured for:
+			// the same matcher delivery uses.
+			if host != nil && host.cfg.RefFor(w.ID, w.URN, w.Name) == "" {
+				continue
+			}
 			targets = append(targets, target{worker: w})
 		}
 	default:
@@ -251,7 +302,7 @@ func runStatus(ctx context.Context, f *cmdutil.Factory, env Env, args []string, 
 		}
 	}
 	if len(idle) > 0 {
-		applyDarkRule(ctx, env, needReads, targets, results, idle)
+		applyDarkRule(ctx, env, needReads, host, targets, results, idle)
 	}
 
 	if scope != "" && !f.JSON {
@@ -359,7 +410,7 @@ func reasonPtr(r ts.Reason) *ts.Reason { return &r }
 // evidence cannot be read, or the server refuses it for this caller, an idle
 // worker is never reported idle: it fails closed to locked/unrecognized, with
 // the cause in the local detail. A busy or locked worker keeps its status.
-func applyDarkRule(ctx context.Context, env Env, needReads func() (Reads, error), targets []target, results []ts.Result, idle []int) {
+func applyDarkRule(ctx context.Context, env Env, needReads func() (Reads, error), host *hostMode, targets []target, results []ts.Result, idle []int) {
 	fail := func(err error) {
 		for _, i := range idle {
 			results[i].Status, results[i].Reason = ts.Locked, reasonPtr(ts.Unrecognized)
@@ -379,6 +430,31 @@ func applyDarkRule(ctx context.Context, env Env, needReads func() (Reads, error)
 	if err != nil {
 		fail(err)
 		return
+	}
+	if host != nil {
+		// A worker the configured App does not list (a terminal bound to
+		// another App) has no evidence here: fail it closed, never idle.
+		ws, err := reads.Workers(ctx)
+		if err != nil {
+			fail(err)
+			return
+		}
+		in := map[string]bool{}
+		for _, w := range ws {
+			in[w.ID] = true
+		}
+		kept := idle[:0:0]
+		for _, i := range idle {
+			if id := targets[i].worker.ID; id != "" && !in[id] {
+				results[i].Status, results[i].Reason = ts.Locked, reasonPtr(ts.Unrecognized)
+				results[i].Detail = "worker is not an active worker of the configured App"
+				continue
+			}
+			kept = append(kept, i)
+		}
+		if idle = kept; len(idle) == 0 {
+			return
+		}
 	}
 	subs, err := reads.Subscriptions(ctx)
 	if err != nil {
