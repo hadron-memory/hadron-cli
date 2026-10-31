@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -297,7 +298,7 @@ context).`,
 			// --agent are exclusive, so this fires exactly for a --role cast).
 			if role != "" && !roleDefinitionExists(cmd.Context(), client, appRef, role) {
 				fmt.Fprintf(f.IOStreams.ErrOut,
-					"note: no team role definition for %q — `hadron team role create %s` documents it (`team role list` shows the gap)\n", role, role)
+					"note: no team role definition for %q — %s (`team role list` shows the gap)\n", role, roleDefinitionHint(role, runtime.GOOS))
 			}
 			dto := workerDTOFromFields(resp.CastWorker.WorkerFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
