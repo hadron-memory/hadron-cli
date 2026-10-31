@@ -56,7 +56,22 @@ func TestC1bCountsOnlyPreservesExplicitZero(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := c2Mutation(t, calls, "CompiledPromptProvenance")
-	if c.Vars["limit"] != float64(0) || c.Vars["offset"] != float64(2) || !strings.Contains(out, `"items": []`) {
+	var dto struct {
+		NodeID      string            `json:"nodeId"`
+		RevNo       int               `json:"revNo"`
+		ContentHash string            `json:"contentHash"`
+		Items       []json.RawMessage `json:"items"`
+		Total       int               `json:"total"`
+		HasMore     bool              `json:"hasMore"`
+		Limit       *int              `json:"limit"`
+		Offset      int               `json:"offset"`
+	}
+	if err := json.Unmarshal([]byte(out), &dto); err != nil {
+		t.Fatal(err)
+	}
+	if c.Vars["limit"] != float64(0) || c.Vars["offset"] != float64(2) ||
+		dto.NodeID != "compiled1" || dto.RevNo != 7 || dto.ContentHash != "recordedhash" ||
+		dto.Items == nil || len(dto.Items) != 0 || dto.Total != 1 || dto.HasMore || dto.Limit == nil || *dto.Limit != 0 || dto.Offset != 2 {
 		t.Fatalf("counts-only altered: %s %s", c.RawVars, out)
 	}
 }
@@ -248,7 +263,7 @@ func TestC1bHumanSourceStatusesAndJSONOnlyDetailHelp(t *testing.T) {
 		}
 	}
 	_, out, err := runTeamTask(t, nil, "node", "provenance", "--help")
-	if err != nil || !strings.Contains(out, "--json includes the full recorded occurrence") {
+	if err != nil || !strings.Contains(strings.Join(strings.Fields(out), " "), "--json includes the full recorded occurrence") {
 		t.Fatalf("JSON-only detail not disclosed: %v %s", err, out)
 	}
 }
@@ -281,9 +296,8 @@ func TestC1bCountAndPagingEdges(t *testing.T) {
 		}
 	})
 	t.Run("counts with more", func(t *testing.T) {
-		page := strings.Replace(c1bPage, `"items":[`, `"items":[`, 1)
 		var record map[string]any
-		if err := json.Unmarshal([]byte(page), &record); err != nil {
+		if err := json.Unmarshal([]byte(c1bPage), &record); err != nil {
 			t.Fatal(err)
 		}
 		record["items"] = []any{}
