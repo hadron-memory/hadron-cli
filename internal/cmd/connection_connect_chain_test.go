@@ -22,12 +22,43 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
+// Escaped spellings of connectURL, built from explicit escape sequences in raw
+// string literals (never retyped from rendered text, which would turn the
+// six-character \u0026 back into a bare ampersand). They are the bytes a JSON
+// source or a non-Go encoder puts on the wire: "&" as \u0026 and "/" as \/.
+var (
+	connectURLAmpEscaped   = strings.ReplaceAll(connectURL, "&", `\u0026`)
+	connectURLSlashEscaped = strings.ReplaceAll(connectURL, "/", `\/`)
+	connectURLBothEscaped  = strings.ReplaceAll(connectURLAmpEscaped, "/", `\/`)
+)
+
 // chainSentinels are the secret-bearing values of connectURL, in the forms an
-// error graph can hold them: raw, and JSON-escaped (an HTTP error keeps the
-// body it was served, in which "&" and "/" may be escaped).
+// error graph can hold them: raw, and escaped (an HTTP error keeps the body it
+// was served, in which "&" and "/" may be escaped).
 func chainSentinels() []string {
 	esc, _ := json.Marshal(connectURL)
-	return []string{"SECRETNONCE123456", connectURL, "hadron.example/connect", string(esc[1 : len(esc)-1]), strings.ReplaceAll(connectURL, "&", `&`)}
+	return []string{"SECRETNONCE123456", connectURL, "hadron.example/connect", string(esc[1 : len(esc)-1]),
+		connectURLAmpEscaped, connectURLSlashEscaped, connectURLBothEscaped}
+}
+
+// The fixtures below must really differ from the raw link and carry the exact
+// escape bytes; a no-op ReplaceAll here once made the encoding claim vacuous.
+func TestConnectionConnectEncodedFixturePreconditions(t *testing.T) {
+	const u0026, slash = `\u0026`, `\/`
+	if !strings.Contains(connectURLAmpEscaped, "nonce=SECRETNONCE123456"+u0026+"x=1") || strings.Contains(connectURLAmpEscaped, "&") {
+		t.Errorf("amp fixture %q must hold the six bytes backslash-u0026 and no bare ampersand", connectURLAmpEscaped)
+	}
+	if !strings.Contains(connectURLSlashEscaped, "https:"+slash+slash+"hadron.example"+slash+"connect"+slash+"done") || strings.Contains(strings.ReplaceAll(connectURLSlashEscaped, slash, ""), "/") {
+		t.Errorf("slash fixture %q must hold backslash-slash and no bare slash", connectURLSlashEscaped)
+	}
+	if !strings.Contains(connectURLBothEscaped, slash+"done?nonce=SECRETNONCE123456"+u0026+"x=1") || strings.Contains(connectURLBothEscaped, "&") || strings.Contains(strings.ReplaceAll(connectURLBothEscaped, slash, ""), "/") {
+		t.Errorf("both fixture %q must hold both escapes and neither bare character", connectURLBothEscaped)
+	}
+	for _, f := range []string{connectURLAmpEscaped, connectURLSlashEscaped, connectURLBothEscaped} {
+		if f == connectURL {
+			t.Errorf("fixture %q is a no-op", f)
+		}
+	}
 }
 
 // reachable reports whether any of needles appears in anything v can reach:
@@ -198,6 +229,7 @@ func TestConnectionConnectReturnedErrorHoldsNoSecretGraph(t *testing.T) {
 		code       int
 		serverCode string
 		msg        string // substring of the public message
+		requestID  string // when set, the --json envelope must carry this requestId; when empty, none
 	}
 	cases := []struct {
 		name   string
@@ -206,38 +238,54 @@ func TestConnectionConnectReturnedErrorHoldsNoSecretGraph(t *testing.T) {
 	}{
 		{"authContext: secret in the message", map[string][]chainStep{
 			"StartConnection": start,
-			"AuthContext":     {{body: gqlErr(leakMsg, `"code":"FORBIDDEN"`)}}}, want{exitcode.Forbidden, "FORBIDDEN", "upstream said <redacted>"}},
+			"AuthContext":     {{body: gqlErr(leakMsg, `"code":"FORBIDDEN"`)}}}, want{exitcode.Forbidden, "FORBIDDEN", "upstream said <redacted>", ""}},
 		// The outer message is safe; the secret is only in what the error carries.
 		{"authContext: safe message, secret in extensions", map[string][]chainStep{
 			"StartConnection": start,
-			"AuthContext":     {{body: gqlErr("refused", `"code":"FORBIDDEN","detail":"`+connectURL+`"`)}}}, want{exitcode.Forbidden, "FORBIDDEN", "refused"}},
+			"AuthContext":     {{body: gqlErr("refused", `"code":"FORBIDDEN","detail":"`+connectURL+`"`)}}}, want{exitcode.Forbidden, "FORBIDDEN", "refused", ""}},
 		{"authContext: secret in the serverCode", map[string][]chainStep{
 			"StartConnection": start,
-			"AuthContext":     {{body: gqlErr("refused", `"code":"SECRETNONCE123456"`)}}}, want{exitcode.Error, "<redacted>", "refused"}},
+			"AuthContext":     {{body: gqlErr("refused", `"code":"SECRETNONCE123456"`)}}}, want{exitcode.Error, "<redacted>", "refused", ""}},
 		{"authContext: internal fault with a secret requestId", map[string][]chainStep{
 			"StartConnection": start,
-			"AuthContext":     {{body: gqlErr("boom", `"code":"INTERNAL_SERVER_ERROR","requestId":"SECRETNONCE123456"`)}}}, want{exitcode.Error, "INTERNAL_SERVER_ERROR", ""}},
+			"AuthContext":     {{body: gqlErr("boom", `"code":"INTERNAL_SERVER_ERROR","requestId":"SECRETNONCE123456"`)}}}, want{exitcode.Error, "INTERNAL_SERVER_ERROR", "", "<redacted>"}},
 		{"authContext: internal fault: ordinary requestId kept, link in detail dropped", map[string][]chainStep{
 			"StartConnection": start,
-			"AuthContext":     {{body: gqlErr("boom", `"code":"INTERNAL_SERVER_ERROR","requestId":"req-abc123","detail":"`+connectURL+`"`)}}}, want{exitcode.Error, "INTERNAL_SERVER_ERROR", "req-abc123"}},
+			"AuthContext":     {{body: gqlErr("boom", `"code":"INTERNAL_SERVER_ERROR","requestId":"req-abc123","detail":"`+connectURL+`"`)}}}, want{exitcode.Error, "INTERNAL_SERVER_ERROR", "req-abc123", "req-abc123"}},
+		// Escaped bytes, exactly as a non-Go encoder or a gateway puts them on
+		// the wire. Three layers: a non-JSON body holding the bytes, a JSON
+		// source whose decoded message still holds them (backslash doubled),
+		// and ordinary text beside them as a control.
+		{"poll: gateway page holding the escaped link bytes", map[string][]chainStep{
+			"StartConnection": start, "AuthContext": me,
+			"EmailConnections": {{body: connRows()}, {status: 502, body: "<html>" + connectURLBothEscaped + " | " + connectURLAmpEscaped + " | " + connectURLSlashEscaped + "</html>"}}}, want{exitcode.Unavailable, "", "", ""}},
+		{"authContext: decoded message still holds the escaped link bytes", map[string][]chainStep{
+			"StartConnection": start,
+			"AuthContext":     {{body: gqlErr("upstream said "+strings.ReplaceAll(connectURLBothEscaped, `\`, `\\`), `"code":"FORBIDDEN"`)}}}, want{exitcode.Forbidden, "FORBIDDEN", "upstream said", ""}},
+		{"authContext: decoded message holds the link with only the ampersand escaped", map[string][]chainStep{
+			"StartConnection": start,
+			"AuthContext":     {{body: gqlErr("upstream said "+strings.ReplaceAll(connectURLAmpEscaped, `\`, `\\`), `"code":"FORBIDDEN"`)}}}, want{exitcode.Forbidden, "FORBIDDEN", "upstream said", ""}},
+		{"authContext: JSON source escapes decode to the raw link", map[string][]chainStep{
+			"StartConnection": start,
+			"AuthContext":     {{body: gqlErr("upstream said "+connectURLBothEscaped, `"code":"FORBIDDEN"`)}}}, want{exitcode.Forbidden, "FORBIDDEN", "upstream said <redacted>", ""}},
 		{"baseline list: safe message, secret in extensions, no code", map[string][]chainStep{
 			"StartConnection": start, "AuthContext": me,
-			"EmailConnections": {{body: gqlErr("refused", `"detail":"`+connectURL+`"`)}}}, want{exitcode.Error, "", "refused"}},
+			"EmailConnections": {{body: gqlErr("refused", `"detail":"`+connectURL+`"`)}}}, want{exitcode.Error, "", "refused", ""}},
 		{"poll: mapped refusal with a serverCode", map[string][]chainStep{
 			"StartConnection": start, "AuthContext": me,
-			"EmailConnections": {{body: connRows()}, {body: gqlErr("refused", `"code":"UNAUTHENTICATED","detail":"`+connectURL+`"`)}}}, want{exitcode.AuthRequired, "UNAUTHENTICATED", "refused"}},
+			"EmailConnections": {{body: connRows()}, {body: gqlErr("refused", `"code":"UNAUTHENTICATED","detail":"`+connectURL+`"`)}}}, want{exitcode.AuthRequired, "UNAUTHENTICATED", "refused", ""}},
 		{"poll: secret in a non-200 body", map[string][]chainStep{
 			"StartConnection": start, "AuthContext": me,
-			"EmailConnections": {{body: connRows()}, {status: 400, body: gqlErr("bad", `"code":"BAD_USER_INPUT","detail":"`+connectURL+`"`)}}}, want{exitcode.Usage, "BAD_USER_INPUT", ""}},
+			"EmailConnections": {{body: connRows()}, {status: 400, body: gqlErr("bad", `"code":"BAD_USER_INPUT","detail":"`+connectURL+`"`)}}}, want{exitcode.Usage, "BAD_USER_INPUT", "", ""}},
 		{"poll: gateway page naming the link", map[string][]chainStep{
 			"StartConnection": start, "AuthContext": me,
-			"EmailConnections": {{body: connRows()}, {status: 502, body: "<html>bad gateway for " + connectURL + "</html>"}}}, want{exitcode.Unavailable, "", ""}},
+			"EmailConnections": {{body: connRows()}, {status: 502, body: "<html>bad gateway for " + connectURL + "</html>"}}}, want{exitcode.Unavailable, "", "", ""}},
 		{"poll: connection dropped (non-secret control)", map[string][]chainStep{
 			"StartConnection": start, "AuthContext": me,
-			"EmailConnections": {{body: connRows()}, {drop: true}}}, want{exitcode.Unavailable, "", "the connection dropped"}},
+			"EmailConnections": {{body: connRows()}, {drop: true}}}, want{exitcode.Unavailable, "", "the connection dropped", ""}},
 		{"poll: timeout (non-secret control)", map[string][]chainStep{
 			"StartConnection": start, "AuthContext": me,
-			"EmailConnections": rows}, want{exitcode.WaitTimeout, "", "not found yet"}},
+			"EmailConnections": rows}, want{exitcode.WaitTimeout, "", "not found yet", ""}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -253,6 +301,12 @@ func TestConnectionConnectReturnedErrorHoldsNoSecretGraph(t *testing.T) {
 			}
 			if tc.want.serverCode != "" && !strings.Contains(r.out+r.errOut, `"serverCode": "`+tc.want.serverCode+`"`) {
 				t.Errorf("serverCode %s lost: %q", tc.want.serverCode, r.out+r.errOut)
+			}
+			if tc.want.requestID != "" && !strings.Contains(r.out+r.errOut, `"requestId": "`+tc.want.requestID+`"`) {
+				t.Errorf("requestId %s lost from the --json envelope: %q", tc.want.requestID, r.out+r.errOut)
+			}
+			if tc.want.requestID == "" && strings.Contains(r.out+r.errOut, "requestId") {
+				t.Errorf("requestId appeared from nowhere: %q", r.out+r.errOut)
 			}
 			if tc.want.serverCode == "" && strings.Contains(r.out+r.errOut, "serverCode") {
 				t.Errorf("serverCode appeared from nowhere: %q", r.out+r.errOut)
