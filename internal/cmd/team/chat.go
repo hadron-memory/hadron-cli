@@ -212,6 +212,7 @@ func newCmdTeamChatPost(f *cmdutil.Factory) *cobra.Command {
 // Host delivery is injected only after the landed C1/S1 adapter is available.
 func newCmdTeamChatPostWithHostDelivery(f *cmdutil.Factory, prepare postHostDeliveryPreparer) *cobra.Command {
 	var hostConfig string
+	var push bool
 	var body, bodyFile, replyTo string
 	var asMe bool
 	cmd := &cobra.Command{
@@ -251,14 +252,34 @@ a separate session-free key and must already be registered for the same App and
 server; this command never registers it. A held/failed pass preserves post
 stdout/JSON and exit 0: do not repost; recover with
 hadron team host run --config <host.yaml>. Held deliveries are reported in
-local counts but are not reported to the server yet (no alarm/escalation).`,
+local counts but are not reported to the server yet (no alarm/escalation).
+
+With --push (which REQUIRES --orca-host-config, exit 2 before posting
+otherwise) the post also goes to the terminals of the workers it MENTIONS, and
+only to them: the recipients are the mentions the server stored on the message
+(@all / @team push to no one), and the CLI parses nothing. Each recipient gets
+its whole due batch through the poller's delivery transaction, so nothing is
+typed over a draft and a held recipient's marks do not move. The report says
+per recipient pushed (acknowledged), typed (the text reached the terminal but the
+acknowledgement did not land: no mark moved, still due, never typed again; reason
+ack-pending), held, or not-pushed (nothing typed: no batch came back,
+which the server does not distinguish as off-host, unknown or nothing due), or
+unconfirmed (the delivery pass failed before this recipient had an outcome, so
+whether it was typed is not established), in the text and in --json under "push",
+each with "acked" (batches whose acknowledgement was accepted). Every state exits
+0: the post stands either way, so test the state, not the exit. A failed push never undoes the post or
+changes its exit code.`,
 		Example: `  hadron team chat post "@rufus schema is live, over to you"
-  hadron team chat post --reply-to 42 "done"`,
+  hadron team chat post --reply-to 42 "done"
+  hadron team chat post --push --orca-host-config host.yaml "@rufus your turn"`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			if cmd.Flags().Changed("orca-host-config") && strings.TrimSpace(hostConfig) == "" {
 				return exitcode.Newf(exitcode.Usage, "--orca-host-config requires a host configuration file")
+			}
+			if push && !cmd.Flags().Changed("orca-host-config") {
+				return exitcode.Newf(exitcode.Usage, "--push requires --orca-host-config <host.yaml> (the host key that delivers); nothing posted")
 			}
 			// Exactly one body source: the positional, --body, or --body-file.
 			if len(args) == 1 {
@@ -326,6 +347,13 @@ local counts but are not reported to the server yet (no alarm/escalation).`,
 					return exitcode.Newf(exitcode.Unavailable, "host delivery preflight returned no pass; nothing was posted")
 				}
 			}
+			var pushPass postHostPushPass
+			if push {
+				var ok bool
+				if pushPass, ok = hostPass.(postHostPushPass); !ok {
+					return exitcode.Newf(exitcode.Unavailable, "host delivery cannot push; nothing was posted")
+				}
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -365,7 +393,22 @@ local counts but are not reported to the server yet (no alarm/escalation).`,
 				return api.MapError(err)
 			}
 			msg := teamChatMessageDTOFromFields(resp.CreateTeamChatMessage.TeamChatMessageFields)
-			err = output.Write(f.IOStreams, f.JSON, msg, func(w io.Writer) error {
+			// With --push the report joins the ONE receipt document, so the
+			// push runs first; the post is already live, so a stderr line
+			// goes out before it and a lost receipt is never a silent post.
+			var pushed []postPushResult
+			if pushPass != nil {
+				fmt.Fprintf(f.IOStreams.ErrOut, "note: posted seq %d; pushing to mentioned recipients\n", msg.Seq)
+				pushed = reportPostHostPush(ctx, pushPass, f.IOStreams.ErrOut, msg.Seq, pushRecipients(msg.Mentions))
+			}
+			var receipt any = msg
+			if push {
+				receipt = struct {
+					teamChatMessageDTO
+					Push []postPushResult `json:"push"`
+				}{msg, append([]postPushResult{}, pushed...)}
+			}
+			err = output.Write(f.IOStreams, f.JSON, receipt, func(w io.Writer) error {
 				who := "you"
 				if msg.AuthorName != nil {
 					who = *msg.AuthorName
@@ -382,8 +425,22 @@ local counts but are not reported to the server yet (no alarm/escalation).`,
 				if _, err := fmt.Fprintf(w, "✓ posted as %s (seq %d%s)\n", who, msg.Seq, reply); err != nil {
 					return err
 				}
-				_, err := fmt.Fprintf(w, "  app: %s\n", appLabel())
-				return err
+				if _, err := fmt.Fprintf(w, "  app: %s\n", appLabel()); err != nil {
+					return err
+				}
+				for _, r := range pushed {
+					reason := ""
+					if r.Reason != "" {
+						reason = " (" + r.Reason + ")"
+						if r.Reason == "ack-pending" {
+							reason = fmt.Sprintf(" (ack-pending; acked %d)", r.Acked)
+						}
+					}
+					if _, err := fmt.Fprintf(w, "  push %s: %s%s\n", r.Recipient, r.State, reason); err != nil {
+						return err
+					}
+				}
+				return nil
 			})
 			if err != nil {
 				if hostPass != nil {
@@ -391,7 +448,7 @@ local counts but are not reported to the server yet (no alarm/escalation).`,
 				}
 				return err
 			}
-			if hostPass != nil {
+			if hostPass != nil && !push {
 				if flusher, ok := f.IOStreams.Out.(interface{ Flush() error }); ok {
 					if err := flusher.Flush(); err != nil {
 						fmt.Fprintln(f.IOStreams.ErrOut, "note: post succeeded but its receipt flush failed; no delivery attempted; check chat before posting again")
@@ -411,6 +468,7 @@ local counts but are not reported to the server yet (no alarm/escalation).`,
 	// positional form).
 	cmd.MarkFlagsMutuallyExclusive("body", "body-file")
 	if prepare != nil {
+		cmd.Flags().BoolVar(&push, "push", false, "also deliver the post to the terminals of the workers it mentions (requires --orca-host-config)")
 		cmd.Flags().StringVar(&hostConfig, "orca-host-config", "", "attempt this host’s due deliveries after posting (including older unrelated batches)")
 	}
 	return cmd

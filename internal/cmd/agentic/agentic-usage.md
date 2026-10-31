@@ -387,7 +387,7 @@ hadron team worker onboard --name <worker> --host <id> --repo <token> --branch <
 hadron team role list [--team-agent <ref>] (uses --app or the binding) | get <role> [--team-agent <ref>] | create <role> [--description <d>] [--team-agent <ref>] | update <role> --description <d> | rm <role> [--yes]
 hadron team session start (--as <worker> | --launch-grant <g>) [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--reports-to <worker>] [--force] | start [--session <id>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>]   (no worker named: RESUME, cli#842) | whoami [--check] | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [--model <m>] [-m <team-memory>] | end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>] [--resume-claim] | resume-claim [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>] | sync-model [--hook] | shed [--auto] [--print-prompt] [--offline] [--cooldown <d>] [--transcript <path>] | set-model [<model>] [--family <token>]
 # cli#960: a bind whose resulting binding records no tool prints `warning: this binding has no tool recorded…` on STDERR (exit unchanged, --json stdout unchanged): `session log` then refuses, so pass --tool when you start a session that will log work; a resume of a session that already has a tool stays quiet without --tool
-hadron team chat post <body|-> [--reply-to <seq>] [--as-me] [--orca-host-config PATH] (uses --app or the binding; with NO binding it REFUSES, exit 4, unless --as-me — cli#842) | read [--since <seq>] [--before <seq>] [--limit <n>] [--all] [--wait <dur> [--poll-interval <dur>]] [--mentions-me | --mentions <ref>] [--thread <seq>] (uses --app or the binding) | mark-read --through <seq> [--channel <ref>] (needs the binding)
+hadron team chat post <body|-> [--reply-to <seq>] [--as-me] [--orca-host-config PATH [--push]] (uses --app or the binding; with NO binding it REFUSES, exit 4, unless --as-me — cli#842) | read [--since <seq>] [--before <seq>] [--limit <n>] [--all] [--wait <dur> [--poll-interval <dur>]] [--mentions-me | --mentions <ref>] [--thread <seq>] (uses --app or the binding) | mark-read --through <seq> [--channel <ref>] (needs the binding)
 # **WAIT (cli#1261):** `--since <seq> --wait <dur>` POLLS (team chat is never pushed): the same ordinary read every `--poll-interval` (default 5s, min 2s) until one returns messages (printed, exit 0) or `<dur>` passes (last empty read printed, exit **13**); a failing poll stops with its own code.
 # **THREAD (cli#1262):** `--thread <seq>` returns the DIRECT replies to that message (never the message itself, never replies-to-replies; a reply's own thread is `--thread <its seq>`), filtered by the server, composing with `--since/--before/--limit/--all`. A seq naming no message is exit **4** (typed refusal, never an empty page); a message with no replies is a valid empty page, exit 0. A thread read is a filtered window: it never advances the watermark or server read state (use `team chat mark-read`).
 # Team-chat post refusals (cli#1306): TEAM_CHAT_DUPLICATE and TEAM_CHAT_POST_RATE_LIMITED exit 5 (Conflict), retaining the server's message (earlier seq, or limit/reset time). --json error adds serverCode for these two refusals beside numeric code and message. A post or reply is sent once; the CLI never retries either refusal. TEAM_CHAT_BODY_TOO_LARGE remains exit 2. The node-addressed `hadron chat post --node …` door (cli#1319) maps the same three the same way (pinned): one CreateChannelMessage, no retry; only CHANNEL_NOT_FOUND creates the Channel and posts once more, and a refusal of that second post is not retried either.
@@ -3633,6 +3633,28 @@ host/Orca access. Delivery holds/failures preserve post stdout/JSON and exit 0;
 recover with hadron team host run --config <host.yaml>, never repost. Held
 deliveries appear in local counts but are not reported to the server yet
 (no server alarm/escalation).
+
+`--push` (cli#954) requires `--orca-host-config` (exit 2 before posting without
+it) and delivers to the terminals of the workers the post MENTIONS, only: the
+recipients are the mentions the server stored on the message (cor:agt:020:04;
+the CLI parses nothing, no quote exclusion; `@all`/`@team`/`@team.*` push to no
+one). Each gets its whole due batch through the same delivery transaction
+(cor:agt:080:16, :22), so nothing is typed over a draft and a held recipient's
+marks do not move. The receipt gains `push: [{recipient, state, reason?, acked}]` with
+state `pushed` (acknowledged, cor:agt:080:16) | `typed` (the text reached the terminal but
+the acknowledgement did not land, reason `ack-pending`: no mark moved, still due, never typed
+again by the CLI, cor:agt:080:12) | `held` | `not-pushed` | `unconfirmed`. `acked` = batches
+whose acknowledgement the server accepted. `not-pushed` means nothing typed: no batch came
+back, which the server does not tell apart as off-host, unknown or nothing due. `unconfirmed`
+means the pass failed before this recipient had an outcome, so typed-or-not is not
+established (reason `push-failed`); `not-pushed` may also carry `no-batch`. Every state exits
+0, so test the state, not the exit. A mention token addresses every host worker with that
+server mention token (mentionTokenOf; two names may share one) and reports the worst outcome;
+a pass error keeps the confirmed `pushed`/`typed`/`held` results. Text prints
+`push <name>: <state>`. Known limit: an ack that never lands is handed out again and the host
+poller may retype it (platform gap, cor:agt:080:12 doubt; not this command's defect).
+A failed push never undoes the post or changes exit 0: do not repost. Without
+`--push` the receipt has no `push` key.
 
 
 ### Team-channel checks (experiment #2138)
