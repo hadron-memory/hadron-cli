@@ -3,6 +3,9 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/parser"
 	"os"
 	"strings"
 	"testing"
@@ -380,5 +383,38 @@ func TestInputs1337HostMissingKeyNeverFallsBack(t *testing.T) {
 	}
 	if len(calls()) != 0 {
 		t.Fatal("ambient credential fallback")
+	}
+}
+
+func TestInputs1337CountersDoNotRequireResumeClaim(t *testing.T) {
+	doc, err := parser.ParseQuery(&ast.Source{Input: gen.EndTeamSessionWithStats_Operation})
+	if err != nil {
+		t.Fatal(err)
+	}
+	op := doc.Operations[0]
+	if op.VariableDefinitions.ForName("resumeClaim") != nil {
+		t.Fatal("stats-only document declares resumeClaim")
+	}
+	field := op.SelectionSet[0].(*ast.Field)
+	if field.Arguments.ForName("resumeClaim") != nil {
+		t.Fatal("stats-only document passes resumeClaim to an older server")
+	}
+}
+
+func TestInputs1337CapabilityDeclarationWarnsWithoutAHandler(t *testing.T) {
+	cfg := writeHostConfig(t, "capabilities: [worker.reset-context]\n")
+	srv, calls := hostServerFake(t, map[string]string{"RegisterHost": hostRegistrationAnswer, "CollectHostOperations": `{"data":{"collectHostOperations":[]}}`})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "host", "run", "--once", "--config", cfg, "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	warning := f.IOStreams.ErrOut.(*strings.Builder).String()
+	if !strings.Contains(warning, "worker.reset-context") || !strings.Contains(warning, "no handler") || !strings.Contains(warning, "FAILED") {
+		t.Fatalf("unsupported declaration was silent: %s", warning)
+	}
+	if len(calls()) != 2 {
+		t.Fatalf("declaration must still be sent explicitly: %#v", calls())
 	}
 }
