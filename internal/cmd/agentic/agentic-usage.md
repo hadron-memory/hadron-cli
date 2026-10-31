@@ -3768,9 +3768,19 @@ hadron-server#2309. No real navigation is required for automated tests.
 
 ## Usage reporting (read-only #65)
 
-`hadron usage activity [--from <iso>] [--to <iso>] [--bucket DAY|WEEK|MONTH] [--memory <ref>]... [--time-zone <IANA-zone>]  # omitted flags stay omitted; no zero-fill, client resource-count cap or fallback from empty resource scope (cor:acl:090:01); JSON [{date,reads,writes}]
-hadron usage events [--memory <ref>] [--loc <loc> | --node <PK-or-URN>] [--type <type>] [--since <iso>] [--until <iso>] [--limit N] [--offset N]`
-returns one newest-first page (default20, local1-200, offset>=0), with access
+```text
+hadron usage activity [--from <iso>] [--to <iso>] [--bucket DAY|WEEK|MONTH] [--memory <ref>]... [--time-zone <IANA-zone>]
+```
+Activity preserves omitted flags and server defaults. No client count cap,
+zero-fill, totals or fallback from an empty resource scope (cor:acl:090:01).
+Unreadable/unknown resource refs are silently excluded by the server; it does
+not report which refs contributed. Text names the requested scope and flags,
+not the resolved window. JSON is [{date,reads,writes}] in returned order.
+
+```text
+hadron usage events [--memory <ref>] [--loc <loc> | --node <PK-or-URN>] [--type <type>] [--since <iso>] [--until <iso>] [--limit N] [--offset N]
+```
+The events command returns one newest-first page (default20, local1-200, offset>=0), with access
 owned by the server. JSON is an array; empty is []. Filter flags are optional;
 explicit empty is Usage2. Loc is an exact verbatim loc, never shape-classified
 as nodeId. `--since`/`--until` (cli#1205) bound the window by creation time:

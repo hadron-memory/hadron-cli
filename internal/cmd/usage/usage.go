@@ -35,7 +35,7 @@ type summaryDTO struct {
 }
 
 func NewCmdUsage(f *cmdutil.Factory) *cobra.Command {
-	cmd := &cobra.Command{Use: "usage <command>", Short: "See what AI usage happened (not billing balances)", Long: "Look at the record of AI calls made in your memories: when, which model, how many\ntokens, and what it cost. This is the activity log; for how much credit an\norganization has left, use \"hadron billing balance\". Start with \"usage events\".", Example: "  hadron usage events --memory hrn:mem:acme.com:notes --limit 50"}
+	cmd := &cobra.Command{Use: "usage <command>", Short: "Read activity counts and AI usage events (not billing balances)", Long: "Look at read/write activity counts with \"usage activity\", or AI-call events\n(model, tokens and recorded cost) with \"usage events\". For organization\ncredit, use \"hadron billing balance\".", Example: "  hadron usage events --memory hrn:mem:acme.com:notes --limit 50"}
 	cmd.AddCommand(newEvents(f), newActivity(f))
 	return cmd
 }
@@ -68,7 +68,7 @@ bounds and page with --offset.
 --memory is a memory ID or URN (for example hrn:mem:acme.com:notes). --loc is an exact
 node loc, including hierarchical ones such as notes:ideas. --node instead takes
 a node PK or fully-qualified node URN; it cannot be combined with --loc. The
-server applies the node filter without any loc-to-id conversion. --type is an exact
+CLI does not resolve a loc to a node; pass a PK or fully-qualified node URN. --type is an exact
 event type. Leave a flag out for no filter; an empty value is refused.
 
 COST is in micro-cents: 1 USD = 100,000,000 micro-cents (so 5000000 is 0.05 USD,

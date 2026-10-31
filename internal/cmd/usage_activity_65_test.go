@@ -79,7 +79,7 @@ func TestUsageActivity65FlagsBucketsAndRefusal(t *testing.T) {
 		}
 	}
 	text, _, code, _, _ := activity65Run(t, response, args...)
-	if code != 0 || !strings.Contains(text, "2026-10-01T00:00:00Z") || !strings.Contains(text, "WEEK") || strings.Contains(text, "2026-10-02") {
+	if code != 0 || !strings.Contains(text, "2026-10-01T00:00:00Z") || !strings.Contains(text, "WEEK") || strings.Contains(text, "2026-10-02") || strings.Contains(text, "TOTAL") || !strings.Contains(text, "unreadable or unknown refs are excluded") {
 		t.Fatal(text)
 	}
 	text, _, code, _, _ = activity65Run(t, response, "usage", "activity")
@@ -117,7 +117,7 @@ func TestUsageActivity65NodeAndArgumentParsing(t *testing.T) {
 			t.Fatal(v)
 		}
 	}
-	for _, args := range [][]string{{"usage", "events", "--node", "n", "--loc", "a:b"}, {"usage", "events", "--node="}, {"usage", "activity", "--memory="}, {"usage", "activity", "--from="}, {"usage", "activity", "--bucket="}, {"usage", "activity", "--time-zone="}} {
+	for _, args := range [][]string{{"usage", "events", "--node", "0123456789abcdef0123456789abcdef", "--loc", "a:b"}, {"usage", "events", "--loc", "a:b", "--node", "hrn:node:acme.com:kb:a:b"}, {"usage", "events", "--node="}, {"usage", "activity", "--memory="}, {"usage", "activity", "--from="}, {"usage", "activity", "--to="}, {"usage", "activity", "--bucket="}, {"usage", "activity", "--time-zone="}} {
 		_, stderr, code, _, n := activity65Run(t, `{}`, args...)
 		if code != 2 || n != 0 {
 			t.Fatalf("%v %d %d %s", args, code, n, stderr)
@@ -149,5 +149,44 @@ func TestUsageActivity65RefusalAndMalformedBuckets(t *testing.T) {
 		if code != 2 || n != 0 {
 			t.Fatal(node, code, n)
 		}
+	}
+}
+
+func TestUsageActivity65ScopeText(t *testing.T) {
+	for _, tc := range []struct {
+		args []string
+		want string
+	}{
+		{nil, "scope: own activity (no --memory sent)"},
+		{[]string{"--memory", "unreadable"}, "scope: requested resource union"},
+	} {
+		args := append([]string{"usage", "activity"}, tc.args...)
+		out, _, code, _, _ := activity65Run(t, `{"data":{"usageActivity":[]}}`, args...)
+		if code != 0 || !strings.Contains(out, tc.want) || strings.Contains(out, "TOTAL") {
+			t.Fatalf("code=%d, output=%q, want=%q and no TOTAL", code, out, tc.want)
+		}
+		if len(tc.args) > 0 && !strings.Contains(out, "unreadable or unknown refs are excluded") {
+			t.Fatalf("missing resource caveat: %q", out)
+		}
+	}
+}
+
+func TestUsageActivity65LegacyNodeAndServerDate(t *testing.T) {
+	_, _, code, calls, _ := activity65Run(t, `{"data":{"usageEvents":[]}}`, "usage", "events", "--node", "acme.com::kb::a:b")
+	var vars map[string]any
+	if err := json.Unmarshal(calls["UsageEvents"], &vars); err != nil {
+		t.Fatal(err)
+	}
+	if code != 0 || vars["nodeId"] != "hrn:node:acme.com::kb::a:b" {
+		t.Fatalf("code=%d, nodeId=%v", code, vars["nodeId"])
+	}
+	response := `{"data":{"usageActivity":[{"date":"a\u001b[31m\u202eb","reads":1,"writes":2}]}}`
+	out, _, code, _, _ := activity65Run(t, response, "usage", "activity")
+	if code != 0 || strings.ContainsAny(out, "\x1b\u202e") {
+		t.Fatalf("unsafe text code=%d out=%q", code, out)
+	}
+	out, _, code, _, _ = activity65Run(t, response, "usage", "activity", "--json")
+	if code != 0 || !strings.Contains(out, `\u001b[31m`) {
+		t.Fatalf("lost JSON original code=%d out=%q", code, out)
 	}
 }

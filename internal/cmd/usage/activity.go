@@ -28,14 +28,19 @@ func newActivity(f *cmdutil.Factory) *cobra.Command {
 		Long: `Read the server's dated read/write counts, in the order returned. Sign in first.
 With no --memory, the server selects your own activity. Repeat --memory with
 memory IDs or URNs to select resource activity instead (all principals' counts
-in those memories, not their identities). The server decides readable scope;
-an empty or unreadable resource result never falls back to your own activity
+in those memories, not their identities). Refs you cannot read, or that do not
+exist, are silently excluded by the server.
+Counts may cover fewer memories than you named; the result does not identify
+which refs contributed. If all refs are excluded, no buckets are returned.
+Malformed refs are errors.
+An empty or unreadable resource result never falls back to your own activity
 (cor:acl:090:01). The server enforces reference-count limits and other rules.
 
 --from is inclusive and --to exclusive (ISO date-times). --bucket is DAY, WEEK
 or MONTH; --time-zone is an IANA zone such as Asia/Tokyo. Omitted flags are
 omitted on the wire: the server defaults to seven days, DAY and UTC. These are
-server defaults, not values the CLI computes. A date labels a bucket in the
+server defaults, not values the CLI computes. The server may shorten a requested
+window; the CLI cannot report its resolved bounds. A date labels a bucket in the
 requested zone; it is not converted into a UTC timestamp.
 
 Text names the requested scope and prints the flags sent (or "server default"), then DATE, READS and WRITES.
@@ -95,7 +100,7 @@ refusals come from the server. Nothing is recorded; no provider is called.`,
 			return output.Write(f.IOStreams, f.JSON, rows, func(w io.Writer) error {
 				scope := "own activity (no --memory sent)"
 				if len(memories) > 0 {
-					scope = fmt.Sprintf("resource union (memory refs as sent: %q)", memories)
+					scope = fmt.Sprintf("requested resource union (refs as sent: %q; unreadable or unknown refs are excluded by the server, not reported)", memories)
 				}
 				if _, err := fmt.Fprintf(w, "scope: %s\n", scope); err != nil {
 					return err
