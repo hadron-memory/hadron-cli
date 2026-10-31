@@ -202,6 +202,11 @@ func (s *hostServer) Hold(context.Context, string, string, string) error {
 	return delivery.ErrHoldUnavailable
 }
 
+// orcaRunner is the runner delivery types through: the bounded `orca` exec.
+// It is a variable only so a test can drive a whole poller step through a
+// fake Orca (#1192); nothing else replaces it.
+var orcaRunner = func(bin string) orcaterm.Runner { return orcaterm.Exec(bin, orcaterm.CallTimeout) }
+
 // wireDelivery turns delivery on for this run: S1's chat batches and the
 // host's due tick and task wakes (hadron-cli#1178), typed through Orca on
 // the same per-worker chain, with the status snapshot written after each
@@ -211,7 +216,7 @@ func (s *hostServer) Hold(context.Context, string, string, string) error {
 func wireDelivery(p *hostpoller.Poller, cfg *hostpoller.Config, srv *hostServer, emit func(hostpoller.Event)) *delivery.Deliverer {
 	stateDir := cfg.DeliveryStateDir()
 	book := delivery.NewStatusBook(stateDir)
-	d := delivery.New(srv, orcaterm.NewClient(orcaterm.Exec(cfg.Delivery.OrcaBin, orcaterm.CallTimeout)), stateDir)
+	d := delivery.New(srv, orcaterm.NewClient(orcaRunner(cfg.Delivery.OrcaBin)), stateDir)
 	d.Emit = func(e delivery.Event) {
 		book.Observe(e)
 		emit(deliveryEvent(e))
