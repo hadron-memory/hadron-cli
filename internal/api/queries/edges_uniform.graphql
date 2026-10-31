@@ -1,0 +1,54 @@
+# cli#1341 — the uniform edge reads (#473): edges are first-class,
+# loc-addressed peers of nodes (spec 037).
+
+# One edge by id or fully-qualified edge URN. Denied and missing are both null.
+query GetEdge($ref: ID!) {
+  edge(ref: $ref) {
+    ...UniformEdge
+  }
+}
+
+# The paged edge list over the caller's readable memories, AND-narrowed by the
+# filter. orgId follows cor:api:100:01 (a non-member gets an empty page). Every
+# filter field and argument is omitted when unset: the server reads an omitted
+# one as "no constraint".
+# @genqlient(for: "EdgeFilter.includeDeleted", omitempty: true)
+# @genqlient(for: "EdgeFilter.isRunnable", omitempty: true)
+# @genqlient(for: "EdgeFilter.memoryId", omitempty: true)
+# @genqlient(for: "EdgeFilter.sourceNodeId", omitempty: true)
+# @genqlient(for: "EdgeFilter.targetNodeId", omitempty: true)
+query ListEdges(
+  # @genqlient(omitempty: true)
+  $filter: EdgeFilter
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+  # @genqlient(omitempty: true)
+  $orgId: ID
+) {
+  edges(filter: $filter, limit: $limit, offset: $offset, orgId: $orgId) {
+    total
+    items {
+      ...UniformEdge
+    }
+  }
+}
+
+fragment UniformEdge on Edge {
+  id
+  urn
+  loc
+  name
+  description
+  isRunnable
+  priority
+  source {
+    id
+    loc
+  }
+  target {
+    id
+    loc
+  }
+}

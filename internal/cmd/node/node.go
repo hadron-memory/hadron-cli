@@ -180,6 +180,7 @@ anywhere. Nodes link to each other with edges (see hadron edge).
 Write
   create      add a note
   update      change its name, content or fields
+  set-properties  merge fields into its properties
   move        give it a new loc, or move it to another memory
   clone       copy it
   merge       fold one note into another
@@ -216,6 +217,7 @@ Maintainers
 	cmd.AddCommand(newCmdNext(f))
 	cmd.AddCommand(newCmdAdd(f))
 	cmd.AddCommand(newCmdUpdate(f))
+	cmd.AddCommand(newCmdSetProperties(f))
 	cmd.AddCommand(newCmdMove(f))
 	cmd.AddCommand(newCmdClone(f))
 	cmd.AddCommand(newCmdMerge(f))

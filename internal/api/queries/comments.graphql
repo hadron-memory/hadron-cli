@@ -49,6 +49,11 @@ mutation DeleteComment($ref: ID!,
 ) {
  deleteComment(commentRef: $ref, expectedRevision: $expected) { ...CommentFields }
 }
+# cli#1341 — a memory admin deletes a whole thread (#1606): soft, gone from
+# every read; commentRef may be any comment of it. The server owns the gate.
+mutation DeleteCommentThread($ref: ID!, $reason: String!) {
+ deleteCommentThread(commentRef: $ref, reason: $reason)
+}
 mutation ResolveCommentThread($ref: ID!,
  $expected: Int!
 ) {

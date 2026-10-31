@@ -70,6 +70,12 @@ func (c *capture) Delete(_ context.Context, r string, v int) (Comment, error) {
 	c.revision = v
 	return Comment{}, c.err
 }
+func (c *capture) DeleteThread(_ context.Context, r, reason string) (bool, error) {
+	c.calls++
+	c.verb = "delete-thread"
+	c.ref = r
+	return true, c.err
+}
 func (c *capture) Resolve(_ context.Context, r string, v int, reopen bool) (Comment, error) {
 	c.calls++
 	c.verb = "resolve"
