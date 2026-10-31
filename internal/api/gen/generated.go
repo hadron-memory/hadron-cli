@@ -20939,6 +20939,161 @@ func (v *CompileWorkerBootPromptResponse) GetCompileWorkerBootPrompt() *CompileW
 	return v.CompileWorkerBootPrompt
 }
 
+// CompiledNodeRevisionNode includes the requested fields of the GraphQL type Node.
+type CompiledNodeRevisionNode struct {
+	// #1323 — current live revision. Creation is revision 1; each committed authoring change advances it. NodeRevision.revNo N is the retained snapshot of this node when revision N was current, before the edit that advanced it.
+	Revision int `json:"revision"`
+}
+
+// GetRevision returns CompiledNodeRevisionNode.Revision, and is useful for accessing the field via an interface.
+func (v *CompiledNodeRevisionNode) GetRevision() int { return v.Revision }
+
+// CompiledNodeRevisionResponse is returned by CompiledNodeRevision on success.
+type CompiledNodeRevisionResponse struct {
+	// The uniform single-node read (#473) — subsumes the former nodeById(id:)
+	// and node(loc:, memory:) split. 'ref' accepts, in dispatch order:
+	//
+	// 1. a primary key (the unambiguous read — the old nodeById),
+	// 2. a fully-qualified node URN (`hrn:node:<root>:<memory>:<loc>`,
+	// legacy `urn:` scheme accepted),
+	// 3. a bare loc — scoped by 'memoryRef' (an ID or URN) when given; unscoped,
+	// it resolves across every readable memory and a cross-memory loc
+	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
+	// (listing the candidate memoryIds) rather than silently returning
+	// one (#335). An unprefixed 3+-segment ref whose first two segments
+	// name a live memory is treated as form 2 (a full URN); pass
+	// 'memoryRef' to force loc interpretation.
+	//
+	// raw: true selects stored content without include or variable resolution.
+	// Soft-deleted nodes do not resolve. Access uses the caller's readable-memory
+	// set. A denied or missing node returns null; an explicit memoryRef that is
+	// missing or unreadable raises MEMORY_NOT_FOUND. When addressed in a system
+	// memory by memoryRef or a full node URN, a loc with no local node may read
+	// through to an eligible inherited node under its own address; overrides and
+	// boot prompts are excluded. An unscoped bare loc does not search inheritance.
+	Node *CompiledNodeRevisionNode `json:"node"`
+}
+
+// GetNode returns CompiledNodeRevisionResponse.Node, and is useful for accessing the field via an interface.
+func (v *CompiledNodeRevisionResponse) GetNode() *CompiledNodeRevisionNode { return v.Node }
+
+// CompiledPromptLintBatchNodeBatchNodeBatchResult includes the requested fields of the GraphQL type NodeBatchResult.
+// The GraphQL type's documentation follows.
+//
+// Spec cor:api:040 — result envelope for the batch node read (nodeBatch).
+// 'nodes' is the authorized, existing subset (input order for a ref set, loc
+// order for a prefix). 'unavailable' and 'omitted' are both lists of REFS, not
+// node objects. 'unavailable' lists the requested refs that were denied OR not
+// found — indistinguishable, so the result never discloses whether an
+// unreadable node exists. 'truncated' is true when the response-size cap was
+// reached, and 'omitted' then carries the refs of the nodes dropped to stay
+// under it. (Over the node-count cap the query errors instead — never a silent
+// short read.) Both lists echo the caller's OWN ref strings for the 'refs'
+// form — pass a URN, get that URN back, not a primary key you never sent — and
+// node ids for the prefix form, which has no caller refs.
+type CompiledPromptLintBatchNodeBatchNodeBatchResult struct {
+	Truncated bool                                                        `json:"truncated"`
+	Omitted   []string                                                    `json:"omitted"`
+	Nodes     []*CompiledPromptLintBatchNodeBatchNodeBatchResultNodesNode `json:"nodes"`
+}
+
+// GetTruncated returns CompiledPromptLintBatchNodeBatchNodeBatchResult.Truncated, and is useful for accessing the field via an interface.
+func (v *CompiledPromptLintBatchNodeBatchNodeBatchResult) GetTruncated() bool { return v.Truncated }
+
+// GetOmitted returns CompiledPromptLintBatchNodeBatchNodeBatchResult.Omitted, and is useful for accessing the field via an interface.
+func (v *CompiledPromptLintBatchNodeBatchNodeBatchResult) GetOmitted() []string { return v.Omitted }
+
+// GetNodes returns CompiledPromptLintBatchNodeBatchNodeBatchResult.Nodes, and is useful for accessing the field via an interface.
+func (v *CompiledPromptLintBatchNodeBatchNodeBatchResult) GetNodes() []*CompiledPromptLintBatchNodeBatchNodeBatchResultNodesNode {
+	return v.Nodes
+}
+
+// CompiledPromptLintBatchNodeBatchNodeBatchResultNodesNode includes the requested fields of the GraphQL type Node.
+type CompiledPromptLintBatchNodeBatchNodeBatchResultNodesNode struct {
+	Id string `json:"id"`
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn string `json:"urn"`
+	// #1323 — current live revision. Creation is revision 1; each committed authoring change advances it. NodeRevision.revNo N is the retained snapshot of this node when revision N was current, before the edit that advanced it.
+	Revision int `json:"revision"`
+	// #2048 (hrn:node:hadronmemory.com:specs:cor:agt:040:13) — link lint for a boot-prompt source: the warnings that hold for this node as it is now, read as the caller (a target the caller cannot read is a position-only BROKEN_INCLUDE). An empty page is a real answer; null means the warnings are unavailable (a fault, or a compiled boot prompt, whose warnings read its recorded provenance). Lint never blocks a write, and nothing is stored or pushed. Pages default to 50 and clamp at 100.
+	LintWarnings *CompiledPromptLintBatchNodeBatchNodeBatchResultNodesNodeLintWarningsLintWarningPage `json:"lintWarnings"`
+}
+
+// GetId returns CompiledPromptLintBatchNodeBatchNodeBatchResultNodesNode.Id, and is useful for accessing the field via an interface.
+func (v *CompiledPromptLintBatchNodeBatchNodeBatchResultNodesNode) GetId() string { return v.Id }
+
+// GetUrn returns CompiledPromptLintBatchNodeBatchNodeBatchResultNodesNode.Urn, and is useful for accessing the field via an interface.
+func (v *CompiledPromptLintBatchNodeBatchNodeBatchResultNodesNode) GetUrn() string { return v.Urn }
+
+// GetRevision returns CompiledPromptLintBatchNodeBatchNodeBatchResultNodesNode.Revision, and is useful for accessing the field via an interface.
+func (v *CompiledPromptLintBatchNodeBatchNodeBatchResultNodesNode) GetRevision() int {
+	return v.Revision
+}
+
+// GetLintWarnings returns CompiledPromptLintBatchNodeBatchNodeBatchResultNodesNode.LintWarnings, and is useful for accessing the field via an interface.
+func (v *CompiledPromptLintBatchNodeBatchNodeBatchResultNodesNode) GetLintWarnings() *CompiledPromptLintBatchNodeBatchNodeBatchResultNodesNodeLintWarningsLintWarningPage {
+	return v.LintWarnings
+}
+
+// CompiledPromptLintBatchNodeBatchNodeBatchResultNodesNodeLintWarningsLintWarningPage includes the requested fields of the GraphQL type LintWarningPage.
+// The GraphQL type's documentation follows.
+//
+// #2048 — one page of warnings, ordered by position.
+type CompiledPromptLintBatchNodeBatchNodeBatchResultNodesNodeLintWarningsLintWarningPage struct {
+	Items []*CompiledPromptLintBatchNodeBatchNodeBatchResultNodesNodeLintWarningsLintWarningPageItemsLintWarning `json:"items"`
+}
+
+// GetItems returns CompiledPromptLintBatchNodeBatchNodeBatchResultNodesNodeLintWarningsLintWarningPage.Items, and is useful for accessing the field via an interface.
+func (v *CompiledPromptLintBatchNodeBatchNodeBatchResultNodesNodeLintWarningsLintWarningPage) GetItems() []*CompiledPromptLintBatchNodeBatchNodeBatchResultNodesNodeLintWarningsLintWarningPageItemsLintWarning {
+	return v.Items
+}
+
+// CompiledPromptLintBatchNodeBatchNodeBatchResultNodesNodeLintWarningsLintWarningPageItemsLintWarning includes the requested fields of the GraphQL type LintWarning.
+// The GraphQL type's documentation follows.
+//
+// #2048 — one link-lint warning. A fixed set of fields: there is no free-form detail.
+type CompiledPromptLintBatchNodeBatchNodeBatchResultNodesNodeLintWarningsLintWarningPageItemsLintWarning struct {
+	Kind LintKind `json:"kind"`
+}
+
+// GetKind returns CompiledPromptLintBatchNodeBatchNodeBatchResultNodesNodeLintWarningsLintWarningPageItemsLintWarning.Kind, and is useful for accessing the field via an interface.
+func (v *CompiledPromptLintBatchNodeBatchNodeBatchResultNodesNodeLintWarningsLintWarningPageItemsLintWarning) GetKind() LintKind {
+	return v.Kind
+}
+
+// CompiledPromptLintBatchResponse is returned by CompiledPromptLintBatch on success.
+type CompiledPromptLintBatchResponse struct {
+	// Batch read (spec cor:api:040) — the full node projection (select any Node
+	// fields, including content + edges) for MANY nodes in one call, eliminating
+	// the N+1 of one node(ref:) per node (e.g. 'spec lint --all'). Provide EITHER
+	// 'refs' (explicit set, returned in input order) OR 'memory' + 'locPrefix'
+	// (subtree, loc order) — not both. Each entry of 'refs' is a primary key OR a
+	// fully-qualified node URN (cor:api:140), so a URN-holding caller batches in
+	// ONE call instead of resolving each ref first. The split on a bad ref is by
+	// KIND, not by luck: a ref whose SHAPE is wrong errors the call — unqualified
+	// / relative (UrnNotQualifiedError) or a URN of the wrong entity type, e.g.
+	// 'hrn:mem:...' (BAD_USER_INPUT) — while a well-formed ref that names nothing
+	// the caller may read comes back in 'unavailable'. A caller mistake stays
+	// loud instead of hiding among denials. Per-node access is applied
+	// independently AFTER resolution: denied or missing refs come back in
+	// 'unavailable' and never fail the call. Bounded by hard caps — over the
+	// node-count cap throws BAD_USER_INPUT; over the response-size cap returns a
+	// partial result with 'truncated: true' and the dropped refs in 'omitted'
+	// (never a silent short read). Node content is returned raw — Mustache
+	// templates are NOT compiled (unlike the single-node 'node' read), since this
+	// is a bulk source read for lint / audit / migration and compiling per node
+	// would re-introduce the N+1 it eliminates.
+	// Requested edge fields share a 2000-row budget for this batch result; exceeding
+	// it returns BAD_USER_INPUT. Read large edge sets through the paged edges query.
+	// Unselected edges and endpoint bodies are not prefetched by the batch read.
+	NodeBatch *CompiledPromptLintBatchNodeBatchNodeBatchResult `json:"nodeBatch"`
+}
+
+// GetNodeBatch returns CompiledPromptLintBatchResponse.NodeBatch, and is useful for accessing the field via an interface.
+func (v *CompiledPromptLintBatchResponse) GetNodeBatch() *CompiledPromptLintBatchNodeBatchNodeBatchResult {
+	return v.NodeBatch
+}
+
 // CompiledPromptProvenanceCompiledPromptProvenanceCompiledPromptProvenancePage includes the requested fields of the GraphQL type CompiledPromptProvenancePage.
 // The GraphQL type's documentation follows.
 //
@@ -73322,6 +73477,56 @@ func (v *WorkerAvailabilitySetSetWorkerAvailabilityWorkerAgentTaskParty) __prema
 	return &retval, nil
 }
 
+// WorkerBootPointerResponse is returned by WorkerBootPointer on success.
+type WorkerBootPointerResponse struct {
+	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
+	// NAME (#1015), the ergonomic handle a human already knows. The name form is
+	// ADDITIVE: it is activated by appRef, since a name is unique only within an
+	// App. Without appRef the ref must be an id or URN, and anything else refuses
+	// WORKER_NOT_FOUND as before. An id or URN wins over appRef rather than being
+	// checked against it, so a typo'd URN never degrades into a roster search.
+	//
+	// Selecting `prompt` re-renders the worker's boot briefing live from the
+	// role agent's template — the read that lets an agent recover a briefing it
+	// lost to a context compaction, instead of opening a second session or
+	// forcing a takeover of itself.
+	//
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	Worker *WorkerBootPointerWorker `json:"worker"`
+}
+
+// GetWorker returns WorkerBootPointerResponse.Worker, and is useful for accessing the field via an interface.
+func (v *WorkerBootPointerResponse) GetWorker() *WorkerBootPointerWorker { return v.Worker }
+
+// WorkerBootPointerWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type WorkerBootPointerWorker struct {
+	// #2045 — the canonical URN of the compiled boot prompt this worker's pointer names now
+	// (set for customised workers only). Null when no pointer is set OR when the caller may not see it (WORKING-STATE
+	// field, behind the worker read gate): null is not proof that no pointer exists.
+	BootPromptRef *string `json:"bootPromptRef"`
+}
+
+// GetBootPromptRef returns WorkerBootPointerWorker.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *WorkerBootPointerWorker) GetBootPromptRef() *string { return v.BootPromptRef }
+
 // #2138 §3.4 (experimental) — a worker's check status. Draft spec: hrn:node:hadronmemory.com:hadron-dev-team-vera:work:2138-experiment-spec.
 type WorkerCheckState string
 
@@ -74955,6 +75160,88 @@ func (v *WorkerWakeSettingsWorkerWakeSettings) __premarshalJSON() (*__premarshal
 	retval.IsolatedUntil = v.WorkerWakeSettingsFields.IsolatedUntil
 	retval.CanManageIsolation = v.WorkerWakeSettingsFields.CanManageIsolation
 	return &retval, nil
+}
+
+// WorkersBootPointersResponse is returned by WorkersBootPointers on success.
+type WorkersBootPointersResponse struct {
+	// A team App's STAFF (#974, cor:agt:020:01 — Workers are the staff; the
+	// AppAgent join is the install roster): the App's castings, oldest first,
+	// as a uniform { items, total } page. Retired castings are hidden unless
+	// includeRetired. Same authorization as worker. appRef accepts the App's
+	// ID or URN.
+	Workers *WorkersBootPointersWorkersWorkersPage `json:"workers"`
+}
+
+// GetWorkers returns WorkersBootPointersResponse.Workers, and is useful for accessing the field via an interface.
+func (v *WorkersBootPointersResponse) GetWorkers() *WorkersBootPointersWorkersWorkersPage {
+	return v.Workers
+}
+
+// WorkersBootPointersWorkersWorkersPage includes the requested fields of the GraphQL type WorkersPage.
+type WorkersBootPointersWorkersWorkersPage struct {
+	Total int                                                 `json:"total"`
+	Items []*WorkersBootPointersWorkersWorkersPageItemsWorker `json:"items"`
+}
+
+// GetTotal returns WorkersBootPointersWorkersWorkersPage.Total, and is useful for accessing the field via an interface.
+func (v *WorkersBootPointersWorkersWorkersPage) GetTotal() int { return v.Total }
+
+// GetItems returns WorkersBootPointersWorkersWorkersPage.Items, and is useful for accessing the field via an interface.
+func (v *WorkersBootPointersWorkersWorkersPage) GetItems() []*WorkersBootPointersWorkersWorkersPageItemsWorker {
+	return v.Items
+}
+
+// WorkersBootPointersWorkersWorkersPageItemsWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type WorkersBootPointersWorkersWorkersPageItemsWorker struct {
+	Id string `json:"id"`
+	// hrn:worker:<root>:<app-slug>:<slug> (#991) — computed from the App's URN
+	// plus `slug`, not stored. Accepted anywhere a workerRef is taken, and
+	// resolvable via Query.resolveUrn, so a client can address a worker without
+	// holding its id. Null only when the App's URN predates the flat grammar-v2
+	// shape this arity requires.
+	Urn *string `json:"urn"`
+	// The worker's name ('Iris') — the identity every surface renders.
+	Name string `json:"name"`
+	// Retirement instant — a retired worker stops authoring and takes no new sessions; the name stays reserved.
+	RetiredAt *string `json:"retiredAt"`
+	// #2045 — the canonical URN of the compiled boot prompt this worker's pointer names now
+	// (set for customised workers only). Null when no pointer is set OR when the caller may not see it (WORKING-STATE
+	// field, behind the worker read gate): null is not proof that no pointer exists.
+	BootPromptRef *string `json:"bootPromptRef"`
+	// #2045 — whether the pointer's target is deleted (soft or hard): true / false, and null when no pointer is set
+	// or the caller may not see it. Same gate as bootPromptRef. Nothing is served from a deleted target (R27).
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+}
+
+// GetId returns WorkersBootPointersWorkersWorkersPageItemsWorker.Id, and is useful for accessing the field via an interface.
+func (v *WorkersBootPointersWorkersWorkersPageItemsWorker) GetId() string { return v.Id }
+
+// GetUrn returns WorkersBootPointersWorkersWorkersPageItemsWorker.Urn, and is useful for accessing the field via an interface.
+func (v *WorkersBootPointersWorkersWorkersPageItemsWorker) GetUrn() *string { return v.Urn }
+
+// GetName returns WorkersBootPointersWorkersWorkersPageItemsWorker.Name, and is useful for accessing the field via an interface.
+func (v *WorkersBootPointersWorkersWorkersPageItemsWorker) GetName() string { return v.Name }
+
+// GetRetiredAt returns WorkersBootPointersWorkersWorkersPageItemsWorker.RetiredAt, and is useful for accessing the field via an interface.
+func (v *WorkersBootPointersWorkersWorkersPageItemsWorker) GetRetiredAt() *string { return v.RetiredAt }
+
+// GetBootPromptRef returns WorkersBootPointersWorkersWorkersPageItemsWorker.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *WorkersBootPointersWorkersWorkersPageItemsWorker) GetBootPromptRef() *string {
+	return v.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns WorkersBootPointersWorkersWorkersPageItemsWorker.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *WorkersBootPointersWorkersWorkersPageItemsWorker) GetBootPromptTargetDeleted() *bool {
+	return v.BootPromptTargetDeleted
 }
 
 // WorkersResponse is returned by Workers on success.
@@ -76934,6 +77221,22 @@ func (v *__CompileWorkerBootPromptInput) GetWorkerRef() string { return v.Worker
 
 // GetSetPointer returns __CompileWorkerBootPromptInput.SetPointer, and is useful for accessing the field via an interface.
 func (v *__CompileWorkerBootPromptInput) GetSetPointer() *bool { return v.SetPointer }
+
+// __CompiledNodeRevisionInput is used internally by genqlient
+type __CompiledNodeRevisionInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __CompiledNodeRevisionInput.Ref, and is useful for accessing the field via an interface.
+func (v *__CompiledNodeRevisionInput) GetRef() string { return v.Ref }
+
+// __CompiledPromptLintBatchInput is used internally by genqlient
+type __CompiledPromptLintBatchInput struct {
+	Refs []string `json:"refs"`
+}
+
+// GetRefs returns __CompiledPromptLintBatchInput.Refs, and is useful for accessing the field via an interface.
+func (v *__CompiledPromptLintBatchInput) GetRefs() []string { return v.Refs }
 
 // __CompiledPromptProvenanceInput is used internally by genqlient
 type __CompiledPromptProvenanceInput struct {
@@ -82329,6 +82632,14 @@ type __WorkerAvailabilitySetInput struct {
 // GetInput returns __WorkerAvailabilitySetInput.Input, and is useful for accessing the field via an interface.
 func (v *__WorkerAvailabilitySetInput) GetInput() *SetWorkerAvailabilityInput { return v.Input }
 
+// __WorkerBootPointerInput is used internally by genqlient
+type __WorkerBootPointerInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __WorkerBootPointerInput.Ref, and is useful for accessing the field via an interface.
+func (v *__WorkerBootPointerInput) GetRef() string { return v.Ref }
+
 // __WorkerReportingInput is used internally by genqlient
 type __WorkerReportingInput struct {
 	Ref string `json:"ref"`
@@ -82360,6 +82671,26 @@ type __WorkerWakeSettingsInput struct {
 
 // GetWorkerRef returns __WorkerWakeSettingsInput.WorkerRef, and is useful for accessing the field via an interface.
 func (v *__WorkerWakeSettingsInput) GetWorkerRef() string { return v.WorkerRef }
+
+// __WorkersBootPointersInput is used internally by genqlient
+type __WorkersBootPointersInput struct {
+	AppRef         string `json:"appRef"`
+	IncludeRetired *bool  `json:"includeRetired,omitempty"`
+	Limit          *int   `json:"limit,omitempty"`
+	Offset         *int   `json:"offset,omitempty"`
+}
+
+// GetAppRef returns __WorkersBootPointersInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__WorkersBootPointersInput) GetAppRef() string { return v.AppRef }
+
+// GetIncludeRetired returns __WorkersBootPointersInput.IncludeRetired, and is useful for accessing the field via an interface.
+func (v *__WorkersBootPointersInput) GetIncludeRetired() *bool { return v.IncludeRetired }
+
+// GetLimit returns __WorkersBootPointersInput.Limit, and is useful for accessing the field via an interface.
+func (v *__WorkersBootPointersInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __WorkersBootPointersInput.Offset, and is useful for accessing the field via an interface.
+func (v *__WorkersBootPointersInput) GetOffset() *int { return v.Offset }
 
 // __WorkersInput is used internally by genqlient
 type __WorkersInput struct {
@@ -89078,6 +89409,90 @@ func CompileWorkerBootPrompt(
 	}
 
 	data_ = &CompileWorkerBootPromptResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by CompiledNodeRevision.
+const CompiledNodeRevision_Operation = `
+query CompiledNodeRevision ($ref: ID!) {
+	node(ref: $ref) {
+		revision
+	}
+}
+`
+
+// The one read after a lost compile response: did a new revision land?
+func CompiledNodeRevision(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *CompiledNodeRevisionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CompiledNodeRevision",
+		Query:  CompiledNodeRevision_Operation,
+		Variables: &__CompiledNodeRevisionInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &CompiledNodeRevisionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by CompiledPromptLintBatch.
+const CompiledPromptLintBatch_Operation = `
+query CompiledPromptLintBatch ($refs: [ID!]!) {
+	nodeBatch(refs: $refs) {
+		truncated
+		omitted
+		nodes {
+			id
+			urn
+			revision
+			lintWarnings(first: 100) {
+				items {
+					kind
+				}
+			}
+		}
+	}
+}
+`
+
+// The server's staleness verdict for many compiled prompts in one read
+// (cor:agt:040:13: RECOMPILE_AVAILABLE on a compiled node's lint). The CLI
+// never reads include targets or provenance to re-derive it. RECOMPILE_AVAILABLE
+// sorts at position 0, so it is always on the first page.
+func CompiledPromptLintBatch(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	refs []string,
+) (data_ *CompiledPromptLintBatchResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CompiledPromptLintBatch",
+		Query:  CompiledPromptLintBatch_Operation,
+		Variables: &__CompiledPromptLintBatchInput{
+			Refs: refs,
+		},
+	}
+
+	data_ = &CompiledPromptLintBatchResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -108866,6 +109281,42 @@ func WorkerAvailabilitySet(
 	return data_, err_
 }
 
+// The query executed by WorkerBootPointer.
+const WorkerBootPointer_Operation = `
+query WorkerBootPointer ($ref: ID!) {
+	worker(ref: $ref) {
+		bootPromptRef
+	}
+}
+`
+
+// The one read after a lost FIRST compile (no compiled node before): did the
+// compile set the worker's pointer?
+func WorkerBootPointer(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *WorkerBootPointerResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "WorkerBootPointer",
+		Query:  WorkerBootPointer_Operation,
+		Variables: &__WorkerBootPointerInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &WorkerBootPointerResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by WorkerReporting.
 const WorkerReporting_Operation = `
 query WorkerReporting ($ref: ID!) {
@@ -109076,6 +109527,57 @@ func Workers(
 	}
 
 	data_ = &WorkersResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by WorkersBootPointers.
+const WorkersBootPointers_Operation = `
+query WorkersBootPointers ($appRef: ID!, $includeRetired: Boolean, $limit: Int, $offset: Int) {
+	workers(appRef: $appRef, includeRetired: $includeRetired, limit: $limit, offset: $offset) {
+		total
+		items {
+			id
+			urn
+			name
+			retiredAt
+			bootPromptRef
+			bootPromptTargetDeleted
+		}
+	}
+}
+`
+
+// `team worker compile` batch mode (cli#1463). The roster projection it needs
+// and nothing else: identity plus each worker's compiled-prompt pointer. Never
+// add prompt/signature/trailer here (hadron-server#2970, cli#1459).
+func WorkersBootPointers(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	includeRetired *bool,
+	limit *int,
+	offset *int,
+) (data_ *WorkersBootPointersResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "WorkersBootPointers",
+		Query:  WorkersBootPointers_Operation,
+		Variables: &__WorkersBootPointersInput{
+			AppRef:         appRef,
+			IncludeRetired: includeRetired,
+			Limit:          limit,
+			Offset:         offset,
+		},
+	}
+
+	data_ = &WorkersBootPointersResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
