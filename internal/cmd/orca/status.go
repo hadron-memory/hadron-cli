@@ -15,6 +15,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
 	"github.com/hadron-memory/hadron-cli/internal/orcaterm"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 	ts "github.com/hadron-memory/hadron-cli/internal/terminalstatus"
@@ -38,6 +39,12 @@ type Env struct {
 	Now     func() time.Time
 	Reads   func(ctx context.Context, app string) (Reads, error)
 	BoundAt func(ctx context.Context, worktree string) (Bound, bool)
+	// OrcaExec builds the runner for an Orca binary named by --config
+	// (delivery.orca_bin, or "orca" for PATH). Nil means the real one.
+	OrcaExec func(bin string) orcaterm.Runner
+	// HostReads builds the reads for --config: the host key's own client,
+	// never the factory's ambient one. Nil means the real one.
+	HostReads func(f *cmdutil.Factory, cfg *hostpoller.Config, key string) (Reads, error)
 }
 
 func defaultEnv(f *cmdutil.Factory) Env {
