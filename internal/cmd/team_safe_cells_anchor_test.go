@@ -24,12 +24,14 @@ import (
 // unless its clean line contains rewritten: the case's declared prose line
 // that the renderer rewords for an unsafe value (host-ops' --after hint).
 // Nothing is skipped silently, so the intended row is always judged. At
-// least one place must carry the cell. A sanitized echo elsewhere (a headline, an adjacent
-// line) therefore cannot stand in for a raw cell: the raw cell's own place
-// fails. Nothing right of the cell is compared, because the bound can eat a
-// composed cell's closing text ("PENDING (…)") and some fields feed a later
-// column too (scope → TARGET). Once a line has carried the cell, later places
-// on it sit behind the widened cell and are not judged.
+// least one place must carry the cell. A sanitized echo elsewhere (a
+// headline, an adjacent line) therefore cannot stand in for a raw cell: the
+// raw cell's own place fails. Text right of the cell is not compared, because
+// the bound can eat a composed cell's closing text ("PENDING (…)") and some
+// fields feed a later column too (scope → TARGET). For the same reason, once
+// a line has carried the cell, its later places cannot be located by offset;
+// each must still appear, in order, in the rest of the attacked line as
+// cleanCell or cellWant, so a raw later occurrence fails too.
 func cellInRow(clean, out, cleanCell, cellWant, rewritten string) bool {
 	if cleanCell == "" || cellWant == "" {
 		return false
@@ -41,15 +43,26 @@ func cellInRow(clean, out, cleanCell, cellWant, rewritten string) bool {
 		if i < len(al) {
 			a = al[i]
 		}
-		lineHasCell := false
+		lineHasCell, after := false, ""
 		for o := 0; ; {
 			j := strings.Index(cl[i][o:], cleanCell)
 			if j < 0 {
 				break
 			}
 			at := o + j
-			o = at + 1
+			o = at + len(cleanCell)
 			if lineHasCell {
+				// Behind the widened cell: the next occurrence, in order,
+				// must be untouched or sanitized — never raw or missing.
+				u, c := strings.Index(after, cleanCell), strings.Index(after, cellWant)
+				switch {
+				case c >= 0 && (u < 0 || c <= u):
+					after = after[c+len(cellWant):]
+				case u >= 0:
+					after = after[u+len(cleanCell):]
+				default:
+					return false
+				}
 				continue
 			}
 			rest, ok := afterRowPrefix(a, cl[i][:at])
@@ -68,7 +81,7 @@ func cellInRow(clean, out, cleanCell, cellWant, rewritten string) bool {
 			if !isCell || !ends {
 				return false // a raw value, a split line, or a cell that runs on
 			}
-			lineHasCell = true
+			lineHasCell, after = true, tail
 			cells++
 		}
 	}
@@ -125,6 +138,9 @@ func TestCellInRowAnchorsOnTheRow(t *testing.T) {
 		{"cell and its echo both sanitized", "NAME   ROLE          HOST\n" +
 			"Iris   " + want + "   h1\n" +
 			"note: role " + want + " is new\n", true},
+		{"raw later occurrence on the cell's line", "NAME   ROLE          HOST\n" +
+			"Iris   " + want + "   h1 a\nb\x1b[31mc\n" +
+			"note: role old-role is new\n", false},
 		{"row changed, sanitized echo elsewhere", "NAME   ROLE          HOST\n" +
 			"Ivan   a\n" +
 			"note: role " + want + " is new\n", false},
@@ -155,6 +171,17 @@ func TestCellInRowAnchorsOnTheRow(t *testing.T) {
 				t.Errorf("cellInRow = %v, want %v", got, tc.ok)
 			}
 		})
+	}
+	// Dorian's LOCAL repros on #1397 (cf08bae5), verbatim shapes.
+	raw := "a\nb\x1b[31mc"
+	if cellInRow("k old old\n", "k "+want+" "+raw+"\n", "old", want, "") {
+		t.Error("raw later same-line occurrence: want false")
+	}
+	if cellInRow("head old\nid old\n", "head "+want+"\nchanged "+raw+"\n", "old", want, "") {
+		t.Error("changed-prefix row after a sanitized match: want false")
+	}
+	if !cellInRow("k old old\n", "k "+want+" "+want+"\n", "old", want, "") {
+		t.Error("both sanitized: want true")
 	}
 	// A declared rewritten line may be reworded; an undeclared one may not.
 	hint := "ID     STATE\nhop1   ok\nmore follow — continue with --after hop1\n"
