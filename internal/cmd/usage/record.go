@@ -55,11 +55,12 @@ or unknown node loc is still recorded, but WITHOUT node or memory attribution,
 and a session you do not own is recorded without attribution to it. Both look
 the same as success, so this command never says whether attribution happened.
 With --session, an event on a live session you own counts as that session's
-activity; an App key's event can resume its own lapsed session. An ended
-session takes the record without being revived.
+activity; an App key's event can resume its own lapsed session, never a dormant one.
+An owned ended, expired or idle session takes the record late, without being revived or counted as activity.
 
 The CLI checks none of this: no role, session-ownership or loc check, and it
-does not validate --type. Refusals from the server (for example FORBIDDEN) are
+does not validate --type or any string (an explicit empty value is sent as an
+empty string, not left out). Refusals from the server (for example FORBIDDEN) are
 reported as errors, exit 8. A value that is not an integer in range, or
 --action-args that is not valid JSON, exits 2 before any request.
 
@@ -69,18 +70,12 @@ Text prints "Usage event recorded"; --json prints {"recorded": true}.`,
   hadron usage record --type write --session 01abc --action-args '{"source":"import"}' --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if strings.TrimSpace(eventType) == "" {
-				return exitcode.Newf(exitcode.Usage, "--type must not be empty")
-			}
 			event := &gen.UsageEventInput{Type: eventType}
 			for _, s := range []struct {
 				name, value string
 				dst         **string
 			}{{"node-loc", nodeLoc, &event.NodeLoc}, {"session", session, &event.SessionId}, {"model", model, &event.Model}} {
 				if cmd.Flags().Changed(s.name) {
-					if strings.TrimSpace(s.value) == "" {
-						return exitcode.Newf(exitcode.Usage, "--%s must not be empty; omit it to leave it out", s.name)
-					}
 					v := s.value
 					*s.dst = &v
 				}
