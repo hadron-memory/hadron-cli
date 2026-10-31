@@ -57,13 +57,14 @@ type hitDTO struct {
 type resultDTO struct {
 	Hits []hitDTO `json:"hits"`
 	// Passages are the chunk results of --granularity chunk (cli#1341). The
-	// key is present only on such a search, so every other search's envelope
-	// is unchanged.
-	Passages []passageDTO `json:"passages,omitempty"`
-	Total    *int         `json:"total"`
-	Degraded *string      `json:"degraded,omitempty"`
-	Reason   *string      `json:"reason,omitempty"`
-	Scope    *scopeDTO    `json:"scope,omitempty"`
+	// key is present only on such a search — as [] when nothing matched —
+	// so every other search's envelope is unchanged. A pointer, because
+	// omitempty drops an empty slice but keeps a pointer to one.
+	Passages *[]passageDTO `json:"passages,omitempty"`
+	Total    *int          `json:"total"`
+	Degraded *string       `json:"degraded,omitempty"`
+	Reason   *string       `json:"reason,omitempty"`
+	Scope    *scopeDTO     `json:"scope,omitempty"`
 }
 
 // passageDTO is one chunk result: where in which node the match sits.
@@ -426,14 +427,31 @@ that App.`,
 				result.Hits = append(result.Hits, hit)
 			}
 			chunks := ranking.Granularity != nil && *ranking.Granularity == gen.SearchGranularityChunk
+			passages := []passageDTO{}
 			if chunks {
-				result.Passages = []passageDTO{}
 				for _, p := range page.Passages {
-					result.Passages = append(result.Passages, passageDTO{
+					passages = append(passages, passageDTO{
 						ParentNodeID: p.ParentNodeId, ParentNodeURN: p.ParentNodeUrn,
 						ChunkIndex: p.ChunkIndex, CharStart: p.CharStart, CharEnd: p.CharEnd,
 					})
 				}
+				result.Passages = &passages
+			}
+			// writePassages renders the chunk results after the hits, in the
+			// table and the block layout alike.
+			writePassages := func(w io.Writer) error {
+				if !chunks {
+					return nil
+				}
+				if len(passages) == 0 {
+					_, err := fmt.Fprintln(w, "no passages")
+					return err
+				}
+				pt := output.NewTable(w, "NODE", "CHUNK", "CHARS")
+				for _, p := range passages {
+					pt.Row(output.SafeCell(p.ParentNodeURN), fmt.Sprint(p.ChunkIndex), fmt.Sprintf("%d-%d", p.CharStart, p.CharEnd))
+				}
+				return pt.Flush()
 			}
 
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
@@ -455,7 +473,10 @@ that App.`,
 				// truncate an arbitrarily long JSON value, which is the same
 				// defect as not showing it, wearing the look of an answer.
 				if long || withProperties || withData {
-					return writeBlocks(w, result.Hits, long)
+					if err := writeBlocks(w, result.Hits, long); err != nil {
+						return err
+					}
+					return writePassages(w)
 				}
 				t := output.NewTable(w, "SCORE", "LOC", "NAME")
 				for _, h := range result.Hits {
@@ -464,18 +485,7 @@ that App.`,
 				if err := t.Flush(); err != nil {
 					return err
 				}
-				if !chunks {
-					return nil
-				}
-				if len(result.Passages) == 0 {
-					_, err := fmt.Fprintln(w, "no passages")
-					return err
-				}
-				pt := output.NewTable(w, "NODE", "CHUNK", "CHARS")
-				for _, p := range result.Passages {
-					pt.Row(output.SafeCell(p.ParentNodeURN), fmt.Sprint(p.ChunkIndex), fmt.Sprintf("%d-%d", p.CharStart, p.CharEnd))
-				}
-				return pt.Flush()
+				return writePassages(w)
 			})
 		},
 	}

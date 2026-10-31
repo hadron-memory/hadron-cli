@@ -87,9 +87,10 @@ public link; AVAILABLE says whether this server serves public links at all.
 
 -m is required, unless --all lists every asset held by a memory you can read.
 With --all, -m is optional and repeatable and narrows to those memories, --org
-to one organization (a non-member gets an empty list), and --scan-status to one
-virus-scan status (PENDING, CLEAN or BLOCKED); the table gains a MEMORY
-column.
+to one organization, and --scan-status to one virus-scan status (PENDING,
+CLEAN or BLOCKED); the table gains a MEMORY column. A memory or organization
+you cannot read, or that does not exist, narrows --all to an empty list rather
+than "not found".
 
 Everyone who can read the memory sees every uploader's files; --mine keeps only
 yours. --include-deleted adds files deleted in the last 24 hours (asset restore
@@ -281,7 +282,8 @@ func listAllAssets(cmd *cobra.Command, f *cmdutil.Factory, a allAssetsArgs) erro
 		if strings.TrimSpace(a.mime) == "" {
 			return exitcode.Newf(exitcode.Usage, "--mime is empty: name a MIME type, or drop the flag. Nothing was sent")
 		}
-		filter.MimeType = &a.mime
+		m := strings.TrimSpace(a.mime)
+		filter.MimeType = &m
 	}
 	filter.Mine = optBool(a.mine)
 	filter.IncludeDeleted = optBool(a.includeDeleted)
@@ -290,7 +292,8 @@ func listAllAssets(cmd *cobra.Command, f *cmdutil.Factory, a allAssetsArgs) erro
 		if strings.TrimSpace(a.org) == "" {
 			return exitcode.Newf(exitcode.Usage, "--org is empty: name an organization, or drop the flag. Nothing was sent")
 		}
-		orgArg = &a.org
+		o := strings.TrimSpace(a.org)
+		orgArg = &o
 	}
 	if a.limit < 0 || a.offset < 0 {
 		return exitcode.Newf(exitcode.Usage, "--limit and --offset must not be negative")

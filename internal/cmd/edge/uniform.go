@@ -141,6 +141,16 @@ func listUniformEdges(cmd *cobra.Command, f *cmdutil.Factory, memory string, u u
 		m := cmdutil.CanonicalMemoryRef(memory)
 		filter.MemoryId = &m
 	}
+	// --source and --target go to the server as typed, and a ref it cannot
+	// resolve matches no edge — an empty list, not "not found". So take only
+	// the two forms that name a node on their own (an id or a qualified node
+	// URN) and refuse a bare loc, which would silently list nothing.
+	for _, name := range []string{"source", "target"} {
+		v := strings.TrimSpace(map[string]string{"source": u.source, "target": u.target}[name])
+		if changed(name) && !cmdutil.IsEntityID(v) && !cmdutil.IsQualifiedNodeRef(v) {
+			return exitcode.Newf(exitcode.Usage, "--%s takes a node id or a node URN (hrn:node:<root>:<memory>:<loc>), not %q. Nothing was sent", name, v)
+		}
+	}
 	if changed("source") {
 		s := strings.TrimSpace(u.source)
 		filter.SourceNodeId = &s

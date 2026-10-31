@@ -40,7 +40,8 @@ the merge: each top-level key you give overwrites that key, and keys you leave
 out stay as they are. A node with no properties takes the object as given.
 
 One exception: an object under "exports" (the per-host skill export settings)
-is merged one level deeper, and a null value there removes that host or field,
+is merged as a JSON Merge Patch (RFC 7396): hosts and their fields merge
+recursively, and a null value there removes that host or field,
 so {"exports":{"codexSkill":{"enable":false}}} changes one setting and keeps
 the rest. Let the server do this merge rather than reading, editing and
 writing the whole object back, which can lose another writer's change.

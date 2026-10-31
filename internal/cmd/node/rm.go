@@ -114,6 +114,17 @@ refused (that memory may not be yours). --cascade-cross-memory-edges, with
 					return exitcode.Newf(exitcode.Usage,
 						"%q has descendants; pass %s to delete the whole subtree", node.Loc, hint)
 				}
+				// cli#1341: a hard delete of a node with edges to other memories
+				// refuses with CROSS_MEMORY_EDGES and names the GraphQL argument;
+				// name the flag instead.
+				if api.HasErrorCode(err, "CROSS_MEMORY_EDGES") {
+					if n := api.ExtensionCount(err, "CROSS_MEMORY_EDGES"); n >= 0 {
+						return exitcode.Newf(exitcode.Usage,
+							"%q has %d edge(s) linking it to other memories; pass --cascade-cross-memory-edges with --hard to delete them too", node.Loc, n)
+					}
+					return exitcode.Newf(exitcode.Usage,
+						"%q has edges linking it to other memories; pass --cascade-cross-memory-edges with --hard to delete them too", node.Loc)
+				}
 				return api.MapError(err)
 			}
 			status, verb := "deleted", "Deleted"

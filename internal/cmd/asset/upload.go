@@ -83,7 +83,8 @@ intent AGENT_REQUEST) and sends the id of that request with it.`,
 				if strings.TrimSpace(agentRequest) == "" {
 					return exitcode.Newf(exitcode.Usage, "--agent-request is empty: name the agent request this upload answers. Nothing was sent")
 				}
-				intent, requestID = gen.UploadIntentAgentRequest, &agentRequest
+				id := strings.TrimSpace(agentRequest)
+				intent, requestID = gen.UploadIntentAgentRequest, &id
 			}
 			src := args[0]
 			info, err := os.Stat(src)

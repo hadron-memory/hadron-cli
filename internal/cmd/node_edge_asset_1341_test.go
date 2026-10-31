@@ -199,13 +199,13 @@ func TestEdgeGet1341(t *testing.T) {
 // edge list with no node reaches the uniform edges list and every filter.
 func TestEdgeListUniform1341(t *testing.T) {
 	responses := map[string]string{"ListEdges": `{"data":{"edges":{"total":1,"items":[` + edgeJSON1341 + `]}}}`}
-	captured, out, err := run1341(t, responses, "edge", "list", "-m", "hrn:mem:acme.com:kb", "--source", "n1", "--target", "n2",
+	captured, out, err := run1341(t, responses, "edge", "list", "-m", "hrn:mem:acme.com:kb", "--source", "01a193c927a37e02b84d8c84eb2ecdfe", "--target", "hrn:node:acme.com:kb:start-here",
 		"--runnable=false", "--include-deleted", "--org", "acme.com", "--limit", "5", "--offset", "10", "--json")
 	if err != nil {
 		t.Fatalf("execute: %v\n%s", err, out)
 	}
 	v := vars1341(t, captured, "ListEdges")
-	if asJSON(v["filter"]) != `{"includeDeleted":true,"isRunnable":false,"memoryId":"hrn:mem:acme.com:kb","sourceNodeId":"n1","targetNodeId":"n2"}` ||
+	if asJSON(v["filter"]) != `{"includeDeleted":true,"isRunnable":false,"memoryId":"hrn:mem:acme.com:kb","sourceNodeId":"01a193c927a37e02b84d8c84eb2ecdfe","targetNodeId":"hrn:node:acme.com:kb:start-here"}` ||
 		v["orgId"] != "acme.com" || v["limit"] != float64(5) || v["offset"] != float64(10) {
 		t.Errorf("vars = %v", v)
 	}
@@ -221,6 +221,12 @@ func TestEdgeListUniform1341(t *testing.T) {
 	refused1341(t, captured, err, "--direction without a node", "ListEdges")
 	captured, _, err = run1341(t, responses, "edge", "list", nodeURN, "--source", "n1")
 	refused1341(t, captured, err, "--source with a node", "ListEdges", "GetNode")
+	// --source/--target take an id or a node URN; a bare loc would silently
+	// match nothing, so it is refused before anything is sent.
+	for _, bad := range [][]string{{"--source", "start-here"}, {"--target", "findings:flaky-ci", "-m", "hrn:mem:acme.com:kb"}} {
+		captured, _, err = run1341(t, responses, append([]string{"edge", "list"}, bad...)...)
+		refused1341(t, captured, err, strings.Join(bad, " "), "ListEdges")
+	}
 }
 
 // asset list --all reaches the cross-memory asset list and every filter.
@@ -378,4 +384,55 @@ func TestAssetUploadAgentRequest1341(t *testing.T) {
 	root2 := NewRootCmd(f2)
 	root2.SetArgs([]string{"asset", "upload", p, "-m", "hrn:mem:acme.com:kb", "--agent-request", "", "--server", gql2.URL})
 	refused1341(t, captured2, root2.Execute(), "empty --agent-request", "BeginAssetUpload")
+}
+
+// cli#1341: a hard delete refused with CROSS_MEMORY_EDGES names the flag that
+// lifts the refusal (not the server's "cascadeCrossMemoryEdges: true"), as a
+// usage error carrying the count and the loc.
+func TestNodeRmCrossMemoryEdgesRefusalNamesTheFlag(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
+		"DeleteNode": `{"errors":[{"message":"Node has 2 edge(s) to other memories. Pass cascadeCrossMemoryEdges: true to delete them too.","extensions":{"code":"CROSS_MEMORY_EDGES","count":2}}]}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "rm", nodeURN, "--hard", "--yes", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected the cross-memory edges refusal")
+	}
+	if exitCodeFor(err) != exitcode.Usage {
+		t.Errorf("CROSS_MEMORY_EDGES should be a usage error, got exit %d", exitCodeFor(err))
+	}
+	msg := err.Error()
+	for _, want := range []string{"2 edge(s)", "--cascade-cross-memory-edges", "findings:flaky-ci"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("message should contain %q, got %q", want, msg)
+		}
+	}
+	if strings.Contains(msg, "cascadeCrossMemoryEdges: true") {
+		t.Errorf("message should not echo the GraphQL argument wording, got %q", msg)
+	}
+}
+
+// A chunk search that matched nothing still carries "passages": [] in --json
+// (the key marks a chunk search), every other search carries no key, and the
+// block layout (-l) still prints the passages.
+func TestSearchPassagesKey1341(t *testing.T) {
+	empty := `{"data":{"findNodes":{"total":0,"degraded":null,"reason":null,"hits":[],"passages":[]}}}`
+	_, out, err := run1341(t, map[string]string{"SearchNodes": empty}, "search", "flaky", "--granularity", "chunk", "--json")
+	if err != nil || !strings.Contains(out, `"passages": []`) && !strings.Contains(out, `"passages":[]`) {
+		t.Errorf("an empty chunk search must emit passages: [], got %s (%v)", out, err)
+	}
+	_, out, err = run1341(t, map[string]string{"SearchNodes": searchEnvelope}, "search", "flaky", "--json")
+	if err != nil || strings.Contains(out, `"passages"`) {
+		t.Errorf("a node search must not emit passages, got %s (%v)", out, err)
+	}
+	one := `{"data":{"findNodes":{"total":0,"degraded":null,"reason":null,"hits":[],
+		"passages":[{"parentNodeId":"n1","parentNodeUrn":"hrn:node:acme.com:kb:a","chunkIndex":2,"charStart":10,"charEnd":40}]}}}`
+	_, out, err = run1341(t, map[string]string{"SearchNodes": one}, "search", "flaky", "--granularity", "chunk", "-l")
+	if err != nil || !strings.Contains(out, "hrn:node:acme.com:kb:a") {
+		t.Errorf("-l must still print the passages, got %s (%v)", out, err)
+	}
 }

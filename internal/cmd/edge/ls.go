@@ -157,9 +157,11 @@ the node at each end and the edge's memory being the source node's:
   findings:flaky-ci  routes-to  start-here  <edge-id>
 
 -m keeps one memory's edges, --source the edges leaving a node, --target the
-edges arriving at one (a node id or URN), --runnable (or --runnable=false)
-runnable or non-runnable edges, --include-deleted adds deleted ones, and --org
-one organization's memories (a non-member gets an empty list). Every edge is
+edges arriving at one (a node id or node URN; a bare loc is refused),
+--runnable (or --runnable=false) runnable or non-runnable edges,
+--include-deleted adds deleted ones, and --org one organization's memories.
+A memory, node or organization you cannot read, or that does not exist, gives
+an empty list rather than "not found". Every edge is
 listed unless --limit or --offset asks for one page; --json prints
 {total, edges}. --direction, --name, --to and --from need a node.`,
 		Example: `  hadron edge list hrn:node:hadronmemory.com:dev:start-here
@@ -177,7 +179,7 @@ listed unless --limit or --offset asks for one page; --json prints
 			}
 			for _, name := range wrong {
 				if cmd.Flags().Changed(name) {
-					return exitcode.Newf(exitcode.Usage, "--%s: %s %s. Nothing was sent", name, strings.Join(wrong, ", --"), form)
+					return exitcode.Newf(exitcode.Usage, "--%s: --%s %s. Nothing was sent", name, strings.Join(wrong, ", --"), form)
 				}
 			}
 			if len(args) == 0 {

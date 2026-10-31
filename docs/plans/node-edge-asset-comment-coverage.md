@@ -3,8 +3,8 @@
 Design as built for [hadron-cli#1341](https://github.com/hadron-memory/hadron-cli/issues/1341),
 a child of the CLI coverage sweep (#1334, cor:api:240:02). Gate: Xabat CHECKED
 (issuecomment-6540743958) with the addendum (issuecomment-6540762632): the
-`allocateSpecNode` row belongs to cli#398, so this PR covers the other 47
-`gap #1341` rows. Every rule about who may do what stays in the server
+`allocateSpecNode` row belongs to cli#398 (its matrix line now reads
+`gap #398`), so this PR covers the other 47 `gap #1341` rows. Every rule about who may do what stays in the server
 (cor:api:240:01); the CLI carries values and maps refusals.
 
 ## Surfaces

@@ -337,10 +337,10 @@ func deleteThread(cmd *cobra.Command, f *cmdutil.Factory, connect Connect, memor
 	dto := threadDeletedDTO{Thread: ref, Deleted: ok}
 	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 		if !ok {
-			_, err := fmt.Fprintf(w, "thread of %s was not deleted\n", output.SafeCell(ref))
+			_, err := fmt.Fprintf(w, "thread of %s was not deleted\n", ref)
 			return err
 		}
-		_, err := fmt.Fprintf(w, "✓ deleted the thread of %s\n", output.SafeCell(ref))
+		_, err := fmt.Fprintf(w, "✓ deleted the thread of %s\n", ref)
 		return err
 	})
 }

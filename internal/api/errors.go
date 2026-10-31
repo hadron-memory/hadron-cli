@@ -773,9 +773,14 @@ func (d HeldDetail) Holder() string {
 // to float64, but a few other numeric shapes are tolerated. A negative or
 // non-numeric value is treated as "no count" (-1) so callers never render a
 // nonsensical "-N descendant(s)". Call it BEFORE MapError wraps the error.
-func DescendantCount(err error) int {
+func DescendantCount(err error) int { return ExtensionCount(err, "NODE_HAS_DESCENDANTS") }
+
+// ExtensionCount is DescendantCount for any typed error that carries
+// extensions.count — CROSS_MEMORY_EDGES (deleteNode, cli#1341) counts the
+// edges linking the node to other memories. -1 when absent or not a count.
+func ExtensionCount(err error, code string) int {
 	for _, e := range graphQLErrors(err) {
-		if e == nil || extensionCode(e) != "NODE_HAS_DESCENDANTS" || e.Extensions == nil {
+		if e == nil || extensionCode(e) != code || e.Extensions == nil {
 			continue
 		}
 		n := -1
@@ -804,6 +809,14 @@ func codeForExtension(code string) int {
 	// Install-memory target ownership changed while the native write acquired
 	// its locks: a state conflict, never a request to retry automatically.
 	case code == "INSTALL_TARGET_CHANGED":
+		return exitcode.Conflict
+	// Node writes (cli#1341): a hard delete of a node with edges to other
+	// memories needs --cascade-cross-memory-edges, an argument the caller
+	// fixes; an inline --edge whose loc another edge of the node already
+	// holds is a state conflict.
+	case code == "CROSS_MEMORY_EDGES":
+		return exitcode.Usage
+	case code == "EDGE_LOC_CONFLICT":
 		return exitcode.Conflict
 	// Boot compile: explicit classifications precede generic suffix handling
 	// (GRANT_REQUIRED is an authority refusal, not a missing argument).
