@@ -22,6 +22,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
 	"github.com/hadron-memory/hadron-cli/internal/orcaterm"
 	"github.com/hadron-memory/hadron-cli/internal/output"
+	"github.com/spf13/cobra"
 )
 
 // sentinelKey is the host key every custody pin looks for in places it must
@@ -451,6 +452,12 @@ func TestStatusConfigRealExecHonorsOrcaBinAndKeepsKeyOut(t *testing.T) {
 		"Workers": `{"data":{"workers":{"total":1,"items":[{"id":"w_i","name":"Iris","retiredAt":null}]}}}`,
 	})
 	t.Setenv("PATH", t.TempDir()) // no orca anywhere on PATH
+	// The launching environment already carries credentials, one of them the
+	// host key itself: none may reach the Orca child.
+	t.Setenv("HADRON_TOKEN", "ambient-token-VALUE-7731")
+	t.Setenv("HADRON_HOST_KEY", sentinelKey)
+	t.Setenv("DUPLICATE_OF_THE_KEY", "prefix-"+sentinelKey)
+	t.Setenv("HARMLESS_VARIABLE", "kept-9921")
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Setenv("HADRON_APP", "")
 	io, _, _ := output.Test()
@@ -474,7 +481,29 @@ func TestStatusConfigRealExecHonorsOrcaBinAndKeepsKeyOut(t *testing.T) {
 			t.Fatalf("key in %s:\n%s", name, s)
 		}
 	}
-	if strings.Contains(string(child), "HADRON_TOKEN") {
-		t.Fatalf("a credential variable reached the child:\n%s", child)
+	for _, banned := range []string{"HADRON_TOKEN", "ambient-token-VALUE-7731", "HADRON_HOST_KEY", "DUPLICATE_OF_THE_KEY"} {
+		if strings.Contains(string(child), banned) {
+			t.Fatalf("%s reached the child:\n%s", banned, child)
+		}
+	}
+	if !strings.Contains(string(child), "HARMLESS_VARIABLE=kept-9921") {
+		t.Fatalf("the child lost its ordinary environment:\n%s", child)
+	}
+}
+
+// P2-2 (local review): the flag being GIVEN conflicts, whatever its value: an
+// unset shell variable expands to --app "". Driven through a real persistent
+// flag, as the root command declares it.
+func TestStatusConfigWithEmptyAppFlagIsUsage(t *testing.T) {
+	h := newHostRig(t)
+	root := &cobra.Command{Use: "root", SilenceUsage: true, SilenceErrors: true}
+	root.PersistentFlags().StringVar(&h.f.AppFlag, "app", "", "")
+	root.AddCommand(newCmdStatus(h.f, h.env))
+	root.SetOut(h.out)
+	root.SetErr(h.out)
+	root.SetArgs([]string{"status", "--all", "--config", hostCfg(t, ""), "--app", ""})
+	err := root.ExecuteContext(context.Background())
+	if code := exitcode.FromError(err); code != exitcode.Usage || len(h.orca.commands) != 0 || len(h.keys) != 0 {
+		t.Fatalf("exit %d commands %v keys %v", code, h.orca.commands, h.keys)
 	}
 }
