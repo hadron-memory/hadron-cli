@@ -27,7 +27,7 @@ type batchWorker struct {
 	pointer      string // compiled node URN the worker's pointer names; "" = none
 	deleted      bool   // bootPromptTargetDeleted
 	revision     int    // the compiled node's current revision
-	lint         string // "recompile", "clean", "null", "broken"
+	lint         string // "recompile", "clean", "null", "broken", "fail" (the whole lint read fails)
 	compile      string // "ok", "502", a server error code
 	after        string // revision read after a lost response: "landed", "same", "error"
 	pointerAfter string // pointer read after a lost response (no baseline pointer)
@@ -113,9 +113,27 @@ func newBatchFake(t *testing.T, workers []batchWorker) (*httptest.Server, *batch
 				items = append(items, fmt.Sprintf(`{"id":%q,"urn":"hrn:worker:acme.com:eng-team:%s","name":%q,"retiredAt":%s,"bootPromptRef":%s,"bootPromptTargetDeleted":%v}`,
 					wk.id, strings.ToLower(wk.name), wk.name, retired, ptr, wk.deleted))
 			}
-			fmt.Fprintf(w, `{"data":{"workers":{"total":%d,"items":[%s]}}}`, len(items), strings.Join(items, ","))
+			// Page like the server: the full total, the [offset, offset+limit) slice.
+			total := len(items)
+			off, lim := 0, total
+			if v, ok := body.Variables["offset"].(float64); ok {
+				off = min(int(v), total)
+			}
+			if v, ok := body.Variables["limit"].(float64); ok {
+				lim = int(v)
+			}
+			items = items[off:min(off+lim, total)]
+			fmt.Fprintf(w, `{"data":{"workers":{"total":%d,"items":[%s]}}}`, total, strings.Join(items, ","))
 		case "CompiledPromptLintBatch":
 			refs, _ := body.Variables["refs"].([]any)
+			for _, ref := range refs {
+				if wk := fake.byPointer(fmt.Sprint(ref)); wk != nil && wk.lint == "fail" {
+					// The whole lint read fails: a denied or unreachable provider.
+					w.WriteHeader(http.StatusBadGateway)
+					_, _ = w.Write([]byte("bad gateway"))
+					return
+				}
+			}
 			nodes, unavailable := []string{}, []string{}
 			for _, ref := range refs {
 				wk := fake.byPointer(fmt.Sprint(ref))
@@ -430,9 +448,13 @@ func TestBatchCompileReadsOnlyWhatItNeeds(t *testing.T) {
 		id := fmt.Sprintf("w-%03d", i)
 		team = append(team, batchWorker{id: id, name: fmt.Sprintf("W%03d", i), pointer: cptr(id), revision: 1, lint: "clean"})
 	}
-	fake, _, _, err := runBatch(t, team, "--json")
+	fake, out, _, err := runBatch(t, team, "--json")
 	if err != nil {
 		t.Fatal(err)
+	}
+	// Every worker on both roster pages is planned, not just the first page.
+	if d := decodeBatch(t, out); len(d.Unchanged) != 250 || len(d.ToCompile) != 0 || len(d.Unknown) != 0 {
+		t.Fatalf("all 250 workers must be read across roster pages: unchanged=%d toCompile=%d unknown=%d", len(d.Unchanged), len(d.ToCompile), len(d.Unknown))
 	}
 	fake.mu.Lock()
 	defer fake.mu.Unlock()
@@ -454,7 +476,7 @@ func TestBatchCompileReadsOnlyWhatItNeeds(t *testing.T) {
 	}
 	// 250 workers: two roster pages and two batch pages (200-node cap), not
 	// one request per worker.
-	if counts["WorkersBootPointers"] > 2 || counts["CompiledPromptLintBatch"] != 2 {
+	if counts["WorkersBootPointers"] != 2 || counts["CompiledPromptLintBatch"] != 2 {
 		t.Fatalf("request count grows with the roster: %v", counts)
 	}
 }
@@ -501,5 +523,52 @@ func TestBatchCompileSelectionsStaySlim(t *testing.T) {
 				t.Fatalf("%s selects %q", name, field)
 			}
 		}
+	}
+}
+
+// A lint read that fails as a whole (denied, unreachable) leaves the plan
+// undecided, it does not abort it: the default run reports every compiled
+// worker as unknown with the read's exit code and compiles nothing for them;
+// --all still compiles them, with no baseline revision.
+func TestBatchCompileLintReadFailureLeavesWorkersUnknownAndAllStillCompiles(t *testing.T) {
+	team := func() []batchWorker {
+		return []batchWorker{
+			{id: "w-ann", name: "Ann", pointer: cptr("w-ann"), revision: 3, lint: "fail", compile: "ok"},
+			{id: "w-bob", name: "Bob", pointer: cptr("w-bob"), revision: 5, lint: "clean", compile: "ok"},
+			{id: "w-cal", name: "Cal", compile: "BOOT_PROMPT_NO_SOURCE"},
+		}
+	}
+
+	fake, out, _, err := runBatch(t, team(), "--apply", "--json")
+	if exitCodeFor(err) != exitcode.Unavailable {
+		t.Fatalf("a failed lint read exits with its own code (7), got %v\n%s", err, out)
+	}
+	d := decodeBatch(t, out)
+	if batchNames(d.Unknown) != "Ann,Bob" || len(d.Unchanged) != 0 || batchNames(d.Skipped) != "Cal" {
+		t.Fatalf("default run after a failed lint read: %s", out)
+	}
+	for _, u := range d.Unknown {
+		if u["outcome"] != "" || !strings.Contains(fmt.Sprint(u["reason"]), "staleness check failed") {
+			t.Fatalf("an undecided worker names the failed read and was not compiled: %v", u)
+		}
+	}
+	sent := []string{}
+	for _, c := range fake.ops("CompileWorkerBootPrompt") {
+		sent = append(sent, fmt.Sprint(c.Vars["workerRef"]))
+	}
+	if strings.Join(sent, ",") != "w-cal" {
+		t.Fatalf("only the first compile may be sent when the lint read fails, got %v", sent)
+	}
+
+	fake, out, _, err = runBatch(t, team(), "--all", "--apply", "--json")
+	if err != nil {
+		t.Fatalf("--all must not be aborted by a failed lint read: %v\n%s", err, out)
+	}
+	d = decodeBatch(t, out)
+	if batchNames(d.Compiled) != "Ann,Bob" || batchNames(d.Skipped) != "Cal" || len(d.Unknown) != 0 {
+		t.Fatalf("--all after a failed lint read: %s", out)
+	}
+	if n := len(fake.ops("CompileWorkerBootPrompt")); n != 3 {
+		t.Fatalf("--all compiles each live worker once, got %d compiles", n)
 	}
 }

@@ -4155,7 +4155,9 @@ list an array, never null. `toCompile`/`unchanged` rows:
 (any other refusal): `{name,id,urn,code,exitCode,message}`. `unknown`:
 `{name,id,urn,compiledNodeRef,reason,outcome,revisionBefore,revisionAfter,approveCommand}`;
 `outcome` is "" for a worker the plan could not decide (lint or node
-unavailable: not compiled; `--all` compiles it), and `landed` / `not-landed` /
+unavailable: not compiled; `--all` compiles it — a lint read that fails as a
+whole leaves every compiled worker here with that read's exit code, e.g. 7,
+and `--all` still compiles them with `revisionBefore` null), and `landed` / `not-landed` /
 `unknown` after a lost response, decided by ONE revision (or, for a first
 compile, pointer) read against the baseline. The compile is never re-sent.
 

@@ -140,9 +140,14 @@ func runWorkerCompileBatch(cmd *cobra.Command, f *cmdutil.Factory, opts bootcomp
 			refs = append(refs, ref)
 		}
 	}
-	nodes, err := readCompiledLint(ctx, client, refs)
-	if err != nil {
-		return err
+	// A failed lint read does not abort the run: the workers it leaves
+	// unread are undecided (not compiled, the read's exit code), and --all
+	// still compiles them, with no baseline revision.
+	nodes, lintErr := readCompiledLint(ctx, client, refs)
+	unreadReason, unreadExit := "the compiled prompt is unavailable to you; not compiled (--all compiles it)", exitcode.Error
+	if lintErr != nil {
+		unreadReason = "the server's staleness check failed (" + lintErr.Error() + "); not compiled (--all compiles it)"
+		unreadExit = max(exitcode.Error, exitcode.FromError(lintErr))
 	}
 
 	plan := []batchPlanItem{}
@@ -163,8 +168,8 @@ func runWorkerCompileBatch(cmd *cobra.Command, f *cmdutil.Factory, opts bootcomp
 		case !ok:
 			if !opts.All {
 				dto.Unknown = append(dto.Unknown, compileBatchUnknownDTO{Name: t.Name, ID: t.ID, URN: t.URN, CompiledNodeRef: t.CompiledNodeRef,
-					Reason: "the compiled prompt is unavailable to you; not compiled (--all compiles it)"})
-				exit = max(exit, exitcode.Error)
+					Reason: unreadReason})
+				exit = max(exit, unreadExit)
 				continue
 			}
 			t.Reason = "--all"
@@ -361,9 +366,12 @@ func filterOnly(rows []batchWorkerRow, only []string, appRef string) ([]batchWor
 }
 
 // readCompiledLint reads the compiled prompts in nodeBatch pages, keyed by the
-// ref asked for. An unavailable ref is simply absent from the map.
+// ref asked for. An unavailable ref is simply absent from the map. On a failed
+// read it returns the nodes read so far with the error, so the caller can
+// still decide those and treat the rest as unread.
 func readCompiledLint(ctx context.Context, client graphql.Client, refs []string) (map[string]*batchLintNode, error) {
 	out := map[string]*batchLintNode{}
+	var readErr error
 	queue := append([]string(nil), refs...)
 	for len(queue) > 0 {
 		n := min(api.NodeBatchCap, len(queue))
@@ -371,7 +379,8 @@ func readCompiledLint(ctx context.Context, client graphql.Client, refs []string)
 		queue = queue[n:]
 		r, err := gen.CompiledPromptLintBatch(ctx, client, chunk)
 		if err != nil {
-			return nil, api.MapError(err)
+			readErr = api.MapError(err)
+			break
 		}
 		res := r.NodeBatch
 		for _, node := range res.Nodes {
@@ -381,7 +390,8 @@ func readCompiledLint(ctx context.Context, client graphql.Client, refs []string)
 		}
 		if res.Truncated {
 			if len(res.Nodes) == 0 {
-				return nil, exitcode.Newf(exitcode.Error, "nodeBatch truncated without returning any node (%d omitted)", len(res.Omitted))
+				readErr = exitcode.Newf(exitcode.Error, "nodeBatch truncated without returning any node (%d omitted)", len(res.Omitted))
+				break
 			}
 			queue = append(append([]string(nil), res.Omitted...), queue...)
 		}
@@ -391,7 +401,7 @@ func readCompiledLint(ctx context.Context, client graphql.Client, refs []string)
 	for _, node := range out {
 		out[node.Id] = node
 	}
-	return out, nil
+	return out, readErr
 }
 
 func renderCompileBatch(w io.Writer, ctx context.Context, f *cmdutil.Factory, scope appScope, dto compileBatchDTO) error {

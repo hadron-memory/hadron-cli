@@ -98,6 +98,8 @@ compile. Retired workers are never included. Nothing is written without
   toCompile  a source changed, or no compiled prompt yet
   unchanged  no newer source revision: not compiled (no needless revision)
   unknown    the server could not answer for this worker: not compiled
+             (if the staleness read itself fails, every compiled worker is
+             unknown with that read's exit code; --all still compiles them)
 After --apply each selected worker is compiled once, by id, and lands in
   compiled   with the revision and the node approve line to run after review
   skipped    BOOT_PROMPT_NO_SOURCE or BOOT_PROMPT_TARGET_RETIRED
