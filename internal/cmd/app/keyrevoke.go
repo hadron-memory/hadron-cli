@@ -59,7 +59,8 @@ hadron app key list <app-ref>.
 It asks for confirmation on a terminal; scripts and agents pass --yes, and
 without it a non-interactive run exits 2 with nothing sent.
 
-revokeAppKey is never retried. If its answer is lost (timeout, gateway error),
+revokeAppKey is never retried. If its answer is lost (timeout, gateway error)
+or is not a definite refusal (an internal server error, an unreadable reply),
 the key may already be revoked: run hadron app key list <app-ref> to see whether
 it is still active.
 
@@ -83,8 +84,16 @@ an App key, an impersonated session and a bound worker's session (exit 8).`,
 			resp, err := gen.RevokeAppKey(cmd.Context(), client, id)
 			if err != nil {
 				mapped := api.MapError(err)
-				if exitcode.FromError(mapped) == exitcode.Unavailable && api.ServerCodeOf(err) == "" {
+				code := exitcode.FromError(mapped)
+				if code == exitcode.Unavailable && api.ServerCodeOf(err) == "" {
 					return exitcode.Newf(exitcode.Unavailable, "revokeAppKey may have been sent; the key may already be revoked. It was not retried. Run `hadron app key list <app-ref>` to see whether it is still active. Cause: %w", mapped)
+				}
+				if code == exitcode.Error {
+					// cli#1441, as create treats it: an internal server error, an
+					// unreadable reply or an unrecognised error is not a definite
+					// refusal, so the revocation may have committed. Exit 1, the
+					// server code and the request id are kept.
+					return api.WithServerCode(exitcode.Newf(exitcode.Error, "revokeAppKey was sent but its answer was not a definite refusal; the key may already be revoked. It was not retried. Run `hadron app key list <app-ref>` to see whether it is still active. Cause: %w", mapped), err)
 				}
 				return api.WithServerCode(mapped, err)
 			}
