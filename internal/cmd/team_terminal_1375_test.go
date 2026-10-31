@@ -209,6 +209,18 @@ func TestWorkerGetShowsTerminal(t *testing.T) {
 	}
 }
 
+// A PROFILE (masked) read prints the dash too, as the help promises, never
+// omits the line.
+func TestWorkerGetMaskedReadPrintsTerminalDash(t *testing.T) {
+	out, _, err := runWorkerGet(t, profileWorkerJSON, profileNames, profileHexID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "\n  terminal: —\n") {
+		t.Errorf("want a `terminal: —` line on a masked read:\n%s", out)
+	}
+}
+
 // An older server without Worker.terminal: worker get still serves the lookup
 // and renders null, because the field is read in its own operation.
 func TestWorkerGetOlderServerTerminalFallsBackToNull(t *testing.T) {

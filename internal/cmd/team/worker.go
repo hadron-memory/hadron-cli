@@ -765,9 +765,9 @@ and every worker's state in ` + "`team roster`" + `.`,
 						fmt.Fprintf(out, "  last team-channel check: %s\n", last)
 					}
 				}
-				if !profile || dto.Terminal != nil {
-					fmt.Fprintf(out, "  terminal: %s\n", terminalDetail(dto.Terminal, time.Now()))
-				}
+				// Always printed: a dash is the documented answer for never
+				// reported, masked or an older server (cli#1375).
+				fmt.Fprintf(out, "  terminal: %s\n", terminalDetail(dto.Terminal, time.Now()))
 				if dto.Retired {
 					fmt.Fprintf(out, "  retired: %s\n", *dto.RetiredAt)
 				}
