@@ -72,6 +72,13 @@ func TestAppKey1353RevokeLostAnswer(t *testing.T) {
 				if string(env.Error["code"]) != "7" || env.Error["serverCode"] != nil || env.Error["message"] == nil {
 					t.Fatalf("bad envelope: %s", out.String())
 				}
+				var message string
+				if err := json.Unmarshal(env.Error["message"], &message); err != nil {
+					t.Fatal(err)
+				}
+				if !strings.Contains(message, "may already be revoked") || !strings.Contains(message, "hadron app key list <app-ref>") || !strings.Contains(message, "not retried") || f.IOStreams.ErrOut.(*strings.Builder).Len() != 0 {
+					t.Fatalf("guidance must be in JSON message only: %s", msg)
+				}
 			}
 			if requests.Load() != 1 {
 				t.Errorf("requests %d, want exactly one", requests.Load())
