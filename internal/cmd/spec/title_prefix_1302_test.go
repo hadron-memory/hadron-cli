@@ -8,8 +8,9 @@ import (
 
 // #1302 item 1: name composition and the new/edit copied-prefix guards read
 // one canonical separator, so they cannot drift apart. The literals below are
-// the spellings shipped before the refactor (#1148, cli#810): composed names,
-// the refused prefix and the refusal text stay byte-identical.
+// the spellings shipped before the refactor (#1148, cli#810): composed names
+// and the refused prefix stay byte-identical. The refusal text gained only the
+// corrected-title hint (#1302 item 2).
 func TestSpecCanonicalPrefixCompositionAndRefusal(t *testing.T) {
 	const loc = "qa:api:010:04"
 	if got := specNamePrefix(loc); got != "qa:api:010:04 — " {
@@ -25,7 +26,7 @@ func TestSpecCanonicalPrefixCompositionAndRefusal(t *testing.T) {
 		t.Errorf("specName = %q", got)
 	}
 
-	const refusal = `--title is the text AFTER the citation: "qa:api:010:04 — " is added automatically, so drop it from the value`
+	const refusal = `--title is the text AFTER the citation: "qa:api:010:04 — " is added automatically, so drop it from the value: --title "Burst allowance"`
 	guards := map[string]func(title string) error{
 		"new":  func(title string) error { return refuseNewTitlePrefix(title, loc) },
 		"edit": func(title string) error { return validateEditTitle(title, loc) },

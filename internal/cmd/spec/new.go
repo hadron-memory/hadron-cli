@@ -71,8 +71,9 @@ tags explicitly supplied with --tag are written. Without --role, the default
 is the base spec role, a citation-prefixed name, and the legacy spec tag.
 When the name is prefixed automatically, --title must be the human text after
 "<loc> — ". A title already starting with that exact prefix is refused (exit 2)
-before any write, including --dry-run; remove the prefix and run again. An
-explicit --role keeps its literal-title behavior.
+before any write, including --dry-run; remove the prefix and run again (the
+refusal ends with the corrected --title). An explicit --role keeps its
+literal-title behavior.
 Roles use lower-case letter/digit/dash segments joined by dots, up to
 64 characters; a valid dotted subrole may still be refused by the memory's
 role rules.

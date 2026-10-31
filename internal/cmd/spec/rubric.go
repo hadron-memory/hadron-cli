@@ -208,13 +208,20 @@ func specNameAt(loc, title string) string {
 
 // refuseCopiedNamePrefix refuses a --title that already starts with the
 // automatic prefix for loc, which would be composed in front of it a second
-// time (#1148, cli#810). The title is compared trimmed, never rewritten.
+// time (#1148, cli#810). The title is compared trimmed, never rewritten. The
+// refusal ends with the corrected title to retry with (#1302): the remainder
+// with every leading copy of the prefix stripped, so the hint passes this
+// guard itself.
 func refuseCopiedNamePrefix(title, loc string) error {
 	prefix := specNamePrefix(loc)
-	if strings.HasPrefix(strings.TrimSpace(title), prefix) {
-		return exitcode.Newf(exitcode.Usage, "--title is the text AFTER the citation: %q is added automatically, so drop it from the value", prefix)
+	t := strings.TrimSpace(title)
+	if !strings.HasPrefix(t, prefix) {
+		return nil
 	}
-	return nil
+	for strings.HasPrefix(t, prefix) {
+		t = strings.TrimSpace(strings.TrimPrefix(t, prefix))
+	}
+	return exitcode.Newf(exitcode.Usage, "--title is the text AFTER the citation: %q is added automatically, so drop it from the value: --title %q", prefix, t)
 }
 
 // specTags returns the tag set for a spec: "spec" then any extra semantic
