@@ -18,12 +18,13 @@ are guarded. Creation/update return one object, delete {id,deleted:true}.
 Template limits and revision mismatches map to conflict exit5. Writes never join
 the authored worker-session mutation allowlist.
 
-Help follows the server contract: Agent editors write; App managers gain no
+Help follows the server contract: Agent managers write; App managers gain no
 implied Agent edit rights; changes affect future casts only; requested cadence
 is raised to the fresh App floor when casting. Existing workers/tickers remain
-untouched. Separate `ticker apply-templates --worker` repairs one old worker.
+untouched. Separate `ticker apply-templates --worker` adds the template tickers a worker
+lacks without changing existing tickers.
 
 Gate: #913 comment6539354001, T1 cross-family BLIND+LOCAL, UX, compiled CLI QA on
-one disposable stack; scoped Vera spec fit on the wording before ready. Refs
+one disposable stack; scoped help-wording spec fit (Victor per Ada #54739) on the wording before ready. Refs
 #913 and hadron-server#2937, neither closed by the PR. Release before MCP cutover
 is a later gate, not inferred by this build.

@@ -47,20 +47,23 @@ func templateDTO(row gen.AgentTickerTemplateFields) (tickerTemplateDTO, error) {
 
 const templateHelp = `An Agent's ticker template declares a periodic wake created when a worker is
 cast (created from that Agent into an App). Reading requires access to the
-Agent; writing requires its editor (Agent ADMIN), not merely an App manager.
+Agent; writing requires managing it: its user owner, its organization's OWNERs
+and ADMINs, or a platform admin. Managing an App alone is not enough.
 Use the same Agent reference as "agent get" for list/create. Update/delete take
 only the opaque template id returned by list. Uses signed-in credentials; a
 bound worker session is not sent for these writes.
 
 Templates are snapshots at cast: edits and deletion affect future casts only.
-Existing workers and their tickers are untouched. To repair one existing worker,
-use "hadron ticker apply-templates --worker <worker-ref>" separately.
+Existing workers and their tickers are untouched. To add the template tickers
+a worker lacks, an App manager separately runs
+"hadron ticker apply-templates --worker <worker-ref>"; it changes no existing ticker.
 
 The displayed cadence is the template's requested cadence in seconds; casting
-raises it to the App's floor. The client never clamps it. Identity is the opaque
-template id. Read its revision, then supply --expected-revision to update or
+raises it to the App's floor. The client never clamps it. Update and delete
+address a template by its opaque id; a name is unique within its Agent.
+Read its revision, then supply --expected-revision to update or
 delete: a stale revision exits 5 with no automatic fetch or retry.
-Unreadable Agent/template: exit 4; non-editor: exit 8; name/cap/revision conflict:
+Unreadable Agent/template: exit 4; caller cannot manage Agent: exit 8; name/cap/revision conflict:
 exit 5. Invalid input is exit 2. tickCode is server-derived from the name.`
 
 func newCmdAgentTickerTemplates(f *cmdutil.Factory) *cobra.Command {
@@ -187,7 +190,7 @@ func (v *templateFlags) patch(cmd *cobra.Command) (*gen.AgentTickerTemplatePatch
 func newTemplateWrite(f *cmdutil.Factory, update bool) *cobra.Command {
 	v := &templateFlags{}
 	cmd := &cobra.Command{Use: "create <agent-ref>", Short: "Create a ticker template for future casts", Long: `Create one ticker template for future casts; existing workers and tickers stay
-untouched. Requires the Agent's editor, not merely an App manager.
+untouched. Requires managing the Agent, not merely an App.
 Name and requested cadence in whole seconds are required. Omitted relevance is
 all, reasons read-team-channel, quiet hours none. The cast applies the App floor.
 Returns the template, including id, tickCode and revision (one object with --json).
@@ -276,7 +279,7 @@ func newTemplateDelete(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{Use: "delete <template-id>", Short: "Delete one template without touching existing tickers", Long: `Remove one template from future casts. Existing workers, generated tickers and
 subscriptions stay untouched. This command group has no restore command.
 Supply the id and revision read from list; a stale revision exits 5 without retry.
-Requires the Agent's editor. Prompts on a TTY; non-interactive callers need --yes.
+Requires managing the Agent. Prompts on a TTY; non-interactive callers need --yes.
 Prints confirmation, or {id,deleted:true} with --json.
 See "hadron agent ticker-templates --help" for shared rules and permissions.`,
 		Example: `  # Set TEMPLATE_ID and REVISION from agent ticker-templates list.
