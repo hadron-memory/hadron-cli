@@ -3642,8 +3642,12 @@ one). Each gets its whole due batch through the same delivery transaction
 (cor:agt:080:16, :22), so nothing is typed over a draft and a held recipient's
 marks do not move. The receipt gains `push: [{recipient, state, reason?}]` with
 state `pushed` | `held` | `not-pushed` (nothing typed: no batch came back, which
-the server does not tell apart as off-host, unknown or nothing due; reason is a
-code such as `no-batch`, `push-failed`, `ack-pending` (typed and recorded, ack not landed; reconciled without retyping) or `ambiguous` — two workers on the host slug alike, so neither is typed; a pass error keeps confirmed `pushed`/`held` results); text prints `push <name>: <state>`.
+the server does not tell apart as off-host, unknown or nothing due). `reason` is
+a code: `no-batch`, `push-failed`, or `ack-pending` on a `pushed` (typed and
+recorded, ack not landed; reconciled later without retyping). A mention token
+addresses every host worker with that server mention token (mentionTokenOf; two
+names may share one) and reports the worst outcome; a pass error keeps the
+confirmed `pushed`/`held` results. Text prints `push <name>: <state>`.
 A failed push never undoes the post or changes exit 0: do not repost. Without
 `--push` the receipt has no `push` key.
 

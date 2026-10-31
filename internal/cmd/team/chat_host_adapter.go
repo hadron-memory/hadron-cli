@@ -277,53 +277,63 @@ func (o *pushOutcome) note(state, reason string) {
 	}
 }
 
-// slugToken is a worker name as a mention token: lower-case, runs of
-// non-alphanumerics as one hyphen (@mary-jane).
-func slugToken(name string) string {
+// mentionTokenOf is hadron-server's canonical mention token of a display
+// name (src/lib/mentionToken.ts, cor:agt:020:04), ported exactly: lowercase,
+// runs outside [a-z0-9._-] become "-", trimmed to alphanumeric ends. It keeps
+// ".", "_" and "-" as atom characters; "" means unaddressable. The map is
+// lossy and carries no uniqueness guarantee: two names may share a token.
+func mentionTokenOf(name string) string {
+	// JS toLowerCase maps U+0130 to "i" + U+0307 (the dot then becomes "-");
+	// Go's rune mapping gives "i". Match the server.
+	l := strings.ToLower(strings.ReplaceAll(name, "\u0130", "i\u0307"))
 	var b strings.Builder
 	dash := false
-	for _, r := range strings.ToLower(name) {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-			if dash && b.Len() > 0 {
+	for _, r := range l {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '.' || r == '_' || r == '-' {
+			if dash {
 				b.WriteByte('-')
+				dash = false
 			}
-			dash = false
 			b.WriteRune(r)
 		} else {
 			dash = true
 		}
 	}
-	return b.String()
+	if dash {
+		b.WriteByte('-')
+	}
+	t := b.String()
+	alnum := func(r byte) bool { return (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') }
+	for len(t) > 0 && !alnum(t[0]) {
+		t = t[1:]
+	}
+	for len(t) > 0 && !alnum(t[len(t)-1]) {
+		t = t[:len(t)-1]
+	}
+	return t
 }
 
 // Push delivers the whole due batch of each named recipient (stored mention
-// tokens). A token that matches no worker registered on this host, or that
-// has no batch, is not-pushed: the one state for "nothing came back". A token
-// that names two workers on this host (their names slug alike) is refused for
-// both, never guessed: not-pushed with reason "ambiguous". On a pass-level
-// error the outcomes already confirmed are kept and every recipient without
-// one is not-pushed "push-failed"; the error is returned beside the results.
+// tokens). A token addresses EVERY worker registered on this host whose
+// server token (mentionTokenOf) equals it, as the server's own mention
+// matching does; two names may share one. The token's report folds those
+// workers' outcomes, worst state winning (held beats not-pushed beats pushed).
+// A token matching no worker here, or with no batch, is not-pushed: the one
+// state for "nothing came back". On a pass-level error the outcomes already
+// confirmed are kept and every recipient without one is not-pushed
+// "push-failed"; the error is returned beside the results.
 func (p *postHostPass) Push(ctx context.Context, tokens []string) ([]postPushResult, error) {
-	ids := map[string]string{} // token -> worker id
-	ambiguous := map[string]bool{}
+	ids := map[string][]string{} // token -> worker ids
 	_, per, err := p.pass(ctx, func(recipients map[string]delivery.Recipient) map[string]bool {
-		cand := map[string][]string{}
+		want := map[string]bool{}
 		for id := range recipients {
-			slug := slugToken(p.names[id])
+			tok := mentionTokenOf(p.names[id])
 			for _, t := range tokens {
-				if slug != "" && slug == t {
-					cand[t] = append(cand[t], id)
+				if tok != "" && tok == t {
+					ids[t] = append(ids[t], id)
+					want[id] = true
 				}
 			}
-		}
-		want := map[string]bool{}
-		for t, c := range cand {
-			if len(c) > 1 {
-				ambiguous[t] = true
-				continue
-			}
-			ids[t] = c[0]
-			want[c[0]] = true
 		}
 		return want
 	})
@@ -333,10 +343,14 @@ func (p *postHostPass) Push(ctx context.Context, tokens []string) ([]postPushRes
 		if err != nil {
 			res.Reason = "push-failed"
 		}
-		if ambiguous[t] {
-			res.Reason = "ambiguous"
-		} else if o := per[ids[t]]; ids[t] != "" && o != nil && o.state != "" {
-			res = postPushResult{Recipient: t, State: o.state, Reason: o.reason}
+		folded := &pushOutcome{}
+		for _, id := range ids[t] {
+			if o := per[id]; o != nil && o.state != "" {
+				folded.note(o.state, o.reason)
+			}
+		}
+		if folded.state != "" {
+			res = postPushResult{Recipient: t, State: folded.state, Reason: folded.reason}
 		}
 		out = append(out, res)
 	}

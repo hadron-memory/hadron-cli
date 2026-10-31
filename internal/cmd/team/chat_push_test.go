@@ -53,6 +53,14 @@ type pushRun struct {
 // runPush posts "body" with the server storing `mentions`, against a host
 // registering wkr1 "One" and wkr2 "Mary Jane" (two due batches each, plus a
 // foreign one), then runs the real postHostPass with a scripted deliverer.
+var pushWkr1Name = "One"
+
+func runPushNamed(t *testing.T, wkr1 string, mentions []string) pushRun {
+	pushWkr1Name = wkr1
+	defer func() { pushWkr1Name = "One" }()
+	return runPush(t, []string{"hi", "--push", "--orca-host-config", "HOST"}, mentions, nil, false, false)
+}
+
 func runPushHook(t *testing.T, args, mentions []string, hook func(*scriptedDeliverer)) pushRun {
 	pushHook = hook
 	defer func() { pushHook = nil }()
@@ -93,7 +101,7 @@ func runPushWith(t *testing.T, args []string, mentions []string, kind map[string
 		case "TeamAppIdentity":
 			_, _ = io.WriteString(w, `{"data":{"app":{"id":"canonical-app","urn":"hrn:app:test:team","name":"Team"}}}`)
 		case "HostRegistrations":
-			_, _ = io.WriteString(w, `{"data":{"hostRegistrations":[{"hostId":"own","live":true,"workers":[{"workerId":"wkr1","worker":{"id":"wkr1","name":"One","urn":"hrn:worker:test:team:one"},"worktrees":["tree1"]},{"workerId":"wkr2","worker":{"id":"wkr2","name":"`+twin+`","urn":"hrn:worker:test:team:mary-jane"},"worktrees":["tree2"]}`+twinWorker+`]}]}}`)
+			_, _ = io.WriteString(w, `{"data":{"hostRegistrations":[{"hostId":"own","live":true,"workers":[{"workerId":"wkr1","worker":{"id":"wkr1","name":"`+pushWkr1Name+`","urn":"hrn:worker:test:team:one"},"worktrees":["tree1"]},{"workerId":"wkr2","worker":{"id":"wkr2","name":"`+twin+`","urn":"hrn:worker:test:team:mary-jane"},"worktrees":["tree2"]}`+twinWorker+`]}]}}`)
 		case "DeliveryBatches":
 			if failBatchesAfterPost && posts > 0 {
 				_, _ = io.WriteString(w, `{"errors":[{"message":"PRIVATE","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`)
@@ -101,7 +109,7 @@ func runPushWith(t *testing.T, args []string, mentions []string, kind map[string
 			}
 			bs := []string{}
 			if !noBatches {
-				bs = []string{batch("a1", "wkr1"), batch("b1", "wkr2"), batch("a2", "wkr1"), batch("b2", "wkr2"), batch("f1", "foreign")}
+				bs = []string{batch("a1", "wkr1"), batch("b1", "wkr2"), batch("a2", "wkr1"), batch("b2", "wkr2"), batch("c1", "wkr3"), batch("f1", "foreign")}
 			}
 			_, _ = io.WriteString(w, `{"data":{"deliveryBatches":{"batches":[`+strings.Join(bs, ",")+`],"pageInfo":{"hasNextPage":false,"endCursor":null}}}}`)
 		case "CreateTeamChatMessage":
@@ -280,26 +288,66 @@ func TestPushPartialSuccessSurvivesALaterFailure(t *testing.T) {
 	}
 }
 
-func TestPushAmbiguousSlugDeliversToNeitherAndSaysSo(t *testing.T) {
-	r := runPushWith(t, []string{"hi", "--push", "--orca-host-config", "HOST"}, []string{"mary-jane", "one"}, nil, false, false, "", true)
+func TestPushSharedTokenAddressesEveryWorkerAndReportsTheWorst(t *testing.T) {
+	// "Mary Jane" and "Mary-Jane" share the server token mary-jane: the
+	// mention addresses both (as the server's matching does), the report
+	// folds both outcomes, and an unmentioned worker is never touched.
+	r := runPushWith(t, []string{"hi", "--push", "--orca-host-config", "HOST"}, []string{"mary-jane"}, nil, false, false, "", true)
 	if r.err != nil {
 		t.Fatal(r.err)
 	}
-	if strings.Join(r.seen, ",") != "a1,a2" {
-		t.Fatalf("typed %v, want only One's batches", r.seen)
+	if strings.Join(r.seen, ",") != "b1,b2,c1" {
+		t.Fatalf("typed %v, want both Marys' batches and not One's", r.seen)
 	}
-	st := pushStates(t, r)
-	if st["mary-jane"] != "not-pushed:ambiguous" || st["one"] != "pushed:<nil>" {
+	if st := pushStates(t, r); st["mary-jane"] != "pushed:<nil>" {
 		t.Fatalf("report %v", st)
+	}
+	// A held draft on one of the two must not be masked by the other's push.
+	r = runPushWith(t, []string{"hi", "--push", "--orca-host-config", "HOST"}, []string{"mary-jane"}, map[string]delivery.Kind{"wkr3": delivery.Held}, false, false, "", true)
+	if st := pushStates(t, r); st["mary-jane"] != "held:draft" {
+		t.Fatalf("held masked: %v", st)
+	}
+}
+
+func TestPushFailedDeliveryIsNeverReportedPushed(t *testing.T) {
+	r := runPush(t, []string{"hi", "--push", "--orca-host-config", "HOST"}, []string{"one"}, map[string]delivery.Kind{"wkr1": delivery.Failed}, false, false)
+	if r.err != nil {
+		t.Fatal(r.err)
+	}
+	if st := pushStates(t, r); !strings.HasPrefix(st["one"], "not-pushed:") {
+		t.Fatalf("report %v", st)
+	}
+}
+
+func TestMentionTokenOfMatchesTheServer(t *testing.T) {
+	for name, want := range map[string]string{
+		"Mary Jane": "mary-jane", "mary.jane": "mary.jane", "mary_jane": "mary_jane",
+		"Mary - Jane": "mary---jane", "a--b": "a--b", "j.r.r": "j.r.r",
+		"  Ada  ": "ada", "-x-": "x", "...": "", "": "", "İx": "i-x",
+	} {
+		if got := mentionTokenOf(name); got != want {
+			t.Errorf("mentionTokenOf(%q) = %q, want %q", name, got, want)
+		}
+	}
+}
+
+func TestPushDotNamedWorkerIsNotAddressedByADashedMention(t *testing.T) {
+	// Riana P2-1: a worker named "mary.jane" has the server token mary.jane;
+	// a post stored as @mary-jane must not type into it (nor ack for it).
+	r2 := runPushNamed(t, "mary.jane", []string{"mary-jane"})
+	if strings.Join(r2.seen, ",") != "b1,b2" {
+		t.Fatalf("typed %v: the dotted worker's batches must not be typed", r2.seen)
+	}
+	r3 := runPushNamed(t, "mary.jane", []string{"mary.jane"})
+	if strings.Join(r3.seen, ",") != "a1,a2" {
+		t.Fatalf("typed %v: a dotted mention must match the dotted worker", r3.seen)
 	}
 }
 
 func TestPushTypedButAckPendingIsQualifiedNotUnqualifiedPushed(t *testing.T) {
 	// The only batch is typed but its ack did not land: pushed (it was
 	// typed, never "not typed"), qualified ack-pending, never bare pushed.
-	var d *scriptedDeliverer
-	r := runPushHook(t, []string{"hi", "--push", "--orca-host-config", "HOST"}, []string{"one"}, func(x *scriptedDeliverer) { x.ackPending = map[string]bool{"wkr1": true}; d = x })
-	_ = d
+	r := runPushHook(t, []string{"hi", "--push", "--orca-host-config", "HOST"}, []string{"one"}, func(x *scriptedDeliverer) { x.ackPending = map[string]bool{"wkr1": true} })
 	if r.err != nil {
 		t.Fatal(r.err)
 	}
