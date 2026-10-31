@@ -564,10 +564,10 @@ section between the markers.
 <!-- group:1396 start -->
 | path | aliases | generated | has-examples | child | evaluator | result | finding |
 |---|---|---|---|---|---|---|---|
-| `orca` |  |  | n | #1396 |  | unread |  |
-| `orca terminal` |  |  | n | #1396 |  | unread |  |
-| `orca terminal status` |  |  | y | #1396 |  | unread |  |
-| `slack` |  |  | y | #1396 |  | unread |  |
-| `slack get` |  |  | y | #1396 |  | unread |  |
-| `slack status` |  |  | y | #1396 |  | unread |  |
+| `orca` |  |  | n | #1396 | Cooper | pass | [assessment](https://github.com/hadron-memory/hadron-cli/issues/1396#issuecomment-6540945338) |
+| `orca terminal` |  |  | n | #1396 | Cooper | pass | [assessment](https://github.com/hadron-memory/hadron-cli/issues/1396#issuecomment-6540945338) |
+| `orca terminal status` |  |  | y | #1396 | Cooper | fail | [assessment](https://github.com/hadron-memory/hadron-cli/issues/1396#issuecomment-6540945338), [follow-up #1398](https://github.com/hadron-memory/hadron-cli/issues/1398), [follow-up #1400](https://github.com/hadron-memory/hadron-cli/issues/1400) |
+| `slack` |  |  | y | #1396 | Cooper | fail | [assessment](https://github.com/hadron-memory/hadron-cli/issues/1396#issuecomment-6540945338), [follow-up #1399](https://github.com/hadron-memory/hadron-cli/issues/1399), [follow-up #1400](https://github.com/hadron-memory/hadron-cli/issues/1400) |
+| `slack get` |  |  | y | #1396 | Cooper | pass | [assessment](https://github.com/hadron-memory/hadron-cli/issues/1396#issuecomment-6540945338) |
+| `slack status` |  |  | y | #1396 | Cooper | pass | [assessment](https://github.com/hadron-memory/hadron-cli/issues/1396#issuecomment-6540945338) |
 <!-- group:1396 end -->
