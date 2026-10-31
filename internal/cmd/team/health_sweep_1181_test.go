@@ -46,10 +46,10 @@ func TestHealth1181ContractWhitelist(t *testing.T) {
 	}
 }
 
-func health1181Run(t *testing.T, wire string, statusCode int) (string, error, int, map[string]any) {
+func health1181Run(t *testing.T, wire string, statusCode int) (string, int, map[string]any, error) {
 	return health1181RunMode(t, wire, statusCode, true)
 }
-func health1181RunMode(t *testing.T, wire string, statusCode int, jsonMode bool) (string, error, int, map[string]any) {
+func health1181RunMode(t *testing.T, wire string, statusCode int, jsonMode bool) (string, int, map[string]any, error) {
 	t.Helper()
 	t.Setenv("HADRON_TOKEN", "AMBIENT_MUST_NOT_BE_USED")
 	dir := t.TempDir()
@@ -111,14 +111,14 @@ func health1181RunMode(t *testing.T, wire string, statusCode int, jsonMode bool)
 	}
 	mu.Lock()
 	defer mu.Unlock()
-	return out.String(), err, writes, sent
+	return out.String(), writes, sent, err
 }
 
 func TestHealth1181NoCoordinatorAndLegacyVerdictIgnored(t *testing.T) {
 	base := `{"data":{"setHostWorkerTerminals":{"stored":[{"id":"w1","urn":"hrn:worker:test:team:iris"}],"refused":[]EXTRA}}}`
 	var first string
 	for i, x := range []string{"", `,"alarm":[{"secret":"PRIVATE_SCREEN"}],"noCoordinator":true`} {
-		out, err, n, sent := health1181Run(t, strings.Replace(base, "EXTRA", x, 1), 0)
+		out, n, sent, err := health1181Run(t, strings.Replace(base, "EXTRA", x, 1), 0)
 		if err != nil || n != 1 {
 			t.Fatalf("err=%v writes=%d", err, n)
 		}
@@ -138,7 +138,7 @@ func TestHealth1181NoCoordinatorAndLegacyVerdictIgnored(t *testing.T) {
 	}
 }
 func TestHealth1181RefusalsAreNotRetried(t *testing.T) {
-	out, err, n, _ := health1181Run(t, `{"data":{"setHostWorkerTerminals":{"stored":[],"refused":[{"worker":"w1","code":"TERMINAL_REPORT_STALE"}]}}}`, 0)
+	out, n, _, err := health1181Run(t, `{"data":{"setHostWorkerTerminals":{"stored":[],"refused":[{"worker":"w1","code":"TERMINAL_REPORT_STALE"}]}}}`, 0)
 	if err != nil || n != 1 || !strings.Contains(out, "TERMINAL_REPORT_STALE") {
 		t.Fatalf("%v %d %s", err, n, out)
 	}
@@ -157,7 +157,7 @@ func TestHealth1181WriteAndStatusExits(t *testing.T) {
 		{`{}`, 7, 7, 0},
 		{`{}`, 8, 8, 0},
 	} {
-		out, err, n, _ := health1181Run(t, tc.wire, tc.status)
+		out, n, _, err := health1181Run(t, tc.wire, tc.status)
 		if exitcode.FromError(err) != tc.want || n != tc.writes {
 			t.Fatalf("exit %d want%d writes%d out%s err%v", exitcode.FromError(err), tc.want, n, out, err)
 		}
@@ -169,7 +169,7 @@ func TestHealth1181WriteAndStatusExits(t *testing.T) {
 
 func TestHealth1181ExactPayloadAndTextGolden(t *testing.T) {
 	wire := `{"data":{"setHostWorkerTerminals":{"stored":[{"id":"w1","urn":"hrn:worker:test:team:iris"}],"refused":[]}}}`
-	out, err, n, sent := health1181RunMode(t, wire, 0, false)
+	out, n, sent, err := health1181RunMode(t, wire, 0, false)
 	if err != nil || n != 1 || out != "Iris  locked  menu_or_question\n" {
 		t.Fatalf("text %q err%v n%d", out, err, n)
 	}
@@ -177,7 +177,7 @@ func TestHealth1181ExactPayloadAndTextGolden(t *testing.T) {
 	if !reflect.DeepEqual(sent, want) {
 		t.Fatalf("wire %#v want %#v", sent, want)
 	}
-	out, err, n, _ = health1181Run(t, wire, 0)
+	out, n, _, err = health1181Run(t, wire, 0)
 	if err != nil || n != 1 {
 		t.Fatal(err, n)
 	}
@@ -201,7 +201,7 @@ func TestHealth1181ExactPayloadAndTextGolden(t *testing.T) {
 }
 func TestHealth1181DoesNotInventWriteSuccess(t *testing.T) {
 	for _, wire := range []string{`{"data":{"setHostWorkerTerminals":null}}`, `{"data":{"setHostWorkerTerminals":{"stored":[],"refused":[]}}}`} {
-		_, err, n, _ := health1181Run(t, wire, 0)
+		_, n, _, err := health1181Run(t, wire, 0)
 		if n != 1 || exitcode.FromError(err) != 1 {
 			t.Fatalf("err%v n%d", err, n)
 		}

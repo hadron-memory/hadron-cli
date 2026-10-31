@@ -208,7 +208,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 315: 211 command, 93 gap, 11 excluded
+[Mutation] 315: 212 command, 92 gap, 11 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -450,7 +450,7 @@ setAssetPublicLink  command asset public-link
 setDashboardWidgets  excluded graphical: places portal dashboard widgets on a 12-column grid (position, span, rowSpan)
 setDecisionLogDeciders  gap #1335
 setHostWorkerAvailability  gap #1337
-setHostWorkerTerminals  gap #1181
+setHostWorkerTerminals  command team health sweep
 setMemorySourceToken  gap #60
 setModelFamilyAvailability  command team availability set
 setQuotaLimit  gap #1343

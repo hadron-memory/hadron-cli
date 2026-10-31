@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
@@ -16,15 +15,23 @@ import (
 // The status command's --config boundary is a separately gated dependency
 // of #1181. Only its JSON leaves this subprocess; never inspect its screen or
 // diagnostics, or pass a key value through argv/environment.
-func readHealthStatusCommand(ctx context.Context, path string, _ *hostpoller.Config) ([]byte, int, error) {
+func readHealthStatusCommand(ctx context.Context, path string, cfg *hostpoller.Config) ([]byte, int, error) {
 	bin, err := os.Executable()
 	if err != nil {
 		return nil, 1, errors.New("status executable unavailable")
 	}
-	return runHealthStatusCommand(ctx, bin, path)
+	key, err := cfg.ReadHostKey()
+	if err != nil {
+		return nil, 3, errors.New("host key unavailable")
+	}
+	return runHealthStatusCommandEnv(ctx, bin, path, hostpoller.ScrubbedEnv(os.Environ(), key))
 }
 
 func runHealthStatusCommand(ctx context.Context, bin, path string) ([]byte, int, error) {
+	return runHealthStatusCommandEnv(ctx, bin, path, hostpoller.ScrubbedEnv(os.Environ(), ""))
+}
+
+func runHealthStatusCommandEnv(ctx context.Context, bin, path string, env []string) ([]byte, int, error) {
 	abs, err := filepath.Abs(path)
 	if err != nil {
 		return nil, 1, errors.New("status config unavailable")
@@ -32,12 +39,7 @@ func runHealthStatusCommand(ctx context.Context, bin, path string) ([]byte, int,
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, bin, "orca", "terminal", "status", "--all", "--json", "--config", abs)
-	for _, e := range os.Environ() {
-		k, _, _ := strings.Cut(e, "=")
-		if k != "HADRON_TOKEN" && k != "HADRON_LAUNCH_GRANT" {
-			cmd.Env = append(cmd.Env, e)
-		}
-	}
+	cmd.Env = env
 	var out healthStatusBuffer
 	cmd.Stdout = &out
 	// stderr is deliberately discarded, including a child's credential, screen
