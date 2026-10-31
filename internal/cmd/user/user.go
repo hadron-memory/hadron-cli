@@ -74,6 +74,7 @@ func NewCmdUser(f *cmdutil.Factory) *cobra.Command {
   search      find users by handle, GitHub username or email (anyone)
   set-roles   replace a user's platform roles (platform admin)
   merge       fold a duplicate account into another (admin, irreversible)
+  delete      delete your own account, or another's (platform admin, irreversible)
 
 These act on platform accounts. Membership and roles inside one organization
 are hadron org member; your own name and handle are hadron profile set.`,
@@ -84,6 +85,7 @@ are hadron org member; your own name and handle are hadron profile set.`,
 	cmd.AddCommand(newCmdSearch(f))
 	cmd.AddCommand(newCmdSetRoles(f))
 	cmd.AddCommand(newCmdMerge(f))
+	cmd.AddCommand(newCmdDelete(f))
 	return cmd
 }
 

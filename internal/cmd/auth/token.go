@@ -24,6 +24,9 @@ type tokenDTO struct {
 	LastUsedAt *string `json:"lastUsedAt"`
 	RevokedAt  *string `json:"revokedAt"`
 	Revoked    bool    `json:"revoked"`
+	// HiddenAt is when the owner hid this REVOKED key from the default list;
+	// null while visible. Display state only (#1344).
+	HiddenAt *string `json:"hiddenAt"`
 }
 
 // tokenCreateDTO extends tokenDTO with the raw key, returned exactly once.
@@ -42,6 +45,7 @@ func toTokenDTO(k gen.UserApiKeyFields) tokenDTO {
 		LastUsedAt: k.LastUsedAt,
 		RevokedAt:  k.RevokedAt,
 		Revoked:    k.RevokedAt != nil,
+		HiddenAt:   k.HiddenAt,
 	}
 }
 
@@ -65,6 +69,8 @@ is what "revoke" takes.`,
 	cmd.AddCommand(newCmdTokenLs(f))
 	cmd.AddCommand(newCmdTokenValidate(f))
 	cmd.AddCommand(newCmdTokenRevoke(f))
+	cmd.AddCommand(newCmdTokenHide(f, true))
+	cmd.AddCommand(newCmdTokenHide(f, false))
 	return cmd
 }
 
@@ -295,7 +301,8 @@ list, find any unexpected token by its label, and use hadron auth token revoke
 }
 
 func newCmdTokenLs(f *cmdutil.Factory) *cobra.Command {
-	return &cobra.Command{
+	var includeHidden bool
+	cmd := &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"ls"},
 		Short:   "List your personal API tokens",
@@ -306,8 +313,12 @@ metadata only, never the token itself: ID (what revoke takes), LABEL, PREVIEW
 
 Requires a user login. You see only your own tokens. --json gives the same
 fields as id, label, keyPreview, issuedVia, createdAt, lastUsedAt, revokedAt
-and revoked; an empty list is [].`,
+and revoked; an empty list is [].
+
+A revoked token you hid with "hide" is left out; --include-hidden brings it
+back (the JSON hiddenAt says when you hid it, null for a visible one).`,
 		Example: `  hadron auth token list
+  hadron auth token list --include-hidden
   hadron auth token list --json | jq -r '.[] | select(.revoked | not) | .id'`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -315,7 +326,11 @@ and revoked; an empty list is [].`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.MyUserApiKeys(cmd.Context(), client)
+			var hiddenArg *bool
+			if includeHidden {
+				hiddenArg = &includeHidden
+			}
+			resp, err := gen.MyUserApiKeys(cmd.Context(), client, hiddenArg)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -333,9 +348,66 @@ and revoked; an empty list is [].`,
 					if k.Revoked {
 						status = "revoked"
 					}
+					if k.HiddenAt != nil {
+						status += " (hidden)"
+					}
 					t.Row(output.SafeCell(k.ID), output.SafeCell(orDash(k.Label)), output.SafeCell(k.KeyPreview), output.SafeCell(k.CreatedAt), output.SafeCell(orText(k.LastUsedAt, "never")), status)
 				}
 				return t.Flush()
+			})
+		},
+	}
+	cmd.Flags().BoolVar(&includeHidden, "include-hidden", false, "also list revoked tokens you hid")
+	return cmd
+}
+
+// newCmdTokenHide builds `token hide` (hide=true) and `token unhide`: the one
+// setUserApiKeyHidden mutation, in both directions.
+func newCmdTokenHide(f *cmdutil.Factory, hide bool) *cobra.Command {
+	use, short, past := "hide <id>", "Hide a revoked personal API token from the default list", "Hid"
+	long := `Hide one of your REVOKED personal tokens from the default "auth token list", to
+tidy a long history. It is display state only: the token's validity, revocation
+time and lineage do not change, and "list --include-hidden" still shows it.
+
+<id> is the token's ID from hadron auth token list. Only a revoked token can
+be hidden: hiding an active one is refused (exit 2, nothing changes), so revoke
+it first. Hiding an already-hidden token succeeds and keeps the first hide time.
+You can change only your own tokens: an unknown id, or someone else's, exits 4.
+Requires a user login. Prints "✓ Hid API token <id>"; --json returns the token
+with its hiddenAt.`
+	example := "  hadron auth token hide 01a18cf6400b7fcc8d2f51e7401c55c1"
+	if !hide {
+		use, short, past = "unhide <id>", "Show a hidden personal API token in the default list again", "Unhid"
+		long = `Show one of your hidden tokens in the default "auth token list" again; it clears
+the display state "hide" set and changes nothing else. <id> is the token's ID
+from hadron auth token list --include-hidden. Unhiding a token that is already
+visible succeeds. You can change only your own tokens: an unknown id, or
+someone else's, exits 4. Requires a user login. Prints "✓ Unhid API token <id>";
+--json returns the token with hiddenAt null.`
+		example = "  hadron auth token unhide 01a18cf6400b7fcc8d2f51e7401c55c1"
+	}
+	return &cobra.Command{
+		Use:     use,
+		Short:   short,
+		Long:    long,
+		Example: example,
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			resp, err := gen.SetUserApiKeyHidden(cmd.Context(), client, args[0], hide)
+			if err != nil {
+				return api.MapErrorKeepingCode(err)
+			}
+			if resp == nil || resp.SetUserApiKeyHidden == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no token")
+			}
+			dto := toTokenDTO(resp.SetUserApiKeyHidden.UserApiKeyFields)
+			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				_, err := fmt.Fprintf(w, "✓ %s API token %s\n", past, output.SafeCell(dto.ID))
+				return err
 			})
 		},
 	}
