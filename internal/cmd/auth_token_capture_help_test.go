@@ -25,7 +25,7 @@ func TestAuthTokenCaptureExample(t *testing.T) {
 	if !ok {
 		t.Fatal("missing capture example")
 	}
-	for _, mode := range []string{"success", "refusal", "refusal-json", "invalid-json", "existing", "dangling", "directory", "racing-file", "racing-directory", "racing-directory-link", "unsupported-ln"} {
+	for _, mode := range []string{"success", "refusal", "refusal-json", "invalid-json", "existing", "dangling", "directory", "racing-file", "racing-directory", "racing-directory-link", "unsupported-ln", "racing-probe"} {
 		t.Run(mode, func(t *testing.T) {
 			dir := t.TempDir()
 			tools := filepath.Join(dir, "tools")
@@ -45,6 +45,11 @@ racing-directory-link) ln -s foreign-dir ci-token ;;
 esac
 printf '{"rawKey":"synthetic-key"}\n'
 `
+			if mode == "racing-probe" {
+				if err := os.WriteFile(filepath.Join(tools, "ln"), []byte("#!/bin/sh\nprintf 'foreign\\n' > \"$3\"\nexit 1\n"), 0o700); err != nil {
+					t.Fatal(err)
+				}
+			}
 			if mode == "unsupported-ln" {
 				if err := os.WriteFile(filepath.Join(tools, "ln"), []byte("#!/bin/sh\necho 'ln: unsupported -T' >&2\nexit 64\n"), 0o700); err != nil {
 					t.Fatal(err)
@@ -86,7 +91,7 @@ printf '{"rawKey":"synthetic-key"}\n'
 				t.Error("capture example echoed key")
 			}
 			count, _ := os.ReadFile(calls)
-			if mode == "existing" || mode == "dangling" || mode == "directory" || mode == "unsupported-ln" {
+			if mode == "existing" || mode == "dangling" || mode == "directory" || mode == "unsupported-ln" || mode == "racing-probe" {
 				if runErr == nil || len(count) != 0 {
 					t.Errorf("pre-mint refusal: err=%v calls=%q", runErr, count)
 				}
@@ -158,10 +163,22 @@ printf '{"rawKey":"synthetic-key"}\n'
 			if err != nil {
 				t.Fatal(err)
 			}
+			foreignProbeSeen := false
 			for _, e := range entries {
+				if mode == "racing-probe" && strings.HasSuffix(e.Name(), ".probe") {
+					b, err := os.ReadFile(filepath.Join(dir, e.Name()))
+					if err != nil || string(b) != "foreign\n" {
+						t.Errorf("foreign probe changed: %q %v", b, err)
+					}
+					foreignProbeSeen = true
+					continue
+				}
 				if strings.HasPrefix(e.Name(), "ci-token.") {
 					t.Errorf("temporary capture left behind: %s", e.Name())
 				}
+			}
+			if mode == "racing-probe" && !foreignProbeSeen {
+				t.Error("cleanup removed the foreign probe it did not create")
 			}
 		})
 	}
