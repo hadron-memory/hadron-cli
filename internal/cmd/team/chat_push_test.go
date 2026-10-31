@@ -355,3 +355,15 @@ func TestPushTypedButAckPendingIsQualifiedNotUnqualifiedPushed(t *testing.T) {
 		t.Fatalf("report %v", st)
 	}
 }
+
+func TestPushSharedTokenOneConfirmedOneUnresolvedIsUnconfirmed(t *testing.T) {
+	// Both Marys share mary-jane. The context ends after Mary Jane's batch is
+	// typed, before Mary-Jane is reached: the token must not report pushed.
+	r := runPushWith(t, []string{"hi", "--push", "--orca-host-config", "HOST"}, []string{"mary-jane"}, nil, false, false, "b1", true)
+	if r.err != nil {
+		t.Fatal(r.err)
+	}
+	if st := pushStates(t, r); st["mary-jane"] != "unconfirmed:push-failed" {
+		t.Fatalf("masked: %v seen %v", st, r.seen)
+	}
+}

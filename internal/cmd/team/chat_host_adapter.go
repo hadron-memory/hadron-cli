@@ -350,6 +350,10 @@ func (p *postHostPass) Push(ctx context.Context, tokens []string) ([]postPushRes
 		for _, id := range ids[t] {
 			if o := per[id]; o != nil && o.state != "" {
 				folded.note(o.state, o.reason)
+			} else if err != nil {
+				// A matched worker with no outcome when the pass failed is
+				// unresolved; another sharer's confirmed push must not mask it.
+				folded.note(pushStateUnconfirmed, "push-failed")
 			}
 		}
 		if folded.state != "" {
