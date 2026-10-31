@@ -20,7 +20,9 @@ func TestInputs1337ResumeWire(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "session", "start", "--server", srv.URL, "--description", "next stint", "--family", "codex"})
-	_ = root.Execute() // CHOOSE is intentionally exit 2 and binds nothing.
+	if err := root.Execute(); exitCodeFor(err) != 2 {
+		t.Fatalf("CHOOSE: %v", err)
+	} // binds nothing.
 	var v struct {
 		Input map[string]any `json:"input"`
 	}
@@ -36,7 +38,7 @@ func TestInputs1337SessionFilters(t *testing.T) {
 	srv, calls := captureGraphQL(t, map[string]string{"TeamSessionsPageFiltered": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "session", "list", "--server", srv.URL, "--customer", "customer-7", "--type", "coding", "--json"})
+	root.SetArgs([]string{"team", "session", "list", "--server", srv.URL, "--customer", "customer-7", "--type", "DEVELOPER", "--json"})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +46,7 @@ func TestInputs1337SessionFilters(t *testing.T) {
 	if err := json.Unmarshal(calls["TeamSessionsPageFiltered"], &v); err != nil {
 		t.Fatal(err)
 	}
-	if v["customerId"] != "customer-7" || v["sessionType"] != "coding" {
+	if v["customerId"] != "customer-7" || v["sessionType"] != "DEVELOPER" {
 		t.Fatalf("filters = %#v", v)
 	}
 }
@@ -60,6 +62,9 @@ func TestInputs1337WorkerHistory(t *testing.T) {
 	var v map[string]any
 	if err := json.Unmarshal(calls["TeamWorkItemsByWorker"], &v); err != nil {
 		t.Fatal(err)
+	}
+	if v["limit"] != float64(50) {
+		t.Fatalf("documented default50 missing: %#v", v)
 	}
 	if v["workerRef"] != "Retired Uma" {
 		t.Fatalf("server must resolve even retired names: %#v", v)
@@ -78,7 +83,9 @@ func TestInputs1337EndCounters(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "session", "end", "--session", "synthetic-session", "--server", srv.URL, "--input-tokens", "0", "--output-tokens", "3", "--turns", "4", "--errors", "2"})
-	_ = root.Execute()
+	if err := root.Execute(); exitCodeFor(err) != 8 {
+		t.Fatalf("synthetic refusal: %v", err)
+	}
 	var v map[string]any
 	if err := json.Unmarshal(calls["EndTeamSessionWithStats"], &v); err != nil {
 		t.Fatal(err)
@@ -91,7 +98,7 @@ func TestInputs1337EndCounters(t *testing.T) {
 }
 
 func TestInputs1337StartWire(t *testing.T) {
-	_, _, calls := runStartAs(t, startedWith(preBindWorkerJSON), "--agent", "agt1", "--customer", "cust1", "--family", "codex", "--language", "go", "--parent-session", "parent1", "--plan", "investigate", "--pr-number", "0", "--previous-session", "prev1", "--type", "coding")
+	_, _, calls := runStartAs(t, startedWith(preBindWorkerJSON), "--agent", "agt1", "--customer", "cust1", "--family", "codex", "--language", "go", "--parent-session", "parent1", "--plan", "investigate", "--pr-number", "0", "--previous-session", "prev1", "--type", "DEVELOPER")
 	xs := callsFor(calls, "StartTeamSession")
 	if len(xs) != 1 {
 		t.Fatal(xs)
@@ -102,7 +109,7 @@ func TestInputs1337StartWire(t *testing.T) {
 	if err := json.Unmarshal(mustJSON1337(t, xs[0].Vars), &v); err != nil {
 		t.Fatal(err)
 	}
-	for k, want := range map[string]any{"agentRef": "agt1", "customerId": "cust1", "family": "codex", "language": "go", "parentSessionId": "parent1", "plan": "investigate", "prNumber": float64(0), "prevSessionId": "prev1", "type": "coding"} {
+	for k, want := range map[string]any{"agentRef": "agt1", "customerId": "cust1", "family": "codex", "language": "go", "parentSessionId": "parent1", "plan": "investigate", "prNumber": float64(0), "prevSessionId": "prev1", "type": "DEVELOPER"} {
 		if v.Input[k] != want {
 			t.Errorf("%s = %v, want %v", k, v.Input[k], want)
 		}
@@ -182,7 +189,7 @@ func TestInputs1337OmittedFieldsAndExplicitCounterZero(t *testing.T) {
 	})
 	t.Run("end one explicit zero", func(t *testing.T) {
 		teamGitDir(t)
-		srv, calls := captureGraphQL(t, map[string]string{"EndTeamSessionWithStats": `{"errors":[{"message":"no","extensions":{"code":"FORBIDDEN"}}]}`})
+		srv, calls := captureGraphQL(t, map[string]string{"EndTeamSessionWithStatsAndResumeClaim": `{"errors":[{"message":"no","extensions":{"code":"FORBIDDEN"}}]}`})
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
 		root.SetArgs([]string{"team", "session", "end", "--server", srv.URL, "--session", "fake", "--turns", "0", "--resume-claim"})
@@ -191,10 +198,10 @@ func TestInputs1337OmittedFieldsAndExplicitCounterZero(t *testing.T) {
 			t.Fatal(err)
 		}
 		var v map[string]any
-		if err := json.Unmarshal(calls["EndTeamSessionWithStats"], &v); err != nil {
+		if err := json.Unmarshal(calls["EndTeamSessionWithStatsAndResumeClaim"], &v); err != nil {
 			t.Fatal(err)
 		}
-		if v["turnCount"] != float64(0) || v["resumeClaim"] != true {
+		if v["turnCount"] != float64(0) {
 			t.Fatal(v)
 		}
 		for _, k := range []string{"inputTokens", "outputTokens", "errorCount"} {
@@ -211,6 +218,12 @@ func TestInputs1337RefuseBeforeMutation(t *testing.T) {
 		{"session", "start", "--as", "Iris", "--force", "--description", "dropped"},
 		{"session", "start", "--customer", "cust"},
 		{"session", "start", "--pr-number", "0"},
+		{"session", "start", "--plan", "next"},
+		{"session", "start", "--agent", "agt1"},
+		{"session", "start", "--language", "go"},
+		{"session", "start", "--type", "DEVELOPER"},
+		{"session", "start", "--previous-session", "previous"},
+		{"session", "start", "--parent-session", "parent"},
 		{"session", "start", "--family="},
 		{"session", "list", "--customer="},
 		{"session", "list", "--type="},
@@ -243,7 +256,7 @@ func TestInputs1337RefuseBeforeMutation(t *testing.T) {
 
 func TestInputs1337HostAvailabilityClear(t *testing.T) {
 	cfg := writeHostConfig(t, "")
-	answer := `{"data":{"setHostWorkerAvailability":{"worker":{"id":"w1","kind":"WORKER","name":"Iris","urn":null},"state":"AVAILABLE","reason":null,"until":null,"setAt":"2026-10-31T00:00:00Z","setBy":"HOST","setByHostId":"h1","setByParty":null,"inEffect":true}}}`
+	answer := `{"data":{"setHostWorkerAvailability":{"worker":{"id":"w1","kind":"WORKER","name":"Iris","urn":null},"state":"AVAILABLE","reason":null,"until":null,"setAt":"2026-10-31T00:00:00Z","setBy":"HOST","setByHostId":"h1","setByParty":null,"inEffect":false}}}`
 	srv, calls := hostServerFake(t, map[string]string{"SetHostWorkerAvailability": answer})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -273,7 +286,7 @@ func TestInputs1337HostAvailabilityClear(t *testing.T) {
 	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
 		t.Fatal(err)
 	}
-	if dto["setByHostId"] != "h1" || dto["state"] != "AVAILABLE" || dto["inEffect"] != true {
+	if dto["setByHostId"] != "h1" || dto["state"] != "AVAILABLE" || dto["inEffect"] != false {
 		t.Fatal(dto)
 	}
 	if strings.Contains(out.String(), "hk_host_key") {
@@ -344,7 +357,7 @@ func TestInputs1337FilteredExplicitPage(t *testing.T) {
 	srv, calls := captureGraphQL(t, map[string]string{"TeamSessionsPageFiltered": `{"data":{"sessionsPage":{"total":9,"hasMore":true,"items":[]}}}`})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"team", "session", "list", "--type", "coding", "--limit", "0", "--offset", "3", "--server", srv.URL, "--json"})
+	root.SetArgs([]string{"team", "session", "list", "--type", "DEVELOPER", "--limit", "0", "--offset", "3", "--server", srv.URL, "--json"})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -399,6 +412,15 @@ func TestInputs1337CountersDoNotRequireResumeClaim(t *testing.T) {
 	if field.Arguments.ForName("resumeClaim") != nil {
 		t.Fatal("stats-only document passes resumeClaim to an older server")
 	}
+
+	claimed, err := parser.ParseQuery(&ast.Source{Input: gen.EndTeamSessionWithStatsAndResumeClaim_Operation})
+	if err != nil {
+		t.Fatal(err)
+	}
+	claimArg := claimed.Operations[0].SelectionSet[0].(*ast.Field).Arguments.ForName("resumeClaim")
+	if claimArg == nil || claimArg.Value.Raw != "true" {
+		t.Fatal("claimed-stats document must explicitly request a claim")
+	}
 }
 
 func TestInputs1337CapabilityDeclarationWarnsWithoutAHandler(t *testing.T) {
@@ -416,5 +438,97 @@ func TestInputs1337CapabilityDeclarationWarnsWithoutAHandler(t *testing.T) {
 	}
 	if len(calls()) != 2 {
 		t.Fatalf("declaration must still be sent explicitly: %#v", calls())
+	}
+}
+
+func TestInputs1337LaunchInputsAndResumeOmission(t *testing.T) {
+	t.Run("launch", func(t *testing.T) {
+		teamGitDir(t)
+		t.Setenv("HADRON_LAUNCH_GRANT", "")
+		srv, calls := captureGraphQL(t, map[string]string{"StartTeamSession": `{"errors":[{"message":"synthetic refusal","extensions":{"code":"FORBIDDEN"}}]}`})
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "session", "start", "--launch-grant", "synthetic", "--plan", "new work", "--family", "codex", "--customer", "c1", "--pr-number", "0", "--server", srv.URL})
+		if err := root.Execute(); exitCodeFor(err) != 8 {
+			t.Fatal(err)
+		}
+		var v struct {
+			Input map[string]any `json:"input"`
+		}
+		if err := json.Unmarshal(calls["StartTeamSession"], &v); err != nil {
+			t.Fatal(err)
+		}
+		for k, want := range map[string]any{"launchGrant": "synthetic", "plan": "new work", "family": "codex", "customerId": "c1", "prNumber": float64(0)} {
+			if v.Input[k] != want {
+				t.Fatalf("%s missing: %#v", k, v)
+			}
+		}
+	})
+	t.Run("resume omitted", func(t *testing.T) {
+		teamGitDir(t)
+		t.Setenv("HADRON_LAUNCH_GRANT", "")
+		srv, calls := captureGraphQL(t, resumeStubs("CHOOSE"))
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "session", "start", "--server", srv.URL})
+		if err := root.Execute(); exitCodeFor(err) != 2 {
+			t.Fatal(err)
+		}
+		var v struct {
+			Input map[string]any `json:"input"`
+		}
+		if err := json.Unmarshal(calls["ResumeTeamSession"], &v); err != nil {
+			t.Fatal(err)
+		}
+		for _, k := range []string{"description", "family"} {
+			if _, ok := v.Input[k]; ok {
+				t.Fatalf("unset %s sent: %#v", k, v)
+			}
+		}
+	})
+}
+
+func TestInputs1337HostUntilAndTextSafety(t *testing.T) {
+	cfg := writeHostConfig(t, "")
+	answer := `{"data":{"setHostWorkerAvailability":{"worker":{"id":"w1","kind":"WORKER","name":"Iris","urn":null},"state":"UNAVAILABLE","reason":"HOST_DOWN","until":"2030-01-01T00:00:00Z","setAt":"2026-10-31T00:00:00Z","setBy":"HOST","setByHostId":"h1","setByParty":null,"inEffect":true}}}`
+	srv, calls := hostServerFake(t, map[string]string{"SetHostWorkerAvailability": answer})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "host", "availability", "Iris\x1b[31m", "--reason", "HOST_DOWN", "--until", "2030-01-01T00:00:00Z", "--config", cfg, "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var v struct {
+		Input map[string]any `json:"input"`
+	}
+	if err := json.Unmarshal(calls()[0].vars, &v); err != nil {
+		t.Fatal(err)
+	}
+	if v.Input["until"] != "2030-01-01T00:00:00Z" || v.Input["worker"] != "Iris\x1b[31m" {
+		t.Fatal(v)
+	}
+	if strings.Contains(out.String(), "\x1b") || !strings.Contains(out.String(), "UNAVAILABLE") {
+		t.Fatal(out.String())
+	}
+}
+
+func TestInputs1337WorkerHistoryCountOnly(t *testing.T) {
+	teamGitDir(t)
+	srv, calls := captureGraphQL(t, map[string]string{"TeamWorkItemsByWorker": `{"data":{"teamWorkItems":{"total":7,"items":[]}}}`})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "work-items", "--app", "acme.com:eng-team", "--worker", "Iris", "--limit", "0", "--offset", "3", "--server", srv.URL, "--json"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var v map[string]any
+	if err := json.Unmarshal(calls["TeamWorkItemsByWorker"], &v); err != nil {
+		t.Fatal(err)
+	}
+	if v["limit"] != float64(0) || v["offset"] != float64(3) {
+		t.Fatalf("count-only filter missing: %#v", v)
+	}
+	if !strings.Contains(out.String(), `"total": 7`) || !strings.Contains(out.String(), `"items": []`) {
+		t.Fatal(out.String())
 	}
 }

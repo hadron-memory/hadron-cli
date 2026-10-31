@@ -30417,6 +30417,274 @@ func (v *EndTeamSessionWithResumeClaimResponse) GetEndSession() *EndTeamSessionW
 	return v.EndSession
 }
 
+// EndTeamSessionWithStatsAndResumeClaimEndSession includes the requested fields of the GraphQL type Session.
+// The GraphQL type's documentation follows.
+//
+// A unit of work recorded against a user or App: the general row, and what the
+// bare word "session" means throughout this schema (#1034). `type` says which
+// kind — DEVELOPER, CHATBOT, AUTOMATION, EDGE — and `workerId` is optional.
+//
+// A **worker session** is the subtype with `workerId` set: a Worker (named
+// casting) bound to a driver, which is what makes work attributable to a
+// teammate and what a merged PR traces back through. Binding is optional, so a
+// list of these is not a staff view and may hold no worker sessions at all —
+// read `workerId` per row rather than assuming either way.
+//
+// A **chat session** is NOT one of these and has no row here: it is the
+// conversation a human is in — the Claude Desktop window, the Claude Code
+// session, the IDE chat. The two are independent and **ending one does not end
+// the other**: a chat session that closes leaves its worker session open
+// until endSession. Since #1114 nothing ends it for inactivity — silence is not
+// evidence of abandonment — but it stops reading as LIVE once nobody has driven
+// it inside its idle window, so the stale session stops blocking another bind
+// without being ended or losing its unwritten handoff. That changes no HOLD: a
+// human-held name stays held until explicit release, so only its holder can bind
+// it again. Do not use "chat session" for a Chat (the agent conversation entity)
+// — that is an **agent chat**, a third concept.
+type EndTeamSessionWithStatsAndResumeClaimEndSession struct {
+	TeamSessionFields `json:"-"`
+}
+
+// GetId returns EndTeamSessionWithStatsAndResumeClaimEndSession.Id, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetId() string {
+	return v.TeamSessionFields.Id
+}
+
+// GetAgentId returns EndTeamSessionWithStatsAndResumeClaimEndSession.AgentId, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetAgentId() *string {
+	return v.TeamSessionFields.AgentId
+}
+
+// GetWorkerId returns EndTeamSessionWithStatsAndResumeClaimEndSession.WorkerId, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetWorkerId() *string {
+	return v.TeamSessionFields.WorkerId
+}
+
+// GetRole returns EndTeamSessionWithStatsAndResumeClaimEndSession.Role, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetRole() *string {
+	return v.TeamSessionFields.Role
+}
+
+// GetWorker returns EndTeamSessionWithStatsAndResumeClaimEndSession.Worker, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetWorker() *TeamSessionFieldsWorker {
+	return v.TeamSessionFields.Worker
+}
+
+// GetUserId returns EndTeamSessionWithStatsAndResumeClaimEndSession.UserId, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetUserId() *string {
+	return v.TeamSessionFields.UserId
+}
+
+// GetType returns EndTeamSessionWithStatsAndResumeClaimEndSession.Type, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetType() string {
+	return v.TeamSessionFields.Type
+}
+
+// GetRepo returns EndTeamSessionWithStatsAndResumeClaimEndSession.Repo, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetRepo() *string {
+	return v.TeamSessionFields.Repo
+}
+
+// GetBranch returns EndTeamSessionWithStatsAndResumeClaimEndSession.Branch, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetBranch() *string {
+	return v.TeamSessionFields.Branch
+}
+
+// GetPrNumber returns EndTeamSessionWithStatsAndResumeClaimEndSession.PrNumber, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetPrNumber() *int {
+	return v.TeamSessionFields.PrNumber
+}
+
+// GetStartedAt returns EndTeamSessionWithStatsAndResumeClaimEndSession.StartedAt, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetStartedAt() string {
+	return v.TeamSessionFields.StartedAt
+}
+
+// GetEndedAt returns EndTeamSessionWithStatsAndResumeClaimEndSession.EndedAt, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetEndedAt() *string {
+	return v.TeamSessionFields.EndedAt
+}
+
+// GetAutoExpiredAt returns EndTeamSessionWithStatsAndResumeClaimEndSession.AutoExpiredAt, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetAutoExpiredAt() *string {
+	return v.TeamSessionFields.AutoExpiredAt
+}
+
+// GetHost returns EndTeamSessionWithStatsAndResumeClaimEndSession.Host, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetHost() *string {
+	return v.TeamSessionFields.Host
+}
+
+// GetTool returns EndTeamSessionWithStatsAndResumeClaimEndSession.Tool, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetTool() *string {
+	return v.TeamSessionFields.Tool
+}
+
+// GetTranscriptPath returns EndTeamSessionWithStatsAndResumeClaimEndSession.TranscriptPath, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetTranscriptPath() *string {
+	return v.TeamSessionFields.TranscriptPath
+}
+
+// GetLlmModel returns EndTeamSessionWithStatsAndResumeClaimEndSession.LlmModel, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetLlmModel() *string {
+	return v.TeamSessionFields.LlmModel
+}
+
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*EndTeamSessionWithStatsAndResumeClaimEndSession
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.EndTeamSessionWithStatsAndResumeClaimEndSession = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamSessionFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalEndTeamSessionWithStatsAndResumeClaimEndSession struct {
+	Id string `json:"id"`
+
+	AgentId *string `json:"agentId"`
+
+	WorkerId *string `json:"workerId"`
+
+	Role *string `json:"role"`
+
+	Worker *TeamSessionFieldsWorker `json:"worker"`
+
+	UserId *string `json:"userId"`
+
+	Type string `json:"type"`
+
+	Repo *string `json:"repo"`
+
+	Branch *string `json:"branch"`
+
+	PrNumber *int `json:"prNumber"`
+
+	StartedAt string `json:"startedAt"`
+
+	EndedAt *string `json:"endedAt"`
+
+	AutoExpiredAt *string `json:"autoExpiredAt"`
+
+	Host *string `json:"host"`
+
+	Tool *string `json:"tool"`
+
+	TranscriptPath *string `json:"transcriptPath"`
+
+	LlmModel *string `json:"llmModel"`
+}
+
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) __premarshalJSON() (*__premarshalEndTeamSessionWithStatsAndResumeClaimEndSession, error) {
+	var retval __premarshalEndTeamSessionWithStatsAndResumeClaimEndSession
+
+	retval.Id = v.TeamSessionFields.Id
+	retval.AgentId = v.TeamSessionFields.AgentId
+	retval.WorkerId = v.TeamSessionFields.WorkerId
+	retval.Role = v.TeamSessionFields.Role
+	retval.Worker = v.TeamSessionFields.Worker
+	retval.UserId = v.TeamSessionFields.UserId
+	retval.Type = v.TeamSessionFields.Type
+	retval.Repo = v.TeamSessionFields.Repo
+	retval.Branch = v.TeamSessionFields.Branch
+	retval.PrNumber = v.TeamSessionFields.PrNumber
+	retval.StartedAt = v.TeamSessionFields.StartedAt
+	retval.EndedAt = v.TeamSessionFields.EndedAt
+	retval.AutoExpiredAt = v.TeamSessionFields.AutoExpiredAt
+	retval.Host = v.TeamSessionFields.Host
+	retval.Tool = v.TeamSessionFields.Tool
+	retval.TranscriptPath = v.TeamSessionFields.TranscriptPath
+	retval.LlmModel = v.TeamSessionFields.LlmModel
+	return &retval, nil
+}
+
+// EndTeamSessionWithStatsAndResumeClaimResponse is returned by EndTeamSessionWithStatsAndResumeClaim on success.
+type EndTeamSessionWithStatsAndResumeClaimResponse struct {
+	// End a session, and — for a worker-bound one — write its closing handoff
+	// (#1029). Ending a client's chat session does not end its worker session
+	// or call this operation. Inactivity alone never ends a session; the reaper
+	// enforces a hard expiresAt promised at session start. Other explicit
+	// platform lifecycle operations can also end sessions.
+	//
+	// It ends the SESSION, not any HOLD. Where a person bound the worker the name
+	// stays theirs until explicitly released (#1050,
+	// [`cor:agt:020:09`](hrn:node:hadronmemory.com:specs:cor:agt:020:09)), so
+	// only that holder can bind it again. A pure App-key **bind takes no hold** —
+	// which is a fact about the bind, not a promise about the worker's state when
+	// this returns: an eligible user may have forced a binding meanwhile and taken
+	// the name, and ending the App-key session leaves that hold and that session
+	// untouched.
+	//
+	// Gate (#931): platform admin, the session's App, or the attributed user
+	// (not via impersonation). An App key ends only user-less sessions (never one
+	// a person is behind), never a host-launched one, and a key ever granted
+	// host:operate ends none (#1934, hrn:node:hadronmemory.com:specs:cor:agt:070:04);
+	// a host ends a launched session only by reporting its worker.end.
+	//
+	// `handoff` is agent-composed prose: what landed, what is open, what is
+	// blocked, what the next driver should not repeat. The server owns where it
+	// goes (the worker's working memory, under the `handoffs` parent, at a
+	// lexically-ordered loc), so no client re-derives the convention.
+	//
+	// `summary` is NOT a smaller `handoff` (#1100). It sets `Session.summary`,
+	// a label on the session row — readable back through `session` / `sessions`,
+	// but read by no worker-continuity path, so the next driver never sees it. The
+	// two sit side by side and only one of them reaches that driver, so a caller
+	// writing a closing note picks by name: it is `handoff`.
+	//
+	// The two mistakes are not symmetric, and that is the whole hazard. Putting
+	// continuity prose in `summary` succeeds, returns a normal receipt, and
+	// produces NO handoff — discovered only once the context that could have
+	// written one is gone, and not correctable in place, since the sequence is
+	// append-only and adding a handoff to an ended session is refused. A repeat
+	// end without a new handoff preserves the first end. The remedy is to
+	// bind again and end THAT session with the prose. Putting a label in
+	// `handoff` is merely untidy: the row lacks its label and the text reaches
+	// the next driver anyway.
+	//
+	// Written BEFORE the session ends, and a failed write REFUSES the end
+	// (HANDOFF_WRITE_FAILED) rather than ending anyway: a still-bound worker is
+	// recoverable — retry, or end without a handoff deliberately — while an ended
+	// session whose handoff evaporated is not, because the context that composed
+	// it is gone. Passing `handoff` on a session with no worker is refused rather
+	// than dropped; there is no sequence to write it to.
+	//
+	// #1956: `resumeClaim: true` also writes a resume claim, after the handoff
+	// and before the end, so the fresh context of a rotation starts this worker's
+	// next session with resumeSession and no arguments (see createResumeClaim).
+	// Only on your own open worker session: otherwise it refuses and nothing ends.
+	EndSession *EndTeamSessionWithStatsAndResumeClaimEndSession `json:"endSession"`
+}
+
+// GetEndSession returns EndTeamSessionWithStatsAndResumeClaimResponse.EndSession, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimResponse) GetEndSession() *EndTeamSessionWithStatsAndResumeClaimEndSession {
+	return v.EndSession
+}
+
 // EndTeamSessionWithStatsEndSession includes the requested fields of the GraphQL type Session.
 // The GraphQL type's documentation follows.
 //
@@ -78594,6 +78862,38 @@ func (v *__EndTeamSessionWithResumeClaimInput) GetSummary() *string { return v.S
 // GetHandoff returns __EndTeamSessionWithResumeClaimInput.Handoff, and is useful for accessing the field via an interface.
 func (v *__EndTeamSessionWithResumeClaimInput) GetHandoff() *string { return v.Handoff }
 
+// __EndTeamSessionWithStatsAndResumeClaimInput is used internally by genqlient
+type __EndTeamSessionWithStatsAndResumeClaimInput struct {
+	Id           string  `json:"id"`
+	InputTokens  *int    `json:"inputTokens,omitempty"`
+	OutputTokens *int    `json:"outputTokens,omitempty"`
+	TurnCount    *int    `json:"turnCount,omitempty"`
+	ErrorCount   *int    `json:"errorCount,omitempty"`
+	Summary      *string `json:"summary,omitempty"`
+	Handoff      *string `json:"handoff,omitempty"`
+}
+
+// GetId returns __EndTeamSessionWithStatsAndResumeClaimInput.Id, and is useful for accessing the field via an interface.
+func (v *__EndTeamSessionWithStatsAndResumeClaimInput) GetId() string { return v.Id }
+
+// GetInputTokens returns __EndTeamSessionWithStatsAndResumeClaimInput.InputTokens, and is useful for accessing the field via an interface.
+func (v *__EndTeamSessionWithStatsAndResumeClaimInput) GetInputTokens() *int { return v.InputTokens }
+
+// GetOutputTokens returns __EndTeamSessionWithStatsAndResumeClaimInput.OutputTokens, and is useful for accessing the field via an interface.
+func (v *__EndTeamSessionWithStatsAndResumeClaimInput) GetOutputTokens() *int { return v.OutputTokens }
+
+// GetTurnCount returns __EndTeamSessionWithStatsAndResumeClaimInput.TurnCount, and is useful for accessing the field via an interface.
+func (v *__EndTeamSessionWithStatsAndResumeClaimInput) GetTurnCount() *int { return v.TurnCount }
+
+// GetErrorCount returns __EndTeamSessionWithStatsAndResumeClaimInput.ErrorCount, and is useful for accessing the field via an interface.
+func (v *__EndTeamSessionWithStatsAndResumeClaimInput) GetErrorCount() *int { return v.ErrorCount }
+
+// GetSummary returns __EndTeamSessionWithStatsAndResumeClaimInput.Summary, and is useful for accessing the field via an interface.
+func (v *__EndTeamSessionWithStatsAndResumeClaimInput) GetSummary() *string { return v.Summary }
+
+// GetHandoff returns __EndTeamSessionWithStatsAndResumeClaimInput.Handoff, and is useful for accessing the field via an interface.
+func (v *__EndTeamSessionWithStatsAndResumeClaimInput) GetHandoff() *string { return v.Handoff }
+
 // __EndTeamSessionWithStatsInput is used internally by genqlient
 type __EndTeamSessionWithStatsInput struct {
 	Id           string  `json:"id"`
@@ -78601,7 +78901,6 @@ type __EndTeamSessionWithStatsInput struct {
 	OutputTokens *int    `json:"outputTokens,omitempty"`
 	TurnCount    *int    `json:"turnCount,omitempty"`
 	ErrorCount   *int    `json:"errorCount,omitempty"`
-	ResumeClaim  *bool   `json:"resumeClaim,omitempty"`
 	Summary      *string `json:"summary,omitempty"`
 	Handoff      *string `json:"handoff,omitempty"`
 }
@@ -78620,9 +78919,6 @@ func (v *__EndTeamSessionWithStatsInput) GetTurnCount() *int { return v.TurnCoun
 
 // GetErrorCount returns __EndTeamSessionWithStatsInput.ErrorCount, and is useful for accessing the field via an interface.
 func (v *__EndTeamSessionWithStatsInput) GetErrorCount() *int { return v.ErrorCount }
-
-// GetResumeClaim returns __EndTeamSessionWithStatsInput.ResumeClaim, and is useful for accessing the field via an interface.
-func (v *__EndTeamSessionWithStatsInput) GetResumeClaim() *bool { return v.ResumeClaim }
 
 // GetSummary returns __EndTeamSessionWithStatsInput.Summary, and is useful for accessing the field via an interface.
 func (v *__EndTeamSessionWithStatsInput) GetSummary() *string { return v.Summary }
@@ -93882,8 +94178,8 @@ func EndTeamSessionWithResumeClaim(
 
 // The mutation executed by EndTeamSessionWithStats.
 const EndTeamSessionWithStats_Operation = `
-mutation EndTeamSessionWithStats ($id: ID!, $inputTokens: Int, $outputTokens: Int, $turnCount: Int, $errorCount: Int, $resumeClaim: Boolean, $summary: String, $handoff: String) {
-	endSession(id: $id, summary: $summary, handoff: $handoff, inputTokens: $inputTokens, outputTokens: $outputTokens, turnCount: $turnCount, errorCount: $errorCount, resumeClaim: $resumeClaim) {
+mutation EndTeamSessionWithStats ($id: ID!, $inputTokens: Int, $outputTokens: Int, $turnCount: Int, $errorCount: Int, $summary: String, $handoff: String) {
+	endSession(id: $id, summary: $summary, handoff: $handoff, inputTokens: $inputTokens, outputTokens: $outputTokens, turnCount: $turnCount, errorCount: $errorCount) {
 		... TeamSessionFields
 	}
 }
@@ -93931,7 +94227,6 @@ func EndTeamSessionWithStats(
 	outputTokens *int,
 	turnCount *int,
 	errorCount *int,
-	resumeClaim *bool,
 	summary *string,
 	handoff *string,
 ) (data_ *EndTeamSessionWithStatsResponse, err_ error) {
@@ -93944,13 +94239,92 @@ func EndTeamSessionWithStats(
 			OutputTokens: outputTokens,
 			TurnCount:    turnCount,
 			ErrorCount:   errorCount,
-			ResumeClaim:  resumeClaim,
 			Summary:      summary,
 			Handoff:      handoff,
 		},
 	}
 
 	data_ = &EndTeamSessionWithStatsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by EndTeamSessionWithStatsAndResumeClaim.
+const EndTeamSessionWithStatsAndResumeClaim_Operation = `
+mutation EndTeamSessionWithStatsAndResumeClaim ($id: ID!, $inputTokens: Int, $outputTokens: Int, $turnCount: Int, $errorCount: Int, $summary: String, $handoff: String) {
+	endSession(id: $id, summary: $summary, handoff: $handoff, inputTokens: $inputTokens, outputTokens: $outputTokens, turnCount: $turnCount, errorCount: $errorCount, resumeClaim: true) {
+		... TeamSessionFields
+	}
+}
+fragment TeamSessionFields on Session {
+	id
+	agentId
+	workerId
+	role
+	worker {
+		id
+		name
+		role
+		hasLiveSession
+		reportsTo {
+			... WorkerReportingRefFields
+		}
+		reportsToRetired
+	}
+	userId
+	type
+	repo
+	branch
+	prNumber
+	startedAt
+	endedAt
+	autoExpiredAt
+	host
+	tool
+	transcriptPath
+	llmModel
+}
+fragment WorkerReportingRefFields on Worker {
+	id
+	name
+	urn
+}
+`
+
+// The claim variant is explicit: old counter-capable servers need not know it.
+func EndTeamSessionWithStatsAndResumeClaim(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	inputTokens *int,
+	outputTokens *int,
+	turnCount *int,
+	errorCount *int,
+	summary *string,
+	handoff *string,
+) (data_ *EndTeamSessionWithStatsAndResumeClaimResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EndTeamSessionWithStatsAndResumeClaim",
+		Query:  EndTeamSessionWithStatsAndResumeClaim_Operation,
+		Variables: &__EndTeamSessionWithStatsAndResumeClaimInput{
+			Id:           id,
+			InputTokens:  inputTokens,
+			OutputTokens: outputTokens,
+			TurnCount:    turnCount,
+			ErrorCount:   errorCount,
+			Summary:      summary,
+			Handoff:      handoff,
+		},
+	}
+
+	data_ = &EndTeamSessionWithStatsAndResumeClaimResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

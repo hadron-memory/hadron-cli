@@ -1571,13 +1571,32 @@ mutation EndTeamSessionWithStats(
   # @genqlient(omitempty: true)
   $errorCount: Int
   # @genqlient(omitempty: true)
-  $resumeClaim: Boolean
+  $summary: String
+  # @genqlient(omitempty: true)
+  $handoff: String
+) {
+  endSession(id: $id, summary: $summary, handoff: $handoff, inputTokens: $inputTokens, outputTokens: $outputTokens, turnCount: $turnCount, errorCount: $errorCount) {
+    ...TeamSessionFields
+  }
+}
+
+# The claim variant is explicit: old counter-capable servers need not know it.
+mutation EndTeamSessionWithStatsAndResumeClaim(
+  $id: ID!
+  # @genqlient(omitempty: true)
+  $inputTokens: Int
+  # @genqlient(omitempty: true)
+  $outputTokens: Int
+  # @genqlient(omitempty: true)
+  $turnCount: Int
+  # @genqlient(omitempty: true)
+  $errorCount: Int
   # @genqlient(omitempty: true)
   $summary: String
   # @genqlient(omitempty: true)
   $handoff: String
 ) {
-  endSession(id: $id, summary: $summary, handoff: $handoff, inputTokens: $inputTokens, outputTokens: $outputTokens, turnCount: $turnCount, errorCount: $errorCount, resumeClaim: $resumeClaim) {
+  endSession(id: $id, summary: $summary, handoff: $handoff, inputTokens: $inputTokens, outputTokens: $outputTokens, turnCount: $turnCount, errorCount: $errorCount, resumeClaim: true) {
     ...TeamSessionFields
   }
 }

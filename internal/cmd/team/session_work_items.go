@@ -39,6 +39,8 @@ func newCmdSessionWorkItems(f *cmdutil.Factory) *cobra.Command {
 		Long: `Read one worker's recorded work in the team App. The server resolves its
 name within the App, id or URN, including retired workers. Retirement ends a
 casting, not its history. No roster lookup or client-side session fan-out.
+A ref that resolves to nothing readable returns an empty page, not an
+existence error: no rows does not prove the worker exists or never worked.
 
 App scope comes from --app, the App context, or this worktree's binding.
 One server page is returned (default 50); --limit 0 asks for a count only.

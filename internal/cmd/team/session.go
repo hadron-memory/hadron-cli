@@ -2611,14 +2611,18 @@ nothing ends. For a SHED, which keeps the session open, use
 			// it is omitted, so a plain end keeps the document it always sent.
 			var ended *gen.TeamSessionFields
 			if cmd.Flags().Changed("input-tokens") || cmd.Flags().Changed("output-tokens") || cmd.Flags().Changed("turns") || cmd.Flags().Changed("errors") {
-				var claim *bool
 				if resumeClaim {
-					claim = &resumeClaim
-				}
-				r, e := gen.EndTeamSessionWithStats(ctx, client, id, changedInt1337(cmd, "input-tokens", inputTokens), changedInt1337(cmd, "output-tokens", outputTokens), changedInt1337(cmd, "turns", turns), changedInt1337(cmd, "errors", errorsCount), claim, optStr(summary), optStr(text))
-				err = e
-				if err == nil && r.EndSession != nil {
-					ended = &r.EndSession.TeamSessionFields
+					r, e := gen.EndTeamSessionWithStatsAndResumeClaim(ctx, client, id, changedInt1337(cmd, "input-tokens", inputTokens), changedInt1337(cmd, "output-tokens", outputTokens), changedInt1337(cmd, "turns", turns), changedInt1337(cmd, "errors", errorsCount), optStr(summary), optStr(text))
+					err = e
+					if err == nil && r.EndSession != nil {
+						ended = &r.EndSession.TeamSessionFields
+					}
+				} else {
+					r, e := gen.EndTeamSessionWithStats(ctx, client, id, changedInt1337(cmd, "input-tokens", inputTokens), changedInt1337(cmd, "output-tokens", outputTokens), changedInt1337(cmd, "turns", turns), changedInt1337(cmd, "errors", errorsCount), optStr(summary), optStr(text))
+					err = e
+					if err == nil && r.EndSession != nil {
+						ended = &r.EndSession.TeamSessionFields
+					}
 				}
 			} else if resumeClaim {
 				var r *gen.EndTeamSessionWithResumeClaimResponse
