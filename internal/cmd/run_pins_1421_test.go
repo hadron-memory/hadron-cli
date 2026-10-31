@@ -143,8 +143,19 @@ func TestRunQueriesSelectTheNewFields(t *testing.T) {
 	}
 	for _, q := range queries {
 		selected := selectedRunQueryFields(t, q)
+		base := "appRun"
+		if selected["appRuns"] {
+			base = "appRuns.items"
+		} else if !selected["appRun"] {
+			t.Fatalf("missing run root: %s", q)
+		}
 		for _, field := range []string{"failureReason", "costMicroCents", "budgetActionsInitial", "budgetTokensInitial", "whoCanFix", "nextStep", "summary", "kind"} {
-			if !selected[field] {
+			path := base + "." + field
+			switch field {
+			case "whoCanFix", "nextStep", "summary", "kind":
+				path = base + ".failureReason." + field
+			}
+			if !selected[path] {
 				t.Errorf("query does not select %q:\n%s", field, q)
 			}
 		}
@@ -317,12 +328,27 @@ func TestAgenticUsageCostNullWording(t *testing.T) {
 // #1439 M5: fixture totals must remain JSON numbers beyond one digit.
 func TestRunListFixtureSupportsTenItems(t *testing.T) {
 	items := make([]string, 10)
+	want := map[string]bool{}
 	for i := range items {
-		items[i] = appRunJSON
+		id := "r" + strconv.Itoa(i) + "x"
+		want[id] = true
+		items[i] = strings.Replace(appRunJSON, `"id":"run1"`, `"id":"`+id+`"`, 1)
+		if items[i] == appRunJSON {
+			t.Fatal("fixture no longer has the expected id")
+		}
 	}
+	seen := map[string]int{}
 	h := runLsHuman(t, items...)
-	if n := strings.Count(h, "run1"); n != 10 {
-		t.Fatalf("want ten rendered run1 rows, got %d: %s", n, h)
+	for _, line := range strings.Split(h, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) > 0 && want[fields[0]] {
+			seen[fields[0]]++
+		}
+	}
+	for id := range want {
+		if seen[id] != 1 {
+			t.Errorf("want one row for %s, got %d: %s", id, seen[id], h)
+		}
 	}
 }
 
@@ -335,35 +361,42 @@ func selectedRunQueryFields(t *testing.T, query string) map[string]bool {
 	}
 	fields := map[string]bool{}
 	visiting := map[string]bool{}
-	var walk func(ast.SelectionSet)
-	walk = func(set ast.SelectionSet) {
+	var walk func(ast.SelectionSet, string)
+	walk = func(set ast.SelectionSet, prefix string) {
 		for _, selection := range set {
 			switch selection := selection.(type) {
 			case *ast.Field:
-				fields[selection.Name] = true
-				walk(selection.SelectionSet)
+				path := selection.Name
+				if prefix != "" {
+					path = prefix + "." + path
+				}
+				fields[path] = true
+				walk(selection.SelectionSet, path)
 			case *ast.InlineFragment:
-				walk(selection.SelectionSet)
+				walk(selection.SelectionSet, prefix)
 			case *ast.FragmentSpread:
 				fragment := doc.Fragments.ForName(selection.Name)
-				if fragment == nil || visiting[selection.Name] {
-					t.Fatalf("invalid fragment %q", selection.Name)
+				if fragment == nil {
+					t.Fatalf("missing fragment %q", selection.Name)
+				}
+				if visiting[selection.Name] {
+					t.Fatalf("cyclic fragment %q", selection.Name)
 				}
 				visiting[selection.Name] = true
-				walk(fragment.SelectionSet)
+				walk(fragment.SelectionSet, prefix)
 				delete(visiting, selection.Name)
 			}
 		}
 	}
 	for _, op := range doc.Operations {
-		walk(op.SelectionSet)
+		walk(op.SelectionSet, "")
 	}
 	return fields
 }
 
 func TestRunQueryFieldMatchIsExact(t *testing.T) {
-	fields := selectedRunQueryFields(t, `query { appRun { triggerKind failureReason { ...Reason } } } fragment Reason on FailureReason { summary } fragment Unused on FailureReason { kind }`)
-	if fields["kind"] || !fields["triggerKind"] || !fields["summary"] {
+	fields := selectedRunQueryFields(t, `query { appRun { triggerKind other { kind } failureReason { ...Reason } } } fragment Reason on FailureReason { summary } fragment Unused on FailureReason { kind }`)
+	if fields["appRun.failureReason.kind"] || !fields["appRun.triggerKind"] || !fields["appRun.failureReason.summary"] || !fields["appRun.other.kind"] {
 		t.Fatal(fields)
 	}
 }

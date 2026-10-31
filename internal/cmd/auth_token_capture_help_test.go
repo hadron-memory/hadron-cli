@@ -62,6 +62,10 @@ func requireCapturePrerequisites(t *testing.T) {
 // cannot drift from the help a user copies (cli#1313). All keys are synthetic.
 func TestAuthTokenCaptureExample(t *testing.T) {
 	requireCapturePrerequisites(t)
+	realLn, err := exec.LookPath("ln")
+	if err != nil {
+		t.Fatal(err)
+	}
 	f, _ := testFactory(t)
 	leaf, _, err := NewRootCmd(f).Find([]string{"auth", "token", "create"})
 	if err != nil {
@@ -97,7 +101,7 @@ printf '{"rawKey":"synthetic-key"}\n'
 				}
 			}
 			if mode == "unsupported-ln" {
-				if err := os.WriteFile(filepath.Join(tools, "ln"), []byte("#!/bin/sh\necho 'ln: unsupported -T' >&2\nexit 64\n"), 0o700); err != nil {
+				if err := os.WriteFile(filepath.Join(tools, "ln"), []byte("#!/bin/sh\nfor arg; do if [ \"$arg\" = -T ]; then echo 'ln: unsupported -T' >&2; exit 64; fi; done\nexec \"$CAPTURE_REAL_LN\" \"$@\"\n"), 0o700); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -131,7 +135,7 @@ printf '{"rawKey":"synthetic-key"}\n'
 			calls := filepath.Join(dir, "calls")
 			cmd := exec.Command("bash", "-c", strings.TrimSpace(script))
 			cmd.Dir = dir
-			cmd.Env = append(os.Environ(), "PATH="+tools+string(os.PathListSeparator)+os.Getenv("PATH"), "CAPTURE_MODE="+mode, "CAPTURE_CALLS="+calls, "TMPDIR="+dir)
+			cmd.Env = append(os.Environ(), "PATH="+tools+string(os.PathListSeparator)+os.Getenv("PATH"), "CAPTURE_REAL_LN="+realLn, "CAPTURE_MODE="+mode, "CAPTURE_CALLS="+calls, "TMPDIR="+dir)
 			out, runErr := cmd.CombinedOutput()
 			if strings.Contains(string(out), "synthetic-key") {
 				t.Error("capture example echoed key")
@@ -238,8 +242,8 @@ func TestCaptureRecoveryGuidance1439(t *testing.T) {
 		if err := root.Execute(); err != nil {
 			t.Fatal(err)
 		}
-		text := out.String()
-		for _, want := range []string{"before minting", "ln -T", "non-zero", "hadron auth token list", "hadron auth token revoke <id>"} {
+		text := strings.Join(strings.Fields(out.String()), " ")
+		for _, want := range []string{"checks GNU ln -T before minting", "non-zero exit", "unexpected token by its label", "hadron auth token list", "hadron auth token revoke <id>"} {
 			if !strings.Contains(text, want) {
 				t.Errorf("%v lacks %q", args, want)
 			}
