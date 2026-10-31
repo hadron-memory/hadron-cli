@@ -285,6 +285,28 @@ query GetWorker($ref: ID!) {
   }
 }
 
+# hadron-server#2771 / cli#1375: a worker's latest terminal report. A fragment so
+# the roster and GetWorkerTerminal select one shape; deliberately NOT part of
+# WorkerFields, which seven other operations share (their wire shape is unchanged).
+fragment WorkerTerminalFields on WorkerTerminal {
+  host { id label }
+  status
+  prompt
+  reason
+  lastTurnAt
+  checkedAt
+  reportedAt
+}
+
+# The terminal report is its own operation, for the reason GetWorkerProfile is:
+# a server that predates #2771 rejects a document selecting Worker.terminal
+# before execution, and the ordinary lookup must still bind there.
+query GetWorkerTerminal($ref: ID!) {
+  worker(ref: $ref) {
+    terminal { ...WorkerTerminalFields }
+  }
+}
+
 # cli#1355 / server#1149 (cor:dmo:050:11): the PROFILE scalars that say whose
 # worker this is — the App's display name, the owner atom of its URN and the
 # App's URN. Deliberately a separate operation from GetWorker, for the same
