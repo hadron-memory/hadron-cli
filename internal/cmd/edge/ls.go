@@ -158,7 +158,8 @@ the node at each end and the edge's memory being the source node's:
 
 -m keeps one memory's edges, --source the edges leaving a node, --target the
 edges arriving at one (a node id or node URN; a bare loc is refused),
---runnable (or --runnable=false) runnable or non-runnable edges,
+--runnable the edges marked runnable, --runnable=false those explicitly
+marked not runnable (an edge never marked either way matches neither),
 --include-deleted adds deleted ones, and --org one organization's memories.
 A memory, node or organization you cannot read, or that does not exist, gives
 an empty list rather than "not found". Every edge is
@@ -249,7 +250,7 @@ listed unless --limit or --offset asks for one page; --json prints
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve a bare <loc> against; without a node, only that memory's edges")
 	cmd.Flags().StringVar(&u.source, "source", "", "without a node: only edges leaving this node (id or URN)")
 	cmd.Flags().StringVar(&u.target, "target", "", "without a node: only edges arriving at this node (id or URN)")
-	cmd.Flags().BoolVar(&u.runnable, "runnable", false, "without a node: only runnable edges (--runnable=false: only non-runnable)")
+	cmd.Flags().BoolVar(&u.runnable, "runnable", false, "without a node: only edges marked runnable (--runnable=false: only those explicitly marked not runnable)")
 	cmd.Flags().BoolVar(&u.includeDeleted, "include-deleted", false, "without a node: include deleted edges")
 	cmd.Flags().StringVar(&u.org, "org", "", "without a node: only edges in this organization's memories")
 	cmd.Flags().IntVar(&u.limit, "limit", 0, "without a node: fetch one page of at most N edges (default: all)")

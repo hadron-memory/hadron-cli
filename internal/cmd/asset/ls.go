@@ -88,9 +88,9 @@ public link; AVAILABLE says whether this server serves public links at all.
 -m is required, unless --all lists every asset held by a memory you can read.
 With --all, -m is optional and repeatable and narrows to those memories, --org
 to one organization, and --scan-status to one virus-scan status (PENDING,
-CLEAN or BLOCKED); the table gains a MEMORY column. A memory or organization
-you cannot read, or that does not exist, narrows --all to an empty list rather
-than "not found".
+CLEAN or BLOCKED); the table gains a MEMORY column. A -m memory you cannot
+read, or that does not exist, contributes no assets (the others still list),
+and such an --org gives an empty list; neither is "not found".
 
 Everyone who can read the memory sees every uploader's files; --mine keeps only
 yours. --include-deleted adds files deleted in the last 24 hours (asset restore
