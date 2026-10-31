@@ -263,7 +263,7 @@ func TestRunListFailedWithoutReasonShowsUnknownNotDash(t *testing.T) {
 func TestRunListNonSuccessTerminalWithoutReasonShowsUnknown(t *testing.T) {
 	cases := map[string]string{
 		"FAILED": "unknown", "TIMED_OUT": "unknown", "CANCELLED": "unknown",
-		"COMPLETED": "—", "RUNNING": "—",
+		"COMPLETED": "—", "RUNNING": "—", "PENDING": "—",
 	}
 	for status, want := range cases {
 		t.Run(status, func(t *testing.T) {
@@ -398,5 +398,19 @@ func TestRunQueryFieldMatchIsExact(t *testing.T) {
 	fields := selectedRunQueryFields(t, `query { appRun { triggerKind other { kind } failureReason { ...Reason } } } fragment Reason on FailureReason { summary } fragment Unused on FailureReason { kind }`)
 	if fields["appRun.failureReason.kind"] || !fields["appRun.triggerKind"] || !fields["appRun.failureReason.summary"] || !fields["appRun.other.kind"] {
 		t.Fatal(fields)
+	}
+}
+
+// #1444: keep the prose paragraph readable at the existing 80-column wrap.
+func TestRunListHelpParagraphWrap1444(t *testing.T) {
+	f, _ := testFactory(t)
+	leaf, _, err := NewRootCmd(f).Find([]string{"run", "list"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, line := range strings.Split(leaf.Long, "\n") {
+		if width := len([]rune(line)); width > 80 {
+			t.Errorf("run list Long line %d has %d columns (max 80): %s", i+1, width, line)
+		}
 	}
 }
