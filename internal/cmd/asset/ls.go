@@ -155,7 +155,8 @@ Every asset is listed by default. --limit and --offset fetch one page instead.`,
 			// quietly return far more than the caller asked to page through.
 			skip := offset
 			pageSize := assetPageSize
-			single := limit > 0 || offset > 0
+			// Flag presence, not value: an explicit --offset 0 is paging too.
+			single := cmd.Flags().Changed("limit") || cmd.Flags().Changed("offset")
 			if limit > 0 {
 				pageSize = limit
 			}
@@ -307,7 +308,8 @@ func listAllAssets(cmd *cobra.Command, f *cmdutil.Factory, a allAssetsArgs) erro
 		return err
 	}
 	dto := assetAllDTO{Assets: []assetDTO{}}
-	single := a.limit > 0 || a.offset > 0
+	// Flag presence, not value: an explicit --offset 0 is paging too.
+	single := changed("limit") || changed("offset")
 	skip, size := a.offset, assetPageSize
 	if a.limit > 0 {
 		size = a.limit

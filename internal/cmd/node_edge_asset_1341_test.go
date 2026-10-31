@@ -436,3 +436,68 @@ func TestSearchPassagesKey1341(t *testing.T) {
 		t.Errorf("-l must still print the passages, got %s (%v)", out, err)
 	}
 }
+
+// cli#1483 BLIND (Bruno): an explicit --offset 0 is deliberate paging, so it
+// fetches ONE page on both asset list paths, like --offset N; it must not
+// drain the collection.
+func TestAssetListExplicitOffsetZeroIsOnePage1483(t *testing.T) {
+	row := assetJSON("a1", "one.png", "image/png", 10, "CLEAN", "null")
+	allPage := `{"data":{"assets":{"total":3,"items":[{"id":"a1","urn":"hrn:asset:acme.com:kb:assets:a1","filename":"f.png","mimeType":"image/png","sizeBytes":3,
+		"description":null,"scanStatus":"CLEAN","scanSignature":null,"uploadedAt":"2026-10-31T00:00:00Z","uploadedBy":null,"deletedAt":null,"memoryId":"mem1",
+		"publicUrl":null,"publicLinkEnabled":false,"canManagePublicLink":false,"publicLinkAvailable":false}]}}}`
+	for _, tc := range []struct {
+		op   string
+		args []string
+	}{
+		{"MemoryAssets", []string{"asset", "list", "-m", "acme.com::kb", "--offset", "0", "--json"}},
+		{"ListAssets", []string{"asset", "list", "--all", "--offset", "0", "--json"}},
+	} {
+		calls := 0
+		gql, _ := captureGraphQLFunc(t, func(op string) string {
+			switch op {
+			case "GetMemory":
+				return assetMemoryResp
+			case "MemoryAssets":
+				// hasMore until the third call, so a drain terminates (red
+				// shows as 3 calls, not a hang).
+				calls++
+				return assetListResp(3, calls < 3, row)
+			case "ListAssets":
+				calls++
+				return allPage
+			}
+			return `{"data":{}}`
+		})
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append(tc.args, "--server", gql.URL))
+		if err := root.Execute(); err != nil {
+			t.Fatalf("%s: execute: %v", tc.op, err)
+		}
+		if calls != 1 {
+			t.Errorf("%s: --offset 0 must fetch exactly one page, fetched %d", tc.op, calls)
+		}
+	}
+}
+
+// cli#1483 BLIND (Bruno): a JSON --edge followed by anything — a stray
+// closing delimiter or a second value — is refused before anything is sent.
+func TestNodeAddEdgeJSONTrailingInput1483(t *testing.T) {
+	// Control: the same command with a well-formed object is sent, so the
+	// refusals below are about the trailing input and nothing else.
+	captured, _, err := run1341(t, map[string]string{"CreateNode": `{"data":{"createNode":` + authoredNode1341 + `}}`},
+		"node", "add", "-m", "acme.com::kb", "--loc", "findings:new", "--name", "New", "--edge", `{"target":"start-here"}`)
+	if _, sent := captured["CreateNode"]; err != nil || !sent {
+		t.Fatalf("control: a well-formed --edge must be sent (err %v)", err)
+	}
+	for _, bad := range []string{
+		`{"target":"start-here"}]`,
+		`{"target":"start-here"}}`,
+		`{"target":"start-here"} {"target":"x"}`,
+		`{"target":"start-here"} junk`,
+	} {
+		captured, _, err := run1341(t, map[string]string{"CreateNode": `{"data":{"createNode":` + authoredNode1341 + `}}`},
+			"node", "add", "-m", "acme.com::kb", "--loc", "findings:new", "--name", "New", "--edge", bad)
+		refused1341(t, captured, err, bad, "CreateNode")
+	}
+}

@@ -3,6 +3,8 @@ package node
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"io"
 	"strings"
 
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
@@ -40,7 +42,10 @@ func parseEdgeFlags(values []string) ([]*gen.NodeEdgeInput, error) {
 			if err := dec.Decode(&spec); err != nil {
 				return nil, exitcode.Newf(exitcode.Usage, "--edge %s is not a valid edge object (keys: target, name, loc, description, runnable): %v. Nothing was sent", v, err)
 			}
-			if dec.More() {
+			// A second Decode must hit EOF: More() reads a stray `]` or `}`
+			// as the end of a container and would let `{…}]` through.
+			var rest json.RawMessage
+			if err := dec.Decode(&rest); !errors.Is(err, io.EOF) {
 				return nil, exitcode.Newf(exitcode.Usage, "--edge %s has trailing text after the JSON object. Nothing was sent", v)
 			}
 			if strings.TrimSpace(spec.Target) == "" {
