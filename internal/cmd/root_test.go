@@ -112,6 +112,10 @@ func unstubbedDefault(op string) (string, bool) {
 		// `team worker get`'s separate PROFILE-names read (#1355). An older
 		// server does not know Worker.appName; the ordinary lookup must work.
 		return `{"errors":[{"message":"Cannot query field \"appName\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
+	case "GetWorkerTerminal":
+		// `team worker get`'s separate terminal-report read (#1375). An older
+		// server does not know Worker.terminal; the ordinary lookup must work.
+		return `{"errors":[{"message":"Cannot query field \"terminal\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
 	case "GetWorkerContinuity":
 		// `session start`'s separate handoff read (#790). An older server
 		// does not know Worker.continuity; ordinary binds must still work.

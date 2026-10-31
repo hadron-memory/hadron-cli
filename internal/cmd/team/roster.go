@@ -9,6 +9,7 @@ package team
 import (
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -37,6 +38,14 @@ CHECK is the separate server-derived team-channel checking status:
 NO_SESSION, PENDING (with its reason), OK or OVERDUE. A dash means the
 server did not make the result available. This experiment adds no overdue
 alarm, and the CLI does not calculate the status from local time or tasks.
+
+TERMINAL is the worker's latest terminal report from a host (hadron-server
+#2771): the status (busy, idle, locked or dark), the reason for locked or dark,
+and the AGE of the report on every row — idle (3m), dark (no_turn_for_due_ticker,
+12m) — so a stale report from a stopped sweep reads as stale. The age is from
+checkedAt, for display only; a dash means never reported or not available to you.
+--json carries the whole object (host, status, prompt, reason, lastTurnAt,
+checkedAt, reportedAt). It is stored and advisory: it decides nothing.
 
 MODEL is what the worker's newest open binding SELF-REPORTED and TIER is the
 server's coarse high/mid/low mapping of it (a dash: unbound, unreported or
@@ -111,6 +120,7 @@ control-free display text capped at 256 runes; --json preserves the original.`,
 					UnavailableReason:   reasonPtr(w.UnavailableReason),
 					UnavailableUntil:    w.UnavailableUntil,
 					LastActiveAt:        w.LastActiveAt,
+					Terminal:            rosterTerminal(w.Terminal),
 					LastAssignedAt:      w.LastAssignedAt,
 					PendingTasks:        strListOrEmpty(w.PendingTasks),
 					StartedTasks:        strListOrEmpty(w.StartedTasks),
@@ -130,7 +140,8 @@ control-free display text capped at 256 runes; --json preserves the original.`,
 				if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {
 					return err
 				}
-				t := output.NewTable(w, "WORKER", "STATE", "CHECK", "ROLE", "FAMILY", "MODEL", "TIER", "LIVE", "TASKS", "ALARMS", "REPORTS TO", "HELD BY", "SINCE")
+				t := output.NewTable(w, "WORKER", "STATE", "CHECK", "TERMINAL", "ROLE", "FAMILY", "MODEL", "TIER", "LIVE", "TASKS", "ALARMS", "REPORTS TO", "HELD BY", "SINCE")
+				now := time.Now()
 				for _, e := range dto.Workers {
 					name := e.Worker.ID
 					if e.Worker.Name != nil {
@@ -145,7 +156,7 @@ control-free display text capped at 256 runes; --json preserves the original.`,
 					}
 					tasks := fmt.Sprintf("P%d S%d", len(e.PendingTasks), len(e.StartedTasks))
 					alarms := fmt.Sprintf("%d", len(e.Alarms))
-					t.Row(output.SafeCell(name), output.SafeCell(e.State), output.SafeCell(channelCheckLabel(e.CheckStatus)), output.SafeCell(strOr(e.Role)), output.SafeCell(family), output.SafeCell(strOr(e.Model)), output.SafeCell(strOr(e.Tier)), output.SafeCell(live), output.SafeCell(tasks), output.SafeCell(alarms), output.SafeCell(rosterReportsToLabel(e)), output.SafeCell(holderLabel(e.HeldBy)), output.SafeCell(strOr(e.HeldAt)))
+					t.Row(output.SafeCell(name), output.SafeCell(e.State), output.SafeCell(channelCheckLabel(e.CheckStatus)), output.SafeCell(terminalLabel(e.Terminal, now)), output.SafeCell(strOr(e.Role)), output.SafeCell(family), output.SafeCell(strOr(e.Model)), output.SafeCell(strOr(e.Tier)), output.SafeCell(live), output.SafeCell(tasks), output.SafeCell(alarms), output.SafeCell(rosterReportsToLabel(e)), output.SafeCell(holderLabel(e.HeldBy)), output.SafeCell(strOr(e.HeldAt)))
 				}
 				if err := t.Flush(); err != nil {
 					return err
@@ -221,4 +232,11 @@ func rosterHolder(h *gen.TeamRosterTeamRosterWorkersTeamRosterEntryHeldByWorkerH
 		return nil
 	}
 	return &rosterHolderDTO{ID: h.Id, Handle: h.Handle, URN: h.Urn, Name: h.Name}
+}
+
+func rosterTerminal(t *gen.TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal) *workerTerminalDTO {
+	if t == nil {
+		return nil
+	}
+	return workerTerminalFromFields(t.WorkerTerminalFields)
 }
