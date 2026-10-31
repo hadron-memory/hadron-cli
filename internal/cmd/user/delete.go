@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"unicode"
 
 	"github.com/spf13/cobra"
 
@@ -57,7 +58,7 @@ hadron auth logout to clear it. --json prints {"deleted": true, "user": <the
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			named := cmd.Flags().Changed("user")
-			if named && strings.TrimSpace(userRef) == "" {
+			if named && blankAsServerTrims(userRef) {
 				return exitcode.Newf(exitcode.Usage, "--user needs a user id, handle or hrn:user:<handle>; omit it to delete your own account")
 			}
 			if cmd.Flags().Changed("reason") && reason == "" {
@@ -103,4 +104,12 @@ hadron auth logout to clear it. --json prints {"deleted": true, "user": <the
 	cmd.Flags().StringVar(&reason, "reason", "", "why (1-500 characters); required by the server when naming another user")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
 	return cmd
+}
+
+// blankAsServerTrims reports whether ref is empty after the server's
+// JavaScript String.trim(), which also strips U+FEFF (Go's TrimSpace keeps it).
+// The server reads such a ref as "no target" and selects the caller's own
+// account, so it must be refused here rather than sent as a named deletion.
+func blankAsServerTrims(ref string) bool {
+	return strings.TrimFunc(ref, func(r rune) bool { return unicode.IsSpace(r) || r == '\uFEFF' }) == ""
 }

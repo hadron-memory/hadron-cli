@@ -61,7 +61,7 @@ func TestUserDelete1344(t *testing.T) {
 	})
 
 	t.Run("whitespace-only --user is refused, never sent (server reads it as self)", func(t *testing.T) {
-		for _, ref := range []string{" ", "\t", "\n", " \t\n "} {
+		for _, ref := range []string{" ", "\t", "\n", " \t\n ", "\uFEFF", " \uFEFF\t", "\u00a0", "\u2003"} {
 			r := exec1344(t, ok, "DeleteUser", "user", "delete", "--user", ref, "--yes", "--json")
 			if r.err == nil || exitCodeFor(r.err) != 2 || r.vars != nil {
 				t.Errorf("--user %q: err=%v vars=%v", ref, r.err, r.vars)
