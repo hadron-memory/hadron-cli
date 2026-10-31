@@ -29,7 +29,9 @@ separate lane. This App setting is distinct from team stop --level pause and
 from a worker's own team wake-settings --paused-until.
 
 Pausing again preserves the original timestamp. Resuming clears only the
-App's team pause, not worker self-pauses or stop signals. The result is the
+App's team pause, not worker self-pauses or stop signals; lifting it restarts
+every worker's OVERDUE clock. Resuming an unpaused team stamps nothing.
+The result is the
 server's stored state, not proof that any worker stopped or resumed.`
 
 func newCmdTeamPause(f *cmdutil.Factory, paused bool) *cobra.Command {
@@ -98,11 +100,12 @@ role in text; the text receipt names the App and the source of its scope.
 This clears the worker's boot-prompt pointer and replaces its generated
 tickers. Confirm on a TTY, or pass --yes non-interactively. It takes effect at
 the worker's next bind; an open session finishes under its old agent and role.
+The name, slug, URN, signature, trailer and reporting line stay unchanged.
 A server containing hadron-server#2504 is required to change an open worker.
 Choosing the current agent is a refusal (WORKER_AGENT_UNCHANGED, exit 5).
 
-This is the signed-in App manager's write: no bound worker session is
-attached. The CLI never retries the mutation; after a lost response, inspect
+This is the signed-in App manager's write: worker-session credentials are
+refused (exit 8), so no bound worker session is attached. The CLI never retries the mutation; after a lost response, inspect
 the worker before deciding what to do next.`,
 		Example: "  hadron team worker change-agent Iris --agent hrn:agent:example.com:qa --yes --json",
 		Args:    cobra.ExactArgs(1),

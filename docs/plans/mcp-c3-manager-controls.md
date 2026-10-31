@@ -12,7 +12,8 @@ or mutation retry is added.
 Pause/resume resolve App scope by the existing --app/context/binding rules.
 Their explicit JSON DTO is {app, paused, teamPausedAt}; paused is derived from
 the returned nullable timestamp. Idempotent pause preserves the timestamp;
-resume does not lift worker self-pauses or independent stop signals. Neither
+resume does not lift worker self-pauses or independent stop signals. Lifting
+the pause restarts OVERDUE clocks; resume on an unpaused team stamps nothing. Neither
 command claims to interrupt or resume a running worker.
 
 Change-agent accepts a worker name/id/URN and an agent id/full URN. Agent
