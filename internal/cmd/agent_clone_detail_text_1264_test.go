@@ -92,3 +92,24 @@ func TestAgentClone1264BlockersWithoutCode(t *testing.T) {
 		t.Fatalf("got:\n%q\nwant:\n%q", stderr, want)
 	}
 }
+
+// cli#1437 item 1: a server-supplied quote, backslash or comma must not make
+// one subject read as two, nor a reason read as the retryable clause.
+func TestAgentClone1437HostileTextStaysDelimited(t *testing.T) {
+	stderr, _ := cloneStderr1264(t, `{"code":"CONFLICT","reason":"x, retryable: rerun by hand","blockers":[{"code":"B","subjects":[{"position":0,"name":"a\" (position 0), \"Secret"},{"position":1,"name":"back\\slash"}]}]}`)
+	want := "hadron: Server refusal (clone refusal: CONFLICT, reason \"x, retryable: rerun by hand\")\n" +
+		"  blocker B  \"a\\\" (position 0), \\\"Secret\" (position 0), \"back\\\\slash\" (position 1)\n"
+	if stderr != want {
+		t.Fatalf("got:\n%q\nwant:\n%q", stderr, want)
+	}
+}
+
+// cli#1437 item 2: a present-but-empty name renders "" (position N); a missing
+// name renders the bare position.
+func TestAgentClone1437EmptyNameDiffersFromMissing(t *testing.T) {
+	stderr, _ := cloneStderr1264(t, `{"code":"X","blockers":[{"code":"B","subjects":[{"position":0,"name":""},{"position":1}]}]}`)
+	want := "hadron: Server refusal (clone refusal: X)\n  blocker B  \"\" (position 0), position 1\n"
+	if stderr != want {
+		t.Fatalf("got:\n%q\nwant:\n%q", stderr, want)
+	}
+}
