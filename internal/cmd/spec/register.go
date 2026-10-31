@@ -66,6 +66,7 @@ this command's live output, then re-run --check.`,
 			dto := buildLedgerDTO(memURN, locs, ledger)
 			applyReplacements(&dto, cands, repl)
 			dto.OutsideNumbering = outside
+			dto.ProductGeneral = productGeneralLocs(locs)
 			if check {
 				dto.Drift = computeDrift(locs, ledger)
 			}
@@ -75,12 +76,25 @@ this command's live output, then re-run --check.`,
 				if n := len(dto.OutsideNumbering); n > 0 {
 					fmt.Fprintf(w, "(%d spec(s) outside the legacy numbering, not in this ledger: %s)\n", n, strings.Join(dto.OutsideNumbering, ", "))
 				}
+				for _, loc := range dto.ProductGeneral {
+					fmt.Fprintf(w, "%s  general provisions (product)\n", output.SafeCell(loc))
+				}
 				for _, m := range dto.Modules {
 					fmt.Fprintf(w, "\n%s  (next feature: %s)\n", m.Module, dashIfEmpty(m.NextFeature))
 					for _, fe := range m.Features {
 						rules := strings.Join(ruleLabels(m.Module+":"+fe.Feature, fe), ", ")
 						if rules == "" {
 							rules = "—"
+						}
+						if fe.GeneralProvisions {
+							// The module's :000 contract, not an allocatable feature:
+							// no next-rule line (cli#1146).
+							if len(fe.Rules) == 0 {
+								fmt.Fprintf(w, "  %s:%s  general provisions\n", m.Module, fe.Feature)
+							} else {
+								fmt.Fprintf(w, "  %s:%s  general provisions  rules: %s\n", m.Module, fe.Feature, rules)
+							}
+							continue
 						}
 						fmt.Fprintf(w, "  %s:%s  rules: %s  (next rule: %s)\n", m.Module, fe.Feature, rules, dashIfEmpty(fe.NextRule))
 					}
@@ -201,7 +215,7 @@ func buildLedgerDTO(memURN string, locs []string, ledger registerLedger) ledgerD
 	}
 	sort.Strings(modKeys)
 
-	dto := ledgerDTO{Memory: memURN, Modules: []ledgerModuleDTO{}, OutsideNumbering: []string{}}
+	dto := ledgerDTO{Memory: memURN, Modules: []ledgerModuleDTO{}, OutsideNumbering: []string{}, ProductGeneral: []string{}}
 	for _, key := range modKeys {
 		ma := mods[key]
 		featNums := sortedKeys(ma.features)
@@ -217,7 +231,7 @@ func buildLedgerDTO(memURN string, locs []string, ledger registerLedger) ledgerD
 			featCit := ma.cit
 			featCit.Feature = feat
 			nextRule, _ := allocateChild(featCit, ruleNums, ledger.retired[key+":"+feat], 0)
-			md.Features = append(md.Features, ledgerFeatureDTO{Feature: feat, Rules: ruleStrs, NextRule: nextRule.Rule, ReplacedRules: []ledgerReplacedRuleDTO{}})
+			md.Features = append(md.Features, ledgerFeatureDTO{Feature: feat, Rules: ruleStrs, NextRule: nextRule.Rule, ReplacedRules: []ledgerReplacedRuleDTO{}, GeneralProvisions: feat == moduleContractFeature})
 		}
 		dto.Modules = append(dto.Modules, md)
 	}
@@ -317,5 +331,17 @@ func ruleLabels(featureLoc string, fe ledgerFeatureDTO) []string {
 	for _, rule := range fe.Rules {
 		out = append(out, rule+output.SafeCell(replacedMarker(marked[rule], featureLoc)))
 	}
+	return out
+}
+
+// productGeneralLocs returns the live <product>:gen contract locs, sorted.
+func productGeneralLocs(locs []string) []string {
+	out := []string{}
+	for _, loc := range locs {
+		if c, err := ParseCitation(loc); err == nil && c.Product != "" && c.Module == productContractCode && c.Feature == "" {
+			out = append(out, loc)
+		}
+	}
+	sort.Strings(out)
 	return out
 }

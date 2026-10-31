@@ -186,6 +186,10 @@ type ledgerDTO struct {
 	// (#708) but has no number to report. Named rather than counted so the
 	// report says which, and never dropped silently.
 	OutsideNumbering []string `json:"outsideNumbering"`
+	// ProductGeneral lists the live <product>:gen nodes: a product's
+	// general-provisions contract, which is not a module so the ledger skips it
+	// (cli#1146). Additive; [] when there is none.
+	ProductGeneral []string `json:"productGeneral"`
 }
 
 type ledgerModuleDTO struct {
@@ -201,6 +205,10 @@ type ledgerFeatureDTO struct {
 	// ReplacedRules is additive (cli#1145): the rules `spec supersede` retired,
 	// each with its replacement loc or null. [] when none; Rules is unchanged.
 	ReplacedRules []ledgerReplacedRuleDTO `json:"replacedRules"`
+	// GeneralProvisions is true for the module's reserved :000 feature (its
+	// general-provisions contract), which is not an allocatable feature
+	// (cli#1146). Additive: nextRule and every other key are unchanged.
+	GeneralProvisions bool `json:"generalProvisions"`
 }
 
 type ledgerReplacedRuleDTO struct {

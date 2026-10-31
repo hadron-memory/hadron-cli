@@ -81,8 +81,9 @@ feature by default; --feature relocates it to another existing feature),
 with that numbering's table-of-contents and inheritance edges; a spec
 outside the legacy numbering needs --to. The replacement keeps a dotted
 spec role such as spec.rule; a legacy tag-only spec gets the base spec role.
-Update the register ledger
-afterward (the tool prints a reminder; it never edits the register).`,
+If the corpus has a
+register node, update its ledger afterward (the tool prints a reminder only
+then; it never edits the register).`,
 		Example: `  hadron spec supersede msg:010:02 -m hrn:mem:micromentor.org:platform-specs --title "W2 v2" --yes
   hadron spec supersede onboarding:mentor:screens -m hrn:mem:micromentor.org:specs --to onboarding:mentor:screens-v2 --title "Screens v2" --yes
   hadron spec supersede msg:010:02 -m hrn:mem:micromentor.org:platform-specs --title "W2 v2" --copy-body --dry-run`,
@@ -214,7 +215,7 @@ afterward (the tool prints a reminder; it never edits the register).`,
 					return retireError(retired, rerr, oldLoc, successorLoc, memURN)
 				}
 				result.Retired = boolRef(true)
-				registerReminder(f.IOStreams.ErrOut, oldLoc, successorLoc)
+				maybeRegisterReminder(cmd, client, memURN, f.IOStreams.ErrOut, oldLoc, successorLoc)
 				return output.Write(f.IOStreams, f.JSON, result, render)
 			}
 
@@ -483,7 +484,7 @@ afterward (the tool prints a reminder; it never edits the register).`,
 			}
 
 			result.Retired = boolRef(true)
-			registerReminder(f.IOStreams.ErrOut, oldLoc, newLoc)
+			maybeRegisterReminder(cmd, client, memURN, f.IOStreams.ErrOut, oldLoc, newLoc)
 			return output.Write(f.IOStreams, f.JSON, result, render)
 		},
 	}
@@ -737,6 +738,29 @@ func renderSupersede(w io.Writer, r supersedeResultDTO) error {
 		}
 	}
 	return nil
+}
+
+// maybeRegisterReminder prints the register reminder only for a corpus that
+// HAS a register node: that node is what makes a corpus legacy (cli#1146), so
+// a corpus without one has no ledger to update and is not nagged. It runs
+// after the supersede is committed, so a failed lookup is never allowed to
+// fail or retry the write: it says so on stderr and the command still
+// succeeds. An unreadable register answers like a missing one (not found).
+func maybeRegisterReminder(cmd *cobra.Command, client graphql.Client, memURN string, w io.Writer, oldLoc, newLoc string) {
+	var text strings.Builder
+	registerReminder(&text, oldLoc, newLoc)
+	if text.Len() == 0 {
+		return
+	}
+	_, err := resolveSpecNode(cmd, client, memURN, "register")
+	switch {
+	case err == nil:
+		_, _ = io.WriteString(w, text.String())
+	case exitcode.FromError(err) == exitcode.NotFound:
+		// No register node: nothing to remind about.
+	default:
+		fmt.Fprintf(w, "note: could not check whether this corpus has a register (%s); if it does, update it. The supersede itself is committed.\n", output.SafeCell(err.Error()))
+	}
 }
 
 // registerReminder prints the register-ledger reminder for the locs that are

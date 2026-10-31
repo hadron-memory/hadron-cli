@@ -1820,6 +1820,11 @@ Conventions:
   generic bulk door skips governed specs (cor:acl:130:02), so the report
   carries `specsInScope` / `specsGoverned` / `specsScanned` and a zero never
   reads as "not found" (#659) — change those with `spec grep` + `spec edit`;
+  `spec supersede` prints its "update the register" reminder on stderr only when the
+  corpus HAS a register node (a failed lookup after the write prints a note and never
+  fails or retries the supersede); `spec register` labels a module's `:000` and a
+  product's `:gen` as general provisions (`--json` adds `generalProvisions` per feature
+  and top-level `productGeneral[]`; every existing key unchanged);
   `spec register` is advisory/read-only (`--check` reports
   ledger drift, exit 5; the ledger is the legacy numbering, and specs at any
   other loc are NAMED in `outsideNumbering`, never dropped); a spec `spec
