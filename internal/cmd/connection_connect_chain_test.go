@@ -153,7 +153,7 @@ func newChainServer(t *testing.T, script map[string][]chainStep, onCancel func()
 // runConnectChain runs `connection connect` against a server that answers each
 // operation from script (the n-th call of an operation takes its n-th step,
 // the last repeating), and returns the command's error.
-func runConnectChain(t *testing.T, script map[string][]chainStep) (error, *connectRun) {
+func runConnectChain(t *testing.T, script map[string][]chainStep) (*connectRun, error) {
 	t.Helper()
 	r := &connectRun{}
 	prev := connection.Hooks
@@ -178,7 +178,7 @@ func runConnectChain(t *testing.T, script map[string][]chainStep) (error, *conne
 	}
 	r.out = out.String()
 	r.errOut = f.IOStreams.ErrOut.(*strings.Builder).String()
-	return err, r
+	return r, err
 }
 
 func gqlErr(msg, ext string) string {
@@ -232,7 +232,7 @@ func TestConnectionConnectReturnedErrorHoldsNoSecretGraph(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err, r := runConnectChain(t, tc.script)
+			r, err := runConnectChain(t, tc.script)
 			if err == nil {
 				t.Fatal("want a failure")
 			}
@@ -285,7 +285,7 @@ func TestConnectionConnectDetachedErrorDropsJoinedBranches(t *testing.T) {
 // exit 7, whose mapped error never carried the context error), and nothing raw
 // is reachable from it.
 func TestConnectionConnectCancelledPollKeepsItsClassAndHoldsNoRawError(t *testing.T) {
-	err, r := runConnectChain(t, map[string][]chainStep{
+	r, err := runConnectChain(t, map[string][]chainStep{
 		"StartConnection":  {{body: connectStart}},
 		"AuthContext":      {{body: connectMe}},
 		"EmailConnections": {{body: connRows()}, {cancel: true, body: connRows()}},
