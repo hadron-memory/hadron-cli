@@ -265,6 +265,7 @@ refusals; never screen text. A report in this list is not a storage receipt.`,
 	c.Flags().StringVar(&configPath, "config", "", "host YAML configuration (required)")
 	_ = c.MarkFlagRequired("config")
 	group.AddCommand(c)
+	group.AddCommand(healthInstallCmds(f)...)
 	return group
 }
 func healthSafeError(err error) error {
