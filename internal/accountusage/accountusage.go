@@ -84,6 +84,12 @@ func LoadConfig(path string) (*Config, error) {
 		}
 		return nil, bad("config %s is not valid (unknown key or wrong type); its contents are not echoed", path)
 	}
+	// One document only: a trailing document (even a malformed one) is refused,
+	// so a config that is not wholly valid never reaches a write.
+	var extra yaml.Node
+	if err := dec.Decode(&extra); !errors.Is(err, io.EOF) {
+		return nil, bad("config %s must hold exactly one YAML document; its contents are not echoed", path)
+	}
 	// Re-decode to learn which accounts named a workers list.
 	var probe struct {
 		Accounts []struct {
@@ -146,11 +152,11 @@ func validateLabel(l string) error {
 	case strings.TrimSpace(l) == "":
 		return bad("config: an account has no label")
 	case strings.Contains(l, "@"):
-		return bad("config: account label %q contains @; a label is a local name, never an email address", l)
+		return bad("config: an account label contains @; a label is a local name, never an email address (the label is not echoed)")
 	case hasControl(l) || !utf8.ValidString(l):
 		return bad("config: an account label contains a control character")
 	case len(l) > maxLabelLen:
-		return bad("config: account label %q is longer than %d bytes", l, maxLabelLen)
+		return bad("config: an account label is longer than %d bytes", maxLabelLen)
 	}
 	return nil
 }
@@ -340,9 +346,13 @@ type Record struct {
 	SevenDayResetsAt    *string  `json:"sevenDayResetsAt,omitempty"`
 	TokensSinceLast     *float64 `json:"tokensSinceLast,omitempty"`
 	EstCostUsdSinceLast *float64 `json:"estCostUsdSinceLast,omitempty"`
-	Workers             []string `json:"workers"`
-	WorkersConfigured   bool     `json:"workersConfigured"`
-	SchemaVersion       int      `json:"schemaVersion"`
+	// TokensTotal / EstCostUsdTotal are the ccusage file's cumulative totals
+	// at observation: the checkpoint the next collection differences against.
+	TokensTotal       *float64 `json:"tokensTotal,omitempty"`
+	EstCostUsdTotal   *float64 `json:"estCostUsdTotal,omitempty"`
+	Workers           []string `json:"workers"`
+	WorkersConfigured bool     `json:"workersConfigured"`
+	SchemaVersion     int      `json:"schemaVersion"`
 }
 
 func rfc(t time.Time) string { return t.UTC().Format(time.RFC3339) }
@@ -372,12 +382,23 @@ func Prepare(cfg *Config) ([]Prepared, error) {
 	return out, nil
 }
 
+// Previous is the checkpoint carried by this account's previous record on this
+// host: its observation time and ccusage cumulative totals (nil when absent).
+type Previous struct {
+	ObservedAt time.Time
+	Tokens     *float64
+	Cost       *float64
+}
+
 // BuildRecord shapes one record. observedAt is the snapshot's own observation
-// time when there is a snapshot, else now. since is the previous record's
-// observedAt for this account (zero when unknown): token and cost fields sum
-// the ccusage blocks that started after it, and stay absent when there is no
-// ccusage file or no previous record to measure from.
-func BuildRecord(p Prepared, host string, now, since time.Time) Record {
+// time when there is a snapshot, else now. With a ccusage file the record
+// carries its cumulative totals (tokensTotal, estCostUsdTotal); the
+// since-last fields are the growth of those totals against prev, so usage
+// inside a block that was already running is counted. They stay absent when
+// there is no ccusage file, no previous checkpoint, or the totals went down
+// (blocks aged out of the file): an interval that cannot be measured is
+// unknown, not zero.
+func BuildRecord(p Prepared, host string, now time.Time, prev Previous) Record {
 	r := Record{
 		Label: p.Account.Label, Family: p.Account.Family, Host: host,
 		ObservedAt: rfc(now), Workers: []string{}, WorkersConfigured: p.Account.workersSet, SchemaVersion: SchemaVersion,
@@ -396,15 +417,17 @@ func BuildRecord(p Prepared, host string, now, since time.Time) Record {
 			r.SevenDayPct, r.SevenDayResetsAt = &pct, &at
 		}
 	}
-	if p.Blocks != nil && !since.IsZero() {
+	if p.Blocks != nil {
 		var tok, cost float64
 		for _, b := range p.Blocks {
-			if b.Start.After(since) {
-				tok += b.Tokens
-				cost += b.Cost
-			}
+			tok += b.Tokens
+			cost += b.Cost
 		}
-		r.TokensSinceLast, r.EstCostUsdSinceLast = &tok, &cost
+		r.TokensTotal, r.EstCostUsdTotal = &tok, &cost
+		if prev.Tokens != nil && prev.Cost != nil && tok >= *prev.Tokens && cost >= *prev.Cost {
+			dt, dc := tok-*prev.Tokens, cost-*prev.Cost
+			r.TokensSinceLast, r.EstCostUsdSinceLast = &dt, &dc
+		}
 	}
 	return r
 }

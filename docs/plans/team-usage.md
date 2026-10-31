@@ -34,12 +34,19 @@ the issue body plus Patrick's attach amendment 1 (the amendment wins).
   time. A stale snapshot collected twice yields two records with the same
   observedAt; `show` orders by time and takes the newest, and a rate needs two
   points at different times in the same window.
-- **tokensSinceLast / estCostUsdSinceLast** sum the ccusage blocks that started
-  after this account's previous record on this host (one `FindObjects`, only
-  when a ccusage file is configured). No previous record or no ccusage file:
-  absent. The ccusage `blocks --json` shape (`startTime`, `isGap`,
-  `totalTokens`, `costUSD`) is read tolerantly but was not verified against a
-  live ccusage run.
+- **tokensSinceLast / estCostUsdSinceLast** are the growth of the ccusage
+  file's cumulative totals (`tokensTotal`, `estCostUsdTotal`, recorded on every
+  record as the checkpoint) against this account's previous record on this host
+  (one `FindObjects`, only when a ccusage file is configured). Differencing
+  totals, not filtering blocks by start time, counts usage inside a block that
+  was already running. No previous checkpoint, no ccusage file, or totals that
+  went down (blocks aged out of the file): absent, never 0. The ccusage
+  `blocks --json` shape (`startTime`, `isGap`, `totalTokens`, `costUSD`) is read
+  tolerantly but was not verified against a live ccusage run.
+- **Account identity** in `show` is host + family + label: labels are
+  host-local, so the same label on two hosts is two accounts. `RUNS OUT` shows
+  the earliest qualifying exhaustion across both windows. Config must be one YAML
+  document, and a refused label is never echoed.
 - **Burn rate** uses points sharing the current `resetsAt` (a reset starts a new
   window); `exhaustsAt` projects 100% at that rate and says whether it falls
   before the reset. An expired window is shown as `expired`, not as current.

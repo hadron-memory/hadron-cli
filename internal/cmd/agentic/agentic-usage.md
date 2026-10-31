@@ -4356,8 +4356,10 @@ absent snapshot file is "no data" (windows absent). Errors never echo file
 contents. Records are objects in collection `account-usage` (schemaVersion 1, absent
 values omitted, not recorded as 0): `label, family, host, observedAt, fiveHourPct,
 fiveHourResetsAt, sevenDayPct, sevenDayResetsAt, tokensSinceLast,
-estCostUsdSinceLast, workers, workersConfigured, schemaVersion`; token and cost sum
-the ccusage blocks that started after this account's previous record on this host.
+estCostUsdSinceLast, tokensTotal, estCostUsdTotal, workers, workersConfigured,
+schemaVersion`; the totals are the ccusage file's cumulative checkpoint and the
+since-last fields are their growth since this account's previous record on this
+host (absent when that cannot be measured, e.g. totals went down).
 The shape is pinned by a golden test and declared in the CLI, not in `team init`
 (a server-declared collection is a follow-up with the portal).
 

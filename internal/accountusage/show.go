@@ -41,6 +41,10 @@ type AccountView struct {
 	Points            int  `json:"points"`
 }
 
+// acctKey is an account's identity: labels are host-local, so the same label
+// on two hosts (or families) is two accounts.
+type acctKey struct{ host, family, label string }
+
 type point struct {
 	rec Record
 	at  time.Time
@@ -50,7 +54,7 @@ type point struct {
 // number of accounts). A record that does not parse as the documented shape is
 // skipped, not guessed at. now decides which windows are expired.
 func View(objects []json.RawMessage, now time.Time) []AccountView {
-	byLabel := map[string][]point{}
+	byAcct := map[acctKey][]point{}
 	for _, raw := range objects {
 		var r Record
 		if json.Unmarshal(raw, &r) != nil || r.Label == "" {
@@ -60,16 +64,27 @@ func View(objects []json.RawMessage, now time.Time) []AccountView {
 		if err != nil {
 			continue
 		}
-		byLabel[r.Label] = append(byLabel[r.Label], point{r, at})
+		k := acctKey{r.Host, r.Family, r.Label}
+		byAcct[k] = append(byAcct[k], point{r, at})
 	}
-	labels := make([]string, 0, len(byLabel))
-	for l := range byLabel {
-		labels = append(labels, l)
+	keys := make([]acctKey, 0, len(byAcct))
+	for k := range byAcct {
+		keys = append(keys, k)
 	}
-	sort.Strings(labels)
-	out := make([]AccountView, 0, len(labels))
-	for _, l := range labels {
-		pts := byLabel[l]
+	sort.Slice(keys, func(i, j int) bool {
+		a, b := keys[i], keys[j]
+		if a.label != b.label {
+			return a.label < b.label
+		}
+		if a.host != b.host {
+			return a.host < b.host
+		}
+		return a.family < b.family
+	})
+	out := make([]AccountView, 0, len(keys))
+	for _, k := range keys {
+		l := k.label
+		pts := byAcct[k]
 		sort.SliceStable(pts, func(i, j int) bool { return pts[i].at.Before(pts[j].at) })
 		last := pts[len(pts)-1].rec
 		v := AccountView{

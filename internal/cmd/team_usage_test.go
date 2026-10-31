@@ -114,9 +114,9 @@ func fieldsOf(t *testing.T, c map[string]any) map[string]any {
 // Acceptance 1: one record per account; an absent window is absent, not 0.
 func TestTeamUsageCollectWritesOneRecordPerAccount(t *testing.T) {
 	cfg, _, _ := usageFixture(t)
-	// A previous record for acct-a exists at 11:00Z: only blocks that started
-	// after it count toward "since last" (the 16:00 block, not the 10:00 one).
-	srv, us := newUsageServer(t, `{"data":{"findObjects":{"objects":[{"observedAt":"2026-10-31T11:00:00Z"}],"total":1}}}`)
+	// The previous record checkpointed totals of 1000 tokens / $1.50 (the
+	// 10:00 block alone): since-last is the growth of the totals, 2000 / $2.25.
+	srv, us := newUsageServer(t, `{"data":{"findObjects":{"objects":[{"observedAt":"2026-10-31T11:00:00Z","tokensTotal":1000,"estCostUsdTotal":1.5}],"total":1}}}`)
 	if _, err := runUsage(t, srv.URL, "collect", "--config", cfg, "--json"); err != nil {
 		t.Fatal(err)
 	}
@@ -131,7 +131,7 @@ func TestTeamUsageCollectWritesOneRecordPerAccount(t *testing.T) {
 		t.Errorf("acct-a: %v", a)
 	}
 	if a["tokensSinceLast"] != float64(2000) || a["estCostUsdSinceLast"] != 2.25 {
-		t.Errorf("since-last must count only blocks after the previous record: %v", a)
+		t.Errorf("since-last must be the growth of the totals since the previous checkpoint: %v", a)
 	}
 	if a["workersConfigured"] != true || len(a["workers"].([]any)) != 2 {
 		t.Errorf("workers: %v", a)
@@ -155,7 +155,7 @@ func TestTeamUsageRecordsCarryNoPassThroughData(t *testing.T) {
 	}
 	for _, c := range us.creates {
 		raw, _ := json.Marshal(c)
-		for _, bad := range []string{"leak@example.com", "SECRET-TOKEN", "email", "token"} {
+		for _, bad := range []string{"leak@example.com", "SECRET-TOKEN", "email", "accessToken", "refreshToken", "oauth"} {
 			if strings.Contains(string(raw), bad) {
 				t.Errorf("record leaks %q: %s", bad, raw)
 			}
@@ -171,7 +171,7 @@ func TestTeamUsageRecordGolden(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, _ := json.Marshal(fieldsOf(t, us.creates[0]))
-	want := `{"family":"claude","fiveHourPct":42.5,"fiveHourResetsAt":"2026-10-31T21:20:00Z","host":"orca-1","label":"acct-a","observedAt":"2026-10-31T20:00:00Z","schemaVersion":1,"sevenDayPct":10,"sevenDayResetsAt":"2026-11-06T12:00:00Z","workers":["Ada","Joshua"],"workersConfigured":true}`
+	want := `{"estCostUsdTotal":3.75,"family":"claude","fiveHourPct":42.5,"fiveHourResetsAt":"2026-10-31T21:20:00Z","host":"orca-1","label":"acct-a","observedAt":"2026-10-31T20:00:00Z","schemaVersion":1,"sevenDayPct":10,"sevenDayResetsAt":"2026-11-06T12:00:00Z","tokensTotal":3000,"workers":["Ada","Joshua"],"workersConfigured":true}`
 	if string(got) != want {
 		t.Errorf("record shape changed:\n got %s\nwant %s", got, want)
 	}
@@ -181,12 +181,14 @@ func TestTeamUsageRecordGolden(t *testing.T) {
 // first account is valid in every case: it must not be written either).
 func TestTeamUsageCollectFailsClosed(t *testing.T) {
 	cases := map[string]func(t *testing.T, cfg, dirA, dirB string){
-		"missing config":     func(t *testing.T, cfg, _, _ string) { _ = os.Remove(cfg) },
-		"malformed config":   func(t *testing.T, cfg, _, _ string) { _ = os.WriteFile(cfg, []byte("accounts: [unterminated"), 0o600) },
-		"unknown config key": func(t *testing.T, cfg, _, _ string) { appendFile(t, cfg, "bogus: 1\n") },
+		"missing config":              func(t *testing.T, cfg, _, _ string) { _ = os.Remove(cfg) },
+		"malformed config":            func(t *testing.T, cfg, _, _ string) { _ = os.WriteFile(cfg, []byte("accounts: [unterminated"), 0o600) },
+		"unknown config key":          func(t *testing.T, cfg, _, _ string) { appendFile(t, cfg, "bogus: 1\n") },
+		"trailing malformed document": func(t *testing.T, cfg, _, _ string) { appendFile(t, cfg, "---\naccounts: [\n") },
+		"trailing second document":    func(t *testing.T, cfg, _, _ string) { appendFile(t, cfg, "---\nmemory: x\n") },
 		"label with @": func(t *testing.T, cfg, _, _ string) {
 			b, _ := os.ReadFile(cfg)
-			_ = os.WriteFile(cfg, []byte(strings.Replace(string(b), "acct-b", "me@example.com", 1)), 0o600)
+			_ = os.WriteFile(cfg, []byte(strings.Replace(string(b), "acct-b", "private-person@example.test", 1)), 0o600)
 		},
 		"malformed snapshot": func(t *testing.T, _, _, dirB string) {
 			_ = os.WriteFile(filepath.Join(dirB, "hadron-usage", "rate-limits.json"), []byte(`{"observedAt": SENTINEL-SECRET`), 0o600)
@@ -239,8 +241,8 @@ func TestTeamUsageCollectFailsClosed(t *testing.T) {
 			if err != nil {
 				all += err.Error()
 			}
-			if strings.Contains(all, "SENTINEL-SECRET") {
-				t.Errorf("file contents echoed: %s", all)
+			if strings.Contains(all, "SENTINEL-SECRET") || strings.Contains(all, "private-person") || strings.Contains(all, "example.test") {
+				t.Errorf("file contents or a rejected label echoed: %s", all)
 			}
 		})
 	}
@@ -369,5 +371,66 @@ func TestTeamUsageShowEmptyIsAnEmptyList(t *testing.T) {
 	}
 	if !strings.Contains(out, `"accounts": []`) {
 		t.Errorf("want accounts [] not null: %s", out)
+	}
+}
+
+// Since-last is the growth of the cumulative totals: usage inside a ccusage
+// block that was already running at the previous record still counts, a total
+// that went down (blocks aged out) is unknown, and a first record has none.
+func TestTeamUsageSinceLastCountsGrowthInsideARunningBlock(t *testing.T) {
+	cfg, _, _ := usageFixture(t)
+	// Previous checkpoint 500 / $0.50; the fixture totals are 3000 / $3.75.
+	srv, us := newUsageServer(t, `{"data":{"findObjects":{"objects":[{"observedAt":"2026-10-31T11:00:00Z","tokensTotal":500,"estCostUsdTotal":0.5}],"total":1}}}`)
+	if _, err := runUsage(t, srv.URL, "collect", "--config", cfg); err != nil {
+		t.Fatal(err)
+	}
+	a := fieldsOf(t, us.creates[0])
+	if a["tokensSinceLast"] != float64(2500) || a["estCostUsdSinceLast"] != 3.25 {
+		t.Errorf("growth against the checkpoint: %v", a)
+	}
+	// Totals went down since the checkpoint: not measurable, so absent.
+	srv, us = newUsageServer(t, `{"data":{"findObjects":{"objects":[{"observedAt":"2026-10-31T11:00:00Z","tokensTotal":9000,"estCostUsdTotal":9}],"total":1}}}`)
+	if _, err := runUsage(t, srv.URL, "collect", "--config", cfg); err != nil {
+		t.Fatal(err)
+	}
+	a = fieldsOf(t, us.creates[0])
+	if _, has := a["tokensSinceLast"]; has {
+		t.Errorf("a shrinking total must leave since-last absent: %v", a)
+	}
+	if a["tokensTotal"] != float64(3000) {
+		t.Errorf("the checkpoint is still recorded: %v", a)
+	}
+}
+
+// Labels are host-local: the same label on two hosts is two accounts.
+func TestTeamUsageShowKeepsHostsApart(t *testing.T) {
+	objs := []string{
+		`{"label":"primary","family":"claude","host":"h1","observedAt":"2090-10-31T18:00:00Z","fiveHourPct":10,"fiveHourResetsAt":"2090-10-31T21:20:00Z","workers":[],"workersConfigured":false,"schemaVersion":1}`,
+		`{"label":"primary","family":"claude","host":"h2","observedAt":"2090-10-31T19:00:00Z","fiveHourPct":90,"fiveHourResetsAt":"2090-10-31T21:20:00Z","workers":[],"workersConfigured":false,"schemaVersion":1}`,
+	}
+	srv, _ := newUsageServer(t, `{"data":{"findObjects":{"objects":[`+strings.Join(objs, ",")+`],"total":2}}}`)
+	out, err := runUsage(t, srv.URL, "show", "-m", "hrn:mem:acme.com:team", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var dto struct {
+		Accounts []struct {
+			Host     string `json:"host"`
+			Points   int    `json:"points"`
+			FiveHour struct {
+				BurnPctPerHour *float64 `json:"burnPctPerHour"`
+			} `json:"fiveHour"`
+		} `json:"accounts"`
+	}
+	if err := json.Unmarshal([]byte(out), &dto); err != nil {
+		t.Fatal(err)
+	}
+	if len(dto.Accounts) != 2 {
+		t.Fatalf("want two accounts, got %s", out)
+	}
+	for _, a := range dto.Accounts {
+		if a.Points != 1 || a.FiveHour.BurnPctPerHour != nil {
+			t.Errorf("host %s must not borrow the other host's history: %+v", a.Host, a)
+		}
 	}
 }

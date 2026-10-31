@@ -73,8 +73,9 @@ Setup, per account, by the operator:
 Record shape (schemaVersion 1, collection account-usage; absent values are left
 out, never 0): label, family, host, observedAt (RFC 3339); fiveHourPct,
 fiveHourResetsAt, sevenDayPct, sevenDayResetsAt; tokensSinceLast,
-estCostUsdSinceLast (ccusage blocks started after this account's previous
-record); workers, workersConfigured, schemaVersion.`,
+estCostUsdSinceLast (growth of the ccusage totals since this account's previous
+record, absent when it cannot be measured); tokensTotal, estCostUsdTotal (the
+ccusage cumulative totals, the next record's checkpoint); workers, workersConfigured, schemaVersion.`,
 		Example: "  hadron team usage collect --config ./usage.yaml\n  hadron team usage show --config ./usage.yaml --json\n  hadron team usage install --config ./usage.yaml --interval 15m",
 	}
 	group.AddCommand(newUsageCollect(f), newUsageShow(f), newUsageInstall(f), newUsageUninstall(f), newUsageStatus(f))
@@ -164,9 +165,9 @@ Exit 0 after recording, 2 for refused input, otherwise as any server write.`,
 			now := usageNow().UTC()
 			dto := collectDTO{Memory: mem, Records: []collectedDTO{}}
 			for _, p := range prepared {
-				var since time.Time
+				var since accountusage.Previous
 				if p.Blocks != nil {
-					since, err = previousObservedAt(cmd, client, mem, p.Account.Label, host)
+					since, err = previousCheckpoint(cmd, client, mem, p.Account.Label, host)
 					if err != nil {
 						return err
 					}
@@ -210,28 +211,31 @@ func pctCell(p *float64) string {
 	return fmt.Sprintf("%.0f%%", *p)
 }
 
-// previousObservedAt is this account's newest recorded observedAt on this
-// host, zero when there is none (the first record has no "since last").
-func previousObservedAt(cmd *cobra.Command, client graphql.Client, mem, label, host string) (time.Time, error) {
+// previousCheckpoint is this account's newest record's observedAt and ccusage
+// totals on this host, zero when there is none (the first record has no
+// "since last").
+func previousCheckpoint(cmd *cobra.Command, client graphql.Client, mem, label, host string) (accountusage.Previous, error) {
 	mb, _ := json.Marshal(map[string]string{"label": label, "host": host})
 	sb, _ := json.Marshal(map[string]string{"observedAt": "desc"})
 	match, sort := json.RawMessage(mb), json.RawMessage(sb)
 	one := 1
 	resp, err := gen.FindObjects(cmd.Context(), client, mem, accountusage.Collection, &match, nil, &sort, &one, nil)
 	if err != nil {
-		return time.Time{}, api.MapError(err)
+		return accountusage.Previous{}, api.MapError(err)
 	}
 	for _, o := range resp.FindObjects.Objects {
 		var r struct {
-			ObservedAt string `json:"observedAt"`
+			ObservedAt string   `json:"observedAt"`
+			Tokens     *float64 `json:"tokensTotal"`
+			Cost       *float64 `json:"estCostUsdTotal"`
 		}
 		if json.Unmarshal(o, &r) == nil {
 			if t, perr := time.Parse(time.RFC3339, r.ObservedAt); perr == nil {
-				return t, nil
+				return accountusage.Previous{ObservedAt: t, Tokens: r.Tokens, Cost: r.Cost}, nil
 			}
 		}
 	}
-	return time.Time{}, nil
+	return accountusage.Previous{}, nil
 }
 
 type showDTO struct {
@@ -327,13 +331,25 @@ func rateCell(w accountusage.WindowView) string {
 	return fmt.Sprintf("%.1f", *w.BurnPctPerHour)
 }
 
+// runsOut is the earliest exhaustion before reset across both windows.
 func runsOut(a accountusage.AccountView) string {
+	best, bestAt := "", time.Time{}
 	for _, w := range []accountusage.WindowView{a.FiveHour, a.SevenDay} {
-		if w.ExhaustsAt != nil && w.ExhaustsBeforeReset != nil && *w.ExhaustsBeforeReset {
-			return *w.ExhaustsAt
+		if w.ExhaustsAt == nil || w.ExhaustsBeforeReset == nil || !*w.ExhaustsBeforeReset {
+			continue
+		}
+		t, err := time.Parse(time.RFC3339, *w.ExhaustsAt)
+		if err != nil {
+			continue
+		}
+		if best == "" || t.Before(bestAt) {
+			best, bestAt = *w.ExhaustsAt, t
 		}
 	}
-	return "—"
+	if best == "" {
+		return "—"
+	}
+	return best
 }
 
 // ---- schedule: mirrors `team health install|uninstall|status` ----
