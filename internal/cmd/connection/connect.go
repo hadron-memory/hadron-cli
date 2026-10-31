@@ -2,6 +2,7 @@ package connection
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -106,6 +107,14 @@ func redactor(authorizeURL string) func(string) string {
 		}
 		if i := strings.LastIndex(u.Path, "/"); i >= 0 && len(u.Path[i+1:]) >= 8 {
 			secrets = append(secrets, u.Path[i+1:])
+		}
+	}
+	// The form an HTTP error keeps a response body in: JSON-escaped.
+	for _, sec := range secrets {
+		if q, err := json.Marshal(sec); err == nil {
+			if esc := string(q[1 : len(q)-1]); esc != sec {
+				secrets = append(secrets, esc)
+			}
 		}
 	}
 	// Longest first, so the full URL goes before the pieces inside it.
@@ -362,22 +371,13 @@ func awaitConnection(ctx context.Context, client graphql.Client, orgID, rowKey, 
 	}
 }
 
-// scrubbedError is err with the link and its nonce removed from the message;
-// errors.As still reaches the original (exit code, server code).
-type scrubbedError struct {
-	error
-	msg string
-}
-
-func (e *scrubbedError) Error() string { return e.msg }
-func (e *scrubbedError) Unwrap() error { return e.error }
-
 // scrub makes sure nothing raised after the link was received can carry it.
+// It always detaches: an outer message that looks safe can sit over a cause
+// (a response body, an extension field, a joined branch) that holds the link,
+// so redacting only a changed message would leave that graph reachable. The
+// result keeps the redacted text, exit code and server code, and no raw error.
 func scrub(err error, redact func(string) string) error {
-	if msg := err.Error(); redact(msg) != msg {
-		return &scrubbedError{error: err, msg: redact(msg)}
-	}
-	return err
+	return api.Detached(err, redact)
 }
 
 func notFoundYet(rowKey, orgID string) error {
