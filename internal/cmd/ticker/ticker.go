@@ -258,8 +258,10 @@ func newRead(f *cmdutil.Factory, list bool) *cobra.Command {
 		short = "List the tickers returned by the server"
 	}
 	c := &cobra.Command{Use: use, Short: short, Long: short + `. Channels are the reader's view, not the full configured set.
-Subscribers are paged to the end. The server ticker list is currently unpaged;
-this command reports its response and does not promise an exhaustive census.`, Args: cobra.ExactArgs(1)}
+Subscribers are paged to the end. The ticker list is read page by page until the
+server's own total is reached, so it is the whole set the caller may read (a
+page that stops early or repeats rows fails the command rather than printing a
+partial list).`, Args: cobra.ExactArgs(1)}
 	if list {
 		c.Args = cobra.NoArgs
 		c.Aliases = []string{"ls"}
@@ -281,14 +283,10 @@ this command reports its response and does not promise an exhaustive census.`, A
 		}
 		rows := []gen.TickerFields{}
 		if list {
-			r, e := gen.ListTickers(cmd.Context(), client, app)
+			var e error
+			rows, e = listAllTickers(cmd.Context(), client, app)
 			if e != nil {
-				return api.MapError(e)
-			}
-			for _, x := range r.Tickers {
-				if x != nil {
-					rows = append(rows, x.TickerFields)
-				}
+				return e
 			}
 		} else {
 			r, e := gen.GetTicker(cmd.Context(), client, ref)
@@ -677,4 +675,46 @@ func cadenceCell(seconds int) string {
 		return fmt.Sprintf("%dm", seconds/60)
 	}
 	return (time.Duration(seconds) * time.Second).String()
+}
+
+const tickerPageSize = 200
+
+// listAllTickers pages tickersPage to exhaustion (cli#1339): the contract of
+// `ticker list` is the whole set. The page's total is the proof of the end; a
+// page that is empty before the total is reached, or that repeats an id, means
+// the list is not advancing and fails the command instead of returning a
+// partial census.
+func listAllTickers(ctx context.Context, client graphql.Client, app string) ([]gen.TickerFields, error) {
+	rows := []gen.TickerFields{}
+	seen := map[string]bool{}
+	limit := tickerPageSize
+	for offset := 0; ; {
+		off := offset
+		r, err := gen.ListTickersPage(ctx, client, app, &limit, &off)
+		if err != nil {
+			return nil, api.MapError(err)
+		}
+		page := r.TickersPage
+		fresh := 0
+		for _, x := range page.Items {
+			if x == nil || seen[x.Id] {
+				continue
+			}
+			seen[x.Id] = true
+			fresh++
+			rows = append(rows, x.TickerFields)
+		}
+		offset += len(page.Items)
+		// The end is proven by UNIQUE rows reaching the server's total, never by
+		// the offset: a server that ignores the offset repeats rows, which would
+		// otherwise count toward the total and end the read on a partial list.
+		if !page.HasMore && len(rows) >= page.Total {
+			return rows, nil
+		}
+		if fresh == 0 {
+			// Nothing new while the total is still unmet is a partial list, whatever
+			// hasMore says: fail rather than print it.
+			return nil, exitcode.Newf(exitcode.Unavailable, "the server's ticker list is not advancing: %d of %d read, offset %d", len(rows), page.Total, offset)
+		}
+	}
 }

@@ -11,6 +11,17 @@ fragment TickerSubscriptionFields on TickerSubscription {
 query ListTickers($appRef: String!) {
  tickers(appRef: $appRef) { ...TickerFields }
 }
+# cli#1339: tickersPage is the same App gate, rows and order as tickers, with the
+# real total. limit 0 is a count only; a limit over 200 is served as 200.
+query ListTickersPage(
+ $appRef: String!
+ # @genqlient(omitempty: true)
+ $limit: Int
+ # @genqlient(omitempty: true)
+ $offset: Int
+) {
+ tickersPage(appRef: $appRef, limit: $limit, offset: $offset) { total hasMore items { ...TickerFields } }
+}
 query GetTicker($ref: String!) {
  ticker(ref: $ref) { ...TickerFields }
 }

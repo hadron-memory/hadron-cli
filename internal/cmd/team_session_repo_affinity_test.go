@@ -43,7 +43,7 @@ func stderrOf(t *testing.T, f *cmdutil.Factory) string {
 func startWithAffinityStubs(worker string, extra map[string]string) map[string]string {
 	m := map[string]string{
 		"GetWorker":        `{"data":{"worker":` + worker + `}}`,
-		"TeamSessions":     `{"data":{"sessions":[]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 	}
 	for k, v := range extra {

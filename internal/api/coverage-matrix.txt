@@ -19,7 +19,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 187: 131 command, 44 gap, 12 excluded
+[Query] 187: 132 command, 40 gap, 15 excluded
 actionTickets  command ticket list
 agent  command agent get
 agentAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime that makes LLM calls; a person reads the masked config with `ai-config get`
@@ -138,8 +138,8 @@ nodeBatch  command node get
 nodeEdgeRemovals  command node edge-removals
 nodeExport  command node export
 nodeRevision  command node revision get
-nodeRevisions  command node revision list
-nodeRevisionsPage  gap #1339
+nodeRevisions  excluded not-a-capability: superseded by its nodeRevisionsPage twin, which the same command reads (cli#1339); proposed class, specs engineer to accept
+nodeRevisionsPage  command node revision list
 nodeUsage  excluded deprecated: @deprecated: Use usageEvents(loc: <loc>) — identical exact-match loc semantics and access scoping, plus PK/URN refs via nodeId, type filtering, memoryId scoping and paging (#802).
 object  command object get
 organization  command org get
@@ -171,8 +171,8 @@ secrets  command secret list
 selectedSkillFilePlan  command skill export
 serverInfo  command server-info
 session  command team session end
-sessions  command team session list
-sessionsPage  gap #1339
+sessions  excluded not-a-capability: superseded by its sessionsPage twin, which the same command reads (cli#1339); proposed class, specs engineer to accept
+sessionsPage  command team session list
 signingRequest  command node signing-request get
 skillPlan  command skill status
 slackConnection  command slack get
@@ -194,10 +194,10 @@ teamStopSignals  command team stop list
 teamWorkItems  command team session list
 ticker  command ticker get
 tickers  command ticker list
-tickersPage  gap #1339
+tickersPage  command ticker list
 usageActivity  command usage activity
-usageEvents  command usage events
-usageEventsPage  gap #1339
+usageEvents  excluded not-a-capability: superseded by its usageEventsPage twin, which the same command reads (cli#1339); proposed class, specs engineer to accept
+usageEventsPage  command usage events
 user  command team worker get
 users  command user search
 validateMemory  command memory validate
@@ -704,8 +704,8 @@ Query.memories(orgId)  gap #1340
 Query.myUserApiKeys(includeHidden)  gap #1344
 Query.node(memoryRef)  gap #1341
 Query.nodeExport(sections)  gap #1341
-Query.sessions(customerId)  gap #1337
-Query.sessions(type)  gap #1337
+Query.sessionsPage(customerId)  gap #1337
+Query.sessionsPage(type)  gap #1337
 Query.teamAttentionPage(limit)  gap #828
 Query.teamAttentionPage(scanLimit)  gap #828
 Query.teamAttentionPreviewPage(limit)  gap #828

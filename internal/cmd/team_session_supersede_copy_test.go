@@ -37,7 +37,7 @@ func TestTeamSessionStartPreBindNoteIsNeutralAboutWhoseSessionEnds(t *testing.T)
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
 		"GetWorker":        `{"data":{"worker":` + withLiveness(irisWorkerJSON, "false") + `}}`,
-		"TeamSessions":     `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 	})
 	f, _ := testFactory(t)
@@ -66,8 +66,8 @@ func TestTeamSessionStartPreBindNoteIsNeutralAboutWhoseSessionEnds(t *testing.T)
 func TestTeamSessionStartFailedBindClaimsNothingEnded(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
-		"GetWorker":    `{"data":{"worker":` + withLiveness(irisWorkerJSON, "false") + `}}`,
-		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
+		"GetWorker":        `{"data":{"worker":` + withLiveness(irisWorkerJSON, "false") + `}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
 		"StartTeamSession": `{"errors":[{"message":"That worker is taken.",
 			"extensions":{"code":"WORKER_TAKEN","workerId":"wkr1","sessionId":"s-old"}}]}`,
 	})
@@ -107,7 +107,7 @@ func TestTeamSessionStartLapsedBindingNoteReportsSupersede(t *testing.T) {
 				"GetBoundSessionLiveness": `{"data":{"session":{"id":"s-new","startedAt":"` + tc.startedAt + `",` +
 					`"endedAt":null,"isLive":false}}}`,
 				"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`,
-				"TeamSessions":     `{"data":{"sessions":[]}}`,
+				"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 				"StartTeamSession": `{"data":{"startSession":` + successor + `}}`,
 			})
 			f, _ := testFactory(t)

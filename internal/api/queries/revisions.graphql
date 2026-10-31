@@ -9,14 +9,49 @@
 # revLabel is a user-settable label (also captures the edit's reason); changes
 # lists which fields the edit modified (the snapshot is the pre-edit state).
 
-# History for a node, most-recent-first. Per-snapshot memory-gated server-side.
-query NodeRevisions(
+# cli#1339: nodeRevisionsPage is the same gate with the real total and an offset
+# (the snapshot-memory gate runs before counting). limit 0 is a count only.
+# cli#752 (hadron-server#1326): each snapshot carries its own stamps — the
+# authorship of the content it captured, and the validation AT that revision;
+# historical evidence, never reconstructed. A separate operation so a server
+# predating the stamps falls back to NodeRevisionsPage and loses only the stamps.
+# History for a node, most-recent-first; per-snapshot memory-gated server-side.
+query NodeRevisionsStampedPage(
   $nodeRef: ID!
   # @genqlient(omitempty: true)
   $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
 ) {
-  nodeRevisions(nodeRef: $nodeRef, limit: $limit) {
-    ...RevisionFields
+  nodeRevisionsPage(nodeRef: $nodeRef, limit: $limit, offset: $offset) {
+    total
+    hasMore
+    items {
+      ...RevisionFields
+      authorship {
+        ...NodeAuthorshipFields
+      }
+      contentValidation {
+        ...NodeContentValidationFields
+      }
+    }
+  }
+}
+
+# The same page without the stamps, for a server that predates them.
+query NodeRevisionsPage(
+  $nodeRef: ID!
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  nodeRevisionsPage(nodeRef: $nodeRef, limit: $limit, offset: $offset) {
+    total
+    hasMore
+    items {
+      ...RevisionFields
+    }
   }
 }
 
@@ -26,27 +61,6 @@ query NodeRevision($revisionId: ID!) {
   nodeRevision(revisionId: $revisionId) {
     ...RevisionFields
     content
-  }
-}
-
-# cli#752 (hadron-server#1326): the same reads with each snapshot's own stamps
-# — the authorship of the content it captured, and the validation AT that
-# revision. Historical evidence, shown as the server snapshotted it, never
-# reconstructed from the live node or task. Separate operations so a server
-# predating the stamps falls back to the two above and loses only the stamps.
-query NodeRevisionsStamped(
-  $nodeRef: ID!
-  # @genqlient(omitempty: true)
-  $limit: Int
-) {
-  nodeRevisions(nodeRef: $nodeRef, limit: $limit) {
-    ...RevisionFields
-    authorship {
-      ...NodeAuthorshipFields
-    }
-    contentValidation {
-      ...NodeContentValidationFields
-    }
   }
 }
 
