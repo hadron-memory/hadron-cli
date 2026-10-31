@@ -333,3 +333,52 @@ func TestBillingPricesGetServerRefusalPassesThrough(t *testing.T) {
 		t.Errorf("sent %d times, want exactly once", calls)
 	}
 }
+
+// cli#1407: the `billing prices` table leads with the row's id (the key a
+// reader copies into `billing prices get`), like the ledger table; --json is
+// unchanged.
+func TestBillingPricesTableLeadsWithID(t *testing.T) {
+	out, _, err := runBilling(t, map[string]string{
+		"AiModelPrices": `{"data":{"aiModelPrices":{"total":1,"items":[` + aiModelPriceJSON + `]}}}`,
+	}, "billing", "prices")
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	lines := strings.Split(strings.TrimRight(out, "\n"), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("want header + 1 row, got %d lines:\n%s", len(lines), out)
+	}
+	if head := strings.Fields(lines[0]); len(head) == 0 || head[0] != "ID" || head[1] != "PROVIDER" {
+		t.Errorf("the first column must be ID, then PROVIDER; header %q", lines[0])
+	}
+	if row := strings.Fields(lines[1]); len(row) == 0 || row[0] != "p1" || row[1] != "anthropic" {
+		t.Errorf("the row must lead with its id p1; row %q", lines[1])
+	}
+}
+
+func TestBillingPricesJSONUnchangedByIDColumn(t *testing.T) {
+	out, _, err := runBilling(t, map[string]string{
+		"AiModelPrices": `{"data":{"aiModelPrices":{"total":1,"items":[` + aiModelPriceJSON + `]}}}`,
+	}, "billing", "prices", "--json")
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	want := `[
+  {
+    "id": "p1",
+    "provider": "anthropic",
+    "model": "claude-opus-5-5",
+    "tier": 2,
+    "inputMicroCentsPerMTok": "` + bigMicroCents + `",
+    "outputMicroCentsPerMTok": "1500000000",
+    "markupBasisPoints": null,
+    "effectiveAt": "2026-07-11T00:00:00.000Z",
+    "createdAt": "2026-07-10T00:00:00.000Z",
+    "createdBy": null
+  }
+]
+`
+	if out != want {
+		t.Errorf("--json must stay byte-identical to main:\nwant %s\ngot  %s", want, out)
+	}
+}

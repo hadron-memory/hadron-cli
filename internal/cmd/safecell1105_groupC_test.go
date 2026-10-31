@@ -49,7 +49,7 @@ func TestSafeCell1105CBilling(t *testing.T) {
 		args: []string{"billing", "prices"},
 		resp: func(cell string) map[string]string {
 			row := func(i string) string {
-				return `{"id":"p` + i + `","provider":` + q1105(cell) + `,"model":` + q1105(cell) + `,"tier":2,` +
+				return `{"id":` + q1105("p"+i+cell) + `,"provider":` + q1105(cell) + `,"model":` + q1105(cell) + `,"tier":2,` +
 					`"inputMicroCentsPerMTok":` + q1105(cell) + `,"outputMicroCentsPerMTok":` + q1105(cell) + `,` +
 					`"markupBasisPoints":null,"effectiveAt":` + q1105(cell) + `,"createdAt":"2026-07-10T00:00:00.000Z","createdBy":null}`
 			}
