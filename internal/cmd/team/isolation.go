@@ -120,7 +120,7 @@ func isolationEnd(cmd *cobra.Command, until, forDur string, now time.Time) (*str
 		t, err := time.Parse(time.RFC3339, until)
 		// time.Parse accepts a fraction after "." or ",", zero-valued or not;
 		// either would be truncated before sending, so both are refused.
-		if err != nil || strings.ContainsAny(until, ".,") {
+		if err != nil || strings.ContainsAny(until, ".,") || !offsetInRange(until) {
 			return nil, exitcode.Newf(exitcode.Usage, "--until takes an RFC 3339 time with an offset and whole seconds, e.g. 2026-11-01T18:00:00Z, got %q", until)
 		}
 		if !t.After(now) {
@@ -138,6 +138,17 @@ func isolationEnd(cmd *cobra.Command, until, forDur string, now time.Time) (*str
 	}
 	s := end.UTC().Truncate(time.Second).Format(time.RFC3339)
 	return &s, nil
+}
+
+// offsetInRange reports whether a time time.Parse accepted as RFC 3339 has a
+// real offset: time.Parse also takes +24:00 and +00:60 and normalizes them.
+// Parsed, the value ends in "Z" or "±HH:MM", so two-digit string compares do.
+func offsetInRange(s string) bool {
+	if strings.HasSuffix(s, "Z") {
+		return true
+	}
+	off := s[len(s)-5:]
+	return off[:2] <= "23" && off[3:] <= "59"
 }
 
 func newCmdTeamIsolationClear(f *cmdutil.Factory) *cobra.Command {
