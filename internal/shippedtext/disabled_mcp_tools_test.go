@@ -86,7 +86,7 @@ func loadDisabled(t *testing.T) *regexp.Regexp {
 // `dist` directory under plugins/ or docs/ is shipped text like any other.
 var unscannedPaths = map[string]string{
 	"internal/shippedtext/testdata": "this guard's own list of the disabled names",
-	"internal/api/queries":          "GraphQL build inputs, not embedded text; generated Go literals are checked separately",
+	"internal/api/queries":          "GraphQL build inputs, not embedded instructions; generated query code shares the explicit api/gen exclusion",
 	"internal/api/gen":              "copies of the server SDL; follow S1 via S2's snapshot refresh",
 	"docs/plans":                    "design-as-built records, not instructions (plan D5)",
 	".git":                          "VCS metadata",

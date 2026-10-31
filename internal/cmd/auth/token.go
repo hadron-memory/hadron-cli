@@ -249,10 +249,16 @@ The new file has mode 600 (umask 077).`,
     umask 077
     [ ! -e ci-token ] && [ ! -L ci-token ] || exit 1
     capture_file=$(mktemp ./ci-token.XXXXXX)
-    capture_cleanup() { rm -f "$capture_file" "$capture_file.probe"; }
+    capture_probe_owned=0
+    capture_cleanup() {
+      rm -f "$capture_file"
+      if [ "$capture_probe_owned" = 1 ]; then rm -f "$capture_file.probe"; fi
+    }
     trap capture_cleanup EXIT
     ln -T "$capture_file" "$capture_file.probe"
+    capture_probe_owned=1
     rm -f "$capture_file.probe"
+    capture_probe_owned=0
     hadron auth token create --label ci --json | jq -er .rawKey > "$capture_file"
     ln -T "$capture_file" ci-token
   '`,
