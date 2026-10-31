@@ -202,7 +202,7 @@ func TestTeamSessionStartReceiptCarriesThePortalURL(t *testing.T) {
 	const url = "https://hadronmemory.com/app/u/hrn:worker:acme.com:eng-team:iris"
 	gql, _ := captureGraphQL(t, map[string]string{
 		"GetWorker":        `{"data":{"worker":` + withPortalURL(url) + `}}`,
-		"TeamSessions":     `{"data":{"sessions":[]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 	})
 	f, out := testFactory(t)

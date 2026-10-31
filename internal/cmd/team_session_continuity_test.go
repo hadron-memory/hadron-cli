@@ -28,7 +28,7 @@ func TestTeamSessionStartDeliversCurrentHandoffInTextAndJSON(t *testing.T) {
 			teamGitDir(t)
 			gql, captured := captureGraphQL(t, map[string]string{
 				"GetWorker":           `{"data":{"worker":` + irisWorkerJSON + `}}`,
-				"TeamSessions":        `{"data":{"sessions":[]}}`,
+				"TeamSessionsPage":    `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 				"StartTeamSession":    `{"data":{"startSession":` + startedSessionJSON + `}}`,
 				"GetWorkerContinuity": currentHandoffResponse,
 			})
@@ -94,7 +94,7 @@ func TestTeamSessionStartDistinguishesFirstStintAndMissingHandoff(t *testing.T) 
 			teamGitDir(t)
 			gql, _ := captureGraphQL(t, map[string]string{
 				"GetWorker":           `{"data":{"worker":` + irisWorkerJSON + `}}`,
-				"TeamSessions":        `{"data":{"sessions":[]}}`,
+				"TeamSessionsPage":    `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 				"StartTeamSession":    `{"data":{"startSession":` + startedSessionJSON + `}}`,
 				"GetWorkerContinuity": tc.response,
 			})
@@ -134,7 +134,7 @@ func TestTeamSessionStartJSONDistinguishesMissingFromUnavailable(t *testing.T) {
 			teamGitDir(t)
 			gql, _ := captureGraphQL(t, map[string]string{
 				"GetWorker":           `{"data":{"worker":` + irisWorkerJSON + `}}`,
-				"TeamSessions":        `{"data":{"sessions":[]}}`,
+				"TeamSessionsPage":    `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 				"StartTeamSession":    `{"data":{"startSession":` + startedSessionJSON + `}}`,
 				"GetWorkerContinuity": tc.response,
 			})
@@ -180,7 +180,7 @@ func TestTeamSessionStartForceReadsContinuityAfterEndingOldStint(t *testing.T) {
 	responses := map[string]string{
 		"EndTeamSession":   `{"data":{"endSession":` + startedSessionJSON + `}}`,
 		"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`,
-		"TeamSessions":     `{"data":{"sessions":[]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 		"GetWorkerContinuity": strings.Replace(missingHandoffResponse,
 			`"autoExpiredAt":"2026-10-01T01:16:00Z"`, `"autoExpiredAt":null`, 1),
@@ -216,7 +216,7 @@ func TestTeamSessionStartOldServerKeepsBindAndJSONValid(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
 		"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`,
-		"TeamSessions":     `{"data":{"sessions":[]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 		// GetWorkerContinuity receives the old-server validation refusal
 		// from unstubbedDefault.

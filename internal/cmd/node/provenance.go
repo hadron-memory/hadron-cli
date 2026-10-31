@@ -67,9 +67,8 @@ Name the compiled node by its id or URN (a bare loc needs -m), and give
 --json shows the current one). The answer is what was recorded when that
 revision was compiled, not the sources the node links to now.
 
-The table lists each source and its status.
---json includes the full recorded occurrence: its parent, hash, replacement,
-position and selection settings.
+The table lists each source and its status. --json includes the full recorded
+occurrence: its parent, hash, replacement, position and selection settings.
 
 Reading needs read access to the compiled node's history. A node that is
 missing, deleted, not compiled, or not readable by you exits 4. Missing or

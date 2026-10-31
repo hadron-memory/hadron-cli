@@ -36248,6 +36248,238 @@ var AllLintKind = []LintKind{
 	LintKindWorkerLinkMissing,
 }
 
+// ListTickersPageResponse is returned by ListTickersPage on success.
+type ListTickersPageResponse struct {
+	// #2213 — `tickers` as a page: the same App gate, rows and order, with the real total.
+	// `limit` defaults to 20, 0 returns the count only, a negative limit is 0 and a limit
+	// over 200 is served as 200 (never refused). `offset` below 0 is 0.
+	TickersPage *ListTickersPageTickersPageTickerPage `json:"tickersPage"`
+}
+
+// GetTickersPage returns ListTickersPageResponse.TickersPage, and is useful for accessing the field via an interface.
+func (v *ListTickersPageResponse) GetTickersPage() *ListTickersPageTickersPageTickerPage {
+	return v.TickersPage
+}
+
+// ListTickersPageTickersPageTickerPage includes the requested fields of the GraphQL type TickerPage.
+// The GraphQL type's documentation follows.
+//
+// #2213 — one page of tickers; hasMore is whether rows remain past it.
+type ListTickersPageTickersPageTickerPage struct {
+	Total   int                                                `json:"total"`
+	HasMore bool                                               `json:"hasMore"`
+	Items   []*ListTickersPageTickersPageTickerPageItemsTicker `json:"items"`
+}
+
+// GetTotal returns ListTickersPageTickersPageTickerPage.Total, and is useful for accessing the field via an interface.
+func (v *ListTickersPageTickersPageTickerPage) GetTotal() int { return v.Total }
+
+// GetHasMore returns ListTickersPageTickersPageTickerPage.HasMore, and is useful for accessing the field via an interface.
+func (v *ListTickersPageTickersPageTickerPage) GetHasMore() bool { return v.HasMore }
+
+// GetItems returns ListTickersPageTickersPageTickerPage.Items, and is useful for accessing the field via an interface.
+func (v *ListTickersPageTickersPageTickerPage) GetItems() []*ListTickersPageTickersPageTickerPageItemsTicker {
+	return v.Items
+}
+
+// ListTickersPageTickersPageTickerPageItemsTicker includes the requested fields of the GraphQL type Ticker.
+// The GraphQL type's documentation follows.
+//
+// #1747 — a named wake schedule owned by one team App (hrn:node:hadronmemory.com:specs:cor:agt:080:01). Its URN is hrn:ticker:ROOT:APP-SLUG:SLUG,
+// computed from the App and the permanent slug. Ticks are computed, not stored; nothing reads a ticker until due wakes ship.
+type ListTickersPageTickersPageTickerPageItemsTicker struct {
+	TickerFields `json:"-"`
+}
+
+// GetId returns ListTickersPageTickersPageTickerPageItemsTicker.Id, and is useful for accessing the field via an interface.
+func (v *ListTickersPageTickersPageTickerPageItemsTicker) GetId() string { return v.TickerFields.Id }
+
+// GetUrn returns ListTickersPageTickersPageTickerPageItemsTicker.Urn, and is useful for accessing the field via an interface.
+func (v *ListTickersPageTickersPageTickerPageItemsTicker) GetUrn() *string { return v.TickerFields.Urn }
+
+// GetName returns ListTickersPageTickersPageTickerPageItemsTicker.Name, and is useful for accessing the field via an interface.
+func (v *ListTickersPageTickersPageTickerPageItemsTicker) GetName() string {
+	return v.TickerFields.Name
+}
+
+// GetSlug returns ListTickersPageTickersPageTickerPageItemsTicker.Slug, and is useful for accessing the field via an interface.
+func (v *ListTickersPageTickersPageTickerPageItemsTicker) GetSlug() string {
+	return v.TickerFields.Slug
+}
+
+// GetApp returns ListTickersPageTickersPageTickerPageItemsTicker.App, and is useful for accessing the field via an interface.
+func (v *ListTickersPageTickersPageTickerPageItemsTicker) GetApp() *TickerFieldsApp {
+	return v.TickerFields.App
+}
+
+// GetCadenceSeconds returns ListTickersPageTickersPageTickerPageItemsTicker.CadenceSeconds, and is useful for accessing the field via an interface.
+func (v *ListTickersPageTickersPageTickerPageItemsTicker) GetCadenceSeconds() int {
+	return v.TickerFields.CadenceSeconds
+}
+
+// GetAnchorAt returns ListTickersPageTickersPageTickerPageItemsTicker.AnchorAt, and is useful for accessing the field via an interface.
+func (v *ListTickersPageTickersPageTickerPageItemsTicker) GetAnchorAt() string {
+	return v.TickerFields.AnchorAt
+}
+
+// GetQuietHours returns ListTickersPageTickersPageTickerPageItemsTicker.QuietHours, and is useful for accessing the field via an interface.
+func (v *ListTickersPageTickersPageTickerPageItemsTicker) GetQuietHours() *json.RawMessage {
+	return v.TickerFields.QuietHours
+}
+
+// GetChannels returns ListTickersPageTickersPageTickerPageItemsTicker.Channels, and is useful for accessing the field via an interface.
+func (v *ListTickersPageTickersPageTickerPageItemsTicker) GetChannels() []*TickerFieldsChannelsChannel {
+	return v.TickerFields.Channels
+}
+
+// GetRelevance returns ListTickersPageTickersPageTickerPageItemsTicker.Relevance, and is useful for accessing the field via an interface.
+func (v *ListTickersPageTickersPageTickerPageItemsTicker) GetRelevance() TickerRelevance {
+	return v.TickerFields.Relevance
+}
+
+// GetReasons returns ListTickersPageTickersPageTickerPageItemsTicker.Reasons, and is useful for accessing the field via an interface.
+func (v *ListTickersPageTickersPageTickerPageItemsTicker) GetReasons() []TickerReason {
+	return v.TickerFields.Reasons
+}
+
+// GetEnabled returns ListTickersPageTickersPageTickerPageItemsTicker.Enabled, and is useful for accessing the field via an interface.
+func (v *ListTickersPageTickersPageTickerPageItemsTicker) GetEnabled() bool {
+	return v.TickerFields.Enabled
+}
+
+// GetOwner returns ListTickersPageTickersPageTickerPageItemsTicker.Owner, and is useful for accessing the field via an interface.
+func (v *ListTickersPageTickersPageTickerPageItemsTicker) GetOwner() *TickerFieldsOwnerActorRef {
+	return v.TickerFields.Owner
+}
+
+// GetNextTickAt returns ListTickersPageTickersPageTickerPageItemsTicker.NextTickAt, and is useful for accessing the field via an interface.
+func (v *ListTickersPageTickersPageTickerPageItemsTicker) GetNextTickAt() *string {
+	return v.TickerFields.NextTickAt
+}
+
+// GetLastTickAt returns ListTickersPageTickersPageTickerPageItemsTicker.LastTickAt, and is useful for accessing the field via an interface.
+func (v *ListTickersPageTickersPageTickerPageItemsTicker) GetLastTickAt() *string {
+	return v.TickerFields.LastTickAt
+}
+
+// GetCreatedAt returns ListTickersPageTickersPageTickerPageItemsTicker.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ListTickersPageTickersPageTickerPageItemsTicker) GetCreatedAt() string {
+	return v.TickerFields.CreatedAt
+}
+
+// GetUpdatedAt returns ListTickersPageTickersPageTickerPageItemsTicker.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *ListTickersPageTickersPageTickerPageItemsTicker) GetUpdatedAt() *string {
+	return v.TickerFields.UpdatedAt
+}
+
+// GetTickCode returns ListTickersPageTickersPageTickerPageItemsTicker.TickCode, and is useful for accessing the field via an interface.
+func (v *ListTickersPageTickersPageTickerPageItemsTicker) GetTickCode() string {
+	return v.TickerFields.TickCode
+}
+
+// GetRegisterTaskLoc returns ListTickersPageTickersPageTickerPageItemsTicker.RegisterTaskLoc, and is useful for accessing the field via an interface.
+func (v *ListTickersPageTickersPageTickerPageItemsTicker) GetRegisterTaskLoc() *string {
+	return v.TickerFields.RegisterTaskLoc
+}
+
+func (v *ListTickersPageTickersPageTickerPageItemsTicker) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ListTickersPageTickersPageTickerPageItemsTicker
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ListTickersPageTickersPageTickerPageItemsTicker = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TickerFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalListTickersPageTickersPageTickerPageItemsTicker struct {
+	Id string `json:"id"`
+
+	Urn *string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Slug string `json:"slug"`
+
+	App *TickerFieldsApp `json:"app"`
+
+	CadenceSeconds int `json:"cadenceSeconds"`
+
+	AnchorAt string `json:"anchorAt"`
+
+	QuietHours *json.RawMessage `json:"quietHours"`
+
+	Channels []*TickerFieldsChannelsChannel `json:"channels"`
+
+	Relevance TickerRelevance `json:"relevance"`
+
+	Reasons []TickerReason `json:"reasons"`
+
+	Enabled bool `json:"enabled"`
+
+	Owner *TickerFieldsOwnerActorRef `json:"owner"`
+
+	NextTickAt *string `json:"nextTickAt"`
+
+	LastTickAt *string `json:"lastTickAt"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	TickCode string `json:"tickCode"`
+
+	RegisterTaskLoc *string `json:"registerTaskLoc"`
+}
+
+func (v *ListTickersPageTickersPageTickerPageItemsTicker) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ListTickersPageTickersPageTickerPageItemsTicker) __premarshalJSON() (*__premarshalListTickersPageTickersPageTickerPageItemsTicker, error) {
+	var retval __premarshalListTickersPageTickersPageTickerPageItemsTicker
+
+	retval.Id = v.TickerFields.Id
+	retval.Urn = v.TickerFields.Urn
+	retval.Name = v.TickerFields.Name
+	retval.Slug = v.TickerFields.Slug
+	retval.App = v.TickerFields.App
+	retval.CadenceSeconds = v.TickerFields.CadenceSeconds
+	retval.AnchorAt = v.TickerFields.AnchorAt
+	retval.QuietHours = v.TickerFields.QuietHours
+	retval.Channels = v.TickerFields.Channels
+	retval.Relevance = v.TickerFields.Relevance
+	retval.Reasons = v.TickerFields.Reasons
+	retval.Enabled = v.TickerFields.Enabled
+	retval.Owner = v.TickerFields.Owner
+	retval.NextTickAt = v.TickerFields.NextTickAt
+	retval.LastTickAt = v.TickerFields.LastTickAt
+	retval.CreatedAt = v.TickerFields.CreatedAt
+	retval.UpdatedAt = v.TickerFields.UpdatedAt
+	retval.TickCode = v.TickerFields.TickCode
+	retval.RegisterTaskLoc = v.TickerFields.RegisterTaskLoc
+	return &retval, nil
+}
+
 // ListTickersResponse is returned by ListTickers on success.
 type ListTickersResponse struct {
 	// #1747 — the live tickers of an App the caller participates in. An App the caller cannot reach reads as APP_NOT_FOUND (hrn:node:hadronmemory.com:specs:cor:agt:080:18).
@@ -42765,72 +42997,103 @@ func (v *NodeRevisionStampedResponse) GetNodeRevision() *NodeRevisionStampedNode
 	return v.NodeRevision
 }
 
-// NodeRevisionsNodeRevisionsNodeRevision includes the requested fields of the GraphQL type NodeRevision.
-type NodeRevisionsNodeRevisionsNodeRevision struct {
+// NodeRevisionsPageNodeRevisionsPageNodeRevisionPage includes the requested fields of the GraphQL type NodeRevisionPage.
+// The GraphQL type's documentation follows.
+//
+// #2212 — one page of a node's revision snapshots, counted over the snapshots the caller may read.
+type NodeRevisionsPageNodeRevisionsPageNodeRevisionPage struct {
+	Total   int                                                                    `json:"total"`
+	HasMore bool                                                                   `json:"hasMore"`
+	Items   []*NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision `json:"items"`
+}
+
+// GetTotal returns NodeRevisionsPageNodeRevisionsPageNodeRevisionPage.Total, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsPageNodeRevisionsPageNodeRevisionPage) GetTotal() int { return v.Total }
+
+// GetHasMore returns NodeRevisionsPageNodeRevisionsPageNodeRevisionPage.HasMore, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsPageNodeRevisionsPageNodeRevisionPage) GetHasMore() bool { return v.HasMore }
+
+// GetItems returns NodeRevisionsPageNodeRevisionsPageNodeRevisionPage.Items, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsPageNodeRevisionsPageNodeRevisionPage) GetItems() []*NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision {
+	return v.Items
+}
+
+// NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision includes the requested fields of the GraphQL type NodeRevision.
+type NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision struct {
 	RevisionFields `json:"-"`
 }
 
-// GetId returns NodeRevisionsNodeRevisionsNodeRevision.Id, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsNodeRevisionsNodeRevision) GetId() string { return v.RevisionFields.Id }
+// GetId returns NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision.Id, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetId() string {
+	return v.RevisionFields.Id
+}
 
-// GetNodeId returns NodeRevisionsNodeRevisionsNodeRevision.NodeId, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsNodeRevisionsNodeRevision) GetNodeId() string { return v.RevisionFields.NodeId }
+// GetNodeId returns NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision.NodeId, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetNodeId() string {
+	return v.RevisionFields.NodeId
+}
 
-// GetLoc returns NodeRevisionsNodeRevisionsNodeRevision.Loc, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsNodeRevisionsNodeRevision) GetLoc() string { return v.RevisionFields.Loc }
+// GetLoc returns NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision.Loc, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetLoc() string {
+	return v.RevisionFields.Loc
+}
 
-// GetName returns NodeRevisionsNodeRevisionsNodeRevision.Name, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsNodeRevisionsNodeRevision) GetName() string { return v.RevisionFields.Name }
+// GetName returns NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision.Name, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetName() string {
+	return v.RevisionFields.Name
+}
 
-// GetDescription returns NodeRevisionsNodeRevisionsNodeRevision.Description, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsNodeRevisionsNodeRevision) GetDescription() *string {
+// GetDescription returns NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision.Description, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetDescription() *string {
 	return v.RevisionFields.Description
 }
 
-// GetTags returns NodeRevisionsNodeRevisionsNodeRevision.Tags, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsNodeRevisionsNodeRevision) GetTags() []string { return v.RevisionFields.Tags }
+// GetTags returns NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision.Tags, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetTags() []string {
+	return v.RevisionFields.Tags
+}
 
-// GetCreatedAt returns NodeRevisionsNodeRevisionsNodeRevision.CreatedAt, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsNodeRevisionsNodeRevision) GetCreatedAt() string {
+// GetCreatedAt returns NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision.CreatedAt, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetCreatedAt() string {
 	return v.RevisionFields.CreatedAt
 }
 
-// GetEditedBy returns NodeRevisionsNodeRevisionsNodeRevision.EditedBy, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsNodeRevisionsNodeRevision) GetEditedBy() *string {
+// GetEditedBy returns NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision.EditedBy, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetEditedBy() *string {
 	return v.RevisionFields.EditedBy
 }
 
-// GetEditedByInfo returns NodeRevisionsNodeRevisionsNodeRevision.EditedByInfo, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsNodeRevisionsNodeRevision) GetEditedByInfo() *string {
+// GetEditedByInfo returns NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision.EditedByInfo, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetEditedByInfo() *string {
 	return v.RevisionFields.EditedByInfo
 }
 
-// GetEditedByUser returns NodeRevisionsNodeRevisionsNodeRevision.EditedByUser, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsNodeRevisionsNodeRevision) GetEditedByUser() *RevisionFieldsEditedByUserNodeRevisionEditor {
+// GetEditedByUser returns NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision.EditedByUser, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetEditedByUser() *RevisionFieldsEditedByUserNodeRevisionEditor {
 	return v.RevisionFields.EditedByUser
 }
 
-// GetRevLabel returns NodeRevisionsNodeRevisionsNodeRevision.RevLabel, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsNodeRevisionsNodeRevision) GetRevLabel() *string {
+// GetRevLabel returns NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision.RevLabel, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetRevLabel() *string {
 	return v.RevisionFields.RevLabel
 }
 
-// GetChanges returns NodeRevisionsNodeRevisionsNodeRevision.Changes, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsNodeRevisionsNodeRevision) GetChanges() []string {
+// GetChanges returns NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision.Changes, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetChanges() []string {
 	return v.RevisionFields.Changes
 }
 
-func (v *NodeRevisionsNodeRevisionsNodeRevision) UnmarshalJSON(b []byte) error {
+func (v *NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*NodeRevisionsNodeRevisionsNodeRevision
+		*NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.NodeRevisionsNodeRevisionsNodeRevision = v
+	firstPass.NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -42845,7 +43108,7 @@ func (v *NodeRevisionsNodeRevisionsNodeRevision) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalNodeRevisionsNodeRevisionsNodeRevision struct {
+type __premarshalNodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision struct {
 	Id string `json:"id"`
 
 	NodeId string `json:"nodeId"`
@@ -42871,7 +43134,7 @@ type __premarshalNodeRevisionsNodeRevisionsNodeRevision struct {
 	Changes []string `json:"changes"`
 }
 
-func (v *NodeRevisionsNodeRevisionsNodeRevision) MarshalJSON() ([]byte, error) {
+func (v *NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -42879,8 +43142,8 @@ func (v *NodeRevisionsNodeRevisionsNodeRevision) MarshalJSON() ([]byte, error) {
 	return json.Marshal(premarshaled)
 }
 
-func (v *NodeRevisionsNodeRevisionsNodeRevision) __premarshalJSON() (*__premarshalNodeRevisionsNodeRevisionsNodeRevision, error) {
-	var retval __premarshalNodeRevisionsNodeRevisionsNodeRevision
+func (v *NodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision) __premarshalJSON() (*__premarshalNodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision, error) {
+	var retval __premarshalNodeRevisionsPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision
 
 	retval.Id = v.RevisionFields.Id
 	retval.NodeId = v.RevisionFields.NodeId
@@ -42897,107 +43160,132 @@ func (v *NodeRevisionsNodeRevisionsNodeRevision) __premarshalJSON() (*__premarsh
 	return &retval, nil
 }
 
-// NodeRevisionsResponse is returned by NodeRevisions on success.
-type NodeRevisionsResponse struct {
-	// Revision history for a node, most recent first.
-	//
-	// Accepts the node's ID or URN. Access-gated on the node's memory: a node
-	// whose memory the caller can't read returns an empty list (no existence
-	// disclosure).
-	NodeRevisions []*NodeRevisionsNodeRevisionsNodeRevision `json:"nodeRevisions"`
+// NodeRevisionsPageResponse is returned by NodeRevisionsPage on success.
+type NodeRevisionsPageResponse struct {
+	// #2212 - `nodeRevisions` as a page: the same access gate (a miss or an unreadable node is an empty page),
+	// with the snapshot-memory gate applied before counting, so `total` and the pages hold only snapshots you
+	// may read and never fall short near the limit. Newest first with an id tiebreak. Sizes as `tickersPage`.
+	NodeRevisionsPage *NodeRevisionsPageNodeRevisionsPageNodeRevisionPage `json:"nodeRevisionsPage"`
 }
 
-// GetNodeRevisions returns NodeRevisionsResponse.NodeRevisions, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsResponse) GetNodeRevisions() []*NodeRevisionsNodeRevisionsNodeRevision {
-	return v.NodeRevisions
+// GetNodeRevisionsPage returns NodeRevisionsPageResponse.NodeRevisionsPage, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsPageResponse) GetNodeRevisionsPage() *NodeRevisionsPageNodeRevisionsPageNodeRevisionPage {
+	return v.NodeRevisionsPage
 }
 
-// NodeRevisionsStampedNodeRevisionsNodeRevision includes the requested fields of the GraphQL type NodeRevision.
-type NodeRevisionsStampedNodeRevisionsNodeRevision struct {
+// NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPage includes the requested fields of the GraphQL type NodeRevisionPage.
+// The GraphQL type's documentation follows.
+//
+// #2212 — one page of a node's revision snapshots, counted over the snapshots the caller may read.
+type NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPage struct {
+	Total   int                                                                           `json:"total"`
+	HasMore bool                                                                          `json:"hasMore"`
+	Items   []*NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision `json:"items"`
+}
+
+// GetTotal returns NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPage.Total, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPage) GetTotal() int { return v.Total }
+
+// GetHasMore returns NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPage.HasMore, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPage) GetHasMore() bool {
+	return v.HasMore
+}
+
+// GetItems returns NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPage.Items, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPage) GetItems() []*NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision {
+	return v.Items
+}
+
+// NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision includes the requested fields of the GraphQL type NodeRevision.
+type NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision struct {
 	RevisionFields `json:"-"`
 	// #1326 — attribution of the content captured before the next edit.
-	Authorship *NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship `json:"authorship"`
+	Authorship *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionAuthorshipNodeAuthorship `json:"authorship"`
 	// #1326 — advisory validation at this historical revision.
-	ContentValidation *NodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus `json:"contentValidation"`
+	ContentValidation *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionContentValidationNodeContentValidationStatus `json:"contentValidation"`
 }
 
-// GetAuthorship returns NodeRevisionsStampedNodeRevisionsNodeRevision.Authorship, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) GetAuthorship() *NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship {
+// GetAuthorship returns NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision.Authorship, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetAuthorship() *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionAuthorshipNodeAuthorship {
 	return v.Authorship
 }
 
-// GetContentValidation returns NodeRevisionsStampedNodeRevisionsNodeRevision.ContentValidation, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) GetContentValidation() *NodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus {
+// GetContentValidation returns NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision.ContentValidation, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetContentValidation() *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionContentValidationNodeContentValidationStatus {
 	return v.ContentValidation
 }
 
-// GetId returns NodeRevisionsStampedNodeRevisionsNodeRevision.Id, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) GetId() string { return v.RevisionFields.Id }
+// GetId returns NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision.Id, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetId() string {
+	return v.RevisionFields.Id
+}
 
-// GetNodeId returns NodeRevisionsStampedNodeRevisionsNodeRevision.NodeId, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) GetNodeId() string {
+// GetNodeId returns NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision.NodeId, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetNodeId() string {
 	return v.RevisionFields.NodeId
 }
 
-// GetLoc returns NodeRevisionsStampedNodeRevisionsNodeRevision.Loc, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) GetLoc() string { return v.RevisionFields.Loc }
+// GetLoc returns NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision.Loc, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetLoc() string {
+	return v.RevisionFields.Loc
+}
 
-// GetName returns NodeRevisionsStampedNodeRevisionsNodeRevision.Name, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) GetName() string {
+// GetName returns NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision.Name, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetName() string {
 	return v.RevisionFields.Name
 }
 
-// GetDescription returns NodeRevisionsStampedNodeRevisionsNodeRevision.Description, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) GetDescription() *string {
+// GetDescription returns NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision.Description, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetDescription() *string {
 	return v.RevisionFields.Description
 }
 
-// GetTags returns NodeRevisionsStampedNodeRevisionsNodeRevision.Tags, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) GetTags() []string {
+// GetTags returns NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision.Tags, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetTags() []string {
 	return v.RevisionFields.Tags
 }
 
-// GetCreatedAt returns NodeRevisionsStampedNodeRevisionsNodeRevision.CreatedAt, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) GetCreatedAt() string {
+// GetCreatedAt returns NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision.CreatedAt, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetCreatedAt() string {
 	return v.RevisionFields.CreatedAt
 }
 
-// GetEditedBy returns NodeRevisionsStampedNodeRevisionsNodeRevision.EditedBy, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) GetEditedBy() *string {
+// GetEditedBy returns NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision.EditedBy, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetEditedBy() *string {
 	return v.RevisionFields.EditedBy
 }
 
-// GetEditedByInfo returns NodeRevisionsStampedNodeRevisionsNodeRevision.EditedByInfo, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) GetEditedByInfo() *string {
+// GetEditedByInfo returns NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision.EditedByInfo, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetEditedByInfo() *string {
 	return v.RevisionFields.EditedByInfo
 }
 
-// GetEditedByUser returns NodeRevisionsStampedNodeRevisionsNodeRevision.EditedByUser, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) GetEditedByUser() *RevisionFieldsEditedByUserNodeRevisionEditor {
+// GetEditedByUser returns NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision.EditedByUser, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetEditedByUser() *RevisionFieldsEditedByUserNodeRevisionEditor {
 	return v.RevisionFields.EditedByUser
 }
 
-// GetRevLabel returns NodeRevisionsStampedNodeRevisionsNodeRevision.RevLabel, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) GetRevLabel() *string {
+// GetRevLabel returns NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision.RevLabel, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetRevLabel() *string {
 	return v.RevisionFields.RevLabel
 }
 
-// GetChanges returns NodeRevisionsStampedNodeRevisionsNodeRevision.Changes, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) GetChanges() []string {
+// GetChanges returns NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision.Changes, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision) GetChanges() []string {
 	return v.RevisionFields.Changes
 }
 
-func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) UnmarshalJSON(b []byte) error {
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*NodeRevisionsStampedNodeRevisionsNodeRevision
+		*NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.NodeRevisionsStampedNodeRevisionsNodeRevision = v
+	firstPass.NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -43012,10 +43300,10 @@ func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) UnmarshalJSON(b []byte) 
 	return nil
 }
 
-type __premarshalNodeRevisionsStampedNodeRevisionsNodeRevision struct {
-	Authorship *NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship `json:"authorship"`
+type __premarshalNodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision struct {
+	Authorship *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionAuthorshipNodeAuthorship `json:"authorship"`
 
-	ContentValidation *NodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus `json:"contentValidation"`
+	ContentValidation *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionContentValidationNodeContentValidationStatus `json:"contentValidation"`
 
 	Id string `json:"id"`
 
@@ -43042,7 +43330,7 @@ type __premarshalNodeRevisionsStampedNodeRevisionsNodeRevision struct {
 	Changes []string `json:"changes"`
 }
 
-func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) MarshalJSON() ([]byte, error) {
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -43050,8 +43338,8 @@ func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) MarshalJSON() ([]byte, e
 	return json.Marshal(premarshaled)
 }
 
-func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) __premarshalJSON() (*__premarshalNodeRevisionsStampedNodeRevisionsNodeRevision, error) {
-	var retval __premarshalNodeRevisionsStampedNodeRevisionsNodeRevision
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision) __premarshalJSON() (*__premarshalNodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision, error) {
+	var retval __premarshalNodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevision
 
 	retval.Authorship = v.Authorship
 	retval.ContentValidation = v.ContentValidation
@@ -43070,47 +43358,47 @@ func (v *NodeRevisionsStampedNodeRevisionsNodeRevision) __premarshalJSON() (*__p
 	return &retval, nil
 }
 
-// NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship includes the requested fields of the GraphQL type NodeAuthorship.
-type NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship struct {
+// NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionAuthorshipNodeAuthorship includes the requested fields of the GraphQL type NodeAuthorship.
+type NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionAuthorshipNodeAuthorship struct {
 	NodeAuthorshipFields `json:"-"`
 }
 
-// GetKind returns NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship.Kind, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship) GetKind() NodeAuthorshipKind {
+// GetKind returns NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionAuthorshipNodeAuthorship.Kind, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionAuthorshipNodeAuthorship) GetKind() NodeAuthorshipKind {
 	return v.NodeAuthorshipFields.Kind
 }
 
-// GetAuthoredAt returns NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship.AuthoredAt, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship) GetAuthoredAt() string {
+// GetAuthoredAt returns NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionAuthorshipNodeAuthorship.AuthoredAt, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionAuthorshipNodeAuthorship) GetAuthoredAt() string {
 	return v.NodeAuthorshipFields.AuthoredAt
 }
 
-// GetTaskRef returns NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship.TaskRef, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship) GetTaskRef() *string {
+// GetTaskRef returns NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionAuthorshipNodeAuthorship.TaskRef, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionAuthorshipNodeAuthorship) GetTaskRef() *string {
 	return v.NodeAuthorshipFields.TaskRef
 }
 
-// GetTaskRevision returns NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship.TaskRevision, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship) GetTaskRevision() *int {
+// GetTaskRevision returns NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionAuthorshipNodeAuthorship.TaskRevision, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionAuthorshipNodeAuthorship) GetTaskRevision() *int {
 	return v.NodeAuthorshipFields.TaskRevision
 }
 
-// GetHuman returns NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship.Human, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship) GetHuman() *NodeAuthorshipFieldsHumanNodeRevisionEditor {
+// GetHuman returns NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionAuthorshipNodeAuthorship.Human, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionAuthorshipNodeAuthorship) GetHuman() *NodeAuthorshipFieldsHumanNodeRevisionEditor {
 	return v.NodeAuthorshipFields.Human
 }
 
-func (v *NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship) UnmarshalJSON(b []byte) error {
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionAuthorshipNodeAuthorship) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship
+		*NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionAuthorshipNodeAuthorship
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship = v
+	firstPass.NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionAuthorshipNodeAuthorship = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -43125,7 +43413,7 @@ func (v *NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship) 
 	return nil
 }
 
-type __premarshalNodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship struct {
+type __premarshalNodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionAuthorshipNodeAuthorship struct {
 	Kind NodeAuthorshipKind `json:"kind"`
 
 	AuthoredAt string `json:"authoredAt"`
@@ -43137,7 +43425,7 @@ type __premarshalNodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuth
 	Human *NodeAuthorshipFieldsHumanNodeRevisionEditor `json:"human"`
 }
 
-func (v *NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship) MarshalJSON() ([]byte, error) {
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionAuthorshipNodeAuthorship) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -43145,8 +43433,8 @@ func (v *NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship) 
 	return json.Marshal(premarshaled)
 }
 
-func (v *NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship) __premarshalJSON() (*__premarshalNodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship, error) {
-	var retval __premarshalNodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionAuthorshipNodeAuthorship) __premarshalJSON() (*__premarshalNodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionAuthorshipNodeAuthorship, error) {
+	var retval __premarshalNodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionAuthorshipNodeAuthorship
 
 	retval.Kind = v.NodeAuthorshipFields.Kind
 	retval.AuthoredAt = v.NodeAuthorshipFields.AuthoredAt
@@ -43156,32 +43444,32 @@ func (v *NodeRevisionsStampedNodeRevisionsNodeRevisionAuthorshipNodeAuthorship) 
 	return &retval, nil
 }
 
-// NodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus includes the requested fields of the GraphQL type NodeContentValidationStatus.
-type NodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus struct {
+// NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionContentValidationNodeContentValidationStatus includes the requested fields of the GraphQL type NodeContentValidationStatus.
+type NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionContentValidationNodeContentValidationStatus struct {
 	NodeContentValidationFields `json:"-"`
 }
 
-// GetState returns NodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus.State, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus) GetState() NodeContentValidationState {
+// GetState returns NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionContentValidationNodeContentValidationStatus.State, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionContentValidationNodeContentValidationStatus) GetState() NodeContentValidationState {
 	return v.NodeContentValidationFields.State
 }
 
-// GetLatestReport returns NodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus.LatestReport, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus) GetLatestReport() *NodeContentValidationFieldsLatestReportNodeContentValidationReport {
+// GetLatestReport returns NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionContentValidationNodeContentValidationStatus.LatestReport, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionContentValidationNodeContentValidationStatus) GetLatestReport() *NodeContentValidationFieldsLatestReportNodeContentValidationReport {
 	return v.NodeContentValidationFields.LatestReport
 }
 
-func (v *NodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus) UnmarshalJSON(b []byte) error {
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionContentValidationNodeContentValidationStatus) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*NodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus
+		*NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionContentValidationNodeContentValidationStatus
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.NodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus = v
+	firstPass.NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionContentValidationNodeContentValidationStatus = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -43196,13 +43484,13 @@ func (v *NodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeConte
 	return nil
 }
 
-type __premarshalNodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus struct {
+type __premarshalNodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionContentValidationNodeContentValidationStatus struct {
 	State NodeContentValidationState `json:"state"`
 
 	LatestReport *NodeContentValidationFieldsLatestReportNodeContentValidationReport `json:"latestReport"`
 }
 
-func (v *NodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus) MarshalJSON() ([]byte, error) {
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionContentValidationNodeContentValidationStatus) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -43210,27 +43498,25 @@ func (v *NodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeConte
 	return json.Marshal(premarshaled)
 }
 
-func (v *NodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus) __premarshalJSON() (*__premarshalNodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus, error) {
-	var retval __premarshalNodeRevisionsStampedNodeRevisionsNodeRevisionContentValidationNodeContentValidationStatus
+func (v *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionContentValidationNodeContentValidationStatus) __premarshalJSON() (*__premarshalNodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionContentValidationNodeContentValidationStatus, error) {
+	var retval __premarshalNodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPageItemsNodeRevisionContentValidationNodeContentValidationStatus
 
 	retval.State = v.NodeContentValidationFields.State
 	retval.LatestReport = v.NodeContentValidationFields.LatestReport
 	return &retval, nil
 }
 
-// NodeRevisionsStampedResponse is returned by NodeRevisionsStamped on success.
-type NodeRevisionsStampedResponse struct {
-	// Revision history for a node, most recent first.
-	//
-	// Accepts the node's ID or URN. Access-gated on the node's memory: a node
-	// whose memory the caller can't read returns an empty list (no existence
-	// disclosure).
-	NodeRevisions []*NodeRevisionsStampedNodeRevisionsNodeRevision `json:"nodeRevisions"`
+// NodeRevisionsStampedPageResponse is returned by NodeRevisionsStampedPage on success.
+type NodeRevisionsStampedPageResponse struct {
+	// #2212 - `nodeRevisions` as a page: the same access gate (a miss or an unreadable node is an empty page),
+	// with the snapshot-memory gate applied before counting, so `total` and the pages hold only snapshots you
+	// may read and never fall short near the limit. Newest first with an id tiebreak. Sizes as `tickersPage`.
+	NodeRevisionsPage *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPage `json:"nodeRevisionsPage"`
 }
 
-// GetNodeRevisions returns NodeRevisionsStampedResponse.NodeRevisions, and is useful for accessing the field via an interface.
-func (v *NodeRevisionsStampedResponse) GetNodeRevisions() []*NodeRevisionsStampedNodeRevisionsNodeRevision {
-	return v.NodeRevisions
+// GetNodeRevisionsPage returns NodeRevisionsStampedPageResponse.NodeRevisionsPage, and is useful for accessing the field via an interface.
+func (v *NodeRevisionsStampedPageResponse) GetNodeRevisionsPage() *NodeRevisionsStampedPageNodeRevisionsPageNodeRevisionPage {
+	return v.NodeRevisionsPage
 }
 
 // NodeRoleRuleFields includes the GraphQL fields of NodeRoleRule requested by the fragment NodeRoleRuleFields.
@@ -61207,33 +61493,40 @@ func (v *TeamSessionFieldsWorkerReportsToWorker) __premarshalJSON() (*__premarsh
 	return &retval, nil
 }
 
-// TeamSessionsResponse is returned by TeamSessions on success.
-type TeamSessionsResponse struct {
-	// Sessions VISIBLE to the caller, newest first — not only the caller's own.
-	// The scope is authorization-derived (`sessionScopeFilter`): a platform
-	// ADMIN/OWNER sees sessions in its audience, an App key sees its own App's, and an
-	// ordinary user sees those of Apps in any org they belong to **plus** every
-	// session of their user-owned Apps and every session attributed to them
-	// (these identity-scoped branches do
-	// not apply through impersonation). So a client must not present these as "my
-	// activity" — many rows may be attributed to other users or Apps.
-	// Sessions bound to personal/private memories additionally require that
-	// memory's strict owner, with no admin or impersonation override. A pure App
-	// key may also read only the session it is itself bound to.
-	//
-	// Unfiltered, this is also the GENERAL row of every `type`, worker-bound or
-	// not (#1034), so it is equally not a list of worker sessions.
-	//
-	// workerRef (#974): only sessions bound to that Worker (by id), newest first
-	// - the 'taken right now' / 'last driven by' read (cor:agt:020:03). That
-	// filter is what narrows this to worker sessions.
-	Sessions []*TeamSessionsSessionsSession `json:"sessions"`
+// TeamSessionsPageResponse is returned by TeamSessionsPage on success.
+type TeamSessionsPageResponse struct {
+	// #2212 - `sessions` as a page: the same session scope and filters (a blank or unresolvable workerRef is
+	// an empty page), newest first with an id tiebreak, with the real total. Sizes as `tickersPage`.
+	SessionsPage *TeamSessionsPageSessionsPageSessionPage `json:"sessionsPage"`
 }
 
-// GetSessions returns TeamSessionsResponse.Sessions, and is useful for accessing the field via an interface.
-func (v *TeamSessionsResponse) GetSessions() []*TeamSessionsSessionsSession { return v.Sessions }
+// GetSessionsPage returns TeamSessionsPageResponse.SessionsPage, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageResponse) GetSessionsPage() *TeamSessionsPageSessionsPageSessionPage {
+	return v.SessionsPage
+}
 
-// TeamSessionsSessionsSession includes the requested fields of the GraphQL type Session.
+// TeamSessionsPageSessionsPageSessionPage includes the requested fields of the GraphQL type SessionPage.
+// The GraphQL type's documentation follows.
+//
+// #2212 — one page of sessions in the caller's session scope.
+type TeamSessionsPageSessionsPageSessionPage struct {
+	Total   int                                                    `json:"total"`
+	HasMore bool                                                   `json:"hasMore"`
+	Items   []*TeamSessionsPageSessionsPageSessionPageItemsSession `json:"items"`
+}
+
+// GetTotal returns TeamSessionsPageSessionsPageSessionPage.Total, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageSessionsPageSessionPage) GetTotal() int { return v.Total }
+
+// GetHasMore returns TeamSessionsPageSessionsPageSessionPage.HasMore, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageSessionsPageSessionPage) GetHasMore() bool { return v.HasMore }
+
+// GetItems returns TeamSessionsPageSessionsPageSessionPage.Items, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageSessionsPageSessionPage) GetItems() []*TeamSessionsPageSessionsPageSessionPageItemsSession {
+	return v.Items
+}
+
+// TeamSessionsPageSessionsPageSessionPageItemsSession includes the requested fields of the GraphQL type Session.
 // The GraphQL type's documentation follows.
 //
 // A unit of work recorded against a user or App: the general row, and what the
@@ -61257,78 +61550,106 @@ func (v *TeamSessionsResponse) GetSessions() []*TeamSessionsSessionsSession { re
 // human-held name stays held until explicit release, so only its holder can bind
 // it again. Do not use "chat session" for a Chat (the agent conversation entity)
 // — that is an **agent chat**, a third concept.
-type TeamSessionsSessionsSession struct {
+type TeamSessionsPageSessionsPageSessionPageItemsSession struct {
 	TeamSessionFields `json:"-"`
 }
 
-// GetId returns TeamSessionsSessionsSession.Id, and is useful for accessing the field via an interface.
-func (v *TeamSessionsSessionsSession) GetId() string { return v.TeamSessionFields.Id }
+// GetId returns TeamSessionsPageSessionsPageSessionPageItemsSession.Id, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageSessionsPageSessionPageItemsSession) GetId() string {
+	return v.TeamSessionFields.Id
+}
 
-// GetAgentId returns TeamSessionsSessionsSession.AgentId, and is useful for accessing the field via an interface.
-func (v *TeamSessionsSessionsSession) GetAgentId() *string { return v.TeamSessionFields.AgentId }
+// GetAgentId returns TeamSessionsPageSessionsPageSessionPageItemsSession.AgentId, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageSessionsPageSessionPageItemsSession) GetAgentId() *string {
+	return v.TeamSessionFields.AgentId
+}
 
-// GetWorkerId returns TeamSessionsSessionsSession.WorkerId, and is useful for accessing the field via an interface.
-func (v *TeamSessionsSessionsSession) GetWorkerId() *string { return v.TeamSessionFields.WorkerId }
+// GetWorkerId returns TeamSessionsPageSessionsPageSessionPageItemsSession.WorkerId, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageSessionsPageSessionPageItemsSession) GetWorkerId() *string {
+	return v.TeamSessionFields.WorkerId
+}
 
-// GetRole returns TeamSessionsSessionsSession.Role, and is useful for accessing the field via an interface.
-func (v *TeamSessionsSessionsSession) GetRole() *string { return v.TeamSessionFields.Role }
+// GetRole returns TeamSessionsPageSessionsPageSessionPageItemsSession.Role, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageSessionsPageSessionPageItemsSession) GetRole() *string {
+	return v.TeamSessionFields.Role
+}
 
-// GetWorker returns TeamSessionsSessionsSession.Worker, and is useful for accessing the field via an interface.
-func (v *TeamSessionsSessionsSession) GetWorker() *TeamSessionFieldsWorker {
+// GetWorker returns TeamSessionsPageSessionsPageSessionPageItemsSession.Worker, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageSessionsPageSessionPageItemsSession) GetWorker() *TeamSessionFieldsWorker {
 	return v.TeamSessionFields.Worker
 }
 
-// GetUserId returns TeamSessionsSessionsSession.UserId, and is useful for accessing the field via an interface.
-func (v *TeamSessionsSessionsSession) GetUserId() *string { return v.TeamSessionFields.UserId }
+// GetUserId returns TeamSessionsPageSessionsPageSessionPageItemsSession.UserId, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageSessionsPageSessionPageItemsSession) GetUserId() *string {
+	return v.TeamSessionFields.UserId
+}
 
-// GetType returns TeamSessionsSessionsSession.Type, and is useful for accessing the field via an interface.
-func (v *TeamSessionsSessionsSession) GetType() string { return v.TeamSessionFields.Type }
+// GetType returns TeamSessionsPageSessionsPageSessionPageItemsSession.Type, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageSessionsPageSessionPageItemsSession) GetType() string {
+	return v.TeamSessionFields.Type
+}
 
-// GetRepo returns TeamSessionsSessionsSession.Repo, and is useful for accessing the field via an interface.
-func (v *TeamSessionsSessionsSession) GetRepo() *string { return v.TeamSessionFields.Repo }
+// GetRepo returns TeamSessionsPageSessionsPageSessionPageItemsSession.Repo, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageSessionsPageSessionPageItemsSession) GetRepo() *string {
+	return v.TeamSessionFields.Repo
+}
 
-// GetBranch returns TeamSessionsSessionsSession.Branch, and is useful for accessing the field via an interface.
-func (v *TeamSessionsSessionsSession) GetBranch() *string { return v.TeamSessionFields.Branch }
+// GetBranch returns TeamSessionsPageSessionsPageSessionPageItemsSession.Branch, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageSessionsPageSessionPageItemsSession) GetBranch() *string {
+	return v.TeamSessionFields.Branch
+}
 
-// GetPrNumber returns TeamSessionsSessionsSession.PrNumber, and is useful for accessing the field via an interface.
-func (v *TeamSessionsSessionsSession) GetPrNumber() *int { return v.TeamSessionFields.PrNumber }
+// GetPrNumber returns TeamSessionsPageSessionsPageSessionPageItemsSession.PrNumber, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageSessionsPageSessionPageItemsSession) GetPrNumber() *int {
+	return v.TeamSessionFields.PrNumber
+}
 
-// GetStartedAt returns TeamSessionsSessionsSession.StartedAt, and is useful for accessing the field via an interface.
-func (v *TeamSessionsSessionsSession) GetStartedAt() string { return v.TeamSessionFields.StartedAt }
+// GetStartedAt returns TeamSessionsPageSessionsPageSessionPageItemsSession.StartedAt, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageSessionsPageSessionPageItemsSession) GetStartedAt() string {
+	return v.TeamSessionFields.StartedAt
+}
 
-// GetEndedAt returns TeamSessionsSessionsSession.EndedAt, and is useful for accessing the field via an interface.
-func (v *TeamSessionsSessionsSession) GetEndedAt() *string { return v.TeamSessionFields.EndedAt }
+// GetEndedAt returns TeamSessionsPageSessionsPageSessionPageItemsSession.EndedAt, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageSessionsPageSessionPageItemsSession) GetEndedAt() *string {
+	return v.TeamSessionFields.EndedAt
+}
 
-// GetAutoExpiredAt returns TeamSessionsSessionsSession.AutoExpiredAt, and is useful for accessing the field via an interface.
-func (v *TeamSessionsSessionsSession) GetAutoExpiredAt() *string {
+// GetAutoExpiredAt returns TeamSessionsPageSessionsPageSessionPageItemsSession.AutoExpiredAt, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageSessionsPageSessionPageItemsSession) GetAutoExpiredAt() *string {
 	return v.TeamSessionFields.AutoExpiredAt
 }
 
-// GetHost returns TeamSessionsSessionsSession.Host, and is useful for accessing the field via an interface.
-func (v *TeamSessionsSessionsSession) GetHost() *string { return v.TeamSessionFields.Host }
+// GetHost returns TeamSessionsPageSessionsPageSessionPageItemsSession.Host, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageSessionsPageSessionPageItemsSession) GetHost() *string {
+	return v.TeamSessionFields.Host
+}
 
-// GetTool returns TeamSessionsSessionsSession.Tool, and is useful for accessing the field via an interface.
-func (v *TeamSessionsSessionsSession) GetTool() *string { return v.TeamSessionFields.Tool }
+// GetTool returns TeamSessionsPageSessionsPageSessionPageItemsSession.Tool, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageSessionsPageSessionPageItemsSession) GetTool() *string {
+	return v.TeamSessionFields.Tool
+}
 
-// GetTranscriptPath returns TeamSessionsSessionsSession.TranscriptPath, and is useful for accessing the field via an interface.
-func (v *TeamSessionsSessionsSession) GetTranscriptPath() *string {
+// GetTranscriptPath returns TeamSessionsPageSessionsPageSessionPageItemsSession.TranscriptPath, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageSessionsPageSessionPageItemsSession) GetTranscriptPath() *string {
 	return v.TeamSessionFields.TranscriptPath
 }
 
-// GetLlmModel returns TeamSessionsSessionsSession.LlmModel, and is useful for accessing the field via an interface.
-func (v *TeamSessionsSessionsSession) GetLlmModel() *string { return v.TeamSessionFields.LlmModel }
+// GetLlmModel returns TeamSessionsPageSessionsPageSessionPageItemsSession.LlmModel, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageSessionsPageSessionPageItemsSession) GetLlmModel() *string {
+	return v.TeamSessionFields.LlmModel
+}
 
-func (v *TeamSessionsSessionsSession) UnmarshalJSON(b []byte) error {
+func (v *TeamSessionsPageSessionsPageSessionPageItemsSession) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*TeamSessionsSessionsSession
+		*TeamSessionsPageSessionsPageSessionPageItemsSession
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.TeamSessionsSessionsSession = v
+	firstPass.TeamSessionsPageSessionsPageSessionPageItemsSession = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -61343,7 +61664,7 @@ func (v *TeamSessionsSessionsSession) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalTeamSessionsSessionsSession struct {
+type __premarshalTeamSessionsPageSessionsPageSessionPageItemsSession struct {
 	Id string `json:"id"`
 
 	AgentId *string `json:"agentId"`
@@ -61379,7 +61700,7 @@ type __premarshalTeamSessionsSessionsSession struct {
 	LlmModel *string `json:"llmModel"`
 }
 
-func (v *TeamSessionsSessionsSession) MarshalJSON() ([]byte, error) {
+func (v *TeamSessionsPageSessionsPageSessionPageItemsSession) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -61387,8 +61708,8 @@ func (v *TeamSessionsSessionsSession) MarshalJSON() ([]byte, error) {
 	return json.Marshal(premarshaled)
 }
 
-func (v *TeamSessionsSessionsSession) __premarshalJSON() (*__premarshalTeamSessionsSessionsSession, error) {
-	var retval __premarshalTeamSessionsSessionsSession
+func (v *TeamSessionsPageSessionsPageSessionPageItemsSession) __premarshalJSON() (*__premarshalTeamSessionsPageSessionsPageSessionPageItemsSession, error) {
+	var retval __premarshalTeamSessionsPageSessionsPageSessionPageItemsSession
 
 	retval.Id = v.TeamSessionFields.Id
 	retval.AgentId = v.TeamSessionFields.AgentId
@@ -70429,53 +70750,45 @@ func (v *UsageEventInput) GetTokensOut() *int { return v.TokensOut }
 // GetType returns UsageEventInput.Type, and is useful for accessing the field via an interface.
 func (v *UsageEventInput) GetType() string { return v.Type }
 
-// UsageEventsResponse is returned by UsageEvents on success.
-type UsageEventsResponse struct {
-	// Usage events (most recent first), optionally filtered by type, memoryId,
-	// nodeId, or time. since is inclusive and until is exclusive: since <= createdAt < until.
+// UsageEventsPageResponse is returned by UsageEventsPage on success.
+type UsageEventsPageResponse struct {
+	// #2212 - `usageEvents` as a page: the same READER gate, the same loc/nodeId rules and the same readable-memory
+	// scope, ordered newest first with an id tiebreak, with the windowed total.
+	// since is inclusive and until is exclusive: since <= createdAt < until.
 	// Bounds must be ISO date-times with Z or an explicit offset.
 	// Either bound may be omitted; invalid bounds or since >= until are BAD_USER_INPUT.
-	// Windowing does not change scope (hrn:node:hadronmemory.com:specs:cor:acl:090:01).
-	//
-	// Access control (#250): results are always scoped to memories the caller
-	// may read (org membership / subscriptions / public / owned personal+private
-	// per spec 034; ADMIN/OWNER see all EXCEPT another user's personal/private
-	// memories and, per spec 047, another user's user-owned memories). A
-	// memoryId the caller can't read returns [] (no existence leak); the global
-	// form (no memoryId) is bounded to the readable set, never cross-tenant.
-	//
-	// memoryId is a memory identifier — accepts the memory's ID or URN. Results
-	// are scoped on the denormalized UsageEvent.memoryId column (#796), so an
-	// event stays attributed to its memory after its node is deleted.
-	//
-	// nodeId is a node token accepting a PK, a fully-qualified URN, or a bare
-	// loc (no memoryId needed):
-	// - PK / URN  → resolved to a single node; scoped via its exact nodeId FK
-	// (memory-precise).
-	// - bare loc  → exact nodeLoc match, bounded to readable memories; not
-	// existence-checked. Shape-classified: a loc with 3+
-	// colon-separated segments qualifies as node-URN shape and
-	// takes the PK/URN branch instead — use loc for those.
-	// (This used to read "like nodeUsage but access-scoped" —
-	// a comment that named an ungated sibling without anyone
-	// following the pointer back. nodeUsage was gated in #802
-	// and deprecated as redundant in the same issue.)
-	//
-	// loc — the VERBATIM exact nodeLoc filter (never shape-sniffed, so every
-	// loc works, hierarchical spec citations included), bounded to readable
-	// memories; not existence-checked. The migration target for the deprecated
-	// nodeUsage(loc:) above — same match, same gate (PR-986 review, Codex P2).
-	// Mutually exclusive with nodeId (BAD_USER_INPUT when both are passed).
-	UsageEvents []*UsageEventsUsageEventsUsageEvent `json:"usageEvents"`
+	// hrn:node:hadronmemory.com:specs:cor:acl:090:01; paging: hrn:node:hadronmemory.com:specs:cor:api:120:04. Sizes as `tickersPage`.
+	UsageEventsPage *UsageEventsPageUsageEventsPageUsageEventPage `json:"usageEventsPage"`
 }
 
-// GetUsageEvents returns UsageEventsResponse.UsageEvents, and is useful for accessing the field via an interface.
-func (v *UsageEventsResponse) GetUsageEvents() []*UsageEventsUsageEventsUsageEvent {
-	return v.UsageEvents
+// GetUsageEventsPage returns UsageEventsPageResponse.UsageEventsPage, and is useful for accessing the field via an interface.
+func (v *UsageEventsPageResponse) GetUsageEventsPage() *UsageEventsPageUsageEventsPageUsageEventPage {
+	return v.UsageEventsPage
 }
 
-// UsageEventsUsageEventsUsageEvent includes the requested fields of the GraphQL type UsageEvent.
-type UsageEventsUsageEventsUsageEvent struct {
+// UsageEventsPageUsageEventsPageUsageEventPage includes the requested fields of the GraphQL type UsageEventPage.
+// The GraphQL type's documentation follows.
+//
+// #2212 — one page of usage events in the caller's readable memories.
+type UsageEventsPageUsageEventsPageUsageEventPage struct {
+	Total   int                                                            `json:"total"`
+	HasMore bool                                                           `json:"hasMore"`
+	Items   []*UsageEventsPageUsageEventsPageUsageEventPageItemsUsageEvent `json:"items"`
+}
+
+// GetTotal returns UsageEventsPageUsageEventsPageUsageEventPage.Total, and is useful for accessing the field via an interface.
+func (v *UsageEventsPageUsageEventsPageUsageEventPage) GetTotal() int { return v.Total }
+
+// GetHasMore returns UsageEventsPageUsageEventsPageUsageEventPage.HasMore, and is useful for accessing the field via an interface.
+func (v *UsageEventsPageUsageEventsPageUsageEventPage) GetHasMore() bool { return v.HasMore }
+
+// GetItems returns UsageEventsPageUsageEventsPageUsageEventPage.Items, and is useful for accessing the field via an interface.
+func (v *UsageEventsPageUsageEventsPageUsageEventPage) GetItems() []*UsageEventsPageUsageEventsPageUsageEventPageItemsUsageEvent {
+	return v.Items
+}
+
+// UsageEventsPageUsageEventsPageUsageEventPageItemsUsageEvent includes the requested fields of the GraphQL type UsageEvent.
+type UsageEventsPageUsageEventsPageUsageEventPageItemsUsageEvent struct {
 	Id        string `json:"id"`
 	Type      string `json:"type"`
 	CreatedAt string `json:"createdAt"`
@@ -70496,38 +70809,56 @@ type UsageEventsUsageEventsUsageEvent struct {
 	CostMicroCents *string `json:"costMicroCents"`
 }
 
-// GetId returns UsageEventsUsageEventsUsageEvent.Id, and is useful for accessing the field via an interface.
-func (v *UsageEventsUsageEventsUsageEvent) GetId() string { return v.Id }
+// GetId returns UsageEventsPageUsageEventsPageUsageEventPageItemsUsageEvent.Id, and is useful for accessing the field via an interface.
+func (v *UsageEventsPageUsageEventsPageUsageEventPageItemsUsageEvent) GetId() string { return v.Id }
 
-// GetType returns UsageEventsUsageEventsUsageEvent.Type, and is useful for accessing the field via an interface.
-func (v *UsageEventsUsageEventsUsageEvent) GetType() string { return v.Type }
+// GetType returns UsageEventsPageUsageEventsPageUsageEventPageItemsUsageEvent.Type, and is useful for accessing the field via an interface.
+func (v *UsageEventsPageUsageEventsPageUsageEventPageItemsUsageEvent) GetType() string { return v.Type }
 
-// GetCreatedAt returns UsageEventsUsageEventsUsageEvent.CreatedAt, and is useful for accessing the field via an interface.
-func (v *UsageEventsUsageEventsUsageEvent) GetCreatedAt() string { return v.CreatedAt }
+// GetCreatedAt returns UsageEventsPageUsageEventsPageUsageEventPageItemsUsageEvent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UsageEventsPageUsageEventsPageUsageEventPageItemsUsageEvent) GetCreatedAt() string {
+	return v.CreatedAt
+}
 
-// GetMemoryId returns UsageEventsUsageEventsUsageEvent.MemoryId, and is useful for accessing the field via an interface.
-func (v *UsageEventsUsageEventsUsageEvent) GetMemoryId() *string { return v.MemoryId }
+// GetMemoryId returns UsageEventsPageUsageEventsPageUsageEventPageItemsUsageEvent.MemoryId, and is useful for accessing the field via an interface.
+func (v *UsageEventsPageUsageEventsPageUsageEventPageItemsUsageEvent) GetMemoryId() *string {
+	return v.MemoryId
+}
 
-// GetNodeLoc returns UsageEventsUsageEventsUsageEvent.NodeLoc, and is useful for accessing the field via an interface.
-func (v *UsageEventsUsageEventsUsageEvent) GetNodeLoc() *string { return v.NodeLoc }
+// GetNodeLoc returns UsageEventsPageUsageEventsPageUsageEventPageItemsUsageEvent.NodeLoc, and is useful for accessing the field via an interface.
+func (v *UsageEventsPageUsageEventsPageUsageEventPageItemsUsageEvent) GetNodeLoc() *string {
+	return v.NodeLoc
+}
 
-// GetProvider returns UsageEventsUsageEventsUsageEvent.Provider, and is useful for accessing the field via an interface.
-func (v *UsageEventsUsageEventsUsageEvent) GetProvider() *string { return v.Provider }
+// GetProvider returns UsageEventsPageUsageEventsPageUsageEventPageItemsUsageEvent.Provider, and is useful for accessing the field via an interface.
+func (v *UsageEventsPageUsageEventsPageUsageEventPageItemsUsageEvent) GetProvider() *string {
+	return v.Provider
+}
 
-// GetModel returns UsageEventsUsageEventsUsageEvent.Model, and is useful for accessing the field via an interface.
-func (v *UsageEventsUsageEventsUsageEvent) GetModel() *string { return v.Model }
+// GetModel returns UsageEventsPageUsageEventsPageUsageEventPageItemsUsageEvent.Model, and is useful for accessing the field via an interface.
+func (v *UsageEventsPageUsageEventsPageUsageEventPageItemsUsageEvent) GetModel() *string {
+	return v.Model
+}
 
-// GetKeyOwnerType returns UsageEventsUsageEventsUsageEvent.KeyOwnerType, and is useful for accessing the field via an interface.
-func (v *UsageEventsUsageEventsUsageEvent) GetKeyOwnerType() *string { return v.KeyOwnerType }
+// GetKeyOwnerType returns UsageEventsPageUsageEventsPageUsageEventPageItemsUsageEvent.KeyOwnerType, and is useful for accessing the field via an interface.
+func (v *UsageEventsPageUsageEventsPageUsageEventPageItemsUsageEvent) GetKeyOwnerType() *string {
+	return v.KeyOwnerType
+}
 
-// GetTokensIn returns UsageEventsUsageEventsUsageEvent.TokensIn, and is useful for accessing the field via an interface.
-func (v *UsageEventsUsageEventsUsageEvent) GetTokensIn() *int { return v.TokensIn }
+// GetTokensIn returns UsageEventsPageUsageEventsPageUsageEventPageItemsUsageEvent.TokensIn, and is useful for accessing the field via an interface.
+func (v *UsageEventsPageUsageEventsPageUsageEventPageItemsUsageEvent) GetTokensIn() *int {
+	return v.TokensIn
+}
 
-// GetTokensOut returns UsageEventsUsageEventsUsageEvent.TokensOut, and is useful for accessing the field via an interface.
-func (v *UsageEventsUsageEventsUsageEvent) GetTokensOut() *int { return v.TokensOut }
+// GetTokensOut returns UsageEventsPageUsageEventsPageUsageEventPageItemsUsageEvent.TokensOut, and is useful for accessing the field via an interface.
+func (v *UsageEventsPageUsageEventsPageUsageEventPageItemsUsageEvent) GetTokensOut() *int {
+	return v.TokensOut
+}
 
-// GetCostMicroCents returns UsageEventsUsageEventsUsageEvent.CostMicroCents, and is useful for accessing the field via an interface.
-func (v *UsageEventsUsageEventsUsageEvent) GetCostMicroCents() *string { return v.CostMicroCents }
+// GetCostMicroCents returns UsageEventsPageUsageEventsPageUsageEventPageItemsUsageEvent.CostMicroCents, and is useful for accessing the field via an interface.
+func (v *UsageEventsPageUsageEventsPageUsageEventPageItemsUsageEvent) GetCostMicroCents() *string {
+	return v.CostMicroCents
+}
 
 // UserApiKeyFields includes the GraphQL fields of UserApiKey requested by the fragment UserApiKeyFields.
 // The GraphQL type's documentation follows.
@@ -76705,6 +77036,22 @@ type __ListTickersInput struct {
 // GetAppRef returns __ListTickersInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__ListTickersInput) GetAppRef() string { return v.AppRef }
 
+// __ListTickersPageInput is used internally by genqlient
+type __ListTickersPageInput struct {
+	AppRef string `json:"appRef"`
+	Limit  *int   `json:"limit,omitempty"`
+	Offset *int   `json:"offset,omitempty"`
+}
+
+// GetAppRef returns __ListTickersPageInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__ListTickersPageInput) GetAppRef() string { return v.AppRef }
+
+// GetLimit returns __ListTickersPageInput.Limit, and is useful for accessing the field via an interface.
+func (v *__ListTickersPageInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __ListTickersPageInput.Offset, and is useful for accessing the field via an interface.
+func (v *__ListTickersPageInput) GetOffset() *int { return v.Offset }
+
 // __MarkOwnTeamChatReadInput is used internally by genqlient
 type __MarkOwnTeamChatReadInput struct {
 	AppRef     string `json:"appRef"`
@@ -77119,29 +77466,37 @@ type __NodeRevisionStampedInput struct {
 // GetRevisionId returns __NodeRevisionStampedInput.RevisionId, and is useful for accessing the field via an interface.
 func (v *__NodeRevisionStampedInput) GetRevisionId() string { return v.RevisionId }
 
-// __NodeRevisionsInput is used internally by genqlient
-type __NodeRevisionsInput struct {
+// __NodeRevisionsPageInput is used internally by genqlient
+type __NodeRevisionsPageInput struct {
 	NodeRef string `json:"nodeRef"`
 	Limit   *int   `json:"limit,omitempty"`
+	Offset  *int   `json:"offset,omitempty"`
 }
 
-// GetNodeRef returns __NodeRevisionsInput.NodeRef, and is useful for accessing the field via an interface.
-func (v *__NodeRevisionsInput) GetNodeRef() string { return v.NodeRef }
+// GetNodeRef returns __NodeRevisionsPageInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__NodeRevisionsPageInput) GetNodeRef() string { return v.NodeRef }
 
-// GetLimit returns __NodeRevisionsInput.Limit, and is useful for accessing the field via an interface.
-func (v *__NodeRevisionsInput) GetLimit() *int { return v.Limit }
+// GetLimit returns __NodeRevisionsPageInput.Limit, and is useful for accessing the field via an interface.
+func (v *__NodeRevisionsPageInput) GetLimit() *int { return v.Limit }
 
-// __NodeRevisionsStampedInput is used internally by genqlient
-type __NodeRevisionsStampedInput struct {
+// GetOffset returns __NodeRevisionsPageInput.Offset, and is useful for accessing the field via an interface.
+func (v *__NodeRevisionsPageInput) GetOffset() *int { return v.Offset }
+
+// __NodeRevisionsStampedPageInput is used internally by genqlient
+type __NodeRevisionsStampedPageInput struct {
 	NodeRef string `json:"nodeRef"`
 	Limit   *int   `json:"limit,omitempty"`
+	Offset  *int   `json:"offset,omitempty"`
 }
 
-// GetNodeRef returns __NodeRevisionsStampedInput.NodeRef, and is useful for accessing the field via an interface.
-func (v *__NodeRevisionsStampedInput) GetNodeRef() string { return v.NodeRef }
+// GetNodeRef returns __NodeRevisionsStampedPageInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__NodeRevisionsStampedPageInput) GetNodeRef() string { return v.NodeRef }
 
-// GetLimit returns __NodeRevisionsStampedInput.Limit, and is useful for accessing the field via an interface.
-func (v *__NodeRevisionsStampedInput) GetLimit() *int { return v.Limit }
+// GetLimit returns __NodeRevisionsStampedPageInput.Limit, and is useful for accessing the field via an interface.
+func (v *__NodeRevisionsStampedPageInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __NodeRevisionsStampedPageInput.Offset, and is useful for accessing the field via an interface.
+func (v *__NodeRevisionsStampedPageInput) GetOffset() *int { return v.Offset }
 
 // __NodeSignatureStatusInput is used internally by genqlient
 type __NodeSignatureStatusInput struct {
@@ -78611,25 +78966,25 @@ type __TeamRosterInput struct {
 // GetAppRef returns __TeamRosterInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__TeamRosterInput) GetAppRef() string { return v.AppRef }
 
-// __TeamSessionsInput is used internally by genqlient
-type __TeamSessionsInput struct {
+// __TeamSessionsPageInput is used internally by genqlient
+type __TeamSessionsPageInput struct {
 	Repo      *string `json:"repo,omitempty"`
 	WorkerRef *string `json:"workerRef,omitempty"`
 	Limit     *int    `json:"limit,omitempty"`
 	Offset    *int    `json:"offset,omitempty"`
 }
 
-// GetRepo returns __TeamSessionsInput.Repo, and is useful for accessing the field via an interface.
-func (v *__TeamSessionsInput) GetRepo() *string { return v.Repo }
+// GetRepo returns __TeamSessionsPageInput.Repo, and is useful for accessing the field via an interface.
+func (v *__TeamSessionsPageInput) GetRepo() *string { return v.Repo }
 
-// GetWorkerRef returns __TeamSessionsInput.WorkerRef, and is useful for accessing the field via an interface.
-func (v *__TeamSessionsInput) GetWorkerRef() *string { return v.WorkerRef }
+// GetWorkerRef returns __TeamSessionsPageInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__TeamSessionsPageInput) GetWorkerRef() *string { return v.WorkerRef }
 
-// GetLimit returns __TeamSessionsInput.Limit, and is useful for accessing the field via an interface.
-func (v *__TeamSessionsInput) GetLimit() *int { return v.Limit }
+// GetLimit returns __TeamSessionsPageInput.Limit, and is useful for accessing the field via an interface.
+func (v *__TeamSessionsPageInput) GetLimit() *int { return v.Limit }
 
-// GetOffset returns __TeamSessionsInput.Offset, and is useful for accessing the field via an interface.
-func (v *__TeamSessionsInput) GetOffset() *int { return v.Offset }
+// GetOffset returns __TeamSessionsPageInput.Offset, and is useful for accessing the field via an interface.
+func (v *__TeamSessionsPageInput) GetOffset() *int { return v.Offset }
 
 // __TeamStallScheduleInput is used internally by genqlient
 type __TeamStallScheduleInput struct {
@@ -79973,8 +80328,8 @@ func (v *__UsageActivityInput) GetMemoryRefs() []string { return v.MemoryRefs }
 // GetTimeZone returns __UsageActivityInput.TimeZone, and is useful for accessing the field via an interface.
 func (v *__UsageActivityInput) GetTimeZone() *string { return v.TimeZone }
 
-// __UsageEventsInput is used internally by genqlient
-type __UsageEventsInput struct {
+// __UsageEventsPageInput is used internally by genqlient
+type __UsageEventsPageInput struct {
 	MemoryId  *string `json:"memoryId,omitempty"`
 	Loc       *string `json:"loc,omitempty"`
 	NodeId    *string `json:"nodeId,omitempty"`
@@ -79985,29 +80340,29 @@ type __UsageEventsInput struct {
 	Until     *string `json:"until,omitempty"`
 }
 
-// GetMemoryId returns __UsageEventsInput.MemoryId, and is useful for accessing the field via an interface.
-func (v *__UsageEventsInput) GetMemoryId() *string { return v.MemoryId }
+// GetMemoryId returns __UsageEventsPageInput.MemoryId, and is useful for accessing the field via an interface.
+func (v *__UsageEventsPageInput) GetMemoryId() *string { return v.MemoryId }
 
-// GetLoc returns __UsageEventsInput.Loc, and is useful for accessing the field via an interface.
-func (v *__UsageEventsInput) GetLoc() *string { return v.Loc }
+// GetLoc returns __UsageEventsPageInput.Loc, and is useful for accessing the field via an interface.
+func (v *__UsageEventsPageInput) GetLoc() *string { return v.Loc }
 
-// GetNodeId returns __UsageEventsInput.NodeId, and is useful for accessing the field via an interface.
-func (v *__UsageEventsInput) GetNodeId() *string { return v.NodeId }
+// GetNodeId returns __UsageEventsPageInput.NodeId, and is useful for accessing the field via an interface.
+func (v *__UsageEventsPageInput) GetNodeId() *string { return v.NodeId }
 
-// GetEventType returns __UsageEventsInput.EventType, and is useful for accessing the field via an interface.
-func (v *__UsageEventsInput) GetEventType() *string { return v.EventType }
+// GetEventType returns __UsageEventsPageInput.EventType, and is useful for accessing the field via an interface.
+func (v *__UsageEventsPageInput) GetEventType() *string { return v.EventType }
 
-// GetLimit returns __UsageEventsInput.Limit, and is useful for accessing the field via an interface.
-func (v *__UsageEventsInput) GetLimit() int { return v.Limit }
+// GetLimit returns __UsageEventsPageInput.Limit, and is useful for accessing the field via an interface.
+func (v *__UsageEventsPageInput) GetLimit() int { return v.Limit }
 
-// GetOffset returns __UsageEventsInput.Offset, and is useful for accessing the field via an interface.
-func (v *__UsageEventsInput) GetOffset() *int { return v.Offset }
+// GetOffset returns __UsageEventsPageInput.Offset, and is useful for accessing the field via an interface.
+func (v *__UsageEventsPageInput) GetOffset() *int { return v.Offset }
 
-// GetSince returns __UsageEventsInput.Since, and is useful for accessing the field via an interface.
-func (v *__UsageEventsInput) GetSince() *string { return v.Since }
+// GetSince returns __UsageEventsPageInput.Since, and is useful for accessing the field via an interface.
+func (v *__UsageEventsPageInput) GetSince() *string { return v.Since }
 
-// GetUntil returns __UsageEventsInput.Until, and is useful for accessing the field via an interface.
-func (v *__UsageEventsInput) GetUntil() *string { return v.Until }
+// GetUntil returns __UsageEventsPageInput.Until, and is useful for accessing the field via an interface.
+func (v *__UsageEventsPageInput) GetUntil() *string { return v.Until }
 
 // __ValidateMemoryInput is used internally by genqlient
 type __ValidateMemoryInput struct {
@@ -93789,6 +94144,80 @@ func ListTickers(
 	return data_, err_
 }
 
+// The query executed by ListTickersPage.
+const ListTickersPage_Operation = `
+query ListTickersPage ($appRef: String!, $limit: Int, $offset: Int) {
+	tickersPage(appRef: $appRef, limit: $limit, offset: $offset) {
+		total
+		hasMore
+		items {
+			... TickerFields
+		}
+	}
+}
+fragment TickerFields on Ticker {
+	id
+	urn
+	name
+	slug
+	app {
+		id
+	}
+	cadenceSeconds
+	anchorAt
+	quietHours
+	channels {
+		id
+		name
+	}
+	relevance
+	reasons
+	enabled
+	owner {
+		id
+		name
+		urn
+	}
+	nextTickAt
+	lastTickAt
+	createdAt
+	updatedAt
+	tickCode
+	registerTaskLoc
+}
+`
+
+// cli#1339: tickersPage is the same App gate, rows and order as tickers, with the
+// real total. limit 0 is a count only; a limit over 200 is served as 200.
+func ListTickersPage(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	limit *int,
+	offset *int,
+) (data_ *ListTickersPageResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ListTickersPage",
+		Query:  ListTickersPage_Operation,
+		Variables: &__ListTickersPageInput{
+			AppRef: appRef,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &ListTickersPageResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by MarkOwnTeamChatRead.
 const MarkOwnTeamChatRead_Operation = `
 mutation MarkOwnTeamChatRead ($appRef: ID!, $sessionRef: ID!, $channelRef: ID!, $seq: Int!) {
@@ -95861,11 +96290,15 @@ func NodeRevisionStamped(
 	return data_, err_
 }
 
-// The query executed by NodeRevisions.
-const NodeRevisions_Operation = `
-query NodeRevisions ($nodeRef: ID!, $limit: Int) {
-	nodeRevisions(nodeRef: $nodeRef, limit: $limit) {
-		... RevisionFields
+// The query executed by NodeRevisionsPage.
+const NodeRevisionsPage_Operation = `
+query NodeRevisionsPage ($nodeRef: ID!, $limit: Int, $offset: Int) {
+	nodeRevisionsPage(nodeRef: $nodeRef, limit: $limit, offset: $offset) {
+		total
+		hasMore
+		items {
+			... RevisionFields
+		}
 	}
 }
 fragment RevisionFields on NodeRevision {
@@ -95887,23 +96320,25 @@ fragment RevisionFields on NodeRevision {
 }
 `
 
-// History for a node, most-recent-first. Per-snapshot memory-gated server-side.
-func NodeRevisions(
+// The same page without the stamps, for a server that predates them.
+func NodeRevisionsPage(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	nodeRef string,
 	limit *int,
-) (data_ *NodeRevisionsResponse, err_ error) {
+	offset *int,
+) (data_ *NodeRevisionsPageResponse, err_ error) {
 	req_ := &graphql.Request{
-		OpName: "NodeRevisions",
-		Query:  NodeRevisions_Operation,
-		Variables: &__NodeRevisionsInput{
+		OpName: "NodeRevisionsPage",
+		Query:  NodeRevisionsPage_Operation,
+		Variables: &__NodeRevisionsPageInput{
 			NodeRef: nodeRef,
 			Limit:   limit,
+			Offset:  offset,
 		},
 	}
 
-	data_ = &NodeRevisionsResponse{}
+	data_ = &NodeRevisionsPageResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -95915,16 +96350,20 @@ func NodeRevisions(
 	return data_, err_
 }
 
-// The query executed by NodeRevisionsStamped.
-const NodeRevisionsStamped_Operation = `
-query NodeRevisionsStamped ($nodeRef: ID!, $limit: Int) {
-	nodeRevisions(nodeRef: $nodeRef, limit: $limit) {
-		... RevisionFields
-		authorship {
-			... NodeAuthorshipFields
-		}
-		contentValidation {
-			... NodeContentValidationFields
+// The query executed by NodeRevisionsStampedPage.
+const NodeRevisionsStampedPage_Operation = `
+query NodeRevisionsStampedPage ($nodeRef: ID!, $limit: Int, $offset: Int) {
+	nodeRevisionsPage(nodeRef: $nodeRef, limit: $limit, offset: $offset) {
+		total
+		hasMore
+		items {
+			... RevisionFields
+			authorship {
+				... NodeAuthorshipFields
+			}
+			contentValidation {
+				... NodeContentValidationFields
+			}
 		}
 	}
 }
@@ -95967,27 +96406,31 @@ fragment NodeContentValidationFields on NodeContentValidationStatus {
 }
 `
 
-// cli#752 (hadron-server#1326): the same reads with each snapshot's own stamps
-// — the authorship of the content it captured, and the validation AT that
-// revision. Historical evidence, shown as the server snapshotted it, never
-// reconstructed from the live node or task. Separate operations so a server
-// predating the stamps falls back to the two above and loses only the stamps.
-func NodeRevisionsStamped(
+// cli#1339: nodeRevisionsPage is the same gate with the real total and an offset
+// (the snapshot-memory gate runs before counting). limit 0 is a count only.
+// cli#752 (hadron-server#1326): each snapshot carries its own stamps — the
+// authorship of the content it captured, and the validation AT that revision;
+// historical evidence, never reconstructed. A separate operation so a server
+// predating the stamps falls back to NodeRevisionsPage and loses only the stamps.
+// History for a node, most-recent-first; per-snapshot memory-gated server-side.
+func NodeRevisionsStampedPage(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	nodeRef string,
 	limit *int,
-) (data_ *NodeRevisionsStampedResponse, err_ error) {
+	offset *int,
+) (data_ *NodeRevisionsStampedPageResponse, err_ error) {
 	req_ := &graphql.Request{
-		OpName: "NodeRevisionsStamped",
-		Query:  NodeRevisionsStamped_Operation,
-		Variables: &__NodeRevisionsStampedInput{
+		OpName: "NodeRevisionsStampedPage",
+		Query:  NodeRevisionsStampedPage_Operation,
+		Variables: &__NodeRevisionsStampedPageInput{
 			NodeRef: nodeRef,
 			Limit:   limit,
+			Offset:  offset,
 		},
 	}
 
-	data_ = &NodeRevisionsStampedResponse{}
+	data_ = &NodeRevisionsStampedPageResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -102163,11 +102606,15 @@ func TeamRoster(
 	return data_, err_
 }
 
-// The query executed by TeamSessions.
-const TeamSessions_Operation = `
-query TeamSessions ($repo: String, $workerRef: String, $limit: Int, $offset: Int) {
-	sessions(repo: $repo, workerRef: $workerRef, limit: $limit, offset: $offset) {
-		... TeamSessionFields
+// The query executed by TeamSessionsPage.
+const TeamSessionsPage_Operation = `
+query TeamSessionsPage ($repo: String, $workerRef: String, $limit: Int, $offset: Int) {
+	sessionsPage(repo: $repo, workerRef: $workerRef, limit: $limit, offset: $offset) {
+		total
+		hasMore
+		items {
+			... TeamSessionFields
+		}
 	}
 }
 fragment TeamSessionFields on Session {
@@ -102205,22 +102652,23 @@ fragment WorkerReportingRefFields on Worker {
 }
 `
 
+// cli#1339: sessionsPage is the same scope and filters as sessions, newest first,
+// with the real total. limit 0 is a count only; a limit over 200 is served as 200.
 // workerRef (#974) is the server-side narrowing the taken/last-driven-by check
-// reads: only sessions bound to that Worker (by id), newest first — so the
-// presence check no longer scans the whole list. The plain listing still pages
-// to exhaustion for --active (no active filter server-side).
-func TeamSessions(
+// reads: only sessions bound to that Worker (by id), newest first. The plain
+// listing still pages to exhaustion for --active (no active filter server-side).
+func TeamSessionsPage(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	repo *string,
 	workerRef *string,
 	limit *int,
 	offset *int,
-) (data_ *TeamSessionsResponse, err_ error) {
+) (data_ *TeamSessionsPageResponse, err_ error) {
 	req_ := &graphql.Request{
-		OpName: "TeamSessions",
-		Query:  TeamSessions_Operation,
-		Variables: &__TeamSessionsInput{
+		OpName: "TeamSessionsPage",
+		Query:  TeamSessionsPage_Operation,
+		Variables: &__TeamSessionsPageInput{
 			Repo:      repo,
 			WorkerRef: workerRef,
 			Limit:     limit,
@@ -102228,7 +102676,7 @@ func TeamSessions(
 		},
 	}
 
-	data_ = &TeamSessionsResponse{}
+	data_ = &TeamSessionsPageResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -105630,27 +106078,32 @@ func UsageActivity(
 	return data_, err_
 }
 
-// The query executed by UsageEvents.
-const UsageEvents_Operation = `
-query UsageEvents ($memoryId: ID, $loc: String, $nodeId: ID, $eventType: String, $limit: Int!, $offset: Int, $since: DateTime, $until: DateTime) {
-	usageEvents(memoryId: $memoryId, loc: $loc, nodeId: $nodeId, type: $eventType, limit: $limit, offset: $offset, since: $since, until: $until) {
-		id
-		type
-		createdAt
-		memoryId
-		nodeLoc
-		provider
-		model
-		keyOwnerType
-		tokensIn
-		tokensOut
-		costMicroCents
+// The query executed by UsageEventsPage.
+const UsageEventsPage_Operation = `
+query UsageEventsPage ($memoryId: ID, $loc: String, $nodeId: ID, $eventType: String, $limit: Int!, $offset: Int, $since: DateTime, $until: DateTime) {
+	usageEventsPage(memoryId: $memoryId, loc: $loc, nodeId: $nodeId, type: $eventType, limit: $limit, offset: $offset, since: $since, until: $until) {
+		total
+		hasMore
+		items {
+			id
+			type
+			createdAt
+			memoryId
+			nodeLoc
+			provider
+			model
+			keyOwnerType
+			tokensIn
+			tokensOut
+			costMicroCents
+		}
 	}
 }
 `
 
-// cli#65 read-only observability. No accounting mutation or deprecated nodeUsage.
-func UsageEvents(
+// cli#1339: usageEventsPage is the same READER gate and filters with the windowed
+// total (since inclusive, until exclusive).
+func UsageEventsPage(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	memoryId *string,
@@ -105661,11 +106114,11 @@ func UsageEvents(
 	offset *int,
 	since *string,
 	until *string,
-) (data_ *UsageEventsResponse, err_ error) {
+) (data_ *UsageEventsPageResponse, err_ error) {
 	req_ := &graphql.Request{
-		OpName: "UsageEvents",
-		Query:  UsageEvents_Operation,
-		Variables: &__UsageEventsInput{
+		OpName: "UsageEventsPage",
+		Query:  UsageEventsPage_Operation,
+		Variables: &__UsageEventsPageInput{
 			MemoryId:  memoryId,
 			Loc:       loc,
 			NodeId:    nodeId,
@@ -105677,7 +106130,7 @@ func UsageEvents(
 		},
 	}
 
-	data_ = &UsageEventsResponse{}
+	data_ = &UsageEventsPageResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

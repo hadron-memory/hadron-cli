@@ -1506,7 +1506,7 @@ func TestSessionStartDoesNotReportAStaleHold(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"Workers":          `{"data":{"workers":{"total":1,"items":[` + heldBy("u-dara") + `]}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
-		"TeamSessions":     `{"data":{"sessions":[]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1549,7 +1549,7 @@ func TestSessionStartRollbackSaysTheHoldRemains(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"Workers":          `{"data":{"workers":{"total":1,"items":[` + irisWorkerJSON + `]}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
-		"TeamSessions":     `{"data":{"sessions":[]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 		"EndTeamSession":   `{"data":{"endSession":` + startedSessionJSON + `}}`,
 	})
 	f, _ := testFactory(t)

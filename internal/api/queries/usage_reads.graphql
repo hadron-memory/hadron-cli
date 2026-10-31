@@ -1,5 +1,6 @@
-# cli#65 read-only observability. No accounting mutation or deprecated nodeUsage.
-query UsageEvents(
+# cli#1339: usageEventsPage is the same READER gate and filters with the windowed
+# total (since inclusive, until exclusive).
+query UsageEventsPage(
   # @genqlient(omitempty: true)
   $memoryId: ID
   # @genqlient(omitempty: true)
@@ -16,9 +17,13 @@ query UsageEvents(
   # @genqlient(omitempty: true)
   $until: DateTime
 ) {
-  usageEvents(memoryId: $memoryId, loc: $loc, nodeId: $nodeId, type: $eventType, limit: $limit, offset: $offset, since: $since, until: $until) {
-    id type createdAt memoryId nodeLoc provider model keyOwnerType
-    tokensIn tokensOut costMicroCents
+  usageEventsPage(memoryId: $memoryId, loc: $loc, nodeId: $nodeId, type: $eventType, limit: $limit, offset: $offset, since: $since, until: $until) {
+    total
+    hasMore
+    items {
+      id type createdAt memoryId nodeLoc provider model keyOwnerType
+      tokensIn tokensOut costMicroCents
+    }
   }
 }
 query MemoryUsageSummary($memoryRef: ID!) {

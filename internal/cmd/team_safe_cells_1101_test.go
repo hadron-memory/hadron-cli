@@ -50,7 +50,7 @@ func TestTeamSafeCells1101(t *testing.T) {
 	base["AppAgentRoster"] = engTeamRosterJSON
 	base["WorkersRoster"] = staffJSON
 	base["AuthContext"] = whoamiAuthJSON
-	base["TeamSessions"] = `{"data":{"sessions":[` + activeSessionJSON + `]}}`
+	base["TeamSessionsPage"] = `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`
 	base["TeamWorkItems"] = provenanceWorklog
 	base["GetTeamSession"] = `{"data":{"session":` + activeSessionJSON + `}}`
 	base["TeamMemoryApp"] = `{"data":{"memory":{"id":"m1","appId":"capp100000000000000000000"}}}`
@@ -60,7 +60,7 @@ func TestTeamSafeCells1101(t *testing.T) {
 		unbound[op] = body
 	}
 	unbound["AuthContext"] = strings.ReplaceAll(whoamiAuthJSON, "u-me", "u-holger")
-	unbound["TeamSessions"] = `{"data":{"sessions":[` + activeSessionJSON + `,` + strings.ReplaceAll(activeSessionJSON, "s-old", "s-another") + `]}}`
+	unbound["TeamSessionsPage"] = `{"data":{"sessionsPage":{"total":2,"hasMore":false,"items":[` + activeSessionJSON + `,` + strings.ReplaceAll(activeSessionJSON, "s-old", "s-another") + `]}}}`
 	stamp := func(t *testing.T, fixture, anchor, addition string) string {
 		t.Helper()
 		out := strings.Replace(fixture, anchor, anchor+","+addition, 1)
@@ -145,7 +145,7 @@ func TestTeamSafeCells1101(t *testing.T) {
 		if session == activeSessionJSON {
 			t.Fatalf("whoami reports-to stamp did not take: fixture would prove nothing")
 		}
-		r["TeamSessions"] = `{"data":{"sessions":[` + session + `,` + strings.ReplaceAll(session, "s-old", "s-another") + `]}}`
+		r["TeamSessionsPage"] = `{"data":{"sessionsPage":{"total":2,"hasMore":false,"items":[` + session + `,` + strings.ReplaceAll(session, "s-old", "s-another") + `]}}}`
 		return r
 	}
 	// provenance's model/transcript cells: null on main's fixture.
@@ -219,7 +219,7 @@ func TestTeamSafeCells1101(t *testing.T) {
 		for op, body := range base {
 			r[op] = body
 		}
-		r["TeamSessions"] = `{"data":{"sessions":[` + activeSessionJSON + `,` + endedSessionJSON + `]}}`
+		r["TeamSessionsPage"] = `{"data":{"sessionsPage":{"total":2,"hasMore":false,"items":[` + activeSessionJSON + `,` + endedSessionJSON + `]}}}`
 		return r
 	}
 	// the composition headcount family line: every family in the fixture also
@@ -239,14 +239,14 @@ func TestTeamSafeCells1101(t *testing.T) {
 		return func(*testing.T) map[string]string { return m }
 	}
 	cases := []commandCase{
-		{"session-whoami-multiple", []string{"session", "whoami"}, fixed(unbound), "TeamSessions", []cellAttack{
+		{"session-whoami-multiple", []string{"session", "whoami"}, fixed(unbound), "TeamSessionsPage", []cellAttack{
 			{"worker", "Iris"},
 			{"role", "backend-engineer"},
 			{"repo", "hadron-memory/hadron-cli"},
 			{"started-at", "2026-08-11T09:00:00Z"},
 			{"id", "s-old"},
 		}},
-		{"session-whoami-reports-to", []string{"session", "whoami"}, whoamiStamped, "TeamSessions", []cellAttack{
+		{"session-whoami-reports-to", []string{"session", "whoami"}, whoamiStamped, "TeamSessionsPage", []cellAttack{
 			{"reports-to", "Rufus Leadmark"},
 		}},
 		{"attention", []string{"attention"}, fixed(base), "TeamAttentionPage", []cellAttack{
@@ -376,7 +376,7 @@ func TestTeamSafeCells1101(t *testing.T) {
 		{"session-worklog-model", []string{"session", "list", "--pr", "hadron-memory/hadron-cli#371", "-m", "hrn:mem:acme.com:eng-team"}, worklogStamped, "TeamWorkItems", []cellAttack{
 			{"model", "glm-5.3"},
 		}},
-		{"session-list", []string{"session", "list"}, fixed(base), "TeamSessions", []cellAttack{
+		{"session-list", []string{"session", "list"}, fixed(base), "TeamSessionsPage", []cellAttack{
 			{"worker", "Iris"},
 			{"role", "backend-engineer"},
 			{"user", "hrn:user:holger"},
@@ -406,7 +406,7 @@ func TestTeamSafeCells1101(t *testing.T) {
 		{"task-mine", []string{"task", "mine"}, fixed(base), "AgentTaskList", []cellAttack{
 			{"title", "Fix the flaky CI build"},
 		}},
-		{"session-list-ended", []string{"session", "list"}, sessionListEnded, "TeamSessions", []cellAttack{
+		{"session-list-ended", []string{"session", "list"}, sessionListEnded, "TeamSessionsPage", []cellAttack{
 			{"ended-at", "2026-08-10T18:00:00Z"},
 		}},
 		{"stop-list-ended", []string{"stop", "list"}, stopListEnded, "TeamStopSignals", []cellAttack{

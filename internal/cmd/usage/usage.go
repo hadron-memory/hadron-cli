@@ -49,11 +49,11 @@ func newEvents(f *cmdutil.Factory) *cobra.Command {
 memory and node it was for, the provider and model, tokens in and out, and what
 it cost. You only see events in memories you can read.
 
-You get ONE page: 20 events by default, or --limit (1 to 200). To go further
+You get ONE page: 20 events by default, or --limit (0 to 200; 0 sends the request and returns no rows, only the total on
+stderr). To go further
 back, run the command again with --offset set to the number of events already
-seen (after a full page, stderr says "more may exist; request another page with
---offset N").
-There is no total and no cost sum.
+seen: stderr says "showing a-b of N" with the real total (for the same filters
+and window) and, when more exist, "more: --offset N". There is no cost sum.
 
 --since and --until bound the window by creation time: --since is INCLUSIVE and
 --until is EXCLUSIVE, so you get events with since <= CREATED < until. Either
@@ -89,8 +89,8 @@ Details:
   hadron usage events --type <event-type> --offset 20 --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if limit < 1 || limit > 200 {
-				return exitcode.Newf(exitcode.Usage, "--limit must be between 1 and 200")
+			if limit < 0 || limit > 200 {
+				return exitcode.Newf(exitcode.Usage, "--limit must be between 0 and 200")
 			}
 			if offset < 0 {
 				return exitcode.Newf(exitcode.Usage, "--offset must be non-negative")
@@ -141,20 +141,27 @@ Details:
 			if err != nil {
 				return err
 			}
-			resp, err := gen.UsageEvents(cmd.Context(), client, mem, locArg, nodeArg, typeArg, limit, off, sinceArg, untilArg)
+			resp, err := gen.UsageEventsPage(cmd.Context(), client, mem, locArg, nodeArg, typeArg, limit, off, sinceArg, untilArg)
 			if err != nil {
 				return api.MapError(err)
 			}
 			rows := []eventDTO{}
-			for _, e := range resp.UsageEvents {
+			for _, e := range resp.UsageEventsPage.Items {
 				if e == nil {
 					return exitcode.Newf(exitcode.Error, "the server returned an invalid usage-event row")
 				}
 				rows = append(rows, eventDTO{ID: e.Id, Type: e.Type, CreatedAt: e.CreatedAt, MemoryID: e.MemoryId, NodeLoc: e.NodeLoc, Provider: e.Provider, Model: e.Model, KeyOwnerType: e.KeyOwnerType, TokensIn: e.TokensIn, TokensOut: e.TokensOut, CostMicroCents: e.CostMicroCents})
 			}
-			fmt.Fprintf(f.IOStreams.ErrOut, "page at offset %d (limit %d); no total available\n", offset, limit)
-			if len(rows) == limit {
-				fmt.Fprintln(f.IOStreams.ErrOut, "more may exist; request another page with --offset", offset+len(rows))
+			// The twin's real total, windowed like the rows (cli#1339). stdout and
+			// --json stay the bare array; the position and the next page are on stderr.
+			page := resp.UsageEventsPage
+			if len(rows) == 0 {
+				fmt.Fprintf(f.IOStreams.ErrOut, "no events at offset %d (total %d)\n", offset, page.Total)
+			} else {
+				fmt.Fprintf(f.IOStreams.ErrOut, "showing %d-%d of %d\n", offset+1, offset+len(rows), page.Total)
+			}
+			if page.HasMore {
+				fmt.Fprintln(f.IOStreams.ErrOut, "more: --offset", offset+len(rows))
 			}
 			return output.Write(f.IOStreams, f.JSON, rows, func(w io.Writer) error {
 				t := output.NewTable(w, "CREATED", "TYPE", "MEMORY ID", "LOC", "PROVIDER", "MODEL", "TOKENS IN", "TOKENS OUT", "COST (micro-cents)")
@@ -175,7 +182,7 @@ Details:
 	cmd.Flags().StringVar(&eventType, "type", "", "exact event type to filter")
 	cmd.Flags().StringVar(&since, "since", "", "ISO date-time with Z or an offset; events at or after it (inclusive)")
 	cmd.Flags().StringVar(&until, "until", "", "ISO date-time with Z or an offset; events before it (exclusive)")
-	cmd.Flags().IntVar(&limit, "limit", 20, "page size (1-200)")
+	cmd.Flags().IntVar(&limit, "limit", 20, "page size (0-200; 0 counts only)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "rows to skip (nonnegative)")
 	return cmd
 }
