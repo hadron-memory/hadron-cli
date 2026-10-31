@@ -55,11 +55,65 @@ type hitDTO struct {
 // droppedCount says how much of the lens was invisible. An agent that cannot
 // see which scope ran cannot interpret the count.
 type resultDTO struct {
-	Hits     []hitDTO  `json:"hits"`
-	Total    *int      `json:"total"`
-	Degraded *string   `json:"degraded,omitempty"`
-	Reason   *string   `json:"reason,omitempty"`
-	Scope    *scopeDTO `json:"scope,omitempty"`
+	Hits []hitDTO `json:"hits"`
+	// Passages are the chunk results of --granularity chunk (cli#1341). The
+	// key is present only on such a search, so every other search's envelope
+	// is unchanged.
+	Passages []passageDTO `json:"passages,omitempty"`
+	Total    *int         `json:"total"`
+	Degraded *string      `json:"degraded,omitempty"`
+	Reason   *string      `json:"reason,omitempty"`
+	Scope    *scopeDTO    `json:"scope,omitempty"`
+}
+
+// passageDTO is one chunk result: where in which node the match sits.
+type passageDTO struct {
+	ParentNodeID  string `json:"parentNodeId"`
+	ParentNodeURN string `json:"parentNodeUrn"`
+	ChunkIndex    int    `json:"chunkIndex"`
+	CharStart     int    `json:"charStart"`
+	CharEnd       int    `json:"charEnd"`
+}
+
+// searchFields are the NodeField values --field takes.
+var searchFields = map[string]gen.NodeField{}
+
+func init() {
+	for _, v := range gen.AllNodeField {
+		searchFields[strings.ToLower(string(v))] = v
+	}
+}
+
+// rankingArgs turns the ranking flags into findNodes' arguments, each only
+// when passed (cli#1341). An explicit value outside the server's enums is
+// refused here rather than sent.
+func rankingArgs(cmd *cobra.Command, expand int, fields []string, granularity string, minScore float64) (api.SearchRanking, error) {
+	var r api.SearchRanking
+	changed := cmd.Flags().Changed
+	if changed("expand") {
+		if expand < 0 || expand > 3 {
+			return r, exitcode.Newf(exitcode.Usage, "--expand must be 0 to 3 (graph hops). Nothing was sent")
+		}
+		r.Expand = &expand
+	}
+	for _, name := range fields {
+		v, ok := searchFields[strings.ToLower(strings.TrimSpace(name))]
+		if !ok {
+			return r, exitcode.Newf(exitcode.Usage, "invalid --field %q (want one of abstract, alias, content, data, description, loc, name, properties, tags). Nothing was sent", name)
+		}
+		r.Fields = append(r.Fields, v)
+	}
+	if changed("granularity") {
+		g := gen.SearchGranularity(strings.ToLower(strings.TrimSpace(granularity)))
+		if g != gen.SearchGranularityNode && g != gen.SearchGranularityChunk {
+			return r, exitcode.Newf(exitcode.Usage, "invalid --granularity %q (want node or chunk). Nothing was sent", granularity)
+		}
+		r.Granularity = &g
+	}
+	if changed("min-score") {
+		r.MinScore = &minScore
+	}
+	return r, nil
 }
 
 // scopeDTO reports the scope a search RAN UNDER, exactly as the server
@@ -101,6 +155,11 @@ func NewCmdSearch(f *cmdutil.Factory) *cobra.Command {
 		withProperties bool
 		withData       bool
 		commentsOnly   bool
+
+		expand      int
+		fields      []string
+		granularity string
+		minScore    float64
 	)
 	cmd := &cobra.Command{
 		Use:   "search <query>",
@@ -149,6 +208,14 @@ a --where search is empty, check which of the two the note keeps the value in.
 --sort-property orders by one instead of by score.
 --object-type keeps only records of one collection (for example competitor).
 
+Ranking: --field (repeatable) weights the match toward those fields in
+keyword and regex modes; --min-score drops hits scoring below a floor (the
+scale differs per mode: keyword roughly 0 to a few, vector 0 to 1, hybrid a
+small fraction); --expand N (0-3) appends the hits' graph neighbours, unscored,
+after the hits; --granularity chunk (vector mode) returns the matching
+passages of each node: its id and URN, the chunk number and the character
+range.
+
 --comments-only searches feedback comments instead of notes. Comment hits are
 feedback, not verified facts about the notes they are on.
 
@@ -182,6 +249,10 @@ that App.`,
 			}
 			if offset < 0 {
 				return exitcode.Newf(exitcode.Usage, "offset must be non-negative")
+			}
+			ranking, err := rankingArgs(cmd, expand, fields, granularity, minScore)
+			if err != nil {
+				return err
 			}
 			whereArg, err := cmdutil.ParseNodeWhere(where)
 			if err != nil {
@@ -283,7 +354,7 @@ that App.`,
 				}
 			}
 
-			page, err := api.SearchNodesProjected(cmd.Context(), client, query, modeArg, filterArg, sortPropArg, limitArg, offsetArg, scopeArg, orgArg, appArg, withProperties, withData)
+			page, err := api.SearchNodesProjected(cmd.Context(), client, query, modeArg, filterArg, sortPropArg, limitArg, offsetArg, scopeArg, orgArg, appArg, withProperties, withData, ranking)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -354,6 +425,16 @@ that App.`,
 				}
 				result.Hits = append(result.Hits, hit)
 			}
+			chunks := ranking.Granularity != nil && *ranking.Granularity == gen.SearchGranularityChunk
+			if chunks {
+				result.Passages = []passageDTO{}
+				for _, p := range page.Passages {
+					result.Passages = append(result.Passages, passageDTO{
+						ParentNodeID: p.ParentNodeId, ParentNodeURN: p.ParentNodeUrn,
+						ChunkIndex: p.ChunkIndex, CharStart: p.CharStart, CharEnd: p.CharEnd,
+					})
+				}
+			}
 
 			return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error {
 				if commentsOnly {
@@ -380,7 +461,21 @@ that App.`,
 				for _, h := range result.Hits {
 					t.Row(formatScore(h.Score), output.SafeCell(h.Loc), output.SafeCell(h.Name))
 				}
-				return t.Flush()
+				if err := t.Flush(); err != nil {
+					return err
+				}
+				if !chunks {
+					return nil
+				}
+				if len(result.Passages) == 0 {
+					_, err := fmt.Fprintln(w, "no passages")
+					return err
+				}
+				pt := output.NewTable(w, "NODE", "CHUNK", "CHARS")
+				for _, p := range result.Passages {
+					pt.Row(output.SafeCell(p.ParentNodeURN), fmt.Sprint(p.ChunkIndex), fmt.Sprintf("%d-%d", p.CharStart, p.CharEnd))
+				}
+				return pt.Flush()
 			})
 		},
 	}
@@ -402,6 +497,10 @@ that App.`,
 	cmd.Flags().BoolVar(&withProperties, "with-properties", false, "include each hit's properties JSONB in the output")
 	cmd.Flags().BoolVar(&commentsOnly, "comments-only", false, "search feedback comments instead of content nodes (all ranking modes)")
 	cmd.Flags().BoolVar(&withData, "with-data", false, "include each hit's data JSONB in the output")
+	cmd.Flags().IntVar(&expand, "expand", 0, "append the hits' graph neighbours up to N hops (0-3), unscored")
+	cmd.Flags().StringArrayVar(&fields, "field", nil, "weight keyword/regex matching toward this field (repeatable): abstract, alias, content, data, description, loc, name, properties, tags")
+	cmd.Flags().StringVar(&granularity, "granularity", "", "node (default) or chunk: matching passages, vector mode only")
+	cmd.Flags().Float64Var(&minScore, "min-score", 0, "drop hits scoring below this (the scale differs per mode)")
 	return cmd
 }
 

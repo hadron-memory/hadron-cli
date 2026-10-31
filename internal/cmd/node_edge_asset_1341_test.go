@@ -258,7 +258,7 @@ func TestCommentDeleteThread1341(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v\n%s", err, out)
 	}
-	if v := vars1341(t, captured, "DeleteCommentThread"); v["commentRef"] != "hrn:node:acme.com:kb:comments:c1" || v["reason"] != "spam" {
+	if v := vars1341(t, captured, "DeleteCommentThread"); v["ref"] != "hrn:node:acme.com:kb:comments:c1" || v["reason"] != "spam" {
 		t.Errorf("vars = %v", v)
 	}
 	var dto map[string]any

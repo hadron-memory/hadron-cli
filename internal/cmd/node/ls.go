@@ -5,13 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"slices"
 	"sort"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -84,6 +88,7 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 		seqGt          int
 		withProperties bool
 		withData       bool
+		lf             nodeListFilters
 	)
 	cmd := &cobra.Command{
 		Use:     "list",
@@ -119,6 +124,13 @@ must say so or it usually finds nothing. --sort-property orders by one field,
 with the same "field" rule. --with-properties / --with-data add those fields
 to each row (the table becomes one block per node).
 
+More filters: --created-by <user id> keeps one author's nodes; --role keeps a
+role family (spec matches spec and spec.*, never special); --updated-after and
+--updated-before take RFC 3339 times (2026-10-01T00:00:00Z); --include-deleted
+adds soft-deleted nodes; --memory-class (repeatable: app, group, knowledge,
+personal, private, system) keeps those classes of memory. System memories are
+left out unless you name one with -m or pass --memory-class system.
+
 Details:
 
 ` + installDetails("") + ``,
@@ -140,6 +152,9 @@ Details:
 			}
 			sortPropArg, err := cmdutil.ParseNodePropertySort(sortProp)
 			if err != nil {
+				return err
+			}
+			if err := lf.validate(cmd); err != nil {
 				return err
 			}
 			client, err := f.GraphQLClient()
@@ -189,6 +204,9 @@ Details:
 			}
 			if whereArg != nil {
 				filter.Where = whereArg
+				filterSet = true
+			}
+			if lf.apply(&filter) {
 				filterSet = true
 			}
 			// Pass nil (not an empty &{}) when nothing is constrained, so a bare
@@ -419,6 +437,7 @@ Details:
 	cmd.Flags().IntVar(&seqGt, "seq-gt", 0, "filter to nodes with seq > N")
 	cmd.Flags().BoolVar(&withProperties, "with-properties", false, "include each node's properties JSONB in the output")
 	cmd.Flags().BoolVar(&withData, "with-data", false, "include each node's data JSONB in the output")
+	lf.register(cmd)
 	return cmd
 }
 
@@ -471,4 +490,79 @@ func compactJSON(raw json.RawMessage) string {
 		return string(raw)
 	}
 	return buf.String()
+}
+
+// nodeListFilters are the findNodes filter fields node list used to drop
+// (cli#1341). Each is sent only when its flag was passed; an explicit empty
+// value is refused, not read as "no filter".
+type nodeListFilters struct {
+	createdBy, role             string
+	updatedAfter, updatedBefore string
+	includeDeleted              bool
+	memoryClasses               []string
+	classes                     []gen.MemoryClass
+	set                         map[string]bool
+}
+
+func (l *nodeListFilters) register(cmd *cobra.Command) {
+	cmd.Flags().StringVar(&l.createdBy, "created-by", "", "only nodes created by this user id")
+	cmd.Flags().StringVar(&l.role, "role", "", "only nodes of this role family (spec matches spec and spec.*)")
+	cmd.Flags().StringVar(&l.updatedAfter, "updated-after", "", "only nodes updated after this RFC 3339 time")
+	cmd.Flags().StringVar(&l.updatedBefore, "updated-before", "", "only nodes updated before this RFC 3339 time")
+	cmd.Flags().BoolVar(&l.includeDeleted, "include-deleted", false, "include soft-deleted nodes")
+	cmd.Flags().StringArrayVar(&l.memoryClasses, "memory-class", nil, "only nodes in memories of this class (repeatable; naming system includes system memories)")
+}
+
+func (l *nodeListFilters) validate(cmd *cobra.Command) error {
+	l.set = map[string]bool{}
+	for _, name := range []string{"created-by", "role", "updated-after", "updated-before", "include-deleted", "memory-class"} {
+		l.set[name] = cmd.Flags().Changed(name)
+	}
+	for name, v := range map[string]string{"created-by": l.createdBy, "role": l.role, "updated-after": l.updatedAfter, "updated-before": l.updatedBefore} {
+		if l.set[name] && strings.TrimSpace(v) == "" {
+			return exitcode.Newf(exitcode.Usage, "--%s is empty: give a value, or drop the flag. Nothing was sent", name)
+		}
+	}
+	for name, v := range map[string]string{"updated-after": l.updatedAfter, "updated-before": l.updatedBefore} {
+		if l.set[name] {
+			if _, err := time.Parse(time.RFC3339, strings.TrimSpace(v)); err != nil {
+				return exitcode.Newf(exitcode.Usage, "--%s %q is not an RFC 3339 time (e.g. 2026-10-01T00:00:00Z). Nothing was sent", name, v)
+			}
+		}
+	}
+	l.classes = nil
+	for _, c := range l.memoryClasses {
+		mc := gen.MemoryClass(strings.ToLower(strings.TrimSpace(c)))
+		if !slices.Contains(gen.AllMemoryClass, mc) {
+			return exitcode.Newf(exitcode.Usage, "invalid --memory-class %q (want app, group, knowledge, personal, private or system). Nothing was sent", c)
+		}
+		l.classes = append(l.classes, mc)
+	}
+	return nil
+}
+
+// apply writes the passed filters into f and reports whether it set any.
+func (l *nodeListFilters) apply(f *gen.NodeFilter) bool {
+	setAny := false
+	str := func(name, v string, dst **string) {
+		if l.set[name] {
+			x := strings.TrimSpace(v)
+			*dst = &x
+			setAny = true
+		}
+	}
+	str("created-by", l.createdBy, &f.CreatedBy)
+	str("role", l.role, &f.Role)
+	str("updated-after", l.updatedAfter, &f.UpdatedAfter)
+	str("updated-before", l.updatedBefore, &f.UpdatedBefore)
+	if l.set["include-deleted"] {
+		v := l.includeDeleted
+		f.IncludeDeleted = &v
+		setAny = true
+	}
+	if len(l.classes) > 0 {
+		f.MemoryClasses = l.classes
+		setAny = true
+	}
+	return setAny
 }

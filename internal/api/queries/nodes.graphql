@@ -716,8 +716,13 @@ mutation DeleteNode(
   $hard: Boolean
   # @genqlient(omitempty: true)
   $recursive: Boolean
+  # cli#1341: read by the server only on a hard delete — a hard delete that
+  # touches an edge bridging to another memory refuses CROSS_MEMORY_EDGES
+  # unless this is true. Omitted when false, like the two above.
+  # @genqlient(omitempty: true)
+  $cascadeCrossMemoryEdges: Boolean
 ) {
-  deleteNode(nodeRef: $nodeRef, hard: $hard, recursive: $recursive)
+  deleteNode(nodeRef: $nodeRef, hard: $hard, recursive: $recursive, cascadeCrossMemoryEdges: $cascadeCrossMemoryEdges)
 }
 
 # Import external content into a node (cor:api:130 / importNode #457, #488).
@@ -993,6 +998,19 @@ query NodeExport($id: ID!, $format: NodeExportFormat!) {
   }
 }
 
+# cli#1341 — the PRESENTATION render: full: false with the chosen sections.
+# Not round-trippable through node import (the server says so), which is why
+# it is a separate document rather than a variable on the canonical one.
+query NodeExportSections($id: ID!, $format: NodeExportFormat!, $sections: [NodeExportSection!]!) {
+  nodeExport(id: $id, format: $format, full: false, sections: $sections) {
+    format
+    mimeType
+    filename
+    data
+    bytes
+  }
+}
+
 # Minimal metadata for the `node export -o` summary (loc/name/memory): the
 # server's nodeExport render returns the bytes but no identifying fields, and
 # memory { urn } here avoids a second memory-list round-trip (#106 review).
@@ -1114,5 +1132,25 @@ query NodeEdgeRemovals($nodeRef: ID!, $limit: Int) {
     removedBy
     targetId
     targetLoc
+  }
+}
+
+# cli#1341 — shallow-merge a JSON patch into a node's structured properties
+# (updateNodeProperties, #742). The server owns the merge rule, including the
+# JSON Merge Patch exception under `exports` (#1227), and validates the merged
+# result against the memory's schema. reason is recorded on revision history.
+mutation UpdateNodeProperties(
+  $nodeRef: ID!
+  $properties: JSON!
+  # @genqlient(omitempty: true)
+  $reason: String
+) {
+  updateNodeProperties(nodeRef: $nodeRef, properties: $properties, reason: $reason) {
+    id
+    memoryId
+    loc
+    name
+    properties
+    updatedAt
   }
 }

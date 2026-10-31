@@ -105,6 +105,16 @@ func (s *graphqlService) Delete(ctx context.Context, ref string, expected int) (
 	}
 	return fromFields(r.DeleteComment.CommentFields), nil
 }
+func (s *graphqlService) DeleteThread(ctx context.Context, ref, reason string) (bool, error) {
+	r, err := gen.DeleteCommentThread(ctx, s.client, ref, reason)
+	if err != nil {
+		return false, api.MapError(err)
+	}
+	if r == nil {
+		return false, missingResult()
+	}
+	return r.DeleteCommentThread, nil
+}
 func (s *graphqlService) Resolve(ctx context.Context, ref string, expected int, reopen bool) (Comment, error) {
 	if reopen {
 		r, err := gen.ReopenCommentThread(ctx, s.client, ref, expected)
