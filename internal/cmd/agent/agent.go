@@ -156,6 +156,7 @@ func NewCmdAgent(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdUpdate(f))
 	cmd.AddCommand(newCmdRm(f))
 	cmd.AddCommand(newCmdAgentTasks(f))
+	cmd.AddCommand(newCmdAgentTickerTemplates(f))
 	cmd.AddCommand(newCmdAgentProcesses(f))
 	cmd.AddCommand(newCmdAgentSetBase(f))
 	cmd.AddCommand(newCmdAgentSetBootPrompt(f))
@@ -190,8 +191,8 @@ narrow it.
 
 --app does NOT narrow this listing: it is the persistent App-context flag,
 not a filter, so the same rows come back for any App. For the agents
-installed in one App, use ` + "`hadron team roster --app <ref>`" + `, which reads
-the AppAgent join.`,
+installed in one App, use ` + "`hadron app agent list <app-ref>`" + `, which reads
+the AppAgent join; for its workers, use ` + "`hadron team worker list --app <ref>`" + `.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			f.NoteAppIsContextOnly("agents you can read")

@@ -8284,6 +8284,293 @@ func (v *AgentTeamEventsResponse) GetAgentTeamEvents() []*AgentTeamEventsAgentTe
 	return v.AgentTeamEvents
 }
 
+// cli#913: per-template CRUD, no runtime ticker writes or worker session.
+type AgentTickerTemplateFields struct {
+	Id string `json:"id"`
+	// Counts edits; an update or delete must name the revision it saw, and a stale one is refused with TICKER_TEMPLATE_REVISION_MISMATCH.
+	Revision int `json:"revision"`
+	// The shape of this record. Only 1 exists.
+	ShapeVersion int    `json:"shapeVersion"`
+	Name         string `json:"name"`
+	// The code future generated tickers receive, derived from this template's current name (hrn:node:hadronmemory.com:specs:cor:agt:110:01).
+	TickCode       string `json:"tickCode"`
+	CadenceSeconds int    `json:"cadenceSeconds"`
+	// A timezone and weekly windows; null when none.
+	QuietHours *json.RawMessage                `json:"quietHours"`
+	Relevance  TickerRelevance                 `json:"relevance"`
+	Reasons    []TickerReason                  `json:"reasons"`
+	CreatedAt  string                          `json:"createdAt"`
+	UpdatedAt  *string                         `json:"updatedAt"`
+	Agent      *AgentTickerTemplateFieldsAgent `json:"agent"`
+}
+
+// GetId returns AgentTickerTemplateFields.Id, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateFields) GetId() string { return v.Id }
+
+// GetRevision returns AgentTickerTemplateFields.Revision, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateFields) GetRevision() int { return v.Revision }
+
+// GetShapeVersion returns AgentTickerTemplateFields.ShapeVersion, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateFields) GetShapeVersion() int { return v.ShapeVersion }
+
+// GetName returns AgentTickerTemplateFields.Name, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateFields) GetName() string { return v.Name }
+
+// GetTickCode returns AgentTickerTemplateFields.TickCode, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateFields) GetTickCode() string { return v.TickCode }
+
+// GetCadenceSeconds returns AgentTickerTemplateFields.CadenceSeconds, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateFields) GetCadenceSeconds() int { return v.CadenceSeconds }
+
+// GetQuietHours returns AgentTickerTemplateFields.QuietHours, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateFields) GetQuietHours() *json.RawMessage { return v.QuietHours }
+
+// GetRelevance returns AgentTickerTemplateFields.Relevance, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateFields) GetRelevance() TickerRelevance { return v.Relevance }
+
+// GetReasons returns AgentTickerTemplateFields.Reasons, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateFields) GetReasons() []TickerReason { return v.Reasons }
+
+// GetCreatedAt returns AgentTickerTemplateFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUpdatedAt returns AgentTickerTemplateFields.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateFields) GetUpdatedAt() *string { return v.UpdatedAt }
+
+// GetAgent returns AgentTickerTemplateFields.Agent, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateFields) GetAgent() *AgentTickerTemplateFieldsAgent { return v.Agent }
+
+// AgentTickerTemplateFieldsAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type AgentTickerTemplateFieldsAgent struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetId returns AgentTickerTemplateFieldsAgent.Id, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateFieldsAgent) GetId() string { return v.Id }
+
+// GetName returns AgentTickerTemplateFieldsAgent.Name, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateFieldsAgent) GetName() string { return v.Name }
+
+type AgentTickerTemplateInput struct {
+	CadenceSeconds int              `json:"cadenceSeconds"`
+	Name           string           `json:"name"`
+	QuietHours     *json.RawMessage `json:"quietHours,omitempty"`
+	// Absent = [READ_TEAM_CHANNEL]; an empty list is refused.
+	Reasons   []TickerReason   `json:"reasons,omitempty"`
+	Relevance *TickerRelevance `json:"relevance,omitempty"`
+}
+
+// GetCadenceSeconds returns AgentTickerTemplateInput.CadenceSeconds, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateInput) GetCadenceSeconds() int { return v.CadenceSeconds }
+
+// GetName returns AgentTickerTemplateInput.Name, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateInput) GetName() string { return v.Name }
+
+// GetQuietHours returns AgentTickerTemplateInput.QuietHours, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateInput) GetQuietHours() *json.RawMessage { return v.QuietHours }
+
+// GetReasons returns AgentTickerTemplateInput.Reasons, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateInput) GetReasons() []TickerReason { return v.Reasons }
+
+// GetRelevance returns AgentTickerTemplateInput.Relevance, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateInput) GetRelevance() *TickerRelevance { return v.Relevance }
+
+// Absent fields are unchanged. Use clearQuietHours to remove the quiet hours.
+type AgentTickerTemplatePatch struct {
+	CadenceSeconds  *int             `json:"cadenceSeconds,omitempty"`
+	ClearQuietHours *bool            `json:"clearQuietHours,omitempty"`
+	Name            *string          `json:"name,omitempty"`
+	QuietHours      *json.RawMessage `json:"quietHours,omitempty"`
+	// An empty list is refused.
+	Reasons   []TickerReason   `json:"reasons,omitempty"`
+	Relevance *TickerRelevance `json:"relevance,omitempty"`
+}
+
+// GetCadenceSeconds returns AgentTickerTemplatePatch.CadenceSeconds, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatePatch) GetCadenceSeconds() *int { return v.CadenceSeconds }
+
+// GetClearQuietHours returns AgentTickerTemplatePatch.ClearQuietHours, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatePatch) GetClearQuietHours() *bool { return v.ClearQuietHours }
+
+// GetName returns AgentTickerTemplatePatch.Name, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatePatch) GetName() *string { return v.Name }
+
+// GetQuietHours returns AgentTickerTemplatePatch.QuietHours, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatePatch) GetQuietHours() *json.RawMessage { return v.QuietHours }
+
+// GetReasons returns AgentTickerTemplatePatch.Reasons, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatePatch) GetReasons() []TickerReason { return v.Reasons }
+
+// GetRelevance returns AgentTickerTemplatePatch.Relevance, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatePatch) GetRelevance() *TickerRelevance { return v.Relevance }
+
+// AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate includes the requested fields of the GraphQL type AgentTickerTemplate.
+// The GraphQL type's documentation follows.
+//
+// #2024 — one ticker an Agent declares. Casting a worker from the Agent into an App creates the worker's tickers from the live
+// templates and subscribes it, in the cast's own transaction. A SNAPSHOT: a later edit or removal reaches only future casts;
+// existing workers and tickers are untouched. Identity is the id, never the name or the position. The cadence is the requested
+// one; the cast raises it to the App's floor. Reasons are never empty.
+type AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate struct {
+	AgentTickerTemplateFields `json:"-"`
+}
+
+// GetId returns AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate.Id, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate) GetId() string {
+	return v.AgentTickerTemplateFields.Id
+}
+
+// GetRevision returns AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate.Revision, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate) GetRevision() int {
+	return v.AgentTickerTemplateFields.Revision
+}
+
+// GetShapeVersion returns AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate.ShapeVersion, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate) GetShapeVersion() int {
+	return v.AgentTickerTemplateFields.ShapeVersion
+}
+
+// GetName returns AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate.Name, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate) GetName() string {
+	return v.AgentTickerTemplateFields.Name
+}
+
+// GetTickCode returns AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate.TickCode, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate) GetTickCode() string {
+	return v.AgentTickerTemplateFields.TickCode
+}
+
+// GetCadenceSeconds returns AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate.CadenceSeconds, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate) GetCadenceSeconds() int {
+	return v.AgentTickerTemplateFields.CadenceSeconds
+}
+
+// GetQuietHours returns AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate.QuietHours, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate) GetQuietHours() *json.RawMessage {
+	return v.AgentTickerTemplateFields.QuietHours
+}
+
+// GetRelevance returns AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate.Relevance, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate) GetRelevance() TickerRelevance {
+	return v.AgentTickerTemplateFields.Relevance
+}
+
+// GetReasons returns AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate.Reasons, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate) GetReasons() []TickerReason {
+	return v.AgentTickerTemplateFields.Reasons
+}
+
+// GetCreatedAt returns AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate) GetCreatedAt() string {
+	return v.AgentTickerTemplateFields.CreatedAt
+}
+
+// GetUpdatedAt returns AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate) GetUpdatedAt() *string {
+	return v.AgentTickerTemplateFields.UpdatedAt
+}
+
+// GetAgent returns AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate.Agent, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate) GetAgent() *AgentTickerTemplateFieldsAgent {
+	return v.AgentTickerTemplateFields.Agent
+}
+
+func (v *AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTickerTemplateFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate struct {
+	Id string `json:"id"`
+
+	Revision int `json:"revision"`
+
+	ShapeVersion int `json:"shapeVersion"`
+
+	Name string `json:"name"`
+
+	TickCode string `json:"tickCode"`
+
+	CadenceSeconds int `json:"cadenceSeconds"`
+
+	QuietHours *json.RawMessage `json:"quietHours"`
+
+	Relevance TickerRelevance `json:"relevance"`
+
+	Reasons []TickerReason `json:"reasons"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	Agent *AgentTickerTemplateFieldsAgent `json:"agent"`
+}
+
+func (v *AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate) __premarshalJSON() (*__premarshalAgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate, error) {
+	var retval __premarshalAgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate
+
+	retval.Id = v.AgentTickerTemplateFields.Id
+	retval.Revision = v.AgentTickerTemplateFields.Revision
+	retval.ShapeVersion = v.AgentTickerTemplateFields.ShapeVersion
+	retval.Name = v.AgentTickerTemplateFields.Name
+	retval.TickCode = v.AgentTickerTemplateFields.TickCode
+	retval.CadenceSeconds = v.AgentTickerTemplateFields.CadenceSeconds
+	retval.QuietHours = v.AgentTickerTemplateFields.QuietHours
+	retval.Relevance = v.AgentTickerTemplateFields.Relevance
+	retval.Reasons = v.AgentTickerTemplateFields.Reasons
+	retval.CreatedAt = v.AgentTickerTemplateFields.CreatedAt
+	retval.UpdatedAt = v.AgentTickerTemplateFields.UpdatedAt
+	retval.Agent = v.AgentTickerTemplateFields.Agent
+	return &retval, nil
+}
+
+// AgentTickerTemplatesResponse is returned by AgentTickerTemplates on success.
+type AgentTickerTemplatesResponse struct {
+	// #2024 — the live ticker templates of an Agent, by name. Anyone who can read the Agent. An Agent the caller cannot read answers
+	// as absent (AGENT_NOT_FOUND).
+	AgentTickerTemplates []*AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate `json:"agentTickerTemplates"`
+}
+
+// GetAgentTickerTemplates returns AgentTickerTemplatesResponse.AgentTickerTemplates, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatesResponse) GetAgentTickerTemplates() []*AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate {
+	return v.AgentTickerTemplates
+}
+
 type AgentType string
 
 const (
@@ -15144,6 +15431,288 @@ type CastWorkerResponse struct {
 // GetCastWorker returns CastWorkerResponse.CastWorker, and is useful for accessing the field via an interface.
 func (v *CastWorkerResponse) GetCastWorker() *CastWorkerCastWorker { return v.CastWorker }
 
+// ChangeWorkerAgentChangeWorkerAgentWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type ChangeWorkerAgentChangeWorkerAgentWorker struct {
+	WorkerFields `json:"-"`
+}
+
+// GetId returns ChangeWorkerAgentChangeWorkerAgentWorker.Id, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetId() string { return v.WorkerFields.Id }
+
+// GetUrn returns ChangeWorkerAgentChangeWorkerAgentWorker.Urn, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetUrn() *string { return v.WorkerFields.Urn }
+
+// GetPortalUrl returns ChangeWorkerAgentChangeWorkerAgentWorker.PortalUrl, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetPortalUrl() *string {
+	return v.WorkerFields.PortalUrl
+}
+
+// GetSlug returns ChangeWorkerAgentChangeWorkerAgentWorker.Slug, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetSlug() string { return v.WorkerFields.Slug }
+
+// GetAppId returns ChangeWorkerAgentChangeWorkerAgentWorker.AppId, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetAppId() string { return v.WorkerFields.AppId }
+
+// GetAgentId returns ChangeWorkerAgentChangeWorkerAgentWorker.AgentId, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetAgentId() string { return v.WorkerFields.AgentId }
+
+// GetName returns ChangeWorkerAgentChangeWorkerAgentWorker.Name, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetName() string { return v.WorkerFields.Name }
+
+// GetReportsTo returns ChangeWorkerAgentChangeWorkerAgentWorker.ReportsTo, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetReportsTo() *WorkerFieldsReportsToWorker {
+	return v.WorkerFields.ReportsTo
+}
+
+// GetReportsToRetired returns ChangeWorkerAgentChangeWorkerAgentWorker.ReportsToRetired, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetReportsToRetired() bool {
+	return v.WorkerFields.ReportsToRetired
+}
+
+// GetRole returns ChangeWorkerAgentChangeWorkerAgentWorker.Role, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetRole() *string { return v.WorkerFields.Role }
+
+// GetPrompt returns ChangeWorkerAgentChangeWorkerAgentWorker.Prompt, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetPrompt() *string { return v.WorkerFields.Prompt }
+
+// GetSignature returns ChangeWorkerAgentChangeWorkerAgentWorker.Signature, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetSignature() *string {
+	return v.WorkerFields.Signature
+}
+
+// GetTrailer returns ChangeWorkerAgentChangeWorkerAgentWorker.Trailer, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetTrailer() *string {
+	return v.WorkerFields.Trailer
+}
+
+// GetBootPromptRef returns ChangeWorkerAgentChangeWorkerAgentWorker.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetBootPromptRef() *string {
+	return v.WorkerFields.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns ChangeWorkerAgentChangeWorkerAgentWorker.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetBootPromptTargetDeleted() *bool {
+	return v.WorkerFields.BootPromptTargetDeleted
+}
+
+// GetRepos returns ChangeWorkerAgentChangeWorkerAgentWorker.Repos, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetRepos() []string { return v.WorkerFields.Repos }
+
+// GetMemoryId returns ChangeWorkerAgentChangeWorkerAgentWorker.MemoryId, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetMemoryId() *string {
+	return v.WorkerFields.MemoryId
+}
+
+// GetFamily returns ChangeWorkerAgentChangeWorkerAgentWorker.Family, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetFamily() *string { return v.WorkerFields.Family }
+
+// GetHeldByUserId returns ChangeWorkerAgentChangeWorkerAgentWorker.HeldByUserId, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetHeldByUserId() *string {
+	return v.WorkerFields.HeldByUserId
+}
+
+// GetHeldAt returns ChangeWorkerAgentChangeWorkerAgentWorker.HeldAt, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetHeldAt() *string { return v.WorkerFields.HeldAt }
+
+// GetHasLiveSession returns ChangeWorkerAgentChangeWorkerAgentWorker.HasLiveSession, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetHasLiveSession() *bool {
+	return v.WorkerFields.HasLiveSession
+}
+
+// GetLastActiveAt returns ChangeWorkerAgentChangeWorkerAgentWorker.LastActiveAt, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetLastActiveAt() *string {
+	return v.WorkerFields.LastActiveAt
+}
+
+// GetCheckStatus returns ChangeWorkerAgentChangeWorkerAgentWorker.CheckStatus, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetCheckStatus() *WorkerFieldsCheckStatusWorkerCheckStatus {
+	return v.WorkerFields.CheckStatus
+}
+
+// GetRetiredAt returns ChangeWorkerAgentChangeWorkerAgentWorker.RetiredAt, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetRetiredAt() *string {
+	return v.WorkerFields.RetiredAt
+}
+
+// GetRetiredBy returns ChangeWorkerAgentChangeWorkerAgentWorker.RetiredBy, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetRetiredBy() *string {
+	return v.WorkerFields.RetiredBy
+}
+
+// GetCreatedAt returns ChangeWorkerAgentChangeWorkerAgentWorker.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetCreatedAt() string {
+	return v.WorkerFields.CreatedAt
+}
+
+// GetCreatedBy returns ChangeWorkerAgentChangeWorkerAgentWorker.CreatedBy, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetCreatedBy() *string {
+	return v.WorkerFields.CreatedBy
+}
+
+func (v *ChangeWorkerAgentChangeWorkerAgentWorker) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ChangeWorkerAgentChangeWorkerAgentWorker
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ChangeWorkerAgentChangeWorkerAgentWorker = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.WorkerFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalChangeWorkerAgentChangeWorkerAgentWorker struct {
+	Id string `json:"id"`
+
+	Urn *string `json:"urn"`
+
+	PortalUrl *string `json:"portalUrl"`
+
+	Slug string `json:"slug"`
+
+	AppId string `json:"appId"`
+
+	AgentId string `json:"agentId"`
+
+	Name string `json:"name"`
+
+	ReportsTo *WorkerFieldsReportsToWorker `json:"reportsTo"`
+
+	ReportsToRetired bool `json:"reportsToRetired"`
+
+	Role *string `json:"role"`
+
+	Prompt *string `json:"prompt"`
+
+	Signature *string `json:"signature"`
+
+	Trailer *string `json:"trailer"`
+
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
+	Repos []string `json:"repos"`
+
+	MemoryId *string `json:"memoryId"`
+
+	Family *string `json:"family"`
+
+	HeldByUserId *string `json:"heldByUserId"`
+
+	HeldAt *string `json:"heldAt"`
+
+	HasLiveSession *bool `json:"hasLiveSession"`
+
+	LastActiveAt *string `json:"lastActiveAt"`
+
+	CheckStatus *WorkerFieldsCheckStatusWorkerCheckStatus `json:"checkStatus"`
+
+	RetiredAt *string `json:"retiredAt"`
+
+	RetiredBy *string `json:"retiredBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+}
+
+func (v *ChangeWorkerAgentChangeWorkerAgentWorker) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ChangeWorkerAgentChangeWorkerAgentWorker) __premarshalJSON() (*__premarshalChangeWorkerAgentChangeWorkerAgentWorker, error) {
+	var retval __premarshalChangeWorkerAgentChangeWorkerAgentWorker
+
+	retval.Id = v.WorkerFields.Id
+	retval.Urn = v.WorkerFields.Urn
+	retval.PortalUrl = v.WorkerFields.PortalUrl
+	retval.Slug = v.WorkerFields.Slug
+	retval.AppId = v.WorkerFields.AppId
+	retval.AgentId = v.WorkerFields.AgentId
+	retval.Name = v.WorkerFields.Name
+	retval.ReportsTo = v.WorkerFields.ReportsTo
+	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
+	retval.Role = v.WorkerFields.Role
+	retval.Prompt = v.WorkerFields.Prompt
+	retval.Signature = v.WorkerFields.Signature
+	retval.Trailer = v.WorkerFields.Trailer
+	retval.BootPromptRef = v.WorkerFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.WorkerFields.BootPromptTargetDeleted
+	retval.Repos = v.WorkerFields.Repos
+	retval.MemoryId = v.WorkerFields.MemoryId
+	retval.Family = v.WorkerFields.Family
+	retval.HeldByUserId = v.WorkerFields.HeldByUserId
+	retval.HeldAt = v.WorkerFields.HeldAt
+	retval.HasLiveSession = v.WorkerFields.HasLiveSession
+	retval.LastActiveAt = v.WorkerFields.LastActiveAt
+	retval.CheckStatus = v.WorkerFields.CheckStatus
+	retval.RetiredAt = v.WorkerFields.RetiredAt
+	retval.RetiredBy = v.WorkerFields.RetiredBy
+	retval.CreatedAt = v.WorkerFields.CreatedAt
+	retval.CreatedBy = v.WorkerFields.CreatedBy
+	return &retval, nil
+}
+
+// ChangeWorkerAgentResponse is returned by ChangeWorkerAgent on success.
+type ChangeWorkerAgentResponse struct {
+	// #2458 (hrn:node:hadronmemory.com:specs:cor:dmo:050:11, R222): change the
+	// agent a worker casts. The role follows the agent and is never typed in.
+	// Name, slug, URN, signature, trailer, reporting line and every past record
+	// stay; past sessions keep the agent and role they ran under
+	// (Session.agentId, Session.role).
+	//
+	// Who: whoever manages the App, as themselves. A worker session (even one
+	// its manager holds), an App key, an impersonation or a run is FORBIDDEN.
+	//
+	// To what: the same checks as castWorker (WORKER_AGENT_NOT_INSTALLED,
+	// AGENT_ORG_GRANT_INACTIVE / _REQUIRED, BOOT_PROMPT_GRANT_REQUIRED /
+	// BOOT_PROMPT_INCLUDE_UNAVAILABLE, APP_UNINSTALLED). Also WORKER_RETIRED,
+	// WORKER_AGENT_UNCHANGED (it already casts that agent),
+	// WORKER_AGENT_HAS_NO_ROLE (the agent has no personaRole to change to) and
+	// WORKER_CASTING_STALE (a concurrent change; read again). A refused change
+	// changes nothing.
+	//
+	// A complete change, in one transaction: the worker's own boot-prompt
+	// pointer is cleared (it named the old agent's compiled prompt), the old
+	// agent's generated tickers end and the new agent's are made, and one
+	// `worker.casting` team event records who and the old and new agent and
+	// role. It takes effect at the worker's next bind: an open session
+	// finishes under the agent and role it was bound with. workerRef and agentRef are ids or URNs.
+	ChangeWorkerAgent *ChangeWorkerAgentChangeWorkerAgentWorker `json:"changeWorkerAgent"`
+}
+
+// GetChangeWorkerAgent returns ChangeWorkerAgentResponse.ChangeWorkerAgent, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentResponse) GetChangeWorkerAgent() *ChangeWorkerAgentChangeWorkerAgentWorker {
+	return v.ChangeWorkerAgent
+}
+
 // #2138 experiment: server-derived checking status, not local activity inference.
 type ChannelCheckFields struct {
 	Status WorkerCheckState `json:"status"`
@@ -17310,6 +17879,154 @@ type ClearNodeHistoryResponse struct {
 
 // GetClearNodeHistory returns ClearNodeHistoryResponse.ClearNodeHistory, and is useful for accessing the field via an interface.
 func (v *ClearNodeHistoryResponse) GetClearNodeHistory() int { return v.ClearNodeHistory }
+
+// ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings includes the requested fields of the GraphQL type WorkerWakeSettings.
+// The GraphQL type's documentation follows.
+//
+// #1747 — a worker wake settings (hrn:node:hadronmemory.com:specs:cor:agt:080:03).
+type ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings struct {
+	WorkerWakeSettingsFields `json:"-"`
+}
+
+// GetWorker returns ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings.Worker, and is useful for accessing the field via an interface.
+func (v *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings) GetWorker() *WorkerWakeSettingsFieldsWorker {
+	return v.WorkerWakeSettingsFields.Worker
+}
+
+// GetMentions returns ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings.Mentions, and is useful for accessing the field via an interface.
+func (v *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings) GetMentions() MentionWake {
+	return v.WorkerWakeSettingsFields.Mentions
+}
+
+// GetPausedUntil returns ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings.PausedUntil, and is useful for accessing the field via an interface.
+func (v *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings) GetPausedUntil() *string {
+	return v.WorkerWakeSettingsFields.PausedUntil
+}
+
+// GetSubscriptions returns ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings.Subscriptions, and is useful for accessing the field via an interface.
+func (v *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings) GetSubscriptions() []*WorkerWakeSettingsFieldsSubscriptionsTickerSubscription {
+	return v.WorkerWakeSettingsFields.Subscriptions
+}
+
+// GetEffectiveCadenceSeconds returns ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings.EffectiveCadenceSeconds, and is useful for accessing the field via an interface.
+func (v *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings) GetEffectiveCadenceSeconds() *int {
+	return v.WorkerWakeSettingsFields.EffectiveCadenceSeconds
+}
+
+// GetDormant returns ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings.Dormant, and is useful for accessing the field via an interface.
+func (v *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings) GetDormant() bool {
+	return v.WorkerWakeSettingsFields.Dormant
+}
+
+// GetIsolated returns ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings.Isolated, and is useful for accessing the field via an interface.
+func (v *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings) GetIsolated() bool {
+	return v.WorkerWakeSettingsFields.Isolated
+}
+
+// GetIsolatedAt returns ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings.IsolatedAt, and is useful for accessing the field via an interface.
+func (v *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings) GetIsolatedAt() *string {
+	return v.WorkerWakeSettingsFields.IsolatedAt
+}
+
+// GetIsolatedByHandle returns ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings.IsolatedByHandle, and is useful for accessing the field via an interface.
+func (v *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings) GetIsolatedByHandle() *string {
+	return v.WorkerWakeSettingsFields.IsolatedByHandle
+}
+
+// GetIsolatedUntil returns ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings.IsolatedUntil, and is useful for accessing the field via an interface.
+func (v *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings) GetIsolatedUntil() *string {
+	return v.WorkerWakeSettingsFields.IsolatedUntil
+}
+
+// GetCanManageIsolation returns ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings.CanManageIsolation, and is useful for accessing the field via an interface.
+func (v *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings) GetCanManageIsolation() bool {
+	return v.WorkerWakeSettingsFields.CanManageIsolation
+}
+
+func (v *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.WorkerWakeSettingsFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings struct {
+	Worker *WorkerWakeSettingsFieldsWorker `json:"worker"`
+
+	Mentions MentionWake `json:"mentions"`
+
+	PausedUntil *string `json:"pausedUntil"`
+
+	Subscriptions []*WorkerWakeSettingsFieldsSubscriptionsTickerSubscription `json:"subscriptions"`
+
+	EffectiveCadenceSeconds *int `json:"effectiveCadenceSeconds"`
+
+	Dormant bool `json:"dormant"`
+
+	Isolated bool `json:"isolated"`
+
+	IsolatedAt *string `json:"isolatedAt"`
+
+	IsolatedByHandle *string `json:"isolatedByHandle"`
+
+	IsolatedUntil *string `json:"isolatedUntil"`
+
+	CanManageIsolation bool `json:"canManageIsolation"`
+}
+
+func (v *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings) __premarshalJSON() (*__premarshalClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings, error) {
+	var retval __premarshalClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings
+
+	retval.Worker = v.WorkerWakeSettingsFields.Worker
+	retval.Mentions = v.WorkerWakeSettingsFields.Mentions
+	retval.PausedUntil = v.WorkerWakeSettingsFields.PausedUntil
+	retval.Subscriptions = v.WorkerWakeSettingsFields.Subscriptions
+	retval.EffectiveCadenceSeconds = v.WorkerWakeSettingsFields.EffectiveCadenceSeconds
+	retval.Dormant = v.WorkerWakeSettingsFields.Dormant
+	retval.Isolated = v.WorkerWakeSettingsFields.Isolated
+	retval.IsolatedAt = v.WorkerWakeSettingsFields.IsolatedAt
+	retval.IsolatedByHandle = v.WorkerWakeSettingsFields.IsolatedByHandle
+	retval.IsolatedUntil = v.WorkerWakeSettingsFields.IsolatedUntil
+	retval.CanManageIsolation = v.WorkerWakeSettingsFields.CanManageIsolation
+	return &retval, nil
+}
+
+// ClearWorkerIsolationResponse is returned by ClearWorkerIsolation on success.
+type ClearWorkerIsolationResponse struct {
+	// S7 — lift an isolation (same audience). Clearing when none is set changes nothing.
+	ClearWorkerIsolation *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings `json:"clearWorkerIsolation"`
+}
+
+// GetClearWorkerIsolation returns ClearWorkerIsolationResponse.ClearWorkerIsolation, and is useful for accessing the field via an interface.
+func (v *ClearWorkerIsolationResponse) GetClearWorkerIsolation() *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings {
+	return v.ClearWorkerIsolation
+}
 
 // CloneAgentCloneAgent includes the requested fields of the GraphQL type Agent.
 // The GraphQL type's documentation follows.
@@ -20764,6 +21481,167 @@ func (v *CreateAgentTaskInput) GetTags() []string { return v.Tags }
 
 // GetTitle returns CreateAgentTaskInput.Title, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetTitle() string { return v.Title }
+
+// CreateAgentTickerTemplateCreateAgentTickerTemplate includes the requested fields of the GraphQL type AgentTickerTemplate.
+// The GraphQL type's documentation follows.
+//
+// #2024 — one ticker an Agent declares. Casting a worker from the Agent into an App creates the worker's tickers from the live
+// templates and subscribes it, in the cast's own transaction. A SNAPSHOT: a later edit or removal reaches only future casts;
+// existing workers and tickers are untouched. Identity is the id, never the name or the position. The cadence is the requested
+// one; the cast raises it to the App's floor. Reasons are never empty.
+type CreateAgentTickerTemplateCreateAgentTickerTemplate struct {
+	AgentTickerTemplateFields `json:"-"`
+}
+
+// GetId returns CreateAgentTickerTemplateCreateAgentTickerTemplate.Id, and is useful for accessing the field via an interface.
+func (v *CreateAgentTickerTemplateCreateAgentTickerTemplate) GetId() string {
+	return v.AgentTickerTemplateFields.Id
+}
+
+// GetRevision returns CreateAgentTickerTemplateCreateAgentTickerTemplate.Revision, and is useful for accessing the field via an interface.
+func (v *CreateAgentTickerTemplateCreateAgentTickerTemplate) GetRevision() int {
+	return v.AgentTickerTemplateFields.Revision
+}
+
+// GetShapeVersion returns CreateAgentTickerTemplateCreateAgentTickerTemplate.ShapeVersion, and is useful for accessing the field via an interface.
+func (v *CreateAgentTickerTemplateCreateAgentTickerTemplate) GetShapeVersion() int {
+	return v.AgentTickerTemplateFields.ShapeVersion
+}
+
+// GetName returns CreateAgentTickerTemplateCreateAgentTickerTemplate.Name, and is useful for accessing the field via an interface.
+func (v *CreateAgentTickerTemplateCreateAgentTickerTemplate) GetName() string {
+	return v.AgentTickerTemplateFields.Name
+}
+
+// GetTickCode returns CreateAgentTickerTemplateCreateAgentTickerTemplate.TickCode, and is useful for accessing the field via an interface.
+func (v *CreateAgentTickerTemplateCreateAgentTickerTemplate) GetTickCode() string {
+	return v.AgentTickerTemplateFields.TickCode
+}
+
+// GetCadenceSeconds returns CreateAgentTickerTemplateCreateAgentTickerTemplate.CadenceSeconds, and is useful for accessing the field via an interface.
+func (v *CreateAgentTickerTemplateCreateAgentTickerTemplate) GetCadenceSeconds() int {
+	return v.AgentTickerTemplateFields.CadenceSeconds
+}
+
+// GetQuietHours returns CreateAgentTickerTemplateCreateAgentTickerTemplate.QuietHours, and is useful for accessing the field via an interface.
+func (v *CreateAgentTickerTemplateCreateAgentTickerTemplate) GetQuietHours() *json.RawMessage {
+	return v.AgentTickerTemplateFields.QuietHours
+}
+
+// GetRelevance returns CreateAgentTickerTemplateCreateAgentTickerTemplate.Relevance, and is useful for accessing the field via an interface.
+func (v *CreateAgentTickerTemplateCreateAgentTickerTemplate) GetRelevance() TickerRelevance {
+	return v.AgentTickerTemplateFields.Relevance
+}
+
+// GetReasons returns CreateAgentTickerTemplateCreateAgentTickerTemplate.Reasons, and is useful for accessing the field via an interface.
+func (v *CreateAgentTickerTemplateCreateAgentTickerTemplate) GetReasons() []TickerReason {
+	return v.AgentTickerTemplateFields.Reasons
+}
+
+// GetCreatedAt returns CreateAgentTickerTemplateCreateAgentTickerTemplate.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateAgentTickerTemplateCreateAgentTickerTemplate) GetCreatedAt() string {
+	return v.AgentTickerTemplateFields.CreatedAt
+}
+
+// GetUpdatedAt returns CreateAgentTickerTemplateCreateAgentTickerTemplate.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateAgentTickerTemplateCreateAgentTickerTemplate) GetUpdatedAt() *string {
+	return v.AgentTickerTemplateFields.UpdatedAt
+}
+
+// GetAgent returns CreateAgentTickerTemplateCreateAgentTickerTemplate.Agent, and is useful for accessing the field via an interface.
+func (v *CreateAgentTickerTemplateCreateAgentTickerTemplate) GetAgent() *AgentTickerTemplateFieldsAgent {
+	return v.AgentTickerTemplateFields.Agent
+}
+
+func (v *CreateAgentTickerTemplateCreateAgentTickerTemplate) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateAgentTickerTemplateCreateAgentTickerTemplate
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateAgentTickerTemplateCreateAgentTickerTemplate = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTickerTemplateFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateAgentTickerTemplateCreateAgentTickerTemplate struct {
+	Id string `json:"id"`
+
+	Revision int `json:"revision"`
+
+	ShapeVersion int `json:"shapeVersion"`
+
+	Name string `json:"name"`
+
+	TickCode string `json:"tickCode"`
+
+	CadenceSeconds int `json:"cadenceSeconds"`
+
+	QuietHours *json.RawMessage `json:"quietHours"`
+
+	Relevance TickerRelevance `json:"relevance"`
+
+	Reasons []TickerReason `json:"reasons"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	Agent *AgentTickerTemplateFieldsAgent `json:"agent"`
+}
+
+func (v *CreateAgentTickerTemplateCreateAgentTickerTemplate) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateAgentTickerTemplateCreateAgentTickerTemplate) __premarshalJSON() (*__premarshalCreateAgentTickerTemplateCreateAgentTickerTemplate, error) {
+	var retval __premarshalCreateAgentTickerTemplateCreateAgentTickerTemplate
+
+	retval.Id = v.AgentTickerTemplateFields.Id
+	retval.Revision = v.AgentTickerTemplateFields.Revision
+	retval.ShapeVersion = v.AgentTickerTemplateFields.ShapeVersion
+	retval.Name = v.AgentTickerTemplateFields.Name
+	retval.TickCode = v.AgentTickerTemplateFields.TickCode
+	retval.CadenceSeconds = v.AgentTickerTemplateFields.CadenceSeconds
+	retval.QuietHours = v.AgentTickerTemplateFields.QuietHours
+	retval.Relevance = v.AgentTickerTemplateFields.Relevance
+	retval.Reasons = v.AgentTickerTemplateFields.Reasons
+	retval.CreatedAt = v.AgentTickerTemplateFields.CreatedAt
+	retval.UpdatedAt = v.AgentTickerTemplateFields.UpdatedAt
+	retval.Agent = v.AgentTickerTemplateFields.Agent
+	return &retval, nil
+}
+
+// CreateAgentTickerTemplateResponse is returned by CreateAgentTickerTemplate on success.
+type CreateAgentTickerTemplateResponse struct {
+	// #2024 — declare a ticker on an Agent. Whoever may edit the Agent (ADMIN on it); an App manager is not thereby an Agent editor.
+	// Affects only FUTURE casts. Refusals: TICKER_TEMPLATE_NAME_TAKEN, TICKER_TEMPLATE_LIMIT_REACHED, TICKER_CADENCE_OUT_OF_RANGE,
+	// TICKER_QUIET_HOURS_INVALID, BAD_USER_INPUT (reasons), AGENT_NOT_FOUND, FORBIDDEN.
+	CreateAgentTickerTemplate *CreateAgentTickerTemplateCreateAgentTickerTemplate `json:"createAgentTickerTemplate"`
+}
+
+// GetCreateAgentTickerTemplate returns CreateAgentTickerTemplateResponse.CreateAgentTickerTemplate, and is useful for accessing the field via an interface.
+func (v *CreateAgentTickerTemplateResponse) GetCreateAgentTickerTemplate() *CreateAgentTickerTemplateCreateAgentTickerTemplate {
+	return v.CreateAgentTickerTemplate
+}
 
 // CreateAgentWebhookCreateAgentWebhookAgentWebhookCredentials includes the requested fields of the GraphQL type AgentWebhookCredentials.
 // The GraphQL type's documentation follows.
@@ -26147,6 +27025,17 @@ type DeleteAgentScheduleResponse struct {
 
 // GetDeleteAgentSchedule returns DeleteAgentScheduleResponse.DeleteAgentSchedule, and is useful for accessing the field via an interface.
 func (v *DeleteAgentScheduleResponse) GetDeleteAgentSchedule() bool { return v.DeleteAgentSchedule }
+
+// DeleteAgentTickerTemplateResponse is returned by DeleteAgentTickerTemplate on success.
+type DeleteAgentTickerTemplateResponse struct {
+	// #2024 — remove a template (it stays as history; its name may be reused). expectedRevision as for update. Tickers already generated from it are untouched.
+	DeleteAgentTickerTemplate bool `json:"deleteAgentTickerTemplate"`
+}
+
+// GetDeleteAgentTickerTemplate returns DeleteAgentTickerTemplateResponse.DeleteAgentTickerTemplate, and is useful for accessing the field via an interface.
+func (v *DeleteAgentTickerTemplateResponse) GetDeleteAgentTickerTemplate() bool {
+	return v.DeleteAgentTickerTemplate
+}
 
 // DeleteAgentWebhookResponse is returned by DeleteAgentWebhook on success.
 type DeleteAgentWebhookResponse struct {
@@ -32293,6 +33182,162 @@ type GetWorkerResponse struct {
 // GetWorker returns GetWorkerResponse.Worker, and is useful for accessing the field via an interface.
 func (v *GetWorkerResponse) GetWorker() *GetWorkerWorker { return v.Worker }
 
+// GetWorkerTerminalResponse is returned by GetWorkerTerminal on success.
+type GetWorkerTerminalResponse struct {
+	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
+	// NAME (#1015), the ergonomic handle a human already knows. The name form is
+	// ADDITIVE: it is activated by appRef, since a name is unique only within an
+	// App. Without appRef the ref must be an id or URN, and anything else refuses
+	// WORKER_NOT_FOUND as before. An id or URN wins over appRef rather than being
+	// checked against it, so a typo'd URN never degrades into a roster search.
+	//
+	// Selecting `prompt` re-renders the worker's boot briefing live from the
+	// role agent's template — the read that lets an agent recover a briefing it
+	// lost to a context compaction, instead of opening a second session or
+	// forcing a takeover of itself.
+	//
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	Worker *GetWorkerTerminalWorker `json:"worker"`
+}
+
+// GetWorker returns GetWorkerTerminalResponse.Worker, and is useful for accessing the field via an interface.
+func (v *GetWorkerTerminalResponse) GetWorker() *GetWorkerTerminalWorker { return v.Worker }
+
+// GetWorkerTerminalWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type GetWorkerTerminalWorker struct {
+	// #2771 (proposed hrn:node:hadronmemory.com:specs:cor:agt:070:09) — the latest terminal report a host made for this worker. Stored, decides nothing;
+	// judge its age from checkedAt. Null until a host reports, and masked to null on the same read gate as checkStatus.
+	Terminal *GetWorkerTerminalWorkerTerminal `json:"terminal"`
+}
+
+// GetTerminal returns GetWorkerTerminalWorker.Terminal, and is useful for accessing the field via an interface.
+func (v *GetWorkerTerminalWorker) GetTerminal() *GetWorkerTerminalWorkerTerminal { return v.Terminal }
+
+// GetWorkerTerminalWorkerTerminal includes the requested fields of the GraphQL type WorkerTerminal.
+// The GraphQL type's documentation follows.
+//
+// #2771 (proposed hrn:node:hadronmemory.com:specs:cor:agt:070:09) — a worker's latest terminal report, stored as the
+// server built it. It decides nothing (no check status, availability, matcher, stall rule or alarm). Judge its age
+// from checkedAt and reportedAt. Null until a host first reports; null to a reader without the Working-state gate.
+type GetWorkerTerminalWorkerTerminal struct {
+	WorkerTerminalFields `json:"-"`
+}
+
+// GetHost returns GetWorkerTerminalWorkerTerminal.Host, and is useful for accessing the field via an interface.
+func (v *GetWorkerTerminalWorkerTerminal) GetHost() *WorkerTerminalFieldsHostWorkerTerminalHost {
+	return v.WorkerTerminalFields.Host
+}
+
+// GetStatus returns GetWorkerTerminalWorkerTerminal.Status, and is useful for accessing the field via an interface.
+func (v *GetWorkerTerminalWorkerTerminal) GetStatus() WorkerTerminalState {
+	return v.WorkerTerminalFields.Status
+}
+
+// GetPrompt returns GetWorkerTerminalWorkerTerminal.Prompt, and is useful for accessing the field via an interface.
+func (v *GetWorkerTerminalWorkerTerminal) GetPrompt() WorkerTerminalPrompt {
+	return v.WorkerTerminalFields.Prompt
+}
+
+// GetReason returns GetWorkerTerminalWorkerTerminal.Reason, and is useful for accessing the field via an interface.
+func (v *GetWorkerTerminalWorkerTerminal) GetReason() *WorkerTerminalReason {
+	return v.WorkerTerminalFields.Reason
+}
+
+// GetLastTurnAt returns GetWorkerTerminalWorkerTerminal.LastTurnAt, and is useful for accessing the field via an interface.
+func (v *GetWorkerTerminalWorkerTerminal) GetLastTurnAt() *string {
+	return v.WorkerTerminalFields.LastTurnAt
+}
+
+// GetCheckedAt returns GetWorkerTerminalWorkerTerminal.CheckedAt, and is useful for accessing the field via an interface.
+func (v *GetWorkerTerminalWorkerTerminal) GetCheckedAt() string {
+	return v.WorkerTerminalFields.CheckedAt
+}
+
+// GetReportedAt returns GetWorkerTerminalWorkerTerminal.ReportedAt, and is useful for accessing the field via an interface.
+func (v *GetWorkerTerminalWorkerTerminal) GetReportedAt() string {
+	return v.WorkerTerminalFields.ReportedAt
+}
+
+func (v *GetWorkerTerminalWorkerTerminal) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetWorkerTerminalWorkerTerminal
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetWorkerTerminalWorkerTerminal = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.WorkerTerminalFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetWorkerTerminalWorkerTerminal struct {
+	Host *WorkerTerminalFieldsHostWorkerTerminalHost `json:"host"`
+
+	Status WorkerTerminalState `json:"status"`
+
+	Prompt WorkerTerminalPrompt `json:"prompt"`
+
+	Reason *WorkerTerminalReason `json:"reason"`
+
+	LastTurnAt *string `json:"lastTurnAt"`
+
+	CheckedAt string `json:"checkedAt"`
+
+	ReportedAt string `json:"reportedAt"`
+}
+
+func (v *GetWorkerTerminalWorkerTerminal) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetWorkerTerminalWorkerTerminal) __premarshalJSON() (*__premarshalGetWorkerTerminalWorkerTerminal, error) {
+	var retval __premarshalGetWorkerTerminalWorkerTerminal
+
+	retval.Host = v.WorkerTerminalFields.Host
+	retval.Status = v.WorkerTerminalFields.Status
+	retval.Prompt = v.WorkerTerminalFields.Prompt
+	retval.Reason = v.WorkerTerminalFields.Reason
+	retval.LastTurnAt = v.WorkerTerminalFields.LastTurnAt
+	retval.CheckedAt = v.WorkerTerminalFields.CheckedAt
+	retval.ReportedAt = v.WorkerTerminalFields.ReportedAt
+	return &retval, nil
+}
+
 // GetWorkerWorker includes the requested fields of the GraphQL type Worker.
 // The GraphQL type's documentation follows.
 //
@@ -32625,6 +33670,81 @@ type GrantAppKeyScopeResponse struct {
 // GetGrantAppKeyScope returns GrantAppKeyScopeResponse.GrantAppKeyScope, and is useful for accessing the field via an interface.
 func (v *GrantAppKeyScopeResponse) GetGrantAppKeyScope() *GrantAppKeyScopeGrantAppKeyScopeAppKey {
 	return v.GrantAppKeyScope
+}
+
+// HealthSweepSetTerminalsResponse is returned by HealthSweepSetTerminals on success.
+type HealthSweepSetTerminalsResponse struct {
+	// #2771 (proposed hrn:node:hadronmemory.com:specs:cor:agt:070:09) — a host reports the terminal state of workers it
+	// registers, as classified by its on-host sweep. The server builds what it stores (Worker.terminal): the host comes
+	// from the key and its registration, the time from the server, and no screen text of any kind is accepted. A
+	// malformed input refuses the whole call and stores nothing (BAD_USER_INPUT); a worker this host does not register is
+	// refused for that item only (WORKER_NOT_FOUND, as setHostWorkerAvailability); an older report than the stored one
+	// is skipped (TERMINAL_REPORT_STALE). The result lists the stored items and the refused items, each refusal with a reason.
+	// The report decides nothing: it feeds no check status, availability, matcher, stall rule or alarm.
+	SetHostWorkerTerminals *HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResult `json:"setHostWorkerTerminals"`
+}
+
+// GetSetHostWorkerTerminals returns HealthSweepSetTerminalsResponse.SetHostWorkerTerminals, and is useful for accessing the field via an interface.
+func (v *HealthSweepSetTerminalsResponse) GetSetHostWorkerTerminals() *HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResult {
+	return v.SetHostWorkerTerminals
+}
+
+// HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResult includes the requested fields of the GraphQL type SetHostWorkerTerminalsResult.
+// The GraphQL type's documentation follows.
+//
+// #2924 — status reporting only: no alarm verdict or coordinator requirement.
+type HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResult struct {
+	Stored  []*HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultStoredWorkerTerminalRef      `json:"stored"`
+	Refused []*HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultRefusedWorkerTerminalRefusal `json:"refused"`
+}
+
+// GetStored returns HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResult.Stored, and is useful for accessing the field via an interface.
+func (v *HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResult) GetStored() []*HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultStoredWorkerTerminalRef {
+	return v.Stored
+}
+
+// GetRefused returns HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResult.Refused, and is useful for accessing the field via an interface.
+func (v *HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResult) GetRefused() []*HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultRefusedWorkerTerminalRefusal {
+	return v.Refused
+}
+
+// HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultRefusedWorkerTerminalRefusal includes the requested fields of the GraphQL type WorkerTerminalRefusal.
+// The GraphQL type's documentation follows.
+//
+// #2771 — a report not stored for one worker: WORKER_NOT_FOUND or TERMINAL_REPORT_STALE.
+type HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultRefusedWorkerTerminalRefusal struct {
+	// The worker as the host named it.
+	Worker string `json:"worker"`
+	Code   string `json:"code"`
+}
+
+// GetWorker returns HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultRefusedWorkerTerminalRefusal.Worker, and is useful for accessing the field via an interface.
+func (v *HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultRefusedWorkerTerminalRefusal) GetWorker() string {
+	return v.Worker
+}
+
+// GetCode returns HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultRefusedWorkerTerminalRefusal.Code, and is useful for accessing the field via an interface.
+func (v *HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultRefusedWorkerTerminalRefusal) GetCode() string {
+	return v.Code
+}
+
+// HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultStoredWorkerTerminalRef includes the requested fields of the GraphQL type WorkerTerminalRef.
+// The GraphQL type's documentation follows.
+//
+// #2771 — a worker by id and URN only: a host key is not given a Worker object.
+type HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultStoredWorkerTerminalRef struct {
+	Id  string `json:"id"`
+	Urn string `json:"urn"`
+}
+
+// GetId returns HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultStoredWorkerTerminalRef.Id, and is useful for accessing the field via an interface.
+func (v *HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultStoredWorkerTerminalRef) GetId() string {
+	return v.Id
+}
+
+// GetUrn returns HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultStoredWorkerTerminalRef.Urn, and is useful for accessing the field via an interface.
+func (v *HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultStoredWorkerTerminalRef) GetUrn() string {
+	return v.Urn
 }
 
 // HomeAssistantInstanceFields includes the GraphQL fields of HomeAssistantInstance requested by the fragment HomeAssistantInstanceFields.
@@ -34062,6 +35182,160 @@ func (v *InvitationFields) GetAcceptedAt() *string { return v.AcceptedAt }
 
 // GetCreatedAt returns InvitationFields.CreatedAt, and is useful for accessing the field via an interface.
 func (v *InvitationFields) GetCreatedAt() string { return v.CreatedAt }
+
+// IsolateWorkerIsolateWorkerWorkerWakeSettings includes the requested fields of the GraphQL type WorkerWakeSettings.
+// The GraphQL type's documentation follows.
+//
+// #1747 — a worker wake settings (hrn:node:hadronmemory.com:specs:cor:agt:080:03).
+type IsolateWorkerIsolateWorkerWorkerWakeSettings struct {
+	WorkerWakeSettingsFields `json:"-"`
+}
+
+// GetWorker returns IsolateWorkerIsolateWorkerWorkerWakeSettings.Worker, and is useful for accessing the field via an interface.
+func (v *IsolateWorkerIsolateWorkerWorkerWakeSettings) GetWorker() *WorkerWakeSettingsFieldsWorker {
+	return v.WorkerWakeSettingsFields.Worker
+}
+
+// GetMentions returns IsolateWorkerIsolateWorkerWorkerWakeSettings.Mentions, and is useful for accessing the field via an interface.
+func (v *IsolateWorkerIsolateWorkerWorkerWakeSettings) GetMentions() MentionWake {
+	return v.WorkerWakeSettingsFields.Mentions
+}
+
+// GetPausedUntil returns IsolateWorkerIsolateWorkerWorkerWakeSettings.PausedUntil, and is useful for accessing the field via an interface.
+func (v *IsolateWorkerIsolateWorkerWorkerWakeSettings) GetPausedUntil() *string {
+	return v.WorkerWakeSettingsFields.PausedUntil
+}
+
+// GetSubscriptions returns IsolateWorkerIsolateWorkerWorkerWakeSettings.Subscriptions, and is useful for accessing the field via an interface.
+func (v *IsolateWorkerIsolateWorkerWorkerWakeSettings) GetSubscriptions() []*WorkerWakeSettingsFieldsSubscriptionsTickerSubscription {
+	return v.WorkerWakeSettingsFields.Subscriptions
+}
+
+// GetEffectiveCadenceSeconds returns IsolateWorkerIsolateWorkerWorkerWakeSettings.EffectiveCadenceSeconds, and is useful for accessing the field via an interface.
+func (v *IsolateWorkerIsolateWorkerWorkerWakeSettings) GetEffectiveCadenceSeconds() *int {
+	return v.WorkerWakeSettingsFields.EffectiveCadenceSeconds
+}
+
+// GetDormant returns IsolateWorkerIsolateWorkerWorkerWakeSettings.Dormant, and is useful for accessing the field via an interface.
+func (v *IsolateWorkerIsolateWorkerWorkerWakeSettings) GetDormant() bool {
+	return v.WorkerWakeSettingsFields.Dormant
+}
+
+// GetIsolated returns IsolateWorkerIsolateWorkerWorkerWakeSettings.Isolated, and is useful for accessing the field via an interface.
+func (v *IsolateWorkerIsolateWorkerWorkerWakeSettings) GetIsolated() bool {
+	return v.WorkerWakeSettingsFields.Isolated
+}
+
+// GetIsolatedAt returns IsolateWorkerIsolateWorkerWorkerWakeSettings.IsolatedAt, and is useful for accessing the field via an interface.
+func (v *IsolateWorkerIsolateWorkerWorkerWakeSettings) GetIsolatedAt() *string {
+	return v.WorkerWakeSettingsFields.IsolatedAt
+}
+
+// GetIsolatedByHandle returns IsolateWorkerIsolateWorkerWorkerWakeSettings.IsolatedByHandle, and is useful for accessing the field via an interface.
+func (v *IsolateWorkerIsolateWorkerWorkerWakeSettings) GetIsolatedByHandle() *string {
+	return v.WorkerWakeSettingsFields.IsolatedByHandle
+}
+
+// GetIsolatedUntil returns IsolateWorkerIsolateWorkerWorkerWakeSettings.IsolatedUntil, and is useful for accessing the field via an interface.
+func (v *IsolateWorkerIsolateWorkerWorkerWakeSettings) GetIsolatedUntil() *string {
+	return v.WorkerWakeSettingsFields.IsolatedUntil
+}
+
+// GetCanManageIsolation returns IsolateWorkerIsolateWorkerWorkerWakeSettings.CanManageIsolation, and is useful for accessing the field via an interface.
+func (v *IsolateWorkerIsolateWorkerWorkerWakeSettings) GetCanManageIsolation() bool {
+	return v.WorkerWakeSettingsFields.CanManageIsolation
+}
+
+func (v *IsolateWorkerIsolateWorkerWorkerWakeSettings) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*IsolateWorkerIsolateWorkerWorkerWakeSettings
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.IsolateWorkerIsolateWorkerWorkerWakeSettings = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.WorkerWakeSettingsFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalIsolateWorkerIsolateWorkerWorkerWakeSettings struct {
+	Worker *WorkerWakeSettingsFieldsWorker `json:"worker"`
+
+	Mentions MentionWake `json:"mentions"`
+
+	PausedUntil *string `json:"pausedUntil"`
+
+	Subscriptions []*WorkerWakeSettingsFieldsSubscriptionsTickerSubscription `json:"subscriptions"`
+
+	EffectiveCadenceSeconds *int `json:"effectiveCadenceSeconds"`
+
+	Dormant bool `json:"dormant"`
+
+	Isolated bool `json:"isolated"`
+
+	IsolatedAt *string `json:"isolatedAt"`
+
+	IsolatedByHandle *string `json:"isolatedByHandle"`
+
+	IsolatedUntil *string `json:"isolatedUntil"`
+
+	CanManageIsolation bool `json:"canManageIsolation"`
+}
+
+func (v *IsolateWorkerIsolateWorkerWorkerWakeSettings) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *IsolateWorkerIsolateWorkerWorkerWakeSettings) __premarshalJSON() (*__premarshalIsolateWorkerIsolateWorkerWorkerWakeSettings, error) {
+	var retval __premarshalIsolateWorkerIsolateWorkerWorkerWakeSettings
+
+	retval.Worker = v.WorkerWakeSettingsFields.Worker
+	retval.Mentions = v.WorkerWakeSettingsFields.Mentions
+	retval.PausedUntil = v.WorkerWakeSettingsFields.PausedUntil
+	retval.Subscriptions = v.WorkerWakeSettingsFields.Subscriptions
+	retval.EffectiveCadenceSeconds = v.WorkerWakeSettingsFields.EffectiveCadenceSeconds
+	retval.Dormant = v.WorkerWakeSettingsFields.Dormant
+	retval.Isolated = v.WorkerWakeSettingsFields.Isolated
+	retval.IsolatedAt = v.WorkerWakeSettingsFields.IsolatedAt
+	retval.IsolatedByHandle = v.WorkerWakeSettingsFields.IsolatedByHandle
+	retval.IsolatedUntil = v.WorkerWakeSettingsFields.IsolatedUntil
+	retval.CanManageIsolation = v.WorkerWakeSettingsFields.CanManageIsolation
+	return &retval, nil
+}
+
+// IsolateWorkerResponse is returned by IsolateWorker on success.
+type IsolateWorkerResponse struct {
+	// S7 (#2023, R85) — isolate a worker until a time (default 2 hours, at most 7 days; a later time extends, an earlier one shortens).
+	// Only a person managing the App or holding the worker, acting as themselves. Refusals, in the order they are checked:
+	// an unknown worker, or one the caller cannot read (a pure App key among them), is WORKER_NOT_FOUND; a worker session (even a
+	// manager's) is WORKER_ISOLATION_FORBIDDEN; while S7 activation is off, setting an isolation is WORKER_ISOLATION_UNAVAILABLE
+	// (clearing is unaffected), so an ordinary person gets this before the manager/holder check; an impersonation that reaches the
+	// write is refused FORBIDDEN (read-only); a participant who neither manages the App nor holds the worker is
+	// WORKER_ISOLATION_FORBIDDEN. Never touches the worker's own pause.
+	IsolateWorker *IsolateWorkerIsolateWorkerWorkerWakeSettings `json:"isolateWorker"`
+}
+
+// GetIsolateWorker returns IsolateWorkerResponse.IsolateWorker, and is useful for accessing the field via an interface.
+func (v *IsolateWorkerResponse) GetIsolateWorker() *IsolateWorkerIsolateWorkerWorkerWakeSettings {
+	return v.IsolateWorker
+}
 
 type IssueHostOperationInput struct {
 	AppRef string `json:"appRef"`
@@ -51905,6 +53179,18 @@ func (v *SetAssetPublicLinkSetAssetPublicLinkAsset) GetPublicLinkAvailable() boo
 // GetPublicUrl returns SetAssetPublicLinkSetAssetPublicLinkAsset.PublicUrl, and is useful for accessing the field via an interface.
 func (v *SetAssetPublicLinkSetAssetPublicLinkAsset) GetPublicUrl() *string { return v.PublicUrl }
 
+type SetHostWorkerTerminalsInput struct {
+	AppRef string `json:"appRef"`
+	// One to 200 reports, a worker at most once.
+	Reports []*WorkerTerminalReportInput `json:"reports,omitempty"`
+}
+
+// GetAppRef returns SetHostWorkerTerminalsInput.AppRef, and is useful for accessing the field via an interface.
+func (v *SetHostWorkerTerminalsInput) GetAppRef() string { return v.AppRef }
+
+// GetReports returns SetHostWorkerTerminalsInput.Reports, and is useful for accessing the field via an interface.
+func (v *SetHostWorkerTerminalsInput) GetReports() []*WorkerTerminalReportInput { return v.Reports }
+
 type SetModelFamilyAvailabilityInput struct {
 	AppRef string `json:"appRef"`
 	// A lowercase token, e.g. claude or codex.
@@ -51928,6 +53214,26 @@ func (v *SetModelFamilyAvailabilityInput) GetState() AvailabilityState { return 
 
 // GetUntil returns SetModelFamilyAvailabilityInput.Until, and is useful for accessing the field via an interface.
 func (v *SetModelFamilyAvailabilityInput) GetUntil() *string { return v.Until }
+
+// SetTeamPauseResponse is returned by SetTeamPause on success.
+type SetTeamPauseResponse struct {
+	// #2138: pause or resume the whole team, as whoever manages the App. Separate from each worker's own pause: a worker cannot lift it, and ending it clears no self-pause. While paused, no worker is nudged and every worker's check status is PENDING (TEAM_PAUSED).
+	SetTeamPause *SetTeamPauseSetTeamPause `json:"setTeamPause"`
+}
+
+// GetSetTeamPause returns SetTeamPauseResponse.SetTeamPause, and is useful for accessing the field via an interface.
+func (v *SetTeamPauseResponse) GetSetTeamPause() *SetTeamPauseSetTeamPause { return v.SetTeamPause }
+
+// SetTeamPauseSetTeamPause includes the requested fields of the GraphQL type TeamPause.
+// The GraphQL type's documentation follows.
+//
+// #2138: the App's team pause. teamPausedAt is null when the team is not paused.
+type SetTeamPauseSetTeamPause struct {
+	TeamPausedAt *string `json:"teamPausedAt"`
+}
+
+// GetTeamPausedAt returns SetTeamPauseSetTeamPause.TeamPausedAt, and is useful for accessing the field via an interface.
+func (v *SetTeamPauseSetTeamPause) GetTeamPausedAt() *string { return v.TeamPausedAt }
 
 type SetTeamStopSignalInput struct {
 	AppRef string `json:"appRef"`
@@ -58542,6 +59848,8 @@ type TeamRosterTeamRosterWorkersTeamRosterEntry struct {
 	LastActiveAt      *string             `json:"lastActiveAt"`
 	// #2138 §3.4 (experimental) — whether it is checking its team channel as expected.
 	CheckStatus *TeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus `json:"checkStatus"`
+	// #2771 — the latest terminal report a host made for it (Worker.terminal); null on the same read gate as checkStatus.
+	Terminal *TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal `json:"terminal"`
 	// When it was last assigned a task; the matcher picks the least recent (hrn:node:hadronmemory.com:specs:cor:agt:060:06).
 	LastAssignedAt *string `json:"lastAssignedAt"`
 	// Pending tasks it is the assignee of.
@@ -58633,6 +59941,11 @@ func (v *TeamRosterTeamRosterWorkersTeamRosterEntry) GetLastActiveAt() *string {
 // GetCheckStatus returns TeamRosterTeamRosterWorkersTeamRosterEntry.CheckStatus, and is useful for accessing the field via an interface.
 func (v *TeamRosterTeamRosterWorkersTeamRosterEntry) GetCheckStatus() *TeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus {
 	return v.CheckStatus
+}
+
+// GetTerminal returns TeamRosterTeamRosterWorkersTeamRosterEntry.Terminal, and is useful for accessing the field via an interface.
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntry) GetTerminal() *TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal {
+	return v.Terminal
 }
 
 // GetLastAssignedAt returns TeamRosterTeamRosterWorkersTeamRosterEntry.LastAssignedAt, and is useful for accessing the field via an interface.
@@ -58870,6 +60183,113 @@ func (v *TeamRosterTeamRosterWorkersTeamRosterEntryReportsToAgentTaskParty) __pr
 	retval.Kind = v.AgentTaskPartyFields.Kind
 	retval.Name = v.AgentTaskPartyFields.Name
 	retval.Urn = v.AgentTaskPartyFields.Urn
+	return &retval, nil
+}
+
+// TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal includes the requested fields of the GraphQL type WorkerTerminal.
+// The GraphQL type's documentation follows.
+//
+// #2771 (proposed hrn:node:hadronmemory.com:specs:cor:agt:070:09) — a worker's latest terminal report, stored as the
+// server built it. It decides nothing (no check status, availability, matcher, stall rule or alarm). Judge its age
+// from checkedAt and reportedAt. Null until a host first reports; null to a reader without the Working-state gate.
+type TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal struct {
+	WorkerTerminalFields `json:"-"`
+}
+
+// GetHost returns TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal.Host, and is useful for accessing the field via an interface.
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal) GetHost() *WorkerTerminalFieldsHostWorkerTerminalHost {
+	return v.WorkerTerminalFields.Host
+}
+
+// GetStatus returns TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal.Status, and is useful for accessing the field via an interface.
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal) GetStatus() WorkerTerminalState {
+	return v.WorkerTerminalFields.Status
+}
+
+// GetPrompt returns TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal.Prompt, and is useful for accessing the field via an interface.
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal) GetPrompt() WorkerTerminalPrompt {
+	return v.WorkerTerminalFields.Prompt
+}
+
+// GetReason returns TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal.Reason, and is useful for accessing the field via an interface.
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal) GetReason() *WorkerTerminalReason {
+	return v.WorkerTerminalFields.Reason
+}
+
+// GetLastTurnAt returns TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal.LastTurnAt, and is useful for accessing the field via an interface.
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal) GetLastTurnAt() *string {
+	return v.WorkerTerminalFields.LastTurnAt
+}
+
+// GetCheckedAt returns TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal.CheckedAt, and is useful for accessing the field via an interface.
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal) GetCheckedAt() string {
+	return v.WorkerTerminalFields.CheckedAt
+}
+
+// GetReportedAt returns TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal.ReportedAt, and is useful for accessing the field via an interface.
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal) GetReportedAt() string {
+	return v.WorkerTerminalFields.ReportedAt
+}
+
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.WorkerTerminalFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal struct {
+	Host *WorkerTerminalFieldsHostWorkerTerminalHost `json:"host"`
+
+	Status WorkerTerminalState `json:"status"`
+
+	Prompt WorkerTerminalPrompt `json:"prompt"`
+
+	Reason *WorkerTerminalReason `json:"reason"`
+
+	LastTurnAt *string `json:"lastTurnAt"`
+
+	CheckedAt string `json:"checkedAt"`
+
+	ReportedAt string `json:"reportedAt"`
+}
+
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal) __premarshalJSON() (*__premarshalTeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal, error) {
+	var retval __premarshalTeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal
+
+	retval.Host = v.WorkerTerminalFields.Host
+	retval.Status = v.WorkerTerminalFields.Status
+	retval.Prompt = v.WorkerTerminalFields.Prompt
+	retval.Reason = v.WorkerTerminalFields.Reason
+	retval.LastTurnAt = v.WorkerTerminalFields.LastTurnAt
+	retval.CheckedAt = v.WorkerTerminalFields.CheckedAt
+	retval.ReportedAt = v.WorkerTerminalFields.ReportedAt
 	return &retval, nil
 }
 
@@ -62483,6 +63903,166 @@ func (v *UpdateAgentTaskInput) GetTags() json.RawMessage { return v.Tags }
 
 // GetTitle returns UpdateAgentTaskInput.Title, and is useful for accessing the field via an interface.
 func (v *UpdateAgentTaskInput) GetTitle() *string { return v.Title }
+
+// UpdateAgentTickerTemplateResponse is returned by UpdateAgentTickerTemplate on success.
+type UpdateAgentTickerTemplateResponse struct {
+	// #2024 — change a template; absent fields are unchanged. expectedRevision must be the revision you read, else
+	// TICKER_TEMPLATE_REVISION_MISMATCH and nothing is written. Affects only future casts.
+	UpdateAgentTickerTemplate *UpdateAgentTickerTemplateUpdateAgentTickerTemplate `json:"updateAgentTickerTemplate"`
+}
+
+// GetUpdateAgentTickerTemplate returns UpdateAgentTickerTemplateResponse.UpdateAgentTickerTemplate, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTickerTemplateResponse) GetUpdateAgentTickerTemplate() *UpdateAgentTickerTemplateUpdateAgentTickerTemplate {
+	return v.UpdateAgentTickerTemplate
+}
+
+// UpdateAgentTickerTemplateUpdateAgentTickerTemplate includes the requested fields of the GraphQL type AgentTickerTemplate.
+// The GraphQL type's documentation follows.
+//
+// #2024 — one ticker an Agent declares. Casting a worker from the Agent into an App creates the worker's tickers from the live
+// templates and subscribes it, in the cast's own transaction. A SNAPSHOT: a later edit or removal reaches only future casts;
+// existing workers and tickers are untouched. Identity is the id, never the name or the position. The cadence is the requested
+// one; the cast raises it to the App's floor. Reasons are never empty.
+type UpdateAgentTickerTemplateUpdateAgentTickerTemplate struct {
+	AgentTickerTemplateFields `json:"-"`
+}
+
+// GetId returns UpdateAgentTickerTemplateUpdateAgentTickerTemplate.Id, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTickerTemplateUpdateAgentTickerTemplate) GetId() string {
+	return v.AgentTickerTemplateFields.Id
+}
+
+// GetRevision returns UpdateAgentTickerTemplateUpdateAgentTickerTemplate.Revision, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTickerTemplateUpdateAgentTickerTemplate) GetRevision() int {
+	return v.AgentTickerTemplateFields.Revision
+}
+
+// GetShapeVersion returns UpdateAgentTickerTemplateUpdateAgentTickerTemplate.ShapeVersion, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTickerTemplateUpdateAgentTickerTemplate) GetShapeVersion() int {
+	return v.AgentTickerTemplateFields.ShapeVersion
+}
+
+// GetName returns UpdateAgentTickerTemplateUpdateAgentTickerTemplate.Name, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTickerTemplateUpdateAgentTickerTemplate) GetName() string {
+	return v.AgentTickerTemplateFields.Name
+}
+
+// GetTickCode returns UpdateAgentTickerTemplateUpdateAgentTickerTemplate.TickCode, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTickerTemplateUpdateAgentTickerTemplate) GetTickCode() string {
+	return v.AgentTickerTemplateFields.TickCode
+}
+
+// GetCadenceSeconds returns UpdateAgentTickerTemplateUpdateAgentTickerTemplate.CadenceSeconds, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTickerTemplateUpdateAgentTickerTemplate) GetCadenceSeconds() int {
+	return v.AgentTickerTemplateFields.CadenceSeconds
+}
+
+// GetQuietHours returns UpdateAgentTickerTemplateUpdateAgentTickerTemplate.QuietHours, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTickerTemplateUpdateAgentTickerTemplate) GetQuietHours() *json.RawMessage {
+	return v.AgentTickerTemplateFields.QuietHours
+}
+
+// GetRelevance returns UpdateAgentTickerTemplateUpdateAgentTickerTemplate.Relevance, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTickerTemplateUpdateAgentTickerTemplate) GetRelevance() TickerRelevance {
+	return v.AgentTickerTemplateFields.Relevance
+}
+
+// GetReasons returns UpdateAgentTickerTemplateUpdateAgentTickerTemplate.Reasons, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTickerTemplateUpdateAgentTickerTemplate) GetReasons() []TickerReason {
+	return v.AgentTickerTemplateFields.Reasons
+}
+
+// GetCreatedAt returns UpdateAgentTickerTemplateUpdateAgentTickerTemplate.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTickerTemplateUpdateAgentTickerTemplate) GetCreatedAt() string {
+	return v.AgentTickerTemplateFields.CreatedAt
+}
+
+// GetUpdatedAt returns UpdateAgentTickerTemplateUpdateAgentTickerTemplate.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTickerTemplateUpdateAgentTickerTemplate) GetUpdatedAt() *string {
+	return v.AgentTickerTemplateFields.UpdatedAt
+}
+
+// GetAgent returns UpdateAgentTickerTemplateUpdateAgentTickerTemplate.Agent, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTickerTemplateUpdateAgentTickerTemplate) GetAgent() *AgentTickerTemplateFieldsAgent {
+	return v.AgentTickerTemplateFields.Agent
+}
+
+func (v *UpdateAgentTickerTemplateUpdateAgentTickerTemplate) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateAgentTickerTemplateUpdateAgentTickerTemplate
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateAgentTickerTemplateUpdateAgentTickerTemplate = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTickerTemplateFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateAgentTickerTemplateUpdateAgentTickerTemplate struct {
+	Id string `json:"id"`
+
+	Revision int `json:"revision"`
+
+	ShapeVersion int `json:"shapeVersion"`
+
+	Name string `json:"name"`
+
+	TickCode string `json:"tickCode"`
+
+	CadenceSeconds int `json:"cadenceSeconds"`
+
+	QuietHours *json.RawMessage `json:"quietHours"`
+
+	Relevance TickerRelevance `json:"relevance"`
+
+	Reasons []TickerReason `json:"reasons"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	Agent *AgentTickerTemplateFieldsAgent `json:"agent"`
+}
+
+func (v *UpdateAgentTickerTemplateUpdateAgentTickerTemplate) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateAgentTickerTemplateUpdateAgentTickerTemplate) __premarshalJSON() (*__premarshalUpdateAgentTickerTemplateUpdateAgentTickerTemplate, error) {
+	var retval __premarshalUpdateAgentTickerTemplateUpdateAgentTickerTemplate
+
+	retval.Id = v.AgentTickerTemplateFields.Id
+	retval.Revision = v.AgentTickerTemplateFields.Revision
+	retval.ShapeVersion = v.AgentTickerTemplateFields.ShapeVersion
+	retval.Name = v.AgentTickerTemplateFields.Name
+	retval.TickCode = v.AgentTickerTemplateFields.TickCode
+	retval.CadenceSeconds = v.AgentTickerTemplateFields.CadenceSeconds
+	retval.QuietHours = v.AgentTickerTemplateFields.QuietHours
+	retval.Relevance = v.AgentTickerTemplateFields.Relevance
+	retval.Reasons = v.AgentTickerTemplateFields.Reasons
+	retval.CreatedAt = v.AgentTickerTemplateFields.CreatedAt
+	retval.UpdatedAt = v.AgentTickerTemplateFields.UpdatedAt
+	retval.Agent = v.AgentTickerTemplateFields.Agent
+	return &retval, nil
+}
 
 // UpdateAgentUpdateAgent includes the requested fields of the GraphQL type Agent.
 // The GraphQL type's documentation follows.
@@ -70070,6 +71650,155 @@ func (v *WorkerServedPromptWorkerServedPrompt) __premarshalJSON() (*__premarshal
 	return &retval, nil
 }
 
+// hadron-server#2771 / cli#1375: a worker's latest terminal report. A fragment so
+// the roster and GetWorkerTerminal select one shape; deliberately NOT part of
+// WorkerFields, which seven other operations share (their wire shape is unchanged).
+type WorkerTerminalFields struct {
+	Host   *WorkerTerminalFieldsHostWorkerTerminalHost `json:"host"`
+	Status WorkerTerminalState                         `json:"status"`
+	Prompt WorkerTerminalPrompt                        `json:"prompt"`
+	// Required for locked and dark, null otherwise.
+	Reason     *WorkerTerminalReason `json:"reason"`
+	LastTurnAt *string               `json:"lastTurnAt"`
+	// When the host classified the terminal.
+	CheckedAt string `json:"checkedAt"`
+	// When the server stored the report.
+	ReportedAt string `json:"reportedAt"`
+}
+
+// GetHost returns WorkerTerminalFields.Host, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalFields) GetHost() *WorkerTerminalFieldsHostWorkerTerminalHost { return v.Host }
+
+// GetStatus returns WorkerTerminalFields.Status, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalFields) GetStatus() WorkerTerminalState { return v.Status }
+
+// GetPrompt returns WorkerTerminalFields.Prompt, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalFields) GetPrompt() WorkerTerminalPrompt { return v.Prompt }
+
+// GetReason returns WorkerTerminalFields.Reason, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalFields) GetReason() *WorkerTerminalReason { return v.Reason }
+
+// GetLastTurnAt returns WorkerTerminalFields.LastTurnAt, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalFields) GetLastTurnAt() *string { return v.LastTurnAt }
+
+// GetCheckedAt returns WorkerTerminalFields.CheckedAt, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalFields) GetCheckedAt() string { return v.CheckedAt }
+
+// GetReportedAt returns WorkerTerminalFields.ReportedAt, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalFields) GetReportedAt() string { return v.ReportedAt }
+
+// WorkerTerminalFieldsHostWorkerTerminalHost includes the requested fields of the GraphQL type WorkerTerminalHost.
+// The GraphQL type's documentation follows.
+//
+// #2771 — the host that made a worker's latest terminal report: its id from the key, its label from its registration.
+type WorkerTerminalFieldsHostWorkerTerminalHost struct {
+	Id    string `json:"id"`
+	Label string `json:"label"`
+}
+
+// GetId returns WorkerTerminalFieldsHostWorkerTerminalHost.Id, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalFieldsHostWorkerTerminalHost) GetId() string { return v.Id }
+
+// GetLabel returns WorkerTerminalFieldsHostWorkerTerminalHost.Label, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalFieldsHostWorkerTerminalHost) GetLabel() string { return v.Label }
+
+// #2771 — what the terminal's input prompt looked like.
+type WorkerTerminalPrompt string
+
+const (
+	WorkerTerminalPromptEmpty    WorkerTerminalPrompt = "empty"
+	WorkerTerminalPromptMenu     WorkerTerminalPrompt = "menu"
+	WorkerTerminalPromptNotEmpty WorkerTerminalPrompt = "not_empty"
+	WorkerTerminalPromptUnknown  WorkerTerminalPrompt = "unknown"
+)
+
+var AllWorkerTerminalPrompt = []WorkerTerminalPrompt{
+	WorkerTerminalPromptEmpty,
+	WorkerTerminalPromptMenu,
+	WorkerTerminalPromptNotEmpty,
+	WorkerTerminalPromptUnknown,
+}
+
+// #2771 — why a terminal is locked or dark: a closed code (hadron-cli#1187), never text from the screen.
+type WorkerTerminalReason string
+
+const (
+	WorkerTerminalReasonBareShell               WorkerTerminalReason = "bare_shell"
+	WorkerTerminalReasonGuardrailTriggered      WorkerTerminalReason = "guardrail_triggered"
+	WorkerTerminalReasonMenuOrQuestion          WorkerTerminalReason = "menu_or_question"
+	WorkerTerminalReasonModelAtCapacity         WorkerTerminalReason = "model_at_capacity"
+	WorkerTerminalReasonNoAgent                 WorkerTerminalReason = "no_agent"
+	WorkerTerminalReasonNoTerminal              WorkerTerminalReason = "no_terminal"
+	WorkerTerminalReasonNoTurnForDueTicker      WorkerTerminalReason = "no_turn_for_due_ticker"
+	WorkerTerminalReasonRateLimited             WorkerTerminalReason = "rate_limited"
+	WorkerTerminalReasonShedStagedNotRelaunched WorkerTerminalReason = "shed_staged_not_relaunched"
+	WorkerTerminalReasonTokenBudgetExhausted    WorkerTerminalReason = "token_budget_exhausted"
+	WorkerTerminalReasonUnrecognized            WorkerTerminalReason = "unrecognized"
+)
+
+var AllWorkerTerminalReason = []WorkerTerminalReason{
+	WorkerTerminalReasonBareShell,
+	WorkerTerminalReasonGuardrailTriggered,
+	WorkerTerminalReasonMenuOrQuestion,
+	WorkerTerminalReasonModelAtCapacity,
+	WorkerTerminalReasonNoAgent,
+	WorkerTerminalReasonNoTerminal,
+	WorkerTerminalReasonNoTurnForDueTicker,
+	WorkerTerminalReasonRateLimited,
+	WorkerTerminalReasonShedStagedNotRelaunched,
+	WorkerTerminalReasonTokenBudgetExhausted,
+	WorkerTerminalReasonUnrecognized,
+}
+
+// #2771 — one worker's terminal report. There is no free-text field.
+type WorkerTerminalReportInput struct {
+	// When the host classified the terminal, not more than two minutes ahead of the server.
+	CheckedAt string `json:"checkedAt"`
+	// When the worker's last turn ended, not after checkedAt.
+	LastTurnAt *string              `json:"lastTurnAt,omitempty"`
+	Prompt     WorkerTerminalPrompt `json:"prompt"`
+	// Required for locked and dark; refused for busy and idle.
+	Reason *WorkerTerminalReason `json:"reason,omitempty"`
+	Status WorkerTerminalState   `json:"status"`
+	// A worker this host registers: its id, URN or name within the App.
+	Worker string `json:"worker"`
+}
+
+// GetCheckedAt returns WorkerTerminalReportInput.CheckedAt, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalReportInput) GetCheckedAt() string { return v.CheckedAt }
+
+// GetLastTurnAt returns WorkerTerminalReportInput.LastTurnAt, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalReportInput) GetLastTurnAt() *string { return v.LastTurnAt }
+
+// GetPrompt returns WorkerTerminalReportInput.Prompt, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalReportInput) GetPrompt() WorkerTerminalPrompt { return v.Prompt }
+
+// GetReason returns WorkerTerminalReportInput.Reason, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalReportInput) GetReason() *WorkerTerminalReason { return v.Reason }
+
+// GetStatus returns WorkerTerminalReportInput.Status, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalReportInput) GetStatus() WorkerTerminalState { return v.Status }
+
+// GetWorker returns WorkerTerminalReportInput.Worker, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalReportInput) GetWorker() string { return v.Worker }
+
+// #2771 — what a host's sweep saw in a worker's terminal.
+type WorkerTerminalState string
+
+const (
+	WorkerTerminalStateBusy   WorkerTerminalState = "busy"
+	WorkerTerminalStateDark   WorkerTerminalState = "dark"
+	WorkerTerminalStateIdle   WorkerTerminalState = "idle"
+	WorkerTerminalStateLocked WorkerTerminalState = "locked"
+)
+
+var AllWorkerTerminalState = []WorkerTerminalState{
+	WorkerTerminalStateBusy,
+	WorkerTerminalStateDark,
+	WorkerTerminalStateIdle,
+	WorkerTerminalStateLocked,
+}
+
 // A worker's wake settings (cli#1292, cor:agt:080:03). One selection shared by
 // the read and the write, which both return WorkerWakeSettings. The isolation
 // fields are projected as the server returns them; the isolate/clear commands
@@ -71464,6 +73193,14 @@ func (v *__AgentTeamEventsInput) GetTaskId() *string { return v.TaskId }
 // GetTypes returns __AgentTeamEventsInput.Types, and is useful for accessing the field via an interface.
 func (v *__AgentTeamEventsInput) GetTypes() []string { return v.Types }
 
+// __AgentTickerTemplatesInput is used internally by genqlient
+type __AgentTickerTemplatesInput struct {
+	AgentRef string `json:"agentRef"`
+}
+
+// GetAgentRef returns __AgentTickerTemplatesInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__AgentTickerTemplatesInput) GetAgentRef() string { return v.AgentRef }
+
 // __AgentWebhooksInput is used internally by genqlient
 type __AgentWebhooksInput struct {
 	AppRef string `json:"appRef"`
@@ -72090,6 +73827,18 @@ func (v *__CastWorkerPreviewInput) GetRole() *string { return v.Role }
 // GetName returns __CastWorkerPreviewInput.Name, and is useful for accessing the field via an interface.
 func (v *__CastWorkerPreviewInput) GetName() *string { return v.Name }
 
+// __ChangeWorkerAgentInput is used internally by genqlient
+type __ChangeWorkerAgentInput struct {
+	WorkerRef string `json:"workerRef"`
+	AgentRef  string `json:"agentRef"`
+}
+
+// GetWorkerRef returns __ChangeWorkerAgentInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__ChangeWorkerAgentInput) GetWorkerRef() string { return v.WorkerRef }
+
+// GetAgentRef returns __ChangeWorkerAgentInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__ChangeWorkerAgentInput) GetAgentRef() string { return v.AgentRef }
+
 // __ChannelMessageSearchInput is used internally by genqlient
 type __ChannelMessageSearchInput struct {
 	ChannelRef string  `json:"channelRef"`
@@ -72370,6 +74119,14 @@ type __ClearNodeHistoryInput struct {
 // GetNodeRef returns __ClearNodeHistoryInput.NodeRef, and is useful for accessing the field via an interface.
 func (v *__ClearNodeHistoryInput) GetNodeRef() string { return v.NodeRef }
 
+// __ClearWorkerIsolationInput is used internally by genqlient
+type __ClearWorkerIsolationInput struct {
+	WorkerRef string `json:"workerRef"`
+}
+
+// GetWorkerRef returns __ClearWorkerIsolationInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__ClearWorkerIsolationInput) GetWorkerRef() string { return v.WorkerRef }
+
 // __CloneAgentInput is used internally by genqlient
 type __CloneAgentInput struct {
 	Source string  `json:"source"`
@@ -72589,6 +74346,18 @@ type __CreateAgentScheduleInput struct {
 
 // GetInput returns __CreateAgentScheduleInput.Input, and is useful for accessing the field via an interface.
 func (v *__CreateAgentScheduleInput) GetInput() *CreateAgentScheduleInput { return v.Input }
+
+// __CreateAgentTickerTemplateInput is used internally by genqlient
+type __CreateAgentTickerTemplateInput struct {
+	AgentRef string                    `json:"agentRef"`
+	Input    *AgentTickerTemplateInput `json:"input,omitempty"`
+}
+
+// GetAgentRef returns __CreateAgentTickerTemplateInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__CreateAgentTickerTemplateInput) GetAgentRef() string { return v.AgentRef }
+
+// GetInput returns __CreateAgentTickerTemplateInput.Input, and is useful for accessing the field via an interface.
+func (v *__CreateAgentTickerTemplateInput) GetInput() *AgentTickerTemplateInput { return v.Input }
 
 // __CreateAgentWebhookInput is used internally by genqlient
 type __CreateAgentWebhookInput struct {
@@ -73388,6 +75157,18 @@ type __DeleteAgentScheduleInput struct {
 // GetId returns __DeleteAgentScheduleInput.Id, and is useful for accessing the field via an interface.
 func (v *__DeleteAgentScheduleInput) GetId() string { return v.Id }
 
+// __DeleteAgentTickerTemplateInput is used internally by genqlient
+type __DeleteAgentTickerTemplateInput struct {
+	Id               string `json:"id"`
+	ExpectedRevision int    `json:"expectedRevision"`
+}
+
+// GetId returns __DeleteAgentTickerTemplateInput.Id, and is useful for accessing the field via an interface.
+func (v *__DeleteAgentTickerTemplateInput) GetId() string { return v.Id }
+
+// GetExpectedRevision returns __DeleteAgentTickerTemplateInput.ExpectedRevision, and is useful for accessing the field via an interface.
+func (v *__DeleteAgentTickerTemplateInput) GetExpectedRevision() int { return v.ExpectedRevision }
+
 // __DeleteAgentWebhookInput is used internally by genqlient
 type __DeleteAgentWebhookInput struct {
 	Id string `json:"id"`
@@ -74134,6 +75915,14 @@ type __GetWorkerProfileInput struct {
 // GetRef returns __GetWorkerProfileInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetWorkerProfileInput) GetRef() string { return v.Ref }
 
+// __GetWorkerTerminalInput is used internally by genqlient
+type __GetWorkerTerminalInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetWorkerTerminalInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetWorkerTerminalInput) GetRef() string { return v.Ref }
+
 // __GrantAppKeyScopeInput is used internally by genqlient
 type __GrantAppKeyScopeInput struct {
 	Id     string  `json:"id"`
@@ -74149,6 +75938,14 @@ func (v *__GrantAppKeyScopeInput) GetScope() string { return v.Scope }
 
 // GetHostId returns __GrantAppKeyScopeInput.HostId, and is useful for accessing the field via an interface.
 func (v *__GrantAppKeyScopeInput) GetHostId() *string { return v.HostId }
+
+// __HealthSweepSetTerminalsInput is used internally by genqlient
+type __HealthSweepSetTerminalsInput struct {
+	Input *SetHostWorkerTerminalsInput `json:"input,omitempty"`
+}
+
+// GetInput returns __HealthSweepSetTerminalsInput.Input, and is useful for accessing the field via an interface.
+func (v *__HealthSweepSetTerminalsInput) GetInput() *SetHostWorkerTerminalsInput { return v.Input }
 
 // __HomeAssistantInstanceInput is used internally by genqlient
 type __HomeAssistantInstanceInput struct {
@@ -74253,6 +76050,18 @@ func (v *__InstallMemoryInput) GetAppRef() string { return v.AppRef }
 
 // GetAgentRef returns __InstallMemoryInput.AgentRef, and is useful for accessing the field via an interface.
 func (v *__InstallMemoryInput) GetAgentRef() string { return v.AgentRef }
+
+// __IsolateWorkerInput is used internally by genqlient
+type __IsolateWorkerInput struct {
+	WorkerRef string  `json:"workerRef"`
+	Until     *string `json:"until,omitempty"`
+}
+
+// GetWorkerRef returns __IsolateWorkerInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__IsolateWorkerInput) GetWorkerRef() string { return v.WorkerRef }
+
+// GetUntil returns __IsolateWorkerInput.Until, and is useful for accessing the field via an interface.
+func (v *__IsolateWorkerInput) GetUntil() *string { return v.Until }
 
 // __IssueHostOperationInput is used internally by genqlient
 type __IssueHostOperationInput struct {
@@ -75648,6 +77457,18 @@ func (v *__SetAssetPublicLinkInput) GetAssetRef() string { return v.AssetRef }
 // GetEnabled returns __SetAssetPublicLinkInput.Enabled, and is useful for accessing the field via an interface.
 func (v *__SetAssetPublicLinkInput) GetEnabled() bool { return v.Enabled }
 
+// __SetTeamPauseInput is used internally by genqlient
+type __SetTeamPauseInput struct {
+	AppRef string `json:"appRef"`
+	Paused bool   `json:"paused"`
+}
+
+// GetAppRef returns __SetTeamPauseInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__SetTeamPauseInput) GetAppRef() string { return v.AppRef }
+
+// GetPaused returns __SetTeamPauseInput.Paused, and is useful for accessing the field via an interface.
+func (v *__SetTeamPauseInput) GetPaused() bool { return v.Paused }
+
 // __SetWorkerBootPromptInput is used internally by genqlient
 type __SetWorkerBootPromptInput struct {
 	WorkerRef string  `json:"workerRef"`
@@ -76477,6 +78298,22 @@ func (v *__UpdateAgentScheduleInput) GetId() string { return v.Id }
 
 // GetInput returns __UpdateAgentScheduleInput.Input, and is useful for accessing the field via an interface.
 func (v *__UpdateAgentScheduleInput) GetInput() *UpdateAgentScheduleInput { return v.Input }
+
+// __UpdateAgentTickerTemplateInput is used internally by genqlient
+type __UpdateAgentTickerTemplateInput struct {
+	Id               string                    `json:"id"`
+	ExpectedRevision int                       `json:"expectedRevision"`
+	Input            *AgentTickerTemplatePatch `json:"input,omitempty"`
+}
+
+// GetId returns __UpdateAgentTickerTemplateInput.Id, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentTickerTemplateInput) GetId() string { return v.Id }
+
+// GetExpectedRevision returns __UpdateAgentTickerTemplateInput.ExpectedRevision, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentTickerTemplateInput) GetExpectedRevision() int { return v.ExpectedRevision }
+
+// GetInput returns __UpdateAgentTickerTemplateInput.Input, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentTickerTemplateInput) GetInput() *AgentTickerTemplatePatch { return v.Input }
 
 // __UpdateAiServiceConfigInput is used internally by genqlient
 type __UpdateAiServiceConfigInput struct {
@@ -80345,6 +82182,57 @@ func AgentTeamEvents(
 	return data_, err_
 }
 
+// The query executed by AgentTickerTemplates.
+const AgentTickerTemplates_Operation = `
+query AgentTickerTemplates ($agentRef: String!) {
+	agentTickerTemplates(agentRef: $agentRef) {
+		... AgentTickerTemplateFields
+	}
+}
+fragment AgentTickerTemplateFields on AgentTickerTemplate {
+	id
+	revision
+	shapeVersion
+	name
+	tickCode
+	cadenceSeconds
+	quietHours
+	relevance
+	reasons
+	createdAt
+	updatedAt
+	agent {
+		id
+		name
+	}
+}
+`
+
+func AgentTickerTemplates(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentRef string,
+) (data_ *AgentTickerTemplatesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentTickerTemplates",
+		Query:  AgentTickerTemplates_Operation,
+		Variables: &__AgentTickerTemplatesInput{
+			AgentRef: agentRef,
+		},
+	}
+
+	data_ = &AgentTickerTemplatesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by AgentWebhooks.
 const AgentWebhooks_Operation = `
 query AgentWebhooks ($appRef: String!, $limit: Int, $offset: Int) {
@@ -82696,6 +84584,85 @@ func CastWorkerPreview(
 	return data_, err_
 }
 
+// The mutation executed by ChangeWorkerAgent.
+const ChangeWorkerAgent_Operation = `
+mutation ChangeWorkerAgent ($workerRef: ID!, $agentRef: ID!) {
+	changeWorkerAgent(workerRef: $workerRef, agentRef: $agentRef) {
+		... WorkerFields
+	}
+}
+fragment WorkerFields on Worker {
+	id
+	urn
+	portalUrl
+	slug
+	appId
+	agentId
+	name
+	reportsTo {
+		... WorkerReportingRefFields
+	}
+	reportsToRetired
+	role
+	prompt
+	signature
+	trailer
+	bootPromptRef
+	bootPromptTargetDeleted
+	repos
+	memoryId
+	family
+	heldByUserId
+	heldAt
+	hasLiveSession
+	lastActiveAt
+	checkStatus {
+		... ChannelCheckFields
+	}
+	retiredAt
+	retiredBy
+	createdAt
+	createdBy
+}
+fragment WorkerReportingRefFields on Worker {
+	id
+	name
+	urn
+}
+fragment ChannelCheckFields on WorkerCheckStatus {
+	status
+	pendingReason
+	lastCheckedAt
+}
+`
+
+func ChangeWorkerAgent(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	workerRef string,
+	agentRef string,
+) (data_ *ChangeWorkerAgentResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ChangeWorkerAgent",
+		Query:  ChangeWorkerAgent_Operation,
+		Variables: &__ChangeWorkerAgentInput{
+			WorkerRef: workerRef,
+			AgentRef:  agentRef,
+		},
+	}
+
+	data_ = &ChangeWorkerAgentResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by ChannelMessageSearch.
 const ChannelMessageSearch_Operation = `
 query ChannelMessageSearch ($channelRef: ID!, $query: String!, $limit: Int, $cursor: String) {
@@ -83534,6 +85501,68 @@ func ClearNodeHistory(
 	return data_, err_
 }
 
+// The mutation executed by ClearWorkerIsolation.
+const ClearWorkerIsolation_Operation = `
+mutation ClearWorkerIsolation ($workerRef: String!) {
+	clearWorkerIsolation(workerRef: $workerRef) {
+		... WorkerWakeSettingsFields
+	}
+}
+fragment WorkerWakeSettingsFields on WorkerWakeSettings {
+	worker {
+		id
+		name
+		urn
+	}
+	mentions
+	pausedUntil
+	subscriptions {
+		id
+		ticker {
+			id
+			urn
+			name
+			cadenceSeconds
+			enabled
+		}
+		viaGrant
+		createdAt
+	}
+	effectiveCadenceSeconds
+	dormant
+	isolated
+	isolatedAt
+	isolatedByHandle
+	isolatedUntil
+	canManageIsolation
+}
+`
+
+func ClearWorkerIsolation(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	workerRef string,
+) (data_ *ClearWorkerIsolationResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ClearWorkerIsolation",
+		Query:  ClearWorkerIsolation_Operation,
+		Variables: &__ClearWorkerIsolationInput{
+			WorkerRef: workerRef,
+		},
+	}
+
+	data_ = &ClearWorkerIsolationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CloneAgent.
 const CloneAgent_Operation = `
 mutation CloneAgent ($source: ID!, $target: ID!, $name: String, $slug: String) {
@@ -84326,6 +86355,59 @@ func CreateAgentSchedule(
 	}
 
 	data_ = &CreateAgentScheduleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateAgentTickerTemplate.
+const CreateAgentTickerTemplate_Operation = `
+mutation CreateAgentTickerTemplate ($agentRef: String!, $input: AgentTickerTemplateInput!) {
+	createAgentTickerTemplate(agentRef: $agentRef, input: $input) {
+		... AgentTickerTemplateFields
+	}
+}
+fragment AgentTickerTemplateFields on AgentTickerTemplate {
+	id
+	revision
+	shapeVersion
+	name
+	tickCode
+	cadenceSeconds
+	quietHours
+	relevance
+	reasons
+	createdAt
+	updatedAt
+	agent {
+		id
+		name
+	}
+}
+`
+
+func CreateAgentTickerTemplate(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentRef string,
+	input *AgentTickerTemplateInput,
+) (data_ *CreateAgentTickerTemplateResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateAgentTickerTemplate",
+		Query:  CreateAgentTickerTemplate_Operation,
+		Variables: &__CreateAgentTickerTemplateInput{
+			AgentRef: agentRef,
+			Input:    input,
+		},
+	}
+
+	data_ = &CreateAgentTickerTemplateResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -86653,6 +88735,40 @@ func DeleteAgentSchedule(
 	}
 
 	data_ = &DeleteAgentScheduleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteAgentTickerTemplate.
+const DeleteAgentTickerTemplate_Operation = `
+mutation DeleteAgentTickerTemplate ($id: ID!, $expectedRevision: Int!) {
+	deleteAgentTickerTemplate(id: $id, expectedRevision: $expectedRevision)
+}
+`
+
+func DeleteAgentTickerTemplate(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	expectedRevision int,
+) (data_ *DeleteAgentTickerTemplateResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteAgentTickerTemplate",
+		Query:  DeleteAgentTickerTemplate_Operation,
+		Variables: &__DeleteAgentTickerTemplateInput{
+			Id:               id,
+			ExpectedRevision: expectedRevision,
+		},
+	}
+
+	data_ = &DeleteAgentTickerTemplateResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -90025,6 +92141,57 @@ func GetWorkerProfile(
 	return data_, err_
 }
 
+// The query executed by GetWorkerTerminal.
+const GetWorkerTerminal_Operation = `
+query GetWorkerTerminal ($ref: ID!) {
+	worker(ref: $ref) {
+		terminal {
+			... WorkerTerminalFields
+		}
+	}
+}
+fragment WorkerTerminalFields on WorkerTerminal {
+	host {
+		id
+		label
+	}
+	status
+	prompt
+	reason
+	lastTurnAt
+	checkedAt
+	reportedAt
+}
+`
+
+// The terminal report is its own operation, for the reason GetWorkerProfile is:
+// a server that predates #2771 rejects a document selecting Worker.terminal
+// before execution, and the ordinary lookup must still bind there.
+func GetWorkerTerminal(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetWorkerTerminalResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetWorkerTerminal",
+		Query:  GetWorkerTerminal_Operation,
+		Variables: &__GetWorkerTerminalInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetWorkerTerminalResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by GrantAppKeyScope.
 const GrantAppKeyScope_Operation = `
 mutation GrantAppKeyScope ($id: ID!, $scope: String!, $hostId: String) {
@@ -90064,6 +92231,48 @@ func GrantAppKeyScope(
 	}
 
 	data_ = &GrantAppKeyScopeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by HealthSweepSetTerminals.
+const HealthSweepSetTerminals_Operation = `
+mutation HealthSweepSetTerminals ($input: SetHostWorkerTerminalsInput!) {
+	setHostWorkerTerminals(input: $input) {
+		stored {
+			id
+			urn
+		}
+		refused {
+			worker
+			code
+		}
+	}
+}
+`
+
+// Host health sweep (#1181): codes and timestamps only, no screen text and no alarm verdict.
+func HealthSweepSetTerminals(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *SetHostWorkerTerminalsInput,
+) (data_ *HealthSweepSetTerminalsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HealthSweepSetTerminals",
+		Query:  HealthSweepSetTerminals_Operation,
+		Variables: &__HealthSweepSetTerminalsInput{
+			Input: input,
+		},
+	}
+
+	data_ = &HealthSweepSetTerminalsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -90472,6 +92681,70 @@ func InstallMemory(
 	}
 
 	data_ = &InstallMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by IsolateWorker.
+const IsolateWorker_Operation = `
+mutation IsolateWorker ($workerRef: String!, $until: DateTime) {
+	isolateWorker(workerRef: $workerRef, until: $until) {
+		... WorkerWakeSettingsFields
+	}
+}
+fragment WorkerWakeSettingsFields on WorkerWakeSettings {
+	worker {
+		id
+		name
+		urn
+	}
+	mentions
+	pausedUntil
+	subscriptions {
+		id
+		ticker {
+			id
+			urn
+			name
+			cadenceSeconds
+			enabled
+		}
+		viaGrant
+		createdAt
+	}
+	effectiveCadenceSeconds
+	dormant
+	isolated
+	isolatedAt
+	isolatedByHandle
+	isolatedUntil
+	canManageIsolation
+}
+`
+
+func IsolateWorker(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	workerRef string,
+	until *string,
+) (data_ *IsolateWorkerResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "IsolateWorker",
+		Query:  IsolateWorker_Operation,
+		Variables: &__IsolateWorkerInput{
+			WorkerRef: workerRef,
+			Until:     until,
+		},
+	}
+
+	data_ = &IsolateWorkerResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -96679,6 +98952,43 @@ func SetAssetPublicLink(
 	return data_, err_
 }
 
+// The mutation executed by SetTeamPause.
+const SetTeamPause_Operation = `
+mutation SetTeamPause ($appRef: String!, $paused: Boolean!) {
+	setTeamPause(appRef: $appRef, paused: $paused) {
+		teamPausedAt
+	}
+}
+`
+
+// MCP cut C3: manager controls, deliberately not authored worker writes.
+func SetTeamPause(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	paused bool,
+) (data_ *SetTeamPauseResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SetTeamPause",
+		Query:  SetTeamPause_Operation,
+		Variables: &__SetTeamPauseInput{
+			AppRef: appRef,
+			Paused: paused,
+		},
+	}
+
+	data_ = &SetTeamPauseResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by SetWorkerBootPrompt.
 const SetWorkerBootPrompt_Operation = `
 mutation SetWorkerBootPrompt ($workerRef: ID!, $nodeRef: String) {
@@ -98898,6 +101208,9 @@ query TeamRoster ($appRef: ID!) {
 			checkStatus {
 				... ChannelCheckFields
 			}
+			terminal {
+				... WorkerTerminalFields
+			}
 			lastAssignedAt
 			pendingTasks
 			startedTasks
@@ -98929,6 +101242,18 @@ fragment ChannelCheckFields on WorkerCheckStatus {
 	status
 	pendingReason
 	lastCheckedAt
+}
+fragment WorkerTerminalFields on WorkerTerminal {
+	host {
+		id
+		label
+	}
+	status
+	prompt
+	reason
+	lastTurnAt
+	checkedAt
+	reportedAt
 }
 `
 
@@ -99963,6 +102288,61 @@ func UpdateAgentSchedule(
 	}
 
 	data_ = &UpdateAgentScheduleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateAgentTickerTemplate.
+const UpdateAgentTickerTemplate_Operation = `
+mutation UpdateAgentTickerTemplate ($id: ID!, $expectedRevision: Int!, $input: AgentTickerTemplatePatch!) {
+	updateAgentTickerTemplate(id: $id, expectedRevision: $expectedRevision, input: $input) {
+		... AgentTickerTemplateFields
+	}
+}
+fragment AgentTickerTemplateFields on AgentTickerTemplate {
+	id
+	revision
+	shapeVersion
+	name
+	tickCode
+	cadenceSeconds
+	quietHours
+	relevance
+	reasons
+	createdAt
+	updatedAt
+	agent {
+		id
+		name
+	}
+}
+`
+
+func UpdateAgentTickerTemplate(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	expectedRevision int,
+	input *AgentTickerTemplatePatch,
+) (data_ *UpdateAgentTickerTemplateResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateAgentTickerTemplate",
+		Query:  UpdateAgentTickerTemplate_Operation,
+		Variables: &__UpdateAgentTickerTemplateInput{
+			Id:               id,
+			ExpectedRevision: expectedRevision,
+			Input:            input,
+		},
+	}
+
+	data_ = &UpdateAgentTickerTemplateResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

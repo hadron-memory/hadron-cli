@@ -831,6 +831,15 @@ func codeForExtension(code string) int {
 	// wake settings (cor:agt:080:21; cli#1292).
 	case code == "WAKE_SETTINGS_FORBIDDEN":
 		return exitcode.Forbidden
+	// Only whoever manages the App or the worker's holder, as a person acting
+	// as themselves, may isolate a worker or clear it (cor:agt:080:29; cli#911
+	// B2): an authority, so it precedes the _REQUIRED rule. Setting is refused
+	// UNAVAILABLE until S7b is on (server#2130): the platform's state, which no
+	// input changes.
+	case code == "WORKER_ISOLATION_FORBIDDEN":
+		return exitcode.Forbidden
+	case code == "WORKER_ISOLATION_UNAVAILABLE":
+		return exitcode.Conflict
 	// S9 settings (#911): invalid candidates are input errors; a live ticker
 	// conflict or unavailable standby behavior requires a state change.
 	case code == "DELIVERY_SETTINGS_OUT_OF_RANGE" || code == "DELIVERY_SETTINGS_CONFLICT" || code == "TICKER_SETTINGS_OUT_OF_RANGE":
@@ -850,7 +859,7 @@ func codeForExtension(code string) int {
 		return exitcode.Forbidden
 	case code == "TICKER_CADENCE_OUT_OF_RANGE" || code == "TICKER_QUIET_HOURS_INVALID":
 		return exitcode.Usage
-	case code == "TICKER_NAME_TAKEN" || code == "TICKER_LIMIT_REACHED":
+	case code == "TICKER_NAME_TAKEN" || code == "TICKER_LIMIT_REACHED" || code == "TICKER_TEMPLATE_LIMIT_REACHED":
 		return exitcode.Conflict
 	// App member writes (cli#956, cor:dmo:050:04): a role the primary Agent's
 	// policy does not list is an argument the caller fixes; the member cap and
@@ -1109,8 +1118,13 @@ func codeForExtension(code string) int {
 		// The caller must explicitly attest verified external absence; --yes
 		// alone confirms deletion, not that separate input (server#1162).
 		return exitcode.Usage
+	// A stale casting changed concurrently; an unchanged agent has nothing to
+	// change; a role-less agent cannot supply a new role. The caller must
+	// choose another agent or change that state. All three are conflict (5),
+	// never idempotent success, under the cli#1336 gate.
 	case code == "WORKER_IN_USE" || code == "WORKER_RETIRED" || code == "WORKER_TAKEN" ||
-		code == "WORKER_HELD" || code == "WORKER_HOLD_STALE":
+		code == "WORKER_HELD" || code == "WORKER_HOLD_STALE" ||
+		code == "WORKER_CASTING_STALE" || code == "WORKER_AGENT_UNCHANGED" || code == "WORKER_AGENT_HAS_NO_ROLE":
 		return exitcode.Conflict
 	// The agent-task surface (hadron-cli#830 over server #1705/#1706). Who
 	// may move a task or set availability is the server's rule
@@ -1228,7 +1242,7 @@ func codeForExtension(code string) int {
 	// re-preview or choose another corpus rather than retrying blindly.
 	case code == "SEARCH_REPLACE_PLAN_STALE" || code == "SEARCH_REPLACE_NOT_DRAFT" || code == "SEARCH_REPLACE_MIXED_CORPUS" ||
 		code == "SPEC_CORPUS_NOT_DRAFT" || code == "SPEC_CORPUS_MINT_BLOCKED" || code == "SPEC_CORPUS_BUSY" ||
-		code == "SPEC_CORPUS_ENCRYPTED_UNSUPPORTED" || code == "REVISION_MISMATCH" ||
+		code == "SPEC_CORPUS_ENCRYPTED_UNSUPPORTED" || code == "REVISION_MISMATCH" || code == "TICKER_TEMPLATE_REVISION_MISMATCH" ||
 		code == "NODE_IS_PLACEHOLDER" || code == "NODE_MINTED":
 		return exitcode.Conflict
 	case code == "SEARCH_REPLACE_MAX_NODES_CHANGED":

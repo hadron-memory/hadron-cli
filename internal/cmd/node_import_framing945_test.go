@@ -9,6 +9,7 @@ import (
 
 // Capture the actual mutation variables, not only the parsed Document: a null
 // fixture body is omitted on both create and update, never an implicit clear.
+// Each case also pins its route: only the expected mutation is sent.
 func TestNodeImportFraming945(t *testing.T) {
 	var fixture struct {
 		Cases []struct {
@@ -32,10 +33,10 @@ func TestNodeImportFraming945(t *testing.T) {
 			t.Run(name, func(t *testing.T) {
 				replies := map[string]string{"ResolveUrn": resolveNullJSON, "UpdateNode": `{"data":{"updateNode":` + nodeJSON + `}}`, "CreateNode": `{"data":{"createNode":` + nodeJSON + `}}`}
 				args := []string{"node", "import"}
-				op := "UpdateNode"
+				op, other := "UpdateNode", "CreateNode"
 				if create {
 					args = append(args, "--create-only")
-					op = "CreateNode"
+					op, other = "CreateNode", "UpdateNode"
 				}
 				server, captured := captureGraphQL(t, replies)
 				f, _ := testFactory(t)
@@ -48,6 +49,13 @@ func TestNodeImportFraming945(t *testing.T) {
 				root.SetArgs(append(args, file, "--json", "--server", server.URL))
 				if err := root.Execute(); err != nil {
 					t.Fatal(err)
+				}
+				// The route, not only the payload (#1124): a matching mutation
+				// must not ride alongside the opposite one — an update that
+				// also falls back to create (or a create-only that updates)
+				// would otherwise pass on the payload check alone.
+				if _, sent := captured[other]; sent {
+					t.Fatalf("%s sent alongside %s", other, op)
 				}
 				var vars struct {
 					Input map[string]json.RawMessage `json:"input"`

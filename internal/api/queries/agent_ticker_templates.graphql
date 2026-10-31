@@ -1,0 +1,33 @@
+# cli#913: per-template CRUD, no runtime ticker writes or worker session.
+fragment AgentTickerTemplateFields on AgentTickerTemplate {
+ id revision shapeVersion name tickCode cadenceSeconds quietHours relevance reasons
+ createdAt updatedAt agent { id name }
+}
+query AgentTickerTemplates($agentRef: String!) {
+ agentTickerTemplates(agentRef: $agentRef) { ...AgentTickerTemplateFields }
+}
+# @genqlient(for: "AgentTickerTemplateInput.relevance", omitempty: true)
+# @genqlient(for: "AgentTickerTemplateInput.reasons", omitempty: true)
+# @genqlient(for: "AgentTickerTemplateInput.quietHours", omitempty: true)
+mutation CreateAgentTickerTemplate(
+ $agentRef: String!
+ $input: AgentTickerTemplateInput!
+) {
+ createAgentTickerTemplate(agentRef: $agentRef, input: $input) { ...AgentTickerTemplateFields }
+}
+# @genqlient(for: "AgentTickerTemplatePatch.name", omitempty: true)
+# @genqlient(for: "AgentTickerTemplatePatch.cadenceSeconds", omitempty: true)
+# @genqlient(for: "AgentTickerTemplatePatch.relevance", omitempty: true)
+# @genqlient(for: "AgentTickerTemplatePatch.reasons", omitempty: true)
+# @genqlient(for: "AgentTickerTemplatePatch.quietHours", omitempty: true)
+# @genqlient(for: "AgentTickerTemplatePatch.clearQuietHours", omitempty: true)
+mutation UpdateAgentTickerTemplate(
+ $id: ID!
+ $expectedRevision: Int!
+ $input: AgentTickerTemplatePatch!
+) {
+ updateAgentTickerTemplate(id: $id, expectedRevision: $expectedRevision, input: $input) { ...AgentTickerTemplateFields }
+}
+mutation DeleteAgentTickerTemplate($id: ID!, $expectedRevision: Int!) {
+ deleteAgentTickerTemplate(id: $id, expectedRevision: $expectedRevision)
+}

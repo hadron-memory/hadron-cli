@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -59,6 +60,7 @@ RELATED, NOT HERE:
 	cmd.AddCommand(newCmdWorkerGet(f))
 	cmd.AddCommand(servedprompt.NewWorker(f))
 	cmd.AddCommand(newCmdWorkerUpdate(f))
+	cmd.AddCommand(newCmdWorkerChangeAgent(f))
 	cmd.AddCommand(newCmdWorkerSetReportsTo(f))
 	cmd.AddCommand(newCmdWorkerSetBootPrompt(f))
 	cmd.AddCommand(newCmdWorkerCompile(f))
@@ -296,7 +298,7 @@ context).`,
 			// --agent are exclusive, so this fires exactly for a --role cast).
 			if role != "" && !roleDefinitionExists(cmd.Context(), client, appRef, role) {
 				fmt.Fprintf(f.IOStreams.ErrOut,
-					"note: no team role definition for %q — `hadron team role create %s` documents it (`team role list` shows the gap)\n", role, role)
+					"note: no team role definition for %q — %s (`team role list` shows the gap)\n", role, roleDefinitionHint(role, runtime.GOOS))
 			}
 			dto := workerDTOFromFields(resp.CastWorker.WorkerFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
@@ -504,6 +506,9 @@ type workerGetDTO struct {
 	workerDTO
 	AppName   *string `json:"appName"`
 	OwnerName *string `json:"ownerName"`
+	// Terminal is the worker's latest terminal report (cli#1375), read in its
+	// own operation. Null when never reported, masked, or an older server.
+	Terminal *workerTerminalDTO `json:"terminal"`
 
 	// appURN is render-only (the `app:` line); the contract adds two keys.
 	appURN *string
@@ -600,6 +605,11 @@ THE FIELDS:
                    OVERDUE     has an open task and has not checked within
                                the App's window (missed periods + 5 minutes)
   last team-channel check   the last bound team chat read
+  terminal       the host's latest terminal report: status (busy, idle,
+                 locked, dark), reason, its age from checkedAt, the host and
+                 the prompt shape; "—" when never reported or not available to
+                 you. --json adds terminal (the whole object, or null). An older
+                 server without it reads as null.
 
 OVERDUE CLEARS when the worker's own session reads its team chat
 (` + "`team chat read`" + ` or ` + "`team chat check`" + ` from its bound worktree): that read is
@@ -647,7 +657,11 @@ and every worker's state in ` + "`team roster`" + `.`,
 			if err != nil {
 				return err
 			}
-			dto := workerGetDTO{workerDTO: workerDTOFromFields(w), AppName: appName, OwnerName: ownerName, appURN: appURN}
+			terminal, err := readWorkerTerminal(cmd.Context(), client, w.Id)
+			if err != nil {
+				return err
+			}
+			dto := workerGetDTO{workerDTO: workerDTOFromFields(w), AppName: appName, OwnerName: ownerName, Terminal: terminal, appURN: appURN}
 			return output.Write(f.IOStreams, f.JSON, dto, func(out io.Writer) error {
 				// The App gets its own line, named rather than spelled as the
 				// UUID it was parenthesised as (#458). No source phrase here: this
@@ -753,6 +767,9 @@ and every worker's state in ` + "`team roster`" + `.`,
 						fmt.Fprintf(out, "  last team-channel check: %s\n", last)
 					}
 				}
+				// Always printed: a dash is the documented answer for never
+				// reported, masked or an older server (cli#1375).
+				fmt.Fprintf(out, "  terminal: %s\n", terminalDetail(dto.Terminal, time.Now()))
 				if dto.Retired {
 					fmt.Fprintf(out, "  retired: %s\n", *dto.RetiredAt)
 				}

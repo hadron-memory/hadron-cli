@@ -10,3 +10,4 @@
 1055|maintenance commands|coding skill spec scope
 1056|root help and utility commands|(root) api config server-info version completion agentic-usage help
 1184|integration and account commands|automation billing calendar drive email ha usage
+1396|host and chat integration commands|orca slack

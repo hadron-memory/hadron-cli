@@ -232,7 +232,7 @@ func TestTeamMetadataCopyQuoting1112(t *testing.T) {
 			value := "role; echo NEVER"
 			responses["TeamRoles"] = teamRolesJSON
 			responses["AppAgentRoster"] = engTeamRosterJSON
-			want := "create one with `hadron team role create 'role; echo NEVER'`"
+			want := "create one with `hadron team role create -- 'role; echo NEVER'`"
 			switch kind {
 			case "role":
 				responses["AppAgentRoster"] = replaceMetadataLeaf1112(t, responses["AppAgentRoster"], "data/app/agents/1/personaRole", value)

@@ -46,9 +46,9 @@ func partyCell(p *taskPartyDTO) string {
 		return "—"
 	}
 	if p.Name != nil && *p.Name != "" {
-		return *p.Name
+		return output.SafeCell(*p.Name)
 	}
-	return p.ID
+	return output.SafeCell(p.ID)
 }
 
 // ---- get ------------------------------------------------------------------
@@ -66,7 +66,11 @@ table in ` + "`team task --help`" + `).
 The task is named by its id or handle (AT0.7, AT1.2); the server works out the
 App, and an ambiguous bare handle needs an id or a qualified handle such as
 hrn:agenttask:acme.com:eng-team:AT1.2. A task you may not read answers "not
-found", exit 4, exactly like a missing one (no existence oracle).`,
+found", exit 4, exactly like a missing one (no existence oracle).
+
+Text output neutralises terminal controls and bounds displayed values. Multiline
+values keep line breaks with indented continuations; --json carries complete,
+original values.`,
 		Example: "  hadron team task get AT0.7\n  hadron team task get AT0.7 --json",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -99,11 +103,11 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 		_, err := fmt.Fprintf(w, format+"\n", a...)
 		return err
 	}
-	head := task.ID
+	head := output.SafeCell(task.ID)
 	if task.Handle != "" {
-		head = output.SafeCell(task.Handle) + "  " + task.ID
+		head = output.SafeCell(task.Handle) + "  " + output.SafeCell(task.ID)
 	}
-	if err := line("%s  %s  (%s)", head, task.Title, task.Status); err != nil {
+	if err := line("%s  %s  (%s)", head, output.SafeLine(task.Title, 500), output.SafeCell(task.Status)); err != nil {
 		return err
 	}
 	if err := line("  priority: %d (1 = highest); blocked: %t", task.Priority, task.Blocked); err != nil {
@@ -116,11 +120,11 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 		return err
 	}
 	if task.Description != nil {
-		if err := line("  %s", *task.Description); err != nil {
+		if err := line("  %s", output.SafeBlock(*task.Description, 20000, "    ")); err != nil {
 			return err
 		}
 	}
-	if err := line("  app: %s", task.AppID); err != nil {
+	if err := line("  app: %s", output.SafeCell(task.AppID)); err != nil {
 		return err
 	}
 	if err := line("  owner: %s  created by: %s", partyCell(task.Owner), partyCell(task.CreatedBy)); err != nil {
@@ -139,7 +143,7 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 		return err
 	}
 	if task.ParentTaskID != nil {
-		if err := line("  parent: %s", *task.ParentTaskID); err != nil {
+		if err := line("  parent: %s", output.SafeCell(*task.ParentTaskID)); err != nil {
 			return err
 		}
 	}
@@ -149,17 +153,17 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 		}
 	}
 	if task.StartBy != nil {
-		if err := line("  start by: %s", *task.StartBy); err != nil {
+		if err := line("  start by: %s", output.SafeCell(*task.StartBy)); err != nil {
 			return err
 		}
 	}
 	if len(task.Tags) > 0 {
-		if err := line("  tags: %s", strings.Join(task.Tags, ", ")); err != nil {
+		if err := line("  tags: %s", safeTaskValues(task.Tags, ", ")); err != nil {
 			return err
 		}
 	}
 	if task.Source != nil {
-		if err := line("  source: %s", *task.Source); err != nil {
+		if err := line("  source: %s", output.SafeLine(*task.Source, 2048)); err != nil {
 			return err
 		}
 	}
@@ -172,29 +176,29 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 	}
 	if task.Requirements != nil {
 		if err := line("  requirements: role=%s familyIn=%s familyNotIn=%s exclude=%s",
-			strOr(task.Requirements.Role),
-			strOrList(task.Requirements.FamilyIn),
-			strOrList(task.Requirements.FamilyNotIn),
-			strOrList(task.Requirements.ExcludeWorkerIds)); err != nil {
+			output.SafeCell(strOr(task.Requirements.Role)),
+			safeTaskRequirementList(task.Requirements.FamilyIn),
+			safeTaskRequirementList(task.Requirements.FamilyNotIn),
+			safeTaskRequirementList(task.Requirements.ExcludeWorkerIds)); err != nil {
 			return err
 		}
 	}
 	if task.Result != nil {
-		if err := line("  result: %s", task.Result.Outcome); err != nil {
+		if err := line("  result: %s", output.SafeCell(task.Result.Outcome)); err != nil {
 			return err
 		}
 		if task.Result.Summary != nil {
-			if err := line("    %s", *task.Result.Summary); err != nil {
+			if err := line("    %s", output.SafeBlock(*task.Result.Summary, 20000, "      ")); err != nil {
 				return err
 			}
 		}
 		if task.Result.Evidence != nil {
-			if err := line("    evidence: %s", *task.Result.Evidence); err != nil {
+			if err := line("    evidence: %s", output.SafeBlock(*task.Result.Evidence, 2048, "      ")); err != nil {
 				return err
 			}
 		}
 	}
-	if err := line("  created: %s", task.CreatedAt); err != nil {
+	if err := line("  created: %s", output.SafeCell(task.CreatedAt)); err != nil {
 		return err
 	}
 	for _, stamp := range []struct {
@@ -207,7 +211,7 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 		{"updated", task.UpdatedAt},
 	} {
 		if stamp.at != nil {
-			if err := line("  %s: %s", stamp.label, *stamp.at); err != nil {
+			if err := line("  %s: %s", stamp.label, output.SafeCell(*stamp.at)); err != nil {
 				return err
 			}
 		}
@@ -221,13 +225,6 @@ func strOr(s *string) string {
 		return "—"
 	}
 	return *s
-}
-
-func strOrList(list []string) string {
-	if len(list) == 0 {
-		return "—"
-	}
-	return strings.Join(list, ",")
 }
 
 // ---- list -----------------------------------------------------------------
@@ -649,7 +646,8 @@ per node. The alarms come from the App's unacknowledged alarm events, joined
 onto the tree client-side — the join is presentation, the alarm facts are the
 server's. To see an alarm in full use ` + "`team events --alarms`" + `; to
 acknowledge one, ` + "`team alarm ack`" + `. The root is an id or handle; a hidden
-or missing root exits 4.`,
+or missing root exits 4. Text cells neutralise terminal controls and are bounded;
+--json carries complete, original values.`,
 		Example: "  hadron team task tree AT1",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -820,7 +818,7 @@ func renderTreeNode(w io.Writer, task *taskDTO, depth int) error {
 	if task.WaitingOnChildren {
 		flags += "  waiting-on-children"
 	}
-	if _, err := fmt.Fprintf(w, "%s• %s [%s] %s → %s%s%s\n", indent, taskRef(task.Handle, task.ID), task.Status, partyCell(task.Owner), assignee, flags, alarm); err != nil {
+	if _, err := fmt.Fprintf(w, "%s• %s [%s] %s → %s%s%s\n", indent, taskRef(task.Handle, output.SafeCell(task.ID)), output.SafeCell(task.Status), partyCell(task.Owner), assignee, flags, alarm); err != nil {
 		return err
 	}
 	return nil
@@ -831,4 +829,19 @@ func plural(n int) string {
 		return ""
 	}
 	return "s"
+}
+
+// Sanitize each server value before adding trusted separators.
+func safeTaskValues(values []string, separator string) string {
+	out := make([]string, len(values))
+	for i, v := range values {
+		out[i] = output.SafeCell(v)
+	}
+	return strings.Join(out, separator)
+}
+func safeTaskRequirementList(values []string) string {
+	if len(values) == 0 {
+		return "—"
+	}
+	return safeTaskValues(values, ",")
 }
