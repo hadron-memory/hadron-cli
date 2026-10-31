@@ -30,7 +30,7 @@ func nodeMintReply1150(blockers string) string {
 // early error (an HTTP 500, a usage error) also prints no hint.
 func requireBlockedExit1150(t *testing.T, err error, out string) {
 	t.Helper()
-	if got := exitcode.FromError(err); got != exitcode.Conflict {
+	if got := exitCodeFor(err); got != exitcode.Conflict {
 		t.Fatalf("a blocked mint must exit %d, got %d (err=%v); stdout:\n%s", exitcode.Conflict, got, err, out)
 	}
 }
