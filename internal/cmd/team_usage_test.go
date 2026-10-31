@@ -216,6 +216,28 @@ func TestTeamUsageCollectFailsClosed(t *testing.T) {
 		"malformed ccusage": func(t *testing.T, cfg, dirA, _ string) {
 			_ = os.WriteFile(filepath.Join(filepath.Dir(dirA), "ccusage-a.json"), []byte(`{"blocks": SENTINEL-SECRET`), 0o600)
 		},
+		"symlinked ccusage": func(t *testing.T, _, dirA, _ string) {
+			p := filepath.Join(filepath.Dir(dirA), "ccusage-a.json")
+			real := filepath.Join(filepath.Dir(dirA), "ccusage-real.json")
+			if err := os.Rename(p, real); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(real, p); err != nil {
+				t.Skip("no symlinks")
+			}
+		},
+		"oversized snapshot": func(t *testing.T, _, _, dirB string) {
+			pad := strings.Repeat(" ", (1<<20)+1)
+			_ = os.WriteFile(filepath.Join(dirB, "hadron-usage", "rate-limits.json"), []byte(`{"observedAt":1793477100}`+pad), 0o600)
+		},
+		"oversized ccusage": func(t *testing.T, _, dirA, _ string) {
+			pad := strings.Repeat(" ", (16<<20)+1)
+			_ = os.WriteFile(filepath.Join(filepath.Dir(dirA), "ccusage-a.json"), []byte(`{"blocks":[]}`+pad), 0o600)
+		},
+		"worker name with @": func(t *testing.T, cfg, _, _ string) {
+			b, _ := os.ReadFile(cfg)
+			_ = os.WriteFile(cfg, []byte(strings.Replace(string(b), "[Ada, Joshua]", "[Ada, a@example.test]", 1)), 0o600)
+		},
 		"unreadable ccusage": func(t *testing.T, cfg, dirA, _ string) {
 			_ = os.Remove(filepath.Join(filepath.Dir(dirA), "ccusage-a.json"))
 		},
