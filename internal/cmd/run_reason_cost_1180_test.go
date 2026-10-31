@@ -38,7 +38,7 @@ func runGetJSON(t *testing.T, run string) map[string]json.RawMessage {
 		t.Fatalf("execute: %v", err)
 	}
 	var m map[string]json.RawMessage
-	if err := json.Unmarshal(out.Bytes(), &m); err != nil {
+	if err := json.Unmarshal([]byte(out.String()), &m); err != nil {
 		t.Fatalf("json: %v\n%s", err, out.String())
 	}
 	return m
