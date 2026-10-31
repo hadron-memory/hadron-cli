@@ -13242,6 +13242,36 @@ func (v *AssetDownloadUrlResponse) GetAssetDownloadUrl() *AssetDownloadUrlAssetD
 	return v.AssetDownloadUrl
 }
 
+// Filter for the cross-memory assets() list. Every field narrows the
+// caller's accessible set; none of them widens it.
+type AssetFilter struct {
+	IncludeDeleted *bool `json:"includeDeleted,omitempty"`
+	// Narrow to these memories (id or fully-qualified URN). Unreadable and
+	// unknown refs are silently dropped; a malformed URN is an error. An
+	// explicitly EMPTY list is the empty scope, never a fallback to the
+	// default scope.
+	MemoryRefs []string `json:"memoryRefs,omitempty"`
+	MimeType   *string  `json:"mimeType,omitempty"`
+	// Only the caller's own uploads. Never widens the gate.
+	Mine       *bool            `json:"mine,omitempty"`
+	ScanStatus *AssetScanStatus `json:"scanStatus,omitempty"`
+}
+
+// GetIncludeDeleted returns AssetFilter.IncludeDeleted, and is useful for accessing the field via an interface.
+func (v *AssetFilter) GetIncludeDeleted() *bool { return v.IncludeDeleted }
+
+// GetMemoryRefs returns AssetFilter.MemoryRefs, and is useful for accessing the field via an interface.
+func (v *AssetFilter) GetMemoryRefs() []string { return v.MemoryRefs }
+
+// GetMimeType returns AssetFilter.MimeType, and is useful for accessing the field via an interface.
+func (v *AssetFilter) GetMimeType() *string { return v.MimeType }
+
+// GetMine returns AssetFilter.Mine, and is useful for accessing the field via an interface.
+func (v *AssetFilter) GetMine() *bool { return v.Mine }
+
+// GetScanStatus returns AssetFilter.ScanStatus, and is useful for accessing the field via an interface.
+func (v *AssetFilter) GetScanStatus() *AssetScanStatus { return v.ScanStatus }
+
 type AssetScanStatus string
 
 const (
@@ -28171,6 +28201,15 @@ func (v *DeleteCommentResponse) GetDeleteComment() *DeleteCommentDeleteComment {
 	return v.DeleteComment
 }
 
+// DeleteCommentThreadResponse is returned by DeleteCommentThread on success.
+type DeleteCommentThreadResponse struct {
+	// #1606 — a memory admin deletes a whole thread (soft: gone from every read, limit and check; the rows stay for audit, with no revision history, #1721). commentRef may be any comment of it.
+	DeleteCommentThread bool `json:"deleteCommentThread"`
+}
+
+// GetDeleteCommentThread returns DeleteCommentThreadResponse.DeleteCommentThread, and is useful for accessing the field via an interface.
+func (v *DeleteCommentThreadResponse) GetDeleteCommentThread() bool { return v.DeleteCommentThread }
+
 // DeleteEdgeResponse is returned by DeleteEdge on success.
 type DeleteEdgeResponse struct {
 	DeleteEdge bool `json:"deleteEdge"`
@@ -29573,6 +29612,37 @@ type DueWakesResponse struct {
 
 // GetDueWakes returns DueWakesResponse.DueWakes, and is useful for accessing the field via an interface.
 func (v *DueWakesResponse) GetDueWakes() *DueWakesDueWakesDueWakePage { return v.DueWakes }
+
+// Filter for the uniform edges() list (#473). Clauses AND-combine and are
+// intersected with the caller's readable memories. memoryId / sourceNodeId /
+// targetNodeId each accept an ID or a fully-qualified URN; an unresolvable
+// ref yields an empty page (consistent with the no-disclosure posture).
+type EdgeFilter struct {
+	// Include soft-deleted edges (default false).
+	IncludeDeleted *bool `json:"includeDeleted,omitempty"`
+	IsRunnable     *bool `json:"isRunnable,omitempty"`
+	// Confine to edges whose (denormalized, source-side) memory is this one.
+	MemoryId *string `json:"memoryId,omitempty"`
+	// Edges leaving this node.
+	SourceNodeId *string `json:"sourceNodeId,omitempty"`
+	// Edges arriving at this node.
+	TargetNodeId *string `json:"targetNodeId,omitempty"`
+}
+
+// GetIncludeDeleted returns EdgeFilter.IncludeDeleted, and is useful for accessing the field via an interface.
+func (v *EdgeFilter) GetIncludeDeleted() *bool { return v.IncludeDeleted }
+
+// GetIsRunnable returns EdgeFilter.IsRunnable, and is useful for accessing the field via an interface.
+func (v *EdgeFilter) GetIsRunnable() *bool { return v.IsRunnable }
+
+// GetMemoryId returns EdgeFilter.MemoryId, and is useful for accessing the field via an interface.
+func (v *EdgeFilter) GetMemoryId() *string { return v.MemoryId }
+
+// GetSourceNodeId returns EdgeFilter.SourceNodeId, and is useful for accessing the field via an interface.
+func (v *EdgeFilter) GetSourceNodeId() *string { return v.SourceNodeId }
+
+// GetTargetNodeId returns EdgeFilter.TargetNodeId, and is useful for accessing the field via an interface.
+func (v *EdgeFilter) GetTargetNodeId() *string { return v.TargetNodeId }
 
 // EditCommentEditComment includes the requested fields of the GraphQL type Comment.
 // The GraphQL type's documentation follows.
@@ -32312,6 +32382,119 @@ type GetCommentResponse struct {
 
 // GetComment returns GetCommentResponse.Comment, and is useful for accessing the field via an interface.
 func (v *GetCommentResponse) GetComment() *GetCommentComment { return v.Comment }
+
+// GetEdgeEdge includes the requested fields of the GraphQL type Edge.
+type GetEdgeEdge struct {
+	UniformEdge `json:"-"`
+}
+
+// GetId returns GetEdgeEdge.Id, and is useful for accessing the field via an interface.
+func (v *GetEdgeEdge) GetId() string { return v.UniformEdge.Id }
+
+// GetUrn returns GetEdgeEdge.Urn, and is useful for accessing the field via an interface.
+func (v *GetEdgeEdge) GetUrn() string { return v.UniformEdge.Urn }
+
+// GetLoc returns GetEdgeEdge.Loc, and is useful for accessing the field via an interface.
+func (v *GetEdgeEdge) GetLoc() string { return v.UniformEdge.Loc }
+
+// GetName returns GetEdgeEdge.Name, and is useful for accessing the field via an interface.
+func (v *GetEdgeEdge) GetName() *string { return v.UniformEdge.Name }
+
+// GetDescription returns GetEdgeEdge.Description, and is useful for accessing the field via an interface.
+func (v *GetEdgeEdge) GetDescription() *string { return v.UniformEdge.Description }
+
+// GetIsRunnable returns GetEdgeEdge.IsRunnable, and is useful for accessing the field via an interface.
+func (v *GetEdgeEdge) GetIsRunnable() *bool { return v.UniformEdge.IsRunnable }
+
+// GetPriority returns GetEdgeEdge.Priority, and is useful for accessing the field via an interface.
+func (v *GetEdgeEdge) GetPriority() int { return v.UniformEdge.Priority }
+
+// GetSource returns GetEdgeEdge.Source, and is useful for accessing the field via an interface.
+func (v *GetEdgeEdge) GetSource() *UniformEdgeSourceNode { return v.UniformEdge.Source }
+
+// GetTarget returns GetEdgeEdge.Target, and is useful for accessing the field via an interface.
+func (v *GetEdgeEdge) GetTarget() *UniformEdgeTargetNode { return v.UniformEdge.Target }
+
+func (v *GetEdgeEdge) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetEdgeEdge
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetEdgeEdge = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.UniformEdge)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetEdgeEdge struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Loc string `json:"loc"`
+
+	Name *string `json:"name"`
+
+	Description *string `json:"description"`
+
+	IsRunnable *bool `json:"isRunnable"`
+
+	Priority int `json:"priority"`
+
+	Source *UniformEdgeSourceNode `json:"source"`
+
+	Target *UniformEdgeTargetNode `json:"target"`
+}
+
+func (v *GetEdgeEdge) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetEdgeEdge) __premarshalJSON() (*__premarshalGetEdgeEdge, error) {
+	var retval __premarshalGetEdgeEdge
+
+	retval.Id = v.UniformEdge.Id
+	retval.Urn = v.UniformEdge.Urn
+	retval.Loc = v.UniformEdge.Loc
+	retval.Name = v.UniformEdge.Name
+	retval.Description = v.UniformEdge.Description
+	retval.IsRunnable = v.UniformEdge.IsRunnable
+	retval.Priority = v.UniformEdge.Priority
+	retval.Source = v.UniformEdge.Source
+	retval.Target = v.UniformEdge.Target
+	return &retval, nil
+}
+
+// GetEdgeResponse is returned by GetEdge on success.
+type GetEdgeResponse struct {
+	// The uniform single-edge read (#473) — edges are first-class, loc-addressed
+	// peers of nodes (spec 037). 'ref' accepts a primary key or a
+	// fully-qualified edge URN (`hrn:edge:<root>:<memory>:<loc>`; the edge's
+	// memory is its SOURCE node's memory). Access: the edge's memory must be in
+	// the caller's readable set; denied and missing are both null.
+	Edge *GetEdgeEdge `json:"edge"`
+}
+
+// GetEdge returns GetEdgeResponse.Edge, and is useful for accessing the field via an interface.
+func (v *GetEdgeResponse) GetEdge() *GetEdgeEdge { return v.Edge }
 
 // GetInvitationInvitationPublicInvitation includes the requested fields of the GraphQL type PublicInvitation.
 // The GraphQL type's documentation follows.
@@ -37895,6 +38078,291 @@ var AllLintKind = []LintKind{
 	LintKindWorkerLinkMissing,
 }
 
+// ListAssetsAssetsAssetsPage includes the requested fields of the GraphQL type AssetsPage.
+// The GraphQL type's documentation follows.
+//
+// Uniform find-many envelope for assets (spec cor:api:120).
+type ListAssetsAssetsAssetsPage struct {
+	Total int                                     `json:"total"`
+	Items []*ListAssetsAssetsAssetsPageItemsAsset `json:"items"`
+}
+
+// GetTotal returns ListAssetsAssetsAssetsPage.Total, and is useful for accessing the field via an interface.
+func (v *ListAssetsAssetsAssetsPage) GetTotal() int { return v.Total }
+
+// GetItems returns ListAssetsAssetsAssetsPage.Items, and is useful for accessing the field via an interface.
+func (v *ListAssetsAssetsAssetsPage) GetItems() []*ListAssetsAssetsAssetsPageItemsAsset {
+	return v.Items
+}
+
+// ListAssetsAssetsAssetsPageItemsAsset includes the requested fields of the GraphQL type Asset.
+type ListAssetsAssetsAssetsPageItemsAsset struct {
+	Id string `json:"id"`
+	// The asset's URN, grammar v2 (cor:urn:010:01): hrn:asset:<root>:<mem...>:assets:<asset.id>,
+	// emitted by emitAssetUrnV2 from the holding memory's STORED urn.
+	//
+	// <mem...> is one or more atoms, not always one. A per-user memory urn minted
+	// before the #697 Stage-3 flip is still compound (<root>:<agent>:app-user:<id>
+	// and friends), and each extra memory atom lengthens the asset URN with it —
+	// so the 'assets' marker is not at a fixed offset. A parser recovering the
+	// holding memory must take everything between the type word and that marker,
+	// never a fixed two-atom prefix. Prefer locating the LAST 'assets' atom and
+	// reading the id after it (assetIdFromRef does exactly this).
+	//
+	// Two degraded shapes a parser must tolerate, both of which really occur:
+	// * hrn:asset:unknown:assets:<asset.id> — the holding memory row could not
+	// be loaded. Carries no memory identity at all.
+	// * <memory.urn>:assets:<asset.id> — the pre-#697 shape, with NO hrn:asset:
+	// prefix, served when v2 emission throws (empty, over-length or
+	// charset-invalid atom in the stored memory urn). It interpolates the
+	// stored memory urn verbatim, which is normally bare (<root>:<slug>), so
+	// this shape usually looks like acme.com:docs:assets:<id>.
+	//
+	// A third oddity is reachable through the NORMAL branch, not a fallback: a
+	// legacy memories.urn row that predates the chk_memory_urn_not_prefixed
+	// guardrail can still hold a rendered hrn:mem:-prefixed value, and that
+	// composes into hrn:asset:hrn:mem:<root>:<slug>:assets:<id>. A prefix strip
+	// that assumes one leading type word will mis-read it.
+	Urn         string          `json:"urn"`
+	Filename    string          `json:"filename"`
+	MimeType    string          `json:"mimeType"`
+	SizeBytes   int             `json:"sizeBytes"`
+	Description *string         `json:"description"`
+	ScanStatus  AssetScanStatus `json:"scanStatus"`
+	// Engine signature name recorded when the scan verdict was BLOCKED (the row is kept as an audit tombstone; its bytes are deleted). Null otherwise.
+	ScanSignature *string `json:"scanSignature"`
+	UploadedAt    string  `json:"uploadedAt"`
+	// Uploader (User id). Null when the asset was created server-side by an app run (hadron_store_file).
+	UploadedBy *string `json:"uploadedBy"`
+	DeletedAt  *string `json:"deletedAt"`
+	MemoryId   string  `json:"memoryId"`
+	// Stable, UNAUTHENTICATED hotlink to the bytes (GET /assets/<id>).
+	//
+	// Anyone with this URL can fetch the file — there is no read gate on
+	// it. A deliberate, temporary posture; see src/api/assetPublic.ts. Do
+	// not present it in a UI as though it were access-controlled.
+	//
+	// Null unless the asset would be served right now: its per-asset
+	// switch (publicLinkEnabled) is on, the deployment switch is on, and it is
+	// CLEAN in a live unencrypted memory. Also null when the server has no
+	// BASE_URL configured (no canonical origin to build an absolute URL from)
+	// even though it would be served, so null is NEVER proof the switch is off.
+	PublicUrl *string `json:"publicUrl"`
+	// #1667 — the per-asset public-link opt-in. STORED POLICY, not
+	// proof of publication: the anonymous link also needs the deployment switch
+	// (publicLinkAvailable) and a live, CLEAN asset in an unencrypted memory.
+	// Every asset starts false. Reading it grants no Asset read right.
+	PublicLinkEnabled bool `json:"publicLinkEnabled"`
+	// Whether THE CALLER may switch this asset's public link right now: the
+	// memory's manager under the shared class-manager predicate, never a mere
+	// writer, and strictly the owner in a personal or private memory. False in a
+	// session's memory and in an encrypted memory. Not a download capability.
+	CanManagePublicLink bool `json:"canManagePublicLink"`
+	// Whether this deployment serves public links at all
+	// (ASSET_PUBLIC_HOTLINK_ENABLED). Independent of the stored opt-in, of who is
+	// asking, of the scan state and of whether a canonical origin is configured.
+	// Hide the switch when false; never infer this from publicUrl.
+	PublicLinkAvailable bool `json:"publicLinkAvailable"`
+}
+
+// GetId returns ListAssetsAssetsAssetsPageItemsAsset.Id, and is useful for accessing the field via an interface.
+func (v *ListAssetsAssetsAssetsPageItemsAsset) GetId() string { return v.Id }
+
+// GetUrn returns ListAssetsAssetsAssetsPageItemsAsset.Urn, and is useful for accessing the field via an interface.
+func (v *ListAssetsAssetsAssetsPageItemsAsset) GetUrn() string { return v.Urn }
+
+// GetFilename returns ListAssetsAssetsAssetsPageItemsAsset.Filename, and is useful for accessing the field via an interface.
+func (v *ListAssetsAssetsAssetsPageItemsAsset) GetFilename() string { return v.Filename }
+
+// GetMimeType returns ListAssetsAssetsAssetsPageItemsAsset.MimeType, and is useful for accessing the field via an interface.
+func (v *ListAssetsAssetsAssetsPageItemsAsset) GetMimeType() string { return v.MimeType }
+
+// GetSizeBytes returns ListAssetsAssetsAssetsPageItemsAsset.SizeBytes, and is useful for accessing the field via an interface.
+func (v *ListAssetsAssetsAssetsPageItemsAsset) GetSizeBytes() int { return v.SizeBytes }
+
+// GetDescription returns ListAssetsAssetsAssetsPageItemsAsset.Description, and is useful for accessing the field via an interface.
+func (v *ListAssetsAssetsAssetsPageItemsAsset) GetDescription() *string { return v.Description }
+
+// GetScanStatus returns ListAssetsAssetsAssetsPageItemsAsset.ScanStatus, and is useful for accessing the field via an interface.
+func (v *ListAssetsAssetsAssetsPageItemsAsset) GetScanStatus() AssetScanStatus { return v.ScanStatus }
+
+// GetScanSignature returns ListAssetsAssetsAssetsPageItemsAsset.ScanSignature, and is useful for accessing the field via an interface.
+func (v *ListAssetsAssetsAssetsPageItemsAsset) GetScanSignature() *string { return v.ScanSignature }
+
+// GetUploadedAt returns ListAssetsAssetsAssetsPageItemsAsset.UploadedAt, and is useful for accessing the field via an interface.
+func (v *ListAssetsAssetsAssetsPageItemsAsset) GetUploadedAt() string { return v.UploadedAt }
+
+// GetUploadedBy returns ListAssetsAssetsAssetsPageItemsAsset.UploadedBy, and is useful for accessing the field via an interface.
+func (v *ListAssetsAssetsAssetsPageItemsAsset) GetUploadedBy() *string { return v.UploadedBy }
+
+// GetDeletedAt returns ListAssetsAssetsAssetsPageItemsAsset.DeletedAt, and is useful for accessing the field via an interface.
+func (v *ListAssetsAssetsAssetsPageItemsAsset) GetDeletedAt() *string { return v.DeletedAt }
+
+// GetMemoryId returns ListAssetsAssetsAssetsPageItemsAsset.MemoryId, and is useful for accessing the field via an interface.
+func (v *ListAssetsAssetsAssetsPageItemsAsset) GetMemoryId() string { return v.MemoryId }
+
+// GetPublicUrl returns ListAssetsAssetsAssetsPageItemsAsset.PublicUrl, and is useful for accessing the field via an interface.
+func (v *ListAssetsAssetsAssetsPageItemsAsset) GetPublicUrl() *string { return v.PublicUrl }
+
+// GetPublicLinkEnabled returns ListAssetsAssetsAssetsPageItemsAsset.PublicLinkEnabled, and is useful for accessing the field via an interface.
+func (v *ListAssetsAssetsAssetsPageItemsAsset) GetPublicLinkEnabled() bool {
+	return v.PublicLinkEnabled
+}
+
+// GetCanManagePublicLink returns ListAssetsAssetsAssetsPageItemsAsset.CanManagePublicLink, and is useful for accessing the field via an interface.
+func (v *ListAssetsAssetsAssetsPageItemsAsset) GetCanManagePublicLink() bool {
+	return v.CanManagePublicLink
+}
+
+// GetPublicLinkAvailable returns ListAssetsAssetsAssetsPageItemsAsset.PublicLinkAvailable, and is useful for accessing the field via an interface.
+func (v *ListAssetsAssetsAssetsPageItemsAsset) GetPublicLinkAvailable() bool {
+	return v.PublicLinkAvailable
+}
+
+// ListAssetsResponse is returned by ListAssets on success.
+type ListAssetsResponse struct {
+	// Cross-memory asset list (#891) — every file the caller can reach,
+	// which is every asset held by a memory they can read. The uniform
+	// find-many surface for assets (spec cor:api:120); memoryAssets stays
+	// as the per-memory one.
+	//
+	// The three tabs of a top-level Assets section are filters over this,
+	// not separate queries: mine: true, no filter, and orgId respectively.
+	Assets *ListAssetsAssetsAssetsPage `json:"assets"`
+}
+
+// GetAssets returns ListAssetsResponse.Assets, and is useful for accessing the field via an interface.
+func (v *ListAssetsResponse) GetAssets() *ListAssetsAssetsAssetsPage { return v.Assets }
+
+// ListEdgesEdgesEdgesPage includes the requested fields of the GraphQL type EdgesPage.
+type ListEdgesEdgesEdgesPage struct {
+	Total int                                 `json:"total"`
+	Items []*ListEdgesEdgesEdgesPageItemsEdge `json:"items"`
+}
+
+// GetTotal returns ListEdgesEdgesEdgesPage.Total, and is useful for accessing the field via an interface.
+func (v *ListEdgesEdgesEdgesPage) GetTotal() int { return v.Total }
+
+// GetItems returns ListEdgesEdgesEdgesPage.Items, and is useful for accessing the field via an interface.
+func (v *ListEdgesEdgesEdgesPage) GetItems() []*ListEdgesEdgesEdgesPageItemsEdge { return v.Items }
+
+// ListEdgesEdgesEdgesPageItemsEdge includes the requested fields of the GraphQL type Edge.
+type ListEdgesEdgesEdgesPageItemsEdge struct {
+	UniformEdge `json:"-"`
+}
+
+// GetId returns ListEdgesEdgesEdgesPageItemsEdge.Id, and is useful for accessing the field via an interface.
+func (v *ListEdgesEdgesEdgesPageItemsEdge) GetId() string { return v.UniformEdge.Id }
+
+// GetUrn returns ListEdgesEdgesEdgesPageItemsEdge.Urn, and is useful for accessing the field via an interface.
+func (v *ListEdgesEdgesEdgesPageItemsEdge) GetUrn() string { return v.UniformEdge.Urn }
+
+// GetLoc returns ListEdgesEdgesEdgesPageItemsEdge.Loc, and is useful for accessing the field via an interface.
+func (v *ListEdgesEdgesEdgesPageItemsEdge) GetLoc() string { return v.UniformEdge.Loc }
+
+// GetName returns ListEdgesEdgesEdgesPageItemsEdge.Name, and is useful for accessing the field via an interface.
+func (v *ListEdgesEdgesEdgesPageItemsEdge) GetName() *string { return v.UniformEdge.Name }
+
+// GetDescription returns ListEdgesEdgesEdgesPageItemsEdge.Description, and is useful for accessing the field via an interface.
+func (v *ListEdgesEdgesEdgesPageItemsEdge) GetDescription() *string { return v.UniformEdge.Description }
+
+// GetIsRunnable returns ListEdgesEdgesEdgesPageItemsEdge.IsRunnable, and is useful for accessing the field via an interface.
+func (v *ListEdgesEdgesEdgesPageItemsEdge) GetIsRunnable() *bool { return v.UniformEdge.IsRunnable }
+
+// GetPriority returns ListEdgesEdgesEdgesPageItemsEdge.Priority, and is useful for accessing the field via an interface.
+func (v *ListEdgesEdgesEdgesPageItemsEdge) GetPriority() int { return v.UniformEdge.Priority }
+
+// GetSource returns ListEdgesEdgesEdgesPageItemsEdge.Source, and is useful for accessing the field via an interface.
+func (v *ListEdgesEdgesEdgesPageItemsEdge) GetSource() *UniformEdgeSourceNode {
+	return v.UniformEdge.Source
+}
+
+// GetTarget returns ListEdgesEdgesEdgesPageItemsEdge.Target, and is useful for accessing the field via an interface.
+func (v *ListEdgesEdgesEdgesPageItemsEdge) GetTarget() *UniformEdgeTargetNode {
+	return v.UniformEdge.Target
+}
+
+func (v *ListEdgesEdgesEdgesPageItemsEdge) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ListEdgesEdgesEdgesPageItemsEdge
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ListEdgesEdgesEdgesPageItemsEdge = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.UniformEdge)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalListEdgesEdgesEdgesPageItemsEdge struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Loc string `json:"loc"`
+
+	Name *string `json:"name"`
+
+	Description *string `json:"description"`
+
+	IsRunnable *bool `json:"isRunnable"`
+
+	Priority int `json:"priority"`
+
+	Source *UniformEdgeSourceNode `json:"source"`
+
+	Target *UniformEdgeTargetNode `json:"target"`
+}
+
+func (v *ListEdgesEdgesEdgesPageItemsEdge) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ListEdgesEdgesEdgesPageItemsEdge) __premarshalJSON() (*__premarshalListEdgesEdgesEdgesPageItemsEdge, error) {
+	var retval __premarshalListEdgesEdgesEdgesPageItemsEdge
+
+	retval.Id = v.UniformEdge.Id
+	retval.Urn = v.UniformEdge.Urn
+	retval.Loc = v.UniformEdge.Loc
+	retval.Name = v.UniformEdge.Name
+	retval.Description = v.UniformEdge.Description
+	retval.IsRunnable = v.UniformEdge.IsRunnable
+	retval.Priority = v.UniformEdge.Priority
+	retval.Source = v.UniformEdge.Source
+	retval.Target = v.UniformEdge.Target
+	return &retval, nil
+}
+
+// ListEdgesResponse is returned by ListEdges on success.
+type ListEdgesResponse struct {
+	// Uniform paginated edge list (#473). Scope: edges whose (denormalized,
+	// source-side) memory the caller can read, AND-narrowed by the filter.
+	// orgId follows cor:api:100:01 (member -> scope, non-member -> empty page,
+	// no disclosure, no admin bypass). Deterministic loc-ascending order
+	// (id tiebreak); limit default 20 / cap 200; limit: 0 -> count only.
+	Edges *ListEdgesEdgesEdgesPage `json:"edges"`
+}
+
+// GetEdges returns ListEdgesResponse.Edges, and is useful for accessing the field via an interface.
+func (v *ListEdgesResponse) GetEdges() *ListEdgesEdgesEdgesPage { return v.Edges }
+
 // ListResendSendersResendSendersResendSendersPage includes the requested fields of the GraphQL type ResendSendersPage.
 type ListResendSendersResendSendersResendSendersPage struct {
 	Items []*ListResendSendersResendSendersResendSendersPageItemsResendSender `json:"items"`
@@ -43201,6 +43669,103 @@ type NodeExportResponse struct {
 // GetNodeExport returns NodeExportResponse.NodeExport, and is useful for accessing the field via an interface.
 func (v *NodeExportResponse) GetNodeExport() *NodeExportNodeExportNodeExportResult {
 	return v.NodeExport
+}
+
+// Selectable sections for a presentation (full: false) export.
+type NodeExportSection string
+
+const (
+	NodeExportSectionAbstract   NodeExportSection = "ABSTRACT"
+	NodeExportSectionContent    NodeExportSection = "CONTENT"
+	NodeExportSectionData       NodeExportSection = "DATA"
+	NodeExportSectionEdges      NodeExportSection = "EDGES"
+	NodeExportSectionMetadata   NodeExportSection = "METADATA"
+	NodeExportSectionProperties NodeExportSection = "PROPERTIES"
+)
+
+var AllNodeExportSection = []NodeExportSection{
+	NodeExportSectionAbstract,
+	NodeExportSectionContent,
+	NodeExportSectionData,
+	NodeExportSectionEdges,
+	NodeExportSectionMetadata,
+	NodeExportSectionProperties,
+}
+
+// NodeExportSectionsNodeExportNodeExportResult includes the requested fields of the GraphQL type NodeExportResult.
+type NodeExportSectionsNodeExportNodeExportResult struct {
+	Format NodeExportFormat `json:"format"`
+	// MIME type, e.g. text/markdown or application/json.
+	MimeType string `json:"mimeType"`
+	// Suggested download filename, e.g. <loc-leaf>.md.
+	Filename string `json:"filename"`
+	// The rendered file contents (TEXT).
+	Data string `json:"data"`
+	// Byte length of the rendered payload (UTF-8).
+	Bytes int `json:"bytes"`
+}
+
+// GetFormat returns NodeExportSectionsNodeExportNodeExportResult.Format, and is useful for accessing the field via an interface.
+func (v *NodeExportSectionsNodeExportNodeExportResult) GetFormat() NodeExportFormat { return v.Format }
+
+// GetMimeType returns NodeExportSectionsNodeExportNodeExportResult.MimeType, and is useful for accessing the field via an interface.
+func (v *NodeExportSectionsNodeExportNodeExportResult) GetMimeType() string { return v.MimeType }
+
+// GetFilename returns NodeExportSectionsNodeExportNodeExportResult.Filename, and is useful for accessing the field via an interface.
+func (v *NodeExportSectionsNodeExportNodeExportResult) GetFilename() string { return v.Filename }
+
+// GetData returns NodeExportSectionsNodeExportNodeExportResult.Data, and is useful for accessing the field via an interface.
+func (v *NodeExportSectionsNodeExportNodeExportResult) GetData() string { return v.Data }
+
+// GetBytes returns NodeExportSectionsNodeExportNodeExportResult.Bytes, and is useful for accessing the field via an interface.
+func (v *NodeExportSectionsNodeExportNodeExportResult) GetBytes() int { return v.Bytes }
+
+// NodeExportSectionsResponse is returned by NodeExportSections on success.
+type NodeExportSectionsResponse struct {
+	// Render one node to a portable, self-contained file (spec cor:api).
+	// full: true (default) returns the CANONICAL form — byte-identical to
+	// "hadron node export <urn>", all sections, round-trippable via
+	// "hadron node import". Requires MD or JSON; sections is ignored.
+	// full: false returns a PRESENTATION render of the selected sections
+	// (default: all); not guaranteed round-trippable.
+	// Auth: same node-read gate as node(ref:). (HTML/PDF + asUrl delivery land
+	// later; the result shape is forward-compatible.)
+	NodeExport *NodeExportSectionsNodeExportNodeExportResult `json:"nodeExport"`
+}
+
+// GetNodeExport returns NodeExportSectionsResponse.NodeExport, and is useful for accessing the field via an interface.
+func (v *NodeExportSectionsResponse) GetNodeExport() *NodeExportSectionsNodeExportNodeExportResult {
+	return v.NodeExport
+}
+
+// Node fields a lexical (keyword/regex) query matches and weights. Weight-mask,
+// NOT a hard filter: naming a subset zeroes the excluded fields in scoring but
+// does not strictly exclude them from matching (cor:api:090:03). Ignored by
+// mode:vector (the index source is a per-memory config, not a query param).
+type NodeField string
+
+const (
+	NodeFieldAbstract    NodeField = "abstract"
+	NodeFieldAlias       NodeField = "alias"
+	NodeFieldContent     NodeField = "content"
+	NodeFieldData        NodeField = "data"
+	NodeFieldDescription NodeField = "description"
+	NodeFieldLoc         NodeField = "loc"
+	NodeFieldName        NodeField = "name"
+	NodeFieldProperties  NodeField = "properties"
+	NodeFieldTags        NodeField = "tags"
+)
+
+var AllNodeField = []NodeField{
+	NodeFieldAbstract,
+	NodeFieldAlias,
+	NodeFieldContent,
+	NodeFieldData,
+	NodeFieldDescription,
+	NodeFieldLoc,
+	NodeFieldName,
+	NodeFieldProperties,
+	NodeFieldTags,
 }
 
 // Structured, unscored, AND-combined filter context for findNodes (cor:api:090:02).
@@ -53372,6 +53937,24 @@ func (v *ScopesScopesScopesPageItemsScope) __premarshalJSON() (*__premarshalScop
 	return &retval, nil
 }
 
+// Result granularity for findNodes (cor:api:090). Spec 033.
+//
+// - node: one entry per matching node (default).
+// - chunk: passage-level entries with offsets into the parent node's
+// content (vector mode only; chunk hits collapse to node-level when
+// granularity is node).
+type SearchGranularity string
+
+const (
+	SearchGranularityChunk SearchGranularity = "chunk"
+	SearchGranularityNode  SearchGranularity = "node"
+)
+
+var AllSearchGranularity = []SearchGranularity{
+	SearchGranularityChunk,
+	SearchGranularityNode,
+}
+
 // SearchNodesFindNodesFindNodesResult includes the requested fields of the GraphQL type FindNodesResult.
 // The GraphQL type's documentation follows.
 //
@@ -53392,8 +53975,9 @@ type SearchNodesFindNodesFindNodesResult struct {
 	Degraded *string `json:"degraded"`
 	Reason   *string `json:"reason"`
 	// Spec 049 (D-2026-09-13-002): what this search was produced under. Null when no scope applied (the pre-049 accessible set, optionally org-narrowed).
-	Scope *SearchNodesFindNodesFindNodesResultScopeSearchScopeInfo `json:"scope"`
-	Hits  []*SearchNodesFindNodesFindNodesResultHitsNodeHit        `json:"hits"`
+	Scope    *SearchNodesFindNodesFindNodesResultScopeSearchScopeInfo `json:"scope"`
+	Passages []*SearchNodesFindNodesFindNodesResultPassagesPassage    `json:"passages"`
+	Hits     []*SearchNodesFindNodesFindNodesResultHitsNodeHit        `json:"hits"`
 }
 
 // GetTotal returns SearchNodesFindNodesFindNodesResult.Total, and is useful for accessing the field via an interface.
@@ -53408,6 +53992,11 @@ func (v *SearchNodesFindNodesFindNodesResult) GetReason() *string { return v.Rea
 // GetScope returns SearchNodesFindNodesFindNodesResult.Scope, and is useful for accessing the field via an interface.
 func (v *SearchNodesFindNodesFindNodesResult) GetScope() *SearchNodesFindNodesFindNodesResultScopeSearchScopeInfo {
 	return v.Scope
+}
+
+// GetPassages returns SearchNodesFindNodesFindNodesResult.Passages, and is useful for accessing the field via an interface.
+func (v *SearchNodesFindNodesFindNodesResult) GetPassages() []*SearchNodesFindNodesFindNodesResultPassagesPassage {
+	return v.Passages
 }
 
 // GetHits returns SearchNodesFindNodesFindNodesResult.Hits, and is useful for accessing the field via an interface.
@@ -53514,6 +54103,40 @@ type SearchNodesFindNodesFindNodesResultHitsNodeHitVectorNodeVectorMeta struct {
 func (v *SearchNodesFindNodesFindNodesResultHitsNodeHitVectorNodeVectorMeta) GetAbstractStale() *bool {
 	return v.AbstractStale
 }
+
+// SearchNodesFindNodesFindNodesResultPassagesPassage includes the requested fields of the GraphQL type Passage.
+// The GraphQL type's documentation follows.
+//
+// Spec 033 US2 — one matching chunk from a content-chunk vector index.
+// Carries the locator metadata a RAG consumer needs for context-stuffing:
+// span text, character offset within the parent node, chunk index, and
+// the parent node's URN.
+type SearchNodesFindNodesFindNodesResultPassagesPassage struct {
+	ParentNodeId  string `json:"parentNodeId"`
+	ParentNodeUrn string `json:"parentNodeUrn"`
+	ChunkIndex    int    `json:"chunkIndex"`
+	CharStart     int    `json:"charStart"`
+	CharEnd       int    `json:"charEnd"`
+}
+
+// GetParentNodeId returns SearchNodesFindNodesFindNodesResultPassagesPassage.ParentNodeId, and is useful for accessing the field via an interface.
+func (v *SearchNodesFindNodesFindNodesResultPassagesPassage) GetParentNodeId() string {
+	return v.ParentNodeId
+}
+
+// GetParentNodeUrn returns SearchNodesFindNodesFindNodesResultPassagesPassage.ParentNodeUrn, and is useful for accessing the field via an interface.
+func (v *SearchNodesFindNodesFindNodesResultPassagesPassage) GetParentNodeUrn() string {
+	return v.ParentNodeUrn
+}
+
+// GetChunkIndex returns SearchNodesFindNodesFindNodesResultPassagesPassage.ChunkIndex, and is useful for accessing the field via an interface.
+func (v *SearchNodesFindNodesFindNodesResultPassagesPassage) GetChunkIndex() int { return v.ChunkIndex }
+
+// GetCharStart returns SearchNodesFindNodesFindNodesResultPassagesPassage.CharStart, and is useful for accessing the field via an interface.
+func (v *SearchNodesFindNodesFindNodesResultPassagesPassage) GetCharStart() int { return v.CharStart }
+
+// GetCharEnd returns SearchNodesFindNodesFindNodesResultPassagesPassage.CharEnd, and is useful for accessing the field via an interface.
+func (v *SearchNodesFindNodesFindNodesResultPassagesPassage) GetCharEnd() int { return v.CharEnd }
 
 // SearchNodesFindNodesFindNodesResultScopeSearchScopeInfo includes the requested fields of the GraphQL type SearchScopeInfo.
 // The GraphQL type's documentation follows.
@@ -66911,6 +67534,84 @@ func (v *TriggerAppRunTriggerAppRun) __premarshalJSON() (*__premarshalTriggerApp
 	return &retval, nil
 }
 
+// UniformEdge includes the GraphQL fields of Edge requested by the fragment UniformEdge.
+type UniformEdge struct {
+	Id string `json:"id"`
+	// Fully-qualified edge URN (hrn:edge:<root>:<memory>:<loc>), composed server-side from the edge's (source-side) memory URN + loc (#481 parity — edges are loc-addressed peers of nodes, spec 037).
+	Urn string `json:"urn"`
+	// Colon-delimited path within the (source node's) memory — the edge's
+	// identity and the suffix of its URN hrn:edge:<root>:<memory>:<loc>.
+	Loc string `json:"loc"`
+	// Free-form relationship name (e.g. imports, depends_on). Optional since
+	// spec 037 — loc is the identity. (Was the required 'label'.)
+	Name *string `json:"name"`
+	// Longer gloss carried for API consumers. NOT rendered on agent node reads,
+	// whose Related:/Referenced by: lines show the edge name (#721: name is the
+	// display label). Put the label you want seen in name (#1057).
+	Description *string `json:"description"`
+	// If true, this edge can be executed/run (task automation, conversation
+	// transitions). Mirrors Node.isRunnable.
+	IsRunnable *bool `json:"isRunnable"`
+	// Resolution-order hook (lower = earlier; default 0). When two edges
+	// share a priority, fall back to insertion order.
+	Priority int `json:"priority"`
+	// The live source node, or null when deleted or when its memory is unreadable. Cross-memory edges never grant access to an otherwise unreadable endpoint. Deleted-node inspection uses the explicit recovery graph.
+	Source *UniformEdgeSourceNode `json:"source"`
+	// The live target node, or null when deleted or when its memory is unreadable. Deleted-node inspection uses the explicit recovery graph.
+	Target *UniformEdgeTargetNode `json:"target"`
+}
+
+// GetId returns UniformEdge.Id, and is useful for accessing the field via an interface.
+func (v *UniformEdge) GetId() string { return v.Id }
+
+// GetUrn returns UniformEdge.Urn, and is useful for accessing the field via an interface.
+func (v *UniformEdge) GetUrn() string { return v.Urn }
+
+// GetLoc returns UniformEdge.Loc, and is useful for accessing the field via an interface.
+func (v *UniformEdge) GetLoc() string { return v.Loc }
+
+// GetName returns UniformEdge.Name, and is useful for accessing the field via an interface.
+func (v *UniformEdge) GetName() *string { return v.Name }
+
+// GetDescription returns UniformEdge.Description, and is useful for accessing the field via an interface.
+func (v *UniformEdge) GetDescription() *string { return v.Description }
+
+// GetIsRunnable returns UniformEdge.IsRunnable, and is useful for accessing the field via an interface.
+func (v *UniformEdge) GetIsRunnable() *bool { return v.IsRunnable }
+
+// GetPriority returns UniformEdge.Priority, and is useful for accessing the field via an interface.
+func (v *UniformEdge) GetPriority() int { return v.Priority }
+
+// GetSource returns UniformEdge.Source, and is useful for accessing the field via an interface.
+func (v *UniformEdge) GetSource() *UniformEdgeSourceNode { return v.Source }
+
+// GetTarget returns UniformEdge.Target, and is useful for accessing the field via an interface.
+func (v *UniformEdge) GetTarget() *UniformEdgeTargetNode { return v.Target }
+
+// UniformEdgeSourceNode includes the requested fields of the GraphQL type Node.
+type UniformEdgeSourceNode struct {
+	Id  string `json:"id"`
+	Loc string `json:"loc"`
+}
+
+// GetId returns UniformEdgeSourceNode.Id, and is useful for accessing the field via an interface.
+func (v *UniformEdgeSourceNode) GetId() string { return v.Id }
+
+// GetLoc returns UniformEdgeSourceNode.Loc, and is useful for accessing the field via an interface.
+func (v *UniformEdgeSourceNode) GetLoc() string { return v.Loc }
+
+// UniformEdgeTargetNode includes the requested fields of the GraphQL type Node.
+type UniformEdgeTargetNode struct {
+	Id  string `json:"id"`
+	Loc string `json:"loc"`
+}
+
+// GetId returns UniformEdgeTargetNode.Id, and is useful for accessing the field via an interface.
+func (v *UniformEdgeTargetNode) GetId() string { return v.Id }
+
+// GetLoc returns UniformEdgeTargetNode.Loc, and is useful for accessing the field via an interface.
+func (v *UniformEdgeTargetNode) GetLoc() string { return v.Loc }
+
 // UninstallAgentFromAppResponse is returned by UninstallAgentFromApp on success.
 type UninstallAgentFromAppResponse struct {
 	// Uninstall an Agent from an App. Deletes the AppAgent row. The Agent's
@@ -70454,6 +71155,71 @@ func (v *UpdateNodeInput) GetSeq() *int { return v.Seq }
 
 // GetTags returns UpdateNodeInput.Tags, and is useful for accessing the field via an interface.
 func (v *UpdateNodeInput) GetTags() []string { return v.Tags }
+
+// UpdateNodePropertiesResponse is returned by UpdateNodeProperties on success.
+type UpdateNodePropertiesResponse struct {
+	// #742 - Shallow-merge a JSON patch into a node's structured 'properties'
+	// (the schema-governed JSONB column, DISTINCT from 'data'). The patch's
+	// top-level keys are written over the node's existing 'properties' (patch
+	// wins on collision); unmentioned keys are preserved; a node with no
+	// 'properties' takes the patch verbatim.
+	//
+	// ONE EXCEPTION (#1227): an OBJECT under 'exports' - the per-host skill
+	// export declarations, keyed by host (D12) - is applied as a JSON Merge
+	// Patch (RFC 7396), not replaced. Hosts and their fields merge recursively,
+	// a null member DELETES that host or field, and scalars/arrays replace. So
+	// '{exports: {codexSkill: {enable: false}}}' flips one flag and keeps the
+	// host's name, description and every other host, and
+	// '{exports: {codexSkill: null}}' removes that host. A non-object 'exports'
+	// in the patch (null, a scalar, an array) keeps the top-level rule and
+	// replaces the stored value. The merge runs under a per-node lock, so two
+	// callers writing different hosts at once both land - do NOT
+	// read-modify-write 'exports' client-side, which can lose a concurrent
+	// writer's host. 'properties' must be a JSON object
+	// (not an array or scalar). 'nodeRef' is a node ID or fully-qualified URN.
+	// On a schema-governed memory the MERGED result is validated against the
+	// memory's schema (BAD_USER_INPUT on a violation). 'properties' is plaintext
+	// at rest (never encrypted), so the merge + conformance check need no key —
+	// but the write still honors the same single-write invariants as updateNode
+	// (per-memory write auth, an active session on an encrypted memory, revision
+	// history, git mirror). Returns the updated node.
+	UpdateNodeProperties *UpdateNodePropertiesUpdateNodePropertiesNode `json:"updateNodeProperties"`
+}
+
+// GetUpdateNodeProperties returns UpdateNodePropertiesResponse.UpdateNodeProperties, and is useful for accessing the field via an interface.
+func (v *UpdateNodePropertiesResponse) GetUpdateNodeProperties() *UpdateNodePropertiesUpdateNodePropertiesNode {
+	return v.UpdateNodeProperties
+}
+
+// UpdateNodePropertiesUpdateNodePropertiesNode includes the requested fields of the GraphQL type Node.
+type UpdateNodePropertiesUpdateNodePropertiesNode struct {
+	Id         string           `json:"id"`
+	MemoryId   string           `json:"memoryId"`
+	Loc        string           `json:"loc"`
+	Name       string           `json:"name"`
+	Properties *json.RawMessage `json:"properties"`
+	UpdatedAt  string           `json:"updatedAt"`
+}
+
+// GetId returns UpdateNodePropertiesUpdateNodePropertiesNode.Id, and is useful for accessing the field via an interface.
+func (v *UpdateNodePropertiesUpdateNodePropertiesNode) GetId() string { return v.Id }
+
+// GetMemoryId returns UpdateNodePropertiesUpdateNodePropertiesNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *UpdateNodePropertiesUpdateNodePropertiesNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns UpdateNodePropertiesUpdateNodePropertiesNode.Loc, and is useful for accessing the field via an interface.
+func (v *UpdateNodePropertiesUpdateNodePropertiesNode) GetLoc() string { return v.Loc }
+
+// GetName returns UpdateNodePropertiesUpdateNodePropertiesNode.Name, and is useful for accessing the field via an interface.
+func (v *UpdateNodePropertiesUpdateNodePropertiesNode) GetName() string { return v.Name }
+
+// GetProperties returns UpdateNodePropertiesUpdateNodePropertiesNode.Properties, and is useful for accessing the field via an interface.
+func (v *UpdateNodePropertiesUpdateNodePropertiesNode) GetProperties() *json.RawMessage {
+	return v.Properties
+}
+
+// GetUpdatedAt returns UpdateNodePropertiesUpdateNodePropertiesNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateNodePropertiesUpdateNodePropertiesNode) GetUpdatedAt() string { return v.UpdatedAt }
 
 // UpdateNodeResponse is returned by UpdateNode on success.
 type UpdateNodeResponse struct {
@@ -77763,12 +78529,13 @@ func (v *__AutomationApprovalsInput) GetAfter() *string { return v.After }
 
 // __BeginAssetUploadInput is used internally by genqlient
 type __BeginAssetUploadInput struct {
-	MemoryId    string       `json:"memoryId"`
-	Filename    string       `json:"filename"`
-	MimeType    string       `json:"mimeType"`
-	SizeBytes   int          `json:"sizeBytes"`
-	Intent      UploadIntent `json:"intent"`
-	Description *string      `json:"description,omitempty"`
+	MemoryId        string       `json:"memoryId"`
+	Filename        string       `json:"filename"`
+	MimeType        string       `json:"mimeType"`
+	SizeBytes       int          `json:"sizeBytes"`
+	Intent          UploadIntent `json:"intent"`
+	Description     *string      `json:"description,omitempty"`
+	UploadRequestId *string      `json:"uploadRequestId,omitempty"`
 }
 
 // GetMemoryId returns __BeginAssetUploadInput.MemoryId, and is useful for accessing the field via an interface.
@@ -77788,6 +78555,9 @@ func (v *__BeginAssetUploadInput) GetIntent() UploadIntent { return v.Intent }
 
 // GetDescription returns __BeginAssetUploadInput.Description, and is useful for accessing the field via an interface.
 func (v *__BeginAssetUploadInput) GetDescription() *string { return v.Description }
+
+// GetUploadRequestId returns __BeginAssetUploadInput.UploadRequestId, and is useful for accessing the field via an interface.
+func (v *__BeginAssetUploadInput) GetUploadRequestId() *string { return v.UploadRequestId }
 
 // __CalendarCreateEventInput is used internally by genqlient
 type __CalendarCreateEventInput struct {
@@ -79583,6 +80353,18 @@ func (v *__DeleteCommentInput) GetRef() string { return v.Ref }
 // GetExpected returns __DeleteCommentInput.Expected, and is useful for accessing the field via an interface.
 func (v *__DeleteCommentInput) GetExpected() int { return v.Expected }
 
+// __DeleteCommentThreadInput is used internally by genqlient
+type __DeleteCommentThreadInput struct {
+	Ref    string `json:"ref"`
+	Reason string `json:"reason"`
+}
+
+// GetRef returns __DeleteCommentThreadInput.Ref, and is useful for accessing the field via an interface.
+func (v *__DeleteCommentThreadInput) GetRef() string { return v.Ref }
+
+// GetReason returns __DeleteCommentThreadInput.Reason, and is useful for accessing the field via an interface.
+func (v *__DeleteCommentThreadInput) GetReason() string { return v.Reason }
+
 // __DeleteEdgeInput is used internally by genqlient
 type __DeleteEdgeInput struct {
 	EdgeId string `json:"edgeId"`
@@ -79653,9 +80435,10 @@ func (v *__DeleteMemorySubscriptionInput) GetOrgRef() string { return v.OrgRef }
 
 // __DeleteNodeInput is used internally by genqlient
 type __DeleteNodeInput struct {
-	NodeRef   string `json:"nodeRef"`
-	Hard      *bool  `json:"hard,omitempty"`
-	Recursive *bool  `json:"recursive,omitempty"`
+	NodeRef                 string `json:"nodeRef"`
+	Hard                    *bool  `json:"hard,omitempty"`
+	Recursive               *bool  `json:"recursive,omitempty"`
+	CascadeCrossMemoryEdges *bool  `json:"cascadeCrossMemoryEdges,omitempty"`
 }
 
 // GetNodeRef returns __DeleteNodeInput.NodeRef, and is useful for accessing the field via an interface.
@@ -79666,6 +80449,9 @@ func (v *__DeleteNodeInput) GetHard() *bool { return v.Hard }
 
 // GetRecursive returns __DeleteNodeInput.Recursive, and is useful for accessing the field via an interface.
 func (v *__DeleteNodeInput) GetRecursive() *bool { return v.Recursive }
+
+// GetCascadeCrossMemoryEdges returns __DeleteNodeInput.CascadeCrossMemoryEdges, and is useful for accessing the field via an interface.
+func (v *__DeleteNodeInput) GetCascadeCrossMemoryEdges() *bool { return v.CascadeCrossMemoryEdges }
 
 // __DeleteNodeRevisionInput is used internally by genqlient
 type __DeleteNodeRevisionInput struct {
@@ -80205,6 +80991,14 @@ type __GetCommentInput struct {
 // GetRef returns __GetCommentInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetCommentInput) GetRef() string { return v.Ref }
 
+// __GetEdgeInput is used internally by genqlient
+type __GetEdgeInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetEdgeInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetEdgeInput) GetRef() string { return v.Ref }
+
 // __GetInvitationInput is used internally by genqlient
 type __GetInvitationInput struct {
 	Slug string `json:"slug"`
@@ -80597,6 +81391,46 @@ func (v *__LinkMemoryToUserInput) GetMemoryId() string { return v.MemoryId }
 // GetExternalUserId returns __LinkMemoryToUserInput.ExternalUserId, and is useful for accessing the field via an interface.
 func (v *__LinkMemoryToUserInput) GetExternalUserId() string { return v.ExternalUserId }
 
+// __ListAssetsInput is used internally by genqlient
+type __ListAssetsInput struct {
+	Filter *AssetFilter `json:"filter,omitempty"`
+	Limit  *int         `json:"limit,omitempty"`
+	Offset *int         `json:"offset,omitempty"`
+	OrgId  *string      `json:"orgId,omitempty"`
+}
+
+// GetFilter returns __ListAssetsInput.Filter, and is useful for accessing the field via an interface.
+func (v *__ListAssetsInput) GetFilter() *AssetFilter { return v.Filter }
+
+// GetLimit returns __ListAssetsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__ListAssetsInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __ListAssetsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__ListAssetsInput) GetOffset() *int { return v.Offset }
+
+// GetOrgId returns __ListAssetsInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__ListAssetsInput) GetOrgId() *string { return v.OrgId }
+
+// __ListEdgesInput is used internally by genqlient
+type __ListEdgesInput struct {
+	Filter *EdgeFilter `json:"filter,omitempty"`
+	Limit  *int        `json:"limit,omitempty"`
+	Offset *int        `json:"offset,omitempty"`
+	OrgId  *string     `json:"orgId,omitempty"`
+}
+
+// GetFilter returns __ListEdgesInput.Filter, and is useful for accessing the field via an interface.
+func (v *__ListEdgesInput) GetFilter() *EdgeFilter { return v.Filter }
+
+// GetLimit returns __ListEdgesInput.Limit, and is useful for accessing the field via an interface.
+func (v *__ListEdgesInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __ListEdgesInput.Offset, and is useful for accessing the field via an interface.
+func (v *__ListEdgesInput) GetOffset() *int { return v.Offset }
+
+// GetOrgId returns __ListEdgesInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__ListEdgesInput) GetOrgId() *string { return v.OrgId }
+
 // __ListResendSendersInput is used internally by genqlient
 type __ListResendSendersInput struct {
 	OrgId  *string `json:"orgId,omitempty"`
@@ -80974,6 +81808,22 @@ type __NodeExportMetaInput struct {
 
 // GetRef returns __NodeExportMetaInput.Ref, and is useful for accessing the field via an interface.
 func (v *__NodeExportMetaInput) GetRef() string { return v.Ref }
+
+// __NodeExportSectionsInput is used internally by genqlient
+type __NodeExportSectionsInput struct {
+	Id       string              `json:"id"`
+	Format   NodeExportFormat    `json:"format"`
+	Sections []NodeExportSection `json:"sections"`
+}
+
+// GetId returns __NodeExportSectionsInput.Id, and is useful for accessing the field via an interface.
+func (v *__NodeExportSectionsInput) GetId() string { return v.Id }
+
+// GetFormat returns __NodeExportSectionsInput.Format, and is useful for accessing the field via an interface.
+func (v *__NodeExportSectionsInput) GetFormat() NodeExportFormat { return v.Format }
+
+// GetSections returns __NodeExportSectionsInput.Sections, and is useful for accessing the field via an interface.
+func (v *__NodeExportSectionsInput) GetSections() []NodeExportSection { return v.Sections }
 
 // __NodeLiveRevisionsApprovedInput is used internally by genqlient
 type __NodeLiveRevisionsApprovedInput struct {
@@ -81836,6 +82686,10 @@ type __SearchNodesInput struct {
 	OrgId          *string                    `json:"orgId,omitempty"`
 	WithProperties bool                       `json:"withProperties"`
 	WithData       bool                       `json:"withData"`
+	Expand         *int                       `json:"expand,omitempty"`
+	Fields         []NodeField                `json:"fields,omitempty"`
+	Granularity    *SearchGranularity         `json:"granularity,omitempty"`
+	MinScore       *float64                   `json:"minScore,omitempty"`
 }
 
 // GetQuery returns __SearchNodesInput.Query, and is useful for accessing the field via an interface.
@@ -81870,6 +82724,18 @@ func (v *__SearchNodesInput) GetWithProperties() bool { return v.WithProperties 
 
 // GetWithData returns __SearchNodesInput.WithData, and is useful for accessing the field via an interface.
 func (v *__SearchNodesInput) GetWithData() bool { return v.WithData }
+
+// GetExpand returns __SearchNodesInput.Expand, and is useful for accessing the field via an interface.
+func (v *__SearchNodesInput) GetExpand() *int { return v.Expand }
+
+// GetFields returns __SearchNodesInput.Fields, and is useful for accessing the field via an interface.
+func (v *__SearchNodesInput) GetFields() []NodeField { return v.Fields }
+
+// GetGranularity returns __SearchNodesInput.Granularity, and is useful for accessing the field via an interface.
+func (v *__SearchNodesInput) GetGranularity() *SearchGranularity { return v.Granularity }
+
+// GetMinScore returns __SearchNodesInput.MinScore, and is useful for accessing the field via an interface.
+func (v *__SearchNodesInput) GetMinScore() *float64 { return v.MinScore }
 
 // __SearchReplaceInNodesInput is used internally by genqlient
 type __SearchReplaceInNodesInput struct {
@@ -83534,6 +84400,22 @@ type __UpdateNodeInput struct {
 
 // GetInput returns __UpdateNodeInput.Input, and is useful for accessing the field via an interface.
 func (v *__UpdateNodeInput) GetInput() *UpdateNodeInput { return v.Input }
+
+// __UpdateNodePropertiesInput is used internally by genqlient
+type __UpdateNodePropertiesInput struct {
+	NodeRef    string          `json:"nodeRef"`
+	Properties json.RawMessage `json:"properties"`
+	Reason     *string         `json:"reason,omitempty"`
+}
+
+// GetNodeRef returns __UpdateNodePropertiesInput.NodeRef, and is useful for accessing the field via an interface.
+func (v *__UpdateNodePropertiesInput) GetNodeRef() string { return v.NodeRef }
+
+// GetProperties returns __UpdateNodePropertiesInput.Properties, and is useful for accessing the field via an interface.
+func (v *__UpdateNodePropertiesInput) GetProperties() json.RawMessage { return v.Properties }
+
+// GetReason returns __UpdateNodePropertiesInput.Reason, and is useful for accessing the field via an interface.
+func (v *__UpdateNodePropertiesInput) GetReason() *string { return v.Reason }
 
 // __UpdateNodeRevisionInput is used internally by genqlient
 type __UpdateNodeRevisionInput struct {
@@ -88757,8 +89639,8 @@ func AutomationApprovals(
 
 // The mutation executed by BeginAssetUpload.
 const BeginAssetUpload_Operation = `
-mutation BeginAssetUpload ($memoryId: ID!, $filename: String!, $mimeType: String!, $sizeBytes: Int!, $intent: UploadIntent!, $description: String) {
-	beginAssetUploadV2(input: {memoryId:$memoryId,filename:$filename,mimeType:$mimeType,sizeBytes:$sizeBytes,uploadIntent:$intent,description:$description}) {
+mutation BeginAssetUpload ($memoryId: ID!, $filename: String!, $mimeType: String!, $sizeBytes: Int!, $intent: UploadIntent!, $description: String, $uploadRequestId: String) {
+	beginAssetUploadV2(input: {memoryId:$memoryId,filename:$filename,mimeType:$mimeType,sizeBytes:$sizeBytes,uploadIntent:$intent,description:$description,uploadRequestId:$uploadRequestId}) {
 		uploadId
 		putUrl
 		putHeaders {
@@ -88789,17 +89671,19 @@ func BeginAssetUpload(
 	sizeBytes int,
 	intent UploadIntent,
 	description *string,
+	uploadRequestId *string,
 ) (data_ *BeginAssetUploadResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "BeginAssetUpload",
 		Query:  BeginAssetUpload_Operation,
 		Variables: &__BeginAssetUploadInput{
-			MemoryId:    memoryId,
-			Filename:    filename,
-			MimeType:    mimeType,
-			SizeBytes:   sizeBytes,
-			Intent:      intent,
-			Description: description,
+			MemoryId:        memoryId,
+			Filename:        filename,
+			MimeType:        mimeType,
+			SizeBytes:       sizeBytes,
+			Intent:          intent,
+			Description:     description,
+			UploadRequestId: uploadRequestId,
 		},
 	}
 
@@ -94171,6 +95055,42 @@ func DeleteComment(
 	return data_, err_
 }
 
+// The mutation executed by DeleteCommentThread.
+const DeleteCommentThread_Operation = `
+mutation DeleteCommentThread ($ref: ID!, $reason: String!) {
+	deleteCommentThread(commentRef: $ref, reason: $reason)
+}
+`
+
+// cli#1341 — a memory admin deletes a whole thread (#1606): soft, gone from
+// every read; commentRef may be any comment of it. The server owns the gate.
+func DeleteCommentThread(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	reason string,
+) (data_ *DeleteCommentThreadResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteCommentThread",
+		Query:  DeleteCommentThread_Operation,
+		Variables: &__DeleteCommentThreadInput{
+			Ref:    ref,
+			Reason: reason,
+		},
+	}
+
+	data_ = &DeleteCommentThreadResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by DeleteEdge.
 const DeleteEdge_Operation = `
 mutation DeleteEdge ($edgeId: ID!) {
@@ -94418,8 +95338,8 @@ func DeleteMemorySubscription(
 
 // The mutation executed by DeleteNode.
 const DeleteNode_Operation = `
-mutation DeleteNode ($nodeRef: ID!, $hard: Boolean, $recursive: Boolean) {
-	deleteNode(nodeRef: $nodeRef, hard: $hard, recursive: $recursive)
+mutation DeleteNode ($nodeRef: ID!, $hard: Boolean, $recursive: Boolean, $cascadeCrossMemoryEdges: Boolean) {
+	deleteNode(nodeRef: $nodeRef, hard: $hard, recursive: $recursive, cascadeCrossMemoryEdges: $cascadeCrossMemoryEdges)
 }
 `
 
@@ -94436,14 +95356,16 @@ func DeleteNode(
 	nodeRef string,
 	hard *bool,
 	recursive *bool,
+	cascadeCrossMemoryEdges *bool,
 ) (data_ *DeleteNodeResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "DeleteNode",
 		Query:  DeleteNode_Operation,
 		Variables: &__DeleteNodeInput{
-			NodeRef:   nodeRef,
-			Hard:      hard,
-			Recursive: recursive,
+			NodeRef:                 nodeRef,
+			Hard:                    hard,
+			Recursive:               recursive,
+			CascadeCrossMemoryEdges: cascadeCrossMemoryEdges,
 		},
 	}
 
@@ -96375,6 +97297,58 @@ func GetComment(
 	}
 
 	data_ = &GetCommentResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetEdge.
+const GetEdge_Operation = `
+query GetEdge ($ref: ID!) {
+	edge(ref: $ref) {
+		... UniformEdge
+	}
+}
+fragment UniformEdge on Edge {
+	id
+	urn
+	loc
+	name
+	description
+	isRunnable
+	priority
+	source {
+		id
+		loc
+	}
+	target {
+		id
+		loc
+	}
+}
+`
+
+// One edge by id or fully-qualified edge URN. Denied and missing are both null.
+func GetEdge(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetEdgeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetEdge",
+		Query:  GetEdge_Operation,
+		Variables: &__GetEdgeInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetEdgeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -98536,6 +99510,132 @@ func LinkMemoryToUser(
 	return data_, err_
 }
 
+// The query executed by ListAssets.
+const ListAssets_Operation = `
+query ListAssets ($filter: AssetFilter, $limit: Int, $offset: Int, $orgId: ID) {
+	assets(filter: $filter, limit: $limit, offset: $offset, orgId: $orgId) {
+		total
+		items {
+			id
+			urn
+			filename
+			mimeType
+			sizeBytes
+			description
+			scanStatus
+			scanSignature
+			uploadedAt
+			uploadedBy
+			deletedAt
+			memoryId
+			publicUrl
+			publicLinkEnabled
+			canManagePublicLink
+			publicLinkAvailable
+		}
+	}
+}
+`
+
+// cli#1341 — the cross-memory asset list (#891, cor:api:120): every asset held
+// by a memory the caller can read, narrowed by the filter (which never widens
+// the gate). orgId follows cor:api:100:01. memoryAssets above stays the
+// per-memory list. Unset fields and arguments are omitted.
+func ListAssets(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	filter *AssetFilter,
+	limit *int,
+	offset *int,
+	orgId *string,
+) (data_ *ListAssetsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ListAssets",
+		Query:  ListAssets_Operation,
+		Variables: &__ListAssetsInput{
+			Filter: filter,
+			Limit:  limit,
+			Offset: offset,
+			OrgId:  orgId,
+		},
+	}
+
+	data_ = &ListAssetsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by ListEdges.
+const ListEdges_Operation = `
+query ListEdges ($filter: EdgeFilter, $limit: Int, $offset: Int, $orgId: ID) {
+	edges(filter: $filter, limit: $limit, offset: $offset, orgId: $orgId) {
+		total
+		items {
+			... UniformEdge
+		}
+	}
+}
+fragment UniformEdge on Edge {
+	id
+	urn
+	loc
+	name
+	description
+	isRunnable
+	priority
+	source {
+		id
+		loc
+	}
+	target {
+		id
+		loc
+	}
+}
+`
+
+// The paged edge list over the caller's readable memories, AND-narrowed by the
+// filter. orgId follows cor:api:100:01 (a non-member gets an empty page). Every
+// filter field and argument is omitted when unset: the server reads an omitted
+// one as "no constraint".
+func ListEdges(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	filter *EdgeFilter,
+	limit *int,
+	offset *int,
+	orgId *string,
+) (data_ *ListEdgesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ListEdges",
+		Query:  ListEdges_Operation,
+		Variables: &__ListEdgesInput{
+			Filter: filter,
+			Limit:  limit,
+			Offset: offset,
+			OrgId:  orgId,
+		},
+	}
+
+	data_ = &ListEdgesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by ListResendSenders.
 const ListResendSenders_Operation = `
 query ListResendSenders ($orgId: ID, $limit: Int, $offset: Int) {
@@ -100372,6 +101472,51 @@ func NodeExportMeta(
 	}
 
 	data_ = &NodeExportMetaResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by NodeExportSections.
+const NodeExportSections_Operation = `
+query NodeExportSections ($id: ID!, $format: NodeExportFormat!, $sections: [NodeExportSection!]!) {
+	nodeExport(id: $id, format: $format, full: false, sections: $sections) {
+		format
+		mimeType
+		filename
+		data
+		bytes
+	}
+}
+`
+
+// cli#1341 — the PRESENTATION render: full: false with the chosen sections.
+// Not round-trippable through node import (the server says so), which is why
+// it is a separate document rather than a variable on the canonical one.
+func NodeExportSections(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	format NodeExportFormat,
+	sections []NodeExportSection,
+) (data_ *NodeExportSectionsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "NodeExportSections",
+		Query:  NodeExportSections_Operation,
+		Variables: &__NodeExportSectionsInput{
+			Id:       id,
+			Format:   format,
+			Sections: sections,
+		},
+	}
+
+	data_ = &NodeExportSectionsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -104040,8 +105185,8 @@ func Scopes(
 
 // The query executed by SearchNodes.
 const SearchNodes_Operation = `
-query SearchNodes ($query: String!, $mode: FindNodesMode, $filter: NodeFilter, $sortProperty: NodePropertySort, $limit: Int, $offset: Int, $scope: String, $appRef: ID, $orgId: ID, $withProperties: Boolean!, $withData: Boolean!) {
-	findNodes(query: $query, mode: $mode, filter: $filter, sortProperty: $sortProperty, limit: $limit, offset: $offset, scope: $scope, appRef: $appRef, orgId: $orgId) {
+query SearchNodes ($query: String!, $mode: FindNodesMode, $filter: NodeFilter, $sortProperty: NodePropertySort, $limit: Int, $offset: Int, $scope: String, $appRef: ID, $orgId: ID, $withProperties: Boolean!, $withData: Boolean!, $expand: Int, $fields: [NodeField!], $granularity: SearchGranularity, $minScore: Float) {
+	findNodes(query: $query, mode: $mode, filter: $filter, sortProperty: $sortProperty, limit: $limit, offset: $offset, scope: $scope, appRef: $appRef, orgId: $orgId, expand: $expand, fields: $fields, granularity: $granularity, minScore: $minScore) {
 		total
 		degraded
 		reason
@@ -104052,6 +105197,13 @@ query SearchNodes ($query: String!, $mode: FindNodesMode, $filter: NodeFilter, $
 			ownerUrn
 			memoryUrns
 			droppedCount
+		}
+		passages {
+			parentNodeId
+			parentNodeUrn
+			chunkIndex
+			charStart
+			charEnd
 		}
 		hits {
 			score
@@ -104103,6 +105255,10 @@ func SearchNodes(
 	orgId *string,
 	withProperties bool,
 	withData bool,
+	expand *int,
+	fields []NodeField,
+	granularity *SearchGranularity,
+	minScore *float64,
 ) (data_ *SearchNodesResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "SearchNodes",
@@ -104119,6 +105275,10 @@ func SearchNodes(
 			OrgId:          orgId,
 			WithProperties: withProperties,
 			WithData:       withData,
+			Expand:         expand,
+			Fields:         fields,
+			Granularity:    granularity,
+			MinScore:       minScore,
 		},
 	}
 
@@ -109690,6 +110850,53 @@ func UpdateNodeData(
 	}
 
 	data_ = &UpdateNodeDataResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateNodeProperties.
+const UpdateNodeProperties_Operation = `
+mutation UpdateNodeProperties ($nodeRef: ID!, $properties: JSON!, $reason: String) {
+	updateNodeProperties(nodeRef: $nodeRef, properties: $properties, reason: $reason) {
+		id
+		memoryId
+		loc
+		name
+		properties
+		updatedAt
+	}
+}
+`
+
+// cli#1341 — shallow-merge a JSON patch into a node's structured properties
+// (updateNodeProperties, #742). The server owns the merge rule, including the
+// JSON Merge Patch exception under `exports` (#1227), and validates the merged
+// result against the memory's schema. reason is recorded on revision history.
+func UpdateNodeProperties(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	nodeRef string,
+	properties json.RawMessage,
+	reason *string,
+) (data_ *UpdateNodePropertiesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateNodeProperties",
+		Query:  UpdateNodeProperties_Operation,
+		Variables: &__UpdateNodePropertiesInput{
+			NodeRef:    nodeRef,
+			Properties: properties,
+			Reason:     reason,
+		},
+	}
+
+	data_ = &UpdateNodePropertiesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

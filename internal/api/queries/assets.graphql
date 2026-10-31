@@ -81,3 +81,45 @@ mutation SetAssetPublicLink($assetRef: ID!, $enabled: Boolean!) {
     publicUrl
   }
 }
+
+# cli#1341 — the cross-memory asset list (#891, cor:api:120): every asset held
+# by a memory the caller can read, narrowed by the filter (which never widens
+# the gate). orgId follows cor:api:100:01. memoryAssets above stays the
+# per-memory list. Unset fields and arguments are omitted.
+# @genqlient(for: "AssetFilter.includeDeleted", omitempty: true)
+# @genqlient(for: "AssetFilter.memoryRefs", omitempty: true)
+# @genqlient(for: "AssetFilter.mimeType", omitempty: true)
+# @genqlient(for: "AssetFilter.mine", omitempty: true)
+# @genqlient(for: "AssetFilter.scanStatus", omitempty: true)
+query ListAssets(
+  # @genqlient(omitempty: true)
+  $filter: AssetFilter
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+  # @genqlient(omitempty: true)
+  $orgId: ID
+) {
+  assets(filter: $filter, limit: $limit, offset: $offset, orgId: $orgId) {
+    total
+    items {
+      id
+      urn
+      filename
+      mimeType
+      sizeBytes
+      description
+      scanStatus
+      scanSignature
+      uploadedAt
+      uploadedBy
+      deletedAt
+      memoryId
+      publicUrl
+      publicLinkEnabled
+      canManagePublicLink
+      publicLinkAvailable
+    }
+  }
+}

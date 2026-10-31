@@ -57,6 +57,8 @@ func TestMapError(t *testing.T) {
 		{"template limit", gqlErr("TICKER_TEMPLATE_LIMIT_REACHED"), exitcode.Conflict},
 		{"template revision", gqlErr("TICKER_TEMPLATE_REVISION_MISMATCH"), exitcode.Conflict},
 		{"install target changed", gqlErr("INSTALL_TARGET_CHANGED"), exitcode.Conflict},
+		{"cross-memory edges", gqlErr("CROSS_MEMORY_EDGES"), exitcode.Usage},
+		{"edge loc conflict", gqlErr("EDGE_LOC_CONFLICT"), exitcode.Conflict},
 		{"BOOT_PROMPT_COMPILE_NOT_PERMITTED", gqlErr("BOOT_PROMPT_COMPILE_NOT_PERMITTED"), exitcode.Forbidden},
 		{"BOOT_PROMPT_GRANT_REQUIRED", gqlErr("BOOT_PROMPT_GRANT_REQUIRED"), exitcode.Forbidden},
 		{"BOOT_PROMPT_TARGET_RETIRED", gqlErr("BOOT_PROMPT_TARGET_RETIRED"), exitcode.Conflict},
