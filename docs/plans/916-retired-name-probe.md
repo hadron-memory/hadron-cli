@@ -23,16 +23,16 @@ compatibility path, Worker.prompt/systemPrompt and cast-preview behavior are
 expressly retained by #2405 and remain unchanged. No production prompt cleanup,
 column deletion, unknown-variable policy or new law is part of the client cut.
 
-Red first0579872: current role/preview queries still request the probe and emit
+Red first 0579872: current role/preview queries still request the probe and emit
 booleans. New tests assert actual query omission, stable nullable JSON and no
 obsolete human advice for role list/get/cast preview, with zero mutations.
-Existing dry-run contract changes only the retired field to null. Metadata1112
+Existing dry-run contract changes only the retired field to null. Metadata #1112
 snapshots update those booleans and drop the removed warning line; the two
-safe-cells1101 role-list hashes update for those exact output changes; the one
+safe-cells #1101 role-list hashes update for those exact output changes; the one
 removed role-template-role test site has no output site left. Active role
 interpolation/sanitization remains covered by role-missing-role and the reverse
 association cases, not weakened or skipped.
 
 Independent reviews/QA remain required. Author uses fake transport and strict
-snapshot checks, not production or a new live stack. Refs916, leaves umbrella
+snapshot checks, not production or a new live stack. Refs #916, leaves umbrella
 open. No release/activation/install action.

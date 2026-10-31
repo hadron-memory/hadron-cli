@@ -2351,6 +2351,12 @@ Conventions:
   (`TEAM_ROLE_NAME_MINTED`, `TEAM_ROLE_NAME_DUPLICATE`,
   `TEAM_ROLE_NAME_OUT_OF_RANGE`, `TEAM_ROLE_STALE`, `TEAM_ROLE_IN_USE`) are
   unreachable and no longer mapped — the server cannot produce them.
+  **Retired role/preview name probe (#916 C6).** Role reads and cast
+  previews no longer request the retired `hasNamePlaceholder` probe or infer
+  nameless briefings from it. Existing JSON keeps that key as null for
+  compatibility. Other role fields, preview prompt and `reserved:false`
+  remain unchanged. This does not remove legacy platform-variable handling or
+  alter the prompt a bind/run is served.
   **`team role rm`** (`deleteTeamRole`) retires a definition, and is now
   UNCONDITIONAL: the minted-name gate and `--transfer-register-to` both went
   with the register, so there is no allocation ledger left to preserve and
@@ -4124,10 +4130,6 @@ hadron team session served-prompts <session-id> [--limit N] [--offset N] [--prov
 hadron team session outcome <session-id> <0..1> [--ref <text>] [--meta <json>]
 hadron run served-prompt <run-ref> [--limit N] [--offset N | --all]
 hadron team worker served-prompt <worker-id-or-qualified-URN> [--limit N] [--offset N | --all]
-
-## Retired role/preview name probe (#916 C6)
-
-Role reads and cast previews no longer request the retired `hasNamePlaceholder` probe or infer nameless briefings from it. Existing JSON keeps that key as null for compatibility. Other role fields, preview prompt and `reserved:false` remain unchanged. This does not remove legacy platform-variable handling or alter the prompt a bind/run is served.
 
 # Editing a task (cli#1137)
 `hadron team task update <task>` edits a task after creation through one
