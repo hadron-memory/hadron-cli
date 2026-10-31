@@ -49,7 +49,8 @@ type hostServer struct {
 
 func (s *hostServer) Register(ctx context.Context, r hostpoller.Registration) (hostpoller.RegisteredHost, error) {
 	in := &gen.RegisterHostInput{
-		AppRef: s.app, Label: r.Label, PollIntervalSeconds: r.PollIntervalSeconds,
+		Capabilities: append([]string{}, r.Capabilities...),
+		AppRef:       s.app, Label: r.Label, PollIntervalSeconds: r.PollIntervalSeconds,
 		Workers: []*gen.RegisterHostWorkerInput{},
 	}
 	for _, w := range r.Workers {
@@ -231,6 +232,13 @@ skipped as in flight. The server must not re-mint its grant meanwhile (a
 re-collect omits a start whose grant is still live): run this against a
 server with that fix.
 
+Capabilities are an explicit full declaration on every registration refresh:
+add capabilities: [worker.reset-context] only for a driver that actually
+implements that operation. Omitted or [] means none. THIS POLLER DOES NOT
+implement worker.reset-context: leave capabilities empty for this runner;
+unknown operations remain failed. Declaring a capability adds no handler; this runner warns on stderr for
+every unimplemented declaration before registering.
+
 The configuration (YAML):
 
   app: hrn:app:<root>:<slug>
@@ -283,6 +291,12 @@ per line; --json prints each as a JSON object.`,
 			cfg, key, srv, err := loadHostPoller(f, configPath)
 			if err != nil {
 				return err
+			}
+			// Declaring a capability does not acquire a new operation handler.
+			for _, capability := range cfg.Capabilities {
+				if _, err := fmt.Fprintf(f.IOStreams.ErrOut, "warning: declared capability %q has no handler in this poller; collected operations of this type will be reported FAILED. Remove it from capabilities when using this runner.\n", capability); err != nil {
+					return err
+				}
 			}
 			state, err := hostpoller.LoadState(cfg.StateFile)
 			if err != nil {

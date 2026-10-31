@@ -30432,6 +30432,520 @@ func (v *EndTeamSessionWithResumeClaimResponse) GetEndSession() *EndTeamSessionW
 	return v.EndSession
 }
 
+// EndTeamSessionWithStatsAndResumeClaimEndSession includes the requested fields of the GraphQL type Session.
+// The GraphQL type's documentation follows.
+//
+// A unit of work recorded against a user or App: the general row, and what the
+// bare word "session" means throughout this schema (#1034). `type` says which
+// kind — DEVELOPER, CHATBOT, AUTOMATION, EDGE — and `workerId` is optional.
+//
+// A **worker session** is the subtype with `workerId` set: a Worker (named
+// casting) bound to a driver, which is what makes work attributable to a
+// teammate and what a merged PR traces back through. Binding is optional, so a
+// list of these is not a staff view and may hold no worker sessions at all —
+// read `workerId` per row rather than assuming either way.
+//
+// A **chat session** is NOT one of these and has no row here: it is the
+// conversation a human is in — the Claude Desktop window, the Claude Code
+// session, the IDE chat. The two are independent and **ending one does not end
+// the other**: a chat session that closes leaves its worker session open
+// until endSession. Since #1114 nothing ends it for inactivity — silence is not
+// evidence of abandonment — but it stops reading as LIVE once nobody has driven
+// it inside its idle window, so the stale session stops blocking another bind
+// without being ended or losing its unwritten handoff. That changes no HOLD: a
+// human-held name stays held until explicit release, so only its holder can bind
+// it again. Do not use "chat session" for a Chat (the agent conversation entity)
+// — that is an **agent chat**, a third concept.
+type EndTeamSessionWithStatsAndResumeClaimEndSession struct {
+	TeamSessionFields `json:"-"`
+}
+
+// GetId returns EndTeamSessionWithStatsAndResumeClaimEndSession.Id, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetId() string {
+	return v.TeamSessionFields.Id
+}
+
+// GetAgentId returns EndTeamSessionWithStatsAndResumeClaimEndSession.AgentId, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetAgentId() *string {
+	return v.TeamSessionFields.AgentId
+}
+
+// GetWorkerId returns EndTeamSessionWithStatsAndResumeClaimEndSession.WorkerId, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetWorkerId() *string {
+	return v.TeamSessionFields.WorkerId
+}
+
+// GetRole returns EndTeamSessionWithStatsAndResumeClaimEndSession.Role, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetRole() *string {
+	return v.TeamSessionFields.Role
+}
+
+// GetWorker returns EndTeamSessionWithStatsAndResumeClaimEndSession.Worker, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetWorker() *TeamSessionFieldsWorker {
+	return v.TeamSessionFields.Worker
+}
+
+// GetUserId returns EndTeamSessionWithStatsAndResumeClaimEndSession.UserId, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetUserId() *string {
+	return v.TeamSessionFields.UserId
+}
+
+// GetType returns EndTeamSessionWithStatsAndResumeClaimEndSession.Type, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetType() string {
+	return v.TeamSessionFields.Type
+}
+
+// GetRepo returns EndTeamSessionWithStatsAndResumeClaimEndSession.Repo, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetRepo() *string {
+	return v.TeamSessionFields.Repo
+}
+
+// GetBranch returns EndTeamSessionWithStatsAndResumeClaimEndSession.Branch, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetBranch() *string {
+	return v.TeamSessionFields.Branch
+}
+
+// GetPrNumber returns EndTeamSessionWithStatsAndResumeClaimEndSession.PrNumber, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetPrNumber() *int {
+	return v.TeamSessionFields.PrNumber
+}
+
+// GetStartedAt returns EndTeamSessionWithStatsAndResumeClaimEndSession.StartedAt, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetStartedAt() string {
+	return v.TeamSessionFields.StartedAt
+}
+
+// GetEndedAt returns EndTeamSessionWithStatsAndResumeClaimEndSession.EndedAt, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetEndedAt() *string {
+	return v.TeamSessionFields.EndedAt
+}
+
+// GetAutoExpiredAt returns EndTeamSessionWithStatsAndResumeClaimEndSession.AutoExpiredAt, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetAutoExpiredAt() *string {
+	return v.TeamSessionFields.AutoExpiredAt
+}
+
+// GetHost returns EndTeamSessionWithStatsAndResumeClaimEndSession.Host, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetHost() *string {
+	return v.TeamSessionFields.Host
+}
+
+// GetTool returns EndTeamSessionWithStatsAndResumeClaimEndSession.Tool, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetTool() *string {
+	return v.TeamSessionFields.Tool
+}
+
+// GetTranscriptPath returns EndTeamSessionWithStatsAndResumeClaimEndSession.TranscriptPath, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetTranscriptPath() *string {
+	return v.TeamSessionFields.TranscriptPath
+}
+
+// GetLlmModel returns EndTeamSessionWithStatsAndResumeClaimEndSession.LlmModel, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) GetLlmModel() *string {
+	return v.TeamSessionFields.LlmModel
+}
+
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*EndTeamSessionWithStatsAndResumeClaimEndSession
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.EndTeamSessionWithStatsAndResumeClaimEndSession = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamSessionFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalEndTeamSessionWithStatsAndResumeClaimEndSession struct {
+	Id string `json:"id"`
+
+	AgentId *string `json:"agentId"`
+
+	WorkerId *string `json:"workerId"`
+
+	Role *string `json:"role"`
+
+	Worker *TeamSessionFieldsWorker `json:"worker"`
+
+	UserId *string `json:"userId"`
+
+	Type string `json:"type"`
+
+	Repo *string `json:"repo"`
+
+	Branch *string `json:"branch"`
+
+	PrNumber *int `json:"prNumber"`
+
+	StartedAt string `json:"startedAt"`
+
+	EndedAt *string `json:"endedAt"`
+
+	AutoExpiredAt *string `json:"autoExpiredAt"`
+
+	Host *string `json:"host"`
+
+	Tool *string `json:"tool"`
+
+	TranscriptPath *string `json:"transcriptPath"`
+
+	LlmModel *string `json:"llmModel"`
+}
+
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *EndTeamSessionWithStatsAndResumeClaimEndSession) __premarshalJSON() (*__premarshalEndTeamSessionWithStatsAndResumeClaimEndSession, error) {
+	var retval __premarshalEndTeamSessionWithStatsAndResumeClaimEndSession
+
+	retval.Id = v.TeamSessionFields.Id
+	retval.AgentId = v.TeamSessionFields.AgentId
+	retval.WorkerId = v.TeamSessionFields.WorkerId
+	retval.Role = v.TeamSessionFields.Role
+	retval.Worker = v.TeamSessionFields.Worker
+	retval.UserId = v.TeamSessionFields.UserId
+	retval.Type = v.TeamSessionFields.Type
+	retval.Repo = v.TeamSessionFields.Repo
+	retval.Branch = v.TeamSessionFields.Branch
+	retval.PrNumber = v.TeamSessionFields.PrNumber
+	retval.StartedAt = v.TeamSessionFields.StartedAt
+	retval.EndedAt = v.TeamSessionFields.EndedAt
+	retval.AutoExpiredAt = v.TeamSessionFields.AutoExpiredAt
+	retval.Host = v.TeamSessionFields.Host
+	retval.Tool = v.TeamSessionFields.Tool
+	retval.TranscriptPath = v.TeamSessionFields.TranscriptPath
+	retval.LlmModel = v.TeamSessionFields.LlmModel
+	return &retval, nil
+}
+
+// EndTeamSessionWithStatsAndResumeClaimResponse is returned by EndTeamSessionWithStatsAndResumeClaim on success.
+type EndTeamSessionWithStatsAndResumeClaimResponse struct {
+	// End a session, and — for a worker-bound one — write its closing handoff
+	// (#1029). Ending a client's chat session does not end its worker session
+	// or call this operation. Inactivity alone never ends a session; the reaper
+	// enforces a hard expiresAt promised at session start. Other explicit
+	// platform lifecycle operations can also end sessions.
+	//
+	// It ends the SESSION, not any HOLD. Where a person bound the worker the name
+	// stays theirs until explicitly released (#1050,
+	// [`cor:agt:020:09`](hrn:node:hadronmemory.com:specs:cor:agt:020:09)), so
+	// only that holder can bind it again. A pure App-key **bind takes no hold** —
+	// which is a fact about the bind, not a promise about the worker's state when
+	// this returns: an eligible user may have forced a binding meanwhile and taken
+	// the name, and ending the App-key session leaves that hold and that session
+	// untouched.
+	//
+	// Gate (#931): platform admin, the session's App, or the attributed user
+	// (not via impersonation). An App key ends only user-less sessions (never one
+	// a person is behind), never a host-launched one, and a key ever granted
+	// host:operate ends none (#1934, hrn:node:hadronmemory.com:specs:cor:agt:070:04);
+	// a host ends a launched session only by reporting its worker.end.
+	//
+	// `handoff` is agent-composed prose: what landed, what is open, what is
+	// blocked, what the next driver should not repeat. The server owns where it
+	// goes (the worker's working memory, under the `handoffs` parent, at a
+	// lexically-ordered loc), so no client re-derives the convention.
+	//
+	// `summary` is NOT a smaller `handoff` (#1100). It sets `Session.summary`,
+	// a label on the session row — readable back through `session` / `sessions`,
+	// but read by no worker-continuity path, so the next driver never sees it. The
+	// two sit side by side and only one of them reaches that driver, so a caller
+	// writing a closing note picks by name: it is `handoff`.
+	//
+	// The two mistakes are not symmetric, and that is the whole hazard. Putting
+	// continuity prose in `summary` succeeds, returns a normal receipt, and
+	// produces NO handoff — discovered only once the context that could have
+	// written one is gone, and not correctable in place, since the sequence is
+	// append-only and adding a handoff to an ended session is refused. A repeat
+	// end without a new handoff preserves the first end. The remedy is to
+	// bind again and end THAT session with the prose. Putting a label in
+	// `handoff` is merely untidy: the row lacks its label and the text reaches
+	// the next driver anyway.
+	//
+	// Written BEFORE the session ends, and a failed write REFUSES the end
+	// (HANDOFF_WRITE_FAILED) rather than ending anyway: a still-bound worker is
+	// recoverable — retry, or end without a handoff deliberately — while an ended
+	// session whose handoff evaporated is not, because the context that composed
+	// it is gone. Passing `handoff` on a session with no worker is refused rather
+	// than dropped; there is no sequence to write it to.
+	//
+	// #1956: `resumeClaim: true` also writes a resume claim, after the handoff
+	// and before the end, so the fresh context of a rotation starts this worker's
+	// next session with resumeSession and no arguments (see createResumeClaim).
+	// Only on your own open worker session: otherwise it refuses and nothing ends.
+	EndSession *EndTeamSessionWithStatsAndResumeClaimEndSession `json:"endSession"`
+}
+
+// GetEndSession returns EndTeamSessionWithStatsAndResumeClaimResponse.EndSession, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsAndResumeClaimResponse) GetEndSession() *EndTeamSessionWithStatsAndResumeClaimEndSession {
+	return v.EndSession
+}
+
+// EndTeamSessionWithStatsEndSession includes the requested fields of the GraphQL type Session.
+// The GraphQL type's documentation follows.
+//
+// A unit of work recorded against a user or App: the general row, and what the
+// bare word "session" means throughout this schema (#1034). `type` says which
+// kind — DEVELOPER, CHATBOT, AUTOMATION, EDGE — and `workerId` is optional.
+//
+// A **worker session** is the subtype with `workerId` set: a Worker (named
+// casting) bound to a driver, which is what makes work attributable to a
+// teammate and what a merged PR traces back through. Binding is optional, so a
+// list of these is not a staff view and may hold no worker sessions at all —
+// read `workerId` per row rather than assuming either way.
+//
+// A **chat session** is NOT one of these and has no row here: it is the
+// conversation a human is in — the Claude Desktop window, the Claude Code
+// session, the IDE chat. The two are independent and **ending one does not end
+// the other**: a chat session that closes leaves its worker session open
+// until endSession. Since #1114 nothing ends it for inactivity — silence is not
+// evidence of abandonment — but it stops reading as LIVE once nobody has driven
+// it inside its idle window, so the stale session stops blocking another bind
+// without being ended or losing its unwritten handoff. That changes no HOLD: a
+// human-held name stays held until explicit release, so only its holder can bind
+// it again. Do not use "chat session" for a Chat (the agent conversation entity)
+// — that is an **agent chat**, a third concept.
+type EndTeamSessionWithStatsEndSession struct {
+	TeamSessionFields `json:"-"`
+}
+
+// GetId returns EndTeamSessionWithStatsEndSession.Id, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsEndSession) GetId() string { return v.TeamSessionFields.Id }
+
+// GetAgentId returns EndTeamSessionWithStatsEndSession.AgentId, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsEndSession) GetAgentId() *string { return v.TeamSessionFields.AgentId }
+
+// GetWorkerId returns EndTeamSessionWithStatsEndSession.WorkerId, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsEndSession) GetWorkerId() *string {
+	return v.TeamSessionFields.WorkerId
+}
+
+// GetRole returns EndTeamSessionWithStatsEndSession.Role, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsEndSession) GetRole() *string { return v.TeamSessionFields.Role }
+
+// GetWorker returns EndTeamSessionWithStatsEndSession.Worker, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsEndSession) GetWorker() *TeamSessionFieldsWorker {
+	return v.TeamSessionFields.Worker
+}
+
+// GetUserId returns EndTeamSessionWithStatsEndSession.UserId, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsEndSession) GetUserId() *string { return v.TeamSessionFields.UserId }
+
+// GetType returns EndTeamSessionWithStatsEndSession.Type, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsEndSession) GetType() string { return v.TeamSessionFields.Type }
+
+// GetRepo returns EndTeamSessionWithStatsEndSession.Repo, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsEndSession) GetRepo() *string { return v.TeamSessionFields.Repo }
+
+// GetBranch returns EndTeamSessionWithStatsEndSession.Branch, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsEndSession) GetBranch() *string { return v.TeamSessionFields.Branch }
+
+// GetPrNumber returns EndTeamSessionWithStatsEndSession.PrNumber, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsEndSession) GetPrNumber() *int { return v.TeamSessionFields.PrNumber }
+
+// GetStartedAt returns EndTeamSessionWithStatsEndSession.StartedAt, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsEndSession) GetStartedAt() string {
+	return v.TeamSessionFields.StartedAt
+}
+
+// GetEndedAt returns EndTeamSessionWithStatsEndSession.EndedAt, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsEndSession) GetEndedAt() *string { return v.TeamSessionFields.EndedAt }
+
+// GetAutoExpiredAt returns EndTeamSessionWithStatsEndSession.AutoExpiredAt, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsEndSession) GetAutoExpiredAt() *string {
+	return v.TeamSessionFields.AutoExpiredAt
+}
+
+// GetHost returns EndTeamSessionWithStatsEndSession.Host, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsEndSession) GetHost() *string { return v.TeamSessionFields.Host }
+
+// GetTool returns EndTeamSessionWithStatsEndSession.Tool, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsEndSession) GetTool() *string { return v.TeamSessionFields.Tool }
+
+// GetTranscriptPath returns EndTeamSessionWithStatsEndSession.TranscriptPath, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsEndSession) GetTranscriptPath() *string {
+	return v.TeamSessionFields.TranscriptPath
+}
+
+// GetLlmModel returns EndTeamSessionWithStatsEndSession.LlmModel, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsEndSession) GetLlmModel() *string {
+	return v.TeamSessionFields.LlmModel
+}
+
+func (v *EndTeamSessionWithStatsEndSession) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*EndTeamSessionWithStatsEndSession
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.EndTeamSessionWithStatsEndSession = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamSessionFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalEndTeamSessionWithStatsEndSession struct {
+	Id string `json:"id"`
+
+	AgentId *string `json:"agentId"`
+
+	WorkerId *string `json:"workerId"`
+
+	Role *string `json:"role"`
+
+	Worker *TeamSessionFieldsWorker `json:"worker"`
+
+	UserId *string `json:"userId"`
+
+	Type string `json:"type"`
+
+	Repo *string `json:"repo"`
+
+	Branch *string `json:"branch"`
+
+	PrNumber *int `json:"prNumber"`
+
+	StartedAt string `json:"startedAt"`
+
+	EndedAt *string `json:"endedAt"`
+
+	AutoExpiredAt *string `json:"autoExpiredAt"`
+
+	Host *string `json:"host"`
+
+	Tool *string `json:"tool"`
+
+	TranscriptPath *string `json:"transcriptPath"`
+
+	LlmModel *string `json:"llmModel"`
+}
+
+func (v *EndTeamSessionWithStatsEndSession) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *EndTeamSessionWithStatsEndSession) __premarshalJSON() (*__premarshalEndTeamSessionWithStatsEndSession, error) {
+	var retval __premarshalEndTeamSessionWithStatsEndSession
+
+	retval.Id = v.TeamSessionFields.Id
+	retval.AgentId = v.TeamSessionFields.AgentId
+	retval.WorkerId = v.TeamSessionFields.WorkerId
+	retval.Role = v.TeamSessionFields.Role
+	retval.Worker = v.TeamSessionFields.Worker
+	retval.UserId = v.TeamSessionFields.UserId
+	retval.Type = v.TeamSessionFields.Type
+	retval.Repo = v.TeamSessionFields.Repo
+	retval.Branch = v.TeamSessionFields.Branch
+	retval.PrNumber = v.TeamSessionFields.PrNumber
+	retval.StartedAt = v.TeamSessionFields.StartedAt
+	retval.EndedAt = v.TeamSessionFields.EndedAt
+	retval.AutoExpiredAt = v.TeamSessionFields.AutoExpiredAt
+	retval.Host = v.TeamSessionFields.Host
+	retval.Tool = v.TeamSessionFields.Tool
+	retval.TranscriptPath = v.TeamSessionFields.TranscriptPath
+	retval.LlmModel = v.TeamSessionFields.LlmModel
+	return &retval, nil
+}
+
+// EndTeamSessionWithStatsResponse is returned by EndTeamSessionWithStats on success.
+type EndTeamSessionWithStatsResponse struct {
+	// End a session, and — for a worker-bound one — write its closing handoff
+	// (#1029). Ending a client's chat session does not end its worker session
+	// or call this operation. Inactivity alone never ends a session; the reaper
+	// enforces a hard expiresAt promised at session start. Other explicit
+	// platform lifecycle operations can also end sessions.
+	//
+	// It ends the SESSION, not any HOLD. Where a person bound the worker the name
+	// stays theirs until explicitly released (#1050,
+	// [`cor:agt:020:09`](hrn:node:hadronmemory.com:specs:cor:agt:020:09)), so
+	// only that holder can bind it again. A pure App-key **bind takes no hold** —
+	// which is a fact about the bind, not a promise about the worker's state when
+	// this returns: an eligible user may have forced a binding meanwhile and taken
+	// the name, and ending the App-key session leaves that hold and that session
+	// untouched.
+	//
+	// Gate (#931): platform admin, the session's App, or the attributed user
+	// (not via impersonation). An App key ends only user-less sessions (never one
+	// a person is behind), never a host-launched one, and a key ever granted
+	// host:operate ends none (#1934, hrn:node:hadronmemory.com:specs:cor:agt:070:04);
+	// a host ends a launched session only by reporting its worker.end.
+	//
+	// `handoff` is agent-composed prose: what landed, what is open, what is
+	// blocked, what the next driver should not repeat. The server owns where it
+	// goes (the worker's working memory, under the `handoffs` parent, at a
+	// lexically-ordered loc), so no client re-derives the convention.
+	//
+	// `summary` is NOT a smaller `handoff` (#1100). It sets `Session.summary`,
+	// a label on the session row — readable back through `session` / `sessions`,
+	// but read by no worker-continuity path, so the next driver never sees it. The
+	// two sit side by side and only one of them reaches that driver, so a caller
+	// writing a closing note picks by name: it is `handoff`.
+	//
+	// The two mistakes are not symmetric, and that is the whole hazard. Putting
+	// continuity prose in `summary` succeeds, returns a normal receipt, and
+	// produces NO handoff — discovered only once the context that could have
+	// written one is gone, and not correctable in place, since the sequence is
+	// append-only and adding a handoff to an ended session is refused. A repeat
+	// end without a new handoff preserves the first end. The remedy is to
+	// bind again and end THAT session with the prose. Putting a label in
+	// `handoff` is merely untidy: the row lacks its label and the text reaches
+	// the next driver anyway.
+	//
+	// Written BEFORE the session ends, and a failed write REFUSES the end
+	// (HANDOFF_WRITE_FAILED) rather than ending anyway: a still-bound worker is
+	// recoverable — retry, or end without a handoff deliberately — while an ended
+	// session whose handoff evaporated is not, because the context that composed
+	// it is gone. Passing `handoff` on a session with no worker is refused rather
+	// than dropped; there is no sequence to write it to.
+	//
+	// #1956: `resumeClaim: true` also writes a resume claim, after the handoff
+	// and before the end, so the fresh context of a rotation starts this worker's
+	// next session with resumeSession and no arguments (see createResumeClaim).
+	// Only on your own open worker session: otherwise it refuses and nothing ends.
+	EndSession *EndTeamSessionWithStatsEndSession `json:"endSession"`
+}
+
+// GetEndSession returns EndTeamSessionWithStatsResponse.EndSession, and is useful for accessing the field via an interface.
+func (v *EndTeamSessionWithStatsResponse) GetEndSession() *EndTeamSessionWithStatsEndSession {
+	return v.EndSession
+}
+
 // EnsureAppMemberEnsureAppMember includes the requested fields of the GraphQL type AppMember.
 type EnsureAppMemberEnsureAppMember struct {
 	Role      string                              `json:"role"`
@@ -55270,6 +55784,178 @@ func (v *SetAssetPublicLinkSetAssetPublicLinkAsset) GetPublicLinkAvailable() boo
 // GetPublicUrl returns SetAssetPublicLinkSetAssetPublicLinkAsset.PublicUrl, and is useful for accessing the field via an interface.
 func (v *SetAssetPublicLinkSetAssetPublicLinkAsset) GetPublicUrl() *string { return v.PublicUrl }
 
+type SetHostWorkerAvailabilityInput struct {
+	AppRef string `json:"appRef"`
+	// UNAVAILABLE only: OUT_OF_TOKENS or HOST_DOWN.
+	Reason *AvailabilityReason `json:"reason,omitempty"`
+	State  AvailabilityState   `json:"state"`
+	// Optional, UNAVAILABLE only, in the future.
+	Until *string `json:"until,omitempty"`
+	// A worker this host registers: its id, URN or name within the App.
+	Worker string `json:"worker"`
+}
+
+// GetAppRef returns SetHostWorkerAvailabilityInput.AppRef, and is useful for accessing the field via an interface.
+func (v *SetHostWorkerAvailabilityInput) GetAppRef() string { return v.AppRef }
+
+// GetReason returns SetHostWorkerAvailabilityInput.Reason, and is useful for accessing the field via an interface.
+func (v *SetHostWorkerAvailabilityInput) GetReason() *AvailabilityReason { return v.Reason }
+
+// GetState returns SetHostWorkerAvailabilityInput.State, and is useful for accessing the field via an interface.
+func (v *SetHostWorkerAvailabilityInput) GetState() AvailabilityState { return v.State }
+
+// GetUntil returns SetHostWorkerAvailabilityInput.Until, and is useful for accessing the field via an interface.
+func (v *SetHostWorkerAvailabilityInput) GetUntil() *string { return v.Until }
+
+// GetWorker returns SetHostWorkerAvailabilityInput.Worker, and is useful for accessing the field via an interface.
+func (v *SetHostWorkerAvailabilityInput) GetWorker() string { return v.Worker }
+
+// SetHostWorkerAvailabilityResponse is returned by SetHostWorkerAvailability on success.
+type SetHostWorkerAvailabilityResponse struct {
+	// #1709 — a host marks a worker it registers UNAVAILABLE, only as OUT_OF_TOKENS or HOST_DOWN, or clears a mark it set
+	// itself (hrn:node:hadronmemory.com:specs:cor:agt:060:08). It never replaces or clears anyone else's mark, a stall
+	// among them: AVAILABILITY_NOT_PERMITTED.
+	SetHostWorkerAvailability *SetHostWorkerAvailabilitySetHostWorkerAvailability `json:"setHostWorkerAvailability"`
+}
+
+// GetSetHostWorkerAvailability returns SetHostWorkerAvailabilityResponse.SetHostWorkerAvailability, and is useful for accessing the field via an interface.
+func (v *SetHostWorkerAvailabilityResponse) GetSetHostWorkerAvailability() *SetHostWorkerAvailabilitySetHostWorkerAvailability {
+	return v.SetHostWorkerAvailability
+}
+
+// SetHostWorkerAvailabilitySetHostWorkerAvailability includes the requested fields of the GraphQL type WorkerAvailability.
+// The GraphQL type's documentation follows.
+//
+// #1706 — one worker's availability for work (hrn:node:hadronmemory.com:specs:cor:agt:060:02). A worker with
+// no record is available.
+type SetHostWorkerAvailabilitySetHostWorkerAvailability struct {
+	Worker *SetHostWorkerAvailabilitySetHostWorkerAvailabilityWorkerAgentTaskParty `json:"worker"`
+	State  AvailabilityState                                                       `json:"state"`
+	// Set exactly when unavailable.
+	Reason *AvailabilityReason `json:"reason"`
+	// When an unavailable record lapses. A passed until reads as available at once; within a minute the record is rewritten to AVAILABLE, set by LAPSE, and one availability.changed event records it (hrn:node:hadronmemory.com:specs:cor:agt:060:02).
+	Until *string `json:"until"`
+	// Whether this record makes the worker unavailable right now: unavailable,
+	// not lapsed, and (for STALLED) the worker has not acted since it was set
+	// (hrn:node:hadronmemory.com:specs:cor:agt:060:07).
+	InEffect bool               `json:"inEffect"`
+	SetAt    string             `json:"setAt"`
+	SetBy    AvailabilitySetter `json:"setBy"`
+	// #1709 — the host that set it, when setBy is HOST.
+	SetByHostId *string `json:"setByHostId"`
+	// Who acted, when a worker or a person set it; null when the stall rule or a lapse did.
+	SetByParty *SetHostWorkerAvailabilitySetHostWorkerAvailabilitySetByPartyAgentTaskParty `json:"setByParty"`
+}
+
+// GetWorker returns SetHostWorkerAvailabilitySetHostWorkerAvailability.Worker, and is useful for accessing the field via an interface.
+func (v *SetHostWorkerAvailabilitySetHostWorkerAvailability) GetWorker() *SetHostWorkerAvailabilitySetHostWorkerAvailabilityWorkerAgentTaskParty {
+	return v.Worker
+}
+
+// GetState returns SetHostWorkerAvailabilitySetHostWorkerAvailability.State, and is useful for accessing the field via an interface.
+func (v *SetHostWorkerAvailabilitySetHostWorkerAvailability) GetState() AvailabilityState {
+	return v.State
+}
+
+// GetReason returns SetHostWorkerAvailabilitySetHostWorkerAvailability.Reason, and is useful for accessing the field via an interface.
+func (v *SetHostWorkerAvailabilitySetHostWorkerAvailability) GetReason() *AvailabilityReason {
+	return v.Reason
+}
+
+// GetUntil returns SetHostWorkerAvailabilitySetHostWorkerAvailability.Until, and is useful for accessing the field via an interface.
+func (v *SetHostWorkerAvailabilitySetHostWorkerAvailability) GetUntil() *string { return v.Until }
+
+// GetInEffect returns SetHostWorkerAvailabilitySetHostWorkerAvailability.InEffect, and is useful for accessing the field via an interface.
+func (v *SetHostWorkerAvailabilitySetHostWorkerAvailability) GetInEffect() bool { return v.InEffect }
+
+// GetSetAt returns SetHostWorkerAvailabilitySetHostWorkerAvailability.SetAt, and is useful for accessing the field via an interface.
+func (v *SetHostWorkerAvailabilitySetHostWorkerAvailability) GetSetAt() string { return v.SetAt }
+
+// GetSetBy returns SetHostWorkerAvailabilitySetHostWorkerAvailability.SetBy, and is useful for accessing the field via an interface.
+func (v *SetHostWorkerAvailabilitySetHostWorkerAvailability) GetSetBy() AvailabilitySetter {
+	return v.SetBy
+}
+
+// GetSetByHostId returns SetHostWorkerAvailabilitySetHostWorkerAvailability.SetByHostId, and is useful for accessing the field via an interface.
+func (v *SetHostWorkerAvailabilitySetHostWorkerAvailability) GetSetByHostId() *string {
+	return v.SetByHostId
+}
+
+// GetSetByParty returns SetHostWorkerAvailabilitySetHostWorkerAvailability.SetByParty, and is useful for accessing the field via an interface.
+func (v *SetHostWorkerAvailabilitySetHostWorkerAvailability) GetSetByParty() *SetHostWorkerAvailabilitySetHostWorkerAvailabilitySetByPartyAgentTaskParty {
+	return v.SetByParty
+}
+
+// SetHostWorkerAvailabilitySetHostWorkerAvailabilitySetByPartyAgentTaskParty includes the requested fields of the GraphQL type AgentTaskParty.
+// The GraphQL type's documentation follows.
+//
+// A task's owner, assignee or audit actor, as a sanitized projection: the
+// Worker's name and URN, or the person's handle. Never the User object, so a
+// task never exposes another person's account fields.
+type SetHostWorkerAvailabilitySetHostWorkerAvailabilitySetByPartyAgentTaskParty struct {
+	Id   string             `json:"id"`
+	Kind AgentTaskPartyKind `json:"kind"`
+	// The Worker's name, or the person's handle.
+	Name *string `json:"name"`
+	// The Worker's URN; null for a person.
+	Urn *string `json:"urn"`
+}
+
+// GetId returns SetHostWorkerAvailabilitySetHostWorkerAvailabilitySetByPartyAgentTaskParty.Id, and is useful for accessing the field via an interface.
+func (v *SetHostWorkerAvailabilitySetHostWorkerAvailabilitySetByPartyAgentTaskParty) GetId() string {
+	return v.Id
+}
+
+// GetKind returns SetHostWorkerAvailabilitySetHostWorkerAvailabilitySetByPartyAgentTaskParty.Kind, and is useful for accessing the field via an interface.
+func (v *SetHostWorkerAvailabilitySetHostWorkerAvailabilitySetByPartyAgentTaskParty) GetKind() AgentTaskPartyKind {
+	return v.Kind
+}
+
+// GetName returns SetHostWorkerAvailabilitySetHostWorkerAvailabilitySetByPartyAgentTaskParty.Name, and is useful for accessing the field via an interface.
+func (v *SetHostWorkerAvailabilitySetHostWorkerAvailabilitySetByPartyAgentTaskParty) GetName() *string {
+	return v.Name
+}
+
+// GetUrn returns SetHostWorkerAvailabilitySetHostWorkerAvailabilitySetByPartyAgentTaskParty.Urn, and is useful for accessing the field via an interface.
+func (v *SetHostWorkerAvailabilitySetHostWorkerAvailabilitySetByPartyAgentTaskParty) GetUrn() *string {
+	return v.Urn
+}
+
+// SetHostWorkerAvailabilitySetHostWorkerAvailabilityWorkerAgentTaskParty includes the requested fields of the GraphQL type AgentTaskParty.
+// The GraphQL type's documentation follows.
+//
+// A task's owner, assignee or audit actor, as a sanitized projection: the
+// Worker's name and URN, or the person's handle. Never the User object, so a
+// task never exposes another person's account fields.
+type SetHostWorkerAvailabilitySetHostWorkerAvailabilityWorkerAgentTaskParty struct {
+	Id   string             `json:"id"`
+	Kind AgentTaskPartyKind `json:"kind"`
+	// The Worker's name, or the person's handle.
+	Name *string `json:"name"`
+	// The Worker's URN; null for a person.
+	Urn *string `json:"urn"`
+}
+
+// GetId returns SetHostWorkerAvailabilitySetHostWorkerAvailabilityWorkerAgentTaskParty.Id, and is useful for accessing the field via an interface.
+func (v *SetHostWorkerAvailabilitySetHostWorkerAvailabilityWorkerAgentTaskParty) GetId() string {
+	return v.Id
+}
+
+// GetKind returns SetHostWorkerAvailabilitySetHostWorkerAvailabilityWorkerAgentTaskParty.Kind, and is useful for accessing the field via an interface.
+func (v *SetHostWorkerAvailabilitySetHostWorkerAvailabilityWorkerAgentTaskParty) GetKind() AgentTaskPartyKind {
+	return v.Kind
+}
+
+// GetName returns SetHostWorkerAvailabilitySetHostWorkerAvailabilityWorkerAgentTaskParty.Name, and is useful for accessing the field via an interface.
+func (v *SetHostWorkerAvailabilitySetHostWorkerAvailabilityWorkerAgentTaskParty) GetName() *string {
+	return v.Name
+}
+
+// GetUrn returns SetHostWorkerAvailabilitySetHostWorkerAvailabilityWorkerAgentTaskParty.Urn, and is useful for accessing the field via an interface.
+func (v *SetHostWorkerAvailabilitySetHostWorkerAvailabilityWorkerAgentTaskParty) GetUrn() *string {
+	return v.Urn
+}
+
 type SetHostWorkerTerminalsInput struct {
 	AppRef string `json:"appRef"`
 	// One to 200 reports, a worker at most once.
@@ -62716,6 +63402,244 @@ func (v *TeamSessionFieldsWorkerReportsToWorker) __premarshalJSON() (*__premarsh
 	return &retval, nil
 }
 
+// TeamSessionsPageFilteredResponse is returned by TeamSessionsPageFiltered on success.
+type TeamSessionsPageFilteredResponse struct {
+	// #2212 - `sessions` as a page: the same session scope and filters (a blank or unresolvable workerRef is
+	// an empty page), newest first with an id tiebreak, with the real total. Sizes as `tickersPage`.
+	SessionsPage *TeamSessionsPageFilteredSessionsPageSessionPage `json:"sessionsPage"`
+}
+
+// GetSessionsPage returns TeamSessionsPageFilteredResponse.SessionsPage, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageFilteredResponse) GetSessionsPage() *TeamSessionsPageFilteredSessionsPageSessionPage {
+	return v.SessionsPage
+}
+
+// TeamSessionsPageFilteredSessionsPageSessionPage includes the requested fields of the GraphQL type SessionPage.
+// The GraphQL type's documentation follows.
+//
+// #2212 — one page of sessions in the caller's session scope.
+type TeamSessionsPageFilteredSessionsPageSessionPage struct {
+	Total   int                                                            `json:"total"`
+	HasMore bool                                                           `json:"hasMore"`
+	Items   []*TeamSessionsPageFilteredSessionsPageSessionPageItemsSession `json:"items"`
+}
+
+// GetTotal returns TeamSessionsPageFilteredSessionsPageSessionPage.Total, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageFilteredSessionsPageSessionPage) GetTotal() int { return v.Total }
+
+// GetHasMore returns TeamSessionsPageFilteredSessionsPageSessionPage.HasMore, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageFilteredSessionsPageSessionPage) GetHasMore() bool { return v.HasMore }
+
+// GetItems returns TeamSessionsPageFilteredSessionsPageSessionPage.Items, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageFilteredSessionsPageSessionPage) GetItems() []*TeamSessionsPageFilteredSessionsPageSessionPageItemsSession {
+	return v.Items
+}
+
+// TeamSessionsPageFilteredSessionsPageSessionPageItemsSession includes the requested fields of the GraphQL type Session.
+// The GraphQL type's documentation follows.
+//
+// A unit of work recorded against a user or App: the general row, and what the
+// bare word "session" means throughout this schema (#1034). `type` says which
+// kind — DEVELOPER, CHATBOT, AUTOMATION, EDGE — and `workerId` is optional.
+//
+// A **worker session** is the subtype with `workerId` set: a Worker (named
+// casting) bound to a driver, which is what makes work attributable to a
+// teammate and what a merged PR traces back through. Binding is optional, so a
+// list of these is not a staff view and may hold no worker sessions at all —
+// read `workerId` per row rather than assuming either way.
+//
+// A **chat session** is NOT one of these and has no row here: it is the
+// conversation a human is in — the Claude Desktop window, the Claude Code
+// session, the IDE chat. The two are independent and **ending one does not end
+// the other**: a chat session that closes leaves its worker session open
+// until endSession. Since #1114 nothing ends it for inactivity — silence is not
+// evidence of abandonment — but it stops reading as LIVE once nobody has driven
+// it inside its idle window, so the stale session stops blocking another bind
+// without being ended or losing its unwritten handoff. That changes no HOLD: a
+// human-held name stays held until explicit release, so only its holder can bind
+// it again. Do not use "chat session" for a Chat (the agent conversation entity)
+// — that is an **agent chat**, a third concept.
+type TeamSessionsPageFilteredSessionsPageSessionPageItemsSession struct {
+	TeamSessionFields `json:"-"`
+}
+
+// GetId returns TeamSessionsPageFilteredSessionsPageSessionPageItemsSession.Id, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageFilteredSessionsPageSessionPageItemsSession) GetId() string {
+	return v.TeamSessionFields.Id
+}
+
+// GetAgentId returns TeamSessionsPageFilteredSessionsPageSessionPageItemsSession.AgentId, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageFilteredSessionsPageSessionPageItemsSession) GetAgentId() *string {
+	return v.TeamSessionFields.AgentId
+}
+
+// GetWorkerId returns TeamSessionsPageFilteredSessionsPageSessionPageItemsSession.WorkerId, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageFilteredSessionsPageSessionPageItemsSession) GetWorkerId() *string {
+	return v.TeamSessionFields.WorkerId
+}
+
+// GetRole returns TeamSessionsPageFilteredSessionsPageSessionPageItemsSession.Role, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageFilteredSessionsPageSessionPageItemsSession) GetRole() *string {
+	return v.TeamSessionFields.Role
+}
+
+// GetWorker returns TeamSessionsPageFilteredSessionsPageSessionPageItemsSession.Worker, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageFilteredSessionsPageSessionPageItemsSession) GetWorker() *TeamSessionFieldsWorker {
+	return v.TeamSessionFields.Worker
+}
+
+// GetUserId returns TeamSessionsPageFilteredSessionsPageSessionPageItemsSession.UserId, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageFilteredSessionsPageSessionPageItemsSession) GetUserId() *string {
+	return v.TeamSessionFields.UserId
+}
+
+// GetType returns TeamSessionsPageFilteredSessionsPageSessionPageItemsSession.Type, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageFilteredSessionsPageSessionPageItemsSession) GetType() string {
+	return v.TeamSessionFields.Type
+}
+
+// GetRepo returns TeamSessionsPageFilteredSessionsPageSessionPageItemsSession.Repo, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageFilteredSessionsPageSessionPageItemsSession) GetRepo() *string {
+	return v.TeamSessionFields.Repo
+}
+
+// GetBranch returns TeamSessionsPageFilteredSessionsPageSessionPageItemsSession.Branch, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageFilteredSessionsPageSessionPageItemsSession) GetBranch() *string {
+	return v.TeamSessionFields.Branch
+}
+
+// GetPrNumber returns TeamSessionsPageFilteredSessionsPageSessionPageItemsSession.PrNumber, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageFilteredSessionsPageSessionPageItemsSession) GetPrNumber() *int {
+	return v.TeamSessionFields.PrNumber
+}
+
+// GetStartedAt returns TeamSessionsPageFilteredSessionsPageSessionPageItemsSession.StartedAt, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageFilteredSessionsPageSessionPageItemsSession) GetStartedAt() string {
+	return v.TeamSessionFields.StartedAt
+}
+
+// GetEndedAt returns TeamSessionsPageFilteredSessionsPageSessionPageItemsSession.EndedAt, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageFilteredSessionsPageSessionPageItemsSession) GetEndedAt() *string {
+	return v.TeamSessionFields.EndedAt
+}
+
+// GetAutoExpiredAt returns TeamSessionsPageFilteredSessionsPageSessionPageItemsSession.AutoExpiredAt, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageFilteredSessionsPageSessionPageItemsSession) GetAutoExpiredAt() *string {
+	return v.TeamSessionFields.AutoExpiredAt
+}
+
+// GetHost returns TeamSessionsPageFilteredSessionsPageSessionPageItemsSession.Host, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageFilteredSessionsPageSessionPageItemsSession) GetHost() *string {
+	return v.TeamSessionFields.Host
+}
+
+// GetTool returns TeamSessionsPageFilteredSessionsPageSessionPageItemsSession.Tool, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageFilteredSessionsPageSessionPageItemsSession) GetTool() *string {
+	return v.TeamSessionFields.Tool
+}
+
+// GetTranscriptPath returns TeamSessionsPageFilteredSessionsPageSessionPageItemsSession.TranscriptPath, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageFilteredSessionsPageSessionPageItemsSession) GetTranscriptPath() *string {
+	return v.TeamSessionFields.TranscriptPath
+}
+
+// GetLlmModel returns TeamSessionsPageFilteredSessionsPageSessionPageItemsSession.LlmModel, and is useful for accessing the field via an interface.
+func (v *TeamSessionsPageFilteredSessionsPageSessionPageItemsSession) GetLlmModel() *string {
+	return v.TeamSessionFields.LlmModel
+}
+
+func (v *TeamSessionsPageFilteredSessionsPageSessionPageItemsSession) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamSessionsPageFilteredSessionsPageSessionPageItemsSession
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamSessionsPageFilteredSessionsPageSessionPageItemsSession = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamSessionFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamSessionsPageFilteredSessionsPageSessionPageItemsSession struct {
+	Id string `json:"id"`
+
+	AgentId *string `json:"agentId"`
+
+	WorkerId *string `json:"workerId"`
+
+	Role *string `json:"role"`
+
+	Worker *TeamSessionFieldsWorker `json:"worker"`
+
+	UserId *string `json:"userId"`
+
+	Type string `json:"type"`
+
+	Repo *string `json:"repo"`
+
+	Branch *string `json:"branch"`
+
+	PrNumber *int `json:"prNumber"`
+
+	StartedAt string `json:"startedAt"`
+
+	EndedAt *string `json:"endedAt"`
+
+	AutoExpiredAt *string `json:"autoExpiredAt"`
+
+	Host *string `json:"host"`
+
+	Tool *string `json:"tool"`
+
+	TranscriptPath *string `json:"transcriptPath"`
+
+	LlmModel *string `json:"llmModel"`
+}
+
+func (v *TeamSessionsPageFilteredSessionsPageSessionPageItemsSession) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamSessionsPageFilteredSessionsPageSessionPageItemsSession) __premarshalJSON() (*__premarshalTeamSessionsPageFilteredSessionsPageSessionPageItemsSession, error) {
+	var retval __premarshalTeamSessionsPageFilteredSessionsPageSessionPageItemsSession
+
+	retval.Id = v.TeamSessionFields.Id
+	retval.AgentId = v.TeamSessionFields.AgentId
+	retval.WorkerId = v.TeamSessionFields.WorkerId
+	retval.Role = v.TeamSessionFields.Role
+	retval.Worker = v.TeamSessionFields.Worker
+	retval.UserId = v.TeamSessionFields.UserId
+	retval.Type = v.TeamSessionFields.Type
+	retval.Repo = v.TeamSessionFields.Repo
+	retval.Branch = v.TeamSessionFields.Branch
+	retval.PrNumber = v.TeamSessionFields.PrNumber
+	retval.StartedAt = v.TeamSessionFields.StartedAt
+	retval.EndedAt = v.TeamSessionFields.EndedAt
+	retval.AutoExpiredAt = v.TeamSessionFields.AutoExpiredAt
+	retval.Host = v.TeamSessionFields.Host
+	retval.Tool = v.TeamSessionFields.Tool
+	retval.TranscriptPath = v.TeamSessionFields.TranscriptPath
+	retval.LlmModel = v.TeamSessionFields.LlmModel
+	return &retval, nil
+}
+
 // TeamSessionsPageResponse is returned by TeamSessionsPage on success.
 type TeamSessionsPageResponse struct {
 	// #2212 - `sessions` as a page: the same session scope and filters (a blank or unresolvable workerRef is
@@ -63906,6 +64830,190 @@ func (v *TeamWorkItemLegacyFields) GetAt() string { return v.At }
 
 // GetDetail returns TeamWorkItemLegacyFields.Detail, and is useful for accessing the field via an interface.
 func (v *TeamWorkItemLegacyFields) GetDetail() *json.RawMessage { return v.Detail }
+
+// TeamWorkItemsByWorkerResponse is returned by TeamWorkItemsByWorker on success.
+type TeamWorkItemsByWorkerResponse struct {
+	// Read a team App's worklog (#947) — the provenance query: which sessions
+	// (and transcripts) produced this PR? Newest first, as a uniform
+	// { items, total } page. ref accepts ANY accepted spelling (URL, short form,
+	// canonical) and is matched tool-awarely: with tool 'github' (or none) it is
+	// normalized, so 'https://github.com/o/r/pull/371' and 'o/r#371' return the
+	// same records. An ownerless github ref such as cli#793 matches every
+	// readable canonical ref whose repository ends in cli and number is 793;
+	// it never selects one owner. With another tool ref matches the stored
+	// verbatim spelling; with no tool it matches either. sessionRef / tool / kind
+	// are equality filters; kind must be one of pr, issue, commit, branch, repo
+	// when given.
+	// limit defaults to 20 (cap 200); limit: 0 returns only total.
+	//
+	// Authorization: an AppMember of the App (any role), an org member with
+	// CONTRIBUTOR+ on the App's org, the owner of a user-owned App, or the
+	// App's own key (a pure App-key principal may READ its own App's worklog).
+	//
+	// appRef accepts the entity's ID or URN; sessionRef is the session id.
+	TeamWorkItems *TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPage `json:"teamWorkItems"`
+}
+
+// GetTeamWorkItems returns TeamWorkItemsByWorkerResponse.TeamWorkItems, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsByWorkerResponse) GetTeamWorkItems() *TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPage {
+	return v.TeamWorkItems
+}
+
+// TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPage includes the requested fields of the GraphQL type TeamWorkItemsPage.
+type TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPage struct {
+	Total int                                                                     `json:"total"`
+	Items []*TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem `json:"items"`
+}
+
+// GetTotal returns TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPage.Total, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPage) GetTotal() int { return v.Total }
+
+// GetItems returns TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPage.Items, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPage) GetItems() []*TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem {
+	return v.Items
+}
+
+// TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem includes the requested fields of the GraphQL type TeamWorkItem.
+// The GraphQL type's documentation follows.
+//
+// One team-worklog record (#947) — an externally visible work milestone (a PR
+// opened, a branch pushed, an issue closed), append-only. The worklog is the
+// AUTHORITATIVE PR-session join (spec cor:agt:020:03); Session.prNumber is a
+// latest-wins display convenience. ref carries the ONE canonical spelling per
+// artifact (github: owner/repo#N, owner/repo@sha, owner/repo:branch,
+// owner/repo; owner/repo lowercased).
+type TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem struct {
+	TeamWorkItemFields `json:"-"`
+}
+
+// GetNodeId returns TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.NodeId, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetNodeId() string {
+	return v.TeamWorkItemFields.NodeId
+}
+
+// GetSessionId returns TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.SessionId, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetSessionId() string {
+	return v.TeamWorkItemFields.SessionId
+}
+
+// GetWorkerId returns TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.WorkerId, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetWorkerId() *string {
+	return v.TeamWorkItemFields.WorkerId
+}
+
+// GetWorkerName returns TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.WorkerName, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetWorkerName() string {
+	return v.TeamWorkItemFields.WorkerName
+}
+
+// GetTool returns TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.Tool, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetTool() string {
+	return v.TeamWorkItemFields.Tool
+}
+
+// GetKind returns TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.Kind, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetKind() string {
+	return v.TeamWorkItemFields.Kind
+}
+
+// GetRef returns TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.Ref, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetRef() string {
+	return v.TeamWorkItemFields.Ref
+}
+
+// GetAction returns TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.Action, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetAction() string {
+	return v.TeamWorkItemFields.Action
+}
+
+// GetAt returns TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.At, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetAt() string {
+	return v.TeamWorkItemFields.At
+}
+
+// GetDetail returns TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.Detail, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetDetail() *json.RawMessage {
+	return v.TeamWorkItemFields.Detail
+}
+
+// GetModel returns TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem.Model, and is useful for accessing the field via an interface.
+func (v *TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) GetModel() *string {
+	return v.TeamWorkItemFields.Model
+}
+
+func (v *TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamWorkItemFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem struct {
+	NodeId string `json:"nodeId"`
+
+	SessionId string `json:"sessionId"`
+
+	WorkerId *string `json:"workerId"`
+
+	WorkerName string `json:"workerName"`
+
+	Tool string `json:"tool"`
+
+	Kind string `json:"kind"`
+
+	Ref string `json:"ref"`
+
+	Action string `json:"action"`
+
+	At string `json:"at"`
+
+	Detail *json.RawMessage `json:"detail"`
+
+	Model *string `json:"model"`
+}
+
+func (v *TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) __premarshalJSON() (*__premarshalTeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem, error) {
+	var retval __premarshalTeamWorkItemsByWorkerTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem
+
+	retval.NodeId = v.TeamWorkItemFields.NodeId
+	retval.SessionId = v.TeamWorkItemFields.SessionId
+	retval.WorkerId = v.TeamWorkItemFields.WorkerId
+	retval.WorkerName = v.TeamWorkItemFields.WorkerName
+	retval.Tool = v.TeamWorkItemFields.Tool
+	retval.Kind = v.TeamWorkItemFields.Kind
+	retval.Ref = v.TeamWorkItemFields.Ref
+	retval.Action = v.TeamWorkItemFields.Action
+	retval.At = v.TeamWorkItemFields.At
+	retval.Detail = v.TeamWorkItemFields.Detail
+	retval.Model = v.TeamWorkItemFields.Model
+	return &retval, nil
+}
 
 // TeamWorkItemsLegacyResponse is returned by TeamWorkItemsLegacy on success.
 type TeamWorkItemsLegacyResponse struct {
@@ -78121,6 +79229,70 @@ func (v *__EndTeamSessionWithResumeClaimInput) GetSummary() *string { return v.S
 // GetHandoff returns __EndTeamSessionWithResumeClaimInput.Handoff, and is useful for accessing the field via an interface.
 func (v *__EndTeamSessionWithResumeClaimInput) GetHandoff() *string { return v.Handoff }
 
+// __EndTeamSessionWithStatsAndResumeClaimInput is used internally by genqlient
+type __EndTeamSessionWithStatsAndResumeClaimInput struct {
+	Id           string  `json:"id"`
+	InputTokens  *int    `json:"inputTokens,omitempty"`
+	OutputTokens *int    `json:"outputTokens,omitempty"`
+	TurnCount    *int    `json:"turnCount,omitempty"`
+	ErrorCount   *int    `json:"errorCount,omitempty"`
+	Summary      *string `json:"summary,omitempty"`
+	Handoff      *string `json:"handoff,omitempty"`
+}
+
+// GetId returns __EndTeamSessionWithStatsAndResumeClaimInput.Id, and is useful for accessing the field via an interface.
+func (v *__EndTeamSessionWithStatsAndResumeClaimInput) GetId() string { return v.Id }
+
+// GetInputTokens returns __EndTeamSessionWithStatsAndResumeClaimInput.InputTokens, and is useful for accessing the field via an interface.
+func (v *__EndTeamSessionWithStatsAndResumeClaimInput) GetInputTokens() *int { return v.InputTokens }
+
+// GetOutputTokens returns __EndTeamSessionWithStatsAndResumeClaimInput.OutputTokens, and is useful for accessing the field via an interface.
+func (v *__EndTeamSessionWithStatsAndResumeClaimInput) GetOutputTokens() *int { return v.OutputTokens }
+
+// GetTurnCount returns __EndTeamSessionWithStatsAndResumeClaimInput.TurnCount, and is useful for accessing the field via an interface.
+func (v *__EndTeamSessionWithStatsAndResumeClaimInput) GetTurnCount() *int { return v.TurnCount }
+
+// GetErrorCount returns __EndTeamSessionWithStatsAndResumeClaimInput.ErrorCount, and is useful for accessing the field via an interface.
+func (v *__EndTeamSessionWithStatsAndResumeClaimInput) GetErrorCount() *int { return v.ErrorCount }
+
+// GetSummary returns __EndTeamSessionWithStatsAndResumeClaimInput.Summary, and is useful for accessing the field via an interface.
+func (v *__EndTeamSessionWithStatsAndResumeClaimInput) GetSummary() *string { return v.Summary }
+
+// GetHandoff returns __EndTeamSessionWithStatsAndResumeClaimInput.Handoff, and is useful for accessing the field via an interface.
+func (v *__EndTeamSessionWithStatsAndResumeClaimInput) GetHandoff() *string { return v.Handoff }
+
+// __EndTeamSessionWithStatsInput is used internally by genqlient
+type __EndTeamSessionWithStatsInput struct {
+	Id           string  `json:"id"`
+	InputTokens  *int    `json:"inputTokens,omitempty"`
+	OutputTokens *int    `json:"outputTokens,omitempty"`
+	TurnCount    *int    `json:"turnCount,omitempty"`
+	ErrorCount   *int    `json:"errorCount,omitempty"`
+	Summary      *string `json:"summary,omitempty"`
+	Handoff      *string `json:"handoff,omitempty"`
+}
+
+// GetId returns __EndTeamSessionWithStatsInput.Id, and is useful for accessing the field via an interface.
+func (v *__EndTeamSessionWithStatsInput) GetId() string { return v.Id }
+
+// GetInputTokens returns __EndTeamSessionWithStatsInput.InputTokens, and is useful for accessing the field via an interface.
+func (v *__EndTeamSessionWithStatsInput) GetInputTokens() *int { return v.InputTokens }
+
+// GetOutputTokens returns __EndTeamSessionWithStatsInput.OutputTokens, and is useful for accessing the field via an interface.
+func (v *__EndTeamSessionWithStatsInput) GetOutputTokens() *int { return v.OutputTokens }
+
+// GetTurnCount returns __EndTeamSessionWithStatsInput.TurnCount, and is useful for accessing the field via an interface.
+func (v *__EndTeamSessionWithStatsInput) GetTurnCount() *int { return v.TurnCount }
+
+// GetErrorCount returns __EndTeamSessionWithStatsInput.ErrorCount, and is useful for accessing the field via an interface.
+func (v *__EndTeamSessionWithStatsInput) GetErrorCount() *int { return v.ErrorCount }
+
+// GetSummary returns __EndTeamSessionWithStatsInput.Summary, and is useful for accessing the field via an interface.
+func (v *__EndTeamSessionWithStatsInput) GetSummary() *string { return v.Summary }
+
+// GetHandoff returns __EndTeamSessionWithStatsInput.Handoff, and is useful for accessing the field via an interface.
+func (v *__EndTeamSessionWithStatsInput) GetHandoff() *string { return v.Handoff }
+
 // __EnsureAppMemberInput is used internally by genqlient
 type __EnsureAppMemberInput struct {
 	AppRef  string `json:"appRef"`
@@ -80097,6 +81269,14 @@ func (v *__SetAssetPublicLinkInput) GetAssetRef() string { return v.AssetRef }
 // GetEnabled returns __SetAssetPublicLinkInput.Enabled, and is useful for accessing the field via an interface.
 func (v *__SetAssetPublicLinkInput) GetEnabled() bool { return v.Enabled }
 
+// __SetHostWorkerAvailabilityInput is used internally by genqlient
+type __SetHostWorkerAvailabilityInput struct {
+	Input *SetHostWorkerAvailabilityInput `json:"input,omitempty"`
+}
+
+// GetInput returns __SetHostWorkerAvailabilityInput.Input, and is useful for accessing the field via an interface.
+func (v *__SetHostWorkerAvailabilityInput) GetInput() *SetHostWorkerAvailabilityInput { return v.Input }
+
 // __SetTeamPauseInput is used internally by genqlient
 type __SetTeamPauseInput struct {
 	AppRef string `json:"appRef"`
@@ -80629,6 +81809,34 @@ type __TeamRosterInput struct {
 // GetAppRef returns __TeamRosterInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__TeamRosterInput) GetAppRef() string { return v.AppRef }
 
+// __TeamSessionsPageFilteredInput is used internally by genqlient
+type __TeamSessionsPageFilteredInput struct {
+	Repo        *string `json:"repo,omitempty"`
+	CustomerId  *string `json:"customerId,omitempty"`
+	SessionType *string `json:"sessionType,omitempty"`
+	WorkerRef   *string `json:"workerRef,omitempty"`
+	Limit       *int    `json:"limit,omitempty"`
+	Offset      *int    `json:"offset,omitempty"`
+}
+
+// GetRepo returns __TeamSessionsPageFilteredInput.Repo, and is useful for accessing the field via an interface.
+func (v *__TeamSessionsPageFilteredInput) GetRepo() *string { return v.Repo }
+
+// GetCustomerId returns __TeamSessionsPageFilteredInput.CustomerId, and is useful for accessing the field via an interface.
+func (v *__TeamSessionsPageFilteredInput) GetCustomerId() *string { return v.CustomerId }
+
+// GetSessionType returns __TeamSessionsPageFilteredInput.SessionType, and is useful for accessing the field via an interface.
+func (v *__TeamSessionsPageFilteredInput) GetSessionType() *string { return v.SessionType }
+
+// GetWorkerRef returns __TeamSessionsPageFilteredInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__TeamSessionsPageFilteredInput) GetWorkerRef() *string { return v.WorkerRef }
+
+// GetLimit returns __TeamSessionsPageFilteredInput.Limit, and is useful for accessing the field via an interface.
+func (v *__TeamSessionsPageFilteredInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __TeamSessionsPageFilteredInput.Offset, and is useful for accessing the field via an interface.
+func (v *__TeamSessionsPageFilteredInput) GetOffset() *int { return v.Offset }
+
 // __TeamSessionsPageInput is used internally by genqlient
 type __TeamSessionsPageInput struct {
 	Repo      *string `json:"repo,omitempty"`
@@ -80714,6 +81922,42 @@ func (v *__TeamStopSignalsInput) GetFirst() *int { return v.First }
 
 // GetAfter returns __TeamStopSignalsInput.After, and is useful for accessing the field via an interface.
 func (v *__TeamStopSignalsInput) GetAfter() *string { return v.After }
+
+// __TeamWorkItemsByWorkerInput is used internally by genqlient
+type __TeamWorkItemsByWorkerInput struct {
+	AppRef     string  `json:"appRef"`
+	WorkerRef  string  `json:"workerRef"`
+	SessionRef *string `json:"sessionRef,omitempty"`
+	Ref        *string `json:"ref,omitempty"`
+	Kind       *string `json:"kind,omitempty"`
+	Tool       *string `json:"tool,omitempty"`
+	Limit      *int    `json:"limit,omitempty"`
+	Offset     *int    `json:"offset,omitempty"`
+}
+
+// GetAppRef returns __TeamWorkItemsByWorkerInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamWorkItemsByWorkerInput) GetAppRef() string { return v.AppRef }
+
+// GetWorkerRef returns __TeamWorkItemsByWorkerInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__TeamWorkItemsByWorkerInput) GetWorkerRef() string { return v.WorkerRef }
+
+// GetSessionRef returns __TeamWorkItemsByWorkerInput.SessionRef, and is useful for accessing the field via an interface.
+func (v *__TeamWorkItemsByWorkerInput) GetSessionRef() *string { return v.SessionRef }
+
+// GetRef returns __TeamWorkItemsByWorkerInput.Ref, and is useful for accessing the field via an interface.
+func (v *__TeamWorkItemsByWorkerInput) GetRef() *string { return v.Ref }
+
+// GetKind returns __TeamWorkItemsByWorkerInput.Kind, and is useful for accessing the field via an interface.
+func (v *__TeamWorkItemsByWorkerInput) GetKind() *string { return v.Kind }
+
+// GetTool returns __TeamWorkItemsByWorkerInput.Tool, and is useful for accessing the field via an interface.
+func (v *__TeamWorkItemsByWorkerInput) GetTool() *string { return v.Tool }
+
+// GetLimit returns __TeamWorkItemsByWorkerInput.Limit, and is useful for accessing the field via an interface.
+func (v *__TeamWorkItemsByWorkerInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __TeamWorkItemsByWorkerInput.Offset, and is useful for accessing the field via an interface.
+func (v *__TeamWorkItemsByWorkerInput) GetOffset() *int { return v.Offset }
 
 // __TeamWorkItemsInput is used internally by genqlient
 type __TeamWorkItemsInput struct {
@@ -93447,6 +94691,166 @@ func EndTeamSessionWithResumeClaim(
 	return data_, err_
 }
 
+// The mutation executed by EndTeamSessionWithStats.
+const EndTeamSessionWithStats_Operation = `
+mutation EndTeamSessionWithStats ($id: ID!, $inputTokens: Int, $outputTokens: Int, $turnCount: Int, $errorCount: Int, $summary: String, $handoff: String) {
+	endSession(id: $id, summary: $summary, handoff: $handoff, inputTokens: $inputTokens, outputTokens: $outputTokens, turnCount: $turnCount, errorCount: $errorCount) {
+		... TeamSessionFields
+	}
+}
+fragment TeamSessionFields on Session {
+	id
+	agentId
+	workerId
+	role
+	worker {
+		id
+		name
+		role
+		hasLiveSession
+		reportsTo {
+			... WorkerReportingRefFields
+		}
+		reportsToRetired
+	}
+	userId
+	type
+	repo
+	branch
+	prNumber
+	startedAt
+	endedAt
+	autoExpiredAt
+	host
+	tool
+	transcriptPath
+	llmModel
+}
+fragment WorkerReportingRefFields on Worker {
+	id
+	name
+	urn
+}
+`
+
+// cli#1337: explicit opt-in documents preserve ordinary older-server calls.
+func EndTeamSessionWithStats(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	inputTokens *int,
+	outputTokens *int,
+	turnCount *int,
+	errorCount *int,
+	summary *string,
+	handoff *string,
+) (data_ *EndTeamSessionWithStatsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EndTeamSessionWithStats",
+		Query:  EndTeamSessionWithStats_Operation,
+		Variables: &__EndTeamSessionWithStatsInput{
+			Id:           id,
+			InputTokens:  inputTokens,
+			OutputTokens: outputTokens,
+			TurnCount:    turnCount,
+			ErrorCount:   errorCount,
+			Summary:      summary,
+			Handoff:      handoff,
+		},
+	}
+
+	data_ = &EndTeamSessionWithStatsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by EndTeamSessionWithStatsAndResumeClaim.
+const EndTeamSessionWithStatsAndResumeClaim_Operation = `
+mutation EndTeamSessionWithStatsAndResumeClaim ($id: ID!, $inputTokens: Int, $outputTokens: Int, $turnCount: Int, $errorCount: Int, $summary: String, $handoff: String) {
+	endSession(id: $id, summary: $summary, handoff: $handoff, inputTokens: $inputTokens, outputTokens: $outputTokens, turnCount: $turnCount, errorCount: $errorCount, resumeClaim: true) {
+		... TeamSessionFields
+	}
+}
+fragment TeamSessionFields on Session {
+	id
+	agentId
+	workerId
+	role
+	worker {
+		id
+		name
+		role
+		hasLiveSession
+		reportsTo {
+			... WorkerReportingRefFields
+		}
+		reportsToRetired
+	}
+	userId
+	type
+	repo
+	branch
+	prNumber
+	startedAt
+	endedAt
+	autoExpiredAt
+	host
+	tool
+	transcriptPath
+	llmModel
+}
+fragment WorkerReportingRefFields on Worker {
+	id
+	name
+	urn
+}
+`
+
+// The claim variant is explicit: old counter-capable servers need not know it.
+func EndTeamSessionWithStatsAndResumeClaim(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	inputTokens *int,
+	outputTokens *int,
+	turnCount *int,
+	errorCount *int,
+	summary *string,
+	handoff *string,
+) (data_ *EndTeamSessionWithStatsAndResumeClaimResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EndTeamSessionWithStatsAndResumeClaim",
+		Query:  EndTeamSessionWithStatsAndResumeClaim_Operation,
+		Variables: &__EndTeamSessionWithStatsAndResumeClaimInput{
+			Id:           id,
+			InputTokens:  inputTokens,
+			OutputTokens: outputTokens,
+			TurnCount:    turnCount,
+			ErrorCount:   errorCount,
+			Summary:      summary,
+			Handoff:      handoff,
+		},
+	}
+
+	data_ = &EndTeamSessionWithStatsAndResumeClaimResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by EnsureAppMember.
 const EnsureAppMember_Operation = `
 mutation EnsureAppMember ($appRef: String!, $userRef: String!, $role: String!) {
@@ -102521,6 +103925,58 @@ func SetAssetPublicLink(
 	return data_, err_
 }
 
+// The mutation executed by SetHostWorkerAvailability.
+const SetHostWorkerAvailability_Operation = `
+mutation SetHostWorkerAvailability ($input: SetHostWorkerAvailabilityInput!) {
+	setHostWorkerAvailability(input: $input) {
+		worker {
+			id
+			kind
+			name
+			urn
+		}
+		state
+		reason
+		until
+		inEffect
+		setAt
+		setBy
+		setByHostId
+		setByParty {
+			id
+			kind
+			name
+			urn
+		}
+	}
+}
+`
+
+func SetHostWorkerAvailability(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *SetHostWorkerAvailabilityInput,
+) (data_ *SetHostWorkerAvailabilityResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SetHostWorkerAvailability",
+		Query:  SetHostWorkerAvailability_Operation,
+		Variables: &__SetHostWorkerAvailabilityInput{
+			Input: input,
+		},
+	}
+
+	data_ = &SetHostWorkerAvailabilityResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by SetTeamPause.
 const SetTeamPause_Operation = `
 mutation SetTeamPause ($appRef: String!, $paused: Boolean!) {
@@ -104936,6 +106392,87 @@ func TeamSessionsPage(
 	return data_, err_
 }
 
+// The query executed by TeamSessionsPageFiltered.
+const TeamSessionsPageFiltered_Operation = `
+query TeamSessionsPageFiltered ($repo: String, $customerId: String, $sessionType: String, $workerRef: String, $limit: Int, $offset: Int) {
+	sessionsPage(customerId: $customerId, type: $sessionType, repo: $repo, workerRef: $workerRef, limit: $limit, offset: $offset) {
+		total
+		hasMore
+		items {
+			... TeamSessionFields
+		}
+	}
+}
+fragment TeamSessionFields on Session {
+	id
+	agentId
+	workerId
+	role
+	worker {
+		id
+		name
+		role
+		hasLiveSession
+		reportsTo {
+			... WorkerReportingRefFields
+		}
+		reportsToRetired
+	}
+	userId
+	type
+	repo
+	branch
+	prNumber
+	startedAt
+	endedAt
+	autoExpiredAt
+	host
+	tool
+	transcriptPath
+	llmModel
+}
+fragment WorkerReportingRefFields on Worker {
+	id
+	name
+	urn
+}
+`
+
+func TeamSessionsPageFiltered(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	repo *string,
+	customerId *string,
+	sessionType *string,
+	workerRef *string,
+	limit *int,
+	offset *int,
+) (data_ *TeamSessionsPageFilteredResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamSessionsPageFiltered",
+		Query:  TeamSessionsPageFiltered_Operation,
+		Variables: &__TeamSessionsPageFilteredInput{
+			Repo:        repo,
+			CustomerId:  customerId,
+			SessionType: sessionType,
+			WorkerRef:   workerRef,
+			Limit:       limit,
+			Offset:      offset,
+		},
+	}
+
+	data_ = &TeamSessionsPageFilteredResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by TeamStallSchedule.
 const TeamStallSchedule_Operation = `
 query TeamStallSchedule ($appRef: ID!) {
@@ -105250,6 +106787,70 @@ func TeamWorkItems(
 	}
 
 	data_ = &TeamWorkItemsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamWorkItemsByWorker.
+const TeamWorkItemsByWorker_Operation = `
+query TeamWorkItemsByWorker ($appRef: ID!, $workerRef: ID!, $sessionRef: ID, $ref: String, $kind: String, $tool: String, $limit: Int, $offset: Int) {
+	teamWorkItems(workerRef: $workerRef, appRef: $appRef, sessionRef: $sessionRef, ref: $ref, kind: $kind, tool: $tool, limit: $limit, offset: $offset) {
+		total
+		items {
+			... TeamWorkItemFields
+		}
+	}
+}
+fragment TeamWorkItemFields on TeamWorkItem {
+	nodeId
+	sessionId
+	workerId
+	workerName
+	tool
+	kind
+	ref
+	action
+	at
+	detail
+	model
+}
+`
+
+func TeamWorkItemsByWorker(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	workerRef string,
+	sessionRef *string,
+	ref *string,
+	kind *string,
+	tool *string,
+	limit *int,
+	offset *int,
+) (data_ *TeamWorkItemsByWorkerResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamWorkItemsByWorker",
+		Query:  TeamWorkItemsByWorker_Operation,
+		Variables: &__TeamWorkItemsByWorkerInput{
+			AppRef:     appRef,
+			WorkerRef:  workerRef,
+			SessionRef: sessionRef,
+			Ref:        ref,
+			Kind:       kind,
+			Tool:       tool,
+			Limit:      limit,
+			Offset:     offset,
+		},
+	}
+
+	data_ = &TeamWorkItemsByWorkerResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
