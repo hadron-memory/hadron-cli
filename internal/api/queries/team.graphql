@@ -285,9 +285,27 @@ query GetWorker($ref: ID!) {
   }
 }
 
+# cli#1459: ONE worker by NAME within an App, in one read. The name form of
+# worker(ref:) is activated by appRef (server #1015): unique per App, matched
+# with the database's lower(), retired workers included, and an id or URN in
+# `ref` wins over appRef. Denial and absence both refuse WORKER_NOT_FOUND (no
+# roster oracle). Name resolution used to page the App's whole staff for this.
+query GetWorkerInApp($appRef: ID!, $ref: ID!) {
+  worker(appRef: $appRef, ref: $ref) {
+    ...WorkerFields
+  }
+}
+
+# GetWorkerInApp for a caller that needs only the id (a filter): no briefing.
+query GetWorkerIdInApp($appRef: ID!, $ref: ID!) {
+  worker(appRef: $appRef, ref: $ref) {
+    id
+  }
+}
+
 # hadron-server#2771 / cli#1375: a worker's latest terminal report. A fragment so
 # the roster and GetWorkerTerminal select one shape; deliberately NOT part of
-# WorkerFields, which seven other operations share (their wire shape is unchanged).
+# WorkerFields, which other operations share (their wire shape is unchanged).
 fragment WorkerTerminalFields on WorkerTerminal {
   host { id label }
   status
@@ -407,9 +425,7 @@ fragment WorkerRosterFields on Worker {
 }
 
 # The roster read used by `worker list`. Same arguments and paging as Workers;
-# only the projection differs. Workers itself stays prompt-bearing because
-# resolveWorker rides it — `session start`'s boot briefing, `worker get <name>`,
-# retire and rm all resolve through that scan and legitimately need the prompt.
+# only the projection differs.
 query WorkersRoster(
   $appRef: ID!
   # @genqlient(omitempty: true)
@@ -427,9 +443,23 @@ query WorkersRoster(
   }
 }
 
+# The LOOKUP projection (cli#1459, hadron-server#2970): what naming orca's
+# targets needs, and nothing else.
+#
+# Never add `prompt`, `signature` or `trailer` here. Each is one worker's
+# multi-KB detail: on a 100-worker App the full WorkerFields list was 3.4 MB
+# and ~13 s of server time per call, and every other request on the server
+# slowed while it was built. To find ONE worker by name use GetWorkerInApp.
+fragment WorkerLookupFields on Worker {
+  id
+  urn
+  name
+  retiredAt
+}
+
 # The STAFF read (cor:agt:020:01 — Workers are the staff; the AppAgent join is
 # the install roster, `app agent list`). Retired castings are hidden unless
-# includeRetired.
+# includeRetired. Lookup projection only — see WorkerLookupFields.
 query Workers(
   $appRef: ID!
   # @genqlient(omitempty: true)
@@ -442,7 +472,7 @@ query Workers(
   workers(appRef: $appRef, includeRetired: $includeRetired, limit: $limit, offset: $offset) {
     total
     items {
-      ...WorkerFields
+      ...WorkerLookupFields
     }
   }
 }

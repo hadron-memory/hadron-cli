@@ -124,8 +124,11 @@ func releaseStubs(worker string, extra map[string]string) map[string]string {
 		notified = "true"
 	}
 	m := map[string]string{
-		"Workers":     `{"data":{"workers":{"total":1,"items":[` + worker + `]}}}`,
-		"AuthContext": authContextHolgerJSON,
+		"Workers": `{"data":{"workers":{"total":1,"items":[` + worker + `]}}}`,
+		// Name resolution's one read (cli#1459): the pre-state the act is
+		// classified against.
+		"GetWorkerInApp": `{"data":{"worker":` + worker + `}}`,
+		"AuthContext":    authContextHolgerJSON,
 		// The re-read immediately before the mutation. By default it answers
 		// with the SAME worker, i.e. the hold did not change.
 		"GetWorker": `{"data":{"worker":` + worker + `}}`,
