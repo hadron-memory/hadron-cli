@@ -8,14 +8,60 @@ import (
 	"testing"
 )
 
+// captureGap names the first missing prerequisite of the capture example, or
+// "" when every tool, and GNU ln -T (absent from BSD/macOS ln), is present.
+func captureGap(lookPath func(string) (string, error), probeLnT func() error) string {
+	for _, tool := range []string{"bash", "jq", "mktemp", "ln"} {
+		if _, err := lookPath(tool); err != nil {
+			return tool + " unavailable"
+		}
+	}
+	if err := probeLnT(); err != nil {
+		return "GNU ln -T unavailable"
+	}
+	return ""
+}
+
+// captureGapAction: a gap skips locally, but fails when CI is set so a local
+// skip can never hide that the example stopped running in CI.
+func captureGapAction(gap, ci string) string {
+	switch {
+	case gap == "":
+		return "run"
+	case ci != "":
+		return "fail"
+	}
+	return "skip"
+}
+
+func probeGNULnT() error {
+	dir, err := os.MkdirTemp("", "ln-probe")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = os.RemoveAll(dir) }()
+	src, dst := filepath.Join(dir, "src"), filepath.Join(dir, "dst")
+	if err := os.WriteFile(src, nil, 0o600); err != nil {
+		return err
+	}
+	return exec.Command("ln", "-T", src, dst).Run()
+}
+
+func requireCapturePrerequisites(t *testing.T) {
+	t.Helper()
+	gap := captureGap(exec.LookPath, probeGNULnT)
+	switch captureGapAction(gap, os.Getenv("CI")) {
+	case "fail":
+		t.Fatalf("capture-example prerequisite missing in CI: %s", gap)
+	case "skip":
+		t.Skip("capture-example prerequisite: " + gap)
+	}
+}
+
 // Execute the capture example itself, so its status and filesystem effects
 // cannot drift from the help a user copies (cli#1313). All keys are synthetic.
 func TestAuthTokenCaptureExample(t *testing.T) {
-	for _, tool := range []string{"bash", "jq", "mktemp", "ln"} {
-		if _, err := exec.LookPath(tool); err != nil {
-			t.Fatalf("capture-example prerequisite %s: %v", tool, err)
-		}
-	}
+	requireCapturePrerequisites(t)
 	f, _ := testFactory(t)
 	leaf, _, err := NewRootCmd(f).Find([]string{"auth", "token", "create"})
 	if err != nil {
@@ -197,6 +243,38 @@ func TestCaptureRecoveryGuidance1439(t *testing.T) {
 			if !strings.Contains(text, want) {
 				t.Errorf("%v lacks %q", args, want)
 			}
+		}
+	}
+}
+
+func TestCaptureGapPolicy(t *testing.T) {
+	ok := func(string) (string, error) { return "", nil }
+	noJQ := func(n string) (string, error) {
+		if n == "jq" {
+			return "", exec.ErrNotFound
+		}
+		return "", nil
+	}
+	good, bad := func() error { return nil }, func() error { return exec.ErrNotFound }
+	for _, c := range []struct {
+		name, want string
+		look       func(string) (string, error)
+		probe      func() error
+	}{
+		{"all present", "", ok, good},
+		{"tool missing", "jq unavailable", noJQ, good},
+		{"BSD ln", "GNU ln -T unavailable", ok, bad},
+	} {
+		if got := captureGap(c.look, c.probe); got != c.want {
+			t.Errorf("%s: gap %q, want %q", c.name, got, c.want)
+		}
+	}
+	for _, c := range []struct{ gap, ci, want string }{
+		{"", "", "run"}, {"", "true", "run"},
+		{"jq unavailable", "", "skip"}, {"jq unavailable", "true", "fail"},
+	} {
+		if got := captureGapAction(c.gap, c.ci); got != c.want {
+			t.Errorf("action(%q,%q)=%q want %q", c.gap, c.ci, got, c.want)
 		}
 	}
 }
