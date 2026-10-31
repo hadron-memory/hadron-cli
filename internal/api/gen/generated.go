@@ -32783,6 +32783,81 @@ func (v *GrantAppKeyScopeResponse) GetGrantAppKeyScope() *GrantAppKeyScopeGrantA
 	return v.GrantAppKeyScope
 }
 
+// HealthSweepSetTerminalsResponse is returned by HealthSweepSetTerminals on success.
+type HealthSweepSetTerminalsResponse struct {
+	// #2771 (proposed hrn:node:hadronmemory.com:specs:cor:agt:070:09) — a host reports the terminal state of workers it
+	// registers, as classified by its on-host sweep. The server builds what it stores (Worker.terminal): the host comes
+	// from the key and its registration, the time from the server, and no screen text of any kind is accepted. A
+	// malformed input refuses the whole call and stores nothing (BAD_USER_INPUT); a worker this host does not register is
+	// refused for that item only (WORKER_NOT_FOUND, as setHostWorkerAvailability); an older report than the stored one
+	// is skipped (TERMINAL_REPORT_STALE). The result carries the alarm verdict, computed and returned, never stored.
+	// The report decides nothing: it feeds no check status, availability, matcher, stall rule or alarm.
+	SetHostWorkerTerminals *HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResult `json:"setHostWorkerTerminals"`
+}
+
+// GetSetHostWorkerTerminals returns HealthSweepSetTerminalsResponse.SetHostWorkerTerminals, and is useful for accessing the field via an interface.
+func (v *HealthSweepSetTerminalsResponse) GetSetHostWorkerTerminals() *HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResult {
+	return v.SetHostWorkerTerminals
+}
+
+// HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResult includes the requested fields of the GraphQL type SetHostWorkerTerminalsResult.
+// The GraphQL type's documentation follows.
+//
+// #2924 — status reporting only: no alarm verdict or coordinator requirement.
+type HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResult struct {
+	Stored  []*HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultStoredWorkerTerminalRef      `json:"stored"`
+	Refused []*HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultRefusedWorkerTerminalRefusal `json:"refused"`
+}
+
+// GetStored returns HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResult.Stored, and is useful for accessing the field via an interface.
+func (v *HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResult) GetStored() []*HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultStoredWorkerTerminalRef {
+	return v.Stored
+}
+
+// GetRefused returns HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResult.Refused, and is useful for accessing the field via an interface.
+func (v *HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResult) GetRefused() []*HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultRefusedWorkerTerminalRefusal {
+	return v.Refused
+}
+
+// HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultRefusedWorkerTerminalRefusal includes the requested fields of the GraphQL type WorkerTerminalRefusal.
+// The GraphQL type's documentation follows.
+//
+// #2771 — a report not stored for one worker: WORKER_NOT_FOUND or TERMINAL_REPORT_STALE.
+type HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultRefusedWorkerTerminalRefusal struct {
+	// The worker as the host named it.
+	Worker string `json:"worker"`
+	Code   string `json:"code"`
+}
+
+// GetWorker returns HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultRefusedWorkerTerminalRefusal.Worker, and is useful for accessing the field via an interface.
+func (v *HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultRefusedWorkerTerminalRefusal) GetWorker() string {
+	return v.Worker
+}
+
+// GetCode returns HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultRefusedWorkerTerminalRefusal.Code, and is useful for accessing the field via an interface.
+func (v *HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultRefusedWorkerTerminalRefusal) GetCode() string {
+	return v.Code
+}
+
+// HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultStoredWorkerTerminalRef includes the requested fields of the GraphQL type WorkerTerminalRef.
+// The GraphQL type's documentation follows.
+//
+// #2771 — a worker by id and URN only: a host key is not given a Worker object.
+type HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultStoredWorkerTerminalRef struct {
+	Id  string `json:"id"`
+	Urn string `json:"urn"`
+}
+
+// GetId returns HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultStoredWorkerTerminalRef.Id, and is useful for accessing the field via an interface.
+func (v *HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultStoredWorkerTerminalRef) GetId() string {
+	return v.Id
+}
+
+// GetUrn returns HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultStoredWorkerTerminalRef.Urn, and is useful for accessing the field via an interface.
+func (v *HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultStoredWorkerTerminalRef) GetUrn() string {
+	return v.Urn
+}
+
 // HomeAssistantInstanceFields includes the GraphQL fields of HomeAssistantInstance requested by the fragment HomeAssistantInstanceFields.
 // The GraphQL type's documentation follows.
 //
@@ -52061,6 +52136,18 @@ func (v *SetAssetPublicLinkSetAssetPublicLinkAsset) GetPublicLinkAvailable() boo
 // GetPublicUrl returns SetAssetPublicLinkSetAssetPublicLinkAsset.PublicUrl, and is useful for accessing the field via an interface.
 func (v *SetAssetPublicLinkSetAssetPublicLinkAsset) GetPublicUrl() *string { return v.PublicUrl }
 
+type SetHostWorkerTerminalsInput struct {
+	AppRef string `json:"appRef"`
+	// One to 200 reports, a worker at most once.
+	Reports []*WorkerTerminalReportInput `json:"reports,omitempty"`
+}
+
+// GetAppRef returns SetHostWorkerTerminalsInput.AppRef, and is useful for accessing the field via an interface.
+func (v *SetHostWorkerTerminalsInput) GetAppRef() string { return v.AppRef }
+
+// GetReports returns SetHostWorkerTerminalsInput.Reports, and is useful for accessing the field via an interface.
+func (v *SetHostWorkerTerminalsInput) GetReports() []*WorkerTerminalReportInput { return v.Reports }
+
 type SetModelFamilyAvailabilityInput struct {
 	AppRef string `json:"appRef"`
 	// A lowercase token, e.g. claude or codex.
@@ -70440,6 +70527,38 @@ var AllWorkerTerminalReason = []WorkerTerminalReason{
 	WorkerTerminalReasonUnrecognized,
 }
 
+// #2771 — one worker's terminal report. There is no free-text field.
+type WorkerTerminalReportInput struct {
+	// When the host classified the terminal, not more than two minutes ahead of the server.
+	CheckedAt string `json:"checkedAt"`
+	// When the worker's last turn ended, not after checkedAt.
+	LastTurnAt *string              `json:"lastTurnAt,omitempty"`
+	Prompt     WorkerTerminalPrompt `json:"prompt"`
+	// Required for locked and dark; refused for busy and idle.
+	Reason *WorkerTerminalReason `json:"reason,omitempty"`
+	Status WorkerTerminalState   `json:"status"`
+	// A worker this host registers: its id, URN or name within the App.
+	Worker string `json:"worker"`
+}
+
+// GetCheckedAt returns WorkerTerminalReportInput.CheckedAt, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalReportInput) GetCheckedAt() string { return v.CheckedAt }
+
+// GetLastTurnAt returns WorkerTerminalReportInput.LastTurnAt, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalReportInput) GetLastTurnAt() *string { return v.LastTurnAt }
+
+// GetPrompt returns WorkerTerminalReportInput.Prompt, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalReportInput) GetPrompt() WorkerTerminalPrompt { return v.Prompt }
+
+// GetReason returns WorkerTerminalReportInput.Reason, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalReportInput) GetReason() *WorkerTerminalReason { return v.Reason }
+
+// GetStatus returns WorkerTerminalReportInput.Status, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalReportInput) GetStatus() WorkerTerminalState { return v.Status }
+
+// GetWorker returns WorkerTerminalReportInput.Worker, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalReportInput) GetWorker() string { return v.Worker }
+
 // #2771 — what a host's sweep saw in a worker's terminal.
 type WorkerTerminalState string
 
@@ -74544,6 +74663,14 @@ func (v *__GrantAppKeyScopeInput) GetScope() string { return v.Scope }
 
 // GetHostId returns __GrantAppKeyScopeInput.HostId, and is useful for accessing the field via an interface.
 func (v *__GrantAppKeyScopeInput) GetHostId() *string { return v.HostId }
+
+// __HealthSweepSetTerminalsInput is used internally by genqlient
+type __HealthSweepSetTerminalsInput struct {
+	Input *SetHostWorkerTerminalsInput `json:"input,omitempty"`
+}
+
+// GetInput returns __HealthSweepSetTerminalsInput.Input, and is useful for accessing the field via an interface.
+func (v *__HealthSweepSetTerminalsInput) GetInput() *SetHostWorkerTerminalsInput { return v.Input }
 
 // __HomeAssistantInstanceInput is used internally by genqlient
 type __HomeAssistantInstanceInput struct {
@@ -90510,6 +90637,48 @@ func GrantAppKeyScope(
 	}
 
 	data_ = &GrantAppKeyScopeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by HealthSweepSetTerminals.
+const HealthSweepSetTerminals_Operation = `
+mutation HealthSweepSetTerminals ($input: SetHostWorkerTerminalsInput!) {
+	setHostWorkerTerminals(input: $input) {
+		stored {
+			id
+			urn
+		}
+		refused {
+			worker
+			code
+		}
+	}
+}
+`
+
+// Host health sweep (#1181): codes and timestamps only, no screen text and no alarm verdict.
+func HealthSweepSetTerminals(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *SetHostWorkerTerminalsInput,
+) (data_ *HealthSweepSetTerminalsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HealthSweepSetTerminals",
+		Query:  HealthSweepSetTerminals_Operation,
+		Variables: &__HealthSweepSetTerminalsInput{
+			Input: input,
+		},
+	}
+
+	data_ = &HealthSweepSetTerminalsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

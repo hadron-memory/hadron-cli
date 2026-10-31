@@ -400,7 +400,7 @@ hadron team roster (uses --app or the binding)   # states are plan-derived, rend
 hadron team composition [--json] (uses --app or the binding)   # cli#1085: the server teamComposition read, rendered as returned: direct-report lanes in the server order (coordinator name, the unassigned lane last), a retired coordinator stays named and flagged, non-retired workers per lane with URN/role/family/state (the coordinator URN rides the lane heading; a missing URN is a dash), plain countsByRole and countsByRoleFamily where a null role or family is its own bucket (a dash in text, null in --json); --json {appId,asOf,lanes:[{coordinator|null,coordinatorRetired,countsByRole,countsByRoleFamily,workers}]} with [] never null. A read, not a capacity policy: no balance judgment, no second roster join. A refused read, a server without teamComposition, or a null result is a failure (mapped exit code, nothing rendered), never an empty team; only a server-confirmed empty team prints lanes [].
 # Deleted-node recovery (cli#985; writers only): `node recovery list|get|graph` and `node restore` are the ONLY way to read or bring back a soft-deleted node — `node get|list|rm` stay live-only. A ref goes to the server unresolved (an ordinary resolve omits deleted nodes). `recovery list|graph` page 20 by default with an explicit `--limit` (1-200); when more exist, STDERR says `showing a-b of N; more: --offset b` (stdout/--json unchanged) and `--json` carries `{items,total,limit,offset,hasMore}`; `--all` reads every page and fails as a whole if any page fails (never a partial list; pages are not a snapshot, so concurrent restores can move rows). `recovery get` never reads the body unless `--content`, which writes the raw stored body byte for byte (text) or `content` + `contentIncluded:true` (--json); an unreadable body is an error, never an empty one. A `recovery get` miss is exit 4 with one fixed sentence whatever the cause (live, absent, not a writer). `node restore` restores ONE node (and the comment threads its own deletion removed), sends one request and never retries: refusals keep the server's message (`NODE_PARENT_DELETED` exit 5 names the ancestor to restore first; governed/comment/compiled-boot-prompt/protected exit 2; `ROLE_WRITER_LEVEL_REQUIRED`/`ROLE_WRITERS_UNSUPPORTED` exit 8); a lost response is exit 7 and means VERIFY with `node recovery get` before retrying. The receipt is the plain node (id, urn, memoryId, loc, name, nodeType, updatedAt, deletedAt) with no changed/idempotent flag.
 # Paging (cli#967): `agent list`, `node list` and `team session list` list EVERYTHING unless you pass --limit/--offset (one page). `team task list|mine`, `team events`, `team host ops`, `comment list`, `node revision list`, `node edge-removals` and a bounded `team chat read` default to 20 per page; a full default page prints "more may exist" on STDERR (stdout and --json shapes are unchanged), and `team chat read --all` walks every page. A list with no total (`node revision list`, `node edge-removals`, `team task list`) cannot prove it ended, so treat a full default page as "there may be more". A scan that drains a list (`chat read`, `memory export`, `spec` scans, `node import` overwrite probes, …) stops only on an empty page; a server that keeps returning a page already read makes it FAIL with exit 7 (`Unavailable`: "the server returned a page already read … the list is not advancing"), never succeed with a partial list.
-hadron orca terminal status (<worker|terminal-id> | --all) [--json]   # ORCA INTEGRATION: reads Orca terminals, needs the Orca CLI/app on THIS host (exit 10 off-host); never types. One worker, or --all = ONE JSON array, one entry per active App worker. Contract `terminal-status@1`, see "Orca terminal status" below.
+hadron orca terminal status (<worker|terminal-id> | --all) [--config <host.yaml>] [--json]   # ORCA INTEGRATION: reads Orca terminals, needs the Orca CLI/app on THIS host (exit 10 off-host); never types. One worker, or --all = ONE JSON array, one entry per active App worker. --config (cli#1378, the file of `team host run`) is the unattended form: Orca = delivery.orca_bin (absolute, exit 2 if relative) else PATH; server read with the host key from key_file only (0600; never HADRON_TOKEN/env/token store; no session); --app with --config exit 2; --all = the App workers the file configures; bad file exit 2, key file missing/too open exit 3 before Orca is listed; a host key cannot read tickers, so idle fails closed. Contract `terminal-status@1`, see "Orca terminal status" below.
 hadron team push <worker> (--text <message> | --message-file <path>) [--seq N] [--wait-timeout 120s] [--draft-wait 30s] [--draft-stable-for 30s] [--confirm-timeout 10s] [--poll-interval 250ms]   # bound sender, one guarded console input; CPU-only busy/unknown/draft decisions and fresh on-screen turn confirmation. Command-only exits: 0 sent, 9 sent-with-draft (SUCCESS: NEVER RETRY), 10 held-busy, 11 held-unknown (zero composer input), 12 unconfirmed (mutation may have occurred: DO NOT RETRY). Draft wait and exact-byte stability overlap; stability cannot be below30s. JSON: outcome/phase/reason/draftIncluded/recipient/seq; no message/draft/screen text. Prefer --message-file (text argv is visible); no chat post or mark. Own-attempt lock only; ms read-to-input race remains and process death can lose a draft. Existing unguarded callers are not migrated by this command.
 hadron team events [--alarms] [--since <iso>] [--after <eventId>] [--task <id>] [--type <t>]… [--limit N] (uses --app or the binding)   # oldest-first; --after pages forward
 hadron team alarm ack <eventId>   # stops the alarm waking higher owners (cor:agt:050:20)
@@ -416,6 +416,7 @@ hadron team wake-settings get --worker <id-or-URN> | set --worker <id-or-URN> [-
 hadron team stall-schedule get | set [--assignment-minutes N|default] [--not-started-minutes N|default] [--no-progress-minutes N|default] [--owner-reaction-minutes N|default] [--host-lapse-check-ins N|default] [--host-report-timeout-minutes N|default] [--session-end-grace-minutes N|default] (uses --app or the binding)   # an omitted flag keeps its value, `default` restores the platform default; set is the App manager's, never the bound worker's (exit 8 APP_MANAGER_REQUIRED); host report timeout (5..1440, cor:agt:070:02) and session-end grace (1..1440, cor:agt:050:10) are range-checked before any call (exit 2, nothing sent, even alongside valid flags); get/--json show the server-returned values (sessionEndGraceMinutes, hostReportTimeoutMinutes; platform defaults 10 and 60 today), never client-computed (cli#983)
 hadron team host list | ops [--host <id>] [--status issued|collected|succeeded|failed] [--worker <ref>] [--limit N] [--after <cursor>] | issue <type> --host <id> --worker <ref> [--arg k=v]… [--as-person] (uses --app or the binding)   # ops: newest first, --json {items, hasNextPage, endCursor}; issue: worktree.create|worktree.remove plus worker.start|worker.end issued by App managers (worker.deliver exit 2 HOST_OPERATION_NOT_ISSUABLE, other types exit 2 HOST_OPERATION_TYPE_UNKNOWN, bad args exit 2 BAD_HOST_OPERATION_ARGS, not permitted exit 8, unknown host exit 4); bound: issued as the worker (the target's reports-to), --as-person: as yourself (holder or App manager); arguments are ids and name tokens, never a credential
 hadron team host run --config <host.yaml> [--once] | status --config <host.yaml>   # the host poller (cli#831, cor:agt:070): registers each poll, collects, runs ONLY worktree.create|worker.start|worker.deliver|worker.end|worktree.remove (anything else reported FAILED locally), reports every outcome; authenticates with the host:operate key from key_file only (mode 0600; NEVER HADRON_TOKEN or an env var); a launched agent gets HADRON_LAUNCH_GRANT and no host credential, and binds with session start reading it (the grant names the worker, so no worker argument; never forced; LAUNCH_GRANT_INVALID exit 8, LAUNCH_REFUSED exit 5); worker.end prompts and reports FAILED after end_wait (the server records an ended session as success; it never kills); worktree.remove refuses dirty, untracked, no-upstream, unpushed, or after a failed end; --json: one event object per line; no host key exit 3, bad config exit 2, APP_KEY_SCOPE_REQUIRED/HOST_KEY_REQUIRED exit 8; delivery.enabled (cli#907): each poll also reads the host's chat batches (key also needs attention:deliver) and types each only into an empty agent composer via orca_bin, then acks it; events delivery-delivered|reconciled|held|deferred|skipped|error (codes, ids, spans; never text or proof); a read APP_KEY_SCOPE_REQUIRED turns delivery off for the run (delivery-off event, exit unaffected); holds are UNREPORTED to the server until cli#940 (no server alarm); a message over 131,071 UTF-8 bytes fails delivery-error too-long-to-type (never truncated or acked, stays due) and, oldest first, blocks that worker's later chat until hadron-server#2121; tick/task wakes (cli#1178): each poll also reads dueWakes (no accepts, so never a STOP notice) and types each wake's TICK/TASK reasons as one own-prefixed line, recorded before acknowledgeWakes; a wake naming channels or a MENTION is typed once and by default held from ack (delivery.ack_mixed opts into deployed A′ as described below); a refused or unconfirmed send leaves no blocking record (the next pass sends fresh; our own unsubmitted line is Enter-submitted or cleared, never retyped); status --json delivery.workers[].unreported; per worker also lastAgeSeconds, heldSince (start of the current run of holds; only a delivered or reconciled event ends it; null when none) and heldOver30m (text row: "HELD OVER 30m: no delivery since <time>") and notRevisited (a held record whose newest event is older than three poll intervals: no newer local event, so the hold may be stale; the cause is not recorded: the server may list no wake for that worker, or the poller stopped or its reads failed; text: "NOT RE-EVALUATED") (cli#1178, cli#1322)
+hadron team health sweep --config <host.yaml>   # code-only terminal health reporting (cli#1181); uses host key_file (0600) and the terminal-status@1 command JSON, no alarm/cadence/install or terminal typing; json {reports,refused}; exits 0/1/3/7/8/10 (usage 2), per-item refusals exit 0
 hadron team router poll | loop [--interval 60s] | status [--config <path>]   # the Orca attention router (cli#829), on YOUR login: types one nudge line into an idle, empty-prompt roster worker's Orca terminal; never reads/posts/marks chat. Config: --config, $HADRON_ROUTER_CONFIG, ~/.config/hadron/team-router/config.json, else the TS router's config (same state dir + writer lock). poll --json {at, ok, error, nudged, dropped, covered, held{name:reason}, adopted, liveness, livenessDropped}; a failed poll exits 1 with the token unchanged; no config exit 2; status reads local state only (never the token)
 hadron user search [query] [--limit N] [--offset N] | set-roles <userRef> --role <r>... --yes | merge <source> --into <target> --yes
 hadron profile set [--name <n>] [--handle <h>] [--email <e>]   # --email is accepted and REFUSED locally (exit 2, "Changing your email address is not supported here.") — the flag stays so scripts fail loudly (#844)
@@ -3463,11 +3464,12 @@ resolve the anchored-thread conflict before merging, rather than retry blind.
 ## Orca terminal status (`hadron orca terminal status`, cli#1187)
 
 **An Orca integration command.** It reads terminals of the Orca app, so it works only on the host that
-runs Orca and needs the `orca` CLI on PATH. Off that host it exits **10** (no output). It only lists and
-reads terminals: it never types, and it writes nothing to the server (it reads tickers, their
-subscribers and `dueWakes`, and never acknowledges a wake).
+runs Orca and needs the `orca` CLI on PATH (or `delivery.orca_bin` with `--config`). Off that host it exits **10**
+(no output). It only lists and reads terminals: it never types, and it writes no data to the server (it reads
+tickers, their subscribers and `dueWakes`, and never acknowledges a wake; a host key's `dueWakes` read leaves
+an audit record on the server).
 
-`hadron orca terminal status <worker|terminal-id> [--json]` or `--all` (one JSON array, one entry per
+`hadron orca terminal status <worker|terminal-id> [--config <host.yaml>] [--json]` or `--all` (one JSON array, one entry per
 active worker of the App, in the App's worker order). The terminal is the Orca terminal whose worktree's
 session binding names the worker, or one named directly by id. Text mode prints one line per worker:
 `Joshua idle`, `Joshua locked (menu_or_question)`; a `dark` line also carries the local detail.
@@ -3503,6 +3505,22 @@ status. A terminal named by id that no worker's binding claims has no ticker evi
 each: such a screen is `locked`/`unrecognized` (or `idle`/`busy` where the existing completion and
 running-turn rules already say so). A fresh Codex launch whose banner has scrolled out of the
 idle-proof window is `locked`/`unrecognized` too, as delivery treats it.
+
+**`--config <host.yaml>` (cli#1378)** is how the sweep runs unattended under cron or systemd, with a path
+and nothing else. The file is the one `team host run --config` reads. Orca is `delivery.orca_bin` when set
+(it must be absolute, even with delivery off: exit 2), else `orca` on PATH. The server is read with the
+host's `host:operate` App key, read only from `key_file` (mode 0600 or tighter) and sent as the bearer on a
+client that carries no session and never `HADRON_TOKEN` or the stored token. The key is never in argv, the
+environment or a file descriptor of the Orca subprocess, nor in any output. The App is the file's: `--app`
+with `--config` is exit 2 with nothing read; the `scope:` line reads `App <ref> (from --config <path>)`, a
+terminal bound to another App is judged against the file's App and fails closed, and `--all` lists only the
+App's active workers the file configures (name, URN or id, the delivery matcher). Exit 2: empty path, bad
+file, relative `orca_bin`. Exit 3: no `key_file`, missing, empty or too-open key file, all before Orca is
+listed. Without `--config` nothing changes. **Limits of a host key:** it cannot read tickers
+(`APP_NOT_FOUND`, hadron-server#2931) and `dueWakes` needs `attention:deliver` as well (a refusal is
+`APP_KEY_SCOPE_REQUIRED`), and the server records each key due-wake read. Either way an otherwise-idle worker
+fails closed to `locked`/`unrecognized`, exit 0, so the dark rule cannot fire yet. Do not run the sweep against
+production, or install it with `team health install`, until hadron-server#2931 is deployed.
 
 The output carries codes only. The local `detail` (the ticker and due time behind a `dark`, or why a read
 was refused) is never in the JSON, so a sweep can never send screen text anywhere. The team health sweep
@@ -4155,3 +4173,32 @@ hadron chat served-prompts <chat-id> [--limit N] [--offset N] [--provenance-limi
 # --json {servedPrompts:{items,total,limit,offset}}, items[] when empty; missing/denied/no-record/serving-off
 # all conceal as an empty page, exit0, never a manufactured refusal. Real provider errors retain mapped exits.
 # Recorded variables may be sensitive. Pages are separate requests, not a snapshot. Requires server6b3f1e15.
+
+
+### Team health sweep (cli#1181)
+
+`hadron team health sweep --config <host.yaml>` runs on the registered Orca host.
+It consumes only `hadron orca terminal status --all --json --config <host.yaml>`
+(the separately gated C1 host-config dependency), without importing or duplicating
+its classifier. That command uses delivery.orca_bin when set, else PATH. Both
+commands read only the host's 0600 key_file; no key value in argv, env or logs.
+
+The sweep sends one setHostWorkerTerminals call with status, prompt, closed reason,
+lastTurnAt and checkedAt for each registered worker. It never sends detail, screen
+text or a terminal handle, never types and never skips paused workers. Missing or
+malformed status reports, an unknown contract version, or more than 200 workers
+refuse before writing. An empty registered host has no report to write.
+
+The JSON receipt is {reports:[{worker,status,prompt,reason,lastTurnAt,checkedAt}],
+refused:[{worker,code}]}. Text is one safe Name/status/reason line per worker,
+with an explicit refusal suffix for WORKER_NOT_FOUND or TERMINAL_REPORT_STALE.
+No retries. A successful write exits 0 even with per-worker refusals or no
+coordinator; no alarm/noCoordinator field is selected or used. Failed write or
+malformed status exits 1; rejected key 3, server unreachable 7, forbidden 8, Orca
+unreachable 10. No new exit 9. CLI input errors retain usage 2. Scheduling and
+recovery are separate commands/slices, not installed by a sweep.
+
+A missing/non-live host registration is exit 8. Unresolved or ambiguous registered
+workers, or a missing status row for any registered worker, refuse the whole
+batch before writing (exit 1). Other hosts' status rows are ignored. JSON reports
+are the sent reports, including any refused by the server; read refused too.
