@@ -32441,6 +32441,162 @@ type GetWorkerResponse struct {
 // GetWorker returns GetWorkerResponse.Worker, and is useful for accessing the field via an interface.
 func (v *GetWorkerResponse) GetWorker() *GetWorkerWorker { return v.Worker }
 
+// GetWorkerTerminalResponse is returned by GetWorkerTerminal on success.
+type GetWorkerTerminalResponse struct {
+	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
+	// NAME (#1015), the ergonomic handle a human already knows. The name form is
+	// ADDITIVE: it is activated by appRef, since a name is unique only within an
+	// App. Without appRef the ref must be an id or URN, and anything else refuses
+	// WORKER_NOT_FOUND as before. An id or URN wins over appRef rather than being
+	// checked against it, so a typo'd URN never degrades into a roster search.
+	//
+	// Selecting `prompt` re-renders the worker's boot briefing live from the
+	// role agent's template — the read that lets an agent recover a briefing it
+	// lost to a context compaction, instead of opening a second session or
+	// forcing a takeover of itself.
+	//
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	Worker *GetWorkerTerminalWorker `json:"worker"`
+}
+
+// GetWorker returns GetWorkerTerminalResponse.Worker, and is useful for accessing the field via an interface.
+func (v *GetWorkerTerminalResponse) GetWorker() *GetWorkerTerminalWorker { return v.Worker }
+
+// GetWorkerTerminalWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type GetWorkerTerminalWorker struct {
+	// #2771 (proposed hrn:node:hadronmemory.com:specs:cor:agt:070:09) — the latest terminal report a host made for this worker. Stored, decides nothing;
+	// judge its age from checkedAt. Null until a host reports, and masked to null on the same read gate as checkStatus.
+	Terminal *GetWorkerTerminalWorkerTerminal `json:"terminal"`
+}
+
+// GetTerminal returns GetWorkerTerminalWorker.Terminal, and is useful for accessing the field via an interface.
+func (v *GetWorkerTerminalWorker) GetTerminal() *GetWorkerTerminalWorkerTerminal { return v.Terminal }
+
+// GetWorkerTerminalWorkerTerminal includes the requested fields of the GraphQL type WorkerTerminal.
+// The GraphQL type's documentation follows.
+//
+// #2771 (proposed hrn:node:hadronmemory.com:specs:cor:agt:070:09) — a worker's latest terminal report, stored as the
+// server built it. It decides nothing (no check status, availability, matcher, stall rule or alarm). Judge its age
+// from checkedAt and reportedAt. Null until a host first reports; null to a reader without the Working-state gate.
+type GetWorkerTerminalWorkerTerminal struct {
+	WorkerTerminalFields `json:"-"`
+}
+
+// GetHost returns GetWorkerTerminalWorkerTerminal.Host, and is useful for accessing the field via an interface.
+func (v *GetWorkerTerminalWorkerTerminal) GetHost() *WorkerTerminalFieldsHostWorkerTerminalHost {
+	return v.WorkerTerminalFields.Host
+}
+
+// GetStatus returns GetWorkerTerminalWorkerTerminal.Status, and is useful for accessing the field via an interface.
+func (v *GetWorkerTerminalWorkerTerminal) GetStatus() WorkerTerminalState {
+	return v.WorkerTerminalFields.Status
+}
+
+// GetPrompt returns GetWorkerTerminalWorkerTerminal.Prompt, and is useful for accessing the field via an interface.
+func (v *GetWorkerTerminalWorkerTerminal) GetPrompt() WorkerTerminalPrompt {
+	return v.WorkerTerminalFields.Prompt
+}
+
+// GetReason returns GetWorkerTerminalWorkerTerminal.Reason, and is useful for accessing the field via an interface.
+func (v *GetWorkerTerminalWorkerTerminal) GetReason() *WorkerTerminalReason {
+	return v.WorkerTerminalFields.Reason
+}
+
+// GetLastTurnAt returns GetWorkerTerminalWorkerTerminal.LastTurnAt, and is useful for accessing the field via an interface.
+func (v *GetWorkerTerminalWorkerTerminal) GetLastTurnAt() *string {
+	return v.WorkerTerminalFields.LastTurnAt
+}
+
+// GetCheckedAt returns GetWorkerTerminalWorkerTerminal.CheckedAt, and is useful for accessing the field via an interface.
+func (v *GetWorkerTerminalWorkerTerminal) GetCheckedAt() string {
+	return v.WorkerTerminalFields.CheckedAt
+}
+
+// GetReportedAt returns GetWorkerTerminalWorkerTerminal.ReportedAt, and is useful for accessing the field via an interface.
+func (v *GetWorkerTerminalWorkerTerminal) GetReportedAt() string {
+	return v.WorkerTerminalFields.ReportedAt
+}
+
+func (v *GetWorkerTerminalWorkerTerminal) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetWorkerTerminalWorkerTerminal
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetWorkerTerminalWorkerTerminal = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.WorkerTerminalFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetWorkerTerminalWorkerTerminal struct {
+	Host *WorkerTerminalFieldsHostWorkerTerminalHost `json:"host"`
+
+	Status WorkerTerminalState `json:"status"`
+
+	Prompt WorkerTerminalPrompt `json:"prompt"`
+
+	Reason *WorkerTerminalReason `json:"reason"`
+
+	LastTurnAt *string `json:"lastTurnAt"`
+
+	CheckedAt string `json:"checkedAt"`
+
+	ReportedAt string `json:"reportedAt"`
+}
+
+func (v *GetWorkerTerminalWorkerTerminal) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetWorkerTerminalWorkerTerminal) __premarshalJSON() (*__premarshalGetWorkerTerminalWorkerTerminal, error) {
+	var retval __premarshalGetWorkerTerminalWorkerTerminal
+
+	retval.Host = v.WorkerTerminalFields.Host
+	retval.Status = v.WorkerTerminalFields.Status
+	retval.Prompt = v.WorkerTerminalFields.Prompt
+	retval.Reason = v.WorkerTerminalFields.Reason
+	retval.LastTurnAt = v.WorkerTerminalFields.LastTurnAt
+	retval.CheckedAt = v.WorkerTerminalFields.CheckedAt
+	retval.ReportedAt = v.WorkerTerminalFields.ReportedAt
+	return &retval, nil
+}
+
 // GetWorkerWorker includes the requested fields of the GraphQL type Worker.
 // The GraphQL type's documentation follows.
 //
@@ -58931,6 +59087,8 @@ type TeamRosterTeamRosterWorkersTeamRosterEntry struct {
 	LastActiveAt      *string             `json:"lastActiveAt"`
 	// #2138 §3.4 (experimental) — whether it is checking its team channel as expected.
 	CheckStatus *TeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus `json:"checkStatus"`
+	// #2771 — the latest terminal report a host made for it (Worker.terminal); null on the same read gate as checkStatus.
+	Terminal *TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal `json:"terminal"`
 	// When it was last assigned a task; the matcher picks the least recent (hrn:node:hadronmemory.com:specs:cor:agt:060:06).
 	LastAssignedAt *string `json:"lastAssignedAt"`
 	// Pending tasks it is the assignee of.
@@ -59022,6 +59180,11 @@ func (v *TeamRosterTeamRosterWorkersTeamRosterEntry) GetLastActiveAt() *string {
 // GetCheckStatus returns TeamRosterTeamRosterWorkersTeamRosterEntry.CheckStatus, and is useful for accessing the field via an interface.
 func (v *TeamRosterTeamRosterWorkersTeamRosterEntry) GetCheckStatus() *TeamRosterTeamRosterWorkersTeamRosterEntryCheckStatusWorkerCheckStatus {
 	return v.CheckStatus
+}
+
+// GetTerminal returns TeamRosterTeamRosterWorkersTeamRosterEntry.Terminal, and is useful for accessing the field via an interface.
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntry) GetTerminal() *TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal {
+	return v.Terminal
 }
 
 // GetLastAssignedAt returns TeamRosterTeamRosterWorkersTeamRosterEntry.LastAssignedAt, and is useful for accessing the field via an interface.
@@ -59259,6 +59422,113 @@ func (v *TeamRosterTeamRosterWorkersTeamRosterEntryReportsToAgentTaskParty) __pr
 	retval.Kind = v.AgentTaskPartyFields.Kind
 	retval.Name = v.AgentTaskPartyFields.Name
 	retval.Urn = v.AgentTaskPartyFields.Urn
+	return &retval, nil
+}
+
+// TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal includes the requested fields of the GraphQL type WorkerTerminal.
+// The GraphQL type's documentation follows.
+//
+// #2771 (proposed hrn:node:hadronmemory.com:specs:cor:agt:070:09) — a worker's latest terminal report, stored as the
+// server built it. It decides nothing (no check status, availability, matcher, stall rule or alarm). Judge its age
+// from checkedAt and reportedAt. Null until a host first reports; null to a reader without the Working-state gate.
+type TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal struct {
+	WorkerTerminalFields `json:"-"`
+}
+
+// GetHost returns TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal.Host, and is useful for accessing the field via an interface.
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal) GetHost() *WorkerTerminalFieldsHostWorkerTerminalHost {
+	return v.WorkerTerminalFields.Host
+}
+
+// GetStatus returns TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal.Status, and is useful for accessing the field via an interface.
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal) GetStatus() WorkerTerminalState {
+	return v.WorkerTerminalFields.Status
+}
+
+// GetPrompt returns TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal.Prompt, and is useful for accessing the field via an interface.
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal) GetPrompt() WorkerTerminalPrompt {
+	return v.WorkerTerminalFields.Prompt
+}
+
+// GetReason returns TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal.Reason, and is useful for accessing the field via an interface.
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal) GetReason() *WorkerTerminalReason {
+	return v.WorkerTerminalFields.Reason
+}
+
+// GetLastTurnAt returns TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal.LastTurnAt, and is useful for accessing the field via an interface.
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal) GetLastTurnAt() *string {
+	return v.WorkerTerminalFields.LastTurnAt
+}
+
+// GetCheckedAt returns TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal.CheckedAt, and is useful for accessing the field via an interface.
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal) GetCheckedAt() string {
+	return v.WorkerTerminalFields.CheckedAt
+}
+
+// GetReportedAt returns TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal.ReportedAt, and is useful for accessing the field via an interface.
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal) GetReportedAt() string {
+	return v.WorkerTerminalFields.ReportedAt
+}
+
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.WorkerTerminalFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal struct {
+	Host *WorkerTerminalFieldsHostWorkerTerminalHost `json:"host"`
+
+	Status WorkerTerminalState `json:"status"`
+
+	Prompt WorkerTerminalPrompt `json:"prompt"`
+
+	Reason *WorkerTerminalReason `json:"reason"`
+
+	LastTurnAt *string `json:"lastTurnAt"`
+
+	CheckedAt string `json:"checkedAt"`
+
+	ReportedAt string `json:"reportedAt"`
+}
+
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal) __premarshalJSON() (*__premarshalTeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal, error) {
+	var retval __premarshalTeamRosterTeamRosterWorkersTeamRosterEntryTerminalWorkerTerminal
+
+	retval.Host = v.WorkerTerminalFields.Host
+	retval.Status = v.WorkerTerminalFields.Status
+	retval.Prompt = v.WorkerTerminalFields.Prompt
+	retval.Reason = v.WorkerTerminalFields.Reason
+	retval.LastTurnAt = v.WorkerTerminalFields.LastTurnAt
+	retval.CheckedAt = v.WorkerTerminalFields.CheckedAt
+	retval.ReportedAt = v.WorkerTerminalFields.ReportedAt
 	return &retval, nil
 }
 
@@ -70459,6 +70729,58 @@ func (v *WorkerServedPromptWorkerServedPrompt) __premarshalJSON() (*__premarshal
 	return &retval, nil
 }
 
+// hadron-server#2771 / cli#1375: a worker's latest terminal report. A fragment so
+// the roster and GetWorkerTerminal select one shape; deliberately NOT part of
+// WorkerFields, which seven other operations share (their wire shape is unchanged).
+type WorkerTerminalFields struct {
+	Host   *WorkerTerminalFieldsHostWorkerTerminalHost `json:"host"`
+	Status WorkerTerminalState                         `json:"status"`
+	Prompt WorkerTerminalPrompt                        `json:"prompt"`
+	// Required for locked and dark, null otherwise.
+	Reason     *WorkerTerminalReason `json:"reason"`
+	LastTurnAt *string               `json:"lastTurnAt"`
+	// When the host classified the terminal.
+	CheckedAt string `json:"checkedAt"`
+	// When the server stored the report.
+	ReportedAt string `json:"reportedAt"`
+}
+
+// GetHost returns WorkerTerminalFields.Host, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalFields) GetHost() *WorkerTerminalFieldsHostWorkerTerminalHost { return v.Host }
+
+// GetStatus returns WorkerTerminalFields.Status, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalFields) GetStatus() WorkerTerminalState { return v.Status }
+
+// GetPrompt returns WorkerTerminalFields.Prompt, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalFields) GetPrompt() WorkerTerminalPrompt { return v.Prompt }
+
+// GetReason returns WorkerTerminalFields.Reason, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalFields) GetReason() *WorkerTerminalReason { return v.Reason }
+
+// GetLastTurnAt returns WorkerTerminalFields.LastTurnAt, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalFields) GetLastTurnAt() *string { return v.LastTurnAt }
+
+// GetCheckedAt returns WorkerTerminalFields.CheckedAt, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalFields) GetCheckedAt() string { return v.CheckedAt }
+
+// GetReportedAt returns WorkerTerminalFields.ReportedAt, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalFields) GetReportedAt() string { return v.ReportedAt }
+
+// WorkerTerminalFieldsHostWorkerTerminalHost includes the requested fields of the GraphQL type WorkerTerminalHost.
+// The GraphQL type's documentation follows.
+//
+// #2771 — the host that made a worker's latest terminal report: its id from the key, its label from its registration.
+type WorkerTerminalFieldsHostWorkerTerminalHost struct {
+	Id    string `json:"id"`
+	Label string `json:"label"`
+}
+
+// GetId returns WorkerTerminalFieldsHostWorkerTerminalHost.Id, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalFieldsHostWorkerTerminalHost) GetId() string { return v.Id }
+
+// GetLabel returns WorkerTerminalFieldsHostWorkerTerminalHost.Label, and is useful for accessing the field via an interface.
+func (v *WorkerTerminalFieldsHostWorkerTerminalHost) GetLabel() string { return v.Label }
+
 // #2771 — what the terminal's input prompt looked like.
 type WorkerTerminalPrompt string
 
@@ -74627,6 +74949,14 @@ type __GetWorkerProfileInput struct {
 
 // GetRef returns __GetWorkerProfileInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetWorkerProfileInput) GetRef() string { return v.Ref }
+
+// __GetWorkerTerminalInput is used internally by genqlient
+type __GetWorkerTerminalInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetWorkerTerminalInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetWorkerTerminalInput) GetRef() string { return v.Ref }
 
 // __GrantAppKeyScopeInput is used internally by genqlient
 type __GrantAppKeyScopeInput struct {
@@ -90601,6 +90931,57 @@ func GetWorkerProfile(
 	return data_, err_
 }
 
+// The query executed by GetWorkerTerminal.
+const GetWorkerTerminal_Operation = `
+query GetWorkerTerminal ($ref: ID!) {
+	worker(ref: $ref) {
+		terminal {
+			... WorkerTerminalFields
+		}
+	}
+}
+fragment WorkerTerminalFields on WorkerTerminal {
+	host {
+		id
+		label
+	}
+	status
+	prompt
+	reason
+	lastTurnAt
+	checkedAt
+	reportedAt
+}
+`
+
+// The terminal report is its own operation, for the reason GetWorkerProfile is:
+// a server that predates #2771 rejects a document selecting Worker.terminal
+// before execution, and the ordinary lookup must still bind there.
+func GetWorkerTerminal(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetWorkerTerminalResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetWorkerTerminal",
+		Query:  GetWorkerTerminal_Operation,
+		Variables: &__GetWorkerTerminalInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetWorkerTerminalResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by GrantAppKeyScope.
 const GrantAppKeyScope_Operation = `
 mutation GrantAppKeyScope ($id: ID!, $scope: String!, $hostId: String) {
@@ -99580,6 +99961,9 @@ query TeamRoster ($appRef: ID!) {
 			checkStatus {
 				... ChannelCheckFields
 			}
+			terminal {
+				... WorkerTerminalFields
+			}
 			lastAssignedAt
 			pendingTasks
 			startedTasks
@@ -99611,6 +99995,18 @@ fragment ChannelCheckFields on WorkerCheckStatus {
 	status
 	pendingReason
 	lastCheckedAt
+}
+fragment WorkerTerminalFields on WorkerTerminal {
+	host {
+		id
+		label
+	}
+	status
+	prompt
+	reason
+	lastTurnAt
+	checkedAt
+	reportedAt
 }
 `
 
