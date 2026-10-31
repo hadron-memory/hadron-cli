@@ -240,11 +240,13 @@ func TestMemoryMerge1340(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	in, _ = vars1340(t, captured, "MergeMemories")["input"].(map[string]any)
-	if inc, ok := in["include"]; ok && inc != nil {
-		t.Errorf("include must be omitted without --field, got %v", inc)
+	// cli#1476 (Coco QA note, Diego LOCAL P3): include is absent, not null;
+	// deleteSourceMem is present and false, never left to a server default.
+	if inc, ok := in["include"]; ok {
+		t.Errorf("include must be absent without --field, got %v", inc)
 	}
-	if in["deleteSourceMem"] == true {
-		t.Errorf("deleteSourceMem must not be true without --delete-source")
+	if del, ok := in["deleteSourceMem"]; !ok || del != false {
+		t.Errorf("deleteSourceMem must be sent as false without --delete-source, got %v (sent %v)", del, ok)
 	}
 
 	// Non-interactive without --yes: exit 2, nothing sent.
