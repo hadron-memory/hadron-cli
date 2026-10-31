@@ -218,8 +218,8 @@ func costCell(r appRunDTO) string {
 
 func reasonCell(r appRunDTO) string {
 	if r.FailureReason == nil {
-		// A failed or timed-out run the server gave no reason for is unknown, not blank.
-		if r.Status == "FAILED" || r.Status == "TIMED_OUT" {
+		// A failed, timed-out or cancelled run the server gave no reason for is unknown, not blank.
+		if r.Status == "FAILED" || r.Status == "TIMED_OUT" || r.Status == "CANCELLED" {
 			return "unknown"
 		}
 		return "—"

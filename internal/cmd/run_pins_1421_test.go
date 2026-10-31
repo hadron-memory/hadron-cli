@@ -241,21 +241,31 @@ func TestRunListFailedWithoutReasonShowsUnknownNotDash(t *testing.T) {
 	}
 }
 
-// #1435 item 2.1: a timed-out run with no reason is unknown, like a failed one.
-func TestRunListTimedOutWithoutReasonShowsUnknown(t *testing.T) {
-	timedOut := strings.Replace(strings.Replace(runWith(`"failureReason":null`), `"status":"COMPLETED"`, `"status":"TIMED_OUT"`, 1), `"id":"run1"`, `"id":"runtime"`, 1)
-	out := runLsHuman(t, timedOut)
-	var saw bool
-	for _, l := range strings.Split(out, "\n") {
-		if strings.HasPrefix(l, "runtime") {
-			saw = true
-			if !strings.HasSuffix(strings.TrimSpace(l), "unknown") {
-				t.Errorf("TIMED_OUT run with no reason must say unknown: %q", l)
-			}
-		}
+// #1435 item 2.1 (Uma): every non-success terminal status with no reason is
+// "unknown" (should have one); a run that is fine or still in flight keeps the
+// dash (n/a).
+func TestRunListNonSuccessTerminalWithoutReasonShowsUnknown(t *testing.T) {
+	cases := map[string]string{
+		"FAILED": "unknown", "TIMED_OUT": "unknown", "CANCELLED": "unknown",
+		"COMPLETED": "—", "RUNNING": "—",
 	}
-	if !saw {
-		t.Errorf("runtime row missing:\n%s", out)
+	for status, want := range cases {
+		t.Run(status, func(t *testing.T) {
+			r := strings.Replace(strings.Replace(runWith(`"failureReason":null`), `"status":"COMPLETED"`, `"status":"`+status+`"`, 1), `"id":"run1"`, `"id":"rowx"`, 1)
+			out := runLsHuman(t, r)
+			var saw bool
+			for _, l := range strings.Split(out, "\n") {
+				if strings.HasPrefix(l, "rowx") {
+					saw = true
+					if !strings.HasSuffix(strings.TrimSpace(l), want) {
+						t.Errorf("%s with no reason: want REASON %q: %q", status, want, l)
+					}
+				}
+			}
+			if !saw {
+				t.Errorf("row missing:\n%s", out)
+			}
+		})
 	}
 }
 
