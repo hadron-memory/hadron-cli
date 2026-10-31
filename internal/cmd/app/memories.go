@@ -86,6 +86,7 @@ whole App covers. One row per memory, with every reason it is in scope:
   AGENT_LINK      a memory linked to an installed Agent
   INHERITED_BASE  a base Agent's system memory, inherited by an installed one
   TEAM_SPACE      the App's own team space
+  APP_MEMORY      the App's own tenant memory
 
 An Agent's name is shown after its kind when you may read that Agent;
 otherwise the kind is shown alone.
