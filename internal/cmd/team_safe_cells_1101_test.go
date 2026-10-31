@@ -69,6 +69,29 @@ func TestTeamSafeCells1101(t *testing.T) {
 		}
 		return out
 	}
+	// overwrite sets fields that already exist in a JSON object fixture by
+	// decoding, assigning and re-encoding — never by appending a second key
+	// (#1119). A field the fixture lacks is a stamp that did not take.
+	overwrite := func(t *testing.T, fixture string, fields map[string]any) string {
+		t.Helper()
+		dec := json.NewDecoder(strings.NewReader(fixture))
+		dec.UseNumber()
+		var obj map[string]any
+		if err := dec.Decode(&obj); err != nil {
+			t.Fatalf("overwrite: fixture is not a JSON object: %v", err)
+		}
+		for k, v := range fields {
+			if _, ok := obj[k]; !ok {
+				t.Fatalf("overwrite of %q did not take: fixture would prove nothing", k)
+			}
+			obj[k] = v
+		}
+		out, err := json.Marshal(obj)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(out)
+	}
 	// The roster's model/tier/check/held-by/held-at cells had no fixture values
 	// on main: the fields are real (TeamRoster's projection) but rosterJSON
 	// leaves them null, so the cells rendered dashes and no attack could load
@@ -132,8 +155,10 @@ func TestTeamSafeCells1101(t *testing.T) {
 		for op, body := range base {
 			r[op] = body
 		}
-		session := stamp(t, activeSessionJSON, `"transcriptPath":null`, `"transcriptPath":"/mark/transcript.jsonl"`)
-		session = stamp(t, session, `"llmModel":null`, `"llmModel":"glm-5.3"`)
+		session := overwrite(t, activeSessionJSON, map[string]any{
+			"transcriptPath": "/mark/transcript.jsonl",
+			"llmModel":       "glm-5.3",
+		})
 		r["GetTeamSession"] = `{"data":{"session":` + session + `}}`
 		return r
 	}
@@ -426,6 +451,7 @@ func TestTeamSafeCells1101(t *testing.T) {
 		op        string // non-empty: attack this operation, not the case's own
 		jsonDrops bool   // the --json projection does not carry this field
 		prose     string // the value ALSO reaches this unguarded prose site
+		rewrites  string // a clean line the renderer rewords for an unsafe value
 	}
 	refine := map[string]cellRefine{
 		// CHECK composes "PENDING (<pendingReason>)".
@@ -456,7 +482,7 @@ func TestTeamSafeCells1101(t *testing.T) {
 		// the raw server string, so the output-wide scans below cannot hold
 		// until they are guarded; the cell itself stays fully pinned.
 		"role-list/role": {prose: "role.go:188/244 warnings echo r.Role raw"},
-		"host-ops/id":    {prose: "host.go:304 --after hint echoes EndCursor raw"},
+		"host-ops/id":    {prose: "host.go:304 --after hint echoes EndCursor raw", rewrites: "continue with --after"},
 		"stop-lift/id":   {prose: "stop.go:222 headline echoes Signal.ID raw"},
 	}
 	const prefix = "a\nb\x1b[31mc"
@@ -474,6 +500,17 @@ func TestTeamSafeCells1101(t *testing.T) {
 			}
 			t.Run(sub, func(t *testing.T) {
 				responses := tc.responses(t)
+				// A fixture with a repeated key proves only what the decoder's
+				// last-wins rule happens to pick (#1119): stamp by overwrite.
+				for o, body := range responses {
+					dups, err := duplicateJSONKeys(body)
+					if err != nil {
+						t.Fatalf("fixture %s is not JSON: %v", o, err)
+					}
+					if len(dups) > 0 {
+						t.Fatalf("fixture %s repeats keys %v", o, dups)
+					}
+				}
 				args := tc.args
 				op := tc.op
 				ref := refine[tc.name+"/"+ca.field]
@@ -579,8 +616,19 @@ func TestTeamSafeCells1101(t *testing.T) {
 				if runes := []rune(cellWant); len(runes) > 256 {
 					cellWant = string(runes[:255]) + "…"
 				}
-				if !strings.Contains(out, cellWant) {
-					t.Errorf("missing bounded sanitized cell (256 runes ending in ellipsis)")
+				// Anchored on the row (#1119): the cell must sit where the clean
+				// render carried the same field, not merely appear somewhere.
+				cleanCell := ca.old
+				if ref.encoded {
+					cleanCell = ref.prefix + string(needle)
+				} else {
+					if ref.lower {
+						cleanCell = strings.ToLower(cleanCell)
+					}
+					cleanCell = ref.prefix + cleanCell
+				}
+				if !cellInRow(clean, out, cleanCell, cellWant, ref.rewrites) {
+					t.Errorf("missing bounded sanitized cell (256 runes ending in ellipsis) in the row that carried %q", cleanCell)
 				}
 				// Output-wide scans, skipped only where the raw value also
 				// reaches an unguarded PROSE echo (refine.prose names it).
