@@ -785,6 +785,15 @@ func TestCronLineWithAnApostropheInPathIsStillOwned(t *testing.T) {
 }
 
 // #1412 delta (Diego P2-1): no crontab read during Install may fail open.
+//
+// cli#1413 (Baloo): after the one-snapshot fix Install reads the crontab once,
+// so injecting the failure at read #2..#4 of a fresh Install never fired and
+// the old success-guard could not tell a refusal FOR the read from a refusal for
+// the changed config (the spec differs, so that refusal is also an error). Each
+// iteration now makes the failing read the Install's own: the counter starts at
+// n-1, the failure sits at read #n, and the test asserts (a) the refusal is the
+// crontab-read one, not the config-mismatch one, (b) read #n was consumed and
+// no read followed it, (c) nothing was written.
 func TestAnyTransientCrontabReadDuringInstallFailsClosed(t *testing.T) {
 	for n := 1; n <= 4; n++ {
 		f := &fake{}
@@ -793,11 +802,21 @@ func TestAnyTransientCrontabReadDuringInstallFailsClosed(t *testing.T) {
 			t.Fatal(err)
 		}
 		before := f.crontab
-		f.listN, f.listBad = 0, map[int]bool{n: true}
+		f.listN, f.listBad = n-1, map[int]bool{n: true}
 		s2 := spec
 		s2.Config = "/etc/other.yaml"
-		if _, err := e.Install(s2); err == nil {
+		_, err := e.Install(s2)
+		if err == nil {
 			t.Fatalf("read #%d failed and Install still succeeded", n)
+		}
+		if !strings.Contains(err.Error(), "crontab -l failed") || !strings.Contains(err.Error(), "nothing was changed") {
+			t.Fatalf("read #%d: the refusal must be the crontab-read failure, got: %v", n, err)
+		}
+		if strings.Contains(err.Error(), "already installed") {
+			t.Fatalf("read #%d: refused on the installed config, never reaching its injected failure: %v", n, err)
+		}
+		if f.listN != n {
+			t.Fatalf("read #%d: the injected failure was not consumed exactly once (crontab -l ran up to #%d)", n, f.listN)
 		}
 		if f.crontab != before {
 			t.Fatalf("read #%d failed and the crontab was replaced: %q", n, f.crontab)
