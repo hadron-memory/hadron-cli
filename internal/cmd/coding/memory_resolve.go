@@ -307,7 +307,7 @@ type (
 // is issue #23's shape and reads as a settled fact.
 func memoriesNamed(ctx context.Context, client graphql.Client, repo string) ([]string, error) {
 	owned, err := api.CollectAll(func(limit, offset int) ([]*codingListedMemory, int, error) {
-		resp, err := gen.Memories(ctx, client, nil, &limit, &offset)
+		resp, err := gen.Memories(ctx, client, nil, &limit, &offset, nil)
 		if err != nil {
 			return nil, 0, api.MapError(err)
 		}
