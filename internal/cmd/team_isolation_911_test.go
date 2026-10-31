@@ -16,16 +16,16 @@ import (
 // WORKER_ISOLATION_UNAVAILABLE (exit 5) and `clear` works. Both are the
 // person's write: a bound worktree's worker session never rides them.
 
-func c911Isolate(body string) map[string]string {
-	return map[string]string{"IsolateWorker": `{"data":{"isolateWorker":` + body + `}}`}
-}
-
-func c911Clear(body string) map[string]string {
-	return map[string]string{"ClearWorkerIsolation": `{"data":{"clearWorkerIsolation":` + body + `}}`}
+// c911Responses answers both writes with the server's defaults snapshot.
+func c911Responses() map[string]string {
+	return map[string]string{
+		"IsolateWorker":        `{"data":{"isolateWorker":` + c1292Defaults + `}}`,
+		"ClearWorkerIsolation": `{"data":{"clearWorkerIsolation":` + c1292Defaults + `}}`,
+	}
 }
 
 func TestC911IsolationSetSendsOnlyTheWorkerWithoutATimeFlag(t *testing.T) {
-	calls, out, err := runTeamTask(t, c911Isolate(c1292Defaults), "team", "isolation", "set", "--worker", c1292Worker)
+	calls, out, err := runTeamTask(t, c911Responses(), "team", "isolation", "set", "--worker", c1292Worker)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +43,7 @@ func TestC911IsolationSetSendsOnlyTheWorkerWithoutATimeFlag(t *testing.T) {
 }
 
 func TestC911IsolationSetSendsUntilAsUTC(t *testing.T) {
-	calls, _, err := runTeamTask(t, c911Isolate(c1292Defaults), "team", "isolation", "set", "--worker", c1292Worker, "--until", "2999-01-01T12:00:00+02:00")
+	calls, _, err := runTeamTask(t, c911Responses(), "team", "isolation", "set", "--worker", c1292Worker, "--until", "2999-01-01T12:00:00+02:00")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func TestC911IsolationSetSendsUntilAsUTC(t *testing.T) {
 
 func TestC911IsolationSetForIsNowPlusTheDurationInUTC(t *testing.T) {
 	before := time.Now().UTC().Truncate(time.Second)
-	calls, _, err := runTeamTask(t, c911Isolate(c1292Defaults), "team", "isolation", "set", "--worker", c1292Worker, "--for", "90m")
+	calls, _, err := runTeamTask(t, c911Responses(), "team", "isolation", "set", "--worker", c1292Worker, "--for", "90m")
 	after := time.Now().UTC()
 	if err != nil {
 		t.Fatal(err)
@@ -78,7 +78,7 @@ func TestC911IsolationSetForIsNowPlusTheDurationInUTC(t *testing.T) {
 }
 
 func TestC911IsolationClearSendsOnlyTheWorker(t *testing.T) {
-	calls, out, err := runTeamTask(t, c911Clear(c1292Defaults), "team", "isolation", "clear", "--worker", c1292Worker, "--json")
+	calls, out, err := runTeamTask(t, c911Responses(), "team", "isolation", "clear", "--worker", c1292Worker, "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,9 +120,7 @@ func TestC911IsolationUsageErrorsSendNoRequest(t *testing.T) {
 		{"team", "isolation", "clear"},
 		{"team", "isolation", "clear", "--worker", "Iris"},
 	} {
-		responses := c911Isolate(c1292Defaults)
-		responses["ClearWorkerIsolation"] = `{"data":{"clearWorkerIsolation":` + c1292Defaults + `}}`
-		calls, _, err := runTeamTask(t, responses, argv...)
+		calls, _, err := runTeamTask(t, c911Responses(), argv...)
 		if exitCodeFor(err) != exitcode.Usage {
 			t.Errorf("%v: err %v, want exit %d", argv, err, exitcode.Usage)
 		}
@@ -186,9 +184,7 @@ func TestC911IsolationCarriesNoWorkerSession(t *testing.T) {
 		{"IsolateWorker", []string{"team", "isolation", "set", "--worker", c1292Worker}},
 		{"ClearWorkerIsolation", []string{"team", "isolation", "clear", "--worker", c1292Worker}},
 	} {
-		responses := c911Isolate(c1292Defaults)
-		responses["ClearWorkerIsolation"] = `{"data":{"clearWorkerIsolation":` + c1292Defaults + `}}`
-		calls, _, err := runTeamTask(t, responses, tc.argv...)
+		calls, _, err := runTeamTask(t, c911Responses(), tc.argv...)
 		if err != nil {
 			t.Fatal(err)
 		}

@@ -208,7 +208,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 315: 212 command, 92 gap, 11 excluded
+[Mutation] 315: 214 command, 90 gap, 11 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -246,7 +246,7 @@ changeWorkerAgent  gap #1336
 claimContextReset  gap #1043: the host handler that performs the reset
 clearAgentAIConfig  gap #58
 clearNodeHistory  command node revision clear
-clearWorkerIsolation  gap #911
+clearWorkerIsolation  command team isolation clear
 cloneAgent  command agent clone
 cloneMemory  command memory clone
 cloneNode  command node clone
@@ -359,7 +359,7 @@ grantCredits  gap #215
 importNode  command node import
 installAgentIntoApp  command app agent add
 inviteUser  gap #1342
-isolateWorker  gap #911
+isolateWorker  command team isolation set
 issueHostOperation  command team host issue
 joinApp  gap #63
 joinWaitingList  excluded not-a-capability: a public website form (waiting list, contact), not a platform capability
