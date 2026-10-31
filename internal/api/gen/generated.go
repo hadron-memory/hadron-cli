@@ -13476,6 +13476,11 @@ func (v *AuthContextAuthContextApiKeyUserApiKey) GetRevokedAt() *string {
 	return v.UserApiKeyFields.RevokedAt
 }
 
+// GetHiddenAt returns AuthContextAuthContextApiKeyUserApiKey.HiddenAt, and is useful for accessing the field via an interface.
+func (v *AuthContextAuthContextApiKeyUserApiKey) GetHiddenAt() *string {
+	return v.UserApiKeyFields.HiddenAt
+}
+
 func (v *AuthContextAuthContextApiKeyUserApiKey) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -13515,6 +13520,8 @@ type __premarshalAuthContextAuthContextApiKeyUserApiKey struct {
 	LastUsedAt *string `json:"lastUsedAt"`
 
 	RevokedAt *string `json:"revokedAt"`
+
+	HiddenAt *string `json:"hiddenAt"`
 }
 
 func (v *AuthContextAuthContextApiKeyUserApiKey) MarshalJSON() ([]byte, error) {
@@ -13535,6 +13542,7 @@ func (v *AuthContextAuthContextApiKeyUserApiKey) __premarshalJSON() (*__premarsh
 	retval.CreatedAt = v.UserApiKeyFields.CreatedAt
 	retval.LastUsedAt = v.UserApiKeyFields.LastUsedAt
 	retval.RevokedAt = v.UserApiKeyFields.RevokedAt
+	retval.HiddenAt = v.UserApiKeyFields.HiddenAt
 	return &retval, nil
 }
 
@@ -27425,6 +27433,11 @@ func (v *CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey) GetRe
 	return v.UserApiKeyFields.RevokedAt
 }
 
+// GetHiddenAt returns CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey.HiddenAt, and is useful for accessing the field via an interface.
+func (v *CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey) GetHiddenAt() *string {
+	return v.UserApiKeyFields.HiddenAt
+}
+
 func (v *CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -27464,6 +27477,8 @@ type __premarshalCreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKe
 	LastUsedAt *string `json:"lastUsedAt"`
 
 	RevokedAt *string `json:"revokedAt"`
+
+	HiddenAt *string `json:"hiddenAt"`
 }
 
 func (v *CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey) MarshalJSON() ([]byte, error) {
@@ -27484,6 +27499,7 @@ func (v *CreateUserApiKeyCreateUserApiKeyUserApiKeyCreateResultUserApiKey) __pre
 	retval.CreatedAt = v.UserApiKeyFields.CreatedAt
 	retval.LastUsedAt = v.UserApiKeyFields.LastUsedAt
 	retval.RevokedAt = v.UserApiKeyFields.RevokedAt
+	retval.HiddenAt = v.UserApiKeyFields.HiddenAt
 	return &retval, nil
 }
 
@@ -28495,6 +28511,40 @@ type DeleteTickerResponse struct {
 
 // GetDeleteTicker returns DeleteTickerResponse.DeleteTicker, and is useful for accessing the field via an interface.
 func (v *DeleteTickerResponse) GetDeleteTicker() bool { return v.DeleteTicker }
+
+// DeleteUserResponse is returned by DeleteUser on success.
+type DeleteUserResponse struct {
+	// Delete a user account (self-serve account deletion, Apple 5.1.1(v) /
+	// GDPR erasure posture). Requires a user credential (JWT or hdr_user key);
+	// App-key callers are rejected.
+	//
+	// Omitting userRef deletes the CALLER's own account (no role needed).
+	// A platform ADMIN/OWNER may name another user; userRef accepts the
+	// user's ID, handle, or hrn:user:<handle> URN. Any other caller naming a
+	// target receives the same FORBIDDEN error whether or not that user
+	// exists (no user-enumeration oracle). Deleting another user also requires
+	// a reason of 1-500 Unicode code points after trimming (BAD_USER_INPUT
+	// otherwise); this check follows target authorization.
+	//
+	// Org memberships auto-resolve: an org where the target is the only
+	// active OWNER but which still has OTHER active members BLOCKS deletion
+	// (error code SOLE_ORG_OWNER, extensions.organizations lists the
+	// blockers - transfer ownership first, nothing is deleted); an org where
+	// the target is the ONLY active member is soft-deleted with the account;
+	// plain memberships are revoked.
+	//
+	// Owned data is hard-erased: personal/private and user-owned memories,
+	// user-owned Apps and Agents (with their standard delete cascades),
+	// sessions, OAuth/handoff codes, provider connections, grants, shares,
+	// subscriptions, widgets and user secrets; API keys are revoked. The
+	// User row itself is kept for audit/billing FK integrity but scrubbed
+	// (identity fields nulled, handle replaced with a random deleted-...
+	// value) and soft-deleted; a deleted account can no longer authenticate.
+	DeleteUser bool `json:"deleteUser"`
+}
+
+// GetDeleteUser returns DeleteUserResponse.DeleteUser, and is useful for accessing the field via an interface.
+func (v *DeleteUserResponse) GetDeleteUser() bool { return v.DeleteUser }
 
 // DeleteWorkerResponse is returned by DeleteWorker on success.
 type DeleteWorkerResponse struct {
@@ -36784,6 +36834,425 @@ func (v *HostRegistrationsResponse) GetHostRegistrations() []*HostRegistrationsH
 	return v.HostRegistrations
 }
 
+// Admin-impersonation audit reads (#1344). Denied and missing are the same null.
+type ImpersonationSessionFields struct {
+	Id        string `json:"id"`
+	CreatedAt string `json:"createdAt"`
+	ExpiresAt string `json:"expiresAt"`
+	// Explicit-stop timestamp; null while live or when the session merely
+	// lapsed by TTL.
+	EndedAt *string `json:"endedAt"`
+	// User.id of whoever stopped it early (the admin actor for a self-stop
+	// from the impersonated context). Null while live / TTL-lapse.
+	EndedBy *string `json:"endedBy"`
+	// Derived: endedAt is null AND expiresAt is in the future.
+	IsActive     bool                                    `json:"isActive"`
+	Reason       *string                                 `json:"reason"`
+	AdminUser    *ImpersonationSessionFieldsAdminUser    `json:"adminUser"`
+	TargetUser   *ImpersonationSessionFieldsTargetUser   `json:"targetUser"`
+	Organization *ImpersonationSessionFieldsOrganization `json:"organization"`
+}
+
+// GetId returns ImpersonationSessionFields.Id, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionFields) GetId() string { return v.Id }
+
+// GetCreatedAt returns ImpersonationSessionFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetExpiresAt returns ImpersonationSessionFields.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionFields) GetExpiresAt() string { return v.ExpiresAt }
+
+// GetEndedAt returns ImpersonationSessionFields.EndedAt, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionFields) GetEndedAt() *string { return v.EndedAt }
+
+// GetEndedBy returns ImpersonationSessionFields.EndedBy, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionFields) GetEndedBy() *string { return v.EndedBy }
+
+// GetIsActive returns ImpersonationSessionFields.IsActive, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionFields) GetIsActive() bool { return v.IsActive }
+
+// GetReason returns ImpersonationSessionFields.Reason, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionFields) GetReason() *string { return v.Reason }
+
+// GetAdminUser returns ImpersonationSessionFields.AdminUser, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionFields) GetAdminUser() *ImpersonationSessionFieldsAdminUser {
+	return v.AdminUser
+}
+
+// GetTargetUser returns ImpersonationSessionFields.TargetUser, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionFields) GetTargetUser() *ImpersonationSessionFieldsTargetUser {
+	return v.TargetUser
+}
+
+// GetOrganization returns ImpersonationSessionFields.Organization, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionFields) GetOrganization() *ImpersonationSessionFieldsOrganization {
+	return v.Organization
+}
+
+// ImpersonationSessionFieldsAdminUser includes the requested fields of the GraphQL type User.
+type ImpersonationSessionFieldsAdminUser struct {
+	Id     string  `json:"id"`
+	Handle *string `json:"handle"`
+	Name   *string `json:"name"`
+}
+
+// GetId returns ImpersonationSessionFieldsAdminUser.Id, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionFieldsAdminUser) GetId() string { return v.Id }
+
+// GetHandle returns ImpersonationSessionFieldsAdminUser.Handle, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionFieldsAdminUser) GetHandle() *string { return v.Handle }
+
+// GetName returns ImpersonationSessionFieldsAdminUser.Name, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionFieldsAdminUser) GetName() *string { return v.Name }
+
+// ImpersonationSessionFieldsOrganization includes the requested fields of the GraphQL type Organization.
+// The GraphQL type's documentation follows.
+//
+// A company or team that owns one or more Hadron memories.
+type ImpersonationSessionFieldsOrganization struct {
+	Id   string `json:"id"`
+	Urn  string `json:"urn"`
+	Name string `json:"name"`
+}
+
+// GetId returns ImpersonationSessionFieldsOrganization.Id, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionFieldsOrganization) GetId() string { return v.Id }
+
+// GetUrn returns ImpersonationSessionFieldsOrganization.Urn, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionFieldsOrganization) GetUrn() string { return v.Urn }
+
+// GetName returns ImpersonationSessionFieldsOrganization.Name, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionFieldsOrganization) GetName() string { return v.Name }
+
+// ImpersonationSessionFieldsTargetUser includes the requested fields of the GraphQL type User.
+type ImpersonationSessionFieldsTargetUser struct {
+	Id     string  `json:"id"`
+	Handle *string `json:"handle"`
+	Name   *string `json:"name"`
+}
+
+// GetId returns ImpersonationSessionFieldsTargetUser.Id, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionFieldsTargetUser) GetId() string { return v.Id }
+
+// GetHandle returns ImpersonationSessionFieldsTargetUser.Handle, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionFieldsTargetUser) GetHandle() *string { return v.Handle }
+
+// GetName returns ImpersonationSessionFieldsTargetUser.Name, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionFieldsTargetUser) GetName() *string { return v.Name }
+
+type ImpersonationSessionFilter struct {
+	// Only sessions that are live right now (endedAt null, unexpired).
+	ActiveOnly *bool `json:"activeOnly"`
+}
+
+// GetActiveOnly returns ImpersonationSessionFilter.ActiveOnly, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionFilter) GetActiveOnly() *bool { return v.ActiveOnly }
+
+// ImpersonationSessionImpersonationSession includes the requested fields of the GraphQL type ImpersonationSession.
+// The GraphQL type's documentation follows.
+//
+// One admin-impersonation session: the durable audit record (who
+// impersonated whom, in which org, when) AND the revocation source of
+// truth (stopImpersonation writes endedAt; rows are never deleted).
+type ImpersonationSessionImpersonationSession struct {
+	ImpersonationSessionFields `json:"-"`
+}
+
+// GetId returns ImpersonationSessionImpersonationSession.Id, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionImpersonationSession) GetId() string {
+	return v.ImpersonationSessionFields.Id
+}
+
+// GetCreatedAt returns ImpersonationSessionImpersonationSession.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionImpersonationSession) GetCreatedAt() string {
+	return v.ImpersonationSessionFields.CreatedAt
+}
+
+// GetExpiresAt returns ImpersonationSessionImpersonationSession.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionImpersonationSession) GetExpiresAt() string {
+	return v.ImpersonationSessionFields.ExpiresAt
+}
+
+// GetEndedAt returns ImpersonationSessionImpersonationSession.EndedAt, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionImpersonationSession) GetEndedAt() *string {
+	return v.ImpersonationSessionFields.EndedAt
+}
+
+// GetEndedBy returns ImpersonationSessionImpersonationSession.EndedBy, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionImpersonationSession) GetEndedBy() *string {
+	return v.ImpersonationSessionFields.EndedBy
+}
+
+// GetIsActive returns ImpersonationSessionImpersonationSession.IsActive, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionImpersonationSession) GetIsActive() bool {
+	return v.ImpersonationSessionFields.IsActive
+}
+
+// GetReason returns ImpersonationSessionImpersonationSession.Reason, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionImpersonationSession) GetReason() *string {
+	return v.ImpersonationSessionFields.Reason
+}
+
+// GetAdminUser returns ImpersonationSessionImpersonationSession.AdminUser, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionImpersonationSession) GetAdminUser() *ImpersonationSessionFieldsAdminUser {
+	return v.ImpersonationSessionFields.AdminUser
+}
+
+// GetTargetUser returns ImpersonationSessionImpersonationSession.TargetUser, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionImpersonationSession) GetTargetUser() *ImpersonationSessionFieldsTargetUser {
+	return v.ImpersonationSessionFields.TargetUser
+}
+
+// GetOrganization returns ImpersonationSessionImpersonationSession.Organization, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionImpersonationSession) GetOrganization() *ImpersonationSessionFieldsOrganization {
+	return v.ImpersonationSessionFields.Organization
+}
+
+func (v *ImpersonationSessionImpersonationSession) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ImpersonationSessionImpersonationSession
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ImpersonationSessionImpersonationSession = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ImpersonationSessionFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalImpersonationSessionImpersonationSession struct {
+	Id string `json:"id"`
+
+	CreatedAt string `json:"createdAt"`
+
+	ExpiresAt string `json:"expiresAt"`
+
+	EndedAt *string `json:"endedAt"`
+
+	EndedBy *string `json:"endedBy"`
+
+	IsActive bool `json:"isActive"`
+
+	Reason *string `json:"reason"`
+
+	AdminUser *ImpersonationSessionFieldsAdminUser `json:"adminUser"`
+
+	TargetUser *ImpersonationSessionFieldsTargetUser `json:"targetUser"`
+
+	Organization *ImpersonationSessionFieldsOrganization `json:"organization"`
+}
+
+func (v *ImpersonationSessionImpersonationSession) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ImpersonationSessionImpersonationSession) __premarshalJSON() (*__premarshalImpersonationSessionImpersonationSession, error) {
+	var retval __premarshalImpersonationSessionImpersonationSession
+
+	retval.Id = v.ImpersonationSessionFields.Id
+	retval.CreatedAt = v.ImpersonationSessionFields.CreatedAt
+	retval.ExpiresAt = v.ImpersonationSessionFields.ExpiresAt
+	retval.EndedAt = v.ImpersonationSessionFields.EndedAt
+	retval.EndedBy = v.ImpersonationSessionFields.EndedBy
+	retval.IsActive = v.ImpersonationSessionFields.IsActive
+	retval.Reason = v.ImpersonationSessionFields.Reason
+	retval.AdminUser = v.ImpersonationSessionFields.AdminUser
+	retval.TargetUser = v.ImpersonationSessionFields.TargetUser
+	retval.Organization = v.ImpersonationSessionFields.Organization
+	return &retval, nil
+}
+
+// ImpersonationSessionResponse is returned by ImpersonationSession on success.
+type ImpersonationSessionResponse struct {
+	// One admin-impersonation audit record by id. Resolvable to the session's
+	// admin, an org ADMIN/OWNER of its org, or a platform admin; anyone else
+	// gets null (denied and missing are indistinguishable).
+	ImpersonationSession *ImpersonationSessionImpersonationSession `json:"impersonationSession"`
+}
+
+// GetImpersonationSession returns ImpersonationSessionResponse.ImpersonationSession, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionResponse) GetImpersonationSession() *ImpersonationSessionImpersonationSession {
+	return v.ImpersonationSession
+}
+
+// ImpersonationSessionsImpersonationSessionsImpersonationSessionList includes the requested fields of the GraphQL type ImpersonationSessionList.
+type ImpersonationSessionsImpersonationSessionsImpersonationSessionList struct {
+	Total int                                                                                            `json:"total"`
+	Items []*ImpersonationSessionsImpersonationSessionsImpersonationSessionListItemsImpersonationSession `json:"items"`
+}
+
+// GetTotal returns ImpersonationSessionsImpersonationSessionsImpersonationSessionList.Total, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionsImpersonationSessionsImpersonationSessionList) GetTotal() int {
+	return v.Total
+}
+
+// GetItems returns ImpersonationSessionsImpersonationSessionsImpersonationSessionList.Items, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionsImpersonationSessionsImpersonationSessionList) GetItems() []*ImpersonationSessionsImpersonationSessionsImpersonationSessionListItemsImpersonationSession {
+	return v.Items
+}
+
+// ImpersonationSessionsImpersonationSessionsImpersonationSessionListItemsImpersonationSession includes the requested fields of the GraphQL type ImpersonationSession.
+// The GraphQL type's documentation follows.
+//
+// One admin-impersonation session: the durable audit record (who
+// impersonated whom, in which org, when) AND the revocation source of
+// truth (stopImpersonation writes endedAt; rows are never deleted).
+type ImpersonationSessionsImpersonationSessionsImpersonationSessionListItemsImpersonationSession struct {
+	ImpersonationSessionFields `json:"-"`
+}
+
+// GetId returns ImpersonationSessionsImpersonationSessionsImpersonationSessionListItemsImpersonationSession.Id, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionsImpersonationSessionsImpersonationSessionListItemsImpersonationSession) GetId() string {
+	return v.ImpersonationSessionFields.Id
+}
+
+// GetCreatedAt returns ImpersonationSessionsImpersonationSessionsImpersonationSessionListItemsImpersonationSession.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionsImpersonationSessionsImpersonationSessionListItemsImpersonationSession) GetCreatedAt() string {
+	return v.ImpersonationSessionFields.CreatedAt
+}
+
+// GetExpiresAt returns ImpersonationSessionsImpersonationSessionsImpersonationSessionListItemsImpersonationSession.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionsImpersonationSessionsImpersonationSessionListItemsImpersonationSession) GetExpiresAt() string {
+	return v.ImpersonationSessionFields.ExpiresAt
+}
+
+// GetEndedAt returns ImpersonationSessionsImpersonationSessionsImpersonationSessionListItemsImpersonationSession.EndedAt, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionsImpersonationSessionsImpersonationSessionListItemsImpersonationSession) GetEndedAt() *string {
+	return v.ImpersonationSessionFields.EndedAt
+}
+
+// GetEndedBy returns ImpersonationSessionsImpersonationSessionsImpersonationSessionListItemsImpersonationSession.EndedBy, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionsImpersonationSessionsImpersonationSessionListItemsImpersonationSession) GetEndedBy() *string {
+	return v.ImpersonationSessionFields.EndedBy
+}
+
+// GetIsActive returns ImpersonationSessionsImpersonationSessionsImpersonationSessionListItemsImpersonationSession.IsActive, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionsImpersonationSessionsImpersonationSessionListItemsImpersonationSession) GetIsActive() bool {
+	return v.ImpersonationSessionFields.IsActive
+}
+
+// GetReason returns ImpersonationSessionsImpersonationSessionsImpersonationSessionListItemsImpersonationSession.Reason, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionsImpersonationSessionsImpersonationSessionListItemsImpersonationSession) GetReason() *string {
+	return v.ImpersonationSessionFields.Reason
+}
+
+// GetAdminUser returns ImpersonationSessionsImpersonationSessionsImpersonationSessionListItemsImpersonationSession.AdminUser, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionsImpersonationSessionsImpersonationSessionListItemsImpersonationSession) GetAdminUser() *ImpersonationSessionFieldsAdminUser {
+	return v.ImpersonationSessionFields.AdminUser
+}
+
+// GetTargetUser returns ImpersonationSessionsImpersonationSessionsImpersonationSessionListItemsImpersonationSession.TargetUser, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionsImpersonationSessionsImpersonationSessionListItemsImpersonationSession) GetTargetUser() *ImpersonationSessionFieldsTargetUser {
+	return v.ImpersonationSessionFields.TargetUser
+}
+
+// GetOrganization returns ImpersonationSessionsImpersonationSessionsImpersonationSessionListItemsImpersonationSession.Organization, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionsImpersonationSessionsImpersonationSessionListItemsImpersonationSession) GetOrganization() *ImpersonationSessionFieldsOrganization {
+	return v.ImpersonationSessionFields.Organization
+}
+
+func (v *ImpersonationSessionsImpersonationSessionsImpersonationSessionListItemsImpersonationSession) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ImpersonationSessionsImpersonationSessionsImpersonationSessionListItemsImpersonationSession
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ImpersonationSessionsImpersonationSessionsImpersonationSessionListItemsImpersonationSession = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ImpersonationSessionFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalImpersonationSessionsImpersonationSessionsImpersonationSessionListItemsImpersonationSession struct {
+	Id string `json:"id"`
+
+	CreatedAt string `json:"createdAt"`
+
+	ExpiresAt string `json:"expiresAt"`
+
+	EndedAt *string `json:"endedAt"`
+
+	EndedBy *string `json:"endedBy"`
+
+	IsActive bool `json:"isActive"`
+
+	Reason *string `json:"reason"`
+
+	AdminUser *ImpersonationSessionFieldsAdminUser `json:"adminUser"`
+
+	TargetUser *ImpersonationSessionFieldsTargetUser `json:"targetUser"`
+
+	Organization *ImpersonationSessionFieldsOrganization `json:"organization"`
+}
+
+func (v *ImpersonationSessionsImpersonationSessionsImpersonationSessionListItemsImpersonationSession) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ImpersonationSessionsImpersonationSessionsImpersonationSessionListItemsImpersonationSession) __premarshalJSON() (*__premarshalImpersonationSessionsImpersonationSessionsImpersonationSessionListItemsImpersonationSession, error) {
+	var retval __premarshalImpersonationSessionsImpersonationSessionsImpersonationSessionListItemsImpersonationSession
+
+	retval.Id = v.ImpersonationSessionFields.Id
+	retval.CreatedAt = v.ImpersonationSessionFields.CreatedAt
+	retval.ExpiresAt = v.ImpersonationSessionFields.ExpiresAt
+	retval.EndedAt = v.ImpersonationSessionFields.EndedAt
+	retval.EndedBy = v.ImpersonationSessionFields.EndedBy
+	retval.IsActive = v.ImpersonationSessionFields.IsActive
+	retval.Reason = v.ImpersonationSessionFields.Reason
+	retval.AdminUser = v.ImpersonationSessionFields.AdminUser
+	retval.TargetUser = v.ImpersonationSessionFields.TargetUser
+	retval.Organization = v.ImpersonationSessionFields.Organization
+	return &retval, nil
+}
+
+// ImpersonationSessionsResponse is returned by ImpersonationSessions on success.
+type ImpersonationSessionsResponse struct {
+	// Uniform paginated admin-impersonation audit list (createdAt-desc).
+	// Platform admins may omit orgId (unscoped); everyone else must name an
+	// org they are a live ADMIN/OWNER of. filter.activeOnly keeps only
+	// currently-live sessions. limit default 20 / cap 200.
+	ImpersonationSessions *ImpersonationSessionsImpersonationSessionsImpersonationSessionList `json:"impersonationSessions"`
+}
+
+// GetImpersonationSessions returns ImpersonationSessionsResponse.ImpersonationSessions, and is useful for accessing the field via an interface.
+func (v *ImpersonationSessionsResponse) GetImpersonationSessions() *ImpersonationSessionsImpersonationSessionsImpersonationSessionList {
+	return v.ImpersonationSessions
+}
+
 // ImportNodeImportNodeImportNodeResult includes the requested fields of the GraphQL type ImportNodeResult.
 type ImportNodeImportNodeImportNodeResult struct {
 	Status ImportNodeStatus `json:"status"`
@@ -42501,6 +42970,11 @@ func (v *MyUserApiKeysMyUserApiKeysUserApiKey) GetRevokedAt() *string {
 	return v.UserApiKeyFields.RevokedAt
 }
 
+// GetHiddenAt returns MyUserApiKeysMyUserApiKeysUserApiKey.HiddenAt, and is useful for accessing the field via an interface.
+func (v *MyUserApiKeysMyUserApiKeysUserApiKey) GetHiddenAt() *string {
+	return v.UserApiKeyFields.HiddenAt
+}
+
 func (v *MyUserApiKeysMyUserApiKeysUserApiKey) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -42540,6 +43014,8 @@ type __premarshalMyUserApiKeysMyUserApiKeysUserApiKey struct {
 	LastUsedAt *string `json:"lastUsedAt"`
 
 	RevokedAt *string `json:"revokedAt"`
+
+	HiddenAt *string `json:"hiddenAt"`
 }
 
 func (v *MyUserApiKeysMyUserApiKeysUserApiKey) MarshalJSON() ([]byte, error) {
@@ -42560,6 +43036,7 @@ func (v *MyUserApiKeysMyUserApiKeysUserApiKey) __premarshalJSON() (*__premarshal
 	retval.CreatedAt = v.UserApiKeyFields.CreatedAt
 	retval.LastUsedAt = v.UserApiKeyFields.LastUsedAt
 	retval.RevokedAt = v.UserApiKeyFields.RevokedAt
+	retval.HiddenAt = v.UserApiKeyFields.HiddenAt
 	return &retval, nil
 }
 
@@ -52629,6 +53106,9 @@ func (v *RevokeUserApiKeyRevokeUserApiKey) GetRevokedAt() *string {
 	return v.UserApiKeyFields.RevokedAt
 }
 
+// GetHiddenAt returns RevokeUserApiKeyRevokeUserApiKey.HiddenAt, and is useful for accessing the field via an interface.
+func (v *RevokeUserApiKeyRevokeUserApiKey) GetHiddenAt() *string { return v.UserApiKeyFields.HiddenAt }
+
 func (v *RevokeUserApiKeyRevokeUserApiKey) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -52668,6 +53148,8 @@ type __premarshalRevokeUserApiKeyRevokeUserApiKey struct {
 	LastUsedAt *string `json:"lastUsedAt"`
 
 	RevokedAt *string `json:"revokedAt"`
+
+	HiddenAt *string `json:"hiddenAt"`
 }
 
 func (v *RevokeUserApiKeyRevokeUserApiKey) MarshalJSON() ([]byte, error) {
@@ -52688,6 +53170,7 @@ func (v *RevokeUserApiKeyRevokeUserApiKey) __premarshalJSON() (*__premarshalRevo
 	retval.CreatedAt = v.UserApiKeyFields.CreatedAt
 	retval.LastUsedAt = v.UserApiKeyFields.LastUsedAt
 	retval.RevokedAt = v.UserApiKeyFields.RevokedAt
+	retval.HiddenAt = v.UserApiKeyFields.HiddenAt
 	return &retval, nil
 }
 
@@ -57263,6 +57746,139 @@ func (v *SetTeamStopSignalInput) GetUntil() *string { return v.Until }
 
 // GetWorker returns SetTeamStopSignalInput.Worker, and is useful for accessing the field via an interface.
 func (v *SetTeamStopSignalInput) GetWorker() *string { return v.Worker }
+
+// SetUserApiKeyHiddenResponse is returned by SetUserApiKeyHidden on success.
+type SetUserApiKeyHiddenResponse struct {
+	// #2298: hide (or unhide) one of the caller's own REVOKED API keys in the default
+	// myUserApiKeys list. Hiding an active key is refused with BAD_USER_INPUT,
+	// reason KEY_ACTIVE, and changes nothing. Idempotent: the first hiddenAt is kept.
+	// Touches no validity, revocation time, lineage or descendant. Same authority as
+	// revokeUserApiKey (own user only; unknown and foreign ids are NOT_FOUND).
+	SetUserApiKeyHidden *SetUserApiKeyHiddenSetUserApiKeyHiddenUserApiKey `json:"setUserApiKeyHidden"`
+}
+
+// GetSetUserApiKeyHidden returns SetUserApiKeyHiddenResponse.SetUserApiKeyHidden, and is useful for accessing the field via an interface.
+func (v *SetUserApiKeyHiddenResponse) GetSetUserApiKeyHidden() *SetUserApiKeyHiddenSetUserApiKeyHiddenUserApiKey {
+	return v.SetUserApiKeyHidden
+}
+
+// SetUserApiKeyHiddenSetUserApiKeyHiddenUserApiKey includes the requested fields of the GraphQL type UserApiKey.
+// The GraphQL type's documentation follows.
+//
+// 025-oauth-for-mcp: user-scoped bearer-token credential. Mirrors the
+// AppKey shape but resolves to a User instead of an App. Surfaced to
+// the portal revocation UI (Phase 3) so users can audit + revoke
+// their own keys. userId is intentionally absent — for self-service
+// v1 the caller is always the owner; admin-tooling auditability is
+// out of scope (see contracts/graphql-mutations.md, PR-137 delta D1).
+type SetUserApiKeyHiddenSetUserApiKeyHiddenUserApiKey struct {
+	UserApiKeyFields `json:"-"`
+}
+
+// GetId returns SetUserApiKeyHiddenSetUserApiKeyHiddenUserApiKey.Id, and is useful for accessing the field via an interface.
+func (v *SetUserApiKeyHiddenSetUserApiKeyHiddenUserApiKey) GetId() string {
+	return v.UserApiKeyFields.Id
+}
+
+// GetLabel returns SetUserApiKeyHiddenSetUserApiKeyHiddenUserApiKey.Label, and is useful for accessing the field via an interface.
+func (v *SetUserApiKeyHiddenSetUserApiKeyHiddenUserApiKey) GetLabel() *string {
+	return v.UserApiKeyFields.Label
+}
+
+// GetKeyPreview returns SetUserApiKeyHiddenSetUserApiKeyHiddenUserApiKey.KeyPreview, and is useful for accessing the field via an interface.
+func (v *SetUserApiKeyHiddenSetUserApiKeyHiddenUserApiKey) GetKeyPreview() string {
+	return v.UserApiKeyFields.KeyPreview
+}
+
+// GetIssuedVia returns SetUserApiKeyHiddenSetUserApiKeyHiddenUserApiKey.IssuedVia, and is useful for accessing the field via an interface.
+func (v *SetUserApiKeyHiddenSetUserApiKeyHiddenUserApiKey) GetIssuedVia() *string {
+	return v.UserApiKeyFields.IssuedVia
+}
+
+// GetCreatedAt returns SetUserApiKeyHiddenSetUserApiKeyHiddenUserApiKey.CreatedAt, and is useful for accessing the field via an interface.
+func (v *SetUserApiKeyHiddenSetUserApiKeyHiddenUserApiKey) GetCreatedAt() string {
+	return v.UserApiKeyFields.CreatedAt
+}
+
+// GetLastUsedAt returns SetUserApiKeyHiddenSetUserApiKeyHiddenUserApiKey.LastUsedAt, and is useful for accessing the field via an interface.
+func (v *SetUserApiKeyHiddenSetUserApiKeyHiddenUserApiKey) GetLastUsedAt() *string {
+	return v.UserApiKeyFields.LastUsedAt
+}
+
+// GetRevokedAt returns SetUserApiKeyHiddenSetUserApiKeyHiddenUserApiKey.RevokedAt, and is useful for accessing the field via an interface.
+func (v *SetUserApiKeyHiddenSetUserApiKeyHiddenUserApiKey) GetRevokedAt() *string {
+	return v.UserApiKeyFields.RevokedAt
+}
+
+// GetHiddenAt returns SetUserApiKeyHiddenSetUserApiKeyHiddenUserApiKey.HiddenAt, and is useful for accessing the field via an interface.
+func (v *SetUserApiKeyHiddenSetUserApiKeyHiddenUserApiKey) GetHiddenAt() *string {
+	return v.UserApiKeyFields.HiddenAt
+}
+
+func (v *SetUserApiKeyHiddenSetUserApiKeyHiddenUserApiKey) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*SetUserApiKeyHiddenSetUserApiKeyHiddenUserApiKey
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.SetUserApiKeyHiddenSetUserApiKeyHiddenUserApiKey = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.UserApiKeyFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalSetUserApiKeyHiddenSetUserApiKeyHiddenUserApiKey struct {
+	Id string `json:"id"`
+
+	Label *string `json:"label"`
+
+	KeyPreview string `json:"keyPreview"`
+
+	IssuedVia *string `json:"issuedVia"`
+
+	CreatedAt string `json:"createdAt"`
+
+	LastUsedAt *string `json:"lastUsedAt"`
+
+	RevokedAt *string `json:"revokedAt"`
+
+	HiddenAt *string `json:"hiddenAt"`
+}
+
+func (v *SetUserApiKeyHiddenSetUserApiKeyHiddenUserApiKey) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *SetUserApiKeyHiddenSetUserApiKeyHiddenUserApiKey) __premarshalJSON() (*__premarshalSetUserApiKeyHiddenSetUserApiKeyHiddenUserApiKey, error) {
+	var retval __premarshalSetUserApiKeyHiddenSetUserApiKeyHiddenUserApiKey
+
+	retval.Id = v.UserApiKeyFields.Id
+	retval.Label = v.UserApiKeyFields.Label
+	retval.KeyPreview = v.UserApiKeyFields.KeyPreview
+	retval.IssuedVia = v.UserApiKeyFields.IssuedVia
+	retval.CreatedAt = v.UserApiKeyFields.CreatedAt
+	retval.LastUsedAt = v.UserApiKeyFields.LastUsedAt
+	retval.RevokedAt = v.UserApiKeyFields.RevokedAt
+	retval.HiddenAt = v.UserApiKeyFields.HiddenAt
+	return &retval, nil
+}
 
 type SetWorkerAvailabilityInput struct {
 	AppRef *string `json:"appRef"`
@@ -74692,6 +75308,9 @@ type UserApiKeyFields struct {
 	CreatedAt  string  `json:"createdAt"`
 	LastUsedAt *string `json:"lastUsedAt"`
 	RevokedAt  *string `json:"revokedAt"`
+	// #2298: when the owner hid this revoked key from their default list; null when
+	// visible. Display state only: it never affects validity, revocation or lineage.
+	HiddenAt *string `json:"hiddenAt"`
 }
 
 // GetId returns UserApiKeyFields.Id, and is useful for accessing the field via an interface.
@@ -74714,6 +75333,9 @@ func (v *UserApiKeyFields) GetLastUsedAt() *string { return v.LastUsedAt }
 
 // GetRevokedAt returns UserApiKeyFields.RevokedAt, and is useful for accessing the field via an interface.
 func (v *UserApiKeyFields) GetRevokedAt() *string { return v.RevokedAt }
+
+// GetHiddenAt returns UserApiKeyFields.HiddenAt, and is useful for accessing the field via an interface.
+func (v *UserApiKeyFields) GetHiddenAt() *string { return v.HiddenAt }
 
 // The identity fields (identityProvider/githubId/externalId/externalAppId)
 // are load-bearing for duplicate-account triage: `user merge` folds a
@@ -80550,6 +81172,18 @@ type __DeleteTickerInput struct {
 // GetRef returns __DeleteTickerInput.Ref, and is useful for accessing the field via an interface.
 func (v *__DeleteTickerInput) GetRef() string { return v.Ref }
 
+// __DeleteUserInput is used internally by genqlient
+type __DeleteUserInput struct {
+	Reason  *string `json:"reason,omitempty"`
+	UserRef *string `json:"userRef,omitempty"`
+}
+
+// GetReason returns __DeleteUserInput.Reason, and is useful for accessing the field via an interface.
+func (v *__DeleteUserInput) GetReason() *string { return v.Reason }
+
+// GetUserRef returns __DeleteUserInput.UserRef, and is useful for accessing the field via an interface.
+func (v *__DeleteUserInput) GetUserRef() *string { return v.UserRef }
+
 // __DeleteWorkerInput is used internally by genqlient
 type __DeleteWorkerInput struct {
 	WorkerRef                    string `json:"workerRef"`
@@ -81288,6 +81922,34 @@ type __HostRegistrationsInput struct {
 // GetAppRef returns __HostRegistrationsInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__HostRegistrationsInput) GetAppRef() string { return v.AppRef }
 
+// __ImpersonationSessionInput is used internally by genqlient
+type __ImpersonationSessionInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __ImpersonationSessionInput.Ref, and is useful for accessing the field via an interface.
+func (v *__ImpersonationSessionInput) GetRef() string { return v.Ref }
+
+// __ImpersonationSessionsInput is used internally by genqlient
+type __ImpersonationSessionsInput struct {
+	OrgId  *string                     `json:"orgId,omitempty"`
+	Filter *ImpersonationSessionFilter `json:"filter,omitempty"`
+	Limit  *int                        `json:"limit,omitempty"`
+	Offset *int                        `json:"offset,omitempty"`
+}
+
+// GetOrgId returns __ImpersonationSessionsInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__ImpersonationSessionsInput) GetOrgId() *string { return v.OrgId }
+
+// GetFilter returns __ImpersonationSessionsInput.Filter, and is useful for accessing the field via an interface.
+func (v *__ImpersonationSessionsInput) GetFilter() *ImpersonationSessionFilter { return v.Filter }
+
+// GetLimit returns __ImpersonationSessionsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__ImpersonationSessionsInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __ImpersonationSessionsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__ImpersonationSessionsInput) GetOffset() *int { return v.Offset }
+
 // __ImportNodeInput is used internally by genqlient
 type __ImportNodeInput struct {
 	Input *ImportNodeInput `json:"input,omitempty"`
@@ -81737,6 +82399,14 @@ func (v *__MoveNodeInput) GetTargetUrn() *string { return v.TargetUrn }
 
 // GetTargetMemoryRef returns __MoveNodeInput.TargetMemoryRef, and is useful for accessing the field via an interface.
 func (v *__MoveNodeInput) GetTargetMemoryRef() *string { return v.TargetMemoryRef }
+
+// __MyUserApiKeysInput is used internally by genqlient
+type __MyUserApiKeysInput struct {
+	IncludeHidden *bool `json:"includeHidden,omitempty"`
+}
+
+// GetIncludeHidden returns __MyUserApiKeysInput.IncludeHidden, and is useful for accessing the field via an interface.
+func (v *__MyUserApiKeysInput) GetIncludeHidden() *bool { return v.IncludeHidden }
 
 // __NextNodeInput is used internally by genqlient
 type __NextNodeInput struct {
@@ -82955,6 +83625,18 @@ func (v *__SetTeamPauseInput) GetAppRef() string { return v.AppRef }
 
 // GetPaused returns __SetTeamPauseInput.Paused, and is useful for accessing the field via an interface.
 func (v *__SetTeamPauseInput) GetPaused() bool { return v.Paused }
+
+// __SetUserApiKeyHiddenInput is used internally by genqlient
+type __SetUserApiKeyHiddenInput struct {
+	Id     string `json:"id"`
+	Hidden bool   `json:"hidden"`
+}
+
+// GetId returns __SetUserApiKeyHiddenInput.Id, and is useful for accessing the field via an interface.
+func (v *__SetUserApiKeyHiddenInput) GetId() string { return v.Id }
+
+// GetHidden returns __SetUserApiKeyHiddenInput.Hidden, and is useful for accessing the field via an interface.
+func (v *__SetUserApiKeyHiddenInput) GetHidden() bool { return v.Hidden }
 
 // __SetWorkerBootPromptInput is used internally by genqlient
 type __SetWorkerBootPromptInput struct {
@@ -89447,6 +90129,7 @@ fragment UserApiKeyFields on UserApiKey {
 	createdAt
 	lastUsedAt
 	revokedAt
+	hiddenAt
 }
 `
 
@@ -94517,6 +95200,7 @@ fragment UserApiKeyFields on UserApiKey {
 	createdAt
 	lastUsedAt
 	revokedAt
+	hiddenAt
 }
 `
 
@@ -95712,6 +96396,44 @@ func DeleteTicker(
 	}
 
 	data_ = &DeleteTickerResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteUser.
+const DeleteUser_Operation = `
+mutation DeleteUser ($reason: String, $userRef: ID) {
+	deleteUser(reason: $reason, userRef: $userRef)
+}
+`
+
+// Delete a user account (#1344). Omitting userRef deletes the CALLER's own
+// account; naming one is for a platform ADMIN/OWNER. Both variables carry
+// omitempty: an omitted field means "the caller / no reason", an explicit null
+// is not the same request.
+func DeleteUser(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	reason *string,
+	userRef *string,
+) (data_ *DeleteUserResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteUser",
+		Query:  DeleteUser_Operation,
+		Variables: &__DeleteUserInput{
+			Reason:  reason,
+			UserRef: userRef,
+		},
+	}
+
+	data_ = &DeleteUserResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -99049,6 +99771,133 @@ func HostRegistrations(
 	return data_, err_
 }
 
+// The query executed by ImpersonationSession.
+const ImpersonationSession_Operation = `
+query ImpersonationSession ($ref: ID!) {
+	impersonationSession(ref: $ref) {
+		... ImpersonationSessionFields
+	}
+}
+fragment ImpersonationSessionFields on ImpersonationSession {
+	id
+	createdAt
+	expiresAt
+	endedAt
+	endedBy
+	isActive
+	reason
+	adminUser {
+		id
+		handle
+		name
+	}
+	targetUser {
+		id
+		handle
+		name
+	}
+	organization {
+		id
+		urn
+		name
+	}
+}
+`
+
+func ImpersonationSession(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *ImpersonationSessionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ImpersonationSession",
+		Query:  ImpersonationSession_Operation,
+		Variables: &__ImpersonationSessionInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &ImpersonationSessionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by ImpersonationSessions.
+const ImpersonationSessions_Operation = `
+query ImpersonationSessions ($orgId: String, $filter: ImpersonationSessionFilter, $limit: Int, $offset: Int) {
+	impersonationSessions(orgId: $orgId, filter: $filter, limit: $limit, offset: $offset) {
+		total
+		items {
+			... ImpersonationSessionFields
+		}
+	}
+}
+fragment ImpersonationSessionFields on ImpersonationSession {
+	id
+	createdAt
+	expiresAt
+	endedAt
+	endedBy
+	isActive
+	reason
+	adminUser {
+		id
+		handle
+		name
+	}
+	targetUser {
+		id
+		handle
+		name
+	}
+	organization {
+		id
+		urn
+		name
+	}
+}
+`
+
+// orgId and filter are optional (a platform admin may omit orgId); omitempty so
+// an unset flag is absent from the request, never a null.
+func ImpersonationSessions(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgId *string,
+	filter *ImpersonationSessionFilter,
+	limit *int,
+	offset *int,
+) (data_ *ImpersonationSessionsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ImpersonationSessions",
+		Query:  ImpersonationSessions_Operation,
+		Variables: &__ImpersonationSessionsInput{
+			OrgId:  orgId,
+			Filter: filter,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &ImpersonationSessionsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by ImportNode.
 const ImportNode_Operation = `
 mutation ImportNode ($input: ImportNodeInput!) {
@@ -101073,8 +101922,8 @@ func MyApp(
 
 // The query executed by MyUserApiKeys.
 const MyUserApiKeys_Operation = `
-query MyUserApiKeys {
-	myUserApiKeys {
+query MyUserApiKeys ($includeHidden: Boolean) {
+	myUserApiKeys(includeHidden: $includeHidden) {
 		... UserApiKeyFields
 	}
 }
@@ -101086,16 +101935,23 @@ fragment UserApiKeyFields on UserApiKey {
 	createdAt
 	lastUsedAt
 	revokedAt
+	hiddenAt
 }
 `
 
+// includeHidden carries omitempty: false is the server default, so it is left
+// out rather than sent, and a hidden key stays hidden unless asked for (#1344).
 func MyUserApiKeys(
 	ctx_ context.Context,
 	client_ graphql.Client,
+	includeHidden *bool,
 ) (data_ *MyUserApiKeysResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "MyUserApiKeys",
 		Query:  MyUserApiKeys_Operation,
+		Variables: &__MyUserApiKeysInput{
+			IncludeHidden: includeHidden,
+		},
 	}
 
 	data_ = &MyUserApiKeysResponse{}
@@ -104631,6 +105487,7 @@ fragment UserApiKeyFields on UserApiKey {
 	createdAt
 	lastUsedAt
 	revokedAt
+	hiddenAt
 }
 `
 
@@ -106237,6 +107094,54 @@ func SetTeamPause(
 	}
 
 	data_ = &SetTeamPauseResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by SetUserApiKeyHidden.
+const SetUserApiKeyHidden_Operation = `
+mutation SetUserApiKeyHidden ($id: ID!, $hidden: Boolean!) {
+	setUserApiKeyHidden(id: $id, hidden: $hidden) {
+		... UserApiKeyFields
+	}
+}
+fragment UserApiKeyFields on UserApiKey {
+	id
+	label
+	keyPreview
+	issuedVia
+	createdAt
+	lastUsedAt
+	revokedAt
+	hiddenAt
+}
+`
+
+// Hide or unhide one of the caller's OWN revoked keys in the default list.
+// Display state only; hiding an active key is refused (KEY_ACTIVE).
+func SetUserApiKeyHidden(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	hidden bool,
+) (data_ *SetUserApiKeyHiddenResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SetUserApiKeyHidden",
+		Query:  SetUserApiKeyHidden_Operation,
+		Variables: &__SetUserApiKeyHiddenInput{
+			Id:     id,
+			Hidden: hidden,
+		},
+	}
+
+	data_ = &SetUserApiKeyHiddenResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
