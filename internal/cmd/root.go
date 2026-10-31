@@ -435,6 +435,10 @@ func renderError(f *cmdutil.Factory, err error) int {
 				}
 			}
 			fmt.Fprintf(f.IOStreams.ErrOut, "hadron: %s\n", message)
+			// cli#1264: a clone refusal's blockers, one per line, after the answer.
+			for _, line := range api.CloneAgentBlockerLines(err) {
+				fmt.Fprintf(f.IOStreams.ErrOut, "  %s\n", line)
+			}
 		}
 	}
 	return code
