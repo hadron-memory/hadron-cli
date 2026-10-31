@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -62,8 +63,9 @@ func TestSpecCopiedPrefixCorrectedTitleHint(t *testing.T) {
 		{"  qa:api:010:04 —   Burst allowance  ", "Burst allowance"},
 		{"qa:api:010:04 — qa:api:010:04 — Burst allowance", "Burst allowance"},
 		{"qa:api:010:04 — W4 — 7d check-in", "W4 — 7d check-in"},
+		{"qa:api:010:04 — Send", "Send"}, // a safe single word stays bare
 	} {
-		want := `--title is the text AFTER the citation: "qa:api:010:04 — " is added automatically, so drop it from the value: --title '` + tc.want + `'`
+		want := `--title is the text AFTER the citation: "qa:api:010:04 — " is added automatically, so drop it from the value: --title ` + cmdutil.ShellQuote(tc.want)
 		for name, err := range map[string]error{
 			"new":  refuseNewTitlePrefix(tc.title, loc),
 			"edit": validateEditTitle(tc.title, loc),
@@ -79,7 +81,7 @@ func TestSpecCopiedPrefixCorrectedTitleHint(t *testing.T) {
 }
 
 // #1376 (Baloo P2): the hint is a shell fragment people paste, so the
-// corrected title is single-quoted for a POSIX shell, never Go-quoted: a
+// corrected title is quoted for a POSIX shell (cmdutil.ShellQuote), never Go-quoted: a
 // pasted $HOME, $(...), backquote or quote must reach --title unchanged.
 // Each case is round-tripped through a real sh.
 func TestSpecCopiedPrefixHintIsShellSafe(t *testing.T) {
