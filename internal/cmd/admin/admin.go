@@ -150,12 +150,15 @@ reason, createdAt, expiresAt, endedAt, endedBy and isActive; empty is [].`,
 				filter = &gen.ImpersonationSessionFilter{ActiveOnly: &active}
 			}
 			rows := []impersonationDTO{}
-			collect := func(items []*sessionNode) {
+			errIncomplete := exitcode.Newf(exitcode.Error, "the server returned an incomplete impersonation listing; not reporting it as empty")
+			collect := func(items []*sessionNode) error {
 				for _, it := range items {
-					if it != nil {
-						rows = append(rows, toImpersonationDTO(it.ImpersonationSessionFields))
+					if it == nil {
+						return errIncomplete
 					}
+					rows = append(rows, toImpersonationDTO(it.ImpersonationSessionFields))
 				}
+				return nil
 			}
 			if cmd.Flags().Changed("limit") || cmd.Flags().Changed("offset") {
 				var lim, off *int
@@ -169,8 +172,11 @@ reason, createdAt, expiresAt, endedAt, endedBy and isActive; empty is [].`,
 				if err != nil {
 					return api.MapErrorKeepingCode(err)
 				}
-				if resp != nil {
-					collect(resp.ImpersonationSessions.Items)
+				if resp == nil || resp.ImpersonationSessions == nil {
+					return errIncomplete
+				}
+				if err := collect(resp.ImpersonationSessions.Items); err != nil {
+					return err
 				}
 			} else {
 				items, err := api.CollectAll(func(limit, offset int) ([]*sessionNode, int, error) {
@@ -178,15 +184,17 @@ reason, createdAt, expiresAt, endedAt, endedBy and isActive; empty is [].`,
 					if err != nil {
 						return nil, 0, api.MapErrorKeepingCode(err)
 					}
-					if resp == nil {
-						return nil, 0, nil
+					if resp == nil || resp.ImpersonationSessions == nil {
+						return nil, 0, errIncomplete
 					}
 					return resp.ImpersonationSessions.Items, resp.ImpersonationSessions.Total, nil
 				})
 				if err != nil {
 					return err
 				}
-				collect(items)
+				if err := collect(items); err != nil {
+					return err
+				}
 			}
 			return output.Write(f.IOStreams, f.JSON, rows, func(w io.Writer) error {
 				t := output.NewTable(w, "ID", "ADMIN", "TARGET", "ORG", "STATE", "STARTED", "REASON")

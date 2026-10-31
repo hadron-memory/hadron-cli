@@ -3,6 +3,7 @@ package user
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -56,7 +57,7 @@ hadron auth logout to clear it. --json prints {"deleted": true, "user": <the
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			named := cmd.Flags().Changed("user")
-			if named && userRef == "" {
+			if named && strings.TrimSpace(userRef) == "" {
 				return exitcode.Newf(exitcode.Usage, "--user needs a user id, handle or hrn:user:<handle>; omit it to delete your own account")
 			}
 			if cmd.Flags().Changed("reason") && reason == "" {

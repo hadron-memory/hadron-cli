@@ -60,6 +60,15 @@ func TestUserDelete1344(t *testing.T) {
 		}
 	})
 
+	t.Run("whitespace-only --user is refused, never sent (server reads it as self)", func(t *testing.T) {
+		for _, ref := range []string{" ", "\t", "\n", " \t\n "} {
+			r := exec1344(t, ok, "DeleteUser", "user", "delete", "--user", ref, "--yes", "--json")
+			if r.err == nil || exitCodeFor(r.err) != 2 || r.vars != nil {
+				t.Errorf("--user %q: err=%v vars=%v", ref, r.err, r.vars)
+			}
+		}
+	})
+
 	t.Run("named user and reason are sent", func(t *testing.T) {
 		r := exec1344(t, ok, "DeleteUser", "user", "delete", "--user", "@old", "--reason", "GDPR request 42", "--yes", "--json")
 		if r.err != nil {
@@ -290,5 +299,22 @@ func TestAdminImpersonationGet1344(t *testing.T) {
 	n := exec1344(t, map[string]string{"ImpersonationSession": `{"data":{"impersonationSession":null}}`}, "ImpersonationSession", "admin", "impersonation", "get", "s9")
 	if n.err == nil || exitCodeFor(n.err) != 4 {
 		t.Fatalf("null session: %v", n.err)
+	}
+}
+
+func TestAdminImpersonationListIncomplete1344(t *testing.T) {
+	bodies := map[string]string{
+		"null data": `{"data":null}`,
+		"null page": `{"data":{"impersonationSessions":null}}`,
+		"null item": `{"data":{"impersonationSessions":{"total":1,"items":[null]}}}`,
+	}
+	for name, body := range bodies {
+		for _, args := range [][]string{{"--json"}, {"--limit", "1", "--json"}} {
+			r := exec1344(t, map[string]string{"ImpersonationSessions": body}, "ImpersonationSessions",
+				append([]string{"admin", "impersonation", "list"}, args...)...)
+			if r.err == nil || exitCodeFor(r.err) != 1 || strings.TrimSpace(r.out) == "[]" {
+				t.Errorf("%s %v: err=%v out=%q", name, args, r.err, r.out)
+			}
+		}
 	}
 }
