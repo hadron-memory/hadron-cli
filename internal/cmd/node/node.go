@@ -20,6 +20,12 @@ type nodeDTO struct {
 	LintWarnings **lintWarningPageDTO `json:"lintWarnings,omitempty"`
 	ID           string               `json:"id"`
 	URN          string               `json:"urn,omitempty"`
+	// ActionURN is the register entry's second address,
+	// hrn:action:<root>:<agent-slug>:<code> (hadron-server#2610, #1138). Computed
+	// by the server and null on every node that is not a register entry, so it
+	// is omitted rather than emitted empty — as is every surface that does not
+	// select it. The node URN beside it keeps resolving.
+	ActionURN string `json:"actionUrn,omitempty"`
 	// PortalURL is the server-built link that opens this node
 	// (hadron-server#881, cor:api:230:01) — the one to COPY when citing a node
 	// to a human, rather than assembling <origin>/app/u/<urn> yourself, which

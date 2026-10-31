@@ -982,6 +982,16 @@ Conventions:
   means it sits behind a proxy without its public base URL configured, so every
   absolute URL it emits points somewhere wrong. `hadron version` reports the CLI
   build instead and needs no network.
+- **`node get` accepts an action URN** (#1138, hadron-server#2610): a register
+  entry has a second address, `hrn:action:<root>:<agent-slug>:<code>`, and
+  `node get hrn:action:…` reads that entry's node (no `-m`; `-m` is ignored for
+  it). `--json` and the text read carry `actionUrn` (text: `action urn:`) when the
+  server computes one and omit it otherwise; the node `urn` is unchanged. A
+  foreign, missing or malformed action URN is one answer, exit 4 and no output
+  (the CLI adds no parse error of its own); the not-found hint names both URN
+  forms. In a multi-ref read an action URN is resolved to its node first (the
+  server's batch read refuses that kind), and one that names nothing is listed
+  in `unavailable` under your spelling (exit 4).
 - **`node get --json` carries `abstractOriginHash`** (#306, spec 032) — the
   content fingerprint recorded when the abstract was written, on the batched
   read as well as the single-ref one. The key is **always present**: `null` is

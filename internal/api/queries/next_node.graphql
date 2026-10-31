@@ -29,6 +29,7 @@ query NextNode(
     # worker's reason on a node is how a reader inherits a nullability that
     # cannot occur; it had leaked into three places before PR #526 swept it.
     urn
+    actionUrn
     portalUrl
     memoryId
     # The node's memory URN, so a caller naming a cross-memory target pays no GetMemory round trip (cli#463). Nullable: null when the caller may not read the memory record (hadron-server#2193) — fall back to memoryId, never slice or compose a URN locally.

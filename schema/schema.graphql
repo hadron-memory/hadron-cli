@@ -227,11 +227,6 @@ type Agent {
   systemMemoryId: String
 
   """
-  Templated Agent prompt. {{worker.name}}/{{worker.role}} bind to the Agent in chats or the named Worker in briefings; the old {{name}}/{{role}} tokens no longer bind (#1772).
-  """
-  systemPrompt: String
-
-  """
   #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15) - the id of the index node whose incoming,
   trigger-labelled edges list this Agent's own tasks, or null. Set or clear
   it with setAgentIndexRefs; read the Agent's whole task list with agentTaskList.
@@ -498,6 +493,12 @@ type AgentSubscription {
   userId: ID!
 }
 
+"""
+One piece of work a team App has assigned, or wants assigned
+(hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+ended; it never reads what the work is. Readable by the App's participants,
+workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+"""
 type AgentTask {
   appId: ID!
   assignedAt: DateTime
@@ -606,12 +607,6 @@ enum AgentTaskCreateStatus {
   PENDING
 }
 
-"""
-One piece of work a team App has assigned, or wants assigned
-(hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-ended; it never reads what the work is. Readable by the App's participants,
-workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
-"""
 type AgentTaskDependencyPage {
   hasMore: Boolean!
   items: [AgentTask!]!
@@ -1410,7 +1405,6 @@ type App {
   """
   sharedMemory: Memory
   surfaces: [String!]!
-  systemPrompt: String
 
   """
   #2138: when the whole team was paused (setTeamPause), or null. Separate from every worker's own pause.
@@ -1836,7 +1830,7 @@ type AppRun {
 
   """
   #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: the boot prompt this run was served. Readable by whoever may read the run; null for anyone
-  else, and while boot-prompt serving is off.
+  else.
   """
   servedPrompt: ServedPrompt
 
@@ -2605,10 +2599,9 @@ type CastWorkerPreview {
   name: String!
 
   """
-  The composed boot prompt, post {{worker.name}}/{{worker.role}} substitution with
-  promptOverride appended — the same composition Worker.prompt performs,
-  reviewable BEFORE the name is permanent. Null when the agent carries no
-  template and no override was given.
+  The boot prompt a bind of this casting would be served now, with the
+  name and role filled — reviewable BEFORE the name is permanent. Null when
+  no prompt can be served yet (no worker pointer exists before the cast).
   """
   prompt: String
   reportsToWorkerId: ID
@@ -2762,7 +2755,7 @@ type Chat {
   """
   #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: the boot prompt this chat was served, once at its start and again whenever its served
   revision changed. Readable only by whoever manages the App the chat runs in, never by its end user; everyone else
-  gets an empty page. Empty while boot-prompt serving is off.
+  gets an empty page.
   """
   servedPrompts(limit: Int, offset: Int): ServedPromptsPage!
   stageName: String
@@ -6601,7 +6594,6 @@ type Mutation {
     Set to true to record that the worker has no reporting head; do not supply reportsTo as well. Null or false is invalid. Omitting both arguments records no choice (UNSET) when omission is allowed; otherwise the request is refused with WORKER_TEAM_CHOICE_REQUIRED.
     """
     noTeam: Boolean
-    promptOverride: String
 
     """
     Worker reference to report to. Requires worker-staffing access and App management. Supply either reportsTo or noTeam: true, never both. Null or a blank reference is invalid. Returns WORKER_REPORTING_CAST_UNAVAILABLE when casting with a reporting head is unavailable.
@@ -6680,7 +6672,7 @@ type Mutation {
   CLONE_*); a source that keeps changing answers CONFLICT with reason AGENT_CLONE_SOURCE_CHANGED
   (retryable). target must be an organization.
   
-  Copied: name, description, systemPrompt, type, surfaces, usesTasks, registerDefaults, installationPolicy,
+  Copied: name, description, type, surfaces, usesTasks, registerDefaults, installationPolicy,
   memoryProvisioning, personaRole; the system memory graph (nodes, edges, pending edges) with the tasks and
   processes index pointers remapped; memory links (kept as links, not copied); imports and the base, re-pointed.
   NOT copied: visibility (the clone is PERSONAL), AI service config, boot-prompt pointers, node comments,
@@ -6792,9 +6784,11 @@ type Mutation {
   v2 — no @ sigil) and its system memory is user-owned too. Exactly one owner
   (org XOR user).
   
-  personaRole and systemPrompt are the persona dressing (cor:agt:020:01) —
-  the reusable role plus the '{{worker.name}}'-templated prompt. The NAMED
-  identity is a Worker, cast with castWorker; names never live on agents.
+  personaRole is the persona dressing (hrn:node:hadronmemory.com:specs:cor:agt:020:01), the reusable role.
+  A new Agent has no boot prompt: write its boot:source, compile it and
+  approve the compiled revision (hrn:node:hadronmemory.com:specs:cor:agt:040:10,
+  hrn:node:hadronmemory.com:specs:cor:agt:040:12). The NAMED identity is a
+  Worker, cast with castWorker; names never live on agents.
   
   orgId accepts the org's ID or URN.
   """
@@ -6811,7 +6805,6 @@ type Mutation {
     resetContextAfterTask: Boolean
     surfaces: [String!]
     systemMemoryId: String
-    systemPrompt: String
     type: AgentType
     usesTasks: Boolean
     visibility: AgentVisibility
@@ -6978,7 +6971,6 @@ type Mutation {
     role: AppMembershipRole
     sessionTimeoutSeconds: Int
     surfaces: [String!]
-    systemPrompt: String
     trainingMode: Boolean
     urn: String
   ): App!
@@ -8125,7 +8117,7 @@ type Mutation {
   CONTRIBUTOR+ on an org-owned App's org (platform admins included). NOT
   plain AppMembers: installing an existing Agent is itself a read grant on
   that Agent's design — its system memory becomes readable from every App
-  context, and the returned Agent carries its systemPrompt — so this gate
+  context, and the returned Agent carries its definition — so this gate
   stays at the level that can already read the org's Agents.
   
   Accepts the entity's ID or URN for both appRef and agentRef. Optional
@@ -9390,7 +9382,6 @@ type Mutation {
     resetContextAfterTask: Boolean
     surfaces: [String!]
     systemMemoryId: String
-    systemPrompt: String
     type: AgentType
     urn: String
     usesTasks: Boolean
@@ -9493,7 +9484,6 @@ type Mutation {
     sessionDormancyDays: Int
     sessionTimeoutSeconds: Int
     surfaces: [String!]
-    systemPrompt: String
     trainingMode: Boolean
     urn: String
   ): App!
@@ -9910,31 +9900,22 @@ type Mutation {
   updateUserRoles(roles: [Role!]!, userId: ID!): User!
 
   """
-  #1010 — amend a casting's individuality after the fact.
-  
-  `promptOverride` is the per-worker escape hatch (cor:agt:020:01), but it
-  could only be set at CASTING time — fixing a casting's individuality at the
-  one moment nobody yet knows what makes it individual. The role agent's
-  `systemPrompt` cannot stand in (it is SHARED by every casting of that
-  role), and re-casting is barred by `WORKER_IN_USE` for any worker that has
-  done work — precisely the ones with an identity to record.
+  #1010 — amend a casting's signature and trailer after the fact
+  (hrn:node:hadronmemory.com:specs:cor:agt:040:04). #2712 removed the per-worker
+  prompt override: a worker's own boot prompt is its compiled boot source
+  (hrn:node:hadronmemory.com:specs:cor:agt:040:06), changed by compile and approve.
   
   Signature/trailer edits require an App manager; a bound worker is provisionally refused (H26).
   Omitted preserves, null refuses, whitespace-only becomes empty text; other text is raw, max 2000 characters, no NUL.
   A mixed update is atomic. These values reach the next compose/bind via S4.
+  A retired worker refuses WORKER_RETIRED.
   
   `name` is permanent by law (hrn:node:hadronmemory.com:specs:cor:agt:020:02). The agent
-  (and with it the role) is changed by changeWorkerAgent, not here. OMITTING promptOverride
-  preserves it; explicit `null` or a blank string CLEARS it, matching the
-  nullable column and castWorker's blank-is-absent normalization.
-  
-  Refuses WORKER_RETIRED for a retired worker: an override is briefing text
-  delivered at bind time, and a retired worker takes no new bindings, so the
-  edit could never reach anyone.
-  
-  promptOverride alone keeps castWorker staffing authorization. workerRef is the worker's id or URN (#991).
+  (and with it the role) is changed by changeWorkerAgent, not here. A call naming
+  neither field changes nothing and keeps castWorker staffing authorization.
+  workerRef is the worker's id or URN (#991).
   """
-  updateWorker(promptOverride: String, signature: String, trailer: String, workerRef: ID!): Worker!
+  updateWorker(signature: String, trailer: String, workerRef: ID!): Worker!
 
   """
   #1641 — withdraw a decision (terminal; the code stays consumed): the asker or a decider, a decider once answered. DECIDED ones are superseded instead (DECISION_ANSWERED_DECIDED).
@@ -9957,6 +9938,27 @@ type Node {
   Spec 032 — fingerprint of the content value at the time abstract was authored. SHA-256 of plaintext content, truncated to 8 hex chars. Compared at read time against computeContentHash(node.content) to detect staleness: the abstract may not reflect current content when the two differ, OR when this is NULL on a node that has both an abstract and content (#1128 — an abstract written before the body existed was never fingerprinted, so it has never been checked against it; that reads as unverified, not as verified). NULL is only a clean state when the node has no abstract, or no content for the abstract to describe. Note restoreNodeRevision restores this field verbatim, so restoring a snapshot taken while it was NULL reinstates the unverified state — correctly, since that abstract has never been checked against the restored content. System-managed; never settable via NodeInput.
   """
   abstractOriginHash: String
+
+  """
+  #2610 — this node's action URN (hrn:action:<root>:<agent-slug>:<code>, the
+  action-register address) when it is a register:<code> entry in an Agent's
+  system memory; null for every other node (a register: loc in a non-Agent
+  memory names no entry). Computed on read from the holding Agent's own URN —
+  never stored — and a second address beside urn: the node URN keeps
+  resolving. An unemittable stored code atom (charset/length) also reads as
+  null; the stored loc needs repair.
+  
+  Two deliberate asymmetries with resolveUrn's action arm (PR #2711 §10
+  review): (1) this field computes for ANY caller who can read the node —
+  including an App participant of an install — while the arm resolves only
+  under the agent arm's gate, so such a caller can SEE an address that does
+  not resolve FOR them (it resolves for the Agent's own tenant); the field
+  leaks nothing the node read didn't already grant. (2) After an Agent
+  rename this field shows the CURRENT slug (computed from the live Agent's
+  urn) while the urn field still shows the stored node URN until alias
+  healing catches up — the computed address is the fresher one on purpose.
+  """
+  actionUrn: String
   aiAgent: String
   alias: String
 
@@ -11843,7 +11845,6 @@ type Query {
     Set to true to record that the worker has no reporting head; do not supply reportsTo as well. Null or false is invalid. Omitting both arguments records no choice (UNSET) when omission is allowed; otherwise the request is refused with WORKER_TEAM_CHOICE_REQUIRED.
     """
     noTeam: Boolean
-    promptOverride: String
 
     """
     Worker reference to report to. Requires worker-staffing access and App management. Supply either reportsTo or noTeam: true, never both. Null or a blank reference is invalid. Returns WORKER_REPORTING_CAST_UNAVAILABLE when casting with a reporting head is unavailable.
@@ -12793,7 +12794,7 @@ type Query {
   is PUBLIC by definition).
   
   Field-level exposure: a PUBLIC agent publishes its OWN definition
-  (systemPrompt / systemMemoryId / memoryItems / imports) to every caller —
+  (systemMemoryId / memoryItems / imports) to every caller —
   that is what a marketplace listing is (#551). The fields that surface OTHER
   tenants (apps / appAgents / appCount / orgGrants / importedBy) are scoped to
   the caller's own access and come back empty for an outsider (#552, #757).
@@ -13338,17 +13339,18 @@ type Query {
   ): TeamWorkItemsPage!
 
   """
-  #1747 — one ticker by id or hrn:ticker: URN; null when it does not exist or the caller may not reach it.
+  #1747 — one ticker by id or hrn:ticker: URN; null when it does not exist or the caller may not reach it. #2931: a host key reaches only its host's tickers (hrn:node:hadronmemory.com:specs:cor:agt:070:04).
   """
   ticker(ref: String!): Ticker
 
   """
   #1747 — the live tickers of an App the caller participates in. An App the caller cannot reach reads as APP_NOT_FOUND (hrn:node:hadronmemory.com:specs:cor:agt:080:18).
+  #2931 — the App's own live host:operate key reads too, read only and never over MCP: only the tickers a worker its host registers subscribes to, each read recorded as a host-key use (hrn:node:hadronmemory.com:specs:cor:agt:070:04, hrn:node:hadronmemory.com:specs:cor:agt:070:07).
   """
   tickers(appRef: String!): [Ticker!]!
 
   """
-  #2213 — `tickers` as a page: the same App gate, rows and order, with the real total.
+  #2213 — `tickers` as a page: the same App gate, rows and order, with the real total (for a host key, #2931, its host's tickers).
   `limit` defaults to 20, 0 returns the count only, a negative limit is 0 and a limit
   over 200 is served as 200 (never refused). `offset` below 0 is 0.
   """
@@ -14739,7 +14741,7 @@ type Session {
 
   """
   #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: the boot prompt this session was served at its bind. Readable by whoever may read the
-  worker's internals; an empty page for anyone else, and while boot-prompt serving is off.
+  worker's internals; an empty page for anyone else.
   """
   servedPrompts(limit: Int, offset: Int): ServedPromptsPage!
   startedAt: DateTime!
@@ -16221,9 +16223,8 @@ type TeamPause {
 A role definition (#960): the roles:<role> node in the Team Agent's system
 memory. #1050: it carries no name register — a role is a definition, not an
 allocation pool.
-The prompt template is NOT here — with the Worker model (#974) it
-lives on the role-agent (personaRole + systemPrompt); roleAgent
-points at it.
+The boot prompt is NOT here — it is the role-agent's compiled boot prompt
+(hrn:node:hadronmemory.com:specs:cor:agt:040:07); roleAgent points at it.
 """
 type TeamRole {
   description: String
@@ -16612,7 +16613,9 @@ type Ticker {
   """Permanent: a re-created name gets a new slug (engineering-2)."""
   slug: String!
 
-  """Live subscriptions."""
+  """
+  Live subscriptions. #2931: an App key sees only those of the workers its host registers (hrn:node:hadronmemory.com:specs:cor:agt:080:22).
+  """
   subscribers(after: String, first: Int): TickerSubscriptionPage!
 
   """
@@ -17357,7 +17360,7 @@ type Worker {
   so binding is handoff) and by the worker read, which is the recovery path
   after a context compaction — the reader who has most lost the handoff and
   least knows one exists. Working-state field: behind the worker read gate,
-  masked to null on deny, like prompt/promptOverride/memoryId.
+  masked to null on deny, like prompt/memoryId.
   """
   continuity: WorkerContinuity
   createdAt: DateTime!
@@ -17422,7 +17425,7 @@ type Worker {
   while a live session is only ever a question about your own worker.
   
   WORKING-STATE field, behind the worker read gate and masked to null on
-  deny — like promptOverride and memoryId, and NOT like name/role/urn.
+  deny — like memoryId, and NOT like name/role/urn.
   Session.worker reaches a Worker row through a wider gate that admits any
   org member and survives a user leaving the App, so an ungated holder would
   let a former member read current staffing off a historical session.
@@ -17488,10 +17491,9 @@ type Worker {
   portalUrl: String
 
   """
-  The worker's boot prompt, resolved: the agent's systemPrompt template
-  with {{worker.name}}/{{worker.role}} bound, then promptOverride appended as its own
-  paragraph. Null when the agent carries no template and the worker no
-  override.
+  The worker's boot prompt: the approved revision of the compiled boot
+  prompt a bind of this worker is served (hrn:node:hadronmemory.com:specs:cor:agt:040:07),
+  with the platform variables filled. Null when no prompt can be served.
   """
   prompt: String
 
@@ -17499,9 +17501,6 @@ type Worker {
   Current lint of the compiled revision recorded for the open session; null when unavailable.
   """
   promptLintWarnings(after: String, first: Int = 50): LintWarningPage
-
-  """Per-worker individuality layered over the agent's template prompt."""
-  promptOverride: String
 
   """#1726 — the Worker named by reportsToWorkerId; masked likewise."""
   reportsTo: Worker
@@ -17527,7 +17526,7 @@ type Worker {
   does not enforce a repo-affinity refusal.
   
   WORKING-STATE field: behind the worker read gate and masked to [] on deny,
-  like promptOverride and the holder — Session.worker reaches a Worker
+  like memoryId and the holder — Session.worker reaches a Worker
   through a wider gate that admits any org member and survives a user leaving
   the App, so an ungated field would publish a team's repo list through any
   historical session.
@@ -17555,7 +17554,7 @@ type Worker {
 
   """
   #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: the boot prompt served to this worker's open session. Readable by whoever may read the worker's
-  internals; null for anyone else, when no session is open, and while boot-prompt serving is off.
+  internals; null for anyone else, and when no session is open.
   """
   servedPrompt: ServedPrompt
 
