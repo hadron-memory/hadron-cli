@@ -196,11 +196,11 @@ held back, never dropped.`,
 				// The server answers a ref it cannot resolve with silence (no
 				// existence oracle) and resolves no bare name, so the name is
 				// resolved here, where an unknown one is a loud not-found.
-				w, err := resolveWorker(ctx, client, scope.Ref, ref)
+				id, err := resolveWorkerID(ctx, client, scope.Ref, ref)
 				if err != nil {
 					return err
 				}
-				workerIDs = append(workerIDs, w.Id)
+				workerIDs = append(workerIDs, id)
 			}
 			var afterIn *string
 			var firstPtr *int

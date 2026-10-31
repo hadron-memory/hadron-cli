@@ -33350,6 +33350,306 @@ func (v *GetWorkerContinuityWorkerContinuityPreviousSessionWorkerContinuitySessi
 	return v.AutoExpiredAt
 }
 
+// GetWorkerIdInAppResponse is returned by GetWorkerIdInApp on success.
+type GetWorkerIdInAppResponse struct {
+	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
+	// NAME (#1015), the ergonomic handle a human already knows. The name form is
+	// ADDITIVE: it is activated by appRef, since a name is unique only within an
+	// App. Without appRef the ref must be an id or URN, and anything else refuses
+	// WORKER_NOT_FOUND as before. An id or URN wins over appRef rather than being
+	// checked against it, so a typo'd URN never degrades into a roster search.
+	//
+	// Selecting `prompt` re-renders the worker's boot briefing live from the
+	// role agent's template — the read that lets an agent recover a briefing it
+	// lost to a context compaction, instead of opening a second session or
+	// forcing a takeover of itself.
+	//
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	Worker *GetWorkerIdInAppWorker `json:"worker"`
+}
+
+// GetWorker returns GetWorkerIdInAppResponse.Worker, and is useful for accessing the field via an interface.
+func (v *GetWorkerIdInAppResponse) GetWorker() *GetWorkerIdInAppWorker { return v.Worker }
+
+// GetWorkerIdInAppWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type GetWorkerIdInAppWorker struct {
+	Id string `json:"id"`
+}
+
+// GetId returns GetWorkerIdInAppWorker.Id, and is useful for accessing the field via an interface.
+func (v *GetWorkerIdInAppWorker) GetId() string { return v.Id }
+
+// GetWorkerInAppResponse is returned by GetWorkerInApp on success.
+type GetWorkerInAppResponse struct {
+	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
+	// NAME (#1015), the ergonomic handle a human already knows. The name form is
+	// ADDITIVE: it is activated by appRef, since a name is unique only within an
+	// App. Without appRef the ref must be an id or URN, and anything else refuses
+	// WORKER_NOT_FOUND as before. An id or URN wins over appRef rather than being
+	// checked against it, so a typo'd URN never degrades into a roster search.
+	//
+	// Selecting `prompt` re-renders the worker's boot briefing live from the
+	// role agent's template — the read that lets an agent recover a briefing it
+	// lost to a context compaction, instead of opening a second session or
+	// forcing a takeover of itself.
+	//
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	Worker *GetWorkerInAppWorker `json:"worker"`
+}
+
+// GetWorker returns GetWorkerInAppResponse.Worker, and is useful for accessing the field via an interface.
+func (v *GetWorkerInAppResponse) GetWorker() *GetWorkerInAppWorker { return v.Worker }
+
+// GetWorkerInAppWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type GetWorkerInAppWorker struct {
+	WorkerFields `json:"-"`
+}
+
+// GetId returns GetWorkerInAppWorker.Id, and is useful for accessing the field via an interface.
+func (v *GetWorkerInAppWorker) GetId() string { return v.WorkerFields.Id }
+
+// GetUrn returns GetWorkerInAppWorker.Urn, and is useful for accessing the field via an interface.
+func (v *GetWorkerInAppWorker) GetUrn() *string { return v.WorkerFields.Urn }
+
+// GetPortalUrl returns GetWorkerInAppWorker.PortalUrl, and is useful for accessing the field via an interface.
+func (v *GetWorkerInAppWorker) GetPortalUrl() *string { return v.WorkerFields.PortalUrl }
+
+// GetSlug returns GetWorkerInAppWorker.Slug, and is useful for accessing the field via an interface.
+func (v *GetWorkerInAppWorker) GetSlug() string { return v.WorkerFields.Slug }
+
+// GetAppId returns GetWorkerInAppWorker.AppId, and is useful for accessing the field via an interface.
+func (v *GetWorkerInAppWorker) GetAppId() string { return v.WorkerFields.AppId }
+
+// GetAgentId returns GetWorkerInAppWorker.AgentId, and is useful for accessing the field via an interface.
+func (v *GetWorkerInAppWorker) GetAgentId() string { return v.WorkerFields.AgentId }
+
+// GetName returns GetWorkerInAppWorker.Name, and is useful for accessing the field via an interface.
+func (v *GetWorkerInAppWorker) GetName() string { return v.WorkerFields.Name }
+
+// GetReportsTo returns GetWorkerInAppWorker.ReportsTo, and is useful for accessing the field via an interface.
+func (v *GetWorkerInAppWorker) GetReportsTo() *WorkerFieldsReportsToWorker {
+	return v.WorkerFields.ReportsTo
+}
+
+// GetReportsToRetired returns GetWorkerInAppWorker.ReportsToRetired, and is useful for accessing the field via an interface.
+func (v *GetWorkerInAppWorker) GetReportsToRetired() bool { return v.WorkerFields.ReportsToRetired }
+
+// GetRole returns GetWorkerInAppWorker.Role, and is useful for accessing the field via an interface.
+func (v *GetWorkerInAppWorker) GetRole() *string { return v.WorkerFields.Role }
+
+// GetPrompt returns GetWorkerInAppWorker.Prompt, and is useful for accessing the field via an interface.
+func (v *GetWorkerInAppWorker) GetPrompt() *string { return v.WorkerFields.Prompt }
+
+// GetSignature returns GetWorkerInAppWorker.Signature, and is useful for accessing the field via an interface.
+func (v *GetWorkerInAppWorker) GetSignature() *string { return v.WorkerFields.Signature }
+
+// GetTrailer returns GetWorkerInAppWorker.Trailer, and is useful for accessing the field via an interface.
+func (v *GetWorkerInAppWorker) GetTrailer() *string { return v.WorkerFields.Trailer }
+
+// GetBootPromptRef returns GetWorkerInAppWorker.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *GetWorkerInAppWorker) GetBootPromptRef() *string { return v.WorkerFields.BootPromptRef }
+
+// GetBootPromptTargetDeleted returns GetWorkerInAppWorker.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *GetWorkerInAppWorker) GetBootPromptTargetDeleted() *bool {
+	return v.WorkerFields.BootPromptTargetDeleted
+}
+
+// GetRepos returns GetWorkerInAppWorker.Repos, and is useful for accessing the field via an interface.
+func (v *GetWorkerInAppWorker) GetRepos() []string { return v.WorkerFields.Repos }
+
+// GetMemoryId returns GetWorkerInAppWorker.MemoryId, and is useful for accessing the field via an interface.
+func (v *GetWorkerInAppWorker) GetMemoryId() *string { return v.WorkerFields.MemoryId }
+
+// GetFamily returns GetWorkerInAppWorker.Family, and is useful for accessing the field via an interface.
+func (v *GetWorkerInAppWorker) GetFamily() *string { return v.WorkerFields.Family }
+
+// GetHeldByUserId returns GetWorkerInAppWorker.HeldByUserId, and is useful for accessing the field via an interface.
+func (v *GetWorkerInAppWorker) GetHeldByUserId() *string { return v.WorkerFields.HeldByUserId }
+
+// GetHeldAt returns GetWorkerInAppWorker.HeldAt, and is useful for accessing the field via an interface.
+func (v *GetWorkerInAppWorker) GetHeldAt() *string { return v.WorkerFields.HeldAt }
+
+// GetHasLiveSession returns GetWorkerInAppWorker.HasLiveSession, and is useful for accessing the field via an interface.
+func (v *GetWorkerInAppWorker) GetHasLiveSession() *bool { return v.WorkerFields.HasLiveSession }
+
+// GetLastActiveAt returns GetWorkerInAppWorker.LastActiveAt, and is useful for accessing the field via an interface.
+func (v *GetWorkerInAppWorker) GetLastActiveAt() *string { return v.WorkerFields.LastActiveAt }
+
+// GetCheckStatus returns GetWorkerInAppWorker.CheckStatus, and is useful for accessing the field via an interface.
+func (v *GetWorkerInAppWorker) GetCheckStatus() *WorkerFieldsCheckStatusWorkerCheckStatus {
+	return v.WorkerFields.CheckStatus
+}
+
+// GetRetiredAt returns GetWorkerInAppWorker.RetiredAt, and is useful for accessing the field via an interface.
+func (v *GetWorkerInAppWorker) GetRetiredAt() *string { return v.WorkerFields.RetiredAt }
+
+// GetRetiredBy returns GetWorkerInAppWorker.RetiredBy, and is useful for accessing the field via an interface.
+func (v *GetWorkerInAppWorker) GetRetiredBy() *string { return v.WorkerFields.RetiredBy }
+
+// GetCreatedAt returns GetWorkerInAppWorker.CreatedAt, and is useful for accessing the field via an interface.
+func (v *GetWorkerInAppWorker) GetCreatedAt() string { return v.WorkerFields.CreatedAt }
+
+// GetCreatedBy returns GetWorkerInAppWorker.CreatedBy, and is useful for accessing the field via an interface.
+func (v *GetWorkerInAppWorker) GetCreatedBy() *string { return v.WorkerFields.CreatedBy }
+
+func (v *GetWorkerInAppWorker) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetWorkerInAppWorker
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetWorkerInAppWorker = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.WorkerFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetWorkerInAppWorker struct {
+	Id string `json:"id"`
+
+	Urn *string `json:"urn"`
+
+	PortalUrl *string `json:"portalUrl"`
+
+	Slug string `json:"slug"`
+
+	AppId string `json:"appId"`
+
+	AgentId string `json:"agentId"`
+
+	Name string `json:"name"`
+
+	ReportsTo *WorkerFieldsReportsToWorker `json:"reportsTo"`
+
+	ReportsToRetired bool `json:"reportsToRetired"`
+
+	Role *string `json:"role"`
+
+	Prompt *string `json:"prompt"`
+
+	Signature *string `json:"signature"`
+
+	Trailer *string `json:"trailer"`
+
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
+	Repos []string `json:"repos"`
+
+	MemoryId *string `json:"memoryId"`
+
+	Family *string `json:"family"`
+
+	HeldByUserId *string `json:"heldByUserId"`
+
+	HeldAt *string `json:"heldAt"`
+
+	HasLiveSession *bool `json:"hasLiveSession"`
+
+	LastActiveAt *string `json:"lastActiveAt"`
+
+	CheckStatus *WorkerFieldsCheckStatusWorkerCheckStatus `json:"checkStatus"`
+
+	RetiredAt *string `json:"retiredAt"`
+
+	RetiredBy *string `json:"retiredBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+}
+
+func (v *GetWorkerInAppWorker) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetWorkerInAppWorker) __premarshalJSON() (*__premarshalGetWorkerInAppWorker, error) {
+	var retval __premarshalGetWorkerInAppWorker
+
+	retval.Id = v.WorkerFields.Id
+	retval.Urn = v.WorkerFields.Urn
+	retval.PortalUrl = v.WorkerFields.PortalUrl
+	retval.Slug = v.WorkerFields.Slug
+	retval.AppId = v.WorkerFields.AppId
+	retval.AgentId = v.WorkerFields.AgentId
+	retval.Name = v.WorkerFields.Name
+	retval.ReportsTo = v.WorkerFields.ReportsTo
+	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
+	retval.Role = v.WorkerFields.Role
+	retval.Prompt = v.WorkerFields.Prompt
+	retval.Signature = v.WorkerFields.Signature
+	retval.Trailer = v.WorkerFields.Trailer
+	retval.BootPromptRef = v.WorkerFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.WorkerFields.BootPromptTargetDeleted
+	retval.Repos = v.WorkerFields.Repos
+	retval.MemoryId = v.WorkerFields.MemoryId
+	retval.Family = v.WorkerFields.Family
+	retval.HeldByUserId = v.WorkerFields.HeldByUserId
+	retval.HeldAt = v.WorkerFields.HeldAt
+	retval.HasLiveSession = v.WorkerFields.HasLiveSession
+	retval.LastActiveAt = v.WorkerFields.LastActiveAt
+	retval.CheckStatus = v.WorkerFields.CheckStatus
+	retval.RetiredAt = v.WorkerFields.RetiredAt
+	retval.RetiredBy = v.WorkerFields.RetiredBy
+	retval.CreatedAt = v.WorkerFields.CreatedAt
+	retval.CreatedBy = v.WorkerFields.CreatedBy
+	return &retval, nil
+}
+
 // GetWorkerProfileResponse is returned by GetWorkerProfile on success.
 type GetWorkerProfileResponse struct {
 	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
@@ -71690,6 +71990,39 @@ func (v *WorkerFieldsReportsToWorker) __premarshalJSON() (*__premarshalWorkerFie
 	return &retval, nil
 }
 
+// The LOOKUP projection (cli#1459, hadron-server#2970): what naming orca's
+// targets needs, and nothing else.
+//
+// Never add `prompt`, `signature` or `trailer` here. Each is one worker's
+// multi-KB detail: on a 100-worker App the full WorkerFields list was 3.4 MB
+// and ~13 s of server time per call, and every other request on the server
+// slowed while it was built. To find ONE worker by name use GetWorkerInApp.
+type WorkerLookupFields struct {
+	Id string `json:"id"`
+	// hrn:worker:<root>:<app-slug>:<slug> (#991) — computed from the App's URN
+	// plus `slug`, not stored. Accepted anywhere a workerRef is taken, and
+	// resolvable via Query.resolveUrn, so a client can address a worker without
+	// holding its id. Null only when the App's URN predates the flat grammar-v2
+	// shape this arity requires.
+	Urn *string `json:"urn"`
+	// The worker's name ('Iris') — the identity every surface renders.
+	Name string `json:"name"`
+	// Retirement instant — a retired worker stops authoring and takes no new sessions; the name stays reserved.
+	RetiredAt *string `json:"retiredAt"`
+}
+
+// GetId returns WorkerLookupFields.Id, and is useful for accessing the field via an interface.
+func (v *WorkerLookupFields) GetId() string { return v.Id }
+
+// GetUrn returns WorkerLookupFields.Urn, and is useful for accessing the field via an interface.
+func (v *WorkerLookupFields) GetUrn() *string { return v.Urn }
+
+// GetName returns WorkerLookupFields.Name, and is useful for accessing the field via an interface.
+func (v *WorkerLookupFields) GetName() string { return v.Name }
+
+// GetRetiredAt returns WorkerLookupFields.RetiredAt, and is useful for accessing the field via an interface.
+func (v *WorkerLookupFields) GetRetiredAt() *string { return v.RetiredAt }
+
 // #2138 §3.4 — why a worker is PENDING. Precedence: TEAM_PAUSED, STOPPED, PAUSED, ISOLATED, STANDBY, NO_TASK.
 type WorkerPendingReason string
 
@@ -72394,7 +72727,7 @@ func (v *WorkerServedPromptWorkerServedPrompt) __premarshalJSON() (*__premarshal
 
 // hadron-server#2771 / cli#1375: a worker's latest terminal report. A fragment so
 // the roster and GetWorkerTerminal select one shape; deliberately NOT part of
-// WorkerFields, which seven other operations share (their wire shape is unchanged).
+// WorkerFields, which other operations share (their wire shape is unchanged).
 type WorkerTerminalFields struct {
 	Host   *WorkerTerminalFieldsHostWorkerTerminalHost `json:"host"`
 	Status WorkerTerminalState                         `json:"status"`
@@ -73175,114 +73508,21 @@ func (v *WorkersWorkersWorkersPage) GetItems() []*WorkersWorkersWorkersPageItems
 // cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
 // by its id or by the computed `urn` below (#991).
 type WorkersWorkersWorkersPageItemsWorker struct {
-	WorkerFields `json:"-"`
+	WorkerLookupFields `json:"-"`
 }
 
 // GetId returns WorkersWorkersWorkersPageItemsWorker.Id, and is useful for accessing the field via an interface.
-func (v *WorkersWorkersWorkersPageItemsWorker) GetId() string { return v.WorkerFields.Id }
+func (v *WorkersWorkersWorkersPageItemsWorker) GetId() string { return v.WorkerLookupFields.Id }
 
 // GetUrn returns WorkersWorkersWorkersPageItemsWorker.Urn, and is useful for accessing the field via an interface.
-func (v *WorkersWorkersWorkersPageItemsWorker) GetUrn() *string { return v.WorkerFields.Urn }
-
-// GetPortalUrl returns WorkersWorkersWorkersPageItemsWorker.PortalUrl, and is useful for accessing the field via an interface.
-func (v *WorkersWorkersWorkersPageItemsWorker) GetPortalUrl() *string {
-	return v.WorkerFields.PortalUrl
-}
-
-// GetSlug returns WorkersWorkersWorkersPageItemsWorker.Slug, and is useful for accessing the field via an interface.
-func (v *WorkersWorkersWorkersPageItemsWorker) GetSlug() string { return v.WorkerFields.Slug }
-
-// GetAppId returns WorkersWorkersWorkersPageItemsWorker.AppId, and is useful for accessing the field via an interface.
-func (v *WorkersWorkersWorkersPageItemsWorker) GetAppId() string { return v.WorkerFields.AppId }
-
-// GetAgentId returns WorkersWorkersWorkersPageItemsWorker.AgentId, and is useful for accessing the field via an interface.
-func (v *WorkersWorkersWorkersPageItemsWorker) GetAgentId() string { return v.WorkerFields.AgentId }
+func (v *WorkersWorkersWorkersPageItemsWorker) GetUrn() *string { return v.WorkerLookupFields.Urn }
 
 // GetName returns WorkersWorkersWorkersPageItemsWorker.Name, and is useful for accessing the field via an interface.
-func (v *WorkersWorkersWorkersPageItemsWorker) GetName() string { return v.WorkerFields.Name }
-
-// GetReportsTo returns WorkersWorkersWorkersPageItemsWorker.ReportsTo, and is useful for accessing the field via an interface.
-func (v *WorkersWorkersWorkersPageItemsWorker) GetReportsTo() *WorkerFieldsReportsToWorker {
-	return v.WorkerFields.ReportsTo
-}
-
-// GetReportsToRetired returns WorkersWorkersWorkersPageItemsWorker.ReportsToRetired, and is useful for accessing the field via an interface.
-func (v *WorkersWorkersWorkersPageItemsWorker) GetReportsToRetired() bool {
-	return v.WorkerFields.ReportsToRetired
-}
-
-// GetRole returns WorkersWorkersWorkersPageItemsWorker.Role, and is useful for accessing the field via an interface.
-func (v *WorkersWorkersWorkersPageItemsWorker) GetRole() *string { return v.WorkerFields.Role }
-
-// GetPrompt returns WorkersWorkersWorkersPageItemsWorker.Prompt, and is useful for accessing the field via an interface.
-func (v *WorkersWorkersWorkersPageItemsWorker) GetPrompt() *string { return v.WorkerFields.Prompt }
-
-// GetSignature returns WorkersWorkersWorkersPageItemsWorker.Signature, and is useful for accessing the field via an interface.
-func (v *WorkersWorkersWorkersPageItemsWorker) GetSignature() *string {
-	return v.WorkerFields.Signature
-}
-
-// GetTrailer returns WorkersWorkersWorkersPageItemsWorker.Trailer, and is useful for accessing the field via an interface.
-func (v *WorkersWorkersWorkersPageItemsWorker) GetTrailer() *string { return v.WorkerFields.Trailer }
-
-// GetBootPromptRef returns WorkersWorkersWorkersPageItemsWorker.BootPromptRef, and is useful for accessing the field via an interface.
-func (v *WorkersWorkersWorkersPageItemsWorker) GetBootPromptRef() *string {
-	return v.WorkerFields.BootPromptRef
-}
-
-// GetBootPromptTargetDeleted returns WorkersWorkersWorkersPageItemsWorker.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
-func (v *WorkersWorkersWorkersPageItemsWorker) GetBootPromptTargetDeleted() *bool {
-	return v.WorkerFields.BootPromptTargetDeleted
-}
-
-// GetRepos returns WorkersWorkersWorkersPageItemsWorker.Repos, and is useful for accessing the field via an interface.
-func (v *WorkersWorkersWorkersPageItemsWorker) GetRepos() []string { return v.WorkerFields.Repos }
-
-// GetMemoryId returns WorkersWorkersWorkersPageItemsWorker.MemoryId, and is useful for accessing the field via an interface.
-func (v *WorkersWorkersWorkersPageItemsWorker) GetMemoryId() *string { return v.WorkerFields.MemoryId }
-
-// GetFamily returns WorkersWorkersWorkersPageItemsWorker.Family, and is useful for accessing the field via an interface.
-func (v *WorkersWorkersWorkersPageItemsWorker) GetFamily() *string { return v.WorkerFields.Family }
-
-// GetHeldByUserId returns WorkersWorkersWorkersPageItemsWorker.HeldByUserId, and is useful for accessing the field via an interface.
-func (v *WorkersWorkersWorkersPageItemsWorker) GetHeldByUserId() *string {
-	return v.WorkerFields.HeldByUserId
-}
-
-// GetHeldAt returns WorkersWorkersWorkersPageItemsWorker.HeldAt, and is useful for accessing the field via an interface.
-func (v *WorkersWorkersWorkersPageItemsWorker) GetHeldAt() *string { return v.WorkerFields.HeldAt }
-
-// GetHasLiveSession returns WorkersWorkersWorkersPageItemsWorker.HasLiveSession, and is useful for accessing the field via an interface.
-func (v *WorkersWorkersWorkersPageItemsWorker) GetHasLiveSession() *bool {
-	return v.WorkerFields.HasLiveSession
-}
-
-// GetLastActiveAt returns WorkersWorkersWorkersPageItemsWorker.LastActiveAt, and is useful for accessing the field via an interface.
-func (v *WorkersWorkersWorkersPageItemsWorker) GetLastActiveAt() *string {
-	return v.WorkerFields.LastActiveAt
-}
-
-// GetCheckStatus returns WorkersWorkersWorkersPageItemsWorker.CheckStatus, and is useful for accessing the field via an interface.
-func (v *WorkersWorkersWorkersPageItemsWorker) GetCheckStatus() *WorkerFieldsCheckStatusWorkerCheckStatus {
-	return v.WorkerFields.CheckStatus
-}
+func (v *WorkersWorkersWorkersPageItemsWorker) GetName() string { return v.WorkerLookupFields.Name }
 
 // GetRetiredAt returns WorkersWorkersWorkersPageItemsWorker.RetiredAt, and is useful for accessing the field via an interface.
 func (v *WorkersWorkersWorkersPageItemsWorker) GetRetiredAt() *string {
-	return v.WorkerFields.RetiredAt
-}
-
-// GetRetiredBy returns WorkersWorkersWorkersPageItemsWorker.RetiredBy, and is useful for accessing the field via an interface.
-func (v *WorkersWorkersWorkersPageItemsWorker) GetRetiredBy() *string {
-	return v.WorkerFields.RetiredBy
-}
-
-// GetCreatedAt returns WorkersWorkersWorkersPageItemsWorker.CreatedAt, and is useful for accessing the field via an interface.
-func (v *WorkersWorkersWorkersPageItemsWorker) GetCreatedAt() string { return v.WorkerFields.CreatedAt }
-
-// GetCreatedBy returns WorkersWorkersWorkersPageItemsWorker.CreatedBy, and is useful for accessing the field via an interface.
-func (v *WorkersWorkersWorkersPageItemsWorker) GetCreatedBy() *string {
-	return v.WorkerFields.CreatedBy
+	return v.WorkerLookupFields.RetiredAt
 }
 
 func (v *WorkersWorkersWorkersPageItemsWorker) UnmarshalJSON(b []byte) error {
@@ -73303,7 +73543,7 @@ func (v *WorkersWorkersWorkersPageItemsWorker) UnmarshalJSON(b []byte) error {
 	}
 
 	err = json.Unmarshal(
-		b, &v.WorkerFields)
+		b, &v.WorkerLookupFields)
 	if err != nil {
 		return err
 	}
@@ -73315,55 +73555,9 @@ type __premarshalWorkersWorkersWorkersPageItemsWorker struct {
 
 	Urn *string `json:"urn"`
 
-	PortalUrl *string `json:"portalUrl"`
-
-	Slug string `json:"slug"`
-
-	AppId string `json:"appId"`
-
-	AgentId string `json:"agentId"`
-
 	Name string `json:"name"`
 
-	ReportsTo *WorkerFieldsReportsToWorker `json:"reportsTo"`
-
-	ReportsToRetired bool `json:"reportsToRetired"`
-
-	Role *string `json:"role"`
-
-	Prompt *string `json:"prompt"`
-
-	Signature *string `json:"signature"`
-
-	Trailer *string `json:"trailer"`
-
-	BootPromptRef *string `json:"bootPromptRef"`
-
-	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
-
-	Repos []string `json:"repos"`
-
-	MemoryId *string `json:"memoryId"`
-
-	Family *string `json:"family"`
-
-	HeldByUserId *string `json:"heldByUserId"`
-
-	HeldAt *string `json:"heldAt"`
-
-	HasLiveSession *bool `json:"hasLiveSession"`
-
-	LastActiveAt *string `json:"lastActiveAt"`
-
-	CheckStatus *WorkerFieldsCheckStatusWorkerCheckStatus `json:"checkStatus"`
-
 	RetiredAt *string `json:"retiredAt"`
-
-	RetiredBy *string `json:"retiredBy"`
-
-	CreatedAt string `json:"createdAt"`
-
-	CreatedBy *string `json:"createdBy"`
 }
 
 func (v *WorkersWorkersWorkersPageItemsWorker) MarshalJSON() ([]byte, error) {
@@ -73377,33 +73571,10 @@ func (v *WorkersWorkersWorkersPageItemsWorker) MarshalJSON() ([]byte, error) {
 func (v *WorkersWorkersWorkersPageItemsWorker) __premarshalJSON() (*__premarshalWorkersWorkersWorkersPageItemsWorker, error) {
 	var retval __premarshalWorkersWorkersWorkersPageItemsWorker
 
-	retval.Id = v.WorkerFields.Id
-	retval.Urn = v.WorkerFields.Urn
-	retval.PortalUrl = v.WorkerFields.PortalUrl
-	retval.Slug = v.WorkerFields.Slug
-	retval.AppId = v.WorkerFields.AppId
-	retval.AgentId = v.WorkerFields.AgentId
-	retval.Name = v.WorkerFields.Name
-	retval.ReportsTo = v.WorkerFields.ReportsTo
-	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
-	retval.Role = v.WorkerFields.Role
-	retval.Prompt = v.WorkerFields.Prompt
-	retval.Signature = v.WorkerFields.Signature
-	retval.Trailer = v.WorkerFields.Trailer
-	retval.BootPromptRef = v.WorkerFields.BootPromptRef
-	retval.BootPromptTargetDeleted = v.WorkerFields.BootPromptTargetDeleted
-	retval.Repos = v.WorkerFields.Repos
-	retval.MemoryId = v.WorkerFields.MemoryId
-	retval.Family = v.WorkerFields.Family
-	retval.HeldByUserId = v.WorkerFields.HeldByUserId
-	retval.HeldAt = v.WorkerFields.HeldAt
-	retval.HasLiveSession = v.WorkerFields.HasLiveSession
-	retval.LastActiveAt = v.WorkerFields.LastActiveAt
-	retval.CheckStatus = v.WorkerFields.CheckStatus
-	retval.RetiredAt = v.WorkerFields.RetiredAt
-	retval.RetiredBy = v.WorkerFields.RetiredBy
-	retval.CreatedAt = v.WorkerFields.CreatedAt
-	retval.CreatedBy = v.WorkerFields.CreatedBy
+	retval.Id = v.WorkerLookupFields.Id
+	retval.Urn = v.WorkerLookupFields.Urn
+	retval.Name = v.WorkerLookupFields.Name
+	retval.RetiredAt = v.WorkerLookupFields.RetiredAt
 	return &retval, nil
 }
 
@@ -76648,6 +76819,30 @@ type __GetWorkerContinuityInput struct {
 
 // GetRef returns __GetWorkerContinuityInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetWorkerContinuityInput) GetRef() string { return v.Ref }
+
+// __GetWorkerIdInAppInput is used internally by genqlient
+type __GetWorkerIdInAppInput struct {
+	AppRef string `json:"appRef"`
+	Ref    string `json:"ref"`
+}
+
+// GetAppRef returns __GetWorkerIdInAppInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__GetWorkerIdInAppInput) GetAppRef() string { return v.AppRef }
+
+// GetRef returns __GetWorkerIdInAppInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetWorkerIdInAppInput) GetRef() string { return v.Ref }
+
+// __GetWorkerInAppInput is used internally by genqlient
+type __GetWorkerInAppInput struct {
+	AppRef string `json:"appRef"`
+	Ref    string `json:"ref"`
+}
+
+// GetAppRef returns __GetWorkerInAppInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__GetWorkerInAppInput) GetAppRef() string { return v.AppRef }
+
+// GetRef returns __GetWorkerInAppInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetWorkerInAppInput) GetRef() string { return v.Ref }
 
 // __GetWorkerInput is used internally by genqlient
 type __GetWorkerInput struct {
@@ -92983,6 +93178,127 @@ func GetWorkerContinuity(
 	return data_, err_
 }
 
+// The query executed by GetWorkerIdInApp.
+const GetWorkerIdInApp_Operation = `
+query GetWorkerIdInApp ($appRef: ID!, $ref: ID!) {
+	worker(appRef: $appRef, ref: $ref) {
+		id
+	}
+}
+`
+
+// GetWorkerInApp for a caller that needs only the id (a filter): no briefing.
+func GetWorkerIdInApp(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	ref string,
+) (data_ *GetWorkerIdInAppResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetWorkerIdInApp",
+		Query:  GetWorkerIdInApp_Operation,
+		Variables: &__GetWorkerIdInAppInput{
+			AppRef: appRef,
+			Ref:    ref,
+		},
+	}
+
+	data_ = &GetWorkerIdInAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetWorkerInApp.
+const GetWorkerInApp_Operation = `
+query GetWorkerInApp ($appRef: ID!, $ref: ID!) {
+	worker(appRef: $appRef, ref: $ref) {
+		... WorkerFields
+	}
+}
+fragment WorkerFields on Worker {
+	id
+	urn
+	portalUrl
+	slug
+	appId
+	agentId
+	name
+	reportsTo {
+		... WorkerReportingRefFields
+	}
+	reportsToRetired
+	role
+	prompt
+	signature
+	trailer
+	bootPromptRef
+	bootPromptTargetDeleted
+	repos
+	memoryId
+	family
+	heldByUserId
+	heldAt
+	hasLiveSession
+	lastActiveAt
+	checkStatus {
+		... ChannelCheckFields
+	}
+	retiredAt
+	retiredBy
+	createdAt
+	createdBy
+}
+fragment WorkerReportingRefFields on Worker {
+	id
+	name
+	urn
+}
+fragment ChannelCheckFields on WorkerCheckStatus {
+	status
+	pendingReason
+	lastCheckedAt
+}
+`
+
+// cli#1459: ONE worker by NAME within an App, in one read. The name form of
+// worker(ref:) is activated by appRef (server #1015): unique per App, matched
+// with the database's lower(), retired workers included, and an id or URN in
+// `ref` wins over appRef. Denial and absence both refuse WORKER_NOT_FOUND (no
+// roster oracle). Name resolution used to page the App's whole staff for this.
+func GetWorkerInApp(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	ref string,
+) (data_ *GetWorkerInAppResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetWorkerInApp",
+		Query:  GetWorkerInApp_Operation,
+		Variables: &__GetWorkerInAppInput{
+			AppRef: appRef,
+			Ref:    ref,
+		},
+	}
+
+	data_ = &GetWorkerInAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by GetWorkerProfile.
 const GetWorkerProfile_Operation = `
 query GetWorkerProfile ($ref: ID!) {
@@ -106230,58 +106546,21 @@ query Workers ($appRef: ID!, $includeRetired: Boolean, $limit: Int, $offset: Int
 	workers(appRef: $appRef, includeRetired: $includeRetired, limit: $limit, offset: $offset) {
 		total
 		items {
-			... WorkerFields
+			... WorkerLookupFields
 		}
 	}
 }
-fragment WorkerFields on Worker {
+fragment WorkerLookupFields on Worker {
 	id
 	urn
-	portalUrl
-	slug
-	appId
-	agentId
 	name
-	reportsTo {
-		... WorkerReportingRefFields
-	}
-	reportsToRetired
-	role
-	prompt
-	signature
-	trailer
-	bootPromptRef
-	bootPromptTargetDeleted
-	repos
-	memoryId
-	family
-	heldByUserId
-	heldAt
-	hasLiveSession
-	lastActiveAt
-	checkStatus {
-		... ChannelCheckFields
-	}
 	retiredAt
-	retiredBy
-	createdAt
-	createdBy
-}
-fragment WorkerReportingRefFields on Worker {
-	id
-	name
-	urn
-}
-fragment ChannelCheckFields on WorkerCheckStatus {
-	status
-	pendingReason
-	lastCheckedAt
 }
 `
 
 // The STAFF read (cor:agt:020:01 — Workers are the staff; the AppAgent join is
 // the install roster, `app agent list`). Retired castings are hidden unless
-// includeRetired.
+// includeRetired. Lookup projection only — see WorkerLookupFields.
 func Workers(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -106359,9 +106638,7 @@ fragment WorkerReportingRefFields on Worker {
 `
 
 // The roster read used by `worker list`. Same arguments and paging as Workers;
-// only the projection differs. Workers itself stays prompt-bearing because
-// resolveWorker rides it — `session start`'s boot briefing, `worker get <name>`,
-// retire and rm all resolve through that scan and legitimately need the prompt.
+// only the projection differs.
 func WorkersRoster(
 	ctx_ context.Context,
 	client_ graphql.Client,
