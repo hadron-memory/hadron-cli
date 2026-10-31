@@ -52,8 +52,11 @@ Draft rights are per node (hadron-server#1591): every new node starts
 unminted, in any memory, until its first mint. "spec reserve" holds a citation
 as a placeholder, "spec renumber" moves an unminted spec and
 rewrites references to it, and "spec backlinks" and "spec unresolved" read
-the references. "spec mint" stamps approved, unminted nodes. "spec describe"
-shows the derived corpus state and counts per-node approval and mint status.
+the references. "spec mint" stamps approved, unminted nodes. Approve one first
+with "hadron node approve <node-urn> --revision <n>", which approves only the
+revision you reviewed; "hadron memory approve-all" approves every unapproved
+node's current content at once, with no revision check. "spec describe" shows
+the derived corpus state and counts per-node approval and mint status.
 
 Every subcommand takes -m/--memory.`,
 	}
