@@ -7,6 +7,7 @@ package healthsched
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -125,6 +126,13 @@ WantedBy=timers.target
 
 // CronLine is the one crontab line; the trailing marker is how it is found
 // again, and a bare % (a newline to cron) is escaped.
+var ownedCronRE = regexp.MustCompile(`^\S+ \S+ \S+ \S+ \S+ PATH='[^']*' .*'team' 'health' 'sweep' .* ` + cronMarker + ` config="(?:[^"\\]|\\.)*"\s*$`)
+
+// IsOwnedCronLine is true only for the line CronLine writes: the schedule,
+// the sweep command and the trailing marker with its config. A comment that
+// merely mentions the name is somebody else's.
+func IsOwnedCronLine(l string) bool { return ownedCronRE.MatchString(l) }
+
 func CronLine(s Spec) (string, error) {
 	sched, err := cronSchedule(s.Interval)
 	if err != nil {

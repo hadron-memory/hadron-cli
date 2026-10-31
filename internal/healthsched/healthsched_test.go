@@ -602,3 +602,37 @@ func TestResolveOrcaRefusesAnExplicitNonExecutable(t *testing.T) {
 		t.Fatalf("a non-executable orca_bin must be refused: %v", err)
 	}
 }
+
+// #1412 (Diego P2-5): property order in `systemctl show` does not matter.
+func TestSystemdLastRunIsOrderIndependent(t *testing.T) {
+	f := &fake{out: map[string]string{"systemctl --user show " + Name + ".service -p ExecMainExitTimestamp -p ExecMainStatus": "ExecMainStatus=3\nExecMainExitTimestamp=Sat 2026-10-31 02:00:00 UTC\n"}}
+	e := f.env(t, "linux", "systemctl")
+	lr := e.systemdLastRun()
+	if lr.At == nil || lr.ExitCode == nil || *lr.ExitCode != 3 {
+		t.Fatalf("status listed first must still count: %+v", lr)
+	}
+}
+
+// #1412 (Diego P3-6): uninstall removes the line install wrote and nothing
+// that merely mentions the name.
+func TestUninstallLeavesLinesThatOnlyMentionTheMarker(t *testing.T) {
+	other := "# hadron-team-health archive\n0 4 * * * /usr/bin/tidy # hadron-team-health notes\n"
+	f := &fake{crontab: other}
+	e := f.env(t, "linux", "crontab")
+	if _, err := e.Install(spec); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(f.crontab, other) || strings.Count(f.crontab, "'sweep'") != 1 {
+		t.Fatalf("install touched unrelated lines: %q", f.crontab)
+	}
+	if _, err := e.Uninstall(); err != nil {
+		t.Fatal(err)
+	}
+	if f.crontab != other {
+		t.Fatalf("uninstall removed lines it does not own: %q", f.crontab)
+	}
+	line, _ := CronLine(spec)
+	if !IsOwnedCronLine(line) {
+		t.Fatalf("the line install writes must be owned: %s", line)
+	}
+}

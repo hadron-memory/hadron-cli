@@ -109,7 +109,7 @@ func (e Env) existingConfig(k Kind) string {
 	case Cron:
 		lines, _ := e.readCrontab()
 		for _, l := range lines {
-			if strings.Contains(l, cronMarker) {
+			if IsOwnedCronLine(l) {
 				text = strings.ReplaceAll(l, `\%`, "%")
 			}
 		}
@@ -282,7 +282,7 @@ func splitCron(s string) []string {
 func dropMarked(lines []string) []string {
 	var keep []string
 	for _, l := range lines {
-		if !strings.Contains(l, cronMarker) {
+		if !IsOwnedCronLine(l) {
 			keep = append(keep, l)
 		}
 	}
@@ -462,7 +462,7 @@ func (e Env) ReadStatus() Status {
 	default:
 		if out, err := e.Run([]string{"crontab", "-l"}, ""); err == nil {
 			for _, l := range strings.Split(string(out), "\n") {
-				if strings.Contains(l, cronMarker) {
+				if IsOwnedCronLine(l) {
 					st.Installed, st.Active, st.Kind = true, true, string(Cron)
 					st.Config = e.existingConfig(Cron)
 					st.Interval = cronInterval(l)
@@ -520,11 +520,13 @@ func cronInterval(line string) string {
 }
 
 func (e Env) systemdLastRun() *LastRun {
+	// Properties come in any order: read them all, then decide.
 	out, err := e.Run([]string{"systemctl", "--user", "show", Name + ".service", "-p", "ExecMainExitTimestamp", "-p", "ExecMainStatus"}, "")
 	lr := &LastRun{}
 	if err != nil {
 		return lr
 	}
+	var code *int
 	for _, l := range strings.Split(string(out), "\n") {
 		k, v, ok := strings.Cut(strings.TrimSpace(l), "=")
 		if !ok || v == "" {
@@ -536,10 +538,13 @@ func (e Env) systemdLastRun() *LastRun {
 				lr.At = &t
 			}
 		case "ExecMainStatus":
-			if n, err := strconv.Atoi(v); err == nil && lr.At != nil {
-				lr.ExitCode = &n
+			if n, err := strconv.Atoi(v); err == nil {
+				code = &n
 			}
 		}
+	}
+	if lr.At != nil { // a status without a run time is the never-run default, not a result
+		lr.ExitCode = code
 	}
 	return lr
 }
