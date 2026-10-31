@@ -58,6 +58,16 @@ func TestSafeCell1105CBilling(t *testing.T) {
 		lines: 3,
 	})
 	assertSafeCell1105(t, safeCell1105Case{
+		name: "billing prices get",
+		args: []string{"billing", "prices", "get", "p1"},
+		resp: func(cell string) map[string]string {
+			return map[string]string{"AiModelPrice": `{"data":{"aiModelPrice":{"id":` + q1105(cell) + `,"provider":` + q1105(cell) +
+				`,"model":` + q1105(cell) + `,"tier":2,"inputMicroCentsPerMTok":` + q1105(cell) + `,"outputMicroCentsPerMTok":` + q1105(cell) +
+				`,"markupBasisPoints":null,"effectiveAt":` + q1105(cell) + `,"createdAt":` + q1105(cell) + `,"createdBy":` + q1105(cell) + `}}}`}
+		},
+		lines: 11,
+	})
+	assertSafeCell1105(t, safeCell1105Case{
 		name: "billing balance",
 		args: []string{"billing", "balance", "org1"},
 		resp: func(cell string) map[string]string {

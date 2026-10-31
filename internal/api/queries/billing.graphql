@@ -28,6 +28,14 @@ fragment CreditLedgerEntryFields on CreditLedgerEntry {
   createdBy
 }
 
+# One rate row by id. Authenticated read; null means not found or not
+# visible (the server does not say which).
+query AiModelPrice($ref: ID!) {
+  aiModelPrice(ref: $ref) {
+    ...AiModelPriceFields
+  }
+}
+
 # Rate rows, provider/model/tier then newest effective first. Authenticated
 # read. An unset filter is omitted (the server treats "" as no filter, so the
 # command refuses an empty one rather than send it).
