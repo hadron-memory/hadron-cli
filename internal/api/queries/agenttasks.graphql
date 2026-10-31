@@ -357,6 +357,10 @@ query TeamRoster($appRef: ID!) {
       unavailableUntil
       lastActiveAt
       checkStatus { ...ChannelCheckFields }
+      # hadron-server#2771 / cli#1375: the worker's latest terminal report, null
+      # when never reported or masked on the working-state gate. An older server
+      # rejects it: the roster refuses as schema skew, like model/tier.
+      terminal { ...WorkerTerminalFields }
       lastAssignedAt
       pendingTasks
       startedTasks
