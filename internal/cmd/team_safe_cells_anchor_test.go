@@ -19,24 +19,27 @@ import (
 //   - cellWant, ending at column padding, the end of the line, or the
 //     separator that followed the clean cell (a prose line's "family X: 1").
 //
-// Anything else there — a raw value, a split line — fails. A line whose
-// prefix no longer matches was rewritten (a hint reworded for an unsafe
-// value) and cannot place the cell, so it is not judged. At least one place
-// must carry the cell. A sanitized echo elsewhere (a headline, an adjacent
+// Anything else there — a raw value, a split line — fails. So does a place
+// whose row prefix no longer matches (the row changed, moved or vanished),
+// unless its clean line contains rewritten: the case's declared prose line
+// that the renderer rewords for an unsafe value (host-ops' --after hint).
+// Nothing is skipped silently, so the intended row is always judged. At
+// least one place must carry the cell. A sanitized echo elsewhere (a headline, an adjacent
 // line) therefore cannot stand in for a raw cell: the raw cell's own place
 // fails. Nothing right of the cell is compared, because the bound can eat a
 // composed cell's closing text ("PENDING (…)") and some fields feed a later
 // column too (scope → TARGET). Once a line has carried the cell, later places
 // on it sit behind the widened cell and are not judged.
-func cellInRow(clean, out, cleanCell, cellWant string) bool {
+func cellInRow(clean, out, cleanCell, cellWant, rewritten string) bool {
 	if cleanCell == "" || cellWant == "" {
 		return false
 	}
 	cl, al := strings.Split(clean, "\n"), strings.Split(out, "\n")
 	cells := 0
 	for i := range cl {
-		if i >= len(al) {
-			break
+		a := ""
+		if i < len(al) {
+			a = al[i]
 		}
 		lineHasCell := false
 		for o := 0; ; {
@@ -49,9 +52,12 @@ func cellInRow(clean, out, cleanCell, cellWant string) bool {
 			if lineHasCell {
 				continue
 			}
-			rest, ok := afterRowPrefix(al[i], cl[i][:at])
+			rest, ok := afterRowPrefix(a, cl[i][:at])
 			if !ok {
-				continue // rewritten line: cannot place the cell
+				if rewritten != "" && strings.Contains(cl[i], rewritten) {
+					continue // the declared rewritten line
+				}
+				return false // the row changed, moved or vanished
 			}
 			if strings.HasPrefix(rest, cleanCell) {
 				continue // untouched
@@ -119,6 +125,11 @@ func TestCellInRowAnchorsOnTheRow(t *testing.T) {
 		{"cell and its echo both sanitized", "NAME   ROLE          HOST\n" +
 			"Iris   " + want + "   h1\n" +
 			"note: role " + want + " is new\n", true},
+		{"row changed, sanitized echo elsewhere", "NAME   ROLE          HOST\n" +
+			"Ivan   a\n" +
+			"note: role " + want + " is new\n", false},
+		{"row vanished, sanitized echo elsewhere", "NAME   ROLE          HOST\n" +
+			"note: role " + want + " is new\n", false},
 		{"row key changed", "NAME   ROLE          HOST\n" +
 			"Ivan   " + want + "   h1\n" +
 			"note: role old-role is new\n", false},
@@ -140,14 +151,23 @@ func TestCellInRowAnchorsOnTheRow(t *testing.T) {
 		{"prose line, value echoed after the separator", "  role lead · family old-role: " + want + "\n", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := cellInRow(line, tc.out, "old-role", want); got != tc.ok {
+			if got := cellInRow(line, tc.out, "old-role", want, ""); got != tc.ok {
 				t.Errorf("cellInRow = %v, want %v", got, tc.ok)
 			}
 		})
 	}
+	// A declared rewritten line may be reworded; an undeclared one may not.
+	hint := "ID     STATE\nhop1   ok\nmore follow — continue with --after hop1\n"
+	reworded := "ID     STATE\n" + want + "   ok\nmore follow — cursor: " + want + " (see --json)\n"
+	if !cellInRow(hint, reworded, "hop1", want, "continue with --after") {
+		t.Error("declared rewritten line: want the row's cell to count")
+	}
+	if cellInRow(hint, reworded, "hop1", want, "") {
+		t.Error("undeclared rewritten line: want it to fail, not be skipped")
+	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := cellInRow(clean, tc.out, "old-role", want); got != tc.ok {
+			if got := cellInRow(clean, tc.out, "old-role", want, ""); got != tc.ok {
 				t.Errorf("cellInRow = %v, want %v", got, tc.ok)
 			}
 		})
@@ -172,6 +192,7 @@ func duplicateJSONKeys(body string) ([]string, error) {
 			stack[n-1].expectKey = true
 		}
 	}
+	roots := 0
 	for {
 		tok, err := dec.Token()
 		if errors.Is(err, io.EOF) {
@@ -179,6 +200,11 @@ func duplicateJSONKeys(body string) ([]string, error) {
 		}
 		if err != nil {
 			return nil, err
+		}
+		if len(stack) == 0 {
+			if roots++; roots > 1 {
+				return nil, errors.New("more than one top-level value")
+			}
 		}
 		switch v := tok.(type) {
 		case json.Delim:
@@ -207,10 +233,18 @@ func duplicateJSONKeys(body string) ([]string, error) {
 			value()
 		}
 	}
+	if len(stack) > 0 || roots == 0 {
+		return nil, errors.New("unexpected end of JSON input")
+	}
 	return dups, nil
 }
 
 func TestDuplicateJSONKeysReadsTheTokenStream(t *testing.T) {
+	for _, bad := range []string{``, `{"a":1`, `[{"a":1}`, `{"a":1}{"b":2}`, `{"a":1} 2`} {
+		if _, err := duplicateJSONKeys(bad); err == nil {
+			t.Errorf("%q: want an error for incomplete or multi-root input", bad)
+		}
+	}
 	for _, tc := range []struct {
 		body string
 		want []string

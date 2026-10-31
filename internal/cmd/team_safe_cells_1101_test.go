@@ -451,6 +451,7 @@ func TestTeamSafeCells1101(t *testing.T) {
 		op        string // non-empty: attack this operation, not the case's own
 		jsonDrops bool   // the --json projection does not carry this field
 		prose     string // the value ALSO reaches this unguarded prose site
+		rewrites  string // a clean line the renderer rewords for an unsafe value
 	}
 	refine := map[string]cellRefine{
 		// CHECK composes "PENDING (<pendingReason>)".
@@ -481,7 +482,7 @@ func TestTeamSafeCells1101(t *testing.T) {
 		// the raw server string, so the output-wide scans below cannot hold
 		// until they are guarded; the cell itself stays fully pinned.
 		"role-list/role": {prose: "role.go:188/244 warnings echo r.Role raw"},
-		"host-ops/id":    {prose: "host.go:304 --after hint echoes EndCursor raw"},
+		"host-ops/id":    {prose: "host.go:304 --after hint echoes EndCursor raw", rewrites: "continue with --after"},
 		"stop-lift/id":   {prose: "stop.go:222 headline echoes Signal.ID raw"},
 	}
 	const prefix = "a\nb\x1b[31mc"
@@ -626,7 +627,7 @@ func TestTeamSafeCells1101(t *testing.T) {
 					}
 					cleanCell = ref.prefix + cleanCell
 				}
-				if !cellInRow(clean, out, cleanCell, cellWant) {
+				if !cellInRow(clean, out, cleanCell, cellWant, ref.rewrites) {
 					t.Errorf("missing bounded sanitized cell (256 runes ending in ellipsis) in the row that carried %q", cleanCell)
 				}
 				// Output-wide scans, skipped only where the raw value also
