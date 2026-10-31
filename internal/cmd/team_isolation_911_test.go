@@ -284,3 +284,41 @@ func TestC911AgenticUsageIsolationLinesMatchTheHelp(t *testing.T) {
 		}
 	}
 }
+
+// The help names each caller's refusal in the order the isolateWorker SDL
+// says the server checks them; it never groups the callers under one code
+// (#911 D1: an App key is WORKER_NOT_FOUND, an impersonation plain FORBIDDEN,
+// and a participant's set is UNAVAILABLE while isolation is off).
+func TestC911IsolationHelpNamesEachCallersRefusalInCheckOrder(t *testing.T) {
+	for _, sub := range []string{"set", "clear"} {
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetOut(out)
+		root.SetArgs([]string{"team", "isolation", sub, "--help"})
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		help := strings.Join(strings.Fields(out.String()), " ")
+		if strings.Contains(help, "as it does another participant, an App key or an impersonation") {
+			t.Errorf("%s --help groups the callers under one refusal code", sub)
+		}
+		last := -1
+		for _, want := range []string{
+			"an App key among them) is WORKER_NOT_FOUND (exit 4)",
+			"a worker session is WORKER_ISOLATION_FORBIDDEN (exit 8)",
+			"set is WORKER_ISOLATION_UNAVAILABLE (exit 5)",
+			"an impersonation is FORBIDDEN (exit 8)",
+			"another participant is WORKER_ISOLATION_FORBIDDEN (exit 8)",
+		} {
+			i := strings.Index(help, want)
+			if i < 0 {
+				t.Errorf("%s --help lacks %q", sub, want)
+				continue
+			}
+			if i < last {
+				t.Errorf("%s --help names %q out of the server's check order", sub, want)
+			}
+			last = i
+		}
+	}
+}
