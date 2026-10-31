@@ -8,9 +8,9 @@ import (
 	"testing"
 )
 
-func TestNudgeAnchorPresentNamesFirstUnreadBothFormsBounded(t *testing.T) {
+func TestNudgeAnchorPresentNamesFirstUnreadCLIFormBounded(t *testing.T) {
 	text := NudgeText(worker("w-eli", "Eli", workerOpts{mentions: ip(2), unread: ip(5), first: ip(100), relevant: ip(110), head: ip(120)}))
-	for _, want := range []string{"START AT #100 (your first unread message of any kind)", "--since 99 --limit 200", "nextSince", "hadron_team_chat_read", "sinceSeq=99"} {
+	for _, want := range []string{"START AT #100 (your first unread message of any kind)", "--since 99 --limit 200", "nextSince"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("text missing %q", want)
 		}
@@ -18,8 +18,18 @@ func TestNudgeAnchorPresentNamesFirstUnreadBothFormsBounded(t *testing.T) {
 	if strings.Contains(text, "--all") {
 		t.Errorf("text must not suggest --all")
 	}
+	assertNoMCP(t, text)
 	if strings.Contains(text, "\n") {
 		t.Errorf("text must be one line")
+	}
+}
+
+func assertNoMCP(t *testing.T, text string) {
+	t.Helper()
+	for _, not := range []string{"MCP", "hadron_team_chat_read", "hadron_team_chat_mark_read", "sinceSeq", "beforeSeq"} {
+		if strings.Contains(text, not) {
+			t.Errorf("text must not name the disabled MCP surface: contains %q", not)
+		}
 	}
 }
 
@@ -65,9 +75,8 @@ func TestNudgeLargeGapMentionsOnlyAnchorFullDiscipline(t *testing.T) {
 	text := NudgeText(worker("w-eli", "Eli", workerOpts{mentions: ip(2), unread: ip(9841), first: ip(61), relevant: ip(9750), head: ip(9901)}))
 	for _, want := range []string{
 		"LARGE GAP", "unread #61–#9901, latest mention #9750",
-		"--mentions-me --since 60 --before 9902 --limit 200", "sinceSeq=60",
-		"hadron_team_chat_read", "mark-read --through", "hadron_team_chat_mark_read",
-		"never auto-marks", "marks NOTHING", "your OWN session",
+		"--mentions-me --since 60 --before 9902 --limit 200",
+		"mark-read --through", "marks NOTHING", "your OWN session", "prevBefore",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("text missing %q", want)
@@ -78,6 +87,7 @@ func TestNudgeLargeGapMentionsOnlyAnchorFullDiscipline(t *testing.T) {
 			t.Errorf("text must not contain %q", not)
 		}
 	}
+	assertNoMCP(t, text)
 	if strings.Contains(text, "\n") {
 		t.Errorf("text must be one line")
 	}
@@ -88,7 +98,7 @@ func TestNudgeFrozenSampleBoundsAtNudgeHead(t *testing.T) {
 	// 9902 during the walk must not enter any later page, and the mark must
 	// never reach it. The walk's upper bound is the nudge's OWN head value.
 	text := NudgeText(worker("w-eli", "Eli", workerOpts{mentions: ip(2), unread: ip(9841), first: ip(61), relevant: ip(9750), head: ip(9901)}))
-	for _, want := range []string{"--before 9902", "beforeSeq=9902", "never above #9901", "actually delivered"} {
+	for _, want := range []string{"--before 9902", "never above #9901", "actually delivered"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("text missing %q", want)
 		}
@@ -163,5 +173,13 @@ func TestNudgeEndingsSatisfiable(t *testing.T) {
 func TestLivenessEndingMarksReadOnce(t *testing.T) {
 	if n := strings.Count(strings.ToLower(LivenessNudgeText(100, 120)), "mark read"); n != 1 {
 		t.Errorf("mark read appears %d times, want 1", n)
+	}
+}
+
+func TestLivenessNudgeNamesOnlyTheCLI(t *testing.T) {
+	text := LivenessNudgeText(100, 120)
+	assertNoMCP(t, text)
+	if !strings.Contains(text, "hadron team chat read --since 100 --limit 200") {
+		t.Errorf("liveness text lost its CLI read command: %q", text)
 	}
 }
