@@ -37,6 +37,9 @@ type postHostPass struct {
 	state   *hostpoller.State
 	server  *hostServer
 	deliver hostpoller.Deliverer
+	// names is the registered display name per worker id, from the last
+	// recipients read; Push matches stored mention tokens against it.
+	names map[string]string
 }
 
 func preparePostHostDelivery(f *cmdutil.Factory) postHostDeliveryPreparer {
@@ -116,6 +119,7 @@ func (p *postHostPass) recipients(ctx context.Context) (map[string]delivery.Reci
 		return nil, callError("read", "no-page")
 	}
 	out := map[string]delivery.Recipient{}
+	p.names = map[string]string{}
 	for _, reg := range r.HostRegistrations {
 		if reg == nil || reg.HostId != hostID {
 			continue
@@ -153,33 +157,50 @@ func (p *postHostPass) recipients(ctx context.Context) (map[string]delivery.Reci
 			}
 			candidate.Worktrees = trees
 			out[w.WorkerId] = candidate
+			p.names[w.WorkerId] = w.Worker.Name
 		}
 		return out, nil
 	}
 	return nil, postNotRegistered
 }
 func (p *postHostPass) Run(ctx context.Context) (postHostDeliverySummary, error) {
+	summary, _, err := p.pass(ctx, nil)
+	return summary, err
+}
+
+// pass re-checks the host state, reads the due batches and delivers them,
+// all of them or (only != nil) just those of the named worker ids. The
+// per-worker result is the worst outcome seen for that worker.
+func (p *postHostPass) pass(ctx context.Context, only func(map[string]delivery.Recipient) map[string]bool) (postHostDeliverySummary, map[string]*pushOutcome, error) {
 	summary := postHostDeliverySummary{}
+	per := map[string]*pushOutcome{}
 	fresh, err := hostpoller.LoadState(p.cfg.StateFile)
 	if err != nil || fresh.RegisteredHostID() != p.state.RegisteredHostID() {
-		return summary, exitcode.Newf(exitcode.Conflict, "host state changed")
+		return summary, per, exitcode.Newf(exitcode.Conflict, "host state changed")
 	}
 	if err := p.cfg.CheckWorktreeAliases(fresh); err != nil {
-		return summary, exitcode.Newf(exitcode.Conflict, "host worktrees overlap")
+		return summary, per, exitcode.Newf(exitcode.Conflict, "host worktrees overlap")
 	}
 	p.state = fresh
 	recipients, err := p.recipients(ctx)
 	if err != nil {
-		return summary, err
+		return summary, per, err
+	}
+	var want map[string]bool
+	if only != nil {
+		want = only(recipients)
 	}
 	batches, err := p.server.Batches(ctx)
 	if err != nil {
-		return summary, err
+		return summary, per, err
 	}
 	blocked := map[string]bool{}
 	for _, b := range batches {
 		if ctx.Err() != nil {
-			return summary, ctx.Err()
+			return summary, per, ctx.Err()
+		}
+		if want != nil && !want[b.WorkerID] {
+			continue
 		}
 		r, ok := recipients[b.WorkerID]
 		if !ok {
@@ -188,12 +209,17 @@ func (p *postHostPass) Run(ctx context.Context) (postHostDeliverySummary, error)
 		}
 		if blocked[b.WorkerID] {
 			summary.Pending++
+			per[b.WorkerID].note(pushStateNotPushed, "pending")
 			continue
+		}
+		if per[b.WorkerID] == nil {
+			per[b.WorkerID] = &pushOutcome{}
 		}
 		o := p.deliver.Deliver(ctx, b, r)
 		switch o.Kind {
 		case delivery.Delivered, delivery.Reconciled:
 			summary.Delivered++
+			per[b.WorkerID].note(pushStatePushed, "")
 			if o.AckPending {
 				summary.Pending++
 				blocked[b.WorkerID] = true
@@ -201,13 +227,92 @@ func (p *postHostPass) Run(ctx context.Context) (postHostDeliverySummary, error)
 		case delivery.Held:
 			summary.Held++
 			blocked[b.WorkerID] = true
+			per[b.WorkerID].note(pushStateHeld, o.Reason)
 		case delivery.Failed:
 			summary.Failed++
 			blocked[b.WorkerID] = true
+			per[b.WorkerID].note(pushStateNotPushed, o.Reason)
 		default:
 			summary.Pending++
 			blocked[b.WorkerID] = true
+			per[b.WorkerID].note(pushStateNotPushed, o.Reason)
 		}
 	}
-	return summary, nil
+	return summary, per, nil
+}
+
+// pushOutcome folds a worker's batch outcomes: held beats not-pushed beats
+// pushed, because the worse state is the one the sender must act on.
+type pushOutcome struct{ state, reason string }
+
+func pushRank(s string) int {
+	switch s {
+	case pushStateHeld:
+		return 3
+	case pushStateNotPushed:
+		return 2
+	case pushStatePushed:
+		return 1
+	}
+	return 0
+}
+
+func (o *pushOutcome) note(state, reason string) {
+	if o == nil {
+		return
+	}
+	if pushRank(state) > pushRank(o.state) {
+		o.state, o.reason = state, reason
+	}
+}
+
+// slugToken is a worker name as a mention token: lower-case, runs of
+// non-alphanumerics as one hyphen (@mary-jane).
+func slugToken(name string) string {
+	var b strings.Builder
+	dash := false
+	for _, r := range strings.ToLower(name) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			if dash && b.Len() > 0 {
+				b.WriteByte('-')
+			}
+			dash = false
+			b.WriteRune(r)
+		} else {
+			dash = true
+		}
+	}
+	return b.String()
+}
+
+// Push delivers the whole due batch of each named recipient (stored mention
+// tokens). A token that matches no worker registered on this host, or that
+// has no batch, is not-pushed: the one state for "nothing came back".
+func (p *postHostPass) Push(ctx context.Context, tokens []string) ([]postPushResult, error) {
+	ids := map[string]string{} // token -> worker id
+	_, per, err := p.pass(ctx, func(recipients map[string]delivery.Recipient) map[string]bool {
+		want := map[string]bool{}
+		for id := range recipients {
+			slug := slugToken(p.names[id])
+			for _, t := range tokens {
+				if slug != "" && slug == t {
+					ids[t] = id
+					want[id] = true
+				}
+			}
+		}
+		return want
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := []postPushResult{}
+	for _, t := range tokens {
+		res := postPushResult{Recipient: t, State: pushStateNotPushed, Reason: "no-batch"}
+		if o := per[ids[t]]; ids[t] != "" && o != nil && o.state != "" {
+			res = postPushResult{Recipient: t, State: o.state, Reason: o.reason}
+		}
+		out = append(out, res)
+	}
+	return out, nil
 }

@@ -4,7 +4,65 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 )
+
+// Push states, one per recipient (cli#954). "not-pushed" is the ONE state for
+// "nothing was typed and no batch was held": the server omits an off-host
+// worker, an unknown worker and a worker with nothing due in the same way
+// (cor:agt:080:22), so the CLI never claims which of them it was.
+const (
+	pushStatePushed    = "pushed"
+	pushStateHeld      = "held"
+	pushStateNotPushed = "not-pushed"
+)
+
+// postPushResult is one recipient's report; Reason is a code, never text.
+type postPushResult struct {
+	Recipient string `json:"recipient"`
+	State     string `json:"state"`
+	Reason    string `json:"reason,omitempty"`
+}
+
+// postHostPushPass is the opt-in --push surface of a pass: deliver the whole
+// due batch of exactly the named recipients (the message's stored mentions),
+// through the same transaction as Run. Never typed over a draft; held marks
+// do not move (cor:agt:080:16).
+type postHostPushPass interface {
+	Push(ctx context.Context, recipients []string) ([]postPushResult, error)
+}
+
+// pushRecipients is the message's STORED mention set, in order and
+// de-duplicated, minus broadcast tokens (cor:agt:080:14, cor:agt:020:04). The
+// CLI never parses the body, and adds no quote or code exclusion of its own:
+// the server's extraction is the one definition.
+func pushRecipients(mentions []string) []string {
+	out := []string{}
+	seen := map[string]bool{}
+	for _, m := range mentions {
+		t := strings.ToLower(strings.TrimSpace(m))
+		if t == "" || t == "all" || t == "team" || strings.HasPrefix(t, "team.") || seen[t] {
+			continue
+		}
+		seen[t] = true
+		out = append(out, t)
+	}
+	return out
+}
+
+// reportPostHostPush runs the push pass. A pass-level failure leaves every
+// recipient not-pushed with a code; it never changes the post or its exit.
+func reportPostHostPush(ctx context.Context, pass postHostPushPass, stderr io.Writer, seq int, recipients []string) []postPushResult {
+	res, err := pass.Push(ctx, recipients)
+	if err != nil {
+		fmt.Fprintf(stderr, "note: posted seq %d; push failed or is unconfirmed; do not repost; run hadron team host run --config <host.yaml> to recover\n", seq)
+		res = res[:0]
+		for _, r := range recipients {
+			res = append(res, postPushResult{Recipient: r, State: pushStateNotPushed, Reason: "push-failed"})
+		}
+	}
+	return res
+}
 
 // postHostTarget is the posting scope, not a grant to deliver to that App.
 // The C1 adapter must resolve canonical identity and authorize its own host
