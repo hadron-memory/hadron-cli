@@ -35,6 +35,7 @@ and invitations needs ADMIN or OWNER.`,
 	cmd.AddCommand(newCmdRm(f))
 	cmd.AddCommand(newCmdMember(f))
 	cmd.AddCommand(newCmdInvite(f))
+	cmd.AddCommand(newCmdResendSender(f))
 	cmd.AddCommand(newCmdSetActive(f))
 	return cmd
 }
