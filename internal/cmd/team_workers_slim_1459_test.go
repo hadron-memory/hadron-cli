@@ -197,6 +197,7 @@ func TestSessionStartByNameKeepsBriefing1459(t *testing.T) {
 	teamGitDir(t)
 	s := newSlim1459Server(t, map[string]string{
 		"TeamSessions":     `{"data":{"sessions":[]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 	})
 	f, out := testFactory(t)
@@ -258,7 +259,10 @@ func (s *slim1459Server) assertOneNameRead(t *testing.T, op string) {
 // GetWorkerIdInApp, no briefing, no list.
 func TestSessionListAsNameReadsIdOnly1459(t *testing.T) {
 	teamGitDir(t)
-	s := newSlim1459Server(t, map[string]string{"TeamSessions": `{"data":{"sessions":[]}}`})
+	s := newSlim1459Server(t, map[string]string{
+		"TeamSessions":     `{"data":{"sessions":[]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
+	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "session", "list", "--as", "iris", "--app", "acme.com:eng-team", "--json", "--server", s.URL})
