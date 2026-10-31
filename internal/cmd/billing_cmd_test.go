@@ -228,3 +228,108 @@ func TestBillingOrgAdminRefusalPassesThrough(t *testing.T) {
 		}
 	}
 }
+
+// cli#215 T1 price-read cut: `billing prices get <id>` wraps aiModelPrice(ref).
+// The ref goes to the wire byte for byte, the row's money stays a string, and
+// a null answer is "not found or not visible" — the server does not say which.
+
+func TestBillingPricesGet(t *testing.T) {
+	reply := map[string]string{"AiModelPrice": `{"data":{"aiModelPrice":` + aiModelPriceJSON + `}}`}
+	out, captured, err := runBilling(t, reply, "billing", "prices", "get", "p1", "--json")
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if got := string(captured["AiModelPrice"]); got != `{"ref":"p1"}` {
+		t.Errorf("the ref must reach the wire unchanged, got %s", got)
+	}
+	if _, listed := captured["AiModelPrices"]; listed {
+		t.Error("get must read the one row, not list")
+	}
+	var row map[string]any
+	if err := json.Unmarshal([]byte(out), &row); err != nil {
+		t.Fatalf("--json not an object: %v\n%s", err, out)
+	}
+	for k, want := range map[string]string{"id": "p1", "provider": "anthropic", "model": "claude-opus-5-5",
+		"inputMicroCentsPerMTok": bigMicroCents, "outputMicroCentsPerMTok": "1500000000",
+		"effectiveAt": "2026-07-11T00:00:00.000Z", "createdAt": "2026-07-10T00:00:00.000Z"} {
+		if got, ok := row[k].(string); !ok || got != want {
+			t.Errorf("%s: want string %q, got %#v", k, want, row[k])
+		}
+	}
+	if row["tier"] != float64(2) {
+		t.Errorf("tier: want 2, got %#v", row["tier"])
+	}
+	for _, k := range []string{"markupBasisPoints", "createdBy"} {
+		if v, present := row[k]; !present || v != nil {
+			t.Errorf("%s: an unknown value stays null (not absent, not zero), got %#v present=%v", k, v, present)
+		}
+	}
+
+	text, _, err := runBilling(t, reply, "billing", "prices", "get", "p1")
+	if err != nil {
+		t.Fatalf("execute (text): %v", err)
+	}
+	for _, want := range []string{"p1", "anthropic", "claude-opus-5-5", bigMicroCents, "1500000000", "default", "2026-07-11T00:00:00.000Z"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("text render is missing %q:\n%s", want, text)
+		}
+	}
+}
+
+func TestBillingPricesGetNullIsNotFoundOrNotVisible(t *testing.T) {
+	calls := 0
+	gql, _ := captureGraphQLFunc(t, func(op string) string {
+		if op == "AiModelPrice" {
+			calls++
+			return `{"data":{"aiModelPrice":null}}`
+		}
+		return ""
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"billing", "prices", "get", "p-missing", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if got := exitCodeFor(err); got != exitcode.NotFound {
+		t.Errorf("a null row must exit %d, got %d (%v)", exitcode.NotFound, got, err)
+	}
+	if err == nil || !strings.Contains(err.Error(), "not found or not visible") {
+		t.Errorf("the refusal must not claim which of the two it is: %v", err)
+	}
+	if calls != 1 {
+		t.Errorf("sent %d times, want exactly once", calls)
+	}
+	if out.Len() != 0 {
+		t.Errorf("nothing goes to stdout on not-found, got %q", out.String())
+	}
+}
+
+func TestBillingPricesGetRefusesEmptyRef(t *testing.T) {
+	_, captured, err := runBilling(t, map[string]string{}, "billing", "prices", "get", "")
+	if got := exitCodeFor(err); got != exitcode.Usage {
+		t.Errorf("an empty id must exit %d, got %d (%v)", exitcode.Usage, got, err)
+	}
+	if _, sent := captured["AiModelPrice"]; sent {
+		t.Error("an empty id must refuse before any request")
+	}
+}
+
+func TestBillingPricesGetServerRefusalPassesThrough(t *testing.T) {
+	calls := 0
+	gql, _ := captureGraphQLFunc(t, func(op string) string {
+		if op == "AiModelPrice" {
+			calls++
+			return `{"errors":[{"message":"Unauthenticated","extensions":{"code":"UNAUTHENTICATED"}}]}`
+		}
+		return ""
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"billing", "prices", "get", "p1", "--server", gql.URL})
+	err := root.Execute()
+	if got := exitCodeFor(err); got != exitcode.AuthRequired {
+		t.Errorf("the server refusal must map to %d, got %d (%v)", exitcode.AuthRequired, got, err)
+	}
+	if calls != 1 {
+		t.Errorf("sent %d times, want exactly once", calls)
+	}
+}
