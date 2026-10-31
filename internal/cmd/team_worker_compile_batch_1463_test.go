@@ -15,6 +15,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -93,7 +94,7 @@ func newBatchFake(t *testing.T, workers []batchWorker) (*httptest.Server, *batch
 		fake.mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
 		switch op {
-		case "GetBoundSessionEnd", "ChannelReadState":
+		case "GetBoundSessionEnd", "ChannelReadState", "TeamAppIdentity":
 			_, _ = w.Write([]byte(`{"data":{}}`))
 		case "WorkersBootPointers":
 			items := []string{}
@@ -156,9 +157,9 @@ func newBatchFake(t *testing.T, workers []batchWorker) (*httptest.Server, *batch
 				w.WriteHeader(http.StatusBadGateway)
 				_, _ = w.Write([]byte("bad gateway"))
 			case wk.after == "landed":
-				fmt.Fprintf(w, `{"data":{"node":{"id":"n","revision":%d}}}`, wk.revision+1)
+				fmt.Fprintf(w, `{"data":{"node":{"revision":%d}}}`, wk.revision+1)
 			default:
-				fmt.Fprintf(w, `{"data":{"node":{"id":"n","revision":%d}}}`, wk.revision)
+				fmt.Fprintf(w, `{"data":{"node":{"revision":%d}}}`, wk.revision)
 			}
 		case "WorkerBootPointer":
 			wk := fake.byID(fmt.Sprint(body.Variables["ref"]))
@@ -171,7 +172,7 @@ func newBatchFake(t *testing.T, workers []batchWorker) (*httptest.Server, *batch
 			if wk.pointerAfter != "" {
 				ptr = fmt.Sprintf("%q", wk.pointerAfter)
 			}
-			fmt.Fprintf(w, `{"data":{"worker":{"id":%q,"bootPromptRef":%s}}}`, wk.id, ptr)
+			fmt.Fprintf(w, `{"data":{"worker":{"bootPromptRef":%s}}}`, ptr)
 		default:
 			t.Errorf("unexpected operation %q", op)
 			_, _ = w.Write([]byte(`{"errors":[{"message":"unexpected operation"}]}`))
@@ -244,7 +245,7 @@ func batchNames(rows []map[string]any) string {
 
 func TestBatchCompileDryRunWritesNothingAndShowsEveryBucket(t *testing.T) {
 	fake, out, raw, err := runBatch(t, batchTeam(), "--json")
-	if err == nil || exitcode.FromError(err) == 0 {
+	if err == nil || exitCodeFor(err) == 0 {
 		// Dee's lint is unavailable: the plan could not decide for one worker.
 		t.Fatalf("an undecided worker must not exit 0: %v", err)
 	}
@@ -279,7 +280,7 @@ func TestBatchCompileDryRunWritesNothingAndShowsEveryBucket(t *testing.T) {
 
 func TestBatchCompileApplyClassifiesEachWorker(t *testing.T) {
 	fake, out, _, err := runBatch(t, batchTeam(), "--apply", "--json")
-	if got := exitcode.FromError(err); got != exitcode.Conflict {
+	if got := exitCodeFor(err); got != exitcode.Conflict {
 		t.Fatalf("exit = %d (%v), want %d for the failed source", got, err, exitcode.Conflict)
 	}
 	compiles := fake.ops("CompileWorkerBootPrompt")
@@ -328,7 +329,7 @@ func TestBatchCompileClassifiesEveryBootCodeByServerCode(t *testing.T) {
 			if bucket == "skipped" && err != nil {
 				t.Fatalf("a skip is not a failure: %v", err)
 			}
-			if bucket == "failed" && exitcode.FromError(err) == 0 {
+			if bucket == "failed" && exitCodeFor(err) == 0 {
 				t.Fatalf("a failure must not exit 0")
 			}
 		})
@@ -345,7 +346,7 @@ func TestBatchCompileLostResponseReadsRevisionOnceAndContinues(t *testing.T) {
 				{id: "w-cal", name: "Cal", compile: "ok"},
 			}
 			fake, out, _, err := runBatch(t, team, "--apply", "--json")
-			if got := exitcode.FromError(err); got != exitcode.Unavailable {
+			if got := exitCodeFor(err); got != exitcode.Unavailable {
 				t.Fatalf("exit = %d (%v), want %d after a lost response", got, err, exitcode.Unavailable)
 			}
 			ann := 0
@@ -377,7 +378,7 @@ func TestBatchCompileLostResponseReadsRevisionOnceAndContinues(t *testing.T) {
 func TestBatchCompileLostFirstCompileReadsThePointerOnce(t *testing.T) {
 	team := []batchWorker{{id: "w-cal", name: "Cal", compile: "502", pointerAfter: cptr("w-cal")}}
 	fake, out, _, err := runBatch(t, team, "--apply", "--json")
-	if exitcode.FromError(err) != exitcode.Unavailable {
+	if exitCodeFor(err) != exitcode.Unavailable {
 		t.Fatalf("exit %v", err)
 	}
 	if len(fake.ops("WorkerBootPointer")) != 1 || len(fake.ops("CompileWorkerBootPrompt")) != 1 {
@@ -415,7 +416,7 @@ func TestBatchCompileOnlyFiltersAndRefusesUnknownNamesBeforeWriting(t *testing.T
 	}
 
 	fake, _, _, err = runBatch(t, batchTeam(), "--only", "Ann,Zed,Fay", "--apply")
-	if exitcode.FromError(err) != exitcode.NotFound || !strings.Contains(err.Error(), "Zed") || !strings.Contains(err.Error(), "Fay") {
+	if exitCodeFor(err) != exitcode.NotFound || !strings.Contains(err.Error(), "Zed") || !strings.Contains(err.Error(), "Fay") {
 		t.Fatalf("unknown or retired --only names must be reported: %v", err)
 	}
 	if n := len(fake.ops("CompileWorkerBootPrompt")); n != 0 {
@@ -461,7 +462,7 @@ func TestBatchCompileReadsOnlyWhatItNeeds(t *testing.T) {
 func TestBatchCompileFlagsNeedNoWorkerArgument(t *testing.T) {
 	for _, args := range [][]string{{"Ann", "--all"}, {"Ann", "--apply"}, {"Ann", "--only", "Bob"}} {
 		fake, _, _, err := runBatch(t, batchTeam(), args...)
-		if exitcode.FromError(err) != exitcode.Usage || len(fake.calls) != 0 {
+		if exitCodeFor(err) != exitcode.Usage || len(fake.calls) != 0 {
 			t.Fatalf("%v: want a usage refusal before any request, got %v", args, err)
 		}
 	}
@@ -475,8 +476,30 @@ func TestBatchCompileHumanOutputPrintsApproveLinesNeverRunsThem(t *testing.T) {
 	if !strings.Contains(out, "nothing was approved") {
 		t.Fatalf("must say nothing was approved: %s", out)
 	}
+	// No-source skips are most of a real App's staff: one line, not a row each.
+	if !strings.Contains(out, "skipped, 1 with no source (BOOT_PROMPT_NO_SOURCE): Cal\n") {
+		t.Fatalf("no-source skips not folded: %s", out)
+	}
 	_, out, _, _ = runBatch(t, batchTeam())
-	if !strings.Contains(out, "DRY RUN") || !strings.Contains(out, "--apply") {
+	if !strings.Contains(out, "DRY RUN: 3 to compile (1 changed, 2 with no compiled prompt yet)") || !strings.Contains(out, "--apply") {
 		t.Fatalf("dry run must say so: %s", out)
+	}
+	if !strings.Contains(out, "with no compiled prompt yet (each is skipped if it has no source): Cal, Eve\n") {
+		t.Fatalf("first compiles not folded: %s", out)
+	}
+}
+
+// The selections themselves (review:assert-the-query-not-the-capture): the
+// roster read stays slim, and the plan never selects bodies or provenance.
+func TestBatchCompileSelectionsStaySlim(t *testing.T) {
+	for name, doc := range map[string]string{
+		"WorkersBootPointers":     gen.WorkersBootPointers_Operation,
+		"CompiledPromptLintBatch": gen.CompiledPromptLintBatch_Operation,
+	} {
+		for _, field := range []string{"prompt", "signature", "trailer", "content", "provenance", "servedPrompt", "WorkerFields"} {
+			if strings.Contains(doc, field) {
+				t.Fatalf("%s selects %q", name, field)
+			}
+		}
 	}
 }

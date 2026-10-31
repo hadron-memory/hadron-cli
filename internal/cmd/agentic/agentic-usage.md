@@ -4122,6 +4122,40 @@ retry is made, including after a conflict.
 
 hadron team worker compile <worker> [--no-set-pointer]
 
+### Batch: every changed worker in an App (cli#1463)
+
+hadron team worker compile [--all] [--only <names>] [--apply] [--no-set-pointer] [--app <ref>]
+
+With no worker argument, the command compiles the App's live workers in one
+run. It is a dry run unless `--apply` (no mutation). By default only workers
+whose sources changed are selected: the server's `RECOMPILE_AVAILABLE` lint on
+the compiled node (cor:agt:040:13) decides, read in batched `nodeBatch` pages.
+A worker with no compiled prompt gets its first compile. `--all` selects every
+live worker. `--only a,b` (names, ids or URNs) limits the run; a name that is
+not a live worker exits 4 before anything is written. Reads: one slim roster
+read per 200 workers and one lint read per 200 compiled prompts; no per-worker
+name resolution and no include-target reads.
+
+Each selected worker is compiled once, by id. JSON:
+`{app,applied,all,toCompile,compiled,unchanged,skipped,failed,unknown}`, every
+list an array, never null. `toCompile`/`unchanged` rows:
+`{name,id,urn,compiledNodeRef,reason}`. `compiled`:
+`{name,id,urn,compiledNodeRef,revision,contentHash,pointerSet,approvalIssued,approveCommand}`.
+`skipped` (BOOT_PROMPT_NO_SOURCE, BOOT_PROMPT_TARGET_RETIRED) and `failed`
+(any other refusal): `{name,id,urn,code,exitCode,message}`. `unknown`:
+`{name,id,urn,compiledNodeRef,reason,outcome,revisionBefore,revisionAfter,approveCommand}`;
+`outcome` is "" for a worker the plan could not decide (lint or node
+unavailable: not compiled; `--all` compiles it), and `landed` / `not-landed` /
+`unknown` after a lost response, decided by ONE revision (or, for a first
+compile, pointer) read against the baseline. The compile is never re-sent.
+
+Never approves: `approveCommand` is the `hadron node approve <ref> --revision N`
+line to run after reading the revision. Blind spot: a new install-memory
+override at an address the last compile read from the Agent is not flagged;
+use `--all`. Exit: 0 when all are compiled/unchanged/skipped; otherwise the
+highest of 7 (lost response), 1 (undecided worker) and each failure's code.
+`--all/--only/--apply` with a worker argument exit 2.
+
 ## Opt-in node source-lint warnings (#916 C3c)
 
 `node get|add|update|approve|move|clone|merge|restore --lint-warnings` adds a separate current advisory read, paged completely. JSON omits `lintWarnings` by default, returns null when the requested warning read is unavailable (including older/denied providers), or `{items,total,nextCursor:null}` when complete. Human warning text is terminal-safe; JSON preserves server text/nullable fields. A failed warning read never retries or changes a successful mutation; it reports no conclusion, not zero warnings. This is not a snapshot of the authored revision. Excludes actual --body-only/--dry-run. Advisory reads share a five-second budget across the command, including every batch-get node; timeout leaves the main receipt successful with warning state unavailable. Main response-extension warnings are unchanged; this flag controls only the extra source-lint read.
