@@ -112,7 +112,12 @@ written (uninstall removes them).`,
 			}
 			cfg, err := hostpoller.LoadConfig(abs)
 			if err != nil {
-				return exitcode.New(exitcode.Usage, err)
+				// A parse error can quote the file (the key file, if it was
+				// passed by mistake): name the path and the cause class only.
+				if errors.Is(err, os.ErrNotExist) || errors.Is(err, os.ErrPermission) {
+					return exitcode.Newf(exitcode.Usage, "--config %s cannot be read: %v", abs, errors.Unwrap(err))
+				}
+				return exitcode.Newf(exitcode.Usage, "--config %s is not a valid host configuration; its contents are not echoed (check it with `hadron team host run --config`)", abs)
 			}
 			if bin != "" && !filepath.IsAbs(bin) {
 				return exitcode.Newf(exitcode.Usage, "--bin must be an absolute path, got %q", bin)

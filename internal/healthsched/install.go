@@ -154,6 +154,11 @@ func (e Env) Install(s Spec) (Result, error) {
 	if err := ValidateInterval(s.Interval); err != nil {
 		return Result{}, err
 	}
+	path, err := cleanPath(s.Path)
+	if err != nil {
+		return Result{}, err
+	}
+	s.Path = path
 	k, err := e.Detect()
 	if err != nil {
 		return Result{}, err
@@ -180,6 +185,24 @@ func (e Env) Install(s Spec) (Result, error) {
 	default:
 		return e.installLaunchd(s, res)
 	}
+}
+
+// cleanPath is the PATH the entry will carry: control characters are refused
+// (a newline would add directives to a unit), and empty or relative elements
+// are dropped, since the entry runs from another working directory.
+func cleanPath(p string) (string, error) {
+	for _, r := range p {
+		if r < 0x20 || r == 0x7f {
+			return "", usagef("PATH contains a control character (%q); refusing to write it into a scheduler entry", p)
+		}
+	}
+	var keep []string
+	for _, d := range filepath.SplitList(p) {
+		if strings.HasPrefix(d, "/") {
+			keep = append(keep, d)
+		}
+	}
+	return strings.Join(keep, ":"), nil
 }
 
 // installedKinds lists every scheduler that already holds an entry, wherever
@@ -466,11 +489,9 @@ func (e Env) ReadStatus() Status {
 					st.Installed, st.Active, st.Kind = true, true, string(Cron)
 					st.Config = e.existingConfig(Cron)
 					st.Interval = cronInterval(l)
-					if m := regexp.MustCompile(`PATH='([^']*)'`).FindStringSubmatch(l); m != nil {
-						st.Orca = e.orcaIn(m[1])
-					}
-					if m := regexp.MustCompile(`PATH='[^']*' '([^']*)'`).FindStringSubmatch(l); m != nil {
-						st.Bin = m[1]
+					if w := shellWords(strings.ReplaceAll(l, `\%`, "%")); len(w) > 6 && strings.HasPrefix(w[5], "PATH=") {
+						st.Orca = e.orcaIn(strings.TrimPrefix(w[5], "PATH="))
+						st.Bin = w[6]
 					}
 					st.LastRun = &LastRun{}
 					st.Notes = append(st.Notes, "last run: unknown (cron does not record it)")
@@ -497,6 +518,45 @@ func (e Env) orcaIn(path string) string {
 		}
 	}
 	return ""
+}
+
+// shellWords splits a line the way sh would for the single-quoted words
+// shellQuote writes (including its '\” escape), so status reads back exactly
+// what install wrote.
+func shellWords(line string) []string {
+	var words []string
+	var cur strings.Builder
+	inWord, inQuote := false, false
+	for i := 0; i < len(line); i++ {
+		c := line[i]
+		switch {
+		case inQuote:
+			if c == '\'' {
+				inQuote = false
+			} else {
+				cur.WriteByte(c)
+			}
+		case c == '\'':
+			inQuote, inWord = true, true
+		case c == '\\' && i+1 < len(line):
+			i++
+			cur.WriteByte(line[i])
+			inWord = true
+		case c == ' ' || c == '\t':
+			if inWord {
+				words = append(words, cur.String())
+				cur.Reset()
+				inWord = false
+			}
+		default:
+			cur.WriteByte(c)
+			inWord = true
+		}
+	}
+	if inWord {
+		words = append(words, cur.String())
+	}
+	return words
 }
 
 func cronInterval(line string) string {

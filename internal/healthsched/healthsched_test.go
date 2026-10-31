@@ -636,3 +636,117 @@ func TestUninstallLeavesLinesThatOnlyMentionTheMarker(t *testing.T) {
 		t.Fatalf("the line install writes must be owned: %s", line)
 	}
 }
+
+var hostile = Spec{Bin: "/opt/it's here/hadron", Config: `/srv/h"o$t & <x> 100%/host 'a'.yaml`, Interval: 5 * time.Minute, Path: `/usr/bin:/opt/a"b$c%d`}
+
+// #1412 (Ralion P2-2): hostile characters in --config/--bin/PATH round-trip
+// through each scheduler's file exactly, and stay inert.
+func TestHostileValuesRoundTripThroughSystemd(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "linux", "systemctl")
+	if _, err := e.Install(hostile); err != nil {
+		t.Fatal(err)
+	}
+	svc, _ := os.ReadFile(e.servicePath())
+	m := execStartRE.FindSubmatch(svc)
+	if m == nil || unSystemd(string(m[1])) != hostile.Bin {
+		t.Fatalf("ExecStart did not round-trip: %s", svc)
+	}
+	if st := e.ReadStatus(); st.Config != hostile.Config || st.Bin != hostile.Bin {
+		t.Fatalf("status lost the hostile values: %+v", st)
+	}
+	if !strings.Contains(string(svc), `PATH=/usr/bin:/opt/a\"b$$c%%d`) {
+		t.Fatalf("PATH not escaped: %s", svc)
+	}
+}
+
+func TestHostileValuesRoundTripThroughCron(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "linux", "crontab")
+	if _, err := e.Install(hostile); err != nil {
+		t.Fatal(err)
+	}
+	if st := e.ReadStatus(); st.Config != hostile.Config || st.Bin != hostile.Bin {
+		t.Fatalf("status lost the hostile values: %+v", st)
+	}
+	line := f.crontab
+	if strings.Contains(strings.ReplaceAll(line, `\%`, ""), "%") || !strings.Contains(line, `'\''`) {
+		t.Fatalf("unescaped %% or quote in the cron line: %s", line)
+	}
+	if !strings.Contains(line, `PATH='/usr/bin:/opt/a"b$c\%d'`) {
+		t.Fatalf("PATH not single-quoted: %s", line)
+	}
+}
+
+func TestHostileValuesRoundTripThroughLaunchd(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "darwin", "launchctl")
+	if _, err := e.Install(hostile); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(e.plistPath())
+	if strings.Contains(string(b), "<x>") || strings.Contains(string(b), "& ") || !strings.Contains(string(b), "&amp;") || !strings.Contains(string(b), "&lt;x&gt;") {
+		t.Fatalf("XML metacharacters not escaped: %s", b)
+	}
+	if st := e.ReadStatus(); st.Config != hostile.Config || st.Bin != hostile.Bin {
+		t.Fatalf("status lost the hostile values: %+v", st)
+	}
+}
+
+// #1412 (Ralion P3-1): a PATH that could break the entry is refused or
+// cleaned, never written as given.
+func TestInstallRejectsControlCharactersInPathAndDropsRelativeElements(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "linux", "systemctl")
+	bad := spec
+	bad.Path = "/usr/bin\nExecStartPre=/bin/sh -c evil"
+	before := tree(t, e.Home)
+	var ue *UsageError
+	if _, err := e.Install(bad); !errors.As(err, &ue) || tree(t, e.Home) != before {
+		t.Fatalf("a PATH with a newline must be refused before any write: %v", err)
+	}
+	rel := spec
+	rel.Path = "/usr/bin::bin:./x:/opt/ok"
+	if _, err := e.Install(rel); err != nil {
+		t.Fatal(err)
+	}
+	svc, _ := os.ReadFile(e.servicePath())
+	if !strings.Contains(string(svc), `PATH=/usr/bin:/opt/ok"`) {
+		t.Fatalf("empty and relative PATH elements must be dropped: %s", svc)
+	}
+}
+
+// #1412 (Ralion P2-2): a partial install with only the service file still
+// uninstalls.
+func TestUninstallRemovesALoneServiceFile(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "linux", "systemctl")
+	if err := os.MkdirAll(e.unitDir(), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(e.servicePath(), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if res, err := e.Uninstall(); err != nil || !res.Changed || fileExists(e.servicePath()) {
+		t.Fatalf("%+v %v", res, err)
+	}
+}
+
+// An apostrophe in PATH is escaped by shellQuote; the line must stay ours so
+// uninstall can still remove it.
+func TestCronLineWithAnApostropheInPathIsStillOwned(t *testing.T) {
+	s := spec
+	s.Path = "/usr/bin:/home/o'neil/bin"
+	line, err := CronLine(s)
+	if err != nil || !IsOwnedCronLine(line) {
+		t.Fatalf("%v owned=%v: %s", err, IsOwnedCronLine(line), line)
+	}
+	f := &fake{}
+	e := f.env(t, "linux", "crontab")
+	if _, err := e.Install(s); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.Uninstall(); err != nil || strings.TrimSpace(f.crontab) != "" {
+		t.Fatalf("%v %q", err, f.crontab)
+	}
+}

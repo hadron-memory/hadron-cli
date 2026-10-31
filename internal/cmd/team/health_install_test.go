@@ -235,3 +235,25 @@ func TestHealthStatusUnderCronSaysUnknown(t *testing.T) {
 		t.Fatal(out)
 	}
 }
+
+// #1412 (Ralion P3-3): a --config that is not a host YAML (here the key file)
+// is refused without quoting its contents, as `sweep` does.
+func TestHealthInstallDoesNotQuoteAnUnparsableConfig(t *testing.T) {
+	orcaOnPath(t)
+	hf, run, _ := healthHarness(t, "systemctl")
+	_ = hf
+	key := filepath.Join(t.TempDir(), "host.key")
+	if err := os.WriteFile(key, []byte("hdr_app_SENTINELKEY"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out, errOut, err := run("install", "--config", key, "--interval", "5m")
+	if code(err) != exitcode.Usage {
+		t.Fatalf("exit = %d (%v)", code(err), err)
+	}
+	for _, s := range []string{out, errOut, err.Error()} {
+		// the YAML decoder quotes the first characters of an unparsable scalar
+		if strings.Contains(s, "hdr_app") || strings.Contains(s, "unmarshal") {
+			t.Fatalf("config contents leaked into the diagnostic: %q", s)
+		}
+	}
+}
