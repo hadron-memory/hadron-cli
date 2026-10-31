@@ -29,6 +29,7 @@
       "unavailableUntil": null,
       "lastActiveAt": "2026-10-12T01:00:00Z",
       "checkStatus": null,
+      "terminal": null,
       "lastAssignedAt": "2026-10-11T09:00:00Z",
       "pendingTasks": [
         "task1"
@@ -75,6 +76,7 @@
       "unavailableUntil": null,
       "lastActiveAt": "2026-10-12T03:30:00Z",
       "checkStatus": null,
+      "terminal": null,
       "lastAssignedAt": null,
       "pendingTasks": [],
       "startedTasks": [
