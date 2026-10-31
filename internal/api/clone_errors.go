@@ -181,7 +181,7 @@ func CloneAgentDetailText(err error) string {
 		parts = append(parts, output.SafeCell(code))
 	}
 	if reason, ok := details["reason"].(string); ok {
-		parts = append(parts, "reason "+output.SafeCell(reason))
+		parts = append(parts, "reason "+cloneDelimitedReason(reason))
 	}
 	if retryable, ok := details["retryable"].(bool); ok && retryable {
 		// The CLI never retries a clone (agentic-usage): the reader reruns it.
@@ -194,6 +194,25 @@ func CloneAgentDetailText(err error) string {
 		parts = append(parts, "blockers follow")
 	}
 	return " (" + cloneDetailLabel(err) + ": " + strings.Join(parts, ", ") + ")"
+}
+
+// cloneQuoted renders a server-supplied name inside double quotes with `\` and
+// `"` backslash-escaped, so it cannot close its quotes and pass for a second
+// subject (cli#1437). The escape lives here, not in output.SafeCell, whose
+// fleet-wide table callers must not change.
+func cloneQuoted(s string) string {
+	s = strings.NewReplacer(`\`, `\\`, `"`, `\"`).Replace(output.SafeCell(s))
+	return `"` + s + `"`
+}
+
+// cloneDelimitedReason leaves an ordinary reason code bare (the documented
+// wording) and quotes one carrying a comma, quote or backslash, so it cannot
+// read as the "retryable" clause or another part of the line.
+func cloneDelimitedReason(s string) string {
+	if strings.ContainsAny(s, `,"\`) {
+		return cloneQuoted(s)
+	}
+	return output.SafeCell(s)
 }
 
 // CloneAgentBlockerLines renders one line per blocker, in the order received:
@@ -214,7 +233,7 @@ func CloneAgentBlockerLines(err error) []string {
 		for _, s := range subjects {
 			position, _ := s["position"].(int64)
 			if name, ok := s["name"].(string); ok {
-				rendered = append(rendered, fmt.Sprintf("\"%s\" (position %d)", output.SafeCell(name), position))
+				rendered = append(rendered, fmt.Sprintf("%s (position %d)", cloneQuoted(name), position))
 				continue
 			}
 			rendered = append(rendered, fmt.Sprintf("position %d", position))
