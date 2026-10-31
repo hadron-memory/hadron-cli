@@ -9334,6 +9334,122 @@ var AllAiConfigOwnerType = []AiConfigOwnerType{
 	AiConfigOwnerTypeOrganization,
 }
 
+// AiModelPriceAiModelPrice includes the requested fields of the GraphQL type AiModelPrice.
+// The GraphQL type's documentation follows.
+//
+// 046-usage-metering: effective-dated provider rate row. Prices are
+// micro-cents (1e-8 USD) per MILLION tokens, as base-10 integer strings.
+type AiModelPriceAiModelPrice struct {
+	AiModelPriceFields `json:"-"`
+}
+
+// GetId returns AiModelPriceAiModelPrice.Id, and is useful for accessing the field via an interface.
+func (v *AiModelPriceAiModelPrice) GetId() string { return v.AiModelPriceFields.Id }
+
+// GetProvider returns AiModelPriceAiModelPrice.Provider, and is useful for accessing the field via an interface.
+func (v *AiModelPriceAiModelPrice) GetProvider() string { return v.AiModelPriceFields.Provider }
+
+// GetModel returns AiModelPriceAiModelPrice.Model, and is useful for accessing the field via an interface.
+func (v *AiModelPriceAiModelPrice) GetModel() string { return v.AiModelPriceFields.Model }
+
+// GetTier returns AiModelPriceAiModelPrice.Tier, and is useful for accessing the field via an interface.
+func (v *AiModelPriceAiModelPrice) GetTier() int { return v.AiModelPriceFields.Tier }
+
+// GetInputMicroCentsPerMTok returns AiModelPriceAiModelPrice.InputMicroCentsPerMTok, and is useful for accessing the field via an interface.
+func (v *AiModelPriceAiModelPrice) GetInputMicroCentsPerMTok() string {
+	return v.AiModelPriceFields.InputMicroCentsPerMTok
+}
+
+// GetOutputMicroCentsPerMTok returns AiModelPriceAiModelPrice.OutputMicroCentsPerMTok, and is useful for accessing the field via an interface.
+func (v *AiModelPriceAiModelPrice) GetOutputMicroCentsPerMTok() string {
+	return v.AiModelPriceFields.OutputMicroCentsPerMTok
+}
+
+// GetMarkupBasisPoints returns AiModelPriceAiModelPrice.MarkupBasisPoints, and is useful for accessing the field via an interface.
+func (v *AiModelPriceAiModelPrice) GetMarkupBasisPoints() *int {
+	return v.AiModelPriceFields.MarkupBasisPoints
+}
+
+// GetEffectiveAt returns AiModelPriceAiModelPrice.EffectiveAt, and is useful for accessing the field via an interface.
+func (v *AiModelPriceAiModelPrice) GetEffectiveAt() string { return v.AiModelPriceFields.EffectiveAt }
+
+// GetCreatedAt returns AiModelPriceAiModelPrice.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AiModelPriceAiModelPrice) GetCreatedAt() string { return v.AiModelPriceFields.CreatedAt }
+
+// GetCreatedBy returns AiModelPriceAiModelPrice.CreatedBy, and is useful for accessing the field via an interface.
+func (v *AiModelPriceAiModelPrice) GetCreatedBy() *string { return v.AiModelPriceFields.CreatedBy }
+
+func (v *AiModelPriceAiModelPrice) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AiModelPriceAiModelPrice
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AiModelPriceAiModelPrice = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AiModelPriceFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAiModelPriceAiModelPrice struct {
+	Id string `json:"id"`
+
+	Provider string `json:"provider"`
+
+	Model string `json:"model"`
+
+	Tier int `json:"tier"`
+
+	InputMicroCentsPerMTok string `json:"inputMicroCentsPerMTok"`
+
+	OutputMicroCentsPerMTok string `json:"outputMicroCentsPerMTok"`
+
+	MarkupBasisPoints *int `json:"markupBasisPoints"`
+
+	EffectiveAt string `json:"effectiveAt"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+}
+
+func (v *AiModelPriceAiModelPrice) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AiModelPriceAiModelPrice) __premarshalJSON() (*__premarshalAiModelPriceAiModelPrice, error) {
+	var retval __premarshalAiModelPriceAiModelPrice
+
+	retval.Id = v.AiModelPriceFields.Id
+	retval.Provider = v.AiModelPriceFields.Provider
+	retval.Model = v.AiModelPriceFields.Model
+	retval.Tier = v.AiModelPriceFields.Tier
+	retval.InputMicroCentsPerMTok = v.AiModelPriceFields.InputMicroCentsPerMTok
+	retval.OutputMicroCentsPerMTok = v.AiModelPriceFields.OutputMicroCentsPerMTok
+	retval.MarkupBasisPoints = v.AiModelPriceFields.MarkupBasisPoints
+	retval.EffectiveAt = v.AiModelPriceFields.EffectiveAt
+	retval.CreatedAt = v.AiModelPriceFields.CreatedAt
+	retval.CreatedBy = v.AiModelPriceFields.CreatedBy
+	return &retval, nil
+}
+
 // AiModelPriceFields includes the GraphQL fields of AiModelPrice requested by the fragment AiModelPriceFields.
 // The GraphQL type's documentation follows.
 //
@@ -9384,6 +9500,15 @@ func (v *AiModelPriceFields) GetCreatedAt() string { return v.CreatedAt }
 
 // GetCreatedBy returns AiModelPriceFields.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AiModelPriceFields) GetCreatedBy() *string { return v.CreatedBy }
+
+// AiModelPriceResponse is returned by AiModelPrice on success.
+type AiModelPriceResponse struct {
+	// One provider rate row by id (spec 046). Authenticated read - rates are not a secret.
+	AiModelPrice *AiModelPriceAiModelPrice `json:"aiModelPrice"`
+}
+
+// GetAiModelPrice returns AiModelPriceResponse.AiModelPrice, and is useful for accessing the field via an interface.
+func (v *AiModelPriceResponse) GetAiModelPrice() *AiModelPriceAiModelPrice { return v.AiModelPrice }
 
 // AiModelPricesAiModelPricesAiModelPriceList includes the requested fields of the GraphQL type AiModelPriceList.
 type AiModelPricesAiModelPricesAiModelPriceList struct {
@@ -73305,6 +73430,14 @@ func (v *__AgentsInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __AgentsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__AgentsInput) GetOffset() *int { return v.Offset }
 
+// __AiModelPriceInput is used internally by genqlient
+type __AiModelPriceInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __AiModelPriceInput.Ref, and is useful for accessing the field via an interface.
+func (v *__AiModelPriceInput) GetRef() string { return v.Ref }
+
 // __AiModelPricesInput is used internally by genqlient
 type __AiModelPricesInput struct {
 	Provider *string `json:"provider,omitempty"`
@@ -82446,6 +82579,54 @@ func Agents(
 	}
 
 	data_ = &AgentsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AiModelPrice.
+const AiModelPrice_Operation = `
+query AiModelPrice ($ref: ID!) {
+	aiModelPrice(ref: $ref) {
+		... AiModelPriceFields
+	}
+}
+fragment AiModelPriceFields on AiModelPrice {
+	id
+	provider
+	model
+	tier
+	inputMicroCentsPerMTok
+	outputMicroCentsPerMTok
+	markupBasisPoints
+	effectiveAt
+	createdAt
+	createdBy
+}
+`
+
+// One rate row by id. Authenticated read; null means not found or not
+// visible (the server does not say which).
+func AiModelPrice(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *AiModelPriceResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AiModelPrice",
+		Query:  AiModelPrice_Operation,
+		Variables: &__AiModelPriceInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &AiModelPriceResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
