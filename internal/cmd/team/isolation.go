@@ -6,7 +6,8 @@ package team
 // read is `team wake-settings get` (ruling R2 (b): no `team isolation get`).
 // Ruling R1 (Holger, 2026-10-31): ship against the inert wire. Until S7b
 // (server#2130) the server refuses every set WORKER_ISOLATION_UNAVAILABLE and
-// projects a stored isolation as none; clearing is not gated.
+// projects a stored isolation as none; clearing is not gated. The help says
+// "until the server enables isolation": S7b is our label, not the reader's.
 
 import (
 	"io"
@@ -23,17 +24,18 @@ import (
 
 const isolationHelp = `Who may (cor:agt:080:29): whoever manages the App or the worker's holder, as
 a person acting as themselves. Anyone in that set may change or clear an
-isolation another one set. No worker isolates, even one a manager or the
-holder drives: a bound worker session is never attached to these writes, and
-the server refuses one WORKER_ISOLATION_FORBIDDEN (exit 8), as it does another
-participant; an App key or an impersonation is refused too.
+isolation another one set. No worker isolates, even one that a manager or the
+holder is acting through: a bound worker session is never attached to these
+writes, and the server refuses one WORKER_ISOLATION_FORBIDDEN (exit 8), as it
+does another participant; an App key or an impersonation is refused too.
 
-While isolation is unavailable (until S7b), set is refused
+Until the server enables isolation (hadron-server#2130), set is refused
 WORKER_ISOLATION_UNAVAILABLE (exit 5) and clear works. The server reports no
 isolation meanwhile, so a returned snapshot never shows the worker isolated,
-and a successful clear does not mean one was in force. "you may manage
-isolation" says whether you are in the set above, not whether isolation is
-available now. Read a worker's isolation with ` + "`hadron team wake-settings get`" + `.`
+and a successful clear does not mean one was in force. The "you may manage
+isolation" line in the printed settings says whether you are in the set
+above, not whether isolation is available now. Read a worker's isolation with
+` + "`hadron team wake-settings get`" + `.`
 
 // isolationRefusalCodes are the refusals these two calls document, kept as
 // the message prefix; the exit code is the mapped one, unchanged.
@@ -58,8 +60,11 @@ func newCmdTeamIsolationSet(f *cmdutil.Factory) *cobra.Command {
 	var worker, until, forDur string
 	cmd := &cobra.Command{
 		Use:   "set --worker <id-or-URN> [--until <RFC3339> | --for <duration>]",
-		Short: "Isolate a worker, or change when its isolation ends",
-		Long: `Isolate one worker until a time, and print the wake settings the server
+		Short: "Isolate a worker (refused until the server enables isolation)",
+		Long: `Until the server enables isolation (hadron-server#2130), every set is refused
+WORKER_ISOLATION_UNAVAILABLE (exit 5); clear works today.
+
+Isolate one worker until a time, and print the wake settings the server
 returns. --until is an RFC 3339 time with an offset and whole seconds, later
 than now; --for is a positive whole-second duration from now (90m, 2h). Both
 are sent as UTC and they cannot be combined. With neither, the server applies
@@ -113,7 +118,9 @@ func isolationEnd(cmd *cobra.Command, until, forDur string, now time.Time) (*str
 		return nil, exitcode.Newf(exitcode.Usage, "--until and --for both name the end: give one")
 	case hasUntil:
 		t, err := time.Parse(time.RFC3339, until)
-		if err != nil || strings.Contains(until, ".") {
+		// time.Parse accepts a fraction after "." or ",", zero-valued or not;
+		// either would be truncated before sending, so both are refused.
+		if err != nil || strings.ContainsAny(until, ".,") {
 			return nil, exitcode.Newf(exitcode.Usage, "--until takes an RFC 3339 time with an offset and whole seconds, e.g. 2026-11-01T18:00:00Z, got %q", until)
 		}
 		if !t.After(now) {
