@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -239,6 +240,43 @@ func TestAutomationLsFollowsPagesAndShowsStates(t *testing.T) {
 	}
 	if strings.Index(r.out, "alpha") > strings.Index(r.out, "beta") || strings.Index(r.out, "beta") > strings.Index(r.out, "gamma") {
 		t.Errorf("server order must be preserved:\n%s", r.out)
+	}
+}
+
+// The list renders exactly two stored-state labels, one per state, in the
+// STATE column of the row they belong to (cli#1220). The fixture above shows the
+// words somewhere in the output; this pins which row carries which.
+func TestAutomationLsRendersBothStoredStateLabels(t *testing.T) {
+	s := newAutoServer(t, map[string]func(map[string]any) autoReply{
+		"AutomationApprovals": func(map[string]any) autoReply {
+			return autoReply{body: autoPage([]string{
+				autoRow("SCHEDULE", "s1", "alpha", "ADOPTED", "Runs nightly"),
+				autoRow("WEBHOOK", "w1", "beta", "UNADOPTED", "Starts when called"),
+			}, "", true)}
+		},
+	})
+	r := runAuto(t, s, false, "", "ls")
+	if r.err != nil {
+		t.Fatal(r.err)
+	}
+	cells := regexp.MustCompile(`\s{2,}`)
+	state := map[string]string{}
+	for _, line := range strings.Split(r.out, "\n") {
+		for _, name := range []string{"alpha", "beta"} {
+			if strings.Contains(line, name) {
+				parts := cells.Split(strings.TrimSpace(line), -1)
+				if len(parts) < 3 {
+					t.Fatalf("row %q has %d cells, want AUTOMATION, STATE, WHAT", line, len(parts))
+				}
+				state[name] = parts[1]
+			}
+		}
+	}
+	if state["alpha"] != "approved (approval may be stale)" {
+		t.Errorf("ADOPTED row state = %q", state["alpha"])
+	}
+	if state["beta"] != "not approved" {
+		t.Errorf("UNADOPTED row state = %q", state["beta"])
 	}
 }
 
