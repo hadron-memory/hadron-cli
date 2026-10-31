@@ -32,7 +32,7 @@ func addSelectionArgs(cmd *cobra.Command, run *string) {
 // <name> is matched against the App's whole list; nothing is guessed: no match
 // refuses (4), several refuse (2) listing only the matches. A MANUAL origin is
 // the run id exactly as given — never looked up, listed or substituted.
-func resolveSelection(ctx context.Context, client graphql.Client, app string, args []string, run string, runSet bool) (*selection, error) {
+func resolveSelection(ctx context.Context, client graphql.Client, app string, args []string, run string, runSet bool, pageLimit ...*int) (*selection, error) {
 	name := ""
 	if len(args) > 0 {
 		name = strings.TrimSpace(args[0])
@@ -58,7 +58,7 @@ func resolveSelection(ctx context.Context, client graphql.Client, app string, ar
 		}, nil
 	}
 
-	l, err := collectListing(ctx, client, app)
+	l, err := collectListing(ctx, client, app, pageLimit...)
 	if err != nil {
 		return nil, err
 	}

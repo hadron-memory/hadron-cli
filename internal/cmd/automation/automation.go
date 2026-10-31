@@ -32,8 +32,13 @@ What an automation may do, its state and its hash are all the server's answer;
 this CLI infers no permission from being able to list an App, and who may
 approve is the server's call. Approve shows the summary first and sends the hash
 it showed; if the automation changed meanwhile the server refuses (exit 5) and
-nothing is retried.`,
+nothing is retried.
+
+For raw trigger ids and an explicit digest, use preview and re-adopt instead
+of these name-based approval commands. They do not require an App context.`,
 	}
+	cmd.AddCommand(newCmdRaw(f, false))
+	cmd.AddCommand(newCmdRaw(f, true))
 	cmd.AddCommand(newCmdLs(f))
 	cmd.AddCommand(newCmdApproval(f))
 	cmd.AddCommand(newCmdApprove(f))

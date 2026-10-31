@@ -2,6 +2,7 @@ package schedule
 
 import (
 	"io"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -14,16 +15,18 @@ import (
 
 func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 	var (
-		app, name, cron, tz, entry, aiConfig, agent, policy string
-		args                                                []string
-		asSelf, disabled                                    bool
-		budget                                              cmdutil.BudgetFlags
+		app, name, cron, tz, entry, aiConfig, agent, policy, runAt, scope string
+		args                                                              []string
+		asSelf, disabled                                                  bool
+		budget                                                            cmdutil.BudgetFlags
 	)
 	cmd := &cobra.Command{
-		Use:   "create --app <ref> --name <n> --cron '<expr>' --entry <node-urn>",
-		Short: "Create a recurring schedule",
-		Long: `Create a recurring schedule (cor:agt:010). --cron is a 5-field cron expression
-evaluated in --tz (default UTC).
+		Use:   "create --app <ref> --name <n> (--cron '<expr>' | --run-at <RFC3339>) --entry <node-urn>",
+		Short: "Create a recurring or one-shot schedule",
+		Long: `Create a recurring or one-shot schedule (cor:agt:010). Give exactly one of
+--cron (5 fields, evaluated in --tz, default UTC) or --run-at (RFC3339 instant).
+--scope names a readable scope by id or name resolved in the App context;
+omitted means the App's attached memories. The server snapshots it per run.
 
 --as-self runs on behalf of you (reaches your personal memories; authenticated
 user only — an App-key caller gets UNAUTHENTICATED). --arg sets static template
@@ -38,6 +41,12 @@ by the server. Requires a server with trigger budgets.`,
     --entry hrn:node:acme.com:ops:tasks:nightly-digest --as-self`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, cmdArgs []string) error {
+			if cmd.Flags().Changed("cron") == cmd.Flags().Changed("run-at") {
+				return exitcode.Newf(exitcode.Usage, "give exactly one of --cron or --run-at")
+			}
+			if (cmd.Flags().Changed("cron") && strings.TrimSpace(cron) == "") || (cmd.Flags().Changed("run-at") && strings.TrimSpace(runAt) == "") {
+				return exitcode.Newf(exitcode.Usage, "--cron/--run-at cannot be empty")
+			}
 			appRef, err := cmdutil.ResolveAppRef(f, app)
 			if err != nil {
 				return err
@@ -65,15 +74,27 @@ by the server. Requires a server with trigger budgets.`,
 
 			enabled := !disabled
 			input := &gen.CreateAgentScheduleInput{
-				AppRef:        appRef,
-				Name:          name,
-				Cron:          &cron,
+				AppRef: appRef,
+				Name:   name,
+
 				EntryNodeUrn:  entryURN,
 				Enabled:       &enabled,
 				EventData:     eventData,
 				Policy:        policyJSON,
 				BudgetTokens:  budgetTokens,
 				BudgetActions: budgetActions,
+			}
+			if cmd.Flags().Changed("cron") {
+				input.Cron = &cron
+			}
+			if cmd.Flags().Changed("run-at") {
+				input.RunAt = &runAt
+			}
+			if cmd.Flags().Changed("scope") {
+				if strings.TrimSpace(scope) == "" {
+					return exitcode.Newf(exitcode.Usage, "--scope is empty; omit it for App memories")
+				}
+				input.ScopeRef = &scope
 			}
 			if tz != "" {
 				input.Timezone = &tz
@@ -103,7 +124,7 @@ by the server. Requires a server with trigger budgets.`,
 	}
 	cmd.Flags().StringVar(&app, "app", "", "App to run (ID or URN; defaults to the App context)")
 	cmd.Flags().StringVar(&name, "name", "", "schedule name (required)")
-	cmd.Flags().StringVar(&cron, "cron", "", "5-field cron expression (required)")
+	cmd.Flags().StringVar(&cron, "cron", "", "5-field cron expression (instead of --run-at)")
 	cmd.Flags().StringVar(&tz, "tz", "", "IANA timezone for the cron expression (default UTC)")
 	cmd.Flags().StringVar(&entry, "entry", "", "fully-qualified entry node URN (required)")
 	cmd.Flags().BoolVar(&asSelf, "as-self", false, "run on behalf of you (authenticated user only)")
@@ -114,7 +135,8 @@ by the server. Requires a server with trigger budgets.`,
 	cmd.Flags().BoolVar(&disabled, "disabled", false, "create the schedule disabled")
 	budget.Add(cmd, false)
 	_ = cmd.MarkFlagRequired("name")
-	_ = cmd.MarkFlagRequired("cron")
+	cmd.Flags().StringVar(&runAt, "run-at", "", "one-shot RFC3339 instant (instead of --cron)")
+	cmd.Flags().StringVar(&scope, "scope", "", "readable scope id or name in the App context")
 	_ = cmd.MarkFlagRequired("entry")
 	return cmd
 }

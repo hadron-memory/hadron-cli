@@ -111,3 +111,61 @@ func TestApprovalPageSize1346(t *testing.T) {
 		t.Fatal(s.lastVars("AutomationApprovals"))
 	}
 }
+
+func TestAdoptionChanged1346(t *testing.T) {
+	g, c := captureGraphQL(t, map[string]string{"ReAdoptAutomation": `{"errors":[{"message":"graph changed","extensions":{"code":"AUTOMATION_CHANGED"}}]}`})
+	f, _ := testFactory(t)
+	r := NewRootCmd(f)
+	r.SetArgs([]string{"automation", "re-adopt", "SCHEDULE", "sch1", "--expected-hash", "reviewed-digest", "--yes", "--server", g.URL})
+	wantExit(t, r.Execute(), exitcode.Conflict)
+	var v map[string]json.RawMessage
+	_ = json.Unmarshal(c["ReAdoptAutomation"], &v)
+	if string(v["expectedHash"]) != `"reviewed-digest"` {
+		t.Fatal(v)
+	}
+	if len(c) != 1 {
+		t.Fatal("refusal fetched a new preview", c)
+	}
+}
+func TestUpdatePreserves1346(t *testing.T) {
+	g, c := captureGraphQL(t, map[string]string{"UpdateAgentSchedule": `{"data":{"updateAgentSchedule":` + scheduleJSON + `}}`})
+	f, _ := testFactory(t)
+	r := NewRootCmd(f)
+	r.SetArgs([]string{"schedule", "update", "sch1", "--name", "renamed", "--server", g.URL})
+	if err := r.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var v struct {
+		Input map[string]json.RawMessage `json:"input"`
+	}
+	_ = json.Unmarshal(c["UpdateAgentSchedule"], &v)
+	for _, k := range []string{"agentRef", "runAt", "scopeRef", "cron"} {
+		if _, ok := v.Input[k]; ok {
+			t.Errorf("unrelated update sent %s: %s", k, c["UpdateAgentSchedule"])
+		}
+	}
+}
+
+func TestEmptyInputs1346(t *testing.T) {
+	for _, a := range [][]string{
+		{"schedule", "create", "--app", "capp100000000000000000000", "--name", "n", "--entry", "hrn:node:acme.com:ops:task", "--run-at", ""},
+		{"schedule", "create", "--app", "capp100000000000000000000", "--name", "n", "--entry", "hrn:node:acme.com:ops:task", "--cron", "* * * * *", "--scope", ""},
+		{"schedule", "update", "sch1", "--agent", ""},
+		{"schedule", "update", "sch1", "--run-at", ""},
+		{"run", "list", "--org", "acme.com", "--statuses", ""},
+		{"run", "list", "--org", "acme.com", "--parent", ""},
+		{"run", "list", "--org", "acme.com", "--sort", ""},
+		{"run", "list", "--org", "acme.com", "--dir", ""},
+		{"automation", "re-adopt", "SCHEDULE", "sch1", "--expected-hash", "", "--yes"},
+		{"automation", "approval", "nightly", "--limit", "0"},
+	} {
+		g, c := captureGraphQL(t, nil)
+		f, _ := testFactory(t)
+		r := NewRootCmd(f)
+		r.SetArgs(append(a, "--server", g.URL))
+		wantExit(t, r.Execute(), exitcode.Usage)
+		if len(c) != 0 {
+			t.Fatal(a, c)
+		}
+	}
+}
