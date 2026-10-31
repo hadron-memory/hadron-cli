@@ -62,6 +62,10 @@ func requireCapturePrerequisites(t *testing.T) {
 // cannot drift from the help a user copies (cli#1313). All keys are synthetic.
 func TestAuthTokenCaptureExample(t *testing.T) {
 	requireCapturePrerequisites(t)
+	realLn, err := exec.LookPath("ln")
+	if err != nil {
+		t.Fatal(err)
+	}
 	f, _ := testFactory(t)
 	leaf, _, err := NewRootCmd(f).Find([]string{"auth", "token", "create"})
 	if err != nil {
@@ -71,7 +75,7 @@ func TestAuthTokenCaptureExample(t *testing.T) {
 	if !ok {
 		t.Fatal("missing capture example")
 	}
-	for _, mode := range []string{"success", "refusal", "refusal-json", "invalid-json", "existing", "dangling", "directory", "racing-file", "racing-directory", "racing-directory-link"} {
+	for _, mode := range []string{"success", "refusal", "refusal-json", "invalid-json", "existing", "dangling", "directory", "racing-file", "racing-directory", "racing-directory-link", "unsupported-ln", "racing-probe"} {
 		t.Run(mode, func(t *testing.T) {
 			dir := t.TempDir()
 			tools := filepath.Join(dir, "tools")
@@ -91,6 +95,16 @@ racing-directory-link) ln -s foreign-dir ci-token ;;
 esac
 printf '{"rawKey":"synthetic-key"}\n'
 `
+			if mode == "racing-probe" {
+				if err := os.WriteFile(filepath.Join(tools, "ln"), []byte("#!/bin/sh\nprintf 'foreign\\n' > \"$3\"\nexit 1\n"), 0o700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if mode == "unsupported-ln" {
+				if err := os.WriteFile(filepath.Join(tools, "ln"), []byte("#!/bin/sh\nfor arg; do if [ \"$arg\" = -T ]; then echo 'ln: unsupported -T' >&2; exit 64; fi; done\nexec \"$CAPTURE_REAL_LN\" \"$@\"\n"), 0o700); err != nil {
+					t.Fatal(err)
+				}
+			}
 			if err := os.WriteFile(filepath.Join(tools, "hadron"), []byte(stub), 0o700); err != nil {
 				t.Fatal(err)
 			}
@@ -121,15 +135,15 @@ printf '{"rawKey":"synthetic-key"}\n'
 			calls := filepath.Join(dir, "calls")
 			cmd := exec.Command("bash", "-c", strings.TrimSpace(script))
 			cmd.Dir = dir
-			cmd.Env = append(os.Environ(), "PATH="+tools+string(os.PathListSeparator)+os.Getenv("PATH"), "CAPTURE_MODE="+mode, "CAPTURE_CALLS="+calls, "TMPDIR="+dir)
+			cmd.Env = append(os.Environ(), "PATH="+tools+string(os.PathListSeparator)+os.Getenv("PATH"), "CAPTURE_REAL_LN="+realLn, "CAPTURE_MODE="+mode, "CAPTURE_CALLS="+calls, "TMPDIR="+dir)
 			out, runErr := cmd.CombinedOutput()
 			if strings.Contains(string(out), "synthetic-key") {
 				t.Error("capture example echoed key")
 			}
 			count, _ := os.ReadFile(calls)
-			if mode == "existing" || mode == "dangling" || mode == "directory" {
+			if mode == "existing" || mode == "dangling" || mode == "directory" || mode == "unsupported-ln" || mode == "racing-probe" {
 				if runErr == nil || len(count) != 0 {
-					t.Errorf("existing destination: err=%v calls=%q", runErr, count)
+					t.Errorf("pre-mint refusal: err=%v calls=%q", runErr, count)
 				}
 			} else if string(count) != "called\n" {
 				t.Errorf("want one mint call, got %q", count)
@@ -199,12 +213,41 @@ printf '{"rawKey":"synthetic-key"}\n'
 			if err != nil {
 				t.Fatal(err)
 			}
+			foreignProbeSeen := false
 			for _, e := range entries {
+				if mode == "racing-probe" && strings.HasSuffix(e.Name(), ".probe") {
+					b, err := os.ReadFile(filepath.Join(dir, e.Name()))
+					if err != nil || string(b) != "foreign\n" {
+						t.Errorf("foreign probe changed: %q %v", b, err)
+					}
+					foreignProbeSeen = true
+					continue
+				}
 				if strings.HasPrefix(e.Name(), "ci-token.") {
 					t.Errorf("temporary capture left behind: %s", e.Name())
 				}
 			}
+			if mode == "racing-probe" && !foreignProbeSeen {
+				t.Error("cleanup removed the foreign probe it did not create")
+			}
 		})
+	}
+}
+
+func TestCaptureRecoveryGuidance1439(t *testing.T) {
+	for _, args := range [][]string{{"auth", "token", "create", "--help"}, {"agentic-usage"}} {
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(args)
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		text := strings.Join(strings.Fields(out.String()), " ")
+		for _, want := range []string{"checks GNU ln -T before minting", "non-zero exit", "unexpected token by its label", "hadron auth token list", "hadron auth token revoke <id>"} {
+			if !strings.Contains(text, want) {
+				t.Errorf("%v lacks %q", args, want)
+			}
+		}
 	}
 }
 

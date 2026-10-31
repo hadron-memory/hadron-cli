@@ -17,6 +17,8 @@ func TestAppKeyCreateExplicitEmptyLabelRefusedBeforeFileAndRequest(t *testing.T)
 	for name, args := range map[string][]string{
 		"equals form": {"--label="},
 		"empty arg":   {"--label", ""},
+		"spaces":      {"--label", " "},
+		"whitespace":  {"--label", "\t \n"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			srv, n := keyServer(t, 200, createdKey1223)
