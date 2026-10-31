@@ -40,7 +40,7 @@ the issue body plus Patrick's attach amendment 1 (the amendment wins).
   `ccusageBlocks`: the blocks that started within 6h (`ActiveWindow`) of its
   observation, the only ones that can still grow. Against the previous record, a
   block that started within 6h of its observation counts by its increase (a block
-  not in the checkpoint counts in full); older blocks are final and add nothing.
+  not in the checkpoint counts in full if it started after that observation; one that started before it was backfilled, so the interval is unknown); older blocks are final and add nothing.
   So usage inside a block that was already running counts, and blocks evicted
   from a rolling ccusage file cannot skew the result. No previous checkpoint, no
   ccusage file, a known block whose totals went down, or a checkpointed block

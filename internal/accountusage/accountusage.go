@@ -407,7 +407,7 @@ type Previous struct {
 // time when there is a snapshot, else now. With a ccusage file the record
 // carries its still-growing blocks as the checkpoint. The since-last fields
 // are the growth of blocks that started within ActiveWindow of the previous
-// observation (a newer block counts in full, a known block by its increase;
+// observation (a block that started after it counts in full, a known block by its increase;
 // older blocks are final and contribute nothing), so growth inside a running
 // block counts and blocks evicted from a rolling file do not matter. They stay
 // absent when there is no ccusage file or previous checkpoint, or a known
@@ -476,6 +476,12 @@ func growth(blocks []Block, prev Previous) (tok, cost float64, ok bool) {
 		}
 		c, seen := known[rfc(b.Start)]
 		if !seen {
+			// A block that started before the previous observation would have
+			// been in that file already: it was backfilled or the file was
+			// rewritten, so what it added since is unknown.
+			if b.Start.Before(prev.ObservedAt) {
+				return 0, 0, false
+			}
 			tok += b.Tokens
 			cost += b.Cost
 			continue

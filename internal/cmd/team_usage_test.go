@@ -428,6 +428,12 @@ func TestTeamUsageSinceLastCountsGrowthInsideARunningBlock(t *testing.T) {
 	if _, has := a["tokensSinceLast"]; has {
 		t.Errorf("a vanished growing block must leave since-last absent: %v", a)
 	}
+	// A block that started before the previous observation but was not in its
+	// checkpoint (backfilled or rewritten file): unmeasurable, absent.
+	a = collect(`{"observedAt":"2026-10-31T11:00:00Z","ccusageBlocks":[]}`)
+	if _, has := a["tokensSinceLast"]; has {
+		t.Errorf("an unseen block older than the previous observation must leave since-last absent: %v", a)
+	}
 	// A known block whose totals went down cannot be compared: absent.
 	a = collect(`{"observedAt":"2026-10-31T11:00:00Z","ccusageBlocks":[{"start":"2026-10-31T10:00:00Z","tokens":9000,"costUsd":9}]}`)
 	if _, has := a["tokensSinceLast"]; has {
