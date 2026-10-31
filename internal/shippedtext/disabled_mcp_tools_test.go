@@ -117,6 +117,40 @@ func scanned(rel string) bool {
 	return false
 }
 
+// foldStringLiterals evaluates an expression built only from string literals,
+// parentheses and `+`, so `"hadron_team_" + "chat_read"` is checked as the one
+// string it is.
+//
+// LIMIT, pinned by TestScanRootDetection: an operand that is not a literal is
+// not evaluated, so a name assembled from a named constant or variable, or by
+// fmt, strings.Join and the like, is NOT detected (only the literal parts are
+// scanned on their own). The guard targets accidental reuse of a disabled
+// name in shipped text, not a deliberately obfuscated one; full constant
+// folding would need go/types and every package loaded.
+func foldStringLiterals(e ast.Expr) (string, bool) {
+	switch e := e.(type) {
+	case *ast.BasicLit:
+		if e.Kind != token.STRING {
+			return "", false
+		}
+		s, err := strconv.Unquote(e.Value)
+		return s, err == nil
+	case *ast.ParenExpr:
+		return foldStringLiterals(e.X)
+	case *ast.BinaryExpr:
+		if e.Op != token.ADD {
+			return "", false
+		}
+		l, ok := foldStringLiterals(e.X)
+		if !ok {
+			return "", false
+		}
+		r, ok := foldStringLiterals(e.Y)
+		return l + r, ok
+	}
+	return "", false
+}
+
 // scanRoot walks root and returns every "path: name" hit plus the exempt paths
 // that actually matched.
 func scanRoot(t *testing.T, root string, disabled *regexp.Regexp, exempt map[string]string) (hits []string, matched map[string]bool) {
@@ -154,9 +188,19 @@ func scanRoot(t *testing.T, root string, disabled *regexp.Regexp, exempt map[str
 				return nil
 			}
 			ast.Inspect(file, func(n ast.Node) bool {
-				if lit, ok := n.(*ast.BasicLit); ok && lit.Kind == token.STRING {
-					if s, uerr := strconv.Unquote(lit.Value); uerr == nil {
+				switch n := n.(type) {
+				case *ast.BinaryExpr:
+					// A name split across a concatenation of literals is one
+					// string at run time (cli#1422).
+					if s, ok := foldStringLiterals(n); ok {
 						texts = append(texts, s)
+						return false
+					}
+				case *ast.BasicLit:
+					if n.Kind == token.STRING {
+						if s, uerr := strconv.Unquote(n.Value); uerr == nil {
+							texts = append(texts, s)
+						}
 					}
 				}
 				return true
@@ -235,6 +279,27 @@ func TestScanRootDetection(t *testing.T) {
 	write(root, "internal/lib/lib.go", "package lib\nvar S = \"hadron_team_chat_read\"\n")
 	if hits, _ := scanRoot(t, root, re, nil); len(hits) != 1 {
 		t.Errorf("a Go string literal must be found, got %v", hits)
+	}
+	// Concatenated literals are one string (cli#1422): detected, however split.
+	for name, src := range map[string]string{
+		"two parts":     `"hadron_team_" + "chat_read"`,
+		"three parts":   `"hadron_" + "team_" + "chat_read"`,
+		"parenthesised": `("hadron_team_" + ("chat_" + "read"))`,
+		"inside a call": `fmt.Sprint("x", "hadron_team_" + "chat_read")`,
+	} {
+		root := t.TempDir()
+		write(root, "internal/lib/lib.go", "package lib\nvar S = "+src+"\n")
+		if hits, _ := scanRoot(t, root, re, nil); len(hits) != 1 {
+			t.Errorf("concatenation (%s) must be detected once, got %v", name, hits)
+		}
+	}
+	// The documented limit, pinned: an operand that is not a literal is not
+	// evaluated. If this starts to fail the guard got stronger: update the
+	// foldStringLiterals comment and move the case above.
+	root = t.TempDir()
+	write(root, "internal/lib/lib.go", "package lib\nconst a = \"hadron_team_\"\nvar S = a + \"chat_read\"\nvar T = Prefix() + \"chat_read\"\n")
+	if hits, _ := scanRoot(t, root, re, nil); len(hits) != 0 {
+		t.Errorf("a non-literal operand is the documented limit, got %v", hits)
 	}
 	// Skipped on purpose: comments, history, and the exact skip paths.
 	root = t.TempDir()
