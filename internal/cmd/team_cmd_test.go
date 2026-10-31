@@ -1551,7 +1551,7 @@ func TestTeamSessionStartWritesBinding(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"Workers":          freeStaffJSON,
 		"WorkersRoster":    freeStaffJSON,
-		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + endedSessionJSON + `]}}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + endedSessionJSON + `]}}}`,
 		"TeamMemoryApp":    `{"data":{"memory":{"id":"m1","appId":"capp100000000000000000000"}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 	})
@@ -1758,7 +1758,7 @@ func TestTeamSessionStartOccupiedNeedsForce(t *testing.T) {
 		// LIVE, said explicitly: the refusal keys on derived liveness (#550),
 		// and the bare fixture would be a MASKED row, which now defers.
 		"GetWorker":        `{"data":{"worker":` + withLiveness(irisWorkerJSON, "true") + `}}`,
-		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -1784,7 +1784,7 @@ func TestTeamSessionStartForceTakesOver(t *testing.T) {
 		// below, and since #550 it claims it from liveness rather than from an
 		// open session row.
 		"GetWorker":        `{"data":{"worker":` + withLiveness(irisWorkerJSON, "true") + `}}`,
-		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 	})
 	f, out := testFactory(t)
@@ -2222,7 +2222,7 @@ func TestTeamSessionWhoamiFallsBackToTheServer(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
 		"AuthContext": whoamiAuthJSON,
-		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` +
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` +
 			whoamiSession("s-mine", "wkr1", "u-me", "Jonas", false) + `]}}}`,
 	})
 	f, out := testFactory(t)
@@ -2270,7 +2270,7 @@ func TestTeamSessionWhoamiFallbackExcludesWhatIsNotYours(t *testing.T) {
 			teamGitDir(t)
 			gql, _ := captureGraphQL(t, map[string]string{
 				"AuthContext":      whoamiAuthJSON,
-				"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + c.row + `]}}}`,
+				"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + c.row + `]}}}`,
 			})
 			f, _ := testFactory(t)
 			root := NewRootCmd(f)
@@ -2291,7 +2291,7 @@ func TestTeamSessionWhoamiFallbackDoesNotGuessBetweenSeveral(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
 		"AuthContext": whoamiAuthJSON,
-		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` +
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":2,"hasMore":false,"items":[` +
 			whoamiSession("s-a", "wkr1", "u-me", "Jonas", false) + `,` +
 			whoamiSession("s-b", "wkr2", "u-me", "Vera", false) + `]}}}`,
 	})
@@ -2352,7 +2352,7 @@ func TestTeamSessionWhoamiAnswersOutsideAnyWorktree(t *testing.T) {
 	t.Setenv("GIT_CEILING_DIRECTORIES", filepath.Dir(dir))
 	gql, _ := captureGraphQL(t, map[string]string{
 		"AuthContext": whoamiAuthJSON,
-		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` +
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` +
 			whoamiSession("s-mine", "wkr1", "u-me", "Jonas", false) + `]}}}`,
 	})
 	f, out := testFactory(t)
@@ -2506,7 +2506,7 @@ func TestTeamSessionWhoamiCheckIsHonouredOnTheServerFallback(t *testing.T) {
 	teamGitDir(t) // no binding written
 	gql, _ := captureGraphQL(t, map[string]string{
 		"AuthContext": whoamiAuthJSON,
-		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` +
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` +
 			whoamiSession("s-mine", "wkr1", "u-me", "Jonas", false) + `]}}}`,
 	})
 	f, out := testFactory(t)
@@ -2533,7 +2533,7 @@ func TestTeamSessionWhoamiCheckDoesNotAnswerForSeveral(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
 		"AuthContext": whoamiAuthJSON,
-		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` +
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":2,"hasMore":false,"items":[` +
 			whoamiSession("s-a", "wkr1", "u-me", "Jonas", false) + `,` +
 			whoamiSession("s-b", "wkr2", "u-me", "Vera", false) + `]}}}`,
 	})
@@ -2616,7 +2616,7 @@ func TestTeamSessionWhoamiRejectedCredentialSaysSo(t *testing.T) {
 		"AuthContext": whoamiRejectedJSON,
 		// Deliberately answerable: if the code reached the list despite an
 		// unresolved credential it would report ANOTHER USER'S session.
-		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + whoamiSession("s-theirs", "wkr2", "u-other", "Dara", false) + `]}}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + whoamiSession("s-theirs", "wkr2", "u-other", "Dara", false) + `]}}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -2654,7 +2654,7 @@ func TestTeamSessionWhoamiArrayFieldsAreNeverNull(t *testing.T) {
 			teamGitDir(t)
 			gql, _ := captureGraphQL(t, map[string]string{
 				"AuthContext":      whoamiAuthJSON,
-				"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + c.rows + `]}}}`,
+				"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + c.rows + `]}}}`,
 			})
 			f, out := testFactory(t)
 			root := NewRootCmd(f)
@@ -2688,7 +2688,7 @@ func TestTeamSessionWhoamiNoUserIdentityRefusesWithoutSayingLogIn(t *testing.T) 
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
 		"AuthContext":      whoamiAppKeyJSON,
-		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + whoamiSession("s-theirs", "wkr2", "u-other", "Dara", false) + `]}}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + whoamiSession("s-theirs", "wkr2", "u-other", "Dara", false) + `]}}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -3832,6 +3832,7 @@ func TestTeamSessionStartFindsActiveSessionOnLaterPage(t *testing.T) {
 			"repo":null,"branch":null,"prNumber":null,"startedAt":"2026-08-11T0%d:00:00Z",
 			"endedAt":"2026-08-11T09:00:00Z","host":null,"tool":null,"transcriptPath":null,"llmModel":null}`, i, i%10))
 	}
+	requestedLaterPage := false
 	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			OperationName string `json:"operationName"`
@@ -3851,12 +3852,13 @@ func TestTeamSessionStartFindsActiveSessionOnLaterPage(t *testing.T) {
 				t.Errorf("the activity check must filter by workerRef, got %v", body.Variables.WorkerRef)
 			}
 			if body.Variables.Offset == nil || *body.Variables.Offset == 0 {
-				_, _ = w.Write([]byte(`{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + strings.Join(filler, ",") + `]}}}`))
+				_, _ = w.Write([]byte(`{"data":{"sessionsPage":{"total":201,"hasMore":true,"items":[` + strings.Join(filler, ",") + `]}}}`))
 			} else {
 				if *body.Variables.Offset != 200 {
 					t.Errorf("unexpected offset %d", *body.Variables.Offset)
 				}
-				_, _ = w.Write([]byte(`{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`))
+				requestedLaterPage = true
+				_, _ = w.Write([]byte(`{"data":{"sessionsPage":{"total":201,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`))
 			}
 		case "TeamAppIdentity":
 			_, _ = w.Write([]byte(teamAppIdentityJSON))
@@ -3873,6 +3875,9 @@ func TestTeamSessionStartFindsActiveSessionOnLaterPage(t *testing.T) {
 	err := root.Execute()
 	if code := exitCodeFor(err); code != exitcode.Conflict {
 		t.Errorf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
+	}
+	if !requestedLaterPage {
+		t.Error("the scan never asked for the second page, so the active session was not found by paging")
 	}
 }
 
@@ -4743,7 +4748,7 @@ func TestTeamChatReadMentionsMe(t *testing.T) {
 func TestTeamSessionListActive(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
-		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + activeSessionJSON + `,` + endedSessionJSON + `]}}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":2,"hasMore":false,"items":[` + activeSessionJSON + `,` + endedSessionJSON + `]}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -4773,7 +4778,7 @@ func TestTeamSessionListAsFiltersServerSide(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
 		"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`,
-		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + endedSessionJSON + `]}}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + endedSessionJSON + `]}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -4801,7 +4806,7 @@ func TestTeamSessionStartWithoutMemoryOmitsAppRef(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
 		"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`,
-		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + endedSessionJSON + `]}}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + endedSessionJSON + `]}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 	})
 	f, _ := testFactory(t)

@@ -712,11 +712,8 @@ func listAllTickers(ctx context.Context, client graphql.Client, app string) ([]g
 			return rows, nil
 		}
 		if fresh == 0 {
-			if !page.HasMore {
-				// The server says the list ended (rows removed since the first
-				// page lowered the total): that is its answer, not a stall.
-				return rows, nil
-			}
+			// Nothing new while the total is still unmet is a partial list, whatever
+			// hasMore says: fail rather than print it.
 			return nil, exitcode.Newf(exitcode.Unavailable, "the server's ticker list is not advancing: %d of %d read, offset %d", len(rows), page.Total, offset)
 		}
 	}

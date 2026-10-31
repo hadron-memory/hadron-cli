@@ -279,7 +279,7 @@ func TestWhoamiFallbackCarriesReportingRelation(t *testing.T) {
 	_ = json.Unmarshal([]byte(whoamiSession("s-mine", "wkr1", "u-me", "Iris", false)), &session)
 	session["worker"] = map[string]any{"id": "wkr1", "name": "Iris", "role": "engineer", "hasLiveSession": false, "reportsTo": reportsBoss, "reportsToRetired": false}
 	row, _ := json.Marshal(session)
-	gql, _ := captureGraphQL(t, map[string]string{"AuthContext": whoamiAuthJSON, "TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + string(row) + `]}}}`})
+	gql, _ := captureGraphQL(t, map[string]string{"AuthContext": whoamiAuthJSON, "TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + string(row) + `]}}}`})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "session", "whoami", "--json", "--server", gql.URL})

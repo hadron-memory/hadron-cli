@@ -37,7 +37,7 @@ func TestTeamSessionStartPreBindNoteIsNeutralAboutWhoseSessionEnds(t *testing.T)
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
 		"GetWorker":        `{"data":{"worker":` + withLiveness(irisWorkerJSON, "false") + `}}`,
-		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 	})
 	f, _ := testFactory(t)
@@ -67,7 +67,7 @@ func TestTeamSessionStartFailedBindClaimsNothingEnded(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
 		"GetWorker":        `{"data":{"worker":` + withLiveness(irisWorkerJSON, "false") + `}}`,
-		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
 		"StartTeamSession": `{"errors":[{"message":"That worker is taken.",
 			"extensions":{"code":"WORKER_TAKEN","workerId":"wkr1","sessionId":"s-old"}}]}`,
 	})

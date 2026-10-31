@@ -233,9 +233,8 @@ func scanSessions(ctx context.Context, client graphql.Client, repo, workerRef *s
 			return nil
 		}
 		if fresh == 0 {
-			if !page.HasMore {
-				return nil
-			}
+			// Nothing new while the total is still unmet is a partial list, whatever
+			// hasMore says: fail rather than return it.
 			return exitcode.Newf(exitcode.Unavailable, "the server's session list is not advancing: %d of %d read, offset %d", len(seen), page.Total, offset)
 		}
 	}

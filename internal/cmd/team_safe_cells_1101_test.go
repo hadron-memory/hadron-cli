@@ -50,7 +50,7 @@ func TestTeamSafeCells1101(t *testing.T) {
 	base["AppAgentRoster"] = engTeamRosterJSON
 	base["WorkersRoster"] = staffJSON
 	base["AuthContext"] = whoamiAuthJSON
-	base["TeamSessionsPage"] = `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`
+	base["TeamSessionsPage"] = `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`
 	base["TeamWorkItems"] = provenanceWorklog
 	base["GetTeamSession"] = `{"data":{"session":` + activeSessionJSON + `}}`
 	base["TeamMemoryApp"] = `{"data":{"memory":{"id":"m1","appId":"capp100000000000000000000"}}}`
@@ -60,7 +60,7 @@ func TestTeamSafeCells1101(t *testing.T) {
 		unbound[op] = body
 	}
 	unbound["AuthContext"] = strings.ReplaceAll(whoamiAuthJSON, "u-me", "u-holger")
-	unbound["TeamSessionsPage"] = `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + activeSessionJSON + `,` + strings.ReplaceAll(activeSessionJSON, "s-old", "s-another") + `]}}}`
+	unbound["TeamSessionsPage"] = `{"data":{"sessionsPage":{"total":2,"hasMore":false,"items":[` + activeSessionJSON + `,` + strings.ReplaceAll(activeSessionJSON, "s-old", "s-another") + `]}}}`
 	stamp := func(t *testing.T, fixture, anchor, addition string) string {
 		t.Helper()
 		out := strings.Replace(fixture, anchor, anchor+","+addition, 1)
@@ -145,7 +145,7 @@ func TestTeamSafeCells1101(t *testing.T) {
 		if session == activeSessionJSON {
 			t.Fatalf("whoami reports-to stamp did not take: fixture would prove nothing")
 		}
-		r["TeamSessionsPage"] = `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + session + `,` + strings.ReplaceAll(session, "s-old", "s-another") + `]}}}`
+		r["TeamSessionsPage"] = `{"data":{"sessionsPage":{"total":2,"hasMore":false,"items":[` + session + `,` + strings.ReplaceAll(session, "s-old", "s-another") + `]}}}`
 		return r
 	}
 	// provenance's model/transcript cells: null on main's fixture.
@@ -219,7 +219,7 @@ func TestTeamSafeCells1101(t *testing.T) {
 		for op, body := range base {
 			r[op] = body
 		}
-		r["TeamSessionsPage"] = `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + activeSessionJSON + `,` + endedSessionJSON + `]}}}`
+		r["TeamSessionsPage"] = `{"data":{"sessionsPage":{"total":2,"hasMore":false,"items":[` + activeSessionJSON + `,` + endedSessionJSON + `]}}}`
 		return r
 	}
 	// the composition headcount family line: every family in the fixture also

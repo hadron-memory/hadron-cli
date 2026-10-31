@@ -173,3 +173,19 @@ func TestSessionListNonAdvancingServerFails(t *testing.T) {
 		t.Fatalf("want exit 7 and no partial list, got %v out %q", err, out.String())
 	}
 }
+
+// BLIND P2 (#1460): an empty terminal page with the total still unmet is a
+// partial list even when hasMore is false.
+func TestSessionListUnmetTotalOnTerminalPageFails(t *testing.T) {
+	teamGitDir(t)
+	gql, _ := pagedGraphQL(t, map[string]*pagedSource{"TeamSessionsPage": {rows: sessionRows(45), serve: 20, wrapAt: func(page []string, _, offset int) string {
+		return sessionsPageAt(page, 45, 0) // total 45, hasMore from offset 0 until the page is empty
+	}}}, sessionRenderStubs(map[string]string{}))
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "list", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil || exitCodeFor(err) != 7 || out.String() != "" {
+		t.Fatalf("want exit 7 and no partial list, got %v out %.80q", err, out.String())
+	}
+}

@@ -33,7 +33,7 @@ func TestTeamSessionStartHeldByAnotherRefusesWithoutOfferingForce(t *testing.T) 
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
 		"GetWorker":        `{"data":{"worker":` + withLiveness(heldBy("u-dara"), "true") + `}}`,
-		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
 		"AuthContext":      authContextHolgerJSON, // I am u-holger; the hold is u-dara's
 		"GetUser":          heldHolderUserJSON("u-dara", "Dara", "dara"),
 	})
@@ -81,7 +81,7 @@ func TestTeamSessionStartHeldRemedyIsRunnableWithoutAppScope(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
 		"GetWorker":        `{"data":{"worker":` + withLiveness(heldBy("u-dara"), "true") + `}}`,
-		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
 		"AuthContext":      authContextHolgerJSON,
 		"GetUser":          heldHolderUserJSON("u-dara", "Dara", "dara"),
 	})
@@ -119,7 +119,7 @@ func TestTeamSessionStartHeldRemedyFallsBackToIDWhenURNIsNull(t *testing.T) {
 	}
 	gql, _ := captureGraphQL(t, map[string]string{
 		"GetWorker":        `{"data":{"worker":` + noURN + `}}`,
-		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
 		"AuthContext":      authContextHolgerJSON,
 		"GetUser":          heldHolderUserJSON("u-dara", "Dara", "dara"),
 	})
@@ -145,7 +145,7 @@ func TestTeamSessionStartHeldRemedyFallsBackToIDWhenURNIsNull(t *testing.T) {
 	}
 	gql2, _ := captureGraphQL(t, map[string]string{
 		"GetWorker":        `{"data":{"worker":` + emptyURN + `}}`,
-		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
 		"AuthContext":      authContextHolgerJSON,
 		"GetUser":          heldHolderUserJSON("u-dara", "Dara", "dara"),
 	})
@@ -169,7 +169,7 @@ func TestTeamSessionStartHeldByMeStillOffersForce(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
 		"GetWorker":        `{"data":{"worker":` + withLiveness(heldBy("u-holger"), "true") + `}}`,
-		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
 		"AuthContext":      authContextHolgerJSON, // the hold is mine
 		"GetUser":          heldHolderUserJSON("u-holger", "Holger", "holger"),
 	})
@@ -203,7 +203,7 @@ func TestTeamSessionStartHeldUnknownWhoseHedges(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
 		"GetWorker":        `{"data":{"worker":` + withLiveness(heldBy("u-dara"), "true") + `}}`,
-		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
 		"AuthContext":      `{"errors":[{"message":"nope"}]}`,
 		"GetUser":          heldHolderUserJSON("u-dara", "Dara", "dara"),
 	})
@@ -296,7 +296,7 @@ func TestTeamSessionStartForceDoesNotDefeatAHold(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
 		"GetWorker":        `{"data":{"worker":` + withLiveness(heldBy("u-dara"), "true") + `}}`,
-		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
 		"AuthContext":      authContextHolgerJSON,
 		"GetUser":          heldHolderUserJSON("u-dara", "Dara", "dara"),
 		"StartTeamSession": `{"errors":[{"message":"That name is held.",
