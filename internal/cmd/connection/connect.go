@@ -92,23 +92,6 @@ type connectDTO struct {
 	Connection    *connectedDTO `json:"connection"`
 }
 
-// codedError carries the server's code to the --json error envelope (the root
-// handler reads it through ServerCode); the message is the mapped error's.
-type codedError struct {
-	error
-	code string
-}
-
-func (c *codedError) Unwrap() error      { return c.error }
-func (c *codedError) ServerCode() string { return c.code }
-
-func withServerCode(mapped, raw error) error {
-	if code := api.ServerCodeOf(raw); code != "" {
-		return &codedError{error: mapped, code: code}
-	}
-	return mapped
-}
-
 // redactor scrubs the authorize URL and the nonce inside it from any text
 // about to leave the process (error and notice output).
 func redactor(authorizeURL string) func(string) string {
@@ -212,7 +195,7 @@ again.`,
 
 			resp, err := gen.StartConnection(cmd.Context(), client, gen.ConnectionProvider(enum), org)
 			if err != nil {
-				return withServerCode(api.MapError(err), err)
+				return api.WithServerCode(api.MapError(err), err)
 			}
 			if resp == nil || resp.StartConnection == nil || resp.StartConnection.AuthorizeUrl == "" {
 				return exitcode.Newf(exitcode.Unavailable, "server returned no connection start")
@@ -239,7 +222,7 @@ again.`,
 			if !noWait {
 				ac, err := gen.AuthContext(cmd.Context(), client)
 				if err != nil {
-					return scrub(withServerCode(api.MapError(err), err), redact)
+					return scrub(api.WithServerCode(api.MapError(err), err), redact)
 				}
 				if ac == nil || ac.AuthContext == nil || ac.AuthContext.User == nil {
 					return exitcode.Newf(exitcode.Unavailable, "server did not say who the signed-in caller is")
@@ -247,7 +230,7 @@ again.`,
 				self = ac.AuthContext.User.Id
 				rows, err := listConnections(cmd.Context(), client, start.OrgId)
 				if err != nil {
-					return scrub(withServerCode(api.MapError(err), err), redact)
+					return scrub(api.WithServerCode(api.MapError(err), err), redact)
 				}
 				for _, r := range rows {
 					baseline[r.ID] = true
@@ -290,7 +273,7 @@ again.`,
 					if errors.As(err, &ce) {
 						return scrub(err, redact)
 					}
-					return scrub(withServerCode(api.MapError(err), err), redact)
+					return scrub(api.WithServerCode(api.MapError(err), err), redact)
 				}
 				dto.Status = "connected"
 				dto.Connection = found

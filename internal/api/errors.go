@@ -451,17 +451,24 @@ type serverCodeError struct {
 func (e *serverCodeError) Unwrap() error      { return e.error }
 func (e *serverCodeError) ServerCode() string { return e.code }
 
-// MapErrorKeepingCode is MapError that also keeps the server's extensions.code
-// on the result, for the --json envelope's serverCode.
-func MapErrorKeepingCode(err error) error {
-	mapped := MapError(err)
+// WithServerCode keeps the server's extensions.code of raw on mapped, for the
+// --json envelope's serverCode. A nil mapped stays nil whatever raw carries;
+// without a code mapped is returned as it was. Only mapped is wrapped, so
+// neither Error() nor Unwrap() exposes raw.
+func WithServerCode(mapped, raw error) error {
 	if mapped == nil {
 		return nil
 	}
-	if code := ServerCodeOf(err); code != "" {
+	if code := ServerCodeOf(raw); code != "" {
 		return &serverCodeError{error: mapped, code: code}
 	}
 	return mapped
+}
+
+// MapErrorKeepingCode is MapError that also keeps the server's extensions.code
+// on the result, for the --json envelope's serverCode.
+func MapErrorKeepingCode(err error) error {
+	return WithServerCode(MapError(err), err)
 }
 
 // graphQLErrors extracts the GraphQL error list from any of the shapes an
