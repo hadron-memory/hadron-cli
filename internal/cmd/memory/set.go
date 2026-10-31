@@ -408,7 +408,7 @@ Apps:
 					urnArg = &slug
 				}
 				resp, err := updateMemory(cmd, client, memID, optional(name), optional(short), optional(description), tagsArg, visArg,
-					settings.dataArg(cmd, false), urnArg, maxRevArg, schemaArg, listedArg, settings.updateArgs(cmd))
+					settings.dataArg(), urnArg, maxRevArg, schemaArg, listedArg, settings.updateArgs(cmd))
 				if err != nil {
 					return api.MapError(err)
 				}

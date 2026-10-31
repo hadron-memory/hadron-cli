@@ -37,6 +37,13 @@ type memorySettings struct {
 	forceFixedSize            bool
 	noForceFixedSize          bool
 	ackInversionRisk          bool
+
+	// resolved by validate, read by the argument builders: the data file is
+	// read once (cli#1476 BLIND P2) and each on/off pair resolves from the
+	// flags actually passed, so an explicit =false is a value, not an absence.
+	dataResolved           *json.RawMessage
+	vectorResolved         *bool
+	forceFixedSizeResolved *bool
 }
 
 const (
@@ -102,19 +109,23 @@ func (s *memorySettings) register(cmd *cobra.Command) {
 // explicit empty value is a value (it clears), not an absent flag.
 func (s *memorySettings) validate(cmd *cobra.Command, creating, inApp bool) error {
 	changed := cmd.Flags().Changed
-	if s.vectorIndex && s.noVectorIndex {
-		return exitcode.Newf(exitcode.Usage, "--vector-index and --no-vector-index contradict each other. Nothing was sent")
+	var err error
+	if s.vectorResolved, err = boolPair(cmd, "vector-index", s.vectorIndex, "no-vector-index", s.noVectorIndex); err != nil {
+		return err
 	}
-	if s.forceFixedSize && s.noForceFixedSize {
-		return exitcode.Newf(exitcode.Usage, "--force-fixed-size and --no-force-fixed-size contradict each other. Nothing was sent")
+	if s.forceFixedSizeResolved, err = boolPair(cmd, "force-fixed-size", s.forceFixedSize, "no-force-fixed-size", s.noForceFixedSize); err != nil {
+		return err
 	}
 	if changed("embedding-source") {
 		if _, err := s.embedding(); err != nil {
 			return err
 		}
 	}
+	if changed("data-file") && strings.TrimSpace(s.dataFile) == "" {
+		return exitcode.Newf(exitcode.Usage, `--data-file is empty: name a file, or use --data "" to clear the data. Nothing was sent`)
+	}
 	if changed("data") || changed("data-file") {
-		if _, err := s.dataValue(creating); err != nil {
+		if s.dataResolved, err = s.dataValue(creating); err != nil {
 			return err
 		}
 	}
@@ -205,13 +216,9 @@ func (s *memorySettings) dataValue(creating bool) (*json.RawMessage, error) {
 	return &msg, nil
 }
 
-func (s *memorySettings) dataArg(cmd *cobra.Command, creating bool) *json.RawMessage {
-	if !cmd.Flags().Changed("data") && !cmd.Flags().Changed("data-file") {
-		return nil
-	}
-	d, _ := s.dataValue(creating) // validated already
-	return d
-}
+// dataArg is the data validate resolved (nil when neither flag was passed).
+// validate must have run: the file is read there, once.
+func (s *memorySettings) dataArg() *json.RawMessage { return s.dataResolved }
 
 func (s *memorySettings) embedding() (*gen.EmbeddingSource, error) {
 	for _, e := range gen.AllEmbeddingSource {
@@ -231,19 +238,27 @@ func (s *memorySettings) embeddingArg(cmd *cobra.Command) *gen.EmbeddingSource {
 	return e
 }
 
-func boolPair(on, off bool) *bool {
-	switch {
-	case on:
-		v := true
-		return &v
-	case off:
-		v := false
-		return &v
+// boolPair resolves an --x / --no-x pair from the flags actually passed: nil
+// (omitted, keep) when neither was, otherwise the value they state, so
+// --x=false means off and --no-x=false means on. A pair that disagrees with
+// itself is refused before anything is sent.
+func boolPair(cmd *cobra.Command, onFlag string, on bool, offFlag string, off bool) (*bool, error) {
+	var got *bool
+	for _, f := range []struct {
+		name string
+		v    bool
+	}{{onFlag, on}, {offFlag, !off}} {
+		if !cmd.Flags().Changed(f.name) {
+			continue
+		}
+		if got != nil && *got != f.v {
+			return nil, exitcode.Newf(exitcode.Usage, "--%s and --%s contradict each other. Nothing was sent", onFlag, offFlag)
+		}
+		v := f.v
+		got = &v
 	}
-	return nil
+	return got, nil
 }
-
-func (s *memorySettings) vectorArg() *bool { return boolPair(s.vectorIndex, s.noVectorIndex) }
 
 func intArg(cmd *cobra.Command, flag string, v int) *int {
 	if !cmd.Flags().Changed(flag) {
@@ -276,7 +291,7 @@ type createSettingArgs struct {
 func (s *memorySettings) createArgs(cmd *cobra.Command) createSettingArgs {
 	return createSettingArgs{
 		category0: s.createText(cmd, setCategory0), category1: s.createText(cmd, setCategory1), category2: s.createText(cmd, setCategory2),
-		data: s.dataArg(cmd, true), embeddingSource: s.embeddingArg(cmd), vectorIndexEnabled: s.vectorArg(),
+		data: s.dataArg(), embeddingSource: s.embeddingArg(cmd), vectorIndexEnabled: s.vectorResolved,
 		license: s.createText(cmd, setLicense), iconURL: s.createText(cmd, setIconURL), heroURL: s.createText(cmd, setHeroURL),
 		homeURL: s.createText(cmd, setHomeURL), source: s.createText(cmd, setGitSource),
 		readBranch: s.createText(cmd, setReadBranch), writeBranch: s.createText(cmd, setWriteBrnch),
@@ -298,8 +313,8 @@ type updateSettingArgs struct {
 
 func (s *memorySettings) updateArgs(cmd *cobra.Command) updateSettingArgs {
 	var ack *bool
-	if s.ackInversionRisk {
-		v := true
+	if cmd.Flags().Changed("acknowledge-vector-inversion-risk") {
+		v := s.ackInversionRisk
 		ack = &v
 	}
 	return updateSettingArgs{
@@ -307,9 +322,9 @@ func (s *memorySettings) updateArgs(cmd *cobra.Command) updateSettingArgs {
 		license: s.updateText(cmd, setLicense), iconURL: s.updateText(cmd, setIconURL), heroURL: s.updateText(cmd, setHeroURL),
 		homeURL: s.updateText(cmd, setHomeURL), source: s.updateText(cmd, setGitSource),
 		readBranch: s.updateText(cmd, setReadBranch), writeBranch: s.updateText(cmd, setWriteBrnch),
-		embeddingSource: s.embeddingArg(cmd), vectorIndexEnabled: s.vectorArg(), ackInversionRisk: ack,
+		embeddingSource: s.embeddingArg(cmd), vectorIndexEnabled: s.vectorResolved, ackInversionRisk: ack,
 		chunkTokens: intArg(cmd, "chunk-tokens", s.chunkTokens), chunkOverlap: intArg(cmd, "chunk-overlap", s.chunkOverlap),
-		forceFixedSize: boolPair(s.forceFixedSize, s.noForceFixedSize),
+		forceFixedSize: s.forceFixedSizeResolved,
 	}
 }
 
