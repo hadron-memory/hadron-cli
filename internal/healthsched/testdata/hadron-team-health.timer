@@ -1,0 +1,11 @@
+# hadron-team-health: config="/home/u/my hosts/host 100%.yaml"
+[Unit]
+Description=Run the Hadron team health sweep every 5 minutes
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=5min
+Unit=hadron-team-health.service
+
+[Install]
+WantedBy=timers.target

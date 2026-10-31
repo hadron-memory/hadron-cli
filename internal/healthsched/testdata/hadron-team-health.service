@@ -1,0 +1,8 @@
+# hadron-team-health: config="/home/u/my hosts/host 100%.yaml"
+[Unit]
+Description=Hadron team health sweep
+
+[Service]
+Type=oneshot
+Environment="PATH=/usr/bin:/home/u/bin"
+ExecStart="/usr/local/bin/hadron" "team" "health" "sweep" "--config" "/home/u/my hosts/host 100%%.yaml"

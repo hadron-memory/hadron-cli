@@ -1,0 +1,881 @@
+package healthsched
+
+import (
+	"errors"
+	"flag"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"strings"
+	"testing"
+	"time"
+)
+
+var update = flag.Bool("update", false, "rewrite the golden files")
+
+// A config path with a space and a percent sign exercises every quoting rule.
+var spec = Spec{Bin: "/usr/local/bin/hadron", Config: "/home/u/my hosts/host 100%.yaml", Interval: 5 * time.Minute, Path: "/usr/bin:/home/u/bin"}
+
+func golden(t *testing.T, name, got string) {
+	t.Helper()
+	p := filepath.Join("testdata", name)
+	if *update {
+		if err := os.WriteFile(p, []byte(got), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	want, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(want) != got {
+		t.Errorf("%s differs:\n--- want\n%s\n--- got\n%s", name, want, got)
+	}
+}
+
+func TestGoldens(t *testing.T) {
+	golden(t, "hadron-team-health.service", SystemdService(spec))
+	golden(t, "hadron-team-health.timer", SystemdTimer(spec))
+	line, err := CronLine(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	golden(t, "crontab.line", line+"\n")
+	golden(t, "com.hadronmemory.team-health.plist", Plist(spec))
+}
+
+// The exact argv the entry runs is the one #1181 pins.
+func TestArgvIsTheSweepWithConfig(t *testing.T) {
+	want := []string{"/usr/local/bin/hadron", "team", "health", "sweep", "--config", spec.Config}
+	if got := spec.Argv(); strings.Join(got, "\x00") != strings.Join(want, "\x00") {
+		t.Fatalf("argv = %q", got)
+	}
+}
+
+func TestQuotingPercentIsEscapedEverywhere(t *testing.T) {
+	if !strings.Contains(SystemdService(spec), "host 100%%.yaml") {
+		t.Error("systemd must double a % in ExecStart")
+	}
+	line, _ := CronLine(spec)
+	if strings.Contains(strings.ReplaceAll(line, `\%`, ""), "%") {
+		t.Errorf("cron line has a bare %%, which cron reads as a newline: %s", line)
+	}
+}
+
+type fake struct {
+	calls   []string
+	stdins  []string
+	crontab string
+	have    map[string]bool
+	fail    map[string]bool // argv-prefix -> error
+	out     map[string]string
+	failOut string       // output of a failed call (default "boom")
+	readErr bool         // crontab -l fails for a reason other than "no crontab"
+	listN   int          // crontab -l calls so far
+	listBad map[int]bool // the nth crontab -l fails with empty output
+}
+
+func (f *fake) run(argv []string, stdin string) ([]byte, error) {
+	k := strings.Join(argv, " ")
+	f.calls = append(f.calls, k)
+	for p := range f.fail {
+		if strings.HasPrefix(k, p) {
+			msg := f.failOut
+			if msg == "" {
+				msg = "boom"
+			}
+			return []byte(msg), errors.New("exit 1")
+		}
+	}
+	if k == "crontab -l" {
+		f.listN++
+		if f.listBad[f.listN] {
+			return nil, errors.New("exit 1")
+		}
+		if f.readErr {
+			return []byte("crontab: cannot read the spool"), errors.New("exit 1")
+		}
+		if f.crontab == "" {
+			return []byte("no crontab for u"), errors.New("exit 1")
+		}
+		return []byte(f.crontab), nil
+	}
+	if k == "crontab -" {
+		f.crontab = stdin
+		f.stdins = append(f.stdins, stdin)
+	}
+	return []byte(f.out[k]), nil
+}
+
+func (f *fake) env(t *testing.T, goos string, tools ...string) Env {
+	t.Helper()
+	t.Setenv("XDG_CONFIG_HOME", "")
+	f.have = map[string]bool{}
+	for _, x := range tools {
+		f.have[x] = true
+	}
+	return Env{Home: t.TempDir(), GOOS: goos, UID: 1000, Run: f.run, Which: func(n string) (string, error) {
+		if f.have[n] {
+			return "/usr/bin/" + n, nil
+		}
+		return "", exec.ErrNotFound
+	}}
+}
+
+func tree(t *testing.T, root string) string {
+	t.Helper()
+	var b strings.Builder
+	_ = filepath.Walk(root, func(p string, fi os.FileInfo, err error) error {
+		if err == nil {
+			content, _ := os.ReadFile(p)
+			b.WriteString(p + "|" + string(content) + "\n")
+		}
+		return nil
+	})
+	return b.String()
+}
+
+func count(calls []string, prefix string) int {
+	n := 0
+	for _, c := range calls {
+		if strings.HasPrefix(c, prefix) {
+			n++
+		}
+	}
+	return n
+}
+
+func TestSystemdRoundTrip(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "linux", "systemctl")
+	res, err := e.Install(spec)
+	if err != nil || !res.Changed || res.Kind != Systemd {
+		t.Fatalf("install: %+v %v", res, err)
+	}
+	for _, p := range []string{e.servicePath(), e.timerPath()} {
+		if _, err := os.Stat(p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if count(f.calls, "systemctl --user daemon-reload") != 1 || count(f.calls, "systemctl --user enable --now "+Name+".timer") != 1 {
+		t.Fatalf("calls %q", f.calls)
+	}
+
+	// Same again: byte-identical, no scheduler call.
+	before, n := tree(t, e.Home), len(f.calls)
+	res, err = e.Install(spec)
+	if err != nil || res.Changed || tree(t, e.Home) != before || mutating(f.calls[n:]) != 0 {
+		t.Fatalf("re-install changed something: %+v %v calls %q", res, err, f.calls[n:])
+	}
+	if count(f.calls[n:], "systemctl --user daemon-reload") != 0 {
+		t.Error("an unchanged re-install must not reload")
+	}
+
+	// A new interval updates the timer with one reload.
+	n = len(f.calls)
+	s2 := spec
+	s2.Interval = 10 * time.Minute
+	res, err = e.Install(s2)
+	if err != nil || !res.Changed || !strings.Contains(tree(t, e.Home), "OnUnitActiveSec=10min") || count(f.calls[n:], "systemctl --user daemon-reload") != 1 {
+		t.Fatalf("interval update: %+v %v %q", res, err, f.calls[n:])
+	}
+
+	// Uninstall removes exactly what was written; a second one is a no-op.
+	res, err = e.Uninstall()
+	if err != nil || !res.Changed {
+		t.Fatal(res, err)
+	}
+	for _, p := range []string{e.servicePath(), e.timerPath()} {
+		if fileExists(p) {
+			t.Errorf("%s survived uninstall", p)
+		}
+	}
+	if res, err = e.Uninstall(); err != nil || res.Changed {
+		t.Errorf("second uninstall: %+v %v", res, err)
+	}
+}
+
+func TestDifferentConfigIsRefusedUntilUninstall(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "linux", "systemctl")
+	if _, err := e.Install(spec); err != nil {
+		t.Fatal(err)
+	}
+	s2 := spec
+	s2.Config = "/etc/other.yaml"
+	before := tree(t, e.Home)
+	_, err := e.Install(s2)
+	var ue *UsageError
+	if !errors.As(err, &ue) || tree(t, e.Home) != before {
+		t.Fatalf("want a usage refusal that writes nothing, got %v", err)
+	}
+	if _, err := e.Uninstall(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.Install(s2); err != nil {
+		t.Fatalf("after uninstall: %v", err)
+	}
+}
+
+func TestMidwayFailureLeavesAStateUninstallRemovesAndStatusReports(t *testing.T) {
+	f := &fake{fail: map[string]bool{"systemctl --user enable": true, "systemctl --user is-enabled": true}}
+	e := f.env(t, "linux", "systemctl")
+	_, err := e.Install(spec)
+	if err == nil || !strings.Contains(err.Error(), "uninstall") {
+		t.Fatalf("want a failure that names uninstall, got %v", err)
+	}
+	st := e.ReadStatus()
+	if !st.Installed || st.Active || len(st.Notes) == 0 {
+		t.Fatalf("status must report the partial install: %+v", st)
+	}
+	f.fail = nil
+	if _, err := e.Uninstall(); err != nil {
+		t.Fatal(err)
+	}
+	if fileExists(e.servicePath()) || fileExists(e.timerPath()) || e.ReadStatus().Installed {
+		t.Error("uninstall left the partial install behind")
+	}
+}
+
+func TestCronRoundTripKeepsOtherLines(t *testing.T) {
+	f := &fake{crontab: "MAILTO=me\n0 3 * * * /usr/bin/backup\n"}
+	e := f.env(t, "linux", "crontab")
+	if res, err := e.Install(spec); err != nil || res.Kind != Cron || !res.Changed {
+		t.Fatalf("%+v %v", res, err)
+	}
+	if !strings.HasPrefix(f.crontab, "MAILTO=me\n0 3 * * * /usr/bin/backup\n*/5 * * * * ") {
+		t.Fatalf("crontab = %q", f.crontab)
+	}
+	n := len(f.stdins)
+	if res, err := e.Install(spec); err != nil || res.Changed || len(f.stdins) != n {
+		t.Fatalf("re-install wrote the crontab again: %+v %v", res, err)
+	}
+	s2 := spec
+	s2.Interval = 15 * time.Minute
+	if _, err := e.Install(s2); err != nil || strings.Count(f.crontab, Name) != 1 || !strings.Contains(f.crontab, "*/15 * * * *") {
+		t.Fatalf("interval update: %v %q", err, f.crontab)
+	}
+	st := e.ReadStatus()
+	if !st.Installed || st.Kind != "cron" || st.Interval != "15m0s" || st.LastRun == nil || st.LastRun.At != nil || st.LastRun.ExitCode != nil {
+		t.Fatalf("status %+v", st)
+	}
+	if _, err := e.Uninstall(); err != nil {
+		t.Fatal(err)
+	}
+	if f.crontab != "MAILTO=me\n0 3 * * * /usr/bin/backup\n" {
+		t.Fatalf("uninstall must leave every other line: %q", f.crontab)
+	}
+}
+
+func TestCronUninstallOfOnlyEntryEmptiesCrontab(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "linux", "crontab")
+	if _, err := e.Install(spec); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.Uninstall(); err != nil || strings.TrimSpace(f.crontab) != "" {
+		t.Fatalf("%v %q", err, f.crontab)
+	}
+}
+
+func TestLaunchdRoundTrip(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "darwin", "launchctl")
+	if res, err := e.Install(spec); err != nil || res.Kind != Launchd || !fileExists(e.plistPath()) {
+		t.Fatalf("%+v %v", res, err)
+	}
+	if count(f.calls, "launchctl bootstrap gui/1000 ") != 1 {
+		t.Fatalf("calls %q", f.calls)
+	}
+	n := len(f.calls)
+	if res, err := e.Install(spec); err != nil || res.Changed || mutating(f.calls[n:]) != 0 {
+		t.Fatalf("re-install: %+v %v", res, err)
+	}
+	if st := e.ReadStatus(); !st.Installed || st.Config != spec.Config || st.Interval != "5m0s" || st.Bin != spec.Bin {
+		t.Fatalf("status %+v", st)
+	}
+	if _, err := e.Uninstall(); err != nil || fileExists(e.plistPath()) {
+		t.Fatal(err)
+	}
+}
+
+func TestNoSupportedSchedulerWritesNothing(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "linux")
+	before := tree(t, e.Home)
+	_, err := e.Install(spec)
+	var ue *UsageError
+	if !errors.As(err, &ue) || tree(t, e.Home) != before {
+		t.Fatalf("want a usage refusal and an unchanged HOME, got %v", err)
+	}
+	// systemctl present but no user session behaves the same.
+	f2 := &fake{fail: map[string]bool{"systemctl --user show-environment": true}}
+	e2 := f2.env(t, "linux", "systemctl")
+	if _, err := e2.Install(spec); !errors.As(err, &ue) {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestIntervalAndPathValidation(t *testing.T) {
+	for _, d := range []time.Duration{0, -time.Minute, 30 * time.Second, 90 * time.Second} {
+		if err := ValidateInterval(d); err == nil {
+			t.Errorf("%s accepted", d)
+		}
+	}
+	for _, p := range []string{"relative.yaml", "", "/a\nb.yaml", "/a\x1b[0m.yaml"} {
+		if err := ValidatePath("--config", p); err == nil {
+			t.Errorf("%q accepted", p)
+		}
+	}
+	// Cron cannot express 7m or 7h evenly: refused with nothing written.
+	for _, d := range []time.Duration{7 * time.Minute, 90 * time.Minute, 7 * time.Hour} {
+		f := &fake{}
+		e := f.env(t, "linux", "crontab")
+		s := spec
+		s.Interval = d
+		_, err := e.Install(s)
+		var ue *UsageError
+		if !errors.As(err, &ue) || len(f.stdins) != 0 {
+			t.Errorf("%s: got %v", d, err)
+		}
+	}
+	// The same 7m is fine under systemd.
+	f := &fake{}
+	e := f.env(t, "linux", "systemctl")
+	s := spec
+	s.Interval = 7 * time.Minute
+	if _, err := e.Install(s); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCronScheduleTable(t *testing.T) {
+	for d, want := range map[time.Duration]string{time.Minute: "*/1 * * * *", 15 * time.Minute: "*/15 * * * *", time.Hour: "0 * * * *", 6 * time.Hour: "0 */6 * * *", 24 * time.Hour: "0 0 * * *"} {
+		if got, err := cronSchedule(d); err != nil || got != want {
+			t.Errorf("%s = %q %v, want %q", d, got, err, want)
+		}
+	}
+}
+
+// The host key lives in a 0600 file the sweep reads; nothing here reads it, and
+// nothing it could be in reaches a generated file or a scheduler argv.
+func TestHostKeyNeverReachesAnythingWritten(t *testing.T) {
+	const sentinel = "hadron-host-key-SENTINEL-9f3"
+	f := &fake{}
+	e := f.env(t, "linux", "systemctl")
+	keyFile := filepath.Join(e.Home, "host.key")
+	if err := os.WriteFile(keyFile, []byte(sentinel), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s := spec
+	s.Config = filepath.Join(e.Home, "host.yaml")
+	if _, err := e.Install(s); err != nil {
+		t.Fatal(err)
+	}
+	all := strings.Join(f.calls, "\n") + strings.Join(f.stdins, "\n")
+	for _, p := range []string{e.servicePath(), e.timerPath()} {
+		b, _ := os.ReadFile(p)
+		all += string(b)
+		if fi, _ := os.Stat(p); fi.Mode().Perm() != 0o644 {
+			t.Errorf("%s mode %v", p, fi.Mode())
+		}
+	}
+	if strings.Contains(all, sentinel) || strings.Contains(all, keyFile) {
+		t.Error("the host key or its path reached a generated file or argv")
+	}
+}
+
+func TestResolveOrca(t *testing.T) {
+	dir := t.TempDir()
+	orca := filepath.Join(dir, "orca")
+	if err := os.WriteFile(orca, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := ResolveOrca("", dir+":/nonexistent"); err != nil || got != orca {
+		t.Fatalf("PATH: %q %v", got, err)
+	}
+	// orca_bin wins even when the PATH has no orca.
+	if got, err := ResolveOrca(orca, "/nonexistent"); err != nil || got != orca {
+		t.Fatalf("orca_bin: %q %v", got, err)
+	}
+	var ue *UsageError
+	if _, err := ResolveOrca("", "/nonexistent"); !errors.As(err, &ue) {
+		t.Fatalf("neither resolves: %v", err)
+	}
+	if _, err := ResolveOrca("/nonexistent/orca", dir); !errors.As(err, &ue) {
+		t.Fatalf("a missing orca_bin must be refused, not fall back: %v", err)
+	}
+}
+
+func TestStatusShowsTheOrcaTheEntryResolves(t *testing.T) {
+	dir := t.TempDir()
+	orca := filepath.Join(dir, "orca")
+	_ = os.WriteFile(orca, []byte("#!/bin/sh\n"), 0o755)
+	f := &fake{}
+	e := f.env(t, "linux", "systemctl")
+	s := spec
+	s.Path = dir + ":/usr/bin"
+	if _, err := e.Install(s); err != nil {
+		t.Fatal(err)
+	}
+	if st := e.ReadStatus(); st.Orca != orca || st.Bin != s.Bin || st.Config != s.Config || st.Interval != "5m0s" {
+		t.Fatalf("%+v", st)
+	}
+}
+
+func TestSystemdLastRunFromTheScheduler(t *testing.T) {
+	f := &fake{out: map[string]string{"systemctl --user show " + Name + ".service -p ExecMainExitTimestamp -p ExecMainStatus": "ExecMainExitTimestamp=Sat 2026-10-31 02:00:00 UTC\nExecMainStatus=3\n"}}
+	e := f.env(t, "linux", "systemctl")
+	if _, err := e.Install(spec); err != nil {
+		t.Fatal(err)
+	}
+	lr := e.ReadStatus().LastRun
+	if lr == nil || lr.At == nil || lr.ExitCode == nil || *lr.ExitCode != 3 || lr.At.Year() != 2026 {
+		t.Fatalf("%+v", lr)
+	}
+}
+
+// The marker comment carries the config path too, and a bare % in it would be
+// a newline to cron: the config must survive a round trip through the line.
+func TestCronConfigWithPercentSurvivesTheRoundTrip(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "linux", "crontab")
+	if _, err := e.Install(spec); err != nil {
+		t.Fatal(err)
+	}
+	if got := e.existingConfig(Cron, splitCron(f.crontab)); got != spec.Config {
+		t.Fatalf("config = %q", got)
+	}
+	s2 := spec
+	s2.Config = "/etc/other.yaml"
+	var ue *UsageError
+	if _, err := e.Install(s2); !errors.As(err, &ue) {
+		t.Fatalf("a different config must be refused: %v", err)
+	}
+}
+
+// mutating counts the calls that change scheduler state.
+func mutating(calls []string) int {
+	n := 0
+	for _, c := range calls {
+		for _, p := range []string{"systemctl --user daemon-reload", "systemctl --user enable", "systemctl --user disable", "crontab -", "launchctl bootstrap", "launchctl bootout"} {
+			if c == p || strings.HasPrefix(c, p+" ") {
+				n++
+				break
+			}
+		}
+	}
+	return n
+}
+
+// #1412 P2-1: a failed activation is repaired by installing again, even
+// though the files are already byte-identical.
+func TestSystemdReinstallRepairsAFailedActivation(t *testing.T) {
+	f := &fake{fail: map[string]bool{"systemctl --user enable": true}}
+	e := f.env(t, "linux", "systemctl")
+	if _, err := e.Install(spec); err == nil {
+		t.Fatal("want the enable failure")
+	}
+	f.fail = map[string]bool{"systemctl --user is-enabled": true} // still not enabled
+	n := len(f.calls)
+	if _, err := e.Install(spec); err != nil {
+		t.Fatal(err)
+	}
+	if count(f.calls[n:], "systemctl --user enable --now "+Name+".timer") != 1 {
+		t.Fatalf("the retry never activated the timer: %q", f.calls[n:])
+	}
+}
+
+func TestLaunchdReinstallRepairsAFailedBootstrap(t *testing.T) {
+	f := &fake{fail: map[string]bool{"launchctl bootstrap": true, "launchctl print": true}}
+	e := f.env(t, "darwin", "launchctl")
+	if _, err := e.Install(spec); err == nil {
+		t.Fatal("want the bootstrap failure")
+	}
+	f.fail = map[string]bool{"launchctl print": true} // still not loaded
+	n := len(f.calls)
+	if _, err := e.Install(spec); err != nil {
+		t.Fatal(err)
+	}
+	if count(f.calls[n:], "launchctl bootstrap gui/1000 ") != 1 {
+		t.Fatalf("the retry never bootstrapped the agent: %q", f.calls[n:])
+	}
+}
+
+// #1412 P2-2: only "no crontab" is an empty crontab; any other read failure
+// must not lead to a write that replaces the user's jobs.
+func TestCronReadFailureNeverOverwrites(t *testing.T) {
+	f := &fake{crontab: "0 3 * * * /usr/bin/backup\n", readErr: true}
+	e := f.env(t, "linux", "crontab")
+	if _, err := e.Install(spec); err == nil {
+		t.Fatal("a failed crontab read must refuse")
+	}
+	if len(f.stdins) != 0 {
+		t.Fatalf("crontab was written after a failed read: %q", f.stdins)
+	}
+	if _, err := e.Uninstall(); err == nil {
+		t.Fatal("uninstall must report a crontab it could not read")
+	}
+	if len(f.stdins) != 0 {
+		t.Fatalf("crontab was written after a failed read: %q", f.stdins)
+	}
+}
+
+// #1412 P2-3: one entry per user across schedulers.
+func TestInstallRefusesASecondSchedulerForTheSameUser(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "linux", "crontab")
+	if _, err := e.Install(spec); err != nil {
+		t.Fatal(err)
+	}
+	f.have["systemctl"] = true // systemd user units became available
+	cron := f.crontab
+	for _, cfg := range []string{spec.Config, "/etc/other.yaml"} {
+		s := spec
+		s.Config = cfg
+		_, err := e.Install(s)
+		var ue *UsageError
+		if !errors.As(err, &ue) {
+			t.Fatalf("config %s: want a usage refusal, got %v", cfg, err)
+		}
+	}
+	if fileExists(e.timerPath()) || fileExists(e.servicePath()) || f.crontab != cron {
+		t.Fatal("a second schedule was created")
+	}
+}
+
+// #1412 P2-4: a job that could not be stopped is not reported removed, and
+// the files stay so a retry can find it.
+func TestUninstallReportsAJobItCouldNotStop(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "linux", "systemctl")
+	if _, err := e.Install(spec); err != nil {
+		t.Fatal(err)
+	}
+	f.fail = map[string]bool{"systemctl --user disable": true}
+	if _, err := e.Uninstall(); err == nil {
+		t.Fatal("a failed disable must be an error")
+	}
+	if !fileExists(e.timerPath()) || !fileExists(e.servicePath()) {
+		t.Fatal("files were deleted although the timer is still enabled")
+	}
+	f.failOut = "Failed to disable unit: Unit file hadron-team-health.timer does not exist."
+	if _, err := e.Uninstall(); err != nil || fileExists(e.timerPath()) {
+		t.Fatalf("an already-absent unit is not an error: %v", err)
+	}
+}
+
+// #1412 delta P2 (Ralion): systemd 257 says "Unit <name> does not exist"
+// with no "file"; a midway install (service only) must still uninstall.
+func TestUninstallAcceptsSystemd257AbsentWording(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "linux", "systemctl")
+	if _, err := e.Install(spec); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(e.timerPath()); err != nil {
+		t.Fatal(err)
+	}
+	f.fail = map[string]bool{"systemctl --user disable": true}
+	f.failOut = "Failed to disable unit: Unit hadron-team-health.timer does not exist"
+	if _, err := e.Uninstall(); err != nil || fileExists(e.servicePath()) {
+		t.Fatalf("an absent unit is not an error, and the service goes: %v", err)
+	}
+	// A different unit missing, or a bus failure, still proves nothing.
+	if _, err := e.Install(spec); err != nil {
+		t.Fatal(err)
+	}
+	f.failOut = "Failed to disable unit: Unit some-other.timer does not exist"
+	if _, err := e.Uninstall(); err == nil {
+		t.Fatal("another unit's absence says nothing about ours")
+	}
+}
+
+func TestUninstallReportsALaunchdJobItCouldNotBootOut(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "darwin", "launchctl")
+	if _, err := e.Install(spec); err != nil {
+		t.Fatal(err)
+	}
+	f.fail = map[string]bool{"launchctl bootout": true}
+	if _, err := e.Uninstall(); err == nil || !fileExists(e.plistPath()) {
+		t.Fatalf("a failed bootout must be an error that keeps the plist: %v", err)
+	}
+	f.failOut = "Boot-out failed: 3: No such process"
+	if _, err := e.Uninstall(); err != nil || fileExists(e.plistPath()) {
+		t.Fatalf("an already-unloaded agent is not an error: %v", err)
+	}
+}
+
+// #1412 P2-5: active means the timer is running, not just enabled.
+func TestStatusIsNotActiveForAnEnabledButStoppedTimer(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "linux", "systemctl")
+	if _, err := e.Install(spec); err != nil {
+		t.Fatal(err)
+	}
+	if st := e.ReadStatus(); !st.Active {
+		t.Fatalf("a running timer must be active: %+v", st)
+	}
+	f.fail = map[string]bool{"systemctl --user is-active": true}
+	if st := e.ReadStatus(); st.Active || len(st.Notes) == 0 {
+		t.Fatalf("an enabled but stopped timer is not active: %+v", st)
+	}
+}
+
+// #1412 P3-6: an explicit orca_bin must be executable, as PATH lookup requires.
+func TestResolveOrcaRefusesAnExplicitNonExecutable(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "orca")
+	if err := os.WriteFile(p, []byte("#!/bin/sh\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var ue *UsageError
+	if _, err := ResolveOrca(p, "/nonexistent"); !errors.As(err, &ue) {
+		t.Fatalf("a non-executable orca_bin must be refused: %v", err)
+	}
+}
+
+// #1412 (Diego P2-5): property order in `systemctl show` does not matter.
+func TestSystemdLastRunIsOrderIndependent(t *testing.T) {
+	f := &fake{out: map[string]string{"systemctl --user show " + Name + ".service -p ExecMainExitTimestamp -p ExecMainStatus": "ExecMainStatus=3\nExecMainExitTimestamp=Sat 2026-10-31 02:00:00 UTC\n"}}
+	e := f.env(t, "linux", "systemctl")
+	lr := e.systemdLastRun()
+	if lr.At == nil || lr.ExitCode == nil || *lr.ExitCode != 3 {
+		t.Fatalf("status listed first must still count: %+v", lr)
+	}
+}
+
+// #1412 (Diego P3-6): uninstall removes the line install wrote and nothing
+// that merely mentions the name.
+func TestUninstallLeavesLinesThatOnlyMentionTheMarker(t *testing.T) {
+	other := "# hadron-team-health archive\n0 4 * * * /usr/bin/tidy # hadron-team-health notes\n"
+	f := &fake{crontab: other}
+	e := f.env(t, "linux", "crontab")
+	if _, err := e.Install(spec); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(f.crontab, other) || strings.Count(f.crontab, "'sweep'") != 1 {
+		t.Fatalf("install touched unrelated lines: %q", f.crontab)
+	}
+	if _, err := e.Uninstall(); err != nil {
+		t.Fatal(err)
+	}
+	if f.crontab != other {
+		t.Fatalf("uninstall removed lines it does not own: %q", f.crontab)
+	}
+	line, _ := CronLine(spec)
+	if !IsOwnedCronLine(line) {
+		t.Fatalf("the line install writes must be owned: %s", line)
+	}
+}
+
+var hostile = Spec{Bin: "/opt/it's here/hadron", Config: `/srv/h"o$t & <x> 100%/host 'a'.yaml`, Interval: 5 * time.Minute, Path: `/usr/bin:/opt/a"b$c%d`}
+
+// #1412 (Ralion P2-2): hostile characters in --config/--bin/PATH round-trip
+// through each scheduler's file exactly, and stay inert.
+func TestHostileValuesRoundTripThroughSystemd(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "linux", "systemctl")
+	if _, err := e.Install(hostile); err != nil {
+		t.Fatal(err)
+	}
+	svc, _ := os.ReadFile(e.servicePath())
+	m := execStartRE.FindSubmatch(svc)
+	if m == nil || unSystemd(string(m[1])) != hostile.Bin {
+		t.Fatalf("ExecStart did not round-trip: %s", svc)
+	}
+	if st := e.ReadStatus(); st.Config != hostile.Config || st.Bin != hostile.Bin {
+		t.Fatalf("status lost the hostile values: %+v", st)
+	}
+	if !strings.Contains(string(svc), `PATH=/usr/bin:/opt/a\"b$$c%%d`) {
+		t.Fatalf("PATH not escaped: %s", svc)
+	}
+}
+
+func TestHostileValuesRoundTripThroughCron(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "linux", "crontab")
+	if _, err := e.Install(hostile); err != nil {
+		t.Fatal(err)
+	}
+	if st := e.ReadStatus(); st.Config != hostile.Config || st.Bin != hostile.Bin {
+		t.Fatalf("status lost the hostile values: %+v", st)
+	}
+	line := f.crontab
+	if strings.Contains(strings.ReplaceAll(line, `\%`, ""), "%") || !strings.Contains(line, `'\''`) {
+		t.Fatalf("unescaped %% or quote in the cron line: %s", line)
+	}
+	if !strings.Contains(line, `PATH='/usr/bin:/opt/a"b$c\%d'`) {
+		t.Fatalf("PATH not single-quoted: %s", line)
+	}
+}
+
+func TestHostileValuesRoundTripThroughLaunchd(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "darwin", "launchctl")
+	if _, err := e.Install(hostile); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(e.plistPath())
+	if strings.Contains(string(b), "<x>") || strings.Contains(string(b), "& ") || !strings.Contains(string(b), "&amp;") || !strings.Contains(string(b), "&lt;x&gt;") {
+		t.Fatalf("XML metacharacters not escaped: %s", b)
+	}
+	if st := e.ReadStatus(); st.Config != hostile.Config || st.Bin != hostile.Bin {
+		t.Fatalf("status lost the hostile values: %+v", st)
+	}
+}
+
+// #1412 (Ralion P3-1): a PATH that could break the entry is refused or
+// cleaned, never written as given.
+func TestInstallRejectsControlCharactersInPathAndDropsRelativeElements(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "linux", "systemctl")
+	bad := spec
+	bad.Path = "/usr/bin\nExecStartPre=/bin/sh -c evil"
+	before := tree(t, e.Home)
+	var ue *UsageError
+	if _, err := e.Install(bad); !errors.As(err, &ue) || tree(t, e.Home) != before {
+		t.Fatalf("a PATH with a newline must be refused before any write: %v", err)
+	}
+	rel := spec
+	rel.Path = "/usr/bin::bin:./x:/opt/ok"
+	if _, err := e.Install(rel); err != nil {
+		t.Fatal(err)
+	}
+	svc, _ := os.ReadFile(e.servicePath())
+	if !strings.Contains(string(svc), `PATH=/usr/bin:/opt/ok"`) {
+		t.Fatalf("empty and relative PATH elements must be dropped: %s", svc)
+	}
+}
+
+// #1412 (Ralion P2-2): a partial install with only the service file still
+// uninstalls.
+func TestUninstallRemovesALoneServiceFile(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "linux", "systemctl")
+	if err := os.MkdirAll(e.unitDir(), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(e.servicePath(), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if res, err := e.Uninstall(); err != nil || !res.Changed || fileExists(e.servicePath()) {
+		t.Fatalf("%+v %v", res, err)
+	}
+}
+
+// An apostrophe in PATH is escaped by shellQuote; the line must stay ours so
+// uninstall can still remove it.
+func TestCronLineWithAnApostropheInPathIsStillOwned(t *testing.T) {
+	s := spec
+	s.Path = "/usr/bin:/home/o'neil/bin"
+	line, err := CronLine(s)
+	if err != nil || !IsOwnedCronLine(line) {
+		t.Fatalf("%v owned=%v: %s", err, IsOwnedCronLine(line), line)
+	}
+	f := &fake{}
+	e := f.env(t, "linux", "crontab")
+	if _, err := e.Install(s); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.Uninstall(); err != nil || strings.TrimSpace(f.crontab) != "" {
+		t.Fatalf("%v %q", err, f.crontab)
+	}
+}
+
+// #1412 delta (Diego P2-1): no crontab read during Install may fail open.
+func TestAnyTransientCrontabReadDuringInstallFailsClosed(t *testing.T) {
+	for n := 1; n <= 4; n++ {
+		f := &fake{}
+		e := f.env(t, "linux", "crontab")
+		if _, err := e.Install(spec); err != nil {
+			t.Fatal(err)
+		}
+		before := f.crontab
+		f.listN, f.listBad = 0, map[int]bool{n: true}
+		s2 := spec
+		s2.Config = "/etc/other.yaml"
+		if _, err := e.Install(s2); err == nil {
+			t.Fatalf("read #%d failed and Install still succeeded", n)
+		}
+		if f.crontab != before {
+			t.Fatalf("read #%d failed and the crontab was replaced: %q", n, f.crontab)
+		}
+	}
+}
+
+// #1412 delta (Baloo P2-1): discovery of an existing cron entry that fails to
+// read must not let a second schedule be created under systemd.
+func TestUnreadableCrontabBlocksInstallUnderNewlyAvailableSystemd(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "linux", "crontab")
+	if _, err := e.Install(spec); err != nil {
+		t.Fatal(err)
+	}
+	f.have["systemctl"] = true
+	f.readErr = true
+	if _, err := e.Install(spec); err == nil {
+		t.Fatal("an unreadable crontab must refuse")
+	}
+	if fileExists(e.timerPath()) || fileExists(e.servicePath()) {
+		t.Fatal("a systemd timer was written beside a cron entry that could not be inspected")
+	}
+}
+
+// #1412 delta (Baloo P2-2): only a scheduler's own "job is absent" answer
+// counts; a bus or file error does not prove the timer stopped.
+func TestUninstallDoesNotTreatABusFailureAsAbsent(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "linux", "systemctl")
+	if _, err := e.Install(spec); err != nil {
+		t.Fatal(err)
+	}
+	f.fail = map[string]bool{"systemctl --user disable": true}
+	f.failOut = "Failed to connect to bus: No such file or directory"
+	if _, err := e.Uninstall(); err == nil || !fileExists(e.timerPath()) {
+		t.Fatalf("a bus failure must be an error that keeps the files: %v", err)
+	}
+	g := &fake{}
+	m := g.env(t, "darwin", "launchctl")
+	if _, err := m.Install(spec); err != nil {
+		t.Fatal(err)
+	}
+	g.fail = map[string]bool{"launchctl bootout": true}
+	g.failOut = "Bootstrap failed: launchctl: file not found"
+	if _, err := m.Uninstall(); err == nil || !fileExists(m.plistPath()) {
+		t.Fatalf("a generic not-found must be an error that keeps the plist: %v", err)
+	}
+}
+
+// #1412 delta (Ralion P2-2 residual): the hostile config word reaches the
+// unit's ExecStart intact, with $ doubled and quotes escaped.
+func TestSystemdExecStartCarriesTheHostileArgv(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "linux", "systemctl")
+	if _, err := e.Install(hostile); err != nil {
+		t.Fatal(err)
+	}
+	svc, _ := os.ReadFile(e.servicePath())
+	m := regexp.MustCompile(`(?m)^ExecStart=(.*)$`).FindSubmatch(svc)
+	if m == nil {
+		t.Fatalf("no ExecStart: %s", svc)
+	}
+	var got []string
+	for _, w := range regexp.MustCompile(`"((?:[^"\\]|\\.)*)"`).FindAllSubmatch(m[1], -1) {
+		got = append(got, unSystemd(string(w[1])))
+	}
+	if strings.Join(got, "\x00") != strings.Join(hostile.Argv(), "\x00") {
+		t.Fatalf("ExecStart words = %q, want %q", got, hostile.Argv())
+	}
+	if !strings.Contains(string(m[1]), `h\"o$$t`) || !strings.Contains(string(m[1]), "100%%") {
+		t.Fatalf("$ and %% must be doubled and \" escaped in the raw line: %s", m[1])
+	}
+}
+
+func TestCleanPathIsExported(t *testing.T) {
+	p, err := CleanPath("/usr/bin::bin:/opt/ok")
+	if err != nil || p != "/usr/bin:/opt/ok" {
+		t.Fatalf("%q %v", p, err)
+	}
+}
