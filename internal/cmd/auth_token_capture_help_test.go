@@ -25,7 +25,7 @@ func TestAuthTokenCaptureExample(t *testing.T) {
 	if !ok {
 		t.Fatal("missing capture example")
 	}
-	for _, mode := range []string{"success", "refusal", "refusal-json", "invalid-json", "existing", "dangling", "directory", "racing-file", "racing-directory", "racing-directory-link"} {
+	for _, mode := range []string{"success", "refusal", "refusal-json", "invalid-json", "existing", "dangling", "directory", "racing-file", "racing-directory", "racing-directory-link", "unsupported-ln"} {
 		t.Run(mode, func(t *testing.T) {
 			dir := t.TempDir()
 			tools := filepath.Join(dir, "tools")
@@ -45,6 +45,11 @@ racing-directory-link) ln -s foreign-dir ci-token ;;
 esac
 printf '{"rawKey":"synthetic-key"}\n'
 `
+			if mode == "unsupported-ln" {
+				if err := os.WriteFile(filepath.Join(tools, "ln"), []byte("#!/bin/sh\necho 'ln: unsupported -T' >&2\nexit 64\n"), 0o700); err != nil {
+					t.Fatal(err)
+				}
+			}
 			if err := os.WriteFile(filepath.Join(tools, "hadron"), []byte(stub), 0o700); err != nil {
 				t.Fatal(err)
 			}
@@ -81,7 +86,7 @@ printf '{"rawKey":"synthetic-key"}\n'
 				t.Error("capture example echoed key")
 			}
 			count, _ := os.ReadFile(calls)
-			if mode == "existing" || mode == "dangling" || mode == "directory" {
+			if mode == "existing" || mode == "dangling" || mode == "directory" || mode == "unsupported-ln" {
 				if runErr == nil || len(count) != 0 {
 					t.Errorf("existing destination: err=%v calls=%q", runErr, count)
 				}
@@ -159,5 +164,22 @@ printf '{"rawKey":"synthetic-key"}\n'
 				}
 			}
 		})
+	}
+}
+
+func TestCaptureRecoveryGuidance1439(t *testing.T) {
+	for _, args := range [][]string{{"auth", "token", "create", "--help"}, {"agentic-usage"}} {
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(args)
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		text := out.String()
+		for _, want := range []string{"before minting", "ln -T", "non-zero", "hadron auth token list", "hadron auth token revoke <id>"} {
+			if !strings.Contains(text, want) {
+				t.Errorf("%v lacks %q", args, want)
+			}
+		}
 	}
 }
