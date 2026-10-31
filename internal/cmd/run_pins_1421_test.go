@@ -217,17 +217,27 @@ func TestRunListFailedWithoutReasonShowsUnknownNotDash(t *testing.T) {
 	failedNoReason := strings.Replace(strings.Replace(runWith(`"failureReason":null`), `"status":"COMPLETED"`, `"status":"FAILED"`, 1), `"id":"run1"`, `"id":"runfail"`, 1)
 	okRun := strings.Replace(runWith(`"failureReason":null`), `"id":"run1"`, `"id":"runok"`, 1)
 	out := runLsHuman(t, failedNoReason, okRun)
+	var sawFail, sawOK bool
 	for _, l := range strings.Split(out, "\n") {
 		switch {
 		case strings.HasPrefix(l, "runfail"):
+			sawFail = true
 			if !strings.HasSuffix(strings.TrimSpace(l), "unknown") {
 				t.Errorf("FAILED run with no reason must say unknown: %q", l)
 			}
 		case strings.HasPrefix(l, "runok"):
+			sawOK = true
 			if !strings.HasSuffix(strings.TrimSpace(l), "—") {
 				t.Errorf("a run that did not fail keeps the dash: %q", l)
 			}
 		}
+	}
+	// A renderer that drops a row must fail here, not pass vacuously.
+	if !sawFail {
+		t.Errorf("runfail row missing from list output:\n%s", out)
+	}
+	if !sawOK {
+		t.Errorf("runok row missing from list output:\n%s", out)
 	}
 }
 
