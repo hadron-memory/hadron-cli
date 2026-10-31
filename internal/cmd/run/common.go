@@ -132,7 +132,7 @@ func writeRunDetail(w io.Writer, r appRunDTO) error {
 		return err
 	}
 	if fr := r.FailureReason; fr != nil {
-		fmt.Fprintf(w, "  reason %s  %s\n", output.SafeCell(fr.Kind), output.SafeCell(fr.Summary))
+		fmt.Fprintf(w, "  reason %s %s\n", output.SafeCell(fr.Kind), output.SafeCell(fr.Summary))
 		fmt.Fprintf(w, "  who can fix %s\n", output.SafeCell(fr.WhoCanFix))
 		fmt.Fprintf(w, "  next step %s\n", output.SafeCell(fr.NextStep))
 	}
@@ -218,8 +218,8 @@ func costCell(r appRunDTO) string {
 
 func reasonCell(r appRunDTO) string {
 	if r.FailureReason == nil {
-		// A failed run the server gave no reason for is unknown, not blank.
-		if r.Status == "FAILED" {
+		// A failed, timed-out or cancelled run the server gave no reason for is unknown, not blank.
+		if r.Status == "FAILED" || r.Status == "TIMED_OUT" || r.Status == "CANCELLED" {
 			return "unknown"
 		}
 		return "—"
