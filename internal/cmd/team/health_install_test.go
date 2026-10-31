@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -233,6 +234,45 @@ func TestHealthStatusUnderCronSaysUnknown(t *testing.T) {
 	out, _, _ = run("status", "--json")
 	if !strings.Contains(out, `"at": null`) || !strings.Contains(out, `"exitCode": null`) {
 		t.Fatal(out)
+	}
+}
+
+// cli#1413 (Ralion P3-1): the status renderer prints every value through
+// output.SafeCell. The values come from an installed entry that someone may have
+// hand-edited (install itself refuses a path with control characters), so a
+// hostile binary or config must reach the terminal as plain text and never as
+// an escape, a carriage return or a bidi override. --json keeps the original.
+func TestHealthStatusTextEscapesHostileEntryValues(t *testing.T) {
+	orcaOnPath(t)
+	hf, run, _ := healthHarness(t, "crontab")
+	const hostile = "/opt/\x1b[31mRED\x1b[0m\rFORGED\u202eGNIRTS\x07"
+	line, err := healthsched.CronLine(healthsched.Spec{Bin: hostile, Config: hostile + ".yaml", Interval: 15 * time.Minute, Path: "/usr/bin"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	hf.crontab = line + "\n"
+
+	out, _, err := run("status")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, r := range out {
+		if r != '\n' && (r < 0x20 || r == 0x7f || (r >= 0x80 && r < 0xa0) || r == 0x202e) {
+			t.Fatalf("raw control/format rune %U at byte %d of the status text:\n%q", r, i, out)
+		}
+	}
+	for _, want := range []string{"binary:    /opt/ [31mRED [0m FORGED GNIRTS ", "config:    /opt/ [31mRED [0m FORGED GNIRTS .yaml"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("status text missing the SafeCell-escaped row %q:\n%q", want, out)
+		}
+	}
+	jsonOut, _, err := run("status", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var st map[string]any
+	if json.Unmarshal([]byte(jsonOut), &st) != nil || st["binary"] != hostile {
+		t.Errorf("--json must carry the original value, got %v", st["binary"])
 	}
 }
 

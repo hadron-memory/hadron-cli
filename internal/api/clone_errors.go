@@ -1,13 +1,14 @@
 package api
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/output"
 	"github.com/vektah/gqlparser/v2/gqlerror"
 )
 
@@ -163,14 +164,67 @@ func cloneOrdinal(v any) (int64, bool) {
 	return int64(n), true
 }
 
+// CloneAgentDetailText is the human one-line suffix naming the answer: the
+// documented label, then code, reason and "retryable: rerun by hand" in the
+// order a reader needs them (cli#1264, Uma's wording). retryable=false is
+// omitted, never printed as a negative. Blockers follow on their own lines
+// (CloneAgentBlockerLines). Every server-supplied string goes through
+// output.SafeCell, so it can neither forge a line nor drive the terminal.
+// Text mode only: --json carries CloneAgentDetails unchanged.
 func CloneAgentDetailText(err error) string {
 	details := CloneAgentDetails(err)
 	if details == nil {
 		return ""
 	}
-	// All values above are known JSON scalar/container types; no raw error body.
-	encoded, _ := json.Marshal(details)
-	return " (" + cloneDetailLabel(err) + ": " + string(encoded) + ")"
+	var parts []string
+	if code, ok := details["code"].(string); ok {
+		parts = append(parts, output.SafeCell(code))
+	}
+	if reason, ok := details["reason"].(string); ok {
+		parts = append(parts, "reason "+output.SafeCell(reason))
+	}
+	if retryable, ok := details["retryable"].(bool); ok && retryable {
+		// The CLI never retries a clone (agentic-usage): the reader reruns it.
+		parts = append(parts, "retryable: rerun by hand")
+	}
+	if len(parts) == 0 {
+		if len(CloneAgentBlockerLines(err)) == 0 {
+			return ""
+		}
+		parts = append(parts, "blockers follow")
+	}
+	return " (" + cloneDetailLabel(err) + ": " + strings.Join(parts, ", ") + ")"
+}
+
+// CloneAgentBlockerLines renders one line per blocker, in the order received:
+// its code, its count when one was sent, then each subject as a quoted name
+// with its position, or the bare position when the server sent no name (a
+// hidden subject never gets one). position is printed literally, as received.
+func CloneAgentBlockerLines(err error) []string {
+	blockers, _ := CloneAgentDetails(err)["blockers"].([]map[string]any)
+	lines := make([]string, 0, len(blockers))
+	for _, b := range blockers {
+		code, _ := b["code"].(string)
+		line := "blocker " + output.SafeCell(code)
+		if count, ok := b["count"].(int64); ok {
+			line += fmt.Sprintf("  count %d", count)
+		}
+		subjects, _ := b["subjects"].([]map[string]any)
+		rendered := make([]string, 0, len(subjects))
+		for _, s := range subjects {
+			position, _ := s["position"].(int64)
+			if name, ok := s["name"].(string); ok {
+				rendered = append(rendered, fmt.Sprintf("\"%s\" (position %d)", output.SafeCell(name), position))
+				continue
+			}
+			rendered = append(rendered, fmt.Sprintf("position %d", position))
+		}
+		if len(rendered) > 0 {
+			line += "  " + strings.Join(rendered, ", ")
+		}
+		lines = append(lines, line)
+	}
+	return lines
 }
 
 // cloneDetailLabel names what the details describe. "refusal" is only true of
