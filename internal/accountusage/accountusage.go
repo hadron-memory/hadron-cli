@@ -346,13 +346,14 @@ type Record struct {
 	SevenDayResetsAt    *string  `json:"sevenDayResetsAt,omitempty"`
 	TokensSinceLast     *float64 `json:"tokensSinceLast,omitempty"`
 	EstCostUsdSinceLast *float64 `json:"estCostUsdSinceLast,omitempty"`
-	// TokensTotal / EstCostUsdTotal are the ccusage file's cumulative totals
-	// at observation: the checkpoint the next collection differences against.
-	TokensTotal       *float64 `json:"tokensTotal,omitempty"`
-	EstCostUsdTotal   *float64 `json:"estCostUsdTotal,omitempty"`
-	Workers           []string `json:"workers"`
-	WorkersConfigured bool     `json:"workersConfigured"`
-	SchemaVersion     int      `json:"schemaVersion"`
+	// CcusageBlocks is the checkpoint the next collection differences against:
+	// the ccusage blocks that could still be growing at observation (started
+	// within ActiveWindow of it). Present, possibly empty, whenever a ccusage
+	// file was read.
+	CcusageBlocks     *[]BlockCheckpoint `json:"ccusageBlocks,omitempty"`
+	Workers           []string           `json:"workers"`
+	WorkersConfigured bool               `json:"workersConfigured"`
+	SchemaVersion     int                `json:"schemaVersion"`
 }
 
 func rfc(t time.Time) string { return t.UTC().Format(time.RFC3339) }
@@ -382,22 +383,36 @@ func Prepare(cfg *Config) ([]Prepared, error) {
 	return out, nil
 }
 
+// ActiveWindow bounds how long a ccusage block can keep growing (blocks are
+// 5-hour windows; the margin covers a late final write). A block that started
+// longer before an observation is final, so the checkpoint omits it.
+const ActiveWindow = 6 * time.Hour
+
+// BlockCheckpoint is one still-growing ccusage block's totals.
+type BlockCheckpoint struct {
+	Start  string  `json:"start"`
+	Tokens float64 `json:"tokens"`
+	Cost   float64 `json:"costUsd"`
+}
+
 // Previous is the checkpoint carried by this account's previous record on this
-// host: its observation time and ccusage cumulative totals (nil when absent).
+// host and family: its observation time and recorded blocks (nil when that
+// record carried no checkpoint).
 type Previous struct {
 	ObservedAt time.Time
-	Tokens     *float64
-	Cost       *float64
+	Blocks     *[]BlockCheckpoint
 }
 
 // BuildRecord shapes one record. observedAt is the snapshot's own observation
 // time when there is a snapshot, else now. With a ccusage file the record
-// carries its cumulative totals (tokensTotal, estCostUsdTotal); the
-// since-last fields are the growth of those totals against prev, so usage
-// inside a block that was already running is counted. They stay absent when
-// there is no ccusage file, no previous checkpoint, or the totals went down
-// (blocks aged out of the file): an interval that cannot be measured is
-// unknown, not zero.
+// carries its still-growing blocks as the checkpoint. The since-last fields
+// are the growth of blocks that started within ActiveWindow of the previous
+// observation (a newer block counts in full, a known block by its increase;
+// older blocks are final and contribute nothing), so growth inside a running
+// block counts and blocks evicted from a rolling file do not matter. They stay
+// absent when there is no ccusage file or previous checkpoint, or a known
+// block's totals went down: an interval that cannot be measured is unknown,
+// not zero.
 func BuildRecord(p Prepared, host string, now time.Time, prev Previous) Record {
 	r := Record{
 		Label: p.Account.Label, Family: p.Account.Family, Host: host,
@@ -418,16 +433,47 @@ func BuildRecord(p Prepared, host string, now time.Time, prev Previous) Record {
 		}
 	}
 	if p.Blocks != nil {
-		var tok, cost float64
+		observed, _ := time.Parse(time.RFC3339, r.ObservedAt)
+		cp := []BlockCheckpoint{}
 		for _, b := range p.Blocks {
-			tok += b.Tokens
-			cost += b.Cost
+			if b.Start.After(observed.Add(-ActiveWindow)) {
+				cp = append(cp, BlockCheckpoint{Start: rfc(b.Start), Tokens: b.Tokens, Cost: b.Cost})
+			}
 		}
-		r.TokensTotal, r.EstCostUsdTotal = &tok, &cost
-		if prev.Tokens != nil && prev.Cost != nil && tok >= *prev.Tokens && cost >= *prev.Cost {
-			dt, dc := tok-*prev.Tokens, cost-*prev.Cost
-			r.TokensSinceLast, r.EstCostUsdSinceLast = &dt, &dc
+		r.CcusageBlocks = &cp
+		if tok, cost, ok := growth(p.Blocks, prev); ok {
+			r.TokensSinceLast, r.EstCostUsdSinceLast = &tok, &cost
 		}
 	}
 	return r
+}
+
+// growth is the usage added since prev, or ok=false when it cannot be
+// measured.
+func growth(blocks []Block, prev Previous) (tok, cost float64, ok bool) {
+	if prev.Blocks == nil || prev.ObservedAt.IsZero() {
+		return 0, 0, false
+	}
+	known := map[string]BlockCheckpoint{}
+	for _, c := range *prev.Blocks {
+		known[c.Start] = c
+	}
+	cutoff := prev.ObservedAt.Add(-ActiveWindow)
+	for _, b := range blocks {
+		if !b.Start.After(cutoff) {
+			continue
+		}
+		c, seen := known[rfc(b.Start)]
+		if !seen {
+			tok += b.Tokens
+			cost += b.Cost
+			continue
+		}
+		if b.Tokens < c.Tokens || b.Cost < c.Cost {
+			return 0, 0, false
+		}
+		tok += b.Tokens - c.Tokens
+		cost += b.Cost - c.Cost
+	}
+	return tok, cost, true
 }

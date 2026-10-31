@@ -114,9 +114,9 @@ func fieldsOf(t *testing.T, c map[string]any) map[string]any {
 // Acceptance 1: one record per account; an absent window is absent, not 0.
 func TestTeamUsageCollectWritesOneRecordPerAccount(t *testing.T) {
 	cfg, _, _ := usageFixture(t)
-	// The previous record checkpointed totals of 1000 tokens / $1.50 (the
-	// 10:00 block alone): since-last is the growth of the totals, 2000 / $2.25.
-	srv, us := newUsageServer(t, `{"data":{"findObjects":{"objects":[{"observedAt":"2026-10-31T11:00:00Z","tokensTotal":1000,"estCostUsdTotal":1.5}],"total":1}}}`)
+	// The previous record (11:00Z) checkpointed the 10:00 block at 400 tokens /
+	// $0.50: it grew by 600 / $1.00, and the 16:00 block is new (2000 / $2.25).
+	srv, us := newUsageServer(t, `{"data":{"findObjects":{"objects":[{"observedAt":"2026-10-31T11:00:00Z","ccusageBlocks":[{"start":"2026-10-31T10:00:00Z","tokens":400,"costUsd":0.5}]}],"total":1}}}`)
 	if _, err := runUsage(t, srv.URL, "collect", "--config", cfg, "--json"); err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +130,7 @@ func TestTeamUsageCollectWritesOneRecordPerAccount(t *testing.T) {
 	if a["label"] != "acct-a" || a["fiveHourPct"] != 42.5 || a["sevenDayPct"] != float64(10) || a["fiveHourResetsAt"] != "2026-10-31T21:20:00Z" {
 		t.Errorf("acct-a: %v", a)
 	}
-	if a["tokensSinceLast"] != float64(2000) || a["estCostUsdSinceLast"] != 2.25 {
+	if a["tokensSinceLast"] != float64(2600) || a["estCostUsdSinceLast"] != 3.25 {
 		t.Errorf("since-last must be the growth of the totals since the previous checkpoint: %v", a)
 	}
 	if a["workersConfigured"] != true || len(a["workers"].([]any)) != 2 {
@@ -171,7 +171,7 @@ func TestTeamUsageRecordGolden(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, _ := json.Marshal(fieldsOf(t, us.creates[0]))
-	want := `{"estCostUsdTotal":3.75,"family":"claude","fiveHourPct":42.5,"fiveHourResetsAt":"2026-10-31T21:20:00Z","host":"orca-1","label":"acct-a","observedAt":"2026-10-31T20:00:00Z","schemaVersion":1,"sevenDayPct":10,"sevenDayResetsAt":"2026-11-06T12:00:00Z","tokensTotal":3000,"workers":["Ada","Joshua"],"workersConfigured":true}`
+	want := `{"ccusageBlocks":[{"costUsd":2.25,"start":"2026-10-31T16:00:00Z","tokens":2000}],"family":"claude","fiveHourPct":42.5,"fiveHourResetsAt":"2026-10-31T21:20:00Z","host":"orca-1","label":"acct-a","observedAt":"2026-10-31T20:00:00Z","schemaVersion":1,"sevenDayPct":10,"sevenDayResetsAt":"2026-11-06T12:00:00Z","workers":["Ada","Joshua"],"workersConfigured":true}`
 	if string(got) != want {
 		t.Errorf("record shape changed:\n got %s\nwant %s", got, want)
 	}
@@ -396,31 +396,62 @@ func TestTeamUsageShowEmptyIsAnEmptyList(t *testing.T) {
 	}
 }
 
-// Since-last is the growth of the cumulative totals: usage inside a ccusage
-// block that was already running at the previous record still counts, a total
-// that went down (blocks aged out) is unknown, and a first record has none.
+// Since-last is the growth of the recorded blocks: usage inside a block that
+// was already running at the previous record counts, blocks evicted from a
+// rolling ccusage file do not skew it, and a checkpoint that cannot be
+// compared (a block went down, or none was recorded) leaves it absent.
 func TestTeamUsageSinceLastCountsGrowthInsideARunningBlock(t *testing.T) {
 	cfg, _, _ := usageFixture(t)
-	// Previous checkpoint 500 / $0.50; the fixture totals are 3000 / $3.75.
-	srv, us := newUsageServer(t, `{"data":{"findObjects":{"objects":[{"observedAt":"2026-10-31T11:00:00Z","tokensTotal":500,"estCostUsdTotal":0.5}],"total":1}}}`)
-	if _, err := runUsage(t, srv.URL, "collect", "--config", cfg); err != nil {
-		t.Fatal(err)
+	collect := func(prev string) map[string]any {
+		t.Helper()
+		srv, us := newUsageServer(t, `{"data":{"findObjects":{"objects":[`+prev+`],"total":1}}}`)
+		if _, err := runUsage(t, srv.URL, "collect", "--config", cfg); err != nil {
+			t.Fatal(err)
+		}
+		return fieldsOf(t, us.creates[0])
 	}
-	a := fieldsOf(t, us.creates[0])
+	// The 10:00 block was 500 / $0.50 at 11:00 and is 1000 / $1.50 now; the
+	// 16:00 block is new: 500 + 2000 tokens, $1.00 + $2.25.
+	a := collect(`{"observedAt":"2026-10-31T11:00:00Z","ccusageBlocks":[{"start":"2026-10-31T10:00:00Z","tokens":500,"costUsd":0.5}]}`)
 	if a["tokensSinceLast"] != float64(2500) || a["estCostUsdSinceLast"] != 3.25 {
-		t.Errorf("growth against the checkpoint: %v", a)
+		t.Errorf("growth inside a running block: %v", a)
 	}
-	// Totals went down since the checkpoint: not measurable, so absent.
-	srv, us = newUsageServer(t, `{"data":{"findObjects":{"objects":[{"observedAt":"2026-10-31T11:00:00Z","tokensTotal":9000,"estCostUsdTotal":9}],"total":1}}}`)
+	// Eviction with net growth: the previous checkpoint held a 03:00 block the
+	// file no longer has. It must not reduce the interval: 0 + 2000 / $2.25.
+	a = collect(`{"observedAt":"2026-10-31T11:00:00Z","ccusageBlocks":[{"start":"2026-10-31T03:00:00Z","tokens":600,"costUsd":1},{"start":"2026-10-31T10:00:00Z","tokens":1000,"costUsd":1.5}]}`)
+	if a["tokensSinceLast"] != float64(2000) || a["estCostUsdSinceLast"] != 2.25 {
+		t.Errorf("an evicted block must not distort the interval: %v", a)
+	}
+	// A known block whose totals went down cannot be compared: absent.
+	a = collect(`{"observedAt":"2026-10-31T11:00:00Z","ccusageBlocks":[{"start":"2026-10-31T10:00:00Z","tokens":9000,"costUsd":9}]}`)
+	if _, has := a["tokensSinceLast"]; has {
+		t.Errorf("a shrinking block must leave since-last absent: %v", a)
+	}
+	// A previous record without a checkpoint: absent, never 0.
+	a = collect(`{"observedAt":"2026-10-31T11:00:00Z"}`)
+	if _, has := a["tokensSinceLast"]; has {
+		t.Errorf("no checkpoint must leave since-last absent: %v", a)
+	}
+	if blocks, _ := a["ccusageBlocks"].([]any); len(blocks) != 1 {
+		t.Errorf("the checkpoint is still recorded: %v", a)
+	}
+}
+
+// The checkpoint lookup is per host AND family AND label, like show.
+func TestTeamUsageCheckpointLookupIncludesFamily(t *testing.T) {
+	cfg, _, _ := usageFixture(t)
+	srv, us := newUsageServer(t, noObjects)
 	if _, err := runUsage(t, srv.URL, "collect", "--config", cfg); err != nil {
 		t.Fatal(err)
 	}
-	a = fieldsOf(t, us.creates[0])
-	if _, has := a["tokensSinceLast"]; has {
-		t.Errorf("a shrinking total must leave since-last absent: %v", a)
+	if len(us.finds) == 0 {
+		t.Fatal("no checkpoint lookup")
 	}
-	if a["tokensTotal"] != float64(3000) {
-		t.Errorf("the checkpoint is still recorded: %v", a)
+	raw, _ := json.Marshal(us.finds[0])
+	for _, want := range []string{`"label":"acct-a"`, `"host":"orca-1"`, `"family":"claude"`} {
+		if !strings.Contains(strings.ReplaceAll(string(raw), `\"`, `"`), want) {
+			t.Errorf("lookup match lacks %s: %s", want, raw)
+		}
 	}
 }
 

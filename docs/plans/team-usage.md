@@ -35,14 +35,17 @@ the issue body plus Patrick's attach amendment 1 (the amendment wins).
   observedAt; `show` orders by time and takes the newest, and a rate needs two
   points at different times in the same window.
 - **tokensSinceLast / estCostUsdSinceLast** are the growth of the ccusage
-  file's cumulative totals (`tokensTotal`, `estCostUsdTotal`, recorded on every
-  record as the checkpoint) against this account's previous record on this host
-  (one `FindObjects`, only when a ccusage file is configured). Differencing
-  totals, not filtering blocks by start time, counts usage inside a block that
-  was already running. No previous checkpoint, no ccusage file, or totals that
-  went down (blocks aged out of the file): absent, never 0. The ccusage
-  `blocks --json` shape (`startTime`, `isGap`, `totalTokens`, `costUSD`) is read
-  tolerantly but was not verified against a live ccusage run.
+  blocks since this account's previous record on this host and family (one
+  `FindObjects`, only when a ccusage file is configured). Each record carries
+  `ccusageBlocks`: the blocks that started within 6h (`ActiveWindow`) of its
+  observation, the only ones that can still grow. Against the previous record, a
+  block that started within 6h of its observation counts by its increase (a block
+  not in the checkpoint counts in full); older blocks are final and add nothing.
+  So usage inside a block that was already running counts, and blocks evicted
+  from a rolling ccusage file cannot skew the result. No previous checkpoint, no
+  ccusage file, or a known block whose totals went down: absent, never 0. The
+  ccusage `blocks --json` shape (`startTime`, `isGap`, `totalTokens`, `costUSD`)
+  is read tolerantly but was not verified against a live ccusage run.
 - **Account identity** in `show` is host + family + label: labels are
   host-local, so the same label on two hosts is two accounts. `RUNS OUT` shows
   the earliest qualifying exhaustion across both windows. Config must be one YAML
