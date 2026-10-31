@@ -1109,8 +1109,10 @@ func codeForExtension(code string) int {
 		// The caller must explicitly attest verified external absence; --yes
 		// alone confirms deletion, not that separate input (server#1162).
 		return exitcode.Usage
-	// Casting conflicts require changed server state, including an unchanged
-	// agent: a refusal is not an idempotent success (cli#1336).
+	// A stale casting changed concurrently; an unchanged agent has nothing to
+	// change; a role-less agent cannot supply a new role. The caller must
+	// choose another agent or change that state. All three are conflict (5),
+	// never idempotent success, under the cli#1336 gate.
 	case code == "WORKER_IN_USE" || code == "WORKER_RETIRED" || code == "WORKER_TAKEN" ||
 		code == "WORKER_HELD" || code == "WORKER_HOLD_STALE" ||
 		code == "WORKER_CASTING_STALE" || code == "WORKER_AGENT_UNCHANGED" || code == "WORKER_AGENT_HAS_NO_ROLE":

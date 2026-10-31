@@ -294,3 +294,67 @@ func TestMcpC3LostMutationAnswerIsNotRetried(t *testing.T) {
 		})
 	}
 }
+
+// A direct worker ref identifies its own App. Ambient context must not be
+// presented as the destination of this ticker-replacing write (LOCAL #1385).
+func TestMcpC3ChangeAgentPromptDirectScope(t *testing.T) {
+	const ambient = "hrn:app:ambient.example:unrelated"
+	for _, worker := range []string{"hrn:worker:other.example:team:iris", "0123456789abcdef0123456789abcdef", "Iris"} {
+		t.Run(worker, func(t *testing.T) {
+			writeTeamBinding(t)
+			srv, calls := attnServer(t, managerResponses1336())
+			setTeamBindingServer(t, srv.URL)
+			f, out, stderr := testFactoryTTY(t, "n\n")
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"--server", srv.URL, "--app", ambient, "team", "worker", "change-agent", worker, "--agent", agent1336})
+			err := root.Execute()
+			if exitCodeFor(err) != 6 || len(*calls) != 0 || out.Len() != 0 {
+				t.Fatalf("err=%v calls=%v stdout=%s", err, *calls, out.String())
+			}
+			prompt := stderr.String()
+			if worker == "Iris" {
+				if !strings.Contains(prompt, ambient) || !strings.Contains(prompt, "from --app") {
+					t.Fatalf("name must show its selected scope: %s", prompt)
+				}
+			} else if strings.Contains(prompt, ambient) || strings.Contains(prompt, "from --app") || !strings.Contains(prompt, "worker's own App") {
+				t.Fatalf("direct reference must not claim ambient App: %s", prompt)
+			}
+		})
+	}
+}
+
+func TestMcpC3TeamPauseJSONServerTruth(t *testing.T) {
+	for _, verb := range []string{"pause", "resume"} {
+		t.Run(verb, func(t *testing.T) {
+			responses := managerResponses1336()
+			if verb == "pause" {
+				responses["SetTeamPause"] = `{"data":{"setTeamPause":{"teamPausedAt":null}}}`
+			}
+			_, r := runManager1336(t, responses, "team", verb, "--json")
+			if r.err != nil {
+				t.Fatal(r.err)
+			}
+			var dto struct {
+				Paused bool `json:"paused"`
+			}
+			if err := json.Unmarshal([]byte(r.out), &dto); err != nil {
+				t.Fatal(err)
+			}
+			if dto.Paused != (verb == "resume") {
+				t.Fatalf("requested %s, returned %s", verb, r.out)
+			}
+		})
+	}
+}
+
+func TestMcpC3ChangeAgentNameNeedsScopeBeforePrompt(t *testing.T) {
+	teamGitDir(t) // no binding; the factory also has an empty App context
+	srv, calls := attnServer(t, managerResponses1336())
+	f, out, stderr := testFactoryTTY(t, "n\n")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"--server", srv.URL, "team", "worker", "change-agent", "Iris", "--agent", agent1336})
+	err := root.Execute()
+	if exitCodeFor(err) != 2 || !strings.Contains(err.Error(), "App scope") || len(*calls) != 0 || out.Len() != 0 || strings.Contains(stderr.String(), "(y/N)") {
+		t.Fatalf("err=%v requests=%v stdout=%q stderr=%q", err, *calls, out.String(), stderr.String())
+	}
+}

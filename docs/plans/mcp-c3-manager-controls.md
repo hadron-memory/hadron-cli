@@ -3,7 +3,9 @@
 Refs #1336 and hadron-server#2937. This slice adds team pause/resume and worker
 change-agent only. Remaining MCP-cut wrappers stay outside this PR.
 
-The typed operations use the existing schema snapshot. Both mutations remain
+The typed operations use a snapshot refreshed from server 9b3fa6a6; the only
+pre-existing-field drift was a terminal-report description and its generated
+comment, with no field or signature change. Both mutations remain
 outside the authored-write whitelist: the signed-in App manager acts as a
 person even in a bound worktree. Authorization, casting concurrency, agent
 installation and grant checks stay on the server. No local permission cache

@@ -19,30 +19,34 @@ type teamPauseDTO struct {
 	TeamPausedAt *string `json:"teamPausedAt"`
 }
 
-const teamPauseHelp = `Set the App's team pause as its manager. App scope comes from --app, the
-active context or this worktree's binding. This is the signed-in person's
-write: no worker session is attached; the server checks permission.
+const teamPauseHelp = `App scope comes from --app, the active context or this worktree's binding.
+This is the signed-in person's write: no worker session is attached; the
+server checks permission.
 
-While paused, regular worker wakes are held and workers report PENDING
-(TEAM_PAUSED). This does not interrupt an open session. Stop notices are a
-separate lane. This App setting is distinct from team stop --level pause and
-from a worker's own team wake-settings --paused-until.
+Which pause to use:
+  team pause: hold regular wakes across this App, without interrupting sessions.
+  team wake-settings --paused-until: the worker's own pause for its schedule.
+  team stop: stop signals for chosen workers at a level and scope; see
+    team stop --help for availability restrictions before setting a signal.
 
-Pausing again preserves the original timestamp. Resuming clears only the
+While the App is paused, workers show PENDING with reason TEAM_PAUSED on the
+roster. Pausing again keeps the original timestamp. Resuming clears only the
 App's team pause, not worker self-pauses or stop signals; lifting it restarts
-every worker's OVERDUE clock. Resuming an unpaused team stamps nothing.
-The result is the
-server's stored state, not proof that any worker stopped or resumed.`
+every worker's overdue timer (the roster's OVERDUE clock). Resuming an unpaused
+team stamps nothing. The result is the server's stored state, not proof that
+any worker stopped or resumed.`
 
 func newCmdTeamPause(f *cmdutil.Factory, paused bool) *cobra.Command {
 	verb := "resume"
 	short := "Clear the App's team pause"
+	opening := "Lift the App's team pause as its manager. This permits regular wakes again."
 	if paused {
 		verb = "pause"
 		short = "Pause the App's regular worker wakes"
+		opening = "Pause the App's regular worker wakes as its manager, without interrupting open sessions."
 	}
 	return &cobra.Command{
-		Use: verb, Short: short, Long: teamPauseHelp,
+		Use: verb, Short: short, Long: opening + "\n\n" + teamPauseHelp,
 		Example: "  hadron team " + verb + " --app <app> --json",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -105,8 +109,9 @@ A server containing hadron-server#2504 is required to change an open worker.
 Choosing the current agent is a refusal (WORKER_AGENT_UNCHANGED, exit 5).
 
 This is the signed-in App manager's write: worker-session credentials are
-refused (exit 8), so no bound worker session is attached. The CLI never retries the mutation; after a lost response, inspect
-the worker before deciding what to do next.`,
+refused (exit 8), so this command attaches no bound worker session. The CLI
+never retries the mutation; after a lost response, inspect the worker before
+deciding what to do next.`,
 		Example: "  hadron team worker change-agent Iris --agent hrn:agent:example.com:qa --yes --json",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -119,32 +124,38 @@ the worker before deciding what to do next.`,
 			if !agentShape {
 				return exitcode.Newf(exitcode.Usage, "--agent requires an agent id or full agent URN, not a name")
 			}
-			// Resolve only local context before confirmation: declining makes no requests.
-			b, err := readBindingOrNilWithApp(cmd.Context(), f)
-			if err != nil {
-				return err
-			}
-			app, err := f.App()
-			if err != nil {
-				return err
-			}
-			source := "from the App context"
-			if f.AppFlag != "" {
-				source = "from --app"
-			}
-			if app == "" && b != nil {
-				app = b.AppID
-				source = "from the worktree binding"
-				if app == "" {
-					app = b.TeamMemory
-					source = "from the worktree binding's team memory"
+			// Direct refs identify their own App; ambient context must never be
+			// presented as their destination. No network read precedes confirmation.
+			direct := directWorkerRef(workerRef) || strings.HasPrefix(strings.ToLower(workerRef), "urn:worker:")
+			source := "from the worker record"
+			location := "in the worker's own App"
+			if !direct {
+				b, err := readBindingOrNilWithApp(cmd.Context(), f)
+				if err != nil {
+					return err
 				}
+				app, err := f.App()
+				if err != nil {
+					return err
+				}
+				source = "from the App context"
+				if f.AppFlag != "" {
+					source = "from --app"
+				}
+				if app == "" && b != nil {
+					app = b.AppID
+					source = "from the worktree binding"
+					if app == "" {
+						app = b.TeamMemory
+						source = "from the worktree binding's team memory"
+					}
+				}
+				if app == "" {
+					return exitcode.Newf(exitcode.Usage, "a worker name needs App scope: pass --app <app>, set an App context or bind a worktree")
+				}
+				location = fmt.Sprintf("in App %s (%s)", app, source)
 			}
-			scopeHint := app
-			if scopeHint == "" {
-				scopeHint = "identified by the worker reference"
-			}
-			prompt := fmt.Sprintf("Change worker %s in App %s (%s) to agent %s, clearing its boot-prompt pointer and replacing generated tickers?", workerRef, scopeHint, source, agent)
+			prompt := fmt.Sprintf("Change worker %s %s to agent %s, replacing its current casting? This clears its boot-prompt pointer (a custom boot-prompt selection) and replaces agent-generated tickers (wake schedules, including edits to those schedules). Hand-created tickers stay. An open session keeps its old agent and role; the change takes effect at the next bind.", workerRef, location, agent)
 			if err := cmdutil.Confirm(f.IOStreams, yes, prompt); err != nil {
 				return err
 			}
@@ -164,7 +175,7 @@ the worker before deciding what to do next.`,
 				return exitcode.Newf(exitcode.Error, "server returned no changed worker; outcome unknown, inspect the worker before retrying")
 			}
 			dto := workerDTOFromFields(resp.ChangeWorkerAgent.WorkerFields)
-			if cmdutil.IsEntityID(workerRef) || strings.HasPrefix(workerRef, "hrn:worker:") || strings.HasPrefix(workerRef, "urn:worker:") {
+			if direct {
 				source = "from the worker record"
 			}
 			label := lazyAppLabel(cmd.Context(), f, appScope{Ref: dto.AppID, Source: source})
@@ -175,6 +186,6 @@ the worker before deciding what to do next.`,
 		},
 	}
 	c.Flags().StringVar(&agent, "agent", "", "installed agent's id or full URN (required)")
-	c.Flags().BoolVar(&yes, "yes", false, "confirm clearing the boot-prompt pointer and replacing generated tickers")
+	c.Flags().BoolVar(&yes, "yes", false, "confirm clearing the custom boot-prompt selection and replacing agent-generated wake schedules")
 	return c
 }
