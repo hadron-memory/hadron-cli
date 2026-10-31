@@ -1,8 +1,10 @@
 package cmd
 
 // cli#1343: policy explain/set, quota counters/limits, single grant reads and
-// secret read + rotation. Each test fails on main because the command (or the
-// org update --policy flag) does not exist, so the operation is never sent.
+// secret read + rotation. Every positive pin fails on main because the command
+// (or the org update --policy flag) does not exist, so the operation is never
+// sent. Refusal-only tests also pass on main (an unknown command or flag exits
+// 2 too); each has a positive sibling that is red there.
 
 import (
 	"encoding/json"
@@ -150,6 +152,11 @@ func TestSecretUpdate1343Refusals(t *testing.T) {
 		"meta and meta-json":     {"secret", "update", "sec_1", "--meta", "a=b", "--meta-json", `{"c":"d"}`},
 		"meta-json not object":   {"secret", "update", "sec_1", "--meta-json", `["x"]`},
 		"basic without username": {"secret", "update", "sec_1", "--type", "basic", "--value-file", "-"},
+		// #1489 LOCAL P2: flag presence, not value, decides.
+		"empty meta-json":          {"secret", "update", "sec_1", "--meta-json", ""},
+		"meta and empty meta-json": {"secret", "update", "sec_1", "--meta", "env=prod", "--meta-json", ""},
+		// #1489 BLIND P3-4: an explicitly empty --value-file is not a prompt.
+		"empty value-file": {"secret", "update", "sec_1", "--value-file", ""},
 		// #1489 §10 P3-3: with --url-prefix there is something to send, so
 		// only the --type guard stops --type from being silently dropped.
 		"type with url-prefix, no value": {"secret", "update", "sec_1", "--type", "bearer", "--url-prefix", "https://x.test/"},
@@ -470,5 +477,35 @@ func TestSecretUpdate1343DashOnTerminalUsesNoEchoPrompt(t *testing.T) {
 	wantExit(t, err, exitcode.Usage)
 	if _, sent := captured["UpdateSecret"]; sent {
 		t.Fatalf("the echoing stdin read must not be used on a terminal")
+	}
+}
+
+// #1489 BLIND P3-6: the present path of the appRef omitempty contract.
+func TestQuotaSet1343AppScope(t *testing.T) {
+	_, captured, err := run1343(t, map[string]string{
+		"SetQuotaLimit": `{"data":{"setQuotaLimit":` + quotaRowJSON + `}}`,
+	}, "", "quota", "set", "--org", "acme.com", "--app", "hrn:app:acme.com:bot", "--action", "llm.tokens", "--limit", "7")
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Input map[string]json.RawMessage `json:"input"`
+	}
+	_ = json.Unmarshal(captured["SetQuotaLimit"], &vars)
+	if string(vars.Input["appRef"]) != `"hrn:app:acme.com:bot"` || string(vars.Input["limit"]) != "7" {
+		t.Fatalf("input = %v", vars.Input)
+	}
+}
+
+// #1489 BLIND P3-2: a denial with no layer marked as denying still renders a
+// complete verdict, never a dangling "DENIED by ".
+func TestPolicyExplain1343DeniedWithoutDenyingLayer(t *testing.T) {
+	out, _, err := run1343(t, map[string]string{"EffectiveActionPolicy": `{"data":{"effectiveActionPolicy":{"allowed":false,"layers":[]}}}`},
+		"", "policy", "explain", "--action", "run.execute", "--app", "bot")
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !strings.HasPrefix(out, "run.execute: DENIED\n") {
+		t.Fatalf("verdict line = %q", strings.SplitN(out, "\n", 2)[0])
 	}
 }

@@ -24,8 +24,9 @@ func newCmdSet(f *cmdutil.Factory) *cobra.Command {
 one of its Apps. The new limit applies at once; today's use is kept.
 
 --action is run.execute, llm.tokens, sms.send or email.send. --limit is a
-whole number from 0 up; 0 pauses the scope, so every launch is refused until
-the limit is raised. Other values exit 2.
+whole number from 0 up; 0 stops that action for the scope until the limit is
+raised (for run.execute or llm.tokens, every run launch is refused). The
+server refuses other actions and out-of-range limits (exit 2).
 
 Needs ADMIN or OWNER in the org (else exit 8). --app must belong to the org
 (else exit 4).
@@ -69,6 +70,6 @@ fields as a hadron quota list row.`,
 	cmd.Flags().StringVar(&org, "org", "", "organization id, URN or root (required)")
 	cmd.Flags().StringVar(&app, "app", "", "set this App's limit instead of the org's (id or URN; must belong to --org)")
 	cmd.Flags().StringVar(&action, "action", "", "run.execute, llm.tokens, sms.send or email.send (required)")
-	cmd.Flags().IntVar(&limit, "limit", 0, "the new daily limit, 0 or more; 0 pauses the scope (required)")
+	cmd.Flags().IntVar(&limit, "limit", 0, "the new daily limit, 0 or more; 0 stops the action for the scope (required)")
 	return cmd
 }

@@ -95,7 +95,10 @@ hadron run get shows the policy a finished run actually applied.`,
 							deniers = append(deniers, l.Layer)
 						}
 					}
-					verdict = "DENIED by " + strings.Join(deniers, ", ")
+					verdict = "DENIED"
+					if len(deniers) > 0 {
+						verdict += " by " + strings.Join(deniers, ", ")
+					}
 				}
 				if _, err := fmt.Fprintf(w, "%s: %s\n", output.SafeCell(action), output.SafeCell(verdict)); err != nil {
 					return err

@@ -3,6 +3,7 @@ package secret
 import (
 	"encoding/json"
 	"io"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -41,7 +42,8 @@ see exits 4.
 New value (only with --value-file; never as an argument):
   --value-file -       read stdin (a no-echo prompt on a terminal)
   --value-file @path   read a file (a plain path works too)
-Trailing newlines are trimmed; an empty value is refused (exit 2).
+Trailing newlines are trimmed; an empty value, or an empty --value-file or
+--meta-json argument, is refused (exit 2).
 
 For a generic secret the value is the string read. Its metadata is replaced
 with --meta key=value (repeatable) or --meta-json '<object>', not both.
@@ -65,6 +67,17 @@ the same fields as hadron secret get.`,
 			changed := cmd.Flags().Changed
 			webFetch := changed("type") || changed("username") || changed("header-name") || changed("url-prefix")
 			generic := changed("meta") || changed("meta-json")
+			// Flag presence decides, not the value: an explicitly empty
+			// --meta-json or --value-file (an unset variable) is refused
+			// rather than silently ignored (#1489 LOCAL P2, BLIND P3-4).
+			// With the empty --meta-json refused here, genericMetadata's
+			// both-non-empty check covers --meta with --meta-json.
+			if changed("meta-json") && strings.TrimSpace(metaJSON) == "" {
+				return exitcode.Newf(exitcode.Usage, "--meta-json is empty (an unset variable?); pass a JSON object")
+			}
+			if changed("value-file") && strings.TrimSpace(valueFile) == "" {
+				return exitcode.Newf(exitcode.Usage, "--value-file is empty (an unset variable?); pass -, @path or a path")
+			}
 			if webFetch && generic {
 				return exitcode.Newf(exitcode.Usage, "--meta/--meta-json are generic-secret metadata; they cannot be combined with --type/--username/--header-name/--url-prefix")
 			}
