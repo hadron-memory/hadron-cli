@@ -4044,28 +4044,31 @@ the server.
 
 `hadron team session outcome <session-id> <0..1> [--ref <text>] [--meta <json>]` (cli#1351, server#2896) records a session's outcome through `recordSessionOutcome`: a number from 0 to 1, an optional opaque `--ref` and optional `--meta` JSON. It works on any session the caller owns, not only the bound one. `--ref`/`--meta` are sent only when given, so leaving one out keeps the stored value; `--ref ""` stores an empty reference and `--meta null` clears the metadata. A negative outcome reads as a flag: pass it after `--` (`outcome <id> -- -0.1`), otherwise exit 2 with nothing sent. A malformed `--meta` or an outcome that is not a finite number exits 2 with nothing sent. The range, the owner gate (the attributed person, or an App key for its own App's person-less session; cor:dmo:070:05, cor:acl:010:02) and the MCP-only OAuth refusal are the server's: out of range or an unknown session exits 2 (`BAD_USER_INPUT`), not the owner exits 8 (`FORBIDDEN`), an MCP-only OAuth credential exits 3. `--json` errors keep `serverCode`. `--json` success is `{sessionId, outcome, outcomeRef, outcomeMeta}` (null when unset). Recording an outcome does not revive a lapsed session.
 
-hadron node provenance <compiled-node-ref> --revision <n> [--limit 0..100] [--offset N | --all] [-m <memory>]
-
 ## Compiled prompt provenance (916 C1b)
+
+```text
+hadron node provenance <compiled-node-ref> --revision <n> [--limit 0..100] [--offset N | --all] [-m <memory>]
+```
 
 `node provenance` reads recorded sources for exactly the required positive
 compiled revision. It never substitutes the latest include edges or fetches
-source bodies. JSON is `{nodeId,revNo,contentHash,version,pruned,items,total,
-hasMore,limit,offset}`; occurrences preserve recorded order/depth/parent,
+source bodies. JSON is `{nodeId,revNo,contentHash,version,pruned,items,total,hasMore,limit,offset}`;
+occurrences preserve recorded order/depth/parent,
 kind, source nodeId/revNo/hash, replacesNodeId, nullable position, effective
-selection `{rev,approved,signed}` and nullable `pruned`. Source pruned:null is
+selection `{rev,approved,signed}` and nullable `pruned`. Source `pruned: null` is
 not visible, never a guessed retained/pruned state. Recorded ids/hashes/settings
 are admitted by the compiled node's existing read/history gate.
 
-Default one offset page, limit20/cap100; limit0 counts only. --all buffers every
-page and excludes --offset and counts-only. Errors, inconsistent counts/identity
+Default one offset page, limit 20/cap 100; limit 0 counts only. `--all` buffers
+every page and excludes `--offset` and counts-only. Errors, inconsistent counts/identity
 or compiled pruning state, nonprogress or duplicate occurrence order fail the
 whole all-page read with no partial payload. Independent pages are not a shared
 snapshot; source availability may change between them. Null provider result is
-exit4 (missing/deleted/noncompiled/unreadable concealed together); server
+exit 4 (missing/deleted/noncompiled/unreadable concealed together); server
 integrity failures retain normal API errors, never become an empty result.
 No write, export, approval, activation or automatic compile is added. Requires
 a provider with merged server#2685; older servers refuse the new read.
+
 ## App install memory (916 C7)
 
 `hadron app agent customize <app> <agent>` only reads the install-memory
