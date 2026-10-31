@@ -285,6 +285,24 @@ query GetWorker($ref: ID!) {
   }
 }
 
+# cli#1459: ONE worker by NAME within an App, in one read. The name form of
+# worker(ref:) is activated by appRef (server #1015): unique per App, matched
+# with the database's lower(), retired workers included, and an id or URN in
+# `ref` wins over appRef. Denial and absence both refuse WORKER_NOT_FOUND (no
+# roster oracle). Name resolution used to page the App's whole staff for this.
+query GetWorkerInApp($appRef: ID!, $ref: ID!) {
+  worker(appRef: $appRef, ref: $ref) {
+    ...WorkerFields
+  }
+}
+
+# GetWorkerInApp for a caller that needs only the id (a filter): no briefing.
+query GetWorkerIdInApp($appRef: ID!, $ref: ID!) {
+  worker(appRef: $appRef, ref: $ref) {
+    id
+  }
+}
+
 # hadron-server#2771 / cli#1375: a worker's latest terminal report. A fragment so
 # the roster and GetWorkerTerminal select one shape; deliberately NOT part of
 # WorkerFields, which other operations share (their wire shape is unchanged).
@@ -425,14 +443,13 @@ query WorkersRoster(
   }
 }
 
-# The LOOKUP projection (cli#1459, hadron-server#2970): what turning a name
-# into a worker, or naming orca's targets, needs, and nothing else.
+# The LOOKUP projection (cli#1459, hadron-server#2970): what naming orca's
+# targets needs, and nothing else.
 #
 # Never add `prompt`, `signature` or `trailer` here. Each is one worker's
 # multi-KB detail: on a 100-worker App the full WorkerFields list was 3.4 MB
-# and ~13 s of server time per name lookup, and every other request on the
-# server slowed while it was built. A command that needs a worker's briefing
-# resolves the name here, then reads that ONE worker with GetWorker.
+# and ~13 s of server time per call, and every other request on the server
+# slowed while it was built. To find ONE worker by name use GetWorkerInApp.
 fragment WorkerLookupFields on Worker {
   id
   urn

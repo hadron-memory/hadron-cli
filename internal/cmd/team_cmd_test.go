@@ -1648,11 +1648,10 @@ func TestTeamSessionStartPrintsBriefing(t *testing.T) {
 
 // The NAME path's briefing, pinned separately from the id path's (#459).
 //
-// `--as wkr1` resolves through GetWorker; `--as Iris` resolves through the
-// shared Workers scan. Since cli#1459 that scan is the slim lookup projection
-// with no `prompt`, and the briefing comes from the GetWorker read of the ONE
-// matched worker (here answered from staffJSON by workerFromStaff). Dropping
-// that second read would leave a bound session with no briefing and nothing
+// `--as wkr1` resolves through GetWorker; `--as Iris` resolves through ONE
+// worker(appRef:, ref:) read (GetWorkerInApp, cli#1459; answered here from
+// staffJSON by workerFromStaff). That read must carry the briefing: trimming
+// `prompt` from it would leave a bound session with no briefing and nothing
 // else failing, so the two paths need separate assertions. Ada's issue named
 // this as a done-criterion: the session-start briefing path must be
 // unaffected. TestSessionStartByNameKeepsBriefing1459 pins it with a fake that
@@ -1674,12 +1673,14 @@ func TestTeamSessionStartByNameStillPrintsBriefing(t *testing.T) {
 	if !strings.Contains(out.String(), "You are Iris.") {
 		t.Errorf("a name-resolved start must still print the briefing: %s", out.String())
 	}
-	// It came from the prompt-BEARING scan, not the roster one.
-	if _, roster := captured["WorkersRoster"]; roster {
-		t.Error("session start must not resolve through the roster projection — it needs the prompt")
+	// It came from the one prompt-BEARING name read, not from any list.
+	for _, list := range []string{"WorkersRoster", "Workers"} {
+		if _, sent := captured[list]; sent {
+			t.Errorf("session start must not page the staff (%s) to resolve one name", list)
+		}
 	}
-	if _, full := captured["Workers"]; !full {
-		t.Error("session start resolves through the prompt-bearing Workers scan")
+	if _, full := captured["GetWorkerInApp"]; !full {
+		t.Error("session start resolves the name through the prompt-bearing GetWorkerInApp read")
 	}
 }
 

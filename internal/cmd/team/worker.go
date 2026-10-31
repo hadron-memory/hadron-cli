@@ -392,8 +392,8 @@ reads as MORE idle than it was, never less.`,
 			}
 			// The ROSTER projection, not the full WorkerFields (#459): this
 			// answers "who is on staff", and the resolved briefing is a detail
-			// of one worker. (`scanWorkers` is narrower still since cli#1459:
-			// the id/urn/name/retiredAt lookup that name resolution needs.)
+			// of one worker. (Name resolution reads no list at all since
+			// cli#1459: one worker(appRef:, ref:) read.)
 			rows, err := scanWorkerRoster(ctx, client, scope.Ref)
 			if err != nil {
 				return err

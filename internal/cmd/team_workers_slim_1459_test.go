@@ -46,11 +46,15 @@ func slim1459Selects(query, field string) bool {
 // slim1459WorkerJSON renders worker i. Worker 0 is Iris; the rest are filler.
 // Every key is written only if the request document selects it, as the server
 // answers; the briefing is the multi-KB one.
-func slim1459WorkerJSON(i int, query string) string {
-	name, slug := fmt.Sprintf("Worker%03d", i), fmt.Sprintf("worker%03d", i)
+func slim1459Name(i int) string {
 	if i == 0 {
-		name, slug = "Iris", "iris"
+		return "Iris"
 	}
+	return fmt.Sprintf("Worker%03d", i)
+}
+
+func slim1459WorkerJSON(i int, query string) string {
+	name, slug := slim1459Name(i), strings.ToLower(slim1459Name(i))
 	w := map[string]any{
 		"id": fmt.Sprintf("wkr%d", i+1), "urn": "hrn:worker:acme.com:eng-team:" + slug, "slug": slug,
 		"portalUrl": nil, "appId": "capp100000000000000000000", "agentId": "agt1", "name": name,
@@ -119,10 +123,13 @@ func newSlim1459Server(t *testing.T, extra map[string]string) *slim1459Server {
 				}
 			}
 			resp = fmt.Sprintf(`{"data":{"workers":{"total":%d,"items":[%s]}}}`, slim1459Workers, strings.Join(items, ","))
-		case "GetWorker":
-			resp = `{"data":{"worker":null}}`
+		case "GetWorker", "GetWorkerInApp", "GetWorkerIdInApp":
+			// worker(ref:) by id; with appRef (the InApp reads) also by NAME,
+			// case-insensitively, as the server's name form answers.
+			resp = `{"errors":[{"message":"Worker not found.","extensions":{"code":"WORKER_NOT_FOUND"}}]}`
 			for i := 0; i < slim1459Workers; i++ {
-				if vars.Ref == fmt.Sprintf("wkr%d", i+1) {
+				byName := body.OperationName != "GetWorker" && strings.EqualFold(vars.Ref, slim1459Name(i))
+				if vars.Ref == fmt.Sprintf("wkr%d", i+1) || byName {
 					resp = `{"data":{"worker":` + slim1459WorkerJSON(i, body.Query) + `}}`
 				}
 			}
@@ -171,6 +178,7 @@ func TestWorkerGetByNameReadsOneBriefing1459(t *testing.T) {
 	if got, limit := s.total(), slim1459PromptSize+slim1459Budget; got > limit {
 		t.Errorf("worker get Iris read %d bytes (%v), over one briefing plus a slim list (%d)", got, s.bytes, limit)
 	}
+	s.assertOneNameRead(t, "GetWorkerInApp")
 	var dto struct {
 		ID     string  `json:"id"`
 		Prompt *string `json:"prompt"`
@@ -204,6 +212,7 @@ func TestSessionStartByNameKeepsBriefing1459(t *testing.T) {
 	if got, limit := s.total(), slim1459PromptSize+slim1459Budget; got > limit {
 		t.Errorf("session start --as Iris read %d bytes (%v), over one briefing plus a slim list (%d)", got, s.bytes, limit)
 	}
+	s.assertOneNameRead(t, "GetWorkerInApp")
 }
 
 // Acceptance 5 (no-regression guard, green on main): `worker list --json`
@@ -222,6 +231,57 @@ func TestWorkerListStaysSlim1459(t *testing.T) {
 	if strings.Contains(out.String(), `"prompt"`) {
 		t.Error("worker list --json must not carry a prompt key")
 	}
+}
+
+// assertOneNameRead pins that a name became ONE single-worker read (op) and
+// that no staff list was paged for it (Dorian's P2 on #1462: a one-worker
+// lookup must not cost a request per roster page).
+func (s *slim1459Server) assertOneNameRead(t *testing.T, op string) {
+	t.Helper()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := 0
+	for _, c := range s.calls {
+		switch c {
+		case op:
+			n++
+		case "Workers", "WorkersRoster", "GetWorker", "GetWorkerInApp", "GetWorkerIdInApp":
+			t.Errorf("name resolution sent %s; want exactly one %s (calls %v)", c, op, s.calls)
+		}
+	}
+	if n != 1 {
+		t.Errorf("name resolution sent %d %s reads; want 1 (calls %v)", n, op, s.calls)
+	}
+}
+
+// The id-only path (`session list --as <Name>`) reads the id alone: one
+// GetWorkerIdInApp, no briefing, no list.
+func TestSessionListAsNameReadsIdOnly1459(t *testing.T) {
+	teamGitDir(t)
+	s := newSlim1459Server(t, map[string]string{"TeamSessions": `{"data":{"sessions":[]}}`})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "list", "--as", "iris", "--app", "acme.com:eng-team", "--json", "--server", s.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	s.assertOneNameRead(t, "GetWorkerIdInApp")
+	if got := s.total(); got > 4*1024 {
+		t.Errorf("session list --as iris read %d bytes (%v); the id-only read carries no row", got, s.bytes)
+	}
+}
+
+// An unknown name is the documented not-found, from one read.
+func TestWorkerGetUnknownNameIsNotFound1459(t *testing.T) {
+	s := newSlim1459Server(t, nil)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "get", "Nobody", "--app", "hrn:app:acme.com:eng-team", "--server", s.URL})
+	err := root.Execute()
+	if exitCodeFor(err) != 4 || err == nil || !strings.Contains(err.Error(), `no worker "Nobody" in this App`) {
+		t.Fatalf("want exit 4 with the in-App not-found, got %d: %v", exitCodeFor(err), err)
+	}
+	s.assertOneNameRead(t, "GetWorkerInApp")
 }
 
 func deref1459(s *string) string {

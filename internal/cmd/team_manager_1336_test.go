@@ -236,9 +236,9 @@ func TestMcpC3AgentInputShapeNotResolution(t *testing.T) {
 			t.Fatalf("agent=%s err=%v calls=%v", agent, r.err, *calls)
 		}
 		for _, c := range *calls {
-			// Workers + GetWorker resolve the WORKER name (cli#1459: the
-			// scan is slim, the match is read whole); nothing resolves --agent.
-			if c.Op != "Workers" && c.Op != "GetWorker" && c.Op != "ChangeWorkerAgent" {
+			// GetWorkerInApp resolves the WORKER name (cli#1459); nothing
+			// resolves --agent.
+			if c.Op != "GetWorkerInApp" && c.Op != "ChangeWorkerAgent" {
 				t.Fatalf("unexpected agent resolution: %v", c)
 			}
 		}
@@ -253,7 +253,8 @@ func TestMcpC3LostMutationAnswerIsNotRetried(t *testing.T) {
 			responses := managerResponses1336()
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				var body struct {
-					OperationName string `json:"operationName"`
+					OperationName string          `json:"operationName"`
+					Variables     json.RawMessage `json:"variables"`
 				}
 				if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 					t.Error(err)
@@ -270,6 +271,9 @@ func TestMcpC3LostMutationAnswerIsNotRetried(t *testing.T) {
 					return
 				}
 				response, ok := responses[body.OperationName]
+				if !ok {
+					response, ok = workerFromStaff(responses, body.OperationName, body.Variables)
+				}
 				if !ok {
 					response, ok = unstubbedDefault(body.OperationName)
 				}

@@ -92,7 +92,7 @@ func TestWorkerRmAttestationRefusalsNeverRetry(t *testing.T) {
 				switch op {
 				case "Workers", "WorkersRoster":
 					return staffJSON
-				case "GetWorker": // the name's match, read whole (cli#1459)
+				case "GetWorkerInApp": // the name's one read (cli#1459)
 					return `{"data":{"worker":` + irisWorkerJSON + `}}`
 				case "DeleteWorker":
 					calls++

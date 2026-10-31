@@ -60,17 +60,21 @@ func fakeGraphQL(t *testing.T, responses map[string]string) *httptest.Server {
 	return server
 }
 
-// workerFromStaff answers an UNSTUBBED GetWorker from the test's own Workers
-// fixture, by id, the way a real server serves one worker through both reads.
+// workerFromStaff answers an UNSTUBBED single-worker read from the test's own
+// Workers fixture, the way a real server serves one worker the list shows:
+// GetWorker by id; GetWorkerInApp / GetWorkerIdInApp (worker(appRef:, ref:),
+// cli#1459) by id or by NAME, case-insensitively, refusing WORKER_NOT_FOUND
+// for a name the fixture does not list, as the server's name form does.
 //
-// Name resolution reads the slim Workers list and then the ONE matched worker
-// with GetWorker (cli#1459). A test that stubs only the staff list describes
-// that worker already; without this every such fixture would need a second,
-// hand-kept copy of it. A test that stubs GetWorker itself still wins, and an
-// id the fixture does not list stays unanswered (the caller's not-found path).
+// Name resolution reads ONE worker this way instead of paging the staff. A
+// test that stubs only the staff list describes that worker already; without
+// this every such fixture would need a hand-kept copy of it. An explicit stub
+// of the read still wins, and GetWorker for an id the fixture does not list
+// stays unanswered (the caller's not-found path).
 func workerFromStaff(responses map[string]string, op string, vars json.RawMessage) (string, bool) {
 	staff, ok := responses["Workers"]
-	if op != "GetWorker" || !ok {
+	byName := op == "GetWorkerInApp" || op == "GetWorkerIdInApp"
+	if !ok || (op != "GetWorker" && !byName) {
 		return "", false
 	}
 	var v struct {
@@ -88,11 +92,18 @@ func workerFromStaff(responses map[string]string, op string, vars json.RawMessag
 	}
 	for _, item := range list.Data.Workers.Items {
 		var w struct {
-			ID string `json:"id"`
+			ID   string `json:"id"`
+			Name string `json:"name"`
 		}
-		if json.Unmarshal(item, &w) == nil && w.ID == v.Ref {
+		if json.Unmarshal(item, &w) != nil {
+			continue
+		}
+		if w.ID == v.Ref || (byName && strings.EqualFold(w.Name, strings.TrimSpace(v.Ref))) {
 			return `{"data":{"worker":` + string(item) + `}}`, true
 		}
+	}
+	if byName {
+		return `{"errors":[{"message":"Worker not found.","extensions":{"code":"WORKER_NOT_FOUND"}}]}`, true
 	}
 	return "", false
 }
