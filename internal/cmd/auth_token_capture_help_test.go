@@ -88,7 +88,7 @@ printf '{"rawKey":"synthetic-key"}\n'
 			count, _ := os.ReadFile(calls)
 			if mode == "existing" || mode == "dangling" || mode == "directory" || mode == "unsupported-ln" {
 				if runErr == nil || len(count) != 0 {
-					t.Errorf("existing destination: err=%v calls=%q", runErr, count)
+					t.Errorf("pre-mint refusal: err=%v calls=%q", runErr, count)
 				}
 			} else if string(count) != "called\n" {
 				t.Errorf("want one mint call, got %q", count)

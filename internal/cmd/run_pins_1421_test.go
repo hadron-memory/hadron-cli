@@ -8,11 +8,11 @@ import (
 	"net/http/httptest"
 	"os"
 	"strconv"
+	"strings"
+	"testing"
 
 	"github.com/vektah/gqlparser/v2/ast"
 	"github.com/vektah/gqlparser/v2/parser"
-	"strings"
-	"testing"
 )
 
 // #1421 section 1: kill the surviving terminal-safety mutants from #1415
@@ -334,6 +334,7 @@ func selectedRunQueryFields(t *testing.T, query string) map[string]bool {
 		t.Fatal(err)
 	}
 	fields := map[string]bool{}
+	visiting := map[string]bool{}
 	var walk func(ast.SelectionSet)
 	walk = func(set ast.SelectionSet) {
 		for _, selection := range set {
@@ -343,20 +344,25 @@ func selectedRunQueryFields(t *testing.T, query string) map[string]bool {
 				walk(selection.SelectionSet)
 			case *ast.InlineFragment:
 				walk(selection.SelectionSet)
+			case *ast.FragmentSpread:
+				fragment := doc.Fragments.ForName(selection.Name)
+				if fragment == nil || visiting[selection.Name] {
+					t.Fatalf("invalid fragment %q", selection.Name)
+				}
+				visiting[selection.Name] = true
+				walk(fragment.SelectionSet)
+				delete(visiting, selection.Name)
 			}
 		}
 	}
 	for _, op := range doc.Operations {
 		walk(op.SelectionSet)
 	}
-	for _, fragment := range doc.Fragments {
-		walk(fragment.SelectionSet)
-	}
 	return fields
 }
 
 func TestRunQueryFieldMatchIsExact(t *testing.T) {
-	fields := selectedRunQueryFields(t, `query { appRun { triggerKind failureReason { summary } } }`)
+	fields := selectedRunQueryFields(t, `query { appRun { triggerKind failureReason { ...Reason } } } fragment Reason on FailureReason { summary } fragment Unused on FailureReason { kind }`)
 	if fields["kind"] || !fields["triggerKind"] || !fields["summary"] {
 		t.Fatal(fields)
 	}
