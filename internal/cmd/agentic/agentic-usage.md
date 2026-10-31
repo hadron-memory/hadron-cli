@@ -2756,7 +2756,7 @@ server error fails the command).
   skipped while reporting you as caught up. Never having read is
   reported as its own state rather than as a count, since it is the louder one
   — and phrased as what THIS WORKTREE knows, because the watermark is
-  binding-local and a read made through the MCP tools never reaches it (a nudge
+  binding-local and a read made in the portal or under another binding never reaches it (a nudge
   that is sometimes wrong trains people to ignore the one that is right). For
   the same reason the note omits the mentions clause when that query fails —
   or returns a count EXCEEDING the total, which two round trips against an

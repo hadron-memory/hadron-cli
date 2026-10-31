@@ -49,7 +49,7 @@ func TestNudgeAnchorNullGenericTextNoMentionsWalk(t *testing.T) {
 
 func TestNudgeFirstUnreadOneSmallSpanClampsToZero(t *testing.T) {
 	text := NudgeText(worker("w-eli", "Eli", workerOpts{mentions: ip(2), unread: ip(349), first: ip(1), relevant: ip(110), head: ip(350)}))
-	for _, want := range []string{"--since 0 --limit 200", "sinceSeq=0"} {
+	for _, want := range []string{"--since 0 --limit 200"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("text missing %q", want)
 		}
@@ -61,7 +61,7 @@ func TestNudgeFirstUnreadOneSmallSpanClampsToZero(t *testing.T) {
 
 func TestNudgeCursor0LargeGapWalkStartsAtZero(t *testing.T) {
 	text := NudgeText(worker("w-eli", "Eli", workerOpts{mentions: ip(2), unread: ip(9000), first: ip(1), relevant: ip(110), head: ip(9001)}))
-	for _, want := range []string{"--mentions-me --since 0 --before 9002 --limit 200", "sinceSeq=0", "beforeSeq=9002"} {
+	for _, want := range []string{"--mentions-me --since 0 --before 9002 --limit 200"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("text missing %q", want)
 		}
@@ -109,21 +109,20 @@ func TestNudgeFrozenSampleBoundsAtNudgeHead(t *testing.T) {
 }
 
 func TestNudgeMultiPageWalkRunsBackwardViaPrevBefore(t *testing.T) {
-	// Anne's trace + Colin's live control (#9687/#9689): beforeSeq forces
+	// Anne's trace + Colin's live control (#9687/#9689): --before forces
 	// NEWEST-page selection, so a forward nextSince walk with 201 unread
 	// mentions loses the oldest #1. The instruction must walk BACKWARD
-	// (prevBefore, decreasing beforeSeq) down to the fixed since floor.
+	// (prevBefore, decreasing --before) down to the fixed since floor.
 	text := NudgeText(worker("w-eli", "Eli", workerOpts{mentions: ip(201), unread: ip(9841), first: ip(61), relevant: ip(9750), head: ip(9901)}))
 	for _, want := range []string{
 		"prevBefore", "BACKWARD",
-		"--mentions-me --since 60 --before 9902 --limit 200", "sinceSeq=60",
-		"beforeSeq=9902", "never above #9901",
-		"the smallest seq on your last page", "no prevBefore field", "limit 200",
+		"--mentions-me --since 60 --before 9902 --limit 200", "never above #9901", "limit 200",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("text missing %q", want)
 		}
 	}
+	assertNoMCP(t, text)
 	if strings.Contains(text, "nextSince") {
 		t.Errorf("the forward cursor is what lost the oldest mention — must not appear")
 	}
