@@ -53,6 +53,24 @@ func TestC911IsolationSetSendsUntilAsUTC(t *testing.T) {
 	}
 }
 
+// The widest real offsets are still accepted and converted; only an hour
+// past 23 or a minute past 59 is refused (local review, cli#1386).
+func TestC911IsolationSetAcceptsTheEdgeOffsets(t *testing.T) {
+	for until, want := range map[string]string{
+		"2999-01-01T12:00:00+23:59": "2998-12-31T12:01:00Z",
+		"2999-01-01T12:00:00-23:59": "2999-01-02T11:59:00Z",
+	} {
+		calls, _, err := runTeamTask(t, c911Responses(), "team", "isolation", "set", "--worker", c1292Worker, "--until", until)
+		if err != nil {
+			t.Fatalf("%s: %v", until, err)
+		}
+		sets := stopCalls(calls, "IsolateWorker")
+		if len(sets) != 1 || sets[0].Vars["until"] != want {
+			t.Errorf("%s: set calls %+v, want until %s", until, sets, want)
+		}
+	}
+}
+
 func TestC911IsolationSetForIsNowPlusTheDurationInUTC(t *testing.T) {
 	before := time.Now().UTC().Truncate(time.Second)
 	calls, _, err := runTeamTask(t, c911Responses(), "team", "isolation", "set", "--worker", c1292Worker, "--for", "90m")
@@ -113,6 +131,8 @@ func TestC911IsolationUsageErrorsSendNoRequest(t *testing.T) {
 		{"team", "isolation", "set", "--worker", c1292Worker, "--until", "2999-01-01T00:00:00,5Z"},
 		{"team", "isolation", "set", "--worker", c1292Worker, "--until", "2999-01-01T00:00:00,0Z"},
 		{"team", "isolation", "set", "--worker", c1292Worker, "--until", "2999-01-01T00:00:00.000Z"},
+		{"team", "isolation", "set", "--worker", c1292Worker, "--until", "2999-01-01T00:00:00+24:00"},
+		{"team", "isolation", "set", "--worker", c1292Worker, "--until", "2999-01-01T00:00:00+00:60"},
 		{"team", "isolation", "set", "--worker", c1292Worker, "--until", "2999-01-01T00:00:00"},
 		{"team", "isolation", "set", "--worker", c1292Worker, "--until", "tomorrow"},
 		{"team", "isolation", "set", "--worker", c1292Worker, "--for", "0"},
