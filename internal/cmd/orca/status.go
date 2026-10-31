@@ -153,7 +153,7 @@ and is never part of the JSON.`,
 				// Resolved here, not at construction: the flag is parsed now,
 				// and a refusal (config, key, orca_bin) comes before Orca is
 				// listed so a cron run fails the same way every time.
-				h, err := loadHostMode(f, env, configPath)
+				h, err := loadHostMode(f, env, configPath, cmd.Flags().Changed("app"))
 				if err != nil {
 					return err
 				}
