@@ -119,18 +119,23 @@ func newCmdTeamHealthWithReader(f *cmdutil.Factory, read healthStatusReader) *co
 	c := &cobra.Command{Use: "sweep --config <host.yaml>", Short: "Read terminal status and store code-only reports for this host", Args: cobra.NoArgs,
 		Long: `Read terminal-status@1 JSON from "hadron orca terminal status --all --json"
 and store the status of this host's registered workers in one batch. The status
-command alone classifies terminals; this sweep never reads screens or types.
+command alone classifies terminals; this binary runs its own status command,
+and the sweep never reads screens or types.
 
 Use the same --config host YAML and 0600 key_file as "team host run". The host
 key is never supplied as an argument or environment variable. Orca is resolved
 from delivery.orca_bin when set, otherwise PATH. Paused workers are still reported.
-No alarm is computed, and an App without a coordinator is valid.
+No alarm is computed, and an App without a coordinator is valid. An unresolved,
+ambiguous or missing registered worker report refuses the entire batch before
+writing (exit 1). A missing or non-live host registration is exit 8.
+Status rows for workers not registered on this host are ignored.
 
 Exit 0 after a successful write, including per-worker refusals (printed, not
 retried); 1 for a failed write or malformed status contract, 3 for a missing or
 rejected key, 7 when the server is unreachable, 8 for forbidden and 10 when the
 status command cannot reach Orca. No scheduling or recovery is installed.
---json contains only reports and per-worker refusals; never screen text.`,
+--json contains the sent reports (including refused items) and per-worker
+refusals; never screen text. A report in this list is not a storage receipt.`,
 		RunE: func(c *cobra.Command, _ []string) error {
 			cfg, _, server, err := loadHostPoller(f, configPath)
 			if err != nil {
@@ -153,10 +158,16 @@ status command cannot reach Orca. No scheduling or recovery is installed.
 				for _, reg := range regs.HostRegistrations {
 					if reg != nil && reg.HostId == state.RegisteredHostID() {
 						live = reg.Live
+						ids := map[string]bool{}
 						for _, w := range reg.Workers {
-							if w != nil && w.Worker != nil && w.Worker.Id == w.WorkerId {
-								names[w.Worker.Name] = w.WorkerId
+							if w == nil || w.WorkerId == "" || w.Worker == nil || w.Worker.Id != w.WorkerId || strings.TrimSpace(w.Worker.Name) == "" || ids[w.WorkerId] {
+								return exitcode.Newf(exitcode.Error, "cannot resolve registered worker; nothing written")
 							}
+							if _, duplicate := names[w.Worker.Name]; duplicate {
+								return exitcode.Newf(exitcode.Error, "ambiguous registered worker name; nothing written")
+							}
+							ids[w.WorkerId] = true
+							names[w.Worker.Name] = w.WorkerId
 						}
 					}
 				}

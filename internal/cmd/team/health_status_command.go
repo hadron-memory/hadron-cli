@@ -27,10 +27,6 @@ func readHealthStatusCommand(ctx context.Context, path string, cfg *hostpoller.C
 	return runHealthStatusCommandEnv(ctx, bin, path, hostpoller.ScrubbedEnv(os.Environ(), key))
 }
 
-func runHealthStatusCommand(ctx context.Context, bin, path string) ([]byte, int, error) {
-	return runHealthStatusCommandEnv(ctx, bin, path, hostpoller.ScrubbedEnv(os.Environ(), ""))
-}
-
 func runHealthStatusCommandEnv(ctx context.Context, bin, path string, env []string) ([]byte, int, error) {
 	abs, err := filepath.Abs(path)
 	if err != nil {
@@ -40,7 +36,7 @@ func runHealthStatusCommandEnv(ctx context.Context, bin, path string, env []stri
 	defer cancel()
 	cmd := exec.CommandContext(ctx, bin, "orca", "terminal", "status", "--all", "--json", "--config", abs)
 	cmd.Env = env
-	var out healthStatusBuffer
+	out := healthStatusBuffer{onOverflow: cancel}
 	cmd.Stdout = &out
 	// stderr is deliberately discarded, including a child's credential, screen
 	// detail or raw upstream diagnostic. The caller reports fixed classes only.
@@ -55,10 +51,16 @@ func runHealthStatusCommandEnv(ctx context.Context, bin, path string, env []stri
 }
 
 // Bound even a broken status command's stdout before decoding it.
-type healthStatusBuffer struct{ bytes.Buffer }
+type healthStatusBuffer struct {
+	bytes.Buffer
+	onOverflow func()
+}
 
 func (b *healthStatusBuffer) Write(p []byte) (int, error) {
 	if b.Len()+len(p) > 8<<20 {
+		if b.onOverflow != nil {
+			b.onOverflow()
+		}
 		return 0, errors.New("status output exceeds limit")
 	}
 	return b.Buffer.Write(p)

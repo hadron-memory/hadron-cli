@@ -50,6 +50,15 @@ func health1181Run(t *testing.T, wire string, statusCode int) (string, int, map[
 	return health1181RunMode(t, wire, statusCode, true)
 }
 func health1181RunMode(t *testing.T, wire string, statusCode int, jsonMode bool) (string, int, map[string]any, error) {
+	return health1181RunFixture(t, wire, statusCode, jsonMode, "", health1181Status, `{"hostId":"own"}`)
+}
+
+const health1181Registrations = `{"data":{"hostRegistrations":[{"hostId":"own","live":true,"workers":[{"workerId":"w1","worker":{"id":"w1","name":"Iris","urn":"hrn:worker:test:team:iris"},"worktrees":["iris"]}]}]}}`
+
+func health1181RunFixture(t *testing.T, wire string, statusCode int, jsonMode bool, registrations, status, state string) (string, int, map[string]any, error) {
+	if registrations == "" {
+		registrations = health1181Registrations
+	}
 	t.Helper()
 	t.Setenv("HADRON_TOKEN", "AMBIENT_MUST_NOT_BE_USED")
 	dir := t.TempDir()
@@ -69,7 +78,7 @@ func health1181RunMode(t *testing.T, wire string, statusCode int, jsonMode bool)
 		w.Header().Set("Content-Type", "application/json")
 		switch q.OperationName {
 		case "HostRegistrations":
-			_, _ = io.WriteString(w, `{"data":{"hostRegistrations":[{"hostId":"own","live":true,"workers":[{"workerId":"w1","worker":{"id":"w1","name":"Iris","urn":"hrn:worker:test:team:iris"},"worktrees":["iris"]}]}]}}`)
+			_, _ = io.WriteString(w, registrations)
 		case "HealthSweepSetTerminals":
 			mu.Lock()
 			writes++
@@ -86,7 +95,7 @@ func health1181RunMode(t *testing.T, wire string, statusCode int, jsonMode bool)
 		}
 	}))
 	defer srv.Close()
-	for n, s := range map[string]string{"key": key, "state.json": `{"hostId":"own"}`} {
+	for n, s := range map[string]string{"key": key, "state.json": state} {
 		if e := os.WriteFile(filepath.Join(dir, n), []byte(s), 0600); e != nil {
 			t.Fatal(e)
 		}
@@ -101,7 +110,7 @@ func health1181RunMode(t *testing.T, wire string, statusCode int, jsonMode bool)
 	f.IOStreams = streams
 	f.JSON = jsonMode
 	c := newCmdTeamHealthWithReader(f, func(context.Context, string, *hostpoller.Config) ([]byte, int, error) {
-		return []byte(health1181Status), statusCode, nil
+		return []byte(status), statusCode, nil
 	})
 	c.SetArgs([]string{"sweep", "--config", path})
 	err := c.Execute()
@@ -230,21 +239,114 @@ func TestHealth1181StatusSubprocessBoundary(t *testing.T) {
 	if err := os.WriteFile(bin, []byte(script), 0700); err != nil {
 		t.Fatal(err)
 	}
-	raw, code, err := runHealthStatusCommand(context.Background(), bin, filepath.Join(dir, "host.yaml"))
+	raw, code, err := runHealthStatusCommandEnv(context.Background(), bin, filepath.Join(dir, "host.yaml"), hostpoller.ScrubbedEnv(os.Environ(), "SYNTHETIC_BOUNDARY_KEY"))
 	if err != nil || code != 0 || string(raw) != "[]" {
 		t.Fatalf("code %d err %v output %q", code, err, raw)
 	}
 }
 
 func TestHealth1181StatusOutputBound(t *testing.T) {
-	var b healthStatusBuffer
+	cancelled := false
+	b := healthStatusBuffer{onOverflow: func() { cancelled = true }}
 	if _, err := b.Write(make([]byte, 8<<20)); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := b.Write([]byte("PRIVATE_SCREEN")); err == nil {
 		t.Fatal("unbounded subprocess output")
 	}
+	if !cancelled {
+		t.Fatal("overflow did not cancel child")
+	}
 	if b.Len() != 8<<20 {
 		t.Fatal("overflow retained")
+	}
+}
+
+func TestHealth1181RegistrationRefusals(t *testing.T) {
+	ok := `{"data":{"setHostWorkerTerminals":{"stored":[{"id":"w1"}],"refused":[]}}}`
+	for _, tc := range []struct {
+		name, registrations, status, state string
+		code                               int
+	}{
+		{"worker null", strings.Replace(health1181Registrations, `{"id":"w1","name":"Iris","urn":"hrn:worker:test:team:iris"}`, `null`, 1), health1181Status, `{"hostId":"own"}`, 1},
+		{"worker mismatched", strings.Replace(health1181Registrations, `"id":"w1"`, `"id":"w2"`, 1), health1181Status, `{"hostId":"own"}`, 1},
+		{"missing status", "", `[]`, `{"hostId":"own"}`, 1},
+		{"non-live", strings.Replace(health1181Registrations, `"live":true`, `"live":false`, 1), health1181Status, `{"hostId":"own"}`, 8},
+		{"missing host", "", health1181Status, `{"hostId":"missing"}`, 8},
+		{"empty state", "", health1181Status, ``, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, n, _, err := health1181RunFixture(t, ok, 0, true, tc.registrations, tc.status, tc.state)
+			if n != 0 || exitcode.FromError(err) != tc.code {
+				t.Fatalf("writes %d err %v", n, err)
+			}
+		})
+	}
+}
+
+func TestHealth1181InvalidServerResults(t *testing.T) {
+	for _, result := range []string{
+		`{"stored":[{"id":"w1"},{"id":"w1"}],"refused":[]}`,
+		`{"stored":[{"id":"other"}],"refused":[]}`,
+		`{"stored":[],"refused":[{"worker":"w1","code":"PRIVATE_SCREEN"}]}`,
+		`{"stored":[{"id":"w1"}],"refused":[{"worker":"w1","code":"WORKER_NOT_FOUND"}]}`,
+	} {
+		_, n, _, err := health1181Run(t, `{"data":{"setHostWorkerTerminals":`+result+`}}`, 0)
+		if n != 1 || exitcode.FromError(err) != 1 {
+			t.Fatalf("writes %d err %v", n, err)
+		}
+	}
+}
+
+func TestHealth1181DecoderNegativeControls(t *testing.T) {
+	for _, raw := range []string{
+		strings.Replace(health1181Status, `"locked"`, `"idle"`, 1),
+		strings.Replace(health1181Status, `"reason":"menu_or_question"`, `"reason":null`, 1),
+		strings.Replace(health1181Status, `"lastTurnAt":null`, `"lastTurnAt":"PRIVATE_SCREEN"`, 1),
+		strings.Replace(health1181Status, `"lastTurnAt":null`, `"lastTurnAt":"2026-11-01T00:00:00Z"`, 1),
+		strings.TrimSuffix(health1181Status, `]`) + `,` + strings.TrimPrefix(health1181Status, `[`),
+	} {
+		if _, err := decodeHealthStatus([]byte(raw)); err == nil {
+			t.Fatal("invalid contract accepted")
+		}
+	}
+}
+
+func TestHealth1181LargeAndAmbiguousRegistration(t *testing.T) {
+	var workers []any
+	var rows []any
+	for i := 0; i < 201; i++ {
+		id := fmt.Sprintf("w%d", i)
+		name := fmt.Sprintf("Worker%d", i)
+		workers = append(workers, map[string]any{"workerId": id, "worker": map[string]any{"id": id, "name": name}})
+		rows = append(rows, map[string]any{"contract": "terminal-status@1", "worker": name, "status": "dark", "prompt": "unknown", "reason": "no_terminal", "lastTurnAt": nil, "checkedAt": "2026-10-31T02:00:00Z"})
+	}
+	check := func(workers, rows []any) {
+		t.Helper()
+		reg, _ := json.Marshal(map[string]any{"data": map[string]any{"hostRegistrations": []any{map[string]any{"hostId": "own", "live": true, "workers": workers}}}})
+		status, _ := json.Marshal(rows)
+		_, n, _, err := health1181RunFixture(t, `{}`, 0, true, string(reg), string(status), `{"hostId":"own"}`)
+		if n != 0 || exitcode.FromError(err) != 1 {
+			t.Fatalf("writes %d err %v", n, err)
+		}
+	}
+	check(workers, rows)
+	workers = workers[:2]
+	rows = rows[:2]
+	workers[1].(map[string]any)["worker"].(map[string]any)["name"] = "Worker0"
+	check(workers, rows)
+	workers[1] = workers[0]
+	check(workers, rows)
+}
+
+func TestHealth1181IgnoresOtherHostsStatusRows(t *testing.T) {
+	status := strings.TrimSuffix(health1181Status, `]`) + `,` + strings.TrimPrefix(strings.Replace(health1181Status, `"Iris"`, `"OtherHostWorker"`, 1), `[`)
+	out, n, sent, err := health1181RunFixture(t, `{"data":{"setHostWorkerTerminals":{"stored":[{"id":"w1"}],"refused":[]}}}`, 0, true, "", status, `{"hostId":"own"}`)
+	if err != nil || n != 1 {
+		t.Fatal(err, n)
+	}
+	wire, _ := json.Marshal(sent)
+	if strings.Contains(out+string(wire), "OtherHostWorker") {
+		t.Fatal("foreign worker retained")
 	}
 }

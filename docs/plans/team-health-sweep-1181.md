@@ -9,11 +9,13 @@ The sweep reads the live host registration from its persisted host id, runs the
 same executable's `orca terminal status --all --json --config <absolute path>`,
 and consumes only terminal-status@1 JSON. The status command owns Orca discovery
 (`delivery.orca_bin`, otherwise PATH) and all classification rules. Its stderr
-is discarded; stdout is bounded to 8 MiB. Credential environment variables and
+is discarded; stdout is bounded to 8 MiB and overflow cancels the child. Credential environment variables and
 variables containing the host key are removed before launching it.
 
 The decoder accepts only known status, prompt and reason codes and valid times.
-It requires every registered worker to have a report, including paused workers.
+It requires every registered worker to resolve unambiguously and have a report,
+including paused workers. An unresolved registration or missing status row
+refuses the whole batch before writing; other hosts' status rows are ignored.
 Only worker id, status, prompt, reason, lastTurnAt and checkedAt enter the typed
 mutation. No screen detail or terminal handle is retained in the output DTO.
 One batch is sent; more than the server's 200-worker limit refuses before writing.
