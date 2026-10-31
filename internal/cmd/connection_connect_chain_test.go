@@ -211,6 +211,15 @@ func TestConnectionConnectReturnedErrorHoldsNoSecretGraph(t *testing.T) {
 		{"authContext: safe message, secret in extensions", map[string][]chainStep{
 			"StartConnection": start,
 			"AuthContext":     {{body: gqlErr("refused", `"code":"FORBIDDEN","detail":"`+connectURL+`"`)}}}, want{exitcode.Forbidden, "FORBIDDEN", "refused"}},
+		{"authContext: secret in the serverCode", map[string][]chainStep{
+			"StartConnection": start,
+			"AuthContext":     {{body: gqlErr("refused", `"code":"SECRETNONCE123456"`)}}}, want{exitcode.Error, "<redacted>", "refused"}},
+		{"authContext: internal fault with a secret requestId", map[string][]chainStep{
+			"StartConnection": start,
+			"AuthContext":     {{body: gqlErr("boom", `"code":"INTERNAL_SERVER_ERROR","requestId":"SECRETNONCE123456"`)}}}, want{exitcode.Error, "INTERNAL_SERVER_ERROR", ""}},
+		{"authContext: internal fault: ordinary requestId kept, link in detail dropped", map[string][]chainStep{
+			"StartConnection": start,
+			"AuthContext":     {{body: gqlErr("boom", `"code":"INTERNAL_SERVER_ERROR","requestId":"req-abc123","detail":"`+connectURL+`"`)}}}, want{exitcode.Error, "INTERNAL_SERVER_ERROR", "req-abc123"}},
 		{"baseline list: safe message, secret in extensions, no code", map[string][]chainStep{
 			"StartConnection": start, "AuthContext": me,
 			"EmailConnections": {{body: gqlErr("refused", `"detail":"`+connectURL+`"`)}}}, want{exitcode.Error, "", "refused"}},
@@ -326,6 +335,29 @@ func TestDetachedKeepsOnlyTheClassificationsTheRawChainHad(t *testing.T) {
 			}
 		}
 	}
+}
+
+type secretCodeError struct{ code string }
+
+func (e secretCodeError) Error() string      { return "refused" }
+func (e secretCodeError) ServerCode() string { return e.code }
+
+// A server code is a rendered string like any other: a secret-bearing one is
+// redacted in the detached value and in the --json envelope, not copied raw.
+func TestDetachedRedactsAServerCode(t *testing.T) {
+	got := apiDetached(exitcode.New(exitcode.Forbidden, secretCodeError{code: "FORBIDDEN " + connectURL}))
+	var sc interface{ ServerCode() string }
+	if !errors.As(got, &sc) {
+		t.Fatal("serverCode dropped")
+	}
+	if sc.ServerCode() != "FORBIDDEN <redacted>" {
+		t.Errorf("ServerCode = %q", sc.ServerCode())
+	}
+	unwrapAll(got, func(e error) {
+		if n, ok := reachable(reflect.ValueOf(e), chainSentinels(), map[uintptr]bool{}); ok {
+			t.Errorf("%T still holds %q", e, n)
+		}
+	})
 }
 
 func apiDetached(err error) error {

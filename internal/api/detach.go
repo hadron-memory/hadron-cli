@@ -72,8 +72,8 @@ func (e *detachedError) Is(target error) bool {
 // (a wrapper with a safe message over a secret-bearing cause, a joined list):
 // redacting only when the outer text changes leaves that cause reachable.
 //
-// Preserved: Error() and HumanMessage() (redacted), the exit code, ServerCode(),
-// the internal-fault detail, and errors.Is for context.Canceled,
+// Preserved: Error(), HumanMessage() and ServerCode() (all redacted), the exit code,
+// the internal-fault detail (redacted), and errors.Is for context.Canceled,
 // context.DeadlineExceeded and exitcode.ErrSilent. Not preserved: errors.As to
 // a concrete raw type (a GraphQL error list, an HTTP error, a *url.Error).
 // A nil err stays nil.
@@ -92,12 +92,12 @@ func Detached(err error, redact func(string) string) error {
 		d.human, d.hasHuman = redact(h.HumanMessage()), true
 	}
 	if fault, ok := InternalFaultOf(err); ok {
-		d.fault = &internalFaultError{fault: fault}
+		d.fault = &internalFaultError{fault: InternalFault{ServerCode: redact(fault.ServerCode), RequestID: redact(fault.RequestID)}}
 	}
 	var out error = d
 	var sc interface{ ServerCode() string }
 	if errors.As(err, &sc) {
-		out = &detachedCodedError{detachedError: d, serverCode: sc.ServerCode()}
+		out = &detachedCodedError{detachedError: d, serverCode: redact(sc.ServerCode())}
 	}
 	var coded *exitcode.CodedError
 	if errors.As(err, &coded) {
