@@ -474,6 +474,17 @@ func TestTeamSafeCells1101(t *testing.T) {
 			}
 			t.Run(sub, func(t *testing.T) {
 				responses := tc.responses(t)
+				// A fixture with a repeated key proves only what the decoder's
+				// last-wins rule happens to pick (#1119): stamp by overwrite.
+				for o, body := range responses {
+					dups, err := duplicateJSONKeys(body)
+					if err != nil {
+						t.Fatalf("fixture %s is not JSON: %v", o, err)
+					}
+					if len(dups) > 0 {
+						t.Fatalf("fixture %s repeats keys %v", o, dups)
+					}
+				}
 				args := tc.args
 				op := tc.op
 				ref := refine[tc.name+"/"+ca.field]
@@ -579,8 +590,19 @@ func TestTeamSafeCells1101(t *testing.T) {
 				if runes := []rune(cellWant); len(runes) > 256 {
 					cellWant = string(runes[:255]) + "…"
 				}
-				if !strings.Contains(out, cellWant) {
-					t.Errorf("missing bounded sanitized cell (256 runes ending in ellipsis)")
+				// Anchored on the row (#1119): the cell must sit where the clean
+				// render carried the same field, not merely appear somewhere.
+				cleanCell := ca.old
+				if ref.encoded {
+					cleanCell = ref.prefix + string(needle)
+				} else {
+					if ref.lower {
+						cleanCell = strings.ToLower(cleanCell)
+					}
+					cleanCell = ref.prefix + cleanCell
+				}
+				if !cellInRow(clean, out, cleanCell, cellWant) {
+					t.Errorf("missing bounded sanitized cell (256 runes ending in ellipsis) in the row that carried %q", cleanCell)
 				}
 				// Output-wide scans, skipped only where the raw value also
 				// reaches an unguarded PROSE echo (refine.prose names it).
