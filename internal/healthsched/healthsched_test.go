@@ -898,3 +898,34 @@ func TestCleanPathIsExported(t *testing.T) {
 		t.Fatalf("%q %v", p, err)
 	}
 }
+
+// cli#1472: the usage collector is a second job. Its lines, units and labels
+// are its own, and neither job's matcher claims the other's crontab line.
+func TestUsageJobHasItsOwnIdentity(t *testing.T) {
+	hs := Spec{Bin: "/usr/local/bin/hadron", Config: "/etc/h.yaml", Interval: 15 * time.Minute, Path: "/usr/bin"}
+	us := hs
+	us.Job = Usage
+	hl, err := CronLine(hs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ul, err := CronLine(us)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !IsOwnedCronLine(hl) || IsOwnedCronLine(ul) {
+		t.Errorf("health matcher must claim only the health line:\n%s\n%s", hl, ul)
+	}
+	if !IsOwnedCronLineFor(Usage, ul) || IsOwnedCronLineFor(Usage, hl) {
+		t.Errorf("usage matcher must claim only the usage line:\n%s\n%s", hl, ul)
+	}
+	if !strings.Contains(ul, `'team' 'usage' 'collect' '--config'`) || !strings.Contains(ul, "# hadron-team-usage config=") {
+		t.Errorf("usage line: %s", ul)
+	}
+	if strings.Join(us.Argv(), " ") != "/usr/local/bin/hadron team usage collect --config /etc/h.yaml" {
+		t.Errorf("argv: %v", us.Argv())
+	}
+	if !strings.Contains(Plist(us), "com.hadronmemory.team-usage") || !strings.Contains(SystemdTimer(us), "Unit=hadron-team-usage.service") {
+		t.Error("usage plist/timer must carry the usage identity")
+	}
+}

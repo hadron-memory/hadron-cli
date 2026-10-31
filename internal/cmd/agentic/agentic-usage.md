@@ -440,6 +440,9 @@ hadron team health sweep --config <host.yaml>   # code-only terminal health repo
 hadron team health install --config <host.yaml> --interval <Nm> [--bin <abs hadron>]   # writes one user-level scheduler entry `hadron-team-health` running the sweep; see "Team health install" (cli#1374); exit 2 on no scheduler / orca unresolved / bad interval / different --config
 hadron team health uninstall   # removes exactly what install wrote, also after a failed install
 hadron team health status   # read-only; json {installed,scheduler,active,interval,binary,config,orca,files,lastRun{at,exitCode}}; lastRun unknown under cron
+hadron team usage collect --config <usage.yaml> [-m <memory>]   # cli#1472: record one account-usage object per configured model account (5h/7d allowance windows); validates every account first, exit 2 and NOTHING written on any bad config/snapshot/ccusage file; see "Team usage"
+hadron team usage show [--config <usage.yaml> | -m <memory>] [--limit 1-200]   # per-account current 5h/7d use, resets, burn rate %/h, projected exhaustsAt; json {memory,accounts:[]}; unknown is null
+hadron team usage install --config <usage.yaml> --interval <Nm> [--bin <abs hadron>] | uninstall | status   # a second user-level scheduler entry `hadron-team-usage` beside team health's; same refusals and json shapes minus orca
 hadron team router poll | loop [--interval 60s] | status [--config <path>]   # the Orca attention router (cli#829), on YOUR login: types one nudge line into an idle, empty-prompt roster worker's Orca terminal; never reads/posts/marks chat. Config: --config, $HADRON_ROUTER_CONFIG, ~/.config/hadron/team-router/config.json, else the TS router's config (same state dir + writer lock). poll --json {at, ok, error, nudged, dropped, covered, held{name:reason}, adopted, liveness, livenessDropped}; a failed poll exits 1 with the token unchanged; no config exit 2; status reads local state only (never the token)
 hadron org resend-sender create --org <ref> --from <identity> [--api-key-file <path|->] [--enabled=false] | get <sender-id> | list [--org-id <raw-id>] [--limit N] [--offset N] | update <sender-id> [--from <identity>] [--api-key-file <path|->] [--enabled=false] | rm <sender-id> --yes
 hadron user invite [--email <email>] [--github-username <name>] [--name <display-name>] [--expires-in-days N] [--max-activations N]   # platform invitation, not org membership; no email sent; deliver the returned acceptance slug privately
@@ -4336,6 +4339,46 @@ a changed interval updates the entry, a different --config refuses until
 `status` is read-only (exit 0 even when not installed) and reads the last run from
 the scheduler; under cron it prints `unknown`. The host key never enters a generated
 file, argv or env. Do not install against production until hadron-server#2931 is deployed.
+
+### Team usage (cli#1472)
+
+`hadron team usage` records how much of each model subscription account's 5-hour
+and 7-day allowance is used, so "which account runs out first, and when" has data
+behind it. It is NOT `hadron usage` (AI-call events the server recorded in your
+memories); it never reads or writes those. Claude accounts only in v1.
+
+The operator sets up, per account: a status line script that writes the harness's
+`rate_limits` to `$CLAUDE_CONFIG_DIR/hadron-usage/rate-limits.json` as
+`{"observedAt":N,"five_hour":{"used_percentage":N,"resets_at":N}?,"seven_day":{...}?}`
+(Unix seconds, atomic temp-file rename; a window the harness omits stays out; the
+CLI never edits a harness settings.json); optionally a ccusage file made with
+`CLAUDE_CONFIG_DIR=<dir> npx ccusage@<pinned> blocks --json --offline > <file>` (the CLI
+never runs ccusage or any subprocess); and a host YAML `--config` with `memory`,
+optional `host`, and `accounts: [{label, configDir (absolute), family: claude,
+ccusageFile?, workers?: [names]}]`. A label is the operator's own name; one with
+`@` is refused. `workers` is never derived from transcripts: absent means
+`workersConfigured:false`.
+
+`collect` validates every account before writing; any problem (missing or malformed
+config, unreadable/malformed/symlinked snapshot or ccusage file, `used_percentage`
+outside 0-100, an `@` label) is exit 2 and writes no record for ANY account; an
+absent snapshot file is "no data" (windows absent). Errors never echo file
+contents. Records are objects in collection `account-usage` (schemaVersion 1, absent
+values omitted, not recorded as 0): `label, family, host, observedAt, fiveHourPct,
+fiveHourResetsAt, sevenDayPct, sevenDayResetsAt, tokensSinceLast,
+estCostUsdSinceLast, ccusageBlocks, workers, workersConfigured, schemaVersion`;
+`ccusageBlocks` is the checkpoint (blocks that started within 6h of the
+observation) and the since-last fields are the growth of those blocks since this
+account's previous record on this host and family (absent when that cannot be
+measured, e.g. a block's totals went down a checkpointed block left the file, or a block older than the previous observation appeared).
+The shape is pinned by a golden test and declared in the CLI, not in `team init`
+(a server-declared collection is a follow-up with the portal).
+
+`show --json` is `{memory, accounts:[{label,family,host,observedAt,fiveHour,sevenDay,
+workers,workersConfigured,points}]}`, each window `{usedPct,resetsAt,expired,
+burnPctPerHour,exhaustsAt,exhaustsBeforeReset}` (a null field means not known; `accounts` is `[]`
+when nothing is recorded). `install|uninstall|status` mirror `team health` as a
+separate entry; each removes only its own entry.
 
 ### Agent ticker templates (cli#913; MCP cut C1)
 

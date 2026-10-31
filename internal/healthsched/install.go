@@ -32,7 +32,10 @@ type Env struct {
 	Which  func(name string) (string, error) // exec.LookPath
 	Run    Runner
 	Stderr func(format string, a ...any) // advisory notes (never on stdout)
+	Job    Job                           // which entry this Env manages; zero is the health sweep
 }
+
+func (e Env) job() Job { return e.Job.orHealth() }
 
 // Result reports what an install or uninstall did.
 type Result struct {
@@ -73,10 +76,10 @@ func (e Env) unitDir() string {
 	return filepath.Join(e.Home, ".config", "systemd", "user")
 }
 
-func (e Env) servicePath() string { return filepath.Join(e.unitDir(), Name+".service") }
-func (e Env) timerPath() string   { return filepath.Join(e.unitDir(), Name+".timer") }
+func (e Env) servicePath() string { return filepath.Join(e.unitDir(), e.job().Name+".service") }
+func (e Env) timerPath() string   { return filepath.Join(e.unitDir(), e.job().Name+".timer") }
 func (e Env) plistPath() string {
-	return filepath.Join(e.Home, "Library", "LaunchAgents", LaunchdLabel+".plist")
+	return filepath.Join(e.Home, "Library", "LaunchAgents", e.job().LaunchdLabel+".plist")
 }
 
 func writeFile(path, content string) (changed bool, err error) {
@@ -108,7 +111,7 @@ func (e Env) existingConfig(k Kind, cron []string) string {
 		return ""
 	case Cron:
 		for _, l := range cron {
-			if IsOwnedCronLine(l) {
+			if IsOwnedCronLineFor(e.job(), l) {
 				text = strings.ReplaceAll(l, `\%`, "%")
 			}
 		}
@@ -158,6 +161,7 @@ func (e Env) Install(s Spec) (Result, error) {
 		return Result{}, err
 	}
 	s.Path = path
+	s.Job = e.job()
 	k, err := e.Detect()
 	if err != nil {
 		return Result{}, err
@@ -175,11 +179,11 @@ func (e Env) Install(s Spec) (Result, error) {
 	}
 	for _, other := range e.installedKinds(cron) {
 		if other != k {
-			return Result{}, usagef("an entry is already installed under %s, and this host would use %s; run `hadron team health uninstall` first", other, k)
+			return Result{}, usagef("an entry is already installed under %s, and this host would use %s; run `%s` first", other, k, e.job().UninstallCmd)
 		}
 	}
 	if old := e.existingConfig(k, cron); old != "" && old != s.Config {
-		return Result{}, usagef("an entry for %s is already installed; run `hadron team health uninstall` first to switch configs", old)
+		return Result{}, usagef("an entry for %s is already installed; run `%s` first to switch configs", old, e.job().UninstallCmd)
 	}
 	res := Result{Kind: k}
 	switch k {
@@ -220,7 +224,7 @@ func (e Env) installedKinds(cron []string) []Kind {
 	if fileExists(e.plistPath()) {
 		ks = append(ks, Launchd)
 	}
-	if len(dropMarked(cron)) != len(cron) {
+	if len(dropMarked(e.job(), cron)) != len(cron) {
 		ks = append(ks, Cron)
 	}
 	return ks
@@ -252,9 +256,9 @@ func (e Env) installSystemd(s Spec, res Result) (Result, error) {
 	if !changed && e.timerRunning() {
 		return res, nil
 	}
-	for _, argv := range [][]string{{"systemctl", "--user", "daemon-reload"}, {"systemctl", "--user", "enable", "--now", Name + ".timer"}} {
+	for _, argv := range [][]string{{"systemctl", "--user", "daemon-reload"}, {"systemctl", "--user", "enable", "--now", e.job().Name + ".timer"}} {
 		if out, err := e.Run(argv, ""); err != nil {
-			return res, fmt.Errorf("%s failed (%s); files written: %s; `hadron team health uninstall` removes them", strings.Join(argv, " "), oneLine(out, err), strings.Join(res.Files, ", "))
+			return res, fmt.Errorf("%s failed (%s); files written: %s; `%s` removes them", strings.Join(argv, " "), oneLine(out, err), strings.Join(res.Files, ", "), e.job().UninstallCmd)
 		}
 	}
 	if e.lingerOff() {
@@ -266,7 +270,7 @@ func (e Env) installSystemd(s Spec, res Result) (Result, error) {
 // timerRunning is true when the timer is both enabled and running.
 func (e Env) timerRunning() bool {
 	for _, verb := range []string{"is-enabled", "is-active"} {
-		if _, err := e.Run([]string{"systemctl", "--user", verb, Name + ".timer"}, ""); err != nil {
+		if _, err := e.Run([]string{"systemctl", "--user", verb, e.job().Name + ".timer"}, ""); err != nil {
 			return false
 		}
 	}
@@ -291,7 +295,7 @@ func (e Env) installCron(s Spec, res Result, lines []string) (Result, error) {
 	if err != nil {
 		return res, err
 	}
-	next := append(dropMarked(lines), line)
+	next := append(dropMarked(e.job(), lines), line)
 	if equalLines(lines, next) {
 		return res, nil
 	}
@@ -311,10 +315,10 @@ func splitCron(s string) []string {
 	return strings.Split(s, "\n")
 }
 
-func dropMarked(lines []string) []string {
+func dropMarked(j Job, lines []string) []string {
 	var keep []string
 	for _, l := range lines {
-		if !IsOwnedCronLine(l) {
+		if !IsOwnedCronLineFor(j, l) {
 			keep = append(keep, l)
 		}
 	}
@@ -333,15 +337,15 @@ func (e Env) installLaunchd(s Spec, res Result) (Result, error) {
 	res.Changed = c
 	domain := "gui/" + strconv.Itoa(e.UID)
 	if !c {
-		if _, err := e.Run([]string{"launchctl", "print", domain + "/" + LaunchdLabel}, ""); err == nil {
+		if _, err := e.Run([]string{"launchctl", "print", domain + "/" + e.job().LaunchdLabel}, ""); err == nil {
 			return res, nil // already loaded
 		}
 	}
 	if existed {
-		_, _ = e.Run([]string{"launchctl", "bootout", domain + "/" + LaunchdLabel}, "")
+		_, _ = e.Run([]string{"launchctl", "bootout", domain + "/" + e.job().LaunchdLabel}, "")
 	}
 	if out, err := e.Run([]string{"launchctl", "bootstrap", domain, e.plistPath()}, ""); err != nil {
-		return res, fmt.Errorf("launchctl bootstrap failed (%s); file written: %s; `hadron team health uninstall` removes it", oneLine(out, err), e.plistPath())
+		return res, fmt.Errorf("launchctl bootstrap failed (%s); file written: %s; `%s` removes it", oneLine(out, err), e.plistPath(), e.job().UninstallCmd)
 	}
 	return res, nil
 }
@@ -359,7 +363,7 @@ func (e Env) Uninstall() (Result, error) {
 		if lines, cerr := e.readCrontab(); cerr != nil {
 			errs = append(errs, cerr)
 		} else {
-			if next := dropMarked(lines); !equalLines(lines, next) {
+			if next := dropMarked(e.job(), lines); !equalLines(lines, next) {
 				res.Kind, res.Changed = Cron, true
 				in := ""
 				if len(next) > 0 {
@@ -372,10 +376,10 @@ func (e Env) Uninstall() (Result, error) {
 		}
 	}
 	if fileExists(e.timerPath()) || fileExists(e.servicePath()) {
-		argv := []string{"systemctl", "--user", "disable", "--now", Name + ".timer"}
-		if out, err := e.Run(argv, ""); err != nil && !alreadyAbsent(out) {
+		argv := []string{"systemctl", "--user", "disable", "--now", e.job().Name + ".timer"}
+		if out, err := e.Run(argv, ""); err != nil && !e.alreadyAbsent(out) {
 			// Keep the files: they are what a retry finds the job by.
-			errs = append(errs, fmt.Errorf("%s failed (%s); the timer may still be running, files kept; run `hadron team health uninstall` again", strings.Join(argv, " "), oneLine(out, err)))
+			errs = append(errs, fmt.Errorf("%s failed (%s); the timer may still be running, files kept; run `%s` again", strings.Join(argv, " "), oneLine(out, err), e.job().UninstallCmd))
 		} else {
 			res.Kind, res.Changed = Systemd, true
 			for _, p := range []string{e.timerPath(), e.servicePath()} {
@@ -389,9 +393,9 @@ func (e Env) Uninstall() (Result, error) {
 		}
 	}
 	if fileExists(e.plistPath()) {
-		argv := []string{"launchctl", "bootout", "gui/" + strconv.Itoa(e.UID) + "/" + LaunchdLabel}
-		if out, err := e.Run(argv, ""); err != nil && !alreadyAbsent(out) {
-			errs = append(errs, fmt.Errorf("%s failed (%s); the agent may still be loaded, file kept; run `hadron team health uninstall` again", strings.Join(argv, " "), oneLine(out, err)))
+		argv := []string{"launchctl", "bootout", "gui/" + strconv.Itoa(e.UID) + "/" + e.job().LaunchdLabel}
+		if out, err := e.Run(argv, ""); err != nil && !e.alreadyAbsent(out) {
+			errs = append(errs, fmt.Errorf("%s failed (%s); the agent may still be loaded, file kept; run `%s` again", strings.Join(argv, " "), oneLine(out, err), e.job().UninstallCmd))
 		} else {
 			res.Kind, res.Changed = Launchd, true
 			if err := os.Remove(e.plistPath()); err != nil {
@@ -406,14 +410,14 @@ func (e Env) Uninstall() (Result, error) {
 
 // alreadyAbsent reports a scheduler refusal that only says the job is not
 // there, which is the state uninstall wants.
-func alreadyAbsent(out []byte) bool {
+func (e Env) alreadyAbsent(out []byte) bool {
 	m := strings.ToLower(string(out))
 	switch {
 	case strings.Contains(m, "no such process"), strings.Contains(m, "could not find service"), strings.Contains(m, "not loaded"):
 		return true // launchctl / systemd: the job is not loaded
 	case strings.Contains(m, "unit file") && strings.Contains(m, "does not exist"):
 		return true // systemctl names the unit it cannot find
-	case strings.Contains(m, "unit "+Name+".timer does not exist"):
+	case strings.Contains(m, "unit "+e.job().Name+".timer does not exist"):
 		return true // systemd 257 words it without "file"
 	}
 	return false // a bus, socket or file error proves nothing about the job
@@ -489,7 +493,7 @@ func (e Env) ReadStatus() Status {
 		if m := regexp.MustCompile(`<key>PATH</key>\s*<string>([^<]*)</string>`).FindSubmatch(b); m != nil {
 			st.Orca = e.orcaIn(xmlUnescape(string(m[1])))
 		}
-		out, err := e.Run([]string{"launchctl", "print", "gui/" + strconv.Itoa(e.UID) + "/" + LaunchdLabel}, "")
+		out, err := e.Run([]string{"launchctl", "print", "gui/" + strconv.Itoa(e.UID) + "/" + e.job().LaunchdLabel}, "")
 		st.Active = err == nil
 		if err == nil {
 			st.LastRun = launchdLastRun(string(out))
@@ -497,7 +501,7 @@ func (e Env) ReadStatus() Status {
 	default:
 		if out, err := e.Run([]string{"crontab", "-l"}, ""); err == nil {
 			for _, l := range strings.Split(string(out), "\n") {
-				if IsOwnedCronLine(l) {
+				if IsOwnedCronLineFor(e.job(), l) {
 					st.Installed, st.Active, st.Kind = true, true, string(Cron)
 					st.Config = e.existingConfig(Cron, splitCron(string(out)))
 					st.Interval = cronInterval(l)
@@ -593,7 +597,7 @@ func cronInterval(line string) string {
 
 func (e Env) systemdLastRun() *LastRun {
 	// Properties come in any order: read them all, then decide.
-	out, err := e.Run([]string{"systemctl", "--user", "show", Name + ".service", "-p", "ExecMainExitTimestamp", "-p", "ExecMainStatus"}, "")
+	out, err := e.Run([]string{"systemctl", "--user", "show", e.job().Name + ".service", "-p", "ExecMainExitTimestamp", "-p", "ExecMainStatus"}, "")
 	lr := &LastRun{}
 	if err != nil {
 		return lr

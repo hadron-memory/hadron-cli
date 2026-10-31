@@ -115,6 +115,7 @@ and ` + "`hadron app agent list <app>`" + ` (the installed cast pool).`,
 	cmd.AddCommand(newCmdTeamIsolation(f))
 	cmd.AddCommand(newCmdTeamHost(f))
 	cmd.AddCommand(newCmdTeamHealth(f))
+	cmd.AddCommand(newCmdTeamUsage(f))
 	cmd.AddCommand(newCmdTeamRouter(f))
 	return cmd
 }
