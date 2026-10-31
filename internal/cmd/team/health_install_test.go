@@ -29,7 +29,7 @@ func (h *healthFake) run(argv []string, stdin string) ([]byte, error) {
 	switch k {
 	case "crontab -l":
 		if h.crontab == "" {
-			return nil, errors.New("no crontab")
+			return []byte("no crontab for u"), errors.New("exit 1")
 		}
 		return []byte(h.crontab), nil
 	case "crontab -":

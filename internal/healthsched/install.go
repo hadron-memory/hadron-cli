@@ -107,8 +107,8 @@ func (e Env) existingConfig(k Kind) string {
 		}
 		return ""
 	case Cron:
-		out, _ := e.Run([]string{"crontab", "-l"}, "")
-		for _, l := range strings.Split(string(out), "\n") {
+		lines, _ := e.readCrontab()
+		for _, l := range lines {
 			if strings.Contains(l, cronMarker) {
 				text = strings.ReplaceAll(l, `\%`, "%")
 			}
@@ -120,6 +120,19 @@ func (e Env) existingConfig(k Kind) string {
 		}
 	}
 	return ""
+}
+
+// readCrontab is the user's crontab. Only "no crontab" is an empty one; any
+// other failure is an error, so a caller never writes over jobs it could not read.
+func (e Env) readCrontab() ([]string, error) {
+	out, err := e.Run([]string{"crontab", "-l"}, "")
+	if err != nil {
+		if strings.Contains(strings.ToLower(string(out)), "no crontab") {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("crontab -l failed (%s); nothing was changed", oneLine(out, err))
+	}
+	return splitCron(string(out)), nil
 }
 
 var plistConfigRE = regexp.MustCompile(`<string>--config</string>\s*<string>([^<]*)</string>`)
@@ -150,6 +163,11 @@ func (e Env) Install(s Spec) (Result, error) {
 			return Result{}, err
 		}
 	}
+	for _, other := range e.installedKinds() {
+		if other != k {
+			return Result{}, usagef("an entry is already installed under %s, and this host would use %s; run `hadron team health uninstall` first", other, k)
+		}
+	}
 	if old := e.existingConfig(k); old != "" && old != s.Config {
 		return Result{}, usagef("an entry for %s is already installed; run `hadron team health uninstall` first to switch configs", old)
 	}
@@ -164,6 +182,26 @@ func (e Env) Install(s Spec) (Result, error) {
 	}
 }
 
+// installedKinds lists every scheduler that already holds an entry, wherever
+// Detect would write now.
+func (e Env) installedKinds() []Kind {
+	var ks []Kind
+	if fileExists(e.timerPath()) || fileExists(e.servicePath()) {
+		ks = append(ks, Systemd)
+	}
+	if fileExists(e.plistPath()) {
+		ks = append(ks, Launchd)
+	}
+	if e.GOOS != "darwin" {
+		if _, err := e.Which("crontab"); err == nil {
+			if lines, err := e.readCrontab(); err == nil && len(dropMarked(lines)) != len(lines) {
+				ks = append(ks, Cron)
+			}
+		}
+	}
+	return ks
+}
+
 func (e Env) installSystemd(s Spec, res Result) (Result, error) {
 	var changed bool
 	for _, f := range []struct{ path, body string }{{e.servicePath(), SystemdService(s)}, {e.timerPath(), SystemdTimer(s)}} {
@@ -175,7 +213,7 @@ func (e Env) installSystemd(s Spec, res Result) (Result, error) {
 		res.Files = append(res.Files, f.path)
 	}
 	res.Changed = changed
-	if !changed {
+	if !changed && e.timerRunning() {
 		return res, nil
 	}
 	for _, argv := range [][]string{{"systemctl", "--user", "daemon-reload"}, {"systemctl", "--user", "enable", "--now", Name + ".timer"}} {
@@ -187,6 +225,16 @@ func (e Env) installSystemd(s Spec, res Result) (Result, error) {
 		res.Notes = append(res.Notes, "systemd linger is off for this user: the timer stops when you log out. `loginctl enable-linger` (needs privileges) keeps it running.")
 	}
 	return res, nil
+}
+
+// timerRunning is true when the timer is both enabled and running.
+func (e Env) timerRunning() bool {
+	for _, verb := range []string{"is-enabled", "is-active"} {
+		if _, err := e.Run([]string{"systemctl", "--user", verb, Name + ".timer"}, ""); err != nil {
+			return false
+		}
+	}
+	return true
 }
 
 func (e Env) lingerOff() bool {
@@ -207,8 +255,10 @@ func (e Env) installCron(s Spec, res Result) (Result, error) {
 	if err != nil {
 		return res, err
 	}
-	cur, _ := e.Run([]string{"crontab", "-l"}, "")
-	lines := splitCron(string(cur))
+	lines, err := e.readCrontab()
+	if err != nil {
+		return res, err
+	}
 	next := append(dropMarked(lines), line)
 	if equalLines(lines, next) {
 		return res, nil
@@ -249,10 +299,12 @@ func (e Env) installLaunchd(s Spec, res Result) (Result, error) {
 	}
 	res.Files = []string{e.plistPath()}
 	res.Changed = c
-	if !c {
-		return res, nil
-	}
 	domain := "gui/" + strconv.Itoa(e.UID)
+	if !c {
+		if _, err := e.Run([]string{"launchctl", "print", domain + "/" + LaunchdLabel}, ""); err == nil {
+			return res, nil // already loaded
+		}
+	}
 	if existed {
 		_, _ = e.Run([]string{"launchctl", "bootout", domain + "/" + LaunchdLabel}, "")
 	}
@@ -272,8 +324,9 @@ func (e Env) Uninstall() (Result, error) {
 	var errs []error
 	// Cron first: it needs no files and is detected by its marker line.
 	if _, err := e.Which("crontab"); err == nil && e.GOOS != "darwin" {
-		if cur, cerr := e.Run([]string{"crontab", "-l"}, ""); cerr == nil {
-			lines := splitCron(string(cur))
+		if lines, cerr := e.readCrontab(); cerr != nil {
+			errs = append(errs, cerr)
+		} else {
 			if next := dropMarked(lines); !equalLines(lines, next) {
 				res.Kind, res.Changed = Cron, true
 				in := ""
@@ -287,27 +340,48 @@ func (e Env) Uninstall() (Result, error) {
 		}
 	}
 	if fileExists(e.timerPath()) || fileExists(e.servicePath()) {
-		res.Kind, res.Changed = Systemd, true
-		_, _ = e.Run([]string{"systemctl", "--user", "disable", "--now", Name + ".timer"}, "")
-		for _, p := range []string{e.timerPath(), e.servicePath()} {
-			if err := os.Remove(p); err != nil && !errors.Is(err, os.ErrNotExist) {
-				errs = append(errs, err)
-			} else {
-				res.Files = append(res.Files, p)
+		argv := []string{"systemctl", "--user", "disable", "--now", Name + ".timer"}
+		if out, err := e.Run(argv, ""); err != nil && !alreadyAbsent(out) {
+			// Keep the files: they are what a retry finds the job by.
+			errs = append(errs, fmt.Errorf("%s failed (%s); the timer may still be running, files kept; run `hadron team health uninstall` again", strings.Join(argv, " "), oneLine(out, err)))
+		} else {
+			res.Kind, res.Changed = Systemd, true
+			for _, p := range []string{e.timerPath(), e.servicePath()} {
+				if err := os.Remove(p); err != nil && !errors.Is(err, os.ErrNotExist) {
+					errs = append(errs, err)
+				} else {
+					res.Files = append(res.Files, p)
+				}
 			}
+			_, _ = e.Run([]string{"systemctl", "--user", "daemon-reload"}, "") // best effort: stale unit cache only
 		}
-		_, _ = e.Run([]string{"systemctl", "--user", "daemon-reload"}, "")
 	}
 	if fileExists(e.plistPath()) {
-		res.Kind, res.Changed = Launchd, true
-		_, _ = e.Run([]string{"launchctl", "bootout", "gui/" + strconv.Itoa(e.UID) + "/" + LaunchdLabel}, "")
-		if err := os.Remove(e.plistPath()); err != nil {
-			errs = append(errs, err)
+		argv := []string{"launchctl", "bootout", "gui/" + strconv.Itoa(e.UID) + "/" + LaunchdLabel}
+		if out, err := e.Run(argv, ""); err != nil && !alreadyAbsent(out) {
+			errs = append(errs, fmt.Errorf("%s failed (%s); the agent may still be loaded, file kept; run `hadron team health uninstall` again", strings.Join(argv, " "), oneLine(out, err)))
 		} else {
-			res.Files = append(res.Files, e.plistPath())
+			res.Kind, res.Changed = Launchd, true
+			if err := os.Remove(e.plistPath()); err != nil {
+				errs = append(errs, err)
+			} else {
+				res.Files = append(res.Files, e.plistPath())
+			}
 		}
 	}
 	return res, errors.Join(errs...)
+}
+
+// alreadyAbsent reports a scheduler refusal that only says the job is not
+// there, which is the state uninstall wants.
+func alreadyAbsent(out []byte) bool {
+	m := strings.ToLower(string(out))
+	for _, s := range []string{"does not exist", "not loaded", "no such process", "could not find", "not found", "no such file"} {
+		if strings.Contains(m, s) {
+			return true
+		}
+	}
+	return false
 }
 
 // LastRun is what the scheduler recorded; nil fields mean unknown.
@@ -357,10 +431,9 @@ func (e Env) ReadStatus() Status {
 		if m := pathRE.FindSubmatch(svc); m != nil {
 			st.Orca = e.orcaIn(unSystemd(string(m[1])))
 		}
-		_, err := e.Run([]string{"systemctl", "--user", "is-enabled", Name + ".timer"}, "")
-		st.Active = err == nil
+		st.Active = e.timerRunning()
 		if !st.Active {
-			st.Notes = append(st.Notes, "unit files are present but the timer is not enabled; run install again or `uninstall`")
+			st.Notes = append(st.Notes, "unit files are present but the timer is not enabled and running; run install again or `uninstall`")
 		}
 		st.LastRun = e.systemdLastRun()
 		if e.lingerOff() {
@@ -489,6 +562,8 @@ func ResolveOrca(orcaBin, path string) (string, error) {
 	if orcaBin != "" {
 		if fi, err := os.Stat(orcaBin); err != nil || fi.IsDir() {
 			return "", usagef("delivery.orca_bin %q does not exist; fix the host config or unset it", orcaBin)
+		} else if fi.Mode()&0o111 == 0 {
+			return "", usagef("delivery.orca_bin %q is not executable; fix its permissions or the host config", orcaBin)
 		}
 		return orcaBin, nil
 	}

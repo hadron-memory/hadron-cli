@@ -69,6 +69,8 @@ type fake struct {
 	have    map[string]bool
 	fail    map[string]bool // argv-prefix -> error
 	out     map[string]string
+	failOut string // output of a failed call (default "boom")
+	readErr bool   // crontab -l fails for a reason other than "no crontab"
 }
 
 func (f *fake) run(argv []string, stdin string) ([]byte, error) {
@@ -76,12 +78,19 @@ func (f *fake) run(argv []string, stdin string) ([]byte, error) {
 	f.calls = append(f.calls, k)
 	for p := range f.fail {
 		if strings.HasPrefix(k, p) {
-			return []byte("boom"), errors.New("exit 1")
+			msg := f.failOut
+			if msg == "" {
+				msg = "boom"
+			}
+			return []byte(msg), errors.New("exit 1")
 		}
 	}
 	if k == "crontab -l" {
+		if f.readErr {
+			return []byte("crontab: cannot read the spool"), errors.New("exit 1")
+		}
 		if f.crontab == "" {
-			return nil, errors.New("no crontab for u")
+			return []byte("no crontab for u"), errors.New("exit 1")
 		}
 		return []byte(f.crontab), nil
 	}
@@ -149,7 +158,7 @@ func TestSystemdRoundTrip(t *testing.T) {
 	// Same again: byte-identical, no scheduler call.
 	before, n := tree(t, e.Home), len(f.calls)
 	res, err = e.Install(spec)
-	if err != nil || res.Changed || tree(t, e.Home) != before || len(f.calls) != n+countDetect(f.calls[n:]) {
+	if err != nil || res.Changed || tree(t, e.Home) != before || mutating(f.calls[n:]) != 0 {
 		t.Fatalf("re-install changed something: %+v %v calls %q", res, err, f.calls[n:])
 	}
 	if count(f.calls[n:], "systemctl --user daemon-reload") != 0 {
@@ -178,18 +187,6 @@ func TestSystemdRoundTrip(t *testing.T) {
 	if res, err = e.Uninstall(); err != nil || res.Changed {
 		t.Errorf("second uninstall: %+v %v", res, err)
 	}
-}
-
-// Detection probes (show-environment, loginctl) are calls too; count only the
-// ones that would change state.
-func countDetect(calls []string) int {
-	n := 0
-	for _, c := range calls {
-		if strings.HasPrefix(c, "systemctl --user show-environment") {
-			n++
-		}
-	}
-	return n
 }
 
 func TestDifferentConfigIsRefusedUntilUninstall(t *testing.T) {
@@ -285,7 +282,7 @@ func TestLaunchdRoundTrip(t *testing.T) {
 		t.Fatalf("calls %q", f.calls)
 	}
 	n := len(f.calls)
-	if res, err := e.Install(spec); err != nil || res.Changed || len(f.calls) != n {
+	if res, err := e.Install(spec); err != nil || res.Changed || mutating(f.calls[n:]) != 0 {
 		t.Fatalf("re-install: %+v %v", res, err)
 	}
 	if st := e.ReadStatus(); !st.Installed || st.Config != spec.Config || st.Interval != "5m0s" || st.Bin != spec.Bin {
@@ -448,5 +445,160 @@ func TestCronConfigWithPercentSurvivesTheRoundTrip(t *testing.T) {
 	var ue *UsageError
 	if _, err := e.Install(s2); !errors.As(err, &ue) {
 		t.Fatalf("a different config must be refused: %v", err)
+	}
+}
+
+// mutating counts the calls that change scheduler state.
+func mutating(calls []string) int {
+	n := 0
+	for _, c := range calls {
+		for _, p := range []string{"systemctl --user daemon-reload", "systemctl --user enable", "systemctl --user disable", "crontab -", "launchctl bootstrap", "launchctl bootout"} {
+			if c == p || strings.HasPrefix(c, p+" ") {
+				n++
+				break
+			}
+		}
+	}
+	return n
+}
+
+// #1412 P2-1: a failed activation is repaired by installing again, even
+// though the files are already byte-identical.
+func TestSystemdReinstallRepairsAFailedActivation(t *testing.T) {
+	f := &fake{fail: map[string]bool{"systemctl --user enable": true}}
+	e := f.env(t, "linux", "systemctl")
+	if _, err := e.Install(spec); err == nil {
+		t.Fatal("want the enable failure")
+	}
+	f.fail = map[string]bool{"systemctl --user is-enabled": true} // still not enabled
+	n := len(f.calls)
+	if _, err := e.Install(spec); err != nil {
+		t.Fatal(err)
+	}
+	if count(f.calls[n:], "systemctl --user enable --now "+Name+".timer") != 1 {
+		t.Fatalf("the retry never activated the timer: %q", f.calls[n:])
+	}
+}
+
+func TestLaunchdReinstallRepairsAFailedBootstrap(t *testing.T) {
+	f := &fake{fail: map[string]bool{"launchctl bootstrap": true, "launchctl print": true}}
+	e := f.env(t, "darwin", "launchctl")
+	if _, err := e.Install(spec); err == nil {
+		t.Fatal("want the bootstrap failure")
+	}
+	f.fail = map[string]bool{"launchctl print": true} // still not loaded
+	n := len(f.calls)
+	if _, err := e.Install(spec); err != nil {
+		t.Fatal(err)
+	}
+	if count(f.calls[n:], "launchctl bootstrap gui/1000 ") != 1 {
+		t.Fatalf("the retry never bootstrapped the agent: %q", f.calls[n:])
+	}
+}
+
+// #1412 P2-2: only "no crontab" is an empty crontab; any other read failure
+// must not lead to a write that replaces the user's jobs.
+func TestCronReadFailureNeverOverwrites(t *testing.T) {
+	f := &fake{crontab: "0 3 * * * /usr/bin/backup\n", readErr: true}
+	e := f.env(t, "linux", "crontab")
+	if _, err := e.Install(spec); err == nil {
+		t.Fatal("a failed crontab read must refuse")
+	}
+	if len(f.stdins) != 0 {
+		t.Fatalf("crontab was written after a failed read: %q", f.stdins)
+	}
+	if _, err := e.Uninstall(); err == nil {
+		t.Fatal("uninstall must report a crontab it could not read")
+	}
+	if len(f.stdins) != 0 {
+		t.Fatalf("crontab was written after a failed read: %q", f.stdins)
+	}
+}
+
+// #1412 P2-3: one entry per user across schedulers.
+func TestInstallRefusesASecondSchedulerForTheSameUser(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "linux", "crontab")
+	if _, err := e.Install(spec); err != nil {
+		t.Fatal(err)
+	}
+	f.have["systemctl"] = true // systemd user units became available
+	cron := f.crontab
+	for _, cfg := range []string{spec.Config, "/etc/other.yaml"} {
+		s := spec
+		s.Config = cfg
+		_, err := e.Install(s)
+		var ue *UsageError
+		if !errors.As(err, &ue) {
+			t.Fatalf("config %s: want a usage refusal, got %v", cfg, err)
+		}
+	}
+	if fileExists(e.timerPath()) || fileExists(e.servicePath()) || f.crontab != cron {
+		t.Fatal("a second schedule was created")
+	}
+}
+
+// #1412 P2-4: a job that could not be stopped is not reported removed, and
+// the files stay so a retry can find it.
+func TestUninstallReportsAJobItCouldNotStop(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "linux", "systemctl")
+	if _, err := e.Install(spec); err != nil {
+		t.Fatal(err)
+	}
+	f.fail = map[string]bool{"systemctl --user disable": true}
+	if _, err := e.Uninstall(); err == nil {
+		t.Fatal("a failed disable must be an error")
+	}
+	if !fileExists(e.timerPath()) || !fileExists(e.servicePath()) {
+		t.Fatal("files were deleted although the timer is still enabled")
+	}
+	f.failOut = "Failed to disable unit: Unit file hadron-team-health.timer does not exist."
+	if _, err := e.Uninstall(); err != nil || fileExists(e.timerPath()) {
+		t.Fatalf("an already-absent unit is not an error: %v", err)
+	}
+}
+
+func TestUninstallReportsALaunchdJobItCouldNotBootOut(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "darwin", "launchctl")
+	if _, err := e.Install(spec); err != nil {
+		t.Fatal(err)
+	}
+	f.fail = map[string]bool{"launchctl bootout": true}
+	if _, err := e.Uninstall(); err == nil || !fileExists(e.plistPath()) {
+		t.Fatalf("a failed bootout must be an error that keeps the plist: %v", err)
+	}
+	f.failOut = "Boot-out failed: 3: No such process"
+	if _, err := e.Uninstall(); err != nil || fileExists(e.plistPath()) {
+		t.Fatalf("an already-unloaded agent is not an error: %v", err)
+	}
+}
+
+// #1412 P2-5: active means the timer is running, not just enabled.
+func TestStatusIsNotActiveForAnEnabledButStoppedTimer(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "linux", "systemctl")
+	if _, err := e.Install(spec); err != nil {
+		t.Fatal(err)
+	}
+	if st := e.ReadStatus(); !st.Active {
+		t.Fatalf("a running timer must be active: %+v", st)
+	}
+	f.fail = map[string]bool{"systemctl --user is-active": true}
+	if st := e.ReadStatus(); st.Active || len(st.Notes) == 0 {
+		t.Fatalf("an enabled but stopped timer is not active: %+v", st)
+	}
+}
+
+// #1412 P3-6: an explicit orca_bin must be executable, as PATH lookup requires.
+func TestResolveOrcaRefusesAnExplicitNonExecutable(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "orca")
+	if err := os.WriteFile(p, []byte("#!/bin/sh\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var ue *UsageError
+	if _, err := ResolveOrca(p, "/nonexistent"); !errors.As(err, &ue) {
+		t.Fatalf("a non-executable orca_bin must be refused: %v", err)
 	}
 }
