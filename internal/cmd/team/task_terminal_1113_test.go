@@ -48,3 +48,40 @@ func TestTaskTerminal1113(t *testing.T) {
 		}
 	}
 }
+
+func TestTaskTerminal1113Bounds(t *testing.T) {
+	p := func(s string) *string { return &s }
+	for _, tc := range []struct {
+		name     string
+		bound    int
+		makeTask func(string) taskDTO
+	}{
+		{"title", 500, func(s string) taskDTO { return taskDTO{Title: s} }},
+		{"source", 2048, func(s string) taskDTO { return taskDTO{Source: p(s)} }},
+		{"description", 20000, func(s string) taskDTO { return taskDTO{Description: p(s)} }},
+		{"summary", 20000, func(s string) taskDTO { return taskDTO{Result: &taskResultDTO{Summary: p(s)}} }},
+		{"evidence", 2048, func(s string) taskDTO { return taskDTO{Result: &taskResultDTO{Evidence: p(s)}} }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, extra := range []int{0, 1} {
+				task := tc.makeTask(strings.Repeat("😀", tc.bound+extra))
+				var out bytes.Buffer
+				if err := renderTaskDetail(&out, task); err != nil {
+					t.Fatal(err)
+				}
+				if extra == 0 && strings.Contains(out.String(), "…") {
+					t.Fatal("cut at bound")
+				}
+				if extra == 1 {
+					n := tc.bound
+					if tc.name == "title" || tc.name == "source" {
+						n--
+					}
+					if !strings.Contains(out.String(), strings.Repeat("😀", n)+"…") {
+						t.Fatal("wrong cut")
+					}
+				}
+			}
+		})
+	}
+}
