@@ -8284,6 +8284,293 @@ func (v *AgentTeamEventsResponse) GetAgentTeamEvents() []*AgentTeamEventsAgentTe
 	return v.AgentTeamEvents
 }
 
+// cli#913: per-template CRUD, no runtime ticker writes or worker session.
+type AgentTickerTemplateFields struct {
+	Id string `json:"id"`
+	// Counts edits; an update or delete must name the revision it saw, and a stale one is refused with TICKER_TEMPLATE_REVISION_MISMATCH.
+	Revision int `json:"revision"`
+	// The shape of this record. Only 1 exists.
+	ShapeVersion int    `json:"shapeVersion"`
+	Name         string `json:"name"`
+	// The code future generated tickers receive, derived from this template's current name (hrn:node:hadronmemory.com:specs:cor:agt:110:01).
+	TickCode       string `json:"tickCode"`
+	CadenceSeconds int    `json:"cadenceSeconds"`
+	// A timezone and weekly windows; null when none.
+	QuietHours *json.RawMessage                `json:"quietHours"`
+	Relevance  TickerRelevance                 `json:"relevance"`
+	Reasons    []TickerReason                  `json:"reasons"`
+	CreatedAt  string                          `json:"createdAt"`
+	UpdatedAt  *string                         `json:"updatedAt"`
+	Agent      *AgentTickerTemplateFieldsAgent `json:"agent"`
+}
+
+// GetId returns AgentTickerTemplateFields.Id, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateFields) GetId() string { return v.Id }
+
+// GetRevision returns AgentTickerTemplateFields.Revision, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateFields) GetRevision() int { return v.Revision }
+
+// GetShapeVersion returns AgentTickerTemplateFields.ShapeVersion, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateFields) GetShapeVersion() int { return v.ShapeVersion }
+
+// GetName returns AgentTickerTemplateFields.Name, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateFields) GetName() string { return v.Name }
+
+// GetTickCode returns AgentTickerTemplateFields.TickCode, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateFields) GetTickCode() string { return v.TickCode }
+
+// GetCadenceSeconds returns AgentTickerTemplateFields.CadenceSeconds, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateFields) GetCadenceSeconds() int { return v.CadenceSeconds }
+
+// GetQuietHours returns AgentTickerTemplateFields.QuietHours, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateFields) GetQuietHours() *json.RawMessage { return v.QuietHours }
+
+// GetRelevance returns AgentTickerTemplateFields.Relevance, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateFields) GetRelevance() TickerRelevance { return v.Relevance }
+
+// GetReasons returns AgentTickerTemplateFields.Reasons, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateFields) GetReasons() []TickerReason { return v.Reasons }
+
+// GetCreatedAt returns AgentTickerTemplateFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUpdatedAt returns AgentTickerTemplateFields.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateFields) GetUpdatedAt() *string { return v.UpdatedAt }
+
+// GetAgent returns AgentTickerTemplateFields.Agent, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateFields) GetAgent() *AgentTickerTemplateFieldsAgent { return v.Agent }
+
+// AgentTickerTemplateFieldsAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type AgentTickerTemplateFieldsAgent struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetId returns AgentTickerTemplateFieldsAgent.Id, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateFieldsAgent) GetId() string { return v.Id }
+
+// GetName returns AgentTickerTemplateFieldsAgent.Name, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateFieldsAgent) GetName() string { return v.Name }
+
+type AgentTickerTemplateInput struct {
+	CadenceSeconds int              `json:"cadenceSeconds"`
+	Name           string           `json:"name"`
+	QuietHours     *json.RawMessage `json:"quietHours,omitempty"`
+	// Absent = [READ_TEAM_CHANNEL]; an empty list is refused.
+	Reasons   []TickerReason   `json:"reasons,omitempty"`
+	Relevance *TickerRelevance `json:"relevance,omitempty"`
+}
+
+// GetCadenceSeconds returns AgentTickerTemplateInput.CadenceSeconds, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateInput) GetCadenceSeconds() int { return v.CadenceSeconds }
+
+// GetName returns AgentTickerTemplateInput.Name, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateInput) GetName() string { return v.Name }
+
+// GetQuietHours returns AgentTickerTemplateInput.QuietHours, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateInput) GetQuietHours() *json.RawMessage { return v.QuietHours }
+
+// GetReasons returns AgentTickerTemplateInput.Reasons, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateInput) GetReasons() []TickerReason { return v.Reasons }
+
+// GetRelevance returns AgentTickerTemplateInput.Relevance, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplateInput) GetRelevance() *TickerRelevance { return v.Relevance }
+
+// Absent fields are unchanged. Use clearQuietHours to remove the quiet hours.
+type AgentTickerTemplatePatch struct {
+	CadenceSeconds  *int             `json:"cadenceSeconds,omitempty"`
+	ClearQuietHours *bool            `json:"clearQuietHours,omitempty"`
+	Name            *string          `json:"name,omitempty"`
+	QuietHours      *json.RawMessage `json:"quietHours,omitempty"`
+	// An empty list is refused.
+	Reasons   []TickerReason   `json:"reasons,omitempty"`
+	Relevance *TickerRelevance `json:"relevance,omitempty"`
+}
+
+// GetCadenceSeconds returns AgentTickerTemplatePatch.CadenceSeconds, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatePatch) GetCadenceSeconds() *int { return v.CadenceSeconds }
+
+// GetClearQuietHours returns AgentTickerTemplatePatch.ClearQuietHours, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatePatch) GetClearQuietHours() *bool { return v.ClearQuietHours }
+
+// GetName returns AgentTickerTemplatePatch.Name, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatePatch) GetName() *string { return v.Name }
+
+// GetQuietHours returns AgentTickerTemplatePatch.QuietHours, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatePatch) GetQuietHours() *json.RawMessage { return v.QuietHours }
+
+// GetReasons returns AgentTickerTemplatePatch.Reasons, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatePatch) GetReasons() []TickerReason { return v.Reasons }
+
+// GetRelevance returns AgentTickerTemplatePatch.Relevance, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatePatch) GetRelevance() *TickerRelevance { return v.Relevance }
+
+// AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate includes the requested fields of the GraphQL type AgentTickerTemplate.
+// The GraphQL type's documentation follows.
+//
+// #2024 — one ticker an Agent declares. Casting a worker from the Agent into an App creates the worker's tickers from the live
+// templates and subscribes it, in the cast's own transaction. A SNAPSHOT: a later edit or removal reaches only future casts;
+// existing workers and tickers are untouched. Identity is the id, never the name or the position. The cadence is the requested
+// one; the cast raises it to the App's floor. Reasons are never empty.
+type AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate struct {
+	AgentTickerTemplateFields `json:"-"`
+}
+
+// GetId returns AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate.Id, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate) GetId() string {
+	return v.AgentTickerTemplateFields.Id
+}
+
+// GetRevision returns AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate.Revision, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate) GetRevision() int {
+	return v.AgentTickerTemplateFields.Revision
+}
+
+// GetShapeVersion returns AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate.ShapeVersion, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate) GetShapeVersion() int {
+	return v.AgentTickerTemplateFields.ShapeVersion
+}
+
+// GetName returns AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate.Name, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate) GetName() string {
+	return v.AgentTickerTemplateFields.Name
+}
+
+// GetTickCode returns AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate.TickCode, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate) GetTickCode() string {
+	return v.AgentTickerTemplateFields.TickCode
+}
+
+// GetCadenceSeconds returns AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate.CadenceSeconds, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate) GetCadenceSeconds() int {
+	return v.AgentTickerTemplateFields.CadenceSeconds
+}
+
+// GetQuietHours returns AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate.QuietHours, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate) GetQuietHours() *json.RawMessage {
+	return v.AgentTickerTemplateFields.QuietHours
+}
+
+// GetRelevance returns AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate.Relevance, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate) GetRelevance() TickerRelevance {
+	return v.AgentTickerTemplateFields.Relevance
+}
+
+// GetReasons returns AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate.Reasons, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate) GetReasons() []TickerReason {
+	return v.AgentTickerTemplateFields.Reasons
+}
+
+// GetCreatedAt returns AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate) GetCreatedAt() string {
+	return v.AgentTickerTemplateFields.CreatedAt
+}
+
+// GetUpdatedAt returns AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate) GetUpdatedAt() *string {
+	return v.AgentTickerTemplateFields.UpdatedAt
+}
+
+// GetAgent returns AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate.Agent, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate) GetAgent() *AgentTickerTemplateFieldsAgent {
+	return v.AgentTickerTemplateFields.Agent
+}
+
+func (v *AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTickerTemplateFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate struct {
+	Id string `json:"id"`
+
+	Revision int `json:"revision"`
+
+	ShapeVersion int `json:"shapeVersion"`
+
+	Name string `json:"name"`
+
+	TickCode string `json:"tickCode"`
+
+	CadenceSeconds int `json:"cadenceSeconds"`
+
+	QuietHours *json.RawMessage `json:"quietHours"`
+
+	Relevance TickerRelevance `json:"relevance"`
+
+	Reasons []TickerReason `json:"reasons"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	Agent *AgentTickerTemplateFieldsAgent `json:"agent"`
+}
+
+func (v *AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate) __premarshalJSON() (*__premarshalAgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate, error) {
+	var retval __premarshalAgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate
+
+	retval.Id = v.AgentTickerTemplateFields.Id
+	retval.Revision = v.AgentTickerTemplateFields.Revision
+	retval.ShapeVersion = v.AgentTickerTemplateFields.ShapeVersion
+	retval.Name = v.AgentTickerTemplateFields.Name
+	retval.TickCode = v.AgentTickerTemplateFields.TickCode
+	retval.CadenceSeconds = v.AgentTickerTemplateFields.CadenceSeconds
+	retval.QuietHours = v.AgentTickerTemplateFields.QuietHours
+	retval.Relevance = v.AgentTickerTemplateFields.Relevance
+	retval.Reasons = v.AgentTickerTemplateFields.Reasons
+	retval.CreatedAt = v.AgentTickerTemplateFields.CreatedAt
+	retval.UpdatedAt = v.AgentTickerTemplateFields.UpdatedAt
+	retval.Agent = v.AgentTickerTemplateFields.Agent
+	return &retval, nil
+}
+
+// AgentTickerTemplatesResponse is returned by AgentTickerTemplates on success.
+type AgentTickerTemplatesResponse struct {
+	// #2024 — the live ticker templates of an Agent, by name. Anyone who can read the Agent. An Agent the caller cannot read answers
+	// as absent (AGENT_NOT_FOUND).
+	AgentTickerTemplates []*AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate `json:"agentTickerTemplates"`
+}
+
+// GetAgentTickerTemplates returns AgentTickerTemplatesResponse.AgentTickerTemplates, and is useful for accessing the field via an interface.
+func (v *AgentTickerTemplatesResponse) GetAgentTickerTemplates() []*AgentTickerTemplatesAgentTickerTemplatesAgentTickerTemplate {
+	return v.AgentTickerTemplates
+}
+
 type AgentType string
 
 const (
@@ -20913,6 +21200,167 @@ func (v *CreateAgentTaskInput) GetTags() []string { return v.Tags }
 // GetTitle returns CreateAgentTaskInput.Title, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetTitle() string { return v.Title }
 
+// CreateAgentTickerTemplateCreateAgentTickerTemplate includes the requested fields of the GraphQL type AgentTickerTemplate.
+// The GraphQL type's documentation follows.
+//
+// #2024 — one ticker an Agent declares. Casting a worker from the Agent into an App creates the worker's tickers from the live
+// templates and subscribes it, in the cast's own transaction. A SNAPSHOT: a later edit or removal reaches only future casts;
+// existing workers and tickers are untouched. Identity is the id, never the name or the position. The cadence is the requested
+// one; the cast raises it to the App's floor. Reasons are never empty.
+type CreateAgentTickerTemplateCreateAgentTickerTemplate struct {
+	AgentTickerTemplateFields `json:"-"`
+}
+
+// GetId returns CreateAgentTickerTemplateCreateAgentTickerTemplate.Id, and is useful for accessing the field via an interface.
+func (v *CreateAgentTickerTemplateCreateAgentTickerTemplate) GetId() string {
+	return v.AgentTickerTemplateFields.Id
+}
+
+// GetRevision returns CreateAgentTickerTemplateCreateAgentTickerTemplate.Revision, and is useful for accessing the field via an interface.
+func (v *CreateAgentTickerTemplateCreateAgentTickerTemplate) GetRevision() int {
+	return v.AgentTickerTemplateFields.Revision
+}
+
+// GetShapeVersion returns CreateAgentTickerTemplateCreateAgentTickerTemplate.ShapeVersion, and is useful for accessing the field via an interface.
+func (v *CreateAgentTickerTemplateCreateAgentTickerTemplate) GetShapeVersion() int {
+	return v.AgentTickerTemplateFields.ShapeVersion
+}
+
+// GetName returns CreateAgentTickerTemplateCreateAgentTickerTemplate.Name, and is useful for accessing the field via an interface.
+func (v *CreateAgentTickerTemplateCreateAgentTickerTemplate) GetName() string {
+	return v.AgentTickerTemplateFields.Name
+}
+
+// GetTickCode returns CreateAgentTickerTemplateCreateAgentTickerTemplate.TickCode, and is useful for accessing the field via an interface.
+func (v *CreateAgentTickerTemplateCreateAgentTickerTemplate) GetTickCode() string {
+	return v.AgentTickerTemplateFields.TickCode
+}
+
+// GetCadenceSeconds returns CreateAgentTickerTemplateCreateAgentTickerTemplate.CadenceSeconds, and is useful for accessing the field via an interface.
+func (v *CreateAgentTickerTemplateCreateAgentTickerTemplate) GetCadenceSeconds() int {
+	return v.AgentTickerTemplateFields.CadenceSeconds
+}
+
+// GetQuietHours returns CreateAgentTickerTemplateCreateAgentTickerTemplate.QuietHours, and is useful for accessing the field via an interface.
+func (v *CreateAgentTickerTemplateCreateAgentTickerTemplate) GetQuietHours() *json.RawMessage {
+	return v.AgentTickerTemplateFields.QuietHours
+}
+
+// GetRelevance returns CreateAgentTickerTemplateCreateAgentTickerTemplate.Relevance, and is useful for accessing the field via an interface.
+func (v *CreateAgentTickerTemplateCreateAgentTickerTemplate) GetRelevance() TickerRelevance {
+	return v.AgentTickerTemplateFields.Relevance
+}
+
+// GetReasons returns CreateAgentTickerTemplateCreateAgentTickerTemplate.Reasons, and is useful for accessing the field via an interface.
+func (v *CreateAgentTickerTemplateCreateAgentTickerTemplate) GetReasons() []TickerReason {
+	return v.AgentTickerTemplateFields.Reasons
+}
+
+// GetCreatedAt returns CreateAgentTickerTemplateCreateAgentTickerTemplate.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateAgentTickerTemplateCreateAgentTickerTemplate) GetCreatedAt() string {
+	return v.AgentTickerTemplateFields.CreatedAt
+}
+
+// GetUpdatedAt returns CreateAgentTickerTemplateCreateAgentTickerTemplate.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateAgentTickerTemplateCreateAgentTickerTemplate) GetUpdatedAt() *string {
+	return v.AgentTickerTemplateFields.UpdatedAt
+}
+
+// GetAgent returns CreateAgentTickerTemplateCreateAgentTickerTemplate.Agent, and is useful for accessing the field via an interface.
+func (v *CreateAgentTickerTemplateCreateAgentTickerTemplate) GetAgent() *AgentTickerTemplateFieldsAgent {
+	return v.AgentTickerTemplateFields.Agent
+}
+
+func (v *CreateAgentTickerTemplateCreateAgentTickerTemplate) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateAgentTickerTemplateCreateAgentTickerTemplate
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateAgentTickerTemplateCreateAgentTickerTemplate = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTickerTemplateFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateAgentTickerTemplateCreateAgentTickerTemplate struct {
+	Id string `json:"id"`
+
+	Revision int `json:"revision"`
+
+	ShapeVersion int `json:"shapeVersion"`
+
+	Name string `json:"name"`
+
+	TickCode string `json:"tickCode"`
+
+	CadenceSeconds int `json:"cadenceSeconds"`
+
+	QuietHours *json.RawMessage `json:"quietHours"`
+
+	Relevance TickerRelevance `json:"relevance"`
+
+	Reasons []TickerReason `json:"reasons"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	Agent *AgentTickerTemplateFieldsAgent `json:"agent"`
+}
+
+func (v *CreateAgentTickerTemplateCreateAgentTickerTemplate) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateAgentTickerTemplateCreateAgentTickerTemplate) __premarshalJSON() (*__premarshalCreateAgentTickerTemplateCreateAgentTickerTemplate, error) {
+	var retval __premarshalCreateAgentTickerTemplateCreateAgentTickerTemplate
+
+	retval.Id = v.AgentTickerTemplateFields.Id
+	retval.Revision = v.AgentTickerTemplateFields.Revision
+	retval.ShapeVersion = v.AgentTickerTemplateFields.ShapeVersion
+	retval.Name = v.AgentTickerTemplateFields.Name
+	retval.TickCode = v.AgentTickerTemplateFields.TickCode
+	retval.CadenceSeconds = v.AgentTickerTemplateFields.CadenceSeconds
+	retval.QuietHours = v.AgentTickerTemplateFields.QuietHours
+	retval.Relevance = v.AgentTickerTemplateFields.Relevance
+	retval.Reasons = v.AgentTickerTemplateFields.Reasons
+	retval.CreatedAt = v.AgentTickerTemplateFields.CreatedAt
+	retval.UpdatedAt = v.AgentTickerTemplateFields.UpdatedAt
+	retval.Agent = v.AgentTickerTemplateFields.Agent
+	return &retval, nil
+}
+
+// CreateAgentTickerTemplateResponse is returned by CreateAgentTickerTemplate on success.
+type CreateAgentTickerTemplateResponse struct {
+	// #2024 — declare a ticker on an Agent. Whoever may edit the Agent (ADMIN on it); an App manager is not thereby an Agent editor.
+	// Affects only FUTURE casts. Refusals: TICKER_TEMPLATE_NAME_TAKEN, TICKER_TEMPLATE_LIMIT_REACHED, TICKER_CADENCE_OUT_OF_RANGE,
+	// TICKER_QUIET_HOURS_INVALID, BAD_USER_INPUT (reasons), AGENT_NOT_FOUND, FORBIDDEN.
+	CreateAgentTickerTemplate *CreateAgentTickerTemplateCreateAgentTickerTemplate `json:"createAgentTickerTemplate"`
+}
+
+// GetCreateAgentTickerTemplate returns CreateAgentTickerTemplateResponse.CreateAgentTickerTemplate, and is useful for accessing the field via an interface.
+func (v *CreateAgentTickerTemplateResponse) GetCreateAgentTickerTemplate() *CreateAgentTickerTemplateCreateAgentTickerTemplate {
+	return v.CreateAgentTickerTemplate
+}
+
 // CreateAgentWebhookCreateAgentWebhookAgentWebhookCredentials includes the requested fields of the GraphQL type AgentWebhookCredentials.
 // The GraphQL type's documentation follows.
 //
@@ -26295,6 +26743,17 @@ type DeleteAgentScheduleResponse struct {
 
 // GetDeleteAgentSchedule returns DeleteAgentScheduleResponse.DeleteAgentSchedule, and is useful for accessing the field via an interface.
 func (v *DeleteAgentScheduleResponse) GetDeleteAgentSchedule() bool { return v.DeleteAgentSchedule }
+
+// DeleteAgentTickerTemplateResponse is returned by DeleteAgentTickerTemplate on success.
+type DeleteAgentTickerTemplateResponse struct {
+	// #2024 — remove a template (it stays as history; its name may be reused). expectedRevision as for update. Tickers already generated from it are untouched.
+	DeleteAgentTickerTemplate bool `json:"deleteAgentTickerTemplate"`
+}
+
+// GetDeleteAgentTickerTemplate returns DeleteAgentTickerTemplateResponse.DeleteAgentTickerTemplate, and is useful for accessing the field via an interface.
+func (v *DeleteAgentTickerTemplateResponse) GetDeleteAgentTickerTemplate() bool {
+	return v.DeleteAgentTickerTemplate
+}
 
 // DeleteAgentWebhookResponse is returned by DeleteAgentWebhook on success.
 type DeleteAgentWebhookResponse struct {
@@ -63143,6 +63602,166 @@ func (v *UpdateAgentTaskInput) GetTags() json.RawMessage { return v.Tags }
 // GetTitle returns UpdateAgentTaskInput.Title, and is useful for accessing the field via an interface.
 func (v *UpdateAgentTaskInput) GetTitle() *string { return v.Title }
 
+// UpdateAgentTickerTemplateResponse is returned by UpdateAgentTickerTemplate on success.
+type UpdateAgentTickerTemplateResponse struct {
+	// #2024 — change a template; absent fields are unchanged. expectedRevision must be the revision you read, else
+	// TICKER_TEMPLATE_REVISION_MISMATCH and nothing is written. Affects only future casts.
+	UpdateAgentTickerTemplate *UpdateAgentTickerTemplateUpdateAgentTickerTemplate `json:"updateAgentTickerTemplate"`
+}
+
+// GetUpdateAgentTickerTemplate returns UpdateAgentTickerTemplateResponse.UpdateAgentTickerTemplate, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTickerTemplateResponse) GetUpdateAgentTickerTemplate() *UpdateAgentTickerTemplateUpdateAgentTickerTemplate {
+	return v.UpdateAgentTickerTemplate
+}
+
+// UpdateAgentTickerTemplateUpdateAgentTickerTemplate includes the requested fields of the GraphQL type AgentTickerTemplate.
+// The GraphQL type's documentation follows.
+//
+// #2024 — one ticker an Agent declares. Casting a worker from the Agent into an App creates the worker's tickers from the live
+// templates and subscribes it, in the cast's own transaction. A SNAPSHOT: a later edit or removal reaches only future casts;
+// existing workers and tickers are untouched. Identity is the id, never the name or the position. The cadence is the requested
+// one; the cast raises it to the App's floor. Reasons are never empty.
+type UpdateAgentTickerTemplateUpdateAgentTickerTemplate struct {
+	AgentTickerTemplateFields `json:"-"`
+}
+
+// GetId returns UpdateAgentTickerTemplateUpdateAgentTickerTemplate.Id, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTickerTemplateUpdateAgentTickerTemplate) GetId() string {
+	return v.AgentTickerTemplateFields.Id
+}
+
+// GetRevision returns UpdateAgentTickerTemplateUpdateAgentTickerTemplate.Revision, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTickerTemplateUpdateAgentTickerTemplate) GetRevision() int {
+	return v.AgentTickerTemplateFields.Revision
+}
+
+// GetShapeVersion returns UpdateAgentTickerTemplateUpdateAgentTickerTemplate.ShapeVersion, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTickerTemplateUpdateAgentTickerTemplate) GetShapeVersion() int {
+	return v.AgentTickerTemplateFields.ShapeVersion
+}
+
+// GetName returns UpdateAgentTickerTemplateUpdateAgentTickerTemplate.Name, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTickerTemplateUpdateAgentTickerTemplate) GetName() string {
+	return v.AgentTickerTemplateFields.Name
+}
+
+// GetTickCode returns UpdateAgentTickerTemplateUpdateAgentTickerTemplate.TickCode, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTickerTemplateUpdateAgentTickerTemplate) GetTickCode() string {
+	return v.AgentTickerTemplateFields.TickCode
+}
+
+// GetCadenceSeconds returns UpdateAgentTickerTemplateUpdateAgentTickerTemplate.CadenceSeconds, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTickerTemplateUpdateAgentTickerTemplate) GetCadenceSeconds() int {
+	return v.AgentTickerTemplateFields.CadenceSeconds
+}
+
+// GetQuietHours returns UpdateAgentTickerTemplateUpdateAgentTickerTemplate.QuietHours, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTickerTemplateUpdateAgentTickerTemplate) GetQuietHours() *json.RawMessage {
+	return v.AgentTickerTemplateFields.QuietHours
+}
+
+// GetRelevance returns UpdateAgentTickerTemplateUpdateAgentTickerTemplate.Relevance, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTickerTemplateUpdateAgentTickerTemplate) GetRelevance() TickerRelevance {
+	return v.AgentTickerTemplateFields.Relevance
+}
+
+// GetReasons returns UpdateAgentTickerTemplateUpdateAgentTickerTemplate.Reasons, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTickerTemplateUpdateAgentTickerTemplate) GetReasons() []TickerReason {
+	return v.AgentTickerTemplateFields.Reasons
+}
+
+// GetCreatedAt returns UpdateAgentTickerTemplateUpdateAgentTickerTemplate.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTickerTemplateUpdateAgentTickerTemplate) GetCreatedAt() string {
+	return v.AgentTickerTemplateFields.CreatedAt
+}
+
+// GetUpdatedAt returns UpdateAgentTickerTemplateUpdateAgentTickerTemplate.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTickerTemplateUpdateAgentTickerTemplate) GetUpdatedAt() *string {
+	return v.AgentTickerTemplateFields.UpdatedAt
+}
+
+// GetAgent returns UpdateAgentTickerTemplateUpdateAgentTickerTemplate.Agent, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTickerTemplateUpdateAgentTickerTemplate) GetAgent() *AgentTickerTemplateFieldsAgent {
+	return v.AgentTickerTemplateFields.Agent
+}
+
+func (v *UpdateAgentTickerTemplateUpdateAgentTickerTemplate) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateAgentTickerTemplateUpdateAgentTickerTemplate
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateAgentTickerTemplateUpdateAgentTickerTemplate = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTickerTemplateFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateAgentTickerTemplateUpdateAgentTickerTemplate struct {
+	Id string `json:"id"`
+
+	Revision int `json:"revision"`
+
+	ShapeVersion int `json:"shapeVersion"`
+
+	Name string `json:"name"`
+
+	TickCode string `json:"tickCode"`
+
+	CadenceSeconds int `json:"cadenceSeconds"`
+
+	QuietHours *json.RawMessage `json:"quietHours"`
+
+	Relevance TickerRelevance `json:"relevance"`
+
+	Reasons []TickerReason `json:"reasons"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	Agent *AgentTickerTemplateFieldsAgent `json:"agent"`
+}
+
+func (v *UpdateAgentTickerTemplateUpdateAgentTickerTemplate) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateAgentTickerTemplateUpdateAgentTickerTemplate) __premarshalJSON() (*__premarshalUpdateAgentTickerTemplateUpdateAgentTickerTemplate, error) {
+	var retval __premarshalUpdateAgentTickerTemplateUpdateAgentTickerTemplate
+
+	retval.Id = v.AgentTickerTemplateFields.Id
+	retval.Revision = v.AgentTickerTemplateFields.Revision
+	retval.ShapeVersion = v.AgentTickerTemplateFields.ShapeVersion
+	retval.Name = v.AgentTickerTemplateFields.Name
+	retval.TickCode = v.AgentTickerTemplateFields.TickCode
+	retval.CadenceSeconds = v.AgentTickerTemplateFields.CadenceSeconds
+	retval.QuietHours = v.AgentTickerTemplateFields.QuietHours
+	retval.Relevance = v.AgentTickerTemplateFields.Relevance
+	retval.Reasons = v.AgentTickerTemplateFields.Reasons
+	retval.CreatedAt = v.AgentTickerTemplateFields.CreatedAt
+	retval.UpdatedAt = v.AgentTickerTemplateFields.UpdatedAt
+	retval.Agent = v.AgentTickerTemplateFields.Agent
+	return &retval, nil
+}
+
 // UpdateAgentUpdateAgent includes the requested fields of the GraphQL type Agent.
 // The GraphQL type's documentation follows.
 //
@@ -72272,6 +72891,14 @@ func (v *__AgentTeamEventsInput) GetTaskId() *string { return v.TaskId }
 // GetTypes returns __AgentTeamEventsInput.Types, and is useful for accessing the field via an interface.
 func (v *__AgentTeamEventsInput) GetTypes() []string { return v.Types }
 
+// __AgentTickerTemplatesInput is used internally by genqlient
+type __AgentTickerTemplatesInput struct {
+	AgentRef string `json:"agentRef"`
+}
+
+// GetAgentRef returns __AgentTickerTemplatesInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__AgentTickerTemplatesInput) GetAgentRef() string { return v.AgentRef }
+
 // __AgentWebhooksInput is used internally by genqlient
 type __AgentWebhooksInput struct {
 	AppRef string `json:"appRef"`
@@ -73406,6 +74033,18 @@ type __CreateAgentScheduleInput struct {
 // GetInput returns __CreateAgentScheduleInput.Input, and is useful for accessing the field via an interface.
 func (v *__CreateAgentScheduleInput) GetInput() *CreateAgentScheduleInput { return v.Input }
 
+// __CreateAgentTickerTemplateInput is used internally by genqlient
+type __CreateAgentTickerTemplateInput struct {
+	AgentRef string                    `json:"agentRef"`
+	Input    *AgentTickerTemplateInput `json:"input,omitempty"`
+}
+
+// GetAgentRef returns __CreateAgentTickerTemplateInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__CreateAgentTickerTemplateInput) GetAgentRef() string { return v.AgentRef }
+
+// GetInput returns __CreateAgentTickerTemplateInput.Input, and is useful for accessing the field via an interface.
+func (v *__CreateAgentTickerTemplateInput) GetInput() *AgentTickerTemplateInput { return v.Input }
+
 // __CreateAgentWebhookInput is used internally by genqlient
 type __CreateAgentWebhookInput struct {
 	Input *CreateAgentWebhookInput `json:"input,omitempty"`
@@ -74203,6 +74842,18 @@ type __DeleteAgentScheduleInput struct {
 
 // GetId returns __DeleteAgentScheduleInput.Id, and is useful for accessing the field via an interface.
 func (v *__DeleteAgentScheduleInput) GetId() string { return v.Id }
+
+// __DeleteAgentTickerTemplateInput is used internally by genqlient
+type __DeleteAgentTickerTemplateInput struct {
+	Id               string `json:"id"`
+	ExpectedRevision int    `json:"expectedRevision"`
+}
+
+// GetId returns __DeleteAgentTickerTemplateInput.Id, and is useful for accessing the field via an interface.
+func (v *__DeleteAgentTickerTemplateInput) GetId() string { return v.Id }
+
+// GetExpectedRevision returns __DeleteAgentTickerTemplateInput.ExpectedRevision, and is useful for accessing the field via an interface.
+func (v *__DeleteAgentTickerTemplateInput) GetExpectedRevision() int { return v.ExpectedRevision }
 
 // __DeleteAgentWebhookInput is used internally by genqlient
 type __DeleteAgentWebhookInput struct {
@@ -77321,6 +77972,22 @@ func (v *__UpdateAgentScheduleInput) GetId() string { return v.Id }
 
 // GetInput returns __UpdateAgentScheduleInput.Input, and is useful for accessing the field via an interface.
 func (v *__UpdateAgentScheduleInput) GetInput() *UpdateAgentScheduleInput { return v.Input }
+
+// __UpdateAgentTickerTemplateInput is used internally by genqlient
+type __UpdateAgentTickerTemplateInput struct {
+	Id               string                    `json:"id"`
+	ExpectedRevision int                       `json:"expectedRevision"`
+	Input            *AgentTickerTemplatePatch `json:"input,omitempty"`
+}
+
+// GetId returns __UpdateAgentTickerTemplateInput.Id, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentTickerTemplateInput) GetId() string { return v.Id }
+
+// GetExpectedRevision returns __UpdateAgentTickerTemplateInput.ExpectedRevision, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentTickerTemplateInput) GetExpectedRevision() int { return v.ExpectedRevision }
+
+// GetInput returns __UpdateAgentTickerTemplateInput.Input, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentTickerTemplateInput) GetInput() *AgentTickerTemplatePatch { return v.Input }
 
 // __UpdateAiServiceConfigInput is used internally by genqlient
 type __UpdateAiServiceConfigInput struct {
@@ -81178,6 +81845,57 @@ func AgentTeamEvents(
 	}
 
 	data_ = &AgentTeamEventsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AgentTickerTemplates.
+const AgentTickerTemplates_Operation = `
+query AgentTickerTemplates ($agentRef: String!) {
+	agentTickerTemplates(agentRef: $agentRef) {
+		... AgentTickerTemplateFields
+	}
+}
+fragment AgentTickerTemplateFields on AgentTickerTemplate {
+	id
+	revision
+	shapeVersion
+	name
+	tickCode
+	cadenceSeconds
+	quietHours
+	relevance
+	reasons
+	createdAt
+	updatedAt
+	agent {
+		id
+		name
+	}
+}
+`
+
+func AgentTickerTemplates(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentRef string,
+) (data_ *AgentTickerTemplatesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentTickerTemplates",
+		Query:  AgentTickerTemplates_Operation,
+		Variables: &__AgentTickerTemplatesInput{
+			AgentRef: agentRef,
+		},
+	}
+
+	data_ = &AgentTickerTemplatesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -85243,6 +85961,59 @@ func CreateAgentSchedule(
 	return data_, err_
 }
 
+// The mutation executed by CreateAgentTickerTemplate.
+const CreateAgentTickerTemplate_Operation = `
+mutation CreateAgentTickerTemplate ($agentRef: String!, $input: AgentTickerTemplateInput!) {
+	createAgentTickerTemplate(agentRef: $agentRef, input: $input) {
+		... AgentTickerTemplateFields
+	}
+}
+fragment AgentTickerTemplateFields on AgentTickerTemplate {
+	id
+	revision
+	shapeVersion
+	name
+	tickCode
+	cadenceSeconds
+	quietHours
+	relevance
+	reasons
+	createdAt
+	updatedAt
+	agent {
+		id
+		name
+	}
+}
+`
+
+func CreateAgentTickerTemplate(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentRef string,
+	input *AgentTickerTemplateInput,
+) (data_ *CreateAgentTickerTemplateResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateAgentTickerTemplate",
+		Query:  CreateAgentTickerTemplate_Operation,
+		Variables: &__CreateAgentTickerTemplateInput{
+			AgentRef: agentRef,
+			Input:    input,
+		},
+	}
+
+	data_ = &CreateAgentTickerTemplateResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateAgentWebhook.
 const CreateAgentWebhook_Operation = `
 mutation CreateAgentWebhook ($input: CreateAgentWebhookInput!) {
@@ -87559,6 +88330,40 @@ func DeleteAgentSchedule(
 	}
 
 	data_ = &DeleteAgentScheduleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteAgentTickerTemplate.
+const DeleteAgentTickerTemplate_Operation = `
+mutation DeleteAgentTickerTemplate ($id: ID!, $expectedRevision: Int!) {
+	deleteAgentTickerTemplate(id: $id, expectedRevision: $expectedRevision)
+}
+`
+
+func DeleteAgentTickerTemplate(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	expectedRevision int,
+) (data_ *DeleteAgentTickerTemplateResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteAgentTickerTemplate",
+		Query:  DeleteAgentTickerTemplate_Operation,
+		Variables: &__DeleteAgentTickerTemplateInput{
+			Id:               id,
+			ExpectedRevision: expectedRevision,
+		},
+	}
+
+	data_ = &DeleteAgentTickerTemplateResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -101041,6 +101846,61 @@ func UpdateAgentSchedule(
 	}
 
 	data_ = &UpdateAgentScheduleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateAgentTickerTemplate.
+const UpdateAgentTickerTemplate_Operation = `
+mutation UpdateAgentTickerTemplate ($id: ID!, $expectedRevision: Int!, $input: AgentTickerTemplatePatch!) {
+	updateAgentTickerTemplate(id: $id, expectedRevision: $expectedRevision, input: $input) {
+		... AgentTickerTemplateFields
+	}
+}
+fragment AgentTickerTemplateFields on AgentTickerTemplate {
+	id
+	revision
+	shapeVersion
+	name
+	tickCode
+	cadenceSeconds
+	quietHours
+	relevance
+	reasons
+	createdAt
+	updatedAt
+	agent {
+		id
+		name
+	}
+}
+`
+
+func UpdateAgentTickerTemplate(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	expectedRevision int,
+	input *AgentTickerTemplatePatch,
+) (data_ *UpdateAgentTickerTemplateResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateAgentTickerTemplate",
+		Query:  UpdateAgentTickerTemplate_Operation,
+		Variables: &__UpdateAgentTickerTemplateInput{
+			Id:               id,
+			ExpectedRevision: expectedRevision,
+			Input:            input,
+		},
+	}
+
+	data_ = &UpdateAgentTickerTemplateResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

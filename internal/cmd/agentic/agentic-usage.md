@@ -380,6 +380,8 @@ hadron ai-config list [--app <ref>] [--agent <id>] [--with-endpoints] | get <id>
 hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <org-ref> | update <id> | rm <id> | member list|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug> | set-active|use <orgRef> [--no-verify]   # "" clears; the active org is what --scope global resolves against
 hadron scope list [--owner-org <ref> | --owner-app <ref> | --owner-agent <ref>] [--name <n>] | get <name|id> [--by-name] | create <name> (--owner-org|--owner-app|--owner-agent <ref>) -m <memory>… [--description <d>] | update <name|id> [--by-name] [--name <new>] [-m <memory>…] [--description <d>] | rm <name|id> [--by-name] [--yes] | explain <name|id> [--by-name] [--loc <address>] | set-active|use <name|id|app|global> [--no-verify]   # "" clears; applied when search omits --scope, and reported as scope.selectedBy="config". a NAME needs an App context (--app or the active App); an ID never does. --description cannot clear.
 hadron agent compile <agent> [--no-set-pointer] | list [--org <id> | --owned-by-me] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-memory <id>] [--surface <s>]… [--persona-role <r>] | update <id> [<field flags>] [--tasks-index <node-ref> | --processes-index <node-ref>] (explicit empty clears) | rm <id> --yes | tasks list <agentRef> [--symptom <text> [--limit N]] (experimental, hadron-server#2421: up to 3 tasks matched on the abstract, adds MATCHED BY VECTOR/KEYWORD/BOTH and `matchedBy` in --json; --limit is ignored without --symptom, sent as given, server rules) | processes list <agentRef> | set-base <agent> (<base> | --clear) | set-boot-prompt <agent> (<node-ref> [-m <memory>] | --clear)
+hadron agent ticker-templates list <agent-ref> | create <agent-ref> --name <n> --cadence-seconds <s> [--relevance all|mentions] [--reasons read-team-channel,every-tick,live-check] [--quiet-hours <json>] | update <template-id> --expected-revision <n> [--name <n>] [--cadence-seconds <s>] [--relevance all|mentions] [--reasons <csv>] [--quiet-hours <json> | --clear-quiet-hours] | delete <template-id> --expected-revision <n> [--yes]   # singular alias ticker-template; Agent managers write, future casts only, existing workers/tickers untouched; explicit revision, no fetch/retry; requested cadence (cast raises to App floor)
+
 hadron agent clone <source> --to <org> [--name N] [--slug S]   # one server clone mutation, sent once and never retried, into an organization you administer; new PERSONAL draft with its own system-memory copy, links/imports retained; linked memories stay links. Source must be PUBLIC or managed in its own org. Text prints the returned NEW URN; --json prints the normal Agent DTO (no origin field). No install/subscription second step or manual-copy fallback. **Exit codes:** a typed refusal is a definite answer, nothing was created, so fix the cause and rerun: exit 8 for AGENT_NOT_PUBLIC and unreadable/unusable linked-memory, base or import; exit 2 for an unsupported target or encrypted content; a source-changed conflict (exit 5) carries retryable=true but is never retried for you, rerun by hand. Exit 3 is rejected credentials: nothing was created. Exit 1 with `(clone server error: …)` is a server fault whose effect on the clone is not known: verify as for exit 7 before rerunning. **UNKNOWN (exit 7, never success)** means the answer was lost, or a success reply carried no Agent (null/missing `cloneAgent`): the clone may exist. Verify before cloning again: `hadron agent list --org <org> --visibility PERSONAL` (`--org` takes the same id, slug or URN as `--to`; a new clone is a PERSONAL draft and is listed for org members); with `--name` look for that name, without it the server copies the SOURCE's name, so look for a PERSONAL agent bearing it. Refusal details are the first GraphQL error's own `code`/`reason`/`retryable` and blocker counts, positions and supplied names only (a hidden subject never gets a name); an empty-details first error yields none, never a later error's. The text suffix names the answer: `(clone refusal: …)`, `(clone authentication: …)` or `(clone server error: …)`. Requires server cloneAgent S1; older providers reject as schema skew.
 hadron team init [--app <ref> | -m <team-memory>] (uses --app, the context, or the binding)
 hadron team worker cast --name <n> (--role <role> | --agent <ref>) [--dry-run] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | update <name-or-id> [--signature <text>] [--trailer <text>] | set-reports-to <worker> (<target> | --clear) | set-boot-prompt <worker> (<node-ref> [-m <memory>] | --clear) | release <name-or-id> [--yes] | retire <name-or-id> --yes | rm <name-or-id> --yes
@@ -4204,3 +4206,40 @@ A missing/non-live host registration is exit 8. Unresolved or ambiguous register
 workers, or a missing status row for any registered worker, refuse the whole
 batch before writing (exit 1). Other hosts' status rows are ignored. JSON reports
 are the sent reports, including any refused by the server; read refused too.
+
+### Agent ticker templates (cli#913; MCP cut C1)
+
+`agent ticker-templates` (alias `ticker-template`) exposes per-template CRUD.
+Reading requires Agent read access; creating/updating/deleting requires managing
+the Agent: its user owner, its organization's OWNERs and ADMINs, or a platform
+admin. Managing an App alone is not enough. The server decides authorization.
+Templates are snapshots for future casts: editing or deleting never changes
+existing workers or their tickers. An App manager can separately add the template
+tickers a worker lacks with `hadron ticker apply-templates --worker <worker-ref>`;
+it changes no existing ticker. Cadence is requested whole
+seconds; casting raises it to the App's floor, never a client clamp.
+
+List preserves the server's name/id order and returns a JSON array (`[]` empty).
+Create/update return one object:
+`{id,revision,shapeVersion,name,tickCode,cadenceSeconds,quietHours,relevance,reasons,createdAt,updatedAt,agent:{id,name}}`.
+Reasons are lower-kebab strings and always an array; quietHours and updatedAt
+are null when absent. Update/delete address templates by opaque id, never list
+position; each name is unique within its Agent.
+Delete returns `{id,deleted:true}`; it soft-deletes only the template and requires
+--yes without a TTY. No runtime ticker/subscription/worker mutation is added.
+
+Create requires --name and --cadence-seconds; absent optional values are omitted
+for server defaults. Update sends only changed field flags, requires an explicit
+--expected-revision and at least one field, and preserves omitted fields.
+--quiet-hours takes a JSON object; --clear-quiet-hours removes it and conflicts
+with --quiet-hours. --reasons must be nonempty; quiet-hours timezone/window and
+cadence bounds are validated by the server. Delete also requires the revision
+read from that template. A mismatch is sent once and never retried or re-fetched.
+All three writes deliberately carry no bound worker-session attribution.
+
+Exit 2: missing/invalid flags, BAD_USER_INPUT, TICKER_CADENCE_OUT_OF_RANGE or
+TICKER_QUIET_HOURS_INVALID. Exit 4: AGENT_NOT_FOUND (also unreadable Agent) or
+TICKER_TEMPLATE_NOT_FOUND. Exit 5: TICKER_TEMPLATE_NAME_TAKEN,
+TICKER_TEMPLATE_LIMIT_REACHED or TICKER_TEMPLATE_REVISION_MISMATCH. Exit 8:
+FORBIDDEN/caller cannot manage the Agent. Standard auth/transport errors retain exits 3/7; malformed
+success payloads are errors, not fabricated success.
