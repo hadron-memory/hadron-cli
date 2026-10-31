@@ -22,8 +22,8 @@ payload when present. This is "what ran last night, why, and what it cost".
 A failed run also shows the server's plain reason (kind, what happened, who can
 fix it, next step) under the status line. Cost is exact dollars from the run's
 usage; "unknown" means the server has no figure (an older run, or one still in
-flight), not zero. Initial budgets show next to
-the remaining ones when recorded.`,
+flight), not zero. Initial budgets show next to the remaining ones when
+recorded.`,
 		Example: `  hadron run get run_123 --json`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

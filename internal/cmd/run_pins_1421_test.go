@@ -217,17 +217,55 @@ func TestRunListFailedWithoutReasonShowsUnknownNotDash(t *testing.T) {
 	failedNoReason := strings.Replace(strings.Replace(runWith(`"failureReason":null`), `"status":"COMPLETED"`, `"status":"FAILED"`, 1), `"id":"run1"`, `"id":"runfail"`, 1)
 	okRun := strings.Replace(runWith(`"failureReason":null`), `"id":"run1"`, `"id":"runok"`, 1)
 	out := runLsHuman(t, failedNoReason, okRun)
+	var sawFail, sawOK bool
 	for _, l := range strings.Split(out, "\n") {
 		switch {
 		case strings.HasPrefix(l, "runfail"):
+			sawFail = true
 			if !strings.HasSuffix(strings.TrimSpace(l), "unknown") {
 				t.Errorf("FAILED run with no reason must say unknown: %q", l)
 			}
 		case strings.HasPrefix(l, "runok"):
+			sawOK = true
 			if !strings.HasSuffix(strings.TrimSpace(l), "—") {
 				t.Errorf("a run that did not fail keeps the dash: %q", l)
 			}
 		}
+	}
+	// A renderer that drops a row must fail here, not pass vacuously.
+	if !sawFail {
+		t.Errorf("runfail row missing from list output:\n%s", out)
+	}
+	if !sawOK {
+		t.Errorf("runok row missing from list output:\n%s", out)
+	}
+}
+
+// #1435 item 2.1 (Uma): every non-success terminal status with no reason is
+// "unknown" (should have one); a run that is fine or still in flight keeps the
+// dash (n/a).
+func TestRunListNonSuccessTerminalWithoutReasonShowsUnknown(t *testing.T) {
+	cases := map[string]string{
+		"FAILED": "unknown", "TIMED_OUT": "unknown", "CANCELLED": "unknown",
+		"COMPLETED": "—", "RUNNING": "—",
+	}
+	for status, want := range cases {
+		t.Run(status, func(t *testing.T) {
+			r := strings.Replace(strings.Replace(runWith(`"failureReason":null`), `"status":"COMPLETED"`, `"status":"`+status+`"`, 1), `"id":"run1"`, `"id":"rowx"`, 1)
+			out := runLsHuman(t, r)
+			var saw bool
+			for _, l := range strings.Split(out, "\n") {
+				if strings.HasPrefix(l, "rowx") {
+					saw = true
+					if !strings.HasSuffix(strings.TrimSpace(l), want) {
+						t.Errorf("%s with no reason: want REASON %q: %q", status, want, l)
+					}
+				}
+			}
+			if !saw {
+				t.Errorf("row missing:\n%s", out)
+			}
+		})
 	}
 }
 
@@ -246,7 +284,7 @@ func TestRunGetReasonLinesUseLabelValueAndSitUnderStatus(t *testing.T) {
 	if strings.Contains(h, "who can fix:") || strings.Contains(h, "next step:") {
 		t.Errorf("labels must not use colons:\n%s", h)
 	}
-	for _, want := range []string{"who can fix the app owner", "next step raise the budget", "reason OVER_BUDGET"} {
+	for _, want := range []string{"who can fix the app owner", "next step raise the budget", "reason OVER_BUDGET ran out"} {
 		if !strings.Contains(h, want) {
 			t.Errorf("missing %q:\n%s", want, h)
 		}
