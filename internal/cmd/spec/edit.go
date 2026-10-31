@@ -1070,10 +1070,8 @@ func validateEditTitle(title, citation string) error {
 		return exitcode.Newf(exitcode.Usage, "--title must not be empty; omit the flag to keep the title")
 	case strings.ContainsAny(t, "\r\n"):
 		return exitcode.Newf(exitcode.Usage, "--title must be a single line")
-	case strings.HasPrefix(t, strings.TrimSpace(citation)+" — "):
-		return exitcode.Newf(exitcode.Usage, "--title is the text AFTER the citation: %q is added automatically, so drop it from the value", strings.TrimSpace(citation)+" — ")
 	}
-	return nil
+	return refuseCopiedNamePrefix(t, strings.TrimSpace(citation))
 }
 
 // approvalAfterRetitle reads the spec's approval state back from the server

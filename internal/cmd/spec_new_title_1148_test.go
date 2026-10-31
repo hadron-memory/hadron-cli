@@ -96,16 +96,5 @@ func TestSpecNew1148PlainAndLiteralTitleControls(t *testing.T) {
 	}
 }
 
-func TestSpecNew1148Help(t *testing.T) {
-	f, out := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"spec", "new", "--help"})
-	if err := root.Execute(); err != nil {
-		t.Fatal(err)
-	}
-	for _, s := range []string{"exact prefix is refused (exit 2)", "remove the prefix", "explicit --role keeps"} {
-		if !strings.Contains(out.String(), s) {
-			t.Fatalf("missing title guidance %q: %s", s, out.String())
-		}
-	}
-}
+// The help guidance pin moved to TestSpecNewTitleHelpGuidance (#1302), which
+// compares the help with its whitespace collapsed.

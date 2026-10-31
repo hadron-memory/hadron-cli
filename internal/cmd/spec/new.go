@@ -1040,11 +1040,7 @@ func runNewPath(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, m
 }
 
 // refuseNewTitlePrefix prevents a copied full name being prefixed a second
-// time. Keep the same canonical separator as spec edit; do not rewrite titles.
+// time; the separator and refusal are shared with spec edit.
 func refuseNewTitlePrefix(title, loc string) error {
-	prefix := loc + " — "
-	if strings.HasPrefix(strings.TrimSpace(title), prefix) {
-		return exitcode.Newf(exitcode.Usage, "--title is the text AFTER the citation: %q is added automatically, so drop it from the value", prefix)
-	}
-	return nil
+	return refuseCopiedNamePrefix(title, loc)
 }
