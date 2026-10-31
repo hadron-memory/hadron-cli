@@ -343,7 +343,7 @@ func TestPushFailedDeliveryIsNeverReportedPushed(t *testing.T) {
 func TestMentionTokenOfMatchesTheServer(t *testing.T) {
 	for name, want := range map[string]string{
 		"Mary Jane": "mary-jane", "mary.jane": "mary.jane", "mary_jane": "mary_jane",
-		"Mary - Jane": "mary---jane", "a--b": "a--b", "j.r.r": "j.r.r",
+		"Mary - Jane": "mary---jane", "Mary  Jane": "mary-jane", "a--b": "a--b", "j.r.r": "j.r.r",
 		"  Ada  ": "ada", "-x-": "x", "...": "", "": "", "İx": "i-x",
 	} {
 		if got := mentionTokenOf(name); got != want {
@@ -365,18 +365,23 @@ func TestPushDotNamedWorkerIsNotAddressedByADashedMention(t *testing.T) {
 	}
 }
 
-func TestPushTypedButAckPendingIsQualifiedNotUnqualifiedPushed(t *testing.T) {
-	// The only batch is typed but its ack did not land: pushed (it was
-	// typed, never "not typed"), qualified ack-pending, never bare pushed.
+func TestPushTypedButAckPendingIsItsOwnStateNeverPushed(t *testing.T) {
+	// The only batch is typed but its ack did not land: its own state typed
+	// (reason ack-pending), never pushed (acknowledged), never not-pushed.
 	r := runPushHook(t, []string{"hi", "--push", "--orca-host-config", "HOST"}, []string{"one"}, func(x *scriptedDeliverer) { x.ackPending = map[string]bool{"wkr1": true} })
 	if r.err != nil {
 		t.Fatal(r.err)
 	}
-	if st := pushStates(t, r); st["one"] != "pushed:ack-pending" {
+	if st := pushStates(t, r); st["one"] != "typed:ack-pending" {
 		t.Fatalf("report %v", st)
 	}
 	if n := pushAcked(t, r, "one"); n != 0 {
 		t.Fatalf("ack-pending reported %v accepted acks, want 0", n)
+	}
+	// Never typed again (cor:agt:080:12): nothing queues behind the typed,
+	// unacknowledged batch; the post and its exit stand (r.err is nil above).
+	if strings.Join(r.seen, ",") != "a1" {
+		t.Fatalf("typed %v after an ack-pending batch, want only a1", r.seen)
 	}
 }
 
@@ -396,7 +401,7 @@ func TestPushTextReceiptShowsAckPendingWithZeroAcked(t *testing.T) {
 	pushText = true
 	defer func() { pushText = false }()
 	r := runPushHook(t, []string{"hi", "--push", "--orca-host-config", "HOST"}, []string{"one"}, func(x *scriptedDeliverer) { x.ackPending = map[string]bool{"wkr1": true} })
-	if r.err != nil || !strings.Contains(r.out, "push one: pushed (ack-pending; acked 0)") {
+	if r.err != nil || !strings.Contains(r.out, "push one: typed (ack-pending; acked 0)") {
 		t.Fatalf("text receipt: %v %q", r.err, r.out)
 	}
 }

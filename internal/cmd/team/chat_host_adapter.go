@@ -211,7 +211,7 @@ func (p *postHostPass) pass(ctx context.Context, only func(map[string]delivery.R
 			summary.Pending++
 			// A later batch left due behind an earlier typed one does not
 			// undo that delivery (its ack-pending qualifier stays).
-			if per[b.WorkerID].state != pushStatePushed {
+			if per[b.WorkerID].state != pushStatePushed && per[b.WorkerID].state != pushStateTyped {
 				per[b.WorkerID].note(pushStateNotPushed, "pending")
 			}
 			continue
@@ -223,15 +223,13 @@ func (p *postHostPass) pass(ctx context.Context, only func(map[string]delivery.R
 		switch o.Kind {
 		case delivery.Delivered, delivery.Reconciled:
 			summary.Delivered++
-			reason := ""
 			if o.AckPending {
-				// Typed and recorded, but the ack did not land: pushed is
-				// true, "acknowledged" is not (cor:agt:080:16). The record
-				// reconciles it without retyping; never claim not typed.
-				reason = "ack-pending"
-			}
-			per[b.WorkerID].note(pushStatePushed, reason)
-			if !o.AckPending {
+				// Typed and recorded, but the ack did not land: its own state,
+				// never pushed (which means acknowledged, cor:agt:080:16). The
+				// record reconciles it without retyping (cor:agt:080:12).
+				per[b.WorkerID].note(pushStateTyped, "ack-pending")
+			} else {
+				per[b.WorkerID].note(pushStatePushed, "")
 				per[b.WorkerID].acked++
 			}
 			if o.AckPending {
@@ -255,8 +253,8 @@ func (p *postHostPass) pass(ctx context.Context, only func(map[string]delivery.R
 	return summary, per, nil
 }
 
-// pushOutcome folds a worker's batch outcomes: held beats not-pushed beats
-// pushed, because the worse state is the one the sender must act on.
+// pushOutcome folds a worker's batch outcomes: held beats unconfirmed beats
+// typed beats not-pushed beats pushed, because the worse state is the one the sender must act on.
 type pushOutcome struct {
 	state, reason string
 	acked         int
@@ -265,8 +263,10 @@ type pushOutcome struct {
 func pushRank(s string) int {
 	switch s {
 	case pushStateHeld:
-		return 4
+		return 5
 	case pushStateUnconfirmed:
+		return 4
+	case pushStateTyped:
 		return 3
 	case pushStateNotPushed:
 		return 2
@@ -325,7 +325,7 @@ func mentionTokenOf(name string) string {
 // tokens). A token addresses EVERY worker registered on this host whose
 // server token (mentionTokenOf) equals it, as the server's own mention
 // matching does; two names may share one. The token's report folds those
-// workers' outcomes, worst state winning (held beats not-pushed beats pushed).
+// workers' outcomes, worst state winning (held, unconfirmed, typed, not-pushed, pushed).
 // A token matching no worker here, or with no batch, is not-pushed: the one
 // state for "nothing came back". On a pass-level error the outcomes already
 // confirmed are kept and every recipient without one is "unconfirmed"

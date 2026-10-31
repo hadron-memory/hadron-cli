@@ -15,6 +15,11 @@ const (
 	pushStatePushed    = "pushed"
 	pushStateHeld      = "held"
 	pushStateNotPushed = "not-pushed"
+	// pushStateTyped: the text reached the terminal but the acknowledgement
+	// did not land (cor:agt:080:12, :16, Vera 2026-10-31). No mark moved and
+	// the message is still due; it is never typed again by the CLI. Its own
+	// state, never pushed, which means acknowledged.
+	pushStateTyped = "typed"
 	// pushStateUnconfirmed: the pass ended in an error before this recipient
 	// had an outcome, so whether anything was typed is not established.
 	// Never "not-pushed", which asserts no batch came back.
