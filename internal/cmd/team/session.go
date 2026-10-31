@@ -864,8 +864,10 @@ printed, as for any bind. Several candidates bind nothing: they are listed,
 exit 2, and --session <id> picks one. Nothing at all refuses
 NOTHING_TO_RESUME (exit 4), and nothing is posted or recorded on your
 behalf. A refused resume (exit 5, RESUME_REFUSED) has spent its claim.
---tool, --host, --model and --transcript ride along. --repo, --branch,
---reports-to, -m and --force do not apply and are refused. A worktree still
+--tool, --host, --model, --transcript, --description and --family ride along.
+--repo, --branch, --reports-to, -m, --force, --agent, --customer, --language,
+--parent-session, --previous-session, --plan, --pr-number and --type do not
+apply and are refused. A worktree still
 bound to a live session refuses first, before any claim is spent, as does a
 directory outside a git worktree. A failure after the server answered never
 ends the recovered session: run start again to pick it up.`,
