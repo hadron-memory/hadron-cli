@@ -48,3 +48,29 @@ func TestSpecCanonicalPrefixCompositionAndRefusal(t *testing.T) {
 		}
 	}
 }
+
+// #1302 item 2: both guards end the refusal with the corrected title to retry
+// with — the trimmed remainder, with any repeated copied prefix stripped too,
+// so following the hint is never refused again.
+func TestSpecCopiedPrefixCorrectedTitleHint(t *testing.T) {
+	const loc = "qa:api:010:04"
+	for _, tc := range []struct{ title, want string }{
+		{"qa:api:010:04 — Burst allowance", "Burst allowance"},
+		{"  qa:api:010:04 —   Burst allowance  ", "Burst allowance"},
+		{"qa:api:010:04 — qa:api:010:04 — Burst allowance", "Burst allowance"},
+		{"qa:api:010:04 — W4 — 7d check-in", "W4 — 7d check-in"},
+	} {
+		want := `--title is the text AFTER the citation: "qa:api:010:04 — " is added automatically, so drop it from the value: --title "` + tc.want + `"`
+		for name, err := range map[string]error{
+			"new":  refuseNewTitlePrefix(tc.title, loc),
+			"edit": validateEditTitle(tc.title, loc),
+		} {
+			if exitcode.FromError(err) != exitcode.Usage || err.Error() != want {
+				t.Errorf("%s(%q) = %v, want %q", name, tc.title, err, want)
+			}
+			if refuseCopiedNamePrefix(tc.want, loc) != nil {
+				t.Errorf("%s: the suggested title %q is itself refused", name, tc.want)
+			}
+		}
+	}
+}
