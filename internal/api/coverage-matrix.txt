@@ -19,7 +19,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 187: 135 command, 37 gap, 15 excluded
+[Query] 187: 137 command, 35 gap, 15 excluded
 actionTickets  command ticket list
 agent  command agent get
 agentAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime that makes LLM calls; a person reads the masked config with `ai-config get`
@@ -158,8 +158,8 @@ registerEntry  command channel register rm
 registerRoleCandidates  gap #1336
 registerRolePick  gap #1336
 renderRunNode  gap #1010
-resendSender  gap #1342
-resendSenders  gap #1342
+resendSender  command org resend-sender get
+resendSenders  command org resend-sender list
 resolveAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime that makes LLM calls; a person reads the masked config with `ai-config get`
 resolveAiServiceConfigs  command ai-config list
 resolveUrn  command node get
@@ -208,7 +208,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 315: 223 command, 81 gap, 11 excluded
+[Mutation] 315: 227 command, 77 gap, 11 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -288,7 +288,7 @@ createObject  command object create
 createOrganization  command org create
 createPrincipalGrant  command grant create
 createRegisterEntry  command channel register add
-createResendSender  gap #1342
+createResendSender  command org resend-sender create
 createResumeClaim  command team session resume-claim
 createReviewNode  command coding review create
 createRevision  gap #61
@@ -328,7 +328,7 @@ deleteNodeRoleRule  command memory config rule rm
 deleteObject  command object delete
 deleteOrganization  command org rm
 deleteRegisterEntry  command channel register rm
-deleteResendSender  gap #1342
+deleteResendSender  command org resend-sender rm
 deleteScope  command scope rm
 deleteSecret  command secret rm
 deleteSlackConnection  gap #206
@@ -358,7 +358,7 @@ grantAppKeyScope  command app key scope grant
 grantCredits  gap #215
 importNode  command node import
 installAgentIntoApp  command app agent add
-inviteUser  gap #1342
+inviteUser  command user invite
 isolateWorker  command team isolation set
 issueHostOperation  command team host issue
 joinApp  gap #63
@@ -510,7 +510,7 @@ updateOrgGithubApp  gap #60
 updateOrgMember  command org member set-role
 updateOrganization  command org update
 updateRegisterEntry  command channel register set
-updateResendSender  gap #1342
+updateResendSender  command org resend-sender update
 updateReviewNode  command node update
 updateScope  command scope update
 updateSecret  gap #1343
@@ -525,11 +525,11 @@ updateWorker  command team worker update
 withdrawDecision  gap #1335
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 180: 161 gap, 19 excluded
+[Arguments] 180: 155 gap, 25 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
-Mutation.addOrgMember(orgRef)  gap #1342: the CLI passes the deprecated orgId/userId
-Mutation.addOrgMember(userRef)  gap #1342: the CLI passes the deprecated orgId/userId
+Mutation.addOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
+Mutation.addOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.beginAssetUploadV2(input.uploadRequestId)  gap #1341: a retry-safe upload
 Mutation.castWorker(noTeam)  gap #933
 Mutation.castWorker(reportsTo)  gap #933
@@ -605,8 +605,8 @@ Mutation.removeAppMember(appId)  excluded deprecated: @deprecated: Use appRef (a
 Mutation.removeAppMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.removeMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.removeMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
-Mutation.removeOrgMember(orgRef)  gap #1342: the CLI passes the deprecated orgId/userId
-Mutation.removeOrgMember(userRef)  gap #1342: the CLI passes the deprecated orgId/userId
+Mutation.removeOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
+Mutation.removeOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.resumeSession(input.description)  gap #1337
 Mutation.resumeSession(input.family)  gap #1337
 Mutation.startSession(input.agentRef)  gap #1337
@@ -665,8 +665,8 @@ Mutation.updateMemorySubscription(orgId)  excluded deprecated: @deprecated: Use 
 Mutation.updateNode(input.edges.description)  gap #1341: edges written with the node
 Mutation.updateNode(input.edges.isRunnable)  gap #1341: edges written with the node
 Mutation.updateNode(input.edges.loc)  gap #1341: edges written with the node
-Mutation.updateOrgMember(orgRef)  gap #1342: the CLI passes the deprecated orgId/userId
-Mutation.updateOrgMember(userRef)  gap #1342: the CLI passes the deprecated orgId/userId
+Mutation.updateOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
+Mutation.updateOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.updateOrganization(policy)  gap #1343
 Mutation.updateReviewNode(input.edges.description)  gap #1341: edges written with the node
 Mutation.updateReviewNode(input.edges.isRunnable)  gap #1341: edges written with the node
