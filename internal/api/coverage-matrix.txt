@@ -208,7 +208,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 315: 217 command, 87 gap, 11 excluded
+[Mutation] 315: 219 command, 85 gap, 11 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -242,7 +242,7 @@ calendarUpdateEvent  command calendar event update
 cancelAgentTask  command team task cancel
 cancelAppRun  command run cancel
 castWorker  command team worker cast
-changeWorkerAgent  gap #1336
+changeWorkerAgent  command team worker change-agent
 claimContextReset  gap #1043: the host handler that performs the reset
 clearAgentAIConfig  gap #58
 clearNodeHistory  command node revision clear
@@ -454,7 +454,7 @@ setHostWorkerTerminals  command team health sweep
 setMemorySourceToken  gap #60
 setModelFamilyAvailability  command team availability set
 setQuotaLimit  gap #1343
-setTeamPause  gap #1336
+setTeamPause  command team pause
 setTeamStopSignal  command team stop set
 setUserApiKeyHidden  gap #1344
 setWorkerAvailability  command team availability set

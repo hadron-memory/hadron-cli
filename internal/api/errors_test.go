@@ -331,6 +331,9 @@ func TestMapError(t *testing.T) {
 		// its place as the general contract: exit codes are documented, and a
 		// future caller that does NOT intercept must still get 5 rather than 1.
 		{"hold stale", gqlErr("WORKER_HOLD_STALE"), exitcode.Conflict},
+		{"casting stale", gqlErr("WORKER_CASTING_STALE"), exitcode.Conflict},
+		{"agent unchanged", gqlErr("WORKER_AGENT_UNCHANGED"), exitcode.Conflict},
+		{"agent has no role", gqlErr("WORKER_AGENT_HAS_NO_ROLE"), exitcode.Conflict},
 		{"no extension", gqlerror.List{{Message: "boom"}}, exitcode.Error},
 		{"plain", errors.New("network down"), exitcode.Error},
 	}

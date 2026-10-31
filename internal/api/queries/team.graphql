@@ -1514,3 +1514,12 @@ query TeamChatThreadAttributed(
     }
   }
 }
+
+# MCP cut C3: manager controls, deliberately not authored worker writes.
+mutation SetTeamPause($appRef: String!, $paused: Boolean!) {
+  setTeamPause(appRef: $appRef, paused: $paused) { teamPausedAt }
+}
+
+mutation ChangeWorkerAgent($workerRef: ID!, $agentRef: ID!) {
+  changeWorkerAgent(workerRef: $workerRef, agentRef: $agentRef) { ...WorkerFields }
+}
