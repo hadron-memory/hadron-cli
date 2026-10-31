@@ -49,7 +49,8 @@ type hostServer struct {
 
 func (s *hostServer) Register(ctx context.Context, r hostpoller.Registration) (hostpoller.RegisteredHost, error) {
 	in := &gen.RegisterHostInput{
-		AppRef: s.app, Label: r.Label, PollIntervalSeconds: r.PollIntervalSeconds,
+		Capabilities: append([]string{}, r.Capabilities...),
+		AppRef:       s.app, Label: r.Label, PollIntervalSeconds: r.PollIntervalSeconds,
 		Workers: []*gen.RegisterHostWorkerInput{},
 	}
 	for _, w := range r.Workers {
@@ -230,6 +231,12 @@ A worker.start waiting for its bind is re-delivered by each collect and
 skipped as in flight. The server must not re-mint its grant meanwhile (a
 re-collect omits a start whose grant is still live): run this against a
 server with that fix.
+
+Capabilities are an explicit full declaration on every registration refresh:
+add capabilities: [worker.reset-context] only for a driver that actually
+implements that operation. Omitted or [] means none. THIS POLLER DOES NOT
+implement worker.reset-context: leave capabilities empty for this runner;
+unknown operations remain failed. Declaring a capability adds no handler.
 
 The configuration (YAML):
 

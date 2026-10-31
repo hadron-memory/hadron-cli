@@ -208,7 +208,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 315: 223 command, 81 gap, 11 excluded
+[Mutation] 315: 224 command, 80 gap, 11 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -449,7 +449,7 @@ setAppTickerSettings  gap #1336
 setAssetPublicLink  command asset public-link
 setDashboardWidgets  excluded graphical: places portal dashboard widgets on a 12-column grid (position, span, rowSpan)
 setDecisionLogDeciders  gap #1335
-setHostWorkerAvailability  gap #1337
+setHostWorkerAvailability  command team host availability
 setHostWorkerTerminals  command team health sweep
 setMemorySourceToken  gap #60
 setModelFamilyAvailability  command team availability set
@@ -525,7 +525,7 @@ updateWorker  command team worker update
 withdrawDecision  gap #1335
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 180: 161 gap, 19 excluded
+[Arguments] 161: 142 gap, 19 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.addOrgMember(orgRef)  gap #1342: the CLI passes the deprecated orgId/userId
@@ -593,31 +593,15 @@ Mutation.deleteMemorySubscription(memoryId)  excluded deprecated: @deprecated: U
 Mutation.deleteMemorySubscription(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
 Mutation.deleteNode(cascadeCrossMemoryEdges)  gap #1341
 Mutation.encryptMemory(passphrase)  gap #1340
-Mutation.endSession(errorCount)  gap #1337
-Mutation.endSession(inputTokens)  gap #1337
-Mutation.endSession(outputTokens)  gap #1337
-Mutation.endSession(turnCount)  gap #1337
 Mutation.ensureAppMember(appId)  excluded deprecated: @deprecated: Use appRef (accepts id / URN).
 Mutation.ensureAppMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.mergeUsers(input.consentProof)  gap #1304
-Mutation.registerHost(input.capabilities)  gap #1337
 Mutation.removeAppMember(appId)  excluded deprecated: @deprecated: Use appRef (accepts id / URN).
 Mutation.removeAppMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.removeMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.removeMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.removeOrgMember(orgRef)  gap #1342: the CLI passes the deprecated orgId/userId
 Mutation.removeOrgMember(userRef)  gap #1342: the CLI passes the deprecated orgId/userId
-Mutation.resumeSession(input.description)  gap #1337
-Mutation.resumeSession(input.family)  gap #1337
-Mutation.startSession(input.agentRef)  gap #1337
-Mutation.startSession(input.customerId)  gap #1337
-Mutation.startSession(input.family)  gap #1337
-Mutation.startSession(input.language)  gap #1337
-Mutation.startSession(input.parentSessionId)  gap #1337
-Mutation.startSession(input.plan)  gap #1337
-Mutation.startSession(input.prNumber)  gap #1337
-Mutation.startSession(input.prevSessionId)  gap #1337
-Mutation.startSession(input.type)  gap #1337
 Mutation.updateAgent(listedOnMarketplace)  gap #58
 Mutation.updateAgent(registerDefaults)  gap #58
 Mutation.updateAgent(resetContextAfterTask)  gap #1043
@@ -697,15 +681,12 @@ Query.memories(orgId)  gap #1340
 Query.myUserApiKeys(includeHidden)  gap #1344
 Query.node(memoryRef)  gap #1341
 Query.nodeExport(sections)  gap #1341
-Query.sessionsPage(customerId)  gap #1337
-Query.sessionsPage(type)  gap #1337
 Query.teamAttentionPage(limit)  gap #828
 Query.teamAttentionPage(scanLimit)  gap #828
 Query.teamAttentionPreviewPage(limit)  gap #828
 Query.teamAttentionPreviewPage(scanLimit)  gap #828
 Query.teamChatMessages(teamHeadRef)  gap #936
 Query.teamChatMessages(untagged)  gap #936
-Query.teamWorkItems(workerRef)  gap #1337
 
 [Filters] 39: 30 flag, 9 gap
 Query.agents(filter.ownedByMe)  flag agent list --owned-by-me
