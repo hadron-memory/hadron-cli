@@ -440,7 +440,7 @@ func legacyChatReadOperation(op string) string {
 	switch op {
 	case "TeamChatReadHeadAttributed":
 		return "TeamChatReadHead"
-	case "TeamChatMessagesAttributed":
+	case "TeamChatMessagesAttributed", "TeamChatReadPageAttributed", "TeamChatReadPage":
 		return "TeamChatMessages"
 	case "TeamChatThreadAttributed":
 		return "TeamChatThread"
