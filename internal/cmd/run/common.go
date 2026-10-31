@@ -131,6 +131,11 @@ func writeRunDetail(w io.Writer, r appRunDTO) error {
 	if _, err := fmt.Fprintf(w, "run %s  %s  (%s)\n", output.SafeCell(r.ID), output.SafeCell(r.Status), output.SafeCell(r.TriggerKind)); err != nil {
 		return err
 	}
+	if fr := r.FailureReason; fr != nil {
+		fmt.Fprintf(w, "  reason %s  %s\n", output.SafeCell(fr.Kind), output.SafeCell(fr.Summary))
+		fmt.Fprintf(w, "  who can fix %s\n", output.SafeCell(fr.WhoCanFix))
+		fmt.Fprintf(w, "  next step %s\n", output.SafeCell(fr.NextStep))
+	}
 	fmt.Fprintf(w, "  app %s  org %s\n", output.SafeCell(r.AppID), output.SafeCell(r.OrganizationID))
 	fmt.Fprintf(w, "  entry %s\n", output.SafeCell(r.EntryNodeURN))
 	if r.CurNodeURN != nil && *r.CurNodeURN != "" {
@@ -141,7 +146,7 @@ func writeRunDetail(w io.Writer, r appRunDTO) error {
 		fmt.Fprintf(w, "  budget %s actions / %s tokens\n", optInt(r.BudgetActions), optInt(r.BudgetTokens))
 	}
 	if r.BudgetActionsInitial != nil || r.BudgetTokensInitial != nil {
-		fmt.Fprintf(w, "  initial budget %s actions / %s tokens\n", optInt(r.BudgetActionsInitial), optInt(r.BudgetTokensInitial))
+		fmt.Fprintf(w, "  initial budget %s actions / %s tokens\n", optUnknown(r.BudgetActionsInitial), optUnknown(r.BudgetTokensInitial))
 	}
 	fmt.Fprintf(w, "  created %s", output.SafeCell(r.CreatedAt))
 	if r.StartedAt != nil {
@@ -154,15 +159,19 @@ func writeRunDetail(w io.Writer, r appRunDTO) error {
 	if r.Data != nil {
 		fmt.Fprintf(w, "  data %s\n", output.SafeCell(string(*r.Data)))
 	}
-	if fr := r.FailureReason; fr != nil {
-		fmt.Fprintf(w, "  reason %s: %s\n", output.SafeCell(fr.Kind), output.SafeCell(fr.Summary))
-		fmt.Fprintf(w, "  who can fix: %s\n", output.SafeCell(fr.WhoCanFix))
-		fmt.Fprintf(w, "  next step: %s\n", output.SafeCell(fr.NextStep))
-	}
 	if r.Failure != nil {
 		fmt.Fprintf(w, "  failure %s\n", output.SafeCell(string(*r.Failure)))
 	}
 	return nil
+}
+
+// optUnknown is optInt for the fields whose null means UNKNOWN (initial
+// budgets, like cost): the same word everywhere.
+func optUnknown(v *int) string {
+	if v == nil {
+		return "unknown"
+	}
+	return fmt.Sprintf("%d", *v)
 }
 
 func optInt(v *int) string {
@@ -209,6 +218,10 @@ func costCell(r appRunDTO) string {
 
 func reasonCell(r appRunDTO) string {
 	if r.FailureReason == nil {
+		// A failed run the server gave no reason for is unknown, not blank.
+		if r.Status == "FAILED" {
+			return "unknown"
+		}
 		return "—"
 	}
 	return output.SafeCell(r.FailureReason.Kind)

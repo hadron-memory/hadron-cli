@@ -3103,9 +3103,11 @@ server error fails the command).
     the failure payload); `run cancel <id>` is the kill switch (requires `--yes`).
     `run get`/`run list` also carry (additive `--json` keys) `failureReason`
     `{kind, summary, whoCanFix, nextStep}` (server text, verbatim; null when no
-    failure), `costMicroCents` (exact decimal string, 1e-8 USD; null = UNKNOWN,
-    never 0) and `budgetActionsInitial`/`budgetTokensInitial` (int or null =
-    unknown). Human `run list` adds COST and REASON (kind) columns.
+    failure), `costMicroCents` (exact decimal string, 1e-8 USD; `"0"` is a real
+    recorded cost) and `budgetActionsInitial`/`budgetTokensInitial` (int). For
+    all three, null means unknown; it must not be read as zero. Human `run list`
+    adds COST and REASON (kind) columns; REASON is `unknown` for a FAILED run the
+    server gave no reason for, `—` for a run that did not fail.
   - `schedule create --app <ref> --name <n> --cron '<expr>' --entry <node-urn>`
     registers a recurring trigger (5-field cron, evaluated in `--tz`, default UTC;
     one-time `--at` is not yet a server capability). `--policy '<json>'` is a
