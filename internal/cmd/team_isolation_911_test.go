@@ -110,6 +110,9 @@ func TestC911IsolationUsageErrorsSendNoRequest(t *testing.T) {
 		{"team", "isolation", "set", "--worker", c1292Worker, "--until", "2999-01-01T00:00:00Z", "--for", "1h"},
 		{"team", "isolation", "set", "--worker", c1292Worker, "--until", "2000-01-01T00:00:00Z"},
 		{"team", "isolation", "set", "--worker", c1292Worker, "--until", "2999-01-01T00:00:00.5Z"},
+		{"team", "isolation", "set", "--worker", c1292Worker, "--until", "2999-01-01T00:00:00,5Z"},
+		{"team", "isolation", "set", "--worker", c1292Worker, "--until", "2999-01-01T00:00:00,0Z"},
+		{"team", "isolation", "set", "--worker", c1292Worker, "--until", "2999-01-01T00:00:00.000Z"},
 		{"team", "isolation", "set", "--worker", c1292Worker, "--until", "2999-01-01T00:00:00"},
 		{"team", "isolation", "set", "--worker", c1292Worker, "--until", "tomorrow"},
 		{"team", "isolation", "set", "--worker", c1292Worker, "--for", "0"},
@@ -211,5 +214,31 @@ func TestC911IsolationHelpStatesTheInertWireAndTheAudience(t *testing.T) {
 				t.Errorf("%s --help lacks %q", sub, want)
 			}
 		}
+	}
+}
+
+// While isolation is unavailable, set's help and its group-list entry say so
+// before anything else: a reader who stops at the first lines is not told set
+// works (UX review, cli#1386).
+func TestC911IsolationSetHelpLeadsWithTheRefusal(t *testing.T) {
+	_, out, err := runTeamTask(t, c911Responses(), "team", "isolation", "set", "--help")
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, _, _ := strings.Cut(out, "\n\n")
+	if !strings.Contains(first, "WORKER_ISOLATION_UNAVAILABLE (exit 5)") {
+		t.Errorf("set help must open with the refusal, first paragraph:\n%s", first)
+	}
+	_, out, err = runTeamTask(t, c911Responses(), "team", "isolation", "--help")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, line := range strings.Split(out, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "set ") && !strings.Contains(line, "refused") {
+			t.Errorf("group list entry for set must say it is refused today: %q", line)
+		}
+	}
+	if strings.Contains(out, "S7b") {
+		t.Errorf("help must not use the internal label S7b:\n%s", out)
 	}
 }
