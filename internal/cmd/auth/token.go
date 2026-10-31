@@ -233,9 +233,11 @@ own --label, so the list tells you what to revoke.
 
 Avoid leaving the token in terminal scrollback or logs: --json with jq, as
 below, writes it to a private temporary file, then links it to ci-token without
-overwriting an existing destination. The Bash example needs jq and mktemp. It
-stops before minting if ci-token exists (including a dangling symlink). A mint
-or JSON failure exits non-zero and removes only this run's temporary file;
+overwriting an existing destination. The Bash example needs jq, mktemp and
+GNU ln (its -T option refuses a directory or symlink-to-directory destination
+even if it appears during minting). It stops before minting if ci-token
+exists (including a dangling symlink). A mint or JSON failure exits non-zero
+and removes only this run's temporary file;
 it never removes ci-token. The new file has mode 600 (umask 077).`,
 		Example: `  hadron auth token create --label ci-deploy
   bash -c '
@@ -246,7 +248,7 @@ it never removes ci-token. The new file has mode 600 (umask 077).`,
     capture_cleanup() { rm -f "$capture_file"; }
     trap capture_cleanup EXIT
     hadron auth token create --label ci --json | jq -er .rawKey > "$capture_file"
-    ln "$capture_file" ci-token
+    ln -T "$capture_file" ci-token
   '`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
