@@ -1863,7 +1863,11 @@ Conventions:
   nothing. `spec lint` also
   warns (rule `vector-index`) when the memory has no
   vector index so spec abstracts aren't embedded for semantic `find`
-  (`--strict` promotes warnings to errors, exit 5). Two more warnings check
+  (`--strict` promotes warnings to errors, exit 5). A corpus-scope lint also
+  warns (rule `product-code`, once per code, #1147) when a product-rooted corpus
+  uses a product code that is not 3 lowercase letters: automatic numbering
+  (`spec new` without an explicit loc) cannot serve it, explicit locs still
+  work. Two more warnings check
   the abstract against its body (#335, spec 032), which matters because the
   abstract is the RAG retrieval surface — a drifted one answers a semantic
   query authoritatively and wrongly: `abstract-stale` when the stored

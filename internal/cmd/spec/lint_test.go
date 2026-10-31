@@ -1280,3 +1280,48 @@ func TestLintNodeAbstractLengthAppliesToAPlaceholderAbstract(t *testing.T) {
 		}
 	}
 }
+
+// #1147: automatic numbering (`spec new` without an explicit loc) needs a
+// 3-letter product code. A corpus rooted at any other code lints clean today,
+// so nothing warns until allocation fails. The finding is advisory only.
+func TestLintCorpusWarnsWhenProductCodeIsNotThreeLetters(t *testing.T) {
+	for _, product := range []string{"qa", "hadr"} {
+		nodes := []specNode{
+			{Loc: product + ":xyz", Name: product + ":xyz — M", NodeType: "info", Tags: []string{"spec"}},
+			{Loc: product + ":xyz:010", Name: product + ":xyz:010 — F", NodeType: "info", Tags: []string{"spec"}},
+		}
+		fs := lintCorpus(nodes, lintMem)
+		var got []lintFindingDTO
+		for _, f := range fs {
+			if f.Rule == "product-code" {
+				got = append(got, f)
+			}
+		}
+		if len(got) != 1 {
+			t.Fatalf("product %q: want exactly one product-code finding (once per code, not per node), got %v", product, fs)
+		}
+		if got[0].Severity != sevWarning || got[0].Citation != product {
+			t.Errorf("product %q: want a warning on the product code, got %+v", product, got[0])
+		}
+		if !strings.Contains(got[0].Message, "explicit") {
+			t.Errorf("message must say explicit locs still work: %q", got[0].Message)
+		}
+	}
+}
+
+func TestLintCorpusNoProductCodeWarningForAllocatableOrFreeformCorpora(t *testing.T) {
+	cases := map[string][]string{
+		"3-letter product": {"qat", "qat:xyz", "qat:xyz:010"},
+		"flat corpus":      {"msg", "msg:010", "msg:010:02"},
+		"freeform locs":    {"app:onb:mentor:screens:settings", "ab", "notes:2026"},
+	}
+	for name, locs := range cases {
+		var nodes []specNode
+		for _, l := range locs {
+			nodes = append(nodes, specNode{Loc: l, Name: l, NodeType: "info", Tags: []string{"spec"}})
+		}
+		if fs := lintCorpus(nodes, lintMem); hasRule(fs, "product-code") {
+			t.Errorf("%s: unexpected product-code finding: %v", name, fs)
+		}
+	}
+}
