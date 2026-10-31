@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -40,33 +41,55 @@ type appRunDTO struct {
 	CreatedAt      string           `json:"createdAt"`
 	StartedAt      *string          `json:"startedAt"`
 	FinishedAt     *string          `json:"finishedAt"`
+
+	// Additive (#1180): null stays null (unknown), never 0.
+	FailureReason        *failureReasonDTO `json:"failureReason"`
+	CostMicroCents       *string           `json:"costMicroCents"`
+	BudgetActionsInitial *int              `json:"budgetActionsInitial"`
+	BudgetTokensInitial  *int              `json:"budgetTokensInitial"`
+}
+
+// failureReasonDTO is the server's plain-words failure cause, verbatim.
+type failureReasonDTO struct {
+	Kind      string `json:"kind"`
+	Summary   string `json:"summary"`
+	WhoCanFix string `json:"whoCanFix"`
+	NextStep  string `json:"nextStep"`
 }
 
 func dtoFromFields(f gen.AppRunFields) appRunDTO {
+	var reason *failureReasonDTO
+	if fr := f.FailureReason; fr != nil {
+		reason = &failureReasonDTO{Kind: fr.Kind, Summary: fr.Summary, WhoCanFix: fr.WhoCanFix, NextStep: fr.NextStep}
+	}
 	return appRunDTO{
-		ID:             f.Id,
-		OrganizationID: f.OrganizationId,
-		AppID:          f.AppId,
-		AgentID:        f.AgentId,
-		Status:         string(f.Status),
-		TriggerKind:    string(f.TriggerKind),
-		TriggerID:      f.TriggerId,
-		EntryNodeURN:   f.EntryNodeUrn,
-		CurNodeURN:     f.CurNodeUrn,
-		UserID:         f.UserId,
-		CreatedBy:      f.CreatedBy,
-		ParentRunID:    f.ParentRunId,
-		Attempts:       f.Attempts,
-		BudgetActions:  f.BudgetActions,
-		BudgetTokens:   f.BudgetTokens,
-		TimeoutMs:      f.TimeoutMs,
-		Policy:         f.Policy,
-		EventData:      f.EventData,
-		Data:           f.Data,
-		Failure:        f.Failure,
-		CreatedAt:      f.CreatedAt,
-		StartedAt:      f.StartedAt,
-		FinishedAt:     f.FinishedAt,
+		FailureReason:        reason,
+		CostMicroCents:       f.CostMicroCents,
+		BudgetActionsInitial: f.BudgetActionsInitial,
+		BudgetTokensInitial:  f.BudgetTokensInitial,
+		ID:                   f.Id,
+		OrganizationID:       f.OrganizationId,
+		AppID:                f.AppId,
+		AgentID:              f.AgentId,
+		Status:               string(f.Status),
+		TriggerKind:          string(f.TriggerKind),
+		TriggerID:            f.TriggerId,
+		EntryNodeURN:         f.EntryNodeUrn,
+		CurNodeURN:           f.CurNodeUrn,
+		UserID:               f.UserId,
+		CreatedBy:            f.CreatedBy,
+		ParentRunID:          f.ParentRunId,
+		Attempts:             f.Attempts,
+		BudgetActions:        f.BudgetActions,
+		BudgetTokens:         f.BudgetTokens,
+		TimeoutMs:            f.TimeoutMs,
+		Policy:               f.Policy,
+		EventData:            f.EventData,
+		Data:                 f.Data,
+		Failure:              f.Failure,
+		CreatedAt:            f.CreatedAt,
+		StartedAt:            f.StartedAt,
+		FinishedAt:           f.FinishedAt,
 	}
 }
 
@@ -113,9 +136,12 @@ func writeRunDetail(w io.Writer, r appRunDTO) error {
 	if r.CurNodeURN != nil && *r.CurNodeURN != "" {
 		fmt.Fprintf(w, "  at %s\n", output.SafeCell(*r.CurNodeURN))
 	}
-	fmt.Fprintf(w, "  attempts %d\n", r.Attempts)
+	fmt.Fprintf(w, "  attempts %d  cost %s\n", r.Attempts, formatCost(r.CostMicroCents))
 	if r.BudgetActions != nil || r.BudgetTokens != nil {
 		fmt.Fprintf(w, "  budget %s actions / %s tokens\n", optInt(r.BudgetActions), optInt(r.BudgetTokens))
+	}
+	if r.BudgetActionsInitial != nil || r.BudgetTokensInitial != nil {
+		fmt.Fprintf(w, "  initial budget %s actions / %s tokens\n", optInt(r.BudgetActionsInitial), optInt(r.BudgetTokensInitial))
 	}
 	fmt.Fprintf(w, "  created %s", output.SafeCell(r.CreatedAt))
 	if r.StartedAt != nil {
@@ -128,6 +154,11 @@ func writeRunDetail(w io.Writer, r appRunDTO) error {
 	if r.Data != nil {
 		fmt.Fprintf(w, "  data %s\n", output.SafeCell(string(*r.Data)))
 	}
+	if fr := r.FailureReason; fr != nil {
+		fmt.Fprintf(w, "  reason %s: %s\n", output.SafeCell(fr.Kind), output.SafeCell(fr.Summary))
+		fmt.Fprintf(w, "  who can fix: %s\n", output.SafeCell(fr.WhoCanFix))
+		fmt.Fprintf(w, "  next step: %s\n", output.SafeCell(fr.NextStep))
+	}
 	if r.Failure != nil {
 		fmt.Fprintf(w, "  failure %s\n", output.SafeCell(string(*r.Failure)))
 	}
@@ -139,4 +170,46 @@ func optInt(v *int) string {
 		return "—"
 	}
 	return fmt.Sprintf("%d", *v)
+}
+
+// formatCost renders a micro-cent count (1e-8 USD, a decimal string) as exact
+// dollars, e.g. "1050000" -> "$0.0105 (1050000 micro-cents)". Digit-string
+// arithmetic, never a float, so any magnitude stays exact. nil is UNKNOWN and
+// says so — it is never shown as zero.
+func formatCost(mc *string) string {
+	if mc == nil {
+		return "unknown"
+	}
+	s := *mc
+	if s == "" || strings.Trim(s, "0123456789") != "" {
+		return output.SafeCell(s)
+	}
+	digits := strings.TrimLeft(s, "0")
+	for len(digits) < 9 {
+		digits = "0" + digits
+	}
+	whole, frac := digits[:len(digits)-8], strings.TrimRight(digits[len(digits)-8:], "0")
+	for len(frac) < 2 {
+		frac += "0"
+	}
+	return fmt.Sprintf("$%s.%s (%s micro-cents)", whole, frac, s)
+}
+
+// costCell and reasonCell are the compact `run list` columns.
+func costCell(r appRunDTO) string {
+	if r.CostMicroCents == nil {
+		return "unknown"
+	}
+	c := formatCost(r.CostMicroCents)
+	if i := strings.Index(c, " ("); i > 0 {
+		c = c[:i]
+	}
+	return c
+}
+
+func reasonCell(r appRunDTO) string {
+	if r.FailureReason == nil {
+		return "—"
+	}
+	return output.SafeCell(r.FailureReason.Kind)
 }
