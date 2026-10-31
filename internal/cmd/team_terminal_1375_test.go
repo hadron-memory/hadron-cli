@@ -149,7 +149,7 @@ func TestTeamRosterOlderServerRefusesAsSchemaSkew(t *testing.T) {
 	}
 	// The command maps the raw validation failure to the schema-skew usage
 	// refusal (exit 2) and carries what the server said.
-	if got := exitcode.FromError(err); got != exitcode.Usage {
+	if got := exitCodeFor(err); got != exitcode.Usage {
 		t.Errorf("exit code = %d, want Usage (%d): %v", got, exitcode.Usage, err)
 	}
 	if !strings.Contains(err.Error(), "out of sync") || !strings.Contains(err.Error(), "terminal") {
