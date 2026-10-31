@@ -525,7 +525,7 @@ updateWorker  command team worker update
 withdrawDecision  gap #1335
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 181: 162 gap, 19 excluded
+[Arguments] 180: 161 gap, 19 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.addOrgMember(orgRef)  gap #1342: the CLI passes the deprecated orgId/userId
@@ -706,7 +706,6 @@ Query.teamAttentionPreviewPage(scanLimit)  gap #828
 Query.teamChatMessages(teamHeadRef)  gap #936
 Query.teamChatMessages(untagged)  gap #936
 Query.teamWorkItems(workerRef)  gap #1337
-Query.worker(appRef)  gap #1336
 
 [Filters] 39: 30 flag, 9 gap
 Query.agents(filter.ownedByMe)  flag agent list --owned-by-me

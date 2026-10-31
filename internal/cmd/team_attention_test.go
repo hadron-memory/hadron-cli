@@ -75,6 +75,9 @@ func attnServerHook(t *testing.T, responses map[string]string, onOp func(op stri
 		if !ok {
 			resp, ok = responses[body.OperationName]
 		}
+		if !ok {
+			resp, ok = workerFromStaff(responses, body.OperationName, rawBody.Variables)
+		}
 		if !ok && (body.OperationName == "TeamChatReadHead" || body.OperationName == "TeamChatReadMetadata") {
 			resp, ok = teamReadHeadFixture(responses["TeamChatMessages"]), true
 		}

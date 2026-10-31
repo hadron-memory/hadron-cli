@@ -40,6 +40,9 @@ func fakeGraphQL(t *testing.T, responses map[string]string) *httptest.Server {
 		body.OperationName = legacyChatReadOperation(body.OperationName)
 		resp, ok := responses[body.OperationName]
 		if !ok {
+			resp, ok = workerFromStaff(responses, body.OperationName, body.Variables)
+		}
+		if !ok {
 			if body.OperationName == "TeamChatReadHead" || body.OperationName == "TeamChatReadMetadata" {
 				resp, ok = teamReadHeadFixture(responses["TeamChatMessages"]), true
 			} else {
@@ -55,6 +58,54 @@ func fakeGraphQL(t *testing.T, responses map[string]string) *httptest.Server {
 	}))
 	t.Cleanup(server.Close)
 	return server
+}
+
+// workerFromStaff answers an UNSTUBBED single-worker read from the test's own
+// Workers fixture, the way a real server serves one worker the list shows:
+// GetWorker by id; GetWorkerInApp / GetWorkerIdInApp (worker(appRef:, ref:),
+// cli#1459) by id or by NAME, case-insensitively, refusing WORKER_NOT_FOUND
+// for a name the fixture does not list, as the server's name form does.
+//
+// Name resolution reads ONE worker this way instead of paging the staff. A
+// test that stubs only the staff list describes that worker already; without
+// this every such fixture would need a hand-kept copy of it. An explicit stub
+// of the read still wins, and GetWorker for an id the fixture does not list
+// stays unanswered (the caller's not-found path).
+func workerFromStaff(responses map[string]string, op string, vars json.RawMessage) (string, bool) {
+	staff, ok := responses["Workers"]
+	byName := op == "GetWorkerInApp" || op == "GetWorkerIdInApp"
+	if !ok || (op != "GetWorker" && !byName) {
+		return "", false
+	}
+	var v struct {
+		Ref string `json:"ref"`
+	}
+	var list struct {
+		Data struct {
+			Workers struct {
+				Items []json.RawMessage `json:"items"`
+			} `json:"workers"`
+		} `json:"data"`
+	}
+	if json.Unmarshal(vars, &v) != nil || json.Unmarshal([]byte(staff), &list) != nil {
+		return "", false
+	}
+	for _, item := range list.Data.Workers.Items {
+		var w struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		}
+		if json.Unmarshal(item, &w) != nil {
+			continue
+		}
+		if w.ID == v.Ref || (byName && strings.EqualFold(w.Name, strings.TrimSpace(v.Ref))) {
+			return `{"data":{"worker":` + string(item) + `}}`, true
+		}
+	}
+	if byName {
+		return `{"errors":[{"message":"Worker not found.","extensions":{"code":"WORKER_NOT_FOUND"}}]}`, true
+	}
+	return "", false
 }
 
 // pageBeyondFirst models a real server for a STATIC list fixture: the fixture is
