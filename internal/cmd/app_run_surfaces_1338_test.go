@@ -3,9 +3,14 @@ package cmd
 import (
 	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 )
 
 const grant1338 = `{"id":"g1","appId":"a1","memoryUrn":"hrn:mem:acme.com:notes","prefix":"reports","registerNodeUrn":null,"grantedBy":"u1","createdAt":"2026-10-31T00:00:00Z","revokedAt":null,"revokedBy":null}`
@@ -109,10 +114,14 @@ func TestAppRunSurfaces1338NullAndRefusal(t *testing.T) {
 			for _, refusal := range []struct {
 				code string
 				exit int
-			}{{"FORBIDDEN", 8}, {"UNAUTHENTICATED", 3}, {"AVAILABILITY_NOT_PERMITTED", 8}} {
+			}{{"FORBIDDEN", 8}, {"UNAUTHENTICATED", 3}, {"AVAILABILITY_NOT_PERMITTED", 8}, {"PERMISSION_DENIED", 8}, {"NOT_FOUND", 4}, {"BAD_USER_INPUT", 2}} {
 				calls, out, err := runTeamTask(t, map[string]string{tc.op: `{"errors":[{"message":"refused","extensions":{"code":"` + refusal.code + `"}}]}`}, append(tc.args, "--json")...)
 				var coded interface{ ServerCode() string }
-				if exitCodeFor(err) != refusal.exit || !errors.As(err, &coded) || coded.ServerCode() != refusal.code || out != "" || len(*calls) != 1 || (*calls)[0].Op != tc.op {
+				wantExit := refusal.exit
+				if refusal.code == "PERMISSION_DENIED" && tc.op != "SetAgentAssetUploadEnabled" {
+					wantExit = 1 // only this new operation adds the admin-refusal mapping
+				}
+				if exitCodeFor(err) != wantExit || !errors.As(err, &coded) || coded.ServerCode() != refusal.code || out != "" || len(*calls) != 1 || (*calls)[0].Op != tc.op {
 					t.Fatalf("code=%s err=%v out=%s calls=%v", refusal.code, err, out, *calls)
 				}
 			}
@@ -193,5 +202,61 @@ func TestAppRunSurfaces1338MalformedAndNullableResults(t *testing.T) {
 		if exitCodeFor(err) != 1 || out != "" {
 			t.Fatalf("setting mismatch forged success: %v %s", err, out)
 		}
+	}
+}
+
+func TestAppRunSurfaces1338AvailabilitySendsOnce(t *testing.T) {
+	for _, tc := range surfaceCases1338() {
+		t.Run(tc.name, func(t *testing.T) {
+			var calls atomic.Int32
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				calls.Add(1)
+				var body struct {
+					OperationName string `json:"operationName"`
+				}
+				if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+					t.Error(err)
+				}
+				if body.OperationName != tc.op {
+					t.Errorf("unexpected fallback %s", body.OperationName)
+				}
+				http.Error(w, "unavailable", http.StatusServiceUnavailable)
+			}))
+			defer srv.Close()
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append(append([]string{}, tc.args...), "--json", "--server", srv.URL))
+			err := root.Execute()
+			if exitCodeFor(err) != 7 || calls.Load() != 1 || out.Len() != 0 {
+				t.Fatalf("err=%v calls=%d out=%s", err, calls.Load(), out.String())
+			}
+		})
+	}
+}
+
+func TestAppRunSurfaces1338IdentitySelection(t *testing.T) {
+	// Inspect the generated document actually sent, not captured variables.
+	fields := []string{}
+	for _, line := range strings.Split(gen.MyApp_Operation, "\n") {
+		field := strings.TrimSpace(line)
+		if field == "" || strings.ContainsAny(field, "{}") {
+			continue
+		}
+		fields = append(fields, field)
+	}
+	if !reflect.DeepEqual(fields, []string{"id", "urn", "name", "appType", "description"}) {
+		t.Fatalf("identity selection widened: %v", fields)
+	}
+}
+
+func TestAppRunSurfaces1338ConcealedMemoryText(t *testing.T) {
+	response := `{"data":{"appMemoryWriteGrants":[` + strings.Replace(grant1338, `"memoryUrn":"hrn:mem:acme.com:notes"`, `"memoryUrn":null`, 1) + `]}}`
+	_, out, err := runTeamTask(t, map[string]string{"AppMemoryWriteGrants": response}, "app", "memory-grant", "list", "acme.com:team")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cells := strings.Fields(out)
+	if len(cells) != 10 || cells[6] != "?" || cells[8] != "-" || cells[9] != "-" {
+		t.Fatalf("concealed memory must differ from null metadata: %s", out)
 	}
 }

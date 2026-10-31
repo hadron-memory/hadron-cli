@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -84,7 +85,7 @@ A lost reply is an unknown outcome; this command never retries the mutation.`, E
 			if ref == "" {
 				return exitcode.Newf(exitcode.Usage, "pass an Agent ID or fully qualified URN")
 			}
-			if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("%s asset upload for Agent %s's backing App?", name, output.SafeCell(ref))); err != nil {
+			if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("%s asset upload for Agent %s's backing App?", name, strconv.Quote(ref))); err != nil {
 				return err
 			}
 			client, err := f.GraphQLClient()
@@ -93,6 +94,12 @@ A lost reply is an unknown outcome; this command never retries the mutation.`, E
 			}
 			r, err := gen.SetAgentAssetUploadEnabled(cmd.Context(), client, &gen.SetAgentAssetUploadEnabledInput{AgentUrn: ref, Enabled: enabled})
 			if err != nil {
+				// The asset setting uses PERMISSION_DENIED for an authenticated
+				// non-admin. Scope this exit to the operation: legacy asset delete/
+				// restore deliberately keep their established exit 1.
+				if api.HasErrorCode(err, "PERMISSION_DENIED") {
+					return exitcode.New(exitcode.Forbidden, api.MapErrorKeepingCode(err))
+				}
 				return api.MapErrorKeepingCode(err)
 			}
 			if r == nil || r.SetAgentAssetUploadEnabled == nil {
@@ -104,7 +111,7 @@ A lost reply is an unknown outcome; this command never retries the mutation.`, E
 			}
 			d := assetUploadDTO{AppID: a.Id, AppURN: a.Urn, AgentRef: ref, Enabled: enabled}
 			return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "app: %s\nagent: %s\nasset upload enabled: %t\n", output.SafeCell(d.AppURN), output.SafeCell(d.AgentRef), d.Enabled)
+				_, err := fmt.Fprintf(w, "app: %s\nagent: %s\nasset upload enabled: %t\n", output.SafeCell(d.AppURN), strconv.Quote(d.AgentRef), d.Enabled)
 				return err
 			})
 		}}

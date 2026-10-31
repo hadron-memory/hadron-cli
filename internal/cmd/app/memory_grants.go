@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -32,9 +33,17 @@ func memoryGrantFrom(g gen.AppMemoryGrantFields) (memoryGrantDTO, error) {
 	return memoryGrantDTO{ID: g.Id, AppID: g.AppId, MemoryURN: g.MemoryUrn, Prefix: g.Prefix, RegisterNodeURN: g.RegisterNodeUrn, GrantedBy: g.GrantedBy, CreatedAt: g.CreatedAt, RevokedAt: g.RevokedAt, RevokedBy: g.RevokedBy}, nil
 }
 
+// A null memory URN may be concealed; distinguish it from absent optional metadata.
+func memoryGrantMemoryText(value *string) string {
+	if value == nil {
+		return "?"
+	}
+	return *value
+}
+
 func writeMemoryGrant(f *cmdutil.Factory, d memoryGrantDTO) error {
 	return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
-		_, err := fmt.Fprintf(w, "id: %s\napp: %s\nmemory: %s\nprefix: %s\nregister: %s\ngranted by: %s\ncreated: %s\nrevoked: %s\nrevoked by: %s\n", output.SafeCell(d.ID), output.SafeCell(d.AppID), output.SafeCell(optionalReadText(d.MemoryURN)), output.SafeCell(d.Prefix), output.SafeCell(optionalReadText(d.RegisterNodeURN)), output.SafeCell(d.GrantedBy), output.SafeCell(d.CreatedAt), output.SafeCell(optionalReadText(d.RevokedAt)), output.SafeCell(optionalReadText(d.RevokedBy)))
+		_, err := fmt.Fprintf(w, "id: %s\napp: %s\nmemory: %s\nprefix: %s\nregister: %s\ngranted by: %s\ncreated: %s\nrevoked: %s\nrevoked by: %s\n", output.SafeCell(d.ID), output.SafeCell(d.AppID), output.SafeCell(memoryGrantMemoryText(d.MemoryURN)), output.SafeCell(d.Prefix), output.SafeCell(optionalReadText(d.RegisterNodeURN)), output.SafeCell(d.GrantedBy), output.SafeCell(d.CreatedAt), output.SafeCell(optionalReadText(d.RevokedAt)), output.SafeCell(optionalReadText(d.RevokedBy)))
 		return err
 	})
 }
@@ -74,7 +83,7 @@ The target App, memory and prefix are confirmed before sending. Scripts need
 outcome: list the App's grants before retrying. The server decides whether an
 existing live grant is reused. No file, credential or source content is read.
 JSON is the returned grant metadata; nullable memory/citation/revoker fields
-stay null. Human output uses - for a null value, not a claim of absence.`, Example: `  hadron app memory-grant add acme.com:team --memory acme.com:notes --prefix reports:team --yes
+stay null. Human output uses ? for a concealed/null memory and - for other null metadata.`, Example: `  hadron app memory-grant add acme.com:team --memory acme.com:notes --prefix reports:team --yes
   hadron app memory-grant add acme.com:team --memory acme.com:notes --prefix reports --register-node hrn:node:acme.com:notes:register:1 --yes --json`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		ref, err := requiredReadAppRef(args[0])
 		if err != nil {
@@ -91,7 +100,7 @@ stay null. Human output uses - for a null value, not a claim of absence.`, Examp
 			}
 			citation = &register
 		}
-		if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("Grant App %s writes in memory %s under prefix %s?", output.SafeCell(ref), output.SafeCell(memoryRef), output.SafeCell(prefix))); err != nil {
+		if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("Grant App %s writes in memory %s under prefix %s?", strconv.Quote(ref), strconv.Quote(memoryRef), strconv.Quote(prefix))); err != nil {
 			return err
 		}
 		client, err := f.GraphQLClient()
@@ -127,7 +136,7 @@ unless --include-revoked is true. Personal/private grants belonging to someone
 else are hidden by the server, so this is not an inventory of hidden grants.
 Pass an explicit App ID, URN or root:slug; ambient --app is not the target.
 JSON is an array of grant metadata ([] when empty), with nullable fields kept
-as null. Text shows - for null values. No keys or node content are requested.`, Example: `  hadron app memory-grant list acme.com:team --json
+as null. Text shows ? for a null memory and - for other null metadata. No keys or node content are requested.`, Example: `  hadron app memory-grant list acme.com:team --json
   hadron app memory-grant list acme.com:team --include-revoked`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		ref, err := requiredReadAppRef(args[0])
 		if err != nil {
@@ -163,7 +172,7 @@ as null. Text shows - for null values. No keys or node content are requested.`, 
 			t := output.NewTable(w)
 			t.Row("ID", "MEMORY", "PREFIX", "REGISTER", "REVOKED")
 			for _, d := range rows {
-				t.Row(output.SafeCell(d.ID), output.SafeCell(optionalReadText(d.MemoryURN)), output.SafeCell(d.Prefix), output.SafeCell(optionalReadText(d.RegisterNodeURN)), output.SafeCell(optionalReadText(d.RevokedAt)))
+				t.Row(output.SafeCell(d.ID), output.SafeCell(memoryGrantMemoryText(d.MemoryURN)), output.SafeCell(d.Prefix), output.SafeCell(optionalReadText(d.RegisterNodeURN)), output.SafeCell(optionalReadText(d.RevokedAt)))
 			}
 			return t.Flush()
 		})
@@ -184,7 +193,7 @@ metadata including revokedAt; human output preserves nullable metadata as -.`, E
 		if id == "" {
 			return exitcode.Newf(exitcode.Usage, "pass the grant ID from app memory-grant list")
 		}
-		if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("Revoke memory write grant %s?", output.SafeCell(id))); err != nil {
+		if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("Revoke memory write grant %s?", strconv.Quote(id))); err != nil {
 			return err
 		}
 		client, err := f.GraphQLClient()
