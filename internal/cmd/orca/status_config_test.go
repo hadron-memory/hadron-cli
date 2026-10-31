@@ -22,7 +22,6 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
 	"github.com/hadron-memory/hadron-cli/internal/orcaterm"
 	"github.com/hadron-memory/hadron-cli/internal/output"
-	ts "github.com/hadron-memory/hadron-cli/internal/terminalstatus"
 )
 
 // sentinelKey is the host key every custody pin looks for in places it must
@@ -211,6 +210,9 @@ func TestStatusConfigReadsTheConfigsAppWithTheHostKey(t *testing.T) {
 	if !strings.Contains(h.errs.String(), "scope: App hrn:app:acme.com:eng-team (from --config") {
 		t.Fatalf("scope line: %q", h.errs.String())
 	}
+	if strings.Contains(h.errs.String(), sentinelKey) {
+		t.Fatalf("key in the scope line: %q", h.errs.String())
+	}
 }
 
 // B1: --all under --config is the App's active workers that match a
@@ -236,7 +238,7 @@ func TestStatusConfigAllCoversConfiguredWorkersOnly(t *testing.T) {
 // idle fails closed, busy and locked are untouched, exit 0, detail text-only.
 func TestStatusConfigTickerRefusalFailsIdleClosed(t *testing.T) {
 	h := newHostRig(t)
-	h.reads.workers = []Worker{{ID: "w_i", Name: "Iris"}, {ID: "w_a", Name: "Ada"}}
+	h.reads.workers = []Worker{{ID: "w_i", Name: "Iris"}, {ID: "w_a", URN: "hrn:worker:acme.com:eng-team:ada", Name: "Ada"}}
 	h.reads.subsErr = errors.New("APP_NOT_FOUND")
 	h.orca.terms = append(h.orca.terms, term("term_i", "/w/iris", "claude"), term("term_a", "/w/ada", "claude"))
 	h.orca.screens["term_i"], h.orca.screens["term_a"] = idleScreen, busyScreen
@@ -287,8 +289,7 @@ func TestStatusConfigDueRefusalFailsIdleClosed(t *testing.T) {
 // binding's App is ignored), and fails closed.
 func TestStatusConfigIgnoresTheTerminalBindingsApp(t *testing.T) {
 	h := newHostRig(t)
-	h.reads.workers = []Worker{{ID: "w_i", Name: "Iris"}}
-	h.reads.subs = map[string][]ts.Ticker{} // cfg.App knows no subscription for the bound worker
+	h.reads.workers = []Worker{{ID: "w_i", Name: "Iris"}} // cfg.App does not list the bound worker
 	h.orca.terms = append(h.orca.terms, term("term_x", "/w/other", "claude"))
 	h.orca.screens["term_x"] = idleScreen
 	h.env.BoundAt = func(context.Context, string) (Bound, bool) {
