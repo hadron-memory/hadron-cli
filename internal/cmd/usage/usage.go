@@ -35,15 +35,15 @@ type summaryDTO struct {
 }
 
 func NewCmdUsage(f *cmdutil.Factory) *cobra.Command {
-	cmd := &cobra.Command{Use: "usage <command>", Short: "See what AI usage happened (not billing balances)", Long: "Look at the record of AI calls made in your memories: when, which model, how many\ntokens, and what it cost. This is the activity log; for how much credit an\norganization has left, use \"hadron billing balance\". Start with \"usage events\".", Example: "  hadron usage events --memory hrn:mem:acme.com:notes --limit 50"}
-	cmd.AddCommand(newEvents(f))
+	cmd := &cobra.Command{Use: "usage <command>", Short: "Read activity counts and AI usage events (not billing balances)", Long: "Look at read/write activity counts with \"usage activity\", or AI-call events\n(model, tokens and recorded cost) with \"usage events\". For organization\ncredit, use \"hadron billing balance\".", Example: "  hadron usage events --memory hrn:mem:acme.com:notes --limit 50"}
+	cmd.AddCommand(newEvents(f), newActivity(f))
 	return cmd
 }
 func newEvents(f *cmdutil.Factory) *cobra.Command {
-	var memory, loc, eventType, since, until string
+	var memory, loc, node, eventType, since, until string
 	var limit, offset int
 	cmd := &cobra.Command{
-		Use:   "events [--memory <ref>] [--loc <loc>] [--type <type>] [--since <time>] [--until <time>] [--limit N] [--offset N]",
+		Use:   "events [--memory <ref>] [--loc <loc> | --node <ref>] [--type <type>] [--since <time>] [--until <time>] [--limit N] [--offset N]",
 		Short: "Read one page of accessible usage events",
 		Long: `List recent AI usage events, newest first: when each happened, its type, the
 memory and node it was for, the provider and model, tokens in and out, and what
@@ -66,7 +66,9 @@ just the memories you can read. To answer "what happened last week", give both
 bounds and page with --offset.
 
 --memory is a memory ID or URN (for example hrn:mem:acme.com:notes). --loc is an exact
-node loc, including hierarchical ones such as notes:ideas. --type is an exact
+node loc, including hierarchical ones such as notes:ideas. --node instead takes
+a node PK or fully-qualified node URN; it cannot be combined with --loc. The
+CLI does not resolve a loc to a node; pass a PK or fully-qualified node URN. --type is an exact
 event type. Leave a flag out for no filter; an empty value is refused.
 
 COST is in micro-cents: 1 USD = 100,000,000 micro-cents (so 5000000 is 0.05 USD,
@@ -92,6 +94,24 @@ Details:
 			}
 			if offset < 0 {
 				return exitcode.Newf(exitcode.Usage, "--offset must be non-negative")
+			}
+			if cmd.Flags().Changed("node") && cmd.Flags().Changed("loc") {
+				return exitcode.Newf(exitcode.Usage, "--node and --loc cannot be combined")
+			}
+			var nodeArg *string
+			if cmd.Flags().Changed("node") {
+				if strings.TrimSpace(node) == "" {
+					return exitcode.Newf(exitcode.Usage, "--node must not be empty; omit it for no filter")
+				}
+				v := node
+				if !cmdutil.IsEntityID(v) {
+					var err error
+					v, err = cmdutil.CanonicalNodeURN(v)
+					if err != nil {
+						return err
+					}
+				}
+				nodeArg = &v
 			}
 			var mem, locArg, typeArg *string
 			for _, arg := range []struct {
@@ -121,7 +141,7 @@ Details:
 			if err != nil {
 				return err
 			}
-			resp, err := gen.UsageEvents(cmd.Context(), client, mem, locArg, typeArg, limit, off, sinceArg, untilArg)
+			resp, err := gen.UsageEvents(cmd.Context(), client, mem, locArg, nodeArg, typeArg, limit, off, sinceArg, untilArg)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -150,6 +170,7 @@ Details:
 		},
 	}
 	cmd.Flags().StringVar(&memory, "memory", "", "memory id or URN to filter")
+	cmd.Flags().StringVar(&node, "node", "", "node PK or fully-qualified URN to filter; excludes --loc")
 	cmd.Flags().StringVar(&loc, "loc", "", "verbatim exact node loc to filter")
 	cmd.Flags().StringVar(&eventType, "type", "", "exact event type to filter")
 	cmd.Flags().StringVar(&since, "since", "", "ISO date-time with Z or an offset; events at or after it (inclusive)")

@@ -119,7 +119,7 @@ func TestUsage65ActualDocumentUsesLoc(t *testing.T) {
 		t.Fatal(field.Name)
 	}
 	loc := field.Arguments.ForName("loc")
-	if loc == nil || loc.Value.Raw != "loc" || field.Arguments.ForName("nodeId") != nil {
-		t.Fatal("actual generated document must use loc, never nodeId")
+	if loc == nil || loc.Value.Raw != "loc" || field.Arguments.ForName("nodeId") == nil || field.Arguments.ForName("nodeId").Value.Raw != "nodeId" {
+		t.Fatal("actual document must keep loc and nodeId as distinct variables")
 	}
 }
