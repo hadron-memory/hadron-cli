@@ -31,7 +31,11 @@ func TestAppKeyCreateExplicitEmptyLabelRefusedBeforeFileAndRequest(t *testing.T)
 			if n.Load() != 0 {
 				t.Errorf("%d request(s) sent, want none", n.Load())
 			}
-			if ents, _ := os.ReadDir(dir); len(ents) != 0 {
+			ents, rerr := os.ReadDir(dir)
+			if rerr != nil {
+				t.Fatalf("cannot read the output dir, so the no-file assertion would be vacuous: %v", rerr)
+			}
+			if len(ents) != 0 {
 				t.Errorf("file created before the refusal: %v", ents)
 			}
 		})
@@ -40,10 +44,20 @@ func TestAppKeyCreateExplicitEmptyLabelRefusedBeforeFileAndRequest(t *testing.T)
 
 // Control: no --label at all still mints with the server's default label.
 func TestAppKeyCreateUnsetLabelStillMints(t *testing.T) {
-	srv, n := keyServer(t, 200, createdKey1223)
+	srv, n, reqs := keyServerCapture(t, 200, createdKey1223)
 	r := runKeyCreate(t, srv, app1223, "--out", filepath.Join(t.TempDir(), "host.key"))
 	if r.err != nil || n.Load() != 1 {
 		t.Fatalf("unset --label must mint once: err=%v n=%d", r.err, n.Load())
+	}
+	// The wire must carry no label at all: not "" and not null (the server reads
+	// an omitted field as "use the default").
+	got := reqs()
+	if len(got) != 1 {
+		t.Fatalf("requests = %d", len(got))
+	}
+	vars, _ := got[0]["variables"].(map[string]any)
+	if v, present := vars["label"]; present {
+		t.Errorf("label must be omitted from the mutation variables, got %#v", v)
 	}
 }
 
@@ -100,6 +114,9 @@ func TestAppKeyCreateInternalErrorGetsLostAnswerWording(t *testing.T) {
 	if c := exitCodeFor(r.err); c != 1 {
 		t.Fatalf("want exit 1, got %d: %v", c, r.err)
 	}
+	if strings.Contains(r.all(), "boom") {
+		t.Errorf("the server's message must not be echoed on the credential-minting path: %q", r.all())
+	}
 	for _, want := range []string{"answer was lost", "orca1 poller", "hadron app key list " + app1223, "revoke"} {
 		if !strings.Contains(r.all(), want) {
 			t.Errorf("message missing %q: %q", want, r.all())
@@ -109,4 +126,18 @@ func TestAppKeyCreateInternalErrorGetsLostAnswerWording(t *testing.T) {
 		t.Errorf("requests = %d, want 1 (never retried)", n.Load())
 	}
 	assertNoRawKey(t, r)
+}
+
+// The same non-echo holds for a transport-class lost answer, whose body can quote
+// anything (a gateway page): mutant H (appending the server text) must die here
+// too, in a key-create test and not only in the generic help contract.
+func TestAppKeyCreateLostAnswerTransportDoesNotEchoServerBody(t *testing.T) {
+	srv, _ := keyServer(t, 502, "<html>gateway-secret-marker</html>")
+	r := runKeyCreate(t, srv, app1223, "--out", filepath.Join(t.TempDir(), "host.key"), "--label", "orca1 poller")
+	if r.err == nil {
+		t.Fatal("must fail")
+	}
+	if strings.Contains(r.all(), "gateway-secret-marker") {
+		t.Errorf("server body echoed: %q", r.all())
+	}
 }
