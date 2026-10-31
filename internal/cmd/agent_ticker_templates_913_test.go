@@ -47,6 +47,10 @@ func TestTemplate913CreateAndUpdatePresence(t *testing.T) {
 	}{
 		{[]string{"create", "a1", "--name", "Heartbeat", "--cadence-seconds", "60"}, "CreateAgentTickerTemplate", map[string]any{"name": "Heartbeat", "cadenceSeconds": float64(60)}},
 		{[]string{"update", "tpl1", "--expected-revision", "3", "--name", "New"}, "UpdateAgentTickerTemplate", map[string]any{"name": "New"}},
+		{[]string{"update", "tpl1", "--expected-revision", "3", "--cadence-seconds", "7200"}, "UpdateAgentTickerTemplate", map[string]any{"cadenceSeconds": float64(7200)}},
+		{[]string{"update", "tpl1", "--expected-revision", "3", "--relevance", "mentions"}, "UpdateAgentTickerTemplate", map[string]any{"relevance": "MENTIONS"}},
+		{[]string{"update", "tpl1", "--expected-revision", "3", "--reasons", "every-tick"}, "UpdateAgentTickerTemplate", map[string]any{"reasons": []any{"EVERY_TICK"}}},
+		{[]string{"update", "tpl1", "--expected-revision", "3", "--quiet-hours", `{"timezone":"UTC","windows":[{"days":[1],"from":"22:00","to":"07:00"}]}`}, "UpdateAgentTickerTemplate", map[string]any{"quietHours": map[string]any{"timezone": "UTC", "windows": []any{map[string]any{"days": []any{float64(1)}, "from": "22:00", "to": "07:00"}}}}},
 		{[]string{"update", "tpl1", "--expected-revision", "3", "--clear-quiet-hours"}, "UpdateAgentTickerTemplate", map[string]any{"clearQuietHours": true}},
 	} {
 		argv := append([]string{"agent", "ticker-templates"}, tc.args...)
@@ -74,9 +78,11 @@ func TestTemplate913UsageAndDelete(t *testing.T) {
 	for _, args := range [][]string{
 		{"update", "tpl1", "--expected-revision", "3"},
 		{"update", "tpl1", "--name", "N"},
+		{"update", "tpl1", "--expected-revision", "3", "--clear-quiet-hours=false"},
 		{"update", "tpl1", "--expected-revision", "3", "--quiet-hours", "{}", "--clear-quiet-hours"},
 		{"create", "a1", "--name", "N", "--cadence-seconds", "60", "--reasons="},
 		{"delete", "tpl1", "--expected-revision", "3"},
+		{"delete", "tpl1", "--yes"},
 	} {
 		argv := append([]string{"agent", "ticker-templates"}, args...)
 		calls, _, err := runTeamTask(t, templateResponses913(), argv...)
@@ -108,7 +114,7 @@ func TestTemplate913ConflictNoRetry(t *testing.T) {
 }
 
 func TestTemplate913ReasonsAndQuietHours(t *testing.T) {
-	calls, _, err := runTeamTask(t, templateResponses913(), "agent", "ticker-templates", "create", "a1", "--name", "Heartbeat", "--cadence-seconds", "60", "--reasons", "every-tick", "--relevance", "mentions", "--quiet-hours", `{"timezone":"UTC","windows":[]}`)
+	calls, _, err := runTeamTask(t, templateResponses913(), "agent", "ticker-templates", "create", "a1", "--name", "Heartbeat", "--cadence-seconds", "60", "--reasons", "every-tick", "--relevance", "mentions", "--quiet-hours", `{"timezone":"UTC","windows":[{"days":[1],"from":"22:00","to":"07:00"}]}`)
 	if err != nil {
 		t.Fatal(err)
 	}

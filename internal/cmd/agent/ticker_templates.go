@@ -69,49 +69,75 @@ func newCmdAgentTickerTemplates(f *cmdutil.Factory) *cobra.Command {
 	return group
 }
 func templateTable(w io.Writer, rows []tickerTemplateDTO) error {
-	table := output.NewTable(w, "ID", "NAME", "TICK CODE", "CADENCE (s)", "RELEVANCE", "REASONS", "REVISION", "QUIET HOURS", "AGENT")
+	table := output.NewTable(w, "ID", "REVISION", "NAME", "TICK CODE", "REQUESTED CADENCE (s)", "RELEVANCE", "REASONS", "QUIET HOURS", "AGENT")
 	for _, r := range rows {
-		quiet := "-"
-		if r.QuietHours != nil {
-			quiet = string(*r.QuietHours)
-		}
-		table.Row(output.SafeCell(r.ID), output.SafeCell(r.Name), output.SafeCell(r.TickCode), fmt.Sprint(r.CadenceSeconds), output.SafeCell(r.Relevance), output.SafeCell(strings.Join(r.Reasons, ",")), fmt.Sprint(r.Revision), output.SafeCell(quiet), output.SafeCell(r.Agent.Name))
+		table.Row(output.SafeCell(r.ID), fmt.Sprint(r.Revision), output.SafeCell(r.Name), output.SafeCell(r.TickCode), fmt.Sprint(r.CadenceSeconds), output.SafeCell(r.Relevance), output.SafeCell(strings.Join(r.Reasons, ",")), output.SafeCell(templateQuietSummary(r.QuietHours)), output.SafeCell(r.Agent.Name))
 	}
 	return table.Flush()
 }
+func templateQuietSummary(raw *json.RawMessage) string {
+	if raw == nil {
+		return "-"
+	}
+	var q struct {
+		Timezone string            `json:"timezone"`
+		Windows  []json.RawMessage `json:"windows"`
+	}
+	if json.Unmarshal(*raw, &q) != nil || q.Timezone == "" || len(q.Windows) == 0 {
+		return "configured (see --json)"
+	}
+	suffix := "windows"
+	if len(q.Windows) == 1 {
+		suffix = "window"
+	}
+	return fmt.Sprintf("%s, %d %s", q.Timezone, len(q.Windows), suffix)
+}
+
 func writeTemplate(f *cmdutil.Factory, row gen.AgentTickerTemplateFields) error {
 	dto, err := templateDTO(row)
 	if err != nil {
 		return err
 	}
-	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error { return templateTable(w, []tickerTemplateDTO{dto}) })
-}
-func newTemplateList(f *cmdutil.Factory) *cobra.Command {
-	return &cobra.Command{Use: "list <agent-ref>", Aliases: []string{"ls"}, Short: "List an Agent's ticker templates in server order", Long: templateHelp + "\n\nList prints a JSON array ([] when empty), in name/id order from the server.", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
-		client, err := f.GraphQLClient()
-		if err != nil {
+	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+		if err := templateTable(w, []tickerTemplateDTO{dto}); err != nil {
 			return err
 		}
-		resp, err := gen.AgentTickerTemplates(cmd.Context(), client, args[0])
-		if err != nil {
-			return api.MapError(err)
-		}
-		if resp == nil {
-			return exitcode.Newf(exitcode.Error, "server returned no ticker-template list")
-		}
-		rows := []tickerTemplateDTO{}
-		for _, r := range resp.AgentTickerTemplates {
-			if r == nil {
-				return exitcode.Newf(exitcode.Error, "server returned an incomplete ticker template")
+		_, err := fmt.Fprintln(w, "Applies to future casts only; existing workers and tickers stay untouched.")
+		return err
+	})
+}
+func newTemplateList(f *cmdutil.Factory) *cobra.Command {
+	return &cobra.Command{Use: "list <agent-ref>", Aliases: []string{"ls"}, Short: "List an Agent's ticker templates in server order", Long: `List one Agent's ticker templates in the server's name/id order.
+By default, prints a table with id, revision and requested cadence; --json prints
+an array ([] when empty) with full quiet hours and all template fields.
+Use the same Agent reference as "agent get". Requires read access to the Agent.
+See "hadron agent ticker-templates --help" for shared rules and permissions.`,
+		Example: `  # Set AGENT_REF to the Agent reference you use with agent get.
+  hadron agent ticker-templates list "$AGENT_REF" --json`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
 			}
-			dto, e := templateDTO(r.AgentTickerTemplateFields)
-			if e != nil {
-				return e
+			resp, err := gen.AgentTickerTemplates(cmd.Context(), client, args[0])
+			if err != nil {
+				return api.MapError(err)
 			}
-			rows = append(rows, dto)
-		}
-		return output.Write(f.IOStreams, f.JSON, rows, func(w io.Writer) error { return templateTable(w, rows) })
-	}}
+			if resp == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no ticker-template list")
+			}
+			rows := []tickerTemplateDTO{}
+			for _, r := range resp.AgentTickerTemplates {
+				if r == nil {
+					return exitcode.Newf(exitcode.Error, "server returned an incomplete ticker template")
+				}
+				dto, e := templateDTO(r.AgentTickerTemplateFields)
+				if e != nil {
+					return e
+				}
+				rows = append(rows, dto)
+			}
+			return output.Write(f.IOStreams, f.JSON, rows, func(w io.Writer) error { return templateTable(w, rows) })
+		}}
 }
 
 type templateFlags struct {
@@ -160,12 +186,30 @@ func (v *templateFlags) patch(cmd *cobra.Command) (*gen.AgentTickerTemplatePatch
 }
 func newTemplateWrite(f *cmdutil.Factory, update bool) *cobra.Command {
 	v := &templateFlags{}
-	cmd := &cobra.Command{Use: "create <agent-ref>", Short: "Create a ticker template for future casts", Long: templateHelp + "\n\nOmitted relevance defaults to all, reasons to read-team-channel, and quiet hours to none.\nReturns the template including tickCode and revision.", Args: cobra.ExactArgs(1)}
+	cmd := &cobra.Command{Use: "create <agent-ref>", Short: "Create a ticker template for future casts", Long: `Create one ticker template for future casts; existing workers and tickers stay
+untouched. Requires the Agent's editor, not merely an App manager.
+Name and requested cadence in whole seconds are required. Omitted relevance is
+all, reasons read-team-channel, quiet hours none. The cast applies the App floor.
+Returns the template, including id, tickCode and revision (one object with --json).
+Quiet hours use an IANA timezone and windows with ISO days (1 Monday to 7 Sunday),
+from/to in HH:MM. The server validates the schedule.
+See "hadron agent ticker-templates --help" for shared rules and permissions.`,
+		Example: `  # Set AGENT_REF to the Agent reference you use with agent get.
+  hadron agent ticker-templates create "$AGENT_REF" --name heartbeat --cadence-seconds 3600 --reasons every-tick --quiet-hours '{"timezone":"UTC","windows":[{"days":[1,2,3,4,5],"from":"22:00","to":"07:00"}]}' --json`, Args: cobra.ExactArgs(1)}
 	keep := ""
 	if update {
 		cmd.Use = "update <template-id>"
 		cmd.Short = "Update only the named fields at the revision you read"
-		cmd.Long = templateHelp + "\n\nOmitted fields are preserved; use --clear-quiet-hours to remove quiet hours.\nPass at least one field flag; --expected-revision alone changes nothing."
+		cmd.Long = `Change only the named fields of one template, at the revision read from list.
+Pass at least one field flag: omitted fields are preserved, and
+--expected-revision alone changes nothing. Use --clear-quiet-hours to remove
+quiet hours, or --quiet-hours to set them; the flags exclude each other.
+A stale revision exits 5 without fetching or retrying. Returns the template
+(one object with --json). Edits reach future casts only; existing workers and
+tickers stay untouched. Cadence is requested; casting applies the App floor.
+See "hadron agent ticker-templates --help" for shared rules and permissions.`
+		cmd.Example = `  # Set TEMPLATE_ID and REVISION from agent ticker-templates list.
+  hadron agent ticker-templates update "$TEMPLATE_ID" --expected-revision "$REVISION" --cadence-seconds 7200 --clear-quiet-hours --json`
 		keep = "; omitted preserves the current value"
 	}
 	required := " (required)"
@@ -188,8 +232,8 @@ func newTemplateWrite(f *cmdutil.Factory, update bool) *cobra.Command {
 	}
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		if update {
-			anyField := false
-			for _, flag := range []string{"name", "cadence-seconds", "relevance", "reasons", "quiet-hours", "clear-quiet-hours"} {
+			anyField := v.clearQuiet
+			for _, flag := range []string{"name", "cadence-seconds", "relevance", "reasons", "quiet-hours"} {
 				anyField = anyField || cmd.Flags().Changed(flag)
 			}
 			if !anyField {
@@ -229,7 +273,14 @@ func newTemplateWrite(f *cmdutil.Factory, update bool) *cobra.Command {
 func newTemplateDelete(f *cmdutil.Factory) *cobra.Command {
 	var revision int
 	var yes bool
-	cmd := &cobra.Command{Use: "delete <template-id>", Short: "Delete one template without touching existing tickers", Long: templateHelp + "\n\nSoft-deletes the template; existing generated tickers and subscriptions are untouched.\nNon-interactive callers must pass --yes. Returns {id,deleted:true} on success.", Args: cobra.ExactArgs(1)}
+	cmd := &cobra.Command{Use: "delete <template-id>", Short: "Delete one template without touching existing tickers", Long: `Remove one template from future casts. Existing workers, generated tickers and
+subscriptions stay untouched. This command group has no restore command.
+Supply the id and revision read from list; a stale revision exits 5 without retry.
+Requires the Agent's editor. Prompts on a TTY; non-interactive callers need --yes.
+Prints confirmation, or {id,deleted:true} with --json.
+See "hadron agent ticker-templates --help" for shared rules and permissions.`,
+		Example: `  # Set TEMPLATE_ID and REVISION from agent ticker-templates list.
+  hadron agent ticker-templates delete "$TEMPLATE_ID" --expected-revision "$REVISION" --yes --json`, Args: cobra.ExactArgs(1)}
 	cmd.Flags().IntVar(&revision, "expected-revision", 0, "Revision read from the template (required)")
 	_ = cmd.MarkFlagRequired("expected-revision")
 	cmd.Flags().BoolVar(&yes, "yes", false, "Confirm template deletion without prompting")
@@ -253,7 +304,7 @@ func newTemplateDelete(f *cmdutil.Factory) *cobra.Command {
 			Deleted bool   `json:"deleted"`
 		}{args[0], true}
 		return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-			_, err := fmt.Fprintf(w, "Deleted ticker template %s\n", output.SafeCell(args[0]))
+			_, err := fmt.Fprintf(w, "Removed ticker template %s from future casts; existing workers and tickers stay untouched.\n", output.SafeCell(args[0]))
 			return err
 		})
 	}
