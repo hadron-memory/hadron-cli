@@ -29,3 +29,17 @@ mutation SetWorkerWakeSettings(
 ) {
  setWorkerWakeSettings(workerRef: $workerRef, input: $input) { ...WorkerWakeSettingsFields }
 }
+# cli#911 slice B2 (cor:agt:080:29): isolate and clear a worker. Both return
+# the same WorkerWakeSettings selection. An omitted until is the server's
+# 2-hour default, never null.
+
+mutation IsolateWorker(
+ $workerRef: String!
+ # @genqlient(omitempty: true)
+ $until: DateTime
+) {
+ isolateWorker(workerRef: $workerRef, until: $until) { ...WorkerWakeSettingsFields }
+}
+mutation ClearWorkerIsolation($workerRef: String!) {
+ clearWorkerIsolation(workerRef: $workerRef) { ...WorkerWakeSettingsFields }
+}

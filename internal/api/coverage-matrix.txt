@@ -19,7 +19,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 187: 128 command, 47 gap, 12 excluded
+[Query] 187: 129 command, 46 gap, 12 excluded
 actionTickets  command ticket list
 agent  command agent get
 agentAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime that makes LLM calls; a person reads the masked config with `ai-config get`
@@ -33,7 +33,7 @@ agentTaskStallSchedule  command team stall-schedule get
 agentTaskTree  command team task tree
 agentTasks  command team task list
 agentTeamEvents  command team events
-agentTickerTemplates  gap #913
+agentTickerTemplates  command agent ticker-templates list
 agentWebhooks  command webhook list
 agents  command agent list
 aiModelPrice  gap #215
@@ -208,7 +208,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 315: 214 command, 90 gap, 11 excluded
+[Mutation] 315: 219 command, 85 gap, 11 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -246,7 +246,7 @@ changeWorkerAgent  command team worker change-agent
 claimContextReset  gap #1043: the host handler that performs the reset
 clearAgentAIConfig  gap #58
 clearNodeHistory  command node revision clear
-clearWorkerIsolation  gap #911
+clearWorkerIsolation  command team isolation clear
 cloneAgent  command agent clone
 cloneMemory  command memory clone
 cloneNode  command node clone
@@ -260,7 +260,7 @@ createAgent  command agent create
 createAgentOrgGrant  gap #890
 createAgentSchedule  command schedule create
 createAgentTask  command team task create
-createAgentTickerTemplate  gap #913
+createAgentTickerTemplate  command agent ticker-templates create
 createAgentWebhook  command webhook create
 createAiServiceConfig  command ai-config create
 createApp  command app install
@@ -305,7 +305,7 @@ createUserInvitation  command org invite create
 declineAutomation  command automation decline
 deleteAgent  command agent rm
 deleteAgentSchedule  command schedule rm
-deleteAgentTickerTemplate  gap #913
+deleteAgentTickerTemplate  command agent ticker-templates delete
 deleteAgentWebhook  command webhook rm
 deleteAiServiceConfig  command ai-config rm
 deleteApp  command app uninstall
@@ -359,7 +359,7 @@ grantCredits  gap #215
 importNode  command node import
 installAgentIntoApp  command app agent add
 inviteUser  gap #1342
-isolateWorker  gap #911
+isolateWorker  command team isolation set
 issueHostOperation  command team host issue
 joinApp  gap #63
 joinWaitingList  excluded not-a-capability: a public website form (waiting list, contact), not a platform capability
@@ -484,7 +484,7 @@ updateAgentAIConfig  excluded deprecated: its description names createAiServiceC
 updateAgentMemoryRole  gap #58
 updateAgentSchedule  command schedule update
 updateAgentTask  command team task update
-updateAgentTickerTemplate  gap #913
+updateAgentTickerTemplate  command agent ticker-templates update
 updateAiServiceConfig  command ai-config update
 updateApp  command app update
 updateChannel  command channel update
