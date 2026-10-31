@@ -19,7 +19,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 187: 129 command, 46 gap, 12 excluded
+[Query] 187: 131 command, 44 gap, 12 excluded
 actionTickets  command ticket list
 agent  command agent get
 agentAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime that makes LLM calls; a person reads the masked config with `ai-config get`
@@ -36,7 +36,7 @@ agentTeamEvents  command team events
 agentTickerTemplates  command agent ticker-templates list
 agentWebhooks  command webhook list
 agents  command agent list
-aiModelPrice  gap #215
+aiModelPrice  command billing prices get
 aiModelPrices  command billing prices
 aiProviderEndpoints  command ai-config endpoints
 aiServiceConfig  command ai-config get
@@ -77,7 +77,7 @@ connectionGrant  gap #1343
 connectionGrants  command connection grant list
 creditBalance  command billing balance
 creditLedgerEntries  command billing ledger
-dashboardWidgetData  excluded graphical: the data feed for the widgets placed on the portal dashboard grid, one entry per placement in grid order; the data has its own routes: MEMORY_STATS is `memory list --owned-by-me`, AGENT_STATS is `agent list --owned-by-me`, USAGE_ACTIVITY is usageActivity (gap #65)
+dashboardWidgetData  excluded graphical: the data feed for the widgets placed on the portal dashboard grid, one entry per placement in grid order; the data has its own routes: MEMORY_STATS is `memory list --owned-by-me`, AGENT_STATS is `agent list --owned-by-me`, USAGE_ACTIVITY is `usage activity`
 dashboardWidgetPresets  excluded graphical: saved display settings for a portal dashboard widget type
 dashboardWidgetPresetsPage  excluded graphical: saved display settings for a portal dashboard widget type
 dashboardWidgets  excluded graphical: places portal dashboard widgets on a 12-column grid (position, span, rowSpan)
@@ -195,7 +195,7 @@ teamWorkItems  command team session list
 ticker  command ticker get
 tickers  command ticker list
 tickersPage  gap #1339
-usageActivity  gap #65
+usageActivity  command usage activity
 usageEvents  command usage events
 usageEventsPage  gap #1339
 user  command team worker get
@@ -525,7 +525,7 @@ updateWorker  command team worker update
 withdrawDecision  gap #1335
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 189: 170 gap, 19 excluded
+[Arguments] 188: 169 gap, 19 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.addOrgMember(orgRef)  gap #1342: the CLI passes the deprecated orgId/userId
@@ -713,7 +713,6 @@ Query.teamAttentionPreviewPage(scanLimit)  gap #828
 Query.teamChatMessages(teamHeadRef)  gap #936
 Query.teamChatMessages(untagged)  gap #936
 Query.teamWorkItems(workerRef)  gap #1337
-Query.usageEvents(nodeId)  gap #65
 Query.worker(appRef)  gap #1336
 
 [Filters] 39: 30 flag, 9 gap

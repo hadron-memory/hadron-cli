@@ -9334,6 +9334,122 @@ var AllAiConfigOwnerType = []AiConfigOwnerType{
 	AiConfigOwnerTypeOrganization,
 }
 
+// AiModelPriceAiModelPrice includes the requested fields of the GraphQL type AiModelPrice.
+// The GraphQL type's documentation follows.
+//
+// 046-usage-metering: effective-dated provider rate row. Prices are
+// micro-cents (1e-8 USD) per MILLION tokens, as base-10 integer strings.
+type AiModelPriceAiModelPrice struct {
+	AiModelPriceFields `json:"-"`
+}
+
+// GetId returns AiModelPriceAiModelPrice.Id, and is useful for accessing the field via an interface.
+func (v *AiModelPriceAiModelPrice) GetId() string { return v.AiModelPriceFields.Id }
+
+// GetProvider returns AiModelPriceAiModelPrice.Provider, and is useful for accessing the field via an interface.
+func (v *AiModelPriceAiModelPrice) GetProvider() string { return v.AiModelPriceFields.Provider }
+
+// GetModel returns AiModelPriceAiModelPrice.Model, and is useful for accessing the field via an interface.
+func (v *AiModelPriceAiModelPrice) GetModel() string { return v.AiModelPriceFields.Model }
+
+// GetTier returns AiModelPriceAiModelPrice.Tier, and is useful for accessing the field via an interface.
+func (v *AiModelPriceAiModelPrice) GetTier() int { return v.AiModelPriceFields.Tier }
+
+// GetInputMicroCentsPerMTok returns AiModelPriceAiModelPrice.InputMicroCentsPerMTok, and is useful for accessing the field via an interface.
+func (v *AiModelPriceAiModelPrice) GetInputMicroCentsPerMTok() string {
+	return v.AiModelPriceFields.InputMicroCentsPerMTok
+}
+
+// GetOutputMicroCentsPerMTok returns AiModelPriceAiModelPrice.OutputMicroCentsPerMTok, and is useful for accessing the field via an interface.
+func (v *AiModelPriceAiModelPrice) GetOutputMicroCentsPerMTok() string {
+	return v.AiModelPriceFields.OutputMicroCentsPerMTok
+}
+
+// GetMarkupBasisPoints returns AiModelPriceAiModelPrice.MarkupBasisPoints, and is useful for accessing the field via an interface.
+func (v *AiModelPriceAiModelPrice) GetMarkupBasisPoints() *int {
+	return v.AiModelPriceFields.MarkupBasisPoints
+}
+
+// GetEffectiveAt returns AiModelPriceAiModelPrice.EffectiveAt, and is useful for accessing the field via an interface.
+func (v *AiModelPriceAiModelPrice) GetEffectiveAt() string { return v.AiModelPriceFields.EffectiveAt }
+
+// GetCreatedAt returns AiModelPriceAiModelPrice.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AiModelPriceAiModelPrice) GetCreatedAt() string { return v.AiModelPriceFields.CreatedAt }
+
+// GetCreatedBy returns AiModelPriceAiModelPrice.CreatedBy, and is useful for accessing the field via an interface.
+func (v *AiModelPriceAiModelPrice) GetCreatedBy() *string { return v.AiModelPriceFields.CreatedBy }
+
+func (v *AiModelPriceAiModelPrice) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AiModelPriceAiModelPrice
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AiModelPriceAiModelPrice = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AiModelPriceFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAiModelPriceAiModelPrice struct {
+	Id string `json:"id"`
+
+	Provider string `json:"provider"`
+
+	Model string `json:"model"`
+
+	Tier int `json:"tier"`
+
+	InputMicroCentsPerMTok string `json:"inputMicroCentsPerMTok"`
+
+	OutputMicroCentsPerMTok string `json:"outputMicroCentsPerMTok"`
+
+	MarkupBasisPoints *int `json:"markupBasisPoints"`
+
+	EffectiveAt string `json:"effectiveAt"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+}
+
+func (v *AiModelPriceAiModelPrice) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AiModelPriceAiModelPrice) __premarshalJSON() (*__premarshalAiModelPriceAiModelPrice, error) {
+	var retval __premarshalAiModelPriceAiModelPrice
+
+	retval.Id = v.AiModelPriceFields.Id
+	retval.Provider = v.AiModelPriceFields.Provider
+	retval.Model = v.AiModelPriceFields.Model
+	retval.Tier = v.AiModelPriceFields.Tier
+	retval.InputMicroCentsPerMTok = v.AiModelPriceFields.InputMicroCentsPerMTok
+	retval.OutputMicroCentsPerMTok = v.AiModelPriceFields.OutputMicroCentsPerMTok
+	retval.MarkupBasisPoints = v.AiModelPriceFields.MarkupBasisPoints
+	retval.EffectiveAt = v.AiModelPriceFields.EffectiveAt
+	retval.CreatedAt = v.AiModelPriceFields.CreatedAt
+	retval.CreatedBy = v.AiModelPriceFields.CreatedBy
+	return &retval, nil
+}
+
 // AiModelPriceFields includes the GraphQL fields of AiModelPrice requested by the fragment AiModelPriceFields.
 // The GraphQL type's documentation follows.
 //
@@ -9384,6 +9500,15 @@ func (v *AiModelPriceFields) GetCreatedAt() string { return v.CreatedAt }
 
 // GetCreatedBy returns AiModelPriceFields.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AiModelPriceFields) GetCreatedBy() *string { return v.CreatedBy }
+
+// AiModelPriceResponse is returned by AiModelPrice on success.
+type AiModelPriceResponse struct {
+	// One provider rate row by id (spec 046). Authenticated read - rates are not a secret.
+	AiModelPrice *AiModelPriceAiModelPrice `json:"aiModelPrice"`
+}
+
+// GetAiModelPrice returns AiModelPriceResponse.AiModelPrice, and is useful for accessing the field via an interface.
+func (v *AiModelPriceResponse) GetAiModelPrice() *AiModelPriceAiModelPrice { return v.AiModelPrice }
 
 // AiModelPricesAiModelPricesAiModelPriceList includes the requested fields of the GraphQL type AiModelPriceList.
 type AiModelPricesAiModelPricesAiModelPriceList struct {
@@ -69718,6 +69843,74 @@ var AllUploadIntent = []UploadIntent{
 	UploadIntentUser,
 }
 
+// Bucket width for usageActivity (#796).
+type UsageActivityBucketSize string
+
+const (
+	UsageActivityBucketSizeDay   UsageActivityBucketSize = "DAY"
+	UsageActivityBucketSizeMonth UsageActivityBucketSize = "MONTH"
+	UsageActivityBucketSizeWeek  UsageActivityBucketSize = "WEEK"
+)
+
+var AllUsageActivityBucketSize = []UsageActivityBucketSize{
+	UsageActivityBucketSizeDay,
+	UsageActivityBucketSizeMonth,
+	UsageActivityBucketSizeWeek,
+}
+
+// UsageActivityResponse is returned by UsageActivity on success.
+type UsageActivityResponse struct {
+	// #796 — read/write activity counts, bucketed by time.
+	//
+	// Default scope is the caller's OWN events across everything they touched;
+	// pass memoryRefs to switch to all users' events attributed to ANY of those
+	// memories (#805), each of which requires read access. The result is the
+	// UNION as a single read/write series, not a per-memory breakdown; since every
+	// event carries exactly one memory, the union equals the sum of the separate
+	// scopes with no double-counting.
+	//
+	// A ref the caller cannot read — or that does not exist — is silently dropped
+	// from the union rather than failing the query, so the result never reveals
+	// which of the named memories exist. Passing an empty list therefore yields
+	// an empty result, NOT the caller's own activity. A malformed ref is still an
+	// error. At most 20 refs.
+	//
+	// Only non-empty buckets are returned — zero-fill the window client-side.
+	// Counts only events of type read and write. Window bounds are ISO-8601
+	// strings: from is INCLUSIVE, to is EXCLUSIVE, so adjacent windows tile
+	// without double-counting. Defaults to the 7 days ending now; a span longer
+	// than 366 days is clamped by moving from forward.
+	UsageActivity []*UsageActivityUsageActivityUsageActivityBucket `json:"usageActivity"`
+}
+
+// GetUsageActivity returns UsageActivityResponse.UsageActivity, and is useful for accessing the field via an interface.
+func (v *UsageActivityResponse) GetUsageActivity() []*UsageActivityUsageActivityUsageActivityBucket {
+	return v.UsageActivity
+}
+
+// UsageActivityUsageActivityUsageActivityBucket includes the requested fields of the GraphQL type UsageActivityBucket.
+// The GraphQL type's documentation follows.
+//
+// One time bucket of read+write activity (#796).
+type UsageActivityUsageActivityUsageActivityBucket struct {
+	// Bucket start as YYYY-MM-DD, in the requested timeZone. Deliberately
+	// String and NOT DateTime (#205): it is a calendar-day label in the
+	// caller's zone, not an instant — rendering it as a UTC timestamp would
+	// shift buckets across the date line.
+	Date   string `json:"date"`
+	Reads  int    `json:"reads"`
+	Writes int    `json:"writes"`
+}
+
+// GetDate returns UsageActivityUsageActivityUsageActivityBucket.Date, and is useful for accessing the field via an interface.
+func (v *UsageActivityUsageActivityUsageActivityBucket) GetDate() string { return v.Date }
+
+// GetReads returns UsageActivityUsageActivityUsageActivityBucket.Reads, and is useful for accessing the field via an interface.
+func (v *UsageActivityUsageActivityUsageActivityBucket) GetReads() int { return v.Reads }
+
+// GetWrites returns UsageActivityUsageActivityUsageActivityBucket.Writes, and is useful for accessing the field via an interface.
+func (v *UsageActivityUsageActivityUsageActivityBucket) GetWrites() int { return v.Writes }
+
 // UsageEventsResponse is returned by UsageEvents on success.
 type UsageEventsResponse struct {
 	// Usage events (most recent first), optionally filtered by type, memoryId,
@@ -73236,6 +73429,14 @@ func (v *__AgentsInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __AgentsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__AgentsInput) GetOffset() *int { return v.Offset }
+
+// __AiModelPriceInput is used internally by genqlient
+type __AiModelPriceInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __AiModelPriceInput.Ref, and is useful for accessing the field via an interface.
+func (v *__AiModelPriceInput) GetRef() string { return v.Ref }
 
 // __AiModelPricesInput is used internally by genqlient
 type __AiModelPricesInput struct {
@@ -79327,10 +79528,35 @@ func (v *__UpdateWorkerSigningInput) GetSignature() *string { return v.Signature
 // GetTrailer returns __UpdateWorkerSigningInput.Trailer, and is useful for accessing the field via an interface.
 func (v *__UpdateWorkerSigningInput) GetTrailer() *string { return v.Trailer }
 
+// __UsageActivityInput is used internally by genqlient
+type __UsageActivityInput struct {
+	From       *string                  `json:"from,omitempty"`
+	To         *string                  `json:"to,omitempty"`
+	Bucket     *UsageActivityBucketSize `json:"bucket,omitempty"`
+	MemoryRefs []string                 `json:"memoryRefs,omitempty"`
+	TimeZone   *string                  `json:"timeZone,omitempty"`
+}
+
+// GetFrom returns __UsageActivityInput.From, and is useful for accessing the field via an interface.
+func (v *__UsageActivityInput) GetFrom() *string { return v.From }
+
+// GetTo returns __UsageActivityInput.To, and is useful for accessing the field via an interface.
+func (v *__UsageActivityInput) GetTo() *string { return v.To }
+
+// GetBucket returns __UsageActivityInput.Bucket, and is useful for accessing the field via an interface.
+func (v *__UsageActivityInput) GetBucket() *UsageActivityBucketSize { return v.Bucket }
+
+// GetMemoryRefs returns __UsageActivityInput.MemoryRefs, and is useful for accessing the field via an interface.
+func (v *__UsageActivityInput) GetMemoryRefs() []string { return v.MemoryRefs }
+
+// GetTimeZone returns __UsageActivityInput.TimeZone, and is useful for accessing the field via an interface.
+func (v *__UsageActivityInput) GetTimeZone() *string { return v.TimeZone }
+
 // __UsageEventsInput is used internally by genqlient
 type __UsageEventsInput struct {
 	MemoryId  *string `json:"memoryId,omitempty"`
 	Loc       *string `json:"loc,omitempty"`
+	NodeId    *string `json:"nodeId,omitempty"`
 	EventType *string `json:"eventType,omitempty"`
 	Limit     int     `json:"limit"`
 	Offset    *int    `json:"offset,omitempty"`
@@ -79343,6 +79569,9 @@ func (v *__UsageEventsInput) GetMemoryId() *string { return v.MemoryId }
 
 // GetLoc returns __UsageEventsInput.Loc, and is useful for accessing the field via an interface.
 func (v *__UsageEventsInput) GetLoc() *string { return v.Loc }
+
+// GetNodeId returns __UsageEventsInput.NodeId, and is useful for accessing the field via an interface.
+func (v *__UsageEventsInput) GetNodeId() *string { return v.NodeId }
 
 // GetEventType returns __UsageEventsInput.EventType, and is useful for accessing the field via an interface.
 func (v *__UsageEventsInput) GetEventType() *string { return v.EventType }
@@ -82350,6 +82579,54 @@ func Agents(
 	}
 
 	data_ = &AgentsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AiModelPrice.
+const AiModelPrice_Operation = `
+query AiModelPrice ($ref: ID!) {
+	aiModelPrice(ref: $ref) {
+		... AiModelPriceFields
+	}
+}
+fragment AiModelPriceFields on AiModelPrice {
+	id
+	provider
+	model
+	tier
+	inputMicroCentsPerMTok
+	outputMicroCentsPerMTok
+	markupBasisPoints
+	effectiveAt
+	createdAt
+	createdBy
+}
+`
+
+// One rate row by id. Authenticated read; null means not found or not
+// visible (the server does not say which).
+func AiModelPrice(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *AiModelPriceResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AiModelPrice",
+		Query:  AiModelPrice_Operation,
+		Variables: &__AiModelPriceInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &AiModelPriceResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -104698,10 +104975,55 @@ func UpdateWorkerSigning(
 	return data_, err_
 }
 
+// The query executed by UsageActivity.
+const UsageActivity_Operation = `
+query UsageActivity ($from: String, $to: String, $bucket: UsageActivityBucketSize, $memoryRefs: [ID!], $timeZone: String) {
+	usageActivity(from: $from, to: $to, bucket: $bucket, memoryRefs: $memoryRefs, timeZone: $timeZone) {
+		date
+		reads
+		writes
+	}
+}
+`
+
+// cor:acl:090:01 — omit memoryRefs for own activity, never fall back from a resource scope.
+func UsageActivity(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	from *string,
+	to *string,
+	bucket *UsageActivityBucketSize,
+	memoryRefs []string,
+	timeZone *string,
+) (data_ *UsageActivityResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UsageActivity",
+		Query:  UsageActivity_Operation,
+		Variables: &__UsageActivityInput{
+			From:       from,
+			To:         to,
+			Bucket:     bucket,
+			MemoryRefs: memoryRefs,
+			TimeZone:   timeZone,
+		},
+	}
+
+	data_ = &UsageActivityResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by UsageEvents.
 const UsageEvents_Operation = `
-query UsageEvents ($memoryId: ID, $loc: String, $eventType: String, $limit: Int!, $offset: Int, $since: DateTime, $until: DateTime) {
-	usageEvents(memoryId: $memoryId, loc: $loc, type: $eventType, limit: $limit, offset: $offset, since: $since, until: $until) {
+query UsageEvents ($memoryId: ID, $loc: String, $nodeId: ID, $eventType: String, $limit: Int!, $offset: Int, $since: DateTime, $until: DateTime) {
+	usageEvents(memoryId: $memoryId, loc: $loc, nodeId: $nodeId, type: $eventType, limit: $limit, offset: $offset, since: $since, until: $until) {
 		id
 		type
 		createdAt
@@ -104723,6 +105045,7 @@ func UsageEvents(
 	client_ graphql.Client,
 	memoryId *string,
 	loc *string,
+	nodeId *string,
 	eventType *string,
 	limit int,
 	offset *int,
@@ -104735,6 +105058,7 @@ func UsageEvents(
 		Variables: &__UsageEventsInput{
 			MemoryId:  memoryId,
 			Loc:       loc,
+			NodeId:    nodeId,
 			EventType: eventType,
 			Limit:     limit,
 			Offset:    offset,
