@@ -16446,7 +16446,8 @@ var AllChannelKind = []ChannelKind{
 
 // The host memory, projected separately so a listing can name where a Channel
 // lives without a second read — two Channels named `team` at loc `chats:team`
-// are distinguishable only by this.
+// are distinguishable only by this when the memory metadata is readable.
+// #2509: null memory preserves the readable Channel; never infer its metadata.
 type ChannelMemory struct {
 	// #2509: this memory's record, exactly as Query.memory answers it to the
 	// caller, or null when the caller may not read that record (or it is
@@ -97185,10 +97186,9 @@ fragment ChannelMemory on Channel {
 
 // Single-Channel read. `ref` is the id OR the address; the server resolves both.
 //
-// Returns null when the Channel does not exist, when the ref names nothing, AND
-// when the caller may not read its host memory — identically and on purpose, so
-// it is "never an existence oracle" in the server's own words. Callers render
-// ONE message covering all three and must not infer not-found from the null.
+// A null Channel does not disclose whether it exists or is unreadable.
+// A readable Channel may separately have null memory metadata (#2509); that
+// preserves the parent and is not a whole-Channel refusal.
 func GetChannel(
 	ctx_ context.Context,
 	client_ graphql.Client,

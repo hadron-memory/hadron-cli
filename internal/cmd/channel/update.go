@@ -21,7 +21,12 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 
 An omitted flag preserves the current value — nothing is cleared by accident.
 A Channel's ADDRESS is not changed by a rename: the address is its memory and
-loc, so renaming it leaves every existing reference working.`,
+loc, so renaming it leaves every existing reference working.
+
+The Channel can be readable while its host memory metadata is not. In that
+case the memory cell says "not readable"; --json keeps memoryUrn and memoryName
+present as null, and memoryId remains the Channel's own scalar. This is a
+successful Channel result, with no extra memory lookup.`,
 		Example: `  hadron channel update hrn:node:acme.com:team-shared:chats:standup --name daily`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
