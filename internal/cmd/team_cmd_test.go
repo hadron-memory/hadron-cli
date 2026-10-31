@@ -3183,9 +3183,10 @@ func TestTeamSessionLogNotesUnreadTeamChat(t *testing.T) {
 			!strings.Contains(errOut.String(), "--since 0` starts at the oldest page") {
 			t.Errorf("want the no-prefix note and one-page remedy, got %q", errOut.String())
 		}
-		// Claims only what the CLI knows — an MCP-side read is invisible here,
-		// so asserting the worker never read would be a false nudge (seq 102).
-		if !strings.Contains(errOut.String(), "MCP tools is not visible here") {
+		// Claims only what the CLI knows — a portal or other-binding read is
+		// invisible here, so asserting the worker never read would be a false
+		// nudge (seq 102).
+		if !strings.Contains(errOut.String(), "portal or under another binding is not visible here") {
 			t.Errorf("the note must name its own blind spot: %q", errOut.String())
 		}
 		// And it costs nothing: no count query is worth issuing for that answer.
