@@ -20,22 +20,36 @@ func batchPageWithCursor(cursor string) string {
 // the third page, as the wake read does since #1183. Before, only a cursor
 // equal to the previous one was refused, so the read paged until the fake's
 // script ran out.
+//
+// The adjacent repeat (A, A) the old check caught stays refused, on the
+// second page.
 func TestBatchesRefuseAMultiPageCursorCycle(t *testing.T) {
-	pages := []string{}
-	for _, c := range []string{"A", "B", "A", "B", "A", "B"} {
-		pages = append(pages, batchPageWithCursor(c))
-	}
-	s, calls := deliveryFake(t, map[string][]string{"DeliveryBatches": pages})
-	got, err := s.Batches(context.Background())
-	if err == nil || got != nil {
-		t.Fatalf("got %+v err %v, want the cycle refused with nothing typed", got, err)
-	}
-	var ce *deliveryCallError
-	if !errors.As(err, &ce) || ce.DeliveryCode() != "no-cursor" || ce.call != "read" {
-		t.Fatalf("err %v, want delivery read failed: no-cursor", err)
-	}
-	if n := len(calls()); n != 3 {
-		t.Fatalf("paged %d times through an A,B,A cursor cycle; want refusal after 3", n)
+	for _, c := range []struct {
+		name    string
+		cursors []string
+		want    int
+	}{
+		{"A,B,A", []string{"A", "B", "A", "B", "A", "B"}, 3},
+		{"A,A", []string{"A", "A", "A", "A"}, 2},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			pages := []string{}
+			for _, cur := range c.cursors {
+				pages = append(pages, batchPageWithCursor(cur))
+			}
+			s, calls := deliveryFake(t, map[string][]string{"DeliveryBatches": pages})
+			got, err := s.Batches(context.Background())
+			if err == nil || got != nil {
+				t.Fatalf("got %+v err %v, want the cycle refused with nothing typed", got, err)
+			}
+			var ce *deliveryCallError
+			if !errors.As(err, &ce) || ce.DeliveryCode() != "no-cursor" || ce.call != "read" {
+				t.Fatalf("err %v, want delivery read failed: no-cursor", err)
+			}
+			if n := len(calls()); n != c.want {
+				t.Fatalf("paged %d times through an %s cursor cycle; want refusal after %d", n, c.name, c.want)
+			}
+		})
 	}
 }
 
