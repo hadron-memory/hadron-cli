@@ -831,6 +831,15 @@ func codeForExtension(code string) int {
 	// wake settings (cor:agt:080:21; cli#1292).
 	case code == "WAKE_SETTINGS_FORBIDDEN":
 		return exitcode.Forbidden
+	// Only whoever manages the App or the worker's holder, as a person acting
+	// as themselves, may isolate a worker or clear it (cor:agt:080:29; cli#911
+	// B2): an authority, so it precedes the _REQUIRED rule. Setting is refused
+	// UNAVAILABLE until S7b is on (server#2130): the platform's state, which no
+	// input changes.
+	case code == "WORKER_ISOLATION_FORBIDDEN":
+		return exitcode.Forbidden
+	case code == "WORKER_ISOLATION_UNAVAILABLE":
+		return exitcode.Conflict
 	// S9 settings (#911): invalid candidates are input errors; a live ticker
 	// conflict or unavailable standby behavior requires a state change.
 	case code == "DELIVERY_SETTINGS_OUT_OF_RANGE" || code == "DELIVERY_SETTINGS_CONFLICT" || code == "TICKER_SETTINGS_OUT_OF_RANGE":

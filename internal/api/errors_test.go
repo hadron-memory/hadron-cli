@@ -150,6 +150,10 @@ func TestMapError(t *testing.T) {
 		{"stop host scope required", gqlErr("HOST_SCOPE_REQUIRED"), exitcode.Forbidden},
 		{"stop signal scope forbidden", gqlErr("STOP_SIGNAL_SCOPE_FORBIDDEN"), exitcode.Forbidden},
 		{"stop signal not found", gqlErr("STOP_SIGNAL_NOT_FOUND"), exitcode.NotFound},
+		// #911 B2 isolation (cor:agt:080:29): setting is refused until S7b is on
+		// (state, 5); the audience refusal names an authority, not an argument.
+		{"worker isolation unavailable", gqlErr("WORKER_ISOLATION_UNAVAILABLE"), exitcode.Conflict},
+		{"worker isolation forbidden", gqlErr("WORKER_ISOLATION_FORBIDDEN"), exitcode.Forbidden},
 		{"comment deleted", gqlErr("COMMENT_DELETED"), exitcode.Conflict},
 		{"comment merge folds threads", gqlErr("COMMENT_MERGE_FOLDS_THREADS"), exitcode.Usage},
 		{"unauthenticated", gqlErr("UNAUTHENTICATED"), exitcode.AuthRequired},

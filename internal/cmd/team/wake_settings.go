@@ -84,9 +84,13 @@ func wakeSettingsDTOFrom(s *gen.WorkerWakeSettingsFields) wakeSettingsDTO {
 // message prefix; the exit code is the mapped one, unchanged.
 var wakeSettingsRefusalCodes = []string{"WAKE_SETTINGS_FORBIDDEN", "FORBIDDEN", "WORKER_NOT_FOUND", "BAD_USER_INPUT"}
 
-func wakeSettingsError(err error) error {
+func wakeSettingsError(err error) error { return prefixedRefusal(err, wakeSettingsRefusalCodes) }
+
+// prefixedRefusal maps err and, for a documented refusal code, keeps the code
+// as the message prefix; the exit code is the mapped one, unchanged.
+func prefixedRefusal(err error, codes []string) error {
 	mapped := api.MapError(err)
-	for _, code := range wakeSettingsRefusalCodes {
+	for _, code := range codes {
 		if api.HasErrorCode(err, code) {
 			return exitcode.Newf(exitcode.FromError(mapped), "%s: %s", code, mapped.Error())
 		}
