@@ -566,6 +566,32 @@ func TestUninstallReportsAJobItCouldNotStop(t *testing.T) {
 	}
 }
 
+// #1412 delta P2 (Ralion): systemd 257 says "Unit <name> does not exist"
+// with no "file"; a midway install (service only) must still uninstall.
+func TestUninstallAcceptsSystemd257AbsentWording(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "linux", "systemctl")
+	if _, err := e.Install(spec); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(e.timerPath()); err != nil {
+		t.Fatal(err)
+	}
+	f.fail = map[string]bool{"systemctl --user disable": true}
+	f.failOut = "Failed to disable unit: Unit hadron-team-health.timer does not exist"
+	if _, err := e.Uninstall(); err != nil || fileExists(e.servicePath()) {
+		t.Fatalf("an absent unit is not an error, and the service goes: %v", err)
+	}
+	// A different unit missing, or a bus failure, still proves nothing.
+	if _, err := e.Install(spec); err != nil {
+		t.Fatal(err)
+	}
+	f.failOut = "Failed to disable unit: Unit some-other.timer does not exist"
+	if _, err := e.Uninstall(); err == nil {
+		t.Fatal("another unit's absence says nothing about ours")
+	}
+}
+
 func TestUninstallReportsALaunchdJobItCouldNotBootOut(t *testing.T) {
 	f := &fake{}
 	e := f.env(t, "darwin", "launchctl")

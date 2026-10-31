@@ -413,6 +413,8 @@ func alreadyAbsent(out []byte) bool {
 		return true // launchctl / systemd: the job is not loaded
 	case strings.Contains(m, "unit file") && strings.Contains(m, "does not exist"):
 		return true // systemctl names the unit it cannot find
+	case strings.Contains(m, "unit "+Name+".timer does not exist"):
+		return true // systemd 257 words it without "file"
 	}
 	return false // a bus, socket or file error proves nothing about the job
 }
