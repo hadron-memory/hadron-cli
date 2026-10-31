@@ -19,13 +19,13 @@ import (
 // present on `team roster` and `team worker get` and null when the worker never
 // reported or the server masked it on the working-state gate.
 type workerTerminalDTO struct {
-	Host       terminalHostDTO `json:"host"`
-	Status     string          `json:"status"`
-	Prompt     string          `json:"prompt"`
-	Reason     *string         `json:"reason"`
-	LastTurnAt *string         `json:"lastTurnAt"`
-	CheckedAt  string          `json:"checkedAt"`
-	ReportedAt string          `json:"reportedAt"`
+	Host       *terminalHostDTO `json:"host"`
+	Status     string           `json:"status"`
+	Prompt     string           `json:"prompt"`
+	Reason     *string          `json:"reason"`
+	LastTurnAt *string          `json:"lastTurnAt"`
+	CheckedAt  string           `json:"checkedAt"`
+	ReportedAt string           `json:"reportedAt"`
 }
 
 type terminalHostDTO struct {
@@ -42,7 +42,7 @@ func workerTerminalFromFields(t gen.WorkerTerminalFields) *workerTerminalDTO {
 		ReportedAt: t.ReportedAt,
 	}
 	if t.Host != nil {
-		dto.Host = terminalHostDTO{ID: t.Host.Id, Label: t.Host.Label}
+		dto.Host = &terminalHostDTO{ID: t.Host.Id, Label: t.Host.Label}
 	}
 	if t.Reason != nil {
 		r := string(*t.Reason)
@@ -122,7 +122,11 @@ func terminalDetail(t *workerTerminalDTO, now time.Time) string {
 	default:
 		prompt = terminalUnknown
 	}
-	return fmt.Sprintf("%s — host %s, prompt %s", terminalLabel(t, now), output.SafeCell(t.Host.Label), prompt)
+	host := "unknown"
+	if t.Host != nil {
+		host = output.SafeCell(t.Host.Label)
+	}
+	return fmt.Sprintf("%s — host %s, prompt %s", terminalLabel(t, now), host, prompt)
 }
 
 // readWorkerTerminal reads Worker.terminal in its own operation, so a server

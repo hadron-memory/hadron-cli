@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // cli#1375 (hadron-server#2771): `team roster` and `team worker get` show the
@@ -112,9 +112,29 @@ func TestTeamRosterMaskedTerminalIsADash(t *testing.T) {
 	if err != nil {
 		t.Fatalf("masked terminal must not error: %v", err)
 	}
-	if !strings.Contains(out, "—") {
-		t.Errorf("want a dash:\n%s", out)
+	if cell := rosterCell(t, out, "Ann", "TERMINAL", "ROLE"); cell != "—" {
+		t.Errorf("TERMINAL cell = %q, want a dash:\n%s", cell, out)
 	}
+}
+
+// rosterCell returns the trimmed text of one table row between two header
+// columns, so an assertion names the cell it means, not any dash in the table.
+func rosterCell(t *testing.T, out, name, from, to string) string {
+	t.Helper()
+	header, row := "", ""
+	for _, l := range strings.Split(out, "\n") {
+		if strings.HasPrefix(l, "WORKER") {
+			header = l
+		}
+		if strings.HasPrefix(l, name+" ") {
+			row = l
+		}
+	}
+	i, j := strings.Index(header, from), strings.Index(header, to)
+	if header == "" || row == "" || i < 0 || j <= i || len(row) < j {
+		t.Fatalf("cannot find %s..%s cell for %s in:\n%s", from, to, name, out)
+	}
+	return strings.TrimSpace(row[i:j])
 }
 
 // An older server rejects Worker.terminal before execution: the roster refuses
@@ -127,8 +147,13 @@ func TestTeamRosterOlderServerRefusesAsSchemaSkew(t *testing.T) {
 	if err == nil {
 		t.Fatal("want a refusal")
 	}
-	if !api.IsSchemaSkew(err) && !strings.Contains(err.Error(), "terminal") {
-		t.Errorf("want schema skew naming terminal, got %v", err)
+	// The command maps the raw validation failure to the schema-skew usage
+	// refusal (exit 2) and carries what the server said.
+	if got := exitcode.FromError(err); got != exitcode.Usage {
+		t.Errorf("exit code = %d, want Usage (%d): %v", got, exitcode.Usage, err)
+	}
+	if !strings.Contains(err.Error(), "out of sync") || !strings.Contains(err.Error(), "terminal") {
+		t.Errorf("want the schema-skew message naming terminal, got %v", err)
 	}
 }
 
@@ -203,6 +228,71 @@ func TestWorkerGetOlderServerTerminalFallsBackToNull(t *testing.T) {
 	other := `{"errors":[{"message":"Cannot query field \"nope\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
 	if _, err := terminalWorkerGet(t, other); err == nil {
 		t.Error("an unrelated failure must surface, not read as an old server")
+	}
+}
+
+// Authentication, transport and server failures of the terminal read surface:
+// they are not capability absence, so worker get fails and prints no worker.
+func TestWorkerGetTerminalErrorsSurface(t *testing.T) {
+	for name, resp := range map[string]string{
+		"unauthenticated": gqlErrorJSON("UNAUTHENTICATED"),
+		"server error":    gqlErrorJSON("INTERNAL_SERVER_ERROR"),
+		"transport":       "<html>bad gateway</html>",
+	} {
+		t.Run(name, func(t *testing.T) {
+			out, err := terminalWorkerGet(t, resp)
+			if err == nil {
+				t.Fatalf("want a failure, got success:\n%s", out)
+			}
+			if strings.Contains(out, "terminal:") || strings.Contains(out, "Iris") {
+				t.Errorf("a failed read must not print a worker result:\n%s", out)
+			}
+		})
+	}
+}
+
+// A terminal whose host is null (the schema says non-null; a pointer in the
+// client) keeps null in --json instead of becoming an empty object, and the
+// text line says the host is unknown rather than printing an empty label.
+func TestTerminalNullHostStaysNull(t *testing.T) {
+	term := strings.Replace(terminalJSON("idle", "empty", "", time.Minute), `"host":{"id":"h1","label":"alpha"}`, `"host":null`, 1)
+
+	resp := `{"data":{"worker":{"terminal":` + term + `}}}`
+	out, err := terminalWorkerGet(t, resp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, "terminal: idle (1m) — host unknown, prompt empty") {
+		t.Errorf("text line wrong:\n%s", out)
+	}
+	jout, err := terminalWorkerGet(t, resp, "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var w struct {
+		Terminal map[string]json.RawMessage `json:"terminal"`
+	}
+	if err := json.Unmarshal([]byte(jout), &w); err != nil {
+		t.Fatal(err)
+	}
+	if string(w.Terminal["host"]) != "null" {
+		t.Errorf("worker get host = %s, want null", w.Terminal["host"])
+	}
+
+	_, rout, err := runTeamTask(t, rosterResponses993(withTerminal(rosterRow993("Ann", "AVAILABLE", true, "null", "null"), term)), "team", "roster", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var r struct {
+		Workers []struct {
+			Terminal map[string]json.RawMessage `json:"terminal"`
+		} `json:"workers"`
+	}
+	if err := json.Unmarshal([]byte(rout), &r); err != nil {
+		t.Fatal(err)
+	}
+	if string(r.Workers[0].Terminal["host"]) != "null" {
+		t.Errorf("roster host = %s, want null", r.Workers[0].Terminal["host"])
 	}
 }
 
