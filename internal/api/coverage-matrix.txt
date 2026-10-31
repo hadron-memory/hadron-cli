@@ -19,7 +19,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 187: 126 command, 49 gap, 12 excluded
+[Query] 187: 128 command, 47 gap, 12 excluded
 actionTickets  command ticket list
 agent  command agent get
 agentAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime that makes LLM calls; a person reads the masked config with `ai-config get`
@@ -175,8 +175,8 @@ sessions  command team session list
 sessionsPage  gap #1339
 signingRequest  command node signing-request get
 skillPlan  command skill status
-slackConnection  gap #206
-slackConnections  gap #206
+slackConnection  command slack get
+slackConnections  command slack status
 specBacklinks  command spec backlinks
 specUnresolvedReferences  command spec unresolved
 teamAttention  command team attention
