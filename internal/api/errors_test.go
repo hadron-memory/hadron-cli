@@ -54,6 +54,8 @@ func TestMapError(t *testing.T) {
 		want int
 	}{
 		{"nil", nil, exitcode.OK},
+		{"template limit", gqlErr("TICKER_TEMPLATE_LIMIT_REACHED"), exitcode.Conflict},
+		{"template revision", gqlErr("TICKER_TEMPLATE_REVISION_MISMATCH"), exitcode.Conflict},
 		{"install target changed", gqlErr("INSTALL_TARGET_CHANGED"), exitcode.Conflict},
 		{"BOOT_PROMPT_COMPILE_NOT_PERMITTED", gqlErr("BOOT_PROMPT_COMPILE_NOT_PERMITTED"), exitcode.Forbidden},
 		{"BOOT_PROMPT_GRANT_REQUIRED", gqlErr("BOOT_PROMPT_GRANT_REQUIRED"), exitcode.Forbidden},

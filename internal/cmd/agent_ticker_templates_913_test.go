@@ -106,3 +106,42 @@ func TestTemplate913ConflictNoRetry(t *testing.T) {
 		}
 	}
 }
+
+func TestTemplate913ReasonsAndQuietHours(t *testing.T) {
+	calls, _, err := runTeamTask(t, templateResponses913(), "agent", "ticker-templates", "create", "a1", "--name", "Heartbeat", "--cadence-seconds", "60", "--reasons", "every-tick", "--relevance", "mentions", "--quiet-hours", `{"timezone":"UTC","windows":[]}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := stopCalls(calls, "CreateAgentTickerTemplate")[0].Vars["input"].(map[string]any)
+	raw, _ := json.Marshal(in["reasons"])
+	if string(raw) != `["EVERY_TICK"]` || in["relevance"] != "MENTIONS" || in["quietHours"] == nil {
+		t.Fatal(in)
+	}
+	for _, value := range []string{"null", "[]", "PRIVATE", "\"text\""} {
+		calls, _, err = runTeamTask(t, templateResponses913(), "agent", "ticker-templates", "update", "tpl1", "--expected-revision", "3", "--quiet-hours", value)
+		if exitCodeFor(err) != 2 || len(*calls) != 0 {
+			t.Fatal(value, err, *calls)
+		}
+	}
+	r := templateResponses913()
+	r["AgentTickerTemplates"] = strings.Replace(r["AgentTickerTemplates"], `["EVERY_TICK"]`, `[]`, 1)
+	_, out, err := runTeamTask(t, r, "agent", "ticker-templates", "list", "a1", "--json")
+	if err != nil || !strings.Contains(out, `"reasons": []`) {
+		t.Fatal(err, out)
+	}
+	_, out, err = runTeamTask(t, templateResponses913(), "agent", "ticker-templates", "list", "a1")
+	if err != nil || !strings.Contains(out, "60") || strings.Contains(out, "effective") {
+		t.Fatal(err, out)
+	}
+}
+
+func TestTemplate913RefusalCodes(t *testing.T) {
+	for code, want := range map[string]int{"FORBIDDEN": 8, "AGENT_NOT_FOUND": 4, "TICKER_TEMPLATE_NOT_FOUND": 4, "TICKER_CADENCE_OUT_OF_RANGE": 2, "TICKER_QUIET_HOURS_INVALID": 2, "BAD_USER_INPUT": 2, "TICKER_TEMPLATE_NAME_TAKEN": 5} {
+		r := templateResponses913()
+		r["CreateAgentTickerTemplate"] = `{"errors":[{"message":"refused","extensions":{"code":"` + code + `"}}]}`
+		calls, _, err := runTeamTask(t, r, "agent", "ticker-templates", "create", "a1", "--name", "N", "--cadence-seconds", "60")
+		if exitCodeFor(err) != want || len(stopCalls(calls, "CreateAgentTickerTemplate")) != 1 {
+			t.Fatal(code, err, *calls)
+		}
+	}
+}

@@ -850,7 +850,7 @@ func codeForExtension(code string) int {
 		return exitcode.Forbidden
 	case code == "TICKER_CADENCE_OUT_OF_RANGE" || code == "TICKER_QUIET_HOURS_INVALID":
 		return exitcode.Usage
-	case code == "TICKER_NAME_TAKEN" || code == "TICKER_LIMIT_REACHED":
+	case code == "TICKER_NAME_TAKEN" || code == "TICKER_LIMIT_REACHED" || code == "TICKER_TEMPLATE_LIMIT_REACHED":
 		return exitcode.Conflict
 	// App member writes (cli#956, cor:dmo:050:04): a role the primary Agent's
 	// policy does not list is an argument the caller fixes; the member cap and
@@ -1228,7 +1228,7 @@ func codeForExtension(code string) int {
 	// re-preview or choose another corpus rather than retrying blindly.
 	case code == "SEARCH_REPLACE_PLAN_STALE" || code == "SEARCH_REPLACE_NOT_DRAFT" || code == "SEARCH_REPLACE_MIXED_CORPUS" ||
 		code == "SPEC_CORPUS_NOT_DRAFT" || code == "SPEC_CORPUS_MINT_BLOCKED" || code == "SPEC_CORPUS_BUSY" ||
-		code == "SPEC_CORPUS_ENCRYPTED_UNSUPPORTED" || code == "REVISION_MISMATCH" ||
+		code == "SPEC_CORPUS_ENCRYPTED_UNSUPPORTED" || code == "REVISION_MISMATCH" || code == "TICKER_TEMPLATE_REVISION_MISMATCH" ||
 		code == "NODE_IS_PLACEHOLDER" || code == "NODE_MINTED":
 		return exitcode.Conflict
 	case code == "SEARCH_REPLACE_MAX_NODES_CHANGED":

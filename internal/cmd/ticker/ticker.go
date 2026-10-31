@@ -487,12 +487,11 @@ func (v *writeFlags) patch(c *cobra.Command) (*gen.TickerPatch, error) {
 		p.AnchorAt = &v.anchor
 	}
 	if changed("quiet-hours") {
-		var obj map[string]json.RawMessage
-		if err := json.Unmarshal([]byte(v.quiet), &obj); err != nil || obj == nil {
-			return nil, exitcode.Newf(exitcode.Usage, "--quiet-hours takes a JSON object")
+		var err error
+		p.QuietHours, err = ParseQuietHours(v.quiet)
+		if err != nil {
+			return nil, err
 		}
-		raw := json.RawMessage(v.quiet)
-		p.QuietHours = &raw
 	}
 	if changed("channel-ids") {
 		if len(v.channels) == 0 {
@@ -515,28 +514,17 @@ func (v *writeFlags) patch(c *cobra.Command) (*gen.TickerPatch, error) {
 		p.ClearChannels = &v.clearChannels
 	}
 	if changed("relevance") {
-		r := gen.TickerRelevance(strings.ToUpper(v.relevance))
-		if r != gen.TickerRelevanceAll && r != gen.TickerRelevanceMentions {
-			return nil, exitcode.Newf(exitcode.Usage, "--relevance takes all or mentions")
+		r, err := ParseRelevance(v.relevance)
+		if err != nil {
+			return nil, err
 		}
 		p.Relevance = &r
 	}
 	if changed("reasons") {
-		seen := map[string]bool{}
-		for _, r := range strings.Split(v.reasons, ",") {
-			r = strings.ReplaceAll(strings.ToLower(strings.TrimSpace(r)), "_", "-")
-			if r == "" {
-				return nil, exitcode.Newf(exitcode.Usage, "reasons must name at least one reason: a ticker with none would never fire.")
-			}
-			if r != "read-team-channel" && r != "every-tick" && r != "live-check" {
-				return nil, exitcode.Newf(exitcode.Usage, "reasons are from: read-team-channel, every-tick, live-check.")
-			}
-			seen[r] = true
-		}
-		for _, r := range []string{"read-team-channel", "every-tick", "live-check"} {
-			if seen[r] {
-				p.Reasons = append(p.Reasons, gen.TickerReason(strings.ReplaceAll(strings.ToUpper(r), "-", "_")))
-			}
+		var err error
+		p.Reasons, err = ParseReasons(v.reasons)
+		if err != nil {
+			return nil, err
 		}
 	}
 	return p, nil
