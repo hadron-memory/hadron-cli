@@ -24,6 +24,19 @@ ADMIN can't impersonate an OWNER), scoped to that one org, and files a
 short-TTL token that every later command prefers until `--stop` or expiry.
 `hadron auth whoami` / `status` announce the acting-as state loudly.
 
+Browser `auth login` opens the server's sign-in page, which offers the
+methods that server supports (GitHub, Google or email). If the server
+requires a passkey for email sign-in, its page asks for one before the CLI
+receives anything. Where the server offers passkey
+registration, it emails a second link: open it in the same browser.
+Otherwise use `--provider github|google`. An agent cannot complete a browser
+passkey step; agents use `HADRON_TOKEN` or `--with-token`. The browser step
+must finish within 15 minutes (a CLI-set limit, not a server rule); on
+timeout it exits 6 and stores nothing. A refused STORED credential exits 3
+with "your stored credential was refused; run `hadron auth login`": the CLI
+does not retry, does not delete the stored token, and does not claim why it
+was refused.
+
 Browser `auth login` requests the `account` OAuth scope (the data API
 refuses an `mcp`-only key). If the server refuses `account` or grants a
 narrower scope, login fails with exit 1 and stores nothing: never a silently

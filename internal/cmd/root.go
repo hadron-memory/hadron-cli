@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
+	"github.com/hadron-memory/hadron-cli/internal/auth"
 	"github.com/hadron-memory/hadron-cli/internal/build"
 	accesscmd "github.com/hadron-memory/hadron-cli/internal/cmd/access"
 	agentcmd "github.com/hadron-memory/hadron-cli/internal/cmd/agent"
@@ -362,6 +363,7 @@ func humanErrorText(err error) string {
 
 func renderError(f *cmdutil.Factory, err error) int {
 	code := exitCodeFor(err)
+	err = withStoredCredentialHint(f, code, err)
 
 	if !errors.Is(err, exitcode.ErrSilent) {
 		failure := map[string]any{"code": code, "message": err.Error()}
@@ -442,6 +444,27 @@ func renderError(f *cmdutil.Factory, err error) int {
 		}
 	}
 	return code
+}
+
+// storedCredentialHint is appended to an exit-3 failure when the refused key
+// came from the token store (cli#875). It is deliberately generic: a 401 is not
+// proof that a sign-in was cancelled (#1897 R66), so it never says why. The CLI
+// does not retry and does not delete the stored token; re-login replaces it.
+const storedCredentialHint = "your stored credential was refused; run `hadron auth login`"
+
+// withStoredCredentialHint adds storedCredentialHint when the failure is
+// AuthRequired, the active credential is the STORED one (not HADRON_TOKEN,
+// where re-login would not help, nor an impersonation token), and the message
+// does not already name `hadron auth login` as its remedy.
+func withStoredCredentialHint(f *cmdutil.Factory, code int, err error) error {
+	if code != exitcode.AuthRequired || errors.Is(err, exitcode.ErrSilent) ||
+		strings.Contains(err.Error(), "hadron auth login") {
+		return err
+	}
+	if _, source, terr := f.Token(); terr != nil || source != auth.SourceStore {
+		return err
+	}
+	return fmt.Errorf("%w — %s", err, storedCredentialHint)
 }
 
 // exitCodeFor is THE mapping from a command error to the process exit code, and
