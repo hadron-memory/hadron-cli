@@ -69718,6 +69718,74 @@ var AllUploadIntent = []UploadIntent{
 	UploadIntentUser,
 }
 
+// Bucket width for usageActivity (#796).
+type UsageActivityBucketSize string
+
+const (
+	UsageActivityBucketSizeDay   UsageActivityBucketSize = "DAY"
+	UsageActivityBucketSizeMonth UsageActivityBucketSize = "MONTH"
+	UsageActivityBucketSizeWeek  UsageActivityBucketSize = "WEEK"
+)
+
+var AllUsageActivityBucketSize = []UsageActivityBucketSize{
+	UsageActivityBucketSizeDay,
+	UsageActivityBucketSizeMonth,
+	UsageActivityBucketSizeWeek,
+}
+
+// UsageActivityResponse is returned by UsageActivity on success.
+type UsageActivityResponse struct {
+	// #796 — read/write activity counts, bucketed by time.
+	//
+	// Default scope is the caller's OWN events across everything they touched;
+	// pass memoryRefs to switch to all users' events attributed to ANY of those
+	// memories (#805), each of which requires read access. The result is the
+	// UNION as a single read/write series, not a per-memory breakdown; since every
+	// event carries exactly one memory, the union equals the sum of the separate
+	// scopes with no double-counting.
+	//
+	// A ref the caller cannot read — or that does not exist — is silently dropped
+	// from the union rather than failing the query, so the result never reveals
+	// which of the named memories exist. Passing an empty list therefore yields
+	// an empty result, NOT the caller's own activity. A malformed ref is still an
+	// error. At most 20 refs.
+	//
+	// Only non-empty buckets are returned — zero-fill the window client-side.
+	// Counts only events of type read and write. Window bounds are ISO-8601
+	// strings: from is INCLUSIVE, to is EXCLUSIVE, so adjacent windows tile
+	// without double-counting. Defaults to the 7 days ending now; a span longer
+	// than 366 days is clamped by moving from forward.
+	UsageActivity []*UsageActivityUsageActivityUsageActivityBucket `json:"usageActivity"`
+}
+
+// GetUsageActivity returns UsageActivityResponse.UsageActivity, and is useful for accessing the field via an interface.
+func (v *UsageActivityResponse) GetUsageActivity() []*UsageActivityUsageActivityUsageActivityBucket {
+	return v.UsageActivity
+}
+
+// UsageActivityUsageActivityUsageActivityBucket includes the requested fields of the GraphQL type UsageActivityBucket.
+// The GraphQL type's documentation follows.
+//
+// One time bucket of read+write activity (#796).
+type UsageActivityUsageActivityUsageActivityBucket struct {
+	// Bucket start as YYYY-MM-DD, in the requested timeZone. Deliberately
+	// String and NOT DateTime (#205): it is a calendar-day label in the
+	// caller's zone, not an instant — rendering it as a UTC timestamp would
+	// shift buckets across the date line.
+	Date   string `json:"date"`
+	Reads  int    `json:"reads"`
+	Writes int    `json:"writes"`
+}
+
+// GetDate returns UsageActivityUsageActivityUsageActivityBucket.Date, and is useful for accessing the field via an interface.
+func (v *UsageActivityUsageActivityUsageActivityBucket) GetDate() string { return v.Date }
+
+// GetReads returns UsageActivityUsageActivityUsageActivityBucket.Reads, and is useful for accessing the field via an interface.
+func (v *UsageActivityUsageActivityUsageActivityBucket) GetReads() int { return v.Reads }
+
+// GetWrites returns UsageActivityUsageActivityUsageActivityBucket.Writes, and is useful for accessing the field via an interface.
+func (v *UsageActivityUsageActivityUsageActivityBucket) GetWrites() int { return v.Writes }
+
 // UsageEventsResponse is returned by UsageEvents on success.
 type UsageEventsResponse struct {
 	// Usage events (most recent first), optionally filtered by type, memoryId,
@@ -79327,10 +79395,35 @@ func (v *__UpdateWorkerSigningInput) GetSignature() *string { return v.Signature
 // GetTrailer returns __UpdateWorkerSigningInput.Trailer, and is useful for accessing the field via an interface.
 func (v *__UpdateWorkerSigningInput) GetTrailer() *string { return v.Trailer }
 
+// __UsageActivityInput is used internally by genqlient
+type __UsageActivityInput struct {
+	From       *string                  `json:"from,omitempty"`
+	To         *string                  `json:"to,omitempty"`
+	Bucket     *UsageActivityBucketSize `json:"bucket,omitempty"`
+	MemoryRefs []string                 `json:"memoryRefs,omitempty"`
+	TimeZone   *string                  `json:"timeZone,omitempty"`
+}
+
+// GetFrom returns __UsageActivityInput.From, and is useful for accessing the field via an interface.
+func (v *__UsageActivityInput) GetFrom() *string { return v.From }
+
+// GetTo returns __UsageActivityInput.To, and is useful for accessing the field via an interface.
+func (v *__UsageActivityInput) GetTo() *string { return v.To }
+
+// GetBucket returns __UsageActivityInput.Bucket, and is useful for accessing the field via an interface.
+func (v *__UsageActivityInput) GetBucket() *UsageActivityBucketSize { return v.Bucket }
+
+// GetMemoryRefs returns __UsageActivityInput.MemoryRefs, and is useful for accessing the field via an interface.
+func (v *__UsageActivityInput) GetMemoryRefs() []string { return v.MemoryRefs }
+
+// GetTimeZone returns __UsageActivityInput.TimeZone, and is useful for accessing the field via an interface.
+func (v *__UsageActivityInput) GetTimeZone() *string { return v.TimeZone }
+
 // __UsageEventsInput is used internally by genqlient
 type __UsageEventsInput struct {
 	MemoryId  *string `json:"memoryId,omitempty"`
 	Loc       *string `json:"loc,omitempty"`
+	NodeId    *string `json:"nodeId,omitempty"`
 	EventType *string `json:"eventType,omitempty"`
 	Limit     int     `json:"limit"`
 	Offset    *int    `json:"offset,omitempty"`
@@ -79343,6 +79436,9 @@ func (v *__UsageEventsInput) GetMemoryId() *string { return v.MemoryId }
 
 // GetLoc returns __UsageEventsInput.Loc, and is useful for accessing the field via an interface.
 func (v *__UsageEventsInput) GetLoc() *string { return v.Loc }
+
+// GetNodeId returns __UsageEventsInput.NodeId, and is useful for accessing the field via an interface.
+func (v *__UsageEventsInput) GetNodeId() *string { return v.NodeId }
 
 // GetEventType returns __UsageEventsInput.EventType, and is useful for accessing the field via an interface.
 func (v *__UsageEventsInput) GetEventType() *string { return v.EventType }
@@ -104698,10 +104794,55 @@ func UpdateWorkerSigning(
 	return data_, err_
 }
 
+// The query executed by UsageActivity.
+const UsageActivity_Operation = `
+query UsageActivity ($from: String, $to: String, $bucket: UsageActivityBucketSize, $memoryRefs: [ID!], $timeZone: String) {
+	usageActivity(from: $from, to: $to, bucket: $bucket, memoryRefs: $memoryRefs, timeZone: $timeZone) {
+		date
+		reads
+		writes
+	}
+}
+`
+
+// cor:acl:090:01 — omit memoryRefs for own activity, never fall back from a resource scope.
+func UsageActivity(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	from *string,
+	to *string,
+	bucket *UsageActivityBucketSize,
+	memoryRefs []string,
+	timeZone *string,
+) (data_ *UsageActivityResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UsageActivity",
+		Query:  UsageActivity_Operation,
+		Variables: &__UsageActivityInput{
+			From:       from,
+			To:         to,
+			Bucket:     bucket,
+			MemoryRefs: memoryRefs,
+			TimeZone:   timeZone,
+		},
+	}
+
+	data_ = &UsageActivityResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by UsageEvents.
 const UsageEvents_Operation = `
-query UsageEvents ($memoryId: ID, $loc: String, $eventType: String, $limit: Int!, $offset: Int, $since: DateTime, $until: DateTime) {
-	usageEvents(memoryId: $memoryId, loc: $loc, type: $eventType, limit: $limit, offset: $offset, since: $since, until: $until) {
+query UsageEvents ($memoryId: ID, $loc: String, $nodeId: ID, $eventType: String, $limit: Int!, $offset: Int, $since: DateTime, $until: DateTime) {
+	usageEvents(memoryId: $memoryId, loc: $loc, nodeId: $nodeId, type: $eventType, limit: $limit, offset: $offset, since: $since, until: $until) {
 		id
 		type
 		createdAt
@@ -104723,6 +104864,7 @@ func UsageEvents(
 	client_ graphql.Client,
 	memoryId *string,
 	loc *string,
+	nodeId *string,
 	eventType *string,
 	limit int,
 	offset *int,
@@ -104735,6 +104877,7 @@ func UsageEvents(
 		Variables: &__UsageEventsInput{
 			MemoryId:  memoryId,
 			Loc:       loc,
+			NodeId:    nodeId,
 			EventType: eventType,
 			Limit:     limit,
 			Offset:    offset,

@@ -103,7 +103,7 @@ func TestUsageActivity65FlagsBucketsAndRefusal(t *testing.T) {
 	}
 }
 func TestUsageActivity65NodeAndArgumentParsing(t *testing.T) {
-	for _, node := range []string{"node-pk", "hrn:node:acme.com:kb:a:b"} {
+	for _, node := range []string{"0123456789abcdef0123456789abcdef", "hrn:node:acme.com:kb:a:b"} {
 		_, stderr, code, calls, n := activity65Run(t, `{"data":{"usageEvents":[]}}`, "usage", "events", "--node", node)
 		if code != 0 || n != 1 {
 			t.Fatal(code, stderr)
@@ -121,6 +121,33 @@ func TestUsageActivity65NodeAndArgumentParsing(t *testing.T) {
 		_, stderr, code, _, n := activity65Run(t, `{}`, args...)
 		if code != 2 || n != 0 {
 			t.Fatalf("%v %d %d %s", args, code, n, stderr)
+		}
+	}
+}
+
+func TestUsageActivity65RefusalAndMalformedBuckets(t *testing.T) {
+	for _, tc := range []struct {
+		server string
+		code   int
+	}{
+		{"UNAUTHENTICATED", 3}, {"FORBIDDEN", 8}, {"MEMORY_NOT_FOUND", 4}, {"BAD_USER_INPUT", 2},
+	} {
+		response := `{"errors":[{"message":"server declined","extensions":{"code":"` + tc.server + `"}}]}`
+		for _, args := range [][]string{{"usage", "activity", "--memory", "unreadable", "--json"}, {"usage", "events", "--node", "0123456789abcdef0123456789abcdef", "--json"}} {
+			out, _, code, _, n := activity65Run(t, response, args...)
+			if n != 1 || code != tc.code || !strings.Contains(out, "server declined") {
+				t.Fatalf("%s %d %d %s", tc.server, n, code, out)
+			}
+		}
+	}
+	out, stderr, code, _, n := activity65Run(t, `{"data":{"usageActivity":[{"date":"a","reads":1,"writes":2},null]}}`, "usage", "activity")
+	if code != 1 || n != 1 || out != "" || !strings.Contains(stderr, "invalid usage-activity bucket") {
+		t.Fatal(code, n, out, stderr)
+	}
+	for _, node := range []string{"a:b:c", "hrn:mem:acme.com:kb", "plain-loc"} {
+		_, _, code, _, n := activity65Run(t, `{}`, "usage", "events", "--node", node)
+		if code != 2 || n != 0 {
+			t.Fatal(node, code, n)
 		}
 	}
 }

@@ -5,6 +5,8 @@ query UsageEvents(
   # @genqlient(omitempty: true)
   $loc: String
   # @genqlient(omitempty: true)
+  $nodeId: ID
+  # @genqlient(omitempty: true)
   $eventType: String
   $limit: Int!
   # @genqlient(omitempty: true)
@@ -14,11 +16,29 @@ query UsageEvents(
   # @genqlient(omitempty: true)
   $until: DateTime
 ) {
-  usageEvents(memoryId: $memoryId, loc: $loc, type: $eventType, limit: $limit, offset: $offset, since: $since, until: $until) {
+  usageEvents(memoryId: $memoryId, loc: $loc, nodeId: $nodeId, type: $eventType, limit: $limit, offset: $offset, since: $since, until: $until) {
     id type createdAt memoryId nodeLoc provider model keyOwnerType
     tokensIn tokensOut costMicroCents
   }
 }
 query MemoryUsageSummary($memoryRef: ID!) {
   memoryUsageSummary(memoryRef: $memoryRef) { nodeLoc type count }
+}
+
+# cor:acl:090:01 — omit memoryRefs for own activity, never fall back from a resource scope.
+query UsageActivity(
+  # @genqlient(omitempty: true)
+  $from: String
+  # @genqlient(omitempty: true)
+  $to: String
+  # @genqlient(omitempty: true)
+  $bucket: UsageActivityBucketSize
+  # @genqlient(omitempty: true)
+  $memoryRefs: [ID!]
+  # @genqlient(omitempty: true)
+  $timeZone: String
+) {
+  usageActivity(from: $from, to: $to, bucket: $bucket, memoryRefs: $memoryRefs, timeZone: $timeZone) {
+    date reads writes
+  }
 }
