@@ -30,5 +30,7 @@ alarm/noCoordinator extras have no influence on output or exit.
 ## Deployment boundary
 
 No production sweep and no #1374 installation until server#2931 is deployed.
-The #2924 result-shape deployment must be verified before the final schema
-refresh and freeze. Unit and compiled-binary checks use synthetic fixtures only.
+The schema snapshot is refreshed from deployed server 6cfeae5b88687dbc7b9ec4862ee86a95ef6ca31d
+(Hugo, chat #54432); the #2930 merge e70f2fdb is independently verified as an ancestor.
+That shape has only stored/refused. Unit and compiled-binary checks use synthetic
+fixtures only. The #2931 production/install hold remains independent.

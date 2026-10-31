@@ -32645,6 +32645,9 @@ func (v *HealthSweepSetTerminalsResponse) GetSetHostWorkerTerminals() *HealthSwe
 }
 
 // HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResult includes the requested fields of the GraphQL type SetHostWorkerTerminalsResult.
+// The GraphQL type's documentation follows.
+//
+// #2924 — status reporting only: no alarm verdict or coordinator requirement.
 type HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResult struct {
 	Stored  []*HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultStoredWorkerTerminalRef      `json:"stored"`
 	Refused []*HealthSweepSetTerminalsSetHostWorkerTerminalsSetHostWorkerTerminalsResultRefusedWorkerTerminalRefusal `json:"refused"`
