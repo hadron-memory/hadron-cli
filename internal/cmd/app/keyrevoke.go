@@ -59,6 +59,10 @@ hadron app key list <app-ref>.
 It asks for confirmation on a terminal; scripts and agents pass --yes, and
 without it a non-interactive run exits 2 with nothing sent.
 
+revokeAppKey is never retried. If its answer is lost (timeout, gateway error),
+the key may already be revoked: run hadron app key list <app-ref> to see whether
+it is still active.
+
 Only a person who manages the App can revoke, as themselves: the server refuses
 an App key, an impersonated session and a bound worker's session (exit 8).`,
 		Example: `  hadron app key revoke key_123
@@ -78,7 +82,11 @@ an App key, an impersonated session and a bound worker's session (exit 8).`,
 			}
 			resp, err := gen.RevokeAppKey(cmd.Context(), client, id)
 			if err != nil {
-				return api.WithServerCode(api.MapError(err), err)
+				mapped := api.MapError(err)
+				if exitcode.FromError(mapped) == exitcode.Unavailable && api.ServerCodeOf(err) == "" {
+					return exitcode.Newf(exitcode.Unavailable, "revokeAppKey was sent but its answer was lost; the key may already be revoked. It was not retried. Run `hadron app key list <app-ref>` to see whether it is still active. Cause: %s", failureClass(exitcode.Unavailable))
+				}
+				return api.WithServerCode(mapped, err)
 			}
 			if resp == nil || !resp.RevokeAppKey {
 				return exitcode.Newf(exitcode.Error, "the server did not confirm the revocation of key %s; run `hadron app key list <app-ref>` to see whether it is still active", id)
@@ -180,9 +188,9 @@ an App key, an impersonated session and a bound worker's session (exit 8).`,
 			if err := pending.Commit([]byte(rotated.RawKey + "\n")); err != nil {
 				var lb *secretfile.LeftBehindError
 				if errors.As(err, &lb) {
-					return exitcode.Newf(exitcode.Error, "could not write the key file, and %v; every old key of %s is revoked and the new key's value may be partly on disk: rotate again for a key you hold", err, ref)
+					return exitcode.Newf(exitcode.Error, "could not write the key file, and %v; every old key of %s is revoked and the new key's value may be partly on disk. Run `hadron app key list %s` to see what is active; rotate again for a key you hold", err, ref, ref)
 				}
-				return exitcode.Newf(exitcode.Error, "%v after the keys were rotated: every old key of %s is revoked and the new key's value is lost; rotate again for a key you hold", err, ref)
+				return exitcode.Newf(exitcode.Error, "%v after the keys were rotated: every old key of %s is revoked and the new key's value is lost. Run `hadron app key list %s` to see what is active; rotate again for a key you hold", err, ref, ref)
 			}
 
 			// The SDL makes `app` non-null, but the key is already written and the
