@@ -118,8 +118,8 @@ func TestAppRunSurfaces1338NullAndRefusal(t *testing.T) {
 				calls, out, err := runTeamTask(t, map[string]string{tc.op: `{"errors":[{"message":"refused","extensions":{"code":"` + refusal.code + `"}}]}`}, append(tc.args, "--json")...)
 				var coded interface{ ServerCode() string }
 				wantExit := refusal.exit
-				if refusal.code == "PERMISSION_DENIED" && tc.op != "SetAgentAssetUploadEnabled" {
-					wantExit = 1 // only this new operation adds the admin-refusal mapping
+				if refusal.code == "PERMISSION_DENIED" {
+					wantExit = 1 // generic mapping; asset domain codes are currently concealed by the server formatter
 				}
 				if exitCodeFor(err) != wantExit || !errors.As(err, &coded) || coded.ServerCode() != refusal.code || out != "" || len(*calls) != 1 || (*calls)[0].Op != tc.op {
 					t.Fatalf("code=%s err=%v out=%s calls=%v", refusal.code, err, out, *calls)
@@ -258,5 +258,50 @@ func TestAppRunSurfaces1338ConcealedMemoryText(t *testing.T) {
 	cells := strings.Fields(out)
 	if len(cells) != 10 || cells[6] != "?" || cells[8] != "-" || cells[9] != "-" {
 		t.Fatalf("concealed memory must differ from null metadata: %s", out)
+	}
+}
+
+// The real server formatter conceals the asset operation's unmapped domain
+// refusals as INTERNAL_SERVER_ERROR. Typed-code cases above are mapper controls,
+// not evidence that this operation currently emits those domain codes.
+func TestAppRunSurfaces1338AssetFaultEnvelope(t *testing.T) {
+	const fault = `{"errors":[{"message":"Internal server error.","extensions":{"code":"INTERNAL_SERVER_ERROR","requestId":"req-1338"}}]}`
+	for _, verb := range []string{"enable", "disable"} {
+		for _, status := range []int{200, 500} {
+			t.Run(verb+http.StatusText(status), func(t *testing.T) {
+				var calls atomic.Int32
+				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					calls.Add(1)
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(status)
+					_, _ = w.Write([]byte(fault))
+				}))
+				defer srv.Close()
+				f, out := testFactory(t)
+				root := NewRootCmd(f)
+				root.SetArgs([]string{"app", "asset-upload", verb, "hrn:agent:acme.com:bot", "--yes", "--json", "--server", srv.URL})
+				err := root.Execute()
+				if exitCodeFor(err) != 1 || calls.Load() != 1 || out.Len() != 0 {
+					t.Fatalf("err=%v calls=%d out=%s", err, calls.Load(), out.String())
+				}
+				if code := renderError(f, err); code != 1 {
+					t.Fatalf("rendered exit=%d", code)
+				}
+				var envelope struct {
+					Error struct {
+						Code       int    `json:"code"`
+						ServerCode string `json:"serverCode"`
+						RequestID  string `json:"requestId"`
+						Message    string `json:"message"`
+					} `json:"error"`
+				}
+				if err := json.Unmarshal([]byte(out.String()), &envelope); err != nil {
+					t.Fatal(err, out.String())
+				}
+				if envelope.Error.Code != 1 || envelope.Error.ServerCode != "INTERNAL_SERVER_ERROR" || envelope.Error.RequestID != "req-1338" || !strings.Contains(envelope.Error.Message, "req-1338") {
+					t.Fatalf("fault contract: %s", out.String())
+				}
+			})
+		}
 	}
 }
