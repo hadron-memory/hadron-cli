@@ -69,6 +69,29 @@ func TestTeamSafeCells1101(t *testing.T) {
 		}
 		return out
 	}
+	// overwrite sets fields that already exist in a JSON object fixture by
+	// decoding, assigning and re-encoding — never by appending a second key
+	// (#1119). A field the fixture lacks is a stamp that did not take.
+	overwrite := func(t *testing.T, fixture string, fields map[string]any) string {
+		t.Helper()
+		dec := json.NewDecoder(strings.NewReader(fixture))
+		dec.UseNumber()
+		var obj map[string]any
+		if err := dec.Decode(&obj); err != nil {
+			t.Fatalf("overwrite: fixture is not a JSON object: %v", err)
+		}
+		for k, v := range fields {
+			if _, ok := obj[k]; !ok {
+				t.Fatalf("overwrite of %q did not take: fixture would prove nothing", k)
+			}
+			obj[k] = v
+		}
+		out, err := json.Marshal(obj)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return string(out)
+	}
 	// The roster's model/tier/check/held-by/held-at cells had no fixture values
 	// on main: the fields are real (TeamRoster's projection) but rosterJSON
 	// leaves them null, so the cells rendered dashes and no attack could load
@@ -132,8 +155,10 @@ func TestTeamSafeCells1101(t *testing.T) {
 		for op, body := range base {
 			r[op] = body
 		}
-		session := stamp(t, activeSessionJSON, `"transcriptPath":null`, `"transcriptPath":"/mark/transcript.jsonl"`)
-		session = stamp(t, session, `"llmModel":null`, `"llmModel":"glm-5.3"`)
+		session := overwrite(t, activeSessionJSON, map[string]any{
+			"transcriptPath": "/mark/transcript.jsonl",
+			"llmModel":       "glm-5.3",
+		})
 		r["GetTeamSession"] = `{"data":{"session":` + session + `}}`
 		return r
 	}
