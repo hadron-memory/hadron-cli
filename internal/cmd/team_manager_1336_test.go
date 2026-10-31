@@ -299,7 +299,7 @@ func TestMcpC3LostMutationAnswerIsNotRetried(t *testing.T) {
 // presented as the destination of this ticker-replacing write (LOCAL #1385).
 func TestMcpC3ChangeAgentPromptDirectScope(t *testing.T) {
 	const ambient = "hrn:app:ambient.example:unrelated"
-	for _, worker := range []string{"hrn:worker:other.example:team:iris", "0123456789abcdef0123456789abcdef", "Iris"} {
+	for _, worker := range []string{"hrn:worker:other.example:team:iris", "0123456789abcdef0123456789abcdef", "cworker000000000000000000", "Iris"} {
 		t.Run(worker, func(t *testing.T) {
 			writeTeamBinding(t)
 			srv, calls := attnServer(t, managerResponses1336())
@@ -356,5 +356,41 @@ func TestMcpC3ChangeAgentNameNeedsScopeBeforePrompt(t *testing.T) {
 	err := root.Execute()
 	if exitCodeFor(err) != 2 || !strings.Contains(err.Error(), "App scope") || len(*calls) != 0 || out.Len() != 0 || strings.Contains(stderr.String(), "(y/N)") {
 		t.Fatalf("err=%v requests=%v stdout=%q stderr=%q", err, *calls, out.String(), stderr.String())
+	}
+}
+
+func TestMcpC3ChangeAgentDirectRefSkipsAmbientRoster(t *testing.T) {
+	for _, ref := range []string{"hrn:worker:other.example:team:iris", "0123456789abcdef0123456789abcdef", "cworker000000000000000000"} {
+		t.Run(ref, func(t *testing.T) {
+			responses := managerResponses1336()
+			responses["Workers"] = gqlErrorJSON("FORBIDDEN")
+			calls, r := runManager1336(t, responses, "--app", "hrn:app:ambient.example:unreadable", "team", "worker", "change-agent", ref, "--agent", agent1336, "--yes", "--json")
+			if r.err != nil {
+				t.Fatal(r.err)
+			}
+			reads := stopCalls(calls, "GetWorker")
+			if len(stopCalls(calls, "Workers")) != 0 || len(reads) != 1 || reads[0].Vars["ref"] != ref || len(stopCalls(calls, "ChangeWorkerAgent")) != 1 {
+				t.Fatalf("direct ref must skip ambient roster: %v", *calls)
+			}
+		})
+	}
+}
+
+func TestMcpC3ChangeAgentDirectLookupRefusalNeverWrites(t *testing.T) {
+	for _, tc := range []struct {
+		name, body string
+		exit       int
+	}{
+		{"missing", `{"data":{"worker":null}}`, 4},
+		{"forbidden", gqlErrorJSON("FORBIDDEN"), 8},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			responses := managerResponses1336()
+			responses["GetWorker"] = tc.body
+			calls, r := runManager1336(t, responses, "team", "worker", "change-agent", "0123456789abcdef0123456789abcdef", "--agent", agent1336, "--yes", "--json")
+			if exitCodeFor(r.err) != tc.exit || len(stopCalls(calls, "ChangeWorkerAgent")) != 0 || len(stopCalls(calls, "Workers")) != 0 {
+				t.Fatalf("err=%v calls=%v", r.err, *calls)
+			}
+		})
 	}
 }

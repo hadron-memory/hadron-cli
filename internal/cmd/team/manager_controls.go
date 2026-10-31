@@ -126,7 +126,7 @@ deciding what to do next.`,
 			}
 			// Direct refs identify their own App; ambient context must never be
 			// presented as their destination. No network read precedes confirmation.
-			direct := directWorkerRef(workerRef) || strings.HasPrefix(strings.ToLower(workerRef), "urn:worker:")
+			direct := cmdutil.IsEntityID(workerRef) || strings.HasPrefix(strings.ToLower(workerRef), "hrn:worker:") || strings.HasPrefix(strings.ToLower(workerRef), "urn:worker:")
 			source := "from the worker record"
 			location := "in the worker's own App"
 			if !direct {
@@ -159,13 +159,26 @@ deciding what to do next.`,
 			if err := cmdutil.Confirm(f.IOStreams, yes, prompt); err != nil {
 				return err
 			}
-			worker, err := workerForArg(cmd, f, workerRef)
-			if err != nil {
-				return err
-			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
+			}
+			var worker gen.WorkerFields
+			if direct {
+				// An id/URN is App-independent: do not scan ambient staff first.
+				result, err := gen.GetWorker(cmd.Context(), client, workerRef)
+				if err != nil {
+					return api.MapErrorKeepingCode(err)
+				}
+				if result == nil || result.Worker == nil {
+					return exitcode.Newf(exitcode.NotFound, "no worker %q", workerRef)
+				}
+				worker = result.Worker.WorkerFields
+			} else {
+				worker, err = workerForArg(cmd, f, workerRef)
+				if err != nil {
+					return err
+				}
 			}
 			resp, err := gen.ChangeWorkerAgent(cmd.Context(), client, worker.Id, agent)
 			if err != nil {
