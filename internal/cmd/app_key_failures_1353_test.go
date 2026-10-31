@@ -3,6 +3,8 @@ package cmd
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -10,6 +12,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/hadron-memory/hadron-cli/internal/secretfile"
 )
@@ -54,6 +57,20 @@ func TestAppKey1353RevokeLostAnswer(t *testing.T) {
 			for _, want := range []string{"may already be revoked", "hadron app key list <app-ref>", "not retried"} {
 				if !strings.Contains(msg, want) {
 					t.Errorf("missing %q: %s", want, msg)
+				}
+			}
+			if !strings.Contains(msg, "connection dropped") {
+				t.Errorf("mapped transport diagnostic lost: %s", msg)
+			}
+			if jsonMode {
+				var env struct {
+					Error map[string]json.RawMessage `json:"error"`
+				}
+				if err := json.Unmarshal([]byte(out.String()), &env); err != nil {
+					t.Fatal(err)
+				}
+				if string(env.Error["code"]) != "7" || env.Error["serverCode"] != nil || env.Error["message"] == nil {
+					t.Fatalf("bad envelope: %s", out.String())
 				}
 			}
 			if requests.Load() != 1 {
@@ -145,6 +162,7 @@ func TestAppKey1353RotateForce(t *testing.T) {
 func TestAppKey1353RotateCommitFailure(t *testing.T) {
 	for _, leftover := range []bool{false, true} {
 		t.Run(map[bool]string{false: "cleaned", true: "left-behind"}[leftover], func(t *testing.T) {
+			// Package-wide seams: keep this test serial (no t.Parallel).
 			oldWrite, oldRemove := secretfile.Write, secretfile.Remove
 			t.Cleanup(func() { secretfile.Write, secretfile.Remove = oldWrite, oldRemove })
 			secretfile.Write = func(f *os.File, b []byte) error {
@@ -190,4 +208,63 @@ func TestAppKey1353RotateCommitFailure(t *testing.T) {
 			}
 		})
 	}
+}
+
+// A transport class includes failures before the send. Keep uncertainty honest
+// and the mapped diagnostic useful without echoing raw URLs or gateway bodies.
+func TestAppKey1353RevokeTransportDiagnostics(t *testing.T) {
+	for _, status := range []int{502, 504} {
+		t.Run(fmt.Sprint(status), func(t *testing.T) {
+			srv, n := keyServer(t, status, "gateway "+rotatedRaw1333)
+			r := runKeyArgs(t, srv, "revoke", "key_9", "--yes")
+			if r.err == nil || exitCodeFor(r.err) != 7 || n.Load() != 1 {
+				t.Fatal(r.err, n.Load())
+			}
+			msg := r.all()
+			for _, want := range []string{fmt.Sprintf("HTTP %d", status), "may have been sent", "may already be revoked", "app key list"} {
+				if !strings.Contains(msg, want) {
+					t.Errorf("missing %q: %s", want, msg)
+				}
+			}
+			if strings.Contains(msg, rotatedRaw1333) {
+				t.Fatal("raw gateway body echoed")
+			}
+		})
+	}
+	t.Run("before-send", func(t *testing.T) {
+		srv, n := keyServer(t, 200, `{}`)
+		srv.Close()
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"app", "key", "revoke", "key_9", "--yes", "--server", srv.URL + "/" + rotatedRaw1333})
+		err := root.Execute()
+		if err == nil || renderError(f, err) != 7 || n.Load() != 0 {
+			t.Fatal(err, n.Load())
+		}
+		msg := out.String() + f.IOStreams.ErrOut.(*strings.Builder).String()
+		if strings.Contains(msg, "was sent") || !strings.Contains(msg, "may have been sent") || !strings.Contains(msg, "could not reach the server") || strings.Contains(msg, rotatedRaw1333) {
+			t.Fatalf("dishonest or unsafe diagnostic: %s", msg)
+		}
+	})
+	t.Run("timeout", func(t *testing.T) {
+		var n atomic.Int32
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, _ = io.Copy(io.Discard, r.Body)
+			n.Add(1)
+			<-r.Context().Done()
+		}))
+		defer srv.Close()
+		f, out := testFactory(t)
+		f.HTTPClient.Timeout = time.Second
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"app", "key", "revoke", "key_9", "--yes", "--server", srv.URL})
+		err := root.Execute()
+		if err == nil || renderError(f, err) != 7 || n.Load() != 1 {
+			t.Fatal(err, n.Load())
+		}
+		msg := out.String() + f.IOStreams.ErrOut.(*strings.Builder).String()
+		if !strings.Contains(msg, "timed out") || !strings.Contains(msg, "app key list") {
+			t.Fatal(msg)
+		}
+	})
 }

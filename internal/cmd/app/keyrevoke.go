@@ -84,7 +84,7 @@ an App key, an impersonated session and a bound worker's session (exit 8).`,
 			if err != nil {
 				mapped := api.MapError(err)
 				if exitcode.FromError(mapped) == exitcode.Unavailable && api.ServerCodeOf(err) == "" {
-					return exitcode.Newf(exitcode.Unavailable, "revokeAppKey was sent but its answer was lost; the key may already be revoked. It was not retried. Run `hadron app key list <app-ref>` to see whether it is still active. Cause: %s", failureClass(exitcode.Unavailable))
+					return exitcode.Newf(exitcode.Unavailable, "revokeAppKey may have been sent; the key may already be revoked. It was not retried. Run `hadron app key list <app-ref>` to see whether it is still active. Cause: %w", mapped)
 				}
 				return api.WithServerCode(mapped, err)
 			}
