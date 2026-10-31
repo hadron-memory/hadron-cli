@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
@@ -226,13 +227,13 @@ func TestCalendar230TimeZoneLocalIsRefused(t *testing.T) {
 }
 
 func TestCalendar230TransportFailureIsNotRetriedOrReportedAsSuccess(t *testing.T) {
-	var hits int
+	var hits atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
 			_, _ = w.Write([]byte(`{"capabilities":[]}`))
 			return
 		}
-		hits++
+		hits.Add(1)
 		hj, _ := w.(http.Hijacker)
 		c, _, _ := hj.Hijack()
 		_ = c.Close() // the request arrived, the answer never does
@@ -242,8 +243,8 @@ func TestCalendar230TransportFailureIsNotRetriedOrReportedAsSuccess(t *testing.T
 	r := NewRootCmd(f)
 	r.SetArgs([]string{"calendar", "event", "delete", "e1", "--connection", "c", "--yes", "--json", "--server", srv.URL})
 	err := r.Execute()
-	if err == nil || hits != 1 || strings.Contains(out.String(), `"deleted"`) {
-		t.Fatal(err, hits, out.String())
+	if err == nil || hits.Load() != 1 || strings.Contains(out.String(), `"deleted"`) {
+		t.Fatal(err, hits.Load(), out.String())
 	}
 }
 

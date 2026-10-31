@@ -47,17 +47,6 @@ type codedError struct {
 func (c *codedError) Unwrap() error      { return c.error }
 func (c *codedError) ServerCode() string { return c.code }
 
-// withServerCode maps a raw failure and keeps the server's code on it.
-func withServerCode(mapped, raw error) error {
-	if mapped == nil {
-		return nil
-	}
-	if code := api.ServerCodeOf(raw); code != "" {
-		return &codedError{error: mapped, code: code}
-	}
-	return mapped
-}
-
 func newCmdKeyRevoke(f *cmdutil.Factory) *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{
@@ -89,7 +78,7 @@ an App key, an impersonated session and a bound worker's session (exit 8).`,
 			}
 			resp, err := gen.RevokeAppKey(cmd.Context(), client, id)
 			if err != nil {
-				return withServerCode(api.MapError(err), err)
+				return api.WithServerCode(api.MapError(err), err)
 			}
 			if resp == nil || !resp.RevokeAppKey {
 				return exitcode.Newf(exitcode.Error, "the server did not confirm the revocation of key %s; run `hadron app key list <app-ref>` to see whether it is still active", id)
@@ -232,5 +221,5 @@ func rotateFailure(err error, ref string) error {
 		return exitcode.Newf(code, "regenerateAppKey was sent and its answer was lost, so EVERY key of %s may already be revoked and a new key may exist whose value nobody has. It was not retried and no file was kept. Run `hadron app key list %s` to see what is active; rotate again if you need a key you hold. Cause: %s",
 			ref, ref, failureClass(code))
 	}
-	return withServerCode(exitcode.Newf(code, "regenerateAppKey refused: %s; no key was rotated", failureClass(code)), err)
+	return api.WithServerCode(exitcode.Newf(code, "regenerateAppKey refused: %s; no key was rotated", failureClass(code)), err)
 }
