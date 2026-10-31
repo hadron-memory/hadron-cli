@@ -1,6 +1,8 @@
 package spec
 
 import (
+	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -26,7 +28,7 @@ func TestSpecCanonicalPrefixCompositionAndRefusal(t *testing.T) {
 		t.Errorf("specName = %q", got)
 	}
 
-	const refusal = `--title is the text AFTER the citation: "qa:api:010:04 — " is added automatically, so drop it from the value: --title "Burst allowance"`
+	const refusal = `--title is the text AFTER the citation: "qa:api:010:04 — " is added automatically, so drop it from the value: --title 'Burst allowance'`
 	guards := map[string]func(title string) error{
 		"new":  func(title string) error { return refuseNewTitlePrefix(title, loc) },
 		"edit": func(title string) error { return validateEditTitle(title, loc) },
@@ -61,7 +63,7 @@ func TestSpecCopiedPrefixCorrectedTitleHint(t *testing.T) {
 		{"qa:api:010:04 — qa:api:010:04 — Burst allowance", "Burst allowance"},
 		{"qa:api:010:04 — W4 — 7d check-in", "W4 — 7d check-in"},
 	} {
-		want := `--title is the text AFTER the citation: "qa:api:010:04 — " is added automatically, so drop it from the value: --title "` + tc.want + `"`
+		want := `--title is the text AFTER the citation: "qa:api:010:04 — " is added automatically, so drop it from the value: --title '` + tc.want + `'`
 		for name, err := range map[string]error{
 			"new":  refuseNewTitlePrefix(tc.title, loc),
 			"edit": validateEditTitle(tc.title, loc),
@@ -72,6 +74,49 @@ func TestSpecCopiedPrefixCorrectedTitleHint(t *testing.T) {
 			if refuseCopiedNamePrefix(tc.want, loc) != nil {
 				t.Errorf("%s: the suggested title %q is itself refused", name, tc.want)
 			}
+		}
+	}
+}
+
+// #1376 (Baloo P2): the hint is a shell fragment people paste, so the
+// corrected title is single-quoted for a POSIX shell, never Go-quoted: a
+// pasted $HOME, $(...), backquote or quote must reach --title unchanged.
+// Each case is round-tripped through a real sh.
+func TestSpecCopiedPrefixHintIsShellSafe(t *testing.T) {
+	sh, err := exec.LookPath("sh")
+	if err != nil {
+		t.Skip("no sh on PATH")
+	}
+	const loc = "qa:api:010:04"
+	for _, rest := range []string{"Cost $HOME", "Run $(touch pwned) now", "Back `id` tick", `it's "quoted"`, "multi\nline", `back\slash`} {
+		err := refuseCopiedNamePrefix(specNamePrefix(loc)+rest, loc)
+		if err == nil {
+			t.Fatalf("%q not refused", rest)
+		}
+		_, word, ok := strings.Cut(err.Error(), "drop it from the value: --title ")
+		if !ok {
+			t.Fatalf("no hint in %q", err)
+		}
+		// In a scratch dir, so a broken quote's $(touch pwned) lands nowhere.
+		cmd := exec.Command(sh, "-c", "printf %s "+word)
+		cmd.Dir = t.TempDir()
+		out, xerr := cmd.Output()
+		if xerr != nil || string(out) != rest {
+			t.Errorf("hint %s gives the shell %q (%v), want %q", word, out, xerr, rest)
+		}
+	}
+}
+
+// The guard never yields an empty corrected title: the prefix ends in a space
+// and the title is compared trimmed, so a prefix-only title ("<loc> — ", with
+// or without the space) does not match and is not refused here. That is the
+// degenerate spelling #1302 leaves to a spec-owner ruling; this pins today's
+// shipped contract, not a choice.
+func TestSpecCopiedPrefixOnlyTitleIsTheRulingFirstCase(t *testing.T) {
+	const loc = "qa:api:010:04"
+	for _, title := range []string{"qa:api:010:04 — ", "qa:api:010:04 —", "  qa:api:010:04 —  "} {
+		if err := refuseCopiedNamePrefix(title, loc); err != nil {
+			t.Errorf("%q: %v", title, err)
 		}
 	}
 }

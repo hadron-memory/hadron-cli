@@ -221,7 +221,14 @@ func refuseCopiedNamePrefix(title, loc string) error {
 	for strings.HasPrefix(t, prefix) {
 		t = strings.TrimSpace(strings.TrimPrefix(t, prefix))
 	}
-	return exitcode.Newf(exitcode.Usage, "--title is the text AFTER the citation: %q is added automatically, so drop it from the value: --title %q", prefix, t)
+	return exitcode.Newf(exitcode.Usage, "--title is the text AFTER the citation: %q is added automatically, so drop it from the value: --title %s", prefix, shellQuote(t))
+}
+
+// shellQuote renders s as one POSIX shell word, so a hint pasted into a shell
+// passes s through unchanged: single quotes, inside which nothing expands
+// ($HOME, $(...), backquotes), and each ' written as '\”.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
 // specTags returns the tag set for a spec: "spec" then any extra semantic

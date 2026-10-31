@@ -10,7 +10,7 @@ import (
 // shows the corrected title to retry with, on the ordinary binary path (stderr)
 // and in the --json envelope, with exit 2 and no write.
 func TestSpecNewDuplicatedTitleCorrectedHint(t *testing.T) {
-	const wantHint = `--title "Burst allowance"`
+	const wantHint = `--title 'Burst allowance'`
 	for _, tc := range []struct {
 		name, title, prefix string
 		args                []string
