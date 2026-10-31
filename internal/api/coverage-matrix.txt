@@ -208,7 +208,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 315: 219 command, 85 gap, 11 excluded
+[Mutation] 315: 220 command, 84 gap, 11 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -387,7 +387,7 @@ reassignAgentTask  command team task reassign
 recordAgentTaskProgress  command team task progress
 recordSessionOutcome  command team session outcome
 recordTeamWork  command team session log
-recordUsage  gap #65
+recordUsage  command usage record
 regenerateAppKey  command app key rotate
 registerContextResetRecovery  gap #1043: the host handler that performs the reset
 registerHost  command team host run

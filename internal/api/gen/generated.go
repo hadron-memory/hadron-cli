@@ -45113,6 +45113,19 @@ func (v *RecordTeamWorkResponse) GetRecordTeamWork() *RecordTeamWorkRecordTeamWo
 	return v.RecordTeamWork
 }
 
+// RecordUsageResponse is returned by RecordUsage on success.
+type RecordUsageResponse struct {
+	// Record a usage event. A supplied session is attributed only when owned
+	// by the caller (no admin or impersonation bypass). Missing, deleted or
+	// unowned session references are recorded without session attribution.
+	// Owned ended, expired or idle sessions accept late attribution without
+	// counting it as activity. The existing READER role gate still applies.
+	RecordUsage bool `json:"recordUsage"`
+}
+
+// GetRecordUsage returns RecordUsageResponse.RecordUsage, and is useful for accessing the field via an interface.
+func (v *RecordUsageResponse) GetRecordUsage() bool { return v.RecordUsage }
+
 // RecoveryEdgesRecoveryEdgesRecoveryEdgesPage includes the requested fields of the GraphQL type RecoveryEdgesPage.
 type RecoveryEdgesRecoveryEdgesRecoveryEdgesPage struct {
 	Total int                                                                  `json:"total"`
@@ -69911,6 +69924,37 @@ func (v *UsageActivityUsageActivityUsageActivityBucket) GetReads() int { return 
 // GetWrites returns UsageActivityUsageActivityUsageActivityBucket.Writes, and is useful for accessing the field via an interface.
 func (v *UsageActivityUsageActivityUsageActivityBucket) GetWrites() int { return v.Writes }
 
+type UsageEventInput struct {
+	ActionArgs *json.RawMessage `json:"actionArgs,omitempty"`
+	Model      *string          `json:"model,omitempty"`
+	NodeLoc    *string          `json:"nodeLoc,omitempty"`
+	SessionId  *string          `json:"sessionId,omitempty"`
+	TokensIn   *int             `json:"tokensIn,omitempty"`
+	TokensOut  *int             `json:"tokensOut,omitempty"`
+	Type       string           `json:"type"`
+}
+
+// GetActionArgs returns UsageEventInput.ActionArgs, and is useful for accessing the field via an interface.
+func (v *UsageEventInput) GetActionArgs() *json.RawMessage { return v.ActionArgs }
+
+// GetModel returns UsageEventInput.Model, and is useful for accessing the field via an interface.
+func (v *UsageEventInput) GetModel() *string { return v.Model }
+
+// GetNodeLoc returns UsageEventInput.NodeLoc, and is useful for accessing the field via an interface.
+func (v *UsageEventInput) GetNodeLoc() *string { return v.NodeLoc }
+
+// GetSessionId returns UsageEventInput.SessionId, and is useful for accessing the field via an interface.
+func (v *UsageEventInput) GetSessionId() *string { return v.SessionId }
+
+// GetTokensIn returns UsageEventInput.TokensIn, and is useful for accessing the field via an interface.
+func (v *UsageEventInput) GetTokensIn() *int { return v.TokensIn }
+
+// GetTokensOut returns UsageEventInput.TokensOut, and is useful for accessing the field via an interface.
+func (v *UsageEventInput) GetTokensOut() *int { return v.TokensOut }
+
+// GetType returns UsageEventInput.Type, and is useful for accessing the field via an interface.
+func (v *UsageEventInput) GetType() string { return v.Type }
+
 // UsageEventsResponse is returned by UsageEvents on success.
 type UsageEventsResponse struct {
 	// Usage events (most recent first), optionally filtered by type, memoryId,
@@ -76917,6 +76961,14 @@ func (v *__RecordTeamWorkLegacyInput) GetAction() string { return v.Action }
 
 // GetDetail returns __RecordTeamWorkLegacyInput.Detail, and is useful for accessing the field via an interface.
 func (v *__RecordTeamWorkLegacyInput) GetDetail() *json.RawMessage { return v.Detail }
+
+// __RecordUsageInput is used internally by genqlient
+type __RecordUsageInput struct {
+	Event *UsageEventInput `json:"event,omitempty"`
+}
+
+// GetEvent returns __RecordUsageInput.Event, and is useful for accessing the field via an interface.
+func (v *__RecordUsageInput) GetEvent() *UsageEventInput { return v.Event }
 
 // __RecoveryEdgesInput is used internally by genqlient
 type __RecoveryEdgesInput struct {
@@ -96061,6 +96113,38 @@ func RecordTeamWorkLegacy(
 	}
 
 	data_ = &RecordTeamWorkLegacyResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RecordUsage.
+const RecordUsage_Operation = `
+mutation RecordUsage ($event: UsageEventInput!) {
+	recordUsage(event: $event)
+}
+`
+
+func RecordUsage(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	event *UsageEventInput,
+) (data_ *RecordUsageResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RecordUsage",
+		Query:  RecordUsage_Operation,
+		Variables: &__RecordUsageInput{
+			Event: event,
+		},
+	}
+
+	data_ = &RecordUsageResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
