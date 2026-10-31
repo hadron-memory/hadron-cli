@@ -132,7 +132,11 @@ written (uninstall removes them).`,
 			if bin, err = filepath.Abs(bin); err != nil || bin == "" {
 				return exitcode.Newf(exitcode.Usage, "could not find hadron: pass --bin <absolute path>")
 			}
-			path := os.Getenv("PATH")
+			// The entry carries the cleaned PATH, so that is what orca must resolve on.
+			path, err := healthsched.CleanPath(os.Getenv("PATH"))
+			if err != nil {
+				return mapSched(err)
+			}
 			orca, err := healthsched.ResolveOrca(cfg.Delivery.OrcaBin, path)
 			if err != nil {
 				return mapSched(err)

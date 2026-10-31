@@ -93,7 +93,7 @@ var configRE = regexp.MustCompile(`config=("(?:[^"\\]|\\.)*")`)
 
 // existingConfig is the config path an installed entry was written for ("" if
 // none), read from the entry itself.
-func (e Env) existingConfig(k Kind) string {
+func (e Env) existingConfig(k Kind, cron []string) string {
 	var text string
 	switch k {
 	case Systemd:
@@ -107,8 +107,7 @@ func (e Env) existingConfig(k Kind) string {
 		}
 		return ""
 	case Cron:
-		lines, _ := e.readCrontab()
-		for _, l := range lines {
+		for _, l := range cron {
 			if IsOwnedCronLine(l) {
 				text = strings.ReplaceAll(l, `\%`, "%")
 			}
@@ -154,7 +153,7 @@ func (e Env) Install(s Spec) (Result, error) {
 	if err := ValidateInterval(s.Interval); err != nil {
 		return Result{}, err
 	}
-	path, err := cleanPath(s.Path)
+	path, err := CleanPath(s.Path)
 	if err != nil {
 		return Result{}, err
 	}
@@ -168,12 +167,18 @@ func (e Env) Install(s Spec) (Result, error) {
 			return Result{}, err
 		}
 	}
-	for _, other := range e.installedKinds() {
+	// One crontab snapshot serves the whole install: every check and the
+	// write see the same lines, and a read that fails refuses, never passes.
+	cron, err := e.cronSnapshot()
+	if err != nil {
+		return Result{}, err
+	}
+	for _, other := range e.installedKinds(cron) {
 		if other != k {
 			return Result{}, usagef("an entry is already installed under %s, and this host would use %s; run `hadron team health uninstall` first", other, k)
 		}
 	}
-	if old := e.existingConfig(k); old != "" && old != s.Config {
+	if old := e.existingConfig(k, cron); old != "" && old != s.Config {
 		return Result{}, usagef("an entry for %s is already installed; run `hadron team health uninstall` first to switch configs", old)
 	}
 	res := Result{Kind: k}
@@ -181,16 +186,16 @@ func (e Env) Install(s Spec) (Result, error) {
 	case Systemd:
 		return e.installSystemd(s, res)
 	case Cron:
-		return e.installCron(s, res)
+		return e.installCron(s, res, cron)
 	default:
 		return e.installLaunchd(s, res)
 	}
 }
 
-// cleanPath is the PATH the entry will carry: control characters are refused
+// CleanPath is the PATH the entry will carry: control characters are refused
 // (a newline would add directives to a unit), and empty or relative elements
 // are dropped, since the entry runs from another working directory.
-func cleanPath(p string) (string, error) {
+func CleanPath(p string) (string, error) {
 	for _, r := range p {
 		if r < 0x20 || r == 0x7f {
 			return "", usagef("PATH contains a control character (%q); refusing to write it into a scheduler entry", p)
@@ -207,7 +212,7 @@ func cleanPath(p string) (string, error) {
 
 // installedKinds lists every scheduler that already holds an entry, wherever
 // Detect would write now.
-func (e Env) installedKinds() []Kind {
+func (e Env) installedKinds(cron []string) []Kind {
 	var ks []Kind
 	if fileExists(e.timerPath()) || fileExists(e.servicePath()) {
 		ks = append(ks, Systemd)
@@ -215,14 +220,22 @@ func (e Env) installedKinds() []Kind {
 	if fileExists(e.plistPath()) {
 		ks = append(ks, Launchd)
 	}
-	if e.GOOS != "darwin" {
-		if _, err := e.Which("crontab"); err == nil {
-			if lines, err := e.readCrontab(); err == nil && len(dropMarked(lines)) != len(lines) {
-				ks = append(ks, Cron)
-			}
-		}
+	if len(dropMarked(cron)) != len(cron) {
+		ks = append(ks, Cron)
 	}
 	return ks
+}
+
+// cronSnapshot is the crontab as one read, or nil where there is no crontab
+// command (macOS, or none installed). A failing read is an error.
+func (e Env) cronSnapshot() ([]string, error) {
+	if e.GOOS == "darwin" {
+		return nil, nil
+	}
+	if _, err := e.Which("crontab"); err != nil {
+		return nil, nil
+	}
+	return e.readCrontab()
 }
 
 func (e Env) installSystemd(s Spec, res Result) (Result, error) {
@@ -273,12 +286,8 @@ func oneLine(out []byte, err error) string {
 	return strings.Join(strings.Fields(m), " ")
 }
 
-func (e Env) installCron(s Spec, res Result) (Result, error) {
+func (e Env) installCron(s Spec, res Result, lines []string) (Result, error) {
 	line, err := CronLine(s)
-	if err != nil {
-		return res, err
-	}
-	lines, err := e.readCrontab()
 	if err != nil {
 		return res, err
 	}
@@ -399,12 +408,13 @@ func (e Env) Uninstall() (Result, error) {
 // there, which is the state uninstall wants.
 func alreadyAbsent(out []byte) bool {
 	m := strings.ToLower(string(out))
-	for _, s := range []string{"does not exist", "not loaded", "no such process", "could not find", "not found", "no such file"} {
-		if strings.Contains(m, s) {
-			return true
-		}
+	switch {
+	case strings.Contains(m, "no such process"), strings.Contains(m, "could not find service"), strings.Contains(m, "not loaded"):
+		return true // launchctl / systemd: the job is not loaded
+	case strings.Contains(m, "unit file") && strings.Contains(m, "does not exist"):
+		return true // systemctl names the unit it cannot find
 	}
-	return false
+	return false // a bus, socket or file error proves nothing about the job
 }
 
 // LastRun is what the scheduler recorded; nil fields mean unknown.
@@ -450,7 +460,7 @@ func (e Env) ReadStatus() Status {
 			n, _ := strconv.Atoi(string(m[1]))
 			st.Interval = (time.Duration(n) * time.Minute).String()
 		}
-		st.Config = e.existingConfig(Systemd)
+		st.Config = e.existingConfig(Systemd, nil)
 		if m := pathRE.FindSubmatch(svc); m != nil {
 			st.Orca = e.orcaIn(unSystemd(string(m[1])))
 		}
@@ -465,7 +475,7 @@ func (e Env) ReadStatus() Status {
 	case fileExists(e.plistPath()):
 		st.Installed, st.Kind = true, string(Launchd)
 		st.Files = []string{e.plistPath()}
-		st.Config = e.existingConfig(Launchd)
+		st.Config = e.existingConfig(Launchd, nil)
 		b, _ := os.ReadFile(e.plistPath())
 		if m := regexp.MustCompile(`<string>([^<]*)</string>\s*<string>team</string>`).FindSubmatch(b); m != nil {
 			st.Bin = xmlUnescape(string(m[1]))
@@ -487,7 +497,7 @@ func (e Env) ReadStatus() Status {
 			for _, l := range strings.Split(string(out), "\n") {
 				if IsOwnedCronLine(l) {
 					st.Installed, st.Active, st.Kind = true, true, string(Cron)
-					st.Config = e.existingConfig(Cron)
+					st.Config = e.existingConfig(Cron, splitCron(string(out)))
 					st.Interval = cronInterval(l)
 					if w := shellWords(strings.ReplaceAll(l, `\%`, "%")); len(w) > 6 && strings.HasPrefix(w[5], "PATH=") {
 						st.Orca = e.orcaIn(strings.TrimPrefix(w[5], "PATH="))

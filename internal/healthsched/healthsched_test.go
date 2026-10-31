@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -69,8 +70,10 @@ type fake struct {
 	have    map[string]bool
 	fail    map[string]bool // argv-prefix -> error
 	out     map[string]string
-	failOut string // output of a failed call (default "boom")
-	readErr bool   // crontab -l fails for a reason other than "no crontab"
+	failOut string       // output of a failed call (default "boom")
+	readErr bool         // crontab -l fails for a reason other than "no crontab"
+	listN   int          // crontab -l calls so far
+	listBad map[int]bool // the nth crontab -l fails with empty output
 }
 
 func (f *fake) run(argv []string, stdin string) ([]byte, error) {
@@ -86,6 +89,10 @@ func (f *fake) run(argv []string, stdin string) ([]byte, error) {
 		}
 	}
 	if k == "crontab -l" {
+		f.listN++
+		if f.listBad[f.listN] {
+			return nil, errors.New("exit 1")
+		}
 		if f.readErr {
 			return []byte("crontab: cannot read the spool"), errors.New("exit 1")
 		}
@@ -437,7 +444,7 @@ func TestCronConfigWithPercentSurvivesTheRoundTrip(t *testing.T) {
 	if _, err := e.Install(spec); err != nil {
 		t.Fatal(err)
 	}
-	if got := e.existingConfig(Cron); got != spec.Config {
+	if got := e.existingConfig(Cron, splitCron(f.crontab)); got != spec.Config {
 		t.Fatalf("config = %q", got)
 	}
 	s2 := spec
@@ -748,5 +755,101 @@ func TestCronLineWithAnApostropheInPathIsStillOwned(t *testing.T) {
 	}
 	if _, err := e.Uninstall(); err != nil || strings.TrimSpace(f.crontab) != "" {
 		t.Fatalf("%v %q", err, f.crontab)
+	}
+}
+
+// #1412 delta (Diego P2-1): no crontab read during Install may fail open.
+func TestAnyTransientCrontabReadDuringInstallFailsClosed(t *testing.T) {
+	for n := 1; n <= 4; n++ {
+		f := &fake{}
+		e := f.env(t, "linux", "crontab")
+		if _, err := e.Install(spec); err != nil {
+			t.Fatal(err)
+		}
+		before := f.crontab
+		f.listN, f.listBad = 0, map[int]bool{n: true}
+		s2 := spec
+		s2.Config = "/etc/other.yaml"
+		if _, err := e.Install(s2); err == nil {
+			t.Fatalf("read #%d failed and Install still succeeded", n)
+		}
+		if f.crontab != before {
+			t.Fatalf("read #%d failed and the crontab was replaced: %q", n, f.crontab)
+		}
+	}
+}
+
+// #1412 delta (Baloo P2-1): discovery of an existing cron entry that fails to
+// read must not let a second schedule be created under systemd.
+func TestUnreadableCrontabBlocksInstallUnderNewlyAvailableSystemd(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "linux", "crontab")
+	if _, err := e.Install(spec); err != nil {
+		t.Fatal(err)
+	}
+	f.have["systemctl"] = true
+	f.readErr = true
+	if _, err := e.Install(spec); err == nil {
+		t.Fatal("an unreadable crontab must refuse")
+	}
+	if fileExists(e.timerPath()) || fileExists(e.servicePath()) {
+		t.Fatal("a systemd timer was written beside a cron entry that could not be inspected")
+	}
+}
+
+// #1412 delta (Baloo P2-2): only a scheduler's own "job is absent" answer
+// counts; a bus or file error does not prove the timer stopped.
+func TestUninstallDoesNotTreatABusFailureAsAbsent(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "linux", "systemctl")
+	if _, err := e.Install(spec); err != nil {
+		t.Fatal(err)
+	}
+	f.fail = map[string]bool{"systemctl --user disable": true}
+	f.failOut = "Failed to connect to bus: No such file or directory"
+	if _, err := e.Uninstall(); err == nil || !fileExists(e.timerPath()) {
+		t.Fatalf("a bus failure must be an error that keeps the files: %v", err)
+	}
+	g := &fake{}
+	m := g.env(t, "darwin", "launchctl")
+	if _, err := m.Install(spec); err != nil {
+		t.Fatal(err)
+	}
+	g.fail = map[string]bool{"launchctl bootout": true}
+	g.failOut = "Bootstrap failed: launchctl: file not found"
+	if _, err := m.Uninstall(); err == nil || !fileExists(m.plistPath()) {
+		t.Fatalf("a generic not-found must be an error that keeps the plist: %v", err)
+	}
+}
+
+// #1412 delta (Ralion P2-2 residual): the hostile config word reaches the
+// unit's ExecStart intact, with $ doubled and quotes escaped.
+func TestSystemdExecStartCarriesTheHostileArgv(t *testing.T) {
+	f := &fake{}
+	e := f.env(t, "linux", "systemctl")
+	if _, err := e.Install(hostile); err != nil {
+		t.Fatal(err)
+	}
+	svc, _ := os.ReadFile(e.servicePath())
+	m := regexp.MustCompile(`(?m)^ExecStart=(.*)$`).FindSubmatch(svc)
+	if m == nil {
+		t.Fatalf("no ExecStart: %s", svc)
+	}
+	var got []string
+	for _, w := range regexp.MustCompile(`"((?:[^"\\]|\\.)*)"`).FindAllSubmatch(m[1], -1) {
+		got = append(got, unSystemd(string(w[1])))
+	}
+	if strings.Join(got, "\x00") != strings.Join(hostile.Argv(), "\x00") {
+		t.Fatalf("ExecStart words = %q, want %q", got, hostile.Argv())
+	}
+	if !strings.Contains(string(m[1]), `h\"o$$t`) || !strings.Contains(string(m[1]), "100%%") {
+		t.Fatalf("$ and %% must be doubled and \" escaped in the raw line: %s", m[1])
+	}
+}
+
+func TestCleanPathIsExported(t *testing.T) {
+	p, err := CleanPath("/usr/bin::bin:/opt/ok")
+	if err != nil || p != "/usr/bin:/opt/ok" {
+		t.Fatalf("%q %v", p, err)
 	}
 }

@@ -257,3 +257,33 @@ func TestHealthInstallDoesNotQuoteAnUnparsableConfig(t *testing.T) {
 		}
 	}
 }
+
+// #1412 delta (Diego P2-2, Ralion P3): orca is resolved against the PATH the
+// entry will carry. An orca reachable only through a relative PATH element is
+// refused before any write, not scheduled with an empty PATH.
+func TestHealthInstallResolvesOrcaAgainstThePersistedPath(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "bin"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "bin", "orca"), []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	wd, _ := os.Getwd()
+	t.Cleanup(func() { _ = os.Chdir(wd) })
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", "bin")
+	hf, run, home := healthHarness(t, "systemctl")
+	_, _, err := run("install", "--config", hostConfig(t, ""), "--interval", "5m")
+	if code(err) != exitcode.Usage {
+		t.Fatalf("exit = %d (%v)", code(err), err)
+	}
+	if strings.Contains(strings.Join(hf.calls, "\n"), "daemon-reload") {
+		t.Errorf("the scheduler was called: %q", hf.calls)
+	}
+	if _, err := os.Stat(filepath.Join(home, ".config")); err == nil {
+		t.Error("a refused install wrote files")
+	}
+}
