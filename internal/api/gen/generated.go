@@ -39853,7 +39853,7 @@ type MergeMemoriesInput struct {
 	// Delete the (now-empty) source memory after a successful merge.
 	DeleteSourceMem *bool `json:"deleteSourceMem"`
 	// Field strategy for source nodes whose loc collides with an existing target node (folded via the mergeNodes rules). Omit (or null) = every mergeable field. Nodes with no target counterpart move over unchanged (loc preserved).
-	Include []NodeMergeField `json:"include"`
+	Include []NodeMergeField `json:"include,omitempty"`
 	// Source memory — ID or fully-qualified URN. Emptied into 'target'.
 	Source string `json:"source"`
 	// Target memory — ID or fully-qualified URN. The surviving memory.

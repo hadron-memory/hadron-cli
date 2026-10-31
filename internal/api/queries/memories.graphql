@@ -695,7 +695,10 @@ mutation RetryFailedEmbeddings($memoryRef: ID!) {
 # the rest move over with their loc. The source ends up empty, and
 # deleteSourceMem deletes it. A refusal after some batches committed carries
 # extensions.partialMerge; re-running the same merge finishes it.
-mutation MergeMemories($input: MergeMemoriesInput!) {
+# @genqlient(for: "MergeMemoriesInput.include", omitempty: true)
+mutation MergeMemories(
+  $input: MergeMemoriesInput!
+) {
   mergeMemories(input: $input) {
     id
     urn
