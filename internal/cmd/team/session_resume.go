@@ -39,6 +39,7 @@ func noBindingRefusal(what string, asMe bool) error {
 
 type resumeFlags struct {
 	pick, tool, host, model, transcript string
+	description, family                 *string
 }
 
 // resumeCandidateDTO is the stable --json shape of one CHOOSE candidate.
@@ -64,7 +65,7 @@ func runSessionResume(cmd *cobra.Command, f *cmdutil.Factory, rf resumeFlags) er
 	// Everything that can refuse locally refuses BEFORE resumeSession, which
 	// spends a claim. A flag the server's input cannot carry is refused rather
 	// than dropped: a resumed session would silently lack it.
-	for _, name := range []string{"force", "repo", "branch", "reports-to", "memory"} {
+	for _, name := range []string{"force", "repo", "branch", "reports-to", "memory", "agent", "customer", "language", "parent-session", "plan", "pr-number", "previous-session", "type"} {
 		if cmd.Flags().Changed(name) {
 			return exitcode.Newf(exitcode.Usage,
 				"--%s does not apply to a resume (start with no worker named); name the worker with --as to use it", name)
@@ -116,7 +117,8 @@ func runSessionResume(cmd *cobra.Command, f *cmdutil.Factory, rf resumeFlags) er
 		host, _ = os.Hostname()
 	}
 	resp, err := gen.ResumeTeamSession(ctx, client, &gen.ResumeSessionInput{
-		Session:        pick,
+		Session:     pick,
+		Description: rf.description, Family: rf.family,
 		Tool:           optStr(rf.tool),
 		Host:           optStr(host),
 		LlmModel:       optStr(rf.model),

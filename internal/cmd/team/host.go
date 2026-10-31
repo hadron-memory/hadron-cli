@@ -116,13 +116,14 @@ workers it can run, as which model family and in which worktrees
 (cor:agt:070:01); people and workers issue it typed operations
 (cor:agt:070:05), which it collects and reports (cor:agt:070:02).
 ` + "`list`" + ` and ` + "`ops`" + ` read them; ` + "`issue`" + ` issues one. ` + "`run`" + ` is the
-host's own poller, and ` + "`status`" + ` checks its configuration. A host's key is
+host's own poller; ` + "`availability`" + ` sets or clears its own worker mark. ` + "`status`" + ` checks its configuration. A host's key is
 granted with ` + "`hadron app key scope grant <key-id> host:operate --host-id <host>`" + `.`,
 	}
 	cmd.AddCommand(newCmdTeamHostLs(f))
 	cmd.AddCommand(newCmdTeamHostOps(f))
 	cmd.AddCommand(newCmdTeamHostIssue(f))
 	cmd.AddCommand(newCmdTeamHostRun(f))
+	cmd.AddCommand(newCmdTeamHostAvailability(f))
 	cmd.AddCommand(newCmdTeamHostStatus(f))
 	return cmd
 }
