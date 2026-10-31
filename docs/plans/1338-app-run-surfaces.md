@@ -65,12 +65,19 @@ empty state. Revocation needs a returned revokedAt; asset changes need a returne
 App identity and an allowlist matching the requested state. A null latest run
 exits 4 without claiming that no hidden run exists. Null myApp is successful.
 
-All server failures use MapErrorKeepingCode. PERMISSION_DENIED from the asset
-operation maps to forbidden (8) only on this operation; legacy asset delete/restore
-retain their established exit 1. Existing FORBIDDEN
-and AVAILABILITY_NOT_PERMITTED map to 8. NOT_FOUND maps to 4, BAD_USER_INPUT to 2,
-UNAUTHENTICATED to 3. HTTP 503 maps to availability (7), with unknown-write-outcome
-guidance inherited from the shared mapper. No local role checks reproduce policy.
+All server failures use MapErrorKeepingCode. Grant FORBIDDEN and general
+AVAILABILITY_NOT_PERMITTED map to8, typed NOT_FOUND to4, BAD_USER_INPUT to2,
+UNAUTHENTICATED to3. These are mapper controls, not a claim that every operation
+emits every code. The asset-setting operation currently throws SetAssetEnabledError
+but the server GraphQL formatter does not register that class: its non-admin,
+unknown/unreadable Agent and missing backing-App refusals become
+INTERNAL_SERVER_ERROR (exit1 with requestId). The CLI preserves the actual wire
+answer; it does not infer access or existence from prose. No scoped
+PERMISSION_DENIED override remains. [hadron-server#2979](https://github.com/hadron-memory/hadron-server/issues/2979)
+owns registration of the class and its same-answer concealment rule; this PR
+does not fix the server.
+HTTP503 maps to availability7 with unknown-write-outcome guidance. No local role
+checks reproduce policy.
 
 ## Verification and limits
 
@@ -97,7 +104,17 @@ therefore depends on the existing run-detail fields. No list is fetched to resol
 one App or Agent.
 
 Author mutation checks: removal of add confirmation, omission of explicitly false
-include-revoked/previous, disabling the returned-setting consistency guard, dropping
-the scoped admin-refusal exit and widening identity selection each compiled and
+include-revoked/previous, disabling the returned-setting consistency guard, changing
+the admin-refusal mapping (historical pre-review probe, superseded by LOCAL evidence) and widening identity selection each compiled and
 failed the intended new test. An equivalent string-comparison control survived.
 Each edit was checked for its exact replacement before execution and restored.
+
+
+LOCAL formatter finding: the initial source audit stopped at the operation's
+custom error code and missed the GraphQL boundary. Real formatter execution by
+Elena showed INTERNAL_SERVER_ERROR; the combined fix removes the unreachable
+exit8 branch and documents that limit. Tests pin HTTP200/500 fault envelopes
+through the production JSON renderer (exit1, serverCode, requestId, no retry).
+Synthetic raw domain-code tests are explicitly mapper controls. The whoami help
+also clarifies that user credentials return null. Independent earlier receipts
+remain historical until their holders delta-review this fix head.

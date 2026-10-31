@@ -22,8 +22,9 @@ type myAppDTO struct {
 func newCmdWhoami(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{Use: "whoami", Short: "Read the App authenticated by the current credential", Long: `Ask myApp which App the current App-key credential authenticates.
 This does not use --app, the configured App or a worker binding as its target.
-The server may return null (for example for a JWT user without an App): that
-is success with {"app":null}, not a lookup of an ambient App. Only identity
+The server returns null for user credentials (JWT or user API key); only an
+App key identifies an App. Null is success with {"app":null}, not a lookup of
+an ambient App. Only identity
 metadata is requested, never keys, settings or AI credentials. Text names the
 App or says no App was returned; JSON is {app: metadata|null}.`, Example: `  hadron app whoami --json`, Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := f.GraphQLClient()
@@ -80,7 +81,12 @@ This toggles the v1 tool allowlist, not a memory's acceptsUploads setting.`}
 No local App context selects the target. Both states are sent explicitly,
 including enabled:false when disabling. The returned App's allowlist confirms
 the result; JSON is {appId,appUrn,agentRef,enabled}. No credential is requested.
-A lost reply is an unknown outcome; this command never retries the mutation.`, Example: "  hadron app asset-upload " + name + " hrn:agent:acme.com:bot --yes --json", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+A lost reply is an unknown outcome; this command never retries the mutation.
+Current server limitation: its unmapped asset-setting refusals (non-admin or
+unknown/unreadable Agent) arrive as INTERNAL_SERVER_ERROR, exit 1 with a request
+ID, rather than typed permission/not-found codes. The CLI preserves that answer
+and does not infer permission or existence from the message. This server defect
+is tracked as hadron-server#2979.`, Example: "  hadron app asset-upload " + name + " hrn:agent:acme.com:bot --yes --json", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 			ref := strings.TrimSpace(args[0])
 			if ref == "" {
 				return exitcode.Newf(exitcode.Usage, "pass an Agent ID or fully qualified URN")
@@ -94,12 +100,8 @@ A lost reply is an unknown outcome; this command never retries the mutation.`, E
 			}
 			r, err := gen.SetAgentAssetUploadEnabled(cmd.Context(), client, &gen.SetAgentAssetUploadEnabledInput{AgentUrn: ref, Enabled: enabled})
 			if err != nil {
-				// The asset setting uses PERMISSION_DENIED for an authenticated
-				// non-admin. Scope this exit to the operation: legacy asset delete/
-				// restore deliberately keep their established exit 1.
-				if api.HasErrorCode(err, "PERMISSION_DENIED") {
-					return exitcode.New(exitcode.Forbidden, api.MapErrorKeepingCode(err))
-				}
+				// Preserve the actual wire code. The server currently conceals this
+				// operation's unmapped domain refusals as INTERNAL_SERVER_ERROR.
 				return api.MapErrorKeepingCode(err)
 			}
 			if r == nil || r.SetAgentAssetUploadEnabled == nil {
