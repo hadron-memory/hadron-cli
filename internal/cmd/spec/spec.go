@@ -752,7 +752,7 @@ func readMemoryByRef(cmd *cobra.Command, client graphql.Client, ref string) (id,
 func memoryURNsByID(cmd *cobra.Command, client graphql.Client) (map[string]string, error) {
 	filter := &gen.MemoryFilter{MemoryClasses: gen.AllMemoryClass}
 	items, err := api.CollectAll(func(limit, offset int) ([]*gen.MemoriesMemoriesMemoriesPageItemsMemory, int, error) {
-		resp, err := gen.Memories(cmd.Context(), client, filter, &limit, &offset)
+		resp, err := gen.Memories(cmd.Context(), client, filter, &limit, &offset, nil)
 		if err != nil {
 			return nil, 0, api.MapError(err)
 		}
@@ -838,7 +838,7 @@ func lookupSpecMemory(cmd *cobra.Command, client graphql.Client, ref string) (id
 	// both need the caller's whole memory list (hadron-server#473).
 	filter := &gen.MemoryFilter{MemoryClasses: gen.AllMemoryClass}
 	items, err := api.CollectAll(func(limit, offset int) ([]*gen.MemoriesMemoriesMemoriesPageItemsMemory, int, error) {
-		resp, err := gen.Memories(cmd.Context(), client, filter, &limit, &offset)
+		resp, err := gen.Memories(cmd.Context(), client, filter, &limit, &offset, nil)
 		if err != nil {
 			return nil, 0, api.MapError(err)
 		}

@@ -2,6 +2,7 @@ package memory
 
 import (
 	"io"
+	"strings"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
@@ -9,6 +10,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -20,6 +22,7 @@ type (
 
 func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 	var includeAgentSystem, sharedWithMe, ownedByMe bool
+	var org, visibility string
 	cmd := &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"ls"},
@@ -39,14 +42,46 @@ acting as another user, the list is empty.
 --shared-with-me lists instead the memories other users have
 shared with you (with memory share), with the role you were given and who
 shared it. It does not overlap the default listing: your own memories are not
-in it, and shared ones are not in the default listing.`,
+in it, and shared ones are not in the default listing.
+
+--org <org> lists what that organization's members see: your own personal and
+private memories plus the memories the organization owns or subscribes to. If
+you are not a member the list is empty.
+
+--visibility ORGANIZATION|GROUP narrows the list to that visibility.
+--visibility PUBLIC lists instead every public memory: the marketplace,
+including memories of organizations you do not belong to.`,
 		Example: `  hadron memory ls
   hadron memory ls --owned-by-me
   hadron memory ls --owned-by-me --json
   hadron memory ls --shared-with-me
-  hadron memory ls --shared-with-me --json`,
+  hadron memory ls --shared-with-me --json
+  hadron memory ls --org acme.com
+  hadron memory ls --visibility PUBLIC`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Gated on Changed (cli#1340): --org= is an empty value, refused,
+			// never read as "no organization" (the whole union).
+			var orgArg *string
+			if cmd.Flags().Changed("org") {
+				if strings.TrimSpace(org) == "" {
+					return exitcode.Newf(exitcode.Usage, "--org is empty: name an organization (ID or URN). Nothing was sent")
+				}
+				o := strings.TrimSpace(org)
+				orgArg = &o
+			}
+			var visArg *gen.MemoryVisibility
+			if cmd.Flags().Changed("visibility") {
+				for _, v := range gen.AllMemoryVisibility {
+					if strings.EqualFold(string(v), strings.TrimSpace(visibility)) {
+						vv := v
+						visArg = &vv
+					}
+				}
+				if visArg == nil {
+					return exitcode.Newf(exitcode.Usage, "invalid --visibility %q (want ORGANIZATION, GROUP or PUBLIC). Nothing was sent", visibility)
+				}
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -55,7 +90,7 @@ in it, and shared ones are not in the default listing.`,
 			if sharedWithMe {
 				memories, err = listSharedWithMe(cmd, client)
 			} else {
-				memories, err = listOwnUnion(cmd, client, includeAgentSystem, ownedByMe)
+				memories, err = listOwnUnion(cmd, client, includeAgentSystem, ownedByMe, orgArg, visArg)
 			}
 			if err != nil {
 				return err
@@ -80,6 +115,11 @@ in it, and shared ones are not in the default listing.`,
 	cmd.Flags().BoolVar(&includeAgentSystem, "include-agent-system", false, "include agent system memories")
 	cmd.Flags().BoolVar(&sharedWithMe, "shared-with-me", false, "list memories shared with you instead of your own")
 	cmd.Flags().BoolVar(&ownedByMe, "owned-by-me", false, "list only the org-less memories you own")
+	cmd.Flags().StringVar(&org, "org", "", "list what this organization's members see (ID or URN)")
+	cmd.Flags().StringVar(&visibility, "visibility", "", "only this visibility: ORGANIZATION, GROUP, or PUBLIC (the marketplace)")
+	// The shared slice is its own operation and takes neither.
+	cmd.MarkFlagsMutuallyExclusive("shared-with-me", "org")
+	cmd.MarkFlagsMutuallyExclusive("shared-with-me", "visibility")
 	// A slice selection can't be narrowed by the other slice's knob: shared
 	// memories are personal-class by definition, so combining the two would
 	// quietly mean nothing. Reject it rather than ignore it.
@@ -105,9 +145,9 @@ in it, and shared ones are not in the default listing.`,
 // reads like an ownership test is only a proxy — which was the original
 // defect (#1176). A list whose name is a relationship and whose query is a
 // category is correct only while the two coincide.
-func listOwnUnion(cmd *cobra.Command, client graphql.Client, includeAgentSystem, ownedByMe bool) ([]memoryDTO, error) {
+func listOwnUnion(cmd *cobra.Command, client graphql.Client, includeAgentSystem, ownedByMe bool, orgID *string, visibility *gen.MemoryVisibility) ([]memoryDTO, error) {
 	var filter *gen.MemoryFilter
-	if includeAgentSystem || ownedByMe {
+	if includeAgentSystem || ownedByMe || visibility != nil {
 		filter = &gen.MemoryFilter{}
 		if includeAgentSystem {
 			filter.MemoryClasses = gen.AllMemoryClass
@@ -118,9 +158,10 @@ func listOwnUnion(cmd *cobra.Command, client graphql.Client, includeAgentSystem,
 		if ownedByMe {
 			filter.OwnedByMe = &ownedByMe
 		}
+		filter.Visibility = visibility
 	}
 	items, err := api.CollectAll(func(limit, offset int) ([]*listedMemory, int, error) {
-		resp, err := gen.Memories(cmd.Context(), client, filter, &limit, &offset)
+		resp, err := gen.Memories(cmd.Context(), client, filter, &limit, &offset, orgID)
 		if err != nil {
 			return nil, 0, api.MapError(err)
 		}
