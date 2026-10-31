@@ -3106,8 +3106,9 @@ server error fails the command).
     failure), `costMicroCents` (exact decimal string, 1e-8 USD; `"0"` is a real
     recorded cost) and `budgetActionsInitial`/`budgetTokensInitial` (int). For
     all three, null means unknown; it must not be read as zero. Human `run list`
-    adds COST and REASON (kind) columns; REASON is `unknown` for a FAILED run the
-    server gave no reason for, `—` for a run that did not fail.
+    adds COST and REASON (kind) columns; REASON is `unknown` for a FAILED,
+    TIMED_OUT or CANCELLED run the server gave no reason for, `—` for a run that
+    did not fail or is still in flight.
   - `schedule create --app <ref> --name <n> --cron '<expr>' --entry <node-urn>`
     registers a recurring trigger (5-field cron, evaluated in `--tz`, default UTC;
     one-time `--at` is not yet a server capability). `--policy '<json>'` is a

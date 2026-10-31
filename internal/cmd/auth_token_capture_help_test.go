@@ -71,7 +71,7 @@ func TestAuthTokenCaptureExample(t *testing.T) {
 	if !ok {
 		t.Fatal("missing capture example")
 	}
-	for _, mode := range []string{"success", "refusal", "refusal-json", "invalid-json", "existing", "dangling", "directory", "racing-file"} {
+	for _, mode := range []string{"success", "refusal", "refusal-json", "invalid-json", "existing", "dangling", "directory", "racing-file", "racing-directory", "racing-directory-link"} {
 		t.Run(mode, func(t *testing.T) {
 			dir := t.TempDir()
 			tools := filepath.Join(dir, "tools")
@@ -86,6 +86,8 @@ refusal) exit 3 ;;
 refusal-json) printf '{"rawKey":"synthetic-key"}\n'; exit 8 ;;
 invalid-json) printf 'not JSON\n'; exit 0 ;;
 racing-file) printf 'foreign\n' > ci-token ;;
+racing-directory) mkdir ci-token ;;
+racing-directory-link) ln -s foreign-dir ci-token ;;
 esac
 printf '{"rawKey":"synthetic-key"}\n'
 `
@@ -104,6 +106,15 @@ printf '{"rawKey":"synthetic-key"}\n'
 				}
 			case "directory":
 				if err := os.Mkdir(dest, 0o700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			foreignDir := filepath.Join(dir, "foreign-dir")
+			if mode == "racing-directory-link" {
+				if err := os.Mkdir(foreignDir, 0o700); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(foreignDir, "sentinel"), []byte("foreign\n"), 0o644); err != nil {
 					t.Fatal(err)
 				}
 			}
@@ -148,6 +159,28 @@ printf '{"rawKey":"synthetic-key"}\n'
 				target, err := os.Readlink(dest)
 				if err != nil || target != "missing-target" {
 					t.Errorf("symlink changed: %q %v", target, err)
+				}
+			case "racing-directory", "racing-directory-link":
+				if runErr == nil {
+					t.Error("racing directory reported success")
+				}
+				if mode == "racing-directory-link" {
+					target, err := os.Readlink(dest)
+					if err != nil || target != "foreign-dir" {
+						t.Errorf("foreign link changed: %q %v", target, err)
+					}
+					b, err := os.ReadFile(filepath.Join(foreignDir, "sentinel"))
+					if err != nil || string(b) != "foreign\n" {
+						t.Errorf("foreign sentinel changed: %q %v", b, err)
+					}
+				}
+				entries, err := os.ReadDir(dest)
+				want := 0
+				if mode == "racing-directory-link" {
+					want = 1
+				}
+				if err != nil || len(entries) != want {
+					t.Errorf("foreign directory changed: %v %v", entries, err)
 				}
 			case "directory":
 				entries, err := os.ReadDir(dest)
