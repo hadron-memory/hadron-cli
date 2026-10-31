@@ -76,7 +76,7 @@ func TestNudgeLargeGapMentionsOnlyAnchorFullDiscipline(t *testing.T) {
 	for _, want := range []string{
 		"LARGE GAP", "unread #61–#9901, latest mention #9750",
 		"--mentions-me --since 60 --before 9902 --limit 200",
-		"mark-read --through", "marks NOTHING", "your OWN session", "prevBefore",
+		"mark-read --through", "never auto-marks", "marks NOTHING", "your OWN session", "prevBefore",
 	} {
 		if !strings.Contains(text, want) {
 			t.Errorf("text missing %q", want)

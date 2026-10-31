@@ -72,20 +72,40 @@ func loadDisabled(t *testing.T) *regexp.Regexp {
 		seen[line] = true
 		names = append(names, regexp.QuoteMeta(line))
 	}
+	if err := sc.Err(); err != nil {
+		t.Fatalf("read testdata: %v", err)
+	}
 	if len(names) != wantDisabledCount {
 		t.Fatalf("testdata lists %d tool names, want exactly %d (plan mcp-team-cut, ruling M5-R1)", len(names), wantDisabledCount)
 	}
 	return regexp.MustCompile(`\b(?:` + strings.Join(names, "|") + `)\b`)
 }
 
+// unscannedPaths are the only paths the walk skips outright, each exact and
+// with its reason. Nothing is skipped by directory NAME: a `testdata`, `bin` or
+// `dist` directory under plugins/ or docs/ is shipped text like any other.
+var unscannedPaths = map[string]string{
+	"internal/shippedtext/testdata": "this guard's own list of the disabled names",
+	"internal/api/gen":              "copies of the server SDL; follow S1 via S2's snapshot refresh",
+	"docs/plans":                    "design-as-built records, not instructions (plan D5)",
+	".git":                          "VCS metadata",
+	"bin":                           "build output at the repo root",
+	"dist":                          "release output at the repo root",
+}
+
+func isUnscannedPath(rel string) bool {
+	for p := range unscannedPaths {
+		if rel == p || strings.HasPrefix(rel, p+"/") {
+			return true
+		}
+	}
+	return false
+}
+
 // scanned reports whether a repo-relative, slash-separated path is shipped text.
 func scanned(rel string) bool {
 	switch {
-	case strings.HasPrefix(rel, "docs/plans/"):
-		return false // design-as-built records, not instructions (plan D5)
-	case strings.HasPrefix(rel, "internal/api/gen/"):
-		return false // copies of the server SDL; follow S1 via S2's snapshot refresh
-	case strings.Contains(rel, "/testdata/"):
+	case isUnscannedPath(rel):
 		return false
 	case rel == "internal/cmd/agentic/agentic-usage.md", rel == "README.md":
 		return true
@@ -97,25 +117,30 @@ func scanned(rel string) bool {
 	return false
 }
 
-func TestNoDisabledMCPToolNamedInShippedText(t *testing.T) {
-	root := repoRoot(t)
-	disabled := loadDisabled(t)
-	matched := map[string]bool{}
-	var hits []string
-
+// scanRoot walks root and returns every "path: name" hit plus the exempt paths
+// that actually matched.
+func scanRoot(t *testing.T, root string, disabled *regexp.Regexp, exempt map[string]string) (hits []string, matched map[string]bool) {
+	t.Helper()
+	matched = map[string]bool{}
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		rel, _ := filepath.Rel(root, path)
 		rel = filepath.ToSlash(rel)
-		if d.IsDir() {
-			if name := d.Name(); name == ".git" || name == "node_modules" || name == "bin" || name == "dist" {
+		if isUnscannedPath(rel) {
+			if d.IsDir() {
 				return filepath.SkipDir
 			}
 			return nil
 		}
-		isGo := strings.HasSuffix(rel, ".go") && !strings.HasSuffix(rel, "_test.go") && !strings.HasPrefix(rel, "internal/api/gen/")
+		if d.IsDir() {
+			if d.Name() == "node_modules" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		isGo := strings.HasSuffix(rel, ".go") && !strings.HasSuffix(rel, "_test.go")
 		if !isGo && !scanned(rel) {
 			return nil
 		}
@@ -145,7 +170,7 @@ func TestNoDisabledMCPToolNamedInShippedText(t *testing.T) {
 		}
 		for _, text := range texts {
 			for _, name := range disabled.FindAllString(text, -1) {
-				if _, ok := exemptions[rel]; ok {
+				if _, ok := exempt[rel]; ok {
 					matched[rel] = true
 					continue
 				}
@@ -157,6 +182,11 @@ func TestNoDisabledMCPToolNamedInShippedText(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	return hits, matched
+}
+
+func TestNoDisabledMCPToolNamedInShippedText(t *testing.T) {
+	hits, matched := scanRoot(t, repoRoot(t), loadDisabled(t), exemptions)
 	for _, h := range hits {
 		t.Errorf("shipped text names a disabled MCP team tool (use the CLI command): %s", h)
 	}
@@ -164,6 +194,64 @@ func TestNoDisabledMCPToolNamedInShippedText(t *testing.T) {
 		if !matched[rel] {
 			t.Errorf("stale exemption %s (%s): it names no disabled tool any more; remove it", rel, why)
 		}
+	}
+}
+
+// TestScanRootDetection pins what the walk covers, on a throwaway tree: a name
+// planted at each shipped surface is found, including under directories named
+// testdata, bin and dist inside plugins/ and docs/; and the exact skips are
+// honoured.
+func TestScanRootDetection(t *testing.T) {
+	const bad = "call hadron_team_chat_read now\n"
+	write := func(root, rel, body string) {
+		t.Helper()
+		p := filepath.Join(root, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	re := loadDisabled(t)
+	for _, rel := range []string{
+		"plugins/x/SKILL.md",
+		"plugins/x/testdata/SKILL.md",
+		"plugins/x/dist/SKILL.md",
+		"plugins/x/bin/SKILL.md",
+		"docs/how-to/a.md",
+		"docs/how-to/testdata/a.md",
+		"README.md",
+		"internal/cmd/agentic/agentic-usage.md",
+		"internal/cmd/other/embedded.txt",
+	} {
+		root := t.TempDir()
+		write(root, rel, bad)
+		if hits, _ := scanRoot(t, root, re, nil); len(hits) != 1 {
+			t.Errorf("%s: want 1 hit, got %v", rel, hits)
+		}
+	}
+	root := t.TempDir()
+	write(root, "internal/lib/lib.go", "package lib\nvar S = \"hadron_team_chat_read\"\n")
+	if hits, _ := scanRoot(t, root, re, nil); len(hits) != 1 {
+		t.Errorf("a Go string literal must be found, got %v", hits)
+	}
+	// Skipped on purpose: comments, history, and the exact skip paths.
+	root = t.TempDir()
+	write(root, "internal/lib/lib.go", "package lib\n// hadron_team_chat_read\n")
+	write(root, "docs/plans/p.md", bad)
+	write(root, "internal/api/gen/generated.go", "package gen\nvar S = \"hadron_team_chat_read\"\n")
+	write(root, "internal/shippedtext/testdata/list.txt", bad)
+	write(root, "bin/x.md", bad)
+	if hits, _ := scanRoot(t, root, re, nil); len(hits) != 0 {
+		t.Errorf("exact skips and comments must pass, got %v", hits)
+	}
+	// An exemption is honoured and reported as matched; one that matches nothing is not.
+	root = t.TempDir()
+	write(root, "internal/cmd/spec/mcp-tools.txt", bad)
+	hits, matched := scanRoot(t, root, re, map[string]string{"internal/cmd/spec/mcp-tools.txt": "r", "gone.txt": "r"})
+	if len(hits) != 0 || !matched["internal/cmd/spec/mcp-tools.txt"] || matched["gone.txt"] {
+		t.Errorf("exemption handling wrong: hits=%v matched=%v", hits, matched)
 	}
 }
 
