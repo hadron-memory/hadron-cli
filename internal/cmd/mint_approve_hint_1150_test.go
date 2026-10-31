@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // cli#1150: a mint blocked because a node's current revision is not approved
@@ -22,6 +24,17 @@ func nodeMintReply1150(blockers string) string {
 		`"blockers":` + blockers + `,"staleAbstracts":[],"staleAbstractsBlock":false,"openQuestions":[]}}}`
 }
 
+// requireBlockedExit1150 asserts the command ended the way a blocked mint does
+// (exit 5). The helpers used to discard Execute's error, so a no-hint
+// assertion passed on empty output after ANY failure (cli#1419): an unrelated
+// early error (an HTTP 500, a usage error) also prints no hint.
+func requireBlockedExit1150(t *testing.T, err error, out string) {
+	t.Helper()
+	if got := exitcode.FromError(err); got != exitcode.Conflict {
+		t.Fatalf("a blocked mint must exit %d, got %d (err=%v); stdout:\n%s", exitcode.Conflict, got, err, out)
+	}
+}
+
 func runNodeMint1150(t *testing.T, blockers string, asJSON bool) string {
 	t.Helper()
 	gql := newVarServer(t, func(op string, _ json.RawMessage) string {
@@ -38,7 +51,7 @@ func runNodeMint1150(t *testing.T, blockers string, asJSON bool) string {
 	}
 	root := NewRootCmd(f)
 	root.SetArgs(args)
-	_ = root.Execute() // blocked → exit 5; the output is what is under test
+	requireBlockedExit1150(t, root.Execute(), out.String())
 	return out.String()
 }
 
@@ -116,7 +129,7 @@ func runSpecMint1150(t *testing.T, blockers string, asJSON bool) string {
 	}
 	root := NewRootCmd(f)
 	root.SetArgs(args)
-	_ = root.Execute()
+	requireBlockedExit1150(t, root.Execute(), out.String())
 	return out.String()
 }
 
