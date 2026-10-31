@@ -61,7 +61,7 @@ one the ID, organization, default app, status (ACTIVE or ERROR), workspace and
 bot ids. Without --org the server returns every organization you are a member
 of; --org narrows to one organization (ID or hrn:org:<slug>).
 
-You get one page: --limit (default 50, at most 200; 0 returns only the total)
+You get one page: --limit (server default page size, at most 200; 0 returns only the total)
 and --offset. When more exist, stderr says how to fetch the next page; a short
 page is not proof the list is complete unless the total says so. The order is
 the server's. An empty result means none were returned to you.
@@ -130,7 +130,7 @@ Details:
 			})
 		}}
 	c.Flags().StringVar(&org, "org", "", "organization id or fully-qualified URN (default: all your organizations)")
-	c.Flags().IntVar(&limit, "limit", 0, "page size, 0 to 200 (server default 50; 0 returns only the total)")
+	c.Flags().IntVar(&limit, "limit", 0, "page size, 0 to 200 (server default; 0 returns only the total)")
 	c.Flags().IntVar(&offset, "offset", 0, "connections to skip")
 	return c
 }

@@ -83,6 +83,22 @@ func TestSlackStatusHumanHintAndEscapes(t *testing.T) {
 	if strings.ContainsRune(out.String(), '\x1b') || strings.Contains(out.String(), "PRIVATE") {
 		t.Fatal(out.String())
 	}
+	if got := f.IOStreams.ErrOut.(*strings.Builder).String(); !strings.Contains(got, "showing 1 of 3; next page: --offset 1") {
+		t.Fatal("missing continuation hint:", got)
+	}
+}
+
+func TestSlackStatusFinalPageHasNoHint(t *testing.T) {
+	srv, _ := captureGraphQL(t, map[string]string{"SlackConnections": `{"data":{"slackConnections":{"total":1,"items":[` + slackRow + `]}}}`})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"slack", "status", "--server", srv.URL})
+	if e := root.Execute(); e != nil {
+		t.Fatal(e)
+	}
+	if got := f.IOStreams.ErrOut.(*strings.Builder).String(); strings.Contains(got, "next page") {
+		t.Fatal("unexpected hint:", got)
+	}
 }
 
 func TestSlackStatusRefusals(t *testing.T) {
