@@ -384,7 +384,7 @@ func TestOrgMemberAdd(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["AddOrgMember"], &vars)
-	if vars["orgId"] != "org1" || vars["userId"] != "usr1" || vars["role"] != "CONTRIBUTOR" {
+	if vars["orgRef"] != "org1" || vars["userRef"] != "usr1" || vars["role"] != "CONTRIBUTOR" {
 		t.Errorf("add vars: %v", vars)
 	}
 }
@@ -411,7 +411,7 @@ func TestOrgMemberSetRole(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["UpdateOrgMember"], &vars)
-	if vars["role"] != "ADMIN" || vars["userId"] != "usr1" {
+	if vars["role"] != "ADMIN" || vars["userRef"] != "usr1" {
 		t.Errorf("set-role vars: %v", vars)
 	}
 }
@@ -428,7 +428,7 @@ func TestOrgMemberRmWithYes(t *testing.T) {
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["RemoveOrgMember"], &vars)
-	if vars["orgId"] != "org1" || vars["userId"] != "usr1" {
+	if vars["orgRef"] != "org1" || vars["userRef"] != "usr1" {
 		t.Errorf("rm vars: %v", vars)
 	}
 }

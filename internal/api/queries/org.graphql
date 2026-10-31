@@ -119,8 +119,8 @@ mutation DeleteOrganization($id: ID!) {
   deleteOrganization(id: $id)
 }
 
-mutation AddOrgMember($orgId: ID!, $userId: ID!, $role: Role!) {
-  addOrgMember(orgId: $orgId, userId: $userId, role: $role) {
+mutation AddOrgMember($orgRef: String!, $userRef: String!, $role: Role!) {
+  addOrgMember(orgRef: $orgRef, userRef: $userRef, role: $role) {
     id
     role
     user {
@@ -129,8 +129,8 @@ mutation AddOrgMember($orgId: ID!, $userId: ID!, $role: Role!) {
   }
 }
 
-mutation UpdateOrgMember($orgId: ID!, $userId: ID!, $role: Role!) {
-  updateOrgMember(orgId: $orgId, userId: $userId, role: $role) {
+mutation UpdateOrgMember($orgRef: String!, $userRef: String!, $role: Role!) {
+  updateOrgMember(orgRef: $orgRef, userRef: $userRef, role: $role) {
     id
     role
     user {
@@ -139,8 +139,8 @@ mutation UpdateOrgMember($orgId: ID!, $userId: ID!, $role: Role!) {
   }
 }
 
-mutation RemoveOrgMember($orgId: ID!, $userId: ID!) {
-  removeOrgMember(orgId: $orgId, userId: $userId)
+mutation RemoveOrgMember($orgRef: String!, $userRef: String!) {
+  removeOrgMember(orgRef: $orgRef, userRef: $userRef)
 }
 
 # Organizations list (#473 uniform surface) — for `org ls`. Unscoped spans

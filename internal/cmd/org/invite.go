@@ -112,8 +112,10 @@ expiresAt. Its id is internal: the slug is what the other commands take.`,
 func newCmdInviteAccept(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "accept <slug>",
-		Short: "Accept an organization invitation",
-		Long: `Accept an invitation and join the organization with the role it carries.
+		Short: "Accept an invitation (org invitations add membership)",
+		Long: `Accept an organization or platform invitation. An organization invitation
+joins you to its organization with the role it carries. A platform invitation
+from hadron user invite records acceptance without organization membership.
 <slug> is the code the inviter sent you (the 16-character value printed by
 invite create), not the invitation id; check it first with hadron org invite
 show <slug>.
@@ -124,8 +126,8 @@ your role stays the same, but the acceptance still counts as one use. Someone
 removed earlier is reinstated. It does not change your active org.
 
 Prints "✓ accepted invitation <slug>". An expired, used-up or revoked
-invitation is refused; an invitation is revoked when its sender leaves the org
-or stops being an ADMIN or OWNER.`,
+invitation is refused. An organization invitation is revoked when its sender
+leaves the org or stops being an ADMIN or OWNER.`,
 		Example: `  hadron org invite show <slug>
   hadron org invite accept <slug>`,
 		Args: cobra.ExactArgs(1),
