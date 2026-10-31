@@ -263,11 +263,16 @@ func TestScanRootDetection(t *testing.T) {
 		"plugins/x/testdata/SKILL.md",
 		"plugins/x/dist/SKILL.md",
 		"plugins/x/bin/SKILL.md",
+		"plugins/x/node_modules/SKILL.md",
 		"docs/how-to/a.md",
 		"docs/how-to/testdata/a.md",
 		"README.md",
 		"internal/cmd/agentic/agentic-usage.md",
 		"internal/cmd/other/embedded.txt",
+		"internal/cmd/other/embedded.md",
+		"internal/cmd/other/embedded.tmpl",
+		"internal/cmd/other/embedded.json",
+		"internal/cmd/other/embedded.custom",
 	} {
 		root := t.TempDir()
 		write(root, rel, bad)

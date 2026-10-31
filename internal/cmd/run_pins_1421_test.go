@@ -270,3 +270,15 @@ func TestAgenticUsageCostNullWording(t *testing.T) {
 		t.Error("agentic-usage must say 'null means unknown; it must not be read as zero'")
 	}
 }
+
+// #1439 M5: fixture totals must remain JSON numbers beyond one digit.
+func TestRunListFixtureSupportsTenItems(t *testing.T) {
+	items := make([]string, 10)
+	for i := range items {
+		items[i] = appRunJSON
+	}
+	h := runLsHuman(t, items...)
+	if n := strings.Count(h, "run1"); n != 10 {
+		t.Fatalf("want ten rendered run1 rows, got %d: %s", n, h)
+	}
+}
