@@ -4338,7 +4338,8 @@ must belong to the App's org/team space, encrypted/system targets are refused.
 No read access or authorization bypass is created. The CLI asks once and
 reimplements none of those checks. Add/rm confirm (scripts need `--yes`), never
 retry, and keep nullable metadata (including withheld `memoryUrn`) as null in
-JSON. List is an array, `[]` when empty, oldest-first server order, revoked rows
+JSON. Text uses `?` for a concealed/null memory and `-` for other null metadata.
+List is an array, `[]` when empty, oldest-first server order, revoked rows
 only with `--include-revoked`. Explicit `--include-revoked=false` sends false;
 when absent it is omitted. A register node is only a citation, not a lookup or
 proof; it is omitted unless supplied. Refusals preserve mapped exit/serverCode.
@@ -4359,3 +4360,8 @@ Both enable and disable confirm (`--yes` non-interactively); disabled is sent
 as explicit false. JSON `{appId,appUrn,agentRef,enabled}` reflects the returned
 App's allowlist, not an assumed outcome. One mutation, never retried. No key,
 credential or file content is requested. No client authorization is added.
+
+For these new commands, auth/transport refusals retain exits 3/7; FORBIDDEN and
+AVAILABILITY_NOT_PERMITTED exit 8, NOT_FOUND exits 4, BAD_USER_INPUT exits 2.
+The asset-upload setting alone maps its org-admin PERMISSION_DENIED to exit 8;
+legacy asset delete/restore retain their existing exit 1 for that code.

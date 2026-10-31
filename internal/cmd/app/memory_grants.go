@@ -188,7 +188,8 @@ using that grant is refused. The row stays; revoking an already revoked row
 changes nothing. Confirmation is required; scripts pass --yes.
 One mutation is sent and never retried. If its answer is lost, list with
 --include-revoked to check the outcome before retrying. JSON returns the grant
-metadata including revokedAt; human output preserves nullable metadata as -.`, Example: `  hadron app memory-grant rm <grant-id> --yes --json`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+metadata including revokedAt; text uses ? for a concealed/null memory and -
+for other null metadata.`, Example: `  hadron app memory-grant rm <grant-id> --yes --json`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		id := strings.TrimSpace(args[0])
 		if id == "" {
 			return exitcode.Newf(exitcode.Usage, "pass the grant ID from app memory-grant list")
