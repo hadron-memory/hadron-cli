@@ -394,3 +394,70 @@ func TestMemoryEncryptPassphrase1340(t *testing.T) {
 		}
 	}
 }
+
+// cli#1476 BLIND P2 (Bruno): an empty --data-file names no file; it is
+// refused, never read as an empty --data that clears the data.
+func TestMemoryEmptyDataFileRefused1476(t *testing.T) {
+	for _, args := range [][]string{
+		{"memory", "set", "acme.com::kb", "--data-file="},
+		{"memory", "set", "acme.com::kb", "--data-file", "  "},
+		{"memory", "create", "--org", "acme.com", "--name", "KB", "--data-file="},
+	} {
+		captured, _, err := run1340(t, set1340Responses, args...)
+		if exitCodeFor(err) != exitcode.Usage {
+			t.Errorf("%v: want exit 2, got %v", args, err)
+		}
+		for _, op := range []string{"UpdateMemory", "CreateMemory"} {
+			if _, sent := captured[op]; sent {
+				t.Errorf("%v: %s must not be sent", args, op)
+			}
+		}
+	}
+}
+
+// cli#1476 BLIND P2 (Bruno): an explicit =false is a value, not an absent
+// flag. --x=false sends false, --no-x=false sends true, and a pair that
+// disagrees with itself is refused before any write.
+func TestMemoryExplicitFalseBooleans1476(t *testing.T) {
+	cases := []struct {
+		args []string
+		want map[string]any
+	}{
+		{[]string{"--vector-index=false", "--force-fixed-size=false"}, map[string]any{"vectorIndexEnabled": false, "forceFixedSize": false}},
+		{[]string{"--no-vector-index=false", "--no-force-fixed-size=false"}, map[string]any{"vectorIndexEnabled": true, "forceFixedSize": true}},
+		{[]string{"--vector-index=false", "--no-vector-index"}, map[string]any{"vectorIndexEnabled": false}},
+		{[]string{"--acknowledge-vector-inversion-risk=false"}, map[string]any{"acknowledgeVectorInversionRisk": false}},
+	}
+	for _, c := range cases {
+		captured, out, err := run1340(t, set1340Responses, append([]string{"memory", "set", "acme.com::kb"}, c.args...)...)
+		if err != nil {
+			t.Errorf("%v: execute: %v\n%s", c.args, err, out)
+			continue
+		}
+		v := vars1340(t, captured, "UpdateMemory")
+		for k, w := range c.want {
+			if got, ok := v[k]; !ok || got != w {
+				t.Errorf("%v: %s = %v (sent %v), want %v", c.args, k, got, ok, w)
+			}
+		}
+	}
+	captured, out, err := run1340(t, set1340Responses, "memory", "create", "--org", "acme.com", "--name", "KB", "--vector-index=false")
+	if err != nil {
+		t.Fatalf("create: %v\n%s", err, out)
+	}
+	if got, ok := vars1340(t, captured, "CreateMemory")["vectorIndexEnabled"]; !ok || got != false {
+		t.Errorf("create --vector-index=false: vectorIndexEnabled = %v (sent %v), want false", got, ok)
+	}
+	for _, pair := range [][]string{
+		{"--vector-index=false", "--no-vector-index=false"},
+		{"--force-fixed-size", "--no-force-fixed-size=true"},
+	} {
+		captured, _, err := run1340(t, set1340Responses, append([]string{"memory", "set", "acme.com::kb"}, pair...)...)
+		if exitCodeFor(err) != exitcode.Usage {
+			t.Errorf("%v: want exit 2, got %v", pair, err)
+		}
+		if _, sent := captured["UpdateMemory"]; sent {
+			t.Errorf("%v: a contradiction must not write", pair)
+		}
+	}
+}
