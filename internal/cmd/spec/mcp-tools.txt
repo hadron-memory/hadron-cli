@@ -132,6 +132,7 @@ hadron_team_chat_inbox_ack
 hadron_team_chat_mark_read
 hadron_team_chat_post
 hadron_team_chat_read
+hadron_team_chat_search
 hadron_team_events
 hadron_team_roster
 hadron_team_work_items

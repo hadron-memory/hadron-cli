@@ -1,0 +1,11 @@
+# Host health sweep (#1181): codes and timestamps only, no screen text and no alarm verdict.
+# @genqlient(for: "WorkerTerminalReportInput.reason", omitempty: true)
+# @genqlient(for: "WorkerTerminalReportInput.lastTurnAt", omitempty: true)
+mutation HealthSweepSetTerminals(
+  $input: SetHostWorkerTerminalsInput!
+) {
+  setHostWorkerTerminals(input: $input) {
+    stored { id urn }
+    refused { worker code }
+  }
+}
