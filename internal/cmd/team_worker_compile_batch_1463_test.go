@@ -572,3 +572,26 @@ func TestBatchCompileLintReadFailureLeavesWorkersUnknownAndAllStillCompiles(t *t
 		t.Fatalf("--all compiles each live worker once, got %d compiles", n)
 	}
 }
+
+// An --only that names no worker (`--only=`, `--only ""`, `--only " , "`) is a
+// usage error, never a dropped filter that compiles the whole App.
+func TestBatchCompileEmptyOnlyIsUsageNotAWholeAppRun(t *testing.T) {
+	for _, args := range [][]string{
+		{"--only=", "--apply"},
+		{"--only", "", "--apply"},
+		{"--only", " , ", "--apply"},
+	} {
+		fake, out, _, err := runBatch(t, batchTeam(), args...)
+		if exitCodeFor(err) != exitcode.Usage {
+			t.Fatalf("%q: want exit 2, got %v\n%s", args, err, out)
+		}
+		if n := len(fake.ops("CompileWorkerBootPrompt")); n != 0 {
+			t.Fatalf("%q: an empty --only still wrote %d compile(s)", args, n)
+		}
+	}
+	// With a worker argument, an empty --only is still a batch flag: exit 2.
+	_, _, _, err := runBatch(t, batchTeam(), "Ann", "--only=")
+	if exitCodeFor(err) != exitcode.Usage {
+		t.Fatalf("worker argument with --only= must exit 2, got %v", err)
+	}
+}

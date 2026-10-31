@@ -154,7 +154,10 @@ never retries it.%s`, target, pointerHelp, recipe),
 		Example: example, Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if kind == "worker" && batch != nil {
-				batchFlags := all || apply || len(only) > 0
+				// Changed, not len: `--only=` parses to an empty slice, and a
+				// dropped filter would compile the whole App.
+				onlySet := cmd.Flags().Changed("only")
+				batchFlags := all || apply || onlySet
 				if len(args) == 1 && batchFlags {
 					return exitcode.Newf(exitcode.Usage, "--all, --only and --apply compile the App's workers in one run; pass no worker argument with them")
 				}
@@ -165,7 +168,7 @@ never retries it.%s`, target, pointerHelp, recipe),
 							opts.Only = append(opts.Only, name)
 						}
 					}
-					if len(only) > 0 && len(opts.Only) == 0 {
+					if onlySet && len(opts.Only) == 0 {
 						return exitcode.Newf(exitcode.Usage, "--only needs at least one worker")
 					}
 					if noSetPointer {
