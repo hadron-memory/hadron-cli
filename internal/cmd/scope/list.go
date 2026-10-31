@@ -2,12 +2,14 @@ package scope
 
 import (
 	"io"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -19,6 +21,7 @@ func newCmdList(f *cmdutil.Factory) *cobra.Command {
 		app   string
 		agent string
 		name  string
+		appCx string
 	)
 	cmd := &cobra.Command{
 		Use:     "list",
@@ -32,12 +35,17 @@ or by --name. Without a filter this spans every scope visible to you.
 The owner flags FILTER; the persistent --app flag sets the App context used to
 resolve a scope name elsewhere and does not narrow this listing.
 
+--app-context <app> lists the scopes a bare scope name can resolve to inside
+that App: the App's own, its installed Agents' and its organization's. It
+combines with the other filters.
+
 The MEMORIES column counts what the scope lists in total. When some of those
 are not readable by you, the count of hidden entries is reported below the
 table — by count only, never by name.`,
 		Example: `  hadron scope list
   hadron scope list --owner-org acme.com
-  hadron scope list --owner-app hrn:app:acme.com:dev-team`,
+  hadron scope list --owner-app hrn:app:acme.com:dev-team
+  hadron scope list --app-context hrn:app:acme.com:dev-team`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Local flag validation runs BEFORE the client: resolving it
@@ -47,6 +55,21 @@ table — by count only, never by name.`,
 			filter, err := ownerFilter(org, app, agent, name)
 			if err != nil {
 				return err
+			}
+			// Gated on Changed (cli#1340): --app-context= is refused, never
+			// read as "no App context" (every scope).
+			if cmd.Flags().Changed("app-context") {
+				if strings.TrimSpace(appCx) == "" {
+					return exitcode.Newf(exitcode.Usage, "--app-context is empty: name an App (ID or URN). Nothing was sent")
+				}
+				ref, err := cmdutil.CanonicalAppRef("--app-context", appCx)
+				if err != nil {
+					return err
+				}
+				if filter == nil {
+					filter = &gen.ScopeFilter{}
+				}
+				filter.AppRef = &ref
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -105,5 +128,6 @@ table — by count only, never by name.`,
 	cmd.Flags().StringVar(&app, "owner-app", "", "only scopes owned by this App (ID or URN)")
 	cmd.Flags().StringVar(&agent, "owner-agent", "", "only scopes owned by this installed Agent (ID or URN)")
 	cmd.Flags().StringVar(&name, "name", "", "only scopes with this name")
+	cmd.Flags().StringVar(&appCx, "app-context", "", "only scopes a bare name can resolve to inside this App (ID or URN)")
 	return cmd
 }

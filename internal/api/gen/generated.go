@@ -29870,6 +29870,21 @@ func (v *EmailConnectionsResponse) GetExchangeConnections() []*EmailConnectionsE
 	return v.ExchangeConnections
 }
 
+// 033-rag-vector-retrieval: what a memory's vector index is built from.
+type EmbeddingSource string
+
+const (
+	EmbeddingSourceAbstract      EmbeddingSource = "abstract"
+	EmbeddingSourceBoth          EmbeddingSource = "both"
+	EmbeddingSourceContentchunks EmbeddingSource = "contentChunks"
+)
+
+var AllEmbeddingSource = []EmbeddingSource{
+	EmbeddingSourceAbstract,
+	EmbeddingSourceBoth,
+	EmbeddingSourceContentchunks,
+}
+
 // EncryptMemoryEncryptMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
 //
@@ -39832,6 +39847,129 @@ const (
 var AllMentionWake = []MentionWake{
 	MentionWakeImmediate,
 	MentionWakeOff,
+}
+
+type MergeMemoriesInput struct {
+	// Delete the (now-empty) source memory after a successful merge.
+	DeleteSourceMem *bool `json:"deleteSourceMem"`
+	// Field strategy for source nodes whose loc collides with an existing target node (folded via the mergeNodes rules). Omit (or null) = every mergeable field. Nodes with no target counterpart move over unchanged (loc preserved).
+	Include []NodeMergeField `json:"include"`
+	// Source memory — ID or fully-qualified URN. Emptied into 'target'.
+	Source string `json:"source"`
+	// Target memory — ID or fully-qualified URN. The surviving memory.
+	Target string `json:"target"`
+}
+
+// GetDeleteSourceMem returns MergeMemoriesInput.DeleteSourceMem, and is useful for accessing the field via an interface.
+func (v *MergeMemoriesInput) GetDeleteSourceMem() *bool { return v.DeleteSourceMem }
+
+// GetInclude returns MergeMemoriesInput.Include, and is useful for accessing the field via an interface.
+func (v *MergeMemoriesInput) GetInclude() []NodeMergeField { return v.Include }
+
+// GetSource returns MergeMemoriesInput.Source, and is useful for accessing the field via an interface.
+func (v *MergeMemoriesInput) GetSource() string { return v.Source }
+
+// GetTarget returns MergeMemoriesInput.Target, and is useful for accessing the field via an interface.
+func (v *MergeMemoriesInput) GetTarget() string { return v.Target }
+
+// MergeMemoriesMergeMemoriesMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
+type MergeMemoriesMergeMemoriesMemory struct {
+	Id string `json:"id"`
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
+	Urn              string  `json:"urn"`
+	Name             string  `json:"name"`
+	ShortDescription *string `json:"shortDescription"`
+	// Which memory typology this row belongs to. See MemoryClass for the
+	// members — deliberately not restated here, because the count is what
+	// went stale: this said "four-way" from 005-agent-subscription until
+	// #1232, long after `group` (023) and `private` made it six.
+	Class MemoryClass `json:"class"`
+	// 035-visibility-enum-cleanup: nullable — set only for knowledge/group.
+	Visibility     *MemoryVisibility `json:"visibility"`
+	OrganizationId *string           `json:"organizationId"`
+	IsEncrypted    bool              `json:"isEncrypted"`
+	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
+	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
+	MaxRevCount int    `json:"maxRevCount"`
+	UpdatedAt   string `json:"updatedAt"`
+}
+
+// GetId returns MergeMemoriesMergeMemoriesMemory.Id, and is useful for accessing the field via an interface.
+func (v *MergeMemoriesMergeMemoriesMemory) GetId() string { return v.Id }
+
+// GetUrn returns MergeMemoriesMergeMemoriesMemory.Urn, and is useful for accessing the field via an interface.
+func (v *MergeMemoriesMergeMemoriesMemory) GetUrn() string { return v.Urn }
+
+// GetName returns MergeMemoriesMergeMemoriesMemory.Name, and is useful for accessing the field via an interface.
+func (v *MergeMemoriesMergeMemoriesMemory) GetName() string { return v.Name }
+
+// GetShortDescription returns MergeMemoriesMergeMemoriesMemory.ShortDescription, and is useful for accessing the field via an interface.
+func (v *MergeMemoriesMergeMemoriesMemory) GetShortDescription() *string { return v.ShortDescription }
+
+// GetClass returns MergeMemoriesMergeMemoriesMemory.Class, and is useful for accessing the field via an interface.
+func (v *MergeMemoriesMergeMemoriesMemory) GetClass() MemoryClass { return v.Class }
+
+// GetVisibility returns MergeMemoriesMergeMemoriesMemory.Visibility, and is useful for accessing the field via an interface.
+func (v *MergeMemoriesMergeMemoriesMemory) GetVisibility() *MemoryVisibility { return v.Visibility }
+
+// GetOrganizationId returns MergeMemoriesMergeMemoriesMemory.OrganizationId, and is useful for accessing the field via an interface.
+func (v *MergeMemoriesMergeMemoriesMemory) GetOrganizationId() *string { return v.OrganizationId }
+
+// GetIsEncrypted returns MergeMemoriesMergeMemoriesMemory.IsEncrypted, and is useful for accessing the field via an interface.
+func (v *MergeMemoriesMergeMemoriesMemory) GetIsEncrypted() bool { return v.IsEncrypted }
+
+// GetMaxRevCount returns MergeMemoriesMergeMemoriesMemory.MaxRevCount, and is useful for accessing the field via an interface.
+func (v *MergeMemoriesMergeMemoriesMemory) GetMaxRevCount() int { return v.MaxRevCount }
+
+// GetUpdatedAt returns MergeMemoriesMergeMemoriesMemory.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *MergeMemoriesMergeMemoriesMemory) GetUpdatedAt() string { return v.UpdatedAt }
+
+// MergeMemoriesResponse is returned by MergeMemories on success.
+type MergeMemoriesResponse struct {
+	// Merge one memory (source) into another (target), returning the updated
+	// target. Source nodes whose loc already exists in the target are folded
+	// into their counterpart via the mergeNodes field strategy ('include'
+	// selects which fields); source nodes with no counterpart move over with
+	// their loc unchanged. Edges follow. The source memory ends up empty;
+	// 'deleteSourceMem: true' then deletes it. v1 rejects encrypted source or
+	// target memories and system/app classes. An address the merge would move
+	// a node or a carried comment into, but which the target holds with a
+	// SOFT-DELETED node, refuses MERGE_TARGET_LOC_TOMBSTONED (the tombstone
+	// still owns the address; up to 25 locs named, with the full count). A
+	// tombstone present when the merge starts refuses before any batch commits;
+	// one that appears mid-merge refuses the batch it hits, and batches already
+	// committed stay committed (re-running completes the merge). Hard-delete the
+	// tombstone, or recreate a node there so it folds, then re-run.
+	//
+	// The merge commits in batches, and is resumable. A refusal raised after
+	// some batches committed (#1686) says so: it carries
+	// extensions.partialMerge { applied, relocated, folded, edgesMoved,
+	// edgesDropped, remainingSourceNodes, sourceIntact, remedy } and keeps its
+	// own code, or is MERGE_PARTIALLY_APPLIED (with causeCode) when the cause
+	// was untyped. The source memory is never deleted by a refused merge;
+	// resolve the blocker and re-run the same merge to finish it. A failure
+	// after the merge completed (re-indexing or reading back the target)
+	// carries partialMerge too, with remainingSourceNodes 0 and sourceIntact
+	// false when deleteSourceMem had removed the source. A refusal with no
+	// partialMerge applied nothing.
+	MergeMemories *MergeMemoriesMergeMemoriesMemory `json:"mergeMemories"`
+}
+
+// GetMergeMemories returns MergeMemoriesResponse.MergeMemories, and is useful for accessing the field via an interface.
+func (v *MergeMemoriesResponse) GetMergeMemories() *MergeMemoriesMergeMemoriesMemory {
+	return v.MergeMemories
 }
 
 type MergeNodesInput struct {
@@ -72168,6 +72306,115 @@ func (v *ValidateMemoryValidateMemoryMemoryValidationResultSkippedChecksMemoryVa
 	return v.Reason
 }
 
+// VerifyMemoryNodesResponse is returned by VerifyMemoryNodes on success.
+type VerifyMemoryNodesResponse struct {
+	// #1591 — the tamper check over every live node of a memory (ID or fully-qualified URN).
+	VerifyMemoryNodes *VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReport `json:"verifyMemoryNodes"`
+}
+
+// GetVerifyMemoryNodes returns VerifyMemoryNodesResponse.VerifyMemoryNodes, and is useful for accessing the field via an interface.
+func (v *VerifyMemoryNodesResponse) GetVerifyMemoryNodes() *VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReport {
+	return v.VerifyMemoryNodes
+}
+
+// VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReport includes the requested fields of the GraphQL type MemoryIntegrityReport.
+// The GraphQL type's documentation follows.
+//
+// #1591 — the tamper check over every live node of a memory.
+type VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReport struct {
+	Checked     int `json:"checked"`
+	Intact      int `json:"intact"`
+	NotApproved int `json:"notApproved"`
+	Superseded  int `json:"superseded"`
+	Tampered    int `json:"tampered"`
+	// Every node that is not INTACT, ordered by loc.
+	Problems []*VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReportProblemsNodeIntegrityCheck `json:"problems"`
+}
+
+// GetChecked returns VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReport.Checked, and is useful for accessing the field via an interface.
+func (v *VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReport) GetChecked() int { return v.Checked }
+
+// GetIntact returns VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReport.Intact, and is useful for accessing the field via an interface.
+func (v *VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReport) GetIntact() int { return v.Intact }
+
+// GetNotApproved returns VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReport.NotApproved, and is useful for accessing the field via an interface.
+func (v *VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReport) GetNotApproved() int {
+	return v.NotApproved
+}
+
+// GetSuperseded returns VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReport.Superseded, and is useful for accessing the field via an interface.
+func (v *VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReport) GetSuperseded() int {
+	return v.Superseded
+}
+
+// GetTampered returns VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReport.Tampered, and is useful for accessing the field via an interface.
+func (v *VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReport) GetTampered() int {
+	return v.Tampered
+}
+
+// GetProblems returns VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReport.Problems, and is useful for accessing the field via an interface.
+func (v *VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReport) GetProblems() []*VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReportProblemsNodeIntegrityCheck {
+	return v.Problems
+}
+
+// VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReportProblemsNodeIntegrityCheck includes the requested fields of the GraphQL type NodeIntegrityCheck.
+// The GraphQL type's documentation follows.
+//
+// #1591 — one node's tamper check.
+type VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReportProblemsNodeIntegrityCheck struct {
+	NodeId string             `json:"nodeId"`
+	Urn    string             `json:"urn"`
+	Loc    string             `json:"loc"`
+	State  NodeIntegrityState `json:"state"`
+	// The current revision.
+	Revision         int  `json:"revision"`
+	ApprovedRevision *int `json:"approvedRevision"`
+	// The approval hash on record.
+	ExpectedHash *string `json:"expectedHash"`
+	// The approval hash recomputed from the current title/abstract/content.
+	ActualHash string `json:"actualHash"`
+}
+
+// GetNodeId returns VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReportProblemsNodeIntegrityCheck.NodeId, and is useful for accessing the field via an interface.
+func (v *VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReportProblemsNodeIntegrityCheck) GetNodeId() string {
+	return v.NodeId
+}
+
+// GetUrn returns VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReportProblemsNodeIntegrityCheck.Urn, and is useful for accessing the field via an interface.
+func (v *VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReportProblemsNodeIntegrityCheck) GetUrn() string {
+	return v.Urn
+}
+
+// GetLoc returns VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReportProblemsNodeIntegrityCheck.Loc, and is useful for accessing the field via an interface.
+func (v *VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReportProblemsNodeIntegrityCheck) GetLoc() string {
+	return v.Loc
+}
+
+// GetState returns VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReportProblemsNodeIntegrityCheck.State, and is useful for accessing the field via an interface.
+func (v *VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReportProblemsNodeIntegrityCheck) GetState() NodeIntegrityState {
+	return v.State
+}
+
+// GetRevision returns VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReportProblemsNodeIntegrityCheck.Revision, and is useful for accessing the field via an interface.
+func (v *VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReportProblemsNodeIntegrityCheck) GetRevision() int {
+	return v.Revision
+}
+
+// GetApprovedRevision returns VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReportProblemsNodeIntegrityCheck.ApprovedRevision, and is useful for accessing the field via an interface.
+func (v *VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReportProblemsNodeIntegrityCheck) GetApprovedRevision() *int {
+	return v.ApprovedRevision
+}
+
+// GetExpectedHash returns VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReportProblemsNodeIntegrityCheck.ExpectedHash, and is useful for accessing the field via an interface.
+func (v *VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReportProblemsNodeIntegrityCheck) GetExpectedHash() *string {
+	return v.ExpectedHash
+}
+
+// GetActualHash returns VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReportProblemsNodeIntegrityCheck.ActualHash, and is useful for accessing the field via an interface.
+func (v *VerifyMemoryNodesVerifyMemoryNodesMemoryIntegrityReportProblemsNodeIntegrityCheck) GetActualHash() string {
+	return v.ActualHash
+}
+
 // VerifyNodeResponse is returned by VerifyNode on success.
 type VerifyNodeResponse struct {
 	// #1591 — the tamper check: recompute the node's approval hash from its current title/abstract/content and compare it with the approval on record. A pure read; an encrypted memory needs its session key (SESSION_EXPIRED otherwise).
@@ -76878,14 +77125,27 @@ func (v *__CreateMemoryConfigTemplateInput) GetInput() *CreateMemoryConfigTempla
 
 // __CreateMemoryDraftInput is used internally by genqlient
 type __CreateMemoryDraftInput struct {
-	OrgId            *string           `json:"orgId,omitempty"`
-	Name             string            `json:"name"`
-	MemoryClass      *MemoryClass      `json:"memoryClass,omitempty"`
-	ShortDescription *string           `json:"shortDescription,omitempty"`
-	Description      *string           `json:"description,omitempty"`
-	Tags             *[]string         `json:"tags,omitempty"`
-	Visibility       *MemoryVisibility `json:"visibility,omitempty"`
-	MaxRevCount      *int              `json:"maxRevCount,omitempty"`
+	OrgId              *string           `json:"orgId,omitempty"`
+	Name               string            `json:"name"`
+	MemoryClass        *MemoryClass      `json:"memoryClass,omitempty"`
+	ShortDescription   *string           `json:"shortDescription,omitempty"`
+	Description        *string           `json:"description,omitempty"`
+	Tags               *[]string         `json:"tags,omitempty"`
+	Visibility         *MemoryVisibility `json:"visibility,omitempty"`
+	MaxRevCount        *int              `json:"maxRevCount,omitempty"`
+	Category0          *string           `json:"category0,omitempty"`
+	Category1          *string           `json:"category1,omitempty"`
+	Category2          *string           `json:"category2,omitempty"`
+	Data               *json.RawMessage  `json:"data,omitempty"`
+	EmbeddingSource    *EmbeddingSource  `json:"embeddingSource,omitempty"`
+	VectorIndexEnabled *bool             `json:"vectorIndexEnabled,omitempty"`
+	License            *string           `json:"license,omitempty"`
+	IconUrl            *string           `json:"iconUrl,omitempty"`
+	HeroUrl            *string           `json:"heroUrl,omitempty"`
+	HomeUrl            *string           `json:"homeUrl,omitempty"`
+	Source             *string           `json:"source,omitempty"`
+	ReadBranch         *string           `json:"readBranch,omitempty"`
+	WriteBranch        *string           `json:"writeBranch,omitempty"`
 }
 
 // GetOrgId returns __CreateMemoryDraftInput.OrgId, and is useful for accessing the field via an interface.
@@ -76912,16 +77172,58 @@ func (v *__CreateMemoryDraftInput) GetVisibility() *MemoryVisibility { return v.
 // GetMaxRevCount returns __CreateMemoryDraftInput.MaxRevCount, and is useful for accessing the field via an interface.
 func (v *__CreateMemoryDraftInput) GetMaxRevCount() *int { return v.MaxRevCount }
 
+// GetCategory0 returns __CreateMemoryDraftInput.Category0, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftInput) GetCategory0() *string { return v.Category0 }
+
+// GetCategory1 returns __CreateMemoryDraftInput.Category1, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftInput) GetCategory1() *string { return v.Category1 }
+
+// GetCategory2 returns __CreateMemoryDraftInput.Category2, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftInput) GetCategory2() *string { return v.Category2 }
+
+// GetData returns __CreateMemoryDraftInput.Data, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftInput) GetData() *json.RawMessage { return v.Data }
+
+// GetEmbeddingSource returns __CreateMemoryDraftInput.EmbeddingSource, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftInput) GetEmbeddingSource() *EmbeddingSource { return v.EmbeddingSource }
+
+// GetVectorIndexEnabled returns __CreateMemoryDraftInput.VectorIndexEnabled, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftInput) GetVectorIndexEnabled() *bool { return v.VectorIndexEnabled }
+
+// GetLicense returns __CreateMemoryDraftInput.License, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftInput) GetLicense() *string { return v.License }
+
+// GetIconUrl returns __CreateMemoryDraftInput.IconUrl, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftInput) GetIconUrl() *string { return v.IconUrl }
+
+// GetHeroUrl returns __CreateMemoryDraftInput.HeroUrl, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftInput) GetHeroUrl() *string { return v.HeroUrl }
+
+// GetHomeUrl returns __CreateMemoryDraftInput.HomeUrl, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftInput) GetHomeUrl() *string { return v.HomeUrl }
+
+// GetSource returns __CreateMemoryDraftInput.Source, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftInput) GetSource() *string { return v.Source }
+
+// GetReadBranch returns __CreateMemoryDraftInput.ReadBranch, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftInput) GetReadBranch() *string { return v.ReadBranch }
+
+// GetWriteBranch returns __CreateMemoryDraftInput.WriteBranch, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftInput) GetWriteBranch() *string { return v.WriteBranch }
+
 // __CreateMemoryInAppInput is used internally by genqlient
 type __CreateMemoryInAppInput struct {
-	AppRef           string      `json:"appRef"`
-	AgentRef         string      `json:"agentRef"`
-	MemoryClass      MemoryClass `json:"memoryClass"`
-	Name             string      `json:"name"`
-	ShortDescription *string     `json:"shortDescription,omitempty"`
-	Description      *string     `json:"description,omitempty"`
-	Tags             *[]string   `json:"tags,omitempty"`
-	MaxRevCount      *int        `json:"maxRevCount,omitempty"`
+	AppRef             string           `json:"appRef"`
+	AgentRef           string           `json:"agentRef"`
+	MemoryClass        MemoryClass      `json:"memoryClass"`
+	Name               string           `json:"name"`
+	ShortDescription   *string          `json:"shortDescription,omitempty"`
+	Description        *string          `json:"description,omitempty"`
+	Tags               *[]string        `json:"tags,omitempty"`
+	MaxRevCount        *int             `json:"maxRevCount,omitempty"`
+	Data               *json.RawMessage `json:"data,omitempty"`
+	EmbeddingSource    *EmbeddingSource `json:"embeddingSource,omitempty"`
+	VectorIndexEnabled *bool            `json:"vectorIndexEnabled,omitempty"`
 }
 
 // GetAppRef returns __CreateMemoryInAppInput.AppRef, and is useful for accessing the field via an interface.
@@ -76948,16 +77250,38 @@ func (v *__CreateMemoryInAppInput) GetTags() *[]string { return v.Tags }
 // GetMaxRevCount returns __CreateMemoryInAppInput.MaxRevCount, and is useful for accessing the field via an interface.
 func (v *__CreateMemoryInAppInput) GetMaxRevCount() *int { return v.MaxRevCount }
 
+// GetData returns __CreateMemoryInAppInput.Data, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInAppInput) GetData() *json.RawMessage { return v.Data }
+
+// GetEmbeddingSource returns __CreateMemoryInAppInput.EmbeddingSource, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInAppInput) GetEmbeddingSource() *EmbeddingSource { return v.EmbeddingSource }
+
+// GetVectorIndexEnabled returns __CreateMemoryInAppInput.VectorIndexEnabled, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInAppInput) GetVectorIndexEnabled() *bool { return v.VectorIndexEnabled }
+
 // __CreateMemoryInput is used internally by genqlient
 type __CreateMemoryInput struct {
-	OrgId            *string           `json:"orgId,omitempty"`
-	Name             string            `json:"name"`
-	MemoryClass      *MemoryClass      `json:"memoryClass,omitempty"`
-	ShortDescription *string           `json:"shortDescription,omitempty"`
-	Description      *string           `json:"description,omitempty"`
-	Tags             *[]string         `json:"tags,omitempty"`
-	Visibility       *MemoryVisibility `json:"visibility,omitempty"`
-	MaxRevCount      *int              `json:"maxRevCount,omitempty"`
+	OrgId              *string           `json:"orgId,omitempty"`
+	Name               string            `json:"name"`
+	MemoryClass        *MemoryClass      `json:"memoryClass,omitempty"`
+	ShortDescription   *string           `json:"shortDescription,omitempty"`
+	Description        *string           `json:"description,omitempty"`
+	Tags               *[]string         `json:"tags,omitempty"`
+	Visibility         *MemoryVisibility `json:"visibility,omitempty"`
+	MaxRevCount        *int              `json:"maxRevCount,omitempty"`
+	Category0          *string           `json:"category0,omitempty"`
+	Category1          *string           `json:"category1,omitempty"`
+	Category2          *string           `json:"category2,omitempty"`
+	Data               *json.RawMessage  `json:"data,omitempty"`
+	EmbeddingSource    *EmbeddingSource  `json:"embeddingSource,omitempty"`
+	VectorIndexEnabled *bool             `json:"vectorIndexEnabled,omitempty"`
+	License            *string           `json:"license,omitempty"`
+	IconUrl            *string           `json:"iconUrl,omitempty"`
+	HeroUrl            *string           `json:"heroUrl,omitempty"`
+	HomeUrl            *string           `json:"homeUrl,omitempty"`
+	Source             *string           `json:"source,omitempty"`
+	ReadBranch         *string           `json:"readBranch,omitempty"`
+	WriteBranch        *string           `json:"writeBranch,omitempty"`
 }
 
 // GetOrgId returns __CreateMemoryInput.OrgId, and is useful for accessing the field via an interface.
@@ -76983,6 +77307,45 @@ func (v *__CreateMemoryInput) GetVisibility() *MemoryVisibility { return v.Visib
 
 // GetMaxRevCount returns __CreateMemoryInput.MaxRevCount, and is useful for accessing the field via an interface.
 func (v *__CreateMemoryInput) GetMaxRevCount() *int { return v.MaxRevCount }
+
+// GetCategory0 returns __CreateMemoryInput.Category0, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInput) GetCategory0() *string { return v.Category0 }
+
+// GetCategory1 returns __CreateMemoryInput.Category1, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInput) GetCategory1() *string { return v.Category1 }
+
+// GetCategory2 returns __CreateMemoryInput.Category2, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInput) GetCategory2() *string { return v.Category2 }
+
+// GetData returns __CreateMemoryInput.Data, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInput) GetData() *json.RawMessage { return v.Data }
+
+// GetEmbeddingSource returns __CreateMemoryInput.EmbeddingSource, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInput) GetEmbeddingSource() *EmbeddingSource { return v.EmbeddingSource }
+
+// GetVectorIndexEnabled returns __CreateMemoryInput.VectorIndexEnabled, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInput) GetVectorIndexEnabled() *bool { return v.VectorIndexEnabled }
+
+// GetLicense returns __CreateMemoryInput.License, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInput) GetLicense() *string { return v.License }
+
+// GetIconUrl returns __CreateMemoryInput.IconUrl, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInput) GetIconUrl() *string { return v.IconUrl }
+
+// GetHeroUrl returns __CreateMemoryInput.HeroUrl, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInput) GetHeroUrl() *string { return v.HeroUrl }
+
+// GetHomeUrl returns __CreateMemoryInput.HomeUrl, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInput) GetHomeUrl() *string { return v.HomeUrl }
+
+// GetSource returns __CreateMemoryInput.Source, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInput) GetSource() *string { return v.Source }
+
+// GetReadBranch returns __CreateMemoryInput.ReadBranch, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInput) GetReadBranch() *string { return v.ReadBranch }
+
+// GetWriteBranch returns __CreateMemoryInput.WriteBranch, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryInput) GetWriteBranch() *string { return v.WriteBranch }
 
 // __CreateMemoryShareInput is used internally by genqlient
 type __CreateMemoryShareInput struct {
@@ -77712,15 +78075,19 @@ func (v *__EmailConnectionsInput) GetOrgId() string { return v.OrgId }
 
 // __EncryptMemoryInput is used internally by genqlient
 type __EncryptMemoryInput struct {
-	MemoryId string `json:"memoryId"`
-	DataKey  string `json:"dataKey"`
+	MemoryId   string  `json:"memoryId"`
+	DataKey    *string `json:"dataKey,omitempty"`
+	Passphrase *string `json:"passphrase,omitempty"`
 }
 
 // GetMemoryId returns __EncryptMemoryInput.MemoryId, and is useful for accessing the field via an interface.
 func (v *__EncryptMemoryInput) GetMemoryId() string { return v.MemoryId }
 
 // GetDataKey returns __EncryptMemoryInput.DataKey, and is useful for accessing the field via an interface.
-func (v *__EncryptMemoryInput) GetDataKey() string { return v.DataKey }
+func (v *__EncryptMemoryInput) GetDataKey() *string { return v.DataKey }
+
+// GetPassphrase returns __EncryptMemoryInput.Passphrase, and is useful for accessing the field via an interface.
+func (v *__EncryptMemoryInput) GetPassphrase() *string { return v.Passphrase }
 
 // __EndTeamSessionInput is used internally by genqlient
 type __EndTeamSessionInput struct {
@@ -78355,6 +78722,7 @@ type __MemoriesInput struct {
 	Filter *MemoryFilter `json:"filter,omitempty"`
 	Limit  *int          `json:"limit,omitempty"`
 	Offset *int          `json:"offset,omitempty"`
+	OrgId  *string       `json:"orgId,omitempty"`
 }
 
 // GetFilter returns __MemoriesInput.Filter, and is useful for accessing the field via an interface.
@@ -78365,6 +78733,9 @@ func (v *__MemoriesInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __MemoriesInput.Offset, and is useful for accessing the field via an interface.
 func (v *__MemoriesInput) GetOffset() *int { return v.Offset }
+
+// GetOrgId returns __MemoriesInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__MemoriesInput) GetOrgId() *string { return v.OrgId }
 
 // __MemoriesSharedWithMeInput is used internally by genqlient
 type __MemoriesSharedWithMeInput struct {
@@ -78473,6 +78844,14 @@ type __MemoryUsageSummaryInput struct {
 
 // GetMemoryRef returns __MemoryUsageSummaryInput.MemoryRef, and is useful for accessing the field via an interface.
 func (v *__MemoryUsageSummaryInput) GetMemoryRef() string { return v.MemoryRef }
+
+// __MergeMemoriesInput is used internally by genqlient
+type __MergeMemoriesInput struct {
+	Input *MergeMemoriesInput `json:"input,omitempty"`
+}
+
+// GetInput returns __MergeMemoriesInput.Input, and is useful for accessing the field via an interface.
+func (v *__MergeMemoriesInput) GetInput() *MergeMemoriesInput { return v.Input }
 
 // __MergeNodesInput is used internally by genqlient
 type __MergeNodesInput struct {
@@ -80820,17 +81199,33 @@ func (v *__UpdateMemoryConfigTemplateInput) GetExpectedRevision() int { return v
 
 // __UpdateMemoryInput is used internally by genqlient
 type __UpdateMemoryInput struct {
-	Id                  string            `json:"id"`
-	Name                *string           `json:"name,omitempty"`
-	ShortDescription    *string           `json:"shortDescription,omitempty"`
-	Description         *string           `json:"description,omitempty"`
-	Tags                *[]string         `json:"tags,omitempty"`
-	Visibility          *MemoryVisibility `json:"visibility,omitempty"`
-	Data                *json.RawMessage  `json:"data,omitempty"`
-	Urn                 *string           `json:"urn,omitempty"`
-	MaxRevCount         *int              `json:"maxRevCount,omitempty"`
-	Schema              *json.RawMessage  `json:"schema,omitempty"`
-	ListedOnMarketplace *bool             `json:"listedOnMarketplace,omitempty"`
+	Id                             string            `json:"id"`
+	Name                           *string           `json:"name,omitempty"`
+	ShortDescription               *string           `json:"shortDescription,omitempty"`
+	Description                    *string           `json:"description,omitempty"`
+	Tags                           *[]string         `json:"tags,omitempty"`
+	Visibility                     *MemoryVisibility `json:"visibility,omitempty"`
+	Data                           *json.RawMessage  `json:"data,omitempty"`
+	Urn                            *string           `json:"urn,omitempty"`
+	MaxRevCount                    *int              `json:"maxRevCount,omitempty"`
+	Schema                         *json.RawMessage  `json:"schema,omitempty"`
+	ListedOnMarketplace            *bool             `json:"listedOnMarketplace,omitempty"`
+	Category0                      json.RawMessage   `json:"category0,omitempty"`
+	Category1                      json.RawMessage   `json:"category1,omitempty"`
+	Category2                      json.RawMessage   `json:"category2,omitempty"`
+	License                        json.RawMessage   `json:"license,omitempty"`
+	IconUrl                        json.RawMessage   `json:"iconUrl,omitempty"`
+	HeroUrl                        json.RawMessage   `json:"heroUrl,omitempty"`
+	HomeUrl                        json.RawMessage   `json:"homeUrl,omitempty"`
+	Source                         json.RawMessage   `json:"source,omitempty"`
+	ReadBranch                     json.RawMessage   `json:"readBranch,omitempty"`
+	WriteBranch                    json.RawMessage   `json:"writeBranch,omitempty"`
+	EmbeddingSource                *EmbeddingSource  `json:"embeddingSource,omitempty"`
+	VectorIndexEnabled             *bool             `json:"vectorIndexEnabled,omitempty"`
+	AcknowledgeVectorInversionRisk *bool             `json:"acknowledgeVectorInversionRisk,omitempty"`
+	ChunkTokens                    *int              `json:"chunkTokens,omitempty"`
+	ChunkOverlap                   *int              `json:"chunkOverlap,omitempty"`
+	ForceFixedSize                 *bool             `json:"forceFixedSize,omitempty"`
 }
 
 // GetId returns __UpdateMemoryInput.Id, and is useful for accessing the field via an interface.
@@ -80865,6 +81260,56 @@ func (v *__UpdateMemoryInput) GetSchema() *json.RawMessage { return v.Schema }
 
 // GetListedOnMarketplace returns __UpdateMemoryInput.ListedOnMarketplace, and is useful for accessing the field via an interface.
 func (v *__UpdateMemoryInput) GetListedOnMarketplace() *bool { return v.ListedOnMarketplace }
+
+// GetCategory0 returns __UpdateMemoryInput.Category0, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryInput) GetCategory0() json.RawMessage { return v.Category0 }
+
+// GetCategory1 returns __UpdateMemoryInput.Category1, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryInput) GetCategory1() json.RawMessage { return v.Category1 }
+
+// GetCategory2 returns __UpdateMemoryInput.Category2, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryInput) GetCategory2() json.RawMessage { return v.Category2 }
+
+// GetLicense returns __UpdateMemoryInput.License, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryInput) GetLicense() json.RawMessage { return v.License }
+
+// GetIconUrl returns __UpdateMemoryInput.IconUrl, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryInput) GetIconUrl() json.RawMessage { return v.IconUrl }
+
+// GetHeroUrl returns __UpdateMemoryInput.HeroUrl, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryInput) GetHeroUrl() json.RawMessage { return v.HeroUrl }
+
+// GetHomeUrl returns __UpdateMemoryInput.HomeUrl, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryInput) GetHomeUrl() json.RawMessage { return v.HomeUrl }
+
+// GetSource returns __UpdateMemoryInput.Source, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryInput) GetSource() json.RawMessage { return v.Source }
+
+// GetReadBranch returns __UpdateMemoryInput.ReadBranch, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryInput) GetReadBranch() json.RawMessage { return v.ReadBranch }
+
+// GetWriteBranch returns __UpdateMemoryInput.WriteBranch, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryInput) GetWriteBranch() json.RawMessage { return v.WriteBranch }
+
+// GetEmbeddingSource returns __UpdateMemoryInput.EmbeddingSource, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryInput) GetEmbeddingSource() *EmbeddingSource { return v.EmbeddingSource }
+
+// GetVectorIndexEnabled returns __UpdateMemoryInput.VectorIndexEnabled, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryInput) GetVectorIndexEnabled() *bool { return v.VectorIndexEnabled }
+
+// GetAcknowledgeVectorInversionRisk returns __UpdateMemoryInput.AcknowledgeVectorInversionRisk, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryInput) GetAcknowledgeVectorInversionRisk() *bool {
+	return v.AcknowledgeVectorInversionRisk
+}
+
+// GetChunkTokens returns __UpdateMemoryInput.ChunkTokens, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryInput) GetChunkTokens() *int { return v.ChunkTokens }
+
+// GetChunkOverlap returns __UpdateMemoryInput.ChunkOverlap, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryInput) GetChunkOverlap() *int { return v.ChunkOverlap }
+
+// GetForceFixedSize returns __UpdateMemoryInput.ForceFixedSize, and is useful for accessing the field via an interface.
+func (v *__UpdateMemoryInput) GetForceFixedSize() *bool { return v.ForceFixedSize }
 
 // __UpdateMemoryMemberRoleInput is used internally by genqlient
 type __UpdateMemoryMemberRoleInput struct {
@@ -81659,6 +82104,14 @@ func (v *__ValidateMemoryInput) GetMemoryRef() string { return v.MemoryRef }
 
 // GetLimit returns __ValidateMemoryInput.Limit, and is useful for accessing the field via an interface.
 func (v *__ValidateMemoryInput) GetLimit() *int { return v.Limit }
+
+// __VerifyMemoryNodesInput is used internally by genqlient
+type __VerifyMemoryNodesInput struct {
+	MemoryRef string `json:"memoryRef"`
+}
+
+// GetMemoryRef returns __VerifyMemoryNodesInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__VerifyMemoryNodesInput) GetMemoryRef() string { return v.MemoryRef }
 
 // __VerifyNodeInput is used internally by genqlient
 type __VerifyNodeInput struct {
@@ -89790,8 +90243,8 @@ func CreateMcpServer(
 
 // The mutation executed by CreateMemory.
 const CreateMemory_Operation = `
-mutation CreateMemory ($orgId: ID, $name: String!, $memoryClass: MemoryClass, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $maxRevCount: Int) {
-	createMemory(orgId: $orgId, name: $name, memoryClass: $memoryClass, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, maxRevCount: $maxRevCount) {
+mutation CreateMemory ($orgId: ID, $name: String!, $memoryClass: MemoryClass, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $maxRevCount: Int, $category0: String, $category1: String, $category2: String, $data: JSON, $embeddingSource: EmbeddingSource, $vectorIndexEnabled: Boolean, $license: String, $iconUrl: String, $heroUrl: String, $homeUrl: String, $source: String, $readBranch: String, $writeBranch: String) {
+	createMemory(orgId: $orgId, name: $name, memoryClass: $memoryClass, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, maxRevCount: $maxRevCount, category0: $category0, category1: $category1, category2: $category2, data: $data, embeddingSource: $embeddingSource, vectorIndexEnabled: $vectorIndexEnabled, license: $license, iconUrl: $iconUrl, heroUrl: $heroUrl, homeUrl: $homeUrl, source: $source, readBranch: $readBranch, writeBranch: $writeBranch) {
 		id
 		urn
 		name
@@ -89817,19 +90270,45 @@ func CreateMemory(
 	tags *[]string,
 	visibility *MemoryVisibility,
 	maxRevCount *int,
+	category0 *string,
+	category1 *string,
+	category2 *string,
+	data *json.RawMessage,
+	embeddingSource *EmbeddingSource,
+	vectorIndexEnabled *bool,
+	license *string,
+	iconUrl *string,
+	heroUrl *string,
+	homeUrl *string,
+	source *string,
+	readBranch *string,
+	writeBranch *string,
 ) (data_ *CreateMemoryResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateMemory",
 		Query:  CreateMemory_Operation,
 		Variables: &__CreateMemoryInput{
-			OrgId:            orgId,
-			Name:             name,
-			MemoryClass:      memoryClass,
-			ShortDescription: shortDescription,
-			Description:      description,
-			Tags:             tags,
-			Visibility:       visibility,
-			MaxRevCount:      maxRevCount,
+			OrgId:              orgId,
+			Name:               name,
+			MemoryClass:        memoryClass,
+			ShortDescription:   shortDescription,
+			Description:        description,
+			Tags:               tags,
+			Visibility:         visibility,
+			MaxRevCount:        maxRevCount,
+			Category0:          category0,
+			Category1:          category1,
+			Category2:          category2,
+			Data:               data,
+			EmbeddingSource:    embeddingSource,
+			VectorIndexEnabled: vectorIndexEnabled,
+			License:            license,
+			IconUrl:            iconUrl,
+			HeroUrl:            heroUrl,
+			HomeUrl:            homeUrl,
+			Source:             source,
+			ReadBranch:         readBranch,
+			WriteBranch:        writeBranch,
 		},
 	}
 
@@ -89928,8 +90407,8 @@ func CreateMemoryConfigTemplate(
 
 // The mutation executed by CreateMemoryDraft.
 const CreateMemoryDraft_Operation = `
-mutation CreateMemoryDraft ($orgId: ID, $name: String!, $memoryClass: MemoryClass, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $maxRevCount: Int) {
-	createMemory(orgId: $orgId, name: $name, memoryClass: $memoryClass, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, maxRevCount: $maxRevCount, draftCorpus: true) {
+mutation CreateMemoryDraft ($orgId: ID, $name: String!, $memoryClass: MemoryClass, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $maxRevCount: Int, $category0: String, $category1: String, $category2: String, $data: JSON, $embeddingSource: EmbeddingSource, $vectorIndexEnabled: Boolean, $license: String, $iconUrl: String, $heroUrl: String, $homeUrl: String, $source: String, $readBranch: String, $writeBranch: String) {
+	createMemory(orgId: $orgId, name: $name, memoryClass: $memoryClass, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, maxRevCount: $maxRevCount, category0: $category0, category1: $category1, category2: $category2, data: $data, embeddingSource: $embeddingSource, vectorIndexEnabled: $vectorIndexEnabled, license: $license, iconUrl: $iconUrl, heroUrl: $heroUrl, homeUrl: $homeUrl, source: $source, readBranch: $readBranch, writeBranch: $writeBranch, draftCorpus: true) {
 		id
 		urn
 		name
@@ -89958,19 +90437,45 @@ func CreateMemoryDraft(
 	tags *[]string,
 	visibility *MemoryVisibility,
 	maxRevCount *int,
+	category0 *string,
+	category1 *string,
+	category2 *string,
+	data *json.RawMessage,
+	embeddingSource *EmbeddingSource,
+	vectorIndexEnabled *bool,
+	license *string,
+	iconUrl *string,
+	heroUrl *string,
+	homeUrl *string,
+	source *string,
+	readBranch *string,
+	writeBranch *string,
 ) (data_ *CreateMemoryDraftResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateMemoryDraft",
 		Query:  CreateMemoryDraft_Operation,
 		Variables: &__CreateMemoryDraftInput{
-			OrgId:            orgId,
-			Name:             name,
-			MemoryClass:      memoryClass,
-			ShortDescription: shortDescription,
-			Description:      description,
-			Tags:             tags,
-			Visibility:       visibility,
-			MaxRevCount:      maxRevCount,
+			OrgId:              orgId,
+			Name:               name,
+			MemoryClass:        memoryClass,
+			ShortDescription:   shortDescription,
+			Description:        description,
+			Tags:               tags,
+			Visibility:         visibility,
+			MaxRevCount:        maxRevCount,
+			Category0:          category0,
+			Category1:          category1,
+			Category2:          category2,
+			Data:               data,
+			EmbeddingSource:    embeddingSource,
+			VectorIndexEnabled: vectorIndexEnabled,
+			License:            license,
+			IconUrl:            iconUrl,
+			HeroUrl:            heroUrl,
+			HomeUrl:            homeUrl,
+			Source:             source,
+			ReadBranch:         readBranch,
+			WriteBranch:        writeBranch,
 		},
 	}
 
@@ -89988,8 +90493,8 @@ func CreateMemoryDraft(
 
 // The mutation executed by CreateMemoryInApp.
 const CreateMemoryInApp_Operation = `
-mutation CreateMemoryInApp ($appRef: ID!, $agentRef: ID!, $memoryClass: MemoryClass!, $name: String!, $shortDescription: String, $description: String, $tags: [String!], $maxRevCount: Int) {
-	createMemoryInApp(appRef: $appRef, agentRef: $agentRef, memoryClass: $memoryClass, name: $name, shortDescription: $shortDescription, description: $description, tags: $tags, maxRevCount: $maxRevCount) {
+mutation CreateMemoryInApp ($appRef: ID!, $agentRef: ID!, $memoryClass: MemoryClass!, $name: String!, $shortDescription: String, $description: String, $tags: [String!], $maxRevCount: Int, $data: JSON, $embeddingSource: EmbeddingSource, $vectorIndexEnabled: Boolean) {
+	createMemoryInApp(appRef: $appRef, agentRef: $agentRef, memoryClass: $memoryClass, name: $name, shortDescription: $shortDescription, description: $description, tags: $tags, maxRevCount: $maxRevCount, data: $data, embeddingSource: $embeddingSource, vectorIndexEnabled: $vectorIndexEnabled) {
 		id
 		urn
 		name
@@ -90018,19 +90523,25 @@ func CreateMemoryInApp(
 	description *string,
 	tags *[]string,
 	maxRevCount *int,
+	data *json.RawMessage,
+	embeddingSource *EmbeddingSource,
+	vectorIndexEnabled *bool,
 ) (data_ *CreateMemoryInAppResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateMemoryInApp",
 		Query:  CreateMemoryInApp_Operation,
 		Variables: &__CreateMemoryInAppInput{
-			AppRef:           appRef,
-			AgentRef:         agentRef,
-			MemoryClass:      memoryClass,
-			Name:             name,
-			ShortDescription: shortDescription,
-			Description:      description,
-			Tags:             tags,
-			MaxRevCount:      maxRevCount,
+			AppRef:             appRef,
+			AgentRef:           agentRef,
+			MemoryClass:        memoryClass,
+			Name:               name,
+			ShortDescription:   shortDescription,
+			Description:        description,
+			Tags:               tags,
+			MaxRevCount:        maxRevCount,
+			Data:               data,
+			EmbeddingSource:    embeddingSource,
+			VectorIndexEnabled: vectorIndexEnabled,
 		},
 	}
 
@@ -92729,8 +93240,8 @@ func EmailConnections(
 
 // The mutation executed by EncryptMemory.
 const EncryptMemory_Operation = `
-mutation EncryptMemory ($memoryId: ID!, $dataKey: String!) {
-	encryptMemory(memoryId: $memoryId, dataKey: $dataKey) {
+mutation EncryptMemory ($memoryId: ID!, $dataKey: String, $passphrase: String) {
+	encryptMemory(memoryId: $memoryId, dataKey: $dataKey, passphrase: $passphrase) {
 		id
 		urn
 		name
@@ -92743,18 +93254,22 @@ mutation EncryptMemory ($memoryId: ID!, $dataKey: String!) {
 // provides the data key and all node content/data is rewritten as ciphertext in
 // a single transaction. There is no decrypt mutation, so the command gates like a
 // destructive op.
+// cli#1340 — exactly one of dataKey / passphrase is sent (the server refuses
+// both or neither); the other stays omitted.
 func EncryptMemory(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	memoryId string,
-	dataKey string,
+	dataKey *string,
+	passphrase *string,
 ) (data_ *EncryptMemoryResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "EncryptMemory",
 		Query:  EncryptMemory_Operation,
 		Variables: &__EncryptMemoryInput{
-			MemoryId: memoryId,
-			DataKey:  dataKey,
+			MemoryId:   memoryId,
+			DataKey:    dataKey,
+			Passphrase: passphrase,
 		},
 	}
 
@@ -95955,8 +96470,8 @@ func Me(
 
 // The query executed by Memories.
 const Memories_Operation = `
-query Memories ($filter: MemoryFilter, $limit: Int, $offset: Int) {
-	memories(filter: $filter, limit: $limit, offset: $offset) {
+query Memories ($filter: MemoryFilter, $limit: Int, $offset: Int, $orgId: ID) {
+	memories(filter: $filter, limit: $limit, offset: $offset, orgId: $orgId) {
 		total
 		items {
 			id
@@ -95984,6 +96499,7 @@ func Memories(
 	filter *MemoryFilter,
 	limit *int,
 	offset *int,
+	orgId *string,
 ) (data_ *MemoriesResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "Memories",
@@ -95992,6 +96508,7 @@ func Memories(
 			Filter: filter,
 			Limit:  limit,
 			Offset: offset,
+			OrgId:  orgId,
 		},
 	}
 
@@ -96518,6 +97035,54 @@ func MemoryUsageSummary(
 	}
 
 	data_ = &MemoryUsageSummaryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by MergeMemories.
+const MergeMemories_Operation = `
+mutation MergeMemories ($input: MergeMemoriesInput!) {
+	mergeMemories(input: $input) {
+		id
+		urn
+		name
+		shortDescription
+		class
+		visibility
+		organizationId
+		isEncrypted
+		maxRevCount
+		updatedAt
+	}
+}
+`
+
+// cli#1340 — fold one memory into another (mergeMemories). Source nodes whose
+// loc exists in the target fold via the mergeNodes field strategy (include);
+// the rest move over with their loc. The source ends up empty, and
+// deleteSourceMem deletes it. A refusal after some batches committed carries
+// extensions.partialMerge; re-running the same merge finishes it.
+func MergeMemories(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *MergeMemoriesInput,
+) (data_ *MergeMemoriesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MergeMemories",
+		Query:  MergeMemories_Operation,
+		Variables: &__MergeMemoriesInput{
+			Input: input,
+		},
+	}
+
+	data_ = &MergeMemoriesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -105805,8 +106370,8 @@ func UpdateMcpServer(
 
 // The mutation executed by UpdateMemory.
 const UpdateMemory_Operation = `
-mutation UpdateMemory ($id: ID!, $name: String, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $data: JSON, $urn: String, $maxRevCount: Int, $schema: JSON, $listedOnMarketplace: Boolean) {
-	updateMemory(id: $id, name: $name, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, data: $data, urn: $urn, maxRevCount: $maxRevCount, schema: $schema, listedOnMarketplace: $listedOnMarketplace) {
+mutation UpdateMemory ($id: ID!, $name: String, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $data: JSON, $urn: String, $maxRevCount: Int, $schema: JSON, $listedOnMarketplace: Boolean, $category0: String, $category1: String, $category2: String, $license: String, $iconUrl: String, $heroUrl: String, $homeUrl: String, $source: String, $readBranch: String, $writeBranch: String, $embeddingSource: EmbeddingSource, $vectorIndexEnabled: Boolean, $acknowledgeVectorInversionRisk: Boolean, $chunkTokens: Int, $chunkOverlap: Int, $forceFixedSize: Boolean) {
+	updateMemory(id: $id, name: $name, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, data: $data, urn: $urn, maxRevCount: $maxRevCount, schema: $schema, listedOnMarketplace: $listedOnMarketplace, category0: $category0, category1: $category1, category2: $category2, license: $license, iconUrl: $iconUrl, heroUrl: $heroUrl, homeUrl: $homeUrl, source: $source, readBranch: $readBranch, writeBranch: $writeBranch, embeddingSource: $embeddingSource, vectorIndexEnabled: $vectorIndexEnabled, acknowledgeVectorInversionRisk: $acknowledgeVectorInversionRisk, chunkTokens: $chunkTokens, chunkOverlap: $chunkOverlap, forceFixedSize: $forceFixedSize) {
 		id
 		urn
 		name
@@ -105838,22 +106403,54 @@ func UpdateMemory(
 	maxRevCount *int,
 	schema *json.RawMessage,
 	listedOnMarketplace *bool,
+	category0 json.RawMessage,
+	category1 json.RawMessage,
+	category2 json.RawMessage,
+	license json.RawMessage,
+	iconUrl json.RawMessage,
+	heroUrl json.RawMessage,
+	homeUrl json.RawMessage,
+	source json.RawMessage,
+	readBranch json.RawMessage,
+	writeBranch json.RawMessage,
+	embeddingSource *EmbeddingSource,
+	vectorIndexEnabled *bool,
+	acknowledgeVectorInversionRisk *bool,
+	chunkTokens *int,
+	chunkOverlap *int,
+	forceFixedSize *bool,
 ) (data_ *UpdateMemoryResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateMemory",
 		Query:  UpdateMemory_Operation,
 		Variables: &__UpdateMemoryInput{
-			Id:                  id,
-			Name:                name,
-			ShortDescription:    shortDescription,
-			Description:         description,
-			Tags:                tags,
-			Visibility:          visibility,
-			Data:                data,
-			Urn:                 urn,
-			MaxRevCount:         maxRevCount,
-			Schema:              schema,
-			ListedOnMarketplace: listedOnMarketplace,
+			Id:                             id,
+			Name:                           name,
+			ShortDescription:               shortDescription,
+			Description:                    description,
+			Tags:                           tags,
+			Visibility:                     visibility,
+			Data:                           data,
+			Urn:                            urn,
+			MaxRevCount:                    maxRevCount,
+			Schema:                         schema,
+			ListedOnMarketplace:            listedOnMarketplace,
+			Category0:                      category0,
+			Category1:                      category1,
+			Category2:                      category2,
+			License:                        license,
+			IconUrl:                        iconUrl,
+			HeroUrl:                        heroUrl,
+			HomeUrl:                        homeUrl,
+			Source:                         source,
+			ReadBranch:                     readBranch,
+			WriteBranch:                    writeBranch,
+			EmbeddingSource:                embeddingSource,
+			VectorIndexEnabled:             vectorIndexEnabled,
+			AcknowledgeVectorInversionRisk: acknowledgeVectorInversionRisk,
+			ChunkTokens:                    chunkTokens,
+			ChunkOverlap:                   chunkOverlap,
+			ForceFixedSize:                 forceFixedSize,
 		},
 	}
 
@@ -107878,6 +108475,55 @@ func ValidateMemory(
 	}
 
 	data_ = &ValidateMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by VerifyMemoryNodes.
+const VerifyMemoryNodes_Operation = `
+query VerifyMemoryNodes ($memoryRef: String!) {
+	verifyMemoryNodes(memoryRef: $memoryRef) {
+		checked
+		intact
+		notApproved
+		superseded
+		tampered
+		problems {
+			nodeId
+			urn
+			loc
+			state
+			revision
+			approvedRevision
+			expectedHash
+			actualHash
+		}
+	}
+}
+`
+
+// cli#1340 — the tamper check over every live node of a memory (#1591).
+func VerifyMemoryNodes(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryRef string,
+) (data_ *VerifyMemoryNodesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "VerifyMemoryNodes",
+		Query:  VerifyMemoryNodes_Operation,
+		Variables: &__VerifyMemoryNodesInput{
+			MemoryRef: memoryRef,
+		},
+	}
+
+	data_ = &VerifyMemoryNodesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

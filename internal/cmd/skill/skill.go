@@ -287,7 +287,7 @@ func allMemories(cmd *cobra.Command, client graphql.Client) ([]*memoryInfo, erro
 	type item = gen.MemoriesMemoriesMemoriesPageItemsMemory
 	listing := func(filter *gen.MemoryFilter) func(int, int) ([]*item, int, error) {
 		return func(limit, offset int) ([]*item, int, error) {
-			resp, err := gen.Memories(cmd.Context(), client, filter, &limit, &offset)
+			resp, err := gen.Memories(cmd.Context(), client, filter, &limit, &offset, nil)
 			if err != nil {
 				return nil, 0, api.MapError(err)
 			}

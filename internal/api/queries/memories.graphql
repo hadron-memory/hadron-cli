@@ -13,8 +13,12 @@ query Memories(
   $limit: Int
   # @genqlient(omitempty: true)
   $offset: Int
+  # cli#1340 — the "active organization" view (cor:api:100:01); omitted = the
+  # caller's whole union.
+  # @genqlient(omitempty: true)
+  $orgId: ID
 ) {
-  memories(filter: $filter, limit: $limit, offset: $offset) {
+  memories(filter: $filter, limit: $limit, offset: $offset, orgId: $orgId) {
     total
     items {
       id
@@ -101,6 +105,34 @@ mutation CreateMemory(
   # #621 — per-node revision-history cap (min 1). Omitted = server default.
   # @genqlient(omitempty: true)
   $maxRevCount: Int
+  # cli#1340 — the memory's settings. Each is omitted unless its flag was
+  # passed; on create an explicit null is the same as omitted.
+  # @genqlient(omitempty: true)
+  $category0: String
+  # @genqlient(omitempty: true)
+  $category1: String
+  # @genqlient(omitempty: true)
+  $category2: String
+  # @genqlient(omitempty: true)
+  $data: JSON
+  # @genqlient(omitempty: true)
+  $embeddingSource: EmbeddingSource
+  # @genqlient(omitempty: true)
+  $vectorIndexEnabled: Boolean
+  # @genqlient(omitempty: true)
+  $license: String
+  # @genqlient(omitempty: true)
+  $iconUrl: String
+  # @genqlient(omitempty: true)
+  $heroUrl: String
+  # @genqlient(omitempty: true)
+  $homeUrl: String
+  # @genqlient(omitempty: true)
+  $source: String
+  # @genqlient(omitempty: true)
+  $readBranch: String
+  # @genqlient(omitempty: true)
+  $writeBranch: String
 ) {
   createMemory(
     orgId: $orgId
@@ -111,6 +143,19 @@ mutation CreateMemory(
     tags: $tags
     visibility: $visibility
     maxRevCount: $maxRevCount
+    category0: $category0
+    category1: $category1
+    category2: $category2
+    data: $data
+    embeddingSource: $embeddingSource
+    vectorIndexEnabled: $vectorIndexEnabled
+    license: $license
+    iconUrl: $iconUrl
+    heroUrl: $heroUrl
+    homeUrl: $homeUrl
+    source: $source
+    readBranch: $readBranch
+    writeBranch: $writeBranch
   ) {
     id
     urn
@@ -144,6 +189,34 @@ mutation CreateMemoryDraft(
   $visibility: MemoryVisibility
   # @genqlient(omitempty: true)
   $maxRevCount: Int
+  # cli#1340 — the memory's settings. Each is omitted unless its flag was
+  # passed; on create an explicit null is the same as omitted.
+  # @genqlient(omitempty: true)
+  $category0: String
+  # @genqlient(omitempty: true)
+  $category1: String
+  # @genqlient(omitempty: true)
+  $category2: String
+  # @genqlient(omitempty: true)
+  $data: JSON
+  # @genqlient(omitempty: true)
+  $embeddingSource: EmbeddingSource
+  # @genqlient(omitempty: true)
+  $vectorIndexEnabled: Boolean
+  # @genqlient(omitempty: true)
+  $license: String
+  # @genqlient(omitempty: true)
+  $iconUrl: String
+  # @genqlient(omitempty: true)
+  $heroUrl: String
+  # @genqlient(omitempty: true)
+  $homeUrl: String
+  # @genqlient(omitempty: true)
+  $source: String
+  # @genqlient(omitempty: true)
+  $readBranch: String
+  # @genqlient(omitempty: true)
+  $writeBranch: String
 ) {
   createMemory(
     orgId: $orgId
@@ -154,6 +227,19 @@ mutation CreateMemoryDraft(
     tags: $tags
     visibility: $visibility
     maxRevCount: $maxRevCount
+    category0: $category0
+    category1: $category1
+    category2: $category2
+    data: $data
+    embeddingSource: $embeddingSource
+    vectorIndexEnabled: $vectorIndexEnabled
+    license: $license
+    iconUrl: $iconUrl
+    heroUrl: $heroUrl
+    homeUrl: $homeUrl
+    source: $source
+    readBranch: $readBranch
+    writeBranch: $writeBranch
     draftCorpus: true
   ) {
     id
@@ -186,6 +272,13 @@ mutation CreateMemoryInApp(
   $tags: [String!]
   # @genqlient(omitempty: true)
   $maxRevCount: Int
+  # cli#1340 — the settings createMemoryInApp takes; omitted unless passed.
+  # @genqlient(omitempty: true)
+  $data: JSON
+  # @genqlient(omitempty: true)
+  $embeddingSource: EmbeddingSource
+  # @genqlient(omitempty: true)
+  $vectorIndexEnabled: Boolean
 ) {
   createMemoryInApp(
     appRef: $appRef
@@ -196,6 +289,9 @@ mutation CreateMemoryInApp(
     description: $description
     tags: $tags
     maxRevCount: $maxRevCount
+    data: $data
+    embeddingSource: $embeddingSource
+    vectorIndexEnabled: $vectorIndexEnabled
   ) {
     id
     urn
@@ -295,6 +391,45 @@ mutation UpdateMemory(
   # preserve: sending false unasked would silently de-list the memory.
   # @genqlient(omitempty: true)
   $listedOnMarketplace: Boolean
+  # cli#1340 — the memory's settings. The server reads an omitted argument as
+  # "keep" and an explicit null as "clear" for the text settings, so those are
+  # bound to json.RawMessage: nil is omitted, `null` clears, a JSON string sets.
+  # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
+  $category0: String
+  # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
+  $category1: String
+  # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
+  $category2: String
+  # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
+  $license: String
+  # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
+  $iconUrl: String
+  # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
+  $heroUrl: String
+  # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
+  $homeUrl: String
+  # An explicit null clears the git source (DB-only mode).
+  # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
+  $source: String
+  # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
+  $readBranch: String
+  # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
+  $writeBranch: String
+  # @genqlient(omitempty: true)
+  $embeddingSource: EmbeddingSource
+  # @genqlient(omitempty: true)
+  $vectorIndexEnabled: Boolean
+  # Spec 033 FR-026: required (true) to enable the vector index on an
+  # encrypted memory. Only ever sent as true.
+  # @genqlient(omitempty: true)
+  $acknowledgeVectorInversionRisk: Boolean
+  # The chunk dials; the server validates them against the effective state.
+  # @genqlient(omitempty: true)
+  $chunkTokens: Int
+  # @genqlient(omitempty: true)
+  $chunkOverlap: Int
+  # @genqlient(omitempty: true)
+  $forceFixedSize: Boolean
 ) {
   updateMemory(
     id: $id
@@ -308,6 +443,22 @@ mutation UpdateMemory(
     maxRevCount: $maxRevCount
     schema: $schema
     listedOnMarketplace: $listedOnMarketplace
+    category0: $category0
+    category1: $category1
+    category2: $category2
+    license: $license
+    iconUrl: $iconUrl
+    heroUrl: $heroUrl
+    homeUrl: $homeUrl
+    source: $source
+    readBranch: $readBranch
+    writeBranch: $writeBranch
+    embeddingSource: $embeddingSource
+    vectorIndexEnabled: $vectorIndexEnabled
+    acknowledgeVectorInversionRisk: $acknowledgeVectorInversionRisk
+    chunkTokens: $chunkTokens
+    chunkOverlap: $chunkOverlap
+    forceFixedSize: $forceFixedSize
   ) {
     id
     urn
@@ -429,8 +580,16 @@ mutation ExtractParentNodeToMemory(
 # provides the data key and all node content/data is rewritten as ciphertext in
 # a single transaction. There is no decrypt mutation, so the command gates like a
 # destructive op.
-mutation EncryptMemory($memoryId: ID!, $dataKey: String!) {
-  encryptMemory(memoryId: $memoryId, dataKey: $dataKey) {
+# cli#1340 — exactly one of dataKey / passphrase is sent (the server refuses
+# both or neither); the other stays omitted.
+mutation EncryptMemory(
+  $memoryId: ID!
+  # @genqlient(omitempty: true)
+  $dataKey: String
+  # @genqlient(omitempty: true)
+  $passphrase: String
+) {
+  encryptMemory(memoryId: $memoryId, dataKey: $dataKey, passphrase: $passphrase) {
     id
     urn
     name
@@ -529,4 +688,45 @@ query ValidateMemory(
 mutation RetryFailedEmbeddings($memoryRef: ID!) {
   # @genqlient(pointer: true)
   retryFailedEmbeddings(memoryRef: $memoryRef)
+}
+
+# cli#1340 — fold one memory into another (mergeMemories). Source nodes whose
+# loc exists in the target fold via the mergeNodes field strategy (include);
+# the rest move over with their loc. The source ends up empty, and
+# deleteSourceMem deletes it. A refusal after some batches committed carries
+# extensions.partialMerge; re-running the same merge finishes it.
+mutation MergeMemories($input: MergeMemoriesInput!) {
+  mergeMemories(input: $input) {
+    id
+    urn
+    name
+    shortDescription
+    class
+    visibility
+    organizationId
+    isEncrypted
+    maxRevCount
+    updatedAt
+  }
+}
+
+# cli#1340 — the tamper check over every live node of a memory (#1591).
+query VerifyMemoryNodes($memoryRef: String!) {
+  verifyMemoryNodes(memoryRef: $memoryRef) {
+    checked
+    intact
+    notApproved
+    superseded
+    tampered
+    problems {
+      nodeId
+      urn
+      loc
+      state
+      revision
+      approvedRevision
+      expectedHash
+      actualHash
+    }
+  }
 }

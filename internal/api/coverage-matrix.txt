@@ -19,7 +19,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 187: 135 command, 37 gap, 15 excluded
+[Query] 187: 136 command, 36 gap, 15 excluded
 actionTickets  command ticket list
 agent  command agent get
 agentAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime that makes LLM calls; a person reads the masked config with `ai-config get`
@@ -202,13 +202,13 @@ user  command team worker get
 users  command user search
 validateMemory  command memory validate
 verifyDecision  gap #1335
-verifyMemoryNodes  gap #1340
+verifyMemoryNodes  command memory verify
 verifyNode  command node verify
 worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 315: 223 command, 81 gap, 11 excluded
+[Mutation] 315: 224 command, 80 gap, 11 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -369,7 +369,7 @@ linkGithubApp  gap #60
 linkMemoryToUser  command memory link-user
 makeAgentTaskReady  command team task ready
 markOwnTeamChatRead  command team chat check
-mergeMemories  gap #1340
+mergeMemories  command memory merge
 mergeNodes  command node merge
 mergeUsers  command user merge
 mintActionTickets  command ticket mint
@@ -525,7 +525,7 @@ updateWorker  command team worker update
 withdrawDecision  gap #1335
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 180: 161 gap, 19 excluded
+[Arguments] 146: 126 gap, 20 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.addOrgMember(orgRef)  gap #1342: the CLI passes the deprecated orgId/userId
@@ -553,22 +553,6 @@ Mutation.createApp(role)  gap #63
 Mutation.createApp(sessionTimeoutSeconds)  gap #63
 Mutation.createApp(surfaces)  gap #63
 Mutation.createApp(trainingMode)  gap #63
-Mutation.createMemory(category0)  gap #1340
-Mutation.createMemory(category1)  gap #1340
-Mutation.createMemory(category2)  gap #1340
-Mutation.createMemory(data)  gap #1340
-Mutation.createMemory(embeddingSource)  gap #1340
-Mutation.createMemory(heroUrl)  gap #1340
-Mutation.createMemory(homeUrl)  gap #1340
-Mutation.createMemory(iconUrl)  gap #1340
-Mutation.createMemory(license)  gap #1340
-Mutation.createMemory(readBranch)  gap #1340
-Mutation.createMemory(source)  gap #1340
-Mutation.createMemory(vectorIndexEnabled)  gap #1340
-Mutation.createMemory(writeBranch)  gap #1340
-Mutation.createMemoryInApp(data)  gap #1340
-Mutation.createMemoryInApp(embeddingSource)  gap #1340
-Mutation.createMemoryInApp(vectorIndexEnabled)  gap #1340
 Mutation.createMemoryShare(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.createMemorySubscription(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.createMemorySubscription(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
@@ -592,7 +576,6 @@ Mutation.deleteMemoryShare(granteeId)  excluded deprecated: @deprecated: Use gra
 Mutation.deleteMemorySubscription(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.deleteMemorySubscription(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
 Mutation.deleteNode(cascadeCrossMemoryEdges)  gap #1341
-Mutation.encryptMemory(passphrase)  gap #1340
 Mutation.endSession(errorCount)  gap #1337
 Mutation.endSession(inputTokens)  gap #1337
 Mutation.endSession(outputTokens)  gap #1337
@@ -640,23 +623,7 @@ Mutation.updateApp(sessionDormancyDays)  gap #63
 Mutation.updateApp(surfaces)  gap #63
 Mutation.updateApp(trainingMode)  gap #63
 Mutation.updateApp(urn)  gap #63
-Mutation.updateMemory(acknowledgeVectorInversionRisk)  gap #1340
-Mutation.updateMemory(category0)  gap #1340
-Mutation.updateMemory(category1)  gap #1340
-Mutation.updateMemory(category2)  gap #1340
-Mutation.updateMemory(chunkOverlap)  gap #1340
-Mutation.updateMemory(chunkTokens)  gap #1340
-Mutation.updateMemory(embeddingSource)  gap #1340
-Mutation.updateMemory(forceFixedSize)  gap #1340
-Mutation.updateMemory(heroUrl)  gap #1340
-Mutation.updateMemory(homeUrl)  gap #1340
-Mutation.updateMemory(iconUrl)  gap #1340
-Mutation.updateMemory(license)  gap #1340
-Mutation.updateMemory(organizationId)  gap #1340
-Mutation.updateMemory(readBranch)  gap #1340
-Mutation.updateMemory(source)  gap #1340
-Mutation.updateMemory(vectorIndexEnabled)  gap #1340
-Mutation.updateMemory(writeBranch)  gap #1340
+Mutation.updateMemory(organizationId)  excluded not-a-capability: updateMemory accepts only the memory's current organization and refuses any other with USE_TRANSFER_MEMORY_OWNERSHIP; moving a memory is `memory transfer` (transferMemoryOwnership)
 Mutation.updateMemoryMemberRole(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.updateMemoryMemberRole(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.updateMemoryShareRole(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
@@ -693,7 +660,6 @@ Query.findNodes(expand)  gap #1341
 Query.findNodes(fields)  gap #1341
 Query.findNodes(granularity)  gap #1341
 Query.findNodes(minScore)  gap #1341
-Query.memories(orgId)  gap #1340
 Query.myUserApiKeys(includeHidden)  gap #1344
 Query.node(memoryRef)  gap #1341
 Query.nodeExport(sections)  gap #1341
@@ -707,7 +673,7 @@ Query.teamChatMessages(teamHeadRef)  gap #936
 Query.teamChatMessages(untagged)  gap #936
 Query.teamWorkItems(workerRef)  gap #1337
 
-[Filters] 39: 30 flag, 9 gap
+[Filters] 39: 32 flag, 7 gap
 Query.agents(filter.ownedByMe)  flag agent list --owned-by-me
 Query.agents(filter.type)  flag agent list --type
 Query.agents(filter.visibility)  flag agent list --visibility
@@ -734,7 +700,7 @@ Query.findNodes(filter.where)  flag node list --where
 Query.memories(filter.memoryClasses)  flag memory list --include-agent-system
 Query.memories(filter.ownedByMe)  flag memory list --owned-by-me
 Query.memories(filter.sharedWithMe)  flag memory list --shared-with-me
-Query.memories(filter.visibility)  gap #1340: set internally by skill status; no flag
+Query.memories(filter.visibility)  flag memory list --visibility
 Query.memoryConfigTemplates(filter.ownerRef)  flag memory config template list --owner-org --owner-app
 Query.memoryConfigTemplates(filter.ownerType)  flag memory config template list --owner-server --owner-me --owner-org --owner-app
 Query.organizations(filter.memberOnly)  flag org list --mine
@@ -742,7 +708,7 @@ Query.publicAgents(filter.type)  flag agent list --type
 Query.registerEntries(filter.attendeeRef)  flag channel register list --attendee
 Query.registerEntries(filter.channelRef)  flag channel register list --channel
 Query.registerEntries(filter.ownerRef)  flag channel register list --owner
-Query.scopes(filter.appRef)  gap #1340
+Query.scopes(filter.appRef)  flag scope list --app-context
 Query.scopes(filter.name)  flag scope list --name
 Query.scopes(filter.ownerRef)  flag scope list --owner-org --owner-app --owner-agent
 Query.scopes(filter.ownerType)  flag scope list --owner-org --owner-app --owner-agent
