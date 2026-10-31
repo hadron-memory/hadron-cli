@@ -39,7 +39,8 @@ Pass the link as JSON, inline or as @file:
   '{"allow":[]}'                                 allow nothing
 --clear removes your link, so your layer no longer restricts anything.
 
-The server checks the shape ({"allow": [strings]}); anything else exits 2.
+The server checks the shape ({"allow": [strings]}); anything else exits 2. A
+JSON null is refused here (exit 2): removing the link takes --clear.
 Any signed-in user may set their own; nobody can set another user's.
 
 Prints "✓ set user policy for <you>: <link>"; --json gives layer, userId,
@@ -72,6 +73,9 @@ handle and policy (null after --clear).`,
 				var probe any
 				if err := json.Unmarshal([]byte(raw), &probe); err != nil {
 					return exitcode.Newf(exitcode.Usage, "the policy must be valid JSON: %v", err)
+				}
+				if probe == nil {
+					return exitcode.Newf(exitcode.Usage, "a null policy would remove your link; use --clear to do that")
 				}
 				msg := json.RawMessage(raw)
 				policy = &msg

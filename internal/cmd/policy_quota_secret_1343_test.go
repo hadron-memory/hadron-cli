@@ -150,6 +150,9 @@ func TestSecretUpdate1343Refusals(t *testing.T) {
 		"meta and meta-json":     {"secret", "update", "sec_1", "--meta", "a=b", "--meta-json", `{"c":"d"}`},
 		"meta-json not object":   {"secret", "update", "sec_1", "--meta-json", `["x"]`},
 		"basic without username": {"secret", "update", "sec_1", "--type", "basic", "--value-file", "-"},
+		// #1489 §10 P3-3: with --url-prefix there is something to send, so
+		// only the --type guard stops --type from being silently dropped.
+		"type with url-prefix, no value": {"secret", "update", "sec_1", "--type", "bearer", "--url-prefix", "https://x.test/"},
 	}
 	for name, args := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -310,6 +313,7 @@ func TestPolicySet1343Refusals(t *testing.T) {
 		"neither nor clear": {"policy", "set", "--mine"},
 		"both":              {"policy", "set", "--mine", "--clear", `{"allow":[]}`},
 		"not json":          {"policy", "set", "--mine", "{allow"},
+		"json null":         {"policy", "set", "--mine", "null"},
 	}
 	for name, args := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -334,7 +338,7 @@ func TestOrgUpdatePolicy1343(t *testing.T) {
 		want string // "" = key omitted
 	}{
 		{"set", []string{"--policy", `{"allow":["run.execute"]}`}, `{"allow":["run.execute"]}`},
-		{"empty clears", []string{"--policy", ""}, "null"},
+		{"--clear-policy clears", []string{"--clear-policy"}, "null"},
 		{"untouched by --name", []string{"--name", "Acme"}, ""},
 	}
 	for _, tc := range cases {
@@ -358,12 +362,27 @@ func TestOrgUpdatePolicy1343(t *testing.T) {
 	}
 }
 
-func TestOrgUpdatePolicy1343RefusesBadJSON(t *testing.T) {
-	_, captured, err := run1343(t, map[string]string{"UpdateOrganization": orgUpdateJSON}, "",
-		"org", "update", "acme.com", "--policy", "{nope")
-	wantExit(t, err, exitcode.Usage)
-	if _, sent := captured["UpdateOrganization"]; sent {
-		t.Fatalf("bad JSON must not reach the server")
+// A blank --policy (an unset $VAR) or a JSON null must never clear the org
+// layer silently: clearing widens every run in the org, so it takes the
+// explicit --clear-policy (#1489 §10 P2-1, P3-1).
+func TestOrgUpdatePolicy1343Refusals(t *testing.T) {
+	cases := map[string][]string{
+		"bad json":        {"--policy", "{nope"},
+		"blank":           {"--policy", ""},
+		"whitespace":      {"--policy", "  "},
+		"json null":       {"--policy", "null"},
+		"set and clear":   {"--policy", `{"allow":[]}`, "--clear-policy"},
+		"clear and blank": {"--clear-policy", "--policy", ""},
+	}
+	for name, args := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, captured, err := run1343(t, map[string]string{"UpdateOrganization": orgUpdateJSON}, "",
+				append([]string{"org", "update", "acme.com"}, args...)...)
+			wantExit(t, err, exitcode.Usage)
+			if _, sent := captured["UpdateOrganization"]; sent {
+				t.Fatalf("a refused update must not reach the server")
+			}
+		})
 	}
 }
 
@@ -433,5 +452,23 @@ func TestQuotaSet1343RequiresLimit(t *testing.T) {
 	wantExit(t, err, exitcode.Usage)
 	if _, sent := captured["SetQuotaLimit"]; sent {
 		t.Fatalf("a refused set must not reach the server")
+	}
+}
+
+// #1489 §10 P3-2: "--value-file -" on a terminal must not read stdin with
+// echo; it goes to the no-echo prompt, which needs a file-backed terminal, so
+// the test TTY is refused (exit 2) with nothing sent. Without the rewrite the
+// typed value would be read from the (echoing) reader and sent.
+func TestSecretUpdate1343DashOnTerminalUsesNoEchoPrompt(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"UpdateSecret": `{"data":{"updateSecret":` + secretJSON + `}}`,
+	})
+	f, _, _ := testFactoryTTY(t, "typed-secret\n")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"secret", "update", "sec_1", "--value-file", "-", "--server", gql.URL})
+	err := root.Execute()
+	wantExit(t, err, exitcode.Usage)
+	if _, sent := captured["UpdateSecret"]; sent {
+		t.Fatalf("the echoing stdin read must not be used on a terminal")
 	}
 }
