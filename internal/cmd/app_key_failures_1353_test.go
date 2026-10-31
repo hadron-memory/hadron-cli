@@ -254,6 +254,13 @@ func TestAppKey1353RevokeTransportDiagnostics(t *testing.T) {
 		}
 	})
 	t.Run("timeout", func(t *testing.T) {
+		defaultTimeout := http.DefaultClient.Timeout
+		t.Cleanup(func() {
+			if http.DefaultClient.Timeout != defaultTimeout {
+				t.Errorf("timeout fixture changed shared http.DefaultClient: got %s, want %s", http.DefaultClient.Timeout, defaultTimeout)
+				http.DefaultClient.Timeout = defaultTimeout
+			}
+		})
 		var n atomic.Int32
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			_, _ = io.Copy(io.Discard, r.Body)
@@ -262,7 +269,10 @@ func TestAppKey1353RevokeTransportDiagnostics(t *testing.T) {
 		}))
 		defer srv.Close()
 		f, out := testFactory(t)
-		f.HTTPClient.Timeout = time.Second
+		// testFactory shares http.DefaultClient; change only this command's copy.
+		client := *f.HTTPClient
+		client.Timeout = time.Second
+		f.HTTPClient = &client
 		root := NewRootCmd(f)
 		root.SetArgs([]string{"app", "key", "revoke", "key_9", "--yes", "--server", srv.URL})
 		err := root.Execute()
@@ -270,7 +280,7 @@ func TestAppKey1353RevokeTransportDiagnostics(t *testing.T) {
 			t.Fatal(err, n.Load())
 		}
 		msg := out.String() + f.IOStreams.ErrOut.(*strings.Builder).String()
-		if !strings.Contains(msg, "timed out") || !strings.Contains(msg, "app key list") {
+		if !strings.Contains(msg, "timed out") || !strings.Contains(msg, "app key list") || !strings.Contains(msg, "may have been sent") || !strings.Contains(msg, "not retried") || strings.Contains(msg, srv.URL) {
 			t.Fatal(msg)
 		}
 	})
