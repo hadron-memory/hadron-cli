@@ -132,8 +132,8 @@ markup added on top of the rate, in hundredths of a percent (100 = 1%); when it
 is null this row sets no markup of its own and the server's default markup
 applies (the default's value is not shown here).
 
-Each row's id is in the --json output; "hadron billing prices get <id>"
-reads that one row.`,
+The first column is each row's id; "hadron billing prices get <id>" reads
+that one row.`,
 		Example: `  hadron billing prices
   hadron billing prices --provider anthropic --json`,
 		Args: cobra.NoArgs,
@@ -188,9 +188,9 @@ reads that one row.`,
 				prices = append(prices, priceFrom(p))
 			}
 			return output.Write(f.IOStreams, f.JSON, prices, func(w io.Writer) error {
-				t := output.NewTable(w, "PROVIDER", "MODEL", "TIER", "INPUT MICROCENTS/MTOK", "OUTPUT MICROCENTS/MTOK", "MARKUP BP", "EFFECTIVE")
+				t := output.NewTable(w, "ID", "PROVIDER", "MODEL", "TIER", "INPUT MICROCENTS/MTOK", "OUTPUT MICROCENTS/MTOK", "MARKUP BP", "EFFECTIVE")
 				for _, p := range prices {
-					t.Row(output.SafeCell(p.Provider), output.SafeCell(p.Model), fmt.Sprint(p.Tier), output.SafeCell(p.InputMicroCentsPerMTok), output.SafeCell(p.OutputMicroCentsPerMTok), output.SafeCell(p.markup()), output.SafeCell(p.EffectiveAt))
+					t.Row(output.SafeCell(p.ID), output.SafeCell(p.Provider), output.SafeCell(p.Model), fmt.Sprint(p.Tier), output.SafeCell(p.InputMicroCentsPerMTok), output.SafeCell(p.OutputMicroCentsPerMTok), output.SafeCell(p.markup()), output.SafeCell(p.EffectiveAt))
 				}
 				return t.Flush()
 			})
@@ -233,18 +233,19 @@ func newCmdPricesGet(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Show one provider rate row",
-		Long: `Show one rate row by its id, the "id" field of "hadron billing prices --json".
+		Long: `Show one rate row by its id, the ID column of "hadron billing prices" (the
+"id" field with --json).
 Any signed-in caller can read rates.
 
-It shows the columns of the "hadron billing prices" table, plus the row's id
-and who created it and when. Rates are micro-cents per million tokens (divide by
+It shows the columns of the "hadron billing prices" table, plus who created
+the row and when. Rates are micro-cents per million tokens (divide by
 100000000 to get dollars); a markup of "default" means the row sets none of its
 own and the server's default applies.
 
 If the server returns no row, the command exits 4 with "not found or not
 visible": the server answers the same way for an id that does not exist and
 one you cannot see, so the CLI cannot tell them apart. Check the id against
-"hadron billing prices --json".`,
+"hadron billing prices".`,
 		Example: `  hadron billing prices get <id>
   hadron billing prices get <id> --json`,
 		Args: cobra.ExactArgs(1),
