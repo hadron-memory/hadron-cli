@@ -34,6 +34,7 @@ func TestAuthTokenCaptureExample(t *testing.T) {
 			}
 			stub := `#!/usr/bin/env bash
 printf 'called\n' >> "$CAPTURE_CALLS"
+[ "$*" = "auth token create --label ci --json" ] || exit 99
 case "$CAPTURE_MODE" in
 refusal) exit 3 ;;
 refusal-json) printf '{"rawKey":"synthetic-key"}\n'; exit 8 ;;
