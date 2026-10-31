@@ -20,15 +20,16 @@ func sessionRows(n int) []string {
 	return rows
 }
 
-// sessionsNoTotal: the sessions list returns a bare array and no total.
-func sessionsNoTotal(page []string, _ int) string {
-	return `{"data":{"sessions":[` + strings.Join(page, ",") + `]}}`
+// sessionsPageAt renders sessionsPage: the real total and hasMore for the
+// window (cli#1339).
+func sessionsPageAt(page []string, total, offset int) string {
+	return fmt.Sprintf(`{"data":{"sessionsPage":{"total":%d,"hasMore":%v,"items":[%s]}}}`, total, offset+len(page) < total, strings.Join(page, ","))
 }
 
 func runSessionList(t *testing.T, src *pagedSource, args ...string) (ids []string, calls []map[string]any, err error) {
 	t.Helper()
 	teamGitDir(t)
-	gql, rec := pagedGraphQL(t, map[string]*pagedSource{"TeamSessions": src}, sessionRenderStubs(map[string]string{}))
+	gql, rec := pagedGraphQL(t, map[string]*pagedSource{"TeamSessionsPage": src}, sessionRenderStubs(map[string]string{}))
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs(append([]string{"team", "session", "list", "--json", "--server", gql.URL}, args...))
@@ -44,12 +45,13 @@ func runSessionList(t *testing.T, src *pagedSource, args ...string) (ids []strin
 			ids = append(ids, r.ID)
 		}
 	}
-	return ids, rec["TeamSessions"].Calls, err
+	return ids, rec["TeamSessionsPage"].Calls, err
 }
 
-// cli#967: no --limit/--offset lists every session, however the server clamps.
+// cli#967/#1339: no --limit/--offset lists every session, however the server
+// clamps, and the page's total proves the end (no trailing empty request).
 func TestSessionListDrainsPastAClampedPage(t *testing.T) {
-	ids, calls, err := runSessionList(t, &pagedSource{rows: sessionRows(45), serve: 20, wrap: sessionsNoTotal})
+	ids, calls, err := runSessionList(t, &pagedSource{rows: sessionRows(45), serve: 20, wrapAt: sessionsPageAt})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,13 +63,13 @@ func TestSessionListDrainsPastAClampedPage(t *testing.T) {
 			t.Fatalf("row %d is %s: order lost or duplicated", i, id)
 		}
 	}
-	if len(calls) != 4 {
-		t.Errorf("want 4 requests (20+20+5+empty), got %d", len(calls))
+	if len(calls) != 3 {
+		t.Errorf("want 3 requests (20+20+5; the total proves the end), got %d", len(calls))
 	}
 }
 
 func TestSessionListActiveDrainsPastAClampedPage(t *testing.T) {
-	ids, _, err := runSessionList(t, &pagedSource{rows: sessionRows(45), serve: 20, wrap: sessionsNoTotal}, "--active")
+	ids, _, err := runSessionList(t, &pagedSource{rows: sessionRows(45), serve: 20, wrapAt: sessionsPageAt}, "--active")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +80,7 @@ func TestSessionListActiveDrainsPastAClampedPage(t *testing.T) {
 
 func TestSessionListExplicitLimitOrOffsetIsOneRequest(t *testing.T) {
 	for _, args := range [][]string{{"--limit", "5"}, {"--offset", "3"}} {
-		ids, calls, err := runSessionList(t, &pagedSource{rows: sessionRows(45), serve: 20, wrap: sessionsNoTotal}, args...)
+		ids, calls, err := runSessionList(t, &pagedSource{rows: sessionRows(45), serve: 20, wrapAt: sessionsPageAt}, args...)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -92,7 +94,7 @@ func TestSessionListExplicitLimitOrOffsetIsOneRequest(t *testing.T) {
 }
 
 func TestSessionListLaterPageErrorFailsTheListing(t *testing.T) {
-	ids, _, err := runSessionList(t, &pagedSource{rows: sessionRows(45), serve: 20, wrap: sessionsNoTotal, failAtCall: 2})
+	ids, _, err := runSessionList(t, &pagedSource{rows: sessionRows(45), serve: 20, wrapAt: sessionsPageAt, failAtCall: 2})
 	if err == nil {
 		t.Fatalf("a failed page 2 must not read as a complete list (got %d sessions)", len(ids))
 	}
@@ -130,5 +132,44 @@ func TestSessionListProvenanceDrainsPastAClampedPage(t *testing.T) {
 	}
 	if len(got) != 45 {
 		t.Errorf("want 45 provenance sessions, got %d", len(got))
+	}
+}
+
+// cli#1339: a bounded page reports the real total and the next offset on stderr,
+// while --json stays the bare array.
+func TestSessionListPageShowsRealTotalAndNextOffset(t *testing.T) {
+	teamGitDir(t)
+	gql, _ := pagedGraphQL(t, map[string]*pagedSource{"TeamSessionsPage": {rows: sessionRows(45), serve: 20, wrapAt: sessionsPageAt}}, sessionRenderStubs(map[string]string{}))
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "list", "--json", "--limit", "20", "--offset", "20", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	errOut := f.IOStreams.ErrOut.(*strings.Builder).String()
+	for _, want := range []string{"showing 21-40 of 45", "more: --offset 40"} {
+		if !strings.Contains(errOut, want) {
+			t.Errorf("stderr missing %q: %q", want, errOut)
+		}
+	}
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(out.String()), &rows); err != nil || len(rows) != 20 {
+		t.Fatalf("stdout must stay a bare 20-element array: %v", err)
+	}
+}
+
+// A server that ignores the offset repeats the first page forever; the drain
+// fails as a whole instead of returning a partial list.
+func TestSessionListNonAdvancingServerFails(t *testing.T) {
+	teamGitDir(t)
+	gql, _ := pagedGraphQL(t, map[string]*pagedSource{"TeamSessionsPage": {rows: sessionRows(45), serve: 20, wrapAt: func(_ []string, total, _ int) string {
+		return sessionsPageAt(sessionRows(45)[:20], total, 0)
+	}}}, sessionRenderStubs(map[string]string{}))
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "list", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil || exitCodeFor(err) != 7 || out.String() != "" {
+		t.Fatalf("want exit 7 and no partial list, got %v out %q", err, out.String())
 	}
 }

@@ -25,7 +25,7 @@ const emptyWorklog = `{"data":{"teamWorkItems":{"total":0,"items":[]}}}`
 func TestSessionListShowsTheUserURNNotTheID(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, sessionRenderStubs(map[string]string{
-		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
 	}))
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -51,7 +51,7 @@ func TestSessionListShowsTheUserURNNotTheID(t *testing.T) {
 func TestSessionListFallsBackToTheUserIDWhenUnreadable(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
-		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
 		// Denied and missing are both null here (anti-enumeration).
 		"GetUser": `{"data":{"user":null}}`,
 	})
@@ -72,7 +72,7 @@ func TestSessionListFallsBackToTheUserIDWhenUnreadable(t *testing.T) {
 func TestSessionListFallsBackWhenTheUserHasNoURN(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
-		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
 		"GetUser": `{"data":{"user":{"id":"u-holger","urn":null,"name":"Holger","email":null,
 			"handle":null,"githubUsername":null,"roles":[],"identityProvider":null,
 			"githubId":null,"externalId":null,"externalAppId":null,"linkedAt":null}}}`,
@@ -94,7 +94,7 @@ func TestSessionListFallsBackWhenTheUserHasNoURN(t *testing.T) {
 func TestSessionListJSONIssuesNoDecoratingReads(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
-		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)

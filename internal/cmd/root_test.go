@@ -123,7 +123,7 @@ func unstubbedDefault(op string) (string, bool) {
 	case "GetBoundSessionLiveness":
 		// The optional #791 read against a server predating Session.isLive.
 		return `{"errors":[{"message":"Cannot query field \"isLive\" on type \"Session\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
-	case "NodeLiveRevisionsStamped", "NodeRevisionsStamped", "NodeRevisionStamped":
+	case "NodeLiveRevisionsStamped", "NodeRevisionsStamped", "NodeRevisionsStampedPage", "NodeRevisionStamped":
 		// cli#752's stamped reads, answered as a server that predates the
 		// stamps (hadron-server#1326): each falls back to its plain read, so
 		// every test that doesn't stub them exercises the fallback.

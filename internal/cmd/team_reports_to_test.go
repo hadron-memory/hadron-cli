@@ -125,7 +125,7 @@ func TestSessionStartReportsToForwardedOrOmitted(t *testing.T) {
 		t.Run(fmt.Sprint(send), func(t *testing.T) {
 			teamGitDir(t)
 			row := withLiveness(irisWorkerJSON, "false")
-			gql, captured := captureGraphQL(t, map[string]string{"Workers": `{"data":{"workers":{"total":1,"items":[` + row + `]}}}`, "TeamSessions": `{"data":{"sessions":[]}}`, "TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"capp100000000000000000000"}}}`, "StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`})
+			gql, captured := captureGraphQL(t, map[string]string{"Workers": `{"data":{"workers":{"total":1,"items":[` + row + `]}}}`, "TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`, "TeamMemoryApp": `{"data":{"memory":{"id":"m1","appId":"capp100000000000000000000"}}}`, "StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`})
 			f, _ := testFactory(t)
 			root := NewRootCmd(f)
 			args := []string{"team", "session", "start", "--as", "Iris", "--tool", "codex", "-m", "acme.com::eng-team", "--json", "--server", gql.URL}
@@ -279,7 +279,7 @@ func TestWhoamiFallbackCarriesReportingRelation(t *testing.T) {
 	_ = json.Unmarshal([]byte(whoamiSession("s-mine", "wkr1", "u-me", "Iris", false)), &session)
 	session["worker"] = map[string]any{"id": "wkr1", "name": "Iris", "role": "engineer", "hasLiveSession": false, "reportsTo": reportsBoss, "reportsToRetired": false}
 	row, _ := json.Marshal(session)
-	gql, _ := captureGraphQL(t, map[string]string{"AuthContext": whoamiAuthJSON, "TeamSessions": `{"data":{"sessions":[` + string(row) + `]}}`})
+	gql, _ := captureGraphQL(t, map[string]string{"AuthContext": whoamiAuthJSON, "TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + string(row) + `]}}}`})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "session", "whoami", "--json", "--server", gql.URL})

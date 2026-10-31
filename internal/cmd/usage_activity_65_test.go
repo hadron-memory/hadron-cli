@@ -12,7 +12,7 @@ func activity65Run(t *testing.T, response string, args ...string) (string, strin
 	n := 0
 	srv, calls := captureGraphQLFunc(t, func(op string) string {
 		n++
-		if op != "UsageActivity" && op != "UsageEvents" {
+		if op != "UsageActivity" && op != "UsageEventsPage" {
 			t.Errorf("unexpected op %s", op)
 		}
 		return response
@@ -104,12 +104,12 @@ func TestUsageActivity65FlagsBucketsAndRefusal(t *testing.T) {
 }
 func TestUsageActivity65NodeAndArgumentParsing(t *testing.T) {
 	for _, node := range []string{"0123456789abcdef0123456789abcdef", "hrn:node:acme.com:kb:a:b"} {
-		_, stderr, code, calls, n := activity65Run(t, `{"data":{"usageEvents":[]}}`, "usage", "events", "--node", node)
+		_, stderr, code, calls, n := activity65Run(t, `{"data":{"usageEventsPage":{"total":0,"hasMore":false,"items":[]}}}`, "usage", "events", "--node", node)
 		if code != 0 || n != 1 {
 			t.Fatal(code, stderr)
 		}
 		var v map[string]any
-		_ = json.Unmarshal(calls["UsageEvents"], &v)
+		_ = json.Unmarshal(calls["UsageEventsPage"], &v)
 		if v["nodeId"] != node {
 			t.Fatal(v)
 		}
@@ -172,9 +172,9 @@ func TestUsageActivity65ScopeText(t *testing.T) {
 }
 
 func TestUsageActivity65LegacyNodeAndServerDate(t *testing.T) {
-	_, _, code, calls, _ := activity65Run(t, `{"data":{"usageEvents":[]}}`, "usage", "events", "--node", "acme.com::kb::a:b")
+	_, _, code, calls, _ := activity65Run(t, `{"data":{"usageEventsPage":{"total":0,"hasMore":false,"items":[]}}}`, "usage", "events", "--node", "acme.com::kb::a:b")
 	var vars map[string]any
-	if err := json.Unmarshal(calls["UsageEvents"], &vars); err != nil {
+	if err := json.Unmarshal(calls["UsageEventsPage"], &vars); err != nil {
 		t.Fatal(err)
 	}
 	if code != 0 || vars["nodeId"] != "hrn:node:acme.com::kb::a:b" {

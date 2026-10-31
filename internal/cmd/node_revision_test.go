@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-const nodeRevisionsJSON = `{"data":{"nodeRevisions":[
+const nodeRevisionsJSON = `{"data":{"nodeRevisionsPage":{"total":2,"hasMore":false,"items":[
 	{"id":"v2","nodeId":"n1","loc":"findings:flaky-ci","name":"Flaky CI",
 	 "description":null,"tags":["ci"],"createdAt":"2026-06-11T00:00:00Z",
 	 "editedBy":"u1","editedByInfo":null,"editedByUser":{"handle":"alice","urn":"hrn:user:acme.com::alice"},
@@ -14,7 +14,7 @@ const nodeRevisionsJSON = `{"data":{"nodeRevisions":[
 	{"id":"v1","nodeId":"n1","loc":"findings:flaky-ci","name":"Flaky CI",
 	 "description":null,"tags":[],"createdAt":"2026-06-10T00:00:00Z",
 	 "editedBy":null,"editedByInfo":"github:octocat","editedByUser":null,"revLabel":null,"changes":[]}
-]}}`
+]}}}`
 
 // A bare node id passes straight through as the server nodeRef (no resolveUrn),
 // which is the only way to reach a soft-deleted node's history. The public
@@ -22,7 +22,7 @@ const nodeRevisionsJSON = `{"data":{"nodeRevisions":[
 // falls back to the raw editedByInfo identity string. The label is shown.
 func TestNodeRevisionListBareIDPassthrough(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"NodeRevisions": nodeRevisionsJSON,
+		"NodeRevisionsPage": nodeRevisionsJSON,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -40,7 +40,7 @@ func TestNodeRevisionListBareIDPassthrough(t *testing.T) {
 		NodeRef string `json:"nodeRef"`
 		Limit   *int   `json:"limit"`
 	}
-	_ = json.Unmarshal(captured["NodeRevisions"], &vars)
+	_ = json.Unmarshal(captured["NodeRevisionsPage"], &vars)
 	if vars.NodeRef != "n1" {
 		t.Errorf("bare id should pass through as nodeRef, got %q", vars.NodeRef)
 	}
@@ -55,8 +55,8 @@ func TestNodeRevisionListBareIDPassthrough(t *testing.T) {
 // nodeRef call, consistent with the other node commands. --limit is forwarded.
 func TestNodeRevisionListURNResolvesAndLimit(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn":    resolveNodeJSON,
-		"NodeRevisions": nodeRevisionsJSON,
+		"ResolveUrn":        resolveNodeJSON,
+		"NodeRevisionsPage": nodeRevisionsJSON,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -68,7 +68,7 @@ func TestNodeRevisionListURNResolvesAndLimit(t *testing.T) {
 		NodeRef string `json:"nodeRef"`
 		Limit   *int   `json:"limit"`
 	}
-	_ = json.Unmarshal(captured["NodeRevisions"], &vars)
+	_ = json.Unmarshal(captured["NodeRevisionsPage"], &vars)
 	if vars.NodeRef != "n1" {
 		t.Errorf("URN should resolve to the node PK, got %q", vars.NodeRef)
 	}
@@ -81,7 +81,7 @@ func TestNodeRevisionListURNResolvesAndLimit(t *testing.T) {
 // before any server call.
 func TestNodeRevisionListRejectsNegativeLimit(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"NodeRevisions": nodeRevisionsJSON,
+		"NodeRevisionsPage": nodeRevisionsJSON,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -89,7 +89,7 @@ func TestNodeRevisionListRejectsNegativeLimit(t *testing.T) {
 	if err := root.Execute(); err == nil {
 		t.Fatal("expected a usage error for a negative --limit")
 	}
-	if _, called := captured["NodeRevisions"]; called {
+	if _, called := captured["NodeRevisionsPage"]; called {
 		t.Error("a negative --limit must not reach the server")
 	}
 }
@@ -98,7 +98,7 @@ func TestNodeRevisionListRejectsNegativeLimit(t *testing.T) {
 // error rather than passing it to the server as a bogus id that misses.
 func TestNodeRevisionListRejectsBareLoc(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"NodeRevisions": nodeRevisionsJSON,
+		"NodeRevisionsPage": nodeRevisionsJSON,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -106,7 +106,7 @@ func TestNodeRevisionListRejectsBareLoc(t *testing.T) {
 	if err := root.Execute(); err == nil {
 		t.Fatal("expected a usage error for a bare namespaced loc without -m")
 	}
-	if _, called := captured["NodeRevisions"]; called {
+	if _, called := captured["NodeRevisionsPage"]; called {
 		t.Error("a rejected bare loc must not reach the server")
 	}
 }

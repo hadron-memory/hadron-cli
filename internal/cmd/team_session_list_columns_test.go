@@ -23,7 +23,7 @@ const workerlessSessionJSON = `{"id":"s-bare","agentId":"agt1","workerId":null,
 func TestSessionListLeadsWithTheWorkerAndItsRole(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, sessionRenderStubs(map[string]string{
-		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
 	}))
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -73,7 +73,7 @@ func TestSessionListLeadsWithTheWorkerAndItsRole(t *testing.T) {
 func TestSessionListKeepsTheSessionIDCopyPasteable(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, sessionRenderStubs(map[string]string{
-		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
 	}))
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -130,7 +130,7 @@ func TestSessionListProvenanceTableAlsoLeadsWithTheWorker(t *testing.T) {
 func TestSessionListDashesAnAbsentRole(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, sessionRenderStubs(map[string]string{
-		"TeamSessions": `{"data":{"sessions":[` + workerlessSessionJSON + `]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + workerlessSessionJSON + `]}}}`,
 	}))
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -175,7 +175,7 @@ func TestSessionListDashesAnAbsentRole(t *testing.T) {
 func TestSessionListJSONGainsWorkerRole(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
-		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `,` + workerlessSessionJSON + `]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + activeSessionJSON + `,` + workerlessSessionJSON + `]}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -256,7 +256,7 @@ func TestSessionListSurfacesBindTimeRole(t *testing.T) {
 	teamGitDir(t)
 	bound := strings.Replace(activeSessionJSON, `"userId":"u-holger"`, `"role":"qa-engineer","userId":"u-holger"`, 1)
 	gql, _ := captureGraphQL(t, sessionRenderStubs(map[string]string{
-		"TeamSessions": `{"data":{"sessions":[` + bound + `,` + workerlessSessionJSON + `]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + bound + `,` + workerlessSessionJSON + `]}}}`,
 	}))
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -305,7 +305,7 @@ func TestSessionListFallsBackToTheWorkersRole(t *testing.T) {
 	teamGitDir(t)
 	// activeSessionJSON carries worker.role=backend-engineer and no `role`.
 	gql, _ := captureGraphQL(t, sessionRenderStubs(map[string]string{
-		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
 	}))
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -347,8 +347,8 @@ func TestSessionWhoamiServerBindingRoleFallbackAndPrecedence(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			teamGitDir(t)
 			gql, _ := captureGraphQL(t, map[string]string{
-				"AuthContext":  whoamiAuthJSON,
-				"TeamSessions": `{"data":{"sessions":[` + tc.session + `]}}`,
+				"AuthContext":      whoamiAuthJSON,
+				"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[` + tc.session + `]}}}`,
 			})
 			f, out := testFactory(t)
 			root := NewRootCmd(f)

@@ -29,7 +29,7 @@ var preChangeTickerKeys = []string{"id", "urn", "name", "slug", "appId", "cadenc
 func tickerResponses(fixture string) map[string]string {
 	return map[string]string{
 		"GetTicker":         `{"data":{"ticker":` + fixture + `}}`,
-		"ListTickers":       `{"data":{"tickers":[` + fixture + `]}}`,
+		"ListTickersPage":   `{"data":{"tickersPage":{"total":1,"hasMore":false,"items":[` + fixture + `]}}}`,
 		"CreateTicker":      `{"data":{"createTicker":` + fixture + `}}`,
 		"UpdateTicker":      `{"data":{"updateTicker":` + fixture + `}}`,
 		"TickerSubscribers": `{"data":{"ticker":{"subscribers":{"items":[],"hasNextPage":false,"endCursor":null}}}}`,
@@ -204,7 +204,7 @@ func TestC1177OnlyCreateTickersWarningsAreShown(t *testing.T) {
 		t.Fatalf("%v stderr %q", err, errOut)
 	}
 	for _, verb := range []string{"update", "get", "list"} {
-		op := map[string]string{"update": "UpdateTicker", "get": "GetTicker", "list": "ListTickers"}[verb]
+		op := map[string]string{"update": "UpdateTicker", "get": "GetTicker", "list": "ListTickersPage"}[verb]
 		out, errOut, err := runTicker(t, withWarnings(op, withCode("tick.daily", ""), unmappedWarning+`]`), append(append([]string{}, tickerVerbs[verb]...), "--json")...)
 		if err != nil || errOut != "" || strings.Contains(out, `"warnings"`) {
 			t.Fatalf("%s: %v stderr %q out %s", verb, err, errOut, out)

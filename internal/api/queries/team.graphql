@@ -825,11 +825,12 @@ query GetBoundSessionEnd($id: ID!) {
   }
 }
 
+# cli#1339: sessionsPage is the same scope and filters as sessions, newest first,
+# with the real total. limit 0 is a count only; a limit over 200 is served as 200.
 # workerRef (#974) is the server-side narrowing the taken/last-driven-by check
-# reads: only sessions bound to that Worker (by id), newest first — so the
-# presence check no longer scans the whole list. The plain listing still pages
-# to exhaustion for --active (no active filter server-side).
-query TeamSessions(
+# reads: only sessions bound to that Worker (by id), newest first. The plain
+# listing still pages to exhaustion for --active (no active filter server-side).
+query TeamSessionsPage(
   # @genqlient(omitempty: true)
   $repo: String
   # @genqlient(omitempty: true)
@@ -839,8 +840,12 @@ query TeamSessions(
   # @genqlient(omitempty: true)
   $offset: Int
 ) {
-  sessions(repo: $repo, workerRef: $workerRef, limit: $limit, offset: $offset) {
-    ...TeamSessionFields
+  sessionsPage(repo: $repo, workerRef: $workerRef, limit: $limit, offset: $offset) {
+    total
+    hasMore
+    items {
+      ...TeamSessionFields
+    }
   }
 }
 
