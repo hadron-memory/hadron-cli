@@ -3,6 +3,7 @@ package spec
 import (
 	"fmt"
 	"io"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -551,6 +552,36 @@ func lintCorpus(nodes []specNode, memURN string) []lintFindingDTO {
 			dupReported[n.Loc] = true
 			fs = append(fs, lintFindingDTO{Citation: n.Loc, Rule: "duplicate-loc", Severity: sevError, Message: "duplicate citation — two nodes share this loc"})
 		}
+	}
+	fs = append(fs, productCodeFindings(nodes)...)
+	return fs
+}
+
+var reProductLike = regexp.MustCompile(`^[a-z]+$`)
+
+// productCodeFindings warns once per product code that the allocator cannot
+// serve (#1147). `spec new` without an explicit loc numbers from a 3-letter
+// product code, so a product-rooted corpus under any other code lints clean
+// today and fails only at allocation. A corpus counts as product-rooted only
+// when a loc reads <code>:<module>[:<feature>…] with a well-formed 3-letter
+// module tail; short freeform locs are not flagged. Advisory: explicit locs
+// still work, and the exit status is unchanged without --strict.
+func productCodeFindings(nodes []specNode) []lintFindingDTO {
+	var fs []lintFindingDTO
+	seen := map[string]bool{}
+	for _, n := range nodes {
+		head, tail, ok := strings.Cut(n.Loc, ":")
+		if !ok || !reProductLike.MatchString(head) || reModule.MatchString(head) || seen[head] {
+			continue
+		}
+		if c, err := ParseCitation(tail); err != nil || c.Product != "" {
+			continue
+		}
+		seen[head] = true
+		fs = append(fs, lintFindingDTO{
+			Citation: head, Rule: "product-code", Severity: sevWarning,
+			Message: fmt.Sprintf("product code %q is not 3 lowercase letters — automatic numbering (`spec new` without an explicit loc) cannot serve this corpus; explicit locs still work", head),
+		})
 	}
 	return fs
 }
