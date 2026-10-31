@@ -26,6 +26,8 @@ type scriptedDeliverer struct {
 	// cancelAfter cancels the command's context once this batch is typed.
 	cancelAfter string
 	cancel      context.CancelFunc
+	// ackPending: workers whose delivery is typed but whose ack did not land.
+	ackPending map[string]bool
 }
 
 func (d *scriptedDeliverer) Deliver(_ context.Context, b delivery.Batch, _ delivery.Recipient) delivery.Outcome {
@@ -36,7 +38,7 @@ func (d *scriptedDeliverer) Deliver(_ context.Context, b delivery.Batch, _ deliv
 	if k, ok := d.kind[b.WorkerID]; ok {
 		return delivery.Outcome{Kind: k, Reason: "draft"}
 	}
-	return delivery.Outcome{Kind: delivery.Delivered}
+	return delivery.Outcome{Kind: delivery.Delivered, AckPending: d.ackPending[b.WorkerID]}
 }
 
 type pushRun struct {
@@ -51,6 +53,14 @@ type pushRun struct {
 // runPush posts "body" with the server storing `mentions`, against a host
 // registering wkr1 "One" and wkr2 "Mary Jane" (two due batches each, plus a
 // foreign one), then runs the real postHostPass with a scripted deliverer.
+func runPushHook(t *testing.T, args, mentions []string, hook func(*scriptedDeliverer)) pushRun {
+	pushHook = hook
+	defer func() { pushHook = nil }()
+	return runPush(t, args, mentions, nil, false, false)
+}
+
+var pushHook func(*scriptedDeliverer)
+
 func runPush(t *testing.T, args []string, mentions []string, kind map[string]delivery.Kind, failBatchesAfterPost, noBatches bool) pushRun {
 	return runPushWith(t, args, mentions, kind, failBatchesAfterPost, noBatches, "", false)
 }
@@ -120,6 +130,9 @@ func runPushWith(t *testing.T, args []string, mentions []string, kind map[string
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	d := &scriptedDeliverer{kind: kind, cancelAfter: cancelAfter, cancel: cancel}
+	if pushHook != nil {
+		pushHook(d)
+	}
 	actual := preparePostHostDelivery(f)
 	prepared := false
 	prepare := func(ctx context.Context, p string, target postHostTarget) (postHostDeliveryPass, error) {
@@ -277,6 +290,20 @@ func TestPushAmbiguousSlugDeliversToNeitherAndSaysSo(t *testing.T) {
 	}
 	st := pushStates(t, r)
 	if st["mary-jane"] != "not-pushed:ambiguous" || st["one"] != "pushed:<nil>" {
+		t.Fatalf("report %v", st)
+	}
+}
+
+func TestPushTypedButAckPendingIsQualifiedNotUnqualifiedPushed(t *testing.T) {
+	// The only batch is typed but its ack did not land: pushed (it was
+	// typed, never "not typed"), qualified ack-pending, never bare pushed.
+	var d *scriptedDeliverer
+	r := runPushHook(t, []string{"hi", "--push", "--orca-host-config", "HOST"}, []string{"one"}, func(x *scriptedDeliverer) { x.ackPending = map[string]bool{"wkr1": true}; d = x })
+	_ = d
+	if r.err != nil {
+		t.Fatal(r.err)
+	}
+	if st := pushStates(t, r); st["one"] != "pushed:ack-pending" {
 		t.Fatalf("report %v", st)
 	}
 }

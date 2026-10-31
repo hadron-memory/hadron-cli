@@ -209,7 +209,11 @@ func (p *postHostPass) pass(ctx context.Context, only func(map[string]delivery.R
 		}
 		if blocked[b.WorkerID] {
 			summary.Pending++
-			per[b.WorkerID].note(pushStateNotPushed, "pending")
+			// A later batch left due behind an earlier typed one does not
+			// undo that delivery (its ack-pending qualifier stays).
+			if per[b.WorkerID].state != pushStatePushed {
+				per[b.WorkerID].note(pushStateNotPushed, "pending")
+			}
 			continue
 		}
 		if per[b.WorkerID] == nil {
@@ -219,7 +223,14 @@ func (p *postHostPass) pass(ctx context.Context, only func(map[string]delivery.R
 		switch o.Kind {
 		case delivery.Delivered, delivery.Reconciled:
 			summary.Delivered++
-			per[b.WorkerID].note(pushStatePushed, "")
+			reason := ""
+			if o.AckPending {
+				// Typed and recorded, but the ack did not land: pushed is
+				// true, "acknowledged" is not (cor:agt:080:16). The record
+				// reconciles it without retyping; never claim not typed.
+				reason = "ack-pending"
+			}
+			per[b.WorkerID].note(pushStatePushed, reason)
 			if o.AckPending {
 				summary.Pending++
 				blocked[b.WorkerID] = true
@@ -261,7 +272,7 @@ func (o *pushOutcome) note(state, reason string) {
 	if o == nil {
 		return
 	}
-	if pushRank(state) > pushRank(o.state) {
+	if pushRank(state) > pushRank(o.state) || (state == o.state && o.reason == "" && reason != "") {
 		o.state, o.reason = state, reason
 	}
 }
