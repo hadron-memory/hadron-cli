@@ -19,7 +19,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 187: 129 command, 46 gap, 12 excluded
+[Query] 187: 130 command, 45 gap, 12 excluded
 actionTickets  command ticket list
 agent  command agent get
 agentAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime that makes LLM calls; a person reads the masked config with `ai-config get`
@@ -36,7 +36,7 @@ agentTeamEvents  command team events
 agentTickerTemplates  command agent ticker-templates list
 agentWebhooks  command webhook list
 agents  command agent list
-aiModelPrice  gap #215
+aiModelPrice  command billing prices get
 aiModelPrices  command billing prices
 aiProviderEndpoints  command ai-config endpoints
 aiServiceConfig  command ai-config get
