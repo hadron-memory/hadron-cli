@@ -15,6 +15,7 @@ import (
 // Worker is one casting of the App, as the command needs it.
 type Worker struct {
 	ID   string
+	URN  string
 	Name string
 }
 
@@ -61,7 +62,7 @@ func (g graphReads) Workers(ctx context.Context) ([]Worker, error) {
 		}
 		for _, w := range resp.Workers.Items {
 			if w != nil && w.RetiredAt == nil {
-				out = append(out, Worker{ID: w.Id, Name: w.Name})
+				out = append(out, Worker{ID: w.Id, URN: deref(w.Urn), Name: w.Name})
 			}
 		}
 		offset += len(resp.Workers.Items)
@@ -173,4 +174,11 @@ func (g graphReads) DueTicks(ctx context.Context, workerIDs []string) (map[strin
 		seen[*next] = true
 		after = next
 	}
+}
+
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }

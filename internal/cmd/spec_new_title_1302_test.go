@@ -124,6 +124,7 @@ func TestSpecNewTitleHelpGuidance(t *testing.T) {
 		`--title must be the human text after "<loc> — "`,
 		"A title already starting with that exact prefix is refused (exit 2) before any write, including --dry-run",
 		"remove the prefix and run again",
+		"the refusal ends with the corrected --title",
 		"An explicit --role keeps its literal-title behavior",
 	} {
 		if !strings.Contains(help, s) {

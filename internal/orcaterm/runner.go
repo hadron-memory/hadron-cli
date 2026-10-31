@@ -50,11 +50,16 @@ const (
 // other than an ordinary non-zero exit — the bound, a missing binary, a pipe
 // error — reads as code 1 with EMPTY stdout: output a failure invalidated
 // must never reach a caller that acts on it (#1940 cycles 1 and 2).
-func Exec(bin string, timeout time.Duration) Runner {
+func Exec(bin string, timeout time.Duration) Runner { return ExecEnv(bin, timeout, nil) }
+
+// ExecEnv is Exec with an explicit child environment (name=value pairs); nil
+// inherits the process's.
+func ExecEnv(bin string, timeout time.Duration, env []string) Runner {
 	return func(ctx context.Context, argv []string) Result {
 		ctx, cancel := context.WithTimeout(ctx, timeout)
 		defer cancel()
 		cmd := exec.CommandContext(ctx, bin, argv...)
+		cmd.Env = env
 		// A grandchild holding the pipes open must not outlive the bound.
 		cmd.WaitDelay = time.Second
 		var stdout, stderr bytes.Buffer
