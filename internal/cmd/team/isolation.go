@@ -25,10 +25,14 @@ import (
 const isolationHelp = `Who may (cor:agt:080:29): whoever manages the App or the worker's holder, as
 a person acting as themselves. Anyone in that set may change or clear an
 isolation another one set. No worker may isolate, not even one a manager or the
-holder is driving: the server refuses a worker session
-WORKER_ISOLATION_FORBIDDEN (exit 8), as it does another participant, an App key
-or an impersonation. These commands never send your bound worker session: from
-a worktree bound to a worker they act as you, the person.
+holder is driving. The server refuses, checking in this order: a worker it
+cannot find or you cannot read (an App key among them) is WORKER_NOT_FOUND
+(exit 4); a worker session is WORKER_ISOLATION_FORBIDDEN (exit 8); while
+isolation is unavailable, set is WORKER_ISOLATION_UNAVAILABLE (exit 5) for
+everyone else; an impersonation is FORBIDDEN (exit 8); and another participant
+is WORKER_ISOLATION_FORBIDDEN (exit 8).
+These commands never send your bound worker session: from a worktree bound to
+a worker they act as you, the person.
 
 Until the server enables isolation (hadron-server#2130), set is refused
 WORKER_ISOLATION_UNAVAILABLE (exit 5) and clear works. The server reports no
