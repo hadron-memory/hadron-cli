@@ -50,16 +50,12 @@ func pushRecipients(mentions []string) []string {
 	return out
 }
 
-// reportPostHostPush runs the push pass. A pass-level failure leaves every
-// recipient not-pushed with a code; it never changes the post or its exit.
+// reportPostHostPush runs the push pass. A pass-level failure keeps the
+// outcomes already confirmed and marks the rest not-pushed with a code; it never changes the post or its exit.
 func reportPostHostPush(ctx context.Context, pass postHostPushPass, stderr io.Writer, seq int, recipients []string) []postPushResult {
 	res, err := pass.Push(ctx, recipients)
 	if err != nil {
 		fmt.Fprintf(stderr, "note: posted seq %d; push failed or is unconfirmed; do not repost; run hadron team host run --config <host.yaml> to recover\n", seq)
-		res = res[:0]
-		for _, r := range recipients {
-			res = append(res, postPushResult{Recipient: r, State: pushStateNotPushed, Reason: "push-failed"})
-		}
 	}
 	return res
 }

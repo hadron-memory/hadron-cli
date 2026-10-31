@@ -287,32 +287,47 @@ func slugToken(name string) string {
 
 // Push delivers the whole due batch of each named recipient (stored mention
 // tokens). A token that matches no worker registered on this host, or that
-// has no batch, is not-pushed: the one state for "nothing came back".
+// has no batch, is not-pushed: the one state for "nothing came back". A token
+// that names two workers on this host (their names slug alike) is refused for
+// both, never guessed: not-pushed with reason "ambiguous". On a pass-level
+// error the outcomes already confirmed are kept and every recipient without
+// one is not-pushed "push-failed"; the error is returned beside the results.
 func (p *postHostPass) Push(ctx context.Context, tokens []string) ([]postPushResult, error) {
 	ids := map[string]string{} // token -> worker id
+	ambiguous := map[string]bool{}
 	_, per, err := p.pass(ctx, func(recipients map[string]delivery.Recipient) map[string]bool {
-		want := map[string]bool{}
+		cand := map[string][]string{}
 		for id := range recipients {
 			slug := slugToken(p.names[id])
 			for _, t := range tokens {
 				if slug != "" && slug == t {
-					ids[t] = id
-					want[id] = true
+					cand[t] = append(cand[t], id)
 				}
 			}
 		}
+		want := map[string]bool{}
+		for t, c := range cand {
+			if len(c) > 1 {
+				ambiguous[t] = true
+				continue
+			}
+			ids[t] = c[0]
+			want[c[0]] = true
+		}
 		return want
 	})
-	if err != nil {
-		return nil, err
-	}
 	out := []postPushResult{}
 	for _, t := range tokens {
 		res := postPushResult{Recipient: t, State: pushStateNotPushed, Reason: "no-batch"}
-		if o := per[ids[t]]; ids[t] != "" && o != nil && o.state != "" {
+		if err != nil {
+			res.Reason = "push-failed"
+		}
+		if ambiguous[t] {
+			res.Reason = "ambiguous"
+		} else if o := per[ids[t]]; ids[t] != "" && o != nil && o.state != "" {
 			res = postPushResult{Recipient: t, State: o.state, Reason: o.reason}
 		}
 		out = append(out, res)
 	}
-	return out, nil
+	return out, err
 }

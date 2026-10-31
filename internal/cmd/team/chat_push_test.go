@@ -23,10 +23,16 @@ import (
 type scriptedDeliverer struct {
 	seen []string
 	kind map[string]delivery.Kind
+	// cancelAfter cancels the command's context once this batch is typed.
+	cancelAfter string
+	cancel      context.CancelFunc
 }
 
 func (d *scriptedDeliverer) Deliver(_ context.Context, b delivery.Batch, _ delivery.Recipient) delivery.Outcome {
 	d.seen = append(d.seen, b.ID)
+	if b.ID == d.cancelAfter && d.cancel != nil {
+		d.cancel()
+	}
 	if k, ok := d.kind[b.WorkerID]; ok {
 		return delivery.Outcome{Kind: k, Reason: "draft"}
 	}
@@ -46,12 +52,22 @@ type pushRun struct {
 // registering wkr1 "One" and wkr2 "Mary Jane" (two due batches each, plus a
 // foreign one), then runs the real postHostPass with a scripted deliverer.
 func runPush(t *testing.T, args []string, mentions []string, kind map[string]delivery.Kind, failBatchesAfterPost, noBatches bool) pushRun {
+	return runPushWith(t, args, mentions, kind, failBatchesAfterPost, noBatches, "", false)
+}
+
+// runPushWith adds cancelAfter (cancel the context once that batch is typed)
+// and twinNames (a second worker whose name slugs like the first's).
+func runPushWith(t *testing.T, args []string, mentions []string, kind map[string]delivery.Kind, failBatchesAfterPost, noBatches bool, cancelAfter string, twinNames bool) pushRun {
 	t.Helper()
 	t.Setenv(GitDirEnv, t.TempDir())
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Setenv("HADRON_TOKEN", "synthetic-post")
 	dir := t.TempDir()
 	posts := 0
+	twin, twinWorker := "Mary Jane", ""
+	if twinNames {
+		twinWorker = `,{"workerId":"wkr3","worker":{"id":"wkr3","name":"Mary-Jane","urn":"hrn:worker:test:team:mary-jane-2"},"worktrees":["tree3"]}`
+	}
 	streams, out, stderr := output.Test()
 	ms, _ := json.Marshal(mentions)
 	batch := func(id, w string) string {
@@ -67,7 +83,7 @@ func runPush(t *testing.T, args []string, mentions []string, kind map[string]del
 		case "TeamAppIdentity":
 			_, _ = io.WriteString(w, `{"data":{"app":{"id":"canonical-app","urn":"hrn:app:test:team","name":"Team"}}}`)
 		case "HostRegistrations":
-			_, _ = io.WriteString(w, `{"data":{"hostRegistrations":[{"hostId":"own","live":true,"workers":[{"workerId":"wkr1","worker":{"id":"wkr1","name":"One","urn":"hrn:worker:test:team:one"},"worktrees":["tree1"]},{"workerId":"wkr2","worker":{"id":"wkr2","name":"Mary Jane","urn":"hrn:worker:test:team:mary-jane"},"worktrees":["tree2"]}]}]}}`)
+			_, _ = io.WriteString(w, `{"data":{"hostRegistrations":[{"hostId":"own","live":true,"workers":[{"workerId":"wkr1","worker":{"id":"wkr1","name":"One","urn":"hrn:worker:test:team:one"},"worktrees":["tree1"]},{"workerId":"wkr2","worker":{"id":"wkr2","name":"`+twin+`","urn":"hrn:worker:test:team:mary-jane"},"worktrees":["tree2"]}`+twinWorker+`]}]}}`)
 		case "DeliveryBatches":
 			if failBatchesAfterPost && posts > 0 {
 				_, _ = io.WriteString(w, `{"errors":[{"message":"PRIVATE","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`)
@@ -91,7 +107,7 @@ func runPush(t *testing.T, args []string, mentions []string, kind map[string]del
 			t.Fatal(err)
 		}
 	}
-	cfg := fmt.Sprintf("server: %q\napp: hrn:app:test:team\nkey_file: key\nstate_file: state.json\nworktrees_root: %q\nworkers:\n  wkr1:\n    family: claude\n    launch: [fake]\n    worktrees: [tree1]\n  wkr2:\n    family: claude\n    launch: [fake]\n    worktrees: [tree2]\ndelivery:\n  enabled: true\n  orca_bin: /bin/false\n", srv.URL, dir)
+	cfg := fmt.Sprintf("server: %q\napp: hrn:app:test:team\nkey_file: key\nstate_file: state.json\nworktrees_root: %q\nworkers:\n  wkr1:\n    family: claude\n    launch: [fake]\n    worktrees: [tree1]\n  wkr2:\n    family: claude\n    launch: [fake]\n    worktrees: [tree2]\n  wkr3:\n    family: claude\n    launch: [fake]\n    worktrees: [tree3]\ndelivery:\n  enabled: true\n  orca_bin: /bin/false\n", srv.URL, dir)
 	path := filepath.Join(dir, "host.yaml")
 	if err := os.WriteFile(path, []byte(cfg), 0600); err != nil {
 		t.Fatal(err)
@@ -101,7 +117,9 @@ func runPush(t *testing.T, args []string, mentions []string, kind map[string]del
 	f.AppFlag = "hrn:app:test:team"
 	f.JSON = true
 	f.IOStreams = streams
-	d := &scriptedDeliverer{kind: kind}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	d := &scriptedDeliverer{kind: kind, cancelAfter: cancelAfter, cancel: cancel}
 	actual := preparePostHostDelivery(f)
 	prepared := false
 	prepare := func(ctx context.Context, p string, target postHostTarget) (postHostDeliveryPass, error) {
@@ -120,7 +138,7 @@ func runPush(t *testing.T, args []string, mentions []string, kind map[string]del
 		}
 	}
 	c.SetArgs(append(full, "--as-me"))
-	err := c.Execute()
+	err := c.ExecuteContext(ctx)
 	res := pushRun{err: err, out: out.String(), stderr: stderr.String(), posts: posts, seen: d.seen}
 	_ = prepared
 	_ = json.Unmarshal([]byte(res.out), &res.body)
@@ -230,5 +248,35 @@ func TestPushRecipientsHelper(t *testing.T) {
 	got := pushRecipients([]string{"One", " one ", "all", "TEAM", "team.ada.all", "", "mary-jane"})
 	if strings.Join(got, ",") != "one,mary-jane" {
 		t.Fatalf("%v", got)
+	}
+}
+
+func TestPushPartialSuccessSurvivesALaterFailure(t *testing.T) {
+	// One's first batch is typed, then the context ends: that delivery is
+	// kept as pushed; Mary Jane, never reached, is not-pushed push-failed.
+	r := runPushWith(t, []string{"hi", "--push", "--orca-host-config", "HOST"}, []string{"one", "mary-jane"}, nil, false, false, "a1", false)
+	if r.err != nil || r.posts != 1 {
+		t.Fatalf("post lost: %v %d", r.err, r.posts)
+	}
+	st := pushStates(t, r)
+	if st["one"] != "pushed:<nil>" || st["mary-jane"] != "not-pushed:push-failed" {
+		t.Fatalf("report %v seen %v", st, r.seen)
+	}
+	if !strings.Contains(r.stderr, "do not repost") {
+		t.Fatalf("no recovery note: %q", r.stderr)
+	}
+}
+
+func TestPushAmbiguousSlugDeliversToNeitherAndSaysSo(t *testing.T) {
+	r := runPushWith(t, []string{"hi", "--push", "--orca-host-config", "HOST"}, []string{"mary-jane", "one"}, nil, false, false, "", true)
+	if r.err != nil {
+		t.Fatal(r.err)
+	}
+	if strings.Join(r.seen, ",") != "a1,a2" {
+		t.Fatalf("typed %v, want only One's batches", r.seen)
+	}
+	st := pushStates(t, r)
+	if st["mary-jane"] != "not-pushed:ambiguous" || st["one"] != "pushed:<nil>" {
+		t.Fatalf("report %v", st)
 	}
 }
