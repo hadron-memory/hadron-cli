@@ -23,7 +23,9 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 
 Scope with --app or --org (mutually exclusive; --app defaults to the App
 context). Filter with --status (one of PENDING, RUNNING, COMPLETED, FAILED,
-CANCELLED, TIMED_OUT). The list pages to exhaustion.`,
+CANCELLED, TIMED_OUT). The list pages to exhaustion. COST is the run's priced
+cost ("unknown" = no figure, not zero); REASON is the failure kind of a failed
+run ("run get" has the full reason).`,
 		Example: `  hadron run list --app acme.com:ops --status FAILED
   hadron run list --org acme.com --json`,
 		Args: cobra.NoArgs,
@@ -80,9 +82,9 @@ CANCELLED, TIMED_OUT). The list pages to exhaustion.`,
 			}
 
 			return output.Write(f.IOStreams, f.JSON, runs, func(w io.Writer) error {
-				t := output.NewTable(w, "ID", "STATUS", "TRIGGER", "ENTRY", "FINISHED")
+				t := output.NewTable(w, "ID", "STATUS", "TRIGGER", "ENTRY", "FINISHED", "COST", "REASON")
 				for _, r := range runs {
-					t.Row(output.SafeCell(r.ID), output.SafeCell(r.Status), output.SafeCell(r.TriggerKind), output.SafeCell(r.EntryNodeURN), output.SafeCell(output.Dash(r.FinishedAt)))
+					t.Row(output.SafeCell(r.ID), output.SafeCell(r.Status), output.SafeCell(r.TriggerKind), output.SafeCell(r.EntryNodeURN), output.SafeCell(output.Dash(r.FinishedAt)), costCell(r), reasonCell(r))
 				}
 				return t.Flush()
 			})

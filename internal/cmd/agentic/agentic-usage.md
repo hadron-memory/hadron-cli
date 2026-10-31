@@ -3101,6 +3101,11 @@ server error fails the command).
     exhaustion); `run get <id>` is the full record (budgets, policy, the run
     envelope `data` — fields extracted by flow nodes as the walk advances — and
     the failure payload); `run cancel <id>` is the kill switch (requires `--yes`).
+    `run get`/`run list` also carry (additive `--json` keys) `failureReason`
+    `{kind, summary, whoCanFix, nextStep}` (server text, verbatim; null when no
+    failure), `costMicroCents` (exact decimal string, 1e-8 USD; null = UNKNOWN,
+    never 0) and `budgetActionsInitial`/`budgetTokensInitial` (int or null =
+    unknown). Human `run list` adds COST and REASON (kind) columns.
   - `schedule create --app <ref> --name <n> --cron '<expr>' --entry <node-urn>`
     registers a recurring trigger (5-field cron, evaluated in `--tz`, default UTC;
     one-time `--at` is not yet a server capability). `--policy '<json>'` is a

@@ -11043,6 +11043,15 @@ func (v *AppRunAppRun) GetBudgetActions() *int { return v.AppRunFields.BudgetAct
 // GetBudgetTokens returns AppRunAppRun.BudgetTokens, and is useful for accessing the field via an interface.
 func (v *AppRunAppRun) GetBudgetTokens() *int { return v.AppRunFields.BudgetTokens }
 
+// GetBudgetActionsInitial returns AppRunAppRun.BudgetActionsInitial, and is useful for accessing the field via an interface.
+func (v *AppRunAppRun) GetBudgetActionsInitial() *int { return v.AppRunFields.BudgetActionsInitial }
+
+// GetBudgetTokensInitial returns AppRunAppRun.BudgetTokensInitial, and is useful for accessing the field via an interface.
+func (v *AppRunAppRun) GetBudgetTokensInitial() *int { return v.AppRunFields.BudgetTokensInitial }
+
+// GetCostMicroCents returns AppRunAppRun.CostMicroCents, and is useful for accessing the field via an interface.
+func (v *AppRunAppRun) GetCostMicroCents() *string { return v.AppRunFields.CostMicroCents }
+
 // GetTimeoutMs returns AppRunAppRun.TimeoutMs, and is useful for accessing the field via an interface.
 func (v *AppRunAppRun) GetTimeoutMs() *int { return v.AppRunFields.TimeoutMs }
 
@@ -11057,6 +11066,11 @@ func (v *AppRunAppRun) GetData() *json.RawMessage { return v.AppRunFields.Data }
 
 // GetFailure returns AppRunAppRun.Failure, and is useful for accessing the field via an interface.
 func (v *AppRunAppRun) GetFailure() *json.RawMessage { return v.AppRunFields.Failure }
+
+// GetFailureReason returns AppRunAppRun.FailureReason, and is useful for accessing the field via an interface.
+func (v *AppRunAppRun) GetFailureReason() *AppRunFieldsFailureReasonAppRunFailureReason {
+	return v.AppRunFields.FailureReason
+}
 
 // GetCreatedAt returns AppRunAppRun.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AppRunAppRun) GetCreatedAt() string { return v.AppRunFields.CreatedAt }
@@ -11123,6 +11137,12 @@ type __premarshalAppRunAppRun struct {
 
 	BudgetTokens *int `json:"budgetTokens"`
 
+	BudgetActionsInitial *int `json:"budgetActionsInitial"`
+
+	BudgetTokensInitial *int `json:"budgetTokensInitial"`
+
+	CostMicroCents *string `json:"costMicroCents"`
+
 	TimeoutMs *int `json:"timeoutMs"`
 
 	Policy *json.RawMessage `json:"policy"`
@@ -11132,6 +11152,8 @@ type __premarshalAppRunAppRun struct {
 	Data *json.RawMessage `json:"data"`
 
 	Failure *json.RawMessage `json:"failure"`
+
+	FailureReason *AppRunFieldsFailureReasonAppRunFailureReason `json:"failureReason"`
 
 	CreatedAt string `json:"createdAt"`
 
@@ -11166,11 +11188,15 @@ func (v *AppRunAppRun) __premarshalJSON() (*__premarshalAppRunAppRun, error) {
 	retval.Attempts = v.AppRunFields.Attempts
 	retval.BudgetActions = v.AppRunFields.BudgetActions
 	retval.BudgetTokens = v.AppRunFields.BudgetTokens
+	retval.BudgetActionsInitial = v.AppRunFields.BudgetActionsInitial
+	retval.BudgetTokensInitial = v.AppRunFields.BudgetTokensInitial
+	retval.CostMicroCents = v.AppRunFields.CostMicroCents
 	retval.TimeoutMs = v.AppRunFields.TimeoutMs
 	retval.Policy = v.AppRunFields.Policy
 	retval.EventData = v.AppRunFields.EventData
 	retval.Data = v.AppRunFields.Data
 	retval.Failure = v.AppRunFields.Failure
+	retval.FailureReason = v.AppRunFields.FailureReason
 	retval.CreatedAt = v.AppRunFields.CreatedAt
 	retval.StartedAt = v.AppRunFields.StartedAt
 	retval.FinishedAt = v.AppRunFields.FinishedAt
@@ -11201,16 +11227,32 @@ type AppRunFields struct {
 	// Remaining action budget — live-decremented per write/tool action.
 	BudgetActions *int `json:"budgetActions"`
 	// Remaining LLM-token budget — live-decremented; zero halts the run.
-	BudgetTokens *int             `json:"budgetTokens"`
-	TimeoutMs    *int             `json:"timeoutMs"`
-	Policy       *json.RawMessage `json:"policy"`
-	EventData    *json.RawMessage `json:"eventData"`
+	BudgetTokens *int `json:"budgetTokens"`
+	// The action budget this run was minted with (#832). NULL for pre-existing runs.
+	BudgetActionsInitial *int `json:"budgetActionsInitial"`
+	// The token budget this run was MINTED with — budgetTokens is what REMAINS.
+	// NULL for runs minted before this was recorded, which is deliberate: 0 would
+	// render as 'no budget' rather than 'unknown'.
+	BudgetTokensInitial *int `json:"budgetTokensInitial"`
+	// Priced LLM cost of this run in micro-cents (1e-8 USD), as a string (#2439):
+	// the sum of its usage events' cost. Events with no known price add nothing.
+	// NULL means UNKNOWN (a run minted before the counter existed), not zero.
+	CostMicroCents *string          `json:"costMicroCents"`
+	TimeoutMs      *int             `json:"timeoutMs"`
+	Policy         *json.RawMessage `json:"policy"`
+	EventData      *json.RawMessage `json:"eventData"`
 	// The run envelope (plan-multi-node D-MN-1): fields extracted by flow nodes as the walker advances. eventData stays the immutable trigger payload; on key collision the envelope wins.
-	Data       *json.RawMessage `json:"data"`
-	Failure    *json.RawMessage `json:"failure"`
-	CreatedAt  string           `json:"createdAt"`
-	StartedAt  *string          `json:"startedAt"`
-	FinishedAt *string          `json:"finishedAt"`
+	Data    *json.RawMessage `json:"data"`
+	Failure *json.RawMessage `json:"failure"`
+	// A failed run's cause in plain words (#2439): what happened, who can fix it
+	// and where. Null when the run has no failure. Static text derived from the
+	// failure and the run's budgets; it names no memory, id or tool, so it
+	// discloses nothing the caller does not already read. The raw failure stays
+	// available on the failure field.
+	FailureReason *AppRunFieldsFailureReasonAppRunFailureReason `json:"failureReason"`
+	CreatedAt     string                                        `json:"createdAt"`
+	StartedAt     *string                                       `json:"startedAt"`
+	FinishedAt    *string                                       `json:"finishedAt"`
 }
 
 // GetId returns AppRunFields.Id, and is useful for accessing the field via an interface.
@@ -11258,6 +11300,15 @@ func (v *AppRunFields) GetBudgetActions() *int { return v.BudgetActions }
 // GetBudgetTokens returns AppRunFields.BudgetTokens, and is useful for accessing the field via an interface.
 func (v *AppRunFields) GetBudgetTokens() *int { return v.BudgetTokens }
 
+// GetBudgetActionsInitial returns AppRunFields.BudgetActionsInitial, and is useful for accessing the field via an interface.
+func (v *AppRunFields) GetBudgetActionsInitial() *int { return v.BudgetActionsInitial }
+
+// GetBudgetTokensInitial returns AppRunFields.BudgetTokensInitial, and is useful for accessing the field via an interface.
+func (v *AppRunFields) GetBudgetTokensInitial() *int { return v.BudgetTokensInitial }
+
+// GetCostMicroCents returns AppRunFields.CostMicroCents, and is useful for accessing the field via an interface.
+func (v *AppRunFields) GetCostMicroCents() *string { return v.CostMicroCents }
+
 // GetTimeoutMs returns AppRunFields.TimeoutMs, and is useful for accessing the field via an interface.
 func (v *AppRunFields) GetTimeoutMs() *int { return v.TimeoutMs }
 
@@ -11273,6 +11324,11 @@ func (v *AppRunFields) GetData() *json.RawMessage { return v.Data }
 // GetFailure returns AppRunFields.Failure, and is useful for accessing the field via an interface.
 func (v *AppRunFields) GetFailure() *json.RawMessage { return v.Failure }
 
+// GetFailureReason returns AppRunFields.FailureReason, and is useful for accessing the field via an interface.
+func (v *AppRunFields) GetFailureReason() *AppRunFieldsFailureReasonAppRunFailureReason {
+	return v.FailureReason
+}
+
 // GetCreatedAt returns AppRunFields.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AppRunFields) GetCreatedAt() string { return v.CreatedAt }
 
@@ -11281,6 +11337,30 @@ func (v *AppRunFields) GetStartedAt() *string { return v.StartedAt }
 
 // GetFinishedAt returns AppRunFields.FinishedAt, and is useful for accessing the field via an interface.
 func (v *AppRunFields) GetFinishedAt() *string { return v.FinishedAt }
+
+// AppRunFieldsFailureReasonAppRunFailureReason includes the requested fields of the GraphQL type AppRunFailureReason.
+type AppRunFieldsFailureReasonAppRunFailureReason struct {
+	// Stable category: NOT_ADOPTED, MEMORY_UNREADABLE, CHANGED, OVER_BUDGET, POLICY_DENIED, NO_AI_CONFIG, TIMED_OUT, CANCELLED or OTHER.
+	Kind string `json:"kind"`
+	// What happened, in plain words.
+	Summary string `json:"summary"`
+	// Who can fix it.
+	WhoCanFix string `json:"whoCanFix"`
+	// What to do, and where.
+	NextStep string `json:"nextStep"`
+}
+
+// GetKind returns AppRunFieldsFailureReasonAppRunFailureReason.Kind, and is useful for accessing the field via an interface.
+func (v *AppRunFieldsFailureReasonAppRunFailureReason) GetKind() string { return v.Kind }
+
+// GetSummary returns AppRunFieldsFailureReasonAppRunFailureReason.Summary, and is useful for accessing the field via an interface.
+func (v *AppRunFieldsFailureReasonAppRunFailureReason) GetSummary() string { return v.Summary }
+
+// GetWhoCanFix returns AppRunFieldsFailureReasonAppRunFailureReason.WhoCanFix, and is useful for accessing the field via an interface.
+func (v *AppRunFieldsFailureReasonAppRunFailureReason) GetWhoCanFix() string { return v.WhoCanFix }
+
+// GetNextStep returns AppRunFieldsFailureReasonAppRunFailureReason.NextStep, and is useful for accessing the field via an interface.
+func (v *AppRunFieldsFailureReasonAppRunFailureReason) GetNextStep() string { return v.NextStep }
 
 // AppRunResponse is returned by AppRun on success.
 type AppRunResponse struct {
@@ -11421,6 +11501,21 @@ func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetBudgetTokens() *int {
 	return v.AppRunFields.BudgetTokens
 }
 
+// GetBudgetActionsInitial returns AppRunsAppRunsAppRunsPageItemsAppRun.BudgetActionsInitial, and is useful for accessing the field via an interface.
+func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetBudgetActionsInitial() *int {
+	return v.AppRunFields.BudgetActionsInitial
+}
+
+// GetBudgetTokensInitial returns AppRunsAppRunsAppRunsPageItemsAppRun.BudgetTokensInitial, and is useful for accessing the field via an interface.
+func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetBudgetTokensInitial() *int {
+	return v.AppRunFields.BudgetTokensInitial
+}
+
+// GetCostMicroCents returns AppRunsAppRunsAppRunsPageItemsAppRun.CostMicroCents, and is useful for accessing the field via an interface.
+func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetCostMicroCents() *string {
+	return v.AppRunFields.CostMicroCents
+}
+
 // GetTimeoutMs returns AppRunsAppRunsAppRunsPageItemsAppRun.TimeoutMs, and is useful for accessing the field via an interface.
 func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetTimeoutMs() *int { return v.AppRunFields.TimeoutMs }
 
@@ -11440,6 +11535,11 @@ func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetData() *json.RawMessage { retu
 // GetFailure returns AppRunsAppRunsAppRunsPageItemsAppRun.Failure, and is useful for accessing the field via an interface.
 func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetFailure() *json.RawMessage {
 	return v.AppRunFields.Failure
+}
+
+// GetFailureReason returns AppRunsAppRunsAppRunsPageItemsAppRun.FailureReason, and is useful for accessing the field via an interface.
+func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetFailureReason() *AppRunFieldsFailureReasonAppRunFailureReason {
+	return v.AppRunFields.FailureReason
 }
 
 // GetCreatedAt returns AppRunsAppRunsAppRunsPageItemsAppRun.CreatedAt, and is useful for accessing the field via an interface.
@@ -11511,6 +11611,12 @@ type __premarshalAppRunsAppRunsAppRunsPageItemsAppRun struct {
 
 	BudgetTokens *int `json:"budgetTokens"`
 
+	BudgetActionsInitial *int `json:"budgetActionsInitial"`
+
+	BudgetTokensInitial *int `json:"budgetTokensInitial"`
+
+	CostMicroCents *string `json:"costMicroCents"`
+
 	TimeoutMs *int `json:"timeoutMs"`
 
 	Policy *json.RawMessage `json:"policy"`
@@ -11520,6 +11626,8 @@ type __premarshalAppRunsAppRunsAppRunsPageItemsAppRun struct {
 	Data *json.RawMessage `json:"data"`
 
 	Failure *json.RawMessage `json:"failure"`
+
+	FailureReason *AppRunFieldsFailureReasonAppRunFailureReason `json:"failureReason"`
 
 	CreatedAt string `json:"createdAt"`
 
@@ -11554,11 +11662,15 @@ func (v *AppRunsAppRunsAppRunsPageItemsAppRun) __premarshalJSON() (*__premarshal
 	retval.Attempts = v.AppRunFields.Attempts
 	retval.BudgetActions = v.AppRunFields.BudgetActions
 	retval.BudgetTokens = v.AppRunFields.BudgetTokens
+	retval.BudgetActionsInitial = v.AppRunFields.BudgetActionsInitial
+	retval.BudgetTokensInitial = v.AppRunFields.BudgetTokensInitial
+	retval.CostMicroCents = v.AppRunFields.CostMicroCents
 	retval.TimeoutMs = v.AppRunFields.TimeoutMs
 	retval.Policy = v.AppRunFields.Policy
 	retval.EventData = v.AppRunFields.EventData
 	retval.Data = v.AppRunFields.Data
 	retval.Failure = v.AppRunFields.Failure
+	retval.FailureReason = v.AppRunFields.FailureReason
 	retval.CreatedAt = v.AppRunFields.CreatedAt
 	retval.StartedAt = v.AppRunFields.StartedAt
 	retval.FinishedAt = v.AppRunFields.FinishedAt
@@ -15060,6 +15172,19 @@ func (v *CancelAppRunCancelAppRun) GetBudgetActions() *int { return v.AppRunFiel
 // GetBudgetTokens returns CancelAppRunCancelAppRun.BudgetTokens, and is useful for accessing the field via an interface.
 func (v *CancelAppRunCancelAppRun) GetBudgetTokens() *int { return v.AppRunFields.BudgetTokens }
 
+// GetBudgetActionsInitial returns CancelAppRunCancelAppRun.BudgetActionsInitial, and is useful for accessing the field via an interface.
+func (v *CancelAppRunCancelAppRun) GetBudgetActionsInitial() *int {
+	return v.AppRunFields.BudgetActionsInitial
+}
+
+// GetBudgetTokensInitial returns CancelAppRunCancelAppRun.BudgetTokensInitial, and is useful for accessing the field via an interface.
+func (v *CancelAppRunCancelAppRun) GetBudgetTokensInitial() *int {
+	return v.AppRunFields.BudgetTokensInitial
+}
+
+// GetCostMicroCents returns CancelAppRunCancelAppRun.CostMicroCents, and is useful for accessing the field via an interface.
+func (v *CancelAppRunCancelAppRun) GetCostMicroCents() *string { return v.AppRunFields.CostMicroCents }
+
 // GetTimeoutMs returns CancelAppRunCancelAppRun.TimeoutMs, and is useful for accessing the field via an interface.
 func (v *CancelAppRunCancelAppRun) GetTimeoutMs() *int { return v.AppRunFields.TimeoutMs }
 
@@ -15074,6 +15199,11 @@ func (v *CancelAppRunCancelAppRun) GetData() *json.RawMessage { return v.AppRunF
 
 // GetFailure returns CancelAppRunCancelAppRun.Failure, and is useful for accessing the field via an interface.
 func (v *CancelAppRunCancelAppRun) GetFailure() *json.RawMessage { return v.AppRunFields.Failure }
+
+// GetFailureReason returns CancelAppRunCancelAppRun.FailureReason, and is useful for accessing the field via an interface.
+func (v *CancelAppRunCancelAppRun) GetFailureReason() *AppRunFieldsFailureReasonAppRunFailureReason {
+	return v.AppRunFields.FailureReason
+}
 
 // GetCreatedAt returns CancelAppRunCancelAppRun.CreatedAt, and is useful for accessing the field via an interface.
 func (v *CancelAppRunCancelAppRun) GetCreatedAt() string { return v.AppRunFields.CreatedAt }
@@ -15140,6 +15270,12 @@ type __premarshalCancelAppRunCancelAppRun struct {
 
 	BudgetTokens *int `json:"budgetTokens"`
 
+	BudgetActionsInitial *int `json:"budgetActionsInitial"`
+
+	BudgetTokensInitial *int `json:"budgetTokensInitial"`
+
+	CostMicroCents *string `json:"costMicroCents"`
+
 	TimeoutMs *int `json:"timeoutMs"`
 
 	Policy *json.RawMessage `json:"policy"`
@@ -15149,6 +15285,8 @@ type __premarshalCancelAppRunCancelAppRun struct {
 	Data *json.RawMessage `json:"data"`
 
 	Failure *json.RawMessage `json:"failure"`
+
+	FailureReason *AppRunFieldsFailureReasonAppRunFailureReason `json:"failureReason"`
 
 	CreatedAt string `json:"createdAt"`
 
@@ -15183,11 +15321,15 @@ func (v *CancelAppRunCancelAppRun) __premarshalJSON() (*__premarshalCancelAppRun
 	retval.Attempts = v.AppRunFields.Attempts
 	retval.BudgetActions = v.AppRunFields.BudgetActions
 	retval.BudgetTokens = v.AppRunFields.BudgetTokens
+	retval.BudgetActionsInitial = v.AppRunFields.BudgetActionsInitial
+	retval.BudgetTokensInitial = v.AppRunFields.BudgetTokensInitial
+	retval.CostMicroCents = v.AppRunFields.CostMicroCents
 	retval.TimeoutMs = v.AppRunFields.TimeoutMs
 	retval.Policy = v.AppRunFields.Policy
 	retval.EventData = v.AppRunFields.EventData
 	retval.Data = v.AppRunFields.Data
 	retval.Failure = v.AppRunFields.Failure
+	retval.FailureReason = v.AppRunFields.FailureReason
 	retval.CreatedAt = v.AppRunFields.CreatedAt
 	retval.StartedAt = v.AppRunFields.StartedAt
 	retval.FinishedAt = v.AppRunFields.FinishedAt
@@ -63053,6 +63195,21 @@ func (v *TriggerAppRunTriggerAppRun) GetBudgetActions() *int { return v.AppRunFi
 // GetBudgetTokens returns TriggerAppRunTriggerAppRun.BudgetTokens, and is useful for accessing the field via an interface.
 func (v *TriggerAppRunTriggerAppRun) GetBudgetTokens() *int { return v.AppRunFields.BudgetTokens }
 
+// GetBudgetActionsInitial returns TriggerAppRunTriggerAppRun.BudgetActionsInitial, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunTriggerAppRun) GetBudgetActionsInitial() *int {
+	return v.AppRunFields.BudgetActionsInitial
+}
+
+// GetBudgetTokensInitial returns TriggerAppRunTriggerAppRun.BudgetTokensInitial, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunTriggerAppRun) GetBudgetTokensInitial() *int {
+	return v.AppRunFields.BudgetTokensInitial
+}
+
+// GetCostMicroCents returns TriggerAppRunTriggerAppRun.CostMicroCents, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunTriggerAppRun) GetCostMicroCents() *string {
+	return v.AppRunFields.CostMicroCents
+}
+
 // GetTimeoutMs returns TriggerAppRunTriggerAppRun.TimeoutMs, and is useful for accessing the field via an interface.
 func (v *TriggerAppRunTriggerAppRun) GetTimeoutMs() *int { return v.AppRunFields.TimeoutMs }
 
@@ -63067,6 +63224,11 @@ func (v *TriggerAppRunTriggerAppRun) GetData() *json.RawMessage { return v.AppRu
 
 // GetFailure returns TriggerAppRunTriggerAppRun.Failure, and is useful for accessing the field via an interface.
 func (v *TriggerAppRunTriggerAppRun) GetFailure() *json.RawMessage { return v.AppRunFields.Failure }
+
+// GetFailureReason returns TriggerAppRunTriggerAppRun.FailureReason, and is useful for accessing the field via an interface.
+func (v *TriggerAppRunTriggerAppRun) GetFailureReason() *AppRunFieldsFailureReasonAppRunFailureReason {
+	return v.AppRunFields.FailureReason
+}
 
 // GetCreatedAt returns TriggerAppRunTriggerAppRun.CreatedAt, and is useful for accessing the field via an interface.
 func (v *TriggerAppRunTriggerAppRun) GetCreatedAt() string { return v.AppRunFields.CreatedAt }
@@ -63133,6 +63295,12 @@ type __premarshalTriggerAppRunTriggerAppRun struct {
 
 	BudgetTokens *int `json:"budgetTokens"`
 
+	BudgetActionsInitial *int `json:"budgetActionsInitial"`
+
+	BudgetTokensInitial *int `json:"budgetTokensInitial"`
+
+	CostMicroCents *string `json:"costMicroCents"`
+
 	TimeoutMs *int `json:"timeoutMs"`
 
 	Policy *json.RawMessage `json:"policy"`
@@ -63142,6 +63310,8 @@ type __premarshalTriggerAppRunTriggerAppRun struct {
 	Data *json.RawMessage `json:"data"`
 
 	Failure *json.RawMessage `json:"failure"`
+
+	FailureReason *AppRunFieldsFailureReasonAppRunFailureReason `json:"failureReason"`
 
 	CreatedAt string `json:"createdAt"`
 
@@ -63176,11 +63346,15 @@ func (v *TriggerAppRunTriggerAppRun) __premarshalJSON() (*__premarshalTriggerApp
 	retval.Attempts = v.AppRunFields.Attempts
 	retval.BudgetActions = v.AppRunFields.BudgetActions
 	retval.BudgetTokens = v.AppRunFields.BudgetTokens
+	retval.BudgetActionsInitial = v.AppRunFields.BudgetActionsInitial
+	retval.BudgetTokensInitial = v.AppRunFields.BudgetTokensInitial
+	retval.CostMicroCents = v.AppRunFields.CostMicroCents
 	retval.TimeoutMs = v.AppRunFields.TimeoutMs
 	retval.Policy = v.AppRunFields.Policy
 	retval.EventData = v.AppRunFields.EventData
 	retval.Data = v.AppRunFields.Data
 	retval.Failure = v.AppRunFields.Failure
+	retval.FailureReason = v.AppRunFields.FailureReason
 	retval.CreatedAt = v.AppRunFields.CreatedAt
 	retval.StartedAt = v.AppRunFields.StartedAt
 	retval.FinishedAt = v.AppRunFields.FinishedAt
@@ -83273,11 +83447,20 @@ fragment AppRunFields on AppRun {
 	attempts
 	budgetActions
 	budgetTokens
+	budgetActionsInitial
+	budgetTokensInitial
+	costMicroCents
 	timeoutMs
 	policy
 	eventData
 	data
 	failure
+	failureReason {
+		kind
+		summary
+		whoCanFix
+		nextStep
+	}
 	createdAt
 	startedAt
 	finishedAt
@@ -83336,11 +83519,20 @@ fragment AppRunFields on AppRun {
 	attempts
 	budgetActions
 	budgetTokens
+	budgetActionsInitial
+	budgetTokensInitial
+	costMicroCents
 	timeoutMs
 	policy
 	eventData
 	data
 	failure
+	failureReason {
+		kind
+		summary
+		whoCanFix
+		nextStep
+	}
 	createdAt
 	startedAt
 	finishedAt
@@ -84729,11 +84921,20 @@ fragment AppRunFields on AppRun {
 	attempts
 	budgetActions
 	budgetTokens
+	budgetActionsInitial
+	budgetTokensInitial
+	costMicroCents
 	timeoutMs
 	policy
 	eventData
 	data
 	failure
+	failureReason {
+		kind
+		summary
+		whoCanFix
+		nextStep
+	}
 	createdAt
 	startedAt
 	finishedAt
@@ -102294,11 +102495,20 @@ fragment AppRunFields on AppRun {
 	attempts
 	budgetActions
 	budgetTokens
+	budgetActionsInitial
+	budgetTokensInitial
+	costMicroCents
 	timeoutMs
 	policy
 	eventData
 	data
 	failure
+	failureReason {
+		kind
+		summary
+		whoCanFix
+		nextStep
+	}
 	createdAt
 	startedAt
 	finishedAt

@@ -17,7 +17,12 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 		Use:   "get <id>",
 		Short: "Show a run in full (status, budgets, policy, failure)",
 		Long: `Show one run in full — status, trigger, budgets, policy, and the failure
-payload when present. This is "what ran last night, why, and what it cost".`,
+payload when present. This is "what ran last night, why, and what it cost".
+
+A failed run also shows the server's plain reason (kind, what happened, who can
+fix it, next step). Cost is exact dollars from the run's usage; "unknown" means
+the server has no figure (an older run), not zero. Initial budgets show next to
+the remaining ones when recorded.`,
 		Example: `  hadron run get run_123 --json`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

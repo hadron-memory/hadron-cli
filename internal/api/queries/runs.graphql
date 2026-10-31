@@ -20,11 +20,20 @@ fragment AppRunFields on AppRun {
   attempts
   budgetActions
   budgetTokens
+  budgetActionsInitial
+  budgetTokensInitial
+  costMicroCents
   timeoutMs
   policy
   eventData
   data
   failure
+  failureReason {
+    kind
+    summary
+    whoCanFix
+    nextStep
+  }
   createdAt
   startedAt
   finishedAt
