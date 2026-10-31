@@ -3641,9 +3641,11 @@ the CLI parses nothing, no quote exclusion; `@all`/`@team`/`@team.*` push to no
 one). Each gets its whole due batch through the same delivery transaction
 (cor:agt:080:16, :22), so nothing is typed over a draft and a held recipient's
 marks do not move. The receipt gains `push: [{recipient, state, reason?}]` with
-state `pushed` | `held` | `not-pushed` (nothing typed: no batch came back, which
-the server does not tell apart as off-host, unknown or nothing due). `reason` is
-a code: `no-batch`, `push-failed`, or `ack-pending` on a `pushed` (typed and
+state `pushed` | `held` | `not-pushed` | `unconfirmed`. `not-pushed` means
+nothing typed: no batch came back, which the server does not tell apart as
+off-host, unknown or nothing due. `unconfirmed` means the pass failed before
+this recipient had an outcome, so typed-or-not is not established. `reason` is
+a code: `no-batch`, `push-failed` (on `unconfirmed`), or `ack-pending` on a `pushed` (typed and
 recorded, ack not landed; reconciled later without retyping). A mention token
 addresses every host worker with that server mention token (mentionTokenOf; two
 names may share one) and reports the worst outcome; a pass error keeps the

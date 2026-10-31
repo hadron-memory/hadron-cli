@@ -250,7 +250,7 @@ func TestPushFailureAfterPostKeepsPostAndExit(t *testing.T) {
 	if !strings.Contains(r.stderr, "do not repost") || strings.Contains(r.stderr+r.out, "PRIVATE") {
 		t.Fatalf("unsafe recovery text: %q", r.stderr)
 	}
-	if st := pushStates(t, r); st["one"] != "not-pushed:push-failed" {
+	if st := pushStates(t, r); st["one"] != "unconfirmed:push-failed" {
 		t.Fatalf("report %v", st)
 	}
 }
@@ -274,13 +274,13 @@ func TestPushRecipientsHelper(t *testing.T) {
 
 func TestPushPartialSuccessSurvivesALaterFailure(t *testing.T) {
 	// One's first batch is typed, then the context ends: that delivery is
-	// kept as pushed; Mary Jane, never reached, is not-pushed push-failed.
+	// kept as pushed; Mary Jane, never reached, is unconfirmed push-failed.
 	r := runPushWith(t, []string{"hi", "--push", "--orca-host-config", "HOST"}, []string{"one", "mary-jane"}, nil, false, false, "a1", false)
 	if r.err != nil || r.posts != 1 {
 		t.Fatalf("post lost: %v %d", r.err, r.posts)
 	}
 	st := pushStates(t, r)
-	if st["one"] != "pushed:<nil>" || st["mary-jane"] != "not-pushed:push-failed" {
+	if st["one"] != "pushed:<nil>" || st["mary-jane"] != "unconfirmed:push-failed" {
 		t.Fatalf("report %v seen %v", st, r.seen)
 	}
 	if !strings.Contains(r.stderr, "do not repost") {

@@ -261,8 +261,9 @@ only to them: the recipients are the mentions the server stored on the message
 its whole due batch through the poller's delivery transaction, so nothing is
 typed over a draft and a held recipient's marks do not move. The report says
 per recipient pushed, held, or not-pushed (nothing typed: no batch came back,
-which the server does not distinguish as off-host, unknown or nothing due), in
-the text and in --json under "push". A failed push never undoes the post or
+which the server does not distinguish as off-host, unknown or nothing due), or
+unconfirmed (the delivery pass failed before this recipient had an outcome, so
+whether it was typed is not established), in the text and in --json under "push". A failed push never undoes the post or
 changes its exit code.`,
 		Example: `  hadron team chat post "@rufus schema is live, over to you"
   hadron team chat post --reply-to 42 "done"

@@ -259,6 +259,8 @@ type pushOutcome struct{ state, reason string }
 func pushRank(s string) int {
 	switch s {
 	case pushStateHeld:
+		return 4
+	case pushStateUnconfirmed:
 		return 3
 	case pushStateNotPushed:
 		return 2
@@ -320,8 +322,9 @@ func mentionTokenOf(name string) string {
 // workers' outcomes, worst state winning (held beats not-pushed beats pushed).
 // A token matching no worker here, or with no batch, is not-pushed: the one
 // state for "nothing came back". On a pass-level error the outcomes already
-// confirmed are kept and every recipient without one is not-pushed
-// "push-failed"; the error is returned beside the results.
+// confirmed are kept and every recipient without one is "unconfirmed"
+// (push-failed): whether it was typed is not established, so it is never
+// reported as not-pushed. The error is returned beside the results.
 func (p *postHostPass) Push(ctx context.Context, tokens []string) ([]postPushResult, error) {
 	ids := map[string][]string{} // token -> worker ids
 	_, per, err := p.pass(ctx, func(recipients map[string]delivery.Recipient) map[string]bool {
@@ -341,7 +344,7 @@ func (p *postHostPass) Push(ctx context.Context, tokens []string) ([]postPushRes
 	for _, t := range tokens {
 		res := postPushResult{Recipient: t, State: pushStateNotPushed, Reason: "no-batch"}
 		if err != nil {
-			res.Reason = "push-failed"
+			res = postPushResult{Recipient: t, State: pushStateUnconfirmed, Reason: "push-failed"}
 		}
 		folded := &pushOutcome{}
 		for _, id := range ids[t] {

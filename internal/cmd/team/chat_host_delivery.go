@@ -15,6 +15,10 @@ const (
 	pushStatePushed    = "pushed"
 	pushStateHeld      = "held"
 	pushStateNotPushed = "not-pushed"
+	// pushStateUnconfirmed: the pass ended in an error before this recipient
+	// had an outcome, so whether anything was typed is not established.
+	// Never "not-pushed", which asserts no batch came back.
+	pushStateUnconfirmed = "unconfirmed"
 )
 
 // postPushResult is one recipient's report; Reason is a code, never text.
