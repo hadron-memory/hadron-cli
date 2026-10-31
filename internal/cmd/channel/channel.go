@@ -68,6 +68,8 @@ that suits you (not in a tight loop).`,
 // host memory has no flat-v2 address the server will advertise (#1171), and an
 // agent has to be able to see that the field was answered with "none" rather
 // than merely absent from this projection. `id` always works there.
+// MemoryURN and MemoryName are explicit null when nested memory is not readable;
+// MemoryID remains the Channel's own scalar.
 type channelDTO struct {
 	ID             string  `json:"id"`
 	Name           string  `json:"name"`
@@ -77,8 +79,8 @@ type channelDTO struct {
 	ChatRootURN    *string `json:"chatRootUrn"`
 	ChatRootNodeID string  `json:"chatRootNodeId"`
 	MemoryID       string  `json:"memoryId"`
-	MemoryURN      string  `json:"memoryUrn"`
-	MemoryName     string  `json:"memoryName"`
+	MemoryURN      *string `json:"memoryUrn"`
+	MemoryName     *string `json:"memoryName"`
 	LastSeq        int     `json:"lastSeq"`
 	LastMessageAt  *string `json:"lastMessageAt"`
 	CreatedAt      string  `json:"createdAt"`
@@ -102,8 +104,8 @@ func dtoFrom(c gen.ChannelFields, m gen.ChannelMemory) channelDTO {
 		UpdatedAt:      c.UpdatedAt,
 	}
 	if m.Memory != nil {
-		d.MemoryURN = m.Memory.Urn
-		d.MemoryName = m.Memory.Name
+		d.MemoryURN = &m.Memory.Urn
+		d.MemoryName = &m.Memory.Name
 	}
 	return d
 }
@@ -162,7 +164,7 @@ func writeChannelText(w io.Writer, d channelDTO, portalURL *string) error {
 	} else {
 		t.Row("address", "(none advertised — use the id)")
 	}
-	t.Row("memory", output.SafeCell(d.MemoryURN))
+	t.Row("memory", memoryCell(d.MemoryURN))
 	t.Row("loc", output.SafeCell(d.Loc))
 	if d.Description != nil && *d.Description != "" {
 		t.Row("description", output.SafeCell(*d.Description))
@@ -172,4 +174,12 @@ func writeChannelText(w io.Writer, d channelDTO, portalURL *string) error {
 		t.Row("URL:", output.SafeCell(*portalURL))
 	}
 	return t.Flush()
+}
+
+// memoryCell never infers withheld metadata from the parent or another row.
+func memoryCell(value *string) string {
+	if value == nil {
+		return "(not readable)"
+	}
+	return output.SafeCell(*value)
 }

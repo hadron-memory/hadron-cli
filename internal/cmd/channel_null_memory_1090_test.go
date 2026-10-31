@@ -99,3 +99,28 @@ func TestChannelReadableEmptyMemory1090(t *testing.T) {
 		}
 	}
 }
+
+func TestChannelListEmptyAndRefusal1090(t *testing.T) {
+	for _, tc := range []struct {
+		name, response string
+		refused        bool
+	}{
+		{"empty", `{"data":{"channels":{"total":0,"items":[]}}}`, false},
+		{"field refusal", `{"data":{"channels":null},"errors":[{"message":"withheld","extensions":{"code":"FORBIDDEN"}}]}`, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			gql, _ := captureGraphQL(t, map[string]string{"Channels": tc.response})
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"channel", "list", "--json", "--server", gql.URL})
+			err := root.Execute()
+			if tc.refused {
+				if err == nil || out.Len() != 0 {
+					t.Fatalf("refusal became success: %v %s", err, out.String())
+				}
+			} else if err != nil || strings.TrimSpace(out.String()) != "[]" {
+				t.Fatalf("empty shape: %v %s", err, out.String())
+			}
+		})
+	}
+}
