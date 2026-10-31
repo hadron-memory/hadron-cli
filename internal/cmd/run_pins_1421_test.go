@@ -7,6 +7,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strconv"
+
+	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/parser"
 	"strings"
 	"testing"
 )
@@ -42,7 +46,7 @@ func TestRunGetSanitizesEveryReasonField(t *testing.T) {
 
 func runLsHuman(t *testing.T, items ...string) string {
 	t.Helper()
-	gql, _ := captureGraphQL(t, map[string]string{"AppRuns": `{"data":{"appRuns":{"total":` + string(rune('0'+len(items))) + `,"items":[` + strings.Join(items, ",") + `]}}}`})
+	gql, _ := captureGraphQL(t, map[string]string{"AppRuns": `{"data":{"appRuns":{"total":` + strconv.Itoa(len(items)) + `,"items":[` + strings.Join(items, ",") + `]}}}`})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"run", "ls", "--org", "acme.com", "--server", gql.URL})
@@ -138,8 +142,9 @@ func TestRunQueriesSelectTheNewFields(t *testing.T) {
 		t.Fatalf("queries = %d", len(queries))
 	}
 	for _, q := range queries {
+		selected := selectedRunQueryFields(t, q)
 		for _, field := range []string{"failureReason", "costMicroCents", "budgetActionsInitial", "budgetTokensInitial", "whoCanFix", "nextStep", "summary", "kind"} {
-			if !strings.Contains(q, field) {
+			if !selected[field] {
 				t.Errorf("query does not select %q:\n%s", field, q)
 			}
 		}
@@ -280,5 +285,41 @@ func TestRunListFixtureSupportsTenItems(t *testing.T) {
 	h := runLsHuman(t, items...)
 	if n := strings.Count(h, "run1"); n != 10 {
 		t.Fatalf("want ten rendered run1 rows, got %d: %s", n, h)
+	}
+}
+
+// Read parsed selection names, not substrings: triggerKind cannot stand in for kind.
+func selectedRunQueryFields(t *testing.T, query string) map[string]bool {
+	t.Helper()
+	doc, err := parser.ParseQuery(&ast.Source{Input: query})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fields := map[string]bool{}
+	var walk func(ast.SelectionSet)
+	walk = func(set ast.SelectionSet) {
+		for _, selection := range set {
+			switch selection := selection.(type) {
+			case *ast.Field:
+				fields[selection.Name] = true
+				walk(selection.SelectionSet)
+			case *ast.InlineFragment:
+				walk(selection.SelectionSet)
+			}
+		}
+	}
+	for _, op := range doc.Operations {
+		walk(op.SelectionSet)
+	}
+	for _, fragment := range doc.Fragments {
+		walk(fragment.SelectionSet)
+	}
+	return fields
+}
+
+func TestRunQueryFieldMatchIsExact(t *testing.T) {
+	fields := selectedRunQueryFields(t, `query { appRun { triggerKind failureReason { summary } } }`)
+	if fields["kind"] || !fields["triggerKind"] || !fields["summary"] {
+		t.Fatal(fields)
 	}
 }
