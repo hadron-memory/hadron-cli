@@ -2,8 +2,11 @@ package cmd
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -206,5 +209,88 @@ func TestMcpC3NullAnswersAreNotSuccess(t *testing.T) {
 		if exitCodeFor(r.err) != 1 {
 			t.Fatalf("%s: %v %s", op, r.err, r.out)
 		}
+	}
+}
+
+func TestMcpC3ChangeAgentTTYYes(t *testing.T) {
+	writeTeamBinding(t)
+	srv, calls := attnServer(t, managerResponses1336())
+	setTeamBindingServer(t, srv.URL)
+	f, out, _ := testFactoryTTY(t, "y\n")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"--server", srv.URL, "team", "worker", "change-agent", "Iris", "--agent", agent1336, "--json"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if len(stopCalls(calls, "ChangeWorkerAgent")) != 1 || !strings.Contains(out.String(), agent1336) {
+		t.Fatalf("calls=%v output=%s", *calls, out.String())
+	}
+}
+
+func TestMcpC3AgentInputShapeNotResolution(t *testing.T) {
+	for _, agent := range []string{"cagent0000000000000000000", "urn:agent:acme.com:qa", "hrn:agent:unknown.example:missing"} {
+		responses := managerResponses1336()
+		responses["ChangeWorkerAgent"] = gqlErrorJSON("WORKER_AGENT_NOT_INSTALLED")
+		calls, r := runManager1336(t, responses, "team", "worker", "change-agent", "Iris", "--agent", agent, "--yes", "--json")
+		if exitCodeFor(r.err) != 2 || len(stopCalls(calls, "ChangeWorkerAgent")) != 1 {
+			t.Fatalf("agent=%s err=%v calls=%v", agent, r.err, *calls)
+		}
+		for _, c := range *calls {
+			if c.Op != "Workers" && c.Op != "ChangeWorkerAgent" {
+				t.Fatalf("unexpected agent resolution: %v", c)
+			}
+		}
+	}
+}
+
+func TestMcpC3LostMutationAnswerIsNotRetried(t *testing.T) {
+	for _, op := range []string{"SetTeamPause", "ChangeWorkerAgent"} {
+		t.Run(op, func(t *testing.T) {
+			writeTeamBinding(t)
+			var writes atomic.Int32
+			responses := managerResponses1336()
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var body struct {
+					OperationName string `json:"operationName"`
+				}
+				if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+					t.Error(err)
+					return
+				}
+				if body.OperationName == op {
+					writes.Add(1)
+					conn, _, err := w.(http.Hijacker).Hijack()
+					if err != nil {
+						t.Error(err)
+						return
+					}
+					_ = conn.Close()
+					return
+				}
+				response, ok := responses[body.OperationName]
+				if !ok {
+					response, ok = unstubbedDefault(body.OperationName)
+				}
+				if !ok {
+					t.Errorf("unexpected operation %s", body.OperationName)
+					response = `{ "errors":[{"message":"unexpected operation"}]}`
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(response))
+			}))
+			t.Cleanup(srv.Close)
+			setTeamBindingServer(t, srv.URL)
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			args := []string{"--server", srv.URL, "team", "pause", "--json"}
+			if op == "ChangeWorkerAgent" {
+				args = []string{"--server", srv.URL, "team", "worker", "change-agent", "Iris", "--agent", agent1336, "--yes", "--json"}
+			}
+			root.SetArgs(args)
+			err := root.Execute()
+			if exitCodeFor(err) != 7 || writes.Load() != 1 || out.Len() != 0 {
+				t.Fatalf("err=%v writes=%d output=%s", err, writes.Load(), out.String())
+			}
+		})
 	}
 }

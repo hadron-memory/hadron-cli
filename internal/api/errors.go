@@ -1109,8 +1109,11 @@ func codeForExtension(code string) int {
 		// The caller must explicitly attest verified external absence; --yes
 		// alone confirms deletion, not that separate input (server#1162).
 		return exitcode.Usage
+	// Casting conflicts require changed server state, including an unchanged
+	// agent: a refusal is not an idempotent success (cli#1336).
 	case code == "WORKER_IN_USE" || code == "WORKER_RETIRED" || code == "WORKER_TAKEN" ||
-		code == "WORKER_HELD" || code == "WORKER_HOLD_STALE":
+		code == "WORKER_HELD" || code == "WORKER_HOLD_STALE" ||
+		code == "WORKER_CASTING_STALE" || code == "WORKER_AGENT_UNCHANGED" || code == "WORKER_AGENT_HAS_NO_ROLE":
 		return exitcode.Conflict
 	// The agent-task surface (hadron-cli#830 over server #1705/#1706). Who
 	// may move a task or set availability is the server's rule
