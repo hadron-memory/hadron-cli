@@ -742,12 +742,15 @@ func renderMint(w io.Writer, d mintDTO) error {
 	} else {
 		fmt.Fprintf(w, "  blockers: %d\n", len(d.Blockers))
 		t := output.NewTable(w, "LOC", "KIND", "RULE", "TARGET", "MESSAGE")
+		kinds := make([]string, 0, len(d.Blockers))
 		for _, b := range d.Blockers {
 			t.Row(output.SafeCell(b.Loc), output.SafeCell(b.Kind), output.SafeCell(b.Rule), output.SafeCell(b.TargetLoc), output.SafeCell(b.Message))
+			kinds = append(kinds, b.Kind)
 		}
 		if err := t.Flush(); err != nil {
 			return err
 		}
+		cmdutil.WriteMintApproveHint(w, d.Memory, kinds...)
 	}
 	block := "reported only"
 	if d.StaleAbstractsBlock {
