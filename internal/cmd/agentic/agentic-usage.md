@@ -3640,7 +3640,7 @@ recipients are the mentions the server stored on the message (cor:agt:020:04;
 the CLI parses nothing, no quote exclusion; `@all`/`@team`/`@team.*` push to no
 one). Each gets its whole due batch through the same delivery transaction
 (cor:agt:080:16, :22), so nothing is typed over a draft and a held recipient's
-marks do not move. The receipt gains `push: [{recipient, state, reason?}]` with
+marks do not move. The receipt gains `push: [{recipient, state, reason?, acked}]` (`acked` = batches whose acknowledgement the server accepted, i.e. marks advanced; 0 on `ack-pending`, which text shows as `ack-pending; acked 0`) with
 state `pushed` | `held` | `not-pushed` | `unconfirmed`. `not-pushed` means
 nothing typed: no batch came back, which the server does not tell apart as
 off-host, unknown or nothing due. `unconfirmed` means the pass failed before

@@ -263,7 +263,9 @@ typed over a draft and a held recipient's marks do not move. The report says
 per recipient pushed, held, or not-pushed (nothing typed: no batch came back,
 which the server does not distinguish as off-host, unknown or nothing due), or
 unconfirmed (the delivery pass failed before this recipient had an outcome, so
-whether it was typed is not established), in the text and in --json under "push". A failed push never undoes the post or
+whether it was typed is not established), in the text and in --json under "push",
+each with "acked" (batches whose acknowledgement was accepted: 0 for a typed
+batch whose ack did not land, shown as "pushed (ack-pending; acked 0)"). A failed push never undoes the post or
 changes its exit code.`,
 		Example: `  hadron team chat post "@rufus schema is live, over to you"
   hadron team chat post --reply-to 42 "done"
@@ -428,6 +430,9 @@ changes its exit code.`,
 					reason := ""
 					if r.Reason != "" {
 						reason = " (" + r.Reason + ")"
+						if r.Reason == "ack-pending" {
+							reason = fmt.Sprintf(" (ack-pending; acked %d)", r.Acked)
+						}
 					}
 					if _, err := fmt.Fprintf(w, "  push %s: %s%s\n", r.Recipient, r.State, reason); err != nil {
 						return err

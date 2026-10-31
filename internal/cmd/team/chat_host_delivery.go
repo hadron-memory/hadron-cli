@@ -26,6 +26,10 @@ type postPushResult struct {
 	Recipient string `json:"recipient"`
 	State     string `json:"state"`
 	Reason    string `json:"reason,omitempty"`
+	// Acked is how many of the recipient's batches the server accepted an
+	// acknowledgement for (marks advanced). pushed+ack-pending with 0 means
+	// typed, marks unmoved, still due (gate refinement, #954).
+	Acked int `json:"acked"`
 }
 
 // postHostPushPass is the opt-in --push surface of a pass: deliver the whole

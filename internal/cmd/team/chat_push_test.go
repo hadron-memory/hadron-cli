@@ -67,6 +67,8 @@ func runPushHook(t *testing.T, args, mentions []string, hook func(*scriptedDeliv
 	return runPush(t, args, mentions, nil, false, false)
 }
 
+var pushText bool
+
 var pushHook func(*scriptedDeliverer)
 
 func runPush(t *testing.T, args []string, mentions []string, kind map[string]delivery.Kind, failBatchesAfterPost, noBatches bool) pushRun {
@@ -133,7 +135,7 @@ func runPushWith(t *testing.T, args []string, mentions []string, kind map[string
 	f := cmdutil.NewFactory()
 	f.ServerFlag = srv.URL
 	f.AppFlag = "hrn:app:test:team"
-	f.JSON = true
+	f.JSON = !pushText
 	f.IOStreams = streams
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -166,6 +168,22 @@ func runPushWith(t *testing.T, args []string, mentions []string, kind map[string
 	return res
 }
 
+func pushAcked(t *testing.T, r pushRun, who string) float64 {
+	t.Helper()
+	for _, e := range r.body["push"].([]any) {
+		m := e.(map[string]any)
+		if m["recipient"] == who {
+			n, ok := m["acked"].(float64)
+			if !ok {
+				t.Fatalf("no acked count in %s", r.out)
+			}
+			return n
+		}
+	}
+	t.Fatalf("no %s in %s", who, r.out)
+	return -1
+}
+
 func pushStates(t *testing.T, r pushRun) map[string]string {
 	t.Helper()
 	list, ok := r.body["push"].([]any)
@@ -192,6 +210,9 @@ func TestPushRecipientsAreStoredMentionsOnly(t *testing.T) {
 	}
 	if st := pushStates(t, r); len(st) != 1 || st["one"] != "pushed:<nil>" {
 		t.Fatalf("report %v", st)
+	}
+	if n := pushAcked(t, r, "one"); n != 2 {
+		t.Fatalf("acked %v, want One's 2 batches", n)
 	}
 }
 
@@ -354,6 +375,9 @@ func TestPushTypedButAckPendingIsQualifiedNotUnqualifiedPushed(t *testing.T) {
 	if st := pushStates(t, r); st["one"] != "pushed:ack-pending" {
 		t.Fatalf("report %v", st)
 	}
+	if n := pushAcked(t, r, "one"); n != 0 {
+		t.Fatalf("ack-pending reported %v accepted acks, want 0", n)
+	}
 }
 
 func TestPushSharedTokenOneConfirmedOneUnresolvedIsUnconfirmed(t *testing.T) {
@@ -365,5 +389,14 @@ func TestPushSharedTokenOneConfirmedOneUnresolvedIsUnconfirmed(t *testing.T) {
 	}
 	if st := pushStates(t, r); st["mary-jane"] != "unconfirmed:push-failed" {
 		t.Fatalf("masked: %v seen %v", st, r.seen)
+	}
+}
+
+func TestPushTextReceiptShowsAckPendingWithZeroAcked(t *testing.T) {
+	pushText = true
+	defer func() { pushText = false }()
+	r := runPushHook(t, []string{"hi", "--push", "--orca-host-config", "HOST"}, []string{"one"}, func(x *scriptedDeliverer) { x.ackPending = map[string]bool{"wkr1": true} })
+	if r.err != nil || !strings.Contains(r.out, "push one: pushed (ack-pending; acked 0)") {
+		t.Fatalf("text receipt: %v %q", r.err, r.out)
 	}
 }

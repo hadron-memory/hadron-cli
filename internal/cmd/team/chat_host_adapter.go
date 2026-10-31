@@ -231,6 +231,9 @@ func (p *postHostPass) pass(ctx context.Context, only func(map[string]delivery.R
 				reason = "ack-pending"
 			}
 			per[b.WorkerID].note(pushStatePushed, reason)
+			if !o.AckPending {
+				per[b.WorkerID].acked++
+			}
 			if o.AckPending {
 				summary.Pending++
 				blocked[b.WorkerID] = true
@@ -254,7 +257,10 @@ func (p *postHostPass) pass(ctx context.Context, only func(map[string]delivery.R
 
 // pushOutcome folds a worker's batch outcomes: held beats not-pushed beats
 // pushed, because the worse state is the one the sender must act on.
-type pushOutcome struct{ state, reason string }
+type pushOutcome struct {
+	state, reason string
+	acked         int
+}
 
 func pushRank(s string) int {
 	switch s {
@@ -350,6 +356,7 @@ func (p *postHostPass) Push(ctx context.Context, tokens []string) ([]postPushRes
 		for _, id := range ids[t] {
 			if o := per[id]; o != nil && o.state != "" {
 				folded.note(o.state, o.reason)
+				folded.acked += o.acked
 			} else if err != nil {
 				// A matched worker with no outcome when the pass failed is
 				// unresolved; another sharer's confirmed push must not mask it.
@@ -357,7 +364,7 @@ func (p *postHostPass) Push(ctx context.Context, tokens []string) ([]postPushRes
 			}
 		}
 		if folded.state != "" {
-			res = postPushResult{Recipient: t, State: folded.state, Reason: folded.reason}
+			res = postPushResult{Recipient: t, State: folded.state, Reason: folded.reason, Acked: folded.acked}
 		}
 		out = append(out, res)
 	}
