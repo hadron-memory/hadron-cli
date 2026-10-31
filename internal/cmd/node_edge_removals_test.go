@@ -10,7 +10,7 @@ import (
 )
 
 // #1160 — `node edge-removals` reads the hard-delete edge audit trail
-// (hadron-server#2562, cor:dmo:010:04): one entry per edge a hard delete
+// (hadron-server#2517, built in #2562; cor:dmo:010:04): one entry per edge a hard delete
 // removed from this node. The deleted target's address (targetLoc) and the
 // removed edge's loc, which is derived from it, come back null when the caller
 // cannot read the memory the target lived in — the nulls are concealment, and

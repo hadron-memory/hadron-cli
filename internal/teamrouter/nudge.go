@@ -47,8 +47,8 @@ func NudgeText(a AttentionItem) string {
 		bound := a.LastSeq + 1
 		return head +
 			fmt.Sprintf(" LARGE GAP (unread span %d > %d): walk MENTIONS ONLY from your first unread to the head named here — every unread mention is on the path; the rest is history.", a.LastSeq-*a.FirstUnreadSeq, largeGapSpan) +
-			fmt.Sprintf(" CLI: `hadron team chat read --mentions-me --since %d --before %d --limit 200`, then follow each page's prevBefore BACKWARD to your first unread — beforeSeq selects the NEWEST page under the bound, so page down to the floor and stop at an empty or floor page; MCP: `hadron_team_chat_read` with your session, `sinceSeq=%d`, `beforeSeq=%d`, its mentions filter and limit 200, then re-call with `beforeSeq` = the smallest seq on your last page until the floor (MCP pages carry no prevBefore field).", since, bound, since, bound) +
-			fmt.Sprintf(" Then mark read through your OWN session at the highest seq actually delivered to you, never above #%d (CLI: `hadron team chat mark-read --through <that seq>`; MCP: `hadron_team_chat_mark_read` — a mentions-filtered read never auto-marks).", a.LastSeq) +
+			fmt.Sprintf(" CLI: `hadron team chat read --mentions-me --since %d --before %d --limit 200`, then follow each page's prevBefore BACKWARD to your first unread — --before selects the NEWEST page under the bound, so page down to the floor and stop at an empty or floor page.", since, bound) +
+			fmt.Sprintf(" Then mark read through your OWN session at the highest seq actually delivered to you, never above #%d (`hadron team chat mark-read --through <that seq>` — a mentions-filtered read never auto-marks).", a.LastSeq) +
 			" An incomplete walk marks NOTHING; anything outside the walked bound — messages arriving now included — stays unread. If no mention needs action, mark read and end with one short line (for example \"read through #N, nothing in my lane\"); do not post to team chat." +
 			" (Orca attention router; counts as of send.)"
 	}
@@ -58,7 +58,7 @@ func NudgeText(a AttentionItem) string {
 	from := ""
 	if a.FirstUnreadSeq != nil {
 		since := max(0, *a.FirstUnreadSeq-1)
-		from = fmt.Sprintf(" START AT #%d (your first unread message of any kind) — CLI: `hadron team chat read --since %d --limit 200` then follow nextSince; MCP: `hadron_team_chat_read` with your session and `sinceSeq=%d` then the returned cursor — NOT the newest page alone;", *a.FirstUnreadSeq, since, since)
+		from = fmt.Sprintf(" START AT #%d (your first unread message of any kind) — CLI: `hadron team chat read --since %d --limit 200` then follow nextSince — NOT the newest page alone;", *a.FirstUnreadSeq, since)
 	}
 	return head + from + " " +
 		"Read team chat unfiltered with your own live session; if nothing needs action, " +
@@ -73,7 +73,7 @@ func NudgeText(a AttentionItem) string {
 func LivenessNudgeText(cursor, head int) string {
 	return "Hadron team liveness check — the idle-watch rule for your roster flag, not a mention nudge: " +
 		fmt.Sprintf("the team chat has moved past your read watermark (your cursor #%d < head #%d). ", cursor, head) +
-		fmt.Sprintf("Catch up: read team chat unfiltered with your own live session — CLI: `hadron team chat read --since %d --limit 200` then follow nextSince; MCP: `hadron_team_chat_read` with your session and `sinceSeq=%d` then the returned cursor — ", cursor, cursor) +
+		fmt.Sprintf("Catch up: read team chat unfiltered with your own live session — CLI: `hadron team chat read --since %d --limit 200` then follow nextSince — ", cursor) +
 		"then mark read through your OWN session. " +
 		"If nothing needs action, end with one short line (for example \"read through #N, nothing in my lane\"); do not post to team chat. " +
 		"(Orca attention router; liveness nudge; cursor and head as of send.)"

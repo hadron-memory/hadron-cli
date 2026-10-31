@@ -95,7 +95,7 @@ func TestLivenessIdleFlaggedWorkerWokenThroughGuardChain(t *testing.T) {
 		t.Fatalf("sent = %v, want one to term_ada", f.sent)
 	}
 	text := f.sent[0].text
-	for _, want := range []string{"liveness", "idle-watch rule", "#100", "#120", "--since 100", "sinceSeq=100", "mark read", "as of send"} {
+	for _, want := range []string{"liveness", "idle-watch rule", "#100", "#120", "--since 100", "mark read", "as of send"} {
 		if !strings.Contains(text, want) {
 			t.Errorf("liveness text missing %q:\n%s", want, text)
 		}

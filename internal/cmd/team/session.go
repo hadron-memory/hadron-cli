@@ -1914,8 +1914,9 @@ func noteUnreadTeamChat(ctx context.Context, f *cmdutil.Factory, b *binding) {
 	// would read as ordinary backlog.
 	if b.ChatSeenSeq == nil {
 		// Says only what the CLI KNOWS. The watermark lives in this worktree's
-		// binding, so a read performed through the MCP tools — the surface this
-		// team predominantly works from — never reaches it, and asserting "you
+		// binding, and only `team chat read` run from this worktree writes it
+		// (recordChatWatermark), so a read made anywhere else — the portal, or
+		// another worktree's binding — never reaches it, and asserting "you
 		// have not read" to a worker who just did is a FALSE nudge. Reported
 		// live against this feature before it merged (team chat seq 102) by a
 		// worker in exactly that mixed mode.
@@ -1925,7 +1926,7 @@ func noteUnreadTeamChat(ctx context.Context, f *cmdutil.Factory, b *binding) {
 		// value being built here.
 		fmt.Fprintf(f.IOStreams.ErrOut,
 			"note: this worktree has no contiguous team-chat read cursor — `hadron team chat read --since 0` starts at the oldest page (repeat with nextSince); `hadron team chat read` shows the newest page "+
-				"(a read made through the MCP tools is not visible here)\n")
+				"(a read made in the portal or under another binding is not visible here)\n")
 		return
 	}
 	seen := *b.ChatSeenSeq
@@ -2027,8 +2028,8 @@ decision you missed can still change what you do. Best-effort and on
 stderr: the milestone is already recorded by the time it runs, so it never
 fails the write, and --json is untouched.
 
-The watermark is this WORKTREE's: a read made through the MCP tools does
-not reach it, so the note reports what this worktree knows rather than
+The watermark is this WORKTREE's: a read made in the portal or under another
+binding does not reach it, so the note reports what this worktree knows rather than
 what you have read. A cross-surface watermark is a server-side question.
 
 --model reports the LLM that produced THIS milestone, for a model switch or a
