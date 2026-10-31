@@ -70,6 +70,7 @@ func NewCmdUser(f *cmdutil.Factory) *cobra.Command {
 		Short:   "Find users and manage platform accounts (admin)",
 		Long: `Find user accounts and, as a platform admin, change them.
 
+  invite      create a platform invitation (server-authorized)
   search      find users by handle, GitHub username or email (anyone)
   set-roles   replace a user's platform roles (platform admin)
   merge       fold a duplicate account into another (admin, irreversible)
@@ -79,6 +80,7 @@ are hadron org member; your own name and handle are hadron profile set.`,
 		Example: `  hadron user search alice
   hadron user set-roles @jane --role contributor`,
 	}
+	cmd.AddCommand(newCmdInvite(f))
 	cmd.AddCommand(newCmdSearch(f))
 	cmd.AddCommand(newCmdSetRoles(f))
 	cmd.AddCommand(newCmdMerge(f))

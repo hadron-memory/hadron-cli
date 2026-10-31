@@ -441,6 +441,8 @@ hadron team health install --config <host.yaml> --interval <Nm> [--bin <abs hadr
 hadron team health uninstall   # removes exactly what install wrote, also after a failed install
 hadron team health status   # read-only; json {installed,scheduler,active,interval,binary,config,orca,files,lastRun{at,exitCode}}; lastRun unknown under cron
 hadron team router poll | loop [--interval 60s] | status [--config <path>]   # the Orca attention router (cli#829), on YOUR login: types one nudge line into an idle, empty-prompt roster worker's Orca terminal; never reads/posts/marks chat. Config: --config, $HADRON_ROUTER_CONFIG, ~/.config/hadron/team-router/config.json, else the TS router's config (same state dir + writer lock). poll --json {at, ok, error, nudged, dropped, covered, held{name:reason}, adopted, liveness, livenessDropped}; a failed poll exits 1 with the token unchanged; no config exit 2; status reads local state only (never the token)
+hadron org resend-sender create --org <ref> --from <identity> [--api-key-file <path|->] [--enabled=false] | get <sender-id> | list [--org-id <raw-id>] [--limit N] [--offset N] | update <sender-id> [--from <identity>] [--api-key-file <path|->] [--enabled=false] | rm <sender-id> --yes
+hadron user invite [--email <email>] [--github-username <name>] [--name <display-name>] [--expires-in-days N] [--max-activations N]   # platform invitation, not org membership; no email sent; deliver the returned acceptance slug privately
 hadron user search [query] [--limit N] [--offset N] | set-roles <userRef> --role <r>... --yes | merge <source> --into <target> --yes
 hadron profile set [--name <n>] [--handle <h>] [--email <e>]   # --email is accepted and REFUSED locally (exit 2, "Changing your email address is not supported here.") — the flag stays so scripts fail loudly (#844)
 hadron server-info
@@ -4426,6 +4428,41 @@ generic exit 1; no operation-specific override or future-server exit is promised
 
 This server formatter defect is tracked in hadron-server#2979; this CLI change
 does not fix it or classify its hidden domain code by message.
+
+## Resend senders and platform invitations
+
+`org resend-sender` manages the organization's stored Resend configuration;
+it does not send email. The server checks membership for reads and org
+ADMIN/OWNER for writes. Create takes an org ID, slug or URN via `--org`;
+get/update/rm take a sender ID. List spans accessible orgs unless `--org-id`
+sets a raw organization ID (not a slug/URN). Without pagination flags list
+pages to exhaustion; either `--limit` or `--offset` requests one page.
+
+The Resend API key is write-only. Never put it on the command line: use
+`--api-key-file ./resend.key` or `--api-key-file -` with stdin. Create with no
+file flag reads piped stdin or a masked terminal prompt. Update only rotates
+when that flag is explicitly supplied; other omitted fields stay unchanged,
+and explicit `--enabled=false` disables the sender. The server defaults create
+to enabled. Text and JSON expose `hasApiKey`, never the key. A credential-write
+failure preserves the mapped exit and serverCode, but withholds the backend
+diagnostic to prevent a reflected key. Do not blindly repeat a write after
+exit 7: check the sender first. Delete prompts on a terminal and requires
+`--yes` non-interactively. Null/missing get exits 4. List JSON is an array
+(empty: []); create/get/update return sender metadata objects; rm returns
+{id,deleted}. The key is never selected in GraphQL.
+
+`user invite` invokes the server's platform-invitation operation, with no
+organization membership. Server authorization remains authoritative. No email
+is sent: share the slug privately and accept with `hadron org invite accept
+<slug>` while signed in. Email, GitHub username and name are descriptive, not
+acceptance restrictions. Defaults: one activation, no expiry; explicit
+`--max-activations 0` means unlimited and `--expires-in-days 0` means never.
+Unset values are omitted so server defaults apply. JSON includes the slug and
+invitation metadata; treat the output as private.
+
+`org member add|set-role|rm` forwards orgRef/userRef, replacing deprecated
+orgId/userId arguments. Org ID/slug/URN and user ID/email/handle/URN are passed
+verbatim for server resolution. Command spellings and output stay unchanged.
 
 ### Team session inputs and host availability (#1337)
 

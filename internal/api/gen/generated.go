@@ -26062,6 +26062,132 @@ func (v *CreateRegisterEntryResponse) GetCreateRegisterEntry() *CreateRegisterEn
 	return v.CreateRegisterEntry
 }
 
+// CreateResendSenderCreateResendSender includes the requested fields of the GraphQL type ResendSender.
+// The GraphQL type's documentation follows.
+//
+// One org-owned BYO Resend sender. The API key is encrypted and write-only.
+type CreateResendSenderCreateResendSender struct {
+	ResendSenderFields `json:"-"`
+}
+
+// GetId returns CreateResendSenderCreateResendSender.Id, and is useful for accessing the field via an interface.
+func (v *CreateResendSenderCreateResendSender) GetId() string { return v.ResendSenderFields.Id }
+
+// GetOrganizationId returns CreateResendSenderCreateResendSender.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreateResendSenderCreateResendSender) GetOrganizationId() string {
+	return v.ResendSenderFields.OrganizationId
+}
+
+// GetFrom returns CreateResendSenderCreateResendSender.From, and is useful for accessing the field via an interface.
+func (v *CreateResendSenderCreateResendSender) GetFrom() string { return v.ResendSenderFields.From }
+
+// GetEnabled returns CreateResendSenderCreateResendSender.Enabled, and is useful for accessing the field via an interface.
+func (v *CreateResendSenderCreateResendSender) GetEnabled() bool { return v.ResendSenderFields.Enabled }
+
+// GetHasApiKey returns CreateResendSenderCreateResendSender.HasApiKey, and is useful for accessing the field via an interface.
+func (v *CreateResendSenderCreateResendSender) GetHasApiKey() bool {
+	return v.ResendSenderFields.HasApiKey
+}
+
+// GetCreatedAt returns CreateResendSenderCreateResendSender.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateResendSenderCreateResendSender) GetCreatedAt() string {
+	return v.ResendSenderFields.CreatedAt
+}
+
+// GetUpdatedAt returns CreateResendSenderCreateResendSender.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateResendSenderCreateResendSender) GetUpdatedAt() string {
+	return v.ResendSenderFields.UpdatedAt
+}
+
+// GetCreatedBy returns CreateResendSenderCreateResendSender.CreatedBy, and is useful for accessing the field via an interface.
+func (v *CreateResendSenderCreateResendSender) GetCreatedBy() *string {
+	return v.ResendSenderFields.CreatedBy
+}
+
+// GetUpdatedBy returns CreateResendSenderCreateResendSender.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *CreateResendSenderCreateResendSender) GetUpdatedBy() *string {
+	return v.ResendSenderFields.UpdatedBy
+}
+
+func (v *CreateResendSenderCreateResendSender) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateResendSenderCreateResendSender
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateResendSenderCreateResendSender = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ResendSenderFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateResendSenderCreateResendSender struct {
+	Id string `json:"id"`
+
+	OrganizationId string `json:"organizationId"`
+
+	From string `json:"from"`
+
+	Enabled bool `json:"enabled"`
+
+	HasApiKey bool `json:"hasApiKey"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	UpdatedBy *string `json:"updatedBy"`
+}
+
+func (v *CreateResendSenderCreateResendSender) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateResendSenderCreateResendSender) __premarshalJSON() (*__premarshalCreateResendSenderCreateResendSender, error) {
+	var retval __premarshalCreateResendSenderCreateResendSender
+
+	retval.Id = v.ResendSenderFields.Id
+	retval.OrganizationId = v.ResendSenderFields.OrganizationId
+	retval.From = v.ResendSenderFields.From
+	retval.Enabled = v.ResendSenderFields.Enabled
+	retval.HasApiKey = v.ResendSenderFields.HasApiKey
+	retval.CreatedAt = v.ResendSenderFields.CreatedAt
+	retval.UpdatedAt = v.ResendSenderFields.UpdatedAt
+	retval.CreatedBy = v.ResendSenderFields.CreatedBy
+	retval.UpdatedBy = v.ResendSenderFields.UpdatedBy
+	return &retval, nil
+}
+
+// CreateResendSenderResponse is returned by CreateResendSender on success.
+type CreateResendSenderResponse struct {
+	// Register one BYO Resend sender for an org. The API key is encrypted and never returned.
+	CreateResendSender *CreateResendSenderCreateResendSender `json:"createResendSender"`
+}
+
+// GetCreateResendSender returns CreateResendSenderResponse.CreateResendSender, and is useful for accessing the field via an interface.
+func (v *CreateResendSenderResponse) GetCreateResendSender() *CreateResendSenderCreateResendSender {
+	return v.CreateResendSender
+}
+
 // CreateResumeClaimCreateResumeClaimResumeClaimReceipt includes the requested fields of the GraphQL type ResumeClaimReceipt.
 // The GraphQL type's documentation follows.
 //
@@ -28235,6 +28361,15 @@ type DeleteRegisterEntryResponse struct {
 
 // GetDeleteRegisterEntry returns DeleteRegisterEntryResponse.DeleteRegisterEntry, and is useful for accessing the field via an interface.
 func (v *DeleteRegisterEntryResponse) GetDeleteRegisterEntry() bool { return v.DeleteRegisterEntry }
+
+// DeleteResendSenderResponse is returned by DeleteResendSender on success.
+type DeleteResendSenderResponse struct {
+	// Hard-delete an org's BYO Resend sender.
+	DeleteResendSender bool `json:"deleteResendSender"`
+}
+
+// GetDeleteResendSender returns DeleteResendSenderResponse.DeleteResendSender, and is useful for accessing the field via an interface.
+func (v *DeleteResendSenderResponse) GetDeleteResendSender() bool { return v.DeleteResendSender }
 
 // DeleteScopeResponse is returned by DeleteScope on success.
 type DeleteScopeResponse struct {
@@ -33235,6 +33370,122 @@ func (v *GetRegisterEntryResponse) GetRegisterEntry() *GetRegisterEntryRegisterE
 	return v.RegisterEntry
 }
 
+// GetResendSenderResendSender includes the requested fields of the GraphQL type ResendSender.
+// The GraphQL type's documentation follows.
+//
+// One org-owned BYO Resend sender. The API key is encrypted and write-only.
+type GetResendSenderResendSender struct {
+	ResendSenderFields `json:"-"`
+}
+
+// GetId returns GetResendSenderResendSender.Id, and is useful for accessing the field via an interface.
+func (v *GetResendSenderResendSender) GetId() string { return v.ResendSenderFields.Id }
+
+// GetOrganizationId returns GetResendSenderResendSender.OrganizationId, and is useful for accessing the field via an interface.
+func (v *GetResendSenderResendSender) GetOrganizationId() string {
+	return v.ResendSenderFields.OrganizationId
+}
+
+// GetFrom returns GetResendSenderResendSender.From, and is useful for accessing the field via an interface.
+func (v *GetResendSenderResendSender) GetFrom() string { return v.ResendSenderFields.From }
+
+// GetEnabled returns GetResendSenderResendSender.Enabled, and is useful for accessing the field via an interface.
+func (v *GetResendSenderResendSender) GetEnabled() bool { return v.ResendSenderFields.Enabled }
+
+// GetHasApiKey returns GetResendSenderResendSender.HasApiKey, and is useful for accessing the field via an interface.
+func (v *GetResendSenderResendSender) GetHasApiKey() bool { return v.ResendSenderFields.HasApiKey }
+
+// GetCreatedAt returns GetResendSenderResendSender.CreatedAt, and is useful for accessing the field via an interface.
+func (v *GetResendSenderResendSender) GetCreatedAt() string { return v.ResendSenderFields.CreatedAt }
+
+// GetUpdatedAt returns GetResendSenderResendSender.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *GetResendSenderResendSender) GetUpdatedAt() string { return v.ResendSenderFields.UpdatedAt }
+
+// GetCreatedBy returns GetResendSenderResendSender.CreatedBy, and is useful for accessing the field via an interface.
+func (v *GetResendSenderResendSender) GetCreatedBy() *string { return v.ResendSenderFields.CreatedBy }
+
+// GetUpdatedBy returns GetResendSenderResendSender.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *GetResendSenderResendSender) GetUpdatedBy() *string { return v.ResendSenderFields.UpdatedBy }
+
+func (v *GetResendSenderResendSender) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetResendSenderResendSender
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetResendSenderResendSender = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ResendSenderFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetResendSenderResendSender struct {
+	Id string `json:"id"`
+
+	OrganizationId string `json:"organizationId"`
+
+	From string `json:"from"`
+
+	Enabled bool `json:"enabled"`
+
+	HasApiKey bool `json:"hasApiKey"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	UpdatedBy *string `json:"updatedBy"`
+}
+
+func (v *GetResendSenderResendSender) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetResendSenderResendSender) __premarshalJSON() (*__premarshalGetResendSenderResendSender, error) {
+	var retval __premarshalGetResendSenderResendSender
+
+	retval.Id = v.ResendSenderFields.Id
+	retval.OrganizationId = v.ResendSenderFields.OrganizationId
+	retval.From = v.ResendSenderFields.From
+	retval.Enabled = v.ResendSenderFields.Enabled
+	retval.HasApiKey = v.ResendSenderFields.HasApiKey
+	retval.CreatedAt = v.ResendSenderFields.CreatedAt
+	retval.UpdatedAt = v.ResendSenderFields.UpdatedAt
+	retval.CreatedBy = v.ResendSenderFields.CreatedBy
+	retval.UpdatedBy = v.ResendSenderFields.UpdatedBy
+	return &retval, nil
+}
+
+// GetResendSenderResponse is returned by GetResendSender on success.
+type GetResendSenderResponse struct {
+	// Fetch one sanitized BYO Resend sender config; null for missing or inaccessible.
+	ResendSender *GetResendSenderResendSender `json:"resendSender"`
+}
+
+// GetResendSender returns GetResendSenderResponse.ResendSender, and is useful for accessing the field via an interface.
+func (v *GetResendSenderResponse) GetResendSender() *GetResendSenderResendSender {
+	return v.ResendSender
+}
+
 // GetScopeResponse is returned by GetScope on success.
 type GetScopeResponse struct {
 	// Spec 049 Phase 2 — the uniform single-scope read (cor:api:120). 'ref' is
@@ -36760,6 +37011,152 @@ func (v *InvitationFields) GetAcceptedAt() *string { return v.AcceptedAt }
 // GetCreatedAt returns InvitationFields.CreatedAt, and is useful for accessing the field via an interface.
 func (v *InvitationFields) GetCreatedAt() string { return v.CreatedAt }
 
+// InviteUserInviteUserUserInvitation includes the requested fields of the GraphQL type UserInvitation.
+// The GraphQL type's documentation follows.
+//
+// Invitation to join the platform (and optionally an organization)
+type InviteUserInviteUserUserInvitation struct {
+	InvitationFields `json:"-"`
+}
+
+// GetId returns InviteUserInviteUserUserInvitation.Id, and is useful for accessing the field via an interface.
+func (v *InviteUserInviteUserUserInvitation) GetId() string { return v.InvitationFields.Id }
+
+// GetSlug returns InviteUserInviteUserUserInvitation.Slug, and is useful for accessing the field via an interface.
+func (v *InviteUserInviteUserUserInvitation) GetSlug() string { return v.InvitationFields.Slug }
+
+// GetEmail returns InviteUserInviteUserUserInvitation.Email, and is useful for accessing the field via an interface.
+func (v *InviteUserInviteUserUserInvitation) GetEmail() *string { return v.InvitationFields.Email }
+
+// GetName returns InviteUserInviteUserUserInvitation.Name, and is useful for accessing the field via an interface.
+func (v *InviteUserInviteUserUserInvitation) GetName() *string { return v.InvitationFields.Name }
+
+// GetGithubUsername returns InviteUserInviteUserUserInvitation.GithubUsername, and is useful for accessing the field via an interface.
+func (v *InviteUserInviteUserUserInvitation) GetGithubUsername() *string {
+	return v.InvitationFields.GithubUsername
+}
+
+// GetMemberRole returns InviteUserInviteUserUserInvitation.MemberRole, and is useful for accessing the field via an interface.
+func (v *InviteUserInviteUserUserInvitation) GetMemberRole() Role {
+	return v.InvitationFields.MemberRole
+}
+
+// GetOrganizationId returns InviteUserInviteUserUserInvitation.OrganizationId, and is useful for accessing the field via an interface.
+func (v *InviteUserInviteUserUserInvitation) GetOrganizationId() *string {
+	return v.InvitationFields.OrganizationId
+}
+
+// GetMaxActivations returns InviteUserInviteUserUserInvitation.MaxActivations, and is useful for accessing the field via an interface.
+func (v *InviteUserInviteUserUserInvitation) GetMaxActivations() *int {
+	return v.InvitationFields.MaxActivations
+}
+
+// GetActivationCount returns InviteUserInviteUserUserInvitation.ActivationCount, and is useful for accessing the field via an interface.
+func (v *InviteUserInviteUserUserInvitation) GetActivationCount() int {
+	return v.InvitationFields.ActivationCount
+}
+
+// GetExpiresAt returns InviteUserInviteUserUserInvitation.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *InviteUserInviteUserUserInvitation) GetExpiresAt() *string {
+	return v.InvitationFields.ExpiresAt
+}
+
+// GetAcceptedAt returns InviteUserInviteUserUserInvitation.AcceptedAt, and is useful for accessing the field via an interface.
+func (v *InviteUserInviteUserUserInvitation) GetAcceptedAt() *string {
+	return v.InvitationFields.AcceptedAt
+}
+
+// GetCreatedAt returns InviteUserInviteUserUserInvitation.CreatedAt, and is useful for accessing the field via an interface.
+func (v *InviteUserInviteUserUserInvitation) GetCreatedAt() string {
+	return v.InvitationFields.CreatedAt
+}
+
+func (v *InviteUserInviteUserUserInvitation) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*InviteUserInviteUserUserInvitation
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.InviteUserInviteUserUserInvitation = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.InvitationFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalInviteUserInviteUserUserInvitation struct {
+	Id string `json:"id"`
+
+	Slug string `json:"slug"`
+
+	Email *string `json:"email"`
+
+	Name *string `json:"name"`
+
+	GithubUsername *string `json:"githubUsername"`
+
+	MemberRole Role `json:"memberRole"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	MaxActivations *int `json:"maxActivations"`
+
+	ActivationCount int `json:"activationCount"`
+
+	ExpiresAt *string `json:"expiresAt"`
+
+	AcceptedAt *string `json:"acceptedAt"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *InviteUserInviteUserUserInvitation) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *InviteUserInviteUserUserInvitation) __premarshalJSON() (*__premarshalInviteUserInviteUserUserInvitation, error) {
+	var retval __premarshalInviteUserInviteUserUserInvitation
+
+	retval.Id = v.InvitationFields.Id
+	retval.Slug = v.InvitationFields.Slug
+	retval.Email = v.InvitationFields.Email
+	retval.Name = v.InvitationFields.Name
+	retval.GithubUsername = v.InvitationFields.GithubUsername
+	retval.MemberRole = v.InvitationFields.MemberRole
+	retval.OrganizationId = v.InvitationFields.OrganizationId
+	retval.MaxActivations = v.InvitationFields.MaxActivations
+	retval.ActivationCount = v.InvitationFields.ActivationCount
+	retval.ExpiresAt = v.InvitationFields.ExpiresAt
+	retval.AcceptedAt = v.InvitationFields.AcceptedAt
+	retval.CreatedAt = v.InvitationFields.CreatedAt
+	return &retval, nil
+}
+
+// InviteUserResponse is returned by InviteUser on success.
+type InviteUserResponse struct {
+	// Platform invite — no org association, just onboards a new user
+	InviteUser *InviteUserInviteUserUserInvitation `json:"inviteUser"`
+}
+
+// GetInviteUser returns InviteUserResponse.InviteUser, and is useful for accessing the field via an interface.
+func (v *InviteUserResponse) GetInviteUser() *InviteUserInviteUserUserInvitation { return v.InviteUser }
+
 // IsolateWorkerIsolateWorkerWorkerWakeSettings includes the requested fields of the GraphQL type WorkerWakeSettings.
 // The GraphQL type's documentation follows.
 //
@@ -37486,6 +37883,152 @@ var AllLintKind = []LintKind{
 	LintKindRetiredTarget,
 	LintKindSigningNotChecked,
 	LintKindWorkerLinkMissing,
+}
+
+// ListResendSendersResendSendersResendSendersPage includes the requested fields of the GraphQL type ResendSendersPage.
+type ListResendSendersResendSendersResendSendersPage struct {
+	Items []*ListResendSendersResendSendersResendSendersPageItemsResendSender `json:"items"`
+	Total int                                                                 `json:"total"`
+}
+
+// GetItems returns ListResendSendersResendSendersResendSendersPage.Items, and is useful for accessing the field via an interface.
+func (v *ListResendSendersResendSendersResendSendersPage) GetItems() []*ListResendSendersResendSendersResendSendersPageItemsResendSender {
+	return v.Items
+}
+
+// GetTotal returns ListResendSendersResendSendersResendSendersPage.Total, and is useful for accessing the field via an interface.
+func (v *ListResendSendersResendSendersResendSendersPage) GetTotal() int { return v.Total }
+
+// ListResendSendersResendSendersResendSendersPageItemsResendSender includes the requested fields of the GraphQL type ResendSender.
+// The GraphQL type's documentation follows.
+//
+// One org-owned BYO Resend sender. The API key is encrypted and write-only.
+type ListResendSendersResendSendersResendSendersPageItemsResendSender struct {
+	ResendSenderFields `json:"-"`
+}
+
+// GetId returns ListResendSendersResendSendersResendSendersPageItemsResendSender.Id, and is useful for accessing the field via an interface.
+func (v *ListResendSendersResendSendersResendSendersPageItemsResendSender) GetId() string {
+	return v.ResendSenderFields.Id
+}
+
+// GetOrganizationId returns ListResendSendersResendSendersResendSendersPageItemsResendSender.OrganizationId, and is useful for accessing the field via an interface.
+func (v *ListResendSendersResendSendersResendSendersPageItemsResendSender) GetOrganizationId() string {
+	return v.ResendSenderFields.OrganizationId
+}
+
+// GetFrom returns ListResendSendersResendSendersResendSendersPageItemsResendSender.From, and is useful for accessing the field via an interface.
+func (v *ListResendSendersResendSendersResendSendersPageItemsResendSender) GetFrom() string {
+	return v.ResendSenderFields.From
+}
+
+// GetEnabled returns ListResendSendersResendSendersResendSendersPageItemsResendSender.Enabled, and is useful for accessing the field via an interface.
+func (v *ListResendSendersResendSendersResendSendersPageItemsResendSender) GetEnabled() bool {
+	return v.ResendSenderFields.Enabled
+}
+
+// GetHasApiKey returns ListResendSendersResendSendersResendSendersPageItemsResendSender.HasApiKey, and is useful for accessing the field via an interface.
+func (v *ListResendSendersResendSendersResendSendersPageItemsResendSender) GetHasApiKey() bool {
+	return v.ResendSenderFields.HasApiKey
+}
+
+// GetCreatedAt returns ListResendSendersResendSendersResendSendersPageItemsResendSender.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ListResendSendersResendSendersResendSendersPageItemsResendSender) GetCreatedAt() string {
+	return v.ResendSenderFields.CreatedAt
+}
+
+// GetUpdatedAt returns ListResendSendersResendSendersResendSendersPageItemsResendSender.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *ListResendSendersResendSendersResendSendersPageItemsResendSender) GetUpdatedAt() string {
+	return v.ResendSenderFields.UpdatedAt
+}
+
+// GetCreatedBy returns ListResendSendersResendSendersResendSendersPageItemsResendSender.CreatedBy, and is useful for accessing the field via an interface.
+func (v *ListResendSendersResendSendersResendSendersPageItemsResendSender) GetCreatedBy() *string {
+	return v.ResendSenderFields.CreatedBy
+}
+
+// GetUpdatedBy returns ListResendSendersResendSendersResendSendersPageItemsResendSender.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *ListResendSendersResendSendersResendSendersPageItemsResendSender) GetUpdatedBy() *string {
+	return v.ResendSenderFields.UpdatedBy
+}
+
+func (v *ListResendSendersResendSendersResendSendersPageItemsResendSender) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ListResendSendersResendSendersResendSendersPageItemsResendSender
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ListResendSendersResendSendersResendSendersPageItemsResendSender = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ResendSenderFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalListResendSendersResendSendersResendSendersPageItemsResendSender struct {
+	Id string `json:"id"`
+
+	OrganizationId string `json:"organizationId"`
+
+	From string `json:"from"`
+
+	Enabled bool `json:"enabled"`
+
+	HasApiKey bool `json:"hasApiKey"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	UpdatedBy *string `json:"updatedBy"`
+}
+
+func (v *ListResendSendersResendSendersResendSendersPageItemsResendSender) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ListResendSendersResendSendersResendSendersPageItemsResendSender) __premarshalJSON() (*__premarshalListResendSendersResendSendersResendSendersPageItemsResendSender, error) {
+	var retval __premarshalListResendSendersResendSendersResendSendersPageItemsResendSender
+
+	retval.Id = v.ResendSenderFields.Id
+	retval.OrganizationId = v.ResendSenderFields.OrganizationId
+	retval.From = v.ResendSenderFields.From
+	retval.Enabled = v.ResendSenderFields.Enabled
+	retval.HasApiKey = v.ResendSenderFields.HasApiKey
+	retval.CreatedAt = v.ResendSenderFields.CreatedAt
+	retval.UpdatedAt = v.ResendSenderFields.UpdatedAt
+	retval.CreatedBy = v.ResendSenderFields.CreatedBy
+	retval.UpdatedBy = v.ResendSenderFields.UpdatedBy
+	return &retval, nil
+}
+
+// ListResendSendersResponse is returned by ListResendSenders on success.
+type ListResendSendersResponse struct {
+	// Uniform paginated BYO Resend sender list scoped to the caller's member orgs.
+	ResendSenders *ListResendSendersResendSendersResendSendersPage `json:"resendSenders"`
+}
+
+// GetResendSenders returns ListResendSendersResponse.ResendSenders, and is useful for accessing the field via an interface.
+func (v *ListResendSendersResponse) GetResendSenders() *ListResendSendersResendSendersResendSendersPage {
+	return v.ResendSenders
 }
 
 // ListTickersPageResponse is returned by ListTickersPage on success.
@@ -49578,6 +50121,51 @@ type RequestNodeSignatureResponse struct {
 func (v *RequestNodeSignatureResponse) GetRequestNodeSignature() *RequestNodeSignatureRequestNodeSignatureSigningRequest {
 	return v.RequestNodeSignature
 }
+
+// ResendSenderFields includes the GraphQL fields of ResendSender requested by the fragment ResendSenderFields.
+// The GraphQL type's documentation follows.
+//
+// One org-owned BYO Resend sender. The API key is encrypted and write-only.
+type ResendSenderFields struct {
+	Id             string `json:"id"`
+	OrganizationId string `json:"organizationId"`
+	// Fixed sender identity, e.g. Hadron Agent <agent@example.com>; Resend enforces verification.
+	From    string `json:"from"`
+	Enabled bool   `json:"enabled"`
+	// Whether an encrypted API key is stored; the key is never returned.
+	HasApiKey bool    `json:"hasApiKey"`
+	CreatedAt string  `json:"createdAt"`
+	UpdatedAt string  `json:"updatedAt"`
+	CreatedBy *string `json:"createdBy"`
+	UpdatedBy *string `json:"updatedBy"`
+}
+
+// GetId returns ResendSenderFields.Id, and is useful for accessing the field via an interface.
+func (v *ResendSenderFields) GetId() string { return v.Id }
+
+// GetOrganizationId returns ResendSenderFields.OrganizationId, and is useful for accessing the field via an interface.
+func (v *ResendSenderFields) GetOrganizationId() string { return v.OrganizationId }
+
+// GetFrom returns ResendSenderFields.From, and is useful for accessing the field via an interface.
+func (v *ResendSenderFields) GetFrom() string { return v.From }
+
+// GetEnabled returns ResendSenderFields.Enabled, and is useful for accessing the field via an interface.
+func (v *ResendSenderFields) GetEnabled() bool { return v.Enabled }
+
+// GetHasApiKey returns ResendSenderFields.HasApiKey, and is useful for accessing the field via an interface.
+func (v *ResendSenderFields) GetHasApiKey() bool { return v.HasApiKey }
+
+// GetCreatedAt returns ResendSenderFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ResendSenderFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUpdatedAt returns ResendSenderFields.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *ResendSenderFields) GetUpdatedAt() string { return v.UpdatedAt }
+
+// GetCreatedBy returns ResendSenderFields.CreatedBy, and is useful for accessing the field via an interface.
+func (v *ResendSenderFields) GetCreatedBy() *string { return v.CreatedBy }
+
+// GetUpdatedBy returns ResendSenderFields.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *ResendSenderFields) GetUpdatedBy() *string { return v.UpdatedBy }
 
 // ReserveSpecCitationReserveSpecCitationNode includes the requested fields of the GraphQL type Node.
 type ReserveSpecCitationReserveSpecCitationNode struct {
@@ -71294,6 +71882,132 @@ func (v *UpdateRegisterEntryUpdateRegisterEntry) __premarshalJSON() (*__premarsh
 	return &retval, nil
 }
 
+// UpdateResendSenderResponse is returned by UpdateResendSender on success.
+type UpdateResendSenderResponse struct {
+	// Update the fixed sender, replace its write-only API key, or enable/disable it.
+	UpdateResendSender *UpdateResendSenderUpdateResendSender `json:"updateResendSender"`
+}
+
+// GetUpdateResendSender returns UpdateResendSenderResponse.UpdateResendSender, and is useful for accessing the field via an interface.
+func (v *UpdateResendSenderResponse) GetUpdateResendSender() *UpdateResendSenderUpdateResendSender {
+	return v.UpdateResendSender
+}
+
+// UpdateResendSenderUpdateResendSender includes the requested fields of the GraphQL type ResendSender.
+// The GraphQL type's documentation follows.
+//
+// One org-owned BYO Resend sender. The API key is encrypted and write-only.
+type UpdateResendSenderUpdateResendSender struct {
+	ResendSenderFields `json:"-"`
+}
+
+// GetId returns UpdateResendSenderUpdateResendSender.Id, and is useful for accessing the field via an interface.
+func (v *UpdateResendSenderUpdateResendSender) GetId() string { return v.ResendSenderFields.Id }
+
+// GetOrganizationId returns UpdateResendSenderUpdateResendSender.OrganizationId, and is useful for accessing the field via an interface.
+func (v *UpdateResendSenderUpdateResendSender) GetOrganizationId() string {
+	return v.ResendSenderFields.OrganizationId
+}
+
+// GetFrom returns UpdateResendSenderUpdateResendSender.From, and is useful for accessing the field via an interface.
+func (v *UpdateResendSenderUpdateResendSender) GetFrom() string { return v.ResendSenderFields.From }
+
+// GetEnabled returns UpdateResendSenderUpdateResendSender.Enabled, and is useful for accessing the field via an interface.
+func (v *UpdateResendSenderUpdateResendSender) GetEnabled() bool { return v.ResendSenderFields.Enabled }
+
+// GetHasApiKey returns UpdateResendSenderUpdateResendSender.HasApiKey, and is useful for accessing the field via an interface.
+func (v *UpdateResendSenderUpdateResendSender) GetHasApiKey() bool {
+	return v.ResendSenderFields.HasApiKey
+}
+
+// GetCreatedAt returns UpdateResendSenderUpdateResendSender.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateResendSenderUpdateResendSender) GetCreatedAt() string {
+	return v.ResendSenderFields.CreatedAt
+}
+
+// GetUpdatedAt returns UpdateResendSenderUpdateResendSender.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateResendSenderUpdateResendSender) GetUpdatedAt() string {
+	return v.ResendSenderFields.UpdatedAt
+}
+
+// GetCreatedBy returns UpdateResendSenderUpdateResendSender.CreatedBy, and is useful for accessing the field via an interface.
+func (v *UpdateResendSenderUpdateResendSender) GetCreatedBy() *string {
+	return v.ResendSenderFields.CreatedBy
+}
+
+// GetUpdatedBy returns UpdateResendSenderUpdateResendSender.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *UpdateResendSenderUpdateResendSender) GetUpdatedBy() *string {
+	return v.ResendSenderFields.UpdatedBy
+}
+
+func (v *UpdateResendSenderUpdateResendSender) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateResendSenderUpdateResendSender
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateResendSenderUpdateResendSender = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ResendSenderFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateResendSenderUpdateResendSender struct {
+	Id string `json:"id"`
+
+	OrganizationId string `json:"organizationId"`
+
+	From string `json:"from"`
+
+	Enabled bool `json:"enabled"`
+
+	HasApiKey bool `json:"hasApiKey"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	UpdatedBy *string `json:"updatedBy"`
+}
+
+func (v *UpdateResendSenderUpdateResendSender) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateResendSenderUpdateResendSender) __premarshalJSON() (*__premarshalUpdateResendSenderUpdateResendSender, error) {
+	var retval __premarshalUpdateResendSenderUpdateResendSender
+
+	retval.Id = v.ResendSenderFields.Id
+	retval.OrganizationId = v.ResendSenderFields.OrganizationId
+	retval.From = v.ResendSenderFields.From
+	retval.Enabled = v.ResendSenderFields.Enabled
+	retval.HasApiKey = v.ResendSenderFields.HasApiKey
+	retval.CreatedAt = v.ResendSenderFields.CreatedAt
+	retval.UpdatedAt = v.ResendSenderFields.UpdatedAt
+	retval.CreatedBy = v.ResendSenderFields.CreatedBy
+	retval.UpdatedBy = v.ResendSenderFields.UpdatedBy
+	return &retval, nil
+}
+
 // UpdateReviewNodeClearingRoleResponse is returned by UpdateReviewNodeClearingRole on success.
 type UpdateReviewNodeClearingRoleResponse struct {
 	// #1201 — the UPDATE door for the review kind, and the counterpart of
@@ -76201,16 +76915,16 @@ func (v *__AddMemoryMemberInput) GetRole() MemoryMemberRole { return v.Role }
 
 // __AddOrgMemberInput is used internally by genqlient
 type __AddOrgMemberInput struct {
-	OrgId  string `json:"orgId"`
-	UserId string `json:"userId"`
-	Role   Role   `json:"role"`
+	OrgRef  string `json:"orgRef"`
+	UserRef string `json:"userRef"`
+	Role    Role   `json:"role"`
 }
 
-// GetOrgId returns __AddOrgMemberInput.OrgId, and is useful for accessing the field via an interface.
-func (v *__AddOrgMemberInput) GetOrgId() string { return v.OrgId }
+// GetOrgRef returns __AddOrgMemberInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__AddOrgMemberInput) GetOrgRef() string { return v.OrgRef }
 
-// GetUserId returns __AddOrgMemberInput.UserId, and is useful for accessing the field via an interface.
-func (v *__AddOrgMemberInput) GetUserId() string { return v.UserId }
+// GetUserRef returns __AddOrgMemberInput.UserRef, and is useful for accessing the field via an interface.
+func (v *__AddOrgMemberInput) GetUserRef() string { return v.UserRef }
 
 // GetRole returns __AddOrgMemberInput.Role, and is useful for accessing the field via an interface.
 func (v *__AddOrgMemberInput) GetRole() Role { return v.Role }
@@ -78571,6 +79285,26 @@ type __CreateRegisterEntryInput struct {
 // GetInput returns __CreateRegisterEntryInput.Input, and is useful for accessing the field via an interface.
 func (v *__CreateRegisterEntryInput) GetInput() *CreateRegisterEntryInput { return v.Input }
 
+// __CreateResendSenderInput is used internally by genqlient
+type __CreateResendSenderInput struct {
+	OrgRef  string `json:"orgRef"`
+	From    string `json:"from"`
+	ApiKey  string `json:"apiKey"`
+	Enabled *bool  `json:"enabled,omitempty"`
+}
+
+// GetOrgRef returns __CreateResendSenderInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__CreateResendSenderInput) GetOrgRef() string { return v.OrgRef }
+
+// GetFrom returns __CreateResendSenderInput.From, and is useful for accessing the field via an interface.
+func (v *__CreateResendSenderInput) GetFrom() string { return v.From }
+
+// GetApiKey returns __CreateResendSenderInput.ApiKey, and is useful for accessing the field via an interface.
+func (v *__CreateResendSenderInput) GetApiKey() string { return v.ApiKey }
+
+// GetEnabled returns __CreateResendSenderInput.Enabled, and is useful for accessing the field via an interface.
+func (v *__CreateResendSenderInput) GetEnabled() *bool { return v.Enabled }
+
 // __CreateResumeClaimInput is used internally by genqlient
 type __CreateResumeClaimInput struct {
 	SessionId string `json:"sessionId"`
@@ -78970,6 +79704,14 @@ type __DeleteRegisterEntryInput struct {
 
 // GetRef returns __DeleteRegisterEntryInput.Ref, and is useful for accessing the field via an interface.
 func (v *__DeleteRegisterEntryInput) GetRef() string { return v.Ref }
+
+// __DeleteResendSenderInput is used internally by genqlient
+type __DeleteResendSenderInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __DeleteResendSenderInput.Ref, and is useful for accessing the field via an interface.
+func (v *__DeleteResendSenderInput) GetRef() string { return v.Ref }
 
 // __DeleteScopeInput is used internally by genqlient
 type __DeleteScopeInput struct {
@@ -79529,6 +80271,14 @@ type __GetRegisterEntryInput struct {
 // GetRef returns __GetRegisterEntryInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetRegisterEntryInput) GetRef() string { return v.Ref }
 
+// __GetResendSenderInput is used internally by genqlient
+type __GetResendSenderInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetResendSenderInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetResendSenderInput) GetRef() string { return v.Ref }
+
 // __GetScopeInput is used internally by genqlient
 type __GetScopeInput struct {
 	Ref string `json:"ref"`
@@ -79769,6 +80519,30 @@ func (v *__InstallMemoryInput) GetAppRef() string { return v.AppRef }
 // GetAgentRef returns __InstallMemoryInput.AgentRef, and is useful for accessing the field via an interface.
 func (v *__InstallMemoryInput) GetAgentRef() string { return v.AgentRef }
 
+// __InviteUserInput is used internally by genqlient
+type __InviteUserInput struct {
+	Email          *string `json:"email,omitempty"`
+	GithubUsername *string `json:"githubUsername,omitempty"`
+	Name           *string `json:"name,omitempty"`
+	ExpiresInDays  *int    `json:"expiresInDays,omitempty"`
+	MaxActivations *int    `json:"maxActivations,omitempty"`
+}
+
+// GetEmail returns __InviteUserInput.Email, and is useful for accessing the field via an interface.
+func (v *__InviteUserInput) GetEmail() *string { return v.Email }
+
+// GetGithubUsername returns __InviteUserInput.GithubUsername, and is useful for accessing the field via an interface.
+func (v *__InviteUserInput) GetGithubUsername() *string { return v.GithubUsername }
+
+// GetName returns __InviteUserInput.Name, and is useful for accessing the field via an interface.
+func (v *__InviteUserInput) GetName() *string { return v.Name }
+
+// GetExpiresInDays returns __InviteUserInput.ExpiresInDays, and is useful for accessing the field via an interface.
+func (v *__InviteUserInput) GetExpiresInDays() *int { return v.ExpiresInDays }
+
+// GetMaxActivations returns __InviteUserInput.MaxActivations, and is useful for accessing the field via an interface.
+func (v *__InviteUserInput) GetMaxActivations() *int { return v.MaxActivations }
+
 // __IsolateWorkerInput is used internally by genqlient
 type __IsolateWorkerInput struct {
 	WorkerRef string  `json:"workerRef"`
@@ -79812,6 +80586,22 @@ func (v *__LinkMemoryToUserInput) GetMemoryId() string { return v.MemoryId }
 
 // GetExternalUserId returns __LinkMemoryToUserInput.ExternalUserId, and is useful for accessing the field via an interface.
 func (v *__LinkMemoryToUserInput) GetExternalUserId() string { return v.ExternalUserId }
+
+// __ListResendSendersInput is used internally by genqlient
+type __ListResendSendersInput struct {
+	OrgId  *string `json:"orgId,omitempty"`
+	Limit  *int    `json:"limit,omitempty"`
+	Offset *int    `json:"offset,omitempty"`
+}
+
+// GetOrgId returns __ListResendSendersInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__ListResendSendersInput) GetOrgId() *string { return v.OrgId }
+
+// GetLimit returns __ListResendSendersInput.Limit, and is useful for accessing the field via an interface.
+func (v *__ListResendSendersInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __ListResendSendersInput.Offset, and is useful for accessing the field via an interface.
+func (v *__ListResendSendersInput) GetOffset() *int { return v.Offset }
 
 // __ListTickersInput is used internally by genqlient
 type __ListTickersInput struct {
@@ -80621,15 +81411,15 @@ func (v *__RemoveMemoryMemberInput) GetUserRef() string { return v.UserRef }
 
 // __RemoveOrgMemberInput is used internally by genqlient
 type __RemoveOrgMemberInput struct {
-	OrgId  string `json:"orgId"`
-	UserId string `json:"userId"`
+	OrgRef  string `json:"orgRef"`
+	UserRef string `json:"userRef"`
 }
 
-// GetOrgId returns __RemoveOrgMemberInput.OrgId, and is useful for accessing the field via an interface.
-func (v *__RemoveOrgMemberInput) GetOrgId() string { return v.OrgId }
+// GetOrgRef returns __RemoveOrgMemberInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__RemoveOrgMemberInput) GetOrgRef() string { return v.OrgRef }
 
-// GetUserId returns __RemoveOrgMemberInput.UserId, and is useful for accessing the field via an interface.
-func (v *__RemoveOrgMemberInput) GetUserId() string { return v.UserId }
+// GetUserRef returns __RemoveOrgMemberInput.UserRef, and is useful for accessing the field via an interface.
+func (v *__RemoveOrgMemberInput) GetUserRef() string { return v.UserRef }
 
 // __RenumberSpecInput is used internally by genqlient
 type __RenumberSpecInput struct {
@@ -82827,16 +83617,16 @@ func (v *__UpdateObjectInput) GetReason() *string { return v.Reason }
 
 // __UpdateOrgMemberInput is used internally by genqlient
 type __UpdateOrgMemberInput struct {
-	OrgId  string `json:"orgId"`
-	UserId string `json:"userId"`
-	Role   Role   `json:"role"`
+	OrgRef  string `json:"orgRef"`
+	UserRef string `json:"userRef"`
+	Role    Role   `json:"role"`
 }
 
-// GetOrgId returns __UpdateOrgMemberInput.OrgId, and is useful for accessing the field via an interface.
-func (v *__UpdateOrgMemberInput) GetOrgId() string { return v.OrgId }
+// GetOrgRef returns __UpdateOrgMemberInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__UpdateOrgMemberInput) GetOrgRef() string { return v.OrgRef }
 
-// GetUserId returns __UpdateOrgMemberInput.UserId, and is useful for accessing the field via an interface.
-func (v *__UpdateOrgMemberInput) GetUserId() string { return v.UserId }
+// GetUserRef returns __UpdateOrgMemberInput.UserRef, and is useful for accessing the field via an interface.
+func (v *__UpdateOrgMemberInput) GetUserRef() string { return v.UserRef }
 
 // GetRole returns __UpdateOrgMemberInput.Role, and is useful for accessing the field via an interface.
 func (v *__UpdateOrgMemberInput) GetRole() Role { return v.Role }
@@ -82872,6 +83662,26 @@ func (v *__UpdateRegisterEntryInput) GetRef() string { return v.Ref }
 
 // GetInput returns __UpdateRegisterEntryInput.Input, and is useful for accessing the field via an interface.
 func (v *__UpdateRegisterEntryInput) GetInput() *UpdateRegisterEntryInput { return v.Input }
+
+// __UpdateResendSenderInput is used internally by genqlient
+type __UpdateResendSenderInput struct {
+	Ref     string  `json:"ref"`
+	From    *string `json:"from,omitempty"`
+	ApiKey  *string `json:"apiKey,omitempty"`
+	Enabled *bool   `json:"enabled,omitempty"`
+}
+
+// GetRef returns __UpdateResendSenderInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateResendSenderInput) GetRef() string { return v.Ref }
+
+// GetFrom returns __UpdateResendSenderInput.From, and is useful for accessing the field via an interface.
+func (v *__UpdateResendSenderInput) GetFrom() *string { return v.From }
+
+// GetApiKey returns __UpdateResendSenderInput.ApiKey, and is useful for accessing the field via an interface.
+func (v *__UpdateResendSenderInput) GetApiKey() *string { return v.ApiKey }
+
+// GetEnabled returns __UpdateResendSenderInput.Enabled, and is useful for accessing the field via an interface.
+func (v *__UpdateResendSenderInput) GetEnabled() *bool { return v.Enabled }
 
 // __UpdateReviewNodeClearingRoleInput is used internally by genqlient
 type __UpdateReviewNodeClearingRoleInput struct {
@@ -83693,8 +84503,8 @@ func AddMemoryMember(
 
 // The mutation executed by AddOrgMember.
 const AddOrgMember_Operation = `
-mutation AddOrgMember ($orgId: ID!, $userId: ID!, $role: Role!) {
-	addOrgMember(orgId: $orgId, userId: $userId, role: $role) {
+mutation AddOrgMember ($orgRef: String!, $userRef: String!, $role: Role!) {
+	addOrgMember(orgRef: $orgRef, userRef: $userRef, role: $role) {
 		id
 		role
 		user {
@@ -83721,17 +84531,17 @@ fragment UserFields on User {
 func AddOrgMember(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	orgId string,
-	userId string,
+	orgRef string,
+	userRef string,
 	role Role,
 ) (data_ *AddOrgMemberResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "AddOrgMember",
 		Query:  AddOrgMember_Operation,
 		Variables: &__AddOrgMemberInput{
-			OrgId:  orgId,
-			UserId: userId,
-			Role:   role,
+			OrgRef:  orgRef,
+			UserRef: userRef,
+			Role:    role,
 		},
 	}
 
@@ -92224,6 +93034,57 @@ func CreateRegisterEntry(
 	return data_, err_
 }
 
+// The mutation executed by CreateResendSender.
+const CreateResendSender_Operation = `
+mutation CreateResendSender ($orgRef: ID!, $from: String!, $apiKey: String!, $enabled: Boolean) {
+	createResendSender(orgRef: $orgRef, from: $from, apiKey: $apiKey, enabled: $enabled) {
+		... ResendSenderFields
+	}
+}
+fragment ResendSenderFields on ResendSender {
+	id
+	organizationId
+	from
+	enabled
+	hasApiKey
+	createdAt
+	updatedAt
+	createdBy
+	updatedBy
+}
+`
+
+func CreateResendSender(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgRef string,
+	from string,
+	apiKey string,
+	enabled *bool,
+) (data_ *CreateResendSenderResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateResendSender",
+		Query:  CreateResendSender_Operation,
+		Variables: &__CreateResendSenderInput{
+			OrgRef:  orgRef,
+			From:    from,
+			ApiKey:  apiKey,
+			Enabled: enabled,
+		},
+	}
+
+	data_ = &CreateResendSenderResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateResumeClaim.
 const CreateResumeClaim_Operation = `
 mutation CreateResumeClaim ($sessionId: ID!) {
@@ -93728,6 +94589,38 @@ func DeleteRegisterEntry(
 	}
 
 	data_ = &DeleteRegisterEntryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteResendSender.
+const DeleteResendSender_Operation = `
+mutation DeleteResendSender ($ref: ID!) {
+	deleteResendSender(ref: $ref)
+}
+`
+
+func DeleteResendSender(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *DeleteResendSenderResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteResendSender",
+		Query:  DeleteResendSender_Operation,
+		Variables: &__DeleteResendSenderInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &DeleteResendSenderResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -95978,6 +96871,51 @@ func GetRegisterEntry(
 	return data_, err_
 }
 
+// The query executed by GetResendSender.
+const GetResendSender_Operation = `
+query GetResendSender ($ref: ID!) {
+	resendSender(ref: $ref) {
+		... ResendSenderFields
+	}
+}
+fragment ResendSenderFields on ResendSender {
+	id
+	organizationId
+	from
+	enabled
+	hasApiKey
+	createdAt
+	updatedAt
+	createdBy
+	updatedBy
+}
+`
+
+func GetResendSender(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetResendSenderResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetResendSender",
+		Query:  GetResendSender_Operation,
+		Variables: &__GetResendSenderInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetResendSenderResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by GetScope.
 const GetScope_Operation = `
 query GetScope ($ref: ID!) {
@@ -97257,6 +98195,62 @@ func InstallMemory(
 	return data_, err_
 }
 
+// The mutation executed by InviteUser.
+const InviteUser_Operation = `
+mutation InviteUser ($email: String, $githubUsername: String, $name: String, $expiresInDays: Int, $maxActivations: Int) {
+	inviteUser(email: $email, githubUsername: $githubUsername, name: $name, expiresInDays: $expiresInDays, maxActivations: $maxActivations) {
+		... InvitationFields
+	}
+}
+fragment InvitationFields on UserInvitation {
+	id
+	slug
+	email
+	name
+	githubUsername
+	memberRole
+	organizationId
+	maxActivations
+	activationCount
+	expiresAt
+	acceptedAt
+	createdAt
+}
+`
+
+func InviteUser(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	email *string,
+	githubUsername *string,
+	name *string,
+	expiresInDays *int,
+	maxActivations *int,
+) (data_ *InviteUserResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "InviteUser",
+		Query:  InviteUser_Operation,
+		Variables: &__InviteUserInput{
+			Email:          email,
+			GithubUsername: githubUsername,
+			Name:           name,
+			ExpiresInDays:  expiresInDays,
+			MaxActivations: maxActivations,
+		},
+	}
+
+	data_ = &InviteUserResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by IsolateWorker.
 const IsolateWorker_Operation = `
 mutation IsolateWorker ($workerRef: String!, $until: DateTime) {
@@ -97503,6 +98497,58 @@ func LinkMemoryToUser(
 	}
 
 	data_ = &LinkMemoryToUserResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by ListResendSenders.
+const ListResendSenders_Operation = `
+query ListResendSenders ($orgId: ID, $limit: Int, $offset: Int) {
+	resendSenders(orgId: $orgId, limit: $limit, offset: $offset) {
+		items {
+			... ResendSenderFields
+		}
+		total
+	}
+}
+fragment ResendSenderFields on ResendSender {
+	id
+	organizationId
+	from
+	enabled
+	hasApiKey
+	createdAt
+	updatedAt
+	createdBy
+	updatedBy
+}
+`
+
+func ListResendSenders(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgId *string,
+	limit *int,
+	offset *int,
+) (data_ *ListResendSendersResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ListResendSenders",
+		Query:  ListResendSenders_Operation,
+		Variables: &__ListResendSendersInput{
+			OrgId:  orgId,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &ListResendSendersResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -101183,23 +102229,23 @@ func RemoveMemoryMember(
 
 // The mutation executed by RemoveOrgMember.
 const RemoveOrgMember_Operation = `
-mutation RemoveOrgMember ($orgId: ID!, $userId: ID!) {
-	removeOrgMember(orgId: $orgId, userId: $userId)
+mutation RemoveOrgMember ($orgRef: String!, $userRef: String!) {
+	removeOrgMember(orgRef: $orgRef, userRef: $userRef)
 }
 `
 
 func RemoveOrgMember(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	orgId string,
-	userId string,
+	orgRef string,
+	userRef string,
 ) (data_ *RemoveOrgMemberResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "RemoveOrgMember",
 		Query:  RemoveOrgMember_Operation,
 		Variables: &__RemoveOrgMemberInput{
-			OrgId:  orgId,
-			UserId: userId,
+			OrgRef:  orgRef,
+			UserRef: userRef,
 		},
 	}
 
@@ -108904,8 +109950,8 @@ func UpdateObject(
 
 // The mutation executed by UpdateOrgMember.
 const UpdateOrgMember_Operation = `
-mutation UpdateOrgMember ($orgId: ID!, $userId: ID!, $role: Role!) {
-	updateOrgMember(orgId: $orgId, userId: $userId, role: $role) {
+mutation UpdateOrgMember ($orgRef: String!, $userRef: String!, $role: Role!) {
+	updateOrgMember(orgRef: $orgRef, userRef: $userRef, role: $role) {
 		id
 		role
 		user {
@@ -108932,17 +109978,17 @@ fragment UserFields on User {
 func UpdateOrgMember(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	orgId string,
-	userId string,
+	orgRef string,
+	userRef string,
 	role Role,
 ) (data_ *UpdateOrgMemberResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateOrgMember",
 		Query:  UpdateOrgMember_Operation,
 		Variables: &__UpdateOrgMemberInput{
-			OrgId:  orgId,
-			UserId: userId,
-			Role:   role,
+			OrgRef:  orgRef,
+			UserRef: userRef,
+			Role:    role,
 		},
 	}
 
@@ -109049,6 +110095,57 @@ func UpdateRegisterEntry(
 	}
 
 	data_ = &UpdateRegisterEntryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateResendSender.
+const UpdateResendSender_Operation = `
+mutation UpdateResendSender ($ref: ID!, $from: String, $apiKey: String, $enabled: Boolean) {
+	updateResendSender(ref: $ref, from: $from, apiKey: $apiKey, enabled: $enabled) {
+		... ResendSenderFields
+	}
+}
+fragment ResendSenderFields on ResendSender {
+	id
+	organizationId
+	from
+	enabled
+	hasApiKey
+	createdAt
+	updatedAt
+	createdBy
+	updatedBy
+}
+`
+
+func UpdateResendSender(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	from *string,
+	apiKey *string,
+	enabled *bool,
+) (data_ *UpdateResendSenderResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateResendSender",
+		Query:  UpdateResendSender_Operation,
+		Variables: &__UpdateResendSenderInput{
+			Ref:     ref,
+			From:    from,
+			ApiKey:  apiKey,
+			Enabled: enabled,
+		},
+	}
+
+	data_ = &UpdateResendSenderResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
