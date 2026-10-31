@@ -227,7 +227,7 @@ func TestTaskUpdateHelp1137(t *testing.T) {
 	out := helpText(t, "update")
 	for _, want := range []string{
 		"--tag replaces the whole list",
-		"--require-role, --family-in, --family-not-in and --exclude-worker replace the whole requirements",
+		"--require-role, --family-in, --family-not-in, --exclude-worker and --min-tier replace the whole requirements",
 		"--start-by re-anchors only the not-started clock",
 		"Only the flags you name are sent",
 		"--close-session",

@@ -176,7 +176,7 @@ func newCmdTeamTaskCreate(f *cmdutil.Factory) *cobra.Command {
 	var description, owner, assignee, parent, source, startBy, status string
 	var tags, blockedBy []string
 	var priority int
-	var requireRole, familyIn, familyNotIn, properties string
+	var requireRole, familyIn, familyNotIn, minTier, properties string
 	var excludeWorkers []string
 	var closeSession, noCloseSession, project bool
 	cmd := &cobra.Command{
@@ -244,6 +244,11 @@ the choice later; to set it up front, when the assignee's session should end
 with the task, pass --close-session at create, or on the assign that first
 names the assignee of a queued task.
 
+--min-tier low|mid|high sets a minimum model tier. The matcher prefers the
+lowest sufficient tier; workers with an unknown tier are ineligible when a
+minimum is set. Tier is a matching input, never an authorization rule.
+Requires a server containing hadron-server#2983 (31d63828 or later).
+
 Success prints the task's handle, id and status, "queued" when it has no
 assignee, the App and the close-session choice; --json returns the task with a
 warnings list.`,
@@ -263,6 +268,11 @@ warnings list.`,
   hadron team task create "Draft the invoice schema" --parent AT1 --assignee worker:Uma`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if cmd.Flags().Changed("min-tier") {
+				if err := validateTaskMinTier(minTier); err != nil {
+					return err
+				}
+			}
 			ctx := cmd.Context()
 			title := strings.TrimSpace(args[0])
 			if title == "" {
@@ -349,12 +359,13 @@ warnings list.`,
 				}
 				input.Owner = party
 			}
-			if requireRole != "" || familyIn != "" || familyNotIn != "" || len(excludeWorkers) > 0 {
+			if requireRole != "" || familyIn != "" || familyNotIn != "" || len(excludeWorkers) > 0 || cmd.Flags().Changed("min-tier") {
 				input.Requirements = &gen.AgentTaskRequirementsInput{
 					ExcludeWorkers: excludeWorkers,
 					FamilyIn:       commaList(familyIn),
 					FamilyNotIn:    commaList(familyNotIn),
 					Role:           optStr(requireRole),
+					MinTier:        optStr(minTier),
 				}
 			}
 			// The App: a root task needs one; a child task may take it from
@@ -415,6 +426,7 @@ warnings list.`,
 	cmd.Flags().StringVar(&startBy, "start-by", "", "RFC 3339 deadline to start by")
 	cmd.Flags().StringVar(&source, "source", "", "origin reference (an issue URL, a node URN)")
 	cmd.Flags().StringSliceVar(&tags, "tag", nil, "tag (repeatable)")
+	cmd.Flags().StringVar(&minTier, "min-tier", "", "minimum model tier: low, mid or high (lowest sufficient preferred; unknown ineligible)")
 	cmd.Flags().StringVar(&requireRole, "require-role", "", "matcher must pick this role")
 	cmd.Flags().StringVar(&familyIn, "family-in", "", "comma list of model families the assignee must run as")
 	cmd.Flags().StringVar(&familyNotIn, "family-not-in", "", "comma list of model families to exclude")
