@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -62,9 +63,12 @@ func TestUsageRecordAllFlagsSendsExactVariables(t *testing.T) {
 	}
 	ev, _ := vars[0]["event"].(map[string]any)
 	want := `{"actionArgs":{"k":["v",1],"t":"<b>\n"},"model":"m1","nodeLoc":"notes:a","sessionId":"s1","tokensIn":-5,"tokensOut":0,"type":"read"}`
-	got, _ := json.Marshal(ev)
-	if string(got) != want {
-		t.Fatalf("event = %s\nwant    %s", got, want)
+	var wantEv map[string]any
+	if err := json.Unmarshal([]byte(want), &wantEv); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(ev, wantEv) {
+		t.Fatalf("event = %v\nwant    %v", ev, wantEv)
 	}
 }
 
@@ -168,5 +172,29 @@ func TestUsageRecordOutputIsNeutralAndIdentical(t *testing.T) {
 	var got map[string]any
 	if err := json.Unmarshal([]byte(j1), &got); err != nil || len(got) != 1 || got["recorded"] != true {
 		t.Fatalf("json = %q (%v)", j1, err)
+	}
+}
+
+// The help must disclose the server behaviours the CLI refuses to claim per
+// call (cor:dmo:080:02, cor:agt:020:13, cor:agt:020:11 rule 3; cli#1409).
+func TestUsageRecordHelpDisclosesAttributionAndSessionEffects(t *testing.T) {
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetOut(out)
+	root.SetArgs([]string{"usage", "record", "--help"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	help := strings.Join(strings.Fields(out.String()), " ")
+	for _, want := range []string{
+		"is still recorded, but WITHOUT node or memory attribution",
+		"a session you do not own is recorded without attribution",
+		"With --session, an event on a live session you own counts as that session's activity; an App key's event can resume its own lapsed session. An ended session takes the record without being revived.",
+		"does not validate --type",
+		"not a closed list",
+	} {
+		if !strings.Contains(help, want) {
+			t.Errorf("help is missing %q", want)
+		}
 	}
 }

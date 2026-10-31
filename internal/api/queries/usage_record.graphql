@@ -1,0 +1,14 @@
+# cli#1409 — the one usage write. Omitted optional fields are preserved server-side as "absent", so
+# a nil pointer is omitted (omitempty), never sent as null; an explicit 0 stays 0.
+
+# @genqlient(for: "UsageEventInput.actionArgs", omitempty: true)
+# @genqlient(for: "UsageEventInput.model", omitempty: true)
+# @genqlient(for: "UsageEventInput.nodeLoc", omitempty: true)
+# @genqlient(for: "UsageEventInput.sessionId", omitempty: true)
+# @genqlient(for: "UsageEventInput.tokensIn", omitempty: true)
+# @genqlient(for: "UsageEventInput.tokensOut", omitempty: true)
+mutation RecordUsage(
+  $event: UsageEventInput!
+) {
+  recordUsage(event: $event)
+}

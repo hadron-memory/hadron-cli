@@ -35,8 +35,8 @@ type summaryDTO struct {
 }
 
 func NewCmdUsage(f *cmdutil.Factory) *cobra.Command {
-	cmd := &cobra.Command{Use: "usage <command>", Short: "Read activity counts and AI usage events (not billing balances)", Long: "Look at read/write activity counts with \"usage activity\", or AI-call events\n(model, tokens and recorded cost) with \"usage events\". For organization\ncredit, use \"hadron billing balance\".", Example: "  hadron usage events --memory hrn:mem:acme.com:notes --limit 50"}
-	cmd.AddCommand(newEvents(f), newActivity(f))
+	cmd := &cobra.Command{Use: "usage <command>", Short: "Read activity counts and AI usage events, or record one (not billing balances)", Long: "Look at read/write activity counts with \"usage activity\", or AI-call events\n(model, tokens and recorded cost) with \"usage events\". To record one usage event, use \"usage record\". For organization\ncredit, use \"hadron billing balance\".", Example: "  hadron usage events --memory hrn:mem:acme.com:notes --limit 50"}
+	cmd.AddCommand(newEvents(f), newActivity(f), newRecord(f))
 	return cmd
 }
 func newEvents(f *cmdutil.Factory) *cobra.Command {
