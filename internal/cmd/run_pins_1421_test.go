@@ -241,6 +241,24 @@ func TestRunListFailedWithoutReasonShowsUnknownNotDash(t *testing.T) {
 	}
 }
 
+// #1435 item 2.1: a timed-out run with no reason is unknown, like a failed one.
+func TestRunListTimedOutWithoutReasonShowsUnknown(t *testing.T) {
+	timedOut := strings.Replace(strings.Replace(runWith(`"failureReason":null`), `"status":"COMPLETED"`, `"status":"TIMED_OUT"`, 1), `"id":"run1"`, `"id":"runtime"`, 1)
+	out := runLsHuman(t, timedOut)
+	var saw bool
+	for _, l := range strings.Split(out, "\n") {
+		if strings.HasPrefix(l, "runtime") {
+			saw = true
+			if !strings.HasSuffix(strings.TrimSpace(l), "unknown") {
+				t.Errorf("TIMED_OUT run with no reason must say unknown: %q", l)
+			}
+		}
+	}
+	if !saw {
+		t.Errorf("runtime row missing:\n%s", out)
+	}
+}
+
 func TestRunGetUnknownMarkerIsOneWord(t *testing.T) {
 	h := runGetHuman(t, runWith(`"budgetActionsInitial":80,"budgetTokensInitial":null,"costMicroCents":null`))
 	if !strings.Contains(h, "initial budget 80 actions / unknown tokens") {
@@ -256,7 +274,7 @@ func TestRunGetReasonLinesUseLabelValueAndSitUnderStatus(t *testing.T) {
 	if strings.Contains(h, "who can fix:") || strings.Contains(h, "next step:") {
 		t.Errorf("labels must not use colons:\n%s", h)
 	}
-	for _, want := range []string{"who can fix the app owner", "next step raise the budget", "reason OVER_BUDGET"} {
+	for _, want := range []string{"who can fix the app owner", "next step raise the budget", "reason OVER_BUDGET ran out"} {
 		if !strings.Contains(h, want) {
 			t.Errorf("missing %q:\n%s", want, h)
 		}

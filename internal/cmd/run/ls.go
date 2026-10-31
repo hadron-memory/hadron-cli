@@ -25,7 +25,7 @@ Scope with --app or --org (mutually exclusive; --app defaults to the App
 context). Filter with --status (one of PENDING, RUNNING, COMPLETED, FAILED,
 CANCELLED, TIMED_OUT). The list pages to exhaustion. COST is the run's priced
 cost ("unknown" = no figure, not zero); REASON is the failure kind of a failed
-run ("unknown" if the server gave none; "run get" has the full reason).`,
+or timed-out run ("unknown" if the server gave none; "run get" has the full reason).`,
 		Example: `  hadron run list --app acme.com:ops --status FAILED
   hadron run list --org acme.com --json`,
 		Args: cobra.NoArgs,
