@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hadron-memory/hadron-cli/internal/cmd/agentic"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -229,10 +230,15 @@ func TestC911IsolationHelpStatesTheInertWireAndTheAudience(t *testing.T) {
 		}
 		help := out.String()
 		for _, want := range []string{"--worker", "cor:agt:080:29", "WORKER_ISOLATION_UNAVAILABLE", "never shows the worker isolated",
-			"whoever manages the App", "holder", "bound worker session", "team wake-settings get"} {
+			"whoever manages the App", "holder", "bound worker session", "team wake-settings get", "act as you, the person"} {
 			if !strings.Contains(help, want) {
 				t.Errorf("%s --help lacks %q", sub, want)
 			}
+		}
+		// The missing session is not why no worker isolates: without one the
+		// write acts as the person (spec fit, cli#1386 F1).
+		if strings.Contains(strings.Join(strings.Fields(help), " "), "never attached to these writes, and") {
+			t.Errorf("%s --help presents the missing session as the reason no worker isolates", sub)
 		}
 	}
 }
@@ -260,5 +266,21 @@ func TestC911IsolationSetHelpLeadsWithTheRefusal(t *testing.T) {
 	}
 	if strings.Contains(out, "S7b") {
 		t.Errorf("help must not use the internal label S7b:\n%s", out)
+	}
+}
+
+// The agent contract says what the help says: no internal S7b label, and the
+// missing session is not the reason no worker isolates (spec fit, cli#1386).
+func TestC911AgenticUsageIsolationLinesMatchTheHelp(t *testing.T) {
+	for _, line := range strings.Split(agentic.Doc(), "\n") {
+		if !strings.HasPrefix(line, "hadron team isolation ") {
+			continue
+		}
+		if strings.Contains(line, "S7b") {
+			t.Errorf("isolation usage line uses the internal label S7b: %s", line)
+		}
+		if strings.Contains(line, "no worker session is ever attached (the server refuses one") {
+			t.Errorf("isolation usage line presents the missing session as the reason no worker isolates: %s", line)
+		}
 	}
 }
