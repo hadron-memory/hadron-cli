@@ -235,18 +235,29 @@ Avoid leaving the token in terminal scrollback or logs: --json with jq, as
 below, writes it to a private temporary file, then links it to ci-token without
 overwriting an existing destination. The Bash example needs jq, mktemp and
 GNU ln (its -T option refuses a directory or symlink-to-directory destination
-even if it appears during minting). It stops before minting if ci-token
-exists (including a dangling symlink). A mint or JSON failure exits non-zero
-and removes only this run's temporary file;
-it never removes ci-token. The new file has mode 600 (umask 077).`,
+even if it appears during minting). The example checks GNU ln -T before minting.
+It stops before minting if ci-token exists (including a dangling symlink).
+A mint or JSON failure exits non-zero and removes only this run's temporary
+file; it never removes ci-token. After any non-zero exit, run hadron auth token
+list, find any unexpected token by its label, and use hadron auth token revoke
+<id> to revoke it (add --yes when non-interactive). The new file has mode 600
+(umask 077).`,
 		Example: `  hadron auth token create --label ci-deploy
   bash -c '
     set -euo pipefail
     umask 077
     [ ! -e ci-token ] && [ ! -L ci-token ] || exit 1
     capture_file=$(mktemp ./ci-token.XXXXXX)
-    capture_cleanup() { rm -f "$capture_file"; }
+    capture_probe_owned=0
+    capture_cleanup() {
+      rm -f "$capture_file"
+      if [ "$capture_probe_owned" = 1 ]; then rm -f "$capture_file.probe"; fi
+    }
     trap capture_cleanup EXIT
+    ln -T "$capture_file" "$capture_file.probe"
+    capture_probe_owned=1
+    rm -f "$capture_file.probe"
+    capture_probe_owned=0
     hadron auth token create --label ci --json | jq -er .rawKey > "$capture_file"
     ln -T "$capture_file" ci-token
   '`,

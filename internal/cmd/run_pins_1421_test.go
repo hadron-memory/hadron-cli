@@ -7,8 +7,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/parser"
 )
 
 // #1421 section 1: kill the surviving terminal-safety mutants from #1415
@@ -42,7 +46,7 @@ func TestRunGetSanitizesEveryReasonField(t *testing.T) {
 
 func runLsHuman(t *testing.T, items ...string) string {
 	t.Helper()
-	gql, _ := captureGraphQL(t, map[string]string{"AppRuns": `{"data":{"appRuns":{"total":` + string(rune('0'+len(items))) + `,"items":[` + strings.Join(items, ",") + `]}}}`})
+	gql, _ := captureGraphQL(t, map[string]string{"AppRuns": `{"data":{"appRuns":{"total":` + strconv.Itoa(len(items)) + `,"items":[` + strings.Join(items, ",") + `]}}}`})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"run", "ls", "--org", "acme.com", "--server", gql.URL})
@@ -138,8 +142,20 @@ func TestRunQueriesSelectTheNewFields(t *testing.T) {
 		t.Fatalf("queries = %d", len(queries))
 	}
 	for _, q := range queries {
+		selected := selectedRunQueryFields(t, q)
+		base := "appRun"
+		if selected["appRuns"] {
+			base = "appRuns.items"
+		} else if !selected["appRun"] {
+			t.Fatalf("missing run root: %s", q)
+		}
 		for _, field := range []string{"failureReason", "costMicroCents", "budgetActionsInitial", "budgetTokensInitial", "whoCanFix", "nextStep", "summary", "kind"} {
-			if !strings.Contains(q, field) {
+			path := base + "." + field
+			switch field {
+			case "whoCanFix", "nextStep", "summary", "kind":
+				path = base + ".failureReason." + field
+			}
+			if !selected[path] {
 				t.Errorf("query does not select %q:\n%s", field, q)
 			}
 		}
@@ -306,6 +322,82 @@ func TestAgenticUsageCostNullWording(t *testing.T) {
 	}
 	if !strings.Contains(s, "null means unknown; it must not be read as zero") {
 		t.Error("agentic-usage must say 'null means unknown; it must not be read as zero'")
+	}
+}
+
+// #1439 M5: fixture totals must remain JSON numbers beyond one digit.
+func TestRunListFixtureSupportsTenItems(t *testing.T) {
+	items := make([]string, 10)
+	want := map[string]bool{}
+	for i := range items {
+		id := "r" + strconv.Itoa(i) + "x"
+		want[id] = true
+		items[i] = strings.Replace(appRunJSON, `"id":"run1"`, `"id":"`+id+`"`, 1)
+		if items[i] == appRunJSON {
+			t.Fatal("fixture no longer has the expected id")
+		}
+	}
+	seen := map[string]int{}
+	h := runLsHuman(t, items...)
+	for _, line := range strings.Split(h, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) > 0 && want[fields[0]] {
+			seen[fields[0]]++
+		}
+	}
+	for id := range want {
+		if seen[id] != 1 {
+			t.Errorf("want one row for %s, got %d: %s", id, seen[id], h)
+		}
+	}
+}
+
+// Read parsed selection names, not substrings: triggerKind cannot stand in for kind.
+func selectedRunQueryFields(t *testing.T, query string) map[string]bool {
+	t.Helper()
+	doc, err := parser.ParseQuery(&ast.Source{Input: query})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fields := map[string]bool{}
+	visiting := map[string]bool{}
+	var walk func(ast.SelectionSet, string)
+	walk = func(set ast.SelectionSet, prefix string) {
+		for _, selection := range set {
+			switch selection := selection.(type) {
+			case *ast.Field:
+				path := selection.Name
+				if prefix != "" {
+					path = prefix + "." + path
+				}
+				fields[path] = true
+				walk(selection.SelectionSet, path)
+			case *ast.InlineFragment:
+				walk(selection.SelectionSet, prefix)
+			case *ast.FragmentSpread:
+				fragment := doc.Fragments.ForName(selection.Name)
+				if fragment == nil {
+					t.Fatalf("missing fragment %q", selection.Name)
+				}
+				if visiting[selection.Name] {
+					t.Fatalf("cyclic fragment %q", selection.Name)
+				}
+				visiting[selection.Name] = true
+				walk(fragment.SelectionSet, prefix)
+				delete(visiting, selection.Name)
+			}
+		}
+	}
+	for _, op := range doc.Operations {
+		walk(op.SelectionSet, "")
+	}
+	return fields
+}
+
+func TestRunQueryFieldMatchIsExact(t *testing.T) {
+	fields := selectedRunQueryFields(t, `query { appRun { triggerKind other { kind } failureReason { ...Reason } } } fragment Reason on FailureReason { summary } fragment Unused on FailureReason { kind }`)
+	if fields["appRun.failureReason.kind"] || !fields["appRun.triggerKind"] || !fields["appRun.failureReason.summary"] || !fields["appRun.other.kind"] {
+		t.Fatal(fields)
 	}
 }
 

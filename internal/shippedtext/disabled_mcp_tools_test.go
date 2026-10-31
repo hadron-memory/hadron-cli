@@ -86,6 +86,7 @@ func loadDisabled(t *testing.T) *regexp.Regexp {
 // `dist` directory under plugins/ or docs/ is shipped text like any other.
 var unscannedPaths = map[string]string{
 	"internal/shippedtext/testdata": "this guard's own list of the disabled names",
+	"internal/api/queries":          "GraphQL build inputs, not embedded instructions; generated query code shares the explicit api/gen exclusion",
 	"internal/api/gen":              "copies of the server SDL; follow S1 via S2's snapshot refresh",
 	"docs/plans":                    "design-as-built records, not instructions (plan D5)",
 	".git":                          "VCS metadata",
@@ -111,8 +112,8 @@ func scanned(rel string) bool {
 		return true
 	case strings.HasPrefix(rel, "plugins/"), strings.HasPrefix(rel, "docs/"):
 		return true
-	case strings.HasPrefix(rel, "internal/") && strings.HasSuffix(rel, ".txt"):
-		return true // embedded text (e.g. the tools manifest)
+	case strings.HasPrefix(rel, "internal/") && !strings.HasSuffix(rel, ".go"):
+		return true // conservative superset of embedded assets, regardless of extension
 	}
 	return false
 }
@@ -169,9 +170,6 @@ func scanRoot(t *testing.T, root string, disabled *regexp.Regexp, exempt map[str
 			return nil
 		}
 		if d.IsDir() {
-			if d.Name() == "node_modules" {
-				return filepath.SkipDir
-			}
 			return nil
 		}
 		isGo := strings.HasSuffix(rel, ".go") && !strings.HasSuffix(rel, "_test.go")
@@ -263,11 +261,16 @@ func TestScanRootDetection(t *testing.T) {
 		"plugins/x/testdata/SKILL.md",
 		"plugins/x/dist/SKILL.md",
 		"plugins/x/bin/SKILL.md",
+		"plugins/x/node_modules/SKILL.md",
 		"docs/how-to/a.md",
 		"docs/how-to/testdata/a.md",
 		"README.md",
 		"internal/cmd/agentic/agentic-usage.md",
 		"internal/cmd/other/embedded.txt",
+		"internal/cmd/other/embedded.md",
+		"internal/cmd/other/embedded.tmpl",
+		"internal/cmd/other/embedded.json",
+		"internal/cmd/other/embedded.custom",
 	} {
 		root := t.TempDir()
 		write(root, rel, bad)
@@ -305,6 +308,7 @@ func TestScanRootDetection(t *testing.T) {
 	root = t.TempDir()
 	write(root, "internal/lib/lib.go", "package lib\n// hadron_team_chat_read\n")
 	write(root, "docs/plans/p.md", bad)
+	write(root, "internal/api/queries/query.graphql", bad)
 	write(root, "internal/api/gen/generated.go", "package gen\nvar S = \"hadron_team_chat_read\"\n")
 	write(root, "internal/shippedtext/testdata/list.txt", bad)
 	write(root, "bin/x.md", bad)

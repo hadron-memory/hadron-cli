@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -45,9 +46,9 @@ never to your terminal: the output is the key id, preview, label and the file's
 absolute path. --print-key also prints the raw key to stdout (refused with
 --json).
 
---label must be non-empty when given: an empty --label= (an unset shell
-variable) is refused with exit 2 before anything is opened or minted. Omit it
-for the server's default label.
+--label must be non-empty when given: an empty or whitespace-only label (for
+example, an unset shell variable) is refused with exit 2 before anything is
+opened or minted. Omit it for the server's default label.
 
 Pass an App ID, hrn:app:<root>:<slug>, or the <root>:<slug> short form.
 
@@ -85,7 +86,7 @@ App key, an impersonated session and a bound worker's session (exit 8).`,
 			if printKey && f.JSON {
 				return exitcode.Newf(exitcode.Usage, "--print-key cannot be combined with --json")
 			}
-			if cmd.Flags().Changed("label") && label == "" {
+			if cmd.Flags().Changed("label") && strings.TrimSpace(label) == "" {
 				return exitcode.Newf(exitcode.Usage, "--label is empty: give the key a label, or omit --label for the server's default (nothing was minted)")
 			}
 			abs, err := filepath.Abs(out)
