@@ -93,7 +93,7 @@ func TestUsage65EmptyAndMemorySummary(t *testing.T) {
 	}
 }
 func TestUsage65InvalidAndRefusal(t *testing.T) {
-	for _, args := range [][]string{{"usage", "events", "--loc="}, {"usage", "events", "--memory="}, {"usage", "events", "--type="}, {"usage", "events", "--limit", "0"}, {"usage", "events", "--offset", "-1"}, {"usage", "events", "--since", "yesterday"}, {"memory", "usage", ""}} {
+	for _, args := range [][]string{{"usage", "events", "--loc="}, {"usage", "events", "--memory="}, {"usage", "events", "--type="}, {"usage", "events", "--limit", "-1"}, {"usage", "events", "--limit", "201"}, {"usage", "events", "--offset", "-1"}, {"usage", "events", "--since", "yesterday"}, {"memory", "usage", ""}} {
 		_, stderr, code, calls := usage65Run(t, `{}`, args...)
 		if code != 2 || len(calls) != 0 {
 			t.Fatalf("%v %d %s %v", args, code, stderr, calls)
@@ -121,5 +121,19 @@ func TestUsage65ActualDocumentUsesLoc(t *testing.T) {
 	loc := field.Arguments.ForName("loc")
 	if loc == nil || loc.Value.Raw != "loc" || field.Arguments.ForName("nodeId") == nil || field.Arguments.ForName("nodeId").Value.Raw != "nodeId" {
 		t.Fatal("actual document must keep loc and nodeId as distinct variables")
+	}
+}
+
+// cli#1339 (QA, #1460): --limit 0 is the twin's count-only page: the request IS sent
+// with limit 0, stdout/--json stay an empty array, and the real total is on stderr.
+func TestUsage1339LimitZeroCountsOnly(t *testing.T) {
+	out, stderr, code, calls := usage65Run(t, `{"data":{"usageEventsPage":{"total":42,"hasMore":true,"items":[]}}}`, "usage", "events", "--limit", "0", "--json")
+	if code != 0 || strings.TrimSpace(out) != "[]" || !strings.Contains(stderr, "total 42") {
+		t.Fatalf("%d out %q stderr %q", code, out, stderr)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(calls["UsageEventsPage"], &vars)
+	if v, ok := vars["limit"]; !ok || v != float64(0) {
+		t.Fatalf("limit 0 must reach the wire, got %v", vars)
 	}
 }

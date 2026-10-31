@@ -49,7 +49,8 @@ func newEvents(f *cmdutil.Factory) *cobra.Command {
 memory and node it was for, the provider and model, tokens in and out, and what
 it cost. You only see events in memories you can read.
 
-You get ONE page: 20 events by default, or --limit (1 to 200). To go further
+You get ONE page: 20 events by default, or --limit (0 to 200; 0 sends the request and returns no rows, only the total on
+stderr). To go further
 back, run the command again with --offset set to the number of events already
 seen: stderr says "showing a-b of N" with the real total (for the same filters
 and window) and, when more exist, "more: --offset N". There is no cost sum.
@@ -88,8 +89,8 @@ Details:
   hadron usage events --type <event-type> --offset 20 --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if limit < 1 || limit > 200 {
-				return exitcode.Newf(exitcode.Usage, "--limit must be between 1 and 200")
+			if limit < 0 || limit > 200 {
+				return exitcode.Newf(exitcode.Usage, "--limit must be between 0 and 200")
 			}
 			if offset < 0 {
 				return exitcode.Newf(exitcode.Usage, "--offset must be non-negative")
@@ -181,7 +182,7 @@ Details:
 	cmd.Flags().StringVar(&eventType, "type", "", "exact event type to filter")
 	cmd.Flags().StringVar(&since, "since", "", "ISO date-time with Z or an offset; events at or after it (inclusive)")
 	cmd.Flags().StringVar(&until, "until", "", "ISO date-time with Z or an offset; events before it (exclusive)")
-	cmd.Flags().IntVar(&limit, "limit", 20, "page size (1-200)")
+	cmd.Flags().IntVar(&limit, "limit", 20, "page size (0-200; 0 counts only)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "rows to skip (nonnegative)")
 	return cmd
 }
