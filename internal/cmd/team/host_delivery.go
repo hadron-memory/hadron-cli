@@ -109,6 +109,9 @@ func deliveryCodeOf(err error) string {
 func (s *hostServer) Batches(ctx context.Context) ([]delivery.Batch, error) {
 	out := []delivery.Batch{}
 	var after *string
+	// Every cursor seen: a repeat at any distance is a cycle (#1186, as the
+	// wake read since #1183), and refuses the read rather than paging forever.
+	seen := map[string]bool{}
 	for {
 		read := s.clock()
 		resp, err := gen.DeliveryBatches(ctx, s.client, s.app, deliveryBatchesPage, after)
@@ -133,9 +136,10 @@ func (s *hostServer) Batches(ctx context.Context) ([]delivery.Batch, error) {
 			return out, nil
 		}
 		next := page.PageInfo.EndCursor
-		if next == nil || *next == "" || (after != nil && *after == *next) {
+		if next == nil || *next == "" || seen[*next] {
 			return nil, callError("read", "no-cursor")
 		}
+		seen[*next] = true
 		after = next
 	}
 }
