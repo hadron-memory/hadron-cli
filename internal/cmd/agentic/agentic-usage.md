@@ -4327,3 +4327,58 @@ TICKER_TEMPLATE_NOT_FOUND. Exit 5: TICKER_TEMPLATE_NAME_TAKEN,
 TICKER_TEMPLATE_LIMIT_REACHED or TICKER_TEMPLATE_REVISION_MISMATCH. Exit 8:
 FORBIDDEN/caller cannot manage the Agent. Standard auth/transport errors retain exits 3/7; malformed
 success payloads are errors, not fabricated success.
+
+
+## App write grants and credential identity (#1338)
+
+```text
+hadron app memory-grant add <app-ref> --memory <ref> --prefix <loc> [--register-node <node-urn>] [--yes]
+hadron app memory-grant list <app-ref> [--include-revoked]
+hadron app memory-grant rm <grant-id> [--yes]
+hadron app whoami
+hadron run latest <app-ref> [--previous]
+hadron app asset-upload enable|disable <agent-ref> [--yes]
+```
+
+Memory grants let an App's userless runs create/update under one loc prefix
+and its colon-boundary descendants, never a whole memory. The server requires
+a person managing the App, acting as themselves; setters must also write the
+memory. Personal/private targets and listing are owner-only, shared targets
+must belong to the App's org/team space, encrypted/system targets are refused.
+No read access or authorization bypass is created. The CLI asks once and
+reimplements none of those checks. Add/rm confirm (scripts need `--yes`), never
+retry, and keep nullable metadata (including withheld `memoryUrn`) as null in
+JSON. Text uses `?` for a concealed/null memory and `-` for other null metadata.
+List is an array, `[]` when empty, oldest-first server order, revoked rows
+only with `--include-revoked`. Explicit `--include-revoked=false` sends false;
+when absent it is omitted. A register node is only a citation, not a lookup or
+proof; it is omitted unless supplied. Refusals preserve mapped exit/serverCode.
+If a write's answer is lost, list (including revoked rows) before retrying.
+
+`app whoami` reads `myApp`, not `--app` or a configured App: JSON is
+`{app: metadata|null}`; a null App is success and is never replaced by an
+ambient lookup. Only identity metadata is requested, never keys/settings.
+`run latest` asks for a concrete run (same detail/JSON as `run get`), optionally
+the previous one. `--previous=false` sends false; absence omits it. No magic
+run ID or fallback App is constructed; a null run is exit 4 (none readable).
+
+Asset upload takes an Agent ID or qualified URN, not an arbitrary installed
+App. The server checks Agent readability and org-admin status, rejects
+user-owned Agents as unsupported, and toggles `asset:upload` on the Agent's
+own backing App. This is the v1 tool allowlist, not Memory.acceptsUploads.
+Both enable and disable confirm (`--yes` non-interactively); disabled is sent
+as explicit false. JSON `{appId,appUrn,agentRef,enabled}` reflects the returned
+App's allowlist, not an assumed outcome. One mutation, never retried. No key,
+credential or file content is requested. No client authorization is added.
+
+For these new commands, auth/transport refusals retain exits 3/7; FORBIDDEN and
+AVAILABILITY_NOT_PERMITTED exit 8, NOT_FOUND exits 4, BAD_USER_INPUT exits 2.
+Current server limitation: the asset-upload setting's SetAssetEnabledError
+refusals (non-admin, unknown/unreadable Agent) are not registered in its GraphQL
+formatter. They arrive as INTERNAL_SERVER_ERROR, exit 1 with requestId, not typed
+permission/not-found codes. The CLI preserves the actual wire code and never
+infers access or existence from the message. PERMISSION_DENIED has the existing
+generic exit 1; no operation-specific override or future-server exit is promised.
+
+This server formatter defect is tracked in hadron-server#2979; this CLI change
+does not fix it or classify its hidden domain code by message.

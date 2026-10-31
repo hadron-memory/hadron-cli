@@ -22,6 +22,7 @@ cost, and the kill switch.`,
 	cmd.AddCommand(newCmdTrigger(f))
 	cmd.AddCommand(newCmdLs(f))
 	cmd.AddCommand(newCmdGet(f))
+	cmd.AddCommand(newCmdLatest(f))
 	cmd.AddCommand(servedprompt.NewRun(f))
 	cmd.AddCommand(newCmdCancel(f))
 	return cmd
