@@ -26,6 +26,7 @@ type taskPartyDTO struct {
 }
 
 type taskRequirementsDTO struct {
+	MinTier          *string  `json:"minTier"`
 	Role             *string  `json:"role"`
 	FamilyIn         []string `json:"familyIn"`
 	FamilyNotIn      []string `json:"familyNotIn"`
@@ -122,6 +123,7 @@ func taskRequirementsDTOFrom(r *gen.AgentTaskFieldsRequirementsAgentTaskRequirem
 	}
 	dto := &taskRequirementsDTO{
 		Role:             r.Role,
+		MinTier:          r.MinTier,
 		FamilyIn:         []string{},
 		FamilyNotIn:      []string{},
 		ExcludeWorkerIds: []string{},

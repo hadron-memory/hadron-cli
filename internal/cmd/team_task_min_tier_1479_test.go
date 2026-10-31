@@ -80,7 +80,7 @@ func TestTaskMinTier1479UsageBeforeHTTP(t *testing.T) {
 			}
 		}
 	}
-	calls, _, err := runTeamTask(t, taskResponses(), "team", "task", "update", "task1", "--min-tier", "mid", "--clear-requirements")
+	calls, _, err := runTeamTask(t, taskUpdateResponses1137(), "team", "task", "update", "task1", "--min-tier", "mid", "--clear-requirements")
 	if exitCodeFor(err) != exitcode.Usage || len(*calls) != 0 || !strings.Contains(err.Error(), "contradict") {
 		t.Fatalf("conflict: %v calls %#v", err, *calls)
 	}
@@ -103,9 +103,16 @@ func TestTaskMinTier1479Read(t *testing.T) {
 				if asJSON {
 					args = append(args, "--json")
 				}
-				_, out, err := runTeamTask(t, r, args...)
+				calls, out, err := runTeamTask(t, r, args...)
 				if err != nil {
 					t.Fatal(err)
+				}
+				for _, c := range *calls {
+					if c.Op == "AgentTaskGet" || c.Op == "AgentTaskList" {
+						if !strings.Contains(c.Query, "requirements {\n\t\tminTier") {
+							t.Fatalf("tier not selected in %s", c.Query)
+						}
+					}
 				}
 				if asJSON {
 					var task map[string]any

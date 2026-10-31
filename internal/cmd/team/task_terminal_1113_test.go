@@ -12,7 +12,7 @@ func TestTaskTerminal1113(t *testing.T) {
 	hostile := "x\x1b[31m\x1b]8;;https://evil\x07\u009b\u202e\u200b\u2028\t\r\r\nx"
 	p := func(s string) *string { return &s }
 	party := &taskPartyDTO{ID: hostile, Name: p(hostile)}
-	task := taskDTO{ID: hostile, Handle: hostile, Title: hostile, Status: hostile, AppID: hostile, Description: p(hostile), Owner: party, CreatedBy: party, Assignee: party, AssignedBy: party, ParentTaskID: p(hostile), StartBy: p(hostile), Tags: []string{hostile}, Source: p(hostile), Requirements: &taskRequirementsDTO{Role: p(hostile), FamilyIn: []string{hostile}, FamilyNotIn: []string{hostile}, ExcludeWorkerIds: []string{hostile}}, Result: &taskResultDTO{Outcome: hostile, Summary: p(hostile), Evidence: p(hostile)}, CreatedAt: hostile, StartedAt: p(hostile), FinishedAt: p(hostile), CancelledAt: p(hostile), UpdatedAt: p(hostile)}
+	task := taskDTO{ID: hostile, Handle: hostile, Title: hostile, Status: hostile, AppID: hostile, Description: p(hostile), Owner: party, CreatedBy: party, Assignee: party, AssignedBy: party, ParentTaskID: p(hostile), StartBy: p(hostile), Tags: []string{hostile}, Source: p(hostile), Requirements: &taskRequirementsDTO{MinTier: p(hostile), Role: p(hostile), FamilyIn: []string{hostile}, FamilyNotIn: []string{hostile}, ExcludeWorkerIds: []string{hostile}}, Result: &taskResultDTO{Outcome: hostile, Summary: p(hostile), Evidence: p(hostile)}, CreatedAt: hostile, StartedAt: p(hostile), FinishedAt: p(hostile), CancelledAt: p(hostile), UpdatedAt: p(hostile)}
 	before, _ := json.Marshal(task)
 	var out bytes.Buffer
 	if err := renderTaskDetail(&out, task); err != nil {

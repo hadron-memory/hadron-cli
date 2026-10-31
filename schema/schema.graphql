@@ -665,6 +665,11 @@ type AgentTaskRequirements {
   excludeWorkerIds: [ID!]
   familyIn: [String!]
   familyNotIn: [String!]
+
+  """
+  The lowest model tier the assignee may run at: low, mid or high (hrn:node:hadronmemory.com:specs:cor:agt:060:06). Null when the task names none.
+  """
+  minTier: String
   role: String
 }
 
@@ -677,6 +682,11 @@ input AgentTaskRequirementsInput {
   """
   familyIn: [String!]
   familyNotIn: [String!]
+
+  """
+  The lowest model tier the assignee may run at: low, mid or high, in that order (hrn:node:hadronmemory.com:specs:cor:agt:060:06). A worker below it, or whose tier is unknown, is never matched; the lowest sufficient tier wins. There is no maximum.
+  """
+  minTier: String
   role: String
 }
 

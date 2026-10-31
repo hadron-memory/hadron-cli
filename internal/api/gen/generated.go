@@ -3344,11 +3344,16 @@ func (v *AgentTaskFieldsOwnerAgentTaskParty) __premarshalJSON() (*__premarshalAg
 //
 // What the platform's matcher must respect when it chooses an assignee (plan design:agent-tasks section 3.1; consumed by T3).
 type AgentTaskFieldsRequirementsAgentTaskRequirements struct {
+	// The lowest model tier the assignee may run at: low, mid or high (hrn:node:hadronmemory.com:specs:cor:agt:060:06). Null when the task names none.
+	MinTier          *string  `json:"minTier"`
 	Role             *string  `json:"role"`
 	FamilyIn         []string `json:"familyIn"`
 	FamilyNotIn      []string `json:"familyNotIn"`
 	ExcludeWorkerIds []string `json:"excludeWorkerIds"`
 }
+
+// GetMinTier returns AgentTaskFieldsRequirementsAgentTaskRequirements.MinTier, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsRequirementsAgentTaskRequirements) GetMinTier() *string { return v.MinTier }
 
 // GetRole returns AgentTaskFieldsRequirementsAgentTaskRequirements.Role, and is useful for accessing the field via an interface.
 func (v *AgentTaskFieldsRequirementsAgentTaskRequirements) GetRole() *string { return v.Role }
@@ -6433,7 +6438,9 @@ type AgentTaskRequirementsInput struct {
 	// Model families the assignee must run as. Give this or familyNotIn, not both.
 	FamilyIn    []string `json:"familyIn"`
 	FamilyNotIn []string `json:"familyNotIn"`
-	Role        *string  `json:"role"`
+	// The lowest model tier the assignee may run at: low, mid or high, in that order (hrn:node:hadronmemory.com:specs:cor:agt:060:06). A worker below it, or whose tier is unknown, is never matched; the lowest sufficient tier wins. There is no maximum.
+	MinTier *string `json:"minTier,omitempty"`
+	Role    *string `json:"role"`
 }
 
 // GetExcludeWorkers returns AgentTaskRequirementsInput.ExcludeWorkers, and is useful for accessing the field via an interface.
@@ -6444,6 +6451,9 @@ func (v *AgentTaskRequirementsInput) GetFamilyIn() []string { return v.FamilyIn 
 
 // GetFamilyNotIn returns AgentTaskRequirementsInput.FamilyNotIn, and is useful for accessing the field via an interface.
 func (v *AgentTaskRequirementsInput) GetFamilyNotIn() []string { return v.FamilyNotIn }
+
+// GetMinTier returns AgentTaskRequirementsInput.MinTier, and is useful for accessing the field via an interface.
+func (v *AgentTaskRequirementsInput) GetMinTier() *string { return v.MinTier }
 
 // GetRole returns AgentTaskRequirementsInput.Role, and is useful for accessing the field via an interface.
 func (v *AgentTaskRequirementsInput) GetRole() *string { return v.Role }
@@ -83955,6 +83965,7 @@ fragment AgentTaskFields on AgentTask {
 	cancelledAt
 	closeSessionWhenDone
 	requirements {
+		minTier
 		role
 		familyIn
 		familyNotIn
@@ -84064,6 +84075,7 @@ fragment AgentTaskFields on AgentTask {
 	cancelledAt
 	closeSessionWhenDone
 	requirements {
+		minTier
 		role
 		familyIn
 		familyNotIn
@@ -84177,6 +84189,7 @@ fragment AgentTaskFields on AgentTask {
 	cancelledAt
 	closeSessionWhenDone
 	requirements {
+		minTier
 		role
 		familyIn
 		familyNotIn
@@ -84284,6 +84297,7 @@ fragment AgentTaskFields on AgentTask {
 	cancelledAt
 	closeSessionWhenDone
 	requirements {
+		minTier
 		role
 		familyIn
 		familyNotIn
@@ -84458,6 +84472,7 @@ fragment AgentTaskFields on AgentTask {
 	cancelledAt
 	closeSessionWhenDone
 	requirements {
+		minTier
 		role
 		familyIn
 		familyNotIn
@@ -84567,6 +84582,7 @@ fragment AgentTaskFields on AgentTask {
 	cancelledAt
 	closeSessionWhenDone
 	requirements {
+		minTier
 		role
 		familyIn
 		familyNotIn
@@ -84717,6 +84733,7 @@ fragment AgentTaskFields on AgentTask {
 	cancelledAt
 	closeSessionWhenDone
 	requirements {
+		minTier
 		role
 		familyIn
 		familyNotIn
@@ -84844,6 +84861,7 @@ fragment AgentTaskFields on AgentTask {
 	cancelledAt
 	closeSessionWhenDone
 	requirements {
+		minTier
 		role
 		familyIn
 		familyNotIn
@@ -84995,6 +85013,7 @@ fragment AgentTaskFields on AgentTask {
 	cancelledAt
 	closeSessionWhenDone
 	requirements {
+		minTier
 		role
 		familyIn
 		familyNotIn
@@ -85123,6 +85142,7 @@ fragment AgentTaskFields on AgentTask {
 	cancelledAt
 	closeSessionWhenDone
 	requirements {
+		minTier
 		role
 		familyIn
 		familyNotIn
@@ -85234,6 +85254,7 @@ fragment AgentTaskFields on AgentTask {
 	cancelledAt
 	closeSessionWhenDone
 	requirements {
+		minTier
 		role
 		familyIn
 		familyNotIn
@@ -85341,6 +85362,7 @@ fragment AgentTaskFields on AgentTask {
 	cancelledAt
 	closeSessionWhenDone
 	requirements {
+		minTier
 		role
 		familyIn
 		familyNotIn
@@ -85451,6 +85473,7 @@ fragment AgentTaskFields on AgentTask {
 	cancelledAt
 	closeSessionWhenDone
 	requirements {
+		minTier
 		role
 		familyIn
 		familyNotIn
@@ -85562,6 +85585,7 @@ fragment AgentTaskFields on AgentTask {
 	cancelledAt
 	closeSessionWhenDone
 	requirements {
+		minTier
 		role
 		familyIn
 		familyNotIn
@@ -85671,6 +85695,7 @@ fragment AgentTaskFields on AgentTask {
 	cancelledAt
 	closeSessionWhenDone
 	requirements {
+		minTier
 		role
 		familyIn
 		familyNotIn
@@ -85781,6 +85806,7 @@ fragment AgentTaskFields on AgentTask {
 	cancelledAt
 	closeSessionWhenDone
 	requirements {
+		minTier
 		role
 		familyIn
 		familyNotIn
@@ -85942,6 +85968,7 @@ fragment AgentTaskFields on AgentTask {
 	cancelledAt
 	closeSessionWhenDone
 	requirements {
+		minTier
 		role
 		familyIn
 		familyNotIn
@@ -86049,6 +86076,7 @@ fragment AgentTaskFields on AgentTask {
 	cancelledAt
 	closeSessionWhenDone
 	requirements {
+		minTier
 		role
 		familyIn
 		familyNotIn

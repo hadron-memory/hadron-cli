@@ -62,6 +62,7 @@ fragment AgentTaskFields on AgentTask {
   cancelledAt
   closeSessionWhenDone
   requirements {
+    minTier
     role
     familyIn
     familyNotIn
@@ -90,6 +91,7 @@ fragment AgentTaskFields on AgentTask {
 # @genqlient(for: "CreateAgentTaskInput.blockedBy", omitempty: true)
 # #2420: the task's own properties object. A pointer field, omitted when nil.
 # @genqlient(for: "CreateAgentTaskInput.properties", omitempty: true)
+# @genqlient(for: "AgentTaskRequirementsInput.minTier", omitempty: true)
 mutation AgentTaskCreate(
   $input: CreateAgentTaskInput!
 ) {
