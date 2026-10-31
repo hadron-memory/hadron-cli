@@ -25,7 +25,7 @@ func roleDefinitionHint(role, platform string) string {
 	if platform == "windows" {
 		return "create a definition for this persona role; read the original with `hadron app agent list <app> --json`"
 	}
-	return "create one with `hadron team role create " + shellQuote(role) + "`"
+	return "create one with `hadron team role create -- " + shellQuote(role) + "`"
 }
 
 func writeSwitchoverApplyHint(w io.Writer, app, server, proof, platform string) error {
