@@ -11,6 +11,8 @@ import (
 
 // #1138: fixture-only contract pins prepared before the #2610 provider and
 // urn-lib-go release. They are deliberately red until those dependencies land.
+const actionNodeID1138 = "0123456789abcdef0123456789abcdef"
+
 const actionURN1138 = "hrn:action:hadronmemory.com:team-agent:task.finish.open-children"
 
 func TestActionURN1138SingleRead(t *testing.T) {
@@ -71,7 +73,7 @@ func TestActionURN1138Refusal(t *testing.T) {
 			root := NewRootCmd(f)
 			root.SetArgs([]string{"node", "get", ref, "--server", gql.URL})
 			err := root.Execute()
-			if err == nil || exitcode.FromError(err) != exitcode.NotFound {
+			if err == nil || exitCodeFor(err) != exitcode.NotFound {
 				t.Fatalf("uniform not-found required, got %v", err)
 			}
 			if !strings.Contains(err.Error(), "hrn:action:<root>:<agent-slug>:<code>") {
@@ -87,9 +89,16 @@ func TestActionURN1138Refusal(t *testing.T) {
 	}
 }
 
+// nodeBatch(refs:) screens every ref as a node URN and fails the WHOLE call on
+// any other kind (hadron-server src/api/graphql/schema/resolvers.query.node.ts,
+// the validateUrnType screen), so the CLI resolves an action URN to the register
+// node's id first and batches ids. The batch never carries the action spelling.
 func TestActionURN1138BatchRead(t *testing.T) {
-	payload := strings.Replace(batchNodeJSON("n1", "register:task.finish.open-children"), `"memoryId":"mem1"`, `"actionUrn":"`+actionURN1138+`","memoryId":"mem1"`, 1)
-	gql, captured := captureGraphQL(t, map[string]string{"NodeBatch": nodeBatchResult([]string{payload}, "")})
+	payload := strings.Replace(batchNodeJSON(actionNodeID1138, "register:task.finish.open-children"), `"memoryId":"mem1"`, `"actionUrn":"`+actionURN1138+`","memoryId":"mem1"`, 1)
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": `{"data":{"resolveUrn":{"id":"` + actionNodeID1138 + `","kind":"action","memoryId":"mem1"}}}`,
+		"NodeBatch":  nodeBatchResult([]string{payload}, ""),
+	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"node", "get", actionURN1138, testNodeURN, "--json", "--server", gql.URL})
@@ -102,11 +111,8 @@ func TestActionURN1138BatchRead(t *testing.T) {
 	if err := json.Unmarshal(captured["NodeBatch"], &sent); err != nil {
 		t.Fatal(err)
 	}
-	if len(sent.Refs) != 2 || sent.Refs[0] != actionURN1138 || sent.Refs[1] != testNodeURN {
-		t.Errorf("refs=%v", sent.Refs)
-	}
-	if _, called := captured["ResolveUrn"]; called {
-		t.Error("batch must not resolve each ref first")
+	if len(sent.Refs) != 2 || sent.Refs[0] != actionNodeID1138 || sent.Refs[1] != testNodeURN {
+		t.Errorf("refs=%v, want the resolved id then the node URN, never the action spelling", sent.Refs)
 	}
 	var dto struct {
 		Nodes []struct {
@@ -118,6 +124,32 @@ func TestActionURN1138BatchRead(t *testing.T) {
 	}
 	if len(dto.Nodes) != 1 || dto.Nodes[0].ActionURN != actionURN1138 {
 		t.Errorf("missing action address: %s", out.String())
+	}
+}
+
+// An action URN that names nothing is "unavailable" in a batch, under the
+// caller's own spelling, and the exit is the partial-read one.
+func TestActionURN1138BatchUnresolvedIsUnavailable(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{"ResolveUrn": `{"data":{"resolveUrn":null}}`})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "get", actionURN1138, "hrn:action:hadronmemory.com:team-agent:bad:leaf", "--json", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil || exitCodeFor(err) != exitcode.NotFound {
+		t.Fatalf("want exit 4, got %v", err)
+	}
+	if _, called := captured["NodeBatch"]; called {
+		t.Error("nothing resolved, so there is nothing to batch")
+	}
+	var dto struct {
+		Nodes       []any    `json:"nodes"`
+		Unavailable []string `json:"unavailable"`
+	}
+	if jerr := json.Unmarshal([]byte(out.String()), &dto); jerr != nil {
+		t.Fatalf("%v: %s", jerr, out.String())
+	}
+	if len(dto.Nodes) != 0 || len(dto.Unavailable) != 2 || dto.Unavailable[0] != actionURN1138 {
+		t.Errorf("unavailable=%v nodes=%v", dto.Unavailable, dto.Nodes)
 	}
 }
 
@@ -146,5 +178,29 @@ func TestActionURN1138HelpExample(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "hadron node get "+actionURN1138) {
 		t.Error("missing actionable action URN example")
+	}
+}
+
+// -m composes a bare loc into a memory; an action URN names its own agent and
+// must reach resolveUrn untouched rather than being joined onto the memory.
+func TestActionURN1138IgnoresMemoryFlag(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"ResolveUrn": `{"data":{"resolveUrn":{"id":"` + actionNodeID1138 + `","kind":"action","memoryId":"mem1"}}}`,
+		"GetNode":    nodeGetJSON(""),
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "get", actionURN1138, "-m", "hrn:mem:acme.com:kb", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var sent struct {
+		Urn string `json:"urn"`
+	}
+	if err := json.Unmarshal(captured["ResolveUrn"], &sent); err != nil {
+		t.Fatal(err)
+	}
+	if sent.Urn != actionURN1138 {
+		t.Errorf("resolve input=%q, want the action URN verbatim", sent.Urn)
 	}
 }

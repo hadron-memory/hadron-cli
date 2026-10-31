@@ -3,6 +3,7 @@ package node
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
@@ -94,6 +95,32 @@ func fetchNodeBatch(
 	return nodes, unavailable, nil
 }
 
+// resolveActionRefs swaps each action URN in refs for the id of the register
+// node it names, leaving every other ref untouched and in place. A ref the
+// server resolves to nothing (foreign, missing or malformed alike — it answers
+// null for all three) is returned in absent under the caller's own spelling.
+// A malformed action URN is deliberately not rejected here: parsing it locally
+// would hand back a different answer from the one a missing entry gets.
+func resolveActionRefs(cmd *cobra.Command, client graphql.Client, refs []string) (resolved, absent []string, err error) {
+	resolved = make([]string, 0, len(refs))
+	for _, ref := range refs {
+		if !cmdutil.IsActionRef(ref) {
+			resolved = append(resolved, ref)
+			continue
+		}
+		resp, err := gen.ResolveUrn(cmd.Context(), client, strings.TrimSpace(ref))
+		if err != nil {
+			return nil, nil, api.MapError(err)
+		}
+		if resp.ResolveUrn == nil {
+			absent = append(absent, ref)
+			continue
+		}
+		resolved = append(resolved, resp.ResolveUrn.Id)
+	}
+	return resolved, absent, nil
+}
+
 // batchRefs canonicalizes explicit refs for nodeBatch, dropping repeats.
 // Shared by the content read and the revision read that brackets it, so both
 // name exactly the same nodes.
@@ -143,6 +170,7 @@ func batchDetailDTO(n *batchNode) nodeDetailDTO {
 		nodeDTO: nodeDTO{
 			ID:         n.Id,
 			URN:        n.Urn,
+			ActionURN:  strVal(n.ActionUrn),
 			PortalURL:  strVal(n.PortalUrl),
 			MemoryID:   n.MemoryId,
 			Loc:        n.Loc,

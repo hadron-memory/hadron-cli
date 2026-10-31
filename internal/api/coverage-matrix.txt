@@ -525,17 +525,15 @@ updateWorker  command team worker update
 withdrawDecision  gap #1335
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 188: 169 gap, 19 excluded
+[Arguments] 181: 162 gap, 19 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.addOrgMember(orgRef)  gap #1342: the CLI passes the deprecated orgId/userId
 Mutation.addOrgMember(userRef)  gap #1342: the CLI passes the deprecated orgId/userId
 Mutation.beginAssetUploadV2(input.uploadRequestId)  gap #1341: a retry-safe upload
 Mutation.castWorker(noTeam)  gap #933
-Mutation.castWorker(promptOverride)  gap #1336
 Mutation.castWorker(reportsTo)  gap #933
 Mutation.createAgent(resetContextAfterTask)  gap #1043
-Mutation.createAgent(systemPrompt)  gap #58
 Mutation.createAgent(usesTasks)  gap #58
 Mutation.createAgentSchedule(input.runAt)  gap #1346
 Mutation.createAgentSchedule(input.scopeRef)  gap #1346
@@ -554,7 +552,6 @@ Mutation.createApp(policy)  gap #63
 Mutation.createApp(role)  gap #63
 Mutation.createApp(sessionTimeoutSeconds)  gap #63
 Mutation.createApp(surfaces)  gap #63
-Mutation.createApp(systemPrompt)  gap #63
 Mutation.createApp(trainingMode)  gap #63
 Mutation.createMemory(category0)  gap #1340
 Mutation.createMemory(category1)  gap #1340
@@ -624,7 +621,6 @@ Mutation.startSession(input.type)  gap #1337
 Mutation.updateAgent(listedOnMarketplace)  gap #58
 Mutation.updateAgent(registerDefaults)  gap #58
 Mutation.updateAgent(resetContextAfterTask)  gap #1043
-Mutation.updateAgent(systemPrompt)  gap #58
 Mutation.updateAgentSchedule(input.agentRef)  gap #1346
 Mutation.updateAgentSchedule(input.runAt)  gap #1346
 Mutation.updateAgentSchedule(input.scopeRef)  gap #1346
@@ -642,7 +638,6 @@ Mutation.updateApp(identifyUserMethod)  gap #63
 Mutation.updateApp(role)  gap #63
 Mutation.updateApp(sessionDormancyDays)  gap #63
 Mutation.updateApp(surfaces)  gap #63
-Mutation.updateApp(systemPrompt)  gap #63
 Mutation.updateApp(trainingMode)  gap #63
 Mutation.updateApp(urn)  gap #63
 Mutation.updateMemory(acknowledgeVectorInversionRisk)  gap #1340
@@ -683,7 +678,6 @@ Mutation.updateTaskNode(input.edges.description)  gap #1341: edges written with 
 Mutation.updateTaskNode(input.edges.isRunnable)  gap #1341: edges written with the node
 Mutation.updateTaskNode(input.edges.loc)  gap #1341: edges written with the node
 Mutation.updateTeamRole(repos)  gap #1336
-Mutation.updateWorker(promptOverride)  gap #1336
 Query.agentTasks(creator)  gap #1336
 Query.appRuns(parentRunId)  gap #1346
 Query.appRuns(sortBy)  gap #1346
@@ -692,7 +686,6 @@ Query.appRuns(statuses)  gap #1346
 Query.attendeeRegister(agentRef)  gap #1336
 Query.automationApprovals(limit)  gap #1346
 Query.castWorkerPreview(noTeam)  gap #933
-Query.castWorkerPreview(promptOverride)  gap #1336
 Query.castWorkerPreview(reportsTo)  gap #933
 Query.channelMessages(teamHeadRef)  gap #936
 Query.channelMessages(untagged)  gap #936

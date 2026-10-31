@@ -31754,6 +31754,24 @@ type GetNodeNode struct {
 	Id string `json:"id"`
 	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
 	Urn string `json:"urn"`
+	// #2610 — this node's action URN (hrn:action:<root>:<agent-slug>:<code>, the
+	// action-register address) when it is a register:<code> entry in an Agent's
+	// system memory; null for every other node (a register: loc in a non-Agent
+	// memory names no entry). Computed on read from the holding Agent's own URN —
+	// never stored — and a second address beside urn: the node URN keeps
+	// resolving. An unemittable stored code atom (charset/length) also reads as
+	// null; the stored loc needs repair.
+	//
+	// Two deliberate asymmetries with resolveUrn's action arm (PR #2711 §10
+	// review): (1) this field computes for ANY caller who can read the node —
+	// including an App participant of an install — while the arm resolves only
+	// under the agent arm's gate, so such a caller can SEE an address that does
+	// not resolve FOR them (it resolves for the Agent's own tenant); the field
+	// leaks nothing the node read didn't already grant. (2) After an Agent
+	// rename this field shows the CURRENT slug (computed from the live Agent's
+	// urn) while the urn field still shows the stored node URN until alias
+	// healing catches up — the computed address is the fresher one on purpose.
+	ActionUrn *string `json:"actionUrn"`
 	// #881 — the portal URL that opens this node, built server-side so no client
 	// ever has to construct one (constructing means guessing which URN spelling
 	// the /app/u/<urn> route resolves, and the legacy '::' forms in circulation
@@ -31834,6 +31852,9 @@ func (v *GetNodeNode) GetId() string { return v.Id }
 
 // GetUrn returns GetNodeNode.Urn, and is useful for accessing the field via an interface.
 func (v *GetNodeNode) GetUrn() string { return v.Urn }
+
+// GetActionUrn returns GetNodeNode.ActionUrn, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetActionUrn() *string { return v.ActionUrn }
 
 // GetPortalUrl returns GetNodeNode.PortalUrl, and is useful for accessing the field via an interface.
 func (v *GetNodeNode) GetPortalUrl() *string { return v.PortalUrl }
@@ -40280,6 +40301,24 @@ type NodeBatchNodeBatchNodeBatchResultNodesNode struct {
 	Id string `json:"id"`
 	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
 	Urn string `json:"urn"`
+	// #2610 — this node's action URN (hrn:action:<root>:<agent-slug>:<code>, the
+	// action-register address) when it is a register:<code> entry in an Agent's
+	// system memory; null for every other node (a register: loc in a non-Agent
+	// memory names no entry). Computed on read from the holding Agent's own URN —
+	// never stored — and a second address beside urn: the node URN keeps
+	// resolving. An unemittable stored code atom (charset/length) also reads as
+	// null; the stored loc needs repair.
+	//
+	// Two deliberate asymmetries with resolveUrn's action arm (PR #2711 §10
+	// review): (1) this field computes for ANY caller who can read the node —
+	// including an App participant of an install — while the arm resolves only
+	// under the agent arm's gate, so such a caller can SEE an address that does
+	// not resolve FOR them (it resolves for the Agent's own tenant); the field
+	// leaks nothing the node read didn't already grant. (2) After an Agent
+	// rename this field shows the CURRENT slug (computed from the live Agent's
+	// urn) while the urn field still shows the stored node URN until alias
+	// healing catches up — the computed address is the fresher one on purpose.
+	ActionUrn *string `json:"actionUrn"`
 	// #881 — the portal URL that opens this node, built server-side so no client
 	// ever has to construct one (constructing means guessing which URN spelling
 	// the /app/u/<urn> route resolves, and the legacy '::' forms in circulation
@@ -40356,6 +40395,9 @@ func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetId() string { return v.I
 
 // GetUrn returns NodeBatchNodeBatchNodeBatchResultNodesNode.Urn, and is useful for accessing the field via an interface.
 func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetUrn() string { return v.Urn }
+
+// GetActionUrn returns NodeBatchNodeBatchNodeBatchResultNodesNode.ActionUrn, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetActionUrn() *string { return v.ActionUrn }
 
 // GetPortalUrl returns NodeBatchNodeBatchNodeBatchResultNodesNode.PortalUrl, and is useful for accessing the field via an interface.
 func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetPortalUrl() *string { return v.PortalUrl }
@@ -92186,6 +92228,7 @@ query GetNode ($ref: ID!) {
 	node(ref: $ref) {
 		id
 		urn
+		actionUrn
 		portalUrl
 		memoryId
 		memory {
@@ -92320,6 +92363,7 @@ query GetNodeRaw ($ref: ID!) {
 	node(ref: $ref, raw: true) {
 		id
 		urn
+		actionUrn
 		portalUrl
 		memoryId
 		memory {
@@ -95222,6 +95266,7 @@ query NextNode ($parentRef: ID!, $currentRef: ID, $raw: Boolean!) {
 	nextNode(parentRef: $parentRef, currentRef: $currentRef, raw: $raw) {
 		id
 		urn
+		actionUrn
 		portalUrl
 		memoryId
 		memory {
@@ -95312,6 +95357,7 @@ query NodeBatch ($refs: [ID!], $memory: ID, $locPrefix: String) {
 		nodes {
 			id
 			urn
+			actionUrn
 			portalUrl
 			memoryId
 			loc
