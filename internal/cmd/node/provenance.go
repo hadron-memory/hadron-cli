@@ -67,13 +67,13 @@ Name the compiled node by its id or URN (a bare loc needs -m), and give
 --json shows the current one). The answer is what was recorded when that
 revision was compiled, not the sources the node links to now.
 
-The table lists each source and its status.
---json includes the full recorded occurrence: its parent, hash, replacement,
-position and selection settings.
+The table lists each source and its status. --json includes the full recorded
+occurrence: its parent, hash, replacement, position and selection settings.
 
 Reading needs read access to the compiled node's history. A node that is
 missing, deleted, not compiled, or not readable by you exits 4. Missing or
-damaged provenance is a server error, never an empty list.
+damaged provenance is a server error, never an empty list. (The served-prompt
+reads differ: an unavailable served record is a successful null, exit 0.)
 
 "pruned" on the compiled revision says whether its text has been removed. On
 a source, pruned is true or false only when you can read that source's

@@ -58,18 +58,21 @@ func NewRun(f *cmdutil.Factory) *cobra.Command { return newCommand(f, false) }
 func selectionHelp(worker bool) string {
 	which := "WHICH RECORD: the prompt served when this run started."
 	if worker {
-		which = `WHICH RECORD: the prompt served when the worker's most recently STARTED
-open session was bound — what that session was actually told. A bind ends the same
-person's other open sessions on the worker, but a worker can still have several
-open: an App key's or another person's session is never ended by your bind.
-Only the newest-started one is read, live or not. The record is null when the worker has no open session, when that newest
-session has none (it began before serving was on), or when you may not see the
-worker's internals. For older or other sessions, use ` + "`team session served-prompts <session-id>`" + `.
-Find session ids with ` + "`team session list`" + `.
-It is not the worker's current pointer or the latest compile: for those, use
-` + "`team worker get`" + ` and ` + "`node get <compiled-node>`" + `.`
+		which = `WHICH RECORD: the prompt served when the worker's most recently
+STARTED open session was bound: what that session was actually told. A bind
+ends the same person's other open sessions on the worker, but a worker can
+still have several open: an App key's or another person's session is never
+ended by your bind. Only the newest-started one is read, live or not; it is not
+necessarily the worker's latest record overall. The record is null when the
+worker has no open session, when that newest session has none (it began before
+serving was on), or when you may not see the worker's internals. For older or
+other sessions, use ` + "`team session served-prompts <session-id>`" + `; find
+session ids with ` + "`team session list`" + `. It is not the worker's current
+pointer or the latest compile: for those, use ` + "`team worker get`" + ` and
+` + "`node get <compiled-node>`" + `.`
 	}
 	return "\n" + which + `
+
 REVISIONS: servedRevSeq is the compiled node's revision number that was served
 (as ` + "`node get`" + ` numbers revisions); provenanceRevSeq is the compile behind it.
 pointerLevel says whose pointer chose it: WORKER, APP_AGENT or AGENT.`
@@ -102,14 +105,18 @@ is fetched. Variables are the recorded values and may contain sensitive text.
 ` + selectionHelp(worker) + `
 
 A null record is unavailable: it may be unrecorded, unreadable or serving may
-be off. Null does not prove which. Worker refs must be ids or fully-qualified
+be off. Null does not prove which. It is still a successful read: exit 0 with
+{servedPrompt: null}. (node provenance differs: an unavailable compiled
+revision there exits 4.) Worker refs must be ids or fully-qualified
 worker URNs; names and ambient App/worktree selection are not used. Run refs
 are sent to the provider as given. Provider authorization remains authoritative.
 
 --limit defaults to 50, caps at 200; 0 reads counts only. --offset selects the
 provenance page. --all buffers every provenance page before output and refuses
 an inconsistent record or failed page without printing a partial result. It
-cannot guarantee one database snapshot across requests.`,
+cannot guarantee one database snapshot across requests. With --all,
+provenance.items holds every page, while provenance.limit and .offset still
+describe the requests: the page size each one asked for, and offset 0.`,
 		Example: servedExample(worker),
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -195,9 +202,9 @@ cannot guarantee one database snapshot across requests.`,
 }
 
 func identity(r *recordDTO) string {
-	copy := *r
-	copy.Provenance = provenanceDTO{}
-	b, _ := json.Marshal(copy)
+	rec := *r
+	rec.Provenance = provenanceDTO{}
+	b, _ := json.Marshal(rec)
 	return string(b)
 }
 
