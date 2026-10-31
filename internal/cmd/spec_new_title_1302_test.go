@@ -15,8 +15,10 @@ import (
 const spec1302Create = `{"data":{"createSpecNode":{"id":"n1","memoryId":"mem1","loc":"x","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-10-31T00:00:00Z"}}}`
 
 // spec1302Run runs one spec new and returns the loc -> name of every node it
-// created, and the primary result's name.
-func spec1302Run(t *testing.T, scan string, args ...string) (map[string]string, string) {
+// created, the raw number of CreateSpecNode requests, and the primary result's
+// name. A second create for a loc is an error, never a silent overwrite (#1371):
+// it would hide a malformed earlier name behind a correct later one.
+func spec1302Run(t *testing.T, scan string, args ...string) (map[string]string, int, string) {
 	t.Helper()
 	server, captured := queueGraphQL(t, map[string][]string{
 		// The scan pages to exhaustion: one page, then an empty one.
@@ -31,11 +33,16 @@ func spec1302Run(t *testing.T, scan string, args ...string) (map[string]string, 
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
+	creates := captured["CreateSpecNode"]
 	names := map[string]string{}
-	for _, raw := range captured["CreateSpecNode"] {
+	for _, raw := range creates {
 		var in sentSpecInput
 		if err := json.Unmarshal(raw, &in); err != nil {
 			t.Fatal(err)
+		}
+		if prev, dup := names[in.Input.Loc]; dup {
+			t.Errorf("CreateSpecNode sent twice for %s: %q, then %q", in.Input.Loc, prev, in.Input.Name)
+			continue
 		}
 		names[in.Input.Loc] = in.Input.Name
 	}
@@ -45,10 +52,12 @@ func spec1302Run(t *testing.T, scan string, args ...string) (map[string]string, 
 	if err := json.Unmarshal([]byte(out.String()), &result); err != nil {
 		t.Fatalf("output not JSON: %v\n%s", err, out.String())
 	}
-	return names, result.Name
+	return names, len(creates), result.Name
 }
 
-func spec1302AssertNames(t *testing.T, names map[string]string, primary, target, want string, also []string) {
+// spec1302AssertNames checks the target and every expected ancestor or
+// contract (also) was created exactly once, each with exactly one prefix.
+func spec1302AssertNames(t *testing.T, names map[string]string, creates int, primary, target, want string, also []string) {
 	t.Helper()
 	if names[target] != want || primary != want {
 		t.Errorf("target %s: payload %q, output %q, want %q", target, names[target], primary, want)
@@ -64,14 +73,14 @@ func spec1302AssertNames(t *testing.T, names map[string]string, primary, target,
 			t.Errorf("%s: name %q does not carry exactly one %q prefix", loc, name, prefix)
 		}
 	}
-	if len(names) != 1+len(also) {
-		t.Errorf("created %d nodes, want %d: %v", len(names), 1+len(also), names)
+	if creates != 1+len(also) || len(names) != 1+len(also) {
+		t.Errorf("sent %d CreateSpecNode requests for %d locs, want %d: %v", creates, len(names), 1+len(also), names)
 	}
 }
 
 func TestSpecNewTitlePositiveNewPath(t *testing.T) {
-	names, primary := spec1302Run(t, "", "msg:010:01", "--new-path", "--title", "Burst allowance", "-m", specMem)
-	spec1302AssertNames(t, names, primary, "msg:010:01", "msg:010:01 — Burst allowance",
+	names, creates, primary := spec1302Run(t, "", "msg:010:01", "--new-path", "--title", "Burst allowance", "-m", specMem)
+	spec1302AssertNames(t, names, creates, primary, "msg:010:01", "msg:010:01 — Burst allowance",
 		[]string{"msg", "msg:000", "msg:010", "msg:010:00"})
 }
 
@@ -95,8 +104,8 @@ func TestSpecNewTitlePositiveNumberedRoots(t *testing.T) {
 			[]string{"-m", specMem, "--module", "msg", "--feature", "010", "--rule", "01", "--flow", "01"}, nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			names, primary := spec1302Run(t, tc.scan, append(tc.args, "--title", tc.title)...)
-			spec1302AssertNames(t, names, primary, tc.target, tc.target+" — "+tc.title, tc.also)
+			names, creates, primary := spec1302Run(t, tc.scan, append(tc.args, "--title", tc.title)...)
+			spec1302AssertNames(t, names, creates, primary, tc.target, tc.target+" — "+tc.title, tc.also)
 		})
 	}
 }
