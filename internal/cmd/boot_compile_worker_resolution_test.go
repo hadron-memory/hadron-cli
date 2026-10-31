@@ -75,7 +75,8 @@ func TestC1WorkerNameScopeSourceAndResolvedIdentity(t *testing.T) {
 				t.Fatal(err)
 			}
 			list := c2Mutation(t, calls, "Workers")
-			if list.Vars["appRef"] != tc.app || len(*calls) != 2 {
+			// Workers (slim name scan), GetWorker (the match, cli#1459), compile.
+			if list.Vars["appRef"] != tc.app || len(*calls) != 3 {
 				t.Fatalf("name scan was unscoped: %s", list.RawVars)
 			}
 			mutation := c2Mutation(t, calls, "CompileWorkerBootPrompt")

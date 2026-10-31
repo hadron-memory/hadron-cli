@@ -40,6 +40,9 @@ func fakeGraphQL(t *testing.T, responses map[string]string) *httptest.Server {
 		body.OperationName = legacyChatReadOperation(body.OperationName)
 		resp, ok := responses[body.OperationName]
 		if !ok {
+			resp, ok = workerFromStaff(responses, body.OperationName, body.Variables)
+		}
+		if !ok {
 			if body.OperationName == "TeamChatReadHead" || body.OperationName == "TeamChatReadMetadata" {
 				resp, ok = teamReadHeadFixture(responses["TeamChatMessages"]), true
 			} else {
@@ -55,6 +58,43 @@ func fakeGraphQL(t *testing.T, responses map[string]string) *httptest.Server {
 	}))
 	t.Cleanup(server.Close)
 	return server
+}
+
+// workerFromStaff answers an UNSTUBBED GetWorker from the test's own Workers
+// fixture, by id, the way a real server serves one worker through both reads.
+//
+// Name resolution reads the slim Workers list and then the ONE matched worker
+// with GetWorker (cli#1459). A test that stubs only the staff list describes
+// that worker already; without this every such fixture would need a second,
+// hand-kept copy of it. A test that stubs GetWorker itself still wins, and an
+// id the fixture does not list stays unanswered (the caller's not-found path).
+func workerFromStaff(responses map[string]string, op string, vars json.RawMessage) (string, bool) {
+	staff, ok := responses["Workers"]
+	if op != "GetWorker" || !ok {
+		return "", false
+	}
+	var v struct {
+		Ref string `json:"ref"`
+	}
+	var list struct {
+		Data struct {
+			Workers struct {
+				Items []json.RawMessage `json:"items"`
+			} `json:"workers"`
+		} `json:"data"`
+	}
+	if json.Unmarshal(vars, &v) != nil || json.Unmarshal([]byte(staff), &list) != nil {
+		return "", false
+	}
+	for _, item := range list.Data.Workers.Items {
+		var w struct {
+			ID string `json:"id"`
+		}
+		if json.Unmarshal(item, &w) == nil && w.ID == v.Ref {
+			return `{"data":{"worker":` + string(item) + `}}`, true
+		}
+	}
+	return "", false
 }
 
 // pageBeyondFirst models a real server for a STATIC list fixture: the fixture is

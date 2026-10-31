@@ -92,6 +92,8 @@ func TestWorkerRmAttestationRefusalsNeverRetry(t *testing.T) {
 				switch op {
 				case "Workers", "WorkersRoster":
 					return staffJSON
+				case "GetWorker": // the name's match, read whole (cli#1459)
+					return `{"data":{"worker":` + irisWorkerJSON + `}}`
 				case "DeleteWorker":
 					calls++
 					return fmt.Sprintf(`{"errors":[{"message":"Unknown argument confirmNoExternalAttribution or refused worker","extensions":{"code":%q}}]}`, tc.code)

@@ -236,7 +236,9 @@ func TestMcpC3AgentInputShapeNotResolution(t *testing.T) {
 			t.Fatalf("agent=%s err=%v calls=%v", agent, r.err, *calls)
 		}
 		for _, c := range *calls {
-			if c.Op != "Workers" && c.Op != "ChangeWorkerAgent" {
+			// Workers + GetWorker resolve the WORKER name (cli#1459: the
+			// scan is slim, the match is read whole); nothing resolves --agent.
+			if c.Op != "Workers" && c.Op != "GetWorker" && c.Op != "ChangeWorkerAgent" {
 				t.Fatalf("unexpected agent resolution: %v", c)
 			}
 		}

@@ -608,10 +608,11 @@ func warnRepoAffinity(ctx context.Context, f *cmdutil.Factory, client graphql.Cl
 // scanWorkerRoster, NOT scanWorkers: the roster projection exists precisely to
 // leave the resolved multi-KB boot briefing on the server (#459), and `repos`
 // was added to it in this change FOR this lookup — then the first draft called
-// the prompt-bearing scan anyway, which on a name-based start repeats a roster
-// read `resolveWorker` has already done, briefings and all (PR #516 review,
-// Codex P2 + Copilot). Everything this needs — id, name, role, repos,
-// retiredAt — is in the trimmed projection.
+// the prompt-bearing scan anyway, which on a name-based start repeated a
+// roster read `resolveWorker` had already done, briefings and all (PR #516
+// review, Codex P2 + Copilot). Everything this needs — id, name, role, repos,
+// retiredAt — is in the trimmed projection. (Since cli#1459 `scanWorkers` is
+// the id/urn/name/retiredAt lookup and carries no `role` or `repos`.)
 func soleWorkerForRepo(ctx context.Context, client graphql.Client, bound gen.WorkerFields, repo string) string {
 	workers, err := scanWorkerRoster(ctx, client, bound.AppId)
 	if err != nil {
@@ -2734,11 +2735,11 @@ from a later milestone's REPORTED MODEL.`,
 				if aErr != nil {
 					appScope = ""
 				}
-				w, wErr := resolveWorker(ctx, client, appScope, as)
+				id, wErr := resolveWorkerID(ctx, client, appScope, as)
 				if wErr != nil {
 					return wErr
 				}
-				asWorkerRef = &w.Id
+				asWorkerRef = &id
 			}
 
 			sessions := []sessionDTO{}

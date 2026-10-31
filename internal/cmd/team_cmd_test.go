@@ -1649,11 +1649,14 @@ func TestTeamSessionStartPrintsBriefing(t *testing.T) {
 // The NAME path's briefing, pinned separately from the id path's (#459).
 //
 // `--as wkr1` resolves through GetWorker; `--as Iris` resolves through the
-// shared Workers scan, which is the projection `worker list` stopped using.
-// Trimming `prompt` from THAT scan — the obvious next "optimisation" — would
-// leave a bound session with no briefing and nothing failing, so the two paths
-// need separate assertions. Ada's issue named this as a done-criterion: the
-// session-start briefing path must be unaffected.
+// shared Workers scan. Since cli#1459 that scan is the slim lookup projection
+// with no `prompt`, and the briefing comes from the GetWorker read of the ONE
+// matched worker (here answered from staffJSON by workerFromStaff). Dropping
+// that second read would leave a bound session with no briefing and nothing
+// else failing, so the two paths need separate assertions. Ada's issue named
+// this as a done-criterion: the session-start briefing path must be
+// unaffected. TestSessionStartByNameKeepsBriefing1459 pins it with a fake that
+// serves a prompt only to a document that selects one.
 func TestTeamSessionStartByNameStillPrintsBriefing(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{

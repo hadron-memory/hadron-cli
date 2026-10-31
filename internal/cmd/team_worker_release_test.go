@@ -723,12 +723,26 @@ func TestWorkerReleaseRefusesWhenTheHoldChanged(t *testing.T) {
 	t.Run("retired between the prompt and the call", func(t *testing.T) {
 		nowRetired := strings.Replace(heldBy("u-dara"), `"retiredAt":null`,
 			`"retiredAt":"2026-08-21T00:00:00Z"`, 1)
-		gql, captured := captureGraphQL(t, releaseStubs(heldBy("u-dara"), map[string]string{
-			"GetWorker": `{"data":{"worker":` + nowRetired + `}}`,
+		stubs := releaseStubs(heldBy("u-dara"), map[string]string{
 			"GetUser": `{"data":{"user":{"id":"u-dara","name":"Dara","email":null,"handle":"dara",
 				"githubUsername":null,"roles":[],"identityProvider":null,"githubId":null,
 				"externalId":null,"externalAppId":null,"linkedAt":null}}}`,
-		}))
+		})
+		// The FIRST GetWorker is the name resolution's read of the matched
+		// worker (cli#1459: the name scan no longer carries the full row), so
+		// it answers as the pre-read did; the re-read before the call sees
+		// the retirement.
+		var reads int
+		gql, captured := captureGraphQLFunc(t, func(op string) string {
+			if op == "GetWorker" {
+				reads++
+				if reads == 1 {
+					return `{"data":{"worker":` + heldBy("u-dara") + `}}`
+				}
+				return `{"data":{"worker":` + nowRetired + `}}`
+			}
+			return stubs[op]
+		})
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
 		root.SetArgs([]string{"team", "worker", "release", "Iris", "--yes",
@@ -1141,6 +1155,7 @@ func TestWorkerReleaseHandlesAStaleHold(t *testing.T) {
 			`"retiredAt":"2026-08-21T00:00:00Z"`, 1)
 		srv, seen := releaseSequence(t, irisWorkerJSON,
 			[]string{holdStale("u-gil"), releasedFromOK("u-gil")}, gilUser,
+			`{"data":{"worker":`+irisWorkerJSON+`}}`, // name resolution reads the match (cli#1459)
 			`{"data":{"worker":`+irisWorkerJSON+`}}`, // pre-call: still active
 			`{"data":{"worker":`+nowRetired+`}}`,     // inside the retry window
 		)

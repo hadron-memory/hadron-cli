@@ -390,10 +390,10 @@ reads as MORE idle than it was, never less.`,
 			if err != nil {
 				return err
 			}
-			// The ROSTER projection, not the prompt-bearing one (#459): this
+			// The ROSTER projection, not the full WorkerFields (#459): this
 			// answers "who is on staff", and the resolved briefing is a detail
-			// of one worker. `scanWorkers` stays as it is because resolveWorker
-			// rides it — session start's boot briefing needs the prompt.
+			// of one worker. (`scanWorkers` is narrower still since cli#1459:
+			// the id/urn/name/retiredAt lookup that name resolution needs.)
 			rows, err := scanWorkerRoster(ctx, client, scope.Ref)
 			if err != nil {
 				return err
