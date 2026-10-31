@@ -118,7 +118,6 @@ func TestUsageRecordClientParsingFailuresExit2WithoutARequest(t *testing.T) {
 		"overflow":          {"--type", "t", "--tokens-in", "2147483648"},
 		"underflow":         {"--type", "t", "--tokens-out", "-2147483649"},
 		"missing type":      {"--tokens-in", "1"},
-		"empty type":        {"--type", ""},
 		"empty action args": {"--type", "t", "--action-args", ""},
 	}
 	for name, args := range cases {
@@ -189,12 +188,61 @@ func TestUsageRecordHelpDisclosesAttributionAndSessionEffects(t *testing.T) {
 	for _, want := range []string{
 		"is still recorded, but WITHOUT node or memory attribution",
 		"a session you do not own is recorded without attribution",
-		"With --session, an event on a live session you own counts as that session's activity; an App key's event can resume its own lapsed session. An ended session takes the record without being revived.",
+		"With --session, an event on a live session you own counts as that session's activity; an App key's event can resume its own lapsed session, never a dormant one.",
+		"An owned ended, expired or idle session takes the record late, without being revived or counted as activity.",
 		"does not validate --type",
 		"not a closed list",
 	} {
 		if !strings.Contains(help, want) {
 			t.Errorf("help is missing %q", want)
 		}
+	}
+}
+
+// Explicit empty or whitespace strings are valid wire values: the CLI adds no
+// string policy, so they are forwarded and stay distinct from omitted
+// (Joost LOCAL P2-1 on cli#1411; gate: no client type/loc/session policy).
+func TestUsageRecordEmptyAndWhitespaceStringsAreForwarded(t *testing.T) {
+	_, _, code, vars := usageRecordRun(t, usageRecordOK, "usage", "record", "--type", "  ",
+		"--node-loc", "", "--session", " ", "--model", "")
+	if code != 0 || len(vars) != 1 {
+		t.Fatalf("code %d requests %d", code, len(vars))
+	}
+	ev, _ := vars[0]["event"].(map[string]any)
+	want := map[string]any{"type": "  ", "nodeLoc": "", "sessionId": " ", "model": ""}
+	if !reflect.DeepEqual(ev, want) {
+		t.Fatalf("event = %v want %v", ev, want)
+	}
+	_, _, code, vars = usageRecordRun(t, usageRecordOK, "usage", "record", "--type", "")
+	if code != 0 || len(vars) != 1 {
+		t.Fatalf("empty --type: code %d requests %d", code, len(vars))
+	}
+	if _, _, code, _ = usageRecordRun(t, usageRecordOK, "usage", "record"); code != 2 {
+		t.Fatalf("a missing --type must still exit 2, got %d", code)
+	}
+}
+
+// A false answer, a malformed body and a transport failure are never success
+// and never retried (Bruno BLIND P3 on cli#1411).
+func TestUsageRecordFailureBranchesAreNotSuccessAndSingleRequest(t *testing.T) {
+	cases := map[string]string{
+		"false":     `{"data":{"recordUsage":false}}`,
+		"malformed": `{"data":{"recordUsage":"yes"}}`,
+		"null":      `{"data":null}`,
+		"server":    `{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`,
+	}
+	for name, resp := range cases {
+		t.Run(name, func(t *testing.T) {
+			out, _, code, vars := usageRecordRun(t, resp, "usage", "record", "--type", "t", "--json")
+			if code == 0 {
+				t.Fatalf("exit 0 on a failed answer: %s", out)
+			}
+			if strings.Contains(out, "recorded") {
+				t.Fatalf("success output on failure: %q", out)
+			}
+			if len(vars) != 1 {
+				t.Fatalf("%d requests, want exactly 1", len(vars))
+			}
+		})
 	}
 }
