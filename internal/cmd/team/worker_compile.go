@@ -34,34 +34,9 @@ func newCmdWorkerCompile(f *cmdutil.Factory) *cobra.Command {
 			}
 			worker = r.Worker.WorkerFields
 		} else {
-			// A name needs one usable App. Read the binding only if an explicit/configured
-			// App did not answer; do not hide a binding or scope failure with an id lookup.
-			appRef, err := f.App()
+			scope, err := compileNameScope(cmd, f)
 			if err != nil {
 				return "", err
-			}
-			var b *binding
-			if appRef == "" {
-				b, err = readBindingOrNilWithApp(cmd.Context(), f)
-				if err != nil {
-					return "", err
-				}
-				if b != nil {
-					server, err := f.Server()
-					if err != nil {
-						return "", err
-					}
-					if b.Server == "" || api.Endpoint(b.Server) != api.Endpoint(server) {
-						return "", exitcode.Newf(exitcode.Usage, "cannot resolve a worker name from an unknown or different-server binding; pass --app <ref> for this server or a fully-qualified worker URN")
-					}
-				}
-			}
-			scope, err := resolveTeamAppScope(cmd.Context(), f, b)
-			if err != nil {
-				return "", err
-			}
-			if scope.Ref == "" {
-				return "", exitcode.Newf(exitcode.Usage, "resolving a worker name needs --app <ref>, an App context or a binding for this server")
 			}
 			worker, err = resolveWorker(cmd.Context(), client, scope.Ref, ref)
 			if err != nil {
@@ -79,5 +54,41 @@ func newCmdWorkerCompile(f *cmdutil.Factory) *cobra.Command {
 			}
 		}
 		return worker.Id, nil
+	}, func(cmd *cobra.Command, opts bootcompile.BatchOptions) error {
+		return runWorkerCompileBatch(cmd, f, opts)
 	})
+}
+
+// compileNameScope is the App a worker name (or the batch) resolves in. A name
+// needs one usable App. Read the binding only if an explicit/configured App did
+// not answer; do not hide a binding or scope failure with an id lookup.
+func compileNameScope(cmd *cobra.Command, f *cmdutil.Factory) (appScope, error) {
+	appRef, err := f.App()
+	if err != nil {
+		return appScope{}, err
+	}
+	var b *binding
+	if appRef == "" {
+		b, err = readBindingOrNilWithApp(cmd.Context(), f)
+		if err != nil {
+			return appScope{}, err
+		}
+		if b != nil {
+			server, err := f.Server()
+			if err != nil {
+				return appScope{}, err
+			}
+			if b.Server == "" || api.Endpoint(b.Server) != api.Endpoint(server) {
+				return appScope{}, exitcode.Newf(exitcode.Usage, "cannot resolve a worker name from an unknown or different-server binding; pass --app <ref> for this server or a fully-qualified worker URN")
+			}
+		}
+	}
+	scope, err := resolveTeamAppScope(cmd.Context(), f, b)
+	if err != nil {
+		return appScope{}, err
+	}
+	if scope.Ref == "" {
+		return appScope{}, exitcode.Newf(exitcode.Usage, "resolving a worker name needs --app <ref>, an App context or a binding for this server")
+	}
+	return scope, nil
 }

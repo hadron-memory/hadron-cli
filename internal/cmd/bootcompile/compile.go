@@ -23,19 +23,35 @@ type compileDTO struct {
 	ApprovalIssued  bool   `json:"approvalIssued"`
 }
 
-// NewAgent compiles the Agent's source into its system memory.
-func NewAgent(f *cmdutil.Factory) *cobra.Command { return newCommand(f, "agent", nil) }
-
-// NewAppAgent compiles an installed Agent's source for an App.
-func NewAppAgent(f *cmdutil.Factory) *cobra.Command { return newCommand(f, "app", nil) }
-
-// NewWorker resolves a worker name in the selected App before compiling it.
-func NewWorker(f *cmdutil.Factory, resolve func(*cobra.Command, string) (string, error)) *cobra.Command {
-	return newCommand(f, "worker", resolve)
+// BatchOptions are the flags of `team worker compile` with no worker
+// argument (cli#1463): compile the App's workers in one run.
+type BatchOptions struct {
+	All   bool     // compile every live worker, not only changed ones
+	Only  []string // restrict to these workers (names, ids or URNs)
+	Apply bool     // write; without it the run is a dry run
+	// SetPointer is nil for the server default (set) and false for
+	// --no-set-pointer, exactly as the single-worker compile sends it.
+	SetPointer *bool
 }
 
-func newCommand(f *cmdutil.Factory, kind string, resolve func(*cobra.Command, string) (string, error)) *cobra.Command {
-	var noSetPointer bool
+// Batch runs the batch compile.
+type Batch func(*cobra.Command, BatchOptions) error
+
+// NewAgent compiles the Agent's source into its system memory.
+func NewAgent(f *cmdutil.Factory) *cobra.Command { return newCommand(f, "agent", nil, nil) }
+
+// NewAppAgent compiles an installed Agent's source for an App.
+func NewAppAgent(f *cmdutil.Factory) *cobra.Command { return newCommand(f, "app", nil, nil) }
+
+// NewWorker resolves a worker name in the selected App before compiling it.
+// With no worker argument it runs batch over the App's workers.
+func NewWorker(f *cmdutil.Factory, resolve func(*cobra.Command, string) (string, error), batch Batch) *cobra.Command {
+	return newCommand(f, "worker", resolve, batch)
+}
+
+func newCommand(f *cmdutil.Factory, kind string, resolve func(*cobra.Command, string) (string, error), batch Batch) *cobra.Command {
+	var noSetPointer, all, apply bool
+	var only []string
 	use, example := "compile <agent>", "  hadron agent compile hrn:agent:acme.com:iris"
 	target := "Agent's system memory"
 	if kind == "app" {
@@ -45,8 +61,14 @@ func newCommand(f *cmdutil.Factory, kind string, resolve func(*cobra.Command, st
 	}
 	recipe := ""
 	if kind == "worker" {
-		use = "compile <worker>"
-		example = `  # 1. write the worker's source (needs its id: team worker get Iris --json)
+		use = "compile [<worker>]"
+		example = `  # Every worker whose sources changed since its last compile: a dry run,
+  # then compile, then approve each printed revision after reading it
+  hadron team worker compile --app acme.com:eng-team
+  hadron team worker compile --app acme.com:eng-team --apply
+  hadron team worker compile --app acme.com:eng-team --only Iris,Theo --apply
+
+  # 1. write the worker's source (needs its id: team worker get Iris --json)
   hadron node add --install hrn:app:acme.com:eng-team/hrn:agent:acme.com:backend-engineer \
       --loc boot:workers:<worker-id>:source --role boot-prompt --name "Iris boot" \
       --content "You are {{worker.name}}, the {{worker.role}}. ..."
@@ -65,14 +87,48 @@ boot:workers:<worker-id>:compiled there. Three separate steps, three effects:
   3. node approve <compiled node>           approve; only now is it served
 A served worker prompt replaces the App's and the Agent's (worker pointer,
 else the App install's, else the Agent's): the newest APPROVED revision is
-served, so a compile alone changes nothing a worker sees.`
+served, so a compile alone changes nothing a worker sees.
+
+WITHOUT A WORKER ARGUMENT the command compiles the App's workers in one run
+(cli#1463). By default it picks only the workers whose sources changed since
+their last compile: the server marks such a compiled prompt RECOMPILE_AVAILABLE
+(cor:agt:040:13), and a worker with no compiled prompt yet gets its first
+compile. Retired workers are never included. Nothing is written without
+--apply; the dry run lists what each worker would get:
+  toCompile  a source changed, or no compiled prompt yet
+  unchanged  no newer source revision: not compiled (no needless revision)
+  unknown    the server could not answer for this worker: not compiled
+             (if the staleness read itself fails, every compiled worker is
+             unknown with that read's exit code; --all still compiles them)
+After --apply each selected worker is compiled once, by id, and lands in
+  compiled   with the revision and the node approve line to run after review
+  skipped    BOOT_PROMPT_NO_SOURCE or BOOT_PROMPT_TARGET_RETIRED
+  failed     any other refusal, with its server code
+  unknown    the response was lost (exit 7): one read checks whether a new
+             revision landed (outcome landed, not-landed or unknown); the
+             compile is never sent twice
+--all compiles every live worker, changed or not. --only a,b limits the run to
+those workers; a name that is not a live worker in the App is refused before
+anything is written. The batch never approves: it prints the approve lines.
+
+Blind spot: a NEW install-memory override at an address the last compile read
+from the Agent is not recorded there, so it is not flagged. Use --all after
+adding one.
+
+Exit code: 0 when every worker is compiled, unchanged or skipped; otherwise the
+highest of 7 for a lost response, 1 for an undecided worker and each failure's
+own code.`
+	}
+	short := "Compile a boot prompt without approving or serving it"
+	if kind == "worker" && batch != nil {
+		short = "Compile a worker's boot prompt, or every changed one in the App, without approving it"
 	}
 	pointerHelp := "The pointer is set by default; --no-set-pointer leaves it unchanged."
 	if kind == "app" {
 		pointerHelp = "An App-Agent compile always sets the pointer; there is no --no-set-pointer flag."
 	}
 	cmd := &cobra.Command{
-		Use: use, Short: "Compile a boot prompt without approving or serving it",
+		Use: use, Short: short,
 		Long: fmt.Sprintf(`Compile the server-selected source boot prompt into the %s.
 Each successful compile writes a revision, even if the text is unchanged.
 %s Sources and output addresses are chosen by the server, not by flags.
@@ -97,6 +153,31 @@ node get before compiling again. The command sends the mutation once and
 never retries it.%s`, target, pointerHelp, recipe),
 		Example: example, Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if kind == "worker" && batch != nil {
+				// Changed, not len: `--only=` parses to an empty slice, and a
+				// dropped filter would compile the whole App.
+				onlySet := cmd.Flags().Changed("only")
+				batchFlags := all || apply || onlySet
+				if len(args) == 1 && batchFlags {
+					return exitcode.Newf(exitcode.Usage, "--all, --only and --apply compile the App's workers in one run; pass no worker argument with them")
+				}
+				if len(args) == 0 {
+					opts := BatchOptions{All: all, Apply: apply}
+					for _, name := range only {
+						if name = strings.TrimSpace(name); name != "" {
+							opts.Only = append(opts.Only, name)
+						}
+					}
+					if onlySet && len(opts.Only) == 0 {
+						return exitcode.Newf(exitcode.Usage, "--only needs at least one worker")
+					}
+					if noSetPointer {
+						v := false
+						opts.SetPointer = &v
+					}
+					return batch(cmd, opts)
+				}
+			}
 			for _, arg := range args {
 				if strings.TrimSpace(arg) == "" {
 					return exitcode.Newf(exitcode.Usage, "the target reference is empty")
@@ -156,6 +237,12 @@ never retries it.%s`, target, pointerHelp, recipe),
 				return err
 			})
 		},
+	}
+	if kind == "worker" && batch != nil {
+		cmd.Args = cobra.MaximumNArgs(1)
+		cmd.Flags().BoolVar(&all, "all", false, "with no worker: compile every live worker, not only those whose sources changed")
+		cmd.Flags().StringSliceVar(&only, "only", nil, "with no worker: compile only these workers (comma-separated names, ids or URNs)")
+		cmd.Flags().BoolVar(&apply, "apply", false, "with no worker: compile (without it the batch is a dry run)")
 	}
 	if kind == "app" {
 		cmd.Args = cobra.ExactArgs(2)
