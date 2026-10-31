@@ -155,8 +155,9 @@ func TestChannelWithoutAnAddressStillWorks(t *testing.T) {
 }
 
 // TestChannelUnreadableSaysOnlyWhatIsKnown — the server answers "does not
-// exist", "names nothing" and "you may not read its host memory" with the SAME
-// null, so it is never an existence oracle. The message must not claim more.
+// exist", "names nothing" and "the Channel is unreadable" with the SAME
+// parent null. Nested memory null is distinct and preserves the parent.
+// The message must not claim more.
 func TestChannelUnreadableSaysOnlyWhatIsKnown(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{"NodePortal": `{"data":{"node":null}}`,
 		"GetChannel": `{"data":{"channel":null}}`})
