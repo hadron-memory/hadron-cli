@@ -26,12 +26,13 @@ type taskRequirementsPatch struct {
 	FamilyIn       []string `json:"familyIn,omitempty"`
 	FamilyNotIn    []string `json:"familyNotIn,omitempty"`
 	Role           string   `json:"role,omitempty"`
+	MinTier        string   `json:"minTier,omitempty"`
 }
 
 var jsonNull = json.RawMessage("null")
 
 func newCmdTeamTaskUpdate(f *cmdutil.Factory) *cobra.Command {
-	var title, description, startBy, requireRole, familyIn, familyNotIn, properties string
+	var title, description, startBy, requireRole, familyIn, familyNotIn, minTier, properties string
 	var tags, excludeWorkers []string
 	var clearDescription, clearTags, clearRequirements, clearStartBy, clearProperties bool
 	var closeSession, noCloseSession bool
@@ -50,9 +51,12 @@ replaces a value has a --clear-… twin that empties it; naming both is refused.
 - --description <text> or --clear-description.
 - --tag <tag>, repeatable: --tag replaces the whole list, it never adds to it.
   --clear-tags empties the list.
-- --require-role, --family-in, --family-not-in and --exclude-worker replace the
+- --require-role, --family-in, --family-not-in, --exclude-worker and --min-tier replace the
   whole requirements, not one of them: name every requirement you want to keep.
-  --clear-requirements empties them.
+  --clear-requirements empties them, including the minimum tier.
+  --min-tier low|mid|high sets a minimum: the lowest sufficient tier is preferred;
+  an unknown tier is ineligible when a minimum is set. Requires a server
+  containing hadron-server#2983 (31d63828 or later).
 - --start-by <RFC 3339 time> or --clear-start-by. --start-by re-anchors only the
   not-started clock (cor:agt:050:14): it moves the deadline that task list
   --overdue and the not-started alarm read. An alarm already raised stays raised.
@@ -96,7 +100,7 @@ a stall alarm. Success prints the task as task get does; --json returns it.`,
 			}
 			fl := cmd.Flags()
 			usage := func(format string, a ...any) error { return exitcode.Newf(exitcode.Usage, format, a...) }
-			reqNamed := fl.Changed("require-role") || fl.Changed("family-in") || fl.Changed("family-not-in") || fl.Changed("exclude-worker")
+			reqNamed := fl.Changed("require-role") || fl.Changed("family-in") || fl.Changed("family-not-in") || fl.Changed("exclude-worker") || fl.Changed("min-tier")
 			anyField := fl.Changed("title") || fl.Changed("description") || clearDescription ||
 				fl.Changed("tag") || clearTags || reqNamed || clearRequirements ||
 				fl.Changed("start-by") || clearStartBy || fl.Changed("close-session") || fl.Changed("no-close-session") ||
@@ -111,7 +115,7 @@ a stall alarm. Success prints the task as task get does; --json returns it.`,
 			}{
 				{fl.Changed("description"), clearDescription, "--description", "--clear-description"},
 				{fl.Changed("tag"), clearTags, "--tag", "--clear-tags"},
-				{reqNamed, clearRequirements, "--require-role, --family-in, --family-not-in or --exclude-worker", "--clear-requirements"},
+				{reqNamed, clearRequirements, "--require-role, --family-in, --family-not-in, --exclude-worker or --min-tier", "--clear-requirements"},
 				{fl.Changed("start-by"), clearStartBy, "--start-by", "--clear-start-by"},
 				{fl.Changed("properties"), clearProperties, "--properties", "--clear-properties"},
 			} {
@@ -139,6 +143,11 @@ a stall alarm. Success prints the task as task get does; --json returns it.`,
 				return usage("--family-in and --family-not-in: give one, not both")
 			}
 
+			if fl.Changed("min-tier") {
+				if err := validateTaskMinTier(minTier); err != nil {
+					return err
+				}
+			}
 			input := gen.UpdateAgentTaskInput{}
 			if fl.Changed("title") {
 				// Presence, not value: an empty --title is sent and the server's
@@ -166,7 +175,7 @@ a stall alarm. Success prints the task as task get does; --json returns it.`,
 			case clearRequirements:
 				input.Requirements = jsonNull
 			case reqNamed:
-				p := taskRequirementsPatch{ExcludeWorkers: excludeWorkers, FamilyIn: commaList(familyIn), FamilyNotIn: commaList(familyNotIn), Role: strings.TrimSpace(requireRole)}
+				p := taskRequirementsPatch{ExcludeWorkers: excludeWorkers, FamilyIn: commaList(familyIn), FamilyNotIn: commaList(familyNotIn), Role: strings.TrimSpace(requireRole), MinTier: minTier}
 				for i, w := range p.ExcludeWorkers {
 					if p.ExcludeWorkers[i] = strings.TrimSpace(w); p.ExcludeWorkers[i] == "" {
 						return usage("--exclude-worker must name a worker")
@@ -221,6 +230,7 @@ a stall alarm. Success prints the task as task get does; --json returns it.`,
 	cmd.Flags().BoolVar(&clearDescription, "clear-description", false, "remove the description")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "a tag, repeatable; --tag replaces the whole list")
 	cmd.Flags().BoolVar(&clearTags, "clear-tags", false, "remove every tag")
+	cmd.Flags().StringVar(&minTier, "min-tier", "", "minimum model tier: low, mid or high; replaces the whole requirements")
 	cmd.Flags().StringVar(&requireRole, "require-role", "", "required role; replaces the whole requirements")
 	cmd.Flags().StringVar(&familyIn, "family-in", "", "comma list of model families the assignee must run as; replaces the whole requirements")
 	cmd.Flags().StringVar(&familyNotIn, "family-not-in", "", "comma list of model families the assignee must not run as; replaces the whole requirements")
