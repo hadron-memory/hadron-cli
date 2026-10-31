@@ -145,3 +145,20 @@ func TestTemplate913RefusalCodes(t *testing.T) {
 		}
 	}
 }
+
+func TestTemplate913ConfirmationStatesActualEffect(t *testing.T) {
+	srv, captured := captureGraphQL(t, templateResponses913())
+	f, _, stderr := testFactoryTTY(t, "n\n")
+	cmd := NewRootCmd(f)
+	cmd.SetArgs([]string{"agent", "ticker-templates", "delete", "tpl1", "--expected-revision", "3", "--server", srv.URL})
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("declined confirmation succeeded")
+	}
+	if len(captured) != 0 {
+		t.Fatal("decline sent request", captured)
+	}
+	prompt := stderr.String()
+	if !strings.Contains(prompt, "Existing workers and tickers stay untouched") || strings.Contains(prompt, "cannot be undone") {
+		t.Fatal(prompt)
+	}
+}

@@ -45,8 +45,12 @@ func templateDTO(row gen.AgentTickerTemplateFields) (tickerTemplateDTO, error) {
 	return tickerTemplateDTO{row.Id, row.Revision, row.ShapeVersion, row.Name, row.TickCode, row.CadenceSeconds, row.QuietHours, strings.ToLower(string(row.Relevance)), reasons, row.CreatedAt, row.UpdatedAt, templateAgentDTO{row.Agent.Id, row.Agent.Name}}, nil
 }
 
-const templateHelp = `Read and edit an Agent's ticker templates. Reading requires access to the
+const templateHelp = `An Agent's ticker template declares a periodic wake created when a worker is
+cast (created from that Agent into an App). Reading requires access to the
 Agent; writing requires its editor (Agent ADMIN), not merely an App manager.
+Use the same Agent reference as "agent get" for list/create. Update/delete take
+only the opaque template id returned by list. Uses signed-in credentials; a
+bound worker session is not sent for these writes.
 
 Templates are snapshots at cast: edits and deletion affect future casts only.
 Existing workers and their tickers are untouched. To repair one existing worker,
@@ -55,7 +59,9 @@ use "hadron ticker apply-templates --worker <worker-ref>" separately.
 The displayed cadence is the template's requested cadence in seconds; casting
 raises it to the App's floor. The client never clamps it. Identity is the opaque
 template id. Read its revision, then supply --expected-revision to update or
-delete: a stale revision exits 5 with no automatic fetch or retry.`
+delete: a stale revision exits 5 with no automatic fetch or retry.
+Unreadable Agent/template: exit 4; non-editor: exit 8; name/cap/revision conflict:
+exit 5. Invalid input is exit 2. tickCode is server-derived from the name.`
 
 func newCmdAgentTickerTemplates(f *cmdutil.Factory) *cobra.Command {
 	group := &cobra.Command{Use: "ticker-templates", Aliases: []string{"ticker-template"}, Short: "Read and edit Agent ticker templates for future casts", Long: templateHelp}
@@ -81,7 +87,7 @@ func writeTemplate(f *cmdutil.Factory, row gen.AgentTickerTemplateFields) error 
 	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error { return templateTable(w, []tickerTemplateDTO{dto}) })
 }
 func newTemplateList(f *cmdutil.Factory) *cobra.Command {
-	return &cobra.Command{Use: "list <agent-ref>", Short: "List an Agent's ticker templates in server order", Long: templateHelp + "\n\nList prints a JSON array ([] when empty), in name/id order from the server.", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+	return &cobra.Command{Use: "list <agent-ref>", Aliases: []string{"ls"}, Short: "List an Agent's ticker templates in server order", Long: templateHelp + "\n\nList prints a JSON array ([] when empty), in name/id order from the server.", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := f.GraphQLClient()
 		if err != nil {
 			return err
@@ -154,7 +160,7 @@ func (v *templateFlags) patch(cmd *cobra.Command) (*gen.AgentTickerTemplatePatch
 }
 func newTemplateWrite(f *cmdutil.Factory, update bool) *cobra.Command {
 	v := &templateFlags{}
-	cmd := &cobra.Command{Use: "create <agent-ref>", Short: "Create a ticker template for future casts", Long: templateHelp + "\n\nOmitted options use server defaults. Returns the template including tickCode and revision.", Args: cobra.ExactArgs(1)}
+	cmd := &cobra.Command{Use: "create <agent-ref>", Short: "Create a ticker template for future casts", Long: templateHelp + "\n\nOmitted relevance defaults to all, reasons to read-team-channel, and quiet hours to none.\nReturns the template including tickCode and revision.", Args: cobra.ExactArgs(1)}
 	keep := ""
 	if update {
 		cmd.Use = "update <template-id>"
@@ -162,8 +168,12 @@ func newTemplateWrite(f *cmdutil.Factory, update bool) *cobra.Command {
 		cmd.Long = templateHelp + "\n\nOmitted fields are preserved; use --clear-quiet-hours to remove quiet hours.\nPass at least one field flag; --expected-revision alone changes nothing."
 		keep = "; omitted preserves the current value"
 	}
-	cmd.Flags().StringVar(&v.name, "name", "", "Template name"+keep)
-	cmd.Flags().IntVar(&v.cadence, "cadence-seconds", 0, "Requested cadence in whole seconds; server validates bounds"+keep)
+	required := " (required)"
+	if update {
+		required = ""
+	}
+	cmd.Flags().StringVar(&v.name, "name", "", "Template name"+required+keep)
+	cmd.Flags().IntVar(&v.cadence, "cadence-seconds", 0, "Requested cadence in whole seconds; server validates bounds"+required+keep)
 	cmd.Flags().StringVar(&v.relevance, "relevance", "", "all or mentions"+keep)
 	cmd.Flags().StringVar(&v.reasons, "reasons", "", "Nonempty reasons: read-team-channel,every-tick,live-check"+keep)
 	cmd.Flags().StringVar(&v.quiet, "quiet-hours", "", "Quiet-hours JSON object with timezone and weekly windows"+keep)
@@ -224,7 +234,7 @@ func newTemplateDelete(f *cmdutil.Factory) *cobra.Command {
 	_ = cmd.MarkFlagRequired("expected-revision")
 	cmd.Flags().BoolVar(&yes, "yes", false, "Confirm template deletion without prompting")
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		if err := cmdutil.ConfirmDeletion(f.IOStreams, yes, "Agent ticker template "+args[0]); err != nil {
+		if err := cmdutil.Confirm(f.IOStreams, yes, "Delete Agent ticker template "+output.SafeCell(args[0])+"? Existing workers and tickers stay untouched."); err != nil {
 			return err
 		}
 		client, err := f.GraphQLClient()
