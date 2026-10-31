@@ -198,6 +198,15 @@ type ledgerFeatureDTO struct {
 	Feature  string   `json:"feature"`
 	Rules    []string `json:"rules"`
 	NextRule string   `json:"nextRule"`
+	// ReplacedRules is additive (cli#1145): the rules `spec supersede` retired,
+	// each with its replacement loc or null. [] when none; Rules is unchanged.
+	ReplacedRules []ledgerReplacedRuleDTO `json:"replacedRules"`
+}
+
+type ledgerReplacedRuleDTO struct {
+	Rule       string  `json:"rule"`
+	Replaced   bool    `json:"replaced"`
+	ReplacedBy *string `json:"replacedBy"`
 }
 
 // specRole returns the governed `Node.role` every spec node carries (#1201).
