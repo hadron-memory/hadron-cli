@@ -5,6 +5,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/parser"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -317,5 +320,151 @@ func TestResend1342ReflectedErrorCode(t *testing.T) {
 	}
 	if strings.Contains(out.String(), "synthetic-key-1342") {
 		t.Fatal("key leaked through error code")
+	}
+}
+
+// Exercise the production renderer's stdout, stderr, and already-wrote routing,
+// and inspect the whole returned chain rather than only its outer message.
+func TestResendSecretErrorStreamsAndChain(t *testing.T) {
+	for _, jsonMode := range []bool{false, true} {
+		for _, wrote := range []bool{false, true} {
+			t.Run(fmt.Sprintf("json=%t/wrote=%t", jsonMode, wrote), func(t *testing.T) {
+				srv, _ := captureGraphQL(t, map[string]string{"UpdateResendSender": `{"errors":[{"message":"synthetic-key-1342 raw backend diagnostic","extensions":{"code":"FORBIDDEN","details":"synthetic-key-1342"}}]}`})
+				f, out := testFactory(t)
+				stderr := &strings.Builder{}
+				f.IOStreams.ErrOut = stderr
+				f.IOStreams.In = strings.NewReader("synthetic-key-1342\n")
+				root := NewRootCmd(f)
+				args := []string{"org", "resend-sender", "update", "s1", "--api-key-file", "-", "--server", srv.URL}
+				if jsonMode {
+					args = append(args, "--json")
+				}
+				root.SetArgs(args)
+				err := root.Execute()
+				if err == nil {
+					t.Fatal("expected refusal")
+				}
+				for e := err; e != nil; e = errors.Unwrap(e) {
+					if strings.Contains(e.Error(), "synthetic-key-1342") {
+						t.Fatalf("raw key reachable in chain: %T", e)
+					}
+				}
+				if wrote {
+					if _, e := f.IOStreams.Out.Write([]byte("previous payload\n")); e != nil {
+						t.Fatal(e)
+					}
+				}
+				if code := renderError(f, err); code != 8 {
+					t.Fatalf("rendered exit %d", code)
+				}
+				if strings.Contains(out.String()+stderr.String(), "synthetic-key-1342") {
+					t.Fatal("rendered key on stdout/stderr")
+				}
+				if jsonMode && !wrote {
+					var envelope struct {
+						Error struct {
+							Code       int    `json:"code"`
+							ServerCode string `json:"serverCode"`
+						} `json:"error"`
+					}
+					if e := json.Unmarshal([]byte(out.String()), &envelope); e != nil {
+						t.Fatal(e)
+					}
+					if envelope.Error.Code != 8 || envelope.Error.ServerCode != "FORBIDDEN" {
+						t.Fatalf("envelope %s", out.String())
+					}
+				} else if stderr.Len() == 0 {
+					t.Fatal("stderr route not exercised")
+				}
+			})
+		}
+	}
+}
+
+func TestResendDeleteNotFoundExit(t *testing.T) {
+	srv, captured := captureGraphQL(t, map[string]string{"DeleteResendSender": `{"errors":[{"message":"Resend sender not found.","extensions":{"code":"NOT_FOUND"}}]}`})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"org", "resend-sender", "rm", "missing", "--yes", "--json", "--server", srv.URL})
+	err := root.Execute()
+	if err == nil || renderError(f, err) != 4 {
+		t.Fatalf("want missing sender exit4: %v", err)
+	}
+	if _, ok := captured["DeleteResendSender"]; !ok {
+		t.Fatal("delete not sent")
+	}
+	var envelope struct {
+		Error struct {
+			Code       int    `json:"code"`
+			ServerCode string `json:"serverCode"`
+		} `json:"error"`
+	}
+	if e := json.Unmarshal([]byte(out.String()), &envelope); e != nil {
+		t.Fatal(e)
+	}
+	if envelope.Error.Code != 4 || envelope.Error.ServerCode != "NOT_FOUND" {
+		t.Fatalf("envelope %s", out.String())
+	}
+}
+
+func TestResendKeyReflectionInEveryMetadataField(t *testing.T) {
+	for _, field := range []string{"id", "organizationId", "from", "createdAt", "updatedAt", "createdBy", "updatedBy"} {
+		t.Run(field, func(t *testing.T) {
+			var row map[string]any
+			if err := json.Unmarshal([]byte(sender1342), &row); err != nil {
+				t.Fatal(err)
+			}
+			row[field] = "synthetic-key-1342"
+			body, err := json.Marshal(map[string]any{"data": map[string]any{"createResendSender": row}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			srv, _ := captureGraphQL(t, map[string]string{"CreateResendSender": string(body)})
+			f, out := testFactory(t)
+			stderr := &strings.Builder{}
+			f.IOStreams.ErrOut = stderr
+			f.IOStreams.In = strings.NewReader("synthetic-key-1342\n")
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"org", "resend-sender", "create", "--org", "acme.com", "--from", "x@example.test", "--api-key-file", "-", "--json", "--server", srv.URL})
+			if err := root.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			var dto map[string]any
+			if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
+				t.Fatal(err)
+			}
+			if dto[field] != "[REDACTED]" || strings.Contains(out.String()+stderr.String(), "synthetic-key-1342") {
+				t.Fatalf("field %s not redacted", field)
+			}
+		})
+	}
+}
+
+func TestOrgMemberReferenceDocumentArguments(t *testing.T) {
+	for name, operation := range map[string]string{"AddOrgMember": gen.AddOrgMember_Operation, "UpdateOrgMember": gen.UpdateOrgMember_Operation, "RemoveOrgMember": gen.RemoveOrgMember_Operation} {
+		t.Run(name, func(t *testing.T) {
+			doc, err := parser.ParseQuery(&ast.Source{Input: operation})
+			if err != nil {
+				t.Fatal(err)
+			}
+			op := doc.Operations.ForName(name)
+			if op == nil {
+				t.Fatal("operation absent")
+			}
+			field, ok := op.SelectionSet[0].(*ast.Field)
+			if !ok {
+				t.Fatal("mutation absent")
+			}
+			for _, arg := range []string{"orgRef", "userRef"} {
+				if field.Arguments.ForName(arg) == nil {
+					t.Fatalf("missing actual argument %s", arg)
+				}
+			}
+			for _, arg := range []string{"orgId", "userId"} {
+				if field.Arguments.ForName(arg) != nil {
+					t.Fatalf("deprecated actual argument %s", arg)
+				}
+			}
+		})
 	}
 }

@@ -29,8 +29,9 @@ owns admission and membership rules. Accept uses the existing invite command.
 Fake GraphQL command tests cover operations, variables, omitted fields, false
 and zero values, pagination, empty arrays, not-found, false deletion, local
 refusals, classified secret-safe errors, and member-ref forwarding. The original
-red test commit precedes implementation. QA's stamped CLI/private-stack run
-covers sender CRUD, key rotation and member email/handle refs. Real Resend mail
+red test commit precedes implementation. The gate requires independent CLI/private-stack QA of
+sender CRUD, key rotation and member email/handle refs; its receipt and limits
+are recorded on the PR, separately from the author's fake-API evidence. Real Resend mail
 delivery is outside this registry surface; no real provider call is claimed.
 No server, portal, MCP, schema snapshot or platform law changes are required.
 
