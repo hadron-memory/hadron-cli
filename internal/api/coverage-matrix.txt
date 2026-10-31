@@ -46,7 +46,7 @@ appAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime tha
 appDeliverySettings  command team delivery-settings set
 appKeys  command app key list
 appMemoryScope  command app memories
-appMemoryWriteGrants  gap #1338
+appMemoryWriteGrants  command app memory-grant list
 appNodes  gap #63
 appRun  command run get
 appRuns  command run list
@@ -110,7 +110,7 @@ impersonationSession  gap #1344
 impersonationSessions  gap #1344
 installMemory  command node list
 invitation  command org invite show
-latestAppRun  gap #1338
+latestAppRun  command run latest
 marketplaceAgents  gap #1345
 marketplaceMemories  gap #1345
 marketplaceOrganizations  gap #1345
@@ -128,7 +128,7 @@ memoryEdges  excluded graphical: slim id/loc lists sized for drawing a memory's 
 memoryNodes  excluded graphical: slim id/loc lists sized for drawing a memory's node-link graph view; `node list` and `edge list` read the same nodes and edges
 memoryUsageSummary  command memory usage
 myAgentSubscriptions  gap #890
-myApp  gap #1338
+myApp  command app whoami
 myChats  gap #64
 myPasskeys  gap #878
 myUserApiKeys  command auth token list
@@ -424,7 +424,7 @@ revokeAgentSubscription  gap #890
 revokeAppGrant  gap #1336
 revokeAppKey  command app key revoke
 revokeAppKeyScope  command app key scope revoke
-revokeAppMemoryWriteGrant  gap #1338
+revokeAppMemoryWriteGrant  command app memory-grant rm
 revokeConnectionGrant  command connection grant revoke
 revokePrincipalGrant  command grant revoke
 revokeUserApiKey  command auth token revoke
@@ -435,7 +435,7 @@ searchReplaceInNodes  command replace text
 searchReplaceInSpecNodes  command spec replace
 sendChatMessage  gap #64
 sendContactMessage  excluded not-a-capability: a public website form (waiting list, contact), not a platform capability
-setAgentAssetUploadEnabled  gap #1338
+setAgentAssetUploadEnabled  command app asset-upload enable
 setAgentBase  command agent set-base
 setAgentBootPrompt  command agent set-boot-prompt
 setAgentIndexRefs  command agent update
@@ -444,7 +444,7 @@ setAgentTaskStallSchedule  command team stall-schedule set
 setAiModelPrice  gap #215
 setAppAgentBootPrompt  command app agent set-boot-prompt
 setAppDeliverySettings  command team delivery-settings set
-setAppMemoryWriteGrant  gap #1338
+setAppMemoryWriteGrant  command app memory-grant add
 setAppTickerSettings  gap #1336
 setAssetPublicLink  command asset public-link
 setDashboardWidgets  excluded graphical: places portal dashboard widgets on a 12-column grid (position, span, rowSpan)

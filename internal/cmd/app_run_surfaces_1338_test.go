@@ -49,9 +49,11 @@ func TestAppRunSurfaces1338WireAndDTO(t *testing.T) {
 			if !ok {
 				t.Fatalf("missing %s", tc.op)
 			}
-			var vars map[string]any
-			if err := json.Unmarshal(raw, &vars); err != nil {
-				t.Fatal(err)
+			vars := map[string]any{}
+			if len(raw) > 0 {
+				if err := json.Unmarshal(raw, &vars); err != nil {
+					t.Fatal(err)
+				}
 			}
 			for k, want := range tc.vars {
 				if !reflect.DeepEqual(vars[k], want) {
@@ -141,6 +143,55 @@ func TestAppRunSurfaces1338UsageAndConfirmation(t *testing.T) {
 		calls, _, err := runTeamTask(t, nil, args...)
 		if exitCodeFor(err) != 2 || len(*calls) != 0 {
 			t.Fatalf("args=%v err=%v calls=%v", args, err, *calls)
+		}
+	}
+}
+
+func TestAppRunSurfaces1338MalformedAndNullableResults(t *testing.T) {
+	cases := surfaceCases1338()
+	for _, tc := range cases {
+		if tc.name != "grant add" && tc.name != "grant list" && tc.name != "grant rm" && tc.name != "enable" {
+			continue
+		}
+		t.Run(tc.name, func(t *testing.T) {
+			var original map[string]json.RawMessage
+			if err := json.Unmarshal([]byte(tc.response), &original); err != nil {
+				t.Fatal(err)
+			}
+			for key := range original {
+				original[key] = json.RawMessage(`null`)
+			}
+			response, err := json.Marshal(original)
+			if err != nil {
+				t.Fatal(err)
+			}
+			calls, out, err := runTeamTask(t, map[string]string{tc.op: `{"data":` + string(response) + `}`}, append(tc.args, "--json")...)
+			if exitCodeFor(err) != 1 || out != "" || len(*calls) != 1 {
+				t.Fatalf("malformed accepted: %v %s %v", err, out, *calls)
+			}
+		})
+	}
+	calls, out, err := runTeamTask(t, map[string]string{"AppMemoryWriteGrants": `{"data":{"appMemoryWriteGrants":[` + strings.Replace(grant1338, `"memoryUrn":"hrn:mem:acme.com:notes"`, `"memoryUrn":null`, 1) + `]}}`}, "app", "memory-grant", "list", "acme.com:team", "--json")
+	if err != nil || len(*calls) != 1 {
+		t.Fatal(err)
+	}
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(out), &rows); err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || rows[0]["memoryUrn"] != nil {
+		t.Fatalf("nullable memory backfilled: %s", out)
+	}
+	for _, enabled := range []bool{false, true} {
+		tools := `[]`
+		verb := "enable"
+		if enabled {
+			tools = `["asset:upload"]`
+			verb = "disable"
+		}
+		_, out, err := runTeamTask(t, map[string]string{"SetAgentAssetUploadEnabled": `{"data":{"setAgentAssetUploadEnabled":{"id":"a1","urn":"hrn:app:acme.com:team","agentTools":` + tools + `}}}`}, "app", "asset-upload", verb, "hrn:agent:acme.com:bot", "--yes", "--json")
+		if exitCodeFor(err) != 1 || out != "" {
+			t.Fatalf("setting mismatch forged success: %v %s", err, out)
 		}
 	}
 }
