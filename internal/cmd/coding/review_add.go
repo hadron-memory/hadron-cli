@@ -99,8 +99,10 @@ parent first, or pass --root"). Create it once with
 ` + "`hadron node create --loc review --name Review -m <memory>`" + `, or point --root at the parent your
 memory already has; ` + "`hadron coding review list`" + ` shows the tree.
 
-<check-name> is one kebab-case segment; the node's loc is "review:" plus that
-name, so ` + "`thin-resolver-field`" + ` becomes ` + "`review:thin-resolver-field`" + `.
+<check-name> is one kebab-case segment; the node's loc is <root>:<check-name>,
+where --root defaults to review. With the default root, thin-resolver-field
+becomes review:thin-resolver-field. With --root checks, the same name becomes
+checks:thin-resolver-field.
 
 A check created this way passes ` + "`coding review lint`" + ` as written.
 Creating a check that already exists fails rather than overwriting it — edit an
