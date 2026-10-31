@@ -94926,7 +94926,7 @@ query NodeEdgeRemovals ($nodeRef: ID!, $limit: Int) {
 }
 `
 
-// #1160 — the hard-delete edge audit trail (hadron-server#2562,
+// #1160 — the hard-delete edge audit trail (hadron-server#2517, built in #2562;
 // cor:dmo:010:04): one entry per edge a hard delete removed from this node,
 // newest first. targetLoc and edgeLoc are null when the caller cannot read the
 // memory the deleted target lived in (the edge loc is derived from the target's
