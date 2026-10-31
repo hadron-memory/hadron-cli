@@ -13,12 +13,38 @@ import (
 	"time"
 )
 
-// Name is the one fixed entry per user (one sweep per host).
+// Name is the health sweep's fixed entry per user (one sweep per host).
 const (
 	Name         = "hadron-team-health"
 	LaunchdLabel = "com.hadronmemory.team-health"
-	cronMarker   = "# " + Name
 )
+
+// Job is one scheduled hadron command the package manages: its unit name,
+// launchd label and the argv between the binary and --config. The zero value
+// is the health sweep, so every pre-existing caller is unchanged (cli#1472
+// added the usage collector as a second job; one entry per job per user).
+type Job struct {
+	Name         string   // systemd unit base name and the cron marker
+	LaunchdLabel string   // launchd agent label
+	Sub          []string // words after the binary, before --config
+	Describes    string   // what the unit does, for its Description=
+	UninstallCmd string   // the command a refusal tells the operator to run
+}
+
+// Health is the team health sweep job (the zero Job).
+var Health = Job{Name: Name, LaunchdLabel: LaunchdLabel, Sub: []string{"team", "health", "sweep"}, Describes: "team health sweep", UninstallCmd: "hadron team health uninstall"}
+
+// Usage is the account-usage collector job (cli#1472).
+var Usage = Job{Name: "hadron-team-usage", LaunchdLabel: "com.hadronmemory.team-usage", Sub: []string{"team", "usage", "collect"}, Describes: "team usage collection", UninstallCmd: "hadron team usage uninstall"}
+
+func (j Job) orHealth() Job {
+	if j.Name == "" {
+		return Health
+	}
+	return j
+}
+
+func (j Job) cronMarker() string { return "# " + j.Name }
 
 // UsageError is a refusal that maps to exit 2: bad input or no supported
 // scheduler. Anything else from this package is an operational failure.
@@ -28,8 +54,10 @@ func (e *UsageError) Error() string { return e.Msg }
 
 func usagef(format string, a ...any) error { return &UsageError{fmt.Sprintf(format, a...)} }
 
-// Spec is what an entry runs: exactly `<Bin> team health sweep --config <Config>`.
+// Spec is what an entry runs: exactly `<Bin> <job words> --config <Config>`
+// (`team health sweep` for the zero Job).
 type Spec struct {
+	Job      Job           // zero value is the health sweep
 	Bin      string        // absolute path of hadron
 	Config   string        // absolute path of the host config
 	Interval time.Duration // whole minutes, at least one
@@ -38,7 +66,7 @@ type Spec struct {
 
 // Argv is the command the entry runs.
 func (s Spec) Argv() []string {
-	return []string{s.Bin, "team", "health", "sweep", "--config", s.Config}
+	return append(append([]string{s.Bin}, s.Job.orHealth().Sub...), "--config", s.Config)
 }
 
 // ValidatePath refuses a path that cannot be quoted safely in every scheduler.
@@ -90,7 +118,9 @@ func systemdQuote(s string) string {
 
 func shellQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'" }
 
-func headerComment(s Spec) string { return "# " + Name + ": config=" + strconv.Quote(s.Config) }
+func headerComment(s Spec) string {
+	return "# " + s.Job.orHealth().Name + ": config=" + strconv.Quote(s.Config)
+}
 
 // SystemdService is the unit the timer starts.
 func SystemdService(s Spec) string {
@@ -100,7 +130,7 @@ func SystemdService(s Spec) string {
 	}
 	return headerComment(s) + `
 [Unit]
-Description=Hadron team health sweep
+Description=Hadron ` + s.Job.orHealth().Describes + `
 
 [Service]
 Type=oneshot
@@ -112,12 +142,12 @@ ExecStart=` + strings.Join(words, " ") + "\n"
 func SystemdTimer(s Spec) string {
 	return headerComment(s) + `
 [Unit]
-Description=Run the Hadron team health sweep every ` + strconv.Itoa(int(s.Interval/time.Minute)) + ` minutes
+Description=Run the Hadron ` + s.Job.orHealth().Describes + ` every ` + strconv.Itoa(int(s.Interval/time.Minute)) + ` minutes
 
 [Timer]
 OnBootSec=1min
 OnUnitActiveSec=` + strconv.Itoa(int(s.Interval/time.Minute)) + `min
-Unit=` + Name + `.service
+Unit=` + s.Job.orHealth().Name + `.service
 
 [Install]
 WantedBy=timers.target
@@ -126,12 +156,22 @@ WantedBy=timers.target
 
 // CronLine is the one crontab line; the trailing marker is how it is found
 // again, and a bare % (a newline to cron) is escaped.
-var ownedCronRE = regexp.MustCompile(`^\S+ \S+ \S+ \S+ \S+ PATH=.*'team' 'health' 'sweep' .* ` + cronMarker + ` config="(?:[^"\\]|\\.)*"\s*$`)
+func ownedCronRE(j Job) *regexp.Regexp {
+	j = j.orHealth()
+	var words []string
+	for _, w := range j.Sub {
+		words = append(words, regexp.QuoteMeta("'"+w+"'"))
+	}
+	return regexp.MustCompile(`^\S+ \S+ \S+ \S+ \S+ PATH=.*` + strings.Join(words, " ") + ` .* ` + regexp.QuoteMeta(j.cronMarker()) + ` config="(?:[^"\\]|\\.)*"\s*$`)
+}
 
 // IsOwnedCronLine is true only for the line CronLine writes: the schedule,
 // the sweep command and the trailing marker with its config. A comment that
 // merely mentions the name is somebody else's.
-func IsOwnedCronLine(l string) bool { return ownedCronRE.MatchString(l) }
+func IsOwnedCronLine(l string) bool { return ownedCronRE(Health).MatchString(l) }
+
+// IsOwnedCronLineFor is IsOwnedCronLine for any job.
+func IsOwnedCronLineFor(j Job, l string) bool { return ownedCronRE(j).MatchString(l) }
 
 func CronLine(s Spec) (string, error) {
 	sched, err := cronSchedule(s.Interval)
@@ -143,7 +183,7 @@ func CronLine(s Spec) (string, error) {
 		words = append(words, shellQuote(w))
 	}
 	cmd := "PATH=" + shellQuote(s.Path) + " " + strings.Join(words, " ")
-	return sched + " " + strings.ReplaceAll(cmd+" "+cronMarker+" config="+strconv.Quote(s.Config), "%", `\%`), nil
+	return sched + " " + strings.ReplaceAll(cmd+" "+s.Job.orHealth().cronMarker()+" config="+strconv.Quote(s.Config), "%", `\%`), nil
 }
 
 func xmlEscape(s string) string {
@@ -161,7 +201,7 @@ func Plist(s Spec) string {
 <plist version="1.0">
 <dict>
 	<key>Label</key>
-	<string>` + LaunchdLabel + `</string>
+	<string>` + s.Job.orHealth().LaunchdLabel + `</string>
 	<key>ProgramArguments</key>
 	<array>
 ` + args.String() + `	</array>
