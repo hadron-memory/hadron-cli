@@ -42,6 +42,8 @@ import (
 	objectcmd "github.com/hadron-memory/hadron-cli/internal/cmd/object"
 	orcacmd "github.com/hadron-memory/hadron-cli/internal/cmd/orca"
 	orgcmd "github.com/hadron-memory/hadron-cli/internal/cmd/org"
+	policycmd "github.com/hadron-memory/hadron-cli/internal/cmd/policy"
+	quotacmd "github.com/hadron-memory/hadron-cli/internal/cmd/quota"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/replacecmd"
 	runcmd "github.com/hadron-memory/hadron-cli/internal/cmd/run"
 	schedulecmd "github.com/hadron-memory/hadron-cli/internal/cmd/schedule"
@@ -163,6 +165,8 @@ the binding is verified. Otherwise this does not apply to you.`,
 	root.AddCommand(webhookcmd.NewCmdWebhook(f))
 	root.AddCommand(ticketcmd.NewCmdTicket(f))
 	root.AddCommand(grantcmd.NewCmdGrant(f))
+	root.AddCommand(policycmd.NewCmdPolicy(f))
+	root.AddCommand(quotacmd.NewCmdQuota(f))
 	root.AddCommand(connectioncmd.NewCmdConnection(f))
 	root.AddCommand(hacmd.NewCmdHa(f))
 	root.AddCommand(emailcmd.NewCmdEmail(f))

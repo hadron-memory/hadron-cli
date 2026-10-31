@@ -1,8 +1,10 @@
 package org
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -14,7 +16,7 @@ import (
 )
 
 func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
-	var name, urn string
+	var name, urn, policy string
 	var marketplace bool
 	cmd := &cobra.Command{
 		Use:   "update <org>",
@@ -31,16 +33,40 @@ so is a rename that would clash with an existing URN inside the org.
 
 --marketplace (or --marketplace=true) lists the org on the marketplace
 catalogue and --marketplace=false unlists it. Listing advertises the org; it
-grants nobody access.`,
+grants nobody access.
+
+--policy sets the org's action-policy link, the org layer of the chain every
+run of the org's Apps must pass (a run may do an action only if every layer
+allows it). Pass a JSON allow-list, '{"allow":["run.execute","comm.outbound"]}';
+'{"allow":[]}' allows nothing. --policy "" removes the link, so this layer no
+longer restricts anything. See which layer denies an action with
+hadron policy explain.`,
 		Example: `  hadron org update acme.com --name "Acme Inc"
   hadron org update acme.com --urn acme-inc.com
   hadron org update acme.com --marketplace         # list on the marketplace
-  hadron org update acme.com --marketplace=false   # unlist`,
+  hadron org update acme.com --marketplace=false   # unlist
+  hadron org update acme.com --policy '{"allow":["run.execute"]}'
+  hadron org update acme.com --policy ""          # remove the org policy link`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			changed := cmd.Flags().Changed
-			if !changed("name") && !changed("urn") && !changed("marketplace") {
-				return exitcode.Newf(exitcode.Usage, "nothing to update — pass --name, --urn, or --marketplace")
+			if !changed("name") && !changed("urn") && !changed("marketplace") && !changed("policy") {
+				return exitcode.Newf(exitcode.Usage, "nothing to update — pass --name, --urn, --marketplace, or --policy")
+			}
+			// --policy "" clears the link (explicit null); a non-empty value
+			// sets it; not passed, it is omitted and the server preserves it.
+			var policyArg *json.RawMessage
+			if changed("policy") {
+				if strings.TrimSpace(policy) == "" {
+					clear := json.RawMessage("null")
+					policyArg = &clear
+				} else {
+					parsed, err := cmdutil.ParseJSONArg(policy, "policy")
+					if err != nil {
+						return err
+					}
+					policyArg = parsed
+				}
 			}
 			if changed("urn") {
 				if err := cmdutil.ValidateOrgSlug("--urn", urn); err != nil {
@@ -62,7 +88,7 @@ grants nobody access.`,
 			if changed("marketplace") {
 				marketplaceArg = &marketplace
 			}
-			resp, err := gen.UpdateOrganization(cmd.Context(), client, args[0], nameArg, urnArg, marketplaceArg)
+			resp, err := gen.UpdateOrganization(cmd.Context(), client, args[0], nameArg, urnArg, marketplaceArg, policyArg)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -79,5 +105,6 @@ grants nobody access.`,
 	cmd.Flags().StringVar(&name, "name", "", "new display name")
 	cmd.Flags().StringVar(&urn, "urn", "", "new URN: a lowercase slug, dotted or not (e.g. acme.com or acme)")
 	cmd.Flags().BoolVar(&marketplace, "marketplace", false, "list this org on the marketplace catalogue: --marketplace to list, --marketplace=false to unlist (advertisement, not access)")
+	cmd.Flags().StringVar(&policy, "policy", "", `org action-policy link as JSON, e.g. '{"allow":["run.execute"]}' (--policy "" removes it)`)
 	return cmd
 }

@@ -35,6 +35,7 @@ for a person, while a ticket is used up by one action of an agent run.`,
   hadron grant list --org acme.com`,
 	}
 	cmd.AddCommand(newCmdCreate(f))
+	cmd.AddCommand(newCmdGet(f))
 	cmd.AddCommand(newCmdLs(f))
 	cmd.AddCommand(newCmdRevoke(f))
 	return cmd
