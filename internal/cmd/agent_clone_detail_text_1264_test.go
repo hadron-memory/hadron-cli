@@ -75,9 +75,19 @@ func TestAgentClone1264AuthAndServerFaultLabels(t *testing.T) {
 // blocker code, code or reason can neither forge a line nor drive the
 // terminal, and the name stays inside its quotes.
 func TestAgentClone1264ServerStringsAreSanitized(t *testing.T) {
-	stderr, _ := cloneStderr1264(t, `{"code":"CODE\u001b[31m\nFORGED","reason":"R\r\nFORGED","blockers":[{"code":"B‮X\nFORGED","count":1,"subjects":[{"position":0,"name":"N\u001b]0;t\u0007\nFORGED"}]}]}`)
+	stderr, _ := cloneStderr1264(t, `{"code":"CODE\u001b[31m\nFORGED","reason":"R\r\nFORGED","blockers":[{"code":"B\u202eX\nFORGED","count":1,"subjects":[{"position":0,"name":"N\u001b]0;t\u0007\nFORGED"}]}]}`)
 	want := "hadron: Server refusal (clone refusal: CODE [31m FORGED, reason R  FORGED)\n" +
 		"  blocker B X FORGED  count 1  \"N ]0;t  FORGED\" (position 0)\n"
+	if stderr != want {
+		t.Fatalf("got:\n%q\nwant:\n%q", stderr, want)
+	}
+}
+
+// A first error with blockers but no code, reason or retryable still says
+// what kind of answer it was on the first line; the blockers follow.
+func TestAgentClone1264BlockersWithoutCode(t *testing.T) {
+	stderr, _ := cloneStderr1264(t, `{"blockers":[{"code":"CLONE_BASE_UNUSABLE","count":1}]}`)
+	want := "hadron: Server refusal (clone refusal: blockers follow)\n  blocker CLONE_BASE_UNUSABLE  count 1\n"
 	if stderr != want {
 		t.Fatalf("got:\n%q\nwant:\n%q", stderr, want)
 	}
