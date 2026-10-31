@@ -13,7 +13,7 @@ import (
 const edgeFlagUsage = `an outgoing edge, repeatable: <name>=<target>, or a JSON object with target (required), name, loc, description, runnable`
 
 // edgeSpec is the JSON form of --edge. Unknown keys are refused, so a typo
-// (descripton) is an error rather than an edge without its description.
+// in a key name is an error rather than an edge silently missing that field.
 type edgeSpec struct {
 	Target      string  `json:"target"`
 	Name        *string `json:"name"`
