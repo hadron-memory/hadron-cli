@@ -65,7 +65,7 @@ func loadReplacements(ctx context.Context, client graphql.Client, cands []replac
 		if n == nil {
 			continue
 		}
-		if by, ok := replacedByLoc(nodeFromBatch(n)); ok {
+		if by, ok := replacedByLoc(n.MemoryId, n.OutgoingEdges); ok {
 			out[n.Id] = replacement{Replaced: true, By: &by}
 		}
 	}
@@ -74,20 +74,22 @@ func loadReplacements(ctx context.Context, client graphql.Client, cands []replac
 
 // replacedByLoc names the replacement only when it is unambiguous: exactly one
 // distinct superseded-by target, readable (it carries a loc) and in the
-// node's own memory.
-func replacedByLoc(n specNode) (string, bool) {
+// node's own memory. It reads the raw edges, not the lint projection: that one
+// drops an edge whose target the caller cannot read, which would let a
+// readable edge name itself the sole replacement beside a concealed one.
+func replacedByLoc(memoryID string, edges []*gen.NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge) (string, bool) {
 	var found string
-	for _, e := range n.OutEdges {
-		if e.Name != supersededByLabel {
+	for _, e := range edges {
+		if e == nil || edgeNameStr(e.Name) != supersededByLabel {
 			continue
 		}
-		if e.Loc == "" || e.TargetMemoryID != n.MemoryID {
+		if e.Target == nil || e.Target.Loc == "" || e.Target.MemoryId != memoryID {
 			return "", false
 		}
-		if found != "" && found != e.Loc {
+		if found != "" && found != e.Target.Loc {
 			return "", false
 		}
-		found = e.Loc
+		found = e.Target.Loc
 	}
 	return found, found != ""
 }

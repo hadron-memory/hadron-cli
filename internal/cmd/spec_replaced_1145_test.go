@@ -101,11 +101,13 @@ func TestSpecListReplacedJSONIsAdditive(t *testing.T) {
 // targets all say "replaced" and name nothing.
 func TestSpecListReplacedNeverGuessesTheTarget(t *testing.T) {
 	for name, batch := range map[string]string{
-		"no edge":        replacedBatchNode(),
-		"concealed":      replacedBatchNode(supersededByEdge("", "")),
-		"other memory":   replacedBatchNode(supersededByEdge("msg:010:03", "mem2")),
-		"two targets":    replacedBatchNode(supersededByEdge("msg:010:03", "mem1"), supersededByEdge("msg:010:04", "mem1")),
-		"unrelated edge": replacedBatchNode(strings.Replace(supersededByEdge("msg:010:03", "mem1"), "superseded-by", "see-also", 1)),
+		"no edge":                 replacedBatchNode(),
+		"concealed":               replacedBatchNode(supersededByEdge("", "")),
+		"other memory":            replacedBatchNode(supersededByEdge("msg:010:03", "mem2")),
+		"two targets":             replacedBatchNode(supersededByEdge("msg:010:03", "mem1"), supersededByEdge("msg:010:04", "mem1")),
+		"readable then concealed": replacedBatchNode(supersededByEdge("msg:010:03", "mem1"), supersededByEdge("", "")),
+		"concealed then readable": replacedBatchNode(supersededByEdge("", ""), supersededByEdge("msg:010:03", "mem1")),
+		"unrelated edge":          replacedBatchNode(strings.Replace(supersededByEdge("msg:010:03", "mem1"), "superseded-by", "see-also", 1)),
 	} {
 		t.Run(name, func(t *testing.T) {
 			text, _ := replacedList(t, `["spec","superseded"]`, batch)
