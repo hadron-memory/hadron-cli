@@ -1219,6 +1219,12 @@ func (v *AgentSchedulesResponse) GetAgentSchedules() *AgentSchedulesAgentSchedul
 }
 
 // AgentTaskAddBlockerAddAgentTaskBlockerAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskAddBlockerAddAgentTaskBlockerAgentTask struct {
 	AgentTaskFields `json:"-"`
 }
@@ -1514,6 +1520,12 @@ func (v *AgentTaskAddBlockerResponse) GetAddAgentTaskBlocker() *AgentTaskAddBloc
 }
 
 // AgentTaskAssignAssignAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskAssignAssignAgentTask struct {
 	AgentTaskFields `json:"-"`
 }
@@ -1785,6 +1797,12 @@ func (v *AgentTaskAssignResponse) GetAssignAgentTask() *AgentTaskAssignAssignAge
 }
 
 // AgentTaskCancelCancelAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskCancelCancelAgentTask struct {
 	AgentTaskFields `json:"-"`
 }
@@ -2056,6 +2074,12 @@ func (v *AgentTaskCancelResponse) GetCancelAgentTask() *AgentTaskCancelCancelAge
 }
 
 // AgentTaskCreateCreateAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskCreateCreateAgentTask struct {
 	AgentTaskFields `json:"-"`
 }
@@ -2358,6 +2382,12 @@ var AllAgentTaskCreateStatus = []AgentTaskCreateStatus{
 }
 
 // AgentTaskDependenciesAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskDependenciesAgentTask struct {
 	Id string `json:"id"`
 	// Same-App tasks this task waits for, including ended blockers.
@@ -2380,12 +2410,6 @@ func (v *AgentTaskDependenciesAgentTask) GetBlocks() *AgentTaskDependenciesAgent
 }
 
 // AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPage includes the requested fields of the GraphQL type AgentTaskDependencyPage.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPage struct {
 	Total   int                                                                             `json:"total"`
 	HasMore bool                                                                            `json:"hasMore"`
@@ -2408,6 +2432,12 @@ func (v *AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPage) GetItem
 }
 
 // AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgentTask struct {
 	AgentTaskDependencyFields `json:"-"`
 }
@@ -2486,12 +2516,6 @@ func (v *AgentTaskDependenciesAgentTaskBlockedByAgentTaskDependencyPageItemsAgen
 }
 
 // AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPage includes the requested fields of the GraphQL type AgentTaskDependencyPage.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPage struct {
 	Total   int                                                                          `json:"total"`
 	HasMore bool                                                                         `json:"hasMore"`
@@ -2512,6 +2536,12 @@ func (v *AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPage) GetItems()
 }
 
 // AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskDependenciesAgentTaskBlocksAgentTaskDependencyPageItemsAgentTask struct {
 	AgentTaskDependencyFields `json:"-"`
 }
@@ -2603,6 +2633,12 @@ func (v *AgentTaskDependenciesResponse) GetAgentTask() *AgentTaskDependenciesAge
 }
 
 // AgentTaskDependencyFields includes the GraphQL fields of AgentTask requested by the fragment AgentTaskDependencyFields.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskDependencyFields struct {
 	Id string `json:"id"`
 	// The short handle of this task, for example "AT3.405": its project (AT3, a top-level task counted per App) and its
@@ -2629,6 +2665,12 @@ func (v *AgentTaskDependencyFields) GetTitle() string { return v.Title }
 func (v *AgentTaskDependencyFields) GetStatus() AgentTaskStatus { return v.Status }
 
 // AgentTaskFields includes the GraphQL fields of AgentTask requested by the fragment AgentTaskFields.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskFields struct {
 	// #2644 (hrn:node:hadronmemory.com:specs:cor:agt:050:01) — priority1 is highest; range1..5, default1. Matching only, never authority.
 	Priority int `json:"priority"`
@@ -2938,12 +2980,6 @@ func (v *AgentTaskFieldsAssigneeAgentTaskParty) __premarshalJSON() (*__premarsha
 }
 
 // AgentTaskFieldsBlockedByAgentTaskDependencyPage includes the requested fields of the GraphQL type AgentTaskDependencyPage.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskFieldsBlockedByAgentTaskDependencyPage struct {
 	Total   int                                                              `json:"total"`
 	HasMore bool                                                             `json:"hasMore"`
@@ -2962,6 +2998,12 @@ func (v *AgentTaskFieldsBlockedByAgentTaskDependencyPage) GetItems() []*AgentTas
 }
 
 // AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask struct {
 	AgentTaskDependencyFields `json:"-"`
 }
@@ -3040,12 +3082,6 @@ func (v *AgentTaskFieldsBlockedByAgentTaskDependencyPageItemsAgentTask) __premar
 }
 
 // AgentTaskFieldsBlocksAgentTaskDependencyPage includes the requested fields of the GraphQL type AgentTaskDependencyPage.
-// The GraphQL type's documentation follows.
-//
-// One piece of work a team App has assigned, or wants assigned
-// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
-// ended; it never reads what the work is. Readable by the App's participants,
-// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskFieldsBlocksAgentTaskDependencyPage struct {
 	Total   int                                                           `json:"total"`
 	HasMore bool                                                          `json:"hasMore"`
@@ -3064,6 +3100,12 @@ func (v *AgentTaskFieldsBlocksAgentTaskDependencyPage) GetItems() []*AgentTaskFi
 }
 
 // AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskFieldsBlocksAgentTaskDependencyPageItemsAgentTask struct {
 	AgentTaskDependencyFields `json:"-"`
 }
@@ -3346,6 +3388,12 @@ func (v *AgentTaskFieldsResultAgentTaskResult) GetSummary() *string { return v.S
 func (v *AgentTaskFieldsResultAgentTaskResult) GetEvidence() *string { return v.Evidence }
 
 // AgentTaskFinishFinishAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskFinishFinishAgentTask struct {
 	AgentTaskFields `json:"-"`
 }
@@ -3613,6 +3661,12 @@ func (v *AgentTaskFinishResponse) GetFinishAgentTask() *AgentTaskFinishFinishAge
 }
 
 // AgentTaskGetAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskGetAgentTask struct {
 	AgentTaskFields `json:"-"`
 }
@@ -3961,6 +4015,12 @@ func (v *AgentTaskIndexListResponse) GetAgentTaskList() []*AgentTaskIndexListAge
 }
 
 // AgentTaskListAgentTasksAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskListAgentTasksAgentTask struct {
 	AgentTaskFields `json:"-"`
 }
@@ -4221,6 +4281,12 @@ func (v *AgentTaskListAgentTasksAgentTask) __premarshalJSON() (*__premarshalAgen
 }
 
 // AgentTaskListFilteredAgentTasksAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskListFilteredAgentTasksAgentTask struct {
 	AgentTaskFields `json:"-"`
 }
@@ -4539,6 +4605,12 @@ func (v *AgentTaskListResponse) GetAgentTasks() []*AgentTaskListAgentTasksAgentT
 }
 
 // AgentTaskListTextAgentTasksAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskListTextAgentTasksAgentTask struct {
 	AgentTaskFields `json:"-"`
 }
@@ -4844,6 +4916,12 @@ var AllAgentTaskMatchedBy = []AgentTaskMatchedBy{
 }
 
 // AgentTaskParkParkAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskParkParkAgentTask struct {
 	AgentTaskFields `json:"-"`
 }
@@ -5158,6 +5236,12 @@ var AllAgentTaskPartyKind = []AgentTaskPartyKind{
 }
 
 // AgentTaskProgressRecordAgentTaskProgressAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskProgressRecordAgentTaskProgressAgentTask struct {
 	AgentTaskFields `json:"-"`
 }
@@ -5456,6 +5540,12 @@ func (v *AgentTaskProgressResponse) GetRecordAgentTaskProgress() *AgentTaskProgr
 }
 
 // AgentTaskReadyMakeAgentTaskReadyAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskReadyMakeAgentTaskReadyAgentTask struct {
 	AgentTaskFields `json:"-"`
 }
@@ -5748,6 +5838,12 @@ func (v *AgentTaskReadyResponse) GetMakeAgentTaskReady() *AgentTaskReadyMakeAgen
 }
 
 // AgentTaskReassignReassignAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskReassignReassignAgentTask struct {
 	AgentTaskFields `json:"-"`
 }
@@ -6029,6 +6125,12 @@ func (v *AgentTaskReassignResponse) GetReassignAgentTask() *AgentTaskReassignRea
 }
 
 // AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask struct {
 	AgentTaskFields `json:"-"`
 }
@@ -6374,6 +6476,12 @@ func (v *AgentTaskSetPriorityResponse) GetSetAgentTaskPriority() *AgentTaskSetPr
 }
 
 // AgentTaskSetPrioritySetAgentTaskPriorityAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskSetPrioritySetAgentTaskPriorityAgentTask struct {
 	AgentTaskFields `json:"-"`
 }
@@ -6729,6 +6837,12 @@ func (v *AgentTaskStartResponse) GetStartAgentTask() *AgentTaskStartStartAgentTa
 }
 
 // AgentTaskStartStartAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskStartStartAgentTask struct {
 	AgentTaskFields `json:"-"`
 }
@@ -7098,6 +7212,12 @@ func (v *AgentTaskSymptomSearchResponse) GetAgentTaskList() []*AgentTaskSymptomS
 }
 
 // AgentTaskTreeAgentTaskTreeAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskTreeAgentTaskTreeAgentTask struct {
 	AgentTaskFields `json:"-"`
 }
@@ -7391,6 +7511,12 @@ func (v *AgentTaskUpdateResponse) GetUpdateAgentTask() *AgentTaskUpdateUpdateAge
 }
 
 // AgentTaskUpdateUpdateAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskUpdateUpdateAgentTask struct {
 	AgentTaskFields `json:"-"`
 }
@@ -15583,10 +15709,9 @@ type CastWorkerPreviewCastWorkerPreview struct {
 	// The role-agent the casting would bind.
 	AgentId   string `json:"agentId"`
 	AgentName string `json:"agentName"`
-	// The composed boot prompt, post {{worker.name}}/{{worker.role}} substitution with
-	// promptOverride appended — the same composition Worker.prompt performs,
-	// reviewable BEFORE the name is permanent. Null when the agent carries no
-	// template and no override was given.
+	// The boot prompt a bind of this casting would be served now, with the
+	// name and role filled — reviewable BEFORE the name is permanent. Null when
+	// no prompt can be served yet (no worker pointer exists before the cast).
 	Prompt *string `json:"prompt"`
 }
 
@@ -18485,7 +18610,7 @@ type CloneAgentResponse struct {
 	// CLONE_*); a source that keeps changing answers CONFLICT with reason AGENT_CLONE_SOURCE_CHANGED
 	// (retryable). target must be an organization.
 	//
-	// Copied: name, description, systemPrompt, type, surfaces, usesTasks, registerDefaults, installationPolicy,
+	// Copied: name, description, type, surfaces, usesTasks, registerDefaults, installationPolicy,
 	// memoryProvisioning, personaRole; the system memory graph (nodes, edges, pending edges) with the tasks and
 	// processes index pointers remapped; memory links (kept as links, not copied); imports and the base, re-pointed.
 	// NOT copied: visibility (the clone is PERSONAL), AI service config, boot-prompt pointers, node comments,
@@ -21373,9 +21498,11 @@ type CreateAgentResponse struct {
 	// v2 — no @ sigil) and its system memory is user-owned too. Exactly one owner
 	// (org XOR user).
 	//
-	// personaRole and systemPrompt are the persona dressing (cor:agt:020:01) —
-	// the reusable role plus the '{{worker.name}}'-templated prompt. The NAMED
-	// identity is a Worker, cast with castWorker; names never live on agents.
+	// personaRole is the persona dressing (hrn:node:hadronmemory.com:specs:cor:agt:020:01), the reusable role.
+	// A new Agent has no boot prompt: write its boot:source, compile it and
+	// approve the compiled revision (hrn:node:hadronmemory.com:specs:cor:agt:040:10,
+	// hrn:node:hadronmemory.com:specs:cor:agt:040:12). The NAMED identity is a
+	// Worker, cast with castWorker; names never live on agents.
 	//
 	// orgId accepts the org's ID or URN.
 	CreateAgent *CreateAgentCreateAgent `json:"createAgent"`
@@ -26440,9 +26567,8 @@ func (v *CreateTeamChatMessageResponse) GetCreateTeamChatMessage() *CreateTeamCh
 // A role definition (#960): the roles:<role> node in the Team Agent's system
 // memory. #1050: it carries no name register — a role is a definition, not an
 // allocation pool.
-// The prompt template is NOT here — with the Worker model (#974) it
-// lives on the role-agent (personaRole + systemPrompt); roleAgent
-// points at it.
+// The boot prompt is NOT here — it is the role-agent's compiled boot prompt
+// (hrn:node:hadronmemory.com:specs:cor:agt:040:07); roleAgent points at it.
 type CreateTeamRoleCreateTeamRole struct {
 	TeamRoleFields `json:"-"`
 }
@@ -31628,6 +31754,24 @@ type GetNodeNode struct {
 	Id string `json:"id"`
 	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
 	Urn string `json:"urn"`
+	// #2610 — this node's action URN (hrn:action:<root>:<agent-slug>:<code>, the
+	// action-register address) when it is a register:<code> entry in an Agent's
+	// system memory; null for every other node (a register: loc in a non-Agent
+	// memory names no entry). Computed on read from the holding Agent's own URN —
+	// never stored — and a second address beside urn: the node URN keeps
+	// resolving. An unemittable stored code atom (charset/length) also reads as
+	// null; the stored loc needs repair.
+	//
+	// Two deliberate asymmetries with resolveUrn's action arm (PR #2711 §10
+	// review): (1) this field computes for ANY caller who can read the node —
+	// including an App participant of an install — while the arm resolves only
+	// under the agent arm's gate, so such a caller can SEE an address that does
+	// not resolve FOR them (it resolves for the Agent's own tenant); the field
+	// leaks nothing the node read didn't already grant. (2) After an Agent
+	// rename this field shows the CURRENT slug (computed from the live Agent's
+	// urn) while the urn field still shows the stored node URN until alias
+	// healing catches up — the computed address is the fresher one on purpose.
+	ActionUrn *string `json:"actionUrn"`
 	// #881 — the portal URL that opens this node, built server-side so no client
 	// ever has to construct one (constructing means guessing which URN spelling
 	// the /app/u/<urn> route resolves, and the legacy '::' forms in circulation
@@ -31708,6 +31852,9 @@ func (v *GetNodeNode) GetId() string { return v.Id }
 
 // GetUrn returns GetNodeNode.Urn, and is useful for accessing the field via an interface.
 func (v *GetNodeNode) GetUrn() string { return v.Urn }
+
+// GetActionUrn returns GetNodeNode.ActionUrn, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetActionUrn() *string { return v.ActionUrn }
 
 // GetPortalUrl returns GetNodeNode.PortalUrl, and is useful for accessing the field via an interface.
 func (v *GetNodeNode) GetPortalUrl() *string { return v.PortalUrl }
@@ -32897,7 +33044,7 @@ func (v *GetTeamSessionSession) __premarshalJSON() (*__premarshalGetTeamSessionS
 
 // GetTickerResponse is returned by GetTicker on success.
 type GetTickerResponse struct {
-	// #1747 — one ticker by id or hrn:ticker: URN; null when it does not exist or the caller may not reach it.
+	// #1747 — one ticker by id or hrn:ticker: URN; null when it does not exist or the caller may not reach it. #2931: a host key reaches only its host's tickers (hrn:node:hadronmemory.com:specs:cor:agt:070:04).
 	Ticker *GetTickerTicker `json:"ticker"`
 }
 
@@ -33249,7 +33396,7 @@ type GetWorkerContinuityWorker struct {
 	// so binding is handoff) and by the worker read, which is the recovery path
 	// after a context compaction — the reader who has most lost the handoff and
 	// least knows one exists. Working-state field: behind the worker read gate,
-	// masked to null on deny, like prompt/promptOverride/memoryId.
+	// masked to null on deny, like prompt/memoryId.
 	Continuity *GetWorkerContinuityWorkerContinuity `json:"continuity"`
 }
 
@@ -35618,7 +35765,7 @@ type InstallAgentIntoAppResponse struct {
 	// CONTRIBUTOR+ on an org-owned App's org (platform admins included). NOT
 	// plain AppMembers: installing an existing Agent is itself a read grant on
 	// that Agent's design — its system memory becomes readable from every App
-	// context, and the returned Agent carries its systemPrompt — so this gate
+	// context, and the returned Agent carries its definition — so this gate
 	// stays at the level that can already read the org's Agents.
 	//
 	// Accepts the entity's ID or URN for both appRef and agentRef. Optional
@@ -36250,7 +36397,7 @@ var AllLintKind = []LintKind{
 
 // ListTickersPageResponse is returned by ListTickersPage on success.
 type ListTickersPageResponse struct {
-	// #2213 — `tickers` as a page: the same App gate, rows and order, with the real total.
+	// #2213 — `tickers` as a page: the same App gate, rows and order, with the real total (for a host key, #2931, its host's tickers).
 	// `limit` defaults to 20, 0 returns the count only, a negative limit is 0 and a limit
 	// over 200 is served as 200 (never refused). `offset` below 0 is 0.
 	TickersPage *ListTickersPageTickersPageTickerPage `json:"tickersPage"`
@@ -36483,6 +36630,7 @@ func (v *ListTickersPageTickersPageTickerPageItemsTicker) __premarshalJSON() (*_
 // ListTickersResponse is returned by ListTickers on success.
 type ListTickersResponse struct {
 	// #1747 — the live tickers of an App the caller participates in. An App the caller cannot reach reads as APP_NOT_FOUND (hrn:node:hadronmemory.com:specs:cor:agt:080:18).
+	// #2931 — the App's own live host:operate key reads too, read only and never over MCP: only the tickers a worker its host registers subscribes to, each read recorded as a host-key use (hrn:node:hadronmemory.com:specs:cor:agt:070:04, hrn:node:hadronmemory.com:specs:cor:agt:070:07).
 	Tickers []*ListTickersTickersTicker `json:"tickers"`
 }
 
@@ -40453,6 +40601,24 @@ type NodeBatchNodeBatchNodeBatchResultNodesNode struct {
 	Id string `json:"id"`
 	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
 	Urn string `json:"urn"`
+	// #2610 — this node's action URN (hrn:action:<root>:<agent-slug>:<code>, the
+	// action-register address) when it is a register:<code> entry in an Agent's
+	// system memory; null for every other node (a register: loc in a non-Agent
+	// memory names no entry). Computed on read from the holding Agent's own URN —
+	// never stored — and a second address beside urn: the node URN keeps
+	// resolving. An unemittable stored code atom (charset/length) also reads as
+	// null; the stored loc needs repair.
+	//
+	// Two deliberate asymmetries with resolveUrn's action arm (PR #2711 §10
+	// review): (1) this field computes for ANY caller who can read the node —
+	// including an App participant of an install — while the arm resolves only
+	// under the agent arm's gate, so such a caller can SEE an address that does
+	// not resolve FOR them (it resolves for the Agent's own tenant); the field
+	// leaks nothing the node read didn't already grant. (2) After an Agent
+	// rename this field shows the CURRENT slug (computed from the live Agent's
+	// urn) while the urn field still shows the stored node URN until alias
+	// healing catches up — the computed address is the fresher one on purpose.
+	ActionUrn *string `json:"actionUrn"`
 	// #881 — the portal URL that opens this node, built server-side so no client
 	// ever has to construct one (constructing means guessing which URN spelling
 	// the /app/u/<urn> route resolves, and the legacy '::' forms in circulation
@@ -40529,6 +40695,9 @@ func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetId() string { return v.I
 
 // GetUrn returns NodeBatchNodeBatchNodeBatchResultNodesNode.Urn, and is useful for accessing the field via an interface.
 func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetUrn() string { return v.Urn }
+
+// GetActionUrn returns NodeBatchNodeBatchNodeBatchResultNodesNode.ActionUrn, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetActionUrn() *string { return v.ActionUrn }
 
 // GetPortalUrl returns NodeBatchNodeBatchNodeBatchResultNodesNode.PortalUrl, and is useful for accessing the field via an interface.
 func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetPortalUrl() *string { return v.PortalUrl }
@@ -45167,7 +45336,7 @@ type PublicAgentsResponse struct {
 	// is PUBLIC by definition).
 	//
 	// Field-level exposure: a PUBLIC agent publishes its OWN definition
-	// (systemPrompt / systemMemoryId / memoryItems / imports) to every caller —
+	// (systemMemoryId / memoryItems / imports) to every caller —
 	// that is what a marketplace listing is (#551). The fields that surface OTHER
 	// tenants (apps / appAgents / appCount / orgGrants / importedBy) are scoped to
 	// the caller's own access and come back empty for an outsider (#552, #757).
@@ -50319,7 +50488,7 @@ func (v *RouterRegisterResponse) GetAttendeeRegister() []*RouterRegisterAttendee
 // provenance. Spec hrn:node:hadronmemory.com:specs:cor:agt:010:02.
 type RunServedPromptAppRun struct {
 	// #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: the boot prompt this run was served. Readable by whoever may read the run; null for anyone
-	// else, and while boot-prompt serving is off.
+	// else.
 	ServedPrompt *RunServedPromptAppRunServedPrompt `json:"servedPrompt"`
 }
 
@@ -53035,7 +53204,7 @@ func (v *SessionServedPromptsResponse) GetSession() *SessionServedPromptsSession
 // — that is an **agent chat**, a third concept.
 type SessionServedPromptsSession struct {
 	// #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: the boot prompt this session was served at its bind. Readable by whoever may read the
-	// worker's internals; an empty page for anyone else, and while boot-prompt serving is off.
+	// worker's internals; an empty page for anyone else.
 	ServedPrompts *SessionServedPromptsSessionServedPromptsServedPromptsPage `json:"servedPrompts"`
 }
 
@@ -56802,10 +56971,9 @@ func (v *StartTeamSessionStartSession) __premarshalJSON() (*__premarshalStartTea
 // cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
 // by its id or by the computed `urn` below (#991).
 type StartTeamSessionStartSessionBoundWorker struct {
-	// The worker's boot prompt, resolved: the agent's systemPrompt template
-	// with {{worker.name}}/{{worker.role}} bound, then promptOverride appended as its own
-	// paragraph. Null when the agent carries no template and the worker no
-	// override.
+	// The worker's boot prompt: the approved revision of the compiled boot
+	// prompt a bind of this worker is served (hrn:node:hadronmemory.com:specs:cor:agt:040:07),
+	// with the platform variables filled. Null when no prompt can be served.
 	Prompt *string `json:"prompt"`
 }
 
@@ -60528,9 +60696,8 @@ func (v *TeamRolesTeamRolesTeamRolesPage) GetItems() []*TeamRolesTeamRolesTeamRo
 // A role definition (#960): the roles:<role> node in the Team Agent's system
 // memory. #1050: it carries no name register — a role is a definition, not an
 // allocation pool.
-// The prompt template is NOT here — with the Worker model (#974) it
-// lives on the role-agent (personaRole + systemPrompt); roleAgent
-// points at it.
+// The boot prompt is NOT here — it is the role-agent's compiled boot prompt
+// (hrn:node:hadronmemory.com:specs:cor:agt:040:07); roleAgent points at it.
 type TeamRolesTeamRolesTeamRolesPageItemsTeamRole struct {
 	TeamRoleFields `json:"-"`
 }
@@ -63327,7 +63494,7 @@ var AllTickerRelevance = []TickerRelevance{
 
 // TickerSubscribersResponse is returned by TickerSubscribers on success.
 type TickerSubscribersResponse struct {
-	// #1747 — one ticker by id or hrn:ticker: URN; null when it does not exist or the caller may not reach it.
+	// #1747 — one ticker by id or hrn:ticker: URN; null when it does not exist or the caller may not reach it. #2931: a host key reaches only its host's tickers (hrn:node:hadronmemory.com:specs:cor:agt:070:04).
 	Ticker *TickerSubscribersTicker `json:"ticker"`
 }
 
@@ -63340,7 +63507,7 @@ func (v *TickerSubscribersResponse) GetTicker() *TickerSubscribersTicker { retur
 // #1747 — a named wake schedule owned by one team App (hrn:node:hadronmemory.com:specs:cor:agt:080:01). Its URN is hrn:ticker:ROOT:APP-SLUG:SLUG,
 // computed from the App and the permanent slug. Ticks are computed, not stored; nothing reads a ticker until due wakes ship.
 type TickerSubscribersTicker struct {
-	// Live subscriptions.
+	// Live subscriptions. #2931: an App key sees only those of the workers its host registers (hrn:node:hadronmemory.com:specs:cor:agt:080:22).
 	Subscribers *TickerSubscribersTickerSubscribersTickerSubscriptionPage `json:"subscribers"`
 }
 
@@ -69782,9 +69949,8 @@ func (v *UpdateTeamRoleMetaResponse) GetUpdateTeamRole() *UpdateTeamRoleMetaUpda
 // A role definition (#960): the roles:<role> node in the Team Agent's system
 // memory. #1050: it carries no name register — a role is a definition, not an
 // allocation pool.
-// The prompt template is NOT here — with the Worker model (#974) it
-// lives on the role-agent (personaRole + systemPrompt); roleAgent
-// points at it.
+// The boot prompt is NOT here — it is the role-agent's compiled boot prompt
+// (hrn:node:hadronmemory.com:specs:cor:agt:040:07); roleAgent points at it.
 type UpdateTeamRoleMetaUpdateTeamRole struct {
 	TeamRoleFields `json:"-"`
 }
@@ -70375,29 +70541,20 @@ func (v *UpdateUserRolesUpdateUserRolesUser) __premarshalJSON() (*__premarshalUp
 
 // UpdateWorkerSigningResponse is returned by UpdateWorkerSigning on success.
 type UpdateWorkerSigningResponse struct {
-	// #1010 — amend a casting's individuality after the fact.
-	//
-	// `promptOverride` is the per-worker escape hatch (cor:agt:020:01), but it
-	// could only be set at CASTING time — fixing a casting's individuality at the
-	// one moment nobody yet knows what makes it individual. The role agent's
-	// `systemPrompt` cannot stand in (it is SHARED by every casting of that
-	// role), and re-casting is barred by `WORKER_IN_USE` for any worker that has
-	// done work — precisely the ones with an identity to record.
+	// #1010 — amend a casting's signature and trailer after the fact
+	// (hrn:node:hadronmemory.com:specs:cor:agt:040:04). #2712 removed the per-worker
+	// prompt override: a worker's own boot prompt is its compiled boot source
+	// (hrn:node:hadronmemory.com:specs:cor:agt:040:06), changed by compile and approve.
 	//
 	// Signature/trailer edits require an App manager; a bound worker is provisionally refused (H26).
 	// Omitted preserves, null refuses, whitespace-only becomes empty text; other text is raw, max 2000 characters, no NUL.
 	// A mixed update is atomic. These values reach the next compose/bind via S4.
+	// A retired worker refuses WORKER_RETIRED.
 	//
 	// `name` is permanent by law (hrn:node:hadronmemory.com:specs:cor:agt:020:02). The agent
-	// (and with it the role) is changed by changeWorkerAgent, not here. OMITTING promptOverride
-	// preserves it; explicit `null` or a blank string CLEARS it, matching the
-	// nullable column and castWorker's blank-is-absent normalization.
-	//
-	// Refuses WORKER_RETIRED for a retired worker: an override is briefing text
-	// delivered at bind time, and a retired worker takes no new bindings, so the
-	// edit could never reach anyone.
-	//
-	// promptOverride alone keeps castWorker staffing authorization. workerRef is the worker's id or URN (#991).
+	// (and with it the role) is changed by changeWorkerAgent, not here. A call naming
+	// neither field changes nothing and keeps castWorker staffing authorization.
+	// workerRef is the worker's id or URN (#991).
 	UpdateWorker *UpdateWorkerSigningUpdateWorker `json:"updateWorker"`
 }
 
@@ -71648,10 +71805,9 @@ type WorkerFields struct {
 	ReportsToRetired bool `json:"reportsToRetired"`
 	// The cast-list role this filling answers ('backend-engineer').
 	Role *string `json:"role"`
-	// The worker's boot prompt, resolved: the agent's systemPrompt template
-	// with {{worker.name}}/{{worker.role}} bound, then promptOverride appended as its own
-	// paragraph. Null when the agent carries no template and the worker no
-	// override.
+	// The worker's boot prompt: the approved revision of the compiled boot
+	// prompt a bind of this worker is served (hrn:node:hadronmemory.com:specs:cor:agt:040:07),
+	// with the platform variables filled. Null when no prompt can be served.
 	Prompt *string `json:"prompt"`
 	// Per-worker signature template, masked for nonreaders (hrn:node:hadronmemory.com:specs:cor:agt:040:04).
 	Signature *string `json:"signature"`
@@ -71670,7 +71826,7 @@ type WorkerFields struct {
 	// does not enforce a repo-affinity refusal.
 	//
 	// WORKING-STATE field: behind the worker read gate and masked to [] on deny,
-	// like promptOverride and the holder — Session.worker reaches a Worker
+	// like memoryId and the holder — Session.worker reaches a Worker
 	// through a wider gate that admits any org member and survives a user leaving
 	// the App, so an ungated field would publish a team's repo list through any
 	// historical session.
@@ -71698,7 +71854,7 @@ type WorkerFields struct {
 	// while a live session is only ever a question about your own worker.
 	//
 	// WORKING-STATE field, behind the worker read gate and masked to null on
-	// deny — like promptOverride and memoryId, and NOT like name/role/urn.
+	// deny — like memoryId, and NOT like name/role/urn.
 	// Session.worker reaches a Worker row through a wider gate that admits any
 	// org member and survives a user leaving the App, so an ungated holder would
 	// let a former member read current staffing off a historical session.
@@ -72293,7 +72449,7 @@ type WorkerRosterFields struct {
 	// does not enforce a repo-affinity refusal.
 	//
 	// WORKING-STATE field: behind the worker read gate and masked to [] on deny,
-	// like promptOverride and the holder — Session.worker reaches a Worker
+	// like memoryId and the holder — Session.worker reaches a Worker
 	// through a wider gate that admits any org member and survives a user leaving
 	// the App, so an ungated field would publish a team's repo list through any
 	// historical session.
@@ -72314,7 +72470,7 @@ type WorkerRosterFields struct {
 	// while a live session is only ever a question about your own worker.
 	//
 	// WORKING-STATE field, behind the worker read gate and masked to null on
-	// deny — like promptOverride and memoryId, and NOT like name/role/urn.
+	// deny — like memoryId, and NOT like name/role/urn.
 	// Session.worker reaches a Worker row through a wider gate that admits any
 	// org member and survives a user leaving the App, so an ungated holder would
 	// let a former member read current staffing off a historical session.
@@ -72575,7 +72731,7 @@ func (v *WorkerServedPromptResponse) GetWorker() *WorkerServedPromptWorker { ret
 // by its id or by the computed `urn` below (#991).
 type WorkerServedPromptWorker struct {
 	// #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: the boot prompt served to this worker's open session. Readable by whoever may read the worker's
-	// internals; null for anyone else, when no session is open, and while boot-prompt serving is off.
+	// internals; null for anyone else, and when no session is open.
 	ServedPrompt *WorkerServedPromptWorkerServedPrompt `json:"servedPrompt"`
 }
 
@@ -92267,6 +92423,7 @@ query GetNode ($ref: ID!) {
 	node(ref: $ref) {
 		id
 		urn
+		actionUrn
 		portalUrl
 		memoryId
 		memory {
@@ -92401,6 +92558,7 @@ query GetNodeRaw ($ref: ID!) {
 	node(ref: $ref, raw: true) {
 		id
 		urn
+		actionUrn
 		portalUrl
 		memoryId
 		memory {
@@ -95424,6 +95582,7 @@ query NextNode ($parentRef: ID!, $currentRef: ID, $raw: Boolean!) {
 	nextNode(parentRef: $parentRef, currentRef: $currentRef, raw: $raw) {
 		id
 		urn
+		actionUrn
 		portalUrl
 		memoryId
 		memory {
@@ -95514,6 +95673,7 @@ query NodeBatch ($refs: [ID!], $memory: ID, $locPrefix: String) {
 		nodes {
 			id
 			urn
+			actionUrn
 			portalUrl
 			memoryId
 			loc

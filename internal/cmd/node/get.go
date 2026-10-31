@@ -26,6 +26,11 @@ loc (its path inside a memory, such as findings:flaky-ci) together with -m:
 
   hadron node get findings:flaky-ci -m hrn:mem:acme.com:kb
 
+A register entry also has an action URN, hrn:action:<root>:<agent-slug>:<code>,
+which names the same node and is accepted anywhere a node URN is (it needs no -m):
+
+  hadron node get hrn:action:hadronmemory.com:team-agent:task.finish.open-children
+
 A node URN is hrn:node:<root>:<memory>:<loc>. The hrn:node: prefix is required
 because a loc has colons of its own. The legacy <org>::<memory>::<loc> form is
 still accepted. A bare loc without -m (or --install) is refused, since the
@@ -156,6 +161,20 @@ guessed zero.
 				})
 			}
 
+			// nodeBatch(refs:) takes ids and node URNs and refuses any other URN
+			// kind, which would fail the whole batch. An action URN is therefore
+			// resolved to its register node's id first; one that names nothing
+			// is reported unavailable, as an absent node ref is (#1138).
+			var absentActions []string
+			if !prefixMode {
+				args, absentActions, err = resolveActionRefs(cmd, client, args)
+				if err != nil {
+					return err
+				}
+				if len(args) == 0 {
+					return emitNodeBatch(f, nodeBatchDTO{Nodes: []nodeDetailDTO{}, Unavailable: absentActions})
+				}
+			}
 			sel, err := batchRevisionSelector(memory, locPrefix, args, prefixMode)
 			if err != nil {
 				return err
@@ -174,6 +193,7 @@ guessed zero.
 					dto.Nodes = append(dto.Nodes, batchDetailDTO(n))
 				}
 				dto.Unavailable = append(dto.Unavailable, unavailable...)
+				dto.Unavailable = append(dto.Unavailable, absentActions...)
 				ptrs := make([]*nodeDetailDTO, len(dto.Nodes))
 				for i := range dto.Nodes {
 					ptrs[i] = &dto.Nodes[i]
@@ -258,6 +278,9 @@ func renderNodeDetail(w io.Writer, dto nodeDetailDTO) error {
 	// must not cost the caller the reference.
 	if dto.URN != "" {
 		fmt.Fprintf(w, "  urn: %s\n", dto.URN)
+	}
+	if dto.ActionURN != "" {
+		fmt.Fprintf(w, "  action urn: %s\n", dto.ActionURN)
 	}
 	if dto.PortalURL != "" {
 		fmt.Fprintf(w, "  URL: %s\n", dto.PortalURL)
@@ -379,6 +402,7 @@ func detailDTO(n *gen.GetNodeNode) nodeDetailDTO {
 			// keeps an absent one out of the --json shape (omitempty) rather
 			// than emitting "".
 			URN:        n.Urn,
+			ActionURN:  strVal(n.ActionUrn),
 			PortalURL:  strVal(n.PortalUrl),
 			MemoryID:   n.MemoryId,
 			Loc:        n.Loc,
