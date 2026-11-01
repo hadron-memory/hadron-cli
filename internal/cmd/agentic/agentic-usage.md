@@ -4676,6 +4676,16 @@ Groups resolve live.
   `MODEL_GROUP_NOT_FOUND` exit 4; `FORBIDDEN` / `APP_MANAGER_REQUIRED` exit 8;
   `BAD_USER_INPUT` exit 2.
 
+# Task provider compatibility (cli#1485 S2, server#3029)
+All task-record reads and mutation receipts require a provider containing
+server#3029, EVEN WITHOUT either group flag. The shared task selection adds
+modelGroupIn/modelGroupNotIn to get, list (plain/filtered/--team), mine, tree,
+create/update, assign/reassign, start/progress/finish/cancel/park/ready and
+priority/blocker edits. An older provider rejects these static documents as
+schema skew (exit 2). Upgrade each provider first, including self-hosted and
+staging; omitting input keys does not hide output fields. The separate
+`task dependencies` paging query does not select these fields.
+
 # Task model-group requirements (cli#1485 S2, server#3029)
 `team task create|update --model-group <name,...>` requires the model to
 match at least one named group; `--model-group-not <name,...>` requires it
@@ -4693,10 +4703,13 @@ name is revalidated, so a deleted group can refuse the update. An unrelated
 field edit leaves requirements omitted/unchanged; `--clear-requirements`
 sends the deliberate null clear and conflicts with either group flag (exit 2,
 no request). Absent group flags send no group key, including no accidental null.
+The extra serverCode wrapper applies only when a group flag is named; ordinary
+task writes retain their previous error-envelope shape.
 Provider refusals `MODEL_GROUP_NOT_FOUND`, `BAD_USER_INPUT` and
 `TEAM_AGENT_AMBIGUOUS` keep their message and serverCode through MapError.
 `task get|list --json` requirements add `modelGroupIn` and `modelGroupNotIn`
 arrays (absent/null lists become []; null requirements stay null). Human get
-shows both lists when either is nonempty; list adds both group columns when
-any row names groups. Human names are terminal-safe, JSON names stay raw.
+shows both lists when either is nonempty; plain list/mine add both group columns when
+any row names groups. The specialized --team/tree human views keep their existing
+projection; their JSON task records include the new arrays. Human names are terminal-safe, JSON names stay raw.
 Requires deployed server#3029; no CLI release before that deployment.

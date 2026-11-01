@@ -39,6 +39,15 @@ owns the lifecycle, the matcher and every permission check; each lifecycle
 write sends one mutation and prints the task the server returns, and each read
 prints the view its page describes.
 
+Server compatibility: task-record commands require a server containing
+hadron-server#3029, even when no model-group flag is named. The shared task
+projection selects modelGroupIn/modelGroupNotIn for get, list (including --team),
+mine, tree and every task mutation receipt (create, update, assign/reassign,
+start/progress/finish/cancel/park/ready, priority and blocker edits). An older
+server rejects those documents as schema skew, exit 2: upgrade that provider
+first, including self-hosted or staging servers. Omitted input keys do not
+hide output selections. The separate dependencies paging query is unaffected.
+
 A typical flow, from the person or worker handing out the work to the
 assignee working in its bound worktree (the handles here and on every page are
 illustrative: use the one create, list or mine prints):
@@ -203,7 +212,9 @@ Who goes on it:
   even with the same name. Empty supplied lists are usage errors; other names
   go unchanged to the server for validation. Groups resolve live at match time:
   editing a group can change matches without a task edit. They are matching
-  inputs only, never authorization. Requires a server containing #3029.
+  inputs only, never authorization. All task-record reads and mutation receipts
+  require hadron-server#3029, even with no group flag (see team task --help).
+  Comma splitting keeps each item verbatim; the server trims and drops empty items.
 - --status backlog parks it instead: no assignee (the server refuses both),
   never matched, no alarms, until ` + "`task assign`" + ` or ` + "`task ready`" + `
   moves it to PENDING. --status pending is the default.

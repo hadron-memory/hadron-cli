@@ -89353,7 +89353,8 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 // cli#1485 S3 (Andi BLIND P2): the model-group requirement fields arrived with
 // the schema refresh (server #3029) and S2 exposes them as optional flags. Absent,
 // not null, so ordinary create/update bodies are unchanged and an older server
-// never sees an input field it does not know.
+// never sees an input field it does not know. This protects INPUTS only:
+// every AgentTaskFields document needs provider #3029 for its output selection.
 func AgentTaskCreate(
 	ctx_ context.Context,
 	client_ graphql.Client,

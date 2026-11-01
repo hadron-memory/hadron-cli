@@ -1,9 +1,11 @@
 package team
 
 import (
-	"github.com/hadron-memory/hadron-cli/internal/exitcode"
-	"github.com/spf13/cobra"
 	"strings"
+
+	"github.com/spf13/cobra"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 func addTaskModelGroupFlags(cmd *cobra.Command, in, notIn *string) {
@@ -13,6 +15,7 @@ func addTaskModelGroupFlags(cmd *cobra.Command, in, notIn *string) {
 
 // taskModelGroupFlags only splits syntax. Keep case, whitespace, duplicates,
 // grammar and overlapping lists for the server to normalize and validate.
+// A nil result slice means its flag was absent, not an explicit empty list.
 func taskModelGroupFlags(cmd *cobra.Command, in, notIn string) ([]string, []string, error) {
 	var lists [2][]string
 	for i, flag := range []struct{ name, value string }{{"model-group", in}, {"model-group-not", notIn}} {

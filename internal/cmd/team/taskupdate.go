@@ -63,6 +63,9 @@ replaces a value has a --clear-… twin that empties it; naming both is refused.
   re-validates every group name on update, including names deleted since creation.
   Groups resolve live at match time: editing a group can change matches without
   a task edit. They are matching inputs only, never authorization.
+  All task-record reads and mutation receipts require hadron-server#3029,
+  even without group flags (see team task --help). Comma-split items stay
+  verbatim for the server to trim and drop empties.
   --min-tier low|mid|high sets a minimum: the lowest sufficient tier is preferred;
   an unknown tier is ineligible when a minimum is set. Requires a server
   containing hadron-server#2983 (31d63828 or later).

@@ -111,18 +111,34 @@ func TestTaskModelGroupOmissionReplacement1485(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	creates := 0
 	for _, c := range *calls {
 		if c.Op == "AgentTaskCreate" {
+			creates++
 			var v map[string]map[string]json.RawMessage
-			_ = json.Unmarshal(c.RawVars, &v)
+			if err := json.Unmarshal(c.RawVars, &v); err != nil {
+				t.Fatal(err)
+			}
+			raw, ok := v["input"]["requirements"]
+			if !ok {
+				t.Fatal("min-tier requirement missing")
+			}
 			var req map[string]json.RawMessage
-			_ = json.Unmarshal(v["input"]["requirements"], &req)
+			if err := json.Unmarshal(raw, &req); err != nil {
+				t.Fatal(err)
+			}
+			if string(req["minTier"]) != `"mid"` {
+				t.Fatalf("requirements=%s", raw)
+			}
 			for _, k := range []string{"modelGroupIn", "modelGroupNotIn"} {
 				if _, ok := req[k]; ok {
 					t.Fatalf("absent %s sent: %s", k, c.RawVars)
 				}
 			}
 		}
+	}
+	if creates != 1 {
+		t.Fatalf("creates=%d", creates)
 	}
 }
 
@@ -288,6 +304,66 @@ func TestTaskModelGroupRefusalSink1485(t *testing.T) {
 					t.Fatalf("mutation count=%d", n)
 				}
 			}
+		}
+	}
+}
+
+func TestTaskModelGroupCompatibilityHelp1485(t *testing.T) {
+	for _, tc := range []struct{ verb, want string }{
+		{"", "even when no model-group flag is named"},
+		{"create", "even with no group flag"},
+		{"update", "even without group flags"},
+	} {
+		t.Run(tc.verb, func(t *testing.T) {
+			args := []string{"team", "task"}
+			if tc.verb != "" {
+				args = append(args, tc.verb)
+			}
+			args = append(args, "--help")
+			calls, out, err := runTeamTask(t, taskResponses(), args...)
+			if err != nil || len(*calls) != 0 {
+				t.Fatalf("help err=%v calls=%v", err, *calls)
+			}
+			for _, want := range []string{"task-record", "hadron-server#3029", tc.want} {
+				if !strings.Contains(out, want) {
+					t.Fatalf("help missing %q: %s", want, out)
+				}
+			}
+		})
+	}
+}
+
+func TestTaskModelGroupNullRequirements1485(t *testing.T) {
+	for _, verb := range []string{"get", "list"} {
+		resp := taskResponses()
+		resp["AgentTaskGet"] = `{"data":{"agentTask":` + startedTaskFieldsJSON + `}}`
+		resp["AgentTaskList"] = `{"data":{"agentTasks":[` + startedTaskFieldsJSON + `]}}`
+		args := []string{"team", "task", verb}
+		if verb == "get" {
+			args = append(args, "AT1.2")
+		}
+		args = append(args, "--json")
+		_, out, err := runTeamTask(t, resp, args...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var task map[string]json.RawMessage
+		if verb == "get" {
+			if err := json.Unmarshal([]byte(out), &task); err != nil {
+				t.Fatal(err)
+			}
+		} else {
+			var tasks []map[string]json.RawMessage
+			if err := json.Unmarshal([]byte(out), &tasks); err != nil {
+				t.Fatal(err)
+			}
+			if len(tasks) != 1 {
+				t.Fatalf("tasks=%s", out)
+			}
+			task = tasks[0]
+		}
+		if string(task["requirements"]) != "null" {
+			t.Fatalf("requirements=%s", task["requirements"])
 		}
 	}
 }

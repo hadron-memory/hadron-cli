@@ -192,7 +192,6 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 				return err
 			}
 		}
-
 	}
 	if task.Result != nil {
 		if err := line("  result: %s", output.SafeCell(task.Result.Outcome)); err != nil {
