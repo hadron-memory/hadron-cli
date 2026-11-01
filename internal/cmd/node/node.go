@@ -302,3 +302,7 @@ func strVal(s *string) string {
 	}
 	return *s
 }
+
+// seqRefusalHelp is the --seq tail on node create/update (cli#479): the CLI
+// holds no allowlist, so the help names who refuses.
+const seqRefusalHelp = "orders ordinary nodes among siblings; the server refuses it on chats, channels, journals and governed nodes (SEQ_PROTECTED, LOC_PROTECTED, ROLE_GOVERNED)"
