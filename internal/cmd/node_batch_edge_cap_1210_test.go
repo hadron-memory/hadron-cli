@@ -23,6 +23,10 @@ func TestNodeBatchEdgeCap1210(t *testing.T) {
 						Variables     struct{ Refs []string }
 					}
 					_ = json.NewDecoder(r.Body).Decode(&q)
+					if body, ok := unstubbedDefault(q.OperationName); ok {
+						_, _ = w.Write([]byte(body))
+						return
+					}
 					if q.OperationName != "NodeBatch" {
 						t.Errorf("unexpected operation %s", q.OperationName)
 					}
