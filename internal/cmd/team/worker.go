@@ -585,12 +585,19 @@ func readWorkerModelGroups(ctx context.Context, client graphql.Client, id string
 // readWorkerRendered reads the server-rendered signature and trailer in their
 // own operation (cli#1525). A server that predates hadron-server#2969 rejects
 // the selection before execution; that one documented absence comes back as
-// supported=false with nil values, so `worker get` still works there. Any other
-// error is returned, never turned into an old-server-looking null.
-func readWorkerRendered(ctx context.Context, client graphql.Client, id string) (signature, trailer *string, supported bool, err error) {
-	resp, err := gen.GetWorkerRendered(ctx, client, id)
+// supported=false with nil values, so `worker get` still works there. It is
+// recognised only when EVERY error in the envelope is that rejection: any other
+// error, alone or mixed in, is returned, never turned into an
+// old-server-looking null (cli#1529 LOCAL P2).
+//
+// session, when non-empty, is sent as the worker session the read is for: the
+// server fills the lines from THAT session's recorded bind (its placement and
+// variables, hadron-server#2969) rather than today's values. It applies to
+// this one read only, never to the command's other calls.
+func readWorkerRendered(ctx context.Context, client graphql.Client, id, session string) (signature, trailer *string, supported bool, err error) {
+	resp, err := gen.GetWorkerRendered(api.WithSession(ctx, session), client, id)
 	if err != nil {
-		if api.IsGraphQLValidationFor(err, "renderedSignature") || api.IsGraphQLValidationFor(err, "renderedTrailer") {
+		if api.IsGraphQLValidationOnlyFor(err, "renderedSignature", "renderedTrailer") {
 			return nil, nil, false, nil
 		}
 		return nil, nil, true, api.MapError(err)
@@ -599,6 +606,20 @@ func readWorkerRendered(ctx context.Context, client graphql.Client, id string) (
 		return nil, nil, true, nil
 	}
 	return resp.Worker.RenderedSignature, resp.Worker.RenderedTrailer, true, nil
+}
+
+// ownBoundSession is the session `worker get` reads the rendered lines for
+// (cli#1529 LOCAL P2): this worktree's binding, but only when it binds THIS
+// worker on THIS server — so `worker get <me>` shows what `whoami --signature`
+// prints. Otherwise, or when the binding cannot be read, it is "" and the read
+// goes out with no session: worker get reads any worker, and an unreadable
+// binding is not this command's to refuse. The raw read runs no #914 notice.
+func ownBoundSession(ctx context.Context, f *cmdutil.Factory, workerID string) string {
+	b, _, err := readBindingFile(ctx)
+	if err != nil || b == nil || b.SessionID == "" || b.WorkerID != workerID || !bindingServerMatches(f, b) {
+		return ""
+	}
+	return b.SessionID
 }
 
 // appLine is the `app:` row. The server's scalars name the App without a second
@@ -722,7 +743,7 @@ and every worker's state in ` + "`team roster`" + `.`,
 			if err != nil {
 				return err
 			}
-			renderedSig, renderedTrailer, _, err := readWorkerRendered(cmd.Context(), client, w.Id)
+			renderedSig, renderedTrailer, _, err := readWorkerRendered(cmd.Context(), client, w.Id, ownBoundSession(cmd.Context(), f, w.Id))
 			if err != nil {
 				return err
 			}

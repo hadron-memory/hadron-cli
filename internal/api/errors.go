@@ -495,23 +495,54 @@ func graphQLErrors(err error) gqlerror.List {
 // inside an HTTPError, rather than matching HTTPError.Error's JSON-escaped
 // rendering. Callers use it only when retrying a compatible operation is safe.
 func IsGraphQLValidationFor(err error, name string) bool {
-	quotedName := `"` + name + `"`
 	for _, e := range graphQLErrors(err) {
-		if e == nil || !strings.Contains(e.Message, quotedName) {
-			continue
-		}
-		code := extensionCode(e)
-		if code != "" && code != "GRAPHQL_VALIDATION_FAILED" {
-			continue
-		}
-		if code == "GRAPHQL_VALIDATION_FAILED" ||
-			strings.Contains(e.Message, "Cannot query field") ||
-			strings.Contains(e.Message, "Unknown field") ||
-			strings.Contains(e.Message, "Unknown argument") {
+		if isValidationErrorFor(e, name) {
 			return true
 		}
 	}
 	return false
+}
+
+// IsGraphQLValidationOnlyFor reports whether err is a GraphQL error envelope
+// in which EVERY error is a validation rejection of one of names — an older
+// server that lacks exactly those fields and nothing else wrong. It is the
+// predicate for tolerating that absence: IsGraphQLValidationFor answers "is
+// one of the errors this?", so a mixed envelope (an unknown new field plus a
+// FORBIDDEN) would be swallowed with it (cli#1529 LOCAL P2). An envelope with
+// no parsed errors is not tolerated.
+func IsGraphQLValidationOnlyFor(err error, names ...string) bool {
+	list := graphQLErrors(err)
+	if len(list) == 0 {
+		return false
+	}
+	for _, e := range list {
+		matched := false
+		for _, name := range names {
+			if isValidationErrorFor(e, name) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+	return true
+}
+
+// isValidationErrorFor is one error's half of IsGraphQLValidationFor.
+func isValidationErrorFor(e *gqlerror.Error, name string) bool {
+	if e == nil || !strings.Contains(e.Message, `"`+name+`"`) {
+		return false
+	}
+	code := extensionCode(e)
+	if code != "" && code != "GRAPHQL_VALIDATION_FAILED" {
+		return false
+	}
+	return code == "GRAPHQL_VALIDATION_FAILED" ||
+		strings.Contains(e.Message, "Cannot query field") ||
+		strings.Contains(e.Message, "Unknown field") ||
+		strings.Contains(e.Message, "Unknown argument")
 }
 
 // IsSchemaSkew reports whether err is the server rejecting a query this build

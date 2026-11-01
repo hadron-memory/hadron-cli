@@ -104126,6 +104126,11 @@ query GetWorkerModelGroups ($ref: ID!) {
 }
 `
 
+// cli#1485 S3 (hadron-server#3026, cor:agt:060:12): a worker's current matching
+// model-group names. A separate operation, like GetWorkerProfile: it is NOT part
+// of WorkerFields (shared by many commands whose wire shape must not change).
+// [] is a real answer; null means the working-state read is denied (no error).
+// A field error here fails the command — only the roster tolerates one.
 func GetWorkerModelGroups(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -104204,11 +104209,6 @@ query GetWorkerRendered ($ref: ID!) {
 }
 `
 
-// cli#1485 S3 (hadron-server#3026, cor:agt:060:12): a worker's current matching
-// model-group names. A separate operation, like GetWorkerProfile: it is NOT part
-// of WorkerFields (shared by many commands whose wire shape must not change).
-// [] is a real answer; null means the working-state read is denied (no error).
-// A field error here fails the command — only the roster tolerates one.
 // cli#1525 / hadron-server#2969 (cor:agt:040:04): the signature and trailer as
 // the served boot prompt fills them. The SERVER substitutes the variables; the
 // CLI prints the values as given and never fills one itself. Null for a caller

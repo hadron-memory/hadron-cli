@@ -1800,13 +1800,21 @@ func whoamiSigning(cmd *cobra.Command, f *cmdutil.Factory, trailer bool) error {
 	if err != nil {
 		return err
 	}
-	var workerID string
+	// The read goes out AS the resolved session (cli#1529 LOCAL P2): the server
+	// fills the lines from that session's recorded bind, not today's values,
+	// and only the session id tells it which bind that is.
+	var workerID, sessionID string
 	if b != nil {
 		if b.WorkerID == "" {
 			return exitcode.Newf(exitcode.NotFound,
 				"this worktree's binding predates the Worker model, so it names no worker to read the %s of — end it with `hadron team session end` and start a new worker session", what)
 		}
-		workerID = b.WorkerID
+		// A binding from another deployment names a worker and session this
+		// server does not have: refuse, as every session read here does.
+		if err := checkBindingServer(f, b); err != nil {
+			return err
+		}
+		workerID, sessionID = b.WorkerID, b.SessionID
 	} else {
 		mine, err := openWorkerSessionsForCaller(ctx, client)
 		if err != nil {
@@ -1816,14 +1824,14 @@ func whoamiSigning(cmd *cobra.Command, f *cmdutil.Factory, trailer bool) error {
 		case 0:
 			return noOpenWorkerSessionErr(inWorktree)
 		case 1:
-			workerID = strOrEmpty(mine[0].WorkerID)
+			workerID, sessionID = strOrEmpty(mine[0].WorkerID), mine[0].ID
 		default:
 			return exitcode.Newf(exitcode.NotFound,
 				"%s, and %d open worker sessions are yours, so there is no single worker to read the %s of — run this from the bound worktree, or see `hadron team session whoami`",
 				noBindingReason(inWorktree), len(mine), what)
 		}
 	}
-	sig, tr, supported, err := readWorkerRendered(ctx, client, workerID)
+	sig, tr, supported, err := readWorkerRendered(ctx, client, workerID, sessionID)
 	if err != nil {
 		return err
 	}
@@ -1919,11 +1927,12 @@ one line with no label: ` + "`$(hadron team session whoami --signature)`" + ` is
 signature to put under anything you publish. The CLI fills in no variable
 itself. --json gives {"renderedSignature": "…"} or {"renderedTrailer": "…"}.
 The worker is the one whoami would answer for: this worktree's binding, else
-your one open worker session on the server. No open session refuses exactly as
---check does (exit 4); several open sessions and no binding also exit 4 rather
-than picking one. A value the server withholds exits 8 and prints nothing; a
-server that predates the field exits 1. The three flags exclude each other
-(exit 2).`,
+your one open worker session on the server, and the value is read AS that
+session, so it carries the values the session was bound with. No open session
+refuses exactly as --check does (exit 4); several open sessions and no binding
+also exit 4 rather than picking one; a binding made against another server
+exits 2. A value the server withholds exits 8 and prints nothing; a server that
+predates the field exits 1. The three flags exclude each other (exit 2).`,
 		Example: `  hadron team session whoami --check
   git commit -m "fix: …" -m "$(hadron team session whoami --trailer)"`,
 		Args: cobra.NoArgs,

@@ -1019,3 +1019,29 @@ func TestInboxTypedRefusalCodes(t *testing.T) {
 		}
 	}
 }
+
+func TestIsGraphQLValidationOnlyFor(t *testing.T) {
+	unknown := func(f string) *gqlerror.Error {
+		return &gqlerror.Error{Message: `Cannot query field "` + f + `" on type "Worker".`, Extensions: map[string]any{"code": "GRAPHQL_VALIDATION_FAILED"}}
+	}
+	forbidden := &gqlerror.Error{Message: "not allowed", Extensions: map[string]any{"code": "FORBIDDEN"}}
+	for _, tc := range []struct {
+		name string
+		errs gqlerror.List
+		want bool
+	}{
+		{"one named field", gqlerror.List{unknown("a")}, true},
+		{"both named fields", gqlerror.List{unknown("a"), unknown("b")}, true},
+		{"named field plus FORBIDDEN", gqlerror.List{unknown("a"), forbidden}, false},
+		{"FORBIDDEN first", gqlerror.List{forbidden, unknown("b")}, false},
+		{"named plus another unknown field", gqlerror.List{unknown("a"), unknown("c")}, false},
+		{"no errors", gqlerror.List{}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := &graphql.HTTPError{StatusCode: 400, Response: graphql.Response{Errors: tc.errs}}
+			if got := IsGraphQLValidationOnlyFor(err, "a", "b"); got != tc.want {
+				t.Errorf("= %v, want %v", got, tc.want)
+			}
+		})
+	}
+}

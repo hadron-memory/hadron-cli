@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -229,6 +231,9 @@ func TestWhoamiSignatureAndTrailer1525(t *testing.T) {
 		if out != "" {
 			t.Errorf("stdout = %q, want nothing", out)
 		}
+		if exitCodeFor(err) != exitcode.Forbidden {
+			t.Errorf("exit = %d, want %d (documented: withheld exits 8)", exitCodeFor(err), exitcode.Forbidden)
+		}
 		if !strings.Contains(err.Error(), "trailer") {
 			t.Errorf("the error must name what is missing: %v", err)
 		}
@@ -240,6 +245,9 @@ func TestWhoamiSignatureAndTrailer1525(t *testing.T) {
 		out, _, err := runWhoamiSigning1525(t, map[string]string{"GetWorkerRendered": old}, "--signature")
 		if err == nil || out != "" {
 			t.Fatalf("must fail with nothing on stdout: err=%v out=%q", err, out)
+		}
+		if exitCodeFor(err) != exitcode.Error {
+			t.Errorf("exit = %d, want %d (documented: an older server exits 1)", exitCodeFor(err), exitcode.Error)
 		}
 		if !strings.Contains(err.Error(), "#2969") {
 			t.Errorf("the error must name the server capability: %v", err)
@@ -340,6 +348,195 @@ func TestWhoamiSignatureAndTrailer1525(t *testing.T) {
 		}
 		if _, present := dto["renderedSignature"]; present {
 			t.Errorf("plain whoami must not gain the rendered key: %s", out)
+		}
+	})
+}
+
+// --- cli#1529 LOCAL P2s: the session the read is for; mixed error envelopes ---
+
+// sessionAwareRendered1525 is a fake server that records the X-Hadron-Session
+// each operation carried and answers GetWorkerRendered the way the server does
+// (hadron-server#2969 renderWorkerLines): from the recorded bind when the
+// request names a session it holds a record for, else today's values. Other
+// operations are answered from responses, then unstubbedDefault.
+func sessionAwareRendered1525(t *testing.T, recorded map[string]string, responses map[string]string) (*httptest.Server, map[string]string) {
+	t.Helper()
+	headers := map[string]string{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && r.URL.Path == "/capabilities" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"capabilities":[]}`))
+			return
+		}
+		var body struct {
+			OperationName string `json:"operationName"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		session := r.Header.Get("X-Hadron-Session")
+		headers[body.OperationName] = session
+		resp, ok := responses[body.OperationName]
+		if body.OperationName == "GetWorkerRendered" {
+			sig := "current-signature"
+			if v, has := recorded[session]; has {
+				sig = v
+			}
+			resp, ok = renderedResp1525(jsonStr1525(sig), jsonStr1525("trailer")), true
+		}
+		if !ok {
+			resp, _ = unstubbedDefault(body.OperationName)
+		}
+		if resp == "" {
+			t.Errorf("unexpected operation %q", body.OperationName)
+			resp = `{"errors":[{"message":"unexpected operation"}]}`
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(resp))
+	}))
+	t.Cleanup(srv.Close)
+	return srv, headers
+}
+
+func runAgainst1525(t *testing.T, srv *httptest.Server, args ...string) (string, error) {
+	t.Helper()
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(append(args, "--server", srv.URL))
+	err := root.Execute()
+	return out.String(), err
+}
+
+func writeBinding1525(t *testing.T, binding string) {
+	t.Helper()
+	dir := teamGitDir(t)
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(binding), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRenderedReadCarriesTheSession1529(t *testing.T) {
+	recorded := map[string]string{"s-new": "recorded-signature", "s-mine": "recorded-mine"}
+
+	t.Run("whoami --signature reads as the bound session", func(t *testing.T) {
+		bindIris1525(t)
+		srv, headers := sessionAwareRendered1525(t, recorded, nil)
+		out, err := runAgainst1525(t, srv, "team", "session", "whoami", "--signature")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if headers["GetWorkerRendered"] != "s-new" {
+			t.Errorf("GetWorkerRendered session = %q, want the binding's s-new", headers["GetWorkerRendered"])
+		}
+		if out != "recorded-signature\n" {
+			t.Errorf("stdout = %q, want the recorded bind's value", out)
+		}
+	})
+
+	t.Run("whoami --signature with no binding reads as the one open session", func(t *testing.T) {
+		teamGitDir(t)
+		srv, headers := sessionAwareRendered1525(t, recorded, map[string]string{
+			"AuthContext": whoamiAuthJSON,
+			"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` +
+				whoamiSession("s-mine", "wkr9", "u-me", "Jonas", false) + `]}}}`,
+		})
+		out, err := runAgainst1525(t, srv, "team", "session", "whoami", "--signature")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if headers["GetWorkerRendered"] != "s-mine" || out != "recorded-mine\n" {
+			t.Errorf("session = %q, stdout = %q; want s-mine / recorded-mine", headers["GetWorkerRendered"], out)
+		}
+		// Only the rendered read is attributed; the lookups stay the caller's.
+		if headers["TeamSessionsPage"] != "" || headers["AuthContext"] != "" {
+			t.Errorf("the session must apply to the rendered read only: %v", headers)
+		}
+	})
+
+	t.Run("a binding from another server refuses before any rendered read", func(t *testing.T) {
+		writeBinding1525(t, `{"sessionId":"s-new","workerId":"wkr1","workerName":"Iris","workerRole":"backend-engineer",
+			"agentId":"agt1","appId":"capp100000000000000000000","startedAt":"2026-08-11T10:00:00Z","appBound":true,
+			"server":"https://elsewhere.example","repo":"hadron-memory/hadron-cli","prNumbers":[]}`)
+		srv, headers := sessionAwareRendered1525(t, recorded, nil)
+		out, err := runAgainst1525(t, srv, "team", "session", "whoami", "--trailer")
+		if exitCodeFor(err) != exitcode.Usage || out != "" {
+			t.Errorf("exit = %d (want %d), stdout %q", exitCodeFor(err), exitcode.Usage, out)
+		}
+		if _, asked := headers["GetWorkerRendered"]; asked {
+			t.Errorf("must not read another deployment's worker id here")
+		}
+	})
+
+	ownBinding := `{"sessionId":"s-new","workerId":"` + profileHexID + `","workerName":"Iris","workerRole":"backend-engineer",
+		"agentId":"agt1","appId":"capp100000000000000000000","startedAt":"2026-08-11T10:00:00Z","appBound":true,
+		"repo":"hadron-memory/hadron-cli","prNumbers":[]}`
+	workerResponses := map[string]string{
+		"GetWorker":        `{"data":{"worker":` + signingWorkerJSON1525 + `}}`,
+		"GetWorkerProfile": profileNames,
+	}
+
+	t.Run("worker get of your own bound worker reads as your session", func(t *testing.T) {
+		writeBinding1525(t, ownBinding)
+		srv, headers := sessionAwareRendered1525(t, recorded, workerResponses)
+		out, err := runAgainst1525(t, srv, "team", "worker", "get", "hrn:worker:acme.com:eng-team:iris", "--json")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var dto map[string]any
+		_ = json.Unmarshal([]byte(out), &dto)
+		if headers["GetWorkerRendered"] != "s-new" || dto["renderedSignature"] != "recorded-signature" {
+			t.Errorf("session = %q, renderedSignature = %v; want s-new / recorded-signature", headers["GetWorkerRendered"], dto["renderedSignature"])
+		}
+		if headers["GetWorker"] != "" || headers["GetWorkerProfile"] != "" {
+			t.Errorf("the session must apply to the rendered read only: %v", headers)
+		}
+	})
+
+	t.Run("worker get of another worker carries no session", func(t *testing.T) {
+		bindIris1525(t) // bound to wkr1, not the worker read
+		srv, headers := sessionAwareRendered1525(t, recorded, workerResponses)
+		out, err := runAgainst1525(t, srv, "team", "worker", "get", "hrn:worker:acme.com:eng-team:iris", "--json")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var dto map[string]any
+		_ = json.Unmarshal([]byte(out), &dto)
+		if headers["GetWorkerRendered"] != "" || dto["renderedSignature"] != "current-signature" {
+			t.Errorf("session = %q, renderedSignature = %v; want none / current-signature", headers["GetWorkerRendered"], dto["renderedSignature"])
+		}
+	})
+}
+
+func TestRenderedOldServerToleranceIsExact1529(t *testing.T) {
+	unknown := `{"message":"Cannot query field \"renderedSignature\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}`
+	forbidden := `{"message":"not allowed","extensions":{"code":"FORBIDDEN"}}`
+
+	t.Run("worker get: unknown field mixed with FORBIDDEN fails", func(t *testing.T) {
+		out, _, err := runWorkerGetRendered1525(t, `{"errors":[`+unknown+`,`+forbidden+`]}`, "--json")
+		if err == nil {
+			t.Fatalf("a mixed envelope must not read as an old server:\n%s", out)
+		}
+		if exitCodeFor(err) == exitcode.OK {
+			t.Errorf("exit = %d, want non-zero", exitCodeFor(err))
+		}
+	})
+
+	t.Run("whoami --signature: unknown field mixed with FORBIDDEN is not the old-server exit", func(t *testing.T) {
+		bindIris1525(t)
+		out, _, err := runWhoamiSigning1525(t, map[string]string{"GetWorkerRendered": `{"errors":[` + forbidden + `,` + unknown + `]}`}, "--signature")
+		if err == nil || out != "" {
+			t.Fatalf("must fail with nothing on stdout: err=%v out=%q", err, out)
+		}
+		// Which code the mixed envelope maps to is MapError's call; what is
+		// pinned here is that it is NOT the old-server answer (exit 1, #2969).
+		if strings.Contains(err.Error(), "#2969") || exitCodeFor(err) == exitcode.Error {
+			t.Errorf("exit = %d, err = %v; must not be the old-server answer", exitCodeFor(err), err)
+		}
+	})
+
+	t.Run("both new fields unknown is still the old server", func(t *testing.T) {
+		trailerUnknown := `{"message":"Cannot query field \"renderedTrailer\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}`
+		_, _, err := runWorkerGetRendered1525(t, `{"errors":[`+unknown+`,`+trailerUnknown+`]}`, "--json")
+		if err != nil {
+			t.Fatalf("an older server must not fail worker get: %v", err)
 		}
 	})
 }

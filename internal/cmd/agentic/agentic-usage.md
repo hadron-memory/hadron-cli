@@ -2437,9 +2437,12 @@ Conventions:
   `session whoami --signature` / `--trailer` print ONLY that value for the
   worker whoami answers for, plus a newline, so `$(hadron team session whoami
   --trailer)` is the trailer to append; `--json` is `{"renderedSignature": …}` /
-  `{"renderedTrailer": …}`. The CLI substitutes nothing. No binding and no open
+  `{"renderedTrailer": …}`. The CLI substitutes nothing. The read goes out as
+  that worker session, so the server fills the values it was bound with (`worker
+  get` of your own bound worker does the same). No binding and no open
   session refuses exactly as `whoami --check` (exit 4); several open sessions
-  and no binding exit 4 rather than picking; a withheld value exits 8 and
+  and no binding exit 4 rather than picking; a binding made against another
+  server exits 2; a withheld value exits 8 and
   prints nothing; an older server exits 1. The flags exclude each other and
   `--check` (exit 2). Plain `whoami` is unchanged.
   `worker retire` (requires `--yes`, idempotent) stops the worker and keeps
