@@ -1,0 +1,19 @@
+{
+  "messages": [
+    {
+      "seq": 2,
+      "loc": "chats:api:messages:t2-rufus",
+      "author": "Rufus",
+      "body": "platform",
+      "sessionId": "s1",
+      "authorWorkerId": "w1"
+    },
+    {
+      "seq": 3,
+      "loc": "chats:api:messages:t3-iris",
+      "author": "Iris",
+      "body": "record"
+    }
+  ],
+  "nextSince": 3
+}
