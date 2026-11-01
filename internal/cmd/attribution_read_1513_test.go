@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 )
 
 // hadron-cli#1513 — the CLI half of hadron-server#1151 / #3092: who created a
@@ -553,5 +555,29 @@ func TestEdgeListIncomingAttribution1513(t *testing.T) {
 	if len(rows) != 1 || cmp(rows[0]["createdByUser"]) != adaEditor || cmp(rows[0]["updatedByUser"]) != nullHandle ||
 		cmp(rows[0]["updatedAt"]) != `"2026-09-02T00:00:00Z"` {
 		t.Errorf("incoming row attribution: %s", out)
+	}
+}
+
+// Shared-query rule: GetNode (13 consumers + node next) gains only the node's
+// createdByUser. The four edge fields come to node-scoped `edge list` from its
+// own query, so no other consumer resolves them per edge. Asserted on the
+// operation document, not on the request capture (which cannot see selections).
+func TestSharedNodeQueryGainsOnlyNodeAuthor1513(t *testing.T) {
+	for name, doc := range map[string]string{
+		"GetNode": gen.GetNode_Operation, "GetNodeRaw": gen.GetNodeRaw_Operation,
+		"NodeBatch": gen.NodeBatch_Operation, "NextNode": gen.NextNode_Operation,
+	} {
+		if !strings.Contains(doc, "createdByUser") {
+			t.Errorf("%s must select the node's createdByUser", name)
+		}
+		if strings.Contains(doc, "updatedByUser") {
+			t.Errorf("%s must not select the edge attribution fields (per-edge cost for every consumer)", name)
+		}
+	}
+	doc := gen.NodeEdgesAttributed_Operation
+	for _, f := range []string{"createdAt", "updatedAt", "createdByUser", "updatedByUser"} {
+		if strings.Count(doc, f) != 2 {
+			t.Errorf("NodeEdgesAttributed selects %s once per direction, got %d", f, strings.Count(doc, f))
+		}
 	}
 }
