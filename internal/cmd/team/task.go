@@ -39,6 +39,15 @@ owns the lifecycle, the matcher and every permission check; each lifecycle
 write sends one mutation and prints the task the server returns, and each read
 prints the view its page describes.
 
+Server compatibility: task-record commands require a server containing
+hadron-server#3029, even when no model-group flag is named. The shared task
+projection selects modelGroupIn/modelGroupNotIn for get, list (including --team),
+mine, tree and every task mutation receipt (create, update, assign/reassign,
+start/progress/finish/cancel/park/ready, priority and blocker edits). An older
+server rejects those documents as schema skew, exit 2: upgrade that provider
+first, including self-hosted or staging servers. Omitted input keys do not
+hide output selections. The separate dependencies paging query is unaffected.
+
 A typical flow, from the person or worker handing out the work to the
 assignee working in its bound worktree (the handles here and on every page are
 illustrative: use the one create, list or mine prints):
@@ -176,7 +185,7 @@ func newCmdTeamTaskCreate(f *cmdutil.Factory) *cobra.Command {
 	var description, owner, assignee, parent, source, startBy, status string
 	var tags, blockedBy []string
 	var priority int
-	var requireRole, familyIn, familyNotIn, minTier, properties string
+	var requireRole, familyIn, familyNotIn, modelGroupIn, modelGroupNotIn, minTier, properties string
 	var excludeWorkers []string
 	var closeSession, noCloseSession, project bool
 	cmd := &cobra.Command{
@@ -198,6 +207,14 @@ Who goes on it:
   list of model families such as claude,codex (` + "`team availability`" + `), and
   --exclude-worker <name, URN or id>, repeatable. Among queued tasks the
   matcher offers priority 1 first, then the oldest.
+- --model-group <name,...> requires a match in at least one named model group;
+  --model-group-not <name,...> requires a match in none. Both lists may coexist,
+  even with the same name. Empty supplied lists are usage errors; other names
+  go unchanged to the server for validation. Groups resolve live at match time:
+  editing a group can change matches without a task edit. They are matching
+  inputs only, never authorization. All task-record reads and mutation receipts
+  require hadron-server#3029, even with no group flag (see team task --help).
+  Comma splitting keeps each item verbatim; the server trims and drops empty items.
 - --status backlog parks it instead: no assignee (the server refuses both),
   never matched, no alarms, until ` + "`task assign`" + ` or ` + "`task ready`" + `
   moves it to PENDING. --status pending is the default.
@@ -283,6 +300,10 @@ warnings list.`,
 					return exitcode.Newf(exitcode.Usage, "--start-by takes an RFC 3339 timestamp, e.g. 2026-10-13T09:00:00Z, got %q", startBy)
 				}
 			}
+			groupsIn, groupsNotIn, err := taskModelGroupFlags(cmd, modelGroupIn, modelGroupNotIn)
+			if err != nil {
+				return err
+			}
 			if familyIn != "" && familyNotIn != "" {
 				return exitcode.Newf(exitcode.Usage, "--family-in and --family-not-in: give one, not both")
 			}
@@ -359,13 +380,15 @@ warnings list.`,
 				}
 				input.Owner = party
 			}
-			if requireRole != "" || familyIn != "" || familyNotIn != "" || len(excludeWorkers) > 0 || cmd.Flags().Changed("min-tier") {
+			if requireRole != "" || familyIn != "" || familyNotIn != "" || len(excludeWorkers) > 0 || (cmd.Flags().Changed("min-tier") || cmd.Flags().Changed("model-group") || cmd.Flags().Changed("model-group-not")) {
 				input.Requirements = &gen.AgentTaskRequirementsInput{
-					ExcludeWorkers: excludeWorkers,
-					FamilyIn:       commaList(familyIn),
-					FamilyNotIn:    commaList(familyNotIn),
-					Role:           optStr(requireRole),
-					MinTier:        optStr(minTier),
+					ExcludeWorkers:  excludeWorkers,
+					FamilyIn:        commaList(familyIn),
+					FamilyNotIn:     commaList(familyNotIn),
+					ModelGroupIn:    groupsIn,
+					ModelGroupNotIn: groupsNotIn,
+					Role:            optStr(requireRole),
+					MinTier:         optStr(minTier),
 				}
 			}
 			// The App: a root task needs one; a child task may take it from
@@ -391,6 +414,11 @@ warnings list.`,
 			mctx, sink := api.WithWarningSink(ctx)
 			resp, err := gen.AgentTaskCreate(mctx, client, &input)
 			if err != nil {
+				// The new requirement refusals retain their code at the JSON sink.
+				// Keep ordinary task-write error output unchanged when no group flag is named.
+				if groupsIn != nil || groupsNotIn != nil {
+					return api.WithServerCode(mapTaskError(err), err)
+				}
 				return mapTaskError(err)
 			}
 			task := taskDTOFrom(resp.CreateAgentTask.AgentTaskFields)
@@ -428,6 +456,7 @@ warnings list.`,
 	cmd.Flags().StringSliceVar(&tags, "tag", nil, "tag (repeatable)")
 	cmd.Flags().StringVar(&minTier, "min-tier", "", "minimum model tier: low, mid or high (lowest sufficient preferred; unknown ineligible)")
 	cmd.Flags().StringVar(&requireRole, "require-role", "", "matcher must pick this role")
+	addTaskModelGroupFlags(cmd, &modelGroupIn, &modelGroupNotIn)
 	cmd.Flags().StringVar(&familyIn, "family-in", "", "comma list of model families the assignee must run as")
 	cmd.Flags().StringVar(&familyNotIn, "family-not-in", "", "comma list of model families to exclude")
 	cmd.Flags().StringSliceVar(&excludeWorkers, "exclude-worker", nil, "worker (name, URN or id) the matcher must not pick (repeatable)")

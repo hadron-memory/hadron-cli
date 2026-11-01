@@ -30,6 +30,8 @@ type taskRequirementsDTO struct {
 	Role             *string  `json:"role"`
 	FamilyIn         []string `json:"familyIn"`
 	FamilyNotIn      []string `json:"familyNotIn"`
+	ModelGroupIn     []string `json:"modelGroupIn"`
+	ModelGroupNotIn  []string `json:"modelGroupNotIn"`
 	ExcludeWorkerIds []string `json:"excludeWorkerIds"`
 }
 
@@ -126,6 +128,8 @@ func taskRequirementsDTOFrom(r *gen.AgentTaskFieldsRequirementsAgentTaskRequirem
 		MinTier:          r.MinTier,
 		FamilyIn:         []string{},
 		FamilyNotIn:      []string{},
+		ModelGroupIn:     strListOrEmpty(r.ModelGroupIn),
+		ModelGroupNotIn:  strListOrEmpty(r.ModelGroupNotIn),
 		ExcludeWorkerIds: []string{},
 	}
 	if r.FamilyIn != nil {

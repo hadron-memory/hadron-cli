@@ -3378,10 +3378,14 @@ func (v *AgentTaskFieldsOwnerAgentTaskParty) __premarshalJSON() (*__premarshalAg
 // What the platform's matcher must respect when it chooses an assignee (plan design:agent-tasks section 3.1; consumed by T3).
 type AgentTaskFieldsRequirementsAgentTaskRequirements struct {
 	// The lowest model tier the assignee may run at: low, mid or high (hrn:node:hadronmemory.com:specs:cor:agt:060:06). Null when the task names none.
-	MinTier          *string  `json:"minTier"`
-	Role             *string  `json:"role"`
-	FamilyIn         []string `json:"familyIn"`
-	FamilyNotIn      []string `json:"familyNotIn"`
+	MinTier     *string  `json:"minTier"`
+	Role        *string  `json:"role"`
+	FamilyIn    []string `json:"familyIn"`
+	FamilyNotIn []string `json:"familyNotIn"`
+	// Model groups the assignee's model must be in at least one of (hrn:node:hadronmemory.com:specs:cor:agt:060:12). Null when the task names none.
+	ModelGroupIn []string `json:"modelGroupIn"`
+	// Model groups the assignee's model must be in none of (hrn:node:hadronmemory.com:specs:cor:agt:060:12). Null when the task names none.
+	ModelGroupNotIn  []string `json:"modelGroupNotIn"`
 	ExcludeWorkerIds []string `json:"excludeWorkerIds"`
 }
 
@@ -3397,6 +3401,16 @@ func (v *AgentTaskFieldsRequirementsAgentTaskRequirements) GetFamilyIn() []strin
 // GetFamilyNotIn returns AgentTaskFieldsRequirementsAgentTaskRequirements.FamilyNotIn, and is useful for accessing the field via an interface.
 func (v *AgentTaskFieldsRequirementsAgentTaskRequirements) GetFamilyNotIn() []string {
 	return v.FamilyNotIn
+}
+
+// GetModelGroupIn returns AgentTaskFieldsRequirementsAgentTaskRequirements.ModelGroupIn, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsRequirementsAgentTaskRequirements) GetModelGroupIn() []string {
+	return v.ModelGroupIn
+}
+
+// GetModelGroupNotIn returns AgentTaskFieldsRequirementsAgentTaskRequirements.ModelGroupNotIn, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsRequirementsAgentTaskRequirements) GetModelGroupNotIn() []string {
+	return v.ModelGroupNotIn
 }
 
 // GetExcludeWorkerIds returns AgentTaskFieldsRequirementsAgentTaskRequirements.ExcludeWorkerIds, and is useful for accessing the field via an interface.
@@ -89220,6 +89234,8 @@ fragment AgentTaskFields on AgentTask {
 		role
 		familyIn
 		familyNotIn
+		modelGroupIn
+		modelGroupNotIn
 		excludeWorkerIds
 	}
 	result {
@@ -89330,6 +89346,8 @@ fragment AgentTaskFields on AgentTask {
 		role
 		familyIn
 		familyNotIn
+		modelGroupIn
+		modelGroupNotIn
 		excludeWorkerIds
 	}
 	result {
@@ -89444,6 +89462,8 @@ fragment AgentTaskFields on AgentTask {
 		role
 		familyIn
 		familyNotIn
+		modelGroupIn
+		modelGroupNotIn
 		excludeWorkerIds
 	}
 	result {
@@ -89552,6 +89572,8 @@ fragment AgentTaskFields on AgentTask {
 		role
 		familyIn
 		familyNotIn
+		modelGroupIn
+		modelGroupNotIn
 		excludeWorkerIds
 	}
 	result {
@@ -89585,9 +89607,10 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 // Schema-only optional fields must stay absent for older providers.
 // #2420: the task's own properties object. A pointer field, omitted when nil.
 // cli#1485 S3 (Andi BLIND P2): the model-group requirement fields arrived with
-// the schema refresh (server #3029) but no command sets them yet (S2). Absent,
+// the schema refresh (server #3029) and S2 exposes them as optional flags. Absent,
 // not null, so ordinary create/update bodies are unchanged and an older server
-// never sees an input field it does not know.
+// never sees an input field it does not know. This protects INPUTS only:
+// every AgentTaskFields document needs provider #3029 for its output selection.
 func AgentTaskCreate(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -89731,6 +89754,8 @@ fragment AgentTaskFields on AgentTask {
 		role
 		familyIn
 		familyNotIn
+		modelGroupIn
+		modelGroupNotIn
 		excludeWorkerIds
 	}
 	result {
@@ -89841,6 +89866,8 @@ fragment AgentTaskFields on AgentTask {
 		role
 		familyIn
 		familyNotIn
+		modelGroupIn
+		modelGroupNotIn
 		excludeWorkerIds
 	}
 	result {
@@ -89992,6 +90019,8 @@ fragment AgentTaskFields on AgentTask {
 		role
 		familyIn
 		familyNotIn
+		modelGroupIn
+		modelGroupNotIn
 		excludeWorkerIds
 	}
 	result {
@@ -90120,6 +90149,8 @@ fragment AgentTaskFields on AgentTask {
 		role
 		familyIn
 		familyNotIn
+		modelGroupIn
+		modelGroupNotIn
 		excludeWorkerIds
 	}
 	result {
@@ -90272,6 +90303,8 @@ fragment AgentTaskFields on AgentTask {
 		role
 		familyIn
 		familyNotIn
+		modelGroupIn
+		modelGroupNotIn
 		excludeWorkerIds
 	}
 	result {
@@ -90401,6 +90434,8 @@ fragment AgentTaskFields on AgentTask {
 		role
 		familyIn
 		familyNotIn
+		modelGroupIn
+		modelGroupNotIn
 		excludeWorkerIds
 	}
 	result {
@@ -90513,6 +90548,8 @@ fragment AgentTaskFields on AgentTask {
 		role
 		familyIn
 		familyNotIn
+		modelGroupIn
+		modelGroupNotIn
 		excludeWorkerIds
 	}
 	result {
@@ -90621,6 +90658,8 @@ fragment AgentTaskFields on AgentTask {
 		role
 		familyIn
 		familyNotIn
+		modelGroupIn
+		modelGroupNotIn
 		excludeWorkerIds
 	}
 	result {
@@ -90732,6 +90771,8 @@ fragment AgentTaskFields on AgentTask {
 		role
 		familyIn
 		familyNotIn
+		modelGroupIn
+		modelGroupNotIn
 		excludeWorkerIds
 	}
 	result {
@@ -90844,6 +90885,8 @@ fragment AgentTaskFields on AgentTask {
 		role
 		familyIn
 		familyNotIn
+		modelGroupIn
+		modelGroupNotIn
 		excludeWorkerIds
 	}
 	result {
@@ -90954,6 +90997,8 @@ fragment AgentTaskFields on AgentTask {
 		role
 		familyIn
 		familyNotIn
+		modelGroupIn
+		modelGroupNotIn
 		excludeWorkerIds
 	}
 	result {
@@ -91065,6 +91110,8 @@ fragment AgentTaskFields on AgentTask {
 		role
 		familyIn
 		familyNotIn
+		modelGroupIn
+		modelGroupNotIn
 		excludeWorkerIds
 	}
 	result {
@@ -91227,6 +91274,8 @@ fragment AgentTaskFields on AgentTask {
 		role
 		familyIn
 		familyNotIn
+		modelGroupIn
+		modelGroupNotIn
 		excludeWorkerIds
 	}
 	result {
@@ -91335,6 +91384,8 @@ fragment AgentTaskFields on AgentTask {
 		role
 		familyIn
 		familyNotIn
+		modelGroupIn
+		modelGroupNotIn
 		excludeWorkerIds
 	}
 	result {
