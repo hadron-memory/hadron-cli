@@ -211,7 +211,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 321: 241 command, 69 gap, 11 excluded
+[Mutation] 321: 242 command, 68 gap, 11 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -361,7 +361,7 @@ finishAgentTask  command team task finish
 grantApp  gap #1336
 grantAppKeyScope  command app key scope grant
 grantCredits  gap #215
-handBackAgentTask  gap #1517
+handBackAgentTask  command team task hand-back
 importNode  command node import
 installAgentIntoApp  command app agent add
 inviteUser  command user invite

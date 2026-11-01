@@ -1365,6 +1365,11 @@ func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetReferences() []*Age
 	return v.AgentTaskFields.References
 }
 
+// GetHandBack returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.HandBack, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetHandBack() *AgentTaskFieldsHandBackAgentTaskHandBack {
+	return v.AgentTaskFields.HandBack
+}
+
 // GetStartBy returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetStartBy() *string {
 	return v.AgentTaskFields.StartBy
@@ -1483,6 +1488,8 @@ type __premarshalAgentTaskAddBlockerAddAgentTaskBlockerAgentTask struct {
 
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
+	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -1536,6 +1543,7 @@ func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) __premarshalJSON() (*_
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
 	retval.References = v.AgentTaskFields.References
+	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -1654,6 +1662,11 @@ func (v *AgentTaskAssignAssignAgentTask) GetReferences() []*AgentTaskFieldsRefer
 	return v.AgentTaskFields.References
 }
 
+// GetHandBack returns AgentTaskAssignAssignAgentTask.HandBack, and is useful for accessing the field via an interface.
+func (v *AgentTaskAssignAssignAgentTask) GetHandBack() *AgentTaskFieldsHandBackAgentTaskHandBack {
+	return v.AgentTaskFields.HandBack
+}
+
 // GetStartBy returns AgentTaskAssignAssignAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskAssignAssignAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -1762,6 +1775,8 @@ type __premarshalAgentTaskAssignAssignAgentTask struct {
 
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
+	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -1815,6 +1830,7 @@ func (v *AgentTaskAssignAssignAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
 	retval.References = v.AgentTaskFields.References
+	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -1939,6 +1955,11 @@ func (v *AgentTaskCancelCancelAgentTask) GetReferences() []*AgentTaskFieldsRefer
 	return v.AgentTaskFields.References
 }
 
+// GetHandBack returns AgentTaskCancelCancelAgentTask.HandBack, and is useful for accessing the field via an interface.
+func (v *AgentTaskCancelCancelAgentTask) GetHandBack() *AgentTaskFieldsHandBackAgentTaskHandBack {
+	return v.AgentTaskFields.HandBack
+}
+
 // GetStartBy returns AgentTaskCancelCancelAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskCancelCancelAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -2047,6 +2068,8 @@ type __premarshalAgentTaskCancelCancelAgentTask struct {
 
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
+	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -2100,6 +2123,7 @@ func (v *AgentTaskCancelCancelAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
 	retval.References = v.AgentTaskFields.References
+	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -2224,6 +2248,11 @@ func (v *AgentTaskCreateCreateAgentTask) GetReferences() []*AgentTaskFieldsRefer
 	return v.AgentTaskFields.References
 }
 
+// GetHandBack returns AgentTaskCreateCreateAgentTask.HandBack, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateCreateAgentTask) GetHandBack() *AgentTaskFieldsHandBackAgentTaskHandBack {
+	return v.AgentTaskFields.HandBack
+}
+
 // GetStartBy returns AgentTaskCreateCreateAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskCreateCreateAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -2332,6 +2361,8 @@ type __premarshalAgentTaskCreateCreateAgentTask struct {
 
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
+	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -2385,6 +2416,7 @@ func (v *AgentTaskCreateCreateAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
 	retval.References = v.AgentTaskFields.References
+	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -2776,13 +2808,15 @@ type AgentTaskFields struct {
 	// #2649 (hrn:node:hadronmemory.com:specs:cor:agt:050:01): the task's ordered, typed references to other things. Each
 	// target is the string as stored: never fetched or resolved, so it says nothing about the target's content or whether
 	// it exists. Empty when none.
-	References  []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
-	StartBy     *string                                        `json:"startBy"`
-	CreatedAt   string                                         `json:"createdAt"`
-	UpdatedAt   *string                                        `json:"updatedAt"`
-	StartedAt   *string                                        `json:"startedAt"`
-	FinishedAt  *string                                        `json:"finishedAt"`
-	CancelledAt *string                                        `json:"cancelledAt"`
+	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
+	// #2651: the task's latest hand-back by its assignee (hrn:node:hadronmemory.com:specs:cor:agt:050:29); null when it was never handed back. A later hand-back replaces it; every earlier code stays in the task.handed-back events.
+	HandBack    *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
+	StartBy     *string                                   `json:"startBy"`
+	CreatedAt   string                                    `json:"createdAt"`
+	UpdatedAt   *string                                   `json:"updatedAt"`
+	StartedAt   *string                                   `json:"startedAt"`
+	FinishedAt  *string                                   `json:"finishedAt"`
+	CancelledAt *string                                   `json:"cancelledAt"`
 	// Whether finishing or cancelling asks the assignee to end its worker session
 	// (hrn:node:hadronmemory.com:specs:cor:agt:050:10). Set by whoever assigns. #1709: carried out; see sessionEndRequest.
 	CloseSessionWhenDone bool                                              `json:"closeSessionWhenDone"`
@@ -2864,6 +2898,9 @@ func (v *AgentTaskFields) GetSource() *string { return v.Source }
 func (v *AgentTaskFields) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
 	return v.References
 }
+
+// GetHandBack returns AgentTaskFields.HandBack, and is useful for accessing the field via an interface.
+func (v *AgentTaskFields) GetHandBack() *AgentTaskFieldsHandBackAgentTaskHandBack { return v.HandBack }
 
 // GetStartBy returns AgentTaskFields.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskFields) GetStartBy() *string { return v.StartBy }
@@ -3336,6 +3373,26 @@ func (v *AgentTaskFieldsCreatedByAgentTaskParty) __premarshalJSON() (*__premarsh
 	return &retval, nil
 }
 
+// AgentTaskFieldsHandBackAgentTaskHandBack includes the requested fields of the GraphQL type AgentTaskHandBack.
+// The GraphQL type's documentation follows.
+//
+// #2651: a task's latest hand-back (hrn:node:hadronmemory.com:specs:cor:agt:050:01, :29), readable by whoever may read the task.
+type AgentTaskFieldsHandBackAgentTaskHandBack struct {
+	Code AgentTaskHandBackCode `json:"code"`
+	// The optional reason text, up to 2,000 characters. Stored on the task only, never in an event.
+	Text         *string `json:"text"`
+	HandedBackAt string  `json:"handedBackAt"`
+}
+
+// GetCode returns AgentTaskFieldsHandBackAgentTaskHandBack.Code, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsHandBackAgentTaskHandBack) GetCode() AgentTaskHandBackCode { return v.Code }
+
+// GetText returns AgentTaskFieldsHandBackAgentTaskHandBack.Text, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsHandBackAgentTaskHandBack) GetText() *string { return v.Text }
+
+// GetHandedBackAt returns AgentTaskFieldsHandBackAgentTaskHandBack.HandedBackAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsHandBackAgentTaskHandBack) GetHandedBackAt() string { return v.HandedBackAt }
+
 // AgentTaskFieldsOwnerAgentTaskParty includes the requested fields of the GraphQL type AgentTaskParty.
 // The GraphQL type's documentation follows.
 //
@@ -3595,6 +3652,11 @@ func (v *AgentTaskFinishFinishAgentTask) GetReferences() []*AgentTaskFieldsRefer
 	return v.AgentTaskFields.References
 }
 
+// GetHandBack returns AgentTaskFinishFinishAgentTask.HandBack, and is useful for accessing the field via an interface.
+func (v *AgentTaskFinishFinishAgentTask) GetHandBack() *AgentTaskFieldsHandBackAgentTaskHandBack {
+	return v.AgentTaskFields.HandBack
+}
+
 // GetStartBy returns AgentTaskFinishFinishAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskFinishFinishAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -3703,6 +3765,8 @@ type __premarshalAgentTaskFinishFinishAgentTask struct {
 
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
+	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -3756,6 +3820,7 @@ func (v *AgentTaskFinishFinishAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
 	retval.References = v.AgentTaskFields.References
+	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -3872,6 +3937,11 @@ func (v *AgentTaskGetAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgen
 	return v.AgentTaskFields.References
 }
 
+// GetHandBack returns AgentTaskGetAgentTask.HandBack, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTask) GetHandBack() *AgentTaskFieldsHandBackAgentTaskHandBack {
+	return v.AgentTaskFields.HandBack
+}
+
 // GetStartBy returns AgentTaskGetAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskGetAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -3976,6 +4046,8 @@ type __premarshalAgentTaskGetAgentTask struct {
 
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
+	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -4029,6 +4101,7 @@ func (v *AgentTaskGetAgentTask) __premarshalJSON() (*__premarshalAgentTaskGetAge
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
 	retval.References = v.AgentTaskFields.References
+	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -4052,6 +4125,349 @@ type AgentTaskGetResponse struct {
 
 // GetAgentTask returns AgentTaskGetResponse.AgentTask, and is useful for accessing the field via an interface.
 func (v *AgentTaskGetResponse) GetAgentTask() *AgentTaskGetAgentTask { return v.AgentTask }
+
+// #2651: why an assignee handed a started task back, a closed set (hrn:node:hadronmemory.com:specs:cor:agt:050:29,
+// Proposed details). MISSING_INPUT: something the work needs is not there. CANNOT_DO: the worker lacks the
+// capability. REFUSED: a policy or safety refusal. OUT_OF_SCOPE: the work is not what this task's role does.
+// DUPLICATE: the same work is already tracked elsewhere.
+type AgentTaskHandBackCode string
+
+const (
+	AgentTaskHandBackCodeCannotDo     AgentTaskHandBackCode = "CANNOT_DO"
+	AgentTaskHandBackCodeDuplicate    AgentTaskHandBackCode = "DUPLICATE"
+	AgentTaskHandBackCodeMissingInput AgentTaskHandBackCode = "MISSING_INPUT"
+	AgentTaskHandBackCodeOutOfScope   AgentTaskHandBackCode = "OUT_OF_SCOPE"
+	AgentTaskHandBackCodeRefused      AgentTaskHandBackCode = "REFUSED"
+)
+
+var AllAgentTaskHandBackCode = []AgentTaskHandBackCode{
+	AgentTaskHandBackCodeCannotDo,
+	AgentTaskHandBackCodeDuplicate,
+	AgentTaskHandBackCodeMissingInput,
+	AgentTaskHandBackCodeOutOfScope,
+	AgentTaskHandBackCodeRefused,
+}
+
+// AgentTaskHandBackHandBackAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type AgentTaskHandBackHandBackAgentTask struct {
+	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskHandBackHandBackAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetPriority() int { return v.AgentTaskFields.Priority }
+
+// GetBlocked returns AgentTaskHandBackHandBackAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetBlocked() bool { return v.AgentTaskFields.Blocked }
+
+// GetBlockedBy returns AgentTaskHandBackHandBackAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskHandBackHandBackAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
+}
+
+// GetId returns AgentTaskHandBackHandBackAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetId() string { return v.AgentTaskFields.Id }
+
+// GetHandle returns AgentTaskHandBackHandBackAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetHandle() string { return v.AgentTaskFields.Handle }
+
+// GetTaskNumber returns AgentTaskHandBackHandBackAgentTask.TaskNumber, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetTaskNumber() string {
+	return v.AgentTaskFields.TaskNumber
+}
+
+// GetAppId returns AgentTaskHandBackHandBackAgentTask.AppId, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetAppId() string { return v.AgentTaskFields.AppId }
+
+// GetTitle returns AgentTaskHandBackHandBackAgentTask.Title, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetTitle() string { return v.AgentTaskFields.Title }
+
+// GetDescription returns AgentTaskHandBackHandBackAgentTask.Description, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetDescription() *string {
+	return v.AgentTaskFields.Description
+}
+
+// GetStatus returns AgentTaskHandBackHandBackAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetStatus() AgentTaskStatus {
+	return v.AgentTaskFields.Status
+}
+
+// GetQueued returns AgentTaskHandBackHandBackAgentTask.Queued, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetQueued() bool { return v.AgentTaskFields.Queued }
+
+// GetWaitingOnChildren returns AgentTaskHandBackHandBackAgentTask.WaitingOnChildren, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetWaitingOnChildren() bool {
+	return v.AgentTaskFields.WaitingOnChildren
+}
+
+// GetOwner returns AgentTaskHandBackHandBackAgentTask.Owner, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetOwner() *AgentTaskFieldsOwnerAgentTaskParty {
+	return v.AgentTaskFields.Owner
+}
+
+// GetAssignee returns AgentTaskHandBackHandBackAgentTask.Assignee, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetAssignee() *AgentTaskFieldsAssigneeAgentTaskParty {
+	return v.AgentTaskFields.Assignee
+}
+
+// GetAssignedBy returns AgentTaskHandBackHandBackAgentTask.AssignedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetAssignedBy() *AgentTaskFieldsAssignedByAgentTaskParty {
+	return v.AgentTaskFields.AssignedBy
+}
+
+// GetCreatedBy returns AgentTaskHandBackHandBackAgentTask.CreatedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
+	return v.AgentTaskFields.CreatedBy
+}
+
+// GetParentTaskId returns AgentTaskHandBackHandBackAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetParentTaskId() *string {
+	return v.AgentTaskFields.ParentTaskId
+}
+
+// GetTags returns AgentTaskHandBackHandBackAgentTask.Tags, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetTags() []string { return v.AgentTaskFields.Tags }
+
+// GetSource returns AgentTaskHandBackHandBackAgentTask.Source, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetSource() *string { return v.AgentTaskFields.Source }
+
+// GetReferences returns AgentTaskHandBackHandBackAgentTask.References, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
+	return v.AgentTaskFields.References
+}
+
+// GetHandBack returns AgentTaskHandBackHandBackAgentTask.HandBack, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetHandBack() *AgentTaskFieldsHandBackAgentTaskHandBack {
+	return v.AgentTaskFields.HandBack
+}
+
+// GetStartBy returns AgentTaskHandBackHandBackAgentTask.StartBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
+
+// GetCreatedAt returns AgentTaskHandBackHandBackAgentTask.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetCreatedAt() string {
+	return v.AgentTaskFields.CreatedAt
+}
+
+// GetUpdatedAt returns AgentTaskHandBackHandBackAgentTask.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetUpdatedAt() *string {
+	return v.AgentTaskFields.UpdatedAt
+}
+
+// GetStartedAt returns AgentTaskHandBackHandBackAgentTask.StartedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetStartedAt() *string {
+	return v.AgentTaskFields.StartedAt
+}
+
+// GetFinishedAt returns AgentTaskHandBackHandBackAgentTask.FinishedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetFinishedAt() *string {
+	return v.AgentTaskFields.FinishedAt
+}
+
+// GetCancelledAt returns AgentTaskHandBackHandBackAgentTask.CancelledAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetCancelledAt() *string {
+	return v.AgentTaskFields.CancelledAt
+}
+
+// GetCloseSessionWhenDone returns AgentTaskHandBackHandBackAgentTask.CloseSessionWhenDone, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetCloseSessionWhenDone() bool {
+	return v.AgentTaskFields.CloseSessionWhenDone
+}
+
+// GetRequirements returns AgentTaskHandBackHandBackAgentTask.Requirements, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
+	return v.AgentTaskFields.Requirements
+}
+
+// GetResult returns AgentTaskHandBackHandBackAgentTask.Result, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetResult() *AgentTaskFieldsResultAgentTaskResult {
+	return v.AgentTaskFields.Result
+}
+
+// GetProperties returns AgentTaskHandBackHandBackAgentTask.Properties, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetProperties() *json.RawMessage {
+	return v.AgentTaskFields.Properties
+}
+
+func (v *AgentTaskHandBackHandBackAgentTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTaskHandBackHandBackAgentTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTaskHandBackHandBackAgentTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTaskHandBackHandBackAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
+	Id string `json:"id"`
+
+	Handle string `json:"handle"`
+
+	TaskNumber string `json:"taskNumber"`
+
+	AppId string `json:"appId"`
+
+	Title string `json:"title"`
+
+	Description *string `json:"description"`
+
+	Status AgentTaskStatus `json:"status"`
+
+	Queued bool `json:"queued"`
+
+	WaitingOnChildren bool `json:"waitingOnChildren"`
+
+	Owner *AgentTaskFieldsOwnerAgentTaskParty `json:"owner"`
+
+	Assignee *AgentTaskFieldsAssigneeAgentTaskParty `json:"assignee"`
+
+	AssignedBy *AgentTaskFieldsAssignedByAgentTaskParty `json:"assignedBy"`
+
+	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
+
+	ParentTaskId *string `json:"parentTaskId"`
+
+	Tags []string `json:"tags"`
+
+	Source *string `json:"source"`
+
+	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
+
+	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
+
+	StartBy *string `json:"startBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	StartedAt *string `json:"startedAt"`
+
+	FinishedAt *string `json:"finishedAt"`
+
+	CancelledAt *string `json:"cancelledAt"`
+
+	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
+
+	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
+
+	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+
+	Properties *json.RawMessage `json:"properties"`
+}
+
+func (v *AgentTaskHandBackHandBackAgentTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTaskHandBackHandBackAgentTask) __premarshalJSON() (*__premarshalAgentTaskHandBackHandBackAgentTask, error) {
+	var retval __premarshalAgentTaskHandBackHandBackAgentTask
+
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
+	retval.Id = v.AgentTaskFields.Id
+	retval.Handle = v.AgentTaskFields.Handle
+	retval.TaskNumber = v.AgentTaskFields.TaskNumber
+	retval.AppId = v.AgentTaskFields.AppId
+	retval.Title = v.AgentTaskFields.Title
+	retval.Description = v.AgentTaskFields.Description
+	retval.Status = v.AgentTaskFields.Status
+	retval.Queued = v.AgentTaskFields.Queued
+	retval.WaitingOnChildren = v.AgentTaskFields.WaitingOnChildren
+	retval.Owner = v.AgentTaskFields.Owner
+	retval.Assignee = v.AgentTaskFields.Assignee
+	retval.AssignedBy = v.AgentTaskFields.AssignedBy
+	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
+	retval.Tags = v.AgentTaskFields.Tags
+	retval.Source = v.AgentTaskFields.Source
+	retval.References = v.AgentTaskFields.References
+	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.CreatedAt = v.AgentTaskFields.CreatedAt
+	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
+	retval.StartedAt = v.AgentTaskFields.StartedAt
+	retval.FinishedAt = v.AgentTaskFields.FinishedAt
+	retval.CancelledAt = v.AgentTaskFields.CancelledAt
+	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.Requirements = v.AgentTaskFields.Requirements
+	retval.Result = v.AgentTaskFields.Result
+	retval.Properties = v.AgentTaskFields.Properties
+	return &retval, nil
+}
+
+// #2651: the reason a hand-back gives (hrn:node:hadronmemory.com:specs:cor:agt:050:29).
+type AgentTaskHandBackInput struct {
+	Code AgentTaskHandBackCode `json:"code"`
+	// Optional, up to 2,000 characters after trimming; blank is none. Stored on the task, never put into an event.
+	Text *string `json:"text,omitempty"`
+}
+
+// GetCode returns AgentTaskHandBackInput.Code, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackInput) GetCode() AgentTaskHandBackCode { return v.Code }
+
+// GetText returns AgentTaskHandBackInput.Text, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackInput) GetText() *string { return v.Text }
+
+// AgentTaskHandBackResponse is returned by AgentTaskHandBack on success.
+type AgentTaskHandBackResponse struct {
+	// #2651 — hand a started task back: its assignee only (hrn:node:hadronmemory.com:specs:cor:agt:050:29). The task
+	// loses its assignee, goes back to PENDING and is queued again (hrn:node:hadronmemory.com:specs:cor:agt:050:03); a
+	// returning worker is added to requirements.excludeWorkerIds, so the platform's matcher assigns it to another
+	// matching worker (hrn:node:hadronmemory.com:specs:cor:agt:060:06), and whoever may assign the task can remove
+	// that exclusion. A person who hands a task back is not added. One task.handed-back event carries the code only; no
+	// result is written; child tasks are untouched; every ordinary stall episode the task had ends, while a finish-by
+	// episode is kept until the task ends or its finish-by time is edited (hrn:node:hadronmemory.com:specs:cor:agt:050:13). taskRef is the task's id or handle. Refusals: TASK_NOT_FOUND,
+	// TASK_NOT_ASSIGNEE (anyone else, or a task with no assignee), TASK_ENDED (finished or cancelled),
+	// TASK_INVALID_TRANSITION (pending), BAD_USER_INPUT (a code outside the set, or text over 2,000 characters),
+	// SESSION_NOT_BOUND, APP_UNINSTALLED. Nothing changes on a refusal.
+	HandBackAgentTask *AgentTaskHandBackHandBackAgentTask `json:"handBackAgentTask"`
+}
+
+// GetHandBackAgentTask returns AgentTaskHandBackResponse.HandBackAgentTask, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackResponse) GetHandBackAgentTask() *AgentTaskHandBackHandBackAgentTask {
+	return v.HandBackAgentTask
+}
 
 // AgentTaskIndexListAgentTaskListAgentListedTask includes the requested fields of the GraphQL type AgentListedTask.
 // The GraphQL type's documentation follows.
@@ -4242,6 +4658,11 @@ func (v *AgentTaskListAgentTasksAgentTask) GetReferences() []*AgentTaskFieldsRef
 	return v.AgentTaskFields.References
 }
 
+// GetHandBack returns AgentTaskListAgentTasksAgentTask.HandBack, and is useful for accessing the field via an interface.
+func (v *AgentTaskListAgentTasksAgentTask) GetHandBack() *AgentTaskFieldsHandBackAgentTaskHandBack {
+	return v.AgentTaskFields.HandBack
+}
+
 // GetStartBy returns AgentTaskListAgentTasksAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskListAgentTasksAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -4352,6 +4773,8 @@ type __premarshalAgentTaskListAgentTasksAgentTask struct {
 
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
+	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -4405,6 +4828,7 @@ func (v *AgentTaskListAgentTasksAgentTask) __premarshalJSON() (*__premarshalAgen
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
 	retval.References = v.AgentTaskFields.References
+	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -4522,6 +4946,11 @@ func (v *AgentTaskListFilteredAgentTasksAgentTask) GetSource() *string {
 // GetReferences returns AgentTaskListFilteredAgentTasksAgentTask.References, and is useful for accessing the field via an interface.
 func (v *AgentTaskListFilteredAgentTasksAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
 	return v.AgentTaskFields.References
+}
+
+// GetHandBack returns AgentTaskListFilteredAgentTasksAgentTask.HandBack, and is useful for accessing the field via an interface.
+func (v *AgentTaskListFilteredAgentTasksAgentTask) GetHandBack() *AgentTaskFieldsHandBackAgentTaskHandBack {
+	return v.AgentTaskFields.HandBack
 }
 
 // GetStartBy returns AgentTaskListFilteredAgentTasksAgentTask.StartBy, and is useful for accessing the field via an interface.
@@ -4642,6 +5071,8 @@ type __premarshalAgentTaskListFilteredAgentTasksAgentTask struct {
 
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
+	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -4695,6 +5126,7 @@ func (v *AgentTaskListFilteredAgentTasksAgentTask) __premarshalJSON() (*__premar
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
 	retval.References = v.AgentTaskFields.References
+	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -4848,6 +5280,11 @@ func (v *AgentTaskListTextAgentTasksAgentTask) GetReferences() []*AgentTaskField
 	return v.AgentTaskFields.References
 }
 
+// GetHandBack returns AgentTaskListTextAgentTasksAgentTask.HandBack, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetHandBack() *AgentTaskFieldsHandBackAgentTaskHandBack {
+	return v.AgentTaskFields.HandBack
+}
+
 // GetStartBy returns AgentTaskListTextAgentTasksAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskListTextAgentTasksAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -4964,6 +5401,8 @@ type __premarshalAgentTaskListTextAgentTasksAgentTask struct {
 
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
+	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -5017,6 +5456,7 @@ func (v *AgentTaskListTextAgentTasksAgentTask) __premarshalJSON() (*__premarshal
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
 	retval.References = v.AgentTaskFields.References
+	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -5159,6 +5599,11 @@ func (v *AgentTaskParkParkAgentTask) GetReferences() []*AgentTaskFieldsReference
 	return v.AgentTaskFields.References
 }
 
+// GetHandBack returns AgentTaskParkParkAgentTask.HandBack, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetHandBack() *AgentTaskFieldsHandBackAgentTaskHandBack {
+	return v.AgentTaskFields.HandBack
+}
+
 // GetStartBy returns AgentTaskParkParkAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskParkParkAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -5265,6 +5710,8 @@ type __premarshalAgentTaskParkParkAgentTask struct {
 
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
+	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -5318,6 +5765,7 @@ func (v *AgentTaskParkParkAgentTask) __premarshalJSON() (*__premarshalAgentTaskP
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
 	retval.References = v.AgentTaskFields.References
+	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -5513,6 +5961,11 @@ func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetReferences() []*A
 	return v.AgentTaskFields.References
 }
 
+// GetHandBack returns AgentTaskProgressRecordAgentTaskProgressAgentTask.HandBack, and is useful for accessing the field via an interface.
+func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetHandBack() *AgentTaskFieldsHandBackAgentTaskHandBack {
+	return v.AgentTaskFields.HandBack
+}
+
 // GetStartBy returns AgentTaskProgressRecordAgentTaskProgressAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetStartBy() *string {
 	return v.AgentTaskFields.StartBy
@@ -5631,6 +6084,8 @@ type __premarshalAgentTaskProgressRecordAgentTaskProgressAgentTask struct {
 
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
+	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -5684,6 +6139,7 @@ func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) __premarshalJSON() (
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
 	retval.References = v.AgentTaskFields.References
+	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -5815,6 +6271,11 @@ func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetReferences() []*AgentTask
 	return v.AgentTaskFields.References
 }
 
+// GetHandBack returns AgentTaskReadyMakeAgentTaskReadyAgentTask.HandBack, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetHandBack() *AgentTaskFieldsHandBackAgentTaskHandBack {
+	return v.AgentTaskFields.HandBack
+}
+
 // GetStartBy returns AgentTaskReadyMakeAgentTaskReadyAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetStartBy() *string {
 	return v.AgentTaskFields.StartBy
@@ -5933,6 +6394,8 @@ type __premarshalAgentTaskReadyMakeAgentTaskReadyAgentTask struct {
 
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
+	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -5986,6 +6449,7 @@ func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) __premarshalJSON() (*__prema
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
 	retval.References = v.AgentTaskFields.References
+	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -6113,6 +6577,11 @@ func (v *AgentTaskReassignReassignAgentTask) GetReferences() []*AgentTaskFieldsR
 	return v.AgentTaskFields.References
 }
 
+// GetHandBack returns AgentTaskReassignReassignAgentTask.HandBack, and is useful for accessing the field via an interface.
+func (v *AgentTaskReassignReassignAgentTask) GetHandBack() *AgentTaskFieldsHandBackAgentTaskHandBack {
+	return v.AgentTaskFields.HandBack
+}
+
 // GetStartBy returns AgentTaskReassignReassignAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskReassignReassignAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -6229,6 +6698,8 @@ type __premarshalAgentTaskReassignReassignAgentTask struct {
 
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
+	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -6282,6 +6753,7 @@ func (v *AgentTaskReassignReassignAgentTask) __premarshalJSON() (*__premarshalAg
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
 	retval.References = v.AgentTaskFields.References
+	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -6481,6 +6953,11 @@ func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetReferences() 
 	return v.AgentTaskFields.References
 }
 
+// GetHandBack returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.HandBack, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetHandBack() *AgentTaskFieldsHandBackAgentTaskHandBack {
+	return v.AgentTaskFields.HandBack
+}
+
 // GetStartBy returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetStartBy() *string {
 	return v.AgentTaskFields.StartBy
@@ -6599,6 +7076,8 @@ type __premarshalAgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask struct {
 
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
+	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -6652,6 +7131,7 @@ func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) __premarshalJSON
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
 	retval.References = v.AgentTaskFields.References
+	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -6855,6 +7335,11 @@ func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetReferences() []*A
 	return v.AgentTaskFields.References
 }
 
+// GetHandBack returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.HandBack, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetHandBack() *AgentTaskFieldsHandBackAgentTaskHandBack {
+	return v.AgentTaskFields.HandBack
+}
+
 // GetStartBy returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetStartBy() *string {
 	return v.AgentTaskFields.StartBy
@@ -6973,6 +7458,8 @@ type __premarshalAgentTaskSetPrioritySetAgentTaskPriorityAgentTask struct {
 
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
+	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -7026,6 +7513,7 @@ func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) __premarshalJSON() (
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
 	retval.References = v.AgentTaskFields.References
+	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -7200,6 +7688,11 @@ func (v *AgentTaskStartStartAgentTask) GetReferences() []*AgentTaskFieldsReferen
 	return v.AgentTaskFields.References
 }
 
+// GetHandBack returns AgentTaskStartStartAgentTask.HandBack, and is useful for accessing the field via an interface.
+func (v *AgentTaskStartStartAgentTask) GetHandBack() *AgentTaskFieldsHandBackAgentTaskHandBack {
+	return v.AgentTaskFields.HandBack
+}
+
 // GetStartBy returns AgentTaskStartStartAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskStartStartAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -7306,6 +7799,8 @@ type __premarshalAgentTaskStartStartAgentTask struct {
 
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
+	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -7359,6 +7854,7 @@ func (v *AgentTaskStartStartAgentTask) __premarshalJSON() (*__premarshalAgentTas
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
 	retval.References = v.AgentTaskFields.References
+	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -7589,6 +8085,11 @@ func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetReferences() []*AgentTaskFields
 	return v.AgentTaskFields.References
 }
 
+// GetHandBack returns AgentTaskTreeAgentTaskTreeAgentTask.HandBack, and is useful for accessing the field via an interface.
+func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetHandBack() *AgentTaskFieldsHandBackAgentTaskHandBack {
+	return v.AgentTaskFields.HandBack
+}
+
 // GetStartBy returns AgentTaskTreeAgentTaskTreeAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -7705,6 +8206,8 @@ type __premarshalAgentTaskTreeAgentTaskTreeAgentTask struct {
 
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
+	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -7758,6 +8261,7 @@ func (v *AgentTaskTreeAgentTaskTreeAgentTask) __premarshalJSON() (*__premarshalA
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
 	retval.References = v.AgentTaskFields.References
+	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -7892,6 +8396,11 @@ func (v *AgentTaskUpdateUpdateAgentTask) GetReferences() []*AgentTaskFieldsRefer
 	return v.AgentTaskFields.References
 }
 
+// GetHandBack returns AgentTaskUpdateUpdateAgentTask.HandBack, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetHandBack() *AgentTaskFieldsHandBackAgentTaskHandBack {
+	return v.AgentTaskFields.HandBack
+}
+
 // GetStartBy returns AgentTaskUpdateUpdateAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskUpdateUpdateAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -8000,6 +8509,8 @@ type __premarshalAgentTaskUpdateUpdateAgentTask struct {
 
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
+	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -8053,6 +8564,7 @@ func (v *AgentTaskUpdateUpdateAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
 	retval.References = v.AgentTaskFields.References
+	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -81668,6 +82180,18 @@ type __AgentTaskGetInput struct {
 // GetId returns __AgentTaskGetInput.Id, and is useful for accessing the field via an interface.
 func (v *__AgentTaskGetInput) GetId() string { return v.Id }
 
+// __AgentTaskHandBackInput is used internally by genqlient
+type __AgentTaskHandBackInput struct {
+	TaskRef string                  `json:"taskRef"`
+	Reason  *AgentTaskHandBackInput `json:"reason,omitempty"`
+}
+
+// GetTaskRef returns __AgentTaskHandBackInput.TaskRef, and is useful for accessing the field via an interface.
+func (v *__AgentTaskHandBackInput) GetTaskRef() string { return v.TaskRef }
+
+// GetReason returns __AgentTaskHandBackInput.Reason, and is useful for accessing the field via an interface.
+func (v *__AgentTaskHandBackInput) GetReason() *AgentTaskHandBackInput { return v.Reason }
+
 // __AgentTaskIndexListInput is used internally by genqlient
 type __AgentTaskIndexListInput struct {
 	Ref string `json:"ref"`
@@ -89953,6 +90477,11 @@ fragment AgentTaskFields on AgentTask {
 		target
 		label
 	}
+	handBack {
+		code
+		text
+		handedBackAt
+	}
 	startBy
 	createdAt
 	updatedAt
@@ -90069,6 +90598,11 @@ fragment AgentTaskFields on AgentTask {
 		kind
 		target
 		label
+	}
+	handBack {
+		code
+		text
+		handedBackAt
 	}
 	startBy
 	createdAt
@@ -90191,6 +90725,11 @@ fragment AgentTaskFields on AgentTask {
 		target
 		label
 	}
+	handBack {
+		code
+		text
+		handedBackAt
+	}
 	startBy
 	createdAt
 	updatedAt
@@ -90305,6 +90844,11 @@ fragment AgentTaskFields on AgentTask {
 		kind
 		target
 		label
+	}
+	handBack {
+		code
+		text
+		handedBackAt
 	}
 	startBy
 	createdAt
@@ -90494,6 +91038,11 @@ fragment AgentTaskFields on AgentTask {
 		target
 		label
 	}
+	handBack {
+		code
+		text
+		handedBackAt
+	}
 	startBy
 	createdAt
 	updatedAt
@@ -90611,6 +91160,11 @@ fragment AgentTaskFields on AgentTask {
 		target
 		label
 	}
+	handBack {
+		code
+		text
+		handedBackAt
+	}
 	startBy
 	createdAt
 	updatedAt
@@ -90662,6 +91216,128 @@ func AgentTaskGet(
 	}
 
 	data_ = &AgentTaskGetResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by AgentTaskHandBack.
+const AgentTaskHandBack_Operation = `
+mutation AgentTaskHandBack ($taskRef: ID!, $reason: AgentTaskHandBackInput!) {
+	handBackAgentTask(taskRef: $taskRef, reason: $reason) {
+		... AgentTaskFields
+	}
+}
+fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	id
+	handle
+	taskNumber
+	appId
+	title
+	description
+	status
+	queued
+	waitingOnChildren
+	owner {
+		... AgentTaskPartyFields
+	}
+	assignee {
+		... AgentTaskPartyFields
+	}
+	assignedBy {
+		... AgentTaskPartyFields
+	}
+	createdBy {
+		... AgentTaskPartyFields
+	}
+	parentTaskId
+	tags
+	source
+	references {
+		kind
+		target
+		label
+	}
+	handBack {
+		code
+		text
+		handedBackAt
+	}
+	startBy
+	createdAt
+	updatedAt
+	startedAt
+	finishedAt
+	cancelledAt
+	closeSessionWhenDone
+	requirements {
+		minTier
+		role
+		familyIn
+		familyNotIn
+		modelGroupIn
+		modelGroupNotIn
+		excludeWorkerIds
+	}
+	result {
+		outcome
+		summary
+		evidence
+	}
+	properties
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
+}
+fragment AgentTaskPartyFields on AgentTaskParty {
+	id
+	kind
+	name
+	urn
+}
+`
+
+func AgentTaskHandBack(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	taskRef string,
+	reason *AgentTaskHandBackInput,
+) (data_ *AgentTaskHandBackResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentTaskHandBack",
+		Query:  AgentTaskHandBack_Operation,
+		Variables: &__AgentTaskHandBackInput{
+			TaskRef: taskRef,
+			Reason:  reason,
+		},
+	}
+
+	data_ = &AgentTaskHandBackResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -90768,6 +91444,11 @@ fragment AgentTaskFields on AgentTask {
 		kind
 		target
 		label
+	}
+	handBack {
+		code
+		text
+		handedBackAt
 	}
 	startBy
 	createdAt
@@ -90903,6 +91584,11 @@ fragment AgentTaskFields on AgentTask {
 		kind
 		target
 		label
+	}
+	handBack {
+		code
+		text
+		handedBackAt
 	}
 	startBy
 	createdAt
@@ -91065,6 +91751,11 @@ fragment AgentTaskFields on AgentTask {
 		target
 		label
 	}
+	handBack {
+		code
+		text
+		handedBackAt
+	}
 	startBy
 	createdAt
 	updatedAt
@@ -91201,6 +91892,11 @@ fragment AgentTaskFields on AgentTask {
 		target
 		label
 	}
+	handBack {
+		code
+		text
+		handedBackAt
+	}
 	startBy
 	createdAt
 	updatedAt
@@ -91320,6 +92016,11 @@ fragment AgentTaskFields on AgentTask {
 		target
 		label
 	}
+	handBack {
+		code
+		text
+		handedBackAt
+	}
 	startBy
 	createdAt
 	updatedAt
@@ -91434,6 +92135,11 @@ fragment AgentTaskFields on AgentTask {
 		kind
 		target
 		label
+	}
+	handBack {
+		code
+		text
+		handedBackAt
 	}
 	startBy
 	createdAt
@@ -91552,6 +92258,11 @@ fragment AgentTaskFields on AgentTask {
 		kind
 		target
 		label
+	}
+	handBack {
+		code
+		text
+		handedBackAt
 	}
 	startBy
 	createdAt
@@ -91672,6 +92383,11 @@ fragment AgentTaskFields on AgentTask {
 		target
 		label
 	}
+	handBack {
+		code
+		text
+		handedBackAt
+	}
 	startBy
 	createdAt
 	updatedAt
@@ -91788,6 +92504,11 @@ fragment AgentTaskFields on AgentTask {
 		kind
 		target
 		label
+	}
+	handBack {
+		code
+		text
+		handedBackAt
 	}
 	startBy
 	createdAt
@@ -91906,6 +92627,11 @@ fragment AgentTaskFields on AgentTask {
 		kind
 		target
 		label
+	}
+	handBack {
+		code
+		text
+		handedBackAt
 	}
 	startBy
 	createdAt
@@ -92076,6 +92802,11 @@ fragment AgentTaskFields on AgentTask {
 		target
 		label
 	}
+	handBack {
+		code
+		text
+		handedBackAt
+	}
 	startBy
 	createdAt
 	updatedAt
@@ -92190,6 +92921,11 @@ fragment AgentTaskFields on AgentTask {
 		kind
 		target
 		label
+	}
+	handBack {
+		code
+		text
+		handedBackAt
 	}
 	startBy
 	createdAt

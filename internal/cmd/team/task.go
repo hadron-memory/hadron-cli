@@ -107,6 +107,7 @@ acknowledges one.`,
 	cmd.AddCommand(newCmdTeamTaskStart(f))
 	cmd.AddCommand(newCmdTeamTaskProgress(f))
 	cmd.AddCommand(newCmdTeamTaskFinish(f))
+	cmd.AddCommand(newCmdTeamTaskHandBack(f))
 	cmd.AddCommand(newCmdTeamTaskCancel(f))
 	cmd.AddCommand(newCmdTeamTaskPark(f))
 	cmd.AddCommand(newCmdTeamTaskReady(f))
@@ -851,6 +852,84 @@ with its result and a warnings list.`,
 	cmd.Flags().StringVar(&outcome, "outcome", "", "one-word result, e.g. succeeded or failed (required)")
 	cmd.Flags().StringVar(&summary, "summary", "", "one-line result summary")
 	cmd.Flags().StringVar(&evidence, "evidence", "", "URL or node URN backing the result")
+	return cmd
+}
+
+// ---- hand-back --------------------------------------------------------------
+
+// handBackCodes is the closed set the server's AgentTaskHandBackCode enum
+// carries (cor:agt:050:29), in the order the refusal lists it.
+var handBackCodes = []string{"missing-input", "cannot-do", "refused", "out-of-scope", "duplicate"}
+
+// handBackCodeFrom accepts the kebab spelling and the enum names, any case.
+func handBackCodeFrom(s string) (gen.AgentTaskHandBackCode, error) {
+	norm := strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(s), "-", "_"))
+	for _, c := range handBackCodes {
+		if strings.ToUpper(strings.ReplaceAll(c, "-", "_")) == norm && norm != "" {
+			return gen.AgentTaskHandBackCode(norm), nil
+		}
+	}
+	return "", exitcode.Newf(exitcode.Usage, "--code is required and must be one of %s, got %q", strings.Join(handBackCodes, " | "), s)
+}
+
+func newCmdTeamTaskHandBack(f *cmdutil.Factory) *cobra.Command {
+	var code, text string
+	cmd := &cobra.Command{
+		Use:   "hand-back <taskRef> --code <code> [--text <text>]",
+		Short: "Hand a started task back with a reason",
+		Long: `Hand a STARTED task back to the queue with a reason: its assignee only
+(cor:agt:050:29). The task returns to PENDING for the platform's matcher
+(cor:agt:050:03); nothing is finished and nothing is lost.
+
+--code is required, one of: ` + strings.Join(handBackCodes, ", ") + `
+(case-insensitive; the enum names such as MISSING_INPUT are accepted too).
+--text is an optional account, up to 2,000 characters after trimming; the
+server is the authority on the limit and the CLI does not pre-trim it.
+
+Refusals: an unknown task exits 4; someone else's task exits 8; an ended task
+or a task that is not started exits 5; an uninstalled App exits 5; no bound
+worker session exits 2.
+
+Success prints the task and the "Handed back:" line; --json returns the task
+with its handBack {code, text, handedBackAt} and a warnings list. ` + "`task get`" + `
+shows the same line later; handBack is null for a task never handed back.`,
+		Example: `  hadron team task hand-back AT0.7 --code missing-input --text "no fixture to reproduce with"
+  hadron team task hand-back AT0.8 --code duplicate`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ref, err := taskRefArg(args)
+			if err != nil {
+				return err
+			}
+			c, err := handBackCodeFrom(code)
+			if err != nil {
+				return err
+			}
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			reason := gen.AgentTaskHandBackInput{Code: c, Text: optStr(text)}
+			mctx, sink := api.WithWarningSink(cmd.Context())
+			resp, err := gen.AgentTaskHandBack(mctx, client, ref, &reason)
+			if err != nil {
+				return mapTaskError(err)
+			}
+			task := taskDTOFrom(resp.HandBackAgentTask.AgentTaskFields)
+			return writeTaskMutation(f, task, taskWarningsFor(sink, "handBackAgentTask"), func(w io.Writer) error {
+				if _, err := fmt.Fprintf(w, "✓ handed back task %s (%s)\n", taskRef(task.Handle, task.ID), task.Status); err != nil {
+					return err
+				}
+				if task.HandBack != nil {
+					_, err := fmt.Fprintf(w, "  %s\n", handBackLine(task.HandBack))
+					return err
+				}
+				return nil
+			})
+		},
+	}
+	cmd.Flags().StringVar(&code, "code", "", "why: "+strings.Join(handBackCodes, " | ")+" (required)")
+	cmd.Flags().StringVar(&text, "text", "", "optional account of the reason (up to 2,000 characters)")
 	return cmd
 }
 

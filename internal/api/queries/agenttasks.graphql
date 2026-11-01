@@ -55,6 +55,7 @@ fragment AgentTaskFields on AgentTask {
   tags
   source
   references { kind target label }
+  handBack { code text handedBackAt }
   startBy
   createdAt
   updatedAt
@@ -154,6 +155,16 @@ mutation AgentTaskFinish(
   $result: AgentTaskResultInput!
 ) {
   finishAgentTask(taskId: $taskId, result: $result) {
+    ...AgentTaskFields
+  }
+}
+
+# @genqlient(for: "AgentTaskHandBackInput.text", omitempty: true)
+mutation AgentTaskHandBack(
+  $taskRef: ID!
+  $reason: AgentTaskHandBackInput!
+) {
+  handBackAgentTask(taskRef: $taskRef, reason: $reason) {
     ...AgentTaskFields
   }
 }

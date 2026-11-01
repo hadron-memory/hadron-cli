@@ -181,7 +181,7 @@ func authoredWriteField(field string) bool {
 		// worktree's session rides the X-Hadron-Session header — the worker
 		// is the actor when one is bound, the person otherwise.
 		"createAgentTask", "assignAgentTask", "reassignAgentTask",
-		"startAgentTask", "recordAgentTaskProgress", "finishAgentTask",
+		"startAgentTask", "recordAgentTaskProgress", "finishAgentTask", "handBackAgentTask",
 		"cancelAgentTask", "parkAgentTask", "makeAgentTaskReady",
 		"setAgentTaskPriority", "addAgentTaskBlocker", "removeAgentTaskBlocker",
 		"acknowledgeAlarm",
