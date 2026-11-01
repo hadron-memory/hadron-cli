@@ -11691,6 +11691,34 @@ type AppRunResponse struct {
 // GetAppRun returns AppRunResponse.AppRun, and is useful for accessing the field via an interface.
 func (v *AppRunResponse) GetAppRun() *AppRunAppRun { return v.AppRun }
 
+// Orderable columns on the appRuns list (#833). Reuses the shared
+// SortDirection enum. Default createdAt desc — existing callers depend on
+// newest-first.
+//
+// startedAt / finishedAt are NULLABLE (a PENDING run has neither); nulls sort
+// LAST in both directions, so unstarted runs never crowd out the rows an
+// operator asked to see. Every sort carries an id tiebreak so offset paging is
+// deterministic.
+//
+// Duration (finishedAt - startedAt) is deliberately absent: it has no stored
+// column and Prisma cannot order by a computed expression, so it needs a
+// generated column of its own - tracked separately rather than half-shipped.
+type AppRunSortField string
+
+const (
+	AppRunSortFieldCreatedat  AppRunSortField = "createdAt"
+	AppRunSortFieldFinishedat AppRunSortField = "finishedAt"
+	AppRunSortFieldStartedat  AppRunSortField = "startedAt"
+	AppRunSortFieldStatus     AppRunSortField = "status"
+)
+
+var AllAppRunSortField = []AppRunSortField{
+	AppRunSortFieldCreatedat,
+	AppRunSortFieldFinishedat,
+	AppRunSortFieldStartedat,
+	AppRunSortFieldStatus,
+}
+
 type AppRunStatus string
 
 const (
@@ -22101,7 +22129,7 @@ type CreateAgentScheduleInput struct {
 	// Optional per-run token limit (#2479): positive, no greater than the platform default at save; narrowed again at launch. Null uses the default.
 	BudgetTokens *int `json:"budgetTokens,omitempty"`
 	// Recurring: 5-field cron expression, evaluated in timezone (default UTC). Provide exactly one of cron / runAt.
-	Cron    *string `json:"cron"`
+	Cron    *string `json:"cron,omitempty"`
 	Enabled *bool   `json:"enabled,omitempty"`
 	// Fully-qualified URN of the prompt node to run (D-2026-05-09-012/017).
 	EntryNodeUrn string `json:"entryNodeUrn"`
@@ -47725,6 +47753,17 @@ func (v *OrganizationsResponse) GetOrganizations() *OrganizationsOrganizationsOr
 	return v.Organizations
 }
 
+// PreviewAutomationResponse is returned by PreviewAutomation on success.
+type PreviewAutomationResponse struct {
+	// #1719: review exact automation graph bytes and digest. triggerRef is the trigger row ID; MANUAL uses the origin AppRun ID. Only its run-as user or the manager of an App-only trigger may preview.
+	PreviewAutomation json.RawMessage `json:"previewAutomation"`
+}
+
+// GetPreviewAutomation returns PreviewAutomationResponse.PreviewAutomation, and is useful for accessing the field via an interface.
+func (v *PreviewAutomationResponse) GetPreviewAutomation() json.RawMessage {
+	return v.PreviewAutomation
+}
+
 // PrincipalGrantFields includes the GraphQL fields of PrincipalGrant requested by the fragment PrincipalGrantFields.
 // The GraphQL type's documentation follows.
 //
@@ -48446,6 +48485,15 @@ func (v *PublicResourceRefFields) GetUrn() string { return v.Urn }
 
 // GetDescription returns PublicResourceRefFields.Description, and is useful for accessing the field via an interface.
 func (v *PublicResourceRefFields) GetDescription() *string { return v.Description }
+
+// ReAdoptAutomationResponse is returned by ReAdoptAutomation on success.
+type ReAdoptAutomationResponse struct {
+	// #1719: rebind a trigger to its reviewed graph. expectedHash must match previewAutomation; edits since preview refuse adoption.
+	ReAdoptAutomation bool `json:"reAdoptAutomation"`
+}
+
+// GetReAdoptAutomation returns ReAdoptAutomationResponse.ReAdoptAutomation, and is useful for accessing the field via an interface.
+func (v *ReAdoptAutomationResponse) GetReAdoptAutomation() bool { return v.ReAdoptAutomation }
 
 // RecordSessionOutcomeRecordSessionOutcomeSession includes the requested fields of the GraphQL type Session.
 // The GraphQL type's documentation follows.
@@ -78970,11 +79018,15 @@ func (v *__AppRunInput) GetRef() string { return v.Ref }
 
 // __AppRunsInput is used internally by genqlient
 type __AppRunsInput struct {
-	AppRef *string       `json:"appRef,omitempty"`
-	OrgRef *string       `json:"orgRef,omitempty"`
-	Status *AppRunStatus `json:"status,omitempty"`
-	Limit  *int          `json:"limit,omitempty"`
-	Offset *int          `json:"offset,omitempty"`
+	AppRef      *string                 `json:"appRef,omitempty"`
+	OrgRef      *string                 `json:"orgRef,omitempty"`
+	Status      *AppRunStatus           `json:"status,omitempty"`
+	Statuses    []AppRunStatus          `json:"statuses,omitempty"`
+	ParentRunId *string                 `json:"parentRunId,omitempty"`
+	SortBy      *AppRunSortField        `json:"sortBy,omitempty"`
+	SortDir     *gqltypes.SortDirection `json:"sortDir,omitempty"`
+	Limit       *int                    `json:"limit,omitempty"`
+	Offset      *int                    `json:"offset,omitempty"`
 }
 
 // GetAppRef returns __AppRunsInput.AppRef, and is useful for accessing the field via an interface.
@@ -78985,6 +79037,18 @@ func (v *__AppRunsInput) GetOrgRef() *string { return v.OrgRef }
 
 // GetStatus returns __AppRunsInput.Status, and is useful for accessing the field via an interface.
 func (v *__AppRunsInput) GetStatus() *AppRunStatus { return v.Status }
+
+// GetStatuses returns __AppRunsInput.Statuses, and is useful for accessing the field via an interface.
+func (v *__AppRunsInput) GetStatuses() []AppRunStatus { return v.Statuses }
+
+// GetParentRunId returns __AppRunsInput.ParentRunId, and is useful for accessing the field via an interface.
+func (v *__AppRunsInput) GetParentRunId() *string { return v.ParentRunId }
+
+// GetSortBy returns __AppRunsInput.SortBy, and is useful for accessing the field via an interface.
+func (v *__AppRunsInput) GetSortBy() *AppRunSortField { return v.SortBy }
+
+// GetSortDir returns __AppRunsInput.SortDir, and is useful for accessing the field via an interface.
+func (v *__AppRunsInput) GetSortDir() *gqltypes.SortDirection { return v.SortDir }
 
 // GetLimit returns __AppRunsInput.Limit, and is useful for accessing the field via an interface.
 func (v *__AppRunsInput) GetLimit() *int { return v.Limit }
@@ -79142,6 +79206,7 @@ func (v *__AutomationApprovalInput) GetTriggerRef() string { return v.TriggerRef
 type __AutomationApprovalsInput struct {
 	AppRef string  `json:"appRef"`
 	After  *string `json:"after,omitempty"`
+	Limit  *int    `json:"limit,omitempty"`
 }
 
 // GetAppRef returns __AutomationApprovalsInput.AppRef, and is useful for accessing the field via an interface.
@@ -79149,6 +79214,9 @@ func (v *__AutomationApprovalsInput) GetAppRef() string { return v.AppRef }
 
 // GetAfter returns __AutomationApprovalsInput.After, and is useful for accessing the field via an interface.
 func (v *__AutomationApprovalsInput) GetAfter() *string { return v.After }
+
+// GetLimit returns __AutomationApprovalsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AutomationApprovalsInput) GetLimit() *int { return v.Limit }
 
 // __BeginAssetUploadInput is used internally by genqlient
 type __BeginAssetUploadInput struct {
@@ -82672,6 +82740,18 @@ func (v *__OrganizationsInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __OrganizationsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__OrganizationsInput) GetOffset() *int { return v.Offset }
 
+// __PreviewAutomationInput is used internally by genqlient
+type __PreviewAutomationInput struct {
+	TriggerKind AutomationTriggerKind `json:"triggerKind"`
+	TriggerRef  string                `json:"triggerRef"`
+}
+
+// GetTriggerKind returns __PreviewAutomationInput.TriggerKind, and is useful for accessing the field via an interface.
+func (v *__PreviewAutomationInput) GetTriggerKind() AutomationTriggerKind { return v.TriggerKind }
+
+// GetTriggerRef returns __PreviewAutomationInput.TriggerRef, and is useful for accessing the field via an interface.
+func (v *__PreviewAutomationInput) GetTriggerRef() string { return v.TriggerRef }
+
 // __PrincipalGrantsInput is used internally by genqlient
 type __PrincipalGrantsInput struct {
 	OrgRef  *string `json:"orgRef,omitempty"`
@@ -82715,6 +82795,22 @@ type __PublicOrganizationInput struct {
 
 // GetRef returns __PublicOrganizationInput.Ref, and is useful for accessing the field via an interface.
 func (v *__PublicOrganizationInput) GetRef() string { return v.Ref }
+
+// __ReAdoptAutomationInput is used internally by genqlient
+type __ReAdoptAutomationInput struct {
+	TriggerKind  AutomationTriggerKind `json:"triggerKind"`
+	TriggerRef   string                `json:"triggerRef"`
+	ExpectedHash string                `json:"expectedHash"`
+}
+
+// GetTriggerKind returns __ReAdoptAutomationInput.TriggerKind, and is useful for accessing the field via an interface.
+func (v *__ReAdoptAutomationInput) GetTriggerKind() AutomationTriggerKind { return v.TriggerKind }
+
+// GetTriggerRef returns __ReAdoptAutomationInput.TriggerRef, and is useful for accessing the field via an interface.
+func (v *__ReAdoptAutomationInput) GetTriggerRef() string { return v.TriggerRef }
+
+// GetExpectedHash returns __ReAdoptAutomationInput.ExpectedHash, and is useful for accessing the field via an interface.
+func (v *__ReAdoptAutomationInput) GetExpectedHash() string { return v.ExpectedHash }
 
 // __RecordSessionOutcomeInput is used internally by genqlient
 type __RecordSessionOutcomeInput struct {
@@ -89504,8 +89600,8 @@ func AppRun(
 
 // The query executed by AppRuns.
 const AppRuns_Operation = `
-query AppRuns ($appRef: String, $orgRef: String, $status: AppRunStatus, $limit: Int, $offset: Int) {
-	appRuns(appRef: $appRef, orgRef: $orgRef, status: $status, limit: $limit, offset: $offset) {
+query AppRuns ($appRef: String, $orgRef: String, $status: AppRunStatus, $statuses: [AppRunStatus!], $parentRunId: ID, $sortBy: AppRunSortField, $sortDir: SortDirection, $limit: Int, $offset: Int) {
+	appRuns(appRef: $appRef, orgRef: $orgRef, status: $status, statuses: $statuses, parentRunId: $parentRunId, sortBy: $sortBy, sortDir: $sortDir, limit: $limit, offset: $offset) {
 		total
 		items {
 			... AppRunFields
@@ -89556,6 +89652,10 @@ func AppRuns(
 	appRef *string,
 	orgRef *string,
 	status *AppRunStatus,
+	statuses []AppRunStatus,
+	parentRunId *string,
+	sortBy *AppRunSortField,
+	sortDir *gqltypes.SortDirection,
 	limit *int,
 	offset *int,
 ) (data_ *AppRunsResponse, err_ error) {
@@ -89563,11 +89663,15 @@ func AppRuns(
 		OpName: "AppRuns",
 		Query:  AppRuns_Operation,
 		Variables: &__AppRunsInput{
-			AppRef: appRef,
-			OrgRef: orgRef,
-			Status: status,
-			Limit:  limit,
-			Offset: offset,
+			AppRef:      appRef,
+			OrgRef:      orgRef,
+			Status:      status,
+			Statuses:    statuses,
+			ParentRunId: parentRunId,
+			SortBy:      sortBy,
+			SortDir:     sortDir,
+			Limit:       limit,
+			Offset:      offset,
 		},
 	}
 
@@ -90273,8 +90377,8 @@ func AutomationApprovalDepth(
 
 // The query executed by AutomationApprovals.
 const AutomationApprovals_Operation = `
-query AutomationApprovals ($appRef: String!, $after: String) {
-	automationApprovals(appRef: $appRef, after: $after) {
+query AutomationApprovals ($appRef: String!, $after: String, $limit: Int) {
+	automationApprovals(appRef: $appRef, after: $after, limit: $limit) {
 		rows {
 			triggerKind
 			triggerRef
@@ -90299,6 +90403,7 @@ func AutomationApprovals(
 	client_ graphql.Client,
 	appRef string,
 	after *string,
+	limit *int,
 ) (data_ *AutomationApprovalsResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "AutomationApprovals",
@@ -90306,6 +90411,7 @@ func AutomationApprovals(
 		Variables: &__AutomationApprovalsInput{
 			AppRef: appRef,
 			After:  after,
+			Limit:  limit,
 		},
 	}
 
@@ -103332,6 +103438,41 @@ func Organizations(
 	return data_, err_
 }
 
+// The query executed by PreviewAutomation.
+const PreviewAutomation_Operation = `
+query PreviewAutomation ($triggerKind: AutomationTriggerKind!, $triggerRef: String!) {
+	previewAutomation(triggerKind: $triggerKind, triggerRef: $triggerRef)
+}
+`
+
+// Raw graph and server-computed digest (#1346); no local hashing.
+func PreviewAutomation(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	triggerKind AutomationTriggerKind,
+	triggerRef string,
+) (data_ *PreviewAutomationResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "PreviewAutomation",
+		Query:  PreviewAutomation_Operation,
+		Variables: &__PreviewAutomationInput{
+			TriggerKind: triggerKind,
+			TriggerRef:  triggerRef,
+		},
+	}
+
+	data_ = &PreviewAutomationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by PrincipalGrants.
 const PrincipalGrants_Operation = `
 query PrincipalGrants ($orgRef: String, $userRef: String, $limit: Int, $offset: Int) {
@@ -103502,6 +103643,42 @@ func PublicOrganization(
 	}
 
 	data_ = &PublicOrganizationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by ReAdoptAutomation.
+const ReAdoptAutomation_Operation = `
+mutation ReAdoptAutomation ($triggerKind: AutomationTriggerKind!, $triggerRef: String!, $expectedHash: String!) {
+	reAdoptAutomation(triggerKind: $triggerKind, triggerRef: $triggerRef, expectedHash: $expectedHash)
+}
+`
+
+func ReAdoptAutomation(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	triggerKind AutomationTriggerKind,
+	triggerRef string,
+	expectedHash string,
+) (data_ *ReAdoptAutomationResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ReAdoptAutomation",
+		Query:  ReAdoptAutomation_Operation,
+		Variables: &__ReAdoptAutomationInput{
+			TriggerKind:  triggerKind,
+			TriggerRef:   triggerRef,
+			ExpectedHash: expectedHash,
+		},
+	}
+
+	data_ = &ReAdoptAutomationResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

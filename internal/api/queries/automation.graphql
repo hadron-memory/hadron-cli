@@ -10,8 +10,10 @@ query AutomationApprovals(
   $appRef: String!
   # @genqlient(omitempty: true)
   $after: String
+  # @genqlient(omitempty: true)
+  $limit: Int
 ) {
-  automationApprovals(appRef: $appRef, after: $after) {
+  automationApprovals(appRef: $appRef, after: $after, limit: $limit) {
     rows {
       triggerKind
       triggerRef
@@ -73,4 +75,12 @@ mutation ApproveAutomation($triggerKind: AutomationTriggerKind!, $triggerRef: St
 # Takes NO hash: decline only removes authority.
 mutation DeclineAutomation($triggerKind: AutomationTriggerKind!, $triggerRef: String!) {
   declineAutomation(triggerKind: $triggerKind, triggerRef: $triggerRef)
+}
+
+# Raw graph and server-computed digest (#1346); no local hashing.
+query PreviewAutomation($triggerKind: AutomationTriggerKind!, $triggerRef: String!) {
+  previewAutomation(triggerKind: $triggerKind, triggerRef: $triggerRef)
+}
+mutation ReAdoptAutomation($triggerKind: AutomationTriggerKind!, $triggerRef: String!, $expectedHash: String!) {
+  reAdoptAutomation(triggerKind: $triggerKind, triggerRef: $triggerRef, expectedHash: $expectedHash)
 }
