@@ -7844,7 +7844,7 @@ type AgentTeamEventFields struct {
 	Id     string  `json:"id"`
 	AppId  string  `json:"appId"`
 	TaskId *string `json:"taskId"`
-	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled; the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02).
+	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled; the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, stall.finish-by (#2648), alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02).
 	Type string `json:"type"`
 	// ALARM for an alarm; null for an ordinary event.
 	Severity  *AgentTeamEventSeverity `json:"severity"`
@@ -22395,6 +22395,8 @@ type CreateAgentTaskInput struct {
 	// Defaults to false: the assignee's session ends only when whoever assigns the task asks (hrn:node:hadronmemory.com:specs:cor:agt:050:10).
 	CloseSessionWhenDone *bool   `json:"closeSessionWhenDone"`
 	Description          *string `json:"description"`
+	// #2648 (hrn:node:hadronmemory.com:specs:cor:agt:050:14): an optional finish-by deadline; refused BAD_USER_INPUT if in the past or earlier than startBy. While set, the task raises no stall-window alarm, only stall.finish-by once it passes unfinished.
+	FinishBy *string `json:"finishBy,omitempty"`
 	// Defaults to the creator. A root task's creator may name any other
 	// participating worker or person as owner (#1757, hrn:node:hadronmemory.com:specs:cor:agt:050:01);
 	// a ref outside the App's participants is TASK_OWNER_INVALID. Never for a
@@ -22434,6 +22436,9 @@ func (v *CreateAgentTaskInput) GetCloseSessionWhenDone() *bool { return v.CloseS
 
 // GetDescription returns CreateAgentTaskInput.Description, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetDescription() *string { return v.Description }
+
+// GetFinishBy returns CreateAgentTaskInput.FinishBy, and is useful for accessing the field via an interface.
+func (v *CreateAgentTaskInput) GetFinishBy() *string { return v.FinishBy }
 
 // GetOwner returns CreateAgentTaskInput.Owner, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetOwner() *AgentTaskPartyInput { return v.Owner }
@@ -32849,6 +32854,22 @@ func (v *GetEdgeEdge) GetIsRunnable() *bool { return v.UniformEdge.IsRunnable }
 // GetPriority returns GetEdgeEdge.Priority, and is useful for accessing the field via an interface.
 func (v *GetEdgeEdge) GetPriority() int { return v.UniformEdge.Priority }
 
+// GetCreatedAt returns GetEdgeEdge.CreatedAt, and is useful for accessing the field via an interface.
+func (v *GetEdgeEdge) GetCreatedAt() string { return v.UniformEdge.CreatedAt }
+
+// GetUpdatedAt returns GetEdgeEdge.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *GetEdgeEdge) GetUpdatedAt() *string { return v.UniformEdge.UpdatedAt }
+
+// GetCreatedByUser returns GetEdgeEdge.CreatedByUser, and is useful for accessing the field via an interface.
+func (v *GetEdgeEdge) GetCreatedByUser() *UniformEdgeCreatedByUserNodeRevisionEditor {
+	return v.UniformEdge.CreatedByUser
+}
+
+// GetUpdatedByUser returns GetEdgeEdge.UpdatedByUser, and is useful for accessing the field via an interface.
+func (v *GetEdgeEdge) GetUpdatedByUser() *UniformEdgeUpdatedByUserNodeRevisionEditor {
+	return v.UniformEdge.UpdatedByUser
+}
+
 // GetSource returns GetEdgeEdge.Source, and is useful for accessing the field via an interface.
 func (v *GetEdgeEdge) GetSource() *UniformEdgeSourceNode { return v.UniformEdge.Source }
 
@@ -32895,6 +32916,14 @@ type __premarshalGetEdgeEdge struct {
 
 	Priority int `json:"priority"`
 
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	CreatedByUser *UniformEdgeCreatedByUserNodeRevisionEditor `json:"createdByUser"`
+
+	UpdatedByUser *UniformEdgeUpdatedByUserNodeRevisionEditor `json:"updatedByUser"`
+
 	Source *UniformEdgeSourceNode `json:"source"`
 
 	Target *UniformEdgeTargetNode `json:"target"`
@@ -32918,6 +32947,10 @@ func (v *GetEdgeEdge) __premarshalJSON() (*__premarshalGetEdgeEdge, error) {
 	retval.Description = v.UniformEdge.Description
 	retval.IsRunnable = v.UniformEdge.IsRunnable
 	retval.Priority = v.UniformEdge.Priority
+	retval.CreatedAt = v.UniformEdge.CreatedAt
+	retval.UpdatedAt = v.UniformEdge.UpdatedAt
+	retval.CreatedByUser = v.UniformEdge.CreatedByUser
+	retval.UpdatedByUser = v.UniformEdge.UpdatedByUser
 	retval.Source = v.UniformEdge.Source
 	retval.Target = v.UniformEdge.Target
 	return &retval, nil
@@ -33471,11 +33504,13 @@ type GetNodeNode struct {
 	// task kind: a write that would PRODUCE a runnable node must come through
 	// createTaskNode / updateTaskNode. Gated here rather than on a label because
 	// omitting a label is free, while omitting this means the node does not run.
-	IsRunnable    *bool                           `json:"isRunnable"`
-	CreatedAt     string                          `json:"createdAt"`
-	UpdatedAt     string                          `json:"updatedAt"`
-	OutgoingEdges []*GetNodeNodeOutgoingEdgesEdge `json:"outgoingEdges"`
-	IncomingEdges []*GetNodeNodeIncomingEdgesEdge `json:"incomingEdges"`
+	IsRunnable *bool  `json:"isRunnable"`
+	CreatedAt  string `json:"createdAt"`
+	// #1151 - the User behind this node's creation, as handle and URN only (the same projection as updatedByUser). Null when the stored creator resolves to no live user (a system job, an app key, a deleted user; the stored value is never echoed), and for nodes written before the column was stamped, which are not backfilled.
+	CreatedByUser *GetNodeNodeCreatedByUserNodeRevisionEditor `json:"createdByUser"`
+	UpdatedAt     string                                      `json:"updatedAt"`
+	OutgoingEdges []*GetNodeNodeOutgoingEdgesEdge             `json:"outgoingEdges"`
+	IncomingEdges []*GetNodeNodeIncomingEdgesEdge             `json:"incomingEdges"`
 }
 
 // GetId returns GetNodeNode.Id, and is useful for accessing the field via an interface.
@@ -33541,6 +33576,11 @@ func (v *GetNodeNode) GetIsRunnable() *bool { return v.IsRunnable }
 // GetCreatedAt returns GetNodeNode.CreatedAt, and is useful for accessing the field via an interface.
 func (v *GetNodeNode) GetCreatedAt() string { return v.CreatedAt }
 
+// GetCreatedByUser returns GetNodeNode.CreatedByUser, and is useful for accessing the field via an interface.
+func (v *GetNodeNode) GetCreatedByUser() *GetNodeNodeCreatedByUserNodeRevisionEditor {
+	return v.CreatedByUser
+}
+
 // GetUpdatedAt returns GetNodeNode.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *GetNodeNode) GetUpdatedAt() string { return v.UpdatedAt }
 
@@ -33549,6 +33589,24 @@ func (v *GetNodeNode) GetOutgoingEdges() []*GetNodeNodeOutgoingEdgesEdge { retur
 
 // GetIncomingEdges returns GetNodeNode.IncomingEdges, and is useful for accessing the field via an interface.
 func (v *GetNodeNode) GetIncomingEdges() []*GetNodeNodeIncomingEdgesEdge { return v.IncomingEdges }
+
+// GetNodeNodeCreatedByUserNodeRevisionEditor includes the requested fields of the GraphQL type NodeRevisionEditor.
+// The GraphQL type's documentation follows.
+//
+// A revision's editor resolved to PUBLIC IDENTIFIERS ONLY (#617). Deliberately
+// excludes name / email / any PII — resolving editedBy must never widen the
+// disclosure surface. handle + urn are the same public identifiers the users
+// search already exposes, so no per-caller visibility gate applies.
+type GetNodeNodeCreatedByUserNodeRevisionEditor struct {
+	Handle *string `json:"handle"`
+	Urn    *string `json:"urn"`
+}
+
+// GetHandle returns GetNodeNodeCreatedByUserNodeRevisionEditor.Handle, and is useful for accessing the field via an interface.
+func (v *GetNodeNodeCreatedByUserNodeRevisionEditor) GetHandle() *string { return v.Handle }
+
+// GetUrn returns GetNodeNodeCreatedByUserNodeRevisionEditor.Urn, and is useful for accessing the field via an interface.
+func (v *GetNodeNodeCreatedByUserNodeRevisionEditor) GetUrn() *string { return v.Urn }
 
 // GetNodeNodeIncomingEdgesEdge includes the requested fields of the GraphQL type Edge.
 type GetNodeNodeIncomingEdgesEdge struct {
@@ -39410,6 +39468,22 @@ func (v *ListEdgesEdgesEdgesPageItemsEdge) GetIsRunnable() *bool { return v.Unif
 // GetPriority returns ListEdgesEdgesEdgesPageItemsEdge.Priority, and is useful for accessing the field via an interface.
 func (v *ListEdgesEdgesEdgesPageItemsEdge) GetPriority() int { return v.UniformEdge.Priority }
 
+// GetCreatedAt returns ListEdgesEdgesEdgesPageItemsEdge.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ListEdgesEdgesEdgesPageItemsEdge) GetCreatedAt() string { return v.UniformEdge.CreatedAt }
+
+// GetUpdatedAt returns ListEdgesEdgesEdgesPageItemsEdge.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *ListEdgesEdgesEdgesPageItemsEdge) GetUpdatedAt() *string { return v.UniformEdge.UpdatedAt }
+
+// GetCreatedByUser returns ListEdgesEdgesEdgesPageItemsEdge.CreatedByUser, and is useful for accessing the field via an interface.
+func (v *ListEdgesEdgesEdgesPageItemsEdge) GetCreatedByUser() *UniformEdgeCreatedByUserNodeRevisionEditor {
+	return v.UniformEdge.CreatedByUser
+}
+
+// GetUpdatedByUser returns ListEdgesEdgesEdgesPageItemsEdge.UpdatedByUser, and is useful for accessing the field via an interface.
+func (v *ListEdgesEdgesEdgesPageItemsEdge) GetUpdatedByUser() *UniformEdgeUpdatedByUserNodeRevisionEditor {
+	return v.UniformEdge.UpdatedByUser
+}
+
 // GetSource returns ListEdgesEdgesEdgesPageItemsEdge.Source, and is useful for accessing the field via an interface.
 func (v *ListEdgesEdgesEdgesPageItemsEdge) GetSource() *UniformEdgeSourceNode {
 	return v.UniformEdge.Source
@@ -39460,6 +39534,14 @@ type __premarshalListEdgesEdgesEdgesPageItemsEdge struct {
 
 	Priority int `json:"priority"`
 
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	CreatedByUser *UniformEdgeCreatedByUserNodeRevisionEditor `json:"createdByUser"`
+
+	UpdatedByUser *UniformEdgeUpdatedByUserNodeRevisionEditor `json:"updatedByUser"`
+
 	Source *UniformEdgeSourceNode `json:"source"`
 
 	Target *UniformEdgeTargetNode `json:"target"`
@@ -39483,6 +39565,10 @@ func (v *ListEdgesEdgesEdgesPageItemsEdge) __premarshalJSON() (*__premarshalList
 	retval.Description = v.UniformEdge.Description
 	retval.IsRunnable = v.UniformEdge.IsRunnable
 	retval.Priority = v.UniformEdge.Priority
+	retval.CreatedAt = v.UniformEdge.CreatedAt
+	retval.UpdatedAt = v.UniformEdge.UpdatedAt
+	retval.CreatedByUser = v.UniformEdge.CreatedByUser
+	retval.UpdatedByUser = v.UniformEdge.UpdatedByUser
 	retval.Source = v.UniformEdge.Source
 	retval.Target = v.UniformEdge.Target
 	return &retval, nil
@@ -44701,11 +44787,13 @@ type NodeBatchNodeBatchNodeBatchResultNodesNode struct {
 	// (hrn:node:hadronmemory.com:specs:cor:dmo:150:03); pass raw: true for the stored text with its tags as
 	// written. Through nodeBatch, an omitted raw returns the stored text
 	// permanently (R21 A) and raw: false resolves.
-	Content       *string                                                        `json:"content"`
-	CreatedAt     string                                                         `json:"createdAt"`
-	UpdatedAt     string                                                         `json:"updatedAt"`
-	OutgoingEdges []*NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge `json:"outgoingEdges"`
-	IncomingEdges []*NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge `json:"incomingEdges"`
+	Content   *string `json:"content"`
+	CreatedAt string  `json:"createdAt"`
+	// #1151 - the User behind this node's creation, as handle and URN only (the same projection as updatedByUser). Null when the stored creator resolves to no live user (a system job, an app key, a deleted user; the stored value is never echoed), and for nodes written before the column was stamped, which are not backfilled.
+	CreatedByUser *NodeBatchNodeBatchNodeBatchResultNodesNodeCreatedByUserNodeRevisionEditor `json:"createdByUser"`
+	UpdatedAt     string                                                                     `json:"updatedAt"`
+	OutgoingEdges []*NodeBatchNodeBatchNodeBatchResultNodesNodeOutgoingEdgesEdge             `json:"outgoingEdges"`
+	IncomingEdges []*NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge             `json:"incomingEdges"`
 }
 
 // GetId returns NodeBatchNodeBatchNodeBatchResultNodesNode.Id, and is useful for accessing the field via an interface.
@@ -44775,6 +44863,11 @@ func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetContent() *string { retu
 // GetCreatedAt returns NodeBatchNodeBatchNodeBatchResultNodesNode.CreatedAt, and is useful for accessing the field via an interface.
 func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetCreatedAt() string { return v.CreatedAt }
 
+// GetCreatedByUser returns NodeBatchNodeBatchNodeBatchResultNodesNode.CreatedByUser, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetCreatedByUser() *NodeBatchNodeBatchNodeBatchResultNodesNodeCreatedByUserNodeRevisionEditor {
+	return v.CreatedByUser
+}
+
 // GetUpdatedAt returns NodeBatchNodeBatchNodeBatchResultNodesNode.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetUpdatedAt() string { return v.UpdatedAt }
 
@@ -44786,6 +44879,28 @@ func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetOutgoingEdges() []*NodeB
 // GetIncomingEdges returns NodeBatchNodeBatchNodeBatchResultNodesNode.IncomingEdges, and is useful for accessing the field via an interface.
 func (v *NodeBatchNodeBatchNodeBatchResultNodesNode) GetIncomingEdges() []*NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge {
 	return v.IncomingEdges
+}
+
+// NodeBatchNodeBatchNodeBatchResultNodesNodeCreatedByUserNodeRevisionEditor includes the requested fields of the GraphQL type NodeRevisionEditor.
+// The GraphQL type's documentation follows.
+//
+// A revision's editor resolved to PUBLIC IDENTIFIERS ONLY (#617). Deliberately
+// excludes name / email / any PII — resolving editedBy must never widen the
+// disclosure surface. handle + urn are the same public identifiers the users
+// search already exposes, so no per-caller visibility gate applies.
+type NodeBatchNodeBatchNodeBatchResultNodesNodeCreatedByUserNodeRevisionEditor struct {
+	Handle *string `json:"handle"`
+	Urn    *string `json:"urn"`
+}
+
+// GetHandle returns NodeBatchNodeBatchNodeBatchResultNodesNodeCreatedByUserNodeRevisionEditor.Handle, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeCreatedByUserNodeRevisionEditor) GetHandle() *string {
+	return v.Handle
+}
+
+// GetUrn returns NodeBatchNodeBatchNodeBatchResultNodesNodeCreatedByUserNodeRevisionEditor.Urn, and is useful for accessing the field via an interface.
+func (v *NodeBatchNodeBatchNodeBatchResultNodesNodeCreatedByUserNodeRevisionEditor) GetUrn() *string {
+	return v.Urn
 }
 
 // NodeBatchNodeBatchNodeBatchResultNodesNodeIncomingEdgesEdge includes the requested fields of the GraphQL type Edge.
@@ -45274,6 +45389,301 @@ type NodeEdgeRemovalsResponse struct {
 func (v *NodeEdgeRemovalsResponse) GetNodeEdgeRemovals() []*NodeEdgeRemovalsNodeEdgeRemovalsNodeEdgeRemoval {
 	return v.NodeEdgeRemovals
 }
+
+// NodeEdgesAttributedNode includes the requested fields of the GraphQL type Node.
+type NodeEdgesAttributedNode struct {
+	Id            string                                      `json:"id"`
+	OutgoingEdges []*NodeEdgesAttributedNodeOutgoingEdgesEdge `json:"outgoingEdges"`
+	IncomingEdges []*NodeEdgesAttributedNodeIncomingEdgesEdge `json:"incomingEdges"`
+}
+
+// GetId returns NodeEdgesAttributedNode.Id, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNode) GetId() string { return v.Id }
+
+// GetOutgoingEdges returns NodeEdgesAttributedNode.OutgoingEdges, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNode) GetOutgoingEdges() []*NodeEdgesAttributedNodeOutgoingEdgesEdge {
+	return v.OutgoingEdges
+}
+
+// GetIncomingEdges returns NodeEdgesAttributedNode.IncomingEdges, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNode) GetIncomingEdges() []*NodeEdgesAttributedNodeIncomingEdgesEdge {
+	return v.IncomingEdges
+}
+
+// NodeEdgesAttributedNodeIncomingEdgesEdge includes the requested fields of the GraphQL type Edge.
+type NodeEdgesAttributedNodeIncomingEdgesEdge struct {
+	Id string `json:"id"`
+	// Free-form relationship name (e.g. imports, depends_on). Optional since
+	// spec 037 — loc is the identity. (Was the required 'label'.)
+	Name *string `json:"name"`
+	// Colon-delimited path within the (source node's) memory — the edge's
+	// identity and the suffix of its URN hrn:edge:<root>:<memory>:<loc>.
+	Loc string `json:"loc"`
+	// If true, this edge can be executed/run (task automation, conversation
+	// transitions). Mirrors Node.isRunnable.
+	IsRunnable *bool `json:"isRunnable"`
+	// Resolution-order hook (lower = earlier; default 0). When two edges
+	// share a priority, fall back to insertion order.
+	Priority int `json:"priority"`
+	// #1151 - when the edge was created.
+	CreatedAt string `json:"createdAt"`
+	// #1151 - when the edge row last changed (stamped on create too; null only for a row inserted outside the API).
+	UpdatedAt *string `json:"updatedAt"`
+	// #1151 - the User behind this edge's creation, as handle and URN only (the revision-editor projection; never a raw id). Null when the stored creator resolves to no live user (a system job, an app key, a deleted user; the stored value is never echoed), for edges written before attribution was stamped (not backfilled), and for a caller who cannot read the memory the edge lives in (an edge's memory is its source side), so a cross-memory edge never names another tenant's user.
+	CreatedByUser *NodeEdgesAttributedNodeIncomingEdgesEdgeCreatedByUserNodeRevisionEditor `json:"createdByUser"`
+	// #1151 - the User behind the last update of this edge; null under the same conditions as createdByUser.
+	UpdatedByUser *NodeEdgesAttributedNodeIncomingEdgesEdgeUpdatedByUserNodeRevisionEditor `json:"updatedByUser"`
+	// The live source node, or null when deleted or when its memory is unreadable. Cross-memory edges never grant access to an otherwise unreadable endpoint. Deleted-node inspection uses the explicit recovery graph.
+	Source *NodeEdgesAttributedNodeIncomingEdgesEdgeSourceNode `json:"source"`
+}
+
+// GetId returns NodeEdgesAttributedNodeIncomingEdgesEdge.Id, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeIncomingEdgesEdge) GetId() string { return v.Id }
+
+// GetName returns NodeEdgesAttributedNodeIncomingEdgesEdge.Name, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeIncomingEdgesEdge) GetName() *string { return v.Name }
+
+// GetLoc returns NodeEdgesAttributedNodeIncomingEdgesEdge.Loc, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeIncomingEdgesEdge) GetLoc() string { return v.Loc }
+
+// GetIsRunnable returns NodeEdgesAttributedNodeIncomingEdgesEdge.IsRunnable, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeIncomingEdgesEdge) GetIsRunnable() *bool { return v.IsRunnable }
+
+// GetPriority returns NodeEdgesAttributedNodeIncomingEdgesEdge.Priority, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeIncomingEdgesEdge) GetPriority() int { return v.Priority }
+
+// GetCreatedAt returns NodeEdgesAttributedNodeIncomingEdgesEdge.CreatedAt, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeIncomingEdgesEdge) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUpdatedAt returns NodeEdgesAttributedNodeIncomingEdgesEdge.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeIncomingEdgesEdge) GetUpdatedAt() *string { return v.UpdatedAt }
+
+// GetCreatedByUser returns NodeEdgesAttributedNodeIncomingEdgesEdge.CreatedByUser, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeIncomingEdgesEdge) GetCreatedByUser() *NodeEdgesAttributedNodeIncomingEdgesEdgeCreatedByUserNodeRevisionEditor {
+	return v.CreatedByUser
+}
+
+// GetUpdatedByUser returns NodeEdgesAttributedNodeIncomingEdgesEdge.UpdatedByUser, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeIncomingEdgesEdge) GetUpdatedByUser() *NodeEdgesAttributedNodeIncomingEdgesEdgeUpdatedByUserNodeRevisionEditor {
+	return v.UpdatedByUser
+}
+
+// GetSource returns NodeEdgesAttributedNodeIncomingEdgesEdge.Source, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeIncomingEdgesEdge) GetSource() *NodeEdgesAttributedNodeIncomingEdgesEdgeSourceNode {
+	return v.Source
+}
+
+// NodeEdgesAttributedNodeIncomingEdgesEdgeCreatedByUserNodeRevisionEditor includes the requested fields of the GraphQL type NodeRevisionEditor.
+// The GraphQL type's documentation follows.
+//
+// A revision's editor resolved to PUBLIC IDENTIFIERS ONLY (#617). Deliberately
+// excludes name / email / any PII — resolving editedBy must never widen the
+// disclosure surface. handle + urn are the same public identifiers the users
+// search already exposes, so no per-caller visibility gate applies.
+type NodeEdgesAttributedNodeIncomingEdgesEdgeCreatedByUserNodeRevisionEditor struct {
+	Handle *string `json:"handle"`
+	Urn    *string `json:"urn"`
+}
+
+// GetHandle returns NodeEdgesAttributedNodeIncomingEdgesEdgeCreatedByUserNodeRevisionEditor.Handle, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeIncomingEdgesEdgeCreatedByUserNodeRevisionEditor) GetHandle() *string {
+	return v.Handle
+}
+
+// GetUrn returns NodeEdgesAttributedNodeIncomingEdgesEdgeCreatedByUserNodeRevisionEditor.Urn, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeIncomingEdgesEdgeCreatedByUserNodeRevisionEditor) GetUrn() *string {
+	return v.Urn
+}
+
+// NodeEdgesAttributedNodeIncomingEdgesEdgeSourceNode includes the requested fields of the GraphQL type Node.
+type NodeEdgesAttributedNodeIncomingEdgesEdgeSourceNode struct {
+	Id       string `json:"id"`
+	Loc      string `json:"loc"`
+	MemoryId string `json:"memoryId"`
+}
+
+// GetId returns NodeEdgesAttributedNodeIncomingEdgesEdgeSourceNode.Id, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeIncomingEdgesEdgeSourceNode) GetId() string { return v.Id }
+
+// GetLoc returns NodeEdgesAttributedNodeIncomingEdgesEdgeSourceNode.Loc, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeIncomingEdgesEdgeSourceNode) GetLoc() string { return v.Loc }
+
+// GetMemoryId returns NodeEdgesAttributedNodeIncomingEdgesEdgeSourceNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeIncomingEdgesEdgeSourceNode) GetMemoryId() string { return v.MemoryId }
+
+// NodeEdgesAttributedNodeIncomingEdgesEdgeUpdatedByUserNodeRevisionEditor includes the requested fields of the GraphQL type NodeRevisionEditor.
+// The GraphQL type's documentation follows.
+//
+// A revision's editor resolved to PUBLIC IDENTIFIERS ONLY (#617). Deliberately
+// excludes name / email / any PII — resolving editedBy must never widen the
+// disclosure surface. handle + urn are the same public identifiers the users
+// search already exposes, so no per-caller visibility gate applies.
+type NodeEdgesAttributedNodeIncomingEdgesEdgeUpdatedByUserNodeRevisionEditor struct {
+	Handle *string `json:"handle"`
+	Urn    *string `json:"urn"`
+}
+
+// GetHandle returns NodeEdgesAttributedNodeIncomingEdgesEdgeUpdatedByUserNodeRevisionEditor.Handle, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeIncomingEdgesEdgeUpdatedByUserNodeRevisionEditor) GetHandle() *string {
+	return v.Handle
+}
+
+// GetUrn returns NodeEdgesAttributedNodeIncomingEdgesEdgeUpdatedByUserNodeRevisionEditor.Urn, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeIncomingEdgesEdgeUpdatedByUserNodeRevisionEditor) GetUrn() *string {
+	return v.Urn
+}
+
+// NodeEdgesAttributedNodeOutgoingEdgesEdge includes the requested fields of the GraphQL type Edge.
+type NodeEdgesAttributedNodeOutgoingEdgesEdge struct {
+	Id string `json:"id"`
+	// Free-form relationship name (e.g. imports, depends_on). Optional since
+	// spec 037 — loc is the identity. (Was the required 'label'.)
+	Name *string `json:"name"`
+	// Colon-delimited path within the (source node's) memory — the edge's
+	// identity and the suffix of its URN hrn:edge:<root>:<memory>:<loc>.
+	Loc string `json:"loc"`
+	// If true, this edge can be executed/run (task automation, conversation
+	// transitions). Mirrors Node.isRunnable.
+	IsRunnable *bool `json:"isRunnable"`
+	// Resolution-order hook (lower = earlier; default 0). When two edges
+	// share a priority, fall back to insertion order.
+	Priority int `json:"priority"`
+	// #1151 - when the edge was created.
+	CreatedAt string `json:"createdAt"`
+	// #1151 - when the edge row last changed (stamped on create too; null only for a row inserted outside the API).
+	UpdatedAt *string `json:"updatedAt"`
+	// #1151 - the User behind this edge's creation, as handle and URN only (the revision-editor projection; never a raw id). Null when the stored creator resolves to no live user (a system job, an app key, a deleted user; the stored value is never echoed), for edges written before attribution was stamped (not backfilled), and for a caller who cannot read the memory the edge lives in (an edge's memory is its source side), so a cross-memory edge never names another tenant's user.
+	CreatedByUser *NodeEdgesAttributedNodeOutgoingEdgesEdgeCreatedByUserNodeRevisionEditor `json:"createdByUser"`
+	// #1151 - the User behind the last update of this edge; null under the same conditions as createdByUser.
+	UpdatedByUser *NodeEdgesAttributedNodeOutgoingEdgesEdgeUpdatedByUserNodeRevisionEditor `json:"updatedByUser"`
+	// The live target node, or null when deleted or when its memory is unreadable. Deleted-node inspection uses the explicit recovery graph.
+	Target *NodeEdgesAttributedNodeOutgoingEdgesEdgeTargetNode `json:"target"`
+}
+
+// GetId returns NodeEdgesAttributedNodeOutgoingEdgesEdge.Id, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeOutgoingEdgesEdge) GetId() string { return v.Id }
+
+// GetName returns NodeEdgesAttributedNodeOutgoingEdgesEdge.Name, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeOutgoingEdgesEdge) GetName() *string { return v.Name }
+
+// GetLoc returns NodeEdgesAttributedNodeOutgoingEdgesEdge.Loc, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeOutgoingEdgesEdge) GetLoc() string { return v.Loc }
+
+// GetIsRunnable returns NodeEdgesAttributedNodeOutgoingEdgesEdge.IsRunnable, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeOutgoingEdgesEdge) GetIsRunnable() *bool { return v.IsRunnable }
+
+// GetPriority returns NodeEdgesAttributedNodeOutgoingEdgesEdge.Priority, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeOutgoingEdgesEdge) GetPriority() int { return v.Priority }
+
+// GetCreatedAt returns NodeEdgesAttributedNodeOutgoingEdgesEdge.CreatedAt, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeOutgoingEdgesEdge) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUpdatedAt returns NodeEdgesAttributedNodeOutgoingEdgesEdge.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeOutgoingEdgesEdge) GetUpdatedAt() *string { return v.UpdatedAt }
+
+// GetCreatedByUser returns NodeEdgesAttributedNodeOutgoingEdgesEdge.CreatedByUser, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeOutgoingEdgesEdge) GetCreatedByUser() *NodeEdgesAttributedNodeOutgoingEdgesEdgeCreatedByUserNodeRevisionEditor {
+	return v.CreatedByUser
+}
+
+// GetUpdatedByUser returns NodeEdgesAttributedNodeOutgoingEdgesEdge.UpdatedByUser, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeOutgoingEdgesEdge) GetUpdatedByUser() *NodeEdgesAttributedNodeOutgoingEdgesEdgeUpdatedByUserNodeRevisionEditor {
+	return v.UpdatedByUser
+}
+
+// GetTarget returns NodeEdgesAttributedNodeOutgoingEdgesEdge.Target, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeOutgoingEdgesEdge) GetTarget() *NodeEdgesAttributedNodeOutgoingEdgesEdgeTargetNode {
+	return v.Target
+}
+
+// NodeEdgesAttributedNodeOutgoingEdgesEdgeCreatedByUserNodeRevisionEditor includes the requested fields of the GraphQL type NodeRevisionEditor.
+// The GraphQL type's documentation follows.
+//
+// A revision's editor resolved to PUBLIC IDENTIFIERS ONLY (#617). Deliberately
+// excludes name / email / any PII — resolving editedBy must never widen the
+// disclosure surface. handle + urn are the same public identifiers the users
+// search already exposes, so no per-caller visibility gate applies.
+type NodeEdgesAttributedNodeOutgoingEdgesEdgeCreatedByUserNodeRevisionEditor struct {
+	Handle *string `json:"handle"`
+	Urn    *string `json:"urn"`
+}
+
+// GetHandle returns NodeEdgesAttributedNodeOutgoingEdgesEdgeCreatedByUserNodeRevisionEditor.Handle, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeOutgoingEdgesEdgeCreatedByUserNodeRevisionEditor) GetHandle() *string {
+	return v.Handle
+}
+
+// GetUrn returns NodeEdgesAttributedNodeOutgoingEdgesEdgeCreatedByUserNodeRevisionEditor.Urn, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeOutgoingEdgesEdgeCreatedByUserNodeRevisionEditor) GetUrn() *string {
+	return v.Urn
+}
+
+// NodeEdgesAttributedNodeOutgoingEdgesEdgeTargetNode includes the requested fields of the GraphQL type Node.
+type NodeEdgesAttributedNodeOutgoingEdgesEdgeTargetNode struct {
+	Id       string `json:"id"`
+	Loc      string `json:"loc"`
+	MemoryId string `json:"memoryId"`
+}
+
+// GetId returns NodeEdgesAttributedNodeOutgoingEdgesEdgeTargetNode.Id, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeOutgoingEdgesEdgeTargetNode) GetId() string { return v.Id }
+
+// GetLoc returns NodeEdgesAttributedNodeOutgoingEdgesEdgeTargetNode.Loc, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeOutgoingEdgesEdgeTargetNode) GetLoc() string { return v.Loc }
+
+// GetMemoryId returns NodeEdgesAttributedNodeOutgoingEdgesEdgeTargetNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeOutgoingEdgesEdgeTargetNode) GetMemoryId() string { return v.MemoryId }
+
+// NodeEdgesAttributedNodeOutgoingEdgesEdgeUpdatedByUserNodeRevisionEditor includes the requested fields of the GraphQL type NodeRevisionEditor.
+// The GraphQL type's documentation follows.
+//
+// A revision's editor resolved to PUBLIC IDENTIFIERS ONLY (#617). Deliberately
+// excludes name / email / any PII — resolving editedBy must never widen the
+// disclosure surface. handle + urn are the same public identifiers the users
+// search already exposes, so no per-caller visibility gate applies.
+type NodeEdgesAttributedNodeOutgoingEdgesEdgeUpdatedByUserNodeRevisionEditor struct {
+	Handle *string `json:"handle"`
+	Urn    *string `json:"urn"`
+}
+
+// GetHandle returns NodeEdgesAttributedNodeOutgoingEdgesEdgeUpdatedByUserNodeRevisionEditor.Handle, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeOutgoingEdgesEdgeUpdatedByUserNodeRevisionEditor) GetHandle() *string {
+	return v.Handle
+}
+
+// GetUrn returns NodeEdgesAttributedNodeOutgoingEdgesEdgeUpdatedByUserNodeRevisionEditor.Urn, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedNodeOutgoingEdgesEdgeUpdatedByUserNodeRevisionEditor) GetUrn() *string {
+	return v.Urn
+}
+
+// NodeEdgesAttributedResponse is returned by NodeEdgesAttributed on success.
+type NodeEdgesAttributedResponse struct {
+	// The uniform single-node read (#473) — subsumes the former nodeById(id:)
+	// and node(loc:, memory:) split. 'ref' accepts, in dispatch order:
+	//
+	// 1. a primary key (the unambiguous read — the old nodeById),
+	// 2. a fully-qualified node URN (`hrn:node:<root>:<memory>:<loc>`,
+	// legacy `urn:` scheme accepted),
+	// 3. a bare loc — scoped by 'memoryRef' (an ID or URN) when given; unscoped,
+	// it resolves across every readable memory and a cross-memory loc
+	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
+	// (listing the candidate memoryIds) rather than silently returning
+	// one (#335). An unprefixed 3+-segment ref whose first two segments
+	// name a live memory is treated as form 2 (a full URN); pass
+	// 'memoryRef' to force loc interpretation.
+	//
+	// raw: true selects stored content without include or variable resolution.
+	// Soft-deleted nodes do not resolve. Access uses the caller's readable-memory
+	// set. A denied or missing node returns null; an explicit memoryRef that is
+	// missing or unreadable raises MEMORY_NOT_FOUND. When addressed in a system
+	// memory by memoryRef or a full node URN, a loc with no local node may read
+	// through to an eligible inherited node under its own address; overrides and
+	// boot prompts are excluded. An unscoped bare loc does not search inheritance.
+	Node *NodeEdgesAttributedNode `json:"node"`
+}
+
+// GetNode returns NodeEdgesAttributedResponse.Node, and is useful for accessing the field via an interface.
+func (v *NodeEdgesAttributedResponse) GetNode() *NodeEdgesAttributedNode { return v.Node }
 
 // Single-node export (#386). MD/JSON are the canonical, round-trippable files;
 // PDF is a presentation render (content only) produced by the internal
@@ -70502,6 +70912,14 @@ type UniformEdge struct {
 	// Resolution-order hook (lower = earlier; default 0). When two edges
 	// share a priority, fall back to insertion order.
 	Priority int `json:"priority"`
+	// #1151 - when the edge was created.
+	CreatedAt string `json:"createdAt"`
+	// #1151 - when the edge row last changed (stamped on create too; null only for a row inserted outside the API).
+	UpdatedAt *string `json:"updatedAt"`
+	// #1151 - the User behind this edge's creation, as handle and URN only (the revision-editor projection; never a raw id). Null when the stored creator resolves to no live user (a system job, an app key, a deleted user; the stored value is never echoed), for edges written before attribution was stamped (not backfilled), and for a caller who cannot read the memory the edge lives in (an edge's memory is its source side), so a cross-memory edge never names another tenant's user.
+	CreatedByUser *UniformEdgeCreatedByUserNodeRevisionEditor `json:"createdByUser"`
+	// #1151 - the User behind the last update of this edge; null under the same conditions as createdByUser.
+	UpdatedByUser *UniformEdgeUpdatedByUserNodeRevisionEditor `json:"updatedByUser"`
 	// The live source node, or null when deleted or when its memory is unreadable. Cross-memory edges never grant access to an otherwise unreadable endpoint. Deleted-node inspection uses the explicit recovery graph.
 	Source *UniformEdgeSourceNode `json:"source"`
 	// The live target node, or null when deleted or when its memory is unreadable. Deleted-node inspection uses the explicit recovery graph.
@@ -70529,11 +70947,45 @@ func (v *UniformEdge) GetIsRunnable() *bool { return v.IsRunnable }
 // GetPriority returns UniformEdge.Priority, and is useful for accessing the field via an interface.
 func (v *UniformEdge) GetPriority() int { return v.Priority }
 
+// GetCreatedAt returns UniformEdge.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UniformEdge) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUpdatedAt returns UniformEdge.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UniformEdge) GetUpdatedAt() *string { return v.UpdatedAt }
+
+// GetCreatedByUser returns UniformEdge.CreatedByUser, and is useful for accessing the field via an interface.
+func (v *UniformEdge) GetCreatedByUser() *UniformEdgeCreatedByUserNodeRevisionEditor {
+	return v.CreatedByUser
+}
+
+// GetUpdatedByUser returns UniformEdge.UpdatedByUser, and is useful for accessing the field via an interface.
+func (v *UniformEdge) GetUpdatedByUser() *UniformEdgeUpdatedByUserNodeRevisionEditor {
+	return v.UpdatedByUser
+}
+
 // GetSource returns UniformEdge.Source, and is useful for accessing the field via an interface.
 func (v *UniformEdge) GetSource() *UniformEdgeSourceNode { return v.Source }
 
 // GetTarget returns UniformEdge.Target, and is useful for accessing the field via an interface.
 func (v *UniformEdge) GetTarget() *UniformEdgeTargetNode { return v.Target }
+
+// UniformEdgeCreatedByUserNodeRevisionEditor includes the requested fields of the GraphQL type NodeRevisionEditor.
+// The GraphQL type's documentation follows.
+//
+// A revision's editor resolved to PUBLIC IDENTIFIERS ONLY (#617). Deliberately
+// excludes name / email / any PII — resolving editedBy must never widen the
+// disclosure surface. handle + urn are the same public identifiers the users
+// search already exposes, so no per-caller visibility gate applies.
+type UniformEdgeCreatedByUserNodeRevisionEditor struct {
+	Handle *string `json:"handle"`
+	Urn    *string `json:"urn"`
+}
+
+// GetHandle returns UniformEdgeCreatedByUserNodeRevisionEditor.Handle, and is useful for accessing the field via an interface.
+func (v *UniformEdgeCreatedByUserNodeRevisionEditor) GetHandle() *string { return v.Handle }
+
+// GetUrn returns UniformEdgeCreatedByUserNodeRevisionEditor.Urn, and is useful for accessing the field via an interface.
+func (v *UniformEdgeCreatedByUserNodeRevisionEditor) GetUrn() *string { return v.Urn }
 
 // UniformEdgeSourceNode includes the requested fields of the GraphQL type Node.
 type UniformEdgeSourceNode struct {
@@ -70558,6 +71010,24 @@ func (v *UniformEdgeTargetNode) GetId() string { return v.Id }
 
 // GetLoc returns UniformEdgeTargetNode.Loc, and is useful for accessing the field via an interface.
 func (v *UniformEdgeTargetNode) GetLoc() string { return v.Loc }
+
+// UniformEdgeUpdatedByUserNodeRevisionEditor includes the requested fields of the GraphQL type NodeRevisionEditor.
+// The GraphQL type's documentation follows.
+//
+// A revision's editor resolved to PUBLIC IDENTIFIERS ONLY (#617). Deliberately
+// excludes name / email / any PII — resolving editedBy must never widen the
+// disclosure surface. handle + urn are the same public identifiers the users
+// search already exposes, so no per-caller visibility gate applies.
+type UniformEdgeUpdatedByUserNodeRevisionEditor struct {
+	Handle *string `json:"handle"`
+	Urn    *string `json:"urn"`
+}
+
+// GetHandle returns UniformEdgeUpdatedByUserNodeRevisionEditor.Handle, and is useful for accessing the field via an interface.
+func (v *UniformEdgeUpdatedByUserNodeRevisionEditor) GetHandle() *string { return v.Handle }
+
+// GetUrn returns UniformEdgeUpdatedByUserNodeRevisionEditor.Urn, and is useful for accessing the field via an interface.
+func (v *UniformEdgeUpdatedByUserNodeRevisionEditor) GetUrn() *string { return v.Urn }
 
 // UninstallAgentFromAppResponse is returned by UninstallAgentFromApp on success.
 type UninstallAgentFromAppResponse struct {
@@ -71380,6 +71850,8 @@ type UpdateAgentTaskInput struct {
 	// Null clears to false; omission preserves the stored choice.
 	CloseSessionWhenDone *bool           `json:"closeSessionWhenDone,omitempty"`
 	Description          json.RawMessage `json:"description,omitempty"`
+	// #2648 (hrn:node:hadronmemory.com:specs:cor:agt:050:14): set or change the finish-by deadline (refused BAD_USER_INPUT if in the past or earlier than startBy), or null to clear it, which brings the ordinary stall windows back from this edit. Either change ends the current finish-by episode. Setting only startBy is refused if it is later than the finish-by time.
+	FinishBy json.RawMessage `json:"finishBy,omitempty"`
 	// #2420 (hrn:node:hadronmemory.com:specs:cor:agt:050:28): omitted leaves the value, a JSON object replaces the whole of
 	// it (no merge), null clears it. Writable by the task's owner, a worker the owner reports to, whoever manages the App,
 	// and the task's assignee; an assignee's update may name this field and no other. Refused on a finished or cancelled
@@ -71398,6 +71870,9 @@ func (v *UpdateAgentTaskInput) GetCloseSessionWhenDone() *bool { return v.CloseS
 
 // GetDescription returns UpdateAgentTaskInput.Description, and is useful for accessing the field via an interface.
 func (v *UpdateAgentTaskInput) GetDescription() json.RawMessage { return v.Description }
+
+// GetFinishBy returns UpdateAgentTaskInput.FinishBy, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTaskInput) GetFinishBy() json.RawMessage { return v.FinishBy }
 
 // GetProperties returns UpdateAgentTaskInput.Properties, and is useful for accessing the field via an interface.
 func (v *UpdateAgentTaskInput) GetProperties() json.RawMessage { return v.Properties }
@@ -78653,7 +79128,7 @@ func (v *WorkerBootPointerWorker) GetBootPromptRef() *string { return v.BootProm
 type WorkerCheckState string
 
 const (
-	// No live session.
+	// No live session; noSessionReason says why.
 	WorkerCheckStateNoSession WorkerCheckState = "NO_SESSION"
 	// Has a task and checked within failedChecksToOverdue × checkPeriodSeconds + 5 minutes.
 	WorkerCheckStateOk WorkerCheckState = "OK"
@@ -85134,6 +85609,14 @@ func (v *__NodeEdgeRemovalsInput) GetNodeRef() string { return v.NodeRef }
 // GetLimit returns __NodeEdgeRemovalsInput.Limit, and is useful for accessing the field via an interface.
 func (v *__NodeEdgeRemovalsInput) GetLimit() *int { return v.Limit }
 
+// __NodeEdgesAttributedInput is used internally by genqlient
+type __NodeEdgesAttributedInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __NodeEdgesAttributedInput.Ref, and is useful for accessing the field via an interface.
+func (v *__NodeEdgesAttributedInput) GetRef() string { return v.Ref }
+
 // __NodeExportInput is used internally by genqlient
 type __NodeExportInput struct {
 	Id     string           `json:"id"`
@@ -89605,6 +90088,7 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 // project as the reserved no-project AT0 (cor:agt:050:01), so a nil pointer
 // must not be sent as null. Per-field omitempty on this one input field.
 // Schema-only optional fields must stay absent for older providers.
+// The schema refresh for cli#1513 brought finishBy (#2648) in; this CLI does not implement it, so it is omitted from the wire, never an explicit null.
 // #2420: the task's own properties object. A pointer field, omitted when nil.
 // cli#1485 S3 (Andi BLIND P2): the model-group requirement fields arrived with
 // the schema refresh (server #3029) and S2 exposes them as optional flags. Absent,
@@ -91418,6 +91902,7 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 // value (the UpdateApp description idiom). title and closeSessionWhenDone have
 // no null-clear (an empty title is refused; null would mean false), so they stay
 // pointers, where a pointer to false is still sent.
+// finishBy (#2648) arrived with the cli#1513 schema refresh and is not implemented here: omitted, never an explicit null (null CLEARS on an update).
 // #2420: nil = key omitted (unchanged), RawMessage("null") = explicit clear. The
 // global JSON binding is a slice, so without omitempty a nil value would be sent
 // as null and clear the task's properties on every unrelated update (#1331).
@@ -101182,6 +101667,16 @@ fragment UniformEdge on Edge {
 	description
 	isRunnable
 	priority
+	createdAt
+	updatedAt
+	createdByUser {
+		handle
+		urn
+	}
+	updatedByUser {
+		handle
+		urn
+	}
 	source {
 		id
 		loc
@@ -101404,6 +101899,10 @@ query GetNode ($ref: ID!) {
 		seq
 		isRunnable
 		createdAt
+		createdByUser {
+			handle
+			urn
+		}
 		updatedAt
 		outgoingEdges {
 			id
@@ -101539,6 +102038,10 @@ query GetNodeRaw ($ref: ID!) {
 		seq
 		isRunnable
 		createdAt
+		createdByUser {
+			handle
+			urn
+		}
 		updatedAt
 		outgoingEdges {
 			id
@@ -103687,6 +104190,16 @@ fragment UniformEdge on Edge {
 	description
 	isRunnable
 	priority
+	createdAt
+	updatedAt
+	createdByUser {
+		handle
+		urn
+	}
+	updatedByUser {
+		handle
+		urn
+	}
 	source {
 		id
 		loc
@@ -105376,6 +105889,10 @@ query NextNode ($parentRef: ID!, $currentRef: ID, $raw: Boolean!) {
 		seq
 		isRunnable
 		createdAt
+		createdByUser {
+			handle
+			urn
+		}
 		updatedAt
 		outgoingEdges {
 			id
@@ -105465,6 +105982,10 @@ query NodeBatch ($refs: [ID!], $memory: ID, $locPrefix: String) {
 			properties
 			content(raw: true)
 			createdAt
+			createdByUser {
+				handle
+				urn
+			}
 			updatedAt
 			outgoingEdges {
 				id
@@ -105690,6 +106211,89 @@ func NodeEdgeRemovals(
 	}
 
 	data_ = &NodeEdgeRemovalsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by NodeEdgesAttributed.
+const NodeEdgesAttributed_Operation = `
+query NodeEdgesAttributed ($ref: ID!) {
+	node(ref: $ref) {
+		id
+		outgoingEdges {
+			id
+			name
+			loc
+			isRunnable
+			priority
+			createdAt
+			updatedAt
+			createdByUser {
+				handle
+				urn
+			}
+			updatedByUser {
+				handle
+				urn
+			}
+			target {
+				id
+				loc
+				memoryId
+			}
+		}
+		incomingEdges {
+			id
+			name
+			loc
+			isRunnable
+			priority
+			createdAt
+			updatedAt
+			createdByUser {
+				handle
+				urn
+			}
+			updatedByUser {
+				handle
+				urn
+			}
+			source {
+				id
+				loc
+				memoryId
+			}
+		}
+	}
+}
+`
+
+// hadron-cli#1513: `edge list <node>` (node-scoped) rows with the edge's own
+// attribution. A query of its own, NOT GetNode's edge selections: GetNode has 13
+// consumers and would resolve four more fields per edge for every one of them.
+// Same edges, same order as GetNode's outgoingEdges/incomingEdges, so the
+// client-side filters, order and counts are unchanged.
+func NodeEdgesAttributed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *NodeEdgesAttributedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "NodeEdgesAttributed",
+		Query:  NodeEdgesAttributed_Operation,
+		Variables: &__NodeEdgesAttributedInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &NodeEdgesAttributedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

@@ -151,6 +151,10 @@ query NodeBatch(
       # Explicit, not the default (cli#916 C3a): every caller wants stored text, and nodeBatch's stored default (R21 A) is stated rather than assumed.
       content(raw: true)
       createdAt
+      createdByUser {
+        handle
+        urn
+      }
       updatedAt
       outgoingEdges {
         id
@@ -233,6 +237,11 @@ query GetNode($ref: ID!) {
     seq
     isRunnable
     createdAt
+    # hadron-cli#1513: the provider's {handle, urn} projection or null, passed through verbatim (never a raw id). Selected on BOTH GetNode reads (one Go type) and NodeBatch so `node get <ref>` and `node get <ref> <ref>` cannot disagree.
+    createdByUser {
+      handle
+      urn
+    }
     updatedAt
     outgoingEdges {
       id
@@ -304,6 +313,11 @@ query GetNodeRaw($ref: ID!) {
     seq
     isRunnable
     createdAt
+    # hadron-cli#1513: the provider's {handle, urn} projection or null, passed through verbatim (never a raw id). Selected on BOTH GetNode reads (one Go type) and NodeBatch so `node get <ref>` and `node get <ref> <ref>` cannot disagree.
+    createdByUser {
+      handle
+      urn
+    }
     updatedAt
     outgoingEdges {
       id
@@ -1197,6 +1211,61 @@ query NodeBatchContent(
       content(raw: true)
       createdAt
       updatedAt
+    }
+  }
+}
+
+# hadron-cli#1513: `edge list <node>` (node-scoped) rows with the edge's own
+# attribution. A query of its own, NOT GetNode's edge selections: GetNode has 13
+# consumers and would resolve four more fields per edge for every one of them.
+# Same edges, same order as GetNode's outgoingEdges/incomingEdges, so the
+# client-side filters, order and counts are unchanged.
+query NodeEdgesAttributed($ref: ID!) {
+  node(ref: $ref) {
+    id
+    outgoingEdges {
+      id
+      name
+      loc
+      isRunnable
+      priority
+      createdAt
+      updatedAt
+      createdByUser {
+        handle
+        urn
+      }
+      updatedByUser {
+        handle
+        urn
+      }
+      target {
+        id
+        loc
+        memoryId
+      }
+    }
+    incomingEdges {
+      id
+      name
+      loc
+      isRunnable
+      priority
+      createdAt
+      updatedAt
+      createdByUser {
+        handle
+        urn
+      }
+      updatedByUser {
+        handle
+        urn
+      }
+      source {
+        id
+        loc
+        memoryId
+      }
     }
   }
 }

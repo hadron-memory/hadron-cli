@@ -532,6 +532,11 @@ type AgentTask {
   """
   createdByRunId: ID
   description: String
+
+  """
+  The finish-by deadline (#2648, hrn:node:hadronmemory.com:specs:cor:agt:050:14). While set, no stall window applies to the task; one stall.finish-by alarm is raised once it passes with the task neither finished nor cancelled.
+  """
+  finishBy: DateTime
   finishedAt: DateTime
 
   """
@@ -898,7 +903,7 @@ type AgentTeamEvent {
   taskId: ID
 
   """
-  e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled; the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02).
+  e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled; the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, stall.finish-by (#2648), alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02).
   """
   type: String!
 
@@ -3340,6 +3345,11 @@ input CreateAgentTaskInput {
   description: String
 
   """
+  #2648 (hrn:node:hadronmemory.com:specs:cor:agt:050:14): an optional finish-by deadline; refused BAD_USER_INPUT if in the past or earlier than startBy. While set, the task raises no stall-window alarm, only stall.finish-by once it passes unfinished.
+  """
+  finishBy: DateTime
+
+  """
   Defaults to the creator. A root task's creator may name any other
   participating worker or person as owner (#1757, hrn:node:hadronmemory.com:specs:cor:agt:050:01);
   a ref outside the App's participants is TASK_OWNER_INVALID. Never for a
@@ -4416,6 +4426,14 @@ type Edge {
   See hadron-docs/docs/reference/edge-conditions.md.
   """
   condition: JSON
+
+  """#1151 - when the edge was created."""
+  createdAt: DateTime!
+
+  """
+  #1151 - the User behind this edge's creation, as handle and URN only (the revision-editor projection; never a raw id). Null when the stored creator resolves to no live user (a system job, an app key, a deleted user; the stored value is never echoed), for edges written before attribution was stamped (not backfilled), and for a caller who cannot read the memory the edge lives in (an edge's memory is its source side), so a cross-memory edge never names another tenant's user.
+  """
+  createdByUser: NodeRevisionEditor
   data: JSON
 
   """
@@ -4468,6 +4486,16 @@ type Edge {
   The live target node, or null when deleted or when its memory is unreadable. Deleted-node inspection uses the explicit recovery graph.
   """
   target: Node
+
+  """
+  #1151 - when the edge row last changed (stamped on create too; null only for a row inserted outside the API).
+  """
+  updatedAt: DateTime
+
+  """
+  #1151 - the User behind the last update of this edge; null under the same conditions as createdByUser.
+  """
+  updatedByUser: NodeRevisionEditor
 
   """
   Fully-qualified edge URN (hrn:edge:<root>:<memory>:<loc>), composed server-side from the edge's (source-side) memory URN + loc (#481 parity — edges are loc-addressed peers of nodes, spec 037).
@@ -10137,6 +10165,11 @@ type Node {
   #1610 — the Agent behind this node's creation: a worker's role agent, an agent session, or a headless App run. Null when no agent was behind it.
   """
   createdByAgent: ActorRef
+
+  """
+  #1151 - the User behind this node's creation, as handle and URN only (the same projection as updatedByUser). Null when the stored creator resolves to no live user (a system job, an app key, a deleted user; the stored value is never echoed), and for nodes written before the column was stamped, which are not backfilled.
+  """
+  createdByUser: NodeRevisionEditor
 
   """
   #1610 — the Worker that created this node, when it was written in a worker session. The user is createdBy. Null for a write with no worker behind it, and for nodes written before #1610.
@@ -17029,6 +17062,11 @@ input UpdateAgentTaskInput {
   description: String
 
   """
+  #2648 (hrn:node:hadronmemory.com:specs:cor:agt:050:14): set or change the finish-by deadline (refused BAD_USER_INPUT if in the past or earlier than startBy), or null to clear it, which brings the ordinary stall windows back from this edit. Either change ends the current finish-by episode. Setting only startBy is refused if it is later than the finish-by time.
+  """
+  finishBy: DateTime
+
+  """
   #2420 (hrn:node:hadronmemory.com:specs:cor:agt:050:28): omitted leaves the value, a JSON object replaces the whole of
   it (no merge), null clears it. Writable by the task's owner, a worker the owner reports to, whoever manages the App,
   and the task's assignee; an assignee's update may name this field and no other. Refused on a finished or cancelled
@@ -17866,7 +17904,7 @@ type WorkerAvailability {
 #2138 §3.4 (experimental) — a worker's check status. Draft spec: hrn:node:hadronmemory.com:hadron-dev-team-vera:work:2138-experiment-spec.
 """
 enum WorkerCheckState {
-  """No live session."""
+  """No live session; noSessionReason says why."""
   NO_SESSION
 
   """
@@ -17894,6 +17932,9 @@ type WorkerCheckStatus {
   When it last checked the App's team channel through its own session; null if never.
   """
   lastCheckedAt: DateTime
+
+  """#3077: set only when status is NO_SESSION."""
+  noSessionReason: WorkerNoSessionReason
 
   """Set only when status is PENDING."""
   pendingReason: WorkerPendingReason
@@ -17980,6 +18021,25 @@ type WorkerHolder {
   Canonical hrn:user:<handle> URN (hrn:node:hadronmemory.com:specs:cor:urn:010:01). Null for a handle-less user.
   """
   urn: String
+}
+
+"""
+#3077 — why a worker is NO_SESSION (hrn:node:hadronmemory.com:specs:cor:agt:100:03; idle versus ended per
+hrn:node:hadronmemory.com:specs:cor:agt:020:03). A closed set: it carries no session id or timestamp.
+"""
+enum WorkerNoSessionReason {
+  """
+  Every session it had is over: ended, auto-expired, or past its promised expiresAt.
+  """
+  ENDED
+
+  """
+  An open session would bind it, but nobody drove it inside its idle window.
+  """
+  IDLE
+
+  """It has never had a session. Deleted sessions count for nothing."""
+  NEVER_BOUND
 }
 
 """

@@ -51,6 +51,11 @@ query NextNode(
     seq
     isRunnable
     createdAt
+    # hadron-cli#1513: same selection as GetNode (one shared Go type).
+    createdByUser {
+      handle
+      urn
+    }
     updatedAt
     outgoingEdges {
       id

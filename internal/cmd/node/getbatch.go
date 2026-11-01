@@ -215,6 +215,10 @@ func batchDetailDTO(n *batchNode) nodeDetailDTO {
 		dto.IncomingEdges = append(dto.IncomingEdges,
 			edgeRefOf(e.Id, e.Name, e.Loc, e.IsRunnable, e.Priority, sid, sloc, smem))
 	}
+	// Same rule as detailDTO (hadron-cli#1513): the provider's object or null.
+	if u := n.CreatedByUser; u != nil {
+		dto.CreatedByUser = cmdutil.NewAttribution(u.Handle, u.Urn)
+	}
 	return dto
 }
 

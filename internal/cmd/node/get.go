@@ -52,6 +52,12 @@ To read several nodes at once, pass several refs, or --prefix <loc> -m
 whole memory). Unlike node list, this returns full content and edges. The
 output is then {nodes, unavailable}.
 
+--json carries createdAt and createdByUser: the server's {handle, urn} for the
+user who created the node, or null. A null author means "not shown to you or
+not known" (for example, the node was written before authors were recorded),
+never "nobody". The text form prints a "created by:" line only when there is a
+handle or URN to show. The user behind a node's last edit is not shown here.
+
 Exit codes: 4 when the node is missing or you cannot read it (the server does
 not say which), and also when any ref of several is "unavailable", so a partial
 read is never mistaken for a complete one; 2 for a malformed ref, which fails
@@ -311,6 +317,11 @@ func renderNodeDetail(w io.Writer, dto nodeDetailDTO) error {
 		fmt.Fprintf(w, "  tags: %v\n", dto.Tags)
 	}
 	fmt.Fprintf(w, "  updated: %s\n", dto.UpdatedAt)
+	// hadron-cli#1513: only a printable author prints; null and an empty object
+	// print nothing (never "nobody"/"unknown"), and --json carries the object.
+	if by := dto.CreatedByUser.Display(256); by != "" {
+		fmt.Fprintf(w, "  created by: %s\n", by)
+	}
 	if dto.Revision != nil {
 		fmt.Fprintf(w, "  revision: %d\n", *dto.Revision)
 	} else {
@@ -443,6 +454,9 @@ func detailDTO(n *gen.GetNodeNode) nodeDetailDTO {
 		}
 		dto.IncomingEdges = append(dto.IncomingEdges,
 			edgeRefOf(e.Id, e.Name, e.Loc, e.IsRunnable, e.Priority, sid, sloc, smem))
+	}
+	if u := n.CreatedByUser; u != nil {
+		dto.CreatedByUser = cmdutil.NewAttribution(u.Handle, u.Urn)
 	}
 	return dto
 }

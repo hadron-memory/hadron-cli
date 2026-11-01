@@ -235,8 +235,8 @@ func TestNodeGetHandlesNullEdgeEndpoint(t *testing.T) {
 
 func TestEdgeLsHandlesNullEndpoint(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"ResolveUrn": resolveNodeJSON,
-		"GetNode":    `{"data":{"node":` + nodeNullEdgeDetailJSON + `}}`,
+		"ResolveUrn":          resolveNodeJSON,
+		"NodeEdgesAttributed": `{"data":{"node":` + nodeNullEdgeDetailJSON + `}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
