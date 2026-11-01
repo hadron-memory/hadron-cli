@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -15,8 +16,8 @@ const edgeCap1210 = `{"errors":[{"message":"Read edges in pages","extensions":{"
 func TestNodeBatchEdgeCap1210(t *testing.T) {
 	for _, jsonMode := range []bool{false, true} {
 		t.Run(map[bool]string{false: "text", true: "json"}[jsonMode], func(t *testing.T) {
-			run := func(limit int) (string, error, int) {
-				calls := 0
+			run := func(limit int) (string, int, error) {
+				var calls atomic.Int64
 				s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					var q struct {
 						OperationName string
@@ -30,7 +31,7 @@ func TestNodeBatchEdgeCap1210(t *testing.T) {
 					if q.OperationName != "NodeBatch" {
 						t.Errorf("unexpected operation %s", q.OperationName)
 					}
-					calls++
+					calls.Add(1)
 					w.Header().Set("Content-Type", "application/json")
 					if len(q.Variables.Refs) > limit {
 						_, _ = w.Write([]byte(edgeCap1210))
@@ -55,13 +56,13 @@ func TestNodeBatchEdgeCap1210(t *testing.T) {
 				}
 				root.SetArgs(args)
 				err := root.Execute()
-				return out.String(), err, calls
+				return out.String(), int(calls.Load()), err
 			}
-			want, err, n := run(2)
+			want, n, err := run(2)
 			if err != nil || n != 1 {
 				t.Fatal(err, n)
 			}
-			got, err, n := run(1)
+			got, n, err := run(1)
 			if err != nil {
 				t.Fatalf("split failed: %v", err)
 			}

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -12,7 +13,7 @@ func TestSpecReplaceRelintIncomplete1210(t *testing.T) {
 	for _, jsonMode := range []bool{false, true} {
 		for _, capError := range []bool{false, true} {
 			t.Run(map[bool]string{false: "text", true: "json"}[jsonMode]+map[bool]string{false: "/ordinary", true: "/cap"}[capError], func(t *testing.T) {
-				writes := 0
+				var writes atomic.Int64
 				s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					var q struct {
 						OperationName string
@@ -27,7 +28,7 @@ func TestSpecReplaceRelintIncomplete1210(t *testing.T) {
 						var v struct{ Input struct{ DryRun bool } }
 						_ = json.Unmarshal(q.Variables, &v)
 						if !v.Input.DryRun {
-							writes++
+							writes.Add(1)
 						}
 						body = specReplaceResp(v.Input.DryRun)
 					case "NodeBatch":
@@ -57,8 +58,12 @@ func TestSpecReplaceRelintIncomplete1210(t *testing.T) {
 				if err := root.Execute(); err != nil {
 					t.Fatal("write succeeded, relint cannot refuse it", err)
 				}
-				if writes != 1 {
-					t.Fatalf("successful mutations=%d", writes)
+				if writes.Load() != 1 {
+					t.Fatalf("successful mutations=%d", writes.Load())
+				}
+				stderr := f.IOStreams.ErrOut.(*strings.Builder).String()
+				if strings.Contains(stderr, "SECRET") || !strings.Contains(stderr, "incomplete") {
+					t.Fatal(stderr)
 				}
 				if strings.Contains(out.String(), "SECRET") || strings.Contains(out.String(), "re-lint clean") {
 					t.Fatal(out.String())
@@ -77,6 +82,24 @@ func TestSpecReplaceRelintIncomplete1210(t *testing.T) {
 					t.Fatal(out.String())
 				}
 			})
+		}
+	}
+}
+
+func TestSpecReplaceRelintMissingIsIncomplete1210(t *testing.T) {
+	for _, body := range []string{
+		`{"data":{"nodeBatch":{"nodes":[],"unavailable":[],"omitted":[],"truncated":false}}}`,
+		`{"data":{"nodeBatch":{"nodes":[],"unavailable":["id-msg:010:01","id-msg:010:02"],"omitted":[],"truncated":false}}}`,
+	} {
+		gql, _ := captureGraphQL(t, map[string]string{"FindNodes": `{"data":{"nodes":[` + specNodeList("msg:010:01", `["spec"]`) + `,` + specNodeList("msg:010:02", `["spec"]`) + `]}}`, "SearchReplaceInNodes": specReplaceResp(false), "NodeBatch": body})
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"spec", "replace", "old", "new", "-m", specMem, "--yes", "--json", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(out.String(), `"relintStatus": "incomplete"`) {
+			t.Fatal(out.String())
 		}
 	}
 }

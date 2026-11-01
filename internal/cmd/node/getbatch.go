@@ -40,7 +40,7 @@ func fetchNodeBatch(
 	cmd *cobra.Command, client graphql.Client, memory, locPrefix string, refs []string, prefixMode bool,
 ) ([]*batchNode, []string, error) {
 	fetch := func(chunk []string) (*gen.NodeBatchNodeBatchNodeBatchResult, error) {
-		resp, err := gen.NodeBatch(cmd.Context(), client, chunk, nil, nil)
+		resp, err := api.ReadNodeBatch(cmd.Context(), client, chunk, nil, nil)
 		if err != nil {
 			return nil, api.MapError(err)
 		}
@@ -49,7 +49,7 @@ func fetchNodeBatch(
 
 	if prefixMode {
 		memRef := cmdutil.CanonicalMemoryRef(memory)
-		resp, err := gen.NodeBatch(cmd.Context(), client, nil, &memRef, &locPrefix)
+		resp, err := api.ReadNodeBatch(cmd.Context(), client, nil, &memRef, &locPrefix)
 		if err != nil {
 			return nil, nil, api.MapError(err)
 		}

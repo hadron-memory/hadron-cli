@@ -237,7 +237,7 @@ func resolveCitations(cmd *cobra.Command, client graphql.Client, memURN string, 
 		citByRef[ref] = c
 	}
 	nodes, unavailable, err := api.CollectNodeBatch(refs, func(chunk []string) (*gen.NodeBatchNodeBatchNodeBatchResult, error) {
-		resp, ferr := gen.NodeBatch(cmd.Context(), client, chunk, nil, nil)
+		resp, ferr := api.ReadNodeBatch(cmd.Context(), client, chunk, nil, nil)
 		if ferr != nil {
 			return nil, api.MapError(ferr)
 		}

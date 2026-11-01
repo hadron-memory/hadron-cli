@@ -4675,3 +4675,22 @@ Groups resolve live.
 - Refusals keep the usual mapping: `AGENT_NOT_FOUND` / `APP_NOT_FOUND` /
   `MODEL_GROUP_NOT_FOUND` exit 4; `FORBIDDEN` / `APP_MANAGER_REQUIRED` exit 8;
   `BAD_USER_INPUT` exit 2.
+
+
+## nodeBatch selected-edge cap (cli#1210)
+
+Edge-reading batch commands split an explicit ref chunk and retry the identical
+query only for the structured BAD_USER_INPUT / limit=edges refusal. A 200-ref
+chunk costs at most 399 requests, plus existing byte-cap omitted-ref requeues.
+An indivisible ref or prefix exits 2 with its sanitized identity/cap and points
+to `hadron edge ls --source <node-ref>` and `hadron edge ls --target <node-ref>`;
+a prefix can instead be narrowed or read by explicit refs. No partial report or
+export files are emitted on terminal pre-write refusal. Content-only skill,
+coding and spec reads use an edge-free document. Other errors keep their mapping.
+
+The exception is the re-lint AFTER a successful `spec replace`: the replacement
+and exit status remain successful, with no mutation retry. After an applied replacement, JSON adds
+`relintStatus: complete|incomplete` and `relintError` when incomplete. A failed or
+unreadable re-lint discards partial findings, says incomplete rather than clean,
+and keeps the completed replacement report. Ordinary re-lint errors use fixed
+safe text; a terminal edge-cap refusal gives safe paged-read guidance.

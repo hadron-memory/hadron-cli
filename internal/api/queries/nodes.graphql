@@ -1154,3 +1154,49 @@ mutation UpdateNodeProperties(
     updatedAt
   }
 }
+
+# Edge-free stored-content projection for callers that never inspect edges (#1210).
+query NodeBatchContent(
+  # @genqlient(omitempty: true)
+  $refs: [ID!]
+  # @genqlient(omitempty: true)
+  $memory: ID
+  # @genqlient(omitempty: true)
+  $locPrefix: String
+) {
+  nodeBatch(refs: $refs, memory: $memory, locPrefix: $locPrefix) {
+    truncated
+    omitted
+    unavailable
+    nodes {
+      id
+      # Same two as GetNode (#515): a batched read must not print a different
+      # shape from a single-ref read of the same node. renderNodeDetail is
+      # shared between them, so selecting these in one query and not the other
+      # is how `node get <ref>` and `node get <ref> <ref>` start disagreeing.
+      urn
+      # Register entry's second address (hadron-server#2610): null on every other node (#1138). Selected here too, so a batched read prints what a single read prints.
+      actionUrn
+      portalUrl
+      memoryId
+      loc
+      name
+      alias
+      nodeType
+      role
+      objectType
+      isRunnable
+      description
+      abstract
+      abstractOriginHash
+      tags
+      seq
+      data
+      properties
+      # Explicit, not the default (cli#916 C3a): every caller wants stored text, and nodeBatch's stored default (R21 A) is stated rather than assumed.
+      content(raw: true)
+      createdAt
+      updatedAt
+    }
+  }
+}

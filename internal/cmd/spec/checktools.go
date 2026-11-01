@@ -111,7 +111,7 @@ exits 0.`,
 			findings := []specToolFindingDTO{}
 			if len(ids) > 0 {
 				nodes, unavailable, err := api.CollectNodeBatch(ids, func(chunk []string) (*gen.NodeBatchNodeBatchNodeBatchResult, error) {
-					resp, err := gen.NodeBatch(cmd.Context(), client, chunk, nil, nil)
+					resp, err := api.ReadNodeBatchContent(cmd.Context(), client, chunk)
 					if err != nil {
 						return nil, api.MapError(err)
 					}

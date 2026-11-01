@@ -49,7 +49,7 @@ func loadReplacements(ctx context.Context, client graphql.Client, cands []replac
 		return out, nil
 	}
 	nodes, _, err := api.CollectNodeBatch(ids, func(chunk []string) (*gen.NodeBatchNodeBatchNodeBatchResult, error) {
-		resp, ferr := gen.NodeBatch(ctx, client, chunk, nil, nil)
+		resp, ferr := api.ReadNodeBatch(ctx, client, chunk, nil, nil)
 		if ferr != nil {
 			return nil, api.MapError(ferr)
 		}

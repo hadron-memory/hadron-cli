@@ -289,7 +289,7 @@ func fetchNodes(ctx context.Context, client graphql.Client, byID map[string]stri
 	}
 	sort.Strings(refs) // deterministic batching
 	nodes, unavailable, err := api.CollectNodeBatch(refs, func(chunk []string) (*gen.NodeBatchNodeBatchNodeBatchResult, error) {
-		resp, ferr := gen.NodeBatch(ctx, client, chunk, nil, nil)
+		resp, ferr := api.ReadNodeBatchContent(ctx, client, chunk)
 		if ferr != nil {
 			return nil, api.MapError(ferr)
 		}

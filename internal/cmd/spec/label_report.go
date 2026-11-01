@@ -103,7 +103,7 @@ The report describes caller-visible data only, not complete hidden corpus covera
 				}
 			}
 			nodes, _, err := api.CollectNodeBatch(refs, func(chunk []string) (*gen.NodeBatchNodeBatchNodeBatchResult, error) {
-				r, e := gen.NodeBatch(cmd.Context(), client, chunk, nil, nil)
+				r, e := api.ReadNodeBatch(cmd.Context(), client, chunk, nil, nil)
 				if e != nil {
 					return nil, api.MapError(e)
 				}

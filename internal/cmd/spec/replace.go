@@ -55,8 +55,10 @@ type specReplaceResultDTO struct {
 	Skips *[]specReplaceSkipDTO `json:"skips,omitempty"`
 	Draft bool                  `json:"-"`
 	// Lint is the post-replace lint of the changed specs — populated only on a
-	// real (non-dry) run. Empty means a clean re-lint.
-	Lint []lintFindingDTO `json:"lint,omitempty"`
+	// real (non-dry) run. Completeness is carried separately in RelintStatus.
+	Lint         []lintFindingDTO `json:"lint,omitempty"`
+	RelintStatus string           `json:"relintStatus,omitempty"`
+	RelintError  *string          `json:"relintError,omitempty"`
 }
 
 func newCmdReplace(f *cmdutil.Factory) *cobra.Command {
@@ -94,7 +96,9 @@ for confirmation (or pass --yes; required non-interactively); --dry-run previews
 without writing, and --max-specs N refuses a run that would change more than N
 specs. Every change is saved to version history. After a real run the changed
 specs are re-linted and any findings are reported — a bulk body rewrite can, for
-example, leave an abstract out of sync with its content.`,
+example, leave an abstract out of sync with its content. A failed re-lint does
+not undo the replacement: the report says re-lint incomplete; after an applied replacement, JSON carries
+relintStatus (complete|incomplete) and relintError when incomplete.`,
 		Example: `  # Preview a corpus-wide rename
   hadron spec replace h-read-node hadron_get_node -m hrn:mem:hadronmemory.com:specs --dry-run
 
@@ -283,7 +287,11 @@ example, leave an abstract out of sync with its content.`,
 			// result — a bulk body rewrite can, e.g., desync an abstract from its
 			// content (abstract-stale). Best-effort: a lint read error doesn't
 			// undo a successful replace, so it's surfaced as a note, not an error.
-			dto.Lint = relintChanged(cmd, client, dto.Results, f, memURN)
+			dto.Lint, dto.RelintError = relintChanged(cmd, client, dto.Results, f, memURN)
+			dto.RelintStatus = "complete"
+			if dto.RelintError != nil {
+				dto.RelintStatus = "incomplete"
+			}
 			return writeSpecReplaceReport(f, dto)
 		},
 	}
@@ -426,7 +434,7 @@ func draftSpecReplaceDTO(r *gen.SearchReplaceInSpecNodesSearchReplaceInSpecNodes
 // nodeBatch read (not a per-spec fetch loop), returning their findings sorted by
 // citation. Best-effort: a read error or an unreadable spec is noted on stderr,
 // never fatal — the replace already succeeded.
-func relintChanged(cmd *cobra.Command, client graphql.Client, changed []specReplaceNodeDTO, f *cmdutil.Factory, memURN string) []lintFindingDTO {
+func relintChanged(cmd *cobra.Command, client graphql.Client, changed []specReplaceNodeDTO, f *cmdutil.Factory, memURN string) ([]lintFindingDTO, *string) {
 	ids := make([]string, 0, len(changed))
 	for _, c := range changed {
 		if c.NodeID != "" {
@@ -434,10 +442,10 @@ func relintChanged(cmd *cobra.Command, client graphql.Client, changed []specRepl
 		}
 	}
 	if len(ids) == 0 {
-		return nil
+		return nil, nil
 	}
 	nodes, unavailable, err := api.CollectNodeBatch(ids, func(chunk []string) (*gen.NodeBatchNodeBatchNodeBatchResult, error) {
-		resp, err := gen.NodeBatch(cmd.Context(), client, chunk, nil, nil)
+		resp, err := api.ReadNodeBatch(cmd.Context(), client, chunk, nil, nil)
 		if err != nil {
 			return nil, api.MapError(err)
 		}
@@ -447,11 +455,31 @@ func relintChanged(cmd *cobra.Command, client graphql.Client, changed []specRepl
 		return resp.NodeBatch, nil
 	})
 	if err != nil {
-		fmt.Fprintf(f.IOStreams.ErrOut, "note: could not re-lint the rewritten specs: %v\n", err)
-		return nil
+		message := "re-lint read failed; replacement succeeded, verify the rewritten specs with hadron spec lint"
+		if api.IsNodeBatchEdgeCapRefusal(err) {
+			message = err.Error()
+		}
+		fmt.Fprintf(f.IOStreams.ErrOut, "note: re-lint incomplete: %s\n", message)
+		return nil, &message
 	}
 	if len(unavailable) > 0 {
-		fmt.Fprintf(f.IOStreams.ErrOut, "note: %d rewritten spec(s) unreadable — not re-linted\n", len(unavailable))
+		message := fmt.Sprintf("%d rewritten spec(s) unreadable; replacement succeeded, re-lint incomplete", len(unavailable))
+		fmt.Fprintf(f.IOStreams.ErrOut, "note: %s\n", message)
+		return nil, &message
+	}
+	remaining := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		remaining[id] = true
+	}
+	for _, n := range nodes {
+		if n != nil {
+			delete(remaining, n.Id)
+		}
+	}
+	if len(remaining) > 0 {
+		message := "re-lint did not return every rewritten spec; replacement succeeded, re-lint incomplete"
+		fmt.Fprintf(f.IOStreams.ErrOut, "note: %s\n", message)
+		return nil, &message
 	}
 	var findings []lintFindingDTO
 	for _, n := range nodes {
@@ -461,7 +489,7 @@ func relintChanged(cmd *cobra.Command, client graphql.Client, changed []specRepl
 		findings = append(findings, lintNode(nodeFromBatch(n), memURN)...)
 	}
 	sort.Slice(findings, func(i, j int) bool { return findings[i].Citation < findings[j].Citation })
-	return findings
+	return findings, nil
 }
 
 func writeSpecReplaceReport(f *cmdutil.Factory, dto specReplaceResultDTO) error {
@@ -493,7 +521,9 @@ func renderSpecReplaceReport(w io.Writer, dto specReplaceResultDTO) error {
 	}
 	// Post-replace lint (real runs only).
 	if !dto.DryRun {
-		if len(dto.Lint) == 0 {
+		if dto.RelintStatus == "incomplete" {
+			fmt.Fprintln(w, "⚠ re-lint incomplete (replacement succeeded)")
+		} else if len(dto.Lint) == 0 {
 			fmt.Fprintln(w, "✓ re-lint clean")
 		} else {
 			fmt.Fprintf(w, "\n⚠ re-lint found %d issue(s) in the rewritten spec(s):\n", len(dto.Lint))

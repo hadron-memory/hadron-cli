@@ -382,7 +382,7 @@ func listDeclaredIDs(cmd *cobra.Command, client graphql.Client, memIDs []string)
 // surfaces refs the server reported unavailable rather than dropping them.
 func fetchNodes(cmd *cobra.Command, client graphql.Client, refs []string) ([]*batchNode, []string, error) {
 	return api.CollectNodeBatch(refs, func(chunk []string) (*batchResult, error) {
-		resp, err := gen.NodeBatch(cmd.Context(), client, chunk, nil, nil)
+		resp, err := api.ReadNodeBatchContent(cmd.Context(), client, chunk)
 		if err != nil {
 			return nil, api.MapError(err)
 		}
