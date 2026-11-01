@@ -101,13 +101,13 @@ type listing struct {
 // collectListing walks the list to exhaustion, in the server's order. Any page
 // the CLI cannot validate fails the whole walk: a partial list would let a name
 // resolve against rows that are not all there.
-func collectListing(ctx context.Context, client graphql.Client, appRef string) (*listing, error) {
+func collectListing(ctx context.Context, client graphql.Client, appRef string, pageLimit *int) (*listing, error) {
 	out := &listing{Rows: []rowDTO{}, Omitted: []omittedDTO{}}
 	seenOmitted := map[omittedDTO]bool{}
 	seenCursor := map[string]bool{}
 	var after *string
 	for page := 0; page < maxPages; page++ {
-		resp, err := gen.AutomationApprovals(ctx, client, appRef, after)
+		resp, err := gen.AutomationApprovals(ctx, client, appRef, after, pageLimit)
 		if err != nil {
 			return nil, readError(err)
 		}
@@ -229,7 +229,7 @@ func fetchApproval(ctx context.Context, client graphql.Client, app string, t tri
 // ignored. A command that has nothing to read before its write (decline of a
 // manual run) uses this so an old server is refused before the prompt.
 func requireSupport(ctx context.Context, client graphql.Client, appRef string) error {
-	if _, err := gen.AutomationApprovals(ctx, client, appRef, nil); err != nil && api.IsSchemaSkew(err) {
+	if _, err := gen.AutomationApprovals(ctx, client, appRef, nil, nil); err != nil && api.IsSchemaSkew(err) {
 		return readError(err)
 	}
 	return nil
