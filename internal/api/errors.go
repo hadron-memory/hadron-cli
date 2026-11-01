@@ -841,6 +841,30 @@ func codeForExtension(code string) int {
 	// its locks: a state conflict, never a request to retry automatically.
 	case code == "INSTALL_TARGET_CHANGED":
 		return exitcode.Conflict
+	// Task integrations (cli#1524, hadron-server#3125; plan
+	// plans:1524-find-untracked §4). Literal rows, ahead of the suffix rules:
+	// _NOT_INSTALLED and _REQUIRED would otherwise file the configuration-state
+	// codes under usage.
+	//   - The caller fixes the value or argument: 2.
+	//   - The installation is not granted the read (a permission, or this
+	//     repository); an org owner widens the grant: 8 (exitcode.Forbidden).
+	//     GITHUB_PERMISSION_MISSING → 8 is #1524's acceptance (V45 point 11).
+	//   - Org or App configuration state that retrying cannot change (no
+	//     installation, a token that does not match it, an App with no
+	//     organization), and a stale expectedRevision (re-read, then write): 5.
+	//   - A caller kind that may not claim yet (an App key or run; interim,
+	//     V45 point 13): 8.
+	//   - GitHub itself unreachable: 7, the retry-later class.
+	case code == "TASK_INTEGRATION_INVALID" || code == "TASK_INTEGRATION_REPOSITORY_NOT_CONNECTED" ||
+		code == "TASK_INTEGRATION_TEAM_UNKNOWN" || code == "GITHUB_INVALID_ARGUMENT" || code == "PROPERTIES_KEY_RESERVED":
+		return exitcode.Usage
+	case code == "GITHUB_PERMISSION_MISSING" || code == "GITHUB_REPOSITORY_NOT_ALLOWED" || code == "TASK_CLAIM_PRINCIPAL_UNSUPPORTED":
+		return exitcode.Forbidden
+	case code == "GITHUB_NOT_INSTALLED" || code == "GITHUB_TOKEN_SCOPE_MISMATCH" ||
+		code == "TASK_INTEGRATION_ORG_REQUIRED" || code == "APP_PROPERTIES_CONFLICT":
+		return exitcode.Conflict
+	case code == "GITHUB_UNAVAILABLE":
+		return exitcode.Unavailable
 	// Node writes (cli#1341): a hard delete of a node with edges to other
 	// memories needs --cascade-cross-memory-edges, an argument the caller
 	// fixes; an inline --edge whose loc another edge of the node already

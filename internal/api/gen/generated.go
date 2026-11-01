@@ -1360,6 +1360,11 @@ func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetSource() *string {
 	return v.AgentTaskFields.Source
 }
 
+// GetExternalId returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.ExternalId, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetExternalId() *string {
+	return v.AgentTaskFields.ExternalId
+}
+
 // GetReferences returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.References, and is useful for accessing the field via an interface.
 func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
 	return v.AgentTaskFields.References
@@ -1486,6 +1491,8 @@ type __premarshalAgentTaskAddBlockerAddAgentTaskBlockerAgentTask struct {
 
 	Source *string `json:"source"`
 
+	ExternalId *string `json:"externalId"`
+
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
@@ -1542,6 +1549,7 @@ func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) __premarshalJSON() (*_
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
@@ -1656,6 +1664,9 @@ func (v *AgentTaskAssignAssignAgentTask) GetTags() []string { return v.AgentTask
 
 // GetSource returns AgentTaskAssignAssignAgentTask.Source, and is useful for accessing the field via an interface.
 func (v *AgentTaskAssignAssignAgentTask) GetSource() *string { return v.AgentTaskFields.Source }
+
+// GetExternalId returns AgentTaskAssignAssignAgentTask.ExternalId, and is useful for accessing the field via an interface.
+func (v *AgentTaskAssignAssignAgentTask) GetExternalId() *string { return v.AgentTaskFields.ExternalId }
 
 // GetReferences returns AgentTaskAssignAssignAgentTask.References, and is useful for accessing the field via an interface.
 func (v *AgentTaskAssignAssignAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
@@ -1773,6 +1784,8 @@ type __premarshalAgentTaskAssignAssignAgentTask struct {
 
 	Source *string `json:"source"`
 
+	ExternalId *string `json:"externalId"`
+
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
@@ -1829,6 +1842,7 @@ func (v *AgentTaskAssignAssignAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
@@ -1950,6 +1964,9 @@ func (v *AgentTaskCancelCancelAgentTask) GetTags() []string { return v.AgentTask
 // GetSource returns AgentTaskCancelCancelAgentTask.Source, and is useful for accessing the field via an interface.
 func (v *AgentTaskCancelCancelAgentTask) GetSource() *string { return v.AgentTaskFields.Source }
 
+// GetExternalId returns AgentTaskCancelCancelAgentTask.ExternalId, and is useful for accessing the field via an interface.
+func (v *AgentTaskCancelCancelAgentTask) GetExternalId() *string { return v.AgentTaskFields.ExternalId }
+
 // GetReferences returns AgentTaskCancelCancelAgentTask.References, and is useful for accessing the field via an interface.
 func (v *AgentTaskCancelCancelAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
 	return v.AgentTaskFields.References
@@ -2066,6 +2083,8 @@ type __premarshalAgentTaskCancelCancelAgentTask struct {
 
 	Source *string `json:"source"`
 
+	ExternalId *string `json:"externalId"`
+
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
@@ -2122,6 +2141,7 @@ func (v *AgentTaskCancelCancelAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
@@ -2243,6 +2263,9 @@ func (v *AgentTaskCreateCreateAgentTask) GetTags() []string { return v.AgentTask
 // GetSource returns AgentTaskCreateCreateAgentTask.Source, and is useful for accessing the field via an interface.
 func (v *AgentTaskCreateCreateAgentTask) GetSource() *string { return v.AgentTaskFields.Source }
 
+// GetExternalId returns AgentTaskCreateCreateAgentTask.ExternalId, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateCreateAgentTask) GetExternalId() *string { return v.AgentTaskFields.ExternalId }
+
 // GetReferences returns AgentTaskCreateCreateAgentTask.References, and is useful for accessing the field via an interface.
 func (v *AgentTaskCreateCreateAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
 	return v.AgentTaskFields.References
@@ -2359,6 +2382,8 @@ type __premarshalAgentTaskCreateCreateAgentTask struct {
 
 	Source *string `json:"source"`
 
+	ExternalId *string `json:"externalId"`
+
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
@@ -2415,6 +2440,7 @@ func (v *AgentTaskCreateCreateAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
@@ -2805,6 +2831,8 @@ type AgentTaskFields struct {
 	Tags         []string `json:"tags"`
 	// Opaque origin reference (an issue URL, a node URN). Not interpreted.
 	Source *string `json:"source"`
+	// #3125 S2 (hrn:node:hadronmemory.com:specs:cor:agt:120:02): the outside item this task claims (an issue's canonical URL), set once at creation and never edited. Unique within the App, whatever the task's state. Null when none.
+	ExternalId *string `json:"externalId"`
 	// #2649 (hrn:node:hadronmemory.com:specs:cor:agt:050:01): the task's ordered, typed references to other things. Each
 	// target is the string as stored: never fetched or resolved, so it says nothing about the target's content or whether
 	// it exists. Empty when none.
@@ -2893,6 +2921,9 @@ func (v *AgentTaskFields) GetTags() []string { return v.Tags }
 
 // GetSource returns AgentTaskFields.Source, and is useful for accessing the field via an interface.
 func (v *AgentTaskFields) GetSource() *string { return v.Source }
+
+// GetExternalId returns AgentTaskFields.ExternalId, and is useful for accessing the field via an interface.
+func (v *AgentTaskFields) GetExternalId() *string { return v.ExternalId }
 
 // GetReferences returns AgentTaskFields.References, and is useful for accessing the field via an interface.
 func (v *AgentTaskFields) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
@@ -3647,6 +3678,9 @@ func (v *AgentTaskFinishFinishAgentTask) GetTags() []string { return v.AgentTask
 // GetSource returns AgentTaskFinishFinishAgentTask.Source, and is useful for accessing the field via an interface.
 func (v *AgentTaskFinishFinishAgentTask) GetSource() *string { return v.AgentTaskFields.Source }
 
+// GetExternalId returns AgentTaskFinishFinishAgentTask.ExternalId, and is useful for accessing the field via an interface.
+func (v *AgentTaskFinishFinishAgentTask) GetExternalId() *string { return v.AgentTaskFields.ExternalId }
+
 // GetReferences returns AgentTaskFinishFinishAgentTask.References, and is useful for accessing the field via an interface.
 func (v *AgentTaskFinishFinishAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
 	return v.AgentTaskFields.References
@@ -3763,6 +3797,8 @@ type __premarshalAgentTaskFinishFinishAgentTask struct {
 
 	Source *string `json:"source"`
 
+	ExternalId *string `json:"externalId"`
+
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
@@ -3819,6 +3855,7 @@ func (v *AgentTaskFinishFinishAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
@@ -3932,6 +3969,9 @@ func (v *AgentTaskGetAgentTask) GetTags() []string { return v.AgentTaskFields.Ta
 // GetSource returns AgentTaskGetAgentTask.Source, and is useful for accessing the field via an interface.
 func (v *AgentTaskGetAgentTask) GetSource() *string { return v.AgentTaskFields.Source }
 
+// GetExternalId returns AgentTaskGetAgentTask.ExternalId, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTask) GetExternalId() *string { return v.AgentTaskFields.ExternalId }
+
 // GetReferences returns AgentTaskGetAgentTask.References, and is useful for accessing the field via an interface.
 func (v *AgentTaskGetAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
 	return v.AgentTaskFields.References
@@ -4044,6 +4084,8 @@ type __premarshalAgentTaskGetAgentTask struct {
 
 	Source *string `json:"source"`
 
+	ExternalId *string `json:"externalId"`
+
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
@@ -4100,6 +4142,7 @@ func (v *AgentTaskGetAgentTask) __premarshalJSON() (*__premarshalAgentTaskGetAge
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
@@ -4241,6 +4284,11 @@ func (v *AgentTaskHandBackHandBackAgentTask) GetTags() []string { return v.Agent
 // GetSource returns AgentTaskHandBackHandBackAgentTask.Source, and is useful for accessing the field via an interface.
 func (v *AgentTaskHandBackHandBackAgentTask) GetSource() *string { return v.AgentTaskFields.Source }
 
+// GetExternalId returns AgentTaskHandBackHandBackAgentTask.ExternalId, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetExternalId() *string {
+	return v.AgentTaskFields.ExternalId
+}
+
 // GetReferences returns AgentTaskHandBackHandBackAgentTask.References, and is useful for accessing the field via an interface.
 func (v *AgentTaskHandBackHandBackAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
 	return v.AgentTaskFields.References
@@ -4365,6 +4413,8 @@ type __premarshalAgentTaskHandBackHandBackAgentTask struct {
 
 	Source *string `json:"source"`
 
+	ExternalId *string `json:"externalId"`
+
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
@@ -4421,6 +4471,7 @@ func (v *AgentTaskHandBackHandBackAgentTask) __premarshalJSON() (*__premarshalAg
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
@@ -4653,6 +4704,11 @@ func (v *AgentTaskListAgentTasksAgentTask) GetTags() []string { return v.AgentTa
 // GetSource returns AgentTaskListAgentTasksAgentTask.Source, and is useful for accessing the field via an interface.
 func (v *AgentTaskListAgentTasksAgentTask) GetSource() *string { return v.AgentTaskFields.Source }
 
+// GetExternalId returns AgentTaskListAgentTasksAgentTask.ExternalId, and is useful for accessing the field via an interface.
+func (v *AgentTaskListAgentTasksAgentTask) GetExternalId() *string {
+	return v.AgentTaskFields.ExternalId
+}
+
 // GetReferences returns AgentTaskListAgentTasksAgentTask.References, and is useful for accessing the field via an interface.
 func (v *AgentTaskListAgentTasksAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
 	return v.AgentTaskFields.References
@@ -4771,6 +4827,8 @@ type __premarshalAgentTaskListAgentTasksAgentTask struct {
 
 	Source *string `json:"source"`
 
+	ExternalId *string `json:"externalId"`
+
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
@@ -4827,6 +4885,7 @@ func (v *AgentTaskListAgentTasksAgentTask) __premarshalJSON() (*__premarshalAgen
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
@@ -4941,6 +5000,11 @@ func (v *AgentTaskListFilteredAgentTasksAgentTask) GetTags() []string { return v
 // GetSource returns AgentTaskListFilteredAgentTasksAgentTask.Source, and is useful for accessing the field via an interface.
 func (v *AgentTaskListFilteredAgentTasksAgentTask) GetSource() *string {
 	return v.AgentTaskFields.Source
+}
+
+// GetExternalId returns AgentTaskListFilteredAgentTasksAgentTask.ExternalId, and is useful for accessing the field via an interface.
+func (v *AgentTaskListFilteredAgentTasksAgentTask) GetExternalId() *string {
+	return v.AgentTaskFields.ExternalId
 }
 
 // GetReferences returns AgentTaskListFilteredAgentTasksAgentTask.References, and is useful for accessing the field via an interface.
@@ -5069,6 +5133,8 @@ type __premarshalAgentTaskListFilteredAgentTasksAgentTask struct {
 
 	Source *string `json:"source"`
 
+	ExternalId *string `json:"externalId"`
+
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
@@ -5125,6 +5191,7 @@ func (v *AgentTaskListFilteredAgentTasksAgentTask) __premarshalJSON() (*__premar
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
@@ -5275,6 +5342,11 @@ func (v *AgentTaskListTextAgentTasksAgentTask) GetTags() []string { return v.Age
 // GetSource returns AgentTaskListTextAgentTasksAgentTask.Source, and is useful for accessing the field via an interface.
 func (v *AgentTaskListTextAgentTasksAgentTask) GetSource() *string { return v.AgentTaskFields.Source }
 
+// GetExternalId returns AgentTaskListTextAgentTasksAgentTask.ExternalId, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetExternalId() *string {
+	return v.AgentTaskFields.ExternalId
+}
+
 // GetReferences returns AgentTaskListTextAgentTasksAgentTask.References, and is useful for accessing the field via an interface.
 func (v *AgentTaskListTextAgentTasksAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
 	return v.AgentTaskFields.References
@@ -5399,6 +5471,8 @@ type __premarshalAgentTaskListTextAgentTasksAgentTask struct {
 
 	Source *string `json:"source"`
 
+	ExternalId *string `json:"externalId"`
+
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
@@ -5455,6 +5529,7 @@ func (v *AgentTaskListTextAgentTasksAgentTask) __premarshalJSON() (*__premarshal
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
@@ -5594,6 +5669,9 @@ func (v *AgentTaskParkParkAgentTask) GetTags() []string { return v.AgentTaskFiel
 // GetSource returns AgentTaskParkParkAgentTask.Source, and is useful for accessing the field via an interface.
 func (v *AgentTaskParkParkAgentTask) GetSource() *string { return v.AgentTaskFields.Source }
 
+// GetExternalId returns AgentTaskParkParkAgentTask.ExternalId, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetExternalId() *string { return v.AgentTaskFields.ExternalId }
+
 // GetReferences returns AgentTaskParkParkAgentTask.References, and is useful for accessing the field via an interface.
 func (v *AgentTaskParkParkAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
 	return v.AgentTaskFields.References
@@ -5708,6 +5786,8 @@ type __premarshalAgentTaskParkParkAgentTask struct {
 
 	Source *string `json:"source"`
 
+	ExternalId *string `json:"externalId"`
+
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
@@ -5764,6 +5844,7 @@ func (v *AgentTaskParkParkAgentTask) __premarshalJSON() (*__premarshalAgentTaskP
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
@@ -5956,6 +6037,11 @@ func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetSource() *string 
 	return v.AgentTaskFields.Source
 }
 
+// GetExternalId returns AgentTaskProgressRecordAgentTaskProgressAgentTask.ExternalId, and is useful for accessing the field via an interface.
+func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetExternalId() *string {
+	return v.AgentTaskFields.ExternalId
+}
+
 // GetReferences returns AgentTaskProgressRecordAgentTaskProgressAgentTask.References, and is useful for accessing the field via an interface.
 func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
 	return v.AgentTaskFields.References
@@ -6082,6 +6168,8 @@ type __premarshalAgentTaskProgressRecordAgentTaskProgressAgentTask struct {
 
 	Source *string `json:"source"`
 
+	ExternalId *string `json:"externalId"`
+
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
@@ -6138,6 +6226,7 @@ func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) __premarshalJSON() (
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
@@ -6266,6 +6355,11 @@ func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetSource() *string {
 	return v.AgentTaskFields.Source
 }
 
+// GetExternalId returns AgentTaskReadyMakeAgentTaskReadyAgentTask.ExternalId, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetExternalId() *string {
+	return v.AgentTaskFields.ExternalId
+}
+
 // GetReferences returns AgentTaskReadyMakeAgentTaskReadyAgentTask.References, and is useful for accessing the field via an interface.
 func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
 	return v.AgentTaskFields.References
@@ -6392,6 +6486,8 @@ type __premarshalAgentTaskReadyMakeAgentTaskReadyAgentTask struct {
 
 	Source *string `json:"source"`
 
+	ExternalId *string `json:"externalId"`
+
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
@@ -6448,6 +6544,7 @@ func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) __premarshalJSON() (*__prema
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
@@ -6571,6 +6668,11 @@ func (v *AgentTaskReassignReassignAgentTask) GetTags() []string { return v.Agent
 
 // GetSource returns AgentTaskReassignReassignAgentTask.Source, and is useful for accessing the field via an interface.
 func (v *AgentTaskReassignReassignAgentTask) GetSource() *string { return v.AgentTaskFields.Source }
+
+// GetExternalId returns AgentTaskReassignReassignAgentTask.ExternalId, and is useful for accessing the field via an interface.
+func (v *AgentTaskReassignReassignAgentTask) GetExternalId() *string {
+	return v.AgentTaskFields.ExternalId
+}
 
 // GetReferences returns AgentTaskReassignReassignAgentTask.References, and is useful for accessing the field via an interface.
 func (v *AgentTaskReassignReassignAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
@@ -6696,6 +6798,8 @@ type __premarshalAgentTaskReassignReassignAgentTask struct {
 
 	Source *string `json:"source"`
 
+	ExternalId *string `json:"externalId"`
+
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
@@ -6752,6 +6856,7 @@ func (v *AgentTaskReassignReassignAgentTask) __premarshalJSON() (*__premarshalAg
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
@@ -6948,6 +7053,11 @@ func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetSource() *str
 	return v.AgentTaskFields.Source
 }
 
+// GetExternalId returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.ExternalId, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetExternalId() *string {
+	return v.AgentTaskFields.ExternalId
+}
+
 // GetReferences returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.References, and is useful for accessing the field via an interface.
 func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
 	return v.AgentTaskFields.References
@@ -7074,6 +7184,8 @@ type __premarshalAgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask struct {
 
 	Source *string `json:"source"`
 
+	ExternalId *string `json:"externalId"`
+
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
@@ -7130,6 +7242,7 @@ func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) __premarshalJSON
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
@@ -7330,6 +7443,11 @@ func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetSource() *string 
 	return v.AgentTaskFields.Source
 }
 
+// GetExternalId returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.ExternalId, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetExternalId() *string {
+	return v.AgentTaskFields.ExternalId
+}
+
 // GetReferences returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.References, and is useful for accessing the field via an interface.
 func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
 	return v.AgentTaskFields.References
@@ -7456,6 +7574,8 @@ type __premarshalAgentTaskSetPrioritySetAgentTaskPriorityAgentTask struct {
 
 	Source *string `json:"source"`
 
+	ExternalId *string `json:"externalId"`
+
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
@@ -7512,6 +7632,7 @@ func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) __premarshalJSON() (
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
@@ -7683,6 +7804,9 @@ func (v *AgentTaskStartStartAgentTask) GetTags() []string { return v.AgentTaskFi
 // GetSource returns AgentTaskStartStartAgentTask.Source, and is useful for accessing the field via an interface.
 func (v *AgentTaskStartStartAgentTask) GetSource() *string { return v.AgentTaskFields.Source }
 
+// GetExternalId returns AgentTaskStartStartAgentTask.ExternalId, and is useful for accessing the field via an interface.
+func (v *AgentTaskStartStartAgentTask) GetExternalId() *string { return v.AgentTaskFields.ExternalId }
+
 // GetReferences returns AgentTaskStartStartAgentTask.References, and is useful for accessing the field via an interface.
 func (v *AgentTaskStartStartAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
 	return v.AgentTaskFields.References
@@ -7797,6 +7921,8 @@ type __premarshalAgentTaskStartStartAgentTask struct {
 
 	Source *string `json:"source"`
 
+	ExternalId *string `json:"externalId"`
+
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
@@ -7853,6 +7979,7 @@ func (v *AgentTaskStartStartAgentTask) __premarshalJSON() (*__premarshalAgentTas
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
@@ -8080,6 +8207,11 @@ func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetTags() []string { return v.Agen
 // GetSource returns AgentTaskTreeAgentTaskTreeAgentTask.Source, and is useful for accessing the field via an interface.
 func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetSource() *string { return v.AgentTaskFields.Source }
 
+// GetExternalId returns AgentTaskTreeAgentTaskTreeAgentTask.ExternalId, and is useful for accessing the field via an interface.
+func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetExternalId() *string {
+	return v.AgentTaskFields.ExternalId
+}
+
 // GetReferences returns AgentTaskTreeAgentTaskTreeAgentTask.References, and is useful for accessing the field via an interface.
 func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
 	return v.AgentTaskFields.References
@@ -8204,6 +8336,8 @@ type __premarshalAgentTaskTreeAgentTaskTreeAgentTask struct {
 
 	Source *string `json:"source"`
 
+	ExternalId *string `json:"externalId"`
+
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
@@ -8260,6 +8394,7 @@ func (v *AgentTaskTreeAgentTaskTreeAgentTask) __premarshalJSON() (*__premarshalA
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
@@ -8391,6 +8526,9 @@ func (v *AgentTaskUpdateUpdateAgentTask) GetTags() []string { return v.AgentTask
 // GetSource returns AgentTaskUpdateUpdateAgentTask.Source, and is useful for accessing the field via an interface.
 func (v *AgentTaskUpdateUpdateAgentTask) GetSource() *string { return v.AgentTaskFields.Source }
 
+// GetExternalId returns AgentTaskUpdateUpdateAgentTask.ExternalId, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetExternalId() *string { return v.AgentTaskFields.ExternalId }
+
 // GetReferences returns AgentTaskUpdateUpdateAgentTask.References, and is useful for accessing the field via an interface.
 func (v *AgentTaskUpdateUpdateAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
 	return v.AgentTaskFields.References
@@ -8507,6 +8645,8 @@ type __premarshalAgentTaskUpdateUpdateAgentTask struct {
 
 	Source *string `json:"source"`
 
+	ExternalId *string `json:"externalId"`
+
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
@@ -8563,6 +8703,7 @@ func (v *AgentTaskUpdateUpdateAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.StartBy = v.AgentTaskFields.StartBy
@@ -12100,6 +12241,53 @@ type AppMemoryWriteGrantsResponse struct {
 func (v *AppMemoryWriteGrantsResponse) GetAppMemoryWriteGrants() []*AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant {
 	return v.AppMemoryWriteGrants
 }
+
+// AppPropertiesGetApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type AppPropertiesGetApp struct {
+	Id  string `json:"id"`
+	Urn string `json:"urn"`
+	// #3125 S1: the revision setAppProperties checks expectedRevision against. 0 until the first changing write; each changing write adds 1. Null for a caller who may not read properties.
+	PropertiesRevision *int `json:"propertiesRevision"`
+	// #3125 S1 (hrn:node:hadronmemory.com:specs:cor:dmo:050:02, hrn:node:hadronmemory.com:specs:cor:dmo:050:20): the App's
+	// own JSON object, written whole by whoever manages it (setAppProperties). Readable by whoever may read the App by
+	// app(ref:) (an org member, or the user-owner) and by whoever manages it; null for anyone else, an App key included,
+	// whichever field reached the App. Never put a secret here. The platform reads only the taskIntegrations key
+	// (hrn:node:hadronmemory.com:specs:cor:agt:120:01), where each team lead reads as its worker URN; every other key is
+	// the team's, returned as written. Null = no properties.
+	Properties *json.RawMessage `json:"properties"`
+}
+
+// GetId returns AppPropertiesGetApp.Id, and is useful for accessing the field via an interface.
+func (v *AppPropertiesGetApp) GetId() string { return v.Id }
+
+// GetUrn returns AppPropertiesGetApp.Urn, and is useful for accessing the field via an interface.
+func (v *AppPropertiesGetApp) GetUrn() string { return v.Urn }
+
+// GetPropertiesRevision returns AppPropertiesGetApp.PropertiesRevision, and is useful for accessing the field via an interface.
+func (v *AppPropertiesGetApp) GetPropertiesRevision() *int { return v.PropertiesRevision }
+
+// GetProperties returns AppPropertiesGetApp.Properties, and is useful for accessing the field via an interface.
+func (v *AppPropertiesGetApp) GetProperties() *json.RawMessage { return v.Properties }
+
+// AppPropertiesGetResponse is returned by AppPropertiesGet on success.
+type AppPropertiesGetResponse struct {
+	// Fetch an App (member of the App's org, or platform ADMIN — the myApps
+	// exposure bar; #473 relaxed this from org ADMIN for read parity with the
+	// list).
+	//
+	// 'ref' accepts the entity's ID or URN.
+	App *AppPropertiesGetApp `json:"app"`
+}
+
+// GetApp returns AppPropertiesGetResponse.App, and is useful for accessing the field via an interface.
+func (v *AppPropertiesGetResponse) GetApp() *AppPropertiesGetApp { return v.App }
 
 // AppRunAppRun includes the requested fields of the GraphQL type AppRun.
 // The GraphQL type's documentation follows.
@@ -23137,6 +23325,12 @@ type CreateAgentTaskInput struct {
 	// Defaults to false: the assignee's session ends only when whoever assigns the task asks (hrn:node:hadronmemory.com:specs:cor:agt:050:10).
 	CloseSessionWhenDone *bool   `json:"closeSessionWhenDone"`
 	Description          *string `json:"description"`
+	// #3125 S2 (hrn:node:hadronmemory.com:specs:cor:agt:120:02): the outside item this task claims, for example an issue's
+	// canonical URL. Stored and compared exactly as written; 1 to 512 characters with no whitespace, control or invisible
+	// format character and no user name or password (else BAD_USER_INPUT). Set only here: no edit takes it. A second
+	// task with the same value in this App, whatever the first task's state, is refused TASK_EXTERNAL_ID_TAKEN, which
+	// names no task (find it with agentTasks(externalId:)). Another App's tasks never conflict.
+	ExternalId *string `json:"externalId,omitempty"`
 	// #2648 (hrn:node:hadronmemory.com:specs:cor:agt:050:14): an optional finish-by deadline; refused BAD_USER_INPUT if in the past or earlier than startBy. While set, the task raises no stall-window alarm, only stall.finish-by once it passes unfinished.
 	FinishBy *string `json:"finishBy,omitempty"`
 	// Defaults to the creator. A root task's creator may name any other
@@ -23180,6 +23374,9 @@ func (v *CreateAgentTaskInput) GetCloseSessionWhenDone() *bool { return v.CloseS
 
 // GetDescription returns CreateAgentTaskInput.Description, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetDescription() *string { return v.Description }
+
+// GetExternalId returns CreateAgentTaskInput.ExternalId, and is useful for accessing the field via an interface.
+func (v *CreateAgentTaskInput) GetExternalId() *string { return v.ExternalId }
 
 // GetFinishBy returns CreateAgentTaskInput.FinishBy, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetFinishBy() *string { return v.FinishBy }
@@ -60458,6 +60655,63 @@ func (v *SetAppModelGroupSetAppModelGroup) GetPatterns() []string { return v.Pat
 // GetUpdatedAt returns SetAppModelGroupSetAppModelGroup.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *SetAppModelGroupSetAppModelGroup) GetUpdatedAt() string { return v.UpdatedAt }
 
+// SetAppPropertiesResponse is returned by SetAppProperties on success.
+type SetAppPropertiesResponse struct {
+	// #3125 S1 (hrn:node:hadronmemory.com:specs:cor:dmo:050:20) — replace the App's properties with this JSON object; null
+	// or an empty object clears them. Whoever manages the App only, as a person acting as themselves (a worker session,
+	// an App key and an impersonation are refused). Never put a secret here. When expectedRevision is sent it must equal
+	// App.propertiesRevision. A write that changes nothing changes no revision and records no event; a changing write
+	// records app.properties-changed naming the changed top-level keys, never values. Bounds: 16 KiB of JSON, 64 levels.
+	// The taskIntegrations key (hrn:node:hadronmemory.com:specs:cor:agt:120:01) is validated: a list of
+	// { name, provider: "github", repositories: ["owner/name"], readyLabel?, excludeLabels?, teams?: [{ lead, label }] },
+	// where lead is a worker of this App (URN, id or name). Refusals: FORBIDDEN, PROPERTIES_NOT_AN_OBJECT,
+	// PROPERTIES_TOO_LARGE, PROPERTIES_KEY_RESERVED (a key named __proto__ at any depth, which cannot be stored; names the
+	// path), TASK_INTEGRATION_ORG_REQUIRED (an App with no organization), TASK_INTEGRATION_INVALID (names the JSON path,
+	// never the value), APP_PROPERTIES_CONFLICT.
+	SetAppProperties *SetAppPropertiesSetAppPropertiesApp `json:"setAppProperties"`
+}
+
+// GetSetAppProperties returns SetAppPropertiesResponse.SetAppProperties, and is useful for accessing the field via an interface.
+func (v *SetAppPropertiesResponse) GetSetAppProperties() *SetAppPropertiesSetAppPropertiesApp {
+	return v.SetAppProperties
+}
+
+// SetAppPropertiesSetAppPropertiesApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type SetAppPropertiesSetAppPropertiesApp struct {
+	Id  string `json:"id"`
+	Urn string `json:"urn"`
+	// #3125 S1: the revision setAppProperties checks expectedRevision against. 0 until the first changing write; each changing write adds 1. Null for a caller who may not read properties.
+	PropertiesRevision *int `json:"propertiesRevision"`
+	// #3125 S1 (hrn:node:hadronmemory.com:specs:cor:dmo:050:02, hrn:node:hadronmemory.com:specs:cor:dmo:050:20): the App's
+	// own JSON object, written whole by whoever manages it (setAppProperties). Readable by whoever may read the App by
+	// app(ref:) (an org member, or the user-owner) and by whoever manages it; null for anyone else, an App key included,
+	// whichever field reached the App. Never put a secret here. The platform reads only the taskIntegrations key
+	// (hrn:node:hadronmemory.com:specs:cor:agt:120:01), where each team lead reads as its worker URN; every other key is
+	// the team's, returned as written. Null = no properties.
+	Properties *json.RawMessage `json:"properties"`
+}
+
+// GetId returns SetAppPropertiesSetAppPropertiesApp.Id, and is useful for accessing the field via an interface.
+func (v *SetAppPropertiesSetAppPropertiesApp) GetId() string { return v.Id }
+
+// GetUrn returns SetAppPropertiesSetAppPropertiesApp.Urn, and is useful for accessing the field via an interface.
+func (v *SetAppPropertiesSetAppPropertiesApp) GetUrn() string { return v.Urn }
+
+// GetPropertiesRevision returns SetAppPropertiesSetAppPropertiesApp.PropertiesRevision, and is useful for accessing the field via an interface.
+func (v *SetAppPropertiesSetAppPropertiesApp) GetPropertiesRevision() *int {
+	return v.PropertiesRevision
+}
+
+// GetProperties returns SetAppPropertiesSetAppPropertiesApp.Properties, and is useful for accessing the field via an interface.
+func (v *SetAppPropertiesSetAppPropertiesApp) GetProperties() *json.RawMessage { return v.Properties }
+
 // SetAssetPublicLinkResponse is returned by SetAssetPublicLink on success.
 type SetAssetPublicLinkResponse struct {
 	// #1667 — switch an asset's anonymous public link on or off. Only whoever
@@ -82289,6 +82543,7 @@ type __AgentTaskListFilteredInput struct {
 	RootsOnly      *bool                     `json:"rootsOnly,omitempty"`
 	Reference      *AgentTaskReferenceFilter `json:"reference,omitempty"`
 	Source         *string                   `json:"source,omitempty"`
+	ExternalId     *string                   `json:"externalId,omitempty"`
 	StartedAfter   *string                   `json:"startedAfter,omitempty"`
 	StartedBefore  *string                   `json:"startedBefore,omitempty"`
 	Status         []AgentTaskStatus         `json:"status,omitempty"`
@@ -82342,6 +82597,9 @@ func (v *__AgentTaskListFilteredInput) GetReference() *AgentTaskReferenceFilter 
 
 // GetSource returns __AgentTaskListFilteredInput.Source, and is useful for accessing the field via an interface.
 func (v *__AgentTaskListFilteredInput) GetSource() *string { return v.Source }
+
+// GetExternalId returns __AgentTaskListFilteredInput.ExternalId, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListFilteredInput) GetExternalId() *string { return v.ExternalId }
 
 // GetStartedAfter returns __AgentTaskListFilteredInput.StartedAfter, and is useful for accessing the field via an interface.
 func (v *__AgentTaskListFilteredInput) GetStartedAfter() *string { return v.StartedAfter }
@@ -82775,6 +83033,14 @@ func (v *__AppMemoryWriteGrantsInput) GetAppRef() string { return v.AppRef }
 
 // GetIncludeRevoked returns __AppMemoryWriteGrantsInput.IncludeRevoked, and is useful for accessing the field via an interface.
 func (v *__AppMemoryWriteGrantsInput) GetIncludeRevoked() *bool { return v.IncludeRevoked }
+
+// __AppPropertiesGetInput is used internally by genqlient
+type __AppPropertiesGetInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __AppPropertiesGetInput.Ref, and is useful for accessing the field via an interface.
+func (v *__AppPropertiesGetInput) GetRef() string { return v.Ref }
 
 // __AppRunInput is used internally by genqlient
 type __AppRunInput struct {
@@ -87686,6 +87952,22 @@ func (v *__SetAppModelGroupInput) GetName() string { return v.Name }
 // GetPatterns returns __SetAppModelGroupInput.Patterns, and is useful for accessing the field via an interface.
 func (v *__SetAppModelGroupInput) GetPatterns() []string { return v.Patterns }
 
+// __SetAppPropertiesInput is used internally by genqlient
+type __SetAppPropertiesInput struct {
+	AppRef           string           `json:"appRef"`
+	Properties       *json.RawMessage `json:"properties"`
+	ExpectedRevision *int             `json:"expectedRevision,omitempty"`
+}
+
+// GetAppRef returns __SetAppPropertiesInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__SetAppPropertiesInput) GetAppRef() string { return v.AppRef }
+
+// GetProperties returns __SetAppPropertiesInput.Properties, and is useful for accessing the field via an interface.
+func (v *__SetAppPropertiesInput) GetProperties() *json.RawMessage { return v.Properties }
+
+// GetExpectedRevision returns __SetAppPropertiesInput.ExpectedRevision, and is useful for accessing the field via an interface.
+func (v *__SetAppPropertiesInput) GetExpectedRevision() *int { return v.ExpectedRevision }
+
 // __SetAssetPublicLinkInput is used internally by genqlient
 type __SetAssetPublicLinkInput struct {
 	AssetRef string `json:"assetRef"`
@@ -90552,6 +90834,7 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	externalId
 	references {
 		kind
 		target
@@ -90674,6 +90957,7 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	externalId
 	references {
 		kind
 		target
@@ -90800,6 +91084,7 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	externalId
 	references {
 		kind
 		target
@@ -90920,6 +91205,7 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	externalId
 	references {
 		kind
 		target
@@ -90977,6 +91263,9 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 // Schema-only optional fields must stay absent for older providers.
 // The schema refresh for cli#1513 brought finishBy (#2648) in; this CLI does not implement it, so it is omitted from the wire, never an explicit null.
 // #2420: the task's own properties object. A pointer field, omitted when nil.
+// cli#1524 C1 (hadron-server#3125 S2, cor:agt:120:02): the claimed outside item.
+// Absent unless --external-id is given, so an ordinary create is unchanged and
+// an older server never sees the field.
 // cli#1485 S3 (Andi BLIND P2): the model-group requirement fields arrived with
 // the schema refresh (server #3029) and S2 exposes them as optional flags. Absent,
 // not null, so ordinary create/update bodies are unchanged and an older server
@@ -91113,6 +91402,7 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	externalId
 	references {
 		kind
 		target
@@ -91235,6 +91525,7 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	externalId
 	references {
 		kind
 		target
@@ -91355,6 +91646,7 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	externalId
 	references {
 		kind
 		target
@@ -91520,6 +91812,7 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	externalId
 	references {
 		kind
 		target
@@ -91614,8 +91907,8 @@ func AgentTaskList(
 
 // The query executed by AgentTaskListFiltered.
 const AgentTaskListFiltered_Operation = `
-query AgentTaskListFiltered ($appRef: ID!, $assignee: AgentTaskPartyInput, $createdAfter: DateTime, $createdBefore: DateTime, $finishedAfter: DateTime, $finishedBefore: DateTime, $limit: Int, $offset: Int, $overdue: Boolean, $owner: AgentTaskPartyInput, $parentTaskId: ID, $queued: Boolean, $rootsOnly: Boolean, $reference: AgentTaskReferenceFilter, $source: String, $startedAfter: DateTime, $startedBefore: DateTime, $status: [AgentTaskStatus!], $tag: String, $tagsAll: [String!], $tagsAny: [String!], $text: String) {
-	agentTasks(appRef: $appRef, assignee: $assignee, createdAfter: $createdAfter, createdBefore: $createdBefore, finishedAfter: $finishedAfter, finishedBefore: $finishedBefore, limit: $limit, offset: $offset, overdue: $overdue, owner: $owner, parentTaskId: $parentTaskId, queued: $queued, reference: $reference, rootsOnly: $rootsOnly, source: $source, startedAfter: $startedAfter, startedBefore: $startedBefore, status: $status, tag: $tag, tagsAll: $tagsAll, tagsAny: $tagsAny, text: $text) {
+query AgentTaskListFiltered ($appRef: ID!, $assignee: AgentTaskPartyInput, $createdAfter: DateTime, $createdBefore: DateTime, $finishedAfter: DateTime, $finishedBefore: DateTime, $limit: Int, $offset: Int, $overdue: Boolean, $owner: AgentTaskPartyInput, $parentTaskId: ID, $queued: Boolean, $rootsOnly: Boolean, $reference: AgentTaskReferenceFilter, $source: String, $externalId: String, $startedAfter: DateTime, $startedBefore: DateTime, $status: [AgentTaskStatus!], $tag: String, $tagsAll: [String!], $tagsAny: [String!], $text: String) {
+	agentTasks(appRef: $appRef, assignee: $assignee, createdAfter: $createdAfter, createdBefore: $createdBefore, finishedAfter: $finishedAfter, finishedBefore: $finishedBefore, limit: $limit, offset: $offset, overdue: $overdue, owner: $owner, parentTaskId: $parentTaskId, queued: $queued, reference: $reference, rootsOnly: $rootsOnly, source: $source, externalId: $externalId, startedAfter: $startedAfter, startedBefore: $startedBefore, status: $status, tag: $tag, tagsAll: $tagsAll, tagsAny: $tagsAny, text: $text) {
 		... AgentTaskFields
 	}
 }
@@ -91660,6 +91953,7 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	externalId
 	references {
 		kind
 		target
@@ -91729,6 +92023,7 @@ func AgentTaskListFiltered(
 	rootsOnly *bool,
 	reference *AgentTaskReferenceFilter,
 	source *string,
+	externalId *string,
 	startedAfter *string,
 	startedBefore *string,
 	status []AgentTaskStatus,
@@ -91756,6 +92051,7 @@ func AgentTaskListFiltered(
 			RootsOnly:      rootsOnly,
 			Reference:      reference,
 			Source:         source,
+			ExternalId:     externalId,
 			StartedAfter:   startedAfter,
 			StartedBefore:  startedBefore,
 			Status:         status,
@@ -91826,6 +92122,7 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	externalId
 	references {
 		kind
 		target
@@ -91967,6 +92264,7 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	externalId
 	references {
 		kind
 		target
@@ -92091,6 +92389,7 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	externalId
 	references {
 		kind
 		target
@@ -92211,6 +92510,7 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	externalId
 	references {
 		kind
 		target
@@ -92334,6 +92634,7 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	externalId
 	references {
 		kind
 		target
@@ -92458,6 +92759,7 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	externalId
 	references {
 		kind
 		target
@@ -92580,6 +92882,7 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	externalId
 	references {
 		kind
 		target
@@ -92703,6 +93006,7 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	externalId
 	references {
 		kind
 		target
@@ -92877,6 +93181,7 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	externalId
 	references {
 		kind
 		target
@@ -92997,6 +93302,7 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	externalId
 	references {
 		kind
 		target
@@ -93990,6 +94296,45 @@ func AppMemoryWriteGrants(
 	}
 
 	data_ = &AppMemoryWriteGrantsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AppPropertiesGet.
+const AppPropertiesGet_Operation = `
+query AppPropertiesGet ($ref: ID!) {
+	app(ref: $ref) {
+		id
+		urn
+		propertiesRevision
+		properties
+	}
+}
+`
+
+// cli#1524 C2: `app properties get` — the object and the revision
+// `set/clear --expected-revision` checks against.
+func AppPropertiesGet(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *AppPropertiesGetResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AppPropertiesGet",
+		Query:  AppPropertiesGet_Operation,
+		Variables: &__AppPropertiesGetInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &AppPropertiesGetResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -112503,6 +112848,51 @@ func SetAppModelGroup(
 	}
 
 	data_ = &SetAppModelGroupResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by SetAppProperties.
+const SetAppProperties_Operation = `
+mutation SetAppProperties ($appRef: String!, $properties: JSON, $expectedRevision: Int) {
+	setAppProperties(appRef: $appRef, properties: $properties, expectedRevision: $expectedRevision) {
+		id
+		urn
+		propertiesRevision
+		properties
+	}
+}
+`
+
+// cli#1524 C2 (cor:dmo:050:20): replace the App's properties whole; null
+// clears. `properties` is NOT omitempty: a nil RawMessage is sent as an
+// explicit null, which is how `clear` asks. expectedRevision is omitted unless
+// --expected-revision is given.
+func SetAppProperties(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	properties *json.RawMessage,
+	expectedRevision *int,
+) (data_ *SetAppPropertiesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SetAppProperties",
+		Query:  SetAppProperties_Operation,
+		Variables: &__SetAppPropertiesInput{
+			AppRef:           appRef,
+			Properties:       properties,
+			ExpectedRevision: expectedRevision,
+		},
+	}
+
+	data_ = &SetAppPropertiesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

@@ -183,7 +183,7 @@ func writeCloseSessionLine(w io.Writer, task taskDTO) error {
 // ---- create ---------------------------------------------------------------
 
 func newCmdTeamTaskCreate(f *cmdutil.Factory) *cobra.Command {
-	var description, owner, assignee, parent, source, startBy, status string
+	var description, owner, assignee, parent, source, externalID, startBy, status string
 	var tags, blockedBy, refs []string
 	var priority int
 	var requireRole, familyIn, familyNotIn, modelGroupIn, modelGroupNotIn, minTier, properties string
@@ -198,6 +198,12 @@ comes from --app, else the configured App context, else the worktree binding;
 a child task takes its App from the parent (an --app that disagrees is
 refused). Pass --source (an issue URL or node URN) so readers can trace the
 task: without one the server adds the warning task.create.no-source.
+
+--external-id <id> records the outside item the task CLAIMS, such as the
+issue URL (cor:agt:120:02). It is unique per App and set once: a second task
+with the same value is refused TASK_EXTERNAL_ID_TAKEN (exit 5), which names no
+task; find the holder with ` + "`task list --external-id <id>`" + `. The value is sent as
+given; only the server judges its form.
 
 --ref <kind>=<target>[|<label>] (repeatable, kept in order) records what the
 task points at: kind is issue, pull-request, node, task or url, and the label
@@ -342,6 +348,12 @@ warnings list.`,
 					return exitcode.Newf(exitcode.Usage, "--blocked-by must name a task")
 				}
 			}
+			// A supplied blank is a usage slip, refused here. Every other
+			// check on the value (length, characters, the duplicate) is the
+			// server's (cor:agt:120:02, cor:api:240:01): it is sent as given.
+			if cmd.Flags().Changed("external-id") && strings.TrimSpace(externalID) == "" {
+				return exitcode.Newf(exitcode.Usage, "--external-id needs a value, such as the issue URL the task claims")
+			}
 			refInputs, err := parseTaskRefFlags(refs)
 			if err != nil {
 				return err
@@ -351,6 +363,7 @@ warnings list.`,
 				Description:  optStr(description),
 				ParentTaskId: optStr(parent),
 				Source:       optStr(source),
+				ExternalId:   optStr(externalID),
 				StartBy:      optStr(startBy),
 				Status:       createStatus,
 				Tags:         tags,
@@ -427,9 +440,11 @@ warnings list.`,
 			mctx, sink := api.WithWarningSink(ctx)
 			resp, err := gen.AgentTaskCreate(mctx, client, &input)
 			if err != nil {
-				// The new requirement refusals retain their code at the JSON sink.
-				// Keep ordinary task-write error output unchanged when no group flag is named.
-				if groupsIn != nil || groupsNotIn != nil {
+				// The new requirement refusals retain their code at the JSON sink,
+				// and so does a claim's TASK_EXTERNAL_ID_TAKEN (cli#1524), so a
+				// script tells the duplicate from another conflict. Keep ordinary
+				// task-write error output unchanged when neither is named.
+				if groupsIn != nil || groupsNotIn != nil || cmd.Flags().Changed("external-id") {
 					return api.WithServerCode(mapTaskError(err), err)
 				}
 				return mapTaskError(err)
@@ -466,6 +481,7 @@ warnings list.`,
 	cmd.Flags().StringVar(&parent, "parent", "", "parent task id (child task)")
 	cmd.Flags().StringVar(&startBy, "start-by", "", "RFC 3339 deadline to start by")
 	cmd.Flags().StringVar(&source, "source", "", "origin reference (an issue URL, a node URN)")
+	cmd.Flags().StringVar(&externalID, "external-id", "", "the outside item this task claims, such as its issue URL; unique per App, set once (never edited)")
 	cmd.Flags().StringSliceVar(&tags, "tag", nil, "tag (repeatable)")
 	cmd.Flags().StringArrayVar(&refs, "ref", nil, "typed reference <kind>=<target>[|<label>], repeatable, kept in order; kind is "+taskRefKindsDoc)
 	cmd.Flags().StringVar(&minTier, "min-tier", "", "minimum model tier: low, mid or high (lowest sufficient preferred; unknown ineligible)")

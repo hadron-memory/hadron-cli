@@ -181,6 +181,35 @@ query GetAppMetadata($ref: ID!) {
   }
 }
 
+# cli#1524 C2: `app properties get` — the object and the revision
+# `set/clear --expected-revision` checks against.
+query AppPropertiesGet($ref: ID!) {
+  app(ref: $ref) {
+    id
+    urn
+    propertiesRevision
+    properties
+  }
+}
+
+# cli#1524 C2 (cor:dmo:050:20): replace the App's properties whole; null
+# clears. `properties` is NOT omitempty: a nil RawMessage is sent as an
+# explicit null, which is how `clear` asks. expectedRevision is omitted unless
+# --expected-revision is given.
+mutation SetAppProperties(
+  $appRef: String!
+  $properties: JSON
+  # @genqlient(omitempty: true)
+  $expectedRevision: Int
+) {
+  setAppProperties(appRef: $appRef, properties: $properties, expectedRevision: $expectedRevision) {
+    id
+    urn
+    propertiesRevision
+    properties
+  }
+}
+
 # cli#1057: manager-authorized, active-only metadata inventory. No raw key,
 # nested App.keys, host usage, or scope mutations.
 query AppKeysMetadata($appRef: ID!) {
