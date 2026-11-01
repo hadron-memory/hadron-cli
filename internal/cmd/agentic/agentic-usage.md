@@ -4769,9 +4769,6 @@ hadron team task list --external-id <id>
   - `task get` prints an `external id:` line, and every task `--json` carries
     `externalId` (null when none). Every task read selects it, so it needs a
     server with #3125 S2; no CLI release before that deployment.
-- **Every `team task` refusal** now carries `serverCode` in the `--json` error
-  envelope.
-
 ## nodeBatch selected-edge cap (cli#1210)
 
 Edge-reading batch commands split an explicit ref chunk and retry the identical

@@ -440,9 +440,11 @@ warnings list.`,
 			mctx, sink := api.WithWarningSink(ctx)
 			resp, err := gen.AgentTaskCreate(mctx, client, &input)
 			if err != nil {
-				// The new requirement refusals retain their code at the JSON sink.
-				// Keep ordinary task-write error output unchanged when no group flag is named.
-				if groupsIn != nil || groupsNotIn != nil {
+				// The new requirement refusals retain their code at the JSON sink,
+				// and so does a claim's TASK_EXTERNAL_ID_TAKEN (cli#1524), so a
+				// script tells the duplicate from another conflict. Keep ordinary
+				// task-write error output unchanged when neither is named.
+				if groupsIn != nil || groupsNotIn != nil || cmd.Flags().Changed("external-id") {
 					return api.WithServerCode(mapTaskError(err), err)
 				}
 				return mapTaskError(err)

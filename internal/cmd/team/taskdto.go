@@ -436,12 +436,6 @@ var taskErrorCodes = []string{
 // state, authority and cycle decisions, so its public code is preserved beside
 // the mapped message, and the human message is made terminal-safe.
 func mapTaskError(err error) error {
-	// The server's code rides on the --json envelope as serverCode (cli#1524):
-	// a script tells TASK_EXTERNAL_ID_TAKEN from another conflict by it.
-	return api.WithServerCode(mapTaskErrorMessage(err), err)
-}
-
-func mapTaskErrorMessage(err error) error {
 	mapped := api.MapError(err)
 	if mapped == nil {
 		return nil
