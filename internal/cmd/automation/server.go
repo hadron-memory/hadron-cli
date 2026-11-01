@@ -101,17 +101,13 @@ type listing struct {
 // collectListing walks the list to exhaustion, in the server's order. Any page
 // the CLI cannot validate fails the whole walk: a partial list would let a name
 // resolve against rows that are not all there.
-func collectListing(ctx context.Context, client graphql.Client, appRef string, pageLimit ...*int) (*listing, error) {
+func collectListing(ctx context.Context, client graphql.Client, appRef string, pageLimit *int) (*listing, error) {
 	out := &listing{Rows: []rowDTO{}, Omitted: []omittedDTO{}}
 	seenOmitted := map[omittedDTO]bool{}
 	seenCursor := map[string]bool{}
 	var after *string
 	for page := 0; page < maxPages; page++ {
-		var limit *int
-		if len(pageLimit) > 0 {
-			limit = pageLimit[0]
-		}
-		resp, err := gen.AutomationApprovals(ctx, client, appRef, after, limit)
+		resp, err := gen.AutomationApprovals(ctx, client, appRef, after, pageLimit)
 		if err != nil {
 			return nil, readError(err)
 		}

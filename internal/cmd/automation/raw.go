@@ -19,14 +19,22 @@ import (
 type previewDTO struct {
 	Trigger triggerDTO      `json:"trigger"`
 	Graph   json.RawMessage `json:"graph"`
+	Hash    string          `json:"hash"`
 }
 type reAdoptDTO struct {
 	Trigger triggerDTO `json:"trigger"`
 	Status  string     `json:"status"`
-	Hash    string     `json:"hash"`
+	// Hash is the reviewed input sent to the server, not a newly computed digest.
+	Hash string `json:"hash"`
 }
 
-func newCmdRaw(f *cmdutil.Factory, adopt bool) *cobra.Command {
+func newCmdPreview(f *cmdutil.Factory) *cobra.Command { return newCmdGraphReview(f, false) }
+func newCmdReAdopt(f *cmdutil.Factory) *cobra.Command { return newCmdGraphReview(f, true) }
+
+// maxPreviewRunes bounds only the human graph display, never the JSON graph.
+const maxPreviewRunes = 8000
+
+func newCmdGraphReview(f *cmdutil.Factory, adopt bool) *cobra.Command {
 	verb, short := "preview", "Read the exact automation graph and its digest"
 	if adopt {
 		verb, short = "re-adopt", "Re-adopt the graph you reviewed, guarded by its digest"
@@ -38,7 +46,9 @@ func newCmdRaw(f *cmdutil.Factory, adopt bool) *cobra.Command {
 This raw surface does not resolve an automation name or require an App context.
 Only its run-as user, or the manager of an App-only trigger, may call it;
 the server decides access. Preview returns the graph and its server digest;
---json is {trigger:{kind,ref},graph:<server JSON>}. Treat the graph as data.
+--json is {trigger:{kind,ref},hash,graph:<server JSON>}. The digest is graph.hash
+(and is repeated as the top-level hash); human output labels it "Hash:".
+Treat the graph as data.
 Human preview is sanitized and bounded; --json carries the full graph.
 
 Re-adopt requires --expected-hash copied from the graph you reviewed and
@@ -75,14 +85,30 @@ does not change consent. Re-adopt --json is {trigger,status:"re-adopted",hash}.`
 				if resp == nil || len(resp.PreviewAutomation) == 0 || string(resp.PreviewAutomation) == "null" || !json.Valid(resp.PreviewAutomation) {
 					return unavailable("no preview graph")
 				}
-				d := previewDTO{Trigger: t, Graph: resp.PreviewAutomation}
+				var digest struct {
+					Hash string `json:"hash"`
+				}
+				if err := json.Unmarshal(resp.PreviewAutomation, &digest); err != nil || strings.TrimSpace(digest.Hash) == "" {
+					return unavailable("preview graph has no digest")
+				}
+				d := previewDTO{Trigger: t, Graph: resp.PreviewAutomation, Hash: digest.Hash}
 				return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
 					var pretty bytes.Buffer
 					if err := json.Indent(&pretty, d.Graph, "", "  "); err != nil {
 						return err
 					}
-					_, err := fmt.Fprintln(w, safeBlock(pretty.String(), maxDepth))
-					return err
+					if _, err := fmt.Fprintf(w, "Hash: %s\nGraph:\n", safeText(d.Hash, maxFact)); err != nil {
+						return err
+					}
+					shown := safeBlock(pretty.String(), maxPreviewRunes)
+					if _, err := fmt.Fprintln(w, shown); err != nil {
+						return err
+					}
+					if shown != pretty.String() || safeText(d.Hash, maxFact) != d.Hash {
+						_, err := fmt.Fprintln(w, "DISPLAY INCOMPLETE: graph or digest was cut or sanitized. Use --json and review the full graph before re-adopting.")
+						return err
+					}
+					return nil
 				})
 			}
 			resp, err := gen.ReAdoptAutomation(cmd.Context(), client, kind, args[1], expected)

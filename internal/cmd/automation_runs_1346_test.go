@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -53,7 +54,9 @@ func TestRunFilters1346(t *testing.T) {
 		t.Fatal(err)
 	}
 	var v map[string]json.RawMessage
-	_ = json.Unmarshal(c["AppRuns"], &v)
+	if err := json.Unmarshal(c["AppRuns"], &v); err != nil {
+		t.Fatal(err)
+	}
 	for k, w := range map[string]string{"statuses": `["FAILED","CANCELLED"]`, "parentRunId": `"parent1"`, "sortBy": `"startedAt"`, "sortDir": `"asc"`} {
 		if string(v[k]) != w {
 			t.Errorf("%s=%s want%s", k, v[k], w)
@@ -78,7 +81,9 @@ func TestRawAutomation1346(t *testing.T) {
 				t.Fatal(out.String())
 			}
 			var v map[string]json.RawMessage
-			_ = json.Unmarshal(c[tt.op], &v)
+			if err := json.Unmarshal(c[tt.op], &v); err != nil {
+				t.Fatal(err)
+			}
 			if string(v["triggerKind"]) != `"MANUAL"` || string(v["triggerRef"]) != `"run1"` {
 				t.Fatal(string(c[tt.op]))
 			}
@@ -119,7 +124,9 @@ func TestAdoptionChanged1346(t *testing.T) {
 	r.SetArgs([]string{"automation", "re-adopt", "SCHEDULE", "sch1", "--expected-hash", "reviewed-digest", "--yes", "--server", g.URL})
 	wantExit(t, r.Execute(), exitcode.Conflict)
 	var v map[string]json.RawMessage
-	_ = json.Unmarshal(c["ReAdoptAutomation"], &v)
+	if err := json.Unmarshal(c["ReAdoptAutomation"], &v); err != nil {
+		t.Fatal(err)
+	}
 	if string(v["expectedHash"]) != `"reviewed-digest"` {
 		t.Fatal(v)
 	}
@@ -138,7 +145,9 @@ func TestUpdatePreserves1346(t *testing.T) {
 	var v struct {
 		Input map[string]json.RawMessage `json:"input"`
 	}
-	_ = json.Unmarshal(c["UpdateAgentSchedule"], &v)
+	if err := json.Unmarshal(c["UpdateAgentSchedule"], &v); err != nil {
+		t.Fatal(err)
+	}
 	for _, k := range []string{"agentRef", "runAt", "scopeRef", "cron"} {
 		if _, ok := v.Input[k]; ok {
 			t.Errorf("unrelated update sent %s: %s", k, c["UpdateAgentSchedule"])
@@ -153,6 +162,8 @@ func TestEmptyInputs1346(t *testing.T) {
 		{"schedule", "update", "sch1", "--agent", ""},
 		{"schedule", "update", "sch1", "--run-at", ""},
 		{"run", "list", "--org", "acme.com", "--statuses", ""},
+		{"run", "list", "--org", "acme.com", "--status", "FAILED", "--statuses", "CANCELLED"},
+		{"webhook", "create", "--app", "capp100000000000000000000", "--name", "n", "--entry", "hrn:node:acme.com:ops:task", "--scope", ""},
 		{"run", "list", "--org", "acme.com", "--parent", ""},
 		{"run", "list", "--org", "acme.com", "--sort", ""},
 		{"run", "list", "--org", "acme.com", "--dir", ""},
@@ -167,5 +178,106 @@ func TestEmptyInputs1346(t *testing.T) {
 		if len(c) != 0 {
 			t.Fatal(a, c)
 		}
+	}
+}
+
+func TestPreviewReview1346(t *testing.T) {
+	graph := `{"nodes":{"n":{"content":` + jq(strings.Repeat("x", 9000)) + `}},"hash":"reviewed-digest"}`
+	s := newAutoServer(t, map[string]func(map[string]any) autoReply{"PreviewAutomation": fixed(`{"data":{"previewAutomation":` + graph + `}}`)})
+	r := runAuto(t, s, false, "", "preview", "SCHEDULE", "sch1")
+	if r.err != nil {
+		t.Fatal(r.err)
+	}
+	if !strings.Contains(r.out, "Hash: reviewed-digest") || !strings.Contains(r.out, "DISPLAY INCOMPLETE") || !strings.Contains(r.out, "--json") {
+		t.Fatal(r.out)
+	}
+	r = runAuto(t, s, false, "", "preview", "SCHEDULE", "sch1", "--json")
+	var d struct {
+		Hash  string          `json:"hash"`
+		Graph json.RawMessage `json:"graph"`
+	}
+	if err := json.Unmarshal([]byte(r.out), &d); err != nil {
+		t.Fatal(err)
+	}
+	if r.err != nil || d.Hash != "reviewed-digest" || !strings.Contains(string(d.Graph), strings.Repeat("x", 9000)) {
+		t.Fatal(r.err, r.out)
+	}
+}
+func TestRawFailurePaths1346(t *testing.T) {
+	for _, tt := range []struct {
+		name, body string
+		args       []string
+		want       int
+	}{
+		{"false", `{"data":{"reAdoptAutomation":false}}`, []string{"re-adopt", "MANUAL", "run1", "--expected-hash", "h", "--yes"}, exitcode.Error},
+		{"null", `{"data":{"previewAutomation":null}}`, []string{"preview", "MANUAL", "run1"}, exitcode.Unavailable},
+		{"missing digest", `{"data":{"previewAutomation":{"nodes":{}}}}`, []string{"preview", "MANUAL", "run1"}, exitcode.Unavailable},
+		{"nonobject", `{"data":{"previewAutomation":[]}}`, []string{"preview", "MANUAL", "run1"}, exitcode.Unavailable},
+		{"bad kind", `{}`, []string{"preview", "BOGUS", "run1"}, exitcode.Usage},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			s := newAutoServer(t, map[string]func(map[string]any) autoReply{"PreviewAutomation": fixed(tt.body), "ReAdoptAutomation": fixed(tt.body)})
+			r := runAuto(t, s, false, "", tt.args...)
+			if r.code != tt.want {
+				t.Fatal(r.code, r.err, r.out)
+			}
+			if strings.Contains(r.out, "Re-adopted") {
+				t.Fatal(r.out)
+			}
+			if tt.name == "bad kind" && s.count("PreviewAutomation") != 0 {
+				t.Fatal("invalid kind sent")
+			}
+		})
+	}
+}
+func TestRunPages1346(t *testing.T) {
+	s := newAutoServer(t, map[string]func(map[string]any) autoReply{"AppRuns": func(v map[string]any) autoReply {
+		for k, w := range map[string]string{"statuses": `["FAILED","CANCELLED"]`, "parentRunId": `"parent1"`, "sortBy": `"startedAt"`, "sortDir": `"asc"`} {
+			b, err := json.Marshal(v[k])
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(b) != w {
+				t.Errorf("%s=%s", k, b)
+			}
+		}
+		row := appRunJSON
+		if v["offset"] == float64(1) {
+			row = strings.Replace(row, `"run1"`, `"run2"`, 1)
+		} else if v["offset"] != float64(0) {
+			t.Errorf("offset=%v", v["offset"])
+		}
+		return autoReply{body: `{"data":{"appRuns":{"total":2,"items":[` + row + `]}}}`}
+	}})
+	f, out := testFactory(t)
+	r := NewRootCmd(f)
+	r.SetArgs([]string{"run", "list", "--org", "acme.com", "--statuses", "FAILED,CANCELLED", "--parent", "parent1", "--sort", "startedAt", "--dir", "asc", "--json", "--server", s.URL})
+	if err := r.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var rows []json.RawMessage
+	if err := json.Unmarshal([]byte(out.String()), &rows); err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 2 || s.count("AppRuns") != 2 {
+		t.Fatal(out.String(), s.count("AppRuns"))
+	}
+}
+func TestApprovalPages1346(t *testing.T) {
+	s := newAutoServer(t, map[string]func(map[string]any) autoReply{"AutomationApprovals": func(v map[string]any) autoReply {
+		if v["limit"] != float64(1) {
+			t.Errorf("limit=%v", v["limit"])
+		}
+		if v["after"] == nil {
+			return autoReply{body: autoPage([]string{autoRow("SCHEDULE", "a", "alpha", "ADOPTED", "h")}, "next", true)}
+		}
+		if v["after"] != "next" {
+			t.Errorf("after=%v", v["after"])
+		}
+		return autoReply{body: autoPage([]string{autoRow("SCHEDULE", "b", "nightly", "ADOPTED", "h")}, "", true)}
+	}, "AutomationApproval": fixed(autoDetail("ADOPTED"))})
+	r := runAuto(t, s, false, "", "approval", "nightly", "--limit", "1")
+	if r.err != nil || s.count("AutomationApprovals") != 2 || s.lastVars("AutomationApproval")["triggerRef"] != "b" {
+		t.Fatal(r.err, s.count("AutomationApprovals"))
 	}
 }

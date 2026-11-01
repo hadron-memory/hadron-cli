@@ -4,8 +4,10 @@ The CLI reaches thirteen existing server operation/argument gaps. No server,
 MCP or portal contract changes; authorization, hash validation, scope resolution
 and run snapshots remain server-owned.
 
-- Raw `automation preview KIND REF` returns `{trigger,graph}` with the server's
-  JSON graph/digest. It does not resolve a human name or require an App context.
+- Raw `automation preview KIND REF` returns `{trigger,hash,graph}` with the server's
+  JSON graph/digest. Human output labels graph.hash and flags an incomplete/sanitized graph display;
+  review the full --json output before adoption. It does not resolve a human
+  name or require an App context.
 - `automation re-adopt KIND REF --expected-hash HASH --yes` sends the reviewed
   hash once after confirmation. It does not fetch or compute a replacement hash.
   Server refusals map through MapError, false refuses success. MANUAL names the

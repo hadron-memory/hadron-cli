@@ -74,9 +74,8 @@ by the server. Requires a server with trigger budgets.`,
 
 			enabled := !disabled
 			input := &gen.CreateAgentScheduleInput{
-				AppRef: appRef,
-				Name:   name,
-
+				AppRef:        appRef,
+				Name:          name,
 				EntryNodeUrn:  entryURN,
 				Enabled:       &enabled,
 				EventData:     eventData,

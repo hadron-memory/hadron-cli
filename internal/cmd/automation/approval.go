@@ -146,6 +146,8 @@ server's; a fact the server cannot show says "not stated".
 
 --limit sets the server page size while resolving a name; all pages are still
 read, so a small page never hides an ambiguous name. Omitted uses the server default.
+The lookup refuses after 200 pages (exit 7), rather than using a partial list;
+if a small --limit hits that bound, increase it (the server may cap each page).
 
 An empty list is printed "none listed": it is what the server listed, not a
 guarantee that nothing applies. --depth adds the graph and the hash. State is one of: not approved, approved, or

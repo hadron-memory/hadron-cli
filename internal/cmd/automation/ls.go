@@ -60,7 +60,7 @@ needs it (--run).`,
 			if err != nil {
 				return err
 			}
-			l, err := collectListing(cmd.Context(), client, app)
+			l, err := collectListing(cmd.Context(), client, app, nil)
 			if err != nil {
 				return err
 			}
