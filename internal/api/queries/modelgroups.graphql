@@ -1,0 +1,43 @@
+# #1485 S1 (cor:agt:060:12): Agent and App model groups. Names and patterns go
+# to the server exactly as given; the server lowercases, validates and
+# authorizes. patterns is always sent (an empty list is a valid group).
+
+query AgentModelGroups($agentRef: ID!) {
+  agentModelGroups(agentRef: $agentRef) {
+    name
+    patterns
+    updatedAt
+  }
+}
+
+mutation SetAgentModelGroup($agentRef: ID!, $name: String!, $patterns: [String!]!) {
+  setAgentModelGroup(agentRef: $agentRef, name: $name, patterns: $patterns) {
+    name
+    patterns
+    updatedAt
+  }
+}
+
+mutation DeleteAgentModelGroup($agentRef: ID!, $name: String!) {
+  deleteAgentModelGroup(agentRef: $agentRef, name: $name)
+}
+
+query EffectiveModelGroups($appRef: ID!) {
+  effectiveModelGroups(appRef: $appRef) {
+    name
+    patterns
+    origin
+  }
+}
+
+mutation SetAppModelGroup($appRef: ID!, $name: String!, $patterns: [String!]!) {
+  setAppModelGroup(appRef: $appRef, name: $name, patterns: $patterns) {
+    name
+    patterns
+    updatedAt
+  }
+}
+
+mutation DeleteAppModelGroup($appRef: ID!, $name: String!) {
+  deleteAppModelGroup(appRef: $appRef, name: $name)
+}
