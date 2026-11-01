@@ -203,7 +203,7 @@ func TestTaskListRefFilter1520(t *testing.T) {
 }
 
 func TestTaskListRefRefusals1520(t *testing.T) {
-	for _, args := range [][]string{{"--ref-kind", "issue"}, {"--ref", "x", "--ref-kind", "bogus"}, {"--team", "--ref", "x"}, {"--team", "--ref-kind", "issue"}} {
+	for _, args := range [][]string{{"--ref-kind", "issue"}, {"--ref", "x", "--ref-kind", "bogus"}, {"--team", "--ref", "x"}, {"--team", "--ref-kind", "issue"}, {"--team", "--ref", "x", "--ref-kind", "issue"}} {
 		srv, captured := captureGraphQL(t, map[string]string{})
 		f, _ := testFactory(t)
 		r := NewRootCmd(f)
@@ -212,7 +212,7 @@ func TestTaskListRefRefusals1520(t *testing.T) {
 		if err == nil || exitCodeFor(err) != 2 {
 			t.Fatalf("%v: want usage refusal, got %v", args, err)
 		}
-		if args[0] == "--team" && !strings.Contains(err.Error(), "does not combine with --team") {
+		if args[0] == "--team" && strings.Contains(strings.Join(args, " "), "--ref x") && !strings.Contains(err.Error(), "does not combine with --team") {
 			t.Fatalf("%v: the team view must refuse the server filter by name, got %v", args, err)
 		}
 		if len(captured) != 0 {
