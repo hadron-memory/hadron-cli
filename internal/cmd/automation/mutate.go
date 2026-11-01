@@ -121,6 +121,9 @@ The summary is shown first (on stderr), you confirm, and the hash just shown (a
 fingerprint of exactly what you were shown) is what is sent. If the
 automation changed in the meantime the server refuses it (exit 5): nothing is
 retried, and the next step is ` + "`hadron automation approval <name>`" + ` again.
+If the entry node no longer resolves there is nothing to approve: the summary is
+shown, nothing is prompted or sent, and it exits 5 (set the trigger to the
+entry node's current URN, then read ` + "`hadron automation approval <name>`" + ` again).
 
 --yes skips the prompt, never the display. Without --yes a non-interactive
 caller is refused before anything is sent; "no" or end-of-input exits 6.
@@ -148,6 +151,15 @@ Display and prompt go to stderr, so stdout carries only the result.`,
 			incomplete, err := writeProjection(f.IOStreams.ErrOut, sel.Display+inApp(sel, app), dto, false)
 			if err != nil {
 				return exitcode.Newf(exitcode.Error, "could not show the summary (%v); nothing was approved", err)
+			}
+			if dto.stale() {
+				// cli#1202: the entry node no longer resolves, so there is no
+				// hash to approve. Nothing is prompted, sent or retried; the
+				// user must re-point the trigger first (same class as
+				// AUTOMATION_CHANGED: exit 5).
+				return exitcode.Newf(exitcode.Conflict,
+					"nothing was approved: this automation's entry node no longer resolves; set the trigger to the entry node's current URN, then run %s again",
+					approvalHint(sel, app))
 			}
 			if incomplete {
 				return exitcode.Newf(exitcode.Unavailable,

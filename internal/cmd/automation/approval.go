@@ -80,6 +80,18 @@ func writeProjection(w io.Writer, display string, d *approvalDTO, withDepth bool
 	p.printf("State: %s\n", stateWord(d.State))
 	s := d.Summary
 	p.printf("Name: %s\n", p.fact(s.Name, maxName))
+	if d.stale() {
+		// The entry node no longer resolves (server#2503): there is nothing
+		// else to list, only the server's one sentence.
+		p.list("Limits", s.Limits)
+		if withDepth {
+			p.printf("Graph: none (the entry node no longer resolves)\n")
+		}
+		if p.incomplete {
+			p.printf("(some of this was cut for display; `--json` has all of it)\n")
+		}
+		return p.incomplete, p.err
+	}
 	if s.Schedule != nil {
 		p.printf("Schedule: %s\n", p.fact(*s.Schedule, maxFact))
 	}
@@ -151,7 +163,12 @@ if a small --limit hits that bound, increase it (the server may cap each page).
 
 An empty list is printed "none listed": it is what the server listed, not a
 guarantee that nothing applies. --depth adds the graph and the hash. State is one of: not approved, approved, or
-changed since it was approved (its next run fails until it is approved again).`,
+changed since it was approved (its next run fails until it is approved again).
+
+If the automation's entry node no longer resolves (renamed, moved, deleted or
+unreadable), the server has nothing to approve and says so in one sentence under
+Limits; that is shown as a normal read (exit 0, no hash, --depth graph empty).
+Point the trigger at the entry node's current URN, then read it again.`,
 		Example: `  hadron automation approval schedule/nightly
   hadron automation approval nightly --depth --json
   hadron automation approval --run <run-id>`,

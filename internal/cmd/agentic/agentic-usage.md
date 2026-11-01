@@ -2214,10 +2214,21 @@ Conventions:
   one. Recovery hints never carry a name that sanitizing would change. Exit codes: `FORBIDDEN` (including the read-access
   refusals) 8, `NOT_FOUND` 4, `AUTOMATION_CHANGED` and `AUTOMATION_UNADOPTED` 5,
   bad selection 2, cancelled 6, and 7 for a malformed projection (a null required
-  list, empty hash, unknown state — never an empty success), a server without these
+  list, an empty hash that is not the stale-entry shape below, unknown state — never an empty success), a server without these
   operations ("this server does not support automation approval", before any
   prompt), or a write that is not confirmed (outcome unknown: check with
   `automation approval`). `previewAutomation`/`reAdoptAutomation` stay unbound.
+  **Stale entry (cli#1202).** When the automation's entry node no longer resolves
+  the server answers hash `""` with ONE limits sentence (hadron-server#2503). The
+  CLI admits that answer by STRUCTURE only (state UNADOPTED, non-empty name, flows/
+  reads/writes/tools/cannotDo present and empty, no schedule, exactly one non-empty
+  limit; with `--depth`, depth exactly `{}`) — never by the sentence's wording.
+  `approval` shows it (exit 0; `--json` is the usual DTO with `hash:""` and the one
+  limit); `approve` (with or without `--yes`) shows it on stderr, never prompts,
+  sends no `approveAutomation`, and exits 5 with "nothing was approved: this
+  automation's entry node no longer resolves; set the trigger to the entry node's
+  current URN, then run `hadron automation approval <ref>` again". `decline` is
+  unchanged. Any other empty-hash answer stays exit 7.
 - `app agent add <app> <agent>` / `remove <app> <agent>` wrap
   `installAgentIntoApp` / `uninstallAgentFromApp` — the AppAgent join
   (`cor:dmo:050:03`), and the only way to attach an Agent to an App you
