@@ -54,6 +54,7 @@ fragment AgentTaskFields on AgentTask {
   parentTaskId
   tags
   source
+  references { kind target label }
   startBy
   createdAt
   updatedAt
@@ -101,6 +102,7 @@ fragment AgentTaskFields on AgentTask {
 # not null, so ordinary create/update bodies are unchanged and an older server
 # never sees an input field it does not know. This protects INPUTS only:
 # every AgentTaskFields document needs provider #3029 for its output selection.
+# @genqlient(for: "AgentTaskReferenceInput.label", omitempty: true)
 # @genqlient(for: "AgentTaskRequirementsInput.modelGroupIn", omitempty: true)
 # @genqlient(for: "AgentTaskRequirementsInput.modelGroupNotIn", omitempty: true)
 mutation AgentTaskCreate(
@@ -541,6 +543,7 @@ query AgentTaskDependencies($taskRef: ID!, $limit: Int!, $offset: Int!) {
 # date ranges). A separate document so a list with none of these flags keeps
 # sending the legacy request byte for byte. $overdue is a pointer: an explicit
 # false is sent, only nil is omitted.
+# @genqlient(for: "AgentTaskReferenceFilter.kind", omitempty: true)
 query AgentTaskListFiltered(
   $appRef: ID!
   # @genqlient(omitempty: true)
@@ -567,6 +570,8 @@ query AgentTaskListFiltered(
   $queued: Boolean
   # @genqlient(omitempty: true)
   $rootsOnly: Boolean
+  # @genqlient(omitempty: true)
+  $reference: AgentTaskReferenceFilter
   # @genqlient(omitempty: true)
   $source: String
   # @genqlient(omitempty: true)
@@ -597,6 +602,7 @@ query AgentTaskListFiltered(
     owner: $owner
     parentTaskId: $parentTaskId
     queued: $queued
+    reference: $reference
     rootsOnly: $rootsOnly
     source: $source
     startedAfter: $startedAfter
@@ -628,6 +634,8 @@ query AgentTaskListFiltered(
 # @genqlient(for: "UpdateAgentTaskInput.startBy", omitempty: true, bind: "encoding/json.RawMessage")
 # finishBy (#2648) arrived with the cli#1513 schema refresh and is not implemented here: omitted, never an explicit null (null CLEARS on an update).
 # @genqlient(for: "UpdateAgentTaskInput.finishBy", omitempty: true, bind: "encoding/json.RawMessage")
+# #2649 references: a replace list or an explicit clear (null/[]); a plain omitempty slice would drop the empty list, so the clear needs RawMessage like tags.
+# @genqlient(for: "UpdateAgentTaskInput.references", omitempty: true, bind: "encoding/json.RawMessage")
 # #2420: nil = key omitted (unchanged), RawMessage("null") = explicit clear. The
 # global JSON binding is a slice, so without omitempty a nil value would be sent
 # as null and clear the task's properties on every unrelated update (#1331).

@@ -36,7 +36,8 @@ var jsonNull = json.RawMessage("null")
 
 func newCmdTeamTaskUpdate(f *cmdutil.Factory) *cobra.Command {
 	var title, description, startBy, requireRole, familyIn, familyNotIn, modelGroupIn, modelGroupNotIn, minTier, properties string
-	var tags, excludeWorkers []string
+	var tags, excludeWorkers, refs []string
+	var clearRefs bool
 	var clearDescription, clearTags, clearRequirements, clearStartBy, clearProperties bool
 	var closeSession, noCloseSession bool
 	cmd := &cobra.Command{
@@ -114,11 +115,11 @@ a stall alarm. Success prints the task as task get does; --json returns it.`,
 			usage := func(format string, a ...any) error { return exitcode.Newf(exitcode.Usage, format, a...) }
 			reqNamed := fl.Changed("require-role") || fl.Changed("family-in") || fl.Changed("family-not-in") || fl.Changed("exclude-worker") || fl.Changed("min-tier") || fl.Changed("model-group") || fl.Changed("model-group-not")
 			anyField := fl.Changed("title") || fl.Changed("description") || clearDescription ||
-				fl.Changed("tag") || clearTags || reqNamed || clearRequirements ||
+				fl.Changed("tag") || clearTags || fl.Changed("ref") || clearRefs || reqNamed || clearRequirements ||
 				fl.Changed("start-by") || clearStartBy || fl.Changed("close-session") || fl.Changed("no-close-session") ||
 				fl.Changed("properties") || clearProperties
 			if !anyField {
-				return usage("pass at least one field flag to change (--title, --description, --tag, --require-role, --start-by, --close-session, or a --clear-…); nothing was sent")
+				return usage("pass at least one field flag to change (--title, --description, --tag, --ref, --require-role, --start-by, --close-session, or a --clear-…); nothing was sent")
 			}
 			for _, c := range []struct {
 				set   bool
@@ -127,6 +128,7 @@ a stall alarm. Success prints the task as task get does; --json returns it.`,
 			}{
 				{fl.Changed("description"), clearDescription, "--description", "--clear-description"},
 				{fl.Changed("tag"), clearTags, "--tag", "--clear-tags"},
+				{fl.Changed("ref"), clearRefs, "--ref", "--clear-refs"},
 				{reqNamed, clearRequirements, "--require-role, --family-in, --family-not-in, --exclude-worker, --min-tier, --model-group or --model-group-not", "--clear-requirements"},
 				{fl.Changed("start-by"), clearStartBy, "--start-by", "--clear-start-by"},
 				{fl.Changed("properties"), clearProperties, "--properties", "--clear-properties"},
@@ -186,6 +188,16 @@ a stall alarm. Success prints the task as task get does; --json returns it.`,
 					}
 				}
 				input.Tags = mustJSON(tags)
+			}
+			switch {
+			case clearRefs:
+				input.References = mustJSON([]gen.AgentTaskReferenceInput{})
+			case fl.Changed("ref"):
+				parsed, err := parseTaskRefFlags(refs)
+				if err != nil {
+					return err
+				}
+				input.References = mustJSON(parsed)
 			}
 			switch {
 			case clearRequirements:
@@ -251,6 +263,8 @@ a stall alarm. Success prints the task as task get does; --json returns it.`,
 	cmd.Flags().BoolVar(&clearDescription, "clear-description", false, "remove the description")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "a tag, repeatable; --tag replaces the whole list")
 	cmd.Flags().BoolVar(&clearTags, "clear-tags", false, "remove every tag")
+	cmd.Flags().StringArrayVar(&refs, "ref", nil, "typed reference <kind>=<target>[|<label>], repeatable; --ref replaces the whole list; kind is "+taskRefKindsDoc)
+	cmd.Flags().BoolVar(&clearRefs, "clear-refs", false, "remove every reference")
 	cmd.Flags().StringVar(&minTier, "min-tier", "", "minimum model tier: low, mid or high; replaces the whole requirements")
 	cmd.Flags().StringVar(&requireRole, "require-role", "", "required role; replaces the whole requirements")
 	addTaskModelGroupFlags(cmd, &modelGroupIn, &modelGroupNotIn)

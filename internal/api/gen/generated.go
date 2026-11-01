@@ -1360,6 +1360,11 @@ func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetSource() *string {
 	return v.AgentTaskFields.Source
 }
 
+// GetReferences returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.References, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
+	return v.AgentTaskFields.References
+}
+
 // GetStartBy returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetStartBy() *string {
 	return v.AgentTaskFields.StartBy
@@ -1476,6 +1481,8 @@ type __premarshalAgentTaskAddBlockerAddAgentTaskBlockerAgentTask struct {
 
 	Source *string `json:"source"`
 
+	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -1528,6 +1535,7 @@ func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) __premarshalJSON() (*_
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.References = v.AgentTaskFields.References
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -1641,6 +1649,11 @@ func (v *AgentTaskAssignAssignAgentTask) GetTags() []string { return v.AgentTask
 // GetSource returns AgentTaskAssignAssignAgentTask.Source, and is useful for accessing the field via an interface.
 func (v *AgentTaskAssignAssignAgentTask) GetSource() *string { return v.AgentTaskFields.Source }
 
+// GetReferences returns AgentTaskAssignAssignAgentTask.References, and is useful for accessing the field via an interface.
+func (v *AgentTaskAssignAssignAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
+	return v.AgentTaskFields.References
+}
+
 // GetStartBy returns AgentTaskAssignAssignAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskAssignAssignAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -1747,6 +1760,8 @@ type __premarshalAgentTaskAssignAssignAgentTask struct {
 
 	Source *string `json:"source"`
 
+	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -1799,6 +1814,7 @@ func (v *AgentTaskAssignAssignAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.References = v.AgentTaskFields.References
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -1918,6 +1934,11 @@ func (v *AgentTaskCancelCancelAgentTask) GetTags() []string { return v.AgentTask
 // GetSource returns AgentTaskCancelCancelAgentTask.Source, and is useful for accessing the field via an interface.
 func (v *AgentTaskCancelCancelAgentTask) GetSource() *string { return v.AgentTaskFields.Source }
 
+// GetReferences returns AgentTaskCancelCancelAgentTask.References, and is useful for accessing the field via an interface.
+func (v *AgentTaskCancelCancelAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
+	return v.AgentTaskFields.References
+}
+
 // GetStartBy returns AgentTaskCancelCancelAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskCancelCancelAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -2024,6 +2045,8 @@ type __premarshalAgentTaskCancelCancelAgentTask struct {
 
 	Source *string `json:"source"`
 
+	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -2076,6 +2099,7 @@ func (v *AgentTaskCancelCancelAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.References = v.AgentTaskFields.References
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -2195,6 +2219,11 @@ func (v *AgentTaskCreateCreateAgentTask) GetTags() []string { return v.AgentTask
 // GetSource returns AgentTaskCreateCreateAgentTask.Source, and is useful for accessing the field via an interface.
 func (v *AgentTaskCreateCreateAgentTask) GetSource() *string { return v.AgentTaskFields.Source }
 
+// GetReferences returns AgentTaskCreateCreateAgentTask.References, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateCreateAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
+	return v.AgentTaskFields.References
+}
+
 // GetStartBy returns AgentTaskCreateCreateAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskCreateCreateAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -2301,6 +2330,8 @@ type __premarshalAgentTaskCreateCreateAgentTask struct {
 
 	Source *string `json:"source"`
 
+	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -2353,6 +2384,7 @@ func (v *AgentTaskCreateCreateAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.References = v.AgentTaskFields.References
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -2740,13 +2772,17 @@ type AgentTaskFields struct {
 	ParentTaskId *string  `json:"parentTaskId"`
 	Tags         []string `json:"tags"`
 	// Opaque origin reference (an issue URL, a node URN). Not interpreted.
-	Source      *string `json:"source"`
-	StartBy     *string `json:"startBy"`
-	CreatedAt   string  `json:"createdAt"`
-	UpdatedAt   *string `json:"updatedAt"`
-	StartedAt   *string `json:"startedAt"`
-	FinishedAt  *string `json:"finishedAt"`
-	CancelledAt *string `json:"cancelledAt"`
+	Source *string `json:"source"`
+	// #2649 (hrn:node:hadronmemory.com:specs:cor:agt:050:01): the task's ordered, typed references to other things. Each
+	// target is the string as stored: never fetched or resolved, so it says nothing about the target's content or whether
+	// it exists. Empty when none.
+	References  []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
+	StartBy     *string                                        `json:"startBy"`
+	CreatedAt   string                                         `json:"createdAt"`
+	UpdatedAt   *string                                        `json:"updatedAt"`
+	StartedAt   *string                                        `json:"startedAt"`
+	FinishedAt  *string                                        `json:"finishedAt"`
+	CancelledAt *string                                        `json:"cancelledAt"`
 	// Whether finishing or cancelling asks the assignee to end its worker session
 	// (hrn:node:hadronmemory.com:specs:cor:agt:050:10). Set by whoever assigns. #1709: carried out; see sessionEndRequest.
 	CloseSessionWhenDone bool                                              `json:"closeSessionWhenDone"`
@@ -2823,6 +2859,11 @@ func (v *AgentTaskFields) GetTags() []string { return v.Tags }
 
 // GetSource returns AgentTaskFields.Source, and is useful for accessing the field via an interface.
 func (v *AgentTaskFields) GetSource() *string { return v.Source }
+
+// GetReferences returns AgentTaskFields.References, and is useful for accessing the field via an interface.
+func (v *AgentTaskFields) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
+	return v.References
+}
 
 // GetStartBy returns AgentTaskFields.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskFields) GetStartBy() *string { return v.StartBy }
@@ -3372,6 +3413,27 @@ func (v *AgentTaskFieldsOwnerAgentTaskParty) __premarshalJSON() (*__premarshalAg
 	return &retval, nil
 }
 
+// AgentTaskFieldsReferencesAgentTaskReference includes the requested fields of the GraphQL type AgentTaskReference.
+// The GraphQL type's documentation follows.
+//
+// #2649 (hrn:node:hadronmemory.com:specs:cor:agt:050:01): one typed reference, as stored. The platform never resolves target.
+type AgentTaskFieldsReferencesAgentTaskReference struct {
+	Kind AgentTaskReferenceKind `json:"kind"`
+	// Stored exactly as given (at most 512 characters).
+	Target string `json:"target"`
+	// Optional, at most 120 characters; null when none was given.
+	Label *string `json:"label"`
+}
+
+// GetKind returns AgentTaskFieldsReferencesAgentTaskReference.Kind, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsReferencesAgentTaskReference) GetKind() AgentTaskReferenceKind { return v.Kind }
+
+// GetTarget returns AgentTaskFieldsReferencesAgentTaskReference.Target, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsReferencesAgentTaskReference) GetTarget() string { return v.Target }
+
+// GetLabel returns AgentTaskFieldsReferencesAgentTaskReference.Label, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsReferencesAgentTaskReference) GetLabel() *string { return v.Label }
+
 // AgentTaskFieldsRequirementsAgentTaskRequirements includes the requested fields of the GraphQL type AgentTaskRequirements.
 // The GraphQL type's documentation follows.
 //
@@ -3528,6 +3590,11 @@ func (v *AgentTaskFinishFinishAgentTask) GetTags() []string { return v.AgentTask
 // GetSource returns AgentTaskFinishFinishAgentTask.Source, and is useful for accessing the field via an interface.
 func (v *AgentTaskFinishFinishAgentTask) GetSource() *string { return v.AgentTaskFields.Source }
 
+// GetReferences returns AgentTaskFinishFinishAgentTask.References, and is useful for accessing the field via an interface.
+func (v *AgentTaskFinishFinishAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
+	return v.AgentTaskFields.References
+}
+
 // GetStartBy returns AgentTaskFinishFinishAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskFinishFinishAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -3634,6 +3701,8 @@ type __premarshalAgentTaskFinishFinishAgentTask struct {
 
 	Source *string `json:"source"`
 
+	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -3686,6 +3755,7 @@ func (v *AgentTaskFinishFinishAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.References = v.AgentTaskFields.References
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -3797,6 +3867,11 @@ func (v *AgentTaskGetAgentTask) GetTags() []string { return v.AgentTaskFields.Ta
 // GetSource returns AgentTaskGetAgentTask.Source, and is useful for accessing the field via an interface.
 func (v *AgentTaskGetAgentTask) GetSource() *string { return v.AgentTaskFields.Source }
 
+// GetReferences returns AgentTaskGetAgentTask.References, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
+	return v.AgentTaskFields.References
+}
+
 // GetStartBy returns AgentTaskGetAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskGetAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -3899,6 +3974,8 @@ type __premarshalAgentTaskGetAgentTask struct {
 
 	Source *string `json:"source"`
 
+	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -3951,6 +4028,7 @@ func (v *AgentTaskGetAgentTask) __premarshalJSON() (*__premarshalAgentTaskGetAge
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.References = v.AgentTaskFields.References
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -4159,6 +4237,11 @@ func (v *AgentTaskListAgentTasksAgentTask) GetTags() []string { return v.AgentTa
 // GetSource returns AgentTaskListAgentTasksAgentTask.Source, and is useful for accessing the field via an interface.
 func (v *AgentTaskListAgentTasksAgentTask) GetSource() *string { return v.AgentTaskFields.Source }
 
+// GetReferences returns AgentTaskListAgentTasksAgentTask.References, and is useful for accessing the field via an interface.
+func (v *AgentTaskListAgentTasksAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
+	return v.AgentTaskFields.References
+}
+
 // GetStartBy returns AgentTaskListAgentTasksAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskListAgentTasksAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -4267,6 +4350,8 @@ type __premarshalAgentTaskListAgentTasksAgentTask struct {
 
 	Source *string `json:"source"`
 
+	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -4319,6 +4404,7 @@ func (v *AgentTaskListAgentTasksAgentTask) __premarshalJSON() (*__premarshalAgen
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.References = v.AgentTaskFields.References
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -4431,6 +4517,11 @@ func (v *AgentTaskListFilteredAgentTasksAgentTask) GetTags() []string { return v
 // GetSource returns AgentTaskListFilteredAgentTasksAgentTask.Source, and is useful for accessing the field via an interface.
 func (v *AgentTaskListFilteredAgentTasksAgentTask) GetSource() *string {
 	return v.AgentTaskFields.Source
+}
+
+// GetReferences returns AgentTaskListFilteredAgentTasksAgentTask.References, and is useful for accessing the field via an interface.
+func (v *AgentTaskListFilteredAgentTasksAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
+	return v.AgentTaskFields.References
 }
 
 // GetStartBy returns AgentTaskListFilteredAgentTasksAgentTask.StartBy, and is useful for accessing the field via an interface.
@@ -4549,6 +4640,8 @@ type __premarshalAgentTaskListFilteredAgentTasksAgentTask struct {
 
 	Source *string `json:"source"`
 
+	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -4601,6 +4694,7 @@ func (v *AgentTaskListFilteredAgentTasksAgentTask) __premarshalJSON() (*__premar
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.References = v.AgentTaskFields.References
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -4749,6 +4843,11 @@ func (v *AgentTaskListTextAgentTasksAgentTask) GetTags() []string { return v.Age
 // GetSource returns AgentTaskListTextAgentTasksAgentTask.Source, and is useful for accessing the field via an interface.
 func (v *AgentTaskListTextAgentTasksAgentTask) GetSource() *string { return v.AgentTaskFields.Source }
 
+// GetReferences returns AgentTaskListTextAgentTasksAgentTask.References, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
+	return v.AgentTaskFields.References
+}
+
 // GetStartBy returns AgentTaskListTextAgentTasksAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskListTextAgentTasksAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -4863,6 +4962,8 @@ type __premarshalAgentTaskListTextAgentTasksAgentTask struct {
 
 	Source *string `json:"source"`
 
+	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -4915,6 +5016,7 @@ func (v *AgentTaskListTextAgentTasksAgentTask) __premarshalJSON() (*__premarshal
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.References = v.AgentTaskFields.References
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -5052,6 +5154,11 @@ func (v *AgentTaskParkParkAgentTask) GetTags() []string { return v.AgentTaskFiel
 // GetSource returns AgentTaskParkParkAgentTask.Source, and is useful for accessing the field via an interface.
 func (v *AgentTaskParkParkAgentTask) GetSource() *string { return v.AgentTaskFields.Source }
 
+// GetReferences returns AgentTaskParkParkAgentTask.References, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
+	return v.AgentTaskFields.References
+}
+
 // GetStartBy returns AgentTaskParkParkAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskParkParkAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -5156,6 +5263,8 @@ type __premarshalAgentTaskParkParkAgentTask struct {
 
 	Source *string `json:"source"`
 
+	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -5208,6 +5317,7 @@ func (v *AgentTaskParkParkAgentTask) __premarshalJSON() (*__premarshalAgentTaskP
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.References = v.AgentTaskFields.References
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -5398,6 +5508,11 @@ func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetSource() *string 
 	return v.AgentTaskFields.Source
 }
 
+// GetReferences returns AgentTaskProgressRecordAgentTaskProgressAgentTask.References, and is useful for accessing the field via an interface.
+func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
+	return v.AgentTaskFields.References
+}
+
 // GetStartBy returns AgentTaskProgressRecordAgentTaskProgressAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetStartBy() *string {
 	return v.AgentTaskFields.StartBy
@@ -5514,6 +5629,8 @@ type __premarshalAgentTaskProgressRecordAgentTaskProgressAgentTask struct {
 
 	Source *string `json:"source"`
 
+	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -5566,6 +5683,7 @@ func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) __premarshalJSON() (
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.References = v.AgentTaskFields.References
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -5692,6 +5810,11 @@ func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetSource() *string {
 	return v.AgentTaskFields.Source
 }
 
+// GetReferences returns AgentTaskReadyMakeAgentTaskReadyAgentTask.References, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
+	return v.AgentTaskFields.References
+}
+
 // GetStartBy returns AgentTaskReadyMakeAgentTaskReadyAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetStartBy() *string {
 	return v.AgentTaskFields.StartBy
@@ -5808,6 +5931,8 @@ type __premarshalAgentTaskReadyMakeAgentTaskReadyAgentTask struct {
 
 	Source *string `json:"source"`
 
+	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -5860,6 +5985,7 @@ func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) __premarshalJSON() (*__prema
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.References = v.AgentTaskFields.References
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -5982,6 +6108,11 @@ func (v *AgentTaskReassignReassignAgentTask) GetTags() []string { return v.Agent
 // GetSource returns AgentTaskReassignReassignAgentTask.Source, and is useful for accessing the field via an interface.
 func (v *AgentTaskReassignReassignAgentTask) GetSource() *string { return v.AgentTaskFields.Source }
 
+// GetReferences returns AgentTaskReassignReassignAgentTask.References, and is useful for accessing the field via an interface.
+func (v *AgentTaskReassignReassignAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
+	return v.AgentTaskFields.References
+}
+
 // GetStartBy returns AgentTaskReassignReassignAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskReassignReassignAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -6096,6 +6227,8 @@ type __premarshalAgentTaskReassignReassignAgentTask struct {
 
 	Source *string `json:"source"`
 
+	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -6148,6 +6281,7 @@ func (v *AgentTaskReassignReassignAgentTask) __premarshalJSON() (*__premarshalAg
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.References = v.AgentTaskFields.References
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -6174,6 +6308,61 @@ type AgentTaskReassignResponse struct {
 // GetReassignAgentTask returns AgentTaskReassignResponse.ReassignAgentTask, and is useful for accessing the field via an interface.
 func (v *AgentTaskReassignResponse) GetReassignAgentTask() *AgentTaskReassignReassignAgentTask {
 	return v.ReassignAgentTask
+}
+
+// #2649: agentTasks(reference:) matches tasks carrying a reference with exactly this target (1 to 512 characters, else BAD_USER_INPUT), and this kind when given. The label is ignored.
+type AgentTaskReferenceFilter struct {
+	Kind   *AgentTaskReferenceKind `json:"kind,omitempty"`
+	Target string                  `json:"target"`
+}
+
+// GetKind returns AgentTaskReferenceFilter.Kind, and is useful for accessing the field via an interface.
+func (v *AgentTaskReferenceFilter) GetKind() *AgentTaskReferenceKind { return v.Kind }
+
+// GetTarget returns AgentTaskReferenceFilter.Target, and is useful for accessing the field via an interface.
+func (v *AgentTaskReferenceFilter) GetTarget() string { return v.Target }
+
+// #2649 (hrn:node:hadronmemory.com:specs:cor:agt:050:01): one reference to set. target must have its kind's form and be
+// at most 512 characters, with no whitespace or control characters (a URL is written scheme://host, with no
+// backslash); label at most 120 (empty means none). A list of more than 20, or any item that fails, is refused
+// BAD_USER_INPUT and nothing is written.
+type AgentTaskReferenceInput struct {
+	Kind   AgentTaskReferenceKind `json:"kind"`
+	Label  *string                `json:"label,omitempty"`
+	Target string                 `json:"target"`
+}
+
+// GetKind returns AgentTaskReferenceInput.Kind, and is useful for accessing the field via an interface.
+func (v *AgentTaskReferenceInput) GetKind() AgentTaskReferenceKind { return v.Kind }
+
+// GetLabel returns AgentTaskReferenceInput.Label, and is useful for accessing the field via an interface.
+func (v *AgentTaskReferenceInput) GetLabel() *string { return v.Label }
+
+// GetTarget returns AgentTaskReferenceInput.Target, and is useful for accessing the field via an interface.
+func (v *AgentTaskReferenceInput) GetTarget() string { return v.Target }
+
+// #2649 (hrn:node:hadronmemory.com:specs:cor:agt:050:01): what a task reference points at, which fixes the form its target takes.
+type AgentTaskReferenceKind string
+
+const (
+	// An absolute https URL of an issue. No owner/repo#n shorthand.
+	AgentTaskReferenceKindIssue AgentTaskReferenceKind = "ISSUE"
+	// A node URN (hrn:node:...).
+	AgentTaskReferenceKindNode AgentTaskReferenceKind = "NODE"
+	// An absolute https URL of a pull request.
+	AgentTaskReferenceKindPullRequest AgentTaskReferenceKind = "PULL_REQUEST"
+	// An agent-task URN (hrn:agenttask:<root>:<app-slug>:<task id or handle>), never a bare handle.
+	AgentTaskReferenceKindTask AgentTaskReferenceKind = "TASK"
+	// An absolute http or https URL.
+	AgentTaskReferenceKindUrl AgentTaskReferenceKind = "URL"
+)
+
+var AllAgentTaskReferenceKind = []AgentTaskReferenceKind{
+	AgentTaskReferenceKindIssue,
+	AgentTaskReferenceKindNode,
+	AgentTaskReferenceKindPullRequest,
+	AgentTaskReferenceKindTask,
+	AgentTaskReferenceKindUrl,
 }
 
 // AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask includes the requested fields of the GraphQL type AgentTask.
@@ -6285,6 +6474,11 @@ func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetTags() []stri
 // GetSource returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.Source, and is useful for accessing the field via an interface.
 func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetSource() *string {
 	return v.AgentTaskFields.Source
+}
+
+// GetReferences returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.References, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
+	return v.AgentTaskFields.References
 }
 
 // GetStartBy returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.StartBy, and is useful for accessing the field via an interface.
@@ -6403,6 +6597,8 @@ type __premarshalAgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask struct {
 
 	Source *string `json:"source"`
 
+	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -6455,6 +6651,7 @@ func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) __premarshalJSON
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.References = v.AgentTaskFields.References
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -6653,6 +6850,11 @@ func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetSource() *string 
 	return v.AgentTaskFields.Source
 }
 
+// GetReferences returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.References, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
+	return v.AgentTaskFields.References
+}
+
 // GetStartBy returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetStartBy() *string {
 	return v.AgentTaskFields.StartBy
@@ -6769,6 +6971,8 @@ type __premarshalAgentTaskSetPrioritySetAgentTaskPriorityAgentTask struct {
 
 	Source *string `json:"source"`
 
+	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -6821,6 +7025,7 @@ func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) __premarshalJSON() (
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.References = v.AgentTaskFields.References
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -6990,6 +7195,11 @@ func (v *AgentTaskStartStartAgentTask) GetTags() []string { return v.AgentTaskFi
 // GetSource returns AgentTaskStartStartAgentTask.Source, and is useful for accessing the field via an interface.
 func (v *AgentTaskStartStartAgentTask) GetSource() *string { return v.AgentTaskFields.Source }
 
+// GetReferences returns AgentTaskStartStartAgentTask.References, and is useful for accessing the field via an interface.
+func (v *AgentTaskStartStartAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
+	return v.AgentTaskFields.References
+}
+
 // GetStartBy returns AgentTaskStartStartAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskStartStartAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -7094,6 +7304,8 @@ type __premarshalAgentTaskStartStartAgentTask struct {
 
 	Source *string `json:"source"`
 
+	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -7146,6 +7358,7 @@ func (v *AgentTaskStartStartAgentTask) __premarshalJSON() (*__premarshalAgentTas
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.References = v.AgentTaskFields.References
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -7371,6 +7584,11 @@ func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetTags() []string { return v.Agen
 // GetSource returns AgentTaskTreeAgentTaskTreeAgentTask.Source, and is useful for accessing the field via an interface.
 func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetSource() *string { return v.AgentTaskFields.Source }
 
+// GetReferences returns AgentTaskTreeAgentTaskTreeAgentTask.References, and is useful for accessing the field via an interface.
+func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
+	return v.AgentTaskFields.References
+}
+
 // GetStartBy returns AgentTaskTreeAgentTaskTreeAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -7485,6 +7703,8 @@ type __premarshalAgentTaskTreeAgentTaskTreeAgentTask struct {
 
 	Source *string `json:"source"`
 
+	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -7537,6 +7757,7 @@ func (v *AgentTaskTreeAgentTaskTreeAgentTask) __premarshalJSON() (*__premarshalA
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.References = v.AgentTaskFields.References
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -7666,6 +7887,11 @@ func (v *AgentTaskUpdateUpdateAgentTask) GetTags() []string { return v.AgentTask
 // GetSource returns AgentTaskUpdateUpdateAgentTask.Source, and is useful for accessing the field via an interface.
 func (v *AgentTaskUpdateUpdateAgentTask) GetSource() *string { return v.AgentTaskFields.Source }
 
+// GetReferences returns AgentTaskUpdateUpdateAgentTask.References, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
+	return v.AgentTaskFields.References
+}
+
 // GetStartBy returns AgentTaskUpdateUpdateAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskUpdateUpdateAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -7772,6 +7998,8 @@ type __premarshalAgentTaskUpdateUpdateAgentTask struct {
 
 	Source *string `json:"source"`
 
+	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
+
 	StartBy *string `json:"startBy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -7824,6 +8052,7 @@ func (v *AgentTaskUpdateUpdateAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
+	retval.References = v.AgentTaskFields.References
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
@@ -7844,7 +8073,7 @@ type AgentTeamEventFields struct {
 	Id     string  `json:"id"`
 	AppId  string  `json:"appId"`
 	TaskId *string `json:"taskId"`
-	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled; the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, stall.finish-by (#2648), alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02).
+	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled, task.handed-back (#2651: its payload is the reason code only, never the reason text); the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, stall.finish-by (#2648), alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02).
 	Type string `json:"type"`
 	// ALARM for an alarm; null for an ordinary event.
 	Severity  *AgentTeamEventSeverity `json:"severity"`
@@ -22410,7 +22639,9 @@ type CreateAgentTaskInput struct {
 	// #2420 (hrn:node:hadronmemory.com:specs:cor:agt:050:28): the task's own properties, a JSON object with the same limits
 	// and refusal codes as on update. Only set when the creator is one of the task's writers (its owner, someone above the
 	// owner, a manager, or the assignee named here); any other creator gets the task made without them, not a refusal.
-	Properties   *json.RawMessage            `json:"properties,omitempty"`
+	Properties *json.RawMessage `json:"properties,omitempty"`
+	// #2649 (hrn:node:hadronmemory.com:specs:cor:agt:050:01): the task's ordered references; any creator may set them, as it sets the title.
+	References   []*AgentTaskReferenceInput  `json:"references,omitempty"`
 	Requirements *AgentTaskRequirementsInput `json:"requirements,omitempty"`
 	Source       *string                     `json:"source"`
 	StartBy      *string                     `json:"startBy"`
@@ -22454,6 +22685,9 @@ func (v *CreateAgentTaskInput) GetProject() *bool { return v.Project }
 
 // GetProperties returns CreateAgentTaskInput.Properties, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetProperties() *json.RawMessage { return v.Properties }
+
+// GetReferences returns CreateAgentTaskInput.References, and is useful for accessing the field via an interface.
+func (v *CreateAgentTaskInput) GetReferences() []*AgentTaskReferenceInput { return v.References }
 
 // GetRequirements returns CreateAgentTaskInput.Requirements, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetRequirements() *AgentTaskRequirementsInput { return v.Requirements }
@@ -71857,7 +72091,9 @@ type UpdateAgentTaskInput struct {
 	// and the task's assignee; an assignee's update may name this field and no other. Refused on a finished or cancelled
 	// task. A non-object is PROPERTIES_NOT_AN_OBJECT, over 16 KiB of canonical JSON PROPERTIES_TOO_LARGE, a violation of the
 	// Team Agent's schema:task-properties PROPERTIES_SCHEMA_VIOLATION, an unusable schema PROPERTIES_SCHEMA_UNUSABLE.
-	Properties   json.RawMessage `json:"properties,omitempty"`
+	Properties json.RawMessage `json:"properties,omitempty"`
+	// #2649 (hrn:node:hadronmemory.com:specs:cor:agt:050:09): a list replaces the whole list, order kept; null or an empty list clears it; omission leaves it. The task.edited event names references, never the values.
+	References   json.RawMessage `json:"references,omitempty"`
 	Requirements json.RawMessage `json:"requirements,omitempty"`
 	// Reanchors only the not-started deadline; null clears the explicit deadline. Existing alarms stay raised.
 	StartBy json.RawMessage `json:"startBy,omitempty"`
@@ -71876,6 +72112,9 @@ func (v *UpdateAgentTaskInput) GetFinishBy() json.RawMessage { return v.FinishBy
 
 // GetProperties returns UpdateAgentTaskInput.Properties, and is useful for accessing the field via an interface.
 func (v *UpdateAgentTaskInput) GetProperties() json.RawMessage { return v.Properties }
+
+// GetReferences returns UpdateAgentTaskInput.References, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTaskInput) GetReferences() json.RawMessage { return v.References }
 
 // GetRequirements returns UpdateAgentTaskInput.Requirements, and is useful for accessing the field via an interface.
 func (v *UpdateAgentTaskInput) GetRequirements() json.RawMessage { return v.Requirements }
@@ -81439,27 +81678,28 @@ func (v *__AgentTaskIndexListInput) GetRef() string { return v.Ref }
 
 // __AgentTaskListFilteredInput is used internally by genqlient
 type __AgentTaskListFilteredInput struct {
-	AppRef         string               `json:"appRef"`
-	Assignee       *AgentTaskPartyInput `json:"assignee,omitempty"`
-	CreatedAfter   *string              `json:"createdAfter,omitempty"`
-	CreatedBefore  *string              `json:"createdBefore,omitempty"`
-	FinishedAfter  *string              `json:"finishedAfter,omitempty"`
-	FinishedBefore *string              `json:"finishedBefore,omitempty"`
-	Limit          *int                 `json:"limit,omitempty"`
-	Offset         *int                 `json:"offset,omitempty"`
-	Overdue        *bool                `json:"overdue,omitempty"`
-	Owner          *AgentTaskPartyInput `json:"owner,omitempty"`
-	ParentTaskId   *string              `json:"parentTaskId,omitempty"`
-	Queued         *bool                `json:"queued,omitempty"`
-	RootsOnly      *bool                `json:"rootsOnly,omitempty"`
-	Source         *string              `json:"source,omitempty"`
-	StartedAfter   *string              `json:"startedAfter,omitempty"`
-	StartedBefore  *string              `json:"startedBefore,omitempty"`
-	Status         []AgentTaskStatus    `json:"status,omitempty"`
-	Tag            *string              `json:"tag,omitempty"`
-	TagsAll        []string             `json:"tagsAll,omitempty"`
-	TagsAny        []string             `json:"tagsAny,omitempty"`
-	Text           *string              `json:"text,omitempty"`
+	AppRef         string                    `json:"appRef"`
+	Assignee       *AgentTaskPartyInput      `json:"assignee,omitempty"`
+	CreatedAfter   *string                   `json:"createdAfter,omitempty"`
+	CreatedBefore  *string                   `json:"createdBefore,omitempty"`
+	FinishedAfter  *string                   `json:"finishedAfter,omitempty"`
+	FinishedBefore *string                   `json:"finishedBefore,omitempty"`
+	Limit          *int                      `json:"limit,omitempty"`
+	Offset         *int                      `json:"offset,omitempty"`
+	Overdue        *bool                     `json:"overdue,omitempty"`
+	Owner          *AgentTaskPartyInput      `json:"owner,omitempty"`
+	ParentTaskId   *string                   `json:"parentTaskId,omitempty"`
+	Queued         *bool                     `json:"queued,omitempty"`
+	RootsOnly      *bool                     `json:"rootsOnly,omitempty"`
+	Reference      *AgentTaskReferenceFilter `json:"reference,omitempty"`
+	Source         *string                   `json:"source,omitempty"`
+	StartedAfter   *string                   `json:"startedAfter,omitempty"`
+	StartedBefore  *string                   `json:"startedBefore,omitempty"`
+	Status         []AgentTaskStatus         `json:"status,omitempty"`
+	Tag            *string                   `json:"tag,omitempty"`
+	TagsAll        []string                  `json:"tagsAll,omitempty"`
+	TagsAny        []string                  `json:"tagsAny,omitempty"`
+	Text           *string                   `json:"text,omitempty"`
 }
 
 // GetAppRef returns __AgentTaskListFilteredInput.AppRef, and is useful for accessing the field via an interface.
@@ -81500,6 +81740,9 @@ func (v *__AgentTaskListFilteredInput) GetQueued() *bool { return v.Queued }
 
 // GetRootsOnly returns __AgentTaskListFilteredInput.RootsOnly, and is useful for accessing the field via an interface.
 func (v *__AgentTaskListFilteredInput) GetRootsOnly() *bool { return v.RootsOnly }
+
+// GetReference returns __AgentTaskListFilteredInput.Reference, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListFilteredInput) GetReference() *AgentTaskReferenceFilter { return v.Reference }
 
 // GetSource returns __AgentTaskListFilteredInput.Source, and is useful for accessing the field via an interface.
 func (v *__AgentTaskListFilteredInput) GetSource() *string { return v.Source }
@@ -89705,6 +89948,11 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	references {
+		kind
+		target
+		label
+	}
 	startBy
 	createdAt
 	updatedAt
@@ -89817,6 +90065,11 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	references {
+		kind
+		target
+		label
+	}
 	startBy
 	createdAt
 	updatedAt
@@ -89933,6 +90186,11 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	references {
+		kind
+		target
+		label
+	}
 	startBy
 	createdAt
 	updatedAt
@@ -90043,6 +90301,11 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	references {
+		kind
+		target
+		label
+	}
 	startBy
 	createdAt
 	updatedAt
@@ -90226,6 +90489,11 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	references {
+		kind
+		target
+		label
+	}
 	startBy
 	createdAt
 	updatedAt
@@ -90338,6 +90606,11 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	references {
+		kind
+		target
+		label
+	}
 	startBy
 	createdAt
 	updatedAt
@@ -90491,6 +90764,11 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	references {
+		kind
+		target
+		label
+	}
 	startBy
 	createdAt
 	updatedAt
@@ -90575,8 +90853,8 @@ func AgentTaskList(
 
 // The query executed by AgentTaskListFiltered.
 const AgentTaskListFiltered_Operation = `
-query AgentTaskListFiltered ($appRef: ID!, $assignee: AgentTaskPartyInput, $createdAfter: DateTime, $createdBefore: DateTime, $finishedAfter: DateTime, $finishedBefore: DateTime, $limit: Int, $offset: Int, $overdue: Boolean, $owner: AgentTaskPartyInput, $parentTaskId: ID, $queued: Boolean, $rootsOnly: Boolean, $source: String, $startedAfter: DateTime, $startedBefore: DateTime, $status: [AgentTaskStatus!], $tag: String, $tagsAll: [String!], $tagsAny: [String!], $text: String) {
-	agentTasks(appRef: $appRef, assignee: $assignee, createdAfter: $createdAfter, createdBefore: $createdBefore, finishedAfter: $finishedAfter, finishedBefore: $finishedBefore, limit: $limit, offset: $offset, overdue: $overdue, owner: $owner, parentTaskId: $parentTaskId, queued: $queued, rootsOnly: $rootsOnly, source: $source, startedAfter: $startedAfter, startedBefore: $startedBefore, status: $status, tag: $tag, tagsAll: $tagsAll, tagsAny: $tagsAny, text: $text) {
+query AgentTaskListFiltered ($appRef: ID!, $assignee: AgentTaskPartyInput, $createdAfter: DateTime, $createdBefore: DateTime, $finishedAfter: DateTime, $finishedBefore: DateTime, $limit: Int, $offset: Int, $overdue: Boolean, $owner: AgentTaskPartyInput, $parentTaskId: ID, $queued: Boolean, $rootsOnly: Boolean, $reference: AgentTaskReferenceFilter, $source: String, $startedAfter: DateTime, $startedBefore: DateTime, $status: [AgentTaskStatus!], $tag: String, $tagsAll: [String!], $tagsAny: [String!], $text: String) {
+	agentTasks(appRef: $appRef, assignee: $assignee, createdAfter: $createdAfter, createdBefore: $createdBefore, finishedAfter: $finishedAfter, finishedBefore: $finishedBefore, limit: $limit, offset: $offset, overdue: $overdue, owner: $owner, parentTaskId: $parentTaskId, queued: $queued, reference: $reference, rootsOnly: $rootsOnly, source: $source, startedAfter: $startedAfter, startedBefore: $startedBefore, status: $status, tag: $tag, tagsAll: $tagsAll, tagsAny: $tagsAny, text: $text) {
 		... AgentTaskFields
 	}
 }
@@ -90621,6 +90899,11 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	references {
+		kind
+		target
+		label
+	}
 	startBy
 	createdAt
 	updatedAt
@@ -90678,6 +90961,7 @@ func AgentTaskListFiltered(
 	parentTaskId *string,
 	queued *bool,
 	rootsOnly *bool,
+	reference *AgentTaskReferenceFilter,
 	source *string,
 	startedAfter *string,
 	startedBefore *string,
@@ -90704,6 +90988,7 @@ func AgentTaskListFiltered(
 			ParentTaskId:   parentTaskId,
 			Queued:         queued,
 			RootsOnly:      rootsOnly,
+			Reference:      reference,
 			Source:         source,
 			StartedAfter:   startedAfter,
 			StartedBefore:  startedBefore,
@@ -90775,6 +91060,11 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	references {
+		kind
+		target
+		label
+	}
 	startBy
 	createdAt
 	updatedAt
@@ -90906,6 +91196,11 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	references {
+		kind
+		target
+		label
+	}
 	startBy
 	createdAt
 	updatedAt
@@ -91020,6 +91315,11 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	references {
+		kind
+		target
+		label
+	}
 	startBy
 	createdAt
 	updatedAt
@@ -91130,6 +91430,11 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	references {
+		kind
+		target
+		label
+	}
 	startBy
 	createdAt
 	updatedAt
@@ -91243,6 +91548,11 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	references {
+		kind
+		target
+		label
+	}
 	startBy
 	createdAt
 	updatedAt
@@ -91357,6 +91667,11 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	references {
+		kind
+		target
+		label
+	}
 	startBy
 	createdAt
 	updatedAt
@@ -91469,6 +91784,11 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	references {
+		kind
+		target
+		label
+	}
 	startBy
 	createdAt
 	updatedAt
@@ -91582,6 +91902,11 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	references {
+		kind
+		target
+		label
+	}
 	startBy
 	createdAt
 	updatedAt
@@ -91746,6 +92071,11 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	references {
+		kind
+		target
+		label
+	}
 	startBy
 	createdAt
 	updatedAt
@@ -91856,6 +92186,11 @@ fragment AgentTaskFields on AgentTask {
 	parentTaskId
 	tags
 	source
+	references {
+		kind
+		target
+		label
+	}
 	startBy
 	createdAt
 	updatedAt
@@ -91903,6 +92238,7 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 // no null-clear (an empty title is refused; null would mean false), so they stay
 // pointers, where a pointer to false is still sent.
 // finishBy (#2648) arrived with the cli#1513 schema refresh and is not implemented here: omitted, never an explicit null (null CLEARS on an update).
+// #2649 references: a replace list or an explicit clear (null/[]); a plain omitempty slice would drop the empty list, so the clear needs RawMessage like tags.
 // #2420: nil = key omitted (unchanged), RawMessage("null") = explicit clear. The
 // global JSON binding is a slice, so without omitempty a nil value would be sent
 // as null and clear the task's properties on every unrelated update (#1331).

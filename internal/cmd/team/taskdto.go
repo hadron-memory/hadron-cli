@@ -65,6 +65,7 @@ type taskDTO struct {
 	ParentTaskID         *string                `json:"parentTaskId"`
 	Tags                 []string               `json:"tags"`
 	Source               *string                `json:"source"`
+	References           []taskReferenceDTO     `json:"references"`
 	StartBy              *string                `json:"startBy"`
 	CreatedAt            string                 `json:"createdAt"`
 	UpdatedAt            *string                `json:"updatedAt"`
@@ -169,6 +170,7 @@ func taskDTOFrom(fields gen.AgentTaskFields) taskDTO {
 		ParentTaskID:         fields.ParentTaskId,
 		Tags:                 []string{},
 		Source:               fields.Source,
+		References:           taskReferencesDTOFrom(fields.References),
 		StartBy:              fields.StartBy,
 		CreatedAt:            fields.CreatedAt,
 		UpdatedAt:            fields.UpdatedAt,
