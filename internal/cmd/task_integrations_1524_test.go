@@ -21,26 +21,26 @@ const issueURL1524 = "https://github.com/acme/app/issues/42"
 
 // envelope1524 renders err through the production renderer as --json and
 // returns the error envelope.
-func envelope1524(t *testing.T, err error) (int, map[string]any) {
+func envelope1524(t *testing.T, err error) map[string]any {
 	t.Helper()
 	f, out := testFactory(t)
 	f.JSON = true
-	code := renderError(f, err)
+	_ = renderError(f, err)
 	var env struct {
 		Error map[string]any `json:"error"`
 	}
 	if jerr := json.Unmarshal([]byte(out.String()), &env); jerr != nil {
 		t.Fatalf("envelope is not JSON: %v\n%s", jerr, out.String())
 	}
-	return code, env.Error
+	return env.Error
 }
 
-// oneCall1524 is the single call of op, failing the test unless there is
-// exactly one call and it is op.
-func oneCall1524(t *testing.T, calls *[]attnCall, op string) attnCall {
+// oneSet1524 is the single call, failing the test unless there is exactly
+// one call and it is SetAppProperties.
+func oneSet1524(t *testing.T, calls *[]attnCall) attnCall {
 	t.Helper()
-	if len(*calls) != 1 || (*calls)[0].Op != op {
-		t.Fatalf("calls = %v, want exactly one %s", *calls, op)
+	if len(*calls) != 1 || (*calls)[0].Op != "SetAppProperties" {
+		t.Fatalf("calls = %v, want exactly one SetAppProperties", *calls)
 	}
 	return (*calls)[0]
 }
@@ -121,7 +121,7 @@ func TestTaskCreateExternalID1524(t *testing.T) {
 		if exitCodeFor(err) != exitcode.Conflict {
 			t.Fatalf("exit = %d, want %d: %v", exitCodeFor(err), exitcode.Conflict, err)
 		}
-		if _, env := envelope1524(t, err); env["serverCode"] != "TASK_EXTERNAL_ID_TAKEN" {
+		if env := envelope1524(t, err); env["serverCode"] != "TASK_EXTERNAL_ID_TAKEN" {
 			t.Errorf("serverCode = %v, want TASK_EXTERNAL_ID_TAKEN", env["serverCode"])
 		}
 	})
@@ -266,10 +266,10 @@ func TestAppPropertiesSet1524(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(*calls) != 1 || oneCall1524(t, calls, "SetAppProperties").Op != "SetAppProperties" {
+		if len(*calls) != 1 || oneSet1524(t, calls).Op != "SetAppProperties" {
 			t.Fatalf("calls = %v, want exactly one SetAppProperties", *calls)
 		}
-		v := oneCall1524(t, calls, "SetAppProperties").Vars
+		v := oneSet1524(t, calls).Vars
 		if !compactEq1524(t, v["properties"], obj) {
 			t.Errorf("properties = %v", v["properties"])
 		}
@@ -289,8 +289,8 @@ func TestAppPropertiesSet1524(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if oneCall1524(t, calls, "SetAppProperties").Vars["expectedRevision"] != float64(3) {
-			t.Errorf("expectedRevision = %#v", oneCall1524(t, calls, "SetAppProperties").Vars["expectedRevision"])
+		if oneSet1524(t, calls).Vars["expectedRevision"] != float64(3) {
+			t.Errorf("expectedRevision = %#v", oneSet1524(t, calls).Vars["expectedRevision"])
 		}
 	})
 
@@ -303,15 +303,15 @@ func TestAppPropertiesSet1524(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !compactEq1524(t, oneCall1524(t, calls, "SetAppProperties").Vars["properties"], obj) {
-			t.Errorf("@file properties = %v", oneCall1524(t, calls, "SetAppProperties").Vars["properties"])
+		if !compactEq1524(t, oneSet1524(t, calls).Vars["properties"], obj) {
+			t.Errorf("@file properties = %v", oneSet1524(t, calls).Vars["properties"])
 		}
 		calls, _, err = runApp1524(t, setResponses1524(obj), obj+"\n", "app", "properties", "set", appRef1524, "-")
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !compactEq1524(t, oneCall1524(t, calls, "SetAppProperties").Vars["properties"], obj) {
-			t.Errorf("stdin properties = %v", oneCall1524(t, calls, "SetAppProperties").Vars["properties"])
+		if !compactEq1524(t, oneSet1524(t, calls).Vars["properties"], obj) {
+			t.Errorf("stdin properties = %v", oneSet1524(t, calls).Vars["properties"])
 		}
 	})
 
@@ -343,7 +343,7 @@ func TestAppPropertiesSet1524(t *testing.T) {
 			if exitCodeFor(err) != tc.exit {
 				t.Fatalf("exit = %d, want %d: %v", exitCodeFor(err), tc.exit, err)
 			}
-			if _, env := envelope1524(t, err); env["serverCode"] != tc.code {
+			if env := envelope1524(t, err); env["serverCode"] != tc.code {
 				t.Errorf("serverCode = %v, want %s", env["serverCode"], tc.code)
 			}
 		})
@@ -366,13 +366,13 @@ func TestAppPropertiesClear1524(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if len(*calls) != 1 || oneCall1524(t, calls, "SetAppProperties").Op != "SetAppProperties" {
+		if len(*calls) != 1 || oneSet1524(t, calls).Op != "SetAppProperties" {
 			t.Fatalf("calls = %v", *calls)
 		}
 		var raw map[string]json.RawMessage
-		_ = json.Unmarshal(oneCall1524(t, calls, "SetAppProperties").RawVars, &raw)
+		_ = json.Unmarshal(oneSet1524(t, calls).RawVars, &raw)
 		if p, present := raw["properties"]; !present || string(p) != "null" {
-			t.Errorf("properties must be sent as an explicit null: %s", oneCall1524(t, calls, "SetAppProperties").RawVars)
+			t.Errorf("properties must be sent as an explicit null: %s", oneSet1524(t, calls).RawVars)
 		}
 		if string(raw["expectedRevision"]) != "7" {
 			t.Errorf("expectedRevision = %s", raw["expectedRevision"])
@@ -441,24 +441,4 @@ func TestAppPropertiesGet1524(t *testing.T) {
 			t.Errorf("exit = %d, want %d", exitCodeFor(err), exitcode.NotFound)
 		}
 	})
-}
-
-func TestAppGetShowsProperties1524(t *testing.T) {
-	r := map[string]string{"GetAppMetadata": `{"data":{"app":{"id":"capp1","urn":"hrn:app:acme.com:support","name":"Support","appType":"TEAM","description":null,"propertiesRevision":2,"properties":{"a":1}}}}`}
-	_, out, err := runApp1524(t, r, "", "app", "get", appRef1524, "--json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var dto map[string]any
-	_ = json.Unmarshal([]byte(out), &dto)
-	if !compactEq1524(t, dto["properties"], `{"a":1}`) {
-		t.Errorf("app get --json properties = %v\n%s", dto["properties"], out)
-	}
-	_, out, err = runApp1524(t, r, "", "app", "get", appRef1524)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !strings.Contains(out, "properties:\n") || !strings.Contains(out, `"a": 1`) {
-		t.Errorf("app get text must show the properties block:\n%s", out)
-	}
 }

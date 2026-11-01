@@ -162,6 +162,11 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 			return err
 		}
 	}
+	if task.ExternalID != nil {
+		if err := line("  external id: %s", output.SafeLine(*task.ExternalID, 2048)); err != nil {
+			return err
+		}
+	}
 	if task.Source != nil {
 		if err := line("  source: %s", output.SafeLine(*task.Source, 2048)); err != nil {
 			return err
@@ -263,7 +268,7 @@ func newCmdTeamTaskList(f *cmdutil.Factory) *cobra.Command {
 	var assignee, owner, parent, tag, team, staleOver, text string
 	var queued, rootsOnly, tree, overdue bool
 	var tagsAny, tagsAll []string
-	var source, refTarget, refKind string
+	var source, externalID, refTarget, refKind string
 	var times [6]string
 	var limit, offset int
 	cmd := &cobra.Command{
@@ -285,7 +290,8 @@ refuses blank or over-200-character values (BAD_USER_INPUT, exit 2).
 --limit/--offset page (default 20, cap 200); a full default page says more may exist.
 
 --tag-any (at least one) and --tag-all (every one) repeat; a comma is part of a
-tag, not a separator. --source matches the exact value, never a prefix.
+tag, not a separator. --source matches the exact value, never a prefix, and so
+does --external-id: the task claiming that outside item (at most one per App).
 --ref <target> lists tasks carrying a typed reference with exactly that target
 (never a prefix; the label is ignored), and --ref-kind (issue, pull-request,
 node, task, url) narrows it to one kind; --ref-kind alone is a usage error.
@@ -437,7 +443,7 @@ ageFrom; --tree changes text only.`,
 				assignee: assigneeIn, owner: ownerIn, parent: optStr(parent), queued: optBool(queued),
 				rootsOnly: optBool(rootsOnly), status: status, tag: optStr(tag), text: textArg, limit: limit, offset: offset,
 				limitExplicit: cmd.Flags().Changed("limit"),
-				tagsAny:       nilIfEmpty(tagsAny), tagsAll: nilIfEmpty(tagsAll), source: optStr(source), reference: refFilter, overdue: overdueIn,
+				tagsAny:       nilIfEmpty(tagsAny), tagsAll: nilIfEmpty(tagsAll), source: optStr(source), externalID: optStr(externalID), reference: refFilter, overdue: overdueIn,
 				createdAfter: bounds[0], createdBefore: bounds[1], startedAfter: bounds[2], startedBefore: bounds[3],
 				finishedAfter: bounds[4], finishedBefore: bounds[5],
 			})
@@ -451,6 +457,7 @@ ageFrom; --tree changes text only.`,
 	cmd.Flags().StringArrayVar(&tagsAny, "tag-any", nil, "match at least one of these tags, repeatable (a comma is part of the tag)")
 	cmd.Flags().StringArrayVar(&tagsAll, "tag-all", nil, "match every one of these tags, repeatable (a comma is part of the tag)")
 	cmd.Flags().StringVar(&source, "source", "", "exact source value (no prefix matching)")
+	cmd.Flags().StringVar(&externalID, "external-id", "", "the task claiming exactly this external id, such as an issue URL (no prefix matching)")
 	cmd.Flags().StringVar(&refTarget, "ref", "", "tasks carrying a reference with exactly this target (the label is ignored)")
 	cmd.Flags().StringVar(&refKind, "ref-kind", "", "narrow --ref to one kind ("+taskRefKindsDoc+")")
 	cmd.Flags().BoolVar(&overdue, "overdue", false, "start-by passed, not started, not ended, not backlog; --overdue=false lists all other tasks")
@@ -482,6 +489,7 @@ type taskListQuery struct {
 	// The #1250 filters; any one set routes the read through AgentTaskListFiltered.
 	tagsAny, tagsAll              []string
 	source                        *string
+	externalID                    *string
 	reference                     *gen.AgentTaskReferenceFilter
 	overdue                       *bool
 	createdAfter, createdBefore   *string
@@ -501,7 +509,7 @@ func nilIfEmpty(s []string) []string {
 
 // filtered reports whether a #1250 filter is set.
 func (q taskListQuery) filtered() bool {
-	return q.tagsAny != nil || q.tagsAll != nil || q.source != nil || q.reference != nil || q.overdue != nil ||
+	return q.tagsAny != nil || q.tagsAll != nil || q.source != nil || q.externalID != nil || q.reference != nil || q.overdue != nil ||
 		q.createdAfter != nil || q.createdBefore != nil || q.startedAfter != nil || q.startedBefore != nil ||
 		q.finishedAfter != nil || q.finishedBefore != nil
 }
@@ -526,7 +534,7 @@ func taskListPage(ctx context.Context, client graphql.Client, appRef string, q t
 	tasks := []taskDTO{}
 	if q.filtered() {
 		resp, err := gen.AgentTaskListFiltered(ctx, client, appRef, q.assignee, q.createdAfter, q.createdBefore, q.finishedAfter, q.finishedBefore,
-			&q.limit, &q.offset, q.overdue, q.owner, q.parent, q.queued, q.rootsOnly, q.reference, q.source, q.startedAfter, q.startedBefore,
+			&q.limit, &q.offset, q.overdue, q.owner, q.parent, q.queued, q.rootsOnly, q.reference, q.source, q.externalID, q.startedAfter, q.startedBefore,
 			q.status, q.tag, q.tagsAll, q.tagsAny, q.text)
 		if err != nil {
 			return nil, 0, mapTaskError(err)

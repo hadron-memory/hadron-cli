@@ -31,6 +31,7 @@ func NewCmdApp(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdWhoami(f))
 	cmd.AddCommand(newCmdAssetUpload(f))
 	cmd.AddCommand(newCmdModelGroup(f))
+	cmd.AddCommand(newCmdProperties(f))
 	return cmd
 }
 

@@ -211,7 +211,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 321: 242 command, 68 gap, 11 excluded
+[Mutation] 322: 243 command, 68 gap, 11 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -453,6 +453,7 @@ setAppAgentBootPrompt  command app agent set-boot-prompt
 setAppDeliverySettings  command team delivery-settings set
 setAppMemoryWriteGrant  command app memory-grant add
 setAppModelGroup  command app model-group set
+setAppProperties  command app properties set
 setAppTickerSettings  gap #1336
 setAssetPublicLink  command asset public-link
 setDashboardWidgets  excluded graphical: places portal dashboard widgets on a 12-column grid (position, span, rowSpan)

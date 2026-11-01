@@ -54,6 +54,8 @@ fragment AgentTaskFields on AgentTask {
   parentTaskId
   tags
   source
+  # cli#1524 C1 (hadron-server#3125 S2, cor:agt:120:02): the outside item the task claims.
+  externalId
   references { kind target label }
   handBack { code text handedBackAt }
   startBy
@@ -589,6 +591,9 @@ query AgentTaskListFiltered(
   $reference: AgentTaskReferenceFilter
   # @genqlient(omitempty: true)
   $source: String
+  # cli#1524 C1 (V46): the exact externalId, how a caller finds the holder after TASK_EXTERNAL_ID_TAKEN.
+  # @genqlient(omitempty: true)
+  $externalId: String
   # @genqlient(omitempty: true)
   $startedAfter: DateTime
   # @genqlient(omitempty: true)
@@ -620,6 +625,7 @@ query AgentTaskListFiltered(
     reference: $reference
     rootsOnly: $rootsOnly
     source: $source
+    externalId: $externalId
     startedAfter: $startedAfter
     startedBefore: $startedBefore
     status: $status

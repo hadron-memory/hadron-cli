@@ -46,37 +46,40 @@ type taskResultDTO struct {
 // unacknowledged alarms onto the nodes it renders; omitempty keeps the other
 // commands' shapes identical to the plain task read.
 type taskDTO struct {
-	Priority             int                    `json:"priority"`
-	Blocked              bool                   `json:"blocked"`
-	BlockedBy            *taskDependencyPageDTO `json:"blockedBy"`
-	Blocks               *taskDependencyPageDTO `json:"blocks"`
-	ID                   string                 `json:"id"`
-	Handle               string                 `json:"handle"`
-	TaskNumber           string                 `json:"taskNumber"`
-	AppID                string                 `json:"appId"`
-	Title                string                 `json:"title"`
-	Description          *string                `json:"description"`
-	Status               string                 `json:"status"`
-	Queued               bool                   `json:"queued"`
-	WaitingOnChildren    bool                   `json:"waitingOnChildren"`
-	Owner                *taskPartyDTO          `json:"owner"`
-	Assignee             *taskPartyDTO          `json:"assignee"`
-	AssignedBy           *taskPartyDTO          `json:"assignedBy"`
-	CreatedBy            *taskPartyDTO          `json:"createdBy"`
-	ParentTaskID         *string                `json:"parentTaskId"`
-	Tags                 []string               `json:"tags"`
-	Source               *string                `json:"source"`
-	References           []taskReferenceDTO     `json:"references"`
-	HandBack             *taskHandBackDTO       `json:"handBack"`
-	StartBy              *string                `json:"startBy"`
-	CreatedAt            string                 `json:"createdAt"`
-	UpdatedAt            *string                `json:"updatedAt"`
-	StartedAt            *string                `json:"startedAt"`
-	FinishedAt           *string                `json:"finishedAt"`
-	CancelledAt          *string                `json:"cancelledAt"`
-	CloseSessionWhenDone bool                   `json:"closeSessionWhenDone"`
-	Requirements         *taskRequirementsDTO   `json:"requirements"`
-	Result               *taskResultDTO         `json:"result"`
+	Priority          int                    `json:"priority"`
+	Blocked           bool                   `json:"blocked"`
+	BlockedBy         *taskDependencyPageDTO `json:"blockedBy"`
+	Blocks            *taskDependencyPageDTO `json:"blocks"`
+	ID                string                 `json:"id"`
+	Handle            string                 `json:"handle"`
+	TaskNumber        string                 `json:"taskNumber"`
+	AppID             string                 `json:"appId"`
+	Title             string                 `json:"title"`
+	Description       *string                `json:"description"`
+	Status            string                 `json:"status"`
+	Queued            bool                   `json:"queued"`
+	WaitingOnChildren bool                   `json:"waitingOnChildren"`
+	Owner             *taskPartyDTO          `json:"owner"`
+	Assignee          *taskPartyDTO          `json:"assignee"`
+	AssignedBy        *taskPartyDTO          `json:"assignedBy"`
+	CreatedBy         *taskPartyDTO          `json:"createdBy"`
+	ParentTaskID      *string                `json:"parentTaskId"`
+	Tags              []string               `json:"tags"`
+	Source            *string                `json:"source"`
+	// ExternalID is the outside item the task claims (cli#1524, cor:agt:120:02):
+	// set once at create, never edited; null when the task claims none.
+	ExternalID           *string              `json:"externalId"`
+	References           []taskReferenceDTO   `json:"references"`
+	HandBack             *taskHandBackDTO     `json:"handBack"`
+	StartBy              *string              `json:"startBy"`
+	CreatedAt            string               `json:"createdAt"`
+	UpdatedAt            *string              `json:"updatedAt"`
+	StartedAt            *string              `json:"startedAt"`
+	FinishedAt           *string              `json:"finishedAt"`
+	CancelledAt          *string              `json:"cancelledAt"`
+	CloseSessionWhenDone bool                 `json:"closeSessionWhenDone"`
+	Requirements         *taskRequirementsDTO `json:"requirements"`
+	Result               *taskResultDTO       `json:"result"`
 	// Properties is the task's OWN optional JSON object (#2420): never
 	// inherited, so a child shows its own value, and null when unset.
 	Properties json.RawMessage `json:"properties"`
@@ -201,6 +204,7 @@ func taskDTOFrom(fields gen.AgentTaskFields) taskDTO {
 		ParentTaskID:         fields.ParentTaskId,
 		Tags:                 []string{},
 		Source:               fields.Source,
+		ExternalID:           fields.ExternalId,
 		References:           taskReferencesDTOFrom(fields.References),
 		HandBack:             taskHandBackDTOFrom(fields.HandBack),
 		StartBy:              fields.StartBy,
@@ -432,6 +436,12 @@ var taskErrorCodes = []string{
 // state, authority and cycle decisions, so its public code is preserved beside
 // the mapped message, and the human message is made terminal-safe.
 func mapTaskError(err error) error {
+	// The server's code rides on the --json envelope as serverCode (cli#1524):
+	// a script tells TASK_EXTERNAL_ID_TAKEN from another conflict by it.
+	return api.WithServerCode(mapTaskErrorMessage(err), err)
+}
+
+func mapTaskErrorMessage(err error) error {
 	mapped := api.MapError(err)
 	if mapped == nil {
 		return nil
