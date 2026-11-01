@@ -898,7 +898,7 @@ Conventions:
   a seq from the CLI. The CLI checks nothing about the node: the server refuses the
   write on `chat-message`/`record` nodes (`SEQ_PROTECTED`) and on nodes under a Channel
   (`LOC_PROTECTED`); other node kinds follow their own write rules (a runnable task
-  takes a seq through its own door), and a refusal is printed as is. Reordering a
+  takes a seq through its own door), and a refusal is printed as is. Both refusals exit 2 (usage). Reordering a
   legacy chat is not offered here.
 - `node add` fails if the loc already exists; `node update` modifies
   an existing node and preserves unset fields. Content comes from
