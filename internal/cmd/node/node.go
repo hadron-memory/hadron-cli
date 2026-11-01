@@ -304,5 +304,7 @@ func strVal(s *string) string {
 }
 
 // seqRefusalHelp is the --seq tail on node create/update (cli#479): the CLI
-// holds no allowlist, so the help names who refuses.
-const seqRefusalHelp = "orders ordinary nodes among siblings; the server refuses it on chats, channels, journals and governed nodes (SEQ_PROTECTED, LOC_PROTECTED, ROLE_GOVERNED)"
+// holds no allowlist, so the help names only the refusals that are established:
+// other node kinds follow their own write rules (a kind door is exempt from
+// its own kind, so a runnable task takes a seq through UpdateTaskNode).
+const seqRefusalHelp = "orders ordinary nodes among siblings; the server refuses it on chat-message and record nodes (SEQ_PROTECTED) and under a Channel (LOC_PROTECTED), other node kinds follow their own write rules, and a refusal is printed as is"

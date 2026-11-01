@@ -127,10 +127,33 @@ func TestNodeSeqHelp479(t *testing.T) {
 			t.Fatal(err)
 		}
 		h := out.String()
-		for _, want := range []string{"--seq", "among siblings", "refuse"} {
+		if strings.Contains(h, "ROLE_GOVERNED") {
+			t.Errorf("node %s --help claims ROLE_GOVERNED refuses --seq (not established, cli#479 ruling)", sub)
+		}
+		for _, want := range []string{"--seq", "among siblings", "SEQ_PROTECTED", "LOC_PROTECTED", "own write rules"} {
 			if !strings.Contains(h, want) {
 				t.Errorf("node %s --help lacks %q", sub, want)
 			}
 		}
+	}
+}
+
+// A runnable node is written through its own kind door, which is exempt from
+// its own kind: the seq rides UpdateTaskNode (cli#479 ruling; stated, not implied).
+func TestNodeUpdateSeqOnRunnableNodeUsesTaskDoor479(t *testing.T) {
+	captured, _, err := run1341(t, map[string]string{
+		"ResolveUrn":     resolveNodeJSON,
+		"GetNode":        kindDetail("null", "true"),
+		"UpdateTaskNode": `{"data":{"updateTaskNode":` + nodeJSON + `}}`,
+	}, "node", "update", nodeURN, "--seq", "3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	in := doorInput(t, captured, "UpdateTaskNode")
+	if got, ok := in["seq"].(float64); !ok || got != 3 {
+		t.Errorf("UpdateTaskNode input.seq = %v, want 3", in["seq"])
+	}
+	if _, generic := captured["UpdateNode"]; generic {
+		t.Error("a runnable node must not be written through the generic UpdateNode")
 	}
 }
