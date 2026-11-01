@@ -642,8 +642,10 @@ mutation LinkMemoryToUser(
 # hadron_validate, wired up for `hadron memory validate` (#352).
 #
 # Two fields exist because `findings` is NOT the answer on its own:
-#   - totalFindings is the true count BEFORE `limit` truncation — gate CI on
-#     this, never on len(findings).
+#   - totalFindings is the true PROBLEM count BEFORE `limit` truncation (it
+#     excludes the informational INDEX_TRUNCATED declaration, which is counted
+#     by totalInformational and never affects health, cli#1501) — never gate
+#     on len(findings), which includes informational rows.
 #   - ok is false when any check was SKIPPED, even with zero findings, so a
 #     clean bill of health can't quietly omit a check. skippedChecks says which
 #     and why (e.g. the stale-abstract check is skipped on encrypted memories:
@@ -661,6 +663,7 @@ query ValidateMemory(
     nodesChecked
     ok
     totalFindings
+    totalInformational
     truncated
     findings {
       kind
