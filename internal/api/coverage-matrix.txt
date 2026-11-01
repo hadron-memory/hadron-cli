@@ -19,7 +19,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 187: 142 command, 30 gap, 15 excluded
+[Query] 187: 144 command, 28 gap, 15 excluded
 actionTickets  command ticket list
 agent  command agent get
 agentAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime that makes LLM calls; a person reads the masked config with `ai-config get`
@@ -106,8 +106,8 @@ homeAssistantInstanceOps  command ha ops
 homeAssistantInstances  command ha list
 hostOperations  command team host ops
 hostRegistrations  command team host list
-impersonationSession  gap #1344
-impersonationSessions  gap #1344
+impersonationSession  command admin impersonation get
+impersonationSessions  command admin impersonation list
 installMemory  command node list
 invitation  command org invite show
 latestAppRun  command run latest
@@ -208,7 +208,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 315: 232 command, 72 gap, 11 excluded
+[Mutation] 315: 234 command, 70 gap, 11 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -334,7 +334,7 @@ deleteSecret  command secret rm
 deleteSlackConnection  gap #206
 deleteTeamRole  command team role rm
 deleteTicker  command ticker delete
-deleteUser  gap #1344
+deleteUser  command user delete
 deleteWorker  command team worker rm
 editComment  command comment edit
 emailCategorizeMessage  gap #198
@@ -456,7 +456,7 @@ setModelFamilyAvailability  command team availability set
 setQuotaLimit  gap #1343
 setTeamPause  command team pause
 setTeamStopSignal  command team stop set
-setUserApiKeyHidden  gap #1344
+setUserApiKeyHidden  command auth token hide
 setWorkerAvailability  command team availability set
 setWorkerBootPrompt  command team worker set-boot-prompt
 setWorkerReportsTo  command team worker set-reports-to
@@ -525,7 +525,7 @@ updateWorker  command team worker update
 withdrawDecision  gap #1335
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 81: 54 gap, 27 excluded
+[Arguments] 80: 53 gap, 27 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.addOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
@@ -599,7 +599,6 @@ Query.castWorkerPreview(noTeam)  gap #933
 Query.castWorkerPreview(reportsTo)  gap #933
 Query.channelMessages(teamHeadRef)  gap #936
 Query.channelMessages(untagged)  gap #936
-Query.myUserApiKeys(includeHidden)  gap #1344
 Query.node(memoryRef)  excluded not-a-capability: the CLI composes -m and a bare loc into the full node URN, which the SDL documents as the equivalent address (the one case memoryRef adds, forcing loc reading of an unprefixed 3+-segment ref, the hrn:node: form already removes); proposed class, specs engineer to accept
 Query.teamAttentionPage(limit)  gap #828
 Query.teamAttentionPage(scanLimit)  gap #828
@@ -608,7 +607,7 @@ Query.teamAttentionPreviewPage(scanLimit)  gap #828
 Query.teamChatMessages(teamHeadRef)  gap #936
 Query.teamChatMessages(untagged)  gap #936
 
-[Filters] 49: 48 flag, 1 gap
+[Filters] 50: 49 flag, 1 gap
 Query.agents(filter.ownedByMe)  flag agent list --owned-by-me
 Query.agents(filter.type)  flag agent list --type
 Query.agents(filter.visibility)  flag agent list --visibility
@@ -642,6 +641,7 @@ Query.findNodes(filter.tags)  flag node list --tag
 Query.findNodes(filter.updatedAfter)  flag node list --updated-after
 Query.findNodes(filter.updatedBefore)  flag node list --updated-before
 Query.findNodes(filter.where)  flag node list --where
+Query.impersonationSessions(filter.activeOnly)  flag admin impersonation list --active
 Query.memories(filter.memoryClasses)  flag memory list --include-agent-system
 Query.memories(filter.ownedByMe)  flag memory list --owned-by-me
 Query.memories(filter.sharedWithMe)  flag memory list --shared-with-me

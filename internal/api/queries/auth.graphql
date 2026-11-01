@@ -10,10 +10,16 @@ fragment UserApiKeyFields on UserApiKey {
   createdAt
   lastUsedAt
   revokedAt
+  hiddenAt
 }
 
-query MyUserApiKeys {
-  myUserApiKeys {
+# includeHidden carries omitempty: false is the server default, so it is left
+# out rather than sent, and a hidden key stays hidden unless asked for (#1344).
+query MyUserApiKeys(
+  # @genqlient(omitempty: true)
+  $includeHidden: Boolean
+) {
+  myUserApiKeys(includeHidden: $includeHidden) {
     ...UserApiKeyFields
   }
 }
@@ -35,6 +41,14 @@ mutation CreateUserApiKey(
 # Idempotent for an already-revoked key; returns the updated key.
 mutation RevokeUserApiKey($id: ID!) {
   revokeUserApiKey(id: $id) {
+    ...UserApiKeyFields
+  }
+}
+
+# Hide or unhide one of the caller's OWN revoked keys in the default list.
+# Display state only; hiding an active key is refused (KEY_ACTIVE).
+mutation SetUserApiKeyHidden($id: ID!, $hidden: Boolean!) {
+  setUserApiKeyHidden(id: $id, hidden: $hidden) {
     ...UserApiKeyFields
   }
 }
