@@ -23,9 +23,24 @@ type edgeListDTO struct {
 	Priority   int    `json:"priority"`
 	OtherID    string `json:"otherNodeId"`
 	OtherLoc   string `json:"otherNodeLoc"`
+	// The attribution read (hadron-cli#1513): same four keys, same null rule
+	// as the uniform edge shapes (see uniformEdgeDTO).
+	CreatedAt     string               `json:"createdAt"`
+	UpdatedAt     *string              `json:"updatedAt"`
+	CreatedByUser *cmdutil.Attribution `json:"createdByUser"`
+	UpdatedByUser *cmdutil.Attribution `json:"updatedByUser"`
 }
 
-func edgeListRow(id, dir string, name *string, loc string, isRunnable *bool, priority int, otherID, otherLoc string) edgeListDTO {
+// edgeStamps carries one edge's attribution read from the query, so the row
+// builder stays free of the per-direction genqlient types.
+type edgeStamps struct {
+	createdAt, updatedAt         *string
+	createdHandle, createdURN    *string
+	updatedHandle, updatedURN    *string
+	hasCreatedUser, hasUpdatedBy bool
+}
+
+func edgeListRow(id, dir string, name *string, loc string, isRunnable *bool, priority int, otherID, otherLoc string, st edgeStamps) edgeListDTO {
 	n := ""
 	if name != nil {
 		n = *name
@@ -34,10 +49,20 @@ func edgeListRow(id, dir string, name *string, loc string, isRunnable *bool, pri
 	if isRunnable != nil {
 		run = *isRunnable
 	}
-	return edgeListDTO{
+	d := edgeListDTO{
 		ID: id, Direction: dir, Name: n, Loc: loc, IsRunnable: run, Priority: priority,
-		OtherID: otherID, OtherLoc: otherLoc,
+		OtherID: otherID, OtherLoc: otherLoc, UpdatedAt: st.updatedAt,
 	}
+	if st.createdAt != nil {
+		d.CreatedAt = *st.createdAt
+	}
+	if st.hasCreatedUser {
+		d.CreatedByUser = cmdutil.NewAttribution(st.createdHandle, st.createdURN)
+	}
+	if st.hasUpdatedBy {
+		d.UpdatedByUser = cmdutil.NewAttribution(st.updatedHandle, st.updatedURN)
+	}
+	return d
 }
 
 // edgeFilter narrows a node's edges. The zero value matches everything, so an
@@ -145,6 +170,12 @@ that edge update and edge rm take:
 A node at the other end that lives in a memory you cannot read is shown
 without its loc.
 
+--json adds createdAt, updatedAt, createdByUser and updatedByUser to every edge
+(both forms below). An author is the server's {handle, urn} or null; null means
+"not shown to you or not known" (for example, an edge whose memory you cannot
+read, or one written before authors were recorded), never "nobody". The tables
+keep their columns; attribution is --json only here, and edge get shows it.
+
 Without filters every edge is listed. --direction, --name, --to and --from
 only narrow that list, so a filtered --json run is a subset of an unfiltered
 one. --to and --from name the node at the other end, by its loc or id: --to
@@ -201,7 +232,7 @@ listed unless --limit or --offset asks for one page; --json prints
 			if err != nil {
 				return err
 			}
-			resp, err := gen.GetNode(cmd.Context(), client, id)
+			resp, err := gen.NodeEdgesAttributed(cmd.Context(), client, id)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -218,14 +249,28 @@ listed unless --limit or --offset asks for one page; --json prints
 				if e.Target != nil {
 					tid, tloc = e.Target.Id, e.Target.Loc
 				}
-				edges = append(edges, edgeListRow(e.Id, "outgoing", e.Name, e.Loc, e.IsRunnable, e.Priority, tid, tloc))
+				st := edgeStamps{createdAt: &e.CreatedAt, updatedAt: e.UpdatedAt}
+				if u := e.CreatedByUser; u != nil {
+					st.hasCreatedUser, st.createdHandle, st.createdURN = true, u.Handle, u.Urn
+				}
+				if u := e.UpdatedByUser; u != nil {
+					st.hasUpdatedBy, st.updatedHandle, st.updatedURN = true, u.Handle, u.Urn
+				}
+				edges = append(edges, edgeListRow(e.Id, "outgoing", e.Name, e.Loc, e.IsRunnable, e.Priority, tid, tloc, st))
 			}
 			for _, e := range resp.Node.IncomingEdges {
 				sid, sloc := "", ""
 				if e.Source != nil {
 					sid, sloc = e.Source.Id, e.Source.Loc
 				}
-				edges = append(edges, edgeListRow(e.Id, "incoming", e.Name, e.Loc, e.IsRunnable, e.Priority, sid, sloc))
+				st := edgeStamps{createdAt: &e.CreatedAt, updatedAt: e.UpdatedAt}
+				if u := e.CreatedByUser; u != nil {
+					st.hasCreatedUser, st.createdHandle, st.createdURN = true, u.Handle, u.Urn
+				}
+				if u := e.UpdatedByUser; u != nil {
+					st.hasUpdatedBy, st.updatedHandle, st.updatedURN = true, u.Handle, u.Urn
+				}
+				edges = append(edges, edgeListRow(e.Id, "incoming", e.Name, e.Loc, e.IsRunnable, e.Priority, sid, sloc, st))
 			}
 
 			edges = filterEdges(edges, fl)

@@ -43,6 +43,17 @@ fragment UniformEdge on Edge {
   description
   isRunnable
   priority
+  # hadron-cli#1513: the provider's values, verbatim. A null author is the provider's null (not shown to you or not known), never "nobody".
+  createdAt
+  updatedAt
+  createdByUser {
+    handle
+    urn
+  }
+  updatedByUser {
+    handle
+    urn
+  }
   source {
     id
     loc

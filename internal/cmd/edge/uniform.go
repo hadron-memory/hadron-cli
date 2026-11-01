@@ -33,6 +33,15 @@ type uniformEdgeDTO struct {
 	SourceLoc   string  `json:"sourceLoc"`
 	TargetID    string  `json:"targetId"`
 	TargetLoc   string  `json:"targetLoc"`
+	// The attribution read (hadron-cli#1513, hadron-server#3092): all four keys
+	// are always present. updatedAt and each author are pointers WITHOUT
+	// omitempty, so null stays null — never omitted, never "". An author is the
+	// provider's {handle, urn} object or null (not shown to you, or not known),
+	// passed through verbatim.
+	CreatedAt     string               `json:"createdAt"`
+	UpdatedAt     *string              `json:"updatedAt"`
+	CreatedByUser *cmdutil.Attribution `json:"createdByUser"`
+	UpdatedByUser *cmdutil.Attribution `json:"updatedByUser"`
 }
 
 // edgeListPageDTO is the stable --json shape of edge list without a node.
@@ -46,7 +55,14 @@ type edgeListPageDTO struct {
 const uniformEdgePageSize = 200
 
 func uniformEdgeFrom(e gen.UniformEdge) uniformEdgeDTO {
-	d := uniformEdgeDTO{ID: e.Id, URN: e.Urn, Loc: e.Loc, Description: e.Description, Priority: e.Priority}
+	d := uniformEdgeDTO{ID: e.Id, URN: e.Urn, Loc: e.Loc, Description: e.Description, Priority: e.Priority,
+		CreatedAt: e.CreatedAt, UpdatedAt: e.UpdatedAt}
+	if u := e.CreatedByUser; u != nil {
+		d.CreatedByUser = cmdutil.NewAttribution(u.Handle, u.Urn)
+	}
+	if u := e.UpdatedByUser; u != nil {
+		d.UpdatedByUser = cmdutil.NewAttribution(u.Handle, u.Urn)
+	}
 	if e.Name != nil {
 		d.Name = *e.Name
 	}
@@ -71,7 +87,13 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 
 An edge you cannot read and an edge that does not exist give the same "not
 found" (exit 4). A node at either end that you cannot read, or that was
-deleted, is shown without its id and loc.`,
+deleted, is shown without its id and loc.
+
+createdByUser and updatedByUser (--json) are the server's {handle, urn} for the
+user behind the edge, or null. A null author means "not shown to you or not
+known" (for example, the edge lives in a memory you cannot read, or it was
+written before authors were recorded), never "nobody". The human table prints
+the CREATED BY and UPDATED BY rows only when there is a handle or URN to show.`,
 		Example: `  hadron edge get hrn:edge:acme.com:kb:findings:flaky-ci:routes-to:start-here
   hadron edge get <edge-id> --json`,
 		Args: cobra.ExactArgs(1),
@@ -104,6 +126,19 @@ deleted, is shown without its id and loc.`,
 				}
 				t.Row("RUNNABLE", fmt.Sprint(dto.IsRunnable))
 				t.Row("PRIORITY", fmt.Sprint(dto.Priority))
+				// hadron-cli#1513: a null updatedAt prints no UPDATED row, and an
+				// author with nothing printable (null, or no handle and no URN)
+				// prints no BY row — never "nobody" or a placeholder.
+				t.Row("CREATED", output.SafeCell(dto.CreatedAt))
+				if dto.UpdatedAt != nil {
+					t.Row("UPDATED", output.SafeCell(*dto.UpdatedAt))
+				}
+				if by := dto.CreatedByUser.Display(256); by != "" {
+					t.Row("CREATED BY", by)
+				}
+				if by := dto.UpdatedByUser.Display(256); by != "" {
+					t.Row("UPDATED BY", by)
+				}
 				return t.Flush()
 			})
 		},

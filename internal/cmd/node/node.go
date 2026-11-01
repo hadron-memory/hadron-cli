@@ -163,8 +163,13 @@ type nodeDetailDTO struct {
 	Properties         *json.RawMessage `json:"properties,omitempty"`
 	Seq                *int             `json:"seq"`
 	CreatedAt          string           `json:"createdAt"`
-	OutgoingEdges      []edgeRefDTO     `json:"outgoingEdges"`
-	IncomingEdges      []edgeRefDTO     `json:"incomingEdges"`
+	// CreatedByUser is the provider's {handle, urn} author projection or null,
+	// passed through verbatim (hadron-cli#1513). A POINTER with NO omitempty:
+	// null is the provider's answer (not shown to you, or not known), never
+	// "nobody", and the key is never omitted.
+	CreatedByUser *cmdutil.Attribution `json:"createdByUser"`
+	OutgoingEdges []edgeRefDTO         `json:"outgoingEdges"`
+	IncomingEdges []edgeRefDTO         `json:"incomingEdges"`
 }
 
 func NewCmdNode(f *cmdutil.Factory) *cobra.Command {
