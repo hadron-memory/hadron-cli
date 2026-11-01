@@ -64,9 +64,10 @@ func chatReader1516(t *testing.T, mode, broken string) (*httptest.Server, func()
 		}
 		mu.Lock()
 		calls[kind] = append(calls[kind], v.Offset)
+		tooMany := broken == kind && len(calls[kind]) > 4
 		mu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
-		if broken == kind+"-error" {
+		if broken == kind+"-error" || tooMany {
 			fmt.Fprint(w, gqlErrorJSON("FORBIDDEN"))
 			return
 		}

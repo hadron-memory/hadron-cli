@@ -116,65 +116,38 @@ two agree on the VALUE as well as on that key.`,
 // dialect (see PostMessage).
 func CollectMessages(ctx context.Context, client graphql.Client, c Coords, since int) ([]Message, error) {
 	prefix := c.MessagesLoc + ":"
-	filter := &gen.NodeFilter{MemoryIds: []string{c.Memory}, LocPrefix: &prefix}
-
+	// Keep the unqualified drain for legacy/academy messages. Providers that
+	// exclude chat-message by default need the explicit drain too. Each drain
+	// proves its own paging progress before the results are merged by loc.
+	platformType := "chat-message"
+	filters := []*gen.NodeFilter{
+		{MemoryIds: []string{c.Memory}, LocPrefix: &prefix},
+		{MemoryIds: []string{c.Memory}, LocPrefix: &prefix, NodeType: &platformType},
+	}
+	var nodes []*messageNode
+	for _, filter := range filters {
+		pageNodes, err := drainMessages(ctx, client, filter)
+		if err != nil {
+			return nil, err
+		}
+		nodes = append(nodes, pageNodes...)
+	}
 	var msgs []Message
 	seenLoc := map[string]bool{}
-	for offset := 0; ; {
-		lim, off := chatPageSize, offset
-		resp, err := gen.ChatMessages(ctx, client, filter, &lim, &off)
-		if err != nil {
-			return nil, api.MapError(err)
+	for _, n := range nodes {
+		if seenLoc[n.Loc] {
+			continue
 		}
-		if resp == nil || resp.FindNodes == nil {
-			break
+		seenLoc[n.Loc] = true
+		// The parent container is not a message. Exclude by exact loc, not
+		// nodeType: legacy/academy messages predate the chat-message type.
+		if n.Loc == c.MessagesLoc {
+			continue
 		}
-		hits := resp.FindNodes.Hits
-		fresh := 0
-		for _, h := range hits {
-			if h == nil || h.Node == nil {
-				continue
-			}
-			n := h.Node
-			if seenLoc[n.Loc] {
-				continue
-			}
-			seenLoc[n.Loc] = true
-			fresh++
-			// #412: the message-PARENT container comes back from the prefix
-			// filter alongside its children, and parsed as a message it reads
-			// as `seq: null, author: "unknown", body: ""` — indistinguishable
-			// in the JSON from a genuinely malformed post, and off-by-one on
-			// any count. Its nil seq excludes it from `--since <n>` reads,
-			// which is why it only surfaces on a full-history read: the one a
-			// new session does on its first turn.
-			//
-			// Excluded by exact loc, NOT by node type. Type-filtering looks
-			// like the more honest predicate, but this reader exists to serve
-			// the RETIRED academy dialect (kept unmigrated because its seq
-			// numbers are the citation mechanism), whose messages predate the
-			// chat-message nodeType — so filtering on type would drop the very
-			// messages the command is for. The container, by contrast, is
-			// exactly the loc we asked about.
-			if n.Loc == c.MessagesLoc {
-				continue
-			}
-			if since > 0 && (n.Seq == nil || *n.Seq <= since) {
-				continue
-			}
-			msgs = append(msgs, parseMessage(n.Loc, n.Seq, n.Content, n.Data))
+		if since > 0 && (n.Seq == nil || *n.Seq <= since) {
+			continue
 		}
-		// Stop only on an EMPTY page (a short page may be a server clamp,
-		// cli#967). A non-empty page that brought nothing new (a server
-		// ignoring the offset) is a failed read, not a complete one.
-		// Advance by the rows served.
-		if len(hits) == 0 {
-			break
-		}
-		if fresh == 0 {
-			return nil, api.ListNotAdvancing(offset)
-		}
-		offset += len(hits)
+		msgs = append(msgs, parseMessage(n.Loc, n.Seq, n.Content, n.Data))
 	}
 
 	// The server sorts by seq, but a nil-seq legacy row or paging edge could
@@ -189,6 +162,44 @@ func CollectMessages(ctx context.Context, client graphql.Client, c Coords, since
 		return *msgs[i].Seq < *msgs[j].Seq
 	})
 	return msgs, nil
+}
+
+type messageNode = gen.ChatMessagesFindNodesFindNodesResultHitsNodeHitNode
+
+// drainMessages has an independent seen-set for this filter. Cross-drain
+// deduplication must not make a provider returning the same rows in both reads
+// appear not to advance. A short page may be a server clamp; stop only on empty.
+func drainMessages(ctx context.Context, client graphql.Client, filter *gen.NodeFilter) ([]*messageNode, error) {
+	var nodes []*messageNode
+	seenLoc := map[string]bool{}
+	for offset := 0; ; {
+		lim, off := chatPageSize, offset
+		resp, err := gen.ChatMessages(ctx, client, filter, &lim, &off)
+		if err != nil {
+			return nil, api.MapError(err)
+		}
+		if resp == nil || resp.FindNodes == nil {
+			break
+		}
+		hits := resp.FindNodes.Hits
+		fresh := 0
+		for _, h := range hits {
+			if h == nil || h.Node == nil || seenLoc[h.Node.Loc] {
+				continue
+			}
+			seenLoc[h.Node.Loc] = true
+			fresh++
+			nodes = append(nodes, h.Node)
+		}
+		if len(hits) == 0 {
+			break
+		}
+		if fresh == 0 {
+			return nil, api.ListNotAdvancing(offset)
+		}
+		offset += len(hits)
+	}
+	return nodes, nil
 }
 
 func seqStr(seq *int) string {
