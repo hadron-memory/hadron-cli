@@ -892,6 +892,14 @@ Conventions:
   displayed too; malformed entries and warnings for other response keys are
   ignored. Failed commands print no response advice. This is advisory, never a
   reason to retry a successful write or a promise that an include is retained.
+- `node add` / `node update --seq <n>` (cli#479) set an ordinary node's position among
+  its siblings (lower first). It is sent only when you pass it: `--seq 0` is a real
+  position and leaving the flag off preserves the stored one. There is no way to clear
+  a seq from the CLI. The CLI checks nothing about the node: the server refuses the
+  write on `chat-message`/`record` nodes (`SEQ_PROTECTED`) and on nodes under a Channel
+  (`LOC_PROTECTED`); other node kinds follow their own write rules (a runnable task
+  takes a seq through its own door), and a refusal is printed as is. Reordering a
+  legacy chat is not offered here.
 - `node add` fails if the loc already exists; `node update` modifies
   an existing node and preserves unset fields. Content comes from
   `--content "<text>"`, `--content -` (stdin), or `--content-file` (`-`

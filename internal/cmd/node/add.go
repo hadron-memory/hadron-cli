@@ -37,6 +37,7 @@ func newCmdAdd(f *cmdutil.Factory) *cobra.Command {
 		tags           []string
 		edges          []string
 		id             string
+		seq            int
 	)
 	cmd := &cobra.Command{
 		Use:     "create",
@@ -164,6 +165,10 @@ Details:
 			if cmd.Flags().Changed("runnable") {
 				input.IsRunnable = &runnable
 			}
+			// cli#479: sent only when given; explicit 0 is a position, absent is not.
+			if changed("seq") {
+				input.Seq = &seq
+			}
 			// #1201 — setting a governed role routes this create through that
 			// kind's door (see api.CreateNodeByKind). Omitted leaves the node
 			// ungoverned, which the generic surface accepts.
@@ -239,6 +244,7 @@ Details:
 	cmd.Flags().BoolVar(&runnable, "runnable", false, "mark the node runnable by 'hadron task run'")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "tag (repeatable)")
 	cmd.Flags().StringArrayVar(&edges, "edge", nil, edgeFlagUsage)
+	cmd.Flags().IntVar(&seq, "seq", 0, "position among sibling nodes, lower first (0 is a real position; omit for the default); "+seqRefusalHelp)
 	cmd.Flags().StringVar(&id, "id", "", "create the node with this id instead of a minted one (importers and syncs)")
 	cmd.MarkFlagsOneRequired("memory", "install")
 	cmd.MarkFlagsMutuallyExclusive("memory", "install")

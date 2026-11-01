@@ -43,6 +43,7 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 		force            bool
 		dryRun           bool
 		expectedRevision int
+		seq              int
 		reason           string
 		tags             []string
 		edges            []string
@@ -160,7 +161,7 @@ combined with --expected-revision, --dry-run, --install or a --role clear. Use
 				changed("type") || changed("object-type") || changed("description") ||
 				changed("abstract") || changed("abstract-file") ||
 				replaceData || replaceProps || changed("runnable") || changed("tag") ||
-				changed("role") || replaceEdges
+				changed("role") || changed("seq") || replaceEdges
 			if !anyField && !mergeData {
 				return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
 			}
@@ -411,6 +412,12 @@ combined with --expected-revision, --dry-run, --install or a --role clear. Use
 				if changed("tag") {
 					input.Tags = tags
 				}
+				// cli#479: sent only when given, so an explicit 0 is a position
+				// and absence preserves. No client check of the node's kind: the
+				// server refuses protected history (SEQ_PROTECTED and kin).
+				if changed("seq") {
+					input.Seq = &seq
+				}
 				if replaceEdges {
 					input.Edges = edgesArg
 				}
@@ -505,6 +512,7 @@ combined with --expected-revision, --dry-run, --install or a --role clear. Use
 	cmd.Flags().StringVar(&propertiesFile, "properties-file", "", "read the replacement JSON properties object from a file")
 	cmd.Flags().BoolVar(&runnable, "runnable", false, "mark the node runnable by 'hadron task run' (--runnable=false clears it; omit to preserve)")
 	cmd.Flags().IntVar(&expectedRevision, "expected-revision", 0, "require the supplied live revision (1-2147483647); omit for last-write-wins; unavailable with data merge")
+	cmd.Flags().IntVar(&seq, "seq", 0, "position among sibling nodes, lower first (0 is a real position; omit to keep); "+seqRefusalHelp)
 	cmd.Flags().StringVar(&reason, "reason", "", "why this change was made (recorded in version history)")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "replace tags (repeatable)")
 	cmd.Flags().StringArrayVar(&edges, "edge", nil, edgeFlagUsage+"; needs --replace-edges")
@@ -562,6 +570,7 @@ var updateFields = []struct {
 	{"properties", []string{"properties", "properties-file"}},
 	{"runnable", []string{"runnable"}},
 	{"tags", []string{"tag"}},
+	{"seq", []string{"seq"}},
 }
 
 // updatePreviewDTO is `node update --dry-run --json` (#873). content is null
