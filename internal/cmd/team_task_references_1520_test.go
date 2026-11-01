@@ -157,29 +157,44 @@ func compact1520(s string) string {
 	return b.String()
 }
 
-func TestTaskRenderingHostileTargetsUnchanged1520(t *testing.T) {
+// Acceptance 8 as ruled by Xan (cli#1520, 2026-11-01): --json carries the target
+// and label verbatim; the human view neutralises control and bidi characters
+// through SafeLine, leaves userinfo unchanged, and never resolves or colours.
+func TestTaskRenderingHostileTargets1520(t *testing.T) {
 	bidi := "https://example.com/\u202eevil"
 	userinfo := "https://a@b/x"
-	refs := `[{"kind":"URL","target":` + mustJSON1250(bidi) + `,"label":null},{"kind":"URL","target":` + mustJSON1250(userinfo) + `,"label":null}]`
+	esc := "https://example.com/\x1b[31mred"
+	label := "lab\u202el\x1b[1m"
+	refs := `[{"kind":"URL","target":` + mustJSON1250(bidi) + `,"label":null},{"kind":"URL","target":` + mustJSON1250(userinfo) + `,"label":null},{"kind":"URL","target":` + mustJSON1250(esc) + `,"label":` + mustJSON1250(label) + `}]`
 	_, out, err := runTeamTask(t, refsTaskResponse1520(refs), "team", "task", "get", "AT1.2", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
 	var dto struct {
-		References []struct{ Target string } `json:"references"`
+		References []struct {
+			Target string
+			Label  *string
+		} `json:"references"`
 	}
 	if err := json.Unmarshal([]byte(out), &dto); err != nil {
 		t.Fatal(err)
 	}
-	if len(dto.References) != 2 || dto.References[0].Target != bidi || dto.References[1].Target != userinfo {
+	if len(dto.References) != 3 || dto.References[0].Target != bidi || dto.References[1].Target != userinfo || dto.References[2].Target != esc || dto.References[2].Label == nil || *dto.References[2].Label != label {
 		t.Fatalf("--json must carry the targets verbatim: %+v", dto.References)
 	}
 	_, human, err := runTeamTask(t, refsTaskResponse1520(refs), "team", "task", "get", "AT1.2")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(human, userinfo+"\n") || strings.Contains(human, "\x1b") {
-		t.Fatalf("human view must print the userinfo target unchanged and add no colour:\n%q", human)
+	for _, r := range []rune{'\u202e', '\x1b'} {
+		if strings.ContainsRune(human, r) {
+			t.Fatalf("the human view must neutralise %U:\n%q", r, human)
+		}
+	}
+	for _, want := range []string{"URL https://example.com/ evil\n", "URL " + userinfo + "\n", "URL https://example.com/ [31mred (lab l [1m)\n"} {
+		if !strings.Contains(human, want) {
+			t.Fatalf("human view lacks %q:\n%q", want, human)
+		}
 	}
 }
 
