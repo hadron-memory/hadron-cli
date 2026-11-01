@@ -14434,10 +14434,11 @@ func (v *AuthContextAuthContextImpersonationImpersonationInfoActorUser) GetName(
 
 // AuthContextAuthContextUser includes the requested fields of the GraphQL type User.
 type AuthContextAuthContextUser struct {
-	Id             string  `json:"id"`
-	Name           *string `json:"name"`
-	Email          *string `json:"email"`
-	Handle         *string `json:"handle"`
+	Id     string  `json:"id"`
+	Name   *string `json:"name"`
+	Email  *string `json:"email"`
+	Handle *string `json:"handle"`
+	// GitHub username (#2574, hrn:node:hadronmemory.com:specs:cor:acl:070:01). Identity tier: visible to any signed-in viewer, and a public search key (hrn:node:hadronmemory.com:specs:cor:acl:070:02).
 	GithubUsername *string `json:"githubUsername"`
 	// Platform roles; an empty list is returned to viewers without personal-field access.
 	Roles []Role `json:"roles"`
@@ -41656,10 +41657,11 @@ func (v *McpServersResponse) GetMcpServers() *McpServersMcpServersMcpServersPage
 
 // MeMeUser includes the requested fields of the GraphQL type User.
 type MeMeUser struct {
-	Id             string  `json:"id"`
-	Name           *string `json:"name"`
-	Email          *string `json:"email"`
-	Handle         *string `json:"handle"`
+	Id     string  `json:"id"`
+	Name   *string `json:"name"`
+	Email  *string `json:"email"`
+	Handle *string `json:"handle"`
+	// GitHub username (#2574, hrn:node:hadronmemory.com:specs:cor:acl:070:01). Identity tier: visible to any signed-in viewer, and a public search key (hrn:node:hadronmemory.com:specs:cor:acl:070:02).
 	GithubUsername *string `json:"githubUsername"`
 	// Platform roles; an empty list is returned to viewers without personal-field access.
 	Roles []Role `json:"roles"`
@@ -46688,6 +46690,16 @@ type NodeFilter struct {
 	Minted *bool `json:"minted,omitempty"`
 	// An explicit 'comment' with no contentScope searches comments (as COMMENTS).
 	NodeType *string `json:"nodeType,omitempty"`
+	// #3113 — an explicit list of node types, a union: only nodes whose type is in the list
+	// (hrn:node:hadronmemory.com:specs:cor:api:090:02). It narrows, ANDs every other filter and, being
+	// explicit, replaces the default that leaves out system nodes; it never lifts the memory-class
+	// default, access, deleted rows or inheritance. Values are exact and case-sensitive; an unknown
+	// value matches nothing. null is the same as omitted. Refused with BAD_USER_INPUT: an empty list,
+	// both nodeType and nodeTypes (an empty string counts as set), more than 20 entries (counted
+	// before duplicates are dropped), and a list containing "comment" (search comments with nodeType
+	// or contentScope). Exact total where the mode already has one; vector and hybrid keep total
+	// null and their bounded, widening candidate window. Applies to findNodes and appNodes.
+	NodeTypes []string `json:"nodeTypes"`
 	// #725 — collection facet: only nodes whose objectType equals this (e.g. "competitor").
 	ObjectType *string `json:"objectType,omitempty"`
 	// #1322 — role-family filter. 'spec' matches 'spec' and 'spec.*' on a dot boundary, never 'special' / 'specification'.
@@ -46728,6 +46740,9 @@ func (v *NodeFilter) GetMinted() *bool { return v.Minted }
 
 // GetNodeType returns NodeFilter.NodeType, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetNodeType() *string { return v.NodeType }
+
+// GetNodeTypes returns NodeFilter.NodeTypes, and is useful for accessing the field via an interface.
+func (v *NodeFilter) GetNodeTypes() []string { return v.NodeTypes }
 
 // GetObjectType returns NodeFilter.ObjectType, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetObjectType() *string { return v.ObjectType }
@@ -79059,19 +79074,21 @@ type UserFields struct {
 	// Canonical `hrn:user:<handle>` URN (spec cor:urn:010:01). Computed from the
 	// handle; null for a handle-less user and for a user whose handle is
 	// not-URN-legal (neither has a URN).
-	Urn            *string `json:"urn"`
-	Name           *string `json:"name"`
-	Email          *string `json:"email"`
-	Handle         *string `json:"handle"`
+	Urn    *string `json:"urn"`
+	Name   *string `json:"name"`
+	Email  *string `json:"email"`
+	Handle *string `json:"handle"`
+	// GitHub username (#2574, hrn:node:hadronmemory.com:specs:cor:acl:070:01). Identity tier: visible to any signed-in viewer, and a public search key (hrn:node:hadronmemory.com:specs:cor:acl:070:02).
 	GithubUsername *string `json:"githubUsername"`
 	// Platform roles; an empty list is returned to viewers without personal-field access.
 	Roles []Role `json:"roles"`
 	// Account metadata, visible to self, platform admins, and co-members.
 	IdentityProvider *string `json:"identityProvider"`
-	GithubId         *int    `json:"githubId"`
-	ExternalId       *string `json:"externalId"`
-	ExternalAppId    *string `json:"externalAppId"`
-	LinkedAt         *string `json:"linkedAt"`
+	// Numeric GitHub account id (#2574, hrn:node:hadronmemory.com:specs:cor:acl:070:01). Personal tier, like name and email: null for a viewer who is not the user, a platform admin, or a co-member of one of their orgs.
+	GithubId      *int    `json:"githubId"`
+	ExternalId    *string `json:"externalId"`
+	ExternalAppId *string `json:"externalAppId"`
+	LinkedAt      *string `json:"linkedAt"`
 }
 
 // GetId returns UserFields.Id, and is useful for accessing the field via an interface.
