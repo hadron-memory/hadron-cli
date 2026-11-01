@@ -146,15 +146,14 @@ func bindIris1525(t *testing.T) {
 	}
 }
 
-func runWhoamiSigning1525(t *testing.T, responses map[string]string, args ...string) (string, string, map[string]json.RawMessage, error) {
+func runWhoamiSigning1525(t *testing.T, responses map[string]string, args ...string) (string, map[string]json.RawMessage, error) {
 	t.Helper()
 	gql, captured := captureGraphQL(t, responses)
 	f, out := testFactory(t)
-	errOut := f.IOStreams.ErrOut.(*strings.Builder)
 	root := NewRootCmd(f)
 	root.SetArgs(append(append([]string{"team", "session", "whoami"}, args...), "--server", gql.URL))
 	err := root.Execute()
-	return out.String(), errOut.String(), captured, err
+	return out.String(), captured, err
 }
 
 func TestWhoamiSignatureAndTrailer1525(t *testing.T) {
@@ -162,7 +161,7 @@ func TestWhoamiSignatureAndTrailer1525(t *testing.T) {
 
 	t.Run("--signature prints exactly the value", func(t *testing.T) {
 		bindIris1525(t)
-		out, _, captured, err := runWhoamiSigning1525(t, both, "--signature")
+		out, captured, err := runWhoamiSigning1525(t, both, "--signature")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -178,7 +177,7 @@ func TestWhoamiSignatureAndTrailer1525(t *testing.T) {
 
 	t.Run("--trailer prints exactly the value", func(t *testing.T) {
 		bindIris1525(t)
-		out, _, _, err := runWhoamiSigning1525(t, both, "--trailer")
+		out, _, err := runWhoamiSigning1525(t, both, "--trailer")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -189,7 +188,7 @@ func TestWhoamiSignatureAndTrailer1525(t *testing.T) {
 
 	t.Run("--json carries only the one key", func(t *testing.T) {
 		bindIris1525(t)
-		out, _, _, err := runWhoamiSigning1525(t, both, "--signature", "--json")
+		out, _, err := runWhoamiSigning1525(t, both, "--signature", "--json")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -201,7 +200,7 @@ func TestWhoamiSignatureAndTrailer1525(t *testing.T) {
 			t.Errorf("json = %v, want only renderedSignature", dto)
 		}
 		bindIris1525(t)
-		out, _, _, _ = runWhoamiSigning1525(t, both, "--trailer", "--json")
+		out, _, _ = runWhoamiSigning1525(t, both, "--trailer", "--json")
 		dto = nil
 		_ = json.Unmarshal([]byte(out), &dto)
 		if len(dto) != 1 || dto["renderedTrailer"] != renderedTrailer1525 {
@@ -212,7 +211,7 @@ func TestWhoamiSignatureAndTrailer1525(t *testing.T) {
 	t.Run("an empty model segment is printed as the server sends it", func(t *testing.T) {
 		bindIris1525(t)
 		sig := "— [Iris, Backend Engineer](https://x/app/u/iris) · "
-		out, _, _, err := runWhoamiSigning1525(t, map[string]string{"GetWorkerRendered": renderedResp1525(jsonStr1525(sig), "null")}, "--signature")
+		out, _, err := runWhoamiSigning1525(t, map[string]string{"GetWorkerRendered": renderedResp1525(jsonStr1525(sig), "null")}, "--signature")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -223,7 +222,7 @@ func TestWhoamiSignatureAndTrailer1525(t *testing.T) {
 
 	t.Run("null fails non-zero and prints no line", func(t *testing.T) {
 		bindIris1525(t)
-		out, _, _, err := runWhoamiSigning1525(t, map[string]string{"GetWorkerRendered": renderedResp1525("null", "null")}, "--trailer")
+		out, _, err := runWhoamiSigning1525(t, map[string]string{"GetWorkerRendered": renderedResp1525("null", "null")}, "--trailer")
 		if err == nil {
 			t.Fatalf("null must fail, got stdout %q", out)
 		}
@@ -238,7 +237,7 @@ func TestWhoamiSignatureAndTrailer1525(t *testing.T) {
 	t.Run("an older server fails non-zero and says so", func(t *testing.T) {
 		bindIris1525(t)
 		old := `{"errors":[{"message":"Cannot query field \"renderedSignature\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
-		out, _, _, err := runWhoamiSigning1525(t, map[string]string{"GetWorkerRendered": old}, "--signature")
+		out, _, err := runWhoamiSigning1525(t, map[string]string{"GetWorkerRendered": old}, "--signature")
 		if err == nil || out != "" {
 			t.Fatalf("must fail with nothing on stdout: err=%v out=%q", err, out)
 		}
@@ -253,10 +252,10 @@ func TestWhoamiSignatureAndTrailer1525(t *testing.T) {
 			"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 		}
 		teamGitDir(t)
-		_, _, _, checkErr := runWhoamiSigning1525(t, responses, "--check")
+		_, _, checkErr := runWhoamiSigning1525(t, responses, "--check")
 		for _, flag := range []string{"--signature", "--trailer"} {
 			teamGitDir(t)
-			out, _, captured, err := runWhoamiSigning1525(t, responses, flag)
+			out, captured, err := runWhoamiSigning1525(t, responses, flag)
 			if exitCodeFor(err) != exitCodeFor(checkErr) || exitCodeFor(err) != exitcode.NotFound {
 				t.Errorf("%s exit = %d, --check exit = %d, want both %d", flag, exitCodeFor(err), exitCodeFor(checkErr), exitcode.NotFound)
 			}
@@ -280,7 +279,7 @@ func TestWhoamiSignatureAndTrailer1525(t *testing.T) {
 				whoamiSession("s-mine", "wkr9", "u-me", "Jonas", false) + `]}}}`,
 			"GetWorkerRendered": both["GetWorkerRendered"],
 		}
-		out, _, captured, err := runWhoamiSigning1525(t, responses, "--signature")
+		out, captured, err := runWhoamiSigning1525(t, responses, "--signature")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -302,7 +301,7 @@ func TestWhoamiSignatureAndTrailer1525(t *testing.T) {
 				whoamiSession("s-a", "wkr1", "u-me", "Jonas", false) + `,` +
 				whoamiSession("s-b", "wkr2", "u-me", "Vera", false) + `]}}}`,
 		}
-		out, _, captured, err := runWhoamiSigning1525(t, responses, "--signature")
+		out, captured, err := runWhoamiSigning1525(t, responses, "--signature")
 		if exitCodeFor(err) != exitcode.NotFound || out != "" {
 			t.Errorf("exit = %d (want %d), stdout %q", exitCodeFor(err), exitcode.NotFound, out)
 		}
@@ -314,7 +313,7 @@ func TestWhoamiSignatureAndTrailer1525(t *testing.T) {
 	t.Run("the flags refuse each other and --check", func(t *testing.T) {
 		for _, combo := range [][]string{{"--signature", "--trailer"}, {"--signature", "--check"}, {"--trailer", "--check"}} {
 			bindIris1525(t)
-			out, _, captured, err := runWhoamiSigning1525(t, both, combo...)
+			out, captured, err := runWhoamiSigning1525(t, both, combo...)
 			if exitCodeFor(err) != exitcode.Usage {
 				t.Errorf("%v exit = %d, want %d", combo, exitCodeFor(err), exitcode.Usage)
 			}
@@ -327,7 +326,7 @@ func TestWhoamiSignatureAndTrailer1525(t *testing.T) {
 	t.Run("plain whoami is unchanged and makes no rendered read", func(t *testing.T) {
 		bindIris1525(t)
 		// The default reporting read is best effort; a failure must not matter.
-		out, _, captured, err := runWhoamiSigning1525(t, map[string]string{"WorkerReporting": `{"errors":[{"message":"unavailable"}]}`}, "--json")
+		out, captured, err := runWhoamiSigning1525(t, map[string]string{"WorkerReporting": `{"errors":[{"message":"unavailable"}]}`}, "--json")
 		if err != nil {
 			t.Fatal(err)
 		}

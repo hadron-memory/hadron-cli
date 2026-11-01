@@ -1677,9 +1677,7 @@ func whoamiFromServer(cmd *cobra.Command, f *cmdutil.Factory, inWorktree, check 
 	if len(mine) == 0 {
 		// Now a MEASURED negative rather than an unanswered question: there is
 		// no binding AND the server has none attributed to you.
-		return exitcode.Newf(exitcode.NotFound,
-			"%s, and you have no open worker session on the server — `hadron team session start --as <name>` opens one",
-			noBindingReason(inWorktree))
+		return noOpenWorkerSessionErr(inWorktree)
 	}
 	dto := whoamiDTO{binding: &binding{PRNumbers: []int{}}, Source: "server", Candidates: mine}
 	if check {
@@ -1757,6 +1755,102 @@ func whoamiFromServer(cmd *cobra.Command, f *cmdutil.Factory, inWorktree, check 
 	})
 }
 
+// noOpenWorkerSessionErr is the refusal for no binding and no open worker
+// session on the server. One function, because `whoami --signature/--trailer`
+// must refuse with exactly what `whoami --check` says here (cli#1525).
+func noOpenWorkerSessionErr(inWorktree bool) error {
+	return exitcode.Newf(exitcode.NotFound,
+		"%s, and you have no open worker session on the server — `hadron team session start --as <name>` opens one",
+		noBindingReason(inWorktree))
+}
+
+// renderedSignatureDTO / renderedTrailerDTO are the --json shapes of `whoami
+// --signature` and `--trailer` (cli#1525): the one value, and nothing else.
+type renderedSignatureDTO struct {
+	RenderedSignature string `json:"renderedSignature"`
+}
+
+type renderedTrailerDTO struct {
+	RenderedTrailer string `json:"renderedTrailer"`
+}
+
+// whoamiSigning answers `whoami --signature` / `--trailer` (cli#1525): the
+// bound worker's signature or trailer exactly as the server renders it
+// (hadron-server#2969), on one line, so `$(hadron team session whoami
+// --signature)` can be used in a script. The CLI fills no variable itself.
+//
+// The worker is found the way whoami finds it: this worktree's binding, else
+// the server fallback when exactly ONE open worker session is yours. No session
+// refuses exactly as `whoami --check` does; several refuse rather than picking.
+func whoamiSigning(cmd *cobra.Command, f *cmdutil.Factory, trailer bool) error {
+	ctx := cmd.Context()
+	what := "signature"
+	if trailer {
+		what = "trailer"
+	}
+	b, _, err := readBinding(ctx)
+	inWorktree := true
+	if errors.Is(err, errNoWorktree) {
+		inWorktree, b, err = false, nil, nil
+	}
+	if err != nil {
+		return err
+	}
+	client, err := f.GraphQLClient()
+	if err != nil {
+		return err
+	}
+	var workerID string
+	if b != nil {
+		if b.WorkerID == "" {
+			return exitcode.Newf(exitcode.NotFound,
+				"this worktree's binding predates the Worker model, so it names no worker to read the %s of — end it with `hadron team session end` and start a new worker session", what)
+		}
+		workerID = b.WorkerID
+	} else {
+		mine, err := openWorkerSessionsForCaller(ctx, client)
+		if err != nil {
+			return err
+		}
+		switch len(mine) {
+		case 0:
+			return noOpenWorkerSessionErr(inWorktree)
+		case 1:
+			workerID = strOrEmpty(mine[0].WorkerID)
+		default:
+			return exitcode.Newf(exitcode.NotFound,
+				"%s, and %d open worker sessions are yours, so there is no single worker to read the %s of — run this from the bound worktree, or see `hadron team session whoami`",
+				noBindingReason(inWorktree), len(mine), what)
+		}
+	}
+	sig, tr, supported, err := readWorkerRendered(ctx, client, workerID)
+	if err != nil {
+		return err
+	}
+	if !supported {
+		return exitcode.Newf(exitcode.Error,
+			"this server predates the rendered %s (hadron-server#2969); `hadron team worker get <name>` shows the template", what)
+	}
+	value := sig
+	if trailer {
+		value = tr
+	}
+	if value == nil {
+		// Null is the server's answer for a caller the worker's served prompt
+		// does not reach — never an empty line, which would sign as nobody.
+		return exitcode.Newf(exitcode.Forbidden,
+			"the server returned no rendered %s for worker %s: it is withheld from callers the worker's served prompt does not reach", what, workerID)
+	}
+	var dto any = renderedSignatureDTO{RenderedSignature: *value}
+	if trailer {
+		dto = renderedTrailerDTO{RenderedTrailer: *value}
+	}
+	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+		_, err := fmt.Fprintln(w, *value)
+		return err
+	})
+}
+
 // noBindingReason distinguishes the two ways whoami reaches the server, because
 // "no binding in this worktree" is simply false where there is no worktree —
 // and that caller (a non-coding worker, Cowork) is the one the fallback is most
@@ -1769,9 +1863,9 @@ func noBindingReason(inWorktree bool) string {
 }
 
 func newCmdSessionWhoami(f *cmdutil.Factory) *cobra.Command {
-	var check bool
+	var check, signature, trailer bool
 	cmd := &cobra.Command{
-		Use:   "whoami [--check]",
+		Use:   "whoami [--check | --signature | --trailer]",
 		Short: "Show which worker you are driving (worker session)",
 		Long: `Answer "what am I driving?" — the compaction-recovery read.
 
@@ -1817,9 +1911,26 @@ END IT. Worker sessions are meant to be long-lived (hadron-server#1114 removed
 the idle reaper on the principle that silence is not abandonment), so ending is
 for when the WORK ends — not when a chat session, a branch or a worktree does.
 ` + "`session end`" + ` is what ends it, and it does NOT release the NAME: a person who
-binds a worker holds its name until ` + "`worker release`" + ` (cor:agt:020:09).`,
+binds a worker holds its name until ` + "`worker release`" + ` (cor:agt:020:09).
+
+--signature and --trailer print ONLY the bound worker's signature or trailer,
+as the server renders it from the worker's templates (hadron-server#2969), on
+one line with no label: ` + "`$(hadron team session whoami --signature)`" + ` is the
+signature to put under anything you publish. The CLI fills in no variable
+itself. --json gives {"renderedSignature": "…"} or {"renderedTrailer": "…"}.
+The worker is the one whoami would answer for: this worktree's binding, else
+your one open worker session on the server. No open session refuses exactly as
+--check does (exit 4); several open sessions and no binding also exit 4 rather
+than picking one. A value the server withholds exits 8 and prints nothing; a
+server that predates the field exits 1. The three flags exclude each other
+(exit 2).`,
+		Example: `  hadron team session whoami --check
+  git commit -m "fix: …" -m "$(hadron team session whoami --trailer)"`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if signature || trailer {
+				return whoamiSigning(cmd, f, trailer)
+			}
 			// --check answers the same question itself, from the server
 			// (#914: the ended-binding notice would only double it).
 			if check {
@@ -1878,6 +1989,9 @@ binds a worker holds its name until ` + "`worker release`" + ` (cor:agt:020:09).
 		},
 	}
 	cmd.Flags().BoolVar(&check, "check", false, "ask the server whether the bound session is still open")
+	cmd.Flags().BoolVar(&signature, "signature", false, "print only the bound worker's rendered signature")
+	cmd.Flags().BoolVar(&trailer, "trailer", false, "print only the bound worker's rendered commit trailer")
+	cmd.MarkFlagsMutuallyExclusive("check", "signature", "trailer")
 	return cmd
 }
 

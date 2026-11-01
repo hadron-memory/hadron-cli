@@ -514,6 +514,13 @@ type workerGetDTO struct {
 	// real answer; null means the working-state read is denied — shown as
 	// unavailable, never as "none".
 	ModelGroups []string `json:"modelGroups"`
+	// RenderedSignature / RenderedTrailer are the signature and trailer as the
+	// server fills them (cli#1525, hadron-server#2969, cor:agt:040:04), read in
+	// their own operation. NOT omitempty: null means the server withheld them
+	// (the caller is not one the served prompt reaches) or predates #2969;
+	// either way there is nothing to print, and the CLI never fills a template.
+	RenderedSignature *string `json:"renderedSignature"`
+	RenderedTrailer   *string `json:"renderedTrailer"`
 
 	// appURN is render-only (the `app:` line); the contract adds two keys.
 	appURN *string
@@ -573,6 +580,25 @@ func readWorkerModelGroups(ctx context.Context, client graphql.Client, id string
 		return nil, nil
 	}
 	return resp.Worker.ModelGroups, nil
+}
+
+// readWorkerRendered reads the server-rendered signature and trailer in their
+// own operation (cli#1525). A server that predates hadron-server#2969 rejects
+// the selection before execution; that one documented absence comes back as
+// supported=false with nil values, so `worker get` still works there. Any other
+// error is returned, never turned into an old-server-looking null.
+func readWorkerRendered(ctx context.Context, client graphql.Client, id string) (signature, trailer *string, supported bool, err error) {
+	resp, err := gen.GetWorkerRendered(ctx, client, id)
+	if err != nil {
+		if api.IsGraphQLValidationFor(err, "renderedSignature") || api.IsGraphQLValidationFor(err, "renderedTrailer") {
+			return nil, nil, false, nil
+		}
+		return nil, nil, true, api.MapError(err)
+	}
+	if resp.Worker == nil {
+		return nil, nil, true, nil
+	}
+	return resp.Worker.RenderedSignature, resp.Worker.RenderedTrailer, true, nil
 }
 
 // appLine is the `app:` row. The server's scalars name the App without a second
@@ -696,7 +722,12 @@ and every worker's state in ` + "`team roster`" + `.`,
 			if err != nil {
 				return err
 			}
-			dto := workerGetDTO{workerDTO: workerDTOFromFields(w), AppName: appName, OwnerName: ownerName, Terminal: terminal, ModelGroups: modelGroups, appURN: appURN}
+			renderedSig, renderedTrailer, _, err := readWorkerRendered(cmd.Context(), client, w.Id)
+			if err != nil {
+				return err
+			}
+			dto := workerGetDTO{workerDTO: workerDTOFromFields(w), AppName: appName, OwnerName: ownerName, Terminal: terminal, ModelGroups: modelGroups,
+				RenderedSignature: renderedSig, RenderedTrailer: renderedTrailer, appURN: appURN}
 			return output.Write(f.IOStreams, f.JSON, dto, func(out io.Writer) error {
 				// The App gets its own line, named rather than spelled as the
 				// UUID it was parenthesised as (#458). No source phrase here: this
@@ -840,6 +871,7 @@ and every worker's state in ` + "`team roster`" + `.`,
 				// Printed only when set: an absent line reads as "no override",
 				// which is the truth, where "Prompt override: —" invites
 				// reading a dash as the value.
+				writeRenderedSigning(out, dto.RenderedSignature, dto.RenderedTrailer)
 				writeSigningTemplates(out, dto.Signature, dto.Trailer)
 				if dto.Prompt != nil && *dto.Prompt != "" {
 					fmt.Fprintf(out, "\n%s\n", *dto.Prompt)
@@ -851,14 +883,27 @@ and every worker's state in ` + "`team roster`" + `.`,
 	return cmd
 }
 
+// writeRenderedSigning prints the server-rendered signature and trailer
+// (cli#1525) — the lines to copy — ahead of the raw templates, under the same
+// rules: printed as the server sent it, never filled by the CLI.
+func writeRenderedSigning(out io.Writer, signature, trailer *string) {
+	writeSigningBlocks(out, "Signature", "Trailer", signature, trailer)
+}
+
 // writeSigningTemplates prints the raw signature and trailer templates (cli#916
-// C4). Null is WITHHELD, so it prints nothing rather than a value; an empty
-// template is a real setting (D8: it delivers nothing) and prints as (empty).
+// C4).
 func writeSigningTemplates(out io.Writer, signature, trailer *string) {
+	writeSigningBlocks(out, "Signature template", "Trailer template", signature, trailer)
+}
+
+// writeSigningBlocks prints a labelled signature and trailer block. Null is
+// WITHHELD, so it prints nothing rather than a value; an empty value is a real
+// setting (D8: it delivers nothing) and prints as (empty).
+func writeSigningBlocks(out io.Writer, sigLabel, trailerLabel string, signature, trailer *string) {
 	for _, t := range []struct {
 		label string
 		value *string
-	}{{"Signature template", signature}, {"Trailer template", trailer}} {
+	}{{sigLabel, signature}, {trailerLabel, trailer}} {
 		if t.value == nil {
 			continue
 		}
