@@ -32,6 +32,7 @@ import (
 	commentcmd "github.com/hadron-memory/hadron-cli/internal/cmd/comment"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/configcmd"
 	connectioncmd "github.com/hadron-memory/hadron-cli/internal/cmd/connection"
+	discoverycmd "github.com/hadron-memory/hadron-cli/internal/cmd/discovery"
 	drivecmd "github.com/hadron-memory/hadron-cli/internal/cmd/drive"
 	edgecmd "github.com/hadron-memory/hadron-cli/internal/cmd/edge"
 	emailcmd "github.com/hadron-memory/hadron-cli/internal/cmd/email"
@@ -140,6 +141,8 @@ the binding is verified. Otherwise this does not apply to you.`,
 	root.AddCommand(objectcmd.NewCmdObject(f))
 	root.AddCommand(assetcmd.NewCmdAsset(f))
 	root.AddCommand(searchcmd.NewCmdSearch(f))
+	root.AddCommand(discoverycmd.NewCmdFind(f))
+	root.AddCommand(discoverycmd.NewCmdMarketplace(f))
 	root.AddCommand(edgecmd.NewCmdEdge(f))
 	root.AddCommand(commentcmd.NewCmd(f, commentcmd.ConnectGraphQL(f)))
 	root.AddCommand(taskcmd.NewCmdTask(f))

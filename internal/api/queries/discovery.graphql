@@ -1,0 +1,37 @@
+# Cross-entity ranked discovery (#1345). All matching/eligibility is server-owned.
+query GlobalSearch(
+  $query: String!
+  # @genqlient(omitempty: true)
+  $entityTypes: [SearchEntityType!]
+  # @genqlient(omitempty: true)
+  $fields: [SearchField!]
+  # @genqlient(omitempty: true)
+  $orgId: ID
+  $limit: Int!
+  $offset: Int!
+  # @genqlient(omitempty: true)
+  $scope: String
+  # @genqlient(omitempty: true)
+  $appRef: ID
+) {
+  globalSearch(query: $query, entityTypes: $entityTypes, fields: $fields, orgId: $orgId, limit: $limit, offset: $offset, scope: $scope, appRef: $appRef) {
+    hits { id entityType name urn description score matchedField memoryId organizationId }
+    total
+    degraded
+    scope { ...DiscoveryScopeFields }
+  }
+}
+fragment DiscoveryScopeFields on SearchScopeInfo {
+  kind label source ownerUrn memoryUrns droppedCount
+}
+# Only the public flat reference, never members or nested resource details.
+fragment DiscoveryPublicRef on PublicResourceRef { id name urn description }
+query MarketplaceAgents($limit: Int!, $offset: Int!) {
+  marketplaceAgents(limit: $limit, offset: $offset) { total items { ...DiscoveryPublicRef } }
+}
+query MarketplaceMemories($limit: Int!, $offset: Int!) {
+  marketplaceMemories(limit: $limit, offset: $offset) { total items { ...DiscoveryPublicRef } }
+}
+query MarketplaceOrganizations($limit: Int!, $offset: Int!) {
+  marketplaceOrganizations(limit: $limit, offset: $offset) { total items { ...DiscoveryPublicRef } }
+}
