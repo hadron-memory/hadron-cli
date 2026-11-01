@@ -2161,10 +2161,21 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 			// the reverse partial (row written, pointer refused) is named.
 			touchSession := func(rowWritten bool) error {
 				if _, err := gen.UpdateTeamSession(ctx, client, b.SessionID, prArg, branchArg, nil, nil); err != nil {
+					mapped := api.MapError(err)
 					if rowWritten {
-						fmt.Fprintf(f.IOStreams.ErrOut, "note: the worklog row WAS recorded, but the session pointer (PR/branch/liveness) was NOT updated: %v\n", err)
+						// Claim "NOT updated" only for a definitive refusal. A
+						// lost answer (transport/decode, exit 7) or an internal
+						// fault may have committed the update, so say the row
+						// WAS recorded and the pointer could not be confirmed;
+						// either way do not retry the log (it would duplicate
+						// the recorded milestone).
+						if exitcode.FromError(mapped) == exitcode.Unavailable || api.HasErrorCode(err, api.InternalServerErrorCode) {
+							fmt.Fprintf(f.IOStreams.ErrOut, "note: the worklog row WAS recorded, but the session pointer (PR/branch/liveness) update could NOT be confirmed and may have been applied: %v — check `hadron team session list --active` before touching it; do not re-run this log, it would duplicate the row\n", err)
+						} else {
+							fmt.Fprintf(f.IOStreams.ErrOut, "note: the worklog row WAS recorded, but the session pointer (PR/branch/liveness) was NOT updated: %v\n", err)
+						}
 					}
-					return api.MapError(err)
+					return mapped
 				}
 				return nil
 			}
