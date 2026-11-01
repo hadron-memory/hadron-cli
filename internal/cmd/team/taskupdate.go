@@ -13,6 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -22,17 +23,19 @@ import (
 // taskRequirementsPatch is the requirements object, in the key order the wire
 // shows. Empty fields drop out, so only what a flag named is sent.
 type taskRequirementsPatch struct {
-	ExcludeWorkers []string `json:"excludeWorkers,omitempty"`
-	FamilyIn       []string `json:"familyIn,omitempty"`
-	FamilyNotIn    []string `json:"familyNotIn,omitempty"`
-	Role           string   `json:"role,omitempty"`
-	MinTier        string   `json:"minTier,omitempty"`
+	ExcludeWorkers  []string `json:"excludeWorkers,omitempty"`
+	FamilyIn        []string `json:"familyIn,omitempty"`
+	FamilyNotIn     []string `json:"familyNotIn,omitempty"`
+	ModelGroupIn    []string `json:"modelGroupIn,omitempty"`
+	ModelGroupNotIn []string `json:"modelGroupNotIn,omitempty"`
+	Role            string   `json:"role,omitempty"`
+	MinTier         string   `json:"minTier,omitempty"`
 }
 
 var jsonNull = json.RawMessage("null")
 
 func newCmdTeamTaskUpdate(f *cmdutil.Factory) *cobra.Command {
-	var title, description, startBy, requireRole, familyIn, familyNotIn, minTier, properties string
+	var title, description, startBy, requireRole, familyIn, familyNotIn, modelGroupIn, modelGroupNotIn, minTier, properties string
 	var tags, excludeWorkers []string
 	var clearDescription, clearTags, clearRequirements, clearStartBy, clearProperties bool
 	var closeSession, noCloseSession bool
@@ -53,7 +56,16 @@ replaces a value has a --clear-… twin that empties it; naming both is refused.
   --clear-tags empties the list.
 - --require-role, --family-in, --family-not-in, --exclude-worker and --min-tier replace the
   whole requirements, not one of them: name every requirement you want to keep.
-  --clear-requirements empties them, including the minimum tier.
+  --model-group and --model-group-not belong to that same replacement group.
+  --clear-requirements empties them, including the minimum tier and model groups.
+  Group flags take comma lists, both may coexist (even the same name). Empty
+  supplied lists are usage errors. Names go unchanged to the server, which
+  re-validates every group name on update, including names deleted since creation.
+  Groups resolve live at match time: editing a group can change matches without
+  a task edit. They are matching inputs only, never authorization.
+  All task-record reads and mutation receipts require hadron-server#3029,
+  even without group flags (see team task --help). Comma-split items stay
+  verbatim for the server to trim and drop empties.
   --min-tier low|mid|high sets a minimum: the lowest sufficient tier is preferred;
   an unknown tier is ineligible when a minimum is set. Requires a server
   containing hadron-server#2983 (31d63828 or later).
@@ -100,7 +112,7 @@ a stall alarm. Success prints the task as task get does; --json returns it.`,
 			}
 			fl := cmd.Flags()
 			usage := func(format string, a ...any) error { return exitcode.Newf(exitcode.Usage, format, a...) }
-			reqNamed := fl.Changed("require-role") || fl.Changed("family-in") || fl.Changed("family-not-in") || fl.Changed("exclude-worker") || fl.Changed("min-tier")
+			reqNamed := fl.Changed("require-role") || fl.Changed("family-in") || fl.Changed("family-not-in") || fl.Changed("exclude-worker") || fl.Changed("min-tier") || fl.Changed("model-group") || fl.Changed("model-group-not")
 			anyField := fl.Changed("title") || fl.Changed("description") || clearDescription ||
 				fl.Changed("tag") || clearTags || reqNamed || clearRequirements ||
 				fl.Changed("start-by") || clearStartBy || fl.Changed("close-session") || fl.Changed("no-close-session") ||
@@ -115,7 +127,7 @@ a stall alarm. Success prints the task as task get does; --json returns it.`,
 			}{
 				{fl.Changed("description"), clearDescription, "--description", "--clear-description"},
 				{fl.Changed("tag"), clearTags, "--tag", "--clear-tags"},
-				{reqNamed, clearRequirements, "--require-role, --family-in, --family-not-in, --exclude-worker or --min-tier", "--clear-requirements"},
+				{reqNamed, clearRequirements, "--require-role, --family-in, --family-not-in, --exclude-worker, --min-tier, --model-group or --model-group-not", "--clear-requirements"},
 				{fl.Changed("start-by"), clearStartBy, "--start-by", "--clear-start-by"},
 				{fl.Changed("properties"), clearProperties, "--properties", "--clear-properties"},
 			} {
@@ -148,6 +160,10 @@ a stall alarm. Success prints the task as task get does; --json returns it.`,
 					return err
 				}
 			}
+			groupsIn, groupsNotIn, err := taskModelGroupFlags(cmd, modelGroupIn, modelGroupNotIn)
+			if err != nil {
+				return err
+			}
 			input := gen.UpdateAgentTaskInput{}
 			if fl.Changed("title") {
 				// Presence, not value: an empty --title is sent and the server's
@@ -175,7 +191,7 @@ a stall alarm. Success prints the task as task get does; --json returns it.`,
 			case clearRequirements:
 				input.Requirements = jsonNull
 			case reqNamed:
-				p := taskRequirementsPatch{ExcludeWorkers: excludeWorkers, FamilyIn: commaList(familyIn), FamilyNotIn: commaList(familyNotIn), Role: strings.TrimSpace(requireRole), MinTier: minTier}
+				p := taskRequirementsPatch{ExcludeWorkers: excludeWorkers, FamilyIn: commaList(familyIn), FamilyNotIn: commaList(familyNotIn), Role: strings.TrimSpace(requireRole), MinTier: minTier, ModelGroupIn: groupsIn, ModelGroupNotIn: groupsNotIn}
 				for i, w := range p.ExcludeWorkers {
 					if p.ExcludeWorkers[i] = strings.TrimSpace(w); p.ExcludeWorkers[i] == "" {
 						return usage("--exclude-worker must name a worker")
@@ -217,6 +233,11 @@ a stall alarm. Success prints the task as task get does; --json returns it.`,
 			}
 			resp, err := gen.AgentTaskUpdate(cmd.Context(), client, taskId, &input)
 			if err != nil {
+				// The new requirement refusals retain their code at the JSON sink.
+				// Keep ordinary task-write error output unchanged when no group flag is named.
+				if groupsIn != nil || groupsNotIn != nil {
+					return api.WithServerCode(mapTaskError(err), err)
+				}
 				return mapTaskError(err)
 			}
 			task := taskDTOFrom(resp.UpdateAgentTask.AgentTaskFields)
@@ -232,6 +253,7 @@ a stall alarm. Success prints the task as task get does; --json returns it.`,
 	cmd.Flags().BoolVar(&clearTags, "clear-tags", false, "remove every tag")
 	cmd.Flags().StringVar(&minTier, "min-tier", "", "minimum model tier: low, mid or high; replaces the whole requirements")
 	cmd.Flags().StringVar(&requireRole, "require-role", "", "required role; replaces the whole requirements")
+	addTaskModelGroupFlags(cmd, &modelGroupIn, &modelGroupNotIn)
 	cmd.Flags().StringVar(&familyIn, "family-in", "", "comma list of model families the assignee must run as; replaces the whole requirements")
 	cmd.Flags().StringVar(&familyNotIn, "family-not-in", "", "comma list of model families the assignee must not run as; replaces the whole requirements")
 	cmd.Flags().StringArrayVar(&excludeWorkers, "exclude-worker", nil, "a worker the matcher must not pick, repeatable; replaces the whole requirements")
