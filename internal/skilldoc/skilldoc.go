@@ -615,11 +615,13 @@ func LintFor(n Node, h Host) []Finding {
 }
 
 // hasLiteralPlaceholder reports whether the body has a `{{…}}` that ships as
-// literal text: any match whose inner text, trimmed, does not start with `>`
-// (an include tag, resolved on export). One variable among includes is enough.
+// literal text: any match that does not open with `{{>` (an include tag,
+// resolved on export; the opener the export resolver's parser matches, so
+// `{{ > x}}` is NOT an include and still warns). One variable among includes
+// is enough.
 func hasLiteralPlaceholder(body string) bool {
 	for _, m := range templateRE.FindAllStringSubmatch(body, -1) {
-		if !strings.HasPrefix(strings.TrimSpace(m[1]), ">") {
+		if !strings.HasPrefix(m[1], ">") {
 			return true
 		}
 	}
