@@ -184,6 +184,26 @@ func TestTeamRosterGroupErrorOutsideTheExceptionFails1485(t *testing.T) {
 			t.Fatalf("must fail:\n%s", out)
 		}
 	})
+	// A damaged roster (a null core row) is not rescued by an advisory error on
+	// ANOTHER row: tolerating it would skip the null row and print the rest
+	// as a complete roster (Joost, cli#1505 P2).
+	t.Run("null core row beside a valid advisory error", func(t *testing.T) {
+		good1 := groupsErr1485(`["teamRoster","workers",1,"modelGroups"]`, `{"code":"X"}`)
+		for name, rows := range map[string][]string{
+			"null first":  {"null", groupsRow1485("Ann", "null")},
+			"null last":   {groupsRow1485("Ann", "null"), "null"},
+			"null middle": {groupsRow1485("Ann", "null"), "null", groupsRow1485("Bo", `["fast"]`)},
+		} {
+			errPath := good1
+			if name != "null first" {
+				errPath = good
+			}
+			r := rosterGroups1485(`[`+errPath+`]`, rows...)
+			if _, out, err := runTeamTask(t, r, "team", "roster"); err == nil {
+				t.Errorf("%s: must fail, got success:\n%s", name, out)
+			}
+		}
+	})
 	t.Run("null core roster with errors", func(t *testing.T) {
 		r := taskResponses()
 		r["TeamRoster"] = `{"data":{"teamRoster":null},"errors":[` + good + `]}`

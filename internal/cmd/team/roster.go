@@ -97,10 +97,22 @@ control-free display text capped at 256 runes; --json preserves the original.`,
 			var advisories map[int]string
 			if err != nil && resp != nil && resp.TeamRoster != nil {
 				rows := resp.TeamRoster.Workers
-				if adv, ok := api.RosterGroupAdvisories(err, len(rows), func(i int) bool {
-					return rows[i] != nil && rows[i].ModelGroups == nil
-				}); ok {
-					advisories, err = adv, nil
+				// Every core row must be present: a null row elsewhere in the
+				// list is a damaged roster, and the renderer would otherwise
+				// skip it and succeed with partial output (Joost, cli#1505 P2).
+				whole := true
+				for _, r := range rows {
+					if r == nil {
+						whole = false
+						break
+					}
+				}
+				if whole {
+					if adv, ok := api.RosterGroupAdvisories(err, len(rows), func(i int) bool {
+						return rows[i].ModelGroups == nil
+					}); ok {
+						advisories, err = adv, nil
+					}
 				}
 			}
 			if err != nil {
