@@ -266,6 +266,7 @@ func toDTO(r *gen.SearchReplaceInNodesSearchReplaceInNodesSearchReplaceResult) r
 		NodesChanged:      r.NodesChanged,
 		TotalReplacements: r.TotalReplacements,
 		DryRun:            r.DryRun,
+		Results:           []replaceNodeDTO{},
 	}
 	for _, n := range r.Results {
 		nd := replaceNodeDTO{
