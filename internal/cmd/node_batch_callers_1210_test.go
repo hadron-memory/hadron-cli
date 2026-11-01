@@ -128,7 +128,7 @@ func TestEdgeCapCallerParity1210(t *testing.T) {
 				}
 				if !tc.content && tc.name != "spec replace relint" {
 					refused, files, _, _, err := run(0)
-					if err == nil || refused != "" || len(files) != 0 || !strings.Contains(err.Error(), "hadron edge ls") {
+					if err == nil || refused != "" || len(files) != 0 || !strings.Contains(err.Error(), "hadron edge list") {
 						t.Fatalf("terminal refusal appeared complete: %v out=%s files=%v", err, refused, files)
 					}
 				}

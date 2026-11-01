@@ -82,7 +82,7 @@ func TestReadNodeBatchTerminalRefusal1210(t *testing.T) {
 	calls := 0
 	c := batchClient1210(func(context.Context, *graphql.Request, *graphql.Response) error { calls++; return capErr1210() })
 	resp, err := ReadNodeBatch(context.Background(), c, []string{"safe\n\x1bsecret"}, nil, nil)
-	if resp != nil || !IsNodeBatchEdgeCapRefusal(err) || exitcode.FromError(MapError(err)) != exitcode.Usage || calls != 1 || !strings.Contains(err.Error(), "2000") || !strings.Contains(err.Error(), "hadron edge ls") || strings.ContainsAny(err.Error(), "\n\x1b") || strings.Contains(err.Error(), "SECRET") {
+	if resp != nil || !IsNodeBatchEdgeCapRefusal(err) || exitcode.FromError(MapError(err)) != exitcode.Usage || calls != 1 || !strings.Contains(err.Error(), "2000") || !strings.Contains(err.Error(), "hadron edge list") || strings.ContainsAny(err.Error(), "\n\x1b") || strings.Contains(err.Error(), "SECRET") {
 		t.Fatal(resp, err, calls)
 	}
 }

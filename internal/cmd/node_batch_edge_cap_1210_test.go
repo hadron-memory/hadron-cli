@@ -83,7 +83,7 @@ func TestNodeBatchEdgeCapExplicitRefusal1210(t *testing.T) {
 		root := NewRootCmd(f)
 		root.SetArgs(append(args, "--server", gql.URL))
 		err := root.Execute()
-		if err == nil || !strings.Contains(err.Error(), "2000") || !strings.Contains(err.Error(), "hadron edge ls") || out.Len() != 0 {
+		if err == nil || !strings.Contains(err.Error(), "2000") || !strings.Contains(err.Error(), "hadron edge list") || out.Len() != 0 {
 			t.Fatalf("want actionable refusal/no output; err=%v out=%s", err, out)
 		}
 	}

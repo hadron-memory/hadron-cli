@@ -37,7 +37,7 @@ omitted-ref requeues and unavailable refs remain the collector's responsibility.
 Each call is still bounded by the provider's existing response limit.
 
 An indivisible ref or prefix refuses with exit 2, sanitized identity and
-numeric cap, and points to `hadron edge ls --source` / `--target`. Pre-write
+numeric cap, and points to `hadron edge list --source` / `--target`. Pre-write
 callers emit no partial report/files. A prefix may instead be narrowed or read
 by explicit refs. B documents select the same stored content/scalars without
 outgoingEdges/incomingEdges; a typed adapter retains the consumer projection.

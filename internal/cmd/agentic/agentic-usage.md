@@ -4683,7 +4683,7 @@ Edge-reading batch commands split an explicit ref chunk and retry the identical
 query only for the structured BAD_USER_INPUT / limit=edges refusal. A 200-ref
 chunk costs at most 399 requests, plus existing byte-cap omitted-ref requeues.
 An indivisible ref or prefix exits 2 with its sanitized identity/cap and points
-to `hadron edge ls --source <node-ref>` and `hadron edge ls --target <node-ref>`;
+to `hadron edge list --source <node-ref>` and `hadron edge list --target <node-ref>`;
 a prefix can instead be narrowed or read by explicit refs. No partial report or
 export files are emitted on terminal pre-write refusal. Content-only skill,
 coding and spec reads use an edge-free document. Other errors keep their mapping.

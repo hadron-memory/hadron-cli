@@ -33,7 +33,7 @@ func ReadNodeBatch(ctx context.Context, client graphql.Client, refs []string, me
 		if prefix != nil {
 			subject = "prefix " + output.SafeLine(*prefix, len(*prefix)+1)
 		}
-		return nil, &nodeBatchEdgeCapRefusal{exitcode.Newf(exitcode.Usage, "%s exceeds the nodeBatch selected-edge cap (%s); no complete edge set was read. Read each direction in pages with hadron edge ls --source <node-ref> and hadron edge ls --target <node-ref>; for a prefix, use narrower prefixes or explicit refs", subject, max)}
+		return nil, &nodeBatchEdgeCapRefusal{exitcode.Newf(exitcode.Usage, "%s exceeds the nodeBatch selected-edge cap (%s); no complete edge set was read. Read each direction in pages with hadron edge list --source <node-ref> and hadron edge list --target <node-ref>; for a prefix, use narrower prefixes or explicit refs", subject, max)}
 	}
 	mid := len(refs) / 2
 	left, err := ReadNodeBatch(ctx, client, refs[:mid], nil, nil)
