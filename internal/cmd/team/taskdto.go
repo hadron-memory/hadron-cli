@@ -262,15 +262,21 @@ func teamEventDTOFrom(e *gen.AgentTeamEventFields) teamEventDTO {
 // ---- roster ---------------------------------------------------------------
 
 type rosterEntryDTO struct {
-	Worker              taskPartyDTO       `json:"worker"`
-	State               string             `json:"state"`
-	Role                *string            `json:"role"`
-	Bound               bool               `json:"bound"`
-	LiveSession         bool               `json:"liveSession"`
-	Family              *string            `json:"family"`
-	Model               *string            `json:"model"`
-	ModelReportedAt     *string            `json:"modelReportedAt"`
-	Tier                *string            `json:"tier"`
+	Worker          taskPartyDTO `json:"worker"`
+	State           string       `json:"state"`
+	Role            *string      `json:"role"`
+	Bound           bool         `json:"bound"`
+	LiveSession     bool         `json:"liveSession"`
+	Family          *string      `json:"family"`
+	Model           *string      `json:"model"`
+	ModelReportedAt *string      `json:"modelReportedAt"`
+	Tier            *string      `json:"tier"`
+	// ModelGroups are the server's live matching model-group names (cli#1485
+	// S3; advisory, never authorization). [] is a real answer (no model or no
+	// group matches); null means the lookup failed for this row, with
+	// ModelGroupsError the server's error code (never its message).
+	ModelGroups         []string           `json:"modelGroups"`
+	ModelGroupsError    *string            `json:"modelGroupsError"`
 	FreeForWork         bool               `json:"freeForWork"`
 	FreeFamilies        []string           `json:"freeFamilies"`
 	LaunchableFamilies  []string           `json:"launchableFamilies"`

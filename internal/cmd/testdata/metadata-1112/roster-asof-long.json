@@ -17,6 +17,8 @@
       "model": null,
       "modelReportedAt": null,
       "tier": null,
+      "modelGroups": [],
+      "modelGroupsError": null,
       "freeForWork": false,
       "freeFamilies": [
         "claude"
@@ -64,6 +66,8 @@
       "model": null,
       "modelReportedAt": null,
       "tier": null,
+      "modelGroups": [],
+      "modelGroupsError": null,
       "freeForWork": true,
       "freeFamilies": [
         "claude"

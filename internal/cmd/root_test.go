@@ -167,6 +167,11 @@ func unstubbedDefault(op string) (string, bool) {
 		// `team worker get`'s separate terminal-report read (#1375). An older
 		// server does not know Worker.terminal; the ordinary lookup must work.
 		return `{"errors":[{"message":"Cannot query field \"terminal\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
+	case "GetWorkerModelGroups":
+		// `team worker get`'s separate model-group read (cli#1485 S3): answered
+		// as a real [] so existing worker-get tests see no group line. It has no
+		// old-server fallback, so a default error here would fail every one.
+		return `{"data":{"worker":{"modelGroups":[]}}}`, true
 	case "GetWorkerContinuity":
 		// `session start`'s separate handoff read (#790). An older server
 		// does not know Worker.continuity; ordinary binds must still work.

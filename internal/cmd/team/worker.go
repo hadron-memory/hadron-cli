@@ -509,6 +509,11 @@ type workerGetDTO struct {
 	// Terminal is the worker's latest terminal report (cli#1375), read in its
 	// own operation. Null when never reported, masked, or an older server.
 	Terminal *workerTerminalDTO `json:"terminal"`
+	// ModelGroups are the server's live matching model-group names (cli#1485
+	// S3; advisory, never authorization), read in their own operation. [] is a
+	// real answer; null means the working-state read is denied — shown as
+	// unavailable, never as "none".
+	ModelGroups []string `json:"modelGroups"`
 
 	// appURN is render-only (the `app:` line); the contract adds two keys.
 	appURN *string
@@ -551,6 +556,23 @@ func readWorkerProfile(ctx context.Context, client graphql.Client, id string) (n
 		return nil, nil, nil, nil
 	}
 	return resp.Worker.AppName, resp.Worker.OwnerName, resp.Worker.AppUrn, nil
+}
+
+// readWorkerModelGroups reads Worker.modelGroups in its own operation (cli#1485
+// S3), so the shared worker lookup keeps its wire shape. Unlike the profile and
+// terminal reads it has NO tolerated failure: any error — including a server
+// that predates the field — fails the command through MapError, so a lookup
+// failure can never render as "unavailable" or "no groups". Only the roster
+// tolerates a field error, and only its own (api.RosterGroupAdvisories).
+func readWorkerModelGroups(ctx context.Context, client graphql.Client, id string) ([]string, error) {
+	resp, err := gen.GetWorkerModelGroups(ctx, client, id)
+	if err != nil {
+		return nil, api.MapError(err)
+	}
+	if resp.Worker == nil {
+		return nil, nil
+	}
+	return resp.Worker.ModelGroups, nil
 }
 
 // appLine is the `app:` row. The server's scalars name the App without a second
@@ -611,6 +633,15 @@ THE FIELDS:
                  you. --json adds terminal (the whole object, or null). An older
                  server without it reads as null.
 
+model groups   the model groups the worker's model is currently in, computed
+                 live by the server (cor:agt:060:12): live matching information,
+                 never authorization. Nothing is printed for a real empty
+                 answer (no reported model, or no group matches);
+                 "unavailable" means the server withheld it (the working
+                 state is not visible to you). --json carries modelGroups
+                 (a list, or null when withheld). A failed group lookup fails
+                 the command: it is never shown as "none" or "unavailable".
+
 OVERDUE CLEARS when the worker's own session reads its team chat
 (` + "`team chat read`" + ` or ` + "`team chat check`" + ` from its bound worktree): that read is
 the check. A worker that is OVERDUE, or has a wake due to it left
@@ -661,7 +692,11 @@ and every worker's state in ` + "`team roster`" + `.`,
 			if err != nil {
 				return err
 			}
-			dto := workerGetDTO{workerDTO: workerDTOFromFields(w), AppName: appName, OwnerName: ownerName, Terminal: terminal, appURN: appURN}
+			modelGroups, err := readWorkerModelGroups(cmd.Context(), client, w.Id)
+			if err != nil {
+				return err
+			}
+			dto := workerGetDTO{workerDTO: workerDTOFromFields(w), AppName: appName, OwnerName: ownerName, Terminal: terminal, ModelGroups: modelGroups, appURN: appURN}
 			return output.Write(f.IOStreams, f.JSON, dto, func(out io.Writer) error {
 				// The App gets its own line, named rather than spelled as the
 				// UUID it was parenthesised as (#458). No source phrase here: this
@@ -770,6 +805,19 @@ and every worker's state in ` + "`team roster`" + `.`,
 				// Always printed: a dash is the documented answer for never
 				// reported, masked or an older server (cli#1375).
 				fmt.Fprintf(out, "  terminal: %s\n", terminalDetail(dto.Terminal, time.Now()))
+				// Model groups (cli#1485 S3): names when there are any, nothing for a
+				// real [] (no model, or no group matches), "unavailable" for null.
+				// Live matching information, never authorization.
+				switch {
+				case dto.ModelGroups == nil:
+					fmt.Fprintln(out, "  model groups: unavailable")
+				case len(dto.ModelGroups) > 0:
+					names := make([]string, len(dto.ModelGroups))
+					for i, g := range dto.ModelGroups {
+						names[i] = output.SafeCell(g)
+					}
+					fmt.Fprintf(out, "  model groups: %s\n", strings.Join(names, ", "))
+				}
 				if dto.Retired {
 					fmt.Fprintf(out, "  retired: %s\n", *dto.RetiredAt)
 				}

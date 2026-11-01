@@ -325,6 +325,17 @@ query GetWorkerTerminal($ref: ID!) {
   }
 }
 
+# cli#1485 S3 (hadron-server#3026, cor:agt:060:12): a worker's current matching
+# model-group names. A separate operation, like GetWorkerProfile: it is NOT part
+# of WorkerFields (shared by many commands whose wire shape must not change).
+# [] is a real answer; null means the working-state read is denied (no error).
+# A field error here fails the command — only the roster tolerates one.
+query GetWorkerModelGroups($ref: ID!) {
+  worker(ref: $ref) {
+    modelGroups
+  }
+}
+
 # cli#1355 / server#1149 (cor:dmo:050:11): the PROFILE scalars that say whose
 # worker this is — the App's display name, the owner atom of its URN and the
 # App's URN. Deliberately a separate operation from GetWorker, for the same
