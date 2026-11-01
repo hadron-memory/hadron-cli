@@ -106,3 +106,96 @@ func TestDiscoveryRefusals1345(t *testing.T) {
 		}
 	}
 }
+
+func TestFindScope1345(t *testing.T) {
+	g, c := captureGraphQL(t, map[string]string{"GlobalSearch": `{"data":{"globalSearch":{"hits":[],"total":0,"degraded":[],"scope":{"kind":"named","label":"work","source":"app","ownerUrn":"hrn:app:acme.com:ops","memoryUrns":[],"droppedCount":1}}}}`})
+	f, out := testFactory(t)
+	r := NewRootCmd(f)
+	r.SetArgs([]string{"find", "q", "--scope", "work", "--app", "acme.com:ops", "--json", "--server", g.URL})
+	if err := r.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var v map[string]json.RawMessage
+	if err := json.Unmarshal(c["GlobalSearch"], &v); err != nil {
+		t.Fatal(err)
+	}
+	if string(v["scope"]) != `"work"` || string(v["appRef"]) != `"hrn:app:acme.com:ops"` {
+		t.Fatal(v)
+	}
+	if !strings.Contains(out.String(), `"droppedCount": 1`) || !strings.Contains(out.String(), `"memoryUrns": []`) {
+		t.Fatal(out.String())
+	}
+}
+func TestCatalogueCount1345(t *testing.T) {
+	g, c := captureGraphQL(t, map[string]string{"MarketplaceAgents": `{"data":{"marketplaceAgents":{"items":[],"total":9}}}`})
+	f, out := testFactory(t)
+	r := NewRootCmd(f)
+	r.SetArgs([]string{"marketplace", "agents", "--limit", "0", "--json", "--server", g.URL})
+	if err := r.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var v map[string]json.RawMessage
+	if err := json.Unmarshal(c["MarketplaceAgents"], &v); err != nil {
+		t.Fatal(err)
+	}
+	if string(v["limit"]) != "0" || !strings.Contains(out.String(), `"items": []`) {
+		t.Fatal(out.String(), v)
+	}
+}
+
+func TestDiscoverySignedOut1345(t *testing.T) {
+	for _, a := range [][]string{{"marketplace", "agents"}, {"marketplace", "memories"}, {"marketplace", "orgs"}, {"find", "q"}} {
+		g, c := captureGraphQL(t, map[string]string{"MarketplaceAgents": `{"data":{"marketplaceAgents":{"items":[],"total":0}}}`, "MarketplaceMemories": `{"data":{"marketplaceMemories":{"items":[],"total":0}}}`, "MarketplaceOrganizations": `{"data":{"marketplaceOrganizations":{"items":[],"total":0}}}`, "GlobalSearch": `{"data":{"globalSearch":{"hits":[],"total":0,"degraded":[],"scope":null}}}`})
+		f, _ := testFactory(t)
+		t.Setenv("HADRON_TOKEN", "")
+		r := NewRootCmd(f)
+		r.SetArgs(append(a, "--server", g.URL))
+		if err := r.Execute(); err != nil {
+			t.Fatal(a, err)
+		}
+		if len(c) != 1 {
+			t.Fatal(a, c)
+		}
+	}
+}
+func TestDiscoveryFailures1345(t *testing.T) {
+	for _, tt := range []struct {
+		args     []string
+		op, body string
+		code     int
+	}{
+		{[]string{"find", "q"}, "GlobalSearch", `{"data":{"globalSearch":null}}`, exitcode.Unavailable},
+		{[]string{"marketplace", "agents"}, "MarketplaceAgents", `{"data":{"marketplaceAgents":null}}`, exitcode.Unavailable},
+		{[]string{"marketplace", "memories"}, "MarketplaceMemories", `{"data":{"marketplaceMemories":{"items":null,"total":0}}}`, exitcode.Unavailable},
+		{[]string{"marketplace", "orgs"}, "MarketplaceOrganizations", `{"errors":[{"message":"denied","extensions":{"code":"FORBIDDEN"}}]}`, exitcode.Forbidden},
+	} {
+		g, c := captureGraphQL(t, map[string]string{tt.op: tt.body})
+		f, out := testFactory(t)
+		r := NewRootCmd(f)
+		r.SetArgs(append(tt.args, "--server", g.URL))
+		wantExit(t, r.Execute(), tt.code)
+		if out.Len() != 0 {
+			t.Fatal(out.String())
+		}
+		if len(c) != 1 {
+			t.Fatal(c)
+		}
+	}
+}
+
+func TestCatalogueDescriptions1345(t *testing.T) {
+	g, _ := captureGraphQL(t, map[string]string{"MarketplaceAgents": `{"data":{"marketplaceAgents":{"items":[{"id":"a","name":"A","urn":"hrn:agent:acme.com:a","description":"public description","members":[{"email":"MUST-NOT-ECHO"}]},{"id":"b","name":"B","urn":"hrn:agent:acme.com:b","description":null}],"total":2}}}`})
+	f, out := testFactory(t)
+	r := NewRootCmd(f)
+	r.SetArgs([]string{"marketplace", "agents", "--json", "--server", g.URL})
+	if err := r.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var d struct{ Items []map[string]json.RawMessage }
+	if err := json.Unmarshal([]byte(out.String()), &d); err != nil {
+		t.Fatal(err)
+	}
+	if len(d.Items) != 2 || string(d.Items[0]["description"]) != `"public description"` || string(d.Items[1]["description"]) != "null" || strings.Contains(out.String(), "MUST-NOT-ECHO") {
+		t.Fatal(out.String())
+	}
+}

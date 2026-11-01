@@ -28747,6 +28747,61 @@ func (v *DeliveryBatchesResponse) GetDeliveryBatches() *DeliveryBatchesDeliveryB
 	return v.DeliveryBatches
 }
 
+// Only the public flat reference, never members or nested resource details.
+type DiscoveryPublicRef struct {
+	Id          string  `json:"id"`
+	Name        string  `json:"name"`
+	Urn         string  `json:"urn"`
+	Description *string `json:"description"`
+}
+
+// GetId returns DiscoveryPublicRef.Id, and is useful for accessing the field via an interface.
+func (v *DiscoveryPublicRef) GetId() string { return v.Id }
+
+// GetName returns DiscoveryPublicRef.Name, and is useful for accessing the field via an interface.
+func (v *DiscoveryPublicRef) GetName() string { return v.Name }
+
+// GetUrn returns DiscoveryPublicRef.Urn, and is useful for accessing the field via an interface.
+func (v *DiscoveryPublicRef) GetUrn() string { return v.Urn }
+
+// GetDescription returns DiscoveryPublicRef.Description, and is useful for accessing the field via an interface.
+func (v *DiscoveryPublicRef) GetDescription() *string { return v.Description }
+
+// DiscoveryScopeFields includes the GraphQL fields of SearchScopeInfo requested by the fragment DiscoveryScopeFields.
+// The GraphQL type's documentation follows.
+//
+// Spec 049 — the scope a search ran under (every result discloses it,
+// D-2026-09-13-002). `kind`: scope | app | global | user-owned. `source`:
+// call | session | active-app | active-org | trigger (a headless run snapshot). `memoryUrns` lists only the
+// memories YOU may read; `droppedCount` is how many the scope lists that you
+// may not — a count, never their names.
+type DiscoveryScopeFields struct {
+	Kind         string   `json:"kind"`
+	Label        string   `json:"label"`
+	Source       string   `json:"source"`
+	OwnerUrn     *string  `json:"ownerUrn"`
+	MemoryUrns   []string `json:"memoryUrns"`
+	DroppedCount int      `json:"droppedCount"`
+}
+
+// GetKind returns DiscoveryScopeFields.Kind, and is useful for accessing the field via an interface.
+func (v *DiscoveryScopeFields) GetKind() string { return v.Kind }
+
+// GetLabel returns DiscoveryScopeFields.Label, and is useful for accessing the field via an interface.
+func (v *DiscoveryScopeFields) GetLabel() string { return v.Label }
+
+// GetSource returns DiscoveryScopeFields.Source, and is useful for accessing the field via an interface.
+func (v *DiscoveryScopeFields) GetSource() string { return v.Source }
+
+// GetOwnerUrn returns DiscoveryScopeFields.OwnerUrn, and is useful for accessing the field via an interface.
+func (v *DiscoveryScopeFields) GetOwnerUrn() *string { return v.OwnerUrn }
+
+// GetMemoryUrns returns DiscoveryScopeFields.MemoryUrns, and is useful for accessing the field via an interface.
+func (v *DiscoveryScopeFields) GetMemoryUrns() []string { return v.MemoryUrns }
+
+// GetDroppedCount returns DiscoveryScopeFields.DroppedCount, and is useful for accessing the field via an interface.
+func (v *DiscoveryScopeFields) GetDroppedCount() int { return v.DroppedCount }
+
 // DriveExportDriveFileExport includes the requested fields of the GraphQL type DriveFileExport.
 // The GraphQL type's documentation follows.
 //
@@ -35633,6 +35688,235 @@ func (v *GetWorkerWorker) __premarshalJSON() (*__premarshalGetWorkerWorker, erro
 	return &retval, nil
 }
 
+// GlobalSearchGlobalSearchGlobalSearchResult includes the requested fields of the GraphQL type GlobalSearchResult.
+type GlobalSearchGlobalSearchGlobalSearchResult struct {
+	Hits []*GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit `json:"hits"`
+	// Total ranked matches for building a pager. BOUNDED CONTRACT: this is the
+	// count within the per-entity candidate cap (each entity type contributes at
+	// most a fixed number of candidates before scoring), not an unbounded COUNT.
+	// On very large result sets it under-counts; page slicing (offset/limit)
+	// operates over this bounded, fully-ranked list.
+	Total int `json:"total"`
+	// Notes when the search ran at reduced fidelity (e.g. content search skipped
+	// on encrypted memories).
+	Degraded []string `json:"degraded"`
+	// Spec 049: the scope the Memory + Node slices ran under (see FindNodesResult.scope). Null when no scope applied.
+	Scope *GlobalSearchGlobalSearchGlobalSearchResultScopeSearchScopeInfo `json:"scope"`
+}
+
+// GetHits returns GlobalSearchGlobalSearchGlobalSearchResult.Hits, and is useful for accessing the field via an interface.
+func (v *GlobalSearchGlobalSearchGlobalSearchResult) GetHits() []*GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit {
+	return v.Hits
+}
+
+// GetTotal returns GlobalSearchGlobalSearchGlobalSearchResult.Total, and is useful for accessing the field via an interface.
+func (v *GlobalSearchGlobalSearchGlobalSearchResult) GetTotal() int { return v.Total }
+
+// GetDegraded returns GlobalSearchGlobalSearchGlobalSearchResult.Degraded, and is useful for accessing the field via an interface.
+func (v *GlobalSearchGlobalSearchGlobalSearchResult) GetDegraded() []string { return v.Degraded }
+
+// GetScope returns GlobalSearchGlobalSearchGlobalSearchResult.Scope, and is useful for accessing the field via an interface.
+func (v *GlobalSearchGlobalSearchGlobalSearchResult) GetScope() *GlobalSearchGlobalSearchGlobalSearchResultScopeSearchScopeInfo {
+	return v.Scope
+}
+
+// GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit includes the requested fields of the GraphQL type GlobalSearchHit.
+// The GraphQL type's documentation follows.
+//
+// One unified, flat globalSearch result — common fields across every entity
+// type so a single ranked list renders uniformly. `urn` is null for an
+// aiServiceConfig (no URN) and for a user with no handle or a not-URN-legal
+// handle (a user's URN is hrn:user:<handle>); `memoryId` / `organizationId`
+// are convenience handles for building canonical navigation paths.
+type GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit struct {
+	Id             string           `json:"id"`
+	EntityType     SearchEntityType `json:"entityType"`
+	Name           *string          `json:"name"`
+	Urn            *string          `json:"urn"`
+	Description    *string          `json:"description"`
+	Score          float64          `json:"score"`
+	MatchedField   SearchField      `json:"matchedField"`
+	MemoryId       *string          `json:"memoryId"`
+	OrganizationId *string          `json:"organizationId"`
+}
+
+// GetId returns GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit.Id, and is useful for accessing the field via an interface.
+func (v *GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit) GetId() string { return v.Id }
+
+// GetEntityType returns GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit.EntityType, and is useful for accessing the field via an interface.
+func (v *GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit) GetEntityType() SearchEntityType {
+	return v.EntityType
+}
+
+// GetName returns GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit.Name, and is useful for accessing the field via an interface.
+func (v *GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit) GetName() *string {
+	return v.Name
+}
+
+// GetUrn returns GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit.Urn, and is useful for accessing the field via an interface.
+func (v *GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit) GetUrn() *string {
+	return v.Urn
+}
+
+// GetDescription returns GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit.Description, and is useful for accessing the field via an interface.
+func (v *GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit) GetDescription() *string {
+	return v.Description
+}
+
+// GetScore returns GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit.Score, and is useful for accessing the field via an interface.
+func (v *GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit) GetScore() float64 {
+	return v.Score
+}
+
+// GetMatchedField returns GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit.MatchedField, and is useful for accessing the field via an interface.
+func (v *GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit) GetMatchedField() SearchField {
+	return v.MatchedField
+}
+
+// GetMemoryId returns GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit.MemoryId, and is useful for accessing the field via an interface.
+func (v *GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit) GetMemoryId() *string {
+	return v.MemoryId
+}
+
+// GetOrganizationId returns GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit.OrganizationId, and is useful for accessing the field via an interface.
+func (v *GlobalSearchGlobalSearchGlobalSearchResultHitsGlobalSearchHit) GetOrganizationId() *string {
+	return v.OrganizationId
+}
+
+// GlobalSearchGlobalSearchGlobalSearchResultScopeSearchScopeInfo includes the requested fields of the GraphQL type SearchScopeInfo.
+// The GraphQL type's documentation follows.
+//
+// Spec 049 — the scope a search ran under (every result discloses it,
+// D-2026-09-13-002). `kind`: scope | app | global | user-owned. `source`:
+// call | session | active-app | active-org | trigger (a headless run snapshot). `memoryUrns` lists only the
+// memories YOU may read; `droppedCount` is how many the scope lists that you
+// may not — a count, never their names.
+type GlobalSearchGlobalSearchGlobalSearchResultScopeSearchScopeInfo struct {
+	DiscoveryScopeFields `json:"-"`
+}
+
+// GetKind returns GlobalSearchGlobalSearchGlobalSearchResultScopeSearchScopeInfo.Kind, and is useful for accessing the field via an interface.
+func (v *GlobalSearchGlobalSearchGlobalSearchResultScopeSearchScopeInfo) GetKind() string {
+	return v.DiscoveryScopeFields.Kind
+}
+
+// GetLabel returns GlobalSearchGlobalSearchGlobalSearchResultScopeSearchScopeInfo.Label, and is useful for accessing the field via an interface.
+func (v *GlobalSearchGlobalSearchGlobalSearchResultScopeSearchScopeInfo) GetLabel() string {
+	return v.DiscoveryScopeFields.Label
+}
+
+// GetSource returns GlobalSearchGlobalSearchGlobalSearchResultScopeSearchScopeInfo.Source, and is useful for accessing the field via an interface.
+func (v *GlobalSearchGlobalSearchGlobalSearchResultScopeSearchScopeInfo) GetSource() string {
+	return v.DiscoveryScopeFields.Source
+}
+
+// GetOwnerUrn returns GlobalSearchGlobalSearchGlobalSearchResultScopeSearchScopeInfo.OwnerUrn, and is useful for accessing the field via an interface.
+func (v *GlobalSearchGlobalSearchGlobalSearchResultScopeSearchScopeInfo) GetOwnerUrn() *string {
+	return v.DiscoveryScopeFields.OwnerUrn
+}
+
+// GetMemoryUrns returns GlobalSearchGlobalSearchGlobalSearchResultScopeSearchScopeInfo.MemoryUrns, and is useful for accessing the field via an interface.
+func (v *GlobalSearchGlobalSearchGlobalSearchResultScopeSearchScopeInfo) GetMemoryUrns() []string {
+	return v.DiscoveryScopeFields.MemoryUrns
+}
+
+// GetDroppedCount returns GlobalSearchGlobalSearchGlobalSearchResultScopeSearchScopeInfo.DroppedCount, and is useful for accessing the field via an interface.
+func (v *GlobalSearchGlobalSearchGlobalSearchResultScopeSearchScopeInfo) GetDroppedCount() int {
+	return v.DiscoveryScopeFields.DroppedCount
+}
+
+func (v *GlobalSearchGlobalSearchGlobalSearchResultScopeSearchScopeInfo) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GlobalSearchGlobalSearchGlobalSearchResultScopeSearchScopeInfo
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GlobalSearchGlobalSearchGlobalSearchResultScopeSearchScopeInfo = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.DiscoveryScopeFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGlobalSearchGlobalSearchGlobalSearchResultScopeSearchScopeInfo struct {
+	Kind string `json:"kind"`
+
+	Label string `json:"label"`
+
+	Source string `json:"source"`
+
+	OwnerUrn *string `json:"ownerUrn"`
+
+	MemoryUrns []string `json:"memoryUrns"`
+
+	DroppedCount int `json:"droppedCount"`
+}
+
+func (v *GlobalSearchGlobalSearchGlobalSearchResultScopeSearchScopeInfo) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GlobalSearchGlobalSearchGlobalSearchResultScopeSearchScopeInfo) __premarshalJSON() (*__premarshalGlobalSearchGlobalSearchGlobalSearchResultScopeSearchScopeInfo, error) {
+	var retval __premarshalGlobalSearchGlobalSearchGlobalSearchResultScopeSearchScopeInfo
+
+	retval.Kind = v.DiscoveryScopeFields.Kind
+	retval.Label = v.DiscoveryScopeFields.Label
+	retval.Source = v.DiscoveryScopeFields.Source
+	retval.OwnerUrn = v.DiscoveryScopeFields.OwnerUrn
+	retval.MemoryUrns = v.DiscoveryScopeFields.MemoryUrns
+	retval.DroppedCount = v.DiscoveryScopeFields.DroppedCount
+	return &retval, nil
+}
+
+// GlobalSearchResponse is returned by GlobalSearch on success.
+type GlobalSearchResponse struct {
+	// Cross-entity global search across organizations, memories, nodes, agents,
+	// apps, AiServiceConfigs, and users — one ranked, flat list of hits.
+	//
+	// By default the query shape is smart-sniffed: a PK-shaped input does an exact
+	// id lookup, a URN-shaped input matches URNs, anything else matches name + URN.
+	// Pass `fields` to force specific fields (overrides the sniff) and
+	// `entityTypes` to restrict the kinds searched. Every hit is access-scoped to
+	// the caller exactly as the per-kind queries are. Distinct from `findNodes`,
+	// which is the node-only, vector-aware retrieval surface.
+	//
+	// orgId (optional) narrows the org-anchored slices to a single organization:
+	// node/memory hits are confined to that org's memories and organization /
+	// agent / app / aiServiceConfig hits to that org. (The user slice is NOT
+	// org-scoped — users aren't org-owned; they stay gated by the caller's
+	// user-visibility as usual.) Omit for the cross-org union (default). A caller
+	// who is not a member of orgId gets an empty page (total: 0) — no
+	// org-existence disclosure; membership-gated for everyone, no admin bypass.
+	//
+	// Paged in the repo standard idiom: limit (default 20, capped 200) + offset
+	// (default 0), with total in the envelope. NOTE: total is the ranked-match
+	// count WITHIN the per-entity candidate bound (a fixed cap per entity type),
+	// not an unbounded COUNT — deep paging past that bound is not surfaced. See
+	// GlobalSearchResult.total.
+	GlobalSearch *GlobalSearchGlobalSearchGlobalSearchResult `json:"globalSearch"`
+}
+
+// GetGlobalSearch returns GlobalSearchResponse.GlobalSearch, and is useful for accessing the field via an interface.
+func (v *GlobalSearchResponse) GetGlobalSearch() *GlobalSearchGlobalSearchGlobalSearchResult {
+	return v.GlobalSearch
+}
+
 // #1747 — whether the team-chat post for a grant use went out.
 type GrantAnnouncement string
 
@@ -39427,6 +39711,340 @@ type MarkOwnTeamChatReadResponse struct {
 // GetMarkOwnTeamChatRead returns MarkOwnTeamChatReadResponse.MarkOwnTeamChatRead, and is useful for accessing the field via an interface.
 func (v *MarkOwnTeamChatReadResponse) GetMarkOwnTeamChatRead() *MarkOwnTeamChatReadMarkOwnTeamChatReadOwnTeamChatReadState {
 	return v.MarkOwnTeamChatRead
+}
+
+// MarketplaceAgentsMarketplaceAgentsPublicResourceRefPage includes the requested fields of the GraphQL type PublicResourceRefPage.
+// The GraphQL type's documentation follows.
+//
+// A paginated page of sanitized public resource refs (marketplace catalogue).
+type MarketplaceAgentsMarketplaceAgentsPublicResourceRefPage struct {
+	Total int                                                                              `json:"total"`
+	Items []*MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef `json:"items"`
+}
+
+// GetTotal returns MarketplaceAgentsMarketplaceAgentsPublicResourceRefPage.Total, and is useful for accessing the field via an interface.
+func (v *MarketplaceAgentsMarketplaceAgentsPublicResourceRefPage) GetTotal() int { return v.Total }
+
+// GetItems returns MarketplaceAgentsMarketplaceAgentsPublicResourceRefPage.Items, and is useful for accessing the field via an interface.
+func (v *MarketplaceAgentsMarketplaceAgentsPublicResourceRefPage) GetItems() []*MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef {
+	return v.Items
+}
+
+// MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef includes the requested fields of the GraphQL type PublicResourceRef.
+// The GraphQL type's documentation follows.
+//
+// A minimal, safe reference to a public resource (marketplace / discovery).
+type MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef struct {
+	DiscoveryPublicRef `json:"-"`
+}
+
+// GetId returns MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef.Id, and is useful for accessing the field via an interface.
+func (v *MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef) GetId() string {
+	return v.DiscoveryPublicRef.Id
+}
+
+// GetName returns MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef.Name, and is useful for accessing the field via an interface.
+func (v *MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef) GetName() string {
+	return v.DiscoveryPublicRef.Name
+}
+
+// GetUrn returns MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef.Urn, and is useful for accessing the field via an interface.
+func (v *MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef) GetUrn() string {
+	return v.DiscoveryPublicRef.Urn
+}
+
+// GetDescription returns MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef.Description, and is useful for accessing the field via an interface.
+func (v *MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef) GetDescription() *string {
+	return v.DiscoveryPublicRef.Description
+}
+
+func (v *MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.DiscoveryPublicRef)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalMarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Urn string `json:"urn"`
+
+	Description *string `json:"description"`
+}
+
+func (v *MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *MarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef) __premarshalJSON() (*__premarshalMarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef, error) {
+	var retval __premarshalMarketplaceAgentsMarketplaceAgentsPublicResourceRefPageItemsPublicResourceRef
+
+	retval.Id = v.DiscoveryPublicRef.Id
+	retval.Name = v.DiscoveryPublicRef.Name
+	retval.Urn = v.DiscoveryPublicRef.Urn
+	retval.Description = v.DiscoveryPublicRef.Description
+	return &retval, nil
+}
+
+// MarketplaceAgentsResponse is returned by MarketplaceAgents on success.
+type MarketplaceAgentsResponse struct {
+	MarketplaceAgents *MarketplaceAgentsMarketplaceAgentsPublicResourceRefPage `json:"marketplaceAgents"`
+}
+
+// GetMarketplaceAgents returns MarketplaceAgentsResponse.MarketplaceAgents, and is useful for accessing the field via an interface.
+func (v *MarketplaceAgentsResponse) GetMarketplaceAgents() *MarketplaceAgentsMarketplaceAgentsPublicResourceRefPage {
+	return v.MarketplaceAgents
+}
+
+// MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPage includes the requested fields of the GraphQL type PublicResourceRefPage.
+// The GraphQL type's documentation follows.
+//
+// A paginated page of sanitized public resource refs (marketplace catalogue).
+type MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPage struct {
+	Total int                                                                                  `json:"total"`
+	Items []*MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef `json:"items"`
+}
+
+// GetTotal returns MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPage.Total, and is useful for accessing the field via an interface.
+func (v *MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPage) GetTotal() int { return v.Total }
+
+// GetItems returns MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPage.Items, and is useful for accessing the field via an interface.
+func (v *MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPage) GetItems() []*MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef {
+	return v.Items
+}
+
+// MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef includes the requested fields of the GraphQL type PublicResourceRef.
+// The GraphQL type's documentation follows.
+//
+// A minimal, safe reference to a public resource (marketplace / discovery).
+type MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef struct {
+	DiscoveryPublicRef `json:"-"`
+}
+
+// GetId returns MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef.Id, and is useful for accessing the field via an interface.
+func (v *MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef) GetId() string {
+	return v.DiscoveryPublicRef.Id
+}
+
+// GetName returns MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef.Name, and is useful for accessing the field via an interface.
+func (v *MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef) GetName() string {
+	return v.DiscoveryPublicRef.Name
+}
+
+// GetUrn returns MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef.Urn, and is useful for accessing the field via an interface.
+func (v *MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef) GetUrn() string {
+	return v.DiscoveryPublicRef.Urn
+}
+
+// GetDescription returns MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef.Description, and is useful for accessing the field via an interface.
+func (v *MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef) GetDescription() *string {
+	return v.DiscoveryPublicRef.Description
+}
+
+func (v *MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.DiscoveryPublicRef)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalMarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Urn string `json:"urn"`
+
+	Description *string `json:"description"`
+}
+
+func (v *MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef) __premarshalJSON() (*__premarshalMarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef, error) {
+	var retval __premarshalMarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPageItemsPublicResourceRef
+
+	retval.Id = v.DiscoveryPublicRef.Id
+	retval.Name = v.DiscoveryPublicRef.Name
+	retval.Urn = v.DiscoveryPublicRef.Urn
+	retval.Description = v.DiscoveryPublicRef.Description
+	return &retval, nil
+}
+
+// MarketplaceMemoriesResponse is returned by MarketplaceMemories on success.
+type MarketplaceMemoriesResponse struct {
+	MarketplaceMemories *MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPage `json:"marketplaceMemories"`
+}
+
+// GetMarketplaceMemories returns MarketplaceMemoriesResponse.MarketplaceMemories, and is useful for accessing the field via an interface.
+func (v *MarketplaceMemoriesResponse) GetMarketplaceMemories() *MarketplaceMemoriesMarketplaceMemoriesPublicResourceRefPage {
+	return v.MarketplaceMemories
+}
+
+// MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPage includes the requested fields of the GraphQL type PublicResourceRefPage.
+// The GraphQL type's documentation follows.
+//
+// A paginated page of sanitized public resource refs (marketplace catalogue).
+type MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPage struct {
+	Total int                                                                                            `json:"total"`
+	Items []*MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef `json:"items"`
+}
+
+// GetTotal returns MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPage.Total, and is useful for accessing the field via an interface.
+func (v *MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPage) GetTotal() int {
+	return v.Total
+}
+
+// GetItems returns MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPage.Items, and is useful for accessing the field via an interface.
+func (v *MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPage) GetItems() []*MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef {
+	return v.Items
+}
+
+// MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef includes the requested fields of the GraphQL type PublicResourceRef.
+// The GraphQL type's documentation follows.
+//
+// A minimal, safe reference to a public resource (marketplace / discovery).
+type MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef struct {
+	DiscoveryPublicRef `json:"-"`
+}
+
+// GetId returns MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef.Id, and is useful for accessing the field via an interface.
+func (v *MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef) GetId() string {
+	return v.DiscoveryPublicRef.Id
+}
+
+// GetName returns MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef.Name, and is useful for accessing the field via an interface.
+func (v *MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef) GetName() string {
+	return v.DiscoveryPublicRef.Name
+}
+
+// GetUrn returns MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef.Urn, and is useful for accessing the field via an interface.
+func (v *MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef) GetUrn() string {
+	return v.DiscoveryPublicRef.Urn
+}
+
+// GetDescription returns MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef.Description, and is useful for accessing the field via an interface.
+func (v *MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef) GetDescription() *string {
+	return v.DiscoveryPublicRef.Description
+}
+
+func (v *MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.DiscoveryPublicRef)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalMarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef struct {
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	Urn string `json:"urn"`
+
+	Description *string `json:"description"`
+}
+
+func (v *MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef) __premarshalJSON() (*__premarshalMarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef, error) {
+	var retval __premarshalMarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPageItemsPublicResourceRef
+
+	retval.Id = v.DiscoveryPublicRef.Id
+	retval.Name = v.DiscoveryPublicRef.Name
+	retval.Urn = v.DiscoveryPublicRef.Urn
+	retval.Description = v.DiscoveryPublicRef.Description
+	return &retval, nil
+}
+
+// MarketplaceOrganizationsResponse is returned by MarketplaceOrganizations on success.
+type MarketplaceOrganizationsResponse struct {
+	// cor:acl:080:04 — browse the marketplace catalogue: resources opted-in via
+	// listedOnMarketplace AND publicly accessible. Public (no membership required);
+	// sanitized flat refs only (never members / private data / credentials). One
+	// paginated query per resource type; ordered by (name, id) for stable paging.
+	// - marketplaceOrganizations: listedOnMarketplace orgs.
+	// - marketplaceAgents: listed + visibility=PUBLIC agents.
+	// - marketplaceMemories: listed + public-readable memories.
+	// Drill into an org's public footprint via publicOrganization(ref:).
+	MarketplaceOrganizations *MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPage `json:"marketplaceOrganizations"`
+}
+
+// GetMarketplaceOrganizations returns MarketplaceOrganizationsResponse.MarketplaceOrganizations, and is useful for accessing the field via an interface.
+func (v *MarketplaceOrganizationsResponse) GetMarketplaceOrganizations() *MarketplaceOrganizationsMarketplaceOrganizationsPublicResourceRefPage {
+	return v.MarketplaceOrganizations
 }
 
 // McpServerFields includes the GraphQL fields of McpServer requested by the fragment McpServerFields.
@@ -54419,6 +55037,52 @@ func (v *ScopesScopesScopesPageItemsScope) __premarshalJSON() (*__premarshalScop
 	retval.CreatedAt = v.ScopeFields.CreatedAt
 	retval.UpdatedAt = v.ScopeFields.UpdatedAt
 	return &retval, nil
+}
+
+// Entity types the cross-entity global search (globalSearch) can return.
+// Mirrors the SearchEntityType union in src/lib/global-search.
+type SearchEntityType string
+
+const (
+	SearchEntityTypeAgent           SearchEntityType = "agent"
+	SearchEntityTypeAiserviceconfig SearchEntityType = "aiServiceConfig"
+	SearchEntityTypeApp             SearchEntityType = "app"
+	SearchEntityTypeMemory          SearchEntityType = "memory"
+	SearchEntityTypeNode            SearchEntityType = "node"
+	SearchEntityTypeOrganization    SearchEntityType = "organization"
+	SearchEntityTypeUser            SearchEntityType = "user"
+)
+
+var AllSearchEntityType = []SearchEntityType{
+	SearchEntityTypeAgent,
+	SearchEntityTypeAiserviceconfig,
+	SearchEntityTypeApp,
+	SearchEntityTypeMemory,
+	SearchEntityTypeNode,
+	SearchEntityTypeOrganization,
+	SearchEntityTypeUser,
+}
+
+// Fields globalSearch can match against. Omit `fields` to let the server
+// smart-sniff the query shape (PK → URN → name); explicit fields override the
+// sniff. `pk` is exact-match; the rest are case-insensitive substring.
+// `content` (node bodies) is opt-in and skips encrypted memories.
+type SearchField string
+
+const (
+	SearchFieldContent     SearchField = "content"
+	SearchFieldDescription SearchField = "description"
+	SearchFieldName        SearchField = "name"
+	SearchFieldPk          SearchField = "pk"
+	SearchFieldUrn         SearchField = "urn"
+)
+
+var AllSearchField = []SearchField{
+	SearchFieldContent,
+	SearchFieldDescription,
+	SearchFieldName,
+	SearchFieldPk,
+	SearchFieldUrn,
 }
 
 // Result granularity for findNodes (cor:api:090). Spec 033.
@@ -81830,6 +82494,42 @@ type __GetWorkerTerminalInput struct {
 // GetRef returns __GetWorkerTerminalInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetWorkerTerminalInput) GetRef() string { return v.Ref }
 
+// __GlobalSearchInput is used internally by genqlient
+type __GlobalSearchInput struct {
+	Query       string             `json:"query"`
+	EntityTypes []SearchEntityType `json:"entityTypes,omitempty"`
+	Fields      []SearchField      `json:"fields,omitempty"`
+	OrgId       *string            `json:"orgId,omitempty"`
+	Limit       int                `json:"limit"`
+	Offset      int                `json:"offset"`
+	Scope       *string            `json:"scope,omitempty"`
+	AppRef      *string            `json:"appRef,omitempty"`
+}
+
+// GetQuery returns __GlobalSearchInput.Query, and is useful for accessing the field via an interface.
+func (v *__GlobalSearchInput) GetQuery() string { return v.Query }
+
+// GetEntityTypes returns __GlobalSearchInput.EntityTypes, and is useful for accessing the field via an interface.
+func (v *__GlobalSearchInput) GetEntityTypes() []SearchEntityType { return v.EntityTypes }
+
+// GetFields returns __GlobalSearchInput.Fields, and is useful for accessing the field via an interface.
+func (v *__GlobalSearchInput) GetFields() []SearchField { return v.Fields }
+
+// GetOrgId returns __GlobalSearchInput.OrgId, and is useful for accessing the field via an interface.
+func (v *__GlobalSearchInput) GetOrgId() *string { return v.OrgId }
+
+// GetLimit returns __GlobalSearchInput.Limit, and is useful for accessing the field via an interface.
+func (v *__GlobalSearchInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __GlobalSearchInput.Offset, and is useful for accessing the field via an interface.
+func (v *__GlobalSearchInput) GetOffset() int { return v.Offset }
+
+// GetScope returns __GlobalSearchInput.Scope, and is useful for accessing the field via an interface.
+func (v *__GlobalSearchInput) GetScope() *string { return v.Scope }
+
+// GetAppRef returns __GlobalSearchInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__GlobalSearchInput) GetAppRef() *string { return v.AppRef }
+
 // __GrantAppKeyScopeInput is used internally by genqlient
 type __GrantAppKeyScopeInput struct {
 	Id     string  `json:"id"`
@@ -82153,6 +82853,42 @@ func (v *__MarkOwnTeamChatReadInput) GetChannelRef() string { return v.ChannelRe
 
 // GetSeq returns __MarkOwnTeamChatReadInput.Seq, and is useful for accessing the field via an interface.
 func (v *__MarkOwnTeamChatReadInput) GetSeq() int { return v.Seq }
+
+// __MarketplaceAgentsInput is used internally by genqlient
+type __MarketplaceAgentsInput struct {
+	Limit  int `json:"limit"`
+	Offset int `json:"offset"`
+}
+
+// GetLimit returns __MarketplaceAgentsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__MarketplaceAgentsInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __MarketplaceAgentsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__MarketplaceAgentsInput) GetOffset() int { return v.Offset }
+
+// __MarketplaceMemoriesInput is used internally by genqlient
+type __MarketplaceMemoriesInput struct {
+	Limit  int `json:"limit"`
+	Offset int `json:"offset"`
+}
+
+// GetLimit returns __MarketplaceMemoriesInput.Limit, and is useful for accessing the field via an interface.
+func (v *__MarketplaceMemoriesInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __MarketplaceMemoriesInput.Offset, and is useful for accessing the field via an interface.
+func (v *__MarketplaceMemoriesInput) GetOffset() int { return v.Offset }
+
+// __MarketplaceOrganizationsInput is used internally by genqlient
+type __MarketplaceOrganizationsInput struct {
+	Limit  int `json:"limit"`
+	Offset int `json:"offset"`
+}
+
+// GetLimit returns __MarketplaceOrganizationsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__MarketplaceOrganizationsInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __MarketplaceOrganizationsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__MarketplaceOrganizationsInput) GetOffset() int { return v.Offset }
 
 // __McpServerInput is used internally by genqlient
 type __McpServerInput struct {
@@ -99419,6 +100155,78 @@ func GetWorkerTerminal(
 	return data_, err_
 }
 
+// The query executed by GlobalSearch.
+const GlobalSearch_Operation = `
+query GlobalSearch ($query: String!, $entityTypes: [SearchEntityType!], $fields: [SearchField!], $orgId: ID, $limit: Int!, $offset: Int!, $scope: String, $appRef: ID) {
+	globalSearch(query: $query, entityTypes: $entityTypes, fields: $fields, orgId: $orgId, limit: $limit, offset: $offset, scope: $scope, appRef: $appRef) {
+		hits {
+			id
+			entityType
+			name
+			urn
+			description
+			score
+			matchedField
+			memoryId
+			organizationId
+		}
+		total
+		degraded
+		scope {
+			... DiscoveryScopeFields
+		}
+	}
+}
+fragment DiscoveryScopeFields on SearchScopeInfo {
+	kind
+	label
+	source
+	ownerUrn
+	memoryUrns
+	droppedCount
+}
+`
+
+// Cross-entity ranked discovery (#1345). All matching/eligibility is server-owned.
+func GlobalSearch(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	query string,
+	entityTypes []SearchEntityType,
+	fields []SearchField,
+	orgId *string,
+	limit int,
+	offset int,
+	scope *string,
+	appRef *string,
+) (data_ *GlobalSearchResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GlobalSearch",
+		Query:  GlobalSearch_Operation,
+		Variables: &__GlobalSearchInput{
+			Query:       query,
+			EntityTypes: entityTypes,
+			Fields:      fields,
+			OrgId:       orgId,
+			Limit:       limit,
+			Offset:      offset,
+			Scope:       scope,
+			AppRef:      appRef,
+		},
+	}
+
+	data_ = &GlobalSearchResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by GrantAppKeyScope.
 const GrantAppKeyScope_Operation = `
 mutation GrantAppKeyScope ($id: ID!, $scope: String!, $hostId: String) {
@@ -100710,6 +101518,141 @@ func MarkOwnTeamChatRead(
 	}
 
 	data_ = &MarkOwnTeamChatReadResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by MarketplaceAgents.
+const MarketplaceAgents_Operation = `
+query MarketplaceAgents ($limit: Int!, $offset: Int!) {
+	marketplaceAgents(limit: $limit, offset: $offset) {
+		total
+		items {
+			... DiscoveryPublicRef
+		}
+	}
+}
+fragment DiscoveryPublicRef on PublicResourceRef {
+	id
+	name
+	urn
+	description
+}
+`
+
+func MarketplaceAgents(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	limit int,
+	offset int,
+) (data_ *MarketplaceAgentsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MarketplaceAgents",
+		Query:  MarketplaceAgents_Operation,
+		Variables: &__MarketplaceAgentsInput{
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &MarketplaceAgentsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by MarketplaceMemories.
+const MarketplaceMemories_Operation = `
+query MarketplaceMemories ($limit: Int!, $offset: Int!) {
+	marketplaceMemories(limit: $limit, offset: $offset) {
+		total
+		items {
+			... DiscoveryPublicRef
+		}
+	}
+}
+fragment DiscoveryPublicRef on PublicResourceRef {
+	id
+	name
+	urn
+	description
+}
+`
+
+func MarketplaceMemories(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	limit int,
+	offset int,
+) (data_ *MarketplaceMemoriesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MarketplaceMemories",
+		Query:  MarketplaceMemories_Operation,
+		Variables: &__MarketplaceMemoriesInput{
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &MarketplaceMemoriesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by MarketplaceOrganizations.
+const MarketplaceOrganizations_Operation = `
+query MarketplaceOrganizations ($limit: Int!, $offset: Int!) {
+	marketplaceOrganizations(limit: $limit, offset: $offset) {
+		total
+		items {
+			... DiscoveryPublicRef
+		}
+	}
+}
+fragment DiscoveryPublicRef on PublicResourceRef {
+	id
+	name
+	urn
+	description
+}
+`
+
+func MarketplaceOrganizations(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	limit int,
+	offset int,
+) (data_ *MarketplaceOrganizationsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MarketplaceOrganizations",
+		Query:  MarketplaceOrganizations_Operation,
+		Variables: &__MarketplaceOrganizationsInput{
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &MarketplaceOrganizationsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
