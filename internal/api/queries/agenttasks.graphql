@@ -92,6 +92,12 @@ fragment AgentTaskFields on AgentTask {
 # #2420: the task's own properties object. A pointer field, omitted when nil.
 # @genqlient(for: "CreateAgentTaskInput.properties", omitempty: true)
 # @genqlient(for: "AgentTaskRequirementsInput.minTier", omitempty: true)
+# cli#1485 S3 (Andi BLIND P2): the model-group requirement fields arrived with
+# the schema refresh (server #3029) but no command sets them yet (S2). Absent,
+# not null, so ordinary create/update bodies are unchanged and an older server
+# never sees an input field it does not know.
+# @genqlient(for: "AgentTaskRequirementsInput.modelGroupIn", omitempty: true)
+# @genqlient(for: "AgentTaskRequirementsInput.modelGroupNotIn", omitempty: true)
 mutation AgentTaskCreate(
   $input: CreateAgentTaskInput!
 ) {

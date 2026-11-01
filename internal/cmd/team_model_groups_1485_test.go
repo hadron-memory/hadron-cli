@@ -16,7 +16,10 @@ import (
 // groupsRow1485 is a roster row with the given modelGroups JSON literal.
 func groupsRow1485(name, groups string) string {
 	row := rosterRow993(name, "AVAILABLE", true, `"claude-opus-5-5"`, `"high"`)
-	return strings.Replace(row, `"alarms":[]`, `"modelGroups":`+groups+`,"alarms":[]`, 1)
+	if !strings.Contains(row, `"modelGroups":[],`) {
+		panic("rosterRow993 no longer carries a default modelGroups to replace")
+	}
+	return strings.Replace(row, `"modelGroups":[],`, `"modelGroups":`+groups+`,`, 1)
 }
 
 // rosterGroups1485 builds the TeamRoster response: rows (already JSON), plus an
@@ -339,3 +342,48 @@ func TestWorkerGetModelGroupsErrorsFailTheCommand1485(t *testing.T) {
 		})
 	}
 }
+
+// Andi's BLIND P2 (cli#1485 S3): the model-group requirement fields arrived
+// with the schema refresh, but no command sets them yet. They must be ABSENT
+// from every requirements body (never null: null reads as "clear", and an older
+// server rejects an input field it does not know).
+func TestRequirementsOmitUnsetModelGroups1485(t *testing.T) {
+	// Every operation shares this input type, so the marshalled type covers
+	// create and update alike.
+	b, err := json.Marshal(gen.AgentTaskRequirementsInput{Role: ptrStr1485("qa")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"modelGroupIn", "modelGroupNotIn"} {
+		if strings.Contains(string(b), key) {
+			t.Errorf("unset %s serialised into the requirements body: %s", key, b)
+		}
+	}
+	// And through the real command: a create with ordinary requirements sends
+	// neither key.
+	calls, _, err := runTeamTask(t, taskResponses(),
+		"team", "task", "create", "T", "--require-role", "qa", "--family-in", "claude")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range *calls {
+		c := (*calls)[i]
+		if c.Op != "AgentTaskCreate" {
+			continue
+		}
+		input, _ := c.Vars["input"].(map[string]any)
+		req, _ := input["requirements"].(map[string]any)
+		if req == nil {
+			t.Fatalf("no requirements in the create body: %v", c.Vars)
+		}
+		for _, key := range []string{"modelGroupIn", "modelGroupNotIn"} {
+			if _, present := req[key]; present {
+				t.Errorf("requirements carry %s on an ordinary create: %v", key, req)
+			}
+		}
+		return
+	}
+	t.Fatal("no AgentTaskCreate call")
+}
+
+func ptrStr1485(s string) *string { return &s }

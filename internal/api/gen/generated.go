@@ -6474,9 +6474,9 @@ type AgentTaskRequirementsInput struct {
 	// The lowest model tier the assignee may run at: low, mid or high, in that order (hrn:node:hadronmemory.com:specs:cor:agt:060:06). A worker below it, or whose tier is unknown, is never matched; the lowest sufficient tier wins. There is no maximum.
 	MinTier *string `json:"minTier,omitempty"`
 	// Model groups of the App (hrn:node:hadronmemory.com:specs:cor:agt:060:12) the assignee's model must be in at least one of. A name no group of the App carries is refused. A worker with no model is in no group, so it never matches.
-	ModelGroupIn []string `json:"modelGroupIn"`
+	ModelGroupIn []string `json:"modelGroupIn,omitempty"`
 	// Model groups of the App (hrn:node:hadronmemory.com:specs:cor:agt:060:12) the assignee's model must be in none of. A name no group of the App carries is refused. A worker with no model is in no group, so it passes.
-	ModelGroupNotIn []string `json:"modelGroupNotIn"`
+	ModelGroupNotIn []string `json:"modelGroupNotIn,omitempty"`
 	Role            *string  `json:"role"`
 }
 
@@ -89328,6 +89328,10 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 // must not be sent as null. Per-field omitempty on this one input field.
 // Schema-only optional fields must stay absent for older providers.
 // #2420: the task's own properties object. A pointer field, omitted when nil.
+// cli#1485 S3 (Andi BLIND P2): the model-group requirement fields arrived with
+// the schema refresh (server #3029) but no command sets them yet (S2). Absent,
+// not null, so ordinary create/update bodies are unchanged and an older server
+// never sees an input field it does not know.
 func AgentTaskCreate(
 	ctx_ context.Context,
 	client_ graphql.Client,
