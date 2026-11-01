@@ -15,6 +15,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/build"
 	accesscmd "github.com/hadron-memory/hadron-cli/internal/cmd/access"
+	admincmd "github.com/hadron-memory/hadron-cli/internal/cmd/admin"
 	agentcmd "github.com/hadron-memory/hadron-cli/internal/cmd/agent"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/agentic"
 	aiconfigcmd "github.com/hadron-memory/hadron-cli/internal/cmd/aiconfig"
@@ -131,6 +132,7 @@ the binding is verified. Otherwise this does not apply to you.`,
 		return exitcode.New(exitcode.Usage, err)
 	})
 
+	root.AddCommand(admincmd.NewCmdAdmin(f))
 	root.AddCommand(authcmd.NewCmdAuth(f))
 	root.AddCommand(memorycmd.NewCmdMemory(f))
 	root.AddCommand(usagecmd.NewCmdUsage(f))
