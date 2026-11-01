@@ -152,11 +152,6 @@ Display and prompt go to stderr, so stdout carries only the result.`,
 			if err != nil {
 				return exitcode.Newf(exitcode.Error, "could not show the summary (%v); nothing was approved", err)
 			}
-			if incomplete {
-				return exitcode.Newf(exitcode.Unavailable,
-					"unavailable: the summary is too large to show in full, so nothing was approved (approval needs the whole summary on screen). Read all of it with `hadron automation approval %s --json%s`",
-					approvalTarget(sel), approvalAppFlag(app))
-			}
 			if dto.stale() {
 				// cli#1202: the entry node no longer resolves, so there is no
 				// hash to approve. Nothing is prompted, sent or retried; the
@@ -165,6 +160,11 @@ Display and prompt go to stderr, so stdout carries only the result.`,
 				return exitcode.Newf(exitcode.Conflict,
 					"nothing was approved: this automation's entry node no longer resolves; set the trigger to the entry node's current URN, then run %s again",
 					approvalHint(sel, app))
+			}
+			if incomplete {
+				return exitcode.Newf(exitcode.Unavailable,
+					"unavailable: the summary is too large to show in full, so nothing was approved (approval needs the whole summary on screen). Read all of it with `hadron automation approval %s --json%s`",
+					approvalTarget(sel), approvalAppFlag(app))
 			}
 			where := ""
 			if sel.Kind != gen.AutomationTriggerKindManual {

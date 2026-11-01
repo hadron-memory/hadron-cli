@@ -201,3 +201,28 @@ func TestStaleEntrySentenceIsTerminalSafe1202(t *testing.T) {
 		}
 	}
 }
+
+// Blind P2 (Beckett): a stale answer whose sentence is over the display bound
+// must still exit 5 with the repair step — there is nothing to approve, so
+// "the whole summary must be on screen" serves no purpose.
+func TestStaleEntryOversizedSentenceStillExits5(t *testing.T) {
+	long := staleLimit + strings.Repeat(" x", 3000)
+	s := staleServer(t, func(a map[string]any) { a["summary"].(map[string]any)["limits"] = []string{long} })
+	for _, args := range [][]string{{"approve", "nightly", "--yes"}, {"approve", "nightly"}} {
+		r := runAuto(t, s, true, "y\n", args...)
+		shown := r.errOut
+		if r.err != nil {
+			shown += r.err.Error()
+		}
+		if r.code != exitcode.Conflict || s.count("ApproveAutomation") != 0 || r.out != "" {
+			t.Fatalf("%v: want exit 5, zero approvals, empty stdout: code=%d err=%v", args, r.code, r.err)
+		}
+		if !strings.Contains(shown, "nothing was approved") || !strings.Contains(shown, "hadron automation approval") ||
+			strings.Contains(shown, "too large to show") {
+			t.Errorf("%v: want the repair step, not the too-large refusal:\n%s", args, shown)
+		}
+		if strings.Contains(r.errOut, "as shown above?") {
+			t.Errorf("%v: no prompt:\n%s", args, r.errOut)
+		}
+	}
+}
