@@ -19,7 +19,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 187: 144 command, 28 gap, 15 excluded
+[Query] 187: 149 command, 23 gap, 15 excluded
 actionTickets  command ticket list
 agent  command agent get
 agentAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime that makes LLM calls; a person reads the masked config with `ai-config get`
@@ -73,7 +73,7 @@ chatServedPrompts  command chat served-prompts
 comment  command comment get
 commentThreads  command comment list
 compiledPromptProvenance  command node provenance
-connectionGrant  gap #1343
+connectionGrant  command connection grant get
 connectionGrants  command connection grant list
 creditBalance  command billing balance
 creditLedgerEntries  command billing ledger
@@ -92,7 +92,7 @@ dueWakes  command team wakes due
 edge  command edge get
 edges  command edge list
 effectiveAccess  command access check
-effectiveActionPolicy  gap #1343
+effectiveActionPolicy  command policy explain
 exchangeConnections  command email connections
 exchangeConnectionsPage  gap #198
 exchangeFolders  gap #198
@@ -145,11 +145,11 @@ object  command object get
 organization  command org get
 organizations  command org list
 previewAutomation  command automation preview
-principalGrant  gap #1343
+principalGrant  command grant get
 principalGrants  command grant list
 publicAgents  command agent list
 publicOrganization  command org public
-quotaCounters  gap #1343
+quotaCounters  command quota list
 recoveryEdges  command node recovery graph
 recoveryNode  command node recovery get
 recoveryNodes  command node recovery list
@@ -166,7 +166,7 @@ resolveUrn  command node get
 scope  command scope get
 scopeExplain  command scope explain
 scopes  command scope list
-secret  gap #1343
+secret  command secret get
 secrets  command secret list
 selectedSkillFilePlan  command skill export
 serverInfo  command server-info
@@ -208,7 +208,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 315: 234 command, 70 gap, 11 excluded
+[Mutation] 315: 237 command, 67 gap, 11 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -453,7 +453,7 @@ setHostWorkerAvailability  command team host availability
 setHostWorkerTerminals  command team health sweep
 setMemorySourceToken  gap #60
 setModelFamilyAvailability  command team availability set
-setQuotaLimit  gap #1343
+setQuotaLimit  command quota set
 setTeamPause  command team pause
 setTeamStopSignal  command team stop set
 setUserApiKeyHidden  command auth token hide
@@ -498,7 +498,7 @@ updateMemoryConfigTemplate  command memory config template update
 updateMemoryMemberRole  command memory member set-role
 updateMemoryShareRole  command memory share set-role
 updateMemorySubscription  command memory subscription set-role
-updateMyPolicy  gap #1343
+updateMyPolicy  command policy set
 updateMyProfile  command profile set
 updateNode  command node update
 updateNodeData  command node update
@@ -513,7 +513,7 @@ updateRegisterEntry  command channel register set
 updateResendSender  command org resend-sender update
 updateReviewNode  command node update
 updateScope  command scope update
-updateSecret  gap #1343
+updateSecret  command secret update
 updateSession  command team session log
 updateSpecNode  command node update
 updateTaskNode  command node update
@@ -525,7 +525,7 @@ updateWorker  command team worker update
 withdrawDecision  gap #1335
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 80: 53 gap, 27 excluded
+[Arguments] 79: 52 gap, 27 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.addOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
@@ -591,7 +591,6 @@ Mutation.updateMemorySubscription(memoryId)  excluded deprecated: @deprecated: U
 Mutation.updateMemorySubscription(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
 Mutation.updateOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
 Mutation.updateOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
-Mutation.updateOrganization(policy)  gap #1343
 Mutation.updateTeamRole(repos)  gap #1336
 Query.agentTasks(creator)  gap #1336
 Query.attendeeRegister(agentRef)  gap #1336

@@ -48,16 +48,20 @@ then the org's. A generic secret's value can be read by the agent's model; a
 webfetch-auth secret is only injected into matching web requests and the model
 never sees it.
 
-Values are write-only: secret create sends the value, and no command ever
-prints it. Pass it on stdin, from a file or at a no-echo prompt, never as an
-argument. Typical flow: secret create, then secret list to see what exists,
-then secret rm when it is no longer needed.`,
+Values are write-only: secret create and secret update send the value, and
+no command ever prints it (secret get shows only the metadata). Pass it on
+stdin, from a file or at a no-echo prompt, never as an argument. Typical flow:
+secret create, then secret list to see what exists, secret update to rotate
+the value (it overwrites; there are no versions), and secret rm when it is no
+longer needed.`,
 		Example: `  printf '%s' "$GITHUB_TOKEN" | hadron secret create --name github-token --scope user --kind generic --value-file -
   hadron secret list --scope user`,
 	}
 	cmd.AddCommand(newCmdCreate(f))
+	cmd.AddCommand(newCmdGet(f))
 	cmd.AddCommand(newCmdLs(f))
 	cmd.AddCommand(newCmdRm(f))
+	cmd.AddCommand(newCmdUpdate(f))
 	return cmd
 }
 
