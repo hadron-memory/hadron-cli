@@ -7844,7 +7844,7 @@ type AgentTeamEventFields struct {
 	Id     string  `json:"id"`
 	AppId  string  `json:"appId"`
 	TaskId *string `json:"taskId"`
-	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled; the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02).
+	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled; the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, stall.finish-by (#2648), alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02).
 	Type string `json:"type"`
 	// ALARM for an alarm; null for an ordinary event.
 	Severity  *AgentTeamEventSeverity `json:"severity"`
@@ -22395,6 +22395,8 @@ type CreateAgentTaskInput struct {
 	// Defaults to false: the assignee's session ends only when whoever assigns the task asks (hrn:node:hadronmemory.com:specs:cor:agt:050:10).
 	CloseSessionWhenDone *bool   `json:"closeSessionWhenDone"`
 	Description          *string `json:"description"`
+	// #2648 (hrn:node:hadronmemory.com:specs:cor:agt:050:14): an optional finish-by deadline; refused BAD_USER_INPUT if in the past or earlier than startBy. While set, the task raises no stall-window alarm, only stall.finish-by once it passes unfinished.
+	FinishBy *string `json:"finishBy"`
 	// Defaults to the creator. A root task's creator may name any other
 	// participating worker or person as owner (#1757, hrn:node:hadronmemory.com:specs:cor:agt:050:01);
 	// a ref outside the App's participants is TASK_OWNER_INVALID. Never for a
@@ -22434,6 +22436,9 @@ func (v *CreateAgentTaskInput) GetCloseSessionWhenDone() *bool { return v.CloseS
 
 // GetDescription returns CreateAgentTaskInput.Description, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetDescription() *string { return v.Description }
+
+// GetFinishBy returns CreateAgentTaskInput.FinishBy, and is useful for accessing the field via an interface.
+func (v *CreateAgentTaskInput) GetFinishBy() *string { return v.FinishBy }
 
 // GetOwner returns CreateAgentTaskInput.Owner, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetOwner() *AgentTaskPartyInput { return v.Owner }
@@ -71380,6 +71385,8 @@ type UpdateAgentTaskInput struct {
 	// Null clears to false; omission preserves the stored choice.
 	CloseSessionWhenDone *bool           `json:"closeSessionWhenDone,omitempty"`
 	Description          json.RawMessage `json:"description,omitempty"`
+	// #2648 (hrn:node:hadronmemory.com:specs:cor:agt:050:14): set or change the finish-by deadline (refused BAD_USER_INPUT if in the past or earlier than startBy), or null to clear it, which brings the ordinary stall windows back from this edit. Either change ends the current finish-by episode. Setting only startBy is refused if it is later than the finish-by time.
+	FinishBy *string `json:"finishBy"`
 	// #2420 (hrn:node:hadronmemory.com:specs:cor:agt:050:28): omitted leaves the value, a JSON object replaces the whole of
 	// it (no merge), null clears it. Writable by the task's owner, a worker the owner reports to, whoever manages the App,
 	// and the task's assignee; an assignee's update may name this field and no other. Refused on a finished or cancelled
@@ -71398,6 +71405,9 @@ func (v *UpdateAgentTaskInput) GetCloseSessionWhenDone() *bool { return v.CloseS
 
 // GetDescription returns UpdateAgentTaskInput.Description, and is useful for accessing the field via an interface.
 func (v *UpdateAgentTaskInput) GetDescription() json.RawMessage { return v.Description }
+
+// GetFinishBy returns UpdateAgentTaskInput.FinishBy, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTaskInput) GetFinishBy() *string { return v.FinishBy }
 
 // GetProperties returns UpdateAgentTaskInput.Properties, and is useful for accessing the field via an interface.
 func (v *UpdateAgentTaskInput) GetProperties() json.RawMessage { return v.Properties }
@@ -78653,7 +78663,7 @@ func (v *WorkerBootPointerWorker) GetBootPromptRef() *string { return v.BootProm
 type WorkerCheckState string
 
 const (
-	// No live session.
+	// No live session; noSessionReason says why.
 	WorkerCheckStateNoSession WorkerCheckState = "NO_SESSION"
 	// Has a task and checked within failedChecksToOverdue × checkPeriodSeconds + 5 minutes.
 	WorkerCheckStateOk WorkerCheckState = "OK"
