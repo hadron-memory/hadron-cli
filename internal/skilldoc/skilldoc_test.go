@@ -1214,6 +1214,7 @@ func TestLintTemplateRuleDistinguishesIncludeTags(t *testing.T) {
 		{"include and variable", "{{> part}}\nYou are {{name}}.", true},
 		{"variable then include", "{{name}} {{> part}}", true},
 		{"no placeholder", "plain body", false},
+		{"include opener then nested variable", "{{>{{x}}", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			n := declaring("tasks:a", "Use when x", nil)

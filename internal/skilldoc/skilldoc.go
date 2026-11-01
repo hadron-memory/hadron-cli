@@ -193,9 +193,10 @@ var (
 	// substitute a variable, so `{{var}}` ships as literal text; that may be
 	// intended (a briefing template) or a leak, which is why it is a warning
 	// and not an error. An include tag `{{> part}}` is the exception: the
-	// export resolver (hadron-server#2048) resolves it, so hasLiteralPlaceholder
-	// skips it (cli#1166, paired with server#2943 — same rule on both sides).
-	templateRE = regexp.MustCompile(`\{\{([^}]*)\}\}`)
+	// export resolver (hadron-server#2048) resolves it, so the pattern skips a
+	// match whose opener is `{{>` (`{{ > x}}` is NOT an include and still warns).
+	// cli#1166, paired with server#2943: the identical pattern on both sides.
+	templateRE = regexp.MustCompile(`\{\{(?:[^>}][^}]*)?\}\}`)
 )
 
 // Declaration is a node's opt-in to export for ONE host: an object at `properties.
@@ -607,25 +608,11 @@ func LintFor(n Node, h Host) []Finding {
 		add("skill-content-has-frontmatter", SevError,
 			"content starts with a `---` frontmatter block — the node body is the skill BODY; frontmatter is composed at export from the declaration and would be doubled")
 	}
-	if hasLiteralPlaceholder(n.Content) {
+	if templateRE.MatchString(n.Content) {
 		add("skill-content-has-template", SevWarning,
 			"content contains a {{…}} placeholder — export is verbatim, so it ships as literal text; keep it only if the skill is meant to carry a template")
 	}
 	return out
-}
-
-// hasLiteralPlaceholder reports whether the body has a `{{…}}` that ships as
-// literal text: any match that does not open with `{{>` (an include tag,
-// resolved on export; the opener the export resolver's parser matches, so
-// `{{ > x}}` is NOT an include and still warns). One variable among includes
-// is enough.
-func hasLiteralPlaceholder(body string) bool {
-	for _, m := range templateRE.FindAllStringSubmatch(body, -1) {
-		if !strings.HasPrefix(m[1], ">") {
-			return true
-		}
-	}
-	return false
 }
 
 // RuleUnknownHostKey names the finding for an `exports` key no host owns.
