@@ -77598,6 +77598,8 @@ type ValidateMemoryValidateMemoryMemoryValidationResult struct {
 	Ok bool `json:"ok"`
 	// The TRUE problem count, before any truncation. Excludes informational INDEX_TRUNCATED. Gate health and CI on ok, which also accounts for skipped checks.
 	TotalFindings int `json:"totalFindings"`
+	// The TRUE informational declaration count, before any truncation. Does not affect health.
+	TotalInformational int `json:"totalInformational"`
 	// True when findings was capped and totalFindings + totalInformational is larger.
 	Truncated bool `json:"truncated"`
 	// Findings, capped by the limit argument, with problems before informational declarations.
@@ -77619,6 +77621,11 @@ func (v *ValidateMemoryValidateMemoryMemoryValidationResult) GetOk() bool { retu
 // GetTotalFindings returns ValidateMemoryValidateMemoryMemoryValidationResult.TotalFindings, and is useful for accessing the field via an interface.
 func (v *ValidateMemoryValidateMemoryMemoryValidationResult) GetTotalFindings() int {
 	return v.TotalFindings
+}
+
+// GetTotalInformational returns ValidateMemoryValidateMemoryMemoryValidationResult.TotalInformational, and is useful for accessing the field via an interface.
+func (v *ValidateMemoryValidateMemoryMemoryValidationResult) GetTotalInformational() int {
+	return v.TotalInformational
 }
 
 // GetTruncated returns ValidateMemoryValidateMemoryMemoryValidationResult.Truncated, and is useful for accessing the field via an interface.
@@ -116775,6 +116782,7 @@ query ValidateMemory ($memoryRef: ID!, $limit: Int) {
 		nodesChecked
 		ok
 		totalFindings
+		totalInformational
 		truncated
 		findings {
 			kind
@@ -116795,8 +116803,10 @@ query ValidateMemory ($memoryRef: ID!, $limit: Int) {
 // hadron_validate, wired up for `hadron memory validate` (#352).
 //
 // Two fields exist because `findings` is NOT the answer on its own:
-// - totalFindings is the true count BEFORE `limit` truncation — gate CI on
-// this, never on len(findings).
+// - totalFindings is the true PROBLEM count BEFORE `limit` truncation (it
+// excludes the informational INDEX_TRUNCATED declaration, which is counted
+// by totalInformational and never affects health, cli#1501) — never gate
+// on len(findings), which includes informational rows.
 // - ok is false when any check was SKIPPED, even with zero findings, so a
 // clean bill of health can't quietly omit a check. skippedChecks says which
 // and why (e.g. the stale-abstract check is skipped on encrypted memories:

@@ -683,9 +683,12 @@ Conventions:
   wrong" (measured on the
   live specs corpus it carries essentially no signal about whether the abstract
   still describes the body; hadron-cli#352). Two counts, deliberately:
-  `totalFindings` is the true count across every check BEFORE truncation — gate
-  on that, never on `findings.length` — while `matchedFindings` counts what was
-  listed after `--limit` and `--check`. `ok` is false whenever a check was
+  `totalFindings` is the true PROBLEM count across every check BEFORE truncation,
+  while `matchedFindings` counts the problems listed after `--limit` and
+  `--check`. Informational `INDEX_TRUNCATED` declarations (the memory declares a
+  chunk cap) are not problems: `totalInformational` / `matchedInformational`
+  count them apart (cli#1501), they stay in `findings` (`kind: index-truncated`)
+  and never affect `ok`. Gate on `ok`, never on `findings.length`. `ok` is false whenever a check was
   SKIPPED even with zero findings (health can't be claimed for a check that
   didn't run); `skippedChecks` says which and why (stale-abstract is skipped on
   an encrypted memory — the validator doesn't decrypt). `--check <kind>` filters
@@ -693,7 +696,7 @@ Conventions:
   `--check` requests the server maximum (1000) unless you pin `--limit`; if the
   result is still truncated the report says the filtered view may be missing
   matches. Exits 0 whatever the findings unless `--fail-on-findings` (then exit
-  5 when any LISTED finding matches), because a check that fires on most of a
+  5 when any LISTED problem finding matches; informational rows never do), because a check that fires on most of a
   never-audited corpus on day one just teaches people to ignore the report.
 - `memory reembed-failed <memoryRef>` re-drives failed embeddings
   (`retryFailedEmbeddings`): the server re-stamps each live node whose embedding

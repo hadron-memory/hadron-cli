@@ -75,23 +75,31 @@ type validateSkippedDTO struct {
 
 // validateResultDTO is the stable --json shape for a memory audit.
 //
-// Both counts are present on purpose. TotalFindings is the server's true count
-// across every check, before `--limit` truncation — the number to gate CI on.
-// MatchedFindings counts the findings actually listed, after any --check
-// filter. They differ whenever the result was truncated or filtered, and
-// conflating them is how a partial audit gets read as a clean one.
+// The counts are present on purpose. TotalFindings is the server's true
+// PROBLEM count across every check, before `--limit` truncation; it excludes
+// informational declarations (INDEX_TRUNCATED), which TotalInformational
+// counts instead and which never affect OK (cli#1501). MatchedFindings counts
+// the problem findings actually listed, after any --check filter, and
+// MatchedInformational the listed informational rows; `findings` carries both.
+// Gate on OK (it also accounts for skipped checks). The totals and the matched
+// counts differ whenever the result was truncated or filtered, and conflating
+// them is how a partial audit gets read as a clean one.
 type validateResultDTO struct {
-	Memory          string               `json:"memory"`
-	MemoryID        string               `json:"memoryId"`
-	NodesChecked    int                  `json:"nodesChecked"`
-	OK              bool                 `json:"ok"`
-	TotalFindings   int                  `json:"totalFindings"`
-	MatchedFindings int                  `json:"matchedFindings"`
-	Truncated       bool                 `json:"truncated"`
-	Filtered        []string             `json:"filtered"`
-	Counts          map[string]int       `json:"counts"`
-	Findings        []validateFindingDTO `json:"findings"`
-	SkippedChecks   []validateSkippedDTO `json:"skippedChecks"`
+	Memory          string `json:"memory"`
+	MemoryID        string `json:"memoryId"`
+	NodesChecked    int    `json:"nodesChecked"`
+	OK              bool   `json:"ok"`
+	TotalFindings   int    `json:"totalFindings"`
+	MatchedFindings int    `json:"matchedFindings"`
+	// TotalInformational is the server's true count of informational
+	// declarations (INDEX_TRUNCATED); they never make OK false.
+	TotalInformational   int                  `json:"totalInformational"`
+	MatchedInformational int                  `json:"matchedInformational"`
+	Truncated            bool                 `json:"truncated"`
+	Filtered             []string             `json:"filtered"`
+	Counts               map[string]int       `json:"counts"`
+	Findings             []validateFindingDTO `json:"findings"`
+	SkippedChecks        []validateSkippedDTO `json:"skippedChecks"`
 }
 
 func newCmdValidate(f *cmdutil.Factory) *cobra.Command {
@@ -117,9 +125,11 @@ was written against — including when the difference changed nothing the abstra
 says, and not at all when a body was edited and then restored byte-for-byte. It
 is "the body moved under this abstract", not "this abstract is wrong".
 
-Two numbers, deliberately: totalFindings is the true count across every check
-before truncation — gate CI on that — while the listing is capped by --limit
-and narrowed by --check. The server caps its findings list before --check can
+Counts, deliberately: totalFindings is the true PROBLEM count across every check
+before truncation, while the listing is capped by --limit and narrowed by
+--check. Informational declarations (INDEX_TRUNCATED: the memory declares a
+chunk cap) are not problems: they are counted apart in totalInformational,
+listed in the findings, and never make "ok" false. Gate CI on "ok". The server caps its findings list before --check can
 filter it, so --check requests the server maximum unless you pin --limit
 yourself; if the result is still truncated the report says so rather than
 letting a short list read as a complete one. And "ok" is false whenever a check was SKIPPED, even
@@ -127,7 +137,8 @@ with zero findings, because health cannot be claimed for a check that did not
 run; skippedChecks says which and why (the stale-abstract check is skipped on
 an encrypted memory — the validator does not decrypt).
 
-Exits 0 whatever the findings unless --fail-on-findings is passed. A corpus
+Exits 0 whatever the findings unless --fail-on-findings is passed (which gates
+on listed problem findings only, never on informational ones). A corpus
 that has never been audited will light up, and a check that fires on most of
 the memory on day one teaches people to ignore the whole report — so gate CI
 deliberately, and preferably on a narrowed --check.`,
@@ -185,7 +196,7 @@ deliberately, and preferably on a narrowed --check.`,
 			}); err != nil {
 				return err
 			}
-			if failOnFindings && dto.MatchedFindings > 0 {
+			if failOnFindings && dto.MatchedFindings > 0 { // problems only (cli#1501)
 				return exitcode.Silent(exitcode.Conflict)
 			}
 			return nil
@@ -194,7 +205,7 @@ deliberately, and preferably on a narrowed --check.`,
 	cmd.Flags().StringSliceVar(&checks, "check", nil,
 		"only report these checks (repeatable): broken-ref, embed-failed, schema, sparse, stale-abstract")
 	cmd.Flags().IntVar(&limit, "limit", 0, "max findings to list (server default 200, max 1000; --check implies the max); totalFindings is always the true count")
-	cmd.Flags().BoolVar(&failOnFindings, "fail-on-findings", false, "exit 5 when any listed finding matches — for CI gating")
+	cmd.Flags().BoolVar(&failOnFindings, "fail-on-findings", false, "exit 5 when any listed problem finding matches (informational declarations never do) — for CI gating")
 	return cmd
 }
 
@@ -222,6 +233,9 @@ func parseChecks(vals []string) (map[gen.MemoryValidationCheck]bool, error) {
 // the server added after this binary was built: say so rather than printing a
 // blank cell, so the reader knows to upgrade instead of wondering what it means.
 func blurbFor(name string) string {
+	if name == kindName(gen.MemoryValidationCheckIndexTruncated) {
+		return "informational: the memory declares a chunk cap on indexed content — not a problem"
+	}
 	if k, ok := checkKinds[name]; ok {
 		return checkBlurb[k]
 	}
@@ -260,16 +274,17 @@ func kindName(k gen.MemoryValidationCheck) string {
 
 func buildValidateDTO(memRef string, r *gen.ValidateMemoryValidateMemoryMemoryValidationResult, want map[gen.MemoryValidationCheck]bool) validateResultDTO {
 	dto := validateResultDTO{
-		Memory:        memRef,
-		MemoryID:      r.MemoryId,
-		NodesChecked:  r.NodesChecked,
-		OK:            r.Ok,
-		TotalFindings: r.TotalFindings,
-		Truncated:     r.Truncated,
-		Filtered:      []string{},
-		Counts:        map[string]int{},
-		Findings:      []validateFindingDTO{},
-		SkippedChecks: []validateSkippedDTO{},
+		Memory:             memRef,
+		MemoryID:           r.MemoryId,
+		NodesChecked:       r.NodesChecked,
+		OK:                 r.Ok,
+		TotalFindings:      r.TotalFindings,
+		TotalInformational: r.TotalInformational,
+		Truncated:          r.Truncated,
+		Filtered:           []string{},
+		Counts:             map[string]int{},
+		Findings:           []validateFindingDTO{},
+		SkippedChecks:      []validateSkippedDTO{},
 	}
 	for _, name := range sortedCheckNames() {
 		if want[checkKinds[name]] {
@@ -282,11 +297,15 @@ func buildValidateDTO(memRef string, r *gen.ValidateMemoryValidateMemoryMemoryVa
 		}
 		name := kindName(fnd.Kind)
 		dto.Counts[name]++
+		if fnd.Kind == gen.MemoryValidationCheckIndexTruncated {
+			dto.MatchedInformational++
+		} else {
+			dto.MatchedFindings++
+		}
 		dto.Findings = append(dto.Findings, validateFindingDTO{
 			Kind: name, NodeID: fnd.NodeId, NodeLoc: fnd.NodeLoc, NodeURN: fnd.NodeUrn, Detail: fnd.Detail,
 		})
 	}
-	dto.MatchedFindings = len(dto.Findings)
 	for _, s := range r.SkippedChecks {
 		if s == nil {
 			continue
@@ -310,7 +329,8 @@ func writeValidateText(w io.Writer, dto validateResultDTO) error {
 		}
 	}
 
-	if dto.TotalFindings == 0 && len(dto.SkippedChecks) == 0 {
+	informational := dto.TotalInformational > 0 || dto.MatchedInformational > 0
+	if dto.TotalFindings == 0 && len(dto.SkippedChecks) == 0 && !informational {
 		fmt.Fprintf(w, "\n✓ no findings; every check ran\n")
 		return nil
 	}
@@ -332,11 +352,14 @@ func writeValidateText(w io.Writer, dto validateResultDTO) error {
 		}
 	}
 
-	fmt.Fprintf(w, "\n%d finding(s) across all checks", dto.TotalFindings)
+	fmt.Fprintf(w, "\n%d problem finding(s) across all checks", dto.TotalFindings)
 	if len(dto.Filtered) > 0 {
 		fmt.Fprintf(w, "; %d listed after --check %s", dto.MatchedFindings, strings.Join(dto.Filtered, ","))
 	}
 	fmt.Fprintln(w)
+	if informational {
+		fmt.Fprintf(w, "%d informational declaration(s) (not problems; they do not affect ok)\n", dto.TotalInformational)
+	}
 
 	// Truncation and filtering compose badly and silently: the server caps the
 	// findings list BEFORE --check narrows it, so a filtered view of a
