@@ -6176,6 +6176,49 @@ func (v *AgentTaskReassignResponse) GetReassignAgentTask() *AgentTaskReassignRea
 	return v.ReassignAgentTask
 }
 
+// #2649 (hrn:node:hadronmemory.com:specs:cor:agt:050:01): one reference to set. target must have its kind's form and be
+// at most 512 characters, with no whitespace or control characters (a URL is written scheme://host, with no
+// backslash); label at most 120 (empty means none). A list of more than 20, or any item that fails, is refused
+// BAD_USER_INPUT and nothing is written.
+type AgentTaskReferenceInput struct {
+	Kind   AgentTaskReferenceKind `json:"kind"`
+	Label  *string                `json:"label"`
+	Target string                 `json:"target"`
+}
+
+// GetKind returns AgentTaskReferenceInput.Kind, and is useful for accessing the field via an interface.
+func (v *AgentTaskReferenceInput) GetKind() AgentTaskReferenceKind { return v.Kind }
+
+// GetLabel returns AgentTaskReferenceInput.Label, and is useful for accessing the field via an interface.
+func (v *AgentTaskReferenceInput) GetLabel() *string { return v.Label }
+
+// GetTarget returns AgentTaskReferenceInput.Target, and is useful for accessing the field via an interface.
+func (v *AgentTaskReferenceInput) GetTarget() string { return v.Target }
+
+// #2649 (hrn:node:hadronmemory.com:specs:cor:agt:050:01): what a task reference points at, which fixes the form its target takes.
+type AgentTaskReferenceKind string
+
+const (
+	// An absolute https URL of an issue. No owner/repo#n shorthand.
+	AgentTaskReferenceKindIssue AgentTaskReferenceKind = "ISSUE"
+	// A node URN (hrn:node:...).
+	AgentTaskReferenceKindNode AgentTaskReferenceKind = "NODE"
+	// An absolute https URL of a pull request.
+	AgentTaskReferenceKindPullRequest AgentTaskReferenceKind = "PULL_REQUEST"
+	// An agent-task URN (hrn:agenttask:<root>:<app-slug>:<task id or handle>), never a bare handle.
+	AgentTaskReferenceKindTask AgentTaskReferenceKind = "TASK"
+	// An absolute http or https URL.
+	AgentTaskReferenceKindUrl AgentTaskReferenceKind = "URL"
+)
+
+var AllAgentTaskReferenceKind = []AgentTaskReferenceKind{
+	AgentTaskReferenceKindIssue,
+	AgentTaskReferenceKindNode,
+	AgentTaskReferenceKindPullRequest,
+	AgentTaskReferenceKindTask,
+	AgentTaskReferenceKindUrl,
+}
+
 // AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask includes the requested fields of the GraphQL type AgentTask.
 // The GraphQL type's documentation follows.
 //
@@ -7844,7 +7887,7 @@ type AgentTeamEventFields struct {
 	Id     string  `json:"id"`
 	AppId  string  `json:"appId"`
 	TaskId *string `json:"taskId"`
-	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled; the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, stall.finish-by (#2648), alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02).
+	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled, task.handed-back (#2651: its payload is the reason code only, never the reason text); the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, stall.finish-by (#2648), alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02).
 	Type string `json:"type"`
 	// ALARM for an alarm; null for an ordinary event.
 	Severity  *AgentTeamEventSeverity `json:"severity"`
@@ -22410,7 +22453,9 @@ type CreateAgentTaskInput struct {
 	// #2420 (hrn:node:hadronmemory.com:specs:cor:agt:050:28): the task's own properties, a JSON object with the same limits
 	// and refusal codes as on update. Only set when the creator is one of the task's writers (its owner, someone above the
 	// owner, a manager, or the assignee named here); any other creator gets the task made without them, not a refusal.
-	Properties   *json.RawMessage            `json:"properties,omitempty"`
+	Properties *json.RawMessage `json:"properties,omitempty"`
+	// #2649 (hrn:node:hadronmemory.com:specs:cor:agt:050:01): the task's ordered references; any creator may set them, as it sets the title.
+	References   []*AgentTaskReferenceInput  `json:"references,omitempty"`
 	Requirements *AgentTaskRequirementsInput `json:"requirements,omitempty"`
 	Source       *string                     `json:"source"`
 	StartBy      *string                     `json:"startBy"`
@@ -22454,6 +22499,9 @@ func (v *CreateAgentTaskInput) GetProject() *bool { return v.Project }
 
 // GetProperties returns CreateAgentTaskInput.Properties, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetProperties() *json.RawMessage { return v.Properties }
+
+// GetReferences returns CreateAgentTaskInput.References, and is useful for accessing the field via an interface.
+func (v *CreateAgentTaskInput) GetReferences() []*AgentTaskReferenceInput { return v.References }
 
 // GetRequirements returns CreateAgentTaskInput.Requirements, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetRequirements() *AgentTaskRequirementsInput { return v.Requirements }
@@ -71857,8 +71905,10 @@ type UpdateAgentTaskInput struct {
 	// and the task's assignee; an assignee's update may name this field and no other. Refused on a finished or cancelled
 	// task. A non-object is PROPERTIES_NOT_AN_OBJECT, over 16 KiB of canonical JSON PROPERTIES_TOO_LARGE, a violation of the
 	// Team Agent's schema:task-properties PROPERTIES_SCHEMA_VIOLATION, an unusable schema PROPERTIES_SCHEMA_UNUSABLE.
-	Properties   json.RawMessage `json:"properties,omitempty"`
-	Requirements json.RawMessage `json:"requirements,omitempty"`
+	Properties json.RawMessage `json:"properties,omitempty"`
+	// #2649 (hrn:node:hadronmemory.com:specs:cor:agt:050:09): a list replaces the whole list, order kept; null or an empty list clears it; omission leaves it. The task.edited event names references, never the values.
+	References   []*AgentTaskReferenceInput `json:"references,omitempty"`
+	Requirements json.RawMessage            `json:"requirements,omitempty"`
 	// Reanchors only the not-started deadline; null clears the explicit deadline. Existing alarms stay raised.
 	StartBy json.RawMessage `json:"startBy,omitempty"`
 	Tags    json.RawMessage `json:"tags,omitempty"`
@@ -71876,6 +71926,9 @@ func (v *UpdateAgentTaskInput) GetFinishBy() json.RawMessage { return v.FinishBy
 
 // GetProperties returns UpdateAgentTaskInput.Properties, and is useful for accessing the field via an interface.
 func (v *UpdateAgentTaskInput) GetProperties() json.RawMessage { return v.Properties }
+
+// GetReferences returns UpdateAgentTaskInput.References, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTaskInput) GetReferences() []*AgentTaskReferenceInput { return v.References }
 
 // GetRequirements returns UpdateAgentTaskInput.Requirements, and is useful for accessing the field via an interface.
 func (v *UpdateAgentTaskInput) GetRequirements() json.RawMessage { return v.Requirements }

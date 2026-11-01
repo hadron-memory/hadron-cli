@@ -540,6 +540,11 @@ type AgentTask {
   finishedAt: DateTime
 
   """
+  #2651: the task's latest hand-back by its assignee (hrn:node:hadronmemory.com:specs:cor:agt:050:29); null when it was never handed back. A later hand-back replaces it; every earlier code stays in the task.handed-back events.
+  """
+  handBack: AgentTaskHandBack
+
+  """
   The short handle of this task, for example "AT3.405": its project (AT3, a top-level task counted per App) and its
   number within each parent down to it (hrn:node:hadronmemory.com:specs:cor:agt:050:01). "AT0" is the reserved
   project "No project": a task made with no project is AT0.<n>. An alias for the id, which stays canonical; every
@@ -571,6 +576,13 @@ type AgentTask {
   Derived (hrn:node:hadronmemory.com:specs:cor:agt:050:03): pending with no assignee. Never stored.
   """
   queued: Boolean!
+
+  """
+  #2649 (hrn:node:hadronmemory.com:specs:cor:agt:050:01): the task's ordered, typed references to other things. Each
+  target is the string as stored: never fetched or resolved, so it says nothing about the target's content or whether
+  it exists. Empty when none.
+  """
+  references: [AgentTaskReference!]!
   requirements: AgentTaskRequirements
 
   """Set only on a finished task."""
@@ -619,6 +631,45 @@ type AgentTaskDependencyPage {
 }
 
 """
+#2651: a task's latest hand-back (hrn:node:hadronmemory.com:specs:cor:agt:050:01, :29), readable by whoever may read the task.
+"""
+type AgentTaskHandBack {
+  code: AgentTaskHandBackCode!
+  handedBackAt: DateTime!
+
+  """
+  The optional reason text, up to 2,000 characters. Stored on the task only, never in an event.
+  """
+  text: String
+}
+
+"""
+#2651: why an assignee handed a started task back, a closed set (hrn:node:hadronmemory.com:specs:cor:agt:050:29,
+Proposed details). MISSING_INPUT: something the work needs is not there. CANNOT_DO: the worker lacks the
+capability. REFUSED: a policy or safety refusal. OUT_OF_SCOPE: the work is not what this task's role does.
+DUPLICATE: the same work is already tracked elsewhere.
+"""
+enum AgentTaskHandBackCode {
+  CANNOT_DO
+  DUPLICATE
+  MISSING_INPUT
+  OUT_OF_SCOPE
+  REFUSED
+}
+
+"""
+#2651: the reason a hand-back gives (hrn:node:hadronmemory.com:specs:cor:agt:050:29).
+"""
+input AgentTaskHandBackInput {
+  code: AgentTaskHandBackCode!
+
+  """
+  Optional, up to 2,000 characters after trimming; blank is none. Stored on the task, never put into an event.
+  """
+  text: String
+}
+
+"""
 #2421 experimental symptom search: membership in the hybrid ranking inputs.
 """
 enum AgentTaskMatchedBy {
@@ -661,6 +712,61 @@ input AgentTaskPartyInput {
 enum AgentTaskPartyKind {
   USER
   WORKER
+}
+
+"""
+#2649 (hrn:node:hadronmemory.com:specs:cor:agt:050:01): one typed reference, as stored. The platform never resolves target.
+"""
+type AgentTaskReference {
+  kind: AgentTaskReferenceKind!
+
+  """Optional, at most 120 characters; null when none was given."""
+  label: String
+
+  """Stored exactly as given (at most 512 characters)."""
+  target: String!
+}
+
+"""
+#2649: agentTasks(reference:) matches tasks carrying a reference with exactly this target (1 to 512 characters, else BAD_USER_INPUT), and this kind when given. The label is ignored.
+"""
+input AgentTaskReferenceFilter {
+  kind: AgentTaskReferenceKind
+  target: String!
+}
+
+"""
+#2649 (hrn:node:hadronmemory.com:specs:cor:agt:050:01): one reference to set. target must have its kind's form and be
+at most 512 characters, with no whitespace or control characters (a URL is written scheme://host, with no
+backslash); label at most 120 (empty means none). A list of more than 20, or any item that fails, is refused
+BAD_USER_INPUT and nothing is written.
+"""
+input AgentTaskReferenceInput {
+  kind: AgentTaskReferenceKind!
+  label: String
+  target: String!
+}
+
+"""
+#2649 (hrn:node:hadronmemory.com:specs:cor:agt:050:01): what a task reference points at, which fixes the form its target takes.
+"""
+enum AgentTaskReferenceKind {
+  """An absolute https URL of an issue. No owner/repo#n shorthand."""
+  ISSUE
+
+  """A node URN (hrn:node:...)."""
+  NODE
+
+  """An absolute https URL of a pull request."""
+  PULL_REQUEST
+
+  """
+  An agent-task URN (hrn:agenttask:<root>:<app-slug>:<task id or handle>), never a bare handle.
+  """
+  TASK
+
+  """An absolute http or https URL."""
+  URL
 }
 
 """
@@ -903,7 +1009,7 @@ type AgentTeamEvent {
   taskId: ID
 
   """
-  e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled; the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, stall.finish-by (#2648), alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02).
+  e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled, task.handed-back (#2651: its payload is the reason code only, never the reason text); the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, stall.finish-by (#2648), alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02).
   """
   type: String!
 
@@ -3374,6 +3480,11 @@ input CreateAgentTaskInput {
   owner, a manager, or the assignee named here); any other creator gets the task made without them, not a refusal.
   """
   properties: JSON
+
+  """
+  #2649 (hrn:node:hadronmemory.com:specs:cor:agt:050:01): the task's ordered references; any creator may set them, as it sets the title.
+  """
+  references: [AgentTaskReferenceInput!]
   requirements: AgentTaskRequirementsInput
   source: String
   startBy: DateTime
@@ -8215,6 +8326,20 @@ type Mutation {
   grantCredits(input: GrantCreditsInput!): CreditLedgerEntry!
 
   """
+  #2651 — hand a started task back: its assignee only (hrn:node:hadronmemory.com:specs:cor:agt:050:29). The task
+  loses its assignee, goes back to PENDING and is queued again (hrn:node:hadronmemory.com:specs:cor:agt:050:03); a
+  returning worker is added to requirements.excludeWorkerIds, so the platform's matcher assigns it to another
+  matching worker (hrn:node:hadronmemory.com:specs:cor:agt:060:06), and whoever may assign the task can remove
+  that exclusion. A person who hands a task back is not added. One task.handed-back event carries the code only; no
+  result is written; child tasks are untouched; every ordinary stall episode the task had ends, while a finish-by
+  episode is kept until the task ends or its finish-by time is edited (hrn:node:hadronmemory.com:specs:cor:agt:050:13). taskRef is the task's id or handle. Refusals: TASK_NOT_FOUND,
+  TASK_NOT_ASSIGNEE (anyone else, or a task with no assignee), TASK_ENDED (finished or cancelled),
+  TASK_INVALID_TRANSITION (pending), BAD_USER_INPUT (a code outside the set, or text over 2,000 characters),
+  SESSION_NOT_BOUND, APP_UNINSTALLED. Nothing changes on a refusal.
+  """
+  handBackAgentTask(reason: AgentTaskHandBackInput!, taskRef: ID!): AgentTask!
+
+  """
   Import external content into a node (#457, sync v1). Source: exactly one
   of 'url' (server-fetched inline, SSRF-guarded, Readability-extracted,
   ~30s budget — the fetch carries NO user credentials, so authenticated
@@ -11691,6 +11816,11 @@ type Query {
     owner: AgentTaskPartyInput
     parentTaskId: ID
     queued: Boolean
+
+    """
+    #2649: tasks carrying a reference with exactly this target, and this kind when given; the label is ignored. Runs inside the App read gate.
+    """
+    reference: AgentTaskReferenceFilter
     rootsOnly: Boolean
 
     """Exact opaque source value, without interpretation or prefix matching."""
@@ -17074,6 +17204,11 @@ input UpdateAgentTaskInput {
   Team Agent's schema:task-properties PROPERTIES_SCHEMA_VIOLATION, an unusable schema PROPERTIES_SCHEMA_UNUSABLE.
   """
   properties: JSON
+
+  """
+  #2649 (hrn:node:hadronmemory.com:specs:cor:agt:050:09): a list replaces the whole list, order kept; null or an empty list clears it; omission leaves it. The task.edited event names references, never the values.
+  """
+  references: [AgentTaskReferenceInput!]
   requirements: AgentTaskRequirementsInput
 
   """
