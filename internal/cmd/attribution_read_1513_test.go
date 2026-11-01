@@ -507,3 +507,51 @@ func cmp(raw json.RawMessage) string {
 	}
 	return b.String()
 }
+
+// The URN is displayed when the handle is null; it must be sanitized on that
+// path too (the hostile fixture above always carries a handle).
+func TestAttributionHostileURNOnly1513(t *testing.T) {
+	b, _ := json.Marshal(map[string]any{"handle": nil, "urn": "hrn:user:x:" + hostile})
+	urnOnly := string(b)
+	assertClean := func(label, out string) {
+		t.Helper()
+		for _, bad := range []string{"\x1b", "\r", "\u202e"} {
+			if strings.Contains(out, bad) {
+				t.Errorf("%s: raw control %q reached the terminal:\n%q", label, bad, out)
+			}
+		}
+		if !strings.Contains(out, "hrn:user:x:evil") {
+			t.Errorf("%s: the URN should print (sanitized):\n%q", label, out)
+		}
+	}
+	out, _, err := run1513(t, nodeGetStubs(node1513(urnOnly)), "node", "get", testNodeURN)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertClean("node get", out)
+	out, _, err = run1513(t, map[string]string{
+		"GetEdge": `{"data":{"edge":` + uniformEdge1513(urnOnly, urnOnly, `"2026-09-02T00:00:00Z"`) + `}}`,
+	}, "edge", "get", "e1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertClean("edge get", out)
+}
+
+// The incoming direction maps its own attribution (the outgoing rows alone
+// would not notice it dropped).
+func TestEdgeListIncomingAttribution1513(t *testing.T) {
+	const detail = `{"data":{"node":{"id":"n1","outgoingEdges":[],
+		"incomingEdges":[{"id":"e3","name":"complements","loc":"l3","isRunnable":false,"priority":0,
+			"source":{"id":"s1","loc":"instructions","memoryId":"mem1"},` +
+		`"createdAt":"2026-09-01T00:00:00Z","updatedAt":"2026-09-02T00:00:00Z","createdByUser":` + adaEditor + `,"updatedByUser":` + nullHandle + `}]}}}`
+	out, _, err := run1513(t, map[string]string{"ResolveUrn": resolveNodeJSON, "NodeEdgesAttributed": detail}, "edge", "list", nodeURN, "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows := rows1513(t, out)
+	if len(rows) != 1 || cmp(rows[0]["createdByUser"]) != adaEditor || cmp(rows[0]["updatedByUser"]) != nullHandle ||
+		cmp(rows[0]["updatedAt"]) != `"2026-09-02T00:00:00Z"` {
+		t.Errorf("incoming row attribution: %s", out)
+	}
+}
