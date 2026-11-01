@@ -325,6 +325,19 @@ query GetWorkerTerminal($ref: ID!) {
   }
 }
 
+# cli#1525 / hadron-server#2969 (cor:agt:040:04): the signature and trailer as
+# the served boot prompt fills them. The SERVER substitutes the variables; the
+# CLI prints the values as given and never fills one itself. Null for a caller
+# the prompt does not reach, with no refusal. Its own operation, like the
+# profile and terminal reads, so a server that predates #2969 still serves
+# `worker get` (rendered keys null there).
+query GetWorkerRendered($ref: ID!) {
+  worker(ref: $ref) {
+    renderedSignature
+    renderedTrailer
+  }
+}
+
 # cli#1485 S3 (hadron-server#3026, cor:agt:060:12): a worker's current matching
 # model-group names. A separate operation, like GetWorkerProfile: it is NOT part
 # of WorkerFields (shared by many commands whose wire shape must not change).

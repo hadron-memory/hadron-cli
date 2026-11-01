@@ -10806,6 +10806,19 @@ input NodeFilter {
   nodeType: String
 
   """
+  #3113 — an explicit list of node types, a union: only nodes whose type is in the list
+  (hrn:node:hadronmemory.com:specs:cor:api:090:02). It narrows, ANDs every other filter and, being
+  explicit, replaces the default that leaves out system nodes; it never lifts the memory-class
+  default, access, deleted rows or inheritance. Values are exact and case-sensitive; an unknown
+  value matches nothing. null is the same as omitted. Refused with BAD_USER_INPUT: an empty list,
+  both nodeType and nodeTypes (an empty string counts as set), more than 20 entries (counted
+  before duplicates are dropped), and a list containing "comment" (search comments with nodeType
+  or contentScope). Exact total where the mode already has one; vector and hybrid keep total
+  null and their bounded, widening candidate window. Applies to findNodes and appNodes.
+  """
+  nodeTypes: [String!]
+
+  """
   #725 — collection facet: only nodes whose objectType equals this (e.g. "competitor").
   """
   objectType: String
@@ -17489,11 +17502,23 @@ type User {
 
   """Apple account subject id (#837). Same gate and rationale as googleId."""
   appleId: String
+
+  """
+  Avatar image URL (#2574, hrn:node:hadronmemory.com:specs:cor:acl:070:01). Identity tier: visible to any signed-in viewer.
+  """
   avatarUrl: String
   email: String
   externalAppId: String
   externalId: String
+
+  """
+  Numeric GitHub account id (#2574, hrn:node:hadronmemory.com:specs:cor:acl:070:01). Personal tier, like name and email: null for a viewer who is not the user, a platform admin, or a co-member of one of their orgs.
+  """
   githubId: Int
+
+  """
+  GitHub username (#2574, hrn:node:hadronmemory.com:specs:cor:acl:070:01). Identity tier: visible to any signed-in viewer, and a public search key (hrn:node:hadronmemory.com:specs:cor:acl:070:02).
+  """
   githubUsername: String
 
   """
@@ -17891,6 +17916,18 @@ type Worker {
   Current lint of the compiled revision recorded for the open session; null when unavailable.
   """
   promptLintWarnings(after: String, first: Int = 50): LintWarningPage
+
+  """
+  #2969 (hrn:node:hadronmemory.com:specs:cor:agt:040:04): the worker's signature as the served boot prompt fills it, the platform
+  variables substituted (session.llmModel is the empty string when no model is recorded). Reaches exactly the callers
+  prompt reaches; null for anyone else, with no refusal.
+  """
+  renderedSignature: String
+
+  """
+  #2969: the worker's trailer, filled as renderedSignature is, for the same callers.
+  """
+  renderedTrailer: String
 
   """#1726 — the Worker named by reportsToWorkerId; masked likewise."""
   reportsTo: Worker

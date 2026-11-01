@@ -14434,10 +14434,11 @@ func (v *AuthContextAuthContextImpersonationImpersonationInfoActorUser) GetName(
 
 // AuthContextAuthContextUser includes the requested fields of the GraphQL type User.
 type AuthContextAuthContextUser struct {
-	Id             string  `json:"id"`
-	Name           *string `json:"name"`
-	Email          *string `json:"email"`
-	Handle         *string `json:"handle"`
+	Id     string  `json:"id"`
+	Name   *string `json:"name"`
+	Email  *string `json:"email"`
+	Handle *string `json:"handle"`
+	// GitHub username (#2574, hrn:node:hadronmemory.com:specs:cor:acl:070:01). Identity tier: visible to any signed-in viewer, and a public search key (hrn:node:hadronmemory.com:specs:cor:acl:070:02).
 	GithubUsername *string `json:"githubUsername"`
 	// Platform roles; an empty list is returned to viewers without personal-field access.
 	Roles []Role `json:"roles"`
@@ -36467,6 +36468,61 @@ func (v *GetWorkerProfileWorker) GetOwnerName() *string { return v.OwnerName }
 // GetAppUrn returns GetWorkerProfileWorker.AppUrn, and is useful for accessing the field via an interface.
 func (v *GetWorkerProfileWorker) GetAppUrn() *string { return v.AppUrn }
 
+// GetWorkerRenderedResponse is returned by GetWorkerRendered on success.
+type GetWorkerRenderedResponse struct {
+	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
+	// NAME (#1015), the ergonomic handle a human already knows. The name form is
+	// ADDITIVE: it is activated by appRef, since a name is unique only within an
+	// App. Without appRef the ref must be an id or URN, and anything else refuses
+	// WORKER_NOT_FOUND as before. An id or URN wins over appRef rather than being
+	// checked against it, so a typo'd URN never degrades into a roster search.
+	//
+	// Selecting `prompt` re-renders the worker's boot briefing live from the
+	// role agent's template — the read that lets an agent recover a briefing it
+	// lost to a context compaction, instead of opening a second session or
+	// forcing a takeover of itself.
+	//
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	Worker *GetWorkerRenderedWorker `json:"worker"`
+}
+
+// GetWorker returns GetWorkerRenderedResponse.Worker, and is useful for accessing the field via an interface.
+func (v *GetWorkerRenderedResponse) GetWorker() *GetWorkerRenderedWorker { return v.Worker }
+
+// GetWorkerRenderedWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type GetWorkerRenderedWorker struct {
+	// #2969 (hrn:node:hadronmemory.com:specs:cor:agt:040:04): the worker's signature as the served boot prompt fills it, the platform
+	// variables substituted (session.llmModel is the empty string when no model is recorded). Reaches exactly the callers
+	// prompt reaches; null for anyone else, with no refusal.
+	RenderedSignature *string `json:"renderedSignature"`
+	// #2969: the worker's trailer, filled as renderedSignature is, for the same callers.
+	RenderedTrailer *string `json:"renderedTrailer"`
+}
+
+// GetRenderedSignature returns GetWorkerRenderedWorker.RenderedSignature, and is useful for accessing the field via an interface.
+func (v *GetWorkerRenderedWorker) GetRenderedSignature() *string { return v.RenderedSignature }
+
+// GetRenderedTrailer returns GetWorkerRenderedWorker.RenderedTrailer, and is useful for accessing the field via an interface.
+func (v *GetWorkerRenderedWorker) GetRenderedTrailer() *string { return v.RenderedTrailer }
+
 // GetWorkerResponse is returned by GetWorker on success.
 type GetWorkerResponse struct {
 	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
@@ -41656,10 +41712,11 @@ func (v *McpServersResponse) GetMcpServers() *McpServersMcpServersMcpServersPage
 
 // MeMeUser includes the requested fields of the GraphQL type User.
 type MeMeUser struct {
-	Id             string  `json:"id"`
-	Name           *string `json:"name"`
-	Email          *string `json:"email"`
-	Handle         *string `json:"handle"`
+	Id     string  `json:"id"`
+	Name   *string `json:"name"`
+	Email  *string `json:"email"`
+	Handle *string `json:"handle"`
+	// GitHub username (#2574, hrn:node:hadronmemory.com:specs:cor:acl:070:01). Identity tier: visible to any signed-in viewer, and a public search key (hrn:node:hadronmemory.com:specs:cor:acl:070:02).
 	GithubUsername *string `json:"githubUsername"`
 	// Platform roles; an empty list is returned to viewers without personal-field access.
 	Roles []Role `json:"roles"`
@@ -46688,6 +46745,16 @@ type NodeFilter struct {
 	Minted *bool `json:"minted,omitempty"`
 	// An explicit 'comment' with no contentScope searches comments (as COMMENTS).
 	NodeType *string `json:"nodeType,omitempty"`
+	// #3113 — an explicit list of node types, a union: only nodes whose type is in the list
+	// (hrn:node:hadronmemory.com:specs:cor:api:090:02). It narrows, ANDs every other filter and, being
+	// explicit, replaces the default that leaves out system nodes; it never lifts the memory-class
+	// default, access, deleted rows or inheritance. Values are exact and case-sensitive; an unknown
+	// value matches nothing. null is the same as omitted. Refused with BAD_USER_INPUT: an empty list,
+	// both nodeType and nodeTypes (an empty string counts as set), more than 20 entries (counted
+	// before duplicates are dropped), and a list containing "comment" (search comments with nodeType
+	// or contentScope). Exact total where the mode already has one; vector and hybrid keep total
+	// null and their bounded, widening candidate window. Applies to findNodes and appNodes.
+	NodeTypes []string `json:"nodeTypes,omitempty"`
 	// #725 — collection facet: only nodes whose objectType equals this (e.g. "competitor").
 	ObjectType *string `json:"objectType,omitempty"`
 	// #1322 — role-family filter. 'spec' matches 'spec' and 'spec.*' on a dot boundary, never 'special' / 'specification'.
@@ -46728,6 +46795,9 @@ func (v *NodeFilter) GetMinted() *bool { return v.Minted }
 
 // GetNodeType returns NodeFilter.NodeType, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetNodeType() *string { return v.NodeType }
+
+// GetNodeTypes returns NodeFilter.NodeTypes, and is useful for accessing the field via an interface.
+func (v *NodeFilter) GetNodeTypes() []string { return v.NodeTypes }
 
 // GetObjectType returns NodeFilter.ObjectType, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetObjectType() *string { return v.ObjectType }
@@ -79059,19 +79129,21 @@ type UserFields struct {
 	// Canonical `hrn:user:<handle>` URN (spec cor:urn:010:01). Computed from the
 	// handle; null for a handle-less user and for a user whose handle is
 	// not-URN-legal (neither has a URN).
-	Urn            *string `json:"urn"`
-	Name           *string `json:"name"`
-	Email          *string `json:"email"`
-	Handle         *string `json:"handle"`
+	Urn    *string `json:"urn"`
+	Name   *string `json:"name"`
+	Email  *string `json:"email"`
+	Handle *string `json:"handle"`
+	// GitHub username (#2574, hrn:node:hadronmemory.com:specs:cor:acl:070:01). Identity tier: visible to any signed-in viewer, and a public search key (hrn:node:hadronmemory.com:specs:cor:acl:070:02).
 	GithubUsername *string `json:"githubUsername"`
 	// Platform roles; an empty list is returned to viewers without personal-field access.
 	Roles []Role `json:"roles"`
 	// Account metadata, visible to self, platform admins, and co-members.
 	IdentityProvider *string `json:"identityProvider"`
-	GithubId         *int    `json:"githubId"`
-	ExternalId       *string `json:"externalId"`
-	ExternalAppId    *string `json:"externalAppId"`
-	LinkedAt         *string `json:"linkedAt"`
+	// Numeric GitHub account id (#2574, hrn:node:hadronmemory.com:specs:cor:acl:070:01). Personal tier, like name and email: null for a viewer who is not the user, a platform admin, or a co-member of one of their orgs.
+	GithubId      *int    `json:"githubId"`
+	ExternalId    *string `json:"externalId"`
+	ExternalAppId *string `json:"externalAppId"`
+	LinkedAt      *string `json:"linkedAt"`
 }
 
 // GetId returns UserFields.Id, and is useful for accessing the field via an interface.
@@ -85649,6 +85721,14 @@ type __GetWorkerProfileInput struct {
 
 // GetRef returns __GetWorkerProfileInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetWorkerProfileInput) GetRef() string { return v.Ref }
+
+// __GetWorkerRenderedInput is used internally by genqlient
+type __GetWorkerRenderedInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetWorkerRenderedInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetWorkerRenderedInput) GetRef() string { return v.Ref }
 
 // __GetWorkerTerminalInput is used internally by genqlient
 type __GetWorkerTerminalInput struct {
@@ -104108,6 +104188,47 @@ func GetWorkerProfile(
 	}
 
 	data_ = &GetWorkerProfileResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetWorkerRendered.
+const GetWorkerRendered_Operation = `
+query GetWorkerRendered ($ref: ID!) {
+	worker(ref: $ref) {
+		renderedSignature
+		renderedTrailer
+	}
+}
+`
+
+// cli#1525 / hadron-server#2969 (cor:agt:040:04): the signature and trailer as
+// the served boot prompt fills them. The SERVER substitutes the variables; the
+// CLI prints the values as given and never fills one itself. Null for a caller
+// the prompt does not reach, with no refusal. Its own operation, like the
+// profile and terminal reads, so a server that predates #2969 still serves
+// `worker get` (rendered keys null there).
+func GetWorkerRendered(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetWorkerRenderedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetWorkerRendered",
+		Query:  GetWorkerRendered_Operation,
+		Variables: &__GetWorkerRenderedInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetWorkerRenderedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

@@ -170,6 +170,11 @@ func unstubbedDefault(op string) (string, bool) {
 		// `team worker get`'s separate terminal-report read (#1375). An older
 		// server does not know Worker.terminal; the ordinary lookup must work.
 		return `{"errors":[{"message":"Cannot query field \"terminal\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
+	case "GetWorkerRendered":
+		// `team worker get`'s separate rendered signature/trailer read
+		// (cli#1525). An older server does not know Worker.renderedSignature;
+		// the ordinary lookup must work and shows no rendered lines.
+		return `{"errors":[{"message":"Cannot query field \"renderedSignature\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
 	case "GetWorkerModelGroups":
 		// `team worker get`'s separate model-group read (cli#1485 S3): answered
 		// as a real [] so existing worker-get tests see no group line. It has no

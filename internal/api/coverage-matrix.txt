@@ -617,7 +617,7 @@ Query.teamAttentionPreviewPage(scanLimit)  gap #828
 Query.teamChatMessages(teamHeadRef)  gap #936
 Query.teamChatMessages(untagged)  gap #936
 
-[Filters] 52: 51 flag, 1 gap
+[Filters] 53: 51 flag, 2 gap
 Query.agentTasks(reference.kind)  flag team task list --ref-kind
 Query.agentTasks(reference.target)  flag team task list --ref
 Query.agents(filter.ownedByMe)  flag agent list --owned-by-me
@@ -647,6 +647,7 @@ Query.findNodes(filter.memoryClasses)  flag node list --memory-class
 Query.findNodes(filter.memoryIds)  flag node list --memory
 Query.findNodes(filter.minted)  flag spec list --minted --unminted
 Query.findNodes(filter.nodeType)  flag node list --type
+Query.findNodes(filter.nodeTypes)  gap #1528
 Query.findNodes(filter.objectType)  flag node list --object-type
 Query.findNodes(filter.role)  flag node list --role
 Query.findNodes(filter.tags)  flag node list --tag
