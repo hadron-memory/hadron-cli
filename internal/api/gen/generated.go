@@ -801,6 +801,39 @@ func (v *AgentFilter) GetType() *AgentType { return v.Type }
 // GetVisibility returns AgentFilter.Visibility, and is useful for accessing the field via an interface.
 func (v *AgentFilter) GetVisibility() *AgentVisibility { return v.Visibility }
 
+// AgentModelGroupsAgentModelGroupsModelGroup includes the requested fields of the GraphQL type ModelGroup.
+// The GraphQL type's documentation follows.
+//
+// #2831 - one model group: a lowercase name over a list of lowercase model patterns.
+type AgentModelGroupsAgentModelGroupsModelGroup struct {
+	Name      string   `json:"name"`
+	Patterns  []string `json:"patterns"`
+	UpdatedAt string   `json:"updatedAt"`
+}
+
+// GetName returns AgentModelGroupsAgentModelGroupsModelGroup.Name, and is useful for accessing the field via an interface.
+func (v *AgentModelGroupsAgentModelGroupsModelGroup) GetName() string { return v.Name }
+
+// GetPatterns returns AgentModelGroupsAgentModelGroupsModelGroup.Patterns, and is useful for accessing the field via an interface.
+func (v *AgentModelGroupsAgentModelGroupsModelGroup) GetPatterns() []string { return v.Patterns }
+
+// GetUpdatedAt returns AgentModelGroupsAgentModelGroupsModelGroup.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AgentModelGroupsAgentModelGroupsModelGroup) GetUpdatedAt() string { return v.UpdatedAt }
+
+// AgentModelGroupsResponse is returned by AgentModelGroups on success.
+type AgentModelGroupsResponse struct {
+	// #2831 S1 (hrn:node:hadronmemory.com:specs:cor:agt:060:12) - the model groups an Agent declares, by name. Whoever manages
+	// the Agent only (an org OWNER or ADMIN, the owner of a user-owned Agent, a platform admin as for the Agent's other
+	// management reads). An Agent the caller cannot read answers as absent (AGENT_NOT_FOUND); a reader who does not manage it
+	// gets FORBIDDEN.
+	AgentModelGroups []*AgentModelGroupsAgentModelGroupsModelGroup `json:"agentModelGroups"`
+}
+
+// GetAgentModelGroups returns AgentModelGroupsResponse.AgentModelGroups, and is useful for accessing the field via an interface.
+func (v *AgentModelGroupsResponse) GetAgentModelGroups() []*AgentModelGroupsAgentModelGroupsModelGroup {
+	return v.AgentModelGroups
+}
+
 // AgentProcessIndexListAgentProcessListAgentListedProcess includes the requested fields of the GraphQL type AgentListedProcess.
 // The GraphQL type's documentation follows.
 //
@@ -28060,6 +28093,18 @@ type DeclineAutomationResponse struct {
 // GetDeclineAutomation returns DeclineAutomationResponse.DeclineAutomation, and is useful for accessing the field via an interface.
 func (v *DeclineAutomationResponse) GetDeclineAutomation() bool { return v.DeclineAutomation }
 
+// DeleteAgentModelGroupResponse is returned by DeleteAgentModelGroup on success.
+type DeleteAgentModelGroupResponse struct {
+	// #2831 S1 - remove an Agent's model group. Installs that override it keep their own list. Whoever manages the Agent only.
+	// Refusals: AGENT_NOT_FOUND, FORBIDDEN, BAD_USER_INPUT, MODEL_GROUP_NOT_FOUND, AGENT_OWNERSHIP_CHANGED.
+	DeleteAgentModelGroup bool `json:"deleteAgentModelGroup"`
+}
+
+// GetDeleteAgentModelGroup returns DeleteAgentModelGroupResponse.DeleteAgentModelGroup, and is useful for accessing the field via an interface.
+func (v *DeleteAgentModelGroupResponse) GetDeleteAgentModelGroup() bool {
+	return v.DeleteAgentModelGroup
+}
+
 // DeleteAgentResponse is returned by DeleteAgent on success.
 type DeleteAgentResponse struct {
 	// Soft-delete an Agent and its owned system memory. Requires management
@@ -28120,6 +28165,17 @@ type DeleteAiServiceConfigResponse struct {
 func (v *DeleteAiServiceConfigResponse) GetDeleteAiServiceConfig() bool {
 	return v.DeleteAiServiceConfig
 }
+
+// DeleteAppModelGroupResponse is returned by DeleteAppModelGroup on success.
+type DeleteAppModelGroupResponse struct {
+	// #2831 S1 - remove the App's model group of this name: an override reverts to the Team Agent's group, an App-only group is
+	// gone. The Agent's group itself is never deleted from here. Whoever manages the App only. Refusals: APP_NOT_FOUND,
+	// APP_MANAGER_REQUIRED, BAD_USER_INPUT, MODEL_GROUP_NOT_FOUND, SESSION_NOT_BOUND, APP_UNINSTALLED.
+	DeleteAppModelGroup bool `json:"deleteAppModelGroup"`
+}
+
+// GetDeleteAppModelGroup returns DeleteAppModelGroupResponse.DeleteAppModelGroup, and is useful for accessing the field via an interface.
+func (v *DeleteAppModelGroupResponse) GetDeleteAppModelGroup() bool { return v.DeleteAppModelGroup }
 
 // DeleteAppResponse is returned by DeleteApp on success.
 type DeleteAppResponse struct {
@@ -28670,7 +28726,10 @@ type DeleteUserResponse struct {
 	// GDPR erasure posture). Requires a user credential (JWT or hdr_user key);
 	// App-key callers are rejected.
 	//
-	// Omitting userRef deletes the CALLER's own account (no role needed).
+	// Omitting userRef (or passing null) deletes the CALLER's own account
+	// (no role needed). A userRef that is supplied but empty after trimming
+	// is refused with BAD_USER_INPUT for every caller and deletes nothing
+	// (hrn:node:hadronmemory.com:specs:cor:aut:020:03).
 	// A platform ADMIN/OWNER may name another user; userRef accepts the
 	// user's ID, handle, or hrn:user:<handle> URN. Any other caller naming a
 	// target receives the same FORBIDDEN error whether or not that user
@@ -29878,7 +29937,8 @@ func (v *DueWakesResponse) GetDueWakes() *DueWakesDueWakesDueWakePage { return v
 type EdgeFilter struct {
 	// Include soft-deleted edges (default false).
 	IncludeDeleted *bool `json:"includeDeleted,omitempty"`
-	IsRunnable     *bool `json:"isRunnable,omitempty"`
+	// #2999 — runnability is tri-state, with parity to the node filter. true returns only runnable edges; false returns only edges explicitly marked not runnable. An edge never marked (NULL) matches neither, and only an omitted filter returns it. (hrn:node:hadronmemory.com:specs:cor:dmo:060:03)
+	IsRunnable *bool `json:"isRunnable,omitempty"`
 	// Confine to edges whose (denormalized, source-side) memory is this one.
 	MemoryId *string `json:"memoryId,omitempty"`
 	// Edges leaving this node.
@@ -30307,6 +30367,42 @@ type EffectiveActionPolicyResponse struct {
 // GetEffectiveActionPolicy returns EffectiveActionPolicyResponse.EffectiveActionPolicy, and is useful for accessing the field via an interface.
 func (v *EffectiveActionPolicyResponse) GetEffectiveActionPolicy() *EffectiveActionPolicyEffectiveActionPolicy {
 	return v.EffectiveActionPolicy
+}
+
+// EffectiveModelGroupsEffectiveModelGroupsEffectiveModelGroup includes the requested fields of the GraphQL type EffectiveModelGroup.
+// The GraphQL type's documentation follows.
+//
+// #2831 - a model group as it applies in one App (hrn:node:hadronmemory.com:specs:cor:agt:060:12).
+type EffectiveModelGroupsEffectiveModelGroupsEffectiveModelGroup struct {
+	Name     string           `json:"name"`
+	Patterns []string         `json:"patterns"`
+	Origin   ModelGroupOrigin `json:"origin"`
+}
+
+// GetName returns EffectiveModelGroupsEffectiveModelGroupsEffectiveModelGroup.Name, and is useful for accessing the field via an interface.
+func (v *EffectiveModelGroupsEffectiveModelGroupsEffectiveModelGroup) GetName() string { return v.Name }
+
+// GetPatterns returns EffectiveModelGroupsEffectiveModelGroupsEffectiveModelGroup.Patterns, and is useful for accessing the field via an interface.
+func (v *EffectiveModelGroupsEffectiveModelGroupsEffectiveModelGroup) GetPatterns() []string {
+	return v.Patterns
+}
+
+// GetOrigin returns EffectiveModelGroupsEffectiveModelGroupsEffectiveModelGroup.Origin, and is useful for accessing the field via an interface.
+func (v *EffectiveModelGroupsEffectiveModelGroupsEffectiveModelGroup) GetOrigin() ModelGroupOrigin {
+	return v.Origin
+}
+
+// EffectiveModelGroupsResponse is returned by EffectiveModelGroups on success.
+type EffectiveModelGroupsResponse struct {
+	// #2831 S1 (hrn:node:hadronmemory.com:specs:cor:agt:060:12) - the model groups in force in an App, resolved live: the Team Agent's groups with the App's
+	// overrides applied by name, plus the App's own groups, by name, each with its origin. A participant of the App reads
+	// them. An App with no Team Agent has only its own. Refusals: APP_NOT_FOUND, TEAM_AGENT_AMBIGUOUS, SESSION_NOT_BOUND.
+	EffectiveModelGroups []*EffectiveModelGroupsEffectiveModelGroupsEffectiveModelGroup `json:"effectiveModelGroups"`
+}
+
+// GetEffectiveModelGroups returns EffectiveModelGroupsResponse.EffectiveModelGroups, and is useful for accessing the field via an interface.
+func (v *EffectiveModelGroupsResponse) GetEffectiveModelGroups() []*EffectiveModelGroupsEffectiveModelGroupsEffectiveModelGroup {
+	return v.EffectiveModelGroups
 }
 
 // EmailConnectionsExchangeConnectionsExchangeConnection includes the requested fields of the GraphQL type ExchangeConnection.
@@ -31810,7 +31906,7 @@ func (v *FindNodesFindNodesFindNodesResultHitsNodeHitNode) GetProperties() *json
 // GetData returns FindNodesFindNodesFindNodesResultHitsNodeHitNode.Data, and is useful for accessing the field via an interface.
 func (v *FindNodesFindNodesFindNodesResultHitsNodeHitNode) GetData() *json.RawMessage { return v.Data }
 
-// Retrieval modes for findNodes (cor:api:090:01). keyword is stemmed FTS; vector/hybrid need the memory's vector index; regex is a POSIX pattern match.
+// Retrieval modes for findNodes (hrn:node:hadronmemory.com:specs:cor:api:090:01). keyword is stemmed FTS; vector/hybrid need the memory's vector index; regex is a POSIX pattern match. vector/hybrid offset pages are not snapshot-stable while the index fills; page with keyword over one memory when every match must appear exactly once (#2991).
 type FindNodesMode string
 
 const (
@@ -42636,6 +42732,8 @@ const (
 	MemoryValidationCheckEmbedFailed MemoryValidationCheck = "EMBED_FAILED"
 	// A Git-mirror attempt for this node did not land (#430): a fixed failure class and an attempt count, never exception text. The repository may be stale until the next successful mirror, and a repo-wins sync can revert the lost write. Recorded for failures the process survives; a crash before the record, or a lost event, leaves no row.
 	MemoryValidationCheckGitMirrorFailed MemoryValidationCheck = "GIT_MIRROR_FAILED"
+	// Informational: passage indexing succeeded with later chunks omitted by the cap; does not make ok false.
+	MemoryValidationCheckIndexTruncated MemoryValidationCheck = "INDEX_TRUNCATED"
 	// objectType/properties violate the memory declared schema (#725).
 	MemoryValidationCheckSchema MemoryValidationCheck = "SCHEMA"
 	// A non-object node with no description, content, or abstract. Object nodes (objectType set) are data-only by design and never sparse (#2516).
@@ -42648,6 +42746,7 @@ var AllMemoryValidationCheck = []MemoryValidationCheck{
 	MemoryValidationCheckBrokenRef,
 	MemoryValidationCheckEmbedFailed,
 	MemoryValidationCheckGitMirrorFailed,
+	MemoryValidationCheckIndexTruncated,
 	MemoryValidationCheckSchema,
 	MemoryValidationCheckSparse,
 	MemoryValidationCheckStaleAbstract,
@@ -43622,6 +43721,24 @@ func (v *ModelFamilyAvailabilitySetSetModelFamilyAvailabilitySetByAgentTaskParty
 	retval.Name = v.AgentTaskPartyFields.Name
 	retval.Urn = v.AgentTaskPartyFields.Urn
 	return &retval, nil
+}
+
+// Where an effective model group comes from.
+type ModelGroupOrigin string
+
+const (
+	// Declared by the App's Team Agent, with no App override.
+	ModelGroupOriginAgent ModelGroupOrigin = "AGENT"
+	// The App's own group; the Agent declares none of this name.
+	ModelGroupOriginApp ModelGroupOrigin = "APP"
+	// The App replaced the Agent's group of this name.
+	ModelGroupOriginAppOverride ModelGroupOrigin = "APP_OVERRIDE"
+)
+
+var AllModelGroupOrigin = []ModelGroupOrigin{
+	ModelGroupOriginAgent,
+	ModelGroupOriginApp,
+	ModelGroupOriginAppOverride,
 }
 
 // MoveNodeMoveNode includes the requested fields of the GraphQL type Node.
@@ -45089,9 +45206,10 @@ type NodeFilter struct {
 	ContentScope *NodeContentScope `json:"contentScope,omitempty"`
 	CreatedBy    *string           `json:"createdBy,omitempty"`
 	// Include soft-deleted nodes (default false).
-	IncludeDeleted *bool   `json:"includeDeleted,omitempty"`
-	IsRunnable     *bool   `json:"isRunnable,omitempty"`
-	LocPrefix      *string `json:"locPrefix,omitempty"`
+	IncludeDeleted *bool `json:"includeDeleted,omitempty"`
+	// #2999 — runnability is tri-state. true returns only runnable rows; false returns only rows explicitly marked not runnable. A row never marked (NULL) matches neither, and only an omitted filter returns it. (hrn:node:hadronmemory.com:specs:cor:api:060:04)
+	IsRunnable *bool   `json:"isRunnable,omitempty"`
+	LocPrefix  *string `json:"locPrefix,omitempty"`
 	// Restrict by memory class. SYSTEM is excluded by default; passing this (or naming a system memory in memoryIds) overrides that.
 	MemoryClasses []MemoryClass `json:"memoryClasses,omitempty"`
 	// Memory scope — a mix of memory IDs and fully-qualified URNs; intersected with the caller's access.
@@ -58503,6 +58621,39 @@ func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) __premarshalJSON() (*__premars
 	return &retval, nil
 }
 
+// SetAgentModelGroupResponse is returned by SetAgentModelGroup on success.
+type SetAgentModelGroupResponse struct {
+	// #2831 S1 (hrn:node:hadronmemory.com:specs:cor:agt:060:12) - set an Agent's model group: the name is created or its whole pattern list replaced (no
+	// merge). Patterns are lowercase globs matched against a session's self-reported model (* any run, ? one character); an
+	// empty list is allowed. Whoever manages the Agent only. A group only steers matching, never authorization. Refusals:
+	// AGENT_NOT_FOUND, FORBIDDEN, BAD_USER_INPUT, MODEL_GROUP_LIMIT_REACHED, AGENT_OWNERSHIP_CHANGED.
+	SetAgentModelGroup *SetAgentModelGroupSetAgentModelGroup `json:"setAgentModelGroup"`
+}
+
+// GetSetAgentModelGroup returns SetAgentModelGroupResponse.SetAgentModelGroup, and is useful for accessing the field via an interface.
+func (v *SetAgentModelGroupResponse) GetSetAgentModelGroup() *SetAgentModelGroupSetAgentModelGroup {
+	return v.SetAgentModelGroup
+}
+
+// SetAgentModelGroupSetAgentModelGroup includes the requested fields of the GraphQL type ModelGroup.
+// The GraphQL type's documentation follows.
+//
+// #2831 - one model group: a lowercase name over a list of lowercase model patterns.
+type SetAgentModelGroupSetAgentModelGroup struct {
+	Name      string   `json:"name"`
+	Patterns  []string `json:"patterns"`
+	UpdatedAt string   `json:"updatedAt"`
+}
+
+// GetName returns SetAgentModelGroupSetAgentModelGroup.Name, and is useful for accessing the field via an interface.
+func (v *SetAgentModelGroupSetAgentModelGroup) GetName() string { return v.Name }
+
+// GetPatterns returns SetAgentModelGroupSetAgentModelGroup.Patterns, and is useful for accessing the field via an interface.
+func (v *SetAgentModelGroupSetAgentModelGroup) GetPatterns() []string { return v.Patterns }
+
+// GetUpdatedAt returns SetAgentModelGroupSetAgentModelGroup.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *SetAgentModelGroupSetAgentModelGroup) GetUpdatedAt() string { return v.UpdatedAt }
+
 // SetAppAgentBootPromptResponse is returned by SetAppAgentBootPrompt on success.
 type SetAppAgentBootPromptResponse struct {
 	// #2045 — set or clear an installed Agent's boot-prompt pointer for one App (AppAgent.bootPromptRef). The node
@@ -58733,6 +58884,39 @@ func (v *SetAppMemoryWriteGrantSetAppMemoryWriteGrant) __premarshalJSON() (*__pr
 	retval.RevokedBy = v.AppMemoryGrantFields.RevokedBy
 	return &retval, nil
 }
+
+// SetAppModelGroupResponse is returned by SetAppModelGroup on success.
+type SetAppModelGroupResponse struct {
+	// #2831 S1 (hrn:node:hadronmemory.com:specs:cor:agt:060:12) - set an App's model group of this name: it overrides the Team Agent's group of that name
+	// (replacing its whole list, no merge) or, when the Agent has none, is the App's own. An empty list matches no one.
+	// Whoever manages the App only. Refusals: APP_NOT_FOUND, APP_MANAGER_REQUIRED, BAD_USER_INPUT, MODEL_GROUP_LIMIT_REACHED,
+	// SESSION_NOT_BOUND, APP_UNINSTALLED.
+	SetAppModelGroup *SetAppModelGroupSetAppModelGroup `json:"setAppModelGroup"`
+}
+
+// GetSetAppModelGroup returns SetAppModelGroupResponse.SetAppModelGroup, and is useful for accessing the field via an interface.
+func (v *SetAppModelGroupResponse) GetSetAppModelGroup() *SetAppModelGroupSetAppModelGroup {
+	return v.SetAppModelGroup
+}
+
+// SetAppModelGroupSetAppModelGroup includes the requested fields of the GraphQL type ModelGroup.
+// The GraphQL type's documentation follows.
+//
+// #2831 - one model group: a lowercase name over a list of lowercase model patterns.
+type SetAppModelGroupSetAppModelGroup struct {
+	Name      string   `json:"name"`
+	Patterns  []string `json:"patterns"`
+	UpdatedAt string   `json:"updatedAt"`
+}
+
+// GetName returns SetAppModelGroupSetAppModelGroup.Name, and is useful for accessing the field via an interface.
+func (v *SetAppModelGroupSetAppModelGroup) GetName() string { return v.Name }
+
+// GetPatterns returns SetAppModelGroupSetAppModelGroup.Patterns, and is useful for accessing the field via an interface.
+func (v *SetAppModelGroupSetAppModelGroup) GetPatterns() []string { return v.Patterns }
+
+// GetUpdatedAt returns SetAppModelGroupSetAppModelGroup.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *SetAppModelGroupSetAppModelGroup) GetUpdatedAt() string { return v.UpdatedAt }
 
 // SetAssetPublicLinkResponse is returned by SetAssetPublicLink on success.
 type SetAssetPublicLinkResponse struct {
@@ -77389,10 +77573,11 @@ type ValidateMemoryResponse struct {
 	// on Node at all), and property-schema conformance. So unlike other gaps
 	// there is no slow client-side fallback.
 	//
-	// Returns TYPED findings so a caller can branch and CI can gate on
-	// totalFindings. findings is capped by limit (default 200, max 1000) while
-	// totalFindings reports the true count - so a gate is never fooled by
-	// truncation. Read gate as the rest of the memory reads.
+	// Returns TYPED findings so a caller can branch. Gate health and CI on ok,
+	// which accounts for both problems and skipped checks. findings is capped
+	// by limit (default 200, max 1000); totalFindings reports the full problem
+	// count before truncation, excluding informational declarations. Read gate
+	// as the rest of the memory reads.
 	ValidateMemory *ValidateMemoryValidateMemoryMemoryValidationResult `json:"validateMemory"`
 }
 
@@ -77406,15 +77591,16 @@ type ValidateMemoryValidateMemoryMemoryValidationResult struct {
 	MemoryId string `json:"memoryId"`
 	// Live (non-deleted) nodes scanned - soft-deleted tombstones are excluded, since their findings would be unactionable (#884). The whole memory in one pass - the checks are cross-referential, so a partial scan would produce false positives rather than fewer findings.
 	NodesChecked int `json:"nodesChecked"`
-	// True only when EVERY check ran and none found anything. A skipped check
+	// True only when EVERY check ran and none found a problem. INDEX_TRUNCATED
+	// is informational and does not make this false. A skipped check
 	// makes this false even with zero findings - you cannot claim health for a
 	// check you did not run.
 	Ok bool `json:"ok"`
-	// The TRUE finding count, before any truncation - gate CI on this, not on findings.length.
+	// The TRUE problem count, before any truncation. Excludes informational INDEX_TRUNCATED. Gate health and CI on ok, which also accounts for skipped checks.
 	TotalFindings int `json:"totalFindings"`
-	// True when findings was capped and totalFindings is larger.
+	// True when findings was capped and totalFindings + totalInformational is larger.
 	Truncated bool `json:"truncated"`
-	// Findings, capped by the limit argument.
+	// Findings, capped by the limit argument, with problems before informational declarations.
 	Findings      []*ValidateMemoryValidateMemoryMemoryValidationResultFindingsMemoryValidationFinding           `json:"findings"`
 	SkippedChecks []*ValidateMemoryValidateMemoryMemoryValidationResultSkippedChecksMemoryValidationSkippedCheck `json:"skippedChecks"`
 }
@@ -80327,6 +80513,14 @@ func (v *__AdvanceChannelReadStateInput) GetSeq() int { return v.Seq }
 // GetAppRef returns __AdvanceChannelReadStateInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__AdvanceChannelReadStateInput) GetAppRef() *string { return v.AppRef }
 
+// __AgentModelGroupsInput is used internally by genqlient
+type __AgentModelGroupsInput struct {
+	AgentRef string `json:"agentRef"`
+}
+
+// GetAgentRef returns __AgentModelGroupsInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__AgentModelGroupsInput) GetAgentRef() string { return v.AgentRef }
+
 // __AgentProcessIndexListInput is used internally by genqlient
 type __AgentProcessIndexListInput struct {
 	Ref string `json:"ref"`
@@ -82919,6 +83113,18 @@ type __DeleteAgentInput struct {
 // GetRef returns __DeleteAgentInput.Ref, and is useful for accessing the field via an interface.
 func (v *__DeleteAgentInput) GetRef() string { return v.Ref }
 
+// __DeleteAgentModelGroupInput is used internally by genqlient
+type __DeleteAgentModelGroupInput struct {
+	AgentRef string `json:"agentRef"`
+	Name     string `json:"name"`
+}
+
+// GetAgentRef returns __DeleteAgentModelGroupInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__DeleteAgentModelGroupInput) GetAgentRef() string { return v.AgentRef }
+
+// GetName returns __DeleteAgentModelGroupInput.Name, and is useful for accessing the field via an interface.
+func (v *__DeleteAgentModelGroupInput) GetName() string { return v.Name }
+
 // __DeleteAgentScheduleInput is used internally by genqlient
 type __DeleteAgentScheduleInput struct {
 	Id string `json:"id"`
@@ -82962,6 +83168,18 @@ type __DeleteAppInput struct {
 
 // GetRef returns __DeleteAppInput.Ref, and is useful for accessing the field via an interface.
 func (v *__DeleteAppInput) GetRef() string { return v.Ref }
+
+// __DeleteAppModelGroupInput is used internally by genqlient
+type __DeleteAppModelGroupInput struct {
+	AppRef string `json:"appRef"`
+	Name   string `json:"name"`
+}
+
+// GetAppRef returns __DeleteAppModelGroupInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__DeleteAppModelGroupInput) GetAppRef() string { return v.AppRef }
+
+// GetName returns __DeleteAppModelGroupInput.Name, and is useful for accessing the field via an interface.
+func (v *__DeleteAppModelGroupInput) GetName() string { return v.Name }
 
 // __DeleteChannelInput is used internally by genqlient
 type __DeleteChannelInput struct {
@@ -83368,6 +83586,14 @@ func (v *__EffectiveActionPolicyInput) GetAppRef() string { return v.AppRef }
 
 // GetUserRef returns __EffectiveActionPolicyInput.UserRef, and is useful for accessing the field via an interface.
 func (v *__EffectiveActionPolicyInput) GetUserRef() *string { return v.UserRef }
+
+// __EffectiveModelGroupsInput is used internally by genqlient
+type __EffectiveModelGroupsInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __EffectiveModelGroupsInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__EffectiveModelGroupsInput) GetAppRef() string { return v.AppRef }
 
 // __EmailConnectionsInput is used internally by genqlient
 type __EmailConnectionsInput struct {
@@ -85709,6 +85935,22 @@ func (v *__SetAgentIndexRefsInput) GetTasksIndexRef() *string { return v.TasksIn
 // GetProcessesIndexRef returns __SetAgentIndexRefsInput.ProcessesIndexRef, and is useful for accessing the field via an interface.
 func (v *__SetAgentIndexRefsInput) GetProcessesIndexRef() *string { return v.ProcessesIndexRef }
 
+// __SetAgentModelGroupInput is used internally by genqlient
+type __SetAgentModelGroupInput struct {
+	AgentRef string   `json:"agentRef"`
+	Name     string   `json:"name"`
+	Patterns []string `json:"patterns"`
+}
+
+// GetAgentRef returns __SetAgentModelGroupInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__SetAgentModelGroupInput) GetAgentRef() string { return v.AgentRef }
+
+// GetName returns __SetAgentModelGroupInput.Name, and is useful for accessing the field via an interface.
+func (v *__SetAgentModelGroupInput) GetName() string { return v.Name }
+
+// GetPatterns returns __SetAgentModelGroupInput.Patterns, and is useful for accessing the field via an interface.
+func (v *__SetAgentModelGroupInput) GetPatterns() []string { return v.Patterns }
+
 // __SetAppAgentBootPromptInput is used internally by genqlient
 type __SetAppAgentBootPromptInput struct {
 	AppRef   string  `json:"appRef"`
@@ -85744,6 +85986,22 @@ func (v *__SetAppMemoryWriteGrantInput) GetPrefix() string { return v.Prefix }
 
 // GetRegisterNodeUrn returns __SetAppMemoryWriteGrantInput.RegisterNodeUrn, and is useful for accessing the field via an interface.
 func (v *__SetAppMemoryWriteGrantInput) GetRegisterNodeUrn() *string { return v.RegisterNodeUrn }
+
+// __SetAppModelGroupInput is used internally by genqlient
+type __SetAppModelGroupInput struct {
+	AppRef   string   `json:"appRef"`
+	Name     string   `json:"name"`
+	Patterns []string `json:"patterns"`
+}
+
+// GetAppRef returns __SetAppModelGroupInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__SetAppModelGroupInput) GetAppRef() string { return v.AppRef }
+
+// GetName returns __SetAppModelGroupInput.Name, and is useful for accessing the field via an interface.
+func (v *__SetAppModelGroupInput) GetName() string { return v.Name }
+
+// GetPatterns returns __SetAppModelGroupInput.Patterns, and is useful for accessing the field via an interface.
+func (v *__SetAppModelGroupInput) GetPatterns() []string { return v.Patterns }
 
 // __SetAssetPublicLinkInput is used internally by genqlient
 type __SetAssetPublicLinkInput struct {
@@ -88410,6 +88668,42 @@ func AdvanceChannelReadState(
 	}
 
 	data_ = &AdvanceChannelReadStateResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AgentModelGroups.
+const AgentModelGroups_Operation = `
+query AgentModelGroups ($agentRef: ID!) {
+	agentModelGroups(agentRef: $agentRef) {
+		name
+		patterns
+		updatedAt
+	}
+}
+`
+
+func AgentModelGroups(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentRef string,
+) (data_ *AgentModelGroupsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentModelGroups",
+		Query:  AgentModelGroups_Operation,
+		Variables: &__AgentModelGroupsInput{
+			AgentRef: agentRef,
+		},
+	}
+
+	data_ = &AgentModelGroupsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -97749,6 +98043,40 @@ func DeleteAgent(
 	return data_, err_
 }
 
+// The mutation executed by DeleteAgentModelGroup.
+const DeleteAgentModelGroup_Operation = `
+mutation DeleteAgentModelGroup ($agentRef: ID!, $name: String!) {
+	deleteAgentModelGroup(agentRef: $agentRef, name: $name)
+}
+`
+
+func DeleteAgentModelGroup(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentRef string,
+	name string,
+) (data_ *DeleteAgentModelGroupResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteAgentModelGroup",
+		Query:  DeleteAgentModelGroup_Operation,
+		Variables: &__DeleteAgentModelGroupInput{
+			AgentRef: agentRef,
+			Name:     name,
+		},
+	}
+
+	data_ = &DeleteAgentModelGroupResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by DeleteAgentSchedule.
 const DeleteAgentSchedule_Operation = `
 mutation DeleteAgentSchedule ($id: ID!) {
@@ -97900,6 +98228,40 @@ func DeleteApp(
 	}
 
 	data_ = &DeleteAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteAppModelGroup.
+const DeleteAppModelGroup_Operation = `
+mutation DeleteAppModelGroup ($appRef: ID!, $name: String!) {
+	deleteAppModelGroup(appRef: $appRef, name: $name)
+}
+`
+
+func DeleteAppModelGroup(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	name string,
+) (data_ *DeleteAppModelGroupResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteAppModelGroup",
+		Query:  DeleteAppModelGroup_Operation,
+		Variables: &__DeleteAppModelGroupInput{
+			AppRef: appRef,
+			Name:   name,
+		},
+	}
+
+	data_ = &DeleteAppModelGroupResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -99337,6 +99699,42 @@ func EffectiveActionPolicy(
 	}
 
 	data_ = &EffectiveActionPolicyResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by EffectiveModelGroups.
+const EffectiveModelGroups_Operation = `
+query EffectiveModelGroups ($appRef: ID!) {
+	effectiveModelGroups(appRef: $appRef) {
+		name
+		patterns
+		origin
+	}
+}
+`
+
+func EffectiveModelGroups(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *EffectiveModelGroupsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EffectiveModelGroups",
+		Query:  EffectiveModelGroups_Operation,
+		Variables: &__EffectiveModelGroupsInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &EffectiveModelGroupsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -109639,6 +110037,46 @@ func SetAgentIndexRefs(
 	return data_, err_
 }
 
+// The mutation executed by SetAgentModelGroup.
+const SetAgentModelGroup_Operation = `
+mutation SetAgentModelGroup ($agentRef: ID!, $name: String!, $patterns: [String!]!) {
+	setAgentModelGroup(agentRef: $agentRef, name: $name, patterns: $patterns) {
+		name
+		patterns
+		updatedAt
+	}
+}
+`
+
+func SetAgentModelGroup(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentRef string,
+	name string,
+	patterns []string,
+) (data_ *SetAgentModelGroupResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SetAgentModelGroup",
+		Query:  SetAgentModelGroup_Operation,
+		Variables: &__SetAgentModelGroupInput{
+			AgentRef: agentRef,
+			Name:     name,
+			Patterns: patterns,
+		},
+	}
+
+	data_ = &SetAgentModelGroupResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by SetAppAgentBootPrompt.
 const SetAppAgentBootPrompt_Operation = `
 mutation SetAppAgentBootPrompt ($appRef: String!, $agentRef: String!, $nodeRef: String) {
@@ -109730,6 +110168,46 @@ func SetAppMemoryWriteGrant(
 	}
 
 	data_ = &SetAppMemoryWriteGrantResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by SetAppModelGroup.
+const SetAppModelGroup_Operation = `
+mutation SetAppModelGroup ($appRef: ID!, $name: String!, $patterns: [String!]!) {
+	setAppModelGroup(appRef: $appRef, name: $name, patterns: $patterns) {
+		name
+		patterns
+		updatedAt
+	}
+}
+`
+
+func SetAppModelGroup(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	name string,
+	patterns []string,
+) (data_ *SetAppModelGroupResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SetAppModelGroup",
+		Query:  SetAppModelGroup_Operation,
+		Variables: &__SetAppModelGroupInput{
+			AppRef:   appRef,
+			Name:     name,
+			Patterns: patterns,
+		},
+	}
+
+	data_ = &SetAppModelGroupResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

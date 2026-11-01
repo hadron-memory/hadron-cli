@@ -19,11 +19,12 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 187: 153 command, 19 gap, 15 excluded
+[Query] 189: 155 command, 19 gap, 15 excluded
 actionTickets  command ticket list
 agent  command agent get
 agentAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime that makes LLM calls; a person reads the masked config with `ai-config get`
 agentAssets  excluded deprecated: its description says "Deprecated; use memoryAssets", which `asset list` reaches
+agentModelGroups  command agent model-group list
 agentProcessList  command agent processes list
 agentSchedules  command schedule list
 agentSubscriptions  gap #890
@@ -93,6 +94,7 @@ edge  command edge get
 edges  command edge list
 effectiveAccess  command access check
 effectiveActionPolicy  command policy explain
+effectiveModelGroups  command app model-group list
 exchangeConnections  command email connections
 exchangeConnectionsPage  gap #198
 exchangeFolders  gap #198
@@ -208,7 +210,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 315: 237 command, 67 gap, 11 excluded
+[Mutation] 319: 241 command, 67 gap, 11 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -304,11 +306,13 @@ createUserApiKey  command auth token create
 createUserInvitation  command org invite create
 declineAutomation  command automation decline
 deleteAgent  command agent rm
+deleteAgentModelGroup  command agent model-group delete
 deleteAgentSchedule  command schedule rm
 deleteAgentTickerTemplate  command agent ticker-templates delete
 deleteAgentWebhook  command webhook rm
 deleteAiServiceConfig  command ai-config rm
 deleteApp  command app uninstall
+deleteAppModelGroup  command app model-group clear
 deleteChannel  command channel rm
 deleteChat  gap #64
 deleteComment  command comment delete
@@ -439,12 +443,14 @@ setAgentAssetUploadEnabled  command app asset-upload enable
 setAgentBase  command agent set-base
 setAgentBootPrompt  command agent set-boot-prompt
 setAgentIndexRefs  command agent update
+setAgentModelGroup  command agent model-group set
 setAgentTaskPriority  command team task add-blocker
 setAgentTaskStallSchedule  command team stall-schedule set
 setAiModelPrice  gap #215
 setAppAgentBootPrompt  command app agent set-boot-prompt
 setAppDeliverySettings  command team delivery-settings set
 setAppMemoryWriteGrant  command app memory-grant add
+setAppModelGroup  command app model-group set
 setAppTickerSettings  gap #1336
 setAssetPublicLink  command asset public-link
 setDashboardWidgets  excluded graphical: places portal dashboard widgets on a 12-column grid (position, span, rowSpan)
