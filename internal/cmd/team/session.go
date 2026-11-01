@@ -2152,8 +2152,21 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 				_, branchName, _ := strings.Cut(canonical, ":")
 				branchArg = &branchName
 			}
-			if _, err := gen.UpdateTeamSession(ctx, client, b.SessionID, prArg, branchArg, nil, nil); err != nil {
-				return api.MapError(err)
+			//
+			// #1278: the touch runs AFTER the worklog record, never before. A
+			// refused record (for example "Team Agent cannot be inferred")
+			// used to leave the PR/branch pointer already moved with no worklog
+			// row and an error that said nothing about it. Record first, then
+			// move the pointer: a refusal now leaves nothing half-applied, and
+			// the reverse partial (row written, pointer refused) is named.
+			touchSession := func(rowWritten bool) error {
+				if _, err := gen.UpdateTeamSession(ctx, client, b.SessionID, prArg, branchArg, nil, nil); err != nil {
+					if rowWritten {
+						fmt.Fprintf(f.IOStreams.ErrOut, "note: the worklog row WAS recorded, but the session pointer (PR/branch/liveness) was NOT updated: %v\n", err)
+					}
+					return api.MapError(err)
+				}
+				return nil
 			}
 			recorded := "session"
 			var recordedModel *string
@@ -2218,8 +2231,14 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 				if logged != nil && logged.RecordTeamWork != nil && logged.RecordTeamWork.Ref != "" {
 					canonical = logged.RecordTeamWork.Ref
 				}
+				if err := touchSession(true); err != nil {
+					return err
+				}
 				recorded = "worklog"
 			} else {
+				if err := touchSession(false); err != nil {
+					return err
+				}
 				// #414/#399: reachable only by a binding that predates the
 				// App-recording CLI (no appId, no teamMemory). The note must
 				// name the real cause and the real remedy — for a pre-Worker
