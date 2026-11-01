@@ -39,10 +39,12 @@ whoever holds it can accept while signed in with hadron org invite accept.
 may accept it. All three are optional. To invite into an organization instead,
 use hadron org invite create.
 
-By default one activation is allowed with no expiry. --max-activations 0
-means unlimited; --expires-in-days 0 means never expires. Unset flags leave
-the server defaults. Text prints the slug and acceptance command; --json
-returns invitation metadata, including slug. Treat that output as private.`, Example: "  hadron user invite --email alice@example.com --expires-in-days 7\n  hadron user invite --github-username alice --max-activations 1 --json", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, args []string) error {
+Use --expires-in-days 1-10 (server default 10 days) and
+--max-activations 2-1000 (server default 2 activations). Unset flags are
+omitted; the server applies its defaults and enforces these ranges. Values
+such as 0 or a single activation are refused with BAD_USER_INPUT (exit 2).
+Text prints the slug and acceptance command; --json
+returns invitation metadata, including slug. Treat that output as private.`, Example: "  hadron user invite --email alice@example.com --expires-in-days 7\n  hadron user invite --github-username alice --max-activations 2 --json", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, args []string) error {
 		if expires < 0 || max < 0 {
 			return exitcode.Newf(exitcode.Usage, "expiry days and max activations must be non-negative")
 		}
@@ -84,7 +86,7 @@ returns invitation metadata, including slug. Treat that output as private.`, Exa
 	cmd.Flags().StringVar(&email, "email", "", "intended invitee email (not an acceptance restriction)")
 	cmd.Flags().StringVar(&github, "github-username", "", "intended invitee GitHub username")
 	cmd.Flags().StringVar(&name, "name", "", "intended invitee display name")
-	cmd.Flags().IntVar(&expires, "expires-in-days", 0, "days until expiry (default and 0: never)")
-	cmd.Flags().IntVar(&max, "max-activations", 0, "activation limit (default 1; 0: unlimited)")
+	cmd.Flags().IntVar(&expires, "expires-in-days", 0, "days until expiry: 1-10 (server default 10 when omitted)")
+	cmd.Flags().IntVar(&max, "max-activations", 0, "activation limit: 2-1000 (server default 2 when omitted)")
 	return cmd
 }

@@ -444,8 +444,8 @@ func TestOrgMemberRmRequiresYes(t *testing.T) {
 }
 
 const orgInviteJSON = `{"id":"inv1","slug":"inv_abc","email":"alice@partner.com","name":null,
-	"githubUsername":null,"memberRole":"CONTRIBUTOR","organizationId":"org1","maxActivations":null,
-	"activationCount":0,"expiresAt":null,"acceptedAt":null,"createdAt":"2026-06-19T00:00:00Z"}`
+	"githubUsername":null,"memberRole":"CONTRIBUTOR","organizationId":"org1","maxActivations":2,
+	"activationCount":0,"expiresAt":"2026-06-29T00:00:00Z","acceptedAt":null,"createdAt":"2026-06-19T00:00:00Z"}`
 
 func TestOrgLs(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
