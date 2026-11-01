@@ -81,6 +81,21 @@ func TestSessionLogOrder1278(t *testing.T) {
 		}
 	})
 
+	t.Run("an undecodable pointer answer after a recorded row is uncertain too", func(t *testing.T) {
+		for name, body := range map[string]string{"not json": `not-json`, "empty body": ``, "html": `<html>oops</html>`} {
+			called, errOut, err := run(t, []string{"team", "session", "log", "--pr", "371"}, map[string]string{
+				"UpdateTeamSession": body,
+				"RecordTeamWork":    recorded,
+			})
+			if err == nil || !called["UpdateTeamSession"] {
+				t.Fatalf("%s: err=%v called=%v", name, err, called)
+			}
+			if !strings.Contains(errOut, "could NOT be confirmed") || strings.Contains(errOut, "was NOT updated") {
+				t.Errorf("%s: undecodable answer must read as uncertain: %q", name, errOut)
+			}
+		}
+	})
+
 	t.Run("an internal fault on the pointer after a recorded row is also uncertain", func(t *testing.T) {
 		_, errOut, err := run(t, []string{"team", "session", "log", "--pr", "371"}, map[string]string{
 			"UpdateTeamSession": `{"data":null,"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR","requestId":"req-1"}}]}`,
