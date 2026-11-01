@@ -4549,11 +4549,12 @@ hadron marketplace agents|memories|orgs [--limit 0..200] [--offset N]
 stays `search`. Query bytes pass through unchanged: the server sniffs PK (exact
 id), URN, or name+URN; --field overrides the sniff, content is opt-in and skips
 encrypted memories; --entity-type restricts kinds. No org, App or stored scope
-is implicitly applied. --org narrows org-anchored slices, never the user slice;
+is implicitly applied. --org accepts an id or fully qualified org URN and
+narrows org-anchored slices, never the user slice;
 missing/non-member orgs have the same empty answer. --scope narrows only memory
 and node slices; a bare name or app needs explicit --app. The server decides
 all visibility, matching, ranking and scope resolution. One request/page,
-limit20/offset0 defaults, order unchanged. Total is the bounded candidate-list
+limit 20/offset 0 defaults, order unchanged. Total is the bounded candidate-list
 count, not the full database count. JSON is {hits:[{id,entityType,name,urn,
 description,score,matchedField,memoryId,organizationId}],total,degraded:[],scope};
 nullable names/URNs remain null, and scope retains kind,label,source,ownerUrn,
@@ -4566,7 +4567,7 @@ remain usable by link but are absent from browse (cor:acl:080:04). The server
 returns only opted-in, publicly accessible refs ordered (name,id); clients do
 not infer eligibility. Exactly one requested resource-type query per page,
 JSON {items:[{id,name,urn,description}],total}, empty items [], nullable description.
-Default limit20/offset0; limit0 is count-only. Human output includes total.
+Default limit 20/offset 0; limit0 is count-only. Human output includes total.
 No nested members, private data, credentials or follow-up resource fetches.
 Both commands print a next-offset hint using rows actually served. Neither
 walks every page automatically; null/malformed pages fail instead of claiming

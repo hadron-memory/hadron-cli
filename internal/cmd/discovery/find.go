@@ -58,7 +58,7 @@ is opt-in and skips encrypted memories. --entity-type restricts the kinds.
 Both flags accept comma-separated values or repeated uses. Each hit's
 matchedField says what matched. The CLI never adds or fetches extra hits.
 
---org narrows org-anchored entities to one org; users are not org-owned and
+--org narrows org-anchored entities to one org (id or fully qualified org URN); users are not org-owned and
 remain subject to their normal visibility rules. A missing or non-member org
 has the same empty answer. --scope narrows only memories + nodes; a bare scope
 name or scope app needs --app. --app is used only when explicitly passed here.
@@ -128,6 +128,7 @@ when available; the server decides what anonymous callers may see.`,
 				if strings.TrimSpace(org) == "" {
 					return exitcode.Newf(exitcode.Usage, "--org is empty (an unset variable?); omit it for cross-org discovery")
 				}
+				// The server resolves orgId through resolveOrgRef (ID or fully qualified org URN).
 				orgPtr = &org
 			}
 			if cmd.Flags().Changed("scope") {
@@ -174,7 +175,7 @@ when available; the server decides what anonymous callers may see.`,
 			}
 			if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if dto.Scope != nil {
-					if _, err := fmt.Fprintf(w, "scope: %s (from --scope; server source %s; dropped %d)\n", output.SafeCell(dto.Scope.Label), output.SafeCell(dto.Scope.Source), dto.Scope.DroppedCount); err != nil {
+					if _, err := fmt.Fprintf(w, "scope: %s (source: %s; dropped %d)\n", output.SafeCell(dto.Scope.Label), output.SafeCell(dto.Scope.Source), dto.Scope.DroppedCount); err != nil {
 						return err
 					}
 				}
@@ -198,7 +199,7 @@ when available; the server decides what anonymous callers may see.`,
 		}}
 	cmd.Flags().StringSliceVar(&types, "entity-type", nil, "organization,memory,node,agent,app,aiServiceConfig,user (comma-separated or repeated)")
 	cmd.Flags().StringSliceVar(&fields, "field", nil, "pk,urn,name,description,content; overrides server sniff (comma-separated or repeated)")
-	cmd.Flags().StringVar(&org, "org", "", "narrow org-anchored kinds to this org id or ref (does not narrow users)")
+	cmd.Flags().StringVar(&org, "org", "", "narrow org-anchored kinds to this org id or fully qualified URN (does not narrow users)")
 	cmd.Flags().StringVar(&scope, "scope", "", "memory/node scope id, name, app or global (never a saved default)")
 	cmd.Flags().StringVar(&app, "app", "", "explicit App id or URN for resolving --scope")
 	cmd.Flags().IntVar(&limit, "limit", 20, "one page of 1..200 ranked hits")

@@ -16,9 +16,15 @@ only on flag presence. Explicit empty constraints refuse rather than silently
 widening. Query shapes are not canonicalized or sniffed in the CLI. Page order
 is retained; stderr hints advance by returned count, not requested size.
 
-Red5f887543 fails because all four commands are absent. Core tests pin query
+The red-first test commit `5f887543` fails because all four commands are absent.
+Core tests pin query
 bytes, omission, enum overrides, flat DTO/nulls, pagination variables and usage
-refusals; supplementary pins cover scope and count-only. The stamped T2+section10
-schedule is cross-family LOCAL+BLIND, security each head and QA through the CLI.
+refusals; supplementary pins cover scope and count-only. Gate 6540755109 requires distinct LOCAL and BLIND engineers from a different
+model family, a security review at every head, and QA through the compiled CLI.
 QA must separate real server eligibility/sniffing evidence from fake wire tests.
 No server/schema/MCP/portal change or production/release/install is in scope.
+
+Review fix: human scope disclosure names the server source without attributing it
+to a flag. The server resolves an explicit org id or fully qualified org URN;
+the CLI adds no lookup. Tests pin non-empty degraded notes in JSON and stderr,
+raw whitespace, a short page hint, and absence of ambient configured defaults.
