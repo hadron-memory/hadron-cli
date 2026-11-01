@@ -23137,6 +23137,12 @@ type CreateAgentTaskInput struct {
 	// Defaults to false: the assignee's session ends only when whoever assigns the task asks (hrn:node:hadronmemory.com:specs:cor:agt:050:10).
 	CloseSessionWhenDone *bool   `json:"closeSessionWhenDone"`
 	Description          *string `json:"description"`
+	// #3125 S2 (hrn:node:hadronmemory.com:specs:cor:agt:120:02): the outside item this task claims, for example an issue's
+	// canonical URL. Stored and compared exactly as written; 1 to 512 characters with no whitespace, control or invisible
+	// format character and no user name or password (else BAD_USER_INPUT). Set only here: no edit takes it. A second
+	// task with the same value in this App, whatever the first task's state, is refused TASK_EXTERNAL_ID_TAKEN, which
+	// names no task (find it with agentTasks(externalId:)). Another App's tasks never conflict.
+	ExternalId *string `json:"externalId,omitempty"`
 	// #2648 (hrn:node:hadronmemory.com:specs:cor:agt:050:14): an optional finish-by deadline; refused BAD_USER_INPUT if in the past or earlier than startBy. While set, the task raises no stall-window alarm, only stall.finish-by once it passes unfinished.
 	FinishBy *string `json:"finishBy,omitempty"`
 	// Defaults to the creator. A root task's creator may name any other
@@ -23180,6 +23186,9 @@ func (v *CreateAgentTaskInput) GetCloseSessionWhenDone() *bool { return v.CloseS
 
 // GetDescription returns CreateAgentTaskInput.Description, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetDescription() *string { return v.Description }
+
+// GetExternalId returns CreateAgentTaskInput.ExternalId, and is useful for accessing the field via an interface.
+func (v *CreateAgentTaskInput) GetExternalId() *string { return v.ExternalId }
 
 // GetFinishBy returns CreateAgentTaskInput.FinishBy, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetFinishBy() *string { return v.FinishBy }
@@ -90977,6 +90986,9 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 // Schema-only optional fields must stay absent for older providers.
 // The schema refresh for cli#1513 brought finishBy (#2648) in; this CLI does not implement it, so it is omitted from the wire, never an explicit null.
 // #2420: the task's own properties object. A pointer field, omitted when nil.
+// cli#1524 C1 (hadron-server#3125 S2, cor:agt:120:02): the claimed outside item.
+// Absent unless --external-id is given, so an ordinary create is unchanged and
+// an older server never sees the field.
 // cli#1485 S3 (Andi BLIND P2): the model-group requirement fields arrived with
 // the schema refresh (server #3029) and S2 exposes them as optional flags. Absent,
 // not null, so ordinary create/update bodies are unchanged and an older server

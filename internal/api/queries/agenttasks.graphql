@@ -97,6 +97,10 @@ fragment AgentTaskFields on AgentTask {
 # @genqlient(for: "CreateAgentTaskInput.blockedBy", omitempty: true)
 # #2420: the task's own properties object. A pointer field, omitted when nil.
 # @genqlient(for: "CreateAgentTaskInput.properties", omitempty: true)
+# cli#1524 C1 (hadron-server#3125 S2, cor:agt:120:02): the claimed outside item.
+# Absent unless --external-id is given, so an ordinary create is unchanged and
+# an older server never sees the field.
+# @genqlient(for: "CreateAgentTaskInput.externalId", omitempty: true)
 # @genqlient(for: "AgentTaskRequirementsInput.minTier", omitempty: true)
 # cli#1485 S3 (Andi BLIND P2): the model-group requirement fields arrived with
 # the schema refresh (server #3029) and S2 exposes them as optional flags. Absent,
