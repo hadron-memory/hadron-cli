@@ -189,10 +189,13 @@ var (
 	// carry — the host matches descriptions against what the user says, so
 	// a description that never says when to use the skill rarely fires.
 	triggerRE = regexp.MustCompile(`(?i)\buse (it |this )?when\b`)
-	// templateRE finds Mustache placeholders in a body. Export is verbatim, so
-	// a placeholder ships as literal text; that may be intended (a briefing
-	// template) or a leak, which is why it is a warning and not an error.
-	templateRE = regexp.MustCompile(`\{\{[^}]*\}\}`)
+	// templateRE finds Mustache placeholders in a body. Export does not
+	// substitute a variable, so `{{var}}` ships as literal text; that may be
+	// intended (a briefing template) or a leak, which is why it is a warning
+	// and not an error. An include tag `{{> part}}` is the exception: the
+	// export resolver (hadron-server#2048) resolves it, so hasLiteralPlaceholder
+	// skips it (cli#1166, paired with server#2943 — same rule on both sides).
+	templateRE = regexp.MustCompile(`\{\{([^}]*)\}\}`)
 )
 
 // Declaration is a node's opt-in to export for ONE host: an object at `properties.
@@ -604,11 +607,23 @@ func LintFor(n Node, h Host) []Finding {
 		add("skill-content-has-frontmatter", SevError,
 			"content starts with a `---` frontmatter block — the node body is the skill BODY; frontmatter is composed at export from the declaration and would be doubled")
 	}
-	if templateRE.MatchString(n.Content) {
+	if hasLiteralPlaceholder(n.Content) {
 		add("skill-content-has-template", SevWarning,
 			"content contains a {{…}} placeholder — export is verbatim, so it ships as literal text; keep it only if the skill is meant to carry a template")
 	}
 	return out
+}
+
+// hasLiteralPlaceholder reports whether the body has a `{{…}}` that ships as
+// literal text: any match whose inner text, trimmed, does not start with `>`
+// (an include tag, resolved on export). One variable among includes is enough.
+func hasLiteralPlaceholder(body string) bool {
+	for _, m := range templateRE.FindAllStringSubmatch(body, -1) {
+		if !strings.HasPrefix(strings.TrimSpace(m[1]), ">") {
+			return true
+		}
+	}
+	return false
 }
 
 // RuleUnknownHostKey names the finding for an `exports` key no host owns.

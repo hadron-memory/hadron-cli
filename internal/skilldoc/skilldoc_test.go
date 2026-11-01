@@ -1194,3 +1194,41 @@ func TestRevisionParsesLikeTheServer(t *testing.T) {
 		}
 	}
 }
+
+// cli#1166 / server#2943: since the export resolver (server#2048) an include
+// tag `{{> part}}` is resolved on export, so only a non-include placeholder
+// ships as literal text. Same rule and wording on both sides.
+func TestLintTemplateRuleDistinguishesIncludeTags(t *testing.T) {
+	const wantMsg = "content contains a {{…}} placeholder — export is verbatim, so it ships as literal text; keep it only if the skill is meant to carry a template"
+	for _, tc := range []struct {
+		name, content string
+		want          bool
+	}{
+		{"variable only", "You are {{name}}.", true},
+		{"include only", "Intro\n{{> part}}\n", false},
+		{"include no space", "{{>part}}", false},
+		{"include padded", "{{ > part }}", false},
+		{"two includes", "{{> a}}\n{{> b}}", false},
+		{"include and variable", "{{> part}}\nYou are {{name}}.", true},
+		{"variable then include", "{{name}} {{> part}}", true},
+		{"no placeholder", "plain body", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			n := declaring("tasks:a", "Use when x", nil)
+			n.Content = tc.content
+			var got *Finding
+			for _, f := range Lint(n) {
+				if f.Rule == "skill-content-has-template" {
+					f := f
+					got = &f
+				}
+			}
+			if (got != nil) != tc.want {
+				t.Fatalf("finding present = %v, want %v (%+v)", got != nil, tc.want, got)
+			}
+			if got != nil && (got.Severity != SevWarning || got.Message != wantMsg) {
+				t.Errorf("severity/message changed: %+v", got)
+			}
+		})
+	}
+}
