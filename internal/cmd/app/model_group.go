@@ -76,7 +76,9 @@ at once unless the App overrides it.
 
 Names and patterns are sent exactly as given. The server lowercases them,
 enforces the name grammar and its limits, and decides who may read or write;
-the CLI decides nothing about them and reads nothing first.`
+the CLI decides nothing about them and reads nothing first. Every command
+takes the App explicitly (an App ID, hrn:app:<root>:<slug> or <root>:<slug>);
+the global --app is not used.`
 
 func newCmdModelGroup(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
