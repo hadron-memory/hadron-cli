@@ -257,7 +257,7 @@ func TestSkillLintAllLintsAPublicOnlyMemory(t *testing.T) {
 			resp = translateFindNodesAt(offsetOfVars(body.Variables), "FindNodes", `{"data":{"nodes":[{"id":"01a0a5ba59a377d2a01a8ea32ae98195","memoryId":"mempub","loc":"tasks:rotate","name":"rotate","nodeType":"task","tags":[],"isRunnable":true,"updatedAt":"2026-06-11T00:00:00Z"}]}}`)
 		case "SkillPlan":
 			resp = emptyIncludeLintPlan
-		case "NodeBatch":
+		case "NodeBatchContent":
 			resp = batchOf(node)
 		default:
 			t.Errorf("unexpected operation %q", body.OperationName)
@@ -372,8 +372,8 @@ func TestSkillLintRepeatedNodeRefLintsOnce(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("repeated ref: %v\n%s", err, out.String())
 	}
-	if strings.Count(string(captured["NodeBatch"]), `"`+nodeID+`"`) != 1 {
-		t.Errorf("repeated ref sent more than once: %s", captured["NodeBatch"])
+	if strings.Count(string(captured["NodeBatchContent"]), `"`+nodeID+`"`) != 1 {
+		t.Errorf("repeated ref sent more than once: %s", captured["NodeBatchContent"])
 	}
 	if strings.TrimSpace(out.String()) != "[]" {
 		t.Errorf("self-collision reported: %s", out.String())

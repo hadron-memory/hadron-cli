@@ -44339,6 +44339,246 @@ var AllNodeAuthorshipKind = []NodeAuthorshipKind{
 	NodeAuthorshipKindTask,
 }
 
+// NodeBatchContentNodeBatchNodeBatchResult includes the requested fields of the GraphQL type NodeBatchResult.
+// The GraphQL type's documentation follows.
+//
+// Spec cor:api:040 — result envelope for the batch node read (nodeBatch).
+// 'nodes' is the authorized, existing subset (input order for a ref set, loc
+// order for a prefix). 'unavailable' and 'omitted' are both lists of REFS, not
+// node objects. 'unavailable' lists the requested refs that were denied OR not
+// found — indistinguishable, so the result never discloses whether an
+// unreadable node exists. 'truncated' is true when the response-size cap was
+// reached, and 'omitted' then carries the refs of the nodes dropped to stay
+// under it. (Over the node-count cap the query errors instead — never a silent
+// short read.) Both lists echo the caller's OWN ref strings for the 'refs'
+// form — pass a URN, get that URN back, not a primary key you never sent — and
+// node ids for the prefix form, which has no caller refs.
+type NodeBatchContentNodeBatchNodeBatchResult struct {
+	Truncated   bool                                                 `json:"truncated"`
+	Omitted     []string                                             `json:"omitted"`
+	Unavailable []string                                             `json:"unavailable"`
+	Nodes       []*NodeBatchContentNodeBatchNodeBatchResultNodesNode `json:"nodes"`
+}
+
+// GetTruncated returns NodeBatchContentNodeBatchNodeBatchResult.Truncated, and is useful for accessing the field via an interface.
+func (v *NodeBatchContentNodeBatchNodeBatchResult) GetTruncated() bool { return v.Truncated }
+
+// GetOmitted returns NodeBatchContentNodeBatchNodeBatchResult.Omitted, and is useful for accessing the field via an interface.
+func (v *NodeBatchContentNodeBatchNodeBatchResult) GetOmitted() []string { return v.Omitted }
+
+// GetUnavailable returns NodeBatchContentNodeBatchNodeBatchResult.Unavailable, and is useful for accessing the field via an interface.
+func (v *NodeBatchContentNodeBatchNodeBatchResult) GetUnavailable() []string { return v.Unavailable }
+
+// GetNodes returns NodeBatchContentNodeBatchNodeBatchResult.Nodes, and is useful for accessing the field via an interface.
+func (v *NodeBatchContentNodeBatchNodeBatchResult) GetNodes() []*NodeBatchContentNodeBatchNodeBatchResultNodesNode {
+	return v.Nodes
+}
+
+// NodeBatchContentNodeBatchNodeBatchResultNodesNode includes the requested fields of the GraphQL type Node.
+type NodeBatchContentNodeBatchNodeBatchResultNodesNode struct {
+	Id string `json:"id"`
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn string `json:"urn"`
+	// #2610 — this node's action URN (hrn:action:<root>:<agent-slug>:<code>, the
+	// action-register address) when it is a register:<code> entry in an Agent's
+	// system memory; null for every other node (a register: loc in a non-Agent
+	// memory names no entry). Computed on read from the holding Agent's own URN —
+	// never stored — and a second address beside urn: the node URN keeps
+	// resolving. An unemittable stored code atom (charset/length) also reads as
+	// null; the stored loc needs repair.
+	//
+	// Two deliberate asymmetries with resolveUrn's action arm (PR #2711 §10
+	// review): (1) this field computes for ANY caller who can read the node —
+	// including an App participant of an install — while the arm resolves only
+	// under the agent arm's gate, so such a caller can SEE an address that does
+	// not resolve FOR them (it resolves for the Agent's own tenant); the field
+	// leaks nothing the node read didn't already grant. (2) After an Agent
+	// rename this field shows the CURRENT slug (computed from the live Agent's
+	// urn) while the urn field still shows the stored node URN until alias
+	// healing catches up — the computed address is the fresher one on purpose.
+	ActionUrn *string `json:"actionUrn"`
+	// #881 — the portal URL that opens this node, built server-side so no client
+	// ever has to construct one (constructing means guessing which URN spelling
+	// the /app/u/<urn> route resolves, and the legacy '::' forms in circulation
+	// make that guess wrong). Form: <portal-origin>/app/u/<urn>, the portal's
+	// stable URN-alias route. NULL when the deployment has no portal origin
+	// configured (FRONTEND_URL) — a link to the wrong host is worse than none, so
+	// clients render the field only when present.
+	PortalUrl *string `json:"portalUrl"`
+	MemoryId  string  `json:"memoryId"`
+	Loc       string  `json:"loc"`
+	Name      string  `json:"name"`
+	Alias     *string `json:"alias"`
+	// The PLATFORM-kind axis (info / task / prompt / record / …). Load-bearing for
+	// retrieval and rendering.
+	//
+	// NOT 'objectType', which says which domain COLLECTION a node belongs to, and
+	// NOT 'role', which says what the node is FOR. Three kind-ish fields is the
+	// accepted price of keeping retrieval stable while roles stay open, so each
+	// one says what it is not — mixing them up is the predictable failure.
+	NodeType string `json:"nodeType"`
+	// #1201 — what this node is FOR, as an OPEN string. A closed governed
+	// subset has dedicated authoring doors; memory role rules can additionally
+	// constrain arbitrary roles.
+	//
+	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
+	// 'objectType' (the collection discriminator, schema-validated). This field
+	// does not change default retrieval or ranking; NodeFilter.role explicitly
+	// selects its exact dotted family (#1322).
+	//
+	// A GOVERNED family routes the write to that kind's own authoring door, and
+	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
+	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// gated on 'isRunnable'
+	// rather than on any label because a label can be omitted and a capability
+	// cannot. Other roles do not invoke a governed door, but can still be
+	// constrained by memory role rules and selected by explicit role filters.
+	Role *string `json:"role"`
+	// #725 — the COLLECTION discriminator: which domain object this node is an
+	// instance of, e.g. "competitor" / "insight". Validated against the memory's
+	// property schema when it has one. NULL for an ordinary node.
+	//
+	// NOT 'nodeType' (the platform-kind axis, which drives retrieval) and NOT
+	// 'role' (what the node is for; role can be filtered explicitly but does not
+	// change default ranking or rendering).
+	ObjectType *string `json:"objectType"`
+	// Whether this node can be run as a task (nullable; #513) — it drives the tree
+	// action indicator, and since #1201 it is also the CAPABILITY gate for the
+	// task kind: a write that would PRODUCE a runnable node must come through
+	// createTaskNode / updateTaskNode. Gated here rather than on a label because
+	// omitting a label is free, while omitting this means the node does not run.
+	IsRunnable  *bool   `json:"isRunnable"`
+	Description *string `json:"description"`
+	// Paragraph-length summary of this node. Opt-in on hadron_get_node via the contentScope parameter. hadron_find_nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in hadron_list_nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
+	Abstract *string `json:"abstract"`
+	// Spec 032 — fingerprint of the content value at the time abstract was authored. SHA-256 of plaintext content, truncated to 8 hex chars. Compared at read time against computeContentHash(node.content) to detect staleness: the abstract may not reflect current content when the two differ, OR when this is NULL on a node that has both an abstract and content (#1128 — an abstract written before the body existed was never fingerprinted, so it has never been checked against it; that reads as unverified, not as verified). NULL is only a clean state when the node has no abstract, or no content for the abstract to describe. Note restoreNodeRevision restores this field verbatim, so restoring a snapshot taken while it was NULL reinstates the unverified state — correctly, since that abstract has never been checked against the restored content. System-managed; never settable via NodeInput.
+	AbstractOriginHash *string          `json:"abstractOriginHash"`
+	Tags               []string         `json:"tags"`
+	Seq                *int             `json:"seq"`
+	Data               *json.RawMessage `json:"data"`
+	Properties         *json.RawMessage `json:"properties"`
+	// The node's text. Include tags and data variables resolve for the reader
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:150:03); pass raw: true for the stored text with its tags as
+	// written. Through nodeBatch, an omitted raw returns the stored text
+	// permanently (R21 A) and raw: false resolves.
+	Content   *string `json:"content"`
+	CreatedAt string  `json:"createdAt"`
+	UpdatedAt string  `json:"updatedAt"`
+}
+
+// GetId returns NodeBatchContentNodeBatchNodeBatchResultNodesNode.Id, and is useful for accessing the field via an interface.
+func (v *NodeBatchContentNodeBatchNodeBatchResultNodesNode) GetId() string { return v.Id }
+
+// GetUrn returns NodeBatchContentNodeBatchNodeBatchResultNodesNode.Urn, and is useful for accessing the field via an interface.
+func (v *NodeBatchContentNodeBatchNodeBatchResultNodesNode) GetUrn() string { return v.Urn }
+
+// GetActionUrn returns NodeBatchContentNodeBatchNodeBatchResultNodesNode.ActionUrn, and is useful for accessing the field via an interface.
+func (v *NodeBatchContentNodeBatchNodeBatchResultNodesNode) GetActionUrn() *string {
+	return v.ActionUrn
+}
+
+// GetPortalUrl returns NodeBatchContentNodeBatchNodeBatchResultNodesNode.PortalUrl, and is useful for accessing the field via an interface.
+func (v *NodeBatchContentNodeBatchNodeBatchResultNodesNode) GetPortalUrl() *string {
+	return v.PortalUrl
+}
+
+// GetMemoryId returns NodeBatchContentNodeBatchNodeBatchResultNodesNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *NodeBatchContentNodeBatchNodeBatchResultNodesNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns NodeBatchContentNodeBatchNodeBatchResultNodesNode.Loc, and is useful for accessing the field via an interface.
+func (v *NodeBatchContentNodeBatchNodeBatchResultNodesNode) GetLoc() string { return v.Loc }
+
+// GetName returns NodeBatchContentNodeBatchNodeBatchResultNodesNode.Name, and is useful for accessing the field via an interface.
+func (v *NodeBatchContentNodeBatchNodeBatchResultNodesNode) GetName() string { return v.Name }
+
+// GetAlias returns NodeBatchContentNodeBatchNodeBatchResultNodesNode.Alias, and is useful for accessing the field via an interface.
+func (v *NodeBatchContentNodeBatchNodeBatchResultNodesNode) GetAlias() *string { return v.Alias }
+
+// GetNodeType returns NodeBatchContentNodeBatchNodeBatchResultNodesNode.NodeType, and is useful for accessing the field via an interface.
+func (v *NodeBatchContentNodeBatchNodeBatchResultNodesNode) GetNodeType() string { return v.NodeType }
+
+// GetRole returns NodeBatchContentNodeBatchNodeBatchResultNodesNode.Role, and is useful for accessing the field via an interface.
+func (v *NodeBatchContentNodeBatchNodeBatchResultNodesNode) GetRole() *string { return v.Role }
+
+// GetObjectType returns NodeBatchContentNodeBatchNodeBatchResultNodesNode.ObjectType, and is useful for accessing the field via an interface.
+func (v *NodeBatchContentNodeBatchNodeBatchResultNodesNode) GetObjectType() *string {
+	return v.ObjectType
+}
+
+// GetIsRunnable returns NodeBatchContentNodeBatchNodeBatchResultNodesNode.IsRunnable, and is useful for accessing the field via an interface.
+func (v *NodeBatchContentNodeBatchNodeBatchResultNodesNode) GetIsRunnable() *bool {
+	return v.IsRunnable
+}
+
+// GetDescription returns NodeBatchContentNodeBatchNodeBatchResultNodesNode.Description, and is useful for accessing the field via an interface.
+func (v *NodeBatchContentNodeBatchNodeBatchResultNodesNode) GetDescription() *string {
+	return v.Description
+}
+
+// GetAbstract returns NodeBatchContentNodeBatchNodeBatchResultNodesNode.Abstract, and is useful for accessing the field via an interface.
+func (v *NodeBatchContentNodeBatchNodeBatchResultNodesNode) GetAbstract() *string { return v.Abstract }
+
+// GetAbstractOriginHash returns NodeBatchContentNodeBatchNodeBatchResultNodesNode.AbstractOriginHash, and is useful for accessing the field via an interface.
+func (v *NodeBatchContentNodeBatchNodeBatchResultNodesNode) GetAbstractOriginHash() *string {
+	return v.AbstractOriginHash
+}
+
+// GetTags returns NodeBatchContentNodeBatchNodeBatchResultNodesNode.Tags, and is useful for accessing the field via an interface.
+func (v *NodeBatchContentNodeBatchNodeBatchResultNodesNode) GetTags() []string { return v.Tags }
+
+// GetSeq returns NodeBatchContentNodeBatchNodeBatchResultNodesNode.Seq, and is useful for accessing the field via an interface.
+func (v *NodeBatchContentNodeBatchNodeBatchResultNodesNode) GetSeq() *int { return v.Seq }
+
+// GetData returns NodeBatchContentNodeBatchNodeBatchResultNodesNode.Data, and is useful for accessing the field via an interface.
+func (v *NodeBatchContentNodeBatchNodeBatchResultNodesNode) GetData() *json.RawMessage { return v.Data }
+
+// GetProperties returns NodeBatchContentNodeBatchNodeBatchResultNodesNode.Properties, and is useful for accessing the field via an interface.
+func (v *NodeBatchContentNodeBatchNodeBatchResultNodesNode) GetProperties() *json.RawMessage {
+	return v.Properties
+}
+
+// GetContent returns NodeBatchContentNodeBatchNodeBatchResultNodesNode.Content, and is useful for accessing the field via an interface.
+func (v *NodeBatchContentNodeBatchNodeBatchResultNodesNode) GetContent() *string { return v.Content }
+
+// GetCreatedAt returns NodeBatchContentNodeBatchNodeBatchResultNodesNode.CreatedAt, and is useful for accessing the field via an interface.
+func (v *NodeBatchContentNodeBatchNodeBatchResultNodesNode) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUpdatedAt returns NodeBatchContentNodeBatchNodeBatchResultNodesNode.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *NodeBatchContentNodeBatchNodeBatchResultNodesNode) GetUpdatedAt() string { return v.UpdatedAt }
+
+// NodeBatchContentResponse is returned by NodeBatchContent on success.
+type NodeBatchContentResponse struct {
+	// Batch read (spec cor:api:040) — the full node projection (select any Node
+	// fields, including content + edges) for MANY nodes in one call, eliminating
+	// the N+1 of one node(ref:) per node (e.g. 'spec lint --all'). Provide EITHER
+	// 'refs' (explicit set, returned in input order) OR 'memory' + 'locPrefix'
+	// (subtree, loc order) — not both. Each entry of 'refs' is a primary key OR a
+	// fully-qualified node URN (cor:api:140), so a URN-holding caller batches in
+	// ONE call instead of resolving each ref first. The split on a bad ref is by
+	// KIND, not by luck: a ref whose SHAPE is wrong errors the call — unqualified
+	// / relative (UrnNotQualifiedError) or a URN of the wrong entity type, e.g.
+	// 'hrn:mem:...' (BAD_USER_INPUT) — while a well-formed ref that names nothing
+	// the caller may read comes back in 'unavailable'. A caller mistake stays
+	// loud instead of hiding among denials. Per-node access is applied
+	// independently AFTER resolution: denied or missing refs come back in
+	// 'unavailable' and never fail the call. Bounded by hard caps — over the
+	// node-count cap throws BAD_USER_INPUT; over the response-size cap returns a
+	// partial result with 'truncated: true' and the dropped refs in 'omitted'
+	// (never a silent short read). Node content is returned raw — Mustache
+	// templates are NOT compiled (unlike the single-node 'node' read), since this
+	// is a bulk source read for lint / audit / migration and compiling per node
+	// would re-introduce the N+1 it eliminates.
+	// Requested edge fields share a 2000-row budget for this batch result; exceeding
+	// it returns BAD_USER_INPUT. Read large edge sets through the paged edges query.
+	// Unselected edges and endpoint bodies are not prefetched by the batch read.
+	NodeBatch *NodeBatchContentNodeBatchNodeBatchResult `json:"nodeBatch"`
+}
+
+// GetNodeBatch returns NodeBatchContentResponse.NodeBatch, and is useful for accessing the field via an interface.
+func (v *NodeBatchContentResponse) GetNodeBatch() *NodeBatchContentNodeBatchNodeBatchResult {
+	return v.NodeBatch
+}
+
 // NodeBatchNodeBatchNodeBatchResult includes the requested fields of the GraphQL type NodeBatchResult.
 // The GraphQL type's documentation follows.
 //
@@ -84842,6 +85082,22 @@ func (v *__NextNodeInput) GetCurrentRef() *string { return v.CurrentRef }
 // GetRaw returns __NextNodeInput.Raw, and is useful for accessing the field via an interface.
 func (v *__NextNodeInput) GetRaw() bool { return v.Raw }
 
+// __NodeBatchContentInput is used internally by genqlient
+type __NodeBatchContentInput struct {
+	Refs      []string `json:"refs,omitempty"`
+	Memory    *string  `json:"memory,omitempty"`
+	LocPrefix *string  `json:"locPrefix,omitempty"`
+}
+
+// GetRefs returns __NodeBatchContentInput.Refs, and is useful for accessing the field via an interface.
+func (v *__NodeBatchContentInput) GetRefs() []string { return v.Refs }
+
+// GetMemory returns __NodeBatchContentInput.Memory, and is useful for accessing the field via an interface.
+func (v *__NodeBatchContentInput) GetMemory() *string { return v.Memory }
+
+// GetLocPrefix returns __NodeBatchContentInput.LocPrefix, and is useful for accessing the field via an interface.
+func (v *__NodeBatchContentInput) GetLocPrefix() *string { return v.LocPrefix }
+
 // __NodeBatchInput is used internally by genqlient
 type __NodeBatchInput struct {
 	Refs      []string `json:"refs,omitempty"`
@@ -105276,6 +105532,71 @@ func NodeBatch(
 	}
 
 	data_ = &NodeBatchResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by NodeBatchContent.
+const NodeBatchContent_Operation = `
+query NodeBatchContent ($refs: [ID!], $memory: ID, $locPrefix: String) {
+	nodeBatch(refs: $refs, memory: $memory, locPrefix: $locPrefix) {
+		truncated
+		omitted
+		unavailable
+		nodes {
+			id
+			urn
+			actionUrn
+			portalUrl
+			memoryId
+			loc
+			name
+			alias
+			nodeType
+			role
+			objectType
+			isRunnable
+			description
+			abstract
+			abstractOriginHash
+			tags
+			seq
+			data
+			properties
+			content(raw: true)
+			createdAt
+			updatedAt
+		}
+	}
+}
+`
+
+// Edge-free stored-content projection for callers that never inspect edges (#1210).
+func NodeBatchContent(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	refs []string,
+	memory *string,
+	locPrefix *string,
+) (data_ *NodeBatchContentResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "NodeBatchContent",
+		Query:  NodeBatchContent_Operation,
+		Variables: &__NodeBatchContentInput{
+			Refs:      refs,
+			Memory:    memory,
+			LocPrefix: locPrefix,
+		},
+	}
+
+	data_ = &NodeBatchContentResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

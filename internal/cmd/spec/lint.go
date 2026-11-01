@@ -828,7 +828,7 @@ func fetchDetailsWithUnavailable(cmd *cobra.Command, client graphql.Client, list
 
 func collectSpecDetails(cmd *cobra.Command, client graphql.Client, ids []string) ([]*gen.NodeBatchNodeBatchNodeBatchResultNodesNode, []string, error) {
 	return collectSpecDetailBatch(ids, func(chunk []string) (*gen.NodeBatchNodeBatchNodeBatchResult, error) {
-		resp, ferr := gen.NodeBatch(cmd.Context(), client, chunk, nil, nil)
+		resp, ferr := api.ReadNodeBatch(cmd.Context(), client, chunk, nil, nil)
 		if ferr != nil {
 			return nil, api.MapError(ferr)
 		}
@@ -1220,7 +1220,7 @@ func nearCapMessage(l int, title string, c Citation, legacy, draft bool) string 
 // using the compiled body, which is what they want: they read structure and
 // headings, and a reader of `spec lint` is asking about the spec as it renders.
 func rawSpecBody(cmd *cobra.Command, client graphql.Client, id string) (*string, error) {
-	resp, err := gen.NodeBatch(cmd.Context(), client, []string{id}, nil, nil)
+	resp, err := api.ReadNodeBatchContent(cmd.Context(), client, []string{id})
 	if err != nil {
 		return nil, err
 	}

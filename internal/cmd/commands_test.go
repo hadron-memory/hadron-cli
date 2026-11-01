@@ -36,6 +36,9 @@ func captureGraphQL(t *testing.T, responses map[string]string) (*httptest.Server
 		body.OperationName = legacyChatReadOperation(body.OperationName)
 		captured[body.OperationName] = body.Variables
 		resp, ok := responses[body.OperationName]
+		if !ok && body.OperationName == "NodeBatchContent" {
+			resp, ok = responses["NodeBatch"]
+		}
 		if !ok {
 			resp, ok = workerFromStaff(responses, body.OperationName, body.Variables)
 		}

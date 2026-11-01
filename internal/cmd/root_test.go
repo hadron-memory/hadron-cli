@@ -39,6 +39,9 @@ func fakeGraphQL(t *testing.T, responses map[string]string) *httptest.Server {
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		body.OperationName = legacyChatReadOperation(body.OperationName)
 		resp, ok := responses[body.OperationName]
+		if !ok && body.OperationName == "NodeBatchContent" {
+			resp, ok = responses["NodeBatch"]
+		}
 		if !ok {
 			resp, ok = workerFromStaff(responses, body.OperationName, body.Variables)
 		}
