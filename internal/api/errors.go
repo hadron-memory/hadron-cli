@@ -973,6 +973,12 @@ func codeForExtension(code string) int {
 	// api`; the curated commands print the server's message, which says it.
 	case code == "LOC_PROTECTED":
 		return exitcode.Usage
+	// A seq written on a node kind whose position the server owns
+	// (SEQ_PROTECTED — chat-message/record, cor:dmo:090:02). Like LOC_PROTECTED
+	// it is a wrong-door refusal, not a permission (8) or a transient (7), so
+	// 2 (cli#1499).
+	case code == "SEQ_PROTECTED":
+		return exitcode.Usage
 	// Deleted-node recovery (hadron-server#2234, cli#985). A restore under a
 	// still-deleted ancestor needs a state change first (restore the ancestor,
 	// whose URN the server's message names), so 5. A compiled boot prompt is a

@@ -103,12 +103,10 @@ func TestNodeUpdateSeqRefusal479(t *testing.T) {
 	if !strings.Contains(err.Error(), msg) {
 		t.Errorf("refusal not shown verbatim: %v", err)
 	}
-	// The existing mapping, deliberately unchanged (gate fence 2): SEQ_PROTECTED
-	// has no case in codeForExtension, so it exits 1, unlike its siblings
-	// LOC_PROTECTED and ROLE_GOVERNED (2). Mapping it is a follow-up for the
-	// gate to decide, not part of this cut.
-	if got := exitCodeFor(err); got != exitcode.Error {
-		t.Errorf("exit = %d, want the unmapped default %d", got, exitcode.Error)
+	// SEQ_PROTECTED exits 2 like its siblings LOC_PROTECTED and ROLE_GOVERNED:
+	// a wrong-door refusal (cli#1499).
+	if got := exitCodeFor(err); got != exitcode.Usage {
+		t.Errorf("exit = %d, want %d", got, exitcode.Usage)
 	}
 	for op := range captured {
 		if strings.HasPrefix(op, "Update") && op != "UpdateNode" {
@@ -155,5 +153,23 @@ func TestNodeUpdateSeqOnRunnableNodeUsesTaskDoor479(t *testing.T) {
 	}
 	if _, generic := captured["UpdateNode"]; generic {
 		t.Error("a runnable node must not be written through the generic UpdateNode")
+	}
+}
+
+// cli#1499: the same refusal on the create door exits 2 too.
+func TestNodeCreateSeqRefusalExitsUsage1499(t *testing.T) {
+	msg := "seq writes are refused on chat-message and record nodes"
+	responses := map[string]string{
+		"CreateNode": `{"errors":[{"message":"` + msg + `","extensions":{"code":"SEQ_PROTECTED"}}]}`,
+	}
+	_, _, err := run1341(t, responses, "node", "create", "-m", "acme.com::kb", "--loc", "findings:new", "--name", "New", "--seq", "2")
+	if err == nil {
+		t.Fatal("want the server's refusal to fail the command")
+	}
+	if !strings.Contains(err.Error(), msg) {
+		t.Errorf("refusal not shown verbatim: %v", err)
+	}
+	if got := exitCodeFor(err); got != exitcode.Usage {
+		t.Errorf("exit = %d, want %d", got, exitcode.Usage)
 	}
 }
