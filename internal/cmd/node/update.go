@@ -43,8 +43,11 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 		force            bool
 		dryRun           bool
 		expectedRevision int
+		seq              int
 		reason           string
 		tags             []string
+		edges            []string
+		replaceEdges     bool
 	)
 	cmd := &cobra.Command{
 		Use:   "update <node-urn> | <loc> (-m <memory> | --install <app>/<agent>)",
@@ -88,6 +91,12 @@ The data object: --data / --data-file REPLACE it ("null" clears it).
 overwrite, other keys stay (one level deep: a nested object is replaced
 whole). Replace and merge exclude each other.
 
+--edge with --replace-edges REPLACES all of the node's outgoing edges with the
+ones given (same forms as node create --edge); links the list leaves out are
+removed. --edge alone is refused, because that would be easy to mistake for
+adding one: use edge create and edge rm to change a single link. --dry-run
+does not preview edges, so it is refused with --replace-edges.
+
 Content, --abstract and --data-merge take "-" to read piped input
 (cat new.md | hadron node update ... --content -). "-" is refused when input is
 a terminal rather than a pipe, because a terminal can cut long input short;
@@ -130,11 +139,29 @@ combined with --expected-revision, --dry-run, --install or a --role clear. Use
 				return exitcode.Newf(exitcode.Usage, "--install cannot be combined with --data-merge or --data-merge-file; use --data or --data-file to replace the bag through the install selector")
 			}
 			replaceProps := changed("properties") || changed("properties-file")
+			// cli#1341: updateNode(edges:) REPLACES the node's whole outgoing
+			// edge set, so --edge is refused unless --replace-edges says that is
+			// meant, and --replace-edges needs at least one --edge (edge add and
+			// edge rm change one edge without touching the others).
+			var edgesArg []*gen.NodeEdgeInput
+			if changed("edge") != replaceEdges {
+				return exitcode.Newf(exitcode.Usage, "--edge on node update replaces ALL of the node's outgoing edges, so it needs --replace-edges (and --replace-edges needs at least one --edge). To add or remove one edge, use edge create / edge rm. Nothing was sent")
+			}
+			if replaceEdges && dryRun {
+				return exitcode.Newf(exitcode.Usage, "--dry-run does not preview edges, so it cannot be combined with --replace-edges. Nothing was sent")
+			}
+			if replaceEdges {
+				in, err := parseEdgeFlags(edges)
+				if err != nil {
+					return err
+				}
+				edgesArg = in
+			}
 			anyField := changed("name") || changed("content") || changed("content-file") ||
 				changed("type") || changed("object-type") || changed("description") ||
 				changed("abstract") || changed("abstract-file") ||
 				replaceData || replaceProps || changed("runnable") || changed("tag") ||
-				changed("role")
+				changed("role") || changed("seq") || replaceEdges
 			if !anyField && !mergeData {
 				return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
 			}
@@ -385,6 +412,15 @@ combined with --expected-revision, --dry-run, --install or a --role clear. Use
 				if changed("tag") {
 					input.Tags = tags
 				}
+				// cli#479: sent only when given, so an explicit 0 is a position
+				// and absence preserves. No client check of the node's kind: the
+				// server refuses protected history (SEQ_PROTECTED and kin).
+				if changed("seq") {
+					input.Seq = &seq
+				}
+				if replaceEdges {
+					input.Edges = edgesArg
+				}
 				input.Reason = reasonPtr
 
 				if clearRole {
@@ -476,8 +512,11 @@ combined with --expected-revision, --dry-run, --install or a --role clear. Use
 	cmd.Flags().StringVar(&propertiesFile, "properties-file", "", "read the replacement JSON properties object from a file")
 	cmd.Flags().BoolVar(&runnable, "runnable", false, "mark the node runnable by 'hadron task run' (--runnable=false clears it; omit to preserve)")
 	cmd.Flags().IntVar(&expectedRevision, "expected-revision", 0, "require the supplied live revision (1-2147483647); omit for last-write-wins; unavailable with data merge")
+	cmd.Flags().IntVar(&seq, "seq", 0, "position among sibling nodes, lower first (0 is a real position; omit to keep); "+seqRefusalHelp)
 	cmd.Flags().StringVar(&reason, "reason", "", "why this change was made (recorded in version history)")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "replace tags (repeatable)")
+	cmd.Flags().StringArrayVar(&edges, "edge", nil, edgeFlagUsage+"; needs --replace-edges")
+	cmd.Flags().BoolVar(&replaceEdges, "replace-edges", false, "replace ALL of the node's outgoing edges with the --edge list")
 	enableLintWarnings(cmd, "--dry-run")
 	return cmd
 }
@@ -531,6 +570,7 @@ var updateFields = []struct {
 	{"properties", []string{"properties", "properties-file"}},
 	{"runnable", []string{"runnable"}},
 	{"tags", []string{"tag"}},
+	{"seq", []string{"seq"}},
 }
 
 // updatePreviewDTO is `node update --dry-run --json` (#873). content is null

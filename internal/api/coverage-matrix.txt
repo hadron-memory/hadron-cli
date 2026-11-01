@@ -19,7 +19,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 187: 132 command, 40 gap, 15 excluded
+[Query] 187: 153 command, 19 gap, 15 excluded
 actionTickets  command ticket list
 agent  command agent get
 agentAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime that makes LLM calls; a person reads the masked config with `ai-config get`
@@ -46,14 +46,14 @@ appAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime tha
 appDeliverySettings  command team delivery-settings set
 appKeys  command app key list
 appMemoryScope  command app memories
-appMemoryWriteGrants  gap #1338
+appMemoryWriteGrants  command app memory-grant list
 appNodes  gap #63
 appRun  command run get
 appRuns  command run list
 appTickerSettings  command ticker apply-templates
 apps  command app list
 assetDownloadUrl  command asset get
-assets  gap #1341
+assets  command asset list
 attendeeRegister  command team worker onboard
 authContext  command auth whoami
 automationApproval  command automation approval
@@ -73,7 +73,7 @@ chatServedPrompts  command chat served-prompts
 comment  command comment get
 commentThreads  command comment list
 compiledPromptProvenance  command node provenance
-connectionGrant  gap #1343
+connectionGrant  command connection grant get
 connectionGrants  command connection grant list
 creditBalance  command billing balance
 creditLedgerEntries  command billing ledger
@@ -89,31 +89,31 @@ driveFile  command drive get
 driveFileExport  command drive export
 driveFiles  command drive list
 dueWakes  command team wakes due
-edge  gap #1341
-edges  gap #1341
+edge  command edge get
+edges  command edge list
 effectiveAccess  command access check
-effectiveActionPolicy  gap #1343
+effectiveActionPolicy  command policy explain
 exchangeConnections  command email connections
 exchangeConnectionsPage  gap #198
 exchangeFolders  gap #198
 exchangeMessages  gap #198
 findNodes  command search
 findObjects  command object find
-globalSearch  gap #1345
+globalSearch  command find
 heldWorkers  gap #1336
 homeAssistantInstance  command ha get
 homeAssistantInstanceOps  command ha ops
 homeAssistantInstances  command ha list
 hostOperations  command team host ops
 hostRegistrations  command team host list
-impersonationSession  gap #1344
-impersonationSessions  gap #1344
+impersonationSession  command admin impersonation get
+impersonationSessions  command admin impersonation list
 installMemory  command node list
 invitation  command org invite show
-latestAppRun  gap #1338
-marketplaceAgents  gap #1345
-marketplaceMemories  gap #1345
-marketplaceOrganizations  gap #1345
+latestAppRun  command run latest
+marketplaceAgents  command marketplace agents
+marketplaceMemories  command marketplace memories
+marketplaceOrganizations  command marketplace orgs
 mcpServer  command mcp-server get
 mcpServerTools  command mcp-server tools
 mcpServers  command mcp-server list
@@ -128,7 +128,7 @@ memoryEdges  excluded graphical: slim id/loc lists sized for drawing a memory's 
 memoryNodes  excluded graphical: slim id/loc lists sized for drawing a memory's node-link graph view; `node list` and `edge list` read the same nodes and edges
 memoryUsageSummary  command memory usage
 myAgentSubscriptions  gap #890
-myApp  gap #1338
+myApp  command app whoami
 myChats  gap #64
 myPasskeys  gap #878
 myUserApiKeys  command auth token list
@@ -144,12 +144,12 @@ nodeUsage  excluded deprecated: @deprecated: Use usageEvents(loc: <loc>) — ide
 object  command object get
 organization  command org get
 organizations  command org list
-previewAutomation  gap #1346
-principalGrant  gap #1343
+previewAutomation  command automation preview
+principalGrant  command grant get
 principalGrants  command grant list
 publicAgents  command agent list
 publicOrganization  command org public
-quotaCounters  gap #1343
+quotaCounters  command quota list
 recoveryEdges  command node recovery graph
 recoveryNode  command node recovery get
 recoveryNodes  command node recovery list
@@ -158,15 +158,15 @@ registerEntry  command channel register rm
 registerRoleCandidates  gap #1336
 registerRolePick  gap #1336
 renderRunNode  gap #1010
-resendSender  gap #1342
-resendSenders  gap #1342
+resendSender  command org resend-sender get
+resendSenders  command org resend-sender list
 resolveAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime that makes LLM calls; a person reads the masked config with `ai-config get`
 resolveAiServiceConfigs  command ai-config list
 resolveUrn  command node get
 scope  command scope get
 scopeExplain  command scope explain
 scopes  command scope list
-secret  gap #1343
+secret  command secret get
 secrets  command secret list
 selectedSkillFilePlan  command skill export
 serverInfo  command server-info
@@ -202,13 +202,13 @@ user  command team worker get
 users  command user search
 validateMemory  command memory validate
 verifyDecision  gap #1335
-verifyMemoryNodes  gap #1340
+verifyMemoryNodes  command memory verify
 verifyNode  command node verify
 worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 315: 220 command, 84 gap, 11 excluded
+[Mutation] 315: 237 command, 67 gap, 11 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -220,7 +220,7 @@ addMemoryMember  command memory member add
 addMemoryToAgent  gap #58
 addOrgMember  command org member add
 advanceChannelReadState  command channel mark-read
-allocateSpecNode  gap #1341
+allocateSpecNode  gap #398: spec new allocates on the provider (gated on #398, not #1341)
 amendDecision  gap #1335
 applyAgentTickerTemplates  command ticker apply-templates
 applyMemoryConfigTemplate  command memory config template apply
@@ -288,7 +288,7 @@ createObject  command object create
 createOrganization  command org create
 createPrincipalGrant  command grant create
 createRegisterEntry  command channel register add
-createResendSender  gap #1342
+createResendSender  command org resend-sender create
 createResumeClaim  command team session resume-claim
 createReviewNode  command coding review create
 createRevision  gap #61
@@ -312,7 +312,7 @@ deleteApp  command app uninstall
 deleteChannel  command channel rm
 deleteChat  gap #64
 deleteComment  command comment delete
-deleteCommentThread  gap #1341
+deleteCommentThread  command comment delete
 deleteDashboardWidgetPreset  excluded graphical: saved display settings for a portal dashboard widget type
 deleteEdge  command edge rm
 deleteExchangeConnection  gap #198
@@ -328,13 +328,13 @@ deleteNodeRoleRule  command memory config rule rm
 deleteObject  command object delete
 deleteOrganization  command org rm
 deleteRegisterEntry  command channel register rm
-deleteResendSender  gap #1342
+deleteResendSender  command org resend-sender rm
 deleteScope  command scope rm
 deleteSecret  command secret rm
 deleteSlackConnection  gap #206
 deleteTeamRole  command team role rm
 deleteTicker  command ticker delete
-deleteUser  gap #1344
+deleteUser  command user delete
 deleteWorker  command team worker rm
 editComment  command comment edit
 emailCategorizeMessage  gap #198
@@ -358,7 +358,7 @@ grantAppKeyScope  command app key scope grant
 grantCredits  gap #215
 importNode  command node import
 installAgentIntoApp  command app agent add
-inviteUser  gap #1342
+inviteUser  command user invite
 isolateWorker  command team isolation set
 issueHostOperation  command team host issue
 joinApp  gap #63
@@ -369,7 +369,7 @@ linkGithubApp  gap #60
 linkMemoryToUser  command memory link-user
 makeAgentTaskReady  command team task ready
 markOwnTeamChatRead  command team chat check
-mergeMemories  gap #1340
+mergeMemories  command memory merge
 mergeNodes  command node merge
 mergeUsers  command user merge
 mintActionTickets  command ticket mint
@@ -382,7 +382,7 @@ publishAgentImport  gap #58
 publishRevision  gap #61
 purgeUnansweredDecision  gap #1335
 pushMemoryToGit  gap #60
-reAdoptAutomation  gap #1346
+reAdoptAutomation  command automation re-adopt
 reassignAgentTask  command team task reassign
 recordAgentTaskProgress  command team task progress
 recordSessionOutcome  command team session outcome
@@ -424,7 +424,7 @@ revokeAgentSubscription  gap #890
 revokeAppGrant  gap #1336
 revokeAppKey  command app key revoke
 revokeAppKeyScope  command app key scope revoke
-revokeAppMemoryWriteGrant  gap #1338
+revokeAppMemoryWriteGrant  command app memory-grant rm
 revokeConnectionGrant  command connection grant revoke
 revokePrincipalGrant  command grant revoke
 revokeUserApiKey  command auth token revoke
@@ -435,7 +435,7 @@ searchReplaceInNodes  command replace text
 searchReplaceInSpecNodes  command spec replace
 sendChatMessage  gap #64
 sendContactMessage  excluded not-a-capability: a public website form (waiting list, contact), not a platform capability
-setAgentAssetUploadEnabled  gap #1338
+setAgentAssetUploadEnabled  command app asset-upload enable
 setAgentBase  command agent set-base
 setAgentBootPrompt  command agent set-boot-prompt
 setAgentIndexRefs  command agent update
@@ -444,19 +444,19 @@ setAgentTaskStallSchedule  command team stall-schedule set
 setAiModelPrice  gap #215
 setAppAgentBootPrompt  command app agent set-boot-prompt
 setAppDeliverySettings  command team delivery-settings set
-setAppMemoryWriteGrant  gap #1338
+setAppMemoryWriteGrant  command app memory-grant add
 setAppTickerSettings  gap #1336
 setAssetPublicLink  command asset public-link
 setDashboardWidgets  excluded graphical: places portal dashboard widgets on a 12-column grid (position, span, rowSpan)
 setDecisionLogDeciders  gap #1335
-setHostWorkerAvailability  gap #1337
+setHostWorkerAvailability  command team host availability
 setHostWorkerTerminals  command team health sweep
 setMemorySourceToken  gap #60
 setModelFamilyAvailability  command team availability set
-setQuotaLimit  gap #1343
+setQuotaLimit  command quota set
 setTeamPause  command team pause
 setTeamStopSignal  command team stop set
-setUserApiKeyHidden  gap #1344
+setUserApiKeyHidden  command auth token hide
 setWorkerAvailability  command team availability set
 setWorkerBootPrompt  command team worker set-boot-prompt
 setWorkerReportsTo  command team worker set-reports-to
@@ -498,11 +498,11 @@ updateMemoryConfigTemplate  command memory config template update
 updateMemoryMemberRole  command memory member set-role
 updateMemoryShareRole  command memory share set-role
 updateMemorySubscription  command memory subscription set-role
-updateMyPolicy  gap #1343
+updateMyPolicy  command policy set
 updateMyProfile  command profile set
 updateNode  command node update
 updateNodeData  command node update
-updateNodeProperties  gap #1341
+updateNodeProperties  command node set-properties
 updateNodeRevision  command node revision label
 updateNodeRoleRule  command memory config rule update
 updateObject  command object update
@@ -510,10 +510,10 @@ updateOrgGithubApp  gap #60
 updateOrgMember  command org member set-role
 updateOrganization  command org update
 updateRegisterEntry  command channel register set
-updateResendSender  gap #1342
+updateResendSender  command org resend-sender update
 updateReviewNode  command node update
 updateScope  command scope update
-updateSecret  gap #1343
+updateSecret  command secret update
 updateSession  command team session log
 updateSpecNode  command node update
 updateTaskNode  command node update
@@ -525,19 +525,15 @@ updateWorker  command team worker update
 withdrawDecision  gap #1335
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 180: 161 gap, 19 excluded
+[Arguments] 79: 52 gap, 27 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
-Mutation.addOrgMember(orgRef)  gap #1342: the CLI passes the deprecated orgId/userId
-Mutation.addOrgMember(userRef)  gap #1342: the CLI passes the deprecated orgId/userId
-Mutation.beginAssetUploadV2(input.uploadRequestId)  gap #1341: a retry-safe upload
+Mutation.addOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
+Mutation.addOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.castWorker(noTeam)  gap #933
 Mutation.castWorker(reportsTo)  gap #933
 Mutation.createAgent(resetContextAfterTask)  gap #1043
 Mutation.createAgent(usesTasks)  gap #58
-Mutation.createAgentSchedule(input.runAt)  gap #1346
-Mutation.createAgentSchedule(input.scopeRef)  gap #1346
-Mutation.createAgentWebhook(input.scopeRef)  gap #1346
 Mutation.createAiServiceConfig(apiStyle)  gap #1347
 Mutation.createApp(agentTools)  gap #63
 Mutation.createApp(aiApiKey)  gap #63
@@ -553,77 +549,24 @@ Mutation.createApp(role)  gap #63
 Mutation.createApp(sessionTimeoutSeconds)  gap #63
 Mutation.createApp(surfaces)  gap #63
 Mutation.createApp(trainingMode)  gap #63
-Mutation.createMemory(category0)  gap #1340
-Mutation.createMemory(category1)  gap #1340
-Mutation.createMemory(category2)  gap #1340
-Mutation.createMemory(data)  gap #1340
-Mutation.createMemory(embeddingSource)  gap #1340
-Mutation.createMemory(heroUrl)  gap #1340
-Mutation.createMemory(homeUrl)  gap #1340
-Mutation.createMemory(iconUrl)  gap #1340
-Mutation.createMemory(license)  gap #1340
-Mutation.createMemory(readBranch)  gap #1340
-Mutation.createMemory(source)  gap #1340
-Mutation.createMemory(vectorIndexEnabled)  gap #1340
-Mutation.createMemory(writeBranch)  gap #1340
-Mutation.createMemoryInApp(data)  gap #1340
-Mutation.createMemoryInApp(embeddingSource)  gap #1340
-Mutation.createMemoryInApp(vectorIndexEnabled)  gap #1340
 Mutation.createMemoryShare(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.createMemorySubscription(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.createMemorySubscription(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
-Mutation.createNode(input.edges.description)  gap #1341: edges written with the node
-Mutation.createNode(input.edges.isRunnable)  gap #1341: edges written with the node
-Mutation.createNode(input.edges.loc)  gap #1341: edges written with the node
-Mutation.createNode(input.id)  gap #1341: a client-chosen id
-Mutation.createReviewNode(input.edges.description)  gap #1341: edges written with the node
-Mutation.createReviewNode(input.edges.isRunnable)  gap #1341: edges written with the node
-Mutation.createReviewNode(input.edges.loc)  gap #1341: edges written with the node
-Mutation.createReviewNode(input.id)  gap #1341: a client-chosen id
-Mutation.createSpecNode(input.edges.description)  gap #1341: edges written with the node
-Mutation.createSpecNode(input.edges.isRunnable)  gap #1341: edges written with the node
-Mutation.createSpecNode(input.edges.loc)  gap #1341: edges written with the node
-Mutation.createSpecNode(input.id)  gap #1341: a client-chosen id
-Mutation.createTaskNode(input.edges.description)  gap #1341: edges written with the node
-Mutation.createTaskNode(input.edges.isRunnable)  gap #1341: edges written with the node
-Mutation.createTaskNode(input.edges.loc)  gap #1341: edges written with the node
-Mutation.createTaskNode(input.id)  gap #1341: a client-chosen id
 Mutation.deleteMemoryShare(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.deleteMemorySubscription(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.deleteMemorySubscription(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
-Mutation.deleteNode(cascadeCrossMemoryEdges)  gap #1341
-Mutation.encryptMemory(passphrase)  gap #1340
-Mutation.endSession(errorCount)  gap #1337
-Mutation.endSession(inputTokens)  gap #1337
-Mutation.endSession(outputTokens)  gap #1337
-Mutation.endSession(turnCount)  gap #1337
 Mutation.ensureAppMember(appId)  excluded deprecated: @deprecated: Use appRef (accepts id / URN).
 Mutation.ensureAppMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.mergeUsers(input.consentProof)  gap #1304
-Mutation.registerHost(input.capabilities)  gap #1337
 Mutation.removeAppMember(appId)  excluded deprecated: @deprecated: Use appRef (accepts id / URN).
 Mutation.removeAppMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.removeMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.removeMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
-Mutation.removeOrgMember(orgRef)  gap #1342: the CLI passes the deprecated orgId/userId
-Mutation.removeOrgMember(userRef)  gap #1342: the CLI passes the deprecated orgId/userId
-Mutation.resumeSession(input.description)  gap #1337
-Mutation.resumeSession(input.family)  gap #1337
-Mutation.startSession(input.agentRef)  gap #1337
-Mutation.startSession(input.customerId)  gap #1337
-Mutation.startSession(input.family)  gap #1337
-Mutation.startSession(input.language)  gap #1337
-Mutation.startSession(input.parentSessionId)  gap #1337
-Mutation.startSession(input.plan)  gap #1337
-Mutation.startSession(input.prNumber)  gap #1337
-Mutation.startSession(input.prevSessionId)  gap #1337
-Mutation.startSession(input.type)  gap #1337
+Mutation.removeOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
+Mutation.removeOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.updateAgent(listedOnMarketplace)  gap #58
 Mutation.updateAgent(registerDefaults)  gap #58
 Mutation.updateAgent(resetContextAfterTask)  gap #1043
-Mutation.updateAgentSchedule(input.agentRef)  gap #1346
-Mutation.updateAgentSchedule(input.runAt)  gap #1346
-Mutation.updateAgentSchedule(input.scopeRef)  gap #1346
 Mutation.updateAiServiceConfig(apiStyle)  gap #1347
 Mutation.updateApp(agentSessionsExpire)  gap #63
 Mutation.updateApp(agentTools)  gap #63
@@ -640,101 +583,68 @@ Mutation.updateApp(sessionDormancyDays)  gap #63
 Mutation.updateApp(surfaces)  gap #63
 Mutation.updateApp(trainingMode)  gap #63
 Mutation.updateApp(urn)  gap #63
-Mutation.updateMemory(acknowledgeVectorInversionRisk)  gap #1340
-Mutation.updateMemory(category0)  gap #1340
-Mutation.updateMemory(category1)  gap #1340
-Mutation.updateMemory(category2)  gap #1340
-Mutation.updateMemory(chunkOverlap)  gap #1340
-Mutation.updateMemory(chunkTokens)  gap #1340
-Mutation.updateMemory(embeddingSource)  gap #1340
-Mutation.updateMemory(forceFixedSize)  gap #1340
-Mutation.updateMemory(heroUrl)  gap #1340
-Mutation.updateMemory(homeUrl)  gap #1340
-Mutation.updateMemory(iconUrl)  gap #1340
-Mutation.updateMemory(license)  gap #1340
-Mutation.updateMemory(organizationId)  gap #1340
-Mutation.updateMemory(readBranch)  gap #1340
-Mutation.updateMemory(source)  gap #1340
-Mutation.updateMemory(vectorIndexEnabled)  gap #1340
-Mutation.updateMemory(writeBranch)  gap #1340
+Mutation.updateMemory(organizationId)  excluded not-a-capability: updateMemory accepts only the memory's current organization and refuses any other with USE_TRANSFER_MEMORY_OWNERSHIP; moving a memory is `memory transfer` (transferMemoryOwnership)
 Mutation.updateMemoryMemberRole(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.updateMemoryMemberRole(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.updateMemoryShareRole(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.updateMemorySubscription(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.updateMemorySubscription(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
-Mutation.updateNode(input.edges.description)  gap #1341: edges written with the node
-Mutation.updateNode(input.edges.isRunnable)  gap #1341: edges written with the node
-Mutation.updateNode(input.edges.loc)  gap #1341: edges written with the node
-Mutation.updateOrgMember(orgRef)  gap #1342: the CLI passes the deprecated orgId/userId
-Mutation.updateOrgMember(userRef)  gap #1342: the CLI passes the deprecated orgId/userId
-Mutation.updateOrganization(policy)  gap #1343
-Mutation.updateReviewNode(input.edges.description)  gap #1341: edges written with the node
-Mutation.updateReviewNode(input.edges.isRunnable)  gap #1341: edges written with the node
-Mutation.updateReviewNode(input.edges.loc)  gap #1341: edges written with the node
-Mutation.updateSpecNode(input.edges.description)  gap #1341: edges written with the node
-Mutation.updateSpecNode(input.edges.isRunnable)  gap #1341: edges written with the node
-Mutation.updateSpecNode(input.edges.loc)  gap #1341: edges written with the node
-Mutation.updateTaskNode(input.edges.description)  gap #1341: edges written with the node
-Mutation.updateTaskNode(input.edges.isRunnable)  gap #1341: edges written with the node
-Mutation.updateTaskNode(input.edges.loc)  gap #1341: edges written with the node
+Mutation.updateOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
+Mutation.updateOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.updateTeamRole(repos)  gap #1336
 Query.agentTasks(creator)  gap #1336
-Query.appRuns(parentRunId)  gap #1346
-Query.appRuns(sortBy)  gap #1346
-Query.appRuns(sortDir)  gap #1346
-Query.appRuns(statuses)  gap #1346
 Query.attendeeRegister(agentRef)  gap #1336
-Query.automationApprovals(limit)  gap #1346
 Query.castWorkerPreview(noTeam)  gap #933
 Query.castWorkerPreview(reportsTo)  gap #933
 Query.channelMessages(teamHeadRef)  gap #936
 Query.channelMessages(untagged)  gap #936
-Query.findNodes(expand)  gap #1341
-Query.findNodes(fields)  gap #1341
-Query.findNodes(granularity)  gap #1341
-Query.findNodes(minScore)  gap #1341
-Query.memories(orgId)  gap #1340
-Query.myUserApiKeys(includeHidden)  gap #1344
-Query.node(memoryRef)  gap #1341
-Query.nodeExport(sections)  gap #1341
-Query.sessionsPage(customerId)  gap #1337
-Query.sessionsPage(type)  gap #1337
+Query.node(memoryRef)  excluded not-a-capability: the CLI composes -m and a bare loc into the full node URN, which the SDL documents as the equivalent address (the one case memoryRef adds, forcing loc reading of an unprefixed 3+-segment ref, the hrn:node: form already removes); proposed class, specs engineer to accept
 Query.teamAttentionPage(limit)  gap #828
 Query.teamAttentionPage(scanLimit)  gap #828
 Query.teamAttentionPreviewPage(limit)  gap #828
 Query.teamAttentionPreviewPage(scanLimit)  gap #828
 Query.teamChatMessages(teamHeadRef)  gap #936
 Query.teamChatMessages(untagged)  gap #936
-Query.teamWorkItems(workerRef)  gap #1337
 
-[Filters] 39: 30 flag, 9 gap
+[Filters] 50: 49 flag, 1 gap
 Query.agents(filter.ownedByMe)  flag agent list --owned-by-me
 Query.agents(filter.type)  flag agent list --type
 Query.agents(filter.visibility)  flag agent list --visibility
 Query.apps(filter.agentId)  gap #63
 Query.apps(filter.ownedByMe)  flag app list --owned-by-me
+Query.assets(filter.includeDeleted)  flag asset list --include-deleted
+Query.assets(filter.memoryRefs)  flag asset list --memory
+Query.assets(filter.mimeType)  flag asset list --mime
+Query.assets(filter.mine)  flag asset list --mine
+Query.assets(filter.scanStatus)  flag asset list --scan-status
 Query.channels(filter.appRef)  flag channel list --owner-app
 Query.channels(filter.memoryRef)  flag channel list --memory
+Query.edges(filter.includeDeleted)  flag edge list --include-deleted
+Query.edges(filter.isRunnable)  flag edge list --runnable
+Query.edges(filter.memoryId)  flag edge list --memory
+Query.edges(filter.sourceNodeId)  flag edge list --source
+Query.edges(filter.targetNodeId)  flag edge list --target
 Query.findNodes(filter.approvalState)  flag spec list --approved --unapproved
 Query.findNodes(filter.contentScope)  flag search --comments-only
-Query.findNodes(filter.createdBy)  gap #1341
-Query.findNodes(filter.includeDeleted)  gap #1341
+Query.findNodes(filter.createdBy)  flag node list --created-by
+Query.findNodes(filter.includeDeleted)  flag node list --include-deleted
 Query.findNodes(filter.isRunnable)  flag node list --runnable
 Query.findNodes(filter.locPrefix)  flag node list --prefix
-Query.findNodes(filter.memoryClasses)  gap #1341
+Query.findNodes(filter.memoryClasses)  flag node list --memory-class
 Query.findNodes(filter.memoryIds)  flag node list --memory
 Query.findNodes(filter.minted)  flag spec list --minted --unminted
 Query.findNodes(filter.nodeType)  flag node list --type
 Query.findNodes(filter.objectType)  flag node list --object-type
-Query.findNodes(filter.role)  gap #1341: set internally by the spec and coding commands; no flag
+Query.findNodes(filter.role)  flag node list --role
 Query.findNodes(filter.tags)  flag node list --tag
-Query.findNodes(filter.updatedAfter)  gap #1341
-Query.findNodes(filter.updatedBefore)  gap #1341
+Query.findNodes(filter.updatedAfter)  flag node list --updated-after
+Query.findNodes(filter.updatedBefore)  flag node list --updated-before
 Query.findNodes(filter.where)  flag node list --where
+Query.impersonationSessions(filter.activeOnly)  flag admin impersonation list --active
 Query.memories(filter.memoryClasses)  flag memory list --include-agent-system
 Query.memories(filter.ownedByMe)  flag memory list --owned-by-me
 Query.memories(filter.sharedWithMe)  flag memory list --shared-with-me
-Query.memories(filter.visibility)  gap #1340: set internally by skill status; no flag
+Query.memories(filter.visibility)  flag memory list --visibility
 Query.memoryConfigTemplates(filter.ownerRef)  flag memory config template list --owner-org --owner-app
 Query.memoryConfigTemplates(filter.ownerType)  flag memory config template list --owner-server --owner-me --owner-org --owner-app
 Query.organizations(filter.memberOnly)  flag org list --mine
@@ -742,7 +652,7 @@ Query.publicAgents(filter.type)  flag agent list --type
 Query.registerEntries(filter.attendeeRef)  flag channel register list --attendee
 Query.registerEntries(filter.channelRef)  flag channel register list --channel
 Query.registerEntries(filter.ownerRef)  flag channel register list --owner
-Query.scopes(filter.appRef)  gap #1340
+Query.scopes(filter.appRef)  flag scope list --app-context
 Query.scopes(filter.name)  flag scope list --name
 Query.scopes(filter.ownerRef)  flag scope list --owner-org --owner-app --owner-agent
 Query.scopes(filter.ownerType)  flag scope list --owner-org --owner-app --owner-agent

@@ -15,6 +15,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/build"
 	accesscmd "github.com/hadron-memory/hadron-cli/internal/cmd/access"
+	admincmd "github.com/hadron-memory/hadron-cli/internal/cmd/admin"
 	agentcmd "github.com/hadron-memory/hadron-cli/internal/cmd/agent"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/agentic"
 	aiconfigcmd "github.com/hadron-memory/hadron-cli/internal/cmd/aiconfig"
@@ -31,6 +32,7 @@ import (
 	commentcmd "github.com/hadron-memory/hadron-cli/internal/cmd/comment"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/configcmd"
 	connectioncmd "github.com/hadron-memory/hadron-cli/internal/cmd/connection"
+	discoverycmd "github.com/hadron-memory/hadron-cli/internal/cmd/discovery"
 	drivecmd "github.com/hadron-memory/hadron-cli/internal/cmd/drive"
 	edgecmd "github.com/hadron-memory/hadron-cli/internal/cmd/edge"
 	emailcmd "github.com/hadron-memory/hadron-cli/internal/cmd/email"
@@ -42,6 +44,8 @@ import (
 	objectcmd "github.com/hadron-memory/hadron-cli/internal/cmd/object"
 	orcacmd "github.com/hadron-memory/hadron-cli/internal/cmd/orca"
 	orgcmd "github.com/hadron-memory/hadron-cli/internal/cmd/org"
+	policycmd "github.com/hadron-memory/hadron-cli/internal/cmd/policy"
+	quotacmd "github.com/hadron-memory/hadron-cli/internal/cmd/quota"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/replacecmd"
 	runcmd "github.com/hadron-memory/hadron-cli/internal/cmd/run"
 	schedulecmd "github.com/hadron-memory/hadron-cli/internal/cmd/schedule"
@@ -129,6 +133,7 @@ the binding is verified. Otherwise this does not apply to you.`,
 		return exitcode.New(exitcode.Usage, err)
 	})
 
+	root.AddCommand(admincmd.NewCmdAdmin(f))
 	root.AddCommand(authcmd.NewCmdAuth(f))
 	root.AddCommand(memorycmd.NewCmdMemory(f))
 	root.AddCommand(usagecmd.NewCmdUsage(f))
@@ -136,6 +141,8 @@ the binding is verified. Otherwise this does not apply to you.`,
 	root.AddCommand(objectcmd.NewCmdObject(f))
 	root.AddCommand(assetcmd.NewCmdAsset(f))
 	root.AddCommand(searchcmd.NewCmdSearch(f))
+	root.AddCommand(discoverycmd.NewCmdFind(f))
+	root.AddCommand(discoverycmd.NewCmdMarketplace(f))
 	root.AddCommand(edgecmd.NewCmdEdge(f))
 	root.AddCommand(commentcmd.NewCmd(f, commentcmd.ConnectGraphQL(f)))
 	root.AddCommand(taskcmd.NewCmdTask(f))
@@ -163,6 +170,8 @@ the binding is verified. Otherwise this does not apply to you.`,
 	root.AddCommand(webhookcmd.NewCmdWebhook(f))
 	root.AddCommand(ticketcmd.NewCmdTicket(f))
 	root.AddCommand(grantcmd.NewCmdGrant(f))
+	root.AddCommand(policycmd.NewCmdPolicy(f))
+	root.AddCommand(quotacmd.NewCmdQuota(f))
 	root.AddCommand(connectioncmd.NewCmdConnection(f))
 	root.AddCommand(hacmd.NewCmdHa(f))
 	root.AddCommand(emailcmd.NewCmdEmail(f))

@@ -34,6 +34,7 @@ func newCmdSet(f *cmdutil.Factory) *cobra.Command {
 		schemaFile  string
 		draftCorpus bool
 		listed      bool
+		settings    memorySettings
 	)
 	cmd := &cobra.Command{
 		Use: "set [<memoryRef>]",
@@ -139,6 +140,9 @@ Apps:
 					return exitcode.Newf(exitcode.Usage, "creating an app memory requires --name")
 				}
 			}
+			if err := settings.validate(cmd, len(args) == 0, appScoped); err != nil {
+				return err
+			}
 			// Refused before any request: draft is chosen only at creation, and
 			// only createMemory takes it (hadron-server#1447). Gated on Changed so
 			// an explicit --draft-corpus=false is refused on update too, rather
@@ -206,9 +210,11 @@ Apps:
 			// The draft-only operation contains the new draftCorpus argument;
 			// ordinary creates use the older document so pre-#1447 servers can
 			// validate it. Omitting a variable alone does not hide an argument.
+			ca := settings.createArgs(cmd)
 			createFreeStanding := func(orgID *string, memoryClass *gen.MemoryClass) (memoryDTO, error) {
 				if draftCorpus {
-					resp, err := gen.CreateMemoryDraft(cmd.Context(), client, orgID, name, memoryClass, optional(short), optional(description), tagsArg, visArg, maxRevArg)
+					resp, err := gen.CreateMemoryDraft(cmd.Context(), client, orgID, name, memoryClass, optional(short), optional(description), tagsArg, visArg, maxRevArg,
+						ca.category0, ca.category1, ca.category2, ca.data, ca.embeddingSource, ca.vectorIndexEnabled, ca.license, ca.iconURL, ca.heroURL, ca.homeURL, ca.source, ca.readBranch, ca.writeBranch)
 					if err != nil {
 						return memoryDTO{}, api.MapError(err)
 					}
@@ -217,7 +223,8 @@ Apps:
 					}
 					return dtoFromMemory(resp.CreateMemory), nil
 				}
-				resp, err := gen.CreateMemory(cmd.Context(), client, orgID, name, memoryClass, optional(short), optional(description), tagsArg, visArg, maxRevArg)
+				resp, err := gen.CreateMemory(cmd.Context(), client, orgID, name, memoryClass, optional(short), optional(description), tagsArg, visArg, maxRevArg,
+					ca.category0, ca.category1, ca.category2, ca.data, ca.embeddingSource, ca.vectorIndexEnabled, ca.license, ca.iconURL, ca.heroURL, ca.homeURL, ca.source, ca.readBranch, ca.writeBranch)
 				if err != nil {
 					return memoryDTO{}, api.MapError(err)
 				}
@@ -281,7 +288,8 @@ Apps:
 					if err != nil {
 						return err
 					}
-					resp, err := gen.CreateMemoryInApp(cmd.Context(), client, appRef, agent, gen.MemoryClass(class), name, optional(short), optional(description), tagsArg, maxRevArg)
+					resp, err := gen.CreateMemoryInApp(cmd.Context(), client, appRef, agent, gen.MemoryClass(class), name, optional(short), optional(description), tagsArg, maxRevArg,
+						ca.data, ca.embeddingSource, ca.vectorIndexEnabled)
 					if err != nil {
 						return api.MapError(err)
 					}
@@ -374,7 +382,7 @@ Apps:
 					if needSlug {
 						urnPtr = &slug
 					}
-					if resp, rerr := gen.UpdateMemory(cmd.Context(), client, m.ID, nil, nil, nil, nil, nil, nil, urnPtr, nil, schemaArg, nil); rerr != nil {
+					if resp, rerr := updateMemory(cmd, client, m.ID, nil, nil, nil, nil, nil, nil, urnPtr, nil, schemaArg, nil, updateSettingArgs{}); rerr != nil {
 						postCreateErr = api.MapError(rerr)
 					} else if resp == nil || resp.UpdateMemory == nil {
 						postCreateErr = exitcode.Newf(exitcode.Error, "server returned no memory on the post-create update")
@@ -388,7 +396,7 @@ Apps:
 				if org != "" || class != "" || app != "" || agentGiven || ownerMe {
 					return exitcode.Newf(exitcode.Usage, "--org, --class, --app, --agent, and --owner-me only apply when creating (no positional argument)")
 				}
-				if name == "" && short == "" && description == "" && visibility == "" && tagsArg == nil && slug == "" && maxRevArg == nil && schemaArg == nil && listedArg == nil {
+				if name == "" && short == "" && description == "" && visibility == "" && tagsArg == nil && slug == "" && maxRevArg == nil && schemaArg == nil && listedArg == nil && !settings.anyChanged(cmd) {
 					return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
 				}
 				memID, err := resolveMemoryID(cmd, client, args[0])
@@ -399,7 +407,8 @@ Apps:
 				if slug != "" {
 					urnArg = &slug
 				}
-				resp, err := gen.UpdateMemory(cmd.Context(), client, memID, optional(name), optional(short), optional(description), tagsArg, visArg, nil, urnArg, maxRevArg, schemaArg, listedArg)
+				resp, err := updateMemory(cmd, client, memID, optional(name), optional(short), optional(description), tagsArg, visArg,
+					settings.dataArg(), urnArg, maxRevArg, schemaArg, listedArg, settings.updateArgs(cmd))
 				if err != nil {
 					return api.MapError(err)
 				}
@@ -478,6 +487,7 @@ Apps:
 	cmd.Flags().IntVar(&maxRevCount, "max-rev-count", 0, "how many earlier versions each node keeps (min 1; default 10)")
 	cmd.Flags().StringVar(&schema, "schema", "", `the memory's record schema as JSON (see hadron object); "" or "null" clears it`)
 	cmd.Flags().StringVar(&schemaFile, "schema-file", "", "read the property schema JSON from a file")
+	settings.register(cmd)
 	cmd.Flags().BoolVar(&listed, "listed-on-marketplace", false, "list the memory in the marketplace catalogue, or =false to de-list it (update only; advertisement, not access; omitted keeps the current value)")
 	return cmd
 }
@@ -488,7 +498,7 @@ Apps:
 var appMemoryRefused = []string{"max-rev-count", "visibility", "slug", "org", "owner-me", "draft-corpus", "schema", "schema-file", "listed-on-marketplace"}
 
 func refuseAppMemoryFlags(cmd *cobra.Command) error {
-	for _, name := range appMemoryRefused {
+	for _, name := range append(append([]string{}, appMemoryRefused...), settingFlags...) {
 		if cmd.Flags().Changed(name) {
 			return exitcode.Newf(exitcode.Usage, "--%s cannot be used with --app alone: createAppMemory takes only --name, --short, --description and --tag. Nothing was sent", name)
 		}

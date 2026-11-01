@@ -35,6 +35,9 @@ func newCmdAdd(f *cmdutil.Factory) *cobra.Command {
 		runnable       bool
 		role           string
 		tags           []string
+		edges          []string
+		id             string
+		seq            int
 	)
 	cmd := &cobra.Command{
 		Use:     "create",
@@ -74,13 +77,22 @@ object. On a memory with a schema, the server checks --object-type and
 
 --runnable makes the node a task that hadron task run can run.
 
+--edge links the new node to another one in the same write, so the node never
+exists without its links. Repeat it for several. The short form is
+<name>=<target> (routes-to=start-here); a JSON object also sets the edge's
+loc, description and runnable: --edge '{"target":"start-here","name":"routes-to",
+"description":"why"}'. The target is a node id, a node URN, or a loc in this
+memory. --id creates the node with an id you choose (for importers and syncs)
+instead of a minted one.
+
 Details:
 
 ` + installDetails("The first create there makes the memory together with the node; a refused\ncreate leaves nothing behind.") + ``,
 		Example: `  hadron node create -m hrn:mem:acme.com:kb --loc findings:flaky-ci --name "Flaky CI" --content "CI fails on every third run."
   cat finding.md | hadron node create -m hrn:mem:acme.com:kb --loc findings:flaky-ci --name "Flaky CI" --content -
   hadron node create -m hrn:mem:acme.com:research --loc competitors:acme --name Acme \
-    --object-type competitor --properties '{"tier":"enterprise","seats":50}'`,
+    --object-type competitor --properties '{"tier":"enterprise","seats":50}'
+  hadron node create -m hrn:mem:acme.com:kb --loc findings:flaky-ci --name "Flaky CI" --edge routes-to=start-here`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			target, err := installTarget(cmd, install, []string{loc})
@@ -153,6 +165,10 @@ Details:
 			if cmd.Flags().Changed("runnable") {
 				input.IsRunnable = &runnable
 			}
+			// cli#479: sent only when given; explicit 0 is a position, absent is not.
+			if changed("seq") {
+				input.Seq = &seq
+			}
 			// #1201 — setting a governed role routes this create through that
 			// kind's door (see api.CreateNodeByKind). Omitted leaves the node
 			// ungoverned, which the generic surface accepts.
@@ -170,6 +186,23 @@ Details:
 				if strings.TrimSpace(role) != "" {
 					input.Role = &role
 				}
+			}
+
+			// cli#1341: outgoing edges written with the node, atomically, and a
+			// client-chosen id. Both are refused here when malformed or empty.
+			if changed("edge") {
+				in, err := parseEdgeFlags(edges)
+				if err != nil {
+					return err
+				}
+				input.Edges = in
+			}
+			if changed("id") {
+				if strings.TrimSpace(id) == "" {
+					return exitcode.Newf(exitcode.Usage, "--id is empty: give the id to create the node with, or drop the flag. Nothing was sent")
+				}
+				v := strings.TrimSpace(id)
+				input.Id = &v
 			}
 
 			// Dispatch by KIND, not by command (#1201). `--runnable` produces a
@@ -210,6 +243,9 @@ Details:
 		`what this node is for in a governed workflow ("spec", "spec.*", "review", "review.*"); blank means no role. Not --type, and not a membership role`)
 	cmd.Flags().BoolVar(&runnable, "runnable", false, "mark the node runnable by 'hadron task run'")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "tag (repeatable)")
+	cmd.Flags().StringArrayVar(&edges, "edge", nil, edgeFlagUsage)
+	cmd.Flags().IntVar(&seq, "seq", 0, "position among sibling nodes, lower first (0 is a real position; omit for the default); "+seqRefusalHelp)
+	cmd.Flags().StringVar(&id, "id", "", "create the node with this id instead of a minted one (importers and syncs)")
 	cmd.MarkFlagsOneRequired("memory", "install")
 	cmd.MarkFlagsMutuallyExclusive("memory", "install")
 	_ = cmd.MarkFlagRequired("loc")

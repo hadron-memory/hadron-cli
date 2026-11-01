@@ -175,6 +175,11 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 		}
 	}
 	if task.Requirements != nil {
+		if task.Requirements.MinTier != nil {
+			if err := line("  minTier: %s", output.SafeCell(*task.Requirements.MinTier)); err != nil {
+				return err
+			}
+		}
 		if err := line("  requirements: role=%s familyIn=%s familyNotIn=%s exclude=%s",
 			output.SafeCell(strOr(task.Requirements.Role)),
 			safeTaskRequirementList(task.Requirements.FamilyIn),
@@ -535,10 +540,16 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 			return err
 		}
 		withHandle := false
+		withMinTier := false
 		for _, task := range tasks {
+			withMinTier = withMinTier || (task.Requirements != nil && task.Requirements.MinTier != nil)
 			withHandle = withHandle || task.Handle != ""
 		}
-		t := output.NewTable(w, handleHeaders(withHandle, "ID", "STATUS", "PRIORITY", "BLOCKED", "BLOCKED BY", "BLOCKS", "TITLE", "OWNER", "ASSIGNEE")...)
+		headers := handleHeaders(withHandle, "ID", "STATUS", "PRIORITY", "BLOCKED", "BLOCKED BY", "BLOCKS", "TITLE", "OWNER", "ASSIGNEE")
+		if withMinTier {
+			headers = append(headers, "MIN TIER")
+		}
+		t := output.NewTable(w, headers...)
 		for _, task := range tasks {
 			assignee := "—"
 			if task.Queued {
@@ -546,7 +557,15 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 			} else if task.Assignee != nil {
 				assignee = partyCell(task.Assignee)
 			}
-			t.Row(handleCells(withHandle, task.Handle, output.SafeCell(task.ID), output.SafeCell(task.Status), strconv.Itoa(task.Priority), strconv.FormatBool(task.Blocked), dependencySummary(task.BlockedBy), dependencySummary(task.Blocks), output.SafeCell(task.Title), output.SafeCell(partyCell(task.Owner)), output.SafeCell(assignee))...)
+			cells := handleCells(withHandle, task.Handle, output.SafeCell(task.ID), output.SafeCell(task.Status), strconv.Itoa(task.Priority), strconv.FormatBool(task.Blocked), dependencySummary(task.BlockedBy), dependencySummary(task.Blocks), output.SafeCell(task.Title), output.SafeCell(partyCell(task.Owner)), output.SafeCell(assignee))
+			if withMinTier {
+				tier := ""
+				if task.Requirements != nil && task.Requirements.MinTier != nil {
+					tier = output.SafeCell(*task.Requirements.MinTier)
+				}
+				cells = append(cells, tier)
+			}
+			t.Row(cells...)
 		}
 		return t.Flush()
 	})

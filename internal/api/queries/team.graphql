@@ -1608,3 +1608,113 @@ mutation SetTeamPause($appRef: String!, $paused: Boolean!) {
 mutation ChangeWorkerAgent($workerRef: ID!, $agentRef: ID!) {
   changeWorkerAgent(workerRef: $workerRef, agentRef: $agentRef) { ...WorkerFields }
 }
+
+# cli#1337: explicit opt-in documents preserve ordinary older-server calls.
+mutation EndTeamSessionWithStats(
+  $id: ID!
+  # @genqlient(omitempty: true)
+  $inputTokens: Int
+  # @genqlient(omitempty: true)
+  $outputTokens: Int
+  # @genqlient(omitempty: true)
+  $turnCount: Int
+  # @genqlient(omitempty: true)
+  $errorCount: Int
+  # @genqlient(omitempty: true)
+  $summary: String
+  # @genqlient(omitempty: true)
+  $handoff: String
+) {
+  endSession(id: $id, summary: $summary, handoff: $handoff, inputTokens: $inputTokens, outputTokens: $outputTokens, turnCount: $turnCount, errorCount: $errorCount) {
+    ...TeamSessionFields
+  }
+}
+
+# The claim variant is explicit: old counter-capable servers need not know it.
+mutation EndTeamSessionWithStatsAndResumeClaim(
+  $id: ID!
+  # @genqlient(omitempty: true)
+  $inputTokens: Int
+  # @genqlient(omitempty: true)
+  $outputTokens: Int
+  # @genqlient(omitempty: true)
+  $turnCount: Int
+  # @genqlient(omitempty: true)
+  $errorCount: Int
+  # @genqlient(omitempty: true)
+  $summary: String
+  # @genqlient(omitempty: true)
+  $handoff: String
+) {
+  endSession(id: $id, summary: $summary, handoff: $handoff, inputTokens: $inputTokens, outputTokens: $outputTokens, turnCount: $turnCount, errorCount: $errorCount, resumeClaim: true) {
+    ...TeamSessionFields
+  }
+}
+
+query TeamSessionsPageFiltered(
+  # @genqlient(omitempty: true)
+  $repo: String
+  # @genqlient(omitempty: true)
+  $customerId: String
+  # @genqlient(omitempty: true)
+  $sessionType: String
+  # @genqlient(omitempty: true)
+  $workerRef: String
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  sessionsPage(customerId: $customerId, type: $sessionType, repo: $repo, workerRef: $workerRef, limit: $limit, offset: $offset) {
+    total
+    hasMore
+    items {
+      ...TeamSessionFields
+    }
+  }
+}
+
+query TeamWorkItemsByWorker(
+  $appRef: ID!
+  $workerRef: ID!
+  # @genqlient(omitempty: true)
+  $sessionRef: ID
+  # @genqlient(omitempty: true)
+  $ref: String
+  # @genqlient(omitempty: true)
+  $kind: String
+  # @genqlient(omitempty: true)
+  $tool: String
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  teamWorkItems(
+    workerRef: $workerRef
+    appRef: $appRef
+    sessionRef: $sessionRef
+    ref: $ref
+    kind: $kind
+    tool: $tool
+    limit: $limit
+    offset: $offset
+  ) {
+    total
+    items {
+      ...TeamWorkItemFields
+    }
+  }
+}
+
+# @genqlient(for: "SetHostWorkerAvailabilityInput.reason", omitempty: true)
+# @genqlient(for: "SetHostWorkerAvailabilityInput.until", omitempty: true)
+mutation SetHostWorkerAvailability(
+  $input: SetHostWorkerAvailabilityInput!
+) {
+  setHostWorkerAvailability(input: $input) {
+    worker { id kind name urn }
+    state reason until inEffect setAt setBy setByHostId
+    setByParty { id kind name urn }
+  }
+}

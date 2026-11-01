@@ -81,6 +81,7 @@ holds nothing), so it has nothing to release.`,
 	cmd.AddCommand(newCmdSessionResumeClaim(f))
 	cmd.AddCommand(newCmdSessionShed(f))
 	cmd.AddCommand(newCmdSessionList(f))
+	cmd.AddCommand(newCmdSessionWorkItems(f))
 	cmd.AddCommand(newCmdSessionOutcome(f))
 	cmd.AddCommand(servedprompt.NewSession(f))
 	cmd.AddCommand(newCmdSessionSyncModel(f))
@@ -208,11 +209,14 @@ const sessionPageSize = 200
 // fails the read rather than looping or returning a partial list; a row shifted
 // onto the next page by a concurrent insert is skipped as the duplicate it is.
 func scanSessions(ctx context.Context, client graphql.Client, repo, workerRef *string, visit func(gen.TeamSessionFields) bool) error {
+	return scanSessionsFiltered(ctx, client, repo, workerRef, nil, nil, visit)
+}
+func scanSessionsFiltered(ctx context.Context, client graphql.Client, repo, workerRef, customer, typ *string, visit func(gen.TeamSessionFields) bool) error {
 	limit := sessionPageSize
 	seen := map[string]bool{}
 	for offset := 0; ; {
 		off := offset
-		resp, err := gen.TeamSessionsPage(ctx, client, repo, workerRef, &limit, &off)
+		resp, err := sessionPage1337(ctx, client, repo, workerRef, customer, typ, &limit, &off)
 		if err != nil {
 			return api.MapError(err)
 		}
@@ -692,6 +696,7 @@ func heldRefusal(name, ref, holder string, heldAt *string) error {
 func newCmdSessionStart(f *cmdutil.Factory) *cobra.Command {
 	var as, repo, branch, transcript, host, tool, model, teamMemory, reportsTo, launchGrantFlag, pick string
 	var force bool
+	var extra sessionStartInputs
 	cmd := &cobra.Command{
 		Use:   "start [--as <worker> | --launch-grant <grant> | --session <id>] [--transcript <path>] [--tool <t>] [--force]",
 		Short: "Start a worker session: bind this worktree to a worker",
@@ -732,6 +737,13 @@ THREE DIFFERENT STARTS — pick one:
   first bind / ordinary start   start --as <worker>
   recover after a context reset start            (no --as: RESUMES a live one, below)
   take over a live session      start --as <worker> --force (TAKEN, below)
+
+Additional new-session provenance can be supplied with --agent, --customer,
+--family, --language, --parent-session, --previous-session, --plan, --pr-number
+and --type. Omitted values are not sent; the server resolves references.
+--description applies only to the no-worker resume mode: it sets the plan
+when redemption starts a new session, never replaces an open session's plan.
+--family also refreshes the family of a resumed open session.
 
 The session is recorded server-side
 (with the provenance fields: repo, branch, host, tool, transcript path,
@@ -852,8 +864,10 @@ printed, as for any bind. Several candidates bind nothing: they are listed,
 exit 2, and --session <id> picks one. Nothing at all refuses
 NOTHING_TO_RESUME (exit 4), and nothing is posted or recorded on your
 behalf. A refused resume (exit 5, RESUME_REFUSED) has spent its claim.
---tool, --host, --model and --transcript ride along. --repo, --branch,
---reports-to, -m and --force do not apply and are refused. A worktree still
+--tool, --host, --model, --transcript, --description and --family ride along.
+--repo, --branch, --reports-to, -m, --force, --agent, --customer, --language,
+--parent-session, --previous-session, --plan, --pr-number and --type do not
+apply and are refused. A worktree still
 bound to a live session refuses first, before any claim is spent, as does a
 directory outside a git worktree. A failure after the server answered never
 ends the recovered session: run start again to pick it up.`,
@@ -885,10 +899,13 @@ ends the recovered session: run start again to pick it up.`,
 			if err != nil {
 				return err
 			}
+			if err := extra.validate(cmd, grant == "" && strings.TrimSpace(as) == ""); err != nil {
+				return err
+			}
 			if grant == "" && strings.TrimSpace(as) == "" {
 				// hadron-cli#842: no worker named and no grant is a RESUME.
 				return runSessionResume(cmd, f, resumeFlags{
-					pick: pick, tool: tool, host: host, model: model, transcript: transcript,
+					pick: pick, tool: tool, host: host, model: model, transcript: transcript, description: changedString1337(cmd, "description", extra.description), family: changedString1337(cmd, "family", extra.family),
 				})
 			}
 			if cmd.Flags().Changed("session") {
@@ -1141,6 +1158,7 @@ ends the recovered session: run start again to pick it up.`,
 			if force && live != liveNo {
 				input.Force = &force
 			}
+			extra.apply(cmd, input)
 			resp, err := gen.StartTeamSession(ctx, client, input)
 			if err != nil {
 				// The race the pre-flight can't close: the worker was free a
@@ -1284,6 +1302,7 @@ ends the recovered session: run start again to pick it up.`,
 			return finishBind(cmd, f, client, s, w, path, lapsedBinding, existing, live, repo, nil, tool)
 		},
 	}
+	extra.flags(cmd)
 	cmd.Flags().StringVar(&as, "as", "", "worker to drive: its URN or id (no App scope needed), or its name within the team App; omit it (and any launch grant) to resume")
 	cmd.Flags().StringVar(&launchGrantFlag, "launch-grant", "", "single-use launch grant from the host poller (default: $"+launchGrantEnv+"); binds the worker it names")
 	// LIVE, not "active": the gate is derived liveness, and an ACTIVE session
@@ -2133,8 +2152,41 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 				_, branchName, _ := strings.Cut(canonical, ":")
 				branchArg = &branchName
 			}
-			if _, err := gen.UpdateTeamSession(ctx, client, b.SessionID, prArg, branchArg, nil, nil); err != nil {
-				return api.MapError(err)
+			//
+			// #1278: the touch runs AFTER the worklog record, never before. A
+			// refused record (for example "Team Agent cannot be inferred")
+			// used to leave the PR/branch pointer already moved with no worklog
+			// row and an error that said nothing about it. Record first, then
+			// move the pointer: a refusal now leaves nothing half-applied, and
+			// the reverse partial (row written, pointer refused) is named.
+			touchSession := func(rowWritten bool) error {
+				if _, err := gen.UpdateTeamSession(ctx, client, b.SessionID, prArg, branchArg, nil, nil); err != nil {
+					mapped := api.MapError(err)
+					if rowWritten {
+						// Claim "NOT updated" only for a definitive refusal. A
+						// lost or undecodable answer, or an internal fault, may
+						// have committed the update, so say the row
+						// WAS recorded and the pointer could not be confirmed;
+						// either way do not retry the log (it would duplicate
+						// the recorded milestone).
+						//
+						// "NOT updated" needs a POSITIVE refusal: the server
+						// answered with a GraphQL error envelope that is not an
+						// internal fault. Anything else (lost answer, an
+						// undecodable body, a bare HTTP error) proves nothing
+						// about whether the update landed.
+						definitiveRefusal := len(api.ServerMessages(err)) > 0 &&
+							exitcode.FromError(mapped) != exitcode.Unavailable &&
+							!api.HasErrorCode(err, api.InternalServerErrorCode)
+						if !definitiveRefusal {
+							fmt.Fprintf(f.IOStreams.ErrOut, "note: the worklog row WAS recorded, but the session pointer (PR/branch/liveness) update could NOT be confirmed and may have been applied: %v — check `hadron team session list --active` before touching it; do not re-run this log, it would duplicate the row\n", err)
+						} else {
+							fmt.Fprintf(f.IOStreams.ErrOut, "note: the worklog row WAS recorded, but the session pointer (PR/branch/liveness) was NOT updated: %v\n", err)
+						}
+					}
+					return mapped
+				}
+				return nil
 			}
 			recorded := "session"
 			var recordedModel *string
@@ -2199,8 +2251,14 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 				if logged != nil && logged.RecordTeamWork != nil && logged.RecordTeamWork.Ref != "" {
 					canonical = logged.RecordTeamWork.Ref
 				}
+				if err := touchSession(true); err != nil {
+					return err
+				}
 				recorded = "worklog"
 			} else {
+				if err := touchSession(false); err != nil {
+					return err
+				}
 				// #414/#399: reachable only by a binding that predates the
 				// App-recording CLI (no appId, no teamMemory). The note must
 				// name the real cause and the real remedy — for a pre-Worker
@@ -2394,6 +2452,7 @@ type endResultDTO struct {
 func newCmdSessionEnd(f *cmdutil.Factory) *cobra.Command {
 	var summary, sessionID, handoff, handoffFile string
 	var resumeClaim bool
+	var inputTokens, outputTokens, turns, errorsCount int
 	cmd := &cobra.Command{
 		Use:   "end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>] [--resume-claim]",
 		Short: "End this worktree's worker session — the session, not the name",
@@ -2406,7 +2465,10 @@ working as the same worker, use ` + "`session shed`" + ` instead. When you do en
 leave a handoff (--handoff-file below): it is what the next driver reads.
 
 This is the deliberate way to end a session and the only one that leaves a
-handoff. The other one you cause is your own next bind of the same worker
+handoff. Optional --input-tokens, --output-tokens, --turns and --errors
+record the supplied counters at end; unset values are omitted and explicit
+zero is sent. These counts do not determine whether ending is permitted.
+The other one you cause is your own next bind of the same worker
 (a resume of the same session is not one), which ends your old open sessions
 on it WITHOUT a handoff — so write the handoff here first.
 Another person's or an App key's session on the worker is not ended by
@@ -2587,7 +2649,21 @@ nothing ends. For a SHED, which keeps the session open, use
 			// server rejects the unknown argument at validation even when
 			// it is omitted, so a plain end keeps the document it always sent.
 			var ended *gen.TeamSessionFields
-			if resumeClaim {
+			if cmd.Flags().Changed("input-tokens") || cmd.Flags().Changed("output-tokens") || cmd.Flags().Changed("turns") || cmd.Flags().Changed("errors") {
+				if resumeClaim {
+					r, e := gen.EndTeamSessionWithStatsAndResumeClaim(ctx, client, id, changedInt1337(cmd, "input-tokens", inputTokens), changedInt1337(cmd, "output-tokens", outputTokens), changedInt1337(cmd, "turns", turns), changedInt1337(cmd, "errors", errorsCount), optStr(summary), optStr(text))
+					err = e
+					if err == nil && r.EndSession != nil {
+						ended = &r.EndSession.TeamSessionFields
+					}
+				} else {
+					r, e := gen.EndTeamSessionWithStats(ctx, client, id, changedInt1337(cmd, "input-tokens", inputTokens), changedInt1337(cmd, "output-tokens", outputTokens), changedInt1337(cmd, "turns", turns), changedInt1337(cmd, "errors", errorsCount), optStr(summary), optStr(text))
+					err = e
+					if err == nil && r.EndSession != nil {
+						ended = &r.EndSession.TeamSessionFields
+					}
+				}
+			} else if resumeClaim {
 				var r *gen.EndTeamSessionWithResumeClaimResponse
 				r, err = gen.EndTeamSessionWithResumeClaim(ctx, client, id, optStr(summary), optStr(text))
 				if err == nil && r.EndSession != nil {
@@ -2651,12 +2727,17 @@ nothing ends. For a SHED, which keeps the session open, use
 	cmd.Flags().StringVar(&summary, "summary", "", "short session label — DISPLAY ONLY, the next driver never sees it (use --handoff for that)")
 	cmd.MarkFlagsMutuallyExclusive("handoff", "handoff-file")
 	cmd.Flags().StringVar(&sessionID, "session", "", "end this session id instead of the worktree's bound one (recovery)")
+	cmd.Flags().IntVar(&inputTokens, "input-tokens", 0, "input-token count to record at end (unset omits it)")
+	cmd.Flags().IntVar(&outputTokens, "output-tokens", 0, "output-token count to record at end (unset omits it)")
+	cmd.Flags().IntVar(&turns, "turns", 0, "turn count to record at end (unset omits it)")
+	cmd.Flags().IntVar(&errorsCount, "errors", 0, "error count to record at end (unset omits it)")
 	cmd.Flags().BoolVar(&resumeClaim, "resume-claim", false, "also write a resume claim before the end (a rotation): the next context recovers this worker by running team session start with no worker named")
 	return cmd
 }
 
 func newCmdSessionList(f *cmdutil.Factory) *cobra.Command {
 	var as, repo, pr, issue, commit, branch, memory string
+	var customer, sessionType string
 	var active bool
 	var limit, offset int
 	cmd := &cobra.Command{
@@ -2702,6 +2783,14 @@ from a later milestone's REPORTED MODEL.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
+			for _, flag := range []string{"customer", "type"} {
+				if cmd.Flags().Changed(flag) {
+					v, _ := cmd.Flags().GetString(flag)
+					if strings.TrimSpace(v) == "" {
+						return exitcode.Newf(exitcode.Usage, "--%s must not be empty", flag)
+					}
+				}
+			}
 			if limit < 0 || offset < 0 {
 				return exitcode.Newf(exitcode.Usage, "--limit and --offset must be non-negative")
 			}
@@ -2717,8 +2806,8 @@ from a later milestone's REPORTED MODEL.`,
 				kind, ref = "branch", branch
 			}
 			if ref != "" && (active || as != "" || repo != "" ||
-				cmd.Flags().Changed("limit") || cmd.Flags().Changed("offset")) {
-				return exitcode.Newf(exitcode.Usage, "--%s is the worklog provenance query — it does not combine with --active/--as/--repo/--limit/--offset", kind)
+				cmd.Flags().Changed("limit") || cmd.Flags().Changed("offset") || cmd.Flags().Changed("customer") || cmd.Flags().Changed("type")) {
+				return exitcode.Newf(exitcode.Usage, "--%s is the worklog provenance query — it does not combine with --active/--as/--repo/--customer/--type/--limit/--offset", kind)
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -2750,7 +2839,7 @@ from a later milestone's REPORTED MODEL.`,
 			if active {
 				// The active filter is client-side and needs the whole list;
 				// --limit/--offset then slice the filtered result.
-				err = scanSessions(ctx, client, optStr(repo), asWorkerRef, func(s gen.TeamSessionFields) bool {
+				err = scanSessionsFiltered(ctx, client, optStr(repo), asWorkerRef, changedString1337(cmd, "customer", customer), changedString1337(cmd, "type", sessionType), func(s gen.TeamSessionFields) bool {
 					if s.EndedAt != nil {
 						return true
 					}
@@ -2773,7 +2862,7 @@ from a later milestone's REPORTED MODEL.`,
 			} else if !cmd.Flags().Changed("limit") && !cmd.Flags().Changed("offset") {
 				// No --limit/--offset: the whole list, not one server page
 				// (cli#967).
-				err = scanSessions(ctx, client, optStr(repo), asWorkerRef, func(s gen.TeamSessionFields) bool {
+				err = scanSessionsFiltered(ctx, client, optStr(repo), asWorkerRef, changedString1337(cmd, "customer", customer), changedString1337(cmd, "type", sessionType), func(s gen.TeamSessionFields) bool {
 					sessions = append(sessions, sessionDTOFromFields(s, nil))
 					return true
 				})
@@ -2788,7 +2877,7 @@ from a later milestone's REPORTED MODEL.`,
 				if cmd.Flags().Changed("offset") {
 					off = &offset
 				}
-				resp, err := gen.TeamSessionsPage(ctx, client, optStr(repo), asWorkerRef, lim, off)
+				resp, err := sessionPage1337(ctx, client, optStr(repo), asWorkerRef, changedString1337(cmd, "customer", customer), changedString1337(cmd, "type", sessionType), lim, off)
 				if err != nil {
 					return api.MapError(err)
 				}
@@ -2849,6 +2938,8 @@ from a later milestone's REPORTED MODEL.`,
 	// flag's PLACEHOLDER name, so "see `worker list`" rendered the flag as
 	// "--active worker list" (review:backticks-in-flag-usage-become-the-placeholder,
 	// caught by TestFlagUsagePlaceholdersAreDeliberate).
+	cmd.Flags().StringVar(&customer, "customer", "", "only sessions for this customer id (server-side)")
+	cmd.Flags().StringVar(&sessionType, "type", "", "only sessions with this recorded type (server-side)")
 	cmd.Flags().BoolVar(&active, "active", false, "only sessions that never ENDED — not presence; see worker list's LAST RECORDED ACTIVITY")
 	cmd.Flags().StringVar(&as, "as", "", "only one worker's sessions (name within the team App, or worker id)")
 	cmd.Flags().StringVar(&repo, "repo", "", "only sessions that recorded this repository at start (owner/repo)")

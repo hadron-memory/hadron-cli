@@ -30,7 +30,12 @@ one. Where a Channel's host memory predates the flat URN grammar the server
 advertises no address; use its ID, which always works.
 
 Two Channels can share a name AND a loc and differ only in their host memory,
-so the MEMORY column is what tells them apart.`,
+so the MEMORY column is what tells them apart.
+
+The Channel can be readable while its host memory metadata is not. In that
+case the memory cell says "not readable"; --json keeps memoryUrn and memoryName
+present as null, and memoryId remains the Channel's own scalar. This is a
+successful Channel result, with no extra memory lookup.`,
 		Example: `  hadron channel list
   hadron channel list --memory hrn:mem:acme.com:team-shared`,
 		Args: cobra.NoArgs,
@@ -84,7 +89,7 @@ so the MEMORY column is what tells them apart.`,
 					if c.ChatRootURN != nil && *c.ChatRootURN != "" {
 						address = *c.ChatRootURN
 					}
-					t.Row(output.SafeCell(c.Name), output.SafeCell(c.MemoryURN), output.SafeCell(address), output.SafeCell(c.ID))
+					t.Row(output.SafeCell(c.Name), memoryCell(c.MemoryURN), output.SafeCell(address), output.SafeCell(c.ID))
 				}
 				if err := t.Flush(); err != nil {
 					return err

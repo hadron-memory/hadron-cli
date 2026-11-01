@@ -842,7 +842,7 @@ func TestAutomationAppIsResolvedLikeOtherAppCommands(t *testing.T) {
 	})
 }
 
-func TestAutomationLegacyOperationsStayUnbound(t *testing.T) {
+func TestAutomationOperations1346AreBound(t *testing.T) {
 	b, err := os.ReadFile(filepath.Join("..", "..", coveragematrix.Path))
 	if err != nil {
 		t.Fatal(err)
@@ -857,12 +857,7 @@ func TestAutomationLegacyOperationsStayUnbound(t *testing.T) {
 			kind[e.Key] = e.Kind
 		}
 	}
-	for _, op := range []string{"previewAutomation", "reAdoptAutomation"} {
-		if kind[op] == coveragematrix.Command {
-			t.Errorf("%s has no CLI call site and must not be mapped to a command", op)
-		}
-	}
-	for _, op := range []string{"automationApprovals", "automationApproval", "approveAutomation", "declineAutomation"} {
+	for _, op := range []string{"previewAutomation", "reAdoptAutomation", "automationApprovals", "automationApproval", "approveAutomation", "declineAutomation"} {
 		if kind[op] != coveragematrix.Command {
 			t.Errorf("%s is bound by this slice and must be mapped to its command, got %q", op, kind[op])
 		}

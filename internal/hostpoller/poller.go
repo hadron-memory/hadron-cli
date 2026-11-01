@@ -50,6 +50,7 @@ type Operation struct {
 
 // Registration is one registerHost call: the whole worker list.
 type Registration struct {
+	Capabilities        []string
 	Label               string
 	PollIntervalSeconds int
 	Workers             []RegisteredWorker
@@ -244,7 +245,7 @@ func (p *Poller) Step(ctx context.Context) error {
 }
 
 func (p *Poller) register(ctx context.Context) error {
-	r := Registration{Label: p.cfg.Label, PollIntervalSeconds: p.cfg.PollIntervalSeconds, Workers: []RegisteredWorker{}}
+	r := Registration{Capabilities: append([]string{}, p.cfg.Capabilities...), Label: p.cfg.Label, PollIntervalSeconds: p.cfg.PollIntervalSeconds, Workers: []RegisteredWorker{}}
 	for _, ref := range p.cfg.WorkerRefs() {
 		w := p.cfg.Workers[ref]
 		r.Workers = append(r.Workers, RegisteredWorker{

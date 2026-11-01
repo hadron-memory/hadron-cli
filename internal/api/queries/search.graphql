@@ -65,6 +65,18 @@ query SearchNodes(
   # *json.RawMessage, nil when not selected.
   $withProperties: Boolean!
   $withData: Boolean!
+  # cli#1341 — the ranking arguments, each omitted when not asked for: graph
+  # neighbours appended after the hits (unscored), the lexical weight-mask,
+  # node vs chunk granularity (chunk returns passages; vector mode only), and
+  # an absolute score floor whose scale differs per mode.
+  # @genqlient(omitempty: true)
+  $expand: Int
+  # @genqlient(omitempty: true)
+  $fields: [NodeField!]
+  # @genqlient(omitempty: true)
+  $granularity: SearchGranularity
+  # @genqlient(omitempty: true)
+  $minScore: Float
 ) {
   findNodes(
     query: $query
@@ -76,6 +88,10 @@ query SearchNodes(
     scope: $scope
     appRef: $appRef
     orgId: $orgId
+    expand: $expand
+    fields: $fields
+    granularity: $granularity
+    minScore: $minScore
   ) {
     total
     degraded
@@ -92,6 +108,14 @@ query SearchNodes(
       ownerUrn
       memoryUrns
       droppedCount
+    }
+    # Chunk-granularity results (--granularity chunk): where in which node.
+    passages {
+      parentNodeId
+      parentNodeUrn
+      chunkIndex
+      charStart
+      charEnd
     }
     hits {
       score

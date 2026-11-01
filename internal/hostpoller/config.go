@@ -27,6 +27,8 @@ import (
 // environment variable, which a same-user agent could read from the
 // poller's /proc entry.
 type Config struct {
+	// Capabilities is an explicit full declaration at every refresh, never inferred.
+	Capabilities []string `yaml:"capabilities"`
 	// Server is the Hadron server URL; empty means the CLI's usual resolution.
 	Server string `yaml:"server"`
 	// App is the team App the host serves (hrn:app:<root>:<slug>, or an id).

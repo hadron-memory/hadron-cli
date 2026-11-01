@@ -126,10 +126,11 @@ func (fl edgeFilter) validate(provided map[string]bool) error {
 func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 	var memory string
 	var fl edgeFilter
+	var u uniformListFlags
 	cmd := &cobra.Command{
-		Use:     "list <node-urn> | <loc> -m <memory>",
+		Use:     "list <node-urn> | <loc> -m <memory> | [-m <memory>] [--source <node>] [--target <node>]",
 		Aliases: []string{"ls"},
-		Short:   "List a node's edges (both directions)",
+		Short:   "List a node's edges, or every edge you can read",
 		Long: `List a node's edges: the links it makes (outgoing) and the links other
 nodes make to it (incoming). Name the node by its node URN, or by a bare loc
 with -m/--memory.
@@ -147,14 +148,44 @@ without its loc.
 Without filters every edge is listed. --direction, --name, --to and --from
 only narrow that list, so a filtered --json run is a subset of an unfiltered
 one. --to and --from name the node at the other end, by its loc or id: --to
-keeps the links this node makes to it, --from the links it makes to this node.`,
+keeps the links this node makes to it, --from the links it makes to this node.
+
+Without a node, edge list lists every edge you can read, in loc order, with
+the node at each end and the edge's memory being the source node's:
+
+  FROM               REL        TO          EDGE-ID
+  findings:flaky-ci  routes-to  start-here  <edge-id>
+
+-m keeps one memory's edges, --source the edges leaving a node, --target the
+edges arriving at one (a node id or node URN; a bare loc is refused),
+--runnable the edges marked runnable, --runnable=false those explicitly
+marked not runnable (an edge never marked either way matches neither),
+--include-deleted adds deleted ones, and --org one organization's memories.
+A memory, node or organization you cannot read, or that does not exist, gives
+an empty list rather than "not found". Every edge is
+listed unless --limit or --offset asks for one page; --json prints
+{total, edges}. --direction, --name, --to and --from need a node.`,
 		Example: `  hadron edge list hrn:node:hadronmemory.com:dev:start-here
   hadron edge list start-here -m hrn:mem:hadronmemory.com:dev
   hadron edge list review -m hrn:mem:micromentor.org:mmdata --direction incoming
   hadron edge list preflight -m hrn:mem:hadronmemory.com:dev --name routes-to
-  hadron edge list preflight -m hrn:mem:hadronmemory.com:dev --to findings:prisma-upsert-not-race-safe`,
-		Args: cobra.ExactArgs(1),
+  hadron edge list preflight -m hrn:mem:hadronmemory.com:dev --to findings:prisma-upsert-not-race-safe
+  hadron edge list -m hrn:mem:hadronmemory.com:dev --json
+  hadron edge list --target hrn:node:hadronmemory.com:dev:preflight`,
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			wrong, form := nodeOnly, "need a node: name one, or drop them to list every edge"
+			if len(args) == 1 {
+				wrong, form = uniformOnly, "list edges without a node, so they cannot be combined with one"
+			}
+			for _, name := range wrong {
+				if cmd.Flags().Changed(name) {
+					return exitcode.Newf(exitcode.Usage, "--%s: --%s %s. Nothing was sent", name, strings.Join(wrong, ", --"), form)
+				}
+			}
+			if len(args) == 0 {
+				return listUniformEdges(cmd, f, memory, u)
+			}
 			provided := map[string]bool{}
 			for _, n := range []string{"direction", "name", "to", "from"} {
 				provided[n] = cmd.Flags().Changed(n)
@@ -216,7 +247,14 @@ keeps the links this node makes to it, --from the links it makes to this node.`,
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve a bare <loc> against")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve a bare <loc> against; without a node, only that memory's edges")
+	cmd.Flags().StringVar(&u.source, "source", "", "without a node: only edges leaving this node (id or URN)")
+	cmd.Flags().StringVar(&u.target, "target", "", "without a node: only edges arriving at this node (id or URN)")
+	cmd.Flags().BoolVar(&u.runnable, "runnable", false, "without a node: only edges marked runnable (--runnable=false: only those explicitly marked not runnable)")
+	cmd.Flags().BoolVar(&u.includeDeleted, "include-deleted", false, "without a node: include deleted edges")
+	cmd.Flags().StringVar(&u.org, "org", "", "without a node: only edges in this organization's memories")
+	cmd.Flags().IntVar(&u.limit, "limit", 0, "without a node: fetch one page of at most N edges (default: all)")
+	cmd.Flags().IntVar(&u.offset, "offset", 0, "without a node: pagination offset (implies one page)")
 	cmd.Flags().StringVar(&fl.Direction, "direction", "", `only "incoming" or only "outgoing" edges`)
 	cmd.Flags().StringVar(&fl.Name, "name", "", "only edges whose relationship name contains this (case-insensitive)")
 	cmd.Flags().StringVar(&fl.To, "to", "", "only outgoing edges whose target is this loc or id")
