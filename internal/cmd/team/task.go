@@ -183,7 +183,7 @@ func writeCloseSessionLine(w io.Writer, task taskDTO) error {
 
 func newCmdTeamTaskCreate(f *cmdutil.Factory) *cobra.Command {
 	var description, owner, assignee, parent, source, startBy, status string
-	var tags, blockedBy []string
+	var tags, blockedBy, refs []string
 	var priority int
 	var requireRole, familyIn, familyNotIn, modelGroupIn, modelGroupNotIn, minTier, properties string
 	var excludeWorkers []string
@@ -197,6 +197,11 @@ comes from --app, else the configured App context, else the worktree binding;
 a child task takes its App from the parent (an --app that disagrees is
 refused). Pass --source (an issue URL or node URN) so readers can trace the
 task: without one the server adds the warning task.create.no-source.
+
+--ref <kind>=<target>[|<label>] (repeatable, kept in order) records what the
+task points at: kind is issue, pull-request, node, task or url, and the label
+starts at the first |. The CLI checks only that shape; the server owns the form
+of each target and the caps (BAD_USER_INPUT, exit 2, naming the item's position).
 
 Who goes on it:
 - --assignee worker:<name> or user:<handle> puts it straight in that party's
@@ -336,6 +341,10 @@ warnings list.`,
 					return exitcode.Newf(exitcode.Usage, "--blocked-by must name a task")
 				}
 			}
+			refInputs, err := parseTaskRefFlags(refs)
+			if err != nil {
+				return err
+			}
 			input := gen.CreateAgentTaskInput{Priority: priorityArg, BlockedBy: blockedBy,
 				Title:        title,
 				Description:  optStr(description),
@@ -360,6 +369,9 @@ warnings list.`,
 			}
 			if closeSession && noCloseSession {
 				return exitcode.Newf(exitcode.Usage, "--close-session and --no-close-session contradict each other")
+			}
+			if len(refs) > 0 {
+				input.References = refInputs
 			}
 			if closeSession {
 				input.CloseSessionWhenDone = boolPtr(true)
@@ -454,6 +466,7 @@ warnings list.`,
 	cmd.Flags().StringVar(&startBy, "start-by", "", "RFC 3339 deadline to start by")
 	cmd.Flags().StringVar(&source, "source", "", "origin reference (an issue URL, a node URN)")
 	cmd.Flags().StringSliceVar(&tags, "tag", nil, "tag (repeatable)")
+	cmd.Flags().StringArrayVar(&refs, "ref", nil, "typed reference <kind>=<target>[|<label>], repeatable, kept in order; kind is "+taskRefKindsDoc)
 	cmd.Flags().StringVar(&minTier, "min-tier", "", "minimum model tier: low, mid or high (lowest sufficient preferred; unknown ineligible)")
 	cmd.Flags().StringVar(&requireRole, "require-role", "", "matcher must pick this role")
 	addTaskModelGroupFlags(cmd, &modelGroupIn, &modelGroupNotIn)

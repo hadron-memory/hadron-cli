@@ -167,6 +167,20 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 			return err
 		}
 	}
+	if len(task.References) > 0 {
+		if err := line("  references:"); err != nil {
+			return err
+		}
+		for _, r := range task.References {
+			text := output.SafeLine(r.Kind+" "+r.Target, 2048)
+			if r.Label != nil {
+				text += " (" + output.SafeLine(*r.Label, 512) + ")"
+			}
+			if err := line("    %s", text); err != nil {
+				return err
+			}
+		}
+	}
 	if len(task.Properties) > 0 {
 		// Terminal-safe but not cut at a table cell's width: the server allows
 		// 16 KiB and --json carries the value verbatim either way.
@@ -244,7 +258,7 @@ func newCmdTeamTaskList(f *cmdutil.Factory) *cobra.Command {
 	var assignee, owner, parent, tag, team, staleOver, text string
 	var queued, rootsOnly, tree, overdue bool
 	var tagsAny, tagsAll []string
-	var source string
+	var source, refTarget, refKind string
 	var times [6]string
 	var limit, offset int
 	cmd := &cobra.Command{
@@ -267,6 +281,9 @@ refuses blank or over-200-character values (BAD_USER_INPUT, exit 2).
 
 --tag-any (at least one) and --tag-all (every one) repeat; a comma is part of a
 tag, not a separator. --source matches the exact value, never a prefix.
+--ref <target> lists tasks carrying a typed reference with exactly that target
+(never a prefix; the label is ignored), and --ref-kind (issue, pull-request,
+node, task, url) narrows it to one kind; --ref-kind alone is a usage error.
 --overdue lists tasks whose start-by has passed that are not started, not
 ended and not backlog (backlog is never overdue); --overdue=false lists all
 other tasks. This is a filter, not an alarm. --created-/--started-/
@@ -315,6 +332,23 @@ ageFrom; --tree changes text only.`,
 			for _, s := range statuses {
 				if !taskStatuses[strings.ToUpper(s)] {
 					return exitcode.Newf(exitcode.Usage, "--status takes %s, got %q", taskStatusDoc, s)
+				}
+			}
+			if cmd.Flags().Changed("ref-kind") && !cmd.Flags().Changed("ref") {
+				return exitcode.Newf(exitcode.Usage, "--ref-kind narrows --ref: name the target with --ref too (nothing was sent)")
+			}
+			var refFilter *gen.AgentTaskReferenceFilter
+			if cmd.Flags().Changed("ref") {
+				if refTarget == "" {
+					return exitcode.Newf(exitcode.Usage, "--ref takes the exact target to match, got an empty value")
+				}
+				refFilter = &gen.AgentTaskReferenceFilter{Target: refTarget}
+				if cmd.Flags().Changed("ref-kind") {
+					k, err := taskRefKind("--ref-kind", refKind)
+					if err != nil {
+						return err
+					}
+					refFilter.Kind = &k
 				}
 			}
 			stale, err := checkTeamListFlags(cmd, args, team, staleOver)
@@ -398,7 +432,7 @@ ageFrom; --tree changes text only.`,
 				assignee: assigneeIn, owner: ownerIn, parent: optStr(parent), queued: optBool(queued),
 				rootsOnly: optBool(rootsOnly), status: status, tag: optStr(tag), text: textArg, limit: limit, offset: offset,
 				limitExplicit: cmd.Flags().Changed("limit"),
-				tagsAny:       nilIfEmpty(tagsAny), tagsAll: nilIfEmpty(tagsAll), source: optStr(source), overdue: overdueIn,
+				tagsAny:       nilIfEmpty(tagsAny), tagsAll: nilIfEmpty(tagsAll), source: optStr(source), reference: refFilter, overdue: overdueIn,
 				createdAfter: bounds[0], createdBefore: bounds[1], startedAfter: bounds[2], startedBefore: bounds[3],
 				finishedAfter: bounds[4], finishedBefore: bounds[5],
 			})
@@ -412,6 +446,8 @@ ageFrom; --tree changes text only.`,
 	cmd.Flags().StringArrayVar(&tagsAny, "tag-any", nil, "match at least one of these tags, repeatable (a comma is part of the tag)")
 	cmd.Flags().StringArrayVar(&tagsAll, "tag-all", nil, "match every one of these tags, repeatable (a comma is part of the tag)")
 	cmd.Flags().StringVar(&source, "source", "", "exact source value (no prefix matching)")
+	cmd.Flags().StringVar(&refTarget, "ref", "", "tasks carrying a reference with exactly this target (the label is ignored)")
+	cmd.Flags().StringVar(&refKind, "ref-kind", "", "narrow --ref to one kind ("+taskRefKindsDoc+")")
 	cmd.Flags().BoolVar(&overdue, "overdue", false, "start-by passed, not started, not ended, not backlog; --overdue=false lists all other tasks")
 	for i, name := range taskTimeFlags {
 		cmd.Flags().StringVar(&times[i], name, "", "RFC 3339 time with Z or an offset; inclusive bound")
@@ -441,6 +477,7 @@ type taskListQuery struct {
 	// The #1250 filters; any one set routes the read through AgentTaskListFiltered.
 	tagsAny, tagsAll              []string
 	source                        *string
+	reference                     *gen.AgentTaskReferenceFilter
 	overdue                       *bool
 	createdAfter, createdBefore   *string
 	startedAfter, startedBefore   *string
@@ -459,7 +496,7 @@ func nilIfEmpty(s []string) []string {
 
 // filtered reports whether a #1250 filter is set.
 func (q taskListQuery) filtered() bool {
-	return q.tagsAny != nil || q.tagsAll != nil || q.source != nil || q.overdue != nil ||
+	return q.tagsAny != nil || q.tagsAll != nil || q.source != nil || q.reference != nil || q.overdue != nil ||
 		q.createdAfter != nil || q.createdBefore != nil || q.startedAfter != nil || q.startedBefore != nil ||
 		q.finishedAfter != nil || q.finishedBefore != nil
 }
@@ -484,7 +521,7 @@ func taskListPage(ctx context.Context, client graphql.Client, appRef string, q t
 	tasks := []taskDTO{}
 	if q.filtered() {
 		resp, err := gen.AgentTaskListFiltered(ctx, client, appRef, q.assignee, q.createdAfter, q.createdBefore, q.finishedAfter, q.finishedBefore,
-			&q.limit, &q.offset, q.overdue, q.owner, q.parent, q.queued, q.rootsOnly, q.source, q.startedAfter, q.startedBefore,
+			&q.limit, &q.offset, q.overdue, q.owner, q.parent, q.queued, q.rootsOnly, q.reference, q.source, q.startedAfter, q.startedBefore,
 			q.status, q.tag, q.tagsAll, q.tagsAny, q.text)
 		if err != nil {
 			return nil, 0, mapTaskError(err)
