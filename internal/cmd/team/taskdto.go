@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
@@ -66,6 +67,7 @@ type taskDTO struct {
 	Tags                 []string               `json:"tags"`
 	Source               *string                `json:"source"`
 	References           []taskReferenceDTO     `json:"references"`
+	HandBack             *taskHandBackDTO       `json:"handBack"`
 	StartBy              *string                `json:"startBy"`
 	CreatedAt            string                 `json:"createdAt"`
 	UpdatedAt            *string                `json:"updatedAt"`
@@ -145,6 +147,35 @@ func taskRequirementsDTOFrom(r *gen.AgentTaskFieldsRequirementsAgentTaskRequirem
 	return dto
 }
 
+// taskHandBackDTO is the task's hand-back (cor:agt:050:29): null when the task
+// was never handed back. text is another worker's free text, stored and
+// returned verbatim; only the human view sanitises it.
+type taskHandBackDTO struct {
+	Code         string  `json:"code"`
+	Text         *string `json:"text"`
+	HandedBackAt string  `json:"handedBackAt"`
+}
+
+func taskHandBackDTOFrom(h *gen.AgentTaskFieldsHandBackAgentTaskHandBack) *taskHandBackDTO {
+	if h == nil {
+		return nil
+	}
+	return &taskHandBackDTO{Code: string(h.Code), Text: h.Text, HandedBackAt: h.HandedBackAt}
+}
+
+// handBackLine is the one-line human view: "Handed back: <code> at <time>[: <text>]".
+// The text goes through the same sanitiser as the other server values, and the
+// trailing ": <text>" is dropped when nothing printable is left.
+func handBackLine(h *taskHandBackDTO) string {
+	line := "Handed back: " + output.SafeCell(h.Code) + " at " + output.SafeCell(h.HandedBackAt)
+	if h.Text != nil {
+		if text := strings.TrimSpace(output.SafeLine(*h.Text, 2048)); text != "" {
+			line += ": " + text
+		}
+	}
+	return line
+}
+
 func taskResultDTOFrom(r *gen.AgentTaskFieldsResultAgentTaskResult) *taskResultDTO {
 	if r == nil {
 		return nil
@@ -171,6 +202,7 @@ func taskDTOFrom(fields gen.AgentTaskFields) taskDTO {
 		Tags:                 []string{},
 		Source:               fields.Source,
 		References:           taskReferencesDTOFrom(fields.References),
+		HandBack:             taskHandBackDTOFrom(fields.HandBack),
 		StartBy:              fields.StartBy,
 		CreatedAt:            fields.CreatedAt,
 		UpdatedAt:            fields.UpdatedAt,

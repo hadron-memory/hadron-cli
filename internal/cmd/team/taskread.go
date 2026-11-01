@@ -181,6 +181,11 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 			}
 		}
 	}
+	if task.HandBack != nil {
+		if err := line("  %s", handBackLine(task.HandBack)); err != nil {
+			return err
+		}
+	}
 	if len(task.Properties) > 0 {
 		// Terminal-safe but not cut at a table cell's width: the server allows
 		// 16 KiB and --json carries the value verbatim either way.
