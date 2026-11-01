@@ -2948,7 +2948,16 @@ server error fails the command).
   forms, and bare numbers/shas/branch-names qualified by the session's
   `--repo` or the git remote are all accepted; a bare branch value is always
   a branch name, never owner/repo), with `--action` (default `worked-on`)
-  and an optional `--detail` JSON bag. `session log --model <m>` explicitly
+  and an optional `--detail` JSON bag. The worklog row is recorded FIRST and the
+  session's PR/branch pointer moves only after it (#1278): a refused record
+  (exit code unchanged, e.g. 4) leaves the pointer untouched, and if the pointer
+  update is refused after a recorded row, stderr says the row WAS recorded and
+  the pointer was NOT updated, but only when the server answered with a definite
+  refusal (a GraphQL error that is not an internal fault). For a lost or
+  undecodable answer (exit 7, or exit 1 for an unreadable body) or an internal
+  fault, stderr says the pointer update could NOT be confirmed and may have been
+  applied: do not re-run the log, it would duplicate the row.
+  `session log --model <m>` explicitly
   reports the LLM that produced THIS milestone, for model switches or late
   records; omission leaves fallback to the server's session model. The CLI
   never sends the binding's possibly stale model as an override. The server's
