@@ -70,7 +70,7 @@ func (a *chatReadAttribution) head(ctx context.Context, client graphql.Client, a
 }
 func (a *chatReadAttribution) page(ctx context.Context, client graphql.Client, appRef string, since *int, mentions *string, size *int, before *int) (*gen.TeamChatMessagesResponse, error) {
 	if a.enabled(ctx) {
-		r, err := gen.TeamChatMessagesAttributed(api.WithSession(ctx, a.session), client, appRef, since, mentions, size, nil, before)
+		r, err := gen.TeamChatReadPageAttributed(api.WithSession(ctx, a.session), client, appRef, since, mentions, size, nil, before)
 		if err != nil {
 			if !a.fallback(err) {
 				return nil, err
@@ -78,7 +78,7 @@ func (a *chatReadAttribution) page(ctx context.Context, client graphql.Client, a
 		} else {
 			out := &gen.TeamChatMessagesResponse{}
 			if r.TeamChatMessages != nil {
-				out.TeamChatMessages = &gen.TeamChatMessagesTeamChatMessagesTeamChatMessagesPage{Total: r.TeamChatMessages.Total}
+				out.TeamChatMessages = &gen.TeamChatMessagesTeamChatMessagesTeamChatMessagesPage{}
 				for _, m := range r.TeamChatMessages.Items {
 					if m == nil {
 						out.TeamChatMessages.Items = append(out.TeamChatMessages.Items, nil)
@@ -90,7 +90,22 @@ func (a *chatReadAttribution) page(ctx context.Context, client graphql.Client, a
 			return out, nil
 		}
 	}
-	return gen.TeamChatMessages(ctx, client, appRef, since, mentions, size, nil, before)
+	r, err := gen.TeamChatReadPage(ctx, client, appRef, since, mentions, size, nil, before)
+	if err != nil {
+		return nil, err
+	}
+	out := &gen.TeamChatMessagesResponse{}
+	if r.TeamChatMessages != nil {
+		out.TeamChatMessages = &gen.TeamChatMessagesTeamChatMessagesTeamChatMessagesPage{}
+		for _, m := range r.TeamChatMessages.Items {
+			if m == nil {
+				out.TeamChatMessages.Items = append(out.TeamChatMessages.Items, nil)
+			} else {
+				out.TeamChatMessages.Items = append(out.TeamChatMessages.Items, &gen.TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage{TeamChatMessageFields: m.TeamChatMessageFields})
+			}
+		}
+	}
+	return out, nil
 }
 
 // thread is the --thread read (cli#1262): the direct replies to one seq,
@@ -107,7 +122,7 @@ func (a *chatReadAttribution) thread(ctx context.Context, client graphql.Client,
 		} else {
 			out := &gen.TeamChatMessagesResponse{}
 			if r.TeamChatMessages != nil {
-				out.TeamChatMessages = &gen.TeamChatMessagesTeamChatMessagesTeamChatMessagesPage{Total: r.TeamChatMessages.Total}
+				out.TeamChatMessages = &gen.TeamChatMessagesTeamChatMessagesTeamChatMessagesPage{}
 				for _, m := range r.TeamChatMessages.Items {
 					if m == nil {
 						out.TeamChatMessages.Items = append(out.TeamChatMessages.Items, nil)
@@ -125,7 +140,7 @@ func (a *chatReadAttribution) thread(ctx context.Context, client graphql.Client,
 	}
 	out := &gen.TeamChatMessagesResponse{}
 	if r.TeamChatMessages != nil {
-		out.TeamChatMessages = &gen.TeamChatMessagesTeamChatMessagesTeamChatMessagesPage{Total: r.TeamChatMessages.Total}
+		out.TeamChatMessages = &gen.TeamChatMessagesTeamChatMessagesTeamChatMessagesPage{}
 		for _, m := range r.TeamChatMessages.Items {
 			if m == nil {
 				out.TeamChatMessages.Items = append(out.TeamChatMessages.Items, nil)
