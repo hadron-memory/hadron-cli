@@ -2152,8 +2152,41 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 				_, branchName, _ := strings.Cut(canonical, ":")
 				branchArg = &branchName
 			}
-			if _, err := gen.UpdateTeamSession(ctx, client, b.SessionID, prArg, branchArg, nil, nil); err != nil {
-				return api.MapError(err)
+			//
+			// #1278: the touch runs AFTER the worklog record, never before. A
+			// refused record (for example "Team Agent cannot be inferred")
+			// used to leave the PR/branch pointer already moved with no worklog
+			// row and an error that said nothing about it. Record first, then
+			// move the pointer: a refusal now leaves nothing half-applied, and
+			// the reverse partial (row written, pointer refused) is named.
+			touchSession := func(rowWritten bool) error {
+				if _, err := gen.UpdateTeamSession(ctx, client, b.SessionID, prArg, branchArg, nil, nil); err != nil {
+					mapped := api.MapError(err)
+					if rowWritten {
+						// Claim "NOT updated" only for a definitive refusal. A
+						// lost or undecodable answer, or an internal fault, may
+						// have committed the update, so say the row
+						// WAS recorded and the pointer could not be confirmed;
+						// either way do not retry the log (it would duplicate
+						// the recorded milestone).
+						//
+						// "NOT updated" needs a POSITIVE refusal: the server
+						// answered with a GraphQL error envelope that is not an
+						// internal fault. Anything else (lost answer, an
+						// undecodable body, a bare HTTP error) proves nothing
+						// about whether the update landed.
+						definitiveRefusal := len(api.ServerMessages(err)) > 0 &&
+							exitcode.FromError(mapped) != exitcode.Unavailable &&
+							!api.HasErrorCode(err, api.InternalServerErrorCode)
+						if !definitiveRefusal {
+							fmt.Fprintf(f.IOStreams.ErrOut, "note: the worklog row WAS recorded, but the session pointer (PR/branch/liveness) update could NOT be confirmed and may have been applied: %v — check `hadron team session list --active` before touching it; do not re-run this log, it would duplicate the row\n", err)
+						} else {
+							fmt.Fprintf(f.IOStreams.ErrOut, "note: the worklog row WAS recorded, but the session pointer (PR/branch/liveness) was NOT updated: %v\n", err)
+						}
+					}
+					return mapped
+				}
+				return nil
 			}
 			recorded := "session"
 			var recordedModel *string
@@ -2218,8 +2251,14 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 				if logged != nil && logged.RecordTeamWork != nil && logged.RecordTeamWork.Ref != "" {
 					canonical = logged.RecordTeamWork.Ref
 				}
+				if err := touchSession(true); err != nil {
+					return err
+				}
 				recorded = "worklog"
 			} else {
+				if err := touchSession(false); err != nil {
+					return err
+				}
 				// #414/#399: reachable only by a binding that predates the
 				// App-recording CLI (no appId, no teamMemory). The note must
 				// name the real cause and the real remedy — for a pre-Worker

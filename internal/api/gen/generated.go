@@ -21484,6 +21484,119 @@ func (v *ConfirmTeamAttentionSwitchoverResponse) GetConfirmTeamAttentionSwitchov
 	return v.ConfirmTeamAttentionSwitchover
 }
 
+// ConnectionGrantConnectionGrant includes the requested fields of the GraphQL type ConnectionGrant.
+// The GraphQL type's documentation follows.
+//
+// A user-owned connection's scoped delegation to an App install (spec-042 Track
+// B, #593). The connection OWNER grants a specific App scoped access to their
+// mailbox/calendar; the enforcement gate is requireEmailConnection. The grantee
+// App is exposed as SCALARS only (never a nested App object), so a cross-org
+// grant can't reach the App keys/members. Token material is never exposed.
+type ConnectionGrantConnectionGrant struct {
+	ConnectionGrantFields `json:"-"`
+}
+
+// GetId returns ConnectionGrantConnectionGrant.Id, and is useful for accessing the field via an interface.
+func (v *ConnectionGrantConnectionGrant) GetId() string { return v.ConnectionGrantFields.Id }
+
+// GetConnectionId returns ConnectionGrantConnectionGrant.ConnectionId, and is useful for accessing the field via an interface.
+func (v *ConnectionGrantConnectionGrant) GetConnectionId() string {
+	return v.ConnectionGrantFields.ConnectionId
+}
+
+// GetGranteeAppId returns ConnectionGrantConnectionGrant.GranteeAppId, and is useful for accessing the field via an interface.
+func (v *ConnectionGrantConnectionGrant) GetGranteeAppId() string {
+	return v.ConnectionGrantFields.GranteeAppId
+}
+
+// GetGranteeAppName returns ConnectionGrantConnectionGrant.GranteeAppName, and is useful for accessing the field via an interface.
+func (v *ConnectionGrantConnectionGrant) GetGranteeAppName() *string {
+	return v.ConnectionGrantFields.GranteeAppName
+}
+
+// GetGranteeAppUrn returns ConnectionGrantConnectionGrant.GranteeAppUrn, and is useful for accessing the field via an interface.
+func (v *ConnectionGrantConnectionGrant) GetGranteeAppUrn() *string {
+	return v.ConnectionGrantFields.GranteeAppUrn
+}
+
+// GetScopes returns ConnectionGrantConnectionGrant.Scopes, and is useful for accessing the field via an interface.
+func (v *ConnectionGrantConnectionGrant) GetScopes() []string { return v.ConnectionGrantFields.Scopes }
+
+// GetExpiresAt returns ConnectionGrantConnectionGrant.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *ConnectionGrantConnectionGrant) GetExpiresAt() *string {
+	return v.ConnectionGrantFields.ExpiresAt
+}
+
+// GetCreatedAt returns ConnectionGrantConnectionGrant.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ConnectionGrantConnectionGrant) GetCreatedAt() string {
+	return v.ConnectionGrantFields.CreatedAt
+}
+
+func (v *ConnectionGrantConnectionGrant) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ConnectionGrantConnectionGrant
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ConnectionGrantConnectionGrant = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ConnectionGrantFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalConnectionGrantConnectionGrant struct {
+	Id string `json:"id"`
+
+	ConnectionId string `json:"connectionId"`
+
+	GranteeAppId string `json:"granteeAppId"`
+
+	GranteeAppName *string `json:"granteeAppName"`
+
+	GranteeAppUrn *string `json:"granteeAppUrn"`
+
+	Scopes []string `json:"scopes"`
+
+	ExpiresAt *string `json:"expiresAt"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *ConnectionGrantConnectionGrant) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ConnectionGrantConnectionGrant) __premarshalJSON() (*__premarshalConnectionGrantConnectionGrant, error) {
+	var retval __premarshalConnectionGrantConnectionGrant
+
+	retval.Id = v.ConnectionGrantFields.Id
+	retval.ConnectionId = v.ConnectionGrantFields.ConnectionId
+	retval.GranteeAppId = v.ConnectionGrantFields.GranteeAppId
+	retval.GranteeAppName = v.ConnectionGrantFields.GranteeAppName
+	retval.GranteeAppUrn = v.ConnectionGrantFields.GranteeAppUrn
+	retval.Scopes = v.ConnectionGrantFields.Scopes
+	retval.ExpiresAt = v.ConnectionGrantFields.ExpiresAt
+	retval.CreatedAt = v.ConnectionGrantFields.CreatedAt
+	return &retval, nil
+}
+
 // ConnectionGrantFields includes the GraphQL fields of ConnectionGrant requested by the fragment ConnectionGrantFields.
 // The GraphQL type's documentation follows.
 //
@@ -21530,6 +21643,17 @@ func (v *ConnectionGrantFields) GetExpiresAt() *string { return v.ExpiresAt }
 
 // GetCreatedAt returns ConnectionGrantFields.CreatedAt, and is useful for accessing the field via an interface.
 func (v *ConnectionGrantFields) GetCreatedAt() string { return v.CreatedAt }
+
+// ConnectionGrantResponse is returned by ConnectionGrant on success.
+type ConnectionGrantResponse struct {
+	// One connection grant the caller created, by ID; null if not theirs (no existence oracle).
+	ConnectionGrant *ConnectionGrantConnectionGrant `json:"connectionGrant"`
+}
+
+// GetConnectionGrant returns ConnectionGrantResponse.ConnectionGrant, and is useful for accessing the field via an interface.
+func (v *ConnectionGrantResponse) GetConnectionGrant() *ConnectionGrantConnectionGrant {
+	return v.ConnectionGrant
+}
 
 // ConnectionGrantsConnectionGrantsConnectionGrantsPage includes the requested fields of the GraphQL type ConnectionGrantsPage.
 type ConnectionGrantsConnectionGrantsConnectionGrantsPage struct {
@@ -30121,6 +30245,68 @@ type EffectiveAccessResponse struct {
 // GetEffectiveAccess returns EffectiveAccessResponse.EffectiveAccess, and is useful for accessing the field via an interface.
 func (v *EffectiveAccessResponse) GetEffectiveAccess() *EffectiveAccessEffectiveAccess {
 	return v.EffectiveAccess
+}
+
+// EffectiveActionPolicyEffectiveActionPolicy includes the requested fields of the GraphQL type EffectiveActionPolicy.
+// The GraphQL type's documentation follows.
+//
+// The standing-chain policy debug surface (#510): per-layer verdicts for one action (cor:acl:040:02). Trigger/run links are per-trigger and not part of the standing chain.
+type EffectiveActionPolicyEffectiveActionPolicy struct {
+	Allowed bool                                                                  `json:"allowed"`
+	Layers  []*EffectiveActionPolicyEffectiveActionPolicyLayersPolicyLayerVerdict `json:"layers"`
+}
+
+// GetAllowed returns EffectiveActionPolicyEffectiveActionPolicy.Allowed, and is useful for accessing the field via an interface.
+func (v *EffectiveActionPolicyEffectiveActionPolicy) GetAllowed() bool { return v.Allowed }
+
+// GetLayers returns EffectiveActionPolicyEffectiveActionPolicy.Layers, and is useful for accessing the field via an interface.
+func (v *EffectiveActionPolicyEffectiveActionPolicy) GetLayers() []*EffectiveActionPolicyEffectiveActionPolicyLayersPolicyLayerVerdict {
+	return v.Layers
+}
+
+// EffectiveActionPolicyEffectiveActionPolicyLayersPolicyLayerVerdict includes the requested fields of the GraphQL type PolicyLayerVerdict.
+// The GraphQL type's documentation follows.
+//
+// One layer's verdict in an explained policy evaluation (#510).
+type EffectiveActionPolicyEffectiveActionPolicyLayersPolicyLayerVerdict struct {
+	// org, user, or app.
+	Layer string `json:"layer"`
+	// Whether this layer has a link at all (absent = no restriction).
+	Present bool `json:"present"`
+	Allowed bool `json:"allowed"`
+	// The layer's allow-list, for display; null when absent.
+	Allow []string `json:"allow"`
+}
+
+// GetLayer returns EffectiveActionPolicyEffectiveActionPolicyLayersPolicyLayerVerdict.Layer, and is useful for accessing the field via an interface.
+func (v *EffectiveActionPolicyEffectiveActionPolicyLayersPolicyLayerVerdict) GetLayer() string {
+	return v.Layer
+}
+
+// GetPresent returns EffectiveActionPolicyEffectiveActionPolicyLayersPolicyLayerVerdict.Present, and is useful for accessing the field via an interface.
+func (v *EffectiveActionPolicyEffectiveActionPolicyLayersPolicyLayerVerdict) GetPresent() bool {
+	return v.Present
+}
+
+// GetAllowed returns EffectiveActionPolicyEffectiveActionPolicyLayersPolicyLayerVerdict.Allowed, and is useful for accessing the field via an interface.
+func (v *EffectiveActionPolicyEffectiveActionPolicyLayersPolicyLayerVerdict) GetAllowed() bool {
+	return v.Allowed
+}
+
+// GetAllow returns EffectiveActionPolicyEffectiveActionPolicyLayersPolicyLayerVerdict.Allow, and is useful for accessing the field via an interface.
+func (v *EffectiveActionPolicyEffectiveActionPolicyLayersPolicyLayerVerdict) GetAllow() []string {
+	return v.Allow
+}
+
+// EffectiveActionPolicyResponse is returned by EffectiveActionPolicy on success.
+type EffectiveActionPolicyResponse struct {
+	// Explain the standing policy chain (org / user / app) for one action - which layer denies it (#510, cor:acl:040:02). Org-ADMIN on the app's org.
+	EffectiveActionPolicy *EffectiveActionPolicyEffectiveActionPolicy `json:"effectiveActionPolicy"`
+}
+
+// GetEffectiveActionPolicy returns EffectiveActionPolicyResponse.EffectiveActionPolicy, and is useful for accessing the field via an interface.
+func (v *EffectiveActionPolicyResponse) GetEffectiveActionPolicy() *EffectiveActionPolicyEffectiveActionPolicy {
+	return v.EffectiveActionPolicy
 }
 
 // EmailConnectionsExchangeConnectionsExchangeConnection includes the requested fields of the GraphQL type ExchangeConnection.
@@ -48428,6 +48614,132 @@ func (v *PrincipalGrantFields) GetExpiresAt() *string { return v.ExpiresAt }
 // GetCreatedAt returns PrincipalGrantFields.CreatedAt, and is useful for accessing the field via an interface.
 func (v *PrincipalGrantFields) GetCreatedAt() string { return v.CreatedAt }
 
+// PrincipalGrantPrincipalGrant includes the requested fields of the GraphQL type PrincipalGrant.
+// The GraphQL type's documentation follows.
+//
+// An individual action grant (design:grant-model): extra management actions for one member of one org, on top of their role bundle. Grantee and org are projected as scalars, never nested objects.
+type PrincipalGrantPrincipalGrant struct {
+	PrincipalGrantFields `json:"-"`
+}
+
+// GetId returns PrincipalGrantPrincipalGrant.Id, and is useful for accessing the field via an interface.
+func (v *PrincipalGrantPrincipalGrant) GetId() string { return v.PrincipalGrantFields.Id }
+
+// GetPrincipalType returns PrincipalGrantPrincipalGrant.PrincipalType, and is useful for accessing the field via an interface.
+func (v *PrincipalGrantPrincipalGrant) GetPrincipalType() string {
+	return v.PrincipalGrantFields.PrincipalType
+}
+
+// GetPrincipalId returns PrincipalGrantPrincipalGrant.PrincipalId, and is useful for accessing the field via an interface.
+func (v *PrincipalGrantPrincipalGrant) GetPrincipalId() string {
+	return v.PrincipalGrantFields.PrincipalId
+}
+
+// GetPrincipalHandle returns PrincipalGrantPrincipalGrant.PrincipalHandle, and is useful for accessing the field via an interface.
+func (v *PrincipalGrantPrincipalGrant) GetPrincipalHandle() *string {
+	return v.PrincipalGrantFields.PrincipalHandle
+}
+
+// GetOrganizationId returns PrincipalGrantPrincipalGrant.OrganizationId, and is useful for accessing the field via an interface.
+func (v *PrincipalGrantPrincipalGrant) GetOrganizationId() string {
+	return v.PrincipalGrantFields.OrganizationId
+}
+
+// GetOrganizationUrn returns PrincipalGrantPrincipalGrant.OrganizationUrn, and is useful for accessing the field via an interface.
+func (v *PrincipalGrantPrincipalGrant) GetOrganizationUrn() *string {
+	return v.PrincipalGrantFields.OrganizationUrn
+}
+
+// GetActions returns PrincipalGrantPrincipalGrant.Actions, and is useful for accessing the field via an interface.
+func (v *PrincipalGrantPrincipalGrant) GetActions() []string { return v.PrincipalGrantFields.Actions }
+
+// GetExpiresAt returns PrincipalGrantPrincipalGrant.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *PrincipalGrantPrincipalGrant) GetExpiresAt() *string {
+	return v.PrincipalGrantFields.ExpiresAt
+}
+
+// GetCreatedAt returns PrincipalGrantPrincipalGrant.CreatedAt, and is useful for accessing the field via an interface.
+func (v *PrincipalGrantPrincipalGrant) GetCreatedAt() string { return v.PrincipalGrantFields.CreatedAt }
+
+func (v *PrincipalGrantPrincipalGrant) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*PrincipalGrantPrincipalGrant
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.PrincipalGrantPrincipalGrant = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.PrincipalGrantFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalPrincipalGrantPrincipalGrant struct {
+	Id string `json:"id"`
+
+	PrincipalType string `json:"principalType"`
+
+	PrincipalId string `json:"principalId"`
+
+	PrincipalHandle *string `json:"principalHandle"`
+
+	OrganizationId string `json:"organizationId"`
+
+	OrganizationUrn *string `json:"organizationUrn"`
+
+	Actions []string `json:"actions"`
+
+	ExpiresAt *string `json:"expiresAt"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *PrincipalGrantPrincipalGrant) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *PrincipalGrantPrincipalGrant) __premarshalJSON() (*__premarshalPrincipalGrantPrincipalGrant, error) {
+	var retval __premarshalPrincipalGrantPrincipalGrant
+
+	retval.Id = v.PrincipalGrantFields.Id
+	retval.PrincipalType = v.PrincipalGrantFields.PrincipalType
+	retval.PrincipalId = v.PrincipalGrantFields.PrincipalId
+	retval.PrincipalHandle = v.PrincipalGrantFields.PrincipalHandle
+	retval.OrganizationId = v.PrincipalGrantFields.OrganizationId
+	retval.OrganizationUrn = v.PrincipalGrantFields.OrganizationUrn
+	retval.Actions = v.PrincipalGrantFields.Actions
+	retval.ExpiresAt = v.PrincipalGrantFields.ExpiresAt
+	retval.CreatedAt = v.PrincipalGrantFields.CreatedAt
+	return &retval, nil
+}
+
+// PrincipalGrantResponse is returned by PrincipalGrant on success.
+type PrincipalGrantResponse struct {
+	// One action grant by ID - visible to the grantee or an admin of its org; null otherwise (no existence oracle).
+	PrincipalGrant *PrincipalGrantPrincipalGrant `json:"principalGrant"`
+}
+
+// GetPrincipalGrant returns PrincipalGrantResponse.PrincipalGrant, and is useful for accessing the field via an interface.
+func (v *PrincipalGrantResponse) GetPrincipalGrant() *PrincipalGrantPrincipalGrant {
+	return v.PrincipalGrant
+}
+
 // PrincipalGrantsPrincipalGrantsPrincipalGrantsPage includes the requested fields of the GraphQL type PrincipalGrantsPage.
 type PrincipalGrantsPrincipalGrantsPrincipalGrantsPage struct {
 	Total int                                                                     `json:"total"`
@@ -49103,6 +49415,166 @@ func (v *PublicResourceRefFields) GetUrn() string { return v.Urn }
 
 // GetDescription returns PublicResourceRefFields.Description, and is useful for accessing the field via an interface.
 func (v *PublicResourceRefFields) GetDescription() *string { return v.Description }
+
+// QuotaCounterFields includes the GraphQL fields of QuotaCounter requested by the fragment QuotaCounterFields.
+// The GraphQL type's documentation follows.
+//
+// Usage-vs-limit for one scope x action window (#510). The stored limit is the enforced value; env defaults only seed first touch.
+type QuotaCounterFields struct {
+	Id string `json:"id"`
+	// app or org.
+	ScopeKind string `json:"scopeKind"`
+	ScopeId   string `json:"scopeId"`
+	// run.execute, llm.tokens, sms.send, or email.send.
+	Action string `json:"action"`
+	// Window kind (day). The row rolls in place at UTC midnight - used resets, limit persists.
+	Window  string `json:"window"`
+	Used    int    `json:"used"`
+	Limit   int    `json:"limit"`
+	ResetAt string `json:"resetAt"`
+}
+
+// GetId returns QuotaCounterFields.Id, and is useful for accessing the field via an interface.
+func (v *QuotaCounterFields) GetId() string { return v.Id }
+
+// GetScopeKind returns QuotaCounterFields.ScopeKind, and is useful for accessing the field via an interface.
+func (v *QuotaCounterFields) GetScopeKind() string { return v.ScopeKind }
+
+// GetScopeId returns QuotaCounterFields.ScopeId, and is useful for accessing the field via an interface.
+func (v *QuotaCounterFields) GetScopeId() string { return v.ScopeId }
+
+// GetAction returns QuotaCounterFields.Action, and is useful for accessing the field via an interface.
+func (v *QuotaCounterFields) GetAction() string { return v.Action }
+
+// GetWindow returns QuotaCounterFields.Window, and is useful for accessing the field via an interface.
+func (v *QuotaCounterFields) GetWindow() string { return v.Window }
+
+// GetUsed returns QuotaCounterFields.Used, and is useful for accessing the field via an interface.
+func (v *QuotaCounterFields) GetUsed() int { return v.Used }
+
+// GetLimit returns QuotaCounterFields.Limit, and is useful for accessing the field via an interface.
+func (v *QuotaCounterFields) GetLimit() int { return v.Limit }
+
+// GetResetAt returns QuotaCounterFields.ResetAt, and is useful for accessing the field via an interface.
+func (v *QuotaCounterFields) GetResetAt() string { return v.ResetAt }
+
+// QuotaCountersQuotaCountersQuotaCounter includes the requested fields of the GraphQL type QuotaCounter.
+// The GraphQL type's documentation follows.
+//
+// Usage-vs-limit for one scope x action window (#510). The stored limit is the enforced value; env defaults only seed first touch.
+type QuotaCountersQuotaCountersQuotaCounter struct {
+	QuotaCounterFields `json:"-"`
+}
+
+// GetId returns QuotaCountersQuotaCountersQuotaCounter.Id, and is useful for accessing the field via an interface.
+func (v *QuotaCountersQuotaCountersQuotaCounter) GetId() string { return v.QuotaCounterFields.Id }
+
+// GetScopeKind returns QuotaCountersQuotaCountersQuotaCounter.ScopeKind, and is useful for accessing the field via an interface.
+func (v *QuotaCountersQuotaCountersQuotaCounter) GetScopeKind() string {
+	return v.QuotaCounterFields.ScopeKind
+}
+
+// GetScopeId returns QuotaCountersQuotaCountersQuotaCounter.ScopeId, and is useful for accessing the field via an interface.
+func (v *QuotaCountersQuotaCountersQuotaCounter) GetScopeId() string {
+	return v.QuotaCounterFields.ScopeId
+}
+
+// GetAction returns QuotaCountersQuotaCountersQuotaCounter.Action, and is useful for accessing the field via an interface.
+func (v *QuotaCountersQuotaCountersQuotaCounter) GetAction() string {
+	return v.QuotaCounterFields.Action
+}
+
+// GetWindow returns QuotaCountersQuotaCountersQuotaCounter.Window, and is useful for accessing the field via an interface.
+func (v *QuotaCountersQuotaCountersQuotaCounter) GetWindow() string {
+	return v.QuotaCounterFields.Window
+}
+
+// GetUsed returns QuotaCountersQuotaCountersQuotaCounter.Used, and is useful for accessing the field via an interface.
+func (v *QuotaCountersQuotaCountersQuotaCounter) GetUsed() int { return v.QuotaCounterFields.Used }
+
+// GetLimit returns QuotaCountersQuotaCountersQuotaCounter.Limit, and is useful for accessing the field via an interface.
+func (v *QuotaCountersQuotaCountersQuotaCounter) GetLimit() int { return v.QuotaCounterFields.Limit }
+
+// GetResetAt returns QuotaCountersQuotaCountersQuotaCounter.ResetAt, and is useful for accessing the field via an interface.
+func (v *QuotaCountersQuotaCountersQuotaCounter) GetResetAt() string {
+	return v.QuotaCounterFields.ResetAt
+}
+
+func (v *QuotaCountersQuotaCountersQuotaCounter) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*QuotaCountersQuotaCountersQuotaCounter
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.QuotaCountersQuotaCountersQuotaCounter = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.QuotaCounterFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalQuotaCountersQuotaCountersQuotaCounter struct {
+	Id string `json:"id"`
+
+	ScopeKind string `json:"scopeKind"`
+
+	ScopeId string `json:"scopeId"`
+
+	Action string `json:"action"`
+
+	Window string `json:"window"`
+
+	Used int `json:"used"`
+
+	Limit int `json:"limit"`
+
+	ResetAt string `json:"resetAt"`
+}
+
+func (v *QuotaCountersQuotaCountersQuotaCounter) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *QuotaCountersQuotaCountersQuotaCounter) __premarshalJSON() (*__premarshalQuotaCountersQuotaCountersQuotaCounter, error) {
+	var retval __premarshalQuotaCountersQuotaCountersQuotaCounter
+
+	retval.Id = v.QuotaCounterFields.Id
+	retval.ScopeKind = v.QuotaCounterFields.ScopeKind
+	retval.ScopeId = v.QuotaCounterFields.ScopeId
+	retval.Action = v.QuotaCounterFields.Action
+	retval.Window = v.QuotaCounterFields.Window
+	retval.Used = v.QuotaCounterFields.Used
+	retval.Limit = v.QuotaCounterFields.Limit
+	retval.ResetAt = v.QuotaCounterFields.ResetAt
+	return &retval, nil
+}
+
+// QuotaCountersResponse is returned by QuotaCounters on success.
+type QuotaCountersResponse struct {
+	// Usage-vs-limit counters for an org (+ one app when appRef given). Org-ADMIN. Rows materialize on first view, seeded with platform defaults (#510).
+	QuotaCounters []*QuotaCountersQuotaCountersQuotaCounter `json:"quotaCounters"`
+}
+
+// GetQuotaCounters returns QuotaCountersResponse.QuotaCounters, and is useful for accessing the field via an interface.
+func (v *QuotaCountersResponse) GetQuotaCounters() []*QuotaCountersQuotaCountersQuotaCounter {
+	return v.QuotaCounters
+}
 
 // ReAdoptAutomationResponse is returned by ReAdoptAutomation on success.
 type ReAdoptAutomationResponse struct {
@@ -55952,6 +56424,133 @@ func (v *SecretFields) GetUpdatedAt() string { return v.UpdatedAt }
 // GetUpdatedBy returns SecretFields.UpdatedBy, and is useful for accessing the field via an interface.
 func (v *SecretFields) GetUpdatedBy() *string { return v.UpdatedBy }
 
+// SecretResponse is returned by Secret on success.
+type SecretResponse struct {
+	// Fetch one secret's inspectable half (never the value). Null when the
+	// row does not exist OR the caller is not entitled to its owner scope —
+	// no existence disclosure. Entitlement: user -> that user; org -> org
+	// member; app -> app owner or org member; memory -> memory READ.
+	Secret *SecretSecret `json:"secret"`
+}
+
+// GetSecret returns SecretResponse.Secret, and is useful for accessing the field via an interface.
+func (v *SecretResponse) GetSecret() *SecretSecret { return v.Secret }
+
+// SecretSecret includes the requested fields of the GraphQL type Secret.
+// The GraphQL type's documentation follows.
+//
+// One named, owner-scoped secret — the general secret store (#677).
+// Polymorphic owner (user | org | app | memory). The value is encrypted
+// at rest and WRITE-ONLY: no field here ever returns it — kind + metadata
+// are the inspectable half (you can see THAT a secret exists and, for
+// webfetch-auth, WHERE it applies, without decrypting). A bare name
+// resolves at run time via the CSS cascade, most-specific-first:
+// memory -> app -> user -> org.
+type SecretSecret struct {
+	SecretFields `json:"-"`
+}
+
+// GetId returns SecretSecret.Id, and is useful for accessing the field via an interface.
+func (v *SecretSecret) GetId() string { return v.SecretFields.Id }
+
+// GetOwnerType returns SecretSecret.OwnerType, and is useful for accessing the field via an interface.
+func (v *SecretSecret) GetOwnerType() string { return v.SecretFields.OwnerType }
+
+// GetOwnerId returns SecretSecret.OwnerId, and is useful for accessing the field via an interface.
+func (v *SecretSecret) GetOwnerId() string { return v.SecretFields.OwnerId }
+
+// GetName returns SecretSecret.Name, and is useful for accessing the field via an interface.
+func (v *SecretSecret) GetName() string { return v.SecretFields.Name }
+
+// GetKind returns SecretSecret.Kind, and is useful for accessing the field via an interface.
+func (v *SecretSecret) GetKind() string { return v.SecretFields.Kind }
+
+// GetMetadata returns SecretSecret.Metadata, and is useful for accessing the field via an interface.
+func (v *SecretSecret) GetMetadata() *json.RawMessage { return v.SecretFields.Metadata }
+
+// GetCreatedAt returns SecretSecret.CreatedAt, and is useful for accessing the field via an interface.
+func (v *SecretSecret) GetCreatedAt() string { return v.SecretFields.CreatedAt }
+
+// GetCreatedBy returns SecretSecret.CreatedBy, and is useful for accessing the field via an interface.
+func (v *SecretSecret) GetCreatedBy() *string { return v.SecretFields.CreatedBy }
+
+// GetUpdatedAt returns SecretSecret.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *SecretSecret) GetUpdatedAt() string { return v.SecretFields.UpdatedAt }
+
+// GetUpdatedBy returns SecretSecret.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *SecretSecret) GetUpdatedBy() *string { return v.SecretFields.UpdatedBy }
+
+func (v *SecretSecret) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*SecretSecret
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.SecretSecret = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.SecretFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalSecretSecret struct {
+	Id string `json:"id"`
+
+	OwnerType string `json:"ownerType"`
+
+	OwnerId string `json:"ownerId"`
+
+	Name string `json:"name"`
+
+	Kind string `json:"kind"`
+
+	Metadata *json.RawMessage `json:"metadata"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	UpdatedAt string `json:"updatedAt"`
+
+	UpdatedBy *string `json:"updatedBy"`
+}
+
+func (v *SecretSecret) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *SecretSecret) __premarshalJSON() (*__premarshalSecretSecret, error) {
+	var retval __premarshalSecretSecret
+
+	retval.Id = v.SecretFields.Id
+	retval.OwnerType = v.SecretFields.OwnerType
+	retval.OwnerId = v.SecretFields.OwnerId
+	retval.Name = v.SecretFields.Name
+	retval.Kind = v.SecretFields.Kind
+	retval.Metadata = v.SecretFields.Metadata
+	retval.CreatedAt = v.SecretFields.CreatedAt
+	retval.CreatedBy = v.SecretFields.CreatedBy
+	retval.UpdatedAt = v.SecretFields.UpdatedAt
+	retval.UpdatedBy = v.SecretFields.UpdatedBy
+	return &retval, nil
+}
+
 // SecretsResponse is returned by Secrets on success.
 type SecretsResponse struct {
 	// Paginated secret list for ONE owner scope (the hadron secret ls
@@ -58408,6 +59007,147 @@ func (v *SetModelFamilyAvailabilityInput) GetState() AvailabilityState { return 
 
 // GetUntil returns SetModelFamilyAvailabilityInput.Until, and is useful for accessing the field via an interface.
 func (v *SetModelFamilyAvailabilityInput) GetUntil() *string { return v.Until }
+
+type SetQuotaLimitInput struct {
+	// run.execute, llm.tokens, sms.send, or email.send.
+	Action string `json:"action"`
+	// Optional app scope - ref: PK or URN; must belong to the org. Omit to set the org-level limit.
+	AppRef *string `json:"appRef,omitempty"`
+	// Non-negative integer; 0 pauses the scope (every launch denies QUOTA_EXCEEDED).
+	Limit int `json:"limit"`
+	// Org - ref: PK or URN.
+	OrgRef string `json:"orgRef"`
+}
+
+// GetAction returns SetQuotaLimitInput.Action, and is useful for accessing the field via an interface.
+func (v *SetQuotaLimitInput) GetAction() string { return v.Action }
+
+// GetAppRef returns SetQuotaLimitInput.AppRef, and is useful for accessing the field via an interface.
+func (v *SetQuotaLimitInput) GetAppRef() *string { return v.AppRef }
+
+// GetLimit returns SetQuotaLimitInput.Limit, and is useful for accessing the field via an interface.
+func (v *SetQuotaLimitInput) GetLimit() int { return v.Limit }
+
+// GetOrgRef returns SetQuotaLimitInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *SetQuotaLimitInput) GetOrgRef() string { return v.OrgRef }
+
+// SetQuotaLimitResponse is returned by SetQuotaLimit on success.
+type SetQuotaLimitResponse struct {
+	// Set the stored (enforced) quota limit for a scope x action (#510) - the operator dial that previously required psql. Org-ADMIN.
+	SetQuotaLimit *SetQuotaLimitSetQuotaLimitQuotaCounter `json:"setQuotaLimit"`
+}
+
+// GetSetQuotaLimit returns SetQuotaLimitResponse.SetQuotaLimit, and is useful for accessing the field via an interface.
+func (v *SetQuotaLimitResponse) GetSetQuotaLimit() *SetQuotaLimitSetQuotaLimitQuotaCounter {
+	return v.SetQuotaLimit
+}
+
+// SetQuotaLimitSetQuotaLimitQuotaCounter includes the requested fields of the GraphQL type QuotaCounter.
+// The GraphQL type's documentation follows.
+//
+// Usage-vs-limit for one scope x action window (#510). The stored limit is the enforced value; env defaults only seed first touch.
+type SetQuotaLimitSetQuotaLimitQuotaCounter struct {
+	QuotaCounterFields `json:"-"`
+}
+
+// GetId returns SetQuotaLimitSetQuotaLimitQuotaCounter.Id, and is useful for accessing the field via an interface.
+func (v *SetQuotaLimitSetQuotaLimitQuotaCounter) GetId() string { return v.QuotaCounterFields.Id }
+
+// GetScopeKind returns SetQuotaLimitSetQuotaLimitQuotaCounter.ScopeKind, and is useful for accessing the field via an interface.
+func (v *SetQuotaLimitSetQuotaLimitQuotaCounter) GetScopeKind() string {
+	return v.QuotaCounterFields.ScopeKind
+}
+
+// GetScopeId returns SetQuotaLimitSetQuotaLimitQuotaCounter.ScopeId, and is useful for accessing the field via an interface.
+func (v *SetQuotaLimitSetQuotaLimitQuotaCounter) GetScopeId() string {
+	return v.QuotaCounterFields.ScopeId
+}
+
+// GetAction returns SetQuotaLimitSetQuotaLimitQuotaCounter.Action, and is useful for accessing the field via an interface.
+func (v *SetQuotaLimitSetQuotaLimitQuotaCounter) GetAction() string {
+	return v.QuotaCounterFields.Action
+}
+
+// GetWindow returns SetQuotaLimitSetQuotaLimitQuotaCounter.Window, and is useful for accessing the field via an interface.
+func (v *SetQuotaLimitSetQuotaLimitQuotaCounter) GetWindow() string {
+	return v.QuotaCounterFields.Window
+}
+
+// GetUsed returns SetQuotaLimitSetQuotaLimitQuotaCounter.Used, and is useful for accessing the field via an interface.
+func (v *SetQuotaLimitSetQuotaLimitQuotaCounter) GetUsed() int { return v.QuotaCounterFields.Used }
+
+// GetLimit returns SetQuotaLimitSetQuotaLimitQuotaCounter.Limit, and is useful for accessing the field via an interface.
+func (v *SetQuotaLimitSetQuotaLimitQuotaCounter) GetLimit() int { return v.QuotaCounterFields.Limit }
+
+// GetResetAt returns SetQuotaLimitSetQuotaLimitQuotaCounter.ResetAt, and is useful for accessing the field via an interface.
+func (v *SetQuotaLimitSetQuotaLimitQuotaCounter) GetResetAt() string {
+	return v.QuotaCounterFields.ResetAt
+}
+
+func (v *SetQuotaLimitSetQuotaLimitQuotaCounter) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*SetQuotaLimitSetQuotaLimitQuotaCounter
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.SetQuotaLimitSetQuotaLimitQuotaCounter = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.QuotaCounterFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalSetQuotaLimitSetQuotaLimitQuotaCounter struct {
+	Id string `json:"id"`
+
+	ScopeKind string `json:"scopeKind"`
+
+	ScopeId string `json:"scopeId"`
+
+	Action string `json:"action"`
+
+	Window string `json:"window"`
+
+	Used int `json:"used"`
+
+	Limit int `json:"limit"`
+
+	ResetAt string `json:"resetAt"`
+}
+
+func (v *SetQuotaLimitSetQuotaLimitQuotaCounter) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *SetQuotaLimitSetQuotaLimitQuotaCounter) __premarshalJSON() (*__premarshalSetQuotaLimitSetQuotaLimitQuotaCounter, error) {
+	var retval __premarshalSetQuotaLimitSetQuotaLimitQuotaCounter
+
+	retval.Id = v.QuotaCounterFields.Id
+	retval.ScopeKind = v.QuotaCounterFields.ScopeKind
+	retval.ScopeId = v.QuotaCounterFields.ScopeId
+	retval.Action = v.QuotaCounterFields.Action
+	retval.Window = v.QuotaCounterFields.Window
+	retval.Used = v.QuotaCounterFields.Used
+	retval.Limit = v.QuotaCounterFields.Limit
+	retval.ResetAt = v.QuotaCounterFields.ResetAt
+	return &retval, nil
+}
 
 // SetTeamPauseResponse is returned by SetTeamPause on success.
 type SetTeamPauseResponse struct {
@@ -72033,6 +72773,34 @@ func (v *UpdateMemoryUpdateMemory) GetData() *json.RawMessage { return v.Data }
 // GetUpdatedAt returns UpdateMemoryUpdateMemory.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *UpdateMemoryUpdateMemory) GetUpdatedAt() string { return v.UpdatedAt }
 
+// UpdateMyPolicyResponse is returned by UpdateMyPolicy on success.
+type UpdateMyPolicyResponse struct {
+	// Author YOUR user-layer action-policy link (cor:acl:040:02, #510). Null clears (= no restriction).
+	UpdateMyPolicy *UpdateMyPolicyUpdateMyPolicyUser `json:"updateMyPolicy"`
+}
+
+// GetUpdateMyPolicy returns UpdateMyPolicyResponse.UpdateMyPolicy, and is useful for accessing the field via an interface.
+func (v *UpdateMyPolicyResponse) GetUpdateMyPolicy() *UpdateMyPolicyUpdateMyPolicyUser {
+	return v.UpdateMyPolicy
+}
+
+// UpdateMyPolicyUpdateMyPolicyUser includes the requested fields of the GraphQL type User.
+type UpdateMyPolicyUpdateMyPolicyUser struct {
+	Id     string  `json:"id"`
+	Handle *string `json:"handle"`
+	// User-layer action-policy link (cor:acl:040:02, #510) — constrains runs made on the user's behalf. Null = no restriction, or hidden from viewers without personal-field access. Self-authored via updateMyPolicy.
+	Policy *json.RawMessage `json:"policy"`
+}
+
+// GetId returns UpdateMyPolicyUpdateMyPolicyUser.Id, and is useful for accessing the field via an interface.
+func (v *UpdateMyPolicyUpdateMyPolicyUser) GetId() string { return v.Id }
+
+// GetHandle returns UpdateMyPolicyUpdateMyPolicyUser.Handle, and is useful for accessing the field via an interface.
+func (v *UpdateMyPolicyUpdateMyPolicyUser) GetHandle() *string { return v.Handle }
+
+// GetPolicy returns UpdateMyPolicyUpdateMyPolicyUser.Policy, and is useful for accessing the field via an interface.
+func (v *UpdateMyPolicyUpdateMyPolicyUser) GetPolicy() *json.RawMessage { return v.Policy }
+
 // UpdateMyProfileResponse is returned by UpdateMyProfile on success.
 type UpdateMyProfileResponse struct {
 	// Update display name and handle. A supplied email must match the existing
@@ -74450,6 +75218,133 @@ func (v *UpdateScopeUpdateScope) __premarshalJSON() (*__premarshalUpdateScopeUpd
 	retval.CreatedAt = v.ScopeFields.CreatedAt
 	retval.UpdatedAt = v.ScopeFields.UpdatedAt
 	retval.Memories = v.ScopeMemories.Memories
+	return &retval, nil
+}
+
+// UpdateSecretResponse is returned by UpdateSecret on success.
+type UpdateSecretResponse struct {
+	// Overwrite a secret's value and/or metadata (v1 rotation — no
+	// versioning). Name, kind, and owner are immutable — the cascade and
+	// flow config reference the name; create a new name instead. The
+	// effective (metadata, value) pair is re-validated per kind.
+	UpdateSecret *UpdateSecretUpdateSecret `json:"updateSecret"`
+}
+
+// GetUpdateSecret returns UpdateSecretResponse.UpdateSecret, and is useful for accessing the field via an interface.
+func (v *UpdateSecretResponse) GetUpdateSecret() *UpdateSecretUpdateSecret { return v.UpdateSecret }
+
+// UpdateSecretUpdateSecret includes the requested fields of the GraphQL type Secret.
+// The GraphQL type's documentation follows.
+//
+// One named, owner-scoped secret — the general secret store (#677).
+// Polymorphic owner (user | org | app | memory). The value is encrypted
+// at rest and WRITE-ONLY: no field here ever returns it — kind + metadata
+// are the inspectable half (you can see THAT a secret exists and, for
+// webfetch-auth, WHERE it applies, without decrypting). A bare name
+// resolves at run time via the CSS cascade, most-specific-first:
+// memory -> app -> user -> org.
+type UpdateSecretUpdateSecret struct {
+	SecretFields `json:"-"`
+}
+
+// GetId returns UpdateSecretUpdateSecret.Id, and is useful for accessing the field via an interface.
+func (v *UpdateSecretUpdateSecret) GetId() string { return v.SecretFields.Id }
+
+// GetOwnerType returns UpdateSecretUpdateSecret.OwnerType, and is useful for accessing the field via an interface.
+func (v *UpdateSecretUpdateSecret) GetOwnerType() string { return v.SecretFields.OwnerType }
+
+// GetOwnerId returns UpdateSecretUpdateSecret.OwnerId, and is useful for accessing the field via an interface.
+func (v *UpdateSecretUpdateSecret) GetOwnerId() string { return v.SecretFields.OwnerId }
+
+// GetName returns UpdateSecretUpdateSecret.Name, and is useful for accessing the field via an interface.
+func (v *UpdateSecretUpdateSecret) GetName() string { return v.SecretFields.Name }
+
+// GetKind returns UpdateSecretUpdateSecret.Kind, and is useful for accessing the field via an interface.
+func (v *UpdateSecretUpdateSecret) GetKind() string { return v.SecretFields.Kind }
+
+// GetMetadata returns UpdateSecretUpdateSecret.Metadata, and is useful for accessing the field via an interface.
+func (v *UpdateSecretUpdateSecret) GetMetadata() *json.RawMessage { return v.SecretFields.Metadata }
+
+// GetCreatedAt returns UpdateSecretUpdateSecret.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateSecretUpdateSecret) GetCreatedAt() string { return v.SecretFields.CreatedAt }
+
+// GetCreatedBy returns UpdateSecretUpdateSecret.CreatedBy, and is useful for accessing the field via an interface.
+func (v *UpdateSecretUpdateSecret) GetCreatedBy() *string { return v.SecretFields.CreatedBy }
+
+// GetUpdatedAt returns UpdateSecretUpdateSecret.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateSecretUpdateSecret) GetUpdatedAt() string { return v.SecretFields.UpdatedAt }
+
+// GetUpdatedBy returns UpdateSecretUpdateSecret.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *UpdateSecretUpdateSecret) GetUpdatedBy() *string { return v.SecretFields.UpdatedBy }
+
+func (v *UpdateSecretUpdateSecret) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateSecretUpdateSecret
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateSecretUpdateSecret = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.SecretFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateSecretUpdateSecret struct {
+	Id string `json:"id"`
+
+	OwnerType string `json:"ownerType"`
+
+	OwnerId string `json:"ownerId"`
+
+	Name string `json:"name"`
+
+	Kind string `json:"kind"`
+
+	Metadata *json.RawMessage `json:"metadata"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	UpdatedAt string `json:"updatedAt"`
+
+	UpdatedBy *string `json:"updatedBy"`
+}
+
+func (v *UpdateSecretUpdateSecret) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateSecretUpdateSecret) __premarshalJSON() (*__premarshalUpdateSecretUpdateSecret, error) {
+	var retval __premarshalUpdateSecretUpdateSecret
+
+	retval.Id = v.SecretFields.Id
+	retval.OwnerType = v.SecretFields.OwnerType
+	retval.OwnerId = v.SecretFields.OwnerId
+	retval.Name = v.SecretFields.Name
+	retval.Kind = v.SecretFields.Kind
+	retval.Metadata = v.SecretFields.Metadata
+	retval.CreatedAt = v.SecretFields.CreatedAt
+	retval.CreatedBy = v.SecretFields.CreatedBy
+	retval.UpdatedAt = v.SecretFields.UpdatedAt
+	retval.UpdatedBy = v.SecretFields.UpdatedBy
 	return &retval, nil
 }
 
@@ -80642,6 +81537,14 @@ func (v *__ConfirmTeamAttentionSwitchoverInput) GetAppRef() string { return v.Ap
 // GetProof returns __ConfirmTeamAttentionSwitchoverInput.Proof, and is useful for accessing the field via an interface.
 func (v *__ConfirmTeamAttentionSwitchoverInput) GetProof() string { return v.Proof }
 
+// __ConnectionGrantInput is used internally by genqlient
+type __ConnectionGrantInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __ConnectionGrantInput.Ref, and is useful for accessing the field via an interface.
+func (v *__ConnectionGrantInput) GetRef() string { return v.Ref }
+
 // __ConnectionGrantsInput is used internally by genqlient
 type __ConnectionGrantsInput struct {
 	ConnectionRef *string `json:"connectionRef,omitempty"`
@@ -82078,6 +82981,22 @@ func (v *__EffectiveAccessInput) GetUser() string { return v.User }
 // GetResource returns __EffectiveAccessInput.Resource, and is useful for accessing the field via an interface.
 func (v *__EffectiveAccessInput) GetResource() string { return v.Resource }
 
+// __EffectiveActionPolicyInput is used internally by genqlient
+type __EffectiveActionPolicyInput struct {
+	Action  string  `json:"action"`
+	AppRef  string  `json:"appRef"`
+	UserRef *string `json:"userRef,omitempty"`
+}
+
+// GetAction returns __EffectiveActionPolicyInput.Action, and is useful for accessing the field via an interface.
+func (v *__EffectiveActionPolicyInput) GetAction() string { return v.Action }
+
+// GetAppRef returns __EffectiveActionPolicyInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__EffectiveActionPolicyInput) GetAppRef() string { return v.AppRef }
+
+// GetUserRef returns __EffectiveActionPolicyInput.UserRef, and is useful for accessing the field via an interface.
+func (v *__EffectiveActionPolicyInput) GetUserRef() *string { return v.UserRef }
+
 // __EmailConnectionsInput is used internally by genqlient
 type __EmailConnectionsInput struct {
 	OrgId string `json:"orgId"`
@@ -83488,6 +84407,14 @@ func (v *__PreviewAutomationInput) GetTriggerKind() AutomationTriggerKind { retu
 // GetTriggerRef returns __PreviewAutomationInput.TriggerRef, and is useful for accessing the field via an interface.
 func (v *__PreviewAutomationInput) GetTriggerRef() string { return v.TriggerRef }
 
+// __PrincipalGrantInput is used internally by genqlient
+type __PrincipalGrantInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __PrincipalGrantInput.Ref, and is useful for accessing the field via an interface.
+func (v *__PrincipalGrantInput) GetRef() string { return v.Ref }
+
 // __PrincipalGrantsInput is used internally by genqlient
 type __PrincipalGrantsInput struct {
 	OrgRef  *string `json:"orgRef,omitempty"`
@@ -83531,6 +84458,18 @@ type __PublicOrganizationInput struct {
 
 // GetRef returns __PublicOrganizationInput.Ref, and is useful for accessing the field via an interface.
 func (v *__PublicOrganizationInput) GetRef() string { return v.Ref }
+
+// __QuotaCountersInput is used internally by genqlient
+type __QuotaCountersInput struct {
+	OrgRef string  `json:"orgRef"`
+	AppRef *string `json:"appRef,omitempty"`
+}
+
+// GetOrgRef returns __QuotaCountersInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__QuotaCountersInput) GetOrgRef() string { return v.OrgRef }
+
+// GetAppRef returns __QuotaCountersInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__QuotaCountersInput) GetAppRef() *string { return v.AppRef }
 
 // __ReAdoptAutomationInput is used internally by genqlient
 type __ReAdoptAutomationInput struct {
@@ -84272,6 +85211,14 @@ func (v *__SearchUsersInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __SearchUsersInput.Offset, and is useful for accessing the field via an interface.
 func (v *__SearchUsersInput) GetOffset() *int { return v.Offset }
 
+// __SecretInput is used internally by genqlient
+type __SecretInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __SecretInput.Ref, and is useful for accessing the field via an interface.
+func (v *__SecretInput) GetRef() string { return v.Ref }
+
 // __SecretsInput is used internally by genqlient
 type __SecretsInput struct {
 	OwnerType string  `json:"ownerType"`
@@ -84445,6 +85392,14 @@ type __SetHostWorkerAvailabilityInput struct {
 
 // GetInput returns __SetHostWorkerAvailabilityInput.Input, and is useful for accessing the field via an interface.
 func (v *__SetHostWorkerAvailabilityInput) GetInput() *SetHostWorkerAvailabilityInput { return v.Input }
+
+// __SetQuotaLimitInput is used internally by genqlient
+type __SetQuotaLimitInput struct {
+	Input *SetQuotaLimitInput `json:"input,omitempty"`
+}
+
+// GetInput returns __SetQuotaLimitInput.Input, and is useful for accessing the field via an interface.
+func (v *__SetQuotaLimitInput) GetInput() *SetQuotaLimitInput { return v.Input }
 
 // __SetTeamPauseInput is used internally by genqlient
 type __SetTeamPauseInput struct {
@@ -85784,6 +86739,14 @@ func (v *__UpdateMemorySubscriptionInput) GetOrgRef() string { return v.OrgRef }
 // GetRole returns __UpdateMemorySubscriptionInput.Role, and is useful for accessing the field via an interface.
 func (v *__UpdateMemorySubscriptionInput) GetRole() Role { return v.Role }
 
+// __UpdateMyPolicyInput is used internally by genqlient
+type __UpdateMyPolicyInput struct {
+	Policy *json.RawMessage `json:"policy"`
+}
+
+// GetPolicy returns __UpdateMyPolicyInput.Policy, and is useful for accessing the field via an interface.
+func (v *__UpdateMyPolicyInput) GetPolicy() *json.RawMessage { return v.Policy }
+
 // __UpdateMyProfileInput is used internally by genqlient
 type __UpdateMyProfileInput struct {
 	Name   *string `json:"name,omitempty"`
@@ -86040,10 +87003,11 @@ func (v *__UpdateOrgMemberInput) GetRole() Role { return v.Role }
 
 // __UpdateOrganizationInput is used internally by genqlient
 type __UpdateOrganizationInput struct {
-	Id                  string  `json:"id"`
-	Name                *string `json:"name,omitempty"`
-	Urn                 *string `json:"urn,omitempty"`
-	ListedOnMarketplace *bool   `json:"listedOnMarketplace,omitempty"`
+	Id                  string           `json:"id"`
+	Name                *string          `json:"name,omitempty"`
+	Urn                 *string          `json:"urn,omitempty"`
+	ListedOnMarketplace *bool            `json:"listedOnMarketplace,omitempty"`
+	Policy              *json.RawMessage `json:"policy,omitempty"`
 }
 
 // GetId returns __UpdateOrganizationInput.Id, and is useful for accessing the field via an interface.
@@ -86057,6 +87021,9 @@ func (v *__UpdateOrganizationInput) GetUrn() *string { return v.Urn }
 
 // GetListedOnMarketplace returns __UpdateOrganizationInput.ListedOnMarketplace, and is useful for accessing the field via an interface.
 func (v *__UpdateOrganizationInput) GetListedOnMarketplace() *bool { return v.ListedOnMarketplace }
+
+// GetPolicy returns __UpdateOrganizationInput.Policy, and is useful for accessing the field via an interface.
+func (v *__UpdateOrganizationInput) GetPolicy() *json.RawMessage { return v.Policy }
 
 // __UpdateRegisterEntryInput is used internally by genqlient
 type __UpdateRegisterEntryInput struct {
@@ -86201,6 +87168,22 @@ func (v *__UpdateScopeInput) GetRef() string { return v.Ref }
 
 // GetInput returns __UpdateScopeInput.Input, and is useful for accessing the field via an interface.
 func (v *__UpdateScopeInput) GetInput() *UpdateScopeInput { return v.Input }
+
+// __UpdateSecretInput is used internally by genqlient
+type __UpdateSecretInput struct {
+	Ref      string           `json:"ref"`
+	Metadata *json.RawMessage `json:"metadata,omitempty"`
+	Value    *json.RawMessage `json:"value,omitempty"`
+}
+
+// GetRef returns __UpdateSecretInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateSecretInput) GetRef() string { return v.Ref }
+
+// GetMetadata returns __UpdateSecretInput.Metadata, and is useful for accessing the field via an interface.
+func (v *__UpdateSecretInput) GetMetadata() *json.RawMessage { return v.Metadata }
+
+// GetValue returns __UpdateSecretInput.Value, and is useful for accessing the field via an interface.
+func (v *__UpdateSecretInput) GetValue() *json.RawMessage { return v.Value }
 
 // __UpdateSpecNodeClearingRoleInput is used internally by genqlient
 type __UpdateSpecNodeClearingRoleInput struct {
@@ -93652,6 +94635,52 @@ func ConfirmTeamAttentionSwitchover(
 	return data_, err_
 }
 
+// The query executed by ConnectionGrant.
+const ConnectionGrant_Operation = `
+query ConnectionGrant ($ref: ID!) {
+	connectionGrant(ref: $ref) {
+		... ConnectionGrantFields
+	}
+}
+fragment ConnectionGrantFields on ConnectionGrant {
+	id
+	connectionId
+	granteeAppId
+	granteeAppName
+	granteeAppUrn
+	scopes
+	expiresAt
+	createdAt
+}
+`
+
+// One connection grant the caller created, by id (#1343); null if not theirs
+// (no existence oracle).
+func ConnectionGrant(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *ConnectionGrantResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ConnectionGrant",
+		Query:  ConnectionGrant_Operation,
+		Variables: &__ConnectionGrantInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &ConnectionGrantResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by ConnectionGrants.
 const ConnectionGrants_Operation = `
 query ConnectionGrants ($connectionRef: String, $limit: Int, $offset: Int) {
@@ -97834,6 +98863,52 @@ func EffectiveAccess(
 	}
 
 	data_ = &EffectiveAccessResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by EffectiveActionPolicy.
+const EffectiveActionPolicy_Operation = `
+query EffectiveActionPolicy ($action: String!, $appRef: String!, $userRef: String) {
+	effectiveActionPolicy(action: $action, appRef: $appRef, userRef: $userRef) {
+		allowed
+		layers {
+			layer
+			present
+			allowed
+			allow
+		}
+	}
+}
+`
+
+// Explain the org / user / app chain for one action: which layer denies it.
+// Org ADMIN on the App's org.
+func EffectiveActionPolicy(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	action string,
+	appRef string,
+	userRef *string,
+) (data_ *EffectiveActionPolicyResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EffectiveActionPolicy",
+		Query:  EffectiveActionPolicy_Operation,
+		Variables: &__EffectiveActionPolicyInput{
+			Action:  action,
+			AppRef:  appRef,
+			UserRef: userRef,
+		},
+	}
+
+	data_ = &EffectiveActionPolicyResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -104416,6 +105491,53 @@ func PreviewAutomation(
 	return data_, err_
 }
 
+// The query executed by PrincipalGrant.
+const PrincipalGrant_Operation = `
+query PrincipalGrant ($ref: ID!) {
+	principalGrant(ref: $ref) {
+		... PrincipalGrantFields
+	}
+}
+fragment PrincipalGrantFields on PrincipalGrant {
+	id
+	principalType
+	principalId
+	principalHandle
+	organizationId
+	organizationUrn
+	actions
+	expiresAt
+	createdAt
+}
+`
+
+// One action grant by id (#1343): the grantee or an admin of its org; null
+// otherwise (no existence oracle).
+func PrincipalGrant(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *PrincipalGrantResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "PrincipalGrant",
+		Query:  PrincipalGrant_Operation,
+		Variables: &__PrincipalGrantInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &PrincipalGrantResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by PrincipalGrants.
 const PrincipalGrants_Operation = `
 query PrincipalGrants ($orgRef: String, $userRef: String, $limit: Int, $offset: Int) {
@@ -104586,6 +105708,54 @@ func PublicOrganization(
 	}
 
 	data_ = &PublicOrganizationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by QuotaCounters.
+const QuotaCounters_Operation = `
+query QuotaCounters ($orgRef: String!, $appRef: String) {
+	quotaCounters(orgRef: $orgRef, appRef: $appRef) {
+		... QuotaCounterFields
+	}
+}
+fragment QuotaCounterFields on QuotaCounter {
+	id
+	scopeKind
+	scopeId
+	action
+	window
+	used
+	limit
+	resetAt
+}
+`
+
+// Quota counters (server #510): usage vs limit for an org, plus one App's rows
+// when appRef is given. Org ADMIN. Rows materialize on first view.
+func QuotaCounters(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgRef string,
+	appRef *string,
+) (data_ *QuotaCountersResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "QuotaCounters",
+		Query:  QuotaCounters_Operation,
+		Variables: &__QuotaCountersInput{
+			OrgRef: orgRef,
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &QuotaCountersResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -107446,6 +108616,54 @@ func SearchUsers(
 	return data_, err_
 }
 
+// The query executed by Secret.
+const Secret_Operation = `
+query Secret ($ref: ID!) {
+	secret(ref: $ref) {
+		... SecretFields
+	}
+}
+fragment SecretFields on Secret {
+	id
+	ownerType
+	ownerId
+	name
+	kind
+	metadata
+	createdAt
+	createdBy
+	updatedAt
+	updatedBy
+}
+`
+
+// One secret's inspectable half (#1343). Null both when it does not exist and
+// when the caller is not entitled to its owner scope (no existence oracle).
+func Secret(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *SecretResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "Secret",
+		Query:  Secret_Operation,
+		Variables: &__SecretInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &SecretResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by Secrets.
 const Secrets_Operation = `
 query Secrets ($ownerType: String!, $ownerRef: ID, $limit: Int, $offset: Int) {
@@ -108177,6 +109395,51 @@ func SetHostWorkerAvailability(
 	}
 
 	data_ = &SetHostWorkerAvailabilityResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by SetQuotaLimit.
+const SetQuotaLimit_Operation = `
+mutation SetQuotaLimit ($input: SetQuotaLimitInput!) {
+	setQuotaLimit(input: $input) {
+		... QuotaCounterFields
+	}
+}
+fragment QuotaCounterFields on QuotaCounter {
+	id
+	scopeKind
+	scopeId
+	action
+	window
+	used
+	limit
+	resetAt
+}
+`
+
+// Set the stored (enforced) limit for a scope x action. Org ADMIN.
+func SetQuotaLimit(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *SetQuotaLimitInput,
+) (data_ *SetQuotaLimitResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SetQuotaLimit",
+		Query:  SetQuotaLimit_Operation,
+		Variables: &__SetQuotaLimitInput{
+			Input: input,
+		},
+	}
+
+	data_ = &SetQuotaLimitResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -112644,6 +113907,44 @@ func UpdateMemorySubscription(
 	return data_, err_
 }
 
+// The mutation executed by UpdateMyPolicy.
+const UpdateMyPolicy_Operation = `
+mutation UpdateMyPolicy ($policy: JSON) {
+	updateMyPolicy(policy: $policy) {
+		id
+		handle
+		policy
+	}
+}
+`
+
+// Author the caller's own user-layer link. $policy is deliberately NOT
+// omitempty: it is the only argument, and nil sends null, which clears it.
+func UpdateMyPolicy(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	policy *json.RawMessage,
+) (data_ *UpdateMyPolicyResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateMyPolicy",
+		Query:  UpdateMyPolicy_Operation,
+		Variables: &__UpdateMyPolicyInput{
+			Policy: policy,
+		},
+	}
+
+	data_ = &UpdateMyPolicyResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by UpdateMyProfile.
 const UpdateMyProfile_Operation = `
 mutation UpdateMyProfile ($name: String, $email: String, $handle: String) {
@@ -113266,8 +114567,8 @@ func UpdateOrgMember(
 
 // The mutation executed by UpdateOrganization.
 const UpdateOrganization_Operation = `
-mutation UpdateOrganization ($id: ID!, $name: String, $urn: String, $listedOnMarketplace: Boolean) {
-	updateOrganization(id: $id, name: $name, urn: $urn, listedOnMarketplace: $listedOnMarketplace) {
+mutation UpdateOrganization ($id: ID!, $name: String, $urn: String, $listedOnMarketplace: Boolean, $policy: JSON) {
+	updateOrganization(id: $id, name: $name, urn: $urn, listedOnMarketplace: $listedOnMarketplace, policy: $policy) {
 		... OrgFields
 	}
 }
@@ -113288,6 +114589,7 @@ func UpdateOrganization(
 	name *string,
 	urn *string,
 	listedOnMarketplace *bool,
+	policy *json.RawMessage,
 ) (data_ *UpdateOrganizationResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateOrganization",
@@ -113297,6 +114599,7 @@ func UpdateOrganization(
 			Name:                name,
 			Urn:                 urn,
 			ListedOnMarketplace: listedOnMarketplace,
+			Policy:              policy,
 		},
 	}
 
@@ -113607,6 +114910,58 @@ func UpdateScope(
 	}
 
 	data_ = &UpdateScopeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateSecret.
+const UpdateSecret_Operation = `
+mutation UpdateSecret ($ref: ID!, $metadata: JSON, $value: JSON) {
+	updateSecret(ref: $ref, metadata: $metadata, value: $value) {
+		... SecretFields
+	}
+}
+fragment SecretFields on Secret {
+	id
+	ownerType
+	ownerId
+	name
+	kind
+	metadata
+	createdAt
+	createdBy
+	updatedAt
+	updatedBy
+}
+`
+
+// Overwrite a secret's value and/or metadata (v1 rotation: no versions). An
+// omitted argument preserves the stored half, so both are omitempty.
+func UpdateSecret(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	metadata *json.RawMessage,
+	value *json.RawMessage,
+) (data_ *UpdateSecretResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateSecret",
+		Query:  UpdateSecret_Operation,
+		Variables: &__UpdateSecretInput{
+			Ref:      ref,
+			Metadata: metadata,
+			Value:    value,
+		},
+	}
+
+	data_ = &UpdateSecretResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

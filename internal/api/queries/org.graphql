@@ -109,8 +109,12 @@ mutation UpdateOrganization(
   $urn: String
   # @genqlient(omitempty: true)
   $listedOnMarketplace: Boolean
+  # The org-layer action-policy link (cor:acl:040:02, #1343). nil omits
+  # (preserve); a RawMessage of "null" clears the link (= no restriction).
+  # @genqlient(omitempty: true)
+  $policy: JSON
 ) {
-  updateOrganization(id: $id, name: $name, urn: $urn, listedOnMarketplace: $listedOnMarketplace) {
+  updateOrganization(id: $id, name: $name, urn: $urn, listedOnMarketplace: $listedOnMarketplace, policy: $policy) {
     ...OrgFields
   }
 }

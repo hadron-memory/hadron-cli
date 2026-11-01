@@ -168,6 +168,26 @@ func webFetchAuthPayload(f *cmdutil.Factory, valueFile, authType, username, head
 	if urlPrefix == "" {
 		return nil, nil, exitcode.Newf(exitcode.Usage, "--url-prefix is required for --kind webfetch-auth")
 	}
+	valueJSON, err := webFetchAuthValue(f, valueFile, authType, username, headerName)
+	if err != nil {
+		return nil, nil, err
+	}
+	metadataJSON, err := webFetchAuthMetadata(urlPrefix)
+	if err != nil {
+		return nil, nil, err
+	}
+	return valueJSON, &metadataJSON, nil
+}
+
+// webFetchAuthMetadata is a webfetch-auth secret's metadata: the URL prefix
+// its credential is injected into. The server validates it.
+func webFetchAuthMetadata(urlPrefix string) (json.RawMessage, error) {
+	return jsonObjectValue(map[string]string{"urlPrefix": urlPrefix})
+}
+
+// webFetchAuthValue reads the credential material for --type and builds the
+// webfetch-auth value object. Shared by create and update.
+func webFetchAuthValue(f *cmdutil.Factory, valueFile, authType, username, headerName string) (json.RawMessage, error) {
 	var label string
 	value := map[string]string{"type": authType}
 	switch authType {
@@ -175,41 +195,33 @@ func webFetchAuthPayload(f *cmdutil.Factory, valueFile, authType, username, head
 		label = "Bearer token"
 		token, err := readSecretMaterial(f.IOStreams, valueFile, label)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		value["token"] = token
 	case "basic":
 		if username == "" {
-			return nil, nil, exitcode.Newf(exitcode.Usage, "--username is required for --type basic")
+			return nil, exitcode.Newf(exitcode.Usage, "--username is required for --type basic")
 		}
 		label = fmt.Sprintf("Password for %s", username)
 		password, err := readSecretMaterial(f.IOStreams, valueFile, label)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		value["username"] = username
 		value["password"] = password
 	case "header":
 		if headerName == "" {
-			return nil, nil, exitcode.Newf(exitcode.Usage, "--header-name is required for --type header")
+			return nil, exitcode.Newf(exitcode.Usage, "--header-name is required for --type header")
 		}
 		label = "Header value for " + headerName
 		headerValue, err := readSecretMaterial(f.IOStreams, valueFile, label)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		value["name"] = headerName
 		value["value"] = headerValue
 	default:
-		return nil, nil, exitcode.Newf(exitcode.Usage, "--type must be one of bearer, basic, header")
+		return nil, exitcode.Newf(exitcode.Usage, "--type must be one of bearer, basic, header")
 	}
-	valueJSON, err := jsonObjectValue(value)
-	if err != nil {
-		return nil, nil, err
-	}
-	metadataJSON, err := jsonObjectValue(map[string]string{"urlPrefix": urlPrefix})
-	if err != nil {
-		return nil, nil, err
-	}
-	return valueJSON, &metadataJSON, nil
+	return jsonObjectValue(value)
 }
