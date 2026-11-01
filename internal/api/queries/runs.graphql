@@ -135,11 +135,19 @@ query AppRuns(
   # @genqlient(omitempty: true)
   $status: AppRunStatus
   # @genqlient(omitempty: true)
+  $statuses: [AppRunStatus!]
+  # @genqlient(omitempty: true)
+  $parentRunId: ID
+  # @genqlient(omitempty: true)
+  $sortBy: AppRunSortField
+  # @genqlient(omitempty: true)
+  $sortDir: SortDirection
+  # @genqlient(omitempty: true)
   $limit: Int
   # @genqlient(omitempty: true)
   $offset: Int
 ) {
-  appRuns(appRef: $appRef, orgRef: $orgRef, status: $status, limit: $limit, offset: $offset) {
+  appRuns(appRef: $appRef, orgRef: $orgRef, status: $status, statuses: $statuses, parentRunId: $parentRunId, sortBy: $sortBy, sortDir: $sortDir, limit: $limit, offset: $offset) {
     total
     items {
       ...AppRunFields
@@ -163,6 +171,7 @@ mutation CancelAppRun($id: ID!) {
 
 # --- Schedules (cor:agt:010, D-2026-07-04-E) ---
 
+# @genqlient(for: "CreateAgentScheduleInput.cron", omitempty: true)
 # @genqlient(for: "CreateAgentScheduleInput.agentRef", omitempty: true)
 # @genqlient(for: "CreateAgentScheduleInput.aiConfigName", omitempty: true)
 # @genqlient(for: "CreateAgentScheduleInput.enabled", omitempty: true)
