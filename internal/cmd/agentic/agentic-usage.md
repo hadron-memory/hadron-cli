@@ -2097,7 +2097,10 @@ Conventions:
   `{slug, memberRole, maxActivations, activationCount, expiresAt,
   sender:{name,githubUsername}|null, organization:{name}|null}`; `slug` comes
   from the argument so it remains usable with `org invite accept`. The create
-  result remains the full invitation for its authorized creator.
+  result remains the full invitation for its authorized creator. For creation,
+  `--expires-days` takes 1-10 (server default 10 days) and `--max-activations`
+  takes 2-1000 (server default 2 activations). Unset bounds are omitted; explicit
+  out-of-range values are passed through for BAD_USER_INPUT (exit 2).
 - `agent` manages agents (user- or org-owned; an App runs an agent). `agent list
   [--org <id> | --owned-by-me] [--type ASSISTANT|CHATBOT] [--visibility
   ORGANIZATION|PERSONAL|PUBLIC]` is the member-scoped view (agents in your
@@ -4536,9 +4539,12 @@ exit 7: check the sender first. Delete prompts on a terminal and requires
 organization membership. Server authorization remains authoritative. No email
 is sent: share the slug privately and accept with `hadron org invite accept
 <slug>` while signed in. Email, GitHub username and name are descriptive, not
-acceptance restrictions. Defaults: one activation, no expiry; explicit
-`--max-activations 0` means unlimited and `--expires-in-days 0` means never.
-Unset values are omitted so server defaults apply. JSON includes the slug and
+acceptance restrictions. Use `--expires-in-days` 1-10 (server default 10 days)
+and `--max-activations` 2-1000 (server default 2 activations). Unset values
+are omitted so server defaults apply; explicit values, including 0, are sent
+unchanged. The server refuses out-of-range values with BAD_USER_INPUT (exit 2);
+no invitation is created. `org invite create` uses the same ranges and server
+defaults, with `--expires-days` for expiry and `--max-activations` for the cap. JSON includes the slug and
 invitation metadata; treat the output as private.
 
 `org member add|set-role|rm` forwards orgRef/userRef, replacing deprecated

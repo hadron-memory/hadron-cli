@@ -77,13 +77,13 @@ func TestPlatformInvite1342(t *testing.T) {
 	srv, captured := captureGraphQL(t, map[string]string{"InviteUser": `{"data":{"inviteUser":{"id":"i1","slug":"private-slug","memberRole":"READER","activationCount":0,"createdAt":"2026-10-31T00:00:00Z"}}}`})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"user", "invite", "--email", "alice@example.test", "--github-username", "alice", "--name", "Alice", "--expires-in-days", "7", "--max-activations", "0", "--json", "--server", srv.URL})
+	root.SetArgs([]string{"user", "invite", "--email", "alice@example.test", "--github-username", "alice", "--name", "Alice", "--expires-in-days", "7", "--max-activations", "2", "--json", "--server", srv.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
 	var got map[string]any
 	_ = json.Unmarshal(captured["InviteUser"], &got)
-	if got["email"] != "alice@example.test" || got["githubUsername"] != "alice" || got["name"] != "Alice" || got["expiresInDays"] != float64(7) || got["maxActivations"] != float64(0) {
+	if got["email"] != "alice@example.test" || got["githubUsername"] != "alice" || got["name"] != "Alice" || got["expiresInDays"] != float64(7) || got["maxActivations"] != float64(2) {
 		t.Fatalf("vars %v", got)
 	}
 	var dto map[string]any

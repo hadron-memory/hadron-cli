@@ -52,9 +52,10 @@ No email is sent: deliver the slug to the invitee yourself, privately. The
 email, --name and --github are recorded so you know who it was for; they are
 not checked when it is accepted, so whoever holds the slug can accept it.
 
-By default an invitation can be accepted once and never expires.
---max-activations sets how many times it can be accepted (0 = unlimited);
---expires-days sets how many days it stays valid (0 = never).
+Use --expires-days 1-10 (server default 10 days) and
+--max-activations 2-1000 (server default 2 activations). Unset flags are
+omitted; the server applies its defaults and enforces these ranges. Values
+such as 0 or a single activation are refused with BAD_USER_INPUT (exit 2).
 
 Prints "✓ invited <email> as <role>" and "accept with: hadron org invite accept
 <slug>"; --json gives the invitation, including slug, maxActivations and
@@ -102,8 +103,8 @@ expiresAt. Its id is internal: the slug is what the other commands take.`,
 	cmd.Flags().StringVar(&role, "role", "", "member role: OWNER, ADMIN, CONTRIBUTOR, or READER (required)")
 	cmd.Flags().StringVar(&name, "name", "", "invitee display name (optional)")
 	cmd.Flags().StringVar(&github, "github", "", "invitee GitHub username (optional)")
-	cmd.Flags().IntVar(&expiresDays, "expires-days", 0, "days until the invitation expires (default and 0: never)")
-	cmd.Flags().IntVar(&maxActivations, "max-activations", 0, "times the invitation can be accepted (default 1; 0: unlimited)")
+	cmd.Flags().IntVar(&expiresDays, "expires-days", 0, "days until expiry: 1-10 (server default 10 when omitted)")
+	cmd.Flags().IntVar(&maxActivations, "max-activations", 0, "activation limit: 2-1000 (server default 2 when omitted)")
 	_ = cmd.MarkFlagRequired("org")
 	_ = cmd.MarkFlagRequired("role")
 	return cmd
