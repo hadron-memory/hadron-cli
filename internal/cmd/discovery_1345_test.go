@@ -9,9 +9,18 @@ import (
 )
 
 func TestFind1345(t *testing.T) {
-	for _, query := range []string{"0123456789abcdef0123456789abcdef", "hrn:mem:acme.com:kb", "plain name"} {
+	for _, query := range []string{"0123456789abcdef0123456789abcdef", "hrn:mem:acme.com:kb", "plain name", "  x y  "} {
 		g, c := captureGraphQL(t, map[string]string{"GlobalSearch": `{"data":{"globalSearch":{"hits":[{"id":"one","entityType":"user","name":null,"urn":null,"score":1,"matchedField":"pk","description":null,"memoryId":null,"organizationId":null}],"total":1,"degraded":[],"scope":null}}}`})
 		f, out := testFactory(t)
+		cfg, err := f.Config()
+		if err != nil {
+			t.Fatal(err)
+		}
+		for k, v := range map[string]string{"app": "hrn:app:ambient.test:app", "org": "hrn:org:ambient.test", "scope": "ambient-scope"} {
+			if err := cfg.Set(k, v); err != nil {
+				t.Fatal(err)
+			}
+		}
 		r := NewRootCmd(f)
 		r.SetArgs([]string{"find", query, "--json", "--server", g.URL})
 		if err := r.Execute(); err != nil {
@@ -23,6 +32,9 @@ func TestFind1345(t *testing.T) {
 		}
 		q, _ := json.Marshal(query)
 		if string(v["query"]) != string(q) {
+			t.Fatal(v)
+		}
+		if string(v["limit"]) != "20" || string(v["offset"]) != "0" {
 			t.Fatal(v)
 		}
 		for _, k := range []string{"fields", "entityTypes", "orgId", "scope", "appRef"} {
@@ -51,13 +63,15 @@ func TestFindOverrides1345(t *testing.T) {
 	g, c := captureGraphQL(t, map[string]string{"GlobalSearch": `{"data":{"globalSearch":{"hits":[],"total":0,"degraded":["content skipped"],"scope":null}}}`})
 	f, _ := testFactory(t)
 	r := NewRootCmd(f)
-	r.SetArgs([]string{"find", "q", "--field", "name,urn", "--entity-type", "agent,user", "--org", "acme.com", "--limit", "7", "--offset", "3", "--server", g.URL})
+	r.SetArgs([]string{"find", "q", "--field", "name,urn", "--entity-type", "agent,user", "--org", "hrn:org:acme.com", "--limit", "7", "--offset", "3", "--server", g.URL})
 	if err := r.Execute(); err != nil {
 		t.Fatal(err)
 	}
 	var v map[string]json.RawMessage
-	_ = json.Unmarshal(c["GlobalSearch"], &v)
-	for k, w := range map[string]string{"fields": `["name","urn"]`, "entityTypes": `["agent","user"]`, "orgId": `"acme.com"`, "limit": "7", "offset": "3"} {
+	if err := json.Unmarshal(c["GlobalSearch"], &v); err != nil {
+		t.Fatal(err)
+	}
+	for k, w := range map[string]string{"fields": `["name","urn"]`, "entityTypes": `["agent","user"]`, "orgId": `"hrn:org:acme.com"`, "limit": "7", "offset": "3"} {
 		if string(v[k]) != w {
 			t.Errorf("%s=%s", k, v[k])
 		}
@@ -74,7 +88,9 @@ func TestMarketplace1345(t *testing.T) {
 				t.Fatal(err)
 			}
 			var v map[string]json.RawMessage
-			_ = json.Unmarshal(c[x.op], &v)
+			if err := json.Unmarshal(c[x.op], &v); err != nil {
+				t.Fatal(err)
+			}
 			if string(v["limit"]) != "1" || string(v["offset"]) != "1" {
 				t.Fatal(v)
 			}
@@ -111,7 +127,7 @@ func TestDiscoveryRefusals1345(t *testing.T) {
 }
 
 func TestFindScope1345(t *testing.T) {
-	g, c := captureGraphQL(t, map[string]string{"GlobalSearch": `{"data":{"globalSearch":{"hits":[],"total":0,"degraded":[],"scope":{"kind":"named","label":"work","source":"app","ownerUrn":"hrn:app:acme.com:ops","memoryUrns":[],"droppedCount":1}}}}`})
+	g, c := captureGraphQL(t, map[string]string{"GlobalSearch": `{"data":{"globalSearch":{"hits":[],"total":0,"degraded":[],"scope":{"kind":"scope","label":"work","source":"call","ownerUrn":"hrn:app:acme.com:ops","memoryUrns":[],"droppedCount":1}}}}`})
 	f, out := testFactory(t)
 	r := NewRootCmd(f)
 	r.SetArgs([]string{"find", "q", "--scope", "work", "--app", "acme.com:ops", "--json", "--server", g.URL})
@@ -200,5 +216,63 @@ func TestCatalogueDescriptions1345(t *testing.T) {
 	}
 	if len(d.Items) != 2 || string(d.Items[0]["description"]) != `"public description"` || string(d.Items[1]["description"]) != "null" || strings.Contains(out.String(), "MUST-NOT-ECHO") {
 		t.Fatal(out.String())
+	}
+}
+
+func TestDiscoveryHuman1345(t *testing.T) {
+	g, _ := captureGraphQL(t, map[string]string{"GlobalSearch": `{"data":{"globalSearch":{"hits":[{"id":"one","entityType":"user","name":null,"urn":null,"score":1,"matchedField":"pk","description":null,"memoryId":null,"organizationId":null}],"total":10,"degraded":["reduced fidelity"],"scope":{"kind":"scope","label":"Work","source":"session","ownerUrn":null,"memoryUrns":[],"droppedCount":2}}}}`})
+	f, out := testFactory(t)
+	errOut := &strings.Builder{}
+	f.IOStreams.ErrOut = errOut
+	r := NewRootCmd(f)
+	r.SetArgs([]string{"find", "query", "--limit", "5", "--server", g.URL})
+	if err := r.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "source: session") || strings.Contains(out.String(), "from --scope") || !strings.Contains(out.String(), "Ranked matches (bounded): 10") {
+		t.Fatal(out.String())
+	}
+	if !strings.Contains(errOut.String(), "degraded: reduced fidelity") || !strings.Contains(errOut.String(), "--offset 1 --limit 5") {
+		t.Fatal(errOut.String())
+	}
+}
+
+func TestDiscoveryDegradedJSON1345(t *testing.T) {
+	g, _ := captureGraphQL(t, map[string]string{"GlobalSearch": `{"data":{"globalSearch":{"hits":[],"total":0,"degraded":["content skipped"],"scope":null}}}`})
+	f, out := testFactory(t)
+	errOut := &strings.Builder{}
+	f.IOStreams.ErrOut = errOut
+	r := NewRootCmd(f)
+	r.SetArgs([]string{"find", "q", "--json", "--server", g.URL})
+	if err := r.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var d struct{ Degraded []string }
+	if err := json.Unmarshal([]byte(out.String()), &d); err != nil {
+		t.Fatal(err)
+	}
+	if len(d.Degraded) != 1 || d.Degraded[0] != "content skipped" || !strings.Contains(errOut.String(), "degraded: content skipped") {
+		t.Fatal(out.String(), errOut.String())
+	}
+}
+
+func TestDiscoveryTerminalCells1345(t *testing.T) {
+	for _, tt := range []struct {
+		args     []string
+		op, body string
+	}{
+		{[]string{"find", "q"}, "GlobalSearch", `{"data":{"globalSearch":{"hits":[{"id":"one","entityType":"user","name":"A\u001b[31mB","urn":null,"score":1,"matchedField":"pk","description":null,"memoryId":null,"organizationId":null}],"total":1,"degraded":[],"scope":null}}}`},
+		{[]string{"marketplace", "agents"}, "MarketplaceAgents", `{"data":{"marketplaceAgents":{"items":[{"id":"a","name":"A\u001b[31mB","urn":"hrn:agent:acme.com:a","description":null}],"total":1}}}`},
+	} {
+		g, _ := captureGraphQL(t, map[string]string{tt.op: tt.body})
+		f, out := testFactory(t)
+		r := NewRootCmd(f)
+		r.SetArgs(append(tt.args, "--server", g.URL))
+		if err := r.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(out.String(), "\x1b") || !strings.Contains(out.String(), "31mB") {
+			t.Fatal(out.String())
+		}
 	}
 }
