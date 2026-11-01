@@ -465,6 +465,17 @@ func WithServerCode(mapped, raw error) error {
 	return mapped
 }
 
+// WithCode carries a server code that arrived as DATA rather than as a GraphQL
+// error (a claim result's refusalCode, cli#1524) on mapped, for the --json
+// envelope's serverCode, exactly as WithServerCode does for a thrown one. A nil
+// mapped stays nil; an empty code returns mapped as it was.
+func WithCode(mapped error, code string) error {
+	if mapped == nil || code == "" {
+		return mapped
+	}
+	return &serverCodeError{error: mapped, code: code}
+}
+
 // MapErrorKeepingCode is MapError that also keeps the server's extensions.code
 // on the result, for the --json envelope's serverCode.
 func MapErrorKeepingCode(err error) error {

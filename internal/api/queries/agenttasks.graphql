@@ -669,3 +669,63 @@ mutation AgentTaskUpdate(
     ...AgentTaskFields
   }
 }
+
+# cli#1524 C3 (hadron-server#3125 S3, cor:agt:120:03): one page of the open
+# outside items of a task integration that no task of the App claims. Every
+# optional argument is omitted unless its flag is given, so the server's
+# defaults and bounds apply (list limit 1-100, default 20).
+query UntrackedTaskItems(
+  $appRef: ID!
+  $integration: String!
+  # @genqlient(omitempty: true)
+  $team: ID
+  # @genqlient(omitempty: true)
+  $repository: String
+  # @genqlient(omitempty: true)
+  $ready: ReadyFilter
+  # @genqlient(omitempty: true)
+  $skip: Int
+  # @genqlient(omitempty: true)
+  $limit: Int
+) {
+  untrackedTaskItems(appRef: $appRef, integration: $integration, team: $team, repository: $repository, ready: $ready, skip: $skip, limit: $limit) {
+    items {
+      externalId
+      repository
+      number
+      title
+      url
+      labels
+      createdAt
+      updatedAt
+      linkedPullRequestMerged
+    }
+    total
+    complete
+    incompleteReason
+  }
+}
+
+# cli#1524 C3: claim up to limit (1-10, server default 1) of those items as
+# STARTED root tasks assigned to the caller. No skip: a claim walks the list
+# from its start. A mid-walk refusal comes back beside the claims already made
+# (incompleteReason claim_refused, refusalCode), not thrown.
+mutation ClaimUntrackedTaskItems(
+  $appRef: ID!
+  $integration: String!
+  # @genqlient(omitempty: true)
+  $team: ID
+  # @genqlient(omitempty: true)
+  $repository: String
+  # @genqlient(omitempty: true)
+  $ready: ReadyFilter
+  # @genqlient(omitempty: true)
+  $limit: Int
+) {
+  claimUntrackedTaskItems(appRef: $appRef, integration: $integration, team: $team, repository: $repository, ready: $ready, limit: $limit) {
+    tasks { ...AgentTaskFields }
+    complete
+    incompleteReason
+    refusalCode
+  }
+}

@@ -102,6 +102,7 @@ acknowledges one.`,
 		cmd.AddCommand(newCmdTaskDependencyWrite(f, verb))
 	}
 	cmd.AddCommand(newCmdTaskDependencies(f))
+	cmd.AddCommand(newCmdTaskFindUntracked(f))
 	cmd.AddCommand(newCmdTeamTaskAssign(f, "assign", "Assign a task that has no assignee", false))
 	cmd.AddCommand(newCmdTeamTaskAssign(f, "reassign", "Move a task to a different assignee", true))
 	cmd.AddCommand(newCmdTeamTaskStart(f))
