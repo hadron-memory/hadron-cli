@@ -9,6 +9,7 @@ package team
 import (
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -16,6 +17,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -54,6 +56,16 @@ never inferred here. The "free for work by tier" line tallies the rows the
 server marked freeForWork (not state AVAILABLE) by that tier; a null or
 unrecognised tier counts as unknown. Needs a server that serves these fields.
 
+GROUPS are the model groups the worker's model is CURRENTLY in, computed live
+by the server (cor:agt:060:12) — live matching information shown for reading,
+never authorization, and never computed here. A dash is a real empty answer:
+the worker has no reported model, or its model is in no group. A row whose
+group lookup failed on the server reads "unavailable (CODE)" — the server's
+error code only, never its text — and --json gives modelGroups null plus
+modelGroupsError for that row; the rest of the roster is still shown. That is
+the only server error this command tolerates. Needs a server that serves
+modelGroups (hadron-server#3026).
+
 HELD BY / SINCE show who holds the worker's name and since when (heldBy /
 heldAt; in --json heldBy is {id, handle, urn, name} or null). The server
 withholds the holder's name from readers it does not trust with it: a
@@ -79,6 +91,18 @@ control-free display text capped at 256 runes; --json preserves the original.`,
 				return err
 			}
 			resp, err := gen.TeamRoster(ctx, client, scope.Ref)
+			// The ONE tolerated field error: advisory failures of the per-row
+			// model groups, on a successfully decoded roster (cli#1485 S3).
+			// Anything else, mixed in or not, fails the command as before.
+			var advisories map[int]string
+			if err != nil && resp != nil && resp.TeamRoster != nil {
+				rows := resp.TeamRoster.Workers
+				if adv, ok := api.RosterGroupAdvisories(err, len(rows), func(i int) bool {
+					return rows[i] != nil && rows[i].ModelGroups == nil
+				}); ok {
+					advisories, err = adv, nil
+				}
+			}
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -87,9 +111,20 @@ control-free display text capped at 256 runes; --json preserves the original.`,
 				AsOf:    resp.TeamRoster.AsOf,
 				Workers: []rosterEntryDTO{},
 			}
-			for _, w := range resp.TeamRoster.Workers {
+			for i, w := range resp.TeamRoster.Workers {
 				if w == nil {
 					continue
+				}
+				// A null membership is only ever the advisory error's partner.
+				// Null with no matching error is outside the server contract:
+				// fail closed rather than read it as "no groups" (cli#1485 S3).
+				var groupsErr *string
+				if w.ModelGroups == nil {
+					code, ok := advisories[i]
+					if !ok {
+						return exitcode.Newf(exitcode.Error, "team roster row %d: modelGroups is null without a matching field error — not a state the server documents, so it is not shown as \"no groups\"", i)
+					}
+					groupsErr = &code
 				}
 				// Guarded like every sibling (cycle 2, Xylon P2-1): a null
 				// worker entry renders an empty party rather than panicking —
@@ -113,6 +148,8 @@ control-free display text capped at 256 runes; --json preserves the original.`,
 					Model:               w.Model,
 					ModelReportedAt:     w.ModelReportedAt,
 					Tier:                w.Tier,
+					ModelGroups:         w.ModelGroups,
+					ModelGroupsError:    groupsErr,
 					FreeForWork:         w.FreeForWork,
 					FreeFamilies:        strListOrEmpty(w.FreeFamilies),
 					LaunchableFamilies:  strListOrEmpty(w.LaunchableFamilies),
@@ -140,7 +177,7 @@ control-free display text capped at 256 runes; --json preserves the original.`,
 				if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {
 					return err
 				}
-				t := output.NewTable(w, "WORKER", "STATE", "CHECK", "TERMINAL", "ROLE", "FAMILY", "MODEL", "TIER", "LIVE", "TASKS", "ALARMS", "REPORTS TO", "HELD BY", "SINCE")
+				t := output.NewTable(w, "WORKER", "STATE", "CHECK", "TERMINAL", "ROLE", "FAMILY", "MODEL", "TIER", "GROUPS", "LIVE", "TASKS", "ALARMS", "REPORTS TO", "HELD BY", "SINCE")
 				now := time.Now()
 				for _, e := range dto.Workers {
 					name := e.Worker.ID
@@ -156,7 +193,7 @@ control-free display text capped at 256 runes; --json preserves the original.`,
 					}
 					tasks := fmt.Sprintf("P%d S%d", len(e.PendingTasks), len(e.StartedTasks))
 					alarms := fmt.Sprintf("%d", len(e.Alarms))
-					t.Row(output.SafeCell(name), output.SafeCell(e.State), output.SafeCell(channelCheckLabel(e.CheckStatus)), output.SafeCell(terminalLabel(e.Terminal, now)), output.SafeCell(strOr(e.Role)), output.SafeCell(family), output.SafeCell(strOr(e.Model)), output.SafeCell(strOr(e.Tier)), output.SafeCell(live), output.SafeCell(tasks), output.SafeCell(alarms), output.SafeCell(rosterReportsToLabel(e)), output.SafeCell(holderLabel(e.HeldBy)), output.SafeCell(strOr(e.HeldAt)))
+					t.Row(output.SafeCell(name), output.SafeCell(e.State), output.SafeCell(channelCheckLabel(e.CheckStatus)), output.SafeCell(terminalLabel(e.Terminal, now)), output.SafeCell(strOr(e.Role)), output.SafeCell(family), output.SafeCell(strOr(e.Model)), output.SafeCell(strOr(e.Tier)), output.SafeCell(modelGroupsCell(e.ModelGroups, e.ModelGroupsError)), output.SafeCell(live), output.SafeCell(tasks), output.SafeCell(alarms), output.SafeCell(rosterReportsToLabel(e)), output.SafeCell(holderLabel(e.HeldBy)), output.SafeCell(strOr(e.HeldAt)))
 				}
 				if err := t.Flush(); err != nil {
 					return err
@@ -239,4 +276,21 @@ func rosterTerminal(t *gen.TeamRosterTeamRosterWorkersTeamRosterEntryTerminalWor
 		return nil
 	}
 	return workerTerminalFromFields(t.WorkerTerminalFields)
+}
+
+// modelGroupsCell renders the server's group membership for one roster row:
+// the names, a dash for a real [] (no model, or no group matches), and
+// "unavailable (CODE)" for a row whose lookup failed — never "none" for an
+// answer the server did not give (cli#1485 S3).
+func modelGroupsCell(groups []string, errCode *string) string {
+	if groups == nil {
+		if errCode != nil {
+			return "unavailable (" + *errCode + ")"
+		}
+		return "unavailable"
+	}
+	if len(groups) == 0 {
+		return "—"
+	}
+	return strings.Join(groups, ",")
 }

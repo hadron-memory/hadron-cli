@@ -351,6 +351,12 @@ query TeamRoster($appRef: ID!) {
       model
       modelReportedAt
       tier
+      # cli#1485 S3 (hadron-server#3026, cor:agt:060:12): the live matching
+      # model-group names — advisory, never authorization. [] is a real answer
+      # (no model, or no group matches); null arrives ONLY with a field error at
+      # exactly teamRoster.workers[i].modelGroups, which the roster command
+      # tolerates and nothing else does (see api.RosterGroupAdvisories).
+      modelGroups
       freeForWork
       freeFamilies
       launchableFamilies

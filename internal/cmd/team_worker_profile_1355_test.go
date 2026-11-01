@@ -91,8 +91,8 @@ func TestWorkerGetProfileByURNIsDirectAndHonest(t *testing.T) {
 			if err != nil {
 				t.Fatalf("execute: %v\n%s", err, out)
 			}
-			if got := log.String(); got != "GetWorker,GetWorkerProfile,GetWorkerTerminal" {
-				t.Errorf("operations = %s, want exactly GetWorker,GetWorkerProfile,GetWorkerTerminal (no roster, no App lookup)", got)
+			if got := log.String(); got != "GetWorker,GetWorkerProfile,GetWorkerTerminal,GetWorkerModelGroups" {
+				t.Errorf("operations = %s, want exactly GetWorker,GetWorkerProfile,GetWorkerTerminal,GetWorkerModelGroups (no roster, no App lookup)", got)
 			}
 			for _, want := range []string{"Iris", "backend-engineer", "app: hrn:app:acme.com:eng-team — Eng Team", "owner: acme.com", "working state: not visible to you"} {
 				if !strings.Contains(out, want) {

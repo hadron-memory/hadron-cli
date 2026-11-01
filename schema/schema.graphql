@@ -670,6 +670,16 @@ type AgentTaskRequirements {
   The lowest model tier the assignee may run at: low, mid or high (hrn:node:hadronmemory.com:specs:cor:agt:060:06). Null when the task names none.
   """
   minTier: String
+
+  """
+  Model groups the assignee's model must be in at least one of (hrn:node:hadronmemory.com:specs:cor:agt:060:12). Null when the task names none.
+  """
+  modelGroupIn: [String!]
+
+  """
+  Model groups the assignee's model must be in none of (hrn:node:hadronmemory.com:specs:cor:agt:060:12). Null when the task names none.
+  """
+  modelGroupNotIn: [String!]
   role: String
 }
 
@@ -687,6 +697,16 @@ input AgentTaskRequirementsInput {
   The lowest model tier the assignee may run at: low, mid or high, in that order (hrn:node:hadronmemory.com:specs:cor:agt:060:06). A worker below it, or whose tier is unknown, is never matched; the lowest sufficient tier wins. There is no maximum.
   """
   minTier: String
+
+  """
+  Model groups of the App (hrn:node:hadronmemory.com:specs:cor:agt:060:12) the assignee's model must be in at least one of. A name no group of the App carries is refused. A worker with no model is in no group, so it never matches.
+  """
+  modelGroupIn: [String!]
+
+  """
+  Model groups of the App (hrn:node:hadronmemory.com:specs:cor:agt:060:12) the assignee's model must be in none of. A name no group of the App carries is refused. A worker with no model is in no group, so it passes.
+  """
+  modelGroupNotIn: [String!]
   role: String
 }
 
@@ -7547,7 +7567,7 @@ type Mutation {
   
   A worker's post that repeats its own earlier message is refused: the same worker
   (across its sessions), the same Channel, exactly the same body and the same reply
-  target (or none on both sides), earlier than ten minutes ago, with TEAM_CHAT_DUPLICATE.
+  target (or none on both sides), within the preceding ten minutes, with TEAM_CHAT_DUPLICATE.
   The earlier message was posted, so do not retry: the text and the typed fields
   (earlierSeq, channelId) name it. Nothing is stored. A post made as the human
   (no session) is not judged.
@@ -9221,6 +9241,11 @@ type Mutation {
   Set the stored (enforced) quota limit for a scope x action (#510) - the operator dial that previously required psql. Org-ADMIN.
   """
   setQuotaLimit(input: SetQuotaLimitInput!): QuotaCounter!
+
+  """
+  Platform ADMIN/OWNER human only. Version-checked limits/mode edit, audit recorded; no counter reset (#1793).
+  """
+  setRateLimitPolicy(input: SetRateLimitPolicyInput!): RateLimitPolicy!
 
   """
   #2138: pause or resume the whole team, as whoever manages the App. Separate from each worker's own pause: a worker cannot lift it, and ending it clears no self-pause. While paused, no worker is nudged and every worker's check status is PENDING (TEAM_PAUSED).
@@ -12947,6 +12972,11 @@ type Query {
   quotaCounters(appRef: String, orgRef: String!): [QuotaCounter!]!
 
   """
+  Live platform ADMIN/OWNER human only; bounded five-row policy read (#1793).
+  """
+  rateLimitPolicies: [RateLimitPolicy!]!
+
+  """
   Inspect live edges and accessible deleted endpoints in one memory you can read and write. Default 20, maximum 200. edgeIds (1 to 200 ids) restricts the result, total included, to those edges; an id that is not a visible edge of this memory is absent. hrn:node:hadronmemory.com:specs:cor:api:110:02
   """
   recoveryEdges(edgeIds: [ID!], limit: Int = 20, memoryRef: ID!, offset: Int = 0): RecoveryEdgesPage!
@@ -13687,6 +13717,37 @@ type QuotaCounter {
   Window kind (day). The row rolls in place at UTC midnight - used resets, limit persists.
   """
   window: String!
+}
+
+"""Per-class deployment rollout. LOG_ONLY counts without limiter refusal."""
+enum RateLimitEnforcementMode {
+  ENFORCING
+  LOG_ONLY
+}
+
+"""
+Server-owned request cost class (#1793); not a client branching contract.
+"""
+enum RateLimitFieldClass {
+  CREDENTIALS
+  FAN_OUT_READS
+  OTHER_READS
+  OUTBOUND
+  WRITES
+}
+
+"""Admin-only projection; no secrets, subject counters or identities."""
+type RateLimitPolicy {
+  enforcementMode: RateLimitEnforcementMode!
+  fieldClass: RateLimitFieldClass!
+  ipGroupingVersion: String!
+  ipLimit: Int!
+  keyLimit: Int!
+  principalLimit: Int!
+  retentionSeconds: Int!
+  updatedAt: DateTime!
+  version: Int!
+  windowSeconds: Int!
 }
 
 type RecoveryEdgesPage {
@@ -15167,6 +15228,19 @@ input SetQuotaLimitInput {
   orgRef: String!
 }
 
+"""
+Complete limit triple; mode omitted or null preserves (hrn:node:hadronmemory.com:specs:cor:api:210:01).
+"""
+input SetRateLimitPolicyInput {
+  changeReference: String!
+  enforcementMode: RateLimitEnforcementMode
+  expectedVersion: Int!
+  fieldClass: RateLimitFieldClass!
+  ipLimit: Int!
+  keyLimit: Int!
+  principalLimit: Int!
+}
+
 input SetTeamStopSignalInput {
   appRef: String!
 
@@ -16486,6 +16560,14 @@ type TeamRosterEntry {
   model: String
 
   """
+  Current matching model-group names, resolved live from the Team Agent and App overrides.
+  Empty without a reported model or match; null with a field error if group lookup fails.
+  Uses this roster's existing audience; group configuration is read live when selected.
+  Advisory only, never authorization (hrn:node:hadronmemory.com:specs:cor:agt:060:12).
+  """
+  modelGroups: [String!]
+
+  """
   When that binding last reported its model; null when unbound or never reported. Not inferred from session activity.
   """
   modelReportedAt: DateTime
@@ -17587,6 +17669,13 @@ type Worker {
   inherited), or on the same read gate as hasLiveSession. Self-declared: advisory, never authorization.
   """
   model: String
+
+  """
+  Current matching model-group names, resolved live from the Team Agent and App overrides.
+  Empty without a reported model or match; null when working-state access is denied.
+  Advisory only, never authorization (hrn:node:hadronmemory.com:specs:cor:agt:060:12).
+  """
+  modelGroups: [String!]
 
   """
   #2252 — when model was self-reported (a bind, a resume or an updateSession carrying a model; a repeat of the

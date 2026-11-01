@@ -6473,7 +6473,11 @@ type AgentTaskRequirementsInput struct {
 	FamilyNotIn []string `json:"familyNotIn"`
 	// The lowest model tier the assignee may run at: low, mid or high, in that order (hrn:node:hadronmemory.com:specs:cor:agt:060:06). A worker below it, or whose tier is unknown, is never matched; the lowest sufficient tier wins. There is no maximum.
 	MinTier *string `json:"minTier,omitempty"`
-	Role    *string `json:"role"`
+	// Model groups of the App (hrn:node:hadronmemory.com:specs:cor:agt:060:12) the assignee's model must be in at least one of. A name no group of the App carries is refused. A worker with no model is in no group, so it never matches.
+	ModelGroupIn []string `json:"modelGroupIn"`
+	// Model groups of the App (hrn:node:hadronmemory.com:specs:cor:agt:060:12) the assignee's model must be in none of. A name no group of the App carries is refused. A worker with no model is in no group, so it passes.
+	ModelGroupNotIn []string `json:"modelGroupNotIn"`
+	Role            *string  `json:"role"`
 }
 
 // GetExcludeWorkers returns AgentTaskRequirementsInput.ExcludeWorkers, and is useful for accessing the field via an interface.
@@ -6487,6 +6491,12 @@ func (v *AgentTaskRequirementsInput) GetFamilyNotIn() []string { return v.Family
 
 // GetMinTier returns AgentTaskRequirementsInput.MinTier, and is useful for accessing the field via an interface.
 func (v *AgentTaskRequirementsInput) GetMinTier() *string { return v.MinTier }
+
+// GetModelGroupIn returns AgentTaskRequirementsInput.ModelGroupIn, and is useful for accessing the field via an interface.
+func (v *AgentTaskRequirementsInput) GetModelGroupIn() []string { return v.ModelGroupIn }
+
+// GetModelGroupNotIn returns AgentTaskRequirementsInput.ModelGroupNotIn, and is useful for accessing the field via an interface.
+func (v *AgentTaskRequirementsInput) GetModelGroupNotIn() []string { return v.ModelGroupNotIn }
 
 // GetRole returns AgentTaskRequirementsInput.Role, and is useful for accessing the field via an interface.
 func (v *AgentTaskRequirementsInput) GetRole() *string { return v.Role }
@@ -27230,7 +27240,7 @@ type CreateTeamChatMessageResponse struct {
 	//
 	// A worker's post that repeats its own earlier message is refused: the same worker
 	// (across its sessions), the same Channel, exactly the same body and the same reply
-	// target (or none on both sides), earlier than ten minutes ago, with TEAM_CHAT_DUPLICATE.
+	// target (or none on both sides), within the preceding ten minutes, with TEAM_CHAT_DUPLICATE.
 	// The earlier message was posted, so do not retry: the text and the typed fields
 	// (earlierSeq, channelId) name it. Nothing is stored. A post made as the human
 	// (no session) is not judged.
@@ -35519,6 +35529,56 @@ func (v *GetWorkerInAppWorker) __premarshalJSON() (*__premarshalGetWorkerInAppWo
 	retval.CreatedBy = v.WorkerFields.CreatedBy
 	return &retval, nil
 }
+
+// GetWorkerModelGroupsResponse is returned by GetWorkerModelGroups on success.
+type GetWorkerModelGroupsResponse struct {
+	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
+	// NAME (#1015), the ergonomic handle a human already knows. The name form is
+	// ADDITIVE: it is activated by appRef, since a name is unique only within an
+	// App. Without appRef the ref must be an id or URN, and anything else refuses
+	// WORKER_NOT_FOUND as before. An id or URN wins over appRef rather than being
+	// checked against it, so a typo'd URN never degrades into a roster search.
+	//
+	// Selecting `prompt` re-renders the worker's boot briefing live from the
+	// role agent's template — the read that lets an agent recover a briefing it
+	// lost to a context compaction, instead of opening a second session or
+	// forcing a takeover of itself.
+	//
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	Worker *GetWorkerModelGroupsWorker `json:"worker"`
+}
+
+// GetWorker returns GetWorkerModelGroupsResponse.Worker, and is useful for accessing the field via an interface.
+func (v *GetWorkerModelGroupsResponse) GetWorker() *GetWorkerModelGroupsWorker { return v.Worker }
+
+// GetWorkerModelGroupsWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type GetWorkerModelGroupsWorker struct {
+	// Current matching model-group names, resolved live from the Team Agent and App overrides.
+	// Empty without a reported model or match; null when working-state access is denied.
+	// Advisory only, never authorization (hrn:node:hadronmemory.com:specs:cor:agt:060:12).
+	ModelGroups []string `json:"modelGroups"`
+}
+
+// GetModelGroups returns GetWorkerModelGroupsWorker.ModelGroups, and is useful for accessing the field via an interface.
+func (v *GetWorkerModelGroupsWorker) GetModelGroups() []string { return v.ModelGroups }
 
 // GetWorkerProfileResponse is returned by GetWorkerProfile on success.
 type GetWorkerProfileResponse struct {
@@ -66455,6 +66515,11 @@ type TeamRosterTeamRosterWorkersTeamRosterEntry struct {
 	ModelReportedAt *string `json:"modelReportedAt"`
 	// Coarse tier from the server model mapping: high, mid or low. Null when unbound, unreported or unmapped; advisory, never authorization.
 	Tier *string `json:"tier"`
+	// Current matching model-group names, resolved live from the Team Agent and App overrides.
+	// Empty without a reported model or match; null with a field error if group lookup fails.
+	// Uses this roster's existing audience; group configuration is read live when selected.
+	// Advisory only, never authorization (hrn:node:hadronmemory.com:specs:cor:agt:060:12).
+	ModelGroups []string `json:"modelGroups"`
 	// Free for work (hrn:node:hadronmemory.com:specs:cor:agt:060:05).
 	FreeForWork bool `json:"freeForWork"`
 	// The families it is free for work as now; empty when not free.
@@ -66527,6 +66592,9 @@ func (v *TeamRosterTeamRosterWorkersTeamRosterEntry) GetModelReportedAt() *strin
 
 // GetTier returns TeamRosterTeamRosterWorkersTeamRosterEntry.Tier, and is useful for accessing the field via an interface.
 func (v *TeamRosterTeamRosterWorkersTeamRosterEntry) GetTier() *string { return v.Tier }
+
+// GetModelGroups returns TeamRosterTeamRosterWorkersTeamRosterEntry.ModelGroups, and is useful for accessing the field via an interface.
+func (v *TeamRosterTeamRosterWorkersTeamRosterEntry) GetModelGroups() []string { return v.ModelGroups }
 
 // GetFreeForWork returns TeamRosterTeamRosterWorkersTeamRosterEntry.FreeForWork, and is useful for accessing the field via an interface.
 func (v *TeamRosterTeamRosterWorkersTeamRosterEntry) GetFreeForWork() bool { return v.FreeForWork }
@@ -84069,6 +84137,14 @@ type __GetWorkerInput struct {
 
 // GetRef returns __GetWorkerInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetWorkerInput) GetRef() string { return v.Ref }
+
+// __GetWorkerModelGroupsInput is used internally by genqlient
+type __GetWorkerModelGroupsInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetWorkerModelGroupsInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetWorkerModelGroupsInput) GetRef() string { return v.Ref }
 
 // __GetWorkerProfileInput is used internally by genqlient
 type __GetWorkerProfileInput struct {
@@ -102075,6 +102151,45 @@ func GetWorkerInApp(
 	return data_, err_
 }
 
+// The query executed by GetWorkerModelGroups.
+const GetWorkerModelGroups_Operation = `
+query GetWorkerModelGroups ($ref: ID!) {
+	worker(ref: $ref) {
+		modelGroups
+	}
+}
+`
+
+// cli#1485 S3 (hadron-server#3026, cor:agt:060:12): a worker's current matching
+// model-group names. A separate operation, like GetWorkerProfile: it is NOT part
+// of WorkerFields (shared by many commands whose wire shape must not change).
+// [] is a real answer; null means the working-state read is denied (no error).
+// A field error here fails the command — only the roster tolerates one.
+func GetWorkerModelGroups(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetWorkerModelGroupsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetWorkerModelGroups",
+		Query:  GetWorkerModelGroups_Operation,
+		Variables: &__GetWorkerModelGroupsInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetWorkerModelGroupsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by GetWorkerProfile.
 const GetWorkerProfile_Operation = `
 query GetWorkerProfile ($ref: ID!) {
@@ -112784,6 +112899,7 @@ query TeamRoster ($appRef: ID!) {
 			model
 			modelReportedAt
 			tier
+			modelGroups
 			freeForWork
 			freeFamilies
 			launchableFamilies
