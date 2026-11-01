@@ -107,13 +107,31 @@ func (ls *loopbackServer) deliver(res callbackResult) {
 	}
 }
 
-// Wait blocks until the redirect arrives or ctx expires.
-func (ls *loopbackServer) Wait(ctx context.Context) (string, error) {
+// Wait blocks until the redirect arrives or ctx expires. bound is the limit
+// the caller set, named in the timeout message. Either way nothing has been
+// stored yet: the token is written only after a successful exchange.
+func (ls *loopbackServer) Wait(ctx context.Context, bound time.Duration) (string, error) {
 	select {
 	case res := <-ls.results:
 		return res.code, res.err
 	case <-ctx.Done():
-		return "", exitcode.Newf(exitcode.Cancelled, "timed out waiting for browser sign-in")
+		if errors.Is(ctx.Err(), context.Canceled) {
+			return "", exitcode.Newf(exitcode.Cancelled, "the browser sign-in was cancelled; nothing was stored")
+		}
+		return "", exitcode.Newf(exitcode.Cancelled, "the browser sign-in did not finish within %s; nothing was stored. Rerun `hadron auth login`", formatBound(bound))
+	}
+}
+
+// formatBound renders a wait limit for a person: "15 minutes" rather than
+// "15m0s".
+func formatBound(d time.Duration) string {
+	switch {
+	case d >= time.Minute && d%time.Minute == 0:
+		return fmt.Sprintf("%d minutes", int(d/time.Minute))
+	case d >= time.Second:
+		return d.Round(time.Second).String()
+	default:
+		return d.Round(time.Millisecond).String()
 	}
 }
 
