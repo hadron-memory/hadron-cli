@@ -19,7 +19,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 189: 155 command, 19 gap, 15 excluded
+[Query] 190: 155 command, 20 gap, 15 excluded
 actionTickets  command ticket list
 agent  command agent get
 agentAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime that makes LLM calls; a person reads the masked config with `ai-config get`
@@ -152,6 +152,7 @@ principalGrants  command grant list
 publicAgents  command agent list
 publicOrganization  command org public
 quotaCounters  command quota list
+rateLimitPolicies  gap #1482: platform-admin rate-limit policy read (server #1793)
 recoveryEdges  command node recovery graph
 recoveryNode  command node recovery get
 recoveryNodes  command node recovery list
@@ -210,7 +211,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 319: 241 command, 67 gap, 11 excluded
+[Mutation] 320: 241 command, 68 gap, 11 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -460,6 +461,7 @@ setHostWorkerTerminals  command team health sweep
 setMemorySourceToken  gap #60
 setModelFamilyAvailability  command team availability set
 setQuotaLimit  command quota set
+setRateLimitPolicy  gap #1482: platform-admin rate-limit policy edit (server #1793)
 setTeamPause  command team pause
 setTeamStopSignal  command team stop set
 setUserApiKeyHidden  command auth token hide
@@ -531,7 +533,7 @@ updateWorker  command team worker update
 withdrawDecision  gap #1335
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 79: 52 gap, 27 excluded
+[Arguments] 83: 56 gap, 27 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.addOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
@@ -540,6 +542,8 @@ Mutation.castWorker(noTeam)  gap #933
 Mutation.castWorker(reportsTo)  gap #933
 Mutation.createAgent(resetContextAfterTask)  gap #1043
 Mutation.createAgent(usesTasks)  gap #58
+Mutation.createAgentTask(input.requirements.modelGroupIn)  gap #1485: S2 task requirement flags (server #3029)
+Mutation.createAgentTask(input.requirements.modelGroupNotIn)  gap #1485: S2 task requirement flags (server #3029)
 Mutation.createAiServiceConfig(apiStyle)  gap #1347
 Mutation.createApp(agentTools)  gap #63
 Mutation.createApp(aiApiKey)  gap #63
@@ -573,6 +577,8 @@ Mutation.removeOrgMember(userId)  excluded deprecated: @deprecated: Use userRef 
 Mutation.updateAgent(listedOnMarketplace)  gap #58
 Mutation.updateAgent(registerDefaults)  gap #58
 Mutation.updateAgent(resetContextAfterTask)  gap #1043
+Mutation.updateAgentTask(input.requirements.modelGroupIn)  gap #1485: S2 task requirement flags (server #3029)
+Mutation.updateAgentTask(input.requirements.modelGroupNotIn)  gap #1485: S2 task requirement flags (server #3029)
 Mutation.updateAiServiceConfig(apiStyle)  gap #1347
 Mutation.updateApp(agentSessionsExpire)  gap #63
 Mutation.updateApp(agentTools)  gap #63
