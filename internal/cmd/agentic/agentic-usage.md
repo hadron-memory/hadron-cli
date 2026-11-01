@@ -451,11 +451,11 @@ hadron admin impersonation list [--org <org>] [--active] [--limit N] [--offset N
 # user delete is IRREVERSIBLE erasure: no --user deletes YOUR OWN account (no role needed, then run `auth logout`); --user needs a platform admin and a --reason of 1-500 characters; anyone else naming a target gets the same exit 8 whether or not the user exists; an org you solely own with other members blocks it (server code SOLE_ORG_OWNER, nothing deleted); --json is {"deleted":true,"user":<ref or null>}
 hadron profile set [--name <n>] [--handle <h>] [--email <e>]   # --email is accepted and REFUSED locally (exit 2, "Changing your email address is not supported here.") — the flag stays so scripts fail loudly (#844)
 hadron server-info
-hadron run trigger --app <ref> --entry <node-urn> [--as-self] [--agent <ref>] [--arg k=v]... [--ai-config <n>] [--budget-tokens N] [--budget-actions N] [--wait] | list [--app <ref> | --org <ref>] [--status <s>] | get <id> | cancel <id> --yes
+hadron run trigger --app <ref> --entry <node-urn> [--as-self] [--agent <ref>] [--arg k=v]... [--ai-config <n>] [--budget-tokens N] [--budget-actions N] [--wait] | list [--statuses <csv>] [--parent <id>] [--sort createdAt|startedAt|finishedAt|status] [--dir asc|desc] [--app <ref> | --org <ref>] [--status <s>] | get <id> | cancel <id> --yes
 hadron ticker list | get <id-or-URN> | create --name <n> --cadence-seconds <n> [--reasons read-team-channel,every-tick,live-check] | update <id-or-URN> [--reasons <list>] | delete <id-or-URN> --yes | subscribe <id-or-URN> --worker <id-or-URN> | unsubscribe <id-or-URN> --worker <id-or-URN> | apply-templates --worker <id-or-URN>
-hadron schedule create --app <ref> --name <n> --cron '<expr>' [--tz <zone>] --entry <node-urn> [--as-self] [--policy <json>] [--ai-config <n>] [--arg k=v]... [--budget-tokens N] [--budget-actions N] | list --app <ref> | update <id> ... [--budget-tokens N|--clear-budget-tokens] [--budget-actions N|--clear-budget-actions] | rm <id> --yes
-hadron automation list | approval (<name> | --run <run-id>) [--depth] | approve (<name> | --run <run-id>) [--yes] | decline (<name> | --run <run-id>) [--yes]   # cli#1071: an App owner reviews and approves schedules/webhooks without a row id or hash; name is schedule/<name>, webhook/<name> or a bare <name> that exactly one trigger has; --app on every subcommand
-hadron webhook create --app <ref> --name <n> --entry <node-urn> [--as-self] [--policy <json>] [--args-schema <json>] [--ai-config <n>] [--budget-tokens N] [--budget-actions N] | rotate <id> --yes | list --app <ref> | rm <id> --yes
+hadron schedule create [--scope <id|name>] --app <ref> --name <n> (--cron '<expr>' | --run-at <RFC3339>) [--tz <zone>] --entry <node-urn> [--as-self] [--policy <json>] [--ai-config <n>] [--arg k=v]... [--budget-tokens N] [--budget-actions N] | list --app <ref> | update <id> [--run-at <RFC3339>] [--scope <id|name|"">] [--agent <ref>] ... [--budget-tokens N|--clear-budget-tokens] [--budget-actions N|--clear-budget-actions] | rm <id> --yes
+hadron automation preview <kind> <ref> | re-adopt <kind> <ref> --expected-hash <digest> [--yes] | list | approval (<name> | --run <run-id>) [--depth] | approve (<name> | --run <run-id>) [--yes] | decline (<name> | --run <run-id>) [--yes]   # cli#1071: an App owner reviews and approves schedules/webhooks without a row id or hash; name is schedule/<name>, webhook/<name> or a bare <name> that exactly one trigger has; --app on every subcommand
+hadron webhook create [--scope <id|name>] --app <ref> --name <n> --entry <node-urn> [--as-self] [--policy <json>] [--args-schema <json>] [--ai-config <n>] [--budget-tokens N] [--budget-actions N] | rotate <id> --yes | list --app <ref> | rm <id> --yes
 hadron ticket mint --org <ref> [--app <ref>] --action comm.outbound --count <n> [--note <why>] [--expires <iso>] | list --org <ref>
 hadron billing prices [--provider <p>] [--model <m>] [--tier <n>] [--limit N] [--offset N] | prices get <id> | balance <org> | ledger <org> [--limit N] [--offset N]   # spec-046 metering READS (cli#215); <org> is an ID or hrn:org:<slug>. Money fields (inputMicroCentsPerMTok, outputMicroCentsPerMTok, balanceMicroCents, amountMicroCents) are base-10 integer STRINGS of micro-cents (1e-8 USD), signed on the ledger and unbounded, passed through byte for byte: parse with a bigint, never a float. Null markupBasisPoints = the server's default markup. prices get <id>: one row (the id is the ID column of the prices table, or "id" in prices --json), the same DTO as a prices row as one object; a null row exits 4 NotFound "not found or not visible" (the server does not say which); an empty id exits 2 with no request. prices and prices get: any signed-in caller; balance/ledger: org ADMIN, else FORBIDDEN exit 8. No --limit/--offset lists everything. No write commands (setting rates, granting credits) yet
 hadron grant create --org <ref> --user <ref> --action <a>[,...] [--expires <iso>] | list [--org <ref>] [--user <ref>] | get <id> | revoke <id> --yes
@@ -4544,3 +4544,36 @@ message. This CLI build does not claim a production deploy or production probe.
 ## Policy, quota, grant and secret coverage (cli#1343)
 
 `policy explain --action <a> --app <ref> [--user <ref>]` explains the standing action-policy chain (org, then user only with `--user`, then app; cor:acl:040:02): org ADMIN on the App's org, else exit 8; unknown App or user exit 4. `--json` is `{allowed, layers}`, each layer `{layer, present, allowed, allow}`; `allow` is null when the layer has no link (no restriction) and `[]` when its link allows nothing, so never treat the two alike. Per-trigger links (schedule/webhook `--policy`) are not in this chain. `policy set --mine '<json>'` (or `@file`) writes the caller's own user layer, `{"allow":[...]}`; `--clear` sends an explicit null (no restriction); `--mine` is required, the JSON and `--clear` are mutually exclusive, and invalid JSON, or a JSON `null` (use `--clear`), exits 2 with nothing sent; the server checks the shape (exit 2). `--json` `{layer:"user", userId, handle, policy}`. `org update --policy '<json>'` sets the org layer; `--clear-policy` clears it (explicit null; mutually exclusive with `--policy`); a blank `--policy` (an unset variable) or `--policy null` exits 2 with nothing sent, never a silent clear; without either flag the link is untouched (omitted, never null). `quota list --org <ref> [--app <ref>]` shows the daily counters (`--json` array of `{id, scopeKind, scopeId, action, window, used, limit, resetAt}`; `[]` when empty; rows are created with platform defaults the first time a scope is shown). `quota set --org <ref> [--app <ref>] --action run.execute|llm.tokens|sms.send|email.send --limit <n>` sets the enforced limit (0 stops that action for the scope; for run.execute/llm.tokens every launch is refused; the server refuses other actions and out-of-range limits, exit 2); without `--app` the org-level limit (appRef omitted). Both org ADMIN (exit 8); an App outside the org exit 4. `grant get <id>` and `connection grant get <id>` read one grant (the same DTO as a list row); `secret get <id|urn>` reads one secret's metadata, never its value. All three answer exit 4 for both missing and not-visible, with one message (no existence oracle). `secret update <id|urn>` overwrites in place (no versions): `--value-file -|@file|path` replaces the value (`-` on a terminal prompts without echo; the value is never printed), `--meta`/`--meta-json` replace generic metadata, `--type` (with `--value-file`) builds a webfetch-auth value and `--url-prefix` replaces its metadata; an omitted half is preserved (not sent). Name, kind and owner are immutable (no flags: `--name`/`--kind` exit 2). Mixing generic and webfetch-auth flags, `--meta` with `--meta-json`, an empty `--meta-json` or `--value-file` argument, `--type` without `--value-file`, or no change at all exit 2 with nothing sent; a value or metadata that does not fit the secret's kind is refused by the server (exit 2).
+
+## Automation graph and trigger inputs (cli#1346)
+
+`automation preview <SCHEDULE|WEBHOOK|MANUAL> <ref>` reads the raw graph and
+server digest; `--json {trigger:{kind,ref},hash,graph}` preserves the server JSON; the
+digest is graph.hash and repeated as hash. Human output labels it Hash;
+DISPLAY INCOMPLETE means review the full --json graph before re-adopting.
+Ref is a trigger row id, or the origin AppRun id for MANUAL, never a name.
+No App lookup is made. Only the run-as user or manager of an App-only trigger
+may preview/re-adopt; authorization is the server's. Review the graph before
+`automation re-adopt <kind> <ref> --expected-hash <digest> --yes`: it sends that
+exact digest once, never fetches a replacement and never retries. A graph edit
+since preview is exit 5; false is exit 1. Confirmation is required (`--yes`
+non-interactively). JSON is `{trigger,status:"re-adopted",hash}`. This updates
+future consent, not an executed run's historical snapshot. Human preview is
+sanitized/bounded; use `--json` for the full graph.
+
+`automation approval <name> --limit N` sets the name-resolution page size;
+all cursor pages are still read, preserving ambiguity checks. Positive N;
+omitted uses the server default. The existing `--run` path needs no list.
+
+`schedule create` requires exactly one of `--cron` or `--run-at <RFC3339>`;
+`schedule update` accepts at most one. A run-at switches to one-shot and clears
+cron; cron switches to recurring. `--scope <id|name>` on schedule create/update
+and webhook create selects a readable scope resolved in the App context,
+snapshotted by the server onto each new run. Omitted means App memories at
+create and preserves at update; `schedule update --scope ""` restores App
+memories. `schedule update --agent <id|urn>` selects an installed Agent.
+
+`run list --statuses FAILED,CANCELLED` filters several statuses (not with the
+existing single `--status`); `--parent <run-id>` filters children. `--sort`
+is createdAt|startedAt|finishedAt|status and `--dir` asc|desc; omitted flags
+use server defaults. Every list page uses the same filter/sort variables.

@@ -137,7 +137,7 @@ Display and prompt go to stderr, so stdout carries only the result.`,
 			if err != nil {
 				return err
 			}
-			sel, err := resolveSelection(cmd.Context(), client, app, args, run, cmd.Flags().Changed("run"))
+			sel, err := resolveSelection(cmd.Context(), client, app, args, run, cmd.Flags().Changed("run"), nil)
 			if err != nil {
 				return err
 			}
@@ -226,7 +226,7 @@ before anything is sent, and "no" or end-of-input exits 6.`,
 			if err != nil {
 				return err
 			}
-			sel, err := resolveSelection(cmd.Context(), client, app, args, run, cmd.Flags().Changed("run"))
+			sel, err := resolveSelection(cmd.Context(), client, app, args, run, cmd.Flags().Changed("run"), nil)
 			if err != nil {
 				return err
 			}

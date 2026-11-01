@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -135,12 +136,18 @@ func joinComma(s []string) string {
 func newCmdApproval(f *cmdutil.Factory) *cobra.Command {
 	var run string
 	var depth bool
+	var limit int
 	cmd := &cobra.Command{
 		Use:   "approval [<name>]",
 		Short: "Show what approving an automation would approve",
 		Long: `Show the plain summary of one automation (--app, else the active App): its state,
 what it reads, writes and calls, and what it cannot do. Every sentence is the
 server's; a fact the server cannot show says "not stated".
+
+--limit sets the server page size while resolving a name; all pages are still
+read, so a small page never hides an ambiguous name. Omitted uses the server default.
+The lookup refuses after 200 pages (exit 7), rather than using a partial list;
+if a small --limit hits that bound, increase it (the server may cap each page).
 
 An empty list is printed "none listed": it is what the server listed, not a
 guarantee that nothing applies. --depth adds the graph and the hash. State is one of: not approved, approved, or
@@ -149,6 +156,13 @@ changed since it was approved (its next run fails until it is approved again).`,
   hadron automation approval nightly --depth --json
   hadron automation approval --run <run-id>`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			var pageLimit *int
+			if cmd.Flags().Changed("limit") {
+				if limit < 1 {
+					return exitcode.Newf(exitcode.Usage, "--limit must be positive")
+				}
+				pageLimit = &limit
+			}
 			app, _, err := cmdutil.TargetApp(cmd, f)
 			if err != nil {
 				return err
@@ -157,7 +171,7 @@ changed since it was approved (its next run fails until it is approved again).`,
 			if err != nil {
 				return err
 			}
-			sel, err := resolveSelection(cmd.Context(), client, app, args, run, cmd.Flags().Changed("run"))
+			sel, err := resolveSelection(cmd.Context(), client, app, args, run, cmd.Flags().Changed("run"), pageLimit)
 			if err != nil {
 				return err
 			}
@@ -172,6 +186,7 @@ changed since it was approved (its next run fails until it is approved again).`,
 		},
 	}
 	addSelectionArgs(cmd, &run)
+	cmd.Flags().IntVar(&limit, "limit", 0, "server page size for name lookup (positive; still drains every page)")
 	cmd.Flags().BoolVar(&depth, "depth", false, "also show the graph and the hash")
 	return cmd
 }
