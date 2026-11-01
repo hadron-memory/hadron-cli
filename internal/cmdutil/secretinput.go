@@ -1,10 +1,13 @@
 package cmdutil
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"strings"
+	"syscall"
 
 	"golang.org/x/term"
 
@@ -47,7 +50,10 @@ func ReadSecretInput(ioStreams *output.IOStreams, source, flag, label, what stri
 	}
 	if err != nil {
 		if source != "" && source != "-" {
-			return "", exitcode.Newf(exitcode.Usage, "reading --%s: %v", flag, err)
+			// Never %v the read error: os.ReadFile's *PathError repeats the
+			// argument, which may be the secret itself pasted in place of a
+			// path (#1490). Name the flag and a fixed failure class only.
+			return "", exitcode.Newf(exitcode.Usage, "reading --%s: %s; pass -, @path or a file path", flag, readFailureClass(err))
 		}
 		return "", err
 	}
@@ -56,4 +62,19 @@ func ReadSecretInput(ioStreams *output.IOStreams, source, flag, label, what stri
 		return "", exitcode.Newf(exitcode.Usage, "no %s provided; pipe it on stdin, pass --%s, or run interactively", what, flag)
 	}
 	return value, nil
+}
+
+// readFailureClass describes why a secret-material file could not be read,
+// as a fixed phrase that never includes the path (#1490).
+func readFailureClass(err error) string {
+	switch {
+	case errors.Is(err, fs.ErrNotExist):
+		return "the file was not found"
+	case errors.Is(err, fs.ErrPermission):
+		return "the file is not readable (permission denied)"
+	case errors.Is(err, syscall.EISDIR):
+		return "the path is a directory, not a file"
+	default:
+		return "the file could not be read"
+	}
 }
