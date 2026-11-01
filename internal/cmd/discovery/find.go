@@ -137,6 +137,9 @@ when available; the server decides what anonymous callers may see.`,
 				scopePtr = &scope
 			}
 			if cmd.Flags().Changed("app") {
+				if strings.TrimSpace(app) == "" {
+					return exitcode.Newf(exitcode.Usage, "--app is empty (an unset variable?); omit it when no App scope is needed")
+				}
 				canonical, err := cmdutil.CanonicalAppRef("--app", app)
 				if err != nil {
 					return err

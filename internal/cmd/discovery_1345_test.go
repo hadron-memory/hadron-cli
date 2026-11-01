@@ -95,7 +95,10 @@ func TestMarketplace1345(t *testing.T) {
 	}
 }
 func TestDiscoveryRefusals1345(t *testing.T) {
-	for _, a := range [][]string{{"find", "q", "--field", "bogus"}, {"find", "q", "--entity-type", ""}, {"find", "q", "--offset", "-1"}, {"marketplace", "agents", "--limit", "-1"}, {"marketplace", "orgs", "--offset", "-1"}} {
+	for _, a := range [][]string{{"find", "q", "--field", "bogus"},
+		{"find", "q", "--scope", ""},
+		{"find", "q", "--org", ""},
+		{"find", "q", "--app", ""}, {"find", "q", "--entity-type", ""}, {"find", "q", "--offset", "-1"}, {"marketplace", "agents", "--limit", "-1"}, {"marketplace", "orgs", "--offset", "-1"}} {
 		g, c := captureGraphQL(t, nil)
 		f, _ := testFactory(t)
 		r := NewRootCmd(f)
