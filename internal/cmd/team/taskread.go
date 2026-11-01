@@ -187,6 +187,12 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 			safeTaskRequirementList(task.Requirements.ExcludeWorkerIds)); err != nil {
 			return err
 		}
+		if len(task.Requirements.ModelGroupIn)+len(task.Requirements.ModelGroupNotIn) > 0 {
+			if err := line("  modelGroupIn=%s modelGroupNotIn=%s", safeTaskRequirementList(task.Requirements.ModelGroupIn), safeTaskRequirementList(task.Requirements.ModelGroupNotIn)); err != nil {
+				return err
+			}
+		}
+
 	}
 	if task.Result != nil {
 		if err := line("  result: %s", output.SafeCell(task.Result.Outcome)); err != nil {
@@ -541,13 +547,18 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 		}
 		withHandle := false
 		withMinTier := false
+		withGroups := false
 		for _, task := range tasks {
+			withGroups = withGroups || (task.Requirements != nil && len(task.Requirements.ModelGroupIn)+len(task.Requirements.ModelGroupNotIn) > 0)
 			withMinTier = withMinTier || (task.Requirements != nil && task.Requirements.MinTier != nil)
 			withHandle = withHandle || task.Handle != ""
 		}
 		headers := handleHeaders(withHandle, "ID", "STATUS", "PRIORITY", "BLOCKED", "BLOCKED BY", "BLOCKS", "TITLE", "OWNER", "ASSIGNEE")
 		if withMinTier {
 			headers = append(headers, "MIN TIER")
+		}
+		if withGroups {
+			headers = append(headers, "MODEL GROUP IN", "MODEL GROUP NOT IN")
 		}
 		t := output.NewTable(w, headers...)
 		for _, task := range tasks {
@@ -564,6 +575,14 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 					tier = output.SafeCell(*task.Requirements.MinTier)
 				}
 				cells = append(cells, tier)
+			}
+			if withGroups {
+				in, notIn := "—", "—"
+				if task.Requirements != nil {
+					in = safeTaskRequirementList(task.Requirements.ModelGroupIn)
+					notIn = safeTaskRequirementList(task.Requirements.ModelGroupNotIn)
+				}
+				cells = append(cells, in, notIn)
 			}
 			t.Row(cells...)
 		}

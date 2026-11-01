@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/api"
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -33,6 +35,9 @@ func TestTaskModelGroupWire1485(t *testing.T) {
 				}
 				n := 0
 				for _, c := range *calls {
+					if c.Op == "AgentTaskGet" || c.Op == "AgentTaskList" {
+						t.Fatal("hidden preflight read")
+					}
 					if c.Op != op {
 						continue
 					}
@@ -140,6 +145,20 @@ func TestTaskModelGroupOutput1485(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
+				op := gen.AgentTaskGet_Operation
+				if verb == "list" {
+					op = gen.AgentTaskList_Operation
+				}
+				for _, field := range []string{"modelGroupIn", "modelGroupNotIn"} {
+					found := false
+					for _, line := range strings.Split(op, "\n") {
+						found = found || strings.TrimSpace(line) == field
+					}
+					if !found {
+						t.Fatalf("query omits %s", field)
+					}
+				}
+
 				if jsonMode {
 					var val any
 					if err := json.Unmarshal([]byte(out), &val); err != nil {
@@ -187,8 +206,15 @@ func TestTaskModelGroupRefusals1485(t *testing.T) {
 			}
 			resp[op] = `{"errors":[{"message":"provider says missing group Large","extensions":{"code":"` + code + `","name":"Large"}}]}`
 			calls, _, err := runTeamTask(t, resp, "team", "task", verb, "AT1.2", "--model-group", "Large")
-			if err == nil || !strings.Contains(err.Error(), "provider says missing group Large") {
+			if err == nil || !strings.Contains(err.Error(), "provider says missing group Large") || api.ServerCodeOf(err) != code {
 				t.Fatalf("refusal hidden: %v", err)
+			}
+			wantExit := exitcode.Usage
+			if code == "MODEL_GROUP_NOT_FOUND" {
+				wantExit = exitcode.NotFound
+			}
+			if exitCodeFor(err) != wantExit {
+				t.Fatalf("exit=%d want %d", exitCodeFor(err), wantExit)
 			}
 			n := 0
 			for _, c := range *calls {
@@ -198,6 +224,69 @@ func TestTaskModelGroupRefusals1485(t *testing.T) {
 			}
 			if n != 1 {
 				t.Fatalf("refusal mutations=%d", n)
+			}
+		}
+	}
+}
+
+// Exercise the production error renderer too: the chain's code must reach the
+// JSON envelope, and human refusal text must survive the terminal wrapper.
+func TestTaskModelGroupRefusalSink1485(t *testing.T) {
+	for _, verb := range []string{"create", "update"} {
+		for _, code := range []string{"MODEL_GROUP_NOT_FOUND", "BAD_USER_INPUT", "TEAM_AGENT_AMBIGUOUS"} {
+			for _, jsonMode := range []bool{false, true} {
+				writeTeamBinding(t)
+				op := "AgentTaskCreate"
+				if verb == "update" {
+					op = "AgentTaskUpdate"
+				}
+				responses := taskUpdateResponses1137()
+				responses[op] = `{"errors":[{"message":"provider says missing group Large","extensions":{"code":"` + code + `","name":"Large"}}]}`
+				srv, calls := attnServer(t, responses)
+				setTeamBindingServer(t, srv.URL)
+				f, out := testFactory(t)
+				root := NewRootCmd(f)
+				args := []string{"team", "task", verb, "AT1.2", "--model-group", "Large", "--server", srv.URL}
+				if jsonMode {
+					args = append(args, "--json")
+				}
+				root.SetArgs(args)
+				err := root.Execute()
+				if err == nil {
+					t.Fatal("refusal lost")
+				}
+				wantExit := exitcode.Usage
+				if code == "MODEL_GROUP_NOT_FOUND" {
+					wantExit = exitcode.NotFound
+				}
+				if got := renderError(f, err); got != wantExit {
+					t.Fatalf("exit=%d want %d", got, wantExit)
+				}
+				if jsonMode {
+					var e struct {
+						Error struct {
+							Message    string `json:"message"`
+							ServerCode string `json:"serverCode"`
+						} `json:"error"`
+					}
+					if err := json.Unmarshal([]byte(out.String()), &e); err != nil {
+						t.Fatal(err)
+					}
+					if e.Error.ServerCode != code || !strings.Contains(e.Error.Message, "provider says missing group Large") {
+						t.Fatalf("envelope=%s", out.String())
+					}
+				} else if !strings.Contains(f.IOStreams.ErrOut.(*strings.Builder).String(), "provider says missing group Large") {
+					t.Fatalf("human=%s", f.IOStreams.ErrOut.(*strings.Builder).String())
+				}
+				n := 0
+				for _, c := range *calls {
+					if c.Op == op {
+						n++
+					}
+				}
+				if n != 1 {
+					t.Fatalf("mutation count=%d", n)
+				}
 			}
 		}
 	}

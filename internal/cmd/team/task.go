@@ -176,7 +176,7 @@ func newCmdTeamTaskCreate(f *cmdutil.Factory) *cobra.Command {
 	var description, owner, assignee, parent, source, startBy, status string
 	var tags, blockedBy []string
 	var priority int
-	var requireRole, familyIn, familyNotIn, minTier, properties string
+	var requireRole, familyIn, familyNotIn, modelGroupIn, modelGroupNotIn, minTier, properties string
 	var excludeWorkers []string
 	var closeSession, noCloseSession, project bool
 	cmd := &cobra.Command{
@@ -198,6 +198,12 @@ Who goes on it:
   list of model families such as claude,codex (` + "`team availability`" + `), and
   --exclude-worker <name, URN or id>, repeatable. Among queued tasks the
   matcher offers priority 1 first, then the oldest.
+- --model-group <name,...> requires a match in at least one named model group;
+  --model-group-not <name,...> requires a match in none. Both lists may coexist,
+  even with the same name. Empty supplied lists are usage errors; other names
+  go unchanged to the server for validation. Groups resolve live at match time:
+  editing a group can change matches without a task edit. They are matching
+  inputs only, never authorization. Requires a server containing #3029.
 - --status backlog parks it instead: no assignee (the server refuses both),
   never matched, no alarms, until ` + "`task assign`" + ` or ` + "`task ready`" + `
   moves it to PENDING. --status pending is the default.
@@ -283,6 +289,10 @@ warnings list.`,
 					return exitcode.Newf(exitcode.Usage, "--start-by takes an RFC 3339 timestamp, e.g. 2026-10-13T09:00:00Z, got %q", startBy)
 				}
 			}
+			groupsIn, groupsNotIn, err := taskModelGroupFlags(cmd, modelGroupIn, modelGroupNotIn)
+			if err != nil {
+				return err
+			}
 			if familyIn != "" && familyNotIn != "" {
 				return exitcode.Newf(exitcode.Usage, "--family-in and --family-not-in: give one, not both")
 			}
@@ -359,13 +369,15 @@ warnings list.`,
 				}
 				input.Owner = party
 			}
-			if requireRole != "" || familyIn != "" || familyNotIn != "" || len(excludeWorkers) > 0 || cmd.Flags().Changed("min-tier") {
+			if requireRole != "" || familyIn != "" || familyNotIn != "" || len(excludeWorkers) > 0 || (cmd.Flags().Changed("min-tier") || cmd.Flags().Changed("model-group") || cmd.Flags().Changed("model-group-not")) {
 				input.Requirements = &gen.AgentTaskRequirementsInput{
-					ExcludeWorkers: excludeWorkers,
-					FamilyIn:       commaList(familyIn),
-					FamilyNotIn:    commaList(familyNotIn),
-					Role:           optStr(requireRole),
-					MinTier:        optStr(minTier),
+					ExcludeWorkers:  excludeWorkers,
+					FamilyIn:        commaList(familyIn),
+					FamilyNotIn:     commaList(familyNotIn),
+					ModelGroupIn:    groupsIn,
+					ModelGroupNotIn: groupsNotIn,
+					Role:            optStr(requireRole),
+					MinTier:         optStr(minTier),
 				}
 			}
 			// The App: a root task needs one; a child task may take it from
@@ -391,6 +403,11 @@ warnings list.`,
 			mctx, sink := api.WithWarningSink(ctx)
 			resp, err := gen.AgentTaskCreate(mctx, client, &input)
 			if err != nil {
+				// The new requirement refusals retain their code at the JSON sink.
+				// Keep ordinary task-write error output unchanged when no group flag is named.
+				if groupsIn != nil || groupsNotIn != nil {
+					return api.WithServerCode(mapTaskError(err), err)
+				}
 				return mapTaskError(err)
 			}
 			task := taskDTOFrom(resp.CreateAgentTask.AgentTaskFields)
@@ -428,6 +445,7 @@ warnings list.`,
 	cmd.Flags().StringSliceVar(&tags, "tag", nil, "tag (repeatable)")
 	cmd.Flags().StringVar(&minTier, "min-tier", "", "minimum model tier: low, mid or high (lowest sufficient preferred; unknown ineligible)")
 	cmd.Flags().StringVar(&requireRole, "require-role", "", "matcher must pick this role")
+	addTaskModelGroupFlags(cmd, &modelGroupIn, &modelGroupNotIn)
 	cmd.Flags().StringVar(&familyIn, "family-in", "", "comma list of model families the assignee must run as")
 	cmd.Flags().StringVar(&familyNotIn, "family-not-in", "", "comma list of model families to exclude")
 	cmd.Flags().StringSliceVar(&excludeWorkers, "exclude-worker", nil, "worker (name, URN or id) the matcher must not pick (repeatable)")

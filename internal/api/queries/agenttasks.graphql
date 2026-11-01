@@ -66,6 +66,8 @@ fragment AgentTaskFields on AgentTask {
     role
     familyIn
     familyNotIn
+    modelGroupIn
+    modelGroupNotIn
     excludeWorkerIds
   }
   result {
@@ -93,7 +95,7 @@ fragment AgentTaskFields on AgentTask {
 # @genqlient(for: "CreateAgentTaskInput.properties", omitempty: true)
 # @genqlient(for: "AgentTaskRequirementsInput.minTier", omitempty: true)
 # cli#1485 S3 (Andi BLIND P2): the model-group requirement fields arrived with
-# the schema refresh (server #3029) but no command sets them yet (S2). Absent,
+# the schema refresh (server #3029) and S2 exposes them as optional flags. Absent,
 # not null, so ordinary create/update bodies are unchanged and an older server
 # never sees an input field it does not know.
 # @genqlient(for: "AgentTaskRequirementsInput.modelGroupIn", omitempty: true)
