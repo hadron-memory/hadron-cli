@@ -28670,7 +28670,10 @@ type DeleteUserResponse struct {
 	// GDPR erasure posture). Requires a user credential (JWT or hdr_user key);
 	// App-key callers are rejected.
 	//
-	// Omitting userRef deletes the CALLER's own account (no role needed).
+	// Omitting userRef (or passing null) deletes the CALLER's own account
+	// (no role needed). A userRef that is supplied but empty after trimming
+	// is refused with BAD_USER_INPUT for every caller and deletes nothing
+	// (hrn:node:hadronmemory.com:specs:cor:aut:020:03).
 	// A platform ADMIN/OWNER may name another user; userRef accepts the
 	// user's ID, handle, or hrn:user:<handle> URN. Any other caller naming a
 	// target receives the same FORBIDDEN error whether or not that user
@@ -29878,7 +29881,8 @@ func (v *DueWakesResponse) GetDueWakes() *DueWakesDueWakesDueWakePage { return v
 type EdgeFilter struct {
 	// Include soft-deleted edges (default false).
 	IncludeDeleted *bool `json:"includeDeleted,omitempty"`
-	IsRunnable     *bool `json:"isRunnable,omitempty"`
+	// #2999 — runnability is tri-state, with parity to the node filter. true returns only runnable edges; false returns only edges explicitly marked not runnable. An edge never marked (NULL) matches neither, and only an omitted filter returns it. (hrn:node:hadronmemory.com:specs:cor:dmo:060:03)
+	IsRunnable *bool `json:"isRunnable,omitempty"`
 	// Confine to edges whose (denormalized, source-side) memory is this one.
 	MemoryId *string `json:"memoryId,omitempty"`
 	// Edges leaving this node.
@@ -31810,7 +31814,7 @@ func (v *FindNodesFindNodesFindNodesResultHitsNodeHitNode) GetProperties() *json
 // GetData returns FindNodesFindNodesFindNodesResultHitsNodeHitNode.Data, and is useful for accessing the field via an interface.
 func (v *FindNodesFindNodesFindNodesResultHitsNodeHitNode) GetData() *json.RawMessage { return v.Data }
 
-// Retrieval modes for findNodes (cor:api:090:01). keyword is stemmed FTS; vector/hybrid need the memory's vector index; regex is a POSIX pattern match.
+// Retrieval modes for findNodes (hrn:node:hadronmemory.com:specs:cor:api:090:01). keyword is stemmed FTS; vector/hybrid need the memory's vector index; regex is a POSIX pattern match. vector/hybrid offset pages are not snapshot-stable while the index fills; page with keyword over one memory when every match must appear exactly once (#2991).
 type FindNodesMode string
 
 const (
@@ -42636,6 +42640,8 @@ const (
 	MemoryValidationCheckEmbedFailed MemoryValidationCheck = "EMBED_FAILED"
 	// A Git-mirror attempt for this node did not land (#430): a fixed failure class and an attempt count, never exception text. The repository may be stale until the next successful mirror, and a repo-wins sync can revert the lost write. Recorded for failures the process survives; a crash before the record, or a lost event, leaves no row.
 	MemoryValidationCheckGitMirrorFailed MemoryValidationCheck = "GIT_MIRROR_FAILED"
+	// Informational: passage indexing succeeded with later chunks omitted by the cap; does not make ok false.
+	MemoryValidationCheckIndexTruncated MemoryValidationCheck = "INDEX_TRUNCATED"
 	// objectType/properties violate the memory declared schema (#725).
 	MemoryValidationCheckSchema MemoryValidationCheck = "SCHEMA"
 	// A non-object node with no description, content, or abstract. Object nodes (objectType set) are data-only by design and never sparse (#2516).
@@ -42648,6 +42654,7 @@ var AllMemoryValidationCheck = []MemoryValidationCheck{
 	MemoryValidationCheckBrokenRef,
 	MemoryValidationCheckEmbedFailed,
 	MemoryValidationCheckGitMirrorFailed,
+	MemoryValidationCheckIndexTruncated,
 	MemoryValidationCheckSchema,
 	MemoryValidationCheckSparse,
 	MemoryValidationCheckStaleAbstract,
@@ -45089,9 +45096,10 @@ type NodeFilter struct {
 	ContentScope *NodeContentScope `json:"contentScope,omitempty"`
 	CreatedBy    *string           `json:"createdBy,omitempty"`
 	// Include soft-deleted nodes (default false).
-	IncludeDeleted *bool   `json:"includeDeleted,omitempty"`
-	IsRunnable     *bool   `json:"isRunnable,omitempty"`
-	LocPrefix      *string `json:"locPrefix,omitempty"`
+	IncludeDeleted *bool `json:"includeDeleted,omitempty"`
+	// #2999 — runnability is tri-state. true returns only runnable rows; false returns only rows explicitly marked not runnable. A row never marked (NULL) matches neither, and only an omitted filter returns it. (hrn:node:hadronmemory.com:specs:cor:api:060:04)
+	IsRunnable *bool   `json:"isRunnable,omitempty"`
+	LocPrefix  *string `json:"locPrefix,omitempty"`
 	// Restrict by memory class. SYSTEM is excluded by default; passing this (or naming a system memory in memoryIds) overrides that.
 	MemoryClasses []MemoryClass `json:"memoryClasses,omitempty"`
 	// Memory scope — a mix of memory IDs and fully-qualified URNs; intersected with the caller's access.
@@ -77017,10 +77025,11 @@ type ValidateMemoryResponse struct {
 	// on Node at all), and property-schema conformance. So unlike other gaps
 	// there is no slow client-side fallback.
 	//
-	// Returns TYPED findings so a caller can branch and CI can gate on
-	// totalFindings. findings is capped by limit (default 200, max 1000) while
-	// totalFindings reports the true count - so a gate is never fooled by
-	// truncation. Read gate as the rest of the memory reads.
+	// Returns TYPED findings so a caller can branch. Gate health and CI on ok,
+	// which accounts for both problems and skipped checks. findings is capped
+	// by limit (default 200, max 1000); totalFindings reports the full problem
+	// count before truncation, excluding informational declarations. Read gate
+	// as the rest of the memory reads.
 	ValidateMemory *ValidateMemoryValidateMemoryMemoryValidationResult `json:"validateMemory"`
 }
 
@@ -77034,15 +77043,16 @@ type ValidateMemoryValidateMemoryMemoryValidationResult struct {
 	MemoryId string `json:"memoryId"`
 	// Live (non-deleted) nodes scanned - soft-deleted tombstones are excluded, since their findings would be unactionable (#884). The whole memory in one pass - the checks are cross-referential, so a partial scan would produce false positives rather than fewer findings.
 	NodesChecked int `json:"nodesChecked"`
-	// True only when EVERY check ran and none found anything. A skipped check
+	// True only when EVERY check ran and none found a problem. INDEX_TRUNCATED
+	// is informational and does not make this false. A skipped check
 	// makes this false even with zero findings - you cannot claim health for a
 	// check you did not run.
 	Ok bool `json:"ok"`
-	// The TRUE finding count, before any truncation - gate CI on this, not on findings.length.
+	// The TRUE problem count, before any truncation. Excludes informational INDEX_TRUNCATED. Gate health and CI on ok, which also accounts for skipped checks.
 	TotalFindings int `json:"totalFindings"`
-	// True when findings was capped and totalFindings is larger.
+	// True when findings was capped and totalFindings + totalInformational is larger.
 	Truncated bool `json:"truncated"`
-	// Findings, capped by the limit argument.
+	// Findings, capped by the limit argument, with problems before informational declarations.
 	Findings      []*ValidateMemoryValidateMemoryMemoryValidationResultFindingsMemoryValidationFinding           `json:"findings"`
 	SkippedChecks []*ValidateMemoryValidateMemoryMemoryValidationResultSkippedChecksMemoryValidationSkippedCheck `json:"skippedChecks"`
 }
