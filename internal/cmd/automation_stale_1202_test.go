@@ -226,3 +226,19 @@ func TestStaleEntryOversizedSentenceStillExits5(t *testing.T) {
 		}
 	}
 }
+
+// Diego's LOCAL probe: a valid entry URN longer than the name display bound
+// also marks the display incomplete; it must still exit 5, not 7.
+func TestStaleEntryLongNameStillExits5(t *testing.T) {
+	longName := "hrn:node:acme.com:ops:" + strings.Repeat("deep:", 60) + "gone"
+	s := staleServer(t, func(a map[string]any) { a["summary"].(map[string]any)["name"] = longName })
+	r := runAuto(t, s, false, "", "approve", "nightly", "--yes")
+	shown := r.errOut
+	if r.err != nil {
+		shown += r.err.Error()
+	}
+	if r.code != exitcode.Conflict || s.count("ApproveAutomation") != 0 || !strings.Contains(shown, "hadron automation approval") ||
+		strings.Contains(shown, "too large to show") {
+		t.Fatalf("a long stale name must exit 5 with the repair step: code=%d\n%s", r.code, shown)
+	}
+}
