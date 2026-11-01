@@ -1368,6 +1368,56 @@ query TeamChatMessagesAttributed(
   }
 }
 
+# cli#1470 (hadron-server#2980): the `team chat read` page documents. They do
+# NOT select `total`: the read loop never uses it, and selecting it forces the
+# server to count every message in the range, so the standing
+# `--mentions-me --limit 1` tail read scanned the whole history. Separate from
+# TeamChatMessages(Attributed) because the session watermark summary
+# (session.go) still prints an exact `total` from its bounded range. Do not add
+# `total` back here; see the NOTE on TeamChatMessages for what it means.
+query TeamChatReadPage(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $sinceSeq: Int
+  # @genqlient(omitempty: true)
+  $mentionsRef: ID
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+  # @genqlient(omitempty: true)
+  $beforeSeq: Int
+) {
+  teamChatMessages(appRef: $appRef, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, offset: $offset, beforeSeq: $beforeSeq) {
+    items {
+      ...TeamChatMessageFields
+      seq
+    }
+  }
+}
+
+# The same read with the worker session carried and acknowledgement suppressed
+# (#817), mirroring TeamChatMessagesAttributed.
+query TeamChatReadPageAttributed(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $sinceSeq: Int
+  # @genqlient(omitempty: true)
+  $mentionsRef: ID
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+  # @genqlient(omitempty: true)
+  $beforeSeq: Int
+) {
+  teamChatMessages(appRef: $appRef, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, offset: $offset, beforeSeq: $beforeSeq, advanceReadState: false) {
+    items {
+      ...TeamChatMessageFields
+    }
+  }
+}
+
 query TeamChatReadHeadAttributed($appRef: ID!) {
   teamChatMessages(appRef: $appRef, beforeSeq: 2147483647, limit: 1, advanceReadState: false) {
     items { seq }
@@ -1502,6 +1552,8 @@ query TeamComposition($appRef: ID!) {
   }
 }
 
+# cli#1470 (server#2980): the thread read never reads `total`, and selecting it
+# forces the server to count every message in the range. Left out on purpose.
 # cli#1262 thread read: the DIRECT replies to one seq, filtered by the server
 # (hadron-server#2847, spec cor:agt:020:04). SEPARATE documents from
 # TeamChatMessages/TeamChatMessagesAttributed on purpose: GraphQL validates the
@@ -1521,7 +1573,6 @@ query TeamChatThread(
   $beforeSeq: Int
 ) {
   teamChatMessages(appRef: $appRef, replyToSeq: $replyToSeq, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, beforeSeq: $beforeSeq) {
-    total
     items {
       ...TeamChatMessageFields
     }
@@ -1543,7 +1594,6 @@ query TeamChatThreadAttributed(
   $beforeSeq: Int
 ) {
   teamChatMessages(appRef: $appRef, replyToSeq: $replyToSeq, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, beforeSeq: $beforeSeq, advanceReadState: false) {
-    total
     items {
       ...TeamChatMessageFields
     }
