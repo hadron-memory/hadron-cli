@@ -4554,6 +4554,39 @@ message. This CLI build does not claim a production deploy or production probe.
 
 `policy explain --action <a> --app <ref> [--user <ref>]` explains the standing action-policy chain (org, then user only with `--user`, then app; cor:acl:040:02): org ADMIN on the App's org, else exit 8; unknown App or user exit 4. `--json` is `{allowed, layers}`, each layer `{layer, present, allowed, allow}`; `allow` is null when the layer has no link (no restriction) and `[]` when its link allows nothing, so never treat the two alike. Per-trigger links (schedule/webhook `--policy`) are not in this chain. `policy set --mine '<json>'` (or `@file`) writes the caller's own user layer, `{"allow":[...]}`; `--clear` sends an explicit null (no restriction); `--mine` is required, the JSON and `--clear` are mutually exclusive, and invalid JSON, or a JSON `null` (use `--clear`), exits 2 with nothing sent; the server checks the shape (exit 2). `--json` `{layer:"user", userId, handle, policy}`. `org update --policy '<json>'` sets the org layer; `--clear-policy` clears it (explicit null; mutually exclusive with `--policy`); a blank `--policy` (an unset variable) or `--policy null` exits 2 with nothing sent, never a silent clear; without either flag the link is untouched (omitted, never null). `quota list --org <ref> [--app <ref>]` shows the daily counters (`--json` array of `{id, scopeKind, scopeId, action, window, used, limit, resetAt}`; `[]` when empty; rows are created with platform defaults the first time a scope is shown). `quota set --org <ref> [--app <ref>] --action run.execute|llm.tokens|sms.send|email.send --limit <n>` sets the enforced limit (0 stops that action for the scope; for run.execute/llm.tokens every launch is refused; the server refuses other actions and out-of-range limits, exit 2); without `--app` the org-level limit (appRef omitted). Both org ADMIN (exit 8); an App outside the org exit 4. `grant get <id>` and `connection grant get <id>` read one grant (the same DTO as a list row); `secret get <id|urn>` reads one secret's metadata, never its value. All three answer exit 4 for both missing and not-visible, with one message (no existence oracle). `secret update <id|urn>` overwrites in place (no versions): `--value-file -|@file|path` replaces the value (`-` on a terminal prompts without echo; the value is never printed), `--meta`/`--meta-json` replace generic metadata, `--type` (with `--value-file`) builds a webfetch-auth value and `--url-prefix` replaces its metadata; an omitted half is preserved (not sent). Name, kind and owner are immutable (no flags: `--name`/`--kind` exit 2). Mixing generic and webfetch-auth flags, `--meta` with `--meta-json`, an empty `--meta-json` or `--value-file` argument, `--type` without `--value-file`, or no change at all exit 2 with nothing sent; a value or metadata that does not fit the secret's kind is refused by the server (exit 2).
 
+## Cross-entity discovery and catalogue (cli#1345)
+
+hadron find <query> [--entity-type organization,memory,node,agent,app,aiServiceConfig,user] [--field pk,urn,name,description,content] [--org <ref>] [--scope <id|name|app|global>] [--app <ref>] [--limit 1..200] [--offset N]
+hadron marketplace agents|memories|orgs [--limit 0..200] [--offset N]
+
+`find` is the cross-entity globalSearch surface; node-only vector-aware search
+stays `search`. Query bytes pass through unchanged: the server sniffs PK (exact
+id), URN, or name+URN; --field overrides the sniff, content is opt-in and skips
+encrypted memories; --entity-type restricts kinds. No org, App or stored scope
+is implicitly applied. --org accepts an id or fully qualified org URN and
+narrows org-anchored slices, never the user slice;
+missing/non-member orgs have the same empty answer. --scope narrows only memory
+and node slices; a bare name or app needs explicit --app. The server decides
+all visibility, matching, ranking and scope resolution. One request/page,
+limit 20/offset 0 defaults, order unchanged. Total is the bounded candidate-list
+count, not the full database count. JSON is {hits:[{id,entityType,name,urn,
+description,score,matchedField,memoryId,organizationId}],total,degraded:[],scope};
+nullable names/URNs remain null, and scope retains kind,label,source,ownerUrn,
+memoryUrns,droppedCount. Degraded notes also go to stderr; no hit enrichment or
+fallback query. A nullable URN is valid (AI config, user without legal handle).
+
+Catalogue reads are public and work signed out (available stored credentials
+are attached). Listing is advertisement, not access: unlisted public resources
+remain usable by link but are absent from browse (cor:acl:080:04). The server
+returns only opted-in, publicly accessible refs ordered (name,id); clients do
+not infer eligibility. Exactly one requested resource-type query per page,
+JSON {items:[{id,name,urn,description}],total}, empty items [], nullable description.
+Default limit 20/offset 0; limit0 is count-only. Human output includes total.
+No nested members, private data, credentials or follow-up resource fetches.
+Both commands print a next-offset hint using rows actually served. Neither
+walks every page automatically; null/malformed pages fail instead of claiming
+an empty result. Refusals pass through MapError; no production grant is implied.
+
 ## Automation graph and trigger inputs (cli#1346)
 
 `automation preview <SCHEDULE|WEBHOOK|MANUAL> <ref>` reads the raw graph and

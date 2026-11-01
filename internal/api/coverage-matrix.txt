@@ -19,7 +19,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 187: 149 command, 23 gap, 15 excluded
+[Query] 187: 153 command, 19 gap, 15 excluded
 actionTickets  command ticket list
 agent  command agent get
 agentAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime that makes LLM calls; a person reads the masked config with `ai-config get`
@@ -99,7 +99,7 @@ exchangeFolders  gap #198
 exchangeMessages  gap #198
 findNodes  command search
 findObjects  command object find
-globalSearch  gap #1345
+globalSearch  command find
 heldWorkers  gap #1336
 homeAssistantInstance  command ha get
 homeAssistantInstanceOps  command ha ops
@@ -111,9 +111,9 @@ impersonationSessions  command admin impersonation list
 installMemory  command node list
 invitation  command org invite show
 latestAppRun  command run latest
-marketplaceAgents  gap #1345
-marketplaceMemories  gap #1345
-marketplaceOrganizations  gap #1345
+marketplaceAgents  command marketplace agents
+marketplaceMemories  command marketplace memories
+marketplaceOrganizations  command marketplace orgs
 mcpServer  command mcp-server get
 mcpServerTools  command mcp-server tools
 mcpServers  command mcp-server list
