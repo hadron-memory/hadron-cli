@@ -1,6 +1,5 @@
 // Package aiconfig implements `hadron ai-config ...` — the AI service
-// config surface. Today it exposes the masked resolvable-config picker
-// (`list`); CRUD and decrypted resolve can grow into this group later.
+// config management surface: masked reads, CRUD, endpoints and saved probes.
 package aiconfig
 
 import (
@@ -18,6 +17,7 @@ func NewCmdAiConfig(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdLs(f))
 	cmd.AddCommand(newCmdGet(f))
 	cmd.AddCommand(newCmdEndpoints(f))
+	cmd.AddCommand(newCmdTest(f))
 	cmd.AddCommand(newCmdCreate(f))
 	cmd.AddCommand(newCmdUpdate(f))
 	cmd.AddCommand(newCmdRm(f))

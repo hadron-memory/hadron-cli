@@ -38,6 +38,7 @@ var agentAIConfigStdinCases = []struct {
 	remedy string
 }{
 	{"ai-config create --file -", []string{"ai-config", "create", "--file", "-"}, "--file <path>"},
+	{"ai-config test --override-file -", []string{"ai-config", "test", "cfg1", "--override-file", "-"}, "--override-file <path>"},
 }
 
 func runDocumentStdinRefusal(t *testing.T, args []string, remedy string, signedIn bool) {
