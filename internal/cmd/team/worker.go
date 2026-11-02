@@ -318,6 +318,8 @@ context).`,
 	cmd.Flags().StringVar(&agentRef, "agent", "", "cast this agent (ID or URN; must be installed in the App); its persona role is the worker's role (not with --role)")
 	cmd.Flags().StringVar(&name, "name", "", "the worker's name — REQUIRED, and permanent for this App")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "preview the cast (name, agent, composed prompt) without creating anything; reserves nothing")
+	cmdutil.RetireFlags(cmd, "a worker's boot customisation is now a node: write boot:workers:<id>:source (role boot-prompt) in the App install memory (hadron node update), compile it with `hadron team worker compile <worker>`, then have the App's manager approve the compiled node with `hadron node approve <compiled-node-ref>`",
+		cmdutil.RetiredFlag{Name: "prompt-override"}, cmdutil.RetiredFlag{Name: "clear-prompt-override", Bool: true})
 	return cmd
 }
 
@@ -1952,6 +1954,7 @@ TEMPLATE VARIABLES, written {{name}} — anything else stays literal text:
 At most 2000 characters each. The defaults are:
   signature  — [{{worker.name}}, {{worker.role}}]({{worker.url}}) · {{session.llmModel}}
   trailer    Worker: {{worker.name}} ({{worker.role}}) <{{worker.url}}>
+There is no reset to the default: to restore it, pass the default text.
 
 Only an App manager may edit them, as themselves. From a worktree bound to a
 worker the edit goes through that worker's session and is refused (exit 8):
@@ -1983,5 +1986,7 @@ thing: see ` + "`team worker compile --help`" + `.`,
 	}
 	cmd.Flags().StringVar(&signature, "signature", "", `replace the signature template ("" stores an empty one)`)
 	cmd.Flags().StringVar(&trailer, "trailer", "", `replace the commit-trailer template ("" stores an empty one)`)
+	cmdutil.RetireFlags(cmd, "a worker's boot customisation is now a node: write boot:workers:<id>:source (role boot-prompt) in the App install memory (hadron node update), compile it with `hadron team worker compile <worker>`, then have the App's manager approve the compiled node with `hadron node approve <compiled-node-ref>`",
+		cmdutil.RetiredFlag{Name: "prompt-override"}, cmdutil.RetiredFlag{Name: "clear-prompt-override", Bool: true})
 	return cmd
 }

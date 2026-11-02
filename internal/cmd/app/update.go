@@ -129,6 +129,8 @@ before trying again.`,
 	fl.BoolVar(&clearDescription, "clear-description", false, "clear the description (sends null)")
 	fl.IntVar(&timeout, "session-timeout-seconds", 0, "the session timeout in seconds (the server validates the value)")
 	fl.BoolVar(&yes, "yes", false, "skip the confirmation prompt")
+	cmdutil.RetireFlags(cmd, "an installed Agent's boot prompt is now a node: write the source in the App install memory (role boot-prompt, hadron node update), compile it with `hadron app agent compile`, then have the App's manager approve the compiled node with `hadron node approve <compiled-node-ref>`",
+		cmdutil.RetiredFlag{Name: "system-prompt"}, cmdutil.RetiredFlag{Name: "system-prompt-file"}, cmdutil.RetiredFlag{Name: "clear-system-prompt", Bool: true})
 	return cmd
 }
 

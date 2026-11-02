@@ -537,6 +537,8 @@ the Agent system memory, then use hadron agent compile and hadron node approve.`
 	cmd.Flags().StringVar(&installInto, "install-into", "", "App (ID or URN) to install the new agent into, so it is castable in one run")
 	registerRetiredPersonaPromptFlags(cmd)
 	_ = cmd.MarkFlagRequired("name")
+	cmdutil.RetireFlags(cmd, "an Agent's boot prompt is now a node: write the source at boot:source in its system memory (role boot-prompt, hadron node update), compile it with `hadron agent compile <agent>`, then have the Agent's manager approve the compiled node with `hadron node approve <compiled-node-ref>`",
+		cmdutil.RetiredFlag{Name: "system-prompt"}, cmdutil.RetiredFlag{Name: "system-prompt-file"}, cmdutil.RetiredFlag{Name: "clear-system-prompt", Bool: true})
 	return cmd
 }
 
@@ -646,6 +648,8 @@ start without a prompt.`,
 	cmd.Flags().StringVar(&processesIndex, "processes-index", "", `the Agent's processes index node (a ref; an explicit empty clears it)`)
 	cmd.Flags().BoolVar(&usesTasks, "uses-tasks", false, "Whether workers from this Agent use assigned tasks; false keeps them expected to check the team channel without a task (omitted preserves)")
 	registerRetiredPersonaPromptFlags(cmd)
+	cmdutil.RetireFlags(cmd, "an Agent's boot prompt is now a node: write the source at boot:source in its system memory (role boot-prompt, hadron node update), compile it with `hadron agent compile <agent>`, then have the Agent's manager approve the compiled node with `hadron node approve <compiled-node-ref>`",
+		cmdutil.RetiredFlag{Name: "system-prompt"}, cmdutil.RetiredFlag{Name: "system-prompt-file"}, cmdutil.RetiredFlag{Name: "clear-system-prompt", Bool: true})
 	return cmd
 }
 
