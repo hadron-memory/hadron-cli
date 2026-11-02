@@ -581,6 +581,11 @@ func (v *AddMemoryToAgentAddMemoryToAgent) GetPersonaRole() *string { return v.A
 // GetUsesTasks returns AddMemoryToAgentAddMemoryToAgent.UsesTasks, and is useful for accessing the field via an interface.
 func (v *AddMemoryToAgentAddMemoryToAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
 
+// GetResetContextAfterTask returns AddMemoryToAgentAddMemoryToAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *AddMemoryToAgentAddMemoryToAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
 // GetInstallationPolicy returns AddMemoryToAgentAddMemoryToAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *AddMemoryToAgentAddMemoryToAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -653,6 +658,8 @@ type __premarshalAddMemoryToAgentAddMemoryToAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -688,6 +695,7 @@ func (v *AddMemoryToAgentAddMemoryToAgent) __premarshalJSON() (*__premarshalAddM
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -941,9 +949,11 @@ type AgentFields struct {
 	// Persona role - free string with conventions ('backend-engineer').
 	PersonaRole *string `json:"personaRole"`
 	// #2138: false means every Worker cast from this Agent counts as having a task and is expected to check its team channel every period (coordinators, the lifecycle agent). Default true.
-	UsesTasks          bool                           `json:"usesTasks"`
-	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
-	CreatedAt          string                         `json:"createdAt"`
+	UsesTasks bool `json:"usesTasks"`
+	// #2162 (hrn:node:hadronmemory.com:specs:cor:agt:050:27): when a task one of this Agent's workers had started finishes or is cancelled, and it holds no other started task, its host resets the worker's context (a shed: the binding and session stay). Default false. Set by whoever manages the Agent.
+	ResetContextAfterTask bool                           `json:"resetContextAfterTask"`
+	InstallationPolicy    *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+	CreatedAt             string                         `json:"createdAt"`
 }
 
 // GetId returns AgentFields.Id, and is useful for accessing the field via an interface.
@@ -1002,6 +1012,9 @@ func (v *AgentFields) GetPersonaRole() *string { return v.PersonaRole }
 
 // GetUsesTasks returns AgentFields.UsesTasks, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetUsesTasks() bool { return v.UsesTasks }
+
+// GetResetContextAfterTask returns AgentFields.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetResetContextAfterTask() bool { return v.ResetContextAfterTask }
 
 // GetInstallationPolicy returns AgentFields.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
@@ -1625,6 +1638,11 @@ func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetStartBy() *string {
 	return v.AgentTaskFields.StartBy
 }
 
+// GetFinishBy returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.FinishBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetFinishBy() *string {
+	return v.AgentTaskFields.FinishBy
+}
+
 // GetCreatedAt returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetCreatedAt() string {
 	return v.AgentTaskFields.CreatedAt
@@ -1746,6 +1764,8 @@ type __premarshalAgentTaskAddBlockerAddAgentTaskBlockerAgentTask struct {
 
 	StartBy *string `json:"startBy"`
 
+	FinishBy *string `json:"finishBy"`
+
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt *string `json:"updatedAt"`
@@ -1801,6 +1821,7 @@ func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) __premarshalJSON() (*_
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
 	retval.StartedAt = v.AgentTaskFields.StartedAt
@@ -1934,6 +1955,9 @@ func (v *AgentTaskAssignAssignAgentTask) GetMatchFailure() *AgentTaskFieldsMatch
 // GetStartBy returns AgentTaskAssignAssignAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskAssignAssignAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
+// GetFinishBy returns AgentTaskAssignAssignAgentTask.FinishBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskAssignAssignAgentTask) GetFinishBy() *string { return v.AgentTaskFields.FinishBy }
+
 // GetCreatedAt returns AgentTaskAssignAssignAgentTask.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AgentTaskAssignAssignAgentTask) GetCreatedAt() string { return v.AgentTaskFields.CreatedAt }
 
@@ -2047,6 +2071,8 @@ type __premarshalAgentTaskAssignAssignAgentTask struct {
 
 	StartBy *string `json:"startBy"`
 
+	FinishBy *string `json:"finishBy"`
+
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt *string `json:"updatedAt"`
@@ -2102,6 +2128,7 @@ func (v *AgentTaskAssignAssignAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
 	retval.StartedAt = v.AgentTaskFields.StartedAt
@@ -2241,6 +2268,9 @@ func (v *AgentTaskCancelCancelAgentTask) GetMatchFailure() *AgentTaskFieldsMatch
 // GetStartBy returns AgentTaskCancelCancelAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskCancelCancelAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
+// GetFinishBy returns AgentTaskCancelCancelAgentTask.FinishBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskCancelCancelAgentTask) GetFinishBy() *string { return v.AgentTaskFields.FinishBy }
+
 // GetCreatedAt returns AgentTaskCancelCancelAgentTask.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AgentTaskCancelCancelAgentTask) GetCreatedAt() string { return v.AgentTaskFields.CreatedAt }
 
@@ -2354,6 +2384,8 @@ type __premarshalAgentTaskCancelCancelAgentTask struct {
 
 	StartBy *string `json:"startBy"`
 
+	FinishBy *string `json:"finishBy"`
+
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt *string `json:"updatedAt"`
@@ -2409,6 +2441,7 @@ func (v *AgentTaskCancelCancelAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
 	retval.StartedAt = v.AgentTaskFields.StartedAt
@@ -2548,6 +2581,9 @@ func (v *AgentTaskCreateCreateAgentTask) GetMatchFailure() *AgentTaskFieldsMatch
 // GetStartBy returns AgentTaskCreateCreateAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskCreateCreateAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
+// GetFinishBy returns AgentTaskCreateCreateAgentTask.FinishBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateCreateAgentTask) GetFinishBy() *string { return v.AgentTaskFields.FinishBy }
+
 // GetCreatedAt returns AgentTaskCreateCreateAgentTask.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AgentTaskCreateCreateAgentTask) GetCreatedAt() string { return v.AgentTaskFields.CreatedAt }
 
@@ -2661,6 +2697,8 @@ type __premarshalAgentTaskCreateCreateAgentTask struct {
 
 	StartBy *string `json:"startBy"`
 
+	FinishBy *string `json:"finishBy"`
+
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt *string `json:"updatedAt"`
@@ -2716,6 +2754,7 @@ func (v *AgentTaskCreateCreateAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
 	retval.StartedAt = v.AgentTaskFields.StartedAt
@@ -3114,11 +3153,13 @@ type AgentTaskFields struct {
 	// Null unless an opt-in single-shot match failed. No assignment-unassignable alarm is raised for it.
 	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
 	StartBy      *string                                           `json:"startBy"`
-	CreatedAt    string                                            `json:"createdAt"`
-	UpdatedAt    *string                                           `json:"updatedAt"`
-	StartedAt    *string                                           `json:"startedAt"`
-	FinishedAt   *string                                           `json:"finishedAt"`
-	CancelledAt  *string                                           `json:"cancelledAt"`
+	// The finish-by deadline (#2648, hrn:node:hadronmemory.com:specs:cor:agt:050:14). While set, no stall window applies to the task; one stall.finish-by alarm is raised once it passes with the task neither finished nor cancelled.
+	FinishBy    *string `json:"finishBy"`
+	CreatedAt   string  `json:"createdAt"`
+	UpdatedAt   *string `json:"updatedAt"`
+	StartedAt   *string `json:"startedAt"`
+	FinishedAt  *string `json:"finishedAt"`
+	CancelledAt *string `json:"cancelledAt"`
 	// Whether finishing or cancelling asks the assignee to end its worker session
 	// (hrn:node:hadronmemory.com:specs:cor:agt:050:10). Set by whoever assigns. #1709: carried out; see sessionEndRequest.
 	CloseSessionWhenDone bool                                              `json:"closeSessionWhenDone"`
@@ -3214,6 +3255,9 @@ func (v *AgentTaskFields) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTas
 
 // GetStartBy returns AgentTaskFields.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskFields) GetStartBy() *string { return v.StartBy }
+
+// GetFinishBy returns AgentTaskFields.FinishBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskFields) GetFinishBy() *string { return v.FinishBy }
 
 // GetCreatedAt returns AgentTaskFields.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AgentTaskFields) GetCreatedAt() string { return v.CreatedAt }
@@ -4005,6 +4049,9 @@ func (v *AgentTaskFinishFinishAgentTask) GetMatchFailure() *AgentTaskFieldsMatch
 // GetStartBy returns AgentTaskFinishFinishAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskFinishFinishAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
+// GetFinishBy returns AgentTaskFinishFinishAgentTask.FinishBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskFinishFinishAgentTask) GetFinishBy() *string { return v.AgentTaskFields.FinishBy }
+
 // GetCreatedAt returns AgentTaskFinishFinishAgentTask.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AgentTaskFinishFinishAgentTask) GetCreatedAt() string { return v.AgentTaskFields.CreatedAt }
 
@@ -4118,6 +4165,8 @@ type __premarshalAgentTaskFinishFinishAgentTask struct {
 
 	StartBy *string `json:"startBy"`
 
+	FinishBy *string `json:"finishBy"`
+
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt *string `json:"updatedAt"`
@@ -4173,6 +4222,7 @@ func (v *AgentTaskFinishFinishAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
 	retval.StartedAt = v.AgentTaskFields.StartedAt
@@ -4304,6 +4354,9 @@ func (v *AgentTaskGetAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAg
 // GetStartBy returns AgentTaskGetAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskGetAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
+// GetFinishBy returns AgentTaskGetAgentTask.FinishBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTask) GetFinishBy() *string { return v.AgentTaskFields.FinishBy }
+
 // GetCreatedAt returns AgentTaskGetAgentTask.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AgentTaskGetAgentTask) GetCreatedAt() string { return v.AgentTaskFields.CreatedAt }
 
@@ -4413,6 +4466,8 @@ type __premarshalAgentTaskGetAgentTask struct {
 
 	StartBy *string `json:"startBy"`
 
+	FinishBy *string `json:"finishBy"`
+
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt *string `json:"updatedAt"`
@@ -4468,6 +4523,7 @@ func (v *AgentTaskGetAgentTask) __premarshalJSON() (*__premarshalAgentTaskGetAge
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
 	retval.StartedAt = v.AgentTaskFields.StartedAt
@@ -4629,6 +4685,9 @@ func (v *AgentTaskHandBackHandBackAgentTask) GetMatchFailure() *AgentTaskFieldsM
 // GetStartBy returns AgentTaskHandBackHandBackAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskHandBackHandBackAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
+// GetFinishBy returns AgentTaskHandBackHandBackAgentTask.FinishBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetFinishBy() *string { return v.AgentTaskFields.FinishBy }
+
 // GetCreatedAt returns AgentTaskHandBackHandBackAgentTask.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AgentTaskHandBackHandBackAgentTask) GetCreatedAt() string {
 	return v.AgentTaskFields.CreatedAt
@@ -4750,6 +4809,8 @@ type __premarshalAgentTaskHandBackHandBackAgentTask struct {
 
 	StartBy *string `json:"startBy"`
 
+	FinishBy *string `json:"finishBy"`
+
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt *string `json:"updatedAt"`
@@ -4805,6 +4866,7 @@ func (v *AgentTaskHandBackHandBackAgentTask) __premarshalJSON() (*__premarshalAg
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
 	retval.StartedAt = v.AgentTaskFields.StartedAt
@@ -5057,6 +5119,9 @@ func (v *AgentTaskListAgentTasksAgentTask) GetMatchFailure() *AgentTaskFieldsMat
 // GetStartBy returns AgentTaskListAgentTasksAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskListAgentTasksAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
+// GetFinishBy returns AgentTaskListAgentTasksAgentTask.FinishBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskListAgentTasksAgentTask) GetFinishBy() *string { return v.AgentTaskFields.FinishBy }
+
 // GetCreatedAt returns AgentTaskListAgentTasksAgentTask.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AgentTaskListAgentTasksAgentTask) GetCreatedAt() string { return v.AgentTaskFields.CreatedAt }
 
@@ -5172,6 +5237,8 @@ type __premarshalAgentTaskListAgentTasksAgentTask struct {
 
 	StartBy *string `json:"startBy"`
 
+	FinishBy *string `json:"finishBy"`
+
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt *string `json:"updatedAt"`
@@ -5227,6 +5294,7 @@ func (v *AgentTaskListAgentTasksAgentTask) __premarshalJSON() (*__premarshalAgen
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
 	retval.StartedAt = v.AgentTaskFields.StartedAt
@@ -5365,6 +5433,11 @@ func (v *AgentTaskListFilteredAgentTasksAgentTask) GetStartBy() *string {
 	return v.AgentTaskFields.StartBy
 }
 
+// GetFinishBy returns AgentTaskListFilteredAgentTasksAgentTask.FinishBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskListFilteredAgentTasksAgentTask) GetFinishBy() *string {
+	return v.AgentTaskFields.FinishBy
+}
+
 // GetCreatedAt returns AgentTaskListFilteredAgentTasksAgentTask.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AgentTaskListFilteredAgentTasksAgentTask) GetCreatedAt() string {
 	return v.AgentTaskFields.CreatedAt
@@ -5486,6 +5559,8 @@ type __premarshalAgentTaskListFilteredAgentTasksAgentTask struct {
 
 	StartBy *string `json:"startBy"`
 
+	FinishBy *string `json:"finishBy"`
+
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt *string `json:"updatedAt"`
@@ -5541,6 +5616,7 @@ func (v *AgentTaskListFilteredAgentTasksAgentTask) __premarshalJSON() (*__premar
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
 	retval.StartedAt = v.AgentTaskFields.StartedAt
@@ -5711,6 +5787,11 @@ func (v *AgentTaskListTextAgentTasksAgentTask) GetMatchFailure() *AgentTaskField
 // GetStartBy returns AgentTaskListTextAgentTasksAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskListTextAgentTasksAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
+// GetFinishBy returns AgentTaskListTextAgentTasksAgentTask.FinishBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetFinishBy() *string {
+	return v.AgentTaskFields.FinishBy
+}
+
 // GetCreatedAt returns AgentTaskListTextAgentTasksAgentTask.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AgentTaskListTextAgentTasksAgentTask) GetCreatedAt() string {
 	return v.AgentTaskFields.CreatedAt
@@ -5832,6 +5913,8 @@ type __premarshalAgentTaskListTextAgentTasksAgentTask struct {
 
 	StartBy *string `json:"startBy"`
 
+	FinishBy *string `json:"finishBy"`
+
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt *string `json:"updatedAt"`
@@ -5887,6 +5970,7 @@ func (v *AgentTaskListTextAgentTasksAgentTask) __premarshalJSON() (*__premarshal
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
 	retval.StartedAt = v.AgentTaskFields.StartedAt
@@ -6044,6 +6128,9 @@ func (v *AgentTaskParkParkAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFail
 // GetStartBy returns AgentTaskParkParkAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskParkParkAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
+// GetFinishBy returns AgentTaskParkParkAgentTask.FinishBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetFinishBy() *string { return v.AgentTaskFields.FinishBy }
+
 // GetCreatedAt returns AgentTaskParkParkAgentTask.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AgentTaskParkParkAgentTask) GetCreatedAt() string { return v.AgentTaskFields.CreatedAt }
 
@@ -6155,6 +6242,8 @@ type __premarshalAgentTaskParkParkAgentTask struct {
 
 	StartBy *string `json:"startBy"`
 
+	FinishBy *string `json:"finishBy"`
+
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt *string `json:"updatedAt"`
@@ -6210,6 +6299,7 @@ func (v *AgentTaskParkParkAgentTask) __premarshalJSON() (*__premarshalAgentTaskP
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
 	retval.StartedAt = v.AgentTaskFields.StartedAt
@@ -6424,6 +6514,11 @@ func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetStartBy() *string
 	return v.AgentTaskFields.StartBy
 }
 
+// GetFinishBy returns AgentTaskProgressRecordAgentTaskProgressAgentTask.FinishBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetFinishBy() *string {
+	return v.AgentTaskFields.FinishBy
+}
+
 // GetCreatedAt returns AgentTaskProgressRecordAgentTaskProgressAgentTask.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetCreatedAt() string {
 	return v.AgentTaskFields.CreatedAt
@@ -6545,6 +6640,8 @@ type __premarshalAgentTaskProgressRecordAgentTaskProgressAgentTask struct {
 
 	StartBy *string `json:"startBy"`
 
+	FinishBy *string `json:"finishBy"`
+
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt *string `json:"updatedAt"`
@@ -6600,6 +6697,7 @@ func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) __premarshalJSON() (
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
 	retval.StartedAt = v.AgentTaskFields.StartedAt
@@ -6750,6 +6848,11 @@ func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetStartBy() *string {
 	return v.AgentTaskFields.StartBy
 }
 
+// GetFinishBy returns AgentTaskReadyMakeAgentTaskReadyAgentTask.FinishBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetFinishBy() *string {
+	return v.AgentTaskFields.FinishBy
+}
+
 // GetCreatedAt returns AgentTaskReadyMakeAgentTaskReadyAgentTask.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetCreatedAt() string {
 	return v.AgentTaskFields.CreatedAt
@@ -6871,6 +6974,8 @@ type __premarshalAgentTaskReadyMakeAgentTaskReadyAgentTask struct {
 
 	StartBy *string `json:"startBy"`
 
+	FinishBy *string `json:"finishBy"`
+
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt *string `json:"updatedAt"`
@@ -6926,6 +7031,7 @@ func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) __premarshalJSON() (*__prema
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
 	retval.StartedAt = v.AgentTaskFields.StartedAt
@@ -7070,6 +7176,9 @@ func (v *AgentTaskReassignReassignAgentTask) GetMatchFailure() *AgentTaskFieldsM
 // GetStartBy returns AgentTaskReassignReassignAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskReassignReassignAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
+// GetFinishBy returns AgentTaskReassignReassignAgentTask.FinishBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskReassignReassignAgentTask) GetFinishBy() *string { return v.AgentTaskFields.FinishBy }
+
 // GetCreatedAt returns AgentTaskReassignReassignAgentTask.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AgentTaskReassignReassignAgentTask) GetCreatedAt() string {
 	return v.AgentTaskFields.CreatedAt
@@ -7191,6 +7300,8 @@ type __premarshalAgentTaskReassignReassignAgentTask struct {
 
 	StartBy *string `json:"startBy"`
 
+	FinishBy *string `json:"finishBy"`
+
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt *string `json:"updatedAt"`
@@ -7246,6 +7357,7 @@ func (v *AgentTaskReassignReassignAgentTask) __premarshalJSON() (*__premarshalAg
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
 	retval.StartedAt = v.AgentTaskFields.StartedAt
@@ -7464,6 +7576,11 @@ func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetStartBy() *st
 	return v.AgentTaskFields.StartBy
 }
 
+// GetFinishBy returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.FinishBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetFinishBy() *string {
+	return v.AgentTaskFields.FinishBy
+}
+
 // GetCreatedAt returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetCreatedAt() string {
 	return v.AgentTaskFields.CreatedAt
@@ -7585,6 +7702,8 @@ type __premarshalAgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask struct {
 
 	StartBy *string `json:"startBy"`
 
+	FinishBy *string `json:"finishBy"`
+
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt *string `json:"updatedAt"`
@@ -7640,6 +7759,7 @@ func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) __premarshalJSON
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
 	retval.StartedAt = v.AgentTaskFields.StartedAt
@@ -7872,6 +7992,11 @@ func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetStartBy() *string
 	return v.AgentTaskFields.StartBy
 }
 
+// GetFinishBy returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.FinishBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetFinishBy() *string {
+	return v.AgentTaskFields.FinishBy
+}
+
 // GetCreatedAt returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetCreatedAt() string {
 	return v.AgentTaskFields.CreatedAt
@@ -7993,6 +8118,8 @@ type __premarshalAgentTaskSetPrioritySetAgentTaskPriorityAgentTask struct {
 
 	StartBy *string `json:"startBy"`
 
+	FinishBy *string `json:"finishBy"`
+
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt *string `json:"updatedAt"`
@@ -8048,6 +8175,7 @@ func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) __premarshalJSON() (
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
 	retval.StartedAt = v.AgentTaskFields.StartedAt
@@ -8237,6 +8365,9 @@ func (v *AgentTaskStartStartAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFa
 // GetStartBy returns AgentTaskStartStartAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskStartStartAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
+// GetFinishBy returns AgentTaskStartStartAgentTask.FinishBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskStartStartAgentTask) GetFinishBy() *string { return v.AgentTaskFields.FinishBy }
+
 // GetCreatedAt returns AgentTaskStartStartAgentTask.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AgentTaskStartStartAgentTask) GetCreatedAt() string { return v.AgentTaskFields.CreatedAt }
 
@@ -8348,6 +8479,8 @@ type __premarshalAgentTaskStartStartAgentTask struct {
 
 	StartBy *string `json:"startBy"`
 
+	FinishBy *string `json:"finishBy"`
+
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt *string `json:"updatedAt"`
@@ -8403,6 +8536,7 @@ func (v *AgentTaskStartStartAgentTask) __premarshalJSON() (*__premarshalAgentTas
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
 	retval.StartedAt = v.AgentTaskFields.StartedAt
@@ -8650,6 +8784,11 @@ func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetMatchFailure() *AgentTaskFields
 // GetStartBy returns AgentTaskTreeAgentTaskTreeAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
+// GetFinishBy returns AgentTaskTreeAgentTaskTreeAgentTask.FinishBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetFinishBy() *string {
+	return v.AgentTaskFields.FinishBy
+}
+
 // GetCreatedAt returns AgentTaskTreeAgentTaskTreeAgentTask.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetCreatedAt() string {
 	return v.AgentTaskFields.CreatedAt
@@ -8771,6 +8910,8 @@ type __premarshalAgentTaskTreeAgentTaskTreeAgentTask struct {
 
 	StartBy *string `json:"startBy"`
 
+	FinishBy *string `json:"finishBy"`
+
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt *string `json:"updatedAt"`
@@ -8826,6 +8967,7 @@ func (v *AgentTaskTreeAgentTaskTreeAgentTask) __premarshalJSON() (*__premarshalA
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
 	retval.StartedAt = v.AgentTaskFields.StartedAt
@@ -8975,6 +9117,9 @@ func (v *AgentTaskUpdateUpdateAgentTask) GetMatchFailure() *AgentTaskFieldsMatch
 // GetStartBy returns AgentTaskUpdateUpdateAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskUpdateUpdateAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
+// GetFinishBy returns AgentTaskUpdateUpdateAgentTask.FinishBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetFinishBy() *string { return v.AgentTaskFields.FinishBy }
+
 // GetCreatedAt returns AgentTaskUpdateUpdateAgentTask.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AgentTaskUpdateUpdateAgentTask) GetCreatedAt() string { return v.AgentTaskFields.CreatedAt }
 
@@ -9088,6 +9233,8 @@ type __premarshalAgentTaskUpdateUpdateAgentTask struct {
 
 	StartBy *string `json:"startBy"`
 
+	FinishBy *string `json:"finishBy"`
+
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt *string `json:"updatedAt"`
@@ -9143,6 +9290,7 @@ func (v *AgentTaskUpdateUpdateAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
 	retval.StartedAt = v.AgentTaskFields.StartedAt
@@ -10700,6 +10848,11 @@ func (v *AgentsAgentsAgentsPageItemsAgent) GetPersonaRole() *string { return v.A
 // GetUsesTasks returns AgentsAgentsAgentsPageItemsAgent.UsesTasks, and is useful for accessing the field via an interface.
 func (v *AgentsAgentsAgentsPageItemsAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
 
+// GetResetContextAfterTask returns AgentsAgentsAgentsPageItemsAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
 // GetInstallationPolicy returns AgentsAgentsAgentsPageItemsAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *AgentsAgentsAgentsPageItemsAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -10772,6 +10925,8 @@ type __premarshalAgentsAgentsAgentsPageItemsAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -10807,6 +10962,7 @@ func (v *AgentsAgentsAgentsPageItemsAgent) __premarshalJSON() (*__premarshalAgen
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -20106,6 +20262,11 @@ func (v *ClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTaskItemsRe
 	return v.AgentTaskFields.StartBy
 }
 
+// GetFinishBy returns ClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.FinishBy, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetFinishBy() *string {
+	return v.AgentTaskFields.FinishBy
+}
+
 // GetCreatedAt returns ClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.CreatedAt, and is useful for accessing the field via an interface.
 func (v *ClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetCreatedAt() string {
 	return v.AgentTaskFields.CreatedAt
@@ -20227,6 +20388,8 @@ type __premarshalClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTas
 
 	StartBy *string `json:"startBy"`
 
+	FinishBy *string `json:"finishBy"`
+
 	CreatedAt string `json:"createdAt"`
 
 	UpdatedAt *string `json:"updatedAt"`
@@ -20282,6 +20445,7 @@ func (v *ClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTaskItemsRe
 	retval.HandBack = v.AgentTaskFields.HandBack
 	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
 	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
 	retval.StartedAt = v.AgentTaskFields.StartedAt
@@ -20434,6 +20598,11 @@ func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetUsesTasks() bool {
 	return v.AgentFields.UsesTasks
 }
 
+// GetResetContextAfterTask returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
 // GetInstallationPolicy returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -20508,6 +20677,8 @@ type __premarshalClearAgentProcessesIndexSetAgentIndexRefsAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -20543,6 +20714,7 @@ func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) __premarshalJSON() (*__
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -20662,6 +20834,11 @@ func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetUsesTasks() bool {
 	return v.AgentFields.UsesTasks
 }
 
+// GetResetContextAfterTask returns ClearAgentTasksIndexSetAgentIndexRefsAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
 // GetInstallationPolicy returns ClearAgentTasksIndexSetAgentIndexRefsAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -20736,6 +20913,8 @@ type __premarshalClearAgentTasksIndexSetAgentIndexRefsAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -20771,6 +20950,7 @@ func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) __premarshalJSON() (*__prem
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -21209,6 +21389,11 @@ func (v *CloneAgentCloneAgent) GetPersonaRole() *string { return v.AgentFields.P
 // GetUsesTasks returns CloneAgentCloneAgent.UsesTasks, and is useful for accessing the field via an interface.
 func (v *CloneAgentCloneAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
 
+// GetResetContextAfterTask returns CloneAgentCloneAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *CloneAgentCloneAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
 // GetInstallationPolicy returns CloneAgentCloneAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *CloneAgentCloneAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -21281,6 +21466,8 @@ type __premarshalCloneAgentCloneAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -21316,6 +21503,7 @@ func (v *CloneAgentCloneAgent) __premarshalJSON() (*__premarshalCloneAgentCloneA
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -24340,6 +24528,11 @@ func (v *CreateAgentCreateAgent) GetPersonaRole() *string { return v.AgentFields
 // GetUsesTasks returns CreateAgentCreateAgent.UsesTasks, and is useful for accessing the field via an interface.
 func (v *CreateAgentCreateAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
 
+// GetResetContextAfterTask returns CreateAgentCreateAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
 // GetInstallationPolicy returns CreateAgentCreateAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *CreateAgentCreateAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -24412,6 +24605,8 @@ type __premarshalCreateAgentCreateAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -24447,6 +24642,7 @@ func (v *CreateAgentCreateAgent) __premarshalJSON() (*__premarshalCreateAgentCre
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -34770,6 +34966,9 @@ func (v *GetAgentAgent) GetPersonaRole() *string { return v.AgentFields.PersonaR
 // GetUsesTasks returns GetAgentAgent.UsesTasks, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
 
+// GetResetContextAfterTask returns GetAgentAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetResetContextAfterTask() bool { return v.AgentFields.ResetContextAfterTask }
+
 // GetInstallationPolicy returns GetAgentAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -34844,6 +35043,8 @@ type __premarshalGetAgentAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -34880,6 +35081,7 @@ func (v *GetAgentAgent) __premarshalJSON() (*__premarshalGetAgentAgent, error) {
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -52627,6 +52829,11 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetUsesTasks() bool {
 	return v.AgentFields.UsesTasks
 }
 
+// GetResetContextAfterTask returns PublicAgentsPublicAgentsAgentsPageItemsAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
 // GetInstallationPolicy returns PublicAgentsPublicAgentsAgentsPageItemsAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -52701,6 +52908,8 @@ type __premarshalPublicAgentsPublicAgentsAgentsPageItemsAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -52736,6 +52945,7 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) __premarshalJSON() (*__pr
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -54983,6 +55193,11 @@ func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetUsesTasks() bool {
 	return v.AgentFields.UsesTasks
 }
 
+// GetResetContextAfterTask returns RemoveMemoryFromAgentRemoveMemoryFromAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
 // GetInstallationPolicy returns RemoveMemoryFromAgentRemoveMemoryFromAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -55057,6 +55272,8 @@ type __premarshalRemoveMemoryFromAgentRemoveMemoryFromAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -55092,6 +55309,7 @@ func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) __premarshalJSON() (*__prem
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -61679,6 +61897,11 @@ func (v *SetAgentBaseSetAgentBaseAgent) GetPersonaRole() *string { return v.Agen
 // GetUsesTasks returns SetAgentBaseSetAgentBaseAgent.UsesTasks, and is useful for accessing the field via an interface.
 func (v *SetAgentBaseSetAgentBaseAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
 
+// GetResetContextAfterTask returns SetAgentBaseSetAgentBaseAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
 // GetInstallationPolicy returns SetAgentBaseSetAgentBaseAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *SetAgentBaseSetAgentBaseAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -61751,6 +61974,8 @@ type __premarshalSetAgentBaseSetAgentBaseAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -61786,6 +62011,7 @@ func (v *SetAgentBaseSetAgentBaseAgent) __premarshalJSON() (*__premarshalSetAgen
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -61909,6 +62135,11 @@ func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetUsesTasks() bool {
 	return v.AgentFields.UsesTasks
 }
 
+// GetResetContextAfterTask returns SetAgentBootPromptSetAgentBootPromptAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
 // GetInstallationPolicy returns SetAgentBootPromptSetAgentBootPromptAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -61983,6 +62214,8 @@ type __premarshalSetAgentBootPromptSetAgentBootPromptAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -62018,6 +62251,7 @@ func (v *SetAgentBootPromptSetAgentBootPromptAgent) __premarshalJSON() (*__prema
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -62133,6 +62367,11 @@ func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetPersonaRole() *string {
 // GetUsesTasks returns SetAgentIndexRefsSetAgentIndexRefsAgent.UsesTasks, and is useful for accessing the field via an interface.
 func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
 
+// GetResetContextAfterTask returns SetAgentIndexRefsSetAgentIndexRefsAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
 // GetInstallationPolicy returns SetAgentIndexRefsSetAgentIndexRefsAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -62207,6 +62446,8 @@ type __premarshalSetAgentIndexRefsSetAgentIndexRefsAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -62242,6 +62483,7 @@ func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) __premarshalJSON() (*__premars
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -74519,6 +74761,11 @@ func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetUsesTasks() bool {
 	return v.AgentFields.UsesTasks
 }
 
+// GetResetContextAfterTask returns UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
 // GetInstallationPolicy returns UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -74593,6 +74840,8 @@ type __premarshalUpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -74628,6 +74877,7 @@ func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) __premarshalJSON() (*_
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -75200,6 +75450,11 @@ func (v *UpdateAgentUpdateAgent) GetPersonaRole() *string { return v.AgentFields
 // GetUsesTasks returns UpdateAgentUpdateAgent.UsesTasks, and is useful for accessing the field via an interface.
 func (v *UpdateAgentUpdateAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
 
+// GetResetContextAfterTask returns UpdateAgentUpdateAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
 // GetInstallationPolicy returns UpdateAgentUpdateAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *UpdateAgentUpdateAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -75272,6 +75527,8 @@ type __premarshalUpdateAgentUpdateAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -75307,6 +75564,7 @@ func (v *UpdateAgentUpdateAgent) __premarshalJSON() (*__premarshalUpdateAgentUpd
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -91275,17 +91533,18 @@ func (v *__UntrackedTaskItemsInput) GetLimit() *int { return v.Limit }
 
 // __UpdateAgentInput is used internally by genqlient
 type __UpdateAgentInput struct {
-	Ref            string           `json:"ref"`
-	Name           *string          `json:"name,omitempty"`
-	Description    *string          `json:"description,omitempty"`
-	AgentType      *AgentType       `json:"agentType,omitempty"`
-	Visibility     *AgentVisibility `json:"visibility,omitempty"`
-	SystemMemoryId *string          `json:"systemMemoryId,omitempty"`
-	Surfaces       []string         `json:"surfaces,omitempty"`
-	Urn            *string          `json:"urn,omitempty"`
-	PersonaRole    *string          `json:"personaRole,omitempty"`
-	UsesTasks      *bool            `json:"usesTasks,omitempty"`
-	MemberRoles    []string         `json:"memberRoles,omitempty"`
+	Ref                   string           `json:"ref"`
+	Name                  *string          `json:"name,omitempty"`
+	Description           *string          `json:"description,omitempty"`
+	AgentType             *AgentType       `json:"agentType,omitempty"`
+	Visibility            *AgentVisibility `json:"visibility,omitempty"`
+	SystemMemoryId        *string          `json:"systemMemoryId,omitempty"`
+	Surfaces              []string         `json:"surfaces,omitempty"`
+	Urn                   *string          `json:"urn,omitempty"`
+	PersonaRole           *string          `json:"personaRole,omitempty"`
+	UsesTasks             *bool            `json:"usesTasks,omitempty"`
+	ResetContextAfterTask *bool            `json:"resetContextAfterTask,omitempty"`
+	MemberRoles           []string         `json:"memberRoles,omitempty"`
 }
 
 // GetRef returns __UpdateAgentInput.Ref, and is useful for accessing the field via an interface.
@@ -91317,6 +91576,9 @@ func (v *__UpdateAgentInput) GetPersonaRole() *string { return v.PersonaRole }
 
 // GetUsesTasks returns __UpdateAgentInput.UsesTasks, and is useful for accessing the field via an interface.
 func (v *__UpdateAgentInput) GetUsesTasks() *bool { return v.UsesTasks }
+
+// GetResetContextAfterTask returns __UpdateAgentInput.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentInput) GetResetContextAfterTask() *bool { return v.ResetContextAfterTask }
 
 // GetMemberRoles returns __UpdateAgentInput.MemberRoles, and is useful for accessing the field via an interface.
 func (v *__UpdateAgentInput) GetMemberRoles() []string { return v.MemberRoles }
@@ -93026,6 +93288,7 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	resetContextAfterTask
 	installationPolicy {
 		memberRoles
 	}
@@ -93374,6 +93637,7 @@ fragment AgentTaskFields on AgentTask {
 		failedAt
 	}
 	startBy
+	finishBy
 	createdAt
 	updatedAt
 	startedAt
@@ -93503,6 +93767,7 @@ fragment AgentTaskFields on AgentTask {
 		failedAt
 	}
 	startBy
+	finishBy
 	createdAt
 	updatedAt
 	startedAt
@@ -93636,6 +93901,7 @@ fragment AgentTaskFields on AgentTask {
 		failedAt
 	}
 	startBy
+	finishBy
 	createdAt
 	updatedAt
 	startedAt
@@ -93763,6 +94029,7 @@ fragment AgentTaskFields on AgentTask {
 		failedAt
 	}
 	startBy
+	finishBy
 	createdAt
 	updatedAt
 	startedAt
@@ -93809,7 +94076,7 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 // project as the reserved no-project AT0 (cor:agt:050:01), so a nil pointer
 // must not be sent as null. Per-field omitempty on this one input field.
 // Schema-only optional fields must stay absent for older providers.
-// The schema refresh for cli#1513 brought finishBy (#2648) in; this CLI does not implement it, so it is omitted from the wire, never an explicit null.
+// cli#1514: finishBy omitted unless --finish-by is given; never send null by default.
 // #2420: the task's own properties object. A pointer field, omitted when nil.
 // cli#1524 C1 (hadron-server#3125 S2, cor:agt:120:02): the claimed outside item.
 // Absent unless --external-id is given, so an ordinary create is unchanged and
@@ -93968,6 +94235,7 @@ fragment AgentTaskFields on AgentTask {
 		failedAt
 	}
 	startBy
+	finishBy
 	createdAt
 	updatedAt
 	startedAt
@@ -94097,6 +94365,7 @@ fragment AgentTaskFields on AgentTask {
 		failedAt
 	}
 	startBy
+	finishBy
 	createdAt
 	updatedAt
 	startedAt
@@ -94224,6 +94493,7 @@ fragment AgentTaskFields on AgentTask {
 		failedAt
 	}
 	startBy
+	finishBy
 	createdAt
 	updatedAt
 	startedAt
@@ -94396,6 +94666,7 @@ fragment AgentTaskFields on AgentTask {
 		failedAt
 	}
 	startBy
+	finishBy
 	createdAt
 	updatedAt
 	startedAt
@@ -94543,6 +94814,7 @@ fragment AgentTaskFields on AgentTask {
 		failedAt
 	}
 	startBy
+	finishBy
 	createdAt
 	updatedAt
 	startedAt
@@ -94720,6 +94992,7 @@ fragment AgentTaskFields on AgentTask {
 		failedAt
 	}
 	startBy
+	finishBy
 	createdAt
 	updatedAt
 	startedAt
@@ -94868,6 +95141,7 @@ fragment AgentTaskFields on AgentTask {
 		failedAt
 	}
 	startBy
+	finishBy
 	createdAt
 	updatedAt
 	startedAt
@@ -94999,6 +95273,7 @@ fragment AgentTaskFields on AgentTask {
 		failedAt
 	}
 	startBy
+	finishBy
 	createdAt
 	updatedAt
 	startedAt
@@ -95126,6 +95401,7 @@ fragment AgentTaskFields on AgentTask {
 		failedAt
 	}
 	startBy
+	finishBy
 	createdAt
 	updatedAt
 	startedAt
@@ -95256,6 +95532,7 @@ fragment AgentTaskFields on AgentTask {
 		failedAt
 	}
 	startBy
+	finishBy
 	createdAt
 	updatedAt
 	startedAt
@@ -95387,6 +95664,7 @@ fragment AgentTaskFields on AgentTask {
 		failedAt
 	}
 	startBy
+	finishBy
 	createdAt
 	updatedAt
 	startedAt
@@ -95516,6 +95794,7 @@ fragment AgentTaskFields on AgentTask {
 		failedAt
 	}
 	startBy
+	finishBy
 	createdAt
 	updatedAt
 	startedAt
@@ -95646,6 +95925,7 @@ fragment AgentTaskFields on AgentTask {
 		failedAt
 	}
 	startBy
+	finishBy
 	createdAt
 	updatedAt
 	startedAt
@@ -95827,6 +96107,7 @@ fragment AgentTaskFields on AgentTask {
 		failedAt
 	}
 	startBy
+	finishBy
 	createdAt
 	updatedAt
 	startedAt
@@ -95954,6 +96235,7 @@ fragment AgentTaskFields on AgentTask {
 		failedAt
 	}
 	startBy
+	finishBy
 	createdAt
 	updatedAt
 	startedAt
@@ -95996,12 +96278,12 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 // The server reads `input` as a STRICT PATCH: a key that is present is applied
 // and a present null CLEARS, a key that is absent is left alone. A nil pointer
 // would therefore never express "clear", and a plain omitempty slice would drop
-// an empty list. Every field is omitempty, and the four that can clear are
+// an empty list. Every field is omitempty, and the nullable patch fields are
 // json.RawMessage: nil is omitted, `null` is sent as null, anything else is the
 // value (the UpdateApp description idiom). title and closeSessionWhenDone have
 // no null-clear (an empty title is refused; null would mean false), so they stay
 // pointers, where a pointer to false is still sent.
-// finishBy (#2648) arrived with the cli#1513 schema refresh and is not implemented here: omitted, never an explicit null (null CLEARS on an update).
+// cli#1514: nil is omitted, a timestamp sets, and RawMessage("null") clears.
 // #2649 references: a replace list or an explicit clear (null/[]); a plain omitempty slice would drop the empty list, so the clear needs RawMessage like tags.
 // #2420: nil = key omitted (unchanged), RawMessage("null") = explicit clear. The
 // global JSON binding is a slice, so without omitempty a nil value would be sent
@@ -96256,6 +96538,7 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	resetContextAfterTask
 	installationPolicy {
 		memberRoles
 	}
@@ -99579,6 +99862,7 @@ fragment AgentTaskFields on AgentTask {
 		failedAt
 	}
 	startBy
+	finishBy
 	createdAt
 	updatedAt
 	startedAt
@@ -99683,6 +99967,7 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	resetContextAfterTask
 	installationPolicy {
 		memberRoles
 	}
@@ -99744,6 +100029,7 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	resetContextAfterTask
 	installationPolicy {
 		memberRoles
 	}
@@ -99975,6 +100261,7 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	resetContextAfterTask
 	installationPolicy {
 		memberRoles
 	}
@@ -100738,6 +101025,7 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	resetContextAfterTask
 	installationPolicy {
 		memberRoles
 	}
@@ -105801,6 +106089,7 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	resetContextAfterTask
 	installationPolicy {
 		memberRoles
 	}
@@ -112097,6 +112386,7 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	resetContextAfterTask
 	installationPolicy {
 		memberRoles
 	}
@@ -113040,6 +113330,7 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	resetContextAfterTask
 	installationPolicy {
 		memberRoles
 	}
@@ -115550,6 +115841,7 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	resetContextAfterTask
 	installationPolicy {
 		memberRoles
 	}
@@ -115615,6 +115907,7 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	resetContextAfterTask
 	installationPolicy {
 		memberRoles
 	}
@@ -115681,6 +115974,7 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	resetContextAfterTask
 	installationPolicy {
 		memberRoles
 	}
@@ -119541,8 +119835,8 @@ func UntrackedTaskItems(
 
 // The mutation executed by UpdateAgent.
 const UpdateAgent_Operation = `
-mutation UpdateAgent ($ref: ID!, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $urn: String, $personaRole: String, $usesTasks: Boolean, $memberRoles: [String!]) {
-	updateAgent(ref: $ref, name: $name, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn, personaRole: $personaRole, usesTasks: $usesTasks, memberRoles: $memberRoles) {
+mutation UpdateAgent ($ref: ID!, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $urn: String, $personaRole: String, $usesTasks: Boolean, $resetContextAfterTask: Boolean, $memberRoles: [String!]) {
+	updateAgent(ref: $ref, name: $name, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn, personaRole: $personaRole, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask, memberRoles: $memberRoles) {
 		... AgentFields
 	}
 }
@@ -119566,6 +119860,7 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	resetContextAfterTask
 	installationPolicy {
 		memberRoles
 	}
@@ -119586,23 +119881,25 @@ func UpdateAgent(
 	urn *string,
 	personaRole *string,
 	usesTasks *bool,
+	resetContextAfterTask *bool,
 	memberRoles []string,
 ) (data_ *UpdateAgentResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateAgent",
 		Query:  UpdateAgent_Operation,
 		Variables: &__UpdateAgentInput{
-			Ref:            ref,
-			Name:           name,
-			Description:    description,
-			AgentType:      agentType,
-			Visibility:     visibility,
-			SystemMemoryId: systemMemoryId,
-			Surfaces:       surfaces,
-			Urn:            urn,
-			PersonaRole:    personaRole,
-			UsesTasks:      usesTasks,
-			MemberRoles:    memberRoles,
+			Ref:                   ref,
+			Name:                  name,
+			Description:           description,
+			AgentType:             agentType,
+			Visibility:            visibility,
+			SystemMemoryId:        systemMemoryId,
+			Surfaces:              surfaces,
+			Urn:                   urn,
+			PersonaRole:           personaRole,
+			UsesTasks:             usesTasks,
+			ResetContextAfterTask: resetContextAfterTask,
+			MemberRoles:           memberRoles,
 		},
 	}
 
@@ -119645,6 +119942,7 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	resetContextAfterTask
 	installationPolicy {
 		memberRoles
 	}

@@ -80,6 +80,7 @@ type taskDTO struct {
 	References           []taskReferenceDTO   `json:"references"`
 	HandBack             *taskHandBackDTO     `json:"handBack"`
 	StartBy              *string              `json:"startBy"`
+	FinishBy             *string              `json:"finishBy"`
 	CreatedAt            string               `json:"createdAt"`
 	UpdatedAt            *string              `json:"updatedAt"`
 	StartedAt            *string              `json:"startedAt"`
@@ -218,6 +219,7 @@ func taskDTOFrom(fields gen.AgentTaskFields) taskDTO {
 		References:           taskReferencesDTOFrom(fields.References),
 		HandBack:             taskHandBackDTOFrom(fields.HandBack),
 		StartBy:              fields.StartBy,
+		FinishBy:             fields.FinishBy,
 		CreatedAt:            fields.CreatedAt,
 		UpdatedAt:            fields.UpdatedAt,
 		StartedAt:            fields.StartedAt,
