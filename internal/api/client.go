@@ -461,7 +461,7 @@ func Endpoint(serverURL string) string {
 
 // NewClient returns a genqlient client for the given server,
 // authenticating with token (may be empty for anonymous calls).
-func NewClient(serverURL, token string, httpClient *http.Client) (graphql.Client, error) {
+func NewClient(serverURL, token string, httpClient *http.Client, opts ...ClientOption) (graphql.Client, error) {
 	if _, err := url.ParseRequestURI(serverURL); err != nil {
 		return nil, err
 	}
@@ -477,13 +477,20 @@ func NewClient(serverURL, token string, httpClient *http.Client) (graphql.Client
 		httpClient = withSessionRedirects(httpClient)
 	}
 	inner := graphql.NewClient(Endpoint(serverURL), &bearerDoer{token: token, inner: httpClient})
-	return &nullSafeGraphQLClient{inner: inner}, nil
+	c := &nullSafeGraphQLClient{inner: inner}
+	for _, opt := range opts {
+		opt(c)
+	}
+	return c, nil
 }
 
 // gqlparser's List.As/Is traverse every entry and dereference nil entries
 // decoded from a malformed `errors: [null]` response. Sanitize at the client
 // boundary so no caller can receive a panic-prone GraphQL error list.
-type nullSafeGraphQLClient struct{ inner graphql.Client }
+type nullSafeGraphQLClient struct {
+	inner    graphql.Client
+	delivery *DeliveryPendingRecorder // cli#1084; nil when nobody listens
+}
 
 func (c *nullSafeGraphQLClient) MakeRequest(ctx context.Context, req *graphql.Request, resp *graphql.Response) error {
 	hc := &headerCapture{}
@@ -492,6 +499,8 @@ func (c *nullSafeGraphQLClient) MakeRequest(ctx context.Context, req *graphql.Re
 		// Only a successful response's warnings are kept (cli#962): a failed
 		// invocation reports its error, never a success warning.
 		collectWarnings(ctx, req, resp.Extensions)
+		// cli#1084: the same success-only gate, the same one place.
+		c.delivery.record(resp.Extensions)
 	}
 	switch e := err.(type) {
 	case gqlerror.List: // HTTP 200
