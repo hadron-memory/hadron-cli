@@ -8,8 +8,10 @@ import (
 	"net/http/httptest"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -27,17 +29,28 @@ var (
 	footerBinOnce sync.Once
 	footerBin     string
 	footerBinErr  string
+	footerBinDir  string
 )
+
+// TestMain-free cleanup: the compiled binary lives for the package run and is
+// removed by the last test to finish via footerBinCleanup (see
+// TestDeliveryFooterZZCleanup, which Go runs last in source order).
+func footerBinCleanup() {
+	if footerBinDir != "" {
+		_ = os.RemoveAll(footerBinDir)
+	}
+}
 
 func footerBinary(t *testing.T) string {
 	t.Helper()
 	footerBinOnce.Do(func() {
-		dir, err := exec.Command("mktemp", "-d").Output()
+		dir, err := os.MkdirTemp("", "hadron-footer-bin-")
 		if err != nil {
 			footerBinErr = err.Error()
 			return
 		}
-		footerBin = filepath.Join(strings.TrimSpace(string(dir)), "hadron")
+		footerBinDir = dir
+		footerBin = filepath.Join(dir, "hadron")
 		if out, err := exec.Command("go", "build", "-o", footerBin, "../../cmd/hadron").CombinedOutput(); err != nil {
 			footerBinErr = string(out)
 		}
@@ -50,13 +63,24 @@ func footerBinary(t *testing.T) string {
 
 // footerProxy forwards to the fake GraphQL server and, when ext is non-empty,
 // adds it as the response's "extensions" member. It counts POSTs.
-func footerProxy(t *testing.T, upstream, ext string) (*httptest.Server, *atomic.Int32) {
+func footerProxy(t *testing.T, upstream string, exts ...string) (*httptest.Server, *atomic.Int32) {
 	t.Helper()
 	target, _ := url.Parse(upstream)
 	rp := httputil.NewSingleHostReverseProxy(target)
 	var posts atomic.Int32
+	var seen atomic.Int32
 	rp.ModifyResponse = func(resp *http.Response) error {
-		if resp.Request.Method != http.MethodPost || ext == "" {
+		if resp.Request.Method != http.MethodPost || len(exts) == 0 {
+			return nil
+		}
+		// The i-th POST gets exts[i]; the last entry repeats. An empty entry
+		// leaves that response without metadata.
+		i := int(seen.Add(1)) - 1
+		if i >= len(exts) {
+			i = len(exts) - 1
+		}
+		ext := exts[i]
+		if ext == "" {
 			return nil
 		}
 		body, _ := io.ReadAll(resp.Body)
@@ -90,11 +114,21 @@ type footerRun struct {
 
 func runFooterCLI(t *testing.T, responses map[string]string, ext string, args ...string) footerRun {
 	t.Helper()
+	if ext == "" {
+		return runFooterSeq(t, responses, nil, args...)
+	}
+	return runFooterSeq(t, responses, []string{ext}, args...)
+}
+
+// runFooterSeq is runFooterCLI with per-response metadata: the i-th POST
+// carries exts[i] (the last repeats; "" means none on that response).
+func runFooterSeq(t *testing.T, responses map[string]string, exts []string, args ...string) footerRun {
+	t.Helper()
 	bin := footerBinary(t)
 	teamGitDir(t)
 	testFactory(t) // isolated config/token environment for the subprocess
 	gql, _ := captureGraphQL(t, responses)
-	srv, posts := footerProxy(t, gql.URL, ext)
+	srv, posts := footerProxy(t, gql.URL, exts...)
 	cmd := exec.Command(bin, append(args, "--server", srv.URL)...)
 	var so, se bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &so, &se
@@ -198,3 +232,72 @@ func TestDeliveryFooterSingular(t *testing.T) {
 		t.Fatalf("stderr = %q", got.stderr)
 	}
 }
+
+func footerCount(n int, complete bool) string {
+	c := "false"
+	if complete {
+		c = "true"
+	}
+	return `{"hadron":{"deliveryPending":{"v":1,"count":` + strconv.Itoa(n) + `,"complete":` + c + `}}}`
+}
+
+// A command that really makes several requests (node rm: resolve, read,
+// delete = 3 POSTs): the footer is printed once per invocation, from the
+// LATEST valid snapshot, never per response, and never changes stdout, exit or
+// the request count.
+func TestDeliveryFooterAcrossSeveralRequests(t *testing.T) {
+	responses := map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
+		"DeleteNode": `{"data":{"deleteNode":true}}`,
+	}
+	args := []string{"node", "rm", nodeURN, "--yes"}
+	base := runFooterCLI(t, responses, "", args...)
+	if base.posts < 3 {
+		t.Fatalf("fixture must make several requests, made %d", base.posts)
+	}
+	const tail = " waiting; pull with hadron team chat inbox\n"
+	for name, tc := range map[string]struct {
+		exts []string
+		want string // "" = no footer
+	}{
+		"positive then different positive":  {[]string{footerCount(5, true), footerCount(2, true), footerCount(7, true)}, "7 messages" + tail},
+		"positive then exact zero":          {[]string{footerCount(5, true), footerCount(5, true), footerCount(0, true)}, ""},
+		"zero then positive":                {[]string{footerCount(0, true), "", footerCount(4, true)}, "4 messages" + tail},
+		"valid then invalid keeps valid":    {[]string{footerCount(3, true), `{"hadron":{"deliveryPending":{"v":2,"count":9,"complete":true}}}`, ""}, "3 messages" + tail},
+		"valid then incomplete keeps valid": {[]string{footerCount(3, true), footerCount(9, false), footerCount(9, false)}, "3 messages" + tail},
+		"valid then single":                 {[]string{footerCount(5, true), footerCount(1, true), footerCount(1, true)}, "1 message" + tail},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got := runFooterSeq(t, responses, tc.exts, args...)
+			if got.stdout != base.stdout || got.code != base.code || got.posts != base.posts {
+				t.Fatalf("stdout/exit/request count must not change:\nbase %q %d %d\ngot  %q %d %d", base.stdout, base.code, base.posts, got.stdout, got.code, got.posts)
+			}
+			if n := strings.Count(got.stderr, "waiting"); (tc.want == "") != (n == 0) || n > 1 {
+				t.Fatalf("want at most one footer line, stderr = %q", got.stderr)
+			}
+			if tc.want != "" && !strings.HasSuffix(got.stderr, tc.want) {
+				t.Fatalf("stderr = %q, want suffix %q", got.stderr, tc.want)
+			}
+		})
+	}
+}
+
+// A success-then-failure invocation: an earlier response recorded a count, a
+// later request fails; only the failure's own error is reported.
+func TestDeliveryFooterSuppressedWhenALaterRequestFails(t *testing.T) {
+	responses := map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
+		"DeleteNode": `{"errors":[{"message":"nope","extensions":{"code":"FORBIDDEN"}}]}`,
+	}
+	args := []string{"node", "rm", nodeURN, "--yes"}
+	base := runFooterCLI(t, responses, "", args...)
+	got := runFooterSeq(t, responses, []string{footerCount(5, true)}, args...)
+	if base.code == 0 || got.code != base.code || got.stdout != base.stdout || got.stderr != base.stderr || got.posts != base.posts {
+		t.Fatalf("a later failure keeps its own error and exit:\nbase %q %d\ngot  %q %d", base.stderr, base.code, got.stderr, got.code)
+	}
+}
+
+// Removes the compiled binary; Go runs tests in source order, so this is last.
+func TestDeliveryFooterZZCleanup(t *testing.T) { t.Cleanup(footerBinCleanup) }
