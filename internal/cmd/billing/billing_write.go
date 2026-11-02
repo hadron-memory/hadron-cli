@@ -3,6 +3,7 @@ package billing
 import (
 	"fmt"
 	"io"
+	"math"
 
 	"github.com/spf13/cobra"
 
@@ -22,6 +23,12 @@ import (
 // server owns the domain, cor:dmo:100:04). What the CLI does check is request
 // shape: a required flag is present and non-empty, and the idempotency pair is
 // given whole.
+
+// promptValue renders an operative value inside a confirmation prompt: control
+// and format characters are neutralised (no forged line, no terminal tricks) but
+// the text is NEVER truncated. SafeCell's table-cell cut would let the operator
+// approve a shortened amount or org that differs from what is sent (cli#1560).
+func promptValue(s string) string { return output.SafeLine(s, math.MaxInt) }
 
 // requireFlag refuses a required string flag that is absent or empty.
 func requireFlag(cmd *cobra.Command, name, val string) error {
@@ -96,7 +103,7 @@ It asks before sending (or pass --yes; without a terminal --yes is required).`,
 				in.MarkupBasisPoints = &markupBP
 			}
 			if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("Add a rate row for %s / %s (input %s, output %s micro-cents per million tokens)?",
-				output.SafeCell(provider), output.SafeCell(model), output.SafeCell(input), output.SafeCell(output_))); err != nil {
+				promptValue(provider), promptValue(model), promptValue(input), promptValue(output_))); err != nil {
 				return err
 			}
 			client, err := f.GraphQLClient()
@@ -197,7 +204,7 @@ It asks before sending (or pass --yes; without a terminal --yes is required).`,
 				ExpiresAt:        exp,
 				Note:             nt,
 			}
-			if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("Grant %s micro-cents of credit to %s?", output.SafeCell(amount), output.SafeCell(args[0]))); err != nil {
+			if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("Grant %s micro-cents of credit to %s?", promptValue(amount), promptValue(args[0]))); err != nil {
 				return err
 			}
 			client, err := f.GraphQLClient()
