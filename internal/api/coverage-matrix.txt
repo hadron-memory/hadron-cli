@@ -212,7 +212,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 323: 250 command, 61 gap, 12 excluded
+[Mutation] 323: 252 command, 59 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -362,7 +362,7 @@ extractParentNodeToMemory  command memory extract
 finishAgentTask  command team task finish
 grantApp  gap #1336
 grantAppKeyScope  command app key scope grant
-grantCredits  gap #215
+grantCredits  command billing grant
 handBackAgentTask  command team task hand-back
 importNode  command node import
 installAgentIntoApp  command app agent add
@@ -450,7 +450,7 @@ setAgentIndexRefs  command agent update
 setAgentModelGroup  command agent model-group set
 setAgentTaskPriority  command team task add-blocker
 setAgentTaskStallSchedule  command team stall-schedule set
-setAiModelPrice  gap #215
+setAiModelPrice  command billing prices set
 setAppAgentBootPrompt  command app agent set-boot-prompt
 setAppDeliverySettings  command team delivery-settings set
 setAppMemoryWriteGrant  command app memory-grant add
