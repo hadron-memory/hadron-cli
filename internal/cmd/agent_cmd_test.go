@@ -252,7 +252,7 @@ func TestAgentLsPublicRejectsOrgAndVisibility(t *testing.T) {
 
 func TestAgentGet(t *testing.T) {
 	// A hostile/older server may still send retired keys; none may surface.
-	withTemplate := strings.Replace(agentJSON, `"systemPrompt":null`, `"systemPrompt":"You are {{name}}, the {{role}}.","personaPrompt":"HOSTILE-PERSONA","promptOverride":"HOSTILE-OVERRIDE"`, 1)
+	withTemplate := strings.Replace(agentJSON, `"systemPrompt":null`, `"systemPrompt":"HOSTILE-SYSTEM","personaPrompt":"HOSTILE-PERSONA","promptOverride":"HOSTILE-OVERRIDE"`, 1)
 	gql, captured := captureGraphQL(t, map[string]string{
 		"GetAgent": `{"data":{"agent":` + withTemplate + `}}`,
 	})
@@ -271,10 +271,10 @@ func TestAgentGet(t *testing.T) {
 	if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
 		t.Fatalf("agent JSON: %v", err)
 	}
-	if dto["id"] != "agt1" || dto["systemPrompt"] != nil {
+	if dto["id"] != "agt1" {
 		t.Errorf("output: %s", out.String())
 	}
-	for _, k := range []string{"personaPrompt", "promptOverride"} {
+	for _, k := range []string{"systemPrompt", "personaPrompt", "promptOverride"} {
 		if _, exists := dto[k]; exists {
 			t.Errorf("retired key %q must not be presented as a JSON value: %s", k, out.String())
 		}
