@@ -405,5 +405,3 @@ func TestRequirementsOmitUnsetModelGroups1485(t *testing.T) {
 	}
 	t.Fatal("no AgentTaskCreate call")
 }
-
-func ptrStr1485(s string) *string { return &s }

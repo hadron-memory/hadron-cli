@@ -291,3 +291,31 @@ func TestTaskMatching1549AbsentFilter(t *testing.T) {
 		t.Fatal("missing filtered request")
 	}
 }
+
+// Old flags without any matching additions keep their legacy role:null input.
+// Omitting role for a role set must not drop that legacy key everywhere else.
+func TestTaskMatching1549LegacyRequirements(t *testing.T) {
+	calls, _, err := runTeamTask(t, taskResponses(), "team", "task", "create", "example", "--family-in", "claude", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, c := range *calls {
+		if c.Op == "AgentTaskCreate" {
+			found = true
+			r := c.Vars["input"].(map[string]any)["requirements"].(map[string]any)
+			v, ok := r["role"]
+			if !ok || v != nil {
+				t.Fatal("legacy role:null changed", r)
+			}
+			for _, key := range []string{"roles", "team"} {
+				if _, ok := r[key]; ok {
+					t.Fatal("new key in legacy input", r)
+				}
+			}
+		}
+	}
+	if !found {
+		t.Fatal("missing create")
+	}
+}
