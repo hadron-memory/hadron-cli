@@ -1,0 +1,103 @@
+fragment AiServiceConfigStyleFields on AiServiceConfig {
+  ...AiServiceConfigEndpointFields
+  apiStyle
+  effectiveApiStyle
+}
+
+query AiServiceConfigsMasked(
+  # @genqlient(omitempty: true)
+  $filter: AiServiceConfigFilter
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  aiServiceConfigs(filter: $filter, limit: $limit, offset: $offset) {
+    items { ...AiServiceConfigStyleFields }
+    total
+  }
+}
+
+mutation TestAiServiceConfig(
+  $id: ID!
+  # @genqlient(omitempty: true)
+  $override: AiServiceConfigTestOverride
+) {
+  testAiServiceConfig(id: $id, override: $override) {
+    ok provider model endpoint apiStyle latencyMs reply
+    error { code message transient }
+    used { provider model endpoint apiStyle key params }
+    knobs { param state detail }
+  }
+}
+
+mutation CreateAiServiceConfigWithApiStyle(
+  $name: String!
+  $provider: String!
+  $model: String!
+  $ownerId: ID!
+  $ownerType: AiConfigOwnerType!
+  $apiStyle: AiApiStyle!
+  # @genqlient(omitempty: true)
+  $apiKey: String
+  # @genqlient(omitempty: true)
+  $enabled: Boolean
+  # @genqlient(omitempty: true)
+  $params: JSON
+  # @genqlient(omitempty: true)
+  $endpoint: String
+) {
+  createAiServiceConfig(name: $name, provider: $provider, model: $model,
+    ownerId: $ownerId, ownerType: $ownerType, apiStyle: $apiStyle,
+    apiKey: $apiKey, enabled: $enabled, params: $params, endpoint: $endpoint) {
+    ...AiServiceConfigStyleFields
+  }
+}
+
+mutation UpdateAiServiceConfigWithApiStyle(
+  $id: ID!
+  $apiStyle: AiApiStyle!
+  # @genqlient(omitempty: true)
+  $name: String
+  # @genqlient(omitempty: true)
+  $provider: String
+  # @genqlient(omitempty: true)
+  $model: String
+  # @genqlient(omitempty: true)
+  $apiKey: String
+  # @genqlient(omitempty: true)
+  $enabled: Boolean
+  # @genqlient(omitempty: true)
+  $params: JSON
+  # @genqlient(omitempty: true)
+  $endpoint: String
+) {
+  updateAiServiceConfig(id: $id, apiStyle: $apiStyle, name: $name, provider: $provider,
+    model: $model, apiKey: $apiKey, enabled: $enabled, params: $params, endpoint: $endpoint) {
+    ...AiServiceConfigStyleFields
+  }
+}
+
+# Explicit null clears the override; every other optional field still omits.
+mutation ClearAiServiceConfigApiStyle(
+  $id: ID!
+  # @genqlient(omitempty: true)
+  $name: String
+  # @genqlient(omitempty: true)
+  $provider: String
+  # @genqlient(omitempty: true)
+  $model: String
+  # @genqlient(omitempty: true)
+  $apiKey: String
+  # @genqlient(omitempty: true)
+  $enabled: Boolean
+  # @genqlient(omitempty: true)
+  $params: JSON
+  # @genqlient(omitempty: true)
+  $endpoint: String
+) {
+  updateAiServiceConfig(id: $id, apiStyle: null, name: $name, provider: $provider,
+    model: $model, apiKey: $apiKey, enabled: $enabled, params: $params, endpoint: $endpoint) {
+    ...AiServiceConfigStyleFields
+  }
+}

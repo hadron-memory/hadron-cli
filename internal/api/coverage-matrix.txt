@@ -19,7 +19,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 190: 155 command, 20 gap, 15 excluded
+[Query] 190: 156 command, 19 gap, 15 excluded
 actionTickets  command ticket list
 agent  command agent get
 agentAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime that makes LLM calls; a person reads the masked config with `ai-config get`
@@ -41,7 +41,7 @@ aiModelPrice  command billing prices get
 aiModelPrices  command billing prices
 aiProviderEndpoints  command ai-config endpoints
 aiServiceConfig  command ai-config get
-aiServiceConfigs  gap #1347
+aiServiceConfigs  command ai-config list
 app  command app get
 appAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime that makes LLM calls; a person reads the masked config with `ai-config get`
 appDeliverySettings  command team delivery-settings set
@@ -211,12 +211,12 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 321: 245 command, 65 gap, 11 excluded
+[Mutation] 321: 249 command, 61 gap, 11 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
 acknowledgeWakes  command team wakes ack
-acquireEditorLock  gap #61
+acquireEditorLock  command agent lock acquire
 addAgentTaskBlocker  command team task add-blocker
 addAgentToApp  excluded deprecated: @deprecated: Use installAgentIntoApp (spec 023-app-shape US1). Returns Payload type with the AppAgent row.
 addMemoryMember  command memory member add
@@ -294,7 +294,7 @@ createRegisterEntry  command channel register add
 createResendSender  command org resend-sender create
 createResumeClaim  command team session resume-claim
 createReviewNode  command coding review create
-createRevision  gap #61
+createRevision  command agent revision create
 createScope  command scope create
 createSecret  command secret create
 createSlackConnection  gap #206
@@ -397,7 +397,7 @@ recordUsage  command usage record
 regenerateAppKey  command app key rotate
 registerContextResetRecovery  gap #1043: the host handler that performs the reset
 registerHost  command team host run
-releaseEditorLock  gap #61
+releaseEditorLock  command agent lock release
 releaseWorker  command team worker release
 removeAgentFromApp  excluded deprecated: @deprecated: Use uninstallAgentFromApp (spec 023-app-shape US1).
 removeAgentImport  gap #58
@@ -480,7 +480,7 @@ startSession  command team session start
 stopImpersonation  command auth impersonate
 subscribeWorker  command ticker subscribe
 syncMemory  gap #60
-testAiServiceConfig  gap #1347
+testAiServiceConfig  command ai-config test
 testExchangeConnection  gap #198
 transferMemoryOwnership  command memory transfer
 triggerAppRun  command run trigger
@@ -534,7 +534,7 @@ updateWorker  command team worker update
 withdrawDecision  gap #1335
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 81: 54 gap, 27 excluded
+[Arguments] 79: 52 gap, 27 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.addOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
@@ -544,7 +544,6 @@ Mutation.castWorker(reportsTo)  gap #933
 Mutation.createAgent(resetContextAfterTask)  gap #1043
 Mutation.createAgent(usesTasks)  gap #58
 Mutation.createAgentTask(input.finishBy)  gap #1514
-Mutation.createAiServiceConfig(apiStyle)  gap #1347
 Mutation.createApp(agentTools)  gap #63
 Mutation.createApp(aiApiKey)  gap #63
 Mutation.createApp(aiModel)  gap #63
@@ -578,7 +577,6 @@ Mutation.updateAgent(listedOnMarketplace)  gap #58
 Mutation.updateAgent(registerDefaults)  gap #58
 Mutation.updateAgent(resetContextAfterTask)  gap #1043
 Mutation.updateAgentTask(input.finishBy)  gap #1514
-Mutation.updateAiServiceConfig(apiStyle)  gap #1347
 Mutation.updateApp(agentSessionsExpire)  gap #63
 Mutation.updateApp(agentTools)  gap #63
 Mutation.updateApp(aiApiKey)  gap #63
@@ -617,12 +615,14 @@ Query.teamAttentionPreviewPage(scanLimit)  gap #828
 Query.teamChatMessages(teamHeadRef)  gap #936
 Query.teamChatMessages(untagged)  gap #936
 
-[Filters] 53: 51 flag, 2 gap
+[Filters] 55: 53 flag, 2 gap
 Query.agentTasks(reference.kind)  flag team task list --ref-kind
 Query.agentTasks(reference.target)  flag team task list --ref
 Query.agents(filter.ownedByMe)  flag agent list --owned-by-me
 Query.agents(filter.type)  flag agent list --type
 Query.agents(filter.visibility)  flag agent list --visibility
+Query.aiServiceConfigs(filter.ownerId)  flag ai-config list --owner-id
+Query.aiServiceConfigs(filter.ownerType)  flag ai-config list --owner-type
 Query.apps(filter.agentId)  gap #63
 Query.apps(filter.ownedByMe)  flag app list --owned-by-me
 Query.assets(filter.includeDeleted)  flag asset list --include-deleted

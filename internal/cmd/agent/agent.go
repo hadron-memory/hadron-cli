@@ -158,6 +158,7 @@ func NewCmdAgent(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdAgentTasks(f))
 	cmd.AddCommand(newCmdAgentTickerTemplates(f))
 	cmd.AddCommand(newCmdAgentProcesses(f))
+	cmd.AddCommand(newCmdAgentRevision(f), newCmdAgentLock(f))
 	cmd.AddCommand(newCmdAgentMemory(f))
 	cmd.AddCommand(newCmdAgentSetBase(f))
 	cmd.AddCommand(newCmdAgentSetBootPrompt(f))
