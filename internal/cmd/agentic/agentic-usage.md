@@ -390,7 +390,11 @@ hadron app agent customize <app> <agent> | member roles [--app <ref>] (cli#1226,
 
 hadron app memories [<app-ref>] [--limit N] [--offset N] (uses --app)   # cli#1209 over server#2190 appMemoryScope (cor:dmo:050:17): the memories App-wide reads (appNodes) cover for you, one row per memory with every source kind (AGENT_SYSTEM|AGENT_LINK|INHERITED_BASE|TEAM_SPACE|APP_MEMORY; APP_MEMORY is the App's own tenant memory) and the agent name only when you may read that Agent; one page ordered by memory URN, --limit 1..200 (default 20), next-page hint on stderr; WRITE (ADVISORY) yes|no|inherited, "inherited" = viewerCanWrite true but in scope only as an inherited base, so not a write target; --json {items[{memoryId,memoryUrn,name,class,sources[{kind,agentId,agentName}],viewerCanWrite,writeTarget}],total}; refusals are appNodes' (exit 8/4 by code)
 hadron app update <app-ref> [--name <n>] [--description <d> | --clear-description] [--session-timeout-seconds <n>] [--yes]   # cli#1058: only the passed fields are sent (omitted = preserved; a clear is an explicit null, description only); no flags = usage error; confirms the target + field NAMES (never field values), --yes non-interactively; --json {app,id,urn,name,sessionTimeoutSeconds,status,changed}; a lost response is exit 7 "outcome unknown", sent once, never retried
-hadron ai-config list [--app <ref>] [--agent <id>] [--with-endpoints] | get <id> | endpoints <provider> | create (--app|--agent|--org <ref>) --name <n> --provider <p> --model <m> [--endpoint <url>] [--api-key -] [--file <path>] | update <id> [--endpoint <url|"">] ... | rm <id>
+hadron ai-config list [--app <ref>] [--agent <id>] [--with-endpoints]
+hadron ai-config list (--owner-type APP|AGENT|ORGANIZATION|HADRON_SERVER --owner-id <id-or-urn> | --all-owners) [--limit N] [--offset N]
+hadron ai-config test <id> [--override-file <path|->] [--json]
+hadron ai-config get <id> | endpoints <provider> | create (--app|--agent|--org <ref>) --name <n> --provider <p> --model <m> [--endpoint <url>] [--api-style CHAT_COMPLETIONS|RESPONSES] [--api-key -] [--file <path>]
+hadron ai-config update <id> [--endpoint <url|"">] [--api-style CHAT_COMPLETIONS|RESPONSES | --clear-api-style] ... | rm <id>
 hadron org list [--mine] | create --name <n> --urn <urn> | get <id> | public <org-ref> | update <id> [--name] [--urn] [--marketplace] [--policy <json> | --clear-policy] | rm <id> | member list|add|set-role|rm <org-id> --user <id> [--role <r>] | invite create <email> --org <id> --role <r> | invite accept <slug> | invite show <slug> | set-active|use <orgRef> [--no-verify]   # "" clears; the active org is what --scope global resolves against
 hadron scope list [--owner-org <ref> | --owner-app <ref> | --owner-agent <ref>] [--name <n>] [--app-context <app>] | get <name|id> [--by-name] | create <name> (--owner-org|--owner-app|--owner-agent <ref>) -m <memory>… [--description <d>] | update <name|id> [--by-name] [--name <new>] [-m <memory>…] [--description <d>] | rm <name|id> [--by-name] [--yes] | explain <name|id> [--by-name] [--loc <address>] | set-active|use <name|id|app|global> [--no-verify]   # "" clears; applied when search omits --scope, and reported as scope.selectedBy="config". a NAME needs an App context (--app or the active App); an ID never does. --description cannot clear.
 hadron agent compile <agent> [--no-set-pointer] | list [--org <id> | --owned-by-me] [--type ASSISTANT|CHATBOT] [--visibility ORGANIZATION|PERSONAL|PUBLIC] | list --public [--type <t>] [--limit N] [--offset N] | get <ref> | create --name <n> [--org <id> | --owner-me] [--type <t>] [--visibility <v>] [--description <d>] [--system-memory <id>] [--surface <s>]… [--persona-role <r>] | update <id> [<field flags>] [--tasks-index <node-ref> | --processes-index <node-ref>] (explicit empty clears) | rm <id> --yes | tasks list <agentRef> [--symptom <text> [--limit N]] (experimental, hadron-server#2421: up to 3 tasks matched on the abstract, adds MATCHED BY VECTOR/KEYWORD/BOTH and `matchedBy` in --json; --limit is ignored without --symptom, sent as given, server rules) | processes list <agentRef> | memory add <agent> <memory> [--role <r>] | memory set-role <agent> <memory> --role <r> | memory rm <agent> <memory> --yes (refs sent verbatim, one mutation each; prints the Agent DTO; the server owns authority and role validation) | revision create <agent> [--description <t>] (prints revisionLoc/label/published/createdAt; no publish/restore yet) | lock acquire <agent> (locked:false prints holder/expiry and exits 5, no retry) | lock release <agent> (released:false exits 5) | set-base <agent> (<base> | --clear) | set-boot-prompt <agent> (<node-ref> [-m <memory>] | --clear) | model-group list <agent> | model-group set <agent> <name> [--pattern <glob>]… | model-group delete <agent> <name> [--yes]
@@ -2046,6 +2050,26 @@ Conventions:
   otherwise untouched; a mint racing a new blocker
   (SPEC_CORPUS_MINT_BLOCKED) or a write in flight (SPEC_CORPUS_BUSY,
   retryable) is exit 5 too.
+- `ai-config list --owner-type <type> --owner-id <ref>` reaches the uniform
+  masked owner list, including disabled configs; `--all-owners` asks for the
+  server's platform ADMIN/OWNER cross-owner view. These are explicit modes:
+  global `--app` never supplies the owner filter. JSON is `{items:[],total:N}`,
+  one name-ascending page (id tiebreak); `--limit` defaults server-side to 20,
+  cap 200, 0 counts only; `--offset` defaults to 0. Increment offset by returned
+  item count to continue. Server permissions are authoritative.
+  `ai-config test <id>` makes one server-side saved-config test; the stored key
+  stays on the server. `--override-file <path|->` reads edited provider/model/
+  apiKey/endpoint/apiStyle/params, never saves or echoes them. Omitted fields
+  use saved values; null endpoint/apiStyle restores the provider default, null
+  params clears edited params. `-` is piped JSON (TTY refused, exit 2).
+  Provider-reaching tests are metered and may cost money; NO_API_KEY and
+  KEY_UNREADABLE make no provider call. The completed diagnostic exits 0 even
+  for `ok:false`; inspect `ok`/`error.code` in JSON (with effective values,
+  latency, value sources and knobs). Request refusals use normal CLI exits.
+  `create --api-style` (also file apiStyle) and `update --api-style` set
+  CHAT_COMPLETIONS or RESPONSES; `update --clear-api-style` sends null to use
+  the provider default; omit both update flags to preserve the stored style.
+  Only the server decides which providers accept styles.
 - `ai-config list` lists the masked AI configs *resolvable* in an App's chat
   context (App→Agent→Org→HadronServer, innermost wins, enabled-only) — never
   key material, only a preview. `ai-config create|update|rm` manage the
@@ -2055,7 +2079,7 @@ Conventions:
   App, Agent, and Organization configs require a stored key on current servers.
   `--file <path>` (or `--file -` for stdin) reads the whole config — key
   included — from a JSON object (keys mirror the flags: app/agent/org, name,
-  provider, model, endpoint, apiKey, params, enabled), keeping the secret out of argv;
+  provider, model, endpoint, apiStyle, apiKey, params, enabled), keeping the secret out of argv;
   an explicit flag overrides the matching file field. `--file -` is for a PIPE
   and is refused (exit 2) from an interactive terminal (#648); `--api-key -` is
   a secret, not a document, and deliberately still reads from a terminal.

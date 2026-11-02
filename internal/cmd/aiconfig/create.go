@@ -27,6 +27,7 @@ type createFileSpec struct {
 	Provider *string          `json:"provider"`
 	Model    *string          `json:"model"`
 	Endpoint *string          `json:"endpoint"`
+	APIStyle *string          `json:"apiStyle"`
 	APIKey   *string          `json:"apiKey"`
 	Params   *json.RawMessage `json:"params"`
 	Enabled  *bool            `json:"enabled"`
@@ -37,6 +38,7 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 		app, agent, org       string
 		name, provider, model string
 		endpoint              string
+		apiStyle              string
 		apiKey, file          string
 		params                []string
 		disabled              bool
@@ -54,13 +56,17 @@ The API key is a secret. To keep it out of argv and shell history you can:
     --api-key - instead).
 
 --file seeds every field; an explicit flag overrides the file's value. The file
-keys mirror the flags: app, agent, org, name, provider, model, endpoint, apiKey, params
+keys mirror the flags: app, agent, org, name, provider, model, endpoint, apiStyle, apiKey, params
 (an object), enabled. The server requires a stored key for App, Agent, and
 Organization configs; use --api-key - or put it in the file. --param sets
 provider knobs (repeatable) and,
 when given, replaces the file's params object. --endpoint chooses the stored
 provider base URL; omitting it uses the server's provider default. Inspect
-choices and billing notes with 'ai-config endpoints <provider>'.`,
+choices and billing notes with 'ai-config endpoints <provider>'.
+--api-style selects CHAT_COMPLETIONS or RESPONSES for an OpenAI-compatible
+provider (the server decides which providers accept it). Omit it for the
+provider default; the file key is apiStyle. Style-aware JSON includes the
+stored apiStyle and effectiveApiStyle, plus the masked config and endpoints.`,
 		Example: `  printf '%s' "$KEY" | hadron ai-config create --app acme.com:juno-app \
     --name default --provider anthropic --model claude-opus-4-8 --api-key -
   hadron ai-config create --file config.json
@@ -110,6 +116,14 @@ choices and billing notes with 'ai-config endpoints <provider>'.`,
 			modelVal := strOr(spec.Model, model, changed("model"))
 			endpointVal := strOr(spec.Endpoint, endpoint, changed("endpoint"))
 			endpointProvided := changed("endpoint") || spec.Endpoint != nil
+			styleProvided := changed("api-style") || spec.APIStyle != nil
+			var styleArg gen.AiApiStyle
+			if styleProvided {
+				styleArg, err = parseAPIStyle(strOr(spec.APIStyle, apiStyle, changed("api-style")))
+				if err != nil {
+					return err
+				}
+			}
 			if nameVal == "" || providerVal == "" || modelVal == "" {
 				return exitcode.Newf(exitcode.Usage, "--name, --provider, and --model are required (via flags or --file)")
 			}
@@ -155,6 +169,20 @@ choices and billing notes with 'ai-config endpoints <provider>'.`,
 				return err
 			}
 
+			if styleProvided {
+				var endpointArg *string
+				if endpointProvided {
+					endpointArg = &endpointVal
+				}
+				resp, err := gen.CreateAiServiceConfigWithApiStyle(cmd.Context(), client, nameVal, providerVal, modelVal, ownerID, ownerType, styleArg, keyArg, &enabled, paramsJSON, endpointArg)
+				if err != nil {
+					return api.MapError(err)
+				}
+				if resp.CreateAiServiceConfig == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no config")
+				}
+				return writeStyleConfig(f, "✓ created", resp.CreateAiServiceConfig.AiServiceConfigStyleFields)
+			}
 			if endpointProvided {
 				resp, err := gen.CreateAiServiceConfigWithEndpoint(cmd.Context(), client, nameVal, providerVal, modelVal, ownerID, ownerType, keyArg, &enabled, paramsJSON, &endpointVal)
 				if err != nil {
@@ -191,6 +219,7 @@ choices and billing notes with 'ai-config endpoints <provider>'.`,
 	cmd.Flags().StringVar(&provider, "provider", "", "provider id (anthropic, openai, glm, bedrock, openai-compatible)")
 	cmd.Flags().StringVar(&model, "model", "", "model identifier")
 	cmd.Flags().StringVar(&endpoint, "endpoint", "", "provider base URL; omit for the server default")
+	cmd.Flags().StringVar(&apiStyle, "api-style", "", "OpenAI-compatible wire protocol: CHAT_COMPLETIONS or RESPONSES; omit for provider default")
 	cmd.Flags().StringVar(&apiKey, "api-key", "", `provider API key ("-" reads stdin)`)
 	cmd.Flags().StringVar(&file, "file", "", `read the config (key included) from a JSON file ("-" reads piped stdin, refused from a terminal)`)
 	cmd.Flags().StringArrayVar(&params, "param", nil, "provider param key=value (repeatable; value parsed as JSON or string)")

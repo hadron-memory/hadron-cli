@@ -10631,6 +10631,21 @@ type AgentsResponse struct {
 // GetAgents returns AgentsResponse.Agents, and is useful for accessing the field via an interface.
 func (v *AgentsResponse) GetAgents() *AgentsAgentsAgentsPage { return v.Agents }
 
+// #1373: the wire protocol of an OpenAI-compatible provider.
+type AiApiStyle string
+
+const (
+	// POST {endpoint}/chat/completions — what most OpenAI-compatible hosts serve (the glm default).
+	AiApiStyleChatCompletions AiApiStyle = "CHAT_COMPLETIONS"
+	// POST {endpoint}/responses — OpenAI's Responses API (the openai default).
+	AiApiStyleResponses AiApiStyle = "RESPONSES"
+)
+
+var AllAiApiStyle = []AiApiStyle{
+	AiApiStyleChatCompletions,
+	AiApiStyleResponses,
+}
+
 // 036-ai-service-config: which entity owns an AiServiceConfig. Exactly one
 // owner per config (DB-enforced).
 type AiConfigOwnerType string
@@ -10647,6 +10662,37 @@ var AllAiConfigOwnerType = []AiConfigOwnerType{
 	AiConfigOwnerTypeApp,
 	AiConfigOwnerTypeHadronServer,
 	AiConfigOwnerTypeOrganization,
+}
+
+// #1378: which key a test used; NONE when there was none to use.
+type AiConfigTestKeySource string
+
+const (
+	AiConfigTestKeySourceNone     AiConfigTestKeySource = "NONE"
+	AiConfigTestKeySourceOverride AiConfigTestKeySource = "OVERRIDE"
+	// A HADRON_SERVER config with no stored key: the server's own credential for that provider served the call, as it serves a run (#1385).
+	AiConfigTestKeySourcePlatform AiConfigTestKeySource = "PLATFORM"
+	AiConfigTestKeySourceSaved    AiConfigTestKeySource = "SAVED"
+)
+
+var AllAiConfigTestKeySource = []AiConfigTestKeySource{
+	AiConfigTestKeySourceNone,
+	AiConfigTestKeySourceOverride,
+	AiConfigTestKeySourcePlatform,
+	AiConfigTestKeySourceSaved,
+}
+
+// #1378: where a tested value came from.
+type AiConfigTestValueSource string
+
+const (
+	AiConfigTestValueSourceOverride AiConfigTestValueSource = "OVERRIDE"
+	AiConfigTestValueSourceSaved    AiConfigTestValueSource = "SAVED"
+)
+
+var AllAiConfigTestValueSource = []AiConfigTestValueSource{
+	AiConfigTestValueSourceOverride,
+	AiConfigTestValueSourceSaved,
 }
 
 // AiModelPriceAiModelPrice includes the requested fields of the GraphQL type AiModelPrice.
@@ -11154,6 +11200,199 @@ func (v *AiServiceConfigFields) GetCreatedAt() string { return v.CreatedAt }
 // GetUpdatedAt returns AiServiceConfigFields.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *AiServiceConfigFields) GetUpdatedAt() *string { return v.UpdatedAt }
 
+// Filter for the uniform aiServiceConfigs() list (#473) — the owning entity.
+// Omitted entirely, the list is the platform ADMIN/OWNER's cross-owner view
+// of every config; non-admin callers MUST filter by owner (org ADMIN of the
+// owning org, mirroring the management-surface gate).
+type AiServiceConfigFilter struct {
+	// The owning entity — accepts ID or URN (HADRON_SERVER: ID only).
+	OwnerId   string            `json:"ownerId"`
+	OwnerType AiConfigOwnerType `json:"ownerType"`
+}
+
+// GetOwnerId returns AiServiceConfigFilter.OwnerId, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigFilter) GetOwnerId() string { return v.OwnerId }
+
+// GetOwnerType returns AiServiceConfigFilter.OwnerType, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigFilter) GetOwnerType() AiConfigOwnerType { return v.OwnerType }
+
+// AiServiceConfigStyleFields includes the GraphQL fields of AiServiceConfig requested by the fragment AiServiceConfigStyleFields.
+// The GraphQL type's documentation follows.
+//
+// 036-ai-service-config: a named AI service configuration (masked
+// management view — never carries key material beyond the preview).
+// Owned by exactly one of HadronServer / Organization / App / Agent.
+// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// returns the first ENABLED config with the requested name. Well-known
+// fallback name: 'default' (conventional extras: 'fast', 'frontier').
+// Name is unique per owner.
+type AiServiceConfigStyleFields struct {
+	AiServiceConfigEndpointFields `json:"-"`
+	// #1373: the wire protocol as stored; null = the provider default. OpenAI-compatible providers only.
+	ApiStyle *AiApiStyle `json:"apiStyle"`
+	// #1373: the wire protocol a request actually uses (apiStyle, else the provider default); null for single-protocol providers.
+	EffectiveApiStyle *AiApiStyle `json:"effectiveApiStyle"`
+}
+
+// GetApiStyle returns AiServiceConfigStyleFields.ApiStyle, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigStyleFields) GetApiStyle() *AiApiStyle { return v.ApiStyle }
+
+// GetEffectiveApiStyle returns AiServiceConfigStyleFields.EffectiveApiStyle, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigStyleFields) GetEffectiveApiStyle() *AiApiStyle { return v.EffectiveApiStyle }
+
+// GetId returns AiServiceConfigStyleFields.Id, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigStyleFields) GetId() string { return v.AiServiceConfigEndpointFields.Id }
+
+// GetName returns AiServiceConfigStyleFields.Name, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigStyleFields) GetName() string { return v.AiServiceConfigEndpointFields.Name }
+
+// GetOwnerType returns AiServiceConfigStyleFields.OwnerType, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigStyleFields) GetOwnerType() AiConfigOwnerType {
+	return v.AiServiceConfigEndpointFields.OwnerType
+}
+
+// GetOwnerId returns AiServiceConfigStyleFields.OwnerId, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigStyleFields) GetOwnerId() string {
+	return v.AiServiceConfigEndpointFields.OwnerId
+}
+
+// GetProvider returns AiServiceConfigStyleFields.Provider, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigStyleFields) GetProvider() string {
+	return v.AiServiceConfigEndpointFields.Provider
+}
+
+// GetModel returns AiServiceConfigStyleFields.Model, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigStyleFields) GetModel() string { return v.AiServiceConfigEndpointFields.Model }
+
+// GetHasApiKey returns AiServiceConfigStyleFields.HasApiKey, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigStyleFields) GetHasApiKey() bool {
+	return v.AiServiceConfigEndpointFields.HasApiKey
+}
+
+// GetApiKeyPreview returns AiServiceConfigStyleFields.ApiKeyPreview, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigStyleFields) GetApiKeyPreview() *string {
+	return v.AiServiceConfigEndpointFields.ApiKeyPreview
+}
+
+// GetParams returns AiServiceConfigStyleFields.Params, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigStyleFields) GetParams() *json.RawMessage {
+	return v.AiServiceConfigEndpointFields.Params
+}
+
+// GetEndpoint returns AiServiceConfigStyleFields.Endpoint, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigStyleFields) GetEndpoint() *string {
+	return v.AiServiceConfigEndpointFields.Endpoint
+}
+
+// GetEffectiveEndpoint returns AiServiceConfigStyleFields.EffectiveEndpoint, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigStyleFields) GetEffectiveEndpoint() *string {
+	return v.AiServiceConfigEndpointFields.EffectiveEndpoint
+}
+
+// GetEnabled returns AiServiceConfigStyleFields.Enabled, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigStyleFields) GetEnabled() bool {
+	return v.AiServiceConfigEndpointFields.Enabled
+}
+
+// GetCreatedAt returns AiServiceConfigStyleFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigStyleFields) GetCreatedAt() string {
+	return v.AiServiceConfigEndpointFields.CreatedAt
+}
+
+// GetUpdatedAt returns AiServiceConfigStyleFields.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigStyleFields) GetUpdatedAt() *string {
+	return v.AiServiceConfigEndpointFields.UpdatedAt
+}
+
+func (v *AiServiceConfigStyleFields) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AiServiceConfigStyleFields
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AiServiceConfigStyleFields = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AiServiceConfigEndpointFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAiServiceConfigStyleFields struct {
+	ApiStyle *AiApiStyle `json:"apiStyle"`
+
+	EffectiveApiStyle *AiApiStyle `json:"effectiveApiStyle"`
+
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	OwnerType AiConfigOwnerType `json:"ownerType"`
+
+	OwnerId string `json:"ownerId"`
+
+	Provider string `json:"provider"`
+
+	Model string `json:"model"`
+
+	HasApiKey bool `json:"hasApiKey"`
+
+	ApiKeyPreview *string `json:"apiKeyPreview"`
+
+	Params *json.RawMessage `json:"params"`
+
+	Endpoint *string `json:"endpoint"`
+
+	EffectiveEndpoint *string `json:"effectiveEndpoint"`
+
+	Enabled bool `json:"enabled"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+}
+
+func (v *AiServiceConfigStyleFields) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AiServiceConfigStyleFields) __premarshalJSON() (*__premarshalAiServiceConfigStyleFields, error) {
+	var retval __premarshalAiServiceConfigStyleFields
+
+	retval.ApiStyle = v.ApiStyle
+	retval.EffectiveApiStyle = v.EffectiveApiStyle
+	retval.Id = v.AiServiceConfigEndpointFields.Id
+	retval.Name = v.AiServiceConfigEndpointFields.Name
+	retval.OwnerType = v.AiServiceConfigEndpointFields.OwnerType
+	retval.OwnerId = v.AiServiceConfigEndpointFields.OwnerId
+	retval.Provider = v.AiServiceConfigEndpointFields.Provider
+	retval.Model = v.AiServiceConfigEndpointFields.Model
+	retval.HasApiKey = v.AiServiceConfigEndpointFields.HasApiKey
+	retval.ApiKeyPreview = v.AiServiceConfigEndpointFields.ApiKeyPreview
+	retval.Params = v.AiServiceConfigEndpointFields.Params
+	retval.Endpoint = v.AiServiceConfigEndpointFields.Endpoint
+	retval.EffectiveEndpoint = v.AiServiceConfigEndpointFields.EffectiveEndpoint
+	retval.Enabled = v.AiServiceConfigEndpointFields.Enabled
+	retval.CreatedAt = v.AiServiceConfigEndpointFields.CreatedAt
+	retval.UpdatedAt = v.AiServiceConfigEndpointFields.UpdatedAt
+	return &retval, nil
+}
+
 // AiServiceConfigWithEndpointAiServiceConfig includes the requested fields of the GraphQL type AiServiceConfig.
 // The GraphQL type's documentation follows.
 //
@@ -11337,6 +11576,223 @@ type AiServiceConfigWithEndpointResponse struct {
 // GetAiServiceConfig returns AiServiceConfigWithEndpointResponse.AiServiceConfig, and is useful for accessing the field via an interface.
 func (v *AiServiceConfigWithEndpointResponse) GetAiServiceConfig() *AiServiceConfigWithEndpointAiServiceConfig {
 	return v.AiServiceConfig
+}
+
+// AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPage includes the requested fields of the GraphQL type AiServiceConfigsPage.
+type AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPage struct {
+	Items []*AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig `json:"items"`
+	Total int                                                                               `json:"total"`
+}
+
+// GetItems returns AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPage.Items, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPage) GetItems() []*AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig {
+	return v.Items
+}
+
+// GetTotal returns AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPage.Total, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPage) GetTotal() int { return v.Total }
+
+// AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig includes the requested fields of the GraphQL type AiServiceConfig.
+// The GraphQL type's documentation follows.
+//
+// 036-ai-service-config: a named AI service configuration (masked
+// management view — never carries key material beyond the preview).
+// Owned by exactly one of HadronServer / Organization / App / Agent.
+// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// returns the first ENABLED config with the requested name. Well-known
+// fallback name: 'default' (conventional extras: 'fast', 'frontier').
+// Name is unique per owner.
+type AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig struct {
+	AiServiceConfigStyleFields `json:"-"`
+}
+
+// GetApiStyle returns AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.ApiStyle, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetApiStyle() *AiApiStyle {
+	return v.AiServiceConfigStyleFields.ApiStyle
+}
+
+// GetEffectiveApiStyle returns AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.EffectiveApiStyle, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetEffectiveApiStyle() *AiApiStyle {
+	return v.AiServiceConfigStyleFields.EffectiveApiStyle
+}
+
+// GetId returns AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.Id, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetId() string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Id
+}
+
+// GetName returns AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.Name, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetName() string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Name
+}
+
+// GetOwnerType returns AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.OwnerType, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetOwnerType() AiConfigOwnerType {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.OwnerType
+}
+
+// GetOwnerId returns AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.OwnerId, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetOwnerId() string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.OwnerId
+}
+
+// GetProvider returns AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.Provider, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetProvider() string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Provider
+}
+
+// GetModel returns AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.Model, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetModel() string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Model
+}
+
+// GetHasApiKey returns AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.HasApiKey, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetHasApiKey() bool {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.HasApiKey
+}
+
+// GetApiKeyPreview returns AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.ApiKeyPreview, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetApiKeyPreview() *string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.ApiKeyPreview
+}
+
+// GetParams returns AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.Params, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetParams() *json.RawMessage {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Params
+}
+
+// GetEndpoint returns AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.Endpoint, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetEndpoint() *string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Endpoint
+}
+
+// GetEffectiveEndpoint returns AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.EffectiveEndpoint, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetEffectiveEndpoint() *string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.EffectiveEndpoint
+}
+
+// GetEnabled returns AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.Enabled, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetEnabled() bool {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Enabled
+}
+
+// GetCreatedAt returns AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetCreatedAt() string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.CreatedAt
+}
+
+// GetUpdatedAt returns AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) GetUpdatedAt() *string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.UpdatedAt
+}
+
+func (v *AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AiServiceConfigStyleFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig struct {
+	ApiStyle *AiApiStyle `json:"apiStyle"`
+
+	EffectiveApiStyle *AiApiStyle `json:"effectiveApiStyle"`
+
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	OwnerType AiConfigOwnerType `json:"ownerType"`
+
+	OwnerId string `json:"ownerId"`
+
+	Provider string `json:"provider"`
+
+	Model string `json:"model"`
+
+	HasApiKey bool `json:"hasApiKey"`
+
+	ApiKeyPreview *string `json:"apiKeyPreview"`
+
+	Params *json.RawMessage `json:"params"`
+
+	Endpoint *string `json:"endpoint"`
+
+	EffectiveEndpoint *string `json:"effectiveEndpoint"`
+
+	Enabled bool `json:"enabled"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+}
+
+func (v *AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig) __premarshalJSON() (*__premarshalAiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig, error) {
+	var retval __premarshalAiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPageItemsAiServiceConfig
+
+	retval.ApiStyle = v.AiServiceConfigStyleFields.ApiStyle
+	retval.EffectiveApiStyle = v.AiServiceConfigStyleFields.EffectiveApiStyle
+	retval.Id = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Id
+	retval.Name = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Name
+	retval.OwnerType = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.OwnerType
+	retval.OwnerId = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.OwnerId
+	retval.Provider = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Provider
+	retval.Model = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Model
+	retval.HasApiKey = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.HasApiKey
+	retval.ApiKeyPreview = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.ApiKeyPreview
+	retval.Params = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Params
+	retval.Endpoint = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Endpoint
+	retval.EffectiveEndpoint = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.EffectiveEndpoint
+	retval.Enabled = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Enabled
+	retval.CreatedAt = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.CreatedAt
+	retval.UpdatedAt = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.UpdatedAt
+	return &retval, nil
+}
+
+// AiServiceConfigsMaskedResponse is returned by AiServiceConfigsMasked on success.
+type AiServiceConfigsMaskedResponse struct {
+	// 036-ai-service-config: masked, paginated list of AI configs (#473).
+	// Never returns key material — only hasApiKey + apiKeyPreview.
+	//
+	// filter names the owning entity. Auth: platform ADMIN/OWNER for
+	// HADRON_SERVER owners; org ADMIN of the owning org for ORGANIZATION /
+	// APP / AGENT owners. filter omitted entirely = the platform ADMIN/OWNER
+	// cross-owner view of every config (non-admin callers must filter).
+	//
+	// Name-ascending order (id tiebreak); limit default 20 / cap 200;
+	// limit: 0 -> count only.
+	AiServiceConfigs *AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPage `json:"aiServiceConfigs"`
+}
+
+// GetAiServiceConfigs returns AiServiceConfigsMaskedResponse.AiServiceConfigs, and is useful for accessing the field via an interface.
+func (v *AiServiceConfigsMaskedResponse) GetAiServiceConfigs() *AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPage {
+	return v.AiServiceConfigs
 }
 
 // AlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent includes the requested fields of the GraphQL type AgentTeamEvent.
@@ -20111,6 +20567,209 @@ func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) __premarshalJSON() (*__prem
 	return &retval, nil
 }
 
+// ClearAiServiceConfigApiStyleResponse is returned by ClearAiServiceConfigApiStyle on success.
+type ClearAiServiceConfigApiStyleResponse struct {
+	// 036-ai-service-config: update a named AI config. All fields optional.
+	//
+	// apiKey semantics: omitted = keep the stored key; empty string =
+	// clear it (explicit null also clears); non-empty = replace (encrypted,
+	// preview recomputed). The RESULTING config is held to createAiServiceConfig's key rule, so
+	// clearing the key of a config that needs one is refused.
+	//
+	// Auth: the same owner-aware credential gate as createAiServiceConfig;
+	// managing a user-owned Agent through a platform role alone does not grant
+	// access to its stored credential.
+	UpdateAiServiceConfig *ClearAiServiceConfigApiStyleUpdateAiServiceConfig `json:"updateAiServiceConfig"`
+}
+
+// GetUpdateAiServiceConfig returns ClearAiServiceConfigApiStyleResponse.UpdateAiServiceConfig, and is useful for accessing the field via an interface.
+func (v *ClearAiServiceConfigApiStyleResponse) GetUpdateAiServiceConfig() *ClearAiServiceConfigApiStyleUpdateAiServiceConfig {
+	return v.UpdateAiServiceConfig
+}
+
+// ClearAiServiceConfigApiStyleUpdateAiServiceConfig includes the requested fields of the GraphQL type AiServiceConfig.
+// The GraphQL type's documentation follows.
+//
+// 036-ai-service-config: a named AI service configuration (masked
+// management view — never carries key material beyond the preview).
+// Owned by exactly one of HadronServer / Organization / App / Agent.
+// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// returns the first ENABLED config with the requested name. Well-known
+// fallback name: 'default' (conventional extras: 'fast', 'frontier').
+// Name is unique per owner.
+type ClearAiServiceConfigApiStyleUpdateAiServiceConfig struct {
+	AiServiceConfigStyleFields `json:"-"`
+}
+
+// GetApiStyle returns ClearAiServiceConfigApiStyleUpdateAiServiceConfig.ApiStyle, and is useful for accessing the field via an interface.
+func (v *ClearAiServiceConfigApiStyleUpdateAiServiceConfig) GetApiStyle() *AiApiStyle {
+	return v.AiServiceConfigStyleFields.ApiStyle
+}
+
+// GetEffectiveApiStyle returns ClearAiServiceConfigApiStyleUpdateAiServiceConfig.EffectiveApiStyle, and is useful for accessing the field via an interface.
+func (v *ClearAiServiceConfigApiStyleUpdateAiServiceConfig) GetEffectiveApiStyle() *AiApiStyle {
+	return v.AiServiceConfigStyleFields.EffectiveApiStyle
+}
+
+// GetId returns ClearAiServiceConfigApiStyleUpdateAiServiceConfig.Id, and is useful for accessing the field via an interface.
+func (v *ClearAiServiceConfigApiStyleUpdateAiServiceConfig) GetId() string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Id
+}
+
+// GetName returns ClearAiServiceConfigApiStyleUpdateAiServiceConfig.Name, and is useful for accessing the field via an interface.
+func (v *ClearAiServiceConfigApiStyleUpdateAiServiceConfig) GetName() string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Name
+}
+
+// GetOwnerType returns ClearAiServiceConfigApiStyleUpdateAiServiceConfig.OwnerType, and is useful for accessing the field via an interface.
+func (v *ClearAiServiceConfigApiStyleUpdateAiServiceConfig) GetOwnerType() AiConfigOwnerType {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.OwnerType
+}
+
+// GetOwnerId returns ClearAiServiceConfigApiStyleUpdateAiServiceConfig.OwnerId, and is useful for accessing the field via an interface.
+func (v *ClearAiServiceConfigApiStyleUpdateAiServiceConfig) GetOwnerId() string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.OwnerId
+}
+
+// GetProvider returns ClearAiServiceConfigApiStyleUpdateAiServiceConfig.Provider, and is useful for accessing the field via an interface.
+func (v *ClearAiServiceConfigApiStyleUpdateAiServiceConfig) GetProvider() string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Provider
+}
+
+// GetModel returns ClearAiServiceConfigApiStyleUpdateAiServiceConfig.Model, and is useful for accessing the field via an interface.
+func (v *ClearAiServiceConfigApiStyleUpdateAiServiceConfig) GetModel() string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Model
+}
+
+// GetHasApiKey returns ClearAiServiceConfigApiStyleUpdateAiServiceConfig.HasApiKey, and is useful for accessing the field via an interface.
+func (v *ClearAiServiceConfigApiStyleUpdateAiServiceConfig) GetHasApiKey() bool {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.HasApiKey
+}
+
+// GetApiKeyPreview returns ClearAiServiceConfigApiStyleUpdateAiServiceConfig.ApiKeyPreview, and is useful for accessing the field via an interface.
+func (v *ClearAiServiceConfigApiStyleUpdateAiServiceConfig) GetApiKeyPreview() *string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.ApiKeyPreview
+}
+
+// GetParams returns ClearAiServiceConfigApiStyleUpdateAiServiceConfig.Params, and is useful for accessing the field via an interface.
+func (v *ClearAiServiceConfigApiStyleUpdateAiServiceConfig) GetParams() *json.RawMessage {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Params
+}
+
+// GetEndpoint returns ClearAiServiceConfigApiStyleUpdateAiServiceConfig.Endpoint, and is useful for accessing the field via an interface.
+func (v *ClearAiServiceConfigApiStyleUpdateAiServiceConfig) GetEndpoint() *string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Endpoint
+}
+
+// GetEffectiveEndpoint returns ClearAiServiceConfigApiStyleUpdateAiServiceConfig.EffectiveEndpoint, and is useful for accessing the field via an interface.
+func (v *ClearAiServiceConfigApiStyleUpdateAiServiceConfig) GetEffectiveEndpoint() *string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.EffectiveEndpoint
+}
+
+// GetEnabled returns ClearAiServiceConfigApiStyleUpdateAiServiceConfig.Enabled, and is useful for accessing the field via an interface.
+func (v *ClearAiServiceConfigApiStyleUpdateAiServiceConfig) GetEnabled() bool {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Enabled
+}
+
+// GetCreatedAt returns ClearAiServiceConfigApiStyleUpdateAiServiceConfig.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ClearAiServiceConfigApiStyleUpdateAiServiceConfig) GetCreatedAt() string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.CreatedAt
+}
+
+// GetUpdatedAt returns ClearAiServiceConfigApiStyleUpdateAiServiceConfig.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *ClearAiServiceConfigApiStyleUpdateAiServiceConfig) GetUpdatedAt() *string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.UpdatedAt
+}
+
+func (v *ClearAiServiceConfigApiStyleUpdateAiServiceConfig) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ClearAiServiceConfigApiStyleUpdateAiServiceConfig
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ClearAiServiceConfigApiStyleUpdateAiServiceConfig = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AiServiceConfigStyleFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalClearAiServiceConfigApiStyleUpdateAiServiceConfig struct {
+	ApiStyle *AiApiStyle `json:"apiStyle"`
+
+	EffectiveApiStyle *AiApiStyle `json:"effectiveApiStyle"`
+
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	OwnerType AiConfigOwnerType `json:"ownerType"`
+
+	OwnerId string `json:"ownerId"`
+
+	Provider string `json:"provider"`
+
+	Model string `json:"model"`
+
+	HasApiKey bool `json:"hasApiKey"`
+
+	ApiKeyPreview *string `json:"apiKeyPreview"`
+
+	Params *json.RawMessage `json:"params"`
+
+	Endpoint *string `json:"endpoint"`
+
+	EffectiveEndpoint *string `json:"effectiveEndpoint"`
+
+	Enabled bool `json:"enabled"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+}
+
+func (v *ClearAiServiceConfigApiStyleUpdateAiServiceConfig) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ClearAiServiceConfigApiStyleUpdateAiServiceConfig) __premarshalJSON() (*__premarshalClearAiServiceConfigApiStyleUpdateAiServiceConfig, error) {
+	var retval __premarshalClearAiServiceConfigApiStyleUpdateAiServiceConfig
+
+	retval.ApiStyle = v.AiServiceConfigStyleFields.ApiStyle
+	retval.EffectiveApiStyle = v.AiServiceConfigStyleFields.EffectiveApiStyle
+	retval.Id = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Id
+	retval.Name = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Name
+	retval.OwnerType = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.OwnerType
+	retval.OwnerId = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.OwnerId
+	retval.Provider = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Provider
+	retval.Model = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Model
+	retval.HasApiKey = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.HasApiKey
+	retval.ApiKeyPreview = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.ApiKeyPreview
+	retval.Params = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Params
+	retval.Endpoint = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Endpoint
+	retval.EffectiveEndpoint = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.EffectiveEndpoint
+	retval.Enabled = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Enabled
+	retval.CreatedAt = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.CreatedAt
+	retval.UpdatedAt = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.UpdatedAt
+	return &retval, nil
+}
+
 // ClearNodeHistoryResponse is returned by ClearNodeHistory on success.
 type ClearNodeHistoryResponse struct {
 	// Delete ALL NodeRevision rows for a node, returning the count deleted (#617).
@@ -24510,6 +25169,219 @@ type CreateAiServiceConfigResponse struct {
 
 // GetCreateAiServiceConfig returns CreateAiServiceConfigResponse.CreateAiServiceConfig, and is useful for accessing the field via an interface.
 func (v *CreateAiServiceConfigResponse) GetCreateAiServiceConfig() *CreateAiServiceConfigCreateAiServiceConfig {
+	return v.CreateAiServiceConfig
+}
+
+// CreateAiServiceConfigWithApiStyleCreateAiServiceConfig includes the requested fields of the GraphQL type AiServiceConfig.
+// The GraphQL type's documentation follows.
+//
+// 036-ai-service-config: a named AI service configuration (masked
+// management view — never carries key material beyond the preview).
+// Owned by exactly one of HadronServer / Organization / App / Agent.
+// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// returns the first ENABLED config with the requested name. Well-known
+// fallback name: 'default' (conventional extras: 'fast', 'frontier').
+// Name is unique per owner.
+type CreateAiServiceConfigWithApiStyleCreateAiServiceConfig struct {
+	AiServiceConfigStyleFields `json:"-"`
+}
+
+// GetApiStyle returns CreateAiServiceConfigWithApiStyleCreateAiServiceConfig.ApiStyle, and is useful for accessing the field via an interface.
+func (v *CreateAiServiceConfigWithApiStyleCreateAiServiceConfig) GetApiStyle() *AiApiStyle {
+	return v.AiServiceConfigStyleFields.ApiStyle
+}
+
+// GetEffectiveApiStyle returns CreateAiServiceConfigWithApiStyleCreateAiServiceConfig.EffectiveApiStyle, and is useful for accessing the field via an interface.
+func (v *CreateAiServiceConfigWithApiStyleCreateAiServiceConfig) GetEffectiveApiStyle() *AiApiStyle {
+	return v.AiServiceConfigStyleFields.EffectiveApiStyle
+}
+
+// GetId returns CreateAiServiceConfigWithApiStyleCreateAiServiceConfig.Id, and is useful for accessing the field via an interface.
+func (v *CreateAiServiceConfigWithApiStyleCreateAiServiceConfig) GetId() string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Id
+}
+
+// GetName returns CreateAiServiceConfigWithApiStyleCreateAiServiceConfig.Name, and is useful for accessing the field via an interface.
+func (v *CreateAiServiceConfigWithApiStyleCreateAiServiceConfig) GetName() string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Name
+}
+
+// GetOwnerType returns CreateAiServiceConfigWithApiStyleCreateAiServiceConfig.OwnerType, and is useful for accessing the field via an interface.
+func (v *CreateAiServiceConfigWithApiStyleCreateAiServiceConfig) GetOwnerType() AiConfigOwnerType {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.OwnerType
+}
+
+// GetOwnerId returns CreateAiServiceConfigWithApiStyleCreateAiServiceConfig.OwnerId, and is useful for accessing the field via an interface.
+func (v *CreateAiServiceConfigWithApiStyleCreateAiServiceConfig) GetOwnerId() string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.OwnerId
+}
+
+// GetProvider returns CreateAiServiceConfigWithApiStyleCreateAiServiceConfig.Provider, and is useful for accessing the field via an interface.
+func (v *CreateAiServiceConfigWithApiStyleCreateAiServiceConfig) GetProvider() string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Provider
+}
+
+// GetModel returns CreateAiServiceConfigWithApiStyleCreateAiServiceConfig.Model, and is useful for accessing the field via an interface.
+func (v *CreateAiServiceConfigWithApiStyleCreateAiServiceConfig) GetModel() string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Model
+}
+
+// GetHasApiKey returns CreateAiServiceConfigWithApiStyleCreateAiServiceConfig.HasApiKey, and is useful for accessing the field via an interface.
+func (v *CreateAiServiceConfigWithApiStyleCreateAiServiceConfig) GetHasApiKey() bool {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.HasApiKey
+}
+
+// GetApiKeyPreview returns CreateAiServiceConfigWithApiStyleCreateAiServiceConfig.ApiKeyPreview, and is useful for accessing the field via an interface.
+func (v *CreateAiServiceConfigWithApiStyleCreateAiServiceConfig) GetApiKeyPreview() *string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.ApiKeyPreview
+}
+
+// GetParams returns CreateAiServiceConfigWithApiStyleCreateAiServiceConfig.Params, and is useful for accessing the field via an interface.
+func (v *CreateAiServiceConfigWithApiStyleCreateAiServiceConfig) GetParams() *json.RawMessage {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Params
+}
+
+// GetEndpoint returns CreateAiServiceConfigWithApiStyleCreateAiServiceConfig.Endpoint, and is useful for accessing the field via an interface.
+func (v *CreateAiServiceConfigWithApiStyleCreateAiServiceConfig) GetEndpoint() *string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Endpoint
+}
+
+// GetEffectiveEndpoint returns CreateAiServiceConfigWithApiStyleCreateAiServiceConfig.EffectiveEndpoint, and is useful for accessing the field via an interface.
+func (v *CreateAiServiceConfigWithApiStyleCreateAiServiceConfig) GetEffectiveEndpoint() *string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.EffectiveEndpoint
+}
+
+// GetEnabled returns CreateAiServiceConfigWithApiStyleCreateAiServiceConfig.Enabled, and is useful for accessing the field via an interface.
+func (v *CreateAiServiceConfigWithApiStyleCreateAiServiceConfig) GetEnabled() bool {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Enabled
+}
+
+// GetCreatedAt returns CreateAiServiceConfigWithApiStyleCreateAiServiceConfig.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateAiServiceConfigWithApiStyleCreateAiServiceConfig) GetCreatedAt() string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.CreatedAt
+}
+
+// GetUpdatedAt returns CreateAiServiceConfigWithApiStyleCreateAiServiceConfig.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateAiServiceConfigWithApiStyleCreateAiServiceConfig) GetUpdatedAt() *string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.UpdatedAt
+}
+
+func (v *CreateAiServiceConfigWithApiStyleCreateAiServiceConfig) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateAiServiceConfigWithApiStyleCreateAiServiceConfig
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateAiServiceConfigWithApiStyleCreateAiServiceConfig = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AiServiceConfigStyleFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateAiServiceConfigWithApiStyleCreateAiServiceConfig struct {
+	ApiStyle *AiApiStyle `json:"apiStyle"`
+
+	EffectiveApiStyle *AiApiStyle `json:"effectiveApiStyle"`
+
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	OwnerType AiConfigOwnerType `json:"ownerType"`
+
+	OwnerId string `json:"ownerId"`
+
+	Provider string `json:"provider"`
+
+	Model string `json:"model"`
+
+	HasApiKey bool `json:"hasApiKey"`
+
+	ApiKeyPreview *string `json:"apiKeyPreview"`
+
+	Params *json.RawMessage `json:"params"`
+
+	Endpoint *string `json:"endpoint"`
+
+	EffectiveEndpoint *string `json:"effectiveEndpoint"`
+
+	Enabled bool `json:"enabled"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+}
+
+func (v *CreateAiServiceConfigWithApiStyleCreateAiServiceConfig) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateAiServiceConfigWithApiStyleCreateAiServiceConfig) __premarshalJSON() (*__premarshalCreateAiServiceConfigWithApiStyleCreateAiServiceConfig, error) {
+	var retval __premarshalCreateAiServiceConfigWithApiStyleCreateAiServiceConfig
+
+	retval.ApiStyle = v.AiServiceConfigStyleFields.ApiStyle
+	retval.EffectiveApiStyle = v.AiServiceConfigStyleFields.EffectiveApiStyle
+	retval.Id = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Id
+	retval.Name = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Name
+	retval.OwnerType = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.OwnerType
+	retval.OwnerId = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.OwnerId
+	retval.Provider = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Provider
+	retval.Model = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Model
+	retval.HasApiKey = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.HasApiKey
+	retval.ApiKeyPreview = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.ApiKeyPreview
+	retval.Params = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Params
+	retval.Endpoint = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Endpoint
+	retval.EffectiveEndpoint = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.EffectiveEndpoint
+	retval.Enabled = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Enabled
+	retval.CreatedAt = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.CreatedAt
+	retval.UpdatedAt = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.UpdatedAt
+	return &retval, nil
+}
+
+// CreateAiServiceConfigWithApiStyleResponse is returned by CreateAiServiceConfigWithApiStyle on success.
+type CreateAiServiceConfigWithApiStyleResponse struct {
+	// 036-ai-service-config: create a named AI config on an owner entity.
+	//
+	// apiKey semantics: non-empty = encrypted at rest with a masked preview.
+	// Omitted is accepted only where a run may use the server's own
+	// credential: a HADRON_SERVER config with no explicit endpoint.
+	// Eligible process-credential providers: openai, anthropic, bedrock;
+	// every other provider needs its own key. Every ORGANIZATION, APP and AGENT
+	// config needs its own key: the platform credential is platform spend
+	// (#1390). Any config with an endpoint needs one too, because the SDK would
+	// otherwise send the server's credential to a host that didn't issue it (#1389). All of
+	// these are refused with AiConfigValidationError. A host that checks no
+	// key takes any placeholder.
+	// Name is trimmed, must be 1-64 lower-case [a-z0-9_-] starting with a
+	// letter or digit, and is unique per owner. provider must be a known
+	// provider; params are validated per provider.
+	//
+	// Auth: platform ADMIN/OWNER for HADRON_SERVER; org ADMIN for ORGANIZATION;
+	// the App/Agent's strict owner or owning-org ADMIN for APP/AGENT. A platform
+	// role does not bypass a user-owned App/Agent's credential gate.
+	// ownerId accepts ID or URN (HADRON_SERVER: ID only).
+	CreateAiServiceConfig *CreateAiServiceConfigWithApiStyleCreateAiServiceConfig `json:"createAiServiceConfig"`
+}
+
+// GetCreateAiServiceConfig returns CreateAiServiceConfigWithApiStyleResponse.CreateAiServiceConfig, and is useful for accessing the field via an interface.
+func (v *CreateAiServiceConfigWithApiStyleResponse) GetCreateAiServiceConfig() *CreateAiServiceConfigWithApiStyleCreateAiServiceConfig {
 	return v.CreateAiServiceConfig
 }
 
@@ -71916,6 +72788,187 @@ func (v *TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) __premars
 	return &retval, nil
 }
 
+// TestAiServiceConfigResponse is returned by TestAiServiceConfig on success.
+type TestAiServiceConfigResponse struct {
+	// #1378: test a SAVED config by id with one small real call, through the same
+	// client, endpoint and egress guard a run uses; the stored key never leaves
+	// the server. The override argument tests edited values without saving them. Auth: as
+	// updateAiServiceConfig; refused under impersonation. Every test that
+	// reaches the provider is metered (usage type ai-config-test); NO_API_KEY
+	// and KEY_UNREADABLE make no call and record nothing. The call is bounded
+	// by a 20s timeout. Rate-limited per caller and config (RATE_LIMITED).
+	TestAiServiceConfig *TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResult `json:"testAiServiceConfig"`
+}
+
+// GetTestAiServiceConfig returns TestAiServiceConfigResponse.TestAiServiceConfig, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigResponse) GetTestAiServiceConfig() *TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResult {
+	return v.TestAiServiceConfig
+}
+
+// TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResult includes the requested fields of the GraphQL type AiServiceConfigTestResult.
+// The GraphQL type's documentation follows.
+//
+// #1378: one test call, made through the same client and endpoint a run uses.
+type TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResult struct {
+	Ok       bool   `json:"ok"`
+	Provider string `json:"provider"`
+	Model    string `json:"model"`
+	// The endpoint the request actually went to: the explicit endpoint, else the host the SDK chose (OPENAI_BASE_URL / ANTHROPIC_BASE_URL when the server sets one, Bedrock's regional host), else the catalog default. Null when it can't be known (Bedrock with no region).
+	Endpoint *string `json:"endpoint"`
+	// The wire protocol the request actually used.
+	ApiStyle  *AiApiStyle `json:"apiStyle"`
+	LatencyMs int         `json:"latencyMs"`
+	// The model's reply, truncated.
+	Reply *string                                                                                       `json:"reply"`
+	Error *TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultErrorAiServiceConfigTestError `json:"error"`
+	Used  *TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed   `json:"used"`
+	// #1417: what each provider knob in the effective params did on the call. Empty unless the call completed (a failed call's adapter warnings are unknown), or when the params carry none. maxTokens is listed as the ceiling it set (ADJUSTED when the probe's cap is lower); toolCalling (a gate) is not a provider knob and is not listed.
+	Knobs []*TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultKnobsAiConfigTestKnob `json:"knobs"`
+}
+
+// GetOk returns TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResult.Ok, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResult) GetOk() bool { return v.Ok }
+
+// GetProvider returns TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResult.Provider, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResult) GetProvider() string {
+	return v.Provider
+}
+
+// GetModel returns TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResult.Model, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResult) GetModel() string {
+	return v.Model
+}
+
+// GetEndpoint returns TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResult.Endpoint, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResult) GetEndpoint() *string {
+	return v.Endpoint
+}
+
+// GetApiStyle returns TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResult.ApiStyle, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResult) GetApiStyle() *AiApiStyle {
+	return v.ApiStyle
+}
+
+// GetLatencyMs returns TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResult.LatencyMs, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResult) GetLatencyMs() int {
+	return v.LatencyMs
+}
+
+// GetReply returns TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResult.Reply, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResult) GetReply() *string {
+	return v.Reply
+}
+
+// GetError returns TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResult.Error, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResult) GetError() *TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultErrorAiServiceConfigTestError {
+	return v.Error
+}
+
+// GetUsed returns TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResult.Used, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResult) GetUsed() *TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed {
+	return v.Used
+}
+
+// GetKnobs returns TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResult.Knobs, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResult) GetKnobs() []*TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultKnobsAiConfigTestKnob {
+	return v.Knobs
+}
+
+// TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultErrorAiServiceConfigTestError includes the requested fields of the GraphQL type AiServiceConfigTestError.
+type TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultErrorAiServiceConfigTestError struct {
+	// NO_API_KEY | KEY_UNREADABLE (the stored key cannot be decrypted here; re-enter it) | CONFIG_INVALID (the config cannot be built at all, e.g. a malformed Bedrock key; no call made) | QUOTA_EXCEEDED (a platform-funded test with the org's daily token allowance used up; no call made) | LLM_CALL_FAILED (the provider call failed or timed out; see transient)
+	Code string `json:"code"`
+	// Provider error text, scrubbed of the key and truncated.
+	Message   string `json:"message"`
+	Transient bool   `json:"transient"`
+}
+
+// GetCode returns TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultErrorAiServiceConfigTestError.Code, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultErrorAiServiceConfigTestError) GetCode() string {
+	return v.Code
+}
+
+// GetMessage returns TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultErrorAiServiceConfigTestError.Message, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultErrorAiServiceConfigTestError) GetMessage() string {
+	return v.Message
+}
+
+// GetTransient returns TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultErrorAiServiceConfigTestError.Transient, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultErrorAiServiceConfigTestError) GetTransient() bool {
+	return v.Transient
+}
+
+// TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultKnobsAiConfigTestKnob includes the requested fields of the GraphQL type AiConfigTestKnob.
+// The GraphQL type's documentation follows.
+//
+// #1417: what one provider knob in the effective params did on the call.
+type TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultKnobsAiConfigTestKnob struct {
+	// The params key, e.g. temperature.
+	Param string `json:"param"`
+	// SENT (carried to the provider, no adapter warning) | ADJUSTED (sent, but the adapter changed the value, e.g. clamped to its range) | DROPPED (the adapter removed it, e.g. temperature on a reasoning model) | NOT_SENT (the platform does not forward it; see detail)
+	State string `json:"state"`
+	// Why it was not sent, or the adapter's own warning text.
+	Detail *string `json:"detail"`
+}
+
+// GetParam returns TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultKnobsAiConfigTestKnob.Param, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultKnobsAiConfigTestKnob) GetParam() string {
+	return v.Param
+}
+
+// GetState returns TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultKnobsAiConfigTestKnob.State, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultKnobsAiConfigTestKnob) GetState() string {
+	return v.State
+}
+
+// GetDetail returns TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultKnobsAiConfigTestKnob.Detail, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultKnobsAiConfigTestKnob) GetDetail() *string {
+	return v.Detail
+}
+
+// TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed includes the requested fields of the GraphQL type AiServiceConfigTestUsed.
+// The GraphQL type's documentation follows.
+//
+// #1378: per field, whether the test used the saved value or the override.
+type TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed struct {
+	Provider AiConfigTestValueSource `json:"provider"`
+	Model    AiConfigTestValueSource `json:"model"`
+	Endpoint AiConfigTestValueSource `json:"endpoint"`
+	ApiStyle AiConfigTestValueSource `json:"apiStyle"`
+	Key      AiConfigTestKeySource   `json:"key"`
+	Params   AiConfigTestValueSource `json:"params"`
+}
+
+// GetProvider returns TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed.Provider, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed) GetProvider() AiConfigTestValueSource {
+	return v.Provider
+}
+
+// GetModel returns TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed.Model, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed) GetModel() AiConfigTestValueSource {
+	return v.Model
+}
+
+// GetEndpoint returns TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed.Endpoint, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed) GetEndpoint() AiConfigTestValueSource {
+	return v.Endpoint
+}
+
+// GetApiStyle returns TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed.ApiStyle, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed) GetApiStyle() AiConfigTestValueSource {
+	return v.ApiStyle
+}
+
+// GetKey returns TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed.Key, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed) GetKey() AiConfigTestKeySource {
+	return v.Key
+}
+
+// GetParams returns TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed.Params, and is useful for accessing the field via an interface.
+func (v *TestAiServiceConfigTestAiServiceConfigAiServiceConfigTestResultUsedAiServiceConfigTestUsed) GetParams() AiConfigTestValueSource {
+	return v.Params
+}
+
 // TickerAppFloorAppTickerSettings includes the requested fields of the GraphQL type AppTickerSettings.
 // The GraphQL type's documentation follows.
 //
@@ -74713,6 +75766,209 @@ func (v *UpdateAiServiceConfigUpdateAiServiceConfig) __premarshalJSON() (*__prem
 	retval.Enabled = v.AiServiceConfigFields.Enabled
 	retval.CreatedAt = v.AiServiceConfigFields.CreatedAt
 	retval.UpdatedAt = v.AiServiceConfigFields.UpdatedAt
+	return &retval, nil
+}
+
+// UpdateAiServiceConfigWithApiStyleResponse is returned by UpdateAiServiceConfigWithApiStyle on success.
+type UpdateAiServiceConfigWithApiStyleResponse struct {
+	// 036-ai-service-config: update a named AI config. All fields optional.
+	//
+	// apiKey semantics: omitted = keep the stored key; empty string =
+	// clear it (explicit null also clears); non-empty = replace (encrypted,
+	// preview recomputed). The RESULTING config is held to createAiServiceConfig's key rule, so
+	// clearing the key of a config that needs one is refused.
+	//
+	// Auth: the same owner-aware credential gate as createAiServiceConfig;
+	// managing a user-owned Agent through a platform role alone does not grant
+	// access to its stored credential.
+	UpdateAiServiceConfig *UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig `json:"updateAiServiceConfig"`
+}
+
+// GetUpdateAiServiceConfig returns UpdateAiServiceConfigWithApiStyleResponse.UpdateAiServiceConfig, and is useful for accessing the field via an interface.
+func (v *UpdateAiServiceConfigWithApiStyleResponse) GetUpdateAiServiceConfig() *UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig {
+	return v.UpdateAiServiceConfig
+}
+
+// UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig includes the requested fields of the GraphQL type AiServiceConfig.
+// The GraphQL type's documentation follows.
+//
+// 036-ai-service-config: a named AI service configuration (masked
+// management view — never carries key material beyond the preview).
+// Owned by exactly one of HadronServer / Organization / App / Agent.
+// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// returns the first ENABLED config with the requested name. Well-known
+// fallback name: 'default' (conventional extras: 'fast', 'frontier').
+// Name is unique per owner.
+type UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig struct {
+	AiServiceConfigStyleFields `json:"-"`
+}
+
+// GetApiStyle returns UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig.ApiStyle, and is useful for accessing the field via an interface.
+func (v *UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig) GetApiStyle() *AiApiStyle {
+	return v.AiServiceConfigStyleFields.ApiStyle
+}
+
+// GetEffectiveApiStyle returns UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig.EffectiveApiStyle, and is useful for accessing the field via an interface.
+func (v *UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig) GetEffectiveApiStyle() *AiApiStyle {
+	return v.AiServiceConfigStyleFields.EffectiveApiStyle
+}
+
+// GetId returns UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig.Id, and is useful for accessing the field via an interface.
+func (v *UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig) GetId() string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Id
+}
+
+// GetName returns UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig.Name, and is useful for accessing the field via an interface.
+func (v *UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig) GetName() string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Name
+}
+
+// GetOwnerType returns UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig.OwnerType, and is useful for accessing the field via an interface.
+func (v *UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig) GetOwnerType() AiConfigOwnerType {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.OwnerType
+}
+
+// GetOwnerId returns UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig.OwnerId, and is useful for accessing the field via an interface.
+func (v *UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig) GetOwnerId() string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.OwnerId
+}
+
+// GetProvider returns UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig.Provider, and is useful for accessing the field via an interface.
+func (v *UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig) GetProvider() string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Provider
+}
+
+// GetModel returns UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig.Model, and is useful for accessing the field via an interface.
+func (v *UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig) GetModel() string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Model
+}
+
+// GetHasApiKey returns UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig.HasApiKey, and is useful for accessing the field via an interface.
+func (v *UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig) GetHasApiKey() bool {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.HasApiKey
+}
+
+// GetApiKeyPreview returns UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig.ApiKeyPreview, and is useful for accessing the field via an interface.
+func (v *UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig) GetApiKeyPreview() *string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.ApiKeyPreview
+}
+
+// GetParams returns UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig.Params, and is useful for accessing the field via an interface.
+func (v *UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig) GetParams() *json.RawMessage {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Params
+}
+
+// GetEndpoint returns UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig.Endpoint, and is useful for accessing the field via an interface.
+func (v *UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig) GetEndpoint() *string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Endpoint
+}
+
+// GetEffectiveEndpoint returns UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig.EffectiveEndpoint, and is useful for accessing the field via an interface.
+func (v *UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig) GetEffectiveEndpoint() *string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.EffectiveEndpoint
+}
+
+// GetEnabled returns UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig.Enabled, and is useful for accessing the field via an interface.
+func (v *UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig) GetEnabled() bool {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Enabled
+}
+
+// GetCreatedAt returns UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig) GetCreatedAt() string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.CreatedAt
+}
+
+// GetUpdatedAt returns UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig) GetUpdatedAt() *string {
+	return v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.UpdatedAt
+}
+
+func (v *UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AiServiceConfigStyleFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig struct {
+	ApiStyle *AiApiStyle `json:"apiStyle"`
+
+	EffectiveApiStyle *AiApiStyle `json:"effectiveApiStyle"`
+
+	Id string `json:"id"`
+
+	Name string `json:"name"`
+
+	OwnerType AiConfigOwnerType `json:"ownerType"`
+
+	OwnerId string `json:"ownerId"`
+
+	Provider string `json:"provider"`
+
+	Model string `json:"model"`
+
+	HasApiKey bool `json:"hasApiKey"`
+
+	ApiKeyPreview *string `json:"apiKeyPreview"`
+
+	Params *json.RawMessage `json:"params"`
+
+	Endpoint *string `json:"endpoint"`
+
+	EffectiveEndpoint *string `json:"effectiveEndpoint"`
+
+	Enabled bool `json:"enabled"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+}
+
+func (v *UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig) __premarshalJSON() (*__premarshalUpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig, error) {
+	var retval __premarshalUpdateAiServiceConfigWithApiStyleUpdateAiServiceConfig
+
+	retval.ApiStyle = v.AiServiceConfigStyleFields.ApiStyle
+	retval.EffectiveApiStyle = v.AiServiceConfigStyleFields.EffectiveApiStyle
+	retval.Id = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Id
+	retval.Name = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Name
+	retval.OwnerType = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.OwnerType
+	retval.OwnerId = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.OwnerId
+	retval.Provider = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Provider
+	retval.Model = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Model
+	retval.HasApiKey = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.HasApiKey
+	retval.ApiKeyPreview = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.ApiKeyPreview
+	retval.Params = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Params
+	retval.Endpoint = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Endpoint
+	retval.EffectiveEndpoint = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.EffectiveEndpoint
+	retval.Enabled = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.Enabled
+	retval.CreatedAt = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.CreatedAt
+	retval.UpdatedAt = v.AiServiceConfigStyleFields.AiServiceConfigEndpointFields.UpdatedAt
 	return &retval, nil
 }
 
@@ -84207,6 +85463,22 @@ type __AiServiceConfigWithEndpointInput struct {
 // GetRef returns __AiServiceConfigWithEndpointInput.Ref, and is useful for accessing the field via an interface.
 func (v *__AiServiceConfigWithEndpointInput) GetRef() string { return v.Ref }
 
+// __AiServiceConfigsMaskedInput is used internally by genqlient
+type __AiServiceConfigsMaskedInput struct {
+	Filter *AiServiceConfigFilter `json:"filter,omitempty"`
+	Limit  *int                   `json:"limit,omitempty"`
+	Offset *int                   `json:"offset,omitempty"`
+}
+
+// GetFilter returns __AiServiceConfigsMaskedInput.Filter, and is useful for accessing the field via an interface.
+func (v *__AiServiceConfigsMaskedInput) GetFilter() *AiServiceConfigFilter { return v.Filter }
+
+// GetLimit returns __AiServiceConfigsMaskedInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AiServiceConfigsMaskedInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __AiServiceConfigsMaskedInput.Offset, and is useful for accessing the field via an interface.
+func (v *__AiServiceConfigsMaskedInput) GetOffset() *int { return v.Offset }
+
 // __AlarmAcknowledgeInput is used internally by genqlient
 type __AlarmAcknowledgeInput struct {
 	EventId string `json:"eventId"`
@@ -85113,6 +86385,42 @@ func (v *__ClearAgentTasksIndexInput) GetRef() string { return v.Ref }
 // GetTasksIndexRef returns __ClearAgentTasksIndexInput.TasksIndexRef, and is useful for accessing the field via an interface.
 func (v *__ClearAgentTasksIndexInput) GetTasksIndexRef() *string { return v.TasksIndexRef }
 
+// __ClearAiServiceConfigApiStyleInput is used internally by genqlient
+type __ClearAiServiceConfigApiStyleInput struct {
+	Id       string           `json:"id"`
+	Name     *string          `json:"name,omitempty"`
+	Provider *string          `json:"provider,omitempty"`
+	Model    *string          `json:"model,omitempty"`
+	ApiKey   *string          `json:"apiKey,omitempty"`
+	Enabled  *bool            `json:"enabled,omitempty"`
+	Params   *json.RawMessage `json:"params,omitempty"`
+	Endpoint *string          `json:"endpoint,omitempty"`
+}
+
+// GetId returns __ClearAiServiceConfigApiStyleInput.Id, and is useful for accessing the field via an interface.
+func (v *__ClearAiServiceConfigApiStyleInput) GetId() string { return v.Id }
+
+// GetName returns __ClearAiServiceConfigApiStyleInput.Name, and is useful for accessing the field via an interface.
+func (v *__ClearAiServiceConfigApiStyleInput) GetName() *string { return v.Name }
+
+// GetProvider returns __ClearAiServiceConfigApiStyleInput.Provider, and is useful for accessing the field via an interface.
+func (v *__ClearAiServiceConfigApiStyleInput) GetProvider() *string { return v.Provider }
+
+// GetModel returns __ClearAiServiceConfigApiStyleInput.Model, and is useful for accessing the field via an interface.
+func (v *__ClearAiServiceConfigApiStyleInput) GetModel() *string { return v.Model }
+
+// GetApiKey returns __ClearAiServiceConfigApiStyleInput.ApiKey, and is useful for accessing the field via an interface.
+func (v *__ClearAiServiceConfigApiStyleInput) GetApiKey() *string { return v.ApiKey }
+
+// GetEnabled returns __ClearAiServiceConfigApiStyleInput.Enabled, and is useful for accessing the field via an interface.
+func (v *__ClearAiServiceConfigApiStyleInput) GetEnabled() *bool { return v.Enabled }
+
+// GetParams returns __ClearAiServiceConfigApiStyleInput.Params, and is useful for accessing the field via an interface.
+func (v *__ClearAiServiceConfigApiStyleInput) GetParams() *json.RawMessage { return v.Params }
+
+// GetEndpoint returns __ClearAiServiceConfigApiStyleInput.Endpoint, and is useful for accessing the field via an interface.
+func (v *__ClearAiServiceConfigApiStyleInput) GetEndpoint() *string { return v.Endpoint }
+
 // __ClearNodeHistoryInput is used internally by genqlient
 type __ClearNodeHistoryInput struct {
 	NodeRef string `json:"nodeRef"`
@@ -85428,6 +86736,52 @@ func (v *__CreateAiServiceConfigInput) GetEnabled() *bool { return v.Enabled }
 
 // GetParams returns __CreateAiServiceConfigInput.Params, and is useful for accessing the field via an interface.
 func (v *__CreateAiServiceConfigInput) GetParams() *json.RawMessage { return v.Params }
+
+// __CreateAiServiceConfigWithApiStyleInput is used internally by genqlient
+type __CreateAiServiceConfigWithApiStyleInput struct {
+	Name      string            `json:"name"`
+	Provider  string            `json:"provider"`
+	Model     string            `json:"model"`
+	OwnerId   string            `json:"ownerId"`
+	OwnerType AiConfigOwnerType `json:"ownerType"`
+	ApiStyle  AiApiStyle        `json:"apiStyle"`
+	ApiKey    *string           `json:"apiKey,omitempty"`
+	Enabled   *bool             `json:"enabled,omitempty"`
+	Params    *json.RawMessage  `json:"params,omitempty"`
+	Endpoint  *string           `json:"endpoint,omitempty"`
+}
+
+// GetName returns __CreateAiServiceConfigWithApiStyleInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateAiServiceConfigWithApiStyleInput) GetName() string { return v.Name }
+
+// GetProvider returns __CreateAiServiceConfigWithApiStyleInput.Provider, and is useful for accessing the field via an interface.
+func (v *__CreateAiServiceConfigWithApiStyleInput) GetProvider() string { return v.Provider }
+
+// GetModel returns __CreateAiServiceConfigWithApiStyleInput.Model, and is useful for accessing the field via an interface.
+func (v *__CreateAiServiceConfigWithApiStyleInput) GetModel() string { return v.Model }
+
+// GetOwnerId returns __CreateAiServiceConfigWithApiStyleInput.OwnerId, and is useful for accessing the field via an interface.
+func (v *__CreateAiServiceConfigWithApiStyleInput) GetOwnerId() string { return v.OwnerId }
+
+// GetOwnerType returns __CreateAiServiceConfigWithApiStyleInput.OwnerType, and is useful for accessing the field via an interface.
+func (v *__CreateAiServiceConfigWithApiStyleInput) GetOwnerType() AiConfigOwnerType {
+	return v.OwnerType
+}
+
+// GetApiStyle returns __CreateAiServiceConfigWithApiStyleInput.ApiStyle, and is useful for accessing the field via an interface.
+func (v *__CreateAiServiceConfigWithApiStyleInput) GetApiStyle() AiApiStyle { return v.ApiStyle }
+
+// GetApiKey returns __CreateAiServiceConfigWithApiStyleInput.ApiKey, and is useful for accessing the field via an interface.
+func (v *__CreateAiServiceConfigWithApiStyleInput) GetApiKey() *string { return v.ApiKey }
+
+// GetEnabled returns __CreateAiServiceConfigWithApiStyleInput.Enabled, and is useful for accessing the field via an interface.
+func (v *__CreateAiServiceConfigWithApiStyleInput) GetEnabled() *bool { return v.Enabled }
+
+// GetParams returns __CreateAiServiceConfigWithApiStyleInput.Params, and is useful for accessing the field via an interface.
+func (v *__CreateAiServiceConfigWithApiStyleInput) GetParams() *json.RawMessage { return v.Params }
+
+// GetEndpoint returns __CreateAiServiceConfigWithApiStyleInput.Endpoint, and is useful for accessing the field via an interface.
+func (v *__CreateAiServiceConfigWithApiStyleInput) GetEndpoint() *string { return v.Endpoint }
 
 // __CreateAiServiceConfigWithEndpointInput is used internally by genqlient
 type __CreateAiServiceConfigWithEndpointInput struct {
@@ -90131,6 +91485,20 @@ func (v *__TeamWorkItemsLegacyInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __TeamWorkItemsLegacyInput.Offset, and is useful for accessing the field via an interface.
 func (v *__TeamWorkItemsLegacyInput) GetOffset() *int { return v.Offset }
 
+// __TestAiServiceConfigInput is used internally by genqlient
+type __TestAiServiceConfigInput struct {
+	Id       string                                `json:"id"`
+	Override *gqltypes.AiServiceConfigTestOverride `json:"override,omitempty"`
+}
+
+// GetId returns __TestAiServiceConfigInput.Id, and is useful for accessing the field via an interface.
+func (v *__TestAiServiceConfigInput) GetId() string { return v.Id }
+
+// GetOverride returns __TestAiServiceConfigInput.Override, and is useful for accessing the field via an interface.
+func (v *__TestAiServiceConfigInput) GetOverride() *gqltypes.AiServiceConfigTestOverride {
+	return v.Override
+}
+
 // __TickerAppFloorInput is used internally by genqlient
 type __TickerAppFloorInput struct {
 	AppRef string `json:"appRef"`
@@ -90386,6 +91754,46 @@ func (v *__UpdateAiServiceConfigInput) GetEnabled() *bool { return v.Enabled }
 
 // GetParams returns __UpdateAiServiceConfigInput.Params, and is useful for accessing the field via an interface.
 func (v *__UpdateAiServiceConfigInput) GetParams() *json.RawMessage { return v.Params }
+
+// __UpdateAiServiceConfigWithApiStyleInput is used internally by genqlient
+type __UpdateAiServiceConfigWithApiStyleInput struct {
+	Id       string           `json:"id"`
+	ApiStyle AiApiStyle       `json:"apiStyle"`
+	Name     *string          `json:"name,omitempty"`
+	Provider *string          `json:"provider,omitempty"`
+	Model    *string          `json:"model,omitempty"`
+	ApiKey   *string          `json:"apiKey,omitempty"`
+	Enabled  *bool            `json:"enabled,omitempty"`
+	Params   *json.RawMessage `json:"params,omitempty"`
+	Endpoint *string          `json:"endpoint,omitempty"`
+}
+
+// GetId returns __UpdateAiServiceConfigWithApiStyleInput.Id, and is useful for accessing the field via an interface.
+func (v *__UpdateAiServiceConfigWithApiStyleInput) GetId() string { return v.Id }
+
+// GetApiStyle returns __UpdateAiServiceConfigWithApiStyleInput.ApiStyle, and is useful for accessing the field via an interface.
+func (v *__UpdateAiServiceConfigWithApiStyleInput) GetApiStyle() AiApiStyle { return v.ApiStyle }
+
+// GetName returns __UpdateAiServiceConfigWithApiStyleInput.Name, and is useful for accessing the field via an interface.
+func (v *__UpdateAiServiceConfigWithApiStyleInput) GetName() *string { return v.Name }
+
+// GetProvider returns __UpdateAiServiceConfigWithApiStyleInput.Provider, and is useful for accessing the field via an interface.
+func (v *__UpdateAiServiceConfigWithApiStyleInput) GetProvider() *string { return v.Provider }
+
+// GetModel returns __UpdateAiServiceConfigWithApiStyleInput.Model, and is useful for accessing the field via an interface.
+func (v *__UpdateAiServiceConfigWithApiStyleInput) GetModel() *string { return v.Model }
+
+// GetApiKey returns __UpdateAiServiceConfigWithApiStyleInput.ApiKey, and is useful for accessing the field via an interface.
+func (v *__UpdateAiServiceConfigWithApiStyleInput) GetApiKey() *string { return v.ApiKey }
+
+// GetEnabled returns __UpdateAiServiceConfigWithApiStyleInput.Enabled, and is useful for accessing the field via an interface.
+func (v *__UpdateAiServiceConfigWithApiStyleInput) GetEnabled() *bool { return v.Enabled }
+
+// GetParams returns __UpdateAiServiceConfigWithApiStyleInput.Params, and is useful for accessing the field via an interface.
+func (v *__UpdateAiServiceConfigWithApiStyleInput) GetParams() *json.RawMessage { return v.Params }
+
+// GetEndpoint returns __UpdateAiServiceConfigWithApiStyleInput.Endpoint, and is useful for accessing the field via an interface.
+func (v *__UpdateAiServiceConfigWithApiStyleInput) GetEndpoint() *string { return v.Endpoint }
 
 // __UpdateAiServiceConfigWithEndpointInput is used internally by genqlient
 type __UpdateAiServiceConfigWithEndpointInput struct {
@@ -95321,6 +96729,68 @@ func AiServiceConfigWithEndpoint(
 	return data_, err_
 }
 
+// The query executed by AiServiceConfigsMasked.
+const AiServiceConfigsMasked_Operation = `
+query AiServiceConfigsMasked ($filter: AiServiceConfigFilter, $limit: Int, $offset: Int) {
+	aiServiceConfigs(filter: $filter, limit: $limit, offset: $offset) {
+		items {
+			... AiServiceConfigStyleFields
+		}
+		total
+	}
+}
+fragment AiServiceConfigStyleFields on AiServiceConfig {
+	... AiServiceConfigEndpointFields
+	apiStyle
+	effectiveApiStyle
+}
+fragment AiServiceConfigEndpointFields on AiServiceConfig {
+	id
+	name
+	ownerType
+	ownerId
+	provider
+	model
+	hasApiKey
+	apiKeyPreview
+	params
+	endpoint
+	effectiveEndpoint
+	enabled
+	createdAt
+	updatedAt
+}
+`
+
+func AiServiceConfigsMasked(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	filter *AiServiceConfigFilter,
+	limit *int,
+	offset *int,
+) (data_ *AiServiceConfigsMaskedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AiServiceConfigsMasked",
+		Query:  AiServiceConfigsMasked_Operation,
+		Variables: &__AiServiceConfigsMaskedInput{
+			Filter: filter,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &AiServiceConfigsMaskedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by AlarmAcknowledge.
 const AlarmAcknowledge_Operation = `
 mutation AlarmAcknowledge ($eventId: ID!) {
@@ -98545,6 +100015,76 @@ func ClearAgentTasksIndex(
 	return data_, err_
 }
 
+// The mutation executed by ClearAiServiceConfigApiStyle.
+const ClearAiServiceConfigApiStyle_Operation = `
+mutation ClearAiServiceConfigApiStyle ($id: ID!, $name: String, $provider: String, $model: String, $apiKey: String, $enabled: Boolean, $params: JSON, $endpoint: String) {
+	updateAiServiceConfig(id: $id, apiStyle: null, name: $name, provider: $provider, model: $model, apiKey: $apiKey, enabled: $enabled, params: $params, endpoint: $endpoint) {
+		... AiServiceConfigStyleFields
+	}
+}
+fragment AiServiceConfigStyleFields on AiServiceConfig {
+	... AiServiceConfigEndpointFields
+	apiStyle
+	effectiveApiStyle
+}
+fragment AiServiceConfigEndpointFields on AiServiceConfig {
+	id
+	name
+	ownerType
+	ownerId
+	provider
+	model
+	hasApiKey
+	apiKeyPreview
+	params
+	endpoint
+	effectiveEndpoint
+	enabled
+	createdAt
+	updatedAt
+}
+`
+
+// Explicit null clears the override; every other optional field still omits.
+func ClearAiServiceConfigApiStyle(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	name *string,
+	provider *string,
+	model *string,
+	apiKey *string,
+	enabled *bool,
+	params *json.RawMessage,
+	endpoint *string,
+) (data_ *ClearAiServiceConfigApiStyleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ClearAiServiceConfigApiStyle",
+		Query:  ClearAiServiceConfigApiStyle_Operation,
+		Variables: &__ClearAiServiceConfigApiStyleInput{
+			Id:       id,
+			Name:     name,
+			Provider: provider,
+			Model:    model,
+			ApiKey:   apiKey,
+			Enabled:  enabled,
+			Params:   params,
+			Endpoint: endpoint,
+		},
+	}
+
+	data_ = &ClearAiServiceConfigApiStyleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by ClearNodeHistory.
 const ClearNodeHistory_Operation = `
 mutation ClearNodeHistory ($nodeRef: ID!) {
@@ -99742,6 +101282,79 @@ func CreateAiServiceConfig(
 	}
 
 	data_ = &CreateAiServiceConfigResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateAiServiceConfigWithApiStyle.
+const CreateAiServiceConfigWithApiStyle_Operation = `
+mutation CreateAiServiceConfigWithApiStyle ($name: String!, $provider: String!, $model: String!, $ownerId: ID!, $ownerType: AiConfigOwnerType!, $apiStyle: AiApiStyle!, $apiKey: String, $enabled: Boolean, $params: JSON, $endpoint: String) {
+	createAiServiceConfig(name: $name, provider: $provider, model: $model, ownerId: $ownerId, ownerType: $ownerType, apiStyle: $apiStyle, apiKey: $apiKey, enabled: $enabled, params: $params, endpoint: $endpoint) {
+		... AiServiceConfigStyleFields
+	}
+}
+fragment AiServiceConfigStyleFields on AiServiceConfig {
+	... AiServiceConfigEndpointFields
+	apiStyle
+	effectiveApiStyle
+}
+fragment AiServiceConfigEndpointFields on AiServiceConfig {
+	id
+	name
+	ownerType
+	ownerId
+	provider
+	model
+	hasApiKey
+	apiKeyPreview
+	params
+	endpoint
+	effectiveEndpoint
+	enabled
+	createdAt
+	updatedAt
+}
+`
+
+func CreateAiServiceConfigWithApiStyle(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	name string,
+	provider string,
+	model string,
+	ownerId string,
+	ownerType AiConfigOwnerType,
+	apiStyle AiApiStyle,
+	apiKey *string,
+	enabled *bool,
+	params *json.RawMessage,
+	endpoint *string,
+) (data_ *CreateAiServiceConfigWithApiStyleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateAiServiceConfigWithApiStyle",
+		Query:  CreateAiServiceConfigWithApiStyle_Operation,
+		Variables: &__CreateAiServiceConfigWithApiStyleInput{
+			Name:      name,
+			Provider:  provider,
+			Model:     model,
+			OwnerId:   ownerId,
+			OwnerType: ownerType,
+			ApiStyle:  apiStyle,
+			ApiKey:    apiKey,
+			Enabled:   enabled,
+			Params:    params,
+			Endpoint:  endpoint,
+		},
+	}
+
+	data_ = &CreateAiServiceConfigWithApiStyleResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -117912,6 +119525,66 @@ func TeamWorkItemsLegacy(
 	return data_, err_
 }
 
+// The mutation executed by TestAiServiceConfig.
+const TestAiServiceConfig_Operation = `
+mutation TestAiServiceConfig ($id: ID!, $override: AiServiceConfigTestOverride) {
+	testAiServiceConfig(id: $id, override: $override) {
+		ok
+		provider
+		model
+		endpoint
+		apiStyle
+		latencyMs
+		reply
+		error {
+			code
+			message
+			transient
+		}
+		used {
+			provider
+			model
+			endpoint
+			apiStyle
+			key
+			params
+		}
+		knobs {
+			param
+			state
+			detail
+		}
+	}
+}
+`
+
+func TestAiServiceConfig(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	override *gqltypes.AiServiceConfigTestOverride,
+) (data_ *TestAiServiceConfigResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TestAiServiceConfig",
+		Query:  TestAiServiceConfig_Operation,
+		Variables: &__TestAiServiceConfigInput{
+			Id:       id,
+			Override: override,
+		},
+	}
+
+	data_ = &TestAiServiceConfigResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by TickerAppFloor.
 const TickerAppFloor_Operation = `
 query TickerAppFloor ($appRef: String!) {
@@ -118706,6 +120379,77 @@ func UpdateAiServiceConfig(
 	}
 
 	data_ = &UpdateAiServiceConfigResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateAiServiceConfigWithApiStyle.
+const UpdateAiServiceConfigWithApiStyle_Operation = `
+mutation UpdateAiServiceConfigWithApiStyle ($id: ID!, $apiStyle: AiApiStyle!, $name: String, $provider: String, $model: String, $apiKey: String, $enabled: Boolean, $params: JSON, $endpoint: String) {
+	updateAiServiceConfig(id: $id, apiStyle: $apiStyle, name: $name, provider: $provider, model: $model, apiKey: $apiKey, enabled: $enabled, params: $params, endpoint: $endpoint) {
+		... AiServiceConfigStyleFields
+	}
+}
+fragment AiServiceConfigStyleFields on AiServiceConfig {
+	... AiServiceConfigEndpointFields
+	apiStyle
+	effectiveApiStyle
+}
+fragment AiServiceConfigEndpointFields on AiServiceConfig {
+	id
+	name
+	ownerType
+	ownerId
+	provider
+	model
+	hasApiKey
+	apiKeyPreview
+	params
+	endpoint
+	effectiveEndpoint
+	enabled
+	createdAt
+	updatedAt
+}
+`
+
+func UpdateAiServiceConfigWithApiStyle(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	apiStyle AiApiStyle,
+	name *string,
+	provider *string,
+	model *string,
+	apiKey *string,
+	enabled *bool,
+	params *json.RawMessage,
+	endpoint *string,
+) (data_ *UpdateAiServiceConfigWithApiStyleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateAiServiceConfigWithApiStyle",
+		Query:  UpdateAiServiceConfigWithApiStyle_Operation,
+		Variables: &__UpdateAiServiceConfigWithApiStyleInput{
+			Id:       id,
+			ApiStyle: apiStyle,
+			Name:     name,
+			Provider: provider,
+			Model:    model,
+			ApiKey:   apiKey,
+			Enabled:  enabled,
+			Params:   params,
+			Endpoint: endpoint,
+		},
+	}
+
+	data_ = &UpdateAiServiceConfigWithApiStyleResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
