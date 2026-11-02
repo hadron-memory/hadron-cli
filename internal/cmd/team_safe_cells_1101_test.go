@@ -43,8 +43,6 @@ func TestTeamSafeCells1101(t *testing.T) {
 	}
 	base := taskResponses()
 	base["TeamReportingLines"] = base["TeamRoster"]
-	base["TeamAttentionPage"] = attentionJSON
-	base["TeamAttentionPreviewPage"] = switchoverPreviewJSON
 	base["TeamComposition"] = composition1085
 	base["TeamRoles"] = teamRolesJSON
 	base["AppAgentRoster"] = engTeamRosterJSON
@@ -248,14 +246,6 @@ func TestTeamSafeCells1101(t *testing.T) {
 		}},
 		{"session-whoami-reports-to", []string{"session", "whoami"}, whoamiStamped, "TeamSessionsPage", []cellAttack{
 			{"reports-to", "Rufus Leadmark"},
-		}},
-		{"attention", []string{"attention"}, fixed(base), "TeamAttentionPage", []cellAttack{
-			{"worker", "Iris"},
-			{"channel", "team"},
-		}},
-		{"switchover-preview", []string{"attention", "switchover", "preview"}, fixed(base), "TeamAttentionPreviewPage", []cellAttack{
-			{"worker", "Iris"},
-			{"channel", "team"},
 		}},
 		{"availability", []string{"availability", "get"}, fixed(base), "TeamAvailability", []cellAttack{
 			{"worker", "Rufus"},

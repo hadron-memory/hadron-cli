@@ -422,8 +422,8 @@ hadron team chat post <body|-> [--reply-to <seq>] [--as-me] [--orca-host-config 
 # **THREAD (cli#1262):** `--thread <seq>` returns the DIRECT replies to that message (never the message itself, never replies-to-replies; a reply's own thread is `--thread <its seq>`), filtered by the server, composing with `--since/--before/--limit/--all`. A seq naming no message is exit **4** (typed refusal, never an empty page); a message with no replies is a valid empty page, exit 0. A thread read is a filtered window: it never advances the watermark or server read state (use `team chat mark-read`).
 # Team-chat post refusals (cli#1306): TEAM_CHAT_DUPLICATE and TEAM_CHAT_POST_RATE_LIMITED exit 5 (Conflict), retaining the server's message (earlier seq, or limit/reset time). --json error adds serverCode for these two refusals beside numeric code and message. A post or reply is sent once; the CLI never retries either refusal. TEAM_CHAT_BODY_TOO_LARGE remains exit 2. The node-addressed `hadron chat post --node …` door (cli#1319) maps the same three the same way (pinned): one CreateChannelMessage, no retry; only CHANNEL_NOT_FOUND creates the Channel and posts once more, and a refusal of that second post is not retried either.
 # Chat-history search (cli#1327): `hadron team chat search <query> [--limit <n>] [--cursor <c>]` (uses --app or the binding) and `hadron channel search <id|address> <query> [--limit <n>] [--cursor <c>]` search ONE chat newest-first for a literal, case-insensitive substring. Results are REFERENCES only (`items[]`: seq, urn, nodeId, channelId, channelIncarnation; no body or snippet); read a hit with `team chat read [--app <ref>] --since <seq-1> --limit 1` (the text hint repeats the `--app` you searched with) / `channel read <id> --since <seq-1> --limit 1`. `--json` is the server page: `{channelId, channelIncarnation, complete, cursor, items}` (`items` is `[]` when empty, `cursor` null when complete). `complete:false` means a full page or the server scan bound stopped the search, NOT "no matches": rerun with the SAME query and `--cursor <cursor>`; only an empty page with `complete:true` means none. The server owns query length, default/max `--limit` and the scan bound; the CLI passes `--limit`/`--cursor` through unclamped. Refusals keep the server code in the `--json` error as `serverCode`: TEAM_CHAT_SEARCH_QUERY_LENGTH and TEAM_CHAT_SEARCH_CURSOR_INVALID exit 2, TEAM_CHAT_SEARCH_ENCRYPTED exit 5 (an encrypted chat is refused, never an empty page), `--limit` below 1 BAD_USER_INPUT exit 2, an unreadable/unknown Channel exit 4. A search changes no read position and marks nothing read.
-hadron team attention [--since <token>] (uses --app or the binding)
-hadron team attention switchover preview | apply --proof <proof> [--yes] (uses --app or the binding)
+hadron team attention [--since <token>]   # RETIRED (cli#935, hadron-server#2027): exits 2 (Usage) with "hadron team attention is retired (hadron-server#2027). It has no replacement unread or token view. Read your own chat with "hadron team chat read"."; --json gives the standard error envelope; reads no config or credentials, makes no request, never echoes --since
+hadron team attention switchover preview | apply [--proof <proof>] [--yes]   # RETIRED (cli#935): exits 2 with the same text plus " No backlog was marked read."; nothing is marked read, --proof is never echoed
 hadron team task create <title> [--priority 1..5] [--blocked-by <task>]… [--description <d>] [--assignee <party>] [--owner <party>] [--parent <id>] [--project] [--start-by <iso>] [--tag <t>]… [--source <s>] [--external-id <id>] [--ref <kind>=<target>[|<label>]]… [--status backlog|pending] [--require-role <r>] [--min-tier low|mid|high] [--family-in|--family-not-in <a,b>] [--model-group <name,...>] [--model-group-not <name,...>] [--exclude-worker <w>]… [--properties <json|@file>] [--close-session|--no-close-session] (uses --app or the binding) | assign|reassign <taskId> --assignee <party> [--close-session|--no-close-session] | start|progress|cancel <taskId> | park|ready <taskId> | finish <taskId> --outcome <word> [--summary <s>] [--evidence <url>] | hand-back <taskRef> --code missing-input|cannot-do|refused|out-of-scope|duplicate [--text <t>] (cli#1517, server#2651, cor:agt:050:29: the assignee hands a STARTED task back to the queue; code is case-insensitive and the enum names MISSING_INPUT etc. are accepted; a missing or unknown --code exits 2 before any call; --text up to 2,000 characters, the server's limit, never pre-trimmed and omitted when not given; refusals map TASK_NOT_FOUND 4, TASK_NOT_ASSIGNEE 8, TASK_ENDED/TASK_INVALID_TRANSITION/APP_UNINSTALLED 5, BAD_USER_INPUT/SESSION_NOT_BOUND 2, with --json carrying the error envelope, no partial task; text prints `Handed back: <CODE> at <time>[: <text>]` with the text made one-line and control-free and no dangling colon; --json = the task + warnings) | get <taskId> | list [--status <s>]… [--text <words>] [--assignee <party>] [--owner <party>] [--tag <t>] [--external-id <id>] [--ref <target> [--ref-kind <kind>]] [--queued] [--roots-only] [--parent <id>] [--limit N] [--offset N] (uses --app or the binding) | list --team[=worker:<ref>] [--status <s>]… [--tree] [--stale-over <duration>] (cli#1044: a coordinator's work in flight. Team = the coordinator (bare --team = the bound worker; the value must be attached with =) plus every worker whose roster reportsTo chain reaches them, in this App. Rows = the App's tasks a team member owns, is assigned or created (a task a person created, or a worker outside the team created, does not join through its creator; match stays party), plus all their descendants. It reads every page, never truncates, and refuses a non-advancing page (exit 1). --status applies after the join. --stale-over keeps PENDING/STARTED tasks idle longer than the duration, measured from updatedAt, else startedAt, else createdAt, and adds a stderr note that records lag. An unknown coordinator exits 4. No other App is read (server#2370). The only flags it combines with are --status/--tree/--stale-over, and --text (case-insensitive title/description substring, server-validated 1–200 characters after trimming); text uses a second paged server read and intersects after the full team join. Other plain filters are refused (exit 2). --json = {appId, coordinator, coordinatorSource, members, staleOverSeconds, tasks:[task + ownerTeam/assigneeTeam team|outside|unknown|user|null, match party|descendant, ageSeconds, ageFrom]}; --tree changes text only) | find-untracked --integration <name> [--team <worker>] [--ready only|exclude|any] [--repo <owner/name>] [--skip N] [--limit N] [--assign-to-me] (cli#1524; see "Task integrations") | mine [--limit N] [--offset N] (needs the binding: the bound worker's PENDING+STARTED tasks, fixed filters) | tree <rootTaskId>   # a party is worker:<id|urn|name> or user:<id|handle>; close-when-done defaults to NO at create (the assigner opts in with --close-session; hadron-server#2249), while assign|reassign with neither flag keep the stored value; writes are the bound worker's when a session is bound; create|assign|reassign|finish|start|progress|cancel|park|ready may succeed WITH server warnings (cli#962, server#2198; the five simple verbs since cli#1283, e.g. task.cancel.open-children): text mode adds stderr lines `warning: [<code>] <text>` (+ ` → <taskUrn>` when the register maps it, ` (no task mapped)` when unmapped) after the unchanged stdout receipt; --json adds `warnings: [{code, text, register: {state, taskLoc, taskUrn} | null}]`, always present, [] when none; codes and text are the server's verbatim (unknown codes included); exit code unchanged, and a failed call prints no warnings; the create|assign|reassign receipts and `get` print `close session when done: yes|no` from the server-returned value (the same boolean as --json `closeSessionWhenDone`, cor:agt:050:10) — yes adds that finishing or cancelling asks the assignee to end its worker session and the platform may end it after a grace period (through a live host), no is the bare line; the command itself never ends one, and declining the request does not keep the session, so pass --no-close-session at create (or on the assign that first names a queued task's assignee) for a long-lived assignee (cli#958); the platform may end a flagged session through the worker's live host after a grace period (10 minutes by default, set per App), the choice has no in-place setter, and reassigning a task to its current assignee is refused (TASK_INVALID_TRANSITION, exit 5) with the choice unchanged (cli#959)
 # Task handles (cli#1131, cor:agt:050:01): every task carries a server-derived handle (`AT3.405` = project AT3, then its number under each parent; `AT0.<n>` = no project) and `taskNumber`, which are additive: --json keeps `id` and every existing key and adds `handle` and `taskNumber`; text output prints the handle BEFORE the full id (list/mine/--team tables gain a leading HANDLE column; get, tree and the mutation receipts name `AT3.405 <id>`), and a server that returns no handle prints today's output (list/mine/--team then omit the HANDLE column); the task commands REQUIRE a server that serves `handle`/`taskNumber` (hadron-server#2579): an older server rejects every task query as a schema-skew refusal (exit 2, no fallback); task refusals print terminal-safe on stderr (controls neutralised, 1024-rune bound) while the --json error envelope keeps the server's raw text; every command that takes a task id (get|tree|start|progress|finish|cancel|assign|reassign|park|ready, `create --parent`, `list --parent`) also takes a handle, bare (`AT3.405`, case-insensitive) or qualified (`hrn:agenttask:<root>:<app-slug>:AT3.405`), passed to the server byte for byte (the CLI never parses, composes or allocates one); a bare handle held by several Apps is refused by the server with TASK_HANDLE_QUALIFY naming the qualified form, and an unknown handle or another App's handle answers as an unknown id; `create --project` makes a top-level project (AT1, AT2, …) instead of a task under the reserved no-project AT0: sent only when the flag is given (`--project=false` sends false), refused by the server with --parent or an AT0 parent, no client-side authority check; AT0 never appears in `list`/`--roots-only` output; event/roster/alarm lines still print bare ids (epic #2614 S6).
 hadron team roster (uses --app or the binding)   # states are plan-derived, rendered as the server derives them; MODEL (self-reported) and TIER (server high/mid/low, null = unbound/unreported/unmapped) sit beside FAMILY, advisory only and never authorization; the table ends with a 'free for work by tier' line tallying the rows the server marked freeForWork (NOT state AVAILABLE), unrecognised/null tiers under unknown (table only; --json adds model, modelReportedAt, tier and keeps every earlier key). `team worker list` gains the same MODEL/TIER columns and --json keys, plus a FAMILY column and `family` key (cli#887; also on `worker get --json`): the server's recorded family as sent, null/dash = unknown, never inferred from a tool or host (`claude-code` is not a family). Needs a server that serves these fields (older servers reject the query, no fallback) ; HELD BY (name, else @handle) + SINCE show the holder of the worker name (heldBy {id,handle,urn,name}|null + heldAt in --json, additive; a name the server withheld is null and renders like an unset one, cli#1032) TERMINAL column (cli#1375, hadron-server#2771): the worker's latest host terminal report as `status (age)` / `status (reason, age)` (busy|idle|locked|dark; age from checkedAt on every reported row, display only), a dash when null; --json adds `terminal {host{id,label},status,prompt,reason,lastTurnAt,checkedAt,reportedAt} | null`, additive. Like model/tier it needs a server that serves the field: an older server's rejection surfaces as the schema-skew refusal. `team worker get` shows a `terminal:` line and the same `terminal` key from its own operation, so an older server falls back to null. GROUPS column (cli#1485 S3, hadron-server#3026, cor:agt:060:12): the model groups the worker's model is in NOW, computed live by the server — live matching information, never authorization, never computed by the CLI. `--json` adds `modelGroups` (a list; `[]` is a real answer: no reported model or no group matches, shown as a dash) and `modelGroupsError` (null, or the server's error code for a row whose group lookup failed, in which case `modelGroups` is null and the text reads `unavailable (CODE)`). That per-row field error is the ONLY server error the roster tolerates, and only at exactly `teamRoster.workers[i].modelGroups` on a null value; any other or mixed error fails the whole command, and a null with no matching error fails closed (never `[]`). `team worker get` shows a `model groups:` line (nothing for `[]`, `unavailable` for a withheld null) and `modelGroups` in `--json`, read in its own operation, and fails on ANY error there (no tolerated path). Needs a server with #3026: an older server's rejection is not tolerated on either command. REPORTS TO column (cli#1085): the server reportsTo party, "(retired)" marked, a dash for none; --json already carries reportsTo/reportsToRetired.
@@ -457,7 +457,7 @@ hadron team health status   # read-only; json {installed,scheduler,active,interv
 hadron team usage collect --config <usage.yaml> [-m <memory>]   # cli#1472: record one account-usage object per configured model account (5h/7d allowance windows); validates every account first, exit 2 and NOTHING written on any bad config/snapshot/ccusage file; see "Team usage"
 hadron team usage show [--config <usage.yaml> | -m <memory>] [--limit 1-200]   # per-account current 5h/7d use, resets, burn rate %/h, projected exhaustsAt; json {memory,accounts:[]}; unknown is null
 hadron team usage install --config <usage.yaml> --interval <Nm> [--bin <abs hadron>] | uninstall | status   # a second user-level scheduler entry `hadron-team-usage` beside team health's; same refusals and json shapes minus orca
-hadron team router poll | loop [--interval 60s] | status [--config <path>]   # the Orca attention router (cli#829), on YOUR login: types one nudge line into an idle, empty-prompt roster worker's Orca terminal; never reads/posts/marks chat. Config: --config, $HADRON_ROUTER_CONFIG, ~/.config/hadron/team-router/config.json, else the TS router's config (same state dir + writer lock). poll --json {at, ok, error, nudged, dropped, covered, held{name:reason}, adopted, liveness, livenessDropped}; a failed poll exits 1 with the token unchanged; no config exit 2; status reads local state only (never the token)
+hadron team router poll | loop [--interval 60s] | status [--config <path>]   # RETIRED (cli#935, hadron-server#2027): each exits 2 (Usage) with "hadron team router is retired (hadron-server#2027): the attention API it polled is being removed. Wakes come from tickers (hadron-server#2138). Nothing was polled or typed."; --json gives the standard error envelope; it reads no config, state directory or credentials, polls nothing and types into no terminal; old flags are accepted and ignored, unknown flags stay usage errors
 hadron org resend-sender create --org <ref> --from <identity> [--api-key-file <path|->] [--enabled=false] | get <sender-id> | list [--org-id <raw-id>] [--limit N] [--offset N] | update <sender-id> [--from <identity>] [--api-key-file <path|->] [--enabled=false] | rm <sender-id> --yes
 hadron user invite [--email <email>] [--github-username <name>] [--name <display-name>] [--expires-in-days N] [--max-activations N]   # platform invitation, not org membership; no email sent; deliver the returned acceptance slug privately
 hadron user search [query] [--limit N] [--offset N] | set-roles <userRef> --role <r>... --yes | merge <source> --into <target> --yes | delete [--user <ref>] [--reason <text>] --yes
@@ -3097,7 +3097,7 @@ server error fails the command).
   as the next `--before`. The two cursors compose for a bounded slice.
   `--limit` sizes one page (1–200). Only **`--all`** walks forward to exhaustion,
   from seq 0 unless `--since` is given; it cannot combine with `--before` or
-  `--limit`. The Orca attention router polls `team attention`, not this command.
+  `--limit`.
   **Freshness (#801):** a separate unfiltered head probe runs before the page.
   An empty/short unfiltered forward page or a newest page that ends below that
   baseline is suspected incomplete/stale delivery: exit 5, messages still rendered, nothing marked
@@ -3161,37 +3161,24 @@ server error fails the command).
   unfired. Warning, never refusal; NOT suppressed by `--json`, since stderr
   leaves the stdout contract untouched. The `--json` shapes are unchanged
   and the reads issue no extra call under `--json`.
-  **Team attention** (hadron-server#1353/#1384). `team attention [--since <token>]` is what a
-  team-chat ROUTER polls: which of YOUR live workers have relevant unread chat,
-  with no message bodies and no read-state change. It drains the server's
-  bounded pages before printing any result; a partial scan yields no token
-  and exits with an error. On an older server without the paged field, it
-  uses the legacy query. `--json`:
-  `{app, token, workers:[{worker, name, urn, live, channels:[{channel, name,
-  unread, unreadMentions, firstUnreadSeq, lastSeq}]}]}` (`workers` is `[]` when
-  idle). Pass the returned `token` as the next `--since` **only after every
-  listed nudge was accepted**; on any failure keep the previous token — a retry
-  may duplicate a nudge but cannot lose one. The CLI never stores the token. An
-  empty `--since` is refused (exit 2 — usually an unset variable); `--since now`
-  is refused by the server (exit 2): discarding a backlog is the explicit
-  **`attention switchover preview`** (read-only; drains every preview page
-  before printing the short-lived `proof`; reports each worker's first unread
-  and through seqs) then **`attention switchover
-  apply --proof <proof>`** (prompts on a TTY, `--yes` otherwise; atomic; a
-  stale proof exits **5** — preview again). A token or proof the server did not
-  sign for this operator+App exits 2; a token overtaken by a moved watermark
-  exits 5 (poll again without `--since`). With no `--app` and no App context
-  the App comes from the worktree binding, and a binding made against ANOTHER
-  server is refused (exit 2): App ids are not unique across deployments. An
-  explicit `--app` still works.
-  **A bound worker's `chat read` now marks its messages read on the server**,
-  which is what stops the router nudging it. It happens only
+  **Team attention is retired** (cli#935; hadron-server#2027, decision
+  issuecomment-6567317725). `team attention [--since <token>]`,
+  `team attention switchover preview|apply` and `team router poll|loop|status`
+  remain as discoverable stubs with no expiry. Each exits 2 (Usage) with a fixed
+  retirement message (the standard error envelope under `--json`), makes no
+  request, reads no config, credentials, binding or state directory, types into
+  no terminal, and never echoes a `--since` or `--proof` value. Old flags are
+  accepted and ignored so the message is reached; an unknown flag is an ordinary
+  usage error. There is no replacement unread or token view: read your own chat
+  with `team chat read`. Wakes come from tickers (hadron-server#2138).
+  **A bound worker's `chat read` now marks its messages read on the server**.
+  It happens only
   AFTER the messages were printed, for exactly the reads that record the
   binding's watermark (unfiltered, contiguous, not `--before`, own App, and a
   binding that records this server — a `--limit` page included), through the
   highest seq shown: the read itself carries no session, so a read that fails
   partway marks nothing (a
-  duplicate nudge, never a lost message). An older server that refuses the
+  repeated unread, never a lost message). An older server that refuses the
   mark skips it silently; other mark failures produce a stderr note, never a
   failed read. For the
   reads that don't count, **`chat mark-read --through <seq> [--channel <ref>]`**
@@ -3698,12 +3685,12 @@ Orca it refuses with exit 2 before any queue submission.
 `--apply` submits only typed `worktree.create` then `worker.start`, with
 server-side authority checks (starting requires the App manager; `--as-person`
 uses your own authority). It reuses identical operations on retry, and reports
-failed operations instead of reissuing them. Only three host-local steps follow:
-roster entry, exact-config reload confirmation from the current Go `team router
-loop`, and Orca display name. Set `--timeout` (1s–30m, per operation/reload) to
-allow the router's polling interval. A TS router has no reload receipt; upgrade
-the loop before applying. Onboard never casts, binds a session, writes a register
-row, or reads/writes the router's adopted token.
+failed operations instead of reissuing them. Only two host-local steps follow:
+roster entry and Orca display name. `--timeout` (1s–30m) bounds each queue
+operation. Routing is unverified: team router is retired (hadron-server#2027), so
+nothing confirms this roster entry is read. This command starts no replacement
+router (cli#935); `verified` never claims routing, and `humanRemainder` ends with
+that sentence. Onboard never casts, binds a session or writes a register row.
 
 `--json` returns `appId`, `appRef`, `dryRun`, `workerId`, `worktree`, `operations` (type/args),
 `queue` (known id/type/status), `verified`, `humanRemainder`, and nullable `error`.
@@ -3712,8 +3699,7 @@ timeouts leave submitted work running. Inspect `team host ops` after ambiguous
 submission errors before retrying. Onboarding separately verifies the worktree
 path/branch, a current worker session, an Orca agent terminal, and display
 metadata. The human tail asks for the worker's pickup and mention
-delivery to be checked. `team router loop` reloads validated configuration only
-between complete polls, writing a fingerprint/time receipt in `config-loaded.json`.
+delivery to be checked.
 
 ## Worker reporting relationships
 
@@ -4130,10 +4116,10 @@ chat bodies or task trees.
 
 The same SafeCell/256-rune policy covers role warning names, host-status
 host/app labels, worker/family/launch/worktree cells, registration metadata
-and read errors, composition/roster as-of values, attention tokens and preview
-expiry/proof, host-operation cursors, and stop-lift receipt ids. JSON retains
-the original values. Free-form task details, task trees, kept-worktree
-diagnostics and router-local rows are outside this metadata policy.
+and read errors, composition/roster as-of values, host-operation cursors, and
+stop-lift receipt ids. JSON retains the original values. Free-form task
+details, task trees and kept-worktree diagnostics are outside this metadata
+policy.
 
 A displayed value that was replaced or shortened is never reused in a
 copyable command or flag suggestion. Read the original token/cursor/proof
