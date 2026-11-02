@@ -39,12 +39,18 @@ func TestTaskMatching1549Wire(t *testing.T) {
 			if input == nil {
 				t.Fatal("no create")
 			}
+			if _, present := input["match"]; tc.match == nil && present {
+				t.Fatal("absent/false match must omit the key")
+			}
 			if input["match"] != tc.match {
 				t.Fatalf("match=%#v want %#v", input["match"], tc.match)
 			}
 			req, _ := input["requirements"].(map[string]any)
 			for key, want := range map[string]any{"role": tc.role, "roles": tc.roles, "team": tc.team} {
 				got := req[key]
+				if _, present := req[key]; want == nil && key != "role" && present {
+					t.Errorf("unset %s must be omitted", key)
+				}
 				a, _ := json.Marshal(got)
 				b, _ := json.Marshal(want)
 				if string(a) != string(b) {
@@ -261,5 +267,26 @@ func TestTaskMatching1549HumanSafety(t *testing.T) {
 	_ = json.Unmarshal([]byte(out), &dto)
 	if dto["matchFailure"].(map[string]any)["reason"] != hostile {
 		t.Fatal("JSON must preserve unknown reason verbatim")
+	}
+}
+
+func TestTaskMatching1549AbsentFilter(t *testing.T) {
+	r := taskResponses()
+	r["AgentTaskListFiltered"] = `{"data":{"agentTasks":[]}}`
+	calls, _, err := runTeamTask(t, r, "team", "task", "list", "--external-id", "x", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, c := range *calls {
+		if c.Op == "AgentTaskListFiltered" {
+			found = true
+			if _, ok := c.Vars["matchFailed"]; ok {
+				t.Fatal("absent match-failed must omit variable")
+			}
+		}
+	}
+	if !found {
+		t.Fatal("missing filtered request")
 	}
 }
