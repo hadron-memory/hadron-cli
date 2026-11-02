@@ -14,11 +14,22 @@ const installFlagHelp = "App install memory as <app>/<agent> (ids or fully-quali
 // installDetails is the shared Details paragraph for --install; extra adds
 // the one sentence that differs per command.
 func installDetails(extra string) string {
+	return installDetailsFor(extra, false)
+}
+
+func installReadDetails() string {
+	return installDetailsFor("", true)
+}
+
+func installDetailsFor(extra string, readOnly bool) string {
 	s := `--install <app>/<agent> works in the memory an App keeps for one installed
 Agent (its customisation memory) instead of -m. Give the App and the Agent as
 ids or full URNs, separated by /. It excludes -m, even an empty one, and node
-arguments are then bare locs inside that memory. Only an App manager may write
-there, and only while the App is live and the Agent installed. Being able to
+arguments are then bare locs inside that memory.`
+	if !readOnly {
+		s += " Only an App manager may write\nthere, and only while the App is live and the Agent installed."
+	}
+	s += ` Being able to
 see that the memory exists does not let you read or write it. A read never
 creates the memory: if it is unavailable, the read exits 4.`
 	if extra != "" {

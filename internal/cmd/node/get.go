@@ -83,7 +83,7 @@ Feedback counts (commentSummary in --json) come from a separate read: they are
 null (text: unavailable) when that read fails or the server is older, never a
 guessed zero.
 
-` + installDetails("") + ``,
+` + installReadDetails() + ``,
 		Example: `  hadron node get hrn:node:hadronmemory.com:dev:start-here
   hadron node get start-here -m hrn:mem:hadronmemory.com:dev --json
   hadron node get start-here preflight instructions -m hrn:mem:hadronmemory.com:dev --json
