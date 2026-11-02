@@ -125,6 +125,37 @@ func (v *AcknowledgeWakesResponse) GetAcknowledgeWakes() *AcknowledgeWakesAcknow
 	return v.AcknowledgeWakes
 }
 
+// AcquireEditorLockAcquireEditorLockEditorLockResult includes the requested fields of the GraphQL type EditorLockResult.
+type AcquireEditorLockAcquireEditorLockEditorLockResult struct {
+	Locked    bool    `json:"locked"`
+	LockedBy  *string `json:"lockedBy"`
+	ExpiresAt *string `json:"expiresAt"`
+}
+
+// GetLocked returns AcquireEditorLockAcquireEditorLockEditorLockResult.Locked, and is useful for accessing the field via an interface.
+func (v *AcquireEditorLockAcquireEditorLockEditorLockResult) GetLocked() bool { return v.Locked }
+
+// GetLockedBy returns AcquireEditorLockAcquireEditorLockEditorLockResult.LockedBy, and is useful for accessing the field via an interface.
+func (v *AcquireEditorLockAcquireEditorLockEditorLockResult) GetLockedBy() *string { return v.LockedBy }
+
+// GetExpiresAt returns AcquireEditorLockAcquireEditorLockEditorLockResult.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *AcquireEditorLockAcquireEditorLockEditorLockResult) GetExpiresAt() *string {
+	return v.ExpiresAt
+}
+
+// AcquireEditorLockResponse is returned by AcquireEditorLock on success.
+type AcquireEditorLockResponse struct {
+	// Acquire (or renew) the editor lock for an Agent's system memory.
+	//
+	// Accepts the entity's ID or URN.
+	AcquireEditorLock *AcquireEditorLockAcquireEditorLockEditorLockResult `json:"acquireEditorLock"`
+}
+
+// GetAcquireEditorLock returns AcquireEditorLockResponse.AcquireEditorLock, and is useful for accessing the field via an interface.
+func (v *AcquireEditorLockResponse) GetAcquireEditorLock() *AcquireEditorLockAcquireEditorLockEditorLockResult {
+	return v.AcquireEditorLock
+}
+
 // ActionTicketFields includes the GraphQL fields of ActionTicket requested by the fragment ActionTicketFields.
 // The GraphQL type's documentation follows.
 //
@@ -27551,6 +27582,39 @@ func (v *CreateReviewNodeResponse) GetCreateReviewNode() *CreateReviewNodeCreate
 	return v.CreateReviewNode
 }
 
+// CreateRevisionCreateRevisionRevisionResult includes the requested fields of the GraphQL type RevisionResult.
+type CreateRevisionCreateRevisionRevisionResult struct {
+	RevisionLoc string `json:"revisionLoc"`
+	Label       string `json:"label"`
+	Published   bool   `json:"published"`
+	CreatedAt   string `json:"createdAt"`
+}
+
+// GetRevisionLoc returns CreateRevisionCreateRevisionRevisionResult.RevisionLoc, and is useful for accessing the field via an interface.
+func (v *CreateRevisionCreateRevisionRevisionResult) GetRevisionLoc() string { return v.RevisionLoc }
+
+// GetLabel returns CreateRevisionCreateRevisionRevisionResult.Label, and is useful for accessing the field via an interface.
+func (v *CreateRevisionCreateRevisionRevisionResult) GetLabel() string { return v.Label }
+
+// GetPublished returns CreateRevisionCreateRevisionRevisionResult.Published, and is useful for accessing the field via an interface.
+func (v *CreateRevisionCreateRevisionRevisionResult) GetPublished() bool { return v.Published }
+
+// GetCreatedAt returns CreateRevisionCreateRevisionRevisionResult.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateRevisionCreateRevisionRevisionResult) GetCreatedAt() string { return v.CreatedAt }
+
+// CreateRevisionResponse is returned by CreateRevision on success.
+type CreateRevisionResponse struct {
+	// Snapshot an Agent's system memory as a new revision.
+	//
+	// Accepts the entity's ID or URN.
+	CreateRevision *CreateRevisionCreateRevisionRevisionResult `json:"createRevision"`
+}
+
+// GetCreateRevision returns CreateRevisionResponse.CreateRevision, and is useful for accessing the field via an interface.
+func (v *CreateRevisionResponse) GetCreateRevision() *CreateRevisionCreateRevisionRevisionResult {
+	return v.CreateRevision
+}
+
 // CreateScopeCreateScope includes the requested fields of the GraphQL type Scope.
 // The GraphQL type's documentation follows.
 //
@@ -52670,6 +52734,17 @@ var AllRegisterRole = []RegisterRole{
 	RegisterRolePost,
 	RegisterRoleWatch,
 }
+
+// ReleaseEditorLockResponse is returned by ReleaseEditorLock on success.
+type ReleaseEditorLockResponse struct {
+	// Release the editor lock for an Agent's system memory.
+	//
+	// Accepts the entity's ID or URN.
+	ReleaseEditorLock bool `json:"releaseEditorLock"`
+}
+
+// GetReleaseEditorLock returns ReleaseEditorLockResponse.ReleaseEditorLock, and is useful for accessing the field via an interface.
+func (v *ReleaseEditorLockResponse) GetReleaseEditorLock() bool { return v.ReleaseEditorLock }
 
 // ReleaseWorkerReleaseWorkerReleaseWorkerPayload includes the requested fields of the GraphQL type ReleaseWorkerPayload.
 // The GraphQL type's documentation follows.
@@ -82733,6 +82808,14 @@ type __AcknowledgeWakesInput struct {
 // GetProofs returns __AcknowledgeWakesInput.Proofs, and is useful for accessing the field via an interface.
 func (v *__AcknowledgeWakesInput) GetProofs() []string { return v.Proofs }
 
+// __AcquireEditorLockInput is used internally by genqlient
+type __AcquireEditorLockInput struct {
+	AgentId string `json:"agentId"`
+}
+
+// GetAgentId returns __AcquireEditorLockInput.AgentId, and is useful for accessing the field via an interface.
+func (v *__AcquireEditorLockInput) GetAgentId() string { return v.AgentId }
+
 // __ActionTicketsInput is used internally by genqlient
 type __ActionTicketsInput struct {
 	OrgRef string `json:"orgRef"`
@@ -85245,6 +85328,18 @@ type __CreateReviewNodeInput struct {
 // GetInput returns __CreateReviewNodeInput.Input, and is useful for accessing the field via an interface.
 func (v *__CreateReviewNodeInput) GetInput() *CreateNodeInput { return v.Input }
 
+// __CreateRevisionInput is used internally by genqlient
+type __CreateRevisionInput struct {
+	AgentId     string  `json:"agentId"`
+	Description *string `json:"description,omitempty"`
+}
+
+// GetAgentId returns __CreateRevisionInput.AgentId, and is useful for accessing the field via an interface.
+func (v *__CreateRevisionInput) GetAgentId() string { return v.AgentId }
+
+// GetDescription returns __CreateRevisionInput.Description, and is useful for accessing the field via an interface.
+func (v *__CreateRevisionInput) GetDescription() *string { return v.Description }
+
 // __CreateScopeInput is used internally by genqlient
 type __CreateScopeInput struct {
 	Input *CreateScopeInput `json:"input,omitempty"`
@@ -87628,6 +87723,14 @@ type __RegisterHostInput struct {
 
 // GetInput returns __RegisterHostInput.Input, and is useful for accessing the field via an interface.
 func (v *__RegisterHostInput) GetInput() *RegisterHostInput { return v.Input }
+
+// __ReleaseEditorLockInput is used internally by genqlient
+type __ReleaseEditorLockInput struct {
+	AgentId string `json:"agentId"`
+}
+
+// GetAgentId returns __ReleaseEditorLockInput.AgentId, and is useful for accessing the field via an interface.
+func (v *__ReleaseEditorLockInput) GetAgentId() string { return v.AgentId }
 
 // __ReleaseWorkerInput is used internally by genqlient
 type __ReleaseWorkerInput struct {
@@ -90848,6 +90951,44 @@ func AcknowledgeWakes(
 	}
 
 	data_ = &AcknowledgeWakesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by AcquireEditorLock.
+const AcquireEditorLock_Operation = `
+mutation AcquireEditorLock ($agentId: ID!) {
+	acquireEditorLock(agentId: $agentId) {
+		locked
+		lockedBy
+		expiresAt
+	}
+}
+`
+
+// Contention is a RESULT (locked:false, lockedBy, expiresAt), not a GraphQL
+// error; expiresAt and lockedBy are nullable and stay as returned.
+func AcquireEditorLock(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentId string,
+) (data_ *AcquireEditorLockResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AcquireEditorLock",
+		Query:  AcquireEditorLock_Operation,
+		Variables: &__AcquireEditorLockInput{
+			AgentId: agentId,
+		},
+	}
+
+	data_ = &AcquireEditorLockResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -100148,6 +100289,48 @@ func CreateReviewNode(
 	}
 
 	data_ = &CreateReviewNodeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateRevision.
+const CreateRevision_Operation = `
+mutation CreateRevision ($agentId: ID!, $description: String) {
+	createRevision(agentId: $agentId, description: $description) {
+		revisionLoc
+		label
+		published
+		createdAt
+	}
+}
+`
+
+// cli#61 first cut: the Agent system-memory draft workflow's snapshot and editor
+// lock. agentId goes to the server verbatim (ID or URN; no pre-resolve).
+// description is omitempty: unset leaves the server default.
+func CreateRevision(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentId string,
+	description *string,
+) (data_ *CreateRevisionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateRevision",
+		Query:  CreateRevision_Operation,
+		Variables: &__CreateRevisionInput{
+			AgentId:     agentId,
+			Description: description,
+		},
+	}
+
+	data_ = &CreateRevisionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -110225,6 +110408,38 @@ func RegisterHost(
 	}
 
 	data_ = &RegisterHostResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by ReleaseEditorLock.
+const ReleaseEditorLock_Operation = `
+mutation ReleaseEditorLock ($agentId: ID!) {
+	releaseEditorLock(agentId: $agentId)
+}
+`
+
+func ReleaseEditorLock(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentId string,
+) (data_ *ReleaseEditorLockResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ReleaseEditorLock",
+		Query:  ReleaseEditorLock_Operation,
+		Variables: &__ReleaseEditorLockInput{
+			AgentId: agentId,
+		},
+	}
+
+	data_ = &ReleaseEditorLockResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
