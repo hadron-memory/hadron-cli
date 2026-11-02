@@ -34,6 +34,30 @@ func TestTeamWorkerOnboardHelp837(t *testing.T) {
 	}
 }
 
+// cli#935 (Vera's FIT P3): the agentic contract states routing is unverified
+// in the same words as the output, and no longer describes a reload receipt.
+func TestTeamWorkerOnboardAgenticUsageRoutingUnverified935(t *testing.T) {
+	data, err := os.ReadFile("agentic/agentic-usage.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := string(data)
+	start := strings.Index(doc, "## Orca worker onboarding")
+	end := strings.Index(doc, "## Worker reporting relationships")
+	if start < 0 || end < start {
+		t.Fatal("agentic-usage has no Orca worker onboarding section")
+	}
+	section := strings.Join(strings.Fields(doc[start:end]), " ")
+	if want := "Routing is unverified: team router is retired (hadron-server#2027), so nothing confirms this roster entry is read. This command starts no replacement router"; !strings.Contains(section, want) {
+		t.Errorf("onboarding section lacks %q:\n%s", want, section)
+	}
+	for _, gone := range []string{"reload", "config-loaded.json", "team router loop"} {
+		if strings.Contains(section, gone) {
+			t.Errorf("onboarding section still mentions %q", gone)
+		}
+	}
+}
+
 // cli#935: the line every onboard result ends its humanRemainder with.
 const onboardRoutingUnverified935 = "Routing is unverified: team router is retired (hadron-server#2027), so nothing confirms this roster entry is read. This command starts no replacement router."
 

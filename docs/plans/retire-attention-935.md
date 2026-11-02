@@ -72,14 +72,33 @@ The coverage matrix classifies the five removed `team.graphql` fields with the
 existing class: `excluded deprecated: retired with no replacement
 (hadron-server#2027, comment 6567317725)`. No new class was invented.
 
-## Onboarding
+## Onboarding (gate addendum)
 
-`team worker onboard --apply` waits for a router reload receipt that only the
-retired `team router loop` wrote. The fix (drop the wait, add a
-routing-unverified line, remove `ReadReload`/`RecordReload`) is a gate
-addendum awaiting a scoped FIT
-([#935 comment 6568325982](https://github.com/hadron-memory/hadron-cli/issues/935#issuecomment-6568325982)).
-This section is updated with the as-built result once the addendum is ruled.
+`team worker onboard --apply` used to end by waiting for a router reload
+receipt (`config-loaded.json`), and only the retired `team router loop` wrote
+it. Keeping the wait would have made every `--apply` time out. The addendum
+([#935 comment 6568325982](https://github.com/hadron-memory/hadron-cli/issues/935#issuecomment-6568325982),
+Vera's FIT 6568382241, CHECKED by Xylon in team chat #65438) is built as follows:
+
+- after the roster entry, `--apply` goes straight to the display-name step:
+  no reload wait and no reload claim. `verified` on success is exactly
+  `Orca reachable`, `host registration`, `mention-only register row`,
+  `worktree.create succeeded`, `worker.start succeeded`, `roster entry`,
+  `Orca display name`;
+- `humanRemainder` ends, in dry-run and apply alike, with
+  `Routing is unverified: team router is retired (hadron-server#2027), so nothing confirms this roster entry is read. This command starts no replacement router.`
+- help: "Only two host-local steps follow: roster entry and Orca display
+  name. Routing is not verified: team router is retired (hadron-server#2027)."
+  `--config` no longer points at `team router --help`; `--timeout` bounds each
+  queue operation only (range unchanged);
+- everything else is unchanged: preflight, queue steps, the current-session,
+  worktree and terminal checks, the roster write, display name, exit codes
+  and `--json` keys;
+- `teamrouter.ReadReload`, `RecordReload` and `ReloadReceipt` are deleted.
+  After this change their only callers were onboard's wait and a roster test
+  case.
+- agentic-usage's onboarding section says the same, and a test pins that
+  sentence (Vera's P3).
 
 ## Not in this slice
 
@@ -122,3 +141,11 @@ message (attention, switchover tail, router); flag value echoed; a config
 read; a removed old flag (`--proof`, `--interval`); help no longer saying
 retired, in its own help and in the parent listing; the router stub parsing
 its `--config` with the error ignored (caught only by the FIFO pin).
+
+Onboard pins (`team_worker_onboard_test.go`, red on the pre-addendum head
+first): `--apply` succeeds with no receipt inside `--timeout 1s`; the exact
+`verified` list; the routing line last in `humanRemainder` in both modes; no
+`config-loaded.json`; help without `team router loop` or `reload`; the
+agentic-usage sentence. Mutants killed: re-adding the reload claim; re-adding
+a receipt wait; dropping the routing line; help mentioning a reload;
+dropping the roster write.

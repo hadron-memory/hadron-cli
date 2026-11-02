@@ -3674,12 +3674,12 @@ Orca it refuses with exit 2 before any queue submission.
 `--apply` submits only typed `worktree.create` then `worker.start`, with
 server-side authority checks (starting requires the App manager; `--as-person`
 uses your own authority). It reuses identical operations on retry, and reports
-failed operations instead of reissuing them. Only three host-local steps follow:
-roster entry, exact-config reload confirmation from the current Go `team router
-loop`, and Orca display name. Set `--timeout` (1s–30m, per operation/reload) to
-allow the router's polling interval. A TS router has no reload receipt; upgrade
-the loop before applying. Onboard never casts, binds a session, writes a register
-row, or reads/writes the router's adopted token.
+failed operations instead of reissuing them. Only two host-local steps follow:
+roster entry and Orca display name. `--timeout` (1s–30m) bounds each queue
+operation. Routing is unverified: team router is retired (hadron-server#2027), so
+nothing confirms this roster entry is read. This command starts no replacement
+router (cli#935); `verified` never claims routing, and `humanRemainder` ends with
+that sentence. Onboard never casts, binds a session or writes a register row.
 
 `--json` returns `appId`, `appRef`, `dryRun`, `workerId`, `worktree`, `operations` (type/args),
 `queue` (known id/type/status), `verified`, `humanRemainder`, and nullable `error`.
@@ -3688,8 +3688,7 @@ timeouts leave submitted work running. Inspect `team host ops` after ambiguous
 submission errors before retrying. Onboarding separately verifies the worktree
 path/branch, a current worker session, an Orca agent terminal, and display
 metadata. The human tail asks for the worker's pickup and mention
-delivery to be checked. `team router loop` reloads validated configuration only
-between complete polls, writing a fingerprint/time receipt in `config-loaded.json`.
+delivery to be checked.
 
 ## Worker reporting relationships
 
