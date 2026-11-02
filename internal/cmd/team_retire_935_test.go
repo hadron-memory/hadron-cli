@@ -42,7 +42,7 @@ func (tr trippedTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 // when touched: config load, token store, HTTP. The worktree binding path is
 // a directory, so a binding read errors instead of passing silently; the
 // router config named by the environment is not JSON, so a config read
-// errors too; and HADRON_TOKEN is unset (missing credentials).
+// errors too; and HADRON_TOKEN is set empty (no credentials from the env).
 func retiredFactory(t *testing.T) (*cmdutil.Factory, *strings.Builder, *strings.Builder) {
 	t.Helper()
 	f, out := testFactory(t)

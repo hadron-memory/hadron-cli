@@ -39,6 +39,7 @@ It is kept so that an old script or habit gets this answer rather than
 "unknown command". Its flags are still accepted and ignored. It reads no
 config or credentials and makes no request.`
 
+// The Factory is deliberately unused: a stub resolves nothing through it.
 func newCmdAttention(_ *cmdutil.Factory) *cobra.Command {
 	var since string
 	cmd := &cobra.Command{

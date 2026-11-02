@@ -149,3 +149,17 @@ first): `--apply` succeeds with no receipt inside `--timeout 1s`; the exact
 agentic-usage sentence. Mutants killed: re-adding the reload claim; re-adding
 a receipt wait; dropping the routing line; help mentioning a reload;
 dropping the roster write.
+
+## Review fixes (fix head over 693a9cb6)
+
+- UX (Uma) P2s: onboard help says what `--config` still does, defines routing
+  and names the check, keeping the addendum sentence verbatim; `team chat read`
+  help and the mark-read stderr note no longer mention a router nudge.
+- Security (Rook) P3-1/P3-2: the FIFO pin also makes the worktree binding a
+  FIFO and puts only a recording `orca` and `git` on PATH. P3-3, which already
+  existed on main, is #1546.
+- Blind (Gloria) P3-4/P3-6: comment fixes. P3-2: the bare `team router` and
+  `team attention switchover` groups print help and exit 0, which is cobra's
+  group behaviour and the same as before; every leaf is a stub. P3-1: the
+  gate keeps `ReadCursor`/`ChannelHead`. P3-5: the FIFO pin is unix-only; CI
+  runs on Linux.
