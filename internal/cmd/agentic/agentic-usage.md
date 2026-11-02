@@ -4188,8 +4188,10 @@ Compile refusal exit codes: permission/grant required 8; unavailable include
 source, retired/unavailable include revision or CONFLICT 5; malformed,
 cyclic, too-deep, disallowed include or compile limit exceeded 2. Other errors
 retain the normal API mapping. A lost response is 7 and has an unknown outcome:
-check the compiled node with `node get` before compiling again. No automatic
-retry is made, including after a conflict.
+check the compiled node with `node get` before compiling again. The message
+names the cause class in parentheses (a dropped connection, a timeout, an
+unreachable server or a gateway's HTTP status; cli#1157), never the response
+body. No automatic retry is made, including after a conflict.
 
 hadron team worker compile <worker> [--no-set-pointer]
 

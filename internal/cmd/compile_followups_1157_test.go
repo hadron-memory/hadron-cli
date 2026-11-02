@@ -146,7 +146,7 @@ func TestCompileLegacyWorkerURNIgnoresAmbient1157(t *testing.T) {
 
 // runCompile1157 sends the agent compile to a server that fails the request
 // in the given way, and counts what reached it.
-func runCompile1157(t *testing.T, h http.HandlerFunc) (error, int) {
+func runCompile1157(t *testing.T, h http.HandlerFunc) (int, error) {
 	t.Helper()
 	var hits int
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -157,7 +157,8 @@ func runCompile1157(t *testing.T, h http.HandlerFunc) (error, int) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs(append([]string{"--server", srv.URL}, c1Commands[0].args...))
-	return root.Execute(), hits
+	err := root.Execute()
+	return hits, err
 }
 
 func TestCompileUnknownOutcomeNamesBoundedCause1157(t *testing.T) {
@@ -183,7 +184,7 @@ func TestCompileUnknownOutcomeNamesBoundedCause1157(t *testing.T) {
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			err, hits := runCompile1157(t, tc.h)
+			hits, err := runCompile1157(t, tc.h)
 			if exitCodeFor(err) != 7 || hits != 1 {
 				t.Fatalf("err=%v hits=%d", err, hits)
 			}
@@ -216,7 +217,7 @@ func TestCompileHelpSynopsisLayout1157(t *testing.T) {
 					t.Errorf("line %d is %d columns: %q", i+1, len(line), line)
 				}
 			}
-			workerOnly := strings.Contains(long, "A worker may also be a name")
+			workerOnly := strings.Contains(long, "or a name in the selected App")
 			if workerOnly != (c.name == "worker") {
 				t.Errorf("worker-name paragraph in the %s help: %v", c.name, workerOnly)
 			}
