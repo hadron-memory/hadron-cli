@@ -52,7 +52,11 @@ query SessionInbox($appRef: String!, $workerRefs: [String!]!,
 }
 
 # hadron-cli#1178: the host poller's tick and task wakes (cor:agt:080:08,
-# :16), with the host key. No accepts, so no STOP notice is offered (this
+# :16), with the host key. tickText and action (hadron-cli#1534, floor
+# hadron-server#2733/7db74494, the same as #1281) are nullable values: null or
+# omitted keeps the composed fallback. A server without them refuses this
+# query at validation, which the poller fails closed on (no retry, nothing
+# typed). No accepts, so no STOP notice is offered (this
 # deliverer cannot type one); no workerRefs, so the key's host is the lane.
 query DueWakes($appRef: String!, $first: Int!,
  # @genqlient(omitempty: true)
@@ -65,6 +69,7 @@ query DueWakes($appRef: String!, $first: Int!,
     wakes {
       proof
       worker { id }
+      tickText
       deliverAfter
       busyDeadline
       channels { channel { id } }
@@ -72,6 +77,7 @@ query DueWakes($appRef: String!, $first: Int!,
         kind
         ticker { id name lastTickAt }
         task { eventId chainIndex event id title }
+        action { code state taskLoc taskUrn }
       }
     }
     pageInfo { hasNextPage endCursor }

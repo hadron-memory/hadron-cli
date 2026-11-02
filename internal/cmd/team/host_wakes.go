@@ -75,6 +75,12 @@ func wakeFrom(w *genWake) (delivery.Wake, error) {
 	if w.Worker != nil {
 		out.WorkerID = w.Worker.Id
 	}
+	// The server's line for the wake's ticks, as given: no trim, repair or
+	// cut (cor:agt:080:26). A null or omitted value is "" and the renderer
+	// composes its own line.
+	if w.TickText != nil {
+		out.TickText = *w.TickText
+	}
 	var err error
 	if out.DeliverAfter, err = time.Parse(time.RFC3339, w.DeliverAfter); err != nil {
 		return out, callError("wake-read", "bad-deliver-after")
@@ -105,6 +111,18 @@ func reasonFrom(r *genWakeReason) delivery.WakeReason {
 	}
 	if t := r.Task; t != nil {
 		out.Task = &delivery.TaskReason{EventID: t.EventId, ChainIndex: t.ChainIndex, Event: wakeEventWords(string(t.Event)), ID: t.Id, Title: t.Title}
+	}
+	// WakeReason.action as the server answered (cor:agt:080:23): code, state,
+	// loc and URN verbatim, never resolved or rendered here. WITHHELD stays
+	// WITHHELD, distinct from UNMAPPED.
+	if a := r.Action; a != nil {
+		out.Action = &delivery.TickAction{Code: a.Code, State: string(a.State)}
+		if a.TaskLoc != nil {
+			out.Action.TaskLoc = *a.TaskLoc
+		}
+		if a.TaskUrn != nil {
+			out.Action.TaskURN = *a.TaskUrn
+		}
 	}
 	return out
 }
