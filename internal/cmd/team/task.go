@@ -41,15 +41,16 @@ owns the lifecycle, the matcher and every permission check; each lifecycle
 write sends one mutation and prints the task the server returns, and each read
 prints the view its page describes.
 
-Server compatibility: task-record commands require a server containing
-hadron-server#3088 (finishBy) and hadron-server#3029 (model groups),
-even when neither flag is named. The shared task projection selects finishBy and
-modelGroupIn/modelGroupNotIn for get, list (including --team),
-mine, tree and every task mutation receipt (create, update, assign/reassign,
-start/progress/finish/cancel/park/ready, priority and blocker edits). An older
-server rejects those documents as schema skew, exit 2: upgrade that provider
-first, including self-hosted or staging servers. Omitted input keys do not
-hide output selections. The separate dependencies paging query is unaffected.
+Server compatibility: task-record commands require a provider containing
+hadron-server#3245 (matching metadata), hadron-server#3088 (finishBy) and
+hadron-server#3029 (model groups), even when neither flag is named and no
+matching flag is named. The shared projection selects matchFailure,
+requirements.roles/teamWorkerId, finishBy and modelGroupIn/modelGroupNotIn
+for every command returning a task record, including hand-back and
+find-untracked. An older server rejects those documents as schema skew,
+exit 2: upgrade that provider first, including self-hosted or staging servers.
+Omitted input keys do not hide output selections. The separate dependencies
+paging query is unaffected.
 
 A typical flow, from the person or worker handing out the work to the
 assignee working in its bound worktree (the handles here and on every page are
@@ -511,7 +512,7 @@ warnings list.`,
 				// and so does a claim's TASK_EXTERNAL_ID_TAKEN (cli#1524), so a
 				// script tells the duplicate from another conflict. Keep ordinary
 				// task-write error output unchanged when neither is named.
-				if match || len(roles) > 0 || cmd.Flags().Changed("team") || groupsIn != nil || groupsNotIn != nil || cmd.Flags().Changed("external-id") {
+				if match || len(roles) > 1 || cmd.Flags().Changed("team") || groupsIn != nil || groupsNotIn != nil || cmd.Flags().Changed("external-id") {
 					return api.WithServerCode(mapTaskError(err), err)
 				}
 				return mapTaskError(err)

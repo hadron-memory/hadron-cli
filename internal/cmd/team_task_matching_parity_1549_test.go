@@ -6,7 +6,9 @@ import (
 	"testing"
 )
 
-// Output hashes and create raw variables captured on fresh main29c58a0b.
+// Output hashes and create raw variables captured on fresh main2c468727.
+// Initially captured on29c58a0b; the three JSON hashes were re-pinned against
+// standalone main after1553 added finishBy:null. Human hashes/inputs unchanged.
 // The GraphQL document adds selections; unchanged inputs/output are the contract.
 func TestTaskMatching1549LegacyParity(t *testing.T) {
 	cases := []struct {
@@ -14,11 +16,11 @@ func TestTaskMatching1549LegacyParity(t *testing.T) {
 		args []string
 		want string
 	}{
-		{"create json", []string{"create", "example", "--json"}, "5b14c65736d9f48849fff9a6fd38967dadc66b50d5ec48c4ce46de767c90ac5e"},
+		{"create json", []string{"create", "example", "--json"}, "ef123ce9863e1f878f275bdeb26302dcefeb99b116c15ffaa7413cc448859834"},
 		{"create human", []string{"create", "example"}, "9f592f1fcb6e727886a55f1d0e9ca674b2d1c76a675e36c89429f2a7b661e6e0"},
-		{"get json", []string{"get", "task1", "--json"}, "6a4d52bbe8bf9eae53009f8cb5f18ee7dc563ba99dad249beb2bb88b595883d7"},
+		{"get json", []string{"get", "task1", "--json"}, "7151052bfaadddc59dc7fa7a8c015b6d03cc9ef23f97d92e23d534c25829d7f8"},
 		{"get human", []string{"get", "task1"}, "7b142eb9d2927fb33cb0cf711e9200bf4477eceacc34900721f0b9a4993a7d15"},
-		{"list json", []string{"list", "--json"}, "2340698fe31127434f13ac3de9e1d680551993288f9abaa65017f4a4c197ebf7"},
+		{"list json", []string{"list", "--json"}, "4c306c3440669022382ddd4a042886cbb237e8984d7a793d7a3475264d70b6f9"},
 		{"list human", []string{"list"}, "71ace79388fbcf77328ea206f6955986da515ac3cba40f6eb95511fdebc59e66"},
 	}
 	for _, tc := range cases {

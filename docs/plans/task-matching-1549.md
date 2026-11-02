@@ -40,3 +40,10 @@ empty role sent and metadata dropped. Synthetic tests cover flags, errors,
 clear-mark reads, unknown reasons, silent exit/writer precedence and safety.
 Real compiled CLI/raw GraphQL QA remains with Celine on her retained private
 server3245 stack; author fake tests do not substitute for that leg.
+
+Main merge after1553: base2c468727. Deadline and matching columns both retained;
+generated client/matrix rebuilt, agentic synopsis/sections combined. Legacy
+output hashes rechecked on a detached standalone2c468727 worktree: only the
+three JSON hashes changed from old29c58a0b because1553 adds finishBy:null;
+human output and raw create variables unchanged. Matching itself adds no
+keys to unmarked/no-new-requirement output.
