@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 )
 
 // ResetDeps is what the worker.reset-context handler needs beyond the
@@ -51,9 +52,15 @@ func (p *Poller) workerResetContext(ctx context.Context, op Operation) {
 			return
 		}
 	}
-	ref, _, ok := p.workerRef(op)
+	ref, w, ok := p.workerRef(op)
 	if !ok {
 		refuse("HOST_UNSUPPORTED", "the worker is not configured on this host")
+		return
+	}
+	// Without a recover prompt a relaunched agent would start with no
+	// recovery: refuse before anything is touched, never after a stop.
+	if len(w.Recover) == 0 {
+		refuse("HOST_UNSUPPORTED", "no recover prompt is configured for this worker on this host")
 		return
 	}
 	// Only an agent this poller launched, still running, can be reset: the
@@ -109,4 +116,42 @@ func (p *Poller) workerResetContext(ctx context.Context, op Operation) {
 		return
 	}
 	refuse("HOST_UNSUPPORTED", "the claim and later reset steps are not built on this host yet (hadron-cli#1043)")
+}
+
+// relaunchAgent starts the worker's agent again in the same worktree, after
+// its old process stopped. A reset is a shed, not a session end
+// (cor:agt:050:27 part 3): the binding and session stay, so the new agent
+// gets no launch grant and finds its kept binding where it runs. Then the
+// configured recover argv hands it the recovery prompt. It verifies on its
+// own evidence: a new process identity, the prompt delivered, the agent
+// still running. It returns the new identity, or a failure code
+// (RELAUNCH_BLOCKED: nothing started; RELAUNCH_UNVERIFIED: something started
+// but is not proven to be the recovered agent) and its detail.
+func (p *Poller) relaunchAgent(ctx context.Context, op Operation, w WorkerConfig, token string, old ProcessIdentity, checkpoint string) (ProcessIdentity, string, string) {
+	dir := p.cfg.WorktreePath(token)
+	agent, err := p.host.Launch(ctx, LaunchSpec{Argv: w.Launch, Dir: dir, Env: agentEnv(os.Environ(), p.key)})
+	if err != nil {
+		return ProcessIdentity{}, "RELAUNCH_BLOCKED", "launching the agent failed: " + err.Error()
+	}
+	p.trackAgent(op.WorkerID, token, agent)
+	h, err := p.resetDeps.Proc.Observe(agent.PID())
+	if err != nil {
+		return ProcessIdentity{}, "RELAUNCH_UNVERIFIED", "the relaunched agent could not be observed: " + err.Error()
+	}
+	defer h.Close()
+	id := h.Identity()
+	if id == old {
+		return ProcessIdentity{}, "RELAUNCH_UNVERIFIED", "the relaunched agent has the stopped agent's process identity"
+	}
+	env := agentEnv(os.Environ(), p.key, "HADRON_SESSION_ID="+argString(op, "sessionId"),
+		"HADRON_WORKER_ID="+op.WorkerID, "HADRON_RECOVERY_NODE="+checkpoint)
+	if err := p.host.Prompt(ctx, w.Recover, dir, env); err != nil {
+		return ProcessIdentity{}, "RELAUNCH_UNVERIFIED", "the recover prompt failed: " + err.Error()
+	}
+	select {
+	case <-agent.Done():
+		return ProcessIdentity{}, "RELAUNCH_UNVERIFIED", "the relaunched agent exited (" + agent.ExitDetail() + ")"
+	default:
+	}
+	return id, "", ""
 }

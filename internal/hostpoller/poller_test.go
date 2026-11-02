@@ -91,7 +91,12 @@ type fakeHost struct {
 	prompts  [][]string
 	agent    *fakeAgent
 	occupant string
-	alive    map[int]bool
+	// launchErr / promptErr fail Launch / Prompt; promptEnvs records each
+	// prompt's environment.
+	launchErr  error
+	promptErr  error
+	promptEnvs [][]string
+	alive      map[int]bool
 	// gate, when set, blocks Launch until closed (interleaving tests);
 	// entered is closed when Launch reaches it.
 	gate    chan struct{}
@@ -141,6 +146,9 @@ func (h *fakeHost) Launch(_ context.Context, spec LaunchSpec) (Agent, error) {
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	if h.launchErr != nil {
+		return nil, h.launchErr
+	}
 	h.launches = append(h.launches, spec)
 	if h.agent == nil {
 		h.agent = &fakeAgent{done: make(chan struct{})}
@@ -148,11 +156,12 @@ func (h *fakeHost) Launch(_ context.Context, spec LaunchSpec) (Agent, error) {
 	return h.agent, nil
 }
 
-func (h *fakeHost) Prompt(_ context.Context, argv []string, _ string, _ []string) error {
+func (h *fakeHost) Prompt(_ context.Context, argv []string, _ string, env []string) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.prompts = append(h.prompts, argv)
-	return nil
+	h.promptEnvs = append(h.promptEnvs, env)
+	return h.promptErr
 }
 
 const hostKey = "hk_secret_host_key_value"
@@ -166,7 +175,8 @@ func testPoller(t *testing.T) (*Poller, *fakeServer, *fakeHost) {
 		Repos: map[string]string{"acme/repo": "/src/repo"},
 		Workers: map[string]WorkerConfig{
 			"iris": {Family: "claude", Launch: []string{"claude-worker", "--model", "opus"},
-				End: []string{"orca-send", "iris", "end"}, EndWait: "20ms", Worktrees: []string{"repo/iris"}},
+				End: []string{"orca-send", "iris", "end"}, EndWait: "20ms", Worktrees: []string{"repo/iris"},
+				Recover: []string{"orca-send", "iris", "recover"}},
 		},
 	}
 	if err := cfg.validate(); err != nil {
