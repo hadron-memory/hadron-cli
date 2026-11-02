@@ -32,6 +32,7 @@ import (
 	commentcmd "github.com/hadron-memory/hadron-cli/internal/cmd/comment"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/configcmd"
 	connectioncmd "github.com/hadron-memory/hadron-cli/internal/cmd/connection"
+	decisioncmd "github.com/hadron-memory/hadron-cli/internal/cmd/decision"
 	discoverycmd "github.com/hadron-memory/hadron-cli/internal/cmd/discovery"
 	drivecmd "github.com/hadron-memory/hadron-cli/internal/cmd/drive"
 	edgecmd "github.com/hadron-memory/hadron-cli/internal/cmd/edge"
@@ -150,6 +151,7 @@ the binding is verified. Otherwise this does not apply to you.`,
 	root.AddCommand(channelcmd.NewCmdChannel(f))
 	root.AddCommand(replacecmd.NewCmdReplace(f))
 	root.AddCommand(speccmd.NewCmdSpec(f))
+	root.AddCommand(decisioncmd.NewCmdDecision(f))
 	root.AddCommand(skillcmd.NewCmdSkill(f))
 	root.AddCommand(codingcmd.NewCmdCoding(f))
 	root.AddCommand(appcmd.NewCmdApp(f))
