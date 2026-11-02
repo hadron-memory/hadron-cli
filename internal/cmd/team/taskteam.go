@@ -37,7 +37,7 @@ const teamTaskPageLimit = 500
 // these would either narrow the read below the recursion or page a view that
 // is not a page; refused rather than half-honoured.
 var teamListFlagConflicts = []string{"assignee", "owner", "parent", "tag", "queued", "roots-only", "limit", "offset",
-	"tag-any", "tag-all", "source", "ref", "ref-kind", "overdue",
+	"tag-any", "tag-all", "source", "external-id", "ref", "ref-kind", "overdue",
 	"created-after", "created-before", "started-after", "started-before", "finished-after", "finished-before"}
 
 // teamTaskDTO is one row of the team view: the plain task plus how it joined.

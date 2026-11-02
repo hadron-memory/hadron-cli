@@ -37,6 +37,10 @@ type Factory struct {
 	ConfigFn     func() (*config.Config, error)
 	TokenStoreFn func() store.Store
 
+	// DeliveryPending collects the optional messages-waiting metadata of every
+	// successful typed response (cli#1084); the entry point renders it once.
+	DeliveryPending *api.DeliveryPendingRecorder
+
 	cfg        *config.Config
 	tokenStore store.Store
 }
@@ -47,6 +51,8 @@ func NewFactory() *Factory {
 		HTTPClient:   &http.Client{Timeout: 30 * time.Second},
 		ConfigFn:     config.Load,
 		TokenStoreFn: store.Resolve,
+
+		DeliveryPending: &api.DeliveryPendingRecorder{},
 	}
 }
 
@@ -162,7 +168,7 @@ func (f *Factory) GraphQLClient() (graphql.Client, error) {
 	if source == auth.SourceNone {
 		return nil, exitcode.Newf(exitcode.AuthRequired, "not signed in to %s — run `hadron auth login` or set %s", server, store.EnvToken)
 	}
-	client, err := api.NewClient(server, token, f.HTTPClient)
+	client, err := api.NewClient(server, token, f.HTTPClient, api.WithDeliveryPending(f.DeliveryPending))
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +200,7 @@ func (f *Factory) PublicGraphQLClient() (client graphql.Client, authenticated bo
 		// permits plain http when there are no credentials to leak.
 		token = ""
 	}
-	c, err := api.NewClient(server, token, f.HTTPClient)
+	c, err := api.NewClient(server, token, f.HTTPClient, api.WithDeliveryPending(f.DeliveryPending))
 	if err != nil {
 		return nil, false, err
 	}

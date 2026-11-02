@@ -40,8 +40,9 @@ func newCmdTeamEvents(f *cmdutil.Factory) *cobra.Command {
 		Short: "The team App's task-work event stream",
 		Long: `Read the team App's append-only stream of task work — task.created,
 task.assigned, task.started, task.progress, task.finished, task.cancelled,
-task-stall and dark-worker alarms, availability.changed and the
-assignment/host events. The payload carries ids, counts and outcome words only, never message text.
+task-stall and dark-worker alarms, availability.changed, the
+assignment/host events and app.properties-changed (whose payload names the
+changed top-level keys, never values). The payload carries ids, counts and outcome words only, never message text.
 
 ORDER, so nobody is surprised by page one: the stream reads OLDEST-FIRST
 from the beginning of the App (the server's order, (createdAt, id)). Narrow
