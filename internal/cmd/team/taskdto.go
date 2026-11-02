@@ -27,6 +27,8 @@ type taskPartyDTO struct {
 }
 
 type taskRequirementsDTO struct {
+	Roles            []string `json:"roles,omitempty"`
+	TeamWorkerID     *string  `json:"teamWorkerId,omitempty"`
 	MinTier          *string  `json:"minTier"`
 	Role             *string  `json:"role"`
 	FamilyIn         []string `json:"familyIn"`
@@ -45,7 +47,13 @@ type taskResultDTO struct {
 // taskDTO is one task. OpenAlarms is set only by `task tree`, which joins the
 // unacknowledged alarms onto the nodes it renders; omitempty keeps the other
 // commands' shapes identical to the plain task read.
+type taskMatchFailureDTO struct {
+	Reason   string `json:"reason"`
+	FailedAt string `json:"failedAt"`
+}
+
 type taskDTO struct {
+	MatchFailure      *taskMatchFailureDTO   `json:"matchFailure,omitempty"`
 	Priority          int                    `json:"priority"`
 	Blocked           bool                   `json:"blocked"`
 	BlockedBy         *taskDependencyPageDTO `json:"blockedBy"`
@@ -131,6 +139,8 @@ func taskRequirementsDTOFrom(r *gen.AgentTaskFieldsRequirementsAgentTaskRequirem
 	}
 	dto := &taskRequirementsDTO{
 		Role:             r.Role,
+		Roles:            r.Roles,
+		TeamWorkerID:     r.TeamWorkerId,
 		MinTier:          r.MinTier,
 		FamilyIn:         []string{},
 		FamilyNotIn:      []string{},
@@ -216,6 +226,9 @@ func taskDTOFrom(fields gen.AgentTaskFields) taskDTO {
 		CloseSessionWhenDone: fields.CloseSessionWhenDone,
 		Requirements:         taskRequirementsDTOFrom(fields.Requirements),
 		Result:               taskResultDTOFrom(fields.Result),
+	}
+	if fields.MatchFailure != nil {
+		dto.MatchFailure = &taskMatchFailureDTO{Reason: fields.MatchFailure.Reason, FailedAt: fields.MatchFailure.FailedAt}
 	}
 	if p := fields.BlockedBy; p != nil {
 		dto.BlockedBy = dependencyPage(p.Total, p.HasMore, p.Items)

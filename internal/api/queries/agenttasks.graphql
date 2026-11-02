@@ -58,6 +58,7 @@ fragment AgentTaskFields on AgentTask {
   externalId
   references { kind target label }
   handBack { code text handedBackAt }
+  matchFailure { reason failedAt }
   startBy
   createdAt
   updatedAt
@@ -68,6 +69,8 @@ fragment AgentTaskFields on AgentTask {
   requirements {
     minTier
     role
+    roles
+    teamWorkerId
     familyIn
     familyNotIn
     modelGroupIn
@@ -112,6 +115,9 @@ fragment AgentTaskFields on AgentTask {
 # @genqlient(for: "AgentTaskReferenceInput.label", omitempty: true)
 # @genqlient(for: "AgentTaskRequirementsInput.modelGroupIn", omitempty: true)
 # @genqlient(for: "AgentTaskRequirementsInput.modelGroupNotIn", omitempty: true)
+# @genqlient(for: "CreateAgentTaskInput.match", omitempty: true)
+# @genqlient(for: "AgentTaskRequirementsInput.roles", omitempty: true)
+# @genqlient(for: "AgentTaskRequirementsInput.team", omitempty: true)
 mutation AgentTaskCreate(
   $input: CreateAgentTaskInput!
 ) {
@@ -574,6 +580,8 @@ query AgentTaskListFiltered(
   # @genqlient(omitempty: true)
   $finishedBefore: DateTime
   # @genqlient(omitempty: true)
+  $matchFailed: Boolean
+  # @genqlient(omitempty: true)
   $limit: Int
   # @genqlient(omitempty: true)
   $offset: Int
@@ -616,6 +624,7 @@ query AgentTaskListFiltered(
     createdBefore: $createdBefore
     finishedAfter: $finishedAfter
     finishedBefore: $finishedBefore
+    matchFailed: $matchFailed
     limit: $limit
     offset: $offset
     overdue: $overdue

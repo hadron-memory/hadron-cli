@@ -119,6 +119,11 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 	if err := renderDependencyPage(w, "blocks", task.Blocks); err != nil {
 		return err
 	}
+	if task.MatchFailure != nil {
+		if err := writeTaskMatchFailure(w, task.MatchFailure); err != nil {
+			return err
+		}
+	}
 	if task.Description != nil {
 		if err := line("  %s", output.SafeBlock(*task.Description, 20000, "    ")); err != nil {
 			return err
@@ -199,6 +204,16 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 		}
 	}
 	if task.Requirements != nil {
+		if len(task.Requirements.Roles) > 0 {
+			if err := line("  roles: %s", safeTaskRequirementList(task.Requirements.Roles)); err != nil {
+				return err
+			}
+		}
+		if task.Requirements.TeamWorkerID != nil {
+			if err := line("  team worker id: %s", output.SafeCell(*task.Requirements.TeamWorkerID)); err != nil {
+				return err
+			}
+		}
 		if task.Requirements.MinTier != nil {
 			if err := line("  minTier: %s", output.SafeCell(*task.Requirements.MinTier)); err != nil {
 				return err
@@ -266,7 +281,7 @@ func strOr(s *string) string {
 func newCmdTeamTaskList(f *cmdutil.Factory) *cobra.Command {
 	var statuses []string
 	var assignee, owner, parent, tag, team, staleOver, text string
-	var queued, rootsOnly, tree, overdue bool
+	var queued, rootsOnly, tree, overdue, matchFailed bool
 	var tagsAny, tagsAll []string
 	var source, externalID, refTarget, refKind string
 	var times [6]string
@@ -278,6 +293,13 @@ func newCmdTeamTaskList(f *cmdutil.Factory) *cobra.Command {
 		Long: `List the team App's tasks, newest first (the server's order). The App comes
 from --app, else the configured App context, else the worktree binding; with
 none of them the command is refused.
+
+--match-failed selects tasks marked by an unsuccessful create --match;
+--match-failed=false selects unmarked tasks. Omission keeps the old list.
+The server filters before paging under the App read gate. No results is []
+and exit 0. It cannot combine with the coordinator view --team (exit 2 before
+any read). Marked rows show the reason and time; JSON adds matchFailure only
+when present. Every task command requires provider server#3245 for these fields.
 
 Filters combine with AND, except that repeated --status values are
 alternatives (--status PENDING --status STARTED lists both). --status takes
@@ -424,6 +446,10 @@ ageFrom; --tree changes text only.`,
 					return exitcode.Newf(exitcode.Usage, "--%s is after --%s: the range is empty (bounds are inclusive; equal instants are valid)", taskTimeFlags[i], taskTimeFlags[i+1])
 				}
 			}
+			var matchFailedIn *bool
+			if cmd.Flags().Changed("match-failed") {
+				matchFailedIn = &matchFailed
+			}
 			var overdueIn *bool
 			if cmd.Flags().Changed("overdue") {
 				overdueIn = &overdue
@@ -443,6 +469,7 @@ ageFrom; --tree changes text only.`,
 				assignee: assigneeIn, owner: ownerIn, parent: optStr(parent), queued: optBool(queued),
 				rootsOnly: optBool(rootsOnly), status: status, tag: optStr(tag), text: textArg, limit: limit, offset: offset,
 				limitExplicit: cmd.Flags().Changed("limit"),
+				matchFailed:   matchFailedIn,
 				tagsAny:       nilIfEmpty(tagsAny), tagsAll: nilIfEmpty(tagsAll), source: optStr(source), externalID: optStr(externalID), reference: refFilter, overdue: overdueIn,
 				createdAfter: bounds[0], createdBefore: bounds[1], startedAfter: bounds[2], startedBefore: bounds[3],
 				finishedAfter: bounds[4], finishedBefore: bounds[5],
@@ -460,6 +487,7 @@ ageFrom; --tree changes text only.`,
 	cmd.Flags().StringVar(&externalID, "external-id", "", "the task claiming exactly this external id, such as an issue URL (no prefix matching)")
 	cmd.Flags().StringVar(&refTarget, "ref", "", "tasks carrying a reference with exactly this target (the label is ignored)")
 	cmd.Flags().StringVar(&refKind, "ref-kind", "", "narrow --ref to one kind ("+taskRefKindsDoc+")")
+	cmd.Flags().BoolVar(&matchFailed, "match-failed", false, "filter marked match failures; false selects unmarked tasks; not with list --team")
 	cmd.Flags().BoolVar(&overdue, "overdue", false, "start-by passed, not started, not ended, not backlog; --overdue=false lists all other tasks")
 	for i, name := range taskTimeFlags {
 		cmd.Flags().StringVar(&times[i], name, "", "RFC 3339 time with Z or an offset; inclusive bound")
@@ -492,6 +520,7 @@ type taskListQuery struct {
 	externalID                    *string
 	reference                     *gen.AgentTaskReferenceFilter
 	overdue                       *bool
+	matchFailed                   *bool
 	createdAfter, createdBefore   *string
 	startedAfter, startedBefore   *string
 	finishedAfter, finishedBefore *string
@@ -509,7 +538,7 @@ func nilIfEmpty(s []string) []string {
 
 // filtered reports whether a #1250 filter is set.
 func (q taskListQuery) filtered() bool {
-	return q.tagsAny != nil || q.tagsAll != nil || q.source != nil || q.externalID != nil || q.reference != nil || q.overdue != nil ||
+	return q.matchFailed != nil || q.tagsAny != nil || q.tagsAll != nil || q.source != nil || q.externalID != nil || q.reference != nil || q.overdue != nil ||
 		q.createdAfter != nil || q.createdBefore != nil || q.startedAfter != nil || q.startedBefore != nil ||
 		q.finishedAfter != nil || q.finishedBefore != nil
 }
@@ -534,7 +563,7 @@ func taskListPage(ctx context.Context, client graphql.Client, appRef string, q t
 	tasks := []taskDTO{}
 	if q.filtered() {
 		resp, err := gen.AgentTaskListFiltered(ctx, client, appRef, q.assignee, q.createdAfter, q.createdBefore, q.finishedAfter, q.finishedBefore,
-			&q.limit, &q.offset, q.overdue, q.owner, q.parent, q.queued, q.rootsOnly, q.reference, q.source, q.externalID, q.startedAfter, q.startedBefore,
+			q.matchFailed, &q.limit, &q.offset, q.overdue, q.owner, q.parent, q.queued, q.rootsOnly, q.reference, q.source, q.externalID, q.startedAfter, q.startedBefore,
 			q.status, q.tag, q.tagsAll, q.tagsAny, q.text)
 		if err != nil {
 			return nil, 0, mapTaskError(err)
@@ -597,7 +626,9 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 		withHandle := false
 		withMinTier := false
 		withGroups := false
+		withFailure := false
 		for _, task := range tasks {
+			withFailure = withFailure || task.MatchFailure != nil
 			withGroups = withGroups || (task.Requirements != nil && len(task.Requirements.ModelGroupIn)+len(task.Requirements.ModelGroupNotIn) > 0)
 			withMinTier = withMinTier || (task.Requirements != nil && task.Requirements.MinTier != nil)
 			withHandle = withHandle || task.Handle != ""
@@ -608,6 +639,9 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 		}
 		if withGroups {
 			headers = append(headers, "MODEL GROUP IN", "MODEL GROUP NOT IN")
+		}
+		if withFailure {
+			headers = append(headers, "MATCH FAILURE", "FAILED AT")
 		}
 		t := output.NewTable(w, headers...)
 		for _, task := range tasks {
@@ -632,6 +666,13 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 					notIn = safeTaskRequirementList(task.Requirements.ModelGroupNotIn)
 				}
 				cells = append(cells, in, notIn)
+			}
+			if withFailure {
+				reason, at := "—", "—"
+				if task.MatchFailure != nil {
+					reason, at = output.SafeCell(task.MatchFailure.Reason), output.SafeCell(task.MatchFailure.FailedAt)
+				}
+				cells = append(cells, reason, at)
 			}
 			t.Row(cells...)
 		}
