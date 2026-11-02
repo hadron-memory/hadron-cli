@@ -71,7 +71,14 @@ func TestTaskFinishByServerRefusals(t *testing.T) {
 					id = "AT1.2"
 				}
 				body, _ := json.Marshal(map[string]any{"errors": []any{map[string]any{"message": message, "extensions": map[string]any{"code": "BAD_USER_INPUT"}}}})
-				calls, out, err := runTeamTask(t, map[string]string{op: string(body)}, "team", "task", verb, id, "--finish-by", "2000-01-01T00:00:00Z")
+				deadline := "2000-01-01T00:00:00Z"
+				extra := []string{}
+				if strings.Contains(message, "earlier than startBy") {
+					deadline = finishBy1514
+					extra = []string{"--start-by", "2100-01-01T00:00:00Z"}
+				}
+				args := append([]string{"team", "task", verb, id, "--finish-by", deadline}, extra...)
+				calls, out, err := runTeamTask(t, map[string]string{op: string(body)}, args...)
 				if exitCodeFor(err) != 2 || !strings.Contains(err.Error(), message) || out != "" {
 					t.Fatalf("err=%v output=%q", err, out)
 				}

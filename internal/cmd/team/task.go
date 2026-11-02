@@ -40,8 +40,8 @@ write sends one mutation and prints the task the server returns, and each read
 prints the view its page describes.
 
 Server compatibility: task-record commands require a server containing
-hadron-server#3088 (finishBy) and #3029 (model groups), even when neither
-flag is named. The shared task projection selects finishBy and
+hadron-server#3088 (finishBy) and hadron-server#3029 (model groups),
+even when neither flag is named. The shared task projection selects finishBy and
 modelGroupIn/modelGroupNotIn for get, list (including --team),
 mine, tree and every task mutation receipt (create, update, assign/reassign,
 start/progress/finish/cancel/park/ready, priority and blocker edits). An older

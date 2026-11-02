@@ -95813,7 +95813,7 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 // The server reads `input` as a STRICT PATCH: a key that is present is applied
 // and a present null CLEARS, a key that is absent is left alone. A nil pointer
 // would therefore never express "clear", and a plain omitempty slice would drop
-// an empty list. Every field is omitempty, and the four that can clear are
+// an empty list. Every field is omitempty, and the nullable patch fields are
 // json.RawMessage: nil is omitted, `null` is sent as null, anything else is the
 // value (the UpdateApp description idiom). title and closeSessionWhenDone have
 // no null-clear (an empty title is refused; null would mean false), so they stay

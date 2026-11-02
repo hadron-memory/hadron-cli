@@ -310,7 +310,7 @@ func TestTaskModelGroupRefusalSink1485(t *testing.T) {
 
 func TestTaskModelGroupCompatibilityHelp1485(t *testing.T) {
 	for _, tc := range []struct{ verb, want string }{
-		{"", "even when no model-group flag is named"},
+		{"", "even when neither flag is named"},
 		{"create", "even with no group flag"},
 		{"update", "even without group flags"},
 	} {
