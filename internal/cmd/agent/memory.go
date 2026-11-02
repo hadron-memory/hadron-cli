@@ -30,20 +30,27 @@ validates the role (for example read or read-write).`,
 	return cmd
 }
 
-// memoryArgs trims and refuses empty refs before any call is made.
+// memoryArgs refuses blank refs before any call is made. TrimSpace only
+// DETECTS blank input: the refs are returned exactly as typed, because the gate
+// is raw pass-through and the server owns what a reference means.
 func memoryArgs(args []string) (agentRef, memoryRef string, err error) {
-	agentRef, memoryRef = strings.TrimSpace(args[0]), strings.TrimSpace(args[1])
-	if agentRef == "" {
+	if strings.TrimSpace(args[0]) == "" {
 		return "", "", exitcode.Newf(exitcode.Usage, "the agent reference is empty")
 	}
-	if memoryRef == "" {
+	if strings.TrimSpace(args[1]) == "" {
 		return "", "", exitcode.Newf(exitcode.Usage, "the memory reference is empty")
 	}
-	return agentRef, memoryRef, nil
+	return args[0], args[1], nil
 }
 
-func emitAgentMemory(f *cmdutil.Factory, a gen.AgentFields, verb, memoryRef string) error {
-	dto := agentDTOFromFields(a)
+// emitAgentMemory renders the Agent a verb returned. A null result (the
+// mutation is declared non-null, but a gateway or server fault can still send
+// one) is an error, never a dereference.
+func emitAgentMemory(f *cmdutil.Factory, a *gen.AgentFields, verb, memoryRef string) error {
+	if a == nil {
+		return exitcode.Newf(exitcode.Error, "server returned no agent")
+	}
+	dto := agentDTOFromFields(*a)
 	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 		_, err := fmt.Fprintf(w, "%s %s on agent %s (%s)\n", verb,
 			output.SafeCell(memoryRef), output.SafeCell(dto.Name), output.SafeCell(dto.URN))
@@ -75,7 +82,11 @@ func newCmdAgentMemoryAdd(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return api.MapError(err)
 			}
-			return emitAgentMemory(f, resp.AddMemoryToAgent.AgentFields, "✓ attached", memoryRef)
+			var a *gen.AgentFields
+			if r := resp.AddMemoryToAgent; r != nil {
+				a = &r.AgentFields
+			}
+			return emitAgentMemory(f, a, "✓ attached", memoryRef)
 		},
 	}
 	cmd.Flags().StringVar(&role, "role", "", "the Memory's role on the Agent (omitted: the server default; the server validates)")
@@ -105,7 +116,11 @@ func newCmdAgentMemorySetRole(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return api.MapError(err)
 			}
-			return emitAgentMemory(f, resp.UpdateAgentMemoryRole.AgentFields, "✓ set role of", memoryRef)
+			var a *gen.AgentFields
+			if r := resp.UpdateAgentMemoryRole; r != nil {
+				a = &r.AgentFields
+			}
+			return emitAgentMemory(f, a, "✓ set role of", memoryRef)
 		},
 	}
 	cmd.Flags().StringVar(&role, "role", "", "the new role (required; the server validates)")
@@ -136,7 +151,11 @@ func newCmdAgentMemoryRm(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return api.MapError(err)
 			}
-			return emitAgentMemory(f, resp.RemoveMemoryFromAgent.AgentFields, "✓ detached", memoryRef)
+			var a *gen.AgentFields
+			if r := resp.RemoveMemoryFromAgent; r != nil {
+				a = &r.AgentFields
+			}
+			return emitAgentMemory(f, a, "✓ detached", memoryRef)
 		},
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
