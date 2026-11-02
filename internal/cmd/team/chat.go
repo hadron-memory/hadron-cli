@@ -574,12 +574,11 @@ rules below.
 
 YOUR OWN READ STATE ON THE SERVER (hadron-server#1353). When the binding
 records this server, a read that records the watermark above also marks the bound worker's
-messages read ON THE SERVER, through the same seq — which is what stops a
-team-chat router nudging you
-about messages you have seen. It happens only AFTER the messages were
+messages read ON THE SERVER, through the same seq, so your unread state on
+the server matches what you have read. It happens only AFTER the messages were
 printed, so a read that fails partway marks nothing. A --mentions/--mentions-me,
 --before or windowed read marks nothing; use ` + "`team chat mark-read --through <seq>`" + `
-for those. An older server that still refuses attention skips the mark; other
+for those. An older server that cannot mark messages read skips the mark; other
 mark failures produce a note on stderr and the read still succeeds.
 
 READING A THREAD (--thread, cli#1262). --thread <seq> returns the DIRECT replies

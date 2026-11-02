@@ -20,7 +20,7 @@ func TestTeamWorkerOnboardHelp837(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Orca-hosted workers only", "--apply", "--host", "orca1", "dry-run", "Routing is not verified"} {
+	for _, want := range []string{"Orca-hosted workers only", "--apply", "--host", "orca1", "dry-run", "Routing is not verified", "mention the worker in team chat", "team chat Channel"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("onboard help missing %q:\n%s", want, out)
 		}
