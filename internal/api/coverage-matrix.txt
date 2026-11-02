@@ -19,7 +19,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 190: 156 command, 19 gap, 15 excluded
+[Query] 190: 152 command, 19 gap, 19 excluded
 actionTickets  command ticket list
 agent  command agent get
 agentAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime that makes LLM calls; a person reads the masked config with `ai-config get`
@@ -182,10 +182,10 @@ slackConnection  command slack get
 slackConnections  command slack status
 specBacklinks  command spec backlinks
 specUnresolvedReferences  command spec unresolved
-teamAttention  command team attention
-teamAttentionPage  command team attention
-teamAttentionPreviewPage  command team attention switchover preview
-teamAttentionSwitchoverPreview  command team attention switchover preview
+teamAttention  excluded deprecated: retired with no replacement (hadron-server#2027, comment 6567317725); `team attention` keeps a retirement stub that calls nothing (cli#935)
+teamAttentionPage  excluded deprecated: retired with no replacement (hadron-server#2027, comment 6567317725); `team attention` keeps a retirement stub that calls nothing (cli#935)
+teamAttentionPreviewPage  excluded deprecated: retired with no replacement (hadron-server#2027, comment 6567317725); `team attention` keeps a retirement stub that calls nothing (cli#935)
+teamAttentionSwitchoverPreview  excluded deprecated: retired with no replacement (hadron-server#2027, comment 6567317725); `team attention` keeps a retirement stub that calls nothing (cli#935)
 teamAvailability  command team availability get
 teamChatMessages  command team chat check
 teamChatSearch  command team chat search
@@ -211,7 +211,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 321: 249 command, 61 gap, 11 excluded
+[Mutation] 321: 248 command, 61 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -258,7 +258,7 @@ compileAgentBootPrompt  command agent compile
 compileAppAgentBootPrompt  command app agent compile
 compileWorkerBootPrompt  command team worker compile
 completeAssetUpload  command asset upload
-confirmTeamAttentionSwitchover  command team attention switchover apply
+confirmTeamAttentionSwitchover  excluded deprecated: retired with no replacement (hadron-server#2027, comment 6567317725); `team attention` keeps a retirement stub that calls nothing (cli#935)
 createAgent  command agent create
 createAgentOrgGrant  gap #890
 createAgentSchedule  command schedule create
@@ -534,7 +534,7 @@ updateWorker  command team worker update
 withdrawDecision  gap #1335
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 79: 52 gap, 27 excluded
+[Arguments] 75: 48 gap, 27 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.addOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
@@ -608,10 +608,6 @@ Query.castWorkerPreview(reportsTo)  gap #933
 Query.channelMessages(teamHeadRef)  gap #936
 Query.channelMessages(untagged)  gap #936
 Query.node(memoryRef)  excluded not-a-capability: the CLI composes -m and a bare loc into the full node URN, which the SDL documents as the equivalent address (the one case memoryRef adds, forcing loc reading of an unprefixed 3+-segment ref, the hrn:node: form already removes); proposed class, specs engineer to accept
-Query.teamAttentionPage(limit)  gap #828
-Query.teamAttentionPage(scanLimit)  gap #828
-Query.teamAttentionPreviewPage(limit)  gap #828
-Query.teamAttentionPreviewPage(scanLimit)  gap #828
 Query.teamChatMessages(teamHeadRef)  gap #936
 Query.teamChatMessages(untagged)  gap #936
 
