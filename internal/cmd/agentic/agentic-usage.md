@@ -4916,6 +4916,14 @@ the CLI. The CLI refuses only usage mistakes (exit 2) before any call.
 - `revision` in every JSON shape is the node's current revision: pass it as
   `--expected-revision` to `amend`, `withdraw` and `log set-deciders`; a stale one
   is refused (`NODE_WRITE_CONFLICT`, exit 5) and nothing changes.
+- Refusal exits: `DECISION_FORBIDDEN`, `DECISION_NOT_DECIDER`, `DECISION_NOT_ASKER`,
+  `DECISION_IMPERSONATION_REFUSED` exit 8; `DECISION_INVALID`, `DECISION_TIER_TOO_LOW`,
+  `DECISION_DECIDER_NOT_ELIGIBLE`, `DECISION_RECOMMENDATION_MISSING`,
+  `DECISION_PART_RENUMBER`, `DECISION_LOG_ENCRYPTED|MIRRORED|SYSTEM_MEMORY|ANONYMOUS_MEMORY`,
+  `DECISION_LOG_TOO_LARGE_FOR_FILTER` exit 2; `DECISION_LOG_EXISTS`,
+  `DECISION_ANSWER_IMMUTABLE`, `DECISION_WITHDRAWN`, `DECISION_SUPERSEDED`,
+  `DECISION_ANSWERED_DECIDED`, `DECISION_ANSWERED` exit 5; `DECISION_NOT_FOUND`,
+  `DECISION_LOG_NOT_FOUND` exit 4.
 - `state` is derived by the server on every read. Rely on a decision as a ruling
   only while it is `DECIDED`; `verify` returns the findings behind the state.
 - `withdraw` (final, code stays used) and `purge` (platform admins; never-answered
