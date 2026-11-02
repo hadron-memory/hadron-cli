@@ -335,6 +335,7 @@ func TestAppPropertiesSet1524(t *testing.T) {
 		{"TASK_INTEGRATION_INVALID", "taskIntegrations[0].provider is invalid", exitcode.Usage},
 		{"APP_PROPERTIES_CONFLICT", "the properties changed since revision 3", exitcode.Conflict},
 		{"PROPERTIES_KEY_RESERVED", "a key named __proto__ cannot be stored", exitcode.Usage},
+		// No longer sent (ruling 0071 = B, server#3179); an older server's refusal still exits 5.
 		{"TASK_INTEGRATION_ORG_REQUIRED", "this App has no organization", exitcode.Conflict},
 	} {
 		t.Run(tc.code+" maps with serverCode", func(t *testing.T) {

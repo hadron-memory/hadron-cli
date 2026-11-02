@@ -112,8 +112,7 @@ event naming the changed top-level keys, never their values.
 Refusals: FORBIDDEN (exit 8: you do not manage the App, or you are a worker
 session or App key); TASK_INTEGRATION_INVALID (exit 2, names the JSON path);
 PROPERTIES_NOT_AN_OBJECT, PROPERTIES_TOO_LARGE, PROPERTIES_KEY_RESERVED (exit
-2); TASK_INTEGRATION_ORG_REQUIRED (exit 5: an App with no organization cannot
-hold task integrations); APP_PROPERTIES_CONFLICT (exit 5).`,
+2); APP_PROPERTIES_CONFLICT (exit 5).`,
 		Example: `  hadron app properties set acme.com:eng-team @props.json --expected-revision 3
   hadron app properties get acme.com:eng-team | jq '.team.x = 1' | hadron app properties set acme.com:eng-team -`,
 		Args: cobra.ExactArgs(2),

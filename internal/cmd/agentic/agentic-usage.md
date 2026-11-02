@@ -4757,7 +4757,6 @@ hadron team task find-untracked --integration <name> [--team <worker>] [--ready 
   | `PROPERTIES_NOT_AN_OBJECT` | 2 |
   | `PROPERTIES_TOO_LARGE` (16 KiB, 64 levels) | 2 |
   | `PROPERTIES_KEY_RESERVED` | 2 |
-  | `TASK_INTEGRATION_ORG_REQUIRED` (an App with no organization) | 5 |
   | `APP_PROPERTIES_CONFLICT` | 5 |
 - **`task create --external-id <id>`** records the outside item the task
   claims (an issue's URL). It is unique per App, set once and never edited, so
