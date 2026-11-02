@@ -4280,7 +4280,7 @@ highest of 7 (lost response), 1 (undecided worker) and each failure's code.
 
 ## Skill include lint (#916 C5)
 
-`skill lint` also asks the S11d provider for `skill-include-broken` warnings, using LINT plans for the explicit selected memories and filtering exact selected node IDs. Warnings preserve the provider message and remain exit0 (`--strict` promotes to5). Literal notice text alone is never interpreted as a broken include. A failed/unavailable provider plan returns an error, not a clean lint. Existing local rules and selectors remain, no rendered body is fetched and no file is written. Skill export continues to use the provider-resolved body.
+`skill lint` also asks the S11d provider for `skill-include-broken` warnings, using LINT plans for the explicit selected memories and filtering exact selected node IDs. Warnings preserve the provider message and remain exit 0 (`--strict` promotes to 5). Row order is documented, not sorted: local corpus rules, then provider include rows in the provider's order (hosts in declaration order, a finding repeated under another host is one row with more hosts), then unavailable-node rows. Literal notice text alone is never interpreted as a broken include. A failed/unavailable provider plan returns an error, not a clean lint. Existing local rules and selectors remain, no rendered body is fetched and no file is written. Skill export continues to use the provider-resolved body.
 
 hadron team session served-prompts <session-id> [--limit N] [--offset N] [--provenance-limit N] [--provenance-offset N]
 hadron team session outcome <session-id> <0..1> [--ref <text>] [--meta <json>]
