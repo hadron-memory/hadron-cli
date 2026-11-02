@@ -133,7 +133,7 @@ left out unless you name one with -m or pass --memory-class system.
 
 Details:
 
-` + installDetails("") + ``,
+` + installReadDetails() + ``,
 		Example: `  hadron node list --memory hrn:mem:hadronmemory.com:dev
   hadron node list -m hrn:mem:hadronmemory.com:dev --prefix findings: --json
   hadron node list -m hrn:mem:hadronmemory.com:dev --seq-gt 42 --sort-seq asc

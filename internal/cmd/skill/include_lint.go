@@ -15,6 +15,13 @@ import (
 // text or a notice-string heuristic. Existing local lint/selection/collision
 // rules remain untouched. Plan scope is memory-wide, so filter by exact node
 // id before accepting a finding for a --node selection.
+//
+// Order (documented, not sorted — cli#1171): rows come in first-seen order,
+// walking skilldoc.Hosts in declaration order, then the provider's entries in
+// the order the server returned them, then each entry's findings in server
+// order. A finding repeated under a later host merges into its first row
+// (Hosts grows) rather than adding one. `skill lint` places these rows after
+// the local corpus rules and before the unavailable-node rows.
 func providerIncludeFindings(ctx context.Context, client graphql.Client, nodes []*batchNode) ([]lintFindingDTO, error) {
 	out := []lintFindingDTO{}
 	if len(nodes) == 0 {
