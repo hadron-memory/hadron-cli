@@ -1,0 +1,246 @@
+# Decision logs and decisions (hadron-server #1641; hadron-cli#1335).
+#
+# Every operation is passed through: refs go to the server exactly as typed
+# and who may do what is the server's rule (cor:api:240:01). The ask/amend
+# inputs are bound to json.RawMessage so the caller's JSON object reaches the
+# server unchanged: an omitted field stays omitted (amend reads omitted as
+# "unchanged"), and the server's own validation (DECISION_INVALID with JSON
+# pointers) judges the shape rather than a client copy of it.
+
+fragment DecisionActorRefFields on CommentActorRef { id name handle urn }
+
+fragment DecisionActorFields on DecisionActor {
+  userId
+  user { ...DecisionActorRefFields }
+  workerId
+  worker { ...DecisionActorRefFields }
+  appId
+  app { ...DecisionActorRefFields }
+}
+
+fragment DecisionRefFields on DecisionRef { ref node spec }
+
+fragment DecisionIdentityMergeFields on DecisionIdentityMerge {
+  fromUserId
+  from { ...DecisionActorRefFields }
+  toUserId
+  to { ...DecisionActorRefFields }
+  mergedAt
+}
+
+fragment DecisionAnswerFields on DecisionAnswer {
+  at
+  byUserId
+  recordedByUserId
+  claimedBy
+  freeform
+  key
+  text
+  reason
+  via
+  source { ...DecisionRefFields }
+}
+
+fragment DecisionFields on Decision {
+  id
+  urn
+  code
+  n
+  logId
+  title
+  context
+  state
+  tier
+  urgency
+  authorizes
+  archival
+  revSeq
+  portalUrl
+  viewerIsDecider
+  askedAt
+  answeredAt
+  askedBy { ...DecisionActorFields }
+  deciderIds
+  deciders { ...DecisionActorRefFields }
+  identityMerges { ...DecisionIdentityMergeFields }
+  parts {
+    n
+    citation
+    question
+    options { key label meaning cost }
+    recommendation { key reason attributedTo by { ...DecisionActorFields } }
+    noRecommendationReason
+    answer { ...DecisionAnswerFields }
+    answerHistory { ...DecisionAnswerFields }
+  }
+  blocks { ...DecisionRefFields }
+  followUps { ...DecisionRefFields }
+  sources { ...DecisionRefFields }
+  withdrawn { at reason by { ...DecisionActorFields } }
+  evidence {
+    approval {
+      approvedAt
+      revision
+      integrity
+      byDecider
+      byUserId
+      by { ...DecisionActorRefFields }
+    }
+  }
+}
+
+fragment DecisionLogFields on DecisionLog {
+  id
+  urn
+  loc
+  name
+  prefix
+  lastCode
+  revSeq
+  portalUrl
+  defaultDeciderIds
+  defaultDeciders { ...DecisionActorRefFields }
+  eligibleDeciderIds
+  eligibleDeciders { ...DecisionActorRefFields }
+  identityMerges { ...DecisionIdentityMergeFields }
+  purges {
+    code
+    at
+    reason
+    contentHash
+    byUserId
+    by { ...DecisionActorRefFields }
+  }
+}
+
+query DecisionLog($ref: ID!) {
+  decisionLog(ref: $ref) { ...DecisionLogFields }
+}
+
+# By ref, or by code within logRef. Each argument is omitted when unset so the
+# server sees exactly the selector the caller gave.
+query Decision(
+  # @genqlient(omitempty: true)
+  $ref: ID,
+  # @genqlient(omitempty: true)
+  $code: String,
+  # @genqlient(omitempty: true)
+  $logRef: ID
+) {
+  decision(ref: $ref, code: $code, logRef: $logRef) { ...DecisionFields }
+}
+
+# The server pages (limit/offset, DecisionPage.total); omitted filters keep the
+# server defaults (limit 20, offset 0, sort PORTAL_DEFAULT).
+query Decisions(
+  # @genqlient(omitempty: true)
+  $logRef: ID,
+  # @genqlient(omitempty: true)
+  $awaitingMe: Boolean,
+  # @genqlient(omitempty: true)
+  $authorizes: Boolean,
+  # @genqlient(omitempty: true)
+  $state: [DecisionState!],
+  # @genqlient(omitempty: true)
+  $tier: DecisionTier,
+  # @genqlient(omitempty: true)
+  $urgency: [DecisionUrgency!],
+  # @genqlient(omitempty: true)
+  $sort: DecisionSort,
+  # @genqlient(omitempty: true)
+  $limit: Int,
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  decisions(
+    logRef: $logRef
+    awaitingMe: $awaitingMe
+    authorizes: $authorizes
+    state: $state
+    tier: $tier
+    urgency: $urgency
+    sort: $sort
+    limit: $limit
+    offset: $offset
+  ) {
+    total
+    items { ...DecisionFields }
+  }
+}
+
+query VerifyDecision($ref: ID!) {
+  verifyDecision(ref: $ref) {
+    state
+    revision
+    approvedRevision
+    approvalIntegrity
+    approvalByDecider
+    codec
+    renderer
+    findings
+  }
+}
+
+mutation CreateDecisionLog(
+  $memoryRef: ID!,
+  $loc: String!,
+  # @genqlient(omitempty: true)
+  $name: String,
+  # @genqlient(omitempty: true)
+  $prefix: String,
+  $defaultDeciders: [ID!]!,
+  # @genqlient(omitempty: true)
+  $eligibleDeciders: [ID!]
+) {
+  createDecisionLog(
+    memoryRef: $memoryRef
+    loc: $loc
+    name: $name
+    prefix: $prefix
+    defaultDeciders: $defaultDeciders
+    eligibleDeciders: $eligibleDeciders
+  ) { ...DecisionLogFields }
+}
+
+mutation SetDecisionLogDeciders(
+  $logRef: ID!,
+  $defaultDeciders: [ID!]!,
+  # @genqlient(omitempty: true)
+  $eligibleDeciders: [ID!],
+  $expectedRevision: Int!,
+  $reason: String!
+) {
+  setDecisionLogDeciders(
+    logRef: $logRef
+    defaultDeciders: $defaultDeciders
+    eligibleDeciders: $eligibleDeciders
+    expectedRevision: $expectedRevision
+    reason: $reason
+  ) { ...DecisionLogFields }
+}
+
+mutation AskDecision(
+  $logRef: ID!,
+  # @genqlient(bind: "encoding/json.RawMessage")
+  $input: AskDecisionInput!
+) {
+  askDecision(logRef: $logRef, input: $input) { ...DecisionFields }
+}
+
+mutation AmendDecision(
+  $ref: ID!,
+  # @genqlient(bind: "encoding/json.RawMessage")
+  $input: AmendDecisionInput!,
+  $expectedRevision: Int!,
+  $reason: String!
+) {
+  amendDecision(ref: $ref, input: $input, expectedRevision: $expectedRevision, reason: $reason) { ...DecisionFields }
+}
+
+mutation WithdrawDecision($ref: ID!, $reason: String!, $expectedRevision: Int!) {
+  withdrawDecision(ref: $ref, reason: $reason, expectedRevision: $expectedRevision) { ...DecisionFields }
+}
+
+mutation PurgeUnansweredDecision($ref: ID!, $reason: String!) {
+  purgeUnansweredDecision(ref: $ref, reason: $reason)
+}
