@@ -15360,6 +15360,111 @@ type AuthContextResponse struct {
 // GetAuthContext returns AuthContextResponse.AuthContext, and is useful for accessing the field via an interface.
 func (v *AuthContextResponse) GetAuthContext() *AuthContextAuthContext { return v.AuthContext }
 
+// AuthorizeContextResetStopAuthorizeContextResetStopContextResetStep includes the requested fields of the GraphQL type ContextResetStep.
+// The GraphQL type's documentation follows.
+//
+// #2162 — what a context reset step answered.
+type AuthorizeContextResetStopAuthorizeContextResetStopContextResetStep struct {
+	ContextResetStepFields `json:"-"`
+}
+
+// GetRefused returns AuthorizeContextResetStopAuthorizeContextResetStopContextResetStep.Refused, and is useful for accessing the field via an interface.
+func (v *AuthorizeContextResetStopAuthorizeContextResetStopContextResetStep) GetRefused() *string {
+	return v.ContextResetStepFields.Refused
+}
+
+// GetReplayed returns AuthorizeContextResetStopAuthorizeContextResetStopContextResetStep.Replayed, and is useful for accessing the field via an interface.
+func (v *AuthorizeContextResetStopAuthorizeContextResetStopContextResetStep) GetReplayed() bool {
+	return v.ContextResetStepFields.Replayed
+}
+
+// GetReset returns AuthorizeContextResetStopAuthorizeContextResetStopContextResetStep.Reset, and is useful for accessing the field via an interface.
+func (v *AuthorizeContextResetStopAuthorizeContextResetStopContextResetStep) GetReset() *ContextResetStepFieldsResetContextReset {
+	return v.ContextResetStepFields.Reset
+}
+
+func (v *AuthorizeContextResetStopAuthorizeContextResetStopContextResetStep) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AuthorizeContextResetStopAuthorizeContextResetStopContextResetStep
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AuthorizeContextResetStopAuthorizeContextResetStopContextResetStep = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ContextResetStepFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAuthorizeContextResetStopAuthorizeContextResetStopContextResetStep struct {
+	Refused *string `json:"refused"`
+
+	Replayed bool `json:"replayed"`
+
+	Reset *ContextResetStepFieldsResetContextReset `json:"reset"`
+}
+
+func (v *AuthorizeContextResetStopAuthorizeContextResetStopContextResetStep) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AuthorizeContextResetStopAuthorizeContextResetStopContextResetStep) __premarshalJSON() (*__premarshalAuthorizeContextResetStopAuthorizeContextResetStopContextResetStep, error) {
+	var retval __premarshalAuthorizeContextResetStopAuthorizeContextResetStopContextResetStep
+
+	retval.Refused = v.ContextResetStepFields.Refused
+	retval.Replayed = v.ContextResetStepFields.Replayed
+	retval.Reset = v.ContextResetStepFields.Reset
+	return &retval, nil
+}
+
+type AuthorizeContextResetStopInput struct {
+	AppRef string `json:"appRef"`
+	Epoch  int    `json:"epoch"`
+	// The agent process about to be stopped: the one the claim observed.
+	Process *ObservedProcessInput `json:"process,omitempty"`
+	ResetId string                `json:"resetId"`
+}
+
+// GetAppRef returns AuthorizeContextResetStopInput.AppRef, and is useful for accessing the field via an interface.
+func (v *AuthorizeContextResetStopInput) GetAppRef() string { return v.AppRef }
+
+// GetEpoch returns AuthorizeContextResetStopInput.Epoch, and is useful for accessing the field via an interface.
+func (v *AuthorizeContextResetStopInput) GetEpoch() int { return v.Epoch }
+
+// GetProcess returns AuthorizeContextResetStopInput.Process, and is useful for accessing the field via an interface.
+func (v *AuthorizeContextResetStopInput) GetProcess() *ObservedProcessInput { return v.Process }
+
+// GetResetId returns AuthorizeContextResetStopInput.ResetId, and is useful for accessing the field via an interface.
+func (v *AuthorizeContextResetStopInput) GetResetId() string { return v.ResetId }
+
+// AuthorizeContextResetStopResponse is returned by AuthorizeContextResetStop on success.
+type AuthorizeContextResetStopResponse struct {
+	// #2162 — the single stop grant per claim; a replay returns the same grant. The host signals only within stopLeaseMs of
+	// the moment it SENT this request (CLOCK_BOOTTIME). Refused NO_RECOVERY_REF, CLAIM_LAPSED, PROCESS_CHANGED or NOT_IDLE.
+	AuthorizeContextResetStop *AuthorizeContextResetStopAuthorizeContextResetStopContextResetStep `json:"authorizeContextResetStop"`
+}
+
+// GetAuthorizeContextResetStop returns AuthorizeContextResetStopResponse.AuthorizeContextResetStop, and is useful for accessing the field via an interface.
+func (v *AuthorizeContextResetStopResponse) GetAuthorizeContextResetStop() *AuthorizeContextResetStopAuthorizeContextResetStopContextResetStep {
+	return v.AuthorizeContextResetStop
+}
+
 // #2441: UNADOPTED = no valid adoption; ADOPTED = a valid adoption; CHANGED = the automation differs from what was adopted (computed on open only), so the next run fails AUTOMATION_CHANGED.
 type AutomationAdoptionState string
 
@@ -19742,6 +19847,117 @@ func (v *CheckTeamChannelTeamChatMessagesTeamChatMessagesPage) GetChannelIncarna
 	return v.ChannelIncarnation
 }
 
+// ClaimContextResetClaimContextResetContextResetStep includes the requested fields of the GraphQL type ContextResetStep.
+// The GraphQL type's documentation follows.
+//
+// #2162 — what a context reset step answered.
+type ClaimContextResetClaimContextResetContextResetStep struct {
+	ContextResetStepFields `json:"-"`
+}
+
+// GetRefused returns ClaimContextResetClaimContextResetContextResetStep.Refused, and is useful for accessing the field via an interface.
+func (v *ClaimContextResetClaimContextResetContextResetStep) GetRefused() *string {
+	return v.ContextResetStepFields.Refused
+}
+
+// GetReplayed returns ClaimContextResetClaimContextResetContextResetStep.Replayed, and is useful for accessing the field via an interface.
+func (v *ClaimContextResetClaimContextResetContextResetStep) GetReplayed() bool {
+	return v.ContextResetStepFields.Replayed
+}
+
+// GetReset returns ClaimContextResetClaimContextResetContextResetStep.Reset, and is useful for accessing the field via an interface.
+func (v *ClaimContextResetClaimContextResetContextResetStep) GetReset() *ContextResetStepFieldsResetContextReset {
+	return v.ContextResetStepFields.Reset
+}
+
+func (v *ClaimContextResetClaimContextResetContextResetStep) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ClaimContextResetClaimContextResetContextResetStep
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ClaimContextResetClaimContextResetContextResetStep = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ContextResetStepFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalClaimContextResetClaimContextResetContextResetStep struct {
+	Refused *string `json:"refused"`
+
+	Replayed bool `json:"replayed"`
+
+	Reset *ContextResetStepFieldsResetContextReset `json:"reset"`
+}
+
+func (v *ClaimContextResetClaimContextResetContextResetStep) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ClaimContextResetClaimContextResetContextResetStep) __premarshalJSON() (*__premarshalClaimContextResetClaimContextResetContextResetStep, error) {
+	var retval __premarshalClaimContextResetClaimContextResetContextResetStep
+
+	retval.Refused = v.ContextResetStepFields.Refused
+	retval.Replayed = v.ContextResetStepFields.Replayed
+	retval.Reset = v.ContextResetStepFields.Reset
+	return &retval, nil
+}
+
+type ClaimContextResetInput struct {
+	AppRef string `json:"appRef"`
+	// The epoch the reset was collected at: 0.
+	Epoch int `json:"epoch"`
+	// The agent process the host observed idle, which a later stop must still match.
+	Process *ObservedProcessInput `json:"process,omitempty"`
+	ResetId string                `json:"resetId"`
+}
+
+// GetAppRef returns ClaimContextResetInput.AppRef, and is useful for accessing the field via an interface.
+func (v *ClaimContextResetInput) GetAppRef() string { return v.AppRef }
+
+// GetEpoch returns ClaimContextResetInput.Epoch, and is useful for accessing the field via an interface.
+func (v *ClaimContextResetInput) GetEpoch() int { return v.Epoch }
+
+// GetProcess returns ClaimContextResetInput.Process, and is useful for accessing the field via an interface.
+func (v *ClaimContextResetInput) GetProcess() *ObservedProcessInput { return v.Process }
+
+// GetResetId returns ClaimContextResetInput.ResetId, and is useful for accessing the field via an interface.
+func (v *ClaimContextResetInput) GetResetId() string { return v.ResetId }
+
+// ClaimContextResetResponse is returned by ClaimContextReset on success.
+type ClaimContextResetResponse struct {
+	// #2162 — a context reset's protocol (hrn:node:hadronmemory.com:specs:cor:agt:050:27), for the host its
+	// worker.reset-context operation was issued to, with that host's key only, after collecting the operation
+	// (HOST_OPERATION_NOT_COLLECTED otherwise). Each step names the reset and its epoch (STALE_EPOCH when it moved), is
+	// idempotent (a replay answers replayed: true), and is out of order CONTEXT_RESET_WRONG_PHASE. Another App's or host's
+	// reset is CONTEXT_RESET_NOT_FOUND. The final outcome is reported with reportHostOperation: SUCCEEDED once relaunched,
+	// or FAILED with a reason that starts with its code. claimContextReset takes the fence: the worker becomes unavailable
+	// RESETTING, or the reset is refused SESSION_CHANGED, OTHER_WORK, UNAVAILABLE, PAUSED, SETTING_OFF or WORKER_GONE.
+	ClaimContextReset *ClaimContextResetClaimContextResetContextResetStep `json:"claimContextReset"`
+}
+
+// GetClaimContextReset returns ClaimContextResetResponse.ClaimContextReset, and is useful for accessing the field via an interface.
+func (v *ClaimContextResetResponse) GetClaimContextReset() *ClaimContextResetClaimContextResetContextResetStep {
+	return v.ClaimContextReset
+}
+
 // ClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult includes the requested fields of the GraphQL type ClaimUntrackedTaskItemsResult.
 // The GraphQL type's documentation follows.
 //
@@ -24045,6 +24261,89 @@ var AllContentValidator = []ContentValidator{
 	ContentValidatorAgent,
 	ContentValidatorPlatform,
 }
+
+// #1043 — the worker.reset-context protocol (cor:agt:050:27), host key only.
+// Every step answers ContextResetStep; refused/replayed are read by the
+// handler, and a refusal ends the reset server-side.
+type ContextResetStepFields struct {
+	// This step refused or failed the reset, and why; the reset has ended. Null when the step was accepted.
+	Refused *string `json:"refused"`
+	// The step had already been made: the recorded answer is returned, nothing changed.
+	Replayed bool                                     `json:"replayed"`
+	Reset    *ContextResetStepFieldsResetContextReset `json:"reset"`
+}
+
+// GetRefused returns ContextResetStepFields.Refused, and is useful for accessing the field via an interface.
+func (v *ContextResetStepFields) GetRefused() *string { return v.Refused }
+
+// GetReplayed returns ContextResetStepFields.Replayed, and is useful for accessing the field via an interface.
+func (v *ContextResetStepFields) GetReplayed() bool { return v.Replayed }
+
+// GetReset returns ContextResetStepFields.Reset, and is useful for accessing the field via an interface.
+func (v *ContextResetStepFields) GetReset() *ContextResetStepFieldsResetContextReset { return v.Reset }
+
+// ContextResetStepFieldsResetContextReset includes the requested fields of the GraphQL type ContextReset.
+// The GraphQL type's documentation follows.
+//
+// #2162 — a worker's context reset (hrn:node:hadronmemory.com:specs:cor:agt:050:27): a shed, never a session end. One per
+// task at most. phase is requested, claimed, checkpointed, stop-granted, agent-stopped, relaunched, done, refused or
+// failed; reason names why a reset was refused or failed, from a closed set. epoch moves at the claim and at every
+// cancellation: a host step naming another is STALE_EPOCH.
+type ContextResetStepFieldsResetContextReset struct {
+	Id        string  `json:"id"`
+	Epoch     int     `json:"epoch"`
+	Phase     string  `json:"phase"`
+	Reason    *string `json:"reason"`
+	WorkerId  string  `json:"workerId"`
+	SessionId string  `json:"sessionId"`
+	TaskId    string  `json:"taskId"`
+	// When the single stop was granted; the host may act on it only within stopLeaseMs of its own send time.
+	StopGrantedAt *string `json:"stopGrantedAt"`
+	StopLeaseMs   *int    `json:"stopLeaseMs"`
+}
+
+// GetId returns ContextResetStepFieldsResetContextReset.Id, and is useful for accessing the field via an interface.
+func (v *ContextResetStepFieldsResetContextReset) GetId() string { return v.Id }
+
+// GetEpoch returns ContextResetStepFieldsResetContextReset.Epoch, and is useful for accessing the field via an interface.
+func (v *ContextResetStepFieldsResetContextReset) GetEpoch() int { return v.Epoch }
+
+// GetPhase returns ContextResetStepFieldsResetContextReset.Phase, and is useful for accessing the field via an interface.
+func (v *ContextResetStepFieldsResetContextReset) GetPhase() string { return v.Phase }
+
+// GetReason returns ContextResetStepFieldsResetContextReset.Reason, and is useful for accessing the field via an interface.
+func (v *ContextResetStepFieldsResetContextReset) GetReason() *string { return v.Reason }
+
+// GetWorkerId returns ContextResetStepFieldsResetContextReset.WorkerId, and is useful for accessing the field via an interface.
+func (v *ContextResetStepFieldsResetContextReset) GetWorkerId() string { return v.WorkerId }
+
+// GetSessionId returns ContextResetStepFieldsResetContextReset.SessionId, and is useful for accessing the field via an interface.
+func (v *ContextResetStepFieldsResetContextReset) GetSessionId() string { return v.SessionId }
+
+// GetTaskId returns ContextResetStepFieldsResetContextReset.TaskId, and is useful for accessing the field via an interface.
+func (v *ContextResetStepFieldsResetContextReset) GetTaskId() string { return v.TaskId }
+
+// GetStopGrantedAt returns ContextResetStepFieldsResetContextReset.StopGrantedAt, and is useful for accessing the field via an interface.
+func (v *ContextResetStepFieldsResetContextReset) GetStopGrantedAt() *string { return v.StopGrantedAt }
+
+// GetStopLeaseMs returns ContextResetStepFieldsResetContextReset.StopLeaseMs, and is useful for accessing the field via an interface.
+func (v *ContextResetStepFieldsResetContextReset) GetStopLeaseMs() *int { return v.StopLeaseMs }
+
+// #2162 — a context reset step: the reset and the epoch the host holds (0 until claimed).
+type ContextResetStepInput struct {
+	AppRef  string `json:"appRef"`
+	Epoch   int    `json:"epoch"`
+	ResetId string `json:"resetId"`
+}
+
+// GetAppRef returns ContextResetStepInput.AppRef, and is useful for accessing the field via an interface.
+func (v *ContextResetStepInput) GetAppRef() string { return v.AppRef }
+
+// GetEpoch returns ContextResetStepInput.Epoch, and is useful for accessing the field via an interface.
+func (v *ContextResetStepInput) GetEpoch() int { return v.Epoch }
+
+// GetResetId returns ContextResetStepInput.ResetId, and is useful for accessing the field via an interface.
+func (v *ContextResetStepInput) GetResetId() string { return v.ResetId }
 
 // #1447 — a spec corpus's state, derived from its nodes since #1591: DRAFT while no live node is minted, MINTED once any is.
 type CorpusState string
@@ -51509,6 +51808,18 @@ var AllNodeTextField = []NodeTextField{
 	NodeTextFieldTags,
 }
 
+// #2162 — the agent process a host observed: its pid and the kernel's start time for it (a token).
+type ObservedProcessInput struct {
+	Pid       int    `json:"pid"`
+	StartTime string `json:"startTime"`
+}
+
+// GetPid returns ObservedProcessInput.Pid, and is useful for accessing the field via an interface.
+func (v *ObservedProcessInput) GetPid() int { return v.Pid }
+
+// GetStartTime returns ObservedProcessInput.StartTime, and is useful for accessing the field via an interface.
+func (v *ObservedProcessInput) GetStartTime() string { return v.StartTime }
+
 // OrgAgentGrantsOrganization includes the requested fields of the GraphQL type Organization.
 // The GraphQL type's documentation follows.
 //
@@ -53725,6 +54036,119 @@ func (v *RegenerateAppKeyResponse) GetRegenerateAppKey() *RegenerateAppKeyRegene
 	return v.RegenerateAppKey
 }
 
+type RegisterContextResetRecoveryInput struct {
+	AppRef string `json:"appRef"`
+	// The checkpoint node the host wrote: its id or full URN, in the worker's own working memory.
+	CheckpointNode string `json:"checkpointNode"`
+	Epoch          int    `json:"epoch"`
+	ResetId        string `json:"resetId"`
+	// The reset's own session and task.
+	SessionId string `json:"sessionId"`
+	TaskId    string `json:"taskId"`
+}
+
+// GetAppRef returns RegisterContextResetRecoveryInput.AppRef, and is useful for accessing the field via an interface.
+func (v *RegisterContextResetRecoveryInput) GetAppRef() string { return v.AppRef }
+
+// GetCheckpointNode returns RegisterContextResetRecoveryInput.CheckpointNode, and is useful for accessing the field via an interface.
+func (v *RegisterContextResetRecoveryInput) GetCheckpointNode() string { return v.CheckpointNode }
+
+// GetEpoch returns RegisterContextResetRecoveryInput.Epoch, and is useful for accessing the field via an interface.
+func (v *RegisterContextResetRecoveryInput) GetEpoch() int { return v.Epoch }
+
+// GetResetId returns RegisterContextResetRecoveryInput.ResetId, and is useful for accessing the field via an interface.
+func (v *RegisterContextResetRecoveryInput) GetResetId() string { return v.ResetId }
+
+// GetSessionId returns RegisterContextResetRecoveryInput.SessionId, and is useful for accessing the field via an interface.
+func (v *RegisterContextResetRecoveryInput) GetSessionId() string { return v.SessionId }
+
+// GetTaskId returns RegisterContextResetRecoveryInput.TaskId, and is useful for accessing the field via an interface.
+func (v *RegisterContextResetRecoveryInput) GetTaskId() string { return v.TaskId }
+
+// RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep includes the requested fields of the GraphQL type ContextResetStep.
+// The GraphQL type's documentation follows.
+//
+// #2162 — what a context reset step answered.
+type RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep struct {
+	ContextResetStepFields `json:"-"`
+}
+
+// GetRefused returns RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep.Refused, and is useful for accessing the field via an interface.
+func (v *RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep) GetRefused() *string {
+	return v.ContextResetStepFields.Refused
+}
+
+// GetReplayed returns RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep.Replayed, and is useful for accessing the field via an interface.
+func (v *RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep) GetReplayed() bool {
+	return v.ContextResetStepFields.Replayed
+}
+
+// GetReset returns RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep.Reset, and is useful for accessing the field via an interface.
+func (v *RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep) GetReset() *ContextResetStepFieldsResetContextReset {
+	return v.ContextResetStepFields.Reset
+}
+
+func (v *RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ContextResetStepFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalRegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep struct {
+	Refused *string `json:"refused"`
+
+	Replayed bool `json:"replayed"`
+
+	Reset *ContextResetStepFieldsResetContextReset `json:"reset"`
+}
+
+func (v *RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep) __premarshalJSON() (*__premarshalRegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep, error) {
+	var retval __premarshalRegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep
+
+	retval.Refused = v.ContextResetStepFields.Refused
+	retval.Replayed = v.ContextResetStepFields.Replayed
+	retval.Reset = v.ContextResetStepFields.Reset
+	return &retval, nil
+}
+
+// RegisterContextResetRecoveryResponse is returned by RegisterContextResetRecovery on success.
+type RegisterContextResetRecoveryResponse struct {
+	// #2162 — register the durable checkpoint before any process control. A wrong reference is RECOVERY_REF_INVALID and changes nothing.
+	RegisterContextResetRecovery *RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep `json:"registerContextResetRecovery"`
+}
+
+// GetRegisterContextResetRecovery returns RegisterContextResetRecoveryResponse.RegisterContextResetRecovery, and is useful for accessing the field via an interface.
+func (v *RegisterContextResetRecoveryResponse) GetRegisterContextResetRecovery() *RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep {
+	return v.RegisterContextResetRecovery
+}
+
 // RegisterEntriesRegisterEntriesRegisterEntriesPage includes the requested fields of the GraphQL type RegisterEntriesPage.
 type RegisterEntriesRegisterEntriesRegisterEntriesPage struct {
 	Total int                                                                    `json:"total"`
@@ -55556,6 +55980,298 @@ type ReplyToCommentResponse struct {
 // GetReplyToComment returns ReplyToCommentResponse.ReplyToComment, and is useful for accessing the field via an interface.
 func (v *ReplyToCommentResponse) GetReplyToComment() *ReplyToCommentReplyToComment {
 	return v.ReplyToComment
+}
+
+// ReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep includes the requested fields of the GraphQL type ContextResetStep.
+// The GraphQL type's documentation follows.
+//
+// #2162 — what a context reset step answered.
+type ReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep struct {
+	ContextResetStepFields `json:"-"`
+}
+
+// GetRefused returns ReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep.Refused, and is useful for accessing the field via an interface.
+func (v *ReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep) GetRefused() *string {
+	return v.ContextResetStepFields.Refused
+}
+
+// GetReplayed returns ReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep.Replayed, and is useful for accessing the field via an interface.
+func (v *ReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep) GetReplayed() bool {
+	return v.ContextResetStepFields.Replayed
+}
+
+// GetReset returns ReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep.Reset, and is useful for accessing the field via an interface.
+func (v *ReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep) GetReset() *ContextResetStepFieldsResetContextReset {
+	return v.ContextResetStepFields.Reset
+}
+
+func (v *ReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ContextResetStepFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep struct {
+	Refused *string `json:"refused"`
+
+	Replayed bool `json:"replayed"`
+
+	Reset *ContextResetStepFieldsResetContextReset `json:"reset"`
+}
+
+func (v *ReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep) __premarshalJSON() (*__premarshalReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep, error) {
+	var retval __premarshalReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep
+
+	retval.Refused = v.ContextResetStepFields.Refused
+	retval.Replayed = v.ContextResetStepFields.Replayed
+	retval.Reset = v.ContextResetStepFields.Reset
+	return &retval, nil
+}
+
+// ReportContextResetAgentStoppedResponse is returned by ReportContextResetAgentStopped on success.
+type ReportContextResetAgentStoppedResponse struct {
+	// #2162 — the old agent stopped; its resetting mark now lasts until the relaunched agent's first activity.
+	ReportContextResetAgentStopped *ReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep `json:"reportContextResetAgentStopped"`
+}
+
+// GetReportContextResetAgentStopped returns ReportContextResetAgentStoppedResponse.ReportContextResetAgentStopped, and is useful for accessing the field via an interface.
+func (v *ReportContextResetAgentStoppedResponse) GetReportContextResetAgentStopped() *ReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep {
+	return v.ReportContextResetAgentStopped
+}
+
+type ReportContextResetRelaunchFailedInput struct {
+	AppRef string `json:"appRef"`
+	Epoch  int    `json:"epoch"`
+	// CHECKPOINT_FAILED, STAGING_FAILED, RELAUNCH_UNVERIFIED or RELAUNCH_BLOCKED.
+	Reason  string `json:"reason"`
+	ResetId string `json:"resetId"`
+}
+
+// GetAppRef returns ReportContextResetRelaunchFailedInput.AppRef, and is useful for accessing the field via an interface.
+func (v *ReportContextResetRelaunchFailedInput) GetAppRef() string { return v.AppRef }
+
+// GetEpoch returns ReportContextResetRelaunchFailedInput.Epoch, and is useful for accessing the field via an interface.
+func (v *ReportContextResetRelaunchFailedInput) GetEpoch() int { return v.Epoch }
+
+// GetReason returns ReportContextResetRelaunchFailedInput.Reason, and is useful for accessing the field via an interface.
+func (v *ReportContextResetRelaunchFailedInput) GetReason() string { return v.Reason }
+
+// GetResetId returns ReportContextResetRelaunchFailedInput.ResetId, and is useful for accessing the field via an interface.
+func (v *ReportContextResetRelaunchFailedInput) GetResetId() string { return v.ResetId }
+
+// ReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep includes the requested fields of the GraphQL type ContextResetStep.
+// The GraphQL type's documentation follows.
+//
+// #2162 — what a context reset step answered.
+type ReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep struct {
+	ContextResetStepFields `json:"-"`
+}
+
+// GetRefused returns ReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep.Refused, and is useful for accessing the field via an interface.
+func (v *ReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep) GetRefused() *string {
+	return v.ContextResetStepFields.Refused
+}
+
+// GetReplayed returns ReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep.Replayed, and is useful for accessing the field via an interface.
+func (v *ReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep) GetReplayed() bool {
+	return v.ContextResetStepFields.Replayed
+}
+
+// GetReset returns ReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep.Reset, and is useful for accessing the field via an interface.
+func (v *ReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep) GetReset() *ContextResetStepFieldsResetContextReset {
+	return v.ContextResetStepFields.Reset
+}
+
+func (v *ReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ContextResetStepFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep struct {
+	Refused *string `json:"refused"`
+
+	Replayed bool `json:"replayed"`
+
+	Reset *ContextResetStepFieldsResetContextReset `json:"reset"`
+}
+
+func (v *ReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep) __premarshalJSON() (*__premarshalReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep, error) {
+	var retval __premarshalReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep
+
+	retval.Refused = v.ContextResetStepFields.Refused
+	retval.Replayed = v.ContextResetStepFields.Replayed
+	retval.Reset = v.ContextResetStepFields.Reset
+	return &retval, nil
+}
+
+// ReportContextResetRelaunchFailedResponse is returned by ReportContextResetRelaunchFailed on success.
+type ReportContextResetRelaunchFailedResponse struct {
+	// #2162 — a failure after the claim that the host saw; the reset ends and the mark is released.
+	ReportContextResetRelaunchFailed *ReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep `json:"reportContextResetRelaunchFailed"`
+}
+
+// GetReportContextResetRelaunchFailed returns ReportContextResetRelaunchFailedResponse.ReportContextResetRelaunchFailed, and is useful for accessing the field via an interface.
+func (v *ReportContextResetRelaunchFailedResponse) GetReportContextResetRelaunchFailed() *ReportContextResetRelaunchFailedReportContextResetRelaunchFailedContextResetStep {
+	return v.ReportContextResetRelaunchFailed
+}
+
+type ReportContextResetRelaunchedInput struct {
+	AppRef string `json:"appRef"`
+	Epoch  int    `json:"epoch"`
+	// The relaunched agent process.
+	Process *ObservedProcessInput `json:"process,omitempty"`
+	ResetId string                `json:"resetId"`
+}
+
+// GetAppRef returns ReportContextResetRelaunchedInput.AppRef, and is useful for accessing the field via an interface.
+func (v *ReportContextResetRelaunchedInput) GetAppRef() string { return v.AppRef }
+
+// GetEpoch returns ReportContextResetRelaunchedInput.Epoch, and is useful for accessing the field via an interface.
+func (v *ReportContextResetRelaunchedInput) GetEpoch() int { return v.Epoch }
+
+// GetProcess returns ReportContextResetRelaunchedInput.Process, and is useful for accessing the field via an interface.
+func (v *ReportContextResetRelaunchedInput) GetProcess() *ObservedProcessInput { return v.Process }
+
+// GetResetId returns ReportContextResetRelaunchedInput.ResetId, and is useful for accessing the field via an interface.
+func (v *ReportContextResetRelaunchedInput) GetResetId() string { return v.ResetId }
+
+// ReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep includes the requested fields of the GraphQL type ContextResetStep.
+// The GraphQL type's documentation follows.
+//
+// #2162 — what a context reset step answered.
+type ReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep struct {
+	ContextResetStepFields `json:"-"`
+}
+
+// GetRefused returns ReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep.Refused, and is useful for accessing the field via an interface.
+func (v *ReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep) GetRefused() *string {
+	return v.ContextResetStepFields.Refused
+}
+
+// GetReplayed returns ReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep.Replayed, and is useful for accessing the field via an interface.
+func (v *ReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep) GetReplayed() bool {
+	return v.ContextResetStepFields.Replayed
+}
+
+// GetReset returns ReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep.Reset, and is useful for accessing the field via an interface.
+func (v *ReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep) GetReset() *ContextResetStepFieldsResetContextReset {
+	return v.ContextResetStepFields.Reset
+}
+
+func (v *ReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ContextResetStepFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep struct {
+	Refused *string `json:"refused"`
+
+	Replayed bool `json:"replayed"`
+
+	Reset *ContextResetStepFieldsResetContextReset `json:"reset"`
+}
+
+func (v *ReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep) __premarshalJSON() (*__premarshalReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep, error) {
+	var retval __premarshalReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep
+
+	retval.Refused = v.ContextResetStepFields.Refused
+	retval.Replayed = v.ContextResetStepFields.Replayed
+	retval.Reset = v.ContextResetStepFields.Reset
+	return &retval, nil
+}
+
+// ReportContextResetRelaunchedResponse is returned by ReportContextResetRelaunched on success.
+type ReportContextResetRelaunchedResponse struct {
+	// #2162 — the agent was relaunched under its wrapper.
+	ReportContextResetRelaunched *ReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep `json:"reportContextResetRelaunched"`
+}
+
+// GetReportContextResetRelaunched returns ReportContextResetRelaunchedResponse.ReportContextResetRelaunched, and is useful for accessing the field via an interface.
+func (v *ReportContextResetRelaunchedResponse) GetReportContextResetRelaunched() *ReportContextResetRelaunchedReportContextResetRelaunchedContextResetStep {
+	return v.ReportContextResetRelaunched
 }
 
 type ReportHostOperationInput struct {
@@ -85236,6 +85952,14 @@ func (v *__AttachMemoryToAppInput) GetAppRef() string { return v.AppRef }
 // GetAgentRef returns __AttachMemoryToAppInput.AgentRef, and is useful for accessing the field via an interface.
 func (v *__AttachMemoryToAppInput) GetAgentRef() string { return v.AgentRef }
 
+// __AuthorizeContextResetStopInput is used internally by genqlient
+type __AuthorizeContextResetStopInput struct {
+	Input *AuthorizeContextResetStopInput `json:"input,omitempty"`
+}
+
+// GetInput returns __AuthorizeContextResetStopInput.Input, and is useful for accessing the field via an interface.
+func (v *__AuthorizeContextResetStopInput) GetInput() *AuthorizeContextResetStopInput { return v.Input }
+
 // __AutomationApprovalDepthInput is used internally by genqlient
 type __AutomationApprovalDepthInput struct {
 	TriggerKind AutomationTriggerKind `json:"triggerKind"`
@@ -85823,6 +86547,14 @@ type __CheckTeamChannelInput struct {
 
 // GetAppRef returns __CheckTeamChannelInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__CheckTeamChannelInput) GetAppRef() string { return v.AppRef }
+
+// __ClaimContextResetInput is used internally by genqlient
+type __ClaimContextResetInput struct {
+	Input *ClaimContextResetInput `json:"input,omitempty"`
+}
+
+// GetInput returns __ClaimContextResetInput.Input, and is useful for accessing the field via an interface.
+func (v *__ClaimContextResetInput) GetInput() *ClaimContextResetInput { return v.Input }
 
 // __ClaimUntrackedTaskItemsInput is used internally by genqlient
 type __ClaimUntrackedTaskItemsInput struct {
@@ -89324,6 +90056,16 @@ type __RegenerateAppKeyInput struct {
 // GetAppRef returns __RegenerateAppKeyInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__RegenerateAppKeyInput) GetAppRef() string { return v.AppRef }
 
+// __RegisterContextResetRecoveryInput is used internally by genqlient
+type __RegisterContextResetRecoveryInput struct {
+	Input *RegisterContextResetRecoveryInput `json:"input,omitempty"`
+}
+
+// GetInput returns __RegisterContextResetRecoveryInput.Input, and is useful for accessing the field via an interface.
+func (v *__RegisterContextResetRecoveryInput) GetInput() *RegisterContextResetRecoveryInput {
+	return v.Input
+}
+
 // __RegisterEntriesInput is used internally by genqlient
 type __RegisterEntriesInput struct {
 	Filter *RegisterEntryFilter `json:"filter,omitempty"`
@@ -89467,6 +90209,34 @@ func (v *__ReplyToCommentInput) GetRef() string { return v.Ref }
 
 // GetBody returns __ReplyToCommentInput.Body, and is useful for accessing the field via an interface.
 func (v *__ReplyToCommentInput) GetBody() string { return v.Body }
+
+// __ReportContextResetAgentStoppedInput is used internally by genqlient
+type __ReportContextResetAgentStoppedInput struct {
+	Input *ContextResetStepInput `json:"input,omitempty"`
+}
+
+// GetInput returns __ReportContextResetAgentStoppedInput.Input, and is useful for accessing the field via an interface.
+func (v *__ReportContextResetAgentStoppedInput) GetInput() *ContextResetStepInput { return v.Input }
+
+// __ReportContextResetRelaunchFailedInput is used internally by genqlient
+type __ReportContextResetRelaunchFailedInput struct {
+	Input *ReportContextResetRelaunchFailedInput `json:"input,omitempty"`
+}
+
+// GetInput returns __ReportContextResetRelaunchFailedInput.Input, and is useful for accessing the field via an interface.
+func (v *__ReportContextResetRelaunchFailedInput) GetInput() *ReportContextResetRelaunchFailedInput {
+	return v.Input
+}
+
+// __ReportContextResetRelaunchedInput is used internally by genqlient
+type __ReportContextResetRelaunchedInput struct {
+	Input *ReportContextResetRelaunchedInput `json:"input,omitempty"`
+}
+
+// GetInput returns __ReportContextResetRelaunchedInput.Input, and is useful for accessing the field via an interface.
+func (v *__ReportContextResetRelaunchedInput) GetInput() *ReportContextResetRelaunchedInput {
+	return v.Input
+}
 
 // __ReportHostOperationInput is used internally by genqlient
 type __ReportHostOperationInput struct {
@@ -97438,6 +98208,55 @@ func AuthContext(
 	return data_, err_
 }
 
+// The mutation executed by AuthorizeContextResetStop.
+const AuthorizeContextResetStop_Operation = `
+mutation AuthorizeContextResetStop ($input: AuthorizeContextResetStopInput!) {
+	authorizeContextResetStop(input: $input) {
+		... ContextResetStepFields
+	}
+}
+fragment ContextResetStepFields on ContextResetStep {
+	refused
+	replayed
+	reset {
+		id
+		epoch
+		phase
+		reason
+		workerId
+		sessionId
+		taskId
+		stopGrantedAt
+		stopLeaseMs
+	}
+}
+`
+
+func AuthorizeContextResetStop(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *AuthorizeContextResetStopInput,
+) (data_ *AuthorizeContextResetStopResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AuthorizeContextResetStop",
+		Query:  AuthorizeContextResetStop_Operation,
+		Variables: &__AuthorizeContextResetStopInput{
+			Input: input,
+		},
+	}
+
+	data_ = &AuthorizeContextResetStopResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by AutomationApproval.
 const AutomationApproval_Operation = `
 query AutomationApproval ($triggerKind: AutomationTriggerKind!, $triggerRef: String!) {
@@ -99154,6 +99973,55 @@ func CheckTeamChannel(
 	}
 
 	data_ = &CheckTeamChannelResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by ClaimContextReset.
+const ClaimContextReset_Operation = `
+mutation ClaimContextReset ($input: ClaimContextResetInput!) {
+	claimContextReset(input: $input) {
+		... ContextResetStepFields
+	}
+}
+fragment ContextResetStepFields on ContextResetStep {
+	refused
+	replayed
+	reset {
+		id
+		epoch
+		phase
+		reason
+		workerId
+		sessionId
+		taskId
+		stopGrantedAt
+		stopLeaseMs
+	}
+}
+`
+
+func ClaimContextReset(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *ClaimContextResetInput,
+) (data_ *ClaimContextResetResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ClaimContextReset",
+		Query:  ClaimContextReset_Operation,
+		Variables: &__ClaimContextResetInput{
+			Input: input,
+		},
+	}
+
+	data_ = &ClaimContextResetResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -112348,6 +113216,55 @@ func RegenerateAppKey(
 	return data_, err_
 }
 
+// The mutation executed by RegisterContextResetRecovery.
+const RegisterContextResetRecovery_Operation = `
+mutation RegisterContextResetRecovery ($input: RegisterContextResetRecoveryInput!) {
+	registerContextResetRecovery(input: $input) {
+		... ContextResetStepFields
+	}
+}
+fragment ContextResetStepFields on ContextResetStep {
+	refused
+	replayed
+	reset {
+		id
+		epoch
+		phase
+		reason
+		workerId
+		sessionId
+		taskId
+		stopGrantedAt
+		stopLeaseMs
+	}
+}
+`
+
+func RegisterContextResetRecovery(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *RegisterContextResetRecoveryInput,
+) (data_ *RegisterContextResetRecoveryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RegisterContextResetRecovery",
+		Query:  RegisterContextResetRecovery_Operation,
+		Variables: &__RegisterContextResetRecoveryInput{
+			Input: input,
+		},
+	}
+
+	data_ = &RegisterContextResetRecoveryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by RegisterEntries.
 const RegisterEntries_Operation = `
 query RegisterEntries ($filter: RegisterEntryFilter, $limit: Int, $offset: Int, $orgId: ID) {
@@ -113036,6 +113953,153 @@ func ReplyToComment(
 	}
 
 	data_ = &ReplyToCommentResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by ReportContextResetAgentStopped.
+const ReportContextResetAgentStopped_Operation = `
+mutation ReportContextResetAgentStopped ($input: ContextResetStepInput!) {
+	reportContextResetAgentStopped(input: $input) {
+		... ContextResetStepFields
+	}
+}
+fragment ContextResetStepFields on ContextResetStep {
+	refused
+	replayed
+	reset {
+		id
+		epoch
+		phase
+		reason
+		workerId
+		sessionId
+		taskId
+		stopGrantedAt
+		stopLeaseMs
+	}
+}
+`
+
+func ReportContextResetAgentStopped(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *ContextResetStepInput,
+) (data_ *ReportContextResetAgentStoppedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ReportContextResetAgentStopped",
+		Query:  ReportContextResetAgentStopped_Operation,
+		Variables: &__ReportContextResetAgentStoppedInput{
+			Input: input,
+		},
+	}
+
+	data_ = &ReportContextResetAgentStoppedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by ReportContextResetRelaunchFailed.
+const ReportContextResetRelaunchFailed_Operation = `
+mutation ReportContextResetRelaunchFailed ($input: ReportContextResetRelaunchFailedInput!) {
+	reportContextResetRelaunchFailed(input: $input) {
+		... ContextResetStepFields
+	}
+}
+fragment ContextResetStepFields on ContextResetStep {
+	refused
+	replayed
+	reset {
+		id
+		epoch
+		phase
+		reason
+		workerId
+		sessionId
+		taskId
+		stopGrantedAt
+		stopLeaseMs
+	}
+}
+`
+
+func ReportContextResetRelaunchFailed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *ReportContextResetRelaunchFailedInput,
+) (data_ *ReportContextResetRelaunchFailedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ReportContextResetRelaunchFailed",
+		Query:  ReportContextResetRelaunchFailed_Operation,
+		Variables: &__ReportContextResetRelaunchFailedInput{
+			Input: input,
+		},
+	}
+
+	data_ = &ReportContextResetRelaunchFailedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by ReportContextResetRelaunched.
+const ReportContextResetRelaunched_Operation = `
+mutation ReportContextResetRelaunched ($input: ReportContextResetRelaunchedInput!) {
+	reportContextResetRelaunched(input: $input) {
+		... ContextResetStepFields
+	}
+}
+fragment ContextResetStepFields on ContextResetStep {
+	refused
+	replayed
+	reset {
+		id
+		epoch
+		phase
+		reason
+		workerId
+		sessionId
+		taskId
+		stopGrantedAt
+		stopLeaseMs
+	}
+}
+`
+
+func ReportContextResetRelaunched(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *ReportContextResetRelaunchedInput,
+) (data_ *ReportContextResetRelaunchedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ReportContextResetRelaunched",
+		Query:  ReportContextResetRelaunched_Operation,
+		Variables: &__ReportContextResetRelaunchedInput{
+			Input: input,
+		},
+	}
+
+	data_ = &ReportContextResetRelaunchedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

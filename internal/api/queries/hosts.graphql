@@ -170,3 +170,58 @@ mutation ReportHostOperation(
     ...HostOperationFields
   }
 }
+
+# #1043 — the worker.reset-context protocol (cor:agt:050:27), host key only.
+# Every step answers ContextResetStep; refused/replayed are read by the
+# handler, and a refusal ends the reset server-side.
+fragment ContextResetStepFields on ContextResetStep {
+  refused
+  replayed
+  reset {
+    id
+    epoch
+    phase
+    reason
+    workerId
+    sessionId
+    taskId
+    stopGrantedAt
+    stopLeaseMs
+  }
+}
+
+mutation ClaimContextReset($input: ClaimContextResetInput!) {
+  claimContextReset(input: $input) {
+    ...ContextResetStepFields
+  }
+}
+
+mutation RegisterContextResetRecovery($input: RegisterContextResetRecoveryInput!) {
+  registerContextResetRecovery(input: $input) {
+    ...ContextResetStepFields
+  }
+}
+
+mutation AuthorizeContextResetStop($input: AuthorizeContextResetStopInput!) {
+  authorizeContextResetStop(input: $input) {
+    ...ContextResetStepFields
+  }
+}
+
+mutation ReportContextResetAgentStopped($input: ContextResetStepInput!) {
+  reportContextResetAgentStopped(input: $input) {
+    ...ContextResetStepFields
+  }
+}
+
+mutation ReportContextResetRelaunched($input: ReportContextResetRelaunchedInput!) {
+  reportContextResetRelaunched(input: $input) {
+    ...ContextResetStepFields
+  }
+}
+
+mutation ReportContextResetRelaunchFailed($input: ReportContextResetRelaunchFailedInput!) {
+  reportContextResetRelaunchFailed(input: $input) {
+    ...ContextResetStepFields
+  }
+}
