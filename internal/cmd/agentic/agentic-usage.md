@@ -4914,7 +4914,7 @@ existing tasks before retrying.
 
 Create `--require-role qa,cli --require-role server` accepts any listed role.
 One role sends `requirements.role`; several send `requirements.roles`, never
-two non-null selectors. The server checks 1–32 nonblank roles of at most 128
+both selector keys. The server checks 1–32 nonblank roles of at most 128
 characters and matches case-insensitively. Empty supplied items exit 2 locally.
 Create `--team <lead worker id, URN or name>` sends requirements.team: the
 server restricts the pool to that same-App active lead, its reporting-chain

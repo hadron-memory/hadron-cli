@@ -21,6 +21,7 @@ func TestTaskMatching1549Wire(t *testing.T) {
 		{name: "omitted"},
 		{name: "false", args: []string{"--match=false"}},
 		{name: "single", args: []string{"--require-role", "qa"}, role: "qa"},
+		{name: "single raw", args: []string{"--require-role", " QA "}, role: " QA "},
 		{name: "roles", args: []string{"--require-role", "qa,cli", "--require-role", "server"}, roles: []any{"qa", "cli", "server"}},
 		{name: "match team", args: []string{"--match", "--team", "hrn:worker:acme.com:eng:iris"}, match: true, team: "hrn:worker:acme.com:eng:iris"},
 	} {
@@ -48,7 +49,7 @@ func TestTaskMatching1549Wire(t *testing.T) {
 			req, _ := input["requirements"].(map[string]any)
 			for key, want := range map[string]any{"role": tc.role, "roles": tc.roles, "team": tc.team} {
 				got := req[key]
-				if _, present := req[key]; want == nil && key != "role" && present {
+				if _, present := req[key]; want == nil && (key != "role" || tc.roles != nil) && present {
 					t.Errorf("unset %s must be omitted", key)
 				}
 				a, _ := json.Marshal(got)
@@ -209,7 +210,7 @@ func TestTaskMatching1549SuccessAndRefusals(t *testing.T) {
 	r := taskResponses()
 	r["AgentTaskCreate"] = `{"data":{"createAgentTask":` + startedTaskFieldsJSON + `}}`
 	_, out, err := runTeamTask(t, r, "team", "task", "create", "example", "--match")
-	if err != nil || !strings.Contains(out, "matched: Rufus") || !strings.Contains(out, "created task") {
+	if err != nil || !strings.Contains(out, "matched: Rufus") || !strings.Contains(out, "created task") || !strings.Contains(out, "wkr2") || !strings.Contains(out, "hrn:worker:acme.com:eng:rufus") {
 		t.Fatalf("err=%v out=%s", err, out)
 	}
 	for _, args := range [][]string{

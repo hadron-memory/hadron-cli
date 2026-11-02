@@ -9,6 +9,7 @@ package team
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"regexp"
@@ -22,6 +23,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 // taskAssignerDoc is the assigner authority (cor:agt:050:09) every
@@ -450,16 +452,20 @@ warnings list.`,
 					FamilyNotIn:     commaList(familyNotIn),
 					ModelGroupIn:    groupsIn,
 					ModelGroupNotIn: groupsNotIn,
-					Role:            nil,
+					Role:            json.RawMessage("null"),
 					Team:            optStr(teamLead),
 					MinTier:         optStr(minTier),
 				}
 			}
 			if input.Requirements != nil {
 				if len(roles) == 1 {
-					input.Requirements.Role = &roles[0]
+					role, _ := json.Marshal(roles[0]) // a string cannot fail JSON encoding
+					input.Requirements.Role = role
 				} else {
 					input.Requirements.Roles = roles
+					if len(roles) > 1 {
+						input.Requirements.Role = nil
+					}
 				}
 			}
 			// The App: a root task needs one; a child task may take it from
@@ -506,7 +512,7 @@ warnings list.`,
 				}
 				if match {
 					if task.Assignee != nil {
-						if _, err := fmt.Fprintf(w, "  matched: %s\n", partyCell(task.Assignee)); err != nil {
+						if _, err := fmt.Fprintf(w, "  matched: %s (id %s; URN %s)\n", partyCell(task.Assignee), output.SafeCell(task.Assignee.ID), output.SafeCell(strOr(task.Assignee.Urn))); err != nil {
 							return err
 						}
 					} else if task.MatchFailure != nil {

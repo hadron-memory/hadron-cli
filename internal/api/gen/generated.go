@@ -7674,8 +7674,8 @@ type AgentTaskRequirementsInput struct {
 	// Model groups of the App (hrn:node:hadronmemory.com:specs:cor:agt:060:12) the assignee's model must be in at least one of. A name no group of the App carries is refused. A worker with no model is in no group, so it never matches.
 	ModelGroupIn []string `json:"modelGroupIn,omitempty"`
 	// Model groups of the App (hrn:node:hadronmemory.com:specs:cor:agt:060:12) the assignee's model must be in none of. A name no group of the App carries is refused. A worker with no model is in no group, so it passes.
-	ModelGroupNotIn []string `json:"modelGroupNotIn,omitempty"`
-	Role            *string  `json:"role"`
+	ModelGroupNotIn []string        `json:"modelGroupNotIn,omitempty"`
+	Role            json.RawMessage `json:"role,omitempty"`
 	// Any one listed role suffices. Empty sets are refused. Give role or roles, not both.
 	Roles []string `json:"roles,omitempty"`
 	// Lead worker (id, URN or name) of this App. Pool: lead, descendants and workers reporting to nobody.
@@ -7701,7 +7701,7 @@ func (v *AgentTaskRequirementsInput) GetModelGroupIn() []string { return v.Model
 func (v *AgentTaskRequirementsInput) GetModelGroupNotIn() []string { return v.ModelGroupNotIn }
 
 // GetRole returns AgentTaskRequirementsInput.Role, and is useful for accessing the field via an interface.
-func (v *AgentTaskRequirementsInput) GetRole() *string { return v.Role }
+func (v *AgentTaskRequirementsInput) GetRole() json.RawMessage { return v.Role }
 
 // GetRoles returns AgentTaskRequirementsInput.Roles, and is useful for accessing the field via an interface.
 func (v *AgentTaskRequirementsInput) GetRoles() []string { return v.Roles }
@@ -93819,6 +93819,8 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 // not null, so ordinary create/update bodies are unchanged and an older server
 // never sees an input field it does not know. This protects INPUTS only:
 // every AgentTaskFields document needs provider #3029 for its output selection.
+// Keep legacy role:null for ordinary requirements, but omit role entirely
+// when a role set is supplied: the two selector keys never coexist.
 func AgentTaskCreate(
 	ctx_ context.Context,
 	client_ graphql.Client,

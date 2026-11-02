@@ -15,8 +15,7 @@ func taskRoleFlags(values []string, supplied bool) ([]string, error) {
 	var roles []string
 	for _, v := range values {
 		for _, r := range strings.Split(v, ",") {
-			r = strings.TrimSpace(r)
-			if r == "" {
+			if strings.TrimSpace(r) == "" {
 				return nil, exitcode.Newf(exitcode.Usage, "--require-role needs a non-empty role in every comma-separated/repeated item")
 			}
 			roles = append(roles, r)

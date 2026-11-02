@@ -116,6 +116,9 @@ fragment AgentTaskFields on AgentTask {
 # @genqlient(for: "AgentTaskRequirementsInput.modelGroupIn", omitempty: true)
 # @genqlient(for: "AgentTaskRequirementsInput.modelGroupNotIn", omitempty: true)
 # @genqlient(for: "CreateAgentTaskInput.match", omitempty: true)
+# Keep legacy role:null for ordinary requirements, but omit role entirely
+# when a role set is supplied: the two selector keys never coexist.
+# @genqlient(for: "AgentTaskRequirementsInput.role", omitempty: true, bind: "encoding/json.RawMessage")
 # @genqlient(for: "AgentTaskRequirementsInput.roles", omitempty: true)
 # @genqlient(for: "AgentTaskRequirementsInput.team", omitempty: true)
 mutation AgentTaskCreate(

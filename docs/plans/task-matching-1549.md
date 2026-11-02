@@ -16,7 +16,9 @@ variables. The one server create mutation owns matching and all refusals. Actual
 atomically; ended blocker refs are allowed when the derived task is unblocked.
 Park then ready clears failure/reservation and resumes regular matching.
 Role lists parse comma-separated/repeated syntax; a single item retains role,
-several use roles and a null single role (the server checks non-null values).
+several use roles with role absent. A per-field RawMessage binding preserves
+legacy role:null in ordinary requirements while omitting that key for a role
+set, so neither selector is sent alongside the other.
 New input keys omit when absent. Team remains a raw server-resolved lead ref.
 Client logic performs no eligibility/matching/authority computation.
 
