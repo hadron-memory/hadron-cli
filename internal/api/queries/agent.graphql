@@ -308,3 +308,33 @@ mutation SetAgentBootPrompt($agentRef: String!, $nodeRef: String) {
     ...AgentFields
   }
 }
+
+# cli#61 first cut: the Agent system-memory draft workflow's snapshot and editor
+# lock. agentId goes to the server verbatim (ID or URN; no pre-resolve).
+# description is omitempty: unset leaves the server default.
+mutation CreateRevision(
+  $agentId: ID!
+  # @genqlient(omitempty: true)
+  $description: String
+) {
+  createRevision(agentId: $agentId, description: $description) {
+    revisionLoc
+    label
+    published
+    createdAt
+  }
+}
+
+# Contention is a RESULT (locked:false, lockedBy, expiresAt), not a GraphQL
+# error; expiresAt and lockedBy are nullable and stay as returned.
+mutation AcquireEditorLock($agentId: ID!) {
+  acquireEditorLock(agentId: $agentId) {
+    locked
+    lockedBy
+    expiresAt
+  }
+}
+
+mutation ReleaseEditorLock($agentId: ID!) {
+  releaseEditorLock(agentId: $agentId)
+}

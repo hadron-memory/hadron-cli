@@ -211,12 +211,12 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 321: 242 command, 68 gap, 11 excluded
+[Mutation] 321: 245 command, 65 gap, 11 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
 acknowledgeWakes  command team wakes ack
-acquireEditorLock  gap #61
+acquireEditorLock  command agent lock acquire
 addAgentTaskBlocker  command team task add-blocker
 addAgentToApp  excluded deprecated: @deprecated: Use installAgentIntoApp (spec 023-app-shape US1). Returns Payload type with the AppAgent row.
 addMemoryMember  command memory member add
@@ -294,7 +294,7 @@ createRegisterEntry  command channel register add
 createResendSender  command org resend-sender create
 createResumeClaim  command team session resume-claim
 createReviewNode  command coding review create
-createRevision  gap #61
+createRevision  command agent revision create
 createScope  command scope create
 createSecret  command secret create
 createSlackConnection  gap #206
@@ -397,7 +397,7 @@ recordUsage  command usage record
 regenerateAppKey  command app key rotate
 registerContextResetRecovery  gap #1043: the host handler that performs the reset
 registerHost  command team host run
-releaseEditorLock  gap #61
+releaseEditorLock  command agent lock release
 releaseWorker  command team worker release
 removeAgentFromApp  excluded deprecated: @deprecated: Use uninstallAgentFromApp (spec 023-app-shape US1).
 removeAgentImport  gap #58
