@@ -124,33 +124,40 @@ own code.`
 		short = "Compile a worker's boot prompt, or every changed one in the App, without approving it"
 	}
 	pointerHelp := "The pointer is set by default; --no-set-pointer leaves it unchanged."
-	if kind == "app" {
-		pointerHelp = "An App-Agent compile always sets the pointer; there is no --no-set-pointer flag."
+	refsHelp := "Agent and App references are ids or fully-qualified URNs."
+	switch kind {
+	case "app":
+		pointerHelp = "An App-Agent compile always sets the pointer (no --no-set-pointer flag)."
+	case "worker":
+		refsHelp = `A worker is an id or a fully-qualified worker URN, which ignores the ambient
+App and binding, or a name in the selected App (--app, the configured App
+context or a binding for this server). A missing, corrupt or
+unknown/different-server binding cannot select an App for a name: pass --app
+or a fully-qualified worker URN.`
 	}
 	cmd := &cobra.Command{
 		Use: use, Short: short,
-		Long: fmt.Sprintf(`Compile the server-selected source boot prompt into the %s.
+		Long: fmt.Sprintf(`Compile the server-selected source boot prompt into the
+%s.
+
 Each successful compile writes a revision, even if the text is unchanged.
-%s Sources and output addresses are chosen by the server, not by flags.
+Sources and output addresses are chosen by the server, not by flags.
+%s
 
 Sign in as a manager of the target Agent or App. This command acts as you and
-never sends this worktree's worker-session header. Agent and App references
-are ids or fully-qualified URNs. A worker may also be a name in the selected
-App (--app, the configured App context or a binding for this server).
-A worker id or fully-qualified worker URN ignores the ambient App and binding.
-A missing, corrupt or unknown/different-server binding cannot select an App
-for a name; pass --app explicitly or use a fully-qualified worker URN.
+never sends this worktree's worker-session header.
+%s
 
 Compile does not approve or serve a prompt. The result reports the compiled
 node, revision, content hash, whether the pointer was set and approvalIssued
 (false). It does not report the revision's approval status: use node get.
 
-Exit codes: 2 for malformed or disallowed include/input; 4 for an unavailable include
-(missing and unreadable have one answer); 5 for a retired target, missing or
-invalid source, unavailable include revision or conflict; 8 for permission
-or grant refusals. A lost response is exit 7: check the compiled node with
-node get before compiling again. The command sends the mutation once and
-never retries it.%s`, target, pointerHelp, recipe),
+Exit codes: 2 for malformed or disallowed include/input; 4 for an unavailable
+include (missing and unreadable have one answer); 5 for a retired target,
+missing or invalid source, unavailable include revision or conflict; 8 for
+permission or grant refusals. A lost response is exit 7, naming its cause:
+check the compiled node with node get before compiling again. The command
+sends the mutation once and never retries it.%s`, target, pointerHelp, refsHelp, recipe),
 		Example: example, Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if kind == "worker" && batch != nil {
@@ -258,7 +265,13 @@ func compileError(err error) error {
 		return exitcode.Newf(exitcode.Conflict, "the compile conflicted with another change; check the compiled node with node get before compiling again")
 	}
 	if exitcode.FromError(mapped) == exitcode.Unavailable {
-		return exitcode.Newf(exitcode.Unavailable, "the outcome is unknown; check the compiled node with node get before compiling again")
+		// cli#1157: name the cause class (fixed phrases and a status number,
+		// never the server's body) and keep the one recovery: check, don't retry.
+		cause, ok := api.TransportCause(err)
+		if !ok {
+			cause = "the server reported the service unavailable"
+		}
+		return exitcode.Newf(exitcode.Unavailable, "the outcome is unknown (%s); check the compiled node with node get before compiling again", cause)
 	}
 	return mapped
 }

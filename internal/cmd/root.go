@@ -234,10 +234,27 @@ func Execute() int {
 
 	err := root.Execute()
 	if err == nil {
+		writeDeliveryFooter(f)
 		return exitcode.OK
 	}
 
 	return renderFailure(f, os.Args[1:], err)
+}
+
+// writeDeliveryFooter prints the one messages-waiting line (cli#1084) on
+// stderr after a SUCCESSFUL command, for text and --json alike. It never
+// touches stdout, the result or the exit status; a failed command never gets
+// one, and only a positive exact count is shown.
+func writeDeliveryFooter(f *cmdutil.Factory) {
+	n, ok := f.DeliveryPending.Count()
+	if !ok || n <= 0 {
+		return
+	}
+	noun := "messages"
+	if n == 1 {
+		noun = "message"
+	}
+	_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "%d %s waiting; pull with hadron team chat inbox\n", n, noun)
 }
 
 // renderFailure is the post-Execute half of the failure path, extracted so a

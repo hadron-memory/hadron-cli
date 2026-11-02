@@ -185,6 +185,9 @@ func authoredWriteField(field string) bool {
 		"cancelAgentTask", "parkAgentTask", "makeAgentTaskReady",
 		"setAgentTaskPriority", "addAgentTaskBlocker", "removeAgentTaskBlocker",
 		"acknowledgeAlarm",
+		// #1524 C3: --assign-to-me claims as the bound worker (the claim's
+		// tasks are owned by and assigned to the actor), the person otherwise.
+		"claimUntrackedTaskItems",
 		// setModelFamilyAvailability is deliberately absent (#868), like
 		// setAgentTaskStallSchedule (#866): both are the App manager's
 		// writes, and the server's actorManagesApp is false for any worker
