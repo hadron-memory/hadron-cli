@@ -42,6 +42,9 @@ type agentDTO struct {
 	HasAiApiKey             bool    `json:"hasAiApiKey"`
 	PersonaRole             *string `json:"personaRole"`
 	UsesTasks               bool    `json:"usesTasks"`
+	// ResetContextAfterTask is recorded only (#1551, cor:agt:050:27); a
+	// host with a worker.reset-context handler acts on it (#1043).
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
 	// MemberRoles is the Agent's installationPolicy.memberRoles (#1226, R211):
 	// the roles an App it is installed in may offer. [] when none came back.
 	MemberRoles []string `json:"memberRoles"`
@@ -67,7 +70,7 @@ func agentDTOFromFields(a gen.AgentFields) agentDTO {
 		TasksIndexRef: a.TasksIndexRef, ProcessesIndex: a.ProcessesIndexRef, ExtendsAgentID: a.ExtendsAgentId,
 		BootPromptRef: a.BootPromptRef, BootPromptTargetDeleted: a.BootPromptTargetDeleted,
 		AiProvider: a.AiProvider, AiModel: a.AiModel, HasAiApiKey: a.HasAiApiKey,
-		PersonaRole: a.PersonaRole, UsesTasks: a.UsesTasks, CreatedAt: a.CreatedAt,
+		PersonaRole: a.PersonaRole, UsesTasks: a.UsesTasks, ResetContextAfterTask: a.ResetContextAfterTask, CreatedAt: a.CreatedAt,
 	}
 }
 
@@ -337,7 +340,9 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 		Long: `Show an agent by ID or URN. A readable clone origin is printed as the
 source's current URN returned by the server. A null origin prints no line:
 non-clone, withheld, deleted and unrecorded origins are indistinguishable.
-JSON includes the nullable clonedFromAgentRef key. No source lookup is made.`,
+JSON includes the nullable clonedFromAgentRef key. No source lookup is made.
+The "reset context after task" line (JSON resetContextAfterTask) shows the
+setting recorded by agent update --reset-context-after-task.`,
 		Example: `  hadron agent get hrn:agent:acme.com:support-bot --json`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -362,6 +367,7 @@ JSON includes the nullable clonedFromAgentRef key. No source lookup is made.`,
 					fmt.Fprintf(w, "  Cloned from: %s\n", output.SafeCell(*dto.ClonedFromAgentRef))
 				}
 				fmt.Fprintf(w, "  uses tasks: %t\n", dto.UsesTasks)
+				fmt.Fprintf(w, "  reset context after task: %t\n", dto.ResetContextAfterTask)
 				fmt.Fprintf(w, "  member roles: %s\n", output.SafeCell(dashList(dto.MemberRoles)))
 				if len(dto.Surfaces) > 0 {
 					fmt.Fprintf(w, "  surfaces: %s\n", output.SafeCell(strings.Join(dto.Surfaces, ", ")))
@@ -545,7 +551,7 @@ the Agent system memory, then use hadron agent compile and hadron node approve.`
 func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	var name, description, typ, vis, systemMemory, urn string
 	var personaRole string
-	var usesTasks bool
+	var usesTasks, resetContextAfterTask bool
 	var tasksIndex, processesIndex string
 	var surfaces, memberRoles []string
 	cmd := &cobra.Command{
@@ -555,9 +561,18 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 
 --persona-role is metadata. Write the Agent source at boot:source in its system
 memory, then use hadron agent compile and hadron node approve. New Agents
-start without a prompt.`,
+start without a prompt.
+
+--reset-context-after-task records a setting on the Agent (default false);
+hadron agent get shows it. It does not reset anything by itself. The program
+that runs your workers (their host) does the reset, and only a host that
+supports it acts on the setting. The hadron CLI's own worker runner does not
+support it yet (hadron-cli#1043), so setting it has no visible effect today.
+Turn it off with --reset-context-after-task=false. agent create can't set it:
+create the Agent, then set it here.`,
 		Example: `  hadron agent update hrn:agent:acme.com:support-bot --name "Support Bot v2" --visibility PUBLIC
-  hadron agent update agt_123 --description "…"`,
+  hadron agent update agt_123 --description "…"
+  hadron agent update agt_123 --reset-context-after-task`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := refuseRetiredPersonaPromptFlags(cmd); err != nil {
@@ -566,7 +581,7 @@ start without a prompt.`,
 			changed := cmd.Flags().Changed
 			if !changed("name") && !changed("description") && !changed("type") && !changed("visibility") &&
 				!changed("system-memory") && !changed("surface") && !changed("urn") &&
-				!changed("persona-role") && !changed("uses-tasks") &&
+				!changed("persona-role") && !changed("uses-tasks") && !changed("reset-context-after-task") &&
 				!changed("tasks-index") && !changed("processes-index") && !changed("member-roles") {
 				return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
 			}
@@ -601,16 +616,19 @@ start without a prompt.`,
 			var updated *gen.AgentFields
 			if changed("name") || changed("description") || changed("type") || changed("visibility") ||
 				changed("system-memory") || changed("surface") || changed("urn") ||
-				changed("persona-role") || changed("uses-tasks") || changed("member-roles") {
-				var usesTasksArg *bool
+				changed("persona-role") || changed("uses-tasks") || changed("reset-context-after-task") || changed("member-roles") {
+				var usesTasksArg, resetArg *bool
 				if changed("uses-tasks") {
 					usesTasksArg = &usesTasks
+				}
+				if changed("reset-context-after-task") {
+					resetArg = &resetContextAfterTask
 				}
 				resp, err := gen.UpdateAgent(cmd.Context(), client, args[0],
 					changedStr(cmd, "name", name), changedStr(cmd, "description", description),
 					at, av,
 					changedStr(cmd, "system-memory", systemMemory), surfacesArg, changedStr(cmd, "urn", urn),
-					changedStr(cmd, "persona-role", personaRole), usesTasksArg, rolesArg)
+					changedStr(cmd, "persona-role", personaRole), usesTasksArg, resetArg, rolesArg)
 				if err != nil {
 					return api.MapError(err)
 				}
@@ -647,6 +665,7 @@ start without a prompt.`,
 	cmd.Flags().StringVar(&tasksIndex, "tasks-index", "", `the Agent's tasks index node (a ref; an explicit empty clears it)`)
 	cmd.Flags().StringVar(&processesIndex, "processes-index", "", `the Agent's processes index node (a ref; an explicit empty clears it)`)
 	cmd.Flags().BoolVar(&usesTasks, "uses-tasks", false, "Whether workers from this Agent use assigned tasks; false keeps them expected to check the team channel without a task (omitted preserves)")
+	cmd.Flags().BoolVar(&resetContextAfterTask, "reset-context-after-task", false, "Record that this Agent's workers should get a fresh context after each task (default false; =false clears it; omitted keeps the current value). Recorded only: it takes effect where the workers' host supports it")
 	registerRetiredPersonaPromptFlags(cmd)
 	cmdutil.RetireFlags(cmd, "an Agent's boot prompt is now a node: write the source at boot:source in its system memory (role boot-prompt, hadron node update), compile it with `hadron agent compile <agent>`, then have the Agent's manager approve the compiled node with `hadron node approve <compiled-node-ref>`",
 		cmdutil.RetiredFlag{Name: "system-prompt"}, cmdutil.RetiredFlag{Name: "system-prompt-file"}, cmdutil.RetiredFlag{Name: "clear-system-prompt", Bool: true})
