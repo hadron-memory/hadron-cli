@@ -157,6 +157,10 @@ type Poller struct {
 	wakeDeliverer WakeDeliverer
 	// budgetLogged is the UTC day an exhausted wake budget was last logged.
 	budgetLogged string
+
+	// worker.reset-context (#1043): off unless EnableResets.
+	resets    ResetServer
+	resetDeps ResetDeps
 }
 
 // New builds a poller. key is the host key, kept only to scrub it from
@@ -354,6 +358,8 @@ func (p *Poller) carryOut(ctx context.Context, op Operation) {
 		p.workerStart(ctx, op)
 	case OpWorkerEnd:
 		p.workerEnd(ctx, op)
+	case OpWorkerResetContext:
+		p.workerResetContext(ctx, op)
 	case OpWorkerDeliver:
 		// A per-task-event operation (hostOperations/types.ts:45). Chat
 		// delivery reads S1's batches instead (cli#907), so this host has
