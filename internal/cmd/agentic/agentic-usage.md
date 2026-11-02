@@ -81,6 +81,15 @@ self-hosted backend.
     its own HTTP errors.
   - So **branch on the exit code first**, and on `extensions.code` where you
     have it, rather than pattern-matching wording you assume the server chose.
+- **Messages-waiting line (cli#1084).** When a successful command's server
+  response carries the optional `extensions.hadron.deliveryPending` metadata
+  with a positive exact count, the CLI prints ONE extra line on **stderr**, in
+  text and `--json` mode alike: `N messages waiting; pull with hadron team chat
+  inbox` (`1 message waiting; …` for one). stdout, the result, the exit status
+  and the number of requests are unchanged; the CLI computes no count and makes
+  no extra call. Zero, absent, malformed, unsupported or incomplete metadata
+  prints nothing, and a failed command never prints it. `hadron api` is not
+  covered. Do not parse this line: pull with `hadron team chat inbox`.
 - JSON field names are stable. New fields may be added; existing
   fields are never renamed or removed without a major version bump.
 
