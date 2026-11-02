@@ -4791,8 +4791,9 @@ hadron team task find-untracked --integration <name> [--team <worker>] [--ready 
     tracker text is terminal-safe.
   - **Claim (`--assign-to-me`).** It creates STARTED root tasks owned by and
     assigned to the caller, in list order: `{tasks:[task], complete,
-    incompleteReason, refusalCode}`. No binding is required: the configured
-    credential claims. An App key is refused with
+    incompleteReason, refusalCode}`. In a worktree bound for this server and
+    App the claim carries the session, so the bound worker claims; with no
+    binding the configured credential (a person) claims. An App key is refused with
     `TASK_CLAIM_PRINCIPAL_UNSUPPORTED`, exit 8.
   - **Incomplete results.** `claim_refused` prints the claimed tasks on stdout
     (one JSON document) and then exits with `refusalCode`'s mapping (below),

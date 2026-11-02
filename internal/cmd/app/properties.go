@@ -196,6 +196,10 @@ func writeSetAppProperties(cmd *cobra.Command, f *cmdutil.Factory, ref string, p
 		return api.MapErrorKeepingCode(err)
 	}
 	a := resp.SetAppProperties
+	if a == nil {
+		// The write may have landed: say so, and never retry it.
+		return exitcode.Newf(exitcode.Error, "the server returned no App properties; check with app properties get before writing again")
+	}
 	return writeAppProperties(f, appPropertiesDTO{AppID: a.Id, PropertiesRevision: a.PropertiesRevision, Properties: a.Properties})
 }
 

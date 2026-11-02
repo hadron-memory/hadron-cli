@@ -97,8 +97,9 @@ command still exits 0, and notes it on stderr.
 
 --assign-to-me CLAIMS up to --limit items (1 to 10, default 1) in that order,
 in one call: each becomes a STARTED root task owned by and assigned to you,
-with externalId and source the item's URL. Concurrent callers get different
-items. It takes no --skip. Each claim commits on its own. When a refusal stops
+with externalId and source the item's URL. "You" is this worktree's bound
+worker when one is bound for this server and App, else the signed-in person.
+Concurrent callers get different items. It takes no --skip. Each claim commits on its own. When a refusal stops
 the walk part-way, the tasks already claimed are printed (they are yours) and
 the command exits with the refusal's code; an unexpected failure after a claim
 exits 1 the same way. A person or a worker claims; an App key is refused
