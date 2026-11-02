@@ -211,7 +211,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 321: 245 command, 65 gap, 11 excluded
+[Mutation] 321: 248 command, 62 gap, 11 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -220,7 +220,7 @@ acquireEditorLock  command agent lock acquire
 addAgentTaskBlocker  command team task add-blocker
 addAgentToApp  excluded deprecated: @deprecated: Use installAgentIntoApp (spec 023-app-shape US1). Returns Payload type with the AppAgent row.
 addMemoryMember  command memory member add
-addMemoryToAgent  gap #58
+addMemoryToAgent  command agent memory add
 addOrgMember  command org member add
 advanceChannelReadState  command channel mark-read
 allocateSpecNode  gap #398: spec new allocates on the provider (gated on #398, not #1341)
@@ -403,7 +403,7 @@ removeAgentFromApp  excluded deprecated: @deprecated: Use uninstallAgentFromApp 
 removeAgentImport  gap #58
 removeAgentTaskBlocker  command team task add-blocker
 removeAppMember  command app member remove
-removeMemoryFromAgent  gap #58
+removeMemoryFromAgent  command agent memory rm
 removeMemoryMember  command memory member rm
 removeOrgMember  command org member rm
 renumberSpec  command spec renumber
@@ -490,7 +490,7 @@ unlockNodeRoleRule  command memory config rule unlock
 unsubscribeWorker  command ticker unsubscribe
 updateAgent  command agent update
 updateAgentAIConfig  excluded deprecated: its description names createAiServiceConfig/updateAiServiceConfig as the successor, which `ai-config create` and `ai-config update` reach
-updateAgentMemoryRole  gap #58
+updateAgentMemoryRole  command agent memory set-role
 updateAgentSchedule  command schedule update
 updateAgentTask  command team task update
 updateAgentTickerTemplate  command agent ticker-templates update

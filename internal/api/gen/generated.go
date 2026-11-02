@@ -497,6 +497,215 @@ func (v *AddMemoryMemberResponse) GetAddMemoryMember() *AddMemoryMemberAddMemory
 	return v.AddMemoryMember
 }
 
+// AddMemoryToAgentAddMemoryToAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type AddMemoryToAgentAddMemoryToAgent struct {
+	AgentFields `json:"-"`
+}
+
+// GetId returns AddMemoryToAgentAddMemoryToAgent.Id, and is useful for accessing the field via an interface.
+func (v *AddMemoryToAgentAddMemoryToAgent) GetId() string { return v.AgentFields.Id }
+
+// GetUrn returns AddMemoryToAgentAddMemoryToAgent.Urn, and is useful for accessing the field via an interface.
+func (v *AddMemoryToAgentAddMemoryToAgent) GetUrn() string { return v.AgentFields.Urn }
+
+// GetName returns AddMemoryToAgentAddMemoryToAgent.Name, and is useful for accessing the field via an interface.
+func (v *AddMemoryToAgentAddMemoryToAgent) GetName() string { return v.AgentFields.Name }
+
+// GetDescription returns AddMemoryToAgentAddMemoryToAgent.Description, and is useful for accessing the field via an interface.
+func (v *AddMemoryToAgentAddMemoryToAgent) GetDescription() *string { return v.AgentFields.Description }
+
+// GetType returns AddMemoryToAgentAddMemoryToAgent.Type, and is useful for accessing the field via an interface.
+func (v *AddMemoryToAgentAddMemoryToAgent) GetType() AgentType { return v.AgentFields.Type }
+
+// GetVisibility returns AddMemoryToAgentAddMemoryToAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *AddMemoryToAgentAddMemoryToAgent) GetVisibility() AgentVisibility {
+	return v.AgentFields.Visibility
+}
+
+// GetOrganizationId returns AddMemoryToAgentAddMemoryToAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *AddMemoryToAgentAddMemoryToAgent) GetOrganizationId() *string {
+	return v.AgentFields.OrganizationId
+}
+
+// GetSurfaces returns AddMemoryToAgentAddMemoryToAgent.Surfaces, and is useful for accessing the field via an interface.
+func (v *AddMemoryToAgentAddMemoryToAgent) GetSurfaces() []string { return v.AgentFields.Surfaces }
+
+// GetSystemMemoryId returns AddMemoryToAgentAddMemoryToAgent.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *AddMemoryToAgentAddMemoryToAgent) GetSystemMemoryId() *string {
+	return v.AgentFields.SystemMemoryId
+}
+
+// GetTasksIndexRef returns AddMemoryToAgentAddMemoryToAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *AddMemoryToAgentAddMemoryToAgent) GetTasksIndexRef() *string {
+	return v.AgentFields.TasksIndexRef
+}
+
+// GetProcessesIndexRef returns AddMemoryToAgentAddMemoryToAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *AddMemoryToAgentAddMemoryToAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
+// GetExtendsAgentId returns AddMemoryToAgentAddMemoryToAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *AddMemoryToAgentAddMemoryToAgent) GetExtendsAgentId() *string {
+	return v.AgentFields.ExtendsAgentId
+}
+
+// GetBootPromptRef returns AddMemoryToAgentAddMemoryToAgent.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *AddMemoryToAgentAddMemoryToAgent) GetBootPromptRef() *string {
+	return v.AgentFields.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns AddMemoryToAgentAddMemoryToAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *AddMemoryToAgentAddMemoryToAgent) GetBootPromptTargetDeleted() *bool {
+	return v.AgentFields.BootPromptTargetDeleted
+}
+
+// GetAiProvider returns AddMemoryToAgentAddMemoryToAgent.AiProvider, and is useful for accessing the field via an interface.
+func (v *AddMemoryToAgentAddMemoryToAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
+
+// GetAiModel returns AddMemoryToAgentAddMemoryToAgent.AiModel, and is useful for accessing the field via an interface.
+func (v *AddMemoryToAgentAddMemoryToAgent) GetAiModel() *string { return v.AgentFields.AiModel }
+
+// GetHasAiApiKey returns AddMemoryToAgentAddMemoryToAgent.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *AddMemoryToAgentAddMemoryToAgent) GetHasAiApiKey() bool { return v.AgentFields.HasAiApiKey }
+
+// GetPersonaRole returns AddMemoryToAgentAddMemoryToAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *AddMemoryToAgentAddMemoryToAgent) GetPersonaRole() *string { return v.AgentFields.PersonaRole }
+
+// GetUsesTasks returns AddMemoryToAgentAddMemoryToAgent.UsesTasks, and is useful for accessing the field via an interface.
+func (v *AddMemoryToAgentAddMemoryToAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
+
+// GetInstallationPolicy returns AddMemoryToAgentAddMemoryToAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *AddMemoryToAgentAddMemoryToAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
+// GetCreatedAt returns AddMemoryToAgentAddMemoryToAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AddMemoryToAgentAddMemoryToAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
+
+func (v *AddMemoryToAgentAddMemoryToAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AddMemoryToAgentAddMemoryToAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AddMemoryToAgentAddMemoryToAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAddMemoryToAgentAddMemoryToAgent struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Type AgentType `json:"type"`
+
+	Visibility AgentVisibility `json:"visibility"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	Surfaces []string `json:"surfaces"`
+
+	SystemMemoryId *string `json:"systemMemoryId"`
+
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
+	AiProvider *string `json:"aiProvider"`
+
+	AiModel *string `json:"aiModel"`
+
+	HasAiApiKey bool `json:"hasAiApiKey"`
+
+	PersonaRole *string `json:"personaRole"`
+
+	UsesTasks bool `json:"usesTasks"`
+
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *AddMemoryToAgentAddMemoryToAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AddMemoryToAgentAddMemoryToAgent) __premarshalJSON() (*__premarshalAddMemoryToAgentAddMemoryToAgent, error) {
+	var retval __premarshalAddMemoryToAgentAddMemoryToAgent
+
+	retval.Id = v.AgentFields.Id
+	retval.Urn = v.AgentFields.Urn
+	retval.Name = v.AgentFields.Name
+	retval.Description = v.AgentFields.Description
+	retval.Type = v.AgentFields.Type
+	retval.Visibility = v.AgentFields.Visibility
+	retval.OrganizationId = v.AgentFields.OrganizationId
+	retval.Surfaces = v.AgentFields.Surfaces
+	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
+	retval.BootPromptRef = v.AgentFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.AgentFields.BootPromptTargetDeleted
+	retval.AiProvider = v.AgentFields.AiProvider
+	retval.AiModel = v.AgentFields.AiModel
+	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
+	retval.CreatedAt = v.AgentFields.CreatedAt
+	return &retval, nil
+}
+
+// AddMemoryToAgentResponse is returned by AddMemoryToAgent on success.
+type AddMemoryToAgentResponse struct {
+	// Attach a Memory to an Agent.
+	//
+	// Accepts the entity's ID or URN.
+	AddMemoryToAgent *AddMemoryToAgentAddMemoryToAgent `json:"addMemoryToAgent"`
+}
+
+// GetAddMemoryToAgent returns AddMemoryToAgentResponse.AddMemoryToAgent, and is useful for accessing the field via an interface.
+func (v *AddMemoryToAgentResponse) GetAddMemoryToAgent() *AddMemoryToAgentAddMemoryToAgent {
+	return v.AddMemoryToAgent
+}
+
 // AddOrgMemberAddOrgMember includes the requested fields of the GraphQL type OrgMember.
 // The GraphQL type's documentation follows.
 //
@@ -52995,6 +53204,231 @@ type RemoveAppMemberResponse struct {
 // GetRemoveAppMember returns RemoveAppMemberResponse.RemoveAppMember, and is useful for accessing the field via an interface.
 func (v *RemoveAppMemberResponse) GetRemoveAppMember() *bool { return v.RemoveAppMember }
 
+// RemoveMemoryFromAgentRemoveMemoryFromAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type RemoveMemoryFromAgentRemoveMemoryFromAgent struct {
+	AgentFields `json:"-"`
+}
+
+// GetId returns RemoveMemoryFromAgentRemoveMemoryFromAgent.Id, and is useful for accessing the field via an interface.
+func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetId() string { return v.AgentFields.Id }
+
+// GetUrn returns RemoveMemoryFromAgentRemoveMemoryFromAgent.Urn, and is useful for accessing the field via an interface.
+func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetUrn() string { return v.AgentFields.Urn }
+
+// GetName returns RemoveMemoryFromAgentRemoveMemoryFromAgent.Name, and is useful for accessing the field via an interface.
+func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetName() string { return v.AgentFields.Name }
+
+// GetDescription returns RemoveMemoryFromAgentRemoveMemoryFromAgent.Description, and is useful for accessing the field via an interface.
+func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetDescription() *string {
+	return v.AgentFields.Description
+}
+
+// GetType returns RemoveMemoryFromAgentRemoveMemoryFromAgent.Type, and is useful for accessing the field via an interface.
+func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetType() AgentType { return v.AgentFields.Type }
+
+// GetVisibility returns RemoveMemoryFromAgentRemoveMemoryFromAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetVisibility() AgentVisibility {
+	return v.AgentFields.Visibility
+}
+
+// GetOrganizationId returns RemoveMemoryFromAgentRemoveMemoryFromAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetOrganizationId() *string {
+	return v.AgentFields.OrganizationId
+}
+
+// GetSurfaces returns RemoveMemoryFromAgentRemoveMemoryFromAgent.Surfaces, and is useful for accessing the field via an interface.
+func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetSurfaces() []string {
+	return v.AgentFields.Surfaces
+}
+
+// GetSystemMemoryId returns RemoveMemoryFromAgentRemoveMemoryFromAgent.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetSystemMemoryId() *string {
+	return v.AgentFields.SystemMemoryId
+}
+
+// GetTasksIndexRef returns RemoveMemoryFromAgentRemoveMemoryFromAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetTasksIndexRef() *string {
+	return v.AgentFields.TasksIndexRef
+}
+
+// GetProcessesIndexRef returns RemoveMemoryFromAgentRemoveMemoryFromAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
+// GetExtendsAgentId returns RemoveMemoryFromAgentRemoveMemoryFromAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetExtendsAgentId() *string {
+	return v.AgentFields.ExtendsAgentId
+}
+
+// GetBootPromptRef returns RemoveMemoryFromAgentRemoveMemoryFromAgent.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetBootPromptRef() *string {
+	return v.AgentFields.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns RemoveMemoryFromAgentRemoveMemoryFromAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetBootPromptTargetDeleted() *bool {
+	return v.AgentFields.BootPromptTargetDeleted
+}
+
+// GetAiProvider returns RemoveMemoryFromAgentRemoveMemoryFromAgent.AiProvider, and is useful for accessing the field via an interface.
+func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetAiProvider() *string {
+	return v.AgentFields.AiProvider
+}
+
+// GetAiModel returns RemoveMemoryFromAgentRemoveMemoryFromAgent.AiModel, and is useful for accessing the field via an interface.
+func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetAiModel() *string {
+	return v.AgentFields.AiModel
+}
+
+// GetHasAiApiKey returns RemoveMemoryFromAgentRemoveMemoryFromAgent.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetHasAiApiKey() bool {
+	return v.AgentFields.HasAiApiKey
+}
+
+// GetPersonaRole returns RemoveMemoryFromAgentRemoveMemoryFromAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetPersonaRole() *string {
+	return v.AgentFields.PersonaRole
+}
+
+// GetUsesTasks returns RemoveMemoryFromAgentRemoveMemoryFromAgent.UsesTasks, and is useful for accessing the field via an interface.
+func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetUsesTasks() bool {
+	return v.AgentFields.UsesTasks
+}
+
+// GetInstallationPolicy returns RemoveMemoryFromAgentRemoveMemoryFromAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
+// GetCreatedAt returns RemoveMemoryFromAgentRemoveMemoryFromAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetCreatedAt() string {
+	return v.AgentFields.CreatedAt
+}
+
+func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*RemoveMemoryFromAgentRemoveMemoryFromAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.RemoveMemoryFromAgentRemoveMemoryFromAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalRemoveMemoryFromAgentRemoveMemoryFromAgent struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Type AgentType `json:"type"`
+
+	Visibility AgentVisibility `json:"visibility"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	Surfaces []string `json:"surfaces"`
+
+	SystemMemoryId *string `json:"systemMemoryId"`
+
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
+	AiProvider *string `json:"aiProvider"`
+
+	AiModel *string `json:"aiModel"`
+
+	HasAiApiKey bool `json:"hasAiApiKey"`
+
+	PersonaRole *string `json:"personaRole"`
+
+	UsesTasks bool `json:"usesTasks"`
+
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) __premarshalJSON() (*__premarshalRemoveMemoryFromAgentRemoveMemoryFromAgent, error) {
+	var retval __premarshalRemoveMemoryFromAgentRemoveMemoryFromAgent
+
+	retval.Id = v.AgentFields.Id
+	retval.Urn = v.AgentFields.Urn
+	retval.Name = v.AgentFields.Name
+	retval.Description = v.AgentFields.Description
+	retval.Type = v.AgentFields.Type
+	retval.Visibility = v.AgentFields.Visibility
+	retval.OrganizationId = v.AgentFields.OrganizationId
+	retval.Surfaces = v.AgentFields.Surfaces
+	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
+	retval.BootPromptRef = v.AgentFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.AgentFields.BootPromptTargetDeleted
+	retval.AiProvider = v.AgentFields.AiProvider
+	retval.AiModel = v.AgentFields.AiModel
+	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
+	retval.CreatedAt = v.AgentFields.CreatedAt
+	return &retval, nil
+}
+
+// RemoveMemoryFromAgentResponse is returned by RemoveMemoryFromAgent on success.
+type RemoveMemoryFromAgentResponse struct {
+	// Detach a Memory from an Agent.
+	//
+	// Accepts the entity's ID or URN.
+	RemoveMemoryFromAgent *RemoveMemoryFromAgentRemoveMemoryFromAgent `json:"removeMemoryFromAgent"`
+}
+
+// GetRemoveMemoryFromAgent returns RemoveMemoryFromAgentResponse.RemoveMemoryFromAgent, and is useful for accessing the field via an interface.
+func (v *RemoveMemoryFromAgentResponse) GetRemoveMemoryFromAgent() *RemoveMemoryFromAgentRemoveMemoryFromAgent {
+	return v.RemoveMemoryFromAgent
+}
+
 // RemoveMemoryMemberRemoveMemoryMemberRemoveMemoryMemberPayload includes the requested fields of the GraphQL type RemoveMemoryMemberPayload.
 type RemoveMemoryMemberRemoveMemoryMemberRemoveMemoryMemberPayload struct {
 	MemoryId string `json:"memoryId"`
@@ -72450,6 +72884,233 @@ func (v *UnsubscribeTickerUnsubscribeWorkerSubscribeResultSubscriptionTickerSubs
 	return &retval, nil
 }
 
+// UpdateAgentMemoryRoleResponse is returned by UpdateAgentMemoryRole on success.
+type UpdateAgentMemoryRoleResponse struct {
+	// Update an Agent's role on an attached Memory.
+	//
+	// Accepts the entity's ID or URN.
+	UpdateAgentMemoryRole *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent `json:"updateAgentMemoryRole"`
+}
+
+// GetUpdateAgentMemoryRole returns UpdateAgentMemoryRoleResponse.UpdateAgentMemoryRole, and is useful for accessing the field via an interface.
+func (v *UpdateAgentMemoryRoleResponse) GetUpdateAgentMemoryRole() *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent {
+	return v.UpdateAgentMemoryRole
+}
+
+// UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent struct {
+	AgentFields `json:"-"`
+}
+
+// GetId returns UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent.Id, and is useful for accessing the field via an interface.
+func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetId() string { return v.AgentFields.Id }
+
+// GetUrn returns UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent.Urn, and is useful for accessing the field via an interface.
+func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetUrn() string { return v.AgentFields.Urn }
+
+// GetName returns UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent.Name, and is useful for accessing the field via an interface.
+func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetName() string { return v.AgentFields.Name }
+
+// GetDescription returns UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent.Description, and is useful for accessing the field via an interface.
+func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetDescription() *string {
+	return v.AgentFields.Description
+}
+
+// GetType returns UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent.Type, and is useful for accessing the field via an interface.
+func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetType() AgentType {
+	return v.AgentFields.Type
+}
+
+// GetVisibility returns UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetVisibility() AgentVisibility {
+	return v.AgentFields.Visibility
+}
+
+// GetOrganizationId returns UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetOrganizationId() *string {
+	return v.AgentFields.OrganizationId
+}
+
+// GetSurfaces returns UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent.Surfaces, and is useful for accessing the field via an interface.
+func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetSurfaces() []string {
+	return v.AgentFields.Surfaces
+}
+
+// GetSystemMemoryId returns UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetSystemMemoryId() *string {
+	return v.AgentFields.SystemMemoryId
+}
+
+// GetTasksIndexRef returns UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetTasksIndexRef() *string {
+	return v.AgentFields.TasksIndexRef
+}
+
+// GetProcessesIndexRef returns UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
+// GetExtendsAgentId returns UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetExtendsAgentId() *string {
+	return v.AgentFields.ExtendsAgentId
+}
+
+// GetBootPromptRef returns UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetBootPromptRef() *string {
+	return v.AgentFields.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetBootPromptTargetDeleted() *bool {
+	return v.AgentFields.BootPromptTargetDeleted
+}
+
+// GetAiProvider returns UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent.AiProvider, and is useful for accessing the field via an interface.
+func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetAiProvider() *string {
+	return v.AgentFields.AiProvider
+}
+
+// GetAiModel returns UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent.AiModel, and is useful for accessing the field via an interface.
+func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetAiModel() *string {
+	return v.AgentFields.AiModel
+}
+
+// GetHasAiApiKey returns UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetHasAiApiKey() bool {
+	return v.AgentFields.HasAiApiKey
+}
+
+// GetPersonaRole returns UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetPersonaRole() *string {
+	return v.AgentFields.PersonaRole
+}
+
+// GetUsesTasks returns UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent.UsesTasks, and is useful for accessing the field via an interface.
+func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetUsesTasks() bool {
+	return v.AgentFields.UsesTasks
+}
+
+// GetInstallationPolicy returns UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
+// GetCreatedAt returns UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetCreatedAt() string {
+	return v.AgentFields.CreatedAt
+}
+
+func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Type AgentType `json:"type"`
+
+	Visibility AgentVisibility `json:"visibility"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	Surfaces []string `json:"surfaces"`
+
+	SystemMemoryId *string `json:"systemMemoryId"`
+
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
+	AiProvider *string `json:"aiProvider"`
+
+	AiModel *string `json:"aiModel"`
+
+	HasAiApiKey bool `json:"hasAiApiKey"`
+
+	PersonaRole *string `json:"personaRole"`
+
+	UsesTasks bool `json:"usesTasks"`
+
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) __premarshalJSON() (*__premarshalUpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent, error) {
+	var retval __premarshalUpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent
+
+	retval.Id = v.AgentFields.Id
+	retval.Urn = v.AgentFields.Urn
+	retval.Name = v.AgentFields.Name
+	retval.Description = v.AgentFields.Description
+	retval.Type = v.AgentFields.Type
+	retval.Visibility = v.AgentFields.Visibility
+	retval.OrganizationId = v.AgentFields.OrganizationId
+	retval.Surfaces = v.AgentFields.Surfaces
+	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
+	retval.BootPromptRef = v.AgentFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.AgentFields.BootPromptTargetDeleted
+	retval.AiProvider = v.AgentFields.AiProvider
+	retval.AiModel = v.AgentFields.AiModel
+	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
+	retval.CreatedAt = v.AgentFields.CreatedAt
+	return &retval, nil
+}
+
 // UpdateAgentResponse is returned by UpdateAgent on success.
 type UpdateAgentResponse struct {
 	// Update an Agent.
@@ -82187,6 +82848,22 @@ func (v *__AddMemoryMemberInput) GetUserRef() string { return v.UserRef }
 // GetRole returns __AddMemoryMemberInput.Role, and is useful for accessing the field via an interface.
 func (v *__AddMemoryMemberInput) GetRole() MemoryMemberRole { return v.Role }
 
+// __AddMemoryToAgentInput is used internally by genqlient
+type __AddMemoryToAgentInput struct {
+	AgentRef  string  `json:"agentRef"`
+	MemoryRef string  `json:"memoryRef"`
+	Role      *string `json:"role,omitempty"`
+}
+
+// GetAgentRef returns __AddMemoryToAgentInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__AddMemoryToAgentInput) GetAgentRef() string { return v.AgentRef }
+
+// GetMemoryRef returns __AddMemoryToAgentInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__AddMemoryToAgentInput) GetMemoryRef() string { return v.MemoryRef }
+
+// GetRole returns __AddMemoryToAgentInput.Role, and is useful for accessing the field via an interface.
+func (v *__AddMemoryToAgentInput) GetRole() *string { return v.Role }
+
 // __AddOrgMemberInput is used internally by genqlient
 type __AddOrgMemberInput struct {
 	OrgRef  string `json:"orgRef"`
@@ -87083,6 +87760,18 @@ func (v *__RemoveAppMemberInput) GetAppRef() string { return v.AppRef }
 // GetUserRef returns __RemoveAppMemberInput.UserRef, and is useful for accessing the field via an interface.
 func (v *__RemoveAppMemberInput) GetUserRef() string { return v.UserRef }
 
+// __RemoveMemoryFromAgentInput is used internally by genqlient
+type __RemoveMemoryFromAgentInput struct {
+	AgentRef  string `json:"agentRef"`
+	MemoryRef string `json:"memoryRef"`
+}
+
+// GetAgentRef returns __RemoveMemoryFromAgentInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__RemoveMemoryFromAgentInput) GetAgentRef() string { return v.AgentRef }
+
+// GetMemoryRef returns __RemoveMemoryFromAgentInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__RemoveMemoryFromAgentInput) GetMemoryRef() string { return v.MemoryRef }
+
 // __RemoveMemoryMemberInput is used internally by genqlient
 type __RemoveMemoryMemberInput struct {
 	MemoryRef string `json:"memoryRef"`
@@ -88779,6 +89468,22 @@ func (v *__UpdateAgentInput) GetUsesTasks() *bool { return v.UsesTasks }
 // GetMemberRoles returns __UpdateAgentInput.MemberRoles, and is useful for accessing the field via an interface.
 func (v *__UpdateAgentInput) GetMemberRoles() []string { return v.MemberRoles }
 
+// __UpdateAgentMemoryRoleInput is used internally by genqlient
+type __UpdateAgentMemoryRoleInput struct {
+	AgentRef  string `json:"agentRef"`
+	MemoryRef string `json:"memoryRef"`
+	Role      string `json:"role"`
+}
+
+// GetAgentRef returns __UpdateAgentMemoryRoleInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentMemoryRoleInput) GetAgentRef() string { return v.AgentRef }
+
+// GetMemoryRef returns __UpdateAgentMemoryRoleInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentMemoryRoleInput) GetMemoryRef() string { return v.MemoryRef }
+
+// GetRole returns __UpdateAgentMemoryRoleInput.Role, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentMemoryRoleInput) GetRole() string { return v.Role }
+
 // __UpdateAgentScheduleInput is used internally by genqlient
 type __UpdateAgentScheduleInput struct {
 	Id    string                    `json:"id"`
@@ -90390,6 +91095,73 @@ func AddMemoryMember(
 	}
 
 	data_ = &AddMemoryMemberResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by AddMemoryToAgent.
+const AddMemoryToAgent_Operation = `
+mutation AddMemoryToAgent ($agentRef: ID!, $memoryRef: ID!, $role: String) {
+	addMemoryToAgent(agentRef: $agentRef, memoryRef: $memoryRef, role: $role) {
+		... AgentFields
+	}
+}
+fragment AgentFields on Agent {
+	id
+	urn
+	name
+	description
+	type
+	visibility
+	organizationId
+	surfaces
+	systemMemoryId
+	tasksIndexRef
+	processesIndexRef
+	extendsAgentId
+	bootPromptRef
+	bootPromptTargetDeleted
+	aiProvider
+	aiModel
+	hasAiApiKey
+	personaRole
+	usesTasks
+	installationPolicy {
+		memberRoles
+	}
+	createdAt
+}
+`
+
+// cli#58 slice 1: attach / re-role / detach a Memory on an Agent. Refs go to the
+// server verbatim (agentRef/memoryRef accept id, URN or handle; no client
+// pre-resolve). role is omitempty: an unset role on add is the server default;
+// updateAgentMemoryRole's role is required.
+func AddMemoryToAgent(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentRef string,
+	memoryRef string,
+	role *string,
+) (data_ *AddMemoryToAgentResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AddMemoryToAgent",
+		Query:  AddMemoryToAgent_Operation,
+		Variables: &__AddMemoryToAgentInput{
+			AgentRef:  agentRef,
+			MemoryRef: memoryRef,
+			Role:      role,
+		},
+	}
+
+	data_ = &AddMemoryToAgentResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -109845,6 +110617,67 @@ func RemoveAppMember(
 	return data_, err_
 }
 
+// The mutation executed by RemoveMemoryFromAgent.
+const RemoveMemoryFromAgent_Operation = `
+mutation RemoveMemoryFromAgent ($agentRef: ID!, $memoryRef: ID!) {
+	removeMemoryFromAgent(agentRef: $agentRef, memoryRef: $memoryRef) {
+		... AgentFields
+	}
+}
+fragment AgentFields on Agent {
+	id
+	urn
+	name
+	description
+	type
+	visibility
+	organizationId
+	surfaces
+	systemMemoryId
+	tasksIndexRef
+	processesIndexRef
+	extendsAgentId
+	bootPromptRef
+	bootPromptTargetDeleted
+	aiProvider
+	aiModel
+	hasAiApiKey
+	personaRole
+	usesTasks
+	installationPolicy {
+		memberRoles
+	}
+	createdAt
+}
+`
+
+func RemoveMemoryFromAgent(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentRef string,
+	memoryRef string,
+) (data_ *RemoveMemoryFromAgentResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RemoveMemoryFromAgent",
+		Query:  RemoveMemoryFromAgent_Operation,
+		Variables: &__RemoveMemoryFromAgentInput{
+			AgentRef:  agentRef,
+			MemoryRef: memoryRef,
+		},
+	}
+
+	data_ = &RemoveMemoryFromAgentResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by RemoveMemoryMember.
 const RemoveMemoryMember_Operation = `
 mutation RemoveMemoryMember ($memoryRef: String!, $userRef: String!) {
@@ -116473,6 +117306,69 @@ func UpdateAgent(
 	}
 
 	data_ = &UpdateAgentResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateAgentMemoryRole.
+const UpdateAgentMemoryRole_Operation = `
+mutation UpdateAgentMemoryRole ($agentRef: ID!, $memoryRef: ID!, $role: String!) {
+	updateAgentMemoryRole(agentRef: $agentRef, memoryRef: $memoryRef, role: $role) {
+		... AgentFields
+	}
+}
+fragment AgentFields on Agent {
+	id
+	urn
+	name
+	description
+	type
+	visibility
+	organizationId
+	surfaces
+	systemMemoryId
+	tasksIndexRef
+	processesIndexRef
+	extendsAgentId
+	bootPromptRef
+	bootPromptTargetDeleted
+	aiProvider
+	aiModel
+	hasAiApiKey
+	personaRole
+	usesTasks
+	installationPolicy {
+		memberRoles
+	}
+	createdAt
+}
+`
+
+func UpdateAgentMemoryRole(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentRef string,
+	memoryRef string,
+	role string,
+) (data_ *UpdateAgentMemoryRoleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateAgentMemoryRole",
+		Query:  UpdateAgentMemoryRole_Operation,
+		Variables: &__UpdateAgentMemoryRoleInput{
+			AgentRef:  agentRef,
+			MemoryRef: memoryRef,
+			Role:      role,
+		},
+	}
+
+	data_ = &UpdateAgentMemoryRoleResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

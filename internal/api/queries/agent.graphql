@@ -338,3 +338,30 @@ mutation AcquireEditorLock($agentId: ID!) {
 mutation ReleaseEditorLock($agentId: ID!) {
   releaseEditorLock(agentId: $agentId)
 }
+
+# cli#58 slice 1: attach / re-role / detach a Memory on an Agent. Refs go to the
+# server verbatim (agentRef/memoryRef accept id, URN or handle; no client
+# pre-resolve). role is omitempty: an unset role on add is the server default;
+# updateAgentMemoryRole's role is required.
+mutation AddMemoryToAgent(
+  $agentRef: ID!
+  $memoryRef: ID!
+  # @genqlient(omitempty: true)
+  $role: String
+) {
+  addMemoryToAgent(agentRef: $agentRef, memoryRef: $memoryRef, role: $role) {
+    ...AgentFields
+  }
+}
+
+mutation UpdateAgentMemoryRole($agentRef: ID!, $memoryRef: ID!, $role: String!) {
+  updateAgentMemoryRole(agentRef: $agentRef, memoryRef: $memoryRef, role: $role) {
+    ...AgentFields
+  }
+}
+
+mutation RemoveMemoryFromAgent($agentRef: ID!, $memoryRef: ID!) {
+  removeMemoryFromAgent(agentRef: $agentRef, memoryRef: $memoryRef) {
+    ...AgentFields
+  }
+}
