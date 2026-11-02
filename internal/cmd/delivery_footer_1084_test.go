@@ -32,9 +32,9 @@ var (
 	footerBinDir  string
 )
 
-// TestMain-free cleanup: the compiled binary lives for the package run and is
-// removed by the last test to finish via footerBinCleanup (see
-// TestDeliveryFooterZZCleanup, which Go runs last in source order).
+// footerBinCleanup removes the compiled binary. TestMain calls it once after
+// m.Run, so the binary lives for the whole package run (safe under -count=N and
+// -shuffle) and nothing depends on test order.
 func footerBinCleanup() {
 	if footerBinDir != "" {
 		_ = os.RemoveAll(footerBinDir)
@@ -298,6 +298,3 @@ func TestDeliveryFooterSuppressedWhenALaterRequestFails(t *testing.T) {
 		t.Fatalf("a later failure keeps its own error and exit:\nbase %q %d\ngot  %q %d", base.stderr, base.code, got.stderr, got.code)
 	}
 }
-
-// Removes the compiled binary; Go runs tests in source order, so this is last.
-func TestDeliveryFooterZZCleanup(t *testing.T) { t.Cleanup(footerBinCleanup) }
