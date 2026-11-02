@@ -17579,8 +17579,9 @@ func (v *ChannelMessageFields) GetNodeId() string { return v.NodeId }
 //
 // One page of a chat-history search (#2299, hrn:node:hadronmemory.com:specs:cor:agt:020:04). Newest first. A call stops at
 // a full page or at the scan bound, whichever comes first: complete is true only when the search reached the start of the
-// history, and then there is no cursor. An empty page with complete false means the scan bound fired before any match: it
-// may continue with the cursor. No matches is only ever an empty page with complete true.
+// history, and then there is no cursor. A search found nothing only when every page it returned was empty and the last one
+// has complete true. A final empty page with complete true can follow pages that had matches. An empty page with complete
+// false means the scan bound fired; continue with the cursor.
 type ChannelMessageSearchChannelMessageSearchTeamChatSearchPage struct {
 	ChatSearchPageFields `json:"-"`
 }
@@ -60666,7 +60667,7 @@ type SetAppPropertiesResponse struct {
 	// { name, provider: "github", repositories: ["owner/name"], readyLabel?, excludeLabels?, teams?: [{ lead, label }] },
 	// where lead is a worker of this App (URN, id or name). Refusals: FORBIDDEN, PROPERTIES_NOT_AN_OBJECT,
 	// PROPERTIES_TOO_LARGE, PROPERTIES_KEY_RESERVED (a key named __proto__ at any depth, which cannot be stored; names the
-	// path), TASK_INTEGRATION_ORG_REQUIRED (an App with no organization), TASK_INTEGRATION_INVALID (names the JSON path,
+	// path), TASK_INTEGRATION_INVALID (names the JSON path,
 	// never the value), APP_PROPERTIES_CONFLICT.
 	SetAppProperties *SetAppPropertiesSetAppPropertiesApp `json:"setAppProperties"`
 }
@@ -66339,8 +66340,9 @@ func (v *TeamChatSearchResponse) GetTeamChatSearch() *TeamChatSearchTeamChatSear
 //
 // One page of a chat-history search (#2299, hrn:node:hadronmemory.com:specs:cor:agt:020:04). Newest first. A call stops at
 // a full page or at the scan bound, whichever comes first: complete is true only when the search reached the start of the
-// history, and then there is no cursor. An empty page with complete false means the scan bound fired before any match: it
-// may continue with the cursor. No matches is only ever an empty page with complete true.
+// history, and then there is no cursor. A search found nothing only when every page it returned was empty and the last one
+// has complete true. A final empty page with complete true can follow pages that had matches. An empty page with complete
+// false means the scan bound fired; continue with the cursor.
 type TeamChatSearchTeamChatSearchTeamChatSearchPage struct {
 	ChatSearchPageFields `json:"-"`
 }
