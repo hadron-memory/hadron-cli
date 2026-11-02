@@ -49,7 +49,9 @@ func TestHostResetStepsSendTypedInputs1043(t *testing.T) {
 		want            map[string]any
 	}{
 		{"claim", "ClaimContextReset", "claimContextReset",
-			func(s *hostServer) (hostpoller.ResetStep, error) { return s.ClaimReset(context.Background(), "r1", 0, proc) },
+			func(s *hostServer) (hostpoller.ResetStep, error) {
+				return s.ClaimReset(context.Background(), "r1", 0, proc)
+			},
 			map[string]any{"resetId": "r1", "epoch": 0.0, "process": map[string]any{"pid": 4242.0, "startTime": "987654"}}},
 		{"recovery", "RegisterContextResetRecovery", "registerContextResetRecovery",
 			func(s *hostServer) (hostpoller.ResetStep, error) {
