@@ -581,6 +581,11 @@ func (v *AddMemoryToAgentAddMemoryToAgent) GetPersonaRole() *string { return v.A
 // GetUsesTasks returns AddMemoryToAgentAddMemoryToAgent.UsesTasks, and is useful for accessing the field via an interface.
 func (v *AddMemoryToAgentAddMemoryToAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
 
+// GetResetContextAfterTask returns AddMemoryToAgentAddMemoryToAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *AddMemoryToAgentAddMemoryToAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
 // GetInstallationPolicy returns AddMemoryToAgentAddMemoryToAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *AddMemoryToAgentAddMemoryToAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -653,6 +658,8 @@ type __premarshalAddMemoryToAgentAddMemoryToAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -688,6 +695,7 @@ func (v *AddMemoryToAgentAddMemoryToAgent) __premarshalJSON() (*__premarshalAddM
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -941,9 +949,11 @@ type AgentFields struct {
 	// Persona role - free string with conventions ('backend-engineer').
 	PersonaRole *string `json:"personaRole"`
 	// #2138: false means every Worker cast from this Agent counts as having a task and is expected to check its team channel every period (coordinators, the lifecycle agent). Default true.
-	UsesTasks          bool                           `json:"usesTasks"`
-	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
-	CreatedAt          string                         `json:"createdAt"`
+	UsesTasks bool `json:"usesTasks"`
+	// #2162 (hrn:node:hadronmemory.com:specs:cor:agt:050:27): when a task one of this Agent's workers had started finishes or is cancelled, and it holds no other started task, its host resets the worker's context (a shed: the binding and session stay). Default false. Set by whoever manages the Agent.
+	ResetContextAfterTask bool                           `json:"resetContextAfterTask"`
+	InstallationPolicy    *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+	CreatedAt             string                         `json:"createdAt"`
 }
 
 // GetId returns AgentFields.Id, and is useful for accessing the field via an interface.
@@ -1002,6 +1012,9 @@ func (v *AgentFields) GetPersonaRole() *string { return v.PersonaRole }
 
 // GetUsesTasks returns AgentFields.UsesTasks, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetUsesTasks() bool { return v.UsesTasks }
+
+// GetResetContextAfterTask returns AgentFields.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetResetContextAfterTask() bool { return v.ResetContextAfterTask }
 
 // GetInstallationPolicy returns AgentFields.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
@@ -10504,6 +10517,11 @@ func (v *AgentsAgentsAgentsPageItemsAgent) GetPersonaRole() *string { return v.A
 // GetUsesTasks returns AgentsAgentsAgentsPageItemsAgent.UsesTasks, and is useful for accessing the field via an interface.
 func (v *AgentsAgentsAgentsPageItemsAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
 
+// GetResetContextAfterTask returns AgentsAgentsAgentsPageItemsAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
 // GetInstallationPolicy returns AgentsAgentsAgentsPageItemsAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *AgentsAgentsAgentsPageItemsAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -10576,6 +10594,8 @@ type __premarshalAgentsAgentsAgentsPageItemsAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -10611,6 +10631,7 @@ func (v *AgentsAgentsAgentsPageItemsAgent) __premarshalJSON() (*__premarshalAgen
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -20225,6 +20246,11 @@ func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetUsesTasks() bool {
 	return v.AgentFields.UsesTasks
 }
 
+// GetResetContextAfterTask returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
 // GetInstallationPolicy returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -20299,6 +20325,8 @@ type __premarshalClearAgentProcessesIndexSetAgentIndexRefsAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -20334,6 +20362,7 @@ func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) __premarshalJSON() (*__
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -20453,6 +20482,11 @@ func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetUsesTasks() bool {
 	return v.AgentFields.UsesTasks
 }
 
+// GetResetContextAfterTask returns ClearAgentTasksIndexSetAgentIndexRefsAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
 // GetInstallationPolicy returns ClearAgentTasksIndexSetAgentIndexRefsAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -20527,6 +20561,8 @@ type __premarshalClearAgentTasksIndexSetAgentIndexRefsAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -20562,6 +20598,7 @@ func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) __premarshalJSON() (*__prem
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -21000,6 +21037,11 @@ func (v *CloneAgentCloneAgent) GetPersonaRole() *string { return v.AgentFields.P
 // GetUsesTasks returns CloneAgentCloneAgent.UsesTasks, and is useful for accessing the field via an interface.
 func (v *CloneAgentCloneAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
 
+// GetResetContextAfterTask returns CloneAgentCloneAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *CloneAgentCloneAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
 // GetInstallationPolicy returns CloneAgentCloneAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *CloneAgentCloneAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -21072,6 +21114,8 @@ type __premarshalCloneAgentCloneAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -21107,6 +21151,7 @@ func (v *CloneAgentCloneAgent) __premarshalJSON() (*__premarshalCloneAgentCloneA
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -24131,6 +24176,11 @@ func (v *CreateAgentCreateAgent) GetPersonaRole() *string { return v.AgentFields
 // GetUsesTasks returns CreateAgentCreateAgent.UsesTasks, and is useful for accessing the field via an interface.
 func (v *CreateAgentCreateAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
 
+// GetResetContextAfterTask returns CreateAgentCreateAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
 // GetInstallationPolicy returns CreateAgentCreateAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *CreateAgentCreateAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -24203,6 +24253,8 @@ type __premarshalCreateAgentCreateAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -24238,6 +24290,7 @@ func (v *CreateAgentCreateAgent) __premarshalJSON() (*__premarshalCreateAgentCre
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -34552,6 +34605,9 @@ func (v *GetAgentAgent) GetPersonaRole() *string { return v.AgentFields.PersonaR
 // GetUsesTasks returns GetAgentAgent.UsesTasks, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
 
+// GetResetContextAfterTask returns GetAgentAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetResetContextAfterTask() bool { return v.AgentFields.ResetContextAfterTask }
+
 // GetInstallationPolicy returns GetAgentAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -34626,6 +34682,8 @@ type __premarshalGetAgentAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -34662,6 +34720,7 @@ func (v *GetAgentAgent) __premarshalJSON() (*__premarshalGetAgentAgent, error) {
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -52405,6 +52464,11 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetUsesTasks() bool {
 	return v.AgentFields.UsesTasks
 }
 
+// GetResetContextAfterTask returns PublicAgentsPublicAgentsAgentsPageItemsAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
 // GetInstallationPolicy returns PublicAgentsPublicAgentsAgentsPageItemsAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -52479,6 +52543,8 @@ type __premarshalPublicAgentsPublicAgentsAgentsPageItemsAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -52514,6 +52580,7 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) __premarshalJSON() (*__pr
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -54761,6 +54828,11 @@ func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetUsesTasks() bool {
 	return v.AgentFields.UsesTasks
 }
 
+// GetResetContextAfterTask returns RemoveMemoryFromAgentRemoveMemoryFromAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
 // GetInstallationPolicy returns RemoveMemoryFromAgentRemoveMemoryFromAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -54835,6 +54907,8 @@ type __premarshalRemoveMemoryFromAgentRemoveMemoryFromAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -54870,6 +54944,7 @@ func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) __premarshalJSON() (*__prem
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -61456,6 +61531,11 @@ func (v *SetAgentBaseSetAgentBaseAgent) GetPersonaRole() *string { return v.Agen
 // GetUsesTasks returns SetAgentBaseSetAgentBaseAgent.UsesTasks, and is useful for accessing the field via an interface.
 func (v *SetAgentBaseSetAgentBaseAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
 
+// GetResetContextAfterTask returns SetAgentBaseSetAgentBaseAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
 // GetInstallationPolicy returns SetAgentBaseSetAgentBaseAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *SetAgentBaseSetAgentBaseAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -61528,6 +61608,8 @@ type __premarshalSetAgentBaseSetAgentBaseAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -61563,6 +61645,7 @@ func (v *SetAgentBaseSetAgentBaseAgent) __premarshalJSON() (*__premarshalSetAgen
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -61686,6 +61769,11 @@ func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetUsesTasks() bool {
 	return v.AgentFields.UsesTasks
 }
 
+// GetResetContextAfterTask returns SetAgentBootPromptSetAgentBootPromptAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
 // GetInstallationPolicy returns SetAgentBootPromptSetAgentBootPromptAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -61760,6 +61848,8 @@ type __premarshalSetAgentBootPromptSetAgentBootPromptAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -61795,6 +61885,7 @@ func (v *SetAgentBootPromptSetAgentBootPromptAgent) __premarshalJSON() (*__prema
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -61910,6 +62001,11 @@ func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetPersonaRole() *string {
 // GetUsesTasks returns SetAgentIndexRefsSetAgentIndexRefsAgent.UsesTasks, and is useful for accessing the field via an interface.
 func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
 
+// GetResetContextAfterTask returns SetAgentIndexRefsSetAgentIndexRefsAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
 // GetInstallationPolicy returns SetAgentIndexRefsSetAgentIndexRefsAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -61984,6 +62080,8 @@ type __premarshalSetAgentIndexRefsSetAgentIndexRefsAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -62019,6 +62117,7 @@ func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) __premarshalJSON() (*__premars
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -74296,6 +74395,11 @@ func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetUsesTasks() bool {
 	return v.AgentFields.UsesTasks
 }
 
+// GetResetContextAfterTask returns UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
 // GetInstallationPolicy returns UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -74370,6 +74474,8 @@ type __premarshalUpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -74405,6 +74511,7 @@ func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) __premarshalJSON() (*_
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -74977,6 +75084,11 @@ func (v *UpdateAgentUpdateAgent) GetPersonaRole() *string { return v.AgentFields
 // GetUsesTasks returns UpdateAgentUpdateAgent.UsesTasks, and is useful for accessing the field via an interface.
 func (v *UpdateAgentUpdateAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
 
+// GetResetContextAfterTask returns UpdateAgentUpdateAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
 // GetInstallationPolicy returns UpdateAgentUpdateAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *UpdateAgentUpdateAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -75049,6 +75161,8 @@ type __premarshalUpdateAgentUpdateAgent struct {
 
 	UsesTasks bool `json:"usesTasks"`
 
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -75084,6 +75198,7 @@ func (v *UpdateAgentUpdateAgent) __premarshalJSON() (*__premarshalUpdateAgentUpd
 	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -91048,17 +91163,18 @@ func (v *__UntrackedTaskItemsInput) GetLimit() *int { return v.Limit }
 
 // __UpdateAgentInput is used internally by genqlient
 type __UpdateAgentInput struct {
-	Ref            string           `json:"ref"`
-	Name           *string          `json:"name,omitempty"`
-	Description    *string          `json:"description,omitempty"`
-	AgentType      *AgentType       `json:"agentType,omitempty"`
-	Visibility     *AgentVisibility `json:"visibility,omitempty"`
-	SystemMemoryId *string          `json:"systemMemoryId,omitempty"`
-	Surfaces       []string         `json:"surfaces,omitempty"`
-	Urn            *string          `json:"urn,omitempty"`
-	PersonaRole    *string          `json:"personaRole,omitempty"`
-	UsesTasks      *bool            `json:"usesTasks,omitempty"`
-	MemberRoles    []string         `json:"memberRoles,omitempty"`
+	Ref                   string           `json:"ref"`
+	Name                  *string          `json:"name,omitempty"`
+	Description           *string          `json:"description,omitempty"`
+	AgentType             *AgentType       `json:"agentType,omitempty"`
+	Visibility            *AgentVisibility `json:"visibility,omitempty"`
+	SystemMemoryId        *string          `json:"systemMemoryId,omitempty"`
+	Surfaces              []string         `json:"surfaces,omitempty"`
+	Urn                   *string          `json:"urn,omitempty"`
+	PersonaRole           *string          `json:"personaRole,omitempty"`
+	UsesTasks             *bool            `json:"usesTasks,omitempty"`
+	ResetContextAfterTask *bool            `json:"resetContextAfterTask,omitempty"`
+	MemberRoles           []string         `json:"memberRoles,omitempty"`
 }
 
 // GetRef returns __UpdateAgentInput.Ref, and is useful for accessing the field via an interface.
@@ -91090,6 +91206,9 @@ func (v *__UpdateAgentInput) GetPersonaRole() *string { return v.PersonaRole }
 
 // GetUsesTasks returns __UpdateAgentInput.UsesTasks, and is useful for accessing the field via an interface.
 func (v *__UpdateAgentInput) GetUsesTasks() *bool { return v.UsesTasks }
+
+// GetResetContextAfterTask returns __UpdateAgentInput.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentInput) GetResetContextAfterTask() *bool { return v.ResetContextAfterTask }
 
 // GetMemberRoles returns __UpdateAgentInput.MemberRoles, and is useful for accessing the field via an interface.
 func (v *__UpdateAgentInput) GetMemberRoles() []string { return v.MemberRoles }
@@ -92799,6 +92918,7 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	resetContextAfterTask
 	installationPolicy {
 		memberRoles
 	}
@@ -95911,6 +96031,7 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	resetContextAfterTask
 	installationPolicy {
 		memberRoles
 	}
@@ -99332,6 +99453,7 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	resetContextAfterTask
 	installationPolicy {
 		memberRoles
 	}
@@ -99393,6 +99515,7 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	resetContextAfterTask
 	installationPolicy {
 		memberRoles
 	}
@@ -99624,6 +99747,7 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	resetContextAfterTask
 	installationPolicy {
 		memberRoles
 	}
@@ -100387,6 +100511,7 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	resetContextAfterTask
 	installationPolicy {
 		memberRoles
 	}
@@ -105450,6 +105575,7 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	resetContextAfterTask
 	installationPolicy {
 		memberRoles
 	}
@@ -111746,6 +111872,7 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	resetContextAfterTask
 	installationPolicy {
 		memberRoles
 	}
@@ -112689,6 +112816,7 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	resetContextAfterTask
 	installationPolicy {
 		memberRoles
 	}
@@ -115199,6 +115327,7 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	resetContextAfterTask
 	installationPolicy {
 		memberRoles
 	}
@@ -115264,6 +115393,7 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	resetContextAfterTask
 	installationPolicy {
 		memberRoles
 	}
@@ -115330,6 +115460,7 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	resetContextAfterTask
 	installationPolicy {
 		memberRoles
 	}
@@ -119190,8 +119321,8 @@ func UntrackedTaskItems(
 
 // The mutation executed by UpdateAgent.
 const UpdateAgent_Operation = `
-mutation UpdateAgent ($ref: ID!, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $urn: String, $personaRole: String, $usesTasks: Boolean, $memberRoles: [String!]) {
-	updateAgent(ref: $ref, name: $name, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn, personaRole: $personaRole, usesTasks: $usesTasks, memberRoles: $memberRoles) {
+mutation UpdateAgent ($ref: ID!, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $urn: String, $personaRole: String, $usesTasks: Boolean, $resetContextAfterTask: Boolean, $memberRoles: [String!]) {
+	updateAgent(ref: $ref, name: $name, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn, personaRole: $personaRole, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask, memberRoles: $memberRoles) {
 		... AgentFields
 	}
 }
@@ -119215,6 +119346,7 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	resetContextAfterTask
 	installationPolicy {
 		memberRoles
 	}
@@ -119235,23 +119367,25 @@ func UpdateAgent(
 	urn *string,
 	personaRole *string,
 	usesTasks *bool,
+	resetContextAfterTask *bool,
 	memberRoles []string,
 ) (data_ *UpdateAgentResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateAgent",
 		Query:  UpdateAgent_Operation,
 		Variables: &__UpdateAgentInput{
-			Ref:            ref,
-			Name:           name,
-			Description:    description,
-			AgentType:      agentType,
-			Visibility:     visibility,
-			SystemMemoryId: systemMemoryId,
-			Surfaces:       surfaces,
-			Urn:            urn,
-			PersonaRole:    personaRole,
-			UsesTasks:      usesTasks,
-			MemberRoles:    memberRoles,
+			Ref:                   ref,
+			Name:                  name,
+			Description:           description,
+			AgentType:             agentType,
+			Visibility:            visibility,
+			SystemMemoryId:        systemMemoryId,
+			Surfaces:              surfaces,
+			Urn:                   urn,
+			PersonaRole:           personaRole,
+			UsesTasks:             usesTasks,
+			ResetContextAfterTask: resetContextAfterTask,
+			MemberRoles:           memberRoles,
 		},
 	}
 
@@ -119294,6 +119428,7 @@ fragment AgentFields on Agent {
 	hasAiApiKey
 	personaRole
 	usesTasks
+	resetContextAfterTask
 	installationPolicy {
 		memberRoles
 	}

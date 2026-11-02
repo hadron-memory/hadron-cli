@@ -3848,6 +3848,13 @@ check without an assigned task. Explicit true/false is sent; omission preserves.
 No task is created or finished by this setting, and this CLI slice does not
 start a ticker, service, terminal push or fleet activation.
 
+`agent update <ref> --reset-context-after-task[=false]` records whether the
+Agent's workers get a fresh context after each task (cor:agt:050:27). Explicit
+true/false is sent; omission preserves. `agent get` and Agent JSON read back
+resetContextAfterTask. The flag only records the setting: nothing resets
+unless a host with a `worker.reset-context` handler acts on it (#1043), and
+`team host run` has none. Same edit authority as `--uses-tasks`.
+
 ## Boot-prompt pointers
 
 A pointer names the compiled boot prompt an Agent, an installed Agent (one
