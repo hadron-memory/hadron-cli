@@ -129,10 +129,10 @@ func TestAgentUpdateResetContextAfterTaskHelpSaysInert(t *testing.T) {
 	if fl == nil {
 		t.Fatal("flag missing")
 	}
-	if !strings.Contains(fl.Usage, "only records the setting") || !strings.Contains(fl.Usage, "omitted preserves") {
+	if !strings.Contains(fl.Usage, "Recorded only") || !strings.Contains(fl.Usage, "omitted keeps the current value") {
 		t.Fatalf("usage: %q", fl.Usage)
 	}
-	if !strings.Contains(cmd.Long, "--reset-context-after-task only records") {
+	if !strings.Contains(cmd.Long, "It does not reset anything by itself") || !strings.Contains(cmd.Long, "no visible effect today") {
 		t.Fatalf("Long: %s", cmd.Long)
 	}
 }

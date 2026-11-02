@@ -340,7 +340,9 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 		Long: `Show an agent by ID or URN. A readable clone origin is printed as the
 source's current URN returned by the server. A null origin prints no line:
 non-clone, withheld, deleted and unrecorded origins are indistinguishable.
-JSON includes the nullable clonedFromAgentRef key. No source lookup is made.`,
+JSON includes the nullable clonedFromAgentRef key. No source lookup is made.
+The "reset context after task" line (JSON resetContextAfterTask) shows the
+setting recorded by agent update --reset-context-after-task.`,
 		Example: `  hadron agent get hrn:agent:acme.com:support-bot --json`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -561,11 +563,16 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 memory, then use hadron agent compile and hadron node approve. New Agents
 start without a prompt.
 
---reset-context-after-task only records the setting on the Agent. Nothing
-resets yet: a worker's context is reset after a task only on a host whose
-reset handler is built (hadron-cli#1043); this CLI's host runner has none.`,
+--reset-context-after-task records a setting on the Agent (default false);
+hadron agent get shows it. It does not reset anything by itself. The program
+that runs your workers (their host) does the reset, and only a host that
+supports it acts on the setting. The hadron CLI's own worker runner does not
+support it yet (hadron-cli#1043), so setting it has no visible effect today.
+Turn it off with --reset-context-after-task=false. agent create can't set it:
+create the Agent, then set it here.`,
 		Example: `  hadron agent update hrn:agent:acme.com:support-bot --name "Support Bot v2" --visibility PUBLIC
-  hadron agent update agt_123 --description "…"`,
+  hadron agent update agt_123 --description "…"
+  hadron agent update agt_123 --reset-context-after-task`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := refuseRetiredPersonaPromptFlags(cmd); err != nil {
@@ -658,7 +665,7 @@ reset handler is built (hadron-cli#1043); this CLI's host runner has none.`,
 	cmd.Flags().StringVar(&tasksIndex, "tasks-index", "", `the Agent's tasks index node (a ref; an explicit empty clears it)`)
 	cmd.Flags().StringVar(&processesIndex, "processes-index", "", `the Agent's processes index node (a ref; an explicit empty clears it)`)
 	cmd.Flags().BoolVar(&usesTasks, "uses-tasks", false, "Whether workers from this Agent use assigned tasks; false keeps them expected to check the team channel without a task (omitted preserves)")
-	cmd.Flags().BoolVar(&resetContextAfterTask, "reset-context-after-task", false, "Whether this Agent's workers get a fresh context after each task; only records the setting, which takes effect only on a host with a reset handler (omitted preserves)")
+	cmd.Flags().BoolVar(&resetContextAfterTask, "reset-context-after-task", false, "Record that this Agent's workers should get a fresh context after each task (default false; =false clears it; omitted keeps the current value). Recorded only: it takes effect where the workers' host supports it")
 	registerRetiredPersonaPromptFlags(cmd)
 	cmdutil.RetireFlags(cmd, "an Agent's boot prompt is now a node: write the source at boot:source in its system memory (role boot-prompt, hadron node update), compile it with `hadron agent compile <agent>`, then have the Agent's manager approve the compiled node with `hadron node approve <compiled-node-ref>`",
 		cmdutil.RetiredFlag{Name: "system-prompt"}, cmdutil.RetiredFlag{Name: "system-prompt-file"}, cmdutil.RetiredFlag{Name: "clear-system-prompt", Bool: true})
