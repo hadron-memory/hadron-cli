@@ -61,13 +61,13 @@ func TestTaskMatching1549EmptyAndTeamConflict(t *testing.T) {
 		{"list", "--team", "--match-failed"}, {"list", "--team=worker:Iris", "--match-failed=false"},
 	} {
 		calls, _, err := runTeamTask(t, taskResponses(), append([]string{"team", "task"}, args...)...)
-		if exitcode.FromError(err) != 2 || len(*calls) != 0 {
+		if exitCodeFor(err) != 2 || len(*calls) != 0 {
 			t.Errorf("%v: err=%v calls=%v", args, err, *calls)
 		}
 	}
 }
 
-func matchingFields1549(t *testing.T, failure bool) string {
+func matchingFields1549(t *testing.T) string {
 	t.Helper()
 	var row map[string]any
 	if err := json.Unmarshal([]byte(taskFieldsJSON), &row); err != nil {
@@ -75,7 +75,7 @@ func matchingFields1549(t *testing.T, failure bool) string {
 	}
 	row["requirements"].(map[string]any)["roles"] = []string{"qa", "cli"}
 	row["requirements"].(map[string]any)["teamWorkerId"] = "wkr1"
-	if failure {
+	{
 		row["matchFailure"] = map[string]any{"reason": "FUTURE_REASON", "failedAt": "2026-11-02T20:00:00Z"}
 	}
 	b, _ := json.Marshal(row)
@@ -85,13 +85,13 @@ func matchingFields1549(t *testing.T, failure bool) string {
 func TestTaskMatching1549FailureReceipt(t *testing.T) {
 	for _, jsonMode := range []bool{false, true} {
 		r := taskResponses()
-		r["AgentTaskCreate"] = `{"data":{"createAgentTask":` + matchingFields1549(t, true) + `}}`
+		r["AgentTaskCreate"] = `{"data":{"createAgentTask":` + matchingFields1549(t) + `}}`
 		args := []string{"team", "task", "create", "example", "--match"}
 		if jsonMode {
 			args = append(args, "--json")
 		}
 		calls, out, err := runTeamTask(t, r, args...)
-		if exitcode.FromError(err) != 5 || !errors.Is(err, exitcode.ErrSilent) {
+		if exitCodeFor(err) != 5 || !errors.Is(err, exitcode.ErrSilent) {
 			t.Fatalf("want silent5, err=%v output=%s", err, out)
 		}
 		if !strings.Contains(out, "FUTURE_REASON") || !strings.Contains(out, "2026-11-02T20:00:00Z") {
@@ -122,7 +122,7 @@ func TestTaskMatching1549FailureReceipt(t *testing.T) {
 
 func TestTaskMatching1549ReadAndFilter(t *testing.T) {
 	r := taskResponses()
-	row := matchingFields1549(t, true)
+	row := matchingFields1549(t)
 	r["AgentTaskGet"] = `{"data":{"agentTask":` + row + `}}`
 	r["AgentTaskListFiltered"] = `{"data":{"agentTasks":[` + row + `]}}`
 	_, out, err := runTeamTask(t, r, "team", "task", "get", "task1", "--json")
@@ -165,5 +165,101 @@ func TestTaskMatching1549ReadAndFilter(t *testing.T) {
 				t.Fatalf("absent metadata serialized: %s", out)
 			}
 		}
+	}
+}
+
+func TestTaskMatching1549WriterFirst(t *testing.T) {
+	for _, jsonMode := range []bool{false, true} {
+		writeTeamBinding(t)
+		r := taskResponses()
+		r["AgentTaskCreate"] = `{"data":{"createAgentTask":` + matchingFields1549(t) + `}}`
+		srv, calls := attnServer(t, r)
+		setTeamBindingServer(t, srv.URL)
+		f, _ := testFactory(t)
+		f.IOStreams.Out = failingWriter{}
+		root := NewRootCmd(f)
+		args := []string{"--server", srv.URL, "team", "task", "create", "example", "--match"}
+		if jsonMode {
+			args = append(args, "--json")
+		}
+		root.SetArgs(args)
+		err := root.Execute()
+		if err == nil || exitCodeFor(err) == 5 || errors.Is(err, exitcode.ErrSilent) {
+			t.Fatalf("writer error must win: %v", err)
+		}
+		n := 0
+		for _, c := range *calls {
+			if c.Op == "AgentTaskCreate" {
+				n++
+			}
+		}
+		if n != 1 {
+			t.Fatalf("creates=%d", n)
+		}
+	}
+}
+
+func TestTaskMatching1549SuccessAndRefusals(t *testing.T) {
+	r := taskResponses()
+	r["AgentTaskCreate"] = `{"data":{"createAgentTask":` + startedTaskFieldsJSON + `}}`
+	_, out, err := runTeamTask(t, r, "team", "task", "create", "example", "--match")
+	if err != nil || !strings.Contains(out, "matched: Rufus") || !strings.Contains(out, "created task") {
+		t.Fatalf("err=%v out=%s", err, out)
+	}
+	for _, args := range [][]string{
+		{"--match", "--assignee", "worker:Rufus"}, {"--match", "--status", "backlog"}, {"--match", "--blocked-by", "task2"},
+		{"--team", "missing"}, {"--team", "retired"}, {"--team", "other-app"},
+	} {
+		r := taskResponses()
+		r["AgentTaskCreate"] = `{"data":{"createAgentTask":null},"errors":[{"message":"matching input refused","extensions":{"code":"BAD_USER_INPUT"}}]}`
+		calls, out, err := runTeamTask(t, r, append([]string{"team", "task", "create", "example", "--json"}, args...)...)
+		if exitCodeFor(err) != 2 || out != "" {
+			t.Fatalf("%v err=%v out=%s", args, err, out)
+		}
+		n := 0
+		for _, c := range *calls {
+			if c.Op == "AgentTaskCreate" {
+				n++
+			}
+		}
+		if n != 1 {
+			t.Fatalf("create count=%d", n)
+		}
+	}
+	r = taskResponses()
+	r["AgentTaskListFiltered"] = `{"data":{"agentTasks":[]}}`
+	_, out, err = runTeamTask(t, r, "team", "task", "list", "--match-failed", "--json")
+	if err != nil || strings.TrimSpace(out) != "[]" {
+		t.Fatalf("err=%v out=%s", err, out)
+	}
+}
+
+func TestTaskMatching1549HumanSafety(t *testing.T) {
+	var row map[string]any
+	_ = json.Unmarshal([]byte(matchingFields1549(t)), &row)
+	hostile := "FUTURE\n\x1b]52;c;payload\a"
+	row["matchFailure"].(map[string]any)["reason"] = hostile
+	row["matchFailure"].(map[string]any)["failedAt"] = hostile
+	row["requirements"].(map[string]any)["roles"] = []string{hostile}
+	row["requirements"].(map[string]any)["teamWorkerId"] = hostile
+	b, _ := json.Marshal(row)
+	r := taskResponses()
+	r["AgentTaskCreate"] = `{"data":{"createAgentTask":` + string(b) + `}}`
+	r["AgentTaskGet"] = `{"data":{"agentTask":` + string(b) + `}}`
+	r["AgentTaskListFiltered"] = `{"data":{"agentTasks":[` + string(b) + `]}}`
+	for _, args := range [][]string{{"create", "example", "--match"}, {"get", "task1"}, {"list", "--match-failed"}} {
+		_, out, _ := runTeamTask(t, r, append([]string{"team", "task"}, args...)...)
+		if strings.ContainsAny(out, "\x1b\a") || !strings.Contains(out, "FUTURE") {
+			t.Fatal(out)
+		}
+	}
+	_, out, err := runTeamTask(t, r, "team", "task", "get", "task1", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var dto map[string]any
+	_ = json.Unmarshal([]byte(out), &dto)
+	if dto["matchFailure"].(map[string]any)["reason"] != hostile {
+		t.Fatal("JSON must preserve unknown reason verbatim")
 	}
 }

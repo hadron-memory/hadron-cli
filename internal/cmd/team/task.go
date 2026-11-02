@@ -218,7 +218,7 @@ by every task command, even with no new flags. The server owns eligibility,
 authority and matching; the CLI never selects a worker.
 
 --match runs one blocking match for the newly created PENDING task, without an
-explicit assignee or blockers. False or omission keeps ordinary creation.
+explicit assignee, or a task that is blocked. False or omission keeps ordinary creation.
 Success prints the selected worker. If no worker matches, the task is STILL
 CREATED unassigned: stdout includes its id plus matchFailure reason and time;
 exit 5 follows only after the receipt is written (writer failure takes
