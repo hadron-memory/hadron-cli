@@ -381,6 +381,7 @@ hadron search <query> [-m <memory>]... [--scope <name|id|app|global>] [--mode hy
 hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes] [--max-nodes N]   # --json results is [] (never null) when no nodes change, for both --dry-run and a real no-op
 hadron edge list <node-urn> | <loc> -m <memory> | <node-id> [--direction incoming|outgoing] [--name <substr>] [--to <ref>] [--from <ref>] | list [-m <memory>] [--source <node>] [--target <node>] [--runnable[=false]] [--include-deleted] [--org <org>] [--limit N] [--offset N] | get <edge-id>|<edge-urn> | add | update <edge-id> | rm <edge-id>
 hadron spec label-report [-m <memory>] [--prefix <citation>] | list [-m <memory>] | get <citation> [--body-only] |--prefix <prefix> | describe | use [<memory>] | register [--check] | find <query> [--match-exactly] | grep <pattern> [--regex] [-i] [--field content|abstract] [--prefix <loc>] | replace <pattern> <replacement> [--regex] [--word-boundary=false] [--field content|abstract] [--dry-run] [--yes] [--max-specs N] | new [<loc>] ... | edit <citation> [--content-file <path> [--allow-empty]] [--title <title>] [--force] [--dry-run] [--expected-revision N --expected-node-id ID --expected-proposal-hash HASH] | extract <citation> --to-feature <fff> | link <from> <to> | lint [<citation>] | check-tools [--prefix <loc>] | citations [--src <path>]... [--exclude <glob>]... [--loose] [--stale-abstracts] [--strict] | supersede <citation> [--to <loc>] | import spec-kit|code | reserve <citation> [--name <name>] | renumber <from> <to> [--dry-run] | backlinks <citation> | unresolved | mint [--dry-run] [--yes]
+hadron decision log create <memory> --loc <loc> --decider <user-id>... [--eligible <user-id>...] [--name <n>] [--prefix <p>] | log get <log> | log set-deciders <log> --decider <user-id>... [--eligible <user-id>...] --expected-revision <n> --reason <text> | ask <log> --input-file <path|-> [--title <t>] [--context <c>] [--tier APPROVED|SIGNED] [--urgency NORMAL|URGENT] | get <decision> | get <code> --log <log> | list (--log <log> | --awaiting-me) [--state <s>...] [--tier <t>] [--urgency <u>...] [--authorizes[=false]] [--sort CODE|PORTAL_DEFAULT] [--limit N] [--offset N] | amend <decision> --expected-revision <n> --reason <text> [--input-file <path|->] [--title <t>] [--context <c>] [--tier <t>] [--urgency <u>] | withdraw <decision> --expected-revision <n> --reason <text> [--yes] | verify <decision> | purge <decision> --reason <text> [--yes]   # cli#1335, #1641: one call per verb, refs verbatim, authority server-owned; see "Decisions"
 hadron skill lint (-m <memory>... | --all | --node <ref>...) [--strict] [--json] | status (-m <memory>... | --all) [--host <host>] [--to user|project|plugin|<dir>] [--strict] [--json] | export [--node <ref>...] [--dry-run] [--force] [--prune] [--json] | plugin --out <dir> [--name <name>] [--scope <name|id>] [--zip] [--dry-run] [--json]
 hadron coding review run [-m <memory>] [--base <ref>] [--head <ref>] [--diff <path|->] [--root <loc>] [--all] [--limit N] [--offset N] [--json] | review list [-m <memory>] [--root <loc>] [--broken] [--json] | review create <check-name> [-m <memory>] --trigger <cond> --description <d> [--scope <s>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] | review lint [-m <memory>] [--root <loc>] [--toolchain <t>|-] [--strict] [--suggest] [--fix [--yes]] [--json] | preflight list [-m <memory>] [--root <loc>] [--broken] [--route-model leaf|mirrored] [--json] | preflight create <loc> [-m <memory>] --route <action> --description <d> [--name <n>] [--symptom <s>] [--section <heading>] [--type <t>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] [--no-back-edge] [--no-body-line] [--route-model leaf|mirrored] [--attach-to <loc>] [--dry-run] | preflight route <node-ref> [-m <memory>] --route <action> [--description <d>] [--symptom <s>] [--section <heading>] [--no-back-edge] [--no-body-line] [--route-model leaf|mirrored] [--attach-to <loc>] [--dry-run] | preflight lint [-m <memory>] [--root <loc>] [--strict] [--route-model leaf|mirrored] [--json]
   Route model (cli#1025): `--route-model leaf|mirrored`, else `preflightRouteModel` in .hadron/config.json, else `mirrored` (the default, byte-identical to before; flag > config > default; a value other than the two, or an unparseable config, is exit 2). `leaf`: `create`/`route` write exactly ONE edge, the node -> the router (or `--attach-to <loc>`, an area node), labelled `to <action>`; nothing on the router's outgoing set, no back-edge (`--no-back-edge` and `--no-body-line` are no-ops), body line OFF unless `--section` is given (it then splices into the attach target; `--section` with `--no-body-line` is still exit 2); `--attach-to` under mirrored is exit 2; `--json` gains `model:"leaf"` and `router` is the attach target. `list`/`lint` under leaf read the router's INCOMING edges plus its outgoing (legacy) ones: list rows gain `model` `leaf|legacy` (one row per node, leaf wins; absent under mirrored); lint adds `legacy-outgoing-route` and `leaf-missing-edge` (a `[[link]]` in the router's OWN body with no edge to it; area bodies are not scanned) and carries label/retired/moved-memory to the incoming edges, and its human output ends with `N incoming edges visible to this caller` (never in --json). Every incoming edge counts as a route, so a non-`to` label is a `route-label-phrasing` warning.
@@ -4896,6 +4897,60 @@ shows both lists when either is nonempty; plain list/mine add both group columns
 any row names groups. The specialized --team/tree human views keep their existing
 projection; their JSON task records include the new arrays. Human names are terminal-safe, JSON names stay raw.
 Requires deployed server#3029; no CLI release before that deployment.
+
+## Decisions (`hadron decision`, cli#1335)
+
+Decision logs and decisions (hadron-server #1641). Each verb is one server call;
+references (ID or URN) go to the server as typed, and who may ask, amend,
+withdraw, purge or change deciders is the server's rule, never re-checked by
+the CLI. The CLI refuses only usage mistakes (exit 2) before any call.
+
+- `ask` and `amend` read `--input-file` (`-` = piped stdin): one JSON object with
+  the fields of the server's `AskDecisionInput` / `AmendDecisionInput`. Unknown,
+  mis-cased and duplicate keys are refused (exit 2) before the call; values are
+  judged by the server (`DECISION_INVALID` names each bad field by JSON pointer).
+  `--title`, `--context`, `--tier`, `--urgency` override the file. A field you
+  leave out is unchanged (amend) or the server default (ask). Amend's `blocks`,
+  `followUps` and `sources` are sent as `null` when left out ("unchanged"), and an
+  explicit `[]` clears that list; amend's `"context": null` clears the context
+  (left out: unchanged); ask's `deciders` likewise (`null` = the log's
+  defaults). `ask` requires `--input-file` (parts live there); `amend` refuses a
+  change set with no fields (a `[]` clear counts as a change).
+- `log set-deciders`: without `--eligible` the other eligible deciders are kept
+  (sent as `null`); `--eligible ""` clears them (sent as `[]`).
+- `revision` in every JSON shape is the node's current revision: pass it as
+  `--expected-revision` to `amend`, `withdraw` and `log set-deciders`; a stale one
+  is refused (`NODE_WRITE_CONFLICT`, exit 5) and nothing changes.
+- Refusal exits: `DECISION_FORBIDDEN`, `DECISION_NOT_DECIDER`, `DECISION_NOT_ASKER`,
+  `DECISION_IMPERSONATION_REFUSED` exit 8; `DECISION_INVALID`, `DECISION_TIER_TOO_LOW`,
+  `DECISION_DECIDER_NOT_ELIGIBLE`, `DECISION_RECOMMENDATION_MISSING`,
+  `DECISION_PART_RENUMBER`, `DECISION_LOG_ENCRYPTED|MIRRORED|SYSTEM_MEMORY|ANONYMOUS_MEMORY`,
+  `DECISION_LOG_TOO_LARGE_FOR_FILTER` exit 2; `DECISION_LOG_EXISTS`,
+  `DECISION_ANSWER_IMMUTABLE`, `DECISION_WITHDRAWN`, `DECISION_SUPERSEDED`,
+  `DECISION_ANSWERED_DECIDED`, `DECISION_ANSWERED` exit 5; `DECISION_NOT_FOUND`,
+  `DECISION_LOG_NOT_FOUND` exit 4.
+- `state` is derived by the server on every read. Rely on a decision as a ruling
+  only while it is `DECIDED`; `verify` returns the findings behind the state.
+- Deciders (`--decider`, `--eligible`, and `deciders` in the input file) are
+  user IDs: the server accepts only a user who can write the log's Memory
+  (`DECISION_DECIDER_NOT_ELIGIBLE`). An empty `--input-file ""` is refused.
+- `withdraw` (final, code stays used) and `purge` (platform admins; never-answered
+  decisions only) prompt on a terminal and need `--yes` otherwise.
+- `list` is one server page (`--limit`, server default 20; `--offset`); `total`
+  counts every match. `--authorizes=false` is sent as false; an unset filter is
+  omitted.
+- JSON: a decision is `{id,urn,code,n,logId,title,context,state,tier,urgency,
+  authorizes,archival,revision,portalUrl,viewerIsDecider,askedAt,answeredAt,
+  askedBy,deciderIds,deciders,identityMerges,parts[{n,citation,question,options,
+  recommendation,noRecommendationReason,answer,answerHistory}],blocks,followUps,
+  sources,withdrawn,approval}`; a log is `{id,urn,loc,name,prefix,lastCode,
+  revision,portalUrl,defaultDeciderIds,defaultDeciders,eligibleDeciderIds,
+  eligibleDeciders,identityMerges,purges}`; `list` is `{total,items}`; `verify`
+  is `{state,revision,approvedRevision,approvalIntegrity,approvalByDecider,codec,
+  renderer,findings}`; `purge` is `{ref,purged}`. Lists are `[]`, absent values
+  `null`.
+- No verb answers a decision: the server has no answer operation yet (a later
+  #1641 slice); a decision's answers are read-only here (`parts[].answer`).
 
 ## Retired boot-prompt flags (cli#1175)
 
