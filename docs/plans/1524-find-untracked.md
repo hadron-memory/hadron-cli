@@ -76,8 +76,12 @@ How a result with `complete: false` exits depends on `incompleteReason`:
    `refusalCode`. It exits 1 with the tasks printed, as A3 does for a null
    code.
 5. **`TASK_INTEGRATION_ORG_REQUIRED` and `PROPERTIES_KEY_RESERVED` are
-   mapped.** Both are S1/S3 codes the plan predates (rulings:0071). They map to
-   5 and 2.
+   mapped.** Both are S1/S3 codes the plan predates. They map to 5 and 2.
+   Ruling 0071 = B then dropped the org refusal: any App may hold task
+   integrations. S3 (#3150) no longer sends it from the untracked read or
+   claim, so `find-untracked` does not document it. `setAppProperties` sends it
+   until hadron-server#3177 merges. The mapping stays either way, so an older
+   server's refusal still exits 5.
 6. **`serverCode` on `task create` only when `--external-id` is named.** This
    follows the existing model-group pattern: ordinary task-write error output
    is unchanged.

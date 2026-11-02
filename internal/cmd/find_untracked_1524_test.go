@@ -227,7 +227,6 @@ func TestFindUntrackedRefusals1524(t *testing.T) {
 		{"TASK_INTEGRATION_NOT_FOUND", exitcode.NotFound},
 		{"TASK_INTEGRATION_REPOSITORY_NOT_CONNECTED", exitcode.Usage},
 		{"TASK_INTEGRATION_TEAM_UNKNOWN", exitcode.Usage},
-		{"TASK_INTEGRATION_ORG_REQUIRED", exitcode.Conflict},
 		{"BAD_USER_INPUT", exitcode.Usage},
 		{"GITHUB_NOT_INSTALLED", exitcode.Conflict},
 		{"GITHUB_PERMISSION_MISSING", exitcode.Forbidden},

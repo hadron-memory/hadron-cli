@@ -107,11 +107,11 @@ configured App context, else the worktree binding; no binding is required.
 
 Refusals, each judged before GitHub is read: TASK_INTEGRATION_NOT_FOUND (exit
 4), TASK_INTEGRATION_REPOSITORY_NOT_CONNECTED and TASK_INTEGRATION_TEAM_UNKNOWN
-(exit 2), TASK_INTEGRATION_ORG_REQUIRED (exit 5); then GITHUB_NOT_INSTALLED and
-GITHUB_TOKEN_SCOPE_MISMATCH (exit 5: an org owner must fix the installation),
-GITHUB_PERMISSION_MISSING and GITHUB_REPOSITORY_NOT_ALLOWED (exit 8: the
-installation is not granted that read), GITHUB_UNAVAILABLE (exit 7: retry
-later). --json errors carry serverCode.
+(exit 2); then GITHUB_NOT_INSTALLED and GITHUB_TOKEN_SCOPE_MISMATCH (exit 5:
+an org owner must fix the installation), GITHUB_PERMISSION_MISSING and
+GITHUB_REPOSITORY_NOT_ALLOWED (exit 8: the installation is not granted that
+read), GITHUB_UNAVAILABLE (exit 7: retry later). --json errors carry
+serverCode.
 
 --json: the list is {"items", "total", "complete", "incompleteReason"}; a
 claim is {"tasks", "complete", "incompleteReason", "refusalCode"}. Titles and
