@@ -43165,6 +43165,180 @@ func (v *GrantAppKeyScopeResponse) GetGrantAppKeyScope() *GrantAppKeyScopeGrantA
 	return v.GrantAppKeyScope
 }
 
+// GrantCreditsGrantCreditsCreditLedgerEntry includes the requested fields of the GraphQL type CreditLedgerEntry.
+// The GraphQL type's documentation follows.
+//
+// 046-usage-metering: append-only org credit ledger row. Signed
+// micro-cents as a base-10 integer string (grants +, debits -).
+type GrantCreditsGrantCreditsCreditLedgerEntry struct {
+	CreditLedgerEntryFields `json:"-"`
+}
+
+// GetId returns GrantCreditsGrantCreditsCreditLedgerEntry.Id, and is useful for accessing the field via an interface.
+func (v *GrantCreditsGrantCreditsCreditLedgerEntry) GetId() string {
+	return v.CreditLedgerEntryFields.Id
+}
+
+// GetOrganizationId returns GrantCreditsGrantCreditsCreditLedgerEntry.OrganizationId, and is useful for accessing the field via an interface.
+func (v *GrantCreditsGrantCreditsCreditLedgerEntry) GetOrganizationId() string {
+	return v.CreditLedgerEntryFields.OrganizationId
+}
+
+// GetKind returns GrantCreditsGrantCreditsCreditLedgerEntry.Kind, and is useful for accessing the field via an interface.
+func (v *GrantCreditsGrantCreditsCreditLedgerEntry) GetKind() string {
+	return v.CreditLedgerEntryFields.Kind
+}
+
+// GetAmountMicroCents returns GrantCreditsGrantCreditsCreditLedgerEntry.AmountMicroCents, and is useful for accessing the field via an interface.
+func (v *GrantCreditsGrantCreditsCreditLedgerEntry) GetAmountMicroCents() string {
+	return v.CreditLedgerEntryFields.AmountMicroCents
+}
+
+// GetExpiresAt returns GrantCreditsGrantCreditsCreditLedgerEntry.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *GrantCreditsGrantCreditsCreditLedgerEntry) GetExpiresAt() *string {
+	return v.CreditLedgerEntryFields.ExpiresAt
+}
+
+// GetSourceType returns GrantCreditsGrantCreditsCreditLedgerEntry.SourceType, and is useful for accessing the field via an interface.
+func (v *GrantCreditsGrantCreditsCreditLedgerEntry) GetSourceType() *string {
+	return v.CreditLedgerEntryFields.SourceType
+}
+
+// GetSourceId returns GrantCreditsGrantCreditsCreditLedgerEntry.SourceId, and is useful for accessing the field via an interface.
+func (v *GrantCreditsGrantCreditsCreditLedgerEntry) GetSourceId() *string {
+	return v.CreditLedgerEntryFields.SourceId
+}
+
+// GetNote returns GrantCreditsGrantCreditsCreditLedgerEntry.Note, and is useful for accessing the field via an interface.
+func (v *GrantCreditsGrantCreditsCreditLedgerEntry) GetNote() *string {
+	return v.CreditLedgerEntryFields.Note
+}
+
+// GetCreatedAt returns GrantCreditsGrantCreditsCreditLedgerEntry.CreatedAt, and is useful for accessing the field via an interface.
+func (v *GrantCreditsGrantCreditsCreditLedgerEntry) GetCreatedAt() string {
+	return v.CreditLedgerEntryFields.CreatedAt
+}
+
+// GetCreatedBy returns GrantCreditsGrantCreditsCreditLedgerEntry.CreatedBy, and is useful for accessing the field via an interface.
+func (v *GrantCreditsGrantCreditsCreditLedgerEntry) GetCreatedBy() *string {
+	return v.CreditLedgerEntryFields.CreatedBy
+}
+
+func (v *GrantCreditsGrantCreditsCreditLedgerEntry) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GrantCreditsGrantCreditsCreditLedgerEntry
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GrantCreditsGrantCreditsCreditLedgerEntry = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.CreditLedgerEntryFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGrantCreditsGrantCreditsCreditLedgerEntry struct {
+	Id string `json:"id"`
+
+	OrganizationId string `json:"organizationId"`
+
+	Kind string `json:"kind"`
+
+	AmountMicroCents string `json:"amountMicroCents"`
+
+	ExpiresAt *string `json:"expiresAt"`
+
+	SourceType *string `json:"sourceType"`
+
+	SourceId *string `json:"sourceId"`
+
+	Note *string `json:"note"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+}
+
+func (v *GrantCreditsGrantCreditsCreditLedgerEntry) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GrantCreditsGrantCreditsCreditLedgerEntry) __premarshalJSON() (*__premarshalGrantCreditsGrantCreditsCreditLedgerEntry, error) {
+	var retval __premarshalGrantCreditsGrantCreditsCreditLedgerEntry
+
+	retval.Id = v.CreditLedgerEntryFields.Id
+	retval.OrganizationId = v.CreditLedgerEntryFields.OrganizationId
+	retval.Kind = v.CreditLedgerEntryFields.Kind
+	retval.AmountMicroCents = v.CreditLedgerEntryFields.AmountMicroCents
+	retval.ExpiresAt = v.CreditLedgerEntryFields.ExpiresAt
+	retval.SourceType = v.CreditLedgerEntryFields.SourceType
+	retval.SourceId = v.CreditLedgerEntryFields.SourceId
+	retval.Note = v.CreditLedgerEntryFields.Note
+	retval.CreatedAt = v.CreditLedgerEntryFields.CreatedAt
+	retval.CreatedBy = v.CreditLedgerEntryFields.CreatedBy
+	return &retval, nil
+}
+
+type GrantCreditsInput struct {
+	// Positive micro-cents, base-10 integer string.
+	AmountMicroCents string `json:"amountMicroCents"`
+	// Grant expiry policy field (no enforcement in Phase 0).
+	ExpiresAt *string `json:"expiresAt,omitempty"`
+	Note      *string `json:"note,omitempty"`
+	OrgRef    string  `json:"orgRef"`
+	SourceId  *string `json:"sourceId,omitempty"`
+	// Idempotency + provenance pair (both or neither), e.g.
+	// ('stripe-checkout', <session id>). (sourceType, sourceId) is unique
+	// across the ledger - re-granting the same pair returns the EXISTING
+	// entry instead of double-crediting (at-least-once webhook safety).
+	SourceType *string `json:"sourceType,omitempty"`
+}
+
+// GetAmountMicroCents returns GrantCreditsInput.AmountMicroCents, and is useful for accessing the field via an interface.
+func (v *GrantCreditsInput) GetAmountMicroCents() string { return v.AmountMicroCents }
+
+// GetExpiresAt returns GrantCreditsInput.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *GrantCreditsInput) GetExpiresAt() *string { return v.ExpiresAt }
+
+// GetNote returns GrantCreditsInput.Note, and is useful for accessing the field via an interface.
+func (v *GrantCreditsInput) GetNote() *string { return v.Note }
+
+// GetOrgRef returns GrantCreditsInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *GrantCreditsInput) GetOrgRef() string { return v.OrgRef }
+
+// GetSourceId returns GrantCreditsInput.SourceId, and is useful for accessing the field via an interface.
+func (v *GrantCreditsInput) GetSourceId() *string { return v.SourceId }
+
+// GetSourceType returns GrantCreditsInput.SourceType, and is useful for accessing the field via an interface.
+func (v *GrantCreditsInput) GetSourceType() *string { return v.SourceType }
+
+// GrantCreditsResponse is returned by GrantCredits on success.
+type GrantCreditsResponse struct {
+	// Mint credits for an org - a positive grant ledger row (spec 046). PLATFORM ADMIN ONLY (self-grant risk); processor top-ups land here later.
+	GrantCredits *GrantCreditsGrantCreditsCreditLedgerEntry `json:"grantCredits"`
+}
+
+// GetGrantCredits returns GrantCreditsResponse.GrantCredits, and is useful for accessing the field via an interface.
+func (v *GrantCreditsResponse) GetGrantCredits() *GrantCreditsGrantCreditsCreditLedgerEntry {
+	return v.GrantCredits
+}
+
 // HealthSweepSetTerminalsResponse is returned by HealthSweepSetTerminals on success.
 type HealthSweepSetTerminalsResponse struct {
 	// #2771 (proposed hrn:node:hadronmemory.com:specs:cor:agt:070:09) — a host reports the terminal state of workers it
@@ -66283,6 +66457,172 @@ func (v *SetAgentModelGroupSetAgentModelGroup) GetPatterns() []string { return v
 
 // GetUpdatedAt returns SetAgentModelGroupSetAgentModelGroup.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *SetAgentModelGroupSetAgentModelGroup) GetUpdatedAt() string { return v.UpdatedAt }
+
+type SetAiModelPriceInput struct {
+	// Defaults to now. Appends a new effective-dated row - never mutates.
+	EffectiveAt            *string `json:"effectiveAt,omitempty"`
+	InputMicroCentsPerMTok string  `json:"inputMicroCentsPerMTok"`
+	// Per-tier debit markup in basis points (2500 = 25%); omit to fall
+	// back to the CREDIT_MARKUP_PERCENT env default.
+	MarkupBasisPoints       *int   `json:"markupBasisPoints,omitempty"`
+	Model                   string `json:"model"`
+	OutputMicroCentsPerMTok string `json:"outputMicroCentsPerMTok"`
+	Provider                string `json:"provider"`
+	// Pricing tier 1-3; defaults to 1.
+	Tier *int `json:"tier,omitempty"`
+}
+
+// GetEffectiveAt returns SetAiModelPriceInput.EffectiveAt, and is useful for accessing the field via an interface.
+func (v *SetAiModelPriceInput) GetEffectiveAt() *string { return v.EffectiveAt }
+
+// GetInputMicroCentsPerMTok returns SetAiModelPriceInput.InputMicroCentsPerMTok, and is useful for accessing the field via an interface.
+func (v *SetAiModelPriceInput) GetInputMicroCentsPerMTok() string { return v.InputMicroCentsPerMTok }
+
+// GetMarkupBasisPoints returns SetAiModelPriceInput.MarkupBasisPoints, and is useful for accessing the field via an interface.
+func (v *SetAiModelPriceInput) GetMarkupBasisPoints() *int { return v.MarkupBasisPoints }
+
+// GetModel returns SetAiModelPriceInput.Model, and is useful for accessing the field via an interface.
+func (v *SetAiModelPriceInput) GetModel() string { return v.Model }
+
+// GetOutputMicroCentsPerMTok returns SetAiModelPriceInput.OutputMicroCentsPerMTok, and is useful for accessing the field via an interface.
+func (v *SetAiModelPriceInput) GetOutputMicroCentsPerMTok() string { return v.OutputMicroCentsPerMTok }
+
+// GetProvider returns SetAiModelPriceInput.Provider, and is useful for accessing the field via an interface.
+func (v *SetAiModelPriceInput) GetProvider() string { return v.Provider }
+
+// GetTier returns SetAiModelPriceInput.Tier, and is useful for accessing the field via an interface.
+func (v *SetAiModelPriceInput) GetTier() *int { return v.Tier }
+
+// SetAiModelPriceResponse is returned by SetAiModelPrice on success.
+type SetAiModelPriceResponse struct {
+	// Append an effective-dated provider rate row (spec 046). PLATFORM ADMIN - org admins must never set the prices they are billed at.
+	SetAiModelPrice *SetAiModelPriceSetAiModelPrice `json:"setAiModelPrice"`
+}
+
+// GetSetAiModelPrice returns SetAiModelPriceResponse.SetAiModelPrice, and is useful for accessing the field via an interface.
+func (v *SetAiModelPriceResponse) GetSetAiModelPrice() *SetAiModelPriceSetAiModelPrice {
+	return v.SetAiModelPrice
+}
+
+// SetAiModelPriceSetAiModelPrice includes the requested fields of the GraphQL type AiModelPrice.
+// The GraphQL type's documentation follows.
+//
+// 046-usage-metering: effective-dated provider rate row. Prices are
+// micro-cents (1e-8 USD) per MILLION tokens, as base-10 integer strings.
+type SetAiModelPriceSetAiModelPrice struct {
+	AiModelPriceFields `json:"-"`
+}
+
+// GetId returns SetAiModelPriceSetAiModelPrice.Id, and is useful for accessing the field via an interface.
+func (v *SetAiModelPriceSetAiModelPrice) GetId() string { return v.AiModelPriceFields.Id }
+
+// GetProvider returns SetAiModelPriceSetAiModelPrice.Provider, and is useful for accessing the field via an interface.
+func (v *SetAiModelPriceSetAiModelPrice) GetProvider() string { return v.AiModelPriceFields.Provider }
+
+// GetModel returns SetAiModelPriceSetAiModelPrice.Model, and is useful for accessing the field via an interface.
+func (v *SetAiModelPriceSetAiModelPrice) GetModel() string { return v.AiModelPriceFields.Model }
+
+// GetTier returns SetAiModelPriceSetAiModelPrice.Tier, and is useful for accessing the field via an interface.
+func (v *SetAiModelPriceSetAiModelPrice) GetTier() int { return v.AiModelPriceFields.Tier }
+
+// GetInputMicroCentsPerMTok returns SetAiModelPriceSetAiModelPrice.InputMicroCentsPerMTok, and is useful for accessing the field via an interface.
+func (v *SetAiModelPriceSetAiModelPrice) GetInputMicroCentsPerMTok() string {
+	return v.AiModelPriceFields.InputMicroCentsPerMTok
+}
+
+// GetOutputMicroCentsPerMTok returns SetAiModelPriceSetAiModelPrice.OutputMicroCentsPerMTok, and is useful for accessing the field via an interface.
+func (v *SetAiModelPriceSetAiModelPrice) GetOutputMicroCentsPerMTok() string {
+	return v.AiModelPriceFields.OutputMicroCentsPerMTok
+}
+
+// GetMarkupBasisPoints returns SetAiModelPriceSetAiModelPrice.MarkupBasisPoints, and is useful for accessing the field via an interface.
+func (v *SetAiModelPriceSetAiModelPrice) GetMarkupBasisPoints() *int {
+	return v.AiModelPriceFields.MarkupBasisPoints
+}
+
+// GetEffectiveAt returns SetAiModelPriceSetAiModelPrice.EffectiveAt, and is useful for accessing the field via an interface.
+func (v *SetAiModelPriceSetAiModelPrice) GetEffectiveAt() string {
+	return v.AiModelPriceFields.EffectiveAt
+}
+
+// GetCreatedAt returns SetAiModelPriceSetAiModelPrice.CreatedAt, and is useful for accessing the field via an interface.
+func (v *SetAiModelPriceSetAiModelPrice) GetCreatedAt() string { return v.AiModelPriceFields.CreatedAt }
+
+// GetCreatedBy returns SetAiModelPriceSetAiModelPrice.CreatedBy, and is useful for accessing the field via an interface.
+func (v *SetAiModelPriceSetAiModelPrice) GetCreatedBy() *string {
+	return v.AiModelPriceFields.CreatedBy
+}
+
+func (v *SetAiModelPriceSetAiModelPrice) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*SetAiModelPriceSetAiModelPrice
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.SetAiModelPriceSetAiModelPrice = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AiModelPriceFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalSetAiModelPriceSetAiModelPrice struct {
+	Id string `json:"id"`
+
+	Provider string `json:"provider"`
+
+	Model string `json:"model"`
+
+	Tier int `json:"tier"`
+
+	InputMicroCentsPerMTok string `json:"inputMicroCentsPerMTok"`
+
+	OutputMicroCentsPerMTok string `json:"outputMicroCentsPerMTok"`
+
+	MarkupBasisPoints *int `json:"markupBasisPoints"`
+
+	EffectiveAt string `json:"effectiveAt"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+}
+
+func (v *SetAiModelPriceSetAiModelPrice) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *SetAiModelPriceSetAiModelPrice) __premarshalJSON() (*__premarshalSetAiModelPriceSetAiModelPrice, error) {
+	var retval __premarshalSetAiModelPriceSetAiModelPrice
+
+	retval.Id = v.AiModelPriceFields.Id
+	retval.Provider = v.AiModelPriceFields.Provider
+	retval.Model = v.AiModelPriceFields.Model
+	retval.Tier = v.AiModelPriceFields.Tier
+	retval.InputMicroCentsPerMTok = v.AiModelPriceFields.InputMicroCentsPerMTok
+	retval.OutputMicroCentsPerMTok = v.AiModelPriceFields.OutputMicroCentsPerMTok
+	retval.MarkupBasisPoints = v.AiModelPriceFields.MarkupBasisPoints
+	retval.EffectiveAt = v.AiModelPriceFields.EffectiveAt
+	retval.CreatedAt = v.AiModelPriceFields.CreatedAt
+	retval.CreatedBy = v.AiModelPriceFields.CreatedBy
+	return &retval, nil
+}
 
 // SetAppAgentBootPromptResponse is returned by SetAppAgentBootPrompt on success.
 type SetAppAgentBootPromptResponse struct {
@@ -93036,6 +93376,14 @@ func (v *__GrantAppKeyScopeInput) GetScope() string { return v.Scope }
 // GetHostId returns __GrantAppKeyScopeInput.HostId, and is useful for accessing the field via an interface.
 func (v *__GrantAppKeyScopeInput) GetHostId() *string { return v.HostId }
 
+// __GrantCreditsInput is used internally by genqlient
+type __GrantCreditsInput struct {
+	Input *GrantCreditsInput `json:"input,omitempty"`
+}
+
+// GetInput returns __GrantCreditsInput.Input, and is useful for accessing the field via an interface.
+func (v *__GrantCreditsInput) GetInput() *GrantCreditsInput { return v.Input }
+
 // __HealthSweepSetTerminalsInput is used internally by genqlient
 type __HealthSweepSetTerminalsInput struct {
 	Input *SetHostWorkerTerminalsInput `json:"input,omitempty"`
@@ -94895,6 +95243,14 @@ func (v *__SetAgentModelGroupInput) GetName() string { return v.Name }
 
 // GetPatterns returns __SetAgentModelGroupInput.Patterns, and is useful for accessing the field via an interface.
 func (v *__SetAgentModelGroupInput) GetPatterns() []string { return v.Patterns }
+
+// __SetAiModelPriceInput is used internally by genqlient
+type __SetAiModelPriceInput struct {
+	Input *SetAiModelPriceInput `json:"input,omitempty"`
+}
+
+// GetInput returns __SetAiModelPriceInput.Input, and is useful for accessing the field via an interface.
+func (v *__SetAiModelPriceInput) GetInput() *SetAiModelPriceInput { return v.Input }
 
 // __SetAppAgentBootPromptInput is used internally by genqlient
 type __SetAppAgentBootPromptInput struct {
@@ -113236,6 +113592,55 @@ func GrantAppKeyScope(
 	return data_, err_
 }
 
+// The mutation executed by GrantCredits.
+const GrantCredits_Operation = `
+mutation GrantCredits ($input: GrantCreditsInput!) {
+	grantCredits(input: $input) {
+		... CreditLedgerEntryFields
+	}
+}
+fragment CreditLedgerEntryFields on CreditLedgerEntry {
+	id
+	organizationId
+	kind
+	amountMicroCents
+	expiresAt
+	sourceType
+	sourceId
+	note
+	createdAt
+	createdBy
+}
+`
+
+// Platform-ADMIN. Appends a positive grant to an org's ledger. The response
+// has no created/reused flag, so a replay of (sourceType, sourceId) is
+// indistinguishable from a first grant. An omitted optional is not sent.
+func GrantCredits(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *GrantCreditsInput,
+) (data_ *GrantCreditsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GrantCredits",
+		Query:  GrantCredits_Operation,
+		Variables: &__GrantCreditsInput{
+			Input: input,
+		},
+	}
+
+	data_ = &GrantCreditsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by HealthSweepSetTerminals.
 const HealthSweepSetTerminals_Operation = `
 mutation HealthSweepSetTerminals ($input: SetHostWorkerTerminalsInput!) {
@@ -121264,6 +121669,57 @@ func SetAgentModelGroup(
 	}
 
 	data_ = &SetAgentModelGroupResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by SetAiModelPrice.
+const SetAiModelPrice_Operation = `
+mutation SetAiModelPrice ($input: SetAiModelPriceInput!) {
+	setAiModelPrice(input: $input) {
+		... AiModelPriceFields
+	}
+}
+fragment AiModelPriceFields on AiModelPrice {
+	id
+	provider
+	model
+	tier
+	inputMicroCentsPerMTok
+	outputMicroCentsPerMTok
+	markupBasisPoints
+	effectiveAt
+	createdAt
+	createdBy
+}
+`
+
+// One-line-per-variable layout: genqlient applies a directive comment to every
+// node starting on the operation's line.
+// Platform-ADMIN. Appends one effective-dated rate row; never mutates an
+// existing one. An omitted optional is not sent, so the server defaults apply
+// (tier 1, env markup, now).
+func SetAiModelPrice(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *SetAiModelPriceInput,
+) (data_ *SetAiModelPriceResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SetAiModelPrice",
+		Query:  SetAiModelPrice_Operation,
+		Variables: &__SetAiModelPriceInput{
+			Input: input,
+		},
+	}
+
+	data_ = &SetAiModelPriceResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

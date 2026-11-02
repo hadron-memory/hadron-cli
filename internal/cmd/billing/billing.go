@@ -1,5 +1,6 @@
-// Package billing is the spec-046 metering read surface (cli#215): provider
-// rate rows and an org's credit balance and ledger.
+// Package billing is the metering surface (cli#215): provider rate rows and an
+// org's credit balance and ledger (reads), and the platform-admin writes that
+// add a rate row or grant credit (billing_write.go).
 //
 // Every money field is a base-10 integer string of micro-cents (1e-8 USD) on
 // the wire, and this package never parses one: a ledger amount is signed and
@@ -24,7 +25,7 @@ import (
 func NewCmdBilling(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "billing <command>",
-		Short: "Read AI-credit rates, balances and ledgers",
+		Short: "Read AI-credit rates, balances and ledgers; set rates and grant credit",
 		Long: `See an organization's AI credit: what the models cost ("prices"), how much
 credit is left ("balance") and every grant and charge ("ledger").
 
@@ -32,8 +33,8 @@ Money is shown in micro-cents, never converted to dollars:
 1 USD = 100,000,000 micro-cents, so 100000000 is 1 USD, 5000000 is 5 cents and
 1000000 is 1 cent. Divide by 100000000 to get dollars.
 
-These commands only read. Setting a rate or granting credit is a platform-admin
-action and has no command here.
+prices, balance and ledger only read. "prices set" and "grant" change money
+records, are platform-admin actions, and ask before they send (--yes to skip).
 
 Details:
   Amounts are base-10 integers exactly as the server keeps them, signed on the
@@ -41,11 +42,14 @@ Details:
 		Example: `  hadron billing prices --provider anthropic
   hadron billing prices get <id>
   hadron billing balance hrn:org:acme.com
-  hadron billing ledger hrn:org:acme.com --limit 20`,
+  hadron billing ledger hrn:org:acme.com --limit 20
+  hadron billing prices set --provider anthropic --model claude-opus-5-5 --input 1500000000 --output 7500000000 --yes
+  hadron billing grant hrn:org:acme.com --amount 500000000 --note trial --yes`,
 	}
 	cmd.AddCommand(newCmdPrices(f))
 	cmd.AddCommand(newCmdBalance(f))
 	cmd.AddCommand(newCmdLedger(f))
+	cmd.AddCommand(newCmdGrant(f))
 	return cmd
 }
 
@@ -201,6 +205,7 @@ that one row.`,
 	cmd.Flags().IntVar(&tier, "tier", 0, "only this pricing tier's rows")
 	page.register(cmd)
 	cmd.AddCommand(newCmdPricesGet(f))
+	cmd.AddCommand(newCmdPricesSet(f))
 	return cmd
 }
 
@@ -362,18 +367,7 @@ and --offset ask for one page.
 			}
 			entries := make([]ledgerEntryDTO, 0, len(items))
 			for _, e := range items {
-				entries = append(entries, ledgerEntryDTO{
-					ID:               e.Id,
-					OrganizationID:   e.OrganizationId,
-					Kind:             e.Kind,
-					AmountMicroCents: e.AmountMicroCents,
-					ExpiresAt:        e.ExpiresAt,
-					SourceType:       e.SourceType,
-					SourceID:         e.SourceId,
-					Note:             e.Note,
-					CreatedAt:        e.CreatedAt,
-					CreatedBy:        e.CreatedBy,
-				})
+				entries = append(entries, ledgerEntryFrom(e))
 			}
 			return output.Write(f.IOStreams, f.JSON, entries, func(w io.Writer) error {
 				t := output.NewTable(w, "ID", "KIND", "AMOUNT MICROCENTS", "CREATED", "EXPIRES", "NOTE")
