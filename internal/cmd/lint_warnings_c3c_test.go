@@ -2,10 +2,38 @@ package cmd
 
 import (
 	"encoding/json"
-	"github.com/hadron-memory/hadron-cli/internal/output"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
+
+// Check the three-state JSON contract without letting a present null page or
+// null items masquerade as a completed advisory read.
+func assertCompleteLintPage(t *testing.T, raw json.RawMessage, wantItems int) {
+	t.Helper()
+	if len(raw) == 0 || string(raw) == "null" {
+		t.Fatalf("completed page missing or null: %s", raw)
+	}
+	var page struct {
+		Items      json.RawMessage
+		Total      int
+		NextCursor json.RawMessage
+	}
+	if err := json.Unmarshal(raw, &page); err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Items) == 0 || string(page.Items) == "null" {
+		t.Fatalf("completed items missing or null: %s", raw)
+	}
+	var items []map[string]json.RawMessage
+	if err := json.Unmarshal(page.Items, &items); err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != wantItems || page.Total != wantItems || string(page.NextCursor) != "null" {
+		t.Fatalf("incomplete advisory page: %s", raw)
+	}
+}
 
 func c3Responses(warnings string) map[string]string {
 	return map[string]string{
@@ -32,6 +60,13 @@ func TestC3cOptInNativeReadAndNullableDTO(t *testing.T) {
 			}
 			if page == "null" && string(dto["lintWarnings"]) != "null" {
 				t.Fatalf("unavailable became empty: %s", out)
+			}
+			if page != "null" {
+				wantItems := 0
+				if strings.Contains(page, "server wording") {
+					wantItems = 1
+				}
+				assertCompleteLintPage(t, dto["lintWarnings"], wantItems)
 			}
 			if strings.Contains(page, "server wording") && !strings.Contains(out, "server wording") {
 				t.Fatalf("server text lost: %s", out)
@@ -267,6 +302,9 @@ func TestC3cEveryCommandUsesReturnedIDAndPreservesOptOut(t *testing.T) {
 					t.Fatal(err)
 				}
 				_, present := dto["lintWarnings"]
+				if mode == "on" {
+					assertCompleteLintPage(t, dto["lintWarnings"], 0)
+				}
 				if writes != wantWrites || reads != wantReads || present != (mode == "on") {
 					t.Fatalf("wrong request/field counts: writes%d reads%d present%t output%s", writes, reads, present, out)
 				}
@@ -305,9 +343,7 @@ func TestC3cBatchGetRendersEachNodesWarningsInBothModes(t *testing.T) {
 				t.Fatal(out)
 			}
 			for _, node := range dto.Nodes {
-				if len(node["lintWarnings"]) == 0 {
-					t.Fatal(out)
-				}
+				assertCompleteLintPage(t, node["lintWarnings"], 1)
 			}
 		} else if strings.Count(out, "lint warnings: 1") != 2 || strings.Count(out, "first server wording") != 2 {
 			t.Fatalf("batch human warnings dropped: %s", out)
@@ -371,5 +407,59 @@ func TestC3cDeclinedInteractiveMergeDoesNotReadLint(t *testing.T) {
 		if call.Op == "MergeNodes" || call.Op == "GetNodeLintWarnings" {
 			t.Fatalf("declined merge wrote or read lint: %v", *calls)
 		}
+	}
+}
+
+func TestLintWarningsWorkerLinkMissingHumanRendering(t *testing.T) {
+	warnings := `{"items":[{"kind":"WORKER_LINK_MISSING","position":7,"text":"worker link\nmissing\u001b[31m","workerField":"promptOverride","targetUrn":null,"pinnedRevision":null,"newerRevision":null,"overriddenNodeLoc":null}],"total":1,"nextCursor":null}`
+	_, human, err := runTeamTask(t, c3Responses(warnings), "node", "add", "-m", "mem1", "--loc", "x", "--name", "X", "--lint-warnings")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(human, "WORKER_LINK_MISSING at 7: worker link missing") || strings.Contains(human, "\x1b") || strings.Contains(human, "worker link\nmissing") {
+		t.Fatalf("worker warning lost or terminal-unsafe: %q", human)
+	}
+	_, out, err := runTeamTask(t, c3Responses(warnings), "node", "add", "-m", "mem1", "--loc", "x", "--name", "X", "--lint-warnings", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var dto map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(out), &dto); err != nil {
+		t.Fatal(err)
+	}
+	assertCompleteLintPage(t, dto["lintWarnings"], 1)
+	var page struct {
+		Items []struct{ Kind, Text, WorkerField string }
+	}
+	if err := json.Unmarshal(dto["lintWarnings"], &page); err != nil {
+		t.Fatal(err)
+	}
+	if page.Items[0].Kind != "WORKER_LINK_MISSING" || page.Items[0].Text != "worker link\nmissing\x1b[31m" || page.Items[0].WorkerField != "promptOverride" {
+		t.Fatalf("worker warning JSON changed: %s", dto["lintWarnings"])
+	}
+}
+
+func TestLintWarningsHelpDistinguishesEmptyFromUnavailable(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	for _, name := range []string{"get", "add", "update", "approve", "move", "clone", "merge", "restore"} {
+		t.Run(name, func(t *testing.T) {
+			command, _, err := root.Find([]string{"node", name})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, want := range []string{"items: [] means the completed check found no warnings", "lintWarnings: null means the check could not answer", "one fixed advisory line on"} {
+				if !strings.Contains(command.Long, want) {
+					t.Fatalf("%s help missing %q: %s", name, want, command.Long)
+				}
+			}
+			subject := "the node's current"
+			if name == "get" {
+				subject = "each returned node's current"
+			}
+			if !strings.Contains(command.Long, subject) {
+				t.Fatalf("%s help has wrong subject: %s", name, command.Long)
+			}
+		})
 	}
 }

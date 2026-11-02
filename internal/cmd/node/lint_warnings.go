@@ -65,9 +65,9 @@ func enableLintWarnings(cmd *cobra.Command, incompatible ...string) {
 lint warnings (advisory checks on its source, such as a link pinned to an
 older revision). They describe the node as it is now, never block or undo the
 command, and are not retried. With --json they are "lintWarnings":
-{items, total, nextCursor: null}; empty items means no warnings, and null
-means the check could not answer (an older server, or the 5-second budget the
-check shares across every node of the command ran out). Without the flag the
+{items, total, nextCursor: null}. items: [] means the completed check found no warnings;
+lintWarnings: null means the check could not answer (for example, an older
+server or the 5-second budget shared across every node ran out). Without the flag the
 field is absent. An unavailable read also prints one fixed advisory line on
 stderr, without its underlying error; the command result and exit are unchanged.`
 	if len(incompatible) > 0 {

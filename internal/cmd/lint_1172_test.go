@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestLint1172CommandKeepsSuccessAndReportsSafeClass(t *testing.T) {
+func TestLintWarningsCommandKeepsSuccessAndReportsSafeClass(t *testing.T) {
 	for _, jsonMode := range []bool{false, true} {
 		gql, _ := captureGraphQL(t, map[string]string{"CreateNode": `{"data":{"createNode":` + nodeJSON + `}}`, "GetNodeLintWarnings": `{"errors":[{"message":"SECRET private cause","extensions":{"code":"FORBIDDEN"}}]}`})
 		f, out := testFactory(t)
