@@ -29,6 +29,9 @@ func InstallRef(ref, kind string) (string, error) {
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
 		return "", exitcode.Newf(exitcode.Usage, "%s must be an id or fully-qualified hrn:%s: URN", kind, kind)
 	}
+	// App refs use the shared canonical forwarding contract. Agent refs are
+	// validated by the same URN library but retain accepted legacy bytes for
+	// the provider; read and native-write selectors both call this helper.
 	if kind == "app" {
 		return CanonicalAppRef("<app>", ref)
 	}
