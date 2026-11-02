@@ -85,7 +85,7 @@ func writeJSONFile(t *testing.T, body string) string {
 func TestDecisionLogCreateSendsArgsVerbatimAndOmitsUnset(t *testing.T) {
 	c, _, err := runDecision(t, map[string]string{
 		"CreateDecisionLog": `{"data":{"createDecisionLog":` + decisionLogJSON + `}}`,
-	}, "log", "create", "hrn:mem:acme.com:kb", "--loc", "decisions", "--decider", "u2", "--decider", "hrn:worker:acme.com:t:bo")
+	}, "log", "create", "hrn:mem:acme.com:kb", "--loc", "decisions", "--decider", "u2", "--decider", "u3")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,7 +93,7 @@ func TestDecisionLogCreateSendsArgsVerbatimAndOmitsUnset(t *testing.T) {
 	if v["memoryRef"] != "hrn:mem:acme.com:kb" || v["loc"] != "decisions" {
 		t.Fatalf("vars: %v", v)
 	}
-	if !reflect.DeepEqual(v["defaultDeciders"], []any{"u2", "hrn:worker:acme.com:t:bo"}) {
+	if !reflect.DeepEqual(v["defaultDeciders"], []any{"u2", "u3"}) {
 		t.Fatalf("defaultDeciders: %v", v["defaultDeciders"])
 	}
 	decisionAbsent(t, v, "name", "prefix", "eligibleDeciders")
@@ -224,6 +224,8 @@ func TestDecisionAskRefusesBadInputBeforeAnyCall(t *testing.T) {
 		"not json":           {"ask", "l1", "--input-file", writeJSONFile(t, `{title`)},
 		"null":               {"ask", "l1", "--input-file", writeJSONFile(t, `null`)},
 		"empty file":         {"ask", "l1", "--input-file", writeJSONFile(t, ``)},
+		"blank flag":         {"ask", "l1", "--input-file", ""},
+		"blank flag, title":  {"ask", "l1", "--input-file", " ", "--title", "t"},
 		"unknown key":        {"ask", "l1", "--input-file", writeJSONFile(t, `{"titel":"typo","title":"t","parts":[]}`)},
 		"nested unknown key": {"ask", "l1", "--input-file", writeJSONFile(t, `{"title":"t","parts":[{"question":"q","yes_no":true}]}`)},
 	} {
@@ -240,6 +242,7 @@ func TestDecisionAmendRequiresRevisionReasonAndAChange(t *testing.T) {
 		"no reason":   {"amend", "d1", "--expected-revision", "3", "--title", "t"},
 		"no change":   {"amend", "d1", "--expected-revision", "3", "--reason", "r"},
 		"empty file":  {"amend", "d1", "--expected-revision", "3", "--reason", "r", "--input-file", writeJSONFile(t, `{}`)},
+		"blank flag":  {"amend", "d1", "--expected-revision", "3", "--reason", "r", "--input-file", "", "--title", "t"},
 	} {
 		c, _, err := runDecision(t, nil, args...)
 		if err == nil || exitCodeFor(err) != exitcode.Usage || len(c.ops) != 0 {
@@ -432,6 +435,10 @@ func TestDecisionWithdrawConfirmsThenSendsOneCall(t *testing.T) {
 	c, _, err := runDecision(t, nil, "withdraw", "d1", "--expected-revision", "3", "--reason", "moot")
 	if err == nil || !strings.Contains(err.Error(), "--yes") || len(c.ops) != 0 {
 		t.Fatalf("non-TTY withdraw without --yes must refuse before any call: err=%v ops=%v", err, c.ops)
+	}
+	// A withdrawal is not a deletion: the refusal must not say it deletes.
+	if strings.Contains(err.Error(), "delete") {
+		t.Fatalf("withdraw must not be described as a delete: %v", err)
 	}
 	for _, args := range [][]string{
 		{"withdraw", "d1", "--reason", "moot", "--yes"},

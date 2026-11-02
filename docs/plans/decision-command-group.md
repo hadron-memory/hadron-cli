@@ -39,6 +39,14 @@ hadron-server #1641 (`resolvers.decisions.ts`), all ten operations on main.
   (`DecisionPage.total`) and caps filtered candidates at 5000; the caller pages.
 - **No client authorization.** The CLI refuses only usage mistakes; `purge`'s
   platform-admin rule and every other authority stay server-side (cor:api:240:01).
+- **Deciders are user IDs.** Server `main` (`assertDecidersEligible`,
+  `resolvers.decisions.ts`) looks each one up as a user who can write the log's Memory;
+  a worker or URN is refused (`DECISION_DECIDER_NOT_ELIGIBLE`). Help says user ID; the
+  value is still passed verbatim.
+- **`withdraw` confirms with `cmdutil.Confirm`**, not `ConfirmDeletion`: a withdrawn
+  decision stays readable, so a "Delete …? cannot be undone" prompt would misdescribe it.
+  `purge` (a real hard delete) keeps `ConfirmDeletion`.
+- **A blank `--input-file ""` is refused** (exit 2), not read as an absent flag.
 - **No answer verb.** The server has no `answerDecision` yet (a later #1641 slice).
 
 ## Tests
@@ -46,6 +54,6 @@ hadron-server #1641 (`resolvers.decisions.ts`), all ten operations on main.
 `internal/cmd/decision_cmd_test.go`, fake-GraphQL: one call per verb, refs verbatim,
 omitted optionals omitted, `--authorizes=false` sent, strict input decoding, destructive
 confirmation before the call, `[]`/`null` JSON shapes, refusals mapped with no follow-up.
-15 guard mutants killed (confirmations, strict decode, trailing data, empty amend, by-code
+17 guard mutants killed (incl. blank `--input-file`, withdraw prompt wording; (confirmations, strict decode, trailing data, empty amend, by-code
 selector, false filter, list scope, blank reason, required file, omitempty tags, nil
-results, unset `--eligible`).
+results, unset `--eligible`)).

@@ -101,18 +101,18 @@ func newCmdLogCreate(f *cmdutil.Factory) *cobra.Command {
 	var loc, name, prefix string
 	var deciders, eligible []string
 	cmd := &cobra.Command{
-		Use:   "create <memory> --loc <loc> --decider <ref>... [--eligible <ref>...] [--name <name>] [--prefix <prefix>]",
+		Use:   "create <memory> --loc <loc> --decider <user-id>... [--eligible <user-id>...] [--name <name>] [--prefix <prefix>]",
 		Short: "Create a decision log in a Memory",
 		Long: `Create a decision log at --loc in a Memory. --decider names the default
-deciders (users, workers or Apps, by ID or URN; repeat it or separate with
-commas). --eligible names who else a decision may name as a decider; omitted,
-the server's default applies. --prefix sets the code prefix (D gives DA, DB, …);
+deciders by user ID (repeat it or separate with commas); each must be a user
+who can write the Memory. --eligible names who else a decision may name as a
+decider; omitted, only the default deciders are eligible. --prefix sets the code prefix (D gives DA, DB, …);
 omitted, the server uses D.
 
 The server decides who may create a log (management rights on the Memory, or
 the owner role in its App) and refuses encrypted, git-mirrored, system and
 anonymous Memories.`,
-		Example: `  hadron decision log create hrn:mem:acme.com:eng --loc decisions --decider hrn:worker:acme.com:team:ada --prefix R`,
+		Example: `  hadron decision log create hrn:mem:acme.com:eng --loc decisions --decider u_123 --prefix R`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			memoryRef, err := refArg("memory", args[0])
@@ -145,8 +145,8 @@ anonymous Memories.`,
 		},
 	}
 	cmd.Flags().StringVar(&loc, "loc", "", "the log's loc in the Memory (required)")
-	cmd.Flags().StringSliceVar(&deciders, "decider", nil, "a default decider, by ID or URN (required; repeat or comma-separate)")
-	cmd.Flags().StringSliceVar(&eligible, "eligible", nil, "another eligible decider, by ID or URN (repeat or comma-separate)")
+	cmd.Flags().StringSliceVar(&deciders, "decider", nil, "a default decider, by user ID (required; repeat or comma-separate)")
+	cmd.Flags().StringSliceVar(&eligible, "eligible", nil, "another eligible decider, by user ID (repeat or comma-separate)")
 	cmd.Flags().StringVar(&name, "name", "", "the log's name (omitted: the server default)")
 	cmd.Flags().StringVar(&prefix, "prefix", "", "the code prefix (omitted: D)")
 	return cmd
@@ -184,10 +184,10 @@ func newCmdLogSetDeciders(f *cmdutil.Factory) *cobra.Command {
 	var expected int
 	var reason string
 	cmd := &cobra.Command{
-		Use:   "set-deciders <log> --decider <ref>... [--eligible <ref>...] --expected-revision <n> --reason <text>",
+		Use:   "set-deciders <log> --decider <user-id>... [--eligible <user-id>...] --expected-revision <n> --reason <text>",
 		Short: "Replace a decision log's deciders",
 		Long: `Replace a log's default deciders (and, with --eligible, its other eligible
-deciders) as an audited revision of the log. Decisions already asked keep
+deciders), by user ID, as an audited revision of the log. Decisions already asked keep
 their deciders. --expected-revision is the revision you read (decision log get
 shows it); a different current revision is refused and nothing changes.`,
 		Example: `  hadron decision log set-deciders hrn:node:acme.com:eng:decisions --decider u_123 --expected-revision 4 --reason "Ada took over"`,
@@ -224,8 +224,8 @@ shows it); a different current revision is refused and nothing changes.`,
 			return writeLog(f, decisionLogFrom(&resp.SetDecisionLogDeciders.DecisionLogFields), "✓ set deciders of")
 		},
 	}
-	cmd.Flags().StringSliceVar(&deciders, "decider", nil, "a default decider, by ID or URN (required; repeat or comma-separate)")
-	cmd.Flags().StringSliceVar(&eligible, "eligible", nil, "another eligible decider (omitted: unchanged by this flag; repeat or comma-separate)")
+	cmd.Flags().StringSliceVar(&deciders, "decider", nil, "a default decider, by user ID (required; repeat or comma-separate)")
+	cmd.Flags().StringSliceVar(&eligible, "eligible", nil, "another eligible decider, by user ID (omitted: unchanged; repeat or comma-separate)")
 	cmd.Flags().IntVar(&expected, "expected-revision", 0, "the log revision you read (required)")
 	cmd.Flags().StringVar(&reason, "reason", "", "why the deciders change (required)")
 	return cmd
@@ -250,11 +250,15 @@ type inputFlags struct {
 }
 
 // decoder opens --input-file for a strict decode; nil when it was not given.
+// A given-but-blank --input-file is refused, not read as absent.
 // The caller decodes into its own generated input struct, which is what lets
 // the coverage matrix see every input field as reachable through the file.
-func (in *inputFlags) decoder(f *cmdutil.Factory) (*json.Decoder, error) {
-	if in.file == "" {
+func (in *inputFlags) decoder(cmd *cobra.Command, f *cmdutil.Factory) (*json.Decoder, error) {
+	if !cmd.Flags().Changed("input-file") {
 		return nil, nil
+	}
+	if strings.TrimSpace(in.file) == "" {
+		return nil, exitcode.Newf(exitcode.Usage, "--input-file is empty: give a path, or - for piped stdin")
 	}
 	data, err := readInputFile(f.IOStreams, in.file)
 	if err != nil {
@@ -315,7 +319,7 @@ and decides who may ask: any writer of the log's Memory.`,
 				return err
 			}
 			var input gen.AskDecisionInput
-			dec, err := in.decoder(f)
+			dec, err := in.decoder(cmd, f)
 			if err != nil {
 				return err
 			}
@@ -388,7 +392,7 @@ decider only, and urgency and tier are a decider's to change.`,
 				return err
 			}
 			var input gen.AmendDecisionInput
-			dec, err := in.decoder(f)
+			dec, err := in.decoder(cmd, f)
 			if err != nil {
 				return err
 			}
@@ -663,7 +667,7 @@ Prompts on a terminal; --yes is required otherwise.`,
 			if err != nil {
 				return err
 			}
-			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes, "decision "+ref+" (withdrawal is final)"); err != nil {
+			if err := cmdutil.Confirm(f.IOStreams, yes, "Withdraw decision "+output.SafeCell(ref)+"? Withdrawal is final and its code is never reused."); err != nil {
 				return err
 			}
 			resp, err := gen.WithdrawDecision(cmd.Context(), client, ref, reason, expected)
