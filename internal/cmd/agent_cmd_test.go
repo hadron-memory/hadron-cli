@@ -92,6 +92,25 @@ func TestAgentCreate(t *testing.T) {
 
 // A role agent is born with role metadata and a shared Worker template.
 
+// cli#1175: the positive counterpart of TestAgentCreate's omission check — a
+// supplied --persona-role must reach the wire as personaRole.
+func TestAgentCreatePersonaRoleOnWire(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateAgent": `{"data":{"createAgent":` + agentJSON + `}}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "create", "--org", "acme.com", "--name", "Support Bot", "--persona-role", "backend-engineer", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateAgent"], &vars)
+	if vars["personaRole"] != "backend-engineer" {
+		t.Errorf("personaRole must be on the wire when passed, got %v", vars)
+	}
+}
+
 func TestAgentCreateUserOwnedOmitsOrg(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"CreateAgent": `{"data":{"createAgent":` + agentJSON + `}}`,
@@ -232,7 +251,8 @@ func TestAgentLsPublicRejectsOrgAndVisibility(t *testing.T) {
 }
 
 func TestAgentGet(t *testing.T) {
-	withTemplate := strings.Replace(agentJSON, `"systemPrompt":null`, `"systemPrompt":"You are {{name}}, the {{role}}."`, 1)
+	// A hostile/older server may still send retired keys; none may surface.
+	withTemplate := strings.Replace(agentJSON, `"systemPrompt":null`, `"systemPrompt":"You are {{name}}, the {{role}}.","personaPrompt":"HOSTILE-PERSONA","promptOverride":"HOSTILE-OVERRIDE"`, 1)
 	gql, captured := captureGraphQL(t, map[string]string{
 		"GetAgent": `{"data":{"agent":` + withTemplate + `}}`,
 	})
@@ -254,8 +274,13 @@ func TestAgentGet(t *testing.T) {
 	if dto["id"] != "agt1" || dto["systemPrompt"] != nil {
 		t.Errorf("output: %s", out.String())
 	}
-	if _, exists := dto["personaPrompt"]; exists {
-		t.Errorf("removed server field must not be presented as a JSON value: %s", out.String())
+	for _, k := range []string{"personaPrompt", "promptOverride"} {
+		if _, exists := dto[k]; exists {
+			t.Errorf("retired key %q must not be presented as a JSON value: %s", k, out.String())
+		}
+	}
+	if strings.Contains(out.String(), "HOSTILE") {
+		t.Errorf("retired field text leaked into output: %s", out.String())
 	}
 }
 

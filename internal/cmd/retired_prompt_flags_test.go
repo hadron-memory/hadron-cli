@@ -28,14 +28,39 @@ func TestRetiredPromptFlagsRefuseBeforeAnyRequest(t *testing.T) {
 					args = append(args, "-")
 				}
 				root.SetArgs(append(args, "--server", srv.URL))
-				if err := root.Execute(); exitCodeFor(err) != exitcode.Usage {
+				err := root.Execute()
+				if exitCodeFor(err) != exitcode.Usage {
 					t.Fatalf("want usage refusal, got %v", err)
+				}
+				// cli#1175: the refusal names the retired flag and the new
+				// route — source node, then the matching compile command, then
+				// node approval — never bare "unknown flag".
+				msg := err.Error()
+				for _, want := range []string{"--" + strings.TrimPrefix(flag, "--"), "was retired", wantCompile(prefix), "hadron node approve", "boot-prompt"} {
+					if !strings.Contains(msg, want) {
+						t.Fatalf("migration hint missing %q: %s", want, msg)
+					}
+				}
+				if strings.Contains(msg, "unknown flag") {
+					t.Fatalf("retired flag fell through to cobra's unknown-flag error: %s", msg)
 				}
 				if len(calls) != 0 {
 					t.Fatalf("retired flag made requests: %v", calls)
 				}
 			})
 		}
+	}
+}
+
+// wantCompile is the compile command the hint must name for a command prefix.
+func wantCompile(prefix []string) string {
+	switch prefix[0] {
+	case "team":
+		return "hadron team worker compile"
+	case "app":
+		return "hadron app agent compile"
+	default:
+		return "hadron agent compile"
 	}
 }
 

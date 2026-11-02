@@ -4903,3 +4903,7 @@ shows both lists when either is nonempty; plain list/mine add both group columns
 any row names groups. The specialized --team/tree human views keep their existing
 projection; their JSON task records include the new arrays. Human names are terminal-safe, JSON names stay raw.
 Requires deployed server#3029; no CLI release before that deployment.
+
+## Retired boot-prompt flags (cli#1175)
+
+`--system-prompt`, `--system-prompt-file`, `--clear-system-prompt` (on `agent create|update` and `app update`) and `--prompt-override`, `--clear-prompt-override` (on `team worker cast|update`) are removed and hidden from help. Passing one is a usage error (exit 2) that sends no request and names the new route: write the source node (role `boot-prompt`, `node update`), run the matching compile command (`agent compile`, `app agent compile`, `team worker compile`), then the Agent's/App's manager approves the compiled node with `node approve`. Nothing is sent and nothing is written; the flags never work again.
