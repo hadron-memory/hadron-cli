@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -244,5 +246,60 @@ func TestBillingWritesPlatformAdminRefusalPassesThroughWithoutRetry(t *testing.T
 		if calls != 1 {
 			t.Errorf("%s: a money write is never retried; sent %d times", tc.op, calls)
 		}
+	}
+}
+
+// cli#1560: a transport failure or 5xx on a money write is surfaced after
+// exactly one request, and a server refusal of a zero amount (the CLI applies no
+// positivity rule of its own) passes through as a usage error, also once.
+func TestBillingWritesSendOnceOnServerFailureAndZeroAmountRefusal(t *testing.T) {
+	badInput := `{"errors":[{"message":"amount must be positive","extensions":{"code":"BAD_USER_INPUT"}}]}`
+	for _, tc := range []struct {
+		name string
+		op   string
+		args []string
+		resp string
+		code int
+	}{
+		{"grant zero amount refused", "GrantCredits", []string{"billing", "grant", "acme", "--amount", "0", "--yes"}, badInput, exitcode.Usage},
+		{"prices zero input refused", "SetAiModelPrice", []string{"billing", "prices", "set", "--provider", "p", "--model", "m", "--input", "0", "--output", "0", "--yes"}, badInput, exitcode.Usage},
+		{"grant 5xx", "GrantCredits", []string{"billing", "grant", "acme", "--amount", "5", "--yes"}, "5xx", -1},
+		{"prices 5xx", "SetAiModelPrice", []string{"billing", "prices", "set", "--provider", "p", "--model", "m", "--input", "1", "--output", "2", "--yes"}, "5xx", -1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			calls := 0
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodGet {
+					_, _ = w.Write([]byte(`{"capabilities":[]}`))
+					return
+				}
+				var body struct {
+					OperationName string `json:"operationName"`
+				}
+				_ = json.NewDecoder(r.Body).Decode(&body)
+				if body.OperationName == tc.op {
+					calls++
+				}
+				if tc.resp == "5xx" {
+					w.WriteHeader(http.StatusBadGateway)
+					return
+				}
+				_, _ = w.Write([]byte(tc.resp))
+			}))
+			t.Cleanup(srv.Close)
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append(tc.args, "--server", srv.URL))
+			err := root.Execute()
+			if err == nil {
+				t.Fatal("want an error")
+			}
+			if tc.code >= 0 && exitCodeFor(err) != tc.code {
+				t.Errorf("want exit %d, got %d (%v)", tc.code, exitCodeFor(err), err)
+			}
+			if calls != 1 {
+				t.Errorf("a money write is never retried; sent %d times", calls)
+			}
+		})
 	}
 }
