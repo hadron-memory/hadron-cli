@@ -235,6 +235,41 @@ func TestRetiredStubsHelp(t *testing.T) {
 	}
 }
 
+// The one-line Short is what a parent's command list shows, so every retired
+// command's row there says it is retired too; an old habit browsing
+// "hadron team --help" sees it before running anything.
+func TestRetiredStubsListedAsRetired(t *testing.T) {
+	for _, tc := range []struct {
+		parent []string
+		subs   []string
+	}{
+		{[]string{"team"}, []string{"attention", "router"}},
+		{[]string{"team", "attention"}, []string{"switchover"}},
+		{[]string{"team", "attention", "switchover"}, []string{"preview", "apply"}},
+		{[]string{"team", "router"}, []string{"poll", "loop", "status"}},
+	} {
+		t.Run(strings.Join(tc.parent, " "), func(t *testing.T) {
+			f, out, _ := retiredFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append(append([]string{}, tc.parent...), "--help"))
+			if err := root.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			rows := map[string]string{}
+			for _, line := range strings.Split(out.String(), "\n") {
+				if fields := strings.Fields(line); len(fields) > 1 {
+					rows[fields[0]] = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), fields[0]))
+				}
+			}
+			for _, sub := range tc.subs {
+				if !strings.HasPrefix(rows[sub], "Retired (hadron-server#2027)") {
+					t.Errorf("%s is listed as %q, want it to start with Retired (hadron-server#2027):\n%s", sub, rows[sub], out.String())
+				}
+			}
+		})
+	}
+}
+
 func jsonString(s string) string {
 	b, _ := json.Marshal(s)
 	return string(b)
