@@ -139,6 +139,16 @@ func classifyTransport(err error) (transportFailure, bool) {
 	return transportFailure{}, false
 }
 
+// TransportCause names, in one bounded phrase, why a request got no answer:
+// a dropped connection, a timeout, an unreachable server or a gateway's HTTP
+// status. It never carries a response body or a retry hint, so a caller whose
+// write may have landed can state the cause without inviting a blind retry
+// (cli#1157). ok is false when err is not a transport failure.
+func TransportCause(err error) (cause string, ok bool) {
+	f, ok := classifyTransport(err)
+	return f.what, ok
+}
+
 // transportStatus classifies a raw status code + body from the `hadron api`
 // path, which reads the response itself rather than going through genqlient.
 // A body that parses as a GraphQL envelope with errors is the API's opinion.
