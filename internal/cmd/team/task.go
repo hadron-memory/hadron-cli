@@ -223,7 +223,8 @@ Success prints the selected worker. If no worker matches, the task is STILL
 CREATED unassigned: stdout includes its id plus matchFailure reason and time;
 exit 5 follows only after the receipt is written (writer failure takes
 precedence). Do not retry creation: use that task id. Automatic matchers skip
-a marked task; assignment or cancellation clears its mark. A server refusal
+a marked task; assignment, cancellation, or park then ready clears its mark.
+Ready resumes regular matching, not a second match-now attempt. A server refusal
 (BAD_USER_INPUT, exit 2) creates no task. A transport failure can leave the
 outcome unknown; inspect task list before retrying.
 

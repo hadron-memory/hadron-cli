@@ -4904,8 +4904,8 @@ match prints the chosen worker and exits 0. A failed match still CREATED the
 unassigned task; stdout contains the normal task receipt plus reason/time,
 and only then exits **5**. A writer failure takes precedence. Never retry
 creation after this receipt: use its task id. No automatic retry is performed.
-The automatic matcher skips a marked task; assignment or cancellation clears
-the mark. Reasons currently include NO_ROLE, REQUIREMENTS_EXCLUDED,
+The automatic matcher skips a marked task; assignment, cancellation, or park
+then ready clears the mark. Ready resumes regular matching, not match-now. Reasons currently include NO_ROLE, REQUIREMENTS_EXCLUDED,
 NOBODY_FREE, STOP_SIGNAL and TEAM_POOL_EMPTY; unknown future reason strings
 are retained. JSON is the existing bare task object, with optional
 `matchFailure:{reason,failedAt}` only when present, never an error envelope

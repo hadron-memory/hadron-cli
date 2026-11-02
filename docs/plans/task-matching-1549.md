@@ -7,10 +7,14 @@ Schema exported from a private detached server0356d7f12eedd11387c8e695735c8fea89
 worktree. The refresh includes intervening main SDL declarations; generated
 client changes trace to selected fields/new optional matching inputs. No
 shared sibling schema is consumed. A server fix head with a different SDL
-requires re-reading and regenerating before freeze.
+requires re-reading and regenerating before freeze. Final description-only
+refresh: d4e1d5b31f80f2ba2b7d18338e233e8ed05efde6; two SDL descriptions
+and their generated comments changed, no field/type changes.
 
 Create sends match:true only for true; false and omission preserve existing
-variables. The one server create mutation owns matching and all refusals.
+variables. The one server create mutation owns matching and all refusals. Actually blocked match-now creates refuse
+atomically; ended blocker refs are allowed when the derived task is unblocked.
+Park then ready clears failure/reservation and resumes regular matching.
 Role lists parse comma-separated/repeated syntax; a single item retains role,
 several use roles and a null single role (the server checks non-null values).
 New input keys omit when absent. Team remains a raw server-resolved lead ref.
