@@ -546,7 +546,7 @@ Mutation.castWorker(noTeam)  gap #933
 Mutation.castWorker(reportsTo)  gap #933
 Mutation.createAgent(resetContextAfterTask)  gap #1043
 Mutation.createAgent(usesTasks)  gap #58
-Mutation.createAgentTask(input.finishBy)  gap #1514
+Mutation.createAgentTask(input.finishBy)  flag
 Mutation.createApp(agentTools)  gap #63
 Mutation.createApp(aiApiKey)  gap #63
 Mutation.createApp(aiModel)  gap #63
@@ -579,7 +579,7 @@ Mutation.removeOrgMember(userId)  excluded deprecated: @deprecated: Use userRef 
 Mutation.updateAgent(listedOnMarketplace)  gap #58
 Mutation.updateAgent(registerDefaults)  gap #58
 Mutation.updateAgent(resetContextAfterTask)  gap #1043
-Mutation.updateAgentTask(input.finishBy)  gap #1514
+Mutation.updateAgentTask(input.finishBy)  flag
 Mutation.updateApp(agentSessionsExpire)  gap #63
 Mutation.updateApp(agentTools)  gap #63
 Mutation.updateApp(aiApiKey)  gap #63

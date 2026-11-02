@@ -41,7 +41,8 @@ prints the view its page describes.
 
 Server compatibility: task-record commands require a server containing
 hadron-server#3029, even when no model-group flag is named. The shared task
-projection selects modelGroupIn/modelGroupNotIn for get, list (including --team),
+projection selects finishBy (requires hadron-server#2648/#3088) and
+modelGroupIn/modelGroupNotIn for get, list (including --team),
 mine, tree and every task mutation receipt (create, update, assign/reassign,
 start/progress/finish/cancel/park/ready, priority and blocker edits). An older
 server rejects those documents as schema skew, exit 2: upgrade that provider
@@ -184,7 +185,7 @@ func writeCloseSessionLine(w io.Writer, task taskDTO) error {
 // ---- create ---------------------------------------------------------------
 
 func newCmdTeamTaskCreate(f *cmdutil.Factory) *cobra.Command {
-	var description, owner, assignee, parent, source, externalID, startBy, status string
+	var description, owner, assignee, parent, source, externalID, startBy, finishBy, status string
 	var tags, blockedBy, refs []string
 	var priority int
 	var requireRole, familyIn, familyNotIn, modelGroupIn, modelGroupNotIn, minTier, properties string
@@ -265,6 +266,15 @@ after the clock starts; otherwise, and with no --start-by, it is the App's
 not-started window (` + "`team stall-schedule get`" + `) counted from then. So a
 task released or reassigned after its start-by gets a fresh window.
 
+--finish-by <RFC 3339 time> sets a deadline to finish. While set, ordinary
+stall windows do not apply; stall.finish-by is the deadline alarm for an
+unfinished task (a backlog task raises none, a blocked task waits for release).
+The server refuses a past value or one earlier than start-by (BAD_USER_INPUT,
+exit 2); equal times are allowed. It owns the clock and all alarm behavior.
+With no flag the key is omitted. Change or clear it with task update.
+Requires a provider containing hadron-server#2648/#3088, including when no
+finish-by flag is given: all task-record reads select this field.
+
 By default finishing or cancelling does not ask the assignee to end its
 worker session. Pass --close-session to ask (cor:agt:050:10); the platform
 may end it through the worker's live host after a grace period, 10 minutes by
@@ -311,6 +321,11 @@ warnings list.`,
 			if startBy != "" {
 				if _, err := time.Parse(time.RFC3339, startBy); err != nil {
 					return exitcode.Newf(exitcode.Usage, "--start-by takes an RFC 3339 timestamp, e.g. 2026-10-13T09:00:00Z, got %q", startBy)
+				}
+			}
+			if cmd.Flags().Changed("finish-by") {
+				if _, ok := cmdutil.ParseStrictDateTime(finishBy); !ok {
+					return exitcode.Newf(exitcode.Usage, "--finish-by takes an RFC 3339 timestamp, e.g. 2099-11-02T09:00:00Z, got %q", finishBy)
 				}
 			}
 			groupsIn, groupsNotIn, err := taskModelGroupFlags(cmd, modelGroupIn, modelGroupNotIn)
@@ -366,6 +381,7 @@ warnings list.`,
 				Source:       optStr(source),
 				ExternalId:   optStr(externalID),
 				StartBy:      optStr(startBy),
+				FinishBy:     optStr(finishBy),
 				Status:       createStatus,
 				Tags:         tags,
 			}
@@ -481,6 +497,7 @@ warnings list.`,
 	cmd.Flags().StringVar(&owner, "owner", "", "task owner (defaults to you)")
 	cmd.Flags().StringVar(&parent, "parent", "", "parent task id (child task)")
 	cmd.Flags().StringVar(&startBy, "start-by", "", "RFC 3339 deadline to start by")
+	cmd.Flags().StringVar(&finishBy, "finish-by", "", "RFC 3339 deadline to finish by; server validates it against now and start-by")
 	cmd.Flags().StringVar(&source, "source", "", "origin reference (an issue URL, a node URN)")
 	cmd.Flags().StringVar(&externalID, "external-id", "", "the outside item this task claims, such as its issue URL; unique per App, set once (never edited)")
 	cmd.Flags().StringSliceVar(&tags, "tag", nil, "tag (repeatable)")
