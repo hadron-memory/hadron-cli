@@ -12376,6 +12376,45 @@ func (v *AmendDecisionAmendDecision) __premarshalJSON() (*__premarshalAmendDecis
 	return &retval, nil
 }
 
+type AmendDecisionInput struct {
+	AddParts  []*DecisionPartInput      `json:"addParts,omitempty"`
+	Blocks    []*DecisionRefInput       `json:"blocks,omitempty"`
+	Context   *string                   `json:"context,omitempty"`
+	FollowUps []*DecisionRefInput       `json:"followUps,omitempty"`
+	Parts     []*DecisionPartPatchInput `json:"parts,omitempty"`
+	Sources   []*DecisionRefInput       `json:"sources,omitempty"`
+	Tier      *DecisionTier             `json:"tier,omitempty"`
+	Title     *string                   `json:"title,omitempty"`
+	Urgency   *DecisionUrgency          `json:"urgency,omitempty"`
+}
+
+// GetAddParts returns AmendDecisionInput.AddParts, and is useful for accessing the field via an interface.
+func (v *AmendDecisionInput) GetAddParts() []*DecisionPartInput { return v.AddParts }
+
+// GetBlocks returns AmendDecisionInput.Blocks, and is useful for accessing the field via an interface.
+func (v *AmendDecisionInput) GetBlocks() []*DecisionRefInput { return v.Blocks }
+
+// GetContext returns AmendDecisionInput.Context, and is useful for accessing the field via an interface.
+func (v *AmendDecisionInput) GetContext() *string { return v.Context }
+
+// GetFollowUps returns AmendDecisionInput.FollowUps, and is useful for accessing the field via an interface.
+func (v *AmendDecisionInput) GetFollowUps() []*DecisionRefInput { return v.FollowUps }
+
+// GetParts returns AmendDecisionInput.Parts, and is useful for accessing the field via an interface.
+func (v *AmendDecisionInput) GetParts() []*DecisionPartPatchInput { return v.Parts }
+
+// GetSources returns AmendDecisionInput.Sources, and is useful for accessing the field via an interface.
+func (v *AmendDecisionInput) GetSources() []*DecisionRefInput { return v.Sources }
+
+// GetTier returns AmendDecisionInput.Tier, and is useful for accessing the field via an interface.
+func (v *AmendDecisionInput) GetTier() *DecisionTier { return v.Tier }
+
+// GetTitle returns AmendDecisionInput.Title, and is useful for accessing the field via an interface.
+func (v *AmendDecisionInput) GetTitle() *string { return v.Title }
+
+// GetUrgency returns AmendDecisionInput.Urgency, and is useful for accessing the field via an interface.
+func (v *AmendDecisionInput) GetUrgency() *DecisionUrgency { return v.Urgency }
+
 // AmendDecisionResponse is returned by AmendDecision on success.
 type AmendDecisionResponse struct {
 	// #1641 — amend a writable decision. Memory write access is always required; before any answer, any writer; after one, a decider only. Urgency is a
@@ -15547,6 +15586,56 @@ func (v *AskDecisionAskDecision) __premarshalJSON() (*__premarshalAskDecisionAsk
 	retval.Evidence = v.DecisionFields.Evidence
 	return &retval, nil
 }
+
+type AskDecisionInput struct {
+	Authorizes *bool               `json:"authorizes,omitempty"`
+	Blocks     []*DecisionRefInput `json:"blocks,omitempty"`
+	Context    *string             `json:"context,omitempty"`
+	// Narrows the log's default deciders; never widens past its eligible set.
+	Deciders  []string            `json:"deciders,omitempty"`
+	FollowUps []*DecisionRefInput `json:"followUps,omitempty"`
+	// The authorization a grant decision carries (authorizes: true only).
+	Grant   *json.RawMessage     `json:"grant,omitempty"`
+	Parts   []*DecisionPartInput `json:"parts,omitempty"`
+	Sources []*DecisionRefInput  `json:"sources,omitempty"`
+	// Default APPROVED; SIGNED when authorizes is true (APPROVED is then refused: DECISION_TIER_TOO_LOW).
+	Tier    *DecisionTier    `json:"tier,omitempty"`
+	Title   string           `json:"title"`
+	Urgency *DecisionUrgency `json:"urgency,omitempty"`
+}
+
+// GetAuthorizes returns AskDecisionInput.Authorizes, and is useful for accessing the field via an interface.
+func (v *AskDecisionInput) GetAuthorizes() *bool { return v.Authorizes }
+
+// GetBlocks returns AskDecisionInput.Blocks, and is useful for accessing the field via an interface.
+func (v *AskDecisionInput) GetBlocks() []*DecisionRefInput { return v.Blocks }
+
+// GetContext returns AskDecisionInput.Context, and is useful for accessing the field via an interface.
+func (v *AskDecisionInput) GetContext() *string { return v.Context }
+
+// GetDeciders returns AskDecisionInput.Deciders, and is useful for accessing the field via an interface.
+func (v *AskDecisionInput) GetDeciders() []string { return v.Deciders }
+
+// GetFollowUps returns AskDecisionInput.FollowUps, and is useful for accessing the field via an interface.
+func (v *AskDecisionInput) GetFollowUps() []*DecisionRefInput { return v.FollowUps }
+
+// GetGrant returns AskDecisionInput.Grant, and is useful for accessing the field via an interface.
+func (v *AskDecisionInput) GetGrant() *json.RawMessage { return v.Grant }
+
+// GetParts returns AskDecisionInput.Parts, and is useful for accessing the field via an interface.
+func (v *AskDecisionInput) GetParts() []*DecisionPartInput { return v.Parts }
+
+// GetSources returns AskDecisionInput.Sources, and is useful for accessing the field via an interface.
+func (v *AskDecisionInput) GetSources() []*DecisionRefInput { return v.Sources }
+
+// GetTier returns AskDecisionInput.Tier, and is useful for accessing the field via an interface.
+func (v *AskDecisionInput) GetTier() *DecisionTier { return v.Tier }
+
+// GetTitle returns AskDecisionInput.Title, and is useful for accessing the field via an interface.
+func (v *AskDecisionInput) GetTitle() string { return v.Title }
+
+// GetUrgency returns AskDecisionInput.Urgency, and is useful for accessing the field via an interface.
+func (v *AskDecisionInput) GetUrgency() *DecisionUrgency { return v.Urgency }
 
 // AskDecisionResponse is returned by AskDecision on success.
 type AskDecisionResponse struct {
@@ -34120,6 +34209,106 @@ type DecisionLogResponse struct {
 // GetDecisionLog returns DecisionLogResponse.DecisionLog, and is useful for accessing the field via an interface.
 func (v *DecisionLogResponse) GetDecisionLog() *DecisionLogDecisionLog { return v.DecisionLog }
 
+type DecisionNoRecommendationInput struct {
+	Reason string `json:"reason"`
+}
+
+// GetReason returns DecisionNoRecommendationInput.Reason, and is useful for accessing the field via an interface.
+func (v *DecisionNoRecommendationInput) GetReason() string { return v.Reason }
+
+type DecisionOptionInput struct {
+	Cost    *string `json:"cost,omitempty"`
+	Key     string  `json:"key"`
+	Label   string  `json:"label"`
+	Meaning *string `json:"meaning,omitempty"`
+}
+
+// GetCost returns DecisionOptionInput.Cost, and is useful for accessing the field via an interface.
+func (v *DecisionOptionInput) GetCost() *string { return v.Cost }
+
+// GetKey returns DecisionOptionInput.Key, and is useful for accessing the field via an interface.
+func (v *DecisionOptionInput) GetKey() string { return v.Key }
+
+// GetLabel returns DecisionOptionInput.Label, and is useful for accessing the field via an interface.
+func (v *DecisionOptionInput) GetLabel() string { return v.Label }
+
+// GetMeaning returns DecisionOptionInput.Meaning, and is useful for accessing the field via an interface.
+func (v *DecisionOptionInput) GetMeaning() *string { return v.Meaning }
+
+// #1641 — one part of a decision. Give options or yesno, and a recommendation or noRecommendation.
+type DecisionPartInput struct {
+	NoRecommendation *DecisionNoRecommendationInput `json:"noRecommendation,omitempty"`
+	Options          []*DecisionOptionInput         `json:"options,omitempty"`
+	Question         string                         `json:"question"`
+	Recommendation   *DecisionRecommendationInput   `json:"recommendation,omitempty"`
+	Yesno            *bool                          `json:"yesno,omitempty"`
+}
+
+// GetNoRecommendation returns DecisionPartInput.NoRecommendation, and is useful for accessing the field via an interface.
+func (v *DecisionPartInput) GetNoRecommendation() *DecisionNoRecommendationInput {
+	return v.NoRecommendation
+}
+
+// GetOptions returns DecisionPartInput.Options, and is useful for accessing the field via an interface.
+func (v *DecisionPartInput) GetOptions() []*DecisionOptionInput { return v.Options }
+
+// GetQuestion returns DecisionPartInput.Question, and is useful for accessing the field via an interface.
+func (v *DecisionPartInput) GetQuestion() string { return v.Question }
+
+// GetRecommendation returns DecisionPartInput.Recommendation, and is useful for accessing the field via an interface.
+func (v *DecisionPartInput) GetRecommendation() *DecisionRecommendationInput { return v.Recommendation }
+
+// GetYesno returns DecisionPartInput.Yesno, and is useful for accessing the field via an interface.
+func (v *DecisionPartInput) GetYesno() *bool { return v.Yesno }
+
+// #1641 — a change to an existing part (by its permanent number). Omitted fields are unchanged; answers never change here.
+type DecisionPartPatchInput struct {
+	N                int                            `json:"n"`
+	NoRecommendation *DecisionNoRecommendationInput `json:"noRecommendation,omitempty"`
+	Options          []*DecisionOptionInput         `json:"options,omitempty"`
+	Question         *string                        `json:"question,omitempty"`
+	Recommendation   *DecisionRecommendationInput   `json:"recommendation,omitempty"`
+	Yesno            *bool                          `json:"yesno,omitempty"`
+}
+
+// GetN returns DecisionPartPatchInput.N, and is useful for accessing the field via an interface.
+func (v *DecisionPartPatchInput) GetN() int { return v.N }
+
+// GetNoRecommendation returns DecisionPartPatchInput.NoRecommendation, and is useful for accessing the field via an interface.
+func (v *DecisionPartPatchInput) GetNoRecommendation() *DecisionNoRecommendationInput {
+	return v.NoRecommendation
+}
+
+// GetOptions returns DecisionPartPatchInput.Options, and is useful for accessing the field via an interface.
+func (v *DecisionPartPatchInput) GetOptions() []*DecisionOptionInput { return v.Options }
+
+// GetQuestion returns DecisionPartPatchInput.Question, and is useful for accessing the field via an interface.
+func (v *DecisionPartPatchInput) GetQuestion() *string { return v.Question }
+
+// GetRecommendation returns DecisionPartPatchInput.Recommendation, and is useful for accessing the field via an interface.
+func (v *DecisionPartPatchInput) GetRecommendation() *DecisionRecommendationInput {
+	return v.Recommendation
+}
+
+// GetYesno returns DecisionPartPatchInput.Yesno, and is useful for accessing the field via an interface.
+func (v *DecisionPartPatchInput) GetYesno() *bool { return v.Yesno }
+
+type DecisionRecommendationInput struct {
+	// Relaying someone else's recommendation: who (recorded as a claim).
+	AttributedTo *string `json:"attributedTo,omitempty"`
+	Key          string  `json:"key"`
+	Reason       *string `json:"reason,omitempty"`
+}
+
+// GetAttributedTo returns DecisionRecommendationInput.AttributedTo, and is useful for accessing the field via an interface.
+func (v *DecisionRecommendationInput) GetAttributedTo() *string { return v.AttributedTo }
+
+// GetKey returns DecisionRecommendationInput.Key, and is useful for accessing the field via an interface.
+func (v *DecisionRecommendationInput) GetKey() string { return v.Key }
+
+// GetReason returns DecisionRecommendationInput.Reason, and is useful for accessing the field via an interface.
+func (v *DecisionRecommendationInput) GetReason() *string { return v.Reason }
+
 // DecisionRefFields includes the GraphQL fields of DecisionRef requested by the fragment DecisionRefFields.
 // The GraphQL type's documentation follows.
 //
@@ -34138,6 +34327,21 @@ func (v *DecisionRefFields) GetNode() *string { return v.Node }
 
 // GetSpec returns DecisionRefFields.Spec, and is useful for accessing the field via an interface.
 func (v *DecisionRefFields) GetSpec() *string { return v.Spec }
+
+type DecisionRefInput struct {
+	Node *string `json:"node,omitempty"`
+	Ref  *string `json:"ref,omitempty"`
+	Spec *string `json:"spec,omitempty"`
+}
+
+// GetNode returns DecisionRefInput.Node, and is useful for accessing the field via an interface.
+func (v *DecisionRefInput) GetNode() *string { return v.Node }
+
+// GetRef returns DecisionRefInput.Ref, and is useful for accessing the field via an interface.
+func (v *DecisionRefInput) GetRef() *string { return v.Ref }
+
+// GetSpec returns DecisionRefInput.Spec, and is useful for accessing the field via an interface.
+func (v *DecisionRefInput) GetSpec() *string { return v.Spec }
 
 // DecisionResponse is returned by Decision on success.
 type DecisionResponse struct {
@@ -89498,17 +89702,17 @@ func (v *__AlarmAcknowledgeInput) GetEventId() string { return v.EventId }
 
 // __AmendDecisionInput is used internally by genqlient
 type __AmendDecisionInput struct {
-	Ref              string          `json:"ref"`
-	Input            json.RawMessage `json:"input"`
-	ExpectedRevision int             `json:"expectedRevision"`
-	Reason           string          `json:"reason"`
+	Ref              string              `json:"ref"`
+	Input            *AmendDecisionInput `json:"input,omitempty"`
+	ExpectedRevision int                 `json:"expectedRevision"`
+	Reason           string              `json:"reason"`
 }
 
 // GetRef returns __AmendDecisionInput.Ref, and is useful for accessing the field via an interface.
 func (v *__AmendDecisionInput) GetRef() string { return v.Ref }
 
 // GetInput returns __AmendDecisionInput.Input, and is useful for accessing the field via an interface.
-func (v *__AmendDecisionInput) GetInput() json.RawMessage { return v.Input }
+func (v *__AmendDecisionInput) GetInput() *AmendDecisionInput { return v.Input }
 
 // GetExpectedRevision returns __AmendDecisionInput.ExpectedRevision, and is useful for accessing the field via an interface.
 func (v *__AmendDecisionInput) GetExpectedRevision() int { return v.ExpectedRevision }
@@ -89748,15 +89952,15 @@ func (v *__AppsInput) GetOffset() *int { return v.Offset }
 
 // __AskDecisionInput is used internally by genqlient
 type __AskDecisionInput struct {
-	LogRef string          `json:"logRef"`
-	Input  json.RawMessage `json:"input"`
+	LogRef string            `json:"logRef"`
+	Input  *AskDecisionInput `json:"input,omitempty"`
 }
 
 // GetLogRef returns __AskDecisionInput.LogRef, and is useful for accessing the field via an interface.
 func (v *__AskDecisionInput) GetLogRef() string { return v.LogRef }
 
 // GetInput returns __AskDecisionInput.Input, and is useful for accessing the field via an interface.
-func (v *__AskDecisionInput) GetInput() json.RawMessage { return v.Input }
+func (v *__AskDecisionInput) GetInput() *AskDecisionInput { return v.Input }
 
 // __AssetDownloadUrlInput is used internally by genqlient
 type __AssetDownloadUrlInput struct {
@@ -101149,7 +101353,7 @@ func AmendDecision(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	ref string,
-	input json.RawMessage,
+	input *AmendDecisionInput,
 	expectedRevision int,
 	reason string,
 ) (data_ *AmendDecisionResponse, err_ error) {
@@ -102324,7 +102528,7 @@ func AskDecision(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	logRef string,
-	input json.RawMessage,
+	input *AskDecisionInput,
 ) (data_ *AskDecisionResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "AskDecision",

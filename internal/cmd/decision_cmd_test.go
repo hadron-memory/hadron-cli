@@ -218,12 +218,14 @@ func TestDecisionAskFlagsOverrideTopLevelKeys(t *testing.T) {
 
 func TestDecisionAskRefusesBadInputBeforeAnyCall(t *testing.T) {
 	for name, args := range map[string][]string{
-		"no input":   {"ask", "l1"},
-		"array":      {"ask", "l1", "--input-file", writeJSONFile(t, `[1]`)},
-		"trailing":   {"ask", "l1", "--input-file", writeJSONFile(t, `{"title":"a"} {}`)},
-		"not json":   {"ask", "l1", "--input-file", writeJSONFile(t, `{title`)},
-		"null":       {"ask", "l1", "--input-file", writeJSONFile(t, `null`)},
-		"empty file": {"ask", "l1", "--input-file", writeJSONFile(t, ``)},
+		"no input":           {"ask", "l1"},
+		"array":              {"ask", "l1", "--input-file", writeJSONFile(t, `[1]`)},
+		"trailing":           {"ask", "l1", "--input-file", writeJSONFile(t, `{"title":"a"} {}`)},
+		"not json":           {"ask", "l1", "--input-file", writeJSONFile(t, `{title`)},
+		"null":               {"ask", "l1", "--input-file", writeJSONFile(t, `null`)},
+		"empty file":         {"ask", "l1", "--input-file", writeJSONFile(t, ``)},
+		"unknown key":        {"ask", "l1", "--input-file", writeJSONFile(t, `{"titel":"typo","title":"t","parts":[]}`)},
+		"nested unknown key": {"ask", "l1", "--input-file", writeJSONFile(t, `{"title":"t","parts":[{"question":"q","yes_no":true}]}`)},
 	} {
 		c, _, err := runDecision(t, nil, args...)
 		if err == nil || exitCodeFor(err) != exitcode.Usage || len(c.ops) != 0 {
@@ -237,6 +239,7 @@ func TestDecisionAmendRequiresRevisionReasonAndAChange(t *testing.T) {
 		"no revision": {"amend", "d1", "--reason", "r", "--title", "t"},
 		"no reason":   {"amend", "d1", "--expected-revision", "3", "--title", "t"},
 		"no change":   {"amend", "d1", "--expected-revision", "3", "--reason", "r"},
+		"empty file":  {"amend", "d1", "--expected-revision", "3", "--reason", "r", "--input-file", writeJSONFile(t, `{}`)},
 	} {
 		c, _, err := runDecision(t, nil, args...)
 		if err == nil || exitCodeFor(err) != exitcode.Usage || len(c.ops) != 0 {
@@ -433,6 +436,7 @@ func TestDecisionWithdrawConfirmsThenSendsOneCall(t *testing.T) {
 	for _, args := range [][]string{
 		{"withdraw", "d1", "--reason", "moot", "--yes"},
 		{"withdraw", "d1", "--expected-revision", "3", "--yes"},
+		{"withdraw", "d1", "--expected-revision", "3", "--reason", "  ", "--yes"},
 	} {
 		c, _, err := runDecision(t, nil, args...)
 		if err == nil || exitCodeFor(err) != exitcode.Usage || len(c.ops) != 0 {

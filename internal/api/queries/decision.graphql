@@ -1,11 +1,11 @@
 # Decision logs and decisions (hadron-server #1641; hadron-cli#1335).
 #
 # Every operation is passed through: refs go to the server exactly as typed
-# and who may do what is the server's rule (cor:api:240:01). The ask/amend
-# inputs are bound to json.RawMessage so the caller's JSON object reaches the
-# server unchanged: an omitted field stays omitted (amend reads omitted as
-# "unchanged"), and the server's own validation (DECISION_INVALID with JSON
-# pointers) judges the shape rather than a client copy of it.
+# and who may do what is the server's rule (cor:api:240:01). Every optional
+# field of the ask/amend input objects carries omitempty, so a field the
+# caller left out stays omitted on the wire: amend reads an omitted field as
+# "unchanged", and DecisionRefInput is exactly one of ref/node/spec, so a sent
+# null for the other two would be a different request.
 
 fragment DecisionActorRefFields on CommentActorRef { id name handle urn }
 
@@ -219,17 +219,60 @@ mutation SetDecisionLogDeciders(
   ) { ...DecisionLogFields }
 }
 
+# @genqlient(for: "AskDecisionInput.authorizes", omitempty: true)
+# @genqlient(for: "AskDecisionInput.blocks", omitempty: true)
+# @genqlient(for: "AskDecisionInput.context", omitempty: true)
+# @genqlient(for: "AskDecisionInput.deciders", omitempty: true)
+# @genqlient(for: "AskDecisionInput.followUps", omitempty: true)
+# @genqlient(for: "AskDecisionInput.grant", omitempty: true)
+# @genqlient(for: "AskDecisionInput.sources", omitempty: true)
+# @genqlient(for: "AskDecisionInput.tier", omitempty: true)
+# @genqlient(for: "AskDecisionInput.urgency", omitempty: true)
+# @genqlient(for: "DecisionPartInput.noRecommendation", omitempty: true)
+# @genqlient(for: "DecisionPartInput.options", omitempty: true)
+# @genqlient(for: "DecisionPartInput.recommendation", omitempty: true)
+# @genqlient(for: "DecisionPartInput.yesno", omitempty: true)
+# @genqlient(for: "DecisionOptionInput.cost", omitempty: true)
+# @genqlient(for: "DecisionOptionInput.meaning", omitempty: true)
+# @genqlient(for: "DecisionRecommendationInput.attributedTo", omitempty: true)
+# @genqlient(for: "DecisionRecommendationInput.reason", omitempty: true)
+# @genqlient(for: "DecisionRefInput.node", omitempty: true)
+# @genqlient(for: "DecisionRefInput.ref", omitempty: true)
+# @genqlient(for: "DecisionRefInput.spec", omitempty: true)
 mutation AskDecision(
   $logRef: ID!,
-  # @genqlient(bind: "encoding/json.RawMessage")
   $input: AskDecisionInput!
 ) {
   askDecision(logRef: $logRef, input: $input) { ...DecisionFields }
 }
 
+# @genqlient(for: "AmendDecisionInput.addParts", omitempty: true)
+# @genqlient(for: "AmendDecisionInput.blocks", omitempty: true)
+# @genqlient(for: "AmendDecisionInput.context", omitempty: true)
+# @genqlient(for: "AmendDecisionInput.followUps", omitempty: true)
+# @genqlient(for: "AmendDecisionInput.parts", omitempty: true)
+# @genqlient(for: "AmendDecisionInput.sources", omitempty: true)
+# @genqlient(for: "AmendDecisionInput.tier", omitempty: true)
+# @genqlient(for: "AmendDecisionInput.title", omitempty: true)
+# @genqlient(for: "AmendDecisionInput.urgency", omitempty: true)
+# @genqlient(for: "DecisionPartPatchInput.noRecommendation", omitempty: true)
+# @genqlient(for: "DecisionPartPatchInput.options", omitempty: true)
+# @genqlient(for: "DecisionPartPatchInput.question", omitempty: true)
+# @genqlient(for: "DecisionPartPatchInput.recommendation", omitempty: true)
+# @genqlient(for: "DecisionPartPatchInput.yesno", omitempty: true)
+# @genqlient(for: "DecisionPartInput.noRecommendation", omitempty: true)
+# @genqlient(for: "DecisionPartInput.options", omitempty: true)
+# @genqlient(for: "DecisionPartInput.recommendation", omitempty: true)
+# @genqlient(for: "DecisionPartInput.yesno", omitempty: true)
+# @genqlient(for: "DecisionOptionInput.cost", omitempty: true)
+# @genqlient(for: "DecisionOptionInput.meaning", omitempty: true)
+# @genqlient(for: "DecisionRecommendationInput.attributedTo", omitempty: true)
+# @genqlient(for: "DecisionRecommendationInput.reason", omitempty: true)
+# @genqlient(for: "DecisionRefInput.node", omitempty: true)
+# @genqlient(for: "DecisionRefInput.ref", omitempty: true)
+# @genqlient(for: "DecisionRefInput.spec", omitempty: true)
 mutation AmendDecision(
   $ref: ID!,
-  # @genqlient(bind: "encoding/json.RawMessage")
   $input: AmendDecisionInput!,
   $expectedRevision: Int!,
   $reason: String!
