@@ -1,11 +1,12 @@
 # Decision logs and decisions (hadron-server #1641; hadron-cli#1335).
 #
 # Every operation is passed through: refs go to the server exactly as typed
-# and who may do what is the server's rule (cor:api:240:01). Every optional
-# field of the ask/amend input objects carries omitempty, so a field the
-# caller left out stays omitted on the wire: amend reads an omitted field as
-# "unchanged", and DecisionRefInput is exactly one of ref/node/spec, so a sent
-# null for the other two would be a different request.
+# and who may do what is the server's rule (cor:api:240:01). Optional fields
+# of the ask/amend input objects carry omitempty (except the presence-sensitive
+# lists noted at each operation), so a field the caller left out stays
+# omitted: amend reads an omitted field as "unchanged", and DecisionRefInput is
+# exactly one of ref/node/spec, so a sent null for the other two would be a
+# different request.
 
 fragment DecisionActorRefFields on CommentActorRef { id name handle urn }
 
@@ -205,7 +206,9 @@ mutation CreateDecisionLog(
 mutation SetDecisionLogDeciders(
   $logRef: ID!,
   $defaultDeciders: [ID!]!,
-  # @genqlient(omitempty: true)
+  # NO omitempty on purpose: nil is sent as null, which keeps the log's
+  # eligible set, and [] clears it (resolvers.decisions.ts:
+  # eligibleDeciders == null ? prior : given).
   $eligibleDeciders: [ID!],
   $expectedRevision: Int!,
   $reason: String!
@@ -221,8 +224,9 @@ mutation SetDecisionLogDeciders(
 
 # @genqlient(for: "AskDecisionInput.authorizes", omitempty: true)
 # @genqlient(for: "AskDecisionInput.blocks", omitempty: true)
+# deciders carries NO omitempty: null means the log's defaults, while an explicit
+# [] is the caller's own (refused) request, so it must reach the server as sent.
 # @genqlient(for: "AskDecisionInput.context", omitempty: true)
-# @genqlient(for: "AskDecisionInput.deciders", omitempty: true)
 # @genqlient(for: "AskDecisionInput.followUps", omitempty: true)
 # @genqlient(for: "AskDecisionInput.grant", omitempty: true)
 # @genqlient(for: "AskDecisionInput.sources", omitempty: true)
@@ -246,12 +250,19 @@ mutation AskDecision(
   askDecision(logRef: $logRef, input: $input) { ...DecisionFields }
 }
 
+# blocks, followUps and sources carry NO omitempty on purpose: the server reads
+# null as "unchanged" and [] as "clear" (amendDecision: patch.blocks != null), so
+# an absent key decodes to nil and is sent as null, and an explicit [] clears.
+# (omitempty: false is explicit because use_struct_references adds it by default.)
+# @genqlient(for: "AmendDecisionInput.blocks", omitempty: false)
+# @genqlient(for: "AmendDecisionInput.followUps", omitempty: false)
+# @genqlient(for: "AmendDecisionInput.sources", omitempty: false)
 # @genqlient(for: "AmendDecisionInput.addParts", omitempty: true)
-# @genqlient(for: "AmendDecisionInput.blocks", omitempty: true)
-# @genqlient(for: "AmendDecisionInput.context", omitempty: true)
-# @genqlient(for: "AmendDecisionInput.followUps", omitempty: true)
+# context is tri-state on the server (patch.context !== undefined: absent keeps,
+# null clears, a string sets), which *string cannot carry: RawMessage keeps the
+# file's literal null (non-nil "null") apart from an absent key (nil, omitted).
+# @genqlient(for: "AmendDecisionInput.context", omitempty: true, bind: "encoding/json.RawMessage")
 # @genqlient(for: "AmendDecisionInput.parts", omitempty: true)
-# @genqlient(for: "AmendDecisionInput.sources", omitempty: true)
 # @genqlient(for: "AmendDecisionInput.tier", omitempty: true)
 # @genqlient(for: "AmendDecisionInput.title", omitempty: true)
 # @genqlient(for: "AmendDecisionInput.urgency", omitempty: true)

@@ -4906,13 +4906,18 @@ withdraw, purge or change deciders is the server's rule, never re-checked by
 the CLI. The CLI refuses only usage mistakes (exit 2) before any call.
 
 - `ask` and `amend` read `--input-file` (`-` = piped stdin): one JSON object with
-  the fields of the server's `AskDecisionInput` / `AmendDecisionInput`. Unknown
-  keys are refused (exit 2) before the call; values are judged by the server
-  (`DECISION_INVALID` names each bad field by JSON pointer). `--title`,
-  `--context`, `--tier`, `--urgency` override the file. A field you leave out is
-  omitted on the wire (amend: unchanged); an empty list is the same as leaving
-  it out. `ask` requires `--input-file` (parts live there); `amend` refuses a
-  change set with no fields.
+  the fields of the server's `AskDecisionInput` / `AmendDecisionInput`. Unknown,
+  mis-cased and duplicate keys are refused (exit 2) before the call; values are
+  judged by the server (`DECISION_INVALID` names each bad field by JSON pointer).
+  `--title`, `--context`, `--tier`, `--urgency` override the file. A field you
+  leave out is unchanged (amend) or the server default (ask). Amend's `blocks`,
+  `followUps` and `sources` are sent as `null` when left out ("unchanged"), and an
+  explicit `[]` clears that list; amend's `"context": null` clears the context
+  (left out: unchanged); ask's `deciders` likewise (`null` = the log's
+  defaults). `ask` requires `--input-file` (parts live there); `amend` refuses a
+  change set with no fields (a `[]` clear counts as a change).
+- `log set-deciders`: without `--eligible` the other eligible deciders are kept
+  (sent as `null`); `--eligible ""` clears them (sent as `[]`).
 - `revision` in every JSON shape is the node's current revision: pass it as
   `--expected-revision` to `amend`, `withdraw` and `log set-deciders`; a stale one
   is refused (`NODE_WRITE_CONFLICT`, exit 5) and nothing changes.

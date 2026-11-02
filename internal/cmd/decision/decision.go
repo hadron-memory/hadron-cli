@@ -188,8 +188,10 @@ func newCmdLogSetDeciders(f *cmdutil.Factory) *cobra.Command {
 		Short: "Replace a decision log's deciders",
 		Long: `Replace a log's default deciders (and, with --eligible, its other eligible
 deciders), by user ID, as an audited revision of the log. Decisions already asked keep
-their deciders. --expected-revision is the revision you read (decision log get
-shows it); a different current revision is refused and nothing changes.`,
+their deciders. Without --eligible the other eligible deciders are kept;
+--eligible "" clears them. --expected-revision is the revision you read
+(decision log get shows it); a different current revision is refused and
+nothing changes.`,
 		Example: `  hadron decision log set-deciders hrn:node:acme.com:eng:decisions --decider u_123 --expected-revision 4 --reason "Ada took over"`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -225,7 +227,7 @@ shows it); a different current revision is refused and nothing changes.`,
 		},
 	}
 	cmd.Flags().StringSliceVar(&deciders, "decider", nil, "a default decider, by user ID (required; repeat or comma-separate)")
-	cmd.Flags().StringSliceVar(&eligible, "eligible", nil, "another eligible decider, by user ID (omitted: unchanged; repeat or comma-separate)")
+	cmd.Flags().StringSliceVar(&eligible, "eligible", nil, "another eligible decider, by user ID (omitted: unchanged; --eligible \"\" clears them; repeat or comma-separate)")
 	cmd.Flags().IntVar(&expected, "expected-revision", 0, "the log revision you read (required)")
 	cmd.Flags().StringVar(&reason, "reason", "", "why the deciders change (required)")
 	return cmd
@@ -237,7 +239,7 @@ shows it); a different current revision is refused and nothing changes.`,
 // given, sets the top-level key of the same name in the input object,
 // overriding --input-file.
 func addInputFlags(cmd *cobra.Command, in *inputFlags) {
-	cmd.Flags().StringVar(&in.file, "input-file", "", `a JSON object of input fields ("-" reads piped stdin); unknown keys are refused`)
+	cmd.Flags().StringVar(&in.file, "input-file", "", `a JSON object of input fields ("-" reads piped stdin); unknown, mis-cased and duplicate keys are refused`)
 	cmd.Flags().StringVar(&in.title, "title", "", "the decision's title (overrides the file's)")
 	cmd.Flags().StringVar(&in.context, "context", "", "background for the deciders (overrides the file's)")
 	cmd.Flags().StringVar(&in.tier, "tier", "", "APPROVED or SIGNED (overrides the file's; the server validates)")
@@ -253,7 +255,7 @@ type inputFlags struct {
 // A given-but-blank --input-file is refused, not read as absent.
 // The caller decodes into its own generated input struct, which is what lets
 // the coverage matrix see every input field as reachable through the file.
-func (in *inputFlags) decoder(cmd *cobra.Command, f *cmdutil.Factory) (*json.Decoder, error) {
+func (in *inputFlags) decoder(cmd *cobra.Command, f *cmdutil.Factory, target any) (*json.Decoder, error) {
 	if !cmd.Flags().Changed("input-file") {
 		return nil, nil
 	}
@@ -264,7 +266,7 @@ func (in *inputFlags) decoder(cmd *cobra.Command, f *cmdutil.Factory) (*json.Dec
 	if err != nil {
 		return nil, err
 	}
-	return inputDecoder(data)
+	return inputDecoder(data, target)
 }
 
 // overrides returns a pointer for each field flag that was given, nil
@@ -319,7 +321,7 @@ and decides who may ask: any writer of the log's Memory.`,
 				return err
 			}
 			var input gen.AskDecisionInput
-			dec, err := in.decoder(cmd, f)
+			dec, err := in.decoder(cmd, f, &input)
 			if err != nil {
 				return err
 			}
@@ -374,7 +376,9 @@ AmendDecisionInput, passed through unchanged:
   addParts (new parts), blocks, followUps, sources
 
 --title, --context, --tier and --urgency set that field (overriding the file).
-An empty list in the file is the same as leaving the field out.
+An empty blocks, followUps or sources list ([]) clears that list, and
+"context": null clears the context; leaving a key out keeps it. Keys are exact and case-sensitive, and a key given
+twice is refused.
 --expected-revision is the revision you read (decision get shows it). The
 server decides who may amend what: before any answer any writer, after one a
 decider only, and urgency and tier are a decider's to change.`,
@@ -392,7 +396,7 @@ decider only, and urgency and tier are a decider's to change.`,
 				return err
 			}
 			var input gen.AmendDecisionInput
-			dec, err := in.decoder(cmd, f)
+			dec, err := in.decoder(cmd, f, &input)
 			if err != nil {
 				return err
 			}
@@ -406,7 +410,10 @@ decider only, and urgency and tier are a decider's to change.`,
 				input.Title = title
 			}
 			if context != nil {
-				input.Context = context
+				// Context is the raw JSON value (absent / null / string); a
+				// string never fails to marshal.
+				raw, _ := json.Marshal(*context)
+				input.Context = raw
 			}
 			if tier != nil {
 				input.Tier = tier
@@ -733,8 +740,12 @@ answered decision is refused (DECISION_ANSWERED). Prompts on a terminal;
 }
 
 // amendIsEmpty reports an amend that would change nothing: every field omitted.
+// context (raw: a literal null clears it) and blocks, followUps and sources
+// count by PRESENCE, not length: an explicit []
+// clears that list on the server, so {"blocks":[]} is a real change. parts and
+// addParts count by length: an empty change list changes nothing.
 func amendIsEmpty(in *gen.AmendDecisionInput) bool {
 	return in.Title == nil && in.Context == nil && in.Tier == nil && in.Urgency == nil &&
 		len(in.Parts) == 0 && len(in.AddParts) == 0 &&
-		len(in.Blocks) == 0 && len(in.FollowUps) == 0 && len(in.Sources) == 0
+		in.Blocks == nil && in.FollowUps == nil && in.Sources == nil
 }

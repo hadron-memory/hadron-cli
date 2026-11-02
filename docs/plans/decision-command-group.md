@@ -26,11 +26,25 @@ hadron-server #1641 (`resolvers.decisions.ts`), all ten operations on main.
   refused, exit 2, before any call); the four scalar fields also have flags that override
   the file. Decoding into the generated struct is also what lets the coverage matrix see
   every input field as reachable (`scripts/unboundops` counts a `Decode(&input)`).
-- **Every optional input field is `omitempty`** (operation-level `for:` directives in
+- **Optional input fields are `omitempty`** (operation-level `for:` directives in
   `decision.graphql`). Amend reads an omitted field as "unchanged", and `DecisionRefInput`
   is exactly one of ref/node/spec, so a sent `null` would be a different request.
-  Consequence (named limit): an empty list in the file is the same as omitting it, and an
-  explicit `null` cannot be sent.
+- **Except four presence-sensitive lists, which carry no `omitempty`** (Juliet's blind
+  P2s on `0ee7da54`): amend's `blocks`/`followUps`/`sources`, ask's `deciders`, and
+  set-deciders' `$eligibleDeciders`. For each, server `main` reads `null` as
+  "unchanged/default" and `[]` as "clear" (`patch.blocks != null`,
+  `eligibleDeciders == null ? prior : given`, `input.deciders ? … : defaults` in
+  `resolvers.decisions.ts`). So an absent key decodes to nil and goes out as `null`, and an
+  explicit `[]` goes out as `[]`. genqlient's `pointer: true` points at list elements,
+  not the list, so dropping `omitempty` (explicitly `false` for the struct-reference
+  lists) is the presence-preserving encoding. `amendIsEmpty` counts these by presence.
+- **Amend `context` is tri-state** (Gizelle's LOCAL P2): the server reads absent as keep,
+  `null` as clear and a string as set (`patch.context !== undefined`). `*string` cannot
+  carry that, so `AmendDecisionInput.context` is bound to `json.RawMessage` (omitempty):
+  an absent key stays nil and is omitted, and a literal `null` is kept as `null`.
+- **Strict keys.** Besides `DisallowUnknownFields`, `checkKeys` walks the file against
+  the target type's exact JSON names, refusing a duplicate key (encoding/json keeps the
+  last) and a mis-cased one (encoding/json matches case-insensitively).
 - **`revision` in JSON** is `revSeq` renamed: it is the value `--expected-revision` takes.
 - **`evidence.approval` is flattened to `approval`** in the decision DTO.
 - **List flags** (`--decider`, `--eligible`, `--state`, `--urgency`) are all `StringSlice`

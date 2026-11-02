@@ -12378,11 +12378,11 @@ func (v *AmendDecisionAmendDecision) __premarshalJSON() (*__premarshalAmendDecis
 
 type AmendDecisionInput struct {
 	AddParts  []*DecisionPartInput      `json:"addParts,omitempty"`
-	Blocks    []*DecisionRefInput       `json:"blocks,omitempty"`
-	Context   *string                   `json:"context,omitempty"`
-	FollowUps []*DecisionRefInput       `json:"followUps,omitempty"`
+	Blocks    []*DecisionRefInput       `json:"blocks"`
+	Context   json.RawMessage           `json:"context,omitempty"`
+	FollowUps []*DecisionRefInput       `json:"followUps"`
 	Parts     []*DecisionPartPatchInput `json:"parts,omitempty"`
-	Sources   []*DecisionRefInput       `json:"sources,omitempty"`
+	Sources   []*DecisionRefInput       `json:"sources"`
 	Tier      *DecisionTier             `json:"tier,omitempty"`
 	Title     *string                   `json:"title,omitempty"`
 	Urgency   *DecisionUrgency          `json:"urgency,omitempty"`
@@ -12395,7 +12395,7 @@ func (v *AmendDecisionInput) GetAddParts() []*DecisionPartInput { return v.AddPa
 func (v *AmendDecisionInput) GetBlocks() []*DecisionRefInput { return v.Blocks }
 
 // GetContext returns AmendDecisionInput.Context, and is useful for accessing the field via an interface.
-func (v *AmendDecisionInput) GetContext() *string { return v.Context }
+func (v *AmendDecisionInput) GetContext() json.RawMessage { return v.Context }
 
 // GetFollowUps returns AmendDecisionInput.FollowUps, and is useful for accessing the field via an interface.
 func (v *AmendDecisionInput) GetFollowUps() []*DecisionRefInput { return v.FollowUps }
@@ -15592,7 +15592,7 @@ type AskDecisionInput struct {
 	Blocks     []*DecisionRefInput `json:"blocks,omitempty"`
 	Context    *string             `json:"context,omitempty"`
 	// Narrows the log's default deciders; never widens past its eligible set.
-	Deciders  []string            `json:"deciders,omitempty"`
+	Deciders  []string            `json:"deciders"`
 	FollowUps []*DecisionRefInput `json:"followUps,omitempty"`
 	// The authorization a grant decision carries (authorizes: true only).
 	Grant   *json.RawMessage     `json:"grant,omitempty"`
@@ -94980,7 +94980,7 @@ func (v *__SetAssetPublicLinkInput) GetEnabled() bool { return v.Enabled }
 type __SetDecisionLogDecidersInput struct {
 	LogRef           string   `json:"logRef"`
 	DefaultDeciders  []string `json:"defaultDeciders"`
-	EligibleDeciders []string `json:"eligibleDeciders,omitempty"`
+	EligibleDeciders []string `json:"eligibleDeciders"`
 	ExpectedRevision int      `json:"expectedRevision"`
 	Reason           string   `json:"reason"`
 }
@@ -101349,6 +101349,13 @@ fragment DecisionRefFields on DecisionRef {
 }
 `
 
+// blocks, followUps and sources carry NO omitempty on purpose: the server reads
+// null as "unchanged" and [] as "clear" (amendDecision: patch.blocks != null), so
+// an absent key decodes to nil and is sent as null, and an explicit [] clears.
+// (omitempty: false is explicit because use_struct_references adds it by default.)
+// context is tri-state on the server (patch.context !== undefined: absent keeps,
+// null clears, a string sets), which *string cannot carry: RawMessage keeps the
+// file's literal null (non-nil "null") apart from an absent key (nil, omitted).
 func AmendDecision(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -102524,6 +102531,8 @@ fragment DecisionRefFields on DecisionRef {
 }
 `
 
+// deciders carries NO omitempty: null means the log's defaults, while an explicit
+// [] is the caller's own (refused) request, so it must reach the server as sent.
 func AskDecision(
 	ctx_ context.Context,
 	client_ graphql.Client,

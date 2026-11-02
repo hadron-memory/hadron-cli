@@ -175,7 +175,23 @@ func TestDecisionLogSetDecidersRequiresRevisionReasonDecider(t *testing.T) {
 		!reflect.DeepEqual(v["defaultDeciders"], []any{"u2"}) {
 		t.Fatalf("vars: %v", v)
 	}
-	decisionAbsent(t, v, "eligibleDeciders")
+	// No --eligible: sent as null, which the server reads as "keep the set".
+	if e, ok := v["eligibleDeciders"]; !ok || e != nil {
+		t.Fatalf("no --eligible must send eligibleDeciders null (keep), got %v (present %t)", e, ok)
+	}
+}
+
+func TestDecisionLogSetDecidersEmptyEligibleClears(t *testing.T) {
+	c, _, err := runDecision(t, map[string]string{
+		"SetDecisionLogDeciders": `{"data":{"setDecisionLogDeciders":` + decisionLogJSON + `}}`,
+	}, "log", "set-deciders", "l1", "--decider", "u2", "--eligible", "", "--expected-revision", "2", "--reason", "clear")
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := decisionOnlyOp(t, c, "SetDecisionLogDeciders")
+	if e, ok := v["eligibleDeciders"].([]any); !ok || len(e) != 0 {
+		t.Fatalf(`--eligible "" must send eligibleDeciders [] (clear), got %v`, v["eligibleDeciders"])
+	}
 }
 
 // --- ask / amend: the input object is passed through unchanged ---
@@ -192,9 +208,10 @@ func TestDecisionAskPassesInputFileThrough(t *testing.T) {
 	if v["logRef"] != "hrn:node:acme.com:kb:decisions" {
 		t.Fatalf("logRef: %v", v["logRef"])
 	}
-	var want any
+	var want map[string]any
 	_ = json.Unmarshal([]byte(in), &want)
-	if !reflect.DeepEqual(v["input"], want) {
+	want["deciders"] = nil // no omitempty: null means the log's default deciders
+	if !reflect.DeepEqual(v["input"], any(want)) {
 		t.Fatalf("input must reach the server unchanged:\n got %v\nwant %v", v["input"], want)
 	}
 }
@@ -228,6 +245,10 @@ func TestDecisionAskRefusesBadInputBeforeAnyCall(t *testing.T) {
 		"blank flag, title":  {"ask", "l1", "--input-file", " ", "--title", "t"},
 		"unknown key":        {"ask", "l1", "--input-file", writeJSONFile(t, `{"titel":"typo","title":"t","parts":[]}`)},
 		"nested unknown key": {"ask", "l1", "--input-file", writeJSONFile(t, `{"title":"t","parts":[{"question":"q","yes_no":true}]}`)},
+		"duplicate key":      {"ask", "l1", "--input-file", writeJSONFile(t, `{"title":"a","title":"b","parts":[]}`)},
+		"mis-cased key":      {"ask", "l1", "--input-file", writeJSONFile(t, `{"Title":"a","parts":[]}`)},
+		"nested duplicate":   {"ask", "l1", "--input-file", writeJSONFile(t, `{"title":"t","parts":[{"question":"q","question":"r","yesno":true}]}`)},
+		"nested mis-cased":   {"ask", "l1", "--input-file", writeJSONFile(t, `{"title":"t","parts":[{"Question":"q","yesno":true}]}`)},
 	} {
 		c, _, err := runDecision(t, nil, args...)
 		if err == nil || exitCodeFor(err) != exitcode.Usage || len(c.ops) != 0 {
@@ -262,8 +283,43 @@ func TestDecisionAmendSendsOnlyGivenFields(t *testing.T) {
 	if v["ref"] != "hrn:node:acme.com:kb:decisions:DA" || v["expectedRevision"] != float64(3) || v["reason"] != "typo" {
 		t.Fatalf("vars: %v", v)
 	}
-	if !reflect.DeepEqual(v["input"], map[string]any{"urgency": "URGENT"}) {
+	// The reference lists carry no omitempty: absent is sent as null, which
+	// the server reads as "unchanged" (only an explicit [] clears).
+	want := map[string]any{"urgency": "URGENT", "blocks": nil, "followUps": nil, "sources": nil}
+	if !reflect.DeepEqual(v["input"], want) {
 		t.Fatalf("amend must send only the given field (omitted = unchanged), got %v", v["input"])
+	}
+}
+
+func TestDecisionAmendEmptyReferenceListClears(t *testing.T) {
+	for _, key := range []string{"blocks", "followUps", "sources"} {
+		// Alone: a clear is a change, not "nothing to amend".
+		c, _, err := runDecision(t, map[string]string{
+			"AmendDecision": `{"data":{"amendDecision":` + decisionJSON + `}}`,
+		}, "amend", "d1", "--expected-revision", "3", "--reason", "r", "--input-file", writeJSONFile(t, `{"`+key+`":[]}`))
+		if err != nil {
+			t.Fatalf("%s: [] alone must be sent, got %v", key, err)
+		}
+		input, _ := decisionOnlyOp(t, c, "AmendDecision")["input"].(map[string]any)
+		if l, ok := input[key].([]any); !ok || len(l) != 0 {
+			t.Fatalf("%s: [] must be sent as [] (clear), got %v", key, input)
+		}
+		// Alongside a scalar change.
+		c, _, err = runDecision(t, map[string]string{
+			"AmendDecision": `{"data":{"amendDecision":` + decisionJSON + `}}`,
+		}, "amend", "d1", "--expected-revision", "3", "--reason", "r", "--title", "t", "--input-file", writeJSONFile(t, `{"`+key+`":[]}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		input, _ = decisionOnlyOp(t, c, "AmendDecision")["input"].(map[string]any)
+		if l, ok := input[key].([]any); !ok || len(l) != 0 || input["title"] != "t" {
+			t.Fatalf("%s with --title: got %v", key, input)
+		}
+	}
+	// null is "unchanged", like leaving the key out: alone it is nothing to amend.
+	c, _, err := runDecision(t, nil, "amend", "d1", "--expected-revision", "3", "--reason", "r", "--input-file", writeJSONFile(t, `{"blocks":null}`))
+	if err == nil || exitCodeFor(err) != exitcode.Usage || len(c.ops) != 0 {
+		t.Fatalf(`{"blocks":null} alone must be nothing to amend: err=%v ops=%v`, err, c.ops)
 	}
 }
 
@@ -520,5 +576,110 @@ func TestDecisionRefusalsMapAndDoNothingElse(t *testing.T) {
 		if len(c.ops) != 1 || out != "" {
 			t.Fatalf("%s: one call, no output: ops=%v out=%q", tc.name, c.ops, out)
 		}
+	}
+}
+
+// A populated decision: every nested value the mapping copies carries a
+// distinct value, so a dropped or crossed field (answer vs history, claimed vs
+// authenticated answerer, approval vs withdrawal actor) shows as a diff.
+const decisionFullJSON = `{"id":"d9","urn":"hrn:node:acme.com:kb:decisions:DB","code":"DB","n":2,"logId":"l1",
+"title":"T","context":"ctx","state":"DECIDED","tier":"APPROVED","urgency":"URGENT","authorizes":true,
+"archival":true,"revSeq":7,"portalUrl":"https://example.test/d/DB","viewerIsDecider":false,
+"askedAt":"2026-11-01T00:00:00Z","answeredAt":"2026-11-02T00:00:00Z",
+"askedBy":{"userId":null,"user":null,"workerId":"w1","worker":{"id":"w1","name":"Ada","handle":null,"urn":"hrn:worker:acme.com:t:ada"},"appId":"a1","app":{"id":"a1","name":"Team","handle":null,"urn":"hrn:app:acme.com:t"}},
+"deciderIds":["u2"],"deciders":[{"id":"u2","name":"Bo","handle":"bo","urn":null}],
+"identityMerges":[{"fromUserId":"u7","from":{"id":"u7","name":"Old","handle":"old","urn":null},"toUserId":"u2","to":{"id":"u2","name":"Bo","handle":"bo","urn":null},"mergedAt":"2026-10-30T00:00:00Z"}],
+"parts":[{"n":1,"citation":"DB-1","question":"Q","options":[{"key":"a","label":"A","meaning":"m","cost":"c"}],
+"recommendation":{"key":"a","reason":"why","attributedTo":"Ada","by":{"userId":"u1","user":{"id":"u1","name":"Ann","handle":"ann","urn":null},"workerId":null,"worker":null,"appId":null,"app":null}},
+"noRecommendationReason":null,
+"answer":{"at":"2026-11-02T00:00:00Z","byUserId":"u2","recordedByUserId":"u5","claimedBy":"Bo via phone","freeform":false,"key":"a","text":null,"reason":"fine","via":"PORTAL","source":{"ref":null,"node":"hrn:node:acme.com:kb:notes:1","spec":null}},
+"answerHistory":[{"at":"2026-11-01T12:00:00Z","byUserId":"u3","recordedByUserId":null,"claimedBy":null,"freeform":true,"key":null,"text":"maybe","reason":null,"via":"CLI","source":null}]}],
+"blocks":[{"ref":"hadron-server#1","node":null,"spec":null}],
+"followUps":[{"ref":null,"node":"hrn:node:acme.com:kb:x","spec":null}],
+"sources":[{"ref":null,"node":null,"spec":"cor:api:240:01"}],
+"withdrawn":{"at":"2026-11-03T00:00:00Z","reason":"moot","by":{"userId":"u4","user":{"id":"u4","name":"Cy","handle":"cy","urn":null},"workerId":null,"worker":null,"appId":null,"app":null}},
+"evidence":{"approval":{"approvedAt":"2026-11-02T01:00:00Z","revision":6,"integrity":"INTACT","byDecider":true,"byUserId":"u2","by":{"id":"u2","name":"Bo","handle":"bo","urn":null}}}}`
+
+func TestDecisionGetJSONMapsPopulatedValues(t *testing.T) {
+	_, out, err := runDecision(t, map[string]string{"Decision": `{"data":{"decision":` + decisionFullJSON + `}}`}, "get", "d9", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("json: %v\n%s", err, out)
+	}
+	const want = `{"id":"d9","urn":"hrn:node:acme.com:kb:decisions:DB","code":"DB","n":2,"logId":"l1",
+"title":"T","context":"ctx","state":"DECIDED","tier":"APPROVED","urgency":"URGENT","authorizes":true,
+"archival":true,"revision":7,"portalUrl":"https://example.test/d/DB","viewerIsDecider":false,
+"askedAt":"2026-11-01T00:00:00Z","answeredAt":"2026-11-02T00:00:00Z",
+"askedBy":{"userId":null,"user":null,"workerId":"w1","worker":{"id":"w1","name":"Ada","handle":null,"urn":"hrn:worker:acme.com:t:ada"},"appId":"a1","app":{"id":"a1","name":"Team","handle":null,"urn":"hrn:app:acme.com:t"}},
+"deciderIds":["u2"],"deciders":[{"id":"u2","name":"Bo","handle":"bo","urn":null}],
+"identityMerges":[{"fromUserId":"u7","from":{"id":"u7","name":"Old","handle":"old","urn":null},"toUserId":"u2","to":{"id":"u2","name":"Bo","handle":"bo","urn":null},"mergedAt":"2026-10-30T00:00:00Z"}],
+"parts":[{"n":1,"citation":"DB-1","question":"Q","options":[{"key":"a","label":"A","meaning":"m","cost":"c"}],
+"recommendation":{"key":"a","reason":"why","attributedTo":"Ada","by":{"userId":"u1","user":{"id":"u1","name":"Ann","handle":"ann","urn":null},"workerId":null,"worker":null,"appId":null,"app":null}},
+"noRecommendationReason":null,
+"answer":{"at":"2026-11-02T00:00:00Z","byUserId":"u2","recordedByUserId":"u5","claimedBy":"Bo via phone","freeform":false,"key":"a","text":null,"reason":"fine","via":"PORTAL","source":{"ref":null,"node":"hrn:node:acme.com:kb:notes:1","spec":null}},
+"answerHistory":[{"at":"2026-11-01T12:00:00Z","byUserId":"u3","recordedByUserId":null,"claimedBy":null,"freeform":true,"key":null,"text":"maybe","reason":null,"via":"CLI","source":null}]}],
+"blocks":[{"ref":"hadron-server#1","node":null,"spec":null}],
+"followUps":[{"ref":null,"node":"hrn:node:acme.com:kb:x","spec":null}],
+"sources":[{"ref":null,"node":null,"spec":"cor:api:240:01"}],
+"withdrawn":{"at":"2026-11-03T00:00:00Z","reason":"moot","by":{"userId":"u4","user":{"id":"u4","name":"Cy","handle":"cy","urn":null},"workerId":null,"worker":null,"appId":null,"app":null}},
+"approval":{"approvedAt":"2026-11-02T01:00:00Z","revision":6,"integrity":"INTACT","byDecider":true,"byUserId":"u2","by":{"id":"u2","name":"Bo","handle":"bo","urn":null}}}`
+	var wantV map[string]any
+	if err := json.Unmarshal([]byte(want), &wantV); err != nil {
+		t.Fatal(err)
+	}
+	for k, w := range wantV {
+		if !reflect.DeepEqual(got[k], w) {
+			t.Errorf("%s:\n got %v\nwant %v", k, got[k], w)
+		}
+	}
+	for k := range got {
+		if _, ok := wantV[k]; !ok {
+			t.Errorf("unexpected key %s", k)
+		}
+	}
+}
+
+func TestDecisionAmendContextIsTriState(t *testing.T) {
+	ok := map[string]string{"AmendDecision": `{"data":{"amendDecision":` + decisionJSON + `}}`}
+	// null alone clears: a change, sent as null.
+	c, _, err := runDecision(t, ok, "amend", "d1", "--expected-revision", "3", "--reason", "r", "--input-file", writeJSONFile(t, `{"context":null}`))
+	if err != nil {
+		t.Fatalf(`{"context":null} alone must be sent (a clear), got %v`, err)
+	}
+	input, _ := decisionOnlyOp(t, c, "AmendDecision")["input"].(map[string]any)
+	if v, present := input["context"]; !present || v != nil {
+		t.Fatalf("context null must be sent as null, got %v (present %t)", v, present)
+	}
+	// Absent: omitted (unchanged).
+	c, _, err = runDecision(t, ok, "amend", "d1", "--expected-revision", "3", "--reason", "r", "--title", "t")
+	if err != nil {
+		t.Fatal(err)
+	}
+	input, _ = decisionOnlyOp(t, c, "AmendDecision")["input"].(map[string]any)
+	if _, present := input["context"]; present {
+		t.Fatalf("absent context must be omitted, got %v", input)
+	}
+	// --context sets a string, overriding the file's null.
+	c, _, err = runDecision(t, ok, "amend", "d1", "--expected-revision", "3", "--reason", "r", "--input-file", writeJSONFile(t, `{"context":null}`), "--context", "bg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	input, _ = decisionOnlyOp(t, c, "AmendDecision")["input"].(map[string]any)
+	if input["context"] != "bg" {
+		t.Fatalf("--context must send the string, got %v", input)
+	}
+	// Gizelle's LOCAL repro: every clear survives alongside a title.
+	c, _, err = runDecision(t, ok, "amend", "d1", "--expected-revision", "3", "--reason", "r",
+		"--input-file", writeJSONFile(t, `{"title":"new","blocks":[],"followUps":[],"sources":[],"context":null}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	input, _ = decisionOnlyOp(t, c, "AmendDecision")["input"].(map[string]any)
+	want := map[string]any{"title": "new", "blocks": []any{}, "followUps": []any{}, "sources": []any{}, "context": nil}
+	if !reflect.DeepEqual(input, want) {
+		t.Fatalf("clears must all reach the server:\n got %v\nwant %v", input, want)
 	}
 }
