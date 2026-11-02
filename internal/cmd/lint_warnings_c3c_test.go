@@ -209,7 +209,7 @@ func TestC3cEveryCommandUsesReturnedIDAndPreservesOptOut(t *testing.T) {
 		for _, mode := range []string{"on", "off", "default"} {
 			t.Run(tc.name+"/"+mode, func(t *testing.T) {
 				responses := bodyOnlyStubs("Stored body")
-				c3StubReadMetadata(responses)
+				c3StubReadMetadata(t, responses)
 				if tc.op != "" {
 					responses[tc.op] = tc.response
 				}
@@ -278,7 +278,7 @@ func TestC3cEveryCommandUsesReturnedIDAndPreservesOptOut(t *testing.T) {
 func TestC3cBatchGetRendersEachNodesWarningsInBothModes(t *testing.T) {
 	for _, jsonMode := range []bool{false, true} {
 		responses := map[string]string{"NodeBatch": batchOf(nodeJSON, strings.Replace(nodeJSON, `"id":"n1"`, `"id":"n2"`, 1)), "GetNodeLintWarnings": c3WarningEnvelope(`{"items":[` + c3Warning1 + `],"total":1,"nextCursor":null}`)}
-		c3StubReadMetadata(responses)
+		c3StubReadMetadata(t, responses)
 		args := []string{"node", "get", "hrn:node:acme.com:kb:a", "hrn:node:acme.com:kb:b", "--raw", "--lint-warnings"}
 		if jsonMode {
 			args = append(args, "--json")
@@ -328,11 +328,12 @@ func TestC3cMergeUnconfirmedDoesNotReadLintOrWrite(t *testing.T) {
 }
 
 // These cases isolate lint rendering from optional pre-existing read metadata.
-func c3StubReadMetadata(responses map[string]string) {
+func c3StubReadMetadata(t *testing.T, responses map[string]string) {
+	t.Helper()
 	for _, op := range []string{"NodeLiveRevisionsMinted", "NodeLiveRevisionsApproved", "NodeLiveRevisionsStamped", "NodeLiveRevisions", "NodeCommentSummaries"} {
 		value, ok := unstubbedDefault(op)
 		if !ok {
-			panic("missing read-metadata fixture")
+			t.Fatalf("missing read-metadata fixture for %s", op)
 		}
 		responses[op] = value
 	}
