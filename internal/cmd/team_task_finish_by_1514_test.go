@@ -83,7 +83,10 @@ func TestTaskFinishByServerRefusals(t *testing.T) {
 
 func TestTaskFinishByReads(t *testing.T) {
 	for _, value := range []string{`"` + finishBy1514 + `"`, "null"} {
-		task := strings.Replace(taskFieldsJSON, `"startBy":null`, `"startBy":null,"finishBy":`+value, 1)
+		task := strings.Replace(taskFieldsJSON, `"startBy":`, `"finishBy":`+value+`,"startBy":`, 1)
+		if !strings.Contains(task, `"finishBy":`+value) {
+			t.Fatal("deadline fixture was not inserted")
+		}
 		for _, verb := range []string{"get", "list"} {
 			for _, jsonMode := range []bool{true, false} {
 				t.Run(verb+"/"+value+"/"+map[bool]string{true: "json", false: "text"}[jsonMode], func(t *testing.T) {
