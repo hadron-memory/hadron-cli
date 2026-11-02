@@ -79,8 +79,9 @@ How a result with `complete: false` exits depends on `incompleteReason`:
    mapped.** Both are S1/S3 codes the plan predates. They map to 5 and 2.
    Ruling 0071 = B then dropped the org refusal: any App may hold task
    integrations. S3 (#3150) no longer sends it from the untracked read or
-   claim, so `find-untracked` does not document it. `setAppProperties` sends it
-   until hadron-server#3177 merges. The mapping stays either way, so an older
+   claim (an org-less App gets `GITHUB_NOT_INSTALLED` there instead), so
+   `find-untracked` does not document it. `setAppProperties` sends it until
+   hadron-server#3176 merges. The mapping stays either way, so an older
    server's refusal still exits 5.
 6. **`serverCode` on `task create` only when `--external-id` is named.** This
    follows the existing model-group pattern: ordinary task-write error output
