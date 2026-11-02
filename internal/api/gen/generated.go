@@ -30798,6 +30798,8 @@ type DueWakesDueWakesDueWakePageWakesDueWake struct {
 	// Hand this back to acknowledgeWakes after delivering. Bound to the requester; good for 15 minutes.
 	Proof  string                                         `json:"proof"`
 	Worker *DueWakesDueWakesDueWakePageWakesDueWakeWorker `json:"worker"`
+	// One server-written tick line, null without a tick (hrn:node:hadronmemory.com:specs:cor:agt:080:26). Names are flattened; repeated task URNs appear once.
+	TickText *string `json:"tickText"`
 	// Not before this moment: the anchor plus the App's batching window (the shared cadence floor).
 	DeliverAfter string `json:"deliverAfter"`
 	// The latest a busy worker may be made to wait: the anchor plus the App's busy delay.
@@ -30813,6 +30815,9 @@ func (v *DueWakesDueWakesDueWakePageWakesDueWake) GetProof() string { return v.P
 func (v *DueWakesDueWakesDueWakePageWakesDueWake) GetWorker() *DueWakesDueWakesDueWakePageWakesDueWakeWorker {
 	return v.Worker
 }
+
+// GetTickText returns DueWakesDueWakesDueWakePageWakesDueWake.TickText, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWake) GetTickText() *string { return v.TickText }
 
 // GetDeliverAfter returns DueWakesDueWakesDueWakePageWakesDueWake.DeliverAfter, and is useful for accessing the field via an interface.
 func (v *DueWakesDueWakesDueWakePageWakesDueWake) GetDeliverAfter() string { return v.DeliverAfter }
@@ -30866,6 +30871,8 @@ type DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason struct {
 	Ticker *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTicker `json:"ticker"`
 	// Set for kind TASK.
 	Task *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason `json:"task"`
+	// The tick's role-task guidance, gated for the reader on every read; null for other reasons (hrn:node:hadronmemory.com:specs:cor:agt:080:23).
+	Action *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonActionTickAction `json:"action"`
 }
 
 // GetKind returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason.Kind, and is useful for accessing the field via an interface.
@@ -30879,6 +30886,42 @@ func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetTicker() *
 // GetTask returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason.Task, and is useful for accessing the field via an interface.
 func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetTask() *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason {
 	return v.Task
+}
+
+// GetAction returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason.Action, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetAction() *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonActionTickAction {
+	return v.Action
+}
+
+// DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonActionTickAction includes the requested fields of the GraphQL type TickAction.
+type DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonActionTickAction struct {
+	// Permanent tick code (hrn:node:hadronmemory.com:specs:cor:agt:110:01).
+	Code  string          `json:"code"`
+	State TickActionState `json:"state"`
+	// The readable entry's loc, including when no usable task was found.
+	TaskLoc *string `json:"taskLoc"`
+	// The readable runnable task nearest in the woken worker's Agent chain.
+	TaskUrn *string `json:"taskUrn"`
+}
+
+// GetCode returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonActionTickAction.Code, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonActionTickAction) GetCode() string {
+	return v.Code
+}
+
+// GetState returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonActionTickAction.State, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonActionTickAction) GetState() TickActionState {
+	return v.State
+}
+
+// GetTaskLoc returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonActionTickAction.TaskLoc, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonActionTickAction) GetTaskLoc() *string {
+	return v.TaskLoc
+}
+
+// GetTaskUrn returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonActionTickAction.TaskUrn, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonActionTickAction) GetTaskUrn() *string {
+	return v.TaskUrn
 }
 
 // DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason includes the requested fields of the GraphQL type DueTaskReason.
@@ -71278,6 +71321,27 @@ func (v *TeamWorkItemsTeamWorkItemsTeamWorkItemsPageItemsTeamWorkItem) __premars
 	return &retval, nil
 }
 
+// What the register says this tick asks of the woken worker, as far as the reader may read (hrn:node:hadronmemory.com:specs:cor:agt:110:03).
+type TickActionState string
+
+const (
+	// A readable entry and runnable task.
+	TickActionStateMapped TickActionState = "MAPPED"
+	// No mapping in the fully readable Team Agent chain, or no single Team Agent.
+	TickActionStateUnmapped TickActionState = "UNMAPPED"
+	// The readable entry's loc has no usable task in the worker's chain.
+	TickActionStateUnresolved TickActionState = "UNRESOLVED"
+	// Code-only guidance: resolve the task yourself. Includes failed reads.
+	TickActionStateWithheld TickActionState = "WITHHELD"
+)
+
+var AllTickActionState = []TickActionState{
+	TickActionStateMapped,
+	TickActionStateUnmapped,
+	TickActionStateUnresolved,
+	TickActionStateWithheld,
+}
+
 // TickerAppFloorAppTickerSettings includes the requested fields of the GraphQL type AppTickerSettings.
 // The GraphQL type's documentation follows.
 //
@@ -102434,6 +102498,7 @@ query DueWakes ($appRef: String!, $first: Int!, $after: String) {
 			worker {
 				id
 			}
+			tickText
 			deliverAfter
 			busyDeadline
 			channels {
@@ -102455,6 +102520,12 @@ query DueWakes ($appRef: String!, $first: Int!, $after: String) {
 					id
 					title
 				}
+				action {
+					code
+					state
+					taskLoc
+					taskUrn
+				}
 			}
 		}
 		pageInfo {
@@ -102466,7 +102537,11 @@ query DueWakes ($appRef: String!, $first: Int!, $after: String) {
 `
 
 // hadron-cli#1178: the host poller's tick and task wakes (cor:agt:080:08,
-// :16), with the host key. No accepts, so no STOP notice is offered (this
+// :16), with the host key. tickText and action (hadron-cli#1534, floor
+// hadron-server#2733/7db74494, the same as #1281) are nullable values: null or
+// omitted keeps the composed fallback. A server without them refuses this
+// query at validation, which the poller fails closed on (no retry, nothing
+// typed). No accepts, so no STOP notice is offered (this
 // deliverer cannot type one); no workerRefs, so the key's host is the lane.
 func DueWakes(
 	ctx_ context.Context,
