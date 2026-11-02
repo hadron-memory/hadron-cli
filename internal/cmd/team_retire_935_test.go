@@ -67,7 +67,8 @@ func retiredFactory(t *testing.T) (*cmdutil.Factory, *strings.Builder, *strings.
 	if err := os.WriteFile(bad, []byte("not json"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv(team.RouterConfigEnv, bad)
+	t.Setenv("HADRON_ROUTER_CONFIG", bad)
+	t.Setenv("ORCA_ROUTER_CONFIG", bad)
 	return f, out, errOut
 }
 
@@ -232,4 +233,9 @@ func TestRetiredStubsHelp(t *testing.T) {
 			}
 		})
 	}
+}
+
+func jsonString(s string) string {
+	b, _ := json.Marshal(s)
+	return string(b)
 }
