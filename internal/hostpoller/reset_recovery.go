@@ -305,19 +305,24 @@ func recordedLate(rec ResetRecord) time.Duration {
 
 // replacedAgent says whether a live agent other than the reset's old one is
 // tracked for its worker: one this host launched since, so a replacement.
+// "Other" is by launch identity (pid and kernel start time), never the pid
+// alone: a replacement may reuse the old pid. A live tracked agent whose
+// launch identity is unknown is not proven to be the old one, so it counts
+// as a replacement (cli#1582 BLIND delta P2).
 func (p *Poller) replacedAgent(rec ResetRecord) bool {
 	p.mu.Lock()
 	a := p.agents[rec.WorkerID]
+	id, hasID := p.agentIDs[rec.WorkerID]
 	p.mu.Unlock()
-	if a == nil || a.PID() == rec.Old.PID {
+	if a == nil {
 		return false
 	}
 	select {
 	case <-a.Done():
 		return false
 	default:
-		return true
 	}
+	return !hasID || id != rec.Old
 }
 
 func (p *Poller) processAlive(id ProcessIdentity) (alive, known bool) {

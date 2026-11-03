@@ -181,3 +181,27 @@ func TestResetAgentExitedAtLaunchHasNoIdentity1043(t *testing.T) {
 		t.Fatal("recorded a launch identity for an agent that had already exited")
 	}
 }
+
+// BLIND delta P2: a live replacement that reuses the old pid with a new
+// start time is still a replacement.
+func TestResetRecoveryDoesNotLaunchBesideASamePIDReplacement1043(t *testing.T) {
+	x := newRecoverFixture(t, "agent-stopped")
+	x.proc.live[4242] = "new-start" // launch-time observation of the replacement
+	x.p.trackAgent("id-iris", "repo/iris", &fakeAgent{done: make(chan struct{}), pid: 4242})
+	delete(x.proc.live, 4242) // the old identity {4242, "1"} is gone
+	x.run(t)
+	x.wantSteps(t, "relaunch-failed@2 RELAUNCH_BLOCKED")
+	x.wantNoLaunch(t)
+}
+
+// BLIND delta P2: a live tracked agent with no launch identity is not
+// proven to be the old one, so nothing is started beside it.
+func TestResetRecoveryDoesNotLaunchBesideAnUnidentifiedAgent1043(t *testing.T) {
+	x := newRecoverFixture(t, "agent-stopped")
+	x.proc.errs[6161] = errors.New("pidfd_open: operation not permitted")
+	x.p.trackAgent("id-iris", "repo/iris", &fakeAgent{done: make(chan struct{}), pid: 6161})
+	delete(x.proc.errs, 6161)
+	x.run(t)
+	x.wantSteps(t, "relaunch-failed@2 RELAUNCH_BLOCKED")
+	x.wantNoLaunch(t)
+}

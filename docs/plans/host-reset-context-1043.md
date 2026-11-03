@@ -125,7 +125,9 @@ server's read. A relaunch already begun before the restart fails
 `RELAUNCH_UNVERIFIED` and is never started again. Every relaunch, forward
 or recovered, fails `RELAUNCH_BLOCKED` with nothing started when the
 operation's worker is not the record's, when a live agent this host
-launched for the worker since is tracked (a replacement), or when the
+launched for the worker since is tracked (a replacement: its launch
+identity is not the old one's, or is unknown; never judged by pid alone),
+or when the
 worker has no recover prompt.
 
 ## Reportable codes
