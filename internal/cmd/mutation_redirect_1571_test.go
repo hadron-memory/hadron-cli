@@ -62,3 +62,49 @@ func TestMutationRedirect1571SentOnce(t *testing.T) {
 		}
 	}
 }
+
+// Fail closed (Chip P3 on #1572, gate #69570): an unparsable raw document
+// cannot be proved a query, so a redirect on it is refused even without the
+// word mutation; a parseable query (named or aliased `mutation`) still follows.
+func TestRawAPIRedirect1571FailsClosedOnUnparsable(t *testing.T) {
+	for _, status := range []int{http.StatusTemporaryRedirect, http.StatusPermanentRedirect} {
+		for _, tc := range []struct {
+			doc    string
+			refuse bool
+		}{
+			{"query {{{", true},
+			{"{{{", true},
+			{"query mutation { me { id } }", false},
+			{"query X { mutation: me { id } }", false},
+		} {
+			t.Run(http.StatusText(status)+"/"+tc.doc, func(t *testing.T) {
+				var dest, src atomic.Int32
+				destSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					dest.Add(1)
+					_, _ = w.Write([]byte(`{"data":{}}`))
+				}))
+				t.Cleanup(destSrv.Close)
+				srcSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					if r.Method == http.MethodGet {
+						_, _ = w.Write([]byte(`{"capabilities":[]}`))
+						return
+					}
+					src.Add(1)
+					http.Redirect(w, r, destSrv.URL+"/graphql", status)
+				}))
+				t.Cleanup(srcSrv.Close)
+				f, _ := testFactory(t)
+				root := NewRootCmd(f)
+				root.SetArgs([]string{"api", tc.doc, "--server", srcSrv.URL})
+				err := root.Execute()
+				if tc.refuse {
+					if err == nil || src.Load() != 1 || dest.Load() != 0 {
+						t.Fatalf("want refusal with 1 POST at source and 0 at target: err=%v src=%d dest=%d", err, src.Load(), dest.Load())
+					}
+				} else if err != nil || dest.Load() != 1 {
+					t.Fatalf("a parseable query must follow: err=%v dest=%d", err, dest.Load())
+				}
+			})
+		}
+	}
+}
