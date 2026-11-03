@@ -224,7 +224,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 329: 268 command, 49 gap, 12 excluded
+[Mutation] 330: 268 command, 50 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -473,6 +473,7 @@ setAppDeliverySettings  command team delivery-settings set
 setAppMemoryWriteGrant  command app memory-grant add
 setAppModelGroup  command app model-group set
 setAppProperties  command app properties set
+setAppRunTeamSnapshotEnabled  gap #1578
 setAppTickerSettings  gap #1336
 setAssetPublicLink  command asset public-link
 setAutomationReadGrant  gap #1566
@@ -555,7 +556,7 @@ updateWorker  command team worker update
 withdrawDecision  command decision withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 74: 46 gap, 28 excluded
+[Arguments] 79: 51 gap, 28 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.addOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
@@ -599,6 +600,9 @@ Mutation.removeMemoryMember(memoryId)  excluded deprecated: @deprecated: Use mem
 Mutation.removeMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.removeOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
 Mutation.removeOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
+Mutation.revokeAppKey(instruction)  gap #1595
+Mutation.revokeAppKeyScope(instruction)  gap #1595
+Mutation.revokeAppMemoryWriteGrant(instruction)  gap #1595
 Mutation.updateApp(agentSessionsExpire)  gap #63
 Mutation.updateApp(agentTools)  gap #63
 Mutation.updateApp(aiApiKey)  gap #63
@@ -624,6 +628,8 @@ Mutation.updateOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (a
 Mutation.updateOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.updateTeamRole(repos)  gap #1336
 Query.agentTasks(creator)  gap #1336
+Query.appKeys(instruction)  gap #1595
+Query.appMemoryWriteGrants(instruction)  gap #1595
 Query.attendeeRegister(agentRef)  gap #1336
 Query.channelMessages(teamHeadRef)  gap #936
 Query.channelMessages(untagged)  gap #936
@@ -631,7 +637,7 @@ Query.node(memoryRef)  excluded not-a-capability: the CLI composes -m and a bare
 Query.teamChatMessages(teamHeadRef)  gap #936
 Query.teamChatMessages(untagged)  gap #936
 
-[Filters] 55: 53 flag, 2 gap
+[Filters] 56: 54 flag, 2 gap
 Query.agentTasks(reference.kind)  flag team task list --ref-kind
 Query.agentTasks(reference.target)  flag team task list --ref
 Query.agents(filter.ownedByMe)  flag agent list --owned-by-me
@@ -654,6 +660,7 @@ Query.edges(filter.memoryId)  flag edge list --memory
 Query.edges(filter.sourceNodeId)  flag edge list --source
 Query.edges(filter.targetNodeId)  flag edge list --target
 Query.findNodes(filter.approvalState)  flag spec list --approved --unapproved
+Query.findNodes(filter.childrenOf)  flag node list --children-of
 Query.findNodes(filter.contentScope)  flag search --comments-only
 Query.findNodes(filter.createdBy)  flag node list --created-by
 Query.findNodes(filter.includeDeleted)  flag node list --include-deleted
