@@ -86,6 +86,11 @@ type castPreviewDTO struct {
 	Prompt             *string `json:"prompt"`
 	HasNamePlaceholder *bool   `json:"hasNamePlaceholder"` // Retired S12 probe; retained as null for JSON compatibility.
 	Reserved           bool    `json:"reserved"`
+	// TeamPlacement is the reporting choice the cast WOULD record, as the
+	// server returns it (cli#933): REPORTS_TO, NO_TEAM or UNSET. A preview is
+	// not an authorization; the cast decides.
+	TeamPlacement     string  `json:"teamPlacement"`
+	ReportsToWorkerID *string `json:"reportsToWorkerId"`
 }
 
 // The Long text names ALL THREE agent-resolution refusals with their exit
@@ -124,10 +129,10 @@ func roleDefinitionExists(ctx context.Context, client graphql.Client, appRef, ro
 }
 
 func newCmdWorkerCast(f *cmdutil.Factory) *cobra.Command {
-	var role, name, agentRef string
-	var dryRun bool
+	var role, name, agentRef, reportsTo string
+	var dryRun, noTeam bool
 	cmd := &cobra.Command{
-		Use:   "cast --name <n> (--role <role> | --agent <ref>) [--dry-run]",
+		Use:   "cast --name <n> (--role <role> | --agent <ref>) [--reports-to <worker> | --no-team] [--dry-run]",
 		Short: "Cast an installed agent as a named worker",
 		Long: `WHO MAY CAST: an org member with CONTRIBUTOR or higher on the App's org,
 a member of the App whose role is not reader, or the owner of a user-owned
@@ -184,6 +189,18 @@ For per-worker boot customisation write boot:workers:<id>:source (role
 boot-prompt) in the App install memory, then compile and approve it with
 hadron team worker compile and hadron node approve.
 
+REPORTING CHOICE (cli#933). Choose deliberately: --reports-to <worker> names
+the worker this one reports to (a worker name, URN or id), and --no-team
+records that it has no reporting head. Give one or the other, never both. A
+cast without a choice will be refused once enforcement is on; until then
+leaving both out casts the worker with no choice recorded (UNSET), which is
+never read as no-team and never as a guessed coordinator. Naming a head needs
+the right to staff workers and to manage the App; --no-team needs only the
+staffing right. The server decides; the CLI infers nothing, sends the choice
+once, and never retries or substitutes another. --no-team=false is not a
+choice. The result shows the recorded placement: REPORTS_TO, NO_TEAM or UNSET;
+"withheld" means this caller may not see it.
+
 --dry-run (#404, castWorkerPreview) runs the cast's EXACT resolution —
 same arguments, same typed refusals — up to but not
 including the writes, and shows what would be created: the name, the
@@ -194,7 +211,8 @@ no lease exists, so a previewed name may be gone at cast time.
 The team App comes from the persistent --app flag (or the configured App
 context).`,
 		Example: `  hadron team worker cast --app acme.com:eng-team --role backend-engineer --name Iris --dry-run
-  hadron team worker cast --app acme.com:eng-team --role backend-engineer --name Iris
+  hadron team worker cast --app acme.com:eng-team --role backend-engineer --name Iris --reports-to Ada
+  hadron team worker cast --app acme.com:eng-team --agent hrn:agent:acme.com:qa --name Uma --no-team
   hadron team worker cast --app acme.com:eng-team --agent hrn:agent:acme.com:qa --name Uma
   hadron team session start --as Iris --app acme.com:eng-team --tool claude-code`,
 		Args: cobra.NoArgs,
@@ -243,6 +261,10 @@ context).`,
 				return exitcode.Newf(exitcode.Usage,
 					"--name is required: a worker name is permanent for this App, so it is chosen rather than derived — pass --name <n> (`hadron team worker list --include-retired` shows the names already taken; retired workers keep theirs)")
 			}
+			reportsToArg, noTeamArg, err := castChoiceFlags(cmd, reportsTo, noTeam)
+			if err != nil {
+				return err
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -253,7 +275,7 @@ context).`,
 				// Same typed refusals as the cast — surfaced verbatim, because
 				// a refusal here IS the dry-run's answer.
 				preview, perr := gen.CastWorkerPreview(cmd.Context(), client, appRef,
-					optStr(agentRef), optStr(role), optStr(name))
+					optStr(agentRef), optStr(role), optStr(name), reportsToArg, noTeamArg)
 				if perr != nil {
 					return api.MapError(perr)
 				}
@@ -263,10 +285,13 @@ context).`,
 				p := preview.CastWorkerPreview
 				dto := castPreviewDTO{
 					Name: p.Name, Role: p.Role, AgentID: p.AgentId, AgentName: p.AgentName,
-					Prompt: p.Prompt,
+					Prompt:            p.Prompt,
+					TeamPlacement:     string(p.TeamPlacement),
+					ReportsToWorkerID: p.ReportsToWorkerId,
 				}
 				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 					fmt.Fprintf(w, "would cast %s%s — agent %s (%s)\n", dto.Name, roleSuffix(dto.Role), dto.AgentName, dto.AgentID)
+					fmt.Fprintf(w, "%s\n", placementText(&dto.TeamPlacement, dto.ReportsToWorkerID))
 					if dto.Prompt != nil && *dto.Prompt != "" {
 						fmt.Fprintf(w, "\n%s\n", *dto.Prompt)
 					}
@@ -275,7 +300,7 @@ context).`,
 				})
 			}
 			resp, err := gen.CastWorker(cmd.Context(), client, appRef,
-				optStr(agentRef), optStr(role), optStr(name))
+				optStr(agentRef), optStr(role), optStr(name), reportsToArg, noTeamArg)
 			if err != nil {
 				// Thin by directive: the server's typed errors carry the
 				// guidance (WORKER_AGENT_AMBIGUOUS says to pass --agent) — map
@@ -305,6 +330,9 @@ context).`,
 				if _, err := fmt.Fprintf(w, "✓ cast %s%s — worker %s\n", dto.Name, roleSuffix(dto.Role), dto.ID); err != nil {
 					return err
 				}
+				if _, err := fmt.Fprintf(w, "%s\n", placementText(dto.TeamPlacement, workerRefID(dto.ReportsTo))); err != nil {
+					return err
+				}
 				if dto.Prompt != nil && *dto.Prompt != "" {
 					if _, err := fmt.Fprintf(w, "\n%s\n", *dto.Prompt); err != nil {
 						return err
@@ -317,6 +345,8 @@ context).`,
 	cmd.Flags().StringVar(&role, "role", "", "cast by role: the single installed agent whose persona role matches (not with --agent)")
 	cmd.Flags().StringVar(&agentRef, "agent", "", "cast this agent (ID or URN; must be installed in the App); its persona role is the worker's role (not with --role)")
 	cmd.Flags().StringVar(&name, "name", "", "the worker's name — REQUIRED, and permanent for this App")
+	cmd.Flags().StringVar(&reportsTo, "reports-to", "", "the worker this one reports to (name, URN or id); choose this or --no-team, never both")
+	cmd.Flags().BoolVar(&noTeam, "no-team", false, "record that this worker has no reporting head; choose this or --reports-to, never both")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "preview the cast (name, agent, composed prompt) without creating anything; reserves nothing")
 	cmdutil.RetireFlags(cmd, "a worker's boot customisation is now a node: write boot:workers:<id>:source (role boot-prompt) in the App install memory (hadron node update), compile it with `hadron team worker compile <worker>`, then have the App's manager approve the compiled node with `hadron node approve <compiled-node-ref>`",
 		cmdutil.RetiredFlag{Name: "prompt-override"}, cmdutil.RetiredFlag{Name: "clear-prompt-override", Bool: true})
@@ -1989,4 +2019,56 @@ thing: see ` + "`team worker compile --help`" + `.`,
 	cmdutil.RetireFlags(cmd, "a worker's boot customisation is now a node: write boot:workers:<id>:source (role boot-prompt) in the App install memory (hadron node update), compile it with `hadron team worker compile <worker>`, then have the App's manager approve the compiled node with `hadron node approve <compiled-node-ref>`",
 		cmdutil.RetiredFlag{Name: "prompt-override"}, cmdutil.RetiredFlag{Name: "clear-prompt-override", Bool: true})
 	return cmd
+}
+
+// castChoiceFlags turns --reports-to / --no-team into the two optional wire
+// arguments (cli#933). PRESENCE is what matters, so it reads cmd.Flags().Changed
+// rather than the values: the unused argument is left nil (omitted on the wire,
+// never null or false), a named reportsTo sends only reportsTo, and an explicit
+// --no-team sends only noTeam:true. Shape errors the CLI can see are refused
+// here as usage, before any call: both flags (even --no-team=false), a blank
+// --reports-to, and --no-team=false on its own, which is not a choice. Nothing
+// else is decided locally — authority, an unknown or foreign head, and the
+// missing-choice refusal stay the server's, surfaced verbatim.
+func castChoiceFlags(cmd *cobra.Command, reportsTo string, noTeam bool) (*string, *bool, error) {
+	rtSet, ntSet := cmd.Flags().Changed("reports-to"), cmd.Flags().Changed("no-team")
+	if rtSet && ntSet {
+		return nil, nil, exitcode.Newf(exitcode.Usage, "--reports-to and --no-team cannot be combined: supply one or the other, never both")
+	}
+	if rtSet {
+		ref := strings.TrimSpace(reportsTo)
+		if ref == "" {
+			return nil, nil, exitcode.Newf(exitcode.Usage, "--reports-to needs a worker reference (a name, URN or id) — or pass --no-team to record that the worker has no reporting head")
+		}
+		return &ref, nil, nil
+	}
+	if ntSet {
+		if !noTeam {
+			return nil, nil, exitcode.Newf(exitcode.Usage, "--no-team=false is not a choice: pass --no-team to record no team, or --reports-to <worker>; leaving both out records no choice")
+		}
+		t := true
+		return nil, &t, nil
+	}
+	return nil, nil, nil
+}
+
+// placementText says what a returned teamPlacement means. NULL is WITHHELD from
+// this caller (access-masked), never UNSET or NO_TEAM, and a null reportsTo
+// never implies either (cli#933).
+func placementText(placement *string, reportsToID *string) string {
+	if placement == nil {
+		return "reporting choice withheld from this caller"
+	}
+	switch *placement {
+	case "REPORTS_TO":
+		if reportsToID != nil && *reportsToID != "" {
+			return "reports to " + *reportsToID
+		}
+		return "reports to a worker (`hadron team worker get` shows which)"
+	case "NO_TEAM":
+		return "no team (recorded choice)"
+	case "UNSET":
+		return "no reporting choice recorded (UNSET)"
+	}
+	return "reporting choice: " + *placement
 }
