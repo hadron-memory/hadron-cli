@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -299,6 +300,101 @@ func TestBillingWritesSendOnceOnServerFailureAndZeroAmountRefusal(t *testing.T) 
 			}
 			if calls != 1 {
 				t.Errorf("a money write is never retried; sent %d times", calls)
+			}
+		})
+	}
+}
+
+// cli#1562: the committed suite pinned promptValue but not its two callsites,
+// so a regression back to a truncating cell at either prompt survived. Drive
+// the real prompt (answerable stdin, declined) and assert the whole long org and
+// 1000-digit amount reach it, and that declining sends nothing.
+func TestBillingWritePromptsShowLongValuesWholeAndDeclineSendsNothing(t *testing.T) {
+	long := strings.Repeat("9", 1000)
+	org := "org-" + strings.Repeat("o", 300)
+	for _, tc := range []struct {
+		name string
+		args []string
+		want []string
+	}{
+		{"grant", []string{"billing", "grant", org, "--amount", long}, []string{org, long}},
+		{"prices set", []string{"billing", "prices", "set", "--provider", "p" + org, "--model", "m", "--input", long, "--output", long}, []string{"p" + org, long}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var requests atomic.Int32
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodGet {
+					_, _ = w.Write([]byte(`{"capabilities":[]}`))
+					return
+				}
+				requests.Add(1)
+				_, _ = w.Write([]byte(`{}`))
+			}))
+			t.Cleanup(srv.Close)
+			f, _, errOut := testFactoryTTY(t, "n\n")
+			root := NewRootCmd(f)
+			root.SetArgs(append(tc.args, "--server", srv.URL))
+			err := root.Execute()
+			if got := exitCodeFor(err); got != exitcode.Cancelled {
+				t.Errorf("declined prompt: want exit %d, got %d (%v)", exitcode.Cancelled, got, err)
+			}
+			for _, w := range tc.want {
+				if !strings.Contains(errOut.String(), w) {
+					t.Errorf("prompt must carry %d-rune value whole; it did not (stderr %d bytes)", len(w), errOut.Len())
+				}
+			}
+			if strings.Contains(errOut.String(), "…") {
+				t.Error("prompt must never be ellipsised")
+			}
+			if requests.Load() != 0 {
+				t.Errorf("a declined prompt sends nothing; got %d requests", requests.Load())
+			}
+		})
+	}
+}
+
+// cli#1562: a true transport failure (connection dropped mid-request, not a
+// 5xx response) on a money write is sent exactly once and surfaced.
+func TestBillingWritesSendOnceOnDroppedConnection(t *testing.T) {
+	for _, tc := range []struct {
+		op   string
+		args []string
+	}{
+		{"GrantCredits", []string{"billing", "grant", "acme", "--amount", "5", "--yes"}},
+		{"SetAiModelPrice", []string{"billing", "prices", "set", "--provider", "p", "--model", "m", "--input", "1", "--output", "2", "--yes"}},
+	} {
+		t.Run(tc.op, func(t *testing.T) {
+			var calls atomic.Int32
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == http.MethodGet {
+					_, _ = w.Write([]byte(`{"capabilities":[]}`))
+					return
+				}
+				var body struct {
+					OperationName string `json:"operationName"`
+				}
+				_ = json.NewDecoder(r.Body).Decode(&body)
+				if body.OperationName != tc.op {
+					_, _ = w.Write([]byte(`{}`))
+					return
+				}
+				calls.Add(1)
+				conn, _, err := w.(http.Hijacker).Hijack()
+				if err != nil {
+					t.Errorf("hijack: %v", err)
+					return
+				}
+				_ = conn.Close()
+			}))
+			t.Cleanup(srv.Close)
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append(tc.args, "--server", srv.URL))
+			if err := root.Execute(); err == nil {
+				t.Fatal("want an error on a dropped connection")
+			}
+			if calls.Load() != 1 {
+				t.Errorf("a money write is never retried; sent %d times", calls.Load())
 			}
 		})
 	}
