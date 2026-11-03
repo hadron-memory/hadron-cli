@@ -35,14 +35,14 @@ type taskRequirementsPatch struct {
 var jsonNull = json.RawMessage("null")
 
 func newCmdTeamTaskUpdate(f *cmdutil.Factory) *cobra.Command {
-	var title, description, startBy, requireRole, familyIn, familyNotIn, modelGroupIn, modelGroupNotIn, minTier, properties string
+	var title, description, startBy, finishBy, requireRole, familyIn, familyNotIn, modelGroupIn, modelGroupNotIn, minTier, properties string
 	var tags, excludeWorkers, refs []string
 	var clearRefs bool
-	var clearDescription, clearTags, clearRequirements, clearStartBy, clearProperties bool
+	var clearDescription, clearTags, clearRequirements, clearStartBy, clearFinishBy, clearProperties bool
 	var closeSession, noCloseSession bool
 	cmd := &cobra.Command{
 		Use:   "update <task> [flags]",
-		Short: "Edit a task's title, description, tags, requirements, start-by or close-session choice",
+		Short: "Edit a task's title, description, tags, requirements, deadlines or close-session choice",
 		Long: `Change a task after creating it, without cancelling and recreating it. The task
 keeps its id and handle. Name it by id or handle (AT1.2), as task get does.
 
@@ -73,6 +73,15 @@ replaces a value has a --clear-… twin that empties it; naming both is refused.
 - --start-by <RFC 3339 time> or --clear-start-by. --start-by re-anchors only the
   not-started clock (cor:agt:050:14): it moves the deadline that task list
   --overdue and the not-started alarm read. An alarm already raised stays raised.
+- --finish-by <RFC 3339 time> or --clear-finish-by. A set deadline replaces
+  ordinary stall windows with stall.finish-by for an unfinished task (no alarm
+  in backlog; a blocked task waits for release). Clearing sends null and brings
+  back ordinary stall windows counted from that edit. With neither flag the
+  finishBy key is omitted, preserving it. Setting a past value or one earlier
+  than startBy is refused by the server (BAD_USER_INPUT, exit 2); changing only
+  startBy to later than finishBy is also refused. Equal times are allowed;
+  a refused edit changes nothing. The server owns time validation and alarms.
+  All task-record reads require a provider containing hadron-server#2648/#3088.
 - --properties <json|@file>: the task's own JSON object (the team's schedule
   and review notes, for example), which the platform stores and never reads.
   It replaces the whole value, never merges: send every key you want to keep.
@@ -116,10 +125,10 @@ a stall alarm. Success prints the task as task get does; --json returns it.`,
 			reqNamed := fl.Changed("require-role") || fl.Changed("family-in") || fl.Changed("family-not-in") || fl.Changed("exclude-worker") || fl.Changed("min-tier") || fl.Changed("model-group") || fl.Changed("model-group-not")
 			anyField := fl.Changed("title") || fl.Changed("description") || clearDescription ||
 				fl.Changed("tag") || clearTags || fl.Changed("ref") || clearRefs || reqNamed || clearRequirements ||
-				fl.Changed("start-by") || clearStartBy || fl.Changed("close-session") || fl.Changed("no-close-session") ||
+				fl.Changed("start-by") || clearStartBy || fl.Changed("finish-by") || clearFinishBy || fl.Changed("close-session") || fl.Changed("no-close-session") ||
 				fl.Changed("properties") || clearProperties
 			if !anyField {
-				return usage("pass at least one field flag to change (--title, --description, --tag, --ref, --require-role, --start-by, --close-session, or a --clear-…); nothing was sent")
+				return usage("pass at least one field flag to change (--title, --description, --tag, --ref, --require-role, --start-by, --finish-by, --close-session, or a --clear-…); nothing was sent")
 			}
 			for _, c := range []struct {
 				set   bool
@@ -131,6 +140,7 @@ a stall alarm. Success prints the task as task get does; --json returns it.`,
 				{fl.Changed("ref"), clearRefs, "--ref", "--clear-refs"},
 				{reqNamed, clearRequirements, "--require-role, --family-in, --family-not-in, --exclude-worker, --min-tier, --model-group or --model-group-not", "--clear-requirements"},
 				{fl.Changed("start-by"), clearStartBy, "--start-by", "--clear-start-by"},
+				{fl.Changed("finish-by"), clearFinishBy, "--finish-by", "--clear-finish-by"},
 				{fl.Changed("properties"), clearProperties, "--properties", "--clear-properties"},
 			} {
 				if c.set && c.clear {
@@ -223,6 +233,15 @@ a stall alarm. Success prints the task as task get does; --json returns it.`,
 				}
 				input.StartBy = mustJSON(startBy)
 			}
+			switch {
+			case clearFinishBy:
+				input.FinishBy = jsonNull
+			case fl.Changed("finish-by"):
+				if _, ok := cmdutil.ParseStrictDateTime(finishBy); !ok {
+					return usage("--finish-by takes an RFC 3339 timestamp, e.g. 2099-11-02T09:00:00Z, got %q", finishBy)
+				}
+				input.FinishBy = mustJSON(finishBy)
+			}
 			if closeSession {
 				input.CloseSessionWhenDone = boolPtr(true)
 			} else if noCloseSession {
@@ -274,6 +293,8 @@ a stall alarm. Success prints the task as task get does; --json returns it.`,
 	cmd.Flags().BoolVar(&clearRequirements, "clear-requirements", false, "remove every requirement")
 	cmd.Flags().StringVar(&startBy, "start-by", "", "RFC 3339 time; re-anchors only the not-started clock")
 	cmd.Flags().BoolVar(&clearStartBy, "clear-start-by", false, "remove the explicit start-by")
+	cmd.Flags().StringVar(&finishBy, "finish-by", "", "RFC 3339 deadline to finish by; server validates it against now and start-by")
+	cmd.Flags().BoolVar(&clearFinishBy, "clear-finish-by", false, "clear the finish deadline and restore ordinary stall windows")
 	cmd.Flags().BoolVar(&closeSession, "close-session", false, "ask the assignee's session to end when the task finishes or is cancelled")
 	cmd.Flags().BoolVar(&noCloseSession, "no-close-session", false, "state that the session should not end with the task")
 	cmd.Flags().StringVar(&properties, "properties", "", "the task's own JSON object, or @file; replaces the whole value")

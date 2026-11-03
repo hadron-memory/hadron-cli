@@ -157,6 +157,11 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 			return err
 		}
 	}
+	if task.FinishBy != nil {
+		if err := line("  finish by: %s", output.SafeCell(*task.FinishBy)); err != nil {
+			return err
+		}
+	}
 	if len(task.Tags) > 0 {
 		if err := line("  tags: %s", safeTaskValues(task.Tags, ", ")); err != nil {
 			return err
@@ -596,8 +601,10 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 		}
 		withHandle := false
 		withMinTier := false
+		withFinishBy := false
 		withGroups := false
 		for _, task := range tasks {
+			withFinishBy = withFinishBy || task.FinishBy != nil
 			withGroups = withGroups || (task.Requirements != nil && len(task.Requirements.ModelGroupIn)+len(task.Requirements.ModelGroupNotIn) > 0)
 			withMinTier = withMinTier || (task.Requirements != nil && task.Requirements.MinTier != nil)
 			withHandle = withHandle || task.Handle != ""
@@ -608,6 +615,9 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 		}
 		if withGroups {
 			headers = append(headers, "MODEL GROUP IN", "MODEL GROUP NOT IN")
+		}
+		if withFinishBy {
+			headers = append(headers, "FINISH BY")
 		}
 		t := output.NewTable(w, headers...)
 		for _, task := range tasks {
@@ -632,6 +642,13 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 					notIn = safeTaskRequirementList(task.Requirements.ModelGroupNotIn)
 				}
 				cells = append(cells, in, notIn)
+			}
+			if withFinishBy {
+				finishBy := "—"
+				if task.FinishBy != nil {
+					finishBy = output.SafeCell(*task.FinishBy)
+				}
+				cells = append(cells, finishBy)
 			}
 			t.Row(cells...)
 		}

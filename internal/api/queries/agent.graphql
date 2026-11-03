@@ -29,6 +29,8 @@ fragment AgentFields on Agent {
   hasAiApiKey
   personaRole
   usesTasks
+  # #1551 (cor:agt:050:27): recorded only; a host acts on it (#1043).
+  resetContextAfterTask
   # #1226 (R211, cor:dmo:050:04): the member roles this Agent offers.
   installationPolicy {
     memberRoles
@@ -148,6 +150,9 @@ mutation UpdateAgent(
   $personaRole: String
   # @genqlient(omitempty: true)
   $usesTasks: Boolean
+  # #1551: omitted preserves; an explicit false is sent.
+  # @genqlient(omitempty: true)
+  $resetContextAfterTask: Boolean
   # @genqlient(omitempty: true)
   $memberRoles: [String!]
 ) {
@@ -162,6 +167,7 @@ mutation UpdateAgent(
     urn: $urn
     personaRole: $personaRole
     usesTasks: $usesTasks
+    resetContextAfterTask: $resetContextAfterTask
     memberRoles: $memberRoles
   ) {
     ...AgentFields
