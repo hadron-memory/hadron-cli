@@ -81,7 +81,7 @@ func schemeIsSecure(u *url.URL) bool {
 func withSecureRedirects(client *http.Client) *http.Client {
 	c := *client
 	c.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-		if noRedirectFrom(req.Context()) {
+		if mustSendOnce(req, via) {
 			return refuseReplayedRedirect(req)
 		}
 		if err := checkSessionRedirect(req, via); err != nil {
@@ -107,7 +107,7 @@ func withSecureRedirects(client *http.Client) *http.Client {
 func withSessionRedirects(client *http.Client) *http.Client {
 	c := *client
 	c.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-		if noRedirectFrom(req.Context()) {
+		if mustSendOnce(req, via) {
 			return refuseReplayedRedirect(req)
 		}
 		if err := checkSessionRedirect(req, via); err != nil {
@@ -154,7 +154,50 @@ func checkSessionRedirect(req *http.Request, via []*http.Request) error {
 	return nil
 }
 
-// refuseReplayedRedirect is the refusal for a call marked WithNoRedirect: the
+// mustSendOnce is the ONE place that decides a redirect must not be followed
+// because following it would replay a mutation (hadron-cli#1571): the call
+// opted in with WithNoRedirect, or the request that started the chain is a
+// GraphQL mutation. It is decided by operation type, never per command.
+func mustSendOnce(req *http.Request, via []*http.Request) bool {
+	if noRedirectFrom(req.Context()) {
+		return true
+	}
+	if len(via) == 0 || via[0] == nil {
+		return false
+	}
+	return postBodyIsMutation(via[0])
+}
+
+// postBodyIsMutation reports whether a GraphQL POST carries a mutation. Fail
+// closed: a body that cannot be re-read or decoded counts as one, since
+// refusing a redirect is safe and replaying is not.
+func postBodyIsMutation(req *http.Request) bool {
+	if req.Method != http.MethodPost || req.Body == nil {
+		return false
+	}
+	if req.GetBody == nil {
+		return true
+	}
+	body, err := req.GetBody()
+	if err != nil {
+		return true
+	}
+	defer body.Close()
+	encoded, err := io.ReadAll(body)
+	if err != nil {
+		return true
+	}
+	var envelope struct {
+		Query string `json:"query"`
+	}
+	if err := json.Unmarshal(encoded, &envelope); err != nil {
+		return true
+	}
+	// DocumentHasMutation errs toward true, the safe direction here.
+	return DocumentHasMutation(envelope.Query)
+}
+
+// refuseReplayedRedirect is the refusal for a call that must be sent once: the
 // endpoint answered with a redirect, and re-sending the mutation to the target
 // is exactly what a one-send operation must not do. The message names the
 // target so the operator can fix the --server URL.
