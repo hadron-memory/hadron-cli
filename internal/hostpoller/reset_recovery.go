@@ -311,12 +311,15 @@ func recordedLate(rec ResetRecord) time.Duration {
 // as a replacement (cli#1582 BLIND delta P2).
 //
 // After a restart this process tracks nothing, so the state file's agent
-// record for the worker is read too (cli#1582 LOCAL delta P2-2). A record
-// still at the old pid is the old agent's own: whatever runs at that pid
-// now is the old agent (decided by its identity elsewhere) or an unrelated
-// reuse, never proof of a replacement. A record at another pid was written
-// by a launch after the old one: if that process is live, or cannot be
-// proven gone, it is a replacement.
+// record for the worker is read too (cli#1582 LOCAL delta P2-2), by launch
+// identity as well: a replacement may reuse the old pid, and its record
+// then sits at that pid (cli#1582 BLIND + LOCAL delta P2 at b9592069).
+// A record carrying an identity counts while that launch is live or cannot
+// be proven gone; when it is the old agent's own record, that is the old
+// agent still running, which blocks the relaunch anyway. A record without
+// an identity proves nothing about whatever runs at its pid, so any live or
+// unobservable process there other than the old agent counts as a
+// replacement.
 func (p *Poller) replacedAgent(rec ResetRecord) bool {
 	p.mu.Lock()
 	a := p.agents[rec.WorkerID]
@@ -329,16 +332,20 @@ func (p *Poller) replacedAgent(rec ResetRecord) bool {
 			return !hasID || id != rec.Old
 		}
 	}
-	pid := p.state.recordedAgentPID(rec.WorkerID)
-	if pid <= 0 || pid == rec.Old.PID {
+	r := p.state.recordedAgent(rec.WorkerID)
+	if r.PID <= 0 {
 		return false
 	}
-	h, err := p.resetDeps.Proc.Observe(pid)
+	h, err := p.resetDeps.Proc.Observe(r.PID)
 	if err != nil {
 		return !errors.Is(err, syscall.ESRCH) // gone, or not proven gone
 	}
+	now := h.Identity()
 	h.Close()
-	return true
+	if r.Start != "" {
+		return now == ProcessIdentity{PID: r.PID, StartTime: r.Start}
+	}
+	return now != rec.Old
 }
 
 func (p *Poller) processAlive(id ProcessIdentity) (alive, known bool) {

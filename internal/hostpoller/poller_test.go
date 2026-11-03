@@ -795,7 +795,7 @@ func removeOp() Operation {
 // a live one keeps its tree.
 func TestRestartKeepsALiveAgentsTree(t *testing.T) {
 	p, srv, host := testPoller(t)
-	if err := p.state.recordAgent("id-iris", "repo/iris", 4242); err != nil {
+	if err := p.state.recordAgent("id-iris", "repo/iris", 4242, ""); err != nil {
 		t.Fatal(err)
 	}
 	// A fresh poller over the same state file: nothing in memory.

@@ -320,7 +320,11 @@ func (p *Poller) trackAgent(workerID, token string, a Agent) {
 		delete(p.agentIDs, workerID)
 	}
 	p.mu.Unlock()
-	if err := p.state.recordAgent(workerID, token, a.PID()); err != nil {
+	start := ""
+	if hasID {
+		start = id.StartTime
+	}
+	if err := p.state.recordAgent(workerID, token, a.PID(), start); err != nil {
 		p.log("state-failed", "", "", "", err.Error())
 	}
 }

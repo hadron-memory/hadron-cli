@@ -68,6 +68,10 @@ type ResetRecord struct {
 type AgentRecord struct {
 	Worktree string `json:"worktree"`
 	PID      int    `json:"pid"`
+	// Start is the launch's kernel start time, observed while it ran (empty
+	// when not observed): with PID, its launch identity, so a restarted
+	// poller can tell this launch from another at the same pid (cli#1582).
+	Start string `json:"start,omitempty"`
 }
 
 // LoadState reads the state file; a missing file is an empty state.
@@ -175,10 +179,10 @@ func (s *State) keepReason(token string) (string, bool) {
 	return r, ok
 }
 
-func (s *State) recordAgent(workerID, token string, pid int) error {
+func (s *State) recordAgent(workerID, token string, pid int, start string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.Agents[workerID] = AgentRecord{Worktree: token, PID: pid}
+	s.Agents[workerID] = AgentRecord{Worktree: token, PID: pid, Start: start}
 	return s.save()
 }
 
@@ -196,12 +200,11 @@ func (s *State) agentPIDsIn(token string) []int {
 }
 
 // recordedWorktree is the worktree a recorded agent of this worker ran in.
-// recordedAgentPID is the pid of the agent last recorded for the worker
-// (0 when none).
-func (s *State) recordedAgentPID(workerID string) int {
+// recordedAgent is the agent last recorded for the worker (zero when none).
+func (s *State) recordedAgent(workerID string) AgentRecord {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.Agents[workerID].PID
+	return s.Agents[workerID]
 }
 
 func (s *State) recordedWorktree(workerID string) (string, bool) {

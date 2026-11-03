@@ -132,10 +132,15 @@ three cases:
 - a replacement agent is running for the worker. That is a live agent
   tracked in memory whose launch identity is not the old one's, or is
   unknown (never judged by pid alone). After a restart it is also the
-  agent the state file records at a pid other than the old one, when that
-  process is live or cannot be proven gone. A record still at the old pid
-  is the old agent's own, and an unrelated process reusing that pid is
-  not a replacement;
+  agent the state file records for the worker, judged by launch identity
+  too: the record keeps the launch's kernel start time, because a
+  replacement may reuse the old pid and its record then sits at that pid.
+  A recorded launch counts while it is live or cannot be proven gone; a
+  process now at its pid with another start time is an unrelated reuse,
+  not a replacement. A record without a start time (an agent launched
+  before resets were enabled, or one that exited before it was observed)
+  counts when any process other than the old agent is live or
+  unobservable at its pid;
 - the worker has no recover prompt.
 
 On the forward path, a missing recover prompt is already refused before

@@ -210,7 +210,7 @@ func TestResetRecoveryDoesNotLaunchBesideAnUnidentifiedAgent1043(t *testing.T) {
 // replacement recorded in the state file still blocks the relaunch.
 func TestResetRecoveryDoesNotLaunchBesideAPersistedReplacement1043(t *testing.T) {
 	x := newRecoverFixture(t, "agent-stopped")
-	if err := x.p.state.recordAgent("id-iris", "repo/iris", 6161); err != nil {
+	if err := x.p.state.recordAgent("id-iris", "repo/iris", 6161, ""); err != nil {
 		t.Fatal(err)
 	}
 	x.proc.live[6161] = "replacement"
@@ -223,7 +223,7 @@ func TestResetRecoveryDoesNotLaunchBesideAPersistedReplacement1043(t *testing.T)
 // blocks the relaunch too.
 func TestResetRecoveryDoesNotLaunchBesideAnUnobservablePersistedAgent1043(t *testing.T) {
 	x := newRecoverFixture(t, "agent-stopped")
-	if err := x.p.state.recordAgent("id-iris", "repo/iris", 6161); err != nil {
+	if err := x.p.state.recordAgent("id-iris", "repo/iris", 6161, ""); err != nil {
 		t.Fatal(err)
 	}
 	x.proc.errs[6161] = errors.New("pidfd_open: operation not permitted")
@@ -235,9 +235,68 @@ func TestResetRecoveryDoesNotLaunchBesideAnUnobservablePersistedAgent1043(t *tes
 // Control: a persisted replacement that is gone does not block.
 func TestResetRecoveryRelaunchesWhenThePersistedAgentIsGone1043(t *testing.T) {
 	x := newRecoverFixture(t, "agent-stopped")
-	if err := x.p.state.recordAgent("id-iris", "repo/iris", 6161); err != nil {
+	if err := x.p.state.recordAgent("id-iris", "repo/iris", 6161, ""); err != nil {
 		t.Fatal(err)
 	}
+	x.run(t)
+	x.wantSteps(t, "relaunched@2 pid=5151")
+}
+
+// restart drops what this process tracks for the worker, as a poller
+// restart does; the state file is kept.
+func (x *recoverFixture) restart() {
+	x.p.mu.Lock()
+	delete(x.p.agents, "id-iris")
+	delete(x.p.agentIDs, "id-iris")
+	x.p.mu.Unlock()
+}
+
+// BLIND + LOCAL delta P2 at b9592069: a replacement that reuses the old
+// pid, recorded by this host, is still a replacement after a restart. The
+// state file keeps its launch identity, so pid equality proves nothing.
+func TestResetRecoveryDoesNotLaunchBesideAPersistedSamePIDReplacement1043(t *testing.T) {
+	x := newRecoverFixture(t, "agent-stopped")
+	x.proc.live[4242] = "replacement-start"
+	x.p.trackAgent("id-iris", "repo/iris", &fakeAgent{done: make(chan struct{}), pid: 4242})
+	x.restart()
+	x.run(t)
+	x.wantSteps(t, "relaunch-failed@2 RELAUNCH_BLOCKED")
+	x.wantNoLaunch(t)
+}
+
+// Control: the old agent's own record (its launch identity) with its pid
+// now reused by an unrelated process does not block the relaunch.
+func TestResetRecoveryRelaunchesBesideAnUnrelatedReuseOfTheOldPID1043(t *testing.T) {
+	x := newRecoverFixture(t, "agent-stopped")
+	if err := x.p.state.recordAgent("id-iris", "repo/iris", oldIdentity.PID, oldIdentity.StartTime); err != nil {
+		t.Fatal(err)
+	}
+	x.proc.live[4242] = "unrelated"
+	x.run(t)
+	x.wantSteps(t, "relaunched@2 pid=5151")
+}
+
+// A record without a launch identity at the old pid, with another process
+// live there, cannot be told from a replacement: it blocks.
+func TestResetRecoveryBlocksAnUnidentifiedRecordAtTheOldPID1043(t *testing.T) {
+	x := newRecoverFixture(t, "agent-stopped")
+	if err := x.p.state.recordAgent("id-iris", "repo/iris", oldIdentity.PID, ""); err != nil {
+		t.Fatal(err)
+	}
+	x.proc.live[4242] = "unknown-launch"
+	x.run(t)
+	x.wantSteps(t, "relaunch-failed@2 RELAUNCH_BLOCKED")
+	x.wantNoLaunch(t)
+}
+
+// A recorded launch that is gone (its pid now runs something else) is not
+// a replacement.
+func TestResetRecoveryRelaunchesWhenTheRecordedLaunchIsGone1043(t *testing.T) {
+	x := newRecoverFixture(t, "agent-stopped")
+	if err := x.p.state.recordAgent("id-iris", "repo/iris", 6161, "replacement"); err != nil {
+		t.Fatal(err)
+	}
+	x.proc.live[6161] = "someone-else"
 	x.run(t)
 	x.wantSteps(t, "relaunched@2 pid=5151")
 }
