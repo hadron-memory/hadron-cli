@@ -300,3 +300,14 @@ func TestResetRecoveryRelaunchesWhenTheRecordedLaunchIsGone1043(t *testing.T) {
 	x.run(t)
 	x.wantSteps(t, "relaunched@2 pid=5151")
 }
+
+// cli#1586 (§10 P3-1 on cli#1582): with no agent recorded for the worker,
+// nothing is a replacement, so the relaunch goes ahead.
+func TestResetRecoveryRelaunchesWithNoAgentRecord1043(t *testing.T) {
+	x := newRecoverFixture(t, "agent-stopped")
+	x.p.state.mu.Lock()
+	delete(x.p.state.Agents, "id-iris")
+	x.p.state.mu.Unlock()
+	x.run(t)
+	x.wantSteps(t, "relaunched@2 pid=5151")
+}
