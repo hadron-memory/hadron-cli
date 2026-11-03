@@ -7689,9 +7689,9 @@ type AgentTaskRequirementsInput struct {
 	ModelGroupNotIn []string `json:"modelGroupNotIn,omitempty"`
 	Role            *string  `json:"role"`
 	// Any one listed role suffices. Empty sets are refused. Give role or roles, not both.
-	Roles []string `json:"roles"`
+	Roles []string `json:"roles,omitempty"`
 	// Lead worker (id, URN or name) of this App. Pool: lead, descendants and workers reporting to nobody.
-	Team *string `json:"team"`
+	Team *string `json:"team,omitempty"`
 }
 
 // GetExcludeWorkers returns AgentTaskRequirementsInput.ExcludeWorkers, and is useful for accessing the field via an interface.
@@ -25405,7 +25405,7 @@ type CreateAgentTaskInput struct {
 	// #2648 (hrn:node:hadronmemory.com:specs:cor:agt:050:14): an optional finish-by deadline; refused BAD_USER_INPUT if in the past or earlier than startBy. While set, the task raises no stall-window alarm, only stall.finish-by once it passes unfinished.
 	FinishBy *string `json:"finishBy,omitempty"`
 	// Run one blocking match. Failure is marked and skipped by automatic runs. Assignment, cancellation, or park then ready clears it. Only for pending, unblocked tasks without an assignee; a blocked create refuses BAD_USER_INPUT atomically. Batch items run requested attempts in list order after the whole commit; a blocked match item refuses the whole call before commit, with its position. No distinct-workers guarantee.
-	Match *bool `json:"match"`
+	Match *bool `json:"match,omitempty"`
 	// Defaults to the creator. A root task's creator may name any other
 	// participating worker or person as owner (#1757, hrn:node:hadronmemory.com:specs:cor:agt:050:01);
 	// a ref outside the App's participants is TASK_OWNER_INVALID. Never for a
@@ -98996,6 +98996,9 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 // cli#1524 C1 (hadron-server#3125 S2, cor:agt:120:02): the claimed outside item.
 // Absent unless --external-id is given, so an ordinary create is unchanged and
 // an older server never sees the field.
+// cli#1568 (Andi LOCAL P2): match, roles and team arrived with the d7ae518d schema
+// refresh (server#2829/#2830, tracked by #1549). Absent, not null, until a flag names
+// them: a provider that predates the fields rejects them, even as null.
 // cli#1485 S3 (Andi BLIND P2): the model-group requirement fields arrived with
 // the schema refresh (server #3029) and S2 exposes them as optional flags. Absent,
 // not null, so ordinary create/update bodies are unchanged and an older server
