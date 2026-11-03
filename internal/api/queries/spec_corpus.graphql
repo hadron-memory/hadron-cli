@@ -161,7 +161,6 @@ mutation MintMemoryNodes($memoryRef: ID!, $dryRun: Boolean!) {
 # @genqlient(for: "NodeFilter.where", omitempty: true)
 # @genqlient(for: "NodeFilter.role", omitempty: true)
 # @genqlient(for: "NodeFilter.contentScope", omitempty: true)
-# @genqlient(for: "NodeFilter.childrenOf", omitempty: true)
 query SpecPlaceholderScan(
   $filter: NodeFilter!
   $sort: NodeSort!

@@ -35,11 +35,13 @@ recording transaction; the CLI neither reconstructs events nor verifies that a
 holder actually gave an instruction. Host-launched sessions are refused whatever
 they claim; no grant arm applies here. Minimum provider c3ca05b545 is in help.
 
-The schema refresh also adds NodeFilter.childrenOf. Its omitempty annotation is
-added to each existing NodeFilter operation, preserving omission semantics in
-unrelated commands (caught red by TestNodeFilterOmitsEveryUnsetField). Unwrapped
-snapshot surfaces retain owning gaps: childrenOf #1253, run team-snapshot setter
-#1578. No new command is implemented for either here.
+The snapshot is at c3ca05b545. During the first refresh the existing omission
+check caught NodeFilter.childrenOf being sent as null; omission annotations
+fixed it. Main's #1256 then landed the same snapshot and its children flag.
+The merge keeps main's query directives and new command unchanged; there is no
+own NodeFilter/schema hunk in the final diff. The regenerated matrix removes
+only the five reached #1595 argument gaps. Other surfaces keep main's existing
+dispositions (including the run team-snapshot setter #1578).
 
 Verification: red-first command tests, exact pre-change generated-document pins,
 one-request/header/claim pins for seven variants, invalid input/binding and
