@@ -11,7 +11,8 @@ host handler only.
 Built by Jonas against hadron-server seams #3273 (restart read, merged
 `01879edc`), #3276 (checkpoint writer, merged `aa4263ab`), #3309
 (pre-claim `HOST_UNSUPPORTED`, merged `f5aa10e2`) and #3300 (the registered
-checkpoint pointer, PR #3313).
+checkpoint pointer, PR #3313, merged `22cd6369`). The schema snapshot is
+exported from `22cd6369`.
 
 ## What landed
 
