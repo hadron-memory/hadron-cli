@@ -38818,7 +38818,7 @@ type DeleteWorkerResponse struct {
 	// external history means retire instead. Omitted or false confirmation
 	// refuses WORKER_EXTERNAL_ATTRIBUTION_UNCONFIRMED. No external crawl.
 	// Also removes empty ended stints and the empty working memory.
-	// Same staffing authorization as castWorker.
+	// Same staffing authorization as castWorker: instruction or own workers.staff grant for a worker session.
 	DeleteWorker bool `json:"deleteWorker"`
 }
 
@@ -65542,7 +65542,7 @@ type RetireWorkerResponse struct {
 	// worker-App pin checks retirement at post time), takes no new work records,
 	// and refuses new session bindings; the row and its name reservation
 	// survive. Idempotent — retiring an already-retired worker returns it
-	// unchanged. Same authorization as castWorker. workerRef is the worker's id
+	// unchanged; an instructed no-op records its claim only. Same instruction/grant authorization as castWorker. workerRef is the worker's id
 	// or its URN (#991). Retiring clears the worker's own reportsTo (#1726);
 	// workers that report to it keep theirs and read reportsToRetired.
 	RetireWorker *RetireWorkerRetireWorker `json:"retireWorker"`
@@ -72527,7 +72527,7 @@ type SigningRequestFields struct {
 	Revision int `json:"revision"`
 	// The approval hash v1 of the pinned content (64 lowercase hex).
 	ApprovalHash string `json:"approvalHash"`
-	// The signature payload version the signer signs: hadron-signature-v1 until S2b-2's v3.
+	// The signature payload version the signer signs: hadron-signature-v3 (hrn:node:hadronmemory.com:specs:cor:dmo:130:01). A request still open with a v1 pin when v3 deployed ended STALE.
 	PayloadVersion string `json:"payloadVersion"`
 	// The effective state.
 	State     SigningRequestState `json:"state"`
