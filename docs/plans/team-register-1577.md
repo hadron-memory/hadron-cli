@@ -51,7 +51,7 @@ and reportHostOperation description additions, unused by this command.
 
 ## QA correction: bound-worker inference
 
-At57b2b6bf the data read lacked X-Hadron-Session, so a worker-bound CLI was
+At 57b2b6bf the data read lacked X-Hadron-Session, so a worker-bound CLI was
 seen as its underlying person and got BAD_USER_INPUT with no --agent. Celine's
 private-stack QA P2 is retained. A separate red pin reproduces the missing
 header; the fix adds command-local api.WithSession for a full, same-server,
