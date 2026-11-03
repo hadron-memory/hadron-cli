@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -190,5 +192,57 @@ func TestTeamRegister1577Document(t *testing.T) {
 	}
 	if strings.Contains(q, " = ") || strings.Contains(q, ": null") || strings.Contains(q, "mutation ") {
 		t.Fatalf("changed default or write %s", q)
+	}
+}
+
+func TestTeamRegister1577SessionAttribution(t *testing.T) {
+	for _, mode := range []string{"bound", "unbound", "other-server", "missing-server", "empty-session"} {
+		t.Run(mode, func(t *testing.T) {
+			writeTeamBinding(t)
+			srv, calls := attnServer(t, registerResponses1577(`[]`, 0, false))
+			if mode != "missing-server" {
+				setTeamBindingServer(t, srv.URL)
+			}
+			path := filepath.Join(os.Getenv("HADRON_TEAM_GIT_DIR"), "hadron-team-session.json")
+			if mode == "unbound" {
+				if err := os.Remove(path); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				b, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				text := string(b)
+				if mode == "other-server" {
+					text = strings.Replace(text, srv.URL, "http://127.0.0.1:1", 1)
+				}
+				if mode == "empty-session" {
+					text = strings.Replace(text, `"sessionId":"s-new"`, `"sessionId":""`, 1)
+				}
+				if err := os.WriteFile(path, []byte(text), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"--server", srv.URL, "--app", "hrn:app:acme.com:eng", "team", "register", "--json"})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("%v %s", err, out.String())
+			}
+			if len(*calls) != 1 {
+				t.Fatalf("unexpected calls %#v", *calls)
+			}
+			want := ""
+			if mode == "bound" {
+				want = "s-new"
+			}
+			if (*calls)[0].Session != want {
+				t.Fatalf("session %q want %q", (*calls)[0].Session, want)
+			}
+			if _, ok := (*calls)[0].Vars["agentRef"]; ok {
+				t.Fatalf("session attribution must not invent agentRef: %#v", (*calls)[0].Vars)
+			}
+		})
 	}
 }
