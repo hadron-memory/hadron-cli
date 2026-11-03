@@ -34,7 +34,13 @@ func TestWithNoRedirectRefusesReplayOnBothClients(t *testing.T) {
 				ctx = WithNoRedirect(ctx)
 			}
 			var out struct{}
-			err = c.MakeRequest(ctx, &graphql.Request{OpName: "X", Query: "mutation X { x }"}, &graphql.Response{Data: &out})
+			// The unmarked leg is a QUERY: since #1571 an unmarked mutation is
+			// refused too (mutation_redirect_1571_test.go), a query still follows.
+			q := "query X { x }"
+			if marked {
+				q = "mutation X { x }"
+			}
+			err = c.MakeRequest(ctx, &graphql.Request{OpName: "X", Query: q}, &graphql.Response{Data: &out})
 			if marked {
 				if !errors.Is(err, ErrRedirectPolicy) || src.Load() != 1 || dest.Load() != 0 {
 					t.Errorf("token=%q marked: err=%v src=%d dest=%d", token, err, src.Load(), dest.Load())
