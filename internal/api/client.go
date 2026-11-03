@@ -81,6 +81,9 @@ func schemeIsSecure(u *url.URL) bool {
 func withSecureRedirects(client *http.Client) *http.Client {
 	c := *client
 	c.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if noRedirectFrom(req.Context()) {
+			return refuseReplayedRedirect(req)
+		}
 		if err := checkSessionRedirect(req, via); err != nil {
 			return err
 		}
@@ -104,6 +107,9 @@ func withSecureRedirects(client *http.Client) *http.Client {
 func withSessionRedirects(client *http.Client) *http.Client {
 	c := *client
 	c.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if noRedirectFrom(req.Context()) {
+			return refuseReplayedRedirect(req)
+		}
 		if err := checkSessionRedirect(req, via); err != nil {
 			return err
 		}
@@ -146,6 +152,15 @@ func checkSessionRedirect(req *http.Request, via []*http.Request) error {
 		return fmt.Errorf("%w: refusing to forward a session- or key-bearing request to %s", ErrRedirectPolicy, req.URL.Redacted())
 	}
 	return nil
+}
+
+// refuseReplayedRedirect is the refusal for a call marked WithNoRedirect: the
+// endpoint answered with a redirect, and re-sending the mutation to the target
+// is exactly what a one-send operation must not do. The message names the
+// target so the operator can fix the --server URL.
+func refuseReplayedRedirect(req *http.Request) error {
+	return fmt.Errorf("%w: the server redirected this request to %s; it is sent once and never replayed, so nothing was sent there — check the --server URL",
+		ErrRedirectPolicy, req.URL.Redacted())
 }
 
 // ErrRedirectPolicy marks a refusal WE made about a redirect, as opposed to a

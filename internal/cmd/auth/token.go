@@ -490,7 +490,7 @@ keeps its own parent).
 
 On a terminal it asks for confirmation; in a script or agent pass --yes, or it
 refuses with exit 2 and sends nothing. The request is sent once and never
-retried. Prints "✓ Deleted API token <keyId> (<preview>)", then one line for the
+retried or replayed: a redirect from the server (307/308) is refused, not followed. Prints "✓ Deleted API token <keyId> (<preview>)", then one line for the
 tokens this delete revoked and one for the tokens it had minted, when there are
 any. --json prints the deletion record: id, keyId, keyPreview, revokedKeyIds,
 mintedKeyIds and deletedAt. Requires a user login.`,
@@ -506,7 +506,7 @@ mintedKeyIds and deletedAt. Requires a user login.`,
 			if err := cmdutil.Confirm(f.IOStreams, yes, "Delete API token "+args[0]+" for good? If it is live it is revoked first, with every live token minted from it."); err != nil {
 				return err
 			}
-			resp, err := gen.DeleteUserApiKey(cmd.Context(), client, args[0])
+			resp, err := gen.DeleteUserApiKey(api.WithNoRedirect(cmd.Context()), client, args[0])
 			if err != nil {
 				return api.MapError(err)
 			}
