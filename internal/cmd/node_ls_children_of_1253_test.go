@@ -103,3 +103,33 @@ func TestNodeListChildrenOfHelp(t *testing.T) {
 		}
 	}
 }
+
+// Gizelle BLIND P3 @746f39ca: the drain and seq modes re-send childrenOf on
+// EVERY page, not only the first. The fake clamps pages at 20 of 45 rows, so
+// each run makes several requests (the filter is the client's to carry; the
+// fake does not apply it).
+func TestNodeListChildrenOfEveryDrainedPage(t *testing.T) {
+	for _, args := range [][]string{
+		{"--children-of", "a"},
+		{"--children-of", "a", "--sort-seq", "asc"},
+		{"--children-of", "", "--seq-gt", "3"},
+	} {
+		gql, rec := pagedGraphQL(t, map[string]*pagedSource{
+			"FindNodes": {rows: lsNodeRows(), serve: 20, wrap: findNodesNullTotal},
+		}, nil)
+		if _, err := runNodeLs(t, gql.URL, args...); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+		calls := rec["FindNodes"].Calls
+		if len(calls) < 3 {
+			t.Fatalf("%v: want a multi-page drain, got %d request(s)", args, len(calls))
+		}
+		for i, vars := range calls {
+			filter, _ := vars["filter"].(map[string]any)
+			got, present := filter["childrenOf"]
+			if !present || got != args[1] {
+				t.Errorf("%v: request %d childrenOf = %#v (present %v), want %q", args, i+1, got, present, args[1])
+			}
+		}
+	}
+}
