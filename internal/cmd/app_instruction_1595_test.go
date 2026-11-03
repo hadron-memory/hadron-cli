@@ -1,6 +1,10 @@
 package cmd
 
 import (
+	"github.com/hadron-memory/hadron-cli/internal/auth"
+	"github.com/hadron-memory/hadron-cli/internal/auth/store"
+	"github.com/hadron-memory/hadron-cli/internal/cmd/team"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -137,5 +141,29 @@ func TestCredential1595PersonOnlyCommandsHaveNoFlag(t *testing.T) {
 		if c.Flags().Lookup("instruction") != nil {
 			t.Fatalf("person-only %v got flag", path)
 		}
+	}
+}
+
+// Opening a credential store may block while another CLI rebinds the worktree.
+// The explicit instruction must not adopt that successor or send the old session.
+func TestCredential1595RebindDuringClientSetup(t *testing.T) {
+	for _, tc := range credentialCases1595() {
+		t.Run(tc.op, func(t *testing.T) {
+			srv, calls := attnServer(t, map[string]string{tc.op + "Instructed": `{"data":` + tc.body + `}`})
+			teamGitDir(t)
+			writeTeamBindingIn(t, os.Getenv(team.GitDirEnv), srv.URL)
+			f, _ := testFactory(t)
+			t.Setenv("HADRON_TOKEN", "")
+			f.TokenStoreFn = func() store.Store {
+				rewriteBinding1592(t, func(b map[string]any) { b["sessionId"] = "successor" })
+				return memStore{auth.Host(srv.URL): "hdr_user_test"}
+			}
+			root := NewRootCmd(f)
+			root.SetArgs(append(append([]string{"--server", srv.URL}, tc.args...), "--instruction", "live-chat:client:7", "--json"))
+			err := root.Execute()
+			if exitCodeFor(err) != 2 || len(*calls) != 0 {
+				t.Fatalf("rebind failed open: %v %+v", err, *calls)
+			}
+		})
 	}
 }
