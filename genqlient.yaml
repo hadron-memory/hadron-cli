@@ -41,5 +41,9 @@ bindings:
   # gqltypes.AgentTaskStallScheduleInput (#864).
   AgentTaskStallScheduleInput:
     type: github.com/hadron-memory/hadron-cli/internal/api/gqltypes.AgentTaskStallScheduleInput
+  # updateAgent(registerDefaults) is three-state (omit preserves, object sets,
+  # explicit null clears) — see gqltypes.RegisterDefaultsInput (cli#58 slice 2).
+  RegisterDefaultsInput:
+    type: github.com/hadron-memory/hadron-cli/internal/api/gqltypes.RegisterDefaultsInput
   AiServiceConfigTestOverride:
     type: github.com/hadron-memory/hadron-cli/internal/api/gqltypes.AiServiceConfigTestOverride
