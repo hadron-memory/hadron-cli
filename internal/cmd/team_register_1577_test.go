@@ -1,0 +1,65 @@
+package cmd
+
+import (
+ "encoding/json"
+ "strings"
+ "testing"
+
+ "github.com/hadron-memory/hadron-cli/internal/exitcode"
+)
+
+const registerRows1577 = `[{"code":"z.mapped","state":"MAPPED","actionUrn":"hrn:action:acme.com:team:z.mapped","entryUrn":"hrn:node:acme.com:team:register:z.mapped","definedBy":"hrn:agent:acme.com:team","taskLoc":"tasks:finish","taskUrn":"hrn:node:acme.com:coder:tasks:finish"},{"code":"a.unresolved","state":"UNRESOLVED","actionUrn":"action","entryUrn":"entry","definedBy":"agent","taskLoc":"tasks:missing","taskUrn":null},{"code":"b.unmapped","state":"UNMAPPED","actionUrn":null,"entryUrn":null,"definedBy":null,"taskLoc":null,"taskUrn":null}]`
+
+func registerResponses1577(items string, total int, more bool) map[string]string {
+ r:=taskResponses()
+ b,_:=json.Marshal(map[string]any{"data":map[string]any{"actionRegisterIndex":map[string]any{"entries":json.RawMessage(items),"total":total,"hasMore":more}}})
+ r["TeamActionRegisterIndex"]=string(b)
+ return r
+}
+
+func TestTeamRegister1577WireAndJSON(t *testing.T) {
+ for _,explicit:=range []bool{false,true} {
+  args:=[]string{"team","register","--app","hrn:app:acme.com:eng","--json"}
+  want:=map[string]any{"appRef":"hrn:app:acme.com:eng"}
+  if explicit {args=append(args,"--agent","hrn:agent:acme.com:coder","--task-loc","tasks:finish","--code","z.mapped","--limit","201","--offset","3");want["agentRef"]="hrn:agent:acme.com:coder";want["taskLoc"]="tasks:finish";want["code"]="z.mapped";want["limit"]=float64(201);want["offset"]=float64(3)}
+  calls,out,err:=runTeamTask(t,registerResponses1577(registerRows1577,9,true),args...)
+  if err!=nil {t.Fatal(err)}
+  if len(*calls)!=1||(*calls)[0].Op!="TeamActionRegisterIndex" {t.Fatalf("calls %#v",*calls)}
+  a,_:=json.Marshal((*calls)[0].Vars);b,_:=json.Marshal(want);if string(a)!=string(b){t.Fatalf("vars %s want %s",a,b)}
+  var page map[string]json.RawMessage;if err=json.Unmarshal([]byte(out),&page);err!=nil {t.Fatal(err)}
+  if len(page)!=3||string(page["total"])!="9"||string(page["hasMore"])!="true" {t.Fatalf("page %s",out)}
+  var rows []map[string]any;if err=json.Unmarshal(page["entries"],&rows);err!=nil{t.Fatal(err)}
+  if len(rows)!=3||len(rows[2])!=7||rows[2]["code"]!="b.unmapped"||rows[2]["taskLoc"]!=nil {t.Fatalf("rows %s",out)}
+ }
+}
+
+func TestTeamRegister1577TextPagingEmptyAndCount(t *testing.T){
+ _,out,err:=runTeamTask(t,registerResponses1577(registerRows1577,9,true),"team","register")
+ if err!=nil{t.Fatal(err)}
+ for _,s:=range []string{"z.mapped","MAPPED","a.unresolved","UNRESOLVED","b.unmapped","UNMAPPED","no runnable task found at tasks:missing","entry is malformed","9","more: true"}{if !strings.Contains(out,s){t.Errorf("missing %q: %s",s,out)}}
+ calls,out,err:=runTeamTask(t,registerResponses1577(`[]`,7,true),"team","register","--limit","0","--offset","0")
+ if err!=nil{t.Fatal(err)}
+ if (*calls)[0].Vars["limit"]!=float64(0)||(*calls)[0].Vars["offset"]!=float64(0)||!strings.Contains(out,"7") {t.Fatalf("count %s %#v",out,*calls)}
+ _,out,err=runTeamTask(t,registerResponses1577(`[]`,0,false),"team","register","--json")
+ if err!=nil{t.Fatal(err)}
+ var p struct{Items []any `json:"entries"`};if json.Unmarshal([]byte(out),&p)!=nil||p.Items==nil {t.Fatalf("empty %s",out)}
+ _,out,err=runTeamTask(t,registerResponses1577(`[]`,0,false),"team","register")
+ if err!=nil||!strings.Contains(out,"no register entries returned") {t.Fatalf("empty %v %s",err,out)}
+}
+
+func TestTeamRegister1577RefusalsAndBadFlags(t *testing.T){
+ for code,exit:=range map[string]int{"APP_NOT_FOUND":4,"AGENT_NOT_FOUND":4,"BAD_USER_INPUT":2}{
+  r:=registerResponses1577(`[]`,0,false);r["TeamActionRegisterIndex"]=`{"errors":[{"message":"server refusal text","extensions":{"code":"`+code+`"}}]}`
+  calls,out,err:=runTeamTask(t,r,"team","register","--json")
+  if err==nil||exitcode.Code(err)!=exit||!strings.Contains(err.Error(),"server refusal text")||!strings.Contains(err.Error(),code)||out!=""||len(*calls)!=1{t.Fatalf("%s: %v %s %#v",code,err,out,*calls)}
+ }
+ for _,flags:=range [][]string{{"--limit","-1"},{"--offset","-1"},{"--agent="},{"--task-loc="},{"--code="},{"extra"}}{
+  args:=append([]string{"team","register"},flags...);calls,_,err:=runTeamTask(t,registerResponses1577(`[]`,0,false),args...)
+  if err==nil||exitcode.Code(err)!=2||len(*calls)!=0{t.Fatalf("%v: %v %#v",flags,err,*calls)}
+ }
+}
+
+func TestTeamRegister1577SafeTextOriginalJSON(t *testing.T){
+ rows:=strings.ReplaceAll(registerRows1577,"z.mapped",`bad\u001b[31m\ncode`)
+ for _,js:=range []bool{false,true}{args:=[]string{"team","register"};if js{args=append(args,"--json")};_,out,err:=runTeamTask(t,registerResponses1577(rows,3,false),args...);if err!=nil{t.Fatal(err)};if js{if !strings.Contains(out,`\u001b`){t.Fatalf("original lost %s",out)}}else if strings.Contains(out,"\x1b")||strings.Contains(out,"bad\ncode"){t.Fatalf("unsafe %q",out)}}
+}
