@@ -258,9 +258,15 @@ mutation AgentTaskClone(
 
 # cli#1565 (server#2653, cor:agt:050:06): create 1-25 tasks in one call, all or
 # none. Not idempotent: the command sends it exactly once and never retries.
-# distinctAssignees is not exposed, so it is not selected and never sent.
-mutation AgentTaskCreateBatch($appRef: ID!, $tasks: [CreateAgentTasksItemInput!]!) {
-  createAgentTasks(appRef: $appRef, tasks: $tasks) {
+# cli#1567: $distinctAssignees is the call-level option (server#3243, merged
+# 74454999); omitempty so an unset flag sends no key at all (absent, not null).
+mutation AgentTaskCreateBatch(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $distinctAssignees: Boolean
+  $tasks: [CreateAgentTasksItemInput!]!
+) {
+  createAgentTasks(appRef: $appRef, distinctAssignees: $distinctAssignees, tasks: $tasks) {
     ...AgentTaskFields
   }
 }

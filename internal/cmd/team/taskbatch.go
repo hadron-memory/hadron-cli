@@ -15,6 +15,7 @@ import (
 	"io"
 	"os"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -140,14 +141,20 @@ func scanBatchKeys(err error) error {
 // taskBatchError carries a batch refusal's 1-based position: text adds
 // "(task n of m)", and the --json error envelope adds `position`.
 type taskBatchError struct {
-	err   error
-	pos   int
-	total int
+	err    error
+	pos    int
+	total  int
+	reason string // TASK_MATCH_FAILED's extensions.reason, when it is a plain code
 }
 
-func (e *taskBatchError) suffix() string { return fmt.Sprintf(" (task %d of %d)", e.pos, e.total) }
-func (e *taskBatchError) Error() string  { return e.err.Error() + e.suffix() }
-func (e *taskBatchError) Unwrap() error  { return e.err }
+func (e *taskBatchError) suffix() string {
+	if e.reason != "" {
+		return fmt.Sprintf(" (task %d of %d: %s)", e.pos, e.total, e.reason)
+	}
+	return fmt.Sprintf(" (task %d of %d)", e.pos, e.total)
+}
+func (e *taskBatchError) Error() string { return e.err.Error() + e.suffix() }
+func (e *taskBatchError) Unwrap() error { return e.err }
 func (e *taskBatchError) HumanMessage() string {
 	var h interface{ HumanMessage() string }
 	if errors.As(e.err, &h) {
@@ -159,16 +166,27 @@ func (e *taskBatchError) HumanMessage() string {
 // BatchPosition is the refused task's 1-based position in the call.
 func (e *taskBatchError) BatchPosition() int { return e.pos }
 
+// BatchReason is the failed match's reason (NOBODY_FREE, …); empty when none.
+func (e *taskBatchError) BatchReason() string { return e.reason }
+
+// matchReasonRE bounds what is echoed from extensions.reason: a plain upper-case
+// code, never free server text.
+var matchReasonRE = regexp.MustCompile(`^[A-Z][A-Z0-9_]{0,63}$`)
+
 // mapTaskBatchError maps a refused createAgentTasks call: the usual task
 // mapping and server code, plus the position when the server named one.
 func mapTaskBatchError(err error, total int) error {
 	mapped := mapTaskError(err)
 	if pos, ok := api.ExtensionInt(err, "position"); ok && pos >= 1 && mapped != nil {
+		reason, _ := api.ExtensionString(err, "reason")
+		if !matchReasonRE.MatchString(reason) {
+			reason = ""
+		}
 		var coded *exitcode.CodedError
 		if errors.As(mapped, &coded) {
-			mapped = &exitcode.CodedError{Code: coded.Code, Err: &taskBatchError{err: coded.Err, pos: pos, total: total}}
+			mapped = &exitcode.CodedError{Code: coded.Code, Err: &taskBatchError{err: coded.Err, pos: pos, total: total, reason: reason}}
 		} else {
-			mapped = &taskBatchError{err: mapped, pos: pos, total: total}
+			mapped = &taskBatchError{err: mapped, pos: pos, total: total, reason: reason}
 		}
 	}
 	return api.WithServerCode(mapped, err)
@@ -207,7 +225,7 @@ func taskBatchWarnings(sink *api.WarningSink) []taskBatchWarningDTO {
 
 // runTaskBatchCreate is `task create --batch-file`: exactly one
 // createAgentTasks call, never retried (the call is not idempotent).
-func runTaskBatchCreate(cmd *cobra.Command, f *cmdutil.Factory, path string) error {
+func runTaskBatchCreate(cmd *cobra.Command, f *cmdutil.Factory, path string, distinct *bool) error {
 	data, err := readBatchFile(f.IOStreams, path)
 	if err != nil {
 		return err
@@ -230,7 +248,7 @@ func runTaskBatchCreate(cmd *cobra.Command, f *cmdutil.Factory, path string) err
 		return err
 	}
 	mctx, sink := api.WithWarningSink(ctx)
-	resp, err := gen.AgentTaskCreateBatch(mctx, client, scope.Ref, items)
+	resp, err := gen.AgentTaskCreateBatch(mctx, client, scope.Ref, distinct, items)
 	if err != nil {
 		return mapTaskBatchError(err, len(items))
 	}

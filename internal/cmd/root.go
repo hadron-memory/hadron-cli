@@ -430,6 +430,11 @@ func renderError(f *cmdutil.Factory, err error) int {
 		if errors.As(err, &batch) {
 			failure["position"] = batch.BatchPosition()
 		}
+		// cli#1567: a failed distinct-assignees match also names its reason.
+		var matched interface{ BatchReason() string }
+		if errors.As(err, &matched) && matched.BatchReason() != "" {
+			failure["reason"] = matched.BatchReason()
+		}
 		details := api.CommentRecoveryDetails(err)
 		if details == nil {
 			details = api.WorkerReportingDetails(err)
