@@ -71,7 +71,12 @@ func TestSignalInsideTheLeaseStopsTheObservedProcess1043(t *testing.T) {
 	done := make(chan error, 1)
 	go func() { done <- cmd.Wait() }()
 	select {
-	case <-done:
+	case err := <-done:
+		// It died of the SIGTERM, not of anything else.
+		var ee *exec.ExitError
+		if !errors.As(err, &ee) || ee.Sys().(syscall.WaitStatus).Signal() != syscall.SIGTERM {
+			t.Fatalf("the signalled process ended with %v, want death by SIGTERM", err)
+		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("the signalled process kept running")
 	}
