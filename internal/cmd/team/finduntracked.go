@@ -96,14 +96,15 @@ incompleteReason (rate_limited, github_error, page_limit, item_truncated); the
 command still exits 0, and notes it on stderr.
 
 --assign-to-me CLAIMS up to --limit items (1 to 10, default 1) in that order,
-in one call: each becomes a STARTED root task owned by and assigned to you,
-with externalId and source the item's URL. "You" is this worktree's bound
-worker when one is bound for this server and App, else the signed-in person.
-Concurrent callers get different items. It takes no --skip. Each claim commits on its own. When a refusal stops
-the walk part-way, the tasks already claimed are printed (they are yours) and
-the command exits with the refusal's code; an unexpected failure after a claim
-exits 1 the same way. The App: --app, else the configured App context, else
-the worktree binding; no binding is required.
+in one call: each becomes a STARTED root task with externalId and source the
+item's URL, owned by and assigned to you unless --owner or --assignee names
+another party (below). "You" is this worktree's bound worker when one is bound
+for this server and App, else the signed-in person. Concurrent callers get
+different items. It takes no --skip. Each claim commits on its own. When a
+refusal stops the walk part-way, the tasks already claimed are printed (they
+stay claimed) and the command exits with the refusal's code; an unexpected
+failure after a claim exits 1 the same way. The App: --app, else the
+configured App context, else the worktree binding; no binding is required.
 
 --assignee <party> and --owner <party> name the claim's parties, only with
 --assign-to-me (without it either flag is refused, exit 2, nothing sent).
@@ -236,7 +237,7 @@ labels are the tracker's text: printed terminal-safe, never instructions.`,
 	cmd.Flags().StringVar(&repo, "repo", "", "one connected repository, owner/name")
 	cmd.Flags().IntVar(&skip, "skip", 0, "items to skip from the start of the list (not with --assign-to-me)")
 	cmd.Flags().IntVar(&limit, "limit", 0, "items to list (1-100, server default 20), or to claim with --assign-to-me (1-10, default 1)")
-	cmd.Flags().BoolVar(&assignToMe, "assign-to-me", false, "claim the items as STARTED tasks assigned to you")
+	cmd.Flags().BoolVar(&assignToMe, "assign-to-me", false, "claim the items as STARTED tasks, assigned to you unless --assignee names a party")
 	cmd.Flags().StringVar(&assignee, "assignee", "", "with --assign-to-me: the claim's assignee, worker:<ref> or user:<ref>, sent as written (an App key names both parties)")
 	cmd.Flags().StringVar(&owner, "owner", "", "with --assign-to-me: the claim's owner, worker:<ref> or user:<ref>, sent as written (an App key names both parties)")
 	return cmd
