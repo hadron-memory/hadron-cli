@@ -156,6 +156,21 @@ func (v *AcquireEditorLockResponse) GetAcquireEditorLock() *AcquireEditorLockAcq
 	return v.AcquireEditorLock
 }
 
+// #3287 — one code's answer in the action-register index (hrn:node:hadronmemory.com:specs:cor:agt:110:03).
+type ActionRegisterIndexState string
+
+const (
+	ActionRegisterIndexStateMapped     ActionRegisterIndexState = "MAPPED"
+	ActionRegisterIndexStateUnmapped   ActionRegisterIndexState = "UNMAPPED"
+	ActionRegisterIndexStateUnresolved ActionRegisterIndexState = "UNRESOLVED"
+)
+
+var AllActionRegisterIndexState = []ActionRegisterIndexState{
+	ActionRegisterIndexStateMapped,
+	ActionRegisterIndexStateUnmapped,
+	ActionRegisterIndexStateUnresolved,
+}
+
 // ActionTicketFields includes the GraphQL fields of ActionTicket requested by the fragment ActionTicketFields.
 // The GraphQL type's documentation follows.
 //
@@ -74001,6 +74016,121 @@ var AllTaskWakeEvent = []TaskWakeEvent{
 	TaskWakeEventReassigned,
 }
 
+// TeamActionRegisterIndexActionRegisterIndexActionRegisterIndexPage includes the requested fields of the GraphQL type ActionRegisterIndexPage.
+// The GraphQL type's documentation follows.
+//
+// #3287 — a page of the action-register index; total and hasMore count after the read gate and the filters.
+type TeamActionRegisterIndexActionRegisterIndexActionRegisterIndexPage struct {
+	Entries []*TeamActionRegisterIndexActionRegisterIndexActionRegisterIndexPageEntriesActionRegisterIndexEntry `json:"entries"`
+	Total   int                                                                                                 `json:"total"`
+	HasMore bool                                                                                                `json:"hasMore"`
+}
+
+// GetEntries returns TeamActionRegisterIndexActionRegisterIndexActionRegisterIndexPage.Entries, and is useful for accessing the field via an interface.
+func (v *TeamActionRegisterIndexActionRegisterIndexActionRegisterIndexPage) GetEntries() []*TeamActionRegisterIndexActionRegisterIndexActionRegisterIndexPageEntriesActionRegisterIndexEntry {
+	return v.Entries
+}
+
+// GetTotal returns TeamActionRegisterIndexActionRegisterIndexActionRegisterIndexPage.Total, and is useful for accessing the field via an interface.
+func (v *TeamActionRegisterIndexActionRegisterIndexActionRegisterIndexPage) GetTotal() int {
+	return v.Total
+}
+
+// GetHasMore returns TeamActionRegisterIndexActionRegisterIndexActionRegisterIndexPage.HasMore, and is useful for accessing the field via an interface.
+func (v *TeamActionRegisterIndexActionRegisterIndexActionRegisterIndexPage) GetHasMore() bool {
+	return v.HasMore
+}
+
+// TeamActionRegisterIndexActionRegisterIndexActionRegisterIndexPageEntriesActionRegisterIndexEntry includes the requested fields of the GraphQL type ActionRegisterIndexEntry.
+// The GraphQL type's documentation follows.
+//
+// #3287 — one row of the action-register index: one code, its winning entry and its task for the asking Agent.
+type TeamActionRegisterIndexActionRegisterIndexActionRegisterIndexPageEntriesActionRegisterIndexEntry struct {
+	Code  string                   `json:"code"`
+	State ActionRegisterIndexState `json:"state"`
+	// hrn:action:<root>:<agent-slug>:<code>, keyed on the Agent whose system memory holds the winning entry. Null when UNMAPPED.
+	ActionUrn *string `json:"actionUrn"`
+	// The winning register:<code> node's URN. Null when UNMAPPED.
+	EntryUrn *string `json:"entryUrn"`
+	// The URN of the Agent whose system memory holds the winning entry (so an override shows). Null when UNMAPPED.
+	DefinedBy *string `json:"definedBy"`
+	// The entry's task loc. Null when UNMAPPED.
+	TaskLoc *string `json:"taskLoc"`
+	// The asking Agent's nearest runnable task at taskLoc. Set only when MAPPED.
+	TaskUrn *string `json:"taskUrn"`
+}
+
+// GetCode returns TeamActionRegisterIndexActionRegisterIndexActionRegisterIndexPageEntriesActionRegisterIndexEntry.Code, and is useful for accessing the field via an interface.
+func (v *TeamActionRegisterIndexActionRegisterIndexActionRegisterIndexPageEntriesActionRegisterIndexEntry) GetCode() string {
+	return v.Code
+}
+
+// GetState returns TeamActionRegisterIndexActionRegisterIndexActionRegisterIndexPageEntriesActionRegisterIndexEntry.State, and is useful for accessing the field via an interface.
+func (v *TeamActionRegisterIndexActionRegisterIndexActionRegisterIndexPageEntriesActionRegisterIndexEntry) GetState() ActionRegisterIndexState {
+	return v.State
+}
+
+// GetActionUrn returns TeamActionRegisterIndexActionRegisterIndexActionRegisterIndexPageEntriesActionRegisterIndexEntry.ActionUrn, and is useful for accessing the field via an interface.
+func (v *TeamActionRegisterIndexActionRegisterIndexActionRegisterIndexPageEntriesActionRegisterIndexEntry) GetActionUrn() *string {
+	return v.ActionUrn
+}
+
+// GetEntryUrn returns TeamActionRegisterIndexActionRegisterIndexActionRegisterIndexPageEntriesActionRegisterIndexEntry.EntryUrn, and is useful for accessing the field via an interface.
+func (v *TeamActionRegisterIndexActionRegisterIndexActionRegisterIndexPageEntriesActionRegisterIndexEntry) GetEntryUrn() *string {
+	return v.EntryUrn
+}
+
+// GetDefinedBy returns TeamActionRegisterIndexActionRegisterIndexActionRegisterIndexPageEntriesActionRegisterIndexEntry.DefinedBy, and is useful for accessing the field via an interface.
+func (v *TeamActionRegisterIndexActionRegisterIndexActionRegisterIndexPageEntriesActionRegisterIndexEntry) GetDefinedBy() *string {
+	return v.DefinedBy
+}
+
+// GetTaskLoc returns TeamActionRegisterIndexActionRegisterIndexActionRegisterIndexPageEntriesActionRegisterIndexEntry.TaskLoc, and is useful for accessing the field via an interface.
+func (v *TeamActionRegisterIndexActionRegisterIndexActionRegisterIndexPageEntriesActionRegisterIndexEntry) GetTaskLoc() *string {
+	return v.TaskLoc
+}
+
+// GetTaskUrn returns TeamActionRegisterIndexActionRegisterIndexActionRegisterIndexPageEntriesActionRegisterIndexEntry.TaskUrn, and is useful for accessing the field via an interface.
+func (v *TeamActionRegisterIndexActionRegisterIndexActionRegisterIndexPageEntriesActionRegisterIndexEntry) GetTaskUrn() *string {
+	return v.TaskUrn
+}
+
+// TeamActionRegisterIndexResponse is returned by TeamActionRegisterIndex on success.
+type TeamActionRegisterIndexResponse struct {
+	// #3287 — an App's action-register index, computed at read: every code the App's Team Agent's
+	// chain maps, one row per code in code order, with its task loc resolved through the asking
+	// Agent's chain (hrn:node:hadronmemory.com:specs:cor:agt:110:03,
+	// hrn:node:hadronmemory.com:specs:cor:agt:110:04 Relationships; rulings 0101 A and 0102 A: no
+	// stored edge, one server field). Writes nothing and caches nothing.
+	//
+	// Entries: the nearest register:<code> per code on the Team Agent's chain (its own system
+	// memory first, then its bases); a child's entry hides its base's, the App's install memory is
+	// never searched, and a nearest malformed entry is UNMAPPED (no farther entry replaces it).
+	// Tasks: each entry's taskLoc resolves nearest-first through the asking Agent's chain; a
+	// nearest node that isn't runnable is UNRESOLVED (no farther task is used). States: MAPPED
+	// (taskUrn set), UNRESOLVED (taskLoc set, taskUrn null), UNMAPPED (code only).
+	//
+	// The asking Agent (ruling 0106 A): agentRef, else the caller's own Agent (a worker session or
+	// an Agent run). agentRef must name an Agent the caller can read that is installed in this App
+	// or is a cast worker's Agent; any other ref (unknown, unreadable, outside the App, readable only
+	// through another tenant) is refused AGENT_NOT_FOUND identically, never resolved through another
+	// Agent. A caller with no Agent and no agentRef is refused BAD_USER_INPUT.
+	//
+	// Read as the caller, all or nothing (ruling 0107 A): unless the caller can read every system
+	// memory on the Team Agent's chain and on the asking Agent's chain, through the base, the answer
+	// is the empty page an App with no single Team Agent gets (ruling 0060). Filters: taskLoc keeps
+	// the codes whose entry names that loc, code keeps one code; a filter naming nothing gives the
+	// same empty page. Paged (hrn:node:hadronmemory.com:specs:cor:api:120:04): limit defaults to 20,
+	// capped at 200, 0 is count-only; total and hasMore count after the gate and the filters.
+	// An unknown, foreign or non-participant App is refused APP_NOT_FOUND identically.
+	ActionRegisterIndex *TeamActionRegisterIndexActionRegisterIndexActionRegisterIndexPage `json:"actionRegisterIndex"`
+}
+
+// GetActionRegisterIndex returns TeamActionRegisterIndexResponse.ActionRegisterIndex, and is useful for accessing the field via an interface.
+func (v *TeamActionRegisterIndexResponse) GetActionRegisterIndex() *TeamActionRegisterIndexActionRegisterIndexActionRegisterIndexPage {
+	return v.ActionRegisterIndex
+}
+
 // TeamAppIdentityApp includes the requested fields of the GraphQL type App.
 // The GraphQL type's documentation follows.
 //
@@ -99203,6 +99333,34 @@ func (v *__SubscribeTickerInput) GetTickerRef() string { return v.TickerRef }
 
 // GetWorkerRef returns __SubscribeTickerInput.WorkerRef, and is useful for accessing the field via an interface.
 func (v *__SubscribeTickerInput) GetWorkerRef() string { return v.WorkerRef }
+
+// __TeamActionRegisterIndexInput is used internally by genqlient
+type __TeamActionRegisterIndexInput struct {
+	AppRef   string  `json:"appRef"`
+	AgentRef *string `json:"agentRef,omitempty"`
+	TaskLoc  *string `json:"taskLoc,omitempty"`
+	Code     *string `json:"code,omitempty"`
+	Limit    *int    `json:"limit,omitempty"`
+	Offset   *int    `json:"offset,omitempty"`
+}
+
+// GetAppRef returns __TeamActionRegisterIndexInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamActionRegisterIndexInput) GetAppRef() string { return v.AppRef }
+
+// GetAgentRef returns __TeamActionRegisterIndexInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__TeamActionRegisterIndexInput) GetAgentRef() *string { return v.AgentRef }
+
+// GetTaskLoc returns __TeamActionRegisterIndexInput.TaskLoc, and is useful for accessing the field via an interface.
+func (v *__TeamActionRegisterIndexInput) GetTaskLoc() *string { return v.TaskLoc }
+
+// GetCode returns __TeamActionRegisterIndexInput.Code, and is useful for accessing the field via an interface.
+func (v *__TeamActionRegisterIndexInput) GetCode() *string { return v.Code }
+
+// GetLimit returns __TeamActionRegisterIndexInput.Limit, and is useful for accessing the field via an interface.
+func (v *__TeamActionRegisterIndexInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __TeamActionRegisterIndexInput.Offset, and is useful for accessing the field via an interface.
+func (v *__TeamActionRegisterIndexInput) GetOffset() *int { return v.Offset }
 
 // __TeamAppIdentityInput is used internally by genqlient
 type __TeamAppIdentityInput struct {
@@ -128006,6 +128164,61 @@ func SubscribeTicker(
 	}
 
 	data_ = &SubscribeTickerResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamActionRegisterIndex.
+const TeamActionRegisterIndex_Operation = `
+query TeamActionRegisterIndex ($appRef: ID!, $agentRef: ID, $taskLoc: String, $code: String, $limit: Int, $offset: Int) {
+	actionRegisterIndex(appRef: $appRef, agentRef: $agentRef, taskLoc: $taskLoc, code: $code, limit: $limit, offset: $offset) {
+		entries {
+			code
+			state
+			actionUrn
+			entryUrn
+			definedBy
+			taskLoc
+			taskUrn
+		}
+		total
+		hasMore
+	}
+}
+`
+
+// Read only; omitted variables keep the server's principal/default semantics.
+func TeamActionRegisterIndex(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	agentRef *string,
+	taskLoc *string,
+	code *string,
+	limit *int,
+	offset *int,
+) (data_ *TeamActionRegisterIndexResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamActionRegisterIndex",
+		Query:  TeamActionRegisterIndex_Operation,
+		Variables: &__TeamActionRegisterIndexInput{
+			AppRef:   appRef,
+			AgentRef: agentRef,
+			TaskLoc:  taskLoc,
+			Code:     code,
+			Limit:    limit,
+			Offset:   offset,
+		},
+	}
+
+	data_ = &TeamActionRegisterIndexResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

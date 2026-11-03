@@ -5062,6 +5062,12 @@ All shared task records now select these fields: requires deployed
 server#3245 (schema pinned0356d7f12e or compatible successor), even with no
 new flags. **No CLI release before that compatible provider deployment.**
 
+### Read the action register
+
+`hadron team register [--agent <id-or-URN>] [--task-loc <loc>] [--code <code>] [--limit <n>] [--offset <n>] [--json]` reads one page of the action register using `--app`, configured App or the worktree binding. It never writes or runs the mapped task. An unset `--agent` is omitted: the server uses the authenticated worker/run Agent, or refuses a person/App key with BAD_USER_INPUT (exit 2). A complete binding for the selected App on the same server supplies session attribution on the register data read; App aliases are checked through the existing App-identity read and the binding is rechecked after that lookup. A missing, other-App or other-server binding supplies none. An explicitly unusable Agent is AGENT_NOT_FOUND (exit 4); unreadable/unknown Apps are APP_NOT_FOUND (exit 4). No client pre-resolution or fallback. Requires server#3312 or later.
+
+JSON is `{entries:[{code,state,actionUrn,entryUrn,definedBy,taskLoc,taskUrn}],total,hasMore}`; nullable values stay null and an empty entries list is `[]`. Server order and text paging summary are retained. UNRESOLVED says no runnable task found at its loc; UNMAPPED says the entry is malformed, with the code visible. An empty page gives no cause. Unset paging flags use server defaults; `--limit 0` counts, values above 200 are sent unchanged and capped by the server. Safe human cells replace terminal controls and bound long values; JSON preserves originals.
+
 ### Task finding dispositions (server#3258; cli#1556)
 
 ```sh
