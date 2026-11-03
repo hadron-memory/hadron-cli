@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -149,13 +150,17 @@ func TestFindUntrackedClaimSendsGivenParties1596(t *testing.T) {
 					}
 					continue
 				}
+				// The party input's other kind goes out null, as on every
+				// task command that names a party (AgentTaskPartyInput has no
+				// omitempty); only the named kind carries a value.
 				m, _ := raw.(map[string]any)
-				if len(m) != len(want) {
-					t.Errorf("%s = %v, want %v", key, raw, want)
-				}
-				for k, w := range want {
-					if m[k] != w {
-						t.Errorf("%s.%s = %v, want %v", key, k, m[k], w)
+				for _, k := range []string{"worker", "user"} {
+					if w, named := want[k]; named {
+						if m[k] != w {
+							t.Errorf("%s.%s = %v, want %v", key, k, m[k], w)
+						}
+					} else if m[k] != nil {
+						t.Errorf("%s.%s = %v, want null (only %v named)", key, k, m[k], want)
 					}
 				}
 			}
@@ -218,7 +223,14 @@ func TestFindUntrackedPartyClaimPartialResult1596(t *testing.T) {
 	if exitCodeFor(err) != exitcode.Usage {
 		t.Fatalf("exit = %d, want %d: %v", exitCodeFor(err), exitcode.Usage, err)
 	}
-	if !strings.Contains(out, `"refusalCode":"TASK_ASSIGNEE_INVALID"`) || !strings.Contains(out, "issues/42") {
+	var dto struct {
+		Tasks       []map[string]any `json:"tasks"`
+		RefusalCode *string          `json:"refusalCode"`
+	}
+	if jerr := json.Unmarshal([]byte(out), &dto); jerr != nil {
+		t.Fatalf("stdout is one JSON document: %v\n%s", jerr, out)
+	}
+	if len(dto.Tasks) != 1 || dto.RefusalCode == nil || *dto.RefusalCode != "TASK_ASSIGNEE_INVALID" {
 		t.Errorf("the claimed tasks print first:\n%s", out)
 	}
 }
@@ -232,7 +244,7 @@ func TestFindUntrackedPartyHelp1596(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	help := out.String()
+	help := strings.Join(strings.Fields(out.String()), " ")
 	if strings.Contains(help, "TASK_CLAIM_PRINCIPAL_UNSUPPORTED") || strings.Contains(help, "an App key is refused") {
 		t.Errorf("stale App-key refusal still in help:\n%s", help)
 	}
@@ -240,5 +252,27 @@ func TestFindUntrackedPartyHelp1596(t *testing.T) {
 		if !strings.Contains(help, want) {
 			t.Errorf("help lacks %q", want)
 		}
+	}
+}
+
+// The refusal precedes even the App lookup a legacy binding (team memory, no
+// App id) makes: zero requests, not one TeamMemoryApp read.
+func TestFindUntrackedPartyRefusalBeforeAppLookup1596(t *testing.T) {
+	writeTeamBinding(t)
+	srv, calls := attnServer(t, claimOK1596())
+	setTeamBindingServer(t, srv.URL)
+	rewriteBinding1592(t, func(b map[string]any) {
+		delete(b, "appId")
+		b["teamMemory"] = "hrn:mem:acme.com:eng-team"
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"--server", srv.URL, "team", "task", "find-untracked", "--integration", "github", "--owner", "user:holger"})
+	err := root.Execute()
+	if exitCodeFor(err) != exitcode.Usage {
+		t.Fatalf("exit = %d, want %d: %v", exitCodeFor(err), exitcode.Usage, err)
+	}
+	if len(*calls) != 0 {
+		t.Errorf("zero requests expected, got %v", *calls)
 	}
 }

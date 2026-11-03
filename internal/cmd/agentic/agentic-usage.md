@@ -4828,7 +4828,7 @@ hadron app properties set <app-ref> <json|@file|-> [--expected-revision <n>]
 hadron app properties clear <app-ref> [--expected-revision <n>] --yes
 hadron team task create <title> --external-id <id> …
 hadron team task list --external-id <id>
-hadron team task find-untracked --integration <name> [--team <worker>] [--ready only|exclude|any] [--repo <owner/name>] [--skip N] [--limit N] [--assign-to-me]
+hadron team task find-untracked --integration <name> [--team <worker>] [--ready only|exclude|any] [--repo <owner/name>] [--skip N] [--limit N] [--assign-to-me [--assignee <party>] [--owner <party>]]
 ```
 
 - **`app properties`** is the App's own JSON object; the platform reads only
@@ -4896,8 +4896,24 @@ hadron team task find-untracked --integration <name> [--team <worker>] [--ready 
     assigned to the caller, in list order: `{tasks:[task], complete,
     incompleteReason, refusalCode}`. In a worktree bound for this server and
     App the claim carries the session, so the bound worker claims; with no
-    binding the configured credential (a person) claims. An App key is refused with
-    `TASK_CLAIM_PRINCIPAL_UNSUPPORTED`, exit 8.
+    binding the configured credential (a person) claims.
+  - **Claim parties (cli#1596, hadron-server#3132 S4).** `--assignee <party>`
+    and `--owner <party>` are valid ONLY with `--assign-to-me`; either one
+    without it is exit 2 with zero requests (a list never becomes a write).
+    Each changed flag takes `worker:<ref>` or `user:<ref>` (as on `task
+    create`), sent raw and never resolved; an empty or kindless value is exit
+    2 with zero requests, and an unset flag sends no key (never null). With a
+    party the claim goes out as a separate document (`claimUntrackedTaskItems`
+    with `assignee`/`owner`), so the no-party claim is the old document byte for
+    byte; naming a party needs a server with #3132 and is never retried or
+    downgraded without it. Attribution is unchanged. The server decides who
+    may name parties: an App's own key must name both (`TASK_ASSIGNEE_REQUIRED`,
+    `TASK_OWNER_REQUIRED`), each a worker of the App or a participating person
+    (`TASK_ASSIGNEE_INVALID`, `TASK_OWNER_INVALID`); a person or worker claims
+    for themselves and gets `BAD_USER_INPUT` for a named party; a key request
+    carrying a bound worktree's session gets `APP_KEY_SESSION_BOUND`. All exit
+    2 with `serverCode`; a stopped walk prints its claims first, as without
+    parties.
   - **Incomplete results.** `claim_refused` prints the claimed tasks on stdout
     (one JSON document) and then exits with `refusalCode`'s mapping (below),
     with `serverCode` and a stderr message saying how many tasks were claimed

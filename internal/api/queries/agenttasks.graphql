@@ -799,6 +799,36 @@ mutation ClaimUntrackedTaskItems(
 }
 
 
+# cli#1596 (hadron-server#3132 S4, cor:agt:120:03): the same claim naming
+# its parties. A SEPARATE document so the no-flag claim above stays the old
+# document byte for byte and an older server keeps validating it; this one
+# needs a server with the assignee/owner arguments. Only an App's own key may
+# name parties (it must name both); a person or worker naming one gets the
+# server's BAD_USER_INPUT. Each party is sent as given, never resolved here.
+mutation ClaimUntrackedTaskItemsForParties(
+  $appRef: ID!
+  $integration: String!
+  # @genqlient(omitempty: true)
+  $team: ID
+  # @genqlient(omitempty: true)
+  $repository: String
+  # @genqlient(omitempty: true)
+  $ready: ReadyFilter
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $assignee: AgentTaskPartyInput
+  # @genqlient(omitempty: true)
+  $owner: AgentTaskPartyInput
+) {
+  claimUntrackedTaskItems(appRef: $appRef, integration: $integration, team: $team, repository: $repository, ready: $ready, limit: $limit, assignee: $assignee, owner: $owner) {
+    tasks { ...AgentTaskFields }
+    complete
+    incompleteReason
+    refusalCode
+  }
+}
+
 # Separate document preserves existing plain and filtered list provider floors.
 query AgentTaskListUnresolved(
   $appRef: ID!
