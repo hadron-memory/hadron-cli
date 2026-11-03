@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/instruction"
@@ -51,7 +52,7 @@ func instructedSession(ctx context.Context, f *cmdutil.Factory, snap instruction
 		if errors.Is(err, errNoWorktree) || (err == nil && now == nil) {
 			return "", "", nil
 		}
-		return "", "a session binding appeared while the worker was looked up", nil
+		return "", "a session binding appeared while the target was looked up", nil
 	}
 	if b.SessionID == "" || b.WorkerID == "" || b.AppID == "" || b.Server == "" {
 		return "", "its session binding is incomplete", nil
@@ -64,11 +65,11 @@ func instructedSession(ctx context.Context, f *cmdutil.Factory, snap instruction
 		return "", "its session binding belongs to " + b.Server + ", not " + server, nil
 	}
 	if targetAppID == "" || b.AppID != targetAppID {
-		return "", "its session binding is for a different App than the worker's", nil
+		return "", "its session binding is for a different App than the one this change targets", nil
 	}
 	current, _, err := readBindingFile(ctx)
 	if err != nil || !sameWriteBinding(current, b) {
-		return "", "its session binding changed while the worker was looked up", nil
+		return "", "its session binding changed while the target was looked up", nil
 	}
 	return b.SessionID, "", nil
 }
@@ -114,4 +115,88 @@ func CredentialInstructionContext(f *cmdutil.Factory) func(context.Context) (con
 		}
 		return api.WithSession(ctx, session), nil
 	}
+}
+
+// cli#1594 (hadron-server#3308, ruling 0096/0097): cast (and its preview),
+// retire, rm, and the App member add/remove are not authored writes, so
+// without --instruction they go out as the signed-in person, headerless,
+// even from a bound worktree. With it they follow change-agent's row of the
+// #1592 matrix: the claim goes out through the binding's worker session only
+// when that binding, as it stood before the command's first lookup, is
+// complete, for this server and for the TARGET App, and unchanged at send
+// time; otherwise as the person, headerless, with a note on stderr (the
+// server then checks the person's reference but records no claim). Every
+// lookup made to decide this is headerless.
+
+// InstructedWrite yields the context for the one instructed write. Pass the
+// target App's id when the command already holds it (a resolved worker's
+// AppId), else "" and the App ref the write names (id, URN or alias).
+// worker reports whether the worker session was attached (the claim, once
+// admitted, is recorded); false means the call goes out as the person.
+type InstructedWrite func(ctx context.Context, targetAppID, targetAppRef string) (out context.Context, worker bool, err error)
+
+// BeginInstructedWrite snapshots the binding NOW; call it before the
+// command's first lookup.
+func BeginInstructedWrite(f *cmdutil.Factory) func(context.Context) InstructedWrite {
+	return func(ctx context.Context) InstructedWrite {
+		snap := snapshotForInstruction(ctx)
+		return func(ctx context.Context, targetAppID, targetAppRef string) (context.Context, bool, error) {
+			if targetAppID == "" && snap.b != nil && snap.err == nil {
+				// Everything but the App first, so an unusable binding costs
+				// no lookup.
+				if _, why, err := instructedSession(ctx, f, snap, snap.b.AppID); err != nil || why != "" {
+					return instructedAsPerson(ctx, f, why, err)
+				}
+				id, err := instructedTargetAppID(ctx, f, targetAppRef, snap.b.AppID)
+				if err != nil {
+					return ctx, false, err
+				}
+				if id == "" {
+					// app(ref:) is readable to the App's org members only, so
+					// an App member outside the org lands here: say so, not
+					// "a different App".
+					return instructedAsPerson(ctx, f, "the target App "+targetAppRef+" can't be read as you, so it can't be matched to the binding", nil)
+				}
+				targetAppID = id
+			}
+			session, why, err := instructedSession(ctx, f, snap, targetAppID)
+			if err != nil || why != "" || session == "" {
+				// session "" with no why: no binding before or after, so the
+				// person's call, without a note.
+				return instructedAsPerson(ctx, f, why, err)
+			}
+			return api.WithSession(ctx, session), true, nil
+		}
+	}
+}
+
+// instructedTargetAppID resolves the App ref a write names, headerless.
+// An App this caller can't see is "" (not the binding's): the write then
+// goes out as the person and the server answers it.
+func instructedTargetAppID(ctx context.Context, f *cmdutil.Factory, ref, bindingAppID string) (string, error) {
+	if ref == bindingAppID {
+		return ref, nil
+	}
+	client, err := f.GraphQLClient()
+	if err != nil {
+		return "", err
+	}
+	resp, err := gen.TeamAppIdentity(ctx, client, ref)
+	if err != nil {
+		return "", api.MapError(err)
+	}
+	if resp == nil || resp.App == nil {
+		return "", nil
+	}
+	return resp.App.Id, nil
+}
+
+func instructedAsPerson(ctx context.Context, f *cmdutil.Factory, why string, err error) (context.Context, bool, error) {
+	if err != nil {
+		return ctx, false, err
+	}
+	if why != "" {
+		fmt.Fprintf(f.IOStreams.ErrOut, "note: this worktree's worker session is not used (%s); the change goes out as the signed-in person, with the instruction checked but not recorded\n", why)
+	}
+	return ctx, false, nil
 }

@@ -107,7 +107,7 @@ func requireMemberUser(user string) error {
 // error says. The recovery command repeats the frozen target App.
 func memberWriteError(err error, partial bool, appRef string) error {
 	if !partial && api.AppMemberWriteRefused(err) {
-		return api.MapError(err)
+		return api.MapErrorKeepingCode(err)
 	}
 	return exitcode.Newf(exitcode.Unavailable,
 		"outcome unknown: %s. The membership change may or may not have been applied and was not retried — "+
@@ -240,7 +240,7 @@ func newCmdMemberAdd(f *cmdutil.Factory) *cobra.Command {
 	var user, role string
 	var yes bool
 	cmd := &cobra.Command{
-		Use:   "add --user <ref> --role <role>",
+		Use:   "add --user <ref> --role <role> [--instruction <kind>:<ref>]",
 		Short: "Add a user to an App, or change their role",
 		Long: `Add a user to the App (--app, else the active App) with the given role.
 
@@ -255,6 +255,10 @@ write is not retried; check with ` + "`hadron app member list`" + `.`,
   hadron app member add --app hrn:app:acme.com:eng-team --user hrn:user:ada --role owner`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			claim, instructed, err := memberInstruction(cmd, f)
+			if err != nil {
+				return err
+			}
 			if err := requireMemberUser(user); err != nil {
 				return err
 			}
@@ -273,7 +277,11 @@ write is not retried; check with ` + "`hadron app member list`" + `.`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.EnsureAppMember(cmd.Context(), client, appRef, user, role)
+			ctx, err := memberWriteContext(cmd, appRef, claim, instructed)
+			if err != nil {
+				return err
+			}
+			resp, err := ensureMember(ctx, client, appRef, user, role, claim)
 			if err != nil {
 				return memberWriteError(err, resp != nil && resp.EnsureAppMember != nil, appRef)
 			}
@@ -299,6 +307,7 @@ write is not retried; check with ` + "`hadron app member list`" + `.`,
 	cmd.Flags().StringVar(&user, "user", "", "user to add: an id, email, handle or hrn:user: URN, passed to the server unchanged (required)")
 	cmd.Flags().StringVar(&role, "role", "", "the member's role, as the server defines roles (required)")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "skip the confirmation prompt")
+	addMemberInstruction(cmd)
 	return cmd
 }
 
@@ -306,7 +315,7 @@ func newCmdMemberRemove(f *cmdutil.Factory) *cobra.Command {
 	var user string
 	var yes bool
 	cmd := &cobra.Command{
-		Use:     "remove --user <ref>",
+		Use:     "remove --user <ref> [--instruction <kind>:<ref>]",
 		Aliases: []string{"rm"},
 		Short:   "Remove a user from an App",
 		Long: `Remove a user from the App (--app, else the active App). Reversible: add the
@@ -323,6 +332,10 @@ without --yes is refused before anything is sent.`,
 		Example: `  hadron app member remove --user ada@acme.com --yes`,
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			claim, instructed, err := memberInstruction(cmd, f)
+			if err != nil {
+				return err
+			}
 			if err := requireMemberUser(user); err != nil {
 				return err
 			}
@@ -341,7 +354,11 @@ without --yes is refused before anything is sent.`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.RemoveAppMember(cmd.Context(), client, appRef, user)
+			ctx, err := memberWriteContext(cmd, appRef, claim, instructed)
+			if err != nil {
+				return err
+			}
+			resp, err := removeMember(ctx, client, appRef, user, claim)
 			if err != nil {
 				return memberWriteError(err, resp != nil && resp.RemoveAppMember != nil, appRef)
 			}
@@ -358,6 +375,7 @@ without --yes is refused before anything is sent.`,
 	}
 	cmd.Flags().StringVar(&user, "user", "", "user to remove: an id, email, handle or hrn:user: URN, passed to the server unchanged (required)")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "skip the confirmation prompt")
+	addMemberInstruction(cmd)
 	return cmd
 }
 

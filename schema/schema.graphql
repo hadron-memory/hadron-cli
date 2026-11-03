@@ -7288,6 +7288,11 @@ type Mutation {
     appRef: ID!
 
     """
+    #3308: a held worker needs this validated instruction or its own live workers.staff grant; host-launched sessions are always headless. The holder still needs staffing rights. Instruction claims are recorded, including previews/no-ops (hrn:node:hadronmemory.com:specs:cor:dmo:050:12, hrn:node:hadronmemory.com:specs:cor:agt:080:24).
+    """
+    instruction: ActInstructionInput
+
+    """
     #1050: a name is now mandatory in EFFECT but stays nullable in the
     schema, refused at the resolver with the typed WORKER_NAME_REQUIRED.
     A non-null String would report the same mistake as a bare validation error,
@@ -8662,9 +8667,9 @@ type Mutation {
   external history means retire instead. Omitted or false confirmation
   refuses WORKER_EXTERNAL_ATTRIBUTION_UNCONFIRMED. No external crawl.
   Also removes empty ended stints and the empty working memory.
-  Same staffing authorization as castWorker.
+  Same staffing authorization as castWorker: instruction or own workers.staff grant for a worker session.
   """
-  deleteWorker(confirmNoExternalAttribution: Boolean, workerRef: ID!): Boolean!
+  deleteWorker(confirmNoExternalAttribution: Boolean, instruction: ActInstructionInput, workerRef: ID!): Boolean!
 
   """
   #2663: finished tasks only, their assigners only; never an App key or impersonation. Records a new disposition value, never clears it; omitted/null reference means no reference on the new value. Unknown finding TASK_FINDING_NOT_FOUND; open task TASK_NOT_FINISHED; non-assigner TASK_NOT_OWNER; unreadable task TASK_NOT_FOUND; result unchanged (hrn:node:hadronmemory.com:specs:cor:agt:050:30).
@@ -8794,6 +8799,11 @@ type Mutation {
 
     """#764 — the App as an id / URN. Supply this OR appId."""
     appRef: String
+
+    """
+    #3308: worker sessions need a validated instruction or their own live app.members grant, including self-leave; the holder still needs the original manager/self right. Refusal precedes target-user resolution. Instructed no-ops record a claim only (hrn:node:hadronmemory.com:specs:cor:dmo:050:12, hrn:node:hadronmemory.com:specs:cor:agt:080:24).
+    """
+    instruction: ActInstructionInput
     role: String!
     userId: ID @deprecated(reason: "Use userRef (accepts id / email / handle / URN).")
 
@@ -9036,10 +9046,13 @@ type Mutation {
   leaves an App. Idempotent (no-op when not a member). The user's
   personal-class Memory at (appId, userId) is NOT cascade-deleted
   per spec 008 FR-015 — it re-attaches if the user later re-joins.
+  Bound workers require an instruction or their own live app.members grant
+  (hrn:node:hadronmemory.com:specs:cor:dmo:050:12); successful instructed removals/no-ops record the claim.
+  Direct-person cleanup keeps the existing App reference-resolution behavior.
   
   Accepts the entity's ID or URN.
   """
-  leaveApp(appId: ID!): LeaveAppPayload!
+  leaveApp(appId: ID!, instruction: ActInstructionInput): LeaveAppPayload!
 
   """
   #2022 (hrn:node:hadronmemory.com:specs:cor:agt:090:05, :06) — lift a stop signal. Whoever manages the App, any; a host key, a HALT on its own host.
@@ -9480,6 +9493,11 @@ type Mutation {
 
     """#764 — the App as an id / URN. Supply this OR appId."""
     appRef: String
+
+    """
+    #3308: worker sessions need a validated instruction or their own live app.members grant, including self-leave; the holder still needs the original manager/self right. Refusal precedes target-user resolution. Instructed no-ops record a claim only (hrn:node:hadronmemory.com:specs:cor:dmo:050:12, hrn:node:hadronmemory.com:specs:cor:agt:080:24).
+    """
+    instruction: ActInstructionInput
     userId: ID @deprecated(reason: "Use userRef (accepts id / email / handle / URN).")
 
     """
@@ -9693,11 +9711,11 @@ type Mutation {
   worker-App pin checks retirement at post time), takes no new work records,
   and refuses new session bindings; the row and its name reservation
   survive. Idempotent — retiring an already-retired worker returns it
-  unchanged. Same authorization as castWorker. workerRef is the worker's id
+  unchanged; an instructed no-op records its claim only. Same instruction/grant authorization as castWorker. workerRef is the worker's id
   or its URN (#991). Retiring clears the worker's own reportsTo (#1726);
   workers that report to it keep theirs and read reportsToRetired.
   """
-  retireWorker(workerRef: ID!): Worker!
+  retireWorker(instruction: ActInstructionInput, workerRef: ID!): Worker!
 
   """
   #882 — re-drive every FAILED embed in a memory (the operator recovery
@@ -12921,6 +12939,11 @@ type Query {
   castWorkerPreview(
     agentRef: ID
     appRef: ID!
+
+    """
+    #3308: a held worker needs this validated instruction or its own live workers.staff grant; host-launched sessions are always headless. The holder still needs staffing rights. Instruction claims are recorded, including previews/no-ops (hrn:node:hadronmemory.com:specs:cor:dmo:050:12, hrn:node:hadronmemory.com:specs:cor:agt:080:24).
+    """
+    instruction: ActInstructionInput
     name: String
 
     """
@@ -16385,6 +16408,11 @@ enum SignatureState {
 type SigningRequest {
   """The approval hash v1 of the pinned content (64 lowercase hex)."""
   approvalHash: String!
+
+  """
+  The server-hosted ceremony page where the signer signs (hrn:node:hadronmemory.com:specs:cor:dmo:130:08): the server origin plus /signing/<id>, with no token. Copy it verbatim; never compose it. A person signs there with a passkey; no GraphQL or MCP call takes an assertion. An ended request's link only explains that it ended.
+  """
+  ceremonyUrl: String!
   createdAt: DateTime!
 
   """
@@ -16402,7 +16430,7 @@ type SigningRequest {
   nodeUrn: String
 
   """
-  The signature payload version the signer signs: hadron-signature-v1 until S2b-2's v3.
+  The signature payload version the signer signs: hadron-signature-v3 (hrn:node:hadronmemory.com:specs:cor:dmo:130:01). A request still open with a v1 pin when v3 deployed ended STALE.
   """
   payloadVersion: String!
   requestedBy: SigningRequester!

@@ -144,3 +144,70 @@ func credentialClient(cmd *cobra.Command, f *cmdutil.Factory, claim *gen.ActInst
 	}
 	return client, nil
 }
+
+// memberInstructed is a member add/remove's at-send-time context for an
+// instructed write (cli#1594).
+type memberInstructed func(ctx context.Context, targetAppID, targetAppRef string) (context.Context, bool, error)
+
+// memberInstruction reads `app member add|remove --instruction` before any
+// prompt or request (a bad kind or blank ref: exit 2, nothing sent) and, with
+// the flag, snapshots the binding. Without it both results are nil: the
+// command's document and its headerless, as-the-person attribution are
+// unchanged.
+func memberInstruction(cmd *cobra.Command, f *cmdutil.Factory) (*gen.ActInstructionInput, memberInstructed, error) {
+	if !cmd.Flags().Changed("instruction") {
+		return nil, nil, nil
+	}
+	raw, _ := cmd.Flags().GetString("instruction")
+	claim, err := instruction.Parse(raw)
+	if err != nil {
+		return nil, nil, err
+	}
+	if f.BeginInstructedWrite == nil {
+		return nil, nil, exitcode.Newf(exitcode.Usage, "worker-session verification unavailable; nothing was sent")
+	}
+	return claim, f.BeginInstructedWrite(cmd.Context()), nil
+}
+
+func addMemberInstruction(cmd *cobra.Command) {
+	cmd.Flags().String("instruction", "", instruction.StaffingFlagUsage)
+	cmd.Long += "\n\n" + instruction.StaffingHelp("app.members")
+}
+
+// memberWriteContext is the context the one member write goes out in. Its
+// error comes before anything is sent, so it is returned as is, never as an
+// unknown outcome.
+func memberWriteContext(cmd *cobra.Command, appRef string, claim *gen.ActInstructionInput, instructed memberInstructed) (context.Context, error) {
+	if claim == nil {
+		return cmd.Context(), nil
+	}
+	ctx, _, err := instructed(cmd.Context(), "", appRef)
+	return ctx, err
+}
+
+func ensureMember(ctx context.Context, c graphql.Client, appRef, user, role string, claim *gen.ActInstructionInput) (*gen.EnsureAppMemberResponse, error) {
+	if claim == nil {
+		return gen.EnsureAppMember(ctx, c, appRef, user, role)
+	}
+	r, err := gen.EnsureAppMemberInstructed(ctx, c, appRef, user, role, claim)
+	if r == nil || r.EnsureAppMember == nil {
+		return nil, err
+	}
+	m := r.EnsureAppMember
+	out := &gen.EnsureAppMemberEnsureAppMember{Role: m.Role, CreatedAt: m.CreatedAt}
+	if m.User != nil {
+		out.User = &gen.EnsureAppMemberEnsureAppMemberUser{Id: m.User.Id, Handle: m.User.Handle, Urn: m.User.Urn}
+	}
+	return &gen.EnsureAppMemberResponse{EnsureAppMember: out}, err
+}
+
+func removeMember(ctx context.Context, c graphql.Client, appRef, user string, claim *gen.ActInstructionInput) (*gen.RemoveAppMemberResponse, error) {
+	if claim == nil {
+		return gen.RemoveAppMember(ctx, c, appRef, user)
+	}
+	r, err := gen.RemoveAppMemberInstructed(ctx, c, appRef, user, claim)
+	if r == nil {
+		return nil, err
+	}
+	return &gen.RemoveAppMemberResponse{RemoveAppMember: r.RemoveAppMember}, err
+}

@@ -32,6 +32,13 @@ type Factory struct {
 	// ask it to verify the worktree binding; ordinary calls never use it.
 	InstructedContext func(context.Context) (context.Context, error)
 
+	// BeginInstructedWrite is installed by the root (cli#1594). A command that
+	// today writes as the person calls it before its first lookup, then calls
+	// the returned function at send time for an instructed write's context:
+	// the worker session when the binding is verified for the target App,
+	// else the person's, with a note on stderr.
+	BeginInstructedWrite func(context.Context) func(ctx context.Context, targetAppID, targetAppRef string) (context.Context, bool, error)
+
 	// Persistent flag values, bound by the root command.
 	JSON       bool
 	ServerFlag string

@@ -17,6 +17,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/cmd/servedprompt"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/instruction"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -129,10 +130,10 @@ func roleDefinitionExists(ctx context.Context, client graphql.Client, appRef, ro
 }
 
 func newCmdWorkerCast(f *cmdutil.Factory) *cobra.Command {
-	var role, name, agentRef, reportsTo string
+	var role, name, agentRef, reportsTo, instructionRaw string
 	var dryRun, noTeam bool
 	cmd := &cobra.Command{
-		Use:   "cast --name <n> (--role <role> | --agent <ref>) [--reports-to <worker> | --no-team] [--dry-run]",
+		Use:   "cast --name <n> (--role <role> | --agent <ref>) [--reports-to <worker> | --no-team] [--dry-run] [--instruction <kind>:<ref>]",
 		Short: "Cast an installed agent as a named worker",
 		Long: `WHO MAY CAST: an org member with CONTRIBUTOR or higher on the App's org,
 a member of the App whose role is not reader, or the owner of a user-owned
@@ -140,7 +141,7 @@ App. A pure App key may not. A refusal here is that rule (exit 8, FORBIDDEN):
 ask an App manager to cast it, or to raise your access. The agent must already
 be INSTALLED in the App (` + "`hadron app agent list <app>`" + `).
 
-Try it first: --dry-run (below) runs the same checks and writes nothing. After
+Try it first: --dry-run (below) runs the same checks and creates nothing. After
 the cast, bind the worker to start driving it:
 ` + "`hadron team session start --as <name> --app <app> --tool <tool>`" + `.
 
@@ -213,16 +214,26 @@ same arguments, same typed refusals — up to but not
 including the writes, and shows what would be created: the name, the
 agent, the composed prompt. A refusal on the dry run IS the answer that
 the real cast would refuse the same way. THE PREVIEW RESERVES NOTHING:
-no lease exists, so a previewed name may be gone at cast time.
+no lease exists, so a previewed name may be gone at cast time. With
+--instruction the preview is NOT write-free: an admitted instructed preview
+records one claim event, as a cast does.
 
 The team App comes from the persistent --app flag (or the configured App
-context).`,
+context).
+
+` + instruction.StaffingHelp("workers.staff"),
 		Example: `  hadron team worker cast --app acme.com:eng-team --role backend-engineer --name Iris --reports-to Ada --dry-run
   hadron team worker cast --app acme.com:eng-team --role backend-engineer --name Iris --reports-to Ada
   hadron team worker cast --app acme.com:eng-team --agent hrn:agent:acme.com:qa --name Uma --no-team
   hadron team session start --as Iris --app acme.com:eng-team --tool claude-code`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// cli#1594: parsed first — exit 2 with nothing sent — and, with
+			// the flag, the binding is snapshotted before any lookup.
+			claim, instructed, err := staffingInstruction(cmd, f, instructionRaw)
+			if err != nil {
+				return err
+			}
 			appRef, err := f.App()
 			if err != nil {
 				return err
@@ -280,15 +291,10 @@ context).`,
 				// needs no mutation permission and mints no fake Worker row.
 				// Same typed refusals as the cast — surfaced verbatim, because
 				// a refusal here IS the dry-run's answer.
-				preview, perr := gen.CastWorkerPreview(cmd.Context(), client, appRef,
-					optStr(agentRef), optStr(role), optStr(name), reportsToArg, noTeamArg)
+				p, claimed, perr := castPreview(cmd, client, appRef, agentRef, role, name, reportsToArg, noTeamArg, claim, instructed)
 				if perr != nil {
-					return castChoiceRemedy(perr)
+					return perr
 				}
-				if preview.CastWorkerPreview == nil {
-					return exitcode.Newf(exitcode.Error, "server returned no preview")
-				}
-				p := preview.CastWorkerPreview
 				dto := castPreviewDTO{
 					Name: p.Name, Role: p.Role, AgentID: p.AgentId, AgentName: p.AgentName,
 					Prompt:            p.Prompt,
@@ -302,11 +308,13 @@ context).`,
 						fmt.Fprintf(w, "\n%s\n", *dto.Prompt)
 					}
 					fmt.Fprintf(w, "\nnothing was created, and %q is NOT reserved — it may be gone at cast time\n", dto.Name)
+					if claimed {
+						fmt.Fprintf(w, "the instruction went out through the worker session; the server records a claim it admits (never a host-launched session's)\n")
+					}
 					return nil
 				})
 			}
-			resp, err := gen.CastWorker(cmd.Context(), client, appRef,
-				optStr(agentRef), optStr(role), optStr(name), reportsToArg, noTeamArg)
+			cast, err := castWorker(cmd, client, appRef, agentRef, role, name, reportsToArg, noTeamArg, claim, instructed)
 			if err != nil {
 				// Thin by directive: the server's typed errors carry the
 				// guidance (WORKER_AGENT_AMBIGUOUS says to pass --agent) — map
@@ -316,7 +324,7 @@ context).`,
 				// will hit.
 				return castChoiceRemedy(err)
 			}
-			if resp.CastWorker == nil {
+			if cast == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no worker")
 			}
 			// #542: a --role cast resolves an AGENT by personaRole; it does not
@@ -331,7 +339,7 @@ context).`,
 				fmt.Fprintf(f.IOStreams.ErrOut,
 					"note: no team role definition for %q — %s (`team role list` shows the gap)\n", role, roleDefinitionHint(role, runtime.GOOS))
 			}
-			dto := workerDTOFromFields(resp.CastWorker.WorkerFields)
+			dto := workerDTOFromFields(*cast)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if _, err := fmt.Fprintf(w, "✓ cast %s%s — worker %s\n", dto.Name, roleSuffix(dto.Role), dto.ID); err != nil {
 					return err
@@ -354,6 +362,7 @@ context).`,
 	cmd.Flags().StringVar(&reportsTo, "reports-to", "", "the worker this one reports to (name, URN or id); choose this or --no-team, never both")
 	cmd.Flags().BoolVar(&noTeam, "no-team", false, "record that this worker has no reporting head; choose this or --reports-to, never both")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "preview the cast (name, agent, composed prompt) without creating anything; reserves nothing")
+	cmd.Flags().StringVar(&instructionRaw, "instruction", "", instruction.StaffingFlagUsage)
 	cmdutil.RetireFlags(cmd, "a worker's boot customisation is now a node: write boot:workers:<id>:source (role boot-prompt) in the App install memory (hadron node update), compile it with `hadron team worker compile <worker>`, then have the App's manager approve the compiled node with `hadron node approve <compiled-node-ref>`",
 		cmdutil.RetiredFlag{Name: "prompt-override"}, cmdutil.RetiredFlag{Name: "clear-prompt-override", Bool: true})
 	return cmd
@@ -989,8 +998,9 @@ type retireResultDTO struct {
 
 func newCmdWorkerRetire(f *cmdutil.Factory) *cobra.Command {
 	var yes bool
+	var instructionRaw string
 	cmd := &cobra.Command{
-		Use:   "retire <name-or-id>",
+		Use:   "retire <name-or-id> [--instruction <kind>:<ref>]",
 		Short: "Retire a worker — it stops working; its name stays reserved forever",
 		Long: `Retire a worker: it stops authoring and takes no new sessions, and its
 name stays bound to it forever — PR trailers and chat history reference the
@@ -1008,10 +1018,17 @@ and to take a worker off new work for a while use ` + "`team availability set`" 
 Who may retire: the same people who may cast (` + "`worker cast --help`" + `). A NAME
 resolves within --app, the App context or the binding; an id or worker URN
 needs no App. On a terminal it asks first; without one, --yes is required
-(exit 2 otherwise).`,
-		Example: `  hadron team worker retire Iris --app acme.com:eng-team --yes`,
-		Args:    cobra.ExactArgs(1),
+(exit 2 otherwise). The App the change targets is the worker's own.
+
+` + instruction.StaffingHelp("workers.staff"),
+		Example: `  hadron team worker retire Iris --app acme.com:eng-team --yes
+  hadron team worker retire Iris --app acme.com:eng-team --yes --instruction task:hrn:agenttask:hrn:app:acme.com:eng-team:AT0.12`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			claim, instructed, err := staffingInstruction(cmd, f, instructionRaw)
+			if err != nil {
+				return err
+			}
 			w, err := workerForArg(cmd, f, args[0])
 			if err != nil {
 				return err
@@ -1024,14 +1041,14 @@ needs no App. On a terminal it asks first; without one, --yes is required
 			if err != nil {
 				return err
 			}
-			resp, err := gen.RetireWorker(cmd.Context(), client, w.Id)
+			retired, err := retireWorker(cmd, client, &w, claim, instructed)
 			if err != nil {
-				return api.MapError(err)
+				return api.MapErrorKeepingCode(err)
 			}
-			if resp.RetireWorker == nil {
+			if retired == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no worker")
 			}
-			dto := workerDTOFromFields(resp.RetireWorker.WorkerFields)
+			dto := workerDTOFromFields(*retired)
 			result := retireResultDTO{ID: dto.ID, Name: dto.Name, RetiredAt: dto.RetiredAt, Status: "retired"}
 			return output.Write(f.IOStreams, f.JSON, result, func(out io.Writer) error {
 				_, err := fmt.Fprintf(out, "✓ retired worker %s — the name stays bound to it and is never re-cast\n", dto.Name)
@@ -1040,6 +1057,7 @@ needs no App. On a terminal it asks first; without one, --yes is required
 		},
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
+	cmd.Flags().StringVar(&instructionRaw, "instruction", "", instruction.StaffingFlagUsage)
 	return cmd
 }
 
@@ -1053,8 +1071,9 @@ type removeResultDTO struct {
 func newCmdWorkerRm(f *cmdutil.Factory) *cobra.Command {
 	var yes bool
 	var confirmNoExternalAttribution bool
+	var instructionRaw string
 	cmd := &cobra.Command{
-		Use:     "rm <name-or-id>",
+		Use:     "rm <name-or-id> [--instruction <kind>:<ref>]",
 		Aliases: []string{"delete"},
 		Short:   "Hard-delete a NEVER-USED casting (frees its name)",
 		Long: `Hard-delete a worker that never did anything — the one removal escape
@@ -1071,10 +1090,17 @@ Known or uncertain external attribution means retire instead. --yes only
 skips the deletion prompt; it never supplies this separate attestation.
 Missing attestation is WORKER_EXTERNAL_ATTRIBUTION_UNCONFIRMED (exit 2);
 WORKER_IN_USE is exit 5. Older-server schema refusal is never retried without
-the attestation.`,
+the attestation. Who may delete: the same people who may cast. The App the
+change targets is the worker's own.
+
+` + instruction.StaffingHelp("workers.staff"),
 		Example: `  hadron team worker rm Irsi --yes --confirm-no-external-attribution`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			claim, instructed, err := staffingInstruction(cmd, f, instructionRaw)
+			if err != nil {
+				return err
+			}
 			w, err := workerForArg(cmd, f, args[0])
 			if err != nil {
 				return err
@@ -1091,11 +1117,11 @@ the attestation.`,
 			if confirmNoExternalAttribution {
 				attestation = &confirmNoExternalAttribution
 			}
-			resp, err := gen.DeleteWorker(cmd.Context(), client, w.Id, attestation)
+			deleted, err := deleteWorker(cmd, client, &w, attestation, claim, instructed)
 			if err != nil {
-				return api.MapError(err)
+				return api.MapErrorKeepingCode(err)
 			}
-			if !resp.DeleteWorker {
+			if !deleted {
 				return exitcode.Newf(exitcode.Error, "worker %s was not deleted", w.Name)
 			}
 			result := removeResultDTO{ID: w.Id, Name: w.Name, Status: "deleted"}
@@ -1107,6 +1133,7 @@ the attestation.`,
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
 	cmd.Flags().BoolVar(&confirmNoExternalAttribution, "confirm-no-external-attribution", false, "attest you verified no external artifact attributes work to this worker; known or uncertain history means retire")
+	cmd.Flags().StringVar(&instructionRaw, "instruction", "", instruction.StaffingFlagUsage)
 	return cmd
 }
 
@@ -2103,7 +2130,8 @@ func reportsToCell(ref *workerRefDTO, retired, known bool, placement *string) st
 // --no-team. The server's text stays verbatim and first; the code is kept for
 // the --json envelope.
 func castChoiceRemedy(raw error) error {
-	mapped := api.MapError(raw)
+	// cli#1594 acceptance 4: the server's code rides to --json as serverCode.
+	mapped := api.MapErrorKeepingCode(raw)
 	if api.HasErrorCode(raw, "WORKER_TEAM_CHOICE_REQUIRED") {
 		return api.WithServerCode(exitcode.Newf(exitcode.Usage, "%s\n  → pass --reports-to <worker> or --no-team", mapped.Error()), raw)
 	}

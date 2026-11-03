@@ -1670,3 +1670,82 @@ mutation SetHostWorkerAvailability(
     setByParty { id kind name urn }
   }
 }
+
+# cli#1594 (hadron-server#3308, 517eb1db): the staffing doors carrying a
+# holder's instruction claim. Separate documents, so the no-flag documents
+# above stay byte-for-byte what an older server already accepts.
+mutation CastWorkerInstructed(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $agentRef: ID
+  # @genqlient(omitempty: true)
+  $role: String
+  # @genqlient(omitempty: true)
+  $name: String
+  # @genqlient(omitempty: true)
+  $reportsTo: ID
+  # @genqlient(omitempty: true)
+  $noTeam: Boolean
+  $instruction: ActInstructionInput!
+) {
+  castWorker(
+    appRef: $appRef
+    agentRef: $agentRef
+    role: $role
+    name: $name
+    reportsTo: $reportsTo
+    noTeam: $noTeam
+    instruction: $instruction
+  ) {
+    ...WorkerFields
+  }
+}
+
+# An instructed preview is NOT write-free: the server records one claim event.
+query CastWorkerPreviewInstructed(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $agentRef: ID
+  # @genqlient(omitempty: true)
+  $role: String
+  # @genqlient(omitempty: true)
+  $name: String
+  # @genqlient(omitempty: true)
+  $reportsTo: ID
+  # @genqlient(omitempty: true)
+  $noTeam: Boolean
+  $instruction: ActInstructionInput!
+) {
+  castWorkerPreview(
+    appRef: $appRef
+    agentRef: $agentRef
+    role: $role
+    name: $name
+    reportsTo: $reportsTo
+    noTeam: $noTeam
+    instruction: $instruction
+  ) {
+    name
+    role
+    agentId
+    agentName
+    prompt
+    teamPlacement
+    reportsToWorkerId
+  }
+}
+
+mutation RetireWorkerInstructed($workerRef: ID!, $instruction: ActInstructionInput!) {
+  retireWorker(workerRef: $workerRef, instruction: $instruction) {
+    ...WorkerFields
+  }
+}
+
+mutation DeleteWorkerInstructed(
+  $workerRef: ID!
+  # @genqlient(omitempty: true)
+  $confirmNoExternalAttribution: Boolean
+  $instruction: ActInstructionInput!
+) {
+  deleteWorker(workerRef: $workerRef, confirmNoExternalAttribution: $confirmNoExternalAttribution, instruction: $instruction)
+}
