@@ -57,6 +57,11 @@ type ResetRecord struct {
 	// Relaunching is set on disk before the relaunch starts an agent, so a
 	// restart in between never starts a second one.
 	Relaunching bool `json:"relaunching,omitempty"`
+	// LateStopMs is how far past its lease the stop landed, written as
+	// soon as the signal returns, so the late-stop event survives an agent
+	// that does not exit, a cancellation and a restart (cor:agt:050:27
+	// part 10). 0 when on time or not yet sent.
+	LateStopMs int64 `json:"lateStopMs,omitempty"`
 }
 
 // AgentRecord is one launched agent.

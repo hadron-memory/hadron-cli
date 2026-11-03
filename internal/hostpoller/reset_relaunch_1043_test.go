@@ -10,6 +10,10 @@ import (
 
 func relaunchFixture(t *testing.T) (*resetFixture, *fakeHost) {
 	t.Helper()
+	// The poller's own environment carries both credentials, so the scrub
+	// pins below can fail (cli#1582 §10 P3-1).
+	t.Setenv(HostKeyEnv, hostKey)
+	t.Setenv("HADRON_TOKEN", "tok_poller_secret")
 	x := newResetFixture(t)
 	host := x.p.host.(*fakeHost)
 	host.agent = &fakeAgent{done: make(chan struct{}), pid: 5151}
@@ -37,7 +41,7 @@ func TestRelaunchStartsTheConfiguredAgentWithoutAGrant1043(t *testing.T) {
 		t.Fatalf("launch %+v", l)
 	}
 	for _, e := range l.Env {
-		if strings.HasPrefix(e, launchGrantEnvVar+"=") || strings.Contains(e, hostKey) {
+		if strings.HasPrefix(e, launchGrantEnvVar+"=") || strings.Contains(e, hostKey) || strings.HasPrefix(e, "HADRON_TOKEN=") {
 			t.Fatalf("relaunch env carries %q: a reset keeps the binding and needs no grant", e)
 		}
 	}
@@ -85,8 +89,8 @@ func TestRecoverPromptGetsIdsOnly1043(t *testing.T) {
 		}
 	}
 	for _, e := range env {
-		if strings.Contains(e, hostKey) {
-			t.Fatal("the recover prompt's env carries the host key")
+		if strings.Contains(e, hostKey) || strings.HasPrefix(e, "HADRON_TOKEN=") {
+			t.Fatalf("the recover prompt's env carries a credential: %q", e)
 		}
 	}
 }

@@ -38,7 +38,7 @@ func GitTree(ctx context.Context, dir string) (GitTreeState, error) {
 	switch {
 	case errors.Is(err, exec.ErrNotFound):
 		return st, nil
-	case err != nil && strings.Contains(errOut, "not a git repository"):
+	case err != nil && strings.Contains(strings.ToLower(errOut), "not a git repository"): // Git before 2.36 capitalizes it
 		return st, nil
 	case err != nil:
 		return st, fmt.Errorf("git rev-parse --is-inside-work-tree: %s", firstNonEmpty(errOut, err.Error()))

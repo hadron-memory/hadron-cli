@@ -146,3 +146,19 @@ func TestGitTreeDirtyDespiteHiddenUntrackedFiles1043(t *testing.T) {
 		t.Fatalf("got %+v %v; want dirty", got, err)
 	}
 }
+
+// Git before 2.36 capitalizes "Not a git repository"; either spelling is a
+// non-Git directory (2nd REVIEW P3-3).
+func TestGitTreeMatchesEitherCaseOfNotARepository1043(t *testing.T) {
+	dir := t.TempDir()
+	fake := filepath.Join(t.TempDir(), "git")
+	script := "#!/bin/sh\necho 'fatal: Not a git repository (or any of the parent directories): .git' >&2\nexit 128\n"
+	if err := os.WriteFile(fake, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", filepath.Dir(fake))
+	got, err := GitTree(context.Background(), dir)
+	if err != nil || got.InGit {
+		t.Fatalf("got %+v %v; want not in Git", got, err)
+	}
+}

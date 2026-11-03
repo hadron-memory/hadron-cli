@@ -52,12 +52,17 @@ Files:
      `HOST_UNSUPPORTED` naming the missing argument);
    - a recorded reset is recovered instead;
    - the worker is configured on this host, with a recover prompt;
+   - the handler has process control and a Git reader (`HOST_UNSUPPORTED`);
    - an agent this poller launched is still running;
    - Git (`DIRTY_TREE`, `UNPUSHED_HEAD`), but only inside a Git tree.
      Untracked files count as dirty whatever `status.showUntrackedFiles`
      says. The upstream must be on a configured remote: a branch tracking
      a local branch (`branch.<name>.remote = .`) has no remote upstream;
-   - the old process can be pinned by pidfd;
+   - the old process can be pinned by pidfd, the agent is still running
+     after the pin (`Done` still open), and the pinned identity (pid and
+     kernel start time) is the one observed when the agent was tracked at
+     launch (`PROCESS_CHANGED` otherwise, and for an agent tracked before
+     resets were enabled, which has no launch-time identity);
    - it is proven idle (`NOT_IDLE`; idle is never assumed).
 2. **Record, then claim.** The reset is written to the state file before
    the claim goes out, so a restart at any later point recovers it.
@@ -67,11 +72,20 @@ Files:
    (ruling 0090 A). The answer's `checkpointNode` (#3300) is recorded on
    disk before the stop is requested. With no node, or with no disk write,
    the reset fails `CHECKPOINT_FAILED` before any process control.
-4. **Stop.** `t0` is read from `CLOCK_BOOTTIME` before `authorizeStop`. One
+4. **Stop.** Idle is proven again first: activity since the claim fails
+   `RELAUNCH_BLOCKED` with nothing stopped (the detail carries the
+   `NOT_IDLE` cause, since `relaunchFailed` takes no `NOT_IDLE`). `t0` is
+   read from `CLOCK_BOOTTIME` before `authorizeStop`. One
    `SIGTERM` is sent through the pinned pidfd, only inside the granted
    lease. A clock that cannot be read, at `t0` or at the check, is an
    error and nothing is sent; so is a check reading earlier than `t0`. A
-   stop sent late is reported as `lateStopMs`, rounded up. The
+   stop sent late is reported as `lateStopMs`, rounded up. The lateness is
+   written to the state file as soon as the signal returns. When the
+   agent then does not exit, the reset ends `RELAUNCH_BLOCKED` and the
+   late stop is annotated afterwards on the ended reset
+   (`reportContextResetAgentStopped` under the stop grant's epoch, which
+   the server takes as telemetry only, #3255). An on-time stop is never
+   annotated. The
    stop is never escalated: an agent still alive after the wait fails
    `RELAUNCH_BLOCKED`.
 5. **Relaunch.** The agent is marked `Relaunching` on disk first, so it is
@@ -96,8 +110,8 @@ counts as alive.
 | requested | | report FAILED `PROCESS_CHANGED` |
 | claimed | | `relaunchFailed CHECKPOINT_FAILED` |
 | checkpointed | | `relaunchFailed STAGING_FAILED` |
-| stop-granted | old alive | `relaunchFailed RELAUNCH_BLOCKED` |
-| stop-granted | old gone | `agentStopped` (no lateness), then relaunch |
+| stop-granted | old alive | `relaunchFailed RELAUNCH_BLOCKED`, then the recorded lateness, if any, as an annotation |
+| stop-granted | old gone | `agentStopped` with the recorded lateness (none if the crash came first), then relaunch |
 | agent-stopped | old alive | report FAILED `PROCESS_CHANGED` |
 | agent-stopped | old gone | relaunch |
 | relaunched | new alive | report SUCCEEDED |
@@ -108,7 +122,11 @@ counts as alive.
 A record left without the checkpoint node, because the restart came
 between the register answer and the disk write, takes it from the
 server's read. A relaunch already begun before the restart fails
-`RELAUNCH_UNVERIFIED` and is never started again.
+`RELAUNCH_UNVERIFIED` and is never started again. Every relaunch, forward
+or recovered, fails `RELAUNCH_BLOCKED` with nothing started when the
+operation's worker is not the record's, when a live agent this host
+launched for the worker since is tracked (a replacement), or when the
+worker has no recover prompt.
 
 ## Reportable codes
 
@@ -124,6 +142,9 @@ from:
 
 - **Activation:** declaring the capability, wiring `EnableResets` and an
   idle prover into `team host run`. These need their own authorization.
+  Activation must also wire the restart pass, `pendingRecoveries`, which
+  has no production caller yet. `EnableResets` must come before the first
+  launch, so each agent is tracked with a launch-time identity.
 - **A terminal-read idle prover.** Without one, every reset refuses
   `NOT_IDLE`.
 

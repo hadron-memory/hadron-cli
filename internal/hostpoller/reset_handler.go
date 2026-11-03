@@ -43,6 +43,10 @@ func (p *Poller) workerResetContext(ctx context.Context, op Operation) {
 		refuse("HOST_UNSUPPORTED", "this host carries out no worker.reset-context (hadron-cli#1043)")
 		return
 	}
+	if p.resetDeps.Proc == nil || p.resetDeps.Git == nil {
+		refuse("HOST_UNSUPPORTED", "this host's reset handler has no process control or Git reader")
+		return
+	}
 	for _, a := range []string{"resetId", "sessionId", "taskId"} {
 		if argString(op, a) == "" {
 			refuse("HOST_UNSUPPORTED", "malformed operation: it names no "+a)
@@ -111,6 +115,26 @@ func (p *Poller) workerResetContext(ctx context.Context, op Operation) {
 		return
 	}
 	defer h.Close()
+	// The agent may have exited since the check above (during the Git
+	// read), freeing its pid for reuse before the pin. An unreaped child
+	// keeps its pid, so Done still open after Observe proves the pidfd pins
+	// our agent. (Done closes just after the reap; reuse inside that gap
+	// would need the pid space to wrap within it.)
+	select {
+	case <-agent.Done():
+		refuse("PROCESS_CHANGED", "the agent this host launched for the worker exited before its process was pinned")
+		return
+	default:
+	}
+	// And the pinned process is the one observed at launch: same pid and
+	// kernel start time, so a reused pid is never taken for the agent.
+	p.mu.Lock()
+	launched, hasID := p.agentIDs[op.WorkerID]
+	p.mu.Unlock()
+	if !hasID || h.Identity() != launched {
+		refuse("PROCESS_CHANGED", "the pinned process is not the agent this host launched (no launch-time identity, or a different one)")
+		return
+	}
 	if p.resetDeps.Idle == nil {
 		refuse("NOT_IDLE", "this host has no proven terminal read to show the agent idle")
 		return

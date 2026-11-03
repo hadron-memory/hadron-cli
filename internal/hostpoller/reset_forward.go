@@ -81,6 +81,15 @@ func (p *Poller) runReset(ctx context.Context, op Operation, ref, token string, 
 		return
 	}
 
+	// Idle is proven again after the claim and checkpoint, before the stop
+	// is asked for: the first proof is a whole claim and checkpoint old,
+	// and activity since then refuses process control. Nothing was
+	// stopped, so the reset ends with nothing started.
+	if err := p.resetDeps.Idle(ctx, ref); err != nil {
+		p.recoveryRelaunchFailed(ctx, op, resetID, epoch, "RELAUNCH_BLOCKED", "the agent was not idle after the claim, so nothing was stopped (NOT_IDLE: "+err.Error()+")")
+		return
+	}
+
 	// t0 before the request: a slow answer shortens the window, never
 	// lengthens it.
 	t0, err := p.resetDeps.Proc.Now()
@@ -98,6 +107,13 @@ func (p *Poller) runReset(ctx context.Context, op Operation, ref, token string, 
 		p.recoveryRelaunchFailed(ctx, op, resetID, epoch, "RELAUNCH_BLOCKED", "the stop was not sent: "+err.Error())
 		return
 	}
+	// The lateness is on disk before anything else can end the reset, so
+	// the late-stop event is never lost (cor:agt:050:27 part 10).
+	if late > 0 {
+		if err := p.state.updateReset(resetID, func(r *ResetRecord) { r.LateStopMs = lateStopMs(late) }); err != nil {
+			p.log("state-failed", op.ID, op.Type, "", err.Error())
+		}
+	}
 	timer := time.NewTimer(p.stopWait())
 	defer timer.Stop()
 	select {
@@ -107,7 +123,9 @@ func (p *Poller) runReset(ctx context.Context, op Operation, ref, token string, 
 		return // the record stays; the re-delivered operation recovers it
 	}
 	if alive, known := p.processAlive(old); alive || !known {
-		p.recoveryRelaunchFailed(ctx, op, resetID, epoch, "RELAUNCH_BLOCKED", fmt.Sprintf("the agent did not exit within %s of the stop", p.stopWait()))
+		if p.recoveryRelaunchFailed(ctx, op, resetID, epoch, "RELAUNCH_BLOCKED", fmt.Sprintf("the agent did not exit within %s of the stop", p.stopWait())) {
+			p.annotateLateStop(ctx, op, resetID, epoch, late)
+		}
 		return
 	}
 	if _, ok := step(func() (ResetStep, error) { return p.resets.ReportResetAgentStopped(ctx, resetID, epoch, late) }); !ok {

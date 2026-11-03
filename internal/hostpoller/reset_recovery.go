@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"syscall"
+	"time"
 )
 
 // recovery is one reset this host collected before a restart, with the
@@ -155,11 +156,14 @@ func (p *Poller) recoverReset(ctx context.Context, op Operation, rec ResetRecord
 	case recoverReportFailed:
 		p.endRecovery(ctx, op, rec.ResetID, Failed, act.Reason+": after a host restart, at phase "+r.Phase)
 	case recoverRelaunchFailed:
-		p.recoveryRelaunchFailed(ctx, op, rec.ResetID, epoch, act.Reason, "after a host restart, at phase "+r.Phase)
+		if p.recoveryRelaunchFailed(ctx, op, rec.ResetID, epoch, act.Reason, "after a host restart, at phase "+r.Phase) && r.Phase == "stop-granted" {
+			p.annotateLateStop(ctx, op, rec.ResetID, epoch, recordedLate(rec))
+		}
 	case recoverStoppedThenRelaunch:
-		// Lateness is unknowable after a restart: 0 omits lateStopMs.
+		// The lateness recorded when the signal returned; a crash before
+		// that write leaves 0, which omits lateStopMs.
 		if !p.recoveryStep(ctx, op, rec.ResetID, "RELAUNCH_UNVERIFIED", func() (ResetStep, error) {
-			return p.resets.ReportResetAgentStopped(ctx, rec.ResetID, epoch, 0)
+			return p.resets.ReportResetAgentStopped(ctx, rec.ResetID, epoch, recordedLate(rec))
 		}) {
 			return
 		}
@@ -177,11 +181,25 @@ func (p *Poller) recoverRelaunch(ctx context.Context, op Operation, rec ResetRec
 	_, w, ok := p.workerRef(op)
 	token, hasTree := p.agentWorktree(rec.WorkerID)
 	switch {
+	case op.WorkerID != rec.WorkerID:
+		// The config comes from the operation and the worktree from the
+		// record: they must name one worker.
+		p.recoveryRelaunchFailed(ctx, op, rec.ResetID, epoch, "RELAUNCH_BLOCKED", "the operation's worker is not the recorded reset's worker")
+		return
+	case p.replacedAgent(rec):
+		// Relaunch only when the old agent is gone AND not replaced: a
+		// live agent this host launched for the worker since is its
+		// replacement, and a second beside it is worse than a failed reset.
+		p.recoveryRelaunchFailed(ctx, op, rec.ResetID, epoch, "RELAUNCH_BLOCKED", "a replacement agent this host launched for the worker is running; nothing was started beside it")
+		return
 	case rec.Relaunching:
 		p.recoveryRelaunchFailed(ctx, op, rec.ResetID, epoch, "RELAUNCH_UNVERIFIED", "a relaunch had begun before the host restarted")
 		return
 	case !ok || !hasTree:
 		p.recoveryRelaunchFailed(ctx, op, rec.ResetID, epoch, "RELAUNCH_BLOCKED", "the worker or its worktree is no longer configured on this host")
+		return
+	case len(w.Recover) == 0:
+		p.recoveryRelaunchFailed(ctx, op, rec.ResetID, epoch, "RELAUNCH_BLOCKED", "no recover prompt is configured for this worker on this host")
 		return
 	case rec.Checkpoint == "":
 		p.recoveryRelaunchFailed(ctx, op, rec.ResetID, epoch, "RELAUNCH_BLOCKED", "no checkpoint was recorded for the relaunched agent")
@@ -209,13 +227,35 @@ func (p *Poller) recoverRelaunch(ctx context.Context, op Operation, rec ResetRec
 
 // recoveryRelaunchFailed sends relaunchFailed(reason), then reports the
 // operation FAILED with it.
-func (p *Poller) recoveryRelaunchFailed(ctx context.Context, op Operation, resetID string, epoch int, reason, detail string) {
+func (p *Poller) recoveryRelaunchFailed(ctx context.Context, op Operation, resetID string, epoch int, reason, detail string) bool {
 	if !p.recoveryStep(ctx, op, resetID, reason, func() (ResetStep, error) {
 		return p.resets.ReportResetRelaunchFailed(ctx, resetID, epoch, reason)
 	}) {
-		return
+		return false
 	}
 	p.endRecovery(ctx, op, resetID, Failed, reason+": "+detail)
+	return true
+}
+
+// annotateLateStop records a late stop on a reset that ended without the
+// agent's stop being reported (it did not exit): agentStopped with
+// lateStopMs on the ended reset, under the stop grant's epoch, which the
+// server takes as telemetry only, changing no reset, task or availability
+// state (#3255). Never sent for an on-time stop. Best effort: the reset
+// has already ended, so a failure is logged, not retried.
+func (p *Poller) annotateLateStop(ctx context.Context, op Operation, resetID string, epoch int, late time.Duration) {
+	if late <= 0 {
+		return
+	}
+	if _, err := p.resets.ReportResetAgentStopped(ctx, resetID, epoch, late); err != nil {
+		p.log("reset", op.ID, op.Type, "", "the late stop could not be annotated: "+err.Error())
+	}
+}
+
+// lateStopMs is late in whole milliseconds, rounded up, as lateStopMs is
+// sent.
+func lateStopMs(late time.Duration) int64 {
+	return int64((late + time.Millisecond - 1) / time.Millisecond)
 }
 
 // recoveryStep makes one protocol step during recovery and says whether to
@@ -258,6 +298,28 @@ func (p *Poller) dropResetRecord(id string) {
 // (same pid and start time) and whether that is known: only ESRCH or a
 // different start time proves it gone; any other failure to observe it is
 // unknown, which each caller resolves to its own safe side.
+// recordedLate is the lateness written when the signal returned.
+func recordedLate(rec ResetRecord) time.Duration {
+	return time.Duration(rec.LateStopMs) * time.Millisecond
+}
+
+// replacedAgent says whether a live agent other than the reset's old one is
+// tracked for its worker: one this host launched since, so a replacement.
+func (p *Poller) replacedAgent(rec ResetRecord) bool {
+	p.mu.Lock()
+	a := p.agents[rec.WorkerID]
+	p.mu.Unlock()
+	if a == nil || a.PID() == rec.Old.PID {
+		return false
+	}
+	select {
+	case <-a.Done():
+		return false
+	default:
+		return true
+	}
+}
+
 func (p *Poller) processAlive(id ProcessIdentity) (alive, known bool) {
 	h, err := p.resetDeps.Proc.Observe(id.PID)
 	if err != nil {

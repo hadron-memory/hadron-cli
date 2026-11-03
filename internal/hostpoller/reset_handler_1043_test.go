@@ -88,7 +88,6 @@ func newResetFixture(t *testing.T) *resetFixture {
 		idle:  func(context.Context, string) error { return nil },
 		agent: &fakeAgent{done: make(chan struct{}), pid: 4242},
 	}
-	p.trackAgent("id-iris", "repo/iris", x.agent)
 	p.EnableResets(x.resets, ResetDeps{
 		Proc: x.proc,
 		Git: func(_ context.Context, dir string) (GitTreeState, error) {
@@ -97,6 +96,10 @@ func newResetFixture(t *testing.T) *resetFixture {
 		},
 		Idle: func(ctx context.Context, ref string) error { return x.idle(ctx, ref) },
 	})
+	// Tracked with resets enabled, as a launch would be: its identity is
+	// observed then. The count starts after it.
+	p.trackAgent("id-iris", "repo/iris", x.agent)
+	x.proc.observed = 0
 	return x
 }
 
@@ -298,4 +301,17 @@ func TestResetPassingChecksGoOnToTheClaim1043(t *testing.T) {
 	if x.proc.signalled != 0 {
 		t.Fatalf("signalled %d times", x.proc.signalled)
 	}
+}
+
+// An agent that exits during the Git read frees its pid, so the pidfd may
+// pin a process that reused it (cli#1582 §10 P2-1). Done is re-checked after
+// the pin: an unreaped child keeps its pid, so a Done still open after
+// Observe proves the pin is ours.
+func TestResetAgentExitingDuringTheGitReadRefuses1043(t *testing.T) {
+	x := newResetFixture(t)
+	x.p.resetDeps.Git = func(context.Context, string) (GitTreeState, error) {
+		close(x.agent.done)
+		return x.git, nil
+	}
+	wantReason(t, x.run(t, resetOp()), "PROCESS_CHANGED")
 }

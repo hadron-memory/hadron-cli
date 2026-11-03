@@ -145,7 +145,12 @@ type Poller struct {
 	agents map[string]Agent
 	// agentTrees is the worktree each launched agent runs in, by worker id.
 	agentTrees map[string]string
-	wg         sync.WaitGroup
+	// agentIDs is each launched agent's process identity, observed when it
+	// was tracked: a later pin must match it, so a reused pid is never
+	// taken for the agent (#1043). Absent when resets were not enabled at
+	// launch, or the observation failed; a reset then refuses.
+	agentIDs map[string]ProcessIdentity
+	wg       sync.WaitGroup
 
 	// Chat delivery (cli#907): off unless EnableDelivery, and switched off
 	// for the run by a missing attention:deliver scope.
@@ -179,6 +184,7 @@ func New(cfg *Config, server Server, host Host, state *State, key string, emit f
 		workerRefs: map[string]string{},
 		agents:     map[string]Agent{},
 		agentTrees: map[string]string{},
+		agentIDs:   map[string]ProcessIdentity{},
 	}
 }
 
