@@ -64,8 +64,8 @@ Sign in first. Requires a provider containing server#3258. Refs are task ids or 
 The task determines its App; --app does not qualify an ambiguous handle.
 An ambiguous bare handle needs an id or a qualified handle such as
 hrn:agenttask:example.com:team:AT1.2. An unreadable or missing task exits 4.
-The server alone judges authority: only task assigners after finish, never
-the assignee alone, an App key or impersonation. TASK_NOT_OWNER exits 8,
+The server alone judges write authority: only task assigners after finish,
+never the assignee alone, an App key or impersonation. On writes, TASK_NOT_OWNER exits 8,
 TASK_NOT_FINISHED exits 5, TASK_FINDING_NOT_FOUND exits 4, BAD_USER_INPUT exits 2.
 No refusal is retried. A transport failure may have committed: read the current
 dispositions before deciding whether to send another write.
