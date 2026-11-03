@@ -51,6 +51,12 @@ type ResetRecord struct {
 	// relaunched one, once started.
 	Old ProcessIdentity  `json:"old"`
 	New *ProcessIdentity `json:"new,omitempty"`
+	// Checkpoint is the checkpoint node the recovery was registered with,
+	// handed to the relaunched agent; empty until registerRecovery.
+	Checkpoint string `json:"checkpoint,omitempty"`
+	// Relaunching is set on disk before the relaunch starts an agent, so a
+	// restart in between never starts a second one.
+	Relaunching bool `json:"relaunching,omitempty"`
 }
 
 // AgentRecord is one launched agent.
@@ -255,6 +261,14 @@ func (s *State) updateReset(id string, change func(*ResetRecord)) error {
 	change(&r)
 	s.Resets[id] = r
 	return s.save()
+}
+
+// resetRecord is the kept record of one reset.
+func (s *State) resetRecord(id string) (ResetRecord, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r, ok := s.Resets[id]
+	return r, ok
 }
 
 // dropReset forgets a reset once its outcome is reported.

@@ -33,8 +33,11 @@ func (p *Poller) EnableResets(rs ResetServer, deps ResetDeps) {
 // claim. Every refusal here comes before any process control and before
 // any protocol step; each is reported FAILED with its code first, once.
 //
+// A reset already recorded (collected before a restart) is recovered from
+// the server's phase instead (recoverReset); nothing records one yet.
+//
 // The claim and everything after it (checkpoint, recovery registration,
-// the stop, relaunch, restart recovery) are not built: they wait on three
+// the stop, the relaunch report) are not built: they wait on three
 // server answers (no phase read for restart recovery, no relaunch binding,
 // the checkpoint writer's authority — hadron-cli#1043 comment 6587438356).
 // Until then a reset that passes every check here still refuses
@@ -51,6 +54,13 @@ func (p *Poller) workerResetContext(ctx context.Context, op Operation) {
 			refuse("BAD_OPERATION", "the operation names no "+a)
 			return
 		}
+	}
+	// A reset this host recorded before a restart comes back with its
+	// operation at the next collect: recover it from the phase the server
+	// holds, never start it again.
+	if rec, ok := p.state.resetRecord(argString(op, "resetId")); ok {
+		p.recoverReset(ctx, op, rec)
+		return
 	}
 	ref, w, ok := p.workerRef(op)
 	if !ok {

@@ -23,6 +23,8 @@ type fakeServer struct {
 	reports   []report
 	notDone   map[string]int // id -> NOT_DONE answers left before success
 	endedOnce map[string]bool
+	// reportErr fails every Report (a report that does not reach the server).
+	reportErr error
 }
 
 func (s *fakeServer) Register(_ context.Context, r Registration) (RegisteredHost, error) {
@@ -51,6 +53,9 @@ func (s *fakeServer) Collect(context.Context) ([]Operation, error) {
 func (s *fakeServer) Report(_ context.Context, id, outcome, worktree, reason string) (Operation, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.reportErr != nil {
+		return Operation{}, s.reportErr
+	}
 	if outcome == Succeeded && s.notDone != nil {
 		if n, ok := s.notDone[id]; ok {
 			if n > 0 {
@@ -101,6 +106,8 @@ type fakeHost struct {
 	// entered is closed when Launch reaches it.
 	gate    chan struct{}
 	entered chan struct{}
+	// beforeLaunch, when set, runs as Launch is entered.
+	beforeLaunch func()
 }
 
 func (h *fakeHost) Occupied(context.Context, string) (string, error) {
@@ -138,6 +145,9 @@ func (h *fakeHost) RemoveWorktree(_ context.Context, path string) error {
 }
 
 func (h *fakeHost) Launch(_ context.Context, spec LaunchSpec) (Agent, error) {
+	if h.beforeLaunch != nil {
+		h.beforeLaunch()
+	}
 	if h.gate != nil {
 		if h.entered != nil {
 			close(h.entered)

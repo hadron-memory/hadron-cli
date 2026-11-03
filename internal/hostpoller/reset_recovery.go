@@ -1,6 +1,10 @@
 package hostpoller
 
-import "context"
+import (
+	"context"
+	"errors"
+	"syscall"
+)
 
 // recovery is one reset this host collected before a restart, with the
 // state the server holds for it now.
@@ -111,4 +115,153 @@ func decideRecovery(r ContextReset, oldAlive, newAlive bool) recoveryAction {
 		return recoveryAction{Kind: recoverReportFailed, Reason: reason}
 	}
 	return recoveryAction{Kind: recoverKeep}
+}
+
+// recoverReset finishes a reset this host collected before a restart, from
+// the phase the server holds now (#1043, step 5). It never signals a
+// process and retries no step. The record is dropped only once the
+// operation's final report reaches the server; anything unproven (a read
+// or step that failed in transport, a report that did not arrive) keeps
+// it, and the re-delivered operation reads the phase again.
+func (p *Poller) recoverReset(ctx context.Context, op Operation, rec ResetRecord) {
+	r, err := p.resets.ReadReset(ctx, rec.ResetID)
+	switch code := ResetStepCode(err); {
+	case err == nil:
+	case code == "CONTEXT_RESET_NOT_FOUND" || code == "HOST_OPERATION_NOT_COLLECTED":
+		p.dropResetRecord(rec.ResetID)
+		return
+	default:
+		p.log("reset-recovery", op.ID, op.Type, "", "reading the reset failed: "+err.Error())
+		return
+	}
+	oldAlive, oldKnown := p.processAlive(rec.Old)
+	newAlive := false
+	if rec.New != nil {
+		newAlive, _ = p.processAlive(*rec.New) // alive only when proven
+	}
+	act := decideRecovery(r, oldAlive || !oldKnown, newAlive) // unknown old counts as alive
+	if act.Provisional {
+		p.log("reset-recovery", op.ID, op.Type, "", "phase "+r.Phase+": provisional row (hadron-cli#1043 comment 6593190456)")
+	}
+	// A live reset's epoch is the claim's: a cancellation moves it only by
+	// ending the reset, and an ended phase takes no step here.
+	epoch := r.Epoch
+	switch act.Kind {
+	case recoverKeep:
+		p.log("reset-recovery", op.ID, op.Type, "", "phase "+r.Phase+" is unknown to this host; kept")
+	case recoverReportSucceeded:
+		p.endRecovery(ctx, op, rec.ResetID, Succeeded, "")
+	case recoverReportFailed:
+		p.endRecovery(ctx, op, rec.ResetID, Failed, act.Reason+": after a host restart, at phase "+r.Phase)
+	case recoverRelaunchFailed:
+		p.recoveryRelaunchFailed(ctx, op, rec.ResetID, epoch, act.Reason, "after a host restart, at phase "+r.Phase)
+	case recoverStoppedThenRelaunch:
+		// Lateness is unknowable after a restart: 0 omits lateStopMs.
+		if !p.recoveryStep(ctx, op, rec.ResetID, "RELAUNCH_UNVERIFIED", func() (ResetStep, error) {
+			return p.resets.ReportResetAgentStopped(ctx, rec.ResetID, epoch, 0)
+		}) {
+			return
+		}
+		p.recoverRelaunch(ctx, op, rec, epoch)
+	case recoverRelaunch:
+		p.recoverRelaunch(ctx, op, rec, epoch)
+	}
+}
+
+// recoverRelaunch starts the worker's agent again for a recovered reset
+// whose old agent is gone. A relaunch already begun before the restart is
+// never started again: two agents in one worktree are worse than a failed
+// reset.
+func (p *Poller) recoverRelaunch(ctx context.Context, op Operation, rec ResetRecord, epoch int) {
+	_, w, ok := p.workerRef(op)
+	token, hasTree := p.agentWorktree(rec.WorkerID)
+	switch {
+	case rec.Relaunching:
+		p.recoveryRelaunchFailed(ctx, op, rec.ResetID, epoch, "RELAUNCH_UNVERIFIED", "a relaunch had begun before the host restarted")
+		return
+	case !ok || !hasTree:
+		p.recoveryRelaunchFailed(ctx, op, rec.ResetID, epoch, "RELAUNCH_BLOCKED", "the worker or its worktree is no longer configured on this host")
+		return
+	case rec.Checkpoint == "":
+		p.recoveryRelaunchFailed(ctx, op, rec.ResetID, epoch, "RELAUNCH_BLOCKED", "no checkpoint was recorded for the relaunched agent")
+		return
+	}
+	if err := p.state.updateReset(rec.ResetID, func(r *ResetRecord) { r.Relaunching = true }); err != nil {
+		p.recoveryRelaunchFailed(ctx, op, rec.ResetID, epoch, "RELAUNCH_BLOCKED", "the relaunch could not be recorded: "+err.Error())
+		return
+	}
+	id, code, detail := p.relaunchAgent(ctx, op, w, token, rec.Old, rec.Checkpoint)
+	if code != "" {
+		p.recoveryRelaunchFailed(ctx, op, rec.ResetID, epoch, code, detail)
+		return
+	}
+	if err := p.state.updateReset(rec.ResetID, func(r *ResetRecord) { r.New = &id }); err != nil {
+		p.log("state-failed", op.ID, op.Type, "", err.Error())
+	}
+	if !p.recoveryStep(ctx, op, rec.ResetID, "RELAUNCH_UNVERIFIED", func() (ResetStep, error) {
+		return p.resets.ReportResetRelaunched(ctx, rec.ResetID, epoch, id)
+	}) {
+		return
+	}
+	p.endRecovery(ctx, op, rec.ResetID, Succeeded, "")
+}
+
+// recoveryRelaunchFailed sends relaunchFailed(reason), then reports the
+// operation FAILED with it.
+func (p *Poller) recoveryRelaunchFailed(ctx context.Context, op Operation, resetID string, epoch int, reason, detail string) {
+	if !p.recoveryStep(ctx, op, resetID, reason, func() (ResetStep, error) {
+		return p.resets.ReportResetRelaunchFailed(ctx, resetID, epoch, reason)
+	}) {
+		return
+	}
+	p.endRecovery(ctx, op, resetID, Failed, reason+": "+detail)
+}
+
+// recoveryStep makes one protocol step during recovery and says whether to
+// go on. A step that ended the reset, or that the server rejected with a
+// typed code, ends recovery with a FAILED report (failReason, or the
+// server's refusal); a transport failure proves nothing and keeps the
+// record without a report.
+func (p *Poller) recoveryStep(ctx context.Context, op Operation, resetID, failReason string, step func() (ResetStep, error)) bool {
+	res, err := step()
+	switch {
+	case err != nil && ResetStepCode(err) == "":
+		p.log("reset-recovery", op.ID, op.Type, "", "a step failed in transport; kept: "+err.Error())
+		return false
+	case err != nil:
+		p.endRecovery(ctx, op, resetID, Failed, failReason+": the server rejected a recovery step: "+err.Error())
+		return false
+	case res.Refused != "":
+		p.endRecovery(ctx, op, resetID, Failed, res.Refused+": the server ended the reset during recovery")
+		return false
+	}
+	return true
+}
+
+// endRecovery reports the operation's outcome and drops the record once
+// the report reached the server.
+func (p *Poller) endRecovery(ctx context.Context, op Operation, resetID, outcome, reason string) {
+	if _, err := p.report(ctx, op, outcome, "", reason); err != nil {
+		return
+	}
+	p.dropResetRecord(resetID)
+}
+
+func (p *Poller) dropResetRecord(id string) {
+	if err := p.state.dropReset(id); err != nil {
+		p.log("state-failed", "", "", "", err.Error())
+	}
+}
+
+// processAlive says whether the recorded process is still that process
+// (same pid and start time) and whether that is known: only ESRCH or a
+// different start time proves it gone; any other failure to observe it is
+// unknown, which each caller resolves to its own safe side.
+func (p *Poller) processAlive(id ProcessIdentity) (alive, known bool) {
+	h, err := p.resetDeps.Proc.Observe(id.PID)
+	if err != nil {
+		return false, errors.Is(err, syscall.ESRCH)
+	}
+	defer h.Close()
+	return h.Identity() == id, true
 }
