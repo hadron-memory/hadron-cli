@@ -49,8 +49,12 @@ type run1592 struct {
 	// appearOn writes a complete binding at the fake server's URL into an
 	// unbound worktree as that operation arrives (Gizelle, BLIND P2).
 	appearOn string
+	// appearCorrupt makes what appears unparseable bytes instead.
+	appearCorrupt bool
 	// noWorktree runs outside any git worktree (the real `git rev-parse`).
 	noWorktree bool
+	// corrupt replaces the bound binding file with unparseable bytes.
+	corrupt bool
 }
 
 func (o run1592) exec(t *testing.T, args ...string) (*[]attnCall, keyRun) {
@@ -75,7 +79,13 @@ func (o run1592) exec(t *testing.T, args ...string) (*[]attnCall, keyRun) {
 	if o.appearOn != "" {
 		hook = func(op string) {
 			if op == o.appearOn {
-				writeTeamBindingIn(t, os.Getenv(team.GitDirEnv), srvURL)
+				if o.appearCorrupt {
+					if err := os.WriteFile(filepath.Join(os.Getenv(team.GitDirEnv), "hadron-team-session.json"), []byte("{not json"), 0o600); err != nil {
+						t.Error(err)
+					}
+				} else {
+					writeTeamBindingIn(t, os.Getenv(team.GitDirEnv), srvURL)
+				}
 			}
 			if o.onOp != nil {
 				o.onOp(op)
@@ -88,6 +98,12 @@ func (o run1592) exec(t *testing.T, args ...string) (*[]attnCall, keyRun) {
 		setTeamBindingServer(t, srv.URL)
 		if o.mutate != nil {
 			rewriteBinding1592(t, o.mutate)
+		}
+		if o.corrupt {
+			p := filepath.Join(os.Getenv(team.GitDirEnv), "hadron-team-session.json")
+			if err := os.WriteFile(p, []byte("{not json"), 0o600); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
 	f, out := testFactory(t)
@@ -371,6 +387,27 @@ func TestInstructionBindingAppearsDuringLookup1592(t *testing.T) {
 		wantOnlyWriteSession(t, calls, cmd.op, "")
 		if !strings.Contains(r.errOut, "appeared") {
 			t.Fatalf("%s: want the not-used note, got %q", cmd.op, r.errOut)
+		}
+	}
+}
+
+// Rodolfo §10 P3 @45626ad1: a binding missing only its session id, or one
+// that can't be read, refuses an instructed update (exit 2, no write) rather
+// than sending it as the person.
+func TestInstructionUpdateRefusesUnusableBinding1592(t *testing.T) {
+	for name, o := range map[string]run1592{
+		"no session id": {bound: true, mutate: func(b map[string]any) { delete(b, "sessionId") }},
+		"unreadable":    {bound: true, corrupt: true},
+		// unbound at the snapshot, unreadable at send time: never the person.
+		"appears unreadable": {appearOn: "GetWorker", appearCorrupt: true},
+	} {
+		calls, r := o.exec(t, updateArgs1592(irisURN1592, "--instruction", instrTask1592)...)
+		if exitCodeFor(r.err) != 2 || len(writes1592(calls, instructedUpd)) != 0 {
+			t.Fatalf("%s: want exit 2, no write; exit %d calls %+v", name, exitCodeFor(r.err), *calls)
+		}
+		want := map[string]string{"no session id": "incomplete", "unreadable": "can't be read", "appears unreadable": "appeared"}[name]
+		if !strings.Contains(r.errOut, want) {
+			t.Fatalf("%s: refusal should say %q, got %q", name, want, r.errOut)
 		}
 	}
 }

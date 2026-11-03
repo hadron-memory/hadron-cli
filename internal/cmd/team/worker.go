@@ -2002,7 +2002,7 @@ binding. From a worktree bound to a worker the edit goes through that
 worker's session, never as the person behind it: without --instruction it is
 refused (exit 8); with --instruction it is admitted when the worker's holder
 manages the App. A binding that is incomplete, for another server, or for an
-App other than the worker's refuses before anything is sent (exit 2).
+App other than the worker's refuses before any write (exit 2).
 
 ` + instructionHelp + `
 
