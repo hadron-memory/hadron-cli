@@ -18247,6 +18247,11 @@ func (v *CastWorkerCastWorker) GetReportsTo() *WorkerFieldsReportsToWorker {
 // GetReportsToRetired returns CastWorkerCastWorker.ReportsToRetired, and is useful for accessing the field via an interface.
 func (v *CastWorkerCastWorker) GetReportsToRetired() bool { return v.WorkerFields.ReportsToRetired }
 
+// GetTeamPlacement returns CastWorkerCastWorker.TeamPlacement, and is useful for accessing the field via an interface.
+func (v *CastWorkerCastWorker) GetTeamPlacement() *WorkerTeamPlacement {
+	return v.WorkerFields.TeamPlacement
+}
+
 // GetRole returns CastWorkerCastWorker.Role, and is useful for accessing the field via an interface.
 func (v *CastWorkerCastWorker) GetRole() *string { return v.WorkerFields.Role }
 
@@ -18349,6 +18354,8 @@ type __premarshalCastWorkerCastWorker struct {
 
 	ReportsToRetired bool `json:"reportsToRetired"`
 
+	TeamPlacement *WorkerTeamPlacement `json:"teamPlacement"`
+
 	Role *string `json:"role"`
 
 	Prompt *string `json:"prompt"`
@@ -18406,6 +18413,7 @@ func (v *CastWorkerCastWorker) __premarshalJSON() (*__premarshalCastWorkerCastWo
 	retval.Name = v.WorkerFields.Name
 	retval.ReportsTo = v.WorkerFields.ReportsTo
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
+	retval.TeamPlacement = v.WorkerFields.TeamPlacement
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.Signature = v.WorkerFields.Signature
@@ -18445,7 +18453,9 @@ type CastWorkerPreviewCastWorkerPreview struct {
 	// The boot prompt a bind of this casting would be served now, with the
 	// name and role filled — reviewable BEFORE the name is permanent. Null when
 	// no prompt can be served yet (no worker pointer exists before the cast).
-	Prompt *string `json:"prompt"`
+	Prompt            *string             `json:"prompt"`
+	TeamPlacement     WorkerTeamPlacement `json:"teamPlacement"`
+	ReportsToWorkerId *string             `json:"reportsToWorkerId"`
 }
 
 // GetName returns CastWorkerPreviewCastWorkerPreview.Name, and is useful for accessing the field via an interface.
@@ -18462,6 +18472,16 @@ func (v *CastWorkerPreviewCastWorkerPreview) GetAgentName() string { return v.Ag
 
 // GetPrompt returns CastWorkerPreviewCastWorkerPreview.Prompt, and is useful for accessing the field via an interface.
 func (v *CastWorkerPreviewCastWorkerPreview) GetPrompt() *string { return v.Prompt }
+
+// GetTeamPlacement returns CastWorkerPreviewCastWorkerPreview.TeamPlacement, and is useful for accessing the field via an interface.
+func (v *CastWorkerPreviewCastWorkerPreview) GetTeamPlacement() WorkerTeamPlacement {
+	return v.TeamPlacement
+}
+
+// GetReportsToWorkerId returns CastWorkerPreviewCastWorkerPreview.ReportsToWorkerId, and is useful for accessing the field via an interface.
+func (v *CastWorkerPreviewCastWorkerPreview) GetReportsToWorkerId() *string {
+	return v.ReportsToWorkerId
+}
 
 // CastWorkerPreviewResponse is returned by CastWorkerPreview on success.
 type CastWorkerPreviewResponse struct {
@@ -18603,6 +18623,11 @@ func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetReportsToRetired() bool {
 	return v.WorkerFields.ReportsToRetired
 }
 
+// GetTeamPlacement returns ChangeWorkerAgentChangeWorkerAgentWorker.TeamPlacement, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetTeamPlacement() *WorkerTeamPlacement {
+	return v.WorkerFields.TeamPlacement
+}
+
 // GetRole returns ChangeWorkerAgentChangeWorkerAgentWorker.Role, and is useful for accessing the field via an interface.
 func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetRole() *string { return v.WorkerFields.Role }
 
@@ -18727,6 +18752,8 @@ type __premarshalChangeWorkerAgentChangeWorkerAgentWorker struct {
 
 	ReportsToRetired bool `json:"reportsToRetired"`
 
+	TeamPlacement *WorkerTeamPlacement `json:"teamPlacement"`
+
 	Role *string `json:"role"`
 
 	Prompt *string `json:"prompt"`
@@ -18784,6 +18811,7 @@ func (v *ChangeWorkerAgentChangeWorkerAgentWorker) __premarshalJSON() (*__premar
 	retval.Name = v.WorkerFields.Name
 	retval.ReportsTo = v.WorkerFields.ReportsTo
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
+	retval.TeamPlacement = v.WorkerFields.TeamPlacement
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.Signature = v.WorkerFields.Signature
@@ -42208,6 +42236,11 @@ func (v *GetWorkerInAppWorker) GetReportsTo() *WorkerFieldsReportsToWorker {
 // GetReportsToRetired returns GetWorkerInAppWorker.ReportsToRetired, and is useful for accessing the field via an interface.
 func (v *GetWorkerInAppWorker) GetReportsToRetired() bool { return v.WorkerFields.ReportsToRetired }
 
+// GetTeamPlacement returns GetWorkerInAppWorker.TeamPlacement, and is useful for accessing the field via an interface.
+func (v *GetWorkerInAppWorker) GetTeamPlacement() *WorkerTeamPlacement {
+	return v.WorkerFields.TeamPlacement
+}
+
 // GetRole returns GetWorkerInAppWorker.Role, and is useful for accessing the field via an interface.
 func (v *GetWorkerInAppWorker) GetRole() *string { return v.WorkerFields.Role }
 
@@ -42310,6 +42343,8 @@ type __premarshalGetWorkerInAppWorker struct {
 
 	ReportsToRetired bool `json:"reportsToRetired"`
 
+	TeamPlacement *WorkerTeamPlacement `json:"teamPlacement"`
+
 	Role *string `json:"role"`
 
 	Prompt *string `json:"prompt"`
@@ -42367,6 +42402,7 @@ func (v *GetWorkerInAppWorker) __premarshalJSON() (*__premarshalGetWorkerInAppWo
 	retval.Name = v.WorkerFields.Name
 	retval.ReportsTo = v.WorkerFields.ReportsTo
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
+	retval.TeamPlacement = v.WorkerFields.TeamPlacement
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.Signature = v.WorkerFields.Signature
@@ -42791,6 +42827,11 @@ func (v *GetWorkerWorker) GetReportsTo() *WorkerFieldsReportsToWorker {
 // GetReportsToRetired returns GetWorkerWorker.ReportsToRetired, and is useful for accessing the field via an interface.
 func (v *GetWorkerWorker) GetReportsToRetired() bool { return v.WorkerFields.ReportsToRetired }
 
+// GetTeamPlacement returns GetWorkerWorker.TeamPlacement, and is useful for accessing the field via an interface.
+func (v *GetWorkerWorker) GetTeamPlacement() *WorkerTeamPlacement {
+	return v.WorkerFields.TeamPlacement
+}
+
 // GetRole returns GetWorkerWorker.Role, and is useful for accessing the field via an interface.
 func (v *GetWorkerWorker) GetRole() *string { return v.WorkerFields.Role }
 
@@ -42893,6 +42934,8 @@ type __premarshalGetWorkerWorker struct {
 
 	ReportsToRetired bool `json:"reportsToRetired"`
 
+	TeamPlacement *WorkerTeamPlacement `json:"teamPlacement"`
+
 	Role *string `json:"role"`
 
 	Prompt *string `json:"prompt"`
@@ -42950,6 +42993,7 @@ func (v *GetWorkerWorker) __premarshalJSON() (*__premarshalGetWorkerWorker, erro
 	retval.Name = v.WorkerFields.Name
 	retval.ReportsTo = v.WorkerFields.ReportsTo
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
+	retval.TeamPlacement = v.WorkerFields.TeamPlacement
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.Signature = v.WorkerFields.Signature
@@ -58908,6 +58952,11 @@ func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetReportsToRetir
 	return v.WorkerFields.ReportsToRetired
 }
 
+// GetTeamPlacement returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.TeamPlacement, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetTeamPlacement() *WorkerTeamPlacement {
+	return v.WorkerFields.TeamPlacement
+}
+
 // GetRole returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.Role, and is useful for accessing the field via an interface.
 func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetRole() *string {
 	return v.WorkerFields.Role
@@ -59042,6 +59091,8 @@ type __premarshalReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker struct {
 
 	ReportsToRetired bool `json:"reportsToRetired"`
 
+	TeamPlacement *WorkerTeamPlacement `json:"teamPlacement"`
+
 	Role *string `json:"role"`
 
 	Prompt *string `json:"prompt"`
@@ -59099,6 +59150,7 @@ func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) __premarshalJSON(
 	retval.Name = v.WorkerFields.Name
 	retval.ReportsTo = v.WorkerFields.ReportsTo
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
+	retval.TeamPlacement = v.WorkerFields.TeamPlacement
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.Signature = v.WorkerFields.Signature
@@ -61797,6 +61849,11 @@ func (v *RetireWorkerRetireWorker) GetReportsTo() *WorkerFieldsReportsToWorker {
 // GetReportsToRetired returns RetireWorkerRetireWorker.ReportsToRetired, and is useful for accessing the field via an interface.
 func (v *RetireWorkerRetireWorker) GetReportsToRetired() bool { return v.WorkerFields.ReportsToRetired }
 
+// GetTeamPlacement returns RetireWorkerRetireWorker.TeamPlacement, and is useful for accessing the field via an interface.
+func (v *RetireWorkerRetireWorker) GetTeamPlacement() *WorkerTeamPlacement {
+	return v.WorkerFields.TeamPlacement
+}
+
 // GetRole returns RetireWorkerRetireWorker.Role, and is useful for accessing the field via an interface.
 func (v *RetireWorkerRetireWorker) GetRole() *string { return v.WorkerFields.Role }
 
@@ -61899,6 +61956,8 @@ type __premarshalRetireWorkerRetireWorker struct {
 
 	ReportsToRetired bool `json:"reportsToRetired"`
 
+	TeamPlacement *WorkerTeamPlacement `json:"teamPlacement"`
+
 	Role *string `json:"role"`
 
 	Prompt *string `json:"prompt"`
@@ -61956,6 +62015,7 @@ func (v *RetireWorkerRetireWorker) __premarshalJSON() (*__premarshalRetireWorker
 	retval.Name = v.WorkerFields.Name
 	retval.ReportsTo = v.WorkerFields.ReportsTo
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
+	retval.TeamPlacement = v.WorkerFields.TeamPlacement
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.Signature = v.WorkerFields.Signature
@@ -67955,6 +68015,11 @@ func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetReportsToRetired() boo
 	return v.WorkerFields.ReportsToRetired
 }
 
+// GetTeamPlacement returns SetWorkerBootPromptSetWorkerBootPromptWorker.TeamPlacement, and is useful for accessing the field via an interface.
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetTeamPlacement() *WorkerTeamPlacement {
+	return v.WorkerFields.TeamPlacement
+}
+
 // GetRole returns SetWorkerBootPromptSetWorkerBootPromptWorker.Role, and is useful for accessing the field via an interface.
 func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetRole() *string { return v.WorkerFields.Role }
 
@@ -68087,6 +68152,8 @@ type __premarshalSetWorkerBootPromptSetWorkerBootPromptWorker struct {
 
 	ReportsToRetired bool `json:"reportsToRetired"`
 
+	TeamPlacement *WorkerTeamPlacement `json:"teamPlacement"`
+
 	Role *string `json:"role"`
 
 	Prompt *string `json:"prompt"`
@@ -68144,6 +68211,7 @@ func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) __premarshalJSON() (*__pr
 	retval.Name = v.WorkerFields.Name
 	retval.ReportsTo = v.WorkerFields.ReportsTo
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
+	retval.TeamPlacement = v.WorkerFields.TeamPlacement
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.Signature = v.WorkerFields.Signature
@@ -68232,6 +68300,11 @@ func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetReportsTo() *WorkerField
 // GetReportsToRetired returns SetWorkerReportsToSetWorkerReportsToWorker.ReportsToRetired, and is useful for accessing the field via an interface.
 func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetReportsToRetired() bool {
 	return v.WorkerFields.ReportsToRetired
+}
+
+// GetTeamPlacement returns SetWorkerReportsToSetWorkerReportsToWorker.TeamPlacement, and is useful for accessing the field via an interface.
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetTeamPlacement() *WorkerTeamPlacement {
+	return v.WorkerFields.TeamPlacement
 }
 
 // GetRole returns SetWorkerReportsToSetWorkerReportsToWorker.Role, and is useful for accessing the field via an interface.
@@ -68364,6 +68437,8 @@ type __premarshalSetWorkerReportsToSetWorkerReportsToWorker struct {
 
 	ReportsToRetired bool `json:"reportsToRetired"`
 
+	TeamPlacement *WorkerTeamPlacement `json:"teamPlacement"`
+
 	Role *string `json:"role"`
 
 	Prompt *string `json:"prompt"`
@@ -68421,6 +68496,7 @@ func (v *SetWorkerReportsToSetWorkerReportsToWorker) __premarshalJSON() (*__prem
 	retval.Name = v.WorkerFields.Name
 	retval.ReportsTo = v.WorkerFields.ReportsTo
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
+	retval.TeamPlacement = v.WorkerFields.TeamPlacement
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.Signature = v.WorkerFields.Signature
@@ -85807,6 +85883,11 @@ func (v *UpdateWorkerSigningUpdateWorker) GetReportsToRetired() bool {
 	return v.WorkerFields.ReportsToRetired
 }
 
+// GetTeamPlacement returns UpdateWorkerSigningUpdateWorker.TeamPlacement, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningUpdateWorker) GetTeamPlacement() *WorkerTeamPlacement {
+	return v.WorkerFields.TeamPlacement
+}
+
 // GetRole returns UpdateWorkerSigningUpdateWorker.Role, and is useful for accessing the field via an interface.
 func (v *UpdateWorkerSigningUpdateWorker) GetRole() *string { return v.WorkerFields.Role }
 
@@ -85917,6 +85998,8 @@ type __premarshalUpdateWorkerSigningUpdateWorker struct {
 
 	ReportsToRetired bool `json:"reportsToRetired"`
 
+	TeamPlacement *WorkerTeamPlacement `json:"teamPlacement"`
+
 	Role *string `json:"role"`
 
 	Prompt *string `json:"prompt"`
@@ -85974,6 +86057,7 @@ func (v *UpdateWorkerSigningUpdateWorker) __premarshalJSON() (*__premarshalUpdat
 	retval.Name = v.WorkerFields.Name
 	retval.ReportsTo = v.WorkerFields.ReportsTo
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
+	retval.TeamPlacement = v.WorkerFields.TeamPlacement
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.Signature = v.WorkerFields.Signature
@@ -87485,6 +87569,8 @@ type WorkerFields struct {
 	ReportsTo *WorkerFieldsReportsToWorker `json:"reportsTo"`
 	// #1726 — true when this worker reports to a worker that has since retired (a stale claim nothing clears automatically).
 	ReportsToRetired bool `json:"reportsToRetired"`
+	// Recorded reporting choice: REPORTS_TO means a reporting head was chosen, NO_TEAM records a choice to have none, and UNSET means no choice was recorded. Null means the value is withheld.
+	TeamPlacement *WorkerTeamPlacement `json:"teamPlacement"`
 	// The cast-list role this filling answers ('backend-engineer').
 	Role *string `json:"role"`
 	// The worker's boot prompt: the approved revision of the compiled boot
@@ -87622,6 +87708,9 @@ func (v *WorkerFields) GetReportsTo() *WorkerFieldsReportsToWorker { return v.Re
 
 // GetReportsToRetired returns WorkerFields.ReportsToRetired, and is useful for accessing the field via an interface.
 func (v *WorkerFields) GetReportsToRetired() bool { return v.ReportsToRetired }
+
+// GetTeamPlacement returns WorkerFields.TeamPlacement, and is useful for accessing the field via an interface.
+func (v *WorkerFields) GetTeamPlacement() *WorkerTeamPlacement { return v.TeamPlacement }
 
 // GetRole returns WorkerFields.Role, and is useful for accessing the field via an interface.
 func (v *WorkerFields) GetRole() *string { return v.Role }
@@ -88123,6 +88212,8 @@ type WorkerRosterFields struct {
 	ReportsTo *WorkerRosterFieldsReportsToWorker `json:"reportsTo"`
 	// #1726 — true when this worker reports to a worker that has since retired (a stale claim nothing clears automatically).
 	ReportsToRetired bool `json:"reportsToRetired"`
+	// Recorded reporting choice: REPORTS_TO means a reporting head was chosen, NO_TEAM records a choice to have none, and UNSET means no choice was recorded. Null means the value is withheld.
+	TeamPlacement *WorkerTeamPlacement `json:"teamPlacement"`
 	// The cast-list role this filling answers ('backend-engineer').
 	Role *string `json:"role"`
 	// #1024 — the repo affinity of this worker's ROLE, resolved so a client that
@@ -88252,6 +88343,9 @@ func (v *WorkerRosterFields) GetReportsTo() *WorkerRosterFieldsReportsToWorker {
 
 // GetReportsToRetired returns WorkerRosterFields.ReportsToRetired, and is useful for accessing the field via an interface.
 func (v *WorkerRosterFields) GetReportsToRetired() bool { return v.ReportsToRetired }
+
+// GetTeamPlacement returns WorkerRosterFields.TeamPlacement, and is useful for accessing the field via an interface.
+func (v *WorkerRosterFields) GetTeamPlacement() *WorkerTeamPlacement { return v.TeamPlacement }
 
 // GetRole returns WorkerRosterFields.Role, and is useful for accessing the field via an interface.
 func (v *WorkerRosterFields) GetRole() *string { return v.Role }
@@ -88561,6 +88655,20 @@ func (v *WorkerServedPromptWorkerServedPrompt) __premarshalJSON() (*__premarshal
 	retval.Pruned = v.ServedPromptRecord.Pruned
 	retval.Provenance = v.ServedPromptRecord.Provenance
 	return &retval, nil
+}
+
+type WorkerTeamPlacement string
+
+const (
+	WorkerTeamPlacementNoTeam    WorkerTeamPlacement = "NO_TEAM"
+	WorkerTeamPlacementReportsTo WorkerTeamPlacement = "REPORTS_TO"
+	WorkerTeamPlacementUnset     WorkerTeamPlacement = "UNSET"
+)
+
+var AllWorkerTeamPlacement = []WorkerTeamPlacement{
+	WorkerTeamPlacementNoTeam,
+	WorkerTeamPlacementReportsTo,
+	WorkerTeamPlacementUnset,
 }
 
 // hadron-server#2771 / cli#1375: a worker's latest terminal report. A fragment so
@@ -89215,6 +89323,11 @@ func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetReportsToRetired() bool 
 	return v.WorkerRosterFields.ReportsToRetired
 }
 
+// GetTeamPlacement returns WorkersRosterWorkersWorkersPageItemsWorker.TeamPlacement, and is useful for accessing the field via an interface.
+func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetTeamPlacement() *WorkerTeamPlacement {
+	return v.WorkerRosterFields.TeamPlacement
+}
+
 // GetRole returns WorkersRosterWorkersWorkersPageItemsWorker.Role, and is useful for accessing the field via an interface.
 func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetRole() *string {
 	return v.WorkerRosterFields.Role
@@ -89334,6 +89447,8 @@ type __premarshalWorkersRosterWorkersWorkersPageItemsWorker struct {
 
 	ReportsToRetired bool `json:"reportsToRetired"`
 
+	TeamPlacement *WorkerTeamPlacement `json:"teamPlacement"`
+
 	Role *string `json:"role"`
 
 	Repos []string `json:"repos"`
@@ -89385,6 +89500,7 @@ func (v *WorkersRosterWorkersWorkersPageItemsWorker) __premarshalJSON() (*__prem
 	retval.Name = v.WorkerRosterFields.Name
 	retval.ReportsTo = v.WorkerRosterFields.ReportsTo
 	retval.ReportsToRetired = v.WorkerRosterFields.ReportsToRetired
+	retval.TeamPlacement = v.WorkerRosterFields.TeamPlacement
 	retval.Role = v.WorkerRosterFields.Role
 	retval.Repos = v.WorkerRosterFields.Repos
 	retval.MemoryId = v.WorkerRosterFields.MemoryId
@@ -90774,10 +90890,12 @@ func (v *__CancelAppRunInput) GetId() string { return v.Id }
 
 // __CastWorkerInput is used internally by genqlient
 type __CastWorkerInput struct {
-	AppRef   string  `json:"appRef"`
-	AgentRef *string `json:"agentRef,omitempty"`
-	Role     *string `json:"role,omitempty"`
-	Name     *string `json:"name,omitempty"`
+	AppRef    string  `json:"appRef"`
+	AgentRef  *string `json:"agentRef,omitempty"`
+	Role      *string `json:"role,omitempty"`
+	Name      *string `json:"name,omitempty"`
+	ReportsTo *string `json:"reportsTo,omitempty"`
+	NoTeam    *bool   `json:"noTeam,omitempty"`
 }
 
 // GetAppRef returns __CastWorkerInput.AppRef, and is useful for accessing the field via an interface.
@@ -90792,12 +90910,20 @@ func (v *__CastWorkerInput) GetRole() *string { return v.Role }
 // GetName returns __CastWorkerInput.Name, and is useful for accessing the field via an interface.
 func (v *__CastWorkerInput) GetName() *string { return v.Name }
 
+// GetReportsTo returns __CastWorkerInput.ReportsTo, and is useful for accessing the field via an interface.
+func (v *__CastWorkerInput) GetReportsTo() *string { return v.ReportsTo }
+
+// GetNoTeam returns __CastWorkerInput.NoTeam, and is useful for accessing the field via an interface.
+func (v *__CastWorkerInput) GetNoTeam() *bool { return v.NoTeam }
+
 // __CastWorkerPreviewInput is used internally by genqlient
 type __CastWorkerPreviewInput struct {
-	AppRef   string  `json:"appRef"`
-	AgentRef *string `json:"agentRef,omitempty"`
-	Role     *string `json:"role,omitempty"`
-	Name     *string `json:"name,omitempty"`
+	AppRef    string  `json:"appRef"`
+	AgentRef  *string `json:"agentRef,omitempty"`
+	Role      *string `json:"role,omitempty"`
+	Name      *string `json:"name,omitempty"`
+	ReportsTo *string `json:"reportsTo,omitempty"`
+	NoTeam    *bool   `json:"noTeam,omitempty"`
 }
 
 // GetAppRef returns __CastWorkerPreviewInput.AppRef, and is useful for accessing the field via an interface.
@@ -90811,6 +90937,12 @@ func (v *__CastWorkerPreviewInput) GetRole() *string { return v.Role }
 
 // GetName returns __CastWorkerPreviewInput.Name, and is useful for accessing the field via an interface.
 func (v *__CastWorkerPreviewInput) GetName() *string { return v.Name }
+
+// GetReportsTo returns __CastWorkerPreviewInput.ReportsTo, and is useful for accessing the field via an interface.
+func (v *__CastWorkerPreviewInput) GetReportsTo() *string { return v.ReportsTo }
+
+// GetNoTeam returns __CastWorkerPreviewInput.NoTeam, and is useful for accessing the field via an interface.
+func (v *__CastWorkerPreviewInput) GetNoTeam() *bool { return v.NoTeam }
 
 // __ChangeWorkerAgentInput is used internally by genqlient
 type __ChangeWorkerAgentInput struct {
@@ -104066,8 +104198,8 @@ func CancelAppRun(
 
 // The mutation executed by CastWorker.
 const CastWorker_Operation = `
-mutation CastWorker ($appRef: ID!, $agentRef: ID, $role: String, $name: String) {
-	castWorker(appRef: $appRef, agentRef: $agentRef, role: $role, name: $name) {
+mutation CastWorker ($appRef: ID!, $agentRef: ID, $role: String, $name: String, $reportsTo: ID, $noTeam: Boolean) {
+	castWorker(appRef: $appRef, agentRef: $agentRef, role: $role, name: $name, reportsTo: $reportsTo, noTeam: $noTeam) {
 		... WorkerFields
 	}
 }
@@ -104083,6 +104215,7 @@ fragment WorkerFields on Worker {
 		... WorkerReportingRefFields
 	}
 	reportsToRetired
+	teamPlacement
 	role
 	prompt
 	signature
@@ -104136,15 +104269,19 @@ func CastWorker(
 	agentRef *string,
 	role *string,
 	name *string,
+	reportsTo *string,
+	noTeam *bool,
 ) (data_ *CastWorkerResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CastWorker",
 		Query:  CastWorker_Operation,
 		Variables: &__CastWorkerInput{
-			AppRef:   appRef,
-			AgentRef: agentRef,
-			Role:     role,
-			Name:     name,
+			AppRef:    appRef,
+			AgentRef:  agentRef,
+			Role:      role,
+			Name:      name,
+			ReportsTo: reportsTo,
+			NoTeam:    noTeam,
 		},
 	}
 
@@ -104162,13 +104299,15 @@ func CastWorker(
 
 // The query executed by CastWorkerPreview.
 const CastWorkerPreview_Operation = `
-query CastWorkerPreview ($appRef: ID!, $agentRef: ID, $role: String, $name: String) {
-	castWorkerPreview(appRef: $appRef, agentRef: $agentRef, role: $role, name: $name) {
+query CastWorkerPreview ($appRef: ID!, $agentRef: ID, $role: String, $name: String, $reportsTo: ID, $noTeam: Boolean) {
+	castWorkerPreview(appRef: $appRef, agentRef: $agentRef, role: $role, name: $name, reportsTo: $reportsTo, noTeam: $noTeam) {
 		name
 		role
 		agentId
 		agentName
 		prompt
+		teamPlacement
+		reportsToWorkerId
 	}
 }
 `
@@ -104187,15 +104326,19 @@ func CastWorkerPreview(
 	agentRef *string,
 	role *string,
 	name *string,
+	reportsTo *string,
+	noTeam *bool,
 ) (data_ *CastWorkerPreviewResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CastWorkerPreview",
 		Query:  CastWorkerPreview_Operation,
 		Variables: &__CastWorkerPreviewInput{
-			AppRef:   appRef,
-			AgentRef: agentRef,
-			Role:     role,
-			Name:     name,
+			AppRef:    appRef,
+			AgentRef:  agentRef,
+			Role:      role,
+			Name:      name,
+			ReportsTo: reportsTo,
+			NoTeam:    noTeam,
 		},
 	}
 
@@ -104230,6 +104373,7 @@ fragment WorkerFields on Worker {
 		... WorkerReportingRefFields
 	}
 	reportsToRetired
+	teamPlacement
 	role
 	prompt
 	signature
@@ -113271,6 +113415,7 @@ fragment WorkerFields on Worker {
 		... WorkerReportingRefFields
 	}
 	reportsToRetired
+	teamPlacement
 	role
 	prompt
 	signature
@@ -113438,6 +113583,7 @@ fragment WorkerFields on Worker {
 		... WorkerReportingRefFields
 	}
 	reportsToRetired
+	teamPlacement
 	role
 	prompt
 	signature
@@ -118995,6 +119141,7 @@ fragment WorkerFields on Worker {
 		... WorkerReportingRefFields
 	}
 	reportsToRetired
+	teamPlacement
 	role
 	prompt
 	signature
@@ -120154,6 +120301,7 @@ fragment WorkerFields on Worker {
 		... WorkerReportingRefFields
 	}
 	reportsToRetired
+	teamPlacement
 	role
 	prompt
 	signature
@@ -122457,6 +122605,7 @@ fragment WorkerFields on Worker {
 		... WorkerReportingRefFields
 	}
 	reportsToRetired
+	teamPlacement
 	role
 	prompt
 	signature
@@ -122538,6 +122687,7 @@ fragment WorkerFields on Worker {
 		... WorkerReportingRefFields
 	}
 	reportsToRetired
+	teamPlacement
 	role
 	prompt
 	signature
@@ -128642,6 +128792,7 @@ fragment WorkerFields on Worker {
 		... WorkerReportingRefFields
 	}
 	reportsToRetired
+	teamPlacement
 	role
 	prompt
 	signature
@@ -129637,6 +129788,7 @@ fragment WorkerRosterFields on Worker {
 		... WorkerReportingRefFields
 	}
 	reportsToRetired
+	teamPlacement
 	role
 	repos
 	memoryId
