@@ -4,59 +4,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
-	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/instruction"
 )
 
 // cli#1592 (hadron-server#3307, ruling 0096, cor:dmo:050:12): a bound
 // worker's claim that its holder told it to make this one change.
 
-const instructionFlagUsage = "the holder's instruction as <kind>:<ref>; kind is team-chat-message, task or live-chat, and ref is a reference (a team-chat message URN, a task URN, or an opaque client address), never the instruction's text. Needs server 17ef5905 or later"
+const instructionFlagUsage = instruction.FlagUsage
+const instructionHelp = instruction.Help
 
-// instructionHelp is the help paragraph both commands share.
-const instructionHelp = `--instruction <kind>:<ref> claims, for this one call, that the worker's
-holder told it to make the change. kind is team-chat-message, task or
-live-chat; ref is a reference to where the instruction was given (a
-team-chat message URN, a task URN, or an opaque client address), never its
-text. The CLI splits on the first colon only and sends the ref as written;
-it reads nothing it names. A worker bound to a holder who manages the App
-may make the change with it; the server records the worker, the holder and
-the reference, and the holder answers for the claim. The server checks the
-reference (a missing, unreadable or other-App one is refused, for a person
-too), never that an instruction really happened. A host-launched session is
-refused whatever it claims. The flag needs server 17ef5905 or later; an
-older server's refusal is passed through, never retried without it. The MCP
-tools take no instruction, so this is the way to make the call from a
-worktree.`
-
-var instructionKinds = map[string]gen.ActInstructionKind{
-	"team-chat-message": gen.ActInstructionKindTeamChatMessage,
-	"task":              gen.ActInstructionKindTask,
-	"live-chat":         gen.ActInstructionKindLiveChat,
-}
-
-// parseInstruction reads --instruction <kind>:<ref>. Only the shape is the
-// CLI's to check: the kind and a non-blank ref. The ref is everything after
-// the first colon, byte for byte (URNs and client addresses contain colons);
-// whether it names anything readable is the server's to judge.
-func parseInstruction(raw string) (*gen.ActInstructionInput, error) {
-	kind, ref, ok := strings.Cut(raw, ":")
-	if !ok {
-		return nil, exitcode.Newf(exitcode.Usage, "--instruction takes <kind>:<ref> (kind team-chat-message, task or live-chat), got %q", raw)
-	}
-	k, known := instructionKinds[kind]
-	if !known {
-		return nil, exitcode.Newf(exitcode.Usage, "--instruction kind %q is not one of team-chat-message, task, live-chat", kind)
-	}
-	if strings.TrimSpace(ref) == "" {
-		return nil, exitcode.Newf(exitcode.Usage, "--instruction %s: needs a reference after the colon", kind)
-	}
-	return &gen.ActInstructionInput{Kind: k, Ref: ref}, nil
-}
+var parseInstruction = instruction.Parse
 
 // instructionSnapshot is the worktree binding as it stood before the
 // command's first lookup, for an instructed write.
@@ -122,4 +83,35 @@ func instructionRefusal(snap instructionSnapshot, why string) error {
 	return exitcode.Newf(exitcode.Usage,
 		"%s, but %s, so this instructed edit can't go out through it; nothing was written. Run it in the worker's own worktree against its server, or from an unbound shell as yourself",
 		has, why)
+}
+
+type credentialInstructionSnapshotKey struct{}
+
+// CredentialInstructionContext verifies a complete same-server worktree binding
+// for an explicit credential instruction (Xanthos ruling #71555). It fails closed,
+// never borrowing the person's authority. Target-App authorization is server-owned
+// in the one credential request; no ambient App lookup is added.
+func CredentialInstructionContext(f *cmdutil.Factory) func(context.Context) (context.Context, error) {
+	return func(ctx context.Context) (context.Context, error) {
+		snap, captured := ctx.Value(credentialInstructionSnapshotKey{}).(instructionSnapshot)
+		if !captured {
+			snap = snapshotForInstruction(ctx)
+			ctx = context.WithValue(ctx, credentialInstructionSnapshotKey{}, snap)
+		}
+		if snap.b == nil && snap.err == nil {
+			return ctx, exitcode.Newf(exitcode.Usage, "--instruction needs a complete worker-session binding; nothing was sent. Run from the worker's own worktree, or omit the flag to act as yourself")
+		}
+		target := ""
+		if snap.b != nil {
+			target = snap.b.AppID
+		}
+		session, why, err := instructedSession(ctx, f, snap, target)
+		if err != nil {
+			return ctx, err
+		}
+		if why != "" || session == "" {
+			return ctx, exitcode.Newf(exitcode.Usage, "--instruction cannot verify this worker-session binding (%s); nothing was sent. Run from the worker's own worktree against its server, or omit --instruction to act as yourself", why)
+		}
+		return api.WithSession(ctx, session), nil
+	}
 }

@@ -213,6 +213,7 @@ mutation SetAppProperties(
 # cli#1057: manager-authorized, active-only metadata inventory. No raw key,
 # nested App.keys, host usage, or scope mutations.
 query AppKeysMetadata($appRef: ID!) {
+ # @genqlient(typename: "AppKeysMetadataRows1595")
   appKeys(appRef: $appRef) {
     id
     keyPreview
@@ -307,6 +308,7 @@ mutation CreateAppKey(
 # each key holds. Separate operations from AppKeysMetadata so the default
 # listing keeps #1057's metadata-only selection (no scopes, no host uses).
 query AppKeysScopes($appRef: ID!) {
+ # @genqlient(typename: "AppKeysScopesRows1595")
   appKeys(appRef: $appRef) {
     id
     keyPreview
@@ -326,6 +328,7 @@ query AppKeysScopes($appRef: ID!) {
 # cli#1333 — `app key list --scopes --host-uses N`: adds each key's newest N
 # host uses (cor:agt:070:07). N is always sent here, so no omitempty.
 query AppKeysScopesHostUses($appRef: ID!, $first: Int!) {
+ # @genqlient(typename: "AppKeysScopesHostUsesRows1595")
   appKeys(appRef: $appRef) {
     id
     keyPreview
@@ -367,4 +370,65 @@ mutation RegenerateAppKey($appRef: ID!) {
       name
     }
   }
+}
+
+# cli#1595: explicitly instructed documents; legacy operations stay byte-identical.
+query AppKeysMetadataInstructed($appRef: ID!, $instruction: ActInstructionInput!) {
+ # @genqlient(typename: "AppKeysMetadataRows1595")
+  appKeys(appRef: $appRef, instruction: $instruction) {
+    id
+    keyPreview
+    label
+    createdAt
+    lastUsedAt
+    revokedAt
+  }
+}
+
+query AppKeysScopesInstructed($appRef: ID!, $instruction: ActInstructionInput!) {
+ # @genqlient(typename: "AppKeysScopesRows1595")
+  appKeys(appRef: $appRef, instruction: $instruction) {
+    id
+    keyPreview
+    label
+    createdAt
+    lastUsedAt
+    revokedAt
+    scopes {
+      scope
+      hostId
+      grantedAt
+      grantedBy
+    }
+  }
+}
+
+query AppKeysScopesHostUsesInstructed($appRef: ID!, $first: Int!, $instruction: ActInstructionInput!) {
+ # @genqlient(typename: "AppKeysScopesHostUsesRows1595")
+  appKeys(appRef: $appRef, instruction: $instruction) {
+    id
+    keyPreview
+    label
+    createdAt
+    lastUsedAt
+    revokedAt
+    scopes {
+      scope
+      hostId
+      grantedAt
+      grantedBy
+    }
+    hostUses(first: $first) {
+      hostId
+      action
+      count
+      operationId
+      refusedCode
+      usedAt
+    }
+  }
+}
+
+mutation RevokeAppKeyInstructed($id: ID!, $instruction: ActInstructionInput!) {
+  revokeAppKey(id: $id, instruction: $instruction)
 }

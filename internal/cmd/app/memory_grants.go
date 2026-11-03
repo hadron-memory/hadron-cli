@@ -55,7 +55,8 @@ covers reports:team:daily, but not reports:teamX. It never grants a whole memory
 These commands grant no read access and do not change a user's own authority.
 The server checks every write again, including the memory's current class.
 
-Only a person managing the App, acting as themselves, may add, list or revoke.
+Only a person managing the App may add. Listing and revoking also admit their
+held worker on --instruction; without it these calls act as the person.
 A setter must also be able to write the target memory. Shared memories must
 belong to the App's own org or team space; personal/private memories require
 the owner, who must also manage the App. Encrypted and system-class memories
@@ -138,6 +139,10 @@ Pass an explicit App ID, URN or root:slug; ambient --app is not the target.
 JSON is an array of grant metadata ([] when empty), with nullable fields kept
 as null. Text shows ? for a null memory and - for other null metadata. No keys or node content are requested.`, Example: `  hadron app memory-grant list acme.com:team --json
   hadron app memory-grant list acme.com:team --include-revoked`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+		instr, err := credentialInstruction(cmd, f)
+		if err != nil {
+			return err
+		}
 		ref, err := requiredReadAppRef(args[0])
 		if err != nil {
 			return err
@@ -146,11 +151,11 @@ as null. Text shows ? for a null memory and - for other null metadata. No keys o
 		if cmd.Flags().Changed("include-revoked") {
 			include = &revoked
 		}
-		client, err := f.GraphQLClient()
+		client, err := credentialClient(cmd, f, instr)
 		if err != nil {
 			return err
 		}
-		r, err := gen.AppMemoryWriteGrants(cmd.Context(), client, ref, include)
+		r, err := memoryGrants(cmd.Context(), client, ref, include, instr)
 		if err != nil {
 			return api.MapErrorKeepingCode(err)
 		}
@@ -178,6 +183,7 @@ as null. Text shows ? for a null memory and - for other null metadata. No keys o
 		})
 	}}
 	cmd.Flags().BoolVar(&revoked, "include-revoked", false, "include revoked rows (default: live rows only)")
+	addCredentialInstruction(cmd)
 	return cmd
 }
 
@@ -190,6 +196,10 @@ One mutation is sent and never retried. If its answer is lost, list with
 --include-revoked to check the outcome before retrying. JSON returns the grant
 metadata including revokedAt; text uses ? for a concealed/null memory and -
 for other null metadata.`, Example: `  hadron app memory-grant rm <grant-id> --yes --json`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+		instr, err := credentialInstruction(cmd, f)
+		if err != nil {
+			return err
+		}
 		id := strings.TrimSpace(args[0])
 		if id == "" {
 			return exitcode.Newf(exitcode.Usage, "pass the grant ID from app memory-grant list")
@@ -197,11 +207,11 @@ for other null metadata.`, Example: `  hadron app memory-grant rm <grant-id> --y
 		if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("Revoke memory write grant %s?", strconv.Quote(id))); err != nil {
 			return err
 		}
-		client, err := f.GraphQLClient()
+		client, err := credentialClient(cmd, f, instr)
 		if err != nil {
 			return err
 		}
-		r, err := gen.RevokeAppMemoryWriteGrant(cmd.Context(), client, id)
+		r, err := revokeMemoryGrant(cmd.Context(), client, id, instr)
 		if err != nil {
 			return api.MapErrorKeepingCode(err)
 		}
@@ -215,5 +225,6 @@ for other null metadata.`, Example: `  hadron app memory-grant rm <grant-id> --y
 		return writeMemoryGrant(f, d)
 	}}
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation (required non-interactively)")
+	addCredentialInstruction(cmd)
 	return cmd
 }

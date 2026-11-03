@@ -64,12 +64,16 @@ or is not a definite refusal (an internal server error, an unreadable reply),
 the key may already be revoked: run hadron app key list <app-ref> to see whether
 it is still active.
 
-Only a person who manages the App can revoke, as themselves: the server refuses
-an App key, an impersonated session and a bound worker's session (exit 8).`,
+An App manager may revoke as themselves, or their held worker may revoke with
+--instruction. App keys and impersonation are refused (exit 8).`,
 		Example: `  hadron app key revoke key_123
   hadron app key revoke key_123 --yes --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			instr, err := credentialInstruction(cmd, f)
+			if err != nil {
+				return err
+			}
 			id := strings.TrimSpace(args[0])
 			if id == "" {
 				return exitcode.Newf(exitcode.Usage, "pass the key id (see `hadron app key list <app-ref>`)")
@@ -77,11 +81,11 @@ an App key, an impersonated session and a bound worker's session (exit 8).`,
 			if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("Revoke App key %s? This cannot be undone.", id)); err != nil {
 				return err
 			}
-			client, err := f.GraphQLClient()
+			client, err := credentialClient(cmd, f, instr)
 			if err != nil {
 				return err
 			}
-			resp, err := gen.RevokeAppKey(cmd.Context(), client, id)
+			resp, err := revokeKey(cmd.Context(), client, id, instr)
 			if err != nil {
 				mapped := api.MapError(err)
 				code := exitcode.FromError(mapped)
@@ -108,6 +112,7 @@ an App key, an impersonated session and a bound worker's session (exit 8).`,
 		},
 	}
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "skip the confirmation prompt (required when non-interactive)")
+	addCredentialInstruction(cmd)
 	return cmd
 }
 
