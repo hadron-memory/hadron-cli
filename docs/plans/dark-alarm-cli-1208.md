@@ -15,3 +15,10 @@ alarm.dark-worker type in both event rows and acknowledgements. Subject-bearing
 non-alarm rows retain the prior dash. The regression test failed on 2e0c948.
 The new setting stays first, beside the non-deprecated checking settings; JSON
 key order is not a semantic promise. No older-provider compatibility is claimed.
+
+Coordinator-cadence companion (#1607): the exact alarm.coordinator-cadence type
+also renders its SubjectWorker, as coordinator <name>, in task-less event rows
+and acknowledgements. It never appends a payload reason (the known reason is
+just the alarm type), nor evidence; full/redacted payloads stay JSON-only. A
+missing subject keeps the dash/no subject in ack, other task-less types stay
+unchanged, and task-bound rows retain precedence. No request or JSON change.

@@ -41,7 +41,8 @@ func newCmdTeamEvents(f *cmdutil.Factory) *cobra.Command {
 		Long: `Read the team App's append-only stream of task work — task.created,
 task.assigned, task.started, task.progress, task.finished, task.cancelled,
 task-stall alarms (stall.not-started, stall.no-progress, stall.owner-unreactive,
-assignment.unassignable and stall.finish-by), dark-worker alarms, availability.changed, the
+assignment.unassignable and stall.finish-by), dark-worker and coordinator-cadence
+alarms, availability.changed, the
 assignment/host events and app.properties-changed (whose payload names the
 changed top-level keys, never values). The payload carries ids, counts and outcome words only, never message text.
 
@@ -51,7 +52,9 @@ with --since (strictly after an RFC 3339 time) and page FORWARD with --after
 <the last event id you read>. When a page comes back full, the receipt names
 the exact --after that continues it.
 
---alarms keeps alarm events only; --task and --type filter further.
+--alarms keeps alarm events only; --task and --type filter further. Task-less
+coordinator-cadence alarms show coordinator <name> in the TASK cell; no payload
+reason or evidence is added. A missing subject stays —.
 --limit takes 1 to ` + strconv.Itoa(teamEventPageCap) + ` — the server's page cap; above it the request is clamped silently, so the CLI refuses it instead.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -167,7 +170,17 @@ func eventActorCell(e teamEventDTO) string {
 // Task-less alarm metadata is server-owned. Only known reason words reach
 // human output; evidence and arbitrary payload strings remain JSON-only.
 func tasklessAlarmCell(e teamEventDTO) string {
-	if e.Type != "alarm.dark-worker" || e.SubjectWorker == nil {
+	if e.SubjectWorker == nil {
+		return "—"
+	}
+	switch e.Type {
+	case "alarm.coordinator-cadence":
+		// The reason repeats the type, and hidden evidence may be absent.
+		// Render only the server's subject, never a payload-derived string.
+		return "coordinator " + partyCell(e.SubjectWorker)
+	case "alarm.dark-worker":
+		// Only this alarm uses the fixed reason vocabulary below.
+	default:
 		return "—"
 	}
 	cell := "worker " + partyCell(e.SubjectWorker)
@@ -188,8 +201,8 @@ func tasklessAlarmCell(e teamEventDTO) string {
 func newCmdTeamAlarm(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "alarm <command>",
-		Short: "A team App's task-stall and dark-worker alarms",
-		Long: `Task-stall and dark-worker alarms — events that wake an owner chain
+		Short: "A team App's task-stall, dark-worker and coordinator-cadence alarms",
+		Long: `Task-stall, dark-worker and coordinator-cadence alarms — events that wake an owner chain
 (cor:agt:050:19). Task stall kinds include stall.not-started, stall.no-progress,
 stall.owner-unreactive, assignment.unassignable and stall.finish-by. The finish-by alarm
 uses the task deadline instead of ordinary stall windows. See them with ` + "`team events --alarms`" + `.`,
@@ -203,7 +216,8 @@ func newCmdTeamAlarmAck(f *cmdutil.Factory) *cobra.Command {
 		Use:   "ack <eventId>",
 		Short: "Acknowledge an alarm",
 		Long: `Acknowledge an alarm (cor:agt:050:20): it stops waking higher
-owners; it does not end the alarm episode. A finish-by episode ends when the
+owners; it does not end the alarm episode. A coordinator-cadence alarm names
+its coordinator, without printing payload reasons or evidence. A finish-by episode ends when the
 task finishes or is cancelled, or its finish-by value changes or is cleared;
 starting or assigning the task does not end that episode. A dark-worker
 episode ends when the worker is checking again and has no unacknowledged
@@ -235,7 +249,7 @@ stands (ALARM_ALREADY_ACKNOWLEDGED names the refusal).`,
 						return err
 					}
 				}
-				if event.TaskID == nil && event.Type == "alarm.dark-worker" && event.SubjectWorker != nil {
+				if event.TaskID == nil && (event.Type == "alarm.dark-worker" || event.Type == "alarm.coordinator-cadence") && event.SubjectWorker != nil {
 					if _, err := fmt.Fprintf(w, " on %s", output.SafeCell(tasklessAlarmCell(event))); err != nil {
 						return err
 					}

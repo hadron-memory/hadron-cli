@@ -69,6 +69,20 @@ func TestCoordinatorCadenceAlarm1607(t *testing.T) {
 				if tc.subject && !strings.Contains(out, "coordinator Rufus") {
 					t.Fatalf("coordinator missing: %q", out)
 				}
+				if tc.subject {
+					if ack {
+						want := "✓ acknowledged alarm evt2 (alarm.coordinator-cadence on coordinator Rufus, at 2026-10-12T03:05:00Z)\n"
+						if out != want {
+							t.Fatalf("ack must name only the coordinator: %q", out)
+						}
+					} else {
+						lines := strings.Split(strings.TrimSpace(out), "\n")
+						fields := strings.Fields(lines[len(lines)-1])
+						if len(fields) != 7 || fields[4] != "coordinator" || fields[5] != "Rufus" {
+							t.Fatalf("TASK cell must name only the coordinator: %q", out)
+						}
+					}
+				}
 				if !tc.subject {
 					if ack && strings.Contains(out, " on ") {
 						t.Fatalf("invented subject: %q", out)
