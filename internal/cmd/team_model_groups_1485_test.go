@@ -370,7 +370,7 @@ func TestWorkerGetModelGroupsErrorsFailTheCommand1485(t *testing.T) {
 func TestRequirementsOmitUnsetModelGroups1485(t *testing.T) {
 	// Every operation shares this input type, so the marshalled type covers
 	// create and update alike.
-	b, err := json.Marshal(gen.AgentTaskRequirementsInput{Role: ptrStr1485("qa")})
+	b, err := json.Marshal(gen.AgentTaskRequirementsInput{Role: json.RawMessage(`"qa"`)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -405,5 +405,3 @@ func TestRequirementsOmitUnsetModelGroups1485(t *testing.T) {
 	}
 	t.Fatal("no AgentTaskCreate call")
 }
-
-func ptrStr1485(s string) *string { return &s }

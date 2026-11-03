@@ -1667,6 +1667,11 @@ func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetHandBack() *AgentTa
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetStartBy() *string {
 	return v.AgentTaskFields.StartBy
@@ -1794,6 +1799,8 @@ type __premarshalAgentTaskAddBlockerAddAgentTaskBlockerAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -1851,6 +1858,7 @@ func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) __premarshalJSON() (*_
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -1978,6 +1986,11 @@ func (v *AgentTaskAssignAssignAgentTask) GetHandBack() *AgentTaskFieldsHandBackA
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskAssignAssignAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskAssignAssignAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskAssignAssignAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskAssignAssignAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -2093,6 +2106,8 @@ type __premarshalAgentTaskAssignAssignAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -2150,6 +2165,7 @@ func (v *AgentTaskAssignAssignAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -2283,6 +2299,11 @@ func (v *AgentTaskCancelCancelAgentTask) GetHandBack() *AgentTaskFieldsHandBackA
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskCancelCancelAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskCancelCancelAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskCancelCancelAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskCancelCancelAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -2398,6 +2419,8 @@ type __premarshalAgentTaskCancelCancelAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -2455,6 +2478,7 @@ func (v *AgentTaskCancelCancelAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -2588,6 +2612,11 @@ func (v *AgentTaskCreateCreateAgentTask) GetHandBack() *AgentTaskFieldsHandBackA
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskCreateCreateAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateCreateAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskCreateCreateAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskCreateCreateAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -2703,6 +2732,8 @@ type __premarshalAgentTaskCreateCreateAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -2760,6 +2791,7 @@ func (v *AgentTaskCreateCreateAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -3160,7 +3192,9 @@ type AgentTaskFields struct {
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 	// #2651: the task's latest hand-back by its assignee (hrn:node:hadronmemory.com:specs:cor:agt:050:29); null when it was never handed back. A later hand-back replaces it; every earlier code stays in the task.handed-back events.
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
-	StartBy  *string                                   `json:"startBy"`
+	// Null unless an opt-in single-shot match failed. No assignment-unassignable alarm is raised for it.
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+	StartBy      *string                                           `json:"startBy"`
 	// The finish-by deadline (#2648, hrn:node:hadronmemory.com:specs:cor:agt:050:14). While set, no stall window applies to the task; one stall.finish-by alarm is raised once it passes with the task neither finished nor cancelled.
 	FinishBy    *string `json:"finishBy"`
 	CreatedAt   string  `json:"createdAt"`
@@ -3255,6 +3289,11 @@ func (v *AgentTaskFields) GetReferences() []*AgentTaskFieldsReferencesAgentTaskR
 
 // GetHandBack returns AgentTaskFields.HandBack, and is useful for accessing the field via an interface.
 func (v *AgentTaskFields) GetHandBack() *AgentTaskFieldsHandBackAgentTaskHandBack { return v.HandBack }
+
+// GetMatchFailure returns AgentTaskFields.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskFields) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.MatchFailure
+}
 
 // GetStartBy returns AgentTaskFields.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskFields) GetStartBy() *string { return v.StartBy }
@@ -3750,6 +3789,21 @@ func (v *AgentTaskFieldsHandBackAgentTaskHandBack) GetText() *string { return v.
 // GetHandedBackAt returns AgentTaskFieldsHandBackAgentTaskHandBack.HandedBackAt, and is useful for accessing the field via an interface.
 func (v *AgentTaskFieldsHandBackAgentTaskHandBack) GetHandedBackAt() string { return v.HandedBackAt }
 
+// AgentTaskFieldsMatchFailureAgentTaskMatchFailure includes the requested fields of the GraphQL type AgentTaskMatchFailure.
+// The GraphQL type's documentation follows.
+//
+// Single-shot failure (hrn:node:hadronmemory.com:specs:cor:agt:050:01): assigning clears it; cancellation clears it.
+type AgentTaskFieldsMatchFailureAgentTaskMatchFailure struct {
+	Reason   string `json:"reason"`
+	FailedAt string `json:"failedAt"`
+}
+
+// GetReason returns AgentTaskFieldsMatchFailureAgentTaskMatchFailure.Reason, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsMatchFailureAgentTaskMatchFailure) GetReason() string { return v.Reason }
+
+// GetFailedAt returns AgentTaskFieldsMatchFailureAgentTaskMatchFailure.FailedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsMatchFailureAgentTaskMatchFailure) GetFailedAt() string { return v.FailedAt }
+
 // AgentTaskFieldsOwnerAgentTaskParty includes the requested fields of the GraphQL type AgentTaskParty.
 // The GraphQL type's documentation follows.
 //
@@ -3854,10 +3908,14 @@ func (v *AgentTaskFieldsReferencesAgentTaskReference) GetLabel() *string { retur
 // What the platform's matcher must respect when it chooses an assignee (plan design:agent-tasks section 3.1; consumed by T3).
 type AgentTaskFieldsRequirementsAgentTaskRequirements struct {
 	// The lowest model tier the assignee may run at: low, mid or high (hrn:node:hadronmemory.com:specs:cor:agt:060:06). Null when the task names none.
-	MinTier     *string  `json:"minTier"`
-	Role        *string  `json:"role"`
-	FamilyIn    []string `json:"familyIn"`
-	FamilyNotIn []string `json:"familyNotIn"`
+	MinTier *string `json:"minTier"`
+	Role    *string `json:"role"`
+	// Any one listed role suffices; null retains the single-role requirement.
+	Roles []string `json:"roles"`
+	// Optional matching team lead; never an authorization grant.
+	TeamWorkerId *string  `json:"teamWorkerId"`
+	FamilyIn     []string `json:"familyIn"`
+	FamilyNotIn  []string `json:"familyNotIn"`
 	// Model groups the assignee's model must be in at least one of (hrn:node:hadronmemory.com:specs:cor:agt:060:12). Null when the task names none.
 	ModelGroupIn []string `json:"modelGroupIn"`
 	// Model groups the assignee's model must be in none of (hrn:node:hadronmemory.com:specs:cor:agt:060:12). Null when the task names none.
@@ -3870,6 +3928,14 @@ func (v *AgentTaskFieldsRequirementsAgentTaskRequirements) GetMinTier() *string 
 
 // GetRole returns AgentTaskFieldsRequirementsAgentTaskRequirements.Role, and is useful for accessing the field via an interface.
 func (v *AgentTaskFieldsRequirementsAgentTaskRequirements) GetRole() *string { return v.Role }
+
+// GetRoles returns AgentTaskFieldsRequirementsAgentTaskRequirements.Roles, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsRequirementsAgentTaskRequirements) GetRoles() []string { return v.Roles }
+
+// GetTeamWorkerId returns AgentTaskFieldsRequirementsAgentTaskRequirements.TeamWorkerId, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsRequirementsAgentTaskRequirements) GetTeamWorkerId() *string {
+	return v.TeamWorkerId
+}
 
 // GetFamilyIn returns AgentTaskFieldsRequirementsAgentTaskRequirements.FamilyIn, and is useful for accessing the field via an interface.
 func (v *AgentTaskFieldsRequirementsAgentTaskRequirements) GetFamilyIn() []string { return v.FamilyIn }
@@ -4050,6 +4116,11 @@ func (v *AgentTaskFinishFinishAgentTask) GetHandBack() *AgentTaskFieldsHandBackA
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskFinishFinishAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskFinishFinishAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskFinishFinishAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskFinishFinishAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -4165,6 +4236,8 @@ type __premarshalAgentTaskFinishFinishAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -4222,6 +4295,7 @@ func (v *AgentTaskFinishFinishAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -4354,6 +4428,11 @@ func (v *AgentTaskGetAgentTask) GetHandBack() *AgentTaskFieldsHandBackAgentTaskH
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskGetAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskGetAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskGetAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -4465,6 +4544,8 @@ type __premarshalAgentTaskGetAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -4522,6 +4603,7 @@ func (v *AgentTaskGetAgentTask) __premarshalJSON() (*__premarshalAgentTaskGetAge
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -4677,6 +4759,11 @@ func (v *AgentTaskHandBackHandBackAgentTask) GetHandBack() *AgentTaskFieldsHandB
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskHandBackHandBackAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskHandBackHandBackAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskHandBackHandBackAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -4800,6 +4887,8 @@ type __premarshalAgentTaskHandBackHandBackAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -4857,6 +4946,7 @@ func (v *AgentTaskHandBackHandBackAgentTask) __premarshalJSON() (*__premarshalAg
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -5103,6 +5193,11 @@ func (v *AgentTaskListAgentTasksAgentTask) GetHandBack() *AgentTaskFieldsHandBac
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskListAgentTasksAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskListAgentTasksAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskListAgentTasksAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskListAgentTasksAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -5220,6 +5315,8 @@ type __premarshalAgentTaskListAgentTasksAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -5277,6 +5374,7 @@ func (v *AgentTaskListAgentTasksAgentTask) __premarshalJSON() (*__premarshalAgen
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -5407,6 +5505,11 @@ func (v *AgentTaskListFilteredAgentTasksAgentTask) GetHandBack() *AgentTaskField
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskListFilteredAgentTasksAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskListFilteredAgentTasksAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskListFilteredAgentTasksAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskListFilteredAgentTasksAgentTask) GetStartBy() *string {
 	return v.AgentTaskFields.StartBy
@@ -5534,6 +5637,8 @@ type __premarshalAgentTaskListFilteredAgentTasksAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -5591,6 +5696,7 @@ func (v *AgentTaskListFilteredAgentTasksAgentTask) __premarshalJSON() (*__premar
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -5755,6 +5861,11 @@ func (v *AgentTaskListTextAgentTasksAgentTask) GetHandBack() *AgentTaskFieldsHan
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskListTextAgentTasksAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskListTextAgentTasksAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskListTextAgentTasksAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -5880,6 +5991,8 @@ type __premarshalAgentTaskListTextAgentTasksAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -5937,6 +6050,7 @@ func (v *AgentTaskListTextAgentTasksAgentTask) __premarshalJSON() (*__premarshal
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -6088,6 +6202,11 @@ func (v *AgentTaskParkParkAgentTask) GetHandBack() *AgentTaskFieldsHandBackAgent
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskParkParkAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskParkParkAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskParkParkAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -6201,6 +6320,8 @@ type __premarshalAgentTaskParkParkAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -6258,6 +6379,7 @@ func (v *AgentTaskParkParkAgentTask) __premarshalJSON() (*__premarshalAgentTaskP
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -6464,6 +6586,11 @@ func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetHandBack() *Agent
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskProgressRecordAgentTaskProgressAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskProgressRecordAgentTaskProgressAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetStartBy() *string {
 	return v.AgentTaskFields.StartBy
@@ -6591,6 +6718,8 @@ type __premarshalAgentTaskProgressRecordAgentTaskProgressAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -6648,6 +6777,7 @@ func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) __premarshalJSON() (
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -6791,6 +6921,11 @@ func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetHandBack() *AgentTaskFiel
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskReadyMakeAgentTaskReadyAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskReadyMakeAgentTaskReadyAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetStartBy() *string {
 	return v.AgentTaskFields.StartBy
@@ -6918,6 +7053,8 @@ type __premarshalAgentTaskReadyMakeAgentTaskReadyAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -6975,6 +7112,7 @@ func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) __premarshalJSON() (*__prema
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -7113,6 +7251,11 @@ func (v *AgentTaskReassignReassignAgentTask) GetHandBack() *AgentTaskFieldsHandB
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskReassignReassignAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskReassignReassignAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskReassignReassignAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskReassignReassignAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -7236,6 +7379,8 @@ type __premarshalAgentTaskReassignReassignAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -7293,6 +7438,7 @@ func (v *AgentTaskReassignReassignAgentTask) __premarshalJSON() (*__premarshalAg
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -7503,6 +7649,11 @@ func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetHandBack() *A
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetStartBy() *string {
 	return v.AgentTaskFields.StartBy
@@ -7630,6 +7781,8 @@ type __premarshalAgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -7687,6 +7840,7 @@ func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) __premarshalJSON
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -7723,8 +7877,8 @@ type AgentTaskRequirementsInput struct {
 	// Model groups of the App (hrn:node:hadronmemory.com:specs:cor:agt:060:12) the assignee's model must be in at least one of. A name no group of the App carries is refused. A worker with no model is in no group, so it never matches.
 	ModelGroupIn []string `json:"modelGroupIn,omitempty"`
 	// Model groups of the App (hrn:node:hadronmemory.com:specs:cor:agt:060:12) the assignee's model must be in none of. A name no group of the App carries is refused. A worker with no model is in no group, so it passes.
-	ModelGroupNotIn []string `json:"modelGroupNotIn,omitempty"`
-	Role            *string  `json:"role"`
+	ModelGroupNotIn []string        `json:"modelGroupNotIn,omitempty"`
+	Role            json.RawMessage `json:"role,omitempty"`
 	// Any one listed role suffices. Empty sets are refused. Give role or roles, not both.
 	Roles []string `json:"roles,omitempty"`
 	// Lead worker (id, URN or name) of this App. Pool: lead, descendants and workers reporting to nobody.
@@ -7750,7 +7904,7 @@ func (v *AgentTaskRequirementsInput) GetModelGroupIn() []string { return v.Model
 func (v *AgentTaskRequirementsInput) GetModelGroupNotIn() []string { return v.ModelGroupNotIn }
 
 // GetRole returns AgentTaskRequirementsInput.Role, and is useful for accessing the field via an interface.
-func (v *AgentTaskRequirementsInput) GetRole() *string { return v.Role }
+func (v *AgentTaskRequirementsInput) GetRole() json.RawMessage { return v.Role }
 
 // GetRoles returns AgentTaskRequirementsInput.Roles, and is useful for accessing the field via an interface.
 func (v *AgentTaskRequirementsInput) GetRoles() []string { return v.Roles }
@@ -7916,6 +8070,11 @@ func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetHandBack() *Agent
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetStartBy() *string {
 	return v.AgentTaskFields.StartBy
@@ -8043,6 +8202,8 @@ type __premarshalAgentTaskSetPrioritySetAgentTaskPriorityAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -8100,6 +8261,7 @@ func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) __premarshalJSON() (
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -8284,6 +8446,11 @@ func (v *AgentTaskStartStartAgentTask) GetHandBack() *AgentTaskFieldsHandBackAge
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskStartStartAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskStartStartAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskStartStartAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskStartStartAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -8397,6 +8564,8 @@ type __premarshalAgentTaskStartStartAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -8454,6 +8623,7 @@ func (v *AgentTaskStartStartAgentTask) __premarshalJSON() (*__premarshalAgentTas
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -8695,6 +8865,11 @@ func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetHandBack() *AgentTaskFieldsHand
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskTreeAgentTaskTreeAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskTreeAgentTaskTreeAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -8820,6 +8995,8 @@ type __premarshalAgentTaskTreeAgentTaskTreeAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -8877,6 +9054,7 @@ func (v *AgentTaskTreeAgentTaskTreeAgentTask) __premarshalJSON() (*__premarshalA
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -9020,6 +9198,11 @@ func (v *AgentTaskUpdateUpdateAgentTask) GetHandBack() *AgentTaskFieldsHandBackA
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskUpdateUpdateAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskUpdateUpdateAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskUpdateUpdateAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -9135,6 +9318,8 @@ type __premarshalAgentTaskUpdateUpdateAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -9192,6 +9377,7 @@ func (v *AgentTaskUpdateUpdateAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -20776,6 +20962,11 @@ func (v *ClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTaskItemsRe
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns ClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns ClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *ClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetStartBy() *string {
 	return v.AgentTaskFields.StartBy
@@ -20903,6 +21094,8 @@ type __premarshalClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTas
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -20960,6 +21153,7 @@ func (v *ClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTaskItemsRe
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -90117,6 +90311,7 @@ type __AgentTaskListFilteredInput struct {
 	CreatedBefore  *string                   `json:"createdBefore,omitempty"`
 	FinishedAfter  *string                   `json:"finishedAfter,omitempty"`
 	FinishedBefore *string                   `json:"finishedBefore,omitempty"`
+	MatchFailed    *bool                     `json:"matchFailed,omitempty"`
 	Limit          *int                      `json:"limit,omitempty"`
 	Offset         *int                      `json:"offset,omitempty"`
 	Overdue        *bool                     `json:"overdue,omitempty"`
@@ -90153,6 +90348,9 @@ func (v *__AgentTaskListFilteredInput) GetFinishedAfter() *string { return v.Fin
 
 // GetFinishedBefore returns __AgentTaskListFilteredInput.FinishedBefore, and is useful for accessing the field via an interface.
 func (v *__AgentTaskListFilteredInput) GetFinishedBefore() *string { return v.FinishedBefore }
+
+// GetMatchFailed returns __AgentTaskListFilteredInput.MatchFailed, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListFilteredInput) GetMatchFailed() *bool { return v.MatchFailed }
 
 // GetLimit returns __AgentTaskListFilteredInput.Limit, and is useful for accessing the field via an interface.
 func (v *__AgentTaskListFilteredInput) GetLimit() *int { return v.Limit }
@@ -98968,6 +99166,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -98979,6 +99181,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -99092,6 +99296,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -99103,6 +99311,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -99220,6 +99430,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -99231,6 +99445,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -99342,6 +99558,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -99353,6 +99573,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -99401,6 +99623,8 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 // not null, so ordinary create/update bodies are unchanged and an older server
 // never sees an input field it does not know. This protects INPUTS only:
 // every AgentTaskFields document needs provider #3029 for its output selection.
+// Keep legacy role:null for ordinary requirements, but omit role entirely
+// when a role set is supplied: the two selector keys never coexist.
 func AgentTaskCreate(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -99543,6 +99767,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -99554,6 +99782,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -99667,6 +99897,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -99678,6 +99912,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -99789,6 +100025,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -99800,6 +100040,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -99956,6 +100198,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -99967,6 +100213,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -100041,8 +100289,8 @@ func AgentTaskList(
 
 // The query executed by AgentTaskListFiltered.
 const AgentTaskListFiltered_Operation = `
-query AgentTaskListFiltered ($appRef: ID!, $assignee: AgentTaskPartyInput, $createdAfter: DateTime, $createdBefore: DateTime, $finishedAfter: DateTime, $finishedBefore: DateTime, $limit: Int, $offset: Int, $overdue: Boolean, $owner: AgentTaskPartyInput, $parentTaskId: ID, $queued: Boolean, $rootsOnly: Boolean, $reference: AgentTaskReferenceFilter, $source: String, $externalId: String, $startedAfter: DateTime, $startedBefore: DateTime, $status: [AgentTaskStatus!], $tag: String, $tagsAll: [String!], $tagsAny: [String!], $text: String) {
-	agentTasks(appRef: $appRef, assignee: $assignee, createdAfter: $createdAfter, createdBefore: $createdBefore, finishedAfter: $finishedAfter, finishedBefore: $finishedBefore, limit: $limit, offset: $offset, overdue: $overdue, owner: $owner, parentTaskId: $parentTaskId, queued: $queued, reference: $reference, rootsOnly: $rootsOnly, source: $source, externalId: $externalId, startedAfter: $startedAfter, startedBefore: $startedBefore, status: $status, tag: $tag, tagsAll: $tagsAll, tagsAny: $tagsAny, text: $text) {
+query AgentTaskListFiltered ($appRef: ID!, $assignee: AgentTaskPartyInput, $createdAfter: DateTime, $createdBefore: DateTime, $finishedAfter: DateTime, $finishedBefore: DateTime, $matchFailed: Boolean, $limit: Int, $offset: Int, $overdue: Boolean, $owner: AgentTaskPartyInput, $parentTaskId: ID, $queued: Boolean, $rootsOnly: Boolean, $reference: AgentTaskReferenceFilter, $source: String, $externalId: String, $startedAfter: DateTime, $startedBefore: DateTime, $status: [AgentTaskStatus!], $tag: String, $tagsAll: [String!], $tagsAny: [String!], $text: String) {
+	agentTasks(appRef: $appRef, assignee: $assignee, createdAfter: $createdAfter, createdBefore: $createdBefore, finishedAfter: $finishedAfter, finishedBefore: $finishedBefore, matchFailed: $matchFailed, limit: $limit, offset: $offset, overdue: $overdue, owner: $owner, parentTaskId: $parentTaskId, queued: $queued, reference: $reference, rootsOnly: $rootsOnly, source: $source, externalId: $externalId, startedAfter: $startedAfter, startedBefore: $startedBefore, status: $status, tag: $tag, tagsAll: $tagsAll, tagsAny: $tagsAny, text: $text) {
 		... AgentTaskFields
 	}
 }
@@ -100098,6 +100346,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -100109,6 +100361,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -100149,6 +100403,7 @@ func AgentTaskListFiltered(
 	createdBefore *string,
 	finishedAfter *string,
 	finishedBefore *string,
+	matchFailed *bool,
 	limit *int,
 	offset *int,
 	overdue *bool,
@@ -100177,6 +100432,7 @@ func AgentTaskListFiltered(
 			CreatedBefore:  createdBefore,
 			FinishedAfter:  finishedAfter,
 			FinishedBefore: finishedBefore,
+			MatchFailed:    matchFailed,
 			Limit:          limit,
 			Offset:         offset,
 			Overdue:        overdue,
@@ -100268,6 +100524,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -100279,6 +100539,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -100411,6 +100673,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -100422,6 +100688,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -100537,6 +100805,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -100548,6 +100820,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -100659,6 +100933,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -100670,6 +100948,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -100784,6 +101064,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -100795,6 +101079,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -100910,6 +101196,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -100921,6 +101211,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -101034,6 +101326,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -101045,6 +101341,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -101159,6 +101457,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -101170,6 +101472,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -101335,6 +101639,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -101346,6 +101654,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -101457,6 +101767,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -101468,6 +101782,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -105445,6 +105761,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -105456,6 +105776,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn

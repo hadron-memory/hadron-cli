@@ -554,16 +554,13 @@ updateWorker  command team worker update
 withdrawDecision  command decision withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 74: 47 gap, 27 excluded
+[Arguments] 68: 41 gap, 27 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.addOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
 Mutation.addOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.claimUntrackedTaskItems(assignee)  gap #1554
 Mutation.claimUntrackedTaskItems(owner)  gap #1554
-Mutation.createAgentTask(input.match)  gap #1549
-Mutation.createAgentTask(input.requirements.roles)  gap #1549
-Mutation.createAgentTask(input.requirements.team)  gap #1549
 Mutation.createApp(agentTools)  gap #63
 Mutation.createApp(aiApiKey)  gap #63
 Mutation.createApp(aiModel)  gap #63
@@ -594,8 +591,6 @@ Mutation.removeMemoryMember(memoryId)  excluded deprecated: @deprecated: Use mem
 Mutation.removeMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.removeOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
 Mutation.removeOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
-Mutation.updateAgentTask(input.requirements.roles)  gap #1549
-Mutation.updateAgentTask(input.requirements.team)  gap #1549
 Mutation.updateApp(agentSessionsExpire)  gap #63
 Mutation.updateApp(agentTools)  gap #63
 Mutation.updateApp(aiApiKey)  gap #63
@@ -621,7 +616,6 @@ Mutation.updateOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (a
 Mutation.updateOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.updateTeamRole(repos)  gap #1336
 Query.agentTasks(creator)  gap #1336
-Query.agentTasks(matchFailed)  gap #1549
 Query.agentTasks(unresolvedFindings)  gap #1556
 Query.attendeeRegister(agentRef)  gap #1336
 Query.channelMessages(teamHeadRef)  gap #936
