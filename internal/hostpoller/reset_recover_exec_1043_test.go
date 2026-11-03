@@ -258,6 +258,23 @@ func TestRecoverWithoutACheckpointIsBlocked1043(t *testing.T) {
 	x.wantReport(t, Failed, "RELAUNCH_BLOCKED")
 }
 
+// A restart between the register answer and its write to disk leaves the
+// record without the node; the server's read still carries it.
+func TestRecoverTakesTheCheckpointFromTheServer1043(t *testing.T) {
+	x := newRecoverFixture(t, "agent-stopped")
+	x.set(func(r *ResetRecord) { r.Checkpoint = "" })
+	x.resets.read.CheckpointNode = checkpointNode
+	x.run(t)
+	if len(x.host.launches) != 1 {
+		t.Fatalf("launches %d, want one", len(x.host.launches))
+	}
+	if env := x.host.promptEnvs[0]; !containsStr(env, "HADRON_RECOVERY_NODE="+checkpointNode) {
+		t.Fatalf("relaunch env %v lacks the server's checkpoint node", env)
+	}
+	x.wantSteps(t, "relaunched@2 pid=5151")
+	x.wantReport(t, Succeeded, "")
+}
+
 func TestRecoverRelaunchedAliveSucceeds1043(t *testing.T) {
 	x := newRecoverFixture(t, "relaunched")
 	x.set(func(r *ResetRecord) { r.New = &ProcessIdentity{PID: 5151, StartTime: "2"} })

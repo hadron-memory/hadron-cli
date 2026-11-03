@@ -190,6 +190,23 @@ func TestResetRefusesAnAgentThisHostDidNotLaunch1043(t *testing.T) {
 	}
 }
 
+// runPassing carries out a reset that passes every pre-claim check: it
+// goes on to the claim (runReset), with this fixture's server answering
+// every step with an empty reset (so no checkpoint node, CHECKPOINT_FAILED).
+func (x *resetFixture) runPassing(t *testing.T) report {
+	t.Helper()
+	x.p.register(context.Background()) //nolint:errcheck // fills workerRefs
+	x.p.carryOut(context.Background(), resetOp())
+	reps := x.srv.finalReports()
+	if len(reps) != 1 {
+		t.Fatalf("reports %+v, want one", reps)
+	}
+	if len(x.resets.calls) == 0 || x.resets.calls[0] != "claim" {
+		t.Fatalf("protocol steps %v, want the claim first", x.resets.calls)
+	}
+	return reps[0]
+}
+
 func TestResetGitCheckRunsInTheAgentsWorktree1043(t *testing.T) {
 	x := newResetFixture(t)
 	x.git.Dirty = true
@@ -228,7 +245,7 @@ func TestResetGitRefusals1043(t *testing.T) {
 func TestResetNonGitDirectoryHasNoGitRefusal1043(t *testing.T) {
 	x := newResetFixture(t)
 	x.git = GitTreeState{InGit: false, Dirty: true} // Dirty is not read off Git
-	r := x.run(t, resetOp())
+	r := x.runPassing(t)
 	if strings.HasPrefix(r.reason, "DIRTY_TREE") || strings.HasPrefix(r.reason, "UNPUSHED_HEAD") {
 		t.Fatalf("a non-Git directory was refused on Git grounds: %q", r.reason)
 	}
@@ -239,7 +256,7 @@ func TestResetNonGitDirectoryHasNoGitRefusal1043(t *testing.T) {
 
 func TestResetCleanPushedTreePassesGit1043(t *testing.T) {
 	x := newResetFixture(t)
-	x.run(t, resetOp())
+	x.runPassing(t)
 	if x.proc.observed != 1 {
 		t.Fatalf("observed %d, want 1", x.proc.observed)
 	}
@@ -269,13 +286,16 @@ func TestResetWithoutAnIdleProverRefuses1043(t *testing.T) {
 	wantReason(t, x.run(t, resetOp()), "NOT_IDLE")
 }
 
-// The claim and every later step wait on the open seams (restart phase
-// read, relaunch binding, checkpoint writer): with every pre-claim check
-// passed, this slice still stops before the claim.
-func TestResetStopsBeforeTheClaimUntilTheSeamsAreBuilt1043(t *testing.T) {
+// Every pre-claim check passed: the handler hands the reset to runReset,
+// which claims first. With no checkpoint node in the answer it fails
+// CHECKPOINT_FAILED and nothing is signalled.
+func TestResetPassingChecksGoOnToTheClaim1043(t *testing.T) {
 	x := newResetFixture(t)
-	wantReason(t, x.run(t, resetOp()), "HOST_UNSUPPORTED")
+	wantReason(t, x.runPassing(t), "CHECKPOINT_FAILED")
 	if x.proc.observed != 1 {
 		t.Fatalf("observed %d, want 1", x.proc.observed)
+	}
+	if x.proc.signalled != 0 {
+		t.Fatalf("signalled %d times", x.proc.signalled)
 	}
 }

@@ -29,18 +29,14 @@ func (p *Poller) EnableResets(rs ResetServer, deps ResetDeps) {
 	p.resets, p.resetDeps = rs, deps
 }
 
-// workerResetContext carries out a collected worker.reset-context up to the
-// claim. Every refusal here comes before any process control and before
-// any protocol step; each is reported FAILED with its code first, once.
+// workerResetContext carries out a collected worker.reset-context. Every
+// refusal here comes before any process control and before any protocol
+// step; each is reported FAILED with its code first, once. A reset that
+// passes every check goes on to the claim, checkpoint, stop and relaunch
+// (runReset).
 //
 // A reset already recorded (collected before a restart) is recovered from
-// the server's phase instead (recoverReset); nothing records one yet.
-//
-// The claim through the stop is built (runReset), but this handler does not
-// call it yet: the relaunch needs the checkpoint node the server wrote,
-// which it does not return (hadron-server#3300). Until then a reset that
-// passes every check here still refuses HOST_UNSUPPORTED, unclaimed: the
-// worker is never marked RESETTING by a host that cannot finish the reset.
+// the server's phase instead (recoverReset).
 func (p *Poller) workerResetContext(ctx context.Context, op Operation) {
 	refuse := func(code, detail string) { p.finish(ctx, op, Failed, "", code+": "+detail) }
 	if p.resets == nil {
@@ -123,7 +119,7 @@ func (p *Poller) workerResetContext(ctx context.Context, op Operation) {
 		refuse("NOT_IDLE", err.Error())
 		return
 	}
-	refuse("HOST_UNSUPPORTED", "the claim and later reset steps are not built on this host yet (hadron-cli#1043)")
+	p.runReset(ctx, op, ref, token, git, h, agent)
 }
 
 // relaunchAgent starts the worker's agent again in the same worktree, after

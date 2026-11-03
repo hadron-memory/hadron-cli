@@ -42,7 +42,7 @@ func newResetWire(t *testing.T, w *resetWire) *hostServer {
 	return &hostServer{client: graphql.NewClient(srv.URL, srv.Client()), app: "hrn:app:acme.com:team"}
 }
 
-const resetStepOK = `{"refused":null,"replayed":true,"reset":{"id":"r1","epoch":3,"phase":"stop-granted","reason":null,"workerId":"w1","sessionId":"s1","taskId":"t1","stopGrantedAt":"2026-11-02T00:00:00Z","stopLeaseMs":15000}}`
+const resetStepOK = `{"refused":null,"replayed":true,"reset":{"id":"r1","epoch":3,"phase":"stop-granted","reason":null,"workerId":"w1","sessionId":"s1","taskId":"t1","stopGrantedAt":"2026-11-02T00:00:00Z","stopLeaseMs":15000,"checkpointNode":"hrn:node:acme.com:iris:sheds:auto-1"}}`
 
 func TestHostResetStepsSendTypedInputs1043(t *testing.T) {
 	proc := hostpoller.ProcessIdentity{PID: 4242, StartTime: "987654"}
@@ -101,6 +101,7 @@ func TestHostResetStepsSendTypedInputs1043(t *testing.T) {
 			}
 			want := hostpoller.ResetStep{Replayed: true, Reset: hostpoller.ContextReset{
 				ID: "r1", Epoch: 3, Phase: "stop-granted", WorkerID: "w1", SessionID: "s1", TaskID: "t1", StopGranted: true, StopLeaseMs: 15000,
+				CheckpointNode: "hrn:node:acme.com:iris:sheds:auto-1",
 			}}
 			if got != want {
 				t.Fatalf("step %+v, want %+v", got, want)
@@ -192,7 +193,7 @@ func TestHostResetStepWithoutAnswerIsAnError1043(t *testing.T) {
 // TestHostReadResetSendsAppAndID1043 pins the #3273 restart read: one
 // contextReset query naming the App and the reset, mapped like a step's reset.
 func TestHostReadResetSendsAppAndID1043(t *testing.T) {
-	w := &resetWire{body: `{"data":{"contextReset":{"id":"r1","epoch":4,"phase":"agent-stopped","reason":null,"workerId":"w1","sessionId":"s1","taskId":"t1","stopGrantedAt":"2026-11-02T00:00:00Z","stopLeaseMs":15000}}}`}
+	w := &resetWire{body: `{"data":{"contextReset":{"id":"r1","epoch":4,"phase":"agent-stopped","reason":null,"workerId":"w1","sessionId":"s1","taskId":"t1","stopGrantedAt":"2026-11-02T00:00:00Z","stopLeaseMs":15000,"checkpointNode":"hrn:node:acme.com:iris:sheds:auto-2"}}}`}
 	got, err := newResetWire(t, w).ReadReset(context.Background(), "r1")
 	if err != nil {
 		t.Fatal(err)
@@ -203,7 +204,7 @@ func TestHostReadResetSendsAppAndID1043(t *testing.T) {
 	if w.vars["appRef"] != "hrn:app:acme.com:team" || w.vars["resetId"] != "r1" || len(w.vars) != 2 {
 		t.Fatalf("variables %v", w.vars)
 	}
-	want := hostpoller.ContextReset{ID: "r1", Epoch: 4, Phase: "agent-stopped", WorkerID: "w1", SessionID: "s1", TaskID: "t1", StopGranted: true, StopLeaseMs: 15000}
+	want := hostpoller.ContextReset{ID: "r1", Epoch: 4, Phase: "agent-stopped", WorkerID: "w1", SessionID: "s1", TaskID: "t1", StopGranted: true, StopLeaseMs: 15000, CheckpointNode: "hrn:node:acme.com:iris:sheds:auto-2"}
 	if got != want {
 		t.Fatalf("reset %+v, want %+v", got, want)
 	}

@@ -130,6 +130,14 @@ func (p *Poller) recoverReset(ctx context.Context, op Operation, rec ResetRecord
 		p.log("reset-recovery", op.ID, op.Type, "", "reading the reset failed: "+err.Error())
 		return
 	}
+	// A restart between the register answer and its write to disk leaves
+	// the record without the node; the server's read carries it (#3300).
+	if rec.Checkpoint == "" && r.CheckpointNode != "" {
+		rec.Checkpoint = r.CheckpointNode
+		if err := p.state.updateReset(rec.ResetID, func(x *ResetRecord) { x.Checkpoint = r.CheckpointNode }); err != nil {
+			p.log("state-failed", op.ID, op.Type, "", err.Error())
+		}
+	}
 	oldAlive, oldKnown := p.processAlive(rec.Old)
 	newAlive := false
 	if rec.New != nil {

@@ -25147,6 +25147,11 @@ func (v *ContextResetContextReset) GetStopGrantedAt() *string {
 // GetStopLeaseMs returns ContextResetContextReset.StopLeaseMs, and is useful for accessing the field via an interface.
 func (v *ContextResetContextReset) GetStopLeaseMs() *int { return v.ContextResetFields.StopLeaseMs }
 
+// GetCheckpointNode returns ContextResetContextReset.CheckpointNode, and is useful for accessing the field via an interface.
+func (v *ContextResetContextReset) GetCheckpointNode() *string {
+	return v.ContextResetFields.CheckpointNode
+}
+
 func (v *ContextResetContextReset) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -25190,6 +25195,8 @@ type __premarshalContextResetContextReset struct {
 	StopGrantedAt *string `json:"stopGrantedAt"`
 
 	StopLeaseMs *int `json:"stopLeaseMs"`
+
+	CheckpointNode *string `json:"checkpointNode"`
 }
 
 func (v *ContextResetContextReset) MarshalJSON() ([]byte, error) {
@@ -25212,6 +25219,7 @@ func (v *ContextResetContextReset) __premarshalJSON() (*__premarshalContextReset
 	retval.TaskId = v.ContextResetFields.TaskId
 	retval.StopGrantedAt = v.ContextResetFields.StopGrantedAt
 	retval.StopLeaseMs = v.ContextResetFields.StopLeaseMs
+	retval.CheckpointNode = v.ContextResetFields.CheckpointNode
 	return &retval, nil
 }
 
@@ -25229,6 +25237,8 @@ type ContextResetFields struct {
 	// When the single stop was granted; the host may act on it only within stopLeaseMs of its own send time.
 	StopGrantedAt *string `json:"stopGrantedAt"`
 	StopLeaseMs   *int    `json:"stopLeaseMs"`
+	// #3300 (hrn:node:hadronmemory.com:specs:cor:agt:050:27 part 3; hrn:node:hadronmemory.com:specs:cor:agt:070:04): canonical v2 checkpoint URN fixed at registration and kept after the reset ends or the node moves or is deleted. Null before registration. Legacy id-only rows derive it while the node row exists, otherwise null. Reset state behind the existing host-key gates, not a node read.
+	CheckpointNode *string `json:"checkpointNode"`
 }
 
 // GetId returns ContextResetFields.Id, and is useful for accessing the field via an interface.
@@ -25257,6 +25267,9 @@ func (v *ContextResetFields) GetStopGrantedAt() *string { return v.StopGrantedAt
 
 // GetStopLeaseMs returns ContextResetFields.StopLeaseMs, and is useful for accessing the field via an interface.
 func (v *ContextResetFields) GetStopLeaseMs() *int { return v.StopLeaseMs }
+
+// GetCheckpointNode returns ContextResetFields.CheckpointNode, and is useful for accessing the field via an interface.
+func (v *ContextResetFields) GetCheckpointNode() *string { return v.CheckpointNode }
 
 // ContextResetResponse is returned by ContextReset on success.
 type ContextResetResponse struct {
@@ -25347,6 +25360,11 @@ func (v *ContextResetStepFieldsResetContextReset) GetStopLeaseMs() *int {
 	return v.ContextResetFields.StopLeaseMs
 }
 
+// GetCheckpointNode returns ContextResetStepFieldsResetContextReset.CheckpointNode, and is useful for accessing the field via an interface.
+func (v *ContextResetStepFieldsResetContextReset) GetCheckpointNode() *string {
+	return v.ContextResetFields.CheckpointNode
+}
+
 func (v *ContextResetStepFieldsResetContextReset) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -25390,6 +25408,8 @@ type __premarshalContextResetStepFieldsResetContextReset struct {
 	StopGrantedAt *string `json:"stopGrantedAt"`
 
 	StopLeaseMs *int `json:"stopLeaseMs"`
+
+	CheckpointNode *string `json:"checkpointNode"`
 }
 
 func (v *ContextResetStepFieldsResetContextReset) MarshalJSON() ([]byte, error) {
@@ -25412,6 +25432,7 @@ func (v *ContextResetStepFieldsResetContextReset) __premarshalJSON() (*__premars
 	retval.TaskId = v.ContextResetFields.TaskId
 	retval.StopGrantedAt = v.ContextResetFields.StopGrantedAt
 	retval.StopLeaseMs = v.ContextResetFields.StopLeaseMs
+	retval.CheckpointNode = v.ContextResetFields.CheckpointNode
 	return &retval, nil
 }
 
@@ -61213,6 +61234,9 @@ type ReportHostOperationResponse struct {
 	// (hrn:node:hadronmemory.com:specs:cor:agt:070:03). Only after collecting it, and only its own host's (another's is
 	// HOST_OPERATION_NOT_FOUND). The same outcome again answers the operation as it is; a different one is
 	// HOST_OPERATION_ALREADY_REPORTED. Writes host.operation.succeeded or host.operation.failed.
+	// #3309 (hrn:node:hadronmemory.com:specs:cor:agt:050:27 part 11): a worker.reset-context failure may name
+	// HOST_UNSUPPORTED, optionally followed by ": " and detail, only before its claim (phase requested).
+	// After the claim this reason is BAD_CONTEXT_RESET_INPUT; its message lists the reasons accepted at that phase.
 	ReportHostOperation *ReportHostOperationReportHostOperation `json:"reportHostOperation"`
 }
 
@@ -71084,8 +71108,9 @@ func (v *StartConnectionResponse) GetStartConnection() *StartConnectionStartConn
 //
 // The start of a connection's OAuth flow (#2897). Open authorizeUrl in a
 // browser; the consent step belongs to the provider and the browser ends on a
-// page this server hosts, so the portal is not involved. Confirm the result by
-// listing the org's connections.
+// page this server hosts, so the portal is not involved. Find the connection
+// this flow made with connectionFlow(flowId) (#2913,
+// hrn:node:hadronmemory.com:specs:cor:dmo:080:04).
 type StartConnectionStartConnectionConnectionStart struct {
 	Provider ConnectionProvider `json:"provider"`
 	// The org the connection will be attached to.
@@ -104237,6 +104262,7 @@ fragment ContextResetFields on ContextReset {
 	taskId
 	stopGrantedAt
 	stopLeaseMs
+	checkpointNode
 }
 `
 
@@ -106016,6 +106042,7 @@ fragment ContextResetFields on ContextReset {
 	taskId
 	stopGrantedAt
 	stopLeaseMs
+	checkpointNode
 }
 `
 
@@ -107260,6 +107287,7 @@ fragment ContextResetFields on ContextReset {
 	taskId
 	stopGrantedAt
 	stopLeaseMs
+	checkpointNode
 }
 `
 
@@ -119925,6 +119953,7 @@ fragment ContextResetFields on ContextReset {
 	taskId
 	stopGrantedAt
 	stopLeaseMs
+	checkpointNode
 }
 `
 
@@ -120680,6 +120709,7 @@ fragment ContextResetFields on ContextReset {
 	taskId
 	stopGrantedAt
 	stopLeaseMs
+	checkpointNode
 }
 `
 
@@ -120733,6 +120763,7 @@ fragment ContextResetFields on ContextReset {
 	taskId
 	stopGrantedAt
 	stopLeaseMs
+	checkpointNode
 }
 `
 
@@ -120785,6 +120816,7 @@ fragment ContextResetFields on ContextReset {
 	taskId
 	stopGrantedAt
 	stopLeaseMs
+	checkpointNode
 }
 `
 

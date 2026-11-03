@@ -3543,6 +3543,35 @@ input CompleteAssetUploadInput {
 }
 
 """
+Where one connect flow is (#2913, hrn:node:hadronmemory.com:specs:cor:dmo:080:04).
+Scalars only: it never hands out the connection's own fields.
+"""
+type ConnectionFlow {
+  """
+  The connection the flow created, or on a reconnect the existing one for the same organization, provider and account. Null unless CONNECTED.
+  """
+  connectionId: ID
+
+  """
+  The stable code the done page shows (for example access_denied). Null unless FAILED.
+  """
+  failureCode: String
+  status: ConnectionFlowStatus!
+}
+
+"""Where a connect flow is (#2913)."""
+enum ConnectionFlowStatus {
+  """The flow made, or reconnected, the connection in connectionId."""
+  CONNECTED
+
+  """The flow ended without a connection; failureCode says why."""
+  FAILED
+
+  """The flow has not completed. An answer, never an error."""
+  PENDING
+}
+
+"""
 A user-owned connection's scoped delegation to an App install (spec-042 Track
 B, #593). The connection OWNER grants a specific App scoped access to their
 mailbox/calendar; the enforcement gate is requireEmailConnection. The grantee
@@ -3592,8 +3621,9 @@ enum ConnectionProvider {
 """
 The start of a connection's OAuth flow (#2897). Open authorizeUrl in a
 browser; the consent step belongs to the provider and the browser ends on a
-page this server hosts, so the portal is not involved. Confirm the result by
-listing the org's connections.
+page this server hosts, so the portal is not involved. Find the connection
+this flow made with connectionFlow(flowId) (#2913,
+hrn:node:hadronmemory.com:specs:cor:dmo:080:04).
 """
 type ConnectionStart {
   """
@@ -3605,6 +3635,13 @@ type ConnectionStart {
 
   """When authorizeUrl stops working. Start again after this."""
   expiresAt: DateTime!
+
+  """
+  The id of this flow. connectionFlow(flowId:) says where it is: pending, the
+  connection it made, or the failure code it ended with. Only the user who
+  started the flow may read it, for one hour from the start.
+  """
+  flowId: ID!
 
   """The org the connection will be attached to."""
   orgId: ID!
@@ -3625,6 +3662,11 @@ cancellation: a host step naming another is STALE_EPOCH.
 type ContextReset {
   agentStoppedAt: DateTime
   appId: ID!
+
+  """
+  #3300 (hrn:node:hadronmemory.com:specs:cor:agt:050:27 part 3; hrn:node:hadronmemory.com:specs:cor:agt:070:04): canonical v2 checkpoint URN fixed at registration and kept after the reset ends or the node moves or is deleted. Null before registration. Legacy id-only rows derive it while the node row exists, otherwise null. Reset state behind the existing host-key gates, not a node read.
+  """
+  checkpointNode: String
   claimedAt: DateTime
   endedAt: DateTime
   epoch: Int!
@@ -8513,6 +8555,21 @@ type Mutation {
   deleteUser(reason: String, userRef: ID): Boolean!
 
   """
+  #2659 (hrn:node:hadronmemory.com:specs:cor:dmo:070:03): delete one of the
+  caller's own API keys, live or revoked. A live key is revoked first, with
+  every key it minted, in the same step, so no working credential is left
+  behind. The keys it minted are not deleted and do not prevent the delete:
+  they stay, revoked, with no parent. The key then no longer authenticates and
+  is absent from myUserApiKeys whatever includeHidden says. Returns the one
+  append-only deletion record (no secret, no hash). Only the key's own user,
+  as themselves: FORBIDDEN under impersonation, from a worker session or a run;
+  UNAUTHENTICATED for AppKey-resolved callers. NOT_FOUND for both unknown and
+  foreign keys, as revokeUserApiKey answers. To tidy the list without deleting,
+  hide a revoked key with setUserApiKeyHidden instead.
+  """
+  deleteUserApiKey(id: ID!): UserApiKeyDeletion!
+
+  """
   #1162 — hard-delete a never-referenced miscast only.
   hrn:node:hadronmemory.com:specs:cor:dmo:050:11
   Empty normally ended and released stints are repairable; persisted
@@ -9470,6 +9527,9 @@ type Mutation {
   (hrn:node:hadronmemory.com:specs:cor:agt:070:03). Only after collecting it, and only its own host's (another's is
   HOST_OPERATION_NOT_FOUND). The same outcome again answers the operation as it is; a different one is
   HOST_OPERATION_ALREADY_REPORTED. Writes host.operation.succeeded or host.operation.failed.
+  #3309 (hrn:node:hadronmemory.com:specs:cor:agt:050:27 part 11): a worker.reset-context failure may name
+  HOST_UNSUPPORTED, optionally followed by ": " and detail, only before its claim (phase requested).
+  After the claim this reason is BAD_CONTEXT_RESET_INPUT; its message lists the reasons accepted at that phase.
   """
   reportHostOperation(input: ReportHostOperationInput!): HostOperation!
 
@@ -12873,6 +12933,15 @@ type Query {
   A missing or malformed provenance record is an integrity error, never an empty page.
   """
   compiledPromptProvenance(limit: Int, nodeRef: ID!, offset: Int, revNo: Int!): CompiledPromptProvenancePage
+
+  """
+  Where the connect flow started by startConnection is (#2913,
+  hrn:node:hadronmemory.com:specs:cor:dmo:080:04). Readable only by the user
+  who started it, for one hour from the start; an unknown, expired or
+  another user's flowId gets one refusal (FORBIDDEN), the same for all
+  three. Reading writes nothing.
+  """
+  connectionFlow(flowId: ID!): ConnectionFlow!
 
   """
   One connection grant the caller created, by ID; null if not theirs (no existence oracle).
@@ -18318,8 +18387,11 @@ type UserApiKey {
   lastUsedAt: DateTime
 
   """
-  Authenticated key that minted this key. Null for direct issuance or
-  unknown legacy ancestry; historical parents are never inferred.
+  Authenticated key that minted this key. Null for direct issuance,
+  unknown legacy ancestry, or a minting key its user has since deleted
+  (#2659, hrn:node:hadronmemory.com:specs:cor:dmo:070:03: the break is
+  recorded once, in that deletion's record); historical parents are never
+  inferred.
   """
   mintedByKeyId: ID
 
@@ -18339,6 +18411,37 @@ consistency; nested field is userApiKey, not key (PR-137 delta D2).
 type UserApiKeyCreateResult {
   rawKey: String!
   userApiKey: UserApiKey!
+}
+
+"""
+#2659 (hrn:node:hadronmemory.com:specs:cor:dmo:070:03, ruling 0007): the one
+append-only record a user's deletion of their own API key leaves behind. Names
+the key (its id and masked preview) and when; never its secret or its hash.
+"""
+type UserApiKeyDeletion {
+  deletedAt: DateTime!
+
+  """The deletion record's id."""
+  id: ID!
+
+  """The deleted key's id. The key itself no longer exists."""
+  keyId: ID!
+
+  """The deleted key's masked preview (its last characters)."""
+  keyPreview: String!
+
+  """
+  The keys the deleted key had minted. They were not deleted: they stay,
+  revoked, with no parent (mintedByKeyId null).
+  """
+  mintedKeyIds: [ID!]!
+
+  """
+  The keys this delete revoked: the key itself when it was live, with its live
+  subtree (hrn:node:hadronmemory.com:specs:cor:aut:010:02 rule 9). Empty when
+  the key was already revoked.
+  """
+  revokedKeyIds: [ID!]!
 }
 
 """#2213 — one page of the caller's own user API keys."""

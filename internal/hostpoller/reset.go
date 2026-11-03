@@ -35,6 +35,9 @@ type ContextReset struct {
 	TaskID      string
 	StopGranted bool
 	StopLeaseMs int
+	// CheckpointNode is the v2 URN of the checkpoint node registered for
+	// the relaunch (hadron-server#3300); empty before registration.
+	CheckpointNode string
 }
 
 // ResetCheckpoint is the checkpoint node the server writes for the host:

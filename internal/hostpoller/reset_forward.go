@@ -62,13 +62,24 @@ func (p *Poller) runReset(ctx context.Context, op Operation, ref, token string, 
 	}
 
 	cp := resetCheckpoint(op, ref, token, git)
-	if _, ok := step(func() (ResetStep, error) {
+	reg, ok := step(func() (ResetStep, error) {
 		return p.resets.RegisterResetRecovery(ctx, resetID, epoch, cp, argString(op, "sessionId"), argString(op, "taskId"))
-	}); !ok {
+	})
+	if !ok {
 		return
 	}
-	// The written node is not returned yet (server#3300); until it is, the
-	// record has no checkpoint and the relaunch is blocked.
+	// The relaunch starts the agent on the node the server wrote
+	// (server#3300). Without it, or without it on disk, nothing could be
+	// relaunched: fail before any process control, never after a stop.
+	node := reg.Reset.CheckpointNode
+	if node == "" {
+		p.recoveryRelaunchFailed(ctx, op, resetID, epoch, "CHECKPOINT_FAILED", "the server returned no checkpoint node")
+		return
+	}
+	if err := p.state.updateReset(resetID, func(r *ResetRecord) { r.Checkpoint = node }); err != nil {
+		p.recoveryRelaunchFailed(ctx, op, resetID, epoch, "CHECKPOINT_FAILED", "the checkpoint node could not be recorded: "+err.Error())
+		return
+	}
 
 	// t0 before the request: a slow answer shortens the window, never
 	// lengthens it.

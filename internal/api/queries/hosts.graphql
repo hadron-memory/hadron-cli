@@ -184,6 +184,8 @@ fragment ContextResetFields on ContextReset {
   taskId
   stopGrantedAt
   stopLeaseMs
+  # #3300: the registered checkpoint's v2 URN, null until registered.
+  checkpointNode
 }
 
 fragment ContextResetStepFields on ContextResetStep {

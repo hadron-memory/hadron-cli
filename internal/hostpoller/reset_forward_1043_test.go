@@ -23,6 +23,10 @@ type fwdResets struct {
 	recordedAt map[string]bool // whether the reset was on disk at the claim
 	state      *State
 	refusals   map[string]string
+	// node is the checkpoint node register answers with (server#3300).
+	node string
+	// cpAtAuth is the record's checkpoint when the stop was requested.
+	cpAtAuth string
 }
 
 func (f *fwdResets) ClaimReset(_ context.Context, id string, epoch int, p ProcessIdentity) (ResetStep, error) {
@@ -39,11 +43,14 @@ func (f *fwdResets) RegisterResetRecovery(_ context.Context, _ string, epoch int
 	if err := f.stepErr["register"]; err != nil {
 		return ResetStep{}, err
 	}
-	return ResetStep{Reset: ContextReset{Epoch: epoch, Phase: "checkpointed"}, Refused: f.refusals["register"]}, nil
+	return ResetStep{Reset: ContextReset{Epoch: epoch, Phase: "checkpointed", CheckpointNode: f.node}, Refused: f.refusals["register"]}, nil
 }
 func (f *fwdResets) AuthorizeResetStop(_ context.Context, _ string, epoch int, p ProcessIdentity) (ResetStep, error) {
 	f.calls = append(f.calls, fmt.Sprintf("authorize@%d pid=%d", epoch, p.PID))
 	f.authAt = f.clock()
+	if r, ok := f.state.resetRecord("r1"); ok {
+		f.cpAtAuth = r.Checkpoint
+	}
 	if err := f.stepErr["authorize"]; err != nil {
 		return ResetStep{}, err
 	}
@@ -101,7 +108,7 @@ func newFwdFixture(t *testing.T) *fwdFixture {
 	x.p.trackAgent("id-iris", "repo/iris", agent)
 	fp := &fwdProc{recProc: recProc{live: map[int]string{4242: "1", 5151: "2"}, errs: map[int]error{}}, agent: agent}
 	fr := &fwdResets{claim: ContextReset{ID: "r1", Epoch: 1, Phase: "claimed"}, lease: 15000, clock: fp.Now,
-		recordedAt: map[string]bool{}, state: x.p.state, refusals: map[string]string{}}
+		recordedAt: map[string]bool{}, state: x.p.state, refusals: map[string]string{}, node: checkpointNode}
 	fr.read = ContextReset{ID: "r1", Epoch: 1, SessionID: "s1", TaskID: "t1", WorkerID: "id-iris"}
 	fr.stepErr = map[string]error{}
 	x.p.EnableResets(fr, ResetDeps{Proc: fp, Git: x.p.resetDeps.Git, Idle: x.p.resetDeps.Idle})
@@ -124,9 +131,8 @@ func (x *fwdFixture) wantCalls(t *testing.T, want ...string) {
 	}
 }
 
-// The whole forward path up to the stop. The relaunch needs the checkpoint
-// node the server wrote, which it does not return yet (server#3300): until
-// it does, the reset ends RELAUNCH_BLOCKED after the stop, nothing started.
+// The whole forward path: claim, checkpoint, stop, relaunch with the
+// checkpoint node the server returned (server#3300), done.
 func TestResetForwardPath1043(t *testing.T) {
 	x := newFwdFixture(t)
 	x.fp.late = 0
@@ -136,7 +142,7 @@ func TestResetForwardPath1043(t *testing.T) {
 		"register@1 s1/t1",
 		"authorize@1 pid=4242",
 		"stopped@1 late=0s",
-		"relaunch-failed@1 RELAUNCH_BLOCKED")
+		"relaunched@1 pid=5151")
 	if !x.fr.recordedAt["claim"] {
 		t.Fatal("the claim was sent before the reset was recorded on disk")
 	}
@@ -150,7 +156,34 @@ func TestResetForwardPath1043(t *testing.T) {
 	if x.fp.t0 >= x.fr.authAt {
 		t.Fatalf("t0 %s is not before the authorize request (%s)", x.fp.t0, x.fr.authAt)
 	}
-	x.wantReport(t, Failed, "RELAUNCH_BLOCKED")
+	// The node is on disk before the stop: a restart after the signal
+	// still relaunches with it.
+	if x.fr.cpAtAuth != checkpointNode {
+		t.Fatalf("record checkpoint at the stop request %q, want %q", x.fr.cpAtAuth, checkpointNode)
+	}
+	if len(x.host.launches) != 1 {
+		t.Fatalf("launches %d, want one", len(x.host.launches))
+	}
+	if env := x.host.promptEnvs[0]; !containsStr(env, "HADRON_RECOVERY_NODE="+checkpointNode) {
+		t.Fatalf("relaunch env %v lacks the checkpoint node", env)
+	}
+	x.wantReport(t, Succeeded, "")
+	if x.kept() {
+		t.Fatal("kept the record of a finished reset")
+	}
+}
+
+// A register answer with no checkpoint node leaves nothing to relaunch
+// with: the reset fails CHECKPOINT_FAILED before any process control.
+func TestResetRegisterWithoutANodeStopsBeforeTheSignal1043(t *testing.T) {
+	x := newFwdFixture(t)
+	x.fr.node = ""
+	x.run(t)
+	x.wantCalls(t, "claim@0 pid=4242", "register@1 s1/t1", "relaunch-failed@1 CHECKPOINT_FAILED")
+	x.wantReport(t, Failed, "CHECKPOINT_FAILED")
+	if x.fp.signals != 0 {
+		t.Fatal("signalled with no checkpoint node to relaunch with")
+	}
 	if len(x.host.launches) != 0 {
 		t.Fatal("launched without a checkpoint node")
 	}

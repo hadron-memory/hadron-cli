@@ -42,6 +42,9 @@ func resetFrom(r *gen.ContextResetFields) hostpoller.ContextReset {
 	if r.StopLeaseMs != nil {
 		out.StopLeaseMs = *r.StopLeaseMs
 	}
+	if r.CheckpointNode != nil {
+		out.CheckpointNode = *r.CheckpointNode
+	}
 	return out
 }
 
