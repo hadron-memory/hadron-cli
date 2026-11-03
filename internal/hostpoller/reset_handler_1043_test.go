@@ -24,7 +24,7 @@ func (f *fakeResets) AuthorizeResetStop(context.Context, string, int, ProcessIde
 	f.calls = append(f.calls, "authorize")
 	return ResetStep{}, nil
 }
-func (f *fakeResets) ReportResetAgentStopped(context.Context, string, int) (ResetStep, error) {
+func (f *fakeResets) ReportResetAgentStopped(context.Context, string, int, time.Duration) (ResetStep, error) {
 	f.calls = append(f.calls, "stopped")
 	return ResetStep{}, nil
 }

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/Khan/genqlient/graphql"
 
@@ -65,7 +66,7 @@ func TestHostResetStepsSendTypedInputs1043(t *testing.T) {
 			map[string]any{"resetId": "r1", "epoch": 3.0, "process": map[string]any{"pid": 4242.0, "startTime": "987654"}}},
 		{"stopped", "ReportContextResetAgentStopped", "reportContextResetAgentStopped",
 			func(s *hostServer) (hostpoller.ResetStep, error) {
-				return s.ReportResetAgentStopped(context.Background(), "r1", 3)
+				return s.ReportResetAgentStopped(context.Background(), "r1", 3, 0)
 			},
 			map[string]any{"resetId": "r1", "epoch": 3.0}},
 		{"relaunched", "ReportContextResetRelaunched", "reportContextResetRelaunched",
@@ -105,6 +106,44 @@ func TestHostResetStepsSendTypedInputs1043(t *testing.T) {
 	}
 }
 
+// TestHostResetStoppedSendsLateStopMs1043 pins the #3255 field: a stop that
+// landed after its lease is sent as whole milliseconds rounded UP (a late
+// stop is never reported as on time), clamped to the server's 86400000
+// bound; an on-time stop omits the key (no late-stop event).
+func TestHostResetStoppedSendsLateStopMs1043(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		late time.Duration
+		want any // nil = key omitted
+	}{
+		{"on time", 0, nil},
+		{"negative", -time.Second, nil},
+		{"one nanosecond", time.Nanosecond, 1.0},
+		{"whole ms", 250 * time.Millisecond, 250.0},
+		{"rounds up", 250*time.Millisecond + time.Microsecond, 251.0},
+		{"at the bound", 24 * time.Hour, 86400000.0},
+		{"past the bound", 25 * time.Hour, 86400000.0},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			w := &resetWire{body: `{"data":{"reportContextResetAgentStopped":` + resetStepOK + `}}`}
+			if _, err := newResetWire(t, w).ReportResetAgentStopped(context.Background(), "r1", 3, c.late); err != nil {
+				t.Fatal(err)
+			}
+			in := w.input
+			got, present := in["lateStopMs"]
+			if c.want == nil {
+				if present {
+					t.Fatalf("on-time stop must omit lateStopMs, sent %v", in)
+				}
+				return
+			}
+			if got != c.want {
+				t.Fatalf("lateStopMs %v, want %v", got, c.want)
+			}
+		})
+	}
+}
+
 func TestHostResetStepRefusalIsReadNotThrown1043(t *testing.T) {
 	w := &resetWire{body: `{"data":{"claimContextReset":{"refused":"PAUSED","replayed":false,"reset":{"id":"r1","epoch":1,"phase":"refused","reason":"PAUSED","workerId":"w1","sessionId":"s1","taskId":"t1","stopGrantedAt":null,"stopLeaseMs":null}}}}`}
 	got, err := newResetWire(t, w).ClaimReset(context.Background(), "r1", 0, hostpoller.ProcessIdentity{PID: 1, StartTime: "1"})
@@ -120,7 +159,7 @@ func TestHostResetStepCodesAreTyped1043(t *testing.T) {
 	for _, code := range append(append([]string{}, hostpoller.ResetStepCodes...), "FORBIDDEN") {
 		t.Run(code, func(t *testing.T) {
 			w := &resetWire{body: `{"errors":[{"message":"controlled","extensions":{"code":"` + code + `"}}],"data":null}`}
-			_, err := newResetWire(t, w).ReportResetAgentStopped(context.Background(), "r1", 3)
+			_, err := newResetWire(t, w).ReportResetAgentStopped(context.Background(), "r1", 3, 0)
 			if err == nil {
 				t.Fatal("no error")
 			}

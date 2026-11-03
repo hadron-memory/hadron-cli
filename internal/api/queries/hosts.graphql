@@ -208,7 +208,11 @@ mutation AuthorizeContextResetStop($input: AuthorizeContextResetStopInput!) {
   }
 }
 
-mutation ReportContextResetAgentStopped($input: ContextResetStepInput!) {
+# lateStopMs (#3255) is omitted, not sent as null, when the stop was on time.
+# @genqlient(for: "ContextResetStepInput.lateStopMs", omitempty: true)
+mutation ReportContextResetAgentStopped(
+  $input: ContextResetStepInput!
+) {
   reportContextResetAgentStopped(input: $input) {
     ...ContextResetStepFields
   }

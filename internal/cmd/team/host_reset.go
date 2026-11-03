@@ -2,6 +2,7 @@ package team
 
 import (
 	"context"
+	"time"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
@@ -86,8 +87,8 @@ func (s *hostServer) AuthorizeResetStop(ctx context.Context, resetID string, epo
 	return resetStepFrom(&resp.AuthorizeContextResetStop.ContextResetStepFields)
 }
 
-func (s *hostServer) ReportResetAgentStopped(ctx context.Context, resetID string, epoch int) (hostpoller.ResetStep, error) {
-	resp, err := gen.ReportContextResetAgentStopped(ctx, s.client, &gen.ContextResetStepInput{AppRef: s.app, ResetId: resetID, Epoch: epoch})
+func (s *hostServer) ReportResetAgentStopped(ctx context.Context, resetID string, epoch int, late time.Duration) (hostpoller.ResetStep, error) {
+	resp, err := gen.ReportContextResetAgentStopped(ctx, s.client, &gen.ContextResetStepInput{AppRef: s.app, ResetId: resetID, Epoch: epoch, LateStopMs: lateStopMs(late)})
 	if err != nil {
 		return hostpoller.ResetStep{}, resetStepErr(err)
 	}
@@ -96,6 +97,21 @@ func (s *hostServer) ReportResetAgentStopped(ctx context.Context, resetID string
 	}
 	return resetStepFrom(&resp.ReportContextResetAgentStopped.ContextResetStepFields)
 }
+
+// lateStopMs is a late stop as the server's lateStopMs (#3255): nil when on
+// time, so no late-stop event; otherwise whole milliseconds rounded UP, so a
+// late stop is never reported as on time, and clamped to the 86400000 bound
+// the server accepts.
+func lateStopMs(late time.Duration) *int {
+	if late <= 0 {
+		return nil
+	}
+	ms := min((late+time.Millisecond-1)/time.Millisecond, maxLateStopMs)
+	n := int(ms)
+	return &n
+}
+
+const maxLateStopMs = 86400000
 
 func (s *hostServer) ReportResetRelaunched(ctx context.Context, resetID string, epoch int, p hostpoller.ProcessIdentity) (hostpoller.ResetStep, error) {
 	resp, err := gen.ReportContextResetRelaunched(ctx, s.client, &gen.ReportContextResetRelaunchedInput{AppRef: s.app, ResetId: resetID, Epoch: epoch, Process: observed(p)})

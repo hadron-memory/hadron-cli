@@ -3,6 +3,7 @@ package hostpoller
 import (
 	"context"
 	"errors"
+	"time"
 )
 
 // OpWorkerResetContext is the capability-gated operation (#2162,
@@ -51,7 +52,9 @@ type ResetServer interface {
 	ClaimReset(ctx context.Context, resetID string, epoch int, p ProcessIdentity) (ResetStep, error)
 	RegisterResetRecovery(ctx context.Context, resetID string, epoch int, checkpointNode, sessionID, taskID string) (ResetStep, error)
 	AuthorizeResetStop(ctx context.Context, resetID string, epoch int, p ProcessIdentity) (ResetStep, error)
-	ReportResetAgentStopped(ctx context.Context, resetID string, epoch int) (ResetStep, error)
+	// late is how long after its lease the stop signal landed (0 when on
+	// time; procctl SignalWithin's result); it is sent as lateStopMs.
+	ReportResetAgentStopped(ctx context.Context, resetID string, epoch int, late time.Duration) (ResetStep, error)
 	ReportResetRelaunched(ctx context.Context, resetID string, epoch int, p ProcessIdentity) (ResetStep, error)
 	ReportResetRelaunchFailed(ctx context.Context, resetID string, epoch int, reason string) (ResetStep, error)
 }
