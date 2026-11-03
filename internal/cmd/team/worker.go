@@ -210,10 +210,9 @@ no lease exists, so a previewed name may be gone at cast time.
 
 The team App comes from the persistent --app flag (or the configured App
 context).`,
-		Example: `  hadron team worker cast --app acme.com:eng-team --role backend-engineer --name Iris --dry-run
+		Example: `  hadron team worker cast --app acme.com:eng-team --role backend-engineer --name Iris --reports-to Ada --dry-run
   hadron team worker cast --app acme.com:eng-team --role backend-engineer --name Iris --reports-to Ada
   hadron team worker cast --app acme.com:eng-team --agent hrn:agent:acme.com:qa --name Uma --no-team
-  hadron team worker cast --app acme.com:eng-team --agent hrn:agent:acme.com:qa --name Uma
   hadron team session start --as Iris --app acme.com:eng-team --tool claude-code`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -277,7 +276,7 @@ context).`,
 				preview, perr := gen.CastWorkerPreview(cmd.Context(), client, appRef,
 					optStr(agentRef), optStr(role), optStr(name), reportsToArg, noTeamArg)
 				if perr != nil {
-					return api.MapError(perr)
+					return castChoiceRemedy(perr)
 				}
 				if preview.CastWorkerPreview == nil {
 					return exitcode.Newf(exitcode.Error, "server returned no preview")
@@ -291,7 +290,7 @@ context).`,
 				}
 				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 					fmt.Fprintf(w, "would cast %s%s — agent %s (%s)\n", dto.Name, roleSuffix(dto.Role), dto.AgentName, dto.AgentID)
-					fmt.Fprintf(w, "%s\n", placementText(&dto.TeamPlacement, dto.ReportsToWorkerID))
+					fmt.Fprintf(w, "%s\n", previewPlacementText(dto.TeamPlacement, dto.ReportsToWorkerID))
 					if dto.Prompt != nil && *dto.Prompt != "" {
 						fmt.Fprintf(w, "\n%s\n", *dto.Prompt)
 					}
@@ -308,7 +307,7 @@ context).`,
 				// exception is WORKER_NAME_REQUIRED, refused above, because it
 				// is the refusal a reader following last week's instructions
 				// will hit.
-				return api.MapError(err)
+				return castChoiceRemedy(err)
 			}
 			if resp.CastWorker == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no worker")
@@ -370,7 +369,8 @@ worktrees bound to different teams lists different staff, and without the
 scope line the two outputs look identical.
 
 REPORTS TO is the persisted worker relation, including on unbound workers.
-Rows group by the target worker id. An unset relation shows -, a retired target
+Rows group by the target worker id. "no team" is a RECORDED choice to have no
+reporting head (cast --no-team); an unset relation shows -, a retired target
 is marked (retired), and a masked relation shows ? (unavailable). Session ending
 or quiet time never clears it.
 
@@ -494,7 +494,7 @@ reads as MORE idle than it was, never less.`,
 					if wk.RetiredAt != nil {
 						retired = *wk.RetiredAt
 					}
-					t.Row(output.SafeCell(wk.Name), output.SafeCell(dash(wk.Role)), output.SafeCell(reportsToLabel(wk.ReportsTo, wk.ReportsToRetired, wk.ReportsTo != nil || workingStateVisible(wk.HasLiveSession))),
+					t.Row(output.SafeCell(wk.Name), output.SafeCell(dash(wk.Role)), output.SafeCell(reportsToCell(wk.ReportsTo, wk.ReportsToRetired, wk.ReportsTo != nil || workingStateVisible(wk.HasLiveSession), wk.TeamPlacement)),
 						output.SafeCell(renderHeldBy(wk.HeldByUserID, wk.HasLiveSession, selfID, label)),
 						output.SafeCell(renderLastDriven(wk.HasLiveSession, wk.LastActiveAt, now)),
 						output.SafeCell(dash(wk.Family)), output.SafeCell(dash(wk.Model)), output.SafeCell(dash(wk.Tier)),
@@ -799,6 +799,10 @@ and every worker's state in ` + "`team roster`" + `.`,
 				if !profile || dto.ReportsTo != nil {
 					fmt.Fprintf(out, "  reports to: %s\n", reportsToLabel(dto.ReportsTo, dto.ReportsToRetired, dto.ReportsTo != nil || workingStateVisible(dto.HasLiveSession)))
 				}
+				// The recorded reporting CHOICE beside the relation (cli#933):
+				// without it a recorded no-team and a never-chosen worker both read
+				// "reports to: -". Null is withheld, never UNSET or no team.
+				fmt.Fprintf(out, "  team placement: %s\n", placementText(dto.TeamPlacement, workerRefID(dto.ReportsTo)))
 				if dto.URN != nil && *dto.URN != "" {
 					fmt.Fprintf(out, "  urn: %s\n", *dto.URN)
 				}
@@ -2050,6 +2054,47 @@ func castChoiceFlags(cmd *cobra.Command, reportsTo string, noTeam bool) (*string
 		return nil, &t, nil
 	}
 	return nil, nil, nil
+}
+
+// reportsToCell is the REPORTS TO table cell: the relation, except that a
+// recorded NO_TEAM choice reads "no team" rather than the "-" a never-chosen
+// worker shows (cli#933). Everything else is reportsToLabel unchanged.
+func reportsToCell(ref *workerRefDTO, retired, known bool, placement *string) string {
+	if known && ref == nil && placement != nil && *placement == "NO_TEAM" {
+		return "no team"
+	}
+	return reportsToLabel(ref, retired, known)
+}
+
+// castChoiceRemedy maps a cast refusal and, for the missing-choice refusal
+// only, appends the flags that fix it: the server's message names the wire
+// arguments (reportsTo / noTeam), and this CLI's spelling is --reports-to /
+// --no-team. The server's text stays verbatim and first; the code is kept for
+// the --json envelope.
+func castChoiceRemedy(raw error) error {
+	mapped := api.MapError(raw)
+	if api.HasErrorCode(raw, "WORKER_TEAM_CHOICE_REQUIRED") {
+		return api.WithServerCode(exitcode.Newf(exitcode.Usage, "%s\n  → pass --reports-to <worker> or --no-team", mapped.Error()), raw)
+	}
+	return mapped
+}
+
+// previewPlacementText is placementText for a dry run: nothing was recorded,
+// so it says what the cast WOULD record, and names the head by id (a preview
+// carries the id only).
+func previewPlacementText(placement string, reportsToID *string) string {
+	switch placement {
+	case "REPORTS_TO":
+		if reportsToID != nil && *reportsToID != "" {
+			return "would report to worker " + *reportsToID
+		}
+		return "would report to a named worker"
+	case "NO_TEAM":
+		return "would record no team"
+	case "UNSET":
+		return "would record no reporting choice (UNSET)"
+	}
+	return "would record: " + placement
 }
 
 // placementText says what a returned teamPlacement means. NULL is WITHHELD from

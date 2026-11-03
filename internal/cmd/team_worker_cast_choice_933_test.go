@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -248,6 +249,136 @@ func TestCastChoiceHelpWording(t *testing.T) {
 	for _, banned := range []string{"clear to no team", "clearing a line", "on a later clear", "re-bind"} {
 		if strings.Contains(strings.ToLower(help), banned) {
 			t.Errorf("cast --help must not promise %q (S6/S7 unbuilt)", banned)
+		}
+	}
+}
+
+func castChoiceWorker(placement string) string {
+	var worker map[string]any
+	_ = json.Unmarshal([]byte(irisWorkerJSON), &worker)
+	worker["hasLiveSession"] = false // a participant read: the working state is visible
+	var p any
+	if placement != "" {
+		p = placement
+	}
+	worker["teamPlacement"] = p
+	raw, _ := json.Marshal(worker)
+	return string(raw)
+}
+
+// #933 UX P2: `worker get` says the recorded placement in text, so a recorded
+// no-team and a never-chosen worker no longer both read "reports to: -".
+func TestCastChoiceWorkerGetTextShowsPlacement(t *testing.T) {
+	for _, c := range []struct{ placement, want string }{
+		{"NO_TEAM", "team placement: no team (recorded choice)"},
+		{"UNSET", "team placement: no reporting choice recorded (UNSET)"},
+		{"", "team placement: reporting choice withheld from this caller"},
+	} {
+		responses := taskResponses()
+		responses["GetWorker"] = `{"data":{"worker":` + castChoiceWorker(c.placement) + `}}`
+		_, out, err := runTeamTask(t, responses, "team", "worker", "get", "hrn:worker:acme.com:eng-team:iris")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(out, c.want) {
+			t.Errorf("%q: missing %q in:\n%s", c.placement, c.want, out)
+		}
+	}
+}
+
+// #933 UX P2: a recorded NO_TEAM reads "no team" in the REPORTS TO cell; a
+// never-chosen worker keeps "-".
+func TestCastChoiceWorkerListCell(t *testing.T) {
+	for _, c := range []struct{ placement, want string }{
+		{"NO_TEAM", "no team"},
+		{"UNSET", "-"},
+	} {
+		stubs := activityStubs(t)
+		stubs["WorkersRoster"] = `{"data":{"workers":{"total":1,"items":[` + castChoiceWorker(c.placement) + `]}}}`
+		teamGitDir(t)
+		gql, _ := captureGraphQL(t, stubs)
+		f, outB := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "worker", "list", "--app", "acme.com:eng-team", "--server", gql.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		text := outB.String()
+		var row string
+		for _, line := range strings.Split(text, "\n") {
+			if strings.HasPrefix(line, "Iris") {
+				row = line
+			}
+		}
+		fields := strings.Fields(row)
+		if len(fields) < 3 || !strings.Contains(row, c.want) {
+			t.Errorf("%s: row %q must carry %q", c.placement, row, c.want)
+		}
+		if c.placement == "UNSET" && strings.Contains(row, "no team") {
+			t.Errorf("a never-chosen worker must not read no team: %q", row)
+		}
+	}
+}
+
+// #933 UX P2: the missing-choice refusal keeps the server's text first and
+// verbatim, adds the flags that fix it, and keeps its code and exit 2.
+func TestCastChoiceRequiredRefusalNamesTheFlags(t *testing.T) {
+	const msg = "Choose reportsTo or noTeam: true when casting a worker."
+	for _, dry := range []bool{false, true} {
+		gql, _ := captureGraphQL(t, map[string]string{
+			"CastWorker":        `{"errors":[{"message":"` + msg + `","extensions":{"code":"WORKER_TEAM_CHOICE_REQUIRED"}}]}`,
+			"CastWorkerPreview": `{"errors":[{"message":"` + msg + `","extensions":{"code":"WORKER_TEAM_CHOICE_REQUIRED"}}]}`,
+		})
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		args := castChoiceArgs(gql.URL)
+		if dry {
+			args = append(args, "--dry-run")
+		}
+		root.SetArgs(args)
+		err := root.Execute()
+		if err == nil || !strings.HasPrefix(err.Error(), msg) {
+			t.Fatalf("dry=%v: the server text must come first and verbatim: %v", dry, err)
+		}
+		if !strings.Contains(err.Error(), "--reports-to <worker> or --no-team") {
+			t.Errorf("dry=%v: the refusal must name the flags: %v", dry, err)
+		}
+		if exitCodeFor(err) != exitcode.Usage {
+			t.Errorf("dry=%v: exit = %d, want 2", dry, exitCodeFor(err))
+		}
+		var coded interface{ ServerCode() string }
+		if !errors.As(err, &coded) || coded.ServerCode() != "WORKER_TEAM_CHOICE_REQUIRED" {
+			t.Errorf("dry=%v: the --json envelope code must survive: %v", dry, err)
+		}
+	}
+}
+
+// #933 UX P3: a dry run says what it WOULD record, not that it recorded it, and
+// no cast example in --help is choice-less.
+func TestCastChoicePreviewWordingAndExamples(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{
+		"CastWorkerPreview": `{"data":{"castWorkerPreview":{"name":"Iris","role":"backend-engineer",
+			"agentId":"agt1","agentName":"backend-engineer","prompt":null,
+			"teamPlacement":"REPORTS_TO","reportsToWorkerId":"wkr-ada"}}}`,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "cast", "--app", "acme.com:eng-team", "--role", "backend-engineer",
+		"--name", "Iris", "--reports-to", "Ada", "--dry-run", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "would report to worker wkr-ada") || strings.Contains(out.String(), "recorded") {
+		t.Errorf("a preview must say what it would do, by id: %s", out.String())
+	}
+
+	f2, helpOut := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"team", "worker", "cast", "--help"})
+	_ = root2.Execute()
+	for _, line := range strings.Split(helpOut.String(), "\n") {
+		if strings.Contains(line, "hadron team worker cast --app") && !strings.Contains(line, "--reports-to") && !strings.Contains(line, "--no-team") {
+			t.Errorf("every cast example must carry a choice: %q", line)
 		}
 	}
 }
