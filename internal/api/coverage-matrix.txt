@@ -29,7 +29,7 @@ agentProcessList  command agent processes list
 agentSchedules  command schedule list
 agentSubscriptions  gap #890
 agentSubscriptionsPage  gap #1547
-agentTask  command team task dependencies
+agentTask  command team task finding-dispositions
 agentTaskList  command agent tasks list
 agentTaskStallSchedule  command team stall-schedule get
 agentTaskTree  command team task tree
@@ -223,7 +223,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 329: 259 command, 58 gap, 12 excluded
+[Mutation] 329: 260 command, 57 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -357,7 +357,7 @@ deleteTicker  command ticker delete
 deleteUser  command user delete
 deleteUserApiKey  command auth token delete
 deleteWorker  command team worker rm
-disposeAgentTaskFinding  gap #1556
+disposeAgentTaskFinding  command team task dispose-finding
 editComment  command comment edit
 emailCategorizeMessage  gap #198
 emailDeleteMessage  gap #198
@@ -554,7 +554,7 @@ updateWorker  command team worker update
 withdrawDecision  command decision withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 68: 41 gap, 27 excluded
+[Arguments] 67: 40 gap, 27 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.addOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
@@ -616,7 +616,6 @@ Mutation.updateOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (a
 Mutation.updateOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.updateTeamRole(repos)  gap #1336
 Query.agentTasks(creator)  gap #1336
-Query.agentTasks(unresolvedFindings)  gap #1556
 Query.attendeeRegister(agentRef)  gap #1336
 Query.channelMessages(teamHeadRef)  gap #936
 Query.channelMessages(untagged)  gap #936
