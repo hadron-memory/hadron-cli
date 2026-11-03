@@ -3873,6 +3873,39 @@ func (v *AgentTaskFieldsResultAgentTaskResult) GetSummary() *string { return v.S
 // GetEvidence returns AgentTaskFieldsResultAgentTaskResult.Evidence, and is useful for accessing the field via an interface.
 func (v *AgentTaskFieldsResultAgentTaskResult) GetEvidence() *string { return v.Evidence }
 
+// #2662: give every id, or none for platform F1/F2/... ids in list order. Ids unique, 1–32 letters/digits/_/-. Text at most 2,000 Unicode code points; no trimming.
+type AgentTaskFindingInput struct {
+	Id       *string                  `json:"id"`
+	Severity AgentTaskFindingSeverity `json:"severity"`
+	Text     string                   `json:"text"`
+}
+
+// GetId returns AgentTaskFindingInput.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskFindingInput) GetId() *string { return v.Id }
+
+// GetSeverity returns AgentTaskFindingInput.Severity, and is useful for accessing the field via an interface.
+func (v *AgentTaskFindingInput) GetSeverity() AgentTaskFindingSeverity { return v.Severity }
+
+// GetText returns AgentTaskFindingInput.Text, and is useful for accessing the field via an interface.
+func (v *AgentTaskFindingInput) GetText() string { return v.Text }
+
+// #2662: severity is shape only, never matcher, authorization or alarm input (hrn:node:hadronmemory.com:specs:cor:agt:050:30).
+type AgentTaskFindingSeverity string
+
+const (
+	AgentTaskFindingSeverityP1   AgentTaskFindingSeverity = "P1"
+	AgentTaskFindingSeverityP2   AgentTaskFindingSeverity = "P2"
+	AgentTaskFindingSeverityP3   AgentTaskFindingSeverity = "P3"
+	AgentTaskFindingSeverityNote AgentTaskFindingSeverity = "note"
+)
+
+var AllAgentTaskFindingSeverity = []AgentTaskFindingSeverity{
+	AgentTaskFindingSeverityP1,
+	AgentTaskFindingSeverityP2,
+	AgentTaskFindingSeverityP3,
+	AgentTaskFindingSeverityNote,
+}
+
 // AgentTaskFinishFinishAgentTask includes the requested fields of the GraphQL type AgentTask.
 // The GraphQL type's documentation follows.
 //
@@ -4165,7 +4198,14 @@ func (v *AgentTaskFinishFinishAgentTask) __premarshalJSON() (*__premarshalAgentT
 type AgentTaskFinishResponse struct {
 	// #1705 — finish a started task with its result: its assignee only
 	// (hrn:node:hadronmemory.com:specs:cor:agt:050:08). A pending task is refused: start it first. Refusals as
-	// startAgentTask, plus BAD_USER_INPUT for an outcome that is not one word.
+	// startAgentTask, plus BAD_USER_INPUT for an outcome that is not one word. #2652 (outcome set,
+	// hrn:node:hadronmemory.com:specs:cor:agt:050:30): a team may close the outcomes its tasks finish with, as the
+	// node schema:task-outcomes in the Team Agent's system memory, found through its base chain, with data
+	// {"outcomes": [...]} holding 1 to 100 one-word outcomes. With a set, an outcome outside it (matched exactly,
+	// case-sensitive) is TASK_OUTCOME_NOT_IN_SET, and the refusal does not list the set. A set that exists but is
+	// malformed, or two installed Team Agents when either carries the node, is TASK_OUTCOME_SET_UNUSABLE, refusing
+	// every finish. Both are judged after the assignee and status checks and before any write or event: the task
+	// stays started. With no set, any one word is accepted. The set is read only at finish.
 	FinishAgentTask *AgentTaskFinishFinishAgentTask `json:"finishAgentTask"`
 }
 
@@ -7667,13 +7707,18 @@ func (v *AgentTaskRequirementsInput) GetRole() *string { return v.Role }
 
 type AgentTaskResultInput struct {
 	Evidence *string `json:"evidence"`
-	// One word (letters, digits, underscore, hyphen or dot; up to 64 characters), e.g. succeeded or failed. It is copied into the event stream, which never holds free text.
+	// #2662: optional immutable findings, at most 100 (hrn:node:hadronmemory.com:specs:cor:agt:050:30); omitted/null preserves legacy finish.
+	Findings []*AgentTaskFindingInput `json:"findings,omitempty"`
+	// One word (letters, digits, underscore, hyphen or dot; up to 64 characters), e.g. succeeded or failed. It is copied into the event stream, which never holds free text. When the team has an outcome set (#2652, schema:task-outcomes; hrn:node:hadronmemory.com:specs:cor:agt:050:30) it must be one of the set (TASK_OUTCOME_NOT_IN_SET); an unusable set refuses every finish (TASK_OUTCOME_SET_UNUSABLE).
 	Outcome string  `json:"outcome"`
 	Summary *string `json:"summary"`
 }
 
 // GetEvidence returns AgentTaskResultInput.Evidence, and is useful for accessing the field via an interface.
 func (v *AgentTaskResultInput) GetEvidence() *string { return v.Evidence }
+
+// GetFindings returns AgentTaskResultInput.Findings, and is useful for accessing the field via an interface.
+func (v *AgentTaskResultInput) GetFindings() []*AgentTaskFindingInput { return v.Findings }
 
 // GetOutcome returns AgentTaskResultInput.Outcome, and is useful for accessing the field via an interface.
 func (v *AgentTaskResultInput) GetOutcome() string { return v.Outcome }
@@ -21056,8 +21101,13 @@ type ClaimUntrackedTaskItemsResponse struct {
 	// task.assigned and task.started. Each claim commits on its own. An item another caller claimed first is skipped,
 	// so concurrent callers get disjoint sets. A refusal mid-walk stops it and is returned with the claims already
 	// made: incompleteReason claim_refused with its code in refusalCode (claim_failed, refusalCode null, for an
-	// unexpected failure after a claim). A person or a worker claims; the App's own key gets
-	// TASK_CLAIM_PRINCIPAL_UNSUPPORTED before anything else is read. Other refusals as untrackedTaskItems.
+	// unexpected failure after a claim). A person or a worker claims for themselves and names no assignee or owner
+	// (BAD_USER_INPUT if it does). #3132: the App's own key names the assignee (TASK_ASSIGNEE_REQUIRED) and the owner
+	// (TASK_OWNER_REQUIRED), each a worker of the App or a person who participates in it (TASK_ASSIGNEE_INVALID /
+	// TASK_OWNER_INVALID, as createAgentTask), all judged before any GitHub call; the task is started on the assignee's
+	// behalf, and its events name the key as actorAppKeyId and the assignee as their subject. A claim is the only task
+	// write an App key makes. A key request carrying a session is APP_KEY_SESSION_BOUND. Other refusals as
+	// untrackedTaskItems.
 	ClaimUntrackedTaskItems *ClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult `json:"claimUntrackedTaskItems"`
 }
 
@@ -25096,9 +25146,11 @@ func (v *ContextResetStepFieldsResetContextReset) GetStopLeaseMs() *int { return
 
 // #2162 — a context reset step: the reset and the epoch the host holds (0 until claimed).
 type ContextResetStepInput struct {
-	AppRef  string `json:"appRef"`
-	Epoch   int    `json:"epoch"`
-	ResetId string `json:"resetId"`
+	AppRef string `json:"appRef"`
+	Epoch  int    `json:"epoch"`
+	// #3255 (hrn:node:hadronmemory.com:specs:cor:agt:050:27 part 10): milliseconds the host's stop signal landed after its window, an integer from 0 to 86400000. Omitted, null or zero means no late-stop event. On the first stopped report, a positive value records one task.context-reset-late-stop event per reset for the worker's coordinator. Later reports record nothing, even if the first report had no annotation. After the reset ended, the same collected host may annotate its granted stop using that grant's epoch; this changes no reset, task, availability, outcome or alarm state. Other steps keep their epoch checks.
+	LateStopMs *int   `json:"lateStopMs,omitempty"`
+	ResetId    string `json:"resetId"`
 }
 
 // GetAppRef returns ContextResetStepInput.AppRef, and is useful for accessing the field via an interface.
@@ -25106,6 +25158,9 @@ func (v *ContextResetStepInput) GetAppRef() string { return v.AppRef }
 
 // GetEpoch returns ContextResetStepInput.Epoch, and is useful for accessing the field via an interface.
 func (v *ContextResetStepInput) GetEpoch() int { return v.Epoch }
+
+// GetLateStopMs returns ContextResetStepInput.LateStopMs, and is useful for accessing the field via an interface.
+func (v *ContextResetStepInput) GetLateStopMs() *int { return v.LateStopMs }
 
 // GetResetId returns ContextResetStepInput.ResetId, and is useful for accessing the field via an interface.
 func (v *ContextResetStepInput) GetResetId() string { return v.ResetId }
@@ -31534,6 +31589,10 @@ type CreateUserInvitationResponse struct {
 	// User invitations (org ADMIN or platform ADMIN).
 	//
 	// Accepts the entity's ID or URN.
+	//
+	// Limits (#2984): expiresInDays is a whole number from 1 to 10 and maxActivations from 2 to 1000; omitted or
+	// null means 10 days and two activations (Holger V49). 0, negatives, an explicit 1 for maxActivations and larger values are refused as BAD_USER_INPUT
+	// (hrn:node:hadronmemory.com:specs:cor:api:260:01), judged after the org-admin gate.
 	CreateUserInvitation *CreateUserInvitationCreateUserInvitation `json:"createUserInvitation"`
 }
 
@@ -45708,6 +45767,10 @@ func (v *InviteUserInviteUserUserInvitation) __premarshalJSON() (*__premarshalIn
 // InviteUserResponse is returned by InviteUser on success.
 type InviteUserResponse struct {
 	// Platform invite — no org association, just onboards a new user
+	//
+	// Limits (#2984): expiresInDays is a whole number from 1 to 10 and maxActivations from 2 to 1000; omitted or
+	// null means 10 days and two activations (Holger V49). 0, negatives, an explicit 1 for maxActivations and larger values are refused as BAD_USER_INPUT
+	// (hrn:node:hadronmemory.com:specs:cor:api:260:01).
 	InviteUser *InviteUserInviteUserUserInvitation `json:"inviteUser"`
 }
 
@@ -60434,7 +60497,7 @@ func (v *ReportContextResetAgentStoppedReportContextResetAgentStoppedContextRese
 
 // ReportContextResetAgentStoppedResponse is returned by ReportContextResetAgentStopped on success.
 type ReportContextResetAgentStoppedResponse struct {
-	// #2162 — the old agent stopped; its resetting mark now lasts until the relaunched agent's first activity.
+	// #2162 / #3255 (hrn:node:hadronmemory.com:specs:cor:agt:050:27): the old agent stopped; its resetting mark now lasts until the relaunched agent's first activity. Optional lateStopMs records the host's late signal once. For an ended reset, a positive annotation from the collected host holding its stop-grant epoch records telemetry only and changes no reset, task, outcome, availability or alarm state.
 	ReportContextResetAgentStopped *ReportContextResetAgentStoppedReportContextResetAgentStoppedContextResetStep `json:"reportContextResetAgentStopped"`
 }
 
@@ -65666,7 +65729,7 @@ var AllServedPromptPointerLevel = []ServedPromptPointerLevel{
 type ServedPromptRecord struct {
 	Id   string           `json:"id"`
 	Kind ServedPromptKind `json:"kind"`
-	// 1 for a bind or a run; a chat counts up each time its served revision changes.
+	// 1 for a bind or a run; a chat counts up each time its served revision or filled variable values change (#3096).
 	Ordinal             int                      `json:"ordinal"`
 	PointerLevel        ServedPromptPointerLevel `json:"pointerLevel"`
 	CompiledNodeId      string                   `json:"compiledNodeId"`
@@ -65674,9 +65737,10 @@ type ServedPromptRecord struct {
 	// Node.revSeq of the revision served (never contentRevSeq).
 	ServedRevSeq int `json:"servedRevSeq"`
 	// The compile revision that owns the provenance.
-	ProvenanceRevSeq int             `json:"provenanceRevSeq"`
-	ServedAt         string          `json:"servedAt"`
-	Variables        json.RawMessage `json:"variables"`
+	ProvenanceRevSeq int    `json:"provenanceRevSeq"`
+	ServedAt         string `json:"servedAt"`
+	// Recorded platform values. Chat records label session.llmModel.source as client-reported or unspecified (#3096); neither is verified model identity.
+	Variables json.RawMessage `json:"variables"`
 	// True when the served revision is no longer retained (neither current nor in history).
 	Pruned bool `json:"pruned"`
 	// Provenance of the served revision, one page at a time (default 50, cap 200).
@@ -70658,7 +70722,7 @@ type SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference struct {
 	Kind SpecReferenceKind `json:"kind"`
 	// The scanned field; edge for a real edge; pendingEdge for an edge whose target is not a node yet.
 	Field string `json:"field"`
-	// Set only by specUnresolvedReferences.
+	// Set only by specUnresolvedReferences and specUnresolvedReferencesPage.
 	Reason       *SpecReferenceProblem `json:"reason"`
 	SourceLoc    string                `json:"sourceLoc"`
 	SourceNodeId string                `json:"sourceNodeId"`
@@ -120252,6 +120316,7 @@ fragment ContextResetStepFields on ContextResetStep {
 }
 `
 
+// lateStopMs (#3255) is omitted, not sent as null, when the stop was on time.
 func ReportContextResetAgentStopped(
 	ctx_ context.Context,
 	client_ graphql.Client,

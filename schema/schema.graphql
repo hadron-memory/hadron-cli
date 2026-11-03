@@ -142,6 +142,14 @@ type Agent {
   bootPromptRef: String
 
   """
+  #2708 — what this Agent's OWN pointer would serve now (hrn:node:hadronmemory.com:specs:cor:agt:040:10): the Agent's own
+  compiled prompt, saying nothing about an App install or a worker that overrides it (see AppAgent.bootPromptServe and
+  Worker.bootPromptServe). Computed by the resolver a bind uses, so it never substitutes a fallback. Null when the caller
+  may not see it (same gate as bootPromptRef), which is judged before anything is resolved.
+  """
+  bootPromptServe: BootPromptServeOutcome
+
+  """
   #2045 — whether the pointer's target is deleted (soft or hard): true / false, and null when no pointer is set
   or the caller may not see it. Same gate as bootPromptRef. Nothing is served from a deleted target (R27).
   """
@@ -493,6 +501,13 @@ type AgentSubscription {
   userId: ID!
 }
 
+"""#2213 — one page of agent subscriptions."""
+type AgentSubscriptionPage {
+  hasMore: Boolean!
+  items: [AgentSubscription!]!
+  total: Int!
+}
+
 """
 One piece of work a team App has assigned, or wants assigned
 (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
@@ -518,6 +533,18 @@ type AgentTask {
   """Same-App tasks that name this task as a blocker."""
   blocks(limit: Int = 20, offset: Int = 0): AgentTaskDependencyPage!
   cancelledAt: DateTime
+
+  """
+  #2646 (hrn:node:hadronmemory.com:specs:cor:agt:050:02): the task this one was cloned from, or null when it was not
+  made by a clone or the source is not readable to you. Read it as "replaces" when the source's status is FINISHED or
+  CANCELLED, and "cloned from" otherwise.
+  """
+  clonedFrom: AgentTask
+
+  """
+  #2646: the clones made from this task, in its own App, paged (hrn:node:hadronmemory.com:specs:cor:agt:050:02); a clone you cannot read is left out.
+  """
+  clones(limit: Int = 20, offset: Int = 0): AgentTaskDependencyPage!
 
   """
   Whether finishing or cancelling asks the assignee to end its worker session
@@ -633,6 +660,43 @@ type AgentTaskDependencyPage {
   hasMore: Boolean!
   items: [AgentTask!]!
   total: Int!
+}
+
+"""
+#2662: immutable finding set at finish; text never enters the event stream.
+"""
+type AgentTaskFinding {
+  id: String!
+  severity: AgentTaskFindingSeverity!
+  text: String!
+}
+
+"""
+#2662: give every id, or none for platform F1/F2/... ids in list order. Ids unique, 1–32 letters/digits/_/-. Text at most 2,000 Unicode code points; no trimming.
+"""
+input AgentTaskFindingInput {
+  id: String
+  severity: AgentTaskFindingSeverity!
+  text: String!
+}
+
+"""
+#2662: findings in supplied order, capped pages (hrn:node:hadronmemory.com:specs:cor:api:120:04).
+"""
+type AgentTaskFindingPage {
+  hasMore: Boolean!
+  items: [AgentTaskFinding!]!
+  total: Int!
+}
+
+"""
+#2662: severity is shape only, never matcher, authorization or alarm input (hrn:node:hadronmemory.com:specs:cor:agt:050:30).
+"""
+enum AgentTaskFindingSeverity {
+  P1
+  P2
+  P3
+  note
 }
 
 """
@@ -833,6 +897,11 @@ type AgentTaskResult {
   """A URL or a node URN."""
   evidence: String
 
+  """
+  #2662: immutable result findings; default 20, max 200, limit 0 count-only; same readers as this result.
+  """
+  findings(limit: Int, offset: Int): AgentTaskFindingPage!
+
   """One word: succeeded, failed, or a word the team chooses."""
   outcome: String!
   summary: String
@@ -842,7 +911,12 @@ input AgentTaskResultInput {
   evidence: String
 
   """
-  One word (letters, digits, underscore, hyphen or dot; up to 64 characters), e.g. succeeded or failed. It is copied into the event stream, which never holds free text.
+  #2662: optional immutable findings, at most 100 (hrn:node:hadronmemory.com:specs:cor:agt:050:30); omitted/null preserves legacy finish.
+  """
+  findings: [AgentTaskFindingInput!]
+
+  """
+  One word (letters, digits, underscore, hyphen or dot; up to 64 characters), e.g. succeeded or failed. It is copied into the event stream, which never holds free text. When the team has an outcome set (#2652, schema:task-outcomes; hrn:node:hadronmemory.com:specs:cor:agt:050:30) it must be one of the set (TASK_OUTCOME_NOT_IN_SET); an unusable set refuses every finish (TASK_OUTCOME_SET_UNUSABLE).
   """
   outcome: String!
   summary: String
@@ -984,6 +1058,11 @@ type AgentTeamEvent {
   actor: AgentTaskParty
 
   """
+  #3132 — the App key that acted, when a key made this event (its claim of an outside item; actor and actorRunId are then null: a key is never a person or a worker). Null otherwise.
+  """
+  actorAppKeyId: ID
+
+  """
   #1833 — the headless run that acted, when a run made this event (actor is then null: a run is never a person or a worker). Null otherwise. Matches AgentTask.createdByRunId for the task a run created.
   """
   actorRunId: ID
@@ -1008,6 +1087,11 @@ type AgentTeamEvent {
 
   """ALARM for an alarm; null for an ordinary event."""
   severity: AgentTeamEventSeverity
+
+  """
+  #3132 — the person the event concerns, when a key or a run acted for one it cannot itself resolve (the assignee its claim named). Never the actor. Null otherwise.
+  """
+  subjectUser: AgentTaskParty
 
   """The worker the event concerns, e.g. a new assignee."""
   subjectWorker: AgentTaskParty
@@ -1619,6 +1703,14 @@ type AppAgent {
   bootPromptRef: String
 
   """
+  #2708 — what a non-customised worker of this App, or a chatbot chat in it, would be served now
+  (hrn:node:hadronmemory.com:specs:cor:agt:040:10): the install's pointer, else the Agent's. Computed by the resolver a
+  bind uses, so it never substitutes a fallback. Null when the caller may not see it (same gate as bootPromptRef, the
+  App's participants), which is judged before anything is resolved.
+  """
+  bootPromptServe: BootPromptServeOutcome
+
+  """
   #2045 — whether the pointer's target is deleted (soft or hard): true / false, and null when no pointer is set
   or the caller may not see it. Same gate as bootPromptRef. Nothing is served from a deleted target (R27).
   """
@@ -1768,6 +1860,13 @@ type AppKey {
 type AppKeyCreated {
   key: AppKey!
   rawKey: String!
+}
+
+"""#2213 — one page of an App's live keys."""
+type AppKeyPage {
+  hasMore: Boolean!
+  items: [AppKey!]!
+  total: Int!
 }
 
 """
@@ -2628,6 +2727,51 @@ input BeginAssetUploadV2Input {
   uploadRequestId: String
 }
 
+"""
+#2708 / hrn:node:hadronmemory.com:specs:cor:agt:040:10: the revision a serve would be given now. The identity fields a
+ServedPrompt record carries after the serve, so the two can be compared; never the text.
+"""
+type BootPromptServeDecision {
+  compiledContentHash: String!
+  compiledNodeId: ID!
+  pointerLevel: ServedPromptPointerLevel!
+
+  """The compile revision that owns that revision's provenance."""
+  provenanceRevSeq: Int!
+
+  """
+  Node.revSeq of the revision that would be served: the compiled node's newest approved revision.
+  """
+  servedRevSeq: Int!
+}
+
+"""
+#2708 / hrn:node:hadronmemory.com:specs:cor:agt:040:10: what a serve would decide now, from the resolver the serve
+itself uses, so the same resolution rules apply. A preview of the current state: a later serve gives the same answer
+only while that state is unchanged (a pointer edit or an approval in between can change it). Exactly one of served
+and refusal is set; nothing is ever substituted for a refused serve.
+"""
+type BootPromptServeOutcome {
+  """
+  The typed code the serve would be refused with; null exactly when served is set.
+  """
+  refusal: BootPromptServeRefusal
+
+  """The revision that would be served; null exactly when refusal is set."""
+  served: BootPromptServeDecision
+}
+
+"""
+#2708 / hrn:node:hadronmemory.com:specs:cor:agt:040:10: why a serve would be refused now, the typed code the bind,
+chat or run itself would get. BOOT_PROMPT_NOT_SIGNED cannot occur until an organisation can switch signing on (#1614).
+"""
+enum BootPromptServeRefusal {
+  BOOT_PROMPT_NOT_APPROVED
+  BOOT_PROMPT_NOT_SET
+  BOOT_PROMPT_NOT_SIGNED
+  BOOT_PROMPT_TARGET_DELETED
+}
+
 type CalendarAttendee {
   address: String!
   name: String
@@ -2931,6 +3075,15 @@ type ChatMessage {
   seq: Int
 }
 
+"""
+#2212 A3 — one page of the caller's chats with an Agent, counted over the same chats.
+"""
+type ChatPage {
+  hasMore: Boolean!
+  items: [Chat!]!
+  total: Int!
+}
+
 type ChatPromptResult {
   messageHistory: JSON!
 
@@ -3002,6 +3155,37 @@ type ClaimUntrackedTaskItemsResult {
   """
   refusalCode: String
   tasks: [AgentTask!]!
+}
+
+"""
+#2646: the overrides of a clone. Every field is optional; a field left out keeps the source's value (a copied field)
+or stays unset (a field a clone does not copy). An optional field is cleared by naming it empty.
+"""
+input CloneAgentTaskInput {
+  assignee: AgentTaskPartyInput
+  closeSessionWhenDone: Boolean
+  description: String
+  finishBy: DateTime
+  owner: AgentTaskPartyInput
+
+  """
+  Another parent in the same App, or null for none (a root under AT0, or a project with project: true).
+  """
+  parentTaskId: ID
+
+  """
+  A priority you name and may not set is refused, as on a create; a copied one you may not set is left out.
+  """
+  priority: Int
+  project: Boolean
+  properties: JSON
+  references: [AgentTaskReferenceInput!]
+  requirements: AgentTaskRequirementsInput
+  source: String
+  startBy: DateTime
+  status: AgentTaskCreateStatus
+  tags: [String!]
+  title: String
 }
 
 """
@@ -3395,6 +3579,11 @@ type ContextResetStep {
 input ContextResetStepInput {
   appRef: String!
   epoch: Int!
+
+  """
+  #3255 (hrn:node:hadronmemory.com:specs:cor:agt:050:27 part 10): milliseconds the host's stop signal landed after its window, an integer from 0 to 86400000. Omitted, null or zero means no late-stop event. On the first stopped report, a positive value records one task.context-reset-late-stop event per reset for the worker's coordinator. Later reports record nothing, even if the first report had no annotation. After the reset ended, the same collected host may annotate its granted stop using that grant's epoch; this changes no reset, task, availability, outcome or alarm state. Other steps keep their epoch checks.
+  """
+  lateStopMs: Int
   resetId: ID!
 }
 
@@ -3538,6 +3727,21 @@ input CreateAgentTaskInput {
   status: AgentTaskCreateStatus
   tags: [String!]
   title: String!
+}
+
+"""
+#2653 (hrn:node:hadronmemory.com:specs:cor:agt:050:06): one task of a createAgentTasks call.
+"""
+input CreateAgentTasksItemInput {
+  """
+  Other tasks of the same call that block this one, by their 1-based position in the list.
+  """
+  blockedByPositions: [Int!]
+
+  """
+  The task, exactly as createAgentTask takes it. appRef may be left out; if given it must be the call's App.
+  """
+  task: CreateAgentTaskInput!
 }
 
 input CreateAgentWebhookInput {
@@ -6915,10 +7119,15 @@ type Mutation {
   task.assigned and task.started. Each claim commits on its own. An item another caller claimed first is skipped,
   so concurrent callers get disjoint sets. A refusal mid-walk stops it and is returned with the claims already
   made: incompleteReason claim_refused with its code in refusalCode (claim_failed, refusalCode null, for an
-  unexpected failure after a claim). A person or a worker claims; the App's own key gets
-  TASK_CLAIM_PRINCIPAL_UNSUPPORTED before anything else is read. Other refusals as untrackedTaskItems.
+  unexpected failure after a claim). A person or a worker claims for themselves and names no assignee or owner
+  (BAD_USER_INPUT if it does). #3132: the App's own key names the assignee (TASK_ASSIGNEE_REQUIRED) and the owner
+  (TASK_OWNER_REQUIRED), each a worker of the App or a person who participates in it (TASK_ASSIGNEE_INVALID /
+  TASK_OWNER_INVALID, as createAgentTask), all judged before any GitHub call; the task is started on the assignee's
+  behalf, and its events name the key as actorAppKeyId and the assignee as their subject. A claim is the only task
+  write an App key makes. A key request carrying a session is APP_KEY_SESSION_BOUND. Other refusals as
+  untrackedTaskItems.
   """
-  claimUntrackedTaskItems(appRef: ID!, integration: String!, limit: Int, ready: ReadyFilter, repository: String, team: ID): ClaimUntrackedTaskItemsResult!
+  claimUntrackedTaskItems(appRef: ID!, assignee: AgentTaskPartyInput, integration: String!, limit: Int, owner: AgentTaskPartyInput, ready: ReadyFilter, repository: String, team: ID): ClaimUntrackedTaskItemsResult!
 
   """
   Clear an Agent's AI provider config without returning or decrypting keys.
@@ -6964,6 +7173,21 @@ type Mutation {
   subject; otherwise only a position. The clone's origin is Agent.clonedFromAgentRef.
   """
   cloneAgent(name: String, slug: String, source: ID!, target: ID!): Agent!
+
+  """
+  #2646 (hrn:node:hadronmemory.com:specs:cor:agt:050:02, What a clone does): make a NEW task from an existing one, in
+  its App, linked to it (clonedFrom / clones). A clone is a create: whoever may read the source and create a task there
+  may clone it, in any status; the source is never changed and an ended task is never reopened. Copied: title,
+  description, source, tags, requirements, references, closeSessionWhenDone, priority, properties and the parent. Not
+  copied: assignee, status, result, handle, blockers, startBy, finishBy, externalId. The clone is PENDING (or BACKLOG, as
+  input.status asks). The parent is kept only for someone who may create a child of it (else TASK_NOT_ASSIGNEE, nothing
+  created, unless input.parentTaskId names another parent or null for none); a root is cloned as a root of the same
+  kind, through the root create gate; under an ended parent it goes under the project AT0. The properties and priority
+  are copied only for a caller who may set them and are otherwise left out, with no refusal. Refusals: TASK_NOT_FOUND
+  (an unknown, unreadable or cross-App source or parent), BAD_USER_INPUT (AT0 cannot be cloned), TASK_NOT_ASSIGNEE,
+  TASK_NOT_OWNER (a priority you name and may not set), TASK_ENDED (a named parent that has ended).
+  """
+  cloneAgentTask(input: CloneAgentTaskInput, taskId: ID!): AgentTask!
 
   """
   Clone a Memory into a new Memory at `targetUrn`.
@@ -7126,6 +7350,25 @@ type Mutation {
   already see it on the roster.
   """
   createAgentTask(input: CreateAgentTaskInput!): AgentTask!
+
+  """
+  #2653 (hrn:node:hadronmemory.com:specs:cor:agt:050:06, creating several at once; ruling 0011 A): create 1 to 25
+  tasks in the App appRef, all or none, in one transaction. Each task is judged exactly as createAgentTask judges it
+  alone (the same gates, owner rules, refusals and warnings); the first refusal refuses the whole call, creates and
+  records nothing, and carries extensions.position, the 1-based position of the task that caused it (tasks are
+  judged one at a time in list order, each wholly before the next: its checks before the write, then its whole write,
+  its blockers named by an existing task or by an earlier position included; last come the links to later
+  positions, in list order). An empty list is
+  BAD_USER_INPUT and more than 25 is TASK_BATCH_TOO_LARGE, before anything is created. A task names an existing
+  parent, never another task of the call; a root task naming an App other than appRef is APP_NOT_FOUND, and a parent
+  in another App TASK_NOT_FOUND. blockedByPositions names other tasks of the call as blockers (a self-block or a
+  cycle is TASK_BLOCKER_CYCLE, a position outside the list BAD_USER_INPUT), and needs the same assigner authority as
+  blockedBy. Handles follow list order and a refused call spends none. Each task records the events a single create
+  records; matching and launches run only after the commit, and each task's warnings are filed under
+  "<response key>.<position>". The result is every task, in list order. Not idempotent: nothing is deduplicated, so a
+  caller that lost the answer lists the App's tasks before trying again.
+  """
+  createAgentTasks(appRef: ID!, tasks: [CreateAgentTasksItemInput!]!): [AgentTask!]!
 
   """
   #2024 — declare a ticker on an Agent. Whoever may edit the Agent (ADMIN on it); an App manager is not thereby an Agent editor.
@@ -7829,6 +8072,10 @@ type Mutation {
   User invitations (org ADMIN or platform ADMIN).
   
   Accepts the entity's ID or URN.
+  
+  Limits (#2984): expiresInDays is a whole number from 1 to 10 and maxActivations from 2 to 1000; omitted or
+  null means 10 days and two activations (Holger V49). 0, negatives, an explicit 1 for maxActivations and larger values are refused as BAD_USER_INPUT
+  (hrn:node:hadronmemory.com:specs:cor:api:260:01), judged after the org-admin gate.
   """
   createUserInvitation(email: String, expiresInDays: Int, githubUsername: String, maxActivations: Int, memberRole: Role!, name: String, orgId: ID!): UserInvitation!
 
@@ -8355,7 +8602,14 @@ type Mutation {
   """
   #1705 — finish a started task with its result: its assignee only
   (hrn:node:hadronmemory.com:specs:cor:agt:050:08). A pending task is refused: start it first. Refusals as
-  startAgentTask, plus BAD_USER_INPUT for an outcome that is not one word.
+  startAgentTask, plus BAD_USER_INPUT for an outcome that is not one word. #2652 (outcome set,
+  hrn:node:hadronmemory.com:specs:cor:agt:050:30): a team may close the outcomes its tasks finish with, as the
+  node schema:task-outcomes in the Team Agent's system memory, found through its base chain, with data
+  {"outcomes": [...]} holding 1 to 100 one-word outcomes. With a set, an outcome outside it (matched exactly,
+  case-sensitive) is TASK_OUTCOME_NOT_IN_SET, and the refusal does not list the set. A set that exists but is
+  malformed, or two installed Team Agents when either carries the node, is TASK_OUTCOME_SET_UNUSABLE, refusing
+  every finish. Both are judged after the assignee and status checks and before any write or event: the task
+  stays started. With no set, any one word is accepted. The set is read only at finish.
   """
   finishAgentTask(result: AgentTaskResultInput!, taskId: ID!): AgentTask!
 
@@ -8437,7 +8691,13 @@ type Mutation {
   """
   installAgentIntoApp(agentRef: ID!, appRef: ID!, trainingMode: Boolean): InstallAgentIntoAppPayload!
 
-  """Platform invite — no org association, just onboards a new user"""
+  """
+  Platform invite — no org association, just onboards a new user
+  
+  Limits (#2984): expiresInDays is a whole number from 1 to 10 and maxActivations from 2 to 1000; omitted or
+  null means 10 days and two activations (Holger V49). 0, negatives, an explicit 1 for maxActivations and larger values are refused as BAD_USER_INPUT
+  (hrn:node:hadronmemory.com:specs:cor:api:260:01).
+  """
   inviteUser(email: String, expiresInDays: Int, githubUsername: String, maxActivations: Int, name: String): UserInvitation!
 
   """
@@ -9053,7 +9313,7 @@ type Mutation {
   replyToComment(body: String!, commentRef: ID!): Comment!
 
   """
-  #2162 — the old agent stopped; its resetting mark now lasts until the relaunched agent's first activity.
+  #2162 / #3255 (hrn:node:hadronmemory.com:specs:cor:agt:050:27): the old agent stopped; its resetting mark now lasts until the relaunched agent's first activity. Optional lateStopMs records the host's late signal once. For an ended reset, a positive annotation from the collected host holding its stop-grant epoch records telemetry only and changes no reset, task, outcome, availability or alarm state.
   """
   reportContextResetAgentStopped(input: ContextResetStepInput!): ContextResetStep!
 
@@ -9289,7 +9549,15 @@ type Mutation {
   """
   Process a user message (saves message, builds context, returns next prompt)
   """
-  sendChatMessage(chatId: String!, userMessage: String!): ChatPromptResult!
+  sendChatMessage(
+    chatId: String!
+
+    """
+    #3096 / hrn:node:hadronmemory.com:specs:cor:dmo:150:08: optional client-reported model id, at most 256 UTF-16 code units, no control/format/line-separator characters or unpaired surrogates. Omitted or null fills empty for this call. Used only for prompt text and its immutable record, labelled client-reported; never billing, quotas or authorization. Invalid input refuses BAD_USER_INPUT without echoing it.
+    """
+    llmModel: String
+    userMessage: String!
+  ): ChatPromptResult!
   sendContactMessage(email: String!, message: String!, name: String!): Boolean!
   setAgentAssetUploadEnabled(input: SetAgentAssetUploadEnabledInput!): App!
 
@@ -9562,7 +9830,18 @@ type Mutation {
   
   Accepts the entity's ID or URN.
   """
-  startChat(agentId: ID!, conversationName: String, isTestRun: Boolean = false, scope: ChatScope = private, userId: String): ChatStartResult!
+  startChat(
+    agentId: ID!
+    conversationName: String
+    isTestRun: Boolean = false
+
+    """
+    #3096 / hrn:node:hadronmemory.com:specs:cor:dmo:150:08: optional client-reported model id, at most 256 UTF-16 code units, no control/format/line-separator characters or unpaired surrogates. Omitted or null fills empty for this call. Used only for prompt text and its immutable record, labelled client-reported; never billing, quotas or authorization. Invalid input refuses BAD_USER_INPUT without echoing it.
+    """
+    llmModel: String
+    scope: ChatScope = private
+    userId: String
+  ): ChatStartResult!
 
   """
   Start the OAuth flow that connects a mailbox, calendar or Drive to an org
@@ -11089,6 +11368,15 @@ type NodeMoveLinkWarning {
 }
 
 """
+#2212 A2 — one page of the nodes in an App's scope, counted over the same filter and scope.
+"""
+type NodePage {
+  hasMore: Boolean!
+  items: [Node!]!
+  total: Int!
+}
+
+"""
 Order findNodes by the value at a properties/data JSON path (#719).
 
 Reuses the NodeWhere leaf addressing: path into field (properties|data), typed
@@ -11819,6 +12107,20 @@ type Query {
   agentSubscriptions(agentRef: ID!): [AgentSubscription!]!
 
   """
+  #2213 — `agentSubscriptions` as a page: the same gate and refusals (an Agent the
+  caller cannot read answers as absent; otherwise ADMIN of its owning org), the same
+  rows, newest first with userId ascending on a tie, and the real total
+  (hrn:node:hadronmemory.com:specs:cor:api:120:04). A refused caller gets the old
+  field's error, never a total. `limit` defaults to 20, 0 returns the count only, a
+  negative limit is 0 and a limit over 200 is served as 200 (never refused). `offset`
+  below 0 is 0. A consumer that decides on this list (who is subscribed) must follow the
+  pages to the end; `agentSubscriptions` stays the complete set.
+  
+  Accepts the entity's ID or URN.
+  """
+  agentSubscriptionsPage(agentRef: ID!, limit: Int, offset: Int): AgentSubscriptionPage!
+
+  """
   #1705 — one agent task, or null when it does not exist or the caller may
   not read it (no existence oracle). Readers: the App's participants, workers
   acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
@@ -12052,6 +12354,19 @@ type Query {
   appKeys(appRef: ID!): [AppKey!]!
 
   """
+  #2213 — `appKeys` as a page: the same manager-only gate and refusals
+  (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), the same live keys, newest first with
+  id descending on a tie, and the real total (hrn:node:hadronmemory.com:specs:cor:api:120:04).
+  A refused caller gets the old field's error, never a total. `limit` defaults to 20, 0
+  returns the count only, a negative limit is 0 and a limit over 200 is served as 200
+  (never refused). `offset` below 0 is 0. A consumer that decides on this list (the
+  admin key inventory) must follow the pages to the end; `appKeys` stays the complete set.
+  
+  Accepts the entity's ID or URN.
+  """
+  appKeysPage(appRef: ID!, limit: Int, offset: Int): AppKeyPage!
+
+  """
   #2190 (hrn:node:hadronmemory.com:specs:cor:dmo:050:17): the memories appNodes
   reads for this caller, one row per memory with every reason it is in scope,
   ordered by memoryUrn and paged (default 20, cap 200; over the cap returns a
@@ -12087,6 +12402,19 @@ type Query {
   comments. Filters on approvalState or minted always exclude comments.
   """
   appNodes(appRef: ID!, filter: NodeFilter, limit: Int): [Node!]!
+
+  """
+  #2212 A2 (hrn:node:hadronmemory.com:specs:cor:api:120:04): appNodes as a page. Same admission,
+  filter rules and refusals as appNodes (an unknown or malformed App and a caller who may not read it
+  are refused exactly as there; a soft-deleted organization and an empty scope are the empty page),
+  but total counts every node appNodes would return for the filter and hasMore says whether rows
+  remain past this page. Ordered by loc, then id, so the order is stable across the App's memories.
+  Default page 20, limit: 0 is count-only, a negative limit is 0, a limit over 200 is served as 200,
+  a negative offset is 0. The filter's memoryIds and memoryClasses are refused, as on appNodes.
+  
+  Accepts the App's ID or URN.
+  """
+  appNodesPage(appRef: ID!, filter: NodeFilter, limit: Int, offset: Int): NodePage!
 
   """
   One run (cor:agt:010:02). ref is an AppRun ID or an
@@ -12960,6 +13288,17 @@ type Query {
   myAgentSubscriptions: [AgentSubscription!]!
 
   """
+  #2213 — `myAgentSubscriptions` as a page: the same rows (no user or an impersonated
+  request gets the empty page where the old field gives []), newest first with agentId
+  ascending on a tie, and the real total (hrn:node:hadronmemory.com:specs:cor:api:120:04).
+  `limit` defaults to 20, 0 returns the count only, a negative limit is 0 and a limit
+  over 200 is served as 200 (never refused). `offset` below 0 is 0. A consumer that
+  decides on this list must follow the pages to the end; `myAgentSubscriptions` stays
+  the complete set.
+  """
+  myAgentSubscriptionsPage(limit: Int, offset: Int): AgentSubscriptionPage!
+
+  """
   The App authenticated by the current AppKey (null for JWT users without an App)
   """
   myApp: App
@@ -12971,6 +13310,20 @@ type Query {
   Accepts the entity's ID or URN.
   """
   myChats(agentRef: ID!, limit: Int, offset: Int): [Chat!]!
+
+  """
+  #2212 A3 (hrn:node:hadronmemory.com:specs:cor:api:120:04): myChats as a page. Same gate and refusals as
+  myChats (unauthenticated and impersonated callers are refused; an unknown Agent and a caller with no
+  readable memory get the empty page), and the same chats: the caller's own for the Agent plus the shared
+  chats of Apps the caller is a member of. total counts exactly those chats and hasMore says whether rows
+  remain past this page. Newest first by last update, then by id, so the order is stable across pages while
+  the chats do not change; a chat updated between requests can move pages.
+  Default page 20, limit: 0 is count-only, a negative limit is 0, a limit over 200 is served as 200, a
+  negative offset is 0.
+  
+  Accepts the Agent's ID or URN.
+  """
+  myChatsPage(agentRef: ID!, limit: Int, offset: Int): ChatPage!
 
   """
   #1631 PR3: the caller's own passkey records, revoked ones included, newest first. Only the
@@ -12991,6 +13344,24 @@ type Query {
     """
     includeHidden: Boolean = false
   ): [UserApiKey!]!
+
+  """
+  #2213 — `myUserApiKeys` as a page: the same refusals (UNAUTHENTICATED with no user in
+  context, Forbidden under impersonation), the same rows (active and revoked; hidden keys
+  only with includeHidden), newest first with id descending on a tie, and the real total
+  (hrn:node:hadronmemory.com:specs:cor:api:120:04). `limit` defaults to 20, 0 returns the
+  count only, a negative limit is 0 and a limit over 200 is served as 200 (never refused).
+  `offset` below 0 is 0. A consumer that decides on this list must follow the pages to the
+  end; `myUserApiKeys` stays the complete set.
+  """
+  myUserApiKeysPage(
+    """
+    #2298: include keys the owner hid with setUserApiKeyHidden. Default false.
+    """
+    includeHidden: Boolean = false
+    limit: Int
+    offset: Int
+  ): UserApiKeyPage!
 
   """
   The next sibling node under a parent, ordered by seq (#817) — the GraphQL
@@ -13528,12 +13899,33 @@ type Query {
   specBacklinks(loc: String!, memoryRef: ID!): [SpecReference!]!
 
   """
+  #3222 (#2213 S3, hrn:node:hadronmemory.com:specs:cor:api:120:04): specBacklinks as a page. Same
+  read gate and refusals as specBacklinks, and the same list in the same order, so the pages
+  concatenate to exactly what specBacklinks returns. total counts that whole list and hasMore says
+  whether rows remain past this page. Default page 20, limit: 0 is count-only, a negative limit is
+  0, a limit over 200 is served as 200, a negative offset is 0. Paging bounds the response, not the
+  work: each page still scans the whole corpus. memoryRef accepts the memory's ID or URN.
+  """
+  specBacklinksPage(limit: Int, loc: String!, memoryRef: ID!, offset: Int): SpecReferencePage!
+
+  """
   #1449 — references in a spec corpus (any memory since #1591) that do not reach a written
   spec: URNs citing a missing loc or a placeholder, edges to a
   placeholder or to a deleted spec of the corpus, and pending edges (field pendingEdge) whose target is not
   a written node yet. Minting refuses while any remain.
   """
   specUnresolvedReferences(memoryRef: ID!): [SpecReference!]!
+
+  """
+  #3222 (#2213 S3, hrn:node:hadronmemory.com:specs:cor:api:120:04): specUnresolvedReferences as a
+  page. Same read gate and refusals as specUnresolvedReferences, and the same list in the same
+  order, so the pages concatenate to exactly what specUnresolvedReferences returns. total counts
+  that whole list and hasMore says whether rows remain past this page. Default page 20, limit: 0 is
+  count-only, a negative limit is 0, a limit over 200 is served as 200, a negative offset is 0.
+  Paging bounds the response, not the work: each page still scans the whole corpus. memoryRef
+  accepts the memory's ID or URN.
+  """
+  specUnresolvedReferencesPage(limit: Int, memoryRef: ID!, offset: Int): SpecReferencePage!
 
   """
   #1353 v1 attention query, retired by #1384. This field always returns
@@ -15013,7 +15405,7 @@ type ServedPrompt {
   kind: ServedPromptKind!
 
   """
-  1 for a bind or a run; a chat counts up each time its served revision changes.
+  1 for a bind or a run; a chat counts up each time its served revision or filled variable values change (#3096).
   """
   ordinal: Int!
   pointerLevel: ServedPromptPointerLevel!
@@ -15034,6 +15426,10 @@ type ServedPrompt {
 
   """Node.revSeq of the revision served (never contentRevSeq)."""
   servedRevSeq: Int!
+
+  """
+  Recorded platform values. Chat records label session.llmModel.source as client-reported or unspecified (#3096); neither is verified model identity.
+  """
   variables: JSON!
 }
 
@@ -16105,7 +16501,7 @@ type SpecReference {
   field: String!
   kind: SpecReferenceKind!
 
-  """Set only by specUnresolvedReferences."""
+  """Set only by specUnresolvedReferences and specUnresolvedReferencesPage."""
   reason: SpecReferenceProblem
   sourceLoc: String!
   sourceNodeId: ID!
@@ -16126,6 +16522,15 @@ enum SpecReferenceKind {
   A node URN in the corpus text (name, description, abstract or content), including inside a URL.
   """
   URN
+}
+
+"""
+#3222 (#2213 S3) — one page of a spec-reference list, counted over the whole list.
+"""
+type SpecReferencePage {
+  hasMore: Boolean!
+  items: [SpecReference!]!
+  total: Int!
 }
 
 """#1449 — why a reference does not reach a written spec."""
@@ -17752,6 +18157,13 @@ type UserApiKeyCreateResult {
   userApiKey: UserApiKey!
 }
 
+"""#2213 — one page of the caller's own user API keys."""
+type UserApiKeyPage {
+  hasMore: Boolean!
+  items: [UserApiKey!]!
+  total: Int!
+}
+
 """
 Filter for the uniform users() list (#473). For a non-platform-admin caller
 'query' is REQUIRED (a blank/omitted query returns an empty page) and
@@ -17882,6 +18294,15 @@ type Worker {
   field, behind the worker read gate): null is not proof that no pointer exists.
   """
   bootPromptRef: String
+
+  """
+  #2708 — what this worker's NEXT bind would be served now (hrn:node:hadronmemory.com:specs:cor:agt:040:10): its own
+  pointer, else the install's, else the Agent's. Computed by the resolver the bind itself uses, so the bind is refused
+  exactly when refusal is set and records exactly the revision served names. Only the boot prompt is judged: a bind
+  can still be refused for other reasons (a retired worker, a held worker). Null when the caller may not see it (same
+  gate as bootPromptRef, WORKING-STATE), which is judged before anything is resolved.
+  """
+  bootPromptServe: BootPromptServeOutcome
 
   """
   #2045 — whether the pointer's target is deleted (soft or hard): true / false, and null when no pointer is set
