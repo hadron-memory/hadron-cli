@@ -20,15 +20,26 @@ func newCmdMint(f *cmdutil.Factory) *cobra.Command {
 		count                           int
 	)
 	cmd := &cobra.Command{
-		Use:   "mint --org <ref> --action comm.outbound --count <n>",
+		Use:   "mint --org <ref> --count <n> [--action comm.outbound]",
 		Short: "Mint action tickets into the org ledger (org ADMIN)",
-		Long: `Mint consumable action tickets into the org ledger (org ADMIN; cor:acl:050:04).
+		Long: `Add tickets to an org's ledger so its agent runs can send. Needs ADMIN or
+OWNER in the org (else exit 8).
 
-v1 supports the comm.outbound action only. --app scopes the tickets to one App
-(omit for org-wide). --note records why they exist (ledger legibility).
---expires sets an ISO-8601 expiry.`,
-		Example: `  hadron ticket mint --org acme.com --action comm.outbound --count 100 \
-    --note 'nightly digest send budget'`,
+--count is how many to mint, at least 1; the server caps a single mint at
+1000. --action defaults to comm.outbound, the only action today (anything else
+exits 2). --app <App id or URN> limits the tickets to that App's runs; without
+it they are org-wide; an App that is not in the org exits 4. This --app is not taken from your config, worktree
+binding or the global --app flag; only an explicit --app scopes tickets.
+--expires is an ISO-8601 time; without it tickets never expire. --note says
+why they exist, for whoever reads the ledger.
+
+Prints "✓ minted <n> comm.outbound ticket(s) for org <org>"; --json gives
+minted (the number actually minted), action and orgId. Check the result with
+hadron ticket list.`,
+		Example: `  hadron ticket mint --org acme.com --count 100 --note 'nightly digest send budget'
+  hadron ticket mint --org acme.com --app hrn:app:acme.com:support --count 20 \
+    --expires 2027-01-01T00:00:00Z
+  hadron ticket list --org acme.com`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if count <= 0 {
@@ -74,9 +85,9 @@ v1 supports the comm.outbound action only. --app scopes the tickets to one App
 	cmd.Flags().StringVar(&org, "org", "", "organization to mint into (ID or URN; required)")
 	cmd.Flags().StringVar(&app, "app", "", "scope the tickets to one App (ID or URN; omit for org-wide)")
 	cmd.Flags().StringVar(&action, "action", "comm.outbound", "the action these tickets grant (v1: comm.outbound)")
-	cmd.Flags().IntVar(&count, "count", 0, "how many tickets to mint (required)")
+	cmd.Flags().IntVar(&count, "count", 0, "how many tickets to mint, at least 1; more than 1000 mints 1000 (required)")
 	cmd.Flags().StringVar(&note, "note", "", "why these tickets exist (ledger legibility)")
-	cmd.Flags().StringVar(&expires, "expires", "", "ISO-8601 expiry timestamp")
+	cmd.Flags().StringVar(&expires, "expires", "", "ISO-8601 expiry timestamp (omit: never expires)")
 	_ = cmd.MarkFlagRequired("org")
 	_ = cmd.MarkFlagRequired("count")
 	return cmd

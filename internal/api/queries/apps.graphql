@@ -181,6 +181,35 @@ query GetAppMetadata($ref: ID!) {
   }
 }
 
+# cli#1524 C2: `app properties get` — the object and the revision
+# `set/clear --expected-revision` checks against.
+query AppPropertiesGet($ref: ID!) {
+  app(ref: $ref) {
+    id
+    urn
+    propertiesRevision
+    properties
+  }
+}
+
+# cli#1524 C2 (cor:dmo:050:20): replace the App's properties whole; null
+# clears. `properties` is NOT omitempty: a nil RawMessage is sent as an
+# explicit null, which is how `clear` asks. expectedRevision is omitted unless
+# --expected-revision is given.
+mutation SetAppProperties(
+  $appRef: String!
+  $properties: JSON
+  # @genqlient(omitempty: true)
+  $expectedRevision: Int
+) {
+  setAppProperties(appRef: $appRef, properties: $properties, expectedRevision: $expectedRevision) {
+    id
+    urn
+    propertiesRevision
+    properties
+  }
+}
+
 # cli#1057: manager-authorized, active-only metadata inventory. No raw key,
 # nested App.keys, host usage, or scope mutations.
 query AppKeysMetadata($appRef: ID!) {
@@ -270,6 +299,72 @@ mutation CreateAppKey(
       id
       keyPreview
       label
+    }
+  }
+}
+
+# cli#1333 — `app key list --scopes`: the same active-key rows plus the scopes
+# each key holds. Separate operations from AppKeysMetadata so the default
+# listing keeps #1057's metadata-only selection (no scopes, no host uses).
+query AppKeysScopes($appRef: ID!) {
+  appKeys(appRef: $appRef) {
+    id
+    keyPreview
+    label
+    createdAt
+    lastUsedAt
+    revokedAt
+    scopes {
+      scope
+      hostId
+      grantedAt
+      grantedBy
+    }
+  }
+}
+
+# cli#1333 — `app key list --scopes --host-uses N`: adds each key's newest N
+# host uses (cor:agt:070:07). N is always sent here, so no omitempty.
+query AppKeysScopesHostUses($appRef: ID!, $first: Int!) {
+  appKeys(appRef: $appRef) {
+    id
+    keyPreview
+    label
+    createdAt
+    lastUsedAt
+    revokedAt
+    scopes {
+      scope
+      hostId
+      grantedAt
+      grantedBy
+    }
+    hostUses(first: $first) {
+      hostId
+      action
+      count
+      operationId
+      refusedCode
+      usedAt
+    }
+  }
+}
+
+# cli#1333 — revoke one App key. Irreversible; the answer is a bare Boolean.
+mutation RevokeAppKey($id: ID!) {
+  revokeAppKey(id: $id)
+}
+
+# cli#1333 — rotate: revokes EVERY active key of the App and mints one
+# replacement that holds no scopes (cor:dmo:050:05). rawKey is returned once;
+# the command writes it to a 0600 file and never prints it unless --print-key.
+mutation RegenerateAppKey($appRef: ID!) {
+  regenerateAppKey(appRef: $appRef) {
+    rawKey
+    app {
+      id
+      urn
+      name
     }
   }
 }

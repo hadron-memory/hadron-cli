@@ -94,7 +94,14 @@ still has replies, the top-level comment stays in it as a placeholder marked
 On a terminal it asks first ("Delete comment <ref>? Its text is removed and
 cannot be restored. (y/N)"). Without a terminal (a script or an AI agent) pass
 --yes; otherwise nothing is deleted and it exits 2. On success it prints the
-comment marked "deleted".`,
+comment marked "deleted".
+
+--thread --reason <text> deletes the WHOLE thread the comment belongs to, as a
+memory admin: every comment in it disappears from every read. Name any comment
+of the thread. --reason is required and kept with the deletion for audit; no
+--expected-revision is needed. It asks first on a terminal, and needs --yes
+otherwise. Whether you may do it is the server's rule. On success it prints the
+comment you named and that its thread was deleted.`,
 
 	"resolve": `Mark a thread resolved once its feedback has been dealt with, or reopen it
 with --reopen. Pass the thread's top-level comment (the one comment list
@@ -150,7 +157,8 @@ var verbExample = map[string]string{
   hadron comment edit hrn:node:acme.com:kb:comments:01a18996fd187b77859b2190c6c51cc6 --body "Should this mention make lint too?" --expected-revision 1
   hadron comment edit hrn:node:acme.com:kb:comments:01a18996fd187b77859b2190c6c51cc6 --quote "" --expected-revision 2`,
 	"delete": `  hadron comment delete hrn:node:acme.com:kb:comments:01a18996fd187b77859b2190c6c51cc6 --expected-revision 3
-  hadron comment delete 01a18996fd187b77859b2190c6c51cc6 --expected-revision 3 --yes --json`,
+  hadron comment delete 01a18996fd187b77859b2190c6c51cc6 --expected-revision 3 --yes --json
+  hadron comment delete hrn:node:acme.com:kb:comments:01a18996fd187b77859b2190c6c51cc6 --thread --reason "spam" --yes`,
 	"resolve": `  hadron comment resolve hrn:node:acme.com:kb:comments:01a18996fd187b77859b2190c6c51cc6 --expected-revision 3
   # resolving does not change the write counter, so reopening takes the same value
   hadron comment resolve hrn:node:acme.com:kb:comments:01a18996fd187b77859b2190c6c51cc6 --reopen --expected-revision 3`,

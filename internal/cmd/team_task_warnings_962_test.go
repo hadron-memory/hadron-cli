@@ -213,14 +213,16 @@ func TestC962FailedResponseUnchanged(t *testing.T) {
 }
 
 // Other task verbs install no sink: a warning on their response is ignored
-// and their JSON gains no field.
+// and their JSON gains no field. (start, progress, cancel, park and ready
+// joined the sink in cli#1283; set-priority and the blocker verbs did not.)
 func TestC962OtherVerbsUnchanged(t *testing.T) {
-	responses := c962With("AgentTaskStart", `[{"path":"startAgentTask","code":"x","text":"y"}]`)
-	out, errOut, err := runTeamTaskStreams(t, responses, "team", "task", "start", "task1", "--json")
+	responses := taskResponses()
+	responses["AgentTaskSetPriority"] = `{"data":{"setAgentTaskPriority":` + priorityTask1135() + `},"extensions":{"warnings":[{"path":"setAgentTaskPriority","code":"x","text":"y"}]}}`
+	out, errOut, err := runTeamTaskStreams(t, responses, "team", "task", "set-priority", "task1", "3", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(out, `"warnings"`) || strings.Contains(errOut, "warning:") {
-		t.Fatalf("start gained warnings:\n%s\n%s", out, errOut)
+		t.Fatalf("set-priority gained warnings:\n%s\n%s", out, errOut)
 	}
 }

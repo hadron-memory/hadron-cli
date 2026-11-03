@@ -160,8 +160,8 @@ func TestTickerGetListPageSubscribers(t *testing.T) {
 				switch op {
 				case "GetTicker":
 					return `{"data":{"ticker":` + tickerFixture + `}}`
-				case "ListTickers":
-					return `{"data":{"tickers":[` + tickerFixture + `]}}`
+				case "ListTickersPage":
+					return `{"data":{"tickersPage":{"total":1,"hasMore":false,"items":[` + tickerFixture + `]}}}`
 				case "TickerSubscribers":
 					page++
 					if page == 1 {
@@ -255,7 +255,7 @@ func TestTickerSubscribersRefusesStuckCursor(t *testing.T) {
 func TestTickerEmptyListScopeAndDecorationFailure(t *testing.T) {
 	for _, identity := range []string{`{"data":{"app":null}}`, `{"errors":[{"message":"unreadable","extensions":{"code":"FORBIDDEN"}}]}`} {
 		t.Run(identity, func(t *testing.T) {
-			gql := fakeGraphQL(t, map[string]string{"ListTickers": `{"data":{"tickers":[]}}`, "TeamAppIdentity": identity})
+			gql := fakeGraphQL(t, map[string]string{"ListTickersPage": `{"data":{"tickersPage":{"total":0,"hasMore":false,"items":[]}}}`, "TeamAppIdentity": identity})
 			f, out := testFactory(t)
 			r := NewRootCmd(f)
 			r.SetArgs([]string{"ticker", "list", "--app", "acme.com:ops", "--server", gql.URL})
@@ -311,7 +311,7 @@ func TestTickerWriteFailureDoesNotRepeatMutation(t *testing.T) {
 }
 
 func TestTickerEmptyCollectionsAndConfiguredScope(t *testing.T) {
-	gql := fakeGraphQL(t, map[string]string{"ListTickers": `{"data":{"tickers":[]}}`, "GetTicker": `{"data":{"ticker":` + tickerFixture + `}}`, "TickerSubscribers": `{"data":{"ticker":{"subscribers":{"items":[],"hasNextPage":false,"endCursor":null}}}}`, "TeamAppIdentity": `{"data":{"app":{"id":"app1","urn":"hrn:app:acme.com:ops","name":"Ops"}}}`})
+	gql := fakeGraphQL(t, map[string]string{"ListTickersPage": `{"data":{"tickersPage":{"total":0,"hasMore":false,"items":[]}}}`, "GetTicker": `{"data":{"ticker":` + tickerFixture + `}}`, "TickerSubscribers": `{"data":{"ticker":{"subscribers":{"items":[],"hasNextPage":false,"endCursor":null}}}}`, "TeamAppIdentity": `{"data":{"app":{"id":"app1","urn":"hrn:app:acme.com:ops","name":"Ops"}}}`})
 	for _, args := range [][]string{{"list"}, {"get", tickerRef, "--json"}, {"list", "--json"}} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			f, out := testFactory(t)

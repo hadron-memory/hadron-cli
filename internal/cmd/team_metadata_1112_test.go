@@ -30,9 +30,6 @@ func TestTeamMetadata1112(t *testing.T) {
 		{"role-reverse-role", []string{"role", "list"}, "AppAgentRoster", "data/app/agents/1/personaRole", "no matching role definition", true},
 		{"composition-asof", []string{"composition"}, "TeamComposition", "data/teamComposition/asOf", "as of ", false},
 		{"roster-asof", []string{"roster"}, "TeamRoster", "data/teamRoster/asOf", "as of ", false},
-		{"attention-token", []string{"attention"}, "TeamAttentionPage", "data/teamAttentionPage/adoptableSince", "token:", true},
-		{"preview-expiry", []string{"attention", "switchover", "preview"}, "TeamAttentionPreviewPage", "data/teamAttentionPreviewPage/expiresAt", "Nothing has been written", false},
-		{"preview-proof", []string{"attention", "switchover", "preview"}, "TeamAttentionPreviewPage", "data/teamAttentionPreviewPage/proof", "", true},
 		{"host-cursor", []string{"host", "ops"}, "HostOperations", "data/hostOperations/endCursor", "", true},
 		{"stop-lift-changed", []string{"stop", "lift", "sig2"}, "TeamStopSignalLift", "data/liftTeamStopSignal/signal/id", "Lifted stop signal", false},
 		{"stop-lift-ended", []string{"stop", "lift", "sig2"}, "TeamStopSignalLift", "data/liftTeamStopSignal/signal/id", "had already ended", false},
@@ -52,8 +49,6 @@ func TestTeamMetadata1112(t *testing.T) {
 				responses["TeamRoles"] = teamRolesJSON
 				responses["AppAgentRoster"] = engTeamRosterJSON
 				responses["TeamComposition"] = composition1085
-				responses["TeamAttentionPage"] = attentionJSON
-				responses["TeamAttentionPreviewPage"] = switchoverPreviewJSON
 				if site.name == "stop-lift-ended" {
 					responses[site.op] = strings.Replace(responses[site.op], `"changed":true`, `"changed":false`, 1)
 				}
@@ -106,17 +101,9 @@ func TestTeamMetadata1112(t *testing.T) {
 						if strings.Contains(out, "create one with `hadron team role create") {
 							t.Error("altered role offered as a command")
 						}
-					case "preview-proof":
-						if strings.Contains(out, "hadron team attention switchover apply --app") {
-							t.Error("altered proof offered as an apply command")
-						}
 					case "host-cursor":
 						if strings.Contains(out, "continue with --after") {
 							t.Error("altered cursor offered as a flag argument")
-						}
-					case "attention-token":
-						if strings.Contains(out, "Pass it as --since") {
-							t.Error("altered token offered as reusable")
 						}
 					}
 				}
@@ -225,22 +212,17 @@ func metadataText1112(t *testing.T, name, out, fixtureDir string) {
 }
 
 func TestTeamMetadataCopyQuoting1112(t *testing.T) {
-	for _, kind := range []string{"role", "proof", "cursor"} {
+	for _, kind := range []string{"role", "cursor"} {
 		t.Run(kind, func(t *testing.T) {
 			responses := hostResponses()
 			args := []string{"team", "role", "list"}
 			value := "role; echo NEVER"
 			responses["TeamRoles"] = teamRolesJSON
 			responses["AppAgentRoster"] = engTeamRosterJSON
-			want := "create one with `hadron team role create 'role; echo NEVER'`"
+			want := "create one with `hadron team role create -- 'role; echo NEVER'`"
 			switch kind {
 			case "role":
 				responses["AppAgentRoster"] = replaceMetadataLeaf1112(t, responses["AppAgentRoster"], "data/app/agents/1/personaRole", value)
-			case "proof":
-				args = []string{"team", "attention", "switchover", "preview"}
-				value = "p' $HOME; echo NEVER"
-				responses["TeamAttentionPreviewPage"] = replaceMetadataLeaf1112(t, switchoverPreviewJSON, "data/teamAttentionPreviewPage/proof", value)
-				want = "--proof 'p'\\'' $HOME; echo NEVER'"
 			case "cursor":
 				args = []string{"team", "host", "ops"}
 				responses["HostOperations"] = replaceMetadataLeaf1112(t, responses["HostOperations"], "data/hostOperations/endCursor", value)

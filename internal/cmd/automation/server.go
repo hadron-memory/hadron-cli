@@ -101,13 +101,13 @@ type listing struct {
 // collectListing walks the list to exhaustion, in the server's order. Any page
 // the CLI cannot validate fails the whole walk: a partial list would let a name
 // resolve against rows that are not all there.
-func collectListing(ctx context.Context, client graphql.Client, appRef string) (*listing, error) {
+func collectListing(ctx context.Context, client graphql.Client, appRef string, pageLimit *int) (*listing, error) {
 	out := &listing{Rows: []rowDTO{}, Omitted: []omittedDTO{}}
 	seenOmitted := map[omittedDTO]bool{}
 	seenCursor := map[string]bool{}
 	var after *string
 	for page := 0; page < maxPages; page++ {
-		resp, err := gen.AutomationApprovals(ctx, client, appRef, after)
+		resp, err := gen.AutomationApprovals(ctx, client, appRef, after, pageLimit)
 		if err != nil {
 			return nil, readError(err)
 		}
@@ -153,7 +153,7 @@ func validateProjection(f *gen.AutomationApprovalFields) error {
 	if f == nil || f.Summary == nil {
 		return unavailable("no summary")
 	}
-	if f.Hash == "" {
+	if f.Hash == "" && !isStaleEntry(f) {
 		return unavailable("no hash")
 	}
 	switch f.State {
@@ -172,6 +172,40 @@ func validateProjection(f *gen.AutomationApprovalFields) error {
 	}
 	return nil
 }
+
+// isStaleEntry recognises the server's stale-entry answer (hadron-server#2503
+// `staleEntryApproval`): an automation whose entry node no longer resolves has
+// no hash to approve and says why in ONE limits sentence. It is admitted by
+// STRUCTURE only — never by the sentence's wording: UNADOPTED, a non-empty
+// name, every other list present and empty, no schedule, exactly one non-empty
+// limit. Anything else with an empty hash stays the malformed-answer refusal.
+func isStaleEntry(f *gen.AutomationApprovalFields) bool {
+	if f == nil || f.Summary == nil || f.State != gen.AutomationAdoptionStateUnadopted {
+		return false
+	}
+	s := f.Summary
+	if s.Name == "" || s.Schedule != nil {
+		return false
+	}
+	if s.Flows == nil || s.Reads == nil || s.Writes == nil || s.Tools == nil || s.CannotDo == nil {
+		return false
+	}
+	if len(s.Flows)+len(s.Reads)+len(s.Writes)+len(s.Tools)+len(s.CannotDo) != 0 {
+		return false
+	}
+	return len(s.Limits) == 1 && s.Limits[0] != ""
+}
+
+// staleDepthOK reports whether a depth is exactly the empty object the stale
+// answer carries (a stale entry has no graph to show).
+func staleDepthOK(depth json.RawMessage) bool {
+	var m map[string]json.RawMessage
+	return json.Unmarshal(depth, &m) == nil && m != nil && len(m) == 0
+}
+
+// stale reports whether this projection is the stale-entry answer: only that
+// shape reaches here with an empty hash (validateProjection refuses the rest).
+func (d *approvalDTO) stale() bool { return d.Hash == "" }
 
 func projectionDTO(app string, t triggerDTO, f *gen.AutomationApprovalFields) approvalDTO {
 	s := f.Summary
@@ -205,6 +239,9 @@ func fetchApproval(ctx context.Context, client graphql.Client, app string, t tri
 		if len(depth) == 0 || string(depth) == "null" || !json.Valid(depth) {
 			return nil, unavailable("no graph depth")
 		}
+		if resp.AutomationApproval.Hash == "" && !staleDepthOK(depth) {
+			return nil, unavailable("a hashless answer with a graph")
+		}
 		dto := projectionDTO(app, t, &resp.AutomationApproval.AutomationApprovalFields)
 		dto.Depth = depth
 		return &dto, nil
@@ -229,7 +266,7 @@ func fetchApproval(ctx context.Context, client graphql.Client, app string, t tri
 // ignored. A command that has nothing to read before its write (decline of a
 // manual run) uses this so an old server is refused before the prompt.
 func requireSupport(ctx context.Context, client graphql.Client, appRef string) error {
-	if _, err := gen.AutomationApprovals(ctx, client, appRef, nil); err != nil && api.IsSchemaSkew(err) {
+	if _, err := gen.AutomationApprovals(ctx, client, appRef, nil, nil); err != nil && api.IsSchemaSkew(err) {
 		return readError(err)
 	}
 	return nil

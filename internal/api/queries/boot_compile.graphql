@@ -25,3 +25,62 @@ mutation CompileWorkerBootPrompt(
 ) {
   compileWorkerBootPrompt(workerRef: $workerRef, setPointer: $setPointer) { ...BootCompileResult }
 }
+
+# `team worker compile` batch mode (cli#1463). The roster projection it needs
+# and nothing else: identity plus each worker's compiled-prompt pointer. Never
+# add prompt/signature/trailer here (hadron-server#2970, cli#1459).
+query WorkersBootPointers(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $includeRetired: Boolean
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  workers(appRef: $appRef, includeRetired: $includeRetired, limit: $limit, offset: $offset) {
+    total
+    items {
+      id
+      urn
+      name
+      retiredAt
+      bootPromptRef
+      bootPromptTargetDeleted
+    }
+  }
+}
+
+# The server's staleness verdict for many compiled prompts in one read
+# (cor:agt:040:13: RECOMPILE_AVAILABLE on a compiled node's lint). The CLI
+# never reads include targets or provenance to re-derive it. RECOMPILE_AVAILABLE
+# sorts at position 0, so it is always on the first page.
+query CompiledPromptLintBatch($refs: [ID!]!) {
+  nodeBatch(refs: $refs) {
+    truncated
+    omitted
+    nodes {
+      id
+      urn
+      revision
+      lintWarnings(first: 100) {
+        items { kind }
+      }
+    }
+  }
+}
+
+# The one read after a lost compile response: did a new revision land?
+query CompiledNodeRevision($ref: ID!) {
+  node(ref: $ref) {
+    revision
+  }
+}
+
+# The one read after a lost FIRST compile (no compiled node before): did the
+# compile set the worker's pointer?
+query WorkerBootPointer($ref: ID!) {
+  worker(ref: $ref) {
+    bootPromptRef
+  }
+}

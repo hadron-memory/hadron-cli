@@ -3,4 +3,4 @@ ROLE              DESCRIPTION   AGENT
 backend-engineer  Backend role  backend-engineer
 fixture           —             —
 ! role fixture: no installed agent carries this persona role — the definition documents a role nobody holds
-! agent iOS App Engineer (persona role "ios-app-engineer"): no matching role definition — create one with `hadron team role create ios-app-engineer`
+! agent iOS App Engineer (persona role "ios-app-engineer"): no matching role definition — create one with `hadron team role create -- ios-app-engineer`

@@ -6,6 +6,7 @@ package team
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strconv"
@@ -45,22 +46,48 @@ func partyCell(p *taskPartyDTO) string {
 		return "—"
 	}
 	if p.Name != nil && *p.Name != "" {
-		return *p.Name
+		return output.SafeCell(*p.Name)
 	}
-	return p.ID
+	return output.SafeCell(p.ID)
 }
 
 // ---- get ------------------------------------------------------------------
 
 func newCmdTeamTaskGet(f *cmdutil.Factory) *cobra.Command {
+	var clonesLimit, clonesOffset int
 	cmd := &cobra.Command{
 		Use:   "get <taskId>",
 		Short: "Show one task",
-		Long: `Show one task, with priority, blocked state and the first 20 dependencies in
-each direction (total/hasMore included). Use task dependencies for later pages. A task you may not read answers "not found"
-(no existence oracle) — the server's shape, kept honest here.`,
-		Args: cobra.ExactArgs(1),
+		Long: `Show one task: its status, owner, assignee, priority, blocked state, the
+close-session choice, its result once finished, the first 20 dependencies
+in each direction (total/hasMore included; ` + "`task dependencies`" + ` pages the
+rest) and its clone links. Check it before a lifecycle command to see what the
+task allows (the table in ` + "`team task --help`" + `).
+
+Clone links (` + "`task clone`" + `, cor:agt:050:02): "cloned from" names the task this
+one was made from, or "replaces" when that source is FINISHED or CANCELLED; it
+is null when the task is no clone or the source is not readable to you. "clones"
+is the first page of the tasks made from this one (a clone you cannot read is
+left out), with total and hasMore; page it with --clones-limit/--clones-offset
+(default 20, cap 200). In --json, clonedFrom is an object or null and clones is
+{items, total, hasMore} with items [] when none. Reading the links needs a
+provider with hadron-server#2646; an older one rejects the document as schema
+skew (exit 2).
+
+The task is named by its id or handle (AT0.7, AT1.2); the server works out the
+App, and an ambiguous bare handle needs an id or a qualified handle such as
+hrn:agenttask:acme.com:eng-team:AT1.2. A task you may not read answers "not
+found", exit 4, exactly like a missing one (no existence oracle).
+
+Text output neutralises terminal controls and bounds displayed values. Multiline
+values keep line breaks with indented continuations; --json carries complete,
+original values.`,
+		Example: "  hadron team task get AT0.7\n  hadron team task get AT0.7 --json\n  hadron team task get AT0.7 --clones-limit 50 --clones-offset 50",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := checkTaskPage(clonesLimit, clonesOffset); err != nil {
+				return err
+			}
 			taskId, err := taskRefArg(args)
 			if err != nil {
 				return err
@@ -69,20 +96,60 @@ each direction (total/hasMore included). Use task dependencies for later pages. 
 			if err != nil {
 				return err
 			}
-			resp, err := gen.AgentTaskGet(cmd.Context(), client, taskId)
+			resp, err := gen.AgentTaskGet(cmd.Context(), client, taskId, clonesLimit, clonesOffset)
 			if err != nil {
 				return mapTaskError(err)
 			}
 			if resp.AgentTask == nil {
 				return exitcode.Newf(exitcode.NotFound, "task %s not found", taskId)
 			}
-			task := taskDTOFrom(resp.AgentTask.AgentTaskFields)
-			return output.Write(f.IOStreams, f.JSON, task, func(w io.Writer) error {
-				return renderTaskDetail(w, task)
+			detail := taskDetailDTO{taskDTO: taskDTOFrom(resp.AgentTask.AgentTaskFields)}
+			if src := resp.AgentTask.ClonedFrom; src != nil {
+				detail.ClonedFrom = &taskDependencyDTO{ID: src.Id, Handle: src.Handle, Title: src.Title, Status: string(src.Status)}
+			}
+			detail.Clones = &taskDependencyPageDTO{Items: []taskDependencyDTO{}}
+			if p := resp.AgentTask.Clones; p != nil {
+				detail.Clones = dependencyPage(p.Total, p.HasMore, p.Items)
+			}
+			return output.Write(f.IOStreams, f.JSON, detail, func(w io.Writer) error {
+				if err := renderTaskDetail(w, detail.taskDTO); err != nil {
+					return err
+				}
+				return renderCloneLinks(w, detail)
 			})
 		},
 	}
+	cmd.Flags().IntVar(&clonesLimit, "clones-limit", 20, "clones page size (default 20, cap 200)")
+	cmd.Flags().IntVar(&clonesOffset, "clones-offset", 0, "offset into the clones page")
 	return cmd
+}
+
+// taskDetailDTO is `task get`'s --json shape: the task plus its clone links
+// (cli#1565). Other task commands keep taskDTO, so their shape does not move.
+type taskDetailDTO struct {
+	taskDTO
+	ClonedFrom *taskDependencyDTO     `json:"clonedFrom"`
+	Clones     *taskDependencyPageDTO `json:"clones"`
+}
+
+// renderCloneLinks prints the clone links after the task detail. "replaces"
+// when the source is ended (FINISHED or CANCELLED), "cloned from" otherwise,
+// as the server's schema documents; nothing is printed for a task with no
+// link at all.
+func renderCloneLinks(w io.Writer, d taskDetailDTO) error {
+	if src := d.ClonedFrom; src != nil {
+		label := "cloned from"
+		if src.Status == "FINISHED" || src.Status == "CANCELLED" {
+			label = "replaces"
+		}
+		if _, err := fmt.Fprintf(w, "  %s: %s (%s) %s: %s\n", label, output.SafeCell(src.Handle), output.SafeCell(src.ID), output.SafeCell(src.Status), output.SafeCell(src.Title)); err != nil {
+			return err
+		}
+	}
+	if d.Clones != nil && (d.Clones.Total > 0 || len(d.Clones.Items) > 0) {
+		return renderDependencyPage(w, "clones", d.Clones)
+	}
+	return nil
 }
 
 func renderTaskDetail(w io.Writer, task taskDTO) error {
@@ -90,11 +157,11 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 		_, err := fmt.Fprintf(w, format+"\n", a...)
 		return err
 	}
-	head := task.ID
+	head := output.SafeCell(task.ID)
 	if task.Handle != "" {
-		head = output.SafeCell(task.Handle) + "  " + task.ID
+		head = output.SafeCell(task.Handle) + "  " + output.SafeCell(task.ID)
 	}
-	if err := line("%s  %s  (%s)", head, task.Title, task.Status); err != nil {
+	if err := line("%s  %s  (%s)", head, output.SafeLine(task.Title, 500), output.SafeCell(task.Status)); err != nil {
 		return err
 	}
 	if err := line("  priority: %d (1 = highest); blocked: %t", task.Priority, task.Blocked); err != nil {
@@ -106,12 +173,17 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 	if err := renderDependencyPage(w, "blocks", task.Blocks); err != nil {
 		return err
 	}
-	if task.Description != nil {
-		if err := line("  %s", *task.Description); err != nil {
+	if task.MatchFailure != nil {
+		if err := writeTaskMatchFailure(w, task.MatchFailure); err != nil {
 			return err
 		}
 	}
-	if err := line("  app: %s", task.AppID); err != nil {
+	if task.Description != nil {
+		if err := line("  %s", output.SafeBlock(*task.Description, 20000, "    ")); err != nil {
+			return err
+		}
+	}
+	if err := line("  app: %s", output.SafeCell(task.AppID)); err != nil {
 		return err
 	}
 	if err := line("  owner: %s  created by: %s", partyCell(task.Owner), partyCell(task.CreatedBy)); err != nil {
@@ -130,7 +202,7 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 		return err
 	}
 	if task.ParentTaskID != nil {
-		if err := line("  parent: %s", *task.ParentTaskID); err != nil {
+		if err := line("  parent: %s", output.SafeCell(*task.ParentTaskID)); err != nil {
 			return err
 		}
 	}
@@ -140,45 +212,101 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 		}
 	}
 	if task.StartBy != nil {
-		if err := line("  start by: %s", *task.StartBy); err != nil {
+		if err := line("  start by: %s", output.SafeCell(*task.StartBy)); err != nil {
+			return err
+		}
+	}
+	if task.FinishBy != nil {
+		if err := line("  finish by: %s", output.SafeCell(*task.FinishBy)); err != nil {
 			return err
 		}
 	}
 	if len(task.Tags) > 0 {
-		if err := line("  tags: %s", strings.Join(task.Tags, ", ")); err != nil {
+		if err := line("  tags: %s", safeTaskValues(task.Tags, ", ")); err != nil {
+			return err
+		}
+	}
+	if task.ExternalID != nil {
+		if err := line("  external id: %s", output.SafeLine(*task.ExternalID, 2048)); err != nil {
 			return err
 		}
 	}
 	if task.Source != nil {
-		if err := line("  source: %s", *task.Source); err != nil {
+		if err := line("  source: %s", output.SafeLine(*task.Source, 2048)); err != nil {
+			return err
+		}
+	}
+	if len(task.References) > 0 {
+		if err := line("  references:"); err != nil {
+			return err
+		}
+		for _, r := range task.References {
+			text := output.SafeLine(r.Kind+" "+r.Target, 2048)
+			if r.Label != nil {
+				text += " (" + output.SafeLine(*r.Label, 512) + ")"
+			}
+			if err := line("    %s", text); err != nil {
+				return err
+			}
+		}
+	}
+	if task.HandBack != nil {
+		if err := line("  %s", handBackLine(task.HandBack)); err != nil {
+			return err
+		}
+	}
+	if len(task.Properties) > 0 {
+		// Terminal-safe but not cut at a table cell's width: the server allows
+		// 16 KiB and --json carries the value verbatim either way.
+		if err := line("  properties: %s", output.SafeLine(string(task.Properties), 17000)); err != nil {
 			return err
 		}
 	}
 	if task.Requirements != nil {
+		if len(task.Requirements.Roles) > 0 {
+			if err := line("  roles: %s", safeTaskRequirementList(task.Requirements.Roles)); err != nil {
+				return err
+			}
+		}
+		if task.Requirements.TeamWorkerID != nil {
+			if err := line("  team worker id: %s", output.SafeCell(*task.Requirements.TeamWorkerID)); err != nil {
+				return err
+			}
+		}
+		if task.Requirements.MinTier != nil {
+			if err := line("  minTier: %s", output.SafeCell(*task.Requirements.MinTier)); err != nil {
+				return err
+			}
+		}
 		if err := line("  requirements: role=%s familyIn=%s familyNotIn=%s exclude=%s",
-			strOr(task.Requirements.Role),
-			strOrList(task.Requirements.FamilyIn),
-			strOrList(task.Requirements.FamilyNotIn),
-			strOrList(task.Requirements.ExcludeWorkerIds)); err != nil {
+			output.SafeCell(strOr(task.Requirements.Role)),
+			safeTaskRequirementList(task.Requirements.FamilyIn),
+			safeTaskRequirementList(task.Requirements.FamilyNotIn),
+			safeTaskRequirementList(task.Requirements.ExcludeWorkerIds)); err != nil {
 			return err
+		}
+		if len(task.Requirements.ModelGroupIn)+len(task.Requirements.ModelGroupNotIn) > 0 {
+			if err := line("  modelGroupIn=%s modelGroupNotIn=%s", safeTaskRequirementList(task.Requirements.ModelGroupIn), safeTaskRequirementList(task.Requirements.ModelGroupNotIn)); err != nil {
+				return err
+			}
 		}
 	}
 	if task.Result != nil {
-		if err := line("  result: %s", task.Result.Outcome); err != nil {
+		if err := line("  result: %s", output.SafeCell(task.Result.Outcome)); err != nil {
 			return err
 		}
 		if task.Result.Summary != nil {
-			if err := line("    %s", *task.Result.Summary); err != nil {
+			if err := line("    %s", output.SafeBlock(*task.Result.Summary, 20000, "      ")); err != nil {
 				return err
 			}
 		}
 		if task.Result.Evidence != nil {
-			if err := line("    evidence: %s", *task.Result.Evidence); err != nil {
+			if err := line("    evidence: %s", output.SafeBlock(*task.Result.Evidence, 2048, "      ")); err != nil {
 				return err
 			}
 		}
 	}
-	if err := line("  created: %s", task.CreatedAt); err != nil {
+	if err := line("  created: %s", output.SafeCell(task.CreatedAt)); err != nil {
 		return err
 	}
 	for _, stamp := range []struct {
@@ -191,7 +319,7 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 		{"updated", task.UpdatedAt},
 	} {
 		if stamp.at != nil {
-			if err := line("  %s: %s", stamp.label, *stamp.at); err != nil {
+			if err := line("  %s: %s", stamp.label, output.SafeCell(*stamp.at)); err != nil {
 				return err
 			}
 		}
@@ -207,29 +335,41 @@ func strOr(s *string) string {
 	return *s
 }
 
-func strOrList(list []string) string {
-	if len(list) == 0 {
-		return "—"
-	}
-	return strings.Join(list, ",")
-}
-
 // ---- list -----------------------------------------------------------------
 
 func newCmdTeamTaskList(f *cmdutil.Factory) *cobra.Command {
 	var statuses []string
 	var assignee, owner, parent, tag, team, staleOver, text string
-	var queued, rootsOnly, tree, overdue bool
+	var queued, rootsOnly, tree, overdue, matchFailed, unresolved bool
 	var tagsAny, tagsAll []string
-	var source string
+	var source, externalID, refTarget, refKind string
 	var times [6]string
 	var limit, offset int
 	cmd := &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"ls"},
 		Short:   "List the App's tasks (newest first)",
-		Long: `List the team App's tasks, newest first (the server's order). Filters
-combine with AND: --status (repeatable, ` + taskStatusDoc + `), --assignee and
+		Long: `List the team App's tasks, newest first (the server's order). The App comes
+from --app, else the configured App context, else the worktree binding; with
+none of them the command is refused.
+
+--unresolved narrows to FINISHED tasks with at least one finding without a
+disposition; all four codes (including deferred) resolve a finding. False or
+omission does not narrow. The server filters under the App read gate before
+paging, ANDed with the other filters. Requires server#3258; it cannot combine
+with --team, even when false. A separate operation keeps older plain/filtered
+list documents unchanged when this flag is omitted. No records is []/exit 0.
+
+--match-failed selects tasks marked by an unsuccessful create --match;
+--match-failed=false selects unmarked tasks. Omission keeps the old list.
+The server filters before paging under the App read gate. No results is []
+and exit 0. It cannot combine with the coordinator view --team (exit 2 before
+any read). Marked rows show the reason and time; JSON adds matchFailure only
+when present. Every task command requires provider server#3245 for these fields.
+
+Filters combine with AND, except that repeated --status values are
+alternatives (--status PENDING --status STARTED lists both). --status takes
+` + taskStatusDoc + `; --assignee and
 --owner name a party, --queued keeps only pending tasks with no assignee,
 --roots-only drops children, --parent lists one task's children, --tag
 filters by tag. --text matches a case-insensitive substring of title and description
@@ -238,7 +378,11 @@ refuses blank or over-200-character values (BAD_USER_INPUT, exit 2).
 --limit/--offset page (default 20, cap 200); a full default page says more may exist.
 
 --tag-any (at least one) and --tag-all (every one) repeat; a comma is part of a
-tag, not a separator. --source matches the exact value, never a prefix.
+tag, not a separator. --source matches the exact value, never a prefix, and so
+does --external-id: the task claiming that outside item (at most one per App).
+--ref <target> lists tasks carrying a typed reference with exactly that target
+(never a prefix; the label is ignored), and --ref-kind (issue, pull-request,
+node, task, url) narrows it to one kind; --ref-kind alone is a usage error.
 --overdue lists tasks whose start-by has passed that are not started, not
 ended and not backlog (backlog is never overdue); --overdue=false lists all
 other tasks. This is a filter, not an alarm. --created-/--started-/
@@ -262,6 +406,8 @@ refused, exit 1), then applies --status after the join, so an open task under
 a finished team task stays in view. It combines with --status, --text, --tree
 and --stale-over. Text is selected by the server after the team join, using a
 second paged read, so nonmatching ancestors do not hide matching descendants.
+Every other filter, and --limit/--offset, is refused with --team (exit 2);
+--tree and --stale-over work only with --team.
   --tree draws parent/child trees with status, idle time, owner, assignee,
     title and open alarms; a row whose parent is not shown is a root.
   --stale-over <duration> (e.g. 1h) keeps PENDING/STARTED tasks idle longer
@@ -272,7 +418,10 @@ second paged read, so nonmatching ancestors do not hide matching descendants.
 staleOverSeconds, tasks}, each task the plain task plus ownerTeam/assigneeTeam
 (team|outside|unknown|user|null), match (party|descendant), ageSeconds and
 ageFrom; --tree changes text only.`,
-		Example: `  hadron team task list --text "release notes" --status PENDING`,
+		Example: `  hadron team task list --app acme.com:eng-team --assignee worker:Iris --status PENDING --status STARTED
+  hadron team task list --app acme.com:eng-team --queued
+  hadron team task list --app acme.com:eng-team --text "release notes" --status PENDING
+  hadron team task list --app acme.com:eng-team --team=worker:Iris --tree --stale-over 1h`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			var textArg *string
@@ -284,13 +433,30 @@ ageFrom; --tree changes text only.`,
 					return exitcode.Newf(exitcode.Usage, "--status takes %s, got %q", taskStatusDoc, s)
 				}
 			}
+			if cmd.Flags().Changed("ref-kind") && !cmd.Flags().Changed("ref") {
+				return exitcode.Newf(exitcode.Usage, "--ref-kind narrows --ref: name the target with --ref too (nothing was sent)")
+			}
+			var refFilter *gen.AgentTaskReferenceFilter
+			if cmd.Flags().Changed("ref") {
+				if refTarget == "" {
+					return exitcode.Newf(exitcode.Usage, "--ref takes the exact target to match, got an empty value")
+				}
+				refFilter = &gen.AgentTaskReferenceFilter{Target: refTarget}
+				if cmd.Flags().Changed("ref-kind") {
+					k, err := taskRefKind("--ref-kind", refKind)
+					if err != nil {
+						return err
+					}
+					refFilter.Kind = &k
+				}
+			}
 			stale, err := checkTeamListFlags(cmd, args, team, staleOver)
 			if err != nil {
 				return err
 			}
 			if cmd.Flags().Changed("team") {
 				b, err := readBindingOrNilWithApp(ctx, f)
-				if err != nil {
+				if err != nil && !errors.Is(err, errNoWorktree) {
 					return err
 				}
 				scope, err := resolveTeamAppScope(ctx, f, b)
@@ -346,12 +512,23 @@ ageFrom; --tree changes text only.`,
 					return exitcode.Newf(exitcode.Usage, "--%s is after --%s: the range is empty (bounds are inclusive; equal instants are valid)", taskTimeFlags[i], taskTimeFlags[i+1])
 				}
 			}
+			var unresolvedIn *bool
+			if cmd.Flags().Changed("unresolved") {
+				unresolvedIn = &unresolved
+			}
+			var matchFailedIn *bool
+			if cmd.Flags().Changed("match-failed") {
+				matchFailedIn = &matchFailed
+			}
 			var overdueIn *bool
 			if cmd.Flags().Changed("overdue") {
 				overdueIn = &overdue
 			}
+			// Task listing needs App scope, not a worktree. Let the scope
+			// resolver name the remedies when neither is available; retain
+			// binding errors other than the absence of a worktree.
 			b, err := readBindingOrNilWithApp(ctx, f)
-			if err != nil {
+			if err != nil && !errors.Is(err, errNoWorktree) {
 				return err
 			}
 			scope, err := resolveTeamAppScope(ctx, f, b)
@@ -362,7 +539,9 @@ ageFrom; --tree changes text only.`,
 				assignee: assigneeIn, owner: ownerIn, parent: optStr(parent), queued: optBool(queued),
 				rootsOnly: optBool(rootsOnly), status: status, tag: optStr(tag), text: textArg, limit: limit, offset: offset,
 				limitExplicit: cmd.Flags().Changed("limit"),
-				tagsAny:       nilIfEmpty(tagsAny), tagsAll: nilIfEmpty(tagsAll), source: optStr(source), overdue: overdueIn,
+				matchFailed:   matchFailedIn,
+				unresolved:    unresolvedIn,
+				tagsAny:       nilIfEmpty(tagsAny), tagsAll: nilIfEmpty(tagsAll), source: optStr(source), externalID: optStr(externalID), reference: refFilter, overdue: overdueIn,
 				createdAfter: bounds[0], createdBefore: bounds[1], startedAfter: bounds[2], startedBefore: bounds[3],
 				finishedAfter: bounds[4], finishedBefore: bounds[5],
 			})
@@ -376,6 +555,11 @@ ageFrom; --tree changes text only.`,
 	cmd.Flags().StringArrayVar(&tagsAny, "tag-any", nil, "match at least one of these tags, repeatable (a comma is part of the tag)")
 	cmd.Flags().StringArrayVar(&tagsAll, "tag-all", nil, "match every one of these tags, repeatable (a comma is part of the tag)")
 	cmd.Flags().StringVar(&source, "source", "", "exact source value (no prefix matching)")
+	cmd.Flags().StringVar(&externalID, "external-id", "", "the task claiming exactly this external id, such as an issue URL (no prefix matching)")
+	cmd.Flags().StringVar(&refTarget, "ref", "", "tasks carrying a reference with exactly this target (the label is ignored)")
+	cmd.Flags().StringVar(&refKind, "ref-kind", "", "narrow --ref to one kind ("+taskRefKindsDoc+")")
+	cmd.Flags().BoolVar(&unresolved, "unresolved", false, "finished tasks with undisposed findings; false/omitted does not narrow; not with --team")
+	cmd.Flags().BoolVar(&matchFailed, "match-failed", false, "filter marked match failures; false selects unmarked tasks; not with list --team")
 	cmd.Flags().BoolVar(&overdue, "overdue", false, "start-by passed, not started, not ended, not backlog; --overdue=false lists all other tasks")
 	for i, name := range taskTimeFlags {
 		cmd.Flags().StringVar(&times[i], name, "", "RFC 3339 time with Z or an offset; inclusive bound")
@@ -405,7 +589,11 @@ type taskListQuery struct {
 	// The #1250 filters; any one set routes the read through AgentTaskListFiltered.
 	tagsAny, tagsAll              []string
 	source                        *string
+	externalID                    *string
+	reference                     *gen.AgentTaskReferenceFilter
 	overdue                       *bool
+	matchFailed                   *bool
+	unresolved                    *bool
 	createdAfter, createdBefore   *string
 	startedAfter, startedBefore   *string
 	finishedAfter, finishedBefore *string
@@ -423,7 +611,7 @@ func nilIfEmpty(s []string) []string {
 
 // filtered reports whether a #1250 filter is set.
 func (q taskListQuery) filtered() bool {
-	return q.tagsAny != nil || q.tagsAll != nil || q.source != nil || q.overdue != nil ||
+	return q.matchFailed != nil || q.tagsAny != nil || q.tagsAll != nil || q.source != nil || q.externalID != nil || q.reference != nil || q.overdue != nil ||
 		q.createdAfter != nil || q.createdBefore != nil || q.startedAfter != nil || q.startedBefore != nil ||
 		q.finishedAfter != nil || q.finishedBefore != nil
 }
@@ -446,9 +634,23 @@ func checkTaskPage(limit, offset int) error {
 // Omitting a JSON variable alone does not hide an argument from GraphQL validation.
 func taskListPage(ctx context.Context, client graphql.Client, appRef string, q taskListQuery) ([]taskDTO, int, error) {
 	tasks := []taskDTO{}
+	if q.unresolved != nil {
+		r, err := gen.AgentTaskListUnresolved(ctx, client, appRef, q.unresolved, q.assignee, q.createdAfter, q.createdBefore, q.finishedAfter, q.finishedBefore,
+			q.matchFailed, &q.limit, &q.offset, q.overdue, q.owner, q.parent, q.queued, q.rootsOnly, q.reference, q.source, q.externalID, q.startedAfter, q.startedBefore,
+			q.status, q.tag, q.tagsAll, q.tagsAny, q.text)
+		if err != nil {
+			return nil, 0, mapFindingError(err)
+		}
+		for _, t := range r.AgentTasks {
+			if t != nil {
+				tasks = append(tasks, taskDTOFrom(t.AgentTaskFields))
+			}
+		}
+		return tasks, len(r.AgentTasks), nil
+	}
 	if q.filtered() {
 		resp, err := gen.AgentTaskListFiltered(ctx, client, appRef, q.assignee, q.createdAfter, q.createdBefore, q.finishedAfter, q.finishedBefore,
-			&q.limit, &q.offset, q.overdue, q.owner, q.parent, q.queued, q.rootsOnly, q.source, q.startedAfter, q.startedBefore,
+			q.matchFailed, &q.limit, &q.offset, q.overdue, q.owner, q.parent, q.queued, q.rootsOnly, q.reference, q.source, q.externalID, q.startedAfter, q.startedBefore,
 			q.status, q.tag, q.tagsAll, q.tagsAny, q.text)
 		if err != nil {
 			return nil, 0, mapTaskError(err)
@@ -509,10 +711,31 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 			return err
 		}
 		withHandle := false
+		withMinTier := false
+		withFinishBy := false
+		withGroups := false
+		withFailure := false
 		for _, task := range tasks {
+			withFinishBy = withFinishBy || task.FinishBy != nil
+			withFailure = withFailure || task.MatchFailure != nil
+			withGroups = withGroups || (task.Requirements != nil && len(task.Requirements.ModelGroupIn)+len(task.Requirements.ModelGroupNotIn) > 0)
+			withMinTier = withMinTier || (task.Requirements != nil && task.Requirements.MinTier != nil)
 			withHandle = withHandle || task.Handle != ""
 		}
-		t := output.NewTable(w, handleHeaders(withHandle, "ID", "STATUS", "PRIORITY", "BLOCKED", "BLOCKED BY", "BLOCKS", "TITLE", "OWNER", "ASSIGNEE")...)
+		headers := handleHeaders(withHandle, "ID", "STATUS", "PRIORITY", "BLOCKED", "BLOCKED BY", "BLOCKS", "TITLE", "OWNER", "ASSIGNEE")
+		if withMinTier {
+			headers = append(headers, "MIN TIER")
+		}
+		if withGroups {
+			headers = append(headers, "MODEL GROUP IN", "MODEL GROUP NOT IN")
+		}
+		if withFinishBy {
+			headers = append(headers, "FINISH BY")
+		}
+		if withFailure {
+			headers = append(headers, "MATCH FAILURE", "FAILED AT")
+		}
+		t := output.NewTable(w, headers...)
 		for _, task := range tasks {
 			assignee := "—"
 			if task.Queued {
@@ -520,7 +743,37 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 			} else if task.Assignee != nil {
 				assignee = partyCell(task.Assignee)
 			}
-			t.Row(handleCells(withHandle, task.Handle, output.SafeCell(task.ID), output.SafeCell(task.Status), strconv.Itoa(task.Priority), strconv.FormatBool(task.Blocked), dependencySummary(task.BlockedBy), dependencySummary(task.Blocks), output.SafeCell(task.Title), output.SafeCell(partyCell(task.Owner)), output.SafeCell(assignee))...)
+			cells := handleCells(withHandle, task.Handle, output.SafeCell(task.ID), output.SafeCell(task.Status), strconv.Itoa(task.Priority), strconv.FormatBool(task.Blocked), dependencySummary(task.BlockedBy), dependencySummary(task.Blocks), output.SafeCell(task.Title), output.SafeCell(partyCell(task.Owner)), output.SafeCell(assignee))
+			if withMinTier {
+				tier := ""
+				if task.Requirements != nil && task.Requirements.MinTier != nil {
+					tier = output.SafeCell(*task.Requirements.MinTier)
+				}
+				cells = append(cells, tier)
+			}
+			if withGroups {
+				in, notIn := "—", "—"
+				if task.Requirements != nil {
+					in = safeTaskRequirementList(task.Requirements.ModelGroupIn)
+					notIn = safeTaskRequirementList(task.Requirements.ModelGroupNotIn)
+				}
+				cells = append(cells, in, notIn)
+			}
+			if withFinishBy {
+				finishBy := "—"
+				if task.FinishBy != nil {
+					finishBy = output.SafeCell(*task.FinishBy)
+				}
+				cells = append(cells, finishBy)
+			}
+			if withFailure {
+				reason, at := "—", "—"
+				if task.MatchFailure != nil {
+					reason, at = output.SafeCell(task.MatchFailure.Reason), output.SafeCell(task.MatchFailure.FailedAt)
+				}
+				cells = append(cells, reason, at)
+			}
+			t.Row(cells...)
 		}
 		return t.Flush()
 	})
@@ -543,10 +796,12 @@ in the bound worker's App, with the same output. The filters are fixed.
 --limit/--offset page (default 20, cap 200); a full default page says more may exist.
 
 It needs a worker session binding: without one, start a session with
-` + "`hadron team session start`" + `. --app may name the bound App (by id, URN
+` + "`hadron team session start`" + ` (see its --help for resuming a session
+versus binding a worker for the first time). --app may name the bound App (by id, URN
 or <root>:<slug>) but no other: "mine" never means another App, and the
 binding's server must be the one this call targets.`,
-		Args: cobra.NoArgs,
+		Example: "  hadron team task mine\n  hadron team task mine --json",
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			if err := checkTaskPage(limit, offset); err != nil {
@@ -612,11 +867,16 @@ func newCmdTeamTaskTree(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tree <rootTaskId>",
 		Short: "Show a task's parent/child chain",
-		Long: `Render the task and its children as a tree, with status, owner,
-assignee and OPEN ALARMS per node. The alarms come from the App's unacknowledged
-alarm events, joined onto the tree client-side — the join is presentation, the
-alarm facts are the server's.`,
-		Args: cobra.ExactArgs(1),
+		Long: `Render the task and every task below it — children, their children and so
+on, up to 1000 rows — as a tree, with status, owner, assignee and OPEN ALARMS
+per node. The alarms come from the App's unacknowledged alarm events, joined
+onto the tree client-side — the join is presentation, the alarm facts are the
+server's. To see an alarm in full use ` + "`team events --alarms`" + `; to
+acknowledge one, ` + "`team alarm ack`" + `. The root is an id or handle; a hidden
+or missing root exits 4. Text cells neutralise terminal controls and are bounded;
+--json carries complete, original values.`,
+		Example: "  hadron team task tree AT1",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			rootId, err := taskRefArg(args)
@@ -785,7 +1045,7 @@ func renderTreeNode(w io.Writer, task *taskDTO, depth int) error {
 	if task.WaitingOnChildren {
 		flags += "  waiting-on-children"
 	}
-	if _, err := fmt.Fprintf(w, "%s• %s [%s] %s → %s%s%s\n", indent, taskRef(task.Handle, task.ID), task.Status, partyCell(task.Owner), assignee, flags, alarm); err != nil {
+	if _, err := fmt.Fprintf(w, "%s• %s [%s] %s → %s%s%s\n", indent, taskRef(task.Handle, output.SafeCell(task.ID)), output.SafeCell(task.Status), partyCell(task.Owner), assignee, flags, alarm); err != nil {
 		return err
 	}
 	return nil
@@ -796,4 +1056,19 @@ func plural(n int) string {
 		return ""
 	}
 	return "s"
+}
+
+// Sanitize each server value before adding trusted separators.
+func safeTaskValues(values []string, separator string) string {
+	out := make([]string, len(values))
+	for i, v := range values {
+		out[i] = output.SafeCell(v)
+	}
+	return strings.Join(out, separator)
+}
+func safeTaskRequirementList(values []string) string {
+	if len(values) == 0 {
+		return "—"
+	}
+	return safeTaskValues(values, ",")
 }

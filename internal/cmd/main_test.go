@@ -50,6 +50,7 @@ func TestMain(m *testing.M) {
 	}
 
 	code := m.Run()
+	footerBinCleanup()    // the compiled-binary footer tests' build dir (cli#1084)
 	_ = os.RemoveAll(dir) // best-effort: a leftover temp dir is not worth failing a green suite over
 	os.Exit(code)
 }

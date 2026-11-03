@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -79,6 +80,18 @@ func writeProjection(w io.Writer, display string, d *approvalDTO, withDepth bool
 	p.printf("State: %s\n", stateWord(d.State))
 	s := d.Summary
 	p.printf("Name: %s\n", p.fact(s.Name, maxName))
+	if d.stale() {
+		// The entry node no longer resolves (server#2503): there is nothing
+		// else to list, only the server's one sentence.
+		p.list("Limits", s.Limits)
+		if withDepth {
+			p.printf("Graph: none (the entry node no longer resolves)\n")
+		}
+		if p.incomplete {
+			p.printf("(some of this was cut for display; `--json` has all of it)\n")
+		}
+		return p.incomplete, p.err
+	}
 	if s.Schedule != nil {
 		p.printf("Schedule: %s\n", p.fact(*s.Schedule, maxFact))
 	}
@@ -135,6 +148,7 @@ func joinComma(s []string) string {
 func newCmdApproval(f *cmdutil.Factory) *cobra.Command {
 	var run string
 	var depth bool
+	var limit int
 	cmd := &cobra.Command{
 		Use:   "approval [<name>]",
 		Short: "Show what approving an automation would approve",
@@ -142,13 +156,30 @@ func newCmdApproval(f *cmdutil.Factory) *cobra.Command {
 what it reads, writes and calls, and what it cannot do. Every sentence is the
 server's; a fact the server cannot show says "not stated".
 
+--limit sets the server page size while resolving a name; all pages are still
+read, so a small page never hides an ambiguous name. Omitted uses the server default.
+The lookup refuses after 200 pages (exit 7), rather than using a partial list;
+if a small --limit hits that bound, increase it (the server may cap each page).
+
 An empty list is printed "none listed": it is what the server listed, not a
 guarantee that nothing applies. --depth adds the graph and the hash. State is one of: not approved, approved, or
-changed since it was approved (its next run fails until it is approved again).`,
+changed since it was approved (its next run fails until it is approved again).
+
+If the automation's entry node no longer resolves (renamed, moved, deleted or
+unreadable), the server has nothing to approve and says so in one sentence under
+Limits; that is shown as a normal read (exit 0, no hash, --depth graph empty).
+Point the trigger at the entry node's current URN, then read it again.`,
 		Example: `  hadron automation approval schedule/nightly
   hadron automation approval nightly --depth --json
   hadron automation approval --run <run-id>`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			var pageLimit *int
+			if cmd.Flags().Changed("limit") {
+				if limit < 1 {
+					return exitcode.Newf(exitcode.Usage, "--limit must be positive")
+				}
+				pageLimit = &limit
+			}
 			app, _, err := cmdutil.TargetApp(cmd, f)
 			if err != nil {
 				return err
@@ -157,7 +188,7 @@ changed since it was approved (its next run fails until it is approved again).`,
 			if err != nil {
 				return err
 			}
-			sel, err := resolveSelection(cmd.Context(), client, app, args, run, cmd.Flags().Changed("run"))
+			sel, err := resolveSelection(cmd.Context(), client, app, args, run, cmd.Flags().Changed("run"), pageLimit)
 			if err != nil {
 				return err
 			}
@@ -172,6 +203,7 @@ changed since it was approved (its next run fails until it is approved again).`,
 		},
 	}
 	addSelectionArgs(cmd, &run)
+	cmd.Flags().IntVar(&limit, "limit", 0, "server page size for name lookup (positive; still drains every page)")
 	cmd.Flags().BoolVar(&depth, "depth", false, "also show the graph and the hash")
 	return cmd
 }

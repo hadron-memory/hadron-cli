@@ -5,12 +5,12 @@ import (
 	"testing"
 )
 
-// #452 / server #1010 — `promptOverride` was write-once, settable only at
-// castWorker time, which fixed a casting's individuality at the one moment
-// nobody yet knows what makes it individual.
+// #452 / server #1010 added a per-worker `promptOverride`; #1174 retired it
+// from the CLI. These fixtures keep a hostile server that still sends the key,
+// to prove the CLI never presents it.
 
-// updatedWorkerJSON is the worker as updateWorker returns it: the override set,
-// and `prompt` RE-RENDERED to the briefing a bind now delivers.
+// updatedWorkerJSON is a worker as a still-sending server returns it: the
+// retired `promptOverride` present beside the served `prompt`.
 const updatedWorkerJSON = `{"id":"wkr1","urn":"hrn:worker:acme.com:eng-team:iris","slug":"iris",
 	"appId":"capp100000000000000000000","agentId":"agt1","name":"Iris","role":"backend-engineer",
 	"prompt":"You are Iris.\n\nYou favour small, reviewable PRs.","promptOverride":"You favour small, reviewable PRs.",

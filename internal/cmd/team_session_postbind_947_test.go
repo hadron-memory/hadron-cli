@@ -30,7 +30,7 @@ func runStartAs(t *testing.T, startResp string, extra ...string) (string, string
 	teamGitDir(t)
 	stubs := map[string]string{
 		"GetWorker":        `{"data":{"worker":` + preBindWorkerJSON + `}}`,
-		"TeamSessions":     `{"data":{"sessions":[]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 		"StartTeamSession": startResp,
 	}
 	if resp, ok := unstubbedDefault("GetWorkerContinuity"); ok {
@@ -109,7 +109,7 @@ func TestC947OnlyTheBindOperationSelectsThePrompt(t *testing.T) {
 	if !strings.Contains(gen.StartTeamSession_Operation, "boundWorker: worker") {
 		t.Errorf("StartTeamSession must select boundWorker: worker { prompt }:\n%s", gen.StartTeamSession_Operation)
 	}
-	frag := gen.TeamSessions_Operation
+	frag := gen.TeamSessionsPage_Operation
 	if i := strings.Index(frag, "fragment TeamSessionFields"); i >= 0 {
 		frag = frag[i:]
 	}

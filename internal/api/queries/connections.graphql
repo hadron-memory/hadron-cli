@@ -51,3 +51,11 @@ mutation CreateConnectionGrant(
 mutation RevokeConnectionGrant($ref: ID!) {
   revokeConnectionGrant(ref: $ref)
 }
+
+# One connection grant the caller created, by id (#1343); null if not theirs
+# (no existence oracle).
+query ConnectionGrant($ref: ID!) {
+  connectionGrant(ref: $ref) {
+    ...ConnectionGrantFields
+  }
+}

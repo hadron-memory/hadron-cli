@@ -62,7 +62,8 @@ server recorded** rather than the one requested.
 | `read --since` | strictly-greater, so the next watermark is the LAST seq seen, not one past it. Reported as `nextSince` so no consumer re-derives it. |
 | `read --before` + `--offset` | the server IGNORES offset when before is given. Refused rather than silently half-applied. |
 | `mark-read` | monotonic — a lower seq is a no-op. Reports the cursor the SERVER holds, and says when it did not move. Echoing the request would report a rewind that never happened. |
-| `read-state` absent | "has seen nothing here" is a real answer, not an error. Making it one would be indistinguishable from "unreadable". |
+| `read-state` never-read | "has seen nothing here" (a `lastSeenSeq: 0` row) is a real answer, not an error: exit 0. |
+| `read-state` null | an unknown, unreadable or unregistered attendee is exit 4 with ONE wording for all three (#1259). Printing "seen nothing" made a typo look like an unread cursor; splitting the wording would make the CLI a finer existence oracle than the server. |
 
 Spec 049 item J marks a post that crossed Apps; the transcript keeps the mark,
 because dropping it misrepresents who was speaking where.

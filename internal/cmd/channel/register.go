@@ -122,8 +122,10 @@ context the attendee is named in. An entry whose attendee is unset declares
 EVERY attendee in that owner's context, which is far wider than naming one, so
 it is spelled --all-attendees rather than left to an omitted flag.
 
-Not to be confused with the worker-name register, which was removed in
-hadron-server#1050 and is a different thing entirely.`,
+Typical use: "register list --channel <address>" shows the entries and their
+ids; "register add" declares one; "register set <entry-id>" changes it;
+"register rm <entry-id>" withdraws it. Your own team chat's read position is
+not managed here ("hadron team chat mark-read").`,
 	}
 	cmd.AddCommand(newCmdRegisterList(f))
 	cmd.AddCommand(newCmdRegisterAdd(f))
@@ -276,8 +278,11 @@ and an omitted attendee genuinely means "everyone". A forgotten flag that
 declares too LITTLE fails loudly and costs seconds, while one that declares
 too MUCH succeeds silently — so the default follows the cheap failure.
 
---role defaults to the server's own default (both) when unset; it is not
-defaulted here.`,
+--role is one of both, post or watch (watch = reads only; post = posts only;
+both = reads and posts); when unset the server's default (both) applies. The
+role is a declaration, not a permission. --attendee takes a Worker or Agent as
+a URN, name or id; --owner is the App or organization the attendee is named in.
+Find the existing entries, and their ids, with "register list".`,
 		Example: `  hadron channel register add --channel hrn:node:acme.com:team-shared:chats:standup \
     --owner hrn:app:acme.com:eng-team --attendee hrn:worker:acme.com:eng-team:iris --role watch
   hadron channel register add --channel chn_123 --owner hrn:app:acme.com:eng-team --all-attendees`,
@@ -336,7 +341,7 @@ defaulted here.`,
 	cmd.Flags().StringVar(&owner, "owner", "", "the owning App or organization (URN or id) (required)")
 	cmd.Flags().StringVar(&attendee, "attendee", "", "the Worker or Agent to register")
 	cmd.Flags().BoolVar(&allAttendees, "all-attendees", false, "register EVERY attendee in the owner's context (the wide entry)")
-	cmd.Flags().StringVar(&role, "role", "", "both, post, or watch (server default when unset)")
+	cmd.Flags().StringVar(&role, "role", "", "both, post (posts only) or watch (reads only); server default (both) when unset")
 	cmd.Flags().BoolVar(&mentionOnly, "mention-only", false, "only messages mentioning the attendee count as new")
 	cmd.Flags().StringVar(&description, "description", "", "what this registration is for")
 	_ = cmd.MarkFlagRequired("channel")
@@ -359,7 +364,12 @@ adding the new one, and this command does not pretend otherwise.
 An unset flag is omitted rather than sent as null, so it preserves the
 current value instead of clearing it. --mention-only is a true/false flag
 here rather than a switch: pass --mention-only=false to turn it off, and
-leave it out entirely to leave it alone.`,
+leave it out entirely to leave it alone.
+
+<entry-id> is the id column of "channel register list --channel <address>".
+--role is one of both, post or watch (reads and posts / posts only / reads
+only); it is a declaration, not a permission, so it never changes what the
+attendee can actually read or post.`,
 		Example: `  hadron channel register set reg_123 --role watch
   hadron channel register set reg_123 --mention-only=false`,
 		Args: cobra.ExactArgs(1),
@@ -409,7 +419,7 @@ leave it out entirely to leave it alone.`,
 			})
 		},
 	}
-	cmd.Flags().StringVar(&role, "role", "", "both, post, or watch")
+	cmd.Flags().StringVar(&role, "role", "", "both, post (posts only) or watch (reads only)")
 	cmd.Flags().BoolVar(&mentionOnly, "mention-only", false, "only messages mentioning the attendee count as new")
 	cmd.Flags().StringVar(&description, "description", "", "what this registration is for")
 	return cmd
@@ -433,7 +443,10 @@ revoke access, change access to the memory hosting the Channel
 
 Where the entry was the wide --all-attendees one it covered every attendee in
 the owner's context, so the prompt names which entry is going rather than
-only its id.`,
+only its id.
+
+Get <entry-id> from "channel register list --channel <address>" (the ID
+column).`,
 		Example: `  hadron channel register rm reg_123 --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

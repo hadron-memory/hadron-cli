@@ -21,7 +21,7 @@ func TestUsage1016MalformedPageIsNotSuccess(t *testing.T) {
 				if asJSON {
 					args = append(args, "--json")
 				}
-				out, stderr, code, _ := usage65Run(t, `{"data":{"usageEvents":[`+payload.rows+`]}}`, args...)
+				out, stderr, code, _ := usage65Run(t, `{"data":{"usageEventsPage":{"total":1,"hasMore":false,"items":[`+payload.rows+`]}}}`, args...)
 				if code != 1 {
 					t.Fatalf("exit=%d want1; stdout=%q stderr=%q", code, out, stderr)
 				}
@@ -38,7 +38,7 @@ func TestUsage1016MalformedPageIsNotSuccess(t *testing.T) {
 				} else if out != "" {
 					t.Fatalf("malformed page emitted success: %q", out)
 				}
-				if strings.Contains(stderr, "no total available") || strings.Contains(stderr, "more may exist") {
+				if strings.Contains(stderr, "showing") || strings.Contains(stderr, "more: --offset") {
 					t.Fatalf("malformed page emitted page note: %q", stderr)
 				}
 				if !asJSON && !strings.Contains(stderr, "invalid usage-event row") {
@@ -54,8 +54,12 @@ func TestUsage1016ValidPagesKeepSemantics(t *testing.T) {
 		name, rows string
 		count      int
 		full       bool
+		total      int
+		note       string
 	}{
-		{"empty", "", 0, false}, {"partial", usage65Event, 1, false}, {"full", usage65Event + `,` + usage65Event, 2, true},
+		{"empty", "", 0, false, 4, "no events at offset 4 (total 4)"},
+		{"partial", usage65Event, 1, false, 5, "showing 5-5 of 5"},
+		{"full", usage65Event + `,` + usage65Event, 2, true, 9, "showing 5-6 of 9"},
 	} {
 		for _, asJSON := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/json=%v", tc.name, asJSON), func(t *testing.T) {
@@ -63,18 +67,18 @@ func TestUsage1016ValidPagesKeepSemantics(t *testing.T) {
 				if asJSON {
 					args = append(args, "--json")
 				}
-				out, stderr, code, calls := usage65Run(t, `{"data":{"usageEvents":[`+tc.rows+`]}}`, args...)
+				out, stderr, code, calls := usage65Run(t, fmt.Sprintf(`{"data":{"usageEventsPage":{"total":%d,"hasMore":%v,"items":[%s]}}}`, tc.total, tc.full, tc.rows), args...)
 				if code != 0 {
 					t.Fatalf("exit%d %s %s", code, out, stderr)
 				}
-				if !strings.Contains(stderr, "page at offset 4 (limit 2); no total available") || strings.Contains(stderr, "more may exist") != tc.full {
+				if !strings.Contains(stderr, tc.note) || strings.Contains(stderr, "more: --offset") != tc.full {
 					t.Fatalf("page semantics: %q", stderr)
 				}
 				if tc.full && !strings.Contains(stderr, "--offset 6") {
 					t.Fatal(stderr)
 				}
 				var vars map[string]any
-				if err := json.Unmarshal(calls["UsageEvents"], &vars); err != nil {
+				if err := json.Unmarshal(calls["UsageEventsPage"], &vars); err != nil {
 					t.Fatal(err)
 				}
 				if len(vars) != 5 || vars["limit"] != float64(2) || vars["offset"] != float64(4) || vars["loc"] != "a:b:c:d" || vars["memoryId"] != "hrn:mem:acme.com:kb" || vars["eventType"] != "read" {

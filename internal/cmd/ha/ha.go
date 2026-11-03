@@ -2,11 +2,11 @@
 // (hadrontool-home-assistant; hadron-server#640). Org-owned instance rows whose
 // ops headless runs invoke as `ha__<slug>__<op>` in a node's `data.tools`.
 //
-// This is the READ-ONLY cut (cli#231): list / get / ops. It never contacts a
-// Home Assistant host and never touches the write-only access token — the
+// list / get / ops read the registry; create / update / rm write it (cli#231).
+// Nothing here contacts a Home Assistant host. The access token is write-only:
+// it is read from stdin or a file (never argv), sent, and never printed — the
 // registry exposes no token field. Registering an endpoint grants nothing; a
 // run must still be allowed `tool.ha__<slug>__<op>` by the policy chain.
-// Credential-bearing writes (create/update/delete) are separately gated.
 package ha
 
 import (
@@ -23,15 +23,15 @@ import (
 func NewCmdHa(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ha <command>",
-		Short: "Read the Home Assistant instance registry",
+		Short: "Manage the Home Assistant instance registry",
 		Long: `See which Home Assistant instances (smart-home hubs) are registered for your
 organizations, and which actions ("ops") an AI agent may take on each one.
 Start with "ha list", then "ha ops <id>" for one instance's actions.
 
-These commands only read the registry. They never contact the Home Assistant
-host and cannot show its access token. There is no command here to register,
-change or remove an instance: an organization admin registers one with the
-GraphQL mutation createHomeAssistantInstance, for example through "hadron api".
+An organization admin registers an instance with "ha create", changes it with
+"ha update" and deletes it with "ha rm". None of these commands contacts the
+Home Assistant host. Its access token is write-only: you give it from stdin or
+a file, and no command ever shows it.
 
 Details:
   Each registered instance offers its ops to headless (unattended) runs under
@@ -40,11 +40,16 @@ Details:
   tool.ha__<slug>__<op> by the policy chain (the rules that decide what a run
   may use). The registry is the hadrontool-home-assistant tool's.`,
 		Example: `  hadron ha list --org hrn:org:acme.com
-  hadron ha ops <instance-id>`,
+  hadron ha ops <instance-id>
+  printf '%s' "$HA_TOKEN" | hadron ha create --org hrn:org:acme.com --slug home \
+    --name Home --url https://ha.example.com --token-file -`,
 	}
 	cmd.AddCommand(newCmdList(f))
 	cmd.AddCommand(newCmdGet(f))
 	cmd.AddCommand(newCmdOps(f))
+	cmd.AddCommand(newCmdCreate(f))
+	cmd.AddCommand(newCmdUpdate(f))
+	cmd.AddCommand(newCmdRm(f))
 	return cmd
 }
 

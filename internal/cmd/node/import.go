@@ -92,6 +92,7 @@ func newCmdImport(f *cmdutil.Factory) *cobra.Command {
 		taskRef  string
 		taskArgs string
 		app      string
+		agent    string
 		// Shared.
 		yes bool
 	)
@@ -133,8 +134,9 @@ node's Markdown content on the server. Name the target with -m and --loc, or
 (required for a PDF read from a pipe). Only a PDF with a text layer works: a
 scanned, image-only PDF is refused. The new node's type is webpage (info for a
 PDF). --task <ref> then runs a task on the new node and prints the run id
-(follow it with hadron run get <id>); --task-args passes arguments and --app
-names the App to run under (default: your active App).
+(follow it with hadron run get <id>); --task-args passes arguments, --app
+names the App to run under (default: your active App), and --agent names the
+installed Agent the run is served as (needed when that App has several).
 
 FOLDER (-r) maps a local folder into the memory: each folder becomes a node,
 each text file a node under it (loc: the path without its extension, made
@@ -165,7 +167,7 @@ and writes nothing.`,
 				if srcPath == "" || srcPath == "-" {
 					return exitcode.Newf(exitcode.Usage, "recursive import (-r) needs a directory path argument")
 				}
-				treeReject := []string{"format", "with-edges", "create-only", "url", "as-content", "content-type", "name", "node", "properties", "properties-file", "task", "task-args", "app", "loc"}
+				treeReject := []string{"format", "with-edges", "create-only", "url", "as-content", "content-type", "name", "node", "properties", "properties-file", "task", "task-args", "app", "agent", "loc"}
 				if err := rejectFlags(cmd, treeReject, "does not apply to recursive directory import (-r)"); err != nil {
 					return err
 				}
@@ -199,7 +201,7 @@ and writes nothing.`,
 			// Reject flags belonging to the other mode so a wrong combination
 			// fails loudly instead of being silently ignored.
 			restoreOnly := []string{"format", "with-edges", "create-only", "dry-run"}
-			contentOnly := []string{"url", "as-content", "content-type", "name", "type", "properties", "properties-file", "node", "task", "task-args", "app"}
+			contentOnly := []string{"url", "as-content", "content-type", "name", "type", "properties", "properties-file", "node", "task", "task-args", "app", "agent"}
 			if contentMode {
 				if err := rejectFlags(cmd, restoreOnly, "does not apply to content import (--url/--as-content/PDF)"); err != nil {
 					return err
@@ -208,7 +210,7 @@ and writes nothing.`,
 					srcPath: srcPath, url: url, memory: memory, loc: loc, nodeURN: nodeURN,
 					contentType: contentType, name: name, nodeType: nodeType,
 					properties: properties, propertiesFile: propertiesFile,
-					taskRef: taskRef, taskArgs: taskArgs, app: app, yes: yes,
+					taskRef: taskRef, taskArgs: taskArgs, app: app, agent: agent, yes: yes,
 				})
 			}
 			if err := rejectFlags(cmd, contentOnly, "applies only to content import — pass --as-content to ingest this file as raw content"); err != nil {
@@ -241,6 +243,7 @@ and writes nothing.`,
 	cmd.Flags().StringVar(&taskRef, "task", "", "content: after storing, run this task node (ID or URN) against the imported node; prints the run id")
 	cmd.Flags().StringVar(&taskArgs, "task-args", "", "content: JSON object of extra template args merged into the task run (requires --task)")
 	cmd.Flags().StringVar(&app, "app", "", "content: App (ID or URN) to run --task under (defaults to your active App)")
+	cmd.Flags().StringVar(&agent, "agent", "", "content: installed Agent (ID or URN) the --task run is served as; required when the App has several (requires --task)")
 	cmd.Flags().BoolVar(&yes, "yes", false, "overwrite an existing node without prompting (required non-interactively)")
 	return cmd
 }
@@ -429,7 +432,7 @@ type contentImportOpts struct {
 	srcPath, url, memory, loc, nodeURN string
 	contentType, name, nodeType        string
 	properties, propertiesFile         string
-	taskRef, taskArgs, app             string
+	taskRef, taskArgs, app, agent      string
 	yes                                bool
 }
 
@@ -439,12 +442,19 @@ type contentImportOpts struct {
 // against the stored node (#528).
 func runImportContent(cmd *cobra.Command, f *cmdutil.Factory, o contentImportOpts) error {
 	srcPath, url, memory, loc, nodeURN := o.srcPath, o.url, o.memory, o.loc, o.nodeURN
-	// --task-args/--app only shape a post-import run, so they need --task.
+	// --task-args/--app/--agent only shape a post-import run, so they need --task.
 	if o.taskArgs != "" && o.taskRef == "" {
 		return exitcode.Newf(exitcode.Usage, "--task-args requires --task")
 	}
 	if o.app != "" && o.taskRef == "" {
 		return exitcode.Newf(exitcode.Usage, "--app requires --task (it names the App the task runs under)")
+	}
+	if cmd.Flags().Changed("agent") && o.taskRef == "" {
+		return exitcode.Newf(exitcode.Usage, "--agent requires --task (it names the Agent the task run is served as)")
+	}
+	agentRef, err := cmdutil.RunAgentFlag(cmd, o.agent)
+	if err != nil {
+		return err
 	}
 
 	// Source dispatch: exactly one of --url | inline (<file>|-).
@@ -493,6 +503,7 @@ func runImportContent(cmd *cobra.Command, f *cmdutil.Factory, o contentImportOpt
 			}
 			input.AppRef = &appRef
 		}
+		input.AgentRef = agentRef
 		if o.taskArgs != "" {
 			ta, err := cmdutil.ParseJSONArg(o.taskArgs, "task-args")
 			if err != nil {

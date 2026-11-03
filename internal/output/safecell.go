@@ -1,6 +1,7 @@
 package output
 
 import (
+	"regexp"
 	"strings"
 	"unicode"
 )
@@ -41,3 +42,40 @@ func SafeLine(s string, maxRunes int) string {
 	}
 	return b.String()
 }
+
+// SafeBlock bounds server-authored multiline text without flattening its lines.
+// Escape sequences are removed before counting runes. CRLF becomes LF; every
+// other control/format/separator becomes a space. Continuation indentation is
+// CLI-owned. JSON callers must retain the original value. Like SafeCell, a cut
+// may split a combining sequence; there is no separate byte bound.
+func SafeBlock(s string, maxRunes int, indent string) string {
+	s = blockOSC.ReplaceAllString(s, "")
+	s = blockCSI.ReplaceAllString(s, "")
+	s = blockESC.ReplaceAllString(s, "")
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	var b strings.Builder
+	n := 0
+	for _, r := range s {
+		if n >= maxRunes {
+			b.WriteString("…\n" + indent + "(truncated — --json carries the whole value)")
+			return b.String()
+		}
+		if r == '\n' {
+			b.WriteRune(r)
+			b.WriteString(indent)
+		} else {
+			if unicode.IsControl(r) || unicode.In(r, unicode.Cf, unicode.Zl, unicode.Zp) {
+				r = ' '
+			}
+			b.WriteRune(r)
+		}
+		n++
+	}
+	return b.String()
+}
+
+var (
+	blockOSC = regexp.MustCompile(`\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)?`)
+	blockCSI = regexp.MustCompile(`\x1b\[[0-?]*[ -/]*[@-~]?`)
+	blockESC = regexp.MustCompile(`\x1b.?`)
+)

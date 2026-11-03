@@ -6,12 +6,12 @@ import (
 	"testing"
 )
 
-const usage1205Empty = `{"data":{"usageEvents":[]}}`
+const usage1205Empty = `{"data":{"usageEventsPage":{"total":0,"hasMore":false,"items":[]}}}`
 
 func usage1205Vars(t *testing.T, calls map[string]json.RawMessage) map[string]any {
 	t.Helper()
 	var vars map[string]any
-	if err := json.Unmarshal(calls["UsageEvents"], &vars); err != nil {
+	if err := json.Unmarshal(calls["UsageEventsPage"], &vars); err != nil {
 		t.Fatal(err)
 	}
 	return vars

@@ -26,6 +26,11 @@ loc (its path inside a memory, such as findings:flaky-ci) together with -m:
 
   hadron node get findings:flaky-ci -m hrn:mem:acme.com:kb
 
+A register entry also has an action URN, hrn:action:<root>:<agent-slug>:<code>,
+which names the same node and is accepted anywhere a node URN is (it needs no -m):
+
+  hadron node get hrn:action:hadronmemory.com:team-agent:task.finish.open-children
+
 A node URN is hrn:node:<root>:<memory>:<loc>. The hrn:node: prefix is required
 because a loc has colons of its own. The legacy <org>::<memory>::<loc> form is
 still accepted. A bare loc without -m (or --install) is refused, since the
@@ -46,6 +51,12 @@ To read several nodes at once, pass several refs, or --prefix <loc> -m
 <memory> for every node whose loc starts with <loc> (an empty --prefix is the
 whole memory). Unlike node list, this returns full content and edges. The
 output is then {nodes, unavailable}.
+
+--json carries createdAt and createdByUser: the server's {handle, urn} for the
+user who created the node, or null. A null author means "not shown to you or
+not known" (for example, the node was written before authors were recorded),
+never "nobody". The text form prints a "created by:" line only when there is a
+handle or URN to show. The user behind a node's last edit is not shown here.
 
 Exit codes: 4 when the node is missing or you cannot read it (the server does
 not say which), and also when any ref of several is "unavailable", so a partial
@@ -72,7 +83,7 @@ Feedback counts (commentSummary in --json) come from a separate read: they are
 null (text: unavailable) when that read fails or the server is older, never a
 guessed zero.
 
-` + installDetails("") + ``,
+` + installReadDetails() + ``,
 		Example: `  hadron node get hrn:node:hadronmemory.com:dev:start-here
   hadron node get start-here -m hrn:mem:hadronmemory.com:dev --json
   hadron node get start-here preflight instructions -m hrn:mem:hadronmemory.com:dev --json
@@ -156,6 +167,20 @@ guessed zero.
 				})
 			}
 
+			// nodeBatch(refs:) takes ids and node URNs and refuses any other URN
+			// kind, which would fail the whole batch. An action URN is therefore
+			// resolved to its register node's id first; one that names nothing
+			// is reported unavailable, as an absent node ref is (#1138).
+			var absentActions []string
+			if !prefixMode {
+				args, absentActions, err = resolveActionRefs(cmd, client, args)
+				if err != nil {
+					return err
+				}
+				if len(args) == 0 {
+					return emitNodeBatch(f, nodeBatchDTO{Nodes: []nodeDetailDTO{}, Unavailable: absentActions})
+				}
+			}
 			sel, err := batchRevisionSelector(memory, locPrefix, args, prefixMode)
 			if err != nil {
 				return err
@@ -174,6 +199,7 @@ guessed zero.
 					dto.Nodes = append(dto.Nodes, batchDetailDTO(n))
 				}
 				dto.Unavailable = append(dto.Unavailable, unavailable...)
+				dto.Unavailable = append(dto.Unavailable, absentActions...)
 				ptrs := make([]*nodeDetailDTO, len(dto.Nodes))
 				for i := range dto.Nodes {
 					ptrs[i] = &dto.Nodes[i]
@@ -259,6 +285,9 @@ func renderNodeDetail(w io.Writer, dto nodeDetailDTO) error {
 	if dto.URN != "" {
 		fmt.Fprintf(w, "  urn: %s\n", dto.URN)
 	}
+	if dto.ActionURN != "" {
+		fmt.Fprintf(w, "  action urn: %s\n", dto.ActionURN)
+	}
 	if dto.PortalURL != "" {
 		fmt.Fprintf(w, "  URL: %s\n", dto.PortalURL)
 	}
@@ -288,6 +317,11 @@ func renderNodeDetail(w io.Writer, dto nodeDetailDTO) error {
 		fmt.Fprintf(w, "  tags: %v\n", dto.Tags)
 	}
 	fmt.Fprintf(w, "  updated: %s\n", dto.UpdatedAt)
+	// hadron-cli#1513: only a printable author prints; null and an empty object
+	// print nothing (never "nobody"/"unknown"), and --json carries the object.
+	if by := dto.CreatedByUser.Display(256); by != "" {
+		fmt.Fprintf(w, "  created by: %s\n", by)
+	}
 	if dto.Revision != nil {
 		fmt.Fprintf(w, "  revision: %d\n", *dto.Revision)
 	} else {
@@ -379,6 +413,7 @@ func detailDTO(n *gen.GetNodeNode) nodeDetailDTO {
 			// keeps an absent one out of the --json shape (omitempty) rather
 			// than emitting "".
 			URN:        n.Urn,
+			ActionURN:  strVal(n.ActionUrn),
 			PortalURL:  strVal(n.PortalUrl),
 			MemoryID:   n.MemoryId,
 			Loc:        n.Loc,
@@ -419,6 +454,9 @@ func detailDTO(n *gen.GetNodeNode) nodeDetailDTO {
 		}
 		dto.IncomingEdges = append(dto.IncomingEdges,
 			edgeRefOf(e.Id, e.Name, e.Loc, e.IsRunnable, e.Priority, sid, sloc, smem))
+	}
+	if u := n.CreatedByUser; u != nil {
+		dto.CreatedByUser = cmdutil.NewAttribution(u.Handle, u.Urn)
 	}
 	return dto
 }

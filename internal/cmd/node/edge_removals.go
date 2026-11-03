@@ -47,7 +47,11 @@ edge, newest first. A soft delete keeps its edges and records nothing.
 An entry names the removed edge (its loc and name), the deleted target (its
 stable id and loc), why, who deleted it, and when. The target's loc — and the
 removed edge's loc, which is derived from it — are withheld (null) when you
-cannot read the memory the target lived in.`,
+cannot read the memory the target lived in.
+
+--limit sets the page size (default 20, no upper bound), and
+--limit 0 returns an empty page. There is no offset or total, so a full
+default page says on stderr that more may exist; an explicit --limit does not.`,
 		Example: `  hadron node edge-removals hrn:node:hadronmemory.com:dev:start-here
   hadron node edge-removals start-here -m hrn:mem:hadronmemory.com:dev --limit 5 --json`,
 		Args: cobra.ExactArgs(1),

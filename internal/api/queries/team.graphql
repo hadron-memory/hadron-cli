@@ -46,6 +46,10 @@ fragment WorkerFields on Worker {
   name
   reportsTo { ...WorkerReportingRefFields }
   reportsToRetired
+  # cli#933: the recorded reporting CHOICE. REPORTS_TO / NO_TEAM / UNSET are
+  # three states, and NULL MEANS WITHHELD from this caller (access-masked):
+  # never UNSET, never NO_TEAM, and never derived from a null reportsTo.
+  teamPlacement
   role
   # The served boot briefing, surfaced by `worker get` — it is what a session driver adopts.
   prompt
@@ -160,12 +164,18 @@ mutation CastWorker(
   $role: String
   # @genqlient(omitempty: true)
   $name: String
+  # @genqlient(omitempty: true)
+  $reportsTo: ID
+  # @genqlient(omitempty: true)
+  $noTeam: Boolean
 ) {
   castWorker(
     appRef: $appRef
     agentRef: $agentRef
     role: $role
     name: $name
+    reportsTo: $reportsTo
+    noTeam: $noTeam
   ) {
     ...WorkerFields
   }
@@ -285,6 +295,85 @@ query GetWorker($ref: ID!) {
   }
 }
 
+# cli#1459: ONE worker by NAME within an App, in one read. The name form of
+# worker(ref:) is activated by appRef (server #1015): unique per App, matched
+# with the database's lower(), retired workers included, and an id or URN in
+# `ref` wins over appRef. Denial and absence both refuse WORKER_NOT_FOUND (no
+# roster oracle). Name resolution used to page the App's whole staff for this.
+query GetWorkerInApp($appRef: ID!, $ref: ID!) {
+  worker(appRef: $appRef, ref: $ref) {
+    ...WorkerFields
+  }
+}
+
+# GetWorkerInApp for a caller that needs only the id (a filter): no briefing.
+query GetWorkerIdInApp($appRef: ID!, $ref: ID!) {
+  worker(appRef: $appRef, ref: $ref) {
+    id
+  }
+}
+
+# hadron-server#2771 / cli#1375: a worker's latest terminal report. A fragment so
+# the roster and GetWorkerTerminal select one shape; deliberately NOT part of
+# WorkerFields, which other operations share (their wire shape is unchanged).
+fragment WorkerTerminalFields on WorkerTerminal {
+  host { id label }
+  status
+  prompt
+  reason
+  lastTurnAt
+  checkedAt
+  reportedAt
+}
+
+# The terminal report is its own operation, for the reason GetWorkerProfile is:
+# a server that predates #2771 rejects a document selecting Worker.terminal
+# before execution, and the ordinary lookup must still bind there.
+query GetWorkerTerminal($ref: ID!) {
+  worker(ref: $ref) {
+    terminal { ...WorkerTerminalFields }
+  }
+}
+
+# cli#1525 / hadron-server#2969 (cor:agt:040:04): the signature and trailer as
+# the served boot prompt fills them. The SERVER substitutes the variables; the
+# CLI prints the values as given and never fills one itself. Null for a caller
+# the prompt does not reach, with no refusal. Its own operation, like the
+# profile and terminal reads, so a server that predates #2969 still serves
+# `worker get` (rendered keys null there).
+query GetWorkerRendered($ref: ID!) {
+  worker(ref: $ref) {
+    renderedSignature
+    renderedTrailer
+  }
+}
+
+# cli#1485 S3 (hadron-server#3026, cor:agt:060:12): a worker's current matching
+# model-group names. A separate operation, like GetWorkerProfile: it is NOT part
+# of WorkerFields (shared by many commands whose wire shape must not change).
+# [] is a real answer; null means the working-state read is denied (no error).
+# A field error here fails the command — only the roster tolerates one.
+query GetWorkerModelGroups($ref: ID!) {
+  worker(ref: $ref) {
+    modelGroups
+  }
+}
+
+# cli#1355 / server#1149 (cor:dmo:050:11): the PROFILE scalars that say whose
+# worker this is — the App's display name, the owner atom of its URN and the
+# App's URN. Deliberately a separate operation from GetWorker, for the same
+# reason as GetWorkerContinuity below: a server that predates #1149 rejects a
+# document selecting Worker.appName / ownerName / appUrn before execution, and
+# the ordinary lookup must still bind there. All three are nullable and null
+# means unavailable (masked, or a URN that predates the grammar), never "none".
+query GetWorkerProfile($ref: ID!) {
+  worker(ref: $ref) {
+    appName
+    ownerName
+    appUrn
+  }
+}
+
 # #790 / server#1029: the handoff is deliberately a separate operation from
 # GetWorker and Workers. Older servers do not know Worker.continuity and reject
 # a document that selects it before execution, even if a caller ignores the
@@ -334,6 +423,8 @@ fragment WorkerRosterFields on Worker {
   name
   reportsTo { ...WorkerReportingRefFields }
   reportsToRetired
+  # cli#933: same field and same null-means-withheld semantics as WorkerFields.
+  teamPlacement
   role
   # Carried on the roster too, so the mismatch warning can name the worker the
   # caller probably meant without a third query. Same [] semantics as above.
@@ -370,9 +461,7 @@ fragment WorkerRosterFields on Worker {
 }
 
 # The roster read used by `worker list`. Same arguments and paging as Workers;
-# only the projection differs. Workers itself stays prompt-bearing because
-# resolveWorker rides it — `session start`'s boot briefing, `worker get <name>`,
-# retire and rm all resolve through that scan and legitimately need the prompt.
+# only the projection differs.
 query WorkersRoster(
   $appRef: ID!
   # @genqlient(omitempty: true)
@@ -390,9 +479,23 @@ query WorkersRoster(
   }
 }
 
+# The LOOKUP projection (cli#1459, hadron-server#2970): what naming orca's
+# targets needs, and nothing else.
+#
+# Never add `prompt`, `signature` or `trailer` here. Each is one worker's
+# multi-KB detail: on a 100-worker App the full WorkerFields list was 3.4 MB
+# and ~13 s of server time per call, and every other request on the server
+# slowed while it was built. To find ONE worker by name use GetWorkerInApp.
+fragment WorkerLookupFields on Worker {
+  id
+  urn
+  name
+  retiredAt
+}
+
 # The STAFF read (cor:agt:020:01 — Workers are the staff; the AppAgent join is
 # the install roster, `app agent list`). Retired castings are hidden unless
-# includeRetired.
+# includeRetired. Lookup projection only — see WorkerLookupFields.
 query Workers(
   $appRef: ID!
   # @genqlient(omitempty: true)
@@ -405,7 +508,7 @@ query Workers(
   workers(appRef: $appRef, includeRetired: $includeRetired, limit: $limit, offset: $offset) {
     total
     items {
-      ...WorkerFields
+      ...WorkerLookupFields
     }
   }
 }
@@ -727,6 +830,31 @@ mutation ResumeTeamSession(
   }
 }
 
+# cli#1351 over server #2896: record a session's outcome (0..1), with an
+# optional opaque reference and JSON metadata. The range check, the owner
+# gate and the MCP-only OAuth refusal are the server's. An omitted ref or
+# meta is not sent, so it is not cleared.
+mutation RecordSessionOutcome(
+  $sessionId: ID!
+  $outcome: Float!
+  # @genqlient(omitempty: true)
+  $outcomeRef: String
+  # @genqlient(omitempty: true)
+  $outcomeMeta: JSON
+) {
+  recordSessionOutcome(
+    sessionId: $sessionId
+    outcome: $outcome
+    outcomeRef: $outcomeRef
+    outcomeMeta: $outcomeMeta
+  ) {
+    id
+    outcome
+    outcomeRef
+    outcomeMeta
+  }
+}
+
 # One session by id — the provenance query resolves worklog sessionIds
 # through this (sessions have no URN; id-only is the cor:api:140 genuine-PK
 # case). Null when not found or not visible.
@@ -763,11 +891,12 @@ query GetBoundSessionEnd($id: ID!) {
   }
 }
 
+# cli#1339: sessionsPage is the same scope and filters as sessions, newest first,
+# with the real total. limit 0 is a count only; a limit over 200 is served as 200.
 # workerRef (#974) is the server-side narrowing the taken/last-driven-by check
-# reads: only sessions bound to that Worker (by id), newest first — so the
-# presence check no longer scans the whole list. The plain listing still pages
-# to exhaustion for --active (no active filter server-side).
-query TeamSessions(
+# reads: only sessions bound to that Worker (by id), newest first. The plain
+# listing still pages to exhaustion for --active (no active filter server-side).
+query TeamSessionsPage(
   # @genqlient(omitempty: true)
   $repo: String
   # @genqlient(omitempty: true)
@@ -777,8 +906,12 @@ query TeamSessions(
   # @genqlient(omitempty: true)
   $offset: Int
 ) {
-  sessions(repo: $repo, workerRef: $workerRef, limit: $limit, offset: $offset) {
-    ...TeamSessionFields
+  sessionsPage(repo: $repo, workerRef: $workerRef, limit: $limit, offset: $offset) {
+    total
+    hasMore
+    items {
+      ...TeamSessionFields
+    }
   }
 }
 
@@ -998,18 +1131,26 @@ query CastWorkerPreview(
   $role: String
   # @genqlient(omitempty: true)
   $name: String
+  # @genqlient(omitempty: true)
+  $reportsTo: ID
+  # @genqlient(omitempty: true)
+  $noTeam: Boolean
 ) {
   castWorkerPreview(
     appRef: $appRef
     agentRef: $agentRef
     role: $role
     name: $name
+    reportsTo: $reportsTo
+    noTeam: $noTeam
   ) {
     name
     role
     agentId
     agentName
     prompt
+    teamPlacement
+    reportsToWorkerId
   }
 }
 
@@ -1085,118 +1226,18 @@ mutation UpdateWorkerSigning(
   }
 }
 
-# ── #1384 bounded team attention ────────────────────────────────────────────
-# Drain every page before reporting a candidate since-token. Intermediate
-# pages carry no adoptable token, so a router cannot accidentally skip unread
-# work by accepting an incomplete scan. Bodies are never returned and the
-# query never changes read state. The CLI never stores the final token: the
-# router adopts it only after every listed nudge was accepted.
-query TeamAttentionPage(
-  $appRef: ID!
+# cli#1592: UpdateWorkerSigning carrying a holder's instruction claim (see
+# ChangeWorkerAgentInstructed). Needs server 17ef5905 or later.
+mutation UpdateWorkerSigningInstructed(
+  $workerRef: ID!
   # @genqlient(omitempty: true)
-  $since: String
+  $signature: String
   # @genqlient(omitempty: true)
-  $page: String
+  $trailer: String
+  $instruction: ActInstructionInput!
 ) {
-  teamAttentionPage(appRef: $appRef, since: $since, page: $page) {
-    scanComplete
-    nextPage
-    adoptableSince
-    items {
-      worker
-      workerName
-      workerUrn
-      channel
-      channelName
-      unread
-      unreadMentions
-      firstUnreadSeq
-      lastSeq
-    }
-  }
-}
-
-# Compatibility with a server that has not deployed #1384 yet. The paged
-# query is attempted first; this one is used only when its field is absent.
-query TeamAttention(
-  $appRef: ID!
-  # @genqlient(omitempty: true)
-  $since: String
-) {
-  teamAttention(appRef: $appRef, since: $since) {
-    token
-    workers {
-      worker
-      name
-      urn
-      live
-      channels {
-        channel
-        name
-        unread
-        unreadMentions
-        firstUnreadSeq
-        lastSeq
-      }
-    }
-  }
-}
-
-# The read-only half of the one-time switchover, also bounded. Only the last
-# page carries the short-lived proof; never expose a partial preview as
-# apply-ready.
-query TeamAttentionPreviewPage(
-  $appRef: ID!
-  # @genqlient(omitempty: true)
-  $page: String
-) {
-  teamAttentionPreviewPage(appRef: $appRef, page: $page) {
-    scanComplete
-    nextPage
-    proof
-    expiresAt
-    items {
-      worker
-      workerName
-      workerUrn
-      channel
-      channelName
-      unread
-      unreadMentions
-      firstUnreadSeq
-      lastSeq
-    }
-  }
-}
-
-# The old read-only preview remains usable before #1384 is deployed.
-query TeamAttentionSwitchoverPreview($appRef: ID!) {
-  teamAttentionSwitchoverPreview(appRef: $appRef) {
-    proof
-    expiresAt
-    workers {
-      worker
-      name
-      urn
-      channels {
-        channel
-        name
-        fromSeq
-        throughSeq
-        unread
-        unreadMentions
-      }
-    }
-  }
-}
-
-# The confirmed half: advances every previewed worker through the previewed
-# heads only, atomically, or refuses on any drift.
-mutation ConfirmTeamAttentionSwitchover($appRef: ID!, $proof: String!) {
-  confirmTeamAttentionSwitchover(appRef: $appRef, proof: $proof) {
-    applied
-    workersAdvanced
-    channelsAdvanced
+  updateWorker(workerRef: $workerRef, signature: $signature, trailer: $trailer, instruction: $instruction) {
+    ...WorkerFields
   }
 }
 
@@ -1265,6 +1306,56 @@ query TeamChatMessagesAttributed(
 ) {
   teamChatMessages(appRef: $appRef, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, offset: $offset, beforeSeq: $beforeSeq, advanceReadState: false) {
     total
+    items {
+      ...TeamChatMessageFields
+    }
+  }
+}
+
+# cli#1470 (hadron-server#2980): the `team chat read` page documents. They do
+# NOT select `total`: the read loop never uses it, and selecting it forces the
+# server to count every message in the range, so the standing
+# `--mentions-me --limit 1` tail read scanned the whole history. Separate from
+# TeamChatMessages(Attributed) because the session watermark summary
+# (session.go) still prints an exact `total` from its bounded range. Do not add
+# `total` back here; see the NOTE on TeamChatMessages for what it means.
+query TeamChatReadPage(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $sinceSeq: Int
+  # @genqlient(omitempty: true)
+  $mentionsRef: ID
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+  # @genqlient(omitempty: true)
+  $beforeSeq: Int
+) {
+  teamChatMessages(appRef: $appRef, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, offset: $offset, beforeSeq: $beforeSeq) {
+    items {
+      ...TeamChatMessageFields
+      seq
+    }
+  }
+}
+
+# The same read with the worker session carried and acknowledgement suppressed
+# (#817), mirroring TeamChatMessagesAttributed.
+query TeamChatReadPageAttributed(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $sinceSeq: Int
+  # @genqlient(omitempty: true)
+  $mentionsRef: ID
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+  # @genqlient(omitempty: true)
+  $beforeSeq: Int
+) {
+  teamChatMessages(appRef: $appRef, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, offset: $offset, beforeSeq: $beforeSeq, advanceReadState: false) {
     items {
       ...TeamChatMessageFields
     }
@@ -1402,5 +1493,180 @@ query TeamComposition($appRef: ID!) {
         state
       }
     }
+  }
+}
+
+# cli#1470 (server#2980): the thread read never reads `total`, and selecting it
+# forces the server to count every message in the range. Left out on purpose.
+# cli#1262 thread read: the DIRECT replies to one seq, filtered by the server
+# (hadron-server#2847, spec cor:agt:020:04). SEPARATE documents from
+# TeamChatMessages/TeamChatMessagesAttributed on purpose: GraphQL validates the
+# static document, so an unset $replyToSeq would still put an unknown argument in
+# every ordinary read and break it on a server older than #2847. Only
+# `--thread` sends these. replyToSeq is required here, so it is never omitted.
+query TeamChatThread(
+  $appRef: ID!
+  $replyToSeq: Int!
+  # @genqlient(omitempty: true)
+  $sinceSeq: Int
+  # @genqlient(omitempty: true)
+  $mentionsRef: ID
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $beforeSeq: Int
+) {
+  teamChatMessages(appRef: $appRef, replyToSeq: $replyToSeq, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, beforeSeq: $beforeSeq) {
+    items {
+      ...TeamChatMessageFields
+    }
+  }
+}
+
+# The same read with the worker session carried and acknowledgement suppressed
+# (#817), mirroring TeamChatMessagesAttributed.
+query TeamChatThreadAttributed(
+  $appRef: ID!
+  $replyToSeq: Int!
+  # @genqlient(omitempty: true)
+  $sinceSeq: Int
+  # @genqlient(omitempty: true)
+  $mentionsRef: ID
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $beforeSeq: Int
+) {
+  teamChatMessages(appRef: $appRef, replyToSeq: $replyToSeq, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, beforeSeq: $beforeSeq, advanceReadState: false) {
+    items {
+      ...TeamChatMessageFields
+    }
+  }
+}
+
+# MCP cut C3: manager controls, deliberately not authored worker writes.
+mutation SetTeamPause($appRef: String!, $paused: Boolean!) {
+  setTeamPause(appRef: $appRef, paused: $paused) { teamPausedAt }
+}
+
+mutation ChangeWorkerAgent($workerRef: ID!, $agentRef: ID!) {
+  changeWorkerAgent(workerRef: $workerRef, agentRef: $agentRef) { ...WorkerFields }
+}
+
+# cli#1592 (hadron-server#3307, ruling 0096, cor:dmo:050:12): the same write
+# carrying a holder's instruction claim. A separate document, so the plain one
+# above keeps working against a server older than 17ef5905, which has no
+# `instruction` argument; this one is sent only with --instruction.
+mutation ChangeWorkerAgentInstructed($workerRef: ID!, $agentRef: ID!, $instruction: ActInstructionInput!) {
+  changeWorkerAgent(workerRef: $workerRef, agentRef: $agentRef, instruction: $instruction) { ...WorkerFields }
+}
+
+# cli#1337: explicit opt-in documents preserve ordinary older-server calls.
+mutation EndTeamSessionWithStats(
+  $id: ID!
+  # @genqlient(omitempty: true)
+  $inputTokens: Int
+  # @genqlient(omitempty: true)
+  $outputTokens: Int
+  # @genqlient(omitempty: true)
+  $turnCount: Int
+  # @genqlient(omitempty: true)
+  $errorCount: Int
+  # @genqlient(omitempty: true)
+  $summary: String
+  # @genqlient(omitempty: true)
+  $handoff: String
+) {
+  endSession(id: $id, summary: $summary, handoff: $handoff, inputTokens: $inputTokens, outputTokens: $outputTokens, turnCount: $turnCount, errorCount: $errorCount) {
+    ...TeamSessionFields
+  }
+}
+
+# The claim variant is explicit: old counter-capable servers need not know it.
+mutation EndTeamSessionWithStatsAndResumeClaim(
+  $id: ID!
+  # @genqlient(omitempty: true)
+  $inputTokens: Int
+  # @genqlient(omitempty: true)
+  $outputTokens: Int
+  # @genqlient(omitempty: true)
+  $turnCount: Int
+  # @genqlient(omitempty: true)
+  $errorCount: Int
+  # @genqlient(omitempty: true)
+  $summary: String
+  # @genqlient(omitempty: true)
+  $handoff: String
+) {
+  endSession(id: $id, summary: $summary, handoff: $handoff, inputTokens: $inputTokens, outputTokens: $outputTokens, turnCount: $turnCount, errorCount: $errorCount, resumeClaim: true) {
+    ...TeamSessionFields
+  }
+}
+
+query TeamSessionsPageFiltered(
+  # @genqlient(omitempty: true)
+  $repo: String
+  # @genqlient(omitempty: true)
+  $customerId: String
+  # @genqlient(omitempty: true)
+  $sessionType: String
+  # @genqlient(omitempty: true)
+  $workerRef: String
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  sessionsPage(customerId: $customerId, type: $sessionType, repo: $repo, workerRef: $workerRef, limit: $limit, offset: $offset) {
+    total
+    hasMore
+    items {
+      ...TeamSessionFields
+    }
+  }
+}
+
+query TeamWorkItemsByWorker(
+  $appRef: ID!
+  $workerRef: ID!
+  # @genqlient(omitempty: true)
+  $sessionRef: ID
+  # @genqlient(omitempty: true)
+  $ref: String
+  # @genqlient(omitempty: true)
+  $kind: String
+  # @genqlient(omitempty: true)
+  $tool: String
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  teamWorkItems(
+    workerRef: $workerRef
+    appRef: $appRef
+    sessionRef: $sessionRef
+    ref: $ref
+    kind: $kind
+    tool: $tool
+    limit: $limit
+    offset: $offset
+  ) {
+    total
+    items {
+      ...TeamWorkItemFields
+    }
+  }
+}
+
+# @genqlient(for: "SetHostWorkerAvailabilityInput.reason", omitempty: true)
+# @genqlient(for: "SetHostWorkerAvailabilityInput.until", omitempty: true)
+mutation SetHostWorkerAvailability(
+  $input: SetHostWorkerAvailabilityInput!
+) {
+  setHostWorkerAvailability(input: $input) {
+    worker { id kind name urn }
+    state reason until inEffect setAt setBy setByHostId
+    setByParty { id kind name urn }
   }
 }

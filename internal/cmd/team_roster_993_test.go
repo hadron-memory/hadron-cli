@@ -20,7 +20,7 @@ func rosterRow993(name, state string, free bool, model, tier string) string {
 		"freeForWork":%t,"freeFamilies":[],"launchableFamilies":[],"unavailableFamilies":[],
 		"unavailableReason":null,"unavailableUntil":null,"lastActiveAt":null,"checkStatus":null,"lastAssignedAt":null,
 		"pendingTasks":[],"startedTasks":[],"waitingOn":[],"waitingSince":null,"unreactedChildTask":null,
-		"alarms":[],"reportsTo":null,"reportsToRetired":false}`,
+		"modelGroups":[],"alarms":[],"reportsTo":null,"reportsToRetired":false}`,
 		name, name, state, model, map[bool]string{true: `"2026-10-24T00:00:00Z"`, false: "null"}[model != "null"], tier, free)
 }
 

@@ -109,6 +109,9 @@ func deliveryCodeOf(err error) string {
 func (s *hostServer) Batches(ctx context.Context) ([]delivery.Batch, error) {
 	out := []delivery.Batch{}
 	var after *string
+	// Every cursor seen: a repeat at any distance is a cycle (#1186, as the
+	// wake read since #1183), and refuses the read rather than paging forever.
+	seen := map[string]bool{}
 	for {
 		read := s.clock()
 		resp, err := gen.DeliveryBatches(ctx, s.client, s.app, deliveryBatchesPage, after)
@@ -133,9 +136,10 @@ func (s *hostServer) Batches(ctx context.Context) ([]delivery.Batch, error) {
 			return out, nil
 		}
 		next := page.PageInfo.EndCursor
-		if next == nil || *next == "" || (after != nil && *after == *next) {
+		if next == nil || *next == "" || seen[*next] {
 			return nil, callError("read", "no-cursor")
 		}
+		seen[*next] = true
 		after = next
 	}
 }
@@ -198,16 +202,21 @@ func (s *hostServer) Hold(context.Context, string, string, string) error {
 	return delivery.ErrHoldUnavailable
 }
 
+// orcaRunner is the runner delivery types through: the bounded `orca` exec.
+// It is a variable only so a test can drive a whole poller step through a
+// fake Orca (#1192); nothing else replaces it.
+var orcaRunner = func(bin string) orcaterm.Runner { return orcaterm.Exec(bin, orcaterm.CallTimeout) }
+
 // wireDelivery turns delivery on for this run: S1's chat batches and the
 // host's due tick and task wakes (hadron-cli#1178), typed through Orca on
 // the same per-worker chain, with the status snapshot written after each
-// step. AckMixed stays off: a wake naming channels or a mention is typed
-// once and acknowledged only once it no longer does. Holds are unreported
-// until S5 (#940). It returns the deliverer it wired.
+// step. AckMixed follows the operator's A′ (#2072) assertion in host.yaml;
+// its default is off. Holds remain unreported until S5 (#940).
+// It returns the deliverer it wired.
 func wireDelivery(p *hostpoller.Poller, cfg *hostpoller.Config, srv *hostServer, emit func(hostpoller.Event)) *delivery.Deliverer {
 	stateDir := cfg.DeliveryStateDir()
 	book := delivery.NewStatusBook(stateDir)
-	d := delivery.New(srv, orcaterm.NewClient(orcaterm.Exec(cfg.Delivery.OrcaBin, orcaterm.CallTimeout)), stateDir)
+	d := delivery.New(srv, orcaterm.NewClient(orcaRunner(cfg.Delivery.OrcaBin)), stateDir)
 	d.Emit = func(e delivery.Event) {
 		book.Observe(e)
 		emit(deliveryEvent(e))
@@ -217,6 +226,7 @@ func wireDelivery(p *hostpoller.Poller, cfg *hostpoller.Config, srv *hostServer,
 			emit(hostpoller.Event{Time: at.UTC(), Kind: "delivery-failed", Detail: "writing the delivery status: " + err.Error()})
 		}
 	}
+	d.AckMixed = cfg.Delivery.AckMixed
 	d.Wakes = srv
 	p.WakeStep = book.ObserveWakes
 	p.EnableDelivery(srv, d)

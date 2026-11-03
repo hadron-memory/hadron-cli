@@ -10,10 +10,16 @@ fragment UserApiKeyFields on UserApiKey {
   createdAt
   lastUsedAt
   revokedAt
+  hiddenAt
 }
 
-query MyUserApiKeys {
-  myUserApiKeys {
+# includeHidden carries omitempty: false is the server default, so it is left
+# out rather than sent, and a hidden key stays hidden unless asked for (#1344).
+query MyUserApiKeys(
+  # @genqlient(omitempty: true)
+  $includeHidden: Boolean
+) {
+  myUserApiKeys(includeHidden: $includeHidden) {
     ...UserApiKeyFields
   }
 }
@@ -36,5 +42,27 @@ mutation CreateUserApiKey(
 mutation RevokeUserApiKey($id: ID!) {
   revokeUserApiKey(id: $id) {
     ...UserApiKeyFields
+  }
+}
+
+# Hide or unhide one of the caller's OWN revoked keys in the default list.
+# Display state only; hiding an active key is refused (KEY_ACTIVE).
+mutation SetUserApiKeyHidden($id: ID!, $hidden: Boolean!) {
+  setUserApiKeyHidden(id: $id, hidden: $hidden) {
+    ...UserApiKeyFields
+  }
+}
+
+# Delete one of the caller's OWN API keys, live or revoked, hidden or not. A live
+# key is revoked first with its live subtree; the keys it minted directly stay,
+# revoked, with no parent. Never retried: the key is gone after a success.
+mutation DeleteUserApiKey($id: ID!) {
+  deleteUserApiKey(id: $id) {
+    id
+    keyId
+    keyPreview
+    revokedKeyIds
+    mintedKeyIds
+    deletedAt
   }
 }

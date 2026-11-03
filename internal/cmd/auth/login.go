@@ -33,12 +33,19 @@ the server's data API and a key limited to "mcp" is refused there. If the
 server refuses "account" or grants a narrower scope, login fails with exit 1
 rather than storing a key the CLI cannot use; sign in with --with-token instead.
 
-For CI and scripting, pipe a personal access token to
-` + "`hadron auth login --with-token`" + ` or set the HADRON_TOKEN
-environment variable (which skips storage entirely).`,
+For CI and scripting, mint a personal token once (hadron auth token create),
+then either pipe it to ` + "`hadron auth login --with-token`" + ` (stored like a
+browser login) or set the HADRON_TOKEN environment variable, which is used
+first and never stored. Read it from a file or a secret store rather than
+typing it on the command line.
+
+Login applies to the current server; add --server to sign in to another one.
+On success it prints "✓ Signed in to <server>" and where the token is stored;
+hadron auth status (or whoami) then shows which account it is.`,
 		Example: `  hadron auth login
   hadron auth login --provider google
-  echo $TOKEN | hadron auth login --with-token`,
+  hadron --server https://hadron.example.com auth login
+  hadron auth login --with-token < ~/.config/hadron/ci-token`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			server, err := f.Server()

@@ -41,7 +41,7 @@ type assetUploadDTO struct {
 }
 
 func newCmdUpload(f *cmdutil.Factory) *cobra.Command {
-	var memory, description, mimeFlag, nameFlag string
+	var memory, description, mimeFlag, nameFlag, agentRequest string
 	cmd := &cobra.Command{
 		Use:   "upload <file> -m <memory>",
 		Short: "Upload a file as an asset",
@@ -64,7 +64,10 @@ way. If the upload is refused up front (size or type) or the file transfer
 fails, nothing appears in asset list and you can run it again. If a network or
 proxy error comes after the file was sent, the upload may still have
 completed: check asset list before uploading again, or you may end up with two
-copies.`,
+copies.
+
+--agent-request <id> marks the upload as one an agent asked for (upload
+intent AGENT_REQUEST) and sends the id of that request with it.`,
 		Example: `  hadron asset upload ./report.pdf -m hrn:mem:acme.com:kb
   hadron asset upload ./notes.md -m hrn:mem:acme.com:kb --description "meeting notes"
   hadron asset upload ./data -m hrn:mem:acme.com:kb --mime application/json --name data.json`,
@@ -72,6 +75,16 @@ copies.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if memory == "" {
 				return exitcode.Newf(exitcode.Usage, "-m/--memory is required — an asset is uploaded into a memory")
+			}
+			// An empty value is not an absent flag: --agent-request "" would
+			// otherwise upload as an ordinary user upload, silently.
+			intent, requestID := gen.UploadIntentUser, (*string)(nil)
+			if cmd.Flags().Changed("agent-request") {
+				if strings.TrimSpace(agentRequest) == "" {
+					return exitcode.Newf(exitcode.Usage, "--agent-request is empty: name the agent request this upload answers. Nothing was sent")
+				}
+				id := strings.TrimSpace(agentRequest)
+				intent, requestID = gen.UploadIntentAgentRequest, &id
 			}
 			src := args[0]
 			info, err := os.Stat(src)
@@ -111,7 +124,7 @@ copies.`,
 			// Step 1 — reserve. Typed rejections (size cap, MIME allowlist, a
 			// memory not accepting uploads) surface here, verbatim.
 			begun, err := gen.BeginAssetUpload(cmd.Context(), client, memID, filename, mimeType,
-				int(info.Size()), gen.UploadIntentUser, optString(description))
+				int(info.Size()), intent, optString(description), requestID)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -157,6 +170,7 @@ copies.`,
 	cmd.Flags().StringVar(&description, "description", "", "a description stored with the asset")
 	cmd.Flags().StringVar(&mimeFlag, "mime", "", "MIME type (default: derived from the extension, else sniffed)")
 	cmd.Flags().StringVar(&nameFlag, "name", "", "store under this filename (default: the file's own name)")
+	cmd.Flags().StringVar(&agentRequest, "agent-request", "", "upload for this agent request id (upload intent AGENT_REQUEST)")
 	return cmd
 }
 

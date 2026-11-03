@@ -8,7 +8,7 @@ require (
 	github.com/bmatcuk/doublestar/v4 v4.6.1
 	github.com/gofrs/flock v0.13.0
 	github.com/google/uuid v1.6.0
-	github.com/hadron-memory/urn-lib-go v0.0.17
+	github.com/hadron-memory/urn-lib-go v0.0.18
 	github.com/mattn/go-isatty v0.0.22
 	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/spf13/cobra v1.10.2
@@ -20,6 +20,7 @@ require (
 	golang.org/x/sys v0.47.0
 	golang.org/x/term v0.37.0
 	golang.org/x/text v0.39.0
+	golang.org/x/tools v0.47.0
 )
 
 require (
@@ -38,7 +39,6 @@ require (
 	github.com/subosito/gotenv v1.6.0 // indirect
 	golang.org/x/mod v0.37.0 // indirect
 	golang.org/x/sync v0.21.0 // indirect
-	golang.org/x/tools v0.47.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 )
 

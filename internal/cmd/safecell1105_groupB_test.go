@@ -85,7 +85,7 @@ func TestSafeCell1105BUsage(t *testing.T) {
 		args: []string{"usage", "events"},
 		resp: func(cell string) map[string]string {
 			e := usageEvent1105B(cell)
-			return map[string]string{"UsageEvents": `{"data":{"usageEvents":[` + e + `,` + e + `]}}`}
+			return map[string]string{"UsageEventsPage": `{"data":{"usageEventsPage":{"total":2,"hasMore":false,"items":[` + e + `,` + e + `]}}}`}
 		},
 		lines: 3,
 	})

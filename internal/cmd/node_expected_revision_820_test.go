@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 )
 
 type revision820Request struct {
@@ -63,10 +65,10 @@ func revision820Run(t *testing.T, kind string, conflict bool, args ...string) (s
 				fmt.Fprint(w, `{"errors":[{"message":"revision changed","extensions":{"code":"NODE_WRITE_CONFLICT","currentRevision":9}}]}`)
 				return
 			}
-			root := "update" + kind + "Node"
-			if kind == "" {
-				root = "updateNode"
-			}
+			// Answer on the door's own root field: a kind-changing flag can
+			// route away from the stored kind's door (#1075).
+			door := strings.TrimSuffix(q.OperationName, "ClearingRole")
+			root := strings.ToLower(door[:1]) + door[1:]
 			fmt.Fprintf(w, `{"data":{%q:%s}}`, root, raw)
 		}
 	}))
@@ -197,34 +199,153 @@ func TestNodeExpectedRevision820DryRun(t *testing.T) {
 		})
 	}
 }
-func TestNodeExpectedRevision820Conflict(t *testing.T) {
-	for _, j := range []bool{false, true} {
-		t.Run(fmt.Sprint(j), func(t *testing.T) {
-			args := []string{"--name", "new", "--expected-revision", "7"}
-			if j {
-				args = append(args, "--json")
+
+// revision820Door is the operation a node update's mutation went out on and
+// the guard it carried, decoded into the typed input rather than compared as
+// raw JSON. An ordinary door nests the fields under `input`; a role-clearing
+// door sends them as flat variables (#1075).
+func revision820Door(t *testing.T, requests []revision820Request) (string, gen.UpdateNodeInput) {
+	t.Helper()
+	op := ""
+	var input gen.UpdateNodeInput
+	for _, q := range requests {
+		if !strings.HasPrefix(q.OperationName, "Update") {
+			continue
+		}
+		if op != "" {
+			t.Fatalf("second mutation %s after %s", q.OperationName, op)
+		}
+		op = q.OperationName
+		raw, ok := q.Variables["input"]
+		if !ok {
+			flat, err := json.Marshal(q.Variables)
+			if err != nil {
+				t.Fatal(err)
 			}
-			out, stderr, code, requests, _ := revision820Run(t, "", true, args...)
-			if code != 5 {
+			raw = flat
+		}
+		if err := json.Unmarshal(raw, &input); err != nil {
+			t.Fatalf("%s variables: %v", op, err)
+		}
+	}
+	if op == "" {
+		t.Fatalf("no mutation in %v", requests)
+	}
+	return op, input
+}
+
+// The eight doors: generic/Task/Spec/Review, each ordinary and role-clearing.
+func revision820Doors() []struct {
+	kind  string
+	clear bool
+	door  string
+} {
+	doors := []struct {
+		kind  string
+		clear bool
+		door  string
+	}{}
+	for _, kind := range []string{"", "Task", "Spec", "Review"} {
+		for _, clear := range []bool{false, true} {
+			door := "Update" + kind + "Node"
+			if clear {
+				door += "ClearingRole"
+			}
+			doors = append(doors, struct {
+				kind  string
+				clear bool
+				door  string
+			}{kind, clear, door})
+		}
+	}
+	return doors
+}
+
+// #1075: a kind-changing flag (--role, --runnable, --type) picks the door, and
+// the caller's guard must ride on that same operation, unchanged.
+func TestNodeExpectedRevision1075KindFlags(t *testing.T) {
+	for _, tc := range []struct {
+		kind  string
+		flags []string
+		door  string
+		check func(gen.UpdateNodeInput) bool
+	}{
+		{"", []string{"--runnable"}, "UpdateTaskNode", func(in gen.UpdateNodeInput) bool { return in.IsRunnable != nil && *in.IsRunnable }},
+		{"Task", []string{"--runnable=false"}, "UpdateTaskNode", func(in gen.UpdateNodeInput) bool { return in.IsRunnable != nil && !*in.IsRunnable }},
+		{"", []string{"--role", "spec.rule"}, "UpdateSpecNode", func(in gen.UpdateNodeInput) bool { return in.Role != nil && *in.Role == "spec.rule" }},
+		{"Spec", []string{"--role", "note"}, "UpdateSpecNode", func(in gen.UpdateNodeInput) bool { return in.Role != nil && *in.Role == "note" }},
+		{"", []string{"--role", "review"}, "UpdateReviewNode", func(in gen.UpdateNodeInput) bool { return in.Role != nil && *in.Role == "review" }},
+		{"Review", []string{"--role", "note"}, "UpdateReviewNode", func(in gen.UpdateNodeInput) bool { return in.Role != nil && *in.Role == "note" }},
+		{"", []string{"--type", "task"}, "UpdateNode", func(in gen.UpdateNodeInput) bool { return in.NodeType != nil && *in.NodeType == "task" }},
+		{"Task", []string{"--type", "note"}, "UpdateTaskNode", func(in gen.UpdateNodeInput) bool { return in.NodeType != nil && *in.NodeType == "note" }},
+		{"", []string{"--runnable", "--role", ""}, "UpdateTaskNodeClearingRole", func(in gen.UpdateNodeInput) bool { return in.IsRunnable != nil && *in.IsRunnable && in.Role == nil }},
+		{"Task", []string{"--runnable=false", "--role", ""}, "UpdateTaskNodeClearingRole", func(in gen.UpdateNodeInput) bool { return in.IsRunnable != nil && !*in.IsRunnable && in.Role == nil }},
+	} {
+		t.Run(tc.kind+"/"+strings.Join(tc.flags, "_"), func(t *testing.T) {
+			args := append(append([]string{}, tc.flags...), "--expected-revision", "7", "--json")
+			out, stderr, code, requests, _ := revision820Run(t, tc.kind, false, args...)
+			if code != 0 {
 				t.Fatalf("%d %s %s", code, out, stderr)
 			}
-			mutations := 0
-			for _, q := range requests {
-				if strings.HasPrefix(q.OperationName, "Update") {
-					mutations++
-				}
+			door, input := revision820Door(t, requests)
+			if door != tc.door {
+				t.Fatalf("door %s want %s", door, tc.door)
 			}
-			if mutations != 1 || len(requests) != 3 {
-				t.Fatalf("retry or extra request: %v", requests)
+			if input.ExpectedRevision == nil || *input.ExpectedRevision != 7 {
+				t.Fatalf("guard on %s: %v", door, input.ExpectedRevision)
 			}
-			if j {
-				if !strings.Contains(out, `"currentRevision": 9`) {
-					t.Fatal(out)
-				}
-			} else if !strings.Contains(stderr, "currentRevision: 9") {
-				t.Fatal(stderr)
+			if !tc.check(input) {
+				t.Fatalf("kind field not on the guarded write: %+v", input)
 			}
 		})
+	}
+}
+
+// #1075: NODE_WRITE_CONFLICT on every door is exit 5 with currentRevision
+// preserved, after exactly one mutation and no retry.
+func TestNodeExpectedRevision820Conflict(t *testing.T) {
+	for _, d := range revision820Doors() {
+		for _, j := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/json%v", d.door, j), func(t *testing.T) {
+				args := []string{"--name", "new", "--expected-revision", "7"}
+				if d.clear {
+					args = append(args, "--role", "")
+				}
+				if j {
+					args = append(args, "--json")
+				}
+				out, stderr, code, requests, _ := revision820Run(t, d.kind, true, args...)
+				if code != 5 {
+					t.Fatalf("%d %s %s", code, out, stderr)
+				}
+				door, input := revision820Door(t, requests)
+				if door != d.door || input.ExpectedRevision == nil || *input.ExpectedRevision != 7 {
+					t.Fatalf("door %s guard %v", door, input.ExpectedRevision)
+				}
+				if last := requests[len(requests)-1].OperationName; last != door {
+					t.Fatalf("request after the refused write: %s", last)
+				}
+				if !j {
+					if !strings.Contains(stderr, "(currentRevision: 9)") {
+						t.Fatal(stderr)
+					}
+					return
+				}
+				var envelope struct {
+					Error struct {
+						Code       int            `json:"code"`
+						Extensions map[string]any `json:"extensions"`
+					} `json:"error"`
+				}
+				if err := json.Unmarshal([]byte(out), &envelope); err != nil {
+					t.Fatalf("%v: %s", err, out)
+				}
+				ext := envelope.Error.Extensions
+				if envelope.Error.Code != 5 || ext["code"] != "NODE_WRITE_CONFLICT" || ext["currentRevision"] != float64(9) {
+					t.Fatalf("envelope %+v", envelope.Error)
+				}
+			})
+		}
 	}
 }
 

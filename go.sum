@@ -41,6 +41,8 @@ github.com/gorilla/websocket v1.5.0 h1:PPwGk2jz7EePpoHN/+ClbZu8SPxiqlu12wZP/3sWm
 github.com/gorilla/websocket v1.5.0/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/hadron-memory/urn-lib-go v0.0.17 h1:ovambFYfftjQvabh8acmUIXK7sD/DyE1XZ3UvxRy7DA=
 github.com/hadron-memory/urn-lib-go v0.0.17/go.mod h1:FzANRPM6y82p7n4pWLXLjBMhPobEQA7PKtiHvBKIKfY=
+github.com/hadron-memory/urn-lib-go v0.0.18 h1:ZzJPa3ivi5LKLnYT0JrU+Wnp91gZV63zpCEs2XpV604=
+github.com/hadron-memory/urn-lib-go v0.0.18/go.mod h1:FzANRPM6y82p7n4pWLXLjBMhPobEQA7PKtiHvBKIKfY=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=

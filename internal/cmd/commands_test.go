@@ -36,6 +36,12 @@ func captureGraphQL(t *testing.T, responses map[string]string) (*httptest.Server
 		body.OperationName = legacyChatReadOperation(body.OperationName)
 		captured[body.OperationName] = body.Variables
 		resp, ok := responses[body.OperationName]
+		if !ok && body.OperationName == "NodeBatchContent" {
+			resp, ok = responses["NodeBatch"]
+		}
+		if !ok {
+			resp, ok = workerFromStaff(responses, body.OperationName, body.Variables)
+		}
 		if !ok {
 			if body.OperationName == "TeamChatReadHead" || body.OperationName == "TeamChatReadMetadata" {
 				resp, ok = teamReadHeadFixture(responses["TeamChatMessages"]), true
@@ -229,8 +235,8 @@ func TestNodeGetHandlesNullEdgeEndpoint(t *testing.T) {
 
 func TestEdgeLsHandlesNullEndpoint(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"ResolveUrn": resolveNodeJSON,
-		"GetNode":    `{"data":{"node":` + nodeNullEdgeDetailJSON + `}}`,
+		"ResolveUrn":          resolveNodeJSON,
+		"NodeEdgesAttributed": `{"data":{"node":` + nodeNullEdgeDetailJSON + `}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)

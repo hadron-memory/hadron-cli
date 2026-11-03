@@ -252,7 +252,7 @@ func TestTeamSessionStartOmitsTheActivityPairItCannotKnow(t *testing.T) {
 	idle := workerWith(t, "Iris", "wkr1", "", "", "false")
 	gql, _ := captureGraphQL(t, map[string]string{
 		"GetWorker":        `{"data":{"worker":` + idle + `}}`,
-		"TeamSessions":     `{"data":{"sessions":[]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 	})
 	f, out := testFactory(t)

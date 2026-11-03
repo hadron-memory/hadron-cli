@@ -25,20 +25,7 @@ func roleDefinitionHint(role, platform string) string {
 	if platform == "windows" {
 		return "create a definition for this persona role; read the original with `hadron app agent list <app> --json`"
 	}
-	return "create one with `hadron team role create " + shellQuote(role) + "`"
-}
-
-func writeSwitchoverApplyHint(w io.Writer, app, server, proof, platform string) error {
-	if !copyArgumentsUnchanged(app, server, proof) {
-		_, err := fmt.Fprintf(w, "Proof: %s — apply command omitted because an argument was altered for display; use --json for the original proof and keep the original app/server arguments.\n", output.SafeCell(proof))
-		return err
-	}
-	if platform == "windows" {
-		_, err := fmt.Fprintf(w, "Apply with --app %q, --server %q, and --proof %q.\n", app, server, proof)
-		return err
-	}
-	_, err := fmt.Fprintf(w, "  hadron team attention switchover apply --app %s --server %s --proof %s\n", shellQuote(app), shellQuote(server), shellQuote(proof))
-	return err
+	return "create one with `hadron team role create -- " + shellQuote(role) + "`"
 }
 
 func writeHostCursorHint(w io.Writer, cursor, platform string) error {

@@ -43,6 +43,9 @@ func queueGraphQL(t *testing.T, responses map[string][]string) (*httptest.Server
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		captured[body.OperationName] = append(captured[body.OperationName], body.Variables)
 		queue, ok := responses[body.OperationName]
+		if !ok && body.OperationName == "NodeBatchContent" {
+			queue, ok = responses["NodeBatch"]
+		}
 		if !ok || len(queue) == 0 {
 			t.Errorf("unexpected operation %q", body.OperationName)
 			queue = []string{`{"errors":[{"message":"unexpected operation"}]}`}
@@ -317,7 +320,7 @@ func TestCodingPreflightReadsTargetsByID(t *testing.T) {
 	var got struct {
 		Refs []string `json:"refs"`
 	}
-	if err := json.Unmarshal(captured["NodeBatch"], &got); err != nil {
+	if err := json.Unmarshal(captured["NodeBatchContent"], &got); err != nil {
 		t.Fatalf("decoding NodeBatch vars: %v", err)
 	}
 	if len(got.Refs) != 1 || got.Refs[0] != "t_e1" {

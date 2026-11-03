@@ -55,6 +55,8 @@ func newCmdKey(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdKeyScope(f))
 	cmd.AddCommand(newCmdKeyList(f))
 	cmd.AddCommand(newCmdKeyCreate(f))
+	cmd.AddCommand(newCmdKeyRevoke(f))
+	cmd.AddCommand(newCmdKeyRotate(f))
 	return cmd
 }
 

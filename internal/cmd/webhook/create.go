@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"io"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -14,10 +15,10 @@ import (
 
 func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 	var (
-		app, name, entry, aiConfig, agent, policy, argsSchema string
-		args                                                  []string
-		asSelf, disabled                                      bool
-		budget                                                cmdutil.BudgetFlags
+		app, name, entry, aiConfig, agent, policy, argsSchema, scope string
+		args                                                         []string
+		asSelf, disabled                                             bool
+		budget                                                       cmdutil.BudgetFlags
 	)
 	cmd := &cobra.Command{
 		Use:   "create --app <ref> --name <n> --entry <node-urn>",
@@ -28,6 +29,9 @@ The URL path and platform token are printed ONCE — store them now; the secret 
 never queryable again. --name is lowercase alphanumeric/dash, 1-64 chars, and is
 part of the URL. --args-schema stores a JSON Schema for POST args (enforcement is
 follow-on). --as-self runs on behalf of you (authenticated user only).
+
+--scope sets a readable scope id/name in the App context, snapshotted onto
+each run; omitted means the App's attached memories.
 
 --budget-tokens / --budget-actions cap each run this webhook spawns (positive whole numbers;
 omitted = the platform default). A value above the platform default is refused
@@ -77,6 +81,12 @@ by the server. Requires a server with trigger budgets.`,
 				BudgetTokens:  budgetTokens,
 				BudgetActions: budgetActions,
 			}
+			if cmd.Flags().Changed("scope") {
+				if strings.TrimSpace(scope) == "" {
+					return exitcode.Newf(exitcode.Usage, "--scope is empty; omit it for App memories")
+				}
+				input.ScopeRef = &scope
+			}
 			if aiConfig != "" {
 				input.AiConfigName = &aiConfig
 			}
@@ -110,6 +120,7 @@ by the server. Requires a server with trigger budgets.`,
 	cmd.Flags().StringVar(&aiConfig, "ai-config", "", "named AI config for the runs (spec-036 walk override)")
 	cmd.Flags().StringVar(&agent, "agent", "", "specific installed Agent (ID or URN)")
 	cmd.Flags().BoolVar(&disabled, "disabled", false, "create the webhook disabled")
+	cmd.Flags().StringVar(&scope, "scope", "", "readable scope id or name in the App context")
 	budget.Add(cmd, false)
 	_ = cmd.MarkFlagRequired("name")
 	_ = cmd.MarkFlagRequired("entry")

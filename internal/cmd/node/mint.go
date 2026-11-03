@@ -166,9 +166,12 @@ func renderNodeMint(w io.Writer, r nodeMintReportDTO) error {
 		fmt.Fprintf(w, " (%s)", strings.Join(r.MintLocs, ", "))
 	}
 	fmt.Fprintln(w)
+	kinds := make([]string, 0, len(r.Blockers))
 	for _, b := range r.Blockers {
 		fmt.Fprintf(w, "  blocked %s: %s — %s\n", b.Loc, b.Kind, b.Message)
+		kinds = append(kinds, b.Kind)
 	}
+	cmdutil.WriteMintApproveHint(w, r.Memory, kinds...)
 	for _, b := range r.StaleAbstracts {
 		fmt.Fprintf(w, "  stale abstract %s: %s\n", b.Loc, b.Message)
 	}

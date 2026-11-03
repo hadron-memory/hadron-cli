@@ -1,0 +1,43 @@
+fragment AppMemoryGrantFields on AppMemoryWriteGrant {
+  id appId memoryUrn prefix registerNodeUrn grantedBy createdAt revokedAt revokedBy
+}
+
+query AppMemoryWriteGrants(
+  $appRef: String!
+  # @genqlient(omitempty: true)
+  $includeRevoked: Boolean
+) {
+  appMemoryWriteGrants(appRef: $appRef, includeRevoked: $includeRevoked) {
+    ...AppMemoryGrantFields
+  }
+}
+
+mutation SetAppMemoryWriteGrant(
+  $appRef: String!, $memoryRef: String!, $prefix: String!
+  # @genqlient(omitempty: true)
+  $registerNodeUrn: String
+) {
+  setAppMemoryWriteGrant(appRef: $appRef, memoryRef: $memoryRef, prefix: $prefix, registerNodeUrn: $registerNodeUrn) {
+    ...AppMemoryGrantFields
+  }
+}
+
+mutation RevokeAppMemoryWriteGrant($id: ID!) {
+  revokeAppMemoryWriteGrant(id: $id) { ...AppMemoryGrantFields }
+}
+
+query LatestAppRun(
+  $appRef: String!
+  # @genqlient(omitempty: true)
+  $previous: Boolean
+) {
+  latestAppRun(appRef: $appRef, previous: $previous) { ...AppRunFields }
+}
+
+query MyApp {
+  myApp { id urn name appType description }
+}
+
+mutation SetAgentAssetUploadEnabled($input: SetAgentAssetUploadEnabledInput!) {
+  setAgentAssetUploadEnabled(input: $input) { id urn agentTools }
+}

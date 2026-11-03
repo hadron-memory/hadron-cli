@@ -190,6 +190,7 @@ func Test2138WorkerCheckTextDistinguishesUnavailable(t *testing.T) {
 		var worker map[string]any
 		_ = json.Unmarshal([]byte(irisWorkerJSON), &worker)
 		worker["checkStatus"] = tc.check
+		worker["hasLiveSession"] = false // a participant read: the check is unavailable, not masked
 		raw, _ := json.Marshal(worker)
 		responses := taskResponses()
 		responses["GetWorker"] = `{"data":{"worker":` + string(raw) + `}}`

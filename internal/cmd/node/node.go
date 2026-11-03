@@ -20,6 +20,12 @@ type nodeDTO struct {
 	LintWarnings **lintWarningPageDTO `json:"lintWarnings,omitempty"`
 	ID           string               `json:"id"`
 	URN          string               `json:"urn,omitempty"`
+	// ActionURN is the register entry's second address,
+	// hrn:action:<root>:<agent-slug>:<code> (hadron-server#2610, #1138). Computed
+	// by the server and null on every node that is not a register entry, so it
+	// is omitted rather than emitted empty — as is every surface that does not
+	// select it. The node URN beside it keeps resolving.
+	ActionURN string `json:"actionUrn,omitempty"`
 	// PortalURL is the server-built link that opens this node
 	// (hadron-server#881, cor:api:230:01) — the one to COPY when citing a node
 	// to a human, rather than assembling <origin>/app/u/<urn> yourself, which
@@ -157,8 +163,13 @@ type nodeDetailDTO struct {
 	Properties         *json.RawMessage `json:"properties,omitempty"`
 	Seq                *int             `json:"seq"`
 	CreatedAt          string           `json:"createdAt"`
-	OutgoingEdges      []edgeRefDTO     `json:"outgoingEdges"`
-	IncomingEdges      []edgeRefDTO     `json:"incomingEdges"`
+	// CreatedByUser is the provider's {handle, urn} author projection or null,
+	// passed through verbatim (hadron-cli#1513). A POINTER with NO omitempty:
+	// null is the provider's answer (not shown to you, or not known), never
+	// "nobody", and the key is never omitted.
+	CreatedByUser *cmdutil.Attribution `json:"createdByUser"`
+	OutgoingEdges []edgeRefDTO         `json:"outgoingEdges"`
+	IncomingEdges []edgeRefDTO         `json:"incomingEdges"`
 }
 
 func NewCmdNode(f *cmdutil.Factory) *cobra.Command {
@@ -174,6 +185,7 @@ anywhere. Nodes link to each other with edges (see hadron edge).
 Write
   create      add a note
   update      change its name, content or fields
+  set-properties  merge fields into its properties
   move        give it a new loc, or move it to another memory
   clone       copy it
   merge       fold one note into another
@@ -210,6 +222,7 @@ Maintainers
 	cmd.AddCommand(newCmdNext(f))
 	cmd.AddCommand(newCmdAdd(f))
 	cmd.AddCommand(newCmdUpdate(f))
+	cmd.AddCommand(newCmdSetProperties(f))
 	cmd.AddCommand(newCmdMove(f))
 	cmd.AddCommand(newCmdClone(f))
 	cmd.AddCommand(newCmdMerge(f))
@@ -294,3 +307,9 @@ func strVal(s *string) string {
 	}
 	return *s
 }
+
+// seqRefusalHelp is the --seq tail on node create/update (cli#479): the CLI
+// holds no allowlist, so the help names only the refusals that are established:
+// other node kinds follow their own write rules (a kind door is exempt from
+// its own kind, so a runnable task takes a seq through UpdateTaskNode).
+const seqRefusalHelp = "orders ordinary nodes among siblings; the server refuses it on chat-message and record nodes (SEQ_PROTECTED) and under a Channel (LOC_PROTECTED), other node kinds follow their own write rules, and a refusal is printed as is"

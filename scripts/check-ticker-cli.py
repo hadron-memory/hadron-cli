@@ -6,10 +6,10 @@ Does not test real server authority/persistence or satisfy independent QA.
 """
 import http.server,threading,tempfile,subprocess,json,os,sys
 from pathlib import Path
-T={'id':'cticker000000000000000000','urn':None,'name':'daily','slug':'daily','app':{'id':'app1'},'cadenceSeconds':600,'anchorAt':'2026-10-19T00:00:00Z','quietHours':None,'channels':[],'relevance':'ALL','reasons':['READ_TEAM_CHANNEL','EVERY_TICK'],'enabled':True,'owner':None,'nextTickAt':None,'lastTickAt':None,'createdAt':'2026-10-19T00:00:00Z','updatedAt':None}
+T={'id':'cticker000000000000000000','urn':None,'name':'daily','slug':'daily','app':{'id':'app1'},'cadenceSeconds':600,'anchorAt':'2026-10-19T00:00:00Z','quietHours':None,'channels':[],'relevance':'ALL','reasons':['READ_TEAM_CHANNEL','EVERY_TICK'],'enabled':True,'owner':None,'nextTickAt':None,'lastTickAt':None,'createdAt':'2026-10-19T00:00:00Z','updatedAt':None,'tickCode':'tick.daily','registerTaskLoc':None}
 S={'id':'s1','worker':{'id':'w1','name':'W','urn':None},'createdBy':None,'viaGrant':False,'createdAt':T['createdAt'],'endedAt':None,'endedReason':None}
 binary = str(Path(sys.argv[1] if len(sys.argv) > 1 else 'bin/hadron').resolve())
-requests=[];refusal=False
+requests=[];refusal=False;warn=False
 class H(http.server.BaseHTTPRequestHandler):
  def log_message(self,*a):pass
  def do_GET(self):
@@ -26,6 +26,7 @@ class H(http.server.BaseHTTPRequestHandler):
   elif op=='TeamAppIdentity':data={'app':{'id':'app1','urn':'hrn:app:acme.com:ops','name':'Ops'}}
   else:raise AssertionError(op)
   payload={'data':data}
+  if warn and op=='CreateTicker':payload['extensions']={'warnings':[{'path':'createTicker','code':'ticker.code.unmapped','text':'No register entry maps tick.daily.'}]}
   if refusal and op=='UpdateTicker':payload={'errors':[{'message':'Whole edit refused: subscriber consent required','extensions':{'code':'TICKER_CADENCE_NEEDS_CONSENT'}}]}
   self.send_response(200);self.end_headers();self.wfile.write(json.dumps(payload).encode())
 srv=http.server.ThreadingHTTPServer(('127.0.0.1',0),H);threading.Thread(target=srv.serve_forever,daemon=True).start()
@@ -65,6 +66,13 @@ with tempfile.TemporaryDirectory(prefix='joost923-compiled-') as d:
   r,qs=run(args,True,2);assert not qs;count+=1
   if args[0]=='update':assert 'nothing to update' in r.stdout
   else:assert 'pass a ' in r.stdout and 'unknown-type' not in r.stdout
+ r,qs=run(['get',T['id']]);count+=1
+ g=json.loads(r.stdout);assert g['tickCode']=='tick.daily' and g['registerTaskLoc'] is None
+ warn=True
+ cmd=['create','--app','acme.com:ops','--name','daily','--cadence-seconds','600']
+ r,qs=run(cmd,False);count+=1;assert 'warning: [ticker.code.unmapped]' in r.stderr and 'warning' not in r.stdout
+ r,qs=run(cmd,True);count+=1;assert json.loads(r.stdout)['warnings'][0]['code']=='ticker.code.unmapped' and r.stderr==''
+ warn=False
  refusal=True;r,qs=run(['update',T['id'],'--reasons','every-tick'],True,8);assert len(qs)==1;count+=1
  for args in [[],['create'],['update'],['get'],['list'],['delete'],['subscribe'],['unsubscribe']]:
   r,qs=run(args+['--help'],False);assert not qs;count+=1

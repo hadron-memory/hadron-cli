@@ -50,3 +50,11 @@ mutation CreatePrincipalGrant(
 mutation RevokePrincipalGrant($ref: ID!) {
   revokePrincipalGrant(ref: $ref)
 }
+
+# One action grant by id (#1343): the grantee or an admin of its org; null
+# otherwise (no existence oracle).
+query PrincipalGrant($ref: ID!) {
+  principalGrant(ref: $ref) {
+    ...PrincipalGrantFields
+  }
+}

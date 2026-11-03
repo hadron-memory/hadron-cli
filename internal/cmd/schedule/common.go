@@ -1,5 +1,5 @@
 // Package schedule implements `hadron schedule ...` — recurring headless-run
-// triggers (spec-040, cor:agt:010, D-2026-07-04-E). A schedule fires an entry
+// or one-shot triggers (spec-040, cor:agt:010, D-2026-07-04-E). A schedule fires an entry
 // node under an App's identity on a cron expression; the runs it spawns are
 // visible through `hadron run`.
 package schedule
@@ -38,7 +38,7 @@ type scheduleDTO struct {
 
 func dtoFromFields(f gen.AgentScheduleFields) scheduleDTO {
 	// cron went nullable when the server added one-shot (runAt) schedules (#510);
-	// the CLI only creates recurring ones, so keep the --json shape a plain string.
+	// keep the established --json plain-string shape (empty for a one-shot).
 	cron := ""
 	if f.Cron != nil {
 		cron = *f.Cron
@@ -72,9 +72,17 @@ func writeScheduleLine(w io.Writer, verb string, s scheduleDTO) error {
 	if !s.Enabled {
 		state = "disabled"
 	}
-	if _, err := fmt.Fprintf(w, "%s %s  %s (%s)  %s\n", verb, output.SafeCell(s.Name), output.SafeCell(s.Cron), output.SafeCell(s.Timezone), output.SafeCell(state)); err != nil {
+	if _, err := fmt.Fprintf(w, "%s %s  %s (%s)  %s\n", verb, output.SafeCell(s.Name), cronCell(s.Cron), output.SafeCell(s.Timezone), output.SafeCell(state)); err != nil {
 		return err
 	}
 	_, err := fmt.Fprintf(w, "  id %s  app %s  entry %s\n", output.SafeCell(s.ID), output.SafeCell(s.AppID), output.SafeCell(s.EntryNodeURN))
 	return err
+}
+
+// cronCell keeps a missing recurrence visibly empty without inventing a schedule.
+func cronCell(cron string) string {
+	if cron == "" {
+		return "-"
+	}
+	return output.SafeCell(cron)
 }

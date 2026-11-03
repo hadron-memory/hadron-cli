@@ -124,8 +124,11 @@ func releaseStubs(worker string, extra map[string]string) map[string]string {
 		notified = "true"
 	}
 	m := map[string]string{
-		"Workers":     `{"data":{"workers":{"total":1,"items":[` + worker + `]}}}`,
-		"AuthContext": authContextHolgerJSON,
+		"Workers": `{"data":{"workers":{"total":1,"items":[` + worker + `]}}}`,
+		// Name resolution's one read (cli#1459): the pre-state the act is
+		// classified against.
+		"GetWorkerInApp": `{"data":{"worker":` + worker + `}}`,
+		"AuthContext":    authContextHolgerJSON,
 		// The re-read immediately before the mutation. By default it answers
 		// with the SAME worker, i.e. the hold did not change.
 		"GetWorker": `{"data":{"worker":` + worker + `}}`,
@@ -1503,7 +1506,7 @@ func TestSessionStartDoesNotReportAStaleHold(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"Workers":          `{"data":{"workers":{"total":1,"items":[` + heldBy("u-dara") + `]}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
-		"TeamSessions":     `{"data":{"sessions":[]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -1546,7 +1549,7 @@ func TestSessionStartRollbackSaysTheHoldRemains(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"Workers":          `{"data":{"workers":{"total":1,"items":[` + irisWorkerJSON + `]}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
-		"TeamSessions":     `{"data":{"sessions":[]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 		"EndTeamSession":   `{"data":{"endSession":` + startedSessionJSON + `}}`,
 	})
 	f, _ := testFactory(t)

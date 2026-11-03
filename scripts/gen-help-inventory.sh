@@ -43,7 +43,7 @@ walk() {
   local out name aliases examples generated="" child
   out=$(help_of "$@") || exit 1
   name="${*:-(root)}"
-  aliases=$(printf '%s\n' "$out" | awk '/^Aliases:/{getline; print; exit}' | sed 's/^ *//' | tr -d '\r')
+  aliases=$(printf '%s\n' "$out" | awk '/^Aliases:/ && !seen {getline; print; seen=1}' | sed 's/^ *//' | tr -d '\r')
   # The Aliases line lists the command's own name too; keep only the others.
   local self="${*: -1}" kept="" a
   IFS=',' read -ra parts <<<"$aliases"
@@ -51,20 +51,22 @@ walk() {
     a=$(printf '%s' "$a" | sed 's/^ *//;s/ *$//')
     [ -n "$a" ] && [ "$a" != "$self" ] && kept="${kept:+$kept, }$a"
   done
-  if printf '%s\n' "$out" | grep -q '^Examples:$'; then examples=y; else examples=n; fi
+  # Drain the producer: grep -q (and early awk exits) can cause printf to
+  # receive SIGPIPE on large pages; pipefail would turn a match into a miss.
+  if printf '%s\n' "$out" | grep '^Examples:$' >/dev/null; then examples=y; else examples=n; fi
   case "$name" in help|completion) generated=generated ;; esac
   # "-" stands for an empty cell: read with a tab IFS would collapse empty fields.
   printf '%s\t%s\t%s\t%s\t%s\n' "$top" "$name" "${kept:--}" "${generated:--}" "$examples" >>"$rows"
   # The root page is one row; its children are walked from their own top level.
   case "$name" in help|completion|"(root)") return 0 ;; esac
-  for child in $(printf '%s\n' "$out" | awk '/^Available Commands:/{f=1;next} f&&/^$/{exit} f&&/^  [^ ]/{print $1}'); do
+  for child in $(printf '%s\n' "$out" | awk '/^Available Commands:/ && !seen {f=1;seen=1;next} f&&/^$/{f=0} f&&/^  [^ ]/{print $1}'); do
     walk "$top" "$@" "$child"
   done
 }
 
 walk "(root)"
 top_help=$(help_of)
-for t in $(printf '%s\n' "$top_help" | awk '/^Available Commands:/{f=1;next} f&&/^$/{exit} f&&/^  [^ ]/{print $1}'); do
+for t in $(printf '%s\n' "$top_help" | awk '/^Available Commands:/ && !seen {f=1;seen=1;next} f&&/^$/{f=0} f&&/^  [^ ]/{print $1}'); do
   walk "$t" "$t"
 done
 

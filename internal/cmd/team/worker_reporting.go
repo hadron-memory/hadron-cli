@@ -20,7 +20,24 @@ func newCmdWorkerSetReportsTo(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "set-reports-to <worker> [<target>] [--clear]",
 		Short: "Set, hand over or clear who a worker reports to",
-		Long:  "The reporting relation lives on the worker and survives session changes. The server decides who may change it; its typed refusals are returned without retrying. Pass a target worker name, URN or id, or --clear to report to nobody.",
+		Long: `Set, hand over or clear who a worker reports to. The relation lives on
+the worker and survives session changes. Pass exactly one of a target (a
+worker of the same App: name, URN or id) or --clear (report to nobody).
+
+<worker> and a target NAME resolve within --app, the App context or the
+binding; ids and worker URNs need no App.
+
+WHO MAY CHANGE IT: whoever manages the App; and the worker it reports to now
+(handing it over or clearing it). A worker that reports to nobody may also be
+claimed by a worker for itself when one person holds both, or placed under any
+worker by its own holder. Anyone else is refused (exit 8). The server decides;
+this command infers nothing and does not retry.
+
+Refusals: itself, a cycle or another App's worker (exit 2); a retired target
+(exit 5). The receipt prints the worker and its new "reports to"; --json is the
+worker record.`,
+		Example: `  hadron team worker set-reports-to Iris Ada --app acme.com:eng-team
+  hadron team worker set-reports-to Iris --clear --app acme.com:eng-team`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 1 && len(args) != 2 {
 				return exitcode.Newf(exitcode.Usage, "pass <worker> <target>, or <worker> --clear")

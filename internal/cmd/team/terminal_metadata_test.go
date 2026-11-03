@@ -6,36 +6,15 @@ import (
 	"testing"
 )
 
-func TestMetadataApplyArgumentFence(t *testing.T) {
-	for _, platform := range []string{"linux", "windows"} {
-		for _, bad := range []string{"bad\nargument", strings.Repeat("界", 257)} {
-			for index := range 3 {
-				args := []string{"app", "server", "proof"}
-				args[index] = bad
-				var b bytes.Buffer
-				if err := writeSwitchoverApplyHint(&b, args[0], args[1], args[2], platform); err != nil {
-					t.Fatal(err)
-				}
-				got := b.String()
-				if !strings.Contains(got, "command omitted") || !strings.Contains(got, "--json") || strings.Contains(got, "apply --app") || strings.Contains(got, "Apply with") {
-					t.Fatalf("%s argument %d: %q", platform, index, got)
-				}
-			}
-		}
-	}
+// The Unix suggestion is shell-quoted, so a cursor that passes the display
+// fence unchanged still cannot become extra shell syntax.
+func TestMetadataCursorHintIsShellQuoted(t *testing.T) {
 	var b bytes.Buffer
-	if err := writeSwitchoverApplyHint(&b, "a; echo x", "s' $HOME", "p", "linux"); err != nil {
+	if err := writeHostCursorHint(&b, "c; echo x' $HOME", "linux"); err != nil {
 		t.Fatal(err)
 	}
-	if want := "--app 'a; echo x' --server 's'\\'' $HOME' --proof p"; !strings.Contains(b.String(), want) {
+	if want := `--after 'c; echo x'\'' $HOME'`; !strings.Contains(b.String(), want) {
 		t.Fatalf("missing %q: %q", want, b.String())
-	}
-	b.Reset()
-	if err := writeSwitchoverApplyHint(&b, "app", "server", "proof", "windows"); err != nil {
-		t.Fatal(err)
-	}
-	if got := b.String(); !strings.Contains(got, `Apply with --app "app"`) || strings.Contains(got, "hadron team") {
-		t.Fatal(got)
 	}
 }
 

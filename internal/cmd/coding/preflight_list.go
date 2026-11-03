@@ -23,10 +23,14 @@ type routeDTO struct {
 	EdgeID   string `json:"edgeId"`
 	MemoryID string `json:"memoryId"`
 	Status   string `json:"status"` // ok | broken
+	// Model is `leaf` for a leaf-owned edge and `legacy` for a route only the
+	// router owns; present under --route-model leaf only, so the default
+	// mirrored output is unchanged.
+	Model string `json:"model,omitempty"`
 }
 
 func newCmdPreflightList(f *cmdutil.Factory) *cobra.Command {
-	var memory, root string
+	var memory, root, routeModelV string
 	var brokenOnly bool
 	cmd := &cobra.Command{
 		Use:     "list",
@@ -42,7 +46,13 @@ the reader nowhere.
 This is a read-only view: a broken route is a row, not an exit code — a
 listing full of them still exits 0. (A usage, auth or not-found error
 exits non-zero as everywhere else.) ` + "`coding preflight lint`" + ` is the
-command whose exit code reflects findings.`,
+command whose exit code reflects findings.
+
+Under --route-model leaf (or preflightRouteModel in .hadron/config.json) the
+routes are the edges INTO the router, one row per leaf with a model column:
+` + "`leaf`" + ` for a leaf-owned edge, ` + "`legacy`" + ` for a route only the router owns. A
+node with both is one ` + "`leaf`" + ` row. The default, mirrored, lists the router's
+outgoing routes as before.`,
 		Example: `  hadron coding preflight list -m hrn:mem:hadronmemory.com:dev
   hadron coding preflight list -m hrn:mem:micromentor.org:mmdata --broken --json`,
 		Args: cobra.NoArgs,
@@ -55,7 +65,11 @@ command whose exit code reflects findings.`,
 			if err != nil {
 				return err
 			}
-			in, err := collectPreflight(cmd.Context(), client, mem, root)
+			model, err := resolveRouteModel(cmd, routeModelV)
+			if err != nil {
+				return err
+			}
+			in, err := collectPreflight(cmd.Context(), client, mem, root, model)
 			if err != nil {
 				return err
 			}
@@ -70,6 +84,13 @@ command whose exit code reflects findings.`,
 					fmt.Fprintf(w, "no routes out of %q in %s\n", root, mem.raw)
 					return nil
 				}
+				if model == modelLeaf {
+					t := output.NewTable(w, "TARGET", "STATUS", "MODEL", "LABEL")
+					for _, r := range rows {
+						t.Row(output.SafeCell(dash(r.Target)), output.SafeCell(r.Status), output.SafeCell(r.Model), output.SafeCell(dash(r.Label)))
+					}
+					return t.Flush()
+				}
 				t := output.NewTable(w, "TARGET", "STATUS", "LABEL")
 				for _, r := range rows {
 					t.Row(output.SafeCell(dash(r.Target)), output.SafeCell(r.Status), output.SafeCell(dash(r.Label)))
@@ -81,6 +102,7 @@ command whose exit code reflects findings.`,
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to list (defaults to this repository's)")
 	cmd.Flags().StringVar(&root, "root", preflightRootLoc, "loc of the preflight router node")
 	cmd.Flags().BoolVar(&brokenOnly, "broken", false, "only routes whose target could not be read")
+	addRouteModelFlag(cmd, &routeModelV)
 	// -m is OPTIONAL since #551, and the comment #533 left here is why this one
 	// replaces it rather than sitting beside it: it said "there is no fallback",
 	// which was true when written and is the exact sentence the fallback
@@ -101,7 +123,40 @@ func routeRows(in preflightInput, findings []findingDTO) []routeDTO {
 	}
 
 	rows := []routeDTO{}
+	leafIDs := map[string]bool{}
+	if in.Model == modelLeaf {
+		leaves := append([]graphEdge(nil), in.Leaves...)
+		sort.SliceStable(leaves, func(i, j int) bool { return leaves[i].Label < leaves[j].Label })
+		for _, l := range leaves {
+			// One row per NODE, by id: a loc is not unique across memories, and a
+			// node with two edges to the router is still one leaf.
+			if leafIDs[l.OtherID] {
+				continue
+			}
+			leafIDs[l.OtherID] = true
+			status := statusOK
+			if broken[l.Other] || unavailable[l.Other] {
+				status = statusBroken
+			}
+			rows = append(rows, routeDTO{
+				Target: l.Other, TargetID: l.OtherID, Label: l.Label,
+				EdgeID: l.ID, MemoryID: l.MemoryID, Status: status, Model: string(modelLeaf),
+			})
+		}
+	}
+	legacyIDs := map[string]bool{}
 	for _, r := range in.Routes {
+		if r.OtherID != "" && leafIDs[r.OtherID] {
+			continue // one row per leaf; the leaf-owned edge wins
+		}
+		// Leaf mode: a node the router routes to by two labels is one legacy
+		// row too. The mirrored listing keeps one row per edge, as it always did.
+		if in.Model == modelLeaf && r.OtherID != "" {
+			if legacyIDs[r.OtherID] {
+				continue
+			}
+			legacyIDs[r.OtherID] = true
+		}
 		status := statusOK
 		// A redacted endpoint has no loc to key a finding by, so it is matched
 		// by the same synthetic name the linter reports it under.
@@ -110,7 +165,7 @@ func routeRows(in preflightInput, findings []findingDTO) []routeDTO {
 		}
 		rows = append(rows, routeDTO{
 			Target: r.Other, TargetID: r.OtherID, Label: r.Label,
-			EdgeID: r.ID, MemoryID: r.MemoryID, Status: status,
+			EdgeID: r.ID, MemoryID: r.MemoryID, Status: status, Model: legacyTag(in.Model),
 		})
 	}
 	sort.SliceStable(rows, func(i, j int) bool {
@@ -130,4 +185,13 @@ func keepBrokenRoutes(rows []routeDTO) []routeDTO {
 		}
 	}
 	return out
+}
+
+// legacyTag labels a router-owned route in the leaf model's listing; the
+// mirrored listing carries no model at all.
+func legacyTag(m routeModel) string {
+	if m == modelLeaf {
+		return "legacy"
+	}
+	return ""
 }

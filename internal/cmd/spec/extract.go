@@ -71,8 +71,10 @@ chunk out of it. --strip-source also removes the chunk from the source body,
 but only when it matches verbatim (exactly once) — a reformatted or absent
 chunk leaves the source alone with a warning.`,
 		Example: `  # Carve the "Node type" field out of the Node entity spec into feature 020.
+  # The awk prints from that heading up to, not including, the next "## " heading;
+  # run the pipeline without extract first to inspect the chunk before --strip-source.
   hadron spec get cor:dmo:060:02 -m hrn:mem:hadronmemory.com:specs --body-only \
-    | sed -n '/## Node type/,/## /p' \
+    | awk '/^## Node type/{p=1; print; next} /^## /{p=0} p' \
     | hadron spec extract cor:dmo:060:02 -m hrn:mem:hadronmemory.com:specs \
         --to-feature 020 --title "Node type" --content - --strip-source \
         --ref-label "documents the nodeType field of Node"

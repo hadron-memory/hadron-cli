@@ -19,6 +19,9 @@ type pagedSource struct {
 	// wrap builds the full response body from the page's rows and the
 	// number of rows in the whole list.
 	wrap func(page []string, total int) string
+	// wrapAt, when set, replaces wrap and also receives the page's offset, for a
+	// Page twin whose hasMore depends on where the window sits (cli#1339).
+	wrapAt func(page []string, total, offset int) string
 	// failAtCall (1-based) answers that call with a GraphQL error.
 	failAtCall int
 }
@@ -78,6 +81,10 @@ func pagedGraphQL(t *testing.T, sources map[string]*pagedSource, static map[stri
 			page := []string{}
 			if offset < len(src.rows) {
 				page = src.rows[offset:end]
+			}
+			if src.wrapAt != nil {
+				_, _ = w.Write([]byte(src.wrapAt(page, len(src.rows), offset)))
+				return
 			}
 			_, _ = w.Write([]byte(src.wrap(page, len(src.rows))))
 			return

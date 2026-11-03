@@ -15,6 +15,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/build"
 	accesscmd "github.com/hadron-memory/hadron-cli/internal/cmd/access"
+	admincmd "github.com/hadron-memory/hadron-cli/internal/cmd/admin"
 	agentcmd "github.com/hadron-memory/hadron-cli/internal/cmd/agent"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/agentic"
 	aiconfigcmd "github.com/hadron-memory/hadron-cli/internal/cmd/aiconfig"
@@ -31,6 +32,8 @@ import (
 	commentcmd "github.com/hadron-memory/hadron-cli/internal/cmd/comment"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/configcmd"
 	connectioncmd "github.com/hadron-memory/hadron-cli/internal/cmd/connection"
+	decisioncmd "github.com/hadron-memory/hadron-cli/internal/cmd/decision"
+	discoverycmd "github.com/hadron-memory/hadron-cli/internal/cmd/discovery"
 	drivecmd "github.com/hadron-memory/hadron-cli/internal/cmd/drive"
 	edgecmd "github.com/hadron-memory/hadron-cli/internal/cmd/edge"
 	emailcmd "github.com/hadron-memory/hadron-cli/internal/cmd/email"
@@ -42,6 +45,8 @@ import (
 	objectcmd "github.com/hadron-memory/hadron-cli/internal/cmd/object"
 	orcacmd "github.com/hadron-memory/hadron-cli/internal/cmd/orca"
 	orgcmd "github.com/hadron-memory/hadron-cli/internal/cmd/org"
+	policycmd "github.com/hadron-memory/hadron-cli/internal/cmd/policy"
+	quotacmd "github.com/hadron-memory/hadron-cli/internal/cmd/quota"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/replacecmd"
 	runcmd "github.com/hadron-memory/hadron-cli/internal/cmd/run"
 	schedulecmd "github.com/hadron-memory/hadron-cli/internal/cmd/schedule"
@@ -50,6 +55,7 @@ import (
 	secretcmd "github.com/hadron-memory/hadron-cli/internal/cmd/secret"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/serverinfo"
 	skillcmd "github.com/hadron-memory/hadron-cli/internal/cmd/skill"
+	slackcmd "github.com/hadron-memory/hadron-cli/internal/cmd/slack"
 	speccmd "github.com/hadron-memory/hadron-cli/internal/cmd/spec"
 	taskcmd "github.com/hadron-memory/hadron-cli/internal/cmd/task"
 	teamcmd "github.com/hadron-memory/hadron-cli/internal/cmd/team"
@@ -128,6 +134,7 @@ the binding is verified. Otherwise this does not apply to you.`,
 		return exitcode.New(exitcode.Usage, err)
 	})
 
+	root.AddCommand(admincmd.NewCmdAdmin(f))
 	root.AddCommand(authcmd.NewCmdAuth(f))
 	root.AddCommand(memorycmd.NewCmdMemory(f))
 	root.AddCommand(usagecmd.NewCmdUsage(f))
@@ -135,6 +142,8 @@ the binding is verified. Otherwise this does not apply to you.`,
 	root.AddCommand(objectcmd.NewCmdObject(f))
 	root.AddCommand(assetcmd.NewCmdAsset(f))
 	root.AddCommand(searchcmd.NewCmdSearch(f))
+	root.AddCommand(discoverycmd.NewCmdFind(f))
+	root.AddCommand(discoverycmd.NewCmdMarketplace(f))
 	root.AddCommand(edgecmd.NewCmdEdge(f))
 	root.AddCommand(commentcmd.NewCmd(f, commentcmd.ConnectGraphQL(f)))
 	root.AddCommand(taskcmd.NewCmdTask(f))
@@ -142,6 +151,7 @@ the binding is verified. Otherwise this does not apply to you.`,
 	root.AddCommand(channelcmd.NewCmdChannel(f))
 	root.AddCommand(replacecmd.NewCmdReplace(f))
 	root.AddCommand(speccmd.NewCmdSpec(f))
+	root.AddCommand(decisioncmd.NewCmdDecision(f))
 	root.AddCommand(skillcmd.NewCmdSkill(f))
 	root.AddCommand(codingcmd.NewCmdCoding(f))
 	root.AddCommand(appcmd.NewCmdApp(f))
@@ -162,9 +172,12 @@ the binding is verified. Otherwise this does not apply to you.`,
 	root.AddCommand(webhookcmd.NewCmdWebhook(f))
 	root.AddCommand(ticketcmd.NewCmdTicket(f))
 	root.AddCommand(grantcmd.NewCmdGrant(f))
+	root.AddCommand(policycmd.NewCmdPolicy(f))
+	root.AddCommand(quotacmd.NewCmdQuota(f))
 	root.AddCommand(connectioncmd.NewCmdConnection(f))
 	root.AddCommand(hacmd.NewCmdHa(f))
 	root.AddCommand(emailcmd.NewCmdEmail(f))
+	root.AddCommand(slackcmd.NewCmdSlack(f))
 	root.AddCommand(drivecmd.NewCmdDrive(f))
 	root.AddCommand(calendarcmd.NewCmdCalendar(f))
 	root.AddCommand(mcpservercmd.NewCmdMcpServer(f))
@@ -223,10 +236,27 @@ func Execute() int {
 
 	err := root.Execute()
 	if err == nil {
+		writeDeliveryFooter(f)
 		return exitcode.OK
 	}
 
 	return renderFailure(f, os.Args[1:], err)
+}
+
+// writeDeliveryFooter prints the one messages-waiting line (cli#1084) on
+// stderr after a SUCCESSFUL command, for text and --json alike. It never
+// touches stdout, the result or the exit status; a failed command never gets
+// one, and only a positive exact count is shown.
+func writeDeliveryFooter(f *cmdutil.Factory) {
+	n, ok := f.DeliveryPending.Count()
+	if !ok || n <= 0 {
+		return
+	}
+	noun := "messages"
+	if n == 1 {
+		noun = "message"
+	}
+	_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "%d %s waiting; pull with hadron team chat inbox\n", n, noun)
 }
 
 // renderFailure is the post-Execute half of the failure path, extracted so a
@@ -371,6 +401,40 @@ func renderError(f *cmdutil.Factory, err error) int {
 				failure["requestId"] = fault.RequestID
 			}
 		}
+		// #1306: scripts need the deliberate team-chat refusal's server code
+		// alongside numeric exit 5. Keep this bounded to the two named codes;
+		// unrelated refusal envelopes retain their established shape.
+		if code == exitcode.Conflict {
+			for _, serverCode := range []string{"TEAM_CHAT_DUPLICATE", "TEAM_CHAT_POST_RATE_LIMITED"} {
+				if api.HasErrorCode(err, serverCode) {
+					failure["serverCode"] = serverCode
+					break
+				}
+			}
+		}
+		// #1327: the chat-search refusals span exits 2 and 5, so they are keyed
+		// on the code itself rather than the exit.
+		for _, serverCode := range []string{"TEAM_CHAT_SEARCH_QUERY_LENGTH", "TEAM_CHAT_SEARCH_CURSOR_INVALID", "TEAM_CHAT_SEARCH_ENCRYPTED"} {
+			if api.HasErrorCode(err, serverCode) {
+				failure["serverCode"] = serverCode
+				break
+			}
+		}
+		var coded interface{ ServerCode() string }
+		if errors.As(err, &coded) {
+			failure["serverCode"] = coded.ServerCode()
+		}
+		// cli#1565: a refused batch create names the failing task's 1-based
+		// position; absent for every other refusal.
+		var batch interface{ BatchPosition() int }
+		if errors.As(err, &batch) {
+			failure["position"] = batch.BatchPosition()
+		}
+		// cli#1567: a failed distinct-assignees match also names its reason.
+		var matched interface{ BatchReason() string }
+		if errors.As(err, &matched) && matched.BatchReason() != "" {
+			failure["reason"] = matched.BatchReason()
+		}
 		details := api.CommentRecoveryDetails(err)
 		if details == nil {
 			details = api.WorkerReportingDetails(err)
@@ -410,6 +474,10 @@ func renderError(f *cmdutil.Factory, err error) int {
 				}
 			}
 			fmt.Fprintf(f.IOStreams.ErrOut, "hadron: %s\n", message)
+			// cli#1264: a clone refusal's blockers, one per line, after the answer.
+			for _, line := range api.CloneAgentBlockerLines(err) {
+				fmt.Fprintf(f.IOStreams.ErrOut, "  %s\n", line)
+			}
 		}
 	}
 	return code

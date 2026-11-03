@@ -12,6 +12,7 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/api/gqltypes"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/bootcompile"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -42,10 +43,23 @@ type agentDTO struct {
 	HasAiApiKey             bool    `json:"hasAiApiKey"`
 	PersonaRole             *string `json:"personaRole"`
 	UsesTasks               bool    `json:"usesTasks"`
+	// ResetContextAfterTask is recorded only (#1551, cor:agt:050:27); a
+	// host with a worker.reset-context handler acts on it (#1043).
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+	// ListedOnMarketplace is the catalogue-discovery flag (cor:acl:080:04),
+	// distinct from visibility: it governs discovery, never access (cli#58).
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+	// RegisterDefaults is the Agent's register defaults as returned; null only
+	// if the server returned none (cli#58).
+	RegisterDefaults *registerDefaultsDTO `json:"registerDefaults"`
 	// MemberRoles is the Agent's installationPolicy.memberRoles (#1226, R211):
 	// the roles an App it is installed in may offer. [] when none came back.
 	MemberRoles []string `json:"memberRoles"`
 	CreatedAt   string   `json:"createdAt"`
+}
+
+type registerDefaultsDTO struct {
+	MentionOnly bool `json:"mentionOnly"`
 }
 
 func agentDTOFromFields(a gen.AgentFields) agentDTO {
@@ -59,15 +73,19 @@ func agentDTOFromFields(a gen.AgentFields) agentDTO {
 	if a.InstallationPolicy != nil {
 		roles = append(roles, a.InstallationPolicy.MemberRoles...)
 	}
+	var reg *registerDefaultsDTO
+	if a.RegisterDefaults != nil {
+		reg = &registerDefaultsDTO{MentionOnly: a.RegisterDefaults.MentionOnly}
+	}
 	return agentDTO{
-		MemberRoles: roles,
-		ID:          a.Id, URN: a.Urn, Name: a.Name, Description: a.Description,
+		MemberRoles: roles, ListedOnMarketplace: a.ListedOnMarketplace, RegisterDefaults: reg,
+		ID: a.Id, URN: a.Urn, Name: a.Name, Description: a.Description,
 		Type: string(a.Type), Visibility: string(a.Visibility), OrganizationID: a.OrganizationId,
 		Surfaces: surfaces, SystemMemoryID: a.SystemMemoryId,
 		TasksIndexRef: a.TasksIndexRef, ProcessesIndex: a.ProcessesIndexRef, ExtendsAgentID: a.ExtendsAgentId,
 		BootPromptRef: a.BootPromptRef, BootPromptTargetDeleted: a.BootPromptTargetDeleted,
 		AiProvider: a.AiProvider, AiModel: a.AiModel, HasAiApiKey: a.HasAiApiKey,
-		PersonaRole: a.PersonaRole, UsesTasks: a.UsesTasks, CreatedAt: a.CreatedAt,
+		PersonaRole: a.PersonaRole, UsesTasks: a.UsesTasks, ResetContextAfterTask: a.ResetContextAfterTask, CreatedAt: a.CreatedAt,
 	}
 }
 
@@ -156,9 +174,13 @@ func NewCmdAgent(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdUpdate(f))
 	cmd.AddCommand(newCmdRm(f))
 	cmd.AddCommand(newCmdAgentTasks(f))
+	cmd.AddCommand(newCmdAgentTickerTemplates(f))
 	cmd.AddCommand(newCmdAgentProcesses(f))
+	cmd.AddCommand(newCmdAgentRevision(f), newCmdAgentLock(f))
+	cmd.AddCommand(newCmdAgentMemory(f))
 	cmd.AddCommand(newCmdAgentSetBase(f))
 	cmd.AddCommand(newCmdAgentSetBootPrompt(f))
+	cmd.AddCommand(newCmdAgentModelGroup(f))
 	cmd.AddCommand(bootcompile.NewAgent(f))
 	return cmd
 }
@@ -190,8 +212,8 @@ narrow it.
 
 --app does NOT narrow this listing: it is the persistent App-context flag,
 not a filter, so the same rows come back for any App. For the agents
-installed in one App, use ` + "`hadron team roster --app <ref>`" + `, which reads
-the AppAgent join.`,
+installed in one App, use ` + "`hadron app agent list <app-ref>`" + `, which reads
+the AppAgent join; for its workers, use ` + "`hadron team worker list --app <ref>`" + `.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			f.NoteAppIsContextOnly("agents you can read")
@@ -333,7 +355,9 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 		Long: `Show an agent by ID or URN. A readable clone origin is printed as the
 source's current URN returned by the server. A null origin prints no line:
 non-clone, withheld, deleted and unrecorded origins are indistinguishable.
-JSON includes the nullable clonedFromAgentRef key. No source lookup is made.`,
+JSON includes the nullable clonedFromAgentRef key. No source lookup is made.
+The "reset context after task" line (JSON resetContextAfterTask) shows the
+setting recorded by agent update --reset-context-after-task.`,
 		Example: `  hadron agent get hrn:agent:acme.com:support-bot --json`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -358,6 +382,11 @@ JSON includes the nullable clonedFromAgentRef key. No source lookup is made.`,
 					fmt.Fprintf(w, "  Cloned from: %s\n", output.SafeCell(*dto.ClonedFromAgentRef))
 				}
 				fmt.Fprintf(w, "  uses tasks: %t\n", dto.UsesTasks)
+				fmt.Fprintf(w, "  reset context after task: %t\n", dto.ResetContextAfterTask)
+				fmt.Fprintf(w, "  listed on marketplace: %t\n", dto.ListedOnMarketplace)
+				if dto.RegisterDefaults != nil {
+					fmt.Fprintf(w, "  register mention only: %t\n", dto.RegisterDefaults.MentionOnly)
+				}
 				fmt.Fprintf(w, "  member roles: %s\n", output.SafeCell(dashList(dto.MemberRoles)))
 				if len(dto.Surfaces) > 0 {
 					fmt.Fprintf(w, "  surfaces: %s\n", output.SafeCell(strings.Join(dto.Surfaces, ", ")))
@@ -393,7 +422,7 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 	var org, name, description, typ, vis, systemMemory string
 	var personaRole, installInto string
 	var surfaces, memberRoles []string
-	var ownerMe bool
+	var ownerMe, createUsesTasks, createReset bool
 	cmd := &cobra.Command{
 		Use:   "create --name <n> [--org <id> | --owner-me] [--install-into <app>]",
 		Short: "Create an agent (org-owned, or user-owned with --owner-me)",
@@ -430,7 +459,22 @@ ownership of a user-owned App) — a stricter gate than creating the agent, so
 it can refuse after the create succeeds.
 
 New Agents start without a prompt. Write boot:source (role boot-prompt) in
-the Agent system memory, then use hadron agent compile and hadron node approve.`,
+the Agent system memory, then use hadron agent compile and hadron node approve.
+
+--uses-tasks and --reset-context-after-task set the two task settings at
+creation. Pass them only to choose a value: left out, the server default stands
+(uses tasks true, reset context after task false); an explicit =false is sent as
+false. --reset-context-after-task records a setting only. The program that
+runs your workers (their host) does the reset, and only a host that supports it
+acts on the setting; the hadron CLI's own worker runner does not yet
+(hadron-cli#1043).
+
+Server compatibility: every agent create now sends a document that takes
+usesTasks and resetContextAfterTask, even when neither flag is named, so it
+needs a server whose createAgent has them (in the schema snapshot from
+hadron-server 53e12896e, 2026-10-26). An older server rejects the create as
+schema skew, exit 2: upgrade that provider first, including self-hosted or
+staging servers.`,
 		Example: `  hadron agent create --owner-me --name "My Agent" --type ASSISTANT
   hadron agent create --org acme.com --name "Support Bot" --type CHATBOT --visibility ORGANIZATION
   hadron agent create --org acme.com --name "DevOps Engineer" --persona-role devops-engineer --install-into hrn:app:acme.com:eng-team`,
@@ -487,9 +531,16 @@ the Agent system memory, then use hadron agent compile and hadron node approve.`
 			if err != nil {
 				return err
 			}
+			var usesTasksArg, resetArg *bool
+			if cmd.Flags().Changed("uses-tasks") {
+				usesTasksArg = &createUsesTasks
+			}
+			if cmd.Flags().Changed("reset-context-after-task") {
+				resetArg = &createReset
+			}
 			resp, err := gen.CreateAgent(cmd.Context(), client, name, optStr(org),
 				optStr(description), at, av, optStr(systemMemory), surfaces,
-				optStr(personaRole), rolesArg)
+				optStr(personaRole), rolesArg, usesTasksArg, resetArg)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -531,15 +582,19 @@ the Agent system memory, then use hadron agent compile and hadron node approve.`
 	cmd.Flags().StringVar(&personaRole, "persona-role", "", "persona dressing: the role this agent presents as (metadata)")
 	cmd.Flags().StringSliceVar(&memberRoles, "member-roles", nil, "roles the agent offers an App's members, comma-separated (default owner,member; the server validates them)")
 	cmd.Flags().StringVar(&installInto, "install-into", "", "App (ID or URN) to install the new agent into, so it is castable in one run")
+	cmd.Flags().BoolVar(&createUsesTasks, "uses-tasks", false, "Whether workers from this Agent use assigned tasks (server default true when left out; =false is sent as false)")
+	cmd.Flags().BoolVar(&createReset, "reset-context-after-task", false, "Record that this Agent's workers should get a fresh context after each task (server default false when left out). Recorded only: it takes effect where the workers' host supports it")
 	registerRetiredPersonaPromptFlags(cmd)
 	_ = cmd.MarkFlagRequired("name")
+	cmdutil.RetireFlags(cmd, "an Agent's boot prompt is now a node: write the source at boot:source in its system memory (role boot-prompt, hadron node update), compile it with `hadron agent compile <agent>`, then have the Agent's manager approve the compiled node with `hadron node approve <compiled-node-ref>`",
+		cmdutil.RetiredFlag{Name: "system-prompt"}, cmdutil.RetiredFlag{Name: "system-prompt-file"}, cmdutil.RetiredFlag{Name: "clear-system-prompt", Bool: true})
 	return cmd
 }
 
 func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	var name, description, typ, vis, systemMemory, urn string
 	var personaRole string
-	var usesTasks bool
+	var usesTasks, resetContextAfterTask, listedOnMarketplace, registerMentionOnly, clearRegisterDefaults bool
 	var tasksIndex, processesIndex string
 	var surfaces, memberRoles []string
 	cmd := &cobra.Command{
@@ -549,9 +604,31 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 
 --persona-role is metadata. Write the Agent source at boot:source in its system
 memory, then use hadron agent compile and hadron node approve. New Agents
-start without a prompt.`,
+start without a prompt.
+
+--reset-context-after-task records a setting on the Agent (default false);
+hadron agent get shows it. It does not reset anything by itself. The program
+that runs your workers (their host) does the reset, and only a host that
+supports it acts on the setting. The hadron CLI's own worker runner does not
+support it yet (hadron-cli#1043), so setting it has no visible effect today.
+Turn it off with --reset-context-after-task=false. agent create takes the same
+flag, to set it at creation.
+
+--listed-on-marketplace lists the Agent in the marketplace catalogue (=false
+unlists it). It governs discovery only: it does not change the Agent's
+visibility or who can reach it.
+
+--register-mention-only[=false] sets the Agent's register default mentionOnly;
+--clear-register-defaults returns the register defaults to the platform
+defaults. Pass at most one of them; left out, the register defaults are
+unchanged. Both together, or --clear-register-defaults=false, are refused
+before anything is sent.`,
 		Example: `  hadron agent update hrn:agent:acme.com:support-bot --name "Support Bot v2" --visibility PUBLIC
-  hadron agent update agt_123 --description "…"`,
+  hadron agent update agt_123 --description "…"
+  hadron agent update agt_123 --reset-context-after-task
+  hadron agent update agt_123 --listed-on-marketplace
+  hadron agent update agt_123 --register-mention-only
+  hadron agent update agt_123 --clear-register-defaults`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := refuseRetiredPersonaPromptFlags(cmd); err != nil {
@@ -560,9 +637,14 @@ start without a prompt.`,
 			changed := cmd.Flags().Changed
 			if !changed("name") && !changed("description") && !changed("type") && !changed("visibility") &&
 				!changed("system-memory") && !changed("surface") && !changed("urn") &&
-				!changed("persona-role") && !changed("uses-tasks") &&
-				!changed("tasks-index") && !changed("processes-index") && !changed("member-roles") {
+				!changed("persona-role") && !changed("uses-tasks") && !changed("reset-context-after-task") &&
+				!changed("tasks-index") && !changed("processes-index") && !changed("member-roles") &&
+				!changed("listed-on-marketplace") && !changed("register-mention-only") && !changed("clear-register-defaults") {
 				return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
+			}
+			registerArg, err := registerDefaultsArg(cmd, registerMentionOnly, clearRegisterDefaults)
+			if err != nil {
+				return err
 			}
 			// The server prepends the owner namespace, so --urn is the agent
 			// slug — which may carry an author org or @handle atom, hence an
@@ -595,16 +677,23 @@ start without a prompt.`,
 			var updated *gen.AgentFields
 			if changed("name") || changed("description") || changed("type") || changed("visibility") ||
 				changed("system-memory") || changed("surface") || changed("urn") ||
-				changed("persona-role") || changed("uses-tasks") || changed("member-roles") {
-				var usesTasksArg *bool
+				changed("persona-role") || changed("uses-tasks") || changed("reset-context-after-task") || changed("member-roles") ||
+				changed("listed-on-marketplace") || registerArg != nil {
+				var usesTasksArg, resetArg, listedArg *bool
 				if changed("uses-tasks") {
 					usesTasksArg = &usesTasks
+				}
+				if changed("reset-context-after-task") {
+					resetArg = &resetContextAfterTask
+				}
+				if changed("listed-on-marketplace") {
+					listedArg = &listedOnMarketplace
 				}
 				resp, err := gen.UpdateAgent(cmd.Context(), client, args[0],
 					changedStr(cmd, "name", name), changedStr(cmd, "description", description),
 					at, av,
 					changedStr(cmd, "system-memory", systemMemory), surfacesArg, changedStr(cmd, "urn", urn),
-					changedStr(cmd, "persona-role", personaRole), usesTasksArg, rolesArg)
+					changedStr(cmd, "persona-role", personaRole), usesTasksArg, resetArg, rolesArg, listedArg, registerArg)
 				if err != nil {
 					return api.MapError(err)
 				}
@@ -641,8 +730,40 @@ start without a prompt.`,
 	cmd.Flags().StringVar(&tasksIndex, "tasks-index", "", `the Agent's tasks index node (a ref; an explicit empty clears it)`)
 	cmd.Flags().StringVar(&processesIndex, "processes-index", "", `the Agent's processes index node (a ref; an explicit empty clears it)`)
 	cmd.Flags().BoolVar(&usesTasks, "uses-tasks", false, "Whether workers from this Agent use assigned tasks; false keeps them expected to check the team channel without a task (omitted preserves)")
+	cmd.Flags().BoolVar(&resetContextAfterTask, "reset-context-after-task", false, "Record that this Agent's workers should get a fresh context after each task (default false; =false clears it; omitted keeps the current value). Recorded only: it takes effect where the workers' host supports it")
+	cmd.Flags().BoolVar(&listedOnMarketplace, "listed-on-marketplace", false, "list the Agent in the marketplace catalogue (=false unlists it; omitted keeps the current value). Catalogue discovery only: it does not change visibility or who can reach the Agent")
+	cmd.Flags().BoolVar(&registerMentionOnly, "register-mention-only", false, "set the Agent's register default mentionOnly to this value (=false sets false; omitted keeps the current defaults). Not with --clear-register-defaults")
+	cmd.Flags().BoolVar(&clearRegisterDefaults, "clear-register-defaults", false, "return the Agent's register defaults to the platform defaults (omitted keeps the current defaults). Not with --register-mention-only")
 	registerRetiredPersonaPromptFlags(cmd)
+	cmdutil.RetireFlags(cmd, "an Agent's boot prompt is now a node: write the source at boot:source in its system memory (role boot-prompt, hadron node update), compile it with `hadron agent compile <agent>`, then have the Agent's manager approve the compiled node with `hadron node approve <compiled-node-ref>`",
+		cmdutil.RetiredFlag{Name: "system-prompt"}, cmdutil.RetiredFlag{Name: "system-prompt-file"}, cmdutil.RetiredFlag{Name: "clear-system-prompt", Bool: true})
 	return cmd
+}
+
+// registerDefaultsArg turns --register-mention-only / --clear-register-defaults
+// into the three-state wire value (cli#58 slice 2): nil when neither flag was
+// passed (the variable is omitted and the server PRESERVES the defaults), an
+// object for --register-mention-only[=bool], an explicit null for
+// --clear-register-defaults. Omission is never turned into a clear. Both
+// together, and --clear-register-defaults=false, are usage errors here, before
+// any request: "false" on a clear is not a choice, and a clear next to a value
+// is ambiguous.
+func registerDefaultsArg(cmd *cobra.Command, mentionOnly, clear bool) (*gqltypes.RegisterDefaultsInput, error) {
+	moSet, clSet := cmd.Flags().Changed("register-mention-only"), cmd.Flags().Changed("clear-register-defaults")
+	if moSet && clSet {
+		return nil, exitcode.Newf(exitcode.Usage, "--register-mention-only and --clear-register-defaults cannot be combined: set a value or clear the defaults, never both")
+	}
+	if clSet {
+		if !clear {
+			return nil, exitcode.Newf(exitcode.Usage, "--clear-register-defaults=false is not a choice: pass --clear-register-defaults to clear the register defaults, or leave the flag out to keep them")
+		}
+		return &gqltypes.RegisterDefaultsInput{Clear: true}, nil
+	}
+	if moSet {
+		v := mentionOnly
+		return &gqltypes.RegisterDefaultsInput{MentionOnly: &v}, nil
+	}
+	return nil, nil
 }
 
 func newCmdRm(f *cmdutil.Factory) *cobra.Command {

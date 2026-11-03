@@ -99,7 +99,7 @@ const rosterJSON = `{"appId":"capp100000000000000000000","asOf":"2026-10-12T04:0
 	 "family":"claude","freeForWork":false,"freeFamilies":["claude"],"launchableFamilies":["claude"],
 	 "unavailableFamilies":[],"unavailableReason":null,"unavailableUntil":null,
 	 "lastActiveAt":"2026-10-12T01:00:00Z","lastAssignedAt":"2026-10-11T09:00:00Z",
-	 "pendingTasks":["task1"],"startedTasks":[],"waitingOn":[],"waitingSince":null,
+	 "modelGroups":[],"pendingTasks":["task1"],"startedTasks":[],"waitingOn":[],"waitingSince":null,
 	 "unreactedChildTask":null,"alarms":[],
 	 "reportsTo":{"id":"wkr1","kind":"WORKER","name":"Iris","urn":"hrn:worker:acme.com:eng:iris"},
 	 "reportsToRetired":false},
@@ -108,7 +108,7 @@ const rosterJSON = `{"appId":"capp100000000000000000000","asOf":"2026-10-12T04:0
 	 "family":"claude","freeForWork":true,"freeFamilies":["claude"],"launchableFamilies":[],
 	 "unavailableFamilies":["codex"],"unavailableReason":null,"unavailableUntil":null,
 	 "lastActiveAt":"2026-10-12T03:30:00Z","lastAssignedAt":null,
-	 "pendingTasks":[],"startedTasks":["task7"],"waitingOn":["task8"],"waitingSince":"2026-10-12T02:10:00Z",
+	 "modelGroups":[],"pendingTasks":[],"startedTasks":["task7"],"waitingOn":["task8"],"waitingSince":"2026-10-12T02:10:00Z",
 	 "unreactedChildTask":"task9","alarms":["evt2"],
 	 "reportsTo":null,"reportsToRetired":false}]}`
 
@@ -1223,8 +1223,8 @@ func TestTeamRosterNullWorkerEntryDoesNotPanic(t *testing.T) {
 		{"worker":null,"state":"AVAILABLE","role":null,"bound":false,"liveSession":false,"family":null,
 		 "freeForWork":true,"freeFamilies":[],"launchableFamilies":[],"unavailableFamilies":[],
 		 "unavailableReason":null,"unavailableUntil":null,"lastActiveAt":null,"lastAssignedAt":null,
-		 "pendingTasks":[],"startedTasks":[],"waitingOn":[],"waitingSince":null,"unreactedChildTask":null,
-		 "alarms":[],"reportsTo":null,"reportsToRetired":false}]}}}`
+		 "modelGroups":[],"pendingTasks":[],"startedTasks":[],"waitingOn":[],"waitingSince":null,"unreactedChildTask":null,
+		 "modelGroups":[],"alarms":[],"reportsTo":null,"reportsToRetired":false}]}}}`
 	_, out, err := runTeamTask(t, responses, "team", "roster")
 	if err != nil {
 		t.Fatalf("null worker entry: %v", err)

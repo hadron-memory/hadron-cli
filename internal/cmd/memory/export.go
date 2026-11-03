@@ -136,7 +136,7 @@ scatters hundreds of files among your own, and the overwrite is silent. Pass
 
 			// 2. Bulk-fetch the full nodes (content + edges) for those ids.
 			nodes, unavailable, err := api.CollectNodeBatch(ids, func(chunk []string) (*batchResult, error) {
-				resp, ferr := gen.NodeBatch(cmd.Context(), client, chunk, nil, nil)
+				resp, ferr := api.ReadNodeBatch(cmd.Context(), client, chunk, nil, nil)
 				if ferr != nil {
 					return nil, api.MapError(ferr)
 				}

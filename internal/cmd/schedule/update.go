@@ -16,9 +16,9 @@ import (
 
 func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	var (
-		name, cron, tz, entry, aiConfig, policy string
-		args                                    []string
-		budget                                  cmdutil.BudgetFlags
+		name, cron, tz, entry, aiConfig, policy, runAt, scope, agent string
+		args                                                         []string
+		budget                                                       cmdutil.BudgetFlags
 	)
 	cmd := &cobra.Command{
 		Use:   "update <id>",
@@ -27,6 +27,11 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 --enabled / --enabled=false toggles it; --as-self / --as-self=false toggles the
 on-behalf-of-you flag.
 
+--run-at switches to one-shot and clears cron; --cron switches to recurring.
+Pass at most one per call. --scope sets a scope id/name in the App context;
+--scope "" restores App memories. --agent selects an installed Agent.
+Scope is snapshotted onto each new run; existing runs do not change.
+
 --budget-tokens / --budget-actions set the per-run limits; --clear-budget-tokens /
 --clear-budget-actions clear one back to the platform default (a value and its
 clear flag together is a usage error). A value above the platform default is
@@ -34,8 +39,26 @@ refused by the server. Requires a server with trigger budgets.`,
 		Example: `  hadron schedule update sch_123 --cron '0 7 * * *' --enabled=false`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, cmdArgs []string) error {
+			if cmd.Flags().Changed("cron") && cmd.Flags().Changed("run-at") {
+				return exitcode.Newf(exitcode.Usage, "--cron and --run-at are mutually exclusive")
+			}
+			if (cmd.Flags().Changed("cron") && strings.TrimSpace(cron) == "") || (cmd.Flags().Changed("run-at") && strings.TrimSpace(runAt) == "") || (cmd.Flags().Changed("agent") && strings.TrimSpace(agent) == "") {
+				return exitcode.Newf(exitcode.Usage, "--cron, --run-at and --agent cannot be empty")
+			}
 			input := &gen.UpdateAgentScheduleInput{}
 			changed := false
+			if cmd.Flags().Changed("run-at") {
+				input.RunAt = &runAt
+				changed = true
+			}
+			if cmd.Flags().Changed("scope") {
+				input.ScopeRef = &scope
+				changed = true
+			}
+			if cmd.Flags().Changed("agent") {
+				input.AgentRef = &agent
+				changed = true
+			}
 			if cmd.Flags().Changed("name") {
 				input.Name = &name
 				changed = true
@@ -132,6 +155,9 @@ refused by the server. Requires a server with trigger budgets.`,
 	cmd.Flags().StringArrayVar(&args, "arg", nil, "replace static template args (repeatable key=value)")
 	cmd.Flags().Bool("enabled", true, "enable or disable the schedule (--enabled=false to disable)")
 	cmd.Flags().Bool("as-self", false, "toggle the on-behalf-of-you flag")
+	cmd.Flags().StringVar(&runAt, "run-at", "", "switch to one-shot at this RFC3339 instant (not with --cron)")
+	cmd.Flags().StringVar(&scope, "scope", "", "scope id/name; an empty string restores App memories")
+	cmd.Flags().StringVar(&agent, "agent", "", "installed Agent id or URN")
 	budget.Add(cmd, true)
 	return cmd
 }

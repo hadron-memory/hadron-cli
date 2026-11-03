@@ -53,7 +53,7 @@ func TestSessionHeaderDoesNotFollowACrossHostRedirect(t *testing.T) {
 				ctx = WithSession(ctx, "s-1")
 			}
 			var data map[string]any
-			err = c.MakeRequest(ctx, &graphql.Request{Query: "mutation X($sessionRef: ID!) { x(sessionRef: $sessionRef) }", OpName: "X", Variables: map[string]any{"sessionRef": "s-1"}}, &graphql.Response{Data: &data})
+			err = c.MakeRequest(ctx, &graphql.Request{Query: "query X($sessionRef: ID!) { x(sessionRef: $sessionRef) }", OpName: "X", Variables: map[string]any{"sessionRef": "s-1"}}, &graphql.Response{Data: &data})
 			if tc.crossHost {
 				if err == nil || len(got) != 0 || len(gotBodies) != 0 {
 					t.Errorf("token=%q cross-host redirect must refuse before replaying the body: err=%v headers=%q bodies=%q", token, err, got, gotBodies)
@@ -131,7 +131,7 @@ func TestSessionHeaderIsStrippedOnAnInsecureRedirect(t *testing.T) {
 
 func TestBodyOnlySessionRefCannotFollowAnInsecureRedirect(t *testing.T) {
 	t.Setenv(EnvAllowHTTP, "")
-	origin, _ := http.NewRequest(http.MethodPost, "https://srv.example/graphql", strings.NewReader(`{"variables":{"sessionRef":"s-1"}}`))
+	origin, _ := http.NewRequest(http.MethodPost, "https://srv.example/graphql", strings.NewReader(`{"query":"query X { x }","variables":{"sessionRef":"s-1"}}`))
 	for name, c := range map[string]*http.Client{
 		"with token":    withSecureRedirects(&http.Client{}),
 		"without token": withSessionRedirects(&http.Client{}),
@@ -156,7 +156,7 @@ func TestBodyOnlySessionRefCannotFollowAnInsecureRedirect(t *testing.T) {
 
 func TestSessionFreePostMayFollowSecureCrossHostRedirect(t *testing.T) {
 	t.Setenv(EnvAllowHTTP, "")
-	origin, _ := http.NewRequest(http.MethodPost, "https://old.example/graphql", strings.NewReader(`{"variables":{"appRef":"hrn:app:example:team"}}`))
+	origin, _ := http.NewRequest(http.MethodPost, "https://old.example/graphql", strings.NewReader(`{"query":"query X { x }","variables":{"appRef":"hrn:app:example:team"}}`))
 	target, _ := http.NewRequest(http.MethodPost, "https://new.example/graphql", nil)
 	for name, client := range map[string]*http.Client{
 		"with token":    withSecureRedirects(&http.Client{}),
@@ -170,7 +170,7 @@ func TestSessionFreePostMayFollowSecureCrossHostRedirect(t *testing.T) {
 
 func TestNestedSessionRefJSONDoesNotCountAsWorkerSession(t *testing.T) {
 	t.Setenv(EnvAllowHTTP, "")
-	origin, _ := http.NewRequest(http.MethodPost, "https://old.example/graphql", strings.NewReader(`{"query":"mutation X($fields: JSON!) { x(fields: $fields) }","variables":{"fields":{"sessionRef":"external-id"}}}`))
+	origin, _ := http.NewRequest(http.MethodPost, "https://old.example/graphql", strings.NewReader(`{"query":"query X($fields: JSON!) { x(fields: $fields) }","variables":{"fields":{"sessionRef":"external-id"}}}`))
 	target, _ := http.NewRequest(http.MethodPost, "https://new.example/graphql", nil)
 	for name, client := range map[string]*http.Client{
 		"with token":    withSecureRedirects(&http.Client{}),
@@ -237,7 +237,7 @@ func TestBodyOnlySessionRefIsNotSentOverInitialHTTP(t *testing.T) {
 				t.Fatal(err)
 			}
 			var data map[string]any
-			err = c.MakeRequest(context.Background(), &graphql.Request{Query: "mutation X { x }", OpName: "X", Variables: tc.variables}, &graphql.Response{Data: &data})
+			err = c.MakeRequest(context.Background(), &graphql.Request{Query: "query X { x }", OpName: "X", Variables: tc.variables}, &graphql.Response{Data: &data})
 			if tc.refuse {
 				if !errors.Is(err, ErrRedirectPolicy) || requests != 0 {
 					t.Errorf("body-only session must be refused before transport: err=%v requests=%d", err, requests)

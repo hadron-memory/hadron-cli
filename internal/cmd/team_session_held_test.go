@@ -32,10 +32,10 @@ func heldHolderUserJSON(id, name, handle string) string {
 func TestTeamSessionStartHeldByAnotherRefusesWithoutOfferingForce(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
-		"GetWorker":    `{"data":{"worker":` + withLiveness(heldBy("u-dara"), "true") + `}}`,
-		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
-		"AuthContext":  authContextHolgerJSON, // I am u-holger; the hold is u-dara's
-		"GetUser":      heldHolderUserJSON("u-dara", "Dara", "dara"),
+		"GetWorker":        `{"data":{"worker":` + withLiveness(heldBy("u-dara"), "true") + `}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
+		"AuthContext":      authContextHolgerJSON, // I am u-holger; the hold is u-dara's
+		"GetUser":          heldHolderUserJSON("u-dara", "Dara", "dara"),
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -80,10 +80,10 @@ func TestTeamSessionStartHeldByAnotherRefusesWithoutOfferingForce(t *testing.T) 
 func TestTeamSessionStartHeldRemedyIsRunnableWithoutAppScope(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
-		"GetWorker":    `{"data":{"worker":` + withLiveness(heldBy("u-dara"), "true") + `}}`,
-		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
-		"AuthContext":  authContextHolgerJSON,
-		"GetUser":      heldHolderUserJSON("u-dara", "Dara", "dara"),
+		"GetWorker":        `{"data":{"worker":` + withLiveness(heldBy("u-dara"), "true") + `}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
+		"AuthContext":      authContextHolgerJSON,
+		"GetUser":          heldHolderUserJSON("u-dara", "Dara", "dara"),
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -118,10 +118,10 @@ func TestTeamSessionStartHeldRemedyFallsBackToIDWhenURNIsNull(t *testing.T) {
 		t.Fatal("fixture did not lose its urn — the test would prove nothing")
 	}
 	gql, _ := captureGraphQL(t, map[string]string{
-		"GetWorker":    `{"data":{"worker":` + noURN + `}}`,
-		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
-		"AuthContext":  authContextHolgerJSON,
-		"GetUser":      heldHolderUserJSON("u-dara", "Dara", "dara"),
+		"GetWorker":        `{"data":{"worker":` + noURN + `}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
+		"AuthContext":      authContextHolgerJSON,
+		"GetUser":          heldHolderUserJSON("u-dara", "Dara", "dara"),
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -144,10 +144,10 @@ func TestTeamSessionStartHeldRemedyFallsBackToIDWhenURNIsNull(t *testing.T) {
 		t.Fatal("fixture did not get an empty urn — the test would prove nothing")
 	}
 	gql2, _ := captureGraphQL(t, map[string]string{
-		"GetWorker":    `{"data":{"worker":` + emptyURN + `}}`,
-		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
-		"AuthContext":  authContextHolgerJSON,
-		"GetUser":      heldHolderUserJSON("u-dara", "Dara", "dara"),
+		"GetWorker":        `{"data":{"worker":` + emptyURN + `}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
+		"AuthContext":      authContextHolgerJSON,
+		"GetUser":          heldHolderUserJSON("u-dara", "Dara", "dara"),
 	})
 	f2, _ := testFactory(t)
 	root2 := NewRootCmd(f2)
@@ -168,10 +168,10 @@ func TestTeamSessionStartHeldRemedyFallsBackToIDWhenURNIsNull(t *testing.T) {
 func TestTeamSessionStartHeldByMeStillOffersForce(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
-		"GetWorker":    `{"data":{"worker":` + withLiveness(heldBy("u-holger"), "true") + `}}`,
-		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
-		"AuthContext":  authContextHolgerJSON, // the hold is mine
-		"GetUser":      heldHolderUserJSON("u-holger", "Holger", "holger"),
+		"GetWorker":        `{"data":{"worker":` + withLiveness(heldBy("u-holger"), "true") + `}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
+		"AuthContext":      authContextHolgerJSON, // the hold is mine
+		"GetUser":          heldHolderUserJSON("u-holger", "Holger", "holger"),
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -202,10 +202,10 @@ func TestTeamSessionStartHeldByMeStillOffersForce(t *testing.T) {
 func TestTeamSessionStartHeldUnknownWhoseHedges(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
-		"GetWorker":    `{"data":{"worker":` + withLiveness(heldBy("u-dara"), "true") + `}}`,
-		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
-		"AuthContext":  `{"errors":[{"message":"nope"}]}`,
-		"GetUser":      heldHolderUserJSON("u-dara", "Dara", "dara"),
+		"GetWorker":        `{"data":{"worker":` + withLiveness(heldBy("u-dara"), "true") + `}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
+		"AuthContext":      `{"errors":[{"message":"nope"}]}`,
+		"GetUser":          heldHolderUserJSON("u-dara", "Dara", "dara"),
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -231,8 +231,8 @@ func TestTeamSessionStartHeldUnknownWhoseHedges(t *testing.T) {
 func TestTeamSessionStartServerHeldRefusalRenders(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
-		"GetWorker":    `{"data":{"worker":` + irisWorkerJSON + `}}`, // unheld at pre-flight
-		"TeamSessions": `{"data":{"sessions":[]}}`,
+		"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`, // unheld at pre-flight
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 		"StartTeamSession": `{"errors":[{"message":"That name is held.",
 			"extensions":{"code":"WORKER_HELD","workerId":"wkr1","heldBy":"u-dara",
 			"heldByName":"dara","heldAt":"2026-08-20T09:00:00Z"}}]}`,
@@ -262,8 +262,8 @@ func TestTeamSessionStartServerHeldRefusalRenders(t *testing.T) {
 func TestTeamSessionStartServerHeldReducedPayloadDegrades(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
-		"GetWorker":    `{"data":{"worker":` + irisWorkerJSON + `}}`,
-		"TeamSessions": `{"data":{"sessions":[]}}`,
+		"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 		"StartTeamSession": `{"errors":[{"message":"That name is held.",
 			"extensions":{"code":"WORKER_HELD","workerId":"wkr1","heldBy":"u-dara"}}]}`,
 	})
@@ -295,10 +295,10 @@ func TestTeamSessionStartServerHeldReducedPayloadDegrades(t *testing.T) {
 func TestTeamSessionStartForceDoesNotDefeatAHold(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
-		"GetWorker":    `{"data":{"worker":` + withLiveness(heldBy("u-dara"), "true") + `}}`,
-		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
-		"AuthContext":  authContextHolgerJSON,
-		"GetUser":      heldHolderUserJSON("u-dara", "Dara", "dara"),
+		"GetWorker":        `{"data":{"worker":` + withLiveness(heldBy("u-dara"), "true") + `}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
+		"AuthContext":      authContextHolgerJSON,
+		"GetUser":          heldHolderUserJSON("u-dara", "Dara", "dara"),
 		"StartTeamSession": `{"errors":[{"message":"That name is held.",
 			"extensions":{"code":"WORKER_HELD","workerId":"wkr1","heldBy":"u-dara","heldByName":"dara"}}]}`,
 	})

@@ -60,6 +60,11 @@ func (o onboardOptions) steps() []onboardStep {
 	}
 }
 
+// onboardRoutingUnverified ends every onboard result's humanRemainder
+// (cli#935): the retired router loop was the only thing that confirmed a
+// roster entry was read, and nothing replaces it.
+const onboardRoutingUnverified = "Routing is unverified: team router is retired (hadron-server#2027), so nothing confirms this roster entry is read. This command starts no replacement router."
+
 func newCmdWorkerOnboard(f *cmdutil.Factory) *cobra.Command {
 	var o onboardOptions
 	cmd := &cobra.Command{
@@ -73,15 +78,31 @@ There are no direct Orca worktree-create or terminal-create calls.
 
 Operator prerequisites: a live host registration with this worker and family,
 the host poller's repo mapping and launch argv, a matching worktrees root,
-and the worker's mention-only register row on the router's Channel. The
+and the worker's mention-only register row on the team chat Channel. The
 worker must already be cast and held. This command never casts or binds it.
+
+WHERE EACH PREREQUISITE COMES FROM:
+  worker cast and held   team worker cast; a person binds it once
+                         (team session start --as <worker>)
+  --host <id>            team host list: the host's id, live, and the workers
+                         and families it can launch
+  --repo <token>         the key under repos: in the host poller's YAML
+                         (team host run --help), e.g. hadron-memory/hadron-cli
+  --worktrees-root       the poller's worktrees_root for that worker
+  register row           channel register add --channel <team chat Channel>
+                         --owner <app> --attendee <worker> --mention-only
+  --config               the host's router.json, kept from the retired team
+                         router: it names the App, the team chat Channel and
+                         orca_cli, and holds the roster onboard writes into
+Run the dry-run first: it checks Orca and reads these without queuing work.
 Starting a worker requires the App manager; --as-person uses your authority
 instead of the bound worker's. Server authority checks still apply.
 
-Only three host-local steps follow: roster entry, router reload confirmation,
-and Orca display name. Run the current Go 'team router loop' on this config:
-it reloads between polls and acknowledges the exact config fingerprint.
-The timeout must allow its interval. The adopted attention token is untouched.
+Only two host-local steps follow: roster entry and Orca display name.
+Routing is not verified: team router is retired (hadron-server#2027).
+Routing means whether the worker's mentions reach its terminal. Check it
+yourself: mention the worker in team chat and watch for its pickup, or watch
+the delivery events of 'team host run' on its host.
 All waits are bounded. A retry reuses an identical existing queue operation;
 a failed operation is reported, never silently retried. On an ambiguous
 submission failure, inspect 'team host ops' before retrying.
@@ -91,8 +112,9 @@ running; it never cancels, rolls back, or reissues an ambiguous operation.
 
 Orca must be reachable before any operation is queued, including on dry-run.
 --repo is the registered queue token, not a local path. The printed human
-remainder includes checking the worker's own session pickup and routing.`,
-		Example: "  hadron team worker onboard --name Iris --host orca1 --repo hadron-memory/hadron-cli --branch iris/work --label iris --family codex --worktrees-root /home/orca/orca/workspaces --config /home/orca/router.json\n  # inspect the dry-run, then repeat with --apply --as-person",
+remainder asks you to check the worker's pickup and mention delivery, and
+says routing is unverified.`,
+		Example: "  hadron team host list --app acme.com:eng-team      # host id, live, launchable workers\n  hadron team worker onboard --app acme.com:eng-team --name Iris --host orca1 --repo hadron-memory/hadron-cli --branch iris/work --label iris --family codex --worktrees-root /home/orca/orca/workspaces --config /home/orca/router.json\n  # inspect the dry-run, then repeat with --apply --as-person",
 		Args:    cobra.NoArgs,
 		RunE:    func(cmd *cobra.Command, _ []string) error { return runWorkerOnboard(cmd, f, o) },
 	}
@@ -109,7 +131,7 @@ remainder includes checking the worker's own session pickup and routing.`,
 	cmd.Flags().BoolVar(&o.apply, "apply", false, "apply the plan (default: dry-run)")
 	cmd.Flags().BoolVar(&o.asPerson, "as-person", false, "issue as yourself, not the bound worker")
 	cmd.Flags().BoolVar(&o.coordinator, "coordinator", false, "enable the roster coordinator watch")
-	cmd.Flags().DurationVar(&o.timeout, "timeout", 2*time.Minute, "bound for each queue operation and router reload (1s to 30m)")
+	cmd.Flags().DurationVar(&o.timeout, "timeout", 2*time.Minute, "bound for each queue operation (1s to 30m)")
 	return cmd
 }
 
@@ -179,7 +201,7 @@ func runWorkerOnboard(cmd *cobra.Command, f *cmdutil.Factory, o onboardOptions) 
 	if err := teamrouter.CheckRosterEntry(cfg, entry); err != nil {
 		return exitcode.Newf(exitcode.Usage, "roster ownership conflict: %v; nothing queued", err)
 	}
-	dto := onboardDTO{DryRun: !o.apply, WorkerID: w.Id, Worktree: dir, Operations: steps, Verified: []string{"Orca reachable", "host registration", "mention-only register row"}, HumanRemainder: []string{"Worker binds its own session using the launch grant; this command never binds it.", "Verify the worker's pickup in team chat and its mention delivery after onboarding."}}
+	dto := onboardDTO{DryRun: !o.apply, WorkerID: w.Id, Worktree: dir, Operations: steps, Verified: []string{"Orca reachable", "host registration", "mention-only register row"}, HumanRemainder: []string{"Worker binds its own session using the launch grant; this command never binds it.", "Verify the worker's pickup in team chat and its mention delivery after onboarding.", onboardRoutingUnverified}}
 	dto.Queue = []onboardOperationDTO{}
 	dto.AppID = w.AppId
 	dto.AppRef = cfg.App
@@ -239,19 +261,13 @@ func runWorkerOnboard(cmd *cobra.Command, f *cmdutil.Factory, o onboardOptions) 
 		if err := onboardWorktree(ctx, runner, dir, o.branch, ""); err != nil {
 			return err
 		}
-		started := time.Now()
-		fingerprint, err := teamrouter.PutRosterEntry(o.config, teamrouter.RosterEntry{Worker: w.Id, Name: w.Name, Worktree: dir, Coordinator: o.coordinator})
+		// cli#935: no router reload wait or claim follows. The only writer of
+		// that receipt was the retired team router loop.
+		_, err := teamrouter.PutRosterEntry(o.config, teamrouter.RosterEntry{Worker: w.Id, Name: w.Name, Worktree: dir, Coordinator: o.coordinator})
 		if err != nil {
 			return exitcode.New(exitcode.Error, fmt.Errorf("queue completed; roster update: %w", err))
 		}
 		dto.Verified = append(dto.Verified, "roster entry")
-		if err := onboardWait(ctx, o.timeout, func() (bool, error) {
-			r, err := teamrouter.ReadReload(cfg)
-			return err == nil && r.Fingerprint == fingerprint && !r.At.Before(started), nil
-		}); err != nil {
-			return exitcode.Newf(exitcode.Error, "roster saved; router reload unverified: %v; run the current Go team router loop on this config, then retry", err)
-		}
-		dto.Verified = append(dto.Verified, "router reloaded exact roster")
 		display := o.display
 		if display == "" {
 			display = w.Name

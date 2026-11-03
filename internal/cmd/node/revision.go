@@ -111,7 +111,7 @@ const revisionDefaultLimit = 20
 
 func newCmdRevisionList(f *cmdutil.Factory) *cobra.Command {
 	var memory string
-	var limit int
+	var limit, offset int
 	cmd := &cobra.Command{
 		Use:     "list <node-urn> | <loc> -m <memory> | <node-id>",
 		Aliases: []string{"ls"},
@@ -123,7 +123,8 @@ current version is not listed; node get shows it.
 
 Use a revision id with node revision get to see that version's content, or
 with node revision restore to go back to it. 20 are listed unless --limit
-says otherwise; a full page of 20 means there may be more.`,
+says otherwise. stderr says "showing a-b of N" with the real total and, when
+more exist, "more: --offset N"; --offset pages on. --limit 0 only counts.`,
 		Example: `  hadron node revision list hrn:node:hadronmemory.com:dev:start-here
   hadron node revision list start-here -m hrn:mem:hadronmemory.com:dev --limit 5 --json`,
 		Args: cobra.ExactArgs(1),
@@ -139,21 +140,25 @@ says otherwise; a full page of 20 means there may be more.`,
 			if err != nil {
 				return err
 			}
-			// nodeRevisions has no offset or total, so the history cannot be
-			// paged to its end (cli#967). An unset --limit sends the explicit
-			// default rather than the server's own, and a full default page is
-			// reported as "first N; more may exist" — a page of exactly N does
-			// not prove older revisions exist.
-			explicitLimit := cmd.Flags().Changed("limit")
-			if !explicitLimit {
+			// cli#1339: nodeRevisionsPage carries the real total and an offset, so
+			// the history can be paged to its end. An unset --limit still sends
+			// the explicit default (cli#967); stdout and --json stay the bare array.
+			if !cmd.Flags().Changed("limit") {
 				limit = revisionDefaultLimit
 			}
-			limitArg := &limit
+			if offset < 0 {
+				return exitcode.Newf(exitcode.Usage, "offset must be non-negative")
+			}
+			limitArg, offsetArg := &limit, &offset
 			dtos := []revisionStampedDTO{}
-			stamped, err := gen.NodeRevisionsStamped(cmd.Context(), client, ref, limitArg)
+			var total int
+			var hasMore bool
+			stamped, err := gen.NodeRevisionsStampedPage(cmd.Context(), client, ref, limitArg, offsetArg)
 			switch {
 			case err == nil:
-				for _, v := range stamped.NodeRevisions {
+				page := stamped.NodeRevisionsPage
+				total, hasMore = page.Total, page.HasMore
+				for _, v := range page.Items {
 					d := revisionStampedDTO{revisionDTO: revisionDTOFrom(v.RevisionFields)}
 					if v.Authorship != nil {
 						d.Authorship = authorshipFrom(&v.Authorship.NodeAuthorshipFields)
@@ -165,18 +170,25 @@ says otherwise; a full page of 20 means there may be more.`,
 				}
 			case stampsRefused(err):
 				// A server without the stamps: the history, and null stamps.
-				resp, err := gen.NodeRevisions(cmd.Context(), client, ref, limitArg)
+				resp, err := gen.NodeRevisionsPage(cmd.Context(), client, ref, limitArg, offsetArg)
 				if err != nil {
 					return api.MapError(err)
 				}
-				for _, v := range resp.NodeRevisions {
+				page := resp.NodeRevisionsPage
+				total, hasMore = page.Total, page.HasMore
+				for _, v := range page.Items {
 					dtos = append(dtos, revisionStampedDTO{revisionDTO: revisionDTOFrom(v.RevisionFields)})
 				}
 			default:
 				return api.MapError(err)
 			}
-			if !explicitLimit && len(dtos) >= limit {
-				_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "Showing the first %d revisions; more may exist. Pass --limit N for a larger page.\n", limit)
+			if len(dtos) == 0 {
+				_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "No revisions at offset %d (total %d).\n", offset, total)
+			} else {
+				_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "showing %d-%d of %d\n", offset+1, offset+len(dtos), total)
+			}
+			if hasMore {
+				_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "more: --offset %d\n", offset+len(dtos))
 			}
 			return output.Write(f.IOStreams, f.JSON, dtos, func(w io.Writer) error {
 				t := output.NewTable(w, "REVISION-ID", "CREATED", "NAME", "EDITED-BY", "LABEL", "VALIDATION")
@@ -188,7 +200,8 @@ says otherwise; a full page of 20 means there may be more.`,
 		},
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve a bare <loc> against")
-	cmd.Flags().IntVar(&limit, "limit", 0, "max revisions to return (default 20; a full default page says more may exist)")
+	cmd.Flags().IntVar(&limit, "limit", 0, "max revisions to return (default 20; 0 counts only)")
+	cmd.Flags().IntVar(&offset, "offset", 0, "revisions to skip (nonnegative), to reach the next page")
 	return cmd
 }
 

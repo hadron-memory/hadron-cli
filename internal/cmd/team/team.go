@@ -98,6 +98,7 @@ and ` + "`hadron app agent list <app>`" + ` (the installed cast pool).`,
 	cmd.AddCommand(newCmdRole(f))
 	cmd.AddCommand(newCmdSession(f))
 	cmd.AddCommand(newCmdTeamChat(f))
+	cmd.AddCommand(newCmdTeamRegister(f))
 	cmd.AddCommand(newCmdTeamChannel(f))
 	cmd.AddCommand(newCmdAttention(f))
 	cmd.AddCommand(newCmdTeamTask(f))
@@ -109,7 +110,13 @@ and ` + "`hadron app agent list <app>`" + ` (the installed cast pool).`,
 	cmd.AddCommand(newCmdTeamStallSchedule(f))
 	cmd.AddCommand(newCmdTeamDeliverySettings(f))
 	cmd.AddCommand(newCmdTeamStop(f))
+	cmd.AddCommand(newCmdTeamPause(f, true), newCmdTeamPause(f, false))
+	cmd.AddCommand(newCmdTeamWakes(f))
+	cmd.AddCommand(newCmdTeamWakeSettings(f))
+	cmd.AddCommand(newCmdTeamIsolation(f))
 	cmd.AddCommand(newCmdTeamHost(f))
+	cmd.AddCommand(newCmdTeamHealth(f))
+	cmd.AddCommand(newCmdTeamUsage(f))
 	cmd.AddCommand(newCmdTeamRouter(f))
 	return cmd
 }
@@ -145,7 +152,12 @@ func reportsToLabel(ref *workerRefDTO, retired bool, known bool) string {
 type workerDTO struct {
 	ReportsTo        *workerRefDTO `json:"reportsTo"`
 	ReportsToRetired bool          `json:"reportsToRetired"`
-	ID               string        `json:"id"`
+	// TeamPlacement is the recorded reporting CHOICE (cli#933): REPORTS_TO,
+	// NO_TEAM or UNSET. NOT omitempty: null means WITHHELD from this caller
+	// (access-masked) and is never UNSET or NO_TEAM, nor derived from a null
+	// reportsTo.
+	TeamPlacement *string `json:"teamPlacement"`
+	ID            string  `json:"id"`
 	// URN is the worker's address (#991), keyed on the permanent derived
 	// slug. Null when the App's URN predates the flat grammar-v2 arity it
 	// needs, so consumers must tolerate its absence.
@@ -249,6 +261,7 @@ func workerDTOFromFields(w gen.WorkerFields) workerDTO {
 		dto.ReportsTo = reportingRef(w.ReportsTo.WorkerReportingRefFields)
 	}
 	dto.ReportsToRetired = w.ReportsToRetired
+	dto.TeamPlacement = placementString(w.TeamPlacement)
 	return dto
 }
 
@@ -262,8 +275,10 @@ func workerDTOFromFields(w gen.WorkerFields) workerDTO {
 type workerRosterDTO struct {
 	ReportsTo        *workerRefDTO `json:"reportsTo"`
 	ReportsToRetired bool          `json:"reportsToRetired"`
-	ID               string        `json:"id"`
-	URN              *string       `json:"urn"`
+	// TeamPlacement: same field and null-means-withheld semantics as workerDTO.
+	TeamPlacement *string `json:"teamPlacement"`
+	ID            string  `json:"id"`
+	URN           *string `json:"urn"`
 	// PortalURL is the server-built link that opens this worker
 	// (cor:api:230:01). Null is a defined answer — no usable web origin on the
 	// deployment, or no URN to build one from — and it stays null: the CLI
@@ -324,43 +339,34 @@ func workerRosterDTOFromFields(w gen.WorkerRosterFields) workerRosterDTO {
 		dto.ReportsTo = reportingRef(w.ReportsTo.WorkerReportingRefFields)
 	}
 	dto.ReportsToRetired = w.ReportsToRetired
+	dto.TeamPlacement = placementString(w.TeamPlacement)
 	return dto
+}
+
+// placementString copies a returned teamPlacement as the server sent it; nil
+// stays nil (WITHHELD), never defaulted to UNSET.
+func placementString(p *gen.WorkerTeamPlacement) *string {
+	if p == nil {
+		return nil
+	}
+	s := string(*p)
+	return &s
+}
+
+// workerRefName is the readable name for a reporting head in placement text:
+// the name (not an id) when the readback carries a reporting head, else nil.
+func workerRefName(r *workerRefDTO) *string {
+	if r == nil {
+		return nil
+	}
+	return &r.Name
 }
 
 const workerPageSize = 200
 
-// scanWorkers pages one App's staff to exhaustion (the issue-#23 rule: an
-// unbounded list is one default page). includeRetired is always true here —
-// resolution and joins must see retired workers, since their names stay
-// bound to history; commands that hide them filter client-side.
-func scanWorkers(ctx context.Context, client graphql.Client, appRef string) ([]gen.WorkerFields, error) {
-	includeRetired := true
-	workers := []gen.WorkerFields{}
-	limit := workerPageSize
-	for offset := 0; ; {
-		off := offset
-		resp, err := gen.Workers(ctx, client, appRef, &includeRetired, &limit, &off)
-		if err != nil {
-			return nil, api.MapError(err)
-		}
-		if resp.Workers == nil {
-			return workers, nil
-		}
-		for _, w := range resp.Workers.Items {
-			if w == nil {
-				continue
-			}
-			workers = append(workers, w.WorkerFields)
-		}
-		offset += len(resp.Workers.Items)
-		if len(resp.Workers.Items) < workerPageSize || offset >= resp.Workers.Total {
-			return workers, nil
-		}
-	}
-}
-
-// scanWorkerRoster is scanWorkers' projection twin for `worker list` (#459) —
-// same App, same includeRetired posture, same exhaustion loop, no prompt.
+// scanWorkerRoster pages one App's staff for `worker list` (#459), retired
+// workers included (hidden client-side), to exhaustion (the issue-#23 rule),
+// on the roster projection: no prompt.
 // Kept separate rather than parameterised: the two return different generated
 // types, and a shared helper would have to erase that difference to a
 // lowest-common shape, which is what dragged the prompt into the roster in the
@@ -398,11 +404,35 @@ func scanWorkerRoster(ctx context.Context, client graphql.Client, appRef string)
 // its derived permanent slug) or its id, both of which `worker(ref:)` takes.
 // The name pass sees retired workers too — retiring must not make
 // `worker get Iris` a not-found.
+//
+// The name pass is ONE read: worker(appRef:, ref:) resolves the name within
+// the App server-side (cli#1459). It used to page the App's whole staff with
+// every worker's boot briefing, 3.4 MB and ~13 s of server time on a
+// 100-worker App (hadron-server#2970). A caller that needs only the id uses
+// resolveWorkerID, whose name read selects nothing else.
 func resolveWorker(ctx context.Context, client graphql.Client, appRef, arg string) (gen.WorkerFields, error) {
-	var zero gen.WorkerFields
+	_, w, err := lookupWorker(ctx, client, appRef, arg, true)
+	if err != nil {
+		return gen.WorkerFields{}, err
+	}
+	return *w, nil
+}
+
+// resolveWorkerID is resolveWorker for a caller that needs only the worker's
+// id (a filter, a ref to pass on): the same lookup and the same refusals,
+// without reading the worker's row and briefing on the name path.
+func resolveWorkerID(ctx context.Context, client graphql.Client, appRef, arg string) (string, error) {
+	id, _, err := lookupWorker(ctx, client, appRef, arg, false)
+	return id, err
+}
+
+// lookupWorker is the shared lookup. It returns the worker's id, and its full
+// row unless `full` is false and the name path answered (the URN and id paths
+// read the row anyway). With full=true the row is never nil on success.
+func lookupWorker(ctx context.Context, client graphql.Client, appRef, arg string, full bool) (string, *gen.WorkerFields, error) {
 	arg = strings.TrimSpace(arg)
 	if arg == "" {
-		return zero, exitcode.Newf(exitcode.Usage, "empty worker reference")
+		return "", nil, exitcode.Newf(exitcode.Usage, "empty worker reference")
 	}
 	// A worker URN addresses ONE casting App-independently (#991/#445), so it
 	// dispatches FIRST — before any ambient App scope. Scanning an App's staff
@@ -412,74 +442,88 @@ func resolveWorker(ctx context.Context, client graphql.Client, appRef, arg strin
 	if strings.HasPrefix(strings.ToLower(arg), "hrn:worker:") {
 		resp, err := gen.GetWorker(ctx, client, arg)
 		if err != nil {
-			return zero, api.MapError(err)
+			return "", nil, api.MapError(err)
 		}
 		if resp.Worker == nil {
-			return zero, exitcode.Newf(exitcode.NotFound, "no worker %q", arg)
+			return "", nil, exitcode.Newf(exitcode.NotFound, "no worker %q", arg)
 		}
-		return resp.Worker.WorkerFields, nil
+		return resp.Worker.Id, &resp.Worker.WorkerFields, nil
 	}
 	if appRef != "" {
-		workers, err := scanWorkers(ctx, client, appRef)
-		if err != nil {
-			return zero, err
-		}
-		for _, w := range workers {
-			if strings.EqualFold(w.Name, arg) || w.Id == arg {
-				return w, nil
+		// One read, the name resolved server-side within the App: unique per
+		// App by the database's lower(), retired workers included, and an id
+		// in `arg` wins over appRef exactly as the old scan's id match and id
+		// fallback did. Denial, an unresolvable App and absence all refuse
+		// WORKER_NOT_FOUND by design (no roster oracle), so that code is the
+		// not-found answer; anything else (auth, transport) is itself.
+		var (
+			id  string
+			row *gen.WorkerFields
+		)
+		if full {
+			resp, err := gen.GetWorkerInApp(ctx, client, appRef, arg)
+			if err == nil && resp.Worker != nil {
+				id, row = resp.Worker.Id, &resp.Worker.WorkerFields
+			} else if err != nil && !api.HasErrorCode(err, "WORKER_NOT_FOUND") {
+				return "", nil, api.MapError(err)
+			}
+		} else {
+			resp, err := gen.GetWorkerIdInApp(ctx, client, appRef, arg)
+			if err == nil && resp.Worker != nil {
+				id = resp.Worker.Id
+			} else if err != nil && !api.HasErrorCode(err, "WORKER_NOT_FOUND") {
+				return "", nil, api.MapError(err)
 			}
 		}
+		if id == "" {
+			return "", nil, exitcode.Newf(exitcode.NotFound,
+				"no worker %q in this App — `hadron team worker list` shows the staff", arg)
+		}
+		return id, row, nil
 	}
-	// Not a name in this App (or no App to look in) — try it as a worker id.
+	// No App to look in: only an id (or URN, above) can resolve.
 	resp, err := gen.GetWorker(ctx, client, arg)
 	if err == nil && resp.Worker != nil {
-		return resp.Worker.WorkerFields, nil
+		return resp.Worker.Id, &resp.Worker.WorkerFields, nil
 	}
-	if appRef == "" {
-		// The id lookup was the ONLY lookup, so its failure is the answer — but
-		// WHICH failure decides what to say, so branch on the CODE rather than
-		// on err != nil (#464). A name-shaped argument is never a valid id, so
-		// this lookup always errors for the very input the message below was
-		// written for; keying on presence made that message unreachable and
-		// leaked `input:3: worker Worker not found.` instead.
-		//
-		// #566 has since removed that prefix, so the same regression today
-		// would leak a tidy `Worker not found.` — which is WORSE for this
-		// guard, not better. The old leak announced itself as machinery and
-		// invited a fix; the clean one reads like a deliberate message and
-		// would survive review. The branch below is what produces the sentence
-		// that actually helps (it names the ref AND tells the caller about
-		// --app), and it is load-bearing independently of how the server's
-		// refusal is packaged.
-		//
-		// WORKER_NOT_FOUND is what the server returns for every "cannot resolve
-		// this ref" shape — verified live against a bare name, a malformed ref,
-		// and a well-formed URN that does not exist. Anything else (auth,
-		// transport, 5xx) still surfaces as itself, which is the outage-honesty
-		// the original comment protects: an outage must not read as "the worker
-		// does not exist".
-		if err != nil && !api.HasErrorCode(err, "WORKER_NOT_FOUND") {
-			return zero, api.MapError(err)
-		}
-		// Covers BOTH readings of the argument rather than guessing which was
-		// meant (PR #483 review). An id that does not exist returns the same
-		// WORKER_NOT_FOUND as a name with no scope, and --app cannot make a
-		// nonexistent id resolve — so advising it alone would misdirect every
-		// id-based caller. resolveWorker is shared by worker get/retire/rm and
-		// `session start --as`, all of which take name-or-id, so one message
-		// serves all of them.
-		//
-		// Deliberately NOT shape-sniffing the argument to pick a branch: worker
-		// names are free-form, so no name-vs-id test is safe, and guessing is
-		// the smell review:no-hand-parsed-ref-labels exists to catch.
-		return zero, exitcode.Newf(exitcode.NotFound,
-			"no worker %q — if that is a NAME it resolves only within an App, so pass --app <ref> (or set an App context); an id or URN (hrn:worker:…) needs no App scope, so if you passed one, nothing by that ref exists", arg)
+	// The id lookup was the ONLY lookup, so its failure is the answer — but
+	// WHICH failure decides what to say, so branch on the CODE rather than
+	// on err != nil (#464). A name-shaped argument is never a valid id, so
+	// this lookup always errors for the very input the message below was
+	// written for; keying on presence made that message unreachable and
+	// leaked `input:3: worker Worker not found.` instead.
+	//
+	// #566 has since removed that prefix, so the same regression today
+	// would leak a tidy `Worker not found.` — which is WORSE for this
+	// guard, not better. The old leak announced itself as machinery and
+	// invited a fix; the clean one reads like a deliberate message and
+	// would survive review. The branch below is what produces the sentence
+	// that actually helps (it names the ref AND tells the caller about
+	// --app), and it is load-bearing independently of how the server's
+	// refusal is packaged.
+	//
+	// WORKER_NOT_FOUND is what the server returns for every "cannot resolve
+	// this ref" shape — verified live against a bare name, a malformed ref,
+	// and a well-formed URN that does not exist. Anything else (auth,
+	// transport, 5xx) still surfaces as itself, which is the outage-honesty
+	// the original comment protects: an outage must not read as "the worker
+	// does not exist".
+	if err != nil && !api.HasErrorCode(err, "WORKER_NOT_FOUND") {
+		return "", nil, api.MapError(err)
 	}
-	// With an App scope, the staff scan above already reached the server and
-	// found no such name — the id try was a bonus, and a refusal of a
-	// name-shaped ref (e.g. BAD_USER_INPUT) must not mask the honest answer.
-	return zero, exitcode.Newf(exitcode.NotFound,
-		"no worker %q in this App — `hadron team worker list` shows the staff", arg)
+	// Covers BOTH readings of the argument rather than guessing which was
+	// meant (PR #483 review). An id that does not exist returns the same
+	// WORKER_NOT_FOUND as a name with no scope, and --app cannot make a
+	// nonexistent id resolve — so advising it alone would misdirect every
+	// id-based caller. resolveWorker is shared by worker get/retire/rm and
+	// `session start --as`, all of which take name-or-id, so one message
+	// serves all of them.
+	//
+	// Deliberately NOT shape-sniffing the argument to pick a branch: worker
+	// names are free-form, so no name-vs-id test is safe, and guessing is
+	// the smell review:no-hand-parsed-ref-labels exists to catch.
+	return "", nil, exitcode.Newf(exitcode.NotFound,
+		"no worker %q — if that is a NAME it resolves only within an App, so pass --app <ref> (or set an App context); an id or URN (hrn:worker:…) needs no App scope, so if you passed one, nothing by that ref exists", arg)
 }
 
 // describeApp renders a team App the way a reader can act on it: its URN,

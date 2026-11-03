@@ -27,6 +27,8 @@ import (
 // environment variable, which a same-user agent could read from the
 // poller's /proc entry.
 type Config struct {
+	// Capabilities is an explicit full declaration at every refresh, never inferred.
+	Capabilities []string `yaml:"capabilities"`
 	// Server is the Hadron server URL; empty means the CLI's usual resolution.
 	Server string `yaml:"server"`
 	// App is the team App the host serves (hrn:app:<root>:<slug>, or an id).
@@ -60,6 +62,9 @@ type DeliveryConfig struct {
 	// Enabled turns delivery on. The host key then also needs
 	// attention:deliver; without it delivery switches off for the run.
 	Enabled bool `yaml:"enabled"`
+	// AckMixed asserts that the server carries A-prime (#2072): mixed wake
+	// acknowledgment records ticks/tasks without advancing any chat mark.
+	AckMixed bool `yaml:"ack_mixed"`
 	// OrcaBin is the absolute path of the orca CLI.
 	OrcaBin string `yaml:"orca_bin"`
 }
@@ -77,6 +82,12 @@ type WorkerConfig struct {
 	// EndWait bounds how long worker.end waits for the session to end
 	// (default 15m).
 	EndWait string `yaml:"end_wait"`
+	// Recover is an optional argv that hands a relaunched agent its recovery
+	// prompt after a worker.reset-context (#1043), the way End prompts an
+	// end. It gets HADRON_SESSION_ID, HADRON_WORKER_ID and
+	// HADRON_RECOVERY_NODE (the checkpoint node's reference): ids only. A
+	// worker without it is never reset on this host.
+	Recover []string `yaml:"recover"`
 	// Worktrees are this worker's existing worktree name tokens, relative to
 	// worktrees_root, beyond the ones this poller created.
 	Worktrees []string `yaml:"worktrees"`
@@ -157,6 +168,26 @@ func LoadConfig(path string) (*Config, error) {
 	if err := dec.Decode(&c); err != nil {
 		return nil, fmt.Errorf("parsing host config %s: %w", path, err)
 	}
+	// Inspect the source node as well: yaml.v3 accepts legacy bool strings and
+	// treats null as an omitted bool. Neither is an operator's explicit assertion.
+	var document yaml.Node
+	if err := yaml.Unmarshal(raw, &document); err != nil {
+		return nil, err
+	}
+	if err := yamlField(&document, "delivery", map[*yaml.Node]bool{}, func(delivery *yaml.Node) error {
+		return yamlField(delivery, "ack_mixed", map[*yaml.Node]bool{}, func(value *yaml.Node) error {
+			for value.Kind == yaml.AliasNode {
+				value = value.Alias
+			}
+			if value.Tag != "!!bool" {
+				return fmt.Errorf("delivery.ack_mixed at line %d must be a boolean", value.Line)
+			}
+			return nil
+		})
+	}); err != nil {
+		return nil, fmt.Errorf("host config %s: %w", path, err)
+	}
+
 	dir := filepath.Dir(path)
 	if c.StateFile == "" {
 		c.StateFile = filepath.Join(dir, "hadron-host-state.json")
@@ -170,6 +201,40 @@ func LoadConfig(path string) (*Config, error) {
 		return nil, fmt.Errorf("host config %s: %w", path, err)
 	}
 	return &c, nil
+}
+
+// yamlField visits a field through ordinary YAML aliases and merge mappings,
+// without replacing the normal KnownFields decoder or duplicating struct tags.
+func yamlField(n *yaml.Node, field string, seen map[*yaml.Node]bool, visit func(*yaml.Node) error) error {
+	if n == nil || seen[n] {
+		return nil
+	}
+	seen[n] = true
+	switch n.Kind {
+	case yaml.AliasNode:
+		return yamlField(n.Alias, field, seen, visit)
+	case yaml.DocumentNode, yaml.SequenceNode:
+		for _, child := range n.Content {
+			if err := yamlField(child, field, seen, visit); err != nil {
+				return err
+			}
+		}
+	case yaml.MappingNode:
+		for i := 0; i+1 < len(n.Content); i += 2 {
+			key, value := n.Content[i], n.Content[i+1]
+			if key.Value == field {
+				if err := visit(value); err != nil {
+					return err
+				}
+			}
+			if key.Tag == "!!merge" {
+				if err := yamlField(value, field, seen, visit); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (c *Config) validate() error {

@@ -254,9 +254,25 @@ adds the GraphQL adapter (`internal/cmd/team/host_wakes.go`) and wires it in
 - A broken page (bad `deliverAfter`/`busyDeadline`, no page, a looping
   cursor) refuses the whole read.
 - `WAKE_BUDGET_EXHAUSTED` returns no wakes.
+- **tickText and action (cli#1534).** The read selects `DueWake.tickText` and
+  `WakeReason.action { code state taskLoc taskUrn }` and maps them verbatim onto
+  `Wake.TickText` and `WakeReason.Action`: no trim, repair, cut or client task
+  resolution, and `WITHHELD` stays `WITHHELD`, distinct from `UNMAPPED`
+  (cor:agt:080:23, :26). A null or omitted VALUE keeps the composed fallback.
+  The minimum server is hadron-server#2733 (`7db74494`), the same floor as
+  #1281. A server without those fields refuses the whole query at GraphQL
+  validation; the poller fails closed on that like any wake-read error: no
+  retry without the selection, nothing typed, the wake left due.
 - `acknowledgeWakes` sends one proof per call.
-- `AckMixed` stays off: A′ (#2072) is on server main, but its deployment
-  was not verified from the CLI.
+- `AckMixed` follows `delivery.ack_mixed` (cli#1229), default false. An
+  operator sets true only after verifying A′ (#2072, ad7f1c2) is deployed.
+  Mixed wake acknowledgment records tick/task receipts without moving chat
+  delivered-through or read position; mention text still uses its own batch.
+  The setting is shown as text `ack-mixed on|off` and JSON `delivery.ackMixed`.
+  Previously typed records reconcile without retyping using the current pass's
+  newly issued proof, within the 15-minute proof window. Non-boolean values
+  (including strings/null) are refused. The existing deliverer/record algorithm
+  is unchanged; this slice exposes its already-supported A′ behavior.
 
 - **The read:** in the same step, after the batches, while chat delivery is
   on. Each wake goes on its worker's chain behind that worker's batches.
@@ -267,6 +283,16 @@ adds the GraphQL adapter (`internal/cmd/team/host_wakes.go`) and wires it in
   no record yet, joined by `; ` and capped at 1,000 characters. When cut, the
   line says how many reasons it left out.
   - TICK: `[hadron tick] <ticker>: scheduled check-in. Read your team chat and tasks.`
+    When the wake carries the server's tick text (`DueWake.tickText`, cli#1177;
+    the `dueWakes` adapter selects it), that one line is typed instead, whole
+    and first, after `[hadron tick] `: `[hadron tick] <tickText>; [hadron task] …`.
+    It is never reworded, joined, repaired or cut. A text with a control character, line break or escape can't be typed as one line and is dropped whole (cor:agt:080:26 R4, as ticker-wake does): the wake then types today's line, so a tick-only wake still names its ticker.
+    `MaxWakeRunes` bounds the TASK parts only. When any TICK reason is unrecorded
+    the whole text is typed once and every unrecorded key is recorded. The CLI
+    never composes a tick line from `WakeReason.action`. No text reaches a record
+    or event, and `Key()` ignores both. The `dueWakes` adapter selects `tickText`
+    and `action` since cli#1534 (see "tickText and action" below), so the server's
+    line is the live one whenever the value is present.
   - TASK: `[hadron task] <event>: <title> (<task id>)`.
   - A task-less alarm (S5, hadron-server#2021 comment-6259060238: `taskId`
     null) renders as `[hadron task] alarm: <alarm type> (no task)`, or as

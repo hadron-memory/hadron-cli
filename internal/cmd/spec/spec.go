@@ -52,8 +52,11 @@ Draft rights are per node (hadron-server#1591): every new node starts
 unminted, in any memory, until its first mint. "spec reserve" holds a citation
 as a placeholder, "spec renumber" moves an unminted spec and
 rewrites references to it, and "spec backlinks" and "spec unresolved" read
-the references. "spec mint" stamps approved, unminted nodes. "spec describe"
-shows the derived corpus state and counts per-node approval and mint status.
+the references. "spec mint" stamps approved, unminted nodes. Approve one first
+with "hadron node approve <node-urn> --revision <n>", which approves only the
+revision you reviewed; "hadron memory approve-all" approves every unapproved
+node's current content at once, with no revision check. "spec describe" shows
+the derived corpus state and counts per-node approval and mint status.
 
 Every subcommand takes -m/--memory.`,
 	}
@@ -183,6 +186,10 @@ type ledgerDTO struct {
 	// (#708) but has no number to report. Named rather than counted so the
 	// report says which, and never dropped silently.
 	OutsideNumbering []string `json:"outsideNumbering"`
+	// ProductGeneral lists the live <product>:gen nodes: a product's
+	// general-provisions contract, which is not a module so the ledger skips it
+	// (cli#1146). Additive; [] when there is none.
+	ProductGeneral []string `json:"productGeneral"`
 }
 
 type ledgerModuleDTO struct {
@@ -195,6 +202,19 @@ type ledgerFeatureDTO struct {
 	Feature  string   `json:"feature"`
 	Rules    []string `json:"rules"`
 	NextRule string   `json:"nextRule"`
+	// ReplacedRules is additive (cli#1145): the rules `spec supersede` retired,
+	// each with its replacement loc or null. [] when none; Rules is unchanged.
+	ReplacedRules []ledgerReplacedRuleDTO `json:"replacedRules"`
+	// GeneralProvisions is true for the module's reserved :000 feature (its
+	// general-provisions contract), which is not an allocatable feature
+	// (cli#1146). Additive: nextRule and every other key are unchanged.
+	GeneralProvisions bool `json:"generalProvisions"`
+}
+
+type ledgerReplacedRuleDTO struct {
+	Rule       string  `json:"rule"`
+	Replaced   bool    `json:"replaced"`
+	ReplacedBy *string `json:"replacedBy"`
 }
 
 // specRole returns the governed `Node.role` every spec node carries (#1201).
@@ -732,7 +752,7 @@ func readMemoryByRef(cmd *cobra.Command, client graphql.Client, ref string) (id,
 func memoryURNsByID(cmd *cobra.Command, client graphql.Client) (map[string]string, error) {
 	filter := &gen.MemoryFilter{MemoryClasses: gen.AllMemoryClass}
 	items, err := api.CollectAll(func(limit, offset int) ([]*gen.MemoriesMemoriesMemoriesPageItemsMemory, int, error) {
-		resp, err := gen.Memories(cmd.Context(), client, filter, &limit, &offset)
+		resp, err := gen.Memories(cmd.Context(), client, filter, &limit, &offset, nil)
 		if err != nil {
 			return nil, 0, api.MapError(err)
 		}
@@ -818,7 +838,7 @@ func lookupSpecMemory(cmd *cobra.Command, client graphql.Client, ref string) (id
 	// both need the caller's whole memory list (hadron-server#473).
 	filter := &gen.MemoryFilter{MemoryClasses: gen.AllMemoryClass}
 	items, err := api.CollectAll(func(limit, offset int) ([]*gen.MemoriesMemoriesMemoriesPageItemsMemory, int, error) {
-		resp, err := gen.Memories(cmd.Context(), client, filter, &limit, &offset)
+		resp, err := gen.Memories(cmd.Context(), client, filter, &limit, &offset, nil)
 		if err != nil {
 			return nil, 0, api.MapError(err)
 		}

@@ -15,10 +15,14 @@ import (
 
 func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
-		Use:     "get <id>",
-		Short:   "Show an organization",
-		Example: `  hadron org get org_123 --json`,
-		Args:    cobra.ExactArgs(1),
+		Use:   "get <org>",
+		Short: "Show an organization",
+		Long: `Show one organization: name, URN, id, whether it is listed on the
+marketplace, and when it was last updated. <org> is its id, URN or root
+(acme.com); hadron org list shows the orgs you can see. An unknown org exits 4.`,
+		Example: `  hadron org get acme.com
+  hadron org get hrn:org:acme.com --json`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
 			if err != nil {

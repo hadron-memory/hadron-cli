@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -55,7 +56,22 @@ func TestC1bCountsOnlyPreservesExplicitZero(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := c2Mutation(t, calls, "CompiledPromptProvenance")
-	if c.Vars["limit"] != float64(0) || c.Vars["offset"] != float64(2) || !strings.Contains(out, `"items": []`) {
+	var dto struct {
+		NodeID      string            `json:"nodeId"`
+		RevNo       int               `json:"revNo"`
+		ContentHash string            `json:"contentHash"`
+		Items       []json.RawMessage `json:"items"`
+		Total       int               `json:"total"`
+		HasMore     bool              `json:"hasMore"`
+		Limit       *int              `json:"limit"`
+		Offset      int               `json:"offset"`
+	}
+	if err := json.Unmarshal([]byte(out), &dto); err != nil {
+		t.Fatal(err)
+	}
+	if c.Vars["limit"] != float64(0) || c.Vars["offset"] != float64(2) ||
+		dto.NodeID != "compiled1" || dto.RevNo != 7 || dto.ContentHash != "recordedhash" ||
+		dto.Items == nil || len(dto.Items) != 0 || dto.Total != 1 || dto.HasMore || dto.Limit == nil || *dto.Limit != 0 || dto.Offset != 2 {
 		t.Fatalf("counts-only altered: %s %s", c.RawVars, out)
 	}
 }
@@ -103,6 +119,11 @@ func c1bPageAt(t *testing.T, order int, more bool) string {
 
 func c1bReadPages(t *testing.T, pages []string) (*[]attnCall, string, error) {
 	t.Helper()
+	return c1bReadPagesLimit(t, pages, 1)
+}
+
+func c1bReadPagesLimit(t *testing.T, pages []string, limit int) (*[]attnCall, string, error) {
+	t.Helper()
 	writeTeamBinding(t)
 	responses := map[string]string{}
 	n := 0
@@ -125,7 +146,7 @@ func c1bReadPages(t *testing.T, pages []string) (*[]attnCall, string, error) {
 	setTeamBindingServer(t, srv.URL)
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"--server", srv.URL, "node", "provenance", c1bRef, "--revision", "7", "--all", "--limit", "1", "--json"})
+	root.SetArgs([]string{"--server", srv.URL, "node", "provenance", c1bRef, "--revision", "7", "--all", "--limit", strconv.Itoa(limit), "--json"})
 	err := root.Execute()
 	return calls, out.String(), err
 }
@@ -242,7 +263,7 @@ func TestC1bHumanSourceStatusesAndJSONOnlyDetailHelp(t *testing.T) {
 		}
 	}
 	_, out, err := runTeamTask(t, nil, "node", "provenance", "--help")
-	if err != nil || !strings.Contains(out, "--json includes the full recorded occurrence") {
+	if err != nil || !strings.Contains(strings.Join(strings.Fields(out), " "), "--json includes the full recorded occurrence") {
 		t.Fatalf("JSON-only detail not disclosed: %v %s", err, out)
 	}
 }
@@ -275,9 +296,8 @@ func TestC1bCountAndPagingEdges(t *testing.T) {
 		}
 	})
 	t.Run("counts with more", func(t *testing.T) {
-		page := strings.Replace(c1bPage, `"items":[`, `"items":[`, 1)
 		var record map[string]any
-		if err := json.Unmarshal([]byte(page), &record); err != nil {
+		if err := json.Unmarshal([]byte(c1bPage), &record); err != nil {
 			t.Fatal(err)
 		}
 		record["items"] = []any{}
@@ -314,4 +334,92 @@ func TestC1bCountAndPagingEdges(t *testing.T) {
 			t.Fatalf("missing recovery hint: %s", stderr.String())
 		}
 	})
+}
+
+// #1169: pages can contain several occurrences. The offset advances by the
+// returned length, not by one or by the requested page limit.
+func c1bOccurrencesPage(t *testing.T, first, count, total int, more bool) string {
+	t.Helper()
+	var page map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(c1bPage), &page); err != nil {
+		t.Fatal(err)
+	}
+	items := make([]map[string]any, 0, count)
+	for i := first; i < first+count; i++ {
+		var itemPage map[string]any
+		if err := json.Unmarshal([]byte(c1bPageAt(t, i, false)), &itemPage); err != nil {
+			t.Fatal(err)
+		}
+		item := itemPage["items"].([]any)[0].(map[string]any)
+		item["nodeId"] = "source" + strconv.Itoa(i+1)
+		items = append(items, item)
+	}
+	raw, err := json.Marshal(items)
+	if err != nil {
+		t.Fatal(err)
+	}
+	page["items"] = raw
+	page["total"] = json.RawMessage(strconv.Itoa(total))
+	page["hasMore"] = json.RawMessage(strconv.FormatBool(more))
+	raw, err = json.Marshal(page)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(raw)
+}
+
+func TestC1bMultiItemOffsetAdvance1169(t *testing.T) {
+	pages := []string{c1bOccurrencesPage(t, 0, 2, 5, true), c1bOccurrencesPage(t, 2, 2, 5, true), c1bOccurrencesPage(t, 4, 1, 5, false)}
+	calls, out, err := c1bReadPagesLimit(t, pages, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(*calls) != 3 {
+		t.Fatalf("calls=%v", *calls)
+	}
+	for i, want := range []float64{0, 2, 4} {
+		c := (*calls)[i]
+		if c.Op != "CompiledPromptProvenance" || c.Vars["offset"] != want || c.Vars["limit"] != float64(3) {
+			t.Fatalf("call%d=%+v", i, c)
+		}
+	}
+	var dto struct {
+		Items []struct {
+			Order  int
+			NodeID string
+		}
+		Total, Limit, Offset int
+		HasMore              bool
+	}
+	if err := json.Unmarshal([]byte(out), &dto); err != nil {
+		t.Fatal(err)
+	}
+	if len(dto.Items) != 5 || dto.Total != 5 || dto.Limit != 3 || dto.Offset != 0 || dto.HasMore {
+		t.Fatalf("partial/altered result: %s", out)
+	}
+	for i, item := range dto.Items {
+		if item.Order != i || item.NodeID != "source"+strconv.Itoa(i+1) {
+			t.Fatalf("occurrence%d=%+v", i, item)
+		}
+	}
+}
+
+func TestC1bShrinkingTotalRefusesBeforePartialOutput1169(t *testing.T) {
+	// A changed total is rejected by the identity/count guard, before the later
+	// over-total pagination guard. Keep that exit-5 distinction explicit.
+	pages := []string{c1bOccurrencesPage(t, 0, 2, 5, true), c1bOccurrencesPage(t, 2, 1, 3, false)}
+	calls, out, err := c1bReadPagesLimit(t, pages, 3)
+	if exitCodeFor(err) != 5 || !strings.Contains(err.Error(), "count or compiled pruning state changed") || out != "" || len(*calls) != 2 {
+		t.Fatalf("err=%v out=%s calls=%v", err, out, *calls)
+	}
+}
+
+func TestC1bExhaustedTotalStillHasMoreRefuses1169(t *testing.T) {
+	// Stable total bypasses the changed-count guard and actually reaches the
+	// over-total guard: offset2 + two returned occurrences == total4, hasMore.
+	pages := []string{c1bOccurrencesPage(t, 0, 2, 4, true), c1bOccurrencesPage(t, 2, 2, 4, true)}
+	calls, out, err := c1bReadPagesLimit(t, pages, 3)
+	if exitCodeFor(err) != 1 || !strings.Contains(err.Error(), "pagination did not advance consistently") || out != "" || len(*calls) != 2 {
+		t.Fatalf("err=%v out=%s calls=%v", err, out, *calls)
+	}
 }

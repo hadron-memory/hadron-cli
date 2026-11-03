@@ -69,10 +69,14 @@ not read, and any lower-precedence scopes of the same name that it shadowed.
 With --loc, also shows which memory would WIN for that address under this
 scope — the question "if I ask for this loc, where does it come from?".
 
+A scope NAME resolves in an App's context (App > Agent > organization), taken from
+the persistent --app flag or the active App; an ID needs no context and
+ignores --app.
+
 A name that two installed Agents both own is reported as ambiguous by the
 server; answer it by passing the scope's id instead.`,
-		Example: `  hadron scope explain research
-  hadron scope explain research --loc findings:retrieval`,
+		Example: `  hadron scope explain research --app hrn:app:acme.com:dev-team
+  hadron scope explain research --app hrn:app:acme.com:dev-team --loc findings:retrieval`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()

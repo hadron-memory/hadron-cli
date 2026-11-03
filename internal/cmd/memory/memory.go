@@ -144,6 +144,8 @@ Encryption and Apps
 	cmd.AddCommand(newCmdEncrypt(f))
 	cmd.AddCommand(newCmdLinkUser(f))
 	cmd.AddCommand(newCmdValidate(f))
+	cmd.AddCommand(newCmdVerify(f))
+	cmd.AddCommand(newCmdMerge(f))
 	cmd.AddCommand(newCmdReembedFailed(f))
 	cmd.AddCommand(usage.NewCmdMemoryUsage(f))
 	cmd.AddCommand(newCmdApproveAll(f))

@@ -39,8 +39,8 @@ func TestChatReadDrainsPastAClampedPage(t *testing.T) {
 	if len(dto.Messages) != 130 {
 		t.Fatalf("got %d messages, want 130 (stopped on a short page)", len(dto.Messages))
 	}
-	if n := len(rec["ChatMessages"].Calls); n != 4 {
-		t.Errorf("want 4 requests (50+50+30+empty), got %d", n)
+	if n := len(rec["ChatMessages"].Calls); n != 8 {
+		t.Errorf("want 8 requests (two drains of 50+50+30+empty), got %d", n)
 	}
 }
 

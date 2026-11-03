@@ -1,0 +1,1 @@
+*/5 * * * * PATH='/usr/bin:/home/u/bin' '/usr/local/bin/hadron' 'team' 'health' 'sweep' '--config' '/home/u/my hosts/host 100\%.yaml' # hadron-team-health config="/home/u/my hosts/host 100\%.yaml"

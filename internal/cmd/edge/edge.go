@@ -52,7 +52,8 @@ func NewCmdEdge(f *cmdutil.Factory) *cobra.Command {
 relationship name such as routes-to or supersedes. Edges connect your notes:
 
   edge create   link two nodes
-  edge list     see what a node links to, and what links to it
+  edge list     see what a node links to and what links to it, or list edges
+  edge get      show one edge
   edge update   change a link's name or settings
   edge rm       remove a link (neither node is deleted)
 
@@ -66,6 +67,7 @@ needs none of them; edge create --help explains each.`,
   hadron edge list start-here -m hrn:mem:acme.com:kb`,
 	}
 	cmd.AddCommand(newCmdLs(f))
+	cmd.AddCommand(newCmdGet(f))
 	cmd.AddCommand(newCmdAdd(f))
 	cmd.AddCommand(newCmdUpdate(f))
 	cmd.AddCommand(newCmdRm(f))

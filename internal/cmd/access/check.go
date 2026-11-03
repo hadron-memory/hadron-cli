@@ -52,19 +52,32 @@ func newCmdCheck(f *cmdutil.Factory) *cobra.Command {
 		Use:   "check <user> <resource>",
 		Short: "Show a user's effective access to a resource",
 		Long: `Show the effective access a user has to a resource, with the grants
-that confer it.
+that confer it. The server works the answer out; nothing is changed.
 
-The user is identified by id, email, or handle. The resource is a
-fully-qualified URN — hrn:mem:…, hrn:node:…, hrn:app:…, or hrn:agent:…
-— or a bare AiServiceConfig id. The legacy hrn:memory:<org>::<slug>
-spelling is still accepted.
+<user> is a user id, email, handle or @handle. <resource> is a full URN:
+hrn:mem:… (memory), hrn:node:…, hrn:app:…, hrn:agent:…, hrn:org:… or
+hrn:user:…; the legacy hrn:memory:<org>::<slug> spelling is still accepted. A
+bare id with no colon is read as an AI service config id. A shorthand such as
+acme.com:kb is refused (exit 2) with the URN to use instead.
 
-Reading this requires permission to audit the resource: a platform
-admin, an ADMIN/OWNER of the resource's owning org, or (for a strict-
-owner memory) the memory's principal.`,
+Who may check: you may always check your own access. To check someone else's
+you need a platform admin role, ADMIN or OWNER in the org that owns the
+resource, or, for a personal or private memory (which has a single owner and
+no org or App bypass), to be that memory's owner. Otherwise it exits 8; an
+unknown user or resource exits 4. Being allowed to check access does not let
+you change it.
+
+Output: the user, the resource and its kind, the effective role, a
+READ/WRITE/MANAGE/DELETE row of ✓/✗, then the grants as SOURCE, ROLE, VIA.
+SOURCE says where a grant comes from: PLATFORM_ROLE, ORG_ROLE, MEMORY_PRINCIPAL
+(the memory's owner), MEMORY_MEMBER, MEMORY_SHARE, PRINCIPAL_GRANT,
+NODE_INHERITED, APP_MEMBER, AGENT_SUBSCRIPTION or AICONFIG_OWNER. With no grants
+it prints "No access — <user> has no grants on this resource." --json gives
+user, resource {urn, kind}, canRead, canWrite, canManage, canDelete, role and
+grants [{source, role, via}] (an empty list is []).`,
 		Example: `  hadron access check alice@acme.com hrn:mem:acme.com:kb
   hadron access check @alice hrn:node:acme.com:kb:start-here
-  hadron access check usr_123 hrn:app:acme.com:support --json`,
+  hadron access check alice@acme.com hrn:app:acme.com:support --json`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()

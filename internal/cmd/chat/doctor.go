@@ -106,6 +106,11 @@ func newCmdConfig(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config <command>",
 		Short: "Inspect the chat coordinates from flags, env and .hadron/config.json",
+		Long: `Inspect which chat "chat read" and "chat post" would use from here. This
+group only inspects: it never edits configuration. The coordinates are the
+address of the chat room (a node URN, or a memory plus a message location); set
+them with --node, the HADRON_CHAT_NODE env var, or "chat": {"node": …} in
+.hadron/config.json. See "chat config show".`,
 	}
 	cmd.AddCommand(newCmdConfigShow(f))
 	return cmd
@@ -250,6 +255,17 @@ malformed or unreadable config file or unresolvable coordinates, 4 when no
 Channel is readable at the chat root. A channel read that fails outright
 (not signed in, a refusal, a transport failure) is channel status "error" and
 exits with its own code (e.g. 3, 8, 7) when it is the first failure.
+
+REPAIRING A FAILURE
+  config file malformed/unreadable (exit 2)  fix or remove the file the report names
+  no coordinates resolved (exit 2)           pass --node, or set HADRON_CHAT_NODE / "chat": {"node"}
+  channel "unavailable" (exit 4)             check the node URN, and that you can read its memory
+  not signed in (exit 3)                     "hadron auth login", or set HADRON_TOKEN
+  refused, not permitted (exit 8)            you are signed in but may not read it: check
+                                             --app, and your access to the memory
+  no worker session                          "hadron team session whoami", then
+                                             "hadron team session start" (no --as)
+  transport failure (exit 7)                 retry; check --server
 
 "unavailable" covers a Channel that does not exist, a ref naming nothing, and
 one whose host memory you may not read — the server answers all three

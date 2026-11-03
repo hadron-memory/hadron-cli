@@ -12,6 +12,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -30,7 +32,7 @@ type appKeyCreatedDTO struct {
 	Out        string  `json:"out"`
 }
 
-const revokeRoute = "hadron api 'mutation($id: ID!) { revokeAppKey(id: $id) }' -F id=<key-id>"
+const revokeRoute = "hadron app key revoke <key-id>"
 
 func newCmdKeyCreate(f *cmdutil.Factory) *cobra.Command {
 	var out, label string
@@ -44,6 +46,10 @@ never to your terminal: the output is the key id, preview, label and the file's
 absolute path. --print-key also prints the raw key to stdout (refused with
 --json).
 
+--label must be non-empty when given: an empty or whitespace-only label (for
+example, an unset shell variable) is refused with exit 2 before anything is
+opened or minted. Omit it for the server's default label.
+
 Pass an App ID, hrn:app:<root>:<slug>, or the <root>:<slug> short form.
 
 --out is opened first, before anything is minted: a path that exists (a file or
@@ -51,6 +57,11 @@ a symlink) is refused with exit 2 and nothing is sent. --force writes a temp
 file beside it and renames it over --out, so the key never sits in a file wider
 than 0600 and a symlink is replaced, never followed. If the server refuses, the
 file this command created is removed.
+
+On Windows, mode 0600 only clears the read-only attribute. The key file is
+private only because of the access list it inherits from its directory: private
+under your user profile, readable by others in a shared directory. Keep key
+files under your user profile.
 
 createAppKey is never retried. If its answer is lost (timeout, gateway error),
 a key may exist whose value nobody has: the message names the label; run
@@ -75,6 +86,9 @@ App key, an impersonated session and a bound worker's session (exit 8).`,
 			if printKey && f.JSON {
 				return exitcode.Newf(exitcode.Usage, "--print-key cannot be combined with --json")
 			}
+			if cmd.Flags().Changed("label") && strings.TrimSpace(label) == "" {
+				return exitcode.Newf(exitcode.Usage, "--label is empty: give the key a label, or omit --label for the server's default (nothing was minted)")
+			}
 			abs, err := filepath.Abs(out)
 			if err != nil {
 				return exitcode.Newf(exitcode.Usage, "cannot resolve --out: %v", err)
@@ -96,7 +110,9 @@ App key, an impersonated session and a bound worker's session (exit 8).`,
 				}
 				return exitcode.Newf(exitcode.Error, "cannot create %s: %v; nothing was minted", abs, err)
 			}
-			if fi, err := os.Stat(filepath.Dir(abs)); err == nil && fi.Mode().Perm()&0o077 != 0 {
+			// On windows a directory's Go mode reads 0777 whatever its ACL says, so the
+			// check would always fire; the help states the windows boundary instead.
+			if fi, err := os.Stat(filepath.Dir(abs)); err == nil && runtime.GOOS != "windows" && fi.Mode().Perm()&0o077 != 0 {
 				fmt.Fprintf(f.IOStreams.ErrOut, "warning: %s is accessible to group or others (mode %o); the key file is 0600 but keep it in a private directory\n", filepath.Dir(abs), fi.Mode().Perm())
 			}
 
@@ -106,7 +122,8 @@ App key, an impersonated session and a bound worker's session (exit 8).`,
 			}
 			resp, err := gen.CreateAppKey(cmd.Context(), client, ref, labelArg)
 			if err != nil {
-				return withCleanup(createFailure(err, ref, label), pending.Abort())
+				cleanup := pending.Abort()
+				return withCleanup(createFailure(err, ref, label, cleanup == nil), cleanup)
 			}
 			if resp == nil || resp.CreateAppKey == nil || resp.CreateAppKey.Key == nil || resp.CreateAppKey.RawKey == "" {
 				return withCleanup(exitcode.Newf(exitcode.Error, "the server returned no key; run `hadron app key list %s` and revoke any unexpected key labelled %s", ref, labelOrDefault(label)), pending.Abort())
@@ -153,12 +170,16 @@ func labelOrDefault(label string) string {
 // createFailure classifies a failed createAppKey. A transport-class failure or
 // an internal fault means the request may have reached the server and minted a
 // key nobody has; anything else is a refusal, and no key exists.
-func createFailure(err error, ref, label string) error {
+func createFailure(err error, ref, label string, fileRemoved bool) error {
 	mapped := api.MapError(err)
 	code := exitcode.FromError(mapped)
 	if code == exitcode.Unavailable || code == exitcode.Error {
-		return exitcode.Newf(code, "createAppKey was sent and its answer was lost, so a key labelled %s may exist whose value nobody has. It was not retried and no file was kept. Run `hadron app key list %s` and revoke any unexpected key with that label (%s). Cause: %s",
-			labelOrDefault(label), ref, revokeRoute, failureClass(code))
+		kept := ""
+		if fileRemoved {
+			kept = " and no file was kept"
+		}
+		return exitcode.Newf(code, "createAppKey was sent and its answer was lost, so a key labelled %s may exist whose value nobody has. It was not retried%s. Run `hadron app key list %s` and revoke any unexpected key with that label (%s). Cause: %s",
+			labelOrDefault(label), kept, ref, revokeRoute, failureClass(code))
 	}
 	return exitcode.Newf(code, "createAppKey refused: %s; no key was minted", failureClass(code))
 }
@@ -172,7 +193,7 @@ func failureClass(code int) string {
 	case exitcode.AuthRequired:
 		return "not signed in or credentials rejected"
 	case exitcode.Forbidden:
-		return "not permitted to create keys for this app"
+		return "not permitted to manage keys for this app"
 	case exitcode.NotFound:
 		return "app not found or not visible"
 	case exitcode.Conflict:
@@ -192,5 +213,11 @@ func withCleanup(failure, cleanup error) error {
 	if cleanup == nil {
 		return failure
 	}
-	return exitcode.Newf(exitcode.FromError(failure), "%v. Also: %v", failure, cleanup)
+	combined := exitcode.Newf(exitcode.FromError(failure), "%v. Also: %v", failure, cleanup)
+	// Rebuilding the error would drop the server code the --json envelope reads.
+	var coded interface{ ServerCode() string }
+	if errors.As(failure, &coded) {
+		return &codedError{error: combined, code: coded.ServerCode()}
+	}
+	return combined
 }

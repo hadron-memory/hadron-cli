@@ -8,10 +8,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/coveragematrix"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -237,6 +240,43 @@ func TestAutomationLsFollowsPagesAndShowsStates(t *testing.T) {
 	}
 	if strings.Index(r.out, "alpha") > strings.Index(r.out, "beta") || strings.Index(r.out, "beta") > strings.Index(r.out, "gamma") {
 		t.Errorf("server order must be preserved:\n%s", r.out)
+	}
+}
+
+// The list renders exactly two stored-state labels, one per state, in the
+// STATE column of the row they belong to (cli#1220). The fixture above shows the
+// words somewhere in the output; this pins which row carries which.
+func TestAutomationLsRendersBothStoredStateLabels(t *testing.T) {
+	s := newAutoServer(t, map[string]func(map[string]any) autoReply{
+		"AutomationApprovals": func(map[string]any) autoReply {
+			return autoReply{body: autoPage([]string{
+				autoRow("SCHEDULE", "s1", "alpha", "ADOPTED", "Runs nightly"),
+				autoRow("WEBHOOK", "w1", "beta", "UNADOPTED", "Starts when called"),
+			}, "", true)}
+		},
+	})
+	r := runAuto(t, s, false, "", "ls")
+	if r.err != nil {
+		t.Fatal(r.err)
+	}
+	cells := regexp.MustCompile(`\s{2,}`)
+	state := map[string]string{}
+	for _, line := range strings.Split(r.out, "\n") {
+		for _, name := range []string{"alpha", "beta"} {
+			if strings.Contains(line, name) {
+				parts := cells.Split(strings.TrimSpace(line), -1)
+				if len(parts) < 3 {
+					t.Fatalf("row %q has %d cells, want AUTOMATION, STATE, WHAT", line, len(parts))
+				}
+				state[name] = parts[1]
+			}
+		}
+	}
+	if state["alpha"] != "approved (approval may be stale)" {
+		t.Errorf("ADOPTED row state = %q", state["alpha"])
+	}
+	if state["beta"] != "not approved" {
+		t.Errorf("UNADOPTED row state = %q", state["beta"])
 	}
 }
 
@@ -802,19 +842,24 @@ func TestAutomationAppIsResolvedLikeOtherAppCommands(t *testing.T) {
 	})
 }
 
-func TestAutomationLegacyOperationsStayUnbound(t *testing.T) {
-	b, err := os.ReadFile("../api/unbound-ops.txt")
+func TestAutomationOperations1346AreBound(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("..", "..", coveragematrix.Path))
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, op := range []string{"previewAutomation", "reAdoptAutomation"} {
-		if !strings.Contains(string(b), op+" ") && !strings.Contains(string(b), op+"\n") {
-			t.Errorf("%s has no CLI call site and must stay in unbound-ops.txt", op)
+	entries, err := coveragematrix.Parse(string(b))
+	if err != nil {
+		t.Fatal(err)
+	}
+	kind := map[string]coveragematrix.Kind{}
+	for _, e := range entries {
+		if e.Section == "Query" || e.Section == "Mutation" {
+			kind[e.Key] = e.Kind
 		}
 	}
-	for _, op := range []string{"automationApprovals", "automationApproval", "approveAutomation", "declineAutomation"} {
-		if strings.Contains(string(b), "\n"+op+" ") || strings.Contains(string(b), "\n"+op+"\n") {
-			t.Errorf("%s is bound by this slice and must not be listed unbound", op)
+	for _, op := range []string{"previewAutomation", "reAdoptAutomation", "automationApprovals", "automationApproval", "approveAutomation", "declineAutomation"} {
+		if kind[op] != coveragematrix.Command {
+			t.Errorf("%s is bound by this slice and must be mapped to its command, got %q", op, kind[op])
 		}
 	}
 }

@@ -40,8 +40,10 @@ func newCmdTeamEvents(f *cmdutil.Factory) *cobra.Command {
 		Short: "The team App's task-work event stream",
 		Long: `Read the team App's append-only stream of task work — task.created,
 task.assigned, task.started, task.progress, task.finished, task.cancelled,
-task-stall and dark-worker alarms, availability.changed and the
-assignment/host events. The payload carries ids, counts and outcome words only, never message text.
+task-stall alarms (stall.not-started, stall.no-progress, stall.owner-unreactive,
+assignment.unassignable and stall.finish-by), dark-worker alarms, availability.changed, the
+assignment/host events and app.properties-changed (whose payload names the
+changed top-level keys, never values). The payload carries ids, counts and outcome words only, never message text.
 
 ORDER, so nobody is surprised by page one: the stream reads OLDEST-FIRST
 from the beginning of the App (the server's order, (createdAt, id)). Narrow
@@ -188,7 +190,9 @@ func newCmdTeamAlarm(f *cmdutil.Factory) *cobra.Command {
 		Use:   "alarm <command>",
 		Short: "A team App's task-stall and dark-worker alarms",
 		Long: `Task-stall and dark-worker alarms — events that wake an owner chain
-(cor:agt:050:19). See them with ` + "`team events --alarms`" + `.`,
+(cor:agt:050:19). Task stall kinds include stall.not-started, stall.no-progress,
+stall.owner-unreactive, assignment.unassignable and stall.finish-by. The finish-by alarm
+uses the task deadline instead of ordinary stall windows. See them with ` + "`team events --alarms`" + `.`,
 	}
 	cmd.AddCommand(newCmdTeamAlarmAck(f))
 	return cmd
@@ -199,7 +203,9 @@ func newCmdTeamAlarmAck(f *cmdutil.Factory) *cobra.Command {
 		Use:   "ack <eventId>",
 		Short: "Acknowledge an alarm",
 		Long: `Acknowledge an alarm (cor:agt:050:20): it stops waking higher
-owners. A task-stall episode itself goes on until the task moves. A dark-worker
+owners; it does not end the alarm episode. A finish-by episode ends when the
+task finishes or is cancelled, or its finish-by value changes or is cleared;
+starting or assigning the task does not end that episode. A dark-worker
 episode ends when the worker is checking again and has no unacknowledged
 wake older than the alarm window. Any owner in
 the alarm's chain may; the time is the server's. The first acknowledgement

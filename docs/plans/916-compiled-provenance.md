@@ -1,7 +1,7 @@
 # cli#916 C1b: compiled revision provenance
 
-Petra dispatch42861, final provider server#2685 merged as27455a482. Read-only
-`node provenance <ref> --revision N` wraps compiledPromptProvenance with the
+Petra dispatch 42861, final provider server#2685 merged as 27455a482. Read-only
+`node provenance <ref> --revision N` wraps `compiledPromptProvenance` with the
 provider's offset pages, not the earlier proposed cursor envelope. Refs #916;
 umbrella stays open. No spec minted: this passes the existing cor:agt:040:12
 contract, including Holger's final nullable source-pruning visibility rule.
@@ -9,9 +9,9 @@ No compiler/source selection, approval, serving or activation change.
 
 ## Wire and privacy
 
-The ref is passed through BatchNodeRef (id/qualified URN/bare loc with memory)
+The ref is passed through `BatchNodeRef` (id/qualified URN/bare loc with memory)
 without a live-node prelookup: the provider applies its exact compiled
-revision/history gate. Null is one unavailable answer, exit4, not proof of
+revision/history gate. Null is one unavailable answer, exit 4, not proof of
 absence and not an empty occurrence list. Genuine provider errors map normally;
 there is no substitution of the newest live compiled-from edge.
 
@@ -27,13 +27,13 @@ that compiled revision's text and is a different, nonnullable field.
 Explicit command DTO: nodeId, revNo, contentHash, version, pruned, items, total,
 hasMore, limit, offset. Occurrences keep order, depth, parent, kind, nodeId,
 revNo, hash, replacesNodeId, nullable position, selection and nullable pruned.
-An empty items collection emits[] rather than null. Human cells are terminal
+An empty items collection emits `[]` rather than null. Human cells are terminal
 safe; JSON preserves the provider's scalar values. Source status is shown as
 retained/pruned/not visible without a hidden-target lookup.
 
-CLI defaults one page20, cap100. Zero means counts only and is actually sent
+CLI defaults one page of 20, cap 100. Zero means counts only and is actually sent
 as zero. Positive 32-bit revision is required; negative/out-of-range offsets
-or limits refuse before requests. --all starts at0, excludes explicit offset
+or limits refuse before requests. `--all` starts at 0, excludes explicit offset
 and counts-only, and collects before printing. Each response must retain the
 same node/revision/hash/version/total/compiled-pruned state. Offset advances by
 returned count; zero progress, overflow, duplicate/nonincreasing occurrence
@@ -45,12 +45,12 @@ No whole-read or mutation retry is added.
 ## Schema selection and compatibility
 
 Exported the full SDL from our explicitly selected detached server-main
-checkout27455a482. Used the installed tsx exporter directly (same graphql/tsx
+checkout 27455a482. Used the installed tsx exporter directly (same graphql/tsx
 constraints) after pnpm's wrapper failed; write-if-produced retained the old
 snapshot on failure. Schema/generated incidental updates are comments and
 new unused provider types/root fields, not existing command input/output
-changes. Wrapped-operation inventory also records newly visible server2484
-App-memory write grants and server2517 edge-removal audit as separate CLI
+changes. Wrapped-operation inventory also records newly visible server #2484
+App-memory write grants and server #2517 edge-removal audit as separate CLI
 parity; their ownership was reported to Petra. They are outside C1b.
 
 This is a new query/command; older servers may reject it. Existing commands
@@ -59,7 +59,7 @@ converts an unsupported read to empty provenance.
 
 ## Author evidence and remaining seats
 
-Red-first3111cd5 fails on main for the missing command. Focused/race pins cover
+Red-first 3111cd5 fails on main for the missing command. Focused/race pins cover
 exact revision/ref, nullable source state, zero counts limit, absent result,
 invalid zero-call inputs, every offset, late errors, changing metadata and
 nonprogress with no partial output. Full Go/lint/build, generation, inventories
@@ -84,3 +84,17 @@ Invalid over-total pages are refused before output. Tests added after review
 cover overflow/explicit-offset validation, malformed selections/over-limit and
 incomplete pages, bare-loc scope, all three human status classes, counts with
 hasMore, and the next-offset hint. The null-source independence pin remains.
+
+## Follow-up regression coverage (#1169)
+
+Multi-item pages pin requested offsets 0, 2 and 4 with limit 3, preserving
+all five recorded occurrences. A shrinking total is rejected by the existing
+identity/count check (exit 5). A separate stable-total page that claims more
+after exhausting its total reaches the pagination consistency check (exit 1).
+Both refuse before any partial record is printed. Count-only assertions parse
+the JSON and retain explicit zero and an empty array.
+
+This follow-up does not add a numeric/request ceiling or change single-page
+offset policy. Those conditional item-3 decisions are excluded by the gate.
+No schema refresh is bundled here; future refreshes remain separate changes
+with actual optional-input payload checks.

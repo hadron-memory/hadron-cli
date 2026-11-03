@@ -35,25 +35,25 @@ type summaryDTO struct {
 }
 
 func NewCmdUsage(f *cmdutil.Factory) *cobra.Command {
-	cmd := &cobra.Command{Use: "usage <command>", Short: "See what AI usage happened (not billing balances)", Long: "Look at the record of AI calls made in your memories: when, which model, how many\ntokens, and what it cost. This is the activity log; for how much credit an\norganization has left, use \"hadron billing balance\". Start with \"usage events\".", Example: "  hadron usage events --memory hrn:mem:acme.com:notes --limit 50"}
-	cmd.AddCommand(newEvents(f))
+	cmd := &cobra.Command{Use: "usage <command>", Short: "Read activity counts and AI usage events, or record one (not billing balances)", Long: "Look at read/write activity counts with \"usage activity\", or AI-call events\n(model, tokens and recorded cost) with \"usage events\". To record one usage event, use \"usage record\". For organization\ncredit, use \"hadron billing balance\". For a model subscription account's 5h/7d allowance, use \"hadron team usage\".", Example: "  hadron usage events --memory hrn:mem:acme.com:notes --limit 50"}
+	cmd.AddCommand(newEvents(f), newActivity(f), newRecord(f))
 	return cmd
 }
 func newEvents(f *cmdutil.Factory) *cobra.Command {
-	var memory, loc, eventType, since, until string
+	var memory, loc, node, eventType, since, until string
 	var limit, offset int
 	cmd := &cobra.Command{
-		Use:   "events [--memory <ref>] [--loc <loc>] [--type <type>] [--since <time>] [--until <time>] [--limit N] [--offset N]",
+		Use:   "events [--memory <ref>] [--loc <loc> | --node <ref>] [--type <type>] [--since <time>] [--until <time>] [--limit N] [--offset N]",
 		Short: "Read one page of accessible usage events",
 		Long: `List recent AI usage events, newest first: when each happened, its type, the
 memory and node it was for, the provider and model, tokens in and out, and what
 it cost. You only see events in memories you can read.
 
-You get ONE page: 20 events by default, or --limit (1 to 200). To go further
+You get ONE page: 20 events by default, or --limit (0 to 200; 0 sends the request and returns no rows, only the total on
+stderr). To go further
 back, run the command again with --offset set to the number of events already
-seen (after a full page, stderr says "more may exist; request another page with
---offset N").
-There is no total and no cost sum.
+seen: stderr says "showing a-b of N" with the real total (for the same filters
+and window) and, when more exist, "more: --offset N". There is no cost sum.
 
 --since and --until bound the window by creation time: --since is INCLUSIVE and
 --until is EXCLUSIVE, so you get events with since <= CREATED < until. Either
@@ -66,7 +66,9 @@ just the memories you can read. To answer "what happened last week", give both
 bounds and page with --offset.
 
 --memory is a memory ID or URN (for example hrn:mem:acme.com:notes). --loc is an exact
-node loc, including hierarchical ones such as notes:ideas. --type is an exact
+node loc, including hierarchical ones such as notes:ideas. --node instead takes
+a node PK or fully-qualified node URN; it cannot be combined with --loc. The
+CLI does not resolve a loc to a node; pass a PK or fully-qualified node URN. --type is an exact
 event type. Leave a flag out for no filter; an empty value is refused.
 
 COST is in micro-cents: 1 USD = 100,000,000 micro-cents (so 5000000 is 0.05 USD,
@@ -87,11 +89,29 @@ Details:
   hadron usage events --type <event-type> --offset 20 --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if limit < 1 || limit > 200 {
-				return exitcode.Newf(exitcode.Usage, "--limit must be between 1 and 200")
+			if limit < 0 || limit > 200 {
+				return exitcode.Newf(exitcode.Usage, "--limit must be between 0 and 200")
 			}
 			if offset < 0 {
 				return exitcode.Newf(exitcode.Usage, "--offset must be non-negative")
+			}
+			if cmd.Flags().Changed("node") && cmd.Flags().Changed("loc") {
+				return exitcode.Newf(exitcode.Usage, "--node and --loc cannot be combined")
+			}
+			var nodeArg *string
+			if cmd.Flags().Changed("node") {
+				if strings.TrimSpace(node) == "" {
+					return exitcode.Newf(exitcode.Usage, "--node must not be empty; omit it for no filter")
+				}
+				v := node
+				if !cmdutil.IsEntityID(v) {
+					var err error
+					v, err = cmdutil.CanonicalNodeURN(v)
+					if err != nil {
+						return err
+					}
+				}
+				nodeArg = &v
 			}
 			var mem, locArg, typeArg *string
 			for _, arg := range []struct {
@@ -121,20 +141,27 @@ Details:
 			if err != nil {
 				return err
 			}
-			resp, err := gen.UsageEvents(cmd.Context(), client, mem, locArg, typeArg, limit, off, sinceArg, untilArg)
+			resp, err := gen.UsageEventsPage(cmd.Context(), client, mem, locArg, nodeArg, typeArg, limit, off, sinceArg, untilArg)
 			if err != nil {
 				return api.MapError(err)
 			}
 			rows := []eventDTO{}
-			for _, e := range resp.UsageEvents {
+			for _, e := range resp.UsageEventsPage.Items {
 				if e == nil {
 					return exitcode.Newf(exitcode.Error, "the server returned an invalid usage-event row")
 				}
 				rows = append(rows, eventDTO{ID: e.Id, Type: e.Type, CreatedAt: e.CreatedAt, MemoryID: e.MemoryId, NodeLoc: e.NodeLoc, Provider: e.Provider, Model: e.Model, KeyOwnerType: e.KeyOwnerType, TokensIn: e.TokensIn, TokensOut: e.TokensOut, CostMicroCents: e.CostMicroCents})
 			}
-			fmt.Fprintf(f.IOStreams.ErrOut, "page at offset %d (limit %d); no total available\n", offset, limit)
-			if len(rows) == limit {
-				fmt.Fprintln(f.IOStreams.ErrOut, "more may exist; request another page with --offset", offset+len(rows))
+			// The twin's real total, windowed like the rows (cli#1339). stdout and
+			// --json stay the bare array; the position and the next page are on stderr.
+			page := resp.UsageEventsPage
+			if len(rows) == 0 {
+				fmt.Fprintf(f.IOStreams.ErrOut, "no events at offset %d (total %d)\n", offset, page.Total)
+			} else {
+				fmt.Fprintf(f.IOStreams.ErrOut, "showing %d-%d of %d\n", offset+1, offset+len(rows), page.Total)
+			}
+			if page.HasMore {
+				fmt.Fprintln(f.IOStreams.ErrOut, "more: --offset", offset+len(rows))
 			}
 			return output.Write(f.IOStreams, f.JSON, rows, func(w io.Writer) error {
 				t := output.NewTable(w, "CREATED", "TYPE", "MEMORY ID", "LOC", "PROVIDER", "MODEL", "TOKENS IN", "TOKENS OUT", "COST (micro-cents)")
@@ -150,11 +177,12 @@ Details:
 		},
 	}
 	cmd.Flags().StringVar(&memory, "memory", "", "memory id or URN to filter")
+	cmd.Flags().StringVar(&node, "node", "", "node PK or fully-qualified URN to filter; excludes --loc")
 	cmd.Flags().StringVar(&loc, "loc", "", "verbatim exact node loc to filter")
 	cmd.Flags().StringVar(&eventType, "type", "", "exact event type to filter")
 	cmd.Flags().StringVar(&since, "since", "", "ISO date-time with Z or an offset; events at or after it (inclusive)")
 	cmd.Flags().StringVar(&until, "until", "", "ISO date-time with Z or an offset; events before it (exclusive)")
-	cmd.Flags().IntVar(&limit, "limit", 20, "page size (1-200)")
+	cmd.Flags().IntVar(&limit, "limit", 20, "page size (0-200; 0 counts only)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "rows to skip (nonnegative)")
 	return cmd
 }

@@ -15,6 +15,7 @@
 # @genqlient(for: "NodeFilter.minted", omitempty: true)
 # @genqlient(for: "NodeFilter.memoryClasses", omitempty: true)
 # @genqlient(for: "NodeFilter.nodeType", omitempty: true)
+# @genqlient(for: "NodeFilter.nodeTypes", omitempty: true)
 # @genqlient(for: "NodeFilter.objectType", omitempty: true)
 # @genqlient(for: "NodeFilter.tags", omitempty: true)
 # @genqlient(for: "NodeFilter.isRunnable", omitempty: true)
@@ -131,6 +132,8 @@ query NodeBatch(
       # shared between them, so selecting these in one query and not the other
       # is how `node get <ref>` and `node get <ref> <ref>` start disagreeing.
       urn
+      # Register entry's second address (hadron-server#2610): null on every other node (#1138). Selected here too, so a batched read prints what a single read prints.
+      actionUrn
       portalUrl
       memoryId
       loc
@@ -150,6 +153,10 @@ query NodeBatch(
       # Explicit, not the default (cli#916 C3a): every caller wants stored text, and nodeBatch's stored default (R21 A) is stated rather than assumed.
       content(raw: true)
       createdAt
+      createdByUser {
+        handle
+        urn
+      }
       updatedAt
       outgoingEdges {
         id
@@ -209,6 +216,8 @@ query GetNode($ref: ID!) {
     # worker's reason on a node is how a reader inherits a nullability that
     # cannot occur; it had leaked into three places before PR #526 swept it.
     urn
+    # Register entry's second address (hadron-server#2610): null on every other node (#1138).
+    actionUrn
     portalUrl
     memoryId
     # The node's memory URN, so a caller naming a cross-memory target pays no GetMemory round trip (cli#463). Nullable: null when the caller may not read the memory record (hadron-server#2193) — fall back to memoryId, never slice or compose a URN locally.
@@ -230,6 +239,11 @@ query GetNode($ref: ID!) {
     seq
     isRunnable
     createdAt
+    # hadron-cli#1513: the provider's {handle, urn} projection or null, passed through verbatim (never a raw id). Selected on BOTH GetNode reads (one Go type) and NodeBatch so `node get <ref>` and `node get <ref> <ref>` cannot disagree.
+    createdByUser {
+      handle
+      urn
+    }
     updatedAt
     outgoingEdges {
       id
@@ -278,6 +292,7 @@ query GetNodeRaw($ref: ID!) {
   node(ref: $ref, raw: true) {
     id
     urn
+    actionUrn
     portalUrl
     memoryId
     # The node's memory URN, so a caller naming a cross-memory target pays no GetMemory round trip (cli#463). Nullable: null when the caller may not read the memory record (hadron-server#2193) — fall back to memoryId, never slice or compose a URN locally.
@@ -300,6 +315,11 @@ query GetNodeRaw($ref: ID!) {
     seq
     isRunnable
     createdAt
+    # hadron-cli#1513: the provider's {handle, urn} projection or null, passed through verbatim (never a raw id). Selected on BOTH GetNode reads (one Go type) and NodeBatch so `node get <ref>` and `node get <ref> <ref>` cannot disagree.
+    createdByUser {
+      handle
+      urn
+    }
     updatedAt
     outgoingEdges {
       id
@@ -712,8 +732,13 @@ mutation DeleteNode(
   $hard: Boolean
   # @genqlient(omitempty: true)
   $recursive: Boolean
+  # cli#1341: read by the server only on a hard delete — a hard delete that
+  # touches an edge bridging to another memory refuses CROSS_MEMORY_EDGES
+  # unless this is true. Omitted when false, like the two above.
+  # @genqlient(omitempty: true)
+  $cascadeCrossMemoryEdges: Boolean
 ) {
-  deleteNode(nodeRef: $nodeRef, hard: $hard, recursive: $recursive)
+  deleteNode(nodeRef: $nodeRef, hard: $hard, recursive: $recursive, cascadeCrossMemoryEdges: $cascadeCrossMemoryEdges)
 }
 
 # Import external content into a node (cor:api:130 / importNode #457, #488).
@@ -735,6 +760,7 @@ mutation DeleteNode(
 # @genqlient(for: "ImportNodeInput.taskRef", omitempty: true)
 # @genqlient(for: "ImportNodeInput.taskArgs", omitempty: true)
 # @genqlient(for: "ImportNodeInput.appRef", omitempty: true)
+# @genqlient(for: "ImportNodeInput.agentRef", omitempty: true)
 mutation ImportNode(
   $input: ImportNodeInput!
 ) {
@@ -988,6 +1014,19 @@ query NodeExport($id: ID!, $format: NodeExportFormat!) {
   }
 }
 
+# cli#1341 — the PRESENTATION render: full: false with the chosen sections.
+# Not round-trippable through node import (the server says so), which is why
+# it is a separate document rather than a variable on the canonical one.
+query NodeExportSections($id: ID!, $format: NodeExportFormat!, $sections: [NodeExportSection!]!) {
+  nodeExport(id: $id, format: $format, full: false, sections: $sections) {
+    format
+    mimeType
+    filename
+    data
+    bytes
+  }
+}
+
 # Minimal metadata for the `node export -o` summary (loc/name/memory): the
 # server's nodeExport render returns the bytes but no identifying fields, and
 # memory { urn } here avoids a second memory-list round-trip (#106 review).
@@ -1094,7 +1133,7 @@ fragment NodeContentValidationFields on NodeContentValidationStatus {
   }
 }
 
-# #1160 — the hard-delete edge audit trail (hadron-server#2562,
+# #1160 — the hard-delete edge audit trail (hadron-server#2517, built in #2562;
 # cor:dmo:010:04): one entry per edge a hard delete removed from this node,
 # newest first. targetLoc and edgeLoc are null when the caller cannot read the
 # memory the deleted target lived in (the edge loc is derived from the target's
@@ -1109,5 +1148,126 @@ query NodeEdgeRemovals($nodeRef: ID!, $limit: Int) {
     removedBy
     targetId
     targetLoc
+  }
+}
+
+# cli#1341 — shallow-merge a JSON patch into a node's structured properties
+# (updateNodeProperties, #742). The server owns the merge rule, including the
+# JSON Merge Patch exception under `exports` (#1227), and validates the merged
+# result against the memory's schema. reason is recorded on revision history.
+mutation UpdateNodeProperties(
+  $nodeRef: ID!
+  $properties: JSON!
+  # @genqlient(omitempty: true)
+  $reason: String
+) {
+  updateNodeProperties(nodeRef: $nodeRef, properties: $properties, reason: $reason) {
+    id
+    memoryId
+    loc
+    name
+    properties
+    updatedAt
+  }
+}
+
+# Edge-free stored-content projection for callers that never inspect edges (#1210).
+query NodeBatchContent(
+  # @genqlient(omitempty: true)
+  $refs: [ID!]
+  # @genqlient(omitempty: true)
+  $memory: ID
+  # @genqlient(omitempty: true)
+  $locPrefix: String
+) {
+  nodeBatch(refs: $refs, memory: $memory, locPrefix: $locPrefix) {
+    truncated
+    omitted
+    unavailable
+    nodes {
+      id
+      # Same two as GetNode (#515): a batched read must not print a different
+      # shape from a single-ref read of the same node. renderNodeDetail is
+      # shared between them, so selecting these in one query and not the other
+      # is how `node get <ref>` and `node get <ref> <ref>` start disagreeing.
+      urn
+      # Register entry's second address (hadron-server#2610): null on every other node (#1138). Selected here too, so a batched read prints what a single read prints.
+      actionUrn
+      portalUrl
+      memoryId
+      loc
+      name
+      alias
+      nodeType
+      role
+      objectType
+      isRunnable
+      description
+      abstract
+      abstractOriginHash
+      tags
+      seq
+      data
+      properties
+      # Explicit, not the default (cli#916 C3a): every caller wants stored text, and nodeBatch's stored default (R21 A) is stated rather than assumed.
+      content(raw: true)
+      createdAt
+      updatedAt
+    }
+  }
+}
+
+# hadron-cli#1513: `edge list <node>` (node-scoped) rows with the edge's own
+# attribution. A query of its own, NOT GetNode's edge selections: GetNode has 13
+# consumers and would resolve four more fields per edge for every one of them.
+# Same edges, same order as GetNode's outgoingEdges/incomingEdges, so the
+# client-side filters, order and counts are unchanged.
+query NodeEdgesAttributed($ref: ID!) {
+  node(ref: $ref) {
+    id
+    outgoingEdges {
+      id
+      name
+      loc
+      isRunnable
+      priority
+      createdAt
+      updatedAt
+      createdByUser {
+        handle
+        urn
+      }
+      updatedByUser {
+        handle
+        urn
+      }
+      target {
+        id
+        loc
+        memoryId
+      }
+    }
+    incomingEdges {
+      id
+      name
+      loc
+      isRunnable
+      priority
+      createdAt
+      updatedAt
+      createdByUser {
+        handle
+        urn
+      }
+      updatedByUser {
+        handle
+        urn
+      }
+      source {
+        id
+        loc
+        memoryId
+      }
+    }
   }
 }

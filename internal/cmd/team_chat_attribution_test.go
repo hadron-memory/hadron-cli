@@ -45,7 +45,7 @@ func TestTeamChatReadAttributesWithoutAcknowledgingExcludedReads(t *testing.T) {
 }
 
 func TestTeamChatReadSuppressionFallbackIsHeaderlessAndCommandLocal(t *testing.T) {
-	for _, op := range []string{"TeamChatReadHeadAttributed", "TeamChatMessagesAttributed"} {
+	for _, op := range []string{"TeamChatReadHeadAttributed", "TeamChatReadPageAttributed"} {
 		t.Run(op, func(t *testing.T) {
 			writeTeamBinding(t)
 			r := chatReadResponses()
@@ -110,7 +110,7 @@ func TestTeamChatReadRebindDuringHeadStopsAttribution(t *testing.T) {
 }
 
 func TestTeamChatReadNeverRetriesOtherAttributionErrors(t *testing.T) {
-	for _, op := range []string{"TeamChatReadHeadAttributed", "TeamChatMessagesAttributed"} {
+	for _, op := range []string{"TeamChatReadHeadAttributed", "TeamChatReadPageAttributed"} {
 		for _, body := range []string{gqlErrorJSON("FORBIDDEN"), strings.ReplaceAll(missingReadSuppression, "Query.teamChatMessages", "Query.channelMessages"), strings.ReplaceAll(missingReadSuppression, "advanceReadState", "other")} {
 			t.Run(op+body, func(t *testing.T) {
 				writeTeamBinding(t)
@@ -125,7 +125,7 @@ func TestTeamChatReadNeverRetriesOtherAttributionErrors(t *testing.T) {
 					t.Fatal("refusal masked")
 				}
 				for _, c := range *calls {
-					if c.Op == "MarkOwnTeamChatRead" || c.RawOp == "TeamChatReadHead" || c.RawOp == "TeamChatMessages" {
+					if c.Op == "MarkOwnTeamChatRead" || c.RawOp == "TeamChatReadHead" || c.RawOp == "TeamChatReadPage" {
 						t.Fatalf("unexpected retry/mark %+v", c)
 					}
 				}

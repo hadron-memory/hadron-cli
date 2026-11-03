@@ -181,10 +181,15 @@ func authoredWriteField(field string) bool {
 		// worktree's session rides the X-Hadron-Session header — the worker
 		// is the actor when one is bound, the person otherwise.
 		"createAgentTask", "assignAgentTask", "reassignAgentTask",
-		"startAgentTask", "recordAgentTaskProgress", "finishAgentTask",
+		// #1585: worker assigners/creators are admitted by these server gates too.
+		"disposeAgentTaskFinding", "cloneAgentTask", "createAgentTasks", "updateAgentTask",
+		"startAgentTask", "recordAgentTaskProgress", "finishAgentTask", "handBackAgentTask",
 		"cancelAgentTask", "parkAgentTask", "makeAgentTaskReady",
 		"setAgentTaskPriority", "addAgentTaskBlocker", "removeAgentTaskBlocker",
 		"acknowledgeAlarm",
+		// #1524 C3: --assign-to-me claims as the bound worker (the claim's
+		// tasks are owned by and assigned to the actor), the person otherwise.
+		"claimUntrackedTaskItems",
 		// setModelFamilyAvailability is deliberately absent (#868), like
 		// setAgentTaskStallSchedule (#866): both are the App manager's
 		// writes, and the server's actorManagesApp is false for any worker

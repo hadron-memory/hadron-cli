@@ -68,6 +68,7 @@ type fakeReads struct {
 	subs    map[string][]ts.Ticker
 	due     map[string][]ts.DueTick
 	dueErr  error
+	subsErr error
 	calls   map[string]int
 }
 
@@ -83,7 +84,7 @@ func (r *fakeReads) Workers(context.Context) ([]Worker, error) {
 }
 func (r *fakeReads) Subscriptions(context.Context) (map[string][]ts.Ticker, error) {
 	r.count("subs")
-	return r.subs, nil
+	return r.subs, r.subsErr
 }
 func (r *fakeReads) DueTicks(context.Context, []string) (map[string][]ts.DueTick, error) {
 	r.count("due")

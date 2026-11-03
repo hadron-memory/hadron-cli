@@ -63,10 +63,14 @@ func probeChatReadState(ctx context.Context, f *cmdutil.Factory, client graphql.
 		fmt.Fprintf(f.IOStreams.ErrOut, "note: server read cursor unavailable (%v); this read does not prove the worker is caught up\n", api.MapError(err))
 		return state, nil
 	}
-	seen := 0
-	if cursor.ChannelReadState != nil {
-		seen = cursor.ChannelReadState.LastSeenSeq
+	if cursor == nil || cursor.ChannelReadState == nil {
+		// #1272: null means this worker is not registered on, or cannot be
+		// read for, the channel. A registered never-read worker gets a
+		// lastSeenSeq-0 row instead, so 0 here would be a forged cursor.
+		fmt.Fprintln(f.IOStreams.ErrOut, "note: server read cursor unavailable (no read state for this worker on the team channel); this read does not prove the worker is caught up")
+		return state, nil
 	}
+	seen := cursor.ChannelReadState.LastSeenSeq
 	state.ReadCursor = &seen
 	return state, nil
 }

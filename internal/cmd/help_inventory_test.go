@@ -165,3 +165,15 @@ func TestContributionWorkflowLinksTheRubric(t *testing.T) {
 		t.Errorf("CLAUDE.md must link docs/help-review-rubric.md from the review workflow")
 	}
 }
+
+// A top-level command named by no audit child lands in the "unassigned"
+// section (scripts/help-inventory-groups.txt). Every command must have an
+// owning child, so that section stays empty (#1396: orca and slack landed after
+// the last group line and nobody audited them).
+func TestHelpInventoryHasNoUnassignedRows(t *testing.T) {
+	for _, r := range parseInventory(t, readDoc(t, "docs/help-inventory.md")) {
+		if r.section == "unassigned" {
+			t.Errorf("row %q has no audit child: add its top-level command to scripts/help-inventory-groups.txt and run `make help-inventory`", r.path)
+		}
+	}
+}

@@ -333,7 +333,7 @@ func roleOnlySpecScanServer(t *testing.T, loc, content string) (*httptest.Server
 				t.Errorf("unexpected filter: %+v", body.Variables.Filter)
 				return
 			}
-		case "NodeBatch":
+		case "NodeBatch", "NodeBatchContent":
 			resp = `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[` + batchNode + `]}}}`
 		default:
 			t.Errorf("unexpected operation %q", body.OperationName)

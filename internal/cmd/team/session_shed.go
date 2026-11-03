@@ -464,9 +464,23 @@ lasts 60 seconds, so reset immediately afterwards.
           the lines land in a node the team can read.
 
 --json prints {"status":"written|skipped|failed|printed","node","claim":
-"written|failed|none","reason"}. No claim value is ever printed.`,
-		Example: `  hadron team session shed --print-prompt
-  hadron team session shed --auto --transcript "$TRANSCRIPT" && exit-the-agent`,
+"written|failed|none","reason"}. No claim value is ever printed.
+
+THE EXIT CODE DOES NOT PROVE THE SHED. Failures still exit 0 (above), so read
+the status: "written" with claim "written" is a complete shed. Then reset the
+context with your HOST's own command (Claude Code: /clear; this CLI has none),
+and in the fresh context follow the recovery prompt: ` + "`session whoami --check`" + `
+first, then ` + "`session start`" + ` with no --as if the binding is gone. A failed
+claim is not fatal: the binding usually survives the reset, and the node
+still holds the handoff.`,
+		Example: `  # see the recovery prompt without writing anything
+  hadron team session shed --print-prompt
+
+  # shed by hand, check it, then reset the context in your host
+  hadron team session shed --json      # want status "written", claim "written"
+
+  # from a host hook; TRANSCRIPT is the host's own transcript file path
+  hadron team session shed --auto --transcript "$TRANSCRIPT"`,
 		// Flags are parsed by hand: cobra rejects a bad flag before RunE, and
 		// under --auto that rejection would exit non-zero and block the hook.
 		DisableFlagParsing: true,

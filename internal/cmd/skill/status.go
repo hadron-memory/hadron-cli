@@ -132,8 +132,11 @@ status over one node cannot answer "is my skill set fresh?" — the orphan and
 collision classes are properties of a SET. Use skill lint --node to judge a
 single node.
 
-The symbolic roots (user/project/plugin) are host-specific, so a --host other
-than claudeSkill must name a directory.
+The host is the property key under properties.exports: claudeSkill (the
+default) or codexSkill. The symbolic roots (user/project/plugin) are
+Claude-specific, so --host codexSkill must name a directory with --to; Codex
+skills are exported to ~/.agents/skills by default, so check those with
+--to ~/.agents/skills.
 
 Exit codes: an ERROR finding exits 5, as in skill lint. Drift and warnings
 alone exit 0 — so a CI gate is an explicit --strict, which exits 5 on any
@@ -141,6 +144,7 @@ drift, any parse failure, any orphan, a scope that resolved to no memory, and
 (as skill lint does) any WARNING finding.`,
 		Example: `  hadron skill status -m hrn:mem:hadronmemory.com:core
   hadron skill status --all --json
+  hadron skill status -m hrn:mem:hadronmemory.com:core --host codexSkill --to ~/.agents/skills
   hadron skill status -m hrn:mem:hadronmemory.com:core --to plugin --strict   # a CI gate names its memories; --all makes the token's reach the selection`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {

@@ -3,6 +3,7 @@ package memory
 import (
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -23,7 +24,7 @@ type encryptDTO struct {
 }
 
 func newCmdEncrypt(f *cmdutil.Factory) *cobra.Command {
-	var dataKey string
+	var dataKey, passphraseFile string
 	var yes bool
 	cmd := &cobra.Command{
 		Use:   "encrypt <memoryRef>",
@@ -35,9 +36,15 @@ owner may do it.
 This is ONE-WAY: there is no decrypt command, and the server never stores the
 key, so keep it safe. If you lose it, the content is lost.
 
-The key is 32 random bytes written in base64 (44 characters, ending in =).
-Make one with openssl rand -base64 32, save it somewhere safe, and pass it on
-stdin with --data-key - so it never lands in your shell history.
+Give exactly one of:
+  --data-key       a key: 32 random bytes written in base64 (44 characters,
+                   ending in =). Make one with openssl rand -base64 32, save it
+                   somewhere safe, and pass it on stdin with --data-key - so it
+                   never lands in your shell history.
+  --passphrase-file  a file holding a passphrase ("-" reads stdin). The server
+                   derives the key from it and stores only the salt, never the
+                   key. A trailing newline is dropped; the passphrase is never
+                   printed.
 
 What changes afterwards:
   - The hadron CLI cannot read the content any more: node get prints the
@@ -52,11 +59,21 @@ content as ciphertext and cannot be undone from the CLI" on a terminal; --yes
 skips the question and is required when input is not a terminal (otherwise
 exit 2).`,
 		Example: `  openssl rand -base64 32 > diary.key   # keep this file safe
-  hadron memory encrypt hrn:mem:jane:diary --data-key - --yes < diary.key`,
+  hadron memory encrypt hrn:mem:jane:diary --data-key - --yes < diary.key
+  hadron memory encrypt hrn:mem:jane:diary --passphrase-file ~/.diary-pass --yes`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if dataKey == "" {
-				return exitcode.Newf(exitcode.Usage, "a data key is required — pass --data-key - to read it from stdin")
+			// Exactly one secret; gated on Changed so --passphrase-file= is an
+			// empty value refused, not an absent flag (cli#1340).
+			usePassphrase := cmd.Flags().Changed("passphrase-file")
+			if usePassphrase && cmd.Flags().Changed("data-key") {
+				return exitcode.Newf(exitcode.Usage, "--data-key and --passphrase-file are mutually exclusive: give one. Nothing was sent")
+			}
+			if usePassphrase && strings.TrimSpace(passphraseFile) == "" {
+				return exitcode.Newf(exitcode.Usage, "--passphrase-file is empty: name a file, or - for stdin. Nothing was sent")
+			}
+			if !usePassphrase && dataKey == "" {
+				return exitcode.Newf(exitcode.Usage, "a data key is required, or a passphrase — pass --data-key - or --passphrase-file <file|->")
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -75,11 +92,21 @@ exit 2).`,
 				args[0])); err != nil {
 				return err
 			}
-			key, err := readDataKey(dataKey, f.IOStreams.In)
-			if err != nil {
-				return err
+			var keyArg, passArg *string
+			if usePassphrase {
+				pass, err := readPassphrase(passphraseFile, f.IOStreams.In)
+				if err != nil {
+					return err
+				}
+				passArg = &pass
+			} else {
+				key, err := readDataKey(dataKey, f.IOStreams.In)
+				if err != nil {
+					return err
+				}
+				keyArg = &key
 			}
-			resp, err := gen.EncryptMemory(cmd.Context(), client, memID, key)
+			resp, err := gen.EncryptMemory(cmd.Context(), client, memID, keyArg, passArg)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -95,6 +122,7 @@ exit 2).`,
 		},
 	}
 	cmd.Flags().StringVar(&dataKey, "data-key", "", `the key: base64 of 32 random bytes ("-" reads it from stdin, recommended)`)
+	cmd.Flags().StringVar(&passphraseFile, "passphrase-file", "", `file holding a passphrase to derive the key from ("-" reads stdin)`)
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt (required non-interactively)")
 	return cmd
 }
@@ -115,6 +143,27 @@ func readDataKey(v string, stdin io.Reader) (string, error) {
 	v = strings.TrimSpace(v)
 	if v == "" {
 		return "", exitcode.Newf(exitcode.Usage, "empty data key — provide a non-empty key via --data-key - (stdin) or --data-key <value>")
+	}
+	return v, nil
+}
+
+// readPassphrase reads the passphrase from a file or stdin ("-"). Only the
+// line ending is dropped: surrounding spaces may be part of a passphrase. An
+// empty passphrase is refused. Never echoed.
+func readPassphrase(path string, stdin io.Reader) (string, error) {
+	var data []byte
+	var err error
+	if path == "-" {
+		data, err = io.ReadAll(stdin)
+	} else {
+		data, err = os.ReadFile(path)
+	}
+	if err != nil {
+		return "", exitcode.Newf(exitcode.Usage, "reading --passphrase-file: %v", err)
+	}
+	v := strings.TrimRight(string(data), "\r\n")
+	if v == "" {
+		return "", exitcode.Newf(exitcode.Usage, "the passphrase is empty. Nothing was sent")
 	}
 	return v, nil
 }

@@ -83,6 +83,14 @@ type Service interface {
 	Edit(context.Context, string, *string, *string, int) (Comment, error)
 	Delete(context.Context, string, int) (Comment, error)
 	Resolve(context.Context, string, int, bool) (Comment, error)
+	// DeleteThread deletes the whole thread of the named comment (cli#1341).
+	DeleteThread(context.Context, string, string) (bool, error)
+}
+
+// threadDeletedDTO is the stable --json shape of comment delete --thread.
+type threadDeletedDTO struct {
+	Thread  string `json:"thread"`
+	Deleted bool   `json:"deleted"`
 }
 type Connect func(context.Context) (Service, error)
 
@@ -181,9 +189,9 @@ func readCmd(f *cmdutil.Factory, connect Connect, list bool) *cobra.Command {
 	return cmd
 }
 func writeCmd(f *cmdutil.Factory, connect Connect, verb string) *cobra.Command {
-	var memory, body, bodyFile, quote string
+	var memory, body, bodyFile, quote, reason string
 	var expected, anchor int
-	var reopen, yes bool
+	var reopen, yes, thread bool
 	refLabel := "<comment-ref>"
 	if verb == "create" {
 		refLabel = "<target-ref>"
@@ -194,6 +202,8 @@ func writeCmd(f *cmdutil.Factory, connect Connect, verb string) *cobra.Command {
 	guarded := verb == "edit" || verb == "delete" || verb == "resolve"
 	if verb == "delete" {
 		cmd.Flags().BoolVar(&yes, "yes", false, "delete without asking (required when not on a terminal)")
+		cmd.Flags().BoolVar(&thread, "thread", false, "delete the whole thread the comment belongs to (a memory admin; needs --reason)")
+		cmd.Flags().StringVar(&reason, "reason", "", "with --thread: why the thread is deleted (required; kept for audit)")
 	}
 	if text {
 		cmd.Flags().StringVar(&body, "body", "", "comment text (Markdown), or - to read it from a pipe")
@@ -219,6 +229,12 @@ func writeCmd(f *cmdutil.Factory, connect Connect, verb string) *cobra.Command {
 	}
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		changed := cmd.Flags().Changed
+		if verb == "delete" && thread {
+			return deleteThread(cmd, f, connect, memory, args[0], reason, yes)
+		}
+		if verb == "delete" && changed("reason") {
+			return exitcode.Newf(exitcode.Usage, "--reason applies only with --thread (deleting a whole thread). Nothing was sent")
+		}
 		if guarded && (!changed("expected-revision") || expected < 1) {
 			return exitcode.Newf(exitcode.Usage, "--expected-revision must name the positive comment write counter you read")
 		}
@@ -293,6 +309,42 @@ func writeCmd(f *cmdutil.Factory, connect Connect, verb string) *cobra.Command {
 	}
 	return cmd
 }
+
+// deleteThread is comment delete --thread (cli#1341): deleteCommentThread.
+func deleteThread(cmd *cobra.Command, f *cmdutil.Factory, connect Connect, memory, arg, reason string, yes bool) error {
+	if cmd.Flags().Changed("expected-revision") {
+		return exitcode.Newf(exitcode.Usage, "--expected-revision does not apply to --thread: a thread is deleted whole. Nothing was sent")
+	}
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		return exitcode.Newf(exitcode.Usage, "--thread needs --reason <text>: a thread deletion is kept with its reason for audit. Nothing was sent")
+	}
+	ref, err := cmdutil.BatchNodeRef(memory, arg)
+	if err != nil {
+		return err
+	}
+	if err := cmdutil.Confirm(f.IOStreams, yes, "Delete the whole thread of comment "+ref+"? Every comment in it disappears from every read."); err != nil {
+		return err
+	}
+	svc, err := connect(cmd.Context())
+	if err != nil {
+		return err
+	}
+	ok, err := svc.DeleteThread(cmd.Context(), ref, reason)
+	if err != nil {
+		return err
+	}
+	dto := threadDeletedDTO{Thread: ref, Deleted: ok}
+	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+		if !ok {
+			_, err := fmt.Fprintf(w, "thread of %s was not deleted\n", ref)
+			return err
+		}
+		_, err := fmt.Fprintf(w, "✓ deleted the thread of %s\n", ref)
+		return err
+	})
+}
+
 func printComment(f *cmdutil.Factory, c Comment) error {
 	return output.Write(f.IOStreams, f.JSON, c, func(w io.Writer) error { return render(w, c) })
 }
