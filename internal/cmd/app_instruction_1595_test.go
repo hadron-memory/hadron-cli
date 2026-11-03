@@ -40,7 +40,7 @@ func TestCredential1595InstructionWire(t *testing.T) {
 			}
 			c := (*calls)[0]
 			want := map[string]any{"kind": "TASK", "ref": taskRef1592}
-			if c.Op != op || c.Session == "" || !reflect.DeepEqual(c.Vars["instruction"], want) {
+			if c.Op != op || c.Session != "s-new" || !reflect.DeepEqual(c.Vars["instruction"], want) {
 				t.Fatalf("wire %+v", c)
 			}
 			if strings.Contains(c.Query, "app { keys") {

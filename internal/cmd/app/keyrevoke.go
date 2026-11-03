@@ -81,7 +81,7 @@ An App manager may revoke as themselves, or their held worker may revoke with
 			if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("Revoke App key %s? This cannot be undone.", id)); err != nil {
 				return err
 			}
-			client, err := f.GraphQLClient()
+			client, err := credentialClient(cmd, f, instr)
 			if err != nil {
 				return err
 			}

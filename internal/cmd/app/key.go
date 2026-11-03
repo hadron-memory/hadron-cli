@@ -151,7 +151,7 @@ host:operate frees the key to be granted it for another host.`,
 			if id == "" || scope == "" {
 				return exitcode.Newf(exitcode.Usage, "pass the key id and the scope, e.g. `revoke key_123 host:operate`")
 			}
-			client, err := f.GraphQLClient()
+			client, err := credentialClient(cmd, f, instr)
 			if err != nil {
 				return err
 			}

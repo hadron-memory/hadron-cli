@@ -128,3 +128,20 @@ func revokeMemoryGrant(ctx context.Context, c graphql.Client, id string, i *gen.
 	}
 	return &gen.RevokeAppMemoryWriteGrantResponse{RevokeAppMemoryWriteGrant: r.RevokeAppMemoryWriteGrant}, nil
 }
+
+// credentialClient checks the original snapshot again after credential-store
+// setup, which may block. It never adopts a successor binding as the caller.
+func credentialClient(cmd *cobra.Command, f *cmdutil.Factory, claim *gen.ActInstructionInput) (graphql.Client, error) {
+	client, err := f.GraphQLClient()
+	if err != nil {
+		return nil, err
+	}
+	if claim != nil {
+		ctx, err := f.InstructedContext(cmd.Context())
+		if err != nil {
+			return nil, err
+		}
+		cmd.SetContext(ctx)
+	}
+	return client, nil
+}

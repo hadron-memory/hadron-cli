@@ -145,7 +145,7 @@ characters, ending it with "…". --json keeps every original value.`,
 					return exitcode.Newf(exitcode.Usage, "--host-uses must be at least 1")
 				}
 			}
-			client, err := f.GraphQLClient()
+			client, err := credentialClient(cmd, f, instr)
 			if err != nil {
 				return err
 			}

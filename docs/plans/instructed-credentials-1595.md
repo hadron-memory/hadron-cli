@@ -9,7 +9,9 @@ The parser and S1 usage text move from package team to internal/instruction;
 team's S1 callers retain their existing wrappers and behavior. The root installs
 a credential-specific binding verification function on Factory, implemented in
 team using its existing binding reader and verifier. It is called only when the
-flag is present, before confirmation or network activity. A complete same-server
+flag is present, before confirmation or network activity, then verifies the SAME snapshot again
+after credential-store/client setup. A rebind during that setup is refused,
+never adopted as the successor. A complete same-server
 binding is required; a missing/corrupt/incomplete/foreign-server binding is exit
 2, with no person fallback. Target-App/holder authority is checked by the server
 in the single credential request, not by an ambient App or a client lookup.

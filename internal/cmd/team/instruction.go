@@ -85,13 +85,19 @@ func instructionRefusal(snap instructionSnapshot, why string) error {
 		has, why)
 }
 
+type credentialInstructionSnapshotKey struct{}
+
 // CredentialInstructionContext verifies a complete same-server worktree binding
 // for an explicit credential instruction (Xanthos ruling #71555). It fails closed,
 // never borrowing the person's authority. Target-App authorization is server-owned
 // in the one credential request; no ambient App lookup is added.
 func CredentialInstructionContext(f *cmdutil.Factory) func(context.Context) (context.Context, error) {
 	return func(ctx context.Context) (context.Context, error) {
-		snap := snapshotForInstruction(ctx)
+		snap, captured := ctx.Value(credentialInstructionSnapshotKey{}).(instructionSnapshot)
+		if !captured {
+			snap = snapshotForInstruction(ctx)
+			ctx = context.WithValue(ctx, credentialInstructionSnapshotKey{}, snap)
+		}
 		if snap.b == nil && snap.err == nil {
 			return ctx, exitcode.Newf(exitcode.Usage, "--instruction needs a complete worker-session binding; nothing was sent. Run from the worker's own worktree, or omit the flag to act as yourself")
 		}

@@ -151,7 +151,7 @@ as null. Text shows ? for a null memory and - for other null metadata. No keys o
 		if cmd.Flags().Changed("include-revoked") {
 			include = &revoked
 		}
-		client, err := f.GraphQLClient()
+		client, err := credentialClient(cmd, f, instr)
 		if err != nil {
 			return err
 		}
@@ -207,7 +207,7 @@ for other null metadata.`, Example: `  hadron app memory-grant rm <grant-id> --y
 		if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("Revoke memory write grant %s?", strconv.Quote(id))); err != nil {
 			return err
 		}
-		client, err := f.GraphQLClient()
+		client, err := credentialClient(cmd, f, instr)
 		if err != nil {
 			return err
 		}
