@@ -10,6 +10,8 @@ import (
 // Initially captured on29c58a0b; the three JSON hashes were re-pinned against
 // standalone main after1553 added finishBy:null. Human hashes/inputs unchanged.
 // The GraphQL document adds selections; unchanged inputs/output are the contract.
+// get json re-pinned for cli#1565: task get --json gains clonedFrom and clones (every
+// other hash, and the create variables, are unchanged).
 func TestTaskMatching1549LegacyParity(t *testing.T) {
 	cases := []struct {
 		name string
@@ -18,7 +20,7 @@ func TestTaskMatching1549LegacyParity(t *testing.T) {
 	}{
 		{"create json", []string{"create", "example", "--json"}, "ef123ce9863e1f878f275bdeb26302dcefeb99b116c15ffaa7413cc448859834"},
 		{"create human", []string{"create", "example"}, "9f592f1fcb6e727886a55f1d0e9ca674b2d1c76a675e36c89429f2a7b661e6e0"},
-		{"get json", []string{"get", "task1", "--json"}, "7151052bfaadddc59dc7fa7a8c015b6d03cc9ef23f97d92e23d534c25829d7f8"},
+		{"get json", []string{"get", "task1", "--json"}, "0566bcb88ca421ade169d828338e018e57a0aa0c272a4fe19c7c9aa7aae40aad"},
 		{"get human", []string{"get", "task1"}, "7b142eb9d2927fb33cb0cf711e9200bf4477eceacc34900721f0b9a4993a7d15"},
 		{"list json", []string{"list", "--json"}, "4c306c3440669022382ddd4a042886cbb237e8984d7a793d7a3475264d70b6f9"},
 		{"list human", []string{"list"}, "71ace79388fbcf77328ea206f6955986da515ac3cba40f6eb95511fdebc59e66"},
