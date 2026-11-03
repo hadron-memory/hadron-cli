@@ -151,7 +151,12 @@ func reportsToLabel(ref *workerRefDTO, retired bool, known bool) string {
 type workerDTO struct {
 	ReportsTo        *workerRefDTO `json:"reportsTo"`
 	ReportsToRetired bool          `json:"reportsToRetired"`
-	ID               string        `json:"id"`
+	// TeamPlacement is the recorded reporting CHOICE (cli#933): REPORTS_TO,
+	// NO_TEAM or UNSET. NOT omitempty: null means WITHHELD from this caller
+	// (access-masked) and is never UNSET or NO_TEAM, nor derived from a null
+	// reportsTo.
+	TeamPlacement *string `json:"teamPlacement"`
+	ID            string  `json:"id"`
 	// URN is the worker's address (#991), keyed on the permanent derived
 	// slug. Null when the App's URN predates the flat grammar-v2 arity it
 	// needs, so consumers must tolerate its absence.
@@ -255,6 +260,7 @@ func workerDTOFromFields(w gen.WorkerFields) workerDTO {
 		dto.ReportsTo = reportingRef(w.ReportsTo.WorkerReportingRefFields)
 	}
 	dto.ReportsToRetired = w.ReportsToRetired
+	dto.TeamPlacement = placementString(w.TeamPlacement)
 	return dto
 }
 
@@ -268,8 +274,10 @@ func workerDTOFromFields(w gen.WorkerFields) workerDTO {
 type workerRosterDTO struct {
 	ReportsTo        *workerRefDTO `json:"reportsTo"`
 	ReportsToRetired bool          `json:"reportsToRetired"`
-	ID               string        `json:"id"`
-	URN              *string       `json:"urn"`
+	// TeamPlacement: same field and null-means-withheld semantics as workerDTO.
+	TeamPlacement *string `json:"teamPlacement"`
+	ID            string  `json:"id"`
+	URN           *string `json:"urn"`
 	// PortalURL is the server-built link that opens this worker
 	// (cor:api:230:01). Null is a defined answer — no usable web origin on the
 	// deployment, or no URN to build one from — and it stays null: the CLI
@@ -330,7 +338,27 @@ func workerRosterDTOFromFields(w gen.WorkerRosterFields) workerRosterDTO {
 		dto.ReportsTo = reportingRef(w.ReportsTo.WorkerReportingRefFields)
 	}
 	dto.ReportsToRetired = w.ReportsToRetired
+	dto.TeamPlacement = placementString(w.TeamPlacement)
 	return dto
+}
+
+// placementString copies a returned teamPlacement as the server sent it; nil
+// stays nil (WITHHELD), never defaulted to UNSET.
+func placementString(p *gen.WorkerTeamPlacement) *string {
+	if p == nil {
+		return nil
+	}
+	s := string(*p)
+	return &s
+}
+
+// workerRefName is the readable name for a reporting head in placement text:
+// the name (not an id) when the readback carries a reporting head, else nil.
+func workerRefName(r *workerRefDTO) *string {
+	if r == nil {
+		return nil
+	}
+	return &r.Name
 }
 
 const workerPageSize = 200

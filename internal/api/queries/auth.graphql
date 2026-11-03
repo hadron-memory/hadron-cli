@@ -52,3 +52,17 @@ mutation SetUserApiKeyHidden($id: ID!, $hidden: Boolean!) {
     ...UserApiKeyFields
   }
 }
+
+# Delete one of the caller's OWN API keys, live or revoked, hidden or not. A live
+# key is revoked first with its live subtree; the keys it minted directly stay,
+# revoked, with no parent. Never retried: the key is gone after a success.
+mutation DeleteUserApiKey($id: ID!) {
+  deleteUserApiKey(id: $id) {
+    id
+    keyId
+    keyPreview
+    revokedKeyIds
+    mintedKeyIds
+    deletedAt
+  }
+}

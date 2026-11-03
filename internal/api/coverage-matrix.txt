@@ -19,7 +19,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 199: 153 command, 27 gap, 19 excluded
+[Query] 202: 157 command, 26 gap, 19 excluded
 actionTickets  command ticket list
 agent  command agent get
 agentAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime that makes LLM calls; a person reads the masked config with `ai-config get`
@@ -62,6 +62,7 @@ attendeeRegister  command team worker onboard
 authContext  command auth whoami
 automationApproval  command automation approval
 automationApprovals  command automation approval
+automationReadGrants  gap #1566
 calendarEvent  command calendar event get
 calendarEvents  command calendar events
 calendarSchedule  command calendar freebusy
@@ -77,17 +78,19 @@ chatServedPrompts  command chat served-prompts
 comment  command comment get
 commentThreads  command comment list
 compiledPromptProvenance  command node provenance
+connectionFlow  gap #1569
 connectionGrant  command connection grant get
 connectionGrants  command connection grant list
+contextReset  gap #1043
 creditBalance  command billing balance
 creditLedgerEntries  command billing ledger
 dashboardWidgetData  excluded graphical: the data feed for the widgets placed on the portal dashboard grid, one entry per placement in grid order; the data has its own routes: MEMORY_STATS is `memory list --owned-by-me`, AGENT_STATS is `agent list --owned-by-me`, USAGE_ACTIVITY is `usage activity`
 dashboardWidgetPresets  excluded graphical: saved display settings for a portal dashboard widget type
 dashboardWidgetPresetsPage  excluded graphical: saved display settings for a portal dashboard widget type
 dashboardWidgets  excluded graphical: places portal dashboard widgets on a 12-column grid (position, span, rowSpan)
-decision  gap #1335
-decisionLog  gap #1335
-decisions  gap #1335
+decision  command decision get
+decisionLog  command decision log get
+decisions  command decision list
 deliveryBatches  command team chat inbox
 driveFile  command drive get
 driveFileExport  command drive export
@@ -213,14 +216,14 @@ usageEventsPage  command usage events
 user  command team worker get
 users  command user search
 validateMemory  command memory validate
-verifyDecision  gap #1335
+verifyDecision  command decision verify
 verifyMemoryNodes  command memory verify
 verifyNode  command node verify
 worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 323: 250 command, 61 gap, 12 excluded
+[Mutation] 329: 259 command, 58 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -233,14 +236,14 @@ addMemoryToAgent  command agent memory add
 addOrgMember  command org member add
 advanceChannelReadState  command channel mark-read
 allocateSpecNode  gap #398: spec new allocates on the provider (gated on #398, not #1341)
-amendDecision  gap #1335
+amendDecision  command decision amend
 applyAgentTickerTemplates  command ticker apply-templates
 applyMemoryConfigTemplate  command memory config template apply
 approveAutomation  command automation approve
 approveMemoryNodes  command memory approve-all
 approveMergeUsersConsent  gap #1304
 approveNode  command node approve
-askDecision  gap #1335
+askDecision  command decision ask
 assignAgentTask  command team task assign
 attachMemoryToApp  command memory attach
 authorizeContextResetStop  gap #1043: the host handler that performs the reset
@@ -261,6 +264,7 @@ clearAgentAIConfig  gap #58
 clearNodeHistory  command node revision clear
 clearWorkerIsolation  command team isolation clear
 cloneAgent  command agent clone
+cloneAgentTask  gap #1565
 cloneMemory  command memory clone
 cloneNode  command node clone
 collectHostOperations  command team host run
@@ -273,6 +277,7 @@ createAgent  command agent create
 createAgentOrgGrant  gap #890
 createAgentSchedule  command schedule create
 createAgentTask  command team task create
+createAgentTasks  gap #1565
 createAgentTickerTemplate  command agent ticker-templates create
 createAgentWebhook  command webhook create
 createAiServiceConfig  command ai-config create
@@ -286,7 +291,7 @@ createChannelMessage  command channel post
 createComment  command comment create
 createConnectionGrant  command connection grant create
 createDashboardWidgetPreset  excluded graphical: saved display settings for a portal dashboard widget type
-createDecisionLog  gap #1335
+createDecisionLog  command decision log create
 createEdge  command edge create
 createHomeAssistantInstance  command ha create
 createMcpServer  command mcp-server create
@@ -350,7 +355,9 @@ deleteSlackConnection  gap #206
 deleteTeamRole  command team role rm
 deleteTicker  command ticker delete
 deleteUser  command user delete
+deleteUserApiKey  command auth token delete
 deleteWorker  command team worker rm
+disposeAgentTaskFinding  gap #1556
 editComment  command comment edit
 emailCategorizeMessage  gap #198
 emailDeleteMessage  gap #198
@@ -370,7 +377,7 @@ extractParentNodeToMemory  command memory extract
 finishAgentTask  command team task finish
 grantApp  gap #1336
 grantAppKeyScope  command app key scope grant
-grantCredits  gap #215
+grantCredits  command billing grant
 handBackAgentTask  command team task hand-back
 importNode  command node import
 installAgentIntoApp  command app agent add
@@ -396,7 +403,7 @@ parkAgentTask  command team task park
 processChatResponse  gap #64
 publishAgentImport  gap #58
 publishRevision  gap #61
-purgeUnansweredDecision  gap #1335
+purgeUnansweredDecision  command decision purge
 pushMemoryToGit  gap #60
 reAdoptAutomation  command automation re-adopt
 reassignAgentTask  command team task reassign
@@ -441,6 +448,7 @@ revokeAppGrant  gap #1336
 revokeAppKey  command app key revoke
 revokeAppKeyScope  command app key scope revoke
 revokeAppMemoryWriteGrant  command app memory-grant rm
+revokeAutomationReadGrant  gap #1566
 revokeConnectionGrant  command connection grant revoke
 revokePrincipalGrant  command grant revoke
 revokeUserApiKey  command auth token revoke
@@ -458,7 +466,7 @@ setAgentIndexRefs  command agent update
 setAgentModelGroup  command agent model-group set
 setAgentTaskPriority  command team task add-blocker
 setAgentTaskStallSchedule  command team stall-schedule set
-setAiModelPrice  gap #215
+setAiModelPrice  command billing prices set
 setAppAgentBootPrompt  command app agent set-boot-prompt
 setAppDeliverySettings  command team delivery-settings set
 setAppMemoryWriteGrant  command app memory-grant add
@@ -466,8 +474,9 @@ setAppModelGroup  command app model-group set
 setAppProperties  command app properties set
 setAppTickerSettings  gap #1336
 setAssetPublicLink  command asset public-link
+setAutomationReadGrant  gap #1566
 setDashboardWidgets  excluded graphical: places portal dashboard widgets on a 12-column grid (position, span, rowSpan)
-setDecisionLogDeciders  gap #1335
+setDecisionLogDeciders  command decision log set-deciders
 setHostWorkerAvailability  command team host availability
 setHostWorkerTerminals  command team health sweep
 setMemorySourceToken  gap #60
@@ -542,16 +551,14 @@ updateTeamRole  command team role update
 updateTicker  command ticker update
 updateUserRoles  command user set-roles
 updateWorker  command team worker update
-withdrawDecision  gap #1335
+withdrawDecision  command decision withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 74: 47 gap, 27 excluded
+[Arguments] 72: 45 gap, 27 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.addOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
 Mutation.addOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
-Mutation.castWorker(noTeam)  gap #933
-Mutation.castWorker(reportsTo)  gap #933
 Mutation.claimUntrackedTaskItems(assignee)  gap #1554
 Mutation.claimUntrackedTaskItems(owner)  gap #1554
 Mutation.createAgent(resetContextAfterTask)  gap #58
@@ -578,6 +585,7 @@ Mutation.deleteMemorySubscription(memoryId)  excluded deprecated: @deprecated: U
 Mutation.deleteMemorySubscription(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
 Mutation.ensureAppMember(appId)  excluded deprecated: @deprecated: Use appRef (accepts id / URN).
 Mutation.ensureAppMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
+Mutation.finishAgentTask(result.findings)  gap #1556
 Mutation.mergeUsers(input.consentProof)  gap #1304
 Mutation.removeAppMember(appId)  excluded deprecated: @deprecated: Use appRef (accepts id / URN).
 Mutation.removeAppMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
@@ -612,9 +620,8 @@ Mutation.updateOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (a
 Mutation.updateOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.updateTeamRole(repos)  gap #1336
 Query.agentTasks(creator)  gap #1336
+Query.agentTasks(unresolvedFindings)  gap #1556
 Query.attendeeRegister(agentRef)  gap #1336
-Query.castWorkerPreview(noTeam)  gap #933
-Query.castWorkerPreview(reportsTo)  gap #933
 Query.channelMessages(teamHeadRef)  gap #936
 Query.channelMessages(untagged)  gap #936
 Query.node(memoryRef)  excluded not-a-capability: the CLI composes -m and a bare loc into the full node URN, which the SDL documents as the equivalent address (the one case memoryRef adds, forcing loc reading of an unprefixed 3+-segment ref, the hrn:node: form already removes); proposed class, specs engineer to accept
