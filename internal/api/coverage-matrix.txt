@@ -632,7 +632,7 @@ Query.node(memoryRef)  excluded not-a-capability: the CLI composes -m and a bare
 Query.teamChatMessages(teamHeadRef)  gap #936
 Query.teamChatMessages(untagged)  gap #936
 
-[Filters] 56: 53 flag, 3 gap
+[Filters] 56: 54 flag, 2 gap
 Query.agentTasks(reference.kind)  flag team task list --ref-kind
 Query.agentTasks(reference.target)  flag team task list --ref
 Query.agents(filter.ownedByMe)  flag agent list --owned-by-me
@@ -655,7 +655,7 @@ Query.edges(filter.memoryId)  flag edge list --memory
 Query.edges(filter.sourceNodeId)  flag edge list --source
 Query.edges(filter.targetNodeId)  flag edge list --target
 Query.findNodes(filter.approvalState)  flag spec list --approved --unapproved
-Query.findNodes(filter.childrenOf)  gap #1253
+Query.findNodes(filter.childrenOf)  flag node list --children-of
 Query.findNodes(filter.contentScope)  flag search --comments-only
 Query.findNodes(filter.createdBy)  flag node list --created-by
 Query.findNodes(filter.includeDeleted)  flag node list --include-deleted
