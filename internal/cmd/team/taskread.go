@@ -54,14 +54,25 @@ func partyCell(p *taskPartyDTO) string {
 // ---- get ------------------------------------------------------------------
 
 func newCmdTeamTaskGet(f *cmdutil.Factory) *cobra.Command {
+	var clonesLimit, clonesOffset int
 	cmd := &cobra.Command{
 		Use:   "get <taskId>",
 		Short: "Show one task",
 		Long: `Show one task: its status, owner, assignee, priority, blocked state, the
-close-session choice, its result once finished, and the first 20 dependencies
+close-session choice, its result once finished, the first 20 dependencies
 in each direction (total/hasMore included; ` + "`task dependencies`" + ` pages the
-rest). Check it before a lifecycle command to see what the task allows (the
-table in ` + "`team task --help`" + `).
+rest) and its clone links. Check it before a lifecycle command to see what the
+task allows (the table in ` + "`team task --help`" + `).
+
+Clone links (` + "`task clone`" + `, cor:agt:050:02): "cloned from" names the task this
+one was made from, or "replaces" when that source is FINISHED or CANCELLED; it
+is null when the task is no clone or the source is not readable to you. "clones"
+is the first page of the tasks made from this one (a clone you cannot read is
+left out), with total and hasMore; page it with --clones-limit/--clones-offset
+(default 20, cap 200). In --json, clonedFrom is an object or null and clones is
+{items, total, hasMore} with items [] when none. Reading the links needs a
+provider with hadron-server#2646; an older one rejects the document as schema
+skew (exit 2).
 
 The task is named by its id or handle (AT0.7, AT1.2); the server works out the
 App, and an ambiguous bare handle needs an id or a qualified handle such as
@@ -71,9 +82,12 @@ found", exit 4, exactly like a missing one (no existence oracle).
 Text output neutralises terminal controls and bounds displayed values. Multiline
 values keep line breaks with indented continuations; --json carries complete,
 original values.`,
-		Example: "  hadron team task get AT0.7\n  hadron team task get AT0.7 --json",
+		Example: "  hadron team task get AT0.7\n  hadron team task get AT0.7 --json\n  hadron team task get AT0.7 --clones-limit 50 --clones-offset 50",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := checkTaskPage(clonesLimit, clonesOffset); err != nil {
+				return err
+			}
 			taskId, err := taskRefArg(args)
 			if err != nil {
 				return err
@@ -82,20 +96,60 @@ original values.`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.AgentTaskGet(cmd.Context(), client, taskId)
+			resp, err := gen.AgentTaskGet(cmd.Context(), client, taskId, clonesLimit, clonesOffset)
 			if err != nil {
 				return mapTaskError(err)
 			}
 			if resp.AgentTask == nil {
 				return exitcode.Newf(exitcode.NotFound, "task %s not found", taskId)
 			}
-			task := taskDTOFrom(resp.AgentTask.AgentTaskFields)
-			return output.Write(f.IOStreams, f.JSON, task, func(w io.Writer) error {
-				return renderTaskDetail(w, task)
+			detail := taskDetailDTO{taskDTO: taskDTOFrom(resp.AgentTask.AgentTaskFields)}
+			if src := resp.AgentTask.ClonedFrom; src != nil {
+				detail.ClonedFrom = &taskDependencyDTO{ID: src.Id, Handle: src.Handle, Title: src.Title, Status: string(src.Status)}
+			}
+			detail.Clones = &taskDependencyPageDTO{Items: []taskDependencyDTO{}}
+			if p := resp.AgentTask.Clones; p != nil {
+				detail.Clones = dependencyPage(p.Total, p.HasMore, p.Items)
+			}
+			return output.Write(f.IOStreams, f.JSON, detail, func(w io.Writer) error {
+				if err := renderTaskDetail(w, detail.taskDTO); err != nil {
+					return err
+				}
+				return renderCloneLinks(w, detail)
 			})
 		},
 	}
+	cmd.Flags().IntVar(&clonesLimit, "clones-limit", 20, "clones page size (default 20, cap 200)")
+	cmd.Flags().IntVar(&clonesOffset, "clones-offset", 0, "offset into the clones page")
 	return cmd
+}
+
+// taskDetailDTO is `task get`'s --json shape: the task plus its clone links
+// (cli#1565). Other task commands keep taskDTO, so their shape does not move.
+type taskDetailDTO struct {
+	taskDTO
+	ClonedFrom *taskDependencyDTO     `json:"clonedFrom"`
+	Clones     *taskDependencyPageDTO `json:"clones"`
+}
+
+// renderCloneLinks prints the clone links after the task detail. "replaces"
+// when the source is ended (FINISHED or CANCELLED), "cloned from" otherwise,
+// as the server's schema documents; nothing is printed for a task with no
+// link at all.
+func renderCloneLinks(w io.Writer, d taskDetailDTO) error {
+	if src := d.ClonedFrom; src != nil {
+		label := "cloned from"
+		if src.Status == "FINISHED" || src.Status == "CANCELLED" {
+			label = "replaces"
+		}
+		if _, err := fmt.Fprintf(w, "  %s: %s (%s) %s: %s\n", label, output.SafeCell(src.Handle), output.SafeCell(src.ID), output.SafeCell(src.Status), output.SafeCell(src.Title)); err != nil {
+			return err
+		}
+	}
+	if d.Clones != nil && (d.Clones.Total > 0 || len(d.Clones.Items) > 0) {
+		return renderDependencyPage(w, "clones", d.Clones)
+	}
+	return nil
 }
 
 func renderTaskDetail(w io.Writer, task taskDTO) error {

@@ -45,13 +45,18 @@ type taskMutationDTO struct {
 func taskWarningsFor(sink *api.WarningSink, key string) []taskWarningDTO {
 	out := []taskWarningDTO{}
 	for _, w := range sink.For(key) {
-		dto := taskWarningDTO{Code: w.Code, Text: w.Text}
-		if w.Register != nil {
-			dto.Register = &taskWarningRegisterDTO{State: w.Register.State, TaskLoc: w.Register.TaskLoc, TaskURN: w.Register.TaskURN}
-		}
-		out = append(out, dto)
+		out = append(out, taskWarningsFrom(w))
 	}
 	return out
+}
+
+// taskWarningsFrom projects one response warning.
+func taskWarningsFrom(w api.ResponseWarning) taskWarningDTO {
+	dto := taskWarningDTO{Code: w.Code, Text: w.Text}
+	if w.Register != nil {
+		dto.Register = &taskWarningRegisterDTO{State: w.Register.State, TaskLoc: w.Register.TaskLoc, TaskURN: w.Register.TaskURN}
+	}
+	return dto
 }
 
 // writeTaskMutation renders a warning-bearing verb's result: the receipt (or

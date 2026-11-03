@@ -1527,3 +1527,29 @@ func AppMemberWriteRefused(err error) bool {
 	}
 	return true
 }
+
+// ExtensionInt returns the first integer extensions[key] of err's GraphQL
+// errors (a batch refusal's 1-based extensions.position, cli#1565). Call it on
+// the RAW error. ok is false when no error carries the key as a whole number.
+func ExtensionInt(err error, key string) (int, bool) {
+	for _, e := range graphQLErrors(err) {
+		if e == nil {
+			continue
+		}
+		switch v := e.Extensions[key].(type) {
+		case int:
+			return v, true
+		case int64:
+			return int(v), true
+		case float64:
+			if v == float64(int(v)) {
+				return int(v), true
+			}
+		case json.Number:
+			if n, perr := v.Int64(); perr == nil {
+				return int(n), true
+			}
+		}
+	}
+	return 0, false
+}
