@@ -129,6 +129,10 @@ characters, ending it with "…". --json keeps every original value.`,
   hadron app key list acme.com:ops --scopes --host-uses 10`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			instr, err := credentialInstruction(cmd, f)
+			if err != nil {
+				return err
+			}
 			ref, err := requiredReadAppRef(args[0])
 			if err != nil {
 				return err
@@ -146,11 +150,14 @@ characters, ending it with "…". --json keeps every original value.`,
 				return err
 			}
 			if scopes {
-				return listKeysDetail(cmd, f, client, ref, cmd.Flags().Changed("host-uses"), hostUses)
+				return listKeysDetail(cmd, f, client, ref, instr, cmd.Flags().Changed("host-uses"), hostUses)
 			}
-			resp, err := gen.AppKeysMetadata(cmd.Context(), client, ref)
+			resp, err := keysMetadata(cmd.Context(), client, ref, instr)
 			if err != nil {
-				return api.MapError(err)
+				if instr == nil {
+					return api.MapError(err)
+				}
+				return api.MapErrorKeepingCode(err)
 			}
 			dto := []appKeyMetadataDTO{}
 			for _, k := range resp.AppKeys {
@@ -175,12 +182,13 @@ characters, ending it with "…". --json keeps every original value.`,
 	}
 	cmd.Flags().BoolVar(&scopes, "scopes", false, "also show the scopes each key holds")
 	cmd.Flags().IntVar(&hostUses, "host-uses", 0, "with --scopes: also show each key's newest <n> host uses")
+	addCredentialInstruction(cmd)
 	return cmd
 }
 
 // listKeysDetail is `list --scopes [--host-uses n]`: one appKeys call whose
 // selection carries scopes, and host uses only when asked for.
-func listKeysDetail(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, ref string, withUses bool, first int) error {
+func listKeysDetail(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, ref string, instr *gen.ActInstructionInput, withUses bool, first int) error {
 	dto := []appKeyDetailDTO{}
 	add := func(m appKeyMetadataDTO, sc []*scopeRow, uses *[]appKeyUseDTO) {
 		row := appKeyDetailDTO{appKeyMetadataDTO: m, Scopes: []appKeyScopeDTO{}, HostUses: uses}
@@ -192,7 +200,7 @@ func listKeysDetail(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clien
 		dto = append(dto, row)
 	}
 	if withUses {
-		resp, err := gen.AppKeysScopesHostUses(cmd.Context(), client, ref, first)
+		resp, err := keysHostUses(cmd.Context(), client, ref, first, instr)
 		if err != nil {
 			return api.WithServerCode(api.MapError(err), err)
 		}
@@ -215,7 +223,7 @@ func listKeysDetail(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clien
 			add(appKeyMetadataDTO{ID: k.Id, KeyPreview: k.KeyPreview, Label: k.Label, CreatedAt: k.CreatedAt, LastUsedAt: k.LastUsedAt, RevokedAt: k.RevokedAt}, sc, &uses)
 		}
 	} else {
-		resp, err := gen.AppKeysScopes(cmd.Context(), client, ref)
+		resp, err := keysScopes(cmd.Context(), client, ref, instr)
 		if err != nil {
 			return api.WithServerCode(api.MapError(err), err)
 		}

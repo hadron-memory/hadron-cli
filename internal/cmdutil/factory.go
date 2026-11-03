@@ -28,6 +28,10 @@ type Factory struct {
 	// The root installs the worktree attribution policy; queries stay unchanged.
 	GraphQLRequestContext func(context.Context, *graphql.Request) context.Context
 
+	// InstructedContext is installed by the root. Explicit instruction commands
+	// ask it to verify the worktree binding; ordinary calls never use it.
+	InstructedContext func(context.Context) (context.Context, error)
+
 	// Persistent flag values, bound by the root command.
 	JSON       bool
 	ServerFlag string

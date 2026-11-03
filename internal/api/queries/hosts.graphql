@@ -101,6 +101,7 @@ mutation GrantAppKeyScope(
 }
 
 mutation RevokeAppKeyScope($id: ID!, $scope: String!) {
+ # @genqlient(typename: "RevokeAppKeyScopeRow1595")
   revokeAppKeyScope(id: $id, scope: $scope) {
     ...AppKeyScopesFields
   }
@@ -247,5 +248,13 @@ mutation ReportContextResetRelaunched($input: ReportContextResetRelaunchedInput!
 mutation ReportContextResetRelaunchFailed($input: ReportContextResetRelaunchFailedInput!) {
   reportContextResetRelaunchFailed(input: $input) {
     ...ContextResetStepFields
+  }
+}
+
+# cli#1595: explicitly instructed documents; legacy operations stay byte-identical.
+mutation RevokeAppKeyScopeInstructed($id: ID!, $scope: String!, $instruction: ActInstructionInput!) {
+ # @genqlient(typename: "RevokeAppKeyScopeRow1595")
+  revokeAppKeyScope(id: $id, scope: $scope, instruction: $instruction) {
+    ...AppKeyScopesFields
   }
 }

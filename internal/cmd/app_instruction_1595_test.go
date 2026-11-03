@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
@@ -56,7 +55,11 @@ func TestCredential1595LegacyWire(t *testing.T) {
 					t.Fatalf("%v %v", r.err, *calls)
 				}
 				c := (*calls)[0]
-				if c.Session != "" || c.Vars["instruction"] != nil {
+				if c.Query != legacyDocuments1595[tc.op] {
+					t.Fatal("legacy query differs from main79a01812")
+				}
+				_, hasInstruction := c.Vars["instruction"]
+				if c.Session != "" || hasInstruction {
 					t.Fatalf("legacy attributed %+v", c)
 				}
 				if bound && (c.Query != previous.Query || string(c.RawVars) != string(previous.RawVars)) {
@@ -75,9 +78,64 @@ func TestCredential1595MalformedBeforeRequests(t *testing.T) {
 				if exitCodeFor(r.err) != 2 || len(*calls) != 0 {
 					t.Fatalf("%v %+v", r.err, *calls)
 				}
-				var e map[string]any
-				_ = json.Unmarshal([]byte(r.errOut), &e)
 			})
+		}
+	}
+}
+
+var legacyDocuments1595 = map[string]string{
+	"AppKeysMetadata":           "\nquery AppKeysMetadata ($appRef: ID!) {\n\tappKeys(appRef: $appRef) {\n\t\tid\n\t\tkeyPreview\n\t\tlabel\n\t\tcreatedAt\n\t\tlastUsedAt\n\t\trevokedAt\n\t}\n}\n",
+	"AppKeysScopes":             "\nquery AppKeysScopes ($appRef: ID!) {\n\tappKeys(appRef: $appRef) {\n\t\tid\n\t\tkeyPreview\n\t\tlabel\n\t\tcreatedAt\n\t\tlastUsedAt\n\t\trevokedAt\n\t\tscopes {\n\t\t\tscope\n\t\t\thostId\n\t\t\tgrantedAt\n\t\t\tgrantedBy\n\t\t}\n\t}\n}\n",
+	"AppKeysScopesHostUses":     "\nquery AppKeysScopesHostUses ($appRef: ID!, $first: Int!) {\n\tappKeys(appRef: $appRef) {\n\t\tid\n\t\tkeyPreview\n\t\tlabel\n\t\tcreatedAt\n\t\tlastUsedAt\n\t\trevokedAt\n\t\tscopes {\n\t\t\tscope\n\t\t\thostId\n\t\t\tgrantedAt\n\t\t\tgrantedBy\n\t\t}\n\t\thostUses(first: $first) {\n\t\t\thostId\n\t\t\taction\n\t\t\tcount\n\t\t\toperationId\n\t\t\trefusedCode\n\t\t\tusedAt\n\t\t}\n\t}\n}\n",
+	"RevokeAppKey":              "\nmutation RevokeAppKey ($id: ID!) {\n\trevokeAppKey(id: $id)\n}\n",
+	"RevokeAppKeyScope":         "\nmutation RevokeAppKeyScope ($id: ID!, $scope: String!) {\n\trevokeAppKeyScope(id: $id, scope: $scope) {\n\t\t... AppKeyScopesFields\n\t}\n}\nfragment AppKeyScopesFields on AppKey {\n\tid\n\tappId\n\tlabel\n\trevokedAt\n\tscopes {\n\t\tscope\n\t\thostId\n\t\tgrantedAt\n\t\tgrantedBy\n\t}\n}\n",
+	"AppMemoryWriteGrants":      "\nquery AppMemoryWriteGrants ($appRef: String!, $includeRevoked: Boolean) {\n\tappMemoryWriteGrants(appRef: $appRef, includeRevoked: $includeRevoked) {\n\t\t... AppMemoryGrantFields\n\t}\n}\nfragment AppMemoryGrantFields on AppMemoryWriteGrant {\n\tid\n\tappId\n\tmemoryUrn\n\tprefix\n\tregisterNodeUrn\n\tgrantedBy\n\tcreatedAt\n\trevokedAt\n\trevokedBy\n}\n",
+	"RevokeAppMemoryWriteGrant": "\nmutation RevokeAppMemoryWriteGrant ($id: ID!) {\n\trevokeAppMemoryWriteGrant(id: $id) {\n\t\t... AppMemoryGrantFields\n\t}\n}\nfragment AppMemoryGrantFields on AppMemoryWriteGrant {\n\tid\n\tappId\n\tmemoryUrn\n\tprefix\n\tregisterNodeUrn\n\tgrantedBy\n\tcreatedAt\n\trevokedAt\n\trevokedBy\n}\n",
+}
+
+func TestCredential1595BindingRefusals(t *testing.T) {
+	for _, tc := range credentialCases1595() {
+		for _, mode := range []string{"unbound", "incomplete", "foreign", "corrupt"} {
+			t.Run(tc.op+mode, func(t *testing.T) {
+				o := run1592{bound: mode != "unbound", corrupt: mode == "corrupt", response: map[string]string{}}
+				if mode == "incomplete" {
+					o.mutate = func(b map[string]any) { delete(b, "workerId") }
+				}
+				if mode == "foreign" {
+					o.mutate = func(b map[string]any) { b["server"] = "https://other.invalid" }
+				}
+				calls, r := o.exec(t, append(tc.args, "--instruction", "live-chat:client:message:7", "--json")...)
+				if exitCodeFor(r.err) != 2 || len(*calls) != 0 {
+					t.Fatalf("binding failed open: %v %+v", r.err, *calls)
+				}
+			})
+		}
+	}
+}
+func TestCredential1595RefusalNoDowngrade(t *testing.T) {
+	for _, tc := range credentialCases1595() {
+		t.Run(tc.op, func(t *testing.T) {
+			op := tc.op + "Instructed"
+			calls, r := (run1592{bound: true, response: map[string]string{op: `{"errors":[{"message":"owner required","extensions":{"code":"FORBIDDEN"}}]}`}}).exec(t, append(tc.args, "--instruction", "live-chat:client:message:7", "--json")...)
+			if exitCodeFor(r.err) != 8 || len(*calls) != 1 || !strings.Contains(r.out, `"serverCode": "FORBIDDEN"`) {
+				t.Fatalf("%v calls%+v envelope%s", r.err, *calls, r.out)
+			}
+			if (*calls)[0].Vars["instruction"].(map[string]any)["ref"] != "client:message:7" {
+				t.Fatal("ref rewritten")
+			}
+		})
+	}
+}
+func TestCredential1595PersonOnlyCommandsHaveNoFlag(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	for _, path := range [][]string{{"app", "key", "create"}, {"app", "key", "rotate"}, {"app", "key", "scope", "grant"}, {"app", "memory-grant", "add"}} {
+		c, _, err := root.Find(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if c.Flags().Lookup("instruction") != nil {
+			t.Fatalf("person-only %v got flag", path)
 		}
 	}
 }

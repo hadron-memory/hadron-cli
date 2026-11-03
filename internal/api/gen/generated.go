@@ -3198,9 +3198,10 @@ func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) __premarshalJSON() (*__p
 
 // AgentTaskCreateBatchResponse is returned by AgentTaskCreateBatch on success.
 type AgentTaskCreateBatchResponse struct {
-	// Items with match:true each get one post-commit match attempt in list order; failure marks that task, not a call refusal.
+	// Default matching (distinctAssignees omitted, null or false): items with match:true each get one post-commit
+	// match attempt in list order; failure marks that task, not a call refusal. Different workers and all-or-none
+	// matching are not requested.
 	// A match item blocked after all links refuses the whole call as BAD_USER_INPUT with its position, before any commit or attempt.
-	// This does not ask for different workers or all-or-none matching. With no match items the ordinary batch behavior is unchanged.
 	// #2653 (hrn:node:hadronmemory.com:specs:cor:agt:050:06, creating several at once; ruling 0011 A): create 1 to 25
 	// tasks in the App appRef, all or none, in one transaction. Each task is judged exactly as createAgentTask judges it
 	// alone (the same gates, owner rules, refusals and warnings); the first refusal refuses the whole call, creates and
@@ -3213,18 +3214,16 @@ type AgentTaskCreateBatchResponse struct {
 	// in another App TASK_NOT_FOUND. blockedByPositions names other tasks of the call as blockers (a self-block or a
 	// cycle is TASK_BLOCKER_CYCLE, a position outside the list BAD_USER_INPUT), and needs the same assigner authority as
 	// blockedBy. Handles follow list order and a refused call spends none. Each task records the events a single create
-	// records; ordinary matching and all launches run only after the commit, and each task's warnings are filed under
+	// records; all launches run only after the commit, and each task's warnings are filed under
 	// "<response key>.<position>". The result is every task, in list order. Not idempotent: nothing is deduplicated, so a
 	// caller that lost the answer lists the App's tasks before trying again.
-	// distinctAssignees (default false; hrn:node:hadronmemory.com:specs:cor:agt:050:06, ruling 0084 A) matches each task whose match is true
+	// With distinctAssignees:true (hrn:node:hadronmemory.com:specs:cor:agt:050:06, ruling 0084 A), each task whose match is true is matched
 	// inside the same transaction, in list order, excluding every explicitly named worker in this call and every
 	// worker already matched. Each task keeps its own requirements; there is no global search or backtracking.
 	// After the normal create and blocker checks, any failed match refuses the whole call as TASK_MATCH_FAILED,
 	// with extensions.position (1-based) and extensions.reason (the single match's failure reason). No tasks,
 	// handles, events, failure marks or launches survive. Naming the same worker twice with this option is
 	// BAD_USER_INPUT at the second position. Named people and tasks not asking for a match keep their meaning.
-	// Launches and warnings run only after commit. Without the option (or with null/false), existing batch
-	// behavior is unchanged: requested matches run after commit and an ordinary failure marks only that task.
 	CreateAgentTasks []*AgentTaskCreateBatchCreateAgentTasksAgentTask `json:"createAgentTasks"`
 }
 
@@ -14569,49 +14568,100 @@ func (v *AppKeyScopesFieldsScopesAppKeyScope) GetGrantedAt() string { return v.G
 // GetGrantedBy returns AppKeyScopesFieldsScopesAppKeyScope.GrantedBy, and is useful for accessing the field via an interface.
 func (v *AppKeyScopesFieldsScopesAppKeyScope) GetGrantedBy() string { return v.GrantedBy }
 
-// AppKeysMetadataAppKeysAppKey includes the requested fields of the GraphQL type AppKey.
-type AppKeysMetadataAppKeysAppKey struct {
-	Id         string  `json:"id"`
-	KeyPreview string  `json:"keyPreview"`
-	Label      *string `json:"label"`
-	CreatedAt  string  `json:"createdAt"`
-	LastUsedAt *string `json:"lastUsedAt"`
-	RevokedAt  *string `json:"revokedAt"`
+// AppKeysMetadataInstructedResponse is returned by AppKeysMetadataInstructed on success.
+type AppKeysMetadataInstructedResponse struct {
+	// List keys for an App, only for whoever manages the App
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12; hrn:node:hadronmemory.com:specs:cor:acl:010:01),
+	// as themselves, or through their held worker on a validated `instruction` (S6, ruling 0098). An admitted
+	// instructed call records one team event (ruling 0111): the worker, the holder, the App and the instruction,
+	// never a key. Never an App key, a host-launched or uninstructed worker session, a run or an impersonated request.
+	//
+	// Accepts the entity's ID or URN.
+	AppKeys []*AppKeysMetadataRows1595 `json:"appKeys"`
 }
 
-// GetId returns AppKeysMetadataAppKeysAppKey.Id, and is useful for accessing the field via an interface.
-func (v *AppKeysMetadataAppKeysAppKey) GetId() string { return v.Id }
-
-// GetKeyPreview returns AppKeysMetadataAppKeysAppKey.KeyPreview, and is useful for accessing the field via an interface.
-func (v *AppKeysMetadataAppKeysAppKey) GetKeyPreview() string { return v.KeyPreview }
-
-// GetLabel returns AppKeysMetadataAppKeysAppKey.Label, and is useful for accessing the field via an interface.
-func (v *AppKeysMetadataAppKeysAppKey) GetLabel() *string { return v.Label }
-
-// GetCreatedAt returns AppKeysMetadataAppKeysAppKey.CreatedAt, and is useful for accessing the field via an interface.
-func (v *AppKeysMetadataAppKeysAppKey) GetCreatedAt() string { return v.CreatedAt }
-
-// GetLastUsedAt returns AppKeysMetadataAppKeysAppKey.LastUsedAt, and is useful for accessing the field via an interface.
-func (v *AppKeysMetadataAppKeysAppKey) GetLastUsedAt() *string { return v.LastUsedAt }
-
-// GetRevokedAt returns AppKeysMetadataAppKeysAppKey.RevokedAt, and is useful for accessing the field via an interface.
-func (v *AppKeysMetadataAppKeysAppKey) GetRevokedAt() *string { return v.RevokedAt }
+// GetAppKeys returns AppKeysMetadataInstructedResponse.AppKeys, and is useful for accessing the field via an interface.
+func (v *AppKeysMetadataInstructedResponse) GetAppKeys() []*AppKeysMetadataRows1595 { return v.AppKeys }
 
 // AppKeysMetadataResponse is returned by AppKeysMetadata on success.
 type AppKeysMetadataResponse struct {
 	// List keys for an App, only for whoever manages the App
-	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12; hrn:node:hadronmemory.com:specs:cor:acl:010:01).
-	// Never an App key, a bound worker session or an impersonated request.
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12; hrn:node:hadronmemory.com:specs:cor:acl:010:01),
+	// as themselves, or through their held worker on a validated `instruction` (S6, ruling 0098). An admitted
+	// instructed call records one team event (ruling 0111): the worker, the holder, the App and the instruction,
+	// never a key. Never an App key, a host-launched or uninstructed worker session, a run or an impersonated request.
 	//
 	// Accepts the entity's ID or URN.
-	AppKeys []*AppKeysMetadataAppKeysAppKey `json:"appKeys"`
+	AppKeys []*AppKeysMetadataRows1595 `json:"appKeys"`
 }
 
 // GetAppKeys returns AppKeysMetadataResponse.AppKeys, and is useful for accessing the field via an interface.
-func (v *AppKeysMetadataResponse) GetAppKeys() []*AppKeysMetadataAppKeysAppKey { return v.AppKeys }
+func (v *AppKeysMetadataResponse) GetAppKeys() []*AppKeysMetadataRows1595 { return v.AppKeys }
 
-// AppKeysScopesAppKeysAppKey includes the requested fields of the GraphQL type AppKey.
-type AppKeysScopesAppKeysAppKey struct {
+// AppKeysMetadataRows1595 includes the requested fields of the GraphQL type AppKey.
+type AppKeysMetadataRows1595 struct {
+	Id         string  `json:"id"`
+	KeyPreview string  `json:"keyPreview"`
+	Label      *string `json:"label"`
+	CreatedAt  string  `json:"createdAt"`
+	LastUsedAt *string `json:"lastUsedAt"`
+	RevokedAt  *string `json:"revokedAt"`
+}
+
+// GetId returns AppKeysMetadataRows1595.Id, and is useful for accessing the field via an interface.
+func (v *AppKeysMetadataRows1595) GetId() string { return v.Id }
+
+// GetKeyPreview returns AppKeysMetadataRows1595.KeyPreview, and is useful for accessing the field via an interface.
+func (v *AppKeysMetadataRows1595) GetKeyPreview() string { return v.KeyPreview }
+
+// GetLabel returns AppKeysMetadataRows1595.Label, and is useful for accessing the field via an interface.
+func (v *AppKeysMetadataRows1595) GetLabel() *string { return v.Label }
+
+// GetCreatedAt returns AppKeysMetadataRows1595.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AppKeysMetadataRows1595) GetCreatedAt() string { return v.CreatedAt }
+
+// GetLastUsedAt returns AppKeysMetadataRows1595.LastUsedAt, and is useful for accessing the field via an interface.
+func (v *AppKeysMetadataRows1595) GetLastUsedAt() *string { return v.LastUsedAt }
+
+// GetRevokedAt returns AppKeysMetadataRows1595.RevokedAt, and is useful for accessing the field via an interface.
+func (v *AppKeysMetadataRows1595) GetRevokedAt() *string { return v.RevokedAt }
+
+// AppKeysScopesHostUsesInstructedResponse is returned by AppKeysScopesHostUsesInstructed on success.
+type AppKeysScopesHostUsesInstructedResponse struct {
+	// List keys for an App, only for whoever manages the App
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12; hrn:node:hadronmemory.com:specs:cor:acl:010:01),
+	// as themselves, or through their held worker on a validated `instruction` (S6, ruling 0098). An admitted
+	// instructed call records one team event (ruling 0111): the worker, the holder, the App and the instruction,
+	// never a key. Never an App key, a host-launched or uninstructed worker session, a run or an impersonated request.
+	//
+	// Accepts the entity's ID or URN.
+	AppKeys []*AppKeysScopesHostUsesRows1595 `json:"appKeys"`
+}
+
+// GetAppKeys returns AppKeysScopesHostUsesInstructedResponse.AppKeys, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesInstructedResponse) GetAppKeys() []*AppKeysScopesHostUsesRows1595 {
+	return v.AppKeys
+}
+
+// AppKeysScopesHostUsesResponse is returned by AppKeysScopesHostUses on success.
+type AppKeysScopesHostUsesResponse struct {
+	// List keys for an App, only for whoever manages the App
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12; hrn:node:hadronmemory.com:specs:cor:acl:010:01),
+	// as themselves, or through their held worker on a validated `instruction` (S6, ruling 0098). An admitted
+	// instructed call records one team event (ruling 0111): the worker, the holder, the App and the instruction,
+	// never a key. Never an App key, a host-launched or uninstructed worker session, a run or an impersonated request.
+	//
+	// Accepts the entity's ID or URN.
+	AppKeys []*AppKeysScopesHostUsesRows1595 `json:"appKeys"`
+}
+
+// GetAppKeys returns AppKeysScopesHostUsesResponse.AppKeys, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesResponse) GetAppKeys() []*AppKeysScopesHostUsesRows1595 {
+	return v.AppKeys
+}
+
+// AppKeysScopesHostUsesRows1595 includes the requested fields of the GraphQL type AppKey.
+type AppKeysScopesHostUsesRows1595 struct {
 	Id         string  `json:"id"`
 	KeyPreview string  `json:"keyPreview"`
 	Label      *string `json:"label"`
@@ -14619,103 +14669,44 @@ type AppKeysScopesAppKeysAppKey struct {
 	LastUsedAt *string `json:"lastUsedAt"`
 	RevokedAt  *string `json:"revokedAt"`
 	// #1749 — the scopes this key holds now (hrn:node:hadronmemory.com:specs:cor:aut:010:03). Whoever manages the App only.
-	Scopes []*AppKeysScopesAppKeysAppKeyScopesAppKeyScope `json:"scopes"`
-}
-
-// GetId returns AppKeysScopesAppKeysAppKey.Id, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesAppKeysAppKey) GetId() string { return v.Id }
-
-// GetKeyPreview returns AppKeysScopesAppKeysAppKey.KeyPreview, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesAppKeysAppKey) GetKeyPreview() string { return v.KeyPreview }
-
-// GetLabel returns AppKeysScopesAppKeysAppKey.Label, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesAppKeysAppKey) GetLabel() *string { return v.Label }
-
-// GetCreatedAt returns AppKeysScopesAppKeysAppKey.CreatedAt, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesAppKeysAppKey) GetCreatedAt() string { return v.CreatedAt }
-
-// GetLastUsedAt returns AppKeysScopesAppKeysAppKey.LastUsedAt, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesAppKeysAppKey) GetLastUsedAt() *string { return v.LastUsedAt }
-
-// GetRevokedAt returns AppKeysScopesAppKeysAppKey.RevokedAt, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesAppKeysAppKey) GetRevokedAt() *string { return v.RevokedAt }
-
-// GetScopes returns AppKeysScopesAppKeysAppKey.Scopes, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesAppKeysAppKey) GetScopes() []*AppKeysScopesAppKeysAppKeyScopesAppKeyScope {
-	return v.Scopes
-}
-
-// AppKeysScopesAppKeysAppKeyScopesAppKeyScope includes the requested fields of the GraphQL type AppKeyScope.
-// The GraphQL type's documentation follows.
-//
-// #1749 — a scope an App key holds. A closed list: attention:deliver, and (#1709) host:operate.
-type AppKeysScopesAppKeysAppKeyScopesAppKeyScope struct {
-	Scope string `json:"scope"`
-	// #1709 — the one host a host:operate scope is bound to (hrn:node:hadronmemory.com:specs:cor:agt:070:04); null for every other scope.
-	HostId    *string `json:"hostId"`
-	GrantedAt string  `json:"grantedAt"`
-	GrantedBy string  `json:"grantedBy"`
-}
-
-// GetScope returns AppKeysScopesAppKeysAppKeyScopesAppKeyScope.Scope, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesAppKeysAppKeyScopesAppKeyScope) GetScope() string { return v.Scope }
-
-// GetHostId returns AppKeysScopesAppKeysAppKeyScopesAppKeyScope.HostId, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesAppKeysAppKeyScopesAppKeyScope) GetHostId() *string { return v.HostId }
-
-// GetGrantedAt returns AppKeysScopesAppKeysAppKeyScopesAppKeyScope.GrantedAt, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesAppKeysAppKeyScopesAppKeyScope) GetGrantedAt() string { return v.GrantedAt }
-
-// GetGrantedBy returns AppKeysScopesAppKeysAppKeyScopesAppKeyScope.GrantedBy, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesAppKeysAppKeyScopesAppKeyScope) GetGrantedBy() string { return v.GrantedBy }
-
-// AppKeysScopesHostUsesAppKeysAppKey includes the requested fields of the GraphQL type AppKey.
-type AppKeysScopesHostUsesAppKeysAppKey struct {
-	Id         string  `json:"id"`
-	KeyPreview string  `json:"keyPreview"`
-	Label      *string `json:"label"`
-	CreatedAt  string  `json:"createdAt"`
-	LastUsedAt *string `json:"lastUsedAt"`
-	RevokedAt  *string `json:"revokedAt"`
-	// #1749 — the scopes this key holds now (hrn:node:hadronmemory.com:specs:cor:aut:010:03). Whoever manages the App only.
-	Scopes []*AppKeysScopesHostUsesAppKeysAppKeyScopesAppKeyScope `json:"scopes"`
+	Scopes []*AppKeysScopesHostUsesRows1595ScopesAppKeyScope `json:"scopes"`
 	// #1709 — what this key did as a host, newest first (hrn:node:hadronmemory.com:specs:cor:agt:070:07: every use is recorded). Whoever manages the App only.
-	HostUses []*AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse `json:"hostUses"`
+	HostUses []*AppKeysScopesHostUsesRows1595HostUsesHostKeyUse `json:"hostUses"`
 }
 
-// GetId returns AppKeysScopesHostUsesAppKeysAppKey.Id, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesAppKeysAppKey) GetId() string { return v.Id }
+// GetId returns AppKeysScopesHostUsesRows1595.Id, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595) GetId() string { return v.Id }
 
-// GetKeyPreview returns AppKeysScopesHostUsesAppKeysAppKey.KeyPreview, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesAppKeysAppKey) GetKeyPreview() string { return v.KeyPreview }
+// GetKeyPreview returns AppKeysScopesHostUsesRows1595.KeyPreview, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595) GetKeyPreview() string { return v.KeyPreview }
 
-// GetLabel returns AppKeysScopesHostUsesAppKeysAppKey.Label, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesAppKeysAppKey) GetLabel() *string { return v.Label }
+// GetLabel returns AppKeysScopesHostUsesRows1595.Label, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595) GetLabel() *string { return v.Label }
 
-// GetCreatedAt returns AppKeysScopesHostUsesAppKeysAppKey.CreatedAt, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesAppKeysAppKey) GetCreatedAt() string { return v.CreatedAt }
+// GetCreatedAt returns AppKeysScopesHostUsesRows1595.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595) GetCreatedAt() string { return v.CreatedAt }
 
-// GetLastUsedAt returns AppKeysScopesHostUsesAppKeysAppKey.LastUsedAt, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesAppKeysAppKey) GetLastUsedAt() *string { return v.LastUsedAt }
+// GetLastUsedAt returns AppKeysScopesHostUsesRows1595.LastUsedAt, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595) GetLastUsedAt() *string { return v.LastUsedAt }
 
-// GetRevokedAt returns AppKeysScopesHostUsesAppKeysAppKey.RevokedAt, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesAppKeysAppKey) GetRevokedAt() *string { return v.RevokedAt }
+// GetRevokedAt returns AppKeysScopesHostUsesRows1595.RevokedAt, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595) GetRevokedAt() *string { return v.RevokedAt }
 
-// GetScopes returns AppKeysScopesHostUsesAppKeysAppKey.Scopes, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesAppKeysAppKey) GetScopes() []*AppKeysScopesHostUsesAppKeysAppKeyScopesAppKeyScope {
+// GetScopes returns AppKeysScopesHostUsesRows1595.Scopes, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595) GetScopes() []*AppKeysScopesHostUsesRows1595ScopesAppKeyScope {
 	return v.Scopes
 }
 
-// GetHostUses returns AppKeysScopesHostUsesAppKeysAppKey.HostUses, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesAppKeysAppKey) GetHostUses() []*AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse {
+// GetHostUses returns AppKeysScopesHostUsesRows1595.HostUses, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595) GetHostUses() []*AppKeysScopesHostUsesRows1595HostUsesHostKeyUse {
 	return v.HostUses
 }
 
-// AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse includes the requested fields of the GraphQL type HostKeyUse.
+// AppKeysScopesHostUsesRows1595HostUsesHostKeyUse includes the requested fields of the GraphQL type HostKeyUse.
 // The GraphQL type's documentation follows.
 //
 // #1709 — one use of a host key (hrn:node:hadronmemory.com:specs:cor:agt:070:07).
-type AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse struct {
+type AppKeysScopesHostUsesRows1595HostUsesHostKeyUse struct {
 	HostId string `json:"hostId"`
 	// register, collect, report, availability, read, (#1969) session: a refused session write (updateSession, endSession), or (#1981) issue: a refused issueHostOperation; checkpoint: registerContextResetRecovery with checkpoint input (including replay/refusal).
 	Action string `json:"action"`
@@ -14728,33 +14719,33 @@ type AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse struct {
 	UsedAt      string  `json:"usedAt"`
 }
 
-// GetHostId returns AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse.HostId, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse) GetHostId() string { return v.HostId }
+// GetHostId returns AppKeysScopesHostUsesRows1595HostUsesHostKeyUse.HostId, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesHostKeyUse) GetHostId() string { return v.HostId }
 
-// GetAction returns AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse.Action, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse) GetAction() string { return v.Action }
+// GetAction returns AppKeysScopesHostUsesRows1595HostUsesHostKeyUse.Action, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesHostKeyUse) GetAction() string { return v.Action }
 
-// GetCount returns AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse.Count, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse) GetCount() *int { return v.Count }
+// GetCount returns AppKeysScopesHostUsesRows1595HostUsesHostKeyUse.Count, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesHostKeyUse) GetCount() *int { return v.Count }
 
-// GetOperationId returns AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse.OperationId, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse) GetOperationId() *string {
+// GetOperationId returns AppKeysScopesHostUsesRows1595HostUsesHostKeyUse.OperationId, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesHostKeyUse) GetOperationId() *string {
 	return v.OperationId
 }
 
-// GetRefusedCode returns AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse.RefusedCode, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse) GetRefusedCode() *string {
+// GetRefusedCode returns AppKeysScopesHostUsesRows1595HostUsesHostKeyUse.RefusedCode, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesHostKeyUse) GetRefusedCode() *string {
 	return v.RefusedCode
 }
 
-// GetUsedAt returns AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse.UsedAt, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse) GetUsedAt() string { return v.UsedAt }
+// GetUsedAt returns AppKeysScopesHostUsesRows1595HostUsesHostKeyUse.UsedAt, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesHostKeyUse) GetUsedAt() string { return v.UsedAt }
 
-// AppKeysScopesHostUsesAppKeysAppKeyScopesAppKeyScope includes the requested fields of the GraphQL type AppKeyScope.
+// AppKeysScopesHostUsesRows1595ScopesAppKeyScope includes the requested fields of the GraphQL type AppKeyScope.
 // The GraphQL type's documentation follows.
 //
 // #1749 — a scope an App key holds. A closed list: attention:deliver, and (#1709) host:operate.
-type AppKeysScopesHostUsesAppKeysAppKeyScopesAppKeyScope struct {
+type AppKeysScopesHostUsesRows1595ScopesAppKeyScope struct {
 	Scope string `json:"scope"`
 	// #1709 — the one host a host:operate scope is bound to (hrn:node:hadronmemory.com:specs:cor:agt:070:04); null for every other scope.
 	HostId    *string `json:"hostId"`
@@ -14762,49 +14753,106 @@ type AppKeysScopesHostUsesAppKeysAppKeyScopesAppKeyScope struct {
 	GrantedBy string  `json:"grantedBy"`
 }
 
-// GetScope returns AppKeysScopesHostUsesAppKeysAppKeyScopesAppKeyScope.Scope, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesAppKeysAppKeyScopesAppKeyScope) GetScope() string { return v.Scope }
+// GetScope returns AppKeysScopesHostUsesRows1595ScopesAppKeyScope.Scope, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595ScopesAppKeyScope) GetScope() string { return v.Scope }
 
-// GetHostId returns AppKeysScopesHostUsesAppKeysAppKeyScopesAppKeyScope.HostId, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesAppKeysAppKeyScopesAppKeyScope) GetHostId() *string { return v.HostId }
+// GetHostId returns AppKeysScopesHostUsesRows1595ScopesAppKeyScope.HostId, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595ScopesAppKeyScope) GetHostId() *string { return v.HostId }
 
-// GetGrantedAt returns AppKeysScopesHostUsesAppKeysAppKeyScopesAppKeyScope.GrantedAt, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesAppKeysAppKeyScopesAppKeyScope) GetGrantedAt() string {
-	return v.GrantedAt
-}
+// GetGrantedAt returns AppKeysScopesHostUsesRows1595ScopesAppKeyScope.GrantedAt, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595ScopesAppKeyScope) GetGrantedAt() string { return v.GrantedAt }
 
-// GetGrantedBy returns AppKeysScopesHostUsesAppKeysAppKeyScopesAppKeyScope.GrantedBy, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesAppKeysAppKeyScopesAppKeyScope) GetGrantedBy() string {
-	return v.GrantedBy
-}
+// GetGrantedBy returns AppKeysScopesHostUsesRows1595ScopesAppKeyScope.GrantedBy, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595ScopesAppKeyScope) GetGrantedBy() string { return v.GrantedBy }
 
-// AppKeysScopesHostUsesResponse is returned by AppKeysScopesHostUses on success.
-type AppKeysScopesHostUsesResponse struct {
+// AppKeysScopesInstructedResponse is returned by AppKeysScopesInstructed on success.
+type AppKeysScopesInstructedResponse struct {
 	// List keys for an App, only for whoever manages the App
-	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12; hrn:node:hadronmemory.com:specs:cor:acl:010:01).
-	// Never an App key, a bound worker session or an impersonated request.
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12; hrn:node:hadronmemory.com:specs:cor:acl:010:01),
+	// as themselves, or through their held worker on a validated `instruction` (S6, ruling 0098). An admitted
+	// instructed call records one team event (ruling 0111): the worker, the holder, the App and the instruction,
+	// never a key. Never an App key, a host-launched or uninstructed worker session, a run or an impersonated request.
 	//
 	// Accepts the entity's ID or URN.
-	AppKeys []*AppKeysScopesHostUsesAppKeysAppKey `json:"appKeys"`
+	AppKeys []*AppKeysScopesRows1595 `json:"appKeys"`
 }
 
-// GetAppKeys returns AppKeysScopesHostUsesResponse.AppKeys, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesResponse) GetAppKeys() []*AppKeysScopesHostUsesAppKeysAppKey {
-	return v.AppKeys
-}
+// GetAppKeys returns AppKeysScopesInstructedResponse.AppKeys, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesInstructedResponse) GetAppKeys() []*AppKeysScopesRows1595 { return v.AppKeys }
 
 // AppKeysScopesResponse is returned by AppKeysScopes on success.
 type AppKeysScopesResponse struct {
 	// List keys for an App, only for whoever manages the App
-	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12; hrn:node:hadronmemory.com:specs:cor:acl:010:01).
-	// Never an App key, a bound worker session or an impersonated request.
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12; hrn:node:hadronmemory.com:specs:cor:acl:010:01),
+	// as themselves, or through their held worker on a validated `instruction` (S6, ruling 0098). An admitted
+	// instructed call records one team event (ruling 0111): the worker, the holder, the App and the instruction,
+	// never a key. Never an App key, a host-launched or uninstructed worker session, a run or an impersonated request.
 	//
 	// Accepts the entity's ID or URN.
-	AppKeys []*AppKeysScopesAppKeysAppKey `json:"appKeys"`
+	AppKeys []*AppKeysScopesRows1595 `json:"appKeys"`
 }
 
 // GetAppKeys returns AppKeysScopesResponse.AppKeys, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesResponse) GetAppKeys() []*AppKeysScopesAppKeysAppKey { return v.AppKeys }
+func (v *AppKeysScopesResponse) GetAppKeys() []*AppKeysScopesRows1595 { return v.AppKeys }
+
+// AppKeysScopesRows1595 includes the requested fields of the GraphQL type AppKey.
+type AppKeysScopesRows1595 struct {
+	Id         string  `json:"id"`
+	KeyPreview string  `json:"keyPreview"`
+	Label      *string `json:"label"`
+	CreatedAt  string  `json:"createdAt"`
+	LastUsedAt *string `json:"lastUsedAt"`
+	RevokedAt  *string `json:"revokedAt"`
+	// #1749 — the scopes this key holds now (hrn:node:hadronmemory.com:specs:cor:aut:010:03). Whoever manages the App only.
+	Scopes []*AppKeysScopesRows1595ScopesAppKeyScope `json:"scopes"`
+}
+
+// GetId returns AppKeysScopesRows1595.Id, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesRows1595) GetId() string { return v.Id }
+
+// GetKeyPreview returns AppKeysScopesRows1595.KeyPreview, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesRows1595) GetKeyPreview() string { return v.KeyPreview }
+
+// GetLabel returns AppKeysScopesRows1595.Label, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesRows1595) GetLabel() *string { return v.Label }
+
+// GetCreatedAt returns AppKeysScopesRows1595.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesRows1595) GetCreatedAt() string { return v.CreatedAt }
+
+// GetLastUsedAt returns AppKeysScopesRows1595.LastUsedAt, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesRows1595) GetLastUsedAt() *string { return v.LastUsedAt }
+
+// GetRevokedAt returns AppKeysScopesRows1595.RevokedAt, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesRows1595) GetRevokedAt() *string { return v.RevokedAt }
+
+// GetScopes returns AppKeysScopesRows1595.Scopes, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesRows1595) GetScopes() []*AppKeysScopesRows1595ScopesAppKeyScope {
+	return v.Scopes
+}
+
+// AppKeysScopesRows1595ScopesAppKeyScope includes the requested fields of the GraphQL type AppKeyScope.
+// The GraphQL type's documentation follows.
+//
+// #1749 — a scope an App key holds. A closed list: attention:deliver, and (#1709) host:operate.
+type AppKeysScopesRows1595ScopesAppKeyScope struct {
+	Scope string `json:"scope"`
+	// #1709 — the one host a host:operate scope is bound to (hrn:node:hadronmemory.com:specs:cor:agt:070:04); null for every other scope.
+	HostId    *string `json:"hostId"`
+	GrantedAt string  `json:"grantedAt"`
+	GrantedBy string  `json:"grantedBy"`
+}
+
+// GetScope returns AppKeysScopesRows1595ScopesAppKeyScope.Scope, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesRows1595ScopesAppKeyScope) GetScope() string { return v.Scope }
+
+// GetHostId returns AppKeysScopesRows1595ScopesAppKeyScope.HostId, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesRows1595ScopesAppKeyScope) GetHostId() *string { return v.HostId }
+
+// GetGrantedAt returns AppKeysScopesRows1595ScopesAppKeyScope.GrantedAt, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesRows1595ScopesAppKeyScope) GetGrantedAt() string { return v.GrantedAt }
+
+// GetGrantedBy returns AppKeysScopesRows1595ScopesAppKeyScope.GrantedBy, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesRows1595ScopesAppKeyScope) GetGrantedBy() string { return v.GrantedBy }
 
 // AppMemberRolesApp includes the requested fields of the GraphQL type App.
 // The GraphQL type's documentation follows.
@@ -15093,70 +15141,82 @@ var AllAppMemorySourceKind = []AppMemorySourceKind{
 	AppMemorySourceKindTeamSpace,
 }
 
-// AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant includes the requested fields of the GraphQL type AppMemoryWriteGrant.
+// AppMemoryWriteGrantsInstructedResponse is returned by AppMemoryWriteGrantsInstructed on success.
+type AppMemoryWriteGrantsInstructedResponse struct {
+	// #2484: the write grants an App holds for its userless runs, oldest first; revoked rows only with includeRevoked. Only whoever manages the App may list them, as themselves or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0111 A: one team event per admitted instructed call, never a grant id); a grant on a personal or private memory is listed to the holder alone, when they own it. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+	AppMemoryWriteGrants []*AppMemoryWriteGrantsRows1595 `json:"appMemoryWriteGrants"`
+}
+
+// GetAppMemoryWriteGrants returns AppMemoryWriteGrantsInstructedResponse.AppMemoryWriteGrants, and is useful for accessing the field via an interface.
+func (v *AppMemoryWriteGrantsInstructedResponse) GetAppMemoryWriteGrants() []*AppMemoryWriteGrantsRows1595 {
+	return v.AppMemoryWriteGrants
+}
+
+// AppMemoryWriteGrantsResponse is returned by AppMemoryWriteGrants on success.
+type AppMemoryWriteGrantsResponse struct {
+	// #2484: the write grants an App holds for its userless runs, oldest first; revoked rows only with includeRevoked. Only whoever manages the App may list them, as themselves or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0111 A: one team event per admitted instructed call, never a grant id); a grant on a personal or private memory is listed to the holder alone, when they own it. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+	AppMemoryWriteGrants []*AppMemoryWriteGrantsRows1595 `json:"appMemoryWriteGrants"`
+}
+
+// GetAppMemoryWriteGrants returns AppMemoryWriteGrantsResponse.AppMemoryWriteGrants, and is useful for accessing the field via an interface.
+func (v *AppMemoryWriteGrantsResponse) GetAppMemoryWriteGrants() []*AppMemoryWriteGrantsRows1595 {
+	return v.AppMemoryWriteGrants
+}
+
+// AppMemoryWriteGrantsRows1595 includes the requested fields of the GraphQL type AppMemoryWriteGrant.
 // The GraphQL type's documentation follows.
 //
 // #2484: an App's write grant on one memory under one loc prefix, for the App's userless runs only. It permits node create and update at the prefix and its colon-boundary descendants, checked live at each write; never delete, edges, memory settings or stored files, and nothing for another App's run, a user-backed run, an App key or a worker. A revoked grant stays as a terminal row. hrn:node:hadronmemory.com:specs:cor:agt:010:01
-type AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant struct {
+type AppMemoryWriteGrantsRows1595 struct {
 	AppMemoryGrantFields `json:"-"`
 }
 
-// GetId returns AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant.Id, and is useful for accessing the field via an interface.
-func (v *AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant) GetId() string {
-	return v.AppMemoryGrantFields.Id
-}
+// GetId returns AppMemoryWriteGrantsRows1595.Id, and is useful for accessing the field via an interface.
+func (v *AppMemoryWriteGrantsRows1595) GetId() string { return v.AppMemoryGrantFields.Id }
 
-// GetAppId returns AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant.AppId, and is useful for accessing the field via an interface.
-func (v *AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant) GetAppId() string {
-	return v.AppMemoryGrantFields.AppId
-}
+// GetAppId returns AppMemoryWriteGrantsRows1595.AppId, and is useful for accessing the field via an interface.
+func (v *AppMemoryWriteGrantsRows1595) GetAppId() string { return v.AppMemoryGrantFields.AppId }
 
-// GetMemoryUrn returns AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant.MemoryUrn, and is useful for accessing the field via an interface.
-func (v *AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant) GetMemoryUrn() *string {
+// GetMemoryUrn returns AppMemoryWriteGrantsRows1595.MemoryUrn, and is useful for accessing the field via an interface.
+func (v *AppMemoryWriteGrantsRows1595) GetMemoryUrn() *string {
 	return v.AppMemoryGrantFields.MemoryUrn
 }
 
-// GetPrefix returns AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant.Prefix, and is useful for accessing the field via an interface.
-func (v *AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant) GetPrefix() string {
-	return v.AppMemoryGrantFields.Prefix
-}
+// GetPrefix returns AppMemoryWriteGrantsRows1595.Prefix, and is useful for accessing the field via an interface.
+func (v *AppMemoryWriteGrantsRows1595) GetPrefix() string { return v.AppMemoryGrantFields.Prefix }
 
-// GetRegisterNodeUrn returns AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant.RegisterNodeUrn, and is useful for accessing the field via an interface.
-func (v *AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant) GetRegisterNodeUrn() *string {
+// GetRegisterNodeUrn returns AppMemoryWriteGrantsRows1595.RegisterNodeUrn, and is useful for accessing the field via an interface.
+func (v *AppMemoryWriteGrantsRows1595) GetRegisterNodeUrn() *string {
 	return v.AppMemoryGrantFields.RegisterNodeUrn
 }
 
-// GetGrantedBy returns AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant.GrantedBy, and is useful for accessing the field via an interface.
-func (v *AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant) GetGrantedBy() string {
-	return v.AppMemoryGrantFields.GrantedBy
-}
+// GetGrantedBy returns AppMemoryWriteGrantsRows1595.GrantedBy, and is useful for accessing the field via an interface.
+func (v *AppMemoryWriteGrantsRows1595) GetGrantedBy() string { return v.AppMemoryGrantFields.GrantedBy }
 
-// GetCreatedAt returns AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant.CreatedAt, and is useful for accessing the field via an interface.
-func (v *AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant) GetCreatedAt() string {
-	return v.AppMemoryGrantFields.CreatedAt
-}
+// GetCreatedAt returns AppMemoryWriteGrantsRows1595.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AppMemoryWriteGrantsRows1595) GetCreatedAt() string { return v.AppMemoryGrantFields.CreatedAt }
 
-// GetRevokedAt returns AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant.RevokedAt, and is useful for accessing the field via an interface.
-func (v *AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant) GetRevokedAt() *string {
+// GetRevokedAt returns AppMemoryWriteGrantsRows1595.RevokedAt, and is useful for accessing the field via an interface.
+func (v *AppMemoryWriteGrantsRows1595) GetRevokedAt() *string {
 	return v.AppMemoryGrantFields.RevokedAt
 }
 
-// GetRevokedBy returns AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant.RevokedBy, and is useful for accessing the field via an interface.
-func (v *AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant) GetRevokedBy() *string {
+// GetRevokedBy returns AppMemoryWriteGrantsRows1595.RevokedBy, and is useful for accessing the field via an interface.
+func (v *AppMemoryWriteGrantsRows1595) GetRevokedBy() *string {
 	return v.AppMemoryGrantFields.RevokedBy
 }
 
-func (v *AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant) UnmarshalJSON(b []byte) error {
+func (v *AppMemoryWriteGrantsRows1595) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant
+		*AppMemoryWriteGrantsRows1595
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant = v
+	firstPass.AppMemoryWriteGrantsRows1595 = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -15171,7 +15231,7 @@ func (v *AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant) UnmarshalJ
 	return nil
 }
 
-type __premarshalAppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant struct {
+type __premarshalAppMemoryWriteGrantsRows1595 struct {
 	Id string `json:"id"`
 
 	AppId string `json:"appId"`
@@ -15191,7 +15251,7 @@ type __premarshalAppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant str
 	RevokedBy *string `json:"revokedBy"`
 }
 
-func (v *AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant) MarshalJSON() ([]byte, error) {
+func (v *AppMemoryWriteGrantsRows1595) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -15199,8 +15259,8 @@ func (v *AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant) MarshalJSO
 	return json.Marshal(premarshaled)
 }
 
-func (v *AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant) __premarshalJSON() (*__premarshalAppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant, error) {
-	var retval __premarshalAppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant
+func (v *AppMemoryWriteGrantsRows1595) __premarshalJSON() (*__premarshalAppMemoryWriteGrantsRows1595, error) {
+	var retval __premarshalAppMemoryWriteGrantsRows1595
 
 	retval.Id = v.AppMemoryGrantFields.Id
 	retval.AppId = v.AppMemoryGrantFields.AppId
@@ -15212,17 +15272,6 @@ func (v *AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant) __premarsh
 	retval.RevokedAt = v.AppMemoryGrantFields.RevokedAt
 	retval.RevokedBy = v.AppMemoryGrantFields.RevokedBy
 	return &retval, nil
-}
-
-// AppMemoryWriteGrantsResponse is returned by AppMemoryWriteGrants on success.
-type AppMemoryWriteGrantsResponse struct {
-	// #2484: the write grants an App holds for its userless runs, oldest first; revoked rows only with includeRevoked. Only whoever manages the App, acting as themselves, may list them; a grant on a personal or private memory is listed to its owner alone. hrn:node:hadronmemory.com:specs:cor:agt:010:01
-	AppMemoryWriteGrants []*AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant `json:"appMemoryWriteGrants"`
-}
-
-// GetAppMemoryWriteGrants returns AppMemoryWriteGrantsResponse.AppMemoryWriteGrants, and is useful for accessing the field via an interface.
-func (v *AppMemoryWriteGrantsResponse) GetAppMemoryWriteGrants() []*AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant {
-	return v.AppMemoryWriteGrants
 }
 
 // AppPropertiesGetApp includes the requested fields of the GraphQL type App.
@@ -55820,6 +55869,14 @@ var AllNodeField = []NodeField{
 type NodeFilter struct {
 	// #1591 — only nodes in this approval state (read from the stored revision; a node changed outside a revisioned writer is reconciled on its next read).
 	ApprovalState *NodeApprovalState `json:"approvalState,omitempty"`
+	// #2832 — direct children only (hrn:node:hadronmemory.com:specs:cor:api:090:02). Matches the nodes whose loc is
+	// exactly the given loc plus one more segment (no further colon); the empty string means the top-level nodes.
+	// Judged on loc strings alone: edges and parentRel play no part, and a loc whose parent has no node of its own is
+	// still listed. An absent or null value is no filter, so the empty string is a value. Applies in every mode
+	// (keyword, regex, vector, hybrid and filter-only), under the same access and default exclusions as the rest of
+	// the filter, and pages and counts like any findNodes read. With no query and no sort the order is the sibling
+	// order of hrn:node:hadronmemory.com:specs:cor:dmo:020:01 (positioned nodes first, then by loc). Not supported by appNodes.
+	ChildrenOf *string `json:"childrenOf,omitempty"`
 	// #1608 — content, comments or both (hrn:node:hadronmemory.com:specs:cor:dmo:110:08).
 	// Default CONTENT. Applied by the server before ranking, pagination and
 	// limits in every mode (keyword, regex, vector, hybrid and filter-only), so a
@@ -55862,6 +55919,9 @@ type NodeFilter struct {
 
 // GetApprovalState returns NodeFilter.ApprovalState, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetApprovalState() *NodeApprovalState { return v.ApprovalState }
+
+// GetChildrenOf returns NodeFilter.ChildrenOf, and is useful for accessing the field via an interface.
+func (v *NodeFilter) GetChildrenOf() *string { return v.ChildrenOf }
 
 // GetContentScope returns NodeFilter.ContentScope, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetContentScope() *NodeContentScope { return v.ContentScope }
@@ -65439,67 +65499,89 @@ func (v *RevisionFieldsEditedByUserNodeRevisionEditor) GetHandle() *string { ret
 // GetUrn returns RevisionFieldsEditedByUserNodeRevisionEditor.Urn, and is useful for accessing the field via an interface.
 func (v *RevisionFieldsEditedByUserNodeRevisionEditor) GetUrn() *string { return v.Urn }
 
+// RevokeAppKeyInstructedResponse is returned by RevokeAppKeyInstructed on success.
+type RevokeAppKeyInstructedResponse struct {
+	// Revoke an AppKey. Only whoever manages the App, as themselves, or through their held worker on a validated
+	// `instruction` (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0098; hrn:node:hadronmemory.com:specs:cor:dmo:050:05;
+	// hrn:node:hadronmemory.com:specs:cor:acl:010:01). Never an App key, a host-launched or uninstructed worker session,
+	// a run or an impersonated request. A worker session that is refused cannot tell a missing key from an existing one.
+	// An admitted instructed revoke records one team event (never the key id); a key already revoked records none.
+	// AppKey has no URN; the id is raw ID-only.
+	RevokeAppKey bool `json:"revokeAppKey"`
+}
+
+// GetRevokeAppKey returns RevokeAppKeyInstructedResponse.RevokeAppKey, and is useful for accessing the field via an interface.
+func (v *RevokeAppKeyInstructedResponse) GetRevokeAppKey() bool { return v.RevokeAppKey }
+
 // RevokeAppKeyResponse is returned by RevokeAppKey on success.
 type RevokeAppKeyResponse struct {
-	// Revoke an AppKey. Only whoever manages the App, as themselves
-	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:05; hrn:node:hadronmemory.com:specs:cor:acl:010:01).
-	// Never an App key, a bound worker session or an impersonated request. AppKey has no URN; the id is raw ID-only.
+	// Revoke an AppKey. Only whoever manages the App, as themselves, or through their held worker on a validated
+	// `instruction` (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0098; hrn:node:hadronmemory.com:specs:cor:dmo:050:05;
+	// hrn:node:hadronmemory.com:specs:cor:acl:010:01). Never an App key, a host-launched or uninstructed worker session,
+	// a run or an impersonated request. A worker session that is refused cannot tell a missing key from an existing one.
+	// An admitted instructed revoke records one team event (never the key id); a key already revoked records none.
+	// AppKey has no URN; the id is raw ID-only.
 	RevokeAppKey bool `json:"revokeAppKey"`
 }
 
 // GetRevokeAppKey returns RevokeAppKeyResponse.RevokeAppKey, and is useful for accessing the field via an interface.
 func (v *RevokeAppKeyResponse) GetRevokeAppKey() bool { return v.RevokeAppKey }
 
-// RevokeAppKeyScopeResponse is returned by RevokeAppKeyScope on success.
-type RevokeAppKeyScopeResponse struct {
-	// #1749 — take a scope back. The key's next call is refused. Revoking a scope it does not hold changes nothing.
-	RevokeAppKeyScope *RevokeAppKeyScopeRevokeAppKeyScopeAppKey `json:"revokeAppKeyScope"`
+// RevokeAppKeyScopeInstructedResponse is returned by RevokeAppKeyScopeInstructed on success.
+type RevokeAppKeyScopeInstructedResponse struct {
+	// #1749 — take a scope back. The key's next call is refused. Revoking a scope it does not hold changes nothing. Whoever manages the App, as themselves, or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0109 A); an admitted instructed revoke that ended a scope records one team event (never the key or scope id).
+	RevokeAppKeyScope *RevokeAppKeyScopeRow1595 `json:"revokeAppKeyScope"`
 }
 
-// GetRevokeAppKeyScope returns RevokeAppKeyScopeResponse.RevokeAppKeyScope, and is useful for accessing the field via an interface.
-func (v *RevokeAppKeyScopeResponse) GetRevokeAppKeyScope() *RevokeAppKeyScopeRevokeAppKeyScopeAppKey {
+// GetRevokeAppKeyScope returns RevokeAppKeyScopeInstructedResponse.RevokeAppKeyScope, and is useful for accessing the field via an interface.
+func (v *RevokeAppKeyScopeInstructedResponse) GetRevokeAppKeyScope() *RevokeAppKeyScopeRow1595 {
 	return v.RevokeAppKeyScope
 }
 
-// RevokeAppKeyScopeRevokeAppKeyScopeAppKey includes the requested fields of the GraphQL type AppKey.
-type RevokeAppKeyScopeRevokeAppKeyScopeAppKey struct {
+// RevokeAppKeyScopeResponse is returned by RevokeAppKeyScope on success.
+type RevokeAppKeyScopeResponse struct {
+	// #1749 — take a scope back. The key's next call is refused. Revoking a scope it does not hold changes nothing. Whoever manages the App, as themselves, or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0109 A); an admitted instructed revoke that ended a scope records one team event (never the key or scope id).
+	RevokeAppKeyScope *RevokeAppKeyScopeRow1595 `json:"revokeAppKeyScope"`
+}
+
+// GetRevokeAppKeyScope returns RevokeAppKeyScopeResponse.RevokeAppKeyScope, and is useful for accessing the field via an interface.
+func (v *RevokeAppKeyScopeResponse) GetRevokeAppKeyScope() *RevokeAppKeyScopeRow1595 {
+	return v.RevokeAppKeyScope
+}
+
+// RevokeAppKeyScopeRow1595 includes the requested fields of the GraphQL type AppKey.
+type RevokeAppKeyScopeRow1595 struct {
 	AppKeyScopesFields `json:"-"`
 }
 
-// GetId returns RevokeAppKeyScopeRevokeAppKeyScopeAppKey.Id, and is useful for accessing the field via an interface.
-func (v *RevokeAppKeyScopeRevokeAppKeyScopeAppKey) GetId() string { return v.AppKeyScopesFields.Id }
+// GetId returns RevokeAppKeyScopeRow1595.Id, and is useful for accessing the field via an interface.
+func (v *RevokeAppKeyScopeRow1595) GetId() string { return v.AppKeyScopesFields.Id }
 
-// GetAppId returns RevokeAppKeyScopeRevokeAppKeyScopeAppKey.AppId, and is useful for accessing the field via an interface.
-func (v *RevokeAppKeyScopeRevokeAppKeyScopeAppKey) GetAppId() string {
-	return v.AppKeyScopesFields.AppId
-}
+// GetAppId returns RevokeAppKeyScopeRow1595.AppId, and is useful for accessing the field via an interface.
+func (v *RevokeAppKeyScopeRow1595) GetAppId() string { return v.AppKeyScopesFields.AppId }
 
-// GetLabel returns RevokeAppKeyScopeRevokeAppKeyScopeAppKey.Label, and is useful for accessing the field via an interface.
-func (v *RevokeAppKeyScopeRevokeAppKeyScopeAppKey) GetLabel() *string {
-	return v.AppKeyScopesFields.Label
-}
+// GetLabel returns RevokeAppKeyScopeRow1595.Label, and is useful for accessing the field via an interface.
+func (v *RevokeAppKeyScopeRow1595) GetLabel() *string { return v.AppKeyScopesFields.Label }
 
-// GetRevokedAt returns RevokeAppKeyScopeRevokeAppKeyScopeAppKey.RevokedAt, and is useful for accessing the field via an interface.
-func (v *RevokeAppKeyScopeRevokeAppKeyScopeAppKey) GetRevokedAt() *string {
-	return v.AppKeyScopesFields.RevokedAt
-}
+// GetRevokedAt returns RevokeAppKeyScopeRow1595.RevokedAt, and is useful for accessing the field via an interface.
+func (v *RevokeAppKeyScopeRow1595) GetRevokedAt() *string { return v.AppKeyScopesFields.RevokedAt }
 
-// GetScopes returns RevokeAppKeyScopeRevokeAppKeyScopeAppKey.Scopes, and is useful for accessing the field via an interface.
-func (v *RevokeAppKeyScopeRevokeAppKeyScopeAppKey) GetScopes() []*AppKeyScopesFieldsScopesAppKeyScope {
+// GetScopes returns RevokeAppKeyScopeRow1595.Scopes, and is useful for accessing the field via an interface.
+func (v *RevokeAppKeyScopeRow1595) GetScopes() []*AppKeyScopesFieldsScopesAppKeyScope {
 	return v.AppKeyScopesFields.Scopes
 }
 
-func (v *RevokeAppKeyScopeRevokeAppKeyScopeAppKey) UnmarshalJSON(b []byte) error {
+func (v *RevokeAppKeyScopeRow1595) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*RevokeAppKeyScopeRevokeAppKeyScopeAppKey
+		*RevokeAppKeyScopeRow1595
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.RevokeAppKeyScopeRevokeAppKeyScopeAppKey = v
+	firstPass.RevokeAppKeyScopeRow1595 = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -65514,7 +65596,7 @@ func (v *RevokeAppKeyScopeRevokeAppKeyScopeAppKey) UnmarshalJSON(b []byte) error
 	return nil
 }
 
-type __premarshalRevokeAppKeyScopeRevokeAppKeyScopeAppKey struct {
+type __premarshalRevokeAppKeyScopeRow1595 struct {
 	Id string `json:"id"`
 
 	AppId string `json:"appId"`
@@ -65526,7 +65608,7 @@ type __premarshalRevokeAppKeyScopeRevokeAppKeyScopeAppKey struct {
 	Scopes []*AppKeyScopesFieldsScopesAppKeyScope `json:"scopes"`
 }
 
-func (v *RevokeAppKeyScopeRevokeAppKeyScopeAppKey) MarshalJSON() ([]byte, error) {
+func (v *RevokeAppKeyScopeRow1595) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -65534,8 +65616,8 @@ func (v *RevokeAppKeyScopeRevokeAppKeyScopeAppKey) MarshalJSON() ([]byte, error)
 	return json.Marshal(premarshaled)
 }
 
-func (v *RevokeAppKeyScopeRevokeAppKeyScopeAppKey) __premarshalJSON() (*__premarshalRevokeAppKeyScopeRevokeAppKeyScopeAppKey, error) {
-	var retval __premarshalRevokeAppKeyScopeRevokeAppKeyScopeAppKey
+func (v *RevokeAppKeyScopeRow1595) __premarshalJSON() (*__premarshalRevokeAppKeyScopeRow1595, error) {
+	var retval __premarshalRevokeAppKeyScopeRow1595
 
 	retval.Id = v.AppKeyScopesFields.Id
 	retval.AppId = v.AppKeyScopesFields.AppId
@@ -65545,81 +65627,86 @@ func (v *RevokeAppKeyScopeRevokeAppKeyScopeAppKey) __premarshalJSON() (*__premar
 	return &retval, nil
 }
 
-// RevokeAppMemoryWriteGrantResponse is returned by RevokeAppMemoryWriteGrant on success.
-type RevokeAppMemoryWriteGrantResponse struct {
-	// #2484: end a grant; the next write by the App's run is refused. Whoever manages the App may revoke, acting as themselves. The row stays with its end time; revoking a revoked grant changes nothing. hrn:node:hadronmemory.com:specs:cor:agt:010:01
-	RevokeAppMemoryWriteGrant *RevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant `json:"revokeAppMemoryWriteGrant"`
+// RevokeAppMemoryWriteGrantInstructedResponse is returned by RevokeAppMemoryWriteGrantInstructed on success.
+type RevokeAppMemoryWriteGrantInstructedResponse struct {
+	// #2484: end a grant; the next write by the App's run is refused. Whoever manages the App may revoke, as themselves or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0109 A; one team event, never the grant id). The row stays with its end time; revoking a revoked grant changes nothing and records nothing. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+	RevokeAppMemoryWriteGrant *RevokeAppMemoryWriteGrantRow1595 `json:"revokeAppMemoryWriteGrant"`
 }
 
-// GetRevokeAppMemoryWriteGrant returns RevokeAppMemoryWriteGrantResponse.RevokeAppMemoryWriteGrant, and is useful for accessing the field via an interface.
-func (v *RevokeAppMemoryWriteGrantResponse) GetRevokeAppMemoryWriteGrant() *RevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant {
+// GetRevokeAppMemoryWriteGrant returns RevokeAppMemoryWriteGrantInstructedResponse.RevokeAppMemoryWriteGrant, and is useful for accessing the field via an interface.
+func (v *RevokeAppMemoryWriteGrantInstructedResponse) GetRevokeAppMemoryWriteGrant() *RevokeAppMemoryWriteGrantRow1595 {
 	return v.RevokeAppMemoryWriteGrant
 }
 
-// RevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant includes the requested fields of the GraphQL type AppMemoryWriteGrant.
+// RevokeAppMemoryWriteGrantResponse is returned by RevokeAppMemoryWriteGrant on success.
+type RevokeAppMemoryWriteGrantResponse struct {
+	// #2484: end a grant; the next write by the App's run is refused. Whoever manages the App may revoke, as themselves or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0109 A; one team event, never the grant id). The row stays with its end time; revoking a revoked grant changes nothing and records nothing. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+	RevokeAppMemoryWriteGrant *RevokeAppMemoryWriteGrantRow1595 `json:"revokeAppMemoryWriteGrant"`
+}
+
+// GetRevokeAppMemoryWriteGrant returns RevokeAppMemoryWriteGrantResponse.RevokeAppMemoryWriteGrant, and is useful for accessing the field via an interface.
+func (v *RevokeAppMemoryWriteGrantResponse) GetRevokeAppMemoryWriteGrant() *RevokeAppMemoryWriteGrantRow1595 {
+	return v.RevokeAppMemoryWriteGrant
+}
+
+// RevokeAppMemoryWriteGrantRow1595 includes the requested fields of the GraphQL type AppMemoryWriteGrant.
 // The GraphQL type's documentation follows.
 //
 // #2484: an App's write grant on one memory under one loc prefix, for the App's userless runs only. It permits node create and update at the prefix and its colon-boundary descendants, checked live at each write; never delete, edges, memory settings or stored files, and nothing for another App's run, a user-backed run, an App key or a worker. A revoked grant stays as a terminal row. hrn:node:hadronmemory.com:specs:cor:agt:010:01
-type RevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant struct {
+type RevokeAppMemoryWriteGrantRow1595 struct {
 	AppMemoryGrantFields `json:"-"`
 }
 
-// GetId returns RevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant.Id, and is useful for accessing the field via an interface.
-func (v *RevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant) GetId() string {
-	return v.AppMemoryGrantFields.Id
-}
+// GetId returns RevokeAppMemoryWriteGrantRow1595.Id, and is useful for accessing the field via an interface.
+func (v *RevokeAppMemoryWriteGrantRow1595) GetId() string { return v.AppMemoryGrantFields.Id }
 
-// GetAppId returns RevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant.AppId, and is useful for accessing the field via an interface.
-func (v *RevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant) GetAppId() string {
-	return v.AppMemoryGrantFields.AppId
-}
+// GetAppId returns RevokeAppMemoryWriteGrantRow1595.AppId, and is useful for accessing the field via an interface.
+func (v *RevokeAppMemoryWriteGrantRow1595) GetAppId() string { return v.AppMemoryGrantFields.AppId }
 
-// GetMemoryUrn returns RevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant.MemoryUrn, and is useful for accessing the field via an interface.
-func (v *RevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant) GetMemoryUrn() *string {
+// GetMemoryUrn returns RevokeAppMemoryWriteGrantRow1595.MemoryUrn, and is useful for accessing the field via an interface.
+func (v *RevokeAppMemoryWriteGrantRow1595) GetMemoryUrn() *string {
 	return v.AppMemoryGrantFields.MemoryUrn
 }
 
-// GetPrefix returns RevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant.Prefix, and is useful for accessing the field via an interface.
-func (v *RevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant) GetPrefix() string {
-	return v.AppMemoryGrantFields.Prefix
-}
+// GetPrefix returns RevokeAppMemoryWriteGrantRow1595.Prefix, and is useful for accessing the field via an interface.
+func (v *RevokeAppMemoryWriteGrantRow1595) GetPrefix() string { return v.AppMemoryGrantFields.Prefix }
 
-// GetRegisterNodeUrn returns RevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant.RegisterNodeUrn, and is useful for accessing the field via an interface.
-func (v *RevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant) GetRegisterNodeUrn() *string {
+// GetRegisterNodeUrn returns RevokeAppMemoryWriteGrantRow1595.RegisterNodeUrn, and is useful for accessing the field via an interface.
+func (v *RevokeAppMemoryWriteGrantRow1595) GetRegisterNodeUrn() *string {
 	return v.AppMemoryGrantFields.RegisterNodeUrn
 }
 
-// GetGrantedBy returns RevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant.GrantedBy, and is useful for accessing the field via an interface.
-func (v *RevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant) GetGrantedBy() string {
+// GetGrantedBy returns RevokeAppMemoryWriteGrantRow1595.GrantedBy, and is useful for accessing the field via an interface.
+func (v *RevokeAppMemoryWriteGrantRow1595) GetGrantedBy() string {
 	return v.AppMemoryGrantFields.GrantedBy
 }
 
-// GetCreatedAt returns RevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant.CreatedAt, and is useful for accessing the field via an interface.
-func (v *RevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant) GetCreatedAt() string {
+// GetCreatedAt returns RevokeAppMemoryWriteGrantRow1595.CreatedAt, and is useful for accessing the field via an interface.
+func (v *RevokeAppMemoryWriteGrantRow1595) GetCreatedAt() string {
 	return v.AppMemoryGrantFields.CreatedAt
 }
 
-// GetRevokedAt returns RevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant.RevokedAt, and is useful for accessing the field via an interface.
-func (v *RevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant) GetRevokedAt() *string {
+// GetRevokedAt returns RevokeAppMemoryWriteGrantRow1595.RevokedAt, and is useful for accessing the field via an interface.
+func (v *RevokeAppMemoryWriteGrantRow1595) GetRevokedAt() *string {
 	return v.AppMemoryGrantFields.RevokedAt
 }
 
-// GetRevokedBy returns RevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant.RevokedBy, and is useful for accessing the field via an interface.
-func (v *RevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant) GetRevokedBy() *string {
+// GetRevokedBy returns RevokeAppMemoryWriteGrantRow1595.RevokedBy, and is useful for accessing the field via an interface.
+func (v *RevokeAppMemoryWriteGrantRow1595) GetRevokedBy() *string {
 	return v.AppMemoryGrantFields.RevokedBy
 }
 
-func (v *RevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant) UnmarshalJSON(b []byte) error {
+func (v *RevokeAppMemoryWriteGrantRow1595) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*RevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant
+		*RevokeAppMemoryWriteGrantRow1595
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.RevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant = v
+	firstPass.RevokeAppMemoryWriteGrantRow1595 = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -65634,7 +65721,7 @@ func (v *RevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant) UnmarshalJSON(b []b
 	return nil
 }
 
-type __premarshalRevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant struct {
+type __premarshalRevokeAppMemoryWriteGrantRow1595 struct {
 	Id string `json:"id"`
 
 	AppId string `json:"appId"`
@@ -65654,7 +65741,7 @@ type __premarshalRevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant struct {
 	RevokedBy *string `json:"revokedBy"`
 }
 
-func (v *RevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant) MarshalJSON() ([]byte, error) {
+func (v *RevokeAppMemoryWriteGrantRow1595) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -65662,8 +65749,8 @@ func (v *RevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant) MarshalJSON() ([]by
 	return json.Marshal(premarshaled)
 }
 
-func (v *RevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant) __premarshalJSON() (*__premarshalRevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant, error) {
-	var retval __premarshalRevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant
+func (v *RevokeAppMemoryWriteGrantRow1595) __premarshalJSON() (*__premarshalRevokeAppMemoryWriteGrantRow1595, error) {
+	var retval __premarshalRevokeAppMemoryWriteGrantRow1595
 
 	retval.Id = v.AppMemoryGrantFields.Id
 	retval.AppId = v.AppMemoryGrantFields.AppId
@@ -94355,6 +94442,20 @@ type __AppKeysMetadataInput struct {
 // GetAppRef returns __AppKeysMetadataInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__AppKeysMetadataInput) GetAppRef() string { return v.AppRef }
 
+// __AppKeysMetadataInstructedInput is used internally by genqlient
+type __AppKeysMetadataInstructedInput struct {
+	AppRef      string               `json:"appRef"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetAppRef returns __AppKeysMetadataInstructedInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AppKeysMetadataInstructedInput) GetAppRef() string { return v.AppRef }
+
+// GetInstruction returns __AppKeysMetadataInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__AppKeysMetadataInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
+
 // __AppKeysScopesHostUsesInput is used internally by genqlient
 type __AppKeysScopesHostUsesInput struct {
 	AppRef string `json:"appRef"`
@@ -94367,6 +94468,24 @@ func (v *__AppKeysScopesHostUsesInput) GetAppRef() string { return v.AppRef }
 // GetFirst returns __AppKeysScopesHostUsesInput.First, and is useful for accessing the field via an interface.
 func (v *__AppKeysScopesHostUsesInput) GetFirst() int { return v.First }
 
+// __AppKeysScopesHostUsesInstructedInput is used internally by genqlient
+type __AppKeysScopesHostUsesInstructedInput struct {
+	AppRef      string               `json:"appRef"`
+	First       int                  `json:"first"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetAppRef returns __AppKeysScopesHostUsesInstructedInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AppKeysScopesHostUsesInstructedInput) GetAppRef() string { return v.AppRef }
+
+// GetFirst returns __AppKeysScopesHostUsesInstructedInput.First, and is useful for accessing the field via an interface.
+func (v *__AppKeysScopesHostUsesInstructedInput) GetFirst() int { return v.First }
+
+// GetInstruction returns __AppKeysScopesHostUsesInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__AppKeysScopesHostUsesInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
+
 // __AppKeysScopesInput is used internally by genqlient
 type __AppKeysScopesInput struct {
 	AppRef string `json:"appRef"`
@@ -94374,6 +94493,18 @@ type __AppKeysScopesInput struct {
 
 // GetAppRef returns __AppKeysScopesInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__AppKeysScopesInput) GetAppRef() string { return v.AppRef }
+
+// __AppKeysScopesInstructedInput is used internally by genqlient
+type __AppKeysScopesInstructedInput struct {
+	AppRef      string               `json:"appRef"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetAppRef returns __AppKeysScopesInstructedInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AppKeysScopesInstructedInput) GetAppRef() string { return v.AppRef }
+
+// GetInstruction returns __AppKeysScopesInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__AppKeysScopesInstructedInput) GetInstruction() *ActInstructionInput { return v.Instruction }
 
 // __AppMemberRolesInput is used internally by genqlient
 type __AppMemberRolesInput struct {
@@ -94418,6 +94549,24 @@ func (v *__AppMemoryWriteGrantsInput) GetAppRef() string { return v.AppRef }
 
 // GetIncludeRevoked returns __AppMemoryWriteGrantsInput.IncludeRevoked, and is useful for accessing the field via an interface.
 func (v *__AppMemoryWriteGrantsInput) GetIncludeRevoked() *bool { return v.IncludeRevoked }
+
+// __AppMemoryWriteGrantsInstructedInput is used internally by genqlient
+type __AppMemoryWriteGrantsInstructedInput struct {
+	Instruction    *ActInstructionInput `json:"instruction,omitempty"`
+	AppRef         string               `json:"appRef"`
+	IncludeRevoked *bool                `json:"includeRevoked,omitempty"`
+}
+
+// GetInstruction returns __AppMemoryWriteGrantsInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__AppMemoryWriteGrantsInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
+
+// GetAppRef returns __AppMemoryWriteGrantsInstructedInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AppMemoryWriteGrantsInstructedInput) GetAppRef() string { return v.AppRef }
+
+// GetIncludeRevoked returns __AppMemoryWriteGrantsInstructedInput.IncludeRevoked, and is useful for accessing the field via an interface.
+func (v *__AppMemoryWriteGrantsInstructedInput) GetIncludeRevoked() *bool { return v.IncludeRevoked }
 
 // __AppPropertiesGetInput is used internally by genqlient
 type __AppPropertiesGetInput struct {
@@ -99213,6 +99362,18 @@ type __RevokeAppKeyInput struct {
 // GetId returns __RevokeAppKeyInput.Id, and is useful for accessing the field via an interface.
 func (v *__RevokeAppKeyInput) GetId() string { return v.Id }
 
+// __RevokeAppKeyInstructedInput is used internally by genqlient
+type __RevokeAppKeyInstructedInput struct {
+	Id          string               `json:"id"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetId returns __RevokeAppKeyInstructedInput.Id, and is useful for accessing the field via an interface.
+func (v *__RevokeAppKeyInstructedInput) GetId() string { return v.Id }
+
+// GetInstruction returns __RevokeAppKeyInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__RevokeAppKeyInstructedInput) GetInstruction() *ActInstructionInput { return v.Instruction }
+
 // __RevokeAppKeyScopeInput is used internally by genqlient
 type __RevokeAppKeyScopeInput struct {
 	Id    string `json:"id"`
@@ -99225,6 +99386,24 @@ func (v *__RevokeAppKeyScopeInput) GetId() string { return v.Id }
 // GetScope returns __RevokeAppKeyScopeInput.Scope, and is useful for accessing the field via an interface.
 func (v *__RevokeAppKeyScopeInput) GetScope() string { return v.Scope }
 
+// __RevokeAppKeyScopeInstructedInput is used internally by genqlient
+type __RevokeAppKeyScopeInstructedInput struct {
+	Id          string               `json:"id"`
+	Scope       string               `json:"scope"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetId returns __RevokeAppKeyScopeInstructedInput.Id, and is useful for accessing the field via an interface.
+func (v *__RevokeAppKeyScopeInstructedInput) GetId() string { return v.Id }
+
+// GetScope returns __RevokeAppKeyScopeInstructedInput.Scope, and is useful for accessing the field via an interface.
+func (v *__RevokeAppKeyScopeInstructedInput) GetScope() string { return v.Scope }
+
+// GetInstruction returns __RevokeAppKeyScopeInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__RevokeAppKeyScopeInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
+
 // __RevokeAppMemoryWriteGrantInput is used internally by genqlient
 type __RevokeAppMemoryWriteGrantInput struct {
 	Id string `json:"id"`
@@ -99232,6 +99411,20 @@ type __RevokeAppMemoryWriteGrantInput struct {
 
 // GetId returns __RevokeAppMemoryWriteGrantInput.Id, and is useful for accessing the field via an interface.
 func (v *__RevokeAppMemoryWriteGrantInput) GetId() string { return v.Id }
+
+// __RevokeAppMemoryWriteGrantInstructedInput is used internally by genqlient
+type __RevokeAppMemoryWriteGrantInstructedInput struct {
+	Id          string               `json:"id"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetId returns __RevokeAppMemoryWriteGrantInstructedInput.Id, and is useful for accessing the field via an interface.
+func (v *__RevokeAppMemoryWriteGrantInstructedInput) GetId() string { return v.Id }
+
+// GetInstruction returns __RevokeAppMemoryWriteGrantInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__RevokeAppMemoryWriteGrantInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
 
 // __RevokeConnectionGrantInput is used internally by genqlient
 type __RevokeConnectionGrantInput struct {
@@ -107001,6 +107194,48 @@ func AppKeysMetadata(
 	return data_, err_
 }
 
+// The query executed by AppKeysMetadataInstructed.
+const AppKeysMetadataInstructed_Operation = `
+query AppKeysMetadataInstructed ($appRef: ID!, $instruction: ActInstructionInput!) {
+	appKeys(appRef: $appRef, instruction: $instruction) {
+		id
+		keyPreview
+		label
+		createdAt
+		lastUsedAt
+		revokedAt
+	}
+}
+`
+
+// cli#1595: explicitly instructed documents; legacy operations stay byte-identical.
+func AppKeysMetadataInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	instruction *ActInstructionInput,
+) (data_ *AppKeysMetadataInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AppKeysMetadataInstructed",
+		Query:  AppKeysMetadataInstructed_Operation,
+		Variables: &__AppKeysMetadataInstructedInput{
+			AppRef:      appRef,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &AppKeysMetadataInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by AppKeysScopes.
 const AppKeysScopes_Operation = `
 query AppKeysScopes ($appRef: ID!) {
@@ -107095,6 +107330,110 @@ func AppKeysScopesHostUses(
 	}
 
 	data_ = &AppKeysScopesHostUsesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AppKeysScopesHostUsesInstructed.
+const AppKeysScopesHostUsesInstructed_Operation = `
+query AppKeysScopesHostUsesInstructed ($appRef: ID!, $first: Int!, $instruction: ActInstructionInput!) {
+	appKeys(appRef: $appRef, instruction: $instruction) {
+		id
+		keyPreview
+		label
+		createdAt
+		lastUsedAt
+		revokedAt
+		scopes {
+			scope
+			hostId
+			grantedAt
+			grantedBy
+		}
+		hostUses(first: $first) {
+			hostId
+			action
+			count
+			operationId
+			refusedCode
+			usedAt
+		}
+	}
+}
+`
+
+func AppKeysScopesHostUsesInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	first int,
+	instruction *ActInstructionInput,
+) (data_ *AppKeysScopesHostUsesInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AppKeysScopesHostUsesInstructed",
+		Query:  AppKeysScopesHostUsesInstructed_Operation,
+		Variables: &__AppKeysScopesHostUsesInstructedInput{
+			AppRef:      appRef,
+			First:       first,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &AppKeysScopesHostUsesInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AppKeysScopesInstructed.
+const AppKeysScopesInstructed_Operation = `
+query AppKeysScopesInstructed ($appRef: ID!, $instruction: ActInstructionInput!) {
+	appKeys(appRef: $appRef, instruction: $instruction) {
+		id
+		keyPreview
+		label
+		createdAt
+		lastUsedAt
+		revokedAt
+		scopes {
+			scope
+			hostId
+			grantedAt
+			grantedBy
+		}
+	}
+}
+`
+
+func AppKeysScopesInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	instruction *ActInstructionInput,
+) (data_ *AppKeysScopesInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AppKeysScopesInstructed",
+		Query:  AppKeysScopesInstructed_Operation,
+		Variables: &__AppKeysScopesInstructedInput{
+			AppRef:      appRef,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &AppKeysScopesInstructedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -107280,6 +107619,56 @@ func AppMemoryWriteGrants(
 	}
 
 	data_ = &AppMemoryWriteGrantsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AppMemoryWriteGrantsInstructed.
+const AppMemoryWriteGrantsInstructed_Operation = `
+query AppMemoryWriteGrantsInstructed ($instruction: ActInstructionInput!, $appRef: String!, $includeRevoked: Boolean) {
+	appMemoryWriteGrants(appRef: $appRef, includeRevoked: $includeRevoked, instruction: $instruction) {
+		... AppMemoryGrantFields
+	}
+}
+fragment AppMemoryGrantFields on AppMemoryWriteGrant {
+	id
+	appId
+	memoryUrn
+	prefix
+	registerNodeUrn
+	grantedBy
+	createdAt
+	revokedAt
+	revokedBy
+}
+`
+
+// cli#1595: explicitly instructed documents; legacy operations stay byte-identical.
+func AppMemoryWriteGrantsInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	instruction *ActInstructionInput,
+	appRef string,
+	includeRevoked *bool,
+) (data_ *AppMemoryWriteGrantsInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AppMemoryWriteGrantsInstructed",
+		Query:  AppMemoryWriteGrantsInstructed_Operation,
+		Variables: &__AppMemoryWriteGrantsInstructedInput{
+			Instruction:    instruction,
+			AppRef:         appRef,
+			IncludeRevoked: includeRevoked,
+		},
+	}
+
+	data_ = &AppMemoryWriteGrantsInstructedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -125794,6 +126183,40 @@ func RevokeAppKey(
 	return data_, err_
 }
 
+// The mutation executed by RevokeAppKeyInstructed.
+const RevokeAppKeyInstructed_Operation = `
+mutation RevokeAppKeyInstructed ($id: ID!, $instruction: ActInstructionInput!) {
+	revokeAppKey(id: $id, instruction: $instruction)
+}
+`
+
+func RevokeAppKeyInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	instruction *ActInstructionInput,
+) (data_ *RevokeAppKeyInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RevokeAppKeyInstructed",
+		Query:  RevokeAppKeyInstructed_Operation,
+		Variables: &__RevokeAppKeyInstructedInput{
+			Id:          id,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &RevokeAppKeyInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by RevokeAppKeyScope.
 const RevokeAppKeyScope_Operation = `
 mutation RevokeAppKeyScope ($id: ID!, $scope: String!) {
@@ -125842,6 +126265,57 @@ func RevokeAppKeyScope(
 	return data_, err_
 }
 
+// The mutation executed by RevokeAppKeyScopeInstructed.
+const RevokeAppKeyScopeInstructed_Operation = `
+mutation RevokeAppKeyScopeInstructed ($id: ID!, $scope: String!, $instruction: ActInstructionInput!) {
+	revokeAppKeyScope(id: $id, scope: $scope, instruction: $instruction) {
+		... AppKeyScopesFields
+	}
+}
+fragment AppKeyScopesFields on AppKey {
+	id
+	appId
+	label
+	revokedAt
+	scopes {
+		scope
+		hostId
+		grantedAt
+		grantedBy
+	}
+}
+`
+
+// cli#1595: explicitly instructed documents; legacy operations stay byte-identical.
+func RevokeAppKeyScopeInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	scope string,
+	instruction *ActInstructionInput,
+) (data_ *RevokeAppKeyScopeInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RevokeAppKeyScopeInstructed",
+		Query:  RevokeAppKeyScopeInstructed_Operation,
+		Variables: &__RevokeAppKeyScopeInstructedInput{
+			Id:          id,
+			Scope:       scope,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &RevokeAppKeyScopeInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by RevokeAppMemoryWriteGrant.
 const RevokeAppMemoryWriteGrant_Operation = `
 mutation RevokeAppMemoryWriteGrant ($id: ID!) {
@@ -125876,6 +126350,53 @@ func RevokeAppMemoryWriteGrant(
 	}
 
 	data_ = &RevokeAppMemoryWriteGrantResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RevokeAppMemoryWriteGrantInstructed.
+const RevokeAppMemoryWriteGrantInstructed_Operation = `
+mutation RevokeAppMemoryWriteGrantInstructed ($id: ID!, $instruction: ActInstructionInput!) {
+	revokeAppMemoryWriteGrant(id: $id, instruction: $instruction) {
+		... AppMemoryGrantFields
+	}
+}
+fragment AppMemoryGrantFields on AppMemoryWriteGrant {
+	id
+	appId
+	memoryUrn
+	prefix
+	registerNodeUrn
+	grantedBy
+	createdAt
+	revokedAt
+	revokedBy
+}
+`
+
+func RevokeAppMemoryWriteGrantInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+	instruction *ActInstructionInput,
+) (data_ *RevokeAppMemoryWriteGrantInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RevokeAppMemoryWriteGrantInstructed",
+		Query:  RevokeAppMemoryWriteGrantInstructed_Operation,
+		Variables: &__RevokeAppMemoryWriteGrantInstructedInput{
+			Id:          id,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &RevokeAppMemoryWriteGrantInstructedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

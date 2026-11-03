@@ -7,6 +7,7 @@ query AppMemoryWriteGrants(
   # @genqlient(omitempty: true)
   $includeRevoked: Boolean
 ) {
+ # @genqlient(typename: "AppMemoryWriteGrantsRows1595")
   appMemoryWriteGrants(appRef: $appRef, includeRevoked: $includeRevoked) {
     ...AppMemoryGrantFields
   }
@@ -23,7 +24,10 @@ mutation SetAppMemoryWriteGrant(
 }
 
 mutation RevokeAppMemoryWriteGrant($id: ID!) {
-  revokeAppMemoryWriteGrant(id: $id) { ...AppMemoryGrantFields }
+ # @genqlient(typename: "RevokeAppMemoryWriteGrantRow1595")
+  revokeAppMemoryWriteGrant(id: $id) {
+    ...AppMemoryGrantFields
+  }
 }
 
 query LatestAppRun(
@@ -40,4 +44,24 @@ query MyApp {
 
 mutation SetAgentAssetUploadEnabled($input: SetAgentAssetUploadEnabledInput!) {
   setAgentAssetUploadEnabled(input: $input) { id urn agentTools }
+}
+
+# cli#1595: explicitly instructed documents; legacy operations stay byte-identical.
+query AppMemoryWriteGrantsInstructed(
+ $instruction: ActInstructionInput!
+  $appRef: String!
+  # @genqlient(omitempty: true)
+  $includeRevoked: Boolean
+) {
+ # @genqlient(typename: "AppMemoryWriteGrantsRows1595")
+  appMemoryWriteGrants(appRef: $appRef, includeRevoked: $includeRevoked, instruction: $instruction) {
+    ...AppMemoryGrantFields
+  }
+}
+
+mutation RevokeAppMemoryWriteGrantInstructed($id: ID!, $instruction: ActInstructionInput!) {
+ # @genqlient(typename: "RevokeAppMemoryWriteGrantRow1595")
+  revokeAppMemoryWriteGrant(id: $id, instruction: $instruction) {
+    ...AppMemoryGrantFields
+  }
 }
