@@ -586,6 +586,16 @@ func (v *AddMemoryToAgentAddMemoryToAgent) GetResetContextAfterTask() bool {
 	return v.AgentFields.ResetContextAfterTask
 }
 
+// GetListedOnMarketplace returns AddMemoryToAgentAddMemoryToAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *AddMemoryToAgentAddMemoryToAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns AddMemoryToAgentAddMemoryToAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *AddMemoryToAgentAddMemoryToAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
 // GetInstallationPolicy returns AddMemoryToAgentAddMemoryToAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *AddMemoryToAgentAddMemoryToAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -660,6 +670,10 @@ type __premarshalAddMemoryToAgentAddMemoryToAgent struct {
 
 	ResetContextAfterTask bool `json:"resetContextAfterTask"`
 
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -696,6 +710,8 @@ func (v *AddMemoryToAgentAddMemoryToAgent) __premarshalJSON() (*__premarshalAddM
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -953,9 +969,13 @@ type AgentFields struct {
 	// #2138: false means every Worker cast from this Agent counts as having a task and is expected to check its team channel every period (coordinators, the lifecycle agent). Default true.
 	UsesTasks bool `json:"usesTasks"`
 	// #2162 (hrn:node:hadronmemory.com:specs:cor:agt:050:27): when a task one of this Agent's workers had started finishes or is cancelled, and it holds no other started task, its host resets the worker's context (a shed: the binding and session stay). Default false. Set by whoever manages the Agent.
-	ResetContextAfterTask bool                           `json:"resetContextAfterTask"`
-	InstallationPolicy    *AgentFieldsInstallationPolicy `json:"installationPolicy"`
-	CreatedAt             string                         `json:"createdAt"`
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+	// cor:acl:080:04 — opt-in marketplace catalogue flag (advertisement, not access).
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+	// Spec 049 Phase 5 — the defaults this Agent's install-created register row is made with.
+	RegisterDefaults   *AgentFieldsRegisterDefaults   `json:"registerDefaults"`
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+	CreatedAt          string                         `json:"createdAt"`
 }
 
 // GetId returns AgentFields.Id, and is useful for accessing the field via an interface.
@@ -1018,6 +1038,12 @@ func (v *AgentFields) GetUsesTasks() bool { return v.UsesTasks }
 // GetResetContextAfterTask returns AgentFields.ResetContextAfterTask, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetResetContextAfterTask() bool { return v.ResetContextAfterTask }
 
+// GetListedOnMarketplace returns AgentFields.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetListedOnMarketplace() bool { return v.ListedOnMarketplace }
+
+// GetRegisterDefaults returns AgentFields.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetRegisterDefaults() *AgentFieldsRegisterDefaults { return v.RegisterDefaults }
+
 // GetInstallationPolicy returns AgentFields.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.InstallationPolicy
@@ -1033,6 +1059,17 @@ type AgentFieldsInstallationPolicy struct {
 
 // GetMemberRoles returns AgentFieldsInstallationPolicy.MemberRoles, and is useful for accessing the field via an interface.
 func (v *AgentFieldsInstallationPolicy) GetMemberRoles() []string { return v.MemberRoles }
+
+// AgentFieldsRegisterDefaults includes the requested fields of the GraphQL type RegisterDefaults.
+// The GraphQL type's documentation follows.
+//
+// Spec 049 Phase 5 — what an Agent's install-created register row is made with (plan §3.5).
+type AgentFieldsRegisterDefaults struct {
+	MentionOnly bool `json:"mentionOnly"`
+}
+
+// GetMentionOnly returns AgentFieldsRegisterDefaults.MentionOnly, and is useful for accessing the field via an interface.
+func (v *AgentFieldsRegisterDefaults) GetMentionOnly() bool { return v.MentionOnly }
 
 // Filter for the uniform agents() list (#473). Clauses AND-combine.
 type AgentFilter struct {
@@ -10719,6 +10756,16 @@ func (v *AgentsAgentsAgentsPageItemsAgent) GetResetContextAfterTask() bool {
 	return v.AgentFields.ResetContextAfterTask
 }
 
+// GetListedOnMarketplace returns AgentsAgentsAgentsPageItemsAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns AgentsAgentsAgentsPageItemsAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
 // GetInstallationPolicy returns AgentsAgentsAgentsPageItemsAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *AgentsAgentsAgentsPageItemsAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -10793,6 +10840,10 @@ type __premarshalAgentsAgentsAgentsPageItemsAgent struct {
 
 	ResetContextAfterTask bool `json:"resetContextAfterTask"`
 
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -10829,6 +10880,8 @@ func (v *AgentsAgentsAgentsPageItemsAgent) __premarshalJSON() (*__premarshalAgen
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -21066,6 +21119,16 @@ func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetResetContextAfterTas
 	return v.AgentFields.ResetContextAfterTask
 }
 
+// GetListedOnMarketplace returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
 // GetInstallationPolicy returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -21142,6 +21205,10 @@ type __premarshalClearAgentProcessesIndexSetAgentIndexRefsAgent struct {
 
 	ResetContextAfterTask bool `json:"resetContextAfterTask"`
 
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -21178,6 +21245,8 @@ func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) __premarshalJSON() (*__
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -21302,6 +21371,16 @@ func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetResetContextAfterTask() 
 	return v.AgentFields.ResetContextAfterTask
 }
 
+// GetListedOnMarketplace returns ClearAgentTasksIndexSetAgentIndexRefsAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns ClearAgentTasksIndexSetAgentIndexRefsAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
 // GetInstallationPolicy returns ClearAgentTasksIndexSetAgentIndexRefsAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -21378,6 +21457,10 @@ type __premarshalClearAgentTasksIndexSetAgentIndexRefsAgent struct {
 
 	ResetContextAfterTask bool `json:"resetContextAfterTask"`
 
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -21414,6 +21497,8 @@ func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) __premarshalJSON() (*__prem
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -21857,6 +21942,16 @@ func (v *CloneAgentCloneAgent) GetResetContextAfterTask() bool {
 	return v.AgentFields.ResetContextAfterTask
 }
 
+// GetListedOnMarketplace returns CloneAgentCloneAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *CloneAgentCloneAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns CloneAgentCloneAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *CloneAgentCloneAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
 // GetInstallationPolicy returns CloneAgentCloneAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *CloneAgentCloneAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -21931,6 +22026,10 @@ type __premarshalCloneAgentCloneAgent struct {
 
 	ResetContextAfterTask bool `json:"resetContextAfterTask"`
 
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -21967,6 +22066,8 @@ func (v *CloneAgentCloneAgent) __premarshalJSON() (*__premarshalCloneAgentCloneA
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -24996,6 +25097,16 @@ func (v *CreateAgentCreateAgent) GetResetContextAfterTask() bool {
 	return v.AgentFields.ResetContextAfterTask
 }
 
+// GetListedOnMarketplace returns CreateAgentCreateAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns CreateAgentCreateAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
 // GetInstallationPolicy returns CreateAgentCreateAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *CreateAgentCreateAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -25070,6 +25181,10 @@ type __premarshalCreateAgentCreateAgent struct {
 
 	ResetContextAfterTask bool `json:"resetContextAfterTask"`
 
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -25106,6 +25221,8 @@ func (v *CreateAgentCreateAgent) __premarshalJSON() (*__premarshalCreateAgentCre
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -38899,6 +39016,14 @@ func (v *GetAgentAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
 // GetResetContextAfterTask returns GetAgentAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetResetContextAfterTask() bool { return v.AgentFields.ResetContextAfterTask }
 
+// GetListedOnMarketplace returns GetAgentAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetListedOnMarketplace() bool { return v.AgentFields.ListedOnMarketplace }
+
+// GetRegisterDefaults returns GetAgentAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
 // GetInstallationPolicy returns GetAgentAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -38975,6 +39100,10 @@ type __premarshalGetAgentAgent struct {
 
 	ResetContextAfterTask bool `json:"resetContextAfterTask"`
 
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -39012,6 +39141,8 @@ func (v *GetAgentAgent) __premarshalJSON() (*__premarshalGetAgentAgent, error) {
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -56955,6 +57086,16 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetResetContextAfterTask(
 	return v.AgentFields.ResetContextAfterTask
 }
 
+// GetListedOnMarketplace returns PublicAgentsPublicAgentsAgentsPageItemsAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns PublicAgentsPublicAgentsAgentsPageItemsAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
 // GetInstallationPolicy returns PublicAgentsPublicAgentsAgentsPageItemsAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -57031,6 +57172,10 @@ type __premarshalPublicAgentsPublicAgentsAgentsPageItemsAgent struct {
 
 	ResetContextAfterTask bool `json:"resetContextAfterTask"`
 
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -57067,6 +57212,8 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) __premarshalJSON() (*__pr
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -59338,6 +59485,16 @@ func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetResetContextAfterTask() 
 	return v.AgentFields.ResetContextAfterTask
 }
 
+// GetListedOnMarketplace returns RemoveMemoryFromAgentRemoveMemoryFromAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns RemoveMemoryFromAgentRemoveMemoryFromAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
 // GetInstallationPolicy returns RemoveMemoryFromAgentRemoveMemoryFromAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -59414,6 +59571,10 @@ type __premarshalRemoveMemoryFromAgentRemoveMemoryFromAgent struct {
 
 	ResetContextAfterTask bool `json:"resetContextAfterTask"`
 
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -59450,6 +59611,8 @@ func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) __premarshalJSON() (*__prem
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -66050,6 +66213,16 @@ func (v *SetAgentBaseSetAgentBaseAgent) GetResetContextAfterTask() bool {
 	return v.AgentFields.ResetContextAfterTask
 }
 
+// GetListedOnMarketplace returns SetAgentBaseSetAgentBaseAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns SetAgentBaseSetAgentBaseAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
 // GetInstallationPolicy returns SetAgentBaseSetAgentBaseAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *SetAgentBaseSetAgentBaseAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -66124,6 +66297,10 @@ type __premarshalSetAgentBaseSetAgentBaseAgent struct {
 
 	ResetContextAfterTask bool `json:"resetContextAfterTask"`
 
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -66160,6 +66337,8 @@ func (v *SetAgentBaseSetAgentBaseAgent) __premarshalJSON() (*__premarshalSetAgen
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -66288,6 +66467,16 @@ func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetResetContextAfterTask() b
 	return v.AgentFields.ResetContextAfterTask
 }
 
+// GetListedOnMarketplace returns SetAgentBootPromptSetAgentBootPromptAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns SetAgentBootPromptSetAgentBootPromptAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
 // GetInstallationPolicy returns SetAgentBootPromptSetAgentBootPromptAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -66364,6 +66553,10 @@ type __premarshalSetAgentBootPromptSetAgentBootPromptAgent struct {
 
 	ResetContextAfterTask bool `json:"resetContextAfterTask"`
 
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -66400,6 +66593,8 @@ func (v *SetAgentBootPromptSetAgentBootPromptAgent) __premarshalJSON() (*__prema
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -66520,6 +66715,16 @@ func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetResetContextAfterTask() boo
 	return v.AgentFields.ResetContextAfterTask
 }
 
+// GetListedOnMarketplace returns SetAgentIndexRefsSetAgentIndexRefsAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns SetAgentIndexRefsSetAgentIndexRefsAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
 // GetInstallationPolicy returns SetAgentIndexRefsSetAgentIndexRefsAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -66596,6 +66801,10 @@ type __premarshalSetAgentIndexRefsSetAgentIndexRefsAgent struct {
 
 	ResetContextAfterTask bool `json:"resetContextAfterTask"`
 
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -66632,6 +66841,8 @@ func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) __premarshalJSON() (*__premars
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -79270,6 +79481,16 @@ func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetResetContextAfterTa
 	return v.AgentFields.ResetContextAfterTask
 }
 
+// GetListedOnMarketplace returns UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
 // GetInstallationPolicy returns UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -79346,6 +79567,10 @@ type __premarshalUpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent struct {
 
 	ResetContextAfterTask bool `json:"resetContextAfterTask"`
 
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -79382,6 +79607,8 @@ func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) __premarshalJSON() (*_
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -79959,6 +80186,16 @@ func (v *UpdateAgentUpdateAgent) GetResetContextAfterTask() bool {
 	return v.AgentFields.ResetContextAfterTask
 }
 
+// GetListedOnMarketplace returns UpdateAgentUpdateAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns UpdateAgentUpdateAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
 // GetInstallationPolicy returns UpdateAgentUpdateAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *UpdateAgentUpdateAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -80033,6 +80270,10 @@ type __premarshalUpdateAgentUpdateAgent struct {
 
 	ResetContextAfterTask bool `json:"resetContextAfterTask"`
 
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -80069,6 +80310,8 @@ func (v *UpdateAgentUpdateAgent) __premarshalJSON() (*__premarshalUpdateAgentUpd
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -91494,15 +91737,17 @@ func (v *__ConnectionGrantsInput) GetOffset() *int { return v.Offset }
 
 // __CreateAgentInput is used internally by genqlient
 type __CreateAgentInput struct {
-	Name           string           `json:"name"`
-	OrgId          *string          `json:"orgId,omitempty"`
-	Description    *string          `json:"description,omitempty"`
-	AgentType      *AgentType       `json:"agentType,omitempty"`
-	Visibility     *AgentVisibility `json:"visibility,omitempty"`
-	SystemMemoryId *string          `json:"systemMemoryId,omitempty"`
-	Surfaces       []string         `json:"surfaces,omitempty"`
-	PersonaRole    *string          `json:"personaRole,omitempty"`
-	MemberRoles    []string         `json:"memberRoles,omitempty"`
+	Name                  string           `json:"name"`
+	OrgId                 *string          `json:"orgId,omitempty"`
+	Description           *string          `json:"description,omitempty"`
+	AgentType             *AgentType       `json:"agentType,omitempty"`
+	Visibility            *AgentVisibility `json:"visibility,omitempty"`
+	SystemMemoryId        *string          `json:"systemMemoryId,omitempty"`
+	Surfaces              []string         `json:"surfaces,omitempty"`
+	PersonaRole           *string          `json:"personaRole,omitempty"`
+	MemberRoles           []string         `json:"memberRoles,omitempty"`
+	UsesTasks             *bool            `json:"usesTasks,omitempty"`
+	ResetContextAfterTask *bool            `json:"resetContextAfterTask,omitempty"`
 }
 
 // GetName returns __CreateAgentInput.Name, and is useful for accessing the field via an interface.
@@ -91531,6 +91776,12 @@ func (v *__CreateAgentInput) GetPersonaRole() *string { return v.PersonaRole }
 
 // GetMemberRoles returns __CreateAgentInput.MemberRoles, and is useful for accessing the field via an interface.
 func (v *__CreateAgentInput) GetMemberRoles() []string { return v.MemberRoles }
+
+// GetUsesTasks returns __CreateAgentInput.UsesTasks, and is useful for accessing the field via an interface.
+func (v *__CreateAgentInput) GetUsesTasks() *bool { return v.UsesTasks }
+
+// GetResetContextAfterTask returns __CreateAgentInput.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *__CreateAgentInput) GetResetContextAfterTask() *bool { return v.ResetContextAfterTask }
 
 // __CreateAgentScheduleInput is used internally by genqlient
 type __CreateAgentScheduleInput struct {
@@ -96580,18 +96831,20 @@ func (v *__UntrackedTaskItemsInput) GetLimit() *int { return v.Limit }
 
 // __UpdateAgentInput is used internally by genqlient
 type __UpdateAgentInput struct {
-	Ref                   string           `json:"ref"`
-	Name                  *string          `json:"name,omitempty"`
-	Description           *string          `json:"description,omitempty"`
-	AgentType             *AgentType       `json:"agentType,omitempty"`
-	Visibility            *AgentVisibility `json:"visibility,omitempty"`
-	SystemMemoryId        *string          `json:"systemMemoryId,omitempty"`
-	Surfaces              []string         `json:"surfaces,omitempty"`
-	Urn                   *string          `json:"urn,omitempty"`
-	PersonaRole           *string          `json:"personaRole,omitempty"`
-	UsesTasks             *bool            `json:"usesTasks,omitempty"`
-	ResetContextAfterTask *bool            `json:"resetContextAfterTask,omitempty"`
-	MemberRoles           []string         `json:"memberRoles,omitempty"`
+	Ref                   string                          `json:"ref"`
+	Name                  *string                         `json:"name,omitempty"`
+	Description           *string                         `json:"description,omitempty"`
+	AgentType             *AgentType                      `json:"agentType,omitempty"`
+	Visibility            *AgentVisibility                `json:"visibility,omitempty"`
+	SystemMemoryId        *string                         `json:"systemMemoryId,omitempty"`
+	Surfaces              []string                        `json:"surfaces,omitempty"`
+	Urn                   *string                         `json:"urn,omitempty"`
+	PersonaRole           *string                         `json:"personaRole,omitempty"`
+	UsesTasks             *bool                           `json:"usesTasks,omitempty"`
+	ResetContextAfterTask *bool                           `json:"resetContextAfterTask,omitempty"`
+	MemberRoles           []string                        `json:"memberRoles,omitempty"`
+	ListedOnMarketplace   *bool                           `json:"listedOnMarketplace,omitempty"`
+	RegisterDefaults      *gqltypes.RegisterDefaultsInput `json:"registerDefaults,omitempty"`
 }
 
 // GetRef returns __UpdateAgentInput.Ref, and is useful for accessing the field via an interface.
@@ -96629,6 +96882,14 @@ func (v *__UpdateAgentInput) GetResetContextAfterTask() *bool { return v.ResetCo
 
 // GetMemberRoles returns __UpdateAgentInput.MemberRoles, and is useful for accessing the field via an interface.
 func (v *__UpdateAgentInput) GetMemberRoles() []string { return v.MemberRoles }
+
+// GetListedOnMarketplace returns __UpdateAgentInput.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentInput) GetListedOnMarketplace() *bool { return v.ListedOnMarketplace }
+
+// GetRegisterDefaults returns __UpdateAgentInput.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentInput) GetRegisterDefaults() *gqltypes.RegisterDefaultsInput {
+	return v.RegisterDefaults
+}
 
 // __UpdateAgentMemoryRoleInput is used internally by genqlient
 type __UpdateAgentMemoryRoleInput struct {
@@ -98360,6 +98621,10 @@ fragment AgentFields on Agent {
 	personaRole
 	usesTasks
 	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
 	installationPolicy {
 		memberRoles
 	}
@@ -101495,6 +101760,10 @@ fragment AgentFields on Agent {
 	personaRole
 	usesTasks
 	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
 	installationPolicy {
 		memberRoles
 	}
@@ -105281,6 +105550,10 @@ fragment AgentFields on Agent {
 	personaRole
 	usesTasks
 	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
 	installationPolicy {
 		memberRoles
 	}
@@ -105343,6 +105616,10 @@ fragment AgentFields on Agent {
 	personaRole
 	usesTasks
 	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
 	installationPolicy {
 		memberRoles
 	}
@@ -105575,6 +105852,10 @@ fragment AgentFields on Agent {
 	personaRole
 	usesTasks
 	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
 	installationPolicy {
 		memberRoles
 	}
@@ -106313,8 +106594,8 @@ func ConnectionGrants(
 
 // The mutation executed by CreateAgent.
 const CreateAgent_Operation = `
-mutation CreateAgent ($name: String!, $orgId: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $personaRole: String, $memberRoles: [String!]) {
-	createAgent(name: $name, orgId: $orgId, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, personaRole: $personaRole, memberRoles: $memberRoles) {
+mutation CreateAgent ($name: String!, $orgId: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $personaRole: String, $memberRoles: [String!], $usesTasks: Boolean, $resetContextAfterTask: Boolean) {
+	createAgent(name: $name, orgId: $orgId, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, personaRole: $personaRole, memberRoles: $memberRoles, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask) {
 		... AgentFields
 	}
 }
@@ -106339,6 +106620,10 @@ fragment AgentFields on Agent {
 	personaRole
 	usesTasks
 	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
 	installationPolicy {
 		memberRoles
 	}
@@ -106358,20 +106643,24 @@ func CreateAgent(
 	surfaces []string,
 	personaRole *string,
 	memberRoles []string,
+	usesTasks *bool,
+	resetContextAfterTask *bool,
 ) (data_ *CreateAgentResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateAgent",
 		Query:  CreateAgent_Operation,
 		Variables: &__CreateAgentInput{
-			Name:           name,
-			OrgId:          orgId,
-			Description:    description,
-			AgentType:      agentType,
-			Visibility:     visibility,
-			SystemMemoryId: systemMemoryId,
-			Surfaces:       surfaces,
-			PersonaRole:    personaRole,
-			MemberRoles:    memberRoles,
+			Name:                  name,
+			OrgId:                 orgId,
+			Description:           description,
+			AgentType:             agentType,
+			Visibility:            visibility,
+			SystemMemoryId:        systemMemoryId,
+			Surfaces:              surfaces,
+			PersonaRole:           personaRole,
+			MemberRoles:           memberRoles,
+			UsesTasks:             usesTasks,
+			ResetContextAfterTask: resetContextAfterTask,
 		},
 	}
 
@@ -111980,6 +112269,10 @@ fragment AgentFields on Agent {
 	personaRole
 	usesTasks
 	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
 	installationPolicy {
 		memberRoles
 	}
@@ -118328,6 +118621,10 @@ fragment AgentFields on Agent {
 	personaRole
 	usesTasks
 	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
 	installationPolicy {
 		memberRoles
 	}
@@ -119307,6 +119604,10 @@ fragment AgentFields on Agent {
 	personaRole
 	usesTasks
 	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
 	installationPolicy {
 		memberRoles
 	}
@@ -121819,6 +122120,10 @@ fragment AgentFields on Agent {
 	personaRole
 	usesTasks
 	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
 	installationPolicy {
 		memberRoles
 	}
@@ -121885,6 +122190,10 @@ fragment AgentFields on Agent {
 	personaRole
 	usesTasks
 	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
 	installationPolicy {
 		memberRoles
 	}
@@ -121952,6 +122261,10 @@ fragment AgentFields on Agent {
 	personaRole
 	usesTasks
 	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
 	installationPolicy {
 		memberRoles
 	}
@@ -125955,8 +126268,8 @@ func UntrackedTaskItems(
 
 // The mutation executed by UpdateAgent.
 const UpdateAgent_Operation = `
-mutation UpdateAgent ($ref: ID!, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $urn: String, $personaRole: String, $usesTasks: Boolean, $resetContextAfterTask: Boolean, $memberRoles: [String!]) {
-	updateAgent(ref: $ref, name: $name, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn, personaRole: $personaRole, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask, memberRoles: $memberRoles) {
+mutation UpdateAgent ($ref: ID!, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $urn: String, $personaRole: String, $usesTasks: Boolean, $resetContextAfterTask: Boolean, $memberRoles: [String!], $listedOnMarketplace: Boolean, $registerDefaults: RegisterDefaultsInput) {
+	updateAgent(ref: $ref, name: $name, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn, personaRole: $personaRole, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask, memberRoles: $memberRoles, listedOnMarketplace: $listedOnMarketplace, registerDefaults: $registerDefaults) {
 		... AgentFields
 	}
 }
@@ -125981,6 +126294,10 @@ fragment AgentFields on Agent {
 	personaRole
 	usesTasks
 	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
 	installationPolicy {
 		memberRoles
 	}
@@ -126003,6 +126320,8 @@ func UpdateAgent(
 	usesTasks *bool,
 	resetContextAfterTask *bool,
 	memberRoles []string,
+	listedOnMarketplace *bool,
+	registerDefaults *gqltypes.RegisterDefaultsInput,
 ) (data_ *UpdateAgentResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateAgent",
@@ -126020,6 +126339,8 @@ func UpdateAgent(
 			UsesTasks:             usesTasks,
 			ResetContextAfterTask: resetContextAfterTask,
 			MemberRoles:           memberRoles,
+			ListedOnMarketplace:   listedOnMarketplace,
+			RegisterDefaults:      registerDefaults,
 		},
 	}
 
@@ -126063,6 +126384,10 @@ fragment AgentFields on Agent {
 	personaRole
 	usesTasks
 	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
 	installationPolicy {
 		memberRoles
 	}

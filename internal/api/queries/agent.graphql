@@ -31,6 +31,12 @@ fragment AgentFields on Agent {
   usesTasks
   # #1551 (cor:agt:050:27): recorded only; a host acts on it (#1043).
   resetContextAfterTask
+  # cli#58 slice 2 read-back: the catalogue flag (cor:acl:080:04, NOT access)
+  # and the register defaults.
+  listedOnMarketplace
+  registerDefaults {
+    mentionOnly
+  }
   # #1226 (R211, cor:dmo:050:04): the member roles this Agent offers.
   installationPolicy {
     memberRoles
@@ -109,6 +115,12 @@ mutation CreateAgent(
   $personaRole: String
   # @genqlient(omitempty: true)
   $memberRoles: [String!]
+  # cli#58 slice 2: omitted takes the server default (usesTasks true, reset
+  # false); an explicit false is a value, so both carry omitempty.
+  # @genqlient(omitempty: true)
+  $usesTasks: Boolean
+  # @genqlient(omitempty: true)
+  $resetContextAfterTask: Boolean
 ) {
   createAgent(
     name: $name
@@ -120,6 +132,8 @@ mutation CreateAgent(
     surfaces: $surfaces
     personaRole: $personaRole
     memberRoles: $memberRoles
+    usesTasks: $usesTasks
+    resetContextAfterTask: $resetContextAfterTask
   ) {
     ...AgentFields
   }
@@ -155,6 +169,15 @@ mutation UpdateAgent(
   $resetContextAfterTask: Boolean
   # @genqlient(omitempty: true)
   $memberRoles: [String!]
+  # cli#58 slice 2: the server ignores null, so this never sends null; omitted
+  # preserves, an explicit false is sent.
+  # @genqlient(omitempty: true)
+  $listedOnMarketplace: Boolean
+  # THREE states (omit preserves / object sets / null clears): the variable is
+  # bound to gqltypes.RegisterDefaultsInput, whose MarshalJSON emits the null.
+  # omitempty drops only the nil pointer. Never default it.
+  # @genqlient(omitempty: true)
+  $registerDefaults: RegisterDefaultsInput
 ) {
   updateAgent(
     ref: $ref
@@ -169,6 +192,8 @@ mutation UpdateAgent(
     usesTasks: $usesTasks
     resetContextAfterTask: $resetContextAfterTask
     memberRoles: $memberRoles
+    listedOnMarketplace: $listedOnMarketplace
+    registerDefaults: $registerDefaults
   ) {
     ...AgentFields
   }
