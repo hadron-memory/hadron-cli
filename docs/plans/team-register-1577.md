@@ -66,3 +66,21 @@ from the register data operation and is not a retry. Compiled fake controls
 observe that preflight plus exactly one attributed register query for a bound
 session; other-server/unbound controls remain headerless. The App label read
 still uses the original headerless context.
+
+## App-scoped attribution correction
+
+LOCAL at4a17c2b8 found a second P2: same-server attribution alone sent App X's
+worker session when --app selected App Y, yielding Y's register through X's
+Agent. This was a wrong-principal answer, with no data leak established. The
+first bound fixture also failed to establish matching App identity.
+
+Red8ac9763f reproduces other-App, unreadable/unresolvable identity and
+rebind-during-identity-lookup failures. The fix follows existing chat/write
+attribution: isBindingsApp compares ids or resolves the selected App's identity
+read-only, then the binding is re-read after that round trip. A matching App
+id or alias may use its session; another or unverified App stays headerless.
+The Agent remains entirely server-owned, with agentRef omitted as before.
+A non-id alias may add a headerless TeamAppIdentity scope-check query even
+under --json; human decoration remains separately headerless. Neither is an
+Agent lookup, fallback attempt or retry. The server's separate implicit-Agent
+membership question is routed to Ada/Patrick; no server policy is changed here.
