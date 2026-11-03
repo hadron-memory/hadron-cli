@@ -55,3 +55,23 @@ query AppMemberRoles($appRef: ID!) {
     availableMemberRoles
   }
 }
+
+# cli#1594 (hadron-server#3308, 517eb1db): the member doors carrying a
+# holder's instruction claim; separate so the documents above stay unchanged.
+# An instructed no-op (an existing member, an absent one) still records a claim.
+mutation EnsureAppMemberInstructed($appRef: String!, $userRef: String!, $role: String!, $instruction: ActInstructionInput!) {
+  ensureAppMember(appRef: $appRef, userRef: $userRef, role: $role, instruction: $instruction) {
+    role
+    createdAt
+    user {
+      id
+      handle
+      urn
+    }
+  }
+}
+
+mutation RemoveAppMemberInstructed($appRef: String!, $userRef: String!, $instruction: ActInstructionInput!) {
+  # @genqlient(pointer: true)
+  removeAppMember(appRef: $appRef, userRef: $userRef, instruction: $instruction)
+}

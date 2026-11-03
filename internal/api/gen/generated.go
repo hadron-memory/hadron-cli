@@ -20373,6 +20373,319 @@ func (v *CastWorkerCastWorker) __premarshalJSON() (*__premarshalCastWorkerCastWo
 	return &retval, nil
 }
 
+// CastWorkerInstructedCastWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type CastWorkerInstructedCastWorker struct {
+	WorkerFields `json:"-"`
+}
+
+// GetId returns CastWorkerInstructedCastWorker.Id, and is useful for accessing the field via an interface.
+func (v *CastWorkerInstructedCastWorker) GetId() string { return v.WorkerFields.Id }
+
+// GetUrn returns CastWorkerInstructedCastWorker.Urn, and is useful for accessing the field via an interface.
+func (v *CastWorkerInstructedCastWorker) GetUrn() *string { return v.WorkerFields.Urn }
+
+// GetPortalUrl returns CastWorkerInstructedCastWorker.PortalUrl, and is useful for accessing the field via an interface.
+func (v *CastWorkerInstructedCastWorker) GetPortalUrl() *string { return v.WorkerFields.PortalUrl }
+
+// GetSlug returns CastWorkerInstructedCastWorker.Slug, and is useful for accessing the field via an interface.
+func (v *CastWorkerInstructedCastWorker) GetSlug() string { return v.WorkerFields.Slug }
+
+// GetAppId returns CastWorkerInstructedCastWorker.AppId, and is useful for accessing the field via an interface.
+func (v *CastWorkerInstructedCastWorker) GetAppId() string { return v.WorkerFields.AppId }
+
+// GetAgentId returns CastWorkerInstructedCastWorker.AgentId, and is useful for accessing the field via an interface.
+func (v *CastWorkerInstructedCastWorker) GetAgentId() string { return v.WorkerFields.AgentId }
+
+// GetName returns CastWorkerInstructedCastWorker.Name, and is useful for accessing the field via an interface.
+func (v *CastWorkerInstructedCastWorker) GetName() string { return v.WorkerFields.Name }
+
+// GetReportsTo returns CastWorkerInstructedCastWorker.ReportsTo, and is useful for accessing the field via an interface.
+func (v *CastWorkerInstructedCastWorker) GetReportsTo() *WorkerFieldsReportsToWorker {
+	return v.WorkerFields.ReportsTo
+}
+
+// GetReportsToRetired returns CastWorkerInstructedCastWorker.ReportsToRetired, and is useful for accessing the field via an interface.
+func (v *CastWorkerInstructedCastWorker) GetReportsToRetired() bool {
+	return v.WorkerFields.ReportsToRetired
+}
+
+// GetTeamPlacement returns CastWorkerInstructedCastWorker.TeamPlacement, and is useful for accessing the field via an interface.
+func (v *CastWorkerInstructedCastWorker) GetTeamPlacement() *WorkerTeamPlacement {
+	return v.WorkerFields.TeamPlacement
+}
+
+// GetRole returns CastWorkerInstructedCastWorker.Role, and is useful for accessing the field via an interface.
+func (v *CastWorkerInstructedCastWorker) GetRole() *string { return v.WorkerFields.Role }
+
+// GetPrompt returns CastWorkerInstructedCastWorker.Prompt, and is useful for accessing the field via an interface.
+func (v *CastWorkerInstructedCastWorker) GetPrompt() *string { return v.WorkerFields.Prompt }
+
+// GetSignature returns CastWorkerInstructedCastWorker.Signature, and is useful for accessing the field via an interface.
+func (v *CastWorkerInstructedCastWorker) GetSignature() *string { return v.WorkerFields.Signature }
+
+// GetTrailer returns CastWorkerInstructedCastWorker.Trailer, and is useful for accessing the field via an interface.
+func (v *CastWorkerInstructedCastWorker) GetTrailer() *string { return v.WorkerFields.Trailer }
+
+// GetBootPromptRef returns CastWorkerInstructedCastWorker.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *CastWorkerInstructedCastWorker) GetBootPromptRef() *string {
+	return v.WorkerFields.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns CastWorkerInstructedCastWorker.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *CastWorkerInstructedCastWorker) GetBootPromptTargetDeleted() *bool {
+	return v.WorkerFields.BootPromptTargetDeleted
+}
+
+// GetRepos returns CastWorkerInstructedCastWorker.Repos, and is useful for accessing the field via an interface.
+func (v *CastWorkerInstructedCastWorker) GetRepos() []string { return v.WorkerFields.Repos }
+
+// GetMemoryId returns CastWorkerInstructedCastWorker.MemoryId, and is useful for accessing the field via an interface.
+func (v *CastWorkerInstructedCastWorker) GetMemoryId() *string { return v.WorkerFields.MemoryId }
+
+// GetFamily returns CastWorkerInstructedCastWorker.Family, and is useful for accessing the field via an interface.
+func (v *CastWorkerInstructedCastWorker) GetFamily() *string { return v.WorkerFields.Family }
+
+// GetHeldByUserId returns CastWorkerInstructedCastWorker.HeldByUserId, and is useful for accessing the field via an interface.
+func (v *CastWorkerInstructedCastWorker) GetHeldByUserId() *string {
+	return v.WorkerFields.HeldByUserId
+}
+
+// GetHeldAt returns CastWorkerInstructedCastWorker.HeldAt, and is useful for accessing the field via an interface.
+func (v *CastWorkerInstructedCastWorker) GetHeldAt() *string { return v.WorkerFields.HeldAt }
+
+// GetHasLiveSession returns CastWorkerInstructedCastWorker.HasLiveSession, and is useful for accessing the field via an interface.
+func (v *CastWorkerInstructedCastWorker) GetHasLiveSession() *bool {
+	return v.WorkerFields.HasLiveSession
+}
+
+// GetLastActiveAt returns CastWorkerInstructedCastWorker.LastActiveAt, and is useful for accessing the field via an interface.
+func (v *CastWorkerInstructedCastWorker) GetLastActiveAt() *string {
+	return v.WorkerFields.LastActiveAt
+}
+
+// GetCheckStatus returns CastWorkerInstructedCastWorker.CheckStatus, and is useful for accessing the field via an interface.
+func (v *CastWorkerInstructedCastWorker) GetCheckStatus() *WorkerFieldsCheckStatusWorkerCheckStatus {
+	return v.WorkerFields.CheckStatus
+}
+
+// GetRetiredAt returns CastWorkerInstructedCastWorker.RetiredAt, and is useful for accessing the field via an interface.
+func (v *CastWorkerInstructedCastWorker) GetRetiredAt() *string { return v.WorkerFields.RetiredAt }
+
+// GetRetiredBy returns CastWorkerInstructedCastWorker.RetiredBy, and is useful for accessing the field via an interface.
+func (v *CastWorkerInstructedCastWorker) GetRetiredBy() *string { return v.WorkerFields.RetiredBy }
+
+// GetCreatedAt returns CastWorkerInstructedCastWorker.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CastWorkerInstructedCastWorker) GetCreatedAt() string { return v.WorkerFields.CreatedAt }
+
+// GetCreatedBy returns CastWorkerInstructedCastWorker.CreatedBy, and is useful for accessing the field via an interface.
+func (v *CastWorkerInstructedCastWorker) GetCreatedBy() *string { return v.WorkerFields.CreatedBy }
+
+func (v *CastWorkerInstructedCastWorker) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CastWorkerInstructedCastWorker
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CastWorkerInstructedCastWorker = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.WorkerFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCastWorkerInstructedCastWorker struct {
+	Id string `json:"id"`
+
+	Urn *string `json:"urn"`
+
+	PortalUrl *string `json:"portalUrl"`
+
+	Slug string `json:"slug"`
+
+	AppId string `json:"appId"`
+
+	AgentId string `json:"agentId"`
+
+	Name string `json:"name"`
+
+	ReportsTo *WorkerFieldsReportsToWorker `json:"reportsTo"`
+
+	ReportsToRetired bool `json:"reportsToRetired"`
+
+	TeamPlacement *WorkerTeamPlacement `json:"teamPlacement"`
+
+	Role *string `json:"role"`
+
+	Prompt *string `json:"prompt"`
+
+	Signature *string `json:"signature"`
+
+	Trailer *string `json:"trailer"`
+
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
+	Repos []string `json:"repos"`
+
+	MemoryId *string `json:"memoryId"`
+
+	Family *string `json:"family"`
+
+	HeldByUserId *string `json:"heldByUserId"`
+
+	HeldAt *string `json:"heldAt"`
+
+	HasLiveSession *bool `json:"hasLiveSession"`
+
+	LastActiveAt *string `json:"lastActiveAt"`
+
+	CheckStatus *WorkerFieldsCheckStatusWorkerCheckStatus `json:"checkStatus"`
+
+	RetiredAt *string `json:"retiredAt"`
+
+	RetiredBy *string `json:"retiredBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+}
+
+func (v *CastWorkerInstructedCastWorker) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CastWorkerInstructedCastWorker) __premarshalJSON() (*__premarshalCastWorkerInstructedCastWorker, error) {
+	var retval __premarshalCastWorkerInstructedCastWorker
+
+	retval.Id = v.WorkerFields.Id
+	retval.Urn = v.WorkerFields.Urn
+	retval.PortalUrl = v.WorkerFields.PortalUrl
+	retval.Slug = v.WorkerFields.Slug
+	retval.AppId = v.WorkerFields.AppId
+	retval.AgentId = v.WorkerFields.AgentId
+	retval.Name = v.WorkerFields.Name
+	retval.ReportsTo = v.WorkerFields.ReportsTo
+	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
+	retval.TeamPlacement = v.WorkerFields.TeamPlacement
+	retval.Role = v.WorkerFields.Role
+	retval.Prompt = v.WorkerFields.Prompt
+	retval.Signature = v.WorkerFields.Signature
+	retval.Trailer = v.WorkerFields.Trailer
+	retval.BootPromptRef = v.WorkerFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.WorkerFields.BootPromptTargetDeleted
+	retval.Repos = v.WorkerFields.Repos
+	retval.MemoryId = v.WorkerFields.MemoryId
+	retval.Family = v.WorkerFields.Family
+	retval.HeldByUserId = v.WorkerFields.HeldByUserId
+	retval.HeldAt = v.WorkerFields.HeldAt
+	retval.HasLiveSession = v.WorkerFields.HasLiveSession
+	retval.LastActiveAt = v.WorkerFields.LastActiveAt
+	retval.CheckStatus = v.WorkerFields.CheckStatus
+	retval.RetiredAt = v.WorkerFields.RetiredAt
+	retval.RetiredBy = v.WorkerFields.RetiredBy
+	retval.CreatedAt = v.WorkerFields.CreatedAt
+	retval.CreatedBy = v.WorkerFields.CreatedBy
+	return &retval, nil
+}
+
+// CastWorkerInstructedResponse is returned by CastWorkerInstructed on success.
+type CastWorkerInstructedResponse struct {
+	// #974 — cast a Worker (cor:dmo:050:11, cor:agt:020:01/:02): the named
+	// casting of an agent ALREADY INSTALLED in the App, superseding
+	// createTeamPersona's minting semantics (nothing is minted — the agent
+	// carries the persona dressing; the Worker is the local named identity).
+	// Casting is opt-in, never requires a Team Agent (an explicit name skips the
+	// register entirely), and multiple castings of one agent per App are legal
+	// (Iris and Henry, both backend-engineer).
+	//
+	// Agent resolution: agentRef when given (must be installed here —
+	// WORKER_AGENT_NOT_INSTALLED); otherwise role picks the single installed
+	// agent whose personaRole matches (zero / several candidates:
+	// WORKER_AGENT_NOT_FOUND / WORKER_AGENT_AMBIGUOUS, never a guess). The
+	// casting's role is the agent's personaRole and cannot be overridden
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:11, R222): beside an agentRef,
+	// a role that is not that agent's refuses WORKER_ROLE_OVERRIDE_REFUSED.
+	//
+	// The casting check (#2458) is shared with changeWorkerAgent: the App's
+	// holder must be licensed for the agent (AGENT_ORG_GRANT_INACTIVE /
+	// AGENT_ORG_GRANT_REQUIRED; a missing same-organization grant is no refusal
+	// and a revoked one is) and for every Agent its served boot prompt
+	// includes from (BOOT_PROMPT_GRANT_REQUIRED / BOOT_PROMPT_INCLUDE_UNAVAILABLE).
+	//
+	// The name (cor:agt:020:02) is REQUIRED since #1050 — one attempt, and
+	// WORKER_NAME_TAKEN is the answer. There is no register to fall back to: a
+	// name is permanent within the App, so it is chosen and never derived, and a
+	// nameless cast refuses WORKER_NAME_REQUIRED rather than minting a permanent
+	// identifier nobody picked. The workers_app_name_uniq constraint IS the
+	// arbiter. Names are unique per App, case-insensitively, FOREVER (two Apps
+	// may each have an Iris; retirement and uninstall never free a name).
+	// Names whose mention token is a broadcast word are refused
+	// WORKER_NAME_RESERVED; choose a name whose token does not broadcast.
+	// #1677: NFKC-normalized Unicode 16 UTS #39 skeletons (original-case and
+	// caseless) must also be distinct within the App, including retired workers. A collision refuses
+	// WORKER_NAME_CONFUSABLE and names the existing worker; the chosen display
+	// spelling is preserved. Existing workers are not renamed or invalidated.
+	//
+	// A worker-scoped working memory is provisioned in the App's container
+	// (Worker.memoryId; best-effort — a failed provision leaves it null for
+	// lazy provisioning).
+	//
+	// Authorization: an org member with CONTRIBUTOR+ on the App's org, an
+	// AppMember of the App whose role is not 'reader', or the owner of a
+	// user-owned App. Pure App-key principals are denied.
+	//
+	// Error codes (extensions.code): WORKER_NAME_TAKEN, WORKER_NAME_CONFUSABLE,
+	// WORKER_NAME_REQUIRED, WORKER_NAME_RESERVED, WORKER_NAME_RESERVED_TEAM_PREFIX
+	// (a mention token starting team., refused only while TEAM_TAGS_ENABLED),
+	// WORKER_AGENT_NOT_INSTALLED, WORKER_AGENT_NOT_FOUND, WORKER_AGENT_AMBIGUOUS,
+	// APP_UNINSTALLED.
+	//
+	// #1050 also removed WORKER_ROLE_NOT_FOUND from this mutation: it fired only
+	// because a nameless cast had to find a roles:<role> node to read a register.
+	// An unrecognized role now resolves no agent (WORKER_AGENT_NOT_FOUND) or, with
+	// an explicit agentRef, is simply the casting's label.
+	//
+	// #1050: the TEAM_AGENT_* and SESSION_EXPIRED refusals are gone from this
+	// mutation. They were reachable only because a nameless cast had to locate a
+	// Team Agent and read its (possibly encrypted) system memory to find a
+	// register. Casting now touches no system memory at all, so teamAgentRef is
+	// gone too rather than left accepted-and-ignored.
+	//
+	// Accepts the entity's ID or URN for appRef and agentRef.
+	CastWorker *CastWorkerInstructedCastWorker `json:"castWorker"`
+}
+
+// GetCastWorker returns CastWorkerInstructedResponse.CastWorker, and is useful for accessing the field via an interface.
+func (v *CastWorkerInstructedResponse) GetCastWorker() *CastWorkerInstructedCastWorker {
+	return v.CastWorker
+}
+
 // CastWorkerPreviewCastWorkerPreview includes the requested fields of the GraphQL type CastWorkerPreview.
 // The GraphQL type's documentation follows.
 //
@@ -20419,6 +20732,77 @@ func (v *CastWorkerPreviewCastWorkerPreview) GetTeamPlacement() WorkerTeamPlacem
 // GetReportsToWorkerId returns CastWorkerPreviewCastWorkerPreview.ReportsToWorkerId, and is useful for accessing the field via an interface.
 func (v *CastWorkerPreviewCastWorkerPreview) GetReportsToWorkerId() *string {
 	return v.ReportsToWorkerId
+}
+
+// CastWorkerPreviewInstructedCastWorkerPreview includes the requested fields of the GraphQL type CastWorkerPreview.
+// The GraphQL type's documentation follows.
+//
+// What castWorker WOULD do (#964) — an unsaved projection, deliberately not a
+// Worker (no fake id to mistake for a real row). Scalars only: the ids/names
+// here are attribution-level facts the mint-gate audience already sees, so no
+// nested entity hands out its field resolvers.
+type CastWorkerPreviewInstructedCastWorkerPreview struct {
+	// The name the cast would take — the caller's, checked free against the App's FULL roster (retired names stay taken). Required since #1050; a nameless preview refuses exactly where the cast would.
+	Name string `json:"name"`
+	// The casting's role: the agent's personaRole (it cannot be overridden, R222).
+	Role *string `json:"role"`
+	// The role-agent the casting would bind.
+	AgentId   string `json:"agentId"`
+	AgentName string `json:"agentName"`
+	// The boot prompt a bind of this casting would be served now, with the
+	// name and role filled — reviewable BEFORE the name is permanent. Null when
+	// no prompt can be served yet (no worker pointer exists before the cast).
+	Prompt            *string             `json:"prompt"`
+	TeamPlacement     WorkerTeamPlacement `json:"teamPlacement"`
+	ReportsToWorkerId *string             `json:"reportsToWorkerId"`
+}
+
+// GetName returns CastWorkerPreviewInstructedCastWorkerPreview.Name, and is useful for accessing the field via an interface.
+func (v *CastWorkerPreviewInstructedCastWorkerPreview) GetName() string { return v.Name }
+
+// GetRole returns CastWorkerPreviewInstructedCastWorkerPreview.Role, and is useful for accessing the field via an interface.
+func (v *CastWorkerPreviewInstructedCastWorkerPreview) GetRole() *string { return v.Role }
+
+// GetAgentId returns CastWorkerPreviewInstructedCastWorkerPreview.AgentId, and is useful for accessing the field via an interface.
+func (v *CastWorkerPreviewInstructedCastWorkerPreview) GetAgentId() string { return v.AgentId }
+
+// GetAgentName returns CastWorkerPreviewInstructedCastWorkerPreview.AgentName, and is useful for accessing the field via an interface.
+func (v *CastWorkerPreviewInstructedCastWorkerPreview) GetAgentName() string { return v.AgentName }
+
+// GetPrompt returns CastWorkerPreviewInstructedCastWorkerPreview.Prompt, and is useful for accessing the field via an interface.
+func (v *CastWorkerPreviewInstructedCastWorkerPreview) GetPrompt() *string { return v.Prompt }
+
+// GetTeamPlacement returns CastWorkerPreviewInstructedCastWorkerPreview.TeamPlacement, and is useful for accessing the field via an interface.
+func (v *CastWorkerPreviewInstructedCastWorkerPreview) GetTeamPlacement() WorkerTeamPlacement {
+	return v.TeamPlacement
+}
+
+// GetReportsToWorkerId returns CastWorkerPreviewInstructedCastWorkerPreview.ReportsToWorkerId, and is useful for accessing the field via an interface.
+func (v *CastWorkerPreviewInstructedCastWorkerPreview) GetReportsToWorkerId() *string {
+	return v.ReportsToWorkerId
+}
+
+// CastWorkerPreviewInstructedResponse is returned by CastWorkerPreviewInstructed on success.
+type CastWorkerPreviewInstructedResponse struct {
+	// Dry-run castWorker (#964): run the cast's exact resolution — same
+	// arguments, same typed refusals (WORKER_AGENT_NOT_FOUND / _AMBIGUOUS /
+	// _NOT_INSTALLED, WORKER_NAME_REQUIRED, WORKER_NAME_TAKEN,
+	// WORKER_NAME_CONFUSABLE, WORKER_NAME_RESERVED, WORKER_NAME_RESERVED_TEAM_PREFIX
+	// (only while TEAM_TAGS_ENABLED), APP_UNINSTALLED),
+	// same MINT gate — up to but not
+	// including the writes, and return what would be created. A Query, not a
+	// dryRun flag: casting a name is the one irreversible act in the team
+	// feature (cor:agt:020:02 — permanence), and previewing it must not need a
+	// mutation permission model or a fake Worker row. THE PREVIEW RESERVES
+	// NOTHING: no lease exists by law (cor:agt:020:03), so a previewed name may
+	// be gone at cast time — by design; the cast's uniqueness constraint
+	// remains the only allocation primitive.
+	CastWorkerPreview *CastWorkerPreviewInstructedCastWorkerPreview `json:"castWorkerPreview"`
+}
+
+// GetCastWorkerPreview returns CastWorkerPreviewInstructedResponse.CastWorkerPreview, and is useful for accessing the field via an interface.
+func (v *CastWorkerPreviewInstructedResponse) GetCastWorkerPreview() *CastWorkerPreviewInstructedCastWorkerPreview {
+	return v.CastWorkerPreview
 }
 
 // CastWorkerPreviewResponse is returned by CastWorkerPreview on success.
@@ -38806,6 +39190,25 @@ type DeleteUserResponse struct {
 // GetDeleteUser returns DeleteUserResponse.DeleteUser, and is useful for accessing the field via an interface.
 func (v *DeleteUserResponse) GetDeleteUser() bool { return v.DeleteUser }
 
+// DeleteWorkerInstructedResponse is returned by DeleteWorkerInstructed on success.
+type DeleteWorkerInstructedResponse struct {
+	// #1162 — hard-delete a never-referenced miscast only.
+	// hrn:node:hadronmemory.com:specs:cor:dmo:050:11
+	// Empty normally ended and released stints are repairable; persisted
+	// attribution, including tombstones/history, refuses WORKER_IN_USE.
+	// The requester must explicitly verify no signed commit, trailer, PR,
+	// comment, review or published artifact attributes work to this Worker.
+	// Database counts cannot prove external absence: known or uncertain
+	// external history means retire instead. Omitted or false confirmation
+	// refuses WORKER_EXTERNAL_ATTRIBUTION_UNCONFIRMED. No external crawl.
+	// Also removes empty ended stints and the empty working memory.
+	// Same staffing authorization as castWorker: instruction or own workers.staff grant for a worker session.
+	DeleteWorker bool `json:"deleteWorker"`
+}
+
+// GetDeleteWorker returns DeleteWorkerInstructedResponse.DeleteWorker, and is useful for accessing the field via an interface.
+func (v *DeleteWorkerInstructedResponse) GetDeleteWorker() bool { return v.DeleteWorker }
+
 // DeleteWorkerResponse is returned by DeleteWorker on success.
 type DeleteWorkerResponse struct {
 	// #1162 — hard-delete a never-referenced miscast only.
@@ -41703,6 +42106,65 @@ func (v *EnsureAppMemberEnsureAppMemberUser) GetHandle() *string { return v.Hand
 
 // GetUrn returns EnsureAppMemberEnsureAppMemberUser.Urn, and is useful for accessing the field via an interface.
 func (v *EnsureAppMemberEnsureAppMemberUser) GetUrn() *string { return v.Urn }
+
+// EnsureAppMemberInstructedEnsureAppMember includes the requested fields of the GraphQL type AppMember.
+type EnsureAppMemberInstructedEnsureAppMember struct {
+	Role      string                                        `json:"role"`
+	CreatedAt string                                        `json:"createdAt"`
+	User      *EnsureAppMemberInstructedEnsureAppMemberUser `json:"user"`
+}
+
+// GetRole returns EnsureAppMemberInstructedEnsureAppMember.Role, and is useful for accessing the field via an interface.
+func (v *EnsureAppMemberInstructedEnsureAppMember) GetRole() string { return v.Role }
+
+// GetCreatedAt returns EnsureAppMemberInstructedEnsureAppMember.CreatedAt, and is useful for accessing the field via an interface.
+func (v *EnsureAppMemberInstructedEnsureAppMember) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUser returns EnsureAppMemberInstructedEnsureAppMember.User, and is useful for accessing the field via an interface.
+func (v *EnsureAppMemberInstructedEnsureAppMember) GetUser() *EnsureAppMemberInstructedEnsureAppMemberUser {
+	return v.User
+}
+
+// EnsureAppMemberInstructedEnsureAppMemberUser includes the requested fields of the GraphQL type User.
+type EnsureAppMemberInstructedEnsureAppMemberUser struct {
+	Id     string  `json:"id"`
+	Handle *string `json:"handle"`
+	// Canonical `hrn:user:<handle>` URN (spec cor:urn:010:01). Computed from the
+	// handle; null for a handle-less user and for a user whose handle is
+	// not-URN-legal (neither has a URN).
+	Urn *string `json:"urn"`
+}
+
+// GetId returns EnsureAppMemberInstructedEnsureAppMemberUser.Id, and is useful for accessing the field via an interface.
+func (v *EnsureAppMemberInstructedEnsureAppMemberUser) GetId() string { return v.Id }
+
+// GetHandle returns EnsureAppMemberInstructedEnsureAppMemberUser.Handle, and is useful for accessing the field via an interface.
+func (v *EnsureAppMemberInstructedEnsureAppMemberUser) GetHandle() *string { return v.Handle }
+
+// GetUrn returns EnsureAppMemberInstructedEnsureAppMemberUser.Urn, and is useful for accessing the field via an interface.
+func (v *EnsureAppMemberInstructedEnsureAppMemberUser) GetUrn() *string { return v.Urn }
+
+// EnsureAppMemberInstructedResponse is returned by EnsureAppMemberInstructed on success.
+type EnsureAppMemberInstructedResponse struct {
+	// Idempotent UPSERT of an AppMember row. Per spec 008-agent-installation
+	// FR-004 / FR-016. The role MUST be a value present in the parent
+	// Agent's installationPolicy.memberRoles. Creating a new member is
+	// rejected if the App's current member count meets or exceeds the
+	// Agent's installationPolicy.maxMembers. Updating an existing member's
+	// role does NOT trigger the maxMembers check. The primary installed Agent
+	// (the oldest AppAgent) supplies this policy; no installed Agent refuses
+	// OrphanAppError. Only an App member manager may call this: the user-owner,
+	// an owner-role AppMember, or owning-org ADMIN (including platform admins
+	// for org-owned Apps). The manager gate runs before target-user lookup.
+	//
+	// Accepts the entity's ID or URN.
+	EnsureAppMember *EnsureAppMemberInstructedEnsureAppMember `json:"ensureAppMember"`
+}
+
+// GetEnsureAppMember returns EnsureAppMemberInstructedResponse.EnsureAppMember, and is useful for accessing the field via an interface.
+func (v *EnsureAppMemberInstructedResponse) GetEnsureAppMember() *EnsureAppMemberInstructedEnsureAppMember {
+	return v.EnsureAppMember
+}
 
 // EnsureAppMemberResponse is returned by EnsureAppMember on success.
 type EnsureAppMemberResponse struct {
@@ -62655,6 +63117,20 @@ func (v *ReleaseWorkerResponse) GetReleaseWorker() *ReleaseWorkerReleaseWorkerRe
 	return v.ReleaseWorker
 }
 
+// RemoveAppMemberInstructedResponse is returned by RemoveAppMemberInstructed on success.
+type RemoveAppMemberInstructedResponse struct {
+	// Delete an AppMember row. Idempotent (no-op when the row doesn't exist).
+	// Personal-class memory at (appId, userId) is retained as an orphan per
+	// FR-015 — re-attaches automatically if the user later rejoins the same
+	// App.
+	//
+	// Accepts the entity's ID or URN.
+	RemoveAppMember *bool `json:"removeAppMember"`
+}
+
+// GetRemoveAppMember returns RemoveAppMemberInstructedResponse.RemoveAppMember, and is useful for accessing the field via an interface.
+func (v *RemoveAppMemberInstructedResponse) GetRemoveAppMember() *bool { return v.RemoveAppMember }
+
 // RemoveAppMemberResponse is returned by RemoveAppMember on success.
 type RemoveAppMemberResponse struct {
 	// Delete an AppMember row. Idempotent (no-op when the row doesn't exist).
@@ -65532,6 +66008,265 @@ func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) __premarshalJ
 	retval.Tool = v.TeamSessionFields.Tool
 	retval.TranscriptPath = v.TeamSessionFields.TranscriptPath
 	retval.LlmModel = v.TeamSessionFields.LlmModel
+	return &retval, nil
+}
+
+// RetireWorkerInstructedResponse is returned by RetireWorkerInstructed on success.
+type RetireWorkerInstructedResponse struct {
+	// #974 — retire a Worker (cor:agt:020:02): end the casting while reserving
+	// its name FOREVER. A retired worker stops authoring team chat at once (the
+	// worker-App pin checks retirement at post time), takes no new work records,
+	// and refuses new session bindings; the row and its name reservation
+	// survive. Idempotent — retiring an already-retired worker returns it
+	// unchanged; an instructed no-op records its claim only. Same instruction/grant authorization as castWorker. workerRef is the worker's id
+	// or its URN (#991). Retiring clears the worker's own reportsTo (#1726);
+	// workers that report to it keep theirs and read reportsToRetired.
+	RetireWorker *RetireWorkerInstructedRetireWorker `json:"retireWorker"`
+}
+
+// GetRetireWorker returns RetireWorkerInstructedResponse.RetireWorker, and is useful for accessing the field via an interface.
+func (v *RetireWorkerInstructedResponse) GetRetireWorker() *RetireWorkerInstructedRetireWorker {
+	return v.RetireWorker
+}
+
+// RetireWorkerInstructedRetireWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type RetireWorkerInstructedRetireWorker struct {
+	WorkerFields `json:"-"`
+}
+
+// GetId returns RetireWorkerInstructedRetireWorker.Id, and is useful for accessing the field via an interface.
+func (v *RetireWorkerInstructedRetireWorker) GetId() string { return v.WorkerFields.Id }
+
+// GetUrn returns RetireWorkerInstructedRetireWorker.Urn, and is useful for accessing the field via an interface.
+func (v *RetireWorkerInstructedRetireWorker) GetUrn() *string { return v.WorkerFields.Urn }
+
+// GetPortalUrl returns RetireWorkerInstructedRetireWorker.PortalUrl, and is useful for accessing the field via an interface.
+func (v *RetireWorkerInstructedRetireWorker) GetPortalUrl() *string { return v.WorkerFields.PortalUrl }
+
+// GetSlug returns RetireWorkerInstructedRetireWorker.Slug, and is useful for accessing the field via an interface.
+func (v *RetireWorkerInstructedRetireWorker) GetSlug() string { return v.WorkerFields.Slug }
+
+// GetAppId returns RetireWorkerInstructedRetireWorker.AppId, and is useful for accessing the field via an interface.
+func (v *RetireWorkerInstructedRetireWorker) GetAppId() string { return v.WorkerFields.AppId }
+
+// GetAgentId returns RetireWorkerInstructedRetireWorker.AgentId, and is useful for accessing the field via an interface.
+func (v *RetireWorkerInstructedRetireWorker) GetAgentId() string { return v.WorkerFields.AgentId }
+
+// GetName returns RetireWorkerInstructedRetireWorker.Name, and is useful for accessing the field via an interface.
+func (v *RetireWorkerInstructedRetireWorker) GetName() string { return v.WorkerFields.Name }
+
+// GetReportsTo returns RetireWorkerInstructedRetireWorker.ReportsTo, and is useful for accessing the field via an interface.
+func (v *RetireWorkerInstructedRetireWorker) GetReportsTo() *WorkerFieldsReportsToWorker {
+	return v.WorkerFields.ReportsTo
+}
+
+// GetReportsToRetired returns RetireWorkerInstructedRetireWorker.ReportsToRetired, and is useful for accessing the field via an interface.
+func (v *RetireWorkerInstructedRetireWorker) GetReportsToRetired() bool {
+	return v.WorkerFields.ReportsToRetired
+}
+
+// GetTeamPlacement returns RetireWorkerInstructedRetireWorker.TeamPlacement, and is useful for accessing the field via an interface.
+func (v *RetireWorkerInstructedRetireWorker) GetTeamPlacement() *WorkerTeamPlacement {
+	return v.WorkerFields.TeamPlacement
+}
+
+// GetRole returns RetireWorkerInstructedRetireWorker.Role, and is useful for accessing the field via an interface.
+func (v *RetireWorkerInstructedRetireWorker) GetRole() *string { return v.WorkerFields.Role }
+
+// GetPrompt returns RetireWorkerInstructedRetireWorker.Prompt, and is useful for accessing the field via an interface.
+func (v *RetireWorkerInstructedRetireWorker) GetPrompt() *string { return v.WorkerFields.Prompt }
+
+// GetSignature returns RetireWorkerInstructedRetireWorker.Signature, and is useful for accessing the field via an interface.
+func (v *RetireWorkerInstructedRetireWorker) GetSignature() *string { return v.WorkerFields.Signature }
+
+// GetTrailer returns RetireWorkerInstructedRetireWorker.Trailer, and is useful for accessing the field via an interface.
+func (v *RetireWorkerInstructedRetireWorker) GetTrailer() *string { return v.WorkerFields.Trailer }
+
+// GetBootPromptRef returns RetireWorkerInstructedRetireWorker.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *RetireWorkerInstructedRetireWorker) GetBootPromptRef() *string {
+	return v.WorkerFields.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns RetireWorkerInstructedRetireWorker.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *RetireWorkerInstructedRetireWorker) GetBootPromptTargetDeleted() *bool {
+	return v.WorkerFields.BootPromptTargetDeleted
+}
+
+// GetRepos returns RetireWorkerInstructedRetireWorker.Repos, and is useful for accessing the field via an interface.
+func (v *RetireWorkerInstructedRetireWorker) GetRepos() []string { return v.WorkerFields.Repos }
+
+// GetMemoryId returns RetireWorkerInstructedRetireWorker.MemoryId, and is useful for accessing the field via an interface.
+func (v *RetireWorkerInstructedRetireWorker) GetMemoryId() *string { return v.WorkerFields.MemoryId }
+
+// GetFamily returns RetireWorkerInstructedRetireWorker.Family, and is useful for accessing the field via an interface.
+func (v *RetireWorkerInstructedRetireWorker) GetFamily() *string { return v.WorkerFields.Family }
+
+// GetHeldByUserId returns RetireWorkerInstructedRetireWorker.HeldByUserId, and is useful for accessing the field via an interface.
+func (v *RetireWorkerInstructedRetireWorker) GetHeldByUserId() *string {
+	return v.WorkerFields.HeldByUserId
+}
+
+// GetHeldAt returns RetireWorkerInstructedRetireWorker.HeldAt, and is useful for accessing the field via an interface.
+func (v *RetireWorkerInstructedRetireWorker) GetHeldAt() *string { return v.WorkerFields.HeldAt }
+
+// GetHasLiveSession returns RetireWorkerInstructedRetireWorker.HasLiveSession, and is useful for accessing the field via an interface.
+func (v *RetireWorkerInstructedRetireWorker) GetHasLiveSession() *bool {
+	return v.WorkerFields.HasLiveSession
+}
+
+// GetLastActiveAt returns RetireWorkerInstructedRetireWorker.LastActiveAt, and is useful for accessing the field via an interface.
+func (v *RetireWorkerInstructedRetireWorker) GetLastActiveAt() *string {
+	return v.WorkerFields.LastActiveAt
+}
+
+// GetCheckStatus returns RetireWorkerInstructedRetireWorker.CheckStatus, and is useful for accessing the field via an interface.
+func (v *RetireWorkerInstructedRetireWorker) GetCheckStatus() *WorkerFieldsCheckStatusWorkerCheckStatus {
+	return v.WorkerFields.CheckStatus
+}
+
+// GetRetiredAt returns RetireWorkerInstructedRetireWorker.RetiredAt, and is useful for accessing the field via an interface.
+func (v *RetireWorkerInstructedRetireWorker) GetRetiredAt() *string { return v.WorkerFields.RetiredAt }
+
+// GetRetiredBy returns RetireWorkerInstructedRetireWorker.RetiredBy, and is useful for accessing the field via an interface.
+func (v *RetireWorkerInstructedRetireWorker) GetRetiredBy() *string { return v.WorkerFields.RetiredBy }
+
+// GetCreatedAt returns RetireWorkerInstructedRetireWorker.CreatedAt, and is useful for accessing the field via an interface.
+func (v *RetireWorkerInstructedRetireWorker) GetCreatedAt() string { return v.WorkerFields.CreatedAt }
+
+// GetCreatedBy returns RetireWorkerInstructedRetireWorker.CreatedBy, and is useful for accessing the field via an interface.
+func (v *RetireWorkerInstructedRetireWorker) GetCreatedBy() *string { return v.WorkerFields.CreatedBy }
+
+func (v *RetireWorkerInstructedRetireWorker) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*RetireWorkerInstructedRetireWorker
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.RetireWorkerInstructedRetireWorker = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.WorkerFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalRetireWorkerInstructedRetireWorker struct {
+	Id string `json:"id"`
+
+	Urn *string `json:"urn"`
+
+	PortalUrl *string `json:"portalUrl"`
+
+	Slug string `json:"slug"`
+
+	AppId string `json:"appId"`
+
+	AgentId string `json:"agentId"`
+
+	Name string `json:"name"`
+
+	ReportsTo *WorkerFieldsReportsToWorker `json:"reportsTo"`
+
+	ReportsToRetired bool `json:"reportsToRetired"`
+
+	TeamPlacement *WorkerTeamPlacement `json:"teamPlacement"`
+
+	Role *string `json:"role"`
+
+	Prompt *string `json:"prompt"`
+
+	Signature *string `json:"signature"`
+
+	Trailer *string `json:"trailer"`
+
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
+	Repos []string `json:"repos"`
+
+	MemoryId *string `json:"memoryId"`
+
+	Family *string `json:"family"`
+
+	HeldByUserId *string `json:"heldByUserId"`
+
+	HeldAt *string `json:"heldAt"`
+
+	HasLiveSession *bool `json:"hasLiveSession"`
+
+	LastActiveAt *string `json:"lastActiveAt"`
+
+	CheckStatus *WorkerFieldsCheckStatusWorkerCheckStatus `json:"checkStatus"`
+
+	RetiredAt *string `json:"retiredAt"`
+
+	RetiredBy *string `json:"retiredBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+}
+
+func (v *RetireWorkerInstructedRetireWorker) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *RetireWorkerInstructedRetireWorker) __premarshalJSON() (*__premarshalRetireWorkerInstructedRetireWorker, error) {
+	var retval __premarshalRetireWorkerInstructedRetireWorker
+
+	retval.Id = v.WorkerFields.Id
+	retval.Urn = v.WorkerFields.Urn
+	retval.PortalUrl = v.WorkerFields.PortalUrl
+	retval.Slug = v.WorkerFields.Slug
+	retval.AppId = v.WorkerFields.AppId
+	retval.AgentId = v.WorkerFields.AgentId
+	retval.Name = v.WorkerFields.Name
+	retval.ReportsTo = v.WorkerFields.ReportsTo
+	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
+	retval.TeamPlacement = v.WorkerFields.TeamPlacement
+	retval.Role = v.WorkerFields.Role
+	retval.Prompt = v.WorkerFields.Prompt
+	retval.Signature = v.WorkerFields.Signature
+	retval.Trailer = v.WorkerFields.Trailer
+	retval.BootPromptRef = v.WorkerFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.WorkerFields.BootPromptTargetDeleted
+	retval.Repos = v.WorkerFields.Repos
+	retval.MemoryId = v.WorkerFields.MemoryId
+	retval.Family = v.WorkerFields.Family
+	retval.HeldByUserId = v.WorkerFields.HeldByUserId
+	retval.HeldAt = v.WorkerFields.HeldAt
+	retval.HasLiveSession = v.WorkerFields.HasLiveSession
+	retval.LastActiveAt = v.WorkerFields.LastActiveAt
+	retval.CheckStatus = v.WorkerFields.CheckStatus
+	retval.RetiredAt = v.WorkerFields.RetiredAt
+	retval.RetiredBy = v.WorkerFields.RetiredBy
+	retval.CreatedAt = v.WorkerFields.CreatedAt
+	retval.CreatedBy = v.WorkerFields.CreatedBy
 	return &retval, nil
 }
 
@@ -95470,6 +96205,38 @@ func (v *__CastWorkerInput) GetReportsTo() *string { return v.ReportsTo }
 // GetNoTeam returns __CastWorkerInput.NoTeam, and is useful for accessing the field via an interface.
 func (v *__CastWorkerInput) GetNoTeam() *bool { return v.NoTeam }
 
+// __CastWorkerInstructedInput is used internally by genqlient
+type __CastWorkerInstructedInput struct {
+	AppRef      string               `json:"appRef"`
+	AgentRef    *string              `json:"agentRef,omitempty"`
+	Role        *string              `json:"role,omitempty"`
+	Name        *string              `json:"name,omitempty"`
+	ReportsTo   *string              `json:"reportsTo,omitempty"`
+	NoTeam      *bool                `json:"noTeam,omitempty"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetAppRef returns __CastWorkerInstructedInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__CastWorkerInstructedInput) GetAppRef() string { return v.AppRef }
+
+// GetAgentRef returns __CastWorkerInstructedInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__CastWorkerInstructedInput) GetAgentRef() *string { return v.AgentRef }
+
+// GetRole returns __CastWorkerInstructedInput.Role, and is useful for accessing the field via an interface.
+func (v *__CastWorkerInstructedInput) GetRole() *string { return v.Role }
+
+// GetName returns __CastWorkerInstructedInput.Name, and is useful for accessing the field via an interface.
+func (v *__CastWorkerInstructedInput) GetName() *string { return v.Name }
+
+// GetReportsTo returns __CastWorkerInstructedInput.ReportsTo, and is useful for accessing the field via an interface.
+func (v *__CastWorkerInstructedInput) GetReportsTo() *string { return v.ReportsTo }
+
+// GetNoTeam returns __CastWorkerInstructedInput.NoTeam, and is useful for accessing the field via an interface.
+func (v *__CastWorkerInstructedInput) GetNoTeam() *bool { return v.NoTeam }
+
+// GetInstruction returns __CastWorkerInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__CastWorkerInstructedInput) GetInstruction() *ActInstructionInput { return v.Instruction }
+
 // __CastWorkerPreviewInput is used internally by genqlient
 type __CastWorkerPreviewInput struct {
 	AppRef    string  `json:"appRef"`
@@ -95497,6 +96264,40 @@ func (v *__CastWorkerPreviewInput) GetReportsTo() *string { return v.ReportsTo }
 
 // GetNoTeam returns __CastWorkerPreviewInput.NoTeam, and is useful for accessing the field via an interface.
 func (v *__CastWorkerPreviewInput) GetNoTeam() *bool { return v.NoTeam }
+
+// __CastWorkerPreviewInstructedInput is used internally by genqlient
+type __CastWorkerPreviewInstructedInput struct {
+	AppRef      string               `json:"appRef"`
+	AgentRef    *string              `json:"agentRef,omitempty"`
+	Role        *string              `json:"role,omitempty"`
+	Name        *string              `json:"name,omitempty"`
+	ReportsTo   *string              `json:"reportsTo,omitempty"`
+	NoTeam      *bool                `json:"noTeam,omitempty"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetAppRef returns __CastWorkerPreviewInstructedInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__CastWorkerPreviewInstructedInput) GetAppRef() string { return v.AppRef }
+
+// GetAgentRef returns __CastWorkerPreviewInstructedInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__CastWorkerPreviewInstructedInput) GetAgentRef() *string { return v.AgentRef }
+
+// GetRole returns __CastWorkerPreviewInstructedInput.Role, and is useful for accessing the field via an interface.
+func (v *__CastWorkerPreviewInstructedInput) GetRole() *string { return v.Role }
+
+// GetName returns __CastWorkerPreviewInstructedInput.Name, and is useful for accessing the field via an interface.
+func (v *__CastWorkerPreviewInstructedInput) GetName() *string { return v.Name }
+
+// GetReportsTo returns __CastWorkerPreviewInstructedInput.ReportsTo, and is useful for accessing the field via an interface.
+func (v *__CastWorkerPreviewInstructedInput) GetReportsTo() *string { return v.ReportsTo }
+
+// GetNoTeam returns __CastWorkerPreviewInstructedInput.NoTeam, and is useful for accessing the field via an interface.
+func (v *__CastWorkerPreviewInstructedInput) GetNoTeam() *bool { return v.NoTeam }
+
+// GetInstruction returns __CastWorkerPreviewInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__CastWorkerPreviewInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
 
 // __ChangeWorkerAgentInput is used internally by genqlient
 type __ChangeWorkerAgentInput struct {
@@ -97584,6 +98385,24 @@ func (v *__DeleteWorkerInput) GetConfirmNoExternalAttribution() *bool {
 	return v.ConfirmNoExternalAttribution
 }
 
+// __DeleteWorkerInstructedInput is used internally by genqlient
+type __DeleteWorkerInstructedInput struct {
+	WorkerRef                    string               `json:"workerRef"`
+	ConfirmNoExternalAttribution *bool                `json:"confirmNoExternalAttribution,omitempty"`
+	Instruction                  *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetWorkerRef returns __DeleteWorkerInstructedInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__DeleteWorkerInstructedInput) GetWorkerRef() string { return v.WorkerRef }
+
+// GetConfirmNoExternalAttribution returns __DeleteWorkerInstructedInput.ConfirmNoExternalAttribution, and is useful for accessing the field via an interface.
+func (v *__DeleteWorkerInstructedInput) GetConfirmNoExternalAttribution() *bool {
+	return v.ConfirmNoExternalAttribution
+}
+
+// GetInstruction returns __DeleteWorkerInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__DeleteWorkerInstructedInput) GetInstruction() *ActInstructionInput { return v.Instruction }
+
 // __DeliveryBatchesInput is used internally by genqlient
 type __DeliveryBatchesInput struct {
 	AppRef string  `json:"appRef"`
@@ -97891,6 +98710,28 @@ func (v *__EnsureAppMemberInput) GetUserRef() string { return v.UserRef }
 
 // GetRole returns __EnsureAppMemberInput.Role, and is useful for accessing the field via an interface.
 func (v *__EnsureAppMemberInput) GetRole() string { return v.Role }
+
+// __EnsureAppMemberInstructedInput is used internally by genqlient
+type __EnsureAppMemberInstructedInput struct {
+	AppRef      string               `json:"appRef"`
+	UserRef     string               `json:"userRef"`
+	Role        string               `json:"role"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetAppRef returns __EnsureAppMemberInstructedInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__EnsureAppMemberInstructedInput) GetAppRef() string { return v.AppRef }
+
+// GetUserRef returns __EnsureAppMemberInstructedInput.UserRef, and is useful for accessing the field via an interface.
+func (v *__EnsureAppMemberInstructedInput) GetUserRef() string { return v.UserRef }
+
+// GetRole returns __EnsureAppMemberInstructedInput.Role, and is useful for accessing the field via an interface.
+func (v *__EnsureAppMemberInstructedInput) GetRole() string { return v.Role }
+
+// GetInstruction returns __EnsureAppMemberInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__EnsureAppMemberInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
 
 // __ExtractParentNodeToMemoryInput is used internally by genqlient
 type __ExtractParentNodeToMemoryInput struct {
@@ -99536,6 +100377,24 @@ func (v *__RemoveAppMemberInput) GetAppRef() string { return v.AppRef }
 // GetUserRef returns __RemoveAppMemberInput.UserRef, and is useful for accessing the field via an interface.
 func (v *__RemoveAppMemberInput) GetUserRef() string { return v.UserRef }
 
+// __RemoveAppMemberInstructedInput is used internally by genqlient
+type __RemoveAppMemberInstructedInput struct {
+	AppRef      string               `json:"appRef"`
+	UserRef     string               `json:"userRef"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetAppRef returns __RemoveAppMemberInstructedInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__RemoveAppMemberInstructedInput) GetAppRef() string { return v.AppRef }
+
+// GetUserRef returns __RemoveAppMemberInstructedInput.UserRef, and is useful for accessing the field via an interface.
+func (v *__RemoveAppMemberInstructedInput) GetUserRef() string { return v.UserRef }
+
+// GetInstruction returns __RemoveAppMemberInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__RemoveAppMemberInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
+
 // __RemoveMemoryFromAgentInput is used internally by genqlient
 type __RemoveMemoryFromAgentInput struct {
 	AgentRef  string `json:"agentRef"`
@@ -99771,6 +100630,18 @@ type __RetireWorkerInput struct {
 
 // GetWorkerRef returns __RetireWorkerInput.WorkerRef, and is useful for accessing the field via an interface.
 func (v *__RetireWorkerInput) GetWorkerRef() string { return v.WorkerRef }
+
+// __RetireWorkerInstructedInput is used internally by genqlient
+type __RetireWorkerInstructedInput struct {
+	WorkerRef   string               `json:"workerRef"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetWorkerRef returns __RetireWorkerInstructedInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__RetireWorkerInstructedInput) GetWorkerRef() string { return v.WorkerRef }
+
+// GetInstruction returns __RetireWorkerInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__RetireWorkerInstructedInput) GetInstruction() *ActInstructionInput { return v.Instruction }
 
 // __RetryFailedEmbeddingsInput is used internally by genqlient
 type __RetryFailedEmbeddingsInput struct {
@@ -110026,6 +110897,99 @@ func CastWorker(
 	return data_, err_
 }
 
+// The mutation executed by CastWorkerInstructed.
+const CastWorkerInstructed_Operation = `
+mutation CastWorkerInstructed ($appRef: ID!, $agentRef: ID, $role: String, $name: String, $reportsTo: ID, $noTeam: Boolean, $instruction: ActInstructionInput!) {
+	castWorker(appRef: $appRef, agentRef: $agentRef, role: $role, name: $name, reportsTo: $reportsTo, noTeam: $noTeam, instruction: $instruction) {
+		... WorkerFields
+	}
+}
+fragment WorkerFields on Worker {
+	id
+	urn
+	portalUrl
+	slug
+	appId
+	agentId
+	name
+	reportsTo {
+		... WorkerReportingRefFields
+	}
+	reportsToRetired
+	teamPlacement
+	role
+	prompt
+	signature
+	trailer
+	bootPromptRef
+	bootPromptTargetDeleted
+	repos
+	memoryId
+	family
+	heldByUserId
+	heldAt
+	hasLiveSession
+	lastActiveAt
+	checkStatus {
+		... ChannelCheckFields
+	}
+	retiredAt
+	retiredBy
+	createdAt
+	createdBy
+}
+fragment WorkerReportingRefFields on Worker {
+	id
+	name
+	urn
+}
+fragment ChannelCheckFields on WorkerCheckStatus {
+	status
+	pendingReason
+	lastCheckedAt
+}
+`
+
+// cli#1594 (hadron-server#3308, 517eb1db): the staffing doors carrying a
+// holder's instruction claim. Separate documents, so the no-flag documents
+// above stay byte-for-byte what an older server already accepts.
+func CastWorkerInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	agentRef *string,
+	role *string,
+	name *string,
+	reportsTo *string,
+	noTeam *bool,
+	instruction *ActInstructionInput,
+) (data_ *CastWorkerInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CastWorkerInstructed",
+		Query:  CastWorkerInstructed_Operation,
+		Variables: &__CastWorkerInstructedInput{
+			AppRef:      appRef,
+			AgentRef:    agentRef,
+			Role:        role,
+			Name:        name,
+			ReportsTo:   reportsTo,
+			NoTeam:      noTeam,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &CastWorkerInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by CastWorkerPreview.
 const CastWorkerPreview_Operation = `
 query CastWorkerPreview ($appRef: ID!, $agentRef: ID, $role: String, $name: String, $reportsTo: ID, $noTeam: Boolean) {
@@ -110072,6 +111036,59 @@ func CastWorkerPreview(
 	}
 
 	data_ = &CastWorkerPreviewResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by CastWorkerPreviewInstructed.
+const CastWorkerPreviewInstructed_Operation = `
+query CastWorkerPreviewInstructed ($appRef: ID!, $agentRef: ID, $role: String, $name: String, $reportsTo: ID, $noTeam: Boolean, $instruction: ActInstructionInput!) {
+	castWorkerPreview(appRef: $appRef, agentRef: $agentRef, role: $role, name: $name, reportsTo: $reportsTo, noTeam: $noTeam, instruction: $instruction) {
+		name
+		role
+		agentId
+		agentName
+		prompt
+		teamPlacement
+		reportsToWorkerId
+	}
+}
+`
+
+// An instructed preview is NOT write-free: the server records one claim event.
+func CastWorkerPreviewInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	agentRef *string,
+	role *string,
+	name *string,
+	reportsTo *string,
+	noTeam *bool,
+	instruction *ActInstructionInput,
+) (data_ *CastWorkerPreviewInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CastWorkerPreviewInstructed",
+		Query:  CastWorkerPreviewInstructed_Operation,
+		Variables: &__CastWorkerPreviewInstructedInput{
+			AppRef:      appRef,
+			AgentRef:    agentRef,
+			Role:        role,
+			Name:        name,
+			ReportsTo:   reportsTo,
+			NoTeam:      noTeam,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &CastWorkerPreviewInstructedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -116789,6 +117806,42 @@ func DeleteWorker(
 	return data_, err_
 }
 
+// The mutation executed by DeleteWorkerInstructed.
+const DeleteWorkerInstructed_Operation = `
+mutation DeleteWorkerInstructed ($workerRef: ID!, $confirmNoExternalAttribution: Boolean, $instruction: ActInstructionInput!) {
+	deleteWorker(workerRef: $workerRef, confirmNoExternalAttribution: $confirmNoExternalAttribution, instruction: $instruction)
+}
+`
+
+func DeleteWorkerInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	workerRef string,
+	confirmNoExternalAttribution *bool,
+	instruction *ActInstructionInput,
+) (data_ *DeleteWorkerInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteWorkerInstructed",
+		Query:  DeleteWorkerInstructed_Operation,
+		Variables: &__DeleteWorkerInstructedInput{
+			WorkerRef:                    workerRef,
+			ConfirmNoExternalAttribution: confirmNoExternalAttribution,
+			Instruction:                  instruction,
+		},
+	}
+
+	data_ = &DeleteWorkerInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by DeliveryBatches.
 const DeliveryBatches_Operation = `
 query DeliveryBatches ($appRef: String!, $first: Int!, $after: String) {
@@ -117852,6 +118905,55 @@ func EnsureAppMember(
 	}
 
 	data_ = &EnsureAppMemberResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by EnsureAppMemberInstructed.
+const EnsureAppMemberInstructed_Operation = `
+mutation EnsureAppMemberInstructed ($appRef: String!, $userRef: String!, $role: String!, $instruction: ActInstructionInput!) {
+	ensureAppMember(appRef: $appRef, userRef: $userRef, role: $role, instruction: $instruction) {
+		role
+		createdAt
+		user {
+			id
+			handle
+			urn
+		}
+	}
+}
+`
+
+// cli#1594 (hadron-server#3308, 517eb1db): the member doors carrying a
+// holder's instruction claim; separate so the documents above stay unchanged.
+// An instructed no-op (an existing member, an absent one) still records a claim.
+func EnsureAppMemberInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	userRef string,
+	role string,
+	instruction *ActInstructionInput,
+) (data_ *EnsureAppMemberInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "EnsureAppMemberInstructed",
+		Query:  EnsureAppMemberInstructed_Operation,
+		Variables: &__EnsureAppMemberInstructedInput{
+			AppRef:      appRef,
+			UserRef:     userRef,
+			Role:        role,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &EnsureAppMemberInstructedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -125440,6 +126542,42 @@ func RemoveAppMember(
 	return data_, err_
 }
 
+// The mutation executed by RemoveAppMemberInstructed.
+const RemoveAppMemberInstructed_Operation = `
+mutation RemoveAppMemberInstructed ($appRef: String!, $userRef: String!, $instruction: ActInstructionInput!) {
+	removeAppMember(appRef: $appRef, userRef: $userRef, instruction: $instruction)
+}
+`
+
+func RemoveAppMemberInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	userRef string,
+	instruction *ActInstructionInput,
+) (data_ *RemoveAppMemberInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RemoveAppMemberInstructed",
+		Query:  RemoveAppMemberInstructed_Operation,
+		Variables: &__RemoveAppMemberInstructedInput{
+			AppRef:      appRef,
+			UserRef:     userRef,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &RemoveAppMemberInstructedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by RemoveMemoryFromAgent.
 const RemoveMemoryFromAgent_Operation = `
 mutation RemoveMemoryFromAgent ($agentRef: ID!, $memoryRef: ID!) {
@@ -126677,6 +127815,86 @@ func RetireWorker(
 	}
 
 	data_ = &RetireWorkerResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RetireWorkerInstructed.
+const RetireWorkerInstructed_Operation = `
+mutation RetireWorkerInstructed ($workerRef: ID!, $instruction: ActInstructionInput!) {
+	retireWorker(workerRef: $workerRef, instruction: $instruction) {
+		... WorkerFields
+	}
+}
+fragment WorkerFields on Worker {
+	id
+	urn
+	portalUrl
+	slug
+	appId
+	agentId
+	name
+	reportsTo {
+		... WorkerReportingRefFields
+	}
+	reportsToRetired
+	teamPlacement
+	role
+	prompt
+	signature
+	trailer
+	bootPromptRef
+	bootPromptTargetDeleted
+	repos
+	memoryId
+	family
+	heldByUserId
+	heldAt
+	hasLiveSession
+	lastActiveAt
+	checkStatus {
+		... ChannelCheckFields
+	}
+	retiredAt
+	retiredBy
+	createdAt
+	createdBy
+}
+fragment WorkerReportingRefFields on Worker {
+	id
+	name
+	urn
+}
+fragment ChannelCheckFields on WorkerCheckStatus {
+	status
+	pendingReason
+	lastCheckedAt
+}
+`
+
+func RetireWorkerInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	workerRef string,
+	instruction *ActInstructionInput,
+) (data_ *RetireWorkerInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RetireWorkerInstructed",
+		Query:  RetireWorkerInstructed_Operation,
+		Variables: &__RetireWorkerInstructedInput{
+			WorkerRef:   workerRef,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &RetireWorkerInstructedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

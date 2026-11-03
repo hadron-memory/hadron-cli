@@ -418,7 +418,7 @@ hadron agent ticker-templates list <agent-ref> | create <agent-ref> --name <n> -
 
 hadron agent clone <source> --to <org> [--name N] [--slug S]   # one server clone mutation, sent once and never retried, into an organization you administer; new PERSONAL draft with its own system-memory copy, links/imports retained; linked memories stay links. Source must be PUBLIC or managed in its own org. Text prints the returned NEW URN; --json prints the normal Agent DTO (no origin field). No install/subscription second step or manual-copy fallback. **Exit codes:** a typed refusal is a definite answer, nothing was created, so fix the cause and rerun: exit 8 for AGENT_NOT_PUBLIC and unreadable/unusable linked-memory, base or import; exit 2 for an unsupported target or encrypted content; a source-changed conflict (exit 5) carries retryable=true but is never retried for you, rerun by hand. Exit 3 is rejected credentials: nothing was created. Exit 1 with `(clone server error: …)` is a server fault whose effect on the clone is not known: verify as for exit 7 before rerunning. **UNKNOWN (exit 7, never success)** means the answer was lost, or a success reply carried no Agent (null/missing `cloneAgent`): the clone may exist. Verify before cloning again: `hadron agent list --org <org> --visibility PERSONAL` (`--org` takes the same id, slug or URN as `--to`; a new clone is a PERSONAL draft and is listed for org members); with `--name` look for that name, without it the server copies the SOURCE's name, so look for a PERSONAL agent bearing it. Refusal details are the first GraphQL error's own `code`/`reason`/`retryable` and blocker counts, positions and supplied names only (a hidden subject never gets a name); an empty-details first error yields none, never a later error's. The text suffix (stderr, human mode only) names the answer: `(clone refusal: …)`, `(clone authentication: …)` or `(clone server error: …)`, followed by the code, `reason <R>` and, when retryable is true, `retryable: rerun by hand`; each blocker then gets its own indented line, `blocker <CODE>  count <N>  "<name>" (position <P>), position <P>`, with positions as received and a quoted name only where the server supplied one. Server strings are made one-line and control-free; a name is backslash-escaped for `\` and `"` inside its quotes, and a reason containing a comma, quote or backslash is quoted the same way; parse `--json`, not this text. Requires server cloneAgent S1; older providers reject as schema skew.
 hadron team init [--app <ref> | -m <team-memory>] (uses --app, the context, or the binding)
-hadron team worker cast --name <n> (--role <role> | --agent <ref>) [--reports-to <worker> | --no-team] [--dry-run] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | update <name-or-id> [--signature <text>] [--trailer <text>] | set-reports-to <worker> (<target> | --clear) | set-boot-prompt <worker> (<node-ref> [-m <memory>] | --clear) | release <name-or-id> [--yes] | retire <name-or-id> --yes | rm <name-or-id> --yes
+hadron team worker cast --name <n> (--role <role> | --agent <ref>) [--reports-to <worker> | --no-team] [--dry-run] [--instruction <kind>:<ref>] (uses --app) | list [--include-retired] (uses --app or the binding) | get <name-or-id> | update <name-or-id> [--signature <text>] [--trailer <text>] | set-reports-to <worker> (<target> | --clear) | set-boot-prompt <worker> (<node-ref> [-m <memory>] | --clear) | release <name-or-id> [--yes] | retire <name-or-id> --yes [--instruction <kind>:<ref>] | rm <name-or-id> --yes [--instruction <kind>:<ref>]
 hadron team worker onboard --name <worker> --host <id> --repo <token> --branch <branch> --label <label> --family <family> --worktrees-root <absolute-path> --config <router.json> [--base main] [--display-name <text>] [--coordinator] [--apply] [--as-person] [--timeout 2m]   # Orca-hosted workers only; dry-run by default, submits nothing; --family is compared and queued as the server's canonical family (anthropic=claude, openai=codex, case/space folded; custom tokens stay themselves); prerequisites and partial-outcome contract below
 hadron team role list [--team-agent <ref>] (uses --app or the binding) | get <role> [--team-agent <ref>] | create <role> [--description <d>] [--team-agent <ref>] | update <role> --description <d> | rm <role> [--yes]
 hadron team session work-items --worker <ref> [--limit N] [--offset N] | start (--as <worker> | --launch-grant <g>) [-m <team-memory>] [--repo <r>] [--branch <b>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>] [--reports-to <worker>] [--force] | start [--session <id>] [--transcript <path>] [--host <h>] [--tool <t>] [--model <m>]   (no worker named: RESUME, cli#842) | whoami [--check | --signature | --trailer] | log (--pr | --issue | --commit | --branch) <ref> [--action <a>] [--detail <json>] [--model <m>] [-m <team-memory>] | end [--handoff <text> | --handoff-file <path>] [--summary <text>] [--session <id>] [--resume-claim] | resume-claim [--session <id>] | list [--active] [--as <worker>] [--repo <r>] [--limit N] [--offset N] | list (--pr | --issue | --commit | --branch) <ref> [-m <team-memory>] | sync-model [--hook] | shed [--auto] [--print-prompt] [--offline] [--cooldown <d>] [--transcript <path>] | set-model [<model>] [--family <token>]
@@ -2187,7 +2187,8 @@ Conventions:
   `BAD_USER_INPUT` text is printed unchanged. `agent get` shows them as
   `member roles:` and `--json` `memberRoles` (`[]` when none returned; the same
   key now appears on every agent DTO). Memory-attach, AI-config wiring, and app-wiring land next.
-- `app member add --user <ref> --role <role>` / `remove --user <ref>` / `list`
+- `app member add --user <ref> --role <role>` / `remove --user <ref>` (both take
+  `[--instruction <kind>:<ref>]`, see Instructed staffing and member acts) / `list`
   (`ensureAppMember` / `removeAppMember` / `App.members`, `cor:dmo:050:04`)
   manage an App's HUMAN members. The App is the root `--app` flag, else the
   active App; there is no positional App, and an explicit blank `--app ""`
@@ -5176,3 +5177,41 @@ All three key list queries use TOP-LEVEL appKeys, never nested App.keys (which
 still refuses a worker). Scopes and hostUses use holder management at server
 c3ca05b5; they are selected unchanged and a nested refusal fails the command,
 never rendered as empty. No raw key is selected. Output DTOs stay unchanged.
+
+## Instructed staffing and member acts (cli#1594)
+
+`--instruction <kind>:<ref>` is available on `team worker cast` (and its
+`--dry-run`, `castWorkerPreview`), `team worker retire`, `team worker rm`
+(alias `delete`), `app member add` and `app member remove` (hadron-server#3308,
+rulings 0096/0097, `cor:dmo:050:12`, `cor:agt:080:24`). Needs server 517eb1db
+or later. Kinds and parsing as above: team-chat-message, task, live-chat (sent
+as TEAM_CHAT_MESSAGE, TASK, LIVE_CHAT), split on the first colon, ref bytes
+unchanged; a bad kind or blank ref exits 2 before any prompt or request.
+
+Without the flag these five are the signed-in person's writes, headerless even
+from a bound worktree, with their documents and variables unchanged. With it, a
+separate instructed document goes out, never retried or downgraded. Its
+attribution follows `worker change-agent`'s row: the binding is snapshotted
+before the command's first lookup, and the write carries its worker session
+only when that binding is complete, for this server and for the TARGET App,
+and unchanged at send time (one that appears meanwhile is a change too). The
+target App is the resolved worker's own for retire/rm (an ambient `--app` is
+not the target); for cast and the member doors it is `--app` or the active
+App, resolved headerlessly (`app(ref:)`) when it is not the binding's own App
+id. Otherwise the write goes out headerless as the person with a stderr note
+(`note: this worktree's worker session is not used (...)`): the server checks
+the person's reference but records no claim. No lookup ever carries the
+session. A failed target lookup exits with its own code and sends nothing.
+
+Server rule (worker session): the instruction arm or the worker's own live
+grant, `workers.staff` (cast, preview, retire, delete) or `app.members` (member
+add/remove, self-leave included); no grant is held by default, and the holder
+still needs the right to make the change themselves. An admitted claim is
+recorded, also for a preview and for a no-op (an already-retired worker, an
+existing or absent member): an instructed `cast --dry-run` is NOT write-free,
+and its text receipt says `the instruction claim was recorded for this preview`
+when it went out through the worker session. A host-launched session's claim is
+ignored (neither checked nor recorded): it acts on its own grant only, refused
+without one. The MCP tools take no instruction. Refusals keep their codes:
+FORBIDDEN exit 8, with `serverCode` in `--json` errors, which these five doors
+now carry on the no-flag path too.
