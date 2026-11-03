@@ -49,7 +49,7 @@ func (p *Poller) workerResetContext(ctx context.Context, op Operation) {
 	}
 	for _, a := range []string{"resetId", "sessionId", "taskId"} {
 		if argString(op, a) == "" {
-			refuse("BAD_OPERATION", "the operation names no "+a)
+			refuse("HOST_UNSUPPORTED", "malformed operation: it names no "+a)
 			return
 		}
 	}

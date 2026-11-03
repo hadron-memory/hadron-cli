@@ -160,7 +160,13 @@ func TestResetRefusesAMalformedOperation1043(t *testing.T) {
 			x := newResetFixture(t)
 			op := resetOp()
 			delete(op.Args, arg)
-			wantReason(t, x.run(t, op), "BAD_OPERATION")
+			r := x.run(t, op)
+			wantReason(t, r, "HOST_UNSUPPORTED")
+			// One code covers several refusals (cor:agt:050:27 part 11);
+			// the detail says which.
+			if want := "malformed operation: it names no " + arg; !strings.HasSuffix(r.reason, want) {
+				t.Fatalf("reason %q, want suffix %q", r.reason, want)
+			}
 			if x.proc.observed != 0 {
 				t.Fatal("observed a process for a malformed operation")
 			}

@@ -57,12 +57,11 @@ const (
 	recoverStoppedThenRelaunch
 )
 
-// recoveryAction is the decision for one reset. Provisional marks a row
-// still awaiting the spec owner's confirmation (#1043 comment 6593190456).
+// recoveryAction is the decision for one reset. Every row of the table is
+// the spec owner's (cor:agt:050:27 part 11).
 type recoveryAction struct {
-	Kind        recoverKind
-	Reason      string
-	Provisional bool
+	Kind   recoverKind
+	Reason string
 }
 
 // endedWithoutReason is the FAILED code sent for an ended reset the server
@@ -75,26 +74,23 @@ const endedWithoutReason = "CONTEXT_RESET_ENDED"
 // time), newAlive the same for the recorded relaunched one. Nothing it
 // returns ever signals a process, and no protocol step is retried.
 func decideRecovery(r ContextReset, oldAlive, newAlive bool) recoveryAction {
-	provisional := func(k recoverKind, reason string) recoveryAction {
-		return recoveryAction{Kind: k, Reason: reason, Provisional: true}
-	}
 	switch r.Phase {
 	case "requested":
 		// No claim held, and the observation is gone: nothing to re-run.
-		return provisional(recoverReportFailed, "PROCESS_CHANGED")
+		return recoveryAction{Kind: recoverReportFailed, Reason: "PROCESS_CHANGED"}
 	case "claimed":
 		// No process control happened; the checkpoint is not proven written.
-		return provisional(recoverRelaunchFailed, "CHECKPOINT_FAILED")
+		return recoveryAction{Kind: recoverRelaunchFailed, Reason: "CHECKPOINT_FAILED"}
 	case "checkpointed":
 		// No process control happened; the staged prompt is not proven intact.
-		return provisional(recoverRelaunchFailed, "STAGING_FAILED")
+		return recoveryAction{Kind: recoverRelaunchFailed, Reason: "STAGING_FAILED"}
 	case "stop-granted":
 		// The lease has expired and the host never signals on recovery.
 		if oldAlive {
 			return recoveryAction{Kind: recoverRelaunchFailed, Reason: "RELAUNCH_BLOCKED"}
 		}
 		// The signal may have landed before the crash.
-		return provisional(recoverStoppedThenRelaunch, "")
+		return recoveryAction{Kind: recoverStoppedThenRelaunch}
 	case "agent-stopped":
 		if oldAlive {
 			return recoveryAction{Kind: recoverReportFailed, Reason: "PROCESS_CHANGED"}
@@ -102,9 +98,9 @@ func decideRecovery(r ContextReset, oldAlive, newAlive bool) recoveryAction {
 		return recoveryAction{Kind: recoverRelaunch}
 	case "relaunched":
 		if newAlive {
-			return provisional(recoverReportSucceeded, "")
+			return recoveryAction{Kind: recoverReportSucceeded}
 		}
-		return provisional(recoverReportFailed, "RELAUNCH_UNVERIFIED")
+		return recoveryAction{Kind: recoverReportFailed, Reason: "RELAUNCH_UNVERIFIED"}
 	case "done":
 		return recoveryAction{Kind: recoverReportSucceeded}
 	case "refused", "failed":
@@ -140,9 +136,6 @@ func (p *Poller) recoverReset(ctx context.Context, op Operation, rec ResetRecord
 		newAlive, _ = p.processAlive(*rec.New) // alive only when proven
 	}
 	act := decideRecovery(r, oldAlive || !oldKnown, newAlive) // unknown old counts as alive
-	if act.Provisional {
-		p.log("reset-recovery", op.ID, op.Type, "", "phase "+r.Phase+": provisional row (hadron-cli#1043 comment 6593190456)")
-	}
 	// A live reset's epoch is the claim's: a cancellation moves it only by
 	// ending the reset, and an ended phase takes no step here.
 	epoch := r.Epoch

@@ -18,8 +18,10 @@ var hostReportedReasons = map[string]bool{
 
 // reasonExceptions are reported codes outside that set, each with why.
 var reasonExceptions = map[string]string{
-	"HOST_UNSUPPORTED":    "awaiting the spec owner (hadron-cli#1043 comment 6595271707)",
-	"BAD_OPERATION":       "awaiting the spec owner (hadron-cli#1043 comment 6595271707)",
+	// Ruled reportable (cor:agt:050:27 part 11); remove this exception and
+	// add it to hostReportedReasons once the server's HOST_REPORTED_REASONS
+	// slice merges.
+	"HOST_UNSUPPORTED":    "ruled reportable; server slice pending",
 	"CONTEXT_RESET_ENDED": "sent only for an ended reset, which takes any code",
 }
 

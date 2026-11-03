@@ -7,9 +7,7 @@ import "testing"
 // Nothing is ever signalled on recovery and no step is retried: the table
 // only relaunches (after a proven stop), reports, or keeps the record.
 //
-// Rows marked provisional are the engineer's proposal, awaiting the spec
-// owner's confirmation; the pin on Provisional makes the confirmation a
-// visible one-row edit.
+// The spec owner confirmed every row (cor:agt:050:27 part 11).
 func TestRecoveryActionTable(t *testing.T) {
 	alive, gone := true, false
 	cases := []struct {
@@ -29,13 +27,13 @@ func TestRecoveryActionTable(t *testing.T) {
 		{"done", "done", "", gone, alive, recoveryAction{Kind: recoverReportSucceeded}},
 		{"refused", "refused", "NOT_IDLE", alive, gone, recoveryAction{Kind: recoverReportFailed, Reason: "NOT_IDLE"}},
 		{"failed", "failed", "CLAIM_LAPSED", alive, gone, recoveryAction{Kind: recoverReportFailed, Reason: "CLAIM_LAPSED"}},
-		// Provisional, awaiting the spec owner.
-		{"requested", "requested", "", alive, gone, recoveryAction{Kind: recoverReportFailed, Reason: "PROCESS_CHANGED", Provisional: true}},
-		{"claimed", "claimed", "", alive, gone, recoveryAction{Kind: recoverRelaunchFailed, Reason: "CHECKPOINT_FAILED", Provisional: true}},
-		{"checkpointed", "checkpointed", "", alive, gone, recoveryAction{Kind: recoverRelaunchFailed, Reason: "STAGING_FAILED", Provisional: true}},
-		{"stop-granted, old gone", "stop-granted", "", gone, gone, recoveryAction{Kind: recoverStoppedThenRelaunch, Provisional: true}},
-		{"relaunched, new alive", "relaunched", "", gone, alive, recoveryAction{Kind: recoverReportSucceeded, Provisional: true}},
-		{"relaunched, new gone", "relaunched", "", gone, gone, recoveryAction{Kind: recoverReportFailed, Reason: "RELAUNCH_UNVERIFIED", Provisional: true}},
+		// Confirmed by the spec owner (cor:agt:050:27 part 11).
+		{"requested", "requested", "", alive, gone, recoveryAction{Kind: recoverReportFailed, Reason: "PROCESS_CHANGED"}},
+		{"claimed", "claimed", "", alive, gone, recoveryAction{Kind: recoverRelaunchFailed, Reason: "CHECKPOINT_FAILED"}},
+		{"checkpointed", "checkpointed", "", alive, gone, recoveryAction{Kind: recoverRelaunchFailed, Reason: "STAGING_FAILED"}},
+		{"stop-granted, old gone", "stop-granted", "", gone, gone, recoveryAction{Kind: recoverStoppedThenRelaunch}},
+		{"relaunched, new alive", "relaunched", "", gone, alive, recoveryAction{Kind: recoverReportSucceeded}},
+		{"relaunched, new gone", "relaunched", "", gone, gone, recoveryAction{Kind: recoverReportFailed, Reason: "RELAUNCH_UNVERIFIED"}},
 		// A phase this host does not know: keep the record, touch nothing.
 		{"unknown phase", "something-new", "", gone, gone, recoveryAction{Kind: recoverKeep}},
 	}
