@@ -40,10 +40,12 @@ func TestMutationRedirectRefusedByOperationType(t *testing.T) {
 					dest.Add(1)
 					_, _ = w.Write([]byte(`{"data":{}}`))
 				}))
+				t.Cleanup(destSrv.Close)
 				srcSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					src.Add(1)
 					http.Redirect(w, r, destSrv.URL+"/graphql", status)
 				}))
+				t.Cleanup(srcSrv.Close)
 				c, err := NewClient(srcSrv.URL, token, nil)
 				if err != nil {
 					t.Fatal(err)
@@ -57,8 +59,6 @@ func TestMutationRedirectRefusedByOperationType(t *testing.T) {
 				} else if err != nil || dest.Load() != 1 {
 					t.Errorf("token=%q %d %s must follow: err=%v dest=%d", token, status, q.name, err, dest.Load())
 				}
-				srcSrv.Close()
-				destSrv.Close()
 			}
 		}
 	}

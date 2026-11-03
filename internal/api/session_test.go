@@ -131,7 +131,7 @@ func TestSessionHeaderIsStrippedOnAnInsecureRedirect(t *testing.T) {
 
 func TestBodyOnlySessionRefCannotFollowAnInsecureRedirect(t *testing.T) {
 	t.Setenv(EnvAllowHTTP, "")
-	origin, _ := http.NewRequest(http.MethodPost, "https://srv.example/graphql", strings.NewReader(`{"variables":{"sessionRef":"s-1"}}`))
+	origin, _ := http.NewRequest(http.MethodPost, "https://srv.example/graphql", strings.NewReader(`{"query":"query X { x }","variables":{"sessionRef":"s-1"}}`))
 	for name, c := range map[string]*http.Client{
 		"with token":    withSecureRedirects(&http.Client{}),
 		"without token": withSessionRedirects(&http.Client{}),
@@ -156,7 +156,7 @@ func TestBodyOnlySessionRefCannotFollowAnInsecureRedirect(t *testing.T) {
 
 func TestSessionFreePostMayFollowSecureCrossHostRedirect(t *testing.T) {
 	t.Setenv(EnvAllowHTTP, "")
-	origin, _ := http.NewRequest(http.MethodPost, "https://old.example/graphql", strings.NewReader(`{"variables":{"appRef":"hrn:app:example:team"}}`))
+	origin, _ := http.NewRequest(http.MethodPost, "https://old.example/graphql", strings.NewReader(`{"query":"query X { x }","variables":{"appRef":"hrn:app:example:team"}}`))
 	target, _ := http.NewRequest(http.MethodPost, "https://new.example/graphql", nil)
 	for name, client := range map[string]*http.Client{
 		"with token":    withSecureRedirects(&http.Client{}),
