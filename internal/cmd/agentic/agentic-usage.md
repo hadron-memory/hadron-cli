@@ -5054,3 +5054,40 @@ terminal controls removed; JSON retains server values verbatim.
 All shared task records now select these fields: requires deployed
 server#3245 (schema pinned0356d7f12e or compatible successor), even with no
 new flags. **No CLI release before that compatible provider deployment.**
+
+### Task finding dispositions (server#3258; cli#1556)
+
+```sh
+hadron team task finding-dispositions <task> [--limit N] [--offset N]
+hadron team task dispose-finding <task> <finding-id> --disposition fixed|accepted|deferred|rejected [--ref <kind>=<target>[|<label>]]
+hadron team task list --unresolved[=false]
+```
+
+Dispositions are beside a finished task's immutable result, never edits to it.
+All four codes (including deferred) resolve a finding; the latest value wins,
+with no clear operation. Omitted `--ref` means the NEW disposition has no
+reference, even if the previous one did. Reference kinds are issue,
+pull-request, node, task and url; stored target/label text is never fetched.
+The server decides authority: task assigners only after finish, never an
+assignee alone, an App key or impersonation. No local inference or retry.
+`TASK_NOT_OWNER` exits 8, `TASK_NOT_FINISHED` exits 5,
+`TASK_FINDING_NOT_FOUND` exits 4; server codes remain in the JSON error envelope
+and human message. A transport or unreadable-response failure may follow a
+committed write: read dispositions before deciding whether to write again.
+
+`finding-dispositions --json` is `{items:[{findingId,disposition,reference}],
+total,hasMore}` in finding order; empty items is `[]`. Default page 20, maximum
+200, `--limit 0` counts only. Follow hasMore with offset, never infer the end
+from page length. A write prints a bare server-returned receipt
+`{taskId,findingId,disposition,reference}`. Reference is null when absent, else
+`{kind,target,label}` (label nullable). Human text is bounded/terminal-safe;
+JSON preserves original text. These commands do not read immutable findings
+(the separate cli#1550 slice).
+
+`list --unresolved` filters before paging to FINISHED tasks with at least one
+undisposed finding; `=false` and omission do not narrow. Both explicit values
+conflict with `list --team`, exit 2 before a read. Other filters AND together.
+Omitted flag retains existing list documents and bare-array JSON. New commands
+and the named unresolved flag require a provider containing server#3258; they
+add no new selections to existing task commands. Task ids/handles work as on
+get; an ambiguous handle needs its fully qualified App form.
