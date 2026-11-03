@@ -1,0 +1,34 @@
+# Per-automation own-App roster/task read grant (#1578, server #3363).
+fragment AutomationTeamSnapshotGrantFields on AutomationTeamSnapshotGrant {
+  id
+  appId
+  triggerKind
+  triggerId
+  grantedBy
+  createdAt
+  revokedAt
+  revokedBy
+}
+mutation SetAutomationTeamSnapshotGrant($appRef: ID!, $triggerKind: String!, $triggerId: ID!) {
+  setAutomationTeamSnapshotGrant(appRef: $appRef, triggerKind: $triggerKind, triggerId: $triggerId) {
+    ...AutomationTeamSnapshotGrantFields
+  }
+}
+mutation RevokeAutomationTeamSnapshotGrant($id: ID!) {
+  revokeAutomationTeamSnapshotGrant(id: $id) {
+    ...AutomationTeamSnapshotGrantFields
+  }
+}
+query AutomationTeamSnapshotGrants(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $includeRevoked: Boolean
+  $limit: Int!
+  $offset: Int!
+) {
+  automationTeamSnapshotGrants(appRef: $appRef, includeRevoked: $includeRevoked, limit: $limit, offset: $offset) {
+    items { ...AutomationTeamSnapshotGrantFields }
+    total
+    hasMore
+  }
+}

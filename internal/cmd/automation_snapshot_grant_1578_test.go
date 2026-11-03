@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -30,7 +31,7 @@ func TestSnapshotGrant1578SetHeaderAndJSON(t *testing.T) {
 	if json.Unmarshal([]byte(out), &got) != nil || json.Unmarshal([]byte(snapshotGrant1578), &want) != nil {
 		t.Fatal(out)
 	}
-	if len(got) != 8 || got["id"] != want["id"] || got["revokedAt"] != nil || got["revokedBy"] != nil {
+	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("DTO: %s", out)
 	}
 	if len(callsFor(calls, "SetAutomationTeamSnapshotGrant")) != 1 {
@@ -54,7 +55,7 @@ func TestSnapshotGrant1578RefusalAndConfirm(t *testing.T) {
 				want = exitcode.Forbidden
 				n = 1
 			}
-			if exitcode.FromError(err) != want || len(callsFor(calls, "SetAutomationTeamSnapshotGrant")) != n {
+			if exitCodeFor(err) != want || len(callsFor(calls, "SetAutomationTeamSnapshotGrant")) != n {
 				t.Fatalf("err=%v calls=%+v", err, *calls)
 			}
 		})
@@ -64,6 +65,9 @@ func TestSnapshotGrant1578RefusalAndConfirm(t *testing.T) {
 func TestSnapshotGrant1578ListAllPages(t *testing.T) {
 	s := newAutoServer(t, map[string]func(map[string]any) autoReply{"AutomationTeamSnapshotGrants": func(v map[string]any) autoReply {
 		offset := v["offset"].(float64)
+		if _, present := v["includeRevoked"]; present {
+			t.Error("unset include-revoked must be omitted")
+		}
 		row := snapshotGrant1578
 		more := true
 		if offset == 1 {
@@ -126,8 +130,158 @@ func TestSnapshotGrant1578EmptyAndExplicitPage(t *testing.T) {
 func TestSnapshotGrant1578BadArgsBeforeRequest(t *testing.T) {
 	for _, extra := range [][]string{{"set", autoApp, "--trigger-kind", "MANUAL", "--trigger-id", "x", "--yes"}, {"set", autoApp, "--trigger-kind", "SCHEDULE", "--trigger-id=", "--yes"}, {"list", autoApp, "--limit", "0"}, {"list", autoApp, "--limit", "201"}, {"list", autoApp, "--offset", "-1"}} {
 		calls, _, err := runTeamTask(t, taskResponses(), snapshotArgs1578(extra[0], extra[1:]...)...)
-		if exitcode.FromError(err) != exitcode.Usage || len(*calls) != 0 {
+		if exitCodeFor(err) != exitcode.Usage || len(*calls) != 0 {
 			t.Fatalf("%v err=%v calls=%v", extra, err, *calls)
 		}
+	}
+}
+
+func TestSnapshotGrant1578Revoke(t *testing.T) {
+	for _, state := range []string{"live", "ended", "missing"} {
+		t.Run(state, func(t *testing.T) {
+			row := snapshotGrant1578
+			ended := strings.ReplaceAll(row, `"revokedAt":null,"revokedBy":null`, `"revokedAt":"2026-11-03T01:00:00Z","revokedBy":"user1"`)
+			if state == "ended" {
+				row = ended
+			}
+			items := row
+			if state == "missing" {
+				items = ""
+			}
+			r := taskResponses()
+			r["AutomationTeamSnapshotGrants"] = `{"data":{"automationTeamSnapshotGrants":{"items":[` + items + `],"total":1,"hasMore":false}}}`
+			r["RevokeAutomationTeamSnapshotGrant"] = `{"data":{"revokeAutomationTeamSnapshotGrant":` + ended + `}}`
+			calls, out, err := runTeamTask(t, r, append(snapshotArgs1578("revoke", "grant1", "--yes", "--json"), "--app", autoApp)...)
+			n := 1
+			if state != "live" {
+				n = 0
+			}
+			if state == "missing" {
+				if exitCodeFor(err) != exitcode.NotFound {
+					t.Fatalf("err=%v", err)
+				}
+			} else if err != nil || !strings.Contains(out, `"revokedAt": "2026-11-03T01:00:00Z"`) {
+				t.Fatalf("out=%s err=%v", out, err)
+			}
+			if len(callsFor(calls, "RevokeAutomationTeamSnapshotGrant")) != n {
+				t.Fatal(*calls)
+			}
+			q := findCall(t, calls, "AutomationTeamSnapshotGrants")
+			if q.Vars["appRef"] != autoApp || q.Vars["includeRevoked"] != true {
+				t.Fatal(q)
+			}
+		})
+	}
+}
+
+func TestSnapshotGrant1578ConfirmShowsAppAndTrigger(t *testing.T) {
+	for _, revoke := range []bool{false, true} {
+		t.Run(fmt.Sprint(revoke), func(t *testing.T) {
+			r := taskResponses()
+			r["AutomationTeamSnapshotGrants"] = `{"data":{"automationTeamSnapshotGrants":{"items":[` + snapshotGrant1578 + `],"total":1,"hasMore":false}}}`
+			srv, calls := attnServer(t, r)
+			f, out, prompt := testFactoryTTY(t, "n\n")
+			root := NewRootCmd(f)
+			args := snapshotArgs1578("set", autoApp, "--trigger-kind", "SCHEDULE", "--trigger-id", "schedule1")
+			wantApp := autoApp
+			if revoke {
+				args = append(snapshotArgs1578("revoke", "grant1"), "--app", autoApp)
+				wantApp = "capp100000000000000000000"
+			}
+			root.SetArgs(append([]string{"--server", srv.URL}, args...))
+			err := root.Execute()
+			if exitCodeFor(err) != exitcode.Cancelled {
+				t.Fatalf("err=%v", err)
+			}
+			text := prompt.String() + out.String()
+			for _, want := range []string{wantApp, "SCHEDULE", "schedule1"} {
+				if !strings.Contains(text, want) {
+					t.Fatalf("confirmation lacks%q: %s", want, text)
+				}
+			}
+			if revoke && !strings.Contains(text, "from --app") {
+				t.Fatal(text)
+			}
+			if len(callsFor(calls, "SetAutomationTeamSnapshotGrant"))+len(callsFor(calls, "RevokeAutomationTeamSnapshotGrant")) != 0 {
+				t.Fatal(*calls)
+			}
+		})
+	}
+}
+
+func TestSnapshotGrant1578RootRefusalCode(t *testing.T) {
+	for _, verb := range []string{"set", "list", "revoke"} {
+		t.Run(verb, func(t *testing.T) {
+			op := "AutomationTeamSnapshotGrants"
+			args := snapshotArgs1578("list", autoApp)
+			replies := map[string]func(map[string]any) autoReply{}
+			if verb == "set" {
+				op = "SetAutomationTeamSnapshotGrant"
+				args = snapshotArgs1578("set", autoApp, "--trigger-kind", "SCHEDULE", "--trigger-id", "schedule1", "--yes")
+			}
+			if verb == "revoke" {
+				op = "RevokeAutomationTeamSnapshotGrant"
+				args = append(snapshotArgs1578("revoke", "grant1", "--yes"), "--app", autoApp)
+				replies["AutomationTeamSnapshotGrants"] = fixed(`{"data":{"automationTeamSnapshotGrants":{"items":[` + snapshotGrant1578 + `],"total":1,"hasMore":false}}}`)
+			}
+			replies[op] = fixed(memberGQLError("Forbidden", "FORBIDDEN"))
+			srv := newAutoServer(t, replies)
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append([]string{"--server", srv.URL, "--json"}, args...))
+			err := root.Execute()
+			if err == nil || renderError(f, err) != exitcode.Forbidden {
+				t.Fatalf("err=%v", err)
+			}
+			var envelope struct {
+				Error struct {
+					Code       int    `json:"code"`
+					ServerCode string `json:"serverCode"`
+				} `json:"error"`
+			}
+			if err := json.Unmarshal([]byte(out.String()), &envelope); err != nil {
+				t.Fatal(err, out.String())
+			}
+			if envelope.Error.Code != 8 || envelope.Error.ServerCode != "FORBIDDEN" || srv.count(op) != 1 {
+				t.Fatalf("%s calls%d", out, srv.count(op))
+			}
+		})
+	}
+}
+
+func TestSnapshotGrant1578LostWriteAnswerNeverRetries(t *testing.T) {
+	srv := newAutoServer(t, map[string]func(map[string]any) autoReply{"SetAutomationTeamSnapshotGrant": func(map[string]any) autoReply { return autoReply{abort: true} }})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(append([]string{"--server", srv.URL}, snapshotArgs1578("set", autoApp, "--trigger-kind", "SCHEDULE", "--trigger-id", "schedule1", "--yes")...))
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "outcome unknown") || !strings.Contains(err.Error(), "list grants") || out.Len() != 0 || srv.count("SetAutomationTeamSnapshotGrant") != 1 {
+		t.Fatalf("err=%v out=%s count%d", err, out, srv.count("SetAutomationTeamSnapshotGrant"))
+	}
+}
+
+func TestSnapshotGrant1578PagingFailuresHaveNoPartialOutput(t *testing.T) {
+	for _, mode := range []string{"refusal", "no-progress", "duplicate"} {
+		t.Run(mode, func(t *testing.T) {
+			srv := newAutoServer(t, map[string]func(map[string]any) autoReply{"AutomationTeamSnapshotGrants": func(v map[string]any) autoReply {
+				if v["offset"].(float64) == 0 {
+					return autoReply{body: `{"data":{"automationTeamSnapshotGrants":{"items":[` + snapshotGrant1578 + `],"total":2,"hasMore":true}}}`}
+				}
+				if mode == "refusal" {
+					return autoReply{body: memberGQLError("Forbidden", "FORBIDDEN")}
+				}
+				if mode == "no-progress" {
+					return autoReply{body: `{"data":{"automationTeamSnapshotGrants":{"items":[],"total":2,"hasMore":true}}}`}
+				}
+				return autoReply{body: `{"data":{"automationTeamSnapshotGrants":{"items":[` + snapshotGrant1578 + `],"total":2,"hasMore":false}}}`}
+			}})
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append([]string{"--server", srv.URL, "--json"}, snapshotArgs1578("list", autoApp)...))
+			err := root.Execute()
+			if err == nil || out.Len() != 0 || srv.count("AutomationTeamSnapshotGrants") != 2 {
+				t.Fatalf("err=%v out=%s count%d", err, out, srv.count("AutomationTeamSnapshotGrants"))
+			}
+		})
 	}
 }
