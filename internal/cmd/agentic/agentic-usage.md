@@ -3877,6 +3877,30 @@ resetContextAfterTask. The flag only records the setting: nothing resets
 unless a host with a `worker.reset-context` handler acts on it (#1043), and
 `team host run` has none. Same edit authority as `--uses-tasks`.
 
+`agent create --uses-tasks[=false] --reset-context-after-task[=false]` (cli#58
+slice 2) set the same two settings at creation. Pass a flag only to choose a
+value: left out, the server default stands (uses tasks true, reset false) and
+the key is absent from the request; an explicit `=false` is sent as false.
+Server compatibility: every `agent create` now sends a document that takes
+`usesTasks` and `resetContextAfterTask`, even without the flags, so it needs a
+server whose `createAgent` has them (schema snapshot from hadron-server
+53e12896e, 2026-10-26); an older one rejects it as schema skew (exit 2).
+
+`agent update <ref> --listed-on-marketplace[=false]` lists (or unlists) the Agent
+in the marketplace catalogue (cor:acl:080:04). It governs discovery only: it does
+not change visibility or who can reach the Agent. Explicit true/false is sent;
+omission preserves; null is never sent.
+
+`agent update <ref> --register-mention-only[=false]` sets the Agent's register
+default `mentionOnly` (sent as `registerDefaults: {mentionOnly: <bool>}`);
+`--clear-register-defaults` returns the register defaults to the platform
+defaults (sent as an explicit `registerDefaults: null`); neither leaves them
+unchanged (the key is omitted, never null). Both together, or
+`--clear-register-defaults=false`, are usage errors (exit 2) with no request.
+`agent get` and Agent JSON read back `listedOnMarketplace` and
+`registerDefaults.mentionOnly` as the server returned them; authority and
+refusals are the server's and surface unchanged.
+
 ## Boot-prompt pointers
 
 A pointer names the compiled boot prompt an Agent, an installed Agent (one
