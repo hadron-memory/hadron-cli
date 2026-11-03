@@ -51,11 +51,11 @@ func TestTeamRegister1577RefusalsAndBadFlags(t *testing.T){
  for code,exit:=range map[string]int{"APP_NOT_FOUND":4,"AGENT_NOT_FOUND":4,"BAD_USER_INPUT":2}{
   r:=registerResponses1577(`[]`,0,false);r["TeamActionRegisterIndex"]=`{"errors":[{"message":"server refusal text","extensions":{"code":"`+code+`"}}]}`
   calls,out,err:=runTeamTask(t,r,"team","register","--json")
-  if err==nil||exitcode.Code(err)!=exit||!strings.Contains(err.Error(),"server refusal text")||!strings.Contains(err.Error(),code)||out!=""||len(*calls)!=1{t.Fatalf("%s: %v %s %#v",code,err,out,*calls)}
+  if err==nil||exitcode.FromError(err)!=exit||!strings.Contains(err.Error(),"server refusal text")||!strings.Contains(err.Error(),code)||out!=""||len(*calls)!=1{t.Fatalf("%s: %v %s %#v",code,err,out,*calls)}
  }
  for _,flags:=range [][]string{{"--limit","-1"},{"--offset","-1"},{"--agent="},{"--task-loc="},{"--code="},{"extra"}}{
   args:=append([]string{"team","register"},flags...);calls,_,err:=runTeamTask(t,registerResponses1577(`[]`,0,false),args...)
-  if err==nil||exitcode.Code(err)!=2||len(*calls)!=0{t.Fatalf("%v: %v %#v",flags,err,*calls)}
+  if err==nil||exitcode.FromError(err)!=2||len(*calls)!=0{t.Fatalf("%v: %v %#v",flags,err,*calls)}
  }
 }
 
