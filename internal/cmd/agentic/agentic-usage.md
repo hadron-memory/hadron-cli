@@ -4919,7 +4919,7 @@ hadron team task find-untracked --integration <name> [--team <worker>] [--ready 
   - **Incomplete results.** `claim_refused` prints the claimed tasks on stdout
     (one JSON document) and then exits with `refusalCode`'s mapping (below),
     with `serverCode` and a stderr message saying how many tasks were claimed
-    and that they are yours. `claim_failed`, or `claim_refused` with a null
+    and that they are committed. `claim_failed`, or `claim_refused` with a null
     code, exits 1 the same way. Any other `complete: false` (`rate_limited`,
     `github_error`, `page_limit`, `item_truncated`) exits 0 with a stderr
     note.

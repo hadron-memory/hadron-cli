@@ -55,7 +55,8 @@ How a result with `complete: false` exits depends on `incompleteReason`:
   first (one JSON document under `--json`). The command then exits with the
   code's mapping, and `api.WithCode` puts the code on the envelope's
   `serverCode`. The stderr message names how many tasks were claimed and that
-  they are yours.
+  they are committed (#1605: not "yours", since under `--assignee` they are
+  the named party's).
 - **`claim_failed`, or `claim_refused` with a null code.** The tasks print the
   same way, and the command exits 1. It is never reported as success.
 - **Any other reason** (a tracker read cut short: `rate_limited`,

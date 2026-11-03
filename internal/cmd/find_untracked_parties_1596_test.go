@@ -233,6 +233,8 @@ func TestFindUntrackedPartyClaimPartialResult1596(t *testing.T) {
 	if len(dto.Tasks) != 1 || dto.RefusalCode == nil || *dto.RefusalCode != "TASK_ASSIGNEE_INVALID" {
 		t.Errorf("the claimed tasks print first:\n%s", out)
 	}
+	// #1605: the reported input — the tasks are Iris's, so the error must not call them yours.
+	assertClaimStopWording1605(t, err)
 }
 
 // The help no longer says an App key is refused, and names the server as the
