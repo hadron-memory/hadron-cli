@@ -556,13 +556,11 @@ updateWorker  command team worker update
 withdrawDecision  command decision withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 79: 51 gap, 28 excluded
+[Arguments] 77: 49 gap, 28 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.addOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
 Mutation.addOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
-Mutation.claimUntrackedTaskItems(assignee)  gap #1554
-Mutation.claimUntrackedTaskItems(owner)  gap #1554
 Mutation.cloneAgentTask(input.owner)  gap #1579: `task clone` does not expose this override yet
 Mutation.cloneAgentTask(input.project)  gap #1579: `task clone` does not expose this override yet
 Mutation.cloneAgentTask(input.properties)  gap #1579: `task clone` does not expose this override yet
