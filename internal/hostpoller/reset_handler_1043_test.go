@@ -36,6 +36,10 @@ func (f *fakeResets) ReportResetRelaunchFailed(context.Context, string, int, str
 	f.calls = append(f.calls, "relaunch-failed")
 	return ResetStep{}, nil
 }
+func (f *fakeResets) ReadReset(context.Context, string) (ContextReset, error) {
+	f.calls = append(f.calls, "read")
+	return ContextReset{}, nil
+}
 
 // fakeProc counts observations and signals: process control.
 type fakeProc struct {

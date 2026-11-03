@@ -24,21 +24,40 @@ func resetStepFrom(f *gen.ContextResetStepFields) (hostpoller.ResetStep, error) 
 	if f == nil || f.Reset == nil {
 		return hostpoller.ResetStep{}, exitcode.Newf(exitcode.Error, "the server returned no context reset step")
 	}
-	r := f.Reset
-	out := hostpoller.ResetStep{Replayed: f.Replayed, Reset: hostpoller.ContextReset{
-		ID: r.Id, Epoch: r.Epoch, Phase: r.Phase, WorkerID: r.WorkerId, SessionID: r.SessionId, TaskID: r.TaskId,
-		StopGranted: r.StopGrantedAt != nil,
-	}}
+	out := hostpoller.ResetStep{Replayed: f.Replayed, Reset: resetFrom(&f.Reset.ContextResetFields)}
 	if f.Refused != nil {
 		out.Refused = *f.Refused
 	}
+	return out, nil
+}
+
+func resetFrom(r *gen.ContextResetFields) hostpoller.ContextReset {
+	out := hostpoller.ContextReset{
+		ID: r.Id, Epoch: r.Epoch, Phase: r.Phase, WorkerID: r.WorkerId, SessionID: r.SessionId, TaskID: r.TaskId,
+		StopGranted: r.StopGrantedAt != nil,
+	}
 	if r.Reason != nil {
-		out.Reset.Reason = *r.Reason
+		out.Reason = *r.Reason
 	}
 	if r.StopLeaseMs != nil {
-		out.Reset.StopLeaseMs = *r.StopLeaseMs
+		out.StopLeaseMs = *r.StopLeaseMs
 	}
-	return out, nil
+	return out
+}
+
+// ReadReset is the #3273 restart read: the current state of one reset this
+// host collected, ended ones included. It changes nothing server-side; a
+// refusal is typed like a step's (CONTEXT_RESET_NOT_FOUND,
+// HOST_OPERATION_NOT_COLLECTED).
+func (s *hostServer) ReadReset(ctx context.Context, resetID string) (hostpoller.ContextReset, error) {
+	resp, err := gen.ContextReset(ctx, s.client, s.app, resetID)
+	if err != nil {
+		return hostpoller.ContextReset{}, resetStepErr(err)
+	}
+	if resp.ContextReset == nil || resp.ContextReset.Id == "" {
+		return hostpoller.ContextReset{}, exitcode.Newf(exitcode.Error, "the server returned no context reset")
+	}
+	return resetFrom(&resp.ContextReset.ContextResetFields), nil
 }
 
 // resetStepErr types a step rejection by its code, so the handler stops on

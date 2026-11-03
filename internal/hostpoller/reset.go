@@ -57,6 +57,9 @@ type ResetServer interface {
 	ReportResetAgentStopped(ctx context.Context, resetID string, epoch int, late time.Duration) (ResetStep, error)
 	ReportResetRelaunched(ctx context.Context, resetID string, epoch int, p ProcessIdentity) (ResetStep, error)
 	ReportResetRelaunchFailed(ctx context.Context, resetID string, epoch int, reason string) (ResetStep, error)
+	// ReadReset reads one reset this host collected (#3273), for restart
+	// recovery; it changes nothing.
+	ReadReset(ctx context.Context, resetID string) (ContextReset, error)
 }
 
 // ResetStepError is a step the server rejected outright with a typed code

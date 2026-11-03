@@ -18,6 +18,7 @@ import (
 // request's operation name and input, and answers with body.
 type resetWire struct {
 	op    string
+	vars  map[string]any
 	input map[string]any
 	body  string
 }
@@ -26,13 +27,14 @@ func newResetWire(t *testing.T, w *resetWire) *hostServer {
 	t.Helper()
 	srv := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		var q struct {
-			OperationName string                    `json:"operationName"`
-			Variables     map[string]map[string]any `json:"variables"`
+			OperationName string         `json:"operationName"`
+			Variables     map[string]any `json:"variables"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&q); err != nil {
 			t.Error(err)
 		}
-		w.op, w.input = q.OperationName, q.Variables["input"]
+		w.op, w.vars = q.OperationName, q.Variables
+		w.input, _ = q.Variables["input"].(map[string]any)
 		rw.Header().Set("Content-Type", "application/json")
 		_, _ = io.WriteString(rw, w.body)
 	}))
@@ -183,5 +185,51 @@ func TestHostResetStepWithoutAnswerIsAnError1043(t *testing.T) {
 		if _, err := newResetWire(t, w).ClaimReset(context.Background(), "r1", 0, hostpoller.ProcessIdentity{}); err == nil {
 			t.Fatalf("%s was accepted", name)
 		}
+	}
+}
+
+// TestHostReadResetSendsAppAndID1043 pins the #3273 restart read: one
+// contextReset query naming the App and the reset, mapped like a step's reset.
+func TestHostReadResetSendsAppAndID1043(t *testing.T) {
+	w := &resetWire{body: `{"data":{"contextReset":{"id":"r1","epoch":4,"phase":"agent-stopped","reason":null,"workerId":"w1","sessionId":"s1","taskId":"t1","stopGrantedAt":"2026-11-02T00:00:00Z","stopLeaseMs":15000}}}`}
+	got, err := newResetWire(t, w).ReadReset(context.Background(), "r1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if w.op != "ContextReset" {
+		t.Fatalf("operation %q, want ContextReset", w.op)
+	}
+	if w.vars["appRef"] != "hrn:app:acme.com:team" || w.vars["resetId"] != "r1" || len(w.vars) != 2 {
+		t.Fatalf("variables %v", w.vars)
+	}
+	want := hostpoller.ContextReset{ID: "r1", Epoch: 4, Phase: "agent-stopped", WorkerID: "w1", SessionID: "s1", TaskID: "t1", StopGranted: true, StopLeaseMs: 15000}
+	if got != want {
+		t.Fatalf("reset %+v, want %+v", got, want)
+	}
+}
+
+func TestHostReadResetCodesAreTyped1043(t *testing.T) {
+	for _, code := range []string{"CONTEXT_RESET_NOT_FOUND", "HOST_OPERATION_NOT_COLLECTED", "FORBIDDEN"} {
+		t.Run(code, func(t *testing.T) {
+			w := &resetWire{body: `{"errors":[{"message":"controlled","extensions":{"code":"` + code + `"}}],"data":null}`}
+			_, err := newResetWire(t, w).ReadReset(context.Background(), "r1")
+			if err == nil {
+				t.Fatal("no error")
+			}
+			want := code
+			if code == "FORBIDDEN" {
+				want = ""
+			}
+			if got := hostpoller.ResetStepCode(err); got != want {
+				t.Fatalf("code %q, want %q (%v)", got, want, err)
+			}
+		})
+	}
+}
+
+func TestHostReadResetWithoutAnswerIsAnError1043(t *testing.T) {
+	w := &resetWire{body: `{"data":{"contextReset":null}}`}
+	if _, err := newResetWire(t, w).ReadReset(context.Background(), "r1"); err == nil {
+		t.Fatal("a null reset was accepted")
 	}
 }

@@ -174,19 +174,31 @@ mutation ReportHostOperation(
 # #1043 — the worker.reset-context protocol (cor:agt:050:27), host key only.
 # Every step answers ContextResetStep; refused/replayed are read by the
 # handler, and a refusal ends the reset server-side.
+fragment ContextResetFields on ContextReset {
+  id
+  epoch
+  phase
+  reason
+  workerId
+  sessionId
+  taskId
+  stopGrantedAt
+  stopLeaseMs
+}
+
 fragment ContextResetStepFields on ContextResetStep {
   refused
   replayed
   reset {
-    id
-    epoch
-    phase
-    reason
-    workerId
-    sessionId
-    taskId
-    stopGrantedAt
-    stopLeaseMs
+    ...ContextResetFields
+  }
+}
+
+# #3273: a host-key read of one reset this host collected (ended ones too),
+# for restart recovery. Changes nothing server-side.
+query ContextReset($appRef: String!, $resetId: ID!) {
+  contextReset(appRef: $appRef, resetId: $resetId) {
+    ...ContextResetFields
   }
 }
 
