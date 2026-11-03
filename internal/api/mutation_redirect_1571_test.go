@@ -24,6 +24,14 @@ func TestMutationRedirectRefusedByOperationType(t *testing.T) {
 				{"mutation after comment", "# c\n  mutation X { x }", true},
 				{"query", "query X { x }", false},
 				{"anonymous query", "{ x }", false},
+				// Andi P2 (#69552): the word `mutation` as a NAME is not an operation type.
+				{"query named mutation", "query mutation { me { id } }", false},
+				{"field aliased mutation", "query X { mutation: me { id } }", false},
+				{"string argument mentioning mutation", `query X { search(q: "mutation") { id } }`, false},
+				{"comment mentioning mutation", "# mutation\nquery X { x }", false},
+				{"anonymous mutation shorthand", "mutation { x }", true},
+				{"query plus mutation document", "query A { a }\nmutation B { b }", true},
+				{"unparsable document fails closed", "mutation {{{", true},
 			} {
 				var dest, src atomic.Int32
 				destSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

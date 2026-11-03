@@ -193,8 +193,28 @@ func postBodyIsMutation(req *http.Request) bool {
 	if err := json.Unmarshal(encoded, &envelope); err != nil {
 		return true
 	}
-	// DocumentHasMutation errs toward true, the safe direction here.
-	return DocumentHasMutation(envelope.Query)
+	return documentIsMutation(envelope.Query)
+}
+
+// documentIsMutation decides by OPERATION TYPE, not by the word: a query that
+// names or aliases something `mutation` must keep following redirects (#1572
+// review). A document that does not parse cannot be proved a query, so it
+// fails closed; any mutation operation in it counts, whichever one the server
+// would execute.
+func documentIsMutation(query string) bool {
+	if !strings.Contains(query, "mutation") { // the keyword is lowercase-only
+		return false
+	}
+	doc, err := parser.ParseQuery(&ast.Source{Input: query})
+	if err != nil {
+		return true
+	}
+	for _, op := range doc.Operations {
+		if op.Operation == ast.Mutation {
+			return true
+		}
+	}
+	return false
 }
 
 // refuseReplayedRedirect is the refusal for a call that must be sent once: the
