@@ -19,7 +19,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 203: 158 command, 26 gap, 19 excluded
+[Query] 203: 159 command, 25 gap, 19 excluded
 actionRegisterIndex  command team register
 actionTickets  command ticket list
 agent  command agent get
@@ -82,7 +82,7 @@ compiledPromptProvenance  command node provenance
 connectionFlow  gap #1569
 connectionGrant  command connection grant get
 connectionGrants  command connection grant list
-contextReset  gap #1043
+contextReset  command team host run
 creditBalance  command billing balance
 creditLedgerEntries  command billing ledger
 dashboardWidgetData  excluded graphical: the data feed for the widgets placed on the portal dashboard grid, one entry per placement in grid order; the data has its own routes: MEMORY_STATS is `memory list --owned-by-me`, AGENT_STATS is `agent list --owned-by-me`, USAGE_ACTIVITY is `usage activity`
@@ -224,7 +224,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 329: 262 command, 55 gap, 12 excluded
+[Mutation] 329: 268 command, 49 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -247,7 +247,7 @@ approveNode  command node approve
 askDecision  command decision ask
 assignAgentTask  command team task assign
 attachMemoryToApp  command memory attach
-authorizeContextResetStop  gap #1043: the host handler that performs the reset
+authorizeContextResetStop  command team host run
 beginAssetUpload  excluded not-a-capability: the v1 twin of beginAssetUploadV2, which `asset upload` reaches; it adds no capability
 beginAssetUploadV2  command asset upload
 beginMergeUsersConsent  gap #1304
@@ -259,7 +259,7 @@ cancelAgentTask  command team task cancel
 cancelAppRun  command run cancel
 castWorker  command team worker cast
 changeWorkerAgent  command team worker change-agent
-claimContextReset  gap #1043: the host handler that performs the reset
+claimContextReset  command team host run
 claimUntrackedTaskItems  command team task find-untracked
 clearAgentAIConfig  gap #58
 clearNodeHistory  command node revision clear
@@ -413,7 +413,7 @@ recordSessionOutcome  command team session outcome
 recordTeamWork  command team session log
 recordUsage  command usage record
 regenerateAppKey  command app key rotate
-registerContextResetRecovery  gap #1043: the host handler that performs the reset
+registerContextResetRecovery  command team host run
 registerHost  command team host run
 releaseEditorLock  command agent lock release
 releaseWorker  command team worker release
@@ -429,9 +429,9 @@ reopenCommentThread  command comment resolve
 repairAgentSystemMemory  gap #58
 replaceSubtree  excluded deprecated: @deprecated: Retired (#454): every authorized call refuses with REPLACE_SUBTREE_RETIRED and writes nothing. Use the canonical node write mutations.
 replyToComment  command comment reply
-reportContextResetAgentStopped  gap #1043: the host handler that performs the reset
-reportContextResetRelaunchFailed  gap #1043: the host handler that performs the reset
-reportContextResetRelaunched  gap #1043: the host handler that performs the reset
+reportContextResetAgentStopped  command team host run
+reportContextResetRelaunchFailed  command team host run
+reportContextResetRelaunched  command team host run
 reportHostOperation  command team host run
 requestNodeSignature  command node sign
 reserveSpecCitation  command spec reserve
@@ -555,7 +555,7 @@ updateWorker  command team worker update
 withdrawDecision  command decision withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 75: 47 gap, 27 excluded, 1 UNCLASSIFIED
+[Arguments] 75: 47 gap, 28 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.addOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
@@ -593,7 +593,7 @@ Mutation.ensureAppMember(appId)  excluded deprecated: @deprecated: Use appRef (a
 Mutation.ensureAppMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.finishAgentTask(result.findings)  gap #1556
 Mutation.mergeUsers(input.consentProof)  gap #1304
-Mutation.registerContextResetRecovery(input.checkpointNode)  UNCLASSIFIED
+Mutation.registerContextResetRecovery(input.checkpointNode)  excluded not-a-capability: the host has the server write the checkpoint (input.checkpoint) and never names an existing node (ruling 0090 A, hadron-cli#1043); the written node comes back as ContextReset.checkpointNode
 Mutation.removeAppMember(appId)  excluded deprecated: @deprecated: Use appRef (accepts id / URN).
 Mutation.removeAppMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.removeMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
