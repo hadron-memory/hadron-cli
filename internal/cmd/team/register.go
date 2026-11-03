@@ -42,7 +42,9 @@ a task, writes an entry, installs anything or caches the answer.
 --app selects the team App; otherwise the configured App or worktree binding
 is used. --agent names an Agent installed in that App or cast there as a
 worker. With no --agent the CLI omits it: the server uses the authenticated
-worker's or run's Agent. A person or App key without --agent gets BAD_USER_INPUT
+worker's or run's Agent. A same-server worker binding supplies session attribution
+on this read; no binding or a different server supplies none. A person or App key
+without --agent gets BAD_USER_INPUT
 (exit 2). Unknown, foreign or unusable Agents give AGENT_NOT_FOUND (exit 4),
 and unknown, foreign or non-participant Apps give APP_NOT_FOUND (exit 4).
 
@@ -104,7 +106,16 @@ bounded as described by team --help. Requires server#3312 or later.`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.TeamActionRegisterIndex(cmd.Context(), client, scope.Ref, a, l, c, n, o)
+			// Attribution is command-local, not a transport default or Agent lookup.
+			// Never send a bound session to another deployment or after rebind.
+			ctx := cmd.Context()
+			if b != nil && b.SessionID != "" && b.WorkerID != "" && b.AppID != "" && b.Server != "" && bindingServerMatches(f, b) {
+				current, _, bindErr := readBindingFile(ctx)
+				if bindErr == nil && sameWriteBinding(b, current) {
+					ctx = api.WithSession(ctx, b.SessionID)
+				}
+			}
+			resp, err := gen.TeamActionRegisterIndex(ctx, client, scope.Ref, a, l, c, n, o)
 			if err != nil {
 				return api.WithServerCode(prefixedRefusal(err, []string{"APP_NOT_FOUND", "AGENT_NOT_FOUND", "BAD_USER_INPUT"}), err)
 			}

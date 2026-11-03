@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/auth"
+	"github.com/hadron-memory/hadron-cli/internal/auth/store"
 )
 
 const registerRows1577 = `[{"code":"z.mapped","state":"MAPPED","actionUrn":"hrn:action:acme.com:team:z.mapped","entryUrn":"hrn:node:acme.com:team:register:z.mapped","definedBy":"hrn:agent:acme.com:team","taskLoc":"tasks:finish","taskUrn":"hrn:node:acme.com:coder:tasks:finish"},{"code":"a.unresolved","state":"UNRESOLVED","actionUrn":"action","entryUrn":"entry","definedBy":"agent","taskLoc":"tasks:missing","taskUrn":null},{"code":"b.unmapped","state":"UNMAPPED","actionUrn":null,"entryUrn":null,"definedBy":null,"taskLoc":null,"taskUrn":null}]`
@@ -196,7 +198,7 @@ func TestTeamRegister1577Document(t *testing.T) {
 }
 
 func TestTeamRegister1577SessionAttribution(t *testing.T) {
-	for _, mode := range []string{"bound", "unbound", "other-server", "missing-server", "empty-session"} {
+	for _, mode := range []string{"bound", "unbound", "other-server", "missing-server", "empty-session", "rebound"} {
 		t.Run(mode, func(t *testing.T) {
 			writeTeamBinding(t)
 			srv, calls := attnServer(t, registerResponses1577(`[]`, 0, false))
@@ -225,6 +227,20 @@ func TestTeamRegister1577SessionAttribution(t *testing.T) {
 				}
 			}
 			f, out := testFactory(t)
+			if mode == "rebound" {
+				t.Setenv("HADRON_TOKEN", "")
+				f.TokenStoreFn = func() store.Store {
+					body, err := os.ReadFile(path)
+					if err != nil {
+						t.Fatal(err)
+					}
+					body = []byte(strings.Replace(string(body), `"sessionId":"s-new"`, `"sessionId":"replacement"`, 1))
+					if err := os.WriteFile(path, body, 0600); err != nil {
+						t.Fatal(err)
+					}
+					return memStore{auth.Host(srv.URL): "hdr_user_test"}
+				}
+			}
 			root := NewRootCmd(f)
 			root.SetArgs([]string{"--server", srv.URL, "--app", "hrn:app:acme.com:eng", "team", "register", "--json"})
 			if err := root.Execute(); err != nil {

@@ -48,3 +48,14 @@ For a team with a few hundred codes, default 20 rows should be a few KB; capped
 selected. QA records actual response bytes, request counts and process wall time
 on its private seeded corpus. Schema refresh also imports main's checkpointNode
 and reportHostOperation description additions, unused by this command.
+
+## QA correction: bound-worker inference
+
+At57b2b6bf the data read lacked X-Hadron-Session, so a worker-bound CLI was
+seen as its underlying person and got BAD_USER_INPUT with no --agent. Celine's
+private-stack QA P2 is retained. A separate red pin reproduces the missing
+header; the fix adds command-local api.WithSession for a full, same-server,
+unchanged binding only. The binding is freshly re-read immediately before the
+data call. Unbound, missing-server, empty-session and other-server controls
+remain headerless. The Agent variable remains omitted; the server alone uses
+the authenticated worker's Agent. App identity decoration remains headerless.
