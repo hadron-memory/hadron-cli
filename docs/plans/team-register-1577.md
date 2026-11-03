@@ -59,3 +59,10 @@ unchanged binding only. The binding is freshly re-read immediately before the
 data call. Unbound, missing-server, empty-session and other-server controls
 remain headerless. The Agent variable remains omitted; the server alone uses
 the authenticated worker's Agent. App identity decoration remains headerless.
+
+Worker-bound invocations may also issue the CLI's existing, headerless
+GetBoundSessionEnd notice read before consuming the binding. This is separate
+from the register data operation and is not a retry. Compiled fake controls
+observe that preflight plus exactly one attributed register query for a bound
+session; other-server/unbound controls remain headerless. The App label read
+still uses the original headerless context.
