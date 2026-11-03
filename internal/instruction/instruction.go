@@ -6,7 +6,15 @@ import (
 	"strings"
 )
 
-const FlagUsage = "the holder's instruction as <kind>:<ref>; kind is team-chat-message, task or live-chat, and ref is a reference (a team-chat message URN, a task URN, or an opaque client address), never the instruction's text. Needs server 17ef5905 or later"
+const flagUsagePrefix = "the holder's instruction as <kind>:<ref>; kind is team-chat-message, task or live-chat, and ref is a reference (a team-chat message URN, a task URN, or an opaque client address), never the instruction's text. Needs server "
+
+const FlagUsage = flagUsagePrefix + "17ef5905 or later"
+
+// FlagUsageForServer shares the instruction syntax while keeping each door's
+// minimum independent of the text or server revision chosen by another door.
+func FlagUsageForServer(minimum string) string {
+	return flagUsagePrefix + minimum + " or later"
+}
 
 // Help is the help paragraph both commands share.
 const Help = `--instruction <kind>:<ref> claims, for this one call, that the worker's

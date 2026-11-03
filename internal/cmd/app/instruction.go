@@ -8,7 +8,6 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/instruction"
 	"github.com/spf13/cobra"
-	"strings"
 )
 
 const credentialInstructionHelp = `--instruction <kind>:<ref> claims, for this call, that the worker's holder
@@ -31,7 +30,7 @@ records one; an already-revoked no-op records none. Events name worker, holder,
 App, act kind and instruction, never a key, scope or grant id.`
 
 func addCredentialInstruction(cmd *cobra.Command) {
-	cmd.Flags().String("instruction", "", strings.Replace(instruction.FlagUsage, "17ef5905", "c3ca05b5", 1))
+	cmd.Flags().String("instruction", "", instruction.FlagUsageForServer("c3ca05b5"))
 	cmd.Long += "\n\n" + credentialInstructionHelp
 }
 func credentialInstruction(cmd *cobra.Command, f *cmdutil.Factory) (*gen.ActInstructionInput, error) {
