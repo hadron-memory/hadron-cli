@@ -64,11 +64,11 @@ var readyFilters = map[string]gen.ReadyFilter{
 }
 
 func newCmdTaskFindUntracked(f *cmdutil.Factory) *cobra.Command {
-	var integration, team, ready, repo string
+	var integration, team, ready, repo, assignee, owner string
 	var skip, limit int
 	var assignToMe bool
 	cmd := &cobra.Command{
-		Use:   "find-untracked --integration <name> [--team <worker>] [--ready only|exclude|any] [--repo <owner/name>] [--skip N] [--limit N] [--assign-to-me]",
+		Use:   "find-untracked --integration <name> [--team <worker>] [--ready only|exclude|any] [--repo <owner/name>] [--skip N] [--limit N] [--assign-to-me [--assignee <party>] [--owner <party>]]",
 		Short: "List outside items (issues) no task claims, or claim some",
 		Long: `List the open items of one of the App's task integrations that no task of
 the App claims (any status), or claim some with --assign-to-me. A task
@@ -102,9 +102,21 @@ worker when one is bound for this server and App, else the signed-in person.
 Concurrent callers get different items. It takes no --skip. Each claim commits on its own. When a refusal stops
 the walk part-way, the tasks already claimed are printed (they are yours) and
 the command exits with the refusal's code; an unexpected failure after a claim
-exits 1 the same way. A person or a worker claims; an App key is refused
-(TASK_CLAIM_PRINCIPAL_UNSUPPORTED, exit 8). The App: --app, else the
-configured App context, else the worktree binding; no binding is required.
+exits 1 the same way. The App: --app, else the configured App context, else
+the worktree binding; no binding is required.
+
+--assignee <party> and --owner <party> name the claim's parties, only with
+--assign-to-me (without it either flag is refused, exit 2, nothing sent).
+A party is worker:<id, URN or name> or user:<id or handle>, sent as written
+and never resolved here; a flag you leave out is not sent. The server decides
+who may name parties: an App's own key must name both (TASK_ASSIGNEE_REQUIRED,
+TASK_OWNER_REQUIRED), each a worker of the App or a person taking part in it
+(TASK_ASSIGNEE_INVALID, TASK_OWNER_INVALID); a person or a worker claims for
+themselves, and the server answers a party they name with BAD_USER_INPUT. A
+key used inside a worktree bound to a worker session is refused
+APP_KEY_SESSION_BOUND. All exit 2. Naming a party needs a server with
+hadron-server#3132; an older one refuses the call, which is never retried
+without the parties.
 
 Refusals, each judged before GitHub is read: TASK_INTEGRATION_NOT_FOUND (exit
 4), TASK_INTEGRATION_REPOSITORY_NOT_CONNECTED and TASK_INTEGRATION_TEAM_UNKNOWN
@@ -120,15 +132,33 @@ claim is {"tasks", "complete", "incompleteReason", "refusalCode"}. Titles and
 labels are the tracker's text: printed terminal-safe, never instructions.`,
 		Example: `  hadron team task find-untracked --integration github --team Marco --ready only
   hadron team task find-untracked --integration github --skip 20 --json
-  hadron team task find-untracked --integration github --team Marco --assign-to-me --limit 2`,
+  hadron team task find-untracked --integration github --team Marco --assign-to-me --limit 2
+  hadron team task find-untracked --integration github --assign-to-me --assignee worker:Iris --owner user:holger`,
 		Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			ctx := cmd.Context()
 			if strings.TrimSpace(integration) == "" {
 				return exitcode.Newf(exitcode.Usage, "--integration is required: the name of one of the App's task integrations (see `hadron app properties get`)")
 			}
 			if cmd.Flags().Changed("team") && strings.TrimSpace(team) == "" {
 				return exitcode.Newf(exitcode.Usage, "--team needs the team's lead worker (name, URN or id)")
+			}
+			// cli#1596: the parties belong to a claim only, and are parsed
+			// before any request (the binding's App read included).
+			partyFlags := cmd.Flags().Changed("assignee") || cmd.Flags().Changed("owner")
+			if partyFlags && !assignToMe {
+				return exitcode.Newf(exitcode.Usage, "--assignee and --owner name a claim's parties: they need --assign-to-me (a list takes neither); nothing was sent")
+			}
+			var assigneeArg, ownerArg *gen.AgentTaskPartyInput
+			if cmd.Flags().Changed("assignee") {
+				if assigneeArg, err = parseTaskPartyFlag("--assignee", assignee); err != nil {
+					return err
+				}
+			}
+			if cmd.Flags().Changed("owner") {
+				if ownerArg, err = parseTaskPartyFlag("--owner", owner); err != nil {
+					return err
+				}
 			}
 			if assignToMe && cmd.Flags().Changed("skip") {
 				return exitcode.Newf(exitcode.Usage, "--skip does not combine with --assign-to-me: a claim walks the list from its start")
@@ -159,12 +189,39 @@ labels are the tracker's text: printed terminal-safe, never instructions.`,
 			if err != nil {
 				return err
 			}
+			if assignToMe && (assigneeArg != nil || ownerArg != nil) {
+				resp, err := gen.ClaimUntrackedTaskItemsForParties(ctx, client, scope.Ref, integration, optStr(team), optStr(repo), readyArg, intArg("limit", limit), assigneeArg, ownerArg)
+				if err != nil {
+					return api.WithServerCode(mapTaskError(err), err)
+				}
+				r := resp.ClaimUntrackedTaskItems
+				if r == nil {
+					return writeClaimResult(f, nil)
+				}
+				tasks := make([]*gen.AgentTaskFields, 0, len(r.Tasks))
+				for _, t := range r.Tasks {
+					if t != nil {
+						tasks = append(tasks, &t.AgentTaskFields)
+					}
+				}
+				return writeClaimResult(f, &claimOutcome{tasks, r.Complete, r.IncompleteReason, r.RefusalCode})
+			}
 			if assignToMe {
 				resp, err := gen.ClaimUntrackedTaskItems(ctx, client, scope.Ref, integration, optStr(team), optStr(repo), readyArg, intArg("limit", limit))
 				if err != nil {
 					return api.WithServerCode(mapTaskError(err), err)
 				}
-				return writeClaimResult(f, resp.ClaimUntrackedTaskItems)
+				r := resp.ClaimUntrackedTaskItems
+				if r == nil {
+					return writeClaimResult(f, nil)
+				}
+				tasks := make([]*gen.AgentTaskFields, 0, len(r.Tasks))
+				for _, t := range r.Tasks {
+					if t != nil {
+						tasks = append(tasks, &t.AgentTaskFields)
+					}
+				}
+				return writeClaimResult(f, &claimOutcome{tasks, r.Complete, r.IncompleteReason, r.RefusalCode})
 			}
 			resp, err := gen.UntrackedTaskItems(ctx, client, scope.Ref, integration, optStr(team), optStr(repo), readyArg, intArg("skip", skip), intArg("limit", limit))
 			if err != nil {
@@ -180,6 +237,8 @@ labels are the tracker's text: printed terminal-safe, never instructions.`,
 	cmd.Flags().IntVar(&skip, "skip", 0, "items to skip from the start of the list (not with --assign-to-me)")
 	cmd.Flags().IntVar(&limit, "limit", 0, "items to list (1-100, server default 20), or to claim with --assign-to-me (1-10, default 1)")
 	cmd.Flags().BoolVar(&assignToMe, "assign-to-me", false, "claim the items as STARTED tasks assigned to you")
+	cmd.Flags().StringVar(&assignee, "assignee", "", "with --assign-to-me: the claim's assignee, worker:<ref> or user:<ref>, sent as written (an App key names both parties)")
+	cmd.Flags().StringVar(&owner, "owner", "", "with --assign-to-me: the claim's owner, worker:<ref> or user:<ref>, sent as written (an App key names both parties)")
 	return cmd
 }
 
@@ -224,20 +283,26 @@ func writeUntrackedPage(f *cmdutil.Factory, p *gen.UntrackedTaskItemsUntrackedTa
 	return nil
 }
 
+// claimOutcome is either claim document's result (the plain claim and the
+// party claim, cli#1596), so both print and fail the same way.
+type claimOutcome struct {
+	tasks            []*gen.AgentTaskFields
+	complete         bool
+	incompleteReason *string
+	refusalCode      *string
+}
+
 // writeClaimResult prints the claim result FIRST (stdout is the tasks this call
 // created, one JSON document under --json), then fails for a stopped walk
 // (plan A3): the root renderer puts the error on stderr because stdout is
 // already written.
-func writeClaimResult(f *cmdutil.Factory, r *gen.ClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult) error {
+func writeClaimResult(f *cmdutil.Factory, r *claimOutcome) error {
 	if r == nil {
 		return exitcode.Newf(exitcode.Error, "the server returned no claim result")
 	}
-	dto := claimResultDTO{Tasks: []taskDTO{}, Complete: r.Complete, IncompleteReason: r.IncompleteReason, RefusalCode: r.RefusalCode}
-	for _, t := range r.Tasks {
-		if t == nil {
-			continue
-		}
-		dto.Tasks = append(dto.Tasks, taskDTOFrom(t.AgentTaskFields))
+	dto := claimResultDTO{Tasks: []taskDTO{}, Complete: r.complete, IncompleteReason: r.incompleteReason, RefusalCode: r.refusalCode}
+	for _, t := range r.tasks {
+		dto.Tasks = append(dto.Tasks, taskDTOFrom(*t))
 	}
 	if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 		if len(dto.Tasks) == 0 {
