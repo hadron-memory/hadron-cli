@@ -1242,6 +1242,12 @@ func codeForExtension(code string) int {
 		code == "WORKER_HELD" || code == "WORKER_HOLD_STALE" ||
 		code == "WORKER_CASTING_STALE" || code == "WORKER_AGENT_UNCHANGED" || code == "WORKER_AGENT_HAS_NO_ROLE":
 		return exitcode.Conflict
+	// Finding dispositions require an existing finding and a finished task.
+	// Missing is NotFound; unfinished is a state conflict, never a safe retry.
+	case code == "TASK_FINDING_NOT_FOUND":
+		return exitcode.NotFound
+	case code == "TASK_NOT_FINISHED":
+		return exitcode.Conflict
 	// The agent-task surface (hadron-cli#830 over server #1705/#1706). Who
 	// may move a task or set availability is the server's rule
 	// (cor:agt:050:08/:09, cor:agt:060:08/:09, cor:agt:050:20), so a

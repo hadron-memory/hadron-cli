@@ -791,3 +791,118 @@ mutation ClaimUntrackedTaskItems(
     refusalCode
   }
 }
+
+
+# Separate document preserves existing plain and filtered list provider floors.
+query AgentTaskListUnresolved(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $unresolvedFindings: Boolean
+  # @genqlient(omitempty: true)
+  $assignee: AgentTaskPartyInput
+  # @genqlient(omitempty: true)
+  $createdAfter: DateTime
+  # @genqlient(omitempty: true)
+  $createdBefore: DateTime
+  # @genqlient(omitempty: true)
+  $finishedAfter: DateTime
+  # @genqlient(omitempty: true)
+  $finishedBefore: DateTime
+  # @genqlient(omitempty: true)
+  $matchFailed: Boolean
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+  # @genqlient(omitempty: true)
+  $overdue: Boolean
+  # @genqlient(omitempty: true)
+  $owner: AgentTaskPartyInput
+  # @genqlient(omitempty: true)
+  $parentTaskId: ID
+  # @genqlient(omitempty: true)
+  $queued: Boolean
+  # @genqlient(omitempty: true)
+  $rootsOnly: Boolean
+  # @genqlient(omitempty: true)
+  $reference: AgentTaskReferenceFilter
+  # @genqlient(omitempty: true)
+  $source: String
+  # cli#1524 C1 (V46): the exact externalId, how a caller finds the holder after TASK_EXTERNAL_ID_TAKEN.
+  # @genqlient(omitempty: true)
+  $externalId: String
+  # @genqlient(omitempty: true)
+  $startedAfter: DateTime
+  # @genqlient(omitempty: true)
+  $startedBefore: DateTime
+  # @genqlient(omitempty: true)
+  $status: [AgentTaskStatus!]
+  # @genqlient(omitempty: true)
+  $tag: String
+  # @genqlient(omitempty: true)
+  $tagsAll: [String!]
+  # @genqlient(omitempty: true)
+  $tagsAny: [String!]
+  # @genqlient(omitempty: true)
+  $text: String
+) {
+  agentTasks(
+    appRef: $appRef
+    unresolvedFindings: $unresolvedFindings
+    assignee: $assignee
+    createdAfter: $createdAfter
+    createdBefore: $createdBefore
+    finishedAfter: $finishedAfter
+    finishedBefore: $finishedBefore
+    matchFailed: $matchFailed
+    limit: $limit
+    offset: $offset
+    overdue: $overdue
+    owner: $owner
+    parentTaskId: $parentTaskId
+    queued: $queued
+    reference: $reference
+    rootsOnly: $rootsOnly
+    source: $source
+    externalId: $externalId
+    startedAfter: $startedAfter
+    startedBefore: $startedBefore
+    status: $status
+    tag: $tag
+    tagsAll: $tagsAll
+    tagsAny: $tagsAny
+    text: $text
+  ) {
+    ...AgentTaskFields
+  }
+}
+
+fragment TaskFindingDispositionFields on AgentTaskFindingDisposition {
+  findingId
+  disposition
+  reference { kind target label }
+}
+query AgentTaskFindingDispositions($taskRef: ID!, $limit: Int!, $offset: Int!) {
+  agentTask(id: $taskRef) {
+    findingDispositions(limit: $limit, offset: $offset) {
+      items { ...TaskFindingDispositionFields }
+      total
+      hasMore
+    }
+  }
+}
+mutation AgentTaskDisposeFinding(
+  $taskRef: ID!
+  $findingId: String!
+  $disposition: AgentTaskFindingDispositionCode!
+  # @genqlient(omitempty: true)
+  $reference: AgentTaskReferenceInput
+) {
+  disposeAgentTaskFinding(taskRef: $taskRef, findingId: $findingId, disposition: $disposition, reference: $reference) {
+    id
+    # Findings are capped at 100 per task; this reads the full latest disposition set.
+    findingDispositions(limit: 200, offset: 0) {
+      items { ...TaskFindingDispositionFields }
+    }
+  }
+}

@@ -104,6 +104,8 @@ acknowledges one.`,
 	}
 	cmd.AddCommand(newCmdTeamTaskCreate(f))
 	cmd.AddCommand(newCmdTeamTaskClone(f))
+	cmd.AddCommand(newCmdTaskFindingDispositions(f))
+	cmd.AddCommand(newCmdTaskDisposeFinding(f))
 	for _, verb := range []string{"set-priority", "add-blocker", "remove-blocker"} {
 		cmd.AddCommand(newCmdTaskDependencyWrite(f, verb))
 	}
