@@ -2499,9 +2499,11 @@ Conventions:
   retried or downgraded. Attribution with the flag is checked against the
   target worker's own App, not `--app`, on a binding snapshot taken before the
   first lookup: `update` refuses (exit 2, nothing written) an incomplete,
-  foreign-server, other-App or mid-command-rebound binding and never falls back
-  to the person; `change-agent` sends those headerless as the person (stderr
-  note). Unbound: the person's call, the ref still checked. Lookups never carry
+  foreign-server, other-App or mid-command-rebound binding (including one that
+  appears during the lookup in a worktree that was unbound) and never falls
+  back to the person; `change-agent` sends those headerless as the person
+  (stderr note). Unbound throughout (or outside any worktree): the person's
+  call, the ref still checked. Lookups never carry
   the session. Refusals keep their codes (`--json` `serverCode`), one write.
   `worker get` and every worker `--json` gain `signature` / `trailer`: a string
   (`""` = empty template) or `null` = WITHHELD (masked), never "empty".

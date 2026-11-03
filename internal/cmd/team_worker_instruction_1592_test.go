@@ -46,6 +46,11 @@ type run1592 struct {
 	mutate   func(b map[string]any)
 	onOp     func(op string)
 	response map[string]string
+	// appearOn writes a complete binding at the fake server's URL into an
+	// unbound worktree as that operation arrives (Gizelle, BLIND P2).
+	appearOn string
+	// noWorktree runs outside any git worktree (the real `git rev-parse`).
+	noWorktree bool
 }
 
 func (o run1592) exec(t *testing.T, args ...string) (*[]attnCall, keyRun) {
@@ -54,12 +59,31 @@ func (o run1592) exec(t *testing.T, args ...string) (*[]attnCall, keyRun) {
 	if r == nil {
 		r = responses1592()
 	}
-	if o.bound {
+	switch {
+	case o.noWorktree:
+		t.Setenv(team.GitDirEnv, "")
+		dir := t.TempDir()
+		t.Chdir(dir)
+		t.Setenv("GIT_CEILING_DIRECTORIES", filepath.Dir(dir))
+	case o.bound:
 		writeTeamBinding(t)
-	} else {
+	default:
 		teamGitDir(t)
 	}
-	srv, calls := attnServerHook(t, r, o.onOp)
+	var srvURL string
+	hook := o.onOp
+	if o.appearOn != "" {
+		hook = func(op string) {
+			if op == o.appearOn {
+				writeTeamBindingIn(t, os.Getenv(team.GitDirEnv), srvURL)
+			}
+			if o.onOp != nil {
+				o.onOp(op)
+			}
+		}
+	}
+	srv, calls := attnServerHook(t, r, hook)
+	srvURL = srv.URL
 	if o.bound {
 		setTeamBindingServer(t, srv.URL)
 		if o.mutate != nil {
@@ -74,6 +98,16 @@ func (o run1592) exec(t *testing.T, args ...string) (*[]attnCall, keyRun) {
 		renderFailure(f, args, err)
 	}
 	return calls, keyRun{out: out.String(), errOut: f.IOStreams.ErrOut.(*strings.Builder).String(), err: err}
+}
+
+// writeTeamBindingIn writes the binding fixture, at server, into dir without
+// touching the environment (safe from the fake server's goroutine).
+func writeTeamBindingIn(t *testing.T, dir, server string) {
+	quoted, _ := json.Marshal(server)
+	bound := strings.Replace(bindingFixture, `"startedAt"`, `"server":`+string(quoted)+`,"startedAt"`, 1)
+	if err := os.WriteFile(filepath.Join(dir, "hadron-team-session.json"), []byte(bound), 0o600); err != nil {
+		t.Error(err)
+	}
 }
 
 func rewriteBinding1592(t *testing.T, mutate func(b map[string]any)) {
@@ -306,6 +340,59 @@ func TestInstructionRebindDuringLookup1592(t *testing.T) {
 			t.Fatal(r.err)
 		}
 		wantOnlyWriteSession(t, calls, cmd.op, "")
+	}
+}
+
+// Acceptance 2, unbound start (Gizelle BLIND P2 @45626ad1): a binding that
+// APPEARS during the lookup is a change too. update refuses rather than going
+// out as the person; change-agent goes out headerless with the note.
+func TestInstructionBindingAppearsDuringLookup1592(t *testing.T) {
+	for _, cmd := range []struct {
+		args    []string
+		op      string
+		refused bool
+	}{
+		{updateArgs1592(irisURN1592, "--instruction", instrTask1592), instructedUpd, true},
+		{changeArgs1592(irisURN1592, "--instruction", instrTask1592), instructedChg, false},
+	} {
+		calls, r := run1592{appearOn: "GetWorker"}.exec(t, cmd.args...)
+		if cmd.refused {
+			if exitCodeFor(r.err) != 2 || len(writes1592(calls, cmd.op)) != 0 {
+				t.Fatalf("%s: want exit 2, no write; exit %d calls %+v", cmd.op, exitCodeFor(r.err), *calls)
+			}
+			if !strings.Contains(r.errOut, "appeared") {
+				t.Fatalf("%s: refusal should say the binding appeared, got %q", cmd.op, r.errOut)
+			}
+			continue
+		}
+		if r.err != nil {
+			t.Fatal(r.err)
+		}
+		wantOnlyWriteSession(t, calls, cmd.op, "")
+		if !strings.Contains(r.errOut, "appeared") {
+			t.Fatalf("%s: want the not-used note, got %q", cmd.op, r.errOut)
+		}
+	}
+}
+
+// Outside any git worktree there is no binding to snapshot or re-read: the
+// instructed call is the signed-in person's, headerless, with no refusal.
+func TestInstructionOutsideAnyWorktree1592(t *testing.T) {
+	for _, cmd := range []struct {
+		args []string
+		op   string
+	}{
+		{updateArgs1592(irisURN1592, "--instruction", instrTask1592), instructedUpd},
+		{changeArgs1592(irisURN1592, "--instruction", instrTask1592), instructedChg},
+	} {
+		calls, r := run1592{noWorktree: true}.exec(t, cmd.args...)
+		if r.err != nil {
+			t.Fatalf("%s: %v (stderr %q)", cmd.op, r.err, r.errOut)
+		}
+		wantOnlyWriteSession(t, calls, cmd.op, "")
+		if strings.Contains(r.errOut, "binding") {
+			t.Fatalf("%s: no binding note expected outside a worktree, got %q", cmd.op, r.errOut)
+		}
 	}
 }
 

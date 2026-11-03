@@ -77,15 +77,20 @@ func snapshotForInstruction(ctx context.Context) instructionSnapshot {
 // through: the snapshot's, only when it is complete, belongs to this server
 // and to the TARGET worker's own App (whatever --app says), and the binding
 // is unchanged now. Otherwise the session is "" and why says what failed;
-// why is "" only when there is no binding at all. Every check is local: no
-// request is made here.
+// why is "" only when there was no binding before the lookup and there is
+// still none (a binding that appears meanwhile is a change too: Gizelle,
+// BLIND P2 @45626ad1). Every check is local: no request is made here.
 func instructedSession(ctx context.Context, f *cmdutil.Factory, snap instructionSnapshot, targetAppID string) (session, why string, err error) {
 	if snap.err != nil {
 		return "", fmt.Sprintf("its session binding can't be read (%v)", snap.err), nil
 	}
 	b := snap.b
 	if b == nil {
-		return "", "", nil
+		now, _, err := readBindingFile(ctx)
+		if errors.Is(err, errNoWorktree) || (err == nil && now == nil) {
+			return "", "", nil
+		}
+		return "", "a session binding appeared while the worker was looked up", nil
 	}
 	if b.SessionID == "" || b.WorkerID == "" || b.AppID == "" || b.Server == "" {
 		return "", "its session binding is incomplete", nil
@@ -110,11 +115,11 @@ func instructedSession(ctx context.Context, f *cmdutil.Factory, snap instruction
 // instructionRefusal is update's fail-closed answer when the binding can't
 // carry an instructed edit: like the no-flag path, never the person's write.
 func instructionRefusal(snap instructionSnapshot, why string) error {
-	id := ""
+	has := "this worktree has a session binding"
 	if snap.b != nil {
-		id = snap.b.SessionID
+		has = fmt.Sprintf("%s (%q)", has, snap.b.SessionID)
 	}
 	return exitcode.Newf(exitcode.Usage,
-		"this worktree has a session binding (%q), but %s, so this instructed edit can't go out through it; nothing was written. Run it in the worker's own worktree against its server, or from an unbound shell as yourself",
-		id, why)
+		"%s, but %s, so this instructed edit can't go out through it; nothing was written. Run it in the worker's own worktree against its server, or from an unbound shell as yourself",
+		has, why)
 }
