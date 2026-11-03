@@ -20,8 +20,8 @@ const CapabilityResetContext = OpWorkerResetContext
 // ProcessIdentity names one agent process: its pid and the kernel's start
 // time for it, an opaque token, so a reused pid is a different process.
 type ProcessIdentity struct {
-	PID       int
-	StartTime string
+	PID       int    `json:"pid"`
+	StartTime string `json:"startTime"`
 }
 
 // ContextReset is the part of the server's reset record the handler reads.

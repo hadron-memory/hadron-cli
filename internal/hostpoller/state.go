@@ -3,6 +3,7 @@ package hostpoller
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sort"
@@ -32,6 +33,24 @@ type State struct {
 	// alone would forget it and let worktree.remove take a tree from under
 	// a live agent. A reused pid only makes a check refuse: the safe way.
 	Agents map[string]AgentRecord `json:"agents"`
+	// Resets are the worker.reset-context operations this poller collected
+	// and has not finished reporting, by reset id (#1043). Written before
+	// the claim, so a restarted poller knows which resets to read; it never
+	// stores a phase, which recovery always reads from the server.
+	Resets map[string]ResetRecord `json:"resets,omitempty"`
+}
+
+// ResetRecord is one reset in flight on this host.
+type ResetRecord struct {
+	ResetID     string `json:"resetId"`
+	OperationID string `json:"operationId"`
+	WorkerID    string `json:"workerId"`
+	// Epoch is the last epoch a step returned (0 before the claim).
+	Epoch int `json:"epoch"`
+	// Old is the agent process observed before the claim; New is the
+	// relaunched one, once started.
+	Old ProcessIdentity  `json:"old"`
+	New *ProcessIdentity `json:"new,omitempty"`
 }
 
 // AgentRecord is one launched agent.
@@ -42,7 +61,7 @@ type AgentRecord struct {
 
 // LoadState reads the state file; a missing file is an empty state.
 func LoadState(path string) (*State, error) {
-	s := &State{path: path, Created: map[string][]string{}, Keep: map[string]string{}, Agents: map[string]AgentRecord{}}
+	s := &State{path: path, Created: map[string][]string{}, Keep: map[string]string{}, Agents: map[string]AgentRecord{}, Resets: map[string]ResetRecord{}}
 	raw, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return s, nil
@@ -61,6 +80,9 @@ func LoadState(path string) (*State, error) {
 	}
 	if s.Agents == nil {
 		s.Agents = map[string]AgentRecord{}
+	}
+	if s.Resets == nil {
+		s.Resets = map[string]ResetRecord{}
 	}
 	return s, nil
 }
@@ -211,4 +233,46 @@ func (s *State) Snapshot() (map[string][]string, map[string]string) {
 		k[t] = r
 	}
 	return c, k
+}
+
+// recordReset keeps a collected reset, before its claim is sent.
+func (s *State) recordReset(r ResetRecord) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.Resets[r.ResetID] = r
+	return s.save()
+}
+
+// updateReset changes a kept reset; an unknown id is an error, never a
+// silent new record.
+func (s *State) updateReset(id string, change func(*ResetRecord)) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	r, ok := s.Resets[id]
+	if !ok {
+		return fmt.Errorf("no reset %q is recorded on this host", id)
+	}
+	change(&r)
+	s.Resets[id] = r
+	return s.save()
+}
+
+// dropReset forgets a reset once its outcome is reported.
+func (s *State) dropReset(id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.Resets, id)
+	return s.save()
+}
+
+// inFlightResets lists the kept resets, by reset id.
+func (s *State) inFlightResets() []ResetRecord {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]ResetRecord, 0, len(s.Resets))
+	for _, r := range s.Resets {
+		out = append(out, r)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ResetID < out[j].ResetID })
+	return out
 }
