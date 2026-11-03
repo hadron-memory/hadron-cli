@@ -156,6 +156,34 @@ func (v *AcquireEditorLockResponse) GetAcquireEditorLock() *AcquireEditorLockAcq
 	return v.AcquireEditorLock
 }
 
+// A typed instruction reference, never instruction text.
+type ActInstructionInput struct {
+	Kind ActInstructionKind `json:"kind"`
+	// TASK and TEAM_CHAT_MESSAGE use a caller-readable same-App URN, including one the worker authored. LIVE_CHAT is a self-asserted opaque client address, 1-512 UTF-16 code units, without whitespace. A person's present claim is validated too, but never recorded as an instructed act.
+	Ref string `json:"ref"`
+}
+
+// GetKind returns ActInstructionInput.Kind, and is useful for accessing the field via an interface.
+func (v *ActInstructionInput) GetKind() ActInstructionKind { return v.Kind }
+
+// GetRef returns ActInstructionInput.Ref, and is useful for accessing the field via an interface.
+func (v *ActInstructionInput) GetRef() string { return v.Ref }
+
+// Instruction claim for one act, recorded rather than verified for authorship, recency or reuse; the holder answers for the claim (hrn:node:hadronmemory.com:specs:cor:dmo:050:12, ruling 0096).
+type ActInstructionKind string
+
+const (
+	ActInstructionKindLiveChat        ActInstructionKind = "LIVE_CHAT"
+	ActInstructionKindTask            ActInstructionKind = "TASK"
+	ActInstructionKindTeamChatMessage ActInstructionKind = "TEAM_CHAT_MESSAGE"
+)
+
+var AllActInstructionKind = []ActInstructionKind{
+	ActInstructionKindLiveChat,
+	ActInstructionKindTask,
+	ActInstructionKindTeamChatMessage,
+}
+
 // #3287 — one code's answer in the action-register index (hrn:node:hadronmemory.com:specs:cor:agt:110:03).
 type ActionRegisterIndexState string
 
@@ -20694,6 +20722,317 @@ func (v *ChangeWorkerAgentChangeWorkerAgentWorker) __premarshalJSON() (*__premar
 	return &retval, nil
 }
 
+// ChangeWorkerAgentInstructedChangeWorkerAgentWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type ChangeWorkerAgentInstructedChangeWorkerAgentWorker struct {
+	WorkerFields `json:"-"`
+}
+
+// GetId returns ChangeWorkerAgentInstructedChangeWorkerAgentWorker.Id, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentInstructedChangeWorkerAgentWorker) GetId() string { return v.WorkerFields.Id }
+
+// GetUrn returns ChangeWorkerAgentInstructedChangeWorkerAgentWorker.Urn, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentInstructedChangeWorkerAgentWorker) GetUrn() *string {
+	return v.WorkerFields.Urn
+}
+
+// GetPortalUrl returns ChangeWorkerAgentInstructedChangeWorkerAgentWorker.PortalUrl, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentInstructedChangeWorkerAgentWorker) GetPortalUrl() *string {
+	return v.WorkerFields.PortalUrl
+}
+
+// GetSlug returns ChangeWorkerAgentInstructedChangeWorkerAgentWorker.Slug, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentInstructedChangeWorkerAgentWorker) GetSlug() string {
+	return v.WorkerFields.Slug
+}
+
+// GetAppId returns ChangeWorkerAgentInstructedChangeWorkerAgentWorker.AppId, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentInstructedChangeWorkerAgentWorker) GetAppId() string {
+	return v.WorkerFields.AppId
+}
+
+// GetAgentId returns ChangeWorkerAgentInstructedChangeWorkerAgentWorker.AgentId, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentInstructedChangeWorkerAgentWorker) GetAgentId() string {
+	return v.WorkerFields.AgentId
+}
+
+// GetName returns ChangeWorkerAgentInstructedChangeWorkerAgentWorker.Name, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentInstructedChangeWorkerAgentWorker) GetName() string {
+	return v.WorkerFields.Name
+}
+
+// GetReportsTo returns ChangeWorkerAgentInstructedChangeWorkerAgentWorker.ReportsTo, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentInstructedChangeWorkerAgentWorker) GetReportsTo() *WorkerFieldsReportsToWorker {
+	return v.WorkerFields.ReportsTo
+}
+
+// GetReportsToRetired returns ChangeWorkerAgentInstructedChangeWorkerAgentWorker.ReportsToRetired, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentInstructedChangeWorkerAgentWorker) GetReportsToRetired() bool {
+	return v.WorkerFields.ReportsToRetired
+}
+
+// GetTeamPlacement returns ChangeWorkerAgentInstructedChangeWorkerAgentWorker.TeamPlacement, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentInstructedChangeWorkerAgentWorker) GetTeamPlacement() *WorkerTeamPlacement {
+	return v.WorkerFields.TeamPlacement
+}
+
+// GetRole returns ChangeWorkerAgentInstructedChangeWorkerAgentWorker.Role, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentInstructedChangeWorkerAgentWorker) GetRole() *string {
+	return v.WorkerFields.Role
+}
+
+// GetPrompt returns ChangeWorkerAgentInstructedChangeWorkerAgentWorker.Prompt, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentInstructedChangeWorkerAgentWorker) GetPrompt() *string {
+	return v.WorkerFields.Prompt
+}
+
+// GetSignature returns ChangeWorkerAgentInstructedChangeWorkerAgentWorker.Signature, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentInstructedChangeWorkerAgentWorker) GetSignature() *string {
+	return v.WorkerFields.Signature
+}
+
+// GetTrailer returns ChangeWorkerAgentInstructedChangeWorkerAgentWorker.Trailer, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentInstructedChangeWorkerAgentWorker) GetTrailer() *string {
+	return v.WorkerFields.Trailer
+}
+
+// GetBootPromptRef returns ChangeWorkerAgentInstructedChangeWorkerAgentWorker.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentInstructedChangeWorkerAgentWorker) GetBootPromptRef() *string {
+	return v.WorkerFields.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns ChangeWorkerAgentInstructedChangeWorkerAgentWorker.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentInstructedChangeWorkerAgentWorker) GetBootPromptTargetDeleted() *bool {
+	return v.WorkerFields.BootPromptTargetDeleted
+}
+
+// GetRepos returns ChangeWorkerAgentInstructedChangeWorkerAgentWorker.Repos, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentInstructedChangeWorkerAgentWorker) GetRepos() []string {
+	return v.WorkerFields.Repos
+}
+
+// GetMemoryId returns ChangeWorkerAgentInstructedChangeWorkerAgentWorker.MemoryId, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentInstructedChangeWorkerAgentWorker) GetMemoryId() *string {
+	return v.WorkerFields.MemoryId
+}
+
+// GetFamily returns ChangeWorkerAgentInstructedChangeWorkerAgentWorker.Family, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentInstructedChangeWorkerAgentWorker) GetFamily() *string {
+	return v.WorkerFields.Family
+}
+
+// GetHeldByUserId returns ChangeWorkerAgentInstructedChangeWorkerAgentWorker.HeldByUserId, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentInstructedChangeWorkerAgentWorker) GetHeldByUserId() *string {
+	return v.WorkerFields.HeldByUserId
+}
+
+// GetHeldAt returns ChangeWorkerAgentInstructedChangeWorkerAgentWorker.HeldAt, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentInstructedChangeWorkerAgentWorker) GetHeldAt() *string {
+	return v.WorkerFields.HeldAt
+}
+
+// GetHasLiveSession returns ChangeWorkerAgentInstructedChangeWorkerAgentWorker.HasLiveSession, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentInstructedChangeWorkerAgentWorker) GetHasLiveSession() *bool {
+	return v.WorkerFields.HasLiveSession
+}
+
+// GetLastActiveAt returns ChangeWorkerAgentInstructedChangeWorkerAgentWorker.LastActiveAt, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentInstructedChangeWorkerAgentWorker) GetLastActiveAt() *string {
+	return v.WorkerFields.LastActiveAt
+}
+
+// GetCheckStatus returns ChangeWorkerAgentInstructedChangeWorkerAgentWorker.CheckStatus, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentInstructedChangeWorkerAgentWorker) GetCheckStatus() *WorkerFieldsCheckStatusWorkerCheckStatus {
+	return v.WorkerFields.CheckStatus
+}
+
+// GetRetiredAt returns ChangeWorkerAgentInstructedChangeWorkerAgentWorker.RetiredAt, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentInstructedChangeWorkerAgentWorker) GetRetiredAt() *string {
+	return v.WorkerFields.RetiredAt
+}
+
+// GetRetiredBy returns ChangeWorkerAgentInstructedChangeWorkerAgentWorker.RetiredBy, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentInstructedChangeWorkerAgentWorker) GetRetiredBy() *string {
+	return v.WorkerFields.RetiredBy
+}
+
+// GetCreatedAt returns ChangeWorkerAgentInstructedChangeWorkerAgentWorker.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentInstructedChangeWorkerAgentWorker) GetCreatedAt() string {
+	return v.WorkerFields.CreatedAt
+}
+
+// GetCreatedBy returns ChangeWorkerAgentInstructedChangeWorkerAgentWorker.CreatedBy, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentInstructedChangeWorkerAgentWorker) GetCreatedBy() *string {
+	return v.WorkerFields.CreatedBy
+}
+
+func (v *ChangeWorkerAgentInstructedChangeWorkerAgentWorker) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ChangeWorkerAgentInstructedChangeWorkerAgentWorker
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ChangeWorkerAgentInstructedChangeWorkerAgentWorker = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.WorkerFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalChangeWorkerAgentInstructedChangeWorkerAgentWorker struct {
+	Id string `json:"id"`
+
+	Urn *string `json:"urn"`
+
+	PortalUrl *string `json:"portalUrl"`
+
+	Slug string `json:"slug"`
+
+	AppId string `json:"appId"`
+
+	AgentId string `json:"agentId"`
+
+	Name string `json:"name"`
+
+	ReportsTo *WorkerFieldsReportsToWorker `json:"reportsTo"`
+
+	ReportsToRetired bool `json:"reportsToRetired"`
+
+	TeamPlacement *WorkerTeamPlacement `json:"teamPlacement"`
+
+	Role *string `json:"role"`
+
+	Prompt *string `json:"prompt"`
+
+	Signature *string `json:"signature"`
+
+	Trailer *string `json:"trailer"`
+
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
+	Repos []string `json:"repos"`
+
+	MemoryId *string `json:"memoryId"`
+
+	Family *string `json:"family"`
+
+	HeldByUserId *string `json:"heldByUserId"`
+
+	HeldAt *string `json:"heldAt"`
+
+	HasLiveSession *bool `json:"hasLiveSession"`
+
+	LastActiveAt *string `json:"lastActiveAt"`
+
+	CheckStatus *WorkerFieldsCheckStatusWorkerCheckStatus `json:"checkStatus"`
+
+	RetiredAt *string `json:"retiredAt"`
+
+	RetiredBy *string `json:"retiredBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+}
+
+func (v *ChangeWorkerAgentInstructedChangeWorkerAgentWorker) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ChangeWorkerAgentInstructedChangeWorkerAgentWorker) __premarshalJSON() (*__premarshalChangeWorkerAgentInstructedChangeWorkerAgentWorker, error) {
+	var retval __premarshalChangeWorkerAgentInstructedChangeWorkerAgentWorker
+
+	retval.Id = v.WorkerFields.Id
+	retval.Urn = v.WorkerFields.Urn
+	retval.PortalUrl = v.WorkerFields.PortalUrl
+	retval.Slug = v.WorkerFields.Slug
+	retval.AppId = v.WorkerFields.AppId
+	retval.AgentId = v.WorkerFields.AgentId
+	retval.Name = v.WorkerFields.Name
+	retval.ReportsTo = v.WorkerFields.ReportsTo
+	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
+	retval.TeamPlacement = v.WorkerFields.TeamPlacement
+	retval.Role = v.WorkerFields.Role
+	retval.Prompt = v.WorkerFields.Prompt
+	retval.Signature = v.WorkerFields.Signature
+	retval.Trailer = v.WorkerFields.Trailer
+	retval.BootPromptRef = v.WorkerFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.WorkerFields.BootPromptTargetDeleted
+	retval.Repos = v.WorkerFields.Repos
+	retval.MemoryId = v.WorkerFields.MemoryId
+	retval.Family = v.WorkerFields.Family
+	retval.HeldByUserId = v.WorkerFields.HeldByUserId
+	retval.HeldAt = v.WorkerFields.HeldAt
+	retval.HasLiveSession = v.WorkerFields.HasLiveSession
+	retval.LastActiveAt = v.WorkerFields.LastActiveAt
+	retval.CheckStatus = v.WorkerFields.CheckStatus
+	retval.RetiredAt = v.WorkerFields.RetiredAt
+	retval.RetiredBy = v.WorkerFields.RetiredBy
+	retval.CreatedAt = v.WorkerFields.CreatedAt
+	retval.CreatedBy = v.WorkerFields.CreatedBy
+	return &retval, nil
+}
+
+// ChangeWorkerAgentInstructedResponse is returned by ChangeWorkerAgentInstructed on success.
+type ChangeWorkerAgentInstructedResponse struct {
+	// #2458 (hrn:node:hadronmemory.com:specs:cor:dmo:050:11, R222): change the
+	// agent a worker casts. The role follows the agent and is never typed in.
+	// Name, slug, URN, signature, trailer, reporting line and every past record
+	// stay; past sessions keep the agent and role they ran under
+	// (Session.agentId, Session.role).
+	//
+	// Who: whoever manages the App, as themselves, or their held worker with an instruction
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12). A host-launched or uninstructed worker,
+	// an App key, an impersonation or a run is FORBIDDEN. The casting event records an admitted worker's instruction.
+	//
+	// To what: the same checks as castWorker (WORKER_AGENT_NOT_INSTALLED,
+	// AGENT_ORG_GRANT_INACTIVE / _REQUIRED, BOOT_PROMPT_GRANT_REQUIRED /
+	// BOOT_PROMPT_INCLUDE_UNAVAILABLE, APP_UNINSTALLED). Also WORKER_RETIRED,
+	// WORKER_AGENT_UNCHANGED (it already casts that agent),
+	// WORKER_AGENT_HAS_NO_ROLE (the agent has no personaRole to change to) and
+	// WORKER_CASTING_STALE (a concurrent change; read again). A refused change
+	// changes nothing.
+	//
+	// A complete change, in one transaction: the worker's own boot-prompt
+	// pointer is cleared (it named the old agent's compiled prompt), the old
+	// agent's generated tickers end and the new agent's are made, and one
+	// `worker.casting` team event records who and the old and new agent and
+	// role. It takes effect at the worker's next bind: an open session
+	// finishes under the agent and role it was bound with. workerRef and agentRef are ids or URNs.
+	ChangeWorkerAgent *ChangeWorkerAgentInstructedChangeWorkerAgentWorker `json:"changeWorkerAgent"`
+}
+
+// GetChangeWorkerAgent returns ChangeWorkerAgentInstructedResponse.ChangeWorkerAgent, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentInstructedResponse) GetChangeWorkerAgent() *ChangeWorkerAgentInstructedChangeWorkerAgentWorker {
+	return v.ChangeWorkerAgent
+}
+
 // ChangeWorkerAgentResponse is returned by ChangeWorkerAgent on success.
 type ChangeWorkerAgentResponse struct {
 	// #2458 (hrn:node:hadronmemory.com:specs:cor:dmo:050:11, R222): change the
@@ -20702,8 +21041,9 @@ type ChangeWorkerAgentResponse struct {
 	// stay; past sessions keep the agent and role they ran under
 	// (Session.agentId, Session.role).
 	//
-	// Who: whoever manages the App, as themselves. A worker session (even one
-	// its manager holds), an App key, an impersonation or a run is FORBIDDEN.
+	// Who: whoever manages the App, as themselves, or their held worker with an instruction
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12). A host-launched or uninstructed worker,
+	// an App key, an impersonation or a run is FORBIDDEN. The casting event records an admitted worker's instruction.
 	//
 	// To what: the same checks as castWorker (WORKER_AGENT_NOT_INSTALLED,
 	// AGENT_ORG_GRANT_INACTIVE / _REQUIRED, BOOT_PROMPT_GRANT_REQUIRED /
@@ -89012,6 +89352,291 @@ func (v *UpdateUserRolesUpdateUserRolesUser) __premarshalJSON() (*__premarshalUp
 	return &retval, nil
 }
 
+// UpdateWorkerSigningInstructedResponse is returned by UpdateWorkerSigningInstructed on success.
+type UpdateWorkerSigningInstructedResponse struct {
+	// #1010 — amend a casting's signature and trailer after the fact
+	// (hrn:node:hadronmemory.com:specs:cor:agt:040:04). #2712 removed the per-worker
+	// prompt override: a worker's own boot prompt is its compiled boot source
+	// (hrn:node:hadronmemory.com:specs:cor:agt:040:06), changed by compile and approve.
+	//
+	// Signature/trailer edits require an App manager acting as themselves, or a worker held by that manager carrying
+	// an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12). A host-launched or uninstructed worker is FORBIDDEN.
+	// An instructed act records the worker, holder and instruction reference in one team event; a person records no instruction.
+	// Omitted preserves, null refuses, whitespace-only becomes empty text; other text is raw, max 2000 characters, no NUL.
+	// A mixed update is atomic. These values reach the next compose/bind via S4.
+	// A retired worker refuses WORKER_RETIRED.
+	//
+	// `name` is permanent by law (hrn:node:hadronmemory.com:specs:cor:agt:020:02). The agent
+	// (and with it the role) is changed by changeWorkerAgent, not here. A call naming
+	// neither field changes nothing and keeps castWorker staffing authorization.
+	// workerRef is the worker's id or URN (#991).
+	UpdateWorker *UpdateWorkerSigningInstructedUpdateWorker `json:"updateWorker"`
+}
+
+// GetUpdateWorker returns UpdateWorkerSigningInstructedResponse.UpdateWorker, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningInstructedResponse) GetUpdateWorker() *UpdateWorkerSigningInstructedUpdateWorker {
+	return v.UpdateWorker
+}
+
+// UpdateWorkerSigningInstructedUpdateWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type UpdateWorkerSigningInstructedUpdateWorker struct {
+	WorkerFields `json:"-"`
+}
+
+// GetId returns UpdateWorkerSigningInstructedUpdateWorker.Id, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningInstructedUpdateWorker) GetId() string { return v.WorkerFields.Id }
+
+// GetUrn returns UpdateWorkerSigningInstructedUpdateWorker.Urn, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningInstructedUpdateWorker) GetUrn() *string { return v.WorkerFields.Urn }
+
+// GetPortalUrl returns UpdateWorkerSigningInstructedUpdateWorker.PortalUrl, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningInstructedUpdateWorker) GetPortalUrl() *string {
+	return v.WorkerFields.PortalUrl
+}
+
+// GetSlug returns UpdateWorkerSigningInstructedUpdateWorker.Slug, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningInstructedUpdateWorker) GetSlug() string { return v.WorkerFields.Slug }
+
+// GetAppId returns UpdateWorkerSigningInstructedUpdateWorker.AppId, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningInstructedUpdateWorker) GetAppId() string { return v.WorkerFields.AppId }
+
+// GetAgentId returns UpdateWorkerSigningInstructedUpdateWorker.AgentId, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningInstructedUpdateWorker) GetAgentId() string {
+	return v.WorkerFields.AgentId
+}
+
+// GetName returns UpdateWorkerSigningInstructedUpdateWorker.Name, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningInstructedUpdateWorker) GetName() string { return v.WorkerFields.Name }
+
+// GetReportsTo returns UpdateWorkerSigningInstructedUpdateWorker.ReportsTo, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningInstructedUpdateWorker) GetReportsTo() *WorkerFieldsReportsToWorker {
+	return v.WorkerFields.ReportsTo
+}
+
+// GetReportsToRetired returns UpdateWorkerSigningInstructedUpdateWorker.ReportsToRetired, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningInstructedUpdateWorker) GetReportsToRetired() bool {
+	return v.WorkerFields.ReportsToRetired
+}
+
+// GetTeamPlacement returns UpdateWorkerSigningInstructedUpdateWorker.TeamPlacement, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningInstructedUpdateWorker) GetTeamPlacement() *WorkerTeamPlacement {
+	return v.WorkerFields.TeamPlacement
+}
+
+// GetRole returns UpdateWorkerSigningInstructedUpdateWorker.Role, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningInstructedUpdateWorker) GetRole() *string { return v.WorkerFields.Role }
+
+// GetPrompt returns UpdateWorkerSigningInstructedUpdateWorker.Prompt, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningInstructedUpdateWorker) GetPrompt() *string { return v.WorkerFields.Prompt }
+
+// GetSignature returns UpdateWorkerSigningInstructedUpdateWorker.Signature, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningInstructedUpdateWorker) GetSignature() *string {
+	return v.WorkerFields.Signature
+}
+
+// GetTrailer returns UpdateWorkerSigningInstructedUpdateWorker.Trailer, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningInstructedUpdateWorker) GetTrailer() *string {
+	return v.WorkerFields.Trailer
+}
+
+// GetBootPromptRef returns UpdateWorkerSigningInstructedUpdateWorker.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningInstructedUpdateWorker) GetBootPromptRef() *string {
+	return v.WorkerFields.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns UpdateWorkerSigningInstructedUpdateWorker.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningInstructedUpdateWorker) GetBootPromptTargetDeleted() *bool {
+	return v.WorkerFields.BootPromptTargetDeleted
+}
+
+// GetRepos returns UpdateWorkerSigningInstructedUpdateWorker.Repos, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningInstructedUpdateWorker) GetRepos() []string { return v.WorkerFields.Repos }
+
+// GetMemoryId returns UpdateWorkerSigningInstructedUpdateWorker.MemoryId, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningInstructedUpdateWorker) GetMemoryId() *string {
+	return v.WorkerFields.MemoryId
+}
+
+// GetFamily returns UpdateWorkerSigningInstructedUpdateWorker.Family, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningInstructedUpdateWorker) GetFamily() *string { return v.WorkerFields.Family }
+
+// GetHeldByUserId returns UpdateWorkerSigningInstructedUpdateWorker.HeldByUserId, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningInstructedUpdateWorker) GetHeldByUserId() *string {
+	return v.WorkerFields.HeldByUserId
+}
+
+// GetHeldAt returns UpdateWorkerSigningInstructedUpdateWorker.HeldAt, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningInstructedUpdateWorker) GetHeldAt() *string { return v.WorkerFields.HeldAt }
+
+// GetHasLiveSession returns UpdateWorkerSigningInstructedUpdateWorker.HasLiveSession, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningInstructedUpdateWorker) GetHasLiveSession() *bool {
+	return v.WorkerFields.HasLiveSession
+}
+
+// GetLastActiveAt returns UpdateWorkerSigningInstructedUpdateWorker.LastActiveAt, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningInstructedUpdateWorker) GetLastActiveAt() *string {
+	return v.WorkerFields.LastActiveAt
+}
+
+// GetCheckStatus returns UpdateWorkerSigningInstructedUpdateWorker.CheckStatus, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningInstructedUpdateWorker) GetCheckStatus() *WorkerFieldsCheckStatusWorkerCheckStatus {
+	return v.WorkerFields.CheckStatus
+}
+
+// GetRetiredAt returns UpdateWorkerSigningInstructedUpdateWorker.RetiredAt, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningInstructedUpdateWorker) GetRetiredAt() *string {
+	return v.WorkerFields.RetiredAt
+}
+
+// GetRetiredBy returns UpdateWorkerSigningInstructedUpdateWorker.RetiredBy, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningInstructedUpdateWorker) GetRetiredBy() *string {
+	return v.WorkerFields.RetiredBy
+}
+
+// GetCreatedAt returns UpdateWorkerSigningInstructedUpdateWorker.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningInstructedUpdateWorker) GetCreatedAt() string {
+	return v.WorkerFields.CreatedAt
+}
+
+// GetCreatedBy returns UpdateWorkerSigningInstructedUpdateWorker.CreatedBy, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningInstructedUpdateWorker) GetCreatedBy() *string {
+	return v.WorkerFields.CreatedBy
+}
+
+func (v *UpdateWorkerSigningInstructedUpdateWorker) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateWorkerSigningInstructedUpdateWorker
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateWorkerSigningInstructedUpdateWorker = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.WorkerFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateWorkerSigningInstructedUpdateWorker struct {
+	Id string `json:"id"`
+
+	Urn *string `json:"urn"`
+
+	PortalUrl *string `json:"portalUrl"`
+
+	Slug string `json:"slug"`
+
+	AppId string `json:"appId"`
+
+	AgentId string `json:"agentId"`
+
+	Name string `json:"name"`
+
+	ReportsTo *WorkerFieldsReportsToWorker `json:"reportsTo"`
+
+	ReportsToRetired bool `json:"reportsToRetired"`
+
+	TeamPlacement *WorkerTeamPlacement `json:"teamPlacement"`
+
+	Role *string `json:"role"`
+
+	Prompt *string `json:"prompt"`
+
+	Signature *string `json:"signature"`
+
+	Trailer *string `json:"trailer"`
+
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
+	Repos []string `json:"repos"`
+
+	MemoryId *string `json:"memoryId"`
+
+	Family *string `json:"family"`
+
+	HeldByUserId *string `json:"heldByUserId"`
+
+	HeldAt *string `json:"heldAt"`
+
+	HasLiveSession *bool `json:"hasLiveSession"`
+
+	LastActiveAt *string `json:"lastActiveAt"`
+
+	CheckStatus *WorkerFieldsCheckStatusWorkerCheckStatus `json:"checkStatus"`
+
+	RetiredAt *string `json:"retiredAt"`
+
+	RetiredBy *string `json:"retiredBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+}
+
+func (v *UpdateWorkerSigningInstructedUpdateWorker) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateWorkerSigningInstructedUpdateWorker) __premarshalJSON() (*__premarshalUpdateWorkerSigningInstructedUpdateWorker, error) {
+	var retval __premarshalUpdateWorkerSigningInstructedUpdateWorker
+
+	retval.Id = v.WorkerFields.Id
+	retval.Urn = v.WorkerFields.Urn
+	retval.PortalUrl = v.WorkerFields.PortalUrl
+	retval.Slug = v.WorkerFields.Slug
+	retval.AppId = v.WorkerFields.AppId
+	retval.AgentId = v.WorkerFields.AgentId
+	retval.Name = v.WorkerFields.Name
+	retval.ReportsTo = v.WorkerFields.ReportsTo
+	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
+	retval.TeamPlacement = v.WorkerFields.TeamPlacement
+	retval.Role = v.WorkerFields.Role
+	retval.Prompt = v.WorkerFields.Prompt
+	retval.Signature = v.WorkerFields.Signature
+	retval.Trailer = v.WorkerFields.Trailer
+	retval.BootPromptRef = v.WorkerFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.WorkerFields.BootPromptTargetDeleted
+	retval.Repos = v.WorkerFields.Repos
+	retval.MemoryId = v.WorkerFields.MemoryId
+	retval.Family = v.WorkerFields.Family
+	retval.HeldByUserId = v.WorkerFields.HeldByUserId
+	retval.HeldAt = v.WorkerFields.HeldAt
+	retval.HasLiveSession = v.WorkerFields.HasLiveSession
+	retval.LastActiveAt = v.WorkerFields.LastActiveAt
+	retval.CheckStatus = v.WorkerFields.CheckStatus
+	retval.RetiredAt = v.WorkerFields.RetiredAt
+	retval.RetiredBy = v.WorkerFields.RetiredBy
+	retval.CreatedAt = v.WorkerFields.CreatedAt
+	retval.CreatedBy = v.WorkerFields.CreatedBy
+	return &retval, nil
+}
+
 // UpdateWorkerSigningResponse is returned by UpdateWorkerSigning on success.
 type UpdateWorkerSigningResponse struct {
 	// #1010 — amend a casting's signature and trailer after the fact
@@ -89019,7 +89644,9 @@ type UpdateWorkerSigningResponse struct {
 	// prompt override: a worker's own boot prompt is its compiled boot source
 	// (hrn:node:hadronmemory.com:specs:cor:agt:040:06), changed by compile and approve.
 	//
-	// Signature/trailer edits require an App manager; a bound worker is provisionally refused (H26).
+	// Signature/trailer edits require an App manager acting as themselves, or a worker held by that manager carrying
+	// an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12). A host-launched or uninstructed worker is FORBIDDEN.
+	// An instructed act records the worker, holder and instruction reference in one team event; a person records no instruction.
 	// Omitted preserves, null refuses, whitespace-only becomes empty text; other text is raw, max 2000 characters, no NUL.
 	// A mixed update is atomic. These values reach the next compose/bind via S4.
 	// A retired worker refuses WORKER_RETIRED.
@@ -94345,6 +94972,24 @@ func (v *__ChangeWorkerAgentInput) GetWorkerRef() string { return v.WorkerRef }
 
 // GetAgentRef returns __ChangeWorkerAgentInput.AgentRef, and is useful for accessing the field via an interface.
 func (v *__ChangeWorkerAgentInput) GetAgentRef() string { return v.AgentRef }
+
+// __ChangeWorkerAgentInstructedInput is used internally by genqlient
+type __ChangeWorkerAgentInstructedInput struct {
+	WorkerRef   string               `json:"workerRef"`
+	AgentRef    string               `json:"agentRef"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetWorkerRef returns __ChangeWorkerAgentInstructedInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__ChangeWorkerAgentInstructedInput) GetWorkerRef() string { return v.WorkerRef }
+
+// GetAgentRef returns __ChangeWorkerAgentInstructedInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__ChangeWorkerAgentInstructedInput) GetAgentRef() string { return v.AgentRef }
+
+// GetInstruction returns __ChangeWorkerAgentInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__ChangeWorkerAgentInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
 
 // __ChannelMessageSearchInput is used internally by genqlient
 type __ChannelMessageSearchInput struct {
@@ -101349,6 +101994,28 @@ func (v *__UpdateWorkerSigningInput) GetSignature() *string { return v.Signature
 
 // GetTrailer returns __UpdateWorkerSigningInput.Trailer, and is useful for accessing the field via an interface.
 func (v *__UpdateWorkerSigningInput) GetTrailer() *string { return v.Trailer }
+
+// __UpdateWorkerSigningInstructedInput is used internally by genqlient
+type __UpdateWorkerSigningInstructedInput struct {
+	WorkerRef   string               `json:"workerRef"`
+	Signature   *string              `json:"signature,omitempty"`
+	Trailer     *string              `json:"trailer,omitempty"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetWorkerRef returns __UpdateWorkerSigningInstructedInput.WorkerRef, and is useful for accessing the field via an interface.
+func (v *__UpdateWorkerSigningInstructedInput) GetWorkerRef() string { return v.WorkerRef }
+
+// GetSignature returns __UpdateWorkerSigningInstructedInput.Signature, and is useful for accessing the field via an interface.
+func (v *__UpdateWorkerSigningInstructedInput) GetSignature() *string { return v.Signature }
+
+// GetTrailer returns __UpdateWorkerSigningInstructedInput.Trailer, and is useful for accessing the field via an interface.
+func (v *__UpdateWorkerSigningInstructedInput) GetTrailer() *string { return v.Trailer }
+
+// GetInstruction returns __UpdateWorkerSigningInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__UpdateWorkerSigningInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
 
 // __UsageActivityInput is used internally by genqlient
 type __UsageActivityInput struct {
@@ -108670,6 +109337,92 @@ func ChangeWorkerAgent(
 	}
 
 	data_ = &ChangeWorkerAgentResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by ChangeWorkerAgentInstructed.
+const ChangeWorkerAgentInstructed_Operation = `
+mutation ChangeWorkerAgentInstructed ($workerRef: ID!, $agentRef: ID!, $instruction: ActInstructionInput!) {
+	changeWorkerAgent(workerRef: $workerRef, agentRef: $agentRef, instruction: $instruction) {
+		... WorkerFields
+	}
+}
+fragment WorkerFields on Worker {
+	id
+	urn
+	portalUrl
+	slug
+	appId
+	agentId
+	name
+	reportsTo {
+		... WorkerReportingRefFields
+	}
+	reportsToRetired
+	teamPlacement
+	role
+	prompt
+	signature
+	trailer
+	bootPromptRef
+	bootPromptTargetDeleted
+	repos
+	memoryId
+	family
+	heldByUserId
+	heldAt
+	hasLiveSession
+	lastActiveAt
+	checkStatus {
+		... ChannelCheckFields
+	}
+	retiredAt
+	retiredBy
+	createdAt
+	createdBy
+}
+fragment WorkerReportingRefFields on Worker {
+	id
+	name
+	urn
+}
+fragment ChannelCheckFields on WorkerCheckStatus {
+	status
+	pendingReason
+	lastCheckedAt
+}
+`
+
+// cli#1592 (hadron-server#3307, ruling 0096, cor:dmo:050:12): the same write
+// carrying a holder's instruction claim. A separate document, so the plain one
+// above keeps working against a server older than 17ef5905, which has no
+// `instruction` argument; this one is sent only with --instruction.
+func ChangeWorkerAgentInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	workerRef string,
+	agentRef string,
+	instruction *ActInstructionInput,
+) (data_ *ChangeWorkerAgentInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ChangeWorkerAgentInstructed",
+		Query:  ChangeWorkerAgentInstructed_Operation,
+		Variables: &__ChangeWorkerAgentInstructedInput{
+			WorkerRef:   workerRef,
+			AgentRef:    agentRef,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &ChangeWorkerAgentInstructedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -133528,6 +134281,92 @@ func UpdateWorkerSigning(
 	}
 
 	data_ = &UpdateWorkerSigningResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateWorkerSigningInstructed.
+const UpdateWorkerSigningInstructed_Operation = `
+mutation UpdateWorkerSigningInstructed ($workerRef: ID!, $signature: String, $trailer: String, $instruction: ActInstructionInput!) {
+	updateWorker(workerRef: $workerRef, signature: $signature, trailer: $trailer, instruction: $instruction) {
+		... WorkerFields
+	}
+}
+fragment WorkerFields on Worker {
+	id
+	urn
+	portalUrl
+	slug
+	appId
+	agentId
+	name
+	reportsTo {
+		... WorkerReportingRefFields
+	}
+	reportsToRetired
+	teamPlacement
+	role
+	prompt
+	signature
+	trailer
+	bootPromptRef
+	bootPromptTargetDeleted
+	repos
+	memoryId
+	family
+	heldByUserId
+	heldAt
+	hasLiveSession
+	lastActiveAt
+	checkStatus {
+		... ChannelCheckFields
+	}
+	retiredAt
+	retiredBy
+	createdAt
+	createdBy
+}
+fragment WorkerReportingRefFields on Worker {
+	id
+	name
+	urn
+}
+fragment ChannelCheckFields on WorkerCheckStatus {
+	status
+	pendingReason
+	lastCheckedAt
+}
+`
+
+// cli#1592: UpdateWorkerSigning carrying a holder's instruction claim (see
+// ChangeWorkerAgentInstructed). Needs server 17ef5905 or later.
+func UpdateWorkerSigningInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	workerRef string,
+	signature *string,
+	trailer *string,
+	instruction *ActInstructionInput,
+) (data_ *UpdateWorkerSigningInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateWorkerSigningInstructed",
+		Query:  UpdateWorkerSigningInstructed_Operation,
+		Variables: &__UpdateWorkerSigningInstructedInput{
+			WorkerRef:   workerRef,
+			Signature:   signature,
+			Trailer:     trailer,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &UpdateWorkerSigningInstructedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
