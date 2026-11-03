@@ -44,7 +44,10 @@ hadron-server #1641 (`resolvers.decisions.ts`), all ten operations on main.
   an absent key stays nil and is omitted, and a literal `null` is kept as `null`.
 - **Strict keys.** Besides `DisallowUnknownFields`, `checkKeys` walks the file against
   the target type's exact JSON names, refusing a duplicate key (encoding/json keeps the
-  last) and a mis-cased one (encoding/json matches case-insensitively).
+  last) and a mis-cased one (encoding/json matches case-insensitively). The scan reads
+  numbers as text (`UseNumber`) and fails closed: only a syntax error is left to the
+  strict decode, because the strict decode never parses an opaque `json.RawMessage`
+  value and so would not see any other scan error again (#1558).
 - **`revision` in JSON** is `revSeq` renamed: it is the value `--expected-revision` takes.
 - **`evidence.approval` is flattened to `approval`** in the decision DTO.
 - **List flags** (`--decider`, `--eligible`, `--state`, `--urgency`) are all `StringSlice`

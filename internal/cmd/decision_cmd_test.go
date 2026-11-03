@@ -233,6 +233,22 @@ func TestDecisionAskFlagsOverrideTopLevelKeys(t *testing.T) {
 	}
 }
 
+// TestDecisionAskPassesAHugeNumberInGrant pins the other half of #1558: the
+// key scan reads numbers as text, so a value out of float64 range in the
+// opaque grant is not the CLI's to refuse; it goes to the server verbatim.
+func TestDecisionAskPassesAHugeNumberInGrant(t *testing.T) {
+	c, _, err := runDecision(t, map[string]string{
+		"AskDecision": `{"data":{"askDecision":` + decisionJSON + `}}`,
+	}, "ask", "l1", "--input-file", writeJSONFile(t, `{"grant":{"n":1e999},"title":"a","parts":[]}`))
+	if err != nil {
+		t.Fatalf("a huge number in grant must not be refused: %v", err)
+	}
+	input, _ := decisionOnlyOp(t, c, "AskDecision")["input"].(map[string]any)
+	if input["title"] != "a" || input["grant"] == nil {
+		t.Fatalf("input: %v", input)
+	}
+}
+
 func TestDecisionAskRefusesBadInputBeforeAnyCall(t *testing.T) {
 	for name, args := range map[string][]string{
 		"no input":           {"ask", "l1"},
@@ -249,6 +265,10 @@ func TestDecisionAskRefusesBadInputBeforeAnyCall(t *testing.T) {
 		"mis-cased key":      {"ask", "l1", "--input-file", writeJSONFile(t, `{"Title":"a","parts":[]}`)},
 		"nested duplicate":   {"ask", "l1", "--input-file", writeJSONFile(t, `{"title":"t","parts":[{"question":"q","question":"r","yesno":true}]}`)},
 		"nested mis-cased":   {"ask", "l1", "--input-file", writeJSONFile(t, `{"title":"t","parts":[{"Question":"q","yesno":true}]}`)},
+		// #1558: a number out of float64 range in opaque input must not end
+		// the key scan early and let a later duplicate through.
+		"duplicate after huge number": {"ask", "l1", "--input-file", writeJSONFile(t, `{"grant":{"n":1e999},"title":"a","title":"b","parts":[]}`)},
+		"mis-cased after huge number": {"ask", "l1", "--input-file", writeJSONFile(t, `{"grant":[-1e999],"Title":"a","parts":[]}`)},
 	} {
 		c, _, err := runDecision(t, nil, args...)
 		if err == nil || exitCodeFor(err) != exitcode.Usage || len(c.ops) != 0 {
