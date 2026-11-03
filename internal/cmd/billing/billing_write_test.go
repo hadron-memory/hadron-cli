@@ -16,3 +16,21 @@ func TestPromptValueNeverTruncates(t *testing.T) {
 		t.Errorf("control characters must be neutralised: %q", got)
 	}
 }
+
+// cli#1562: Cf (bidi/zero-width) and line/paragraph separators are neutralised
+// in a prompt too, so an RLO cannot visually reorder the amount an operator
+// is confirming.
+func TestPromptValueNeutralisesFormatCharacters(t *testing.T) {
+	for name, in := range map[string]string{
+		"rlo":  "12\u202e34",
+		"zwsp": "12\u200b34",
+		"lrm":  "12\u200e34",
+		"zl":   "12\u202834",
+		"zp":   "12\u202934",
+	} {
+		got := promptValue(in)
+		if got != "12 34" {
+			t.Errorf("%s: want the format rune replaced by a space, got %q", name, got)
+		}
+	}
+}

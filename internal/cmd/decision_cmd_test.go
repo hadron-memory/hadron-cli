@@ -33,11 +33,12 @@ const decisionLogJSON = `{"id":"l1","urn":"hrn:node:acme.com:kb:decisions","loc"
 type decisionCall struct {
 	ops  []string
 	vars map[string]map[string]any
+	raw  map[string]json.RawMessage // each operation's variables as sent
 }
 
 func runDecision(t *testing.T, responses map[string]string, args ...string) (*decisionCall, string, error) {
 	t.Helper()
-	calls := &decisionCall{vars: map[string]map[string]any{}}
+	calls := &decisionCall{vars: map[string]map[string]any{}, raw: map[string]json.RawMessage{}}
 	gql, captured := captureGraphQLFunc(t, func(op string) string {
 		calls.ops = append(calls.ops, op)
 		return responses[op]
@@ -47,6 +48,7 @@ func runDecision(t *testing.T, responses map[string]string, args ...string) (*de
 	root.SetArgs(append(append([]string{"decision"}, args...), "--server", gql.URL))
 	err := root.Execute()
 	for op, raw := range captured {
+		calls.raw[op] = raw
 		v := map[string]any{}
 		_ = json.Unmarshal(raw, &v)
 		calls.vars[op] = v
@@ -233,6 +235,33 @@ func TestDecisionAskFlagsOverrideTopLevelKeys(t *testing.T) {
 	}
 }
 
+// TestDecisionAskPassesAHugeNumberInGrant pins the other half of #1558: the
+// key scan reads numbers as text, so a value out of float64 range in the
+// opaque grant is not the CLI's to refuse; it goes to the server verbatim.
+func TestDecisionAskPassesAHugeNumberInGrant(t *testing.T) {
+	c, _, err := runDecision(t, map[string]string{
+		"AskDecision": `{"data":{"askDecision":` + decisionJSON + `}}`,
+	}, "ask", "l1", "--input-file", writeJSONFile(t, `{"grant":{"n":1e999},"title":"a","parts":[]}`))
+	if err != nil {
+		t.Fatalf("a huge number in grant must not be refused: %v", err)
+	}
+	decisionOnlyOp(t, c, "AskDecision")
+	// Read the bytes as sent: a float64 decode of 1e999 fails, so a decoded
+	// map cannot show the token arrived verbatim.
+	var vars struct {
+		Input struct {
+			Title string          `json:"title"`
+			Grant json.RawMessage `json:"grant"`
+		} `json:"input"`
+	}
+	if err := json.Unmarshal(c.raw["AskDecision"], &vars); err != nil {
+		t.Fatalf("variables: %v", err)
+	}
+	if vars.Input.Title != "a" || string(vars.Input.Grant) != `{"n":1e999}` {
+		t.Fatalf("grant must reach the server verbatim, got title=%q grant=%s", vars.Input.Title, vars.Input.Grant)
+	}
+}
+
 func TestDecisionAskRefusesBadInputBeforeAnyCall(t *testing.T) {
 	for name, args := range map[string][]string{
 		"no input":           {"ask", "l1"},
@@ -249,6 +278,10 @@ func TestDecisionAskRefusesBadInputBeforeAnyCall(t *testing.T) {
 		"mis-cased key":      {"ask", "l1", "--input-file", writeJSONFile(t, `{"Title":"a","parts":[]}`)},
 		"nested duplicate":   {"ask", "l1", "--input-file", writeJSONFile(t, `{"title":"t","parts":[{"question":"q","question":"r","yesno":true}]}`)},
 		"nested mis-cased":   {"ask", "l1", "--input-file", writeJSONFile(t, `{"title":"t","parts":[{"Question":"q","yesno":true}]}`)},
+		// #1558: a number out of float64 range in opaque input must not end
+		// the key scan early and let a later duplicate through.
+		"duplicate after huge number": {"ask", "l1", "--input-file", writeJSONFile(t, `{"grant":{"n":1e999},"title":"a","title":"b","parts":[]}`)},
+		"mis-cased after huge number": {"ask", "l1", "--input-file", writeJSONFile(t, `{"grant":[-1e999],"Title":"a","parts":[]}`)},
 	} {
 		c, _, err := runDecision(t, nil, args...)
 		if err == nil || exitCodeFor(err) != exitcode.Usage || len(c.ops) != 0 {
