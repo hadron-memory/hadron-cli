@@ -121,3 +121,10 @@ from:
   idle prover into `team host run`. These need their own authorization.
 - **A terminal-read idle prover.** Without one, every reset refuses
   `NOT_IDLE`.
+
+## Minimum server
+
+The reset operations select `ContextReset.checkpointNode`, so they need
+hadron-server `22cd6369` or later; an older server rejects the document.
+Only the handler sends them, and it is off; activation must not come
+before that server is deployed.

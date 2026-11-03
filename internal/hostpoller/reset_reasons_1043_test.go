@@ -28,10 +28,13 @@ var reasonExceptions = map[string]string{
 }
 
 // claimBoundary is where each scanned file's code stops being pre-claim:
-// the handler refuses before any claim, runReset claims at its ClaimReset
-// call, and recovery always starts from a phase the server already holds.
+// the handler's checks end where it hands over to runReset (relaunchAgent,
+// later in the file, runs after the stop), runReset claims at its
+// ClaimReset call, and recovery always starts from a phase the server
+// already holds. A boundary that cannot be found fails the scan, never
+// widens it.
 var claimBoundary = map[string]func(src string) int{
-	"reset_handler.go":  func(src string) int { return len(src) },
+	"reset_handler.go":  func(src string) int { return strings.Index(src, "p.runReset(") },
 	"reset_forward.go":  func(src string) int { return strings.Index(src, "ClaimReset(") },
 	"reset_recovery.go": func(string) int { return 0 },
 }
