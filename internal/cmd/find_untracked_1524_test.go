@@ -349,9 +349,7 @@ func TestFindUntrackedClaim1524(t *testing.T) {
 		if env := envelope1524(t, err); env["serverCode"] != "GITHUB_PERMISSION_MISSING" {
 			t.Errorf("serverCode = %v", env["serverCode"])
 		}
-		if !strings.Contains(err.Error(), "1 task") || !strings.Contains(err.Error(), "yours") {
-			t.Errorf("the error must say how many were claimed and that they are yours: %v", err)
-		}
+		assertClaimStopWording1605(t, err)
 		_ = stderr
 	})
 
@@ -361,6 +359,7 @@ func TestFindUntrackedClaim1524(t *testing.T) {
 		if exitCodeFor(err) != exitcode.Error {
 			t.Fatalf("exit = %d, want %d: %v", exitCodeFor(err), exitcode.Error, err)
 		}
+		assertClaimStopWording1605(t, err)
 		if !strings.Contains(out, `"tasks"`) {
 			t.Errorf("the tasks must still print:\n%s", out)
 		}
@@ -372,6 +371,7 @@ func TestFindUntrackedClaim1524(t *testing.T) {
 		if exitCodeFor(err) != exitcode.Error {
 			t.Fatalf("exit = %d, want %d: %v", exitCodeFor(err), exitcode.Error, err)
 		}
+		assertClaimStopWording1605(t, err)
 		if !strings.Contains(out, `"tasks"`) {
 			t.Errorf("the tasks must still print:\n%s", out)
 		}
@@ -391,4 +391,18 @@ func TestFindUntrackedClaim1524(t *testing.T) {
 			t.Errorf("stderr note missing: %q", stderr)
 		}
 	})
+}
+
+// assertClaimStopWording1605 pins the stopped-claim stderr error (#1605): it
+// names how many tasks were claimed and that they are committed, and no longer
+// says they are "yours" — under --assignee they belong to the named party.
+func assertClaimStopWording1605(t *testing.T, err error) {
+	t.Helper()
+	msg := err.Error()
+	if !strings.Contains(msg, "after 1 task;") || !strings.Contains(msg, "those are committed") {
+		t.Errorf("the error must say how many were claimed and that they are committed: %v", err)
+	}
+	if strings.Contains(msg, "yours") {
+		t.Errorf("the error must not say the tasks are yours (#1605): %v", err)
+	}
 }

@@ -334,11 +334,11 @@ func writeClaimResult(f *cmdutil.Factory, r *claimOutcome) error {
 	case reason == claimRefused && dto.RefusalCode != nil && *dto.RefusalCode != "":
 		code := *dto.RefusalCode
 		return api.WithCode(exitcode.Newf(api.ExitCodeForExtension(code),
-			"the claim stopped at a refusal (%s) after %s; those are committed and yours", output.SafeCell(code), claimed), code)
+			"the claim stopped at a refusal (%s) after %s; those are committed", output.SafeCell(code), claimed), code)
 	case reason == claimRefused || reason == claimFailed:
 		// No code to map: never reported as success.
 		return exitcode.Newf(exitcode.Error,
-			"the claim stopped (%s) after %s; those are committed and yours", output.SafeCell(reason), claimed)
+			"the claim stopped (%s) after %s; those are committed", output.SafeCell(reason), claimed)
 	}
 	noteIncomplete(f, dto.Complete, dto.IncompleteReason)
 	return nil
