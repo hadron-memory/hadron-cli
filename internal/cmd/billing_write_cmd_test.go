@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -320,13 +321,13 @@ func TestBillingWritePromptsShowLongValuesWholeAndDeclineSendsNothing(t *testing
 		{"prices set", []string{"billing", "prices", "set", "--provider", "p" + org, "--model", "m", "--input", long, "--output", long}, []string{"p" + org, long}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			requests := 0
+			var requests atomic.Int32
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.Method == http.MethodGet {
 					_, _ = w.Write([]byte(`{"capabilities":[]}`))
 					return
 				}
-				requests++
+				requests.Add(1)
 				_, _ = w.Write([]byte(`{}`))
 			}))
 			t.Cleanup(srv.Close)
@@ -345,8 +346,8 @@ func TestBillingWritePromptsShowLongValuesWholeAndDeclineSendsNothing(t *testing
 			if strings.Contains(errOut.String(), "…") {
 				t.Error("prompt must never be ellipsised")
 			}
-			if requests != 0 {
-				t.Errorf("a declined prompt sends nothing; got %d requests", requests)
+			if requests.Load() != 0 {
+				t.Errorf("a declined prompt sends nothing; got %d requests", requests.Load())
 			}
 		})
 	}
@@ -363,7 +364,7 @@ func TestBillingWritesSendOnceOnDroppedConnection(t *testing.T) {
 		{"SetAiModelPrice", []string{"billing", "prices", "set", "--provider", "p", "--model", "m", "--input", "1", "--output", "2", "--yes"}},
 	} {
 		t.Run(tc.op, func(t *testing.T) {
-			calls := 0
+			var calls atomic.Int32
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.Method == http.MethodGet {
 					_, _ = w.Write([]byte(`{"capabilities":[]}`))
@@ -377,7 +378,7 @@ func TestBillingWritesSendOnceOnDroppedConnection(t *testing.T) {
 					_, _ = w.Write([]byte(`{}`))
 					return
 				}
-				calls++
+				calls.Add(1)
 				conn, _, err := w.(http.Hijacker).Hijack()
 				if err != nil {
 					t.Errorf("hijack: %v", err)
@@ -392,8 +393,8 @@ func TestBillingWritesSendOnceOnDroppedConnection(t *testing.T) {
 			if err := root.Execute(); err == nil {
 				t.Fatal("want an error on a dropped connection")
 			}
-			if calls != 1 {
-				t.Errorf("a money write is never retried; sent %d times", calls)
+			if calls.Load() != 1 {
+				t.Errorf("a money write is never retried; sent %d times", calls.Load())
 			}
 		})
 	}
