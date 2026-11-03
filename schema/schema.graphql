@@ -566,6 +566,11 @@ type AgentTask {
   externalId: String
 
   """
+  #2663: dispositions beside the result, same readers; default20/max200/limit0 count-only (hrn:node:hadronmemory.com:specs:cor:agt:050:30).
+  """
+  findingDispositions(limit: Int, offset: Int): AgentTaskFindingDispositionPage!
+
+  """
   The finish-by deadline (#2648, hrn:node:hadronmemory.com:specs:cor:agt:050:14). While set, no stall window applies to the task; one stall.finish-by alarm is raised once it passes with the task neither finished nor cancelled.
   """
   finishBy: DateTime
@@ -669,6 +674,32 @@ type AgentTaskFinding {
   id: String!
   severity: AgentTaskFindingSeverity!
   text: String!
+}
+
+"""
+#2663: latest disposition, separate from immutable findings. Every code, including deferred, resolves the finding.
+"""
+type AgentTaskFindingDisposition {
+  disposition: AgentTaskFindingDispositionCode!
+  findingId: String!
+  reference: AgentTaskReference
+}
+
+"""
+#2663: every code resolves the finding, including deferred (hrn:node:hadronmemory.com:specs:cor:agt:050:30).
+"""
+enum AgentTaskFindingDispositionCode {
+  accepted
+  deferred
+  fixed
+  rejected
+}
+
+"""#2663: current dispositions, ordered by finding order, capped pages."""
+type AgentTaskFindingDispositionPage {
+  hasMore: Boolean!
+  items: [AgentTaskFindingDisposition!]!
+  total: Int!
 }
 
 """
@@ -2567,6 +2598,11 @@ enum AutomationAdoptionState {
 type AutomationApproval {
   depth: JSON!
   hash: String!
+
+  """
+  #2883: the live read grants this automation holds (memory and loc prefix), so the adopter approves what it may read. memoryUrn is null when the adopter cannot read that memory.
+  """
+  readGrants: [AutomationReadGrant!]!
   state: AutomationAdoptionState!
   summary: AutomationSummary!
 }
@@ -2598,6 +2634,32 @@ type AutomationFlowSummary {
   tools: [String!]!
   urn: String!
   writes: [String!]!
+}
+
+"""
+#2883: an automation's READ grant on one memory (the whole memory, or one loc prefix), held on the trigger row (a schedule or webhook) a run executes. Read-only: consulted only by the run's own node read, live at each read, never for writes, listing or search, and only for the memory's own run. It carries over an edit and a re-adoption and ends on revoke or when the trigger is deleted. Runs the trigger starts carry it; a manual run does not. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+"""
+type AutomationReadGrant {
+  appId: ID!
+  createdAt: DateTime!
+
+  """The person who gave it."""
+  grantedBy: String!
+  id: ID!
+  memoryUrn: String
+
+  """
+  The loc prefix (the loc itself and its colon-boundary descendants), or null for the whole memory.
+  """
+  prefix: String
+  revokedAt: DateTime
+  revokedBy: String
+
+  """The AgentSchedule or AgentWebhook id."""
+  triggerId: ID!
+
+  """SCHEDULE or WEBHOOK."""
+  triggerKind: String!
 }
 
 """
@@ -8401,6 +8463,11 @@ type Mutation {
   deleteWorker(confirmNoExternalAttribution: Boolean, workerRef: ID!): Boolean!
 
   """
+  #2663: finished tasks only, their assigners only; never an App key or impersonation. Records a new disposition value, never clears it; omitted/null reference means no reference on the new value. Unknown finding TASK_FINDING_NOT_FOUND; open task TASK_NOT_FINISHED; non-assigner TASK_NOT_OWNER; unreadable task TASK_NOT_FOUND; result unchanged (hrn:node:hadronmemory.com:specs:cor:agt:050:30).
+  """
+  disposeAgentTaskFinding(disposition: AgentTaskFindingDispositionCode!, findingId: String!, reference: AgentTaskReferenceInput, taskRef: ID!): AgentTask!
+
+  """
   #1606 — the author edits a comment's body and/or quote. COMMENT_NOT_AUTHOR otherwise.
   """
   editComment(body: String, commentRef: ID!, expectedRevision: Int!, quote: String): Comment!
@@ -9479,6 +9546,11 @@ type Mutation {
   """
   revokeAppMemoryWriteGrant(id: ID!): AppMemoryWriteGrant!
 
+  """
+  #2883: end an automation read grant. The App's managers or the target's manager. Terminal.
+  """
+  revokeAutomationReadGrant(id: ID!): AutomationReadGrant!
+
   """Revoke a connection grant you created (soft delete). Owner-only."""
   revokeConnectionGrant(ref: ID!): Boolean!
 
@@ -9680,6 +9752,11 @@ type Mutation {
   nothing. Returns the asset.
   """
   setAssetPublicLink(assetRef: ID!, enabled: Boolean!): Asset!
+
+  """
+  #2883: give an automation (a live schedule or webhook of the App) a read grant on one memory or loc prefix. Given by whoever manages the target: the Agent for its system memory, the memory's manager otherwise. A refusal is the same Forbidden as an unknown App, trigger or memory.
+  """
+  setAutomationReadGrant(appRef: String!, memoryRef: String!, prefix: String, triggerId: ID!, triggerKind: String!): AutomationReadGrant!
 
   """
   #772 — replace the caller's entire dashboard widget selection. Grid position
@@ -12237,6 +12314,11 @@ type Query {
     Case-insensitive substring of the title or description, 1 to 200 characters after trimming (else BAD_USER_INPUT). Percent, underscore and backslash match literally. ANDed with every other filter.
     """
     text: String
+
+    """
+    #2663: true narrows to finished tasks with at least one undisposed finding; false/omitted do not narrow. Existing App read scope, before paging (hrn:node:hadronmemory.com:specs:cor:agt:050:30).
+    """
+    unresolvedFindings: Boolean
   ): [AgentTask!]!
 
   """
@@ -12510,6 +12592,11 @@ type Query {
   """
   automationApprovals(after: String, appRef: String!, limit: Int = 20): AutomationApprovalPage!
 
+  """
+  #2883: automation read grants. Give an App (its managers see its grants) and/or a memory (that memory's manager, or an Agent's manager for its system memory, sees the grants on it); a reader sees only the rows they manage the App or the target of.
+  """
+  automationReadGrants(appRef: String, includeRevoked: Boolean = false, memoryRef: String): [AutomationReadGrant!]!
+
   """One event by id. Grant scope: calendar.read."""
   calendarEvent(calendarId: String, connectionRef: ID!, eventId: ID!): CalendarEvent!
 
@@ -12716,6 +12803,18 @@ type Query {
   The caller's own connection grants; connectionRef narrows to one connection.
   """
   connectionGrants(connectionRef: String, limit: Int, offset: Int): ConnectionGrantsPage!
+
+  """
+  #3273 (hrn:node:hadronmemory.com:specs:cor:agt:050:27, hrn:node:hadronmemory.com:specs:cor:agt:070:04):
+  the current state of one context reset whose operation this App key's host collected, ended resets included.
+  The host-key gate runs first, as for the protocol steps: HOST_KEY_REQUIRED (not an App key), APP_NOT_FOUND
+  (not the key's live App), APP_KEY_SCOPE_REQUIRED (no live host scope), APP_KEY_SESSION_BOUND (session carried).
+  Then CONTEXT_RESET_NOT_FOUND for malformed/unknown reset id, another App/host, or a missing operation, all
+  with identical message and extensions and no echoed id; then HOST_OPERATION_NOT_COLLECTED when collectedAt is null,
+  even if settlement already failed the operation. A collected operation's failed/ended reset stays readable.
+  Changes no reset, event, availability or alarm. Each host-key read/refusal is recorded (hrn:node:hadronmemory.com:specs:cor:agt:070:07).
+  """
+  contextReset(appRef: String!, resetId: ID!): ContextReset!
 
   """
   One org's credit balance - SUM over the append-only ledger (spec 046). Org-ADMIN.

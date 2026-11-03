@@ -25077,9 +25077,177 @@ var AllContentValidator = []ContentValidator{
 	ContentValidatorPlatform,
 }
 
+// ContextResetContextReset includes the requested fields of the GraphQL type ContextReset.
+// The GraphQL type's documentation follows.
+//
+// #2162 — a worker's context reset (hrn:node:hadronmemory.com:specs:cor:agt:050:27): a shed, never a session end. One per
+// task at most. phase is requested, claimed, checkpointed, stop-granted, agent-stopped, relaunched, done, refused or
+// failed; reason names why a reset was refused or failed, from a closed set. epoch moves at the claim and at every
+// cancellation: a host step naming another is STALE_EPOCH.
+type ContextResetContextReset struct {
+	ContextResetFields `json:"-"`
+}
+
+// GetId returns ContextResetContextReset.Id, and is useful for accessing the field via an interface.
+func (v *ContextResetContextReset) GetId() string { return v.ContextResetFields.Id }
+
+// GetEpoch returns ContextResetContextReset.Epoch, and is useful for accessing the field via an interface.
+func (v *ContextResetContextReset) GetEpoch() int { return v.ContextResetFields.Epoch }
+
+// GetPhase returns ContextResetContextReset.Phase, and is useful for accessing the field via an interface.
+func (v *ContextResetContextReset) GetPhase() string { return v.ContextResetFields.Phase }
+
+// GetReason returns ContextResetContextReset.Reason, and is useful for accessing the field via an interface.
+func (v *ContextResetContextReset) GetReason() *string { return v.ContextResetFields.Reason }
+
+// GetWorkerId returns ContextResetContextReset.WorkerId, and is useful for accessing the field via an interface.
+func (v *ContextResetContextReset) GetWorkerId() string { return v.ContextResetFields.WorkerId }
+
+// GetSessionId returns ContextResetContextReset.SessionId, and is useful for accessing the field via an interface.
+func (v *ContextResetContextReset) GetSessionId() string { return v.ContextResetFields.SessionId }
+
+// GetTaskId returns ContextResetContextReset.TaskId, and is useful for accessing the field via an interface.
+func (v *ContextResetContextReset) GetTaskId() string { return v.ContextResetFields.TaskId }
+
+// GetStopGrantedAt returns ContextResetContextReset.StopGrantedAt, and is useful for accessing the field via an interface.
+func (v *ContextResetContextReset) GetStopGrantedAt() *string {
+	return v.ContextResetFields.StopGrantedAt
+}
+
+// GetStopLeaseMs returns ContextResetContextReset.StopLeaseMs, and is useful for accessing the field via an interface.
+func (v *ContextResetContextReset) GetStopLeaseMs() *int { return v.ContextResetFields.StopLeaseMs }
+
+func (v *ContextResetContextReset) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ContextResetContextReset
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ContextResetContextReset = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ContextResetFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalContextResetContextReset struct {
+	Id string `json:"id"`
+
+	Epoch int `json:"epoch"`
+
+	Phase string `json:"phase"`
+
+	Reason *string `json:"reason"`
+
+	WorkerId string `json:"workerId"`
+
+	SessionId string `json:"sessionId"`
+
+	TaskId string `json:"taskId"`
+
+	StopGrantedAt *string `json:"stopGrantedAt"`
+
+	StopLeaseMs *int `json:"stopLeaseMs"`
+}
+
+func (v *ContextResetContextReset) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ContextResetContextReset) __premarshalJSON() (*__premarshalContextResetContextReset, error) {
+	var retval __premarshalContextResetContextReset
+
+	retval.Id = v.ContextResetFields.Id
+	retval.Epoch = v.ContextResetFields.Epoch
+	retval.Phase = v.ContextResetFields.Phase
+	retval.Reason = v.ContextResetFields.Reason
+	retval.WorkerId = v.ContextResetFields.WorkerId
+	retval.SessionId = v.ContextResetFields.SessionId
+	retval.TaskId = v.ContextResetFields.TaskId
+	retval.StopGrantedAt = v.ContextResetFields.StopGrantedAt
+	retval.StopLeaseMs = v.ContextResetFields.StopLeaseMs
+	return &retval, nil
+}
+
 // #1043 — the worker.reset-context protocol (cor:agt:050:27), host key only.
 // Every step answers ContextResetStep; refused/replayed are read by the
 // handler, and a refusal ends the reset server-side.
+type ContextResetFields struct {
+	Id        string  `json:"id"`
+	Epoch     int     `json:"epoch"`
+	Phase     string  `json:"phase"`
+	Reason    *string `json:"reason"`
+	WorkerId  string  `json:"workerId"`
+	SessionId string  `json:"sessionId"`
+	TaskId    string  `json:"taskId"`
+	// When the single stop was granted; the host may act on it only within stopLeaseMs of its own send time.
+	StopGrantedAt *string `json:"stopGrantedAt"`
+	StopLeaseMs   *int    `json:"stopLeaseMs"`
+}
+
+// GetId returns ContextResetFields.Id, and is useful for accessing the field via an interface.
+func (v *ContextResetFields) GetId() string { return v.Id }
+
+// GetEpoch returns ContextResetFields.Epoch, and is useful for accessing the field via an interface.
+func (v *ContextResetFields) GetEpoch() int { return v.Epoch }
+
+// GetPhase returns ContextResetFields.Phase, and is useful for accessing the field via an interface.
+func (v *ContextResetFields) GetPhase() string { return v.Phase }
+
+// GetReason returns ContextResetFields.Reason, and is useful for accessing the field via an interface.
+func (v *ContextResetFields) GetReason() *string { return v.Reason }
+
+// GetWorkerId returns ContextResetFields.WorkerId, and is useful for accessing the field via an interface.
+func (v *ContextResetFields) GetWorkerId() string { return v.WorkerId }
+
+// GetSessionId returns ContextResetFields.SessionId, and is useful for accessing the field via an interface.
+func (v *ContextResetFields) GetSessionId() string { return v.SessionId }
+
+// GetTaskId returns ContextResetFields.TaskId, and is useful for accessing the field via an interface.
+func (v *ContextResetFields) GetTaskId() string { return v.TaskId }
+
+// GetStopGrantedAt returns ContextResetFields.StopGrantedAt, and is useful for accessing the field via an interface.
+func (v *ContextResetFields) GetStopGrantedAt() *string { return v.StopGrantedAt }
+
+// GetStopLeaseMs returns ContextResetFields.StopLeaseMs, and is useful for accessing the field via an interface.
+func (v *ContextResetFields) GetStopLeaseMs() *int { return v.StopLeaseMs }
+
+// ContextResetResponse is returned by ContextReset on success.
+type ContextResetResponse struct {
+	// #3273 (hrn:node:hadronmemory.com:specs:cor:agt:050:27, hrn:node:hadronmemory.com:specs:cor:agt:070:04):
+	// the current state of one context reset whose operation this App key's host collected, ended resets included.
+	// The host-key gate runs first, as for the protocol steps: HOST_KEY_REQUIRED (not an App key), APP_NOT_FOUND
+	// (not the key's live App), APP_KEY_SCOPE_REQUIRED (no live host scope), APP_KEY_SESSION_BOUND (session carried).
+	// Then CONTEXT_RESET_NOT_FOUND for malformed/unknown reset id, another App/host, or a missing operation, all
+	// with identical message and extensions and no echoed id; then HOST_OPERATION_NOT_COLLECTED when collectedAt is null,
+	// even if settlement already failed the operation. A collected operation's failed/ended reset stays readable.
+	// Changes no reset, event, availability or alarm. Each host-key read/refusal is recorded (hrn:node:hadronmemory.com:specs:cor:agt:070:07).
+	ContextReset *ContextResetContextReset `json:"contextReset"`
+}
+
+// GetContextReset returns ContextResetResponse.ContextReset, and is useful for accessing the field via an interface.
+func (v *ContextResetResponse) GetContextReset() *ContextResetContextReset { return v.ContextReset }
+
+// ContextResetStepFields includes the GraphQL fields of ContextResetStep requested by the fragment ContextResetStepFields.
+// The GraphQL type's documentation follows.
+//
+// #2162 — what a context reset step answered.
 type ContextResetStepFields struct {
 	// This step refused or failed the reset, and why; the reset has ended. Null when the step was accepted.
 	Refused *string `json:"refused"`
@@ -25105,44 +25273,117 @@ func (v *ContextResetStepFields) GetReset() *ContextResetStepFieldsResetContextR
 // failed; reason names why a reset was refused or failed, from a closed set. epoch moves at the claim and at every
 // cancellation: a host step naming another is STALE_EPOCH.
 type ContextResetStepFieldsResetContextReset struct {
-	Id        string  `json:"id"`
-	Epoch     int     `json:"epoch"`
-	Phase     string  `json:"phase"`
-	Reason    *string `json:"reason"`
-	WorkerId  string  `json:"workerId"`
-	SessionId string  `json:"sessionId"`
-	TaskId    string  `json:"taskId"`
-	// When the single stop was granted; the host may act on it only within stopLeaseMs of its own send time.
-	StopGrantedAt *string `json:"stopGrantedAt"`
-	StopLeaseMs   *int    `json:"stopLeaseMs"`
+	ContextResetFields `json:"-"`
 }
 
 // GetId returns ContextResetStepFieldsResetContextReset.Id, and is useful for accessing the field via an interface.
-func (v *ContextResetStepFieldsResetContextReset) GetId() string { return v.Id }
+func (v *ContextResetStepFieldsResetContextReset) GetId() string { return v.ContextResetFields.Id }
 
 // GetEpoch returns ContextResetStepFieldsResetContextReset.Epoch, and is useful for accessing the field via an interface.
-func (v *ContextResetStepFieldsResetContextReset) GetEpoch() int { return v.Epoch }
+func (v *ContextResetStepFieldsResetContextReset) GetEpoch() int { return v.ContextResetFields.Epoch }
 
 // GetPhase returns ContextResetStepFieldsResetContextReset.Phase, and is useful for accessing the field via an interface.
-func (v *ContextResetStepFieldsResetContextReset) GetPhase() string { return v.Phase }
+func (v *ContextResetStepFieldsResetContextReset) GetPhase() string {
+	return v.ContextResetFields.Phase
+}
 
 // GetReason returns ContextResetStepFieldsResetContextReset.Reason, and is useful for accessing the field via an interface.
-func (v *ContextResetStepFieldsResetContextReset) GetReason() *string { return v.Reason }
+func (v *ContextResetStepFieldsResetContextReset) GetReason() *string {
+	return v.ContextResetFields.Reason
+}
 
 // GetWorkerId returns ContextResetStepFieldsResetContextReset.WorkerId, and is useful for accessing the field via an interface.
-func (v *ContextResetStepFieldsResetContextReset) GetWorkerId() string { return v.WorkerId }
+func (v *ContextResetStepFieldsResetContextReset) GetWorkerId() string {
+	return v.ContextResetFields.WorkerId
+}
 
 // GetSessionId returns ContextResetStepFieldsResetContextReset.SessionId, and is useful for accessing the field via an interface.
-func (v *ContextResetStepFieldsResetContextReset) GetSessionId() string { return v.SessionId }
+func (v *ContextResetStepFieldsResetContextReset) GetSessionId() string {
+	return v.ContextResetFields.SessionId
+}
 
 // GetTaskId returns ContextResetStepFieldsResetContextReset.TaskId, and is useful for accessing the field via an interface.
-func (v *ContextResetStepFieldsResetContextReset) GetTaskId() string { return v.TaskId }
+func (v *ContextResetStepFieldsResetContextReset) GetTaskId() string {
+	return v.ContextResetFields.TaskId
+}
 
 // GetStopGrantedAt returns ContextResetStepFieldsResetContextReset.StopGrantedAt, and is useful for accessing the field via an interface.
-func (v *ContextResetStepFieldsResetContextReset) GetStopGrantedAt() *string { return v.StopGrantedAt }
+func (v *ContextResetStepFieldsResetContextReset) GetStopGrantedAt() *string {
+	return v.ContextResetFields.StopGrantedAt
+}
 
 // GetStopLeaseMs returns ContextResetStepFieldsResetContextReset.StopLeaseMs, and is useful for accessing the field via an interface.
-func (v *ContextResetStepFieldsResetContextReset) GetStopLeaseMs() *int { return v.StopLeaseMs }
+func (v *ContextResetStepFieldsResetContextReset) GetStopLeaseMs() *int {
+	return v.ContextResetFields.StopLeaseMs
+}
+
+func (v *ContextResetStepFieldsResetContextReset) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ContextResetStepFieldsResetContextReset
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ContextResetStepFieldsResetContextReset = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ContextResetFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalContextResetStepFieldsResetContextReset struct {
+	Id string `json:"id"`
+
+	Epoch int `json:"epoch"`
+
+	Phase string `json:"phase"`
+
+	Reason *string `json:"reason"`
+
+	WorkerId string `json:"workerId"`
+
+	SessionId string `json:"sessionId"`
+
+	TaskId string `json:"taskId"`
+
+	StopGrantedAt *string `json:"stopGrantedAt"`
+
+	StopLeaseMs *int `json:"stopLeaseMs"`
+}
+
+func (v *ContextResetStepFieldsResetContextReset) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ContextResetStepFieldsResetContextReset) __premarshalJSON() (*__premarshalContextResetStepFieldsResetContextReset, error) {
+	var retval __premarshalContextResetStepFieldsResetContextReset
+
+	retval.Id = v.ContextResetFields.Id
+	retval.Epoch = v.ContextResetFields.Epoch
+	retval.Phase = v.ContextResetFields.Phase
+	retval.Reason = v.ContextResetFields.Reason
+	retval.WorkerId = v.ContextResetFields.WorkerId
+	retval.SessionId = v.ContextResetFields.SessionId
+	retval.TaskId = v.ContextResetFields.TaskId
+	retval.StopGrantedAt = v.ContextResetFields.StopGrantedAt
+	retval.StopLeaseMs = v.ContextResetFields.StopLeaseMs
+	return &retval, nil
+}
 
 // #2162 — a context reset step: the reset and the epoch the host holds (0 until claimed).
 type ContextResetStepInput struct {
@@ -92002,6 +92243,18 @@ func (v *__ConnectionGrantsInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __ConnectionGrantsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__ConnectionGrantsInput) GetOffset() *int { return v.Offset }
 
+// __ContextResetInput is used internally by genqlient
+type __ContextResetInput struct {
+	AppRef  string `json:"appRef"`
+	ResetId string `json:"resetId"`
+}
+
+// GetAppRef returns __ContextResetInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__ContextResetInput) GetAppRef() string { return v.AppRef }
+
+// GetResetId returns __ContextResetInput.ResetId, and is useful for accessing the field via an interface.
+func (v *__ContextResetInput) GetResetId() string { return v.ResetId }
+
 // __CreateAgentInput is used internally by genqlient
 type __CreateAgentInput struct {
 	Name           string           `json:"name"`
@@ -103921,16 +104174,19 @@ fragment ContextResetStepFields on ContextResetStep {
 	refused
 	replayed
 	reset {
-		id
-		epoch
-		phase
-		reason
-		workerId
-		sessionId
-		taskId
-		stopGrantedAt
-		stopLeaseMs
+		... ContextResetFields
 	}
+}
+fragment ContextResetFields on ContextReset {
+	id
+	epoch
+	phase
+	reason
+	workerId
+	sessionId
+	taskId
+	stopGrantedAt
+	stopLeaseMs
 }
 `
 
@@ -105697,16 +105953,19 @@ fragment ContextResetStepFields on ContextResetStep {
 	refused
 	replayed
 	reset {
-		id
-		epoch
-		phase
-		reason
-		workerId
-		sessionId
-		taskId
-		stopGrantedAt
-		stopLeaseMs
+		... ContextResetFields
 	}
+}
+fragment ContextResetFields on ContextReset {
+	id
+	epoch
+	phase
+	reason
+	workerId
+	sessionId
+	taskId
+	stopGrantedAt
+	stopLeaseMs
 }
 `
 
@@ -106923,6 +107182,55 @@ func ConnectionGrants(
 	}
 
 	data_ = &ConnectionGrantsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by ContextReset.
+const ContextReset_Operation = `
+query ContextReset ($appRef: String!, $resetId: ID!) {
+	contextReset(appRef: $appRef, resetId: $resetId) {
+		... ContextResetFields
+	}
+}
+fragment ContextResetFields on ContextReset {
+	id
+	epoch
+	phase
+	reason
+	workerId
+	sessionId
+	taskId
+	stopGrantedAt
+	stopLeaseMs
+}
+`
+
+// #3273: a host-key read of one reset this host collected (ended ones too),
+// for restart recovery. Changes nothing server-side.
+func ContextReset(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	resetId string,
+) (data_ *ContextResetResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ContextReset",
+		Query:  ContextReset_Operation,
+		Variables: &__ContextResetInput{
+			AppRef:  appRef,
+			ResetId: resetId,
+		},
+	}
+
+	data_ = &ContextResetResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -119554,16 +119862,19 @@ fragment ContextResetStepFields on ContextResetStep {
 	refused
 	replayed
 	reset {
-		id
-		epoch
-		phase
-		reason
-		workerId
-		sessionId
-		taskId
-		stopGrantedAt
-		stopLeaseMs
+		... ContextResetFields
 	}
+}
+fragment ContextResetFields on ContextReset {
+	id
+	epoch
+	phase
+	reason
+	workerId
+	sessionId
+	taskId
+	stopGrantedAt
+	stopLeaseMs
 }
 `
 
@@ -120303,16 +120614,19 @@ fragment ContextResetStepFields on ContextResetStep {
 	refused
 	replayed
 	reset {
-		id
-		epoch
-		phase
-		reason
-		workerId
-		sessionId
-		taskId
-		stopGrantedAt
-		stopLeaseMs
+		... ContextResetFields
 	}
+}
+fragment ContextResetFields on ContextReset {
+	id
+	epoch
+	phase
+	reason
+	workerId
+	sessionId
+	taskId
+	stopGrantedAt
+	stopLeaseMs
 }
 `
 
@@ -120353,16 +120667,19 @@ fragment ContextResetStepFields on ContextResetStep {
 	refused
 	replayed
 	reset {
-		id
-		epoch
-		phase
-		reason
-		workerId
-		sessionId
-		taskId
-		stopGrantedAt
-		stopLeaseMs
+		... ContextResetFields
 	}
+}
+fragment ContextResetFields on ContextReset {
+	id
+	epoch
+	phase
+	reason
+	workerId
+	sessionId
+	taskId
+	stopGrantedAt
+	stopLeaseMs
 }
 `
 
@@ -120402,16 +120719,19 @@ fragment ContextResetStepFields on ContextResetStep {
 	refused
 	replayed
 	reset {
-		id
-		epoch
-		phase
-		reason
-		workerId
-		sessionId
-		taskId
-		stopGrantedAt
-		stopLeaseMs
+		... ContextResetFields
 	}
+}
+fragment ContextResetFields on ContextReset {
+	id
+	epoch
+	phase
+	reason
+	workerId
+	sessionId
+	taskId
+	stopGrantedAt
+	stopLeaseMs
 }
 `
 
