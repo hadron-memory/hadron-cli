@@ -424,6 +424,12 @@ func renderError(f *cmdutil.Factory, err error) int {
 		if errors.As(err, &coded) {
 			failure["serverCode"] = coded.ServerCode()
 		}
+		// cli#1565: a refused batch create names the failing task's 1-based
+		// position; absent for every other refusal.
+		var batch interface{ BatchPosition() int }
+		if errors.As(err, &batch) {
+			failure["position"] = batch.BatchPosition()
+		}
 		details := api.CommentRecoveryDetails(err)
 		if details == nil {
 			details = api.WorkerReportingDetails(err)

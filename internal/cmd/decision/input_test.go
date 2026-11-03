@@ -6,6 +6,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -15,7 +16,7 @@ import (
 // its own message, are left to it.
 func TestScanErrorFailsClosed(t *testing.T) {
 	for name, err := range map[string]error{
-		"key error":   keyError(`duplicate key "title" at /title`),
+		"key error":   cmdutil.KeyError(`duplicate key "title" at /title`),
 		"type error":  &json.UnmarshalTypeError{Value: "number 1e999"},
 		"other error": errors.New("boom"),
 	} {
