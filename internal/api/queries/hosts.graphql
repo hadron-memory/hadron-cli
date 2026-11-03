@@ -208,7 +208,13 @@ mutation ClaimContextReset($input: ClaimContextResetInput!) {
   }
 }
 
-mutation RegisterContextResetRecovery($input: RegisterContextResetRecoveryInput!) {
+# #3276 / ruling 0090 A: the host writes the checkpoint through this step (checkpoint),
+# never names one (checkpointNode). Exactly one is allowed: checkpointNode is
+# omitted, not sent as null, when unset (checkpoint already is).
+# @genqlient(for: "RegisterContextResetRecoveryInput.checkpointNode", omitempty: true)
+mutation RegisterContextResetRecovery(
+  $input: RegisterContextResetRecoveryInput!
+) {
   registerContextResetRecovery(input: $input) {
     ...ContextResetStepFields
   }

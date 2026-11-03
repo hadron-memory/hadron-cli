@@ -703,7 +703,9 @@ func (v *AddMemoryToAgentAddMemoryToAgent) __premarshalJSON() (*__premarshalAddM
 
 // AddMemoryToAgentResponse is returned by AddMemoryToAgent on success.
 type AddMemoryToAgentResponse struct {
-	// Attach a Memory to an Agent.
+	// Attach a Memory to an Agent. #3253 (hrn:node:hadronmemory.com:specs:cor:dmo:050:09): a live subscription
+	// of the Agent's org admits a cross-tenant link up to its level (READER read, CONTRIBUTOR read-write).
+	// The caller must hold that capability. Activation and license add no check beyond the memory read gate.
 	//
 	// Accepts the entity's ID or URN.
 	AddMemoryToAgent *AddMemoryToAgentAddMemoryToAgent `json:"addMemoryToAgent"`
@@ -2755,7 +2757,10 @@ type AgentTaskCreateResponse struct {
 	// { path (the mutation's response key), code, text, register? }. Codes are a
 	// closed list per release (task.create.no-source, task.assign.assignee-unavailable,
 	// task.assign.assignee-busy, task.assign.assignee-paused,
-	// task.finish.open-children, and from #2607 task.cancel.open-children on
+	// task.finish.open-children, from #3267 task.start.other-started,
+	// task.start.parent-ended (both on startAgentTask) and task.progress.children-ended
+	// (on recordAgentTaskProgress; other-started and children-ended, like the three assign
+	// facts, are filed only to a caller who may read the App's worker state), and from #2607 task.cancel.open-children on
 	// cancelAgentTask, alarm.ack.outside-chain on acknowledgeAlarm, and #2733 ticker.code.unmapped on createTicker);
 	// a client must tolerate unknown codes. `text` is
 	// fixed per code. `register` appears only for a caller that has an Agent:
@@ -6623,7 +6628,8 @@ func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) __premarshalJSON() (
 // AgentTaskProgressResponse is returned by AgentTaskProgress on success.
 type AgentTaskProgressResponse struct {
 	// #1705 — record progress on a started task: its assignee only
-	// (hrn:node:hadronmemory.com:specs:cor:agt:050:08). Carries no text. Refusals as startAgentTask.
+	// (hrn:node:hadronmemory.com:specs:cor:agt:050:08). Carries no text. #3267: may succeed with a
+	// warning, as startAgentTask does. Refusals as startAgentTask.
 	RecordAgentTaskProgress *AgentTaskProgressRecordAgentTaskProgressAgentTask `json:"recordAgentTaskProgress"`
 }
 
@@ -6950,7 +6956,7 @@ func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) __premarshalJSON() (*__prema
 type AgentTaskReadyResponse struct {
 	// #1754 — make a backlog task ready to be worked
 	// (hrn:node:hadronmemory.com:specs:cor:agt:050:02): BACKLOG becomes PENDING and the task enters
-	// the queue. Whoever may assign a task may make it ready: its owner, a worker
+	// the queue. Clears any match failure and held-back match reservation; regular matching resumes, without a second match-now attempt. Whoever may assign a task may make it ready: its owner, a worker
 	// the owner reports to, directly or up the reportsTo chain, or whoever manages the App
 	// (hrn:node:hadronmemory.com:specs:cor:agt:050:09). Refusals: TASK_NOT_FOUND, TASK_NOT_OWNER,
 	// TASK_ENDED, TASK_INVALID_TRANSITION (not backlog), SESSION_NOT_BOUND, APP_UNINSTALLED.
@@ -7682,6 +7688,10 @@ type AgentTaskRequirementsInput struct {
 	// Model groups of the App (hrn:node:hadronmemory.com:specs:cor:agt:060:12) the assignee's model must be in none of. A name no group of the App carries is refused. A worker with no model is in no group, so it passes.
 	ModelGroupNotIn []string `json:"modelGroupNotIn,omitempty"`
 	Role            *string  `json:"role"`
+	// Any one listed role suffices. Empty sets are refused. Give role or roles, not both.
+	Roles []string `json:"roles"`
+	// Lead worker (id, URN or name) of this App. Pool: lead, descendants and workers reporting to nobody.
+	Team *string `json:"team"`
 }
 
 // GetExcludeWorkers returns AgentTaskRequirementsInput.ExcludeWorkers, and is useful for accessing the field via an interface.
@@ -7704,6 +7714,12 @@ func (v *AgentTaskRequirementsInput) GetModelGroupNotIn() []string { return v.Mo
 
 // GetRole returns AgentTaskRequirementsInput.Role, and is useful for accessing the field via an interface.
 func (v *AgentTaskRequirementsInput) GetRole() *string { return v.Role }
+
+// GetRoles returns AgentTaskRequirementsInput.Roles, and is useful for accessing the field via an interface.
+func (v *AgentTaskRequirementsInput) GetRoles() []string { return v.Roles }
+
+// GetTeam returns AgentTaskRequirementsInput.Team, and is useful for accessing the field via an interface.
+func (v *AgentTaskRequirementsInput) GetTeam() *string { return v.Team }
 
 type AgentTaskResultInput struct {
 	Evidence *string `json:"evidence"`
@@ -8120,6 +8136,7 @@ func (v *AgentTaskStallScheduleFields) GetUpdatedAt() *string { return v.Updated
 // AgentTaskStartResponse is returned by AgentTaskStart on success.
 type AgentTaskStartResponse struct {
 	// #1705 — start a pending task: its assignee only (hrn:node:hadronmemory.com:specs:cor:agt:050:08).
+	// #3267: may succeed with warnings, in extensions.warnings (see the experiment note on createAgentTask).
 	// Refusals: TASK_NOT_FOUND, TASK_NOT_ASSIGNEE, TASK_ENDED,
 	// TASK_INVALID_TRANSITION, SESSION_NOT_BOUND, APP_UNINSTALLED.
 	StartAgentTask *AgentTaskStartStartAgentTask `json:"startAgentTask"`
@@ -12916,7 +12933,7 @@ func (v *AppKeysScopesHostUsesAppKeysAppKey) GetHostUses() []*AppKeysScopesHostU
 // #1709 — one use of a host key (hrn:node:hadronmemory.com:specs:cor:agt:070:07).
 type AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse struct {
 	HostId string `json:"hostId"`
-	// register, collect, report, availability, read, (#1969) session: a refused session write (updateSession, endSession), or (#1981) issue: a refused issueHostOperation.
+	// register, collect, report, availability, read, (#1969) session: a refused session write (updateSession, endSession), or (#1981) issue: a refused issueHostOperation; checkpoint: registerContextResetRecovery with checkpoint input (including replay/refusal).
 	Action string `json:"action"`
 	// How many operations a collection returned, or workers a registration listed.
 	Count *int `json:"count"`
@@ -25077,6 +25094,19 @@ var AllContentValidator = []ContentValidator{
 	ContentValidatorPlatform,
 }
 
+type ContextResetCheckpointInput struct {
+	// At most 65536 UTF-8 bytes (CHECKPOINT_CONTENT_MAX_BYTES); bounds refused RECOVERY_REF_INVALID after reset admission.
+	Content string `json:"content"`
+	// Nonblank after trim; at most 200 Unicode characters (CHECKPOINT_TITLE_MAX_CHARS); stored verbatim.
+	Title string `json:"title"`
+}
+
+// GetContent returns ContextResetCheckpointInput.Content, and is useful for accessing the field via an interface.
+func (v *ContextResetCheckpointInput) GetContent() string { return v.Content }
+
+// GetTitle returns ContextResetCheckpointInput.Title, and is useful for accessing the field via an interface.
+func (v *ContextResetCheckpointInput) GetTitle() string { return v.Title }
+
 // ContextResetContextReset includes the requested fields of the GraphQL type ContextReset.
 // The GraphQL type's documentation follows.
 //
@@ -25932,6 +25962,8 @@ type CreateAgentTaskInput struct {
 	ExternalId *string `json:"externalId,omitempty"`
 	// #2648 (hrn:node:hadronmemory.com:specs:cor:agt:050:14): an optional finish-by deadline; refused BAD_USER_INPUT if in the past or earlier than startBy. While set, the task raises no stall-window alarm, only stall.finish-by once it passes unfinished.
 	FinishBy *string `json:"finishBy,omitempty"`
+	// Run one blocking match. Failure is marked and skipped by automatic runs. Assignment, cancellation, or park then ready clears it. Only for pending, unblocked tasks without an assignee; a blocked create refuses BAD_USER_INPUT atomically. Batch items run requested attempts in list order after the whole commit; a blocked match item refuses the whole call before commit, with its position. No distinct-workers guarantee.
+	Match *bool `json:"match"`
 	// Defaults to the creator. A root task's creator may name any other
 	// participating worker or person as owner (#1757, hrn:node:hadronmemory.com:specs:cor:agt:050:01);
 	// a ref outside the App's participants is TASK_OWNER_INVALID. Never for a
@@ -25979,6 +26011,9 @@ func (v *CreateAgentTaskInput) GetExternalId() *string { return v.ExternalId }
 
 // GetFinishBy returns CreateAgentTaskInput.FinishBy, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetFinishBy() *string { return v.FinishBy }
+
+// GetMatch returns CreateAgentTaskInput.Match, and is useful for accessing the field via an interface.
+func (v *CreateAgentTaskInput) GetMatch() *bool { return v.Match }
 
 // GetOwner returns CreateAgentTaskInput.Owner, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetOwner() *AgentTaskPartyInput { return v.Owner }
@@ -27001,7 +27036,7 @@ func (v *CreateAppKeyCreateAppKeyAppKeyCreatedKeyAppKey) GetLabel() *string { re
 type CreateAppKeyResponse struct {
 	// Mint a new AppKey for an App. Only whoever manages the App, as themselves
 	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:05; hrn:node:hadronmemory.com:specs:cor:acl:010:01).
-	// Never an App key, a bound worker session or an impersonated request; new keys hold no scopes.
+	// Person-only (hrn:node:hadronmemory.com:specs:cor:dmo:050:12, #3277): never a worker session in any shape, a run principal, an impersonation or an App key, even when the worker's holder manages the App. New keys hold no scopes.
 	// Granting or revoking scopes uses the same manager audience.
 	//
 	// Accepts the entity's ID or URN.
@@ -43751,7 +43786,8 @@ func (v *GrantAppKeyScopeGrantAppKeyScopeAppKey) __premarshalJSON() (*__premarsh
 // GrantAppKeyScopeResponse is returned by GrantAppKeyScope on success.
 type GrantAppKeyScopeResponse struct {
 	// #1749 — give an App key a scope (hrn:node:hadronmemory.com:specs:cor:aut:010:04). Only whoever manages the App, as
-	// themselves: never an App key, a worker's session or an impersonation. Granting a scope the key holds changes nothing.
+	// themselves: never an App key, a worker's session or an impersonation (person-only: giving a grant,
+	// hrn:node:hadronmemory.com:specs:cor:dmo:050:12, #3277). Granting a scope the key holds changes nothing.
 	// A new key, and a rotated one, holds none. Unknown scope: BAD_USER_INPUT.
 	// #1709: host:operate is granted for ONE host, named by hostId (hrn:node:hadronmemory.com:specs:cor:agt:070:04), and
 	// hostId is refused for any other scope. A key already operating as another host is refused
@@ -58698,7 +58734,7 @@ type RegenerateAppKeyResponse struct {
 	// App key management — revoke all active keys for an App and mint a
 	// fresh one. Only whoever manages the App, as themselves
 	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:05; hrn:node:hadronmemory.com:specs:cor:acl:010:01).
-	// Never an App key, a bound worker session or an impersonated request. The replacement key holds no scopes.
+	// Person-only (hrn:node:hadronmemory.com:specs:cor:dmo:050:12, #3277): never a worker session in any shape, a run principal, an impersonation or an App key, even when the worker's holder manages the App. The replacement key holds no scopes.
 	//
 	// Accepts the entity's ID or URN.
 	RegenerateAppKey *RegenerateAppKeyRegenerateAppKeyAppCreated `json:"regenerateAppKey"`
@@ -58711,10 +58747,12 @@ func (v *RegenerateAppKeyResponse) GetRegenerateAppKey() *RegenerateAppKeyRegene
 
 type RegisterContextResetRecoveryInput struct {
 	AppRef string `json:"appRef"`
+	// #3276: atomically write one plain checkpoint in the reset worker working memory; exactly one of checkpointNode/checkpoint.
+	Checkpoint *ContextResetCheckpointInput `json:"checkpoint,omitempty"`
 	// The checkpoint node the host wrote: its id or full URN, in the worker's own working memory.
-	CheckpointNode string `json:"checkpointNode"`
-	Epoch          int    `json:"epoch"`
-	ResetId        string `json:"resetId"`
+	CheckpointNode *string `json:"checkpointNode,omitempty"`
+	Epoch          int     `json:"epoch"`
+	ResetId        string  `json:"resetId"`
 	// The reset's own session and task.
 	SessionId string `json:"sessionId"`
 	TaskId    string `json:"taskId"`
@@ -58723,8 +58761,13 @@ type RegisterContextResetRecoveryInput struct {
 // GetAppRef returns RegisterContextResetRecoveryInput.AppRef, and is useful for accessing the field via an interface.
 func (v *RegisterContextResetRecoveryInput) GetAppRef() string { return v.AppRef }
 
+// GetCheckpoint returns RegisterContextResetRecoveryInput.Checkpoint, and is useful for accessing the field via an interface.
+func (v *RegisterContextResetRecoveryInput) GetCheckpoint() *ContextResetCheckpointInput {
+	return v.Checkpoint
+}
+
 // GetCheckpointNode returns RegisterContextResetRecoveryInput.CheckpointNode, and is useful for accessing the field via an interface.
-func (v *RegisterContextResetRecoveryInput) GetCheckpointNode() string { return v.CheckpointNode }
+func (v *RegisterContextResetRecoveryInput) GetCheckpointNode() *string { return v.CheckpointNode }
 
 // GetEpoch returns RegisterContextResetRecoveryInput.Epoch, and is useful for accessing the field via an interface.
 func (v *RegisterContextResetRecoveryInput) GetEpoch() int { return v.Epoch }
@@ -58813,7 +58856,13 @@ func (v *RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetSte
 
 // RegisterContextResetRecoveryResponse is returned by RegisterContextResetRecovery on success.
 type RegisterContextResetRecoveryResponse struct {
-	// #2162 — register the durable checkpoint before any process control. A wrong reference is RECOVERY_REF_INVALID and changes nothing.
+	// #3276 / ruling 0090 A, hrn:node:hadronmemory.com:specs:cor:agt:050:27 part 3 and
+	// hrn:node:hadronmemory.com:specs:cor:agt:070:04: register a live checkpointNode or atomically write checkpoint,
+	// exactly one. Host key only; generic node writes stay refused. Refusal order: CONTEXT_RESET_NOT_FOUND,
+	// HOST_OPERATION_NOT_COLLECTED, STALE_EPOCH, CONTEXT_RESET_WRONG_PHASE, CLAIM_LAPSED, RECOVERY_REF_INVALID,
+	// CHECKPOINT_MEMORY_ENCRYPTED, CHECKPOINT_LOC_TAKEN. Replay of registered non-ended phases returns the stored node
+	// without writing, even if checkpoint differs. DB UTC stamp: sheds:auto-YYYY-MM-DDTHHMMSSZ (seconds); occupied live
+	// or deleted address refuses with phase still claimed, no suffix/overwrite/parent/edge. Encrypted memory refused.
 	RegisterContextResetRecovery *RegisterContextResetRecoveryRegisterContextResetRecoveryContextResetStep `json:"registerContextResetRecovery"`
 }
 
@@ -67746,7 +67795,7 @@ func (v *SetAppAgentBootPromptSetAppAgentBootPromptAppAgentApp) GetName() string
 
 // SetAppMemoryWriteGrantResponse is returned by SetAppMemoryWriteGrant on success.
 type SetAppMemoryWriteGrantResponse struct {
-	// #2484: let an App's userless runs create or update a node in one memory under one loc prefix (required; no memory-wide grant). The caller is a person acting as themselves who manages the App and can write the memory. A shared memory must be one the App's own org or team space holds; a personal or private memory only by its owner, who must also manage the App; an encrypted memory is never grantable; nor is a system-class memory (#2710: an Agent's system memory, its boot-prompt source included, is written only by whoever manages the Agent, hrn:node:hadronmemory.com:specs:cor:agt:040:11), and a grant made on one before that rule authorizes no write. Granting the same prefix again returns the live grant. One content-free event is recorded. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+	// #2484: let an App's userless runs create or update a node in one memory under one loc prefix (required; no memory-wide grant). The caller is a person acting as themselves who manages the App and can write the memory (person-only, hrn:node:hadronmemory.com:specs:cor:dmo:050:12, #3277). A shared memory must be one the App's own org or team space holds; a personal or private memory only by its owner, who must also manage the App; an encrypted memory is never grantable; nor is a system-class memory (#2710: an Agent's system memory, its boot-prompt source included, is written only by whoever manages the Agent, hrn:node:hadronmemory.com:specs:cor:agt:040:11), and a grant made on one before that rule authorizes no write. Granting the same prefix again returns the live grant. One content-free event is recorded. hrn:node:hadronmemory.com:specs:cor:agt:010:01
 	SetAppMemoryWriteGrant *SetAppMemoryWriteGrantSetAppMemoryWriteGrant `json:"setAppMemoryWriteGrant"`
 }
 
@@ -79945,7 +79994,8 @@ func (v *UntrackedTaskItemsUntrackedTaskItemsUntrackedTaskItemPageItemsUntracked
 
 // UpdateAgentMemoryRoleResponse is returned by UpdateAgentMemoryRole on success.
 type UpdateAgentMemoryRoleResponse struct {
-	// Update an Agent's role on an attached Memory.
+	// Update an Agent's role on an attached Memory. #3253 (hrn:node:hadronmemory.com:specs:cor:dmo:050:09):
+	// the same subscription, caller-capability, class and PUBLIC-Agent gates apply as on addMemoryToAgent.
 	//
 	// Accepts the entity's ID or URN.
 	UpdateAgentMemoryRole *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent `json:"updateAgentMemoryRole"`
@@ -119878,6 +119928,9 @@ fragment ContextResetFields on ContextReset {
 }
 `
 
+// #3276 / ruling 0090 A: the host writes the checkpoint through this step (checkpoint),
+// never names one (checkpointNode). Exactly one is allowed: checkpointNode is
+// omitted, not sent as null, when unset (checkpoint already is).
 func RegisterContextResetRecovery(
 	ctx_ context.Context,
 	client_ graphql.Client,

@@ -591,6 +591,11 @@ type AgentTask {
   """
   handle: String!
   id: ID!
+
+  """
+  Null unless an opt-in single-shot match failed. No assignment-unassignable alarm is raised for it.
+  """
+  matchFailure: AgentTaskMatchFailure
   owner: AgentTaskParty!
 
   """Null for a root task."""
@@ -770,6 +775,14 @@ input AgentTaskHandBackInput {
 }
 
 """
+Single-shot failure (hrn:node:hadronmemory.com:specs:cor:agt:050:01): assigning clears it; cancellation clears it.
+"""
+type AgentTaskMatchFailure {
+  failedAt: DateTime!
+  reason: String!
+}
+
+"""
 #2421 experimental symptom search: membership in the hybrid ranking inputs.
 """
 enum AgentTaskMatchedBy {
@@ -892,6 +905,14 @@ type AgentTaskRequirements {
   """
   modelGroupNotIn: [String!]
   role: String
+
+  """
+  Any one listed role suffices; null retains the single-role requirement.
+  """
+  roles: [String!]
+
+  """Optional matching team lead; never an authorization grant."""
+  teamWorkerId: ID
 }
 
 input AgentTaskRequirementsInput {
@@ -919,6 +940,16 @@ input AgentTaskRequirementsInput {
   """
   modelGroupNotIn: [String!]
   role: String
+
+  """
+  Any one listed role suffices. Empty sets are refused. Give role or roles, not both.
+  """
+  roles: [String!]
+
+  """
+  Lead worker (id, URN or name) of this App. Pool: lead, descendants and workers reporting to nobody.
+  """
+  team: String
 }
 
 """
@@ -3621,6 +3652,18 @@ type ContextReset {
   workerId: ID!
 }
 
+input ContextResetCheckpointInput {
+  """
+  At most 65536 UTF-8 bytes (CHECKPOINT_CONTENT_MAX_BYTES); bounds refused RECOVERY_REF_INVALID after reset admission.
+  """
+  content: String!
+
+  """
+  Nonblank after trim; at most 200 Unicode characters (CHECKPOINT_TITLE_MAX_CHARS); stored verbatim.
+  """
+  title: String!
+}
+
 """#2162 — what a context reset step answered."""
 type ContextResetStep {
   """
@@ -3746,6 +3789,11 @@ input CreateAgentTaskInput {
   #2648 (hrn:node:hadronmemory.com:specs:cor:agt:050:14): an optional finish-by deadline; refused BAD_USER_INPUT if in the past or earlier than startBy. While set, the task raises no stall-window alarm, only stall.finish-by once it passes unfinished.
   """
   finishBy: DateTime
+
+  """
+  Run one blocking match. Failure is marked and skipped by automatic runs. Assignment, cancellation, or park then ready clears it. Only for pending, unblocked tasks without an assignee; a blocked create refuses BAD_USER_INPUT atomically. Batch items run requested attempts in list order after the whole commit; a blocked match item refuses the whole call before commit, with its position. No distinct-workers guarantee.
+  """
+  match: Boolean
 
   """
   Defaults to the creator. A root task's creator may name any other
@@ -5358,7 +5406,7 @@ type HomeAssistantOp {
 """
 type HostKeyUse {
   """
-  register, collect, report, availability, read, (#1969) session: a refused session write (updateSession, endSession), or (#1981) issue: a refused issueHostOperation.
+  register, collect, report, availability, read, (#1969) session: a refused session write (updateSession, endSession), or (#1981) issue: a refused issueHostOperation; checkpoint: registerContextResetRecovery with checkpoint input (including replay/refusal).
   """
   action: String!
 
@@ -6831,7 +6879,9 @@ type Mutation {
   ): AddMemoryMemberPayload!
 
   """
-  Attach a Memory to an Agent.
+  Attach a Memory to an Agent. #3253 (hrn:node:hadronmemory.com:specs:cor:dmo:050:09): a live subscription
+  of the Agent's org admits a cross-tenant link up to its level (READER read, CONTRIBUTOR read-write).
+  The caller must hold that capability. Activation and license add no check beyond the memory read gate.
   
   Accepts the entity's ID or URN.
   """
@@ -7403,7 +7453,10 @@ type Mutation {
   { path (the mutation's response key), code, text, register? }. Codes are a
   closed list per release (task.create.no-source, task.assign.assignee-unavailable,
   task.assign.assignee-busy, task.assign.assignee-paused,
-  task.finish.open-children, and from #2607 task.cancel.open-children on
+  task.finish.open-children, from #3267 task.start.other-started,
+  task.start.parent-ended (both on startAgentTask) and task.progress.children-ended
+  (on recordAgentTaskProgress; other-started and children-ended, like the three assign
+  facts, are filed only to a caller who may read the App's worker state), and from #2607 task.cancel.open-children on
   cancelAgentTask, alarm.ack.outside-chain on acknowledgeAlarm, and #2733 ticker.code.unmapped on createTicker);
   a client must tolerate unknown codes. `text` is
   fixed per code. `register` appears only for a caller that has an Agent:
@@ -7414,6 +7467,9 @@ type Mutation {
   createAgentTask(input: CreateAgentTaskInput!): AgentTask!
 
   """
+  Items with match:true each get one post-commit match attempt in list order; failure marks that task, not a call refusal.
+  A match item blocked after all links refuses the whole call as BAD_USER_INPUT with its position, before any commit or attempt.
+  This does not ask for different workers or all-or-none matching. With no match items the ordinary batch behavior is unchanged.
   #2653 (hrn:node:hadronmemory.com:specs:cor:agt:050:06, creating several at once; ruling 0011 A): create 1 to 25
   tasks in the App appRef, all or none, in one transaction. Each task is judged exactly as createAgentTask judges it
   alone (the same gates, owner rules, refusals and warnings); the first refusal refuses the whole call, creates and
@@ -7426,11 +7482,20 @@ type Mutation {
   in another App TASK_NOT_FOUND. blockedByPositions names other tasks of the call as blockers (a self-block or a
   cycle is TASK_BLOCKER_CYCLE, a position outside the list BAD_USER_INPUT), and needs the same assigner authority as
   blockedBy. Handles follow list order and a refused call spends none. Each task records the events a single create
-  records; matching and launches run only after the commit, and each task's warnings are filed under
+  records; ordinary matching and all launches run only after the commit, and each task's warnings are filed under
   "<response key>.<position>". The result is every task, in list order. Not idempotent: nothing is deduplicated, so a
   caller that lost the answer lists the App's tasks before trying again.
+  distinctAssignees (default false; hrn:node:hadronmemory.com:specs:cor:agt:050:06, ruling 0084 A) matches each task whose match is true
+  inside the same transaction, in list order, excluding every explicitly named worker in this call and every
+  worker already matched. Each task keeps its own requirements; there is no global search or backtracking.
+  After the normal create and blocker checks, any failed match refuses the whole call as TASK_MATCH_FAILED,
+  with extensions.position (1-based) and extensions.reason (the single match's failure reason). No tasks,
+  handles, events, failure marks or launches survive. Naming the same worker twice with this option is
+  BAD_USER_INPUT at the second position. Named people and tasks not asking for a match keep their meaning.
+  Launches and warnings run only after commit. Without the option (or with null/false), existing batch
+  behavior is unchanged: requested matches run after commit and an ordinary failure marks only that task.
   """
-  createAgentTasks(appRef: ID!, tasks: [CreateAgentTasksItemInput!]!): [AgentTask!]!
+  createAgentTasks(appRef: ID!, distinctAssignees: Boolean, tasks: [CreateAgentTasksItemInput!]!): [AgentTask!]!
 
   """
   #2024 — declare a ticker on an Agent. Whoever may edit the Agent (ADMIN on it); an App manager is not thereby an Agent editor.
@@ -7563,7 +7628,7 @@ type Mutation {
   """
   Mint a new AppKey for an App. Only whoever manages the App, as themselves
   (hrn:node:hadronmemory.com:specs:cor:dmo:050:05; hrn:node:hadronmemory.com:specs:cor:acl:010:01).
-  Never an App key, a bound worker session or an impersonated request; new keys hold no scopes.
+  Person-only (hrn:node:hadronmemory.com:specs:cor:dmo:050:12, #3277): never a worker session in any shape, a run principal, an impersonation or an App key, even when the worker's holder manages the App. New keys hold no scopes.
   Granting or revoking scopes uses the same manager audience.
   
   Accepts the entity's ID or URN.
@@ -8681,13 +8746,14 @@ type Mutation {
   finishAgentTask(result: AgentTaskResultInput!, taskId: ID!): AgentTask!
 
   """
-  #1747 — give a worker a named App grant (hrn:node:hadronmemory.com:specs:cor:agt:080:24). Whoever manages the App only. Idempotent.
+  #1747 — give a worker a named App grant (hrn:node:hadronmemory.com:specs:cor:agt:080:24). Whoever manages the App only. Idempotent. Person-only (hrn:node:hadronmemory.com:specs:cor:dmo:050:12, #3277): never a worker session (a worker never gives a grant to itself) in any shape, a run principal, an impersonation or an App key, even when the worker's holder manages the App.
   """
   grantApp(appRef: String!, name: AppGrantName!, workerRef: String!): AppGrant!
 
   """
   #1749 — give an App key a scope (hrn:node:hadronmemory.com:specs:cor:aut:010:04). Only whoever manages the App, as
-  themselves: never an App key, a worker's session or an impersonation. Granting a scope the key holds changes nothing.
+  themselves: never an App key, a worker's session or an impersonation (person-only: giving a grant,
+  hrn:node:hadronmemory.com:specs:cor:dmo:050:12, #3277). Granting a scope the key holds changes nothing.
   A new key, and a rotated one, holds none. Unknown scope: BAD_USER_INPUT.
   #1709: host:operate is granted for ONE host, named by hostId (hrn:node:hadronmemory.com:specs:cor:agt:070:04), and
   hostId is refused for any other scope. A key already operating as another host is refused
@@ -8865,7 +8931,7 @@ type Mutation {
   """
   #1754 — make a backlog task ready to be worked
   (hrn:node:hadronmemory.com:specs:cor:agt:050:02): BACKLOG becomes PENDING and the task enters
-  the queue. Whoever may assign a task may make it ready: its owner, a worker
+  the queue. Clears any match failure and held-back match reservation; regular matching resumes, without a second match-now attempt. Whoever may assign a task may make it ready: its owner, a worker
   the owner reports to, directly or up the reportsTo chain, or whoever manages the App
   (hrn:node:hadronmemory.com:specs:cor:agt:050:09). Refusals: TASK_NOT_FOUND, TASK_NOT_OWNER,
   TASK_ENDED, TASK_INVALID_TRANSITION (not backlog), SESSION_NOT_BOUND, APP_UNINSTALLED.
@@ -9076,7 +9142,8 @@ type Mutation {
 
   """
   #1705 — record progress on a started task: its assignee only
-  (hrn:node:hadronmemory.com:specs:cor:agt:050:08). Carries no text. Refusals as startAgentTask.
+  (hrn:node:hadronmemory.com:specs:cor:agt:050:08). Carries no text. #3267: may succeed with a
+  warning, as startAgentTask does. Refusals as startAgentTask.
   """
   recordAgentTaskProgress(taskId: ID!): AgentTask!
 
@@ -9153,14 +9220,20 @@ type Mutation {
   App key management — revoke all active keys for an App and mint a
   fresh one. Only whoever manages the App, as themselves
   (hrn:node:hadronmemory.com:specs:cor:dmo:050:05; hrn:node:hadronmemory.com:specs:cor:acl:010:01).
-  Never an App key, a bound worker session or an impersonated request. The replacement key holds no scopes.
+  Person-only (hrn:node:hadronmemory.com:specs:cor:dmo:050:12, #3277): never a worker session in any shape, a run principal, an impersonation or an App key, even when the worker's holder manages the App. The replacement key holds no scopes.
   
   Accepts the entity's ID or URN.
   """
   regenerateAppKey(appRef: ID!): AppCreated!
 
   """
-  #2162 — register the durable checkpoint before any process control. A wrong reference is RECOVERY_REF_INVALID and changes nothing.
+  #3276 / ruling 0090 A, hrn:node:hadronmemory.com:specs:cor:agt:050:27 part 3 and
+  hrn:node:hadronmemory.com:specs:cor:agt:070:04: register a live checkpointNode or atomically write checkpoint,
+  exactly one. Host key only; generic node writes stay refused. Refusal order: CONTEXT_RESET_NOT_FOUND,
+  HOST_OPERATION_NOT_COLLECTED, STALE_EPOCH, CONTEXT_RESET_WRONG_PHASE, CLAIM_LAPSED, RECOVERY_REF_INVALID,
+  CHECKPOINT_MEMORY_ENCRYPTED, CHECKPOINT_LOC_TAKEN. Replay of registered non-ended phases returns the stored node
+  without writing, even if checkpoint differs. DB UTC stamp: sheds:auto-YYYY-MM-DDTHHMMSSZ (seconds); occupied live
+  or deleted address refuses with phase still claimed, no suffix/overwrite/parent/edge. Encrypted memory refused.
   """
   registerContextResetRecovery(input: RegisterContextResetRecoveryInput!): ContextResetStep!
 
@@ -9712,7 +9785,7 @@ type Mutation {
   setAppDeliverySettings(appRef: String!, input: AppDeliverySettingsInput!): AppDeliverySettings!
 
   """
-  #2484: let an App's userless runs create or update a node in one memory under one loc prefix (required; no memory-wide grant). The caller is a person acting as themselves who manages the App and can write the memory. A shared memory must be one the App's own org or team space holds; a personal or private memory only by its owner, who must also manage the App; an encrypted memory is never grantable; nor is a system-class memory (#2710: an Agent's system memory, its boot-prompt source included, is written only by whoever manages the Agent, hrn:node:hadronmemory.com:specs:cor:agt:040:11), and a grant made on one before that rule authorizes no write. Granting the same prefix again returns the live grant. One content-free event is recorded. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+  #2484: let an App's userless runs create or update a node in one memory under one loc prefix (required; no memory-wide grant). The caller is a person acting as themselves who manages the App and can write the memory (person-only, hrn:node:hadronmemory.com:specs:cor:dmo:050:12, #3277). A shared memory must be one the App's own org or team space holds; a personal or private memory only by its owner, who must also manage the App; an encrypted memory is never grantable; nor is a system-class memory (#2710: an Agent's system memory, its boot-prompt source included, is written only by whoever manages the Agent, hrn:node:hadronmemory.com:specs:cor:agt:040:11), and a grant made on one before that rule authorizes no write. Granting the same prefix again returns the live grant. One content-free event is recorded. hrn:node:hadronmemory.com:specs:cor:agt:010:01
   """
   setAppMemoryWriteGrant(appRef: String!, memoryRef: String!, prefix: String!, registerNodeUrn: String): AppMemoryWriteGrant!
 
@@ -9754,7 +9827,7 @@ type Mutation {
   setAssetPublicLink(assetRef: ID!, enabled: Boolean!): Asset!
 
   """
-  #2883: give an automation (a live schedule or webhook of the App) a read grant on one memory or loc prefix. Given by whoever manages the target: the Agent for its system memory, the memory's manager otherwise. A refusal is the same Forbidden as an unknown App, trigger or memory.
+  #2883: give an automation (a live schedule or webhook of the App) a read grant on one memory or loc prefix. Given by whoever manages the target: the Agent for its system memory, the memory's manager otherwise, as a person (person-only, hrn:node:hadronmemory.com:specs:cor:dmo:050:12, #3277). A refusal is the same Forbidden as an unknown App, trigger or memory.
   """
   setAutomationReadGrant(appRef: String!, memoryRef: String!, prefix: String, triggerId: ID!, triggerKind: String!): AutomationReadGrant!
 
@@ -9890,6 +9963,7 @@ type Mutation {
 
   """
   #1705 — start a pending task: its assignee only (hrn:node:hadronmemory.com:specs:cor:agt:050:08).
+  #3267: may succeed with warnings, in extensions.warnings (see the experiment note on createAgentTask).
   Refusals: TASK_NOT_FOUND, TASK_NOT_ASSIGNEE, TASK_ENDED,
   TASK_INVALID_TRANSITION, SESSION_NOT_BOUND, APP_UNINSTALLED.
   """
@@ -10102,7 +10176,8 @@ type Mutation {
   updateAgentAIConfig(agentId: ID!, apiKey: String, model: String!, provider: String!): Agent!
 
   """
-  Update an Agent's role on an attached Memory.
+  Update an Agent's role on an attached Memory. #3253 (hrn:node:hadronmemory.com:specs:cor:dmo:050:09):
+  the same subscription, caller-capability, class and PUBLIC-Agent gates apply as on addMemoryToAgent.
   
   Accepts the entity's ID or URN.
   """
@@ -12273,6 +12348,11 @@ type Query {
     """
     finishedBefore: DateTime
     limit: Int
+
+    """
+    True: only single-shot match failures; false: unmarked tasks. Does not change who may read.
+    """
+    matchFailed: Boolean
     offset: Int
 
     """
@@ -14572,9 +14652,14 @@ input RegisterContextResetRecoveryInput {
   appRef: String!
 
   """
+  #3276: atomically write one plain checkpoint in the reset worker working memory; exactly one of checkpointNode/checkpoint.
+  """
+  checkpoint: ContextResetCheckpointInput
+
+  """
   The checkpoint node the host wrote: its id or full URN, in the worker's own working memory.
   """
-  checkpointNode: String!
+  checkpointNode: String
   epoch: Int!
   resetId: ID!
 

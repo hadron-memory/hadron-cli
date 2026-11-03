@@ -37,6 +37,14 @@ type ContextReset struct {
 	StopLeaseMs int
 }
 
+// ResetCheckpoint is the checkpoint node the server writes for the host:
+// a nonblank title of at most 200 characters and at most 65536 bytes of
+// UTF-8 content (#3276). The server picks the loc.
+type ResetCheckpoint struct {
+	Title   string
+	Content string
+}
+
 // ResetStep is one protocol step's answer. Refused is non-empty when the
 // step refused or failed the reset (it has then ended server-side);
 // Replayed means the step was already made and nothing changed.
@@ -50,7 +58,9 @@ type ResetStep struct {
 // Each names the reset and the epoch the host holds.
 type ResetServer interface {
 	ClaimReset(ctx context.Context, resetID string, epoch int, p ProcessIdentity) (ResetStep, error)
-	RegisterResetRecovery(ctx context.Context, resetID string, epoch int, checkpointNode, sessionID, taskID string) (ResetStep, error)
+	// RegisterResetRecovery writes the checkpoint with the host key and
+	// registers it (#3276, ruling 0090 A): the host never names a node.
+	RegisterResetRecovery(ctx context.Context, resetID string, epoch int, cp ResetCheckpoint, sessionID, taskID string) (ResetStep, error)
 	AuthorizeResetStop(ctx context.Context, resetID string, epoch int, p ProcessIdentity) (ResetStep, error)
 	// late is how long after its lease the stop signal landed (0 when on
 	// time; procctl SignalWithin's result); it is sent as lateStopMs.

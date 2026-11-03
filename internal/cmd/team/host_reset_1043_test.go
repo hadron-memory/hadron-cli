@@ -58,9 +58,10 @@ func TestHostResetStepsSendTypedInputs1043(t *testing.T) {
 			map[string]any{"resetId": "r1", "epoch": 0.0, "process": map[string]any{"pid": 4242.0, "startTime": "987654"}}},
 		{"recovery", "RegisterContextResetRecovery", "registerContextResetRecovery",
 			func(s *hostServer) (hostpoller.ResetStep, error) {
-				return s.RegisterResetRecovery(context.Background(), "r1", 3, "hrn:node:acme.com:w:sheds:x", "s1", "t1")
+				return s.RegisterResetRecovery(context.Background(), "r1", 3, hostpoller.ResetCheckpoint{Title: "Reset checkpoint", Content: "body"}, "s1", "t1")
 			},
-			map[string]any{"resetId": "r1", "epoch": 3.0, "checkpointNode": "hrn:node:acme.com:w:sheds:x", "sessionId": "s1", "taskId": "t1"}},
+			// The host writes the checkpoint (ruling 0090 A): no checkpointNode key at all.
+			map[string]any{"resetId": "r1", "epoch": 3.0, "checkpoint": map[string]any{"title": "Reset checkpoint", "content": "body"}, "sessionId": "s1", "taskId": "t1"}},
 		{"authorize", "AuthorizeContextResetStop", "authorizeContextResetStop",
 			func(s *hostServer) (hostpoller.ResetStep, error) {
 				return s.AuthorizeResetStop(context.Background(), "r1", 3, proc)

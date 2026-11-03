@@ -82,9 +82,10 @@ func (s *hostServer) ClaimReset(ctx context.Context, resetID string, epoch int, 
 	return resetStepFrom(&resp.ClaimContextReset.ContextResetStepFields)
 }
 
-func (s *hostServer) RegisterResetRecovery(ctx context.Context, resetID string, epoch int, checkpointNode, sessionID, taskID string) (hostpoller.ResetStep, error) {
+func (s *hostServer) RegisterResetRecovery(ctx context.Context, resetID string, epoch int, cp hostpoller.ResetCheckpoint, sessionID, taskID string) (hostpoller.ResetStep, error) {
 	resp, err := gen.RegisterContextResetRecovery(ctx, s.client, &gen.RegisterContextResetRecoveryInput{
-		AppRef: s.app, ResetId: resetID, Epoch: epoch, CheckpointNode: checkpointNode, SessionId: sessionID, TaskId: taskID,
+		AppRef: s.app, ResetId: resetID, Epoch: epoch, SessionId: sessionID, TaskId: taskID,
+		Checkpoint: &gen.ContextResetCheckpointInput{Title: cp.Title, Content: cp.Content},
 	})
 	if err != nil {
 		return hostpoller.ResetStep{}, resetStepErr(err)

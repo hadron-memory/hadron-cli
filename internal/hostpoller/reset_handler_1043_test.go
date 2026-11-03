@@ -16,7 +16,7 @@ func (f *fakeResets) ClaimReset(context.Context, string, int, ProcessIdentity) (
 	f.calls = append(f.calls, "claim")
 	return ResetStep{}, nil
 }
-func (f *fakeResets) RegisterResetRecovery(context.Context, string, int, string, string, string) (ResetStep, error) {
+func (f *fakeResets) RegisterResetRecovery(context.Context, string, int, ResetCheckpoint, string, string) (ResetStep, error) {
 	f.calls = append(f.calls, "recovery")
 	return ResetStep{}, nil
 }
