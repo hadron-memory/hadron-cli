@@ -703,7 +703,9 @@ func (v *AddMemoryToAgentAddMemoryToAgent) __premarshalJSON() (*__premarshalAddM
 
 // AddMemoryToAgentResponse is returned by AddMemoryToAgent on success.
 type AddMemoryToAgentResponse struct {
-	// Attach a Memory to an Agent.
+	// Attach a Memory to an Agent. #3253 (hrn:node:hadronmemory.com:specs:cor:dmo:050:09): a live subscription
+	// of the Agent's org admits a cross-tenant link up to its level (READER read, CONTRIBUTOR read-write).
+	// The caller must hold that capability. Activation and license add no check beyond the memory read gate.
 	//
 	// Accepts the entity's ID or URN.
 	AddMemoryToAgent *AddMemoryToAgentAddMemoryToAgent `json:"addMemoryToAgent"`
@@ -2755,7 +2757,10 @@ type AgentTaskCreateResponse struct {
 	// { path (the mutation's response key), code, text, register? }. Codes are a
 	// closed list per release (task.create.no-source, task.assign.assignee-unavailable,
 	// task.assign.assignee-busy, task.assign.assignee-paused,
-	// task.finish.open-children, and from #2607 task.cancel.open-children on
+	// task.finish.open-children, from #3267 task.start.other-started,
+	// task.start.parent-ended (both on startAgentTask) and task.progress.children-ended
+	// (on recordAgentTaskProgress; other-started and children-ended, like the three assign
+	// facts, are filed only to a caller who may read the App's worker state), and from #2607 task.cancel.open-children on
 	// cancelAgentTask, alarm.ack.outside-chain on acknowledgeAlarm, and #2733 ticker.code.unmapped on createTicker);
 	// a client must tolerate unknown codes. `text` is
 	// fixed per code. `register` appears only for a caller that has an Agent:
@@ -3873,6 +3878,39 @@ func (v *AgentTaskFieldsResultAgentTaskResult) GetSummary() *string { return v.S
 // GetEvidence returns AgentTaskFieldsResultAgentTaskResult.Evidence, and is useful for accessing the field via an interface.
 func (v *AgentTaskFieldsResultAgentTaskResult) GetEvidence() *string { return v.Evidence }
 
+// #2662: give every id, or none for platform F1/F2/... ids in list order. Ids unique, 1–32 letters/digits/_/-. Text at most 2,000 Unicode code points; no trimming.
+type AgentTaskFindingInput struct {
+	Id       *string                  `json:"id"`
+	Severity AgentTaskFindingSeverity `json:"severity"`
+	Text     string                   `json:"text"`
+}
+
+// GetId returns AgentTaskFindingInput.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskFindingInput) GetId() *string { return v.Id }
+
+// GetSeverity returns AgentTaskFindingInput.Severity, and is useful for accessing the field via an interface.
+func (v *AgentTaskFindingInput) GetSeverity() AgentTaskFindingSeverity { return v.Severity }
+
+// GetText returns AgentTaskFindingInput.Text, and is useful for accessing the field via an interface.
+func (v *AgentTaskFindingInput) GetText() string { return v.Text }
+
+// #2662: severity is shape only, never matcher, authorization or alarm input (hrn:node:hadronmemory.com:specs:cor:agt:050:30).
+type AgentTaskFindingSeverity string
+
+const (
+	AgentTaskFindingSeverityP1   AgentTaskFindingSeverity = "P1"
+	AgentTaskFindingSeverityP2   AgentTaskFindingSeverity = "P2"
+	AgentTaskFindingSeverityP3   AgentTaskFindingSeverity = "P3"
+	AgentTaskFindingSeverityNote AgentTaskFindingSeverity = "note"
+)
+
+var AllAgentTaskFindingSeverity = []AgentTaskFindingSeverity{
+	AgentTaskFindingSeverityP1,
+	AgentTaskFindingSeverityP2,
+	AgentTaskFindingSeverityP3,
+	AgentTaskFindingSeverityNote,
+}
+
 // AgentTaskFinishFinishAgentTask includes the requested fields of the GraphQL type AgentTask.
 // The GraphQL type's documentation follows.
 //
@@ -4165,7 +4203,14 @@ func (v *AgentTaskFinishFinishAgentTask) __premarshalJSON() (*__premarshalAgentT
 type AgentTaskFinishResponse struct {
 	// #1705 — finish a started task with its result: its assignee only
 	// (hrn:node:hadronmemory.com:specs:cor:agt:050:08). A pending task is refused: start it first. Refusals as
-	// startAgentTask, plus BAD_USER_INPUT for an outcome that is not one word.
+	// startAgentTask, plus BAD_USER_INPUT for an outcome that is not one word. #2652 (outcome set,
+	// hrn:node:hadronmemory.com:specs:cor:agt:050:30): a team may close the outcomes its tasks finish with, as the
+	// node schema:task-outcomes in the Team Agent's system memory, found through its base chain, with data
+	// {"outcomes": [...]} holding 1 to 100 one-word outcomes. With a set, an outcome outside it (matched exactly,
+	// case-sensitive) is TASK_OUTCOME_NOT_IN_SET, and the refusal does not list the set. A set that exists but is
+	// malformed, or two installed Team Agents when either carries the node, is TASK_OUTCOME_SET_UNUSABLE, refusing
+	// every finish. Both are judged after the assignee and status checks and before any write or event: the task
+	// stays started. With no set, any one word is accepted. The set is read only at finish.
 	FinishAgentTask *AgentTaskFinishFinishAgentTask `json:"finishAgentTask"`
 }
 
@@ -6583,7 +6628,8 @@ func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) __premarshalJSON() (
 // AgentTaskProgressResponse is returned by AgentTaskProgress on success.
 type AgentTaskProgressResponse struct {
 	// #1705 — record progress on a started task: its assignee only
-	// (hrn:node:hadronmemory.com:specs:cor:agt:050:08). Carries no text. Refusals as startAgentTask.
+	// (hrn:node:hadronmemory.com:specs:cor:agt:050:08). Carries no text. #3267: may succeed with a
+	// warning, as startAgentTask does. Refusals as startAgentTask.
 	RecordAgentTaskProgress *AgentTaskProgressRecordAgentTaskProgressAgentTask `json:"recordAgentTaskProgress"`
 }
 
@@ -6910,7 +6956,7 @@ func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) __premarshalJSON() (*__prema
 type AgentTaskReadyResponse struct {
 	// #1754 — make a backlog task ready to be worked
 	// (hrn:node:hadronmemory.com:specs:cor:agt:050:02): BACKLOG becomes PENDING and the task enters
-	// the queue. Whoever may assign a task may make it ready: its owner, a worker
+	// the queue. Clears any match failure and held-back match reservation; regular matching resumes, without a second match-now attempt. Whoever may assign a task may make it ready: its owner, a worker
 	// the owner reports to, directly or up the reportsTo chain, or whoever manages the App
 	// (hrn:node:hadronmemory.com:specs:cor:agt:050:09). Refusals: TASK_NOT_FOUND, TASK_NOT_OWNER,
 	// TASK_ENDED, TASK_INVALID_TRANSITION (not backlog), SESSION_NOT_BOUND, APP_UNINSTALLED.
@@ -7642,6 +7688,10 @@ type AgentTaskRequirementsInput struct {
 	// Model groups of the App (hrn:node:hadronmemory.com:specs:cor:agt:060:12) the assignee's model must be in none of. A name no group of the App carries is refused. A worker with no model is in no group, so it passes.
 	ModelGroupNotIn []string `json:"modelGroupNotIn,omitempty"`
 	Role            *string  `json:"role"`
+	// Any one listed role suffices. Empty sets are refused. Give role or roles, not both.
+	Roles []string `json:"roles,omitempty"`
+	// Lead worker (id, URN or name) of this App. Pool: lead, descendants and workers reporting to nobody.
+	Team *string `json:"team,omitempty"`
 }
 
 // GetExcludeWorkers returns AgentTaskRequirementsInput.ExcludeWorkers, and is useful for accessing the field via an interface.
@@ -7665,15 +7715,26 @@ func (v *AgentTaskRequirementsInput) GetModelGroupNotIn() []string { return v.Mo
 // GetRole returns AgentTaskRequirementsInput.Role, and is useful for accessing the field via an interface.
 func (v *AgentTaskRequirementsInput) GetRole() *string { return v.Role }
 
+// GetRoles returns AgentTaskRequirementsInput.Roles, and is useful for accessing the field via an interface.
+func (v *AgentTaskRequirementsInput) GetRoles() []string { return v.Roles }
+
+// GetTeam returns AgentTaskRequirementsInput.Team, and is useful for accessing the field via an interface.
+func (v *AgentTaskRequirementsInput) GetTeam() *string { return v.Team }
+
 type AgentTaskResultInput struct {
 	Evidence *string `json:"evidence"`
-	// One word (letters, digits, underscore, hyphen or dot; up to 64 characters), e.g. succeeded or failed. It is copied into the event stream, which never holds free text.
+	// #2662: optional immutable findings, at most 100 (hrn:node:hadronmemory.com:specs:cor:agt:050:30); omitted/null preserves legacy finish.
+	Findings []*AgentTaskFindingInput `json:"findings,omitempty"`
+	// One word (letters, digits, underscore, hyphen or dot; up to 64 characters), e.g. succeeded or failed. It is copied into the event stream, which never holds free text. When the team has an outcome set (#2652, schema:task-outcomes; hrn:node:hadronmemory.com:specs:cor:agt:050:30) it must be one of the set (TASK_OUTCOME_NOT_IN_SET); an unusable set refuses every finish (TASK_OUTCOME_SET_UNUSABLE).
 	Outcome string  `json:"outcome"`
 	Summary *string `json:"summary"`
 }
 
 // GetEvidence returns AgentTaskResultInput.Evidence, and is useful for accessing the field via an interface.
 func (v *AgentTaskResultInput) GetEvidence() *string { return v.Evidence }
+
+// GetFindings returns AgentTaskResultInput.Findings, and is useful for accessing the field via an interface.
+func (v *AgentTaskResultInput) GetFindings() []*AgentTaskFindingInput { return v.Findings }
 
 // GetOutcome returns AgentTaskResultInput.Outcome, and is useful for accessing the field via an interface.
 func (v *AgentTaskResultInput) GetOutcome() string { return v.Outcome }
@@ -8075,6 +8136,7 @@ func (v *AgentTaskStallScheduleFields) GetUpdatedAt() *string { return v.Updated
 // AgentTaskStartResponse is returned by AgentTaskStart on success.
 type AgentTaskStartResponse struct {
 	// #1705 — start a pending task: its assignee only (hrn:node:hadronmemory.com:specs:cor:agt:050:08).
+	// #3267: may succeed with warnings, in extensions.warnings (see the experiment note on createAgentTask).
 	// Refusals: TASK_NOT_FOUND, TASK_NOT_ASSIGNEE, TASK_ENDED,
 	// TASK_INVALID_TRANSITION, SESSION_NOT_BOUND, APP_UNINSTALLED.
 	StartAgentTask *AgentTaskStartStartAgentTask `json:"startAgentTask"`
@@ -12871,7 +12933,7 @@ func (v *AppKeysScopesHostUsesAppKeysAppKey) GetHostUses() []*AppKeysScopesHostU
 // #1709 — one use of a host key (hrn:node:hadronmemory.com:specs:cor:agt:070:07).
 type AppKeysScopesHostUsesAppKeysAppKeyHostUsesHostKeyUse struct {
 	HostId string `json:"hostId"`
-	// register, collect, report, availability, read, (#1969) session: a refused session write (updateSession, endSession), or (#1981) issue: a refused issueHostOperation.
+	// register, collect, report, availability, read, (#1969) session: a refused session write (updateSession, endSession), or (#1981) issue: a refused issueHostOperation; checkpoint: registerContextResetRecovery with checkpoint input (including replay/refusal).
 	Action string `json:"action"`
 	// How many operations a collection returned, or workers a registration listed.
 	Count *int `json:"count"`
@@ -20840,8 +20902,13 @@ type ClaimUntrackedTaskItemsResponse struct {
 	// task.assigned and task.started. Each claim commits on its own. An item another caller claimed first is skipped,
 	// so concurrent callers get disjoint sets. A refusal mid-walk stops it and is returned with the claims already
 	// made: incompleteReason claim_refused with its code in refusalCode (claim_failed, refusalCode null, for an
-	// unexpected failure after a claim). A person or a worker claims; the App's own key gets
-	// TASK_CLAIM_PRINCIPAL_UNSUPPORTED before anything else is read. Other refusals as untrackedTaskItems.
+	// unexpected failure after a claim). A person or a worker claims for themselves and names no assignee or owner
+	// (BAD_USER_INPUT if it does). #3132: the App's own key names the assignee (TASK_ASSIGNEE_REQUIRED) and the owner
+	// (TASK_OWNER_REQUIRED), each a worker of the App or a person who participates in it (TASK_ASSIGNEE_INVALID /
+	// TASK_OWNER_INVALID, as createAgentTask), all judged before any GitHub call; the task is started on the assignee's
+	// behalf, and its events name the key as actorAppKeyId and the assignee as their subject. A claim is the only task
+	// write an App key makes. A key request carrying a session is APP_KEY_SESSION_BOUND. Other refusals as
+	// untrackedTaskItems.
 	ClaimUntrackedTaskItems *ClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult `json:"claimUntrackedTaskItems"`
 }
 
@@ -25337,6 +25404,8 @@ type CreateAgentTaskInput struct {
 	ExternalId *string `json:"externalId,omitempty"`
 	// #2648 (hrn:node:hadronmemory.com:specs:cor:agt:050:14): an optional finish-by deadline; refused BAD_USER_INPUT if in the past or earlier than startBy. While set, the task raises no stall-window alarm, only stall.finish-by once it passes unfinished.
 	FinishBy *string `json:"finishBy,omitempty"`
+	// Run one blocking match. Failure is marked and skipped by automatic runs. Assignment, cancellation, or park then ready clears it. Only for pending, unblocked tasks without an assignee; a blocked create refuses BAD_USER_INPUT atomically. Batch items run requested attempts in list order after the whole commit; a blocked match item refuses the whole call before commit, with its position. No distinct-workers guarantee.
+	Match *bool `json:"match,omitempty"`
 	// Defaults to the creator. A root task's creator may name any other
 	// participating worker or person as owner (#1757, hrn:node:hadronmemory.com:specs:cor:agt:050:01);
 	// a ref outside the App's participants is TASK_OWNER_INVALID. Never for a
@@ -25384,6 +25453,9 @@ func (v *CreateAgentTaskInput) GetExternalId() *string { return v.ExternalId }
 
 // GetFinishBy returns CreateAgentTaskInput.FinishBy, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetFinishBy() *string { return v.FinishBy }
+
+// GetMatch returns CreateAgentTaskInput.Match, and is useful for accessing the field via an interface.
+func (v *CreateAgentTaskInput) GetMatch() *bool { return v.Match }
 
 // GetOwner returns CreateAgentTaskInput.Owner, and is useful for accessing the field via an interface.
 func (v *CreateAgentTaskInput) GetOwner() *AgentTaskPartyInput { return v.Owner }
@@ -26406,7 +26478,7 @@ func (v *CreateAppKeyCreateAppKeyAppKeyCreatedKeyAppKey) GetLabel() *string { re
 type CreateAppKeyResponse struct {
 	// Mint a new AppKey for an App. Only whoever manages the App, as themselves
 	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:05; hrn:node:hadronmemory.com:specs:cor:acl:010:01).
-	// Never an App key, a bound worker session or an impersonated request; new keys hold no scopes.
+	// Person-only (hrn:node:hadronmemory.com:specs:cor:dmo:050:12, #3277): never a worker session in any shape, a run principal, an impersonation or an App key, even when the worker's holder manages the App. New keys hold no scopes.
 	// Granting or revoking scopes uses the same manager audience.
 	//
 	// Accepts the entity's ID or URN.
@@ -31235,6 +31307,10 @@ type CreateUserInvitationResponse struct {
 	// User invitations (org ADMIN or platform ADMIN).
 	//
 	// Accepts the entity's ID or URN.
+	//
+	// Limits (#2984): expiresInDays is a whole number from 1 to 10 and maxActivations from 2 to 1000; omitted or
+	// null means 10 days and two activations (Holger V49). 0, negatives, an explicit 1 for maxActivations and larger values are refused as BAD_USER_INPUT
+	// (hrn:node:hadronmemory.com:specs:cor:api:260:01), judged after the org-admin gate.
 	CreateUserInvitation *CreateUserInvitationCreateUserInvitation `json:"createUserInvitation"`
 }
 
@@ -35339,6 +35415,76 @@ type DeleteTickerResponse struct {
 
 // GetDeleteTicker returns DeleteTickerResponse.DeleteTicker, and is useful for accessing the field via an interface.
 func (v *DeleteTickerResponse) GetDeleteTicker() bool { return v.DeleteTicker }
+
+// DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion includes the requested fields of the GraphQL type UserApiKeyDeletion.
+// The GraphQL type's documentation follows.
+//
+// #2659 (hrn:node:hadronmemory.com:specs:cor:dmo:070:03, ruling 0007): the one
+// append-only record a user's deletion of their own API key leaves behind. Names
+// the key (its id and masked preview) and when; never its secret or its hash.
+type DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion struct {
+	// The deletion record's id.
+	Id string `json:"id"`
+	// The deleted key's id. The key itself no longer exists.
+	KeyId string `json:"keyId"`
+	// The deleted key's masked preview (its last characters).
+	KeyPreview string `json:"keyPreview"`
+	// The keys this delete revoked: the key itself when it was live, with its live
+	// subtree (hrn:node:hadronmemory.com:specs:cor:aut:010:02 rule 9). Empty when
+	// the key was already revoked.
+	RevokedKeyIds []string `json:"revokedKeyIds"`
+	// The keys the deleted key had minted. They were not deleted: they stay,
+	// revoked, with no parent (mintedByKeyId null).
+	MintedKeyIds []string `json:"mintedKeyIds"`
+	DeletedAt    string   `json:"deletedAt"`
+}
+
+// GetId returns DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion.Id, and is useful for accessing the field via an interface.
+func (v *DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion) GetId() string { return v.Id }
+
+// GetKeyId returns DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion.KeyId, and is useful for accessing the field via an interface.
+func (v *DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion) GetKeyId() string { return v.KeyId }
+
+// GetKeyPreview returns DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion.KeyPreview, and is useful for accessing the field via an interface.
+func (v *DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion) GetKeyPreview() string {
+	return v.KeyPreview
+}
+
+// GetRevokedKeyIds returns DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion.RevokedKeyIds, and is useful for accessing the field via an interface.
+func (v *DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion) GetRevokedKeyIds() []string {
+	return v.RevokedKeyIds
+}
+
+// GetMintedKeyIds returns DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion.MintedKeyIds, and is useful for accessing the field via an interface.
+func (v *DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion) GetMintedKeyIds() []string {
+	return v.MintedKeyIds
+}
+
+// GetDeletedAt returns DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion.DeletedAt, and is useful for accessing the field via an interface.
+func (v *DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion) GetDeletedAt() string {
+	return v.DeletedAt
+}
+
+// DeleteUserApiKeyResponse is returned by DeleteUserApiKey on success.
+type DeleteUserApiKeyResponse struct {
+	// #2659 (hrn:node:hadronmemory.com:specs:cor:dmo:070:03): delete one of the
+	// caller's own API keys, live or revoked. A live key is revoked first, with
+	// every key it minted, in the same step, so no working credential is left
+	// behind. The keys it minted are not deleted and do not prevent the delete:
+	// they stay, revoked, with no parent. The key then no longer authenticates and
+	// is absent from myUserApiKeys whatever includeHidden says. Returns the one
+	// append-only deletion record (no secret, no hash). Only the key's own user,
+	// as themselves: FORBIDDEN under impersonation, from a worker session or a run;
+	// UNAUTHENTICATED for AppKey-resolved callers. NOT_FOUND for both unknown and
+	// foreign keys, as revokeUserApiKey answers. To tidy the list without deleting,
+	// hide a revoked key with setUserApiKeyHidden instead.
+	DeleteUserApiKey *DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion `json:"deleteUserApiKey"`
+}
+
+// GetDeleteUserApiKey returns DeleteUserApiKeyResponse.DeleteUserApiKey, and is useful for accessing the field via an interface.
+func (v *DeleteUserApiKeyResponse) GetDeleteUserApiKey() *DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion {
+	return v.DeleteUserApiKey
+}
 
 // DeleteUserResponse is returned by DeleteUser on success.
 type DeleteUserResponse struct {
@@ -43152,7 +43298,8 @@ func (v *GrantAppKeyScopeGrantAppKeyScopeAppKey) __premarshalJSON() (*__premarsh
 // GrantAppKeyScopeResponse is returned by GrantAppKeyScope on success.
 type GrantAppKeyScopeResponse struct {
 	// #1749 — give an App key a scope (hrn:node:hadronmemory.com:specs:cor:aut:010:04). Only whoever manages the App, as
-	// themselves: never an App key, a worker's session or an impersonation. Granting a scope the key holds changes nothing.
+	// themselves: never an App key, a worker's session or an impersonation (person-only: giving a grant,
+	// hrn:node:hadronmemory.com:specs:cor:dmo:050:12, #3277). Granting a scope the key holds changes nothing.
 	// A new key, and a rotated one, holds none. Unknown scope: BAD_USER_INPUT.
 	// #1709: host:operate is granted for ONE host, named by hostId (hrn:node:hadronmemory.com:specs:cor:agt:070:04), and
 	// hostId is refused for any other scope. A key already operating as another host is refused
@@ -45409,6 +45556,10 @@ func (v *InviteUserInviteUserUserInvitation) __premarshalJSON() (*__premarshalIn
 // InviteUserResponse is returned by InviteUser on success.
 type InviteUserResponse struct {
 	// Platform invite — no org association, just onboards a new user
+	//
+	// Limits (#2984): expiresInDays is a whole number from 1 to 10 and maxActivations from 2 to 1000; omitted or
+	// null means 10 days and two activations (Holger V49). 0, negatives, an explicit 1 for maxActivations and larger values are refused as BAD_USER_INPUT
+	// (hrn:node:hadronmemory.com:specs:cor:api:260:01).
 	InviteUser *InviteUserInviteUserUserInvitation `json:"inviteUser"`
 }
 
@@ -58083,7 +58234,7 @@ type RegenerateAppKeyResponse struct {
 	// App key management — revoke all active keys for an App and mint a
 	// fresh one. Only whoever manages the App, as themselves
 	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:05; hrn:node:hadronmemory.com:specs:cor:acl:010:01).
-	// Never an App key, a bound worker session or an impersonated request. The replacement key holds no scopes.
+	// Person-only (hrn:node:hadronmemory.com:specs:cor:dmo:050:12, #3277): never a worker session in any shape, a run principal, an impersonation or an App key, even when the worker's holder manages the App. The replacement key holds no scopes.
 	//
 	// Accepts the entity's ID or URN.
 	RegenerateAppKey *RegenerateAppKeyRegenerateAppKeyAppCreated `json:"regenerateAppKey"`
@@ -64950,7 +65101,7 @@ var AllServedPromptPointerLevel = []ServedPromptPointerLevel{
 type ServedPromptRecord struct {
 	Id   string           `json:"id"`
 	Kind ServedPromptKind `json:"kind"`
-	// 1 for a bind or a run; a chat counts up each time its served revision changes.
+	// 1 for a bind or a run; a chat counts up each time its served revision or filled variable values change (#3096).
 	Ordinal             int                      `json:"ordinal"`
 	PointerLevel        ServedPromptPointerLevel `json:"pointerLevel"`
 	CompiledNodeId      string                   `json:"compiledNodeId"`
@@ -64958,9 +65109,10 @@ type ServedPromptRecord struct {
 	// Node.revSeq of the revision served (never contentRevSeq).
 	ServedRevSeq int `json:"servedRevSeq"`
 	// The compile revision that owns the provenance.
-	ProvenanceRevSeq int             `json:"provenanceRevSeq"`
-	ServedAt         string          `json:"servedAt"`
-	Variables        json.RawMessage `json:"variables"`
+	ProvenanceRevSeq int    `json:"provenanceRevSeq"`
+	ServedAt         string `json:"servedAt"`
+	// Recorded platform values. Chat records label session.llmModel.source as client-reported or unspecified (#3096); neither is verified model identity.
+	Variables json.RawMessage `json:"variables"`
 	// True when the served revision is no longer retained (neither current nor in history).
 	Pruned bool `json:"pruned"`
 	// Provenance of the served revision, one page at a time (default 50, cap 200).
@@ -66725,7 +66877,7 @@ func (v *SetAppAgentBootPromptSetAppAgentBootPromptAppAgentApp) GetName() string
 
 // SetAppMemoryWriteGrantResponse is returned by SetAppMemoryWriteGrant on success.
 type SetAppMemoryWriteGrantResponse struct {
-	// #2484: let an App's userless runs create or update a node in one memory under one loc prefix (required; no memory-wide grant). The caller is a person acting as themselves who manages the App and can write the memory. A shared memory must be one the App's own org or team space holds; a personal or private memory only by its owner, who must also manage the App; an encrypted memory is never grantable; nor is a system-class memory (#2710: an Agent's system memory, its boot-prompt source included, is written only by whoever manages the Agent, hrn:node:hadronmemory.com:specs:cor:agt:040:11), and a grant made on one before that rule authorizes no write. Granting the same prefix again returns the live grant. One content-free event is recorded. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+	// #2484: let an App's userless runs create or update a node in one memory under one loc prefix (required; no memory-wide grant). The caller is a person acting as themselves who manages the App and can write the memory (person-only, hrn:node:hadronmemory.com:specs:cor:dmo:050:12, #3277). A shared memory must be one the App's own org or team space holds; a personal or private memory only by its owner, who must also manage the App; an encrypted memory is never grantable; nor is a system-class memory (#2710: an Agent's system memory, its boot-prompt source included, is written only by whoever manages the Agent, hrn:node:hadronmemory.com:specs:cor:agt:040:11), and a grant made on one before that rule authorizes no write. Granting the same prefix again returns the live grant. One content-free event is recorded. hrn:node:hadronmemory.com:specs:cor:agt:010:01
 	SetAppMemoryWriteGrant *SetAppMemoryWriteGrantSetAppMemoryWriteGrant `json:"setAppMemoryWriteGrant"`
 }
 
@@ -69942,7 +70094,7 @@ type SpecUnresolvedReferencesSpecUnresolvedReferencesSpecReference struct {
 	Kind SpecReferenceKind `json:"kind"`
 	// The scanned field; edge for a real edge; pendingEdge for an edge whose target is not a node yet.
 	Field string `json:"field"`
-	// Set only by specUnresolvedReferences.
+	// Set only by specUnresolvedReferences and specUnresolvedReferencesPage.
 	Reason       *SpecReferenceProblem `json:"reason"`
 	SourceLoc    string                `json:"sourceLoc"`
 	SourceNodeId string                `json:"sourceNodeId"`
@@ -70014,8 +70166,9 @@ func (v *StartConnectionResponse) GetStartConnection() *StartConnectionStartConn
 //
 // The start of a connection's OAuth flow (#2897). Open authorizeUrl in a
 // browser; the consent step belongs to the provider and the browser ends on a
-// page this server hosts, so the portal is not involved. Confirm the result by
-// listing the org's connections.
+// page this server hosts, so the portal is not involved. Find the connection
+// this flow made with connectionFlow(flowId) (#2913,
+// hrn:node:hadronmemory.com:specs:cor:dmo:080:04).
 type StartConnectionStartConnectionConnectionStart struct {
 	Provider ConnectionProvider `json:"provider"`
 	// The org the connection will be attached to.
@@ -78924,7 +79077,8 @@ func (v *UntrackedTaskItemsUntrackedTaskItemsUntrackedTaskItemPageItemsUntracked
 
 // UpdateAgentMemoryRoleResponse is returned by UpdateAgentMemoryRole on success.
 type UpdateAgentMemoryRoleResponse struct {
-	// Update an Agent's role on an attached Memory.
+	// Update an Agent's role on an attached Memory. #3253 (hrn:node:hadronmemory.com:specs:cor:dmo:050:09):
+	// the same subscription, caller-capability, class and PUBLIC-Agent gates apply as on addMemoryToAgent.
 	//
 	// Accepts the entity's ID or URN.
 	UpdateAgentMemoryRole *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent `json:"updateAgentMemoryRole"`
@@ -92626,6 +92780,14 @@ type __DeleteTickerInput struct {
 // GetRef returns __DeleteTickerInput.Ref, and is useful for accessing the field via an interface.
 func (v *__DeleteTickerInput) GetRef() string { return v.Ref }
 
+// __DeleteUserApiKeyInput is used internally by genqlient
+type __DeleteUserApiKeyInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __DeleteUserApiKeyInput.Id, and is useful for accessing the field via an interface.
+func (v *__DeleteUserApiKeyInput) GetId() string { return v.Id }
+
 // __DeleteUserInput is used internally by genqlient
 type __DeleteUserInput struct {
 	Reason  *string `json:"reason,omitempty"`
@@ -98834,6 +98996,9 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 // cli#1524 C1 (hadron-server#3125 S2, cor:agt:120:02): the claimed outside item.
 // Absent unless --external-id is given, so an ordinary create is unchanged and
 // an older server never sees the field.
+// cli#1568 (Andi LOCAL P2): match, roles and team arrived with the d7ae518d schema
+// refresh (server#2829/#2830, tracked by #1549). Absent, not null, until a flag names
+// them: a provider that predates the fields rejects them, even as null.
 // cli#1485 S3 (Andi BLIND P2): the model-group requirement fields arrived with
 // the schema refresh (server #3029) and S2 exposes them as optional flags. Absent,
 // not null, so ordinary create/update bodies are unchanged and an older server
@@ -110293,6 +110458,48 @@ func DeleteUser(
 	}
 
 	data_ = &DeleteUserResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteUserApiKey.
+const DeleteUserApiKey_Operation = `
+mutation DeleteUserApiKey ($id: ID!) {
+	deleteUserApiKey(id: $id) {
+		id
+		keyId
+		keyPreview
+		revokedKeyIds
+		mintedKeyIds
+		deletedAt
+	}
+}
+`
+
+// Delete one of the caller's OWN API keys, live or revoked, hidden or not. A live
+// key is revoked first with its live subtree; the keys it minted directly stay,
+// revoked, with no parent. Never retried: the key is gone after a success.
+func DeleteUserApiKey(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *DeleteUserApiKeyResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteUserApiKey",
+		Query:  DeleteUserApiKey_Operation,
+		Variables: &__DeleteUserApiKeyInput{
+			Id: id,
+		},
+	}
+
+	data_ = &DeleteUserApiKeyResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
