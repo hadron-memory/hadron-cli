@@ -62,10 +62,15 @@ this adds `serverCode` to the error envelope. That is additive; exit codes and
 messages are unchanged.
 
 `cast --dry-run` with the flag is not write-free: an admitted instructed
-preview records one claim event. The text receipt adds `the instruction claim
-was recorded for this preview` exactly when the preview went out through the
-worker session. The finisher reports whether it attached the session. DTOs are
-unchanged.
+preview records one claim event. The text receipt says the instruction went
+out through the worker session exactly when it did (the finisher reports
+that), hedged: the server records a claim it admits, never a host-launched
+session's, which the CLI cannot tell from the binding. DTOs are unchanged.
+
+`app(ref:)` is readable only to the App's org members (and platform admins),
+so a holder who is an App member outside the org gets a null lookup. The note
+then says the target App can't be read as them, not "a different App", and
+the write goes out as the person.
 
 ## Help
 
@@ -100,7 +105,24 @@ help no longer says a preview "writes nothing".
 - a lookup failure sending nothing;
 - the help.
 
-16 mutants, one per guard, are all killed.
+17 mutants, one per guard, all killed. Each was applied by exact-string
+replacement that had to match once (a non-match is reported, never run),
+compiled as part of `go test`, and reverted with `git checkout`:
+
+| Mutant | Killed by |
+|---|---|
+| flag ignored (`staffingInstruction` always nil) | Wire, ShapeRefused, Matrix, Rebind, Appears, Refusals, Receipt, LookupFailure |
+| no target-App check in `instructedSession` | Matrix |
+| alias never resolved | Matrix, Rebind, LookupFailure |
+| no send-time re-read | Rebind |
+| lookup carries the session | Matrix, Rebind |
+| cast / member / retire / rm drop `serverCode` (4) | Refusals |
+| unbound reported as the worker's | Receipt |
+| member add / remove report a lookup error as a write outcome (2) | LookupFailure |
+| retire parses after its lookup | ShapeRefused, Rebind, Appears |
+| receipt always printed | Receipt |
+| rm sends the plain document with a claim | Wire, Matrix, Rebind, Appears, Refusals |
+| unreadable target App called "a different App" | Matrix (target App unreadable) |
 
 ## Spec reach
 

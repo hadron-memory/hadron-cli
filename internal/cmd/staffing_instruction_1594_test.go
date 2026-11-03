@@ -210,7 +210,14 @@ func TestStaffingInstructionAttributionMatrix1594(t *testing.T) {
 		} else {
 			r := responses1594()
 			r["TeamAppIdentity"] = otherAppIdentity1594
-			cells = append(cells, cell{name: "target another App", run: run1592{bound: true, response: r}, app: "acme.com:ops", note: "different App"})
+			hidden := responses1594()
+			hidden["TeamAppIdentity"] = `{"data":{"app":null}}`
+			cells = append(cells,
+				cell{name: "target another App", run: run1592{bound: true, response: r}, app: "acme.com:ops", note: "different App"},
+				// review F2: app(ref:) is org-member-only; an unreadable App
+				// is not called "a different App".
+				cell{name: "target App unreadable", run: run1592{bound: true, response: hidden}, app: alias1594, note: "can't be read as you"},
+			)
 		}
 		for _, tc := range cells {
 			t.Run(c.name+"/"+tc.name, func(t *testing.T) {
@@ -301,11 +308,11 @@ func TestStaffingNoInstructionAttributionUnchanged1594(t *testing.T) {
 func TestStaffingInstructedPreviewReceipt1594(t *testing.T) {
 	args := cmds1594[1].args(app1594, "--instruction", instrTask1592)
 	_, r := run1594(run1592{bound: true}).exec(t, args...)
-	if r.err != nil || !strings.Contains(r.out, "instruction claim was recorded") {
+	if r.err != nil || !strings.Contains(r.out, "went out through the worker session") {
 		t.Fatalf("worker preview: err %v out %q", r.err, r.out)
 	}
 	_, r = run1594(run1592{}).exec(t, args...)
-	if r.err != nil || strings.Contains(r.out, "claim was recorded") {
+	if r.err != nil || strings.Contains(r.out, "worker session") {
 		t.Fatalf("person preview: err %v out %q", r.err, r.out)
 	}
 }

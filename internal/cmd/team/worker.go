@@ -309,7 +309,7 @@ context).
 					}
 					fmt.Fprintf(w, "\nnothing was created, and %q is NOT reserved — it may be gone at cast time\n", dto.Name)
 					if claimed {
-						fmt.Fprintf(w, "the instruction claim was recorded for this preview\n")
+						fmt.Fprintf(w, "the instruction went out through the worker session; the server records a claim it admits (never a host-launched session's)\n")
 					}
 					return nil
 				})

@@ -5209,8 +5209,10 @@ add/remove, self-leave included); no grant is held by default, and the holder
 still needs the right to make the change themselves. An admitted claim is
 recorded, also for a preview and for a no-op (an already-retired worker, an
 existing or absent member): an instructed `cast --dry-run` is NOT write-free,
-and its text receipt says `the instruction claim was recorded for this preview`
-when it went out through the worker session. A host-launched session's claim is
+and its text receipt says when it went out through the worker session (the
+server records a claim it admits, never a host-launched session's). A target
+App the caller can't read (`app(ref:)` is org-member-only) is noted as such,
+and the write goes out as the person. A host-launched session's claim is
 ignored (neither checked nor recorded): it acts on its own grant only, refused
 without one. The MCP tools take no instruction. Refusals keep their codes:
 FORBIDDEN exit 8, with `serverCode` in `--json` errors, which these five doors

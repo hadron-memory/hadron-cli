@@ -151,6 +151,12 @@ func BeginInstructedWrite(f *cmdutil.Factory) func(context.Context) InstructedWr
 				if err != nil {
 					return ctx, false, err
 				}
+				if id == "" {
+					// app(ref:) is readable to the App's org members only, so
+					// an App member outside the org lands here: say so, not
+					// "a different App".
+					return instructedAsPerson(ctx, f, "the target App "+targetAppRef+" can't be read as you, so it can't be matched to the binding", nil)
+				}
 				targetAppID = id
 			}
 			session, why, err := instructedSession(ctx, f, snap, targetAppID)
