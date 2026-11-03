@@ -23,8 +23,8 @@ func registerResponses1577(items string, total int, more bool) map[string]string
 
 func TestTeamRegister1577WireAndJSON(t *testing.T) {
 	for _, explicit := range []bool{false, true} {
-		args := []string{"team", "register", "--app", "hrn:app:acme.com:eng", "--json"}
-		want := map[string]any{"appRef": "hrn:app:acme.com:eng"}
+		args := []string{"team", "register", "--app", "capp100000000000000000000", "--json"}
+		want := map[string]any{"appRef": "capp100000000000000000000"}
 		if explicit {
 			args = append(args, "--agent", "hrn:agent:acme.com:coder", "--task-loc", "tasks:finish", "--code", "z.mapped", "--limit", "201", "--offset", "3")
 			want["agentRef"] = "hrn:agent:acme.com:coder"
@@ -198,14 +198,41 @@ func TestTeamRegister1577Document(t *testing.T) {
 }
 
 func TestTeamRegister1577SessionAttribution(t *testing.T) {
-	for _, mode := range []string{"bound", "unbound", "other-server", "missing-server", "empty-session", "rebound"} {
+	for _, mode := range []string{"bound", "unbound", "other-server", "missing-server", "empty-session", "rebound", "other-app", "alias", "unreadable-app", "identity-refused", "rebound-after-app-lookup", "text", "empty-worker", "empty-app"} {
 		t.Run(mode, func(t *testing.T) {
 			writeTeamBinding(t)
-			srv, calls := attnServer(t, registerResponses1577(`[]`, 0, false))
+			responses := registerResponses1577(`[]`, 0, false)
+			appRef := "capp100000000000000000000"
+			switch mode {
+			case "other-app":
+				appRef = "capp200000000000000000000"
+				responses["TeamAppIdentity"] = strings.ReplaceAll(teamAppIdentityJSON, "capp100000000000000000000", appRef)
+			case "alias", "rebound-after-app-lookup":
+				appRef = "hrn:app:acme.com:eng"
+			case "unreadable-app":
+				appRef = "hrn:app:other.com:hidden"
+				responses["TeamAppIdentity"] = `{"data":{"app":null}}`
+			case "identity-refused":
+				appRef = "hrn:app:other.com:hidden"
+				responses["TeamAppIdentity"] = `{"errors":[{"message":"hidden","extensions":{"code":"FORBIDDEN"}}]}`
+			}
+			path := filepath.Join(os.Getenv("HADRON_TEAM_GIT_DIR"), "hadron-team-session.json")
+			srv, calls := attnServerHook(t, responses, func(op string) {
+				if mode == "rebound-after-app-lookup" && op == "TeamAppIdentity" {
+					body, err := os.ReadFile(path)
+					if err != nil {
+						t.Error(err)
+						return
+					}
+					body = []byte(strings.Replace(string(body), `"sessionId":"s-new"`, `"sessionId":"replacement"`, 1))
+					if err := os.WriteFile(path, body, 0600); err != nil {
+						t.Error(err)
+					}
+				}
+			})
 			if mode != "missing-server" {
 				setTeamBindingServer(t, srv.URL)
 			}
-			path := filepath.Join(os.Getenv("HADRON_TEAM_GIT_DIR"), "hadron-team-session.json")
 			if mode == "unbound" {
 				if err := os.Remove(path); err != nil {
 					t.Fatal(err)
@@ -218,6 +245,12 @@ func TestTeamRegister1577SessionAttribution(t *testing.T) {
 				text := string(b)
 				if mode == "other-server" {
 					text = strings.Replace(text, srv.URL, "http://127.0.0.1:1", 1)
+				}
+				if mode == "empty-worker" {
+					text = strings.Replace(text, `"workerId":"wkr1"`, `"workerId":""`, 1)
+				}
+				if mode == "empty-app" {
+					text = strings.Replace(text, `"appId":"capp100000000000000000000"`, `"appId":""`, 1)
 				}
 				if mode == "empty-session" {
 					text = strings.Replace(text, `"sessionId":"s-new"`, `"sessionId":""`, 1)
@@ -242,22 +275,39 @@ func TestTeamRegister1577SessionAttribution(t *testing.T) {
 				}
 			}
 			root := NewRootCmd(f)
-			root.SetArgs([]string{"--server", srv.URL, "--app", "hrn:app:acme.com:eng", "team", "register", "--json"})
+			args := []string{"--server", srv.URL, "--app", appRef, "team", "register"}
+			if mode != "text" {
+				args = append(args, "--json")
+			}
+			root.SetArgs(args)
 			if err := root.Execute(); err != nil {
 				t.Fatalf("%v %s", err, out.String())
 			}
-			if len(*calls) != 1 {
-				t.Fatalf("unexpected calls %#v", *calls)
-			}
 			want := ""
-			if mode == "bound" {
+			if mode == "bound" || mode == "alias" || mode == "text" {
 				want = "s-new"
 			}
-			if (*calls)[0].Session != want {
-				t.Fatalf("session %q want %q", (*calls)[0].Session, want)
+			dataCalls := 0
+			for _, call := range *calls {
+				if call.Op != "TeamActionRegisterIndex" {
+					if call.Session != "" {
+						t.Fatalf("identity carried session: %#v", call)
+					}
+					continue
+				}
+				dataCalls++
+				if call.Session != want {
+					t.Fatalf("session %q want %q", call.Session, want)
+				}
+				if call.Vars["appRef"] != appRef {
+					t.Fatalf("App changed: %#v", call.Vars)
+				}
+				if _, ok := call.Vars["agentRef"]; ok {
+					t.Fatalf("session attribution must not invent agentRef: %#v", call.Vars)
+				}
 			}
-			if _, ok := (*calls)[0].Vars["agentRef"]; ok {
-				t.Fatalf("session attribution must not invent agentRef: %#v", (*calls)[0].Vars)
+			if dataCalls != 1 {
+				t.Fatalf("unexpected register calls: %#v", *calls)
 			}
 		})
 	}
