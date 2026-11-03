@@ -93014,12 +93014,16 @@ func (v *__AgentTaskCloneInput) GetInput() *CloneAgentTaskInput { return v.Input
 
 // __AgentTaskCreateBatchInput is used internally by genqlient
 type __AgentTaskCreateBatchInput struct {
-	AppRef string                                `json:"appRef"`
-	Tasks  []*gqltypes.CreateAgentTasksItemInput `json:"tasks,omitempty"`
+	AppRef            string                                `json:"appRef"`
+	DistinctAssignees *bool                                 `json:"distinctAssignees,omitempty"`
+	Tasks             []*gqltypes.CreateAgentTasksItemInput `json:"tasks,omitempty"`
 }
 
 // GetAppRef returns __AgentTaskCreateBatchInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__AgentTaskCreateBatchInput) GetAppRef() string { return v.AppRef }
+
+// GetDistinctAssignees returns __AgentTaskCreateBatchInput.DistinctAssignees, and is useful for accessing the field via an interface.
+func (v *__AgentTaskCreateBatchInput) GetDistinctAssignees() *bool { return v.DistinctAssignees }
 
 // GetTasks returns __AgentTaskCreateBatchInput.Tasks, and is useful for accessing the field via an interface.
 func (v *__AgentTaskCreateBatchInput) GetTasks() []*gqltypes.CreateAgentTasksItemInput {
@@ -102819,8 +102823,8 @@ func AgentTaskCreate(
 
 // The mutation executed by AgentTaskCreateBatch.
 const AgentTaskCreateBatch_Operation = `
-mutation AgentTaskCreateBatch ($appRef: ID!, $tasks: [CreateAgentTasksItemInput!]!) {
-	createAgentTasks(appRef: $appRef, tasks: $tasks) {
+mutation AgentTaskCreateBatch ($appRef: ID!, $distinctAssignees: Boolean, $tasks: [CreateAgentTasksItemInput!]!) {
+	createAgentTasks(appRef: $appRef, distinctAssignees: $distinctAssignees, tasks: $tasks) {
 		... AgentTaskFields
 	}
 }
@@ -102922,19 +102926,22 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 
 // cli#1565 (server#2653, cor:agt:050:06): create 1-25 tasks in one call, all or
 // none. Not idempotent: the command sends it exactly once and never retries.
-// distinctAssignees is not exposed, so it is not selected and never sent.
+// cli#1567: $distinctAssignees is the call-level option (server#3243, merged
+// 74454999); omitempty so an unset flag sends no key at all (absent, not null).
 func AgentTaskCreateBatch(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	appRef string,
+	distinctAssignees *bool,
 	tasks []*gqltypes.CreateAgentTasksItemInput,
 ) (data_ *AgentTaskCreateBatchResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "AgentTaskCreateBatch",
 		Query:  AgentTaskCreateBatch_Operation,
 		Variables: &__AgentTaskCreateBatchInput{
-			AppRef: appRef,
-			Tasks:  tasks,
+			AppRef:            appRef,
+			DistinctAssignees: distinctAssignees,
+			Tasks:             tasks,
 		},
 	}
 

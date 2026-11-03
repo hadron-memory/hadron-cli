@@ -567,3 +567,104 @@ func TestExtensionIntBranches1565(t *testing.T) {
 		t.Error("a missing key must not read as an integer")
 	}
 }
+
+// cli#1567 (server#3243, cor:agt:050:06 ruling 0084 A): `--distinct-assignees`
+// on `team task create --batch-file`, the call-level createAgentTasks option.
+
+const distinctBatch1567 = `[{"task":{"title":"a"}},{"task":{"title":"b"}}]`
+
+func TestTaskBatchDistinctAssigneesWire1567(t *testing.T) {
+	p := writeBatch1565(t, distinctBatch1567)
+	vars := func(args ...string) map[string]json.RawMessage {
+		calls, _, err := runTeamTask(t, batchResponses1565(2, ""), append([]string{"team", "task", "create", "--batch-file", p}, args...)...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n := len(callsOf1565(calls, "AgentTaskCreateBatch")); n != 1 {
+			t.Fatalf("batch calls = %d, want exactly 1", n)
+		}
+		var v map[string]json.RawMessage
+		if err := json.Unmarshal(c2Mutation(t, calls, "AgentTaskCreateBatch").RawVars, &v); err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+	if v := vars("--distinct-assignees"); string(v["distinctAssignees"]) != "true" {
+		t.Fatalf("with the flag the option must be true: %v", v)
+	}
+	if v := vars(); func() bool { _, ok := v["distinctAssignees"]; return ok }() {
+		t.Fatalf("without the flag the argument must be absent, not false/null: %v", v)
+	}
+	// A given =false is the caller's explicit value: sent as given (presence, not value).
+	if v := vars("--distinct-assignees=false"); string(v["distinctAssignees"]) != "false" {
+		t.Fatalf("=false must be sent as false: %v", v)
+	}
+}
+
+func TestTaskBatchDistinctAssigneesNeedsBatchFile1567(t *testing.T) {
+	for _, args := range [][]string{
+		{"team", "task", "create", "a title", "--distinct-assignees"},
+		{"team", "task", "create", "a title", "--distinct-assignees=false"},
+	} {
+		calls, out, err := runTeamTask(t, batchResponses1565(1, ""), args...)
+		if exitCodeFor(err) != 2 || out != "" || !strings.Contains(err.Error(), "--batch-file") {
+			t.Fatalf("%v: err=%v exit=%d out=%q", args, err, exitCodeFor(err), out)
+		}
+		if len(callsOf1565(calls, "AgentTaskCreateBatch"))+len(callsOf1565(calls, "AgentTaskCreate")) != 0 {
+			t.Fatalf("%v: a refused flag must make no mutation call", args)
+		}
+	}
+}
+
+func TestTaskBatchMatchFailedNamesPositionAndReason1567(t *testing.T) {
+	p := writeBatch1565(t, distinctBatch1567)
+	r := batchResponses1565(2, "")
+	r["AgentTaskCreateBatch"] = errorResponse1565("TASK_MATCH_FAILED", "no match", map[string]any{"position": 2, "reason": "NOBODY_FREE"})
+	calls, out, err := runTeamTask(t, r, "team", "task", "create", "--batch-file", p, "--distinct-assignees")
+	if exitCodeFor(err) != 5 || out != "" {
+		t.Fatalf("err=%v exit=%d out=%q", err, exitCodeFor(err), out)
+	}
+	for _, want := range []string{"TASK_MATCH_FAILED", "task 2 of 2", "NOBODY_FREE"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("message lacks %q: %v", want, err)
+		}
+	}
+	if n := len(callsOf1565(calls, "AgentTaskCreateBatch")); n != 1 {
+		t.Fatalf("never retried: batch calls = %d", n)
+	}
+	// The same worker named twice is BAD_USER_INPUT at the second position.
+	r["AgentTaskCreateBatch"] = errorResponse1565("BAD_USER_INPUT", "worker named twice", map[string]any{"position": 2})
+	_, _, err = runTeamTask(t, r, "team", "task", "create", "--batch-file", p, "--distinct-assignees")
+	if exitCodeFor(err) != 2 || !strings.Contains(err.Error(), "task 2 of 2") {
+		t.Fatalf("err=%v exit=%d", err, exitCodeFor(err))
+	}
+}
+
+func TestTaskBatchMatchFailedJSONEnvelope1567(t *testing.T) {
+	p := writeBatch1565(t, distinctBatch1567)
+	run := func(ext map[string]any) map[string]any {
+		r := batchResponses1565(2, "")
+		r["AgentTaskCreateBatch"] = errorResponse1565("TASK_MATCH_FAILED", "no match", ext)
+		writeTeamBinding(t)
+		srv, _ := attnServer(t, r)
+		setTeamBindingServer(t, srv.URL)
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"--server", srv.URL, "--json", "team", "task", "create", "--batch-file", p, "--distinct-assignees"})
+		renderError(f, root.Execute())
+		var env struct {
+			Error map[string]any `json:"error"`
+		}
+		if err := json.Unmarshal([]byte(out.String()), &env); err != nil {
+			t.Fatalf("envelope %q: %v", out.String(), err)
+		}
+		return env.Error
+	}
+	e := run(map[string]any{"position": 2, "reason": "NOBODY_FREE"})
+	if e["position"] != float64(2) || e["reason"] != "NOBODY_FREE" || e["serverCode"] != "TASK_MATCH_FAILED" || e["code"] != float64(5) {
+		t.Fatalf("envelope = %v", e)
+	}
+	if _, ok := run(map[string]any{"position": 2})["reason"]; ok {
+		t.Fatal("no reason from the server: the envelope must carry no reason key")
+	}
+}

@@ -1282,6 +1282,11 @@ func codeForExtension(code string) int {
 		code == "HOST_OPERATION_NOT_DONE" || code == "LAUNCH_REFUSED" ||
 		code == "WORKER_NOT_HELD" || code == "WORKER_LIVE" || code == "WORKER_START_PENDING":
 		return exitcode.Conflict
+	// cli#1567: a distinct-assignees match that found nobody (reason NOBODY_FREE,
+	// …) is the team's availability, not the caller's input: the call is valid and
+	// succeeds once a worker is free, like the other state Conflicts here.
+	case code == "TASK_MATCH_FAILED":
+		return exitcode.Conflict
 	// A lifecycle move the task's current state forbids — assigning an
 	// already-assigned task, starting a finished one, acknowledging an alarm
 	// whose first acknowledgement already stands. The state must change
@@ -1526,6 +1531,21 @@ func AppMemberWriteRefused(err error) bool {
 		}
 	}
 	return true
+}
+
+// ExtensionString returns the first non-empty string extensions[key] of err's
+// GraphQL errors (TASK_MATCH_FAILED's extensions.reason, cli#1567). Call it on
+// the RAW error; the value is server text, so a caller echoing it bounds it.
+func ExtensionString(err error, key string) (string, bool) {
+	for _, e := range graphQLErrors(err) {
+		if e == nil {
+			continue
+		}
+		if v, ok := e.Extensions[key].(string); ok && v != "" {
+			return v, true
+		}
+	}
+	return "", false
 }
 
 // ExtensionInt returns the first integer extensions[key] of err's GraphQL
