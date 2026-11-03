@@ -35416,6 +35416,76 @@ type DeleteTickerResponse struct {
 // GetDeleteTicker returns DeleteTickerResponse.DeleteTicker, and is useful for accessing the field via an interface.
 func (v *DeleteTickerResponse) GetDeleteTicker() bool { return v.DeleteTicker }
 
+// DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion includes the requested fields of the GraphQL type UserApiKeyDeletion.
+// The GraphQL type's documentation follows.
+//
+// #2659 (hrn:node:hadronmemory.com:specs:cor:dmo:070:03, ruling 0007): the one
+// append-only record a user's deletion of their own API key leaves behind. Names
+// the key (its id and masked preview) and when; never its secret or its hash.
+type DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion struct {
+	// The deletion record's id.
+	Id string `json:"id"`
+	// The deleted key's id. The key itself no longer exists.
+	KeyId string `json:"keyId"`
+	// The deleted key's masked preview (its last characters).
+	KeyPreview string `json:"keyPreview"`
+	// The keys this delete revoked: the key itself when it was live, with its live
+	// subtree (hrn:node:hadronmemory.com:specs:cor:aut:010:02 rule 9). Empty when
+	// the key was already revoked.
+	RevokedKeyIds []string `json:"revokedKeyIds"`
+	// The keys the deleted key had minted. They were not deleted: they stay,
+	// revoked, with no parent (mintedByKeyId null).
+	MintedKeyIds []string `json:"mintedKeyIds"`
+	DeletedAt    string   `json:"deletedAt"`
+}
+
+// GetId returns DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion.Id, and is useful for accessing the field via an interface.
+func (v *DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion) GetId() string { return v.Id }
+
+// GetKeyId returns DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion.KeyId, and is useful for accessing the field via an interface.
+func (v *DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion) GetKeyId() string { return v.KeyId }
+
+// GetKeyPreview returns DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion.KeyPreview, and is useful for accessing the field via an interface.
+func (v *DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion) GetKeyPreview() string {
+	return v.KeyPreview
+}
+
+// GetRevokedKeyIds returns DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion.RevokedKeyIds, and is useful for accessing the field via an interface.
+func (v *DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion) GetRevokedKeyIds() []string {
+	return v.RevokedKeyIds
+}
+
+// GetMintedKeyIds returns DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion.MintedKeyIds, and is useful for accessing the field via an interface.
+func (v *DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion) GetMintedKeyIds() []string {
+	return v.MintedKeyIds
+}
+
+// GetDeletedAt returns DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion.DeletedAt, and is useful for accessing the field via an interface.
+func (v *DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion) GetDeletedAt() string {
+	return v.DeletedAt
+}
+
+// DeleteUserApiKeyResponse is returned by DeleteUserApiKey on success.
+type DeleteUserApiKeyResponse struct {
+	// #2659 (hrn:node:hadronmemory.com:specs:cor:dmo:070:03): delete one of the
+	// caller's own API keys, live or revoked. A live key is revoked first, with
+	// every key it minted, in the same step, so no working credential is left
+	// behind. The keys it minted are not deleted and do not prevent the delete:
+	// they stay, revoked, with no parent. The key then no longer authenticates and
+	// is absent from myUserApiKeys whatever includeHidden says. Returns the one
+	// append-only deletion record (no secret, no hash). Only the key's own user,
+	// as themselves: FORBIDDEN under impersonation, from a worker session or a run;
+	// UNAUTHENTICATED for AppKey-resolved callers. NOT_FOUND for both unknown and
+	// foreign keys, as revokeUserApiKey answers. To tidy the list without deleting,
+	// hide a revoked key with setUserApiKeyHidden instead.
+	DeleteUserApiKey *DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion `json:"deleteUserApiKey"`
+}
+
+// GetDeleteUserApiKey returns DeleteUserApiKeyResponse.DeleteUserApiKey, and is useful for accessing the field via an interface.
+func (v *DeleteUserApiKeyResponse) GetDeleteUserApiKey() *DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion {
+	return v.DeleteUserApiKey
+}
+
 // DeleteUserResponse is returned by DeleteUser on success.
 type DeleteUserResponse struct {
 	// Delete a user account (self-serve account deletion, Apple 5.1.1(v) /
@@ -92710,6 +92780,14 @@ type __DeleteTickerInput struct {
 // GetRef returns __DeleteTickerInput.Ref, and is useful for accessing the field via an interface.
 func (v *__DeleteTickerInput) GetRef() string { return v.Ref }
 
+// __DeleteUserApiKeyInput is used internally by genqlient
+type __DeleteUserApiKeyInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __DeleteUserApiKeyInput.Id, and is useful for accessing the field via an interface.
+func (v *__DeleteUserApiKeyInput) GetId() string { return v.Id }
+
 // __DeleteUserInput is used internally by genqlient
 type __DeleteUserInput struct {
 	Reason  *string `json:"reason,omitempty"`
@@ -110377,6 +110455,48 @@ func DeleteUser(
 	}
 
 	data_ = &DeleteUserResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DeleteUserApiKey.
+const DeleteUserApiKey_Operation = `
+mutation DeleteUserApiKey ($id: ID!) {
+	deleteUserApiKey(id: $id) {
+		id
+		keyId
+		keyPreview
+		revokedKeyIds
+		mintedKeyIds
+		deletedAt
+	}
+}
+`
+
+// Delete one of the caller's OWN API keys, live or revoked, hidden or not. A live
+// key is revoked first with its live subtree; the keys it minted directly stay,
+// revoked, with no parent. Never retried: the key is gone after a success.
+func DeleteUserApiKey(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *DeleteUserApiKeyResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteUserApiKey",
+		Query:  DeleteUserApiKey_Operation,
+		Variables: &__DeleteUserApiKeyInput{
+			Id: id,
+		},
+	}
+
+	data_ = &DeleteUserApiKeyResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

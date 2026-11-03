@@ -3,6 +3,7 @@ package auth
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -69,6 +70,7 @@ is what "revoke" takes.`,
 	cmd.AddCommand(newCmdTokenLs(f))
 	cmd.AddCommand(newCmdTokenValidate(f))
 	cmd.AddCommand(newCmdTokenRevoke(f))
+	cmd.AddCommand(newCmdTokenDelete(f))
 	cmd.AddCommand(newCmdTokenHide(f, true))
 	cmd.AddCommand(newCmdTokenHide(f, false))
 	return cmd
@@ -452,6 +454,80 @@ list with STATUS revoked.`,
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				_, err := fmt.Fprintf(w, "✓ Revoked API token %s\n", dto.ID)
 				return err
+			})
+		},
+	}
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
+	return cmd
+}
+
+// tokenDeletionDTO is the stable --json shape for `token delete`: the server's
+// append-only deletion record. Never key material.
+type tokenDeletionDTO struct {
+	ID            string   `json:"id"`
+	KeyID         string   `json:"keyId"`
+	KeyPreview    string   `json:"keyPreview"`
+	RevokedKeyIDs []string `json:"revokedKeyIds"`
+	MintedKeyIDs  []string `json:"mintedKeyIds"`
+	DeletedAt     string   `json:"deletedAt"`
+}
+
+func newCmdTokenDelete(f *cmdutil.Factory) *cobra.Command {
+	var yes bool
+	cmd := &cobra.Command{
+		Use:   "delete <id>",
+		Short: "Delete a personal API token for good",
+		Long: `Delete one of your personal tokens for good: the row is removed, so it no longer
+appears in "auth token list", even with --include-hidden. Deleting cannot be
+undone. Revoke keeps the row (STATUS revoked); delete removes it.
+
+<id> is the token's ID from hadron auth token list. You can delete only your own
+tokens, live or revoked, hidden or not: an unknown id, or someone else's, exits
+4. A live token is revoked first, together with every live token minted from it,
+so anything using them stops working at once. Tokens it minted directly are not
+deleted: they stay, revoked, with no parent (a token minted from one of those
+keeps its own parent).
+
+On a terminal it asks for confirmation; in a script or agent pass --yes, or it
+refuses with exit 2 and sends nothing. The request is sent once and never
+retried. Prints "✓ Deleted API token <keyId> (<preview>)", then one line for the
+tokens this delete revoked and one for the tokens it had minted, when there are
+any. --json prints the deletion record: id, keyId, keyPreview, revokedKeyIds,
+mintedKeyIds and deletedAt. Requires a user login.`,
+		Example: `  hadron auth token list
+  hadron auth token delete 01a18cf6400b7fcc8d2f51e7401c55c1
+  hadron auth token delete 01a18cf6400b7fcc8d2f51e7401c55c1 --yes   # non-interactive`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			if err := cmdutil.Confirm(f.IOStreams, yes, "Delete API token "+args[0]+" for good? If it is live it is revoked first, with every live token minted from it."); err != nil {
+				return err
+			}
+			resp, err := gen.DeleteUserApiKey(cmd.Context(), client, args[0])
+			if err != nil {
+				return api.MapError(err)
+			}
+			if resp == nil || resp.DeleteUserApiKey == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no deletion record")
+			}
+			d := resp.DeleteUserApiKey
+			dto := tokenDeletionDTO{
+				ID: d.Id, KeyID: d.KeyId, KeyPreview: d.KeyPreview, DeletedAt: d.DeletedAt,
+				RevokedKeyIDs: append([]string{}, d.RevokedKeyIds...),
+				MintedKeyIDs:  append([]string{}, d.MintedKeyIds...),
+			}
+			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				fmt.Fprintf(w, "✓ Deleted API token %s (%s)\n", output.SafeCell(dto.KeyID), output.SafeCell(dto.KeyPreview))
+				if len(dto.RevokedKeyIDs) > 0 {
+					fmt.Fprintf(w, "  Keys this delete revoked: %s\n", output.SafeCell(strings.Join(dto.RevokedKeyIDs, ", ")))
+				}
+				if len(dto.MintedKeyIDs) > 0 {
+					fmt.Fprintf(w, "  Keys it had minted, now revoked with no parent: %s\n", output.SafeCell(strings.Join(dto.MintedKeyIDs, ", ")))
+				}
+				return nil
 			})
 		},
 	}
