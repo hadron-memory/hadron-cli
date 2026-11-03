@@ -1980,9 +1980,9 @@ func releasePromptTransferClause(retiredAt *string) string {
 }
 
 func newCmdWorkerUpdate(f *cmdutil.Factory) *cobra.Command {
-	var signature, trailer string
+	var signature, trailer, instruction string
 	cmd := &cobra.Command{
-		Use:   "update <name-or-id> [--signature <text>] [--trailer <text>]",
+		Use:   "update <name-or-id> [--signature <text>] [--trailer <text>] [--instruction <kind>:<ref>]",
 		Short: "Amend a worker's signature or trailer template",
 		Long: `Set signature and trailer templates for the next briefing. Omitted fields
 keep their stored value; an explicit empty string stores an empty template.
@@ -1997,9 +1997,14 @@ At most 2000 characters each. The defaults are:
   trailer    Worker: {{worker.name}} ({{worker.role}}) <{{worker.url}}>
 There is no reset to the default: to restore it, pass the default text.
 
-Only an App manager may edit them, as themselves. From a worktree bound to a
-worker the edit goes through that worker's session and is refused (exit 8):
-run it from a directory with no binding, signed in as the App manager.
+Who may edit them: an App manager, as themselves, from a directory with no
+binding. From a worktree bound to a worker the edit goes through that
+worker's session, never as the person behind it: without --instruction it is
+refused (exit 8); with --instruction it is admitted when the worker's holder
+manages the App. A binding that is incomplete, for another server, or for an
+App other than the worker's refuses before any write (exit 2).
+
+` + instructionHelp + `
 
 <name-or-id>: a NAME resolves within --app, the App context or the binding; an
 id or worker URN needs no App. Per-worker boot instructions are a different
@@ -2014,6 +2019,24 @@ thing: see ` + "`team worker compile --help`" + `.`,
 			if !setSignature && !setTrailer {
 				return exitcode.Newf(exitcode.Usage, "nothing to update — pass --signature <text> or --trailer <text>")
 			}
+			edit := signingEdit{signature: optionalFlag(setSignature, signature), trailer: optionalFlag(setTrailer, trailer)}
+			if !cmd.Flags().Changed("instruction") {
+				w, err := workerForArg(cmd, f, args[0])
+				if err != nil {
+					return err
+				}
+				client, err := f.GraphQLClient()
+				if err != nil {
+					return err
+				}
+				return updateWorkerSigning(cmd, f, client, w.Id, edit)
+			}
+			instr, err := parseInstruction(instruction)
+			if err != nil {
+				return err
+			}
+			// Snapshot before the first lookup: a rebind during it is refused.
+			snap := snapshotForInstruction(cmd.Context())
 			w, err := workerForArg(cmd, f, args[0])
 			if err != nil {
 				return err
@@ -2022,11 +2045,12 @@ thing: see ` + "`team worker compile --help`" + `.`,
 			if err != nil {
 				return err
 			}
-			return updateWorkerSigning(cmd, f, client, w.Id, signingEdit{signature: optionalFlag(setSignature, signature), trailer: optionalFlag(setTrailer, trailer)})
+			return updateWorkerSigningInstructed(cmd, f, client, snap, w, edit, instr)
 		},
 	}
 	cmd.Flags().StringVar(&signature, "signature", "", `replace the signature template ("" stores an empty one)`)
 	cmd.Flags().StringVar(&trailer, "trailer", "", `replace the commit-trailer template ("" stores an empty one)`)
+	cmd.Flags().StringVar(&instruction, "instruction", "", instructionFlagUsage)
 	cmdutil.RetireFlags(cmd, "a worker's boot customisation is now a node: write boot:workers:<id>:source (role boot-prompt) in the App install memory (hadron node update), compile it with `hadron team worker compile <worker>`, then have the App's manager approve the compiled node with `hadron node approve <compiled-node-ref>`",
 		cmdutil.RetiredFlag{Name: "prompt-override"}, cmdutil.RetiredFlag{Name: "clear-prompt-override", Bool: true})
 	return cmd

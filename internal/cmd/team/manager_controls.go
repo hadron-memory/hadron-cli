@@ -1,9 +1,12 @@
 package team
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
+
+	"github.com/Khan/genqlient/graphql"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
@@ -89,10 +92,10 @@ func newCmdTeamPause(f *cmdutil.Factory, paused bool) *cobra.Command {
 }
 
 func newCmdWorkerChangeAgent(f *cmdutil.Factory) *cobra.Command {
-	var agent string
+	var agent, instruction string
 	var yes bool
 	c := &cobra.Command{
-		Use:   "change-agent <name|id|URN> --agent <id|URN> [--yes]",
+		Use:   "change-agent <name|id|URN> --agent <id|URN> [--instruction <kind>:<ref>] [--yes]",
 		Short: "Change a worker's casting agent as the App manager",
 		Long: `Change a worker's agent and role. --agent takes an agent id or full agent
 URN, not a name; the server checks that it is installed and has a role and
@@ -108,10 +111,19 @@ The name, slug, URN, signature, trailer and reporting line stay unchanged.
 A server containing hadron-server#2504 is required to change an open worker.
 Choosing the current agent is a refusal (WORKER_AGENT_UNCHANGED, exit 5).
 
-This is the signed-in App manager's write: worker-session credentials are
-refused (exit 8), so this command attaches no bound worker session. The CLI
-never retries the mutation; after a lost response, inspect the worker before
-deciding what to do next.`,
+Who may change it: an App manager, as themselves. Without --instruction this
+is always the signed-in person's write: it attaches no bound worker session,
+even from a bound worktree. With --instruction it goes out through this
+worktree's worker session when that binding is for this server and the
+worker's own App, and is unchanged since the command started; the change is
+then admitted when the worker's holder manages the App. Otherwise it goes out
+as the signed-in person (a note on stderr says why), with no worker named;
+the server still checks the person's reference, and refuses a bad one.
+
+` + instructionHelp + `
+
+The CLI never retries the mutation; after a lost response, inspect the worker
+before deciding what to do next.`,
 		Example: "  hadron team worker change-agent Iris --agent hrn:agent:example.com:qa --yes --json",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -123,6 +135,13 @@ deciding what to do next.`,
 			agentShape := cmdutil.IsEntityID(agent) || strings.HasPrefix(agent, "hrn:agent:") || strings.HasPrefix(agent, "urn:agent:")
 			if !agentShape {
 				return exitcode.Newf(exitcode.Usage, "--agent requires an agent id or full agent URN, not a name")
+			}
+			var instr *gen.ActInstructionInput
+			if cmd.Flags().Changed("instruction") {
+				var err error
+				if instr, err = parseInstruction(instruction); err != nil {
+					return err
+				}
 			}
 			// Direct refs identify their own App; ambient context must never be
 			// presented as their destination. No network read precedes confirmation.
@@ -159,6 +178,12 @@ deciding what to do next.`,
 			if err := cmdutil.Confirm(f.IOStreams, yes, prompt); err != nil {
 				return err
 			}
+			// An instructed write may go out only through the binding as it
+			// stood before the first lookup (cli#1592).
+			var snap instructionSnapshot
+			if instr != nil {
+				snap = snapshotForInstruction(cmd.Context())
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -180,14 +205,11 @@ deciding what to do next.`,
 					return err
 				}
 			}
-			resp, err := gen.ChangeWorkerAgent(cmd.Context(), client, worker.Id, agent)
+			changed, err := sendChangeWorkerAgent(cmd.Context(), f, client, worker, agent, instr, snap)
 			if err != nil {
-				return api.MapErrorKeepingCode(err)
+				return err
 			}
-			if resp == nil || resp.ChangeWorkerAgent == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no changed worker; outcome unknown, inspect the worker before retrying")
-			}
-			dto := workerDTOFromFields(resp.ChangeWorkerAgent.WorkerFields)
+			dto := workerDTOFromFields(changed)
 			if direct {
 				source = "from the worker record"
 			}
@@ -199,6 +221,44 @@ deciding what to do next.`,
 		},
 	}
 	c.Flags().StringVar(&agent, "agent", "", "installed agent's id or full URN (required)")
+	c.Flags().StringVar(&instruction, "instruction", "", instructionFlagUsage)
 	c.Flags().BoolVar(&yes, "yes", false, "confirm clearing the custom boot-prompt selection and replacing agent-generated wake schedules")
 	return c
+}
+
+// sendChangeWorkerAgent makes the one change-agent write. Without an
+// instruction it is the plain document, headerless: the person's write, as
+// before cli#1592. With one it is the instruction document, through the
+// snapshot's session only when that binding is verified for the target
+// worker's App; otherwise headerless, borrowing no worker. Never retried.
+func sendChangeWorkerAgent(ctx context.Context, f *cmdutil.Factory, client graphql.Client, worker gen.WorkerFields, agent string, instr *gen.ActInstructionInput, snap instructionSnapshot) (gen.WorkerFields, error) {
+	var zero gen.WorkerFields
+	if instr == nil {
+		resp, err := gen.ChangeWorkerAgent(ctx, client, worker.Id, agent)
+		if err != nil {
+			return zero, api.MapErrorKeepingCode(err)
+		}
+		if resp == nil || resp.ChangeWorkerAgent == nil {
+			return zero, exitcode.Newf(exitcode.Error, "server returned no changed worker; outcome unknown, inspect the worker before retrying")
+		}
+		return resp.ChangeWorkerAgent.WorkerFields, nil
+	}
+	session, why, err := instructedSession(ctx, f, snap, worker.AppId)
+	if err != nil {
+		return zero, err
+	}
+	if why != "" {
+		fmt.Fprintf(f.IOStreams.ErrOut, "note: this worktree's worker session is not used (%s); the change goes out as the signed-in person, with the instruction checked but not recorded\n", why)
+	}
+	if session != "" {
+		ctx = api.WithSession(ctx, session)
+	}
+	resp, err := gen.ChangeWorkerAgentInstructed(ctx, client, worker.Id, agent, instr)
+	if err != nil {
+		return zero, api.MapErrorKeepingCode(err)
+	}
+	if resp == nil || resp.ChangeWorkerAgent == nil {
+		return zero, exitcode.Newf(exitcode.Error, "server returned no changed worker; outcome unknown, inspect the worker before retrying")
+	}
+	return resp.ChangeWorkerAgent.WorkerFields, nil
 }

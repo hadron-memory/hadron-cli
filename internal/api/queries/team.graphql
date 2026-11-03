@@ -1226,6 +1226,21 @@ mutation UpdateWorkerSigning(
   }
 }
 
+# cli#1592: UpdateWorkerSigning carrying a holder's instruction claim (see
+# ChangeWorkerAgentInstructed). Needs server 17ef5905 or later.
+mutation UpdateWorkerSigningInstructed(
+  $workerRef: ID!
+  # @genqlient(omitempty: true)
+  $signature: String
+  # @genqlient(omitempty: true)
+  $trailer: String
+  $instruction: ActInstructionInput!
+) {
+  updateWorker(workerRef: $workerRef, signature: $signature, trailer: $trailer, instruction: $instruction) {
+    ...WorkerFields
+  }
+}
+
 # `hadron team chat mark-read`: advance the bound worker's own cursor. The
 # GraphQL twin of hadron_team_chat_mark_read (same server helper, pinned to
 # one caller-owned live session) — deliberately NOT the wider
@@ -1536,6 +1551,14 @@ mutation SetTeamPause($appRef: String!, $paused: Boolean!) {
 
 mutation ChangeWorkerAgent($workerRef: ID!, $agentRef: ID!) {
   changeWorkerAgent(workerRef: $workerRef, agentRef: $agentRef) { ...WorkerFields }
+}
+
+# cli#1592 (hadron-server#3307, ruling 0096, cor:dmo:050:12): the same write
+# carrying a holder's instruction claim. A separate document, so the plain one
+# above keeps working against a server older than 17ef5905, which has no
+# `instruction` argument; this one is sent only with --instruction.
+mutation ChangeWorkerAgentInstructed($workerRef: ID!, $agentRef: ID!, $instruction: ActInstructionInput!) {
+  changeWorkerAgent(workerRef: $workerRef, agentRef: $agentRef, instruction: $instruction) { ...WorkerFields }
 }
 
 # cli#1337: explicit opt-in documents preserve ordinary older-server calls.

@@ -110,7 +110,40 @@ func updateWorkerSigning(cmd *cobra.Command, f *cmdutil.Factory, client graphql.
 	if resp.UpdateWorker == nil {
 		return exitcode.Newf(exitcode.Error, "server returned no worker")
 	}
-	dto := workerDTOFromFields(resp.UpdateWorker.WorkerFields)
+	return writeSigningReceipt(f, e, resp.UpdateWorker.WorkerFields)
+}
+
+// updateWorkerSigningInstructed is the same edit carrying the holder's
+// instruction claim (cli#1592). It goes out through the binding only when
+// that binding is verified for the TARGET worker's App; anything else refuses,
+// as the plain edit does, and never becomes the person's write. With no
+// binding at all it is the signed-in person's call (the server validates the
+// claim but does not record it). One mutation, never retried.
+func updateWorkerSigningInstructed(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, snap instructionSnapshot, w gen.WorkerFields, e signingEdit, instr *gen.ActInstructionInput) error {
+	ctx := cmd.Context()
+	session, why, err := instructedSession(ctx, f, snap, w.AppId)
+	if err != nil {
+		return err
+	}
+	if why != "" {
+		return instructionRefusal(snap, why)
+	}
+	if session != "" {
+		noteEndedBinding(ctx, snap.b)
+		ctx = api.WithSession(ctx, session)
+	}
+	resp, err := gen.UpdateWorkerSigningInstructed(ctx, client, w.Id, e.signature, e.trailer, instr)
+	if err != nil {
+		return api.MapErrorKeepingCode(err)
+	}
+	if resp.UpdateWorker == nil {
+		return exitcode.Newf(exitcode.Error, "server returned no worker; outcome unknown, inspect the worker before retrying")
+	}
+	return writeSigningReceipt(f, e, resp.UpdateWorker.WorkerFields)
+}
+
+func writeSigningReceipt(f *cmdutil.Factory, e signingEdit, fields gen.WorkerFields) error {
+	dto := workerDTOFromFields(fields)
 	return output.Write(f.IOStreams, f.JSON, dto, func(out io.Writer) error {
 		if _, err := fmt.Fprintf(out, "✓ updated the %s for worker %s (%s)\n", changedFields(e), dto.Name, dto.ID); err != nil {
 			return err
