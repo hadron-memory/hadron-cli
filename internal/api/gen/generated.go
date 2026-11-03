@@ -2510,6 +2510,686 @@ func (v *AgentTaskCancelResponse) GetCancelAgentTask() *AgentTaskCancelCancelAge
 	return v.CancelAgentTask
 }
 
+// AgentTaskCloneCloneAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type AgentTaskCloneCloneAgentTask struct {
+	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskCloneCloneAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetPriority() int { return v.AgentTaskFields.Priority }
+
+// GetBlocked returns AgentTaskCloneCloneAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetBlocked() bool { return v.AgentTaskFields.Blocked }
+
+// GetBlockedBy returns AgentTaskCloneCloneAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskCloneCloneAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
+}
+
+// GetId returns AgentTaskCloneCloneAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetId() string { return v.AgentTaskFields.Id }
+
+// GetHandle returns AgentTaskCloneCloneAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetHandle() string { return v.AgentTaskFields.Handle }
+
+// GetTaskNumber returns AgentTaskCloneCloneAgentTask.TaskNumber, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetTaskNumber() string { return v.AgentTaskFields.TaskNumber }
+
+// GetAppId returns AgentTaskCloneCloneAgentTask.AppId, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetAppId() string { return v.AgentTaskFields.AppId }
+
+// GetTitle returns AgentTaskCloneCloneAgentTask.Title, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetTitle() string { return v.AgentTaskFields.Title }
+
+// GetDescription returns AgentTaskCloneCloneAgentTask.Description, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetDescription() *string { return v.AgentTaskFields.Description }
+
+// GetStatus returns AgentTaskCloneCloneAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetStatus() AgentTaskStatus { return v.AgentTaskFields.Status }
+
+// GetQueued returns AgentTaskCloneCloneAgentTask.Queued, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetQueued() bool { return v.AgentTaskFields.Queued }
+
+// GetWaitingOnChildren returns AgentTaskCloneCloneAgentTask.WaitingOnChildren, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetWaitingOnChildren() bool {
+	return v.AgentTaskFields.WaitingOnChildren
+}
+
+// GetOwner returns AgentTaskCloneCloneAgentTask.Owner, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetOwner() *AgentTaskFieldsOwnerAgentTaskParty {
+	return v.AgentTaskFields.Owner
+}
+
+// GetAssignee returns AgentTaskCloneCloneAgentTask.Assignee, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetAssignee() *AgentTaskFieldsAssigneeAgentTaskParty {
+	return v.AgentTaskFields.Assignee
+}
+
+// GetAssignedBy returns AgentTaskCloneCloneAgentTask.AssignedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetAssignedBy() *AgentTaskFieldsAssignedByAgentTaskParty {
+	return v.AgentTaskFields.AssignedBy
+}
+
+// GetCreatedBy returns AgentTaskCloneCloneAgentTask.CreatedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
+	return v.AgentTaskFields.CreatedBy
+}
+
+// GetParentTaskId returns AgentTaskCloneCloneAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetParentTaskId() *string {
+	return v.AgentTaskFields.ParentTaskId
+}
+
+// GetTags returns AgentTaskCloneCloneAgentTask.Tags, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetTags() []string { return v.AgentTaskFields.Tags }
+
+// GetSource returns AgentTaskCloneCloneAgentTask.Source, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetSource() *string { return v.AgentTaskFields.Source }
+
+// GetExternalId returns AgentTaskCloneCloneAgentTask.ExternalId, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetExternalId() *string { return v.AgentTaskFields.ExternalId }
+
+// GetReferences returns AgentTaskCloneCloneAgentTask.References, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
+	return v.AgentTaskFields.References
+}
+
+// GetHandBack returns AgentTaskCloneCloneAgentTask.HandBack, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetHandBack() *AgentTaskFieldsHandBackAgentTaskHandBack {
+	return v.AgentTaskFields.HandBack
+}
+
+// GetMatchFailure returns AgentTaskCloneCloneAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
+// GetStartBy returns AgentTaskCloneCloneAgentTask.StartBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
+
+// GetFinishBy returns AgentTaskCloneCloneAgentTask.FinishBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetFinishBy() *string { return v.AgentTaskFields.FinishBy }
+
+// GetCreatedAt returns AgentTaskCloneCloneAgentTask.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetCreatedAt() string { return v.AgentTaskFields.CreatedAt }
+
+// GetUpdatedAt returns AgentTaskCloneCloneAgentTask.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetUpdatedAt() *string { return v.AgentTaskFields.UpdatedAt }
+
+// GetStartedAt returns AgentTaskCloneCloneAgentTask.StartedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetStartedAt() *string { return v.AgentTaskFields.StartedAt }
+
+// GetFinishedAt returns AgentTaskCloneCloneAgentTask.FinishedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetFinishedAt() *string { return v.AgentTaskFields.FinishedAt }
+
+// GetCancelledAt returns AgentTaskCloneCloneAgentTask.CancelledAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetCancelledAt() *string { return v.AgentTaskFields.CancelledAt }
+
+// GetCloseSessionWhenDone returns AgentTaskCloneCloneAgentTask.CloseSessionWhenDone, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetCloseSessionWhenDone() bool {
+	return v.AgentTaskFields.CloseSessionWhenDone
+}
+
+// GetRequirements returns AgentTaskCloneCloneAgentTask.Requirements, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
+	return v.AgentTaskFields.Requirements
+}
+
+// GetResult returns AgentTaskCloneCloneAgentTask.Result, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetResult() *AgentTaskFieldsResultAgentTaskResult {
+	return v.AgentTaskFields.Result
+}
+
+// GetProperties returns AgentTaskCloneCloneAgentTask.Properties, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetProperties() *json.RawMessage {
+	return v.AgentTaskFields.Properties
+}
+
+func (v *AgentTaskCloneCloneAgentTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTaskCloneCloneAgentTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTaskCloneCloneAgentTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTaskCloneCloneAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
+	Id string `json:"id"`
+
+	Handle string `json:"handle"`
+
+	TaskNumber string `json:"taskNumber"`
+
+	AppId string `json:"appId"`
+
+	Title string `json:"title"`
+
+	Description *string `json:"description"`
+
+	Status AgentTaskStatus `json:"status"`
+
+	Queued bool `json:"queued"`
+
+	WaitingOnChildren bool `json:"waitingOnChildren"`
+
+	Owner *AgentTaskFieldsOwnerAgentTaskParty `json:"owner"`
+
+	Assignee *AgentTaskFieldsAssigneeAgentTaskParty `json:"assignee"`
+
+	AssignedBy *AgentTaskFieldsAssignedByAgentTaskParty `json:"assignedBy"`
+
+	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
+
+	ParentTaskId *string `json:"parentTaskId"`
+
+	Tags []string `json:"tags"`
+
+	Source *string `json:"source"`
+
+	ExternalId *string `json:"externalId"`
+
+	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
+
+	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
+
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
+	StartBy *string `json:"startBy"`
+
+	FinishBy *string `json:"finishBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	StartedAt *string `json:"startedAt"`
+
+	FinishedAt *string `json:"finishedAt"`
+
+	CancelledAt *string `json:"cancelledAt"`
+
+	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
+
+	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
+
+	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+
+	Properties *json.RawMessage `json:"properties"`
+}
+
+func (v *AgentTaskCloneCloneAgentTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTaskCloneCloneAgentTask) __premarshalJSON() (*__premarshalAgentTaskCloneCloneAgentTask, error) {
+	var retval __premarshalAgentTaskCloneCloneAgentTask
+
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
+	retval.Id = v.AgentTaskFields.Id
+	retval.Handle = v.AgentTaskFields.Handle
+	retval.TaskNumber = v.AgentTaskFields.TaskNumber
+	retval.AppId = v.AgentTaskFields.AppId
+	retval.Title = v.AgentTaskFields.Title
+	retval.Description = v.AgentTaskFields.Description
+	retval.Status = v.AgentTaskFields.Status
+	retval.Queued = v.AgentTaskFields.Queued
+	retval.WaitingOnChildren = v.AgentTaskFields.WaitingOnChildren
+	retval.Owner = v.AgentTaskFields.Owner
+	retval.Assignee = v.AgentTaskFields.Assignee
+	retval.AssignedBy = v.AgentTaskFields.AssignedBy
+	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
+	retval.Tags = v.AgentTaskFields.Tags
+	retval.Source = v.AgentTaskFields.Source
+	retval.ExternalId = v.AgentTaskFields.ExternalId
+	retval.References = v.AgentTaskFields.References
+	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
+	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.FinishBy = v.AgentTaskFields.FinishBy
+	retval.CreatedAt = v.AgentTaskFields.CreatedAt
+	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
+	retval.StartedAt = v.AgentTaskFields.StartedAt
+	retval.FinishedAt = v.AgentTaskFields.FinishedAt
+	retval.CancelledAt = v.AgentTaskFields.CancelledAt
+	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.Requirements = v.AgentTaskFields.Requirements
+	retval.Result = v.AgentTaskFields.Result
+	retval.Properties = v.AgentTaskFields.Properties
+	return &retval, nil
+}
+
+// AgentTaskCloneResponse is returned by AgentTaskClone on success.
+type AgentTaskCloneResponse struct {
+	// #2646 (hrn:node:hadronmemory.com:specs:cor:agt:050:02, What a clone does): make a NEW task from an existing one, in
+	// its App, linked to it (clonedFrom / clones). A clone is a create: whoever may read the source and create a task there
+	// may clone it, in any status; the source is never changed and an ended task is never reopened. Copied: title,
+	// description, source, tags, requirements, references, closeSessionWhenDone, priority, properties and the parent. Not
+	// copied: assignee, status, result, handle, blockers, startBy, finishBy, externalId. The clone is PENDING (or BACKLOG, as
+	// input.status asks). The parent is kept only for someone who may create a child of it (else TASK_NOT_ASSIGNEE, nothing
+	// created, unless input.parentTaskId names another parent or null for none); a root is cloned as a root of the same
+	// kind, through the root create gate; under an ended parent it goes under the project AT0. The properties and priority
+	// are copied only for a caller who may set them and are otherwise left out, with no refusal. Refusals: TASK_NOT_FOUND
+	// (an unknown, unreadable or cross-App source or parent), BAD_USER_INPUT (AT0 cannot be cloned), TASK_NOT_ASSIGNEE,
+	// TASK_NOT_OWNER (a priority you name and may not set), TASK_ENDED (a named parent that has ended).
+	CloneAgentTask *AgentTaskCloneCloneAgentTask `json:"cloneAgentTask"`
+}
+
+// GetCloneAgentTask returns AgentTaskCloneResponse.CloneAgentTask, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneResponse) GetCloneAgentTask() *AgentTaskCloneCloneAgentTask {
+	return v.CloneAgentTask
+}
+
+// AgentTaskCreateBatchCreateAgentTasksAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type AgentTaskCreateBatchCreateAgentTasksAgentTask struct {
+	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskCreateBatchCreateAgentTasksAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetPriority() int {
+	return v.AgentTaskFields.Priority
+}
+
+// GetBlocked returns AgentTaskCreateBatchCreateAgentTasksAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetBlocked() bool {
+	return v.AgentTaskFields.Blocked
+}
+
+// GetBlockedBy returns AgentTaskCreateBatchCreateAgentTasksAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskCreateBatchCreateAgentTasksAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
+}
+
+// GetId returns AgentTaskCreateBatchCreateAgentTasksAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetId() string { return v.AgentTaskFields.Id }
+
+// GetHandle returns AgentTaskCreateBatchCreateAgentTasksAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetHandle() string {
+	return v.AgentTaskFields.Handle
+}
+
+// GetTaskNumber returns AgentTaskCreateBatchCreateAgentTasksAgentTask.TaskNumber, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetTaskNumber() string {
+	return v.AgentTaskFields.TaskNumber
+}
+
+// GetAppId returns AgentTaskCreateBatchCreateAgentTasksAgentTask.AppId, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetAppId() string {
+	return v.AgentTaskFields.AppId
+}
+
+// GetTitle returns AgentTaskCreateBatchCreateAgentTasksAgentTask.Title, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetTitle() string {
+	return v.AgentTaskFields.Title
+}
+
+// GetDescription returns AgentTaskCreateBatchCreateAgentTasksAgentTask.Description, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetDescription() *string {
+	return v.AgentTaskFields.Description
+}
+
+// GetStatus returns AgentTaskCreateBatchCreateAgentTasksAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetStatus() AgentTaskStatus {
+	return v.AgentTaskFields.Status
+}
+
+// GetQueued returns AgentTaskCreateBatchCreateAgentTasksAgentTask.Queued, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetQueued() bool {
+	return v.AgentTaskFields.Queued
+}
+
+// GetWaitingOnChildren returns AgentTaskCreateBatchCreateAgentTasksAgentTask.WaitingOnChildren, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetWaitingOnChildren() bool {
+	return v.AgentTaskFields.WaitingOnChildren
+}
+
+// GetOwner returns AgentTaskCreateBatchCreateAgentTasksAgentTask.Owner, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetOwner() *AgentTaskFieldsOwnerAgentTaskParty {
+	return v.AgentTaskFields.Owner
+}
+
+// GetAssignee returns AgentTaskCreateBatchCreateAgentTasksAgentTask.Assignee, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetAssignee() *AgentTaskFieldsAssigneeAgentTaskParty {
+	return v.AgentTaskFields.Assignee
+}
+
+// GetAssignedBy returns AgentTaskCreateBatchCreateAgentTasksAgentTask.AssignedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetAssignedBy() *AgentTaskFieldsAssignedByAgentTaskParty {
+	return v.AgentTaskFields.AssignedBy
+}
+
+// GetCreatedBy returns AgentTaskCreateBatchCreateAgentTasksAgentTask.CreatedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
+	return v.AgentTaskFields.CreatedBy
+}
+
+// GetParentTaskId returns AgentTaskCreateBatchCreateAgentTasksAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetParentTaskId() *string {
+	return v.AgentTaskFields.ParentTaskId
+}
+
+// GetTags returns AgentTaskCreateBatchCreateAgentTasksAgentTask.Tags, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetTags() []string {
+	return v.AgentTaskFields.Tags
+}
+
+// GetSource returns AgentTaskCreateBatchCreateAgentTasksAgentTask.Source, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetSource() *string {
+	return v.AgentTaskFields.Source
+}
+
+// GetExternalId returns AgentTaskCreateBatchCreateAgentTasksAgentTask.ExternalId, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetExternalId() *string {
+	return v.AgentTaskFields.ExternalId
+}
+
+// GetReferences returns AgentTaskCreateBatchCreateAgentTasksAgentTask.References, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
+	return v.AgentTaskFields.References
+}
+
+// GetHandBack returns AgentTaskCreateBatchCreateAgentTasksAgentTask.HandBack, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetHandBack() *AgentTaskFieldsHandBackAgentTaskHandBack {
+	return v.AgentTaskFields.HandBack
+}
+
+// GetMatchFailure returns AgentTaskCreateBatchCreateAgentTasksAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
+// GetStartBy returns AgentTaskCreateBatchCreateAgentTasksAgentTask.StartBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetStartBy() *string {
+	return v.AgentTaskFields.StartBy
+}
+
+// GetFinishBy returns AgentTaskCreateBatchCreateAgentTasksAgentTask.FinishBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetFinishBy() *string {
+	return v.AgentTaskFields.FinishBy
+}
+
+// GetCreatedAt returns AgentTaskCreateBatchCreateAgentTasksAgentTask.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetCreatedAt() string {
+	return v.AgentTaskFields.CreatedAt
+}
+
+// GetUpdatedAt returns AgentTaskCreateBatchCreateAgentTasksAgentTask.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetUpdatedAt() *string {
+	return v.AgentTaskFields.UpdatedAt
+}
+
+// GetStartedAt returns AgentTaskCreateBatchCreateAgentTasksAgentTask.StartedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetStartedAt() *string {
+	return v.AgentTaskFields.StartedAt
+}
+
+// GetFinishedAt returns AgentTaskCreateBatchCreateAgentTasksAgentTask.FinishedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetFinishedAt() *string {
+	return v.AgentTaskFields.FinishedAt
+}
+
+// GetCancelledAt returns AgentTaskCreateBatchCreateAgentTasksAgentTask.CancelledAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetCancelledAt() *string {
+	return v.AgentTaskFields.CancelledAt
+}
+
+// GetCloseSessionWhenDone returns AgentTaskCreateBatchCreateAgentTasksAgentTask.CloseSessionWhenDone, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetCloseSessionWhenDone() bool {
+	return v.AgentTaskFields.CloseSessionWhenDone
+}
+
+// GetRequirements returns AgentTaskCreateBatchCreateAgentTasksAgentTask.Requirements, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
+	return v.AgentTaskFields.Requirements
+}
+
+// GetResult returns AgentTaskCreateBatchCreateAgentTasksAgentTask.Result, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetResult() *AgentTaskFieldsResultAgentTaskResult {
+	return v.AgentTaskFields.Result
+}
+
+// GetProperties returns AgentTaskCreateBatchCreateAgentTasksAgentTask.Properties, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetProperties() *json.RawMessage {
+	return v.AgentTaskFields.Properties
+}
+
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTaskCreateBatchCreateAgentTasksAgentTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTaskCreateBatchCreateAgentTasksAgentTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTaskCreateBatchCreateAgentTasksAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
+	Id string `json:"id"`
+
+	Handle string `json:"handle"`
+
+	TaskNumber string `json:"taskNumber"`
+
+	AppId string `json:"appId"`
+
+	Title string `json:"title"`
+
+	Description *string `json:"description"`
+
+	Status AgentTaskStatus `json:"status"`
+
+	Queued bool `json:"queued"`
+
+	WaitingOnChildren bool `json:"waitingOnChildren"`
+
+	Owner *AgentTaskFieldsOwnerAgentTaskParty `json:"owner"`
+
+	Assignee *AgentTaskFieldsAssigneeAgentTaskParty `json:"assignee"`
+
+	AssignedBy *AgentTaskFieldsAssignedByAgentTaskParty `json:"assignedBy"`
+
+	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
+
+	ParentTaskId *string `json:"parentTaskId"`
+
+	Tags []string `json:"tags"`
+
+	Source *string `json:"source"`
+
+	ExternalId *string `json:"externalId"`
+
+	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
+
+	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
+
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
+	StartBy *string `json:"startBy"`
+
+	FinishBy *string `json:"finishBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	StartedAt *string `json:"startedAt"`
+
+	FinishedAt *string `json:"finishedAt"`
+
+	CancelledAt *string `json:"cancelledAt"`
+
+	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
+
+	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
+
+	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+
+	Properties *json.RawMessage `json:"properties"`
+}
+
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) __premarshalJSON() (*__premarshalAgentTaskCreateBatchCreateAgentTasksAgentTask, error) {
+	var retval __premarshalAgentTaskCreateBatchCreateAgentTasksAgentTask
+
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
+	retval.Id = v.AgentTaskFields.Id
+	retval.Handle = v.AgentTaskFields.Handle
+	retval.TaskNumber = v.AgentTaskFields.TaskNumber
+	retval.AppId = v.AgentTaskFields.AppId
+	retval.Title = v.AgentTaskFields.Title
+	retval.Description = v.AgentTaskFields.Description
+	retval.Status = v.AgentTaskFields.Status
+	retval.Queued = v.AgentTaskFields.Queued
+	retval.WaitingOnChildren = v.AgentTaskFields.WaitingOnChildren
+	retval.Owner = v.AgentTaskFields.Owner
+	retval.Assignee = v.AgentTaskFields.Assignee
+	retval.AssignedBy = v.AgentTaskFields.AssignedBy
+	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
+	retval.Tags = v.AgentTaskFields.Tags
+	retval.Source = v.AgentTaskFields.Source
+	retval.ExternalId = v.AgentTaskFields.ExternalId
+	retval.References = v.AgentTaskFields.References
+	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
+	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.FinishBy = v.AgentTaskFields.FinishBy
+	retval.CreatedAt = v.AgentTaskFields.CreatedAt
+	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
+	retval.StartedAt = v.AgentTaskFields.StartedAt
+	retval.FinishedAt = v.AgentTaskFields.FinishedAt
+	retval.CancelledAt = v.AgentTaskFields.CancelledAt
+	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.Requirements = v.AgentTaskFields.Requirements
+	retval.Result = v.AgentTaskFields.Result
+	retval.Properties = v.AgentTaskFields.Properties
+	return &retval, nil
+}
+
+// AgentTaskCreateBatchResponse is returned by AgentTaskCreateBatch on success.
+type AgentTaskCreateBatchResponse struct {
+	// Items with match:true each get one post-commit match attempt in list order; failure marks that task, not a call refusal.
+	// A match item blocked after all links refuses the whole call as BAD_USER_INPUT with its position, before any commit or attempt.
+	// This does not ask for different workers or all-or-none matching. With no match items the ordinary batch behavior is unchanged.
+	// #2653 (hrn:node:hadronmemory.com:specs:cor:agt:050:06, creating several at once; ruling 0011 A): create 1 to 25
+	// tasks in the App appRef, all or none, in one transaction. Each task is judged exactly as createAgentTask judges it
+	// alone (the same gates, owner rules, refusals and warnings); the first refusal refuses the whole call, creates and
+	// records nothing, and carries extensions.position, the 1-based position of the task that caused it (tasks are
+	// judged one at a time in list order, each wholly before the next: its checks before the write, then its whole write,
+	// its blockers named by an existing task or by an earlier position included; last come the links to later
+	// positions, in list order). An empty list is
+	// BAD_USER_INPUT and more than 25 is TASK_BATCH_TOO_LARGE, before anything is created. A task names an existing
+	// parent, never another task of the call; a root task naming an App other than appRef is APP_NOT_FOUND, and a parent
+	// in another App TASK_NOT_FOUND. blockedByPositions names other tasks of the call as blockers (a self-block or a
+	// cycle is TASK_BLOCKER_CYCLE, a position outside the list BAD_USER_INPUT), and needs the same assigner authority as
+	// blockedBy. Handles follow list order and a refused call spends none. Each task records the events a single create
+	// records; ordinary matching and all launches run only after the commit, and each task's warnings are filed under
+	// "<response key>.<position>". The result is every task, in list order. Not idempotent: nothing is deduplicated, so a
+	// caller that lost the answer lists the App's tasks before trying again.
+	// distinctAssignees (default false; hrn:node:hadronmemory.com:specs:cor:agt:050:06, ruling 0084 A) matches each task whose match is true
+	// inside the same transaction, in list order, excluding every explicitly named worker in this call and every
+	// worker already matched. Each task keeps its own requirements; there is no global search or backtracking.
+	// After the normal create and blocker checks, any failed match refuses the whole call as TASK_MATCH_FAILED,
+	// with extensions.position (1-based) and extensions.reason (the single match's failure reason). No tasks,
+	// handles, events, failure marks or launches survive. Naming the same worker twice with this option is
+	// BAD_USER_INPUT at the second position. Named people and tasks not asking for a match keep their meaning.
+	// Launches and warnings run only after commit. Without the option (or with null/false), existing batch
+	// behavior is unchanged: requested matches run after commit and an ordinary failure marks only that task.
+	CreateAgentTasks []*AgentTaskCreateBatchCreateAgentTasksAgentTask `json:"createAgentTasks"`
+}
+
+// GetCreateAgentTasks returns AgentTaskCreateBatchResponse.CreateAgentTasks, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchResponse) GetCreateAgentTasks() []*AgentTaskCreateBatchCreateAgentTasksAgentTask {
+	return v.CreateAgentTasks
+}
+
 // AgentTaskCreateCreateAgentTask includes the requested fields of the GraphQL type AgentTask.
 // The GraphQL type's documentation follows.
 //
@@ -4602,6 +5282,22 @@ func (v *AgentTaskFinishResponse) GetFinishAgentTask() *AgentTaskFinishFinishAge
 // workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
 type AgentTaskGetAgentTask struct {
 	AgentTaskFields `json:"-"`
+	// #2646 (hrn:node:hadronmemory.com:specs:cor:agt:050:02): the task this one was cloned from, or null when it was not
+	// made by a clone or the source is not readable to you. Read it as "replaces" when the source's status is FINISHED or
+	// CANCELLED, and "cloned from" otherwise.
+	ClonedFrom *AgentTaskGetAgentTaskClonedFromAgentTask `json:"clonedFrom"`
+	// #2646: the clones made from this task, in its own App, paged (hrn:node:hadronmemory.com:specs:cor:agt:050:02); a clone you cannot read is left out.
+	Clones *AgentTaskGetAgentTaskClonesAgentTaskDependencyPage `json:"clones"`
+}
+
+// GetClonedFrom returns AgentTaskGetAgentTask.ClonedFrom, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTask) GetClonedFrom() *AgentTaskGetAgentTaskClonedFromAgentTask {
+	return v.ClonedFrom
+}
+
+// GetClones returns AgentTaskGetAgentTask.Clones, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTask) GetClones() *AgentTaskGetAgentTaskClonesAgentTaskDependencyPage {
+	return v.Clones
 }
 
 // GetPriority returns AgentTaskGetAgentTask.Priority, and is useful for accessing the field via an interface.
@@ -4761,6 +5457,10 @@ func (v *AgentTaskGetAgentTask) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalAgentTaskGetAgentTask struct {
+	ClonedFrom *AgentTaskGetAgentTaskClonedFromAgentTask `json:"clonedFrom"`
+
+	Clones *AgentTaskGetAgentTaskClonesAgentTaskDependencyPage `json:"clones"`
+
 	Priority int `json:"priority"`
 
 	Blocked bool `json:"blocked"`
@@ -4843,6 +5543,8 @@ func (v *AgentTaskGetAgentTask) MarshalJSON() ([]byte, error) {
 func (v *AgentTaskGetAgentTask) __premarshalJSON() (*__premarshalAgentTaskGetAgentTask, error) {
 	var retval __premarshalAgentTaskGetAgentTask
 
+	retval.ClonedFrom = v.ClonedFrom
+	retval.Clones = v.Clones
 	retval.Priority = v.AgentTaskFields.Priority
 	retval.Blocked = v.AgentTaskFields.Blocked
 	retval.BlockedBy = v.AgentTaskFields.BlockedBy
@@ -4878,6 +5580,192 @@ func (v *AgentTaskGetAgentTask) __premarshalJSON() (*__premarshalAgentTaskGetAge
 	retval.Requirements = v.AgentTaskFields.Requirements
 	retval.Result = v.AgentTaskFields.Result
 	retval.Properties = v.AgentTaskFields.Properties
+	return &retval, nil
+}
+
+// AgentTaskGetAgentTaskClonedFromAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type AgentTaskGetAgentTaskClonedFromAgentTask struct {
+	AgentTaskDependencyFields `json:"-"`
+}
+
+// GetId returns AgentTaskGetAgentTaskClonedFromAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTaskClonedFromAgentTask) GetId() string {
+	return v.AgentTaskDependencyFields.Id
+}
+
+// GetHandle returns AgentTaskGetAgentTaskClonedFromAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTaskClonedFromAgentTask) GetHandle() string {
+	return v.AgentTaskDependencyFields.Handle
+}
+
+// GetTitle returns AgentTaskGetAgentTaskClonedFromAgentTask.Title, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTaskClonedFromAgentTask) GetTitle() string {
+	return v.AgentTaskDependencyFields.Title
+}
+
+// GetStatus returns AgentTaskGetAgentTaskClonedFromAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTaskClonedFromAgentTask) GetStatus() AgentTaskStatus {
+	return v.AgentTaskDependencyFields.Status
+}
+
+func (v *AgentTaskGetAgentTaskClonedFromAgentTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTaskGetAgentTaskClonedFromAgentTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTaskGetAgentTaskClonedFromAgentTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskDependencyFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTaskGetAgentTaskClonedFromAgentTask struct {
+	Id string `json:"id"`
+
+	Handle string `json:"handle"`
+
+	Title string `json:"title"`
+
+	Status AgentTaskStatus `json:"status"`
+}
+
+func (v *AgentTaskGetAgentTaskClonedFromAgentTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTaskGetAgentTaskClonedFromAgentTask) __premarshalJSON() (*__premarshalAgentTaskGetAgentTaskClonedFromAgentTask, error) {
+	var retval __premarshalAgentTaskGetAgentTaskClonedFromAgentTask
+
+	retval.Id = v.AgentTaskDependencyFields.Id
+	retval.Handle = v.AgentTaskDependencyFields.Handle
+	retval.Title = v.AgentTaskDependencyFields.Title
+	retval.Status = v.AgentTaskDependencyFields.Status
+	return &retval, nil
+}
+
+// AgentTaskGetAgentTaskClonesAgentTaskDependencyPage includes the requested fields of the GraphQL type AgentTaskDependencyPage.
+type AgentTaskGetAgentTaskClonesAgentTaskDependencyPage struct {
+	Total   int                                                                 `json:"total"`
+	HasMore bool                                                                `json:"hasMore"`
+	Items   []*AgentTaskGetAgentTaskClonesAgentTaskDependencyPageItemsAgentTask `json:"items"`
+}
+
+// GetTotal returns AgentTaskGetAgentTaskClonesAgentTaskDependencyPage.Total, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTaskClonesAgentTaskDependencyPage) GetTotal() int { return v.Total }
+
+// GetHasMore returns AgentTaskGetAgentTaskClonesAgentTaskDependencyPage.HasMore, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTaskClonesAgentTaskDependencyPage) GetHasMore() bool { return v.HasMore }
+
+// GetItems returns AgentTaskGetAgentTaskClonesAgentTaskDependencyPage.Items, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTaskClonesAgentTaskDependencyPage) GetItems() []*AgentTaskGetAgentTaskClonesAgentTaskDependencyPageItemsAgentTask {
+	return v.Items
+}
+
+// AgentTaskGetAgentTaskClonesAgentTaskDependencyPageItemsAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type AgentTaskGetAgentTaskClonesAgentTaskDependencyPageItemsAgentTask struct {
+	AgentTaskDependencyFields `json:"-"`
+}
+
+// GetId returns AgentTaskGetAgentTaskClonesAgentTaskDependencyPageItemsAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTaskClonesAgentTaskDependencyPageItemsAgentTask) GetId() string {
+	return v.AgentTaskDependencyFields.Id
+}
+
+// GetHandle returns AgentTaskGetAgentTaskClonesAgentTaskDependencyPageItemsAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTaskClonesAgentTaskDependencyPageItemsAgentTask) GetHandle() string {
+	return v.AgentTaskDependencyFields.Handle
+}
+
+// GetTitle returns AgentTaskGetAgentTaskClonesAgentTaskDependencyPageItemsAgentTask.Title, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTaskClonesAgentTaskDependencyPageItemsAgentTask) GetTitle() string {
+	return v.AgentTaskDependencyFields.Title
+}
+
+// GetStatus returns AgentTaskGetAgentTaskClonesAgentTaskDependencyPageItemsAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTaskClonesAgentTaskDependencyPageItemsAgentTask) GetStatus() AgentTaskStatus {
+	return v.AgentTaskDependencyFields.Status
+}
+
+func (v *AgentTaskGetAgentTaskClonesAgentTaskDependencyPageItemsAgentTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTaskGetAgentTaskClonesAgentTaskDependencyPageItemsAgentTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTaskGetAgentTaskClonesAgentTaskDependencyPageItemsAgentTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskDependencyFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTaskGetAgentTaskClonesAgentTaskDependencyPageItemsAgentTask struct {
+	Id string `json:"id"`
+
+	Handle string `json:"handle"`
+
+	Title string `json:"title"`
+
+	Status AgentTaskStatus `json:"status"`
+}
+
+func (v *AgentTaskGetAgentTaskClonesAgentTaskDependencyPageItemsAgentTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTaskGetAgentTaskClonesAgentTaskDependencyPageItemsAgentTask) __premarshalJSON() (*__premarshalAgentTaskGetAgentTaskClonesAgentTaskDependencyPageItemsAgentTask, error) {
+	var retval __premarshalAgentTaskGetAgentTaskClonesAgentTaskDependencyPageItemsAgentTask
+
+	retval.Id = v.AgentTaskDependencyFields.Id
+	retval.Handle = v.AgentTaskDependencyFields.Handle
+	retval.Title = v.AgentTaskDependencyFields.Title
+	retval.Status = v.AgentTaskDependencyFields.Status
 	return &retval, nil
 }
 
@@ -22904,6 +23792,77 @@ type CloneAgentResponse struct {
 
 // GetCloneAgent returns CloneAgentResponse.CloneAgent, and is useful for accessing the field via an interface.
 func (v *CloneAgentResponse) GetCloneAgent() *CloneAgentCloneAgent { return v.CloneAgent }
+
+// #2646: the overrides of a clone. Every field is optional; a field left out keeps the source's value (a copied field)
+// or stays unset (a field a clone does not copy). An optional field is cleared by naming it empty.
+type CloneAgentTaskInput struct {
+	Assignee             *AgentTaskPartyInput `json:"assignee,omitempty"`
+	CloseSessionWhenDone *bool                `json:"closeSessionWhenDone,omitempty"`
+	Description          *string              `json:"description,omitempty"`
+	FinishBy             *string              `json:"finishBy,omitempty"`
+	Owner                *AgentTaskPartyInput `json:"owner,omitempty"`
+	// Another parent in the same App, or null for none (a root under AT0, or a project with project: true).
+	ParentTaskId json.RawMessage `json:"parentTaskId,omitempty"`
+	// A priority you name and may not set is refused, as on a create; a copied one you may not set is left out.
+	Priority     *int                        `json:"priority,omitempty"`
+	Project      *bool                       `json:"project,omitempty"`
+	Properties   *json.RawMessage            `json:"properties,omitempty"`
+	References   []*AgentTaskReferenceInput  `json:"references,omitempty"`
+	Requirements *AgentTaskRequirementsInput `json:"requirements,omitempty"`
+	Source       *string                     `json:"source,omitempty"`
+	StartBy      *string                     `json:"startBy,omitempty"`
+	Status       *AgentTaskCreateStatus      `json:"status,omitempty"`
+	Tags         []string                    `json:"tags,omitempty"`
+	Title        *string                     `json:"title,omitempty"`
+}
+
+// GetAssignee returns CloneAgentTaskInput.Assignee, and is useful for accessing the field via an interface.
+func (v *CloneAgentTaskInput) GetAssignee() *AgentTaskPartyInput { return v.Assignee }
+
+// GetCloseSessionWhenDone returns CloneAgentTaskInput.CloseSessionWhenDone, and is useful for accessing the field via an interface.
+func (v *CloneAgentTaskInput) GetCloseSessionWhenDone() *bool { return v.CloseSessionWhenDone }
+
+// GetDescription returns CloneAgentTaskInput.Description, and is useful for accessing the field via an interface.
+func (v *CloneAgentTaskInput) GetDescription() *string { return v.Description }
+
+// GetFinishBy returns CloneAgentTaskInput.FinishBy, and is useful for accessing the field via an interface.
+func (v *CloneAgentTaskInput) GetFinishBy() *string { return v.FinishBy }
+
+// GetOwner returns CloneAgentTaskInput.Owner, and is useful for accessing the field via an interface.
+func (v *CloneAgentTaskInput) GetOwner() *AgentTaskPartyInput { return v.Owner }
+
+// GetParentTaskId returns CloneAgentTaskInput.ParentTaskId, and is useful for accessing the field via an interface.
+func (v *CloneAgentTaskInput) GetParentTaskId() json.RawMessage { return v.ParentTaskId }
+
+// GetPriority returns CloneAgentTaskInput.Priority, and is useful for accessing the field via an interface.
+func (v *CloneAgentTaskInput) GetPriority() *int { return v.Priority }
+
+// GetProject returns CloneAgentTaskInput.Project, and is useful for accessing the field via an interface.
+func (v *CloneAgentTaskInput) GetProject() *bool { return v.Project }
+
+// GetProperties returns CloneAgentTaskInput.Properties, and is useful for accessing the field via an interface.
+func (v *CloneAgentTaskInput) GetProperties() *json.RawMessage { return v.Properties }
+
+// GetReferences returns CloneAgentTaskInput.References, and is useful for accessing the field via an interface.
+func (v *CloneAgentTaskInput) GetReferences() []*AgentTaskReferenceInput { return v.References }
+
+// GetRequirements returns CloneAgentTaskInput.Requirements, and is useful for accessing the field via an interface.
+func (v *CloneAgentTaskInput) GetRequirements() *AgentTaskRequirementsInput { return v.Requirements }
+
+// GetSource returns CloneAgentTaskInput.Source, and is useful for accessing the field via an interface.
+func (v *CloneAgentTaskInput) GetSource() *string { return v.Source }
+
+// GetStartBy returns CloneAgentTaskInput.StartBy, and is useful for accessing the field via an interface.
+func (v *CloneAgentTaskInput) GetStartBy() *string { return v.StartBy }
+
+// GetStatus returns CloneAgentTaskInput.Status, and is useful for accessing the field via an interface.
+func (v *CloneAgentTaskInput) GetStatus() *AgentTaskCreateStatus { return v.Status }
+
+// GetTags returns CloneAgentTaskInput.Tags, and is useful for accessing the field via an interface.
+func (v *CloneAgentTaskInput) GetTags() []string { return v.Tags }
+
+// GetTitle returns CloneAgentTaskInput.Title, and is useful for accessing the field via an interface.
+func (v *CloneAgentTaskInput) GetTitle() *string { return v.Title }
 
 // CloneMemoryCloneMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
@@ -90899,6 +91858,32 @@ type __AgentTaskCancelInput struct {
 // GetTaskId returns __AgentTaskCancelInput.TaskId, and is useful for accessing the field via an interface.
 func (v *__AgentTaskCancelInput) GetTaskId() string { return v.TaskId }
 
+// __AgentTaskCloneInput is used internally by genqlient
+type __AgentTaskCloneInput struct {
+	TaskId string               `json:"taskId"`
+	Input  *CloneAgentTaskInput `json:"input,omitempty"`
+}
+
+// GetTaskId returns __AgentTaskCloneInput.TaskId, and is useful for accessing the field via an interface.
+func (v *__AgentTaskCloneInput) GetTaskId() string { return v.TaskId }
+
+// GetInput returns __AgentTaskCloneInput.Input, and is useful for accessing the field via an interface.
+func (v *__AgentTaskCloneInput) GetInput() *CloneAgentTaskInput { return v.Input }
+
+// __AgentTaskCreateBatchInput is used internally by genqlient
+type __AgentTaskCreateBatchInput struct {
+	AppRef string                                `json:"appRef"`
+	Tasks  []*gqltypes.CreateAgentTasksItemInput `json:"tasks,omitempty"`
+}
+
+// GetAppRef returns __AgentTaskCreateBatchInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AgentTaskCreateBatchInput) GetAppRef() string { return v.AppRef }
+
+// GetTasks returns __AgentTaskCreateBatchInput.Tasks, and is useful for accessing the field via an interface.
+func (v *__AgentTaskCreateBatchInput) GetTasks() []*gqltypes.CreateAgentTasksItemInput {
+	return v.Tasks
+}
+
 // __AgentTaskCreateInput is used internally by genqlient
 type __AgentTaskCreateInput struct {
 	Input *CreateAgentTaskInput `json:"input,omitempty"`
@@ -90975,11 +91960,19 @@ func (v *__AgentTaskFinishInput) GetResult() *AgentTaskResultInput { return v.Re
 
 // __AgentTaskGetInput is used internally by genqlient
 type __AgentTaskGetInput struct {
-	Id string `json:"id"`
+	Id           string `json:"id"`
+	ClonesLimit  int    `json:"clonesLimit"`
+	ClonesOffset int    `json:"clonesOffset"`
 }
 
 // GetId returns __AgentTaskGetInput.Id, and is useful for accessing the field via an interface.
 func (v *__AgentTaskGetInput) GetId() string { return v.Id }
+
+// GetClonesLimit returns __AgentTaskGetInput.ClonesLimit, and is useful for accessing the field via an interface.
+func (v *__AgentTaskGetInput) GetClonesLimit() int { return v.ClonesLimit }
+
+// GetClonesOffset returns __AgentTaskGetInput.ClonesOffset, and is useful for accessing the field via an interface.
+func (v *__AgentTaskGetInput) GetClonesOffset() int { return v.ClonesOffset }
 
 // __AgentTaskHandBackInput is used internally by genqlient
 type __AgentTaskHandBackInput struct {
@@ -100301,6 +101294,142 @@ func AgentTaskCancel(
 	return data_, err_
 }
 
+// The mutation executed by AgentTaskClone.
+const AgentTaskClone_Operation = `
+mutation AgentTaskClone ($taskId: ID!, $input: CloneAgentTaskInput!) {
+	cloneAgentTask(taskId: $taskId, input: $input) {
+		... AgentTaskFields
+	}
+}
+fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	id
+	handle
+	taskNumber
+	appId
+	title
+	description
+	status
+	queued
+	waitingOnChildren
+	owner {
+		... AgentTaskPartyFields
+	}
+	assignee {
+		... AgentTaskPartyFields
+	}
+	assignedBy {
+		... AgentTaskPartyFields
+	}
+	createdBy {
+		... AgentTaskPartyFields
+	}
+	parentTaskId
+	tags
+	source
+	externalId
+	references {
+		kind
+		target
+		label
+	}
+	handBack {
+		code
+		text
+		handedBackAt
+	}
+	matchFailure {
+		reason
+		failedAt
+	}
+	startBy
+	finishBy
+	createdAt
+	updatedAt
+	startedAt
+	finishedAt
+	cancelledAt
+	closeSessionWhenDone
+	requirements {
+		minTier
+		role
+		roles
+		teamWorkerId
+		familyIn
+		familyNotIn
+		modelGroupIn
+		modelGroupNotIn
+		excludeWorkerIds
+	}
+	result {
+		outcome
+		summary
+		evidence
+	}
+	properties
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
+}
+fragment AgentTaskPartyFields on AgentTaskParty {
+	id
+	kind
+	name
+	urn
+}
+`
+
+// cli#1565 (server#2646, cor:agt:050:02): make a new task from an existing one.
+// Every override is optional and omitted unless a flag names it: an omitted
+// field keeps the source's value (or stays unset), so a nil pointer must not
+// be sent as null. parentTaskId is three-state — omitted keeps the source's
+// parent, a task id names another, an explicit null means none — so it is a
+// RawMessage (nil omitted, `null` sent as null, a JSON string for an id).
+func AgentTaskClone(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	taskId string,
+	input *CloneAgentTaskInput,
+) (data_ *AgentTaskCloneResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentTaskClone",
+		Query:  AgentTaskClone_Operation,
+		Variables: &__AgentTaskCloneInput{
+			TaskId: taskId,
+			Input:  input,
+		},
+	}
+
+	data_ = &AgentTaskCloneResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by AgentTaskCreate.
 const AgentTaskCreate_Operation = `
 mutation AgentTaskCreate ($input: CreateAgentTaskInput!) {
@@ -100441,6 +101570,139 @@ func AgentTaskCreate(
 	}
 
 	data_ = &AgentTaskCreateResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by AgentTaskCreateBatch.
+const AgentTaskCreateBatch_Operation = `
+mutation AgentTaskCreateBatch ($appRef: ID!, $tasks: [CreateAgentTasksItemInput!]!) {
+	createAgentTasks(appRef: $appRef, tasks: $tasks) {
+		... AgentTaskFields
+	}
+}
+fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	id
+	handle
+	taskNumber
+	appId
+	title
+	description
+	status
+	queued
+	waitingOnChildren
+	owner {
+		... AgentTaskPartyFields
+	}
+	assignee {
+		... AgentTaskPartyFields
+	}
+	assignedBy {
+		... AgentTaskPartyFields
+	}
+	createdBy {
+		... AgentTaskPartyFields
+	}
+	parentTaskId
+	tags
+	source
+	externalId
+	references {
+		kind
+		target
+		label
+	}
+	handBack {
+		code
+		text
+		handedBackAt
+	}
+	matchFailure {
+		reason
+		failedAt
+	}
+	startBy
+	finishBy
+	createdAt
+	updatedAt
+	startedAt
+	finishedAt
+	cancelledAt
+	closeSessionWhenDone
+	requirements {
+		minTier
+		role
+		roles
+		teamWorkerId
+		familyIn
+		familyNotIn
+		modelGroupIn
+		modelGroupNotIn
+		excludeWorkerIds
+	}
+	result {
+		outcome
+		summary
+		evidence
+	}
+	properties
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
+}
+fragment AgentTaskPartyFields on AgentTaskParty {
+	id
+	kind
+	name
+	urn
+}
+`
+
+// cli#1565 (server#2653, cor:agt:050:06): create 1-25 tasks in one call, all or
+// none. Not idempotent: the command sends it exactly once and never retries.
+// distinctAssignees is not exposed, so it is not selected and never sent.
+func AgentTaskCreateBatch(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	tasks []*gqltypes.CreateAgentTasksItemInput,
+) (data_ *AgentTaskCreateBatchResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentTaskCreateBatch",
+		Query:  AgentTaskCreateBatch_Operation,
+		Variables: &__AgentTaskCreateBatchInput{
+			AppRef: appRef,
+			Tasks:  tasks,
+		},
+	}
+
+	data_ = &AgentTaskCreateBatchResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -100749,9 +102011,19 @@ func AgentTaskFinish(
 
 // The query executed by AgentTaskGet.
 const AgentTaskGet_Operation = `
-query AgentTaskGet ($id: ID!) {
+query AgentTaskGet ($id: ID!, $clonesLimit: Int!, $clonesOffset: Int!) {
 	agentTask(id: $id) {
 		... AgentTaskFields
+		clonedFrom {
+			... AgentTaskDependencyFields
+		}
+		clones(limit: $clonesLimit, offset: $clonesOffset) {
+			total
+			hasMore
+			items {
+				... AgentTaskDependencyFields
+			}
+		}
 	}
 }
 fragment AgentTaskFields on AgentTask {
@@ -100850,16 +102122,24 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 }
 `
 
+// cli#1565: `task get` also reads the clone links (server#2646, cor:agt:050:02):
+// clonedFrom and one page of clones (limit/offset). They sit in THIS document,
+// not the shared AgentTaskFields projection, so only `get` needs a provider that
+// has them.
 func AgentTaskGet(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	id string,
+	clonesLimit int,
+	clonesOffset int,
 ) (data_ *AgentTaskGetResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "AgentTaskGet",
 		Query:  AgentTaskGet_Operation,
 		Variables: &__AgentTaskGetInput{
-			Id: id,
+			Id:           id,
+			ClonesLimit:  clonesLimit,
+			ClonesOffset: clonesOffset,
 		},
 	}
 

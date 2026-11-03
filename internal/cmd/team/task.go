@@ -18,6 +18,7 @@ import (
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
@@ -102,6 +103,7 @@ windows, ` + "`team events --alarms`" + ` lists the alarms and ` + "`team alarm 
 acknowledges one.`,
 	}
 	cmd.AddCommand(newCmdTeamTaskCreate(f))
+	cmd.AddCommand(newCmdTeamTaskClone(f))
 	cmd.AddCommand(newCmdTaskFindingDispositions(f))
 	cmd.AddCommand(newCmdTaskDisposeFinding(f))
 	for _, verb := range []string{"set-priority", "add-blocker", "remove-blocker"} {
@@ -198,8 +200,9 @@ func newCmdTeamTaskCreate(f *cmdutil.Factory) *cobra.Command {
 	var match bool
 	var excludeWorkers []string
 	var closeSession, noCloseSession, project bool
+	var batchFile string
 	cmd := &cobra.Command{
-		Use:   "create <title>",
+		Use:   "create <title> | create --batch-file <path|->",
 		Short: "Create a task",
 		Long: `Create an agent task in the team App. Anyone in the App may create a root
 task; only the parent's assignee may create a child task (--parent). The App
@@ -336,8 +339,30 @@ warnings list.`,
   # a project, then (as its assignee) a child under it
   hadron team task create "Q4 billing" --app acme.com:eng-team --project --assignee worker:Iris
   hadron team task create "Draft the invoice schema" --parent AT1 --assignee worker:Uma`,
-		Args: cobra.ExactArgs(1),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if cmd.Flags().Changed("batch-file") {
+				if len(args) != 0 {
+					return exitcode.Newf(exitcode.Usage, "--batch-file takes no title: each task's title is in the file")
+				}
+				return nil
+			}
+			return cobra.ExactArgs(1)(cmd, args)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if cmd.Flags().Changed("batch-file") {
+				var clash []string
+				// Only this command's own flags: --json, --app and --server are
+				// persistent and do combine with a batch.
+				cmd.LocalNonPersistentFlags().VisitAll(func(fl *pflag.Flag) {
+					if fl.Name != "batch-file" && cmd.Flags().Changed(fl.Name) {
+						clash = append(clash, "--"+fl.Name)
+					}
+				})
+				if len(clash) > 0 {
+					return exitcode.Newf(exitcode.Usage, "--batch-file does not combine with the single-create flags (%s): put each task's fields in the file", strings.Join(clash, ", "))
+				}
+				return runTaskBatchCreate(cmd, f, batchFile)
+			}
 			if cmd.Flags().Changed("min-tier") {
 				if err := validateTaskMinTier(minTier); err != nil {
 					return err
@@ -586,6 +611,7 @@ warnings list.`,
 	cmd.Flags().BoolVar(&closeSession, "close-session", false, "finishing or cancelling asks the assignee to end its worker session")
 	cmd.Flags().BoolVar(&noCloseSession, "no-close-session", false, "finishing or cancelling does not ask the assignee to end its worker session (the default)")
 	cmd.Flags().StringVar(&properties, "properties", "", "the task's own JSON object, or @file")
+	cmd.Flags().StringVar(&batchFile, "batch-file", "", "create 1-25 tasks in one call from a JSON array of {task, blockedByPositions} items (a path, or - for piped stdin); not with the single-create flags")
 	return cmd
 }
 

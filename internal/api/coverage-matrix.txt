@@ -223,7 +223,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 329: 260 command, 57 gap, 12 excluded
+[Mutation] 329: 262 command, 55 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -264,7 +264,7 @@ clearAgentAIConfig  gap #58
 clearNodeHistory  command node revision clear
 clearWorkerIsolation  command team isolation clear
 cloneAgent  command agent clone
-cloneAgentTask  gap #1565
+cloneAgentTask  command team task clone
 cloneMemory  command memory clone
 cloneNode  command node clone
 collectHostOperations  command team host run
@@ -277,7 +277,7 @@ createAgent  command agent create
 createAgentOrgGrant  gap #890
 createAgentSchedule  command schedule create
 createAgentTask  command team task create
-createAgentTasks  gap #1565
+createAgentTasks  command team task create
 createAgentTickerTemplate  command agent ticker-templates create
 createAgentWebhook  command webhook create
 createAiServiceConfig  command ai-config create
@@ -554,13 +554,20 @@ updateWorker  command team worker update
 withdrawDecision  command decision withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 67: 40 gap, 27 excluded
+[Arguments] 74: 47 gap, 27 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.addOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
 Mutation.addOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.claimUntrackedTaskItems(assignee)  gap #1554
 Mutation.claimUntrackedTaskItems(owner)  gap #1554
+Mutation.cloneAgentTask(input.owner)  gap #1579: `task clone` does not expose this override yet
+Mutation.cloneAgentTask(input.project)  gap #1579: `task clone` does not expose this override yet
+Mutation.cloneAgentTask(input.properties)  gap #1579: `task clone` does not expose this override yet
+Mutation.cloneAgentTask(input.references)  gap #1579: `task clone` does not expose this override yet
+Mutation.cloneAgentTask(input.requirements)  gap #1579: `task clone` does not expose this override yet
+Mutation.cloneAgentTask(input.tags)  gap #1579: `task clone` does not expose this override yet
+Mutation.createAgentTasks(distinctAssignees)  gap #1579: `--batch-file` does not expose distinctAssignees
 Mutation.createApp(agentTools)  gap #63
 Mutation.createApp(aiApiKey)  gap #63
 Mutation.createApp(aiModel)  gap #63

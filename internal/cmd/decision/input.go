@@ -4,12 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"reflect"
-	"strings"
 
+	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
@@ -38,7 +37,7 @@ func readInputFile(ios *output.IOStreams, path string) ([]byte, error) {
 // inputDecoder opens data as exactly one JSON object for a strict decode:
 // an unknown key is refused, so a typo ("titel") fails before any call rather
 // than being dropped. encoding/json alone would still accept a duplicate key
-// (the last one wins) and a mis-cased one ("Title"); checkKeys refuses both,
+// (the last one wins) and a mis-cased one ("Title"); cmdutil.CheckKeys refuses both,
 // against the target type's exact JSON names. The caller decodes into its generated input struct with
 // dec.Decode(&input) and then calls finishInput. The server still judges every
 // value (refusing with DECISION_INVALID and a JSON pointer); fields the file
@@ -53,7 +52,7 @@ func inputDecoder(data []byte, target any) (*json.Decoder, error) {
 	// out-of-range one (1e999) ends the scan early, and a duplicate after it
 	// in an opaque value would slip through (#1558).
 	scan.UseNumber()
-	if err := scanError(checkKeys(scan, reflect.TypeOf(target), "")); err != nil {
+	if err := scanError(cmdutil.CheckKeys(scan, reflect.TypeOf(target), "")); err != nil {
 		return nil, err
 	}
 	dec := json.NewDecoder(bytes.NewReader(trimmed))
@@ -61,7 +60,7 @@ func inputDecoder(data []byte, target any) (*json.Decoder, error) {
 	return dec, nil
 }
 
-// scanError maps a checkKeys error. A syntax error (or truncated input) is
+// scanError maps a cmdutil.CheckKeys error. A syntax error (or truncated input) is
 // left for the strict decode, which reports it with its own message; every
 // other error refuses. Failing closed matters because the strict decode reads
 // opaque values as json.RawMessage, so it would not see the error again and
@@ -71,7 +70,7 @@ func scanError(err error) error {
 	switch {
 	case err == nil, errors.As(err, &syn), errors.Is(err, io.ErrUnexpectedEOF), errors.Is(err, io.EOF):
 		return nil
-	case errors.As(err, new(keyError)):
+	case errors.As(err, new(cmdutil.KeyError)):
 		return exitcode.Newf(exitcode.Usage, "parsing --input-file: %v", err)
 	default:
 		return exitcode.Newf(exitcode.Usage, "parsing --input-file: checking keys: %v", err)
@@ -87,94 +86,4 @@ func finishInput(dec *json.Decoder, decodeErr error) error {
 		return exitcode.Newf(exitcode.Usage, "parsing --input-file: unexpected data after the JSON object")
 	}
 	return nil
-}
-
-// keyError is a key the input file must not carry: duplicated, or not one of
-// the target type's exact JSON names.
-type keyError string
-
-func (e keyError) Error() string { return string(e) }
-
-// checkKeys walks one JSON value, refusing a duplicate key in any object and,
-// where the matching Go type is a struct, a key that is not exactly one of its
-// JSON field names (encoding/json would match "Title" to "title"). path is the
-// JSON pointer of the value, for the message.
-func checkKeys(dec *json.Decoder, t reflect.Type, path string) error {
-	for t != nil && t.Kind() == reflect.Pointer {
-		t = t.Elem()
-	}
-	tok, err := dec.Token()
-	if err != nil {
-		return err
-	}
-	delim, ok := tok.(json.Delim)
-	if !ok {
-		return nil
-	}
-	switch delim {
-	case '{':
-		fields := jsonFields(t)
-		seen := map[string]bool{}
-		for dec.More() {
-			kt, err := dec.Token()
-			if err != nil {
-				return err
-			}
-			key, _ := kt.(string)
-			at := path + "/" + key
-			if seen[key] {
-				return keyError(fmt.Sprintf("duplicate key %q at %s", key, at))
-			}
-			seen[key] = true
-			var next reflect.Type
-			if fields != nil {
-				ft, ok := fields[key]
-				if !ok {
-					return keyError(fmt.Sprintf("unknown key %q at %s (keys are case-sensitive)", key, at))
-				}
-				next = ft
-			} else if t != nil && t.Kind() == reflect.Map {
-				next = t.Elem()
-			}
-			if err := checkKeys(dec, next, at); err != nil {
-				return err
-			}
-		}
-	case '[':
-		var elem reflect.Type
-		if t != nil && (t.Kind() == reflect.Slice || t.Kind() == reflect.Array) {
-			elem = t.Elem()
-		}
-		for i := 0; dec.More(); i++ {
-			if err := checkKeys(dec, elem, fmt.Sprintf("%s/%d", path, i)); err != nil {
-				return err
-			}
-		}
-	}
-	_, err = dec.Token() // the closing delimiter
-	return err
-}
-
-// jsonFields maps a struct type's exact JSON names to their field types; nil
-// for a non-struct (a map, json.RawMessage or scalar is not name-checked).
-func jsonFields(t reflect.Type) map[string]reflect.Type {
-	if t == nil || t.Kind() != reflect.Struct {
-		return nil
-	}
-	out := map[string]reflect.Type{}
-	for i := 0; i < t.NumField(); i++ {
-		f := t.Field(i)
-		if !f.IsExported() {
-			continue
-		}
-		name, _, _ := strings.Cut(f.Tag.Get("json"), ",")
-		if name == "-" {
-			continue
-		}
-		if name == "" {
-			name = f.Name
-		}
-		out[name] = f.Type
-	}
-	return out
 }
