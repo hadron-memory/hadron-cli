@@ -5060,3 +5060,40 @@ new flags. **No CLI release before that compatible provider deployment.**
 `hadron team register [--agent <id-or-URN>] [--task-loc <loc>] [--code <code>] [--limit <n>] [--offset <n>] [--json]` reads one page of the action register using `--app`, configured App or the worktree binding. It never writes or runs the mapped task. An unset `--agent` is omitted: the server uses the authenticated worker/run Agent, or refuses a person/App key with BAD_USER_INPUT (exit 2). A complete same-server worker binding supplies session attribution on the register data read, rechecked before sending; a missing or other-server binding never does. An explicitly unusable Agent is AGENT_NOT_FOUND (exit 4); unreadable/unknown Apps are APP_NOT_FOUND (exit 4). No client pre-resolution or fallback. Requires server#3312 or later.
 
 JSON is `{entries:[{code,state,actionUrn,entryUrn,definedBy,taskLoc,taskUrn}],total,hasMore}`; nullable values stay null and an empty entries list is `[]`. Server order and text paging summary are retained. UNRESOLVED says no runnable task found at its loc; UNMAPPED says the entry is malformed, with the code visible. An empty page gives no cause. Unset paging flags use server defaults; `--limit 0` counts, values above 200 are sent unchanged and capped by the server. Safe human cells replace terminal controls and bound long values; JSON preserves originals.
+
+### Task finding dispositions (server#3258; cli#1556)
+
+```sh
+hadron team task finding-dispositions <task> [--limit N] [--offset N]
+hadron team task dispose-finding <task> <finding-id> --disposition fixed|accepted|deferred|rejected [--ref <kind>=<target>[|<label>]]
+hadron team task list --unresolved[=false]
+```
+
+Dispositions are beside a finished task's immutable result, never edits to it.
+All four codes (including deferred) resolve a finding; the latest value wins,
+with no clear operation. Omitted `--ref` means the NEW disposition has no
+reference, even if the previous one did. Reference kinds are issue,
+pull-request, node, task and url; stored target/label text is never fetched.
+The server decides authority: task assigners only after finish, never an
+assignee alone, an App key or impersonation. No local inference or retry.
+`TASK_NOT_OWNER` exits 8, `TASK_NOT_FINISHED` exits 5,
+`TASK_FINDING_NOT_FOUND` exits 4; server codes remain in the JSON error envelope
+and human message. A transport or unreadable-response failure may follow a
+committed write: read dispositions before deciding whether to write again.
+
+`finding-dispositions --json` is `{items:[{findingId,disposition,reference}],
+total,hasMore}` in finding order; empty items is `[]`. Default page 20, maximum
+200, `--limit 0` counts only. Follow hasMore with offset, never infer the end
+from page length. A write prints a bare server-returned receipt
+`{taskId,findingId,disposition,reference}`. Reference is null when absent, else
+`{kind,target,label}` (label nullable). Human text is bounded/terminal-safe;
+JSON preserves original text. These commands do not read immutable findings
+(the separate cli#1550 slice).
+
+`list --unresolved` filters before paging to FINISHED tasks with at least one
+undisposed finding; `=false` and omission do not narrow. Both explicit values
+conflict with `list --team`, exit 2 before a read. Other filters AND together.
+Omitted flag retains existing list documents and bare-array JSON. New commands
+and the named unresolved flag require a provider containing server#3258; they
+add no new selections to existing task commands. Task ids/handles work as on
+get; an ambiguous handle needs its fully qualified App form.

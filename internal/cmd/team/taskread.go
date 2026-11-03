@@ -286,7 +286,7 @@ func strOr(s *string) string {
 func newCmdTeamTaskList(f *cmdutil.Factory) *cobra.Command {
 	var statuses []string
 	var assignee, owner, parent, tag, team, staleOver, text string
-	var queued, rootsOnly, tree, overdue, matchFailed bool
+	var queued, rootsOnly, tree, overdue, matchFailed, unresolved bool
 	var tagsAny, tagsAll []string
 	var source, externalID, refTarget, refKind string
 	var times [6]string
@@ -298,6 +298,13 @@ func newCmdTeamTaskList(f *cmdutil.Factory) *cobra.Command {
 		Long: `List the team App's tasks, newest first (the server's order). The App comes
 from --app, else the configured App context, else the worktree binding; with
 none of them the command is refused.
+
+--unresolved narrows to FINISHED tasks with at least one finding without a
+disposition; all four codes (including deferred) resolve a finding. False or
+omission does not narrow. The server filters under the App read gate before
+paging, ANDed with the other filters. Requires server#3258; it cannot combine
+with --team, even when false. A separate operation keeps older plain/filtered
+list documents unchanged when this flag is omitted. No records is []/exit 0.
 
 --match-failed selects tasks marked by an unsuccessful create --match;
 --match-failed=false selects unmarked tasks. Omission keeps the old list.
@@ -451,6 +458,10 @@ ageFrom; --tree changes text only.`,
 					return exitcode.Newf(exitcode.Usage, "--%s is after --%s: the range is empty (bounds are inclusive; equal instants are valid)", taskTimeFlags[i], taskTimeFlags[i+1])
 				}
 			}
+			var unresolvedIn *bool
+			if cmd.Flags().Changed("unresolved") {
+				unresolvedIn = &unresolved
+			}
 			var matchFailedIn *bool
 			if cmd.Flags().Changed("match-failed") {
 				matchFailedIn = &matchFailed
@@ -475,6 +486,7 @@ ageFrom; --tree changes text only.`,
 				rootsOnly: optBool(rootsOnly), status: status, tag: optStr(tag), text: textArg, limit: limit, offset: offset,
 				limitExplicit: cmd.Flags().Changed("limit"),
 				matchFailed:   matchFailedIn,
+				unresolved:    unresolvedIn,
 				tagsAny:       nilIfEmpty(tagsAny), tagsAll: nilIfEmpty(tagsAll), source: optStr(source), externalID: optStr(externalID), reference: refFilter, overdue: overdueIn,
 				createdAfter: bounds[0], createdBefore: bounds[1], startedAfter: bounds[2], startedBefore: bounds[3],
 				finishedAfter: bounds[4], finishedBefore: bounds[5],
@@ -492,6 +504,7 @@ ageFrom; --tree changes text only.`,
 	cmd.Flags().StringVar(&externalID, "external-id", "", "the task claiming exactly this external id, such as an issue URL (no prefix matching)")
 	cmd.Flags().StringVar(&refTarget, "ref", "", "tasks carrying a reference with exactly this target (the label is ignored)")
 	cmd.Flags().StringVar(&refKind, "ref-kind", "", "narrow --ref to one kind ("+taskRefKindsDoc+")")
+	cmd.Flags().BoolVar(&unresolved, "unresolved", false, "finished tasks with undisposed findings; false/omitted does not narrow; not with --team")
 	cmd.Flags().BoolVar(&matchFailed, "match-failed", false, "filter marked match failures; false selects unmarked tasks; not with list --team")
 	cmd.Flags().BoolVar(&overdue, "overdue", false, "start-by passed, not started, not ended, not backlog; --overdue=false lists all other tasks")
 	for i, name := range taskTimeFlags {
@@ -526,6 +539,7 @@ type taskListQuery struct {
 	reference                     *gen.AgentTaskReferenceFilter
 	overdue                       *bool
 	matchFailed                   *bool
+	unresolved                    *bool
 	createdAfter, createdBefore   *string
 	startedAfter, startedBefore   *string
 	finishedAfter, finishedBefore *string
@@ -566,6 +580,20 @@ func checkTaskPage(limit, offset int) error {
 // Omitting a JSON variable alone does not hide an argument from GraphQL validation.
 func taskListPage(ctx context.Context, client graphql.Client, appRef string, q taskListQuery) ([]taskDTO, int, error) {
 	tasks := []taskDTO{}
+	if q.unresolved != nil {
+		r, err := gen.AgentTaskListUnresolved(ctx, client, appRef, q.unresolved, q.assignee, q.createdAfter, q.createdBefore, q.finishedAfter, q.finishedBefore,
+			q.matchFailed, &q.limit, &q.offset, q.overdue, q.owner, q.parent, q.queued, q.rootsOnly, q.reference, q.source, q.externalID, q.startedAfter, q.startedBefore,
+			q.status, q.tag, q.tagsAll, q.tagsAny, q.text)
+		if err != nil {
+			return nil, 0, mapFindingError(err)
+		}
+		for _, t := range r.AgentTasks {
+			if t != nil {
+				tasks = append(tasks, taskDTOFrom(t.AgentTaskFields))
+			}
+		}
+		return tasks, len(r.AgentTasks), nil
+	}
 	if q.filtered() {
 		resp, err := gen.AgentTaskListFiltered(ctx, client, appRef, q.assignee, q.createdAfter, q.createdBefore, q.finishedAfter, q.finishedBefore,
 			q.matchFailed, &q.limit, &q.offset, q.overdue, q.owner, q.parent, q.queued, q.rootsOnly, q.reference, q.source, q.externalID, q.startedAfter, q.startedBefore,

@@ -3155,6 +3155,124 @@ func (v *AgentTaskDependencyFields) GetTitle() string { return v.Title }
 // GetStatus returns AgentTaskDependencyFields.Status, and is useful for accessing the field via an interface.
 func (v *AgentTaskDependencyFields) GetStatus() AgentTaskStatus { return v.Status }
 
+// AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTask struct {
+	Id string `json:"id"`
+	// #2663: dispositions beside the result, same readers; default20/max200/limit0 count-only (hrn:node:hadronmemory.com:specs:cor:agt:050:30).
+	FindingDispositions *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPage `json:"findingDispositions"`
+}
+
+// GetId returns AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTask) GetId() string { return v.Id }
+
+// GetFindingDispositions returns AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTask.FindingDispositions, and is useful for accessing the field via an interface.
+func (v *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTask) GetFindingDispositions() *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPage {
+	return v.FindingDispositions
+}
+
+// AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPage includes the requested fields of the GraphQL type AgentTaskFindingDispositionPage.
+// The GraphQL type's documentation follows.
+//
+// #2663: current dispositions, ordered by finding order, capped pages.
+type AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPage struct {
+	Items []*AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition `json:"items"`
+}
+
+// GetItems returns AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPage.Items, and is useful for accessing the field via an interface.
+func (v *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPage) GetItems() []*AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition {
+	return v.Items
+}
+
+// AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition includes the requested fields of the GraphQL type AgentTaskFindingDisposition.
+// The GraphQL type's documentation follows.
+//
+// #2663: latest disposition, separate from immutable findings. Every code, including deferred, resolves the finding.
+type AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition struct {
+	TaskFindingDispositionFields `json:"-"`
+}
+
+// GetFindingId returns AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition.FindingId, and is useful for accessing the field via an interface.
+func (v *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition) GetFindingId() string {
+	return v.TaskFindingDispositionFields.FindingId
+}
+
+// GetDisposition returns AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition.Disposition, and is useful for accessing the field via an interface.
+func (v *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition) GetDisposition() AgentTaskFindingDispositionCode {
+	return v.TaskFindingDispositionFields.Disposition
+}
+
+// GetReference returns AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition.Reference, and is useful for accessing the field via an interface.
+func (v *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition) GetReference() *TaskFindingDispositionFieldsReferenceAgentTaskReference {
+	return v.TaskFindingDispositionFields.Reference
+}
+
+func (v *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TaskFindingDispositionFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition struct {
+	FindingId string `json:"findingId"`
+
+	Disposition AgentTaskFindingDispositionCode `json:"disposition"`
+
+	Reference *TaskFindingDispositionFieldsReferenceAgentTaskReference `json:"reference"`
+}
+
+func (v *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition) __premarshalJSON() (*__premarshalAgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition, error) {
+	var retval __premarshalAgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition
+
+	retval.FindingId = v.TaskFindingDispositionFields.FindingId
+	retval.Disposition = v.TaskFindingDispositionFields.Disposition
+	retval.Reference = v.TaskFindingDispositionFields.Reference
+	return &retval, nil
+}
+
+// AgentTaskDisposeFindingResponse is returned by AgentTaskDisposeFinding on success.
+type AgentTaskDisposeFindingResponse struct {
+	// #2663: finished tasks only, their assigners only; never an App key or impersonation. Records a new disposition value, never clears it; omitted/null reference means no reference on the new value. Unknown finding TASK_FINDING_NOT_FOUND; open task TASK_NOT_FINISHED; non-assigner TASK_NOT_OWNER; unreadable task TASK_NOT_FOUND; result unchanged (hrn:node:hadronmemory.com:specs:cor:agt:050:30).
+	DisposeAgentTaskFinding *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTask `json:"disposeAgentTaskFinding"`
+}
+
+// GetDisposeAgentTaskFinding returns AgentTaskDisposeFindingResponse.DisposeAgentTaskFinding, and is useful for accessing the field via an interface.
+func (v *AgentTaskDisposeFindingResponse) GetDisposeAgentTaskFinding() *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTask {
+	return v.DisposeAgentTaskFinding
+}
+
 // AgentTaskFields includes the GraphQL fields of AgentTask requested by the fragment AgentTaskFields.
 // The GraphQL type's documentation follows.
 //
@@ -3995,6 +4113,151 @@ func (v *AgentTaskFieldsResultAgentTaskResult) GetSummary() *string { return v.S
 
 // GetEvidence returns AgentTaskFieldsResultAgentTaskResult.Evidence, and is useful for accessing the field via an interface.
 func (v *AgentTaskFieldsResultAgentTaskResult) GetEvidence() *string { return v.Evidence }
+
+// #2663: every code resolves the finding, including deferred (hrn:node:hadronmemory.com:specs:cor:agt:050:30).
+type AgentTaskFindingDispositionCode string
+
+const (
+	AgentTaskFindingDispositionCodeAccepted AgentTaskFindingDispositionCode = "accepted"
+	AgentTaskFindingDispositionCodeDeferred AgentTaskFindingDispositionCode = "deferred"
+	AgentTaskFindingDispositionCodeFixed    AgentTaskFindingDispositionCode = "fixed"
+	AgentTaskFindingDispositionCodeRejected AgentTaskFindingDispositionCode = "rejected"
+)
+
+var AllAgentTaskFindingDispositionCode = []AgentTaskFindingDispositionCode{
+	AgentTaskFindingDispositionCodeAccepted,
+	AgentTaskFindingDispositionCodeDeferred,
+	AgentTaskFindingDispositionCodeFixed,
+	AgentTaskFindingDispositionCodeRejected,
+}
+
+// AgentTaskFindingDispositionsAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type AgentTaskFindingDispositionsAgentTask struct {
+	// #2663: dispositions beside the result, same readers; default20/max200/limit0 count-only (hrn:node:hadronmemory.com:specs:cor:agt:050:30).
+	FindingDispositions *AgentTaskFindingDispositionsAgentTaskFindingDispositionsAgentTaskFindingDispositionPage `json:"findingDispositions"`
+}
+
+// GetFindingDispositions returns AgentTaskFindingDispositionsAgentTask.FindingDispositions, and is useful for accessing the field via an interface.
+func (v *AgentTaskFindingDispositionsAgentTask) GetFindingDispositions() *AgentTaskFindingDispositionsAgentTaskFindingDispositionsAgentTaskFindingDispositionPage {
+	return v.FindingDispositions
+}
+
+// AgentTaskFindingDispositionsAgentTaskFindingDispositionsAgentTaskFindingDispositionPage includes the requested fields of the GraphQL type AgentTaskFindingDispositionPage.
+// The GraphQL type's documentation follows.
+//
+// #2663: current dispositions, ordered by finding order, capped pages.
+type AgentTaskFindingDispositionsAgentTaskFindingDispositionsAgentTaskFindingDispositionPage struct {
+	Items   []*AgentTaskFindingDispositionsAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition `json:"items"`
+	Total   int                                                                                                                        `json:"total"`
+	HasMore bool                                                                                                                       `json:"hasMore"`
+}
+
+// GetItems returns AgentTaskFindingDispositionsAgentTaskFindingDispositionsAgentTaskFindingDispositionPage.Items, and is useful for accessing the field via an interface.
+func (v *AgentTaskFindingDispositionsAgentTaskFindingDispositionsAgentTaskFindingDispositionPage) GetItems() []*AgentTaskFindingDispositionsAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition {
+	return v.Items
+}
+
+// GetTotal returns AgentTaskFindingDispositionsAgentTaskFindingDispositionsAgentTaskFindingDispositionPage.Total, and is useful for accessing the field via an interface.
+func (v *AgentTaskFindingDispositionsAgentTaskFindingDispositionsAgentTaskFindingDispositionPage) GetTotal() int {
+	return v.Total
+}
+
+// GetHasMore returns AgentTaskFindingDispositionsAgentTaskFindingDispositionsAgentTaskFindingDispositionPage.HasMore, and is useful for accessing the field via an interface.
+func (v *AgentTaskFindingDispositionsAgentTaskFindingDispositionsAgentTaskFindingDispositionPage) GetHasMore() bool {
+	return v.HasMore
+}
+
+// AgentTaskFindingDispositionsAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition includes the requested fields of the GraphQL type AgentTaskFindingDisposition.
+// The GraphQL type's documentation follows.
+//
+// #2663: latest disposition, separate from immutable findings. Every code, including deferred, resolves the finding.
+type AgentTaskFindingDispositionsAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition struct {
+	TaskFindingDispositionFields `json:"-"`
+}
+
+// GetFindingId returns AgentTaskFindingDispositionsAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition.FindingId, and is useful for accessing the field via an interface.
+func (v *AgentTaskFindingDispositionsAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition) GetFindingId() string {
+	return v.TaskFindingDispositionFields.FindingId
+}
+
+// GetDisposition returns AgentTaskFindingDispositionsAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition.Disposition, and is useful for accessing the field via an interface.
+func (v *AgentTaskFindingDispositionsAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition) GetDisposition() AgentTaskFindingDispositionCode {
+	return v.TaskFindingDispositionFields.Disposition
+}
+
+// GetReference returns AgentTaskFindingDispositionsAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition.Reference, and is useful for accessing the field via an interface.
+func (v *AgentTaskFindingDispositionsAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition) GetReference() *TaskFindingDispositionFieldsReferenceAgentTaskReference {
+	return v.TaskFindingDispositionFields.Reference
+}
+
+func (v *AgentTaskFindingDispositionsAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTaskFindingDispositionsAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTaskFindingDispositionsAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TaskFindingDispositionFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTaskFindingDispositionsAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition struct {
+	FindingId string `json:"findingId"`
+
+	Disposition AgentTaskFindingDispositionCode `json:"disposition"`
+
+	Reference *TaskFindingDispositionFieldsReferenceAgentTaskReference `json:"reference"`
+}
+
+func (v *AgentTaskFindingDispositionsAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTaskFindingDispositionsAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition) __premarshalJSON() (*__premarshalAgentTaskFindingDispositionsAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition, error) {
+	var retval __premarshalAgentTaskFindingDispositionsAgentTaskFindingDispositionsAgentTaskFindingDispositionPageItemsAgentTaskFindingDisposition
+
+	retval.FindingId = v.TaskFindingDispositionFields.FindingId
+	retval.Disposition = v.TaskFindingDispositionFields.Disposition
+	retval.Reference = v.TaskFindingDispositionFields.Reference
+	return &retval, nil
+}
+
+// AgentTaskFindingDispositionsResponse is returned by AgentTaskFindingDispositions on success.
+type AgentTaskFindingDispositionsResponse struct {
+	// #1705 — one agent task, or null when it does not exist or the caller may
+	// not read it (no existence oracle). Readers: the App's participants, workers
+	// acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+	AgentTask *AgentTaskFindingDispositionsAgentTask `json:"agentTask"`
+}
+
+// GetAgentTask returns AgentTaskFindingDispositionsResponse.AgentTask, and is useful for accessing the field via an interface.
+func (v *AgentTaskFindingDispositionsResponse) GetAgentTask() *AgentTaskFindingDispositionsAgentTask {
+	return v.AgentTask
+}
 
 // #2662: give every id, or none for platform F1/F2/... ids in list order. Ids unique, 1–32 letters/digits/_/-. Text at most 2,000 Unicode code points; no trimming.
 type AgentTaskFindingInput struct {
@@ -6098,6 +6361,357 @@ type AgentTaskListTextResponse struct {
 
 // GetAgentTasks returns AgentTaskListTextResponse.AgentTasks, and is useful for accessing the field via an interface.
 func (v *AgentTaskListTextResponse) GetAgentTasks() []*AgentTaskListTextAgentTasksAgentTask {
+	return v.AgentTasks
+}
+
+// AgentTaskListUnresolvedAgentTasksAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type AgentTaskListUnresolvedAgentTasksAgentTask struct {
+	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns AgentTaskListUnresolvedAgentTasksAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetPriority() int {
+	return v.AgentTaskFields.Priority
+}
+
+// GetBlocked returns AgentTaskListUnresolvedAgentTasksAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetBlocked() bool {
+	return v.AgentTaskFields.Blocked
+}
+
+// GetBlockedBy returns AgentTaskListUnresolvedAgentTasksAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns AgentTaskListUnresolvedAgentTasksAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
+}
+
+// GetId returns AgentTaskListUnresolvedAgentTasksAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetId() string { return v.AgentTaskFields.Id }
+
+// GetHandle returns AgentTaskListUnresolvedAgentTasksAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetHandle() string {
+	return v.AgentTaskFields.Handle
+}
+
+// GetTaskNumber returns AgentTaskListUnresolvedAgentTasksAgentTask.TaskNumber, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetTaskNumber() string {
+	return v.AgentTaskFields.TaskNumber
+}
+
+// GetAppId returns AgentTaskListUnresolvedAgentTasksAgentTask.AppId, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetAppId() string {
+	return v.AgentTaskFields.AppId
+}
+
+// GetTitle returns AgentTaskListUnresolvedAgentTasksAgentTask.Title, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetTitle() string {
+	return v.AgentTaskFields.Title
+}
+
+// GetDescription returns AgentTaskListUnresolvedAgentTasksAgentTask.Description, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetDescription() *string {
+	return v.AgentTaskFields.Description
+}
+
+// GetStatus returns AgentTaskListUnresolvedAgentTasksAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetStatus() AgentTaskStatus {
+	return v.AgentTaskFields.Status
+}
+
+// GetQueued returns AgentTaskListUnresolvedAgentTasksAgentTask.Queued, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetQueued() bool {
+	return v.AgentTaskFields.Queued
+}
+
+// GetWaitingOnChildren returns AgentTaskListUnresolvedAgentTasksAgentTask.WaitingOnChildren, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetWaitingOnChildren() bool {
+	return v.AgentTaskFields.WaitingOnChildren
+}
+
+// GetOwner returns AgentTaskListUnresolvedAgentTasksAgentTask.Owner, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetOwner() *AgentTaskFieldsOwnerAgentTaskParty {
+	return v.AgentTaskFields.Owner
+}
+
+// GetAssignee returns AgentTaskListUnresolvedAgentTasksAgentTask.Assignee, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetAssignee() *AgentTaskFieldsAssigneeAgentTaskParty {
+	return v.AgentTaskFields.Assignee
+}
+
+// GetAssignedBy returns AgentTaskListUnresolvedAgentTasksAgentTask.AssignedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetAssignedBy() *AgentTaskFieldsAssignedByAgentTaskParty {
+	return v.AgentTaskFields.AssignedBy
+}
+
+// GetCreatedBy returns AgentTaskListUnresolvedAgentTasksAgentTask.CreatedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
+	return v.AgentTaskFields.CreatedBy
+}
+
+// GetParentTaskId returns AgentTaskListUnresolvedAgentTasksAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetParentTaskId() *string {
+	return v.AgentTaskFields.ParentTaskId
+}
+
+// GetTags returns AgentTaskListUnresolvedAgentTasksAgentTask.Tags, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetTags() []string {
+	return v.AgentTaskFields.Tags
+}
+
+// GetSource returns AgentTaskListUnresolvedAgentTasksAgentTask.Source, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetSource() *string {
+	return v.AgentTaskFields.Source
+}
+
+// GetExternalId returns AgentTaskListUnresolvedAgentTasksAgentTask.ExternalId, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetExternalId() *string {
+	return v.AgentTaskFields.ExternalId
+}
+
+// GetReferences returns AgentTaskListUnresolvedAgentTasksAgentTask.References, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
+	return v.AgentTaskFields.References
+}
+
+// GetHandBack returns AgentTaskListUnresolvedAgentTasksAgentTask.HandBack, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetHandBack() *AgentTaskFieldsHandBackAgentTaskHandBack {
+	return v.AgentTaskFields.HandBack
+}
+
+// GetMatchFailure returns AgentTaskListUnresolvedAgentTasksAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
+// GetStartBy returns AgentTaskListUnresolvedAgentTasksAgentTask.StartBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetStartBy() *string {
+	return v.AgentTaskFields.StartBy
+}
+
+// GetFinishBy returns AgentTaskListUnresolvedAgentTasksAgentTask.FinishBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetFinishBy() *string {
+	return v.AgentTaskFields.FinishBy
+}
+
+// GetCreatedAt returns AgentTaskListUnresolvedAgentTasksAgentTask.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetCreatedAt() string {
+	return v.AgentTaskFields.CreatedAt
+}
+
+// GetUpdatedAt returns AgentTaskListUnresolvedAgentTasksAgentTask.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetUpdatedAt() *string {
+	return v.AgentTaskFields.UpdatedAt
+}
+
+// GetStartedAt returns AgentTaskListUnresolvedAgentTasksAgentTask.StartedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetStartedAt() *string {
+	return v.AgentTaskFields.StartedAt
+}
+
+// GetFinishedAt returns AgentTaskListUnresolvedAgentTasksAgentTask.FinishedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetFinishedAt() *string {
+	return v.AgentTaskFields.FinishedAt
+}
+
+// GetCancelledAt returns AgentTaskListUnresolvedAgentTasksAgentTask.CancelledAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetCancelledAt() *string {
+	return v.AgentTaskFields.CancelledAt
+}
+
+// GetCloseSessionWhenDone returns AgentTaskListUnresolvedAgentTasksAgentTask.CloseSessionWhenDone, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetCloseSessionWhenDone() bool {
+	return v.AgentTaskFields.CloseSessionWhenDone
+}
+
+// GetRequirements returns AgentTaskListUnresolvedAgentTasksAgentTask.Requirements, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
+	return v.AgentTaskFields.Requirements
+}
+
+// GetResult returns AgentTaskListUnresolvedAgentTasksAgentTask.Result, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetResult() *AgentTaskFieldsResultAgentTaskResult {
+	return v.AgentTaskFields.Result
+}
+
+// GetProperties returns AgentTaskListUnresolvedAgentTasksAgentTask.Properties, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) GetProperties() *json.RawMessage {
+	return v.AgentTaskFields.Properties
+}
+
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTaskListUnresolvedAgentTasksAgentTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTaskListUnresolvedAgentTasksAgentTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTaskListUnresolvedAgentTasksAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
+	Id string `json:"id"`
+
+	Handle string `json:"handle"`
+
+	TaskNumber string `json:"taskNumber"`
+
+	AppId string `json:"appId"`
+
+	Title string `json:"title"`
+
+	Description *string `json:"description"`
+
+	Status AgentTaskStatus `json:"status"`
+
+	Queued bool `json:"queued"`
+
+	WaitingOnChildren bool `json:"waitingOnChildren"`
+
+	Owner *AgentTaskFieldsOwnerAgentTaskParty `json:"owner"`
+
+	Assignee *AgentTaskFieldsAssigneeAgentTaskParty `json:"assignee"`
+
+	AssignedBy *AgentTaskFieldsAssignedByAgentTaskParty `json:"assignedBy"`
+
+	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
+
+	ParentTaskId *string `json:"parentTaskId"`
+
+	Tags []string `json:"tags"`
+
+	Source *string `json:"source"`
+
+	ExternalId *string `json:"externalId"`
+
+	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
+
+	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
+
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
+	StartBy *string `json:"startBy"`
+
+	FinishBy *string `json:"finishBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	StartedAt *string `json:"startedAt"`
+
+	FinishedAt *string `json:"finishedAt"`
+
+	CancelledAt *string `json:"cancelledAt"`
+
+	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
+
+	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
+
+	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+
+	Properties *json.RawMessage `json:"properties"`
+}
+
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTaskListUnresolvedAgentTasksAgentTask) __premarshalJSON() (*__premarshalAgentTaskListUnresolvedAgentTasksAgentTask, error) {
+	var retval __premarshalAgentTaskListUnresolvedAgentTasksAgentTask
+
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
+	retval.Id = v.AgentTaskFields.Id
+	retval.Handle = v.AgentTaskFields.Handle
+	retval.TaskNumber = v.AgentTaskFields.TaskNumber
+	retval.AppId = v.AgentTaskFields.AppId
+	retval.Title = v.AgentTaskFields.Title
+	retval.Description = v.AgentTaskFields.Description
+	retval.Status = v.AgentTaskFields.Status
+	retval.Queued = v.AgentTaskFields.Queued
+	retval.WaitingOnChildren = v.AgentTaskFields.WaitingOnChildren
+	retval.Owner = v.AgentTaskFields.Owner
+	retval.Assignee = v.AgentTaskFields.Assignee
+	retval.AssignedBy = v.AgentTaskFields.AssignedBy
+	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
+	retval.Tags = v.AgentTaskFields.Tags
+	retval.Source = v.AgentTaskFields.Source
+	retval.ExternalId = v.AgentTaskFields.ExternalId
+	retval.References = v.AgentTaskFields.References
+	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
+	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.FinishBy = v.AgentTaskFields.FinishBy
+	retval.CreatedAt = v.AgentTaskFields.CreatedAt
+	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
+	retval.StartedAt = v.AgentTaskFields.StartedAt
+	retval.FinishedAt = v.AgentTaskFields.FinishedAt
+	retval.CancelledAt = v.AgentTaskFields.CancelledAt
+	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.Requirements = v.AgentTaskFields.Requirements
+	retval.Result = v.AgentTaskFields.Result
+	retval.Properties = v.AgentTaskFields.Properties
+	return &retval, nil
+}
+
+// AgentTaskListUnresolvedResponse is returned by AgentTaskListUnresolved on success.
+type AgentTaskListUnresolvedResponse struct {
+	// #1705 — a team App's agent tasks, newest first. Party filters combine with the other selectors;
+	// All tag, source and date filters combine with the other selectors using AND.
+	// owner / assignee / creator name a party of the App (a ref naming nobody matches
+	// nothing; a retired worker is no party to name, so it matches nothing). creator is
+	// the task's creator as createdBy projects it: a worker, or a person for a task they created
+	// themselves (not one their worker created, #2370). queued selects pending tasks with no assignee; rootsOnly selects roots. These
+	// take precedence over status and parentTaskId respectively. limit defaults to 20 (cap 200).
+	// Readers: the App's participants (hrn:node:hadronmemory.com:specs:cor:agt:050:21), or the App's own live key
+	// without a session binding (#1755).
+	// An App you do not participate in answers APP_NOT_FOUND, exactly like an
+	// absent one.
+	AgentTasks []*AgentTaskListUnresolvedAgentTasksAgentTask `json:"agentTasks"`
+}
+
+// GetAgentTasks returns AgentTaskListUnresolvedResponse.AgentTasks, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedResponse) GetAgentTasks() []*AgentTaskListUnresolvedAgentTasksAgentTask {
 	return v.AgentTasks
 }
 
@@ -71363,6 +71977,52 @@ var AllSyncStatus = []SyncStatus{
 	SyncStatusSyncing,
 }
 
+// TaskFindingDispositionFields includes the GraphQL fields of AgentTaskFindingDisposition requested by the fragment TaskFindingDispositionFields.
+// The GraphQL type's documentation follows.
+//
+// #2663: latest disposition, separate from immutable findings. Every code, including deferred, resolves the finding.
+type TaskFindingDispositionFields struct {
+	FindingId   string                                                   `json:"findingId"`
+	Disposition AgentTaskFindingDispositionCode                          `json:"disposition"`
+	Reference   *TaskFindingDispositionFieldsReferenceAgentTaskReference `json:"reference"`
+}
+
+// GetFindingId returns TaskFindingDispositionFields.FindingId, and is useful for accessing the field via an interface.
+func (v *TaskFindingDispositionFields) GetFindingId() string { return v.FindingId }
+
+// GetDisposition returns TaskFindingDispositionFields.Disposition, and is useful for accessing the field via an interface.
+func (v *TaskFindingDispositionFields) GetDisposition() AgentTaskFindingDispositionCode {
+	return v.Disposition
+}
+
+// GetReference returns TaskFindingDispositionFields.Reference, and is useful for accessing the field via an interface.
+func (v *TaskFindingDispositionFields) GetReference() *TaskFindingDispositionFieldsReferenceAgentTaskReference {
+	return v.Reference
+}
+
+// TaskFindingDispositionFieldsReferenceAgentTaskReference includes the requested fields of the GraphQL type AgentTaskReference.
+// The GraphQL type's documentation follows.
+//
+// #2649 (hrn:node:hadronmemory.com:specs:cor:agt:050:01): one typed reference, as stored. The platform never resolves target.
+type TaskFindingDispositionFieldsReferenceAgentTaskReference struct {
+	Kind AgentTaskReferenceKind `json:"kind"`
+	// Stored exactly as given (at most 512 characters).
+	Target string `json:"target"`
+	// Optional, at most 120 characters; null when none was given.
+	Label *string `json:"label"`
+}
+
+// GetKind returns TaskFindingDispositionFieldsReferenceAgentTaskReference.Kind, and is useful for accessing the field via an interface.
+func (v *TaskFindingDispositionFieldsReferenceAgentTaskReference) GetKind() AgentTaskReferenceKind {
+	return v.Kind
+}
+
+// GetTarget returns TaskFindingDispositionFieldsReferenceAgentTaskReference.Target, and is useful for accessing the field via an interface.
+func (v *TaskFindingDispositionFieldsReferenceAgentTaskReference) GetTarget() string { return v.Target }
+
+// GetLabel returns TaskFindingDispositionFieldsReferenceAgentTaskReference.Label, and is useful for accessing the field via an interface.
+func (v *TaskFindingDispositionFieldsReferenceAgentTaskReference) GetLabel() *string { return v.Label }
+
 // #1708 — which task event a TASK reason is for.
 type TaskWakeEvent string
 
@@ -90396,6 +91056,44 @@ func (v *__AgentTaskDependenciesInput) GetLimit() int { return v.Limit }
 // GetOffset returns __AgentTaskDependenciesInput.Offset, and is useful for accessing the field via an interface.
 func (v *__AgentTaskDependenciesInput) GetOffset() int { return v.Offset }
 
+// __AgentTaskDisposeFindingInput is used internally by genqlient
+type __AgentTaskDisposeFindingInput struct {
+	TaskRef     string                          `json:"taskRef"`
+	FindingId   string                          `json:"findingId"`
+	Disposition AgentTaskFindingDispositionCode `json:"disposition"`
+	Reference   *AgentTaskReferenceInput        `json:"reference,omitempty"`
+}
+
+// GetTaskRef returns __AgentTaskDisposeFindingInput.TaskRef, and is useful for accessing the field via an interface.
+func (v *__AgentTaskDisposeFindingInput) GetTaskRef() string { return v.TaskRef }
+
+// GetFindingId returns __AgentTaskDisposeFindingInput.FindingId, and is useful for accessing the field via an interface.
+func (v *__AgentTaskDisposeFindingInput) GetFindingId() string { return v.FindingId }
+
+// GetDisposition returns __AgentTaskDisposeFindingInput.Disposition, and is useful for accessing the field via an interface.
+func (v *__AgentTaskDisposeFindingInput) GetDisposition() AgentTaskFindingDispositionCode {
+	return v.Disposition
+}
+
+// GetReference returns __AgentTaskDisposeFindingInput.Reference, and is useful for accessing the field via an interface.
+func (v *__AgentTaskDisposeFindingInput) GetReference() *AgentTaskReferenceInput { return v.Reference }
+
+// __AgentTaskFindingDispositionsInput is used internally by genqlient
+type __AgentTaskFindingDispositionsInput struct {
+	TaskRef string `json:"taskRef"`
+	Limit   int    `json:"limit"`
+	Offset  int    `json:"offset"`
+}
+
+// GetTaskRef returns __AgentTaskFindingDispositionsInput.TaskRef, and is useful for accessing the field via an interface.
+func (v *__AgentTaskFindingDispositionsInput) GetTaskRef() string { return v.TaskRef }
+
+// GetLimit returns __AgentTaskFindingDispositionsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AgentTaskFindingDispositionsInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __AgentTaskFindingDispositionsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__AgentTaskFindingDispositionsInput) GetOffset() int { return v.Offset }
+
 // __AgentTaskFinishInput is used internally by genqlient
 type __AgentTaskFinishInput struct {
 	TaskId string                `json:"taskId"`
@@ -90627,6 +91325,110 @@ func (v *__AgentTaskListTextInput) GetTag() *string { return v.Tag }
 
 // GetText returns __AgentTaskListTextInput.Text, and is useful for accessing the field via an interface.
 func (v *__AgentTaskListTextInput) GetText() *string { return v.Text }
+
+// __AgentTaskListUnresolvedInput is used internally by genqlient
+type __AgentTaskListUnresolvedInput struct {
+	AppRef             string                    `json:"appRef"`
+	UnresolvedFindings *bool                     `json:"unresolvedFindings,omitempty"`
+	Assignee           *AgentTaskPartyInput      `json:"assignee,omitempty"`
+	CreatedAfter       *string                   `json:"createdAfter,omitempty"`
+	CreatedBefore      *string                   `json:"createdBefore,omitempty"`
+	FinishedAfter      *string                   `json:"finishedAfter,omitempty"`
+	FinishedBefore     *string                   `json:"finishedBefore,omitempty"`
+	MatchFailed        *bool                     `json:"matchFailed,omitempty"`
+	Limit              *int                      `json:"limit,omitempty"`
+	Offset             *int                      `json:"offset,omitempty"`
+	Overdue            *bool                     `json:"overdue,omitempty"`
+	Owner              *AgentTaskPartyInput      `json:"owner,omitempty"`
+	ParentTaskId       *string                   `json:"parentTaskId,omitempty"`
+	Queued             *bool                     `json:"queued,omitempty"`
+	RootsOnly          *bool                     `json:"rootsOnly,omitempty"`
+	Reference          *AgentTaskReferenceFilter `json:"reference,omitempty"`
+	Source             *string                   `json:"source,omitempty"`
+	ExternalId         *string                   `json:"externalId,omitempty"`
+	StartedAfter       *string                   `json:"startedAfter,omitempty"`
+	StartedBefore      *string                   `json:"startedBefore,omitempty"`
+	Status             []AgentTaskStatus         `json:"status,omitempty"`
+	Tag                *string                   `json:"tag,omitempty"`
+	TagsAll            []string                  `json:"tagsAll,omitempty"`
+	TagsAny            []string                  `json:"tagsAny,omitempty"`
+	Text               *string                   `json:"text,omitempty"`
+}
+
+// GetAppRef returns __AgentTaskListUnresolvedInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListUnresolvedInput) GetAppRef() string { return v.AppRef }
+
+// GetUnresolvedFindings returns __AgentTaskListUnresolvedInput.UnresolvedFindings, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListUnresolvedInput) GetUnresolvedFindings() *bool { return v.UnresolvedFindings }
+
+// GetAssignee returns __AgentTaskListUnresolvedInput.Assignee, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListUnresolvedInput) GetAssignee() *AgentTaskPartyInput { return v.Assignee }
+
+// GetCreatedAfter returns __AgentTaskListUnresolvedInput.CreatedAfter, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListUnresolvedInput) GetCreatedAfter() *string { return v.CreatedAfter }
+
+// GetCreatedBefore returns __AgentTaskListUnresolvedInput.CreatedBefore, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListUnresolvedInput) GetCreatedBefore() *string { return v.CreatedBefore }
+
+// GetFinishedAfter returns __AgentTaskListUnresolvedInput.FinishedAfter, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListUnresolvedInput) GetFinishedAfter() *string { return v.FinishedAfter }
+
+// GetFinishedBefore returns __AgentTaskListUnresolvedInput.FinishedBefore, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListUnresolvedInput) GetFinishedBefore() *string { return v.FinishedBefore }
+
+// GetMatchFailed returns __AgentTaskListUnresolvedInput.MatchFailed, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListUnresolvedInput) GetMatchFailed() *bool { return v.MatchFailed }
+
+// GetLimit returns __AgentTaskListUnresolvedInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListUnresolvedInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __AgentTaskListUnresolvedInput.Offset, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListUnresolvedInput) GetOffset() *int { return v.Offset }
+
+// GetOverdue returns __AgentTaskListUnresolvedInput.Overdue, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListUnresolvedInput) GetOverdue() *bool { return v.Overdue }
+
+// GetOwner returns __AgentTaskListUnresolvedInput.Owner, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListUnresolvedInput) GetOwner() *AgentTaskPartyInput { return v.Owner }
+
+// GetParentTaskId returns __AgentTaskListUnresolvedInput.ParentTaskId, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListUnresolvedInput) GetParentTaskId() *string { return v.ParentTaskId }
+
+// GetQueued returns __AgentTaskListUnresolvedInput.Queued, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListUnresolvedInput) GetQueued() *bool { return v.Queued }
+
+// GetRootsOnly returns __AgentTaskListUnresolvedInput.RootsOnly, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListUnresolvedInput) GetRootsOnly() *bool { return v.RootsOnly }
+
+// GetReference returns __AgentTaskListUnresolvedInput.Reference, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListUnresolvedInput) GetReference() *AgentTaskReferenceFilter { return v.Reference }
+
+// GetSource returns __AgentTaskListUnresolvedInput.Source, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListUnresolvedInput) GetSource() *string { return v.Source }
+
+// GetExternalId returns __AgentTaskListUnresolvedInput.ExternalId, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListUnresolvedInput) GetExternalId() *string { return v.ExternalId }
+
+// GetStartedAfter returns __AgentTaskListUnresolvedInput.StartedAfter, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListUnresolvedInput) GetStartedAfter() *string { return v.StartedAfter }
+
+// GetStartedBefore returns __AgentTaskListUnresolvedInput.StartedBefore, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListUnresolvedInput) GetStartedBefore() *string { return v.StartedBefore }
+
+// GetStatus returns __AgentTaskListUnresolvedInput.Status, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListUnresolvedInput) GetStatus() []AgentTaskStatus { return v.Status }
+
+// GetTag returns __AgentTaskListUnresolvedInput.Tag, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListUnresolvedInput) GetTag() *string { return v.Tag }
+
+// GetTagsAll returns __AgentTaskListUnresolvedInput.TagsAll, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListUnresolvedInput) GetTagsAll() []string { return v.TagsAll }
+
+// GetTagsAny returns __AgentTaskListUnresolvedInput.TagsAny, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListUnresolvedInput) GetTagsAny() []string { return v.TagsAny }
+
+// GetText returns __AgentTaskListUnresolvedInput.Text, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListUnresolvedInput) GetText() *string { return v.Text }
 
 // __AgentTaskParkInput is used internally by genqlient
 type __AgentTaskParkInput struct {
@@ -99869,6 +100671,113 @@ func AgentTaskDependencies(
 	return data_, err_
 }
 
+// The mutation executed by AgentTaskDisposeFinding.
+const AgentTaskDisposeFinding_Operation = `
+mutation AgentTaskDisposeFinding ($taskRef: ID!, $findingId: String!, $disposition: AgentTaskFindingDispositionCode!, $reference: AgentTaskReferenceInput) {
+	disposeAgentTaskFinding(taskRef: $taskRef, findingId: $findingId, disposition: $disposition, reference: $reference) {
+		id
+		findingDispositions(limit: 200, offset: 0) {
+			items {
+				... TaskFindingDispositionFields
+			}
+		}
+	}
+}
+fragment TaskFindingDispositionFields on AgentTaskFindingDisposition {
+	findingId
+	disposition
+	reference {
+		kind
+		target
+		label
+	}
+}
+`
+
+func AgentTaskDisposeFinding(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	taskRef string,
+	findingId string,
+	disposition AgentTaskFindingDispositionCode,
+	reference *AgentTaskReferenceInput,
+) (data_ *AgentTaskDisposeFindingResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentTaskDisposeFinding",
+		Query:  AgentTaskDisposeFinding_Operation,
+		Variables: &__AgentTaskDisposeFindingInput{
+			TaskRef:     taskRef,
+			FindingId:   findingId,
+			Disposition: disposition,
+			Reference:   reference,
+		},
+	}
+
+	data_ = &AgentTaskDisposeFindingResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AgentTaskFindingDispositions.
+const AgentTaskFindingDispositions_Operation = `
+query AgentTaskFindingDispositions ($taskRef: ID!, $limit: Int!, $offset: Int!) {
+	agentTask(id: $taskRef) {
+		findingDispositions(limit: $limit, offset: $offset) {
+			items {
+				... TaskFindingDispositionFields
+			}
+			total
+			hasMore
+		}
+	}
+}
+fragment TaskFindingDispositionFields on AgentTaskFindingDisposition {
+	findingId
+	disposition
+	reference {
+		kind
+		target
+		label
+	}
+}
+`
+
+func AgentTaskFindingDispositions(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	taskRef string,
+	limit int,
+	offset int,
+) (data_ *AgentTaskFindingDispositionsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentTaskFindingDispositions",
+		Query:  AgentTaskFindingDispositions_Operation,
+		Variables: &__AgentTaskFindingDispositionsInput{
+			TaskRef: taskRef,
+			Limit:   limit,
+			Offset:  offset,
+		},
+	}
+
+	data_ = &AgentTaskFindingDispositionsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by AgentTaskFinish.
 const AgentTaskFinish_Operation = `
 mutation AgentTaskFinish ($taskId: ID!, $result: AgentTaskResultInput!) {
@@ -100764,6 +101673,183 @@ func AgentTaskListText(
 	}
 
 	data_ = &AgentTaskListTextResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AgentTaskListUnresolved.
+const AgentTaskListUnresolved_Operation = `
+query AgentTaskListUnresolved ($appRef: ID!, $unresolvedFindings: Boolean, $assignee: AgentTaskPartyInput, $createdAfter: DateTime, $createdBefore: DateTime, $finishedAfter: DateTime, $finishedBefore: DateTime, $matchFailed: Boolean, $limit: Int, $offset: Int, $overdue: Boolean, $owner: AgentTaskPartyInput, $parentTaskId: ID, $queued: Boolean, $rootsOnly: Boolean, $reference: AgentTaskReferenceFilter, $source: String, $externalId: String, $startedAfter: DateTime, $startedBefore: DateTime, $status: [AgentTaskStatus!], $tag: String, $tagsAll: [String!], $tagsAny: [String!], $text: String) {
+	agentTasks(appRef: $appRef, unresolvedFindings: $unresolvedFindings, assignee: $assignee, createdAfter: $createdAfter, createdBefore: $createdBefore, finishedAfter: $finishedAfter, finishedBefore: $finishedBefore, matchFailed: $matchFailed, limit: $limit, offset: $offset, overdue: $overdue, owner: $owner, parentTaskId: $parentTaskId, queued: $queued, reference: $reference, rootsOnly: $rootsOnly, source: $source, externalId: $externalId, startedAfter: $startedAfter, startedBefore: $startedBefore, status: $status, tag: $tag, tagsAll: $tagsAll, tagsAny: $tagsAny, text: $text) {
+		... AgentTaskFields
+	}
+}
+fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	id
+	handle
+	taskNumber
+	appId
+	title
+	description
+	status
+	queued
+	waitingOnChildren
+	owner {
+		... AgentTaskPartyFields
+	}
+	assignee {
+		... AgentTaskPartyFields
+	}
+	assignedBy {
+		... AgentTaskPartyFields
+	}
+	createdBy {
+		... AgentTaskPartyFields
+	}
+	parentTaskId
+	tags
+	source
+	externalId
+	references {
+		kind
+		target
+		label
+	}
+	handBack {
+		code
+		text
+		handedBackAt
+	}
+	matchFailure {
+		reason
+		failedAt
+	}
+	startBy
+	finishBy
+	createdAt
+	updatedAt
+	startedAt
+	finishedAt
+	cancelledAt
+	closeSessionWhenDone
+	requirements {
+		minTier
+		role
+		roles
+		teamWorkerId
+		familyIn
+		familyNotIn
+		modelGroupIn
+		modelGroupNotIn
+		excludeWorkerIds
+	}
+	result {
+		outcome
+		summary
+		evidence
+	}
+	properties
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
+}
+fragment AgentTaskPartyFields on AgentTaskParty {
+	id
+	kind
+	name
+	urn
+}
+`
+
+// Separate document preserves existing plain and filtered list provider floors.
+func AgentTaskListUnresolved(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	unresolvedFindings *bool,
+	assignee *AgentTaskPartyInput,
+	createdAfter *string,
+	createdBefore *string,
+	finishedAfter *string,
+	finishedBefore *string,
+	matchFailed *bool,
+	limit *int,
+	offset *int,
+	overdue *bool,
+	owner *AgentTaskPartyInput,
+	parentTaskId *string,
+	queued *bool,
+	rootsOnly *bool,
+	reference *AgentTaskReferenceFilter,
+	source *string,
+	externalId *string,
+	startedAfter *string,
+	startedBefore *string,
+	status []AgentTaskStatus,
+	tag *string,
+	tagsAll []string,
+	tagsAny []string,
+	text *string,
+) (data_ *AgentTaskListUnresolvedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentTaskListUnresolved",
+		Query:  AgentTaskListUnresolved_Operation,
+		Variables: &__AgentTaskListUnresolvedInput{
+			AppRef:             appRef,
+			UnresolvedFindings: unresolvedFindings,
+			Assignee:           assignee,
+			CreatedAfter:       createdAfter,
+			CreatedBefore:      createdBefore,
+			FinishedAfter:      finishedAfter,
+			FinishedBefore:     finishedBefore,
+			MatchFailed:        matchFailed,
+			Limit:              limit,
+			Offset:             offset,
+			Overdue:            overdue,
+			Owner:              owner,
+			ParentTaskId:       parentTaskId,
+			Queued:             queued,
+			RootsOnly:          rootsOnly,
+			Reference:          reference,
+			Source:             source,
+			ExternalId:         externalId,
+			StartedAfter:       startedAfter,
+			StartedBefore:      startedBefore,
+			Status:             status,
+			Tag:                tag,
+			TagsAll:            tagsAll,
+			TagsAny:            tagsAny,
+			Text:               text,
+		},
+	}
+
+	data_ = &AgentTaskListUnresolvedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
