@@ -23,6 +23,8 @@ type fakeServer struct {
 	reports   []report
 	notDone   map[string]int // id -> NOT_DONE answers left before success
 	endedOnce map[string]bool
+	// reportErr fails every Report (a report that does not reach the server).
+	reportErr error
 }
 
 func (s *fakeServer) Register(_ context.Context, r Registration) (RegisteredHost, error) {
@@ -51,6 +53,9 @@ func (s *fakeServer) Collect(context.Context) ([]Operation, error) {
 func (s *fakeServer) Report(_ context.Context, id, outcome, worktree, reason string) (Operation, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.reportErr != nil {
+		return Operation{}, s.reportErr
+	}
 	if outcome == Succeeded && s.notDone != nil {
 		if n, ok := s.notDone[id]; ok {
 			if n > 0 {
@@ -91,11 +96,18 @@ type fakeHost struct {
 	prompts  [][]string
 	agent    *fakeAgent
 	occupant string
-	alive    map[int]bool
+	// launchErr / promptErr fail Launch / Prompt; promptEnvs records each
+	// prompt's environment.
+	launchErr  error
+	promptErr  error
+	promptEnvs [][]string
+	alive      map[int]bool
 	// gate, when set, blocks Launch until closed (interleaving tests);
 	// entered is closed when Launch reaches it.
 	gate    chan struct{}
 	entered chan struct{}
+	// beforeLaunch, when set, runs as Launch is entered.
+	beforeLaunch func()
 }
 
 func (h *fakeHost) Occupied(context.Context, string) (string, error) {
@@ -133,6 +145,9 @@ func (h *fakeHost) RemoveWorktree(_ context.Context, path string) error {
 }
 
 func (h *fakeHost) Launch(_ context.Context, spec LaunchSpec) (Agent, error) {
+	if h.beforeLaunch != nil {
+		h.beforeLaunch()
+	}
 	if h.gate != nil {
 		if h.entered != nil {
 			close(h.entered)
@@ -141,6 +156,9 @@ func (h *fakeHost) Launch(_ context.Context, spec LaunchSpec) (Agent, error) {
 	}
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	if h.launchErr != nil {
+		return nil, h.launchErr
+	}
 	h.launches = append(h.launches, spec)
 	if h.agent == nil {
 		h.agent = &fakeAgent{done: make(chan struct{})}
@@ -148,11 +166,12 @@ func (h *fakeHost) Launch(_ context.Context, spec LaunchSpec) (Agent, error) {
 	return h.agent, nil
 }
 
-func (h *fakeHost) Prompt(_ context.Context, argv []string, _ string, _ []string) error {
+func (h *fakeHost) Prompt(_ context.Context, argv []string, _ string, env []string) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.prompts = append(h.prompts, argv)
-	return nil
+	h.promptEnvs = append(h.promptEnvs, env)
+	return h.promptErr
 }
 
 const hostKey = "hk_secret_host_key_value"
@@ -166,7 +185,8 @@ func testPoller(t *testing.T) (*Poller, *fakeServer, *fakeHost) {
 		Repos: map[string]string{"acme/repo": "/src/repo"},
 		Workers: map[string]WorkerConfig{
 			"iris": {Family: "claude", Launch: []string{"claude-worker", "--model", "opus"},
-				End: []string{"orca-send", "iris", "end"}, EndWait: "20ms", Worktrees: []string{"repo/iris"}},
+				End: []string{"orca-send", "iris", "end"}, EndWait: "20ms", Worktrees: []string{"repo/iris"},
+				Recover: []string{"orca-send", "iris", "recover"}},
 		},
 	}
 	if err := cfg.validate(); err != nil {
@@ -775,7 +795,7 @@ func removeOp() Operation {
 // a live one keeps its tree.
 func TestRestartKeepsALiveAgentsTree(t *testing.T) {
 	p, srv, host := testPoller(t)
-	if err := p.state.recordAgent("id-iris", "repo/iris", 4242); err != nil {
+	if err := p.state.recordAgent("id-iris", "repo/iris", 4242, ""); err != nil {
 		t.Fatal(err)
 	}
 	// A fresh poller over the same state file: nothing in memory.

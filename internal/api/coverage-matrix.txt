@@ -555,7 +555,7 @@ updateWorker  command team worker update
 withdrawDecision  command decision withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 74: 47 gap, 27 excluded
+[Arguments] 75: 47 gap, 27 excluded, 1 UNCLASSIFIED
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.addOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
@@ -593,6 +593,7 @@ Mutation.ensureAppMember(appId)  excluded deprecated: @deprecated: Use appRef (a
 Mutation.ensureAppMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.finishAgentTask(result.findings)  gap #1556
 Mutation.mergeUsers(input.consentProof)  gap #1304
+Mutation.registerContextResetRecovery(input.checkpointNode)  UNCLASSIFIED
 Mutation.removeAppMember(appId)  excluded deprecated: @deprecated: Use appRef (accepts id / URN).
 Mutation.removeAppMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.removeMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).

@@ -82,6 +82,12 @@ type WorkerConfig struct {
 	// EndWait bounds how long worker.end waits for the session to end
 	// (default 15m).
 	EndWait string `yaml:"end_wait"`
+	// Recover is an optional argv that hands a relaunched agent its recovery
+	// prompt after a worker.reset-context (#1043), the way End prompts an
+	// end. It gets HADRON_SESSION_ID, HADRON_WORKER_ID and
+	// HADRON_RECOVERY_NODE (the checkpoint node's reference): ids only. A
+	// worker without it is never reset on this host.
+	Recover []string `yaml:"recover"`
 	// Worktrees are this worker's existing worktree name tokens, relative to
 	// worktrees_root, beyond the ones this poller created.
 	Worktrees []string `yaml:"worktrees"`
