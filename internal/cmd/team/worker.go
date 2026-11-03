@@ -198,8 +198,15 @@ never read as no-team and never as a guessed coordinator. Naming a head needs
 the right to staff workers and to manage the App; --no-team needs only the
 staffing right. The server decides; the CLI infers nothing, sends the choice
 once, and never retries or substitutes another. --no-team=false is not a
-choice. The result shows the recorded placement: REPORTS_TO, NO_TEAM or UNSET;
-"withheld" means this caller may not see it.
+choice: it is refused locally as a usage error (exit 2, nothing sent). The
+result shows the recorded placement: REPORTS_TO, NO_TEAM or UNSET; "withheld"
+means this caller may not see it.
+
+Server compatibility: every worker command (cast, get, list, update, release,
+retire, set-reports-to, set-boot-prompt) selects teamPlacement, even when
+neither flag is named, so they require a server containing hadron-server#2468.
+An older server rejects those documents as schema skew, exit 2: upgrade that
+provider first, including self-hosted or staging servers.
 
 --dry-run (#404, castWorkerPreview) runs the cast's EXACT resolution —
 same arguments, same typed refusals — up to but not
@@ -329,7 +336,7 @@ context).`,
 				if _, err := fmt.Fprintf(w, "✓ cast %s%s — worker %s\n", dto.Name, roleSuffix(dto.Role), dto.ID); err != nil {
 					return err
 				}
-				if _, err := fmt.Fprintf(w, "%s\n", placementText(dto.TeamPlacement, workerRefID(dto.ReportsTo))); err != nil {
+				if _, err := fmt.Fprintf(w, "%s\n", placementText(dto.TeamPlacement, workerRefName(dto.ReportsTo))); err != nil {
 					return err
 				}
 				if dto.Prompt != nil && *dto.Prompt != "" {
@@ -802,7 +809,7 @@ and every worker's state in ` + "`team roster`" + `.`,
 				// The recorded reporting CHOICE beside the relation (cli#933):
 				// without it a recorded no-team and a never-chosen worker both read
 				// "reports to: -". Null is withheld, never UNSET or no team.
-				fmt.Fprintf(out, "  team placement: %s\n", placementText(dto.TeamPlacement, workerRefID(dto.ReportsTo)))
+				fmt.Fprintf(out, "  team placement: %s\n", placementText(dto.TeamPlacement, workerRefName(dto.ReportsTo)))
 				if dto.URN != nil && *dto.URN != "" {
 					fmt.Fprintf(out, "  urn: %s\n", *dto.URN)
 				}

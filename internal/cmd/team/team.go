@@ -352,9 +352,9 @@ func placementString(p *gen.WorkerTeamPlacement) *string {
 	return &s
 }
 
-// workerRefID is the readable handle for a reporting head in placement text:
-// the name when the readback carries one, else nothing.
-func workerRefID(r *workerRefDTO) *string {
+// workerRefName is the readable name for a reporting head in placement text:
+// the name (not an id) when the readback carries a reporting head, else nil.
+func workerRefName(r *workerRefDTO) *string {
 	if r == nil {
 		return nil
 	}

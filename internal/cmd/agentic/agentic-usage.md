@@ -2398,6 +2398,9 @@ Conventions:
   `teamPlacement` reads back as `REPORTS_TO`, `NO_TEAM` or `UNSET` on the cast
   receipt, `--dry-run`, `worker get` and `worker list` (`--json`:
   `teamPlacement`); `null` means withheld from this caller, never `UNSET`.
+  Server compatibility: every `team worker` command selects `teamPlacement`
+  even without the flags, so they need a server with hadron-server#2468; an
+  older one rejects them as schema skew (exit 2): upgrade that provider first.
   **`worker cast --dry-run`** (#404, `castWorkerPreview`) runs the cast's
   EXACT resolution — same arguments, same typed refusals — up to but not
   including the writes, and shows what would be created: the
