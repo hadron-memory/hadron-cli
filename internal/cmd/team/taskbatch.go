@@ -37,7 +37,7 @@ const maxTaskBatch = 25
 // the generated CreateAgentTaskInput marshals an absent optional field as an
 // explicit null, and a batch item must keep an omitted key omitted.
 type batchItemShape struct {
-	BlockedByPositions []int                     `json:"blockedByPositions"`
+	BlockedByPositions *[]*int                   `json:"blockedByPositions"`
 	Task               *gen.CreateAgentTaskInput `json:"task"`
 }
 
@@ -107,7 +107,20 @@ func parseTaskBatch(data []byte) ([]*gqltypes.CreateAgentTasksItemInput, error) 
 		if len(task) == 0 || task[0] != '{' {
 			return nil, exitcode.Newf(exitcode.Usage, "parsing --batch-file: task %d of %d: \"task\" must be an object", i+1, len(raws))
 		}
-		items = append(items, &gqltypes.CreateAgentTasksItemInput{Task: task, BlockedByPositions: shape.BlockedByPositions})
+		item := &gqltypes.CreateAgentTasksItemInput{Task: task}
+		if shape.BlockedByPositions != nil {
+			// A JSON null element would decode to 0 and be sent as a position:
+			// refuse it here, as the invalid Int it is.
+			positions := make([]int, 0, len(*shape.BlockedByPositions))
+			for _, p := range *shape.BlockedByPositions {
+				if p == nil {
+					return nil, exitcode.Newf(exitcode.Usage, "parsing --batch-file: task %d of %d: blockedByPositions must hold integers, not null", i+1, len(raws))
+				}
+				positions = append(positions, *p)
+			}
+			item.BlockedByPositions = &positions
+		}
+		items = append(items, item)
 	}
 	return items, nil
 }

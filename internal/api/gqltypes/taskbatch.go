@@ -15,7 +15,8 @@ import "encoding/json"
 // the coverage matrix reads to count the fields as reached.
 type CreateAgentTasksItemInput struct {
 	// BlockedByPositions are the 1-based positions of other tasks in the same
-	// call that block this one; omitted when the item names none.
-	BlockedByPositions []int           `json:"blockedByPositions,omitempty"`
+	// call that block this one. A nil pointer is omitted; an explicit empty list
+	// the file wrote is sent as [] (what the file said is what the server reads).
+	BlockedByPositions *[]int          `json:"blockedByPositions,omitempty"`
 	Task               json.RawMessage `json:"task"`
 }

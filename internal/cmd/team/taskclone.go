@@ -88,7 +88,9 @@ schema skew (exit 2). Success prints the new task's handle, id and status;
 			if flags.Changed("no-parent") && !noParent {
 				return exitcode.Newf(exitcode.Usage, "--no-parent=false is not a choice: leave both flags out to keep the source's parent")
 			}
-			if closeSession && noCloseSession {
+			// PRESENCE, not value: --close-session=false must override a copied true
+			// (an explicitly given flag sends its value, false included).
+			if flags.Changed("close-session") && flags.Changed("no-close-session") {
 				return exitcode.Newf(exitcode.Usage, "--close-session and --no-close-session contradict each other")
 			}
 			if flags.Changed("parent") && strings.TrimSpace(parent) == "" {
@@ -123,6 +125,9 @@ schema skew (exit 2). Success prints the new task's handle, id and status;
 					return exitcode.Newf(exitcode.Usage, "--status is backlog or pending at creation (every other status is reached by a move), got %q", status)
 				}
 			}
+			// The same two validators `task create` uses for these two flags
+			// (RFC 3339 for --start-by, the strict date-time for --finish-by), so a
+			// value one command takes the other takes.
 			if flags.Changed("start-by") {
 				if _, err := time.Parse(time.RFC3339, startBy); err != nil {
 					return exitcode.Newf(exitcode.Usage, "--start-by takes an RFC 3339 timestamp, e.g. 2026-10-13T09:00:00Z, got %q", startBy)
@@ -142,10 +147,10 @@ schema skew (exit 2). Success prints the new task's handle, id and status;
 				}
 				input.Assignee = party
 			}
-			if closeSession {
-				input.CloseSessionWhenDone = boolPtr(true)
-			} else if noCloseSession {
-				input.CloseSessionWhenDone = boolPtr(false)
+			if flags.Changed("close-session") {
+				input.CloseSessionWhenDone = boolPtr(closeSession)
+			} else if flags.Changed("no-close-session") {
+				input.CloseSessionWhenDone = boolPtr(!noCloseSession)
 			}
 			// parentTaskId is three-state: omitted keeps the source's parent, an
 			// id names another, an explicit null means none.

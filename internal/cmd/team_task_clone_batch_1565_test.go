@@ -6,6 +6,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/vektah/gqlparser/v2/gqlerror"
+
+	"github.com/hadron-memory/hadron-cli/internal/api"
 )
 
 // cli#1565: `team task clone`, `team task create --batch-file` and the clone
@@ -432,5 +436,134 @@ func TestTaskGetClonePagingRefusedBeforeAnyCall1565(t *testing.T) {
 		if exitCodeFor(err) != 2 || len(callsOf1565(calls, "AgentTaskGet")) != 0 {
 			t.Fatalf("%v: err=%v calls=%v", args, err, *calls)
 		}
+	}
+}
+
+// Andi LOCAL P2: an explicitly given close-session flag sends its value, false
+// included, so --close-session=false overrides a copied true.
+func TestTaskCloneCloseSessionIsPresenceNotValue1565(t *testing.T) {
+	for _, tc := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"--close-session"}, "true"},
+		{[]string{"--close-session=false"}, "false"},
+		{[]string{"--no-close-session"}, "false"},
+		{[]string{"--no-close-session=false"}, "true"},
+		{nil, ""},
+	} {
+		input, _ := cloneInput1565(t, append([]string{"AT0.12"}, tc.args...)...)
+		got, present := input["closeSessionWhenDone"]
+		if present != (tc.want != "") || string(got) != tc.want {
+			t.Errorf("%v: closeSessionWhenDone = %q present=%t, want %q", tc.args, got, present, tc.want)
+		}
+	}
+	calls, _, err := runTeamTask(t, cloneResponses1565(), "team", "task", "clone", "AT0.12", "--close-session=false", "--no-close-session=false")
+	if exitCodeFor(err) != 2 || len(callsOf1565(calls, "AgentTaskClone")) != 0 {
+		t.Fatalf("both flags given must be refused before any call: err=%v", err)
+	}
+}
+
+// Andi LOCAL P2/P3: a null position is an invalid Int refused locally (it must
+// not become 0), and an explicit [] is sent as [] rather than dropped.
+func TestTaskBatchBlockedByPositionsVerbatim1565(t *testing.T) {
+	for name, body := range map[string]string{
+		"null element":      `[{"task":{"title":"t"},"blockedByPositions":[null]}]`,
+		"null among values": `[{"task":{"title":"a"}},{"task":{"title":"b"},"blockedByPositions":[1,null]}]`,
+		"fraction":          `[{"task":{"title":"t"},"blockedByPositions":[1.5]}]`,
+		"string":            `[{"task":{"title":"t"},"blockedByPositions":["1"]}]`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			calls, _, err := runTeamTask(t, batchResponses1565(2, ""), "team", "task", "create", "--batch-file", writeBatch1565(t, body))
+			if exitCodeFor(err) != 2 || len(callsOf1565(calls, "AgentTaskCreateBatch")) != 0 {
+				t.Fatalf("err=%v calls=%v", err, *calls)
+			}
+		})
+	}
+	calls, _, err := runTeamTask(t, batchResponses1565(2, ""), "team", "task", "create", "--batch-file",
+		writeBatch1565(t, `[{"task":{"title":"a"},"blockedByPositions":[]},{"task":{"title":"b"}}]`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var v batchVars1565
+	if err := json.Unmarshal(c2Mutation(t, calls, "AgentTaskCreateBatch").RawVars, &v); err != nil {
+		t.Fatal(err)
+	}
+	if string(v.Tasks[0]) != `{"blockedByPositions":[],"task":{"title":"a"}}` || string(v.Tasks[1]) != `{"task":{"title":"b"}}` {
+		t.Fatalf("an explicit [] must be sent, an absent key must stay absent: %s | %s", v.Tasks[0], v.Tasks[1])
+	}
+}
+
+// Gabriel BLIND P3 (test gaps): the piped-stdin success path, --app combining
+// with a batch, a warning that names no position, the clones page cap and
+// ExtensionInt's branches.
+func TestTaskBatchReadsPipedStdin1565(t *testing.T) {
+	writeTeamBinding(t)
+	srv, calls := attnServer(t, batchResponses1565(1, ""))
+	setTeamBindingServer(t, srv.URL)
+	f, out := testFactory(t)
+	f.IOStreams.In = strings.NewReader(`[{"task":{"title":"from stdin"}}]`)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"--server", srv.URL, "team", "task", "create", "--batch-file", "-"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("err=%v", err)
+	}
+	var v batchVars1565
+	if err := json.Unmarshal(c2Mutation(t, calls, "AgentTaskCreateBatch").RawVars, &v); err != nil || len(v.Tasks) != 1 || string(v.Tasks[0]) != `{"task":{"title":"from stdin"}}` {
+		t.Fatalf("vars=%s err=%v", c2Mutation(t, calls, "AgentTaskCreateBatch").RawVars, err)
+	}
+	if !strings.Contains(out.String(), "created 1 tasks") {
+		t.Fatalf("out=%q", out.String())
+	}
+}
+
+func TestTaskBatchCombinesWithApp1565(t *testing.T) {
+	p := writeBatch1565(t, `[{"task":{"title":"t"}}]`)
+	calls, _, err := runTeamTask(t, batchResponses1565(1, ""), "--app", "acme.com:eng-team", "team", "task", "create", "--batch-file", p)
+	if err != nil || len(callsOf1565(calls, "AgentTaskCreateBatch")) != 1 {
+		t.Fatalf("--app must combine with a batch: err=%v calls=%v", err, *calls)
+	}
+}
+
+func TestTaskBatchWarningWithoutPositionIsNullPosition1565(t *testing.T) {
+	ext := `,"extensions":{"warnings":[{"path":"createAgentTasks","code":"task.create.no-source","text":"no source"}]}`
+	_, out, err := runTeamTask(t, batchResponses1565(1, ext), "--json", "team", "task", "create", "--batch-file", writeBatch1565(t, `[{"task":{"title":"a"}}]`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got struct {
+		Warnings []struct {
+			Position *int   `json:"position"`
+			Code     string `json:"code"`
+		} `json:"warnings"`
+	}
+	if err := json.Unmarshal([]byte(out), &got); err != nil || len(got.Warnings) != 1 || got.Warnings[0].Position != nil || got.Warnings[0].Code != "task.create.no-source" {
+		t.Fatalf("warnings = %+v err=%v out=%s", got, err, out)
+	}
+}
+
+func TestTaskGetClonesLimitCapBoundary1565(t *testing.T) {
+	links := `,"clonedFrom":null,"clones":{"total":0,"hasMore":false,"items":[]}`
+	calls, _, err := runTeamTask(t, getResponses1565(links), "team", "task", "get", "task1", "--clones-limit", "200")
+	if err != nil || callsOf1565(calls, "AgentTaskGet")[0].Vars["clonesLimit"] != float64(200) {
+		t.Fatalf("the documented cap of 200 must be accepted: err=%v", err)
+	}
+}
+
+func TestExtensionIntBranches1565(t *testing.T) {
+	for name, v := range map[string]any{"int": 3, "int64": int64(3), "float64": float64(3), "json.Number": json.Number("3")} {
+		err := gqlerror.List{{Message: "x", Extensions: map[string]any{"position": v}}}
+		if n, ok := api.ExtensionInt(err, "position"); !ok || n != 3 {
+			t.Errorf("%s: got %d %t", name, n, ok)
+		}
+	}
+	for name, v := range map[string]any{"fraction": 2.5, "string": "3", "nil": nil, "bad number": json.Number("x")} {
+		err := gqlerror.List{{Message: "x", Extensions: map[string]any{"position": v}}}
+		if n, ok := api.ExtensionInt(err, "position"); ok {
+			t.Errorf("%s must not read as an integer, got %d", name, n)
+		}
+	}
+	if _, ok := api.ExtensionInt(gqlerror.List{{Message: "x"}}, "position"); ok {
+		t.Error("a missing key must not read as an integer")
 	}
 }
