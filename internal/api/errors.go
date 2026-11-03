@@ -945,6 +945,11 @@ func codeForExtension(code string) int {
 		return exitcode.Forbidden
 	case code == "WORKER_ISOLATION_UNAVAILABLE":
 		return exitcode.Conflict
+	// The cast's reporting choice (cli#933, hadron-server#2468): all three are
+	// the caller's own arguments, so usage. Literal rows, because _CONFLICT
+	// would otherwise read as a state conflict (5) and the choice is not state.
+	case code == "WORKER_TEAM_CHOICE_CONFLICT" || code == "WORKER_TEAM_CHOICE_INVALID" || code == "WORKER_TEAM_CHOICE_REQUIRED":
+		return exitcode.Usage
 	// S9 settings (#911): invalid candidates are input errors; a live ticker
 	// conflict or unavailable standby behavior requires a state change.
 	case code == "DELIVERY_SETTINGS_OUT_OF_RANGE" || code == "DELIVERY_SETTINGS_CONFLICT" || code == "TICKER_SETTINGS_OUT_OF_RANGE":

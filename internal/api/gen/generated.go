@@ -586,6 +586,16 @@ func (v *AddMemoryToAgentAddMemoryToAgent) GetResetContextAfterTask() bool {
 	return v.AgentFields.ResetContextAfterTask
 }
 
+// GetListedOnMarketplace returns AddMemoryToAgentAddMemoryToAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *AddMemoryToAgentAddMemoryToAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns AddMemoryToAgentAddMemoryToAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *AddMemoryToAgentAddMemoryToAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
 // GetInstallationPolicy returns AddMemoryToAgentAddMemoryToAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *AddMemoryToAgentAddMemoryToAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -660,6 +670,10 @@ type __premarshalAddMemoryToAgentAddMemoryToAgent struct {
 
 	ResetContextAfterTask bool `json:"resetContextAfterTask"`
 
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -696,6 +710,8 @@ func (v *AddMemoryToAgentAddMemoryToAgent) __premarshalJSON() (*__premarshalAddM
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -953,9 +969,13 @@ type AgentFields struct {
 	// #2138: false means every Worker cast from this Agent counts as having a task and is expected to check its team channel every period (coordinators, the lifecycle agent). Default true.
 	UsesTasks bool `json:"usesTasks"`
 	// #2162 (hrn:node:hadronmemory.com:specs:cor:agt:050:27): when a task one of this Agent's workers had started finishes or is cancelled, and it holds no other started task, its host resets the worker's context (a shed: the binding and session stay). Default false. Set by whoever manages the Agent.
-	ResetContextAfterTask bool                           `json:"resetContextAfterTask"`
-	InstallationPolicy    *AgentFieldsInstallationPolicy `json:"installationPolicy"`
-	CreatedAt             string                         `json:"createdAt"`
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+	// cor:acl:080:04 — opt-in marketplace catalogue flag (advertisement, not access).
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+	// Spec 049 Phase 5 — the defaults this Agent's install-created register row is made with.
+	RegisterDefaults   *AgentFieldsRegisterDefaults   `json:"registerDefaults"`
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+	CreatedAt          string                         `json:"createdAt"`
 }
 
 // GetId returns AgentFields.Id, and is useful for accessing the field via an interface.
@@ -1018,6 +1038,12 @@ func (v *AgentFields) GetUsesTasks() bool { return v.UsesTasks }
 // GetResetContextAfterTask returns AgentFields.ResetContextAfterTask, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetResetContextAfterTask() bool { return v.ResetContextAfterTask }
 
+// GetListedOnMarketplace returns AgentFields.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetListedOnMarketplace() bool { return v.ListedOnMarketplace }
+
+// GetRegisterDefaults returns AgentFields.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *AgentFields) GetRegisterDefaults() *AgentFieldsRegisterDefaults { return v.RegisterDefaults }
+
 // GetInstallationPolicy returns AgentFields.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *AgentFields) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.InstallationPolicy
@@ -1033,6 +1059,17 @@ type AgentFieldsInstallationPolicy struct {
 
 // GetMemberRoles returns AgentFieldsInstallationPolicy.MemberRoles, and is useful for accessing the field via an interface.
 func (v *AgentFieldsInstallationPolicy) GetMemberRoles() []string { return v.MemberRoles }
+
+// AgentFieldsRegisterDefaults includes the requested fields of the GraphQL type RegisterDefaults.
+// The GraphQL type's documentation follows.
+//
+// Spec 049 Phase 5 — what an Agent's install-created register row is made with (plan §3.5).
+type AgentFieldsRegisterDefaults struct {
+	MentionOnly bool `json:"mentionOnly"`
+}
+
+// GetMentionOnly returns AgentFieldsRegisterDefaults.MentionOnly, and is useful for accessing the field via an interface.
+func (v *AgentFieldsRegisterDefaults) GetMentionOnly() bool { return v.MentionOnly }
 
 // Filter for the uniform agents() list (#473). Clauses AND-combine.
 type AgentFilter struct {
@@ -1630,6 +1667,11 @@ func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetHandBack() *AgentTa
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetStartBy() *string {
 	return v.AgentTaskFields.StartBy
@@ -1757,6 +1799,8 @@ type __premarshalAgentTaskAddBlockerAddAgentTaskBlockerAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -1814,6 +1858,7 @@ func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) __premarshalJSON() (*_
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -1941,6 +1986,11 @@ func (v *AgentTaskAssignAssignAgentTask) GetHandBack() *AgentTaskFieldsHandBackA
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskAssignAssignAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskAssignAssignAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskAssignAssignAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskAssignAssignAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -2056,6 +2106,8 @@ type __premarshalAgentTaskAssignAssignAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -2113,6 +2165,7 @@ func (v *AgentTaskAssignAssignAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -2246,6 +2299,11 @@ func (v *AgentTaskCancelCancelAgentTask) GetHandBack() *AgentTaskFieldsHandBackA
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskCancelCancelAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskCancelCancelAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskCancelCancelAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskCancelCancelAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -2361,6 +2419,8 @@ type __premarshalAgentTaskCancelCancelAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -2418,6 +2478,7 @@ func (v *AgentTaskCancelCancelAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -2551,6 +2612,11 @@ func (v *AgentTaskCreateCreateAgentTask) GetHandBack() *AgentTaskFieldsHandBackA
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskCreateCreateAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateCreateAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskCreateCreateAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskCreateCreateAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -2666,6 +2732,8 @@ type __premarshalAgentTaskCreateCreateAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -2723,6 +2791,7 @@ func (v *AgentTaskCreateCreateAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -3123,7 +3192,9 @@ type AgentTaskFields struct {
 	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
 	// #2651: the task's latest hand-back by its assignee (hrn:node:hadronmemory.com:specs:cor:agt:050:29); null when it was never handed back. A later hand-back replaces it; every earlier code stays in the task.handed-back events.
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
-	StartBy  *string                                   `json:"startBy"`
+	// Null unless an opt-in single-shot match failed. No assignment-unassignable alarm is raised for it.
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+	StartBy      *string                                           `json:"startBy"`
 	// The finish-by deadline (#2648, hrn:node:hadronmemory.com:specs:cor:agt:050:14). While set, no stall window applies to the task; one stall.finish-by alarm is raised once it passes with the task neither finished nor cancelled.
 	FinishBy    *string `json:"finishBy"`
 	CreatedAt   string  `json:"createdAt"`
@@ -3218,6 +3289,11 @@ func (v *AgentTaskFields) GetReferences() []*AgentTaskFieldsReferencesAgentTaskR
 
 // GetHandBack returns AgentTaskFields.HandBack, and is useful for accessing the field via an interface.
 func (v *AgentTaskFields) GetHandBack() *AgentTaskFieldsHandBackAgentTaskHandBack { return v.HandBack }
+
+// GetMatchFailure returns AgentTaskFields.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskFields) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.MatchFailure
+}
 
 // GetStartBy returns AgentTaskFields.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskFields) GetStartBy() *string { return v.StartBy }
@@ -3713,6 +3789,21 @@ func (v *AgentTaskFieldsHandBackAgentTaskHandBack) GetText() *string { return v.
 // GetHandedBackAt returns AgentTaskFieldsHandBackAgentTaskHandBack.HandedBackAt, and is useful for accessing the field via an interface.
 func (v *AgentTaskFieldsHandBackAgentTaskHandBack) GetHandedBackAt() string { return v.HandedBackAt }
 
+// AgentTaskFieldsMatchFailureAgentTaskMatchFailure includes the requested fields of the GraphQL type AgentTaskMatchFailure.
+// The GraphQL type's documentation follows.
+//
+// Single-shot failure (hrn:node:hadronmemory.com:specs:cor:agt:050:01): assigning clears it; cancellation clears it.
+type AgentTaskFieldsMatchFailureAgentTaskMatchFailure struct {
+	Reason   string `json:"reason"`
+	FailedAt string `json:"failedAt"`
+}
+
+// GetReason returns AgentTaskFieldsMatchFailureAgentTaskMatchFailure.Reason, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsMatchFailureAgentTaskMatchFailure) GetReason() string { return v.Reason }
+
+// GetFailedAt returns AgentTaskFieldsMatchFailureAgentTaskMatchFailure.FailedAt, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsMatchFailureAgentTaskMatchFailure) GetFailedAt() string { return v.FailedAt }
+
 // AgentTaskFieldsOwnerAgentTaskParty includes the requested fields of the GraphQL type AgentTaskParty.
 // The GraphQL type's documentation follows.
 //
@@ -3817,10 +3908,14 @@ func (v *AgentTaskFieldsReferencesAgentTaskReference) GetLabel() *string { retur
 // What the platform's matcher must respect when it chooses an assignee (plan design:agent-tasks section 3.1; consumed by T3).
 type AgentTaskFieldsRequirementsAgentTaskRequirements struct {
 	// The lowest model tier the assignee may run at: low, mid or high (hrn:node:hadronmemory.com:specs:cor:agt:060:06). Null when the task names none.
-	MinTier     *string  `json:"minTier"`
-	Role        *string  `json:"role"`
-	FamilyIn    []string `json:"familyIn"`
-	FamilyNotIn []string `json:"familyNotIn"`
+	MinTier *string `json:"minTier"`
+	Role    *string `json:"role"`
+	// Any one listed role suffices; null retains the single-role requirement.
+	Roles []string `json:"roles"`
+	// Optional matching team lead; never an authorization grant.
+	TeamWorkerId *string  `json:"teamWorkerId"`
+	FamilyIn     []string `json:"familyIn"`
+	FamilyNotIn  []string `json:"familyNotIn"`
 	// Model groups the assignee's model must be in at least one of (hrn:node:hadronmemory.com:specs:cor:agt:060:12). Null when the task names none.
 	ModelGroupIn []string `json:"modelGroupIn"`
 	// Model groups the assignee's model must be in none of (hrn:node:hadronmemory.com:specs:cor:agt:060:12). Null when the task names none.
@@ -3833,6 +3928,14 @@ func (v *AgentTaskFieldsRequirementsAgentTaskRequirements) GetMinTier() *string 
 
 // GetRole returns AgentTaskFieldsRequirementsAgentTaskRequirements.Role, and is useful for accessing the field via an interface.
 func (v *AgentTaskFieldsRequirementsAgentTaskRequirements) GetRole() *string { return v.Role }
+
+// GetRoles returns AgentTaskFieldsRequirementsAgentTaskRequirements.Roles, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsRequirementsAgentTaskRequirements) GetRoles() []string { return v.Roles }
+
+// GetTeamWorkerId returns AgentTaskFieldsRequirementsAgentTaskRequirements.TeamWorkerId, and is useful for accessing the field via an interface.
+func (v *AgentTaskFieldsRequirementsAgentTaskRequirements) GetTeamWorkerId() *string {
+	return v.TeamWorkerId
+}
 
 // GetFamilyIn returns AgentTaskFieldsRequirementsAgentTaskRequirements.FamilyIn, and is useful for accessing the field via an interface.
 func (v *AgentTaskFieldsRequirementsAgentTaskRequirements) GetFamilyIn() []string { return v.FamilyIn }
@@ -4013,6 +4116,11 @@ func (v *AgentTaskFinishFinishAgentTask) GetHandBack() *AgentTaskFieldsHandBackA
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskFinishFinishAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskFinishFinishAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskFinishFinishAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskFinishFinishAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -4128,6 +4236,8 @@ type __premarshalAgentTaskFinishFinishAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -4185,6 +4295,7 @@ func (v *AgentTaskFinishFinishAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -4317,6 +4428,11 @@ func (v *AgentTaskGetAgentTask) GetHandBack() *AgentTaskFieldsHandBackAgentTaskH
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskGetAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskGetAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskGetAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -4428,6 +4544,8 @@ type __premarshalAgentTaskGetAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -4485,6 +4603,7 @@ func (v *AgentTaskGetAgentTask) __premarshalJSON() (*__premarshalAgentTaskGetAge
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -4640,6 +4759,11 @@ func (v *AgentTaskHandBackHandBackAgentTask) GetHandBack() *AgentTaskFieldsHandB
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskHandBackHandBackAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskHandBackHandBackAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskHandBackHandBackAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -4763,6 +4887,8 @@ type __premarshalAgentTaskHandBackHandBackAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -4820,6 +4946,7 @@ func (v *AgentTaskHandBackHandBackAgentTask) __premarshalJSON() (*__premarshalAg
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -5066,6 +5193,11 @@ func (v *AgentTaskListAgentTasksAgentTask) GetHandBack() *AgentTaskFieldsHandBac
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskListAgentTasksAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskListAgentTasksAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskListAgentTasksAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskListAgentTasksAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -5183,6 +5315,8 @@ type __premarshalAgentTaskListAgentTasksAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -5240,6 +5374,7 @@ func (v *AgentTaskListAgentTasksAgentTask) __premarshalJSON() (*__premarshalAgen
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -5370,6 +5505,11 @@ func (v *AgentTaskListFilteredAgentTasksAgentTask) GetHandBack() *AgentTaskField
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskListFilteredAgentTasksAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskListFilteredAgentTasksAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskListFilteredAgentTasksAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskListFilteredAgentTasksAgentTask) GetStartBy() *string {
 	return v.AgentTaskFields.StartBy
@@ -5497,6 +5637,8 @@ type __premarshalAgentTaskListFilteredAgentTasksAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -5554,6 +5696,7 @@ func (v *AgentTaskListFilteredAgentTasksAgentTask) __premarshalJSON() (*__premar
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -5718,6 +5861,11 @@ func (v *AgentTaskListTextAgentTasksAgentTask) GetHandBack() *AgentTaskFieldsHan
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskListTextAgentTasksAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskListTextAgentTasksAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskListTextAgentTasksAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -5843,6 +5991,8 @@ type __premarshalAgentTaskListTextAgentTasksAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -5900,6 +6050,7 @@ func (v *AgentTaskListTextAgentTasksAgentTask) __premarshalJSON() (*__premarshal
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -6051,6 +6202,11 @@ func (v *AgentTaskParkParkAgentTask) GetHandBack() *AgentTaskFieldsHandBackAgent
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskParkParkAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskParkParkAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskParkParkAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -6164,6 +6320,8 @@ type __premarshalAgentTaskParkParkAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -6221,6 +6379,7 @@ func (v *AgentTaskParkParkAgentTask) __premarshalJSON() (*__premarshalAgentTaskP
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -6427,6 +6586,11 @@ func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetHandBack() *Agent
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskProgressRecordAgentTaskProgressAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskProgressRecordAgentTaskProgressAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetStartBy() *string {
 	return v.AgentTaskFields.StartBy
@@ -6554,6 +6718,8 @@ type __premarshalAgentTaskProgressRecordAgentTaskProgressAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -6611,6 +6777,7 @@ func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) __premarshalJSON() (
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -6754,6 +6921,11 @@ func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetHandBack() *AgentTaskFiel
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskReadyMakeAgentTaskReadyAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskReadyMakeAgentTaskReadyAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetStartBy() *string {
 	return v.AgentTaskFields.StartBy
@@ -6881,6 +7053,8 @@ type __premarshalAgentTaskReadyMakeAgentTaskReadyAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -6938,6 +7112,7 @@ func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) __premarshalJSON() (*__prema
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -7076,6 +7251,11 @@ func (v *AgentTaskReassignReassignAgentTask) GetHandBack() *AgentTaskFieldsHandB
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskReassignReassignAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskReassignReassignAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskReassignReassignAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskReassignReassignAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -7199,6 +7379,8 @@ type __premarshalAgentTaskReassignReassignAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -7256,6 +7438,7 @@ func (v *AgentTaskReassignReassignAgentTask) __premarshalJSON() (*__premarshalAg
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -7466,6 +7649,11 @@ func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetHandBack() *A
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetStartBy() *string {
 	return v.AgentTaskFields.StartBy
@@ -7593,6 +7781,8 @@ type __premarshalAgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -7650,6 +7840,7 @@ func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) __premarshalJSON
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -7686,12 +7877,12 @@ type AgentTaskRequirementsInput struct {
 	// Model groups of the App (hrn:node:hadronmemory.com:specs:cor:agt:060:12) the assignee's model must be in at least one of. A name no group of the App carries is refused. A worker with no model is in no group, so it never matches.
 	ModelGroupIn []string `json:"modelGroupIn,omitempty"`
 	// Model groups of the App (hrn:node:hadronmemory.com:specs:cor:agt:060:12) the assignee's model must be in none of. A name no group of the App carries is refused. A worker with no model is in no group, so it passes.
-	ModelGroupNotIn []string `json:"modelGroupNotIn,omitempty"`
-	Role            *string  `json:"role"`
+	ModelGroupNotIn []string        `json:"modelGroupNotIn,omitempty"`
+	Role            json.RawMessage `json:"role,omitempty"`
 	// Any one listed role suffices. Empty sets are refused. Give role or roles, not both.
-	Roles []string `json:"roles"`
+	Roles []string `json:"roles,omitempty"`
 	// Lead worker (id, URN or name) of this App. Pool: lead, descendants and workers reporting to nobody.
-	Team *string `json:"team"`
+	Team *string `json:"team,omitempty"`
 }
 
 // GetExcludeWorkers returns AgentTaskRequirementsInput.ExcludeWorkers, and is useful for accessing the field via an interface.
@@ -7713,7 +7904,7 @@ func (v *AgentTaskRequirementsInput) GetModelGroupIn() []string { return v.Model
 func (v *AgentTaskRequirementsInput) GetModelGroupNotIn() []string { return v.ModelGroupNotIn }
 
 // GetRole returns AgentTaskRequirementsInput.Role, and is useful for accessing the field via an interface.
-func (v *AgentTaskRequirementsInput) GetRole() *string { return v.Role }
+func (v *AgentTaskRequirementsInput) GetRole() json.RawMessage { return v.Role }
 
 // GetRoles returns AgentTaskRequirementsInput.Roles, and is useful for accessing the field via an interface.
 func (v *AgentTaskRequirementsInput) GetRoles() []string { return v.Roles }
@@ -7879,6 +8070,11 @@ func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetHandBack() *Agent
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetStartBy() *string {
 	return v.AgentTaskFields.StartBy
@@ -8006,6 +8202,8 @@ type __premarshalAgentTaskSetPrioritySetAgentTaskPriorityAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -8063,6 +8261,7 @@ func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) __premarshalJSON() (
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -8247,6 +8446,11 @@ func (v *AgentTaskStartStartAgentTask) GetHandBack() *AgentTaskFieldsHandBackAge
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskStartStartAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskStartStartAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskStartStartAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskStartStartAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -8360,6 +8564,8 @@ type __premarshalAgentTaskStartStartAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -8417,6 +8623,7 @@ func (v *AgentTaskStartStartAgentTask) __premarshalJSON() (*__premarshalAgentTas
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -8658,6 +8865,11 @@ func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetHandBack() *AgentTaskFieldsHand
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskTreeAgentTaskTreeAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskTreeAgentTaskTreeAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -8783,6 +8995,8 @@ type __premarshalAgentTaskTreeAgentTaskTreeAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -8840,6 +9054,7 @@ func (v *AgentTaskTreeAgentTaskTreeAgentTask) __premarshalJSON() (*__premarshalA
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -8983,6 +9198,11 @@ func (v *AgentTaskUpdateUpdateAgentTask) GetHandBack() *AgentTaskFieldsHandBackA
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns AgentTaskUpdateUpdateAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns AgentTaskUpdateUpdateAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskUpdateUpdateAgentTask) GetStartBy() *string { return v.AgentTaskFields.StartBy }
 
@@ -9098,6 +9318,8 @@ type __premarshalAgentTaskUpdateUpdateAgentTask struct {
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -9155,6 +9377,7 @@ func (v *AgentTaskUpdateUpdateAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -10719,6 +10942,16 @@ func (v *AgentsAgentsAgentsPageItemsAgent) GetResetContextAfterTask() bool {
 	return v.AgentFields.ResetContextAfterTask
 }
 
+// GetListedOnMarketplace returns AgentsAgentsAgentsPageItemsAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns AgentsAgentsAgentsPageItemsAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *AgentsAgentsAgentsPageItemsAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
 // GetInstallationPolicy returns AgentsAgentsAgentsPageItemsAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *AgentsAgentsAgentsPageItemsAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -10793,6 +11026,10 @@ type __premarshalAgentsAgentsAgentsPageItemsAgent struct {
 
 	ResetContextAfterTask bool `json:"resetContextAfterTask"`
 
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -10829,6 +11066,8 @@ func (v *AgentsAgentsAgentsPageItemsAgent) __premarshalJSON() (*__premarshalAgen
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -18352,6 +18591,11 @@ func (v *CastWorkerCastWorker) GetReportsTo() *WorkerFieldsReportsToWorker {
 // GetReportsToRetired returns CastWorkerCastWorker.ReportsToRetired, and is useful for accessing the field via an interface.
 func (v *CastWorkerCastWorker) GetReportsToRetired() bool { return v.WorkerFields.ReportsToRetired }
 
+// GetTeamPlacement returns CastWorkerCastWorker.TeamPlacement, and is useful for accessing the field via an interface.
+func (v *CastWorkerCastWorker) GetTeamPlacement() *WorkerTeamPlacement {
+	return v.WorkerFields.TeamPlacement
+}
+
 // GetRole returns CastWorkerCastWorker.Role, and is useful for accessing the field via an interface.
 func (v *CastWorkerCastWorker) GetRole() *string { return v.WorkerFields.Role }
 
@@ -18454,6 +18698,8 @@ type __premarshalCastWorkerCastWorker struct {
 
 	ReportsToRetired bool `json:"reportsToRetired"`
 
+	TeamPlacement *WorkerTeamPlacement `json:"teamPlacement"`
+
 	Role *string `json:"role"`
 
 	Prompt *string `json:"prompt"`
@@ -18511,6 +18757,7 @@ func (v *CastWorkerCastWorker) __premarshalJSON() (*__premarshalCastWorkerCastWo
 	retval.Name = v.WorkerFields.Name
 	retval.ReportsTo = v.WorkerFields.ReportsTo
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
+	retval.TeamPlacement = v.WorkerFields.TeamPlacement
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.Signature = v.WorkerFields.Signature
@@ -18550,7 +18797,9 @@ type CastWorkerPreviewCastWorkerPreview struct {
 	// The boot prompt a bind of this casting would be served now, with the
 	// name and role filled — reviewable BEFORE the name is permanent. Null when
 	// no prompt can be served yet (no worker pointer exists before the cast).
-	Prompt *string `json:"prompt"`
+	Prompt            *string             `json:"prompt"`
+	TeamPlacement     WorkerTeamPlacement `json:"teamPlacement"`
+	ReportsToWorkerId *string             `json:"reportsToWorkerId"`
 }
 
 // GetName returns CastWorkerPreviewCastWorkerPreview.Name, and is useful for accessing the field via an interface.
@@ -18567,6 +18816,16 @@ func (v *CastWorkerPreviewCastWorkerPreview) GetAgentName() string { return v.Ag
 
 // GetPrompt returns CastWorkerPreviewCastWorkerPreview.Prompt, and is useful for accessing the field via an interface.
 func (v *CastWorkerPreviewCastWorkerPreview) GetPrompt() *string { return v.Prompt }
+
+// GetTeamPlacement returns CastWorkerPreviewCastWorkerPreview.TeamPlacement, and is useful for accessing the field via an interface.
+func (v *CastWorkerPreviewCastWorkerPreview) GetTeamPlacement() WorkerTeamPlacement {
+	return v.TeamPlacement
+}
+
+// GetReportsToWorkerId returns CastWorkerPreviewCastWorkerPreview.ReportsToWorkerId, and is useful for accessing the field via an interface.
+func (v *CastWorkerPreviewCastWorkerPreview) GetReportsToWorkerId() *string {
+	return v.ReportsToWorkerId
+}
 
 // CastWorkerPreviewResponse is returned by CastWorkerPreview on success.
 type CastWorkerPreviewResponse struct {
@@ -18708,6 +18967,11 @@ func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetReportsToRetired() bool {
 	return v.WorkerFields.ReportsToRetired
 }
 
+// GetTeamPlacement returns ChangeWorkerAgentChangeWorkerAgentWorker.TeamPlacement, and is useful for accessing the field via an interface.
+func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetTeamPlacement() *WorkerTeamPlacement {
+	return v.WorkerFields.TeamPlacement
+}
+
 // GetRole returns ChangeWorkerAgentChangeWorkerAgentWorker.Role, and is useful for accessing the field via an interface.
 func (v *ChangeWorkerAgentChangeWorkerAgentWorker) GetRole() *string { return v.WorkerFields.Role }
 
@@ -18832,6 +19096,8 @@ type __premarshalChangeWorkerAgentChangeWorkerAgentWorker struct {
 
 	ReportsToRetired bool `json:"reportsToRetired"`
 
+	TeamPlacement *WorkerTeamPlacement `json:"teamPlacement"`
+
 	Role *string `json:"role"`
 
 	Prompt *string `json:"prompt"`
@@ -18889,6 +19155,7 @@ func (v *ChangeWorkerAgentChangeWorkerAgentWorker) __premarshalJSON() (*__premar
 	retval.Name = v.WorkerFields.Name
 	retval.ReportsTo = v.WorkerFields.ReportsTo
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
+	retval.TeamPlacement = v.WorkerFields.TeamPlacement
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.Signature = v.WorkerFields.Signature
@@ -20911,6 +21178,11 @@ func (v *ClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTaskItemsRe
 	return v.AgentTaskFields.HandBack
 }
 
+// GetMatchFailure returns ClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
 // GetStartBy returns ClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.StartBy, and is useful for accessing the field via an interface.
 func (v *ClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetStartBy() *string {
 	return v.AgentTaskFields.StartBy
@@ -21038,6 +21310,8 @@ type __premarshalClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTas
 
 	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
 
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
 	StartBy *string `json:"startBy"`
 
 	FinishBy *string `json:"finishBy"`
@@ -21095,6 +21369,7 @@ func (v *ClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTaskItemsRe
 	retval.ExternalId = v.AgentTaskFields.ExternalId
 	retval.References = v.AgentTaskFields.References
 	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
 	retval.StartBy = v.AgentTaskFields.StartBy
 	retval.FinishBy = v.AgentTaskFields.FinishBy
 	retval.CreatedAt = v.AgentTaskFields.CreatedAt
@@ -21254,6 +21529,16 @@ func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetResetContextAfterTas
 	return v.AgentFields.ResetContextAfterTask
 }
 
+// GetListedOnMarketplace returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
 // GetInstallationPolicy returns ClearAgentProcessesIndexSetAgentIndexRefsAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -21330,6 +21615,10 @@ type __premarshalClearAgentProcessesIndexSetAgentIndexRefsAgent struct {
 
 	ResetContextAfterTask bool `json:"resetContextAfterTask"`
 
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -21366,6 +21655,8 @@ func (v *ClearAgentProcessesIndexSetAgentIndexRefsAgent) __premarshalJSON() (*__
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -21490,6 +21781,16 @@ func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetResetContextAfterTask() 
 	return v.AgentFields.ResetContextAfterTask
 }
 
+// GetListedOnMarketplace returns ClearAgentTasksIndexSetAgentIndexRefsAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns ClearAgentTasksIndexSetAgentIndexRefsAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
 // GetInstallationPolicy returns ClearAgentTasksIndexSetAgentIndexRefsAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -21566,6 +21867,10 @@ type __premarshalClearAgentTasksIndexSetAgentIndexRefsAgent struct {
 
 	ResetContextAfterTask bool `json:"resetContextAfterTask"`
 
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -21602,6 +21907,8 @@ func (v *ClearAgentTasksIndexSetAgentIndexRefsAgent) __premarshalJSON() (*__prem
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -22045,6 +22352,16 @@ func (v *CloneAgentCloneAgent) GetResetContextAfterTask() bool {
 	return v.AgentFields.ResetContextAfterTask
 }
 
+// GetListedOnMarketplace returns CloneAgentCloneAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *CloneAgentCloneAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns CloneAgentCloneAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *CloneAgentCloneAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
 // GetInstallationPolicy returns CloneAgentCloneAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *CloneAgentCloneAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -22119,6 +22436,10 @@ type __premarshalCloneAgentCloneAgent struct {
 
 	ResetContextAfterTask bool `json:"resetContextAfterTask"`
 
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -22155,6 +22476,8 @@ func (v *CloneAgentCloneAgent) __premarshalJSON() (*__premarshalCloneAgentCloneA
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -25547,6 +25870,16 @@ func (v *CreateAgentCreateAgent) GetResetContextAfterTask() bool {
 	return v.AgentFields.ResetContextAfterTask
 }
 
+// GetListedOnMarketplace returns CreateAgentCreateAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns CreateAgentCreateAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *CreateAgentCreateAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
 // GetInstallationPolicy returns CreateAgentCreateAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *CreateAgentCreateAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -25621,6 +25954,10 @@ type __premarshalCreateAgentCreateAgent struct {
 
 	ResetContextAfterTask bool `json:"resetContextAfterTask"`
 
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -25657,6 +25994,8 @@ func (v *CreateAgentCreateAgent) __premarshalJSON() (*__premarshalCreateAgentCre
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -25984,7 +26323,7 @@ type CreateAgentTaskInput struct {
 	// #2648 (hrn:node:hadronmemory.com:specs:cor:agt:050:14): an optional finish-by deadline; refused BAD_USER_INPUT if in the past or earlier than startBy. While set, the task raises no stall-window alarm, only stall.finish-by once it passes unfinished.
 	FinishBy *string `json:"finishBy,omitempty"`
 	// Run one blocking match. Failure is marked and skipped by automatic runs. Assignment, cancellation, or park then ready clears it. Only for pending, unblocked tasks without an assignee; a blocked create refuses BAD_USER_INPUT atomically. Batch items run requested attempts in list order after the whole commit; a blocked match item refuses the whole call before commit, with its position. No distinct-workers guarantee.
-	Match *bool `json:"match"`
+	Match *bool `json:"match,omitempty"`
 	// Defaults to the creator. A root task's creator may name any other
 	// participating worker or person as owner (#1757, hrn:node:hadronmemory.com:specs:cor:agt:050:01);
 	// a ref outside the App's participants is TASK_OWNER_INVALID. Never for a
@@ -35995,6 +36334,76 @@ type DeleteTickerResponse struct {
 // GetDeleteTicker returns DeleteTickerResponse.DeleteTicker, and is useful for accessing the field via an interface.
 func (v *DeleteTickerResponse) GetDeleteTicker() bool { return v.DeleteTicker }
 
+// DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion includes the requested fields of the GraphQL type UserApiKeyDeletion.
+// The GraphQL type's documentation follows.
+//
+// #2659 (hrn:node:hadronmemory.com:specs:cor:dmo:070:03, ruling 0007): the one
+// append-only record a user's deletion of their own API key leaves behind. Names
+// the key (its id and masked preview) and when; never its secret or its hash.
+type DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion struct {
+	// The deletion record's id.
+	Id string `json:"id"`
+	// The deleted key's id. The key itself no longer exists.
+	KeyId string `json:"keyId"`
+	// The deleted key's masked preview (its last characters).
+	KeyPreview string `json:"keyPreview"`
+	// The keys this delete revoked: the key itself when it was live, with its live
+	// subtree (hrn:node:hadronmemory.com:specs:cor:aut:010:02 rule 9). Empty when
+	// the key was already revoked.
+	RevokedKeyIds []string `json:"revokedKeyIds"`
+	// The keys the deleted key had minted. They were not deleted: they stay,
+	// revoked, with no parent (mintedByKeyId null).
+	MintedKeyIds []string `json:"mintedKeyIds"`
+	DeletedAt    string   `json:"deletedAt"`
+}
+
+// GetId returns DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion.Id, and is useful for accessing the field via an interface.
+func (v *DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion) GetId() string { return v.Id }
+
+// GetKeyId returns DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion.KeyId, and is useful for accessing the field via an interface.
+func (v *DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion) GetKeyId() string { return v.KeyId }
+
+// GetKeyPreview returns DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion.KeyPreview, and is useful for accessing the field via an interface.
+func (v *DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion) GetKeyPreview() string {
+	return v.KeyPreview
+}
+
+// GetRevokedKeyIds returns DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion.RevokedKeyIds, and is useful for accessing the field via an interface.
+func (v *DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion) GetRevokedKeyIds() []string {
+	return v.RevokedKeyIds
+}
+
+// GetMintedKeyIds returns DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion.MintedKeyIds, and is useful for accessing the field via an interface.
+func (v *DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion) GetMintedKeyIds() []string {
+	return v.MintedKeyIds
+}
+
+// GetDeletedAt returns DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion.DeletedAt, and is useful for accessing the field via an interface.
+func (v *DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion) GetDeletedAt() string {
+	return v.DeletedAt
+}
+
+// DeleteUserApiKeyResponse is returned by DeleteUserApiKey on success.
+type DeleteUserApiKeyResponse struct {
+	// #2659 (hrn:node:hadronmemory.com:specs:cor:dmo:070:03): delete one of the
+	// caller's own API keys, live or revoked. A live key is revoked first, with
+	// every key it minted, in the same step, so no working credential is left
+	// behind. The keys it minted are not deleted and do not prevent the delete:
+	// they stay, revoked, with no parent. The key then no longer authenticates and
+	// is absent from myUserApiKeys whatever includeHidden says. Returns the one
+	// append-only deletion record (no secret, no hash). Only the key's own user,
+	// as themselves: FORBIDDEN under impersonation, from a worker session or a run;
+	// UNAUTHENTICATED for AppKey-resolved callers. NOT_FOUND for both unknown and
+	// foreign keys, as revokeUserApiKey answers. To tidy the list without deleting,
+	// hide a revoked key with setUserApiKeyHidden instead.
+	DeleteUserApiKey *DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion `json:"deleteUserApiKey"`
+}
+
+// GetDeleteUserApiKey returns DeleteUserApiKeyResponse.DeleteUserApiKey, and is useful for accessing the field via an interface.
+func (v *DeleteUserApiKeyResponse) GetDeleteUserApiKey() *DeleteUserApiKeyDeleteUserApiKeyUserApiKeyDeletion {
+	return v.DeleteUserApiKey
+}
+
 // DeleteUserResponse is returned by DeleteUser on success.
 type DeleteUserResponse struct {
 	// Delete a user account (self-serve account deletion, Apple 5.1.1(v) /
@@ -39380,6 +39789,14 @@ func (v *GetAgentAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
 // GetResetContextAfterTask returns GetAgentAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetResetContextAfterTask() bool { return v.AgentFields.ResetContextAfterTask }
 
+// GetListedOnMarketplace returns GetAgentAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetListedOnMarketplace() bool { return v.AgentFields.ListedOnMarketplace }
+
+// GetRegisterDefaults returns GetAgentAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *GetAgentAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
 // GetInstallationPolicy returns GetAgentAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *GetAgentAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -39456,6 +39873,10 @@ type __premarshalGetAgentAgent struct {
 
 	ResetContextAfterTask bool `json:"resetContextAfterTask"`
 
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -39493,6 +39914,8 @@ func (v *GetAgentAgent) __premarshalJSON() (*__premarshalGetAgentAgent, error) {
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -42717,6 +43140,11 @@ func (v *GetWorkerInAppWorker) GetReportsTo() *WorkerFieldsReportsToWorker {
 // GetReportsToRetired returns GetWorkerInAppWorker.ReportsToRetired, and is useful for accessing the field via an interface.
 func (v *GetWorkerInAppWorker) GetReportsToRetired() bool { return v.WorkerFields.ReportsToRetired }
 
+// GetTeamPlacement returns GetWorkerInAppWorker.TeamPlacement, and is useful for accessing the field via an interface.
+func (v *GetWorkerInAppWorker) GetTeamPlacement() *WorkerTeamPlacement {
+	return v.WorkerFields.TeamPlacement
+}
+
 // GetRole returns GetWorkerInAppWorker.Role, and is useful for accessing the field via an interface.
 func (v *GetWorkerInAppWorker) GetRole() *string { return v.WorkerFields.Role }
 
@@ -42819,6 +43247,8 @@ type __premarshalGetWorkerInAppWorker struct {
 
 	ReportsToRetired bool `json:"reportsToRetired"`
 
+	TeamPlacement *WorkerTeamPlacement `json:"teamPlacement"`
+
 	Role *string `json:"role"`
 
 	Prompt *string `json:"prompt"`
@@ -42876,6 +43306,7 @@ func (v *GetWorkerInAppWorker) __premarshalJSON() (*__premarshalGetWorkerInAppWo
 	retval.Name = v.WorkerFields.Name
 	retval.ReportsTo = v.WorkerFields.ReportsTo
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
+	retval.TeamPlacement = v.WorkerFields.TeamPlacement
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.Signature = v.WorkerFields.Signature
@@ -43300,6 +43731,11 @@ func (v *GetWorkerWorker) GetReportsTo() *WorkerFieldsReportsToWorker {
 // GetReportsToRetired returns GetWorkerWorker.ReportsToRetired, and is useful for accessing the field via an interface.
 func (v *GetWorkerWorker) GetReportsToRetired() bool { return v.WorkerFields.ReportsToRetired }
 
+// GetTeamPlacement returns GetWorkerWorker.TeamPlacement, and is useful for accessing the field via an interface.
+func (v *GetWorkerWorker) GetTeamPlacement() *WorkerTeamPlacement {
+	return v.WorkerFields.TeamPlacement
+}
+
 // GetRole returns GetWorkerWorker.Role, and is useful for accessing the field via an interface.
 func (v *GetWorkerWorker) GetRole() *string { return v.WorkerFields.Role }
 
@@ -43402,6 +43838,8 @@ type __premarshalGetWorkerWorker struct {
 
 	ReportsToRetired bool `json:"reportsToRetired"`
 
+	TeamPlacement *WorkerTeamPlacement `json:"teamPlacement"`
+
 	Role *string `json:"role"`
 
 	Prompt *string `json:"prompt"`
@@ -43459,6 +43897,7 @@ func (v *GetWorkerWorker) __premarshalJSON() (*__premarshalGetWorkerWorker, erro
 	retval.Name = v.WorkerFields.Name
 	retval.ReportsTo = v.WorkerFields.ReportsTo
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
+	retval.TeamPlacement = v.WorkerFields.TeamPlacement
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.Signature = v.WorkerFields.Signature
@@ -57432,6 +57871,16 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetResetContextAfterTask(
 	return v.AgentFields.ResetContextAfterTask
 }
 
+// GetListedOnMarketplace returns PublicAgentsPublicAgentsAgentsPageItemsAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns PublicAgentsPublicAgentsAgentsPageItemsAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
 // GetInstallationPolicy returns PublicAgentsPublicAgentsAgentsPageItemsAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -57508,6 +57957,10 @@ type __premarshalPublicAgentsPublicAgentsAgentsPageItemsAgent struct {
 
 	ResetContextAfterTask bool `json:"resetContextAfterTask"`
 
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -57544,6 +57997,8 @@ func (v *PublicAgentsPublicAgentsAgentsPageItemsAgent) __premarshalJSON() (*__pr
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -59555,6 +60010,11 @@ func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetReportsToRetir
 	return v.WorkerFields.ReportsToRetired
 }
 
+// GetTeamPlacement returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.TeamPlacement, and is useful for accessing the field via an interface.
+func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetTeamPlacement() *WorkerTeamPlacement {
+	return v.WorkerFields.TeamPlacement
+}
+
 // GetRole returns ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker.Role, and is useful for accessing the field via an interface.
 func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) GetRole() *string {
 	return v.WorkerFields.Role
@@ -59689,6 +60149,8 @@ type __premarshalReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker struct {
 
 	ReportsToRetired bool `json:"reportsToRetired"`
 
+	TeamPlacement *WorkerTeamPlacement `json:"teamPlacement"`
+
 	Role *string `json:"role"`
 
 	Prompt *string `json:"prompt"`
@@ -59746,6 +60208,7 @@ func (v *ReleaseWorkerReleaseWorkerReleaseWorkerPayloadWorker) __premarshalJSON(
 	retval.Name = v.WorkerFields.Name
 	retval.ReportsTo = v.WorkerFields.ReportsTo
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
+	retval.TeamPlacement = v.WorkerFields.TeamPlacement
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.Signature = v.WorkerFields.Signature
@@ -59933,6 +60396,16 @@ func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetResetContextAfterTask() 
 	return v.AgentFields.ResetContextAfterTask
 }
 
+// GetListedOnMarketplace returns RemoveMemoryFromAgentRemoveMemoryFromAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns RemoveMemoryFromAgentRemoveMemoryFromAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
 // GetInstallationPolicy returns RemoveMemoryFromAgentRemoveMemoryFromAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -60009,6 +60482,10 @@ type __premarshalRemoveMemoryFromAgentRemoveMemoryFromAgent struct {
 
 	ResetContextAfterTask bool `json:"resetContextAfterTask"`
 
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -60045,6 +60522,8 @@ func (v *RemoveMemoryFromAgentRemoveMemoryFromAgent) __premarshalJSON() (*__prem
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -62739,6 +63218,11 @@ func (v *RetireWorkerRetireWorker) GetReportsTo() *WorkerFieldsReportsToWorker {
 // GetReportsToRetired returns RetireWorkerRetireWorker.ReportsToRetired, and is useful for accessing the field via an interface.
 func (v *RetireWorkerRetireWorker) GetReportsToRetired() bool { return v.WorkerFields.ReportsToRetired }
 
+// GetTeamPlacement returns RetireWorkerRetireWorker.TeamPlacement, and is useful for accessing the field via an interface.
+func (v *RetireWorkerRetireWorker) GetTeamPlacement() *WorkerTeamPlacement {
+	return v.WorkerFields.TeamPlacement
+}
+
 // GetRole returns RetireWorkerRetireWorker.Role, and is useful for accessing the field via an interface.
 func (v *RetireWorkerRetireWorker) GetRole() *string { return v.WorkerFields.Role }
 
@@ -62841,6 +63325,8 @@ type __premarshalRetireWorkerRetireWorker struct {
 
 	ReportsToRetired bool `json:"reportsToRetired"`
 
+	TeamPlacement *WorkerTeamPlacement `json:"teamPlacement"`
+
 	Role *string `json:"role"`
 
 	Prompt *string `json:"prompt"`
@@ -62898,6 +63384,7 @@ func (v *RetireWorkerRetireWorker) __premarshalJSON() (*__premarshalRetireWorker
 	retval.Name = v.WorkerFields.Name
 	retval.ReportsTo = v.WorkerFields.ReportsTo
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
+	retval.TeamPlacement = v.WorkerFields.TeamPlacement
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.Signature = v.WorkerFields.Signature
@@ -66932,6 +67419,16 @@ func (v *SetAgentBaseSetAgentBaseAgent) GetResetContextAfterTask() bool {
 	return v.AgentFields.ResetContextAfterTask
 }
 
+// GetListedOnMarketplace returns SetAgentBaseSetAgentBaseAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns SetAgentBaseSetAgentBaseAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *SetAgentBaseSetAgentBaseAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
 // GetInstallationPolicy returns SetAgentBaseSetAgentBaseAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *SetAgentBaseSetAgentBaseAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -67006,6 +67503,10 @@ type __premarshalSetAgentBaseSetAgentBaseAgent struct {
 
 	ResetContextAfterTask bool `json:"resetContextAfterTask"`
 
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -67042,6 +67543,8 @@ func (v *SetAgentBaseSetAgentBaseAgent) __premarshalJSON() (*__premarshalSetAgen
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -67170,6 +67673,16 @@ func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetResetContextAfterTask() b
 	return v.AgentFields.ResetContextAfterTask
 }
 
+// GetListedOnMarketplace returns SetAgentBootPromptSetAgentBootPromptAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns SetAgentBootPromptSetAgentBootPromptAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
 // GetInstallationPolicy returns SetAgentBootPromptSetAgentBootPromptAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *SetAgentBootPromptSetAgentBootPromptAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -67246,6 +67759,10 @@ type __premarshalSetAgentBootPromptSetAgentBootPromptAgent struct {
 
 	ResetContextAfterTask bool `json:"resetContextAfterTask"`
 
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -67282,6 +67799,8 @@ func (v *SetAgentBootPromptSetAgentBootPromptAgent) __premarshalJSON() (*__prema
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -67402,6 +67921,16 @@ func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetResetContextAfterTask() boo
 	return v.AgentFields.ResetContextAfterTask
 }
 
+// GetListedOnMarketplace returns SetAgentIndexRefsSetAgentIndexRefsAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns SetAgentIndexRefsSetAgentIndexRefsAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
 // GetInstallationPolicy returns SetAgentIndexRefsSetAgentIndexRefsAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -67478,6 +68007,10 @@ type __premarshalSetAgentIndexRefsSetAgentIndexRefsAgent struct {
 
 	ResetContextAfterTask bool `json:"resetContextAfterTask"`
 
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -67514,6 +68047,8 @@ func (v *SetAgentIndexRefsSetAgentIndexRefsAgent) __premarshalJSON() (*__premars
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -68897,6 +69432,11 @@ func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetReportsToRetired() boo
 	return v.WorkerFields.ReportsToRetired
 }
 
+// GetTeamPlacement returns SetWorkerBootPromptSetWorkerBootPromptWorker.TeamPlacement, and is useful for accessing the field via an interface.
+func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetTeamPlacement() *WorkerTeamPlacement {
+	return v.WorkerFields.TeamPlacement
+}
+
 // GetRole returns SetWorkerBootPromptSetWorkerBootPromptWorker.Role, and is useful for accessing the field via an interface.
 func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) GetRole() *string { return v.WorkerFields.Role }
 
@@ -69029,6 +69569,8 @@ type __premarshalSetWorkerBootPromptSetWorkerBootPromptWorker struct {
 
 	ReportsToRetired bool `json:"reportsToRetired"`
 
+	TeamPlacement *WorkerTeamPlacement `json:"teamPlacement"`
+
 	Role *string `json:"role"`
 
 	Prompt *string `json:"prompt"`
@@ -69086,6 +69628,7 @@ func (v *SetWorkerBootPromptSetWorkerBootPromptWorker) __premarshalJSON() (*__pr
 	retval.Name = v.WorkerFields.Name
 	retval.ReportsTo = v.WorkerFields.ReportsTo
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
+	retval.TeamPlacement = v.WorkerFields.TeamPlacement
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.Signature = v.WorkerFields.Signature
@@ -69174,6 +69717,11 @@ func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetReportsTo() *WorkerField
 // GetReportsToRetired returns SetWorkerReportsToSetWorkerReportsToWorker.ReportsToRetired, and is useful for accessing the field via an interface.
 func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetReportsToRetired() bool {
 	return v.WorkerFields.ReportsToRetired
+}
+
+// GetTeamPlacement returns SetWorkerReportsToSetWorkerReportsToWorker.TeamPlacement, and is useful for accessing the field via an interface.
+func (v *SetWorkerReportsToSetWorkerReportsToWorker) GetTeamPlacement() *WorkerTeamPlacement {
+	return v.WorkerFields.TeamPlacement
 }
 
 // GetRole returns SetWorkerReportsToSetWorkerReportsToWorker.Role, and is useful for accessing the field via an interface.
@@ -69306,6 +69854,8 @@ type __premarshalSetWorkerReportsToSetWorkerReportsToWorker struct {
 
 	ReportsToRetired bool `json:"reportsToRetired"`
 
+	TeamPlacement *WorkerTeamPlacement `json:"teamPlacement"`
+
 	Role *string `json:"role"`
 
 	Prompt *string `json:"prompt"`
@@ -69363,6 +69913,7 @@ func (v *SetWorkerReportsToSetWorkerReportsToWorker) __premarshalJSON() (*__prem
 	retval.Name = v.WorkerFields.Name
 	retval.ReportsTo = v.WorkerFields.ReportsTo
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
+	retval.TeamPlacement = v.WorkerFields.TeamPlacement
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.Signature = v.WorkerFields.Signature
@@ -80136,6 +80687,16 @@ func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetResetContextAfterTa
 	return v.AgentFields.ResetContextAfterTask
 }
 
+// GetListedOnMarketplace returns UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
 // GetInstallationPolicy returns UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -80212,6 +80773,10 @@ type __premarshalUpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent struct {
 
 	ResetContextAfterTask bool `json:"resetContextAfterTask"`
 
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -80248,6 +80813,8 @@ func (v *UpdateAgentMemoryRoleUpdateAgentMemoryRoleAgent) __premarshalJSON() (*_
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -80825,6 +81392,16 @@ func (v *UpdateAgentUpdateAgent) GetResetContextAfterTask() bool {
 	return v.AgentFields.ResetContextAfterTask
 }
 
+// GetListedOnMarketplace returns UpdateAgentUpdateAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns UpdateAgentUpdateAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *UpdateAgentUpdateAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
 // GetInstallationPolicy returns UpdateAgentUpdateAgent.InstallationPolicy, and is useful for accessing the field via an interface.
 func (v *UpdateAgentUpdateAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
 	return v.AgentFields.InstallationPolicy
@@ -80899,6 +81476,10 @@ type __premarshalUpdateAgentUpdateAgent struct {
 
 	ResetContextAfterTask bool `json:"resetContextAfterTask"`
 
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
 	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
 
 	CreatedAt string `json:"createdAt"`
@@ -80935,6 +81516,8 @@ func (v *UpdateAgentUpdateAgent) __premarshalJSON() (*__premarshalUpdateAgentUpd
 	retval.PersonaRole = v.AgentFields.PersonaRole
 	retval.UsesTasks = v.AgentFields.UsesTasks
 	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
 	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
 	retval.CreatedAt = v.AgentFields.CreatedAt
 	return &retval, nil
@@ -86749,6 +87332,11 @@ func (v *UpdateWorkerSigningUpdateWorker) GetReportsToRetired() bool {
 	return v.WorkerFields.ReportsToRetired
 }
 
+// GetTeamPlacement returns UpdateWorkerSigningUpdateWorker.TeamPlacement, and is useful for accessing the field via an interface.
+func (v *UpdateWorkerSigningUpdateWorker) GetTeamPlacement() *WorkerTeamPlacement {
+	return v.WorkerFields.TeamPlacement
+}
+
 // GetRole returns UpdateWorkerSigningUpdateWorker.Role, and is useful for accessing the field via an interface.
 func (v *UpdateWorkerSigningUpdateWorker) GetRole() *string { return v.WorkerFields.Role }
 
@@ -86859,6 +87447,8 @@ type __premarshalUpdateWorkerSigningUpdateWorker struct {
 
 	ReportsToRetired bool `json:"reportsToRetired"`
 
+	TeamPlacement *WorkerTeamPlacement `json:"teamPlacement"`
+
 	Role *string `json:"role"`
 
 	Prompt *string `json:"prompt"`
@@ -86916,6 +87506,7 @@ func (v *UpdateWorkerSigningUpdateWorker) __premarshalJSON() (*__premarshalUpdat
 	retval.Name = v.WorkerFields.Name
 	retval.ReportsTo = v.WorkerFields.ReportsTo
 	retval.ReportsToRetired = v.WorkerFields.ReportsToRetired
+	retval.TeamPlacement = v.WorkerFields.TeamPlacement
 	retval.Role = v.WorkerFields.Role
 	retval.Prompt = v.WorkerFields.Prompt
 	retval.Signature = v.WorkerFields.Signature
@@ -88427,6 +89018,8 @@ type WorkerFields struct {
 	ReportsTo *WorkerFieldsReportsToWorker `json:"reportsTo"`
 	// #1726 — true when this worker reports to a worker that has since retired (a stale claim nothing clears automatically).
 	ReportsToRetired bool `json:"reportsToRetired"`
+	// Recorded reporting choice: REPORTS_TO means a reporting head was chosen, NO_TEAM records a choice to have none, and UNSET means no choice was recorded. Null means the value is withheld.
+	TeamPlacement *WorkerTeamPlacement `json:"teamPlacement"`
 	// The cast-list role this filling answers ('backend-engineer').
 	Role *string `json:"role"`
 	// The worker's boot prompt: the approved revision of the compiled boot
@@ -88564,6 +89157,9 @@ func (v *WorkerFields) GetReportsTo() *WorkerFieldsReportsToWorker { return v.Re
 
 // GetReportsToRetired returns WorkerFields.ReportsToRetired, and is useful for accessing the field via an interface.
 func (v *WorkerFields) GetReportsToRetired() bool { return v.ReportsToRetired }
+
+// GetTeamPlacement returns WorkerFields.TeamPlacement, and is useful for accessing the field via an interface.
+func (v *WorkerFields) GetTeamPlacement() *WorkerTeamPlacement { return v.TeamPlacement }
 
 // GetRole returns WorkerFields.Role, and is useful for accessing the field via an interface.
 func (v *WorkerFields) GetRole() *string { return v.Role }
@@ -89065,6 +89661,8 @@ type WorkerRosterFields struct {
 	ReportsTo *WorkerRosterFieldsReportsToWorker `json:"reportsTo"`
 	// #1726 — true when this worker reports to a worker that has since retired (a stale claim nothing clears automatically).
 	ReportsToRetired bool `json:"reportsToRetired"`
+	// Recorded reporting choice: REPORTS_TO means a reporting head was chosen, NO_TEAM records a choice to have none, and UNSET means no choice was recorded. Null means the value is withheld.
+	TeamPlacement *WorkerTeamPlacement `json:"teamPlacement"`
 	// The cast-list role this filling answers ('backend-engineer').
 	Role *string `json:"role"`
 	// #1024 — the repo affinity of this worker's ROLE, resolved so a client that
@@ -89194,6 +89792,9 @@ func (v *WorkerRosterFields) GetReportsTo() *WorkerRosterFieldsReportsToWorker {
 
 // GetReportsToRetired returns WorkerRosterFields.ReportsToRetired, and is useful for accessing the field via an interface.
 func (v *WorkerRosterFields) GetReportsToRetired() bool { return v.ReportsToRetired }
+
+// GetTeamPlacement returns WorkerRosterFields.TeamPlacement, and is useful for accessing the field via an interface.
+func (v *WorkerRosterFields) GetTeamPlacement() *WorkerTeamPlacement { return v.TeamPlacement }
 
 // GetRole returns WorkerRosterFields.Role, and is useful for accessing the field via an interface.
 func (v *WorkerRosterFields) GetRole() *string { return v.Role }
@@ -89503,6 +90104,20 @@ func (v *WorkerServedPromptWorkerServedPrompt) __premarshalJSON() (*__premarshal
 	retval.Pruned = v.ServedPromptRecord.Pruned
 	retval.Provenance = v.ServedPromptRecord.Provenance
 	return &retval, nil
+}
+
+type WorkerTeamPlacement string
+
+const (
+	WorkerTeamPlacementNoTeam    WorkerTeamPlacement = "NO_TEAM"
+	WorkerTeamPlacementReportsTo WorkerTeamPlacement = "REPORTS_TO"
+	WorkerTeamPlacementUnset     WorkerTeamPlacement = "UNSET"
+)
+
+var AllWorkerTeamPlacement = []WorkerTeamPlacement{
+	WorkerTeamPlacementNoTeam,
+	WorkerTeamPlacementReportsTo,
+	WorkerTeamPlacementUnset,
 }
 
 // hadron-server#2771 / cli#1375: a worker's latest terminal report. A fragment so
@@ -90157,6 +90772,11 @@ func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetReportsToRetired() bool 
 	return v.WorkerRosterFields.ReportsToRetired
 }
 
+// GetTeamPlacement returns WorkersRosterWorkersWorkersPageItemsWorker.TeamPlacement, and is useful for accessing the field via an interface.
+func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetTeamPlacement() *WorkerTeamPlacement {
+	return v.WorkerRosterFields.TeamPlacement
+}
+
 // GetRole returns WorkersRosterWorkersWorkersPageItemsWorker.Role, and is useful for accessing the field via an interface.
 func (v *WorkersRosterWorkersWorkersPageItemsWorker) GetRole() *string {
 	return v.WorkerRosterFields.Role
@@ -90276,6 +90896,8 @@ type __premarshalWorkersRosterWorkersWorkersPageItemsWorker struct {
 
 	ReportsToRetired bool `json:"reportsToRetired"`
 
+	TeamPlacement *WorkerTeamPlacement `json:"teamPlacement"`
+
 	Role *string `json:"role"`
 
 	Repos []string `json:"repos"`
@@ -90327,6 +90949,7 @@ func (v *WorkersRosterWorkersWorkersPageItemsWorker) __premarshalJSON() (*__prem
 	retval.Name = v.WorkerRosterFields.Name
 	retval.ReportsTo = v.WorkerRosterFields.ReportsTo
 	retval.ReportsToRetired = v.WorkerRosterFields.ReportsToRetired
+	retval.TeamPlacement = v.WorkerRosterFields.TeamPlacement
 	retval.Role = v.WorkerRosterFields.Role
 	retval.Repos = v.WorkerRosterFields.Repos
 	retval.MemoryId = v.WorkerRosterFields.MemoryId
@@ -90700,6 +91323,7 @@ type __AgentTaskListFilteredInput struct {
 	CreatedBefore  *string                   `json:"createdBefore,omitempty"`
 	FinishedAfter  *string                   `json:"finishedAfter,omitempty"`
 	FinishedBefore *string                   `json:"finishedBefore,omitempty"`
+	MatchFailed    *bool                     `json:"matchFailed,omitempty"`
 	Limit          *int                      `json:"limit,omitempty"`
 	Offset         *int                      `json:"offset,omitempty"`
 	Overdue        *bool                     `json:"overdue,omitempty"`
@@ -90736,6 +91360,9 @@ func (v *__AgentTaskListFilteredInput) GetFinishedAfter() *string { return v.Fin
 
 // GetFinishedBefore returns __AgentTaskListFilteredInput.FinishedBefore, and is useful for accessing the field via an interface.
 func (v *__AgentTaskListFilteredInput) GetFinishedBefore() *string { return v.FinishedBefore }
+
+// GetMatchFailed returns __AgentTaskListFilteredInput.MatchFailed, and is useful for accessing the field via an interface.
+func (v *__AgentTaskListFilteredInput) GetMatchFailed() *bool { return v.MatchFailed }
 
 // GetLimit returns __AgentTaskListFilteredInput.Limit, and is useful for accessing the field via an interface.
 func (v *__AgentTaskListFilteredInput) GetLimit() *int { return v.Limit }
@@ -91724,10 +92351,12 @@ func (v *__CancelAppRunInput) GetId() string { return v.Id }
 
 // __CastWorkerInput is used internally by genqlient
 type __CastWorkerInput struct {
-	AppRef   string  `json:"appRef"`
-	AgentRef *string `json:"agentRef,omitempty"`
-	Role     *string `json:"role,omitempty"`
-	Name     *string `json:"name,omitempty"`
+	AppRef    string  `json:"appRef"`
+	AgentRef  *string `json:"agentRef,omitempty"`
+	Role      *string `json:"role,omitempty"`
+	Name      *string `json:"name,omitempty"`
+	ReportsTo *string `json:"reportsTo,omitempty"`
+	NoTeam    *bool   `json:"noTeam,omitempty"`
 }
 
 // GetAppRef returns __CastWorkerInput.AppRef, and is useful for accessing the field via an interface.
@@ -91742,12 +92371,20 @@ func (v *__CastWorkerInput) GetRole() *string { return v.Role }
 // GetName returns __CastWorkerInput.Name, and is useful for accessing the field via an interface.
 func (v *__CastWorkerInput) GetName() *string { return v.Name }
 
+// GetReportsTo returns __CastWorkerInput.ReportsTo, and is useful for accessing the field via an interface.
+func (v *__CastWorkerInput) GetReportsTo() *string { return v.ReportsTo }
+
+// GetNoTeam returns __CastWorkerInput.NoTeam, and is useful for accessing the field via an interface.
+func (v *__CastWorkerInput) GetNoTeam() *bool { return v.NoTeam }
+
 // __CastWorkerPreviewInput is used internally by genqlient
 type __CastWorkerPreviewInput struct {
-	AppRef   string  `json:"appRef"`
-	AgentRef *string `json:"agentRef,omitempty"`
-	Role     *string `json:"role,omitempty"`
-	Name     *string `json:"name,omitempty"`
+	AppRef    string  `json:"appRef"`
+	AgentRef  *string `json:"agentRef,omitempty"`
+	Role      *string `json:"role,omitempty"`
+	Name      *string `json:"name,omitempty"`
+	ReportsTo *string `json:"reportsTo,omitempty"`
+	NoTeam    *bool   `json:"noTeam,omitempty"`
 }
 
 // GetAppRef returns __CastWorkerPreviewInput.AppRef, and is useful for accessing the field via an interface.
@@ -91761,6 +92398,12 @@ func (v *__CastWorkerPreviewInput) GetRole() *string { return v.Role }
 
 // GetName returns __CastWorkerPreviewInput.Name, and is useful for accessing the field via an interface.
 func (v *__CastWorkerPreviewInput) GetName() *string { return v.Name }
+
+// GetReportsTo returns __CastWorkerPreviewInput.ReportsTo, and is useful for accessing the field via an interface.
+func (v *__CastWorkerPreviewInput) GetReportsTo() *string { return v.ReportsTo }
+
+// GetNoTeam returns __CastWorkerPreviewInput.NoTeam, and is useful for accessing the field via an interface.
+func (v *__CastWorkerPreviewInput) GetNoTeam() *bool { return v.NoTeam }
 
 // __ChangeWorkerAgentInput is used internally by genqlient
 type __ChangeWorkerAgentInput struct {
@@ -92332,15 +92975,17 @@ func (v *__ContextResetInput) GetResetId() string { return v.ResetId }
 
 // __CreateAgentInput is used internally by genqlient
 type __CreateAgentInput struct {
-	Name           string           `json:"name"`
-	OrgId          *string          `json:"orgId,omitempty"`
-	Description    *string          `json:"description,omitempty"`
-	AgentType      *AgentType       `json:"agentType,omitempty"`
-	Visibility     *AgentVisibility `json:"visibility,omitempty"`
-	SystemMemoryId *string          `json:"systemMemoryId,omitempty"`
-	Surfaces       []string         `json:"surfaces,omitempty"`
-	PersonaRole    *string          `json:"personaRole,omitempty"`
-	MemberRoles    []string         `json:"memberRoles,omitempty"`
+	Name                  string           `json:"name"`
+	OrgId                 *string          `json:"orgId,omitempty"`
+	Description           *string          `json:"description,omitempty"`
+	AgentType             *AgentType       `json:"agentType,omitempty"`
+	Visibility            *AgentVisibility `json:"visibility,omitempty"`
+	SystemMemoryId        *string          `json:"systemMemoryId,omitempty"`
+	Surfaces              []string         `json:"surfaces,omitempty"`
+	PersonaRole           *string          `json:"personaRole,omitempty"`
+	MemberRoles           []string         `json:"memberRoles,omitempty"`
+	UsesTasks             *bool            `json:"usesTasks,omitempty"`
+	ResetContextAfterTask *bool            `json:"resetContextAfterTask,omitempty"`
 }
 
 // GetName returns __CreateAgentInput.Name, and is useful for accessing the field via an interface.
@@ -92369,6 +93014,12 @@ func (v *__CreateAgentInput) GetPersonaRole() *string { return v.PersonaRole }
 
 // GetMemberRoles returns __CreateAgentInput.MemberRoles, and is useful for accessing the field via an interface.
 func (v *__CreateAgentInput) GetMemberRoles() []string { return v.MemberRoles }
+
+// GetUsesTasks returns __CreateAgentInput.UsesTasks, and is useful for accessing the field via an interface.
+func (v *__CreateAgentInput) GetUsesTasks() *bool { return v.UsesTasks }
+
+// GetResetContextAfterTask returns __CreateAgentInput.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *__CreateAgentInput) GetResetContextAfterTask() *bool { return v.ResetContextAfterTask }
 
 // __CreateAgentScheduleInput is used internally by genqlient
 type __CreateAgentScheduleInput struct {
@@ -93749,6 +94400,14 @@ type __DeleteTickerInput struct {
 
 // GetRef returns __DeleteTickerInput.Ref, and is useful for accessing the field via an interface.
 func (v *__DeleteTickerInput) GetRef() string { return v.Ref }
+
+// __DeleteUserApiKeyInput is used internally by genqlient
+type __DeleteUserApiKeyInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __DeleteUserApiKeyInput.Id, and is useful for accessing the field via an interface.
+func (v *__DeleteUserApiKeyInput) GetId() string { return v.Id }
 
 // __DeleteUserInput is used internally by genqlient
 type __DeleteUserInput struct {
@@ -97448,18 +98107,20 @@ func (v *__UntrackedTaskItemsInput) GetLimit() *int { return v.Limit }
 
 // __UpdateAgentInput is used internally by genqlient
 type __UpdateAgentInput struct {
-	Ref                   string           `json:"ref"`
-	Name                  *string          `json:"name,omitempty"`
-	Description           *string          `json:"description,omitempty"`
-	AgentType             *AgentType       `json:"agentType,omitempty"`
-	Visibility            *AgentVisibility `json:"visibility,omitempty"`
-	SystemMemoryId        *string          `json:"systemMemoryId,omitempty"`
-	Surfaces              []string         `json:"surfaces,omitempty"`
-	Urn                   *string          `json:"urn,omitempty"`
-	PersonaRole           *string          `json:"personaRole,omitempty"`
-	UsesTasks             *bool            `json:"usesTasks,omitempty"`
-	ResetContextAfterTask *bool            `json:"resetContextAfterTask,omitempty"`
-	MemberRoles           []string         `json:"memberRoles,omitempty"`
+	Ref                   string                          `json:"ref"`
+	Name                  *string                         `json:"name,omitempty"`
+	Description           *string                         `json:"description,omitempty"`
+	AgentType             *AgentType                      `json:"agentType,omitempty"`
+	Visibility            *AgentVisibility                `json:"visibility,omitempty"`
+	SystemMemoryId        *string                         `json:"systemMemoryId,omitempty"`
+	Surfaces              []string                        `json:"surfaces,omitempty"`
+	Urn                   *string                         `json:"urn,omitempty"`
+	PersonaRole           *string                         `json:"personaRole,omitempty"`
+	UsesTasks             *bool                           `json:"usesTasks,omitempty"`
+	ResetContextAfterTask *bool                           `json:"resetContextAfterTask,omitempty"`
+	MemberRoles           []string                        `json:"memberRoles,omitempty"`
+	ListedOnMarketplace   *bool                           `json:"listedOnMarketplace,omitempty"`
+	RegisterDefaults      *gqltypes.RegisterDefaultsInput `json:"registerDefaults,omitempty"`
 }
 
 // GetRef returns __UpdateAgentInput.Ref, and is useful for accessing the field via an interface.
@@ -97497,6 +98158,14 @@ func (v *__UpdateAgentInput) GetResetContextAfterTask() *bool { return v.ResetCo
 
 // GetMemberRoles returns __UpdateAgentInput.MemberRoles, and is useful for accessing the field via an interface.
 func (v *__UpdateAgentInput) GetMemberRoles() []string { return v.MemberRoles }
+
+// GetListedOnMarketplace returns __UpdateAgentInput.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentInput) GetListedOnMarketplace() *bool { return v.ListedOnMarketplace }
+
+// GetRegisterDefaults returns __UpdateAgentInput.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentInput) GetRegisterDefaults() *gqltypes.RegisterDefaultsInput {
+	return v.RegisterDefaults
+}
 
 // __UpdateAgentMemoryRoleInput is used internally by genqlient
 type __UpdateAgentMemoryRoleInput struct {
@@ -99228,6 +99897,10 @@ fragment AgentFields on Agent {
 	personaRole
 	usesTasks
 	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
 	installationPolicy {
 		memberRoles
 	}
@@ -99571,6 +100244,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -99582,6 +100259,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -99695,6 +100374,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -99706,6 +100389,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -99823,6 +100508,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -99834,6 +100523,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -99945,6 +100636,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -99956,6 +100651,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -99996,11 +100693,16 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 // cli#1524 C1 (hadron-server#3125 S2, cor:agt:120:02): the claimed outside item.
 // Absent unless --external-id is given, so an ordinary create is unchanged and
 // an older server never sees the field.
+// cli#1568 (Andi LOCAL P2): match, roles and team arrived with the d7ae518d schema
+// refresh (server#2829/#2830, tracked by #1549). Absent, not null, until a flag names
+// them: a provider that predates the fields rejects them, even as null.
 // cli#1485 S3 (Andi BLIND P2): the model-group requirement fields arrived with
 // the schema refresh (server #3029) and S2 exposes them as optional flags. Absent,
 // not null, so ordinary create/update bodies are unchanged and an older server
 // never sees an input field it does not know. This protects INPUTS only:
 // every AgentTaskFields document needs provider #3029 for its output selection.
+// Keep legacy role:null for ordinary requirements, but omit role entirely
+// when a role set is supplied: the two selector keys never coexist.
 func AgentTaskCreate(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -100143,6 +100845,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -100154,6 +100860,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -100267,6 +100975,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -100278,6 +100990,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -100389,6 +101103,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -100400,6 +101118,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -100556,6 +101276,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -100567,6 +101291,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -100641,8 +101367,8 @@ func AgentTaskList(
 
 // The query executed by AgentTaskListFiltered.
 const AgentTaskListFiltered_Operation = `
-query AgentTaskListFiltered ($appRef: ID!, $assignee: AgentTaskPartyInput, $createdAfter: DateTime, $createdBefore: DateTime, $finishedAfter: DateTime, $finishedBefore: DateTime, $limit: Int, $offset: Int, $overdue: Boolean, $owner: AgentTaskPartyInput, $parentTaskId: ID, $queued: Boolean, $rootsOnly: Boolean, $reference: AgentTaskReferenceFilter, $source: String, $externalId: String, $startedAfter: DateTime, $startedBefore: DateTime, $status: [AgentTaskStatus!], $tag: String, $tagsAll: [String!], $tagsAny: [String!], $text: String) {
-	agentTasks(appRef: $appRef, assignee: $assignee, createdAfter: $createdAfter, createdBefore: $createdBefore, finishedAfter: $finishedAfter, finishedBefore: $finishedBefore, limit: $limit, offset: $offset, overdue: $overdue, owner: $owner, parentTaskId: $parentTaskId, queued: $queued, reference: $reference, rootsOnly: $rootsOnly, source: $source, externalId: $externalId, startedAfter: $startedAfter, startedBefore: $startedBefore, status: $status, tag: $tag, tagsAll: $tagsAll, tagsAny: $tagsAny, text: $text) {
+query AgentTaskListFiltered ($appRef: ID!, $assignee: AgentTaskPartyInput, $createdAfter: DateTime, $createdBefore: DateTime, $finishedAfter: DateTime, $finishedBefore: DateTime, $matchFailed: Boolean, $limit: Int, $offset: Int, $overdue: Boolean, $owner: AgentTaskPartyInput, $parentTaskId: ID, $queued: Boolean, $rootsOnly: Boolean, $reference: AgentTaskReferenceFilter, $source: String, $externalId: String, $startedAfter: DateTime, $startedBefore: DateTime, $status: [AgentTaskStatus!], $tag: String, $tagsAll: [String!], $tagsAny: [String!], $text: String) {
+	agentTasks(appRef: $appRef, assignee: $assignee, createdAfter: $createdAfter, createdBefore: $createdBefore, finishedAfter: $finishedAfter, finishedBefore: $finishedBefore, matchFailed: $matchFailed, limit: $limit, offset: $offset, overdue: $overdue, owner: $owner, parentTaskId: $parentTaskId, queued: $queued, reference: $reference, rootsOnly: $rootsOnly, source: $source, externalId: $externalId, startedAfter: $startedAfter, startedBefore: $startedBefore, status: $status, tag: $tag, tagsAll: $tagsAll, tagsAny: $tagsAny, text: $text) {
 		... AgentTaskFields
 	}
 }
@@ -100698,6 +101424,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -100709,6 +101439,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -100749,6 +101481,7 @@ func AgentTaskListFiltered(
 	createdBefore *string,
 	finishedAfter *string,
 	finishedBefore *string,
+	matchFailed *bool,
 	limit *int,
 	offset *int,
 	overdue *bool,
@@ -100777,6 +101510,7 @@ func AgentTaskListFiltered(
 			CreatedBefore:  createdBefore,
 			FinishedAfter:  finishedAfter,
 			FinishedBefore: finishedBefore,
+			MatchFailed:    matchFailed,
 			Limit:          limit,
 			Offset:         offset,
 			Overdue:        overdue,
@@ -100868,6 +101602,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -100879,6 +101617,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -101011,6 +101751,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -101022,6 +101766,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -101137,6 +101883,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -101148,6 +101898,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -101259,6 +102011,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -101270,6 +102026,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -101384,6 +102142,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -101395,6 +102157,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -101510,6 +102274,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -101521,6 +102289,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -101634,6 +102404,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -101645,6 +102419,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -101759,6 +102535,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -101770,6 +102550,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -101935,6 +102717,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -101946,6 +102732,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -102057,6 +102845,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -102068,6 +102860,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -102360,6 +103154,10 @@ fragment AgentFields on Agent {
 	personaRole
 	usesTasks
 	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
 	installationPolicy {
 		memberRoles
 	}
@@ -105116,8 +105914,8 @@ func CancelAppRun(
 
 // The mutation executed by CastWorker.
 const CastWorker_Operation = `
-mutation CastWorker ($appRef: ID!, $agentRef: ID, $role: String, $name: String) {
-	castWorker(appRef: $appRef, agentRef: $agentRef, role: $role, name: $name) {
+mutation CastWorker ($appRef: ID!, $agentRef: ID, $role: String, $name: String, $reportsTo: ID, $noTeam: Boolean) {
+	castWorker(appRef: $appRef, agentRef: $agentRef, role: $role, name: $name, reportsTo: $reportsTo, noTeam: $noTeam) {
 		... WorkerFields
 	}
 }
@@ -105133,6 +105931,7 @@ fragment WorkerFields on Worker {
 		... WorkerReportingRefFields
 	}
 	reportsToRetired
+	teamPlacement
 	role
 	prompt
 	signature
@@ -105186,15 +105985,19 @@ func CastWorker(
 	agentRef *string,
 	role *string,
 	name *string,
+	reportsTo *string,
+	noTeam *bool,
 ) (data_ *CastWorkerResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CastWorker",
 		Query:  CastWorker_Operation,
 		Variables: &__CastWorkerInput{
-			AppRef:   appRef,
-			AgentRef: agentRef,
-			Role:     role,
-			Name:     name,
+			AppRef:    appRef,
+			AgentRef:  agentRef,
+			Role:      role,
+			Name:      name,
+			ReportsTo: reportsTo,
+			NoTeam:    noTeam,
 		},
 	}
 
@@ -105212,13 +106015,15 @@ func CastWorker(
 
 // The query executed by CastWorkerPreview.
 const CastWorkerPreview_Operation = `
-query CastWorkerPreview ($appRef: ID!, $agentRef: ID, $role: String, $name: String) {
-	castWorkerPreview(appRef: $appRef, agentRef: $agentRef, role: $role, name: $name) {
+query CastWorkerPreview ($appRef: ID!, $agentRef: ID, $role: String, $name: String, $reportsTo: ID, $noTeam: Boolean) {
+	castWorkerPreview(appRef: $appRef, agentRef: $agentRef, role: $role, name: $name, reportsTo: $reportsTo, noTeam: $noTeam) {
 		name
 		role
 		agentId
 		agentName
 		prompt
+		teamPlacement
+		reportsToWorkerId
 	}
 }
 `
@@ -105237,15 +106042,19 @@ func CastWorkerPreview(
 	agentRef *string,
 	role *string,
 	name *string,
+	reportsTo *string,
+	noTeam *bool,
 ) (data_ *CastWorkerPreviewResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CastWorkerPreview",
 		Query:  CastWorkerPreview_Operation,
 		Variables: &__CastWorkerPreviewInput{
-			AppRef:   appRef,
-			AgentRef: agentRef,
-			Role:     role,
-			Name:     name,
+			AppRef:    appRef,
+			AgentRef:  agentRef,
+			Role:      role,
+			Name:      name,
+			ReportsTo: reportsTo,
+			NoTeam:    noTeam,
 		},
 	}
 
@@ -105280,6 +106089,7 @@ fragment WorkerFields on Worker {
 		... WorkerReportingRefFields
 	}
 	reportsToRetired
+	teamPlacement
 	role
 	prompt
 	signature
@@ -106135,6 +106945,10 @@ fragment AgentTaskFields on AgentTask {
 		text
 		handedBackAt
 	}
+	matchFailure {
+		reason
+		failedAt
+	}
 	startBy
 	finishBy
 	createdAt
@@ -106146,6 +106960,8 @@ fragment AgentTaskFields on AgentTask {
 	requirements {
 		minTier
 		role
+		roles
+		teamWorkerId
 		familyIn
 		familyNotIn
 		modelGroupIn
@@ -106240,6 +107056,10 @@ fragment AgentFields on Agent {
 	personaRole
 	usesTasks
 	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
 	installationPolicy {
 		memberRoles
 	}
@@ -106302,6 +107122,10 @@ fragment AgentFields on Agent {
 	personaRole
 	usesTasks
 	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
 	installationPolicy {
 		memberRoles
 	}
@@ -106534,6 +107358,10 @@ fragment AgentFields on Agent {
 	personaRole
 	usesTasks
 	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
 	installationPolicy {
 		memberRoles
 	}
@@ -107322,8 +108150,8 @@ func ContextReset(
 
 // The mutation executed by CreateAgent.
 const CreateAgent_Operation = `
-mutation CreateAgent ($name: String!, $orgId: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $personaRole: String, $memberRoles: [String!]) {
-	createAgent(name: $name, orgId: $orgId, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, personaRole: $personaRole, memberRoles: $memberRoles) {
+mutation CreateAgent ($name: String!, $orgId: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $personaRole: String, $memberRoles: [String!], $usesTasks: Boolean, $resetContextAfterTask: Boolean) {
+	createAgent(name: $name, orgId: $orgId, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, personaRole: $personaRole, memberRoles: $memberRoles, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask) {
 		... AgentFields
 	}
 }
@@ -107348,6 +108176,10 @@ fragment AgentFields on Agent {
 	personaRole
 	usesTasks
 	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
 	installationPolicy {
 		memberRoles
 	}
@@ -107367,20 +108199,24 @@ func CreateAgent(
 	surfaces []string,
 	personaRole *string,
 	memberRoles []string,
+	usesTasks *bool,
+	resetContextAfterTask *bool,
 ) (data_ *CreateAgentResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateAgent",
 		Query:  CreateAgent_Operation,
 		Variables: &__CreateAgentInput{
-			Name:           name,
-			OrgId:          orgId,
-			Description:    description,
-			AgentType:      agentType,
-			Visibility:     visibility,
-			SystemMemoryId: systemMemoryId,
-			Surfaces:       surfaces,
-			PersonaRole:    personaRole,
-			MemberRoles:    memberRoles,
+			Name:                  name,
+			OrgId:                 orgId,
+			Description:           description,
+			AgentType:             agentType,
+			Visibility:            visibility,
+			SystemMemoryId:        systemMemoryId,
+			Surfaces:              surfaces,
+			PersonaRole:           personaRole,
+			MemberRoles:           memberRoles,
+			UsesTasks:             usesTasks,
+			ResetContextAfterTask: resetContextAfterTask,
 		},
 	}
 
@@ -111622,6 +112458,48 @@ func DeleteUser(
 	return data_, err_
 }
 
+// The mutation executed by DeleteUserApiKey.
+const DeleteUserApiKey_Operation = `
+mutation DeleteUserApiKey ($id: ID!) {
+	deleteUserApiKey(id: $id) {
+		id
+		keyId
+		keyPreview
+		revokedKeyIds
+		mintedKeyIds
+		deletedAt
+	}
+}
+`
+
+// Delete one of the caller's OWN API keys, live or revoked, hidden or not. A live
+// key is revoked first with its live subtree; the keys it minted directly stay,
+// revoked, with no parent. Never retried: the key is gone after a success.
+func DeleteUserApiKey(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *DeleteUserApiKeyResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DeleteUserApiKey",
+		Query:  DeleteUserApiKey_Operation,
+		Variables: &__DeleteUserApiKeyInput{
+			Id: id,
+		},
+	}
+
+	data_ = &DeleteUserApiKeyResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by DeleteWorker.
 const DeleteWorker_Operation = `
 mutation DeleteWorker ($workerRef: ID!, $confirmNoExternalAttribution: Boolean) {
@@ -112947,6 +113825,10 @@ fragment AgentFields on Agent {
 	personaRole
 	usesTasks
 	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
 	installationPolicy {
 		memberRoles
 	}
@@ -114382,6 +115264,7 @@ fragment WorkerFields on Worker {
 		... WorkerReportingRefFields
 	}
 	reportsToRetired
+	teamPlacement
 	role
 	prompt
 	signature
@@ -114549,6 +115432,7 @@ fragment WorkerFields on Worker {
 		... WorkerReportingRefFields
 	}
 	reportsToRetired
+	teamPlacement
 	role
 	prompt
 	signature
@@ -119293,6 +120177,10 @@ fragment AgentFields on Agent {
 	personaRole
 	usesTasks
 	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
 	installationPolicy {
 		memberRoles
 	}
@@ -120162,6 +121050,7 @@ fragment WorkerFields on Worker {
 		... WorkerReportingRefFields
 	}
 	reportsToRetired
+	teamPlacement
 	role
 	prompt
 	signature
@@ -120327,6 +121216,10 @@ fragment AgentFields on Agent {
 	personaRole
 	usesTasks
 	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
 	installationPolicy {
 		memberRoles
 	}
@@ -121481,6 +122374,7 @@ fragment WorkerFields on Worker {
 		... WorkerReportingRefFields
 	}
 	reportsToRetired
+	teamPlacement
 	role
 	prompt
 	signature
@@ -122998,6 +123892,10 @@ fragment AgentFields on Agent {
 	personaRole
 	usesTasks
 	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
 	installationPolicy {
 		memberRoles
 	}
@@ -123064,6 +123962,10 @@ fragment AgentFields on Agent {
 	personaRole
 	usesTasks
 	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
 	installationPolicy {
 		memberRoles
 	}
@@ -123131,6 +124033,10 @@ fragment AgentFields on Agent {
 	personaRole
 	usesTasks
 	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
 	installationPolicy {
 		memberRoles
 	}
@@ -123784,6 +124690,7 @@ fragment WorkerFields on Worker {
 		... WorkerReportingRefFields
 	}
 	reportsToRetired
+	teamPlacement
 	role
 	prompt
 	signature
@@ -123865,6 +124772,7 @@ fragment WorkerFields on Worker {
 		... WorkerReportingRefFields
 	}
 	reportsToRetired
+	teamPlacement
 	role
 	prompt
 	signature
@@ -127132,8 +128040,8 @@ func UntrackedTaskItems(
 
 // The mutation executed by UpdateAgent.
 const UpdateAgent_Operation = `
-mutation UpdateAgent ($ref: ID!, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $urn: String, $personaRole: String, $usesTasks: Boolean, $resetContextAfterTask: Boolean, $memberRoles: [String!]) {
-	updateAgent(ref: $ref, name: $name, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn, personaRole: $personaRole, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask, memberRoles: $memberRoles) {
+mutation UpdateAgent ($ref: ID!, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $urn: String, $personaRole: String, $usesTasks: Boolean, $resetContextAfterTask: Boolean, $memberRoles: [String!], $listedOnMarketplace: Boolean, $registerDefaults: RegisterDefaultsInput) {
+	updateAgent(ref: $ref, name: $name, description: $description, type: $agentType, visibility: $visibility, systemMemoryId: $systemMemoryId, surfaces: $surfaces, urn: $urn, personaRole: $personaRole, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask, memberRoles: $memberRoles, listedOnMarketplace: $listedOnMarketplace, registerDefaults: $registerDefaults) {
 		... AgentFields
 	}
 }
@@ -127158,6 +128066,10 @@ fragment AgentFields on Agent {
 	personaRole
 	usesTasks
 	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
 	installationPolicy {
 		memberRoles
 	}
@@ -127180,6 +128092,8 @@ func UpdateAgent(
 	usesTasks *bool,
 	resetContextAfterTask *bool,
 	memberRoles []string,
+	listedOnMarketplace *bool,
+	registerDefaults *gqltypes.RegisterDefaultsInput,
 ) (data_ *UpdateAgentResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "UpdateAgent",
@@ -127197,6 +128111,8 @@ func UpdateAgent(
 			UsesTasks:             usesTasks,
 			ResetContextAfterTask: resetContextAfterTask,
 			MemberRoles:           memberRoles,
+			ListedOnMarketplace:   listedOnMarketplace,
+			RegisterDefaults:      registerDefaults,
 		},
 	}
 
@@ -127240,6 +128156,10 @@ fragment AgentFields on Agent {
 	personaRole
 	usesTasks
 	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
 	installationPolicy {
 		memberRoles
 	}
@@ -129969,6 +130889,7 @@ fragment WorkerFields on Worker {
 		... WorkerReportingRefFields
 	}
 	reportsToRetired
+	teamPlacement
 	role
 	prompt
 	signature
@@ -130964,6 +131885,7 @@ fragment WorkerRosterFields on Worker {
 		... WorkerReportingRefFields
 	}
 	reportsToRetired
+	teamPlacement
 	role
 	repos
 	memoryId

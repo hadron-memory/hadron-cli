@@ -58,6 +58,7 @@ fragment AgentTaskFields on AgentTask {
   externalId
   references { kind target label }
   handBack { code text handedBackAt }
+  matchFailure { reason failedAt }
   startBy
   finishBy
   createdAt
@@ -69,6 +70,8 @@ fragment AgentTaskFields on AgentTask {
   requirements {
     minTier
     role
+    roles
+    teamWorkerId
     familyIn
     familyNotIn
     modelGroupIn
@@ -105,6 +108,12 @@ fragment AgentTaskFields on AgentTask {
 # an older server never sees the field.
 # @genqlient(for: "CreateAgentTaskInput.externalId", omitempty: true)
 # @genqlient(for: "AgentTaskRequirementsInput.minTier", omitempty: true)
+# cli#1568 (Andi LOCAL P2): match, roles and team arrived with the d7ae518d schema
+# refresh (server#2829/#2830, tracked by #1549). Absent, not null, until a flag names
+# them: a provider that predates the fields rejects them, even as null.
+# @genqlient(for: "CreateAgentTaskInput.match", omitempty: true)
+# @genqlient(for: "AgentTaskRequirementsInput.roles", omitempty: true)
+# @genqlient(for: "AgentTaskRequirementsInput.team", omitempty: true)
 # cli#1485 S3 (Andi BLIND P2): the model-group requirement fields arrived with
 # the schema refresh (server #3029) and S2 exposes them as optional flags. Absent,
 # not null, so ordinary create/update bodies are unchanged and an older server
@@ -113,6 +122,9 @@ fragment AgentTaskFields on AgentTask {
 # @genqlient(for: "AgentTaskReferenceInput.label", omitempty: true)
 # @genqlient(for: "AgentTaskRequirementsInput.modelGroupIn", omitempty: true)
 # @genqlient(for: "AgentTaskRequirementsInput.modelGroupNotIn", omitempty: true)
+# Keep legacy role:null for ordinary requirements, but omit role entirely
+# when a role set is supplied: the two selector keys never coexist.
+# @genqlient(for: "AgentTaskRequirementsInput.role", omitempty: true, bind: "encoding/json.RawMessage")
 mutation AgentTaskCreate(
   $input: CreateAgentTaskInput!
 ) {
@@ -575,6 +587,8 @@ query AgentTaskListFiltered(
   # @genqlient(omitempty: true)
   $finishedBefore: DateTime
   # @genqlient(omitempty: true)
+  $matchFailed: Boolean
+  # @genqlient(omitempty: true)
   $limit: Int
   # @genqlient(omitempty: true)
   $offset: Int
@@ -617,6 +631,7 @@ query AgentTaskListFiltered(
     createdBefore: $createdBefore
     finishedAfter: $finishedAfter
     finishedBefore: $finishedBefore
+    matchFailed: $matchFailed
     limit: $limit
     offset: $offset
     overdue: $overdue

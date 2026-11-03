@@ -9,6 +9,7 @@ package team
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"regexp"
@@ -22,6 +23,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 // taskAssignerDoc is the assigner authority (cor:agt:050:09) every
@@ -39,15 +41,16 @@ owns the lifecycle, the matcher and every permission check; each lifecycle
 write sends one mutation and prints the task the server returns, and each read
 prints the view its page describes.
 
-Server compatibility: task-record commands require a server containing
-hadron-server#3088 (finishBy) and hadron-server#3029 (model groups),
-even when neither flag is named. The shared task projection selects finishBy and
-modelGroupIn/modelGroupNotIn for get, list (including --team),
-mine, tree and every task mutation receipt (create, update, assign/reassign,
-start/progress/finish/cancel/park/ready, priority and blocker edits). An older
-server rejects those documents as schema skew, exit 2: upgrade that provider
-first, including self-hosted or staging servers. Omitted input keys do not
-hide output selections. The separate dependencies paging query is unaffected.
+Server compatibility: task-record commands require a provider containing
+hadron-server#3245 (matching metadata), hadron-server#3088 (finishBy) and
+hadron-server#3029 (model groups), even when neither flag is named and no
+matching flag is named. The shared projection selects matchFailure,
+requirements.roles/teamWorkerId, finishBy and modelGroupIn/modelGroupNotIn
+for every command returning a task record, including hand-back and
+find-untracked. An older server rejects those documents as schema skew,
+exit 2: upgrade that provider first, including self-hosted or staging servers.
+Omitted input keys do not hide output selections. The separate dependencies
+paging query is unaffected.
 
 A typical flow, from the person or worker handing out the work to the
 assignee working in its bound worktree (the handles here and on every page are
@@ -188,7 +191,9 @@ func newCmdTeamTaskCreate(f *cmdutil.Factory) *cobra.Command {
 	var description, owner, assignee, parent, source, externalID, startBy, finishBy, status string
 	var tags, blockedBy, refs []string
 	var priority int
-	var requireRole, familyIn, familyNotIn, modelGroupIn, modelGroupNotIn, minTier, properties string
+	var familyIn, familyNotIn, modelGroupIn, modelGroupNotIn, minTier, properties, teamLead string
+	var requireRoles []string
+	var match bool
 	var excludeWorkers []string
 	var closeSession, noCloseSession, project bool
 	cmd := &cobra.Command{
@@ -211,6 +216,29 @@ given; only the server judges its form.
 task points at: kind is issue, pull-request, node, task or url, and the label
 starts at the first |. The CLI checks only that shape; the server owns the form
 of each target and the caps (BAD_USER_INPUT, exit 2, naming the item's position).
+
+Requires a provider containing server#3245 for the matching metadata selected
+by every task command, even with no new flags. The server owns eligibility,
+authority and matching; the CLI never selects a worker.
+
+--match runs one blocking match for the newly created PENDING task, without an
+explicit assignee, or a task that is blocked. False or omission keeps ordinary creation.
+Success prints the selected worker. If no worker matches, the task is STILL
+CREATED unassigned: stdout includes its id plus matchFailure reason and time;
+exit 5 follows only after the receipt is written (writer failure takes
+precedence). Do not retry creation: use that task id. Automatic matchers skip
+a marked task; assignment, cancellation, or park then ready clears its mark.
+Ready resumes regular matching, not a second match-now attempt. A server refusal
+(BAD_USER_INPUT, exit 2) creates no task. A transport failure can leave the
+outcome unknown; inspect task list before retrying.
+
+--require-role accepts comma-separated or repeated roles; any one suffices.
+One role uses the existing single-role requirement. The server checks the
+1–32 roles, nonblank/128-character limits and matches case-insensitively.
+--team <lead worker id, URN or name> restricts the pool to that active same-App
+lead, its reporting descendants and workers reporting to nobody. Other
+requirements still combine with AND. This is unrelated to task list --team's
+coordinator view. Unknown, retired or other-App leads are BAD_USER_INPUT.
 
 Who goes on it:
 - --assignee worker:<name> or user:<handle> puts it straight in that party's
@@ -313,6 +341,13 @@ warnings list.`,
 					return err
 				}
 			}
+			roles, err := taskRoleFlags(requireRoles, cmd.Flags().Changed("require-role"))
+			if err != nil {
+				return err
+			}
+			if cmd.Flags().Changed("team") && strings.TrimSpace(teamLead) == "" {
+				return exitcode.Newf(exitcode.Usage, "--team needs a lead worker reference")
+			}
 			ctx := cmd.Context()
 			title := strings.TrimSpace(args[0])
 			if title == "" {
@@ -385,6 +420,10 @@ warnings list.`,
 				Status:       createStatus,
 				Tags:         tags,
 			}
+			// False and omission keep the legacy input unchanged.
+			if match {
+				input.Match = boolPtr(true)
+			}
 			// Omitted unless the flag is given: the server reads an absent
 			// project as "no project" (AT0) and an explicit false the same, so
 			// presence, not value, is what is sent (cor:agt:050:01).
@@ -423,15 +462,27 @@ warnings list.`,
 				}
 				input.Owner = party
 			}
-			if requireRole != "" || familyIn != "" || familyNotIn != "" || len(excludeWorkers) > 0 || (cmd.Flags().Changed("min-tier") || cmd.Flags().Changed("model-group") || cmd.Flags().Changed("model-group-not")) {
+			if len(roles) > 0 || cmd.Flags().Changed("team") || familyIn != "" || familyNotIn != "" || len(excludeWorkers) > 0 || (cmd.Flags().Changed("min-tier") || cmd.Flags().Changed("model-group") || cmd.Flags().Changed("model-group-not")) {
 				input.Requirements = &gen.AgentTaskRequirementsInput{
 					ExcludeWorkers:  excludeWorkers,
 					FamilyIn:        commaList(familyIn),
 					FamilyNotIn:     commaList(familyNotIn),
 					ModelGroupIn:    groupsIn,
 					ModelGroupNotIn: groupsNotIn,
-					Role:            optStr(requireRole),
+					Role:            json.RawMessage("null"),
+					Team:            optStr(teamLead),
 					MinTier:         optStr(minTier),
+				}
+			}
+			if input.Requirements != nil {
+				if len(roles) == 1 {
+					role, _ := json.Marshal(roles[0]) // a string cannot fail JSON encoding
+					input.Requirements.Role = role
+				} else {
+					input.Requirements.Roles = roles
+					if len(roles) > 1 {
+						input.Requirements.Role = nil
+					}
 				}
 			}
 			// The App: a root task needs one; a child task may take it from
@@ -461,19 +512,30 @@ warnings list.`,
 				// and so does a claim's TASK_EXTERNAL_ID_TAKEN (cli#1524), so a
 				// script tells the duplicate from another conflict. Keep ordinary
 				// task-write error output unchanged when neither is named.
-				if groupsIn != nil || groupsNotIn != nil || cmd.Flags().Changed("external-id") {
+				if match || len(roles) > 1 || cmd.Flags().Changed("team") || groupsIn != nil || groupsNotIn != nil || cmd.Flags().Changed("external-id") {
 					return api.WithServerCode(mapTaskError(err), err)
 				}
 				return mapTaskError(err)
 			}
 			task := taskDTOFrom(resp.CreateAgentTask.AgentTaskFields)
-			return writeTaskMutation(f, task, taskWarningsFor(sink, "createAgentTask"), func(w io.Writer) error {
+			err = writeTaskMutation(f, task, taskWarningsFor(sink, "createAgentTask"), func(w io.Writer) error {
 				if _, err := fmt.Fprintf(w, "✓ created task %s (%s)\n", taskRef(task.Handle, task.ID), task.Status); err != nil {
 					return err
 				}
-				if task.Queued {
+				if task.Queued && task.MatchFailure == nil {
 					if _, err := fmt.Fprintln(w, "  queued: no assignee — the platform's matcher picks one"); err != nil {
 						return err
+					}
+				}
+				if match {
+					if task.Assignee != nil {
+						if _, err := fmt.Fprintf(w, "  matched: %s (id %s; URN %s)\n", partyCell(task.Assignee), output.SafeCell(task.Assignee.ID), output.SafeCell(strOr(task.Assignee.Urn))); err != nil {
+							return err
+						}
+					} else if task.MatchFailure != nil {
+						if err := writeTaskMatchFailure(w, task.MatchFailure); err != nil {
+							return err
+						}
 					}
 				}
 				// The receipt names where the task landed, in readable form
@@ -488,6 +550,13 @@ warnings list.`,
 				}
 				return writeCloseSessionLine(w, task)
 			})
+			if err != nil {
+				return err
+			}
+			if match && task.MatchFailure != nil {
+				return exitcode.Silent(exitcode.Conflict)
+			}
+			return nil
 		},
 	}
 	cmd.Flags().IntVar(&priority, "priority", 1, "matching priority: 1-5, 1 = highest")
@@ -503,7 +572,9 @@ warnings list.`,
 	cmd.Flags().StringSliceVar(&tags, "tag", nil, "tag (repeatable)")
 	cmd.Flags().StringArrayVar(&refs, "ref", nil, "typed reference <kind>=<target>[|<label>], repeatable, kept in order; kind is "+taskRefKindsDoc)
 	cmd.Flags().StringVar(&minTier, "min-tier", "", "minimum model tier: low, mid or high (lowest sufficient preferred; unknown ineligible)")
-	cmd.Flags().StringVar(&requireRole, "require-role", "", "matcher must pick this role")
+	cmd.Flags().StringArrayVar(&requireRoles, "require-role", nil, "eligible role, comma-separated or repeatable; any one suffices")
+	cmd.Flags().BoolVar(&match, "match", false, "run one blocking match now; failed match prints the created task then exits 5")
+	cmd.Flags().StringVar(&teamLead, "team", "", "lead worker reference restricting the matching pool (server-owned)")
 	addTaskModelGroupFlags(cmd, &modelGroupIn, &modelGroupNotIn)
 	cmd.Flags().StringVar(&familyIn, "family-in", "", "comma list of model families the assignee must run as")
 	cmd.Flags().StringVar(&familyNotIn, "family-not-in", "", "comma list of model families to exclude")

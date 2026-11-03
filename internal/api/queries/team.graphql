@@ -46,6 +46,10 @@ fragment WorkerFields on Worker {
   name
   reportsTo { ...WorkerReportingRefFields }
   reportsToRetired
+  # cli#933: the recorded reporting CHOICE. REPORTS_TO / NO_TEAM / UNSET are
+  # three states, and NULL MEANS WITHHELD from this caller (access-masked):
+  # never UNSET, never NO_TEAM, and never derived from a null reportsTo.
+  teamPlacement
   role
   # The served boot briefing, surfaced by `worker get` — it is what a session driver adopts.
   prompt
@@ -160,12 +164,18 @@ mutation CastWorker(
   $role: String
   # @genqlient(omitempty: true)
   $name: String
+  # @genqlient(omitempty: true)
+  $reportsTo: ID
+  # @genqlient(omitempty: true)
+  $noTeam: Boolean
 ) {
   castWorker(
     appRef: $appRef
     agentRef: $agentRef
     role: $role
     name: $name
+    reportsTo: $reportsTo
+    noTeam: $noTeam
   ) {
     ...WorkerFields
   }
@@ -413,6 +423,8 @@ fragment WorkerRosterFields on Worker {
   name
   reportsTo { ...WorkerReportingRefFields }
   reportsToRetired
+  # cli#933: same field and same null-means-withheld semantics as WorkerFields.
+  teamPlacement
   role
   # Carried on the roster too, so the mismatch warning can name the worker the
   # caller probably meant without a third query. Same [] semantics as above.
@@ -1119,18 +1131,26 @@ query CastWorkerPreview(
   $role: String
   # @genqlient(omitempty: true)
   $name: String
+  # @genqlient(omitempty: true)
+  $reportsTo: ID
+  # @genqlient(omitempty: true)
+  $noTeam: Boolean
 ) {
   castWorkerPreview(
     appRef: $appRef
     agentRef: $agentRef
     role: $role
     name: $name
+    reportsTo: $reportsTo
+    noTeam: $noTeam
   ) {
     name
     role
     agentId
     agentName
     prompt
+    teamPlacement
+    reportsToWorkerId
   }
 }
 
