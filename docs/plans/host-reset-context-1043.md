@@ -122,13 +122,25 @@ counts as alive.
 A record left without the checkpoint node, because the restart came
 between the register answer and the disk write, takes it from the
 server's read. A relaunch already begun before the restart fails
-`RELAUNCH_UNVERIFIED` and is never started again. Every relaunch, forward
-or recovered, fails `RELAUNCH_BLOCKED` with nothing started when the
-operation's worker is not the record's, when a live agent this host
-launched for the worker since is tracked (a replacement: its launch
-identity is not the old one's, or is unknown; never judged by pid alone),
-or when the
-worker has no recover prompt.
+`RELAUNCH_UNVERIFIED` and is never started again.
+
+The relaunch step (`recoverRelaunch`, which the forward path also hands
+over to after the stop) fails `RELAUNCH_BLOCKED` with nothing started in
+three cases:
+
+- the operation's worker is not the record's;
+- a replacement agent is running for the worker. That is a live agent
+  tracked in memory whose launch identity is not the old one's, or is
+  unknown (never judged by pid alone). After a restart it is also the
+  agent the state file records at a pid other than the old one, when that
+  process is live or cannot be proven gone. A record still at the old pid
+  is the old agent's own, and an unrelated process reusing that pid is
+  not a replacement;
+- the worker has no recover prompt.
+
+On the forward path, a missing recover prompt is already refused before
+the claim (`HOST_UNSUPPORTED`), so in practice that third case is reached
+only by recovery.
 
 ## Reportable codes
 

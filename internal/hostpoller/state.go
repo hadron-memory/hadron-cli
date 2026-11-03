@@ -196,6 +196,14 @@ func (s *State) agentPIDsIn(token string) []int {
 }
 
 // recordedWorktree is the worktree a recorded agent of this worker ran in.
+// recordedAgentPID is the pid of the agent last recorded for the worker
+// (0 when none).
+func (s *State) recordedAgentPID(workerID string) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.Agents[workerID].PID
+}
+
 func (s *State) recordedWorktree(workerID string) (string, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

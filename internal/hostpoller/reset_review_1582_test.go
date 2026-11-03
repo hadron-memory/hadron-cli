@@ -205,3 +205,39 @@ func TestResetRecoveryDoesNotLaunchBesideAnUnidentifiedAgent1043(t *testing.T) {
 	x.wantSteps(t, "relaunch-failed@2 RELAUNCH_BLOCKED")
 	x.wantNoLaunch(t)
 }
+
+// LOCAL delta P2-2: after a restart nothing is tracked in memory; a live
+// replacement recorded in the state file still blocks the relaunch.
+func TestResetRecoveryDoesNotLaunchBesideAPersistedReplacement1043(t *testing.T) {
+	x := newRecoverFixture(t, "agent-stopped")
+	if err := x.p.state.recordAgent("id-iris", "repo/iris", 6161); err != nil {
+		t.Fatal(err)
+	}
+	x.proc.live[6161] = "replacement"
+	x.run(t)
+	x.wantSteps(t, "relaunch-failed@2 RELAUNCH_BLOCKED")
+	x.wantNoLaunch(t)
+}
+
+// LOCAL delta P2-2: a persisted replacement that cannot be proven gone
+// blocks the relaunch too.
+func TestResetRecoveryDoesNotLaunchBesideAnUnobservablePersistedAgent1043(t *testing.T) {
+	x := newRecoverFixture(t, "agent-stopped")
+	if err := x.p.state.recordAgent("id-iris", "repo/iris", 6161); err != nil {
+		t.Fatal(err)
+	}
+	x.proc.errs[6161] = errors.New("pidfd_open: operation not permitted")
+	x.run(t)
+	x.wantSteps(t, "relaunch-failed@2 RELAUNCH_BLOCKED")
+	x.wantNoLaunch(t)
+}
+
+// Control: a persisted replacement that is gone does not block.
+func TestResetRecoveryRelaunchesWhenThePersistedAgentIsGone1043(t *testing.T) {
+	x := newRecoverFixture(t, "agent-stopped")
+	if err := x.p.state.recordAgent("id-iris", "repo/iris", 6161); err != nil {
+		t.Fatal(err)
+	}
+	x.run(t)
+	x.wantSteps(t, "relaunched@2 pid=5151")
+}
