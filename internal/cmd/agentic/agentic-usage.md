@@ -297,9 +297,10 @@ own within about a minute.
 After a **mutation**, do not treat 7 as "nothing happened": verify current
 state before retrying, or a non-idempotent write can be double-applied.
 A **mutation is sent once to the `--server` URL and never replayed across a redirect**
-(hadron-cli#1571): if the endpoint answers any redirect (e.g. 307/308), the CLI refuses it
-("redirect refused by policy", nothing was sent to the target) instead of re-sending the
-body; fix the `--server` URL. Queries and the login flow still follow redirects.
+(hadron-cli#1571): if the endpoint answers any redirect (301/302/303/307/308), the CLI
+refuses it ("redirect refused by policy", nothing was sent to the target). Only 307/308
+would re-send the body; the others drop it and follow as a GET, and are refused too so
+there is one rule. Fix the `--server` URL. Queries and the login flow still follow redirects.
 `hadron api` knows whether your document was a mutation and says so outright;
 curated commands state the caveat conditionally, since the mapper is shared by
 reads and writes.

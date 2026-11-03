@@ -81,7 +81,7 @@ func schemeIsSecure(u *url.URL) bool {
 func withSecureRedirects(client *http.Client) *http.Client {
 	c := *client
 	c.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-		if mustSendOnce(req, via) {
+		if requiresOneSend(req, via) {
 			return refuseReplayedRedirect(req)
 		}
 		if err := checkSessionRedirect(req, via); err != nil {
@@ -107,7 +107,7 @@ func withSecureRedirects(client *http.Client) *http.Client {
 func withSessionRedirects(client *http.Client) *http.Client {
 	c := *client
 	c.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-		if mustSendOnce(req, via) {
+		if requiresOneSend(req, via) {
 			return refuseReplayedRedirect(req)
 		}
 		if err := checkSessionRedirect(req, via); err != nil {
@@ -154,11 +154,11 @@ func checkSessionRedirect(req *http.Request, via []*http.Request) error {
 	return nil
 }
 
-// mustSendOnce is the ONE place that decides a redirect must not be followed
+// requiresOneSend is the ONE place that decides a redirect must not be followed
 // because following it would replay a mutation (hadron-cli#1571): the call
 // opted in with WithNoRedirect, or the request that started the chain is a
 // GraphQL mutation. It is decided by operation type, never per command.
-func mustSendOnce(req *http.Request, via []*http.Request) bool {
+func requiresOneSend(req *http.Request, via []*http.Request) bool {
 	if noRedirectFrom(req.Context()) {
 		return true
 	}
@@ -200,10 +200,12 @@ func postBodyIsMutation(req *http.Request) bool {
 // names or aliases something `mutation` must keep following redirects (#1572
 // review). A document that does not parse cannot be proved a query, so it
 // fails closed; any mutation operation in it counts, whichever one the server
-// would execute.
+// would execute. A document with no operation at all (an empty query, the
+// persisted-query shape) cannot be proved a query either, so it fails closed
+// too (#1573).
 func documentIsMutation(query string) bool {
 	doc, err := parser.ParseQuery(&ast.Source{Input: query})
-	if err != nil {
+	if err != nil || len(doc.Operations) == 0 {
 		return true
 	}
 	for _, op := range doc.Operations {
@@ -215,8 +217,10 @@ func documentIsMutation(query string) bool {
 }
 
 // refuseReplayedRedirect is the refusal for a call that must be sent once: the
-// endpoint answered with a redirect, and re-sending the mutation to the target
-// is exactly what a one-send operation must not do. The message names the
+// endpoint answered with a redirect. Every redirect status is refused, though
+// only 307/308 would actually re-send the body (301/302/303 drop it and follow
+// as a GET); refusing them all keeps one rule, and a mutation that reached a
+// redirect was not applied where it was aimed. The message names the
 // target so the operator can fix the --server URL.
 func refuseReplayedRedirect(req *http.Request) error {
 	return fmt.Errorf("%w: the server redirected this request to %s; it is sent once and never replayed, so nothing was sent there — check the --server URL",
