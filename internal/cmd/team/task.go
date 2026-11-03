@@ -201,6 +201,7 @@ func newCmdTeamTaskCreate(f *cmdutil.Factory) *cobra.Command {
 	var excludeWorkers []string
 	var closeSession, noCloseSession, project bool
 	var batchFile string
+	var distinctAssignees bool
 	cmd := &cobra.Command{
 		Use:   "create <title> | create --batch-file <path|->",
 		Short: "Create a task",
@@ -354,14 +355,21 @@ warnings list.`,
 				// Only this command's own flags: --json, --app and --server are
 				// persistent and do combine with a batch.
 				cmd.LocalNonPersistentFlags().VisitAll(func(fl *pflag.Flag) {
-					if fl.Name != "batch-file" && cmd.Flags().Changed(fl.Name) {
+					if fl.Name != "batch-file" && fl.Name != "distinct-assignees" && cmd.Flags().Changed(fl.Name) {
 						clash = append(clash, "--"+fl.Name)
 					}
 				})
 				if len(clash) > 0 {
 					return exitcode.Newf(exitcode.Usage, "--batch-file does not combine with the single-create flags (%s): put each task's fields in the file", strings.Join(clash, ", "))
 				}
-				return runTaskBatchCreate(cmd, f, batchFile)
+				var distinct *bool
+				if cmd.Flags().Changed("distinct-assignees") {
+					distinct = &distinctAssignees // presence, not value: a given =false is sent as false
+				}
+				return runTaskBatchCreate(cmd, f, batchFile, distinct)
+			}
+			if cmd.Flags().Changed("distinct-assignees") {
+				return exitcode.Newf(exitcode.Usage, "--distinct-assignees needs --batch-file: it is an option of the batch create")
 			}
 			if cmd.Flags().Changed("min-tier") {
 				if err := validateTaskMinTier(minTier); err != nil {
@@ -612,6 +620,7 @@ warnings list.`,
 	cmd.Flags().BoolVar(&noCloseSession, "no-close-session", false, "finishing or cancelling does not ask the assignee to end its worker session (the default)")
 	cmd.Flags().StringVar(&properties, "properties", "", "the task's own JSON object, or @file")
 	cmd.Flags().StringVar(&batchFile, "batch-file", "", "create 1-25 tasks in one call from a JSON array of {task, blockedByPositions} items (a path, or - for piped stdin); not with the single-create flags")
+	cmd.Flags().BoolVar(&distinctAssignees, "distinct-assignees", false, "with --batch-file: every task that asks for a match goes to a different worker; any failed match refuses the whole call, naming the task and the reason")
 	return cmd
 }
 
