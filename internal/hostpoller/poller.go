@@ -145,7 +145,12 @@ type Poller struct {
 	agents map[string]Agent
 	// agentTrees is the worktree each launched agent runs in, by worker id.
 	agentTrees map[string]string
-	wg         sync.WaitGroup
+	// agentIDs is each launched agent's process identity, observed when it
+	// was tracked: a later pin must match it, so a reused pid is never
+	// taken for the agent (#1043). Absent when resets were not enabled at
+	// launch, or the observation failed; a reset then refuses.
+	agentIDs map[string]ProcessIdentity
+	wg       sync.WaitGroup
 
 	// Chat delivery (cli#907): off unless EnableDelivery, and switched off
 	// for the run by a missing attention:deliver scope.
@@ -157,6 +162,13 @@ type Poller struct {
 	wakeDeliverer WakeDeliverer
 	// budgetLogged is the UTC day an exhausted wake budget was last logged.
 	budgetLogged string
+
+	// worker.reset-context (#1043): off unless EnableResets.
+	resets    ResetServer
+	resetDeps ResetDeps
+	// resetStopWait bounds how long the old agent has to exit after the
+	// one stop; zero means defaultResetStopWait.
+	resetStopWait time.Duration
 }
 
 // New builds a poller. key is the host key, kept only to scrub it from
@@ -172,6 +184,7 @@ func New(cfg *Config, server Server, host Host, state *State, key string, emit f
 		workerRefs: map[string]string{},
 		agents:     map[string]Agent{},
 		agentTrees: map[string]string{},
+		agentIDs:   map[string]ProcessIdentity{},
 	}
 }
 
@@ -354,6 +367,8 @@ func (p *Poller) carryOut(ctx context.Context, op Operation) {
 		p.workerStart(ctx, op)
 	case OpWorkerEnd:
 		p.workerEnd(ctx, op)
+	case OpWorkerResetContext:
+		p.workerResetContext(ctx, op)
 	case OpWorkerDeliver:
 		// A per-task-event operation (hostOperations/types.ts:45). Chat
 		// delivery reads S1's batches instead (cli#907), so this host has
