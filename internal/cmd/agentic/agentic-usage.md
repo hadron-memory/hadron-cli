@@ -4435,8 +4435,11 @@ whole-App or team view.
 Dark-worker alarms: team delivery-settings get shows darkAlarmWindowSeconds;
 team delivery-settings set --dark-alarm-window-seconds <seconds> changes only
 that field (server bounds 300–86400, default 1800). Omitted preserves.
-team events --alarms names a task-less alarm's worker and known reason
-(overdue or wake-unacked); other evidence stays in --json and may be withheld.
+team events --alarms names a task-less dark-worker alarm's worker and known
+reason (overdue or wake-unacked). A task-less alarm.coordinator-cadence shows
+coordinator <name>, with no reason suffix or payload evidence; a missing
+subject and other task-less types keep —. The same subject appears on alarm
+ack receipts. Metadata stays in --json exactly as returned and may be withheld.
 team alarm ack <eventId> acknowledges escalation; it does not end the episode.
 A dark episode ends when checks recover and no wake is unacknowledged past
 the window. These commands do not activate delivery or calculate check state.
