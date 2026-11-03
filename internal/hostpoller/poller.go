@@ -161,6 +161,9 @@ type Poller struct {
 	// worker.reset-context (#1043): off unless EnableResets.
 	resets    ResetServer
 	resetDeps ResetDeps
+	// resetStopWait bounds how long the old agent has to exit after the
+	// one stop; zero means defaultResetStopWait.
+	resetStopWait time.Duration
 }
 
 // New builds a poller. key is the host key, kept only to scrub it from

@@ -36,13 +36,11 @@ func (p *Poller) EnableResets(rs ResetServer, deps ResetDeps) {
 // A reset already recorded (collected before a restart) is recovered from
 // the server's phase instead (recoverReset); nothing records one yet.
 //
-// The claim and everything after it (checkpoint, recovery registration,
-// the stop, the relaunch report) are not built: they wait on three
-// server answers (no phase read for restart recovery, no relaunch binding,
-// the checkpoint writer's authority — hadron-cli#1043 comment 6587438356).
-// Until then a reset that passes every check here still refuses
-// HOST_UNSUPPORTED, unclaimed: the worker is never marked RESETTING by a
-// host that cannot finish the reset.
+// The claim through the stop is built (runReset), but this handler does not
+// call it yet: the relaunch needs the checkpoint node the server wrote,
+// which it does not return (hadron-server#3300). Until then a reset that
+// passes every check here still refuses HOST_UNSUPPORTED, unclaimed: the
+// worker is never marked RESETTING by a host that cannot finish the reset.
 func (p *Poller) workerResetContext(ctx context.Context, op Operation) {
 	refuse := func(code, detail string) { p.finish(ctx, op, Failed, "", code+": "+detail) }
 	if p.resets == nil {
