@@ -32,6 +32,8 @@ func TestMutationRedirectRefusedByOperationType(t *testing.T) {
 				{"anonymous mutation shorthand", "mutation { x }", true},
 				{"query plus mutation document", "query A { a }\nmutation B { b }", true},
 				{"unparsable document fails closed", "mutation {{{", true},
+				// Chip P3 (#69565): fail closed even without the word mutation.
+				{"unparsable query without the keyword fails closed", "query {{{", true},
 			} {
 				var dest, src atomic.Int32
 				destSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

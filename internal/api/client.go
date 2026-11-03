@@ -202,9 +202,6 @@ func postBodyIsMutation(req *http.Request) bool {
 // fails closed; any mutation operation in it counts, whichever one the server
 // would execute.
 func documentIsMutation(query string) bool {
-	if !strings.Contains(query, "mutation") { // the keyword is lowercase-only
-		return false
-	}
 	doc, err := parser.ParseQuery(&ast.Source{Input: query})
 	if err != nil {
 		return true
