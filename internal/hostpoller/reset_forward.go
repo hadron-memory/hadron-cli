@@ -83,7 +83,11 @@ func (p *Poller) runReset(ctx context.Context, op Operation, ref, token string, 
 
 	// t0 before the request: a slow answer shortens the window, never
 	// lengthens it.
-	t0 := p.resetDeps.Proc.Now()
+	t0, err := p.resetDeps.Proc.Now()
+	if err != nil {
+		p.recoveryRelaunchFailed(ctx, op, resetID, epoch, "RELAUNCH_BLOCKED", "the stop was not asked for: "+err.Error())
+		return
+	}
 	grant, ok := step(func() (ResetStep, error) { return p.resets.AuthorizeResetStop(ctx, resetID, epoch, old) })
 	if !ok {
 		return

@@ -11,6 +11,6 @@ type LinuxProcessControl struct{}
 
 func (LinuxProcessControl) Observe(int) (ProcessHandle, error) { return nil, ErrUnsupportedPlatform }
 
-// Now answers a time past any lease, so nothing could be signalled even if a
-// handle existed.
-func (LinuxProcessControl) Now() time.Duration { return time.Duration(1<<62 - 1) }
+// Now has no boot clock to read here, so it answers an error: nothing could
+// be signalled even if a handle existed.
+func (LinuxProcessControl) Now() (time.Duration, error) { return 0, ErrUnsupportedPlatform }

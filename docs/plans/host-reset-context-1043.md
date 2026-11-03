@@ -53,7 +53,10 @@ Files:
    - a recorded reset is recovered instead;
    - the worker is configured on this host, with a recover prompt;
    - an agent this poller launched is still running;
-   - Git (`DIRTY_TREE`, `UNPUSHED_HEAD`), but only inside a Git tree;
+   - Git (`DIRTY_TREE`, `UNPUSHED_HEAD`), but only inside a Git tree.
+     Untracked files count as dirty whatever `status.showUntrackedFiles`
+     says. The upstream must be on a configured remote: a branch tracking
+     a local branch (`branch.<name>.remote = .`) has no remote upstream;
    - the old process can be pinned by pidfd;
    - it is proven idle (`NOT_IDLE`; idle is never assumed).
 2. **Record, then claim.** The reset is written to the state file before
@@ -66,7 +69,9 @@ Files:
    the reset fails `CHECKPOINT_FAILED` before any process control.
 4. **Stop.** `t0` is read from `CLOCK_BOOTTIME` before `authorizeStop`. One
    `SIGTERM` is sent through the pinned pidfd, only inside the granted
-   lease. A stop sent late is reported as `lateStopMs`, rounded up. The
+   lease. A clock that cannot be read, at `t0` or at the check, is an
+   error and nothing is sent; so is a check reading earlier than `t0`. A
+   stop sent late is reported as `lateStopMs`, rounded up. The
    stop is never escalated: an agent still alive after the wait fails
    `RELAUNCH_BLOCKED`.
 5. **Relaunch.** The agent is marked `Relaunching` on disk first, so it is

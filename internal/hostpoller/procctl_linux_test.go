@@ -4,10 +4,13 @@ package hostpoller
 
 import (
 	"errors"
+	"fmt"
 	"os/exec"
 	"syscall"
 	"testing"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 func startSleeper(t *testing.T) *exec.Cmd {
@@ -18,6 +21,15 @@ func startSleeper(t *testing.T) *exec.Cmd {
 	}
 	t.Cleanup(func() { _ = cmd.Process.Kill(); _, _ = cmd.Process.Wait() })
 	return cmd
+}
+
+func mustNow(t *testing.T, pc LinuxProcessControl) time.Duration {
+	t.Helper()
+	n, err := pc.Now()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return n
 }
 
 func TestObserveNamesTheProcessByKernelStartTime1043(t *testing.T) {
@@ -60,7 +72,7 @@ func TestSignalInsideTheLeaseStopsTheObservedProcess1043(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer h.Close()
-	t0 := pc.Now()
+	t0 := mustNow(t, pc)
 	late, err := h.SignalWithin(syscall.SIGTERM, t0, time.Minute, pc.Now)
 	if err != nil {
 		t.Fatal(err)
@@ -90,7 +102,7 @@ func TestSignalAfterTheLeaseSendsNothing1043(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer h.Close()
-	t0 := pc.Now() - time.Hour // the window opened an hour ago (a delayed authorizeStop answer)
+	t0 := mustNow(t, pc) - time.Hour // the window opened an hour ago (a delayed authorizeStop answer)
 	if _, err := h.SignalWithin(syscall.SIGTERM, t0, 15*time.Second, pc.Now); !errors.Is(err, ErrLeaseExpired) {
 		t.Fatalf("err %v, want ErrLeaseExpired", err)
 	}
@@ -110,7 +122,7 @@ func TestSignalReportsALateStop1043(t *testing.T) {
 	// A clock whose first read is inside the lease and whose second (after
 	// the send) is past it: a stall between check and syscall (ruling 0087 A).
 	reads := []time.Duration{10 * time.Second, 20 * time.Second}
-	clock := func() time.Duration { d := reads[0]; reads = reads[1:]; return d }
+	clock := func() (time.Duration, error) { d := reads[0]; reads = reads[1:]; return d, nil }
 	late, err := h.SignalWithin(syscall.SIGTERM, 0, 15*time.Second, clock)
 	if err != nil {
 		t.Fatal(err)
@@ -128,7 +140,7 @@ func TestSignalAfterCloseSendsNothing1043(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.Close()
-	if _, err := h.SignalWithin(syscall.SIGTERM, pc.Now(), time.Minute, pc.Now); err == nil {
+	if _, err := h.SignalWithin(syscall.SIGTERM, mustNow(t, pc), time.Minute, pc.Now); err == nil {
 		t.Fatal("a closed handle signalled")
 	}
 	if !processAlive(cmd.Process.Pid) {
@@ -154,7 +166,7 @@ func TestSignalOnAClosedHandleNeverReachesAReusedDescriptor1043(t *testing.T) {
 	if h.(*linuxHandle).fd != h2.(*linuxHandle).fd {
 		t.Skip("descriptor not reused; the hazard is not set up")
 	}
-	if _, err := h.SignalWithin(syscall.SIGTERM, pc.Now(), time.Minute, pc.Now); !errors.Is(err, ErrHandleClosed) {
+	if _, err := h.SignalWithin(syscall.SIGTERM, mustNow(t, pc), time.Minute, pc.Now); !errors.Is(err, ErrHandleClosed) {
 		t.Fatalf("err %v, want ErrHandleClosed", err)
 	}
 	time.Sleep(50 * time.Millisecond)
@@ -188,5 +200,82 @@ func TestParseStartTimeSurvivesParensInComm1043(t *testing.T) {
 	}
 	if _, err := parseStartTime("4242 (x) S 1 2"); err == nil {
 		t.Fatal("a short stat line parsed")
+	}
+}
+
+// A boot clock that cannot be read is an error, never a stand-in time
+// (cli#1582 BLIND P2 3): two equal stand-ins measured a zero-length window.
+func TestNowReportsAClockFailure1043(t *testing.T) {
+	saved := clockGettime
+	t.Cleanup(func() { clockGettime = saved })
+	clockGettime = func(int32, *unix.Timespec) error { return syscall.EINVAL }
+	if _, err := (LinuxProcessControl{}).Now(); !errors.Is(err, ErrClock) {
+		t.Fatalf("err %v, want ErrClock", err)
+	}
+}
+
+// The clock fails at the signal check: nothing is sent.
+func TestSignalWithAFailedCheckReadingSendsNothing1043(t *testing.T) {
+	cmd := startSleeper(t)
+	pc := LinuxProcessControl{}
+	h, err := pc.Observe(cmd.Process.Pid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer h.Close()
+	failing := func() (time.Duration, error) { return 0, fmt.Errorf("%w: test", ErrClock) }
+	if _, err := h.SignalWithin(syscall.SIGTERM, 0, time.Minute, failing); !errors.Is(err, ErrClock) {
+		t.Fatalf("err %v, want ErrClock", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+	if !processAlive(cmd.Process.Pid) {
+		t.Fatal("a failed clock reading still signalled")
+	}
+}
+
+// A check reading before t0 (the window's start read later than the check,
+// as a stand-in t0 would) measures nothing: nothing is sent.
+func TestSignalWithACheckReadingBeforeTheWindowSendsNothing1043(t *testing.T) {
+	cmd := startSleeper(t)
+	pc := LinuxProcessControl{}
+	h, err := pc.Observe(cmd.Process.Pid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer h.Close()
+	t0 := mustNow(t, pc) + time.Hour
+	if _, err := h.SignalWithin(syscall.SIGTERM, t0, time.Minute, pc.Now); !errors.Is(err, ErrClock) {
+		t.Fatalf("err %v, want ErrClock", err)
+	}
+	time.Sleep(50 * time.Millisecond)
+	if !processAlive(cmd.Process.Pid) {
+		t.Fatal("a reading before the window still signalled")
+	}
+}
+
+// The clock fails only after the send: the stop stands, on time by the
+// check's real reading.
+func TestSignalWithAFailedReadingAfterTheSendStands1043(t *testing.T) {
+	cmd := startSleeper(t)
+	pc := LinuxProcessControl{}
+	h, err := pc.Observe(cmd.Process.Pid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer h.Close()
+	reads := 0
+	clock := func() (time.Duration, error) {
+		reads++
+		if reads == 1 {
+			return time.Second, nil
+		}
+		return 0, fmt.Errorf("%w: test", ErrClock)
+	}
+	late, err := h.SignalWithin(syscall.SIGTERM, 0, time.Minute, clock)
+	if err != nil || late != 0 {
+		t.Fatalf("late %s, err %v; want a standing on-time stop", late, err)
+	}
+	if _, err := cmd.Process.Wait(); err != nil {
+		t.Fatal(err)
 	}
 }

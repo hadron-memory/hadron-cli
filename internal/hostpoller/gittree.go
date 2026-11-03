@@ -46,7 +46,9 @@ func GitTree(ctx context.Context, dir string) (GitTreeState, error) {
 		return st, nil
 	}
 	st.InGit = true
-	status, errOut, err := runGitTree(ctx, dir, "status", "--porcelain")
+	// --untracked-files=all: a status.showUntrackedFiles=no config would
+	// otherwise hide untracked work from the cleanliness check.
+	status, errOut, err := runGitTree(ctx, dir, "status", "--porcelain", "--untracked-files=all")
 	if err != nil {
 		return st, fmt.Errorf("git status: %s", firstNonEmpty(errOut, err.Error()))
 	}
@@ -54,6 +56,14 @@ func GitTree(ctx context.Context, dir string) (GitTreeState, error) {
 	up, _, err := runGitTree(ctx, dir, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}")
 	if err != nil {
 		return st, nil // no upstream: Upstream stays empty, which refuses
+	}
+	// A branch may track a local branch (branch.<name>.remote = .), or a
+	// remote that is no longer configured: neither proves HEAD was pushed
+	// anywhere, so neither is a remote upstream.
+	if remote, err := upstreamRemote(ctx, dir); err != nil {
+		return st, err
+	} else if remote == "" {
+		return st, nil
 	}
 	st.Upstream = up
 	n, errOut, err := runGitTree(ctx, dir, "rev-list", "--count", "@{upstream}..HEAD")
@@ -64,6 +74,29 @@ func GitTree(ctx context.Context, dir string) (GitTreeState, error) {
 		return st, fmt.Errorf("reading commits ahead of %s: %w", up, err)
 	}
 	return st, nil
+}
+
+// upstreamRemote is the configured remote HEAD's branch tracks, or "" when
+// it tracks a local branch or a remote that is not configured.
+func upstreamRemote(ctx context.Context, dir string) (string, error) {
+	branch, _, err := runGitTree(ctx, dir, "symbolic-ref", "--short", "-q", "HEAD")
+	if err != nil || branch == "" {
+		return "", nil // detached: no branch, so no upstream
+	}
+	remote, _, err := runGitTree(ctx, dir, "config", "--get", "branch."+branch+".remote")
+	if err != nil || remote == "" { // "." (a local branch) is never a configured remote
+		return "", nil
+	}
+	remotes, errOut, err := runGitTree(ctx, dir, "remote")
+	if err != nil {
+		return "", fmt.Errorf("git remote: %s", firstNonEmpty(errOut, err.Error()))
+	}
+	for _, r := range strings.Split(remotes, "\n") {
+		if strings.TrimSpace(r) == remote {
+			return remote, nil
+		}
+	}
+	return "", nil
 }
 
 func runGitTree(ctx context.Context, dir string, args ...string) (string, string, error) {

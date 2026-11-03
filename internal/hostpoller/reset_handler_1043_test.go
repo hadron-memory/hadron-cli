@@ -54,7 +54,7 @@ func (p *fakeProc) Observe(pid int) (ProcessHandle, error) {
 	p.observed++
 	return &fakeHandle{p: p, id: ProcessIdentity{PID: pid, StartTime: "1"}}, nil
 }
-func (p *fakeProc) Now() time.Duration { return 0 }
+func (p *fakeProc) Now() (time.Duration, error) { return 0, nil }
 
 type fakeHandle struct {
 	p  *fakeProc
@@ -62,7 +62,7 @@ type fakeHandle struct {
 }
 
 func (h *fakeHandle) Identity() ProcessIdentity { return h.id }
-func (h *fakeHandle) SignalWithin(syscall.Signal, time.Duration, time.Duration, func() time.Duration) (time.Duration, error) {
+func (h *fakeHandle) SignalWithin(syscall.Signal, time.Duration, time.Duration, func() (time.Duration, error)) (time.Duration, error) {
 	h.p.signalled++
 	return 0, nil
 }

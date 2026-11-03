@@ -19,7 +19,7 @@ type fwdResets struct {
 	lease      int
 	checkpoint ResetCheckpoint
 	authAt     time.Duration
-	clock      func() time.Duration
+	clock      func() (time.Duration, error)
 	recordedAt map[string]bool // whether the reset was on disk at the claim
 	state      *State
 	refusals   map[string]string
@@ -47,7 +47,7 @@ func (f *fwdResets) RegisterResetRecovery(_ context.Context, _ string, epoch int
 }
 func (f *fwdResets) AuthorizeResetStop(_ context.Context, _ string, epoch int, p ProcessIdentity) (ResetStep, error) {
 	f.calls = append(f.calls, fmt.Sprintf("authorize@%d pid=%d", epoch, p.PID))
-	f.authAt = f.clock()
+	f.authAt, _ = f.clock()
 	if r, ok := f.state.resetRecord("r1"); ok {
 		f.cpAtAuth = r.Checkpoint
 	}
@@ -68,10 +68,17 @@ type fwdProc struct {
 	signals        int
 	expire, noExit bool
 	late           time.Duration
+	clockErr       error
 	agent          *fakeAgent
 }
 
-func (p *fwdProc) Now() time.Duration { p.t += time.Second; return p.t }
+func (p *fwdProc) Now() (time.Duration, error) {
+	if p.clockErr != nil {
+		return 0, p.clockErr
+	}
+	p.t += time.Second
+	return p.t, nil
+}
 
 type fwdHandle struct {
 	p  *fwdProc
@@ -79,7 +86,7 @@ type fwdHandle struct {
 }
 
 func (h *fwdHandle) Identity() ProcessIdentity { return h.id }
-func (h *fwdHandle) SignalWithin(sig syscall.Signal, t0, lease time.Duration, _ func() time.Duration) (time.Duration, error) {
+func (h *fwdHandle) SignalWithin(sig syscall.Signal, t0, lease time.Duration, _ func() (time.Duration, error)) (time.Duration, error) {
 	h.p.sig, h.p.t0, h.p.lease = sig, t0, lease
 	if h.p.expire {
 		return 0, ErrLeaseExpired
@@ -278,6 +285,22 @@ func TestResetExpiredLeaseSendsNothing1043(t *testing.T) {
 	}
 	if x.fp.signals != 0 {
 		t.Fatal("signalled after the lease expired")
+	}
+}
+
+// A boot clock that cannot be read before the stop request leaves no window
+// to measure (cli#1582 BLIND P2 3): the stop is never asked for or sent.
+func TestResetClockFailureBeforeAuthorizeSendsNothing1043(t *testing.T) {
+	x := newFwdFixture(t)
+	x.fp.clockErr = fmt.Errorf("%w: test", ErrClock)
+	x.run(t)
+	x.wantCalls(t, "claim@0 pid=4242", "register@1 s1/t1", "relaunch-failed@1 RELAUNCH_BLOCKED")
+	x.wantReport(t, Failed, "RELAUNCH_BLOCKED")
+	if r := x.srv.finalReports()[0].reason; !strings.Contains(r, "the stop was not asked for") {
+		t.Fatalf("reason %q does not say the stop was never asked for", r)
+	}
+	if x.fp.signals != 0 {
+		t.Fatal("signalled with no readable clock")
 	}
 }
 

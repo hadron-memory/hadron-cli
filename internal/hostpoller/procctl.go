@@ -10,10 +10,12 @@ import (
 // (#1043). It observes a process by pid into a handle that pins it (a pidfd
 // on Linux), so a later signal can only reach that process, never a reused
 // pid. Now is CLOCK_BOOTTIME: it keeps counting across a suspend, so a lease
-// measured on it is never longer than the server meant.
+// measured on it is never longer than the server meant. A clock that cannot
+// be read is an error, never a stand-in value: a lease is only ever measured
+// between two real readings.
 type ProcessControl interface {
 	Observe(pid int) (ProcessHandle, error)
-	Now() time.Duration
+	Now() (time.Duration, error)
 }
 
 // ProcessHandle is one observed process.
@@ -24,13 +26,20 @@ type ProcessHandle interface {
 	// out, so a slow answer shortens the window and never lengthens it. It
 	// re-reads the clock after the send and returns how far past the lease
 	// the send landed (0 when inside): a late stop the caller records
-	// (ruling 0087 A). ErrLeaseExpired means nothing was sent.
-	SignalWithin(sig syscall.Signal, t0, lease time.Duration, now func() time.Duration) (late time.Duration, err error)
+	// (ruling 0087 A). ErrLeaseExpired means nothing was sent; so does
+	// ErrClock, when the check's reading failed or is before t0. A failed
+	// reading after the send cannot unsend: the stop stands and late is 0,
+	// the check before it having passed on a real reading.
+	SignalWithin(sig syscall.Signal, t0, lease time.Duration, now func() (time.Duration, error)) (late time.Duration, err error)
 	Close()
 }
 
 // ErrLeaseExpired: the stop lease had run out at the check; no signal sent.
 var ErrLeaseExpired = errors.New("the stop lease expired before the signal; nothing was sent")
+
+// ErrClock: the boot clock could not be read, or read earlier than the
+// window's start, so the lease cannot be measured; nothing was sent.
+var ErrClock = errors.New("the boot clock gave no usable reading, so the stop lease cannot be measured; nothing was sent")
 
 // ErrUnsupportedPlatform: this platform has no pidfd and boot clock, so the
 // handler refuses before any claim rather than signal a bare pid.

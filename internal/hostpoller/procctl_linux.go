@@ -18,15 +18,18 @@ import (
 // pidfd_send_signal and CLOCK_BOOTTIME.
 type LinuxProcessControl struct{}
 
-func (LinuxProcessControl) Now() time.Duration {
+// clockGettime is the boot-clock read; a test swaps it to fail.
+var clockGettime = unix.ClockGettime
+
+// Now reads CLOCK_BOOTTIME. It exists on every kernel with pidfd (5.3+), so
+// a failure is unreachable in practice; it is still an error, never a
+// stand-in time, because two equal stand-ins measure a zero-length window.
+func (LinuxProcessControl) Now() (time.Duration, error) {
 	var ts unix.Timespec
-	if err := unix.ClockGettime(unix.CLOCK_BOOTTIME, &ts); err != nil {
-		// CLOCK_BOOTTIME exists on every kernel with pidfd (5.3+); a
-		// failure here is unreachable in practice and must not read as
-		// "inside the lease": answer a time that is past any lease.
-		return time.Duration(1<<62 - 1)
+	if err := clockGettime(unix.CLOCK_BOOTTIME, &ts); err != nil {
+		return 0, fmt.Errorf("%w: clock_gettime(CLOCK_BOOTTIME): %v", ErrClock, err)
 	}
-	return time.Duration(ts.Nano())
+	return time.Duration(ts.Nano()), nil
 }
 
 // Observe opens a pidfd first, then reads the start time, then proves the
@@ -61,20 +64,31 @@ type linuxHandle struct {
 
 func (h *linuxHandle) Identity() ProcessIdentity { return h.id }
 
-func (h *linuxHandle) SignalWithin(sig syscall.Signal, t0, lease time.Duration, now func() time.Duration) (time.Duration, error) {
+func (h *linuxHandle) SignalWithin(sig syscall.Signal, t0, lease time.Duration, now func() (time.Duration, error)) (time.Duration, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.closed {
 		return 0, ErrHandleClosed
 	}
 	// The check and the send are adjacent: nothing between them.
-	if now()-t0 >= lease {
+	n, err := now()
+	if err != nil {
+		return 0, err
+	}
+	elapsed := n - t0
+	if elapsed < 0 {
+		return 0, fmt.Errorf("%w: the check read %s before the window opened", ErrClock, -elapsed)
+	}
+	if elapsed >= lease {
 		return 0, ErrLeaseExpired
 	}
-	err := unix.PidfdSendSignal(h.fd, sig, nil, 0)
-	after := now()
+	err = unix.PidfdSendSignal(h.fd, sig, nil, 0)
+	after, clockErr := now()
 	if err != nil {
 		return 0, fmt.Errorf("pidfd_send_signal: %w", err)
+	}
+	if clockErr != nil {
+		return 0, nil // sent inside the lease, by the check's real reading
 	}
 	if late := after - t0 - lease; late > 0 {
 		return late, nil

@@ -56,7 +56,7 @@ func (p *recProc) Observe(pid int) (ProcessHandle, error) {
 	}
 	return &recHandle{p: p, id: ProcessIdentity{PID: pid, StartTime: st}}, nil
 }
-func (p *recProc) Now() time.Duration { return 0 }
+func (p *recProc) Now() (time.Duration, error) { return 0, nil }
 
 type recHandle struct {
 	p  *recProc
@@ -64,7 +64,7 @@ type recHandle struct {
 }
 
 func (h *recHandle) Identity() ProcessIdentity { return h.id }
-func (h *recHandle) SignalWithin(syscall.Signal, time.Duration, time.Duration, func() time.Duration) (time.Duration, error) {
+func (h *recHandle) SignalWithin(syscall.Signal, time.Duration, time.Duration, func() (time.Duration, error)) (time.Duration, error) {
 	h.p.signalled++
 	return 0, nil
 }

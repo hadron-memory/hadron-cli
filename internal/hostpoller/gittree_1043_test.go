@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -98,5 +99,50 @@ func TestGitTreeWithoutAGitBinaryIsNotGit1043(t *testing.T) {
 	got, err := GitTree(context.Background(), t.TempDir())
 	if err != nil || got.InGit {
 		t.Fatalf("got %+v %v", got, err)
+	}
+}
+
+// A branch may track another LOCAL branch (branch.<name>.remote = .): its
+// upstream is nonempty and nothing is ahead of it, yet HEAD was never pushed
+// anywhere (cli#1582 BLIND P2 1). That is no remote upstream.
+func TestGitTreeTrackingALocalBranchHasNoUpstream1043(t *testing.T) {
+	dir := pushedClone(t)
+	runGit(t, dir, "checkout", "-q", "-b", "unpublished")
+	runGit(t, dir, "commit", "-q", "--allow-empty", "-m", "never pushed")
+	runGit(t, dir, "checkout", "-q", "-b", "tracks-local", "--track", "unpublished")
+	got, err := GitTree(context.Background(), dir)
+	if err != nil || !got.InGit || got.Dirty || got.Upstream != "" {
+		t.Fatalf("got %+v %v; want no remote upstream", got, err)
+	}
+}
+
+// An upstream whose remote is no longer configured proves nothing pushed.
+func TestGitTreeUpstreamOnAnUnconfiguredRemoteHasNoUpstream1043(t *testing.T) {
+	dir := pushedClone(t)
+	out, err := exec.Command("git", "-C", dir, "rev-parse", "--abbrev-ref", "HEAD").Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, dir, "config", "branch."+strings.TrimSpace(string(out))+".remote", "gone")
+	got, err := GitTree(context.Background(), dir)
+	if err != nil || !got.InGit || got.Upstream != "" {
+		t.Fatalf("got %+v %v; want no remote upstream", got, err)
+	}
+}
+
+// status.showUntrackedFiles=no hides untracked files from a plain
+// `git status --porcelain` (cli#1582 BLIND P2 2); they are still work.
+func TestGitTreeDirtyDespiteHiddenUntrackedFiles1043(t *testing.T) {
+	dir := pushedClone(t)
+	runGit(t, dir, "config", "status.showUntrackedFiles", "no")
+	if err := os.MkdirAll(filepath.Join(dir, "notes"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "notes", "scratch"), []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := GitTree(context.Background(), dir)
+	if err != nil || !got.InGit || !got.Dirty {
+		t.Fatalf("got %+v %v; want dirty", got, err)
 	}
 }
