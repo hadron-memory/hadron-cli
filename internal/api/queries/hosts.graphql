@@ -170,3 +170,82 @@ mutation ReportHostOperation(
     ...HostOperationFields
   }
 }
+
+# #1043 — the worker.reset-context protocol (cor:agt:050:27), host key only.
+# Every step answers ContextResetStep; refused/replayed are read by the
+# handler, and a refusal ends the reset server-side.
+fragment ContextResetFields on ContextReset {
+  id
+  epoch
+  phase
+  reason
+  workerId
+  sessionId
+  taskId
+  stopGrantedAt
+  stopLeaseMs
+  # #3300: the registered checkpoint's v2 URN, null until registered.
+  checkpointNode
+}
+
+fragment ContextResetStepFields on ContextResetStep {
+  refused
+  replayed
+  reset {
+    ...ContextResetFields
+  }
+}
+
+# #3273: a host-key read of one reset this host collected (ended ones too),
+# for restart recovery. Changes nothing server-side.
+query ContextReset($appRef: String!, $resetId: ID!) {
+  contextReset(appRef: $appRef, resetId: $resetId) {
+    ...ContextResetFields
+  }
+}
+
+mutation ClaimContextReset($input: ClaimContextResetInput!) {
+  claimContextReset(input: $input) {
+    ...ContextResetStepFields
+  }
+}
+
+# #3276 / ruling 0090 A: the host writes the checkpoint through this step (checkpoint),
+# never names one (checkpointNode). Exactly one is allowed: checkpointNode is
+# omitted, not sent as null, when unset (checkpoint already is).
+# @genqlient(for: "RegisterContextResetRecoveryInput.checkpointNode", omitempty: true)
+mutation RegisterContextResetRecovery(
+  $input: RegisterContextResetRecoveryInput!
+) {
+  registerContextResetRecovery(input: $input) {
+    ...ContextResetStepFields
+  }
+}
+
+mutation AuthorizeContextResetStop($input: AuthorizeContextResetStopInput!) {
+  authorizeContextResetStop(input: $input) {
+    ...ContextResetStepFields
+  }
+}
+
+# lateStopMs (#3255) is omitted, not sent as null, when the stop was on time.
+# @genqlient(for: "ContextResetStepInput.lateStopMs", omitempty: true)
+mutation ReportContextResetAgentStopped(
+  $input: ContextResetStepInput!
+) {
+  reportContextResetAgentStopped(input: $input) {
+    ...ContextResetStepFields
+  }
+}
+
+mutation ReportContextResetRelaunched($input: ReportContextResetRelaunchedInput!) {
+  reportContextResetRelaunched(input: $input) {
+    ...ContextResetStepFields
+  }
+}
+
+mutation ReportContextResetRelaunchFailed($input: ReportContextResetRelaunchFailedInput!) {
+  reportContextResetRelaunchFailed(input: $input) {
+    ...ContextResetStepFields
+  }
+}
