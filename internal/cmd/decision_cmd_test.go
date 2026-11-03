@@ -33,11 +33,12 @@ const decisionLogJSON = `{"id":"l1","urn":"hrn:node:acme.com:kb:decisions","loc"
 type decisionCall struct {
 	ops  []string
 	vars map[string]map[string]any
+	raw  map[string]json.RawMessage // each operation's variables as sent
 }
 
 func runDecision(t *testing.T, responses map[string]string, args ...string) (*decisionCall, string, error) {
 	t.Helper()
-	calls := &decisionCall{vars: map[string]map[string]any{}}
+	calls := &decisionCall{vars: map[string]map[string]any{}, raw: map[string]json.RawMessage{}}
 	gql, captured := captureGraphQLFunc(t, func(op string) string {
 		calls.ops = append(calls.ops, op)
 		return responses[op]
@@ -47,6 +48,7 @@ func runDecision(t *testing.T, responses map[string]string, args ...string) (*de
 	root.SetArgs(append(append([]string{"decision"}, args...), "--server", gql.URL))
 	err := root.Execute()
 	for op, raw := range captured {
+		calls.raw[op] = raw
 		v := map[string]any{}
 		_ = json.Unmarshal(raw, &v)
 		calls.vars[op] = v
@@ -243,9 +245,20 @@ func TestDecisionAskPassesAHugeNumberInGrant(t *testing.T) {
 	if err != nil {
 		t.Fatalf("a huge number in grant must not be refused: %v", err)
 	}
-	input, _ := decisionOnlyOp(t, c, "AskDecision")["input"].(map[string]any)
-	if input["title"] != "a" || input["grant"] == nil {
-		t.Fatalf("input: %v", input)
+	decisionOnlyOp(t, c, "AskDecision")
+	// Read the bytes as sent: a float64 decode of 1e999 fails, so a decoded
+	// map cannot show the token arrived verbatim.
+	var vars struct {
+		Input struct {
+			Title string          `json:"title"`
+			Grant json.RawMessage `json:"grant"`
+		} `json:"input"`
+	}
+	if err := json.Unmarshal(c.raw["AskDecision"], &vars); err != nil {
+		t.Fatalf("variables: %v", err)
+	}
+	if vars.Input.Title != "a" || string(vars.Input.Grant) != `{"n":1e999}` {
+		t.Fatalf("grant must reach the server verbatim, got title=%q grant=%s", vars.Input.Title, vars.Input.Grant)
 	}
 }
 
