@@ -3198,9 +3198,10 @@ func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) __premarshalJSON() (*__p
 
 // AgentTaskCreateBatchResponse is returned by AgentTaskCreateBatch on success.
 type AgentTaskCreateBatchResponse struct {
-	// Items with match:true each get one post-commit match attempt in list order; failure marks that task, not a call refusal.
+	// Default matching (distinctAssignees omitted, null or false): items with match:true each get one post-commit
+	// match attempt in list order; failure marks that task, not a call refusal. Different workers and all-or-none
+	// matching are not requested.
 	// A match item blocked after all links refuses the whole call as BAD_USER_INPUT with its position, before any commit or attempt.
-	// This does not ask for different workers or all-or-none matching. With no match items the ordinary batch behavior is unchanged.
 	// #2653 (hrn:node:hadronmemory.com:specs:cor:agt:050:06, creating several at once; ruling 0011 A): create 1 to 25
 	// tasks in the App appRef, all or none, in one transaction. Each task is judged exactly as createAgentTask judges it
 	// alone (the same gates, owner rules, refusals and warnings); the first refusal refuses the whole call, creates and
@@ -3213,18 +3214,16 @@ type AgentTaskCreateBatchResponse struct {
 	// in another App TASK_NOT_FOUND. blockedByPositions names other tasks of the call as blockers (a self-block or a
 	// cycle is TASK_BLOCKER_CYCLE, a position outside the list BAD_USER_INPUT), and needs the same assigner authority as
 	// blockedBy. Handles follow list order and a refused call spends none. Each task records the events a single create
-	// records; ordinary matching and all launches run only after the commit, and each task's warnings are filed under
+	// records; all launches run only after the commit, and each task's warnings are filed under
 	// "<response key>.<position>". The result is every task, in list order. Not idempotent: nothing is deduplicated, so a
 	// caller that lost the answer lists the App's tasks before trying again.
-	// distinctAssignees (default false; hrn:node:hadronmemory.com:specs:cor:agt:050:06, ruling 0084 A) matches each task whose match is true
+	// With distinctAssignees:true (hrn:node:hadronmemory.com:specs:cor:agt:050:06, ruling 0084 A), each task whose match is true is matched
 	// inside the same transaction, in list order, excluding every explicitly named worker in this call and every
 	// worker already matched. Each task keeps its own requirements; there is no global search or backtracking.
 	// After the normal create and blocker checks, any failed match refuses the whole call as TASK_MATCH_FAILED,
 	// with extensions.position (1-based) and extensions.reason (the single match's failure reason). No tasks,
 	// handles, events, failure marks or launches survive. Naming the same worker twice with this option is
 	// BAD_USER_INPUT at the second position. Named people and tasks not asking for a match keep their meaning.
-	// Launches and warnings run only after commit. Without the option (or with null/false), existing batch
-	// behavior is unchanged: requested matches run after commit and an ordinary failure marks only that task.
 	CreateAgentTasks []*AgentTaskCreateBatchCreateAgentTasksAgentTask `json:"createAgentTasks"`
 }
 
@@ -14600,8 +14599,10 @@ func (v *AppKeysMetadataAppKeysAppKey) GetRevokedAt() *string { return v.Revoked
 // AppKeysMetadataResponse is returned by AppKeysMetadata on success.
 type AppKeysMetadataResponse struct {
 	// List keys for an App, only for whoever manages the App
-	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12; hrn:node:hadronmemory.com:specs:cor:acl:010:01).
-	// Never an App key, a bound worker session or an impersonated request.
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12; hrn:node:hadronmemory.com:specs:cor:acl:010:01),
+	// as themselves, or through their held worker on a validated `instruction` (S6, ruling 0098). An admitted
+	// instructed call records one team event (ruling 0111): the worker, the holder, the App and the instruction,
+	// never a key. Never an App key, a host-launched or uninstructed worker session, a run or an impersonated request.
 	//
 	// Accepts the entity's ID or URN.
 	AppKeys []*AppKeysMetadataAppKeysAppKey `json:"appKeys"`
@@ -14781,8 +14782,10 @@ func (v *AppKeysScopesHostUsesAppKeysAppKeyScopesAppKeyScope) GetGrantedBy() str
 // AppKeysScopesHostUsesResponse is returned by AppKeysScopesHostUses on success.
 type AppKeysScopesHostUsesResponse struct {
 	// List keys for an App, only for whoever manages the App
-	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12; hrn:node:hadronmemory.com:specs:cor:acl:010:01).
-	// Never an App key, a bound worker session or an impersonated request.
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12; hrn:node:hadronmemory.com:specs:cor:acl:010:01),
+	// as themselves, or through their held worker on a validated `instruction` (S6, ruling 0098). An admitted
+	// instructed call records one team event (ruling 0111): the worker, the holder, the App and the instruction,
+	// never a key. Never an App key, a host-launched or uninstructed worker session, a run or an impersonated request.
 	//
 	// Accepts the entity's ID or URN.
 	AppKeys []*AppKeysScopesHostUsesAppKeysAppKey `json:"appKeys"`
@@ -14796,8 +14799,10 @@ func (v *AppKeysScopesHostUsesResponse) GetAppKeys() []*AppKeysScopesHostUsesApp
 // AppKeysScopesResponse is returned by AppKeysScopes on success.
 type AppKeysScopesResponse struct {
 	// List keys for an App, only for whoever manages the App
-	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12; hrn:node:hadronmemory.com:specs:cor:acl:010:01).
-	// Never an App key, a bound worker session or an impersonated request.
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12; hrn:node:hadronmemory.com:specs:cor:acl:010:01),
+	// as themselves, or through their held worker on a validated `instruction` (S6, ruling 0098). An admitted
+	// instructed call records one team event (ruling 0111): the worker, the holder, the App and the instruction,
+	// never a key. Never an App key, a host-launched or uninstructed worker session, a run or an impersonated request.
 	//
 	// Accepts the entity's ID or URN.
 	AppKeys []*AppKeysScopesAppKeysAppKey `json:"appKeys"`
@@ -15216,7 +15221,7 @@ func (v *AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant) __premarsh
 
 // AppMemoryWriteGrantsResponse is returned by AppMemoryWriteGrants on success.
 type AppMemoryWriteGrantsResponse struct {
-	// #2484: the write grants an App holds for its userless runs, oldest first; revoked rows only with includeRevoked. Only whoever manages the App, acting as themselves, may list them; a grant on a personal or private memory is listed to its owner alone. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+	// #2484: the write grants an App holds for its userless runs, oldest first; revoked rows only with includeRevoked. Only whoever manages the App may list them, as themselves or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0111 A: one team event per admitted instructed call, never a grant id); a grant on a personal or private memory is listed to the holder alone, when they own it. hrn:node:hadronmemory.com:specs:cor:agt:010:01
 	AppMemoryWriteGrants []*AppMemoryWriteGrantsAppMemoryWriteGrantsAppMemoryWriteGrant `json:"appMemoryWriteGrants"`
 }
 
@@ -56208,6 +56213,14 @@ var AllNodeField = []NodeField{
 type NodeFilter struct {
 	// #1591 — only nodes in this approval state (read from the stored revision; a node changed outside a revisioned writer is reconciled on its next read).
 	ApprovalState *NodeApprovalState `json:"approvalState,omitempty"`
+	// #2832 — direct children only (hrn:node:hadronmemory.com:specs:cor:api:090:02). Matches the nodes whose loc is
+	// exactly the given loc plus one more segment (no further colon); the empty string means the top-level nodes.
+	// Judged on loc strings alone: edges and parentRel play no part, and a loc whose parent has no node of its own is
+	// still listed. An absent or null value is no filter, so the empty string is a value. Applies in every mode
+	// (keyword, regex, vector, hybrid and filter-only), under the same access and default exclusions as the rest of
+	// the filter, and pages and counts like any findNodes read. With no query and no sort the order is the sibling
+	// order of hrn:node:hadronmemory.com:specs:cor:dmo:020:01 (positioned nodes first, then by loc). Not supported by appNodes.
+	ChildrenOf *string `json:"childrenOf,omitempty"`
 	// #1608 — content, comments or both (hrn:node:hadronmemory.com:specs:cor:dmo:110:08).
 	// Default CONTENT. Applied by the server before ranking, pagination and
 	// limits in every mode (keyword, regex, vector, hybrid and filter-only), so a
@@ -56250,6 +56263,9 @@ type NodeFilter struct {
 
 // GetApprovalState returns NodeFilter.ApprovalState, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetApprovalState() *NodeApprovalState { return v.ApprovalState }
+
+// GetChildrenOf returns NodeFilter.ChildrenOf, and is useful for accessing the field via an interface.
+func (v *NodeFilter) GetChildrenOf() *string { return v.ChildrenOf }
 
 // GetContentScope returns NodeFilter.ContentScope, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetContentScope() *NodeContentScope { return v.ContentScope }
@@ -65829,9 +65845,12 @@ func (v *RevisionFieldsEditedByUserNodeRevisionEditor) GetUrn() *string { return
 
 // RevokeAppKeyResponse is returned by RevokeAppKey on success.
 type RevokeAppKeyResponse struct {
-	// Revoke an AppKey. Only whoever manages the App, as themselves
-	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:05; hrn:node:hadronmemory.com:specs:cor:acl:010:01).
-	// Never an App key, a bound worker session or an impersonated request. AppKey has no URN; the id is raw ID-only.
+	// Revoke an AppKey. Only whoever manages the App, as themselves, or through their held worker on a validated
+	// `instruction` (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0098; hrn:node:hadronmemory.com:specs:cor:dmo:050:05;
+	// hrn:node:hadronmemory.com:specs:cor:acl:010:01). Never an App key, a host-launched or uninstructed worker session,
+	// a run or an impersonated request. A worker session that is refused cannot tell a missing key from an existing one.
+	// An admitted instructed revoke records one team event (never the key id); a key already revoked records none.
+	// AppKey has no URN; the id is raw ID-only.
 	RevokeAppKey bool `json:"revokeAppKey"`
 }
 
@@ -65840,7 +65859,7 @@ func (v *RevokeAppKeyResponse) GetRevokeAppKey() bool { return v.RevokeAppKey }
 
 // RevokeAppKeyScopeResponse is returned by RevokeAppKeyScope on success.
 type RevokeAppKeyScopeResponse struct {
-	// #1749 — take a scope back. The key's next call is refused. Revoking a scope it does not hold changes nothing.
+	// #1749 — take a scope back. The key's next call is refused. Revoking a scope it does not hold changes nothing. Whoever manages the App, as themselves, or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0109 A); an admitted instructed revoke that ended a scope records one team event (never the key or scope id).
 	RevokeAppKeyScope *RevokeAppKeyScopeRevokeAppKeyScopeAppKey `json:"revokeAppKeyScope"`
 }
 
@@ -65935,7 +65954,7 @@ func (v *RevokeAppKeyScopeRevokeAppKeyScopeAppKey) __premarshalJSON() (*__premar
 
 // RevokeAppMemoryWriteGrantResponse is returned by RevokeAppMemoryWriteGrant on success.
 type RevokeAppMemoryWriteGrantResponse struct {
-	// #2484: end a grant; the next write by the App's run is refused. Whoever manages the App may revoke, acting as themselves. The row stays with its end time; revoking a revoked grant changes nothing. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+	// #2484: end a grant; the next write by the App's run is refused. Whoever manages the App may revoke, as themselves or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0109 A; one team event, never the grant id). The row stays with its end time; revoking a revoked grant changes nothing and records nothing. hrn:node:hadronmemory.com:specs:cor:agt:010:01
 	RevokeAppMemoryWriteGrant *RevokeAppMemoryWriteGrantRevokeAppMemoryWriteGrant `json:"revokeAppMemoryWriteGrant"`
 }
 
