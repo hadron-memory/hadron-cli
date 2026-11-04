@@ -46744,6 +46744,106 @@ type GetWorkerResponse struct {
 // GetWorker returns GetWorkerResponse.Worker, and is useful for accessing the field via an interface.
 func (v *GetWorkerResponse) GetWorker() *GetWorkerWorker { return v.Worker }
 
+// GetWorkerRetireAdvisoryResponse is returned by GetWorkerRetireAdvisory on success.
+type GetWorkerRetireAdvisoryResponse struct {
+	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
+	// NAME (#1015), the ergonomic handle a human already knows. The name form is
+	// ADDITIVE: it is activated by appRef, since a name is unique only within an
+	// App. Without appRef the ref must be an id or URN, and anything else refuses
+	// WORKER_NOT_FOUND as before. An id or URN wins over appRef rather than being
+	// checked against it, so a typo'd URN never degrades into a roster search.
+	//
+	// Selecting `prompt` re-renders the worker's boot briefing live from the
+	// role agent's template — the read that lets an agent recover a briefing it
+	// lost to a context compaction, instead of opening a second session or
+	// forcing a takeover of itself.
+	//
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	Worker *GetWorkerRetireAdvisoryWorker `json:"worker"`
+}
+
+// GetWorker returns GetWorkerRetireAdvisoryResponse.Worker, and is useful for accessing the field via an interface.
+func (v *GetWorkerRetireAdvisoryResponse) GetWorker() *GetWorkerRetireAdvisoryWorker { return v.Worker }
+
+// GetWorkerRetireAdvisoryWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type GetWorkerRetireAdvisoryWorker struct {
+	// #1029 — what a fresh binding of this worker inherits from the last one.
+	//
+	// Returned by startSession alongside the boot briefing (binding is briefing,
+	// so binding is handoff) and by the worker read, which is the recovery path
+	// after a context compaction — the reader who has most lost the handoff and
+	// least knows one exists. Working-state field: behind the worker read gate,
+	// masked to null on deny, like prompt/memoryId.
+	Continuity *GetWorkerRetireAdvisoryWorkerContinuity `json:"continuity"`
+}
+
+// GetContinuity returns GetWorkerRetireAdvisoryWorker.Continuity, and is useful for accessing the field via an interface.
+func (v *GetWorkerRetireAdvisoryWorker) GetContinuity() *GetWorkerRetireAdvisoryWorkerContinuity {
+	return v.Continuity
+}
+
+// GetWorkerRetireAdvisoryWorkerContinuity includes the requested fields of the GraphQL type WorkerContinuity.
+// The GraphQL type's documentation follows.
+//
+// #1029 — the continuity a worker carries between stints.
+//
+// Handoffs are ordinary nodes in the worker's working memory, so a client walks
+// the whole sequence through the node surface. This type exists for the ONE
+// handoff that cannot be discovered: the newest, which a fresh session does not
+// know to look for.
+type GetWorkerRetireAdvisoryWorkerContinuity struct {
+	Status WorkerContinuityStatus `json:"status"`
+	// The newest handoff node, or null when the worker has none. Present even
+	// when status is MISSING — a stale handoff is still the best available
+	// account of where this worker got to, and withholding it helps nobody.
+	Handoff *GetWorkerRetireAdvisoryWorkerContinuityHandoffNode `json:"handoff"`
+}
+
+// GetStatus returns GetWorkerRetireAdvisoryWorkerContinuity.Status, and is useful for accessing the field via an interface.
+func (v *GetWorkerRetireAdvisoryWorkerContinuity) GetStatus() WorkerContinuityStatus { return v.Status }
+
+// GetHandoff returns GetWorkerRetireAdvisoryWorkerContinuity.Handoff, and is useful for accessing the field via an interface.
+func (v *GetWorkerRetireAdvisoryWorkerContinuity) GetHandoff() *GetWorkerRetireAdvisoryWorkerContinuityHandoffNode {
+	return v.Handoff
+}
+
+// GetWorkerRetireAdvisoryWorkerContinuityHandoffNode includes the requested fields of the GraphQL type Node.
+type GetWorkerRetireAdvisoryWorkerContinuityHandoffNode struct {
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn       string `json:"urn"`
+	Loc       string `json:"loc"`
+	CreatedAt string `json:"createdAt"`
+}
+
+// GetUrn returns GetWorkerRetireAdvisoryWorkerContinuityHandoffNode.Urn, and is useful for accessing the field via an interface.
+func (v *GetWorkerRetireAdvisoryWorkerContinuityHandoffNode) GetUrn() string { return v.Urn }
+
+// GetLoc returns GetWorkerRetireAdvisoryWorkerContinuityHandoffNode.Loc, and is useful for accessing the field via an interface.
+func (v *GetWorkerRetireAdvisoryWorkerContinuityHandoffNode) GetLoc() string { return v.Loc }
+
+// GetCreatedAt returns GetWorkerRetireAdvisoryWorkerContinuityHandoffNode.CreatedAt, and is useful for accessing the field via an interface.
+func (v *GetWorkerRetireAdvisoryWorkerContinuityHandoffNode) GetCreatedAt() string {
+	return v.CreatedAt
+}
+
 // GetWorkerTerminalResponse is returned by GetWorkerTerminal on success.
 type GetWorkerTerminalResponse struct {
 	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
@@ -100237,6 +100337,14 @@ type __GetWorkerRenderedInput struct {
 // GetRef returns __GetWorkerRenderedInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetWorkerRenderedInput) GetRef() string { return v.Ref }
 
+// __GetWorkerRetireAdvisoryInput is used internally by genqlient
+type __GetWorkerRetireAdvisoryInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetWorkerRetireAdvisoryInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetWorkerRetireAdvisoryInput) GetRef() string { return v.Ref }
+
 // __GetWorkerTerminalInput is used internally by genqlient
 type __GetWorkerTerminalInput struct {
 	Ref string `json:"ref"`
@@ -122375,6 +122483,53 @@ func GetWorkerRendered(
 	}
 
 	data_ = &GetWorkerRenderedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetWorkerRetireAdvisory.
+const GetWorkerRetireAdvisory_Operation = `
+query GetWorkerRetireAdvisory ($ref: ID!) {
+	worker(ref: $ref) {
+		continuity {
+			status
+			handoff {
+				urn
+				loc
+				createdAt
+			}
+		}
+	}
+}
+`
+
+// cli#494: the retirement advisory reads the SAME server-owned continuity
+// facts as GetWorkerContinuity, but only the metadata `worker retire` may show
+// before its confirmation: status and the handoff's reference (urn/loc/time) —
+// never the handoff body, never previousSession internals. Deliberately its own
+// operation (not WorkerFields): the roster projection stays unwidened, and an
+// older server that rejects Worker.continuity fails only this read.
+func GetWorkerRetireAdvisory(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetWorkerRetireAdvisoryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetWorkerRetireAdvisory",
+		Query:  GetWorkerRetireAdvisory_Operation,
+		Variables: &__GetWorkerRetireAdvisoryInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetWorkerRetireAdvisoryResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

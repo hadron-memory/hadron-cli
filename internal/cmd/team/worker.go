@@ -994,6 +994,9 @@ type retireResultDTO struct {
 	Name      string  `json:"name"`
 	RetiredAt *string `json:"retiredAt"`
 	Status    string  `json:"status"`
+	// Advisory is the cli#494 handoff advisory read before the confirmation:
+	// stored continuity facts only, null where unavailable to this caller.
+	Advisory retireAdvisoryDTO `json:"advisory"`
 }
 
 func newCmdWorkerRetire(f *cmdutil.Factory) *cobra.Command {
@@ -1015,6 +1018,19 @@ not retire it for you; run this command instead.
 Not the same as stepping away: to stop holding the name use ` + "`worker release`" + `,
 and to take a worker off new work for a while use ` + "`team availability set`" + `.
 
+Before it asks, retire prints a handoff advisory to stderr (also with --yes
+and --json), read from what the server reports for the worker: whether the
+last ended stint wrote the newest handoff (CURRENT), this is the first stint,
+or no handoff from the last stint is visible to you (MISSING — not proof none
+was written), plus a note when an open session may still write one. It states
+only what is stored: it never says a handoff is unread, unconsumed or lost,
+and "unavailable to you" is not evidence that none exists. Retirement stops
+new bindings and deletes no handoff nodes. The advisory is a warning only — it
+adds no refusal, prompt or acknowledgement; if it cannot be read, retire says
+so and continues through the same confirmation. With --json, the result gains
+an advisory object (continuityStatus, hasLiveSession, handoffURN; null means
+unavailable).
+
 Who may retire: the same people who may cast (` + "`worker cast --help`" + `). A NAME
 resolves within --app, the App context or the binding; an id or worker URN
 needs no App. On a terminal it asks first; without one, --yes is required
@@ -1033,12 +1049,17 @@ needs no App. On a terminal it asks first; without one, --yes is required
 			if err != nil {
 				return err
 			}
-			if err := cmdutil.Confirm(f.IOStreams, yes,
-				fmt.Sprintf("Retire worker %s (%s)? It stops working; the name stays reserved for it forever.", w.Name, w.Id)); err != nil {
-				return err
-			}
 			client, err := f.GraphQLClient()
 			if err != nil {
+				return err
+			}
+			// cli#494: one advisory read, shown on stderr BEFORE the prompt
+			// (and under --yes/--json). A warning only: it never refuses,
+			// adds no prompt, and a failed read degrades to "unavailable".
+			advisory := readRetireAdvisory(cmd.Context(), client, &w)
+			writeRetireAdvisory(f.IOStreams.ErrOut, advisory)
+			if err := cmdutil.Confirm(f.IOStreams, yes,
+				fmt.Sprintf("Retire worker %s (%s)? It stops working; the name stays reserved for it forever.", w.Name, w.Id)); err != nil {
 				return err
 			}
 			retired, err := retireWorker(cmd, client, &w, claim, instructed)
@@ -1049,7 +1070,7 @@ needs no App. On a terminal it asks first; without one, --yes is required
 				return exitcode.Newf(exitcode.Error, "server returned no worker")
 			}
 			dto := workerDTOFromFields(*retired)
-			result := retireResultDTO{ID: dto.ID, Name: dto.Name, RetiredAt: dto.RetiredAt, Status: "retired"}
+			result := retireResultDTO{ID: dto.ID, Name: dto.Name, RetiredAt: dto.RetiredAt, Status: "retired", Advisory: advisory.retireAdvisoryDTO}
 			return output.Write(f.IOStreams, f.JSON, result, func(out io.Writer) error {
 				_, err := fmt.Fprintf(out, "✓ retired worker %s — the name stays bound to it and is never re-cast\n", dto.Name)
 				return err
