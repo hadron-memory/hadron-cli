@@ -118,11 +118,16 @@ func LoadConfig(path string) (*Config, error) {
 		if a.Family == "" {
 			a.Family = "claude"
 		}
-		if a.Family != "claude" {
-			return nil, bad("config: account %q: family %q is not supported yet (claude only)", a.Label, a.Family)
+		switch a.Family {
+		case "claude", "codex", "glm":
+		default:
+			return nil, bad("config: account %q: family %q is not supported (claude, codex or glm)", a.Label, a.Family)
 		}
 		if !filepath.IsAbs(a.ConfigDir) {
 			return nil, bad("config: account %q: configDir must be an absolute path", a.Label)
+		}
+		if a.Family == "codex" && filepath.Clean(a.ConfigDir) != a.ConfigDir {
+			return nil, bad("config: account %q: a codex configDir must be a clean absolute path (no .. or repeated separators)", a.Label)
 		}
 		if a.CcusageFile != "" && !filepath.IsAbs(a.CcusageFile) {
 			return nil, bad("config: account %q: ccusageFile must be an absolute path", a.Label)
@@ -350,10 +355,20 @@ type Record struct {
 	// the ccusage blocks that could still be growing at observation (started
 	// within ActiveWindow of it). Present, possibly empty, whenever a ccusage
 	// file was read.
-	CcusageBlocks     *[]BlockCheckpoint `json:"ccusageBlocks,omitempty"`
-	Workers           []string           `json:"workers"`
-	WorkersConfigured bool               `json:"workersConfigured"`
-	SchemaVersion     int                `json:"schemaVersion"`
+	CcusageBlocks *[]BlockCheckpoint `json:"ccusageBlocks,omitempty"`
+	// Codex windows keep their own length (cli#1659); a Claude record never
+	// carries them. SourceState is omitted for Claude: ok | no-reading-yet
+	// (codex) | no-local-source (glm).
+	PrimaryPct        *float64 `json:"primaryPct,omitempty"`
+	PrimaryMinutes    *int     `json:"primaryMinutes,omitempty"`
+	PrimaryResetsAt   *string  `json:"primaryResetsAt,omitempty"`
+	SecondaryPct      *float64 `json:"secondaryPct,omitempty"`
+	SecondaryMinutes  *int     `json:"secondaryMinutes,omitempty"`
+	SecondaryResetsAt *string  `json:"secondaryResetsAt,omitempty"`
+	SourceState       string   `json:"sourceState,omitempty"`
+	Workers           []string `json:"workers"`
+	WorkersConfigured bool     `json:"workersConfigured"`
+	SchemaVersion     int      `json:"schemaVersion"`
 }
 
 func rfc(t time.Time) string { return t.UTC().Format(time.RFC3339) }
@@ -363,6 +378,7 @@ type Prepared struct {
 	Account  Account
 	Snapshot Snapshot
 	Blocks   []Block
+	Codex    CodexSnapshot
 }
 
 // Prepare validates every account's input before anything is written. The
@@ -370,6 +386,18 @@ type Prepared struct {
 func Prepare(cfg *Config) ([]Prepared, error) {
 	out := make([]Prepared, 0, len(cfg.Accounts))
 	for _, a := range cfg.Accounts {
+		switch a.Family {
+		case "codex":
+			cx, err := ReadCodex(a)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, Prepared{Account: a, Codex: cx})
+			continue
+		case "glm":
+			out = append(out, Prepared{Account: a})
+			continue
+		}
 		snap, err := ReadSnapshot(a)
 		if err != nil {
 			return nil, err
@@ -420,6 +448,26 @@ func BuildRecord(p Prepared, host string, now time.Time, prev Previous) Record {
 	}
 	if p.Account.workersSet {
 		r.Workers = append(r.Workers, p.Account.Workers...)
+	}
+	switch p.Account.Family {
+	case "glm":
+		r.SourceState = "no-local-source"
+		return r
+	case "codex":
+		r.SourceState = "no-reading-yet"
+		if p.Codex.Present {
+			r.SourceState = "ok"
+			r.ObservedAt = rfc(p.Codex.ObservedAt)
+			if w := p.Codex.Primary; w != nil {
+				pct, m, at := w.UsedPct, w.Minutes, rfc(w.ResetsAt)
+				r.PrimaryPct, r.PrimaryMinutes, r.PrimaryResetsAt = &pct, &m, &at
+			}
+			if w := p.Codex.Secondary; w != nil {
+				pct, m, at := w.UsedPct, w.Minutes, rfc(w.ResetsAt)
+				r.SecondaryPct, r.SecondaryMinutes, r.SecondaryResetsAt = &pct, &m, &at
+			}
+		}
+		return r
 	}
 	if p.Snapshot.Present {
 		r.ObservedAt = rfc(p.Snapshot.ObservedAt)

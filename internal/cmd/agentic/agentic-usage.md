@@ -502,8 +502,8 @@ hadron team health sweep --config <host.yaml>   # code-only terminal health repo
 hadron team health install --config <host.yaml> --interval <Nm> [--bin <abs hadron>]   # writes one user-level scheduler entry `hadron-team-health` running the sweep; see "Team health install" (cli#1374); exit 2 on no scheduler / orca unresolved / bad interval / different --config
 hadron team health uninstall   # removes exactly what install wrote, also after a failed install
 hadron team health status   # read-only; json {installed,scheduler,active,interval,binary,config,orca,files,lastRun{at,exitCode}}; lastRun unknown under cron
-hadron team usage collect --config <usage.yaml> [-m <memory>]   # cli#1472: record one account-usage object per configured model account (5h/7d allowance windows); validates every account first, exit 2 and NOTHING written on any bad config/snapshot/ccusage file; see "Team usage"
-hadron team usage show [--config <usage.yaml> | -m <memory>] [--limit 1-200]   # per-account current 5h/7d use, resets, burn rate %/h, projected exhaustsAt; json {memory,accounts:[]}; unknown is null
+hadron team usage collect --config <usage.yaml> [-m <memory>]   # cli#1472: record one account-usage object per configured model account (allowance windows, family claude/codex/glm; glm records "no local source"); validates every account first, exit 2 and NOTHING written on any bad config/snapshot/ccusage file; see "Team usage"
+hadron team usage show [--config <usage.yaml> | -m <memory>] [--limit 1-200]   # per-account current use, resets, burn rate %/h, projected exhaustsAt; json {memory,accounts:[]}; unknown is null
 hadron team usage install --config <usage.yaml> --interval <Nm> [--bin <abs hadron>] | uninstall | status   # a second user-level scheduler entry `hadron-team-usage` beside team health's; same refusals and json shapes minus orca
 hadron team router poll | loop [--interval 60s] | status [--config <path>]   # RETIRED (cli#935, hadron-server#2027): each exits 2 (Usage) with "hadron team router is retired (hadron-server#2027): the attention API it polled is being removed. Wakes come from tickers (hadron-server#2138). Nothing was polled or typed."; --json gives the standard error envelope; it reads no config, state directory or credentials, polls nothing and types into no terminal; old flags are accepted and ignored, unknown flags stay usage errors
 hadron org resend-sender create --org <ref> --from <identity> [--api-key-file <path|->] [--enabled=false] | get <sender-id> | list [--org-id <raw-id>] [--limit N] [--offset N] | update <sender-id> [--from <identity>] [--api-key-file <path|->] [--enabled=false] | rm <sender-id> --yes
@@ -4628,7 +4628,10 @@ file, argv or env. Do not install against production until hadron-server#2931 is
 `hadron team usage` records how much of each model subscription account's 5-hour
 and 7-day allowance is used, so "which account runs out first, and when" has data
 behind it. It is NOT `hadron usage` (AI-call events the server recorded in your
-memories); it never reads or writes those. Claude accounts only in v1.
+memories); it never reads or writes those. It tracks every provider the team uses
+(cli#1659): `family` is `claude`, `codex` or `glm`; a provider with no readable
+source (`glm` today) is recorded as a finding (`sourceState: no-local-source`) and
+listed by `show`, never silently dropped.
 
 The operator sets up, per account: a status line script that writes the harness's
 `rate_limits` to `$CLAUDE_CONFIG_DIR/hadron-usage/rate-limits.json` as
@@ -4642,6 +4645,15 @@ ccusageFile?, workers?: [names]}]`. A label is the operator's own name; one with
 `@` is refused. `workers` is never derived from transcripts: absent means
 `workersConfigured:false`.
 
+`family: codex` needs no setup: `configDir` is the account's Codex home (a clean
+absolute path) and `collect` reads the newest `sessions/YYYY/MM/DD/rollout-*.jsonl`
+under it, taking only the latest `token_count` event's `rate_limits` (`used_percent`,
+`window_minutes`, `resets_at` for `primary` and `secondary`). No network, no API key.
+Nothing else from a rollout (conversation text, token counts, `credits.balance`,
+`plan_type`) is stored, printed or logged; a malformed or oversized line is skipped,
+and a symlink or non-regular file is never followed. A rollout with no `token_count`
+yet is `sourceState: no-reading-yet`, not 0.
+
 `collect` validates every account before writing; any problem (missing or malformed
 config, unreadable/malformed/symlinked snapshot or ccusage file, `used_percentage`
 outside 0-100, an `@` label) is exit 2 and writes no record for ANY account; an
@@ -4649,7 +4661,11 @@ absent snapshot file is "no data" (windows absent). Errors never echo file
 contents. Records are objects in collection `account-usage` (schemaVersion 1, absent
 values omitted, not recorded as 0): `label, family, host, observedAt, fiveHourPct,
 fiveHourResetsAt, sevenDayPct, sevenDayResetsAt, tokensSinceLast,
-estCostUsdSinceLast, ccusageBlocks, workers, workersConfigured, schemaVersion`;
+estCostUsdSinceLast, ccusageBlocks, workers, workersConfigured, schemaVersion`; Codex
+records add `primaryPct, primaryMinutes, primaryResetsAt, secondaryPct,
+secondaryMinutes, secondaryResetsAt` (each window keeps its own length, never
+relabelled as 5h/7d) and `sourceState` (`ok | no-reading-yet`; glm:
+`no-local-source`); a Claude record is unchanged;
 `ccusageBlocks` is the checkpoint (blocks that started within 6h of the
 observation) and the since-last fields are the growth of those blocks since this
 account's previous record on this host and family (absent when that cannot be
@@ -4658,9 +4674,12 @@ The shape is pinned by a golden test and declared in the CLI, not in `team init`
 (a server-declared collection is a follow-up with the portal).
 
 `show --json` is `{memory, accounts:[{label,family,host,observedAt,fiveHour,sevenDay,
-workers,workersConfigured,points}]}`, each window `{usedPct,resetsAt,expired,
-burnPctPerHour,exhaustsAt,exhaustsBeforeReset}` (a null field means not known; `accounts` is `[]`
-when nothing is recorded). `install|uninstall|status` mirror `team health` as a
+primary?,secondary?,sourceState?,workers,workersConfigured,points}]}`, each window
+`{usedPct,resetsAt,expired,minutes?,burnPctPerHour,exhaustsAt,exhaustsBeforeReset}`
+(a null field means not known; `primary`/`secondary` appear only for codex accounts and
+`sourceState` only for codex/glm; `accounts` is `[]` when nothing is recorded).
+"Runs out first" ranks every window of every family by the earliest `exhaustsAt`
+before its own reset; the minutes label a window, they never rank it. `install|uninstall|status` mirror `team health` as a
 separate entry; each removes only its own entry.
 
 ### Agent ticker templates (cli#913; MCP cut C1)

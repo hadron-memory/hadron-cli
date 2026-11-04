@@ -16,6 +16,9 @@ type WindowView struct {
 	// Expired is true when ResetsAt has passed: the percentage describes a
 	// window that is over, so it is reported but must not be read as current.
 	Expired bool `json:"expired"`
+	// Minutes is the window's own length when the record carries it (Codex
+	// windows); absent for Claude's fixed 5h/7d pair.
+	Minutes *int `json:"minutes,omitempty"`
 	// BurnPctPerHour is the rise in used percentage per hour across this
 	// window's recorded points (needs two at different times, same window).
 	BurnPctPerHour *float64 `json:"burnPctPerHour"`
@@ -33,7 +36,12 @@ type AccountView struct {
 	ObservedAt string     `json:"observedAt"`
 	FiveHour   WindowView `json:"fiveHour"`
 	SevenDay   WindowView `json:"sevenDay"`
-	Workers    []string   `json:"workers"`
+	// Primary and Secondary are the Codex windows; nil (omitted) for other families.
+	Primary   *WindowView `json:"primary,omitempty"`
+	Secondary *WindowView `json:"secondary,omitempty"`
+	// SourceState is ok | no-reading-yet | no-local-source for codex/glm records.
+	SourceState string   `json:"sourceState,omitempty"`
+	Workers     []string `json:"workers"`
 	// WorkersConfigured is false when the account's workers list was never
 	// configured: Workers is then empty because it is unknown, not because
 	// nobody ran on the account.
@@ -91,14 +99,20 @@ func View(objects []json.RawMessage, now time.Time) []AccountView {
 			Label: l, Family: last.Family, Host: last.Host, ObservedAt: last.ObservedAt,
 			Workers: append([]string{}, last.Workers...), WorkersConfigured: last.WorkersConfigured, Points: len(pts),
 		}
-		v.FiveHour = windowView(pts, now, func(r Record) (*float64, *string) { return r.FiveHourPct, r.FiveHourResetsAt })
-		v.SevenDay = windowView(pts, now, func(r Record) (*float64, *string) { return r.SevenDayPct, r.SevenDayResetsAt })
+		v.FiveHour = windowView(pts, now, func(r Record) (*float64, *string) { return r.FiveHourPct, r.FiveHourResetsAt }, nil)
+		v.SevenDay = windowView(pts, now, func(r Record) (*float64, *string) { return r.SevenDayPct, r.SevenDayResetsAt }, nil)
+		v.SourceState = last.SourceState
+		if k.family == "codex" {
+			pw := windowView(pts, now, func(r Record) (*float64, *string) { return r.PrimaryPct, r.PrimaryResetsAt }, func(r Record) *int { return r.PrimaryMinutes })
+			sw := windowView(pts, now, func(r Record) (*float64, *string) { return r.SecondaryPct, r.SecondaryResetsAt }, func(r Record) *int { return r.SecondaryMinutes })
+			v.Primary, v.Secondary = &pw, &sw
+		}
 		out = append(out, v)
 	}
 	return out
 }
 
-func windowView(pts []point, now time.Time, pick func(Record) (*float64, *string)) WindowView {
+func windowView(pts []point, now time.Time, pick func(Record) (*float64, *string), mins func(Record) *int) WindowView {
 	var v WindowView
 	// Current = the newest point that reports this window at all.
 	cur := -1
@@ -113,6 +127,12 @@ func windowView(pts []point, now time.Time, pick func(Record) (*float64, *string
 	}
 	pct, resets := pick(pts[cur].rec)
 	v.UsedPct, v.ResetsAt = copyF(*pct), copyS(*resets)
+	if mins != nil {
+		if m := mins(pts[cur].rec); m != nil {
+			mv := *m
+			v.Minutes = &mv
+		}
+	}
 	resetsAt, err := time.Parse(time.RFC3339, *resets)
 	if err != nil {
 		return v
