@@ -49,7 +49,21 @@ nothing). A post the server commits more than three minutes late, after the
 next run's check, can still appear twice. This is not exactly-once.
 
 Run it from a timer every few minutes. --dry-run posts nothing and counts
-pending reports, and those first held more than --stale-after ago.`,
+pending reports, and those first held more than --stale-after ago.
+
+Each notice handled prints one line: <result> <event id> <worker> [#seq].
+  reported    posted now, at #seq
+  reconciled  an earlier attempt's post was found at #seq; not posted again
+  duplicate   the server refused an identical re-post; its earlier #seq is recorded
+  waiting     an earlier attempt is too recent to check; the next run checks it
+  failed      not reported; stays pending (the reason follows)
+A run with nothing pending prints "nothing to report".
+
+Exit codes: 0 every pending notice reported, or waiting; 2 usage; 7 no live
+binding of --reporter-worker in this worktree, or some report failed (they
+stay pending); 1 any other error.`,
+		Example: `  hadron team host report-stops --config host.yaml --reporter-worker Hugo
+  hadron team host report-stops --config host.yaml --reporter-worker Hugo --dry-run --stale-after 10m`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if strings.TrimSpace(configPath) == "" {
@@ -75,7 +89,7 @@ pending reports, and those first held more than --stale-after ago.`,
 				if f.JSON {
 					return json.NewEncoder(out).Encode(map[string]int{"pending": pending, "stale": stale})
 				}
-				fmt.Fprintf(out, "pending %d, held over %s %d\n", pending, staleAfter, stale)
+				fmt.Fprintf(out, "pending %d, of which held over %s: %d\n", pending, staleAfter, stale)
 				return nil
 			}
 			rep.API = &stopReporterAPI{f: f, cmd: cmd}
@@ -98,6 +112,8 @@ pending reports, and those first held more than --stale-after ago.`,
 				}
 			} else if run.Busy {
 				fmt.Fprintln(out, "another report-stops run holds the outbox; nothing done")
+			} else if len(run.Outcomes) == 0 {
+				fmt.Fprintln(out, "nothing to report")
 			} else {
 				for _, o := range run.Outcomes {
 					line := fmt.Sprintf("%s %s %s", o.Result, o.EventID, o.Worker)

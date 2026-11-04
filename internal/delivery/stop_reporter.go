@@ -93,6 +93,10 @@ type stopSending struct {
 	Body           string    `json:"body"`
 	HeadSeq        int       `json:"headSeq"`
 	FirstAttemptAt time.Time `json:"firstAttemptAt"`
+	// AuthorWorkerID is the reporter worker that wrote the intent and made
+	// the first attempt. A retry under another reporter reconciles that
+	// worker's post too, since the server's duplicate rule is per worker.
+	AuthorWorkerID string `json:"authorWorkerId"`
 }
 
 // stopReported is the marker: the notice's flag is the post at Seq.
@@ -234,7 +238,8 @@ func (r *StopReporter) reportOne(ctx context.Context, e namedDrop, workerID stri
 		if err != nil {
 			return fail(fmt.Errorf("reading the channel head: %w", err))
 		}
-		intent = &stopSending{EventID: e.rec.EventID, Body: stopDropBody(recipient, e.rec), HeadSeq: head, FirstAttemptAt: r.now()}
+		intent = &stopSending{EventID: e.rec.EventID, Body: stopDropBody(recipient, e.rec), HeadSeq: head,
+			FirstAttemptAt: r.now(), AuthorWorkerID: workerID}
 		if r.beforeIntent != nil {
 			r.beforeIntent()
 		}
@@ -290,7 +295,8 @@ func (r *StopReporter) reportOne(ctx context.Context, e namedDrop, workerID stri
 	return out
 }
 
-// reconcile looks for the intent's body, posted by workerID, after its head.
+// reconcile looks for the intent's body after its head, posted by workerID
+// or by the worker that wrote the intent.
 func (r *StopReporter) reconcile(ctx context.Context, intent *stopSending, workerID string) (int, bool, error) {
 	after := intent.HeadSeq
 	for {
@@ -302,7 +308,8 @@ func (r *StopReporter) reconcile(ctx context.Context, intent *stopSending, worke
 			return 0, false, nil
 		}
 		for _, m := range page {
-			if m.AuthorWorkerID == workerID && m.Body == intent.Body {
+			if (m.AuthorWorkerID == workerID || (intent.AuthorWorkerID != "" && m.AuthorWorkerID == intent.AuthorWorkerID)) &&
+				m.Body == intent.Body {
 				return m.Seq, true, nil
 			}
 			if m.Seq > after {
@@ -350,9 +357,37 @@ func (r *StopReporter) markReported(base, eventID string, seq int) error {
 	return err
 }
 
+// holdGloss explains a hold code in plain words; an unknown code is shown
+// as it is.
+var holdGloss = map[string]string{
+	HoldDraft:             "unsent text is in its input box",
+	HoldIsolated:          "its terminal is isolated from delivery",
+	HoldQuestion:          "its screen shows a question or a dialog",
+	HoldScreenUnknown:     "its screen could not be read as idle",
+	HoldNotSubmitted:      "the typed notice was not seen to start a turn",
+	HoldTwoAgents:         "two agents share its terminal",
+	HoldBindingMismatch:   "its terminal is bound to another session",
+	HoldTimingUnavailable: "the delivery timing could not be read",
+	"no-terminal":         "it has no terminal on this host",
+}
+
+func holdText(code string) string {
+	if g, ok := holdGloss[code]; ok {
+		return code + ": " + g
+	}
+	return code
+}
+
 // stopDropBody is the flag. It names the halted worker without an @, so the
-// halted worker is not woken by it; it carries ids and codes only.
+// halted worker is not woken by it; it carries ids and codes only. It says
+// what is true of the worker and what to do, and promises no later post.
+// A notice typed since it was held says so (TypedAt).
 func stopDropBody(recipient string, rec StopDrop) string {
-	return fmt.Sprintf("@%s stop-drop %s: the %s notice for worker %s was not typed (held: %s, since %s). It stays due and is retried every poll; nothing was interrupted.",
-		recipient, rec.EventID, rec.Level, rec.Worker, rec.HoldReason, rec.HeldAt.UTC().Format(time.RFC3339))
+	held := fmt.Sprintf("%s, since %s", holdText(rec.HoldReason), rec.HeldAt.UTC().Format(time.RFC3339))
+	if !rec.TypedAt.IsZero() {
+		return fmt.Sprintf("@%s %s's %s notice (event %s) was held (%s) and has since been typed and acknowledged, at %s. No action needed; this is the only post about it.",
+			recipient, rec.Worker, rec.Level, rec.EventID, held, rec.TypedAt.UTC().Format(time.RFC3339))
+	}
+	return fmt.Sprintf("@%s %s has not been told to halt and may still be running: its %s notice (event %s) could not be typed into its session (%s). The host retries every poll, but this is the only post about it; check %s's terminal.",
+		recipient, rec.Worker, rec.Level, rec.EventID, held, rec.Worker)
 }

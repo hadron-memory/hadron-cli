@@ -1,11 +1,18 @@
 package team
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"path/filepath"
 	"testing"
+	"time"
 
+	"github.com/spf13/cobra"
+
+	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/delivery"
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 // hadron-cli#1629: the reporter's server adapter. Posts carry the bound
@@ -92,5 +99,41 @@ func TestReportStopsRecipientIsReportsToElseHolder_1629(t *testing.T) {
 	a, _ = reporterAPIFake(t, map[string][]string{"GetWorker": {`{"data":{"worker":{"id":"w-x","name":"X","slug":"x","reportsTo":null,"heldByUserId":null}}}`}})
 	if _, err := a.Recipient(context.Background(), "w-x"); err == nil {
 		t.Fatal("no reportsTo and no visible holder must be an error, not a guess")
+	}
+}
+
+func reportStopsRun(t *testing.T, args ...string) (string, error) {
+	t.Helper()
+	io, out, _ := output.Test()
+	f := &cmdutil.Factory{IOStreams: io}
+	root := &cobra.Command{Use: "host", SilenceUsage: true, SilenceErrors: true}
+	root.PersistentFlags().BoolVar(&f.JSON, "json", false, "")
+	root.AddCommand(newCmdTeamHostReportStops(f))
+	root.SetArgs(append([]string{"report-stops"}, args...))
+	root.SetOut(&bytes.Buffer{})
+	err := root.Execute()
+	return out.String(), err
+}
+
+// UX P3 (b38108c9): the dry run labels its second count.
+func TestReportStopsDryRunLabelsTheStaleCount_1629(t *testing.T) {
+	cfg := hostConfig(t, "")
+	box := &delivery.StopOutbox{Dir: filepath.Join(filepath.Dir(cfg), "delivery", "stop-dropped")}
+	if _, err := box.Drop(delivery.StopDrop{EventID: "ev-1", WorkerID: "w", Worker: "Gil", Level: "HALT",
+		HoldReason: "draft", HeldAt: time.Now().Add(-time.Hour)}); err != nil {
+		t.Fatal(err)
+	}
+	out, err := reportStopsRun(t, "--config", cfg, "--reporter-worker", "Hugo", "--dry-run")
+	if err != nil || out != "pending 1, of which held over 10m0s: 1\n" {
+		t.Fatalf("out %q err %v", out, err)
+	}
+}
+
+// UX P3 (b38108c9): a run with nothing pending says so instead of printing nothing.
+func TestReportStopsEmptyRunSaysNothingToReport_1629(t *testing.T) {
+	cfg := hostConfig(t, "")
+	out, err := reportStopsRun(t, "--config", cfg, "--reporter-worker", "Hugo")
+	if err != nil || out != "nothing to report\n" {
+		t.Fatalf("out %q err %v", out, err)
 	}
 }

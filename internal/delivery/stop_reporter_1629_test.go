@@ -154,11 +154,11 @@ func (f *reporterFixture) run(r *StopReporter) ReportRun {
 }
 
 func (f *reporterFixture) reported() bool {
-	_, err := os.Stat(filepath.Join(f.box.Dir, stopDropBase("ev-1")+".reported"))
+	_, err := os.Stat(filepath.Join(f.box.Dir, ev1Base()+".reported"))
 	return err == nil
 }
 
-func stopDropBase(eventID string) string { return strings.TrimSuffix(stopDropName(eventID), ".json") }
+func ev1Base() string { return strings.TrimSuffix(stopDropName("ev-1"), ".json") }
 
 func onlyOutcome(t *testing.T, run ReportRun) ReportOutcome {
 	t.Helper()
@@ -178,7 +178,7 @@ func TestStopReporterPostsOnceAndRecordsReadBackSeq_1629(t *testing.T) {
 		t.Fatal("no .reported marker")
 	}
 	bodies := f.chat.bodies()
-	if len(bodies) != 1 || !strings.HasPrefix(bodies[0], "@ada stop-drop ev-1: the HALT notice for worker Gil was not typed (held: draft") {
+	if len(bodies) != 1 || bodies[0] != "@ada Gil has not been told to halt and may still be running: its HALT notice (event ev-1) could not be typed into its session (draft: unsent text is in its input box, since 2026-11-04T12:00:00Z). The host retries every poll, but this is the only post about it; check Gil's terminal." {
 		t.Fatalf("bodies = %q", bodies)
 	}
 	if strings.Contains(bodies[0], "@Gil") || strings.Contains(bodies[0], "@gil") {
@@ -338,7 +338,7 @@ func TestStopReporterPostsNothingWithoutTheReporterBinding_1629(t *testing.T) {
 			if f.chat.attempts != 0 || f.chat.recipientN != 0 || f.reported() {
 				t.Fatalf("attempts %d recipient %d reported %v", f.chat.attempts, f.chat.recipientN, f.reported())
 			}
-			if _, err := os.Stat(filepath.Join(f.box.Dir, stopDropBase("ev-1")+".sending")); err == nil {
+			if _, err := os.Stat(filepath.Join(f.box.Dir, ev1Base()+".sending")); err == nil {
 				t.Fatal("an intent was written without a binding")
 			}
 			pending, _, err := f.reporter().Pending(0)
@@ -449,7 +449,7 @@ func TestStopReporterReconcileIgnoresAnotherWorkersIdenticalPost_1629(t *testing
 	if len(body) != 0 {
 		t.Fatalf("setup: %q", body)
 	}
-	data, err := os.ReadFile(filepath.Join(f.box.Dir, stopDropBase("ev-1")+".sending"))
+	data, err := os.ReadFile(filepath.Join(f.box.Dir, ev1Base()+".sending"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -464,5 +464,72 @@ func TestStopReporterReconcileIgnoresAnotherWorkersIdenticalPost_1629(t *testing
 	out := onlyOutcome(t, f.run(f.reporter()))
 	if out.Result != "reported" || out.Seq != 3 || f.chat.posts != 1 {
 		t.Fatalf("outcome = %+v posts %d", out, f.chat.posts)
+	}
+}
+
+// BLIND P2 (b38108c9): a post committed with its response lost, then a retry
+// under another reporter worker. The server's duplicate rule is per worker, so
+// only reconciling the first author's post prevents a second flag.
+func TestStopReporterSwitchedReporterReconcilesTheFirstAuthorsPost_1629(t *testing.T) {
+	f := newReporterFixture(t)
+	f.chat.loseResponse = true
+	if out := onlyOutcome(t, f.run(f.reporter())); out.Result != "failed" || f.chat.posts != 1 {
+		t.Fatalf("first outcome = %+v posts %d", out, f.chat.posts)
+	}
+	f.chat.loseResponse = false
+	f.chat.boundID, f.chat.boundName = "w-hal", "Hal"
+	f.clock = f.clock.Add(DefaultReconcileAfter + time.Second)
+	r := f.reporter()
+	r.ReporterWorker = "Hal"
+	out := onlyOutcome(t, f.run(r))
+	if out.Result != "reconciled" || out.Seq != 2 || f.chat.posts != 1 || !f.reported() {
+		t.Fatalf("outcome = %+v posts %d: the first reporter's committed post was not reconciled", out, f.chat.posts)
+	}
+}
+
+// The intent records the worker that made the first attempt.
+func TestStopReporterIntentRecordsItsAuthor_1629(t *testing.T) {
+	f := newReporterFixture(t)
+	f.chat.failPost = true
+	f.run(f.reporter())
+	data, err := os.ReadFile(filepath.Join(f.box.Dir, ev1Base()+".sending"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var s stopSending
+	if err := json.Unmarshal(data, &s); err != nil {
+		t.Fatal(err)
+	}
+	if s.AuthorWorkerID != "w-hugo" {
+		t.Fatalf("intent author = %q, want w-hugo", s.AuthorWorkerID)
+	}
+}
+
+// BLIND P3 (b38108c9): a notice typed after it was held is not reported as
+// still due.
+func TestStopReporterSaysANoticeTypedSinceHasLanded_1629(t *testing.T) {
+	f := newReporterFixture(t)
+	if err := f.box.Typed("ev-1", f.clock.Add(2*time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	f.run(f.reporter())
+	bodies := f.chat.bodies()
+	want := "@ada Gil's HALT notice (event ev-1) was held (draft: unsent text is in its input box, since 2026-11-04T12:00:00Z) and has since been typed and acknowledged, at 2026-11-04T12:02:00Z. No action needed; this is the only post about it."
+	if len(bodies) != 1 || bodies[0] != want {
+		t.Fatalf("bodies = %q", bodies)
+	}
+}
+
+// UX P3 (b38108c9): a hold code is glossed; an unknown one is shown as is.
+func TestStopDropBodyGlossesHoldCodes_1629(t *testing.T) {
+	for code, want := range map[string]string{
+		"question":    "(question: its screen shows a question or a dialog, since",
+		"no-terminal": "(no-terminal: it has no terminal on this host, since",
+		"lock":        "(lock, since",
+	} {
+		body := stopDropBody("ada", StopDrop{EventID: "e", Worker: "Gil", Level: "HALT", HoldReason: code, HeldAt: time.Unix(0, 0)})
+		if !strings.Contains(body, want) {
+			t.Errorf("%s: body %q lacks %q", code, body, want)
+		}
 	}
 }
