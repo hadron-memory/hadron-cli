@@ -226,7 +226,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 331: 271 command, 48 gap, 12 excluded
+[Mutation] 331: 273 command, 46 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -387,9 +387,9 @@ installAgentIntoApp  command app agent add
 inviteUser  command user invite
 isolateWorker  command team isolation set
 issueHostOperation  command team host issue
-joinApp  gap #63
+joinApp  command app join
 joinWaitingList  excluded not-a-capability: a public website form (waiting list, contact), not a platform capability
-leaveApp  gap #63
+leaveApp  command app leave
 liftTeamStopSignal  command team stop lift
 linkGithubApp  gap #60
 linkMemoryToUser  command memory link-user

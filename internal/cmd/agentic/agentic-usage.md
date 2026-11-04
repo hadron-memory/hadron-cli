@@ -467,7 +467,7 @@ hadron skill lint (-m <memory>... | --all | --node <ref>...) [--strict] [--json]
 hadron coding review run [-m <memory>] [--base <ref>] [--head <ref>] [--diff <path|->] [--root <loc>] [--all] [--limit N] [--offset N] [--json] | review list [-m <memory>] [--root <loc>] [--broken] [--json] | review create <check-name> [-m <memory>] --trigger <cond> --description <d> [--scope <s>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] | review lint [-m <memory>] [--root <loc>] [--toolchain <t>|-] [--strict] [--suggest] [--fix [--yes]] [--json] | preflight list [-m <memory>] [--root <loc>] [--broken] [--route-model leaf|mirrored] [--json] | preflight create <loc> [-m <memory>] --route <action> --description <d> [--name <n>] [--symptom <s>] [--section <heading>] [--type <t>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] [--no-back-edge] [--no-body-line] [--route-model leaf|mirrored] [--attach-to <loc>] [--dry-run] | preflight route <node-ref> [-m <memory>] --route <action> [--description <d>] [--symptom <s>] [--section <heading>] [--no-back-edge] [--no-body-line] [--route-model leaf|mirrored] [--attach-to <loc>] [--dry-run] | preflight lint [-m <memory>] [--root <loc>] [--strict] [--route-model leaf|mirrored] [--json]
   Route model (cli#1025): `--route-model leaf|mirrored`, else `preflightRouteModel` in .hadron/config.json, else `mirrored` (the default, byte-identical to before; flag > config > default; a value other than the two, or an unparseable config, is exit 2). `leaf`: `create`/`route` write exactly ONE edge, the node -> the router (or `--attach-to <loc>`, an area node), labelled `to <action>`; nothing on the router's outgoing set, no back-edge (`--no-back-edge` and `--no-body-line` are no-ops), body line OFF unless `--section` is given (it then splices into the attach target; `--section` with `--no-body-line` is still exit 2); `--attach-to` under mirrored is exit 2; `--json` gains `model:"leaf"` and `router` is the attach target. `list`/`lint` under leaf read the router's INCOMING edges plus its outgoing (legacy) ones: list rows gain `model` `leaf|legacy` (one row per node, leaf wins; absent under mirrored); lint adds `legacy-outgoing-route` and `leaf-missing-edge` (a `[[link]]` in the router's OWN body with no edge to it; area bodies are not scanned) and carries label/retired/moved-memory to the incoming edges, and its human output ends with `N incoming edges visible to this caller` (never in --json). Every incoming edge counts as a route, so a non-`to` label is a `route-label-phrasing` warning.
 hadron app agent customize <app> <agent>   # read install-memory metadata only, never create it; JSON memory may be null (unavailable/uncreated), not a node read
-hadron app member roles [--app <ref>] (cli#1226, R211 cor:dmo:050:04: App.availableMemberRoles, the roles `member add --role` accepts — the union of the App's installed Agents' member roles, server order; text one per line, `--json` a bare array, `[]` when none) | agent compile <app> <agent> | get <app-ref> | key list <app-ref> [--scopes [--host-uses <n>]] [--instruction <kind>:<ref>] | key create <app-ref> --out <file> [--label <t>] [--force] [--print-key] | key revoke <key-id> [--yes] [--instruction <kind>:<ref>] | key rotate <app-ref> --out <file> [--yes] [--force] [--print-key] | agent list [<app-ref>] (uses --app) | agent add <app> <agent> [--training-mode] | agent remove <app> <agent> --yes | agent set-boot-prompt <app> <agent> (<node-ref> [-m <memory>] | --clear) | list (--org <org> | --owned-by-me) | install (--org <id> | --owner-me) --agent <ref> --name <n> [--type <t>] [--urn <slug>] [--description <d>] | uninstall <ref> | set-active <ref> | key scope grant <key-id> <scope> [--host-id <host>] | key scope revoke <key-id> <scope> [--instruction <kind>:<ref>] | model-group list <app-ref> | model-group set <app-ref> <name> [--pattern <glob>]… | model-group clear <app-ref> <name> [--yes] | user create --external-id <id> [--handle <h>] [--name <n>]   # App key details on the indented lines below
+hadron app member roles [--app <ref>] (cli#1226, R211 cor:dmo:050:04: App.availableMemberRoles, the roles `member add --role` accepts — the union of the App's installed Agents' member roles, server order; text one per line, `--json` a bare array, `[]` when none) | agent compile <app> <agent> | get <app-ref> | key list <app-ref> [--scopes [--host-uses <n>]] [--instruction <kind>:<ref>] | key create <app-ref> --out <file> [--label <t>] [--force] [--print-key] | key revoke <key-id> [--yes] [--instruction <kind>:<ref>] | key rotate <app-ref> --out <file> [--yes] [--force] [--print-key] | agent list [<app-ref>] (uses --app) | agent add <app> <agent> [--training-mode] | agent remove <app> <agent> --yes | agent set-boot-prompt <app> <agent> (<node-ref> [-m <memory>] | --clear) | list (--org <org> | --owned-by-me) | install (--org <id> | --owner-me) --agent <ref> --name <n> [--type <t>] [--urn <slug>] [--description <d>] | uninstall <ref> | join <app-ref> | leave <app-ref> [--yes] [--instruction <kind>:<ref>] | set-active <ref> | key scope grant <key-id> <scope> [--host-id <host>] | key scope revoke <key-id> <scope> [--instruction <kind>:<ref>] | model-group list <app-ref> | model-group set <app-ref> <name> [--pattern <glob>]… | model-group clear <app-ref> <name> [--yes] | user create --external-id <id> [--handle <h>] [--name <n>]   # App key details on the indented lines below
   App key scopes: attention:deliver, host:operate; grant is person-only; revoke also admits the manager's held worker with --instruction (cli#1595); host:operate names ONE host (exit 5 APP_KEY_SCOPE_HOST_CONFLICT: revoke first); scope-write output never carries key material
   App key create: `key create` (cli#1223) writes the raw key to --out (new 0600 file, opened BEFORE the mint: an existing path/symlink is exit 2 and nothing is sent; --force = same-dir temp + rename, symlink replaced not followed;
     on windows 0600 only clears the read-only attribute and the file inherits its directory's ACL, so keep it under the user profile (cli#1324)), never to output unless --print-key (refused with --json, exit 2);
@@ -542,8 +542,8 @@ hadron team health sweep --config <host.yaml>   # code-only terminal health repo
 hadron team health install --config <host.yaml> --interval <Nm> [--bin <abs hadron>]   # writes one user-level scheduler entry `hadron-team-health` running the sweep; see "Team health install" (cli#1374); exit 2 on no scheduler / orca unresolved / bad interval / different --config
 hadron team health uninstall   # removes exactly what install wrote, also after a failed install
 hadron team health status   # read-only; json {installed,scheduler,active,interval,binary,config,orca,files,lastRun{at,exitCode}}; lastRun unknown under cron
-hadron team usage collect --config <usage.yaml> [-m <memory>]   # cli#1472: record one account-usage object per configured model account (5h/7d allowance windows); validates every account first, exit 2 and NOTHING written on any bad config/snapshot/ccusage file; see "Team usage"
-hadron team usage show [--config <usage.yaml> | -m <memory>] [--limit 1-200]   # per-account current 5h/7d use, resets, burn rate %/h, projected exhaustsAt; json {memory,accounts:[]}; unknown is null
+hadron team usage collect --config <usage.yaml> [-m <memory>]   # cli#1472: record one account-usage object per configured model account (allowance windows, family claude/codex/glm; glm records "no local source"); validates every account first, exit 2 and NOTHING written on any bad config/snapshot/ccusage file; see "Team usage"
+hadron team usage show [--config <usage.yaml> | -m <memory>] [--limit 1-200]   # per-account current use, resets, burn rate %/h, projected exhaustsAt; json {memory,accounts:[]}; unknown is null
 hadron team usage install --config <usage.yaml> --interval <Nm> [--bin <abs hadron>] | uninstall | status   # a second user-level scheduler entry `hadron-team-usage` beside team health's; same refusals and json shapes minus orca
 hadron team router poll | loop [--interval 60s] | status [--config <path>]   # RETIRED (cli#935, hadron-server#2027): each exits 2 (Usage) with "hadron team router is retired (hadron-server#2027): the attention API it polled is being removed. Wakes come from tickers (hadron-server#2138). Nothing was polled or typed."; --json gives the standard error envelope; it reads no config, state directory or credentials, polls nothing and types into no terminal; old flags are accepted and ignored, unknown flags stay usage errors
 hadron org resend-sender create --org <ref> --from <identity> [--api-key-file <path|->] [--enabled=false] | get <sender-id> | list [--org-id <raw-id>] [--limit N] [--offset N] | update <sender-id> [--from <identity>] [--api-key-file <path|->] [--enabled=false] | rm <sender-id> --yes
@@ -2332,6 +2332,25 @@ Conventions:
   member list is unreadable by you, so an empty list means "no members visible
   to you", NOT "no members"; a null App is exit 4, a malformed row is an error.
   User names and emails are withheld by the server and not selected.
+- `app join <app-ref>` / `app leave <app-ref> [--yes] [--instruction <kind>:<ref>]`
+  (`joinApp` / `leaveApp`, cli#1625) are the signed-in user's OWN membership doors;
+  the App is positional (ID or URN, passed unchanged), unlike `app member`. Self-join
+  is closed unless the App's primary Agent declares `selfJoinRole` (#1714); the CLI
+  decides no policy. `join` prints the member row (`--json`: `app`, `appId`, `appUrn`,
+  `appName`, `user`, `role`, `createdAt`, `isOrgExternal`) and exits 0 on a repeat with
+  the same row: `JoinAppPayload` does not say whether the call created it, so the
+  command makes no "already a member" claim and infers none from `createdAt`. `leave` is
+  confirmed (it says the personal memory in the App is kept and re-attaches on a later
+  join); `--yes` skips the prompt, a non-interactive call without it exits 2 with zero
+  requests sent. It is idempotent server-side, so success means "not a member now"
+  (`--json` `status: "absent"`), and `--instruction` takes the same parser and
+  document switch as `app member remove`. Every refusal is the server's code and
+  sentence, unchanged, nonzero, never "outcome unknown": `SelfJoinNotAllowedError`,
+  `MaxMembersExceededError`, `AppNotFoundError`, `AppUninstalledError`,
+  `OrphanAppError`, `InvalidRoleError`, `UNAUTHENTICATED`, and on `leave` the
+  FORBIDDEN for a worker session with neither an instruction nor its own
+  `app.members` grant (hadron-server#3342) and ruling 0082 (A)'s impersonation,
+  App-run and unattributable-session refusals.
 - `automation list|approval|approve|decline` (`automationApprovals` /
   `automationApproval` / `approveAutomation` / `declineAutomation`,
   `cor:agt:010:01`, hadron-server#2441) let an App owner review and approve the
@@ -4680,7 +4699,10 @@ file, argv or env. Do not install against production until hadron-server#2931 is
 `hadron team usage` records how much of each model subscription account's 5-hour
 and 7-day allowance is used, so "which account runs out first, and when" has data
 behind it. It is NOT `hadron usage` (AI-call events the server recorded in your
-memories); it never reads or writes those. Claude accounts only in v1.
+memories); it never reads or writes those. It tracks every provider the team uses
+(cli#1659): `family` is `claude`, `codex` or `glm`; a provider with no readable
+source (`glm` today) is recorded as a finding (`sourceState: no-local-source`) and
+listed by `show`, never silently dropped.
 
 The operator sets up, per account: a status line script that writes the harness's
 `rate_limits` to `$CLAUDE_CONFIG_DIR/hadron-usage/rate-limits.json` as
@@ -4694,6 +4716,15 @@ ccusageFile?, workers?: [names]}]`. A label is the operator's own name; one with
 `@` is refused. `workers` is never derived from transcripts: absent means
 `workersConfigured:false`.
 
+`family: codex` needs no setup: `configDir` is the account's Codex home (a clean
+absolute path) and `collect` reads the newest `sessions/YYYY/MM/DD/rollout-*.jsonl`
+under it, taking only the latest `token_count` event's `rate_limits` (`used_percent`,
+`window_minutes`, `resets_at` for `primary` and `secondary`). No network, no API key.
+Nothing else from a rollout (conversation text, token counts, `credits.balance`,
+`plan_type`) is stored, printed or logged; a malformed or oversized line is skipped,
+and a symlink or non-regular file is never followed. A rollout with no `token_count`
+yet is `sourceState: no-reading-yet`, not 0.
+
 `collect` validates every account before writing; any problem (missing or malformed
 config, unreadable/malformed/symlinked snapshot or ccusage file, `used_percentage`
 outside 0-100, an `@` label) is exit 2 and writes no record for ANY account; an
@@ -4701,7 +4732,11 @@ absent snapshot file is "no data" (windows absent). Errors never echo file
 contents. Records are objects in collection `account-usage` (schemaVersion 1, absent
 values omitted, not recorded as 0): `label, family, host, observedAt, fiveHourPct,
 fiveHourResetsAt, sevenDayPct, sevenDayResetsAt, tokensSinceLast,
-estCostUsdSinceLast, ccusageBlocks, workers, workersConfigured, schemaVersion`;
+estCostUsdSinceLast, ccusageBlocks, workers, workersConfigured, schemaVersion`; Codex
+records add `primaryPct, primaryMinutes, primaryResetsAt, secondaryPct,
+secondaryMinutes, secondaryResetsAt` (each window keeps its own length, never
+relabelled as 5h/7d) and `sourceState` (`ok | no-reading-yet`; glm:
+`no-local-source`); a Claude record is unchanged;
 `ccusageBlocks` is the checkpoint (blocks that started within 6h of the
 observation) and the since-last fields are the growth of those blocks since this
 account's previous record on this host and family (absent when that cannot be
@@ -4710,9 +4745,12 @@ The shape is pinned by a golden test and declared in the CLI, not in `team init`
 (a server-declared collection is a follow-up with the portal).
 
 `show --json` is `{memory, accounts:[{label,family,host,observedAt,fiveHour,sevenDay,
-workers,workersConfigured,points}]}`, each window `{usedPct,resetsAt,expired,
-burnPctPerHour,exhaustsAt,exhaustsBeforeReset}` (a null field means not known; `accounts` is `[]`
-when nothing is recorded). `install|uninstall|status` mirror `team health` as a
+primary?,secondary?,sourceState?,workers,workersConfigured,points}]}`, each window
+`{usedPct,resetsAt,expired,minutes?,burnPctPerHour,exhaustsAt,exhaustsBeforeReset}`
+(a null field means not known; `primary`/`secondary` appear only for codex accounts and
+`sourceState` only for codex/glm; `accounts` is `[]` when nothing is recorded).
+"Runs out first" ranks every window of every family by the earliest `exhaustsAt`
+before its own reset; the minutes label a window, they never rank it. `install|uninstall|status` mirror `team health` as a
 separate entry; each removes only its own entry.
 
 ### Agent ticker templates (cli#913; MCP cut C1)
