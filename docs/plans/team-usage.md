@@ -75,7 +75,7 @@ Lifecycle Agent procedure step, moving workers.
   The Codex home must itself be a real directory and nothing under it is
   followed through a link (components above the configured home are the
   operator's own path and may be linked); the file opened must be the regular
-  file that was checked (opened without following a link and without blocking on a special file, then fstat-checked). A directory with more than 512 entries is an error, not an empty one. Directory listings, line length (1 MiB) and the bytes
+  file that was checked (opened without following a link and without blocking on a special file, then fstat-checked; on Windows and other targets without those flags the Lstat and fstat checks are the guarantee, best effort). A directory with more than 512 entries is an error, not an empty one. Directory listings, line length (1 MiB) and the bytes
   actually read (256 MiB, enforced on the reader) are bounded, and a bad line
   is skipped unread. A missing source is `no-reading-yet`; an unreadable
   directory or a read failure is an error with no path or content in it, never
