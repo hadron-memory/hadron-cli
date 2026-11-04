@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
@@ -32,6 +33,9 @@ const (
 	shedDefaultCool    = 10 * time.Minute
 	shedWorkItemsCap   = 20
 	shedTranscriptTail = 8 << 10
+	// shedNotesCap is the largest --note-file accepted, in UTF-8 bytes. A
+	// bigger file is refused, never truncated (hadron-cli#1648).
+	shedNotesCap = 64 << 10
 
 	shedWritten = "written"
 	shedSkipped = "skipped"
@@ -133,7 +137,7 @@ type shedSnapshot struct {
 	Previous   shedField
 }
 
-func renderShedBody(s shedSnapshot, prompt, transcriptTail string) string {
+func renderShedBody(s shedSnapshot, prompt, notes, transcriptTail string) string {
 	var b strings.Builder
 	b.WriteString("## Identity\n")
 	fmt.Fprintf(&b, "- Worker: %s (%s)\n- Session: %s\n- App: %s\n- Worktree: %s\n\n",
@@ -154,6 +158,12 @@ func renderShedBody(s shedSnapshot, prompt, transcriptTail string) string {
 	fmt.Fprintf(&b, "- Continuity handoff: %s\n- Previous session: %s\n\n", s.Continuity.Text, s.Previous.Text)
 	b.WriteString("## Recovery prompt\n")
 	b.WriteString(prompt)
+	// Notes sit after the Recovery prompt and before the Transcript tail. The
+	// worker's bytes are written exactly as read; the only separator is the
+	// "\n" the next heading already starts with.
+	if notes != "" {
+		b.WriteString("\n## Notes\n" + notes)
+	}
 	if transcriptTail != "" {
 		b.WriteString("\n## Transcript tail\n```\n" + transcriptTail + "\n```\n")
 	}
@@ -219,6 +229,59 @@ func shedTailOf(path string) (string, error) {
 	return strings.TrimRight(string(data), "\n"), nil
 }
 
+// The fixed refusal lines for --note-file. They name the class only: never the
+// path, the contents or a raw OS error.
+const (
+	shedNotesEmptyFlag = "--note-file was empty (an unset variable?); omit it for no notes"
+	shedNotesOpen      = "--note-file could not be opened"
+	shedNotesNotFile   = "--note-file is not a regular file"
+	shedNotesBlank     = "--note-file holds nothing but whitespace"
+	shedNotesTooBig    = "--note-file is larger than 64 KiB"
+	shedNotesNotUTF8   = "--note-file is not valid UTF-8"
+)
+
+// shedNotesOf reads the worker's notes file once: opened without blocking, the
+// OPENED handle checked as a regular file, then at most shedNotesCap+1 bytes
+// read so a file that grows past the cap while being read is still refused.
+// It returns the text exactly as read, or the fixed refusal line (never the
+// path, the contents or an OS error).
+func shedNotesOf(path string) (string, string) {
+	if path == "" {
+		return "", shedNotesEmptyFlag
+	}
+	fh, err := shedOpenTranscript(path)
+	if err != nil {
+		return "", shedNotesOpen
+	}
+	defer func() { _ = fh.Close() }()
+	info, err := fh.Stat()
+	if err != nil {
+		return "", shedNotesOpen
+	}
+	if !info.Mode().IsRegular() {
+		return "", shedNotesNotFile
+	}
+	return shedNotesFrom(fh)
+}
+
+// shedNotesFrom applies the size, whitespace and UTF-8 rules to an open reader.
+func shedNotesFrom(r io.Reader) (string, string) {
+	data, err := io.ReadAll(io.LimitReader(r, shedNotesCap+1))
+	if err != nil {
+		return "", shedNotesOpen
+	}
+	if len(data) > shedNotesCap {
+		return "", shedNotesTooBig
+	}
+	if !utf8.Valid(data) {
+		return "", shedNotesNotUTF8
+	}
+	if strings.TrimSpace(string(data)) == "" {
+		return "", shedNotesBlank
+	}
+	return string(data), ""
+}
+
 func shedStampPath(ctx context.Context) (string, error) {
 	dir, err := gitDir(ctx)
 	if err != nil {
@@ -266,6 +329,10 @@ type shedOptions struct {
 	cooldown                   time.Duration
 	transcript                 string
 	transcriptEmpty            bool
+	noteFile                   string
+	noteFileSet                bool
+	notes                      string // already read and validated (a manual run)
+	notesRead                  bool
 	now                        func() time.Time
 }
 
@@ -370,6 +437,17 @@ func runShed(ctx context.Context, f *cmdutil.Factory, o shedOptions) shedOutcome
 	if prev != nil { // cooldown hit with a failed claim: retry the claim ONLY
 		return finishClaim(rctx, client, b, stampPath, *prev, shedSkipped, "cooldown; only the claim was retried")
 	}
+	// The notes are read only on a run that will write a node: never for
+	// --print-prompt, a cooldown skip or a claim-only retry (all returned
+	// above), and before any write so a refusal leaves no node, claim or stamp.
+	notes := o.notes
+	if o.noteFileSet && !o.notesRead && !o.printPrompt {
+		text, refusal := shedNotesOf(o.noteFile)
+		if refusal != "" {
+			return fail(refusal)
+		}
+		notes = text
+	}
 	w, err := gen.GetWorker(rctx, client, b.WorkerID)
 	if err != nil || w.Worker == nil || w.Worker.MemoryId == nil || *w.Worker.MemoryId == "" {
 		return fail("the worker memory could not be read")
@@ -391,7 +469,7 @@ func runShed(ctx context.Context, f *cmdutil.Factory, o shedOptions) shedOutcome
 			tail = t
 		}
 	}
-	body := renderShedBody(snap, prompt, tail)
+	body := renderShedBody(snap, prompt, notes, tail)
 	nt := "info"
 	created, err := gen.CreateNode(rctx, client, &gen.CreateNodeInput{
 		MemoryId: memoryID, Loc: loc, Name: shedName(now, o.auto, b), Content: &body, NodeType: &nt,
@@ -436,7 +514,7 @@ func finishClaim(ctx context.Context, client graphql.Client, b *binding, stampPa
 func newCmdSessionShed(f *cmdutil.Factory) *cobra.Command {
 	o := &shedOptions{}
 	cmd := &cobra.Command{
-		Use:   "shed [--auto] [--print-prompt] [--offline] [--cooldown <d>] [--transcript <path>]",
+		Use:   "shed [--auto] [--print-prompt] [--offline] [--cooldown <d>] [--transcript <path>] [--note-file <path>]",
 		Short: "Write the shed checkpoint node, recovery prompt and resume claim in one step",
 		Long: `Checkpoint this worktree's worker session before a deliberate context reset
 that keeps it open (hadron-cli#952): read the session, chat head and read
@@ -445,7 +523,7 @@ worker's own memory, read it back, and only then write the resume claim.
 
 The node is ` + "`sheds:<YYYY-MM-DD-HHMM>`" + ` (UTC), or ` + "`sheds:auto-<YYYYMMDD-HHMMSS>`" + `
 with --auto. Its headings are Identity, Watermark, Open work, Briefing pointers
-and Recovery prompt. Each read is independent: a failed one prints
+and Recovery prompt, then Notes and Transcript tail when asked for. Each read is independent: a failed one prints
 "unavailable: <reason>" for that field and the shed continues; nothing is
 fabricated. The claim comes LAST, so a failed node write can never leave one;
 a failed claim leaves a verified node, reported as claim: failed. The claim
@@ -462,6 +540,21 @@ lasts 60 seconds, so reset immediately afterwards.
 --transcript <path>  append the last whole lines (8 KiB at most) of that file as
           a ` + "`## Transcript tail`" + `. OPT-IN: the host's file is NOT scrubbed and
           the lines land in a node the team can read.
+
+--note-file <path>  append that file's text, exactly as written, as a ` + "`## Notes`" + `
+          section after the Recovery prompt (and before any Transcript tail): the
+          place for your own narrative, such as what is in flight and what to do
+          next. UTF-8 only, 64 KiB (65,536 bytes) at most: a bigger file is
+          refused, never truncated. It is refused, with a fixed one-line reason
+          that never names the path or shows the text, when it is missing or
+          unreadable, not a regular file, empty or nothing but whitespace, over
+          the cap, or not valid UTF-8; so is an empty value. A manual run then
+          exits with the usage code; --auto exits 0 with that line on stderr.
+          Either way no node, claim or cooldown stamp is written. The file is
+          read once and only by a run that writes a node: --print-prompt (with
+          or without --offline), a cooldown skip and a claim-only retry never
+          open it. The text is stored as written in a node the team can read:
+          it is NOT scrubbed, so keep secrets out of it.
 
 --json prints {"status":"written|skipped|failed|printed","node","claim":
 "written|failed|none","reason"}. No claim value is ever printed.
@@ -480,7 +573,10 @@ still holds the handoff.`,
   hadron team session shed --json      # want status "written", claim "written"
 
   # from a host hook; TRANSCRIPT is the host's own transcript file path
-  hadron team session shed --auto --transcript "$TRANSCRIPT"`,
+  hadron team session shed --auto --transcript "$TRANSCRIPT"
+
+  # carry your own narrative into the recovery node
+  hadron team session shed --note-file /tmp/shed-notes.md`,
 		// Flags are parsed by hand: cobra rejects a bad flag before RunE, and
 		// under --auto that rejection would exit non-zero and block the hook.
 		DisableFlagParsing: true,
@@ -495,6 +591,7 @@ still holds the handoff.`,
 	fl.BoolVar(&o.offline, "offline", false, "with --print-prompt: make no network call (placeholders for what a read would fill)")
 	fl.DurationVar(&o.cooldown, "cooldown", shedDefaultCool, "with --auto: skip a second shed for the same session inside this window")
 	fl.StringVar(&o.transcript, "transcript", "", "append the tail of this host transcript file to the node (opt-in; NOT scrubbed)")
+	fl.StringVar(&o.noteFile, "note-file", "", "append this file's text (UTF-8, 64 KiB at most) to the node as ## Notes (NOT scrubbed)")
 	return cmd
 }
 
@@ -547,6 +644,19 @@ func runShedCommand(cmd *cobra.Command, f *cmdutil.Factory, o *shedOptions, args
 			return exitcode.Newf(exitcode.Usage, "--cooldown must not be negative")
 		}
 		o.cooldown = shedDefaultCool
+	}
+	// An EMPTY --note-file is a refusal too, never an omitted flag. A manual
+	// run reads and checks the file here, before any call, so a refusal is a
+	// usage exit with nothing written; --auto reads it inside runShed, after
+	// the cooldown, so a skip never touches it. --print-prompt never reads it.
+	o.noteFileSet = cmd.Flags().Changed("note-file")
+	o.notes, o.notesRead = "", false
+	if o.noteFileSet && !o.printPrompt && !auto {
+		text, refusal := shedNotesOf(o.noteFile)
+		if refusal != "" {
+			return exitcode.Newf(exitcode.Usage, "%s", refusal)
+		}
+		o.notes, o.notesRead = text, true
 	}
 	o.now = time.Now
 	return shedEmit(f, auto, runShed(cmd.Context(), f, *o))
