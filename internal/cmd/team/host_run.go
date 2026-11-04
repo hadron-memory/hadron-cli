@@ -174,7 +174,7 @@ func loadHostPoller(f *cmdutil.Factory, path string) (*hostpoller.Config, string
 			return nil, "", nil, err
 		}
 	}
-	client, err := api.NewClient(server, key, f.HTTPClient)
+	client, err := api.NewClient(server, key, f.HTTPClient, api.WithCredentialSent(f.Credentials(), api.CredentialHostKey))
 	if err != nil {
 		return nil, "", nil, err
 	}

@@ -238,3 +238,78 @@ func writeFile1624(t *testing.T, p, body string) {
 		t.Fatal(err)
 	}
 }
+
+// #941 §10 P3-2 mutant 1: the impersonation exclusion. A LIVE impersonation
+// token (nothing purged) that the server refuses is the target's session, not
+// the admin's stored login, so it never gets the stored-login remedy.
+func TestCredentialProvenance1624LiveImpersonationGetsNoStoredHint(t *testing.T) {
+	srv, bearers := refusingServer1624(t, nil)
+	imp := impToken1624(t, time.Now().Add(time.Hour))
+	f, out := testFactory(t)
+	withStoredLogin1624(t, f, srv.URL, map[string]string{auth.ImpersonationHostKey(srv.URL): imp})
+	code, errText := run1624(t, f, []string{"memory", "ls", "--server", srv.URL})
+	if got := bearers(); len(got) != 1 || got[0] != "Bearer "+imp {
+		t.Fatalf("want one request with the impersonation token, got %d", len(got))
+	}
+	if code != exitcode.AuthRequired {
+		t.Fatalf("exit = %d, want AuthRequired", code)
+	}
+	if all := outputs1624(out, errText); strings.Contains(all, storedHint1624) {
+		t.Errorf("a refused impersonation token got the stored-login remedy:\n%s", all)
+	}
+}
+
+// #941 §10 P3-2 mutant 4: the dedupe. A stored login refused for its OAuth
+// scope already carries a remedy naming `hadron auth login`; a second, generic
+// remedy is not appended.
+func TestCredentialProvenance1624ExistingRemedyIsNotDuplicated(t *testing.T) {
+	for _, asJSON := range []bool{false, true} {
+		t.Run(map[bool]string{true: "json", false: "human"}[asJSON], func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				if r.Method == http.MethodGet {
+					_, _ = w.Write([]byte(`{"capabilities":[]}`))
+					return
+				}
+				_, _ = w.Write([]byte(`{"data":null,"errors":[{"message":"scope refused","extensions":{"code":"FORBIDDEN","reason":"OAUTH_SCOPE_UNSUPPORTED"}}]}`))
+			}))
+			t.Cleanup(srv.Close)
+			f, out := testFactory(t)
+			withStoredLogin1624(t, f, srv.URL, nil)
+			a := []string{"memory", "ls", "--server", srv.URL}
+			if asJSON {
+				a = append(a, "--json")
+			}
+			code, errText := run1624(t, f, a)
+			if code != exitcode.AuthRequired {
+				t.Fatalf("exit = %d, want AuthRequired", code)
+			}
+			all := outputs1624(out, errText)
+			if !strings.Contains(all, "hadron auth logout && hadron auth login") {
+				t.Fatalf("the scope remedy is missing:\n%s", all)
+			}
+			if strings.Contains(all, storedHint1624) {
+				t.Errorf("a second, generic remedy was appended to one that already names it:\n%s", all)
+			}
+		})
+	}
+}
+
+// `hadron api` sends its token through RawGraphQL, not the typed client; it
+// records what it sent the same way, so a refused stored login keeps its one
+// remedy there too.
+func TestCredentialProvenance1624RawAPIStoredRefusalKeepsOneHint(t *testing.T) {
+	srv, bearers := refusingServer1624(t, nil)
+	f, out := testFactory(t)
+	withStoredLogin1624(t, f, srv.URL, nil)
+	code, errText := run1624(t, f, []string{"api", "query { __typename }", "--server", srv.URL})
+	if got := bearers(); len(got) != 1 || got[0] != "Bearer hdr_user_stored" {
+		t.Fatalf("want one request with the stored token, got %v", got)
+	}
+	if code != exitcode.AuthRequired {
+		t.Fatalf("exit = %d, want AuthRequired", code)
+	}
+	if n := strings.Count(outputs1624(out, errText), storedHint1624); n != 1 {
+		t.Errorf("want the stored-login remedy exactly once, got %d:\n%s", n, outputs1624(out, errText))
+	}
+}

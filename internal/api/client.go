@@ -239,8 +239,9 @@ var ErrRedirectPolicy = errors.New("redirect refused by policy")
 // bearerDoer injects the Authorization header on every request, and the
 // worker-session header on the requests that asked for it (WithSession).
 type bearerDoer struct {
-	token string
-	inner *http.Client
+	token  string
+	inner  *http.Client
+	onSent func() // cli#1624: records the credential kind actually sent; nil = no record
 }
 
 func (d *bearerDoer) Do(req *http.Request) (*http.Response, error) {
@@ -265,6 +266,11 @@ func (d *bearerDoer) Do(req *http.Request) (*http.Response, error) {
 	// default and never logged.
 	if keys, ok := memoryKeysFrom(req.Context()); ok {
 		req.Header.Set(MemoryKeysHeader, keys.header)
+	}
+	// Recorded after every local refusal, immediately before the send, so only
+	// a request that leaves with the token counts as "sent" (cli#1624).
+	if d.token != "" && d.onSent != nil {
+		d.onSent()
 	}
 	resp, err := d.inner.Do(req)
 	if err != nil {
@@ -566,8 +572,9 @@ func NewClient(serverURL, token string, httpClient *http.Client, opts ...ClientO
 	} else {
 		httpClient = withSessionRedirects(httpClient)
 	}
-	inner := graphql.NewClient(Endpoint(serverURL), &bearerDoer{token: token, inner: httpClient})
-	c := &nullSafeGraphQLClient{inner: inner}
+	doer := &bearerDoer{token: token, inner: httpClient}
+	inner := graphql.NewClient(Endpoint(serverURL), doer)
+	c := &nullSafeGraphQLClient{inner: inner, doer: doer}
 	for _, opt := range opts {
 		opt(c)
 	}
@@ -580,6 +587,7 @@ func NewClient(serverURL, token string, httpClient *http.Client, opts ...ClientO
 type nullSafeGraphQLClient struct {
 	inner    graphql.Client
 	delivery *DeliveryPendingRecorder // cli#1084; nil when nobody listens
+	doer     *bearerDoer              // cli#1624: WithCredentialSent hooks its send
 }
 
 func (c *nullSafeGraphQLClient) MakeRequest(ctx context.Context, req *graphql.Request, resp *graphql.Response) error {

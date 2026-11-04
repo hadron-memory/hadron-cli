@@ -45,7 +45,10 @@ browser, then rerun `hadron auth login`.
 If a command is refused with a **stored** credential, it exits 3 with
 "your stored credential was refused; run `hadron auth login`". The CLI does
 not retry, does not delete the stored token, and does not guess why it was
-refused.
+refused. The hint appears only when every request the command sent carried
+your stored login: a refused `HADRON_TOKEN`, impersonation token, host key or
+token passed on stdin gets no stored-login hint, and neither does a failure
+before any request was sent.
 
 The CLI requests the `account` OAuth scope (`cor:aut:010:02`): it uses the
 server's data API, which refuses a key limited to `mcp`. If the server refuses

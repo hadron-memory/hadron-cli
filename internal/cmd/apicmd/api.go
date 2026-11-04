@@ -87,12 +87,13 @@ The full table is in 'hadron agentic-usage'.`,
 			if err != nil {
 				return err
 			}
-			token, _, err := f.Token()
+			token, source, err := f.Token()
 			if err != nil {
 				return err
 			}
 
-			result, err := api.RawGraphQL(cmd.Context(), server, token, query, variables, f.HTTPClient)
+			ctx := api.WithRawCredentialSent(cmd.Context(), f.Credentials(), cmdutil.CredentialKindFor(source))
+			result, err := api.RawGraphQL(ctx, server, token, query, variables, f.HTTPClient)
 			if err != nil {
 				return err
 			}

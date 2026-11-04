@@ -115,7 +115,7 @@ hadron auth status (or whoami) then shows which account it is.`,
 		},
 	}
 	cmd.Flags().BoolVar(&withToken, "with-token", false, "read the token from standard input")
-	cmd.Flags().StringVar(&provider, "provider", "", "browser identity provider: github or google; google goes straight to Google, github and the default open the server's sign-in page")
+	cmd.Flags().StringVar(&provider, "provider", "", "browser identity provider: github or google (google skips the sign-in page)")
 	cmd.MarkFlagsMutuallyExclusive("with-token", "provider")
 	return cmd
 }

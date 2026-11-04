@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/Khan/genqlient/graphql"
@@ -55,6 +56,12 @@ type Factory struct {
 	// DeliveryPending collects the optional messages-waiting metadata of every
 	// successful typed response (cli#1084); the entry point renders it once.
 	DeliveryPending *api.DeliveryPendingRecorder
+
+	// credentials records which kinds of credential this invocation actually
+	// sent (cli#1624), so a refusal's remedy follows the request, not a second
+	// token lookup at render time. Read it through Credentials().
+	credentials     *api.CredentialLedger
+	credentialsOnce sync.Once
 
 	cfg        *config.Config
 	tokenStore store.Store
@@ -169,6 +176,32 @@ func (f *Factory) Token() (string, auth.TokenSource, error) {
 	return auth.ResolveToken(f.TokenStore(), server)
 }
 
+// Credentials returns this invocation's sent-credential record (cli#1624),
+// creating it on first use. Every client that sends a credential records its
+// kind here at send time; it never chooses which credential is sent.
+func (f *Factory) Credentials() *api.CredentialLedger {
+	f.credentialsOnce.Do(func() {
+		if f.credentials == nil {
+			f.credentials = &api.CredentialLedger{}
+		}
+	})
+	return f.credentials
+}
+
+// CredentialKindFor maps where Token() found the token to the kind recorded
+// when it is sent. SourceNone sends no credential and maps to "".
+func CredentialKindFor(source auth.TokenSource) api.CredentialKind {
+	switch source {
+	case auth.SourceStore:
+		return api.CredentialStoredUser
+	case auth.SourceEnv:
+		return api.CredentialEnv
+	case auth.SourceImpersonation:
+		return api.CredentialImpersonation
+	}
+	return ""
+}
+
 // GraphQLClient returns an authenticated genqlient client, failing
 // with the AuthRequired exit code when no credentials are present.
 func (f *Factory) GraphQLClient() (graphql.Client, error) {
@@ -183,7 +216,8 @@ func (f *Factory) GraphQLClient() (graphql.Client, error) {
 	if source == auth.SourceNone {
 		return nil, exitcode.Newf(exitcode.AuthRequired, "not signed in to %s — run `hadron auth login` or set %s", server, store.EnvToken)
 	}
-	client, err := api.NewClient(server, token, f.HTTPClient, api.WithDeliveryPending(f.DeliveryPending))
+	client, err := api.NewClient(server, token, f.HTTPClient, api.WithDeliveryPending(f.DeliveryPending),
+		api.WithCredentialSent(f.Credentials(), CredentialKindFor(source)))
 	if err != nil {
 		return nil, err
 	}
@@ -215,7 +249,8 @@ func (f *Factory) PublicGraphQLClient() (client graphql.Client, authenticated bo
 		// permits plain http when there are no credentials to leak.
 		token = ""
 	}
-	c, err := api.NewClient(server, token, f.HTTPClient, api.WithDeliveryPending(f.DeliveryPending))
+	c, err := api.NewClient(server, token, f.HTTPClient, api.WithDeliveryPending(f.DeliveryPending),
+		api.WithCredentialSent(f.Credentials(), CredentialKindFor(source)))
 	if err != nil {
 		return nil, false, err
 	}

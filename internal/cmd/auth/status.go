@@ -83,7 +83,7 @@ profile instead.`,
 				dto.TokenStorage = f.TokenStore().Name()
 			}
 
-			client, err := api.NewClient(server, token, f.HTTPClient)
+			client, err := api.NewClient(server, token, f.HTTPClient, api.WithCredentialSent(f.Credentials(), cmdutil.CredentialKindFor(source)))
 			if err != nil {
 				return err
 			}

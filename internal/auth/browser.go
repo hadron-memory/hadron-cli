@@ -25,7 +25,11 @@ import (
 // server's pending-flow lifetime is shorter, this drops to match, because
 // waiting past the point the server can still issue a code only delays the
 // Cancelled message.
-const loginTimeout = 15 * time.Minute
+//
+// A var only so a test can shorten it to prove the internal deadline fires
+// (cli#1624); nothing else assigns it, and TestLoginTimeoutIsFifteenMinuteUpperBound
+// pins the shipped value.
+var loginTimeout = 15 * time.Minute
 
 // accountScope is the OAuth scope the CLI requests (cor:aut:010:02). The CLI
 // drives the GraphQL data API, which refuses a key carrying `mcp` alone, so

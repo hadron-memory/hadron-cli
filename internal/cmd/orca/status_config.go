@@ -83,7 +83,7 @@ func defaultHostReads(f *cmdutil.Factory, cfg *hostpoller.Config, key string) (R
 			return nil, err
 		}
 	}
-	client, err := api.NewClient(server, key, f.HTTPClient)
+	client, err := api.NewClient(server, key, f.HTTPClient, api.WithCredentialSent(f.Credentials(), api.CredentialHostKey))
 	if err != nil {
 		return nil, err
 	}
