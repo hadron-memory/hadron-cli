@@ -366,6 +366,41 @@ successful or not, before anything is retired or prescribed:
   `spec get <old>` shows that `superseded-by` edge.** A rerun that still
   can't see it takes the new-supersede path and mints a *second* replacement.
 
+`spec supersede <old> --by <existing-citation>` creates no node and does not
+rewrite the old body. It links and tags the old spec to an existing written,
+live spec in the SAME memory (cross-module and cross-product allowed). It
+refuses a missing/unreadable, non-spec, placeholder, deleted, retired, self or
+cyclic target before writing. --by conflicts with --title, --to, --feature,
+--rule-after, --copy-body and --reason; blank --by is usage, not omission. It rechecks
+both source and target after confirmation. Its retirement update targets the
+source ID with expectedRevision; a concurrent source edit is refused, without
+an unguarded fallback. Target validation and edge creation are not atomic.
+Unknown/partial link writes are inspected before retry;
+--by never allocates a second replacement node.
+
+Both supersede paths rewrite the old abstract to
+`SUPERSEDED (<YYYY-MM-DD UTC>) by <citation> (<successor name>); do not apply. Historical: <summary>`.
+The history defaults to its stored abstract verbatim; --summary replaces it.
+The abstract replacement re-fingerprints the body in that update. The existing
+create path retains its retirement body note and subrole behavior.
+A same-successor lead leaves the abstract unchanged; missing edge/tag facts
+are completed. Only a matching lead plus tag and edge is a full no-op
+(JSON adds `unchanged:true`);
+a different-successor lead is refused. Existing-target results add
+`existingSuccessor:true`; existing keys/edge status and retired semantics stay.
+After a lost retirement response, success requires both the tag and exact
+requested abstract on read-back; a visible tag alone returns an error.
+A lead/history exceeding 2000 UTF-16 units is refused; supply a shorter
+--summary instead of truncating history. `spec lint` warns with rule
+`superseded-abstract` if the tag says superseded but the abstract never mentions
+it or carry a RESCINDED/WITHDRAWN lead. Strict lint promotes this warning to
+exit 5, including on legacy supersessions. Inspect the sole successor, then
+rerun --by to repair a legacy abstract under the source revision guard;
+never rewrite a rescinded/withdrawn tombstone as a supersession. Explicit
+--summary "" keeps empty history. Already-retired conflicting state is exit 5
+(previously 2 on the create path). No automatic backfill runs. This rule is
+independent of existing length, body-fingerprint and other lint.
+
 A `superseded-by` edge whose target you cannot read still counts as a
 successor, so it blocks retirement rather than vanishing from the count.
 
@@ -426,7 +461,7 @@ hadron channel list [--owner-app <ref>] [-m <memory>] | get <id|address> | creat
 hadron search <query> [-m <memory>]... [--scope <name|id|app|global>] [--mode hybrid|keyword|vector|regex] [--prefix <loc>] [--type <type>] [--object-type <t>] [--tag <t>]... [--where <json>] [--sort-property <json>] [--with-properties] [--with-data] [--comments-only] [--expand 0-3] [--field <f>]... [--granularity node|chunk] [--min-score <x>] [--limit N] [--offset N] [-l|--long] [--json]
 hadron replace text <old> <new> --field <f> (--node <urn> | -m <memory>) [--prefix <loc>] [--regex] [-i] [--dry-run] [--yes] [--max-nodes N]   # --json results is [] (never null) when no nodes change, for both --dry-run and a real no-op
 hadron edge list <node-urn> | <loc> -m <memory> | <node-id> [--direction incoming|outgoing] [--name <substr>] [--to <ref>] [--from <ref>] | list [-m <memory>] [--source <node>] [--target <node>] [--runnable[=false]] [--include-deleted] [--org <org>] [--limit N] [--offset N] | get <edge-id>|<edge-urn> | add | update <edge-id> | rm <edge-id>
-hadron spec label-report [-m <memory>] [--prefix <citation>] | list [-m <memory>] | get <citation> [--body-only] |--prefix <prefix> | describe | use [<memory>] | register [--check] | find <query> [--match-exactly] | grep <pattern> [--regex] [-i] [--field content|abstract] [--prefix <loc>] | replace <pattern> <replacement> [--regex] [--word-boundary=false] [--field content|abstract] [--dry-run] [--yes] [--max-specs N] | new [<loc>] ... | edit <citation> [--content-file <path> [--allow-empty]] [--title <title>] [--force] [--dry-run] [--expected-revision N --expected-node-id ID --expected-proposal-hash HASH] | extract <citation> --to-feature <fff> | link <from> <to> | lint [<citation>] | check-tools [--prefix <loc>] | citations [--src <path>]... [--exclude <glob>]... [--loose] [--stale-abstracts] [--strict] | supersede <citation> [--to <loc>] | rescind <citation> --reason <text> (--summary <text|-> | --summary-file <path>) [--withdrawn] [--yes] [--dry-run] | import spec-kit|code | reserve <citation> [--name <name>] | renumber <from> <to> [--dry-run] | backlinks <citation> | unresolved | mint [--dry-run] [--yes]
+hadron spec label-report [-m <memory>] [--prefix <citation>] | list [-m <memory>] | get <citation> [--body-only] |--prefix <prefix> | describe | use [<memory>] | register [--check] | find <query> [--match-exactly] | grep <pattern> [--regex] [-i] [--field content|abstract] [--prefix <loc>] | replace <pattern> <replacement> [--regex] [--word-boundary=false] [--field content|abstract] [--dry-run] [--yes] [--max-specs N] | new [<loc>] ... | edit <citation> [--content-file <path> [--allow-empty]] [--title <title>] [--force] [--dry-run] [--expected-revision N --expected-node-id ID --expected-proposal-hash HASH] | extract <citation> --to-feature <fff> | link <from> <to> | lint [<citation>] | check-tools [--prefix <loc>] | citations [--src <path>]... [--exclude <glob>]... [--loose] [--stale-abstracts] [--strict] | supersede <citation> (--title <title> [--to <loc>] | --by <existing-citation>) [--summary <text>] | rescind <citation> --reason <text> (--summary <text|-> | --summary-file <path>) [--withdrawn] [--yes] [--dry-run] | import spec-kit|code | reserve <citation> [--name <name>] | renumber <from> <to> [--dry-run] | backlinks <citation> | unresolved | mint [--dry-run] [--yes]
 hadron decision log create <memory> --loc <loc> --decider <user-id>... [--eligible <user-id>...] [--name <n>] [--prefix <p>] | log get <log> | log set-deciders <log> --decider <user-id>... [--eligible <user-id>...] --expected-revision <n> --reason <text> | ask <log> --input-file <path|-> [--title <t>] [--context <c>] [--tier APPROVED|SIGNED] [--urgency NORMAL|URGENT] | get <decision> | get <code> --log <log> | list (--log <log> | --awaiting-me) [--state <s>...] [--tier <t>] [--urgency <u>...] [--authorizes[=false]] [--sort CODE|PORTAL_DEFAULT] [--limit N] [--offset N] | amend <decision> --expected-revision <n> --reason <text> [--input-file <path|->] [--title <t>] [--context <c>] [--tier <t>] [--urgency <u>] | withdraw <decision> --expected-revision <n> --reason <text> [--yes] | verify <decision> | purge <decision> --reason <text> [--yes]   # cli#1335, #1641: one call per verb, refs verbatim, authority server-owned; see "Decisions"
 hadron skill lint (-m <memory>... | --all | --node <ref>...) [--strict] [--json] | status (-m <memory>... | --all) [--host <host>] [--to user|project|plugin|<dir>] [--strict] [--json] | export [--node <ref>...] [--dry-run] [--force] [--prune] [--json] | plugin --out <dir> [--name <name>] [--scope <name|id>] [--zip] [--dry-run] [--json]
 hadron coding review run [-m <memory>] [--base <ref>] [--head <ref>] [--diff <path|->] [--root <loc>] [--all] [--limit N] [--offset N] [--json] | review list [-m <memory>] [--root <loc>] [--broken] [--json] | review create <check-name> [-m <memory>] --trigger <cond> --description <d> [--scope <s>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] | review lint [-m <memory>] [--root <loc>] [--toolchain <t>|-] [--strict] [--suggest] [--fix [--yes]] [--json] | preflight list [-m <memory>] [--root <loc>] [--broken] [--route-model leaf|mirrored] [--json] | preflight create <loc> [-m <memory>] --route <action> --description <d> [--name <n>] [--symptom <s>] [--section <heading>] [--type <t>] [--tag <t>]... [--link <ref>[=<label>]]... [--seq N] [--content <text|-> | --content-file <path>] [--no-back-edge] [--no-body-line] [--route-model leaf|mirrored] [--attach-to <loc>] [--dry-run] | preflight route <node-ref> [-m <memory>] --route <action> [--description <d>] [--symptom <s>] [--section <heading>] [--no-back-edge] [--no-body-line] [--route-model leaf|mirrored] [--attach-to <loc>] [--dry-run] | preflight lint [-m <memory>] [--root <loc>] [--strict] [--route-model leaf|mirrored] [--json]
@@ -1958,8 +1993,8 @@ Conventions:
   headroom; at exactly the cap, any edit that lengthens it (an equal-length
   rewrite still succeeds); past it (legacy data only), any update that REPLACES
   the abstract without bringing it to 2000 or fewer — an update that leaves the
-  abstract alone, such as a body-only edit or the one `spec supersede` writes,
-  still succeeds. Distilling is the wrong remedy in all three — on a
+  abstract alone, such as a body-only edit, still succeeds. Supersede now
+  replaces the abstract too; use a shorter --summary for its retirement lead. Distilling is the wrong remedy in all three — on a
   spec whose sentences are all on-subject, cutting one drops a contract, so the
   fix is a supersede-level split. `spec lint --unwired` (opt-in, #687) is
   the repair report for specs whose edges were never written: for each
