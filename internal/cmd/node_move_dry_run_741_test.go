@@ -27,7 +27,7 @@ func TestNodeMoveDryRun741(t *testing.T) {
 		{name: "unavailable", fail: "unavailable"}, {name: "omitted", fail: "omitted", json: true},
 		{name: "source read failure", fail: "source"}, {name: "missing batch node", fail: "missing"},
 		{name: "repeated page", fail: "repeat"}, {name: "null listing", fail: "null-list"}, {name: "null batch", fail: "null-batch"}, {name: "destination read failure", fail: "destination"}, {name: "changed memory", fail: "changed", json: true},
-		{name: "changed loc", fail: "loc", json: true}, {name: "empty URN", fail: "urn"}, {name: "root absent", fail: "root"}, {name: "duplicate batch id", fail: "duplicate"}, {name: "null hit", fail: "hit"}, {name: "null hits", fail: "hits"}, {name: "empty list id", fail: "list-id"}, {name: "wrong list memory", fail: "list-memory"}, {name: "null source", fail: "null-source"}, {name: "null memory", fail: "null-memory"},
+		{name: "changed loc", fail: "loc", json: true}, {name: "empty URN", fail: "urn"}, {name: "root absent", fail: "root"}, {name: "duplicate batch id", fail: "duplicate"}, {name: "null hit", fail: "hit"}, {name: "null hits", fail: "hits"}, {name: "empty list id", fail: "list-id"}, {name: "wrong list memory", fail: "list-memory"}, {name: "null source", fail: "null-source"}, {name: "null memory", fail: "null-memory"}, {name: "system stream failed", fail: "system-page", json: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			writes := 0
@@ -67,6 +67,14 @@ func TestNodeMoveDryRun741(t *testing.T) {
 					}
 					reply(map[string]any{"memory": map[string]any{"id": "m2", "urn": "hrn:mem:acme.com:archive"}})
 				case "MovePreviewList":
+					if !tc.types && q.Variables["nodeType"] == "system" {
+						if tc.fail == "system-page" {
+							fmt.Fprint(w, `{"errors":[{"message":"system read failed"}]}`)
+							return
+						}
+						reply(map[string]any{"findNodes": map[string]any{"hits": []any{}}})
+						return
+					}
 					mem := q.Variables["memory"].(string)
 					off := int(q.Variables["offset"].(float64))
 					hits := []any{}

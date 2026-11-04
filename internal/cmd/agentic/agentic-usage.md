@@ -1007,6 +1007,7 @@ Conventions:
   as `urn`).
 - `node move … --dry-run` reads an advisory inventory without writing: source
   subtree URNs/names and nodes already present at the requested destination.
+  Both the ordinary/comment and system-type streams are paged; rows are unique by node id.
   It does not predict rebased locs, success, refusals, write/schema permission
   or broken links; hadron-server#3424 tracks the server planner. Reads page to
   exhaustion; any failed, truncated, omitted or unavailable read prints

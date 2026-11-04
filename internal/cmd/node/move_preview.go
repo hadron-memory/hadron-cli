@@ -55,6 +55,9 @@ func previewMove(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, 
 		if _, e := fmt.Fprintln(w, moveAdvisory); e != nil {
 			return e
 		}
+		if _, e := fmt.Fprintln(w, "Write permission and schema validity are not checked; these reads are not a snapshot."); e != nil {
+			return e
+		}
 		if _, e := fmt.Fprintln(w, dto.Status); e != nil {
 			return e
 		}
@@ -138,54 +141,68 @@ func readMovePreview(cmd *cobra.Command, client graphql.Client, memory, source s
 // selector; colon-boundary membership is checked before hydrating candidates.
 func readMoveSubtree(cmd *cobra.Command, client graphql.Client, memory, prefix string) ([]movePreviewNode, error) {
 	nodes := []movePreviewNode{}
-	err := api.PageNodes(api.NodeBatchCap, func(limit, offset int) ([]*api.ListNode, error) {
-		page, err := gen.MovePreviewList(cmd.Context(), client, memory, prefix, limit, offset)
+	emitted := map[string]bool{}
+	systemType := "system"
+	// findNodes defaults to non-system content. ALL includes comments, and
+	// the second stream includes the otherwise excluded system node type.
+	for _, nodeType := range []*string{nil, &systemType} {
+		err := api.PageNodes(api.NodeBatchCap, func(limit, offset int) ([]*api.ListNode, error) {
+			page, err := gen.MovePreviewList(cmd.Context(), client, memory, prefix, limit, offset, nodeType)
+			if err != nil {
+				return nil, err
+			}
+			if page.FindNodes == nil || page.FindNodes.Hits == nil {
+				return nil, fmt.Errorf("node listing unavailable")
+			}
+			candidates := []*api.ListNode{}
+			refs := []string{}
+			byID := map[string]*api.ListNode{}
+			for _, h := range page.FindNodes.Hits {
+				if h == nil || h.Node == nil || h.Node.Id == "" || h.Node.MemoryId != memory {
+					return nil, fmt.Errorf("node listing contains an unavailable row")
+				}
+				n := &api.ListNode{Id: h.Node.Id, MemoryId: h.Node.MemoryId, Loc: h.Node.Loc}
+				candidates = append(candidates, n)
+				if n.Loc == prefix || strings.HasPrefix(n.Loc, prefix+":") {
+					refs = append(refs, n.Id)
+					byID[n.Id] = n
+				}
+			}
+			if len(refs) > 0 {
+				batch, e := gen.MovePreviewBatch(cmd.Context(), client, refs)
+				if e != nil {
+					return nil, e
+				}
+				b := batch.NodeBatch
+				if b == nil || b.Truncated || len(b.Omitted) > 0 || len(b.Unavailable) > 0 {
+					return nil, fmt.Errorf("node batch is incomplete (truncated, omitted or unavailable)")
+				}
+				seen := map[string]bool{}
+				for _, n := range b.Nodes {
+					if n == nil {
+						return nil, fmt.Errorf("node batch contains an unavailable row")
+					}
+					prior, ok := byID[n.Id]
+					if !ok || seen[n.Id] || n.MemoryId != memory || n.Loc != prior.Loc || n.Urn == "" {
+						return nil, fmt.Errorf("node changed during the read or batch identity is incomplete")
+					}
+					seen[n.Id] = true
+					// fetch runs before PageNodes.visit and its dedup. Keep an
+					// output-side ID set so overlapping offset pages stay unique.
+					if !emitted[n.Id] {
+						nodes = append(nodes, movePreviewNode{URN: n.Urn, Name: n.Name})
+						emitted[n.Id] = true
+					}
+				}
+				if len(seen) != len(byID) {
+					return nil, fmt.Errorf("node batch did not return every requested node")
+				}
+			}
+			return candidates, nil
+		}, func(*api.ListNode) bool { return true })
 		if err != nil {
 			return nil, err
 		}
-		if page.FindNodes == nil {
-			return nil, fmt.Errorf("node listing unavailable")
-		}
-		candidates := []*api.ListNode{}
-		refs := []string{}
-		byID := map[string]*api.ListNode{}
-		for _, h := range page.FindNodes.Hits {
-			if h == nil || h.Node == nil || h.Node.Id == "" || h.Node.MemoryId != memory {
-				return nil, fmt.Errorf("node listing contains an unavailable row")
-			}
-			n := &api.ListNode{Id: h.Node.Id, MemoryId: h.Node.MemoryId, Loc: h.Node.Loc}
-			candidates = append(candidates, n)
-			if n.Loc == prefix || strings.HasPrefix(n.Loc, prefix+":") {
-				refs = append(refs, n.Id)
-				byID[n.Id] = n
-			}
-		}
-		if len(refs) > 0 {
-			batch, e := gen.MovePreviewBatch(cmd.Context(), client, refs)
-			if e != nil {
-				return nil, e
-			}
-			b := batch.NodeBatch
-			if b == nil || b.Truncated || len(b.Omitted) > 0 || len(b.Unavailable) > 0 {
-				return nil, fmt.Errorf("node batch is incomplete (truncated, omitted or unavailable)")
-			}
-			seen := map[string]bool{}
-			for _, n := range b.Nodes {
-				if n == nil {
-					return nil, fmt.Errorf("node batch contains an unavailable row")
-				}
-				prior, ok := byID[n.Id]
-				if !ok || seen[n.Id] || n.MemoryId != memory || n.Loc != prior.Loc || n.Urn == "" {
-					return nil, fmt.Errorf("node changed during the read or batch identity is incomplete")
-				}
-				seen[n.Id] = true
-				nodes = append(nodes, movePreviewNode{URN: n.Urn, Name: n.Name})
-			}
-			if len(seen) != len(byID) {
-				return nil, fmt.Errorf("node batch did not return every requested node")
-			}
-		}
-		return candidates, nil
-	}, func(*api.ListNode) bool { return true })
-	return nodes, err
+	}
+	return nodes, nil
 }

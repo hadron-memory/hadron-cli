@@ -50,7 +50,7 @@ the move is in flight.
 --dry-run reads the source subtree and nodes already present at the destination,
 without moving anything. It is advisory: it does not predict rebased locs, move
 success, refusals or broken links (server#3424 tracks the server planner). Reads
-page to exhaustion; an incomplete read prints INCOMPLETE and exits 1. A complete
+page to exhaustion, including readable comments and system-type nodes; an incomplete read prints INCOMPLETE and exits 1. A complete
 read exits 0, but is not a snapshot or a guarantee about a later move.`,
 		Example: `  hadron node move hrn:node:acme.com:kb:findings:flaky-ci --to-urn hrn:node:acme.com:kb:archive:flaky-ci
   hadron node move findings:flaky-ci -m hrn:mem:acme.com:kb --to-memory hrn:mem:acme.com:archive`,

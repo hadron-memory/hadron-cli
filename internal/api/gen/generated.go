@@ -100847,10 +100847,11 @@ func (v *__MovePreviewBatchInput) GetRefs() []string { return v.Refs }
 
 // __MovePreviewListInput is used internally by genqlient
 type __MovePreviewListInput struct {
-	Memory string `json:"memory"`
-	Prefix string `json:"prefix"`
-	Limit  int    `json:"limit"`
-	Offset int    `json:"offset"`
+	Memory   string  `json:"memory"`
+	Prefix   string  `json:"prefix"`
+	Limit    int     `json:"limit"`
+	Offset   int     `json:"offset"`
+	NodeType *string `json:"nodeType,omitempty"`
 }
 
 // GetMemory returns __MovePreviewListInput.Memory, and is useful for accessing the field via an interface.
@@ -100864,6 +100865,9 @@ func (v *__MovePreviewListInput) GetLimit() int { return v.Limit }
 
 // GetOffset returns __MovePreviewListInput.Offset, and is useful for accessing the field via an interface.
 func (v *__MovePreviewListInput) GetOffset() int { return v.Offset }
+
+// GetNodeType returns __MovePreviewListInput.NodeType, and is useful for accessing the field via an interface.
+func (v *__MovePreviewListInput) GetNodeType() *string { return v.NodeType }
 
 // __MovePreviewMemoryInput is used internally by genqlient
 type __MovePreviewMemoryInput struct {
@@ -125105,8 +125109,8 @@ func MovePreviewBatch(
 
 // The query executed by MovePreviewList.
 const MovePreviewList_Operation = `
-query MovePreviewList ($memory: ID!, $prefix: String!, $limit: Int!, $offset: Int!) {
-	findNodes(filter: {memoryIds:[$memory],locPrefix:$prefix}, sort: loc, limit: $limit, offset: $offset) {
+query MovePreviewList ($memory: ID!, $prefix: String!, $limit: Int!, $offset: Int!, $nodeType: String) {
+	findNodes(filter: {memoryIds:[$memory],locPrefix:$prefix,contentScope:ALL,nodeType:$nodeType}, sort: loc, limit: $limit, offset: $offset) {
 		hits {
 			node {
 				id
@@ -125118,6 +125122,8 @@ query MovePreviewList ($memory: ID!, $prefix: String!, $limit: Int!, $offset: In
 }
 `
 
+// The default stream excludes system-type nodes; a second paged stream names
+// that type explicitly. ALL overrides the independent comment exclusion.
 func MovePreviewList(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -125125,15 +125131,17 @@ func MovePreviewList(
 	prefix string,
 	limit int,
 	offset int,
+	nodeType *string,
 ) (data_ *MovePreviewListResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "MovePreviewList",
 		Query:  MovePreviewList_Operation,
 		Variables: &__MovePreviewListInput{
-			Memory: memory,
-			Prefix: prefix,
-			Limit:  limit,
-			Offset: offset,
+			Memory:   memory,
+			Prefix:   prefix,
+			Limit:    limit,
+			Offset:   offset,
+			NodeType: nodeType,
 		},
 	}
 

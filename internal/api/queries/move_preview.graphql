@@ -15,8 +15,13 @@ query MovePreviewBatch($refs: [ID!]) {
     nodes { id urn memoryId loc name }
   }
 }
-query MovePreviewList($memory: ID!, $prefix: String!, $limit: Int!, $offset: Int!) {
-  findNodes(filter: {memoryIds: [$memory], locPrefix: $prefix}, sort: loc, limit: $limit, offset: $offset) {
+# The default stream excludes system-type nodes; a second paged stream names
+# that type explicitly. ALL overrides the independent comment exclusion.
+query MovePreviewList($memory: ID!, $prefix: String!, $limit: Int!, $offset: Int!,
+  # @genqlient(omitempty: true)
+  $nodeType: String
+) {
+  findNodes(filter: {memoryIds: [$memory], locPrefix: $prefix, contentScope: ALL, nodeType: $nodeType}, sort: loc, limit: $limit, offset: $offset) {
     hits { node { id memoryId loc } }
   }
 }
