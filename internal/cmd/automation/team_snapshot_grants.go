@@ -12,6 +12,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/instruction"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 	"github.com/spf13/cobra"
 )
@@ -60,9 +61,17 @@ its own App's roster and tasks only while it holds this grant; none is given
 by default. A manual run has no automation and cannot hold one. This grants no
 writes and no access to another App. The server decides all authority.
 
-Only a person managing the App may give one. These commands send no worker
-session header, even from a bound worktree. Listing and revoking through a
-worker instruction are not implemented here; there is no --instruction flag.
+Only a person managing the App may give one (set stays person-only).
+Without --instruction, list and revoke send no worker session header even
+from a bound worktree. With --instruction, they use this worktree's verified
+session; an unusable binding falls back to the signed-in person with a note.
+The server owns App admission and checks the reference; refusals are never
+retried or downgraded. The reference after the first colon is sent as written.
+A person fallback still has its reference checked but records no worker claim.
+Each admitted worker-instructed list page records one team event, including empty
+pages. Default list walks to the end (one event per page); --limit reads just
+one page. Revoke's instructed history lookup also records one event per page
+before its single revoke. Instruction needs server 7907d93d or later.
 Set and list take an explicit App ID, qualified URN or root:slug.
 JSON keeps revokedAt/revokedBy null for a live grant; human output uses -.
 Needs hadron-server ecdde802 or later; older-server refusals are passed through.`}
@@ -123,29 +132,18 @@ The returned grant metadata is printed; this does not run the automation.`, Exam
 
 // collectSnapshotGrants advances by rows actually returned. A broken/nonprogressing
 // page fails the whole command, so it never prints a partial list as complete.
-func collectSnapshotGrants(ctx context.Context, client graphql.Client, app string, include *bool, limit, offset int, all bool) (snapshotGrantPageDTO, error) {
+func collectSnapshotGrants(ctx context.Context, client graphql.Client, app string, include *bool, limit, offset int, all bool, claim snapshotInstruction) (snapshotGrantPageDTO, error) {
 	d := snapshotGrantPageDTO{Items: []snapshotGrantDTO{}}
 	seen := map[string]bool{}
 	for {
-		r, err := gen.AutomationTeamSnapshotGrants(ctx, client, app, include, limit, offset)
+		p, err := claim.page(ctx, client, app, include, limit, offset)
 		if err != nil {
-			return d, api.MapErrorKeepingCode(err)
+			return d, err
 		}
-		if r == nil || r.AutomationTeamSnapshotGrants == nil {
-			return d, exitcode.Newf(exitcode.Error, "the server returned no team snapshot grant page")
-		}
-		p := r.AutomationTeamSnapshotGrants
 		if p.Total < 0 || len(p.Items) > limit || (p.HasMore && len(p.Items) == 0) {
 			return d, exitcode.Newf(exitcode.Error, "the server returned an invalid or non-progressing team snapshot grant page")
 		}
-		for _, g := range p.Items {
-			if g == nil {
-				return d, exitcode.Newf(exitcode.Error, "the server returned a null team snapshot grant")
-			}
-			row, err := snapshotGrantFrom(g.AutomationTeamSnapshotGrantFields)
-			if err != nil {
-				return d, err
-			}
+		for _, row := range p.Items {
 			if seen[row.ID] {
 				return d, exitcode.Newf(exitcode.Error, "the server repeated a team snapshot grant while paging; list again")
 			}
@@ -164,6 +162,7 @@ func collectSnapshotGrants(ctx context.Context, client graphql.Client, app strin
 func newCmdSnapshotList(f *cmdutil.Factory) *cobra.Command {
 	var revoked bool
 	var limit, offset int
+	var instructionRaw string
 	cmd := &cobra.Command{Use: "list <app-ref> [--include-revoked] [--limit n] [--offset n]", Aliases: []string{"ls"}, Short: "List an App's team snapshot grants, paging to the end by default", Long: `Read grants in the server's order (oldest first). Without --limit, read every
 page starting at --offset (default 0). With --limit, read exactly one page of
 1..200 rows; a continuation note goes to stderr when more remain.
@@ -174,6 +173,10 @@ JSON is {items,total,hasMore}; empty items is [], and total is the server's
 count, not a count inferred by the CLI. Human output shows grant, App, trigger
 and revocation metadata. No credentials or task content are read.`, Example: `  hadron automation team-snapshot-grant list acme.com:ops --json
   hadron automation team-snapshot-grant list acme.com:ops --include-revoked --limit 20 --offset 20`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+		claim, err := parseSnapshotInstruction(cmd, f, instructionRaw)
+		if err != nil {
+			return err
+		}
 		app, err := snapshotAppRef(args[0])
 		if err != nil {
 			return err
@@ -189,7 +192,7 @@ and revocation metadata. No credentials or task content are read.`, Example: `  
 		if err != nil {
 			return err
 		}
-		d, err := collectSnapshotGrants(cmd.Context(), client, app, include, limit, offset, !cmd.Flags().Changed("limit"))
+		d, err := collectSnapshotGrants(cmd.Context(), client, app, include, limit, offset, !cmd.Flags().Changed("limit"), claim)
 		if err != nil {
 			return err
 		}
@@ -208,6 +211,7 @@ and revocation metadata. No credentials or task content are read.`, Example: `  
 		}
 		return err
 	}}
+	cmd.Flags().StringVar(&instructionRaw, "instruction", "", instruction.FlagUsageForServer("7907d93d"))
 	cmd.Flags().BoolVar(&revoked, "include-revoked", false, "include ended grants; false keeps live grants only")
 	cmd.Flags().IntVar(&limit, "limit", 20, "one page size (1..200); omitted walks all pages of 20")
 	cmd.Flags().IntVar(&offset, "offset", 0, "skip this many rows before reading (nonnegative)")
@@ -223,6 +227,7 @@ func snapshotAppRef(ref string) (string, error) {
 
 func newCmdSnapshotRevoke(f *cmdutil.Factory) *cobra.Command {
 	var yes bool
+	var instructionRaw string
 	cmd := &cobra.Command{Use: "revoke <grant-id> [--yes]", Short: "End one automation team snapshot grant in the target App", Long: `Revoke the exact grant ID from list. The App is --app, else the active App
 selected by hadron app use. Read that App's grant history (including revoked
 rows), then show the returned App ID and trigger kind/ID for confirmation.
@@ -233,7 +238,17 @@ creates a new row rather than reopening the old one.
 
 One revoke mutation is sent, never retried. A lost answer is an unknown
 outcome: list --include-revoked before trying again. JSON returns the grant
-with explicit revokedAt/revokedBy. No --instruction arm is implemented.`, Example: `  hadron automation team-snapshot-grant revoke <grant-id> --app acme.com:ops --yes --json`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+with explicit revokedAt/revokedBy.
+
+With --instruction, confirmation instead happens BEFORE any request: it names
+the grant ID and target App, and warns that the lookup records one event per
+page. After consent the entire App history is read, then the matching live
+row is revoked without a second prompt. No matching row means no revoke.
+Without the flag the returned App/trigger metadata is confirmed as before.`, Example: `  hadron automation team-snapshot-grant revoke <grant-id> --app acme.com:ops --yes --json`, Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+		claim, err := parseSnapshotInstruction(cmd, f, instructionRaw)
+		if err != nil {
+			return err
+		}
 		id := strings.TrimSpace(args[0])
 		if id == "" {
 			return exitcode.Newf(exitcode.Usage, "pass a nonempty grant ID from list")
@@ -247,12 +262,18 @@ with explicit revokedAt/revokedBy. No --instruction arm is implemented.`, Exampl
 				return err
 			}
 		}
+		if claim.claim != nil {
+			prompt := fmt.Sprintf("Look up and revoke team snapshot grant %s in App %s (%s)? The lookup records one event per page, including empty pages; if the row is absent, no revoke is sent.", strconv.Quote(id), strconv.Quote(app), source)
+			if err := cmdutil.Confirm(f.IOStreams, yes, prompt); err != nil {
+				return err
+			}
+		}
 		client, err := f.GraphQLClient()
 		if err != nil {
 			return err
 		}
 		include := true
-		page, err := collectSnapshotGrants(cmd.Context(), client, app, &include, 20, 0, true)
+		page, err := collectSnapshotGrants(cmd.Context(), client, app, &include, 20, 0, true, claim)
 		if err != nil {
 			return err
 		}
@@ -272,18 +293,21 @@ with explicit revokedAt/revokedBy. No --instruction arm is implemented.`, Exampl
 			}
 			return writeSnapshotGrant(f, *selected)
 		}
-		prompt := fmt.Sprintf("Revoke team snapshot grant %s for App %s trigger %s %s (%s)?", strconv.Quote(id), strconv.Quote(selected.AppID), strconv.Quote(selected.TriggerKind), strconv.Quote(selected.TriggerID), source)
-		if err := cmdutil.Confirm(f.IOStreams, yes, prompt); err != nil {
+		if claim.claim == nil {
+			prompt := fmt.Sprintf("Revoke team snapshot grant %s for App %s trigger %s %s (%s)?", strconv.Quote(id), strconv.Quote(selected.AppID), strconv.Quote(selected.TriggerKind), strconv.Quote(selected.TriggerID), source)
+			if err := cmdutil.Confirm(f.IOStreams, yes, prompt); err != nil {
+				return err
+			}
+		}
+
+		row, err := claim.revoke(cmd.Context(), client, id)
+		if err != nil {
 			return err
 		}
-		r, err := gen.RevokeAutomationTeamSnapshotGrant(cmd.Context(), client, id)
-		if err != nil {
-			return mapSnapshotWriteError(err)
-		}
-		if r == nil || r.RevokeAutomationTeamSnapshotGrant == nil {
+		if row == nil {
 			return exitcode.Newf(exitcode.Error, "the server did not confirm revocation; list --include-revoked before retrying")
 		}
-		d, err := snapshotGrantFrom(r.RevokeAutomationTeamSnapshotGrant.AutomationTeamSnapshotGrantFields)
+		d, err := snapshotGrantFrom(*row)
 		if err != nil {
 			return err
 		}
@@ -292,6 +316,7 @@ with explicit revokedAt/revokedBy. No --instruction arm is implemented.`, Exampl
 		}
 		return writeSnapshotGrant(f, d)
 	}}
+	cmd.Flags().StringVar(&instructionRaw, "instruction", "", instruction.FlagUsageForServer("7907d93d"))
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation (required non-interactively)")
 	return cmd
 }

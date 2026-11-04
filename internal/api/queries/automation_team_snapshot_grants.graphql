@@ -32,3 +32,24 @@ query AutomationTeamSnapshotGrants(
     hasMore
   }
 }
+
+# Explicit instruction only: preserve the legacy documents for older servers.
+query AutomationTeamSnapshotGrantsInstructed(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $includeRevoked: Boolean
+  $limit: Int!
+  $offset: Int!
+  $instruction: ActInstructionInput!
+) {
+  automationTeamSnapshotGrants(appRef: $appRef, includeRevoked: $includeRevoked, limit: $limit, offset: $offset, instruction: $instruction) {
+    items { ...AutomationTeamSnapshotGrantFields }
+    total
+    hasMore
+  }
+}
+mutation RevokeAutomationTeamSnapshotGrantInstructed($id: ID!, $instruction: ActInstructionInput!) {
+  revokeAutomationTeamSnapshotGrant(id: $id, instruction: $instruction) {
+    ...AutomationTeamSnapshotGrantFields
+  }
+}

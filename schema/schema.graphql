@@ -9801,14 +9801,14 @@ type Mutation {
   revokeAppMemoryWriteGrant(id: ID!, instruction: ActInstructionInput): AppMemoryWriteGrant!
 
   """
-  #2883: end an automation read grant. The App's managers or the target's manager. Terminal.
+  #2883: end an automation read grant. The App's managers or the target's manager, as themselves or through a held worker on a validated instruction within its own App. Terminal, with no event on a repeat.
   """
-  revokeAutomationReadGrant(id: ID!): AutomationReadGrant!
+  revokeAutomationReadGrant(id: ID!, instruction: ActInstructionInput): AutomationReadGrant!
 
   """
-  #3350: terminal revoke, App managers only. Worker instruction arm is not yet built (not a person-only ruling).
+  #3350: terminal revoke, App managers only. A held worker on a validated instruction may revoke within its own App; changing revokes record the worker and holder.
   """
-  revokeAutomationTeamSnapshotGrant(id: ID!): AutomationTeamSnapshotGrant!
+  revokeAutomationTeamSnapshotGrant(id: ID!, instruction: ActInstructionInput): AutomationTeamSnapshotGrant!
 
   """Revoke a connection grant you created (soft delete). Owner-only."""
   revokeConnectionGrant(ref: ID!): Boolean!
@@ -12916,14 +12916,14 @@ type Query {
   automationApprovals(after: String, appRef: String!, limit: Int = 20): AutomationApprovalPage!
 
   """
-  #2883: automation read grants. Give an App (its managers see its grants) and/or a memory (that memory's manager, or an Agent's manager for its system memory, sees the grants on it); a reader sees only the rows they manage the App or the target of.
+  #2883: automation read grants. Give an App (its managers see its grants) and/or a memory (that memory's manager, or an Agent's manager for its system memory, sees the grants on it); a reader sees only the rows they manage the App or the target of. A held worker on a validated instruction is scoped to its own App, including memory-only lists; each admitted instructed list records one ids-only team event. A person supplying instruction must also supply appRef; omit instruction to retain a cross-App memory-only list.
   """
-  automationReadGrants(appRef: String, includeRevoked: Boolean = false, memoryRef: String): [AutomationReadGrant!]!
+  automationReadGrants(appRef: String, includeRevoked: Boolean = false, instruction: ActInstructionInput, memoryRef: String): [AutomationReadGrant!]!
 
   """
-  #3350: only this App's managers list its team snapshot grants; includeRevoked defaults false. Worker instruction arm is not yet built, not ruled refused.
+  #3350: only this App's managers list its team snapshot grants; includeRevoked defaults false. A held worker on a validated instruction may list within its own App; one ids-only team event per admitted instructed call, including an empty page.
   """
-  automationTeamSnapshotGrants(appRef: ID!, includeRevoked: Boolean, limit: Int, offset: Int): AutomationTeamSnapshotGrantPage!
+  automationTeamSnapshotGrants(appRef: ID!, includeRevoked: Boolean, instruction: ActInstructionInput, limit: Int, offset: Int): AutomationTeamSnapshotGrantPage!
 
   """One event by id. Grant scope: calendar.read."""
   calendarEvent(calendarId: String, connectionRef: ID!, eventId: ID!): CalendarEvent!
