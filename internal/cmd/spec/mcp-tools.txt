@@ -58,6 +58,8 @@ hadron_get_signing_request
 hadron_get_worker
 hadron_isolate_worker
 hadron_list_apps
+hadron_list_automation_read_grants
+hadron_list_automation_team_snapshot_grants
 hadron_list_channels
 hadron_list_comments
 hadron_list_memories
@@ -85,6 +87,8 @@ hadron_request_signature
 hadron_resolve_comment_thread
 hadron_restore_node
 hadron_resume_session
+hadron_revoke_automation_read_grant
+hadron_revoke_automation_team_snapshot_grant
 hadron_run_action
 hadron_run_task
 hadron_scope_explain
@@ -97,6 +101,8 @@ hadron_set_active_memory
 hadron_set_active_org
 hadron_set_active_scope
 hadron_set_asset_public_link
+hadron_set_automation_read_grant
+hadron_set_automation_team_snapshot_grant
 hadron_set_team_pause
 hadron_set_worker_reports_to
 hadron_spawn
@@ -122,6 +128,8 @@ hadron_task_priority_set
 hadron_task_progress
 hadron_task_reassign
 hadron_task_start
+hadron_task_untracked_claim
+hadron_task_untracked_list
 hadron_task_update
 hadron_team_attention
 hadron_team_attention_page
@@ -135,6 +143,7 @@ hadron_team_chat_read
 hadron_team_chat_search
 hadron_team_events
 hadron_team_roster
+hadron_team_snapshot
 hadron_team_work_items
 hadron_ticker_create
 hadron_ticker_delete

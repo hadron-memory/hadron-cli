@@ -19,7 +19,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 203: 159 command, 25 gap, 19 excluded
+[Query] 204: 160 command, 25 gap, 19 excluded
 actionRegisterIndex  command team register
 actionTickets  command ticket list
 agent  command agent get
@@ -64,6 +64,7 @@ authContext  command auth whoami
 automationApproval  command automation approval
 automationApprovals  command automation approval
 automationReadGrants  gap #1566
+automationTeamSnapshotGrants  command automation team-snapshot-grant list
 calendarEvent  command calendar event get
 calendarEvents  command calendar events
 calendarSchedule  command calendar freebusy
@@ -224,7 +225,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 330: 268 command, 50 gap, 12 excluded
+[Mutation] 331: 270 command, 49 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -450,6 +451,7 @@ revokeAppKey  command app key revoke
 revokeAppKeyScope  command app key scope revoke
 revokeAppMemoryWriteGrant  command app memory-grant rm
 revokeAutomationReadGrant  gap #1566
+revokeAutomationTeamSnapshotGrant  command automation team-snapshot-grant revoke
 revokeConnectionGrant  command connection grant revoke
 revokePrincipalGrant  command grant revoke
 revokeUserApiKey  command auth token revoke
@@ -473,10 +475,10 @@ setAppDeliverySettings  command team delivery-settings set
 setAppMemoryWriteGrant  command app memory-grant add
 setAppModelGroup  command app model-group set
 setAppProperties  command app properties set
-setAppRunTeamSnapshotEnabled  gap #1578
 setAppTickerSettings  gap #1336
 setAssetPublicLink  command asset public-link
 setAutomationReadGrant  gap #1566
+setAutomationTeamSnapshotGrant  command automation team-snapshot-grant set
 setDashboardWidgets  excluded graphical: places portal dashboard widgets on a 12-column grid (position, span, rowSpan)
 setDecisionLogDeciders  command decision log set-deciders
 setHostWorkerAvailability  command team host availability
@@ -556,7 +558,7 @@ updateWorker  command team worker update
 withdrawDecision  command decision withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 72: 44 gap, 28 excluded
+[Arguments] 73: 45 gap, 28 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.addOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
@@ -598,6 +600,7 @@ Mutation.removeMemoryMember(memoryId)  excluded deprecated: @deprecated: Use mem
 Mutation.removeMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.removeOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
 Mutation.removeOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
+Mutation.setAssetPublicLink(instruction)  gap #1610: instructed-worker companion
 Mutation.updateApp(agentSessionsExpire)  gap #63
 Mutation.updateApp(agentTools)  gap #63
 Mutation.updateApp(aiApiKey)  gap #63

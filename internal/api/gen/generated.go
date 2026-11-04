@@ -10943,7 +10943,7 @@ type AgentTeamEventFields struct {
 	Id     string  `json:"id"`
 	AppId  string  `json:"appId"`
 	TaskId *string `json:"taskId"`
-	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled, task.handed-back (#2651: its payload is the reason code only, never the reason text); the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, stall.finish-by (#2648), alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02).
+	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled, task.handed-back (#2651: its payload is the reason code only, never the reason text); the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, stall.finish-by (#2648), alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark), alarm.coordinator-cadence (#2763: task-less, subjectWorker is the coordinator that stopped assigning); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02).
 	Type string `json:"type"`
 	// ALARM for an alarm; null for an ordinary event.
 	Severity  *AgentTeamEventSeverity `json:"severity"`
@@ -18455,6 +18455,191 @@ type AutomationApprovalsResponse struct {
 // GetAutomationApprovals returns AutomationApprovalsResponse.AutomationApprovals, and is useful for accessing the field via an interface.
 func (v *AutomationApprovalsResponse) GetAutomationApprovals() *AutomationApprovalsAutomationApprovalsAutomationApprovalPage {
 	return v.AutomationApprovals
+}
+
+// Per-automation own-App roster/task read grant (#1578, server #3363).
+type AutomationTeamSnapshotGrantFields struct {
+	Id          string  `json:"id"`
+	AppId       string  `json:"appId"`
+	TriggerKind string  `json:"triggerKind"`
+	TriggerId   string  `json:"triggerId"`
+	GrantedBy   string  `json:"grantedBy"`
+	CreatedAt   string  `json:"createdAt"`
+	RevokedAt   *string `json:"revokedAt"`
+	RevokedBy   *string `json:"revokedBy"`
+}
+
+// GetId returns AutomationTeamSnapshotGrantFields.Id, and is useful for accessing the field via an interface.
+func (v *AutomationTeamSnapshotGrantFields) GetId() string { return v.Id }
+
+// GetAppId returns AutomationTeamSnapshotGrantFields.AppId, and is useful for accessing the field via an interface.
+func (v *AutomationTeamSnapshotGrantFields) GetAppId() string { return v.AppId }
+
+// GetTriggerKind returns AutomationTeamSnapshotGrantFields.TriggerKind, and is useful for accessing the field via an interface.
+func (v *AutomationTeamSnapshotGrantFields) GetTriggerKind() string { return v.TriggerKind }
+
+// GetTriggerId returns AutomationTeamSnapshotGrantFields.TriggerId, and is useful for accessing the field via an interface.
+func (v *AutomationTeamSnapshotGrantFields) GetTriggerId() string { return v.TriggerId }
+
+// GetGrantedBy returns AutomationTeamSnapshotGrantFields.GrantedBy, and is useful for accessing the field via an interface.
+func (v *AutomationTeamSnapshotGrantFields) GetGrantedBy() string { return v.GrantedBy }
+
+// GetCreatedAt returns AutomationTeamSnapshotGrantFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AutomationTeamSnapshotGrantFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetRevokedAt returns AutomationTeamSnapshotGrantFields.RevokedAt, and is useful for accessing the field via an interface.
+func (v *AutomationTeamSnapshotGrantFields) GetRevokedAt() *string { return v.RevokedAt }
+
+// GetRevokedBy returns AutomationTeamSnapshotGrantFields.RevokedBy, and is useful for accessing the field via an interface.
+func (v *AutomationTeamSnapshotGrantFields) GetRevokedBy() *string { return v.RevokedBy }
+
+// AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPage includes the requested fields of the GraphQL type AutomationTeamSnapshotGrantPage.
+// The GraphQL type's documentation follows.
+//
+// #3350: terminal per-automation read-only team snapshot grant; no App-wide permission. hrn:node:hadronmemory.com:specs:cor:agt:050:23
+type AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPage struct {
+	Items   []*AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant `json:"items"`
+	Total   int                                                                                                                        `json:"total"`
+	HasMore bool                                                                                                                       `json:"hasMore"`
+}
+
+// GetItems returns AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPage.Items, and is useful for accessing the field via an interface.
+func (v *AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPage) GetItems() []*AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant {
+	return v.Items
+}
+
+// GetTotal returns AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPage.Total, and is useful for accessing the field via an interface.
+func (v *AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPage) GetTotal() int {
+	return v.Total
+}
+
+// GetHasMore returns AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPage.HasMore, and is useful for accessing the field via an interface.
+func (v *AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPage) GetHasMore() bool {
+	return v.HasMore
+}
+
+// AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant includes the requested fields of the GraphQL type AutomationTeamSnapshotGrant.
+// The GraphQL type's documentation follows.
+//
+// #3350: automation team snapshot grant history. Revocation is terminal.
+type AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant struct {
+	AutomationTeamSnapshotGrantFields `json:"-"`
+}
+
+// GetId returns AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant.Id, and is useful for accessing the field via an interface.
+func (v *AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant) GetId() string {
+	return v.AutomationTeamSnapshotGrantFields.Id
+}
+
+// GetAppId returns AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant.AppId, and is useful for accessing the field via an interface.
+func (v *AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant) GetAppId() string {
+	return v.AutomationTeamSnapshotGrantFields.AppId
+}
+
+// GetTriggerKind returns AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant.TriggerKind, and is useful for accessing the field via an interface.
+func (v *AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant) GetTriggerKind() string {
+	return v.AutomationTeamSnapshotGrantFields.TriggerKind
+}
+
+// GetTriggerId returns AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant.TriggerId, and is useful for accessing the field via an interface.
+func (v *AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant) GetTriggerId() string {
+	return v.AutomationTeamSnapshotGrantFields.TriggerId
+}
+
+// GetGrantedBy returns AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant.GrantedBy, and is useful for accessing the field via an interface.
+func (v *AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant) GetGrantedBy() string {
+	return v.AutomationTeamSnapshotGrantFields.GrantedBy
+}
+
+// GetCreatedAt returns AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant) GetCreatedAt() string {
+	return v.AutomationTeamSnapshotGrantFields.CreatedAt
+}
+
+// GetRevokedAt returns AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant.RevokedAt, and is useful for accessing the field via an interface.
+func (v *AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant) GetRevokedAt() *string {
+	return v.AutomationTeamSnapshotGrantFields.RevokedAt
+}
+
+// GetRevokedBy returns AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant.RevokedBy, and is useful for accessing the field via an interface.
+func (v *AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant) GetRevokedBy() *string {
+	return v.AutomationTeamSnapshotGrantFields.RevokedBy
+}
+
+func (v *AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AutomationTeamSnapshotGrantFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant struct {
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	TriggerKind string `json:"triggerKind"`
+
+	TriggerId string `json:"triggerId"`
+
+	GrantedBy string `json:"grantedBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	RevokedAt *string `json:"revokedAt"`
+
+	RevokedBy *string `json:"revokedBy"`
+}
+
+func (v *AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant) __premarshalJSON() (*__premarshalAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant, error) {
+	var retval __premarshalAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPageItemsAutomationTeamSnapshotGrant
+
+	retval.Id = v.AutomationTeamSnapshotGrantFields.Id
+	retval.AppId = v.AutomationTeamSnapshotGrantFields.AppId
+	retval.TriggerKind = v.AutomationTeamSnapshotGrantFields.TriggerKind
+	retval.TriggerId = v.AutomationTeamSnapshotGrantFields.TriggerId
+	retval.GrantedBy = v.AutomationTeamSnapshotGrantFields.GrantedBy
+	retval.CreatedAt = v.AutomationTeamSnapshotGrantFields.CreatedAt
+	retval.RevokedAt = v.AutomationTeamSnapshotGrantFields.RevokedAt
+	retval.RevokedBy = v.AutomationTeamSnapshotGrantFields.RevokedBy
+	return &retval, nil
+}
+
+// AutomationTeamSnapshotGrantsResponse is returned by AutomationTeamSnapshotGrants on success.
+type AutomationTeamSnapshotGrantsResponse struct {
+	// #3350: only this App's managers list its team snapshot grants; includeRevoked defaults false. Worker instruction arm is not yet built, not ruled refused.
+	AutomationTeamSnapshotGrants *AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPage `json:"automationTeamSnapshotGrants"`
+}
+
+// GetAutomationTeamSnapshotGrants returns AutomationTeamSnapshotGrantsResponse.AutomationTeamSnapshotGrants, and is useful for accessing the field via an interface.
+func (v *AutomationTeamSnapshotGrantsResponse) GetAutomationTeamSnapshotGrants() *AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPage {
+	return v.AutomationTeamSnapshotGrants
 }
 
 type AutomationTriggerKind string
@@ -66887,6 +67072,130 @@ func (v *RevokeAppMemoryWriteGrantRow1595) __premarshalJSON() (*__premarshalRevo
 	return &retval, nil
 }
 
+// RevokeAutomationTeamSnapshotGrantResponse is returned by RevokeAutomationTeamSnapshotGrant on success.
+type RevokeAutomationTeamSnapshotGrantResponse struct {
+	// #3350: terminal revoke, App managers only. Worker instruction arm is not yet built (not a person-only ruling).
+	RevokeAutomationTeamSnapshotGrant *RevokeAutomationTeamSnapshotGrantRevokeAutomationTeamSnapshotGrant `json:"revokeAutomationTeamSnapshotGrant"`
+}
+
+// GetRevokeAutomationTeamSnapshotGrant returns RevokeAutomationTeamSnapshotGrantResponse.RevokeAutomationTeamSnapshotGrant, and is useful for accessing the field via an interface.
+func (v *RevokeAutomationTeamSnapshotGrantResponse) GetRevokeAutomationTeamSnapshotGrant() *RevokeAutomationTeamSnapshotGrantRevokeAutomationTeamSnapshotGrant {
+	return v.RevokeAutomationTeamSnapshotGrant
+}
+
+// RevokeAutomationTeamSnapshotGrantRevokeAutomationTeamSnapshotGrant includes the requested fields of the GraphQL type AutomationTeamSnapshotGrant.
+// The GraphQL type's documentation follows.
+//
+// #3350: automation team snapshot grant history. Revocation is terminal.
+type RevokeAutomationTeamSnapshotGrantRevokeAutomationTeamSnapshotGrant struct {
+	AutomationTeamSnapshotGrantFields `json:"-"`
+}
+
+// GetId returns RevokeAutomationTeamSnapshotGrantRevokeAutomationTeamSnapshotGrant.Id, and is useful for accessing the field via an interface.
+func (v *RevokeAutomationTeamSnapshotGrantRevokeAutomationTeamSnapshotGrant) GetId() string {
+	return v.AutomationTeamSnapshotGrantFields.Id
+}
+
+// GetAppId returns RevokeAutomationTeamSnapshotGrantRevokeAutomationTeamSnapshotGrant.AppId, and is useful for accessing the field via an interface.
+func (v *RevokeAutomationTeamSnapshotGrantRevokeAutomationTeamSnapshotGrant) GetAppId() string {
+	return v.AutomationTeamSnapshotGrantFields.AppId
+}
+
+// GetTriggerKind returns RevokeAutomationTeamSnapshotGrantRevokeAutomationTeamSnapshotGrant.TriggerKind, and is useful for accessing the field via an interface.
+func (v *RevokeAutomationTeamSnapshotGrantRevokeAutomationTeamSnapshotGrant) GetTriggerKind() string {
+	return v.AutomationTeamSnapshotGrantFields.TriggerKind
+}
+
+// GetTriggerId returns RevokeAutomationTeamSnapshotGrantRevokeAutomationTeamSnapshotGrant.TriggerId, and is useful for accessing the field via an interface.
+func (v *RevokeAutomationTeamSnapshotGrantRevokeAutomationTeamSnapshotGrant) GetTriggerId() string {
+	return v.AutomationTeamSnapshotGrantFields.TriggerId
+}
+
+// GetGrantedBy returns RevokeAutomationTeamSnapshotGrantRevokeAutomationTeamSnapshotGrant.GrantedBy, and is useful for accessing the field via an interface.
+func (v *RevokeAutomationTeamSnapshotGrantRevokeAutomationTeamSnapshotGrant) GetGrantedBy() string {
+	return v.AutomationTeamSnapshotGrantFields.GrantedBy
+}
+
+// GetCreatedAt returns RevokeAutomationTeamSnapshotGrantRevokeAutomationTeamSnapshotGrant.CreatedAt, and is useful for accessing the field via an interface.
+func (v *RevokeAutomationTeamSnapshotGrantRevokeAutomationTeamSnapshotGrant) GetCreatedAt() string {
+	return v.AutomationTeamSnapshotGrantFields.CreatedAt
+}
+
+// GetRevokedAt returns RevokeAutomationTeamSnapshotGrantRevokeAutomationTeamSnapshotGrant.RevokedAt, and is useful for accessing the field via an interface.
+func (v *RevokeAutomationTeamSnapshotGrantRevokeAutomationTeamSnapshotGrant) GetRevokedAt() *string {
+	return v.AutomationTeamSnapshotGrantFields.RevokedAt
+}
+
+// GetRevokedBy returns RevokeAutomationTeamSnapshotGrantRevokeAutomationTeamSnapshotGrant.RevokedBy, and is useful for accessing the field via an interface.
+func (v *RevokeAutomationTeamSnapshotGrantRevokeAutomationTeamSnapshotGrant) GetRevokedBy() *string {
+	return v.AutomationTeamSnapshotGrantFields.RevokedBy
+}
+
+func (v *RevokeAutomationTeamSnapshotGrantRevokeAutomationTeamSnapshotGrant) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*RevokeAutomationTeamSnapshotGrantRevokeAutomationTeamSnapshotGrant
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.RevokeAutomationTeamSnapshotGrantRevokeAutomationTeamSnapshotGrant = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AutomationTeamSnapshotGrantFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalRevokeAutomationTeamSnapshotGrantRevokeAutomationTeamSnapshotGrant struct {
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	TriggerKind string `json:"triggerKind"`
+
+	TriggerId string `json:"triggerId"`
+
+	GrantedBy string `json:"grantedBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	RevokedAt *string `json:"revokedAt"`
+
+	RevokedBy *string `json:"revokedBy"`
+}
+
+func (v *RevokeAutomationTeamSnapshotGrantRevokeAutomationTeamSnapshotGrant) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *RevokeAutomationTeamSnapshotGrantRevokeAutomationTeamSnapshotGrant) __premarshalJSON() (*__premarshalRevokeAutomationTeamSnapshotGrantRevokeAutomationTeamSnapshotGrant, error) {
+	var retval __premarshalRevokeAutomationTeamSnapshotGrantRevokeAutomationTeamSnapshotGrant
+
+	retval.Id = v.AutomationTeamSnapshotGrantFields.Id
+	retval.AppId = v.AutomationTeamSnapshotGrantFields.AppId
+	retval.TriggerKind = v.AutomationTeamSnapshotGrantFields.TriggerKind
+	retval.TriggerId = v.AutomationTeamSnapshotGrantFields.TriggerId
+	retval.GrantedBy = v.AutomationTeamSnapshotGrantFields.GrantedBy
+	retval.CreatedAt = v.AutomationTeamSnapshotGrantFields.CreatedAt
+	retval.RevokedAt = v.AutomationTeamSnapshotGrantFields.RevokedAt
+	retval.RevokedBy = v.AutomationTeamSnapshotGrantFields.RevokedBy
+	return &retval, nil
+}
+
 // RevokeConnectionGrantResponse is returned by RevokeConnectionGrant on success.
 type RevokeConnectionGrantResponse struct {
 	// Revoke a connection grant you created (soft delete). Owner-only.
@@ -71716,7 +72025,11 @@ func (v *SetAppPropertiesSetAppPropertiesApp) GetProperties() *json.RawMessage {
 type SetAssetPublicLinkResponse struct {
 	// #1667 — switch an asset's anonymous public link on or off. Only whoever
 	// manages the asset's memory; a refused request changes
-	// nothing. Returns the asset.
+	// nothing. Returns the asset. On an App memory, a worker session acts only on a validated
+	// instruction, judged on its holder (hrn:node:hadronmemory.com:specs:cor:dmo:050:12): the holder must manage
+	// the App, exactly as for the holder as a person. Without an instruction a worker session is refused. An
+	// admitted instructed call that changes the flag writes one team event, ids only (no asset id). Other memory
+	// classes keep their own rules and ignore instruction.
 	SetAssetPublicLink *SetAssetPublicLinkSetAssetPublicLinkAsset `json:"setAssetPublicLink"`
 }
 
@@ -71777,6 +72090,130 @@ func (v *SetAssetPublicLinkSetAssetPublicLinkAsset) GetPublicLinkAvailable() boo
 
 // GetPublicUrl returns SetAssetPublicLinkSetAssetPublicLinkAsset.PublicUrl, and is useful for accessing the field via an interface.
 func (v *SetAssetPublicLinkSetAssetPublicLinkAsset) GetPublicUrl() *string { return v.PublicUrl }
+
+// SetAutomationTeamSnapshotGrantResponse is returned by SetAutomationTeamSnapshotGrant on success.
+type SetAutomationTeamSnapshotGrantResponse struct {
+	// #3350: App managers, as people acting as themselves, give this live schedule/webhook a read-only own-App team snapshot grant, off until given; identical repeat returns the live row. hrn:node:hadronmemory.com:specs:cor:agt:050:23
+	SetAutomationTeamSnapshotGrant *SetAutomationTeamSnapshotGrantSetAutomationTeamSnapshotGrant `json:"setAutomationTeamSnapshotGrant"`
+}
+
+// GetSetAutomationTeamSnapshotGrant returns SetAutomationTeamSnapshotGrantResponse.SetAutomationTeamSnapshotGrant, and is useful for accessing the field via an interface.
+func (v *SetAutomationTeamSnapshotGrantResponse) GetSetAutomationTeamSnapshotGrant() *SetAutomationTeamSnapshotGrantSetAutomationTeamSnapshotGrant {
+	return v.SetAutomationTeamSnapshotGrant
+}
+
+// SetAutomationTeamSnapshotGrantSetAutomationTeamSnapshotGrant includes the requested fields of the GraphQL type AutomationTeamSnapshotGrant.
+// The GraphQL type's documentation follows.
+//
+// #3350: automation team snapshot grant history. Revocation is terminal.
+type SetAutomationTeamSnapshotGrantSetAutomationTeamSnapshotGrant struct {
+	AutomationTeamSnapshotGrantFields `json:"-"`
+}
+
+// GetId returns SetAutomationTeamSnapshotGrantSetAutomationTeamSnapshotGrant.Id, and is useful for accessing the field via an interface.
+func (v *SetAutomationTeamSnapshotGrantSetAutomationTeamSnapshotGrant) GetId() string {
+	return v.AutomationTeamSnapshotGrantFields.Id
+}
+
+// GetAppId returns SetAutomationTeamSnapshotGrantSetAutomationTeamSnapshotGrant.AppId, and is useful for accessing the field via an interface.
+func (v *SetAutomationTeamSnapshotGrantSetAutomationTeamSnapshotGrant) GetAppId() string {
+	return v.AutomationTeamSnapshotGrantFields.AppId
+}
+
+// GetTriggerKind returns SetAutomationTeamSnapshotGrantSetAutomationTeamSnapshotGrant.TriggerKind, and is useful for accessing the field via an interface.
+func (v *SetAutomationTeamSnapshotGrantSetAutomationTeamSnapshotGrant) GetTriggerKind() string {
+	return v.AutomationTeamSnapshotGrantFields.TriggerKind
+}
+
+// GetTriggerId returns SetAutomationTeamSnapshotGrantSetAutomationTeamSnapshotGrant.TriggerId, and is useful for accessing the field via an interface.
+func (v *SetAutomationTeamSnapshotGrantSetAutomationTeamSnapshotGrant) GetTriggerId() string {
+	return v.AutomationTeamSnapshotGrantFields.TriggerId
+}
+
+// GetGrantedBy returns SetAutomationTeamSnapshotGrantSetAutomationTeamSnapshotGrant.GrantedBy, and is useful for accessing the field via an interface.
+func (v *SetAutomationTeamSnapshotGrantSetAutomationTeamSnapshotGrant) GetGrantedBy() string {
+	return v.AutomationTeamSnapshotGrantFields.GrantedBy
+}
+
+// GetCreatedAt returns SetAutomationTeamSnapshotGrantSetAutomationTeamSnapshotGrant.CreatedAt, and is useful for accessing the field via an interface.
+func (v *SetAutomationTeamSnapshotGrantSetAutomationTeamSnapshotGrant) GetCreatedAt() string {
+	return v.AutomationTeamSnapshotGrantFields.CreatedAt
+}
+
+// GetRevokedAt returns SetAutomationTeamSnapshotGrantSetAutomationTeamSnapshotGrant.RevokedAt, and is useful for accessing the field via an interface.
+func (v *SetAutomationTeamSnapshotGrantSetAutomationTeamSnapshotGrant) GetRevokedAt() *string {
+	return v.AutomationTeamSnapshotGrantFields.RevokedAt
+}
+
+// GetRevokedBy returns SetAutomationTeamSnapshotGrantSetAutomationTeamSnapshotGrant.RevokedBy, and is useful for accessing the field via an interface.
+func (v *SetAutomationTeamSnapshotGrantSetAutomationTeamSnapshotGrant) GetRevokedBy() *string {
+	return v.AutomationTeamSnapshotGrantFields.RevokedBy
+}
+
+func (v *SetAutomationTeamSnapshotGrantSetAutomationTeamSnapshotGrant) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*SetAutomationTeamSnapshotGrantSetAutomationTeamSnapshotGrant
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.SetAutomationTeamSnapshotGrantSetAutomationTeamSnapshotGrant = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AutomationTeamSnapshotGrantFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalSetAutomationTeamSnapshotGrantSetAutomationTeamSnapshotGrant struct {
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	TriggerKind string `json:"triggerKind"`
+
+	TriggerId string `json:"triggerId"`
+
+	GrantedBy string `json:"grantedBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	RevokedAt *string `json:"revokedAt"`
+
+	RevokedBy *string `json:"revokedBy"`
+}
+
+func (v *SetAutomationTeamSnapshotGrantSetAutomationTeamSnapshotGrant) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *SetAutomationTeamSnapshotGrantSetAutomationTeamSnapshotGrant) __premarshalJSON() (*__premarshalSetAutomationTeamSnapshotGrantSetAutomationTeamSnapshotGrant, error) {
+	var retval __premarshalSetAutomationTeamSnapshotGrantSetAutomationTeamSnapshotGrant
+
+	retval.Id = v.AutomationTeamSnapshotGrantFields.Id
+	retval.AppId = v.AutomationTeamSnapshotGrantFields.AppId
+	retval.TriggerKind = v.AutomationTeamSnapshotGrantFields.TriggerKind
+	retval.TriggerId = v.AutomationTeamSnapshotGrantFields.TriggerId
+	retval.GrantedBy = v.AutomationTeamSnapshotGrantFields.GrantedBy
+	retval.CreatedAt = v.AutomationTeamSnapshotGrantFields.CreatedAt
+	retval.RevokedAt = v.AutomationTeamSnapshotGrantFields.RevokedAt
+	retval.RevokedBy = v.AutomationTeamSnapshotGrantFields.RevokedBy
+	return &retval, nil
+}
 
 // SetDecisionLogDecidersResponse is returned by SetDecisionLogDeciders on success.
 type SetDecisionLogDecidersResponse struct {
@@ -75664,7 +76101,9 @@ type TeamActionRegisterIndexResponse struct {
 	// an Agent run). agentRef must name an Agent the caller can read that is installed in this App
 	// or is a cast worker's Agent; any other ref (unknown, unreadable, outside the App, readable only
 	// through another tenant) is refused AGENT_NOT_FOUND identically, never resolved through another
-	// Agent. A caller with no Agent and no agentRef is refused BAD_USER_INPUT.
+	// Agent. The implicit Agent must also be installed or be a live cast worker's Agent in this App
+	// (ruling 0120 A, hrn:node:hadronmemory.com:specs:cor:agt:110:03); otherwise AGENT_NOT_FOUND
+	// carries its own Agent URN. A caller with no Agent and no agentRef is refused BAD_USER_INPUT.
 	//
 	// Read as the caller, all or nothing (ruling 0107 A): unless the caller can read every system
 	// memory on the Team Agent's chain and on the asking Agent's chain, through the base, the answer
@@ -95929,6 +96368,26 @@ func (v *__AutomationApprovalsInput) GetAfter() *string { return v.After }
 // GetLimit returns __AutomationApprovalsInput.Limit, and is useful for accessing the field via an interface.
 func (v *__AutomationApprovalsInput) GetLimit() *int { return v.Limit }
 
+// __AutomationTeamSnapshotGrantsInput is used internally by genqlient
+type __AutomationTeamSnapshotGrantsInput struct {
+	AppRef         string `json:"appRef"`
+	IncludeRevoked *bool  `json:"includeRevoked,omitempty"`
+	Limit          int    `json:"limit"`
+	Offset         int    `json:"offset"`
+}
+
+// GetAppRef returns __AutomationTeamSnapshotGrantsInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AutomationTeamSnapshotGrantsInput) GetAppRef() string { return v.AppRef }
+
+// GetIncludeRevoked returns __AutomationTeamSnapshotGrantsInput.IncludeRevoked, and is useful for accessing the field via an interface.
+func (v *__AutomationTeamSnapshotGrantsInput) GetIncludeRevoked() *bool { return v.IncludeRevoked }
+
+// GetLimit returns __AutomationTeamSnapshotGrantsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AutomationTeamSnapshotGrantsInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __AutomationTeamSnapshotGrantsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__AutomationTeamSnapshotGrantsInput) GetOffset() int { return v.Offset }
+
 // __BeginAssetUploadInput is used internally by genqlient
 type __BeginAssetUploadInput struct {
 	MemoryId        string       `json:"memoryId"`
@@ -100723,6 +101182,14 @@ func (v *__RevokeAppMemoryWriteGrantInstructedInput) GetInstruction() *ActInstru
 	return v.Instruction
 }
 
+// __RevokeAutomationTeamSnapshotGrantInput is used internally by genqlient
+type __RevokeAutomationTeamSnapshotGrantInput struct {
+	Id string `json:"id"`
+}
+
+// GetId returns __RevokeAutomationTeamSnapshotGrantInput.Id, and is useful for accessing the field via an interface.
+func (v *__RevokeAutomationTeamSnapshotGrantInput) GetId() string { return v.Id }
+
 // __RevokeConnectionGrantInput is used internally by genqlient
 type __RevokeConnectionGrantInput struct {
 	Ref string `json:"ref"`
@@ -101216,6 +101683,22 @@ func (v *__SetAssetPublicLinkInput) GetAssetRef() string { return v.AssetRef }
 
 // GetEnabled returns __SetAssetPublicLinkInput.Enabled, and is useful for accessing the field via an interface.
 func (v *__SetAssetPublicLinkInput) GetEnabled() bool { return v.Enabled }
+
+// __SetAutomationTeamSnapshotGrantInput is used internally by genqlient
+type __SetAutomationTeamSnapshotGrantInput struct {
+	AppRef      string `json:"appRef"`
+	TriggerKind string `json:"triggerKind"`
+	TriggerId   string `json:"triggerId"`
+}
+
+// GetAppRef returns __SetAutomationTeamSnapshotGrantInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__SetAutomationTeamSnapshotGrantInput) GetAppRef() string { return v.AppRef }
+
+// GetTriggerKind returns __SetAutomationTeamSnapshotGrantInput.TriggerKind, and is useful for accessing the field via an interface.
+func (v *__SetAutomationTeamSnapshotGrantInput) GetTriggerKind() string { return v.TriggerKind }
+
+// GetTriggerId returns __SetAutomationTeamSnapshotGrantInput.TriggerId, and is useful for accessing the field via an interface.
+func (v *__SetAutomationTeamSnapshotGrantInput) GetTriggerId() string { return v.TriggerId }
 
 // __SetDecisionLogDecidersInput is used internally by genqlient
 type __SetDecisionLogDecidersInput struct {
@@ -110127,6 +110610,60 @@ func AutomationApprovals(
 	}
 
 	data_ = &AutomationApprovalsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AutomationTeamSnapshotGrants.
+const AutomationTeamSnapshotGrants_Operation = `
+query AutomationTeamSnapshotGrants ($appRef: ID!, $includeRevoked: Boolean, $limit: Int!, $offset: Int!) {
+	automationTeamSnapshotGrants(appRef: $appRef, includeRevoked: $includeRevoked, limit: $limit, offset: $offset) {
+		items {
+			... AutomationTeamSnapshotGrantFields
+		}
+		total
+		hasMore
+	}
+}
+fragment AutomationTeamSnapshotGrantFields on AutomationTeamSnapshotGrant {
+	id
+	appId
+	triggerKind
+	triggerId
+	grantedBy
+	createdAt
+	revokedAt
+	revokedBy
+}
+`
+
+func AutomationTeamSnapshotGrants(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	includeRevoked *bool,
+	limit int,
+	offset int,
+) (data_ *AutomationTeamSnapshotGrantsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AutomationTeamSnapshotGrants",
+		Query:  AutomationTeamSnapshotGrants_Operation,
+		Variables: &__AutomationTeamSnapshotGrantsInput{
+			AppRef:         appRef,
+			IncludeRevoked: includeRevoked,
+			Limit:          limit,
+			Offset:         offset,
+		},
+	}
+
+	data_ = &AutomationTeamSnapshotGrantsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -128205,6 +128742,50 @@ func RevokeAppMemoryWriteGrantInstructed(
 	return data_, err_
 }
 
+// The mutation executed by RevokeAutomationTeamSnapshotGrant.
+const RevokeAutomationTeamSnapshotGrant_Operation = `
+mutation RevokeAutomationTeamSnapshotGrant ($id: ID!) {
+	revokeAutomationTeamSnapshotGrant(id: $id) {
+		... AutomationTeamSnapshotGrantFields
+	}
+}
+fragment AutomationTeamSnapshotGrantFields on AutomationTeamSnapshotGrant {
+	id
+	appId
+	triggerKind
+	triggerId
+	grantedBy
+	createdAt
+	revokedAt
+	revokedBy
+}
+`
+
+func RevokeAutomationTeamSnapshotGrant(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	id string,
+) (data_ *RevokeAutomationTeamSnapshotGrantResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RevokeAutomationTeamSnapshotGrant",
+		Query:  RevokeAutomationTeamSnapshotGrant_Operation,
+		Variables: &__RevokeAutomationTeamSnapshotGrantInput{
+			Id: id,
+		},
+	}
+
+	data_ = &RevokeAutomationTeamSnapshotGrantResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by RevokeConnectionGrant.
 const RevokeConnectionGrant_Operation = `
 mutation RevokeConnectionGrant ($ref: ID!) {
@@ -129990,6 +130571,54 @@ func SetAssetPublicLink(
 	}
 
 	data_ = &SetAssetPublicLinkResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by SetAutomationTeamSnapshotGrant.
+const SetAutomationTeamSnapshotGrant_Operation = `
+mutation SetAutomationTeamSnapshotGrant ($appRef: ID!, $triggerKind: String!, $triggerId: ID!) {
+	setAutomationTeamSnapshotGrant(appRef: $appRef, triggerKind: $triggerKind, triggerId: $triggerId) {
+		... AutomationTeamSnapshotGrantFields
+	}
+}
+fragment AutomationTeamSnapshotGrantFields on AutomationTeamSnapshotGrant {
+	id
+	appId
+	triggerKind
+	triggerId
+	grantedBy
+	createdAt
+	revokedAt
+	revokedBy
+}
+`
+
+func SetAutomationTeamSnapshotGrant(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	triggerKind string,
+	triggerId string,
+) (data_ *SetAutomationTeamSnapshotGrantResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SetAutomationTeamSnapshotGrant",
+		Query:  SetAutomationTeamSnapshotGrant_Operation,
+		Variables: &__SetAutomationTeamSnapshotGrantInput{
+			AppRef:      appRef,
+			TriggerKind: triggerKind,
+			TriggerId:   triggerId,
+		},
+	}
+
+	data_ = &SetAutomationTeamSnapshotGrantResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

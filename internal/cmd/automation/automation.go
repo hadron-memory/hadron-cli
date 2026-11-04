@@ -18,11 +18,15 @@ func NewCmdAutomation(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "automation <command>",
 		Aliases: []string{"automations"},
-		Short:   "Review and approve an App's automations",
+		Short:   "Review an App's automations and manage their grants",
 		Long: `Review, approve and decline the automations (schedules and webhooks) of an App
 (cor:agt:010:01), without a row id or a hash.
 
-The App is --app, else the active App (` + "`hadron app use`" + `). A trigger is named
+team-snapshot-grant manages one schedule or webhook's read-only access to its
+App's roster and tasks; set/list take a positional App, revoke uses --app or the
+active App. Manual runs cannot hold that grant. See its own help.
+
+For the approval commands, the App is --app, else the active App (` + "`hadron app use`" + `). A trigger is named
 ` + "`schedule/<name>`" + ` or ` + "`webhook/<name>`" + `; a bare <name> works when exactly one trigger of the
 App has it. A manual run's approval is named by the run: --run <run-id>, the id
 printed by the run that was refused. Nothing is ever picked for you: no match
@@ -37,6 +41,7 @@ nothing is retried.
 For raw trigger ids and an explicit digest, use preview and re-adopt instead
 of these name-based approval commands. They do not require an App context.`,
 	}
+	cmd.AddCommand(newCmdTeamSnapshotGrant(f))
 	cmd.AddCommand(newCmdPreview(f))
 	cmd.AddCommand(newCmdReAdopt(f))
 	cmd.AddCommand(newCmdLs(f))
