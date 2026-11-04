@@ -1044,6 +1044,10 @@ func codeForExtension(code string) int {
 	// command calls.
 	case code == "BAD_UNLOCK_INPUT" || code == "WRONG_KEY":
 		return exitcode.Usage
+	// hadron-cli#1234: --unlock named a memory that is not encrypted. The
+	// caller fixes the invocation (drop that --unlock), so 2 like its siblings.
+	case code == "NOT_ENCRYPTED":
+		return exitcode.Usage
 	// Approval/verification needs an active encryption session to read the
 	// plaintext that is hashed. Renewing that session is authentication work.
 	case code == "SESSION_EXPIRED":

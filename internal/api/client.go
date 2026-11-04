@@ -137,7 +137,9 @@ func checkSessionRedirect(req *http.Request, via []*http.Request) error {
 	hasCredential := sessionFrom(req.Context()) != "" || sessionFrom(via[0].Context()) != "" ||
 		via[0].Header.Get(SessionHeader) != "" || req.Header.Get(SessionHeader) != "" ||
 		operationKeyFrom(req.Context()) != "" || operationKeyFrom(via[0].Context()) != "" ||
-		via[0].Header.Get(OperationKeyHeader) != "" || req.Header.Get(OperationKeyHeader) != ""
+		via[0].Header.Get(OperationKeyHeader) != "" || req.Header.Get(OperationKeyHeader) != "" ||
+		HasMemoryKeys(req.Context()) || HasMemoryKeys(via[0].Context()) ||
+		via[0].Header.Get(MemoryKeysHeader) != "" || req.Header.Get(MemoryKeysHeader) != ""
 	if via[0].Method == http.MethodPost {
 		bodySession, err := postBodyCarriesSessionRef(via[0])
 		if err != nil {
@@ -258,6 +260,12 @@ func (d *bearerDoer) Do(req *http.Request) (*http.Response, error) {
 	if key := operationKeyFrom(req.Context()); key != "" {
 		req.Header.Set(OperationKeyHeader, key)
 	}
+	// hadron-cli#1234: the invocation's --unlock passphrases, on every GraphQL
+	// request it makes (cor:sec:040:04 per-request caller), never a client
+	// default and never logged.
+	if keys, ok := memoryKeysFrom(req.Context()); ok {
+		req.Header.Set(MemoryKeysHeader, keys.header)
+	}
 	resp, err := d.inner.Do(req)
 	if err != nil {
 		return resp, err
@@ -266,7 +274,8 @@ func (d *bearerDoer) Do(req *http.Request) (*http.Response, error) {
 		hc.h = resp.Header.Clone()
 	}
 	secrets := requestSecrets(req)
-	if len(secrets) == 0 {
+	unlockSecrets := memoryKeySecrets(req)
+	if len(secrets) == 0 && len(unlockSecrets) == 0 {
 		if resp.StatusCode < 500 {
 			return resp, nil
 		}
@@ -289,6 +298,7 @@ func (d *bearerDoer) Do(req *http.Request) (*http.Response, error) {
 		return nil, &gatewayError{status: resp.StatusCode, body: nil}
 	}
 	body = redactSecrets(body, secrets)
+	body = redactUnlockSecrets(resp.StatusCode, body, unlockSecrets)
 	if resp.StatusCode >= 500 && !hasGraphQLErrorsEnvelope(body) {
 		return nil, &gatewayError{status: resp.StatusCode, body: body}
 	}
@@ -329,7 +339,8 @@ func checkInitialSessionRequest(req *http.Request) error {
 		return nil
 	}
 	if sessionFrom(req.Context()) != "" || req.Header.Get(SessionHeader) != "" ||
-		operationKeyFrom(req.Context()) != "" || req.Header.Get(OperationKeyHeader) != "" {
+		operationKeyFrom(req.Context()) != "" || req.Header.Get(OperationKeyHeader) != "" ||
+		HasMemoryKeys(req.Context()) || req.Header.Get(MemoryKeysHeader) != "" {
 		return fmt.Errorf("%w: refusing to send a session- or key-bearing request to %s", ErrRedirectPolicy, req.URL.Redacted())
 	}
 	carriesSession, err := postBodyCarriesSessionRef(req)
@@ -588,6 +599,9 @@ func (c *nullSafeGraphQLClient) MakeRequest(ctx context.Context, req *graphql.Re
 		if len(clean) == 0 {
 			return errors.New("malformed GraphQL response: errors contains only null entries")
 		}
+		if refused := unlockRefusal(ctx, clean); refused != nil {
+			return refused
+		}
 		return withHeaderRequestID(clean, hc.h)
 	case *graphql.HTTPError: // non-200 with a parsed GraphQL body
 		if len(e.Response.Errors) == 0 {
@@ -598,6 +612,10 @@ func (c *nullSafeGraphQLClient) MakeRequest(ctx context.Context, req *graphql.Re
 		copy.Response.Errors = clean
 		if len(clean) == 0 {
 			return fmt.Errorf("malformed GraphQL response (HTTP %d): errors contains only null entries: %w", e.StatusCode, &copy)
+		}
+		// hadron-cli#1234: Apollo answers a context-time unlock failure 500.
+		if refused := unlockRefusal(ctx, clean); refused != nil {
+			return refused
 		}
 		return withHeaderRequestID(&copy, hc.h)
 	default:

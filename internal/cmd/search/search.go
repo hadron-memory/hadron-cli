@@ -223,7 +223,11 @@ feedback, not verified facts about the notes they are on.
 --scope searches a saved scope instead: a scope name or id, "app" (the
 memories of the App in use: --app, else the one set with hadron app
 set-active), or "global" (your organization's view). A scope name also needs
-that App.`,
+that App.
+
+An encrypted memory's hits print ciphertext unless you add --unlock
+<memory-ref> (a global flag; see hadron memory encrypt), which asks for its
+passphrase for this one invocation. Words inside its content are not found.`,
 		Example: `  hadron search "how do users report a bad actor" -m hrn:mem:micromentor.org:mmdata
   hadron search "needs clarification" --comments-only --mode keyword --json
   hadron search "rate limiting" -m hrn:mem:acme.com:kb -m hrn:mem:acme.com:ops --mode keyword --json

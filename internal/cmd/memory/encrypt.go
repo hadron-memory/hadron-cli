@@ -47,8 +47,14 @@ Give exactly one of:
                    printed.
 
 What changes afterwards:
-  - The hadron CLI cannot read the content any more: node get prints the
-    stored ciphertext (enc:v1:...), and search does not find words in it.
+  - Content is read back only with the passphrase: add --unlock <memoryRef>
+    (a global flag) to node get or any other read, and you are asked for it
+    with no echo. Without --unlock, node get prints the stored ciphertext
+    (enc:v1:...). Scripts use --unlock-passphrase-file <file> (only you may
+    read it: chmod 600) or --unlock-passphrase-stdin. The passphrase is never
+    an argument or an environment variable, and it is not remembered: every
+    invocation asks again. v1 unlocks only a passphrase-encrypted memory, not
+    one encrypted with --data-key. Search does not find words inside it.
   - Approvals of its nodes end (node approve, node verify).
   - memory clone refuses it, and memory validate skips its stale-abstract
     check.
@@ -60,7 +66,9 @@ skips the question and is required when input is not a terminal (otherwise
 exit 2).`,
 		Example: `  openssl rand -base64 32 > diary.key   # keep this file safe
   hadron memory encrypt hrn:mem:jane:diary --data-key - --yes < diary.key
-  hadron memory encrypt hrn:mem:jane:diary --passphrase-file ~/.diary-pass --yes`,
+  hadron memory encrypt hrn:mem:jane:diary --passphrase-file ~/.diary-pass --yes
+  hadron node get entries:today -m hrn:mem:jane:diary --unlock hrn:mem:jane:diary
+  hadron node get entries:today -m hrn:mem:jane:diary --unlock hrn:mem:jane:diary --unlock-passphrase-file ~/.diary-pass`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Exactly one secret; gated on Changed so --passphrase-file= is an
