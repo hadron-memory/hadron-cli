@@ -8,7 +8,7 @@ package delivery
 //
 // The delivery contract (CHECKED on #1629, Vera's FIT 6628260482) is AT MOST
 // ONE post per notice and never silently zero, except one named residual; it
-// is NOT exactly-once. Four mechanisms carry it:
+// is NOT exactly-once. Five mechanisms carry it:
 //
 //  1. One writer: a non-blocking flock on stop-dropped/.reporter.lock. A run
 //     that finds it held does nothing.
@@ -24,6 +24,9 @@ package delivery
 //  4. The server's duplicate rule: a worker's identical post in the same
 //     channel within ten minutes is refused TEAM_CHAT_DUPLICATE with the
 //     earlier seq, which is recorded as this notice's post.
+//  5. An accepted (or DUPLICATE) seq and its author are persisted in the
+//     intent before read-back. Once recorded, retries read only that seq;
+//     a mismatch stays failed and pending for a person, never a resend.
 //
 // <name>.reported is written only after the seq is read back with the
 // reporter worker as its author and exactly the frozen body.
@@ -31,7 +34,10 @@ package delivery
 // The residual: a post the server commits more than ReconcileAfter after it
 // was sent and after the next reconcile read, and more than ten minutes after
 // the first attempt or in an encrypted channel (no equality read on
-// ciphertext), can be posted twice. Never zero: an unreported record stays.
+// ciphertext), can be posted twice. A crash or storage failure between an
+// accepted answer and its durable seq also leaves the earlier unknown-answer
+// intent; the new bound begins once the seq is durably recorded. Never zero:
+// an unreported record stays.
 
 import (
 	"context"
@@ -103,6 +109,10 @@ type stopSending struct {
 	// from a reporter since replaced (its response lost) is still found after
 	// further switches.
 	AttemptAuthorIDs []string `json:"attemptAuthorWorkerIds,omitempty"`
+	// Once a post (or DUPLICATE) answers, retries read this exact seq only.
+	// Keep its derived author even if a different reporter resumes the record.
+	AcceptedSeq            int    `json:"acceptedSeq,omitempty"`
+	AcceptedAuthorWorkerID string `json:"acceptedAuthorWorkerId,omitempty"`
 }
 
 // attemptedBy reports whether workerID already appears among the intent's
@@ -282,6 +292,20 @@ func (r *StopReporter) reportOne(ctx context.Context, e namedDrop, workerID stri
 			return fail(errors.New("an intent appeared while writing this one"))
 		}
 	} else {
+		if intent.AcceptedSeq != 0 {
+			out.Seq = intent.AcceptedSeq
+			if intent.AcceptedSeq < 1 || !intent.attemptedBy(intent.AcceptedAuthorWorkerID) || intent.AcceptedAuthorWorkerID == "" {
+				return fail(errors.New("invalid recorded accepted post; needs a person"))
+			}
+			if err := r.readBack(ctx, intent.AcceptedSeq, intent.Body, intent.AcceptedAuthorWorkerID); err != nil {
+				return fail(err)
+			}
+			if err := r.markReported(e.base, intent.EventID, intent.AcceptedSeq); err != nil {
+				return fail(err)
+			}
+			out.Result = "reconciled"
+			return out
+		}
 		if r.now().Sub(intent.FirstAttemptAt) < r.reconcileAfter() {
 			out.Result = "waiting"
 			return out
@@ -318,6 +342,18 @@ func (r *StopReporter) reportOne(ctx context.Context, e namedDrop, workerID stri
 	}
 	if err != nil {
 		return fail(fmt.Errorf("posting: %w", err))
+	}
+	if seq < 1 {
+		return fail(errors.New("posting answered without a valid sequence; needs a person"))
+	}
+	intent.AcceptedSeq, intent.AcceptedAuthorWorkerID = seq, workerID
+	out.Seq = seq
+	data, err := json.Marshal(intent)
+	if err != nil {
+		return fail(err)
+	}
+	if _, err := r.Outbox.writeFile(e.base+".sending", data, true); err != nil {
+		return fail(fmt.Errorf("recording accepted post #%d; needs a person: %w", seq, err))
 	}
 	if r.afterPost != nil {
 		r.afterPost()
@@ -365,7 +401,7 @@ func (r *StopReporter) readBack(ctx context.Context, seq int, body, workerID str
 		return fmt.Errorf("reading back #%d: not found", seq)
 	}
 	if page[0].AuthorWorkerID != workerID || page[0].Body != body {
-		return fmt.Errorf("reading back #%d: not this notice's post", seq)
+		return fmt.Errorf("reading back #%d: not this notice's post; needs a person", seq)
 	}
 	return nil
 }
