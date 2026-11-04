@@ -56,13 +56,16 @@ query SessionInbox($appRef: String!, $workerRefs: [String!]!,
 # hadron-server#2733/7db74494, the same as #1281) are nullable values: null or
 # omitted keeps the composed fallback. A server without them refuses this
 # query at validation, which the poller fails closed on (no retry, nothing
-# typed). No accepts, so no STOP notice is offered (this
-# deliverer cannot type one); no workerRefs, so the key's host is the lane.
-query DueWakes($appRef: String!, $first: Int!,
+# typed). accepts lists STOP (hadron-cli#1629, hadron-server#2169): the
+# poller types stop notices, and its whole-lane read (no workerRefs, no after
+# on the first page, one page of first: 200) declares the host's lane for
+# STOP_CONSUMER_FRESH_SECONDS (cor:agt:090:04). No workerRefs, so the key's
+# host is the lane.
+query DueWakes($appRef: String!, $first: Int!, $accepts: [WakeKind!]!,
  # @genqlient(omitempty: true)
  $after: String
 ) {
-  dueWakes(appRef: $appRef, first: $first, after: $after) {
+  dueWakes(appRef: $appRef, first: $first, after: $after, accepts: $accepts) {
     status
     withheld
     dormant { worker { id } }
@@ -78,6 +81,7 @@ query DueWakes($appRef: String!, $first: Int!,
         ticker { id name lastTickAt }
         task { eventId chainIndex event id title }
         action { code state taskLoc taskUrn }
+        stop { eventId signalId level notice interrupt }
       }
     }
     pageInfo { hasNextPage endCursor }
