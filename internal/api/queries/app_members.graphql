@@ -75,25 +75,3 @@ mutation RemoveAppMemberInstructed($appRef: String!, $userRef: String!, $instruc
   # @genqlient(pointer: true)
   removeAppMember(appRef: $appRef, userRef: $userRef, instruction: $instruction)
 }
-
-# cli#1627: createAppUser vouches for a user for an App-key caller — it creates
-# or returns the User the App knows by externalId (cor:dmo:040:01); the result
-# does not say which. The legacy `email` argument accepts only empty values and
-# is deliberately NOT a variable here (matrix: excluded not-a-capability).
-# Optional variables are omitempty: an omitted handle/name is "preserve", never
-# an explicit null.
-mutation CreateAppUser(
-  $externalId: String!
-  # @genqlient(omitempty: true)
-  $handle: String
-  # @genqlient(omitempty: true)
-  $name: String
-) {
-  createAppUser(externalId: $externalId, handle: $handle, name: $name) {
-    id
-    handle
-    name
-    urn
-    externalId
-  }
-}
