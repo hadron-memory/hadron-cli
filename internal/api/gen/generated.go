@@ -14970,6 +14970,22 @@ type AppMembersResponse struct {
 // GetApp returns AppMembersResponse.App, and is useful for accessing the field via an interface.
 func (v *AppMembersResponse) GetApp() *AppMembersApp { return v.App }
 
+type AppMembershipRole string
+
+const (
+	AppMembershipRoleAdmin       AppMembershipRole = "ADMIN"
+	AppMembershipRoleContributor AppMembershipRole = "CONTRIBUTOR"
+	AppMembershipRoleOwner       AppMembershipRole = "OWNER"
+	AppMembershipRoleReader      AppMembershipRole = "READER"
+)
+
+var AllAppMembershipRole = []AppMembershipRole{
+	AppMembershipRoleAdmin,
+	AppMembershipRoleContributor,
+	AppMembershipRoleOwner,
+	AppMembershipRoleReader,
+}
+
 // AppMemoryGrantFields includes the GraphQL fields of AppMemoryWriteGrant requested by the fragment AppMemoryGrantFields.
 // The GraphQL type's documentation follows.
 //
@@ -30609,6 +30625,81 @@ type CreateAppResponse struct {
 // GetCreateApp returns CreateAppResponse.CreateApp, and is useful for accessing the field via an interface.
 func (v *CreateAppResponse) GetCreateApp() *CreateAppCreateApp { return v.CreateApp }
 
+// CreateAppSettingsCreateApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type CreateAppSettingsCreateApp struct {
+	Id      string  `json:"id"`
+	Urn     string  `json:"urn"`
+	Name    string  `json:"name"`
+	AppType AppType `json:"appType"`
+	// SOFT-DEPRECATED convenience read: the FIRST installed Agent. An App
+	// installs MANY Agents through the `AppAgent` join (023-app-shape Phase 2b,
+	// which DROPPED the direct FK that 008-agent-installation had introduced) —
+	// see `appAgents` below for the real cardinality. Kept so single-Agent
+	// clients keep working; do not build new multi-Agent logic on it.
+	//
+	// `agentId` and `agent` name the PRIMARY install's Agent and answer as that
+	// Agent's own read does: both are null when the caller may not read it, even
+	// when a later install is readable. Null is not proof that nothing is
+	// installed; `appAgents` lists every install, an entry whose `agent` is null
+	// being an installed Agent withheld from this caller.
+	AgentId     *string `json:"agentId"`
+	MemberCount int     `json:"memberCount"`
+	CreatedAt   string  `json:"createdAt"`
+}
+
+// GetId returns CreateAppSettingsCreateApp.Id, and is useful for accessing the field via an interface.
+func (v *CreateAppSettingsCreateApp) GetId() string { return v.Id }
+
+// GetUrn returns CreateAppSettingsCreateApp.Urn, and is useful for accessing the field via an interface.
+func (v *CreateAppSettingsCreateApp) GetUrn() string { return v.Urn }
+
+// GetName returns CreateAppSettingsCreateApp.Name, and is useful for accessing the field via an interface.
+func (v *CreateAppSettingsCreateApp) GetName() string { return v.Name }
+
+// GetAppType returns CreateAppSettingsCreateApp.AppType, and is useful for accessing the field via an interface.
+func (v *CreateAppSettingsCreateApp) GetAppType() AppType { return v.AppType }
+
+// GetAgentId returns CreateAppSettingsCreateApp.AgentId, and is useful for accessing the field via an interface.
+func (v *CreateAppSettingsCreateApp) GetAgentId() *string { return v.AgentId }
+
+// GetMemberCount returns CreateAppSettingsCreateApp.MemberCount, and is useful for accessing the field via an interface.
+func (v *CreateAppSettingsCreateApp) GetMemberCount() int { return v.MemberCount }
+
+// GetCreatedAt returns CreateAppSettingsCreateApp.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateAppSettingsCreateApp) GetCreatedAt() string { return v.CreatedAt }
+
+// CreateAppSettingsResponse is returned by CreateAppSettings on success.
+type CreateAppSettingsResponse struct {
+	// Create an App and install its initial Agent. With orgRef, the App is owned
+	// by that Organization and requires org ADMIN; without orgRef, it is owned by
+	// the authenticated User and remains owner-only.
+	//
+	// An org-owned install auto-provisions an AgentOrgGrant only for its own
+	// Agent. A cross-org install requires an existing active grant; subscribe to
+	// a PUBLIC Agent through createAgentOrgGrant before creating the App.
+	// It adds the caller as an AppMember with role 'owner' only when that role is
+	// present in the Agent's installationPolicy and the caller is a User.
+	// Required AgentImports cascade automatically for org-owned Apps; optional
+	// imports cascade only when their id appears in installOptional. Personal
+	// Apps reject dependency cascades in v1.
+	//
+	// Selected dependencies must also be licensed before any App is created.
+	// The server enforces this even when a caller bypasses the portal.
+	//
+	// Accepts the entity's ID or URN.
+	CreateApp *CreateAppSettingsCreateApp `json:"createApp"`
+}
+
+// GetCreateApp returns CreateAppSettingsResponse.CreateApp, and is useful for accessing the field via an interface.
+func (v *CreateAppSettingsResponse) GetCreateApp() *CreateAppSettingsCreateApp { return v.CreateApp }
+
 // CreateAppUserCreateAppUser includes the requested fields of the GraphQL type User.
 type CreateAppUserCreateAppUser struct {
 	Id     string  `json:"id"`
@@ -35368,6 +35459,20 @@ type CreateUserInvitationResponse struct {
 // GetCreateUserInvitation returns CreateUserInvitationResponse.CreateUserInvitation, and is useful for accessing the field via an interface.
 func (v *CreateUserInvitationResponse) GetCreateUserInvitation() *CreateUserInvitationCreateUserInvitation {
 	return v.CreateUserInvitation
+}
+
+type CreateUserPermission string
+
+const (
+	CreateUserPermissionDeny     CreateUserPermission = "DENY"
+	CreateUserPermissionExplicit CreateUserPermission = "EXPLICIT"
+	CreateUserPermissionImplicit CreateUserPermission = "IMPLICIT"
+)
+
+var AllCreateUserPermission = []CreateUserPermission{
+	CreateUserPermissionDeny,
+	CreateUserPermissionExplicit,
+	CreateUserPermissionImplicit,
 }
 
 // CreditBalanceCreditBalance includes the requested fields of the GraphQL type CreditBalance.
@@ -43237,6 +43342,34 @@ type GetAppMetadataResponse struct {
 // GetApp returns GetAppMetadataResponse.App, and is useful for accessing the field via an interface.
 func (v *GetAppMetadataResponse) GetApp() *GetAppMetadataApp { return v.App }
 
+// GetAppRenameURNApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type GetAppRenameURNApp struct {
+	Urn string `json:"urn"`
+}
+
+// GetUrn returns GetAppRenameURNApp.Urn, and is useful for accessing the field via an interface.
+func (v *GetAppRenameURNApp) GetUrn() string { return v.Urn }
+
+// GetAppRenameURNResponse is returned by GetAppRenameURN on success.
+type GetAppRenameURNResponse struct {
+	// Fetch an App (member of the App's org, or platform ADMIN — the myApps
+	// exposure bar; #473 relaxed this from org ADMIN for read parity with the
+	// list).
+	//
+	// 'ref' accepts the entity's ID or URN.
+	App *GetAppRenameURNApp `json:"app"`
+}
+
+// GetApp returns GetAppRenameURNResponse.App, and is useful for accessing the field via an interface.
+func (v *GetAppRenameURNResponse) GetApp() *GetAppRenameURNApp { return v.App }
+
 // GetAppSharedMemoryApp includes the requested fields of the GraphQL type App.
 // The GraphQL type's documentation follows.
 //
@@ -49002,6 +49135,18 @@ type HostRegistrationsResponse struct {
 // GetHostRegistrations returns HostRegistrationsResponse.HostRegistrations, and is useful for accessing the field via an interface.
 func (v *HostRegistrationsResponse) GetHostRegistrations() []*HostRegistrationsHostRegistrationsHostRegistration {
 	return v.HostRegistrations
+}
+
+type IdentifyUserMethod string
+
+const (
+	IdentifyUserMethodSecret IdentifyUserMethod = "SECRET"
+	IdentifyUserMethodUserId IdentifyUserMethod = "USER_ID"
+)
+
+var AllIdentifyUserMethod = []IdentifyUserMethod{
+	IdentifyUserMethodSecret,
+	IdentifyUserMethodUserId,
 }
 
 // Admin-impersonation audit reads (#1344). Denied and missing are the same null.
@@ -86501,6 +86646,44 @@ type UpdateAppResponse struct {
 // GetUpdateApp returns UpdateAppResponse.UpdateApp, and is useful for accessing the field via an interface.
 func (v *UpdateAppResponse) GetUpdateApp() *UpdateAppUpdateApp { return v.UpdateApp }
 
+// UpdateAppSettingsResponse is returned by UpdateAppSettings on success.
+type UpdateAppSettingsResponse struct {
+	// Update an App.
+	//
+	// Accepts the entity's ID or URN.
+	UpdateApp *UpdateAppSettingsUpdateApp `json:"updateApp"`
+}
+
+// GetUpdateApp returns UpdateAppSettingsResponse.UpdateApp, and is useful for accessing the field via an interface.
+func (v *UpdateAppSettingsResponse) GetUpdateApp() *UpdateAppSettingsUpdateApp { return v.UpdateApp }
+
+// UpdateAppSettingsUpdateApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type UpdateAppSettingsUpdateApp struct {
+	Id                    string `json:"id"`
+	Urn                   string `json:"urn"`
+	Name                  string `json:"name"`
+	SessionTimeoutSeconds int    `json:"sessionTimeoutSeconds"`
+}
+
+// GetId returns UpdateAppSettingsUpdateApp.Id, and is useful for accessing the field via an interface.
+func (v *UpdateAppSettingsUpdateApp) GetId() string { return v.Id }
+
+// GetUrn returns UpdateAppSettingsUpdateApp.Urn, and is useful for accessing the field via an interface.
+func (v *UpdateAppSettingsUpdateApp) GetUrn() string { return v.Urn }
+
+// GetName returns UpdateAppSettingsUpdateApp.Name, and is useful for accessing the field via an interface.
+func (v *UpdateAppSettingsUpdateApp) GetName() string { return v.Name }
+
+// GetSessionTimeoutSeconds returns UpdateAppSettingsUpdateApp.SessionTimeoutSeconds, and is useful for accessing the field via an interface.
+func (v *UpdateAppSettingsUpdateApp) GetSessionTimeoutSeconds() int { return v.SessionTimeoutSeconds }
+
 // UpdateAppUpdateApp includes the requested fields of the GraphQL type App.
 // The GraphQL type's documentation follows.
 //
@@ -98343,6 +98526,78 @@ func (v *__CreateAppMemoryInput) GetDescription() *string { return v.Description
 // GetTags returns __CreateAppMemoryInput.Tags, and is useful for accessing the field via an interface.
 func (v *__CreateAppMemoryInput) GetTags() *[]string { return v.Tags }
 
+// __CreateAppSettingsInput is used internally by genqlient
+type __CreateAppSettingsInput struct {
+	OrgRef                *string               `json:"orgRef,omitempty"`
+	AgentRef              string                `json:"agentRef"`
+	Name                  string                `json:"name"`
+	Urn                   *string               `json:"urn,omitempty"`
+	AppType               *AppType              `json:"appType,omitempty"`
+	Description           *string               `json:"description,omitempty"`
+	SessionTimeoutSeconds *int                  `json:"sessionTimeoutSeconds,omitempty"`
+	ExpiresAt             *string               `json:"expiresAt,omitempty"`
+	Role                  *AppMembershipRole    `json:"role,omitempty"`
+	CreateUserPermission  *CreateUserPermission `json:"createUserPermission,omitempty"`
+	IdentifyUserMethod    *IdentifyUserMethod   `json:"identifyUserMethod,omitempty"`
+	AnonymousTtlDays      *int                  `json:"anonymousTtlDays,omitempty"`
+	TrainingMode          *bool                 `json:"trainingMode,omitempty"`
+	AgentTools            json.RawMessage       `json:"agentTools,omitempty"`
+	Surfaces              json.RawMessage       `json:"surfaces,omitempty"`
+	InstallOptional       json.RawMessage       `json:"installOptional,omitempty"`
+}
+
+// GetOrgRef returns __CreateAppSettingsInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsInput) GetOrgRef() *string { return v.OrgRef }
+
+// GetAgentRef returns __CreateAppSettingsInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsInput) GetAgentRef() string { return v.AgentRef }
+
+// GetName returns __CreateAppSettingsInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsInput) GetName() string { return v.Name }
+
+// GetUrn returns __CreateAppSettingsInput.Urn, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsInput) GetUrn() *string { return v.Urn }
+
+// GetAppType returns __CreateAppSettingsInput.AppType, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsInput) GetAppType() *AppType { return v.AppType }
+
+// GetDescription returns __CreateAppSettingsInput.Description, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsInput) GetDescription() *string { return v.Description }
+
+// GetSessionTimeoutSeconds returns __CreateAppSettingsInput.SessionTimeoutSeconds, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsInput) GetSessionTimeoutSeconds() *int { return v.SessionTimeoutSeconds }
+
+// GetExpiresAt returns __CreateAppSettingsInput.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsInput) GetExpiresAt() *string { return v.ExpiresAt }
+
+// GetRole returns __CreateAppSettingsInput.Role, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsInput) GetRole() *AppMembershipRole { return v.Role }
+
+// GetCreateUserPermission returns __CreateAppSettingsInput.CreateUserPermission, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsInput) GetCreateUserPermission() *CreateUserPermission {
+	return v.CreateUserPermission
+}
+
+// GetIdentifyUserMethod returns __CreateAppSettingsInput.IdentifyUserMethod, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsInput) GetIdentifyUserMethod() *IdentifyUserMethod {
+	return v.IdentifyUserMethod
+}
+
+// GetAnonymousTtlDays returns __CreateAppSettingsInput.AnonymousTtlDays, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsInput) GetAnonymousTtlDays() *int { return v.AnonymousTtlDays }
+
+// GetTrainingMode returns __CreateAppSettingsInput.TrainingMode, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsInput) GetTrainingMode() *bool { return v.TrainingMode }
+
+// GetAgentTools returns __CreateAppSettingsInput.AgentTools, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsInput) GetAgentTools() json.RawMessage { return v.AgentTools }
+
+// GetSurfaces returns __CreateAppSettingsInput.Surfaces, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsInput) GetSurfaces() json.RawMessage { return v.Surfaces }
+
+// GetInstallOptional returns __CreateAppSettingsInput.InstallOptional, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsInput) GetInstallOptional() json.RawMessage { return v.InstallOptional }
+
 // __CreateAppUserInput is used internally by genqlient
 type __CreateAppUserInput struct {
 	ExternalId string  `json:"externalId"`
@@ -100012,6 +100267,14 @@ type __GetAppMetadataInput struct {
 
 // GetRef returns __GetAppMetadataInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetAppMetadataInput) GetRef() string { return v.Ref }
+
+// __GetAppRenameURNInput is used internally by genqlient
+type __GetAppRenameURNInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetAppRenameURNInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetAppRenameURNInput) GetRef() string { return v.Ref }
 
 // __GetAppSharedMemoryInput is used internally by genqlient
 type __GetAppSharedMemoryInput struct {
@@ -103678,6 +103941,78 @@ func (v *__UpdateAppInput) GetDescription() json.RawMessage { return v.Descripti
 
 // GetSessionTimeoutSeconds returns __UpdateAppInput.SessionTimeoutSeconds, and is useful for accessing the field via an interface.
 func (v *__UpdateAppInput) GetSessionTimeoutSeconds() *int { return v.SessionTimeoutSeconds }
+
+// __UpdateAppSettingsInput is used internally by genqlient
+type __UpdateAppSettingsInput struct {
+	Ref                   string                `json:"ref"`
+	Name                  *string               `json:"name,omitempty"`
+	Description           json.RawMessage       `json:"description,omitempty"`
+	SessionTimeoutSeconds *int                  `json:"sessionTimeoutSeconds,omitempty"`
+	Urn                   *string               `json:"urn,omitempty"`
+	AppType               *AppType              `json:"appType,omitempty"`
+	ExpiresAt             json.RawMessage       `json:"expiresAt,omitempty"`
+	SessionDormancyDays   *int                  `json:"sessionDormancyDays,omitempty"`
+	AgentSessionsExpire   *bool                 `json:"agentSessionsExpire,omitempty"`
+	Role                  *AppMembershipRole    `json:"role,omitempty"`
+	CreateUserPermission  *CreateUserPermission `json:"createUserPermission,omitempty"`
+	IdentifyUserMethod    *IdentifyUserMethod   `json:"identifyUserMethod,omitempty"`
+	AnonymousTtlDays      *int                  `json:"anonymousTtlDays,omitempty"`
+	TrainingMode          *bool                 `json:"trainingMode,omitempty"`
+	AgentTools            json.RawMessage       `json:"agentTools,omitempty"`
+	Surfaces              json.RawMessage       `json:"surfaces,omitempty"`
+}
+
+// GetRef returns __UpdateAppSettingsInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsInput) GetRef() string { return v.Ref }
+
+// GetName returns __UpdateAppSettingsInput.Name, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsInput) GetName() *string { return v.Name }
+
+// GetDescription returns __UpdateAppSettingsInput.Description, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsInput) GetDescription() json.RawMessage { return v.Description }
+
+// GetSessionTimeoutSeconds returns __UpdateAppSettingsInput.SessionTimeoutSeconds, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsInput) GetSessionTimeoutSeconds() *int { return v.SessionTimeoutSeconds }
+
+// GetUrn returns __UpdateAppSettingsInput.Urn, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsInput) GetUrn() *string { return v.Urn }
+
+// GetAppType returns __UpdateAppSettingsInput.AppType, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsInput) GetAppType() *AppType { return v.AppType }
+
+// GetExpiresAt returns __UpdateAppSettingsInput.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsInput) GetExpiresAt() json.RawMessage { return v.ExpiresAt }
+
+// GetSessionDormancyDays returns __UpdateAppSettingsInput.SessionDormancyDays, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsInput) GetSessionDormancyDays() *int { return v.SessionDormancyDays }
+
+// GetAgentSessionsExpire returns __UpdateAppSettingsInput.AgentSessionsExpire, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsInput) GetAgentSessionsExpire() *bool { return v.AgentSessionsExpire }
+
+// GetRole returns __UpdateAppSettingsInput.Role, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsInput) GetRole() *AppMembershipRole { return v.Role }
+
+// GetCreateUserPermission returns __UpdateAppSettingsInput.CreateUserPermission, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsInput) GetCreateUserPermission() *CreateUserPermission {
+	return v.CreateUserPermission
+}
+
+// GetIdentifyUserMethod returns __UpdateAppSettingsInput.IdentifyUserMethod, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsInput) GetIdentifyUserMethod() *IdentifyUserMethod {
+	return v.IdentifyUserMethod
+}
+
+// GetAnonymousTtlDays returns __UpdateAppSettingsInput.AnonymousTtlDays, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsInput) GetAnonymousTtlDays() *int { return v.AnonymousTtlDays }
+
+// GetTrainingMode returns __UpdateAppSettingsInput.TrainingMode, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsInput) GetTrainingMode() *bool { return v.TrainingMode }
+
+// GetAgentTools returns __UpdateAppSettingsInput.AgentTools, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsInput) GetAgentTools() json.RawMessage { return v.AgentTools }
+
+// GetSurfaces returns __UpdateAppSettingsInput.Surfaces, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsInput) GetSurfaces() json.RawMessage { return v.Surfaces }
 
 // __UpdateChannelInput is used internally by genqlient
 type __UpdateChannelInput struct {
@@ -115381,6 +115716,77 @@ func CreateAppMemory(
 	return data_, err_
 }
 
+// The mutation executed by CreateAppSettings.
+const CreateAppSettings_Operation = `
+mutation CreateAppSettings ($orgRef: ID, $agentRef: ID!, $name: String!, $urn: String, $appType: AppType, $description: String, $sessionTimeoutSeconds: Int, $expiresAt: String, $role: AppMembershipRole, $createUserPermission: CreateUserPermission, $identifyUserMethod: IdentifyUserMethod, $anonymousTtlDays: Int, $trainingMode: Boolean, $agentTools: [String!], $surfaces: [String!], $installOptional: [ID!]) {
+	createApp(orgRef: $orgRef, agentRef: $agentRef, name: $name, urn: $urn, appType: $appType, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, expiresAt: $expiresAt, role: $role, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces, installOptional: $installOptional) {
+		id
+		urn
+		name
+		appType
+		agentId
+		memberCount
+		createdAt
+	}
+}
+`
+
+// cli1628: explicit settings documents. Legacy command paths keep their old documents.
+func CreateAppSettings(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgRef *string,
+	agentRef string,
+	name string,
+	urn *string,
+	appType *AppType,
+	description *string,
+	sessionTimeoutSeconds *int,
+	expiresAt *string,
+	role *AppMembershipRole,
+	createUserPermission *CreateUserPermission,
+	identifyUserMethod *IdentifyUserMethod,
+	anonymousTtlDays *int,
+	trainingMode *bool,
+	agentTools json.RawMessage,
+	surfaces json.RawMessage,
+	installOptional json.RawMessage,
+) (data_ *CreateAppSettingsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateAppSettings",
+		Query:  CreateAppSettings_Operation,
+		Variables: &__CreateAppSettingsInput{
+			OrgRef:                orgRef,
+			AgentRef:              agentRef,
+			Name:                  name,
+			Urn:                   urn,
+			AppType:               appType,
+			Description:           description,
+			SessionTimeoutSeconds: sessionTimeoutSeconds,
+			ExpiresAt:             expiresAt,
+			Role:                  role,
+			CreateUserPermission:  createUserPermission,
+			IdentifyUserMethod:    identifyUserMethod,
+			AnonymousTtlDays:      anonymousTtlDays,
+			TrainingMode:          trainingMode,
+			AgentTools:            agentTools,
+			Surfaces:              surfaces,
+			InstallOptional:       installOptional,
+		},
+	}
+
+	data_ = &CreateAppSettingsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateAppUser.
 const CreateAppUser_Operation = `
 mutation CreateAppUser ($externalId: String!, $handle: String, $name: String) {
@@ -120662,6 +121068,40 @@ func GetAppMetadata(
 	}
 
 	data_ = &GetAppMetadataResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetAppRenameURN.
+const GetAppRenameURN_Operation = `
+query GetAppRenameURN ($ref: ID!) {
+	app(ref: $ref) {
+		urn
+	}
+}
+`
+
+func GetAppRenameURN(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetAppRenameURNResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetAppRenameURN",
+		Query:  GetAppRenameURN_Operation,
+		Variables: &__GetAppRenameURNInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetAppRenameURNResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -135911,6 +136351,73 @@ func UpdateApp(
 	}
 
 	data_ = &UpdateAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateAppSettings.
+const UpdateAppSettings_Operation = `
+mutation UpdateAppSettings ($ref: ID!, $name: String, $description: String, $sessionTimeoutSeconds: Int, $urn: String, $appType: AppType, $expiresAt: String, $sessionDormancyDays: Int, $agentSessionsExpire: Boolean, $role: AppMembershipRole, $createUserPermission: CreateUserPermission, $identifyUserMethod: IdentifyUserMethod, $anonymousTtlDays: Int, $trainingMode: Boolean, $agentTools: [String!], $surfaces: [String!]) {
+	updateApp(ref: $ref, name: $name, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, urn: $urn, appType: $appType, expiresAt: $expiresAt, sessionDormancyDays: $sessionDormancyDays, agentSessionsExpire: $agentSessionsExpire, role: $role, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces) {
+		id
+		urn
+		name
+		sessionTimeoutSeconds
+	}
+}
+`
+
+func UpdateAppSettings(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	name *string,
+	description json.RawMessage,
+	sessionTimeoutSeconds *int,
+	urn *string,
+	appType *AppType,
+	expiresAt json.RawMessage,
+	sessionDormancyDays *int,
+	agentSessionsExpire *bool,
+	role *AppMembershipRole,
+	createUserPermission *CreateUserPermission,
+	identifyUserMethod *IdentifyUserMethod,
+	anonymousTtlDays *int,
+	trainingMode *bool,
+	agentTools json.RawMessage,
+	surfaces json.RawMessage,
+) (data_ *UpdateAppSettingsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateAppSettings",
+		Query:  UpdateAppSettings_Operation,
+		Variables: &__UpdateAppSettingsInput{
+			Ref:                   ref,
+			Name:                  name,
+			Description:           description,
+			SessionTimeoutSeconds: sessionTimeoutSeconds,
+			Urn:                   urn,
+			AppType:               appType,
+			ExpiresAt:             expiresAt,
+			SessionDormancyDays:   sessionDormancyDays,
+			AgentSessionsExpire:   agentSessionsExpire,
+			Role:                  role,
+			CreateUserPermission:  createUserPermission,
+			IdentifyUserMethod:    identifyUserMethod,
+			AnonymousTtlDays:      anonymousTtlDays,
+			TrainingMode:          trainingMode,
+			AgentTools:            agentTools,
+			Surfaces:              surfaces,
+		},
+	}
+
+	data_ = &UpdateAppSettingsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

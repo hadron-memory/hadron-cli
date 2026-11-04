@@ -3,7 +3,9 @@ package app
 import (
 	"encoding/json"
 	"fmt"
+	urnlib "github.com/hadron-memory/urn-lib-go"
 	"io"
+	"slices"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -28,6 +30,8 @@ type updateAppDTO struct {
 }
 
 func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
+	var settings settingsFlags
+	var newURN, appType string
 	var (
 		name, description     string
 		clearDescription, yes bool
@@ -35,10 +39,12 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "update <app-ref>",
-		Short: "Update an App's name, description or session timeout",
-		Long: `Change an App's basic settings: name, description and
-sessionTimeoutSeconds — nothing else (URN, type, surfaces, roles, identity and
-admission policy and AI keys stay in the portal).
+		Short: "Update an App's settings",
+		Long: `Change an App's settings. Surfaces are descriptive strings, not authorization
+boundaries; the portal shows its chat tab when the list contains chat. Updating
+surfaces or Agent tools replaces the whole list; their clear flags send [].
+Changing type does not change surfaces. Admission policy updates and legacy AI
+keys are not exposed here (use ai-config for AI configuration).
 
 Only the flags you pass are sent; every other field keeps its stored value.
 description can also be CLEARED, with a separate explicit
@@ -48,7 +54,7 @@ the only authority: its validation and authorization refusals are shown as
 returned, and the CLI invents no timeout default and clamps nothing.
 
 The target App (as resolved) and the NAMES of the fields to change are shown
-for confirmation — never field values. Without a terminal, pass
+for confirmation; a rename also shows the old and new full URNs. Without a terminal, pass
 --yes. If the connection drops after the request is sent, the outcome is
 unknown: nothing is retried and no success is claimed — read the App back
 before trying again.`,
@@ -62,11 +68,32 @@ before trying again.`,
 				return exitcode.Newf(exitcode.Usage, "--description and --clear-description are mutually exclusive")
 			}
 
+			prepared, err := settings.prepare(cmd)
+			if err != nil {
+				return err
+			}
+			var urnPtr *string
+			var typePtr *gen.AppType
+			if fl.Changed("urn") {
+				if err := cmdutil.ValidateURNSlug("--urn", newURN); err != nil {
+					return err
+				}
+				urnPtr = &newURN
+				prepared.changed = append(prepared.changed, "urn")
+			}
+			if fl.Changed("type") {
+				v := gen.AppType(appType)
+				if !slices.Contains(gen.AllAppType, v) {
+					return exitcode.Newf(exitcode.Usage, "invalid --type")
+				}
+				typePtr = &v
+				prepared.changed = append(prepared.changed, "appType")
+			}
 			var (
 				namePtr    *string
 				descJSON   json.RawMessage
 				timeoutPtr *int
-				changed    = []string{}
+				changed    = prepared.changed
 			)
 			if fl.Changed("name") {
 				namePtr = &name
@@ -85,7 +112,7 @@ before trying again.`,
 				changed = append(changed, "sessionTimeoutSeconds")
 			}
 			if len(changed) == 0 {
-				return exitcode.Newf(exitcode.Usage, "nothing to update: pass at least one of --name, --description/--clear-description, --session-timeout-seconds")
+				return exitcode.Newf(exitcode.Usage, "nothing to update: pass a setting flag or a true --clear-* flag")
 			}
 
 			appRef, err := cmdutil.CanonicalAppRef("<app-ref>", args[0])
@@ -96,10 +123,54 @@ before trying again.`,
 			if err != nil {
 				return err
 			}
-			if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("Update App %s: %s?", appRef, strings.Join(changed, ", "))); err != nil {
+			prompt := fmt.Sprintf("Update App %s: %s?", appRef, strings.Join(changed, ", "))
+			if urnPtr != nil && !yes && f.IOStreams.IsInputTerminal() {
+				metadata, err := gen.GetAppRenameURN(cmd.Context(), client, appRef)
+				if err != nil {
+					return api.MapError(err)
+				}
+				if metadata.App == nil {
+					return exitcode.Newf(exitcode.NotFound, "App not found")
+				}
+				oldURN := metadata.App.Urn
+				parsed, err := urnlib.ParseUrn(oldURN)
+				if err != nil || len(parsed.PathSegments) < 2 {
+					return exitcode.Newf(exitcode.Error, "server returned an invalid App URN")
+				}
+				renamed, err := urnlib.ComposeUrnV2("app", parsed.PathSegments[0], newURN)
+				if err != nil {
+					return exitcode.Newf(exitcode.Usage, "invalid App rename")
+				}
+				prompt = fmt.Sprintf("Update App %s -> %s: %s?", oldURN, renamed, strings.Join(changed, ", "))
+			}
+			if err := cmdutil.Confirm(f.IOStreams, yes, prompt); err != nil {
 				return err
 			}
-			resp, err := gen.UpdateApp(cmd.Context(), client, appRef, namePtr, descJSON, timeoutPtr)
+			var dto updateAppDTO
+			dto.App = appRef
+			dto.Status = "updated"
+			dto.Changed = changed
+			if len(prepared.changed) > 0 {
+				resp, callErr := gen.UpdateAppSettings(cmd.Context(), client, appRef, namePtr, descJSON, timeoutPtr, urnPtr, typePtr, prepared.expiresJSON, prepared.dormancy, prepared.expire, prepared.role, prepared.permission, prepared.identify, prepared.ttl, prepared.training, prepared.tools, prepared.surfaces)
+				err = callErr
+				if err == nil {
+					u := resp.UpdateApp
+					dto.ID = u.Id
+					dto.URN = u.Urn
+					dto.Name = u.Name
+					dto.SessionTimeoutSeconds = u.SessionTimeoutSeconds
+				}
+			} else {
+				resp, callErr := gen.UpdateApp(cmd.Context(), client, appRef, namePtr, descJSON, timeoutPtr)
+				err = callErr
+				if err == nil {
+					u := resp.UpdateApp
+					dto.ID = u.Id
+					dto.URN = u.Urn
+					dto.Name = u.Name
+					dto.SessionTimeoutSeconds = u.SessionTimeoutSeconds
+				}
+			}
 			if err != nil {
 				mapped := api.MapError(err)
 				if exitcode.FromError(mapped) == exitcode.Unavailable {
@@ -107,23 +178,16 @@ before trying again.`,
 				}
 				return mapped
 			}
-			u := resp.UpdateApp
-			dto := updateAppDTO{
-				App:                   appRef,
-				ID:                    u.Id,
-				URN:                   u.Urn,
-				Name:                  u.Name,
-				SessionTimeoutSeconds: u.SessionTimeoutSeconds,
-				Status:                "updated",
-				Changed:               changed,
-			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				_, err := fmt.Fprintf(w, "✓ Updated App %s (%s)\n", appRef, strings.Join(changed, ", "))
 				return err
 			})
 		},
 	}
+	settings.flags(cmd, false)
 	fl := cmd.Flags()
+	fl.StringVar(&newURN, "urn", "", "new App slug; confirmation names the old and new full URNs")
+	fl.StringVar(&appType, "type", "", "App type: AGENT|AUTOMATION|CHATBOT|CLOUD|IOT|WORKSTATION; leaves surfaces unchanged")
 	fl.StringVar(&name, "name", "", "the App's new name")
 	fl.StringVar(&description, "description", "", "the App's new description")
 	fl.BoolVar(&clearDescription, "clear-description", false, "clear the description (sends null)")
