@@ -6,6 +6,7 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"syscall"
 
 	"golang.org/x/term"
 
@@ -137,6 +138,17 @@ func trimPassphrase(data []byte) string {
 	return strings.TrimRight(string(data), "\r\n")
 }
 
+// afterPassphraseStat is a test seam: it runs between the pre-open Stat and
+// the open, where a swap would land.
+var afterPassphraseStat = func(string) {}
+
+// openNoBlock opens path read-only with O_NONBLOCK, so a FIFO swapped in after
+// the Stat cannot block the open waiting for a writer. A regular file ignores
+// the flag. Windows never reaches this (the file source is refused there).
+func openNoBlock(path string) (*os.File, error) {
+	return os.OpenFile(path, os.O_RDONLY|syscall.O_NONBLOCK, 0)
+}
+
 // readPassphraseFile reads one passphrase file under the rule ssh applies to a
 // private key: a file any group or other user can access is refused, before it
 // is read and before any request. The mode is checked on the OPENED file, so a
@@ -151,7 +163,10 @@ func readPassphraseFile(path string, n int) (string, error) {
 		return "", exitcode.Newf(exitcode.Usage, "--unlock-passphrase-file is not supported on Windows: its file permissions cannot be checked. Use the prompt or --unlock-passphrase-stdin. Nothing was sent")
 	}
 	// Refuse a FIFO, device or directory BEFORE opening it: opening a FIFO
-	// for reading blocks until a writer appears.
+	// for reading blocks until a writer appears. The Stat alone cannot
+	// guarantee that (a FIFO can replace the file between it and the open,
+	// PR #1616 BLIND P2-2), so the open is non-blocking too and the
+	// descriptor checks below refuse whatever it reached.
 	before, err := os.Stat(path)
 	if err != nil {
 		return "", exitcode.Newf(exitcode.Usage, "reading --unlock-passphrase-file #%d: %s. Nothing was sent", n, readFailureClass(err))
@@ -159,7 +174,8 @@ func readPassphraseFile(path string, n int) (string, error) {
 	if !before.Mode().IsRegular() {
 		return "", exitcode.Newf(exitcode.Usage, "--unlock-passphrase-file #%d is not a regular file. Nothing was sent", n)
 	}
-	file, err := os.Open(path)
+	afterPassphraseStat(path)
+	file, err := openNoBlock(path)
 	if err != nil {
 		return "", exitcode.Newf(exitcode.Usage, "reading --unlock-passphrase-file #%d: %s. Nothing was sent", n, readFailureClass(err))
 	}

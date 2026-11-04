@@ -44,7 +44,10 @@ bound and the server's 16 KiB header limit locally.
 
 **File checks (the ssh key rule).** `Stat` first: a non-regular file (FIFO,
 device, directory) is refused before it is opened, since opening a FIFO for
-reading blocks. Then open and `Stat` the opened file: it must be the same
+reading blocks. The Stat alone cannot promise that, because a FIFO can replace
+the file between the Stat and the open (PR #1616 BLIND P2-2). So the open
+itself is non-blocking (`O_NONBLOCK`; a regular file ignores the flag). Then
+`Stat` the opened file: it must be the same
 regular file (`os.SameFile`) with no group/other permission bits
 (`perm & 0o077 == 0`). Errors name the file by position (#1, #2…), never the
 path (#1490: a passphrase pasted as a path must not be echoed). On Windows the
@@ -95,14 +98,22 @@ secrets:
 - the URL-escaped spellings of all of these.
 
 It scrubs only what can be rendered as an error:
-- the whole body of a non-200;
+- the whole of a non-200;
 - the `errors` list of a 200 envelope;
-- the whole body of a 200 that is not a JSON object (fail closed).
+- the whole of a 200 that is not a JSON object.
 
 Successful `data` is NEVER rewritten. Unlike the 32-byte operation key, a
 passphrase can be short or a common word, and the plaintext the user asked for
-must come back intact. If a scrub breaks the errors JSON, the list is replaced
-by one `[redacted]` message.
+must come back intact.
+
+A JSON body is scrubbed by structure, never as bytes (PR #1616 BLIND P2-1).
+The refusal is classified from the scrubbed body, so a passphrase such as
+`errors` or `KEY` must not rewrite the envelope's keys or the `WRONG_KEY` code.
+String values are scrubbed, and so are object keys other than the GraphQL
+envelope's own (`data`, `errors`, `message`, `locations`, `path`, `extensions`,
+`code`, …). An identifier-shaped `extensions.code` is kept as protocol. A body
+that is not JSON (an HTML error page) has no structure to keep and is scrubbed
+as bytes.
 
 ## Cost
 
