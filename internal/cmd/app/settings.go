@@ -94,7 +94,7 @@ func (s *settingsFlags) prepare(cmd *cobra.Command) (preparedSettings, error) {
 	}
 	if add("expires-at", "expiresAt") {
 		if strings.TrimSpace(s.expires) == "" {
-			return p, exitcode.Newf(exitcode.Usage, "--expires-at must not be blank; use --clear-expires-at to clear an expiry")
+			return p, exitcode.Newf(exitcode.Usage, "--expires-at must not be blank; use --clear-expires-at on app update to clear an expiry")
 		}
 		if s.clearExpires {
 			return p, exitcode.Newf(exitcode.Usage, "--expires-at and --clear-expires-at are mutually exclusive")
