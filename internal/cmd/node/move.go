@@ -18,6 +18,7 @@ func newCmdMove(f *cmdutil.Factory) *cobra.Command {
 		memory   string
 		toURN    string
 		toMemory string
+		dryRun   bool
 	)
 	cmd := &cobra.Command{
 		Use:     "move <node-urn> | <loc> -m <memory> (--to-urn <urn> | --to-memory <memory>)",
@@ -44,11 +45,20 @@ A same-memory move is not subject to these refusals.
 
 Any move — same-memory or cross-memory — is a conflict (exit 5) if a live node
 already occupies the destination, or if the source changes concurrently while
-the move is in flight.`,
+the move is in flight.
+
+--dry-run reads the source subtree and nodes already present at the destination,
+without moving anything. It is advisory: it does not predict rebased locs, move
+success, refusals or broken links (server#3424 tracks the server planner). Reads
+page to exhaustion, including readable comments and system-type nodes; an incomplete read prints INCOMPLETE and exits 1. A complete
+read exits 0, but is not a snapshot or a guarantee about a later move.`,
 		Example: `  hadron node move hrn:node:acme.com:kb:findings:flaky-ci --to-urn hrn:node:acme.com:kb:archive:flaky-ci
   hadron node move findings:flaky-ci -m hrn:mem:acme.com:kb --to-memory hrn:mem:acme.com:archive`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if dryRun && wantsLintWarnings(cmd) {
+				return exitcode.Newf(exitcode.Usage, "--lint-warnings cannot be combined with --dry-run")
+			}
 			// Validate the destination flags before touching the network, so a
 			// bad flag combo is a usage error even when unauthenticated.
 			targetUrn, targetMemoryRef, err := relocationDestination(toURN, toMemory)
@@ -58,6 +68,13 @@ the move is in flight.`,
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
+			}
+			if dryRun {
+				requested := toURN
+				if targetMemoryRef != nil {
+					requested = toMemory
+				}
+				return previewMove(cmd, f, client, memory, args[0], requested, targetUrn, targetMemoryRef)
 			}
 			sourceRef, err := cmdutil.ResolveNodeRef(cmd, client, memory, args[0])
 			if err != nil {
@@ -79,7 +96,8 @@ the move is in flight.`,
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve a bare <loc> source against")
 	cmd.Flags().StringVar(&toURN, "to-urn", "", "destination node URN hrn:node:<root>:<slug>:<loc> (new memory and/or loc)")
 	cmd.Flags().StringVar(&toMemory, "to-memory", "", "destination memory (hrn:mem:<root>:<slug>); keeps the current loc")
-	enableLintWarnings(cmd)
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "read an advisory source/destination inventory without moving; incomplete reads exit 1")
+	enableLintWarnings(cmd, "--dry-run")
 	return cmd
 }
 
