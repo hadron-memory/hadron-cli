@@ -388,3 +388,10 @@ func TestCodexRefusesAFileSwappedForASymlinkBetweenCheckAndOpen(t *testing.T) {
 		t.Fatalf("followed a swapped-in symlink: %v", err)
 	}
 }
+
+func TestBurnNeverCombinesAcrossAReset(t *testing.T) {
+	v := primaryView(burnPts(recAt(90, "2026-11-04T10:30:00Z", 300), recAt(5, sameReset, 300)))
+	if v.BurnPctPerHour != nil {
+		t.Fatalf("a reset starts a new window: %+v", v.BurnPctPerHour)
+	}
+}
