@@ -30,6 +30,7 @@ func TestStopReporterAcceptedSeqNeverReposts_1662(t *testing.T) {
 					f.chat.readErr = errors.New("synthetic read failure")
 				}
 			}
+			alterReadBack := r.afterPost
 			wrongResult := false
 			for i, step := range []time.Duration{0, time.Minute, 11 * time.Minute, 22 * time.Minute, time.Hour} {
 				f.clock = f.clock.Add(step)
@@ -46,6 +47,7 @@ func TestStopReporterAcceptedSeqNeverReposts_1662(t *testing.T) {
 					t.Fatalf("pending%d err%v", pending, err)
 				}
 				r = f.reporter()
+				r.afterPost = alterReadBack
 			}
 			if wrongResult {
 				t.Fatal("an accepted-seq read failure must stay failed, never waiting")
