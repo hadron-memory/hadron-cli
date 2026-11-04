@@ -455,3 +455,17 @@ func TestAppSettings1628BadRenameReadNeverMutates(t *testing.T) {
 		})
 	}
 }
+
+func TestAppSettings1628BlankExpiryRefuses(t *testing.T) {
+	for _, mode := range []string{"install", "update"} {
+		for _, value := range []string{"", " ", "\t\n"} {
+			t.Run(mode+value, func(t *testing.T) {
+				srv, calls := appSettingsServer(t)
+				_, err := appSettingsRun(t, srv, mode, "--expires-at", value, "--yes")
+				if exitCodeFor(err) != 2 || len(*calls) != 0 {
+					t.Fatalf("blank expiry: err=%v calls=%+v", err, *calls)
+				}
+			})
+		}
+	}
+}
