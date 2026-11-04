@@ -137,3 +137,89 @@ func TestReportStopsEmptyRunSaysNothingToReport_1629(t *testing.T) {
 		t.Fatalf("out %q err %v", out, err)
 	}
 }
+
+func sessionBody(workerID, name string, ended bool) string {
+	end := "null"
+	if ended {
+		end = `"2026-11-04T11:00:00Z"`
+	}
+	w, wk := "null", "null"
+	if workerID != "" {
+		w = `"` + workerID + `"`
+		wk = `{"id":"` + workerID + `","name":"` + name + `"}`
+	}
+	return `{"data":{"session":{"id":"sess-1","workerId":` + w + `,"worker":` + wk + `,"endedAt":` + end + `}}}`
+}
+
+// LOCAL P2 (b38108c9): the reporter's identity is the server's session
+// worker, never the binding file alone.
+func TestReportStopsIdentityComesFromTheServerSession_1629(t *testing.T) {
+	b := &binding{SessionID: "sess-1", WorkerID: "w-hugo", WorkerName: "Hugo"}
+	for name, tc := range map[string]struct {
+		body string
+		ok   bool
+	}{
+		"same worker":           {sessionBody("w-hugo", "Hugo", false), true},
+		"another worker":        {sessionBody("w-gil", "Gil", false), false},
+		"not a worker session":  {sessionBody("", "", false), false},
+		"ended":                 {sessionBody("w-hugo", "Hugo", true), false},
+		"nested worker differs": {`{"data":{"session":{"id":"sess-1","workerId":"w-hugo","worker":{"id":"w-gil","name":"Hugo"},"endedAt":null}}}`, false},
+		"not reported":          {`{"data":{"session":null}}`, false},
+	} {
+		s, _ := deliveryFake(t, map[string][]string{"GetTeamSession": {tc.body}})
+		id, wname, err := reporterSessionIdentity(context.Background(), s.client, b)
+		if tc.ok != (err == nil) {
+			t.Errorf("%s: err %v", name, err)
+		}
+		if tc.ok && (id != "w-hugo" || wname != "Hugo") {
+			t.Errorf("%s: identity %q %q", name, id, wname)
+		}
+	}
+}
+
+// The server's name is what --reporter-worker is checked against.
+func TestReportStopsIdentityReturnsTheServersName_1629(t *testing.T) {
+	b := &binding{SessionID: "sess-1", WorkerID: "w-hugo", WorkerName: "Stale"}
+	s, _ := deliveryFake(t, map[string][]string{"GetTeamSession": {sessionBody("w-hugo", "Hugo", false)}})
+	if _, name, err := reporterSessionIdentity(context.Background(), s.client, b); err != nil || name != "Hugo" {
+		t.Fatalf("name %q err %v", name, err)
+	}
+}
+
+// identityOnlyAPI is the real adapter whose BoundWorker runs the real
+// identity proof against a fake server, with the binding given.
+type identityOnlyAPI struct {
+	*stopReporterAPI
+	bind *binding
+}
+
+func (a identityOnlyAPI) BoundWorker(ctx context.Context) (string, string, error) {
+	id, name, err := reporterSessionIdentity(ctx, a.client, a.bind)
+	if err != nil {
+		return "", "", err
+	}
+	a.b = a.bind
+	return id, name, nil
+}
+
+// LOCAL P2 (b38108c9): a binding labelled Hugo that carries Gil's session
+// sends ZERO posts.
+func TestReportStopsMismatchedSessionSendsZeroPosts_1629(t *testing.T) {
+	a, calls := reporterAPIFake(t, map[string][]string{"GetTeamSession": {sessionBody("w-gil", "Gil", false)}})
+	box := &delivery.StopOutbox{Dir: filepath.Join(t.TempDir(), "stop-dropped")}
+	if _, err := box.Drop(delivery.StopDrop{EventID: "ev-1", WorkerID: "w-gil", Worker: "Gil", Level: "HALT",
+		HoldReason: "draft", HeldAt: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	rep := &delivery.StopReporter{Outbox: box, ReporterWorker: "Hugo",
+		API: identityOnlyAPI{stopReporterAPI: a, bind: &binding{SessionID: "session-gil", WorkerID: "w-hugo", WorkerName: "Hugo"}}}
+	_, err := rep.Run(context.Background())
+	if !errors.Is(err, delivery.ErrNoReporterBinding) {
+		t.Fatalf("err %v", err)
+	}
+	for _, c := range calls() {
+		if c.op != "GetTeamSession" {
+			t.Fatalf("a call after the identity refusal: %s", c.op)
+		}
+	}
+}

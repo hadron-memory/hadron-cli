@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -36,6 +37,7 @@ type fakeChat struct {
 	postGate     chan struct{} // when set, Post blocks until closed
 	postEntered  chan struct{}
 	recipientN   int
+	storeAs      string // when set, a post is stored as this author (another worker's session)
 }
 
 func newFakeChat(now func() time.Time) *fakeChat {
@@ -82,7 +84,11 @@ func (c *fakeChat) Post(_ context.Context, body string) (int, error) {
 		}
 	}
 	seq := c.msgs[len(c.msgs)-1].Seq + 1
-	c.msgs = append(c.msgs, ChatMessage{Seq: seq, AuthorWorkerID: c.boundID, Body: body})
+	author := c.boundID
+	if c.storeAs != "" {
+		author = c.storeAs
+	}
+	c.msgs = append(c.msgs, ChatMessage{Seq: seq, AuthorWorkerID: author, Body: body})
 	c.at[seq] = c.now()
 	c.posts++
 	if c.loseResponse {
@@ -531,5 +537,49 @@ func TestStopDropBodyGlossesHoldCodes_1629(t *testing.T) {
 		if !strings.Contains(body, want) {
 			t.Errorf("%s: body %q lacks %q", code, body, want)
 		}
+	}
+}
+
+// §10 P3-1 (b38108c9): a post that reads back under another author is not
+// this reporter's flag: no marker, and the item stays pending.
+func TestStopReporterReadBackChecksTheAuthor_1629(t *testing.T) {
+	f := newReporterFixture(t)
+	f.chat.storeAs = "w-gil"
+	if out := onlyOutcome(t, f.run(f.reporter())); out.Result != "failed" || f.reported() {
+		t.Fatalf("outcome = %+v reported %v", out, f.reported())
+	}
+}
+
+// §10 P3-3 (b38108c9): a duplicate refusal whose earlier seq does not read
+// back writes no marker.
+func TestStopReporterDuplicateThatDoesNotReadBackWritesNoMarker_1629(t *testing.T) {
+	f := newReporterFixture(t)
+	f.chat.loseResponse = true
+	f.run(f.reporter())
+	f.chat.loseResponse = false
+	f.chat.hideFromRead = true
+	f.clock = f.clock.Add(DefaultReconcileAfter + time.Second)
+	if out := onlyOutcome(t, f.run(f.reporter())); out.Result != "failed" || f.reported() {
+		t.Fatalf("outcome = %+v reported %v", out, f.reported())
+	}
+}
+
+// §10 P3-4 (b38108c9): the outbox directory is 0700, and an existing looser
+// directory is tightened.
+func TestStopReporterTightensTheOutboxDir_1629(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX modes")
+	}
+	f := newReporterFixture(t)
+	if err := os.Chmod(f.box.Dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	f.run(f.reporter())
+	st, err := os.Stat(f.box.Dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Mode().Perm() != 0o700 {
+		t.Fatalf("outbox dir mode %o, want 700", st.Mode().Perm())
 	}
 }

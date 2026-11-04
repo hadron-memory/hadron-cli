@@ -157,23 +157,49 @@ func (a *stopReporterAPI) BoundWorker(ctx context.Context) (string, string, erro
 	if b == nil || b.SessionID == "" || b.WorkerID == "" {
 		return "", "", errors.New("this worktree has no worker session binding")
 	}
-	live, err := checkSessionLiveness(a.cmd, a.f, b)
-	if err != nil {
-		return "", "", err
-	}
-	if !live.active {
-		return "", "", fmt.Errorf("the bound session %s has ended", b.SessionID)
-	}
-	scope, err := resolveTeamAppScope(ctx, a.f, b)
-	if err != nil {
+	if err := checkBindingServer(a.f, b); err != nil {
 		return "", "", err
 	}
 	client, err := a.f.GraphQLClient()
 	if err != nil {
 		return "", "", err
 	}
+	id, name, err := reporterSessionIdentity(ctx, client, b)
+	if err != nil {
+		return "", "", err
+	}
+	scope, err := resolveTeamAppScope(ctx, a.f, b)
+	if err != nil {
+		return "", "", err
+	}
 	a.b, a.app, a.client = b, scope.Ref, client
-	return b.WorkerID, b.WorkerName, nil
+	return id, name, nil
+}
+
+// reporterSessionIdentity is the reporter's identity proof, from the server
+// and never from the binding file alone (LOCAL P2 at b38108c9): the bound
+// session must exist, be open and be worker-bound, and its worker must be the
+// binding's worker. It answers the server's worker id and name, so the
+// caller's --reporter-worker check compares against the server's name.
+func reporterSessionIdentity(ctx context.Context, client graphql.Client, b *binding) (string, string, error) {
+	resp, err := gen.GetTeamSession(ctx, client, b.SessionID)
+	if err != nil {
+		return "", "", api.MapError(err)
+	}
+	if resp == nil || resp.Session == nil {
+		return "", "", fmt.Errorf("the server does not report the bound session %s", b.SessionID)
+	}
+	s := resp.Session.TeamSessionFields
+	if s.EndedAt != nil {
+		return "", "", fmt.Errorf("the bound session %s has ended", b.SessionID)
+	}
+	if s.WorkerId == nil || *s.WorkerId == "" || s.Worker == nil || s.Worker.Id != *s.WorkerId {
+		return "", "", fmt.Errorf("the bound session %s is not a worker session", b.SessionID)
+	}
+	if *s.WorkerId != b.WorkerID {
+		return "", "", fmt.Errorf("the bound session %s belongs to worker %s, not the binding's worker %s", b.SessionID, s.Worker.Name, b.WorkerName)
+	}
+	return *s.WorkerId, s.Worker.Name, nil
 }
 
 func (a *stopReporterAPI) Recipient(ctx context.Context, workerID string) (string, error) {

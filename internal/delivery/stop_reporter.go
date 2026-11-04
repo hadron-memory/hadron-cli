@@ -182,6 +182,11 @@ func (r *StopReporter) Run(ctx context.Context) (ReportRun, error) {
 	if err := os.MkdirAll(r.Outbox.Dir, 0o700); err != nil {
 		return run, err
 	}
+	// MkdirAll leaves an existing directory's mode alone; the outbox holds
+	// ids only, but it is the reporter's state, so keep it owner-only.
+	if err := os.Chmod(r.Outbox.Dir, 0o700); err != nil {
+		return run, err
+	}
 	lf, err := os.OpenFile(filepath.Join(r.Outbox.Dir, ".reporter.lock"), os.O_RDWR|os.O_CREATE, 0o600)
 	if err != nil {
 		return run, err
