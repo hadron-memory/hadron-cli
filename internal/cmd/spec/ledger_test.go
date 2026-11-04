@@ -82,7 +82,7 @@ func ledgerKeys(fs []ledgerFinding, rule string) []string {
 
 func eq(t *testing.T, what string, got, want []string) {
 	t.Helper()
-	if strings.Join(got, "|") != strings.Join(want, "|") {
+	if len(got) != len(want) || strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Errorf("%s:\n got  %q\n want %q", what, got, want)
 	}
 }
@@ -122,7 +122,7 @@ func TestLedgerBoundaryNegativeControl(t *testing.T) {
 	fs := checkLedger(reg, docs, specs)
 	for _, f := range fs {
 		for _, loc := range f.Locations {
-			if strings.HasSuffix(loc, ":19") || strings.Contains(loc, ":19") && strings.HasPrefix(loc, "cor:dmo:050:01:content:19") {
+			if loc == "cor:dmo:050:01:content:19" {
 				t.Errorf("line 19 (the cor:dmo:140 codes) produced %+v", f)
 			}
 		}
@@ -149,8 +149,15 @@ func TestLedgerTwoIDsJoinedBySlashAreTwoSingles(t *testing.T) {
 // D-2026-10-02-002..004 and D-2026-10-01-001/002/003 style numbers.
 func TestLedgerRangeShorthand(t *testing.T) {
 	reg, _, specs := ledgerFixture(t)
+	// Only category 3: the fixture registry carries findings of its own.
 	run := func(text string) []ledgerFinding {
-		return checkLedger(reg, []ledgerDoc{{Citation: "cor:x:010", Field: "content", Text: text}}, specs)
+		var out []ledgerFinding
+		for _, f := range checkLedger(reg, []ledgerDoc{{Citation: "cor:x:010", Field: "content", Text: text}}, specs) {
+			if f.Category == 3 {
+				out = append(out, f)
+			}
+		}
+		return out
 	}
 	// All three spellings expand inclusively.
 	for _, op := range []string{"…", "...", "–"} {
@@ -168,6 +175,10 @@ func TestLedgerRangeShorthand(t *testing.T) {
 	eq(t, "descending", ledgerKeys(run("D-2026-10-02-004…002"), "unparsed-shorthand"), []string{""})
 	// A range never applies to a letter ID.
 	eq(t, "letter base", ledgerKeys(run("D-2026-10-01-A…004"), "unparsed-shorthand"), []string{""})
+	// An item must end at a boundary: "-x" after three digits is not an item.
+	if got := run("D-2026-10-01-001/007-x"); len(got) != 0 {
+		t.Errorf("item with trailing hyphen word: %+v", got)
+	}
 	// Cross-date: the second bound is a full ID, so these are two singles.
 	if got := run("D-2026-10-02-002 … D-2026-10-02-004"); len(got) != 0 {
 		t.Errorf("cross-bound: %+v", got)
@@ -181,8 +192,10 @@ func TestLedgerRangeShorthand(t *testing.T) {
 	}
 }
 
-// A Retired line citing a LIVE spec is a finding (Victor's builder note,
-// cli#662 comment 6628458382): a Retired entry expects superseded targets.
+// A Retired line whose cited specs are ALL live is a finding (Victor's builder
+// note, cli#662 comment 6628458382): a Retired entry expects superseded targets.
+// A line that cites a superseded target AND its live successor is the normal
+// shape (fixture D-2026-10-01-D) and stays clean.
 func TestLedgerRetiredCitingLiveSpec(t *testing.T) {
 	reg, _, specs := ledgerFixture(t)
 	reg += "\n## D-2026-10-03-001: Retired but its target is live\n- **Status:** Superseded (never built)\n- **Date:** 2026-10-03\n- **Corpus:** Retired — `cor:spc:020:05`\n"
@@ -194,6 +207,11 @@ func TestLedgerRetiredCitingLiveSpec(t *testing.T) {
 			t.Errorf("Retired -> superseded flagged: %s", k)
 		}
 	}
+	// Superseded target plus live successor: clean. Two live targets: one finding.
+	reg3 := reg + "\n## D-2026-10-03-003: ok\n- **Status:** Superseded\n- **Date:** 2026-10-03\n- **Corpus:** Retired — `cor:spc:020:04`, successor `cor:spc:020:05`\n" +
+		"\n## D-2026-10-03-004: two live\n- **Status:** Superseded\n- **Date:** 2026-10-03\n- **Corpus:** Retired — `cor:spc:020:01`, `cor:spc:020:05`\n"
+	eq(t, "retired mixed", ledgerKeys(checkLedger(reg3, nil, specs), "retired-live"),
+		[]string{"D-2026-10-03-001->cor:spc:020:05", "D-2026-10-03-004->cor:spc:020:01, cor:spc:020:05"})
 	// A Retired line citing something that does not resolve is still unresolved.
 	reg2 := reg + "\n## D-2026-10-03-002: Retired, target gone\n- **Status:** Superseded\n- **Date:** 2026-10-03\n- **Corpus:** Retired — `cor:spc:020:98`\n"
 	eq(t, "retired unresolved", ledgerKeys(checkLedger(reg2, nil, specs), "unresolved"),
@@ -316,12 +334,29 @@ func TestLedgerRegistryShape(t *testing.T) {
 	fs := checkLedger(r, nil, specs)
 	eq(t, "malformed", ledgerKeys(fs, "registry-malformed"), []string{""})
 	eq(t, "duplicate", ledgerKeys(fs, "duplicate-id"), []string{"D-2026-10-07-001"})
+	// The first occurrence of a field wins; a later repeat is ignored.
+	r = "## D-2026-10-07-002: twice\n- **Status:** Decided\n- **Corpus:** Not a contract — x\n- **Corpus:** Mostly codified\n"
+	if got := checkLedger(r, nil, specs); len(got) != 0 {
+		t.Errorf("repeated field: %+v", got)
+	}
 }
 
-// Empty and clean inputs yield no findings, and the report is deterministic.
+// A registry with no entries is reported, never "clean": a wrong file would
+// otherwise read as a ledger with nothing wrong.
+func TestLedgerEmptyRegistryIsNotClean(t *testing.T) {
+	for _, reg := range []string{"", "# just a title\n\nno entries\n"} {
+		got := checkLedger(reg, nil, nil)
+		if len(got) != 1 || got[0].Rule != "registry-malformed" || got[0].Severity != "error" {
+			t.Errorf("registry %q: %+v", reg, got)
+		}
+	}
+}
+
+// Clean inputs yield no findings, and the report is deterministic.
 func TestLedgerCleanAndDeterministic(t *testing.T) {
-	if got := checkLedger("", nil, nil); len(got) != 0 {
-		t.Errorf("empty: %+v", got)
+	clean := "## D-2026-10-01-001: ok\n- **Status:** Deferred\n"
+	if got := checkLedger(clean, nil, nil); len(got) != 0 {
+		t.Errorf("clean: %+v", got)
 	}
 	reg, docs, specs := ledgerFixture(t)
 	a, _ := json.Marshal(checkLedger(reg, docs, specs))
