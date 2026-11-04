@@ -463,6 +463,25 @@ retire the old one (it keeps its number, gains a `superseded` tag and a
 hadron spec supersede cli:cha:010:01 -m $M --title "backpressure v2" --yes
 ```
 
+For a successor that already exists, including one in another module or
+product in the same memory, use `--by` instead of creating a new citation:
+
+```sh
+hadron spec supersede app:sch:020 -m "$M" --by srv:sch:030 --yes
+```
+
+That mode creates no node and preserves the old body. It refuses non-spec,
+retired, placeholder, deleted, self, cross-memory or cyclic targets, and cannot
+combine with the new-replacement flags. Both paths lead the retired abstract
+with `SUPERSEDED (<UTC date>) by <citation> (<name>); do not apply. Historical: <summary>`.
+The history is the stored old abstract verbatim, or `--summary` if supplied;
+the update re-fingerprints it. Use a shorter summary if the lead would exceed
+the abstract cap. A same-successor lead is a no-op on rerun; a different one
+is refused. The --by retirement update uses the source revision and refuses a
+concurrent source edit. Target validation and the separate edge write are not
+atomic. After a lost retirement response, success requires read-back of both
+the tag and the requested abstract; a visible tag alone leaves an error.
+
 The replacement keeps the old `spec.*` subrole, if present. A legacy spec
 recognized by its tag alone gets the base `spec` role.
 

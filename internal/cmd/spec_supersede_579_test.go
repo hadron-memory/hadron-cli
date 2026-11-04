@@ -14,17 +14,20 @@ import (
 // A stateful corpus fake, not a canned success: writes alter subsequent raw,
 // detail and lint reads, and the abstract fingerprint follows the actual write.
 type corpus579 struct {
-	nodes          map[string]map[string]any
-	calls          []string
-	writes         int
-	creates        int
-	targetReads    int
-	renameOnReread bool
+	nodes               map[string]map[string]any
+	calls               []string
+	writes              int
+	creates             int
+	targetReads         int
+	renameOnReread      bool
+	placeholderOnReread bool
+	concurrentUpdate    bool
+	lastUpdate          map[string]any
 }
 
 func node579(id, loc string) map[string]any {
 	body := "# Historical {{rule}}\n"
-	return map[string]any{"id": id, "memoryId": "mem1", "loc": loc, "name": "Name " + loc, "nodeType": "info", "role": "spec.rule", "tags": []any{"spec"}, "abstract": "Original summary.", "abstractOriginHash": specOriginHash(body), "content": body, "outgoingEdges": []any{}, "incomingEdges": []any{}, "isPlaceholder": false, "deletedAt": nil}
+	return map[string]any{"id": id, "memoryId": "mem1", "loc": loc, "name": "Name " + loc, "nodeType": "info", "role": "spec.rule", "tags": []any{"spec"}, "abstract": "Original summary.", "abstractOriginHash": specOriginHash(body), "content": body, "outgoingEdges": []any{}, "incomingEdges": []any{}, "revision": 1, "isPlaceholder": false, "deletedAt": nil}
 }
 func server579(t *testing.T) (*httptest.Server, *corpus579) {
 	t.Helper()
@@ -41,6 +44,12 @@ func server579(t *testing.T) (*httptest.Server, *corpus579) {
 		c.calls = append(c.calls, q.OperationName)
 		data := map[string]any{}
 		switch q.OperationName {
+		case "SpecCorpusState", "GetMemory":
+			data["memory"] = map[string]any{"id": "mem1", "urn": "hrn:mem:micromentor.org:platform-specs", "corpusState": "MINTED", "vectorIndexEnabled": true}
+		case "Memories":
+			var response map[string]any
+			_ = json.Unmarshal([]byte(memListMicromentorJSON), &response)
+			data = response["data"].(map[string]any)
 		case "ResolveUrn":
 			urn, _ := q.Variables["urn"].(string)
 			var found map[string]any
@@ -54,11 +63,14 @@ func server579(t *testing.T) (*httptest.Server, *corpus579) {
 			if found != nil {
 				data["resolveUrn"] = map[string]any{"id": found["id"], "kind": "node", "memoryId": found["memoryId"]}
 			}
-		case "GetNode", "GetSpecNodeRaw", "GetSpecSupersedeTarget":
+		case "GetNode", "GetSpecNodeRaw", "GetSpecNodeForEdit", "GetSpecSupersedeTarget":
 			ref, _ := q.Variables["ref"].(string)
 			n := c.nodes[ref]
 			if ref == "new" {
 				c.targetReads++
+				if c.placeholderOnReread && c.targetReads > 1 {
+					n["isPlaceholder"] = true
+				}
 				if c.renameOnReread && c.targetReads > 1 {
 					n["name"] = "Fresh target name"
 				}
@@ -77,11 +89,11 @@ func server579(t *testing.T) (*httptest.Server, *corpus579) {
 			c.nodes[from]["outgoingEdges"] = append(c.nodes[from]["outgoingEdges"].([]any), e)
 			data["createEdge"] = e
 		case "UpdateSpecNode":
-			c.writes++
 			in := q.Variables["input"].(map[string]any)
+			c.lastUpdate = in
 			var n map[string]any
 			for _, v := range c.nodes {
-				if v["loc"] == in["loc"] {
+				if (in["id"] != nil && v["id"] == in["id"]) || (in["loc"] != nil && v["loc"] == in["loc"]) {
 					n = v
 					break
 				}
@@ -90,6 +102,16 @@ func server579(t *testing.T) (*httptest.Server, *corpus579) {
 				t.Errorf("update missing node %+v", in)
 				return
 			}
+			if c.concurrentUpdate {
+				n["revision"] = 2
+				n["abstract"] = "Concurrent summary"
+				c.concurrentUpdate = false
+			}
+			if expected, ok := in["expectedRevision"]; ok && expected != float64(n["revision"].(int)) {
+				_ = json.NewEncoder(w).Encode(map[string]any{"errors": []any{map[string]any{"message": "revision changed", "extensions": map[string]any{"code": "NODE_WRITE_CONFLICT"}}}})
+				return
+			}
+			c.writes++
 			for _, k := range []string{"abstract", "content", "tags"} {
 				if v, ok := in[k]; ok {
 					n[k] = v
@@ -160,6 +182,9 @@ func TestSpec579ExistingSuccessorAndAbstract(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
+				if c.lastUpdate["id"] != "old" || c.lastUpdate["expectedRevision"] != float64(1) {
+					t.Fatalf("unguarded update %+v", c.lastUpdate)
+				}
 				if c.creates != 0 || len(c.nodes) != 2 || c.writes != 2 {
 					t.Fatalf("writes %d creates %d nodes %d", c.writes, c.creates, len(c.nodes))
 				}
@@ -171,7 +196,7 @@ func TestSpec579ExistingSuccessorAndAbstract(t *testing.T) {
 				if c.nodes["old"]["abstract"] != want {
 					t.Fatalf("abstract %v want %s", c.nodes["old"]["abstract"], want)
 				}
-				if !strings.Contains(c.nodes["old"]["content"].(string), "{{rule}}") {
+				if c.nodes["old"]["content"] != "# Historical {{rule}}\n" {
 					t.Fatal("stored template lost")
 				}
 				var dto map[string]any
@@ -281,5 +306,91 @@ func TestSpec579LintRetirementLead(t *testing.T) {
 	r.SetArgs([]string{"spec", "lint", "app:sch:020", "-m", specMem, "--strict", "--json", "--server", srv.URL})
 	if err := r.Execute(); exitCodeFor(err) != 5 || !strings.Contains(out.String(), "superseded-abstract") {
 		t.Fatalf("lint %v %s", err, out.String())
+	}
+}
+
+func TestSpec579TargetRevalidatedAndAbstractBudget(t *testing.T) {
+	t.Run("target becomes placeholder", func(t *testing.T) {
+		srv, c := server579(t)
+		c.placeholderOnReread = true
+		_, err := run579(t, srv.URL, "--by", "srv:sch:030")
+		if err == nil || c.writes != 0 {
+			t.Fatalf("err %v writes %d", err, c.writes)
+		}
+	})
+	for _, mode := range []string{"existing", "create"} {
+		t.Run(mode, func(t *testing.T) {
+			srv, c := server579(t)
+			c.nodes["old"]["abstract"] = strings.Repeat("x", 1990)
+			args := []string{"--by", "srv:sch:030"}
+			if mode == "create" {
+				args = []string{"--to", "app:sch:next", "--title", "Next"}
+			}
+			_, err := run579(t, srv.URL, args...)
+			if exitCodeFor(err) != 2 || c.writes != 0 {
+				t.Fatalf("err %v writes %d", err, c.writes)
+			}
+			_, err = run579(t, srv.URL, append(args, "--summary", "Short history.")...)
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+func TestSpec579CreateRerunNoWrite(t *testing.T) {
+	srv, c := server579(t)
+	args := []string{"--to", "app:sch:next", "--title", "Next"}
+	if _, err := run579(t, srv.URL, args...); err != nil {
+		t.Fatal(err)
+	}
+	before := c.writes
+	out, err := run579(t, srv.URL, args...)
+	if err != nil || c.writes != before || !strings.Contains(out, `"unchanged": true`) {
+		t.Fatalf("err %v writes %d/%d %s", err, c.writes, before, out)
+	}
+}
+
+func TestSpec579AbstractCapCountsUTF16(t *testing.T) {
+	srv, c := server579(t)
+	c.nodes["old"]["abstract"] = strings.Repeat("😀", 990)
+	_, err := run579(t, srv.URL, "--by", "srv:sch:030")
+	if exitCodeFor(err) != 2 || c.writes != 0 {
+		t.Fatalf("err %v writes %d", err, c.writes)
+	}
+}
+
+func TestSpec579HelpAndContract(t *testing.T) {
+	for _, args := range [][]string{{"spec", "supersede", "--help"}, {"agentic-usage"}} {
+		f, out := testFactory(t)
+		r := NewRootCmd(f)
+		r.SetArgs(args)
+		if err := r.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		for _, want := range []string{"--by", "--summary", "SUPERSEDED ("} {
+			if !strings.Contains(out.String(), want) {
+				t.Fatalf("args %v missing %s", args, want)
+			}
+		}
+	}
+}
+func TestSpec579LintWordBoundary(t *testing.T) {
+	srv, c := server579(t)
+	c.nodes["old"]["tags"] = []any{"spec", "superseded"}
+	c.nodes["old"]["abstract"] = "This rule is unsuperseded."
+	f, out := testFactory(t)
+	r := NewRootCmd(f)
+	r.SetArgs([]string{"spec", "lint", "app:sch:020", "-m", specMem, "--strict", "--json", "--server", srv.URL})
+	if err := r.Execute(); exitCodeFor(err) != 5 || !strings.Contains(out.String(), "superseded-abstract") {
+		t.Fatalf("err %v %s", err, out.String())
+	}
+}
+
+func TestSpec579ConcurrentEditNotOverwritten(t *testing.T) {
+	srv, c := server579(t)
+	c.concurrentUpdate = true
+	out, err := run579(t, srv.URL, "--by", "srv:sch:030")
+	if err == nil || c.nodes["old"]["abstract"] != "Concurrent summary" || c.creates != 0 || c.writes != 1 {
+		t.Fatalf("err %v writes %d abstract %v %s", err, c.writes, c.nodes["old"]["abstract"], out)
 	}
 }

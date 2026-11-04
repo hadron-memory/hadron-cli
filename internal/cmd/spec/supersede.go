@@ -39,13 +39,15 @@ type supersedeEdgeDTO struct {
 }
 
 type supersedeResultDTO struct {
-	Old      string             `json:"old"`
-	New      string             `json:"new"`
-	MemoryID string             `json:"memoryId"`
-	Name     string             `json:"name"`
-	Tags     []string           `json:"tags"`
-	Edges    []supersedeEdgeDTO `json:"edges"`
-	DryRun   bool               `json:"dryRun"`
+	Old               string             `json:"old"`
+	New               string             `json:"new"`
+	MemoryID          string             `json:"memoryId"`
+	Name              string             `json:"name"`
+	Tags              []string           `json:"tags"`
+	Edges             []supersedeEdgeDTO `json:"edges"`
+	DryRun            bool               `json:"dryRun"`
+	ExistingSuccessor bool               `json:"existingSuccessor,omitempty"`
+	Unchanged         bool               `json:"unchanged,omitempty"`
 	// Retired is true only once the old spec has actually been tagged
 	// superseded — the thing a partial run did NOT do, whatever it created —
 	// false when it verifiably was not, and null when that cannot be known
@@ -54,16 +56,31 @@ type supersedeResultDTO struct {
 }
 
 func newCmdSupersede(f *cmdutil.Factory) *cobra.Command {
-	var memory, title, feature, ruleAfter, reason, to string
+	var memory, title, feature, ruleAfter, reason, to, by, summaryText string
 	var copyBody, yes, dryRun bool
 	cmd := &cobra.Command{
 		Use:   "supersede <old-citation>",
-		Short: "Retire a spec and create its replacement draft",
+		Short: "Retire a spec to a new draft or an existing successor",
 		// Retiring a spec is the supersede flow, never a delete; point
 		// the deletion verbs here rather than at the generic node
 		// commands that do hard-delete a spec node.
 		SuggestFor: []string{"delete", "rm", "remove", "retire", "deprecate"},
-		Long: `Retire a spec and create its replacement as a new DRAFT.
+		Long: `Retire a spec and create its not-yet-existing replacement as a new DRAFT.
+With an existing successor use --by <citation>; that mode creates no node.
+It accepts cross-module and cross-product successors in the same memory,
+never another memory, a non-spec, placeholder, deleted or retired node,
+self-supersession or a cycle. --by cannot combine with --title, --to,
+--feature, --rule-after or --copy-body.
+
+Both paths lead the retired abstract with:
+SUPERSEDED (<UTC date>) by <citation> (<successor name>); do not apply. Historical: <summary>
+The summary defaults to the stored old abstract verbatim; --summary replaces
+it. A same-successor lead is unchanged on rerun; a different-successor lead
+is refused before writing. The abstract is re-fingerprinted in its update.
+This is a multi-request flow, not an atomic server transaction; a concurrent
+edit after the final validation can still race it. Partial failures report
+what was linked/retired so you can inspect before rerunning.
+
 
 The replacement starts unminted and unapproved: its body is the scaffold
 (or a copy of the old body with --copy-body). Edit it (` + "`hadron spec edit`" + `),
@@ -89,7 +106,26 @@ then; it never edits the register).`,
   hadron spec supersede msg:010:02 -m hrn:mem:micromentor.org:platform-specs --title "W2 v2" --copy-body --dry-run`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if title == "" {
+			var summary *string
+			if cmd.Flags().Changed("summary") {
+				summary = &summaryText
+			}
+			if cmd.Flags().Changed("by") {
+				if strings.TrimSpace(by) == "" {
+					return exitcode.Newf(exitcode.Usage, "--by is blank; name an existing successor citation")
+				}
+				for _, flag := range []string{"title", "to", "feature", "rule-after", "copy-body"} {
+					if cmd.Flags().Changed(flag) {
+						return exitcode.Newf(exitcode.Usage, "--by uses an existing successor; cannot combine it with --%s", flag)
+					}
+				}
+				var err error
+				by, err = validateSpecLoc(by)
+				if err != nil {
+					return err
+				}
+			}
+			if by == "" && title == "" {
 				return exitcode.Newf(exitcode.Usage, "--title is required")
 			}
 			// The old spec's loc, too, is validated before any request (@copilot
@@ -132,6 +168,9 @@ then; it never edits the register).`,
 			if err != nil {
 				return err
 			}
+			if by != "" {
+				return supersedeByExisting(cmd, f, client, memURN, oldNode, by, reason, summary, yes, dryRun)
+			}
 			// Any spec can be superseded (#708). Only ALLOCATING its successor
 			// needs the legacy numbering (below); a successor named with --to
 			// needs nothing from the old spec's shape.
@@ -143,9 +182,6 @@ then; it never edits the register).`,
 				return exitcode.Newf(exitcode.Conflict,
 					"%s is superseded by more than one replacement (%s), so it was not retired; keep one, remove the other %q edge(s), then rerun this command",
 					oldLoc, strings.Join(successors, ", "), supersededByLabel)
-			}
-			if hasTag(oldNode.Tags, supersededTag) {
-				return exitcode.Newf(exitcode.Usage, "%q is already superseded", oldNode.Loc)
 			}
 			if sc, ok := existingSuccessor(oldNode); ok {
 				if sc.id == "" {
@@ -174,6 +210,13 @@ then; it never edits the register).`,
 					Old: oldLoc, New: successorLoc, MemoryID: memURN,
 					Name: specNameAt(successorLoc, title), Tags: specTags(semanticTags(oldNode.Tags)), DryRun: dryRun, Retired: boolRef(false),
 					Edges: []supersedeEdgeDTO{{Label: supersededByLabel, Target: oldLoc + " → " + successorLoc, Status: edgeStatusCreated}},
+				}
+				if unchanged, err := supersedeLeadState(oldNode, successorLoc); err != nil {
+					return err
+				} else if unchanged {
+					result.Unchanged = true
+					result.Retired = boolRef(hasTag(oldNode.Tags, supersededTag))
+					return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error { return renderSupersede(w, result) })
 				}
 				render := func(w io.Writer) error { return renderSupersede(w, result) }
 				if dryRun {
@@ -209,7 +252,11 @@ then; it never edits the register).`,
 						oldLoc, strings.Join(now, ", "))
 				}
 				oldNode = fresh.Node
-				if retired, rerr := retire(cmd, client, oldNode, successorLoc, reason); rerr != nil {
+				successorName := sc.name
+				if latest, ok := existingSuccessor(oldNode); ok {
+					successorName = latest.name
+				}
+				if retired, rerr := retire(cmd, client, oldNode, successorLoc, successorName, reason, summary, true); rerr != nil {
 					result.Retired = retired
 					_ = output.Write(f.IOStreams, f.JSON, result, render)
 					return retireError(retired, rerr, oldLoc, successorLoc, memURN)
@@ -217,6 +264,10 @@ then; it never edits the register).`,
 				result.Retired = boolRef(true)
 				maybeRegisterReminder(cmd, client, memURN, f.IOStreams.ErrOut, oldLoc, successorLoc)
 				return output.Write(f.IOStreams, f.JSON, result, render)
+			}
+
+			if hasTag(oldNode.Tags, supersededTag) || strings.HasPrefix(derefStr(oldNode.Abstract), "SUPERSEDED (") {
+				return exitcode.Newf(exitcode.Conflict, "%s is already retired but has no readable successor edge; review it before creating another replacement", oldLoc)
 			}
 
 			// The successor's loc: named with --to (any valid loc, no edges
@@ -285,6 +336,9 @@ then; it never edits the register).`,
 			}
 			newTags := specTags(semanticTags(oldNode.Tags))
 			name := specNameAt(newLoc, title)
+			if _, err := supersededAbstract(oldNode, newLoc, name, summary); err != nil {
+				return err
+			}
 
 			result := supersedeResultDTO{
 				Old: oldLoc, New: newLoc, MemoryID: memURN,
@@ -477,7 +531,7 @@ then; it never edits the register).`,
 			}
 
 			// 4. Retire the old spec: tag superseded, same loc, append a note.
-			if retired, rerr := retire(cmd, client, oldNode, newLoc, reason); rerr != nil {
+			if retired, rerr := retire(cmd, client, oldNode, newLoc, up.Name, reason, summary, true); rerr != nil {
 				result.Retired = retired
 				_ = output.Write(f.IOStreams, f.JSON, result, render)
 				return retireError(retired, rerr, oldLoc, newLoc, memURN)
@@ -489,7 +543,7 @@ then; it never edits the register).`,
 		},
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to the memory set by hadron spec use, then the active memory)")
-	cmd.Flags().StringVar(&title, "title", "", "human title for the replacement spec (required)")
+	cmd.Flags().StringVar(&title, "title", "", "human title for a new replacement spec (required unless --by is used)")
 	cmd.Flags().StringVar(&feature, "feature", "", "relocate the replacement under this existing feature (3 digits)")
 	cmd.Flags().StringVar(&ruleAfter, "rule-after", "", "allocate the replacement rule strictly after this number")
 	cmd.Flags().StringVar(&to, "to", "", "create the replacement at exactly this loc (any valid loc) instead of allocating a legacy number")
@@ -497,7 +551,8 @@ then; it never edits the register).`,
 	cmd.Flags().BoolVar(&copyBody, "copy-body", false, "seed the replacement's body/abstract from the old spec")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print the plan without writing anything")
-	_ = cmd.MarkFlagRequired("title")
+	cmd.Flags().StringVar(&by, "by", "", "retire to this existing citation in the same memory; creates no node")
+	cmd.Flags().StringVar(&summaryText, "summary", "", "historical summary for the retired abstract (default: its stored abstract verbatim)")
 	return cmd
 }
 
@@ -588,6 +643,7 @@ func supersededByTargets(n *gen.GetNodeNode) []string {
 // ID, never the loc: a loc is unique only within a memory, and edges may cross
 // memories, so two successors can share a citation (#691 review).
 type successor struct {
+	name        string // provider name for the retirement abstract
 	id          string // "" when the caller cannot read the target
 	loc         string // the target's loc, "" when unreadable
 	otherMemory bool   // the target lives in a different memory from the spec
@@ -614,7 +670,7 @@ func supersededBySuccessors(n *gen.GetNodeNode) []successor {
 			continue
 		}
 		seen[e.Target.Id] = true
-		sc := successor{id: e.Target.Id, loc: e.Target.Loc, label: e.Target.Loc}
+		sc := successor{id: e.Target.Id, name: e.Target.Name, loc: e.Target.Loc, label: e.Target.Loc}
 		if e.Target.MemoryId != n.MemoryId {
 			sc.otherMemory = true
 			sc.label += " (in memory " + e.Target.MemoryId + ")"
@@ -630,21 +686,35 @@ const unreadableSuccessor = "(a successor you cannot read)"
 
 // retire tags the old spec superseded. When the update gets NO ANSWER it may
 // still have committed (#691 review), so the old spec is re-read: a SEEN tag
-// means retired. A re-read without it proves nothing (it may be stale, as the
+// means tagged retired; success also requires the requested abstract. A re-read
+// without the tag proves nothing (it may be stale, as the
 // superseded-by check already allows), so that stays unknown. It returns true
 // on success; false (with the error) when the update was refused outright; nil
 // when retirement could not be established either way.
-func retire(cmd *cobra.Command, client graphql.Client, oldNode *gen.GetNodeNode, successorLoc, reason string) (*bool, error) {
+func retire(cmd *cobra.Command, client graphql.Client, oldNode *gen.GetNodeNode, successorLoc, successorName, reason string, summary *string, appendNote bool) (*bool, error) {
 	// The note is appended to the STORED body, read raw right here: every
 	// retire path hands in a fresh GetNode re-read (#691), and GetNode renders
 	// Mustache, so writing its body back would delete every {{…}} placeholder
 	// (cli#742). Read at the write, so it is the freshest body on every path —
 	// and BEFORE the update, so a failed read is a definite "not retired",
 	// never mistaken below for an update that got no answer (#743 review).
-	if err := withRawBody(cmd, client, oldNode); err != nil {
+	var expectedRevision *int
+	if appendNote {
+		if err := withSupersedeRawBody(cmd, client, oldNode); err != nil {
+			return boolRef(false), err
+		}
+	} else {
+		revision, err := withSupersedeGuardedBody(cmd, client, oldNode)
+		if err != nil {
+			return boolRef(false), err
+		}
+		expectedRevision = &revision
+	}
+	abstract, err := supersededAbstract(oldNode, successorLoc, successorName, summary)
+	if err != nil {
 		return boolRef(false), err
 	}
-	err := retireSupersededSpec(cmd, client, oldNode, successorLoc, reason)
+	err = retireSupersededSpec(cmd, client, oldNode, successorLoc, reason, abstract, appendNote, expectedRevision)
 	if err == nil {
 		return boolRef(true), nil
 	}
@@ -656,13 +726,19 @@ func retire(cmd *cobra.Command, client graphql.Client, oldNode *gen.GetNodeNode,
 		return nil, err
 	}
 	if hasTag(resp.Node.Tags, supersededTag) {
-		return boolRef(true), nil
+		if resp.Node.Abstract != nil && *resp.Node.Abstract == abstract {
+			return boolRef(true), nil
+		}
+		return boolRef(true), fmt.Errorf("retirement tag is visible but the requested abstract is not confirmed: %w", err)
 	}
 	return nil, err
 }
 
 // retireError is the error for a retirement that did not verifiably happen.
 func retireError(retired *bool, err error, oldLoc, successorLoc, memURN string) error {
+	if retired != nil && *retired {
+		return exitcode.Newf(exitcode.Error, "%s is tagged retired, but its requested retirement abstract is not confirmed (%v); inspect `hadron spec get %s -m %s` before retrying", oldLoc, api.MapError(err), oldLoc, memURN)
+	}
 	if retired == nil {
 		return exitcode.Newf(exitcode.Error,
 			"linked %s to replacement %s, but the retirement update got no answer (%v) and re-reading %s did not confirm it, so whether it was retired is unknown; check `hadron spec get %s -m %s` for the %q tag — if it is still missing after a minute, rerun this command to finish",
@@ -675,7 +751,7 @@ func retireError(retired *bool, err error, oldLoc, successorLoc, memURN string) 
 
 func boolRef(b bool) *bool { return &b }
 
-func retireSupersededSpec(cmd *cobra.Command, client graphql.Client, oldNode *gen.GetNodeNode, successorLoc, reason string) error {
+func retireSupersededSpec(cmd *cobra.Command, client graphql.Client, oldNode *gen.GetNodeNode, successorLoc, reason, abstract string, appendNote bool, expectedRevision *int) error {
 	// oldNode.Content is the stored body: retire() read it raw just before.
 	note := fmt.Sprintf("\n\n> Superseded by %s.", successorLoc)
 	if reason != "" {
@@ -686,7 +762,7 @@ func retireSupersededSpec(cmd *cobra.Command, client graphql.Client, oldNode *ge
 		oldContent = *oldNode.Content
 	}
 	retired := oldContent
-	if !strings.Contains(retired, "> Superseded by "+successorLoc) {
+	if appendNote && !strings.Contains(retired, "> Superseded by "+successorLoc) {
 		retired += note
 	}
 	retireTags := append([]string{}, oldNode.Tags...)
@@ -695,7 +771,16 @@ func retireSupersededSpec(cmd *cobra.Command, client graphql.Client, oldNode *ge
 	}
 	retireIn := gen.UpdateNodeInput{
 		MemoryId: &oldNode.MemoryId, Loc: &oldNode.Loc,
-		Tags: retireTags, Content: &retired,
+		Tags: retireTags, Content: &retired, Abstract: &abstract,
+	}
+	if !appendNote {
+		retireIn.Content = nil
+	} // --by does not rewrite the retired body.
+	if expectedRevision != nil {
+		retireIn.Id = &oldNode.Id
+		retireIn.MemoryId = nil
+		retireIn.Loc = nil
+		retireIn.ExpectedRevision = expectedRevision
 	}
 	_, err := api.UpdateSpecNode(cmd.Context(), client, &retireIn)
 	return err
@@ -726,7 +811,14 @@ func renderSupersede(w io.Writer, r supersedeResultDTO) error {
 	case *r.Retired:
 		verb = "✓ superseded"
 	}
-	fmt.Fprintf(w, "%s %s → %s — %s\n", verb, r.Old, r.New, r.Name)
+	if r.Unchanged {
+		verb = "unchanged:"
+	}
+	name := r.Name
+	if r.ExistingSuccessor {
+		name = output.SafeCell(name)
+	}
+	fmt.Fprintf(w, "%s %s → %s — %s\n", verb, r.Old, r.New, name)
 	fmt.Fprintf(w, "  tags: %v\n", r.Tags)
 	for _, e := range r.Edges {
 		// Dry-run / not-yet-executed edges carry no meaningful status, so keep the

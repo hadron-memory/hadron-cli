@@ -90,8 +90,8 @@ the cap rejects depends on the length: below it, an edit that grows the abstract
 past the remaining headroom; at exactly it, any edit that lengthens the abstract
 (an equal-length rewrite still succeeds); past it — legacy data only — any
 update that REPLACES the abstract without bringing it back within the cap, while
-an update that leaves the abstract alone, such as a body-only edit or the one
-`+"`spec supersede`"+` writes, still succeeds.
+an update that leaves the abstract alone, such as a body-only edit, still succeeds. Supersede now replaces the
+abstract too; use a shorter --summary if its retirement lead would exceed the cap.
 
 Distilling is the wrong remedy in all three: on a spec whose sentences are all
 on-subject, cutting one drops a contract. What to do instead depends on the
@@ -450,6 +450,10 @@ func lintNode(n specNode, memURN string) []lintFindingDTO {
 		if l := abstractLength(n.Abstract); abstractNearCap(l) {
 			add("abstract-length", sevError, nearCapMessage(l, n.Name, c, err == nil, n.InDraft))
 		}
+	}
+
+	if hasTag(n.Tags, supersededTag) && !supersededWord.MatchString(derefStr(n.Abstract)) {
+		add("superseded-abstract", sevWarning, "spec is tagged superseded but its abstract does not mention supersession; repair the retirement abstract")
 	}
 
 	// ABSTRACT VERIFICATION (#335), above the tier early-return: a module or
