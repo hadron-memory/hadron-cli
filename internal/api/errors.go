@@ -1038,10 +1038,11 @@ func codeForExtension(code string) int {
 	// caller fixes the VALUE, the same shape as BAD_USER_INPUT — not a server
 	// fault (1). Neither message ever echoes the key. The CLI pre-validates
 	// the header shape (#846), so these arriving here means the server
-	// disagreed about something the client could not check. Sweep at the gate
-	// (#847 cycle 0): link-user is the only shipped surface that can draw
-	// these codes — UnlockMemory/passphrase live in generated code no CLI
-	// command calls.
+	// disagreed about something the client could not check. Two shipped
+	// surfaces draw these codes: link-user's operation key (#847), and the
+	// global --unlock header (#1234), whose path-less context-time refusal is
+	// typed earlier, in unlockRefusal; this table is the fallback (a resolver's
+	// code, or the raw `hadron api` path).
 	case code == "BAD_UNLOCK_INPUT" || code == "WRONG_KEY":
 		return exitcode.Usage
 	// hadron-cli#1234: --unlock named a memory that is not encrypted. The
