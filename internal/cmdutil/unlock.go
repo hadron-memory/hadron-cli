@@ -150,6 +150,15 @@ func readPassphraseFile(path string, n int) (string, error) {
 	if runtime.GOOS == "windows" {
 		return "", exitcode.Newf(exitcode.Usage, "--unlock-passphrase-file is not supported on Windows: its file permissions cannot be checked. Use the prompt or --unlock-passphrase-stdin. Nothing was sent")
 	}
+	// Refuse a FIFO, device or directory BEFORE opening it: opening a FIFO
+	// for reading blocks until a writer appears.
+	before, err := os.Stat(path)
+	if err != nil {
+		return "", exitcode.Newf(exitcode.Usage, "reading --unlock-passphrase-file #%d: %s. Nothing was sent", n, readFailureClass(err))
+	}
+	if !before.Mode().IsRegular() {
+		return "", exitcode.Newf(exitcode.Usage, "--unlock-passphrase-file #%d is not a regular file. Nothing was sent", n)
+	}
 	file, err := os.Open(path)
 	if err != nil {
 		return "", exitcode.Newf(exitcode.Usage, "reading --unlock-passphrase-file #%d: %s. Nothing was sent", n, readFailureClass(err))
@@ -159,8 +168,10 @@ func readPassphraseFile(path string, n int) (string, error) {
 	if err != nil {
 		return "", exitcode.Newf(exitcode.Usage, "reading --unlock-passphrase-file #%d: the file could not be read. Nothing was sent", n)
 	}
-	if !info.Mode().IsRegular() {
-		return "", exitcode.Newf(exitcode.Usage, "--unlock-passphrase-file #%d is not a regular file. Nothing was sent", n)
+	// The checks below are on the OPENED file; a swap after the Stat above
+	// is refused rather than read.
+	if !info.Mode().IsRegular() || !os.SameFile(before, info) {
+		return "", exitcode.Newf(exitcode.Usage, "--unlock-passphrase-file #%d changed while it was opened. Nothing was sent", n)
 	}
 	if perm := info.Mode().Perm(); perm&0o077 != 0 {
 		return "", exitcode.Newf(exitcode.Usage, "--unlock-passphrase-file #%d is accessible by group or others (mode %04o); run chmod 600 on it. Nothing was sent", n, perm)

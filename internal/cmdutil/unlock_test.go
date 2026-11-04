@@ -31,8 +31,9 @@ func TestResolveUnlockRefusalsNameTheirRule(t *testing.T) {
 		stdin string
 		want  string
 	}{
-		"ninth":     {UnlockFlags{Memories: nine, Files: nineFiles, FilesSet: true}, "", "at most 8"},
-		"stdin two": {UnlockFlags{Memories: []string{"acme.com:a", "acme.com:b"}, Stdin: true, StdinSet: true}, "pw\n", "ONE memory"},
+		"ninth":                    {UnlockFlags{Memories: nine, Files: nineFiles, FilesSet: true}, "", "at most 8"},
+		"more files than memories": {UnlockFlags{Memories: []string{"acme.com:a"}, Files: []string{file(0), file(1)}, FilesSet: true}, "", "one --unlock-passphrase-file per --unlock"},
+		"stdin two":                {UnlockFlags{Memories: []string{"acme.com:a", "acme.com:b"}, Stdin: true, StdinSet: true}, "pw\n", "ONE memory"},
 	}
 	for name, c := range cases {
 		t.Run(name, func(t *testing.T) {
