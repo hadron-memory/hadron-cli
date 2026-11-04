@@ -558,7 +558,7 @@ updateWorker  command team worker update
 withdrawDecision  command decision withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 93: 64 gap, 29 excluded
+[Arguments] 70: 35 gap, 35 excluded
 Mutation.acknowledgeAlarm(instruction)  gap #1617
 Mutation.addAgentTaskBlocker(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
@@ -574,20 +574,9 @@ Mutation.cloneAgentTask(input.references)  gap #1579: `task clone` does not expo
 Mutation.cloneAgentTask(input.requirements)  gap #1579: `task clone` does not expose this override yet
 Mutation.cloneAgentTask(input.tags)  gap #1579: `task clone` does not expose this override yet
 Mutation.createAgentTask(instruction)  gap #1617
-Mutation.createApp(agentTools)  gap #63
-Mutation.createApp(aiApiKey)  gap #63
-Mutation.createApp(aiModel)  gap #63
-Mutation.createApp(aiProvider)  gap #63
-Mutation.createApp(anonymousTtlDays)  gap #63
-Mutation.createApp(createUserPermission)  gap #63
-Mutation.createApp(expiresAt)  gap #63
-Mutation.createApp(identifyUserMethod)  gap #63
-Mutation.createApp(installOptional)  gap #63
-Mutation.createApp(policy)  gap #63
-Mutation.createApp(role)  gap #63
-Mutation.createApp(sessionTimeoutSeconds)  gap #63
-Mutation.createApp(surfaces)  gap #63
-Mutation.createApp(trainingMode)  gap #63
+Mutation.createApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
+Mutation.createApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
+Mutation.createApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
 Mutation.createAppUser(email)  excluded not-a-capability: accepts only empty values (SDL); an address is established through verified sign-in; cor:api:240:02 (argument that changes nothing)
 Mutation.createMemoryShare(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.createMemorySubscription(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
@@ -619,21 +608,9 @@ Mutation.setAppProperties(instruction)  gap #1617
 Mutation.setModelFamilyAvailability(instruction)  gap #1617
 Mutation.setWorkerAvailability(instruction)  gap #1617
 Mutation.updateAgentTask(instruction)  gap #1617
-Mutation.updateApp(agentSessionsExpire)  gap #63
-Mutation.updateApp(agentTools)  gap #63
-Mutation.updateApp(aiApiKey)  gap #63
-Mutation.updateApp(aiModel)  gap #63
-Mutation.updateApp(aiProvider)  gap #63
-Mutation.updateApp(anonymousTtlDays)  gap #63
-Mutation.updateApp(appType)  gap #63
-Mutation.updateApp(createUserPermission)  gap #63
-Mutation.updateApp(expiresAt)  gap #63
-Mutation.updateApp(identifyUserMethod)  gap #63
-Mutation.updateApp(role)  gap #63
-Mutation.updateApp(sessionDormancyDays)  gap #63
-Mutation.updateApp(surfaces)  gap #63
-Mutation.updateApp(trainingMode)  gap #63
-Mutation.updateApp(urn)  gap #63
+Mutation.updateApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
+Mutation.updateApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
+Mutation.updateApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
 Mutation.updateMemory(organizationId)  excluded not-a-capability: updateMemory accepts only the memory's current organization and refuses any other with USE_TRANSFER_MEMORY_OWNERSHIP; moving a memory is `memory transfer` (transferMemoryOwnership)
 Mutation.updateMemoryMemberRole(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.updateMemoryMemberRole(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).

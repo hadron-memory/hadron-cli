@@ -29,7 +29,7 @@ func appSettingsServer(t *testing.T) (*httptest.Server, *[]appSettingsCall) {
 		}
 		*calls = append(*calls, c)
 		w.Header().Set("Content-Type", "application/json")
-		if c.Operation == "GetAppMetadata" {
+		if c.Operation == "GetAppRenameURN" {
 			_, _ = w.Write([]byte(`{"data":{"app":{"id":"capp1","urn":"hrn:app:acme.com:support","name":"Support","appType":"AGENT"}}}`))
 			return
 		}
@@ -83,6 +83,7 @@ func TestAppSettings1628WireEachFlag(t *testing.T) {
 			flag, key, value        string
 			installOnly, updateOnly bool
 		}{
+			{"--urn", "urn", `"renamed"`, false, false},
 			{"--role", "role", `"READER"`, false, false},
 			{"--create-user-permission", "createUserPermission", `"DENY"`, false, false},
 			{"--identify-user-method", "identifyUserMethod", `"SECRET"`, false, false},
@@ -117,9 +118,34 @@ func TestAppSettings1628WireEachFlag(t *testing.T) {
 						flags = append(flags, tc.value)
 					}
 				}
-				_, err := appSettingsRun(t, srv, mode, append(flags, "--yes")...)
+				out, err := appSettingsRun(t, srv, mode, append(flags, "--yes")...)
 				if err != nil {
 					t.Fatal(err)
+				}
+				if mode == "update" {
+					var dto map[string]json.RawMessage
+					if err := json.Unmarshal([]byte(out), &dto); err != nil {
+						t.Fatal(err)
+					}
+					wantKeys := []string{"app", "changed", "id", "name", "sessionTimeoutSeconds", "status", "urn"}
+					got := []string{}
+					for key := range dto {
+						got = append(got, key)
+					}
+					sort.Strings(got)
+					if !reflect.DeepEqual(got, wantKeys) {
+						t.Fatalf("JSON keys=%v want%v", got, wantKeys)
+					}
+					var changed []string
+					if err := json.Unmarshal(dto["changed"], &changed); err != nil {
+						t.Fatal(err)
+					}
+					if !reflect.DeepEqual(changed, []string{tc.key}) {
+						t.Fatalf("changed=%v want%v", changed, tc.key)
+					}
+				}
+				if len(*calls) != 1 {
+					t.Fatalf("--yes settings must send exactly one mutation: %+v", *calls)
 				}
 				call := appSettingsMutation(t, *calls)
 				if string(call.Vars[tc.key]) != tc.value {
@@ -240,5 +266,40 @@ func TestAppSettings1628ConfirmationAndLegacy(t *testing.T) {
 	c := appSettingsMutation(t, *calls)
 	if c.Operation != "UpdateApp" || strings.Contains(c.Query, "surfaces:") {
 		t.Fatalf("legacy widened: %+v", c)
+	}
+}
+
+func TestAppSettings1628FalseClearIsOmitted(t *testing.T) {
+	for _, flag := range []string{"--clear-surfaces=false", "--clear-agent-tools=false", "--clear-expires-at=false"} {
+		t.Run(flag, func(t *testing.T) {
+			srv, calls := appSettingsServer(t)
+			_, err := appSettingsRun(t, srv, "update", flag, "--yes")
+			if err == nil || len(*calls) != 0 {
+				t.Fatalf("false clear should refuse an empty update before HTTP: err=%v calls=%+v", err, *calls)
+			}
+			_, err = appSettingsRun(t, srv, "update", flag, "--name", "new", "--yes")
+			if err != nil {
+				t.Fatal(err)
+			}
+			c := appSettingsMutation(t, *calls)
+			if c.Operation != "UpdateApp" || len(c.Vars) != 2 {
+				t.Fatalf("false clear changed wire: %+v", c)
+			}
+		})
+	}
+}
+
+func TestAppSettings1628ConfirmationFieldsOnly(t *testing.T) {
+	srv, calls := appSettingsServer(t)
+	f, _, prompt := testFactoryTTY(t, "n\n")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"app", "update", appRef1058, "--surface", "private-sentinel-value", "--training-mode=false", "--server", srv.URL})
+	err := root.Execute()
+	if exitCodeFor(err) != 6 || len(*calls) != 0 {
+		t.Fatalf("declined: %v calls=%+v", err, *calls)
+	}
+	expected := "Update App " + appRef1058 + ": trainingMode, surfaces?"
+	if !strings.Contains(prompt.String(), expected) || strings.Contains(prompt.String(), "private-sentinel-value") {
+		t.Fatalf("prompt=%q want %q without values", prompt.String(), expected)
 	}
 }
