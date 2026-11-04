@@ -217,3 +217,62 @@ func TestNotEncryptedIsUsage(t *testing.T) {
 		t.Fatalf("NOT_ENCRYPTED → %d", got)
 	}
 }
+
+// PR #1616 BLIND P2-1: a passphrase can be a short, common word — even one of
+// the envelope's own keys or a substring of the refusal code. Redaction must
+// scrub what is RENDERED without rewriting the structure the refusal is
+// classified by, at HTTP 200 and at Apollo's context-failure 500.
+func TestUnlockRefusalSurvivesProtocolWordPassphrases(t *testing.T) {
+	for _, pass := range []string{"errors", "message", "extensions", "code", "KEY", "WRONG", "path", "data"} {
+		for _, status := range []int{http.StatusOK, http.StatusInternalServerError} {
+			t.Run(pass+"/"+http.StatusText(status), func(t *testing.T) {
+				body := `{"data":null,"errors":[{"message":"echo ` + pass + ` back","extensions":{"code":"WRONG_KEY"}}]}`
+				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(status)
+					_, _ = w.Write([]byte(body))
+				}))
+				defer srv.Close()
+				cl, err := NewClient(srv.URL, "hdr_user_x", nil)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var data map[string]any
+				err = cl.MakeRequest(keysCtx1234(t, pass), &graphql.Request{Query: "query X { x }", OpName: "X"}, &graphql.Response{Data: &data})
+				if err == nil {
+					t.Fatal("no error")
+				}
+				var sc interface{ ServerCode() string }
+				if !errors.As(err, &sc) || sc.ServerCode() != "WRONG_KEY" {
+					t.Fatalf("serverCode lost: %v", err)
+				}
+				if got := exitcode.FromError(MapError(err)); got != exitcode.Usage {
+					t.Fatalf("exit %d, want %d: %v", got, exitcode.Usage, err)
+				}
+				if strings.Contains(err.Error(), "echo "+pass+" back") {
+					t.Fatalf("secret-bearing text rendered: %v", err)
+				}
+			})
+		}
+	}
+}
+
+// The raw `hadron api` path classifies the body after redactUnlockSecrets, so
+// the same words must leave the envelope and its code recognizable there.
+func TestRedactUnlockSecretsKeepsEnvelopeStructure(t *testing.T) {
+	for _, pass := range []string{"errors", "message", "code", "KEY", "extensions"} {
+		for _, status := range []int{http.StatusOK, http.StatusInternalServerError, http.StatusBadRequest} {
+			body := []byte(`{"errors":[{"message":"echo ` + pass + ` back","extensions":{"code":"WRONG_KEY"}}]}`)
+			out := redactUnlockSecrets(status, body, []string{pass})
+			if !hasGraphQLErrorsEnvelope(out) {
+				t.Fatalf("%s/%d: envelope lost: %s", pass, status, out)
+			}
+			if code, ok := codeFromEnvelope(out); !ok || code != exitcode.Usage {
+				t.Fatalf("%s/%d: code lost (%d,%v): %s", pass, status, code, ok, out)
+			}
+			if strings.Contains(string(out), "echo "+pass+" back") {
+				t.Fatalf("%s/%d: message kept: %s", pass, status, out)
+			}
+		}
+	}
+}

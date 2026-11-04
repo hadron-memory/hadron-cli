@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -146,40 +147,120 @@ func memoryKeySecrets(req *http.Request) []string {
 }
 
 // redactUnlockSecrets scrubs the --unlock secrets from what can be RENDERED as
-// an error: the whole body of a non-200 answer (an error page, an echoing
-// gateway, Apollo's context-failure 500), and only the errors list of a 200
-// envelope. Unlike the 32-byte operation key, a passphrase can be short or a
-// common word, so a successful answer's data — the plaintext the user asked
-// for — is never rewritten. A 200 body that is not a JSON object cannot be
-// told apart, so it is scrubbed whole (fail closed).
+// an error: the whole of a non-200 answer (an error page, an echoing gateway,
+// Apollo's context-failure 500), and only the errors list of a 200 envelope.
+// Unlike the 32-byte operation key, a passphrase can be short or a common
+// word, so a successful answer's data — the plaintext the user asked for — is
+// never rewritten.
+//
+// A JSON body is scrubbed by STRUCTURE, never as bytes (PR #1616 BLIND P2-1):
+// a passphrase such as `errors` or `KEY` would otherwise rewrite the envelope's
+// keys or the refusal's extensions.code, and the classification that runs on
+// the scrubbed body (hasGraphQLErrorsEnvelope, unlockRefusal, codeFromEnvelope)
+// would lose the exit code and serverCode the contract promises. String values
+// are scrubbed; the GraphQL envelope's own keys and an identifier-shaped
+// extensions.code are protocol, not echo, and are kept. A body that is not
+// JSON has no structure to keep and is scrubbed whole (fail closed).
 func redactUnlockSecrets(status int, body []byte, secrets []string) []byte {
 	if len(secrets) == 0 {
 		return body
 	}
-	if status != http.StatusOK {
-		return redactSecrets(body, secrets)
-	}
-	var envelope map[string]json.RawMessage
-	if err := json.Unmarshal(body, &envelope); err != nil {
-		return redactSecrets(body, secrets)
-	}
-	errs, ok := envelope["errors"]
-	if !ok {
-		return body
-	}
-	scrubbed := redactSecrets(errs, secrets)
-	if bytes.Equal(scrubbed, errs) {
-		return body
-	}
-	if !json.Valid(scrubbed) {
-		// A replacement split an escape sequence: drop the list's text rather
-		// than hand back something that might still carry the secret.
-		scrubbed = json.RawMessage(`[{"message":"[redacted]"}]`)
-	}
-	envelope["errors"] = scrubbed
-	out, err := json.Marshal(envelope)
+	doc, err := decodeJSONUseNumber(body)
 	if err != nil {
 		return redactSecrets(body, secrets)
 	}
-	return out
+	changed := false
+	if obj, ok := doc.(map[string]any); ok && status == http.StatusOK {
+		errs, ok := obj["errors"]
+		if !ok {
+			return body
+		}
+		obj["errors"] = scrubJSON(errs, "", secrets, &changed)
+	} else {
+		doc = scrubJSON(doc, "", secrets, &changed)
+	}
+	if !changed {
+		return body
+	}
+	var out bytes.Buffer
+	enc := json.NewEncoder(&out)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(doc); err != nil {
+		return redactSecrets(body, secrets)
+	}
+	return bytes.TrimRight(out.Bytes(), "\n")
+}
+
+func decodeJSONUseNumber(body []byte) (any, error) {
+	dec := json.NewDecoder(bytes.NewReader(body))
+	dec.UseNumber()
+	var doc any
+	if err := dec.Decode(&doc); err != nil {
+		return nil, err
+	}
+	if dec.More() {
+		return nil, errors.New("trailing data after the JSON value")
+	}
+	return doc, nil
+}
+
+// envelopeKeys are the GraphQL response's own property names (spec §7.1):
+// structure the classifiers read, never an echo, so never rewritten.
+var envelopeKeys = map[string]bool{
+	"data": true, "errors": true, "message": true, "locations": true, "line": true,
+	"column": true, "path": true, "extensions": true, "code": true,
+}
+
+// scrubJSON returns v with every secret spelling replaced in its string values
+// and in any object key that is not an envelope key. parent is the key v sat
+// under, so an error's extensions.code — a server enum the exit code and
+// serverCode are derived from — is kept when it is identifier-shaped.
+func scrubJSON(v any, parent string, secrets []string, changed *bool) any {
+	switch t := v.(type) {
+	case string:
+		out := string(redactSecrets([]byte(t), secrets))
+		if out != t {
+			*changed = true
+		}
+		return out
+	case []any:
+		for i := range t {
+			t[i] = scrubJSON(t[i], parent, secrets, changed)
+		}
+		return t
+	case map[string]any:
+		out := make(map[string]any, len(t))
+		for k, val := range t {
+			if code, ok := val.(string); ok && k == "code" && parent == "extensions" && isProtocolCode(code) {
+				out[k] = code
+				continue
+			}
+			nk := k
+			if !envelopeKeys[k] {
+				nk = string(redactSecrets([]byte(k), secrets))
+				if nk != k {
+					*changed = true
+				}
+			}
+			out[nk] = scrubJSON(val, k, secrets, changed)
+		}
+		return out
+	default:
+		return v
+	}
+}
+
+// isProtocolCode reports whether code has the shape of a server error code
+// (WRONG_KEY, AiServiceConfigNotFoundError): letters, digits and underscores,
+// bounded. The encoded --unlock header is base64 JSON and never has this shape.
+func isProtocolCode(code string) bool {
+	if code == "" || len(code) > 64 {
+		return false
+	}
+	for i := 0; i < len(code); i++ {
+		if !isNameByte(code[i]) {
+			return false
+		}
+	}
+	return true
 }
