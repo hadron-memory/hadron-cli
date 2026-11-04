@@ -97,6 +97,26 @@ type stopSending struct {
 	// the first attempt. A retry under another reporter reconciles that
 	// worker's post too, since the server's duplicate rule is per worker.
 	AuthorWorkerID string `json:"authorWorkerId"`
+	// AttemptAuthorIDs lists every LATER reporter worker that attempted a
+	// post (the first is AuthorWorkerID), each recorded durably before its
+	// attempt. Reconcile matches a post by any of them, so a committed post
+	// from a reporter since replaced (its response lost) is still found after
+	// further switches.
+	AttemptAuthorIDs []string `json:"attemptAuthorWorkerIds,omitempty"`
+}
+
+// attemptedBy reports whether workerID already appears among the intent's
+// attempting reporters.
+func (s *stopSending) attemptedBy(workerID string) bool {
+	if s.AuthorWorkerID == workerID {
+		return true
+	}
+	for _, id := range s.AttemptAuthorIDs {
+		if id == workerID {
+			return true
+		}
+	}
+	return false
 }
 
 // stopReported is the marker: the notice's flag is the post at Seq.
@@ -277,6 +297,18 @@ func (r *StopReporter) reportOne(ctx context.Context, e namedDrop, workerID stri
 			out.Result, out.Seq = "reconciled", seq
 			return out
 		}
+		if !intent.attemptedBy(workerID) {
+			// Record this reporter before it posts, so a later retry under yet
+			// another reporter reconciles this attempt's post too.
+			intent.AttemptAuthorIDs = append(intent.AttemptAuthorIDs, workerID)
+			data, err := json.Marshal(intent)
+			if err != nil {
+				return fail(err)
+			}
+			if _, err := r.Outbox.writeFile(e.base+".sending", data, true); err != nil {
+				return fail(fmt.Errorf("recording this reporter on the intent: %w", err))
+			}
+		}
 	}
 	seq, err := r.API.Post(ctx, intent.Body)
 	result := "reported"
@@ -301,7 +333,7 @@ func (r *StopReporter) reportOne(ctx context.Context, e namedDrop, workerID stri
 }
 
 // reconcile looks for the intent's body after its head, posted by workerID
-// or by the worker that wrote the intent.
+// or by any reporter recorded on the intent.
 func (r *StopReporter) reconcile(ctx context.Context, intent *stopSending, workerID string) (int, bool, error) {
 	after := intent.HeadSeq
 	for {
@@ -313,7 +345,7 @@ func (r *StopReporter) reconcile(ctx context.Context, intent *stopSending, worke
 			return 0, false, nil
 		}
 		for _, m := range page {
-			if (m.AuthorWorkerID == workerID || (intent.AuthorWorkerID != "" && m.AuthorWorkerID == intent.AuthorWorkerID)) &&
+			if m.AuthorWorkerID != "" && (m.AuthorWorkerID == workerID || intent.attemptedBy(m.AuthorWorkerID)) &&
 				m.Body == intent.Body {
 				return m.Seq, true, nil
 			}

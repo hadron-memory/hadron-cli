@@ -493,6 +493,36 @@ func TestStopReporterSwitchedReporterReconcilesTheFirstAuthorsPost_1629(t *testi
 	}
 }
 
+// BLIND delta P2 (f71a77f2): successive reporter switches. Hugo's attempt
+// fails before commit, Hal's commits with its response lost, then Rex retries.
+// Hal's post matches neither the intent's first author nor the current
+// reporter, so every attempting reporter must be recorded before it posts.
+func TestStopReporterReconcilesAnIntermediateReportersPost_1629(t *testing.T) {
+	f := newReporterFixture(t)
+	f.chat.failPost = true
+	if out := onlyOutcome(t, f.run(f.reporter())); out.Result != "failed" || f.chat.posts != 0 {
+		t.Fatalf("first outcome = %+v posts %d", out, f.chat.posts)
+	}
+	f.chat.failPost = false
+	f.chat.loseResponse = true
+	f.chat.boundID, f.chat.boundName = "w-hal", "Hal"
+	f.clock = f.clock.Add(DefaultReconcileAfter + time.Second)
+	hal := f.reporter()
+	hal.ReporterWorker = "Hal"
+	if out := onlyOutcome(t, f.run(hal)); out.Result != "failed" || f.chat.posts != 1 {
+		t.Fatalf("second outcome = %+v posts %d", out, f.chat.posts)
+	}
+	f.chat.loseResponse = false
+	f.chat.boundID, f.chat.boundName = "w-rex", "Rex"
+	f.clock = f.clock.Add(DefaultReconcileAfter + time.Second)
+	rex := f.reporter()
+	rex.ReporterWorker = "Rex"
+	out := onlyOutcome(t, f.run(rex))
+	if out.Result != "reconciled" || out.Seq != 2 || f.chat.posts != 1 || !f.reported() {
+		t.Fatalf("outcome = %+v posts %d: the intermediate reporter's committed post was not reconciled", out, f.chat.posts)
+	}
+}
+
 // The intent records the worker that made the first attempt.
 func TestStopReporterIntentRecordsItsAuthor_1629(t *testing.T) {
 	f := newReporterFixture(t)

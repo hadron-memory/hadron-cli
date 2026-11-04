@@ -25,7 +25,7 @@ func newCmdTeamHostReportStops(f *cmdutil.Factory) *cobra.Command {
 	var dryRun bool
 	var staleAfter time.Duration
 	cmd := &cobra.Command{
-		Use:   "report-stops --config <host.yaml> --reporter-worker <name>",
+		Use:   "report-stops --config <host.yaml> (--reporter-worker <name> | --dry-run)",
 		Short: "Flag halt notices the host poller could not type to each worker's coordinator",
 		Long: `Read the host poller's outbox of halt notices it could not type (held on
 a draft, a question, an unknown screen, a changed incarnation or no
@@ -62,7 +62,7 @@ Exit codes: 0 every pending notice reported, or waiting; 2 usage; 7 no live
 binding of --reporter-worker in this worktree, or some report failed (they
 stay pending); 1 any other error.`,
 		Example: `  hadron team host report-stops --config host.yaml --reporter-worker Hugo
-  hadron team host report-stops --config host.yaml --reporter-worker Hugo --dry-run --stale-after 10m`,
+  hadron team host report-stops --config host.yaml --dry-run --stale-after 10m`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if strings.TrimSpace(configPath) == "" {
