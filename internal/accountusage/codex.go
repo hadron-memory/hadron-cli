@@ -29,6 +29,12 @@ const (
 	maxWindowMinutes = 525600 // one year
 )
 
+// Test seams: both are no-ops in production.
+var (
+	afterRolloutStat  = func() {}                                // runs between the Lstat and the Open
+	wrapRolloutReader = func(r io.Reader) io.Reader { return r } // wraps the opened file's reader
+)
+
 var (
 	digitsRe     = regexp.MustCompile(`^[0-9]{1,4}$`)
 	rolloutNameR = regexp.MustCompile(`^rollout-.+\.jsonl$`)
@@ -165,13 +171,14 @@ func ReadCodex(a Account) (CodexSnapshot, error) {
 	if fi.Size() > maxRolloutBytes {
 		return CodexSnapshot{}, bad("account %q: the newest Codex session file is larger than %d bytes", a.Label, maxRolloutBytes)
 	}
+	afterRolloutStat()
 	f, err := os.Open(path)
 	if err != nil {
 		return CodexSnapshot{}, bad("account %q: the newest Codex session file cannot be read", a.Label)
 	}
 	defer func() { _ = f.Close() }()
 	var snap CodexSnapshot
-	r := bufio.NewReaderSize(f, 64<<10)
+	r := bufio.NewReaderSize(wrapRolloutReader(f), 64<<10)
 	for {
 		line, tooLong, rerr := readLine(r)
 		if len(line) > 0 && !tooLong && bytes.Contains(line, []byte("token_count")) {

@@ -2,6 +2,7 @@ package accountusage
 
 import (
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -235,5 +236,157 @@ func TestShowViewCarriesCodexWindowsMinutesAndSourceState(t *testing.T) {
 	b, _ := json.Marshal(by["cl"])
 	if strings.Contains(string(b), "primary") || strings.Contains(string(b), "sourceState") || strings.Contains(string(b), "minutes") {
 		t.Fatalf("a claude view must not gain keys: %s", b)
+	}
+}
+
+// ---- #1661 fix head: BLIND + LOCAL findings (pins) ----
+
+func recAt(pct float64, resets string, min int) Record {
+	p, r, m := pct, resets, min
+	return Record{PrimaryPct: &p, PrimaryResetsAt: &r, PrimaryMinutes: &m}
+}
+
+func burnPts(recs ...Record) []point {
+	base := time.Date(2026, 11, 4, 10, 0, 0, 0, time.UTC)
+	var out []point
+	for i, r := range recs {
+		out = append(out, point{rec: r, at: base.Add(time.Duration(i) * time.Hour)})
+	}
+	return out
+}
+
+func primaryView(pts []point) WindowView {
+	now := time.Date(2026, 11, 4, 12, 0, 0, 0, time.UTC)
+	return windowView(pts, now, func(r Record) (*float64, *string) { return r.PrimaryPct, r.PrimaryResetsAt }, func(r Record) *int { return r.PrimaryMinutes })
+}
+
+const sameReset = "2026-11-05T10:00:00Z"
+
+func TestBurnNeverCombinesWindowsOfDifferentLength(t *testing.T) {
+	v := primaryView(burnPts(recAt(10, sameReset, 300), recAt(30, sameReset, 10080)))
+	if v.BurnPctPerHour != nil || v.ExhaustsAt != nil {
+		t.Fatalf("a 300-minute and a 10080-minute window must not form one rate: %+v", v)
+	}
+	if v.Minutes == nil || *v.Minutes != 10080 {
+		t.Fatalf("the current window length must still be shown: %+v", v.Minutes)
+	}
+}
+
+func TestBurnNeverCombinesAbsentWithPresentMinutes(t *testing.T) {
+	old := recAt(10, sameReset, 300)
+	old.PrimaryMinutes = nil
+	v := primaryView(burnPts(old, recAt(30, sameReset, 300)))
+	if v.BurnPctPerHour != nil {
+		t.Fatalf("a reading without a length must not combine with one that has it: %+v", v)
+	}
+}
+
+func TestBurnStillCombinesSameLengthSameReset(t *testing.T) {
+	v := primaryView(burnPts(recAt(10, sameReset, 300), recAt(30, sameReset, 300)))
+	if v.BurnPctPerHour == nil || *v.BurnPctPerHour != 20 {
+		t.Fatalf("same reset and length must still give a rate: %+v", v.BurnPctPerHour)
+	}
+}
+
+func TestBurnClaudeWindowsWithoutMinutesUnchanged(t *testing.T) {
+	a, b := 10.0, 30.0
+	r := sameReset
+	now := time.Date(2026, 11, 4, 12, 0, 0, 0, time.UTC)
+	v := windowView(burnPts(Record{FiveHourPct: &a, FiveHourResetsAt: &r}, Record{FiveHourPct: &b, FiveHourResetsAt: &r}), now,
+		func(r Record) (*float64, *string) { return r.FiveHourPct, r.FiveHourResetsAt }, nil)
+	if v.BurnPctPerHour == nil || *v.BurnPctPerHour != 20 {
+		t.Fatalf("Claude burn must be unchanged: %+v", v.BurnPctPerHour)
+	}
+}
+
+func oneRollout(t *testing.T) (string, string) {
+	home := t.TempDir()
+	rollout(t, home, "2026/11/04", "rollout-2026-11-04T09-00-00-a.jsonl", tokenCount("2026-11-04T09:00:00.000Z", 12, 300, 1793810000, 40, 1794000000))
+	return home, filepath.Join(home, "sessions", "2026", "11", "04", "rollout-2026-11-04T09-00-00-a.jsonl")
+}
+
+type failingReader struct{}
+
+func (failingReader) Read([]byte) (int, error) { return 0, os.ErrPermission }
+
+func TestCodexReadErrorIsAnErrorNotAReading(t *testing.T) {
+	home, _ := oneRollout(t)
+	wrapRolloutReader = func(io.Reader) io.Reader { return failingReader{} }
+	defer func() { wrapRolloutReader = func(r io.Reader) io.Reader { return r } }()
+	s, err := ReadCodex(codexAcct(home))
+	if err == nil || s.Present {
+		t.Fatalf("a read failure must be an error, never a partial reading: %v %+v", err, s)
+	}
+	if strings.Contains(err.Error(), home) || strings.Contains(err.Error(), "rollout") {
+		t.Fatalf("the error must not echo a path: %v", err)
+	}
+}
+
+func TestCodexUnreadableDirectoryIsAnError(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("permission bits do not bind root")
+	}
+	home, _ := oneRollout(t)
+	day := filepath.Join(home, "sessions", "2026", "11", "04")
+	if err := os.Chmod(day, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chmod(day, 0o755) }()
+	s, err := ReadCodex(codexAcct(home))
+	if err == nil || s.Present {
+		t.Fatalf("an unreadable day directory is an operational failure, not no-reading-yet: %v %+v", err, s)
+	}
+	if strings.Contains(err.Error(), home) {
+		t.Fatalf("the error must not echo a path: %v", err)
+	}
+}
+
+func TestCodexMissingSourceStaysNoReading(t *testing.T) {
+	s, err := ReadCodex(codexAcct(filepath.Join(t.TempDir(), "absent")))
+	if err != nil || s.Present {
+		t.Fatalf("a missing home is no data, not an error: %v %+v", err, s)
+	}
+}
+
+func TestCodexReadIsBoundedAfterTheSizeCheck(t *testing.T) {
+	home, path := oneRollout(t)
+	afterRolloutStat = func() {
+		f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = f.Close() }()
+		// grow the file past the cap after the size check passed
+		chunk := make([]byte, 1<<20)
+		for i := range chunk {
+			chunk[i] = 'x'
+		}
+		for n := 0; n <= maxRolloutBytes>>20; n++ {
+			if _, err := f.Write(chunk); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	defer func() { afterRolloutStat = func() {} }()
+	_, err := ReadCodex(codexAcct(home))
+	if err == nil {
+		t.Fatal("a file that grows past the cap while read must be refused")
+	}
+}
+
+func TestCodexRefusesAFileSwappedForASymlinkBetweenCheckAndOpen(t *testing.T) {
+	home, path := oneRollout(t)
+	outside := t.TempDir()
+	rollout(t, outside, "2026/11/04", "x.jsonl", tokenCount("2026-11-04T09:00:00.000Z", 99, 300, 1793810000, 99, 1794000000))
+	afterRolloutStat = func() {
+		_ = os.Remove(path)
+		if err := os.Symlink(filepath.Join(outside, "sessions", "2026", "11", "04", "x.jsonl"), path); err != nil {
+			t.Fatal(err)
+		}
+	}
+	defer func() { afterRolloutStat = func() {} }()
+	s, err := ReadCodex(codexAcct(home))
+	if s.Present && s.Primary != nil && s.Primary.UsedPct == 99 {
+		t.Fatalf("followed a swapped-in symlink: %v", err)
 	}
 }
