@@ -25,7 +25,16 @@ import (
 const (
 	TickPrefix = "[hadron tick]"
 	TaskPrefix = "[hadron task]"
+	// StopPrefix opens a stop notice's line (hadron-cli#1629,
+	// cor:agt:090:04).
+	StopPrefix = "[hadron stop]"
 )
+
+// StopDropped is the event reason logged, once per notice, when a halt's
+// notice cannot be typed (hadron-cli#1629; Holger's option A on
+// hadron-server#2169: logged and flagged to the coordinator, never typed over
+// a draft, never acknowledged).
+const StopDropped = "stop-dropped"
 
 // OwnPrefixes are every prefix C1 types: a leftover opening with any of them
 // is ours (submitted or cleared), never a foreign draft.
@@ -42,7 +51,21 @@ const (
 	WakeMention WakeKind = "MENTION"
 	WakeTick    WakeKind = "TICK"
 	WakeTask    WakeKind = "TASK"
+	// WakeStop is a stop-signal notice (cor:agt:090:04), offered only to a
+	// dueWakes call that lists STOP in accepts (hadron-server#2169).
+	WakeStop WakeKind = "STOP"
 )
+
+// StopReason is the notice a STOP reason carries (DueStopReason), as the
+// server gave it. Interrupt is carried and never acted on: under Holger's
+// option A no notice sends an interrupt key (hadron-cli#1629).
+type StopReason struct {
+	EventID   string
+	SignalID  string
+	Level     string
+	Notice    string
+	Interrupt bool
+}
 
 // TaskReason is the task a TASK reason is for (DueTaskReason).
 type TaskReason struct {
@@ -73,6 +96,8 @@ type WakeReason struct {
 	// (TICK only). Carried for the dueWakes adapter and status; never
 	// rendered, never part of Key().
 	Action *TickAction
+	// Stop is set for a STOP reason (hadron-cli#1629).
+	Stop *StopReason
 }
 
 // TickAction is WakeReason.action: the server's answer, shown never composed.
