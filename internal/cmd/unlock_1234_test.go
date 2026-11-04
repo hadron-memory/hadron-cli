@@ -290,8 +290,10 @@ func TestUnlock1234SentinelNeverPrinted(t *testing.T) {
 	for _, mode := range []string{"wrong-key", "echo-200", "echo-200-plain", "echo-500-html", "success"} {
 		for _, json := range []bool{false, true} {
 			t.Run(mode+map[bool]string{true: "-json", false: ""}[json], func(t *testing.T) {
-				// The header is base64, so echoing it alone never puts the raw
-				// passphrase in a reply: echo both, and require neither printed
+				// The header is JSON, so it carries the sentinel only in its
+				// JSON-escaped spelling (the sentinel has a quote and a
+				// backslash): echoing the header alone never puts the raw
+				// passphrase in a reply. Echo both, and require neither printed
 				// (PR #1616 LOCAL P3-1: without that, a no-redactor mutant survived).
 				var seenHeader string
 				srv, _ := unlockServer1234(t, func(op, header string) (int, string) {
