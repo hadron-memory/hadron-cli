@@ -18,7 +18,9 @@ not an authorization boundary; changing type never derives a surface list.
 Update confirmation names changed fields without values, except a rename reads
 the current App URN only for an interactive rename and uses urn-lib parser/composer to show old and new full
 URNs. New install settings require confirmation, while legacy-only installs keep
-the original behavior. Receipts retain explicit existing DTOs and JSON keys.
+the original request document and no-prompt path. The --type enum is locally
+validated on every install path, including refusal of an explicit empty value.
+Receipts retain explicit existing DTOs and JSON keys.
 
 Tests start red on main and record exact variable keysets, false/zero values,
 null/empty clears, replacement ordering, policy validation, confirmation and

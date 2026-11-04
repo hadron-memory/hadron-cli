@@ -40,7 +40,9 @@ UI availability (the portal shows chat iff chat is present), not authorization.
 --type does not alter surfaces. Numeric values and policy shape are server
 validated; --policy-file must contain valid JSON. AI configuration uses ai-config.
 New settings require confirmation, or --yes without a terminal; legacy-only
-installs keep their existing behavior. Confirmation names fields, never values.
+installs retain their existing request document and no-prompt path. On every
+path, --type is validated against this CLI's schema enum; an explicit empty or
+unknown value is a local usage error. Confirmation names fields, never values.
 Success prints the installed App; --json retains its seven-field App receipt.`,
 		Example: `  hadron app install --org acme.com --agent agent_123 --name "Support Bot"
   hadron app install --owner-me --agent hrn:agent:acme.com:support-bot --name "My Bot"`,

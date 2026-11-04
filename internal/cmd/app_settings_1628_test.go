@@ -148,6 +148,18 @@ func TestAppSettings1628WireEachFlag(t *testing.T) {
 					t.Fatalf("--yes settings must send exactly one mutation: %+v", *calls)
 				}
 				call := appSettingsMutation(t, *calls)
+				expectedOperation := "UpdateAppSettings"
+				if mode == "install" {
+					expectedOperation = "CreateAppSettings"
+					if tc.flag == "--urn" || tc.flag == "--type" {
+						expectedOperation = "CreateApp"
+					}
+				} else if tc.flag == "--session-timeout-seconds" {
+					expectedOperation = "UpdateApp"
+				}
+				if call.Operation != expectedOperation {
+					t.Fatalf("operation=%s want %s", call.Operation, expectedOperation)
+				}
 				if string(call.Vars[tc.key]) != tc.value {
 					t.Fatalf("%s=%s want%s", tc.key, call.Vars[tc.key], tc.value)
 				}
@@ -301,5 +313,145 @@ func TestAppSettings1628ConfirmationFieldsOnly(t *testing.T) {
 	expected := "Update App " + appRef1058 + ": trainingMode, surfaces?"
 	if !strings.Contains(prompt.String(), expected) || strings.Contains(prompt.String(), "private-sentinel-value") {
 		t.Fatalf("prompt=%q want %q without values", prompt.String(), expected)
+	}
+}
+
+func TestAppSettings1628MixedAndLegacyInstall(t *testing.T) {
+	for _, tc := range []struct {
+		mode, operation, expected string
+		flags                     []string
+	}{
+		{"install", "CreateApp", `{"agentRef":"a1","name":"Support","orgRef":"acme.com"}`, nil},
+		{"install", "CreateAppSettings", `{"agentRef":"a1","name":"Support","orgRef":"acme.com","urn":"renamed","appType":"CHATBOT","description":"private-description","role":"READER","sessionTimeoutSeconds":91,"trainingMode":false}`, []string{"--urn", "renamed", "--type", "CHATBOT", "--description", "private-description", "--role", "READER", "--session-timeout-seconds", "91", "--training-mode=false", "--yes"}},
+		{"update", "UpdateAppSettings", `{"ref":"hrn:app:acme.com:support","name":"Desk","description":"private-description","sessionTimeoutSeconds":1234,"urn":"renamed","appType":"CLOUD","role":"READER","surfaces":[]}`, []string{"--name", "Desk", "--description", "private-description", "--session-timeout-seconds", "1234", "--urn", "renamed", "--type", "CLOUD", "--role", "READER", "--clear-surfaces", "--yes"}},
+		{"update", "UpdateAppSettings", `{"ref":"hrn:app:acme.com:support","description":null,"role":"READER"}`, []string{"--clear-description", "--role", "READER", "--yes"}},
+	} {
+		t.Run(tc.mode+tc.operation+tc.expected, func(t *testing.T) {
+			srv, calls := appSettingsServer(t)
+			_, err := appSettingsRun(t, srv, tc.mode, tc.flags...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			call := appSettingsMutation(t, *calls)
+			if len(*calls) != 1 || call.Operation != tc.operation {
+				t.Fatalf("calls=%+v expected %s", *calls, tc.operation)
+			}
+			var expected map[string]json.RawMessage
+			if err := json.Unmarshal([]byte(tc.expected), &expected); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(call.Vars, expected) {
+				t.Fatalf("variables=%s expected=%s", mustJSON1628(t, call.Vars), tc.expected)
+			}
+			if tc.operation == "CreateApp" && strings.Contains(call.Query, "surfaces:") {
+				t.Fatal("legacy install document widened")
+			}
+		})
+	}
+}
+func mustJSON1628(t *testing.T, v any) string {
+	t.Helper()
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
+}
+func TestAppSettings1628InstallDeclineAndPersonal(t *testing.T) {
+	srv, calls := appSettingsServer(t)
+	f, _, prompt := testFactoryTTY(t, "n\n")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"app", "install", "--org", "acme.com", "--agent", "a1", "--name", "private-name", "--surface", "private-surface", "--training-mode=false", "--server", srv.URL})
+	err := root.Execute()
+	if exitCodeFor(err) != 6 || len(*calls) != 0 {
+		t.Fatalf("declined install err=%v calls=%+v", err, *calls)
+	}
+	expected := "Install App with settings: [agentRef name orgRef trainingMode surfaces]?"
+	if !strings.Contains(prompt.String(), expected) || strings.Contains(prompt.String(), "private-") {
+		t.Fatalf("prompt=%q", prompt.String())
+	}
+	f, _ = testFactory(t)
+	root = NewRootCmd(f)
+	root.SetArgs([]string{"app", "install", "--owner-me", "--agent", "a1", "--name", "Personal", "--role", "READER", "--yes", "--json", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	call := appSettingsMutation(t, *calls)
+	if len(*calls) != 1 || call.Operation != "CreateAppSettings" || keys1058(call.Vars) != "agentRef,name,role" {
+		t.Fatalf("personal install wire=%+v", *calls)
+	}
+}
+func TestAppSettings1628AdditionalLocalRefusals(t *testing.T) {
+	for _, tc := range []struct {
+		mode  string
+		flags []string
+	}{
+		{"install", []string{"--type", "bogus"}},
+		{"install", []string{"--type="}},
+		{"update", []string{"--urn", "bad:slug"}},
+		{"update", []string{"--urn="}},
+		{"install", []string{"--policy-file", filepath.Join(t.TempDir(), "missing.json")}},
+	} {
+		t.Run(tc.mode+strings.Join(tc.flags, " "), func(t *testing.T) {
+			srv, calls := appSettingsServer(t)
+			_, err := appSettingsRun(t, srv, tc.mode, append(tc.flags, "--yes")...)
+			if exitCodeFor(err) != 2 || len(*calls) != 0 {
+				t.Fatalf("err=%v calls=%+v", err, *calls)
+			}
+		})
+	}
+}
+func TestAppSettings1628SettingsUnavailableIsSentOnce(t *testing.T) {
+	var calls int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		var call appSettingsCall
+		if err := json.NewDecoder(r.Body).Decode(&call); err != nil {
+			t.Error(err)
+		}
+		if call.Operation != "UpdateAppSettings" {
+			t.Errorf("operation=%s", call.Operation)
+		}
+		w.WriteHeader(http.StatusBadGateway)
+		_, _ = w.Write([]byte("gateway unavailable"))
+	}))
+	defer srv.Close()
+	out, err := appSettingsRun(t, srv, "update", "--role", "READER", "--yes")
+	if exitCodeFor(err) != 7 || calls != 1 || !strings.Contains(err.Error(), "outcome unknown") || strings.Contains(out, "updated") {
+		t.Fatalf("err=%v calls=%d stdout=%s", err, calls, out)
+	}
+}
+func TestAppSettings1628BadRenameReadNeverMutates(t *testing.T) {
+	for _, tc := range []struct {
+		body string
+		code int
+	}{
+		{`{"data":{"app":null}}`, 4},
+		{`{"data":{"app":{"urn":"not-a-urn"}}}`, 1},
+		{`{"data":{"app":{"urn":"hrn:app:acme.com:bad\u001bname"}}}`, 1},
+	} {
+		t.Run(tc.body, func(t *testing.T) {
+			var calls int
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				calls++
+				var call appSettingsCall
+				if err := json.NewDecoder(r.Body).Decode(&call); err != nil {
+					t.Error(err)
+				}
+				if call.Operation != "GetAppRenameURN" {
+					t.Errorf("unexpected mutation: %s", call.Operation)
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(tc.body))
+			}))
+			defer srv.Close()
+			f, out, prompt := testFactoryTTY(t, "y\n")
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"app", "update", appRef1058, "--urn", "renamed", "--server", srv.URL})
+			err := root.Execute()
+			if exitCodeFor(err) != tc.code || calls != 1 || strings.Contains(out.String(), "Updated") || strings.Contains(prompt.String(), "Update App") {
+				t.Fatalf("err=%v calls=%d out=%q prompt=%q", err, calls, out.String(), prompt.String())
+			}
+		})
 	}
 }
