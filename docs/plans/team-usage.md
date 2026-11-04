@@ -72,9 +72,14 @@ Lifecycle Agent procedure step, moving workers.
   the latest `token_count` event's `rate_limits` (`primary`, `secondary`). Only
   `used_percent`, `window_minutes` and `resets_at` are decoded and stored;
   `credits.balance`, `plan_type`, token counts and conversation text never are.
-  Symlinks are never followed, only regular files are opened, directory
-  listings, line length (1 MiB) and file size (256 MiB) are bounded, and a bad
-  line is skipped unread. The newest file only: a fresh session that has not
+  The Codex home must itself be a real directory and nothing under it is
+  followed through a link (components above the configured home are the
+  operator's own path and may be linked); the file opened must be the regular
+  file that was checked. Directory listings, line length (1 MiB) and the bytes
+  actually read (256 MiB, enforced on the reader) are bounded, and a bad line
+  is skipped unread. A missing source is `no-reading-yet`; an unreadable
+  directory or a read failure is an error with no path or content in it, never
+  a partial reading. The newest file only: a fresh session that has not
   yet taken a turn reads as `no-reading-yet` until its first `token_count`.
 - **Record**: Codex windows are `primary*` and `secondary*` with their own
   minutes, not relabelled as the 5h/7d pair; `sourceState` is `ok`,
@@ -82,6 +87,7 @@ Lifecycle Agent procedure step, moving workers.
   byte-identical to before (every new field is omitted).
 - **glm** is a finding: an accepted family whose record says `no-local-source`.
 - **show** ranks every window of every family on one axis (the earliest
-  `exhaustsAt` before its reset); minutes label a window and bound its burn
-  rate, never rank it. Extra `PRIMARY`/`SECONDARY`/`SOURCE` columns appear only
+  `exhaustsAt` before its reset); minutes label a window and are part of its
+  identity for burn rate (a reading of another length, or none against one that
+  has it, never combines), never rank it. Extra `PRIMARY`/`SECONDARY`/`SOURCE` columns appear only
   when an account has them.

@@ -154,11 +154,6 @@ func TestCodexRefusesSymlinksAndNonRegularWithoutRawPath(t *testing.T) {
 	if s, err = ReadCodex(codexAcct(home2)); err != nil || s.Present {
 		t.Fatalf("%v %+v", err, s)
 	}
-	for _, e := range []error{err} {
-		if e != nil && strings.Contains(e.Error(), outside) {
-			t.Fatal("raw outside path echoed")
-		}
-	}
 }
 
 func TestCodexRecordStoresOnlyWindowFields(t *testing.T) {
@@ -371,6 +366,9 @@ func TestCodexReadIsBoundedAfterTheSizeCheck(t *testing.T) {
 	_, err := ReadCodex(codexAcct(home))
 	if err == nil {
 		t.Fatal("a file that grows past the cap while read must be refused")
+	}
+	if strings.Contains(err.Error(), home) {
+		t.Fatalf("the size refusal must not echo a path: %v", err)
 	}
 }
 

@@ -147,6 +147,11 @@ func windowView(pts []point, now time.Time, pick func(Record) (*float64, *string
 		if p == nil || r == nil || *r != *resets {
 			break
 		}
+		// A window is its reset instant AND its length: a reading of another
+		// length (or none, against one that has it) is a different window.
+		if mins != nil && !sameMinutes(mins(pts[i].rec), mins(pts[cur].rec)) {
+			break
+		}
 		first = i
 	}
 	dt := pts[cur].at.Sub(pts[first].at).Hours()
@@ -165,6 +170,13 @@ func windowView(pts []point, now time.Time, pick func(Record) (*float64, *string
 		v.ExhaustsAt, v.ExhaustsBeforeReset = &s, &before
 	}
 	return v
+}
+
+func sameMinutes(a, b *int) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return *a == *b
 }
 
 func copyF(f float64) *float64 { return &f }
