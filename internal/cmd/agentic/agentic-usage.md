@@ -476,7 +476,7 @@ hadron run trigger --app <ref> --entry <node-urn> [--as-self] [--agent <ref>] [-
 hadron ticker list | get <id-or-URN> | create --name <n> --cadence-seconds <n> [--reasons read-team-channel,every-tick,live-check] | update <id-or-URN> [--reasons <list>] | delete <id-or-URN> --yes | subscribe <id-or-URN> --worker <id-or-URN> | unsubscribe <id-or-URN> --worker <id-or-URN> | apply-templates --worker <id-or-URN>
 hadron schedule create [--scope <id|name>] --app <ref> --name <n> (--cron '<expr>' | --run-at <RFC3339>) [--tz <zone>] --entry <node-urn> [--as-self] [--policy <json>] [--ai-config <n>] [--arg k=v]... [--budget-tokens N] [--budget-actions N] | list --app <ref> | update <id> [--run-at <RFC3339>] [--scope <id|name|"">] [--agent <ref>] ... [--budget-tokens N|--clear-budget-tokens] [--budget-actions N|--clear-budget-actions] | rm <id> --yes
 hadron automation preview <kind> <ref> | re-adopt <kind> <ref> --expected-hash <digest> [--yes] | list | approval (<name> | --run <run-id>) [--depth] | approve (<name> | --run <run-id>) [--yes] | decline (<name> | --run <run-id>) [--yes]   # cli#1071: an App owner reviews and approves schedules/webhooks without a row id or hash; name is schedule/<name>, webhook/<name> or a bare <name> that exactly one trigger has; --app on every subcommand
-hadron automation team-snapshot-grant set <app-ref> --trigger-kind SCHEDULE|WEBHOOK --trigger-id <id> [--yes] | revoke <grant-id> [--yes] | list <app-ref> [--include-revoked] [--limit n] [--offset n]
+hadron automation team-snapshot-grant set <app-ref> --trigger-kind SCHEDULE|WEBHOOK --trigger-id <id> [--yes] | revoke <grant-id> [--yes] [--instruction <kind>:<ref>] | list <app-ref> [--include-revoked] [--limit n] [--offset n] [--instruction <kind>:<ref>]
 hadron webhook create [--scope <id|name>] --app <ref> --name <n> --entry <node-urn> [--as-self] [--policy <json>] [--args-schema <json>] [--ai-config <n>] [--budget-tokens N] [--budget-actions N] | rotate <id> --yes | list --app <ref> | rm <id> --yes
 hadron ticket mint --org <ref> [--app <ref>] --action comm.outbound --count <n> [--note <why>] [--expires <iso>] | list --org <ref>
 hadron billing prices [--provider <p>] [--model <m>] [--tier <n>] [--limit N] [--offset N] | prices get <id> | balance <org> | ledger <org> [--limit N] [--offset N] | prices set --provider <p> --model <m> --input <n> --output <n> [--tier 1-3] [--markup-bp N] [--effective-at <t>] [--yes] | grant <org> --amount <n> [--source-type <t> --source-id <i>] [--expires-at <t>] [--note <s>] [--yes]   # spec-046 metering (cli#215): READS, then two platform-admin WRITES; <org> is an ID or hrn:org:<slug>. Money fields (inputMicroCentsPerMTok, outputMicroCentsPerMTok, balanceMicroCents, amountMicroCents) are base-10 integer STRINGS of micro-cents (1e-8 USD), signed on the ledger and unbounded, passed through byte for byte: parse with a bigint, never a float. Null markupBasisPoints = the server's default markup. prices get <id>: one row (the id is the ID column of the prices table, or "id" in prices --json), the same DTO as a prices row as one object; a null row exits 4 NotFound "not found or not visible" (the server does not say which); an empty id exits 2 with no request. prices and prices get: any signed-in caller; balance/ledger: org ADMIN, else FORBIDDEN exit 8. No --limit/--offset lists everything. WRITES (`prices set`, `grant`; platform admin, else FORBIDDEN exit 8): they change money records, so each asks y/N on a terminal and, without one, REFUSES with exit 2 and ZERO requests unless --yes; required flags absent or empty exit 2 with no request. Money flags (--input, --output, --amount) are opaque strings sent byte for byte: the CLI does not parse or range-check them (the server owns positivity/domain and its refusal passes through, exit per error class). Optional flags (--tier, --markup-bp, --effective-at, --expires-at, --note, --source-*) are OMITTED when unset so server defaults apply; an explicit `--markup-bp 0` is a value; an empty string flag exits 2. `grant`: --source-type/--source-id are a pair (both or neither, else exit 2 before any request); a repeated pair makes the server return the EXISTING entry instead of crediting twice, but the response carries no created/reused flag, so the CLI prints the returned entry identically either way and never claims 'already granted'. Without the pair a repeat credits again; the CLI NEVER retries a write. --json prints one DTO (a rate row as in `prices`, or a ledger entry as in `ledger`) with money as strings. --expires-at is recorded, not enforced
@@ -5235,9 +5235,25 @@ Only a person managing the App may give a schedule/webhook read-only own-App
 roster/task access; no default grant, no manual-run grant and no writes.
 set sends appRef, triggerKind (SCHEDULE|WEBHOOK), triggerId; an identical repeat
 returns the live row. It sends no worker session header even in a bound worktree.
-There is no --instruction flag here; instructed revoke/list wait on server#3361.
-revoke uses --app else the active App, reads that App's complete grant history,
-then confirms returned App ID + trigger kind/ID. A missing id is uniformly
+list/revoke accept --instruction <kind>:<ref> (server7907d93d or later); set
+stays person-only with no instruction flag. Shared parser accepts team-chat-message,
+task or live-chat and preserves everything after the first colon. Bad instructions
+exit2 before confirmation or requests. With the flag, the binding is snapshotted
+before confirmation/client setup and rechecked before each page and the revoke;
+a verified session is attached, otherwise the call is the person's with a note.
+The SERVER owns App admission; no extra identity lookup or local App match.
+A server refusal is returned once, never retried or downgraded to person.
+A person fallback keeps the reference checked but records no worker claim.
+Every admitted worker-instructed list page records ONE team event, empty page included:
+default list-to-end records one per page; --limit bounds list to one page.
+An instructed revoke pre-confirms the grant ID, target App and that page-event
+consequence BEFORE any request. --yes skips it. After consent it walks the App's
+entire history (one event PER PAGE), then sends one revoke if the live row is
+found, without a second prompt. Missing row => no revoke; ended row => no repeat.
+The revoke history walk has no --limit flag; do not assume it records one event
+in total. No by-id-provider dependency is introduced (#3381 remains separate).
+Without --instruction, revoke uses --app else the active App, reads that App's complete grant history,
+then confirms returned App ID + trigger kind/ID as before. A missing id is uniformly
 not found (exit4) and sends no mutation; an ended row is shown without another
 revoke. set/revoke require --yes without a terminal. Revocation is terminal.
 No write is retried; a lost response is unknown outcome, so list with

@@ -54,7 +54,7 @@ func TestSnapshotInstruction1614ListPaging(t *testing.T) {
 					if !ok || v["kind"] != "LIVE_CHAT" || v["ref"] != "client: 7 " || !strings.Contains(c.Query, "instruction: $instruction") || c.Session != "s-new" {
 						t.Errorf("instruction/header lost: %+v", c)
 					}
-				} else if _, ok := c.Variables["instruction"]; ok || strings.Contains(c.Query, "instruction") || c.Session != "" {
+				} else if _, ok := c.Variables["instruction"]; ok || strings.Contains(c.Query, "instruction") || c.Session != "" || len(c.Variables) != 3 {
 					t.Errorf("legacy changed: %+v", c)
 				}
 				row, more := snapshotGrant1578, true
@@ -91,9 +91,12 @@ func TestSnapshotInstruction1614RevokeWire(t *testing.T) {
 		}
 		switch c.OperationName {
 		case "AutomationTeamSnapshotGrantsInstructed":
+			if c.Variables["includeRevoked"] != true || len(c.Variables) != 5 {
+				t.Errorf("lookup vars: %+v", c.Variables)
+			}
 			return `{"data":{"automationTeamSnapshotGrants":{"items":[` + snapshotGrant1578 + `],"total":1,"hasMore":false}}}`
 		case "RevokeAutomationTeamSnapshotGrantInstructed":
-			if c.Variables["id"] != "grant1" {
+			if c.Variables["id"] != "grant1" || len(c.Variables) != 2 {
 				t.Errorf("wrong grant %+v", c)
 			}
 			return `{"data":{"revokeAutomationTeamSnapshotGrant":` + ended + `}}`
@@ -131,5 +134,154 @@ func TestSnapshotInstruction1614EarlyUsage(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestSnapshotInstruction1614UnconfirmedZeroRequests(t *testing.T) {
+	for _, tty := range []bool{false, true} {
+		t.Run(fmt.Sprint(tty), func(t *testing.T) {
+			srv, calls := snapshotServer1614(t, func(c snapshotCall1614) string {
+				return `{"data":{"automationTeamSnapshotGrants":{"items":[` + snapshotGrant1578 + `],"total":1,"hasMore":false}}}`
+			})
+			f, _ := testFactory(t)
+			want := exitcode.Usage
+			if tty {
+				f, _, _ = testFactoryTTY(t, "n\n")
+				want = exitcode.Cancelled
+			}
+			root := NewRootCmd(f)
+			root.SetArgs(snapshotArgs1578("revoke", "grant1", "--app", autoApp, "--instruction", "task:one", "--server", srv.URL))
+			err := root.Execute()
+			if exitCodeFor(err) != want || len(*calls) != 0 {
+				t.Fatalf("err=%v calls=%+v", err, *calls)
+			}
+		})
+	}
+}
+func TestSnapshotInstruction1614SinglePreconfirm(t *testing.T) {
+	ended := strings.ReplaceAll(snapshotGrant1578, `"revokedAt":null,"revokedBy":null`, `"revokedAt":"2026-11-04T00:00:00Z","revokedBy":"user1"`)
+	f, out, stderr := testFactoryTTY(t, "y\n")
+	srv, calls := snapshotServer1614(t, func(c snapshotCall1614) string {
+		if !strings.Contains(stderr.String(), "one event per page") || !strings.Contains(stderr.String(), "grant1") || !strings.Contains(stderr.String(), autoApp) {
+			t.Errorf("first request before honest preconfirm: %s", stderr.String())
+		}
+		if strings.HasPrefix(c.OperationName, "AutomationTeamSnapshotGrants") {
+			return `{"data":{"automationTeamSnapshotGrants":{"items":[` + snapshotGrant1578 + `],"total":1,"hasMore":false}}}`
+		}
+		return `{"data":{"revokeAutomationTeamSnapshotGrant":` + ended + `}}`
+	})
+	root := NewRootCmd(f)
+	root.SetArgs(snapshotArgs1578("revoke", "grant1", "--app", autoApp, "--instruction", "live-chat:one", "--server", srv.URL, "--json"))
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if len(*calls) != 2 || !strings.Contains(out.String(), `"revokedBy": "user1"`) {
+		t.Fatalf("calls=%+v out=%s", *calls, out.String())
+	}
+}
+
+func TestSnapshotInstruction1614RefusalOnce(t *testing.T) {
+	for _, stage := range []string{"list-first", "list-later", "revoke-lookup", "revoke-write"} {
+		t.Run(stage, func(t *testing.T) {
+			teamGitDir(t)
+			srv, calls := snapshotServer1614(t, func(c snapshotCall1614) string {
+				if c.Session != "s-new" {
+					t.Errorf("worker downgraded: %+v", c)
+				}
+				if c.OperationName == "RevokeAutomationTeamSnapshotGrantInstructed" || stage == "list-first" || stage == "revoke-lookup" || c.Variables["offset"] == float64(1) {
+					return memberGQLError("refused", "FORBIDDEN")
+				}
+				more := stage == "list-later"
+				return fmt.Sprintf(`{"data":{"automationTeamSnapshotGrants":{"items":[%s],"total":2,"hasMore":%t}}}`, snapshotGrant1578, more)
+			})
+			writeTeamBindingIn(t, os.Getenv(team.GitDirEnv), srv.URL)
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			args := snapshotArgs1578("list", autoApp)
+			if strings.HasPrefix(stage, "revoke") {
+				args = snapshotArgs1578("revoke", "grant1", "--app", autoApp, "--yes")
+			}
+			args = append(args, "--server", srv.URL, "--instruction", "task:one", "--json")
+			root.SetArgs(args)
+			err := root.Execute()
+			n := 1
+			if stage == "list-later" || stage == "revoke-write" {
+				n = 2
+			}
+			if exitCodeFor(err) != exitcode.Forbidden || len(*calls) != n || out.Len() != 0 {
+				t.Fatalf("err=%v calls=%+v out=%s", err, *calls, out.String())
+			}
+		})
+	}
+}
+func TestSnapshotInstruction1614MissingOrEnded(t *testing.T) {
+	for _, ended := range []bool{false, true} {
+		t.Run(fmt.Sprint(ended), func(t *testing.T) {
+			row := ""
+			if ended {
+				row = strings.ReplaceAll(snapshotGrant1578, `"revokedAt":null,"revokedBy":null`, `"revokedAt":"2026-11-04T00:00:00Z","revokedBy":"user1"`)
+			}
+			srv, calls := snapshotServer1614(t, func(c snapshotCall1614) string {
+				if c.OperationName != "AutomationTeamSnapshotGrantsInstructed" {
+					t.Errorf("unexpected revoke %s", c.OperationName)
+				}
+				return `{"data":{"automationTeamSnapshotGrants":{"items":[` + row + `],"total":1,"hasMore":false}}}`
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(snapshotArgs1578("revoke", "grant1", "--app", autoApp, "--yes", "--instruction", "live-chat:one", "--server", srv.URL))
+			err := root.Execute()
+			want := 0
+			if !ended {
+				want = exitcode.NotFound
+			}
+			if exitCodeFor(err) != want || len(*calls) != 1 {
+				t.Fatalf("err=%v calls=%+v", err, *calls)
+			}
+		})
+	}
+}
+
+func TestSnapshotInstruction1614RebindBetweenPages(t *testing.T) {
+	teamGitDir(t)
+	n := 0
+	srv, calls := snapshotServer1614(t, func(c snapshotCall1614) string {
+		n++
+		want := "s-new"
+		if n > 1 {
+			want = ""
+		}
+		if c.Session != want {
+			t.Errorf("session %q want %q", c.Session, want)
+		}
+		if n == 1 {
+			rewriteBinding1592(t, func(b map[string]any) { b["sessionId"] = "successor" })
+		}
+		row := snapshotGrant1578
+		if n > 1 {
+			row = strings.ReplaceAll(row, "grant1", "grant2")
+		}
+		return fmt.Sprintf(`{"data":{"automationTeamSnapshotGrants":{"items":[%s],"total":2,"hasMore":%t}}}`, row, n == 1)
+	})
+	writeTeamBindingIn(t, os.Getenv(team.GitDirEnv), srv.URL)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(snapshotArgs1578("list", autoApp, "--instruction", "task:one", "--server", srv.URL, "--json"))
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if len(*calls) != 2 || !strings.Contains(out.String(), `"id": "grant2"`) {
+		t.Fatalf("calls=%+v out=%s", *calls, out.String())
+	}
+}
+func TestSnapshotInstruction1614SetRemainsPersonOnly(t *testing.T) {
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	cmd, _, err := root.Find([]string{"automation", "team-snapshot-grant", "set"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cmd.Flags().Lookup("instruction") != nil {
+		t.Fatal("set gained instruction flag")
 	}
 }
