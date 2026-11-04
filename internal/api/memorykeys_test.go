@@ -209,3 +209,11 @@ func TestUnlockRefusalOnlyForContextErrorsOnKeyedRequests(t *testing.T) {
 		})
 	}
 }
+
+// The raw `hadron api` path and resolver-path errors map NOT_ENCRYPTED through
+// the shared code table.
+func TestNotEncryptedIsUsage(t *testing.T) {
+	if got := codeForExtension("NOT_ENCRYPTED"); got != exitcode.Usage {
+		t.Fatalf("NOT_ENCRYPTED → %d", got)
+	}
+}
