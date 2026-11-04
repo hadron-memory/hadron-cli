@@ -473,7 +473,7 @@ func TestTeamTags936LabelControls(t *testing.T) {
 	for _, surface := range []string{"team", "channel"} {
 		t.Run(surface, func(t *testing.T) {
 			teamGitDir(t)
-			srv, _ := tag936Server(t, `[{"headId":"h","label":"a\u001b[31m\nb‮c"}]`, "")
+			srv, _ := tag936Server(t, `[{"headId":"h","label":"a\u001b[31m\nb\u202ec"}]`, "")
 			f, out := testFactory(t)
 			root := NewRootCmd(f)
 			args := []string{}
@@ -487,7 +487,7 @@ func TestTeamTags936LabelControls(t *testing.T) {
 				t.Fatal(err)
 			}
 			s := out.String()
-			if strings.ContainsAny(s, "\x1b‮") || strings.Contains(s, "a\n") {
+			if strings.ContainsAny(s, "\x1b\u202e") || strings.Contains(s, "a\n") {
 				t.Fatalf("%q", s)
 			}
 		})
