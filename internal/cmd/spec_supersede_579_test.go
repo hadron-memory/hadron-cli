@@ -27,6 +27,7 @@ type corpus579 struct {
 	updateMode          string
 	competingAfterEdge  bool
 	updateAttempted     bool
+	onRead              func(op string, c *corpus579)
 }
 
 func node579(id, loc string) map[string]any {
@@ -69,6 +70,9 @@ func server579(t *testing.T) (*httptest.Server, *corpus579) {
 			}
 		case "GetNode", "GetSpecNodeRaw", "GetSpecNodeForEdit", "GetSpecSupersedeTarget":
 			ref, _ := q.Variables["ref"].(string)
+			if c.onRead != nil {
+				c.onRead(q.OperationName, c)
+			}
 			n := c.nodes[ref]
 			if ref == "new" {
 				c.targetReads++
