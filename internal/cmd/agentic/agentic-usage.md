@@ -2127,7 +2127,7 @@ Conventions:
   spec (`references[]` of `{kind: URN|EDGE, field, sourceLoc, sourceNodeId,
   targetLoc, text}`, exact citation only); `spec unresolved` lists references
   that reach no written spec (`reason: MISSING|PLACEHOLDER`), exit 0 either
-  way. `spec mint [--dry-run] [--yes]` mints approved, unminted nodes in the corpus. It always checks first and prints the report
+  way. `spec mint [--dry-run] [--yes]` mints every approved, unminted node of the memory, not only specs (cor:dmo:120:06). It always checks first and prints the report
   (`{memory,dryRun,minted,mintedCount,mintLocs[],blocked,blockers[],staleAbstracts[],staleAbstractsBlock,openQuestions[{decider,questions[{loc,question}]}]}`,
   `decider` "" = unassigned). Blockers include placeholders, unresolved
   references, structural lint errors, NOT_APPROVED current revisions,
