@@ -53,12 +53,12 @@ func TestAppUserCreateSendsOnlyWhatWasGiven(t *testing.T) {
 
 func TestAppUserCreateHasNoEmailFlagAndRequiresExternalID(t *testing.T) {
 	_, calls, _, err := runAppUserCreate(t, appUserResp, "--external-id", "x", "--email", "a@b.c")
-	if err == nil || exitcode.FromError(err) != exitcode.Usage || calls != 0 {
-		t.Errorf("--email must not exist (usage, no call): code=%d calls=%d err=%v", exitcode.FromError(err), calls, err)
+	if err == nil || exitCodeFor(err) != exitcode.Usage || calls != 0 {
+		t.Errorf("--email must not exist (usage, no call): code=%d calls=%d err=%v", exitCodeFor(err), calls, err)
 	}
 	_, calls, _, err = runAppUserCreate(t, appUserResp)
-	if err == nil || exitcode.FromError(err) != exitcode.Usage || calls != 0 {
-		t.Errorf("--external-id is required (usage, no call): code=%d calls=%d err=%v", exitcode.FromError(err), calls, err)
+	if err == nil || exitCodeFor(err) != exitcode.Usage || calls != 0 {
+		t.Errorf("--external-id is required (usage, no call): code=%d calls=%d err=%v", exitCodeFor(err), calls, err)
 	}
 }
 
@@ -122,8 +122,8 @@ func TestAppUserCreatePassesServerRefusalThrough(t *testing.T) {
 	if err == nil {
 		t.Fatal("a refusal must be an error")
 	}
-	if exitcode.FromError(err) != exitcode.Forbidden {
-		t.Errorf("exit = %d, want Forbidden (%d): %v", exitcode.FromError(err), exitcode.Forbidden, err)
+	if exitCodeFor(err) != exitcode.Forbidden {
+		t.Errorf("exit = %d, want Forbidden (%d): %v", exitCodeFor(err), exitcode.Forbidden, err)
 	}
 	if calls != 1 {
 		t.Errorf("one call, never retried: %d", calls)
@@ -164,5 +164,16 @@ func TestAppUserCreateNeverPrintsTheCredential(t *testing.T) {
 				t.Errorf("credential leaked: %s", all)
 			}
 		})
+	}
+}
+
+// An answer without a user is a failure, never a silent success with empty output.
+func TestAppUserCreateEmptyAnswerIsAnError(t *testing.T) {
+	stdout, _, _, err := runAppUserCreate(t, `{"data":{"createAppUser":null}}`, "--external-id", "e")
+	if err == nil || exitCodeFor(err) == 0 {
+		t.Errorf("a missing user must be a nonzero error: %v", err)
+	}
+	if strings.TrimSpace(stdout) != "" {
+		t.Errorf("nothing on stdout: %s", stdout)
 	}
 }
