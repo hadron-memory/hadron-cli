@@ -558,7 +558,7 @@ updateWorker  command team worker update
 withdrawDecision  command decision withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 73: 45 gap, 28 excluded
+[Arguments] 72: 44 gap, 28 excluded
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.addOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
@@ -600,7 +600,6 @@ Mutation.removeMemoryMember(memoryId)  excluded deprecated: @deprecated: Use mem
 Mutation.removeMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.removeOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
 Mutation.removeOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
-Mutation.setAssetPublicLink(instruction)  gap #1610: instructed-worker companion
 Mutation.updateApp(agentSessionsExpire)  gap #63
 Mutation.updateApp(agentTools)  gap #63
 Mutation.updateApp(aiApiKey)  gap #63

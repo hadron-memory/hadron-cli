@@ -72021,6 +72021,78 @@ func (v *SetAppPropertiesSetAppPropertiesApp) GetPropertiesRevision() *int {
 // GetProperties returns SetAppPropertiesSetAppPropertiesApp.Properties, and is useful for accessing the field via an interface.
 func (v *SetAppPropertiesSetAppPropertiesApp) GetProperties() *json.RawMessage { return v.Properties }
 
+// SetAssetPublicLinkInstructedResponse is returned by SetAssetPublicLinkInstructed on success.
+type SetAssetPublicLinkInstructedResponse struct {
+	// #1667 — switch an asset's anonymous public link on or off. Only whoever
+	// manages the asset's memory; a refused request changes
+	// nothing. Returns the asset. On an App memory, a worker session acts only on a validated
+	// instruction, judged on its holder (hrn:node:hadronmemory.com:specs:cor:dmo:050:12): the holder must manage
+	// the App, exactly as for the holder as a person. Without an instruction a worker session is refused. An
+	// admitted instructed call that changes the flag writes one team event, ids only (no asset id). Other memory
+	// classes keep their own rules and ignore instruction.
+	SetAssetPublicLink *SetAssetPublicLinkInstructedSetAssetPublicLinkAsset `json:"setAssetPublicLink"`
+}
+
+// GetSetAssetPublicLink returns SetAssetPublicLinkInstructedResponse.SetAssetPublicLink, and is useful for accessing the field via an interface.
+func (v *SetAssetPublicLinkInstructedResponse) GetSetAssetPublicLink() *SetAssetPublicLinkInstructedSetAssetPublicLinkAsset {
+	return v.SetAssetPublicLink
+}
+
+// SetAssetPublicLinkInstructedSetAssetPublicLinkAsset includes the requested fields of the GraphQL type Asset.
+type SetAssetPublicLinkInstructedSetAssetPublicLinkAsset struct {
+	Id string `json:"id"`
+	// #1667 — the per-asset public-link opt-in. STORED POLICY, not
+	// proof of publication: the anonymous link also needs the deployment switch
+	// (publicLinkAvailable) and a live, CLEAN asset in an unencrypted memory.
+	// Every asset starts false. Reading it grants no Asset read right.
+	PublicLinkEnabled bool `json:"publicLinkEnabled"`
+	// Whether THE CALLER may switch this asset's public link right now: the
+	// memory's manager under the shared class-manager predicate, never a mere
+	// writer, and strictly the owner in a personal or private memory. False in a
+	// session's memory and in an encrypted memory. Not a download capability.
+	CanManagePublicLink bool `json:"canManagePublicLink"`
+	// Whether this deployment serves public links at all
+	// (ASSET_PUBLIC_HOTLINK_ENABLED). Independent of the stored opt-in, of who is
+	// asking, of the scan state and of whether a canonical origin is configured.
+	// Hide the switch when false; never infer this from publicUrl.
+	PublicLinkAvailable bool `json:"publicLinkAvailable"`
+	// Stable, UNAUTHENTICATED hotlink to the bytes (GET /assets/<id>).
+	//
+	// Anyone with this URL can fetch the file — there is no read gate on
+	// it. A deliberate, temporary posture; see src/api/assetPublic.ts. Do
+	// not present it in a UI as though it were access-controlled.
+	//
+	// Null unless the asset would be served right now: its per-asset
+	// switch (publicLinkEnabled) is on, the deployment switch is on, and it is
+	// CLEAN in a live unencrypted memory. Also null when the server has no
+	// BASE_URL configured (no canonical origin to build an absolute URL from)
+	// even though it would be served, so null is NEVER proof the switch is off.
+	PublicUrl *string `json:"publicUrl"`
+}
+
+// GetId returns SetAssetPublicLinkInstructedSetAssetPublicLinkAsset.Id, and is useful for accessing the field via an interface.
+func (v *SetAssetPublicLinkInstructedSetAssetPublicLinkAsset) GetId() string { return v.Id }
+
+// GetPublicLinkEnabled returns SetAssetPublicLinkInstructedSetAssetPublicLinkAsset.PublicLinkEnabled, and is useful for accessing the field via an interface.
+func (v *SetAssetPublicLinkInstructedSetAssetPublicLinkAsset) GetPublicLinkEnabled() bool {
+	return v.PublicLinkEnabled
+}
+
+// GetCanManagePublicLink returns SetAssetPublicLinkInstructedSetAssetPublicLinkAsset.CanManagePublicLink, and is useful for accessing the field via an interface.
+func (v *SetAssetPublicLinkInstructedSetAssetPublicLinkAsset) GetCanManagePublicLink() bool {
+	return v.CanManagePublicLink
+}
+
+// GetPublicLinkAvailable returns SetAssetPublicLinkInstructedSetAssetPublicLinkAsset.PublicLinkAvailable, and is useful for accessing the field via an interface.
+func (v *SetAssetPublicLinkInstructedSetAssetPublicLinkAsset) GetPublicLinkAvailable() bool {
+	return v.PublicLinkAvailable
+}
+
+// GetPublicUrl returns SetAssetPublicLinkInstructedSetAssetPublicLinkAsset.PublicUrl, and is useful for accessing the field via an interface.
+func (v *SetAssetPublicLinkInstructedSetAssetPublicLinkAsset) GetPublicUrl() *string {
+	return v.PublicUrl
+}
+
 // SetAssetPublicLinkResponse is returned by SetAssetPublicLink on success.
 type SetAssetPublicLinkResponse struct {
 	// #1667 — switch an asset's anonymous public link on or off. Only whoever
@@ -101684,6 +101756,24 @@ func (v *__SetAssetPublicLinkInput) GetAssetRef() string { return v.AssetRef }
 // GetEnabled returns __SetAssetPublicLinkInput.Enabled, and is useful for accessing the field via an interface.
 func (v *__SetAssetPublicLinkInput) GetEnabled() bool { return v.Enabled }
 
+// __SetAssetPublicLinkInstructedInput is used internally by genqlient
+type __SetAssetPublicLinkInstructedInput struct {
+	AssetRef    string               `json:"assetRef"`
+	Enabled     bool                 `json:"enabled"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetAssetRef returns __SetAssetPublicLinkInstructedInput.AssetRef, and is useful for accessing the field via an interface.
+func (v *__SetAssetPublicLinkInstructedInput) GetAssetRef() string { return v.AssetRef }
+
+// GetEnabled returns __SetAssetPublicLinkInstructedInput.Enabled, and is useful for accessing the field via an interface.
+func (v *__SetAssetPublicLinkInstructedInput) GetEnabled() bool { return v.Enabled }
+
+// GetInstruction returns __SetAssetPublicLinkInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__SetAssetPublicLinkInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
+
 // __SetAutomationTeamSnapshotGrantInput is used internally by genqlient
 type __SetAutomationTeamSnapshotGrantInput struct {
 	AppRef      string `json:"appRef"`
@@ -130571,6 +130661,50 @@ func SetAssetPublicLink(
 	}
 
 	data_ = &SetAssetPublicLinkResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by SetAssetPublicLinkInstructed.
+const SetAssetPublicLinkInstructed_Operation = `
+mutation SetAssetPublicLinkInstructed ($assetRef: ID!, $enabled: Boolean!, $instruction: ActInstructionInput!) {
+	setAssetPublicLink(assetRef: $assetRef, enabled: $enabled, instruction: $instruction) {
+		id
+		publicLinkEnabled
+		canManagePublicLink
+		publicLinkAvailable
+		publicUrl
+	}
+}
+`
+
+// cli#1610: keep the legacy operation above free of the newer argument so
+// calls without --instruction still validate against older servers.
+func SetAssetPublicLinkInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	assetRef string,
+	enabled bool,
+	instruction *ActInstructionInput,
+) (data_ *SetAssetPublicLinkInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SetAssetPublicLinkInstructed",
+		Query:  SetAssetPublicLinkInstructed_Operation,
+		Variables: &__SetAssetPublicLinkInstructedInput{
+			AssetRef:    assetRef,
+			Enabled:     enabled,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &SetAssetPublicLinkInstructedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

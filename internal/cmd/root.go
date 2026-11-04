@@ -74,6 +74,7 @@ import (
 func NewRootCmd(f *cmdutil.Factory) *cobra.Command {
 	f.GraphQLRequestContext = teamcmd.AuthoredWriteContext(f)
 	f.InstructedContext = teamcmd.CredentialInstructionContext(f)
+	f.BeginServerTargetInstructedWrite = teamcmd.BeginServerTargetInstructedWrite(f)
 	begin := teamcmd.BeginInstructedWrite(f)
 	f.BeginInstructedWrite = func(ctx context.Context) func(context.Context, string, string) (context.Context, bool, error) {
 		return begin(ctx)

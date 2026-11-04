@@ -1,6 +1,7 @@
 package asset
 
 import (
+	"context"
 	"fmt"
 	"io"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/instruction"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 	"github.com/spf13/cobra"
 )
@@ -22,6 +24,7 @@ type publicLinkDTO struct {
 
 func newCmdPublicLink(f *cmdutil.Factory) *cobra.Command {
 	var on, off, yes bool
+	var instructionRaw string
 	cmd := &cobra.Command{
 		Use:   "public-link <asset-ref> (--on | --off)",
 		Short: "Let anyone with the link download a file, or stop it",
@@ -40,13 +43,31 @@ manage this asset's memory").
 
 If --on prints no link, the switch is on but the server cannot serve this file:
 the first line says why ("serving disabled on this deployment", or "no public
-URL on this server"). asset url --help explains each case.`,
+URL on this server"). asset url --help explains each case.
+
+--instruction <kind>:<ref> supplies a server-validated instruction for a worker
+session on an App memory. The server decides admission; the CLI does not
+calculate management authority or retry a refused call. Without this flag,
+the existing person call is unchanged. Requires server 5fd87dcc or later.`,
 		Example: `  hadron asset public-link hrn:asset:acme.com:kb:assets:01a189a840f4717c98af75cf4d7aed09 --on --yes
   hadron asset public-link 01a189a840f4717c98af75cf4d7aed09 --off`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if on == off || cmd.Flags().Changed("on") && cmd.Flags().Changed("off") {
 				return exitcode.Newf(exitcode.Usage, "choose exactly one of --on or --off")
+			}
+			var claim *gen.ActInstructionInput
+			var sendContext func(context.Context) (context.Context, bool, error)
+			if cmd.Flags().Changed("instruction") {
+				var err error
+				claim, err = instruction.Parse(instructionRaw)
+				if err != nil {
+					return err
+				}
+				if f.BeginServerTargetInstructedWrite == nil {
+					return exitcode.Newf(exitcode.Error, "instruction session helper unavailable")
+				}
+				sendContext = f.BeginServerTargetInstructedWrite(cmd.Context())
 			}
 			ref, err := parseAssetRef(args[0])
 			if err != nil {
@@ -61,7 +82,26 @@ URL on this server"). asset url --help explains each case.`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.SetAssetPublicLink(cmd.Context(), client, ref.ID, on)
+			var dto publicLinkDTO
+			if claim != nil {
+				ctx, _, contextErr := sendContext(cmd.Context())
+				if contextErr != nil {
+					return contextErr
+				}
+				resp, callErr := gen.SetAssetPublicLinkInstructed(ctx, client, ref.ID, on, claim)
+				err = callErr
+				if resp != nil && resp.SetAssetPublicLink != nil {
+					a := resp.SetAssetPublicLink
+					dto = publicLinkDTO{a.Id, a.PublicLinkEnabled, a.CanManagePublicLink, a.PublicLinkAvailable, a.PublicUrl}
+				}
+			} else {
+				resp, callErr := gen.SetAssetPublicLink(cmd.Context(), client, ref.ID, on)
+				err = callErr
+				if resp != nil && resp.SetAssetPublicLink != nil {
+					a := resp.SetAssetPublicLink
+					dto = publicLinkDTO{a.Id, a.PublicLinkEnabled, a.CanManagePublicLink, a.PublicLinkAvailable, a.PublicUrl}
+				}
+			}
 			if err != nil {
 				// Only this new command promises exit 8 for the asset manager
 				// refusal. Preserve the shared mapping used by legacy asset writes.
@@ -71,11 +111,9 @@ URL on this server"). asset url --help explains each case.`,
 				}
 				return mapped
 			}
-			a := resp.SetAssetPublicLink
-			if a == nil {
+			if dto.ID == "" {
 				return exitcode.Newf(exitcode.NotFound, "no asset found for %q", args[0])
 			}
-			dto := publicLinkDTO{a.Id, a.PublicLinkEnabled, a.CanManagePublicLink, a.PublicLinkAvailable, a.PublicUrl}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				fmt.Fprintln(w, publicLinkState(dto.PublicLinkEnabled, dto.PublicLinkAvailable, dto.PublicURL))
 				fmt.Fprintf(w, "can manage public link: %t; deployment available: %t\n", dto.CanManagePublicLink, dto.PublicLinkAvailable)
@@ -86,6 +124,7 @@ URL on this server"). asset url --help explains each case.`,
 			})
 		},
 	}
+	cmd.Flags().StringVar(&instructionRaw, "instruction", "", instruction.FlagUsageForServer("5fd87dcc"))
 	cmd.Flags().BoolVar(&on, "on", false, "record the anonymous-download opt-in")
 	cmd.Flags().BoolVar(&off, "off", false, "disable the anonymous public link")
 	cmd.Flags().BoolVar(&yes, "yes", false, "confirm allowing anyone with the link to download")
