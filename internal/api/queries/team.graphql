@@ -397,6 +397,25 @@ query GetWorkerContinuity($ref: ID!) {
   }
 }
 
+# cli#494: the retirement advisory reads the SAME server-owned continuity
+# facts as GetWorkerContinuity, but only the metadata `worker retire` may show
+# before its confirmation: status and the handoff's reference (urn/loc/time) —
+# never the handoff body, never previousSession internals. Deliberately its own
+# operation (not WorkerFields): the roster projection stays unwidened, and an
+# older server that rejects Worker.continuity fails only this read.
+query GetWorkerRetireAdvisory($ref: ID!) {
+  worker(ref: $ref) {
+    continuity {
+      status
+      handoff {
+        urn
+        loc
+        createdAt
+      }
+    }
+  }
+}
+
 # The ROSTER projection (#459): WorkerFields minus `prompt`.
 #
 # `prompt` is the resolved boot briefing — multi-KB per worker. It is a detail
