@@ -2579,7 +2579,15 @@ Conventions:
   `--check` (exit 2). Plain `whoami` is unchanged.
   `worker retire` (requires `--yes`, idempotent) stops the worker and keeps
   its name reserved — PR trailers and chat history reference it — and there
-  is no rename; `worker rm` is the ONE removal escape, hard-deleting a
+  is no rename. Before the confirmation it prints a handoff advisory on
+  STDERR (also under `--yes`/`--json`): stored continuity facts only
+  (CURRENT / FIRST_STINT / MISSING, the visible handoff URN, and that an open
+  session may still write); never a claim that a handoff is unconsumed or
+  lost; warning only, no new refusal or prompt, and an unreadable advisory
+  continues through the same confirmation. `--json` keeps
+  `id/name/retiredAt/status` and adds `advisory`
+  `{continuityStatus, hasLiveSession, handoffURN}`, where null means
+  unavailable to you, not none; `worker rm` is the ONE removal escape, hard-deleting a
   NEVER-USED miscast and freeing its name. Persisted references or an
   unreleased stint refuse with `WORKER_IN_USE` (exit 5); an ended empty
   stint alone is not attributed work. Before removing one, verify that no
