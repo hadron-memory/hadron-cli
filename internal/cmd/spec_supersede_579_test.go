@@ -66,8 +66,8 @@ func server579(t *testing.T) (*httptest.Server, *corpus579) {
 			data["node"] = n
 		case "CreateEdge":
 			c.writes++
-			from, _ := q.Variables["sourceId"].(string)
-			to, _ := q.Variables["targetId"].(string)
+			from, _ := q.Variables["sourceRef"].(string)
+			to, _ := q.Variables["targetRef"].(string)
 			name, _ := q.Variables["name"].(string)
 			if c.nodes[from] == nil || c.nodes[to] == nil {
 				t.Errorf("bad edge vars %+v", q.Variables)
@@ -107,7 +107,7 @@ func server579(t *testing.T) (*httptest.Server, *corpus579) {
 			n["name"] = in["name"]
 			c.nodes["created"] = n
 			data["createSpecNode"] = n
-		case "NodeBatch":
+		case "NodeBatch", "NodeBatchContent":
 			var ns []any
 			for _, ref := range q.Variables["refs"].([]any) {
 				if n := c.nodes[ref.(string)]; n != nil {
@@ -133,6 +133,9 @@ func run579(t *testing.T, url string, extra ...string) (string, error) {
 	r := NewRootCmd(f)
 	r.SetArgs(args579(url, extra...))
 	err := r.Execute()
+	if err != nil && strings.Contains(err.Error(), "unknown flag") {
+		t.Fatalf("gated flag is not implemented: %v", err)
+	}
 	return out.String(), err
 }
 func edge579(c *corpus579, from, to string) {
