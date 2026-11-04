@@ -5069,7 +5069,7 @@ hadron app properties set <app-ref> <json|@file|-> [--expected-revision <n>]
 hadron app properties clear <app-ref> [--expected-revision <n>] --yes
 hadron team task create <title> --external-id <id> …
 hadron team task list --external-id <id>
-hadron team task find-untracked --integration <name> [--team <worker>] [--ready only|exclude|any] [--repo <owner/name>] [--skip N] [--limit N] [--assign-to-me [--assignee <party>] [--owner <party>]]
+hadron team task find-untracked --integration <name> [--team <worker> | --no-team] [--ready only|exclude|any] [--repo <owner/name>] [--skip N] [--limit N] [--assign-to-me [--assignee <party>] [--owner <party>]]
 ```
 
 - **`app properties`** is the App's own JSON object; the platform reads only
@@ -5126,6 +5126,20 @@ hadron team task find-untracked --integration <name> [--team <worker>] [--ready 
     1); out of range is the server's `BAD_USER_INPUT`, exit 2. A missing or
     blank `--integration` is exit 2, and `--assign-to-me --skip` is exit 2,
     both before any call. There is no `--tag`: the claim takes none.
+  - **`--no-team` (cli#1622, hadron-server#3422).** Keeps the items carrying
+    none of the integration's team labels (compared without regard to case; an
+    unrelated label does not count as a team, and with no teams mapped every
+    item qualifies). It works for the list and for `--assign-to-me`, with or
+    without `--assignee`/`--owner`: the server filters the list the claim walks,
+    so a claim takes only no-team items. `--no-team` with `--team` (even an empty
+    one) is exit 2 before any call; `--no-team=false` is the same as omitting
+    it. It rides separate request documents (`…NoTeam`), so every call without
+    it is byte for byte what it was and needs no new server. One request, never
+    retried and never sent again without the filter. A server without the
+    `noTeam` argument gets one plain statement, `this server does not support
+    --no-team` (exit 1); any other validation failure is reported as before, and
+    a server `BAD_USER_INPUT` keeps its code (exit 2). `--json` shapes do not
+    change.
   - **List.** Paging is oldest first, then repository, then number. It is
     deterministic only while the tracker and the App's tasks are unchanged.
     `--json` is `{items:[{externalId, repository, number, title, url,

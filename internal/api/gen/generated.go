@@ -16429,12 +16429,13 @@ func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTempl
 // ApplyAgentTickerTemplatesResponse is returned by ApplyAgentTickerTemplates on success.
 type ApplyAgentTickerTemplatesResponse struct {
 	// #2096 — apply the Agent's current ticker templates to ONE existing worker (the repair for workers cast before the
-	// templates existed; hrn:node:hadronmemory.com:specs:cor:agt:080:33, :20). Whoever manages the App, acting as themselves:
-	// not the worker, not its holder as such, not a reportsTo chain. Creates only the template tickers the worker is missing,
+	// templates existed; hrn:node:hadronmemory.com:specs:cor:agt:080:33, :20). Whoever manages the App:
+	// not the worker on its own, not its holder as such, not a reportsTo chain. Creates only the template tickers the worker is missing,
 	// each owned by and subscribed to it, and never edits or deletes any existing ticker or subscription; a template the
 	// worker already has a live ticker for is reported under alreadyPresent and left as it is. A template below the App's
 	// cadence floor is created at the floor; if the App's live-ticker cap cannot take every missing ticker, or a generated
 	// name is already a live ticker's, the whole call is refused and nothing is created. Never automatic, never across workers.
+	// #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	ApplyAgentTickerTemplates *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResult `json:"applyAgentTickerTemplates"`
 }
 
@@ -24396,6 +24397,397 @@ func (v *ClaimUntrackedTaskItemsForPartiesClaimUntrackedTaskItemsClaimUntrackedT
 	return &retval, nil
 }
 
+// ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult includes the requested fields of the GraphQL type ClaimUntrackedTaskItemsResult.
+// The GraphQL type's documentation follows.
+//
+// #3125 S3: what claimUntrackedTaskItems created, in claim order.
+type ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult struct {
+	Tasks            []*ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask `json:"tasks"`
+	Complete         bool                                                                                                         `json:"complete"`
+	IncompleteReason *string                                                                                                      `json:"incompleteReason"`
+	// The stable code of the refusal that stopped the walk; null unless incompleteReason is claim_refused.
+	RefusalCode *string `json:"refusalCode"`
+}
+
+// GetTasks returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult.Tasks, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult) GetTasks() []*ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask {
+	return v.Tasks
+}
+
+// GetComplete returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult.Complete, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult) GetComplete() bool {
+	return v.Complete
+}
+
+// GetIncompleteReason returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult.IncompleteReason, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult) GetIncompleteReason() *string {
+	return v.IncompleteReason
+}
+
+// GetRefusalCode returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult.RefusalCode, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult) GetRefusalCode() *string {
+	return v.RefusalCode
+}
+
+// ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask struct {
+	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetPriority() int {
+	return v.AgentTaskFields.Priority
+}
+
+// GetBlocked returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetBlocked() bool {
+	return v.AgentTaskFields.Blocked
+}
+
+// GetBlockedBy returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
+}
+
+// GetId returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetId() string {
+	return v.AgentTaskFields.Id
+}
+
+// GetHandle returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetHandle() string {
+	return v.AgentTaskFields.Handle
+}
+
+// GetTaskNumber returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.TaskNumber, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetTaskNumber() string {
+	return v.AgentTaskFields.TaskNumber
+}
+
+// GetAppId returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.AppId, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetAppId() string {
+	return v.AgentTaskFields.AppId
+}
+
+// GetTitle returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Title, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetTitle() string {
+	return v.AgentTaskFields.Title
+}
+
+// GetDescription returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Description, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetDescription() *string {
+	return v.AgentTaskFields.Description
+}
+
+// GetStatus returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetStatus() AgentTaskStatus {
+	return v.AgentTaskFields.Status
+}
+
+// GetQueued returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Queued, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetQueued() bool {
+	return v.AgentTaskFields.Queued
+}
+
+// GetWaitingOnChildren returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.WaitingOnChildren, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetWaitingOnChildren() bool {
+	return v.AgentTaskFields.WaitingOnChildren
+}
+
+// GetOwner returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Owner, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetOwner() *AgentTaskFieldsOwnerAgentTaskParty {
+	return v.AgentTaskFields.Owner
+}
+
+// GetAssignee returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Assignee, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetAssignee() *AgentTaskFieldsAssigneeAgentTaskParty {
+	return v.AgentTaskFields.Assignee
+}
+
+// GetAssignedBy returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.AssignedBy, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetAssignedBy() *AgentTaskFieldsAssignedByAgentTaskParty {
+	return v.AgentTaskFields.AssignedBy
+}
+
+// GetCreatedBy returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.CreatedBy, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
+	return v.AgentTaskFields.CreatedBy
+}
+
+// GetParentTaskId returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetParentTaskId() *string {
+	return v.AgentTaskFields.ParentTaskId
+}
+
+// GetTags returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Tags, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetTags() []string {
+	return v.AgentTaskFields.Tags
+}
+
+// GetSource returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Source, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetSource() *string {
+	return v.AgentTaskFields.Source
+}
+
+// GetExternalId returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.ExternalId, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetExternalId() *string {
+	return v.AgentTaskFields.ExternalId
+}
+
+// GetReferences returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.References, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
+	return v.AgentTaskFields.References
+}
+
+// GetHandBack returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.HandBack, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetHandBack() *AgentTaskFieldsHandBackAgentTaskHandBack {
+	return v.AgentTaskFields.HandBack
+}
+
+// GetMatchFailure returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
+// GetStartBy returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.StartBy, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetStartBy() *string {
+	return v.AgentTaskFields.StartBy
+}
+
+// GetFinishBy returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.FinishBy, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetFinishBy() *string {
+	return v.AgentTaskFields.FinishBy
+}
+
+// GetCreatedAt returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetCreatedAt() string {
+	return v.AgentTaskFields.CreatedAt
+}
+
+// GetUpdatedAt returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetUpdatedAt() *string {
+	return v.AgentTaskFields.UpdatedAt
+}
+
+// GetStartedAt returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.StartedAt, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetStartedAt() *string {
+	return v.AgentTaskFields.StartedAt
+}
+
+// GetFinishedAt returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.FinishedAt, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetFinishedAt() *string {
+	return v.AgentTaskFields.FinishedAt
+}
+
+// GetCancelledAt returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.CancelledAt, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetCancelledAt() *string {
+	return v.AgentTaskFields.CancelledAt
+}
+
+// GetCloseSessionWhenDone returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.CloseSessionWhenDone, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetCloseSessionWhenDone() bool {
+	return v.AgentTaskFields.CloseSessionWhenDone
+}
+
+// GetRequirements returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Requirements, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
+	return v.AgentTaskFields.Requirements
+}
+
+// GetResult returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Result, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetResult() *AgentTaskFieldsResultAgentTaskResult {
+	return v.AgentTaskFields.Result
+}
+
+// GetProperties returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Properties, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetProperties() *json.RawMessage {
+	return v.AgentTaskFields.Properties
+}
+
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
+	Id string `json:"id"`
+
+	Handle string `json:"handle"`
+
+	TaskNumber string `json:"taskNumber"`
+
+	AppId string `json:"appId"`
+
+	Title string `json:"title"`
+
+	Description *string `json:"description"`
+
+	Status AgentTaskStatus `json:"status"`
+
+	Queued bool `json:"queued"`
+
+	WaitingOnChildren bool `json:"waitingOnChildren"`
+
+	Owner *AgentTaskFieldsOwnerAgentTaskParty `json:"owner"`
+
+	Assignee *AgentTaskFieldsAssigneeAgentTaskParty `json:"assignee"`
+
+	AssignedBy *AgentTaskFieldsAssignedByAgentTaskParty `json:"assignedBy"`
+
+	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
+
+	ParentTaskId *string `json:"parentTaskId"`
+
+	Tags []string `json:"tags"`
+
+	Source *string `json:"source"`
+
+	ExternalId *string `json:"externalId"`
+
+	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
+
+	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
+
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
+	StartBy *string `json:"startBy"`
+
+	FinishBy *string `json:"finishBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	StartedAt *string `json:"startedAt"`
+
+	FinishedAt *string `json:"finishedAt"`
+
+	CancelledAt *string `json:"cancelledAt"`
+
+	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
+
+	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
+
+	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+
+	Properties *json.RawMessage `json:"properties"`
+}
+
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) __premarshalJSON() (*__premarshalClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask, error) {
+	var retval __premarshalClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask
+
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
+	retval.Id = v.AgentTaskFields.Id
+	retval.Handle = v.AgentTaskFields.Handle
+	retval.TaskNumber = v.AgentTaskFields.TaskNumber
+	retval.AppId = v.AgentTaskFields.AppId
+	retval.Title = v.AgentTaskFields.Title
+	retval.Description = v.AgentTaskFields.Description
+	retval.Status = v.AgentTaskFields.Status
+	retval.Queued = v.AgentTaskFields.Queued
+	retval.WaitingOnChildren = v.AgentTaskFields.WaitingOnChildren
+	retval.Owner = v.AgentTaskFields.Owner
+	retval.Assignee = v.AgentTaskFields.Assignee
+	retval.AssignedBy = v.AgentTaskFields.AssignedBy
+	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
+	retval.Tags = v.AgentTaskFields.Tags
+	retval.Source = v.AgentTaskFields.Source
+	retval.ExternalId = v.AgentTaskFields.ExternalId
+	retval.References = v.AgentTaskFields.References
+	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
+	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.FinishBy = v.AgentTaskFields.FinishBy
+	retval.CreatedAt = v.AgentTaskFields.CreatedAt
+	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
+	retval.StartedAt = v.AgentTaskFields.StartedAt
+	retval.FinishedAt = v.AgentTaskFields.FinishedAt
+	retval.CancelledAt = v.AgentTaskFields.CancelledAt
+	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.Requirements = v.AgentTaskFields.Requirements
+	retval.Result = v.AgentTaskFields.Result
+	retval.Properties = v.AgentTaskFields.Properties
+	return &retval, nil
+}
+
+// ClaimUntrackedTaskItemsForPartiesNoTeamResponse is returned by ClaimUntrackedTaskItemsForPartiesNoTeam on success.
+type ClaimUntrackedTaskItemsForPartiesNoTeamResponse struct {
+	// #3125 S3 (hrn:node:hadronmemory.com:specs:cor:agt:120:03): claim up to limit (1 to 10, default 1) of the items
+	// untrackedTaskItems would list with the same filters, in its order. Each claim is a root task owned by and assigned
+	// to the caller, created STARTED with startedAt set, externalId and source the item's URL, an ISSUE reference to it,
+	// and the item's title (control characters removed, clipped to the title cap); it records task.created,
+	// task.assigned and task.started. Each claim commits on its own. An item another caller claimed first is skipped,
+	// so concurrent callers get disjoint sets. A refusal mid-walk stops it and is returned with the claims already
+	// made: incompleteReason claim_refused with its code in refusalCode (claim_failed, refusalCode null, for an
+	// unexpected failure after a claim). A person or a worker claims for themselves and names no assignee or owner
+	// (BAD_USER_INPUT if it does). #3132: the App's own key names the assignee (TASK_ASSIGNEE_REQUIRED) and the owner
+	// (TASK_OWNER_REQUIRED), each a worker of the App or a person who participates in it (TASK_ASSIGNEE_INVALID /
+	// TASK_OWNER_INVALID, as createAgentTask), all judged before any GitHub call; the task is started on the assignee's
+	// behalf, and its events name the key as actorAppKeyId and the assignee as their subject. A claim is the only task
+	// write an App key makes. A key request carrying a session is APP_KEY_SESSION_BOUND. Other refusals as
+	// untrackedTaskItems.
+	// #3422: noTeam as on untrackedTaskItems, applied before the claim walks the list: true claims only items carrying
+	// none of the integration's team labels, false or omitted keeps the current behaviour, and with team it is refused
+	// with BAD_USER_INPUT before GitHub is read and before any task is created.
+	ClaimUntrackedTaskItems *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult `json:"claimUntrackedTaskItems"`
+}
+
+// GetClaimUntrackedTaskItems returns ClaimUntrackedTaskItemsForPartiesNoTeamResponse.ClaimUntrackedTaskItems, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamResponse) GetClaimUntrackedTaskItems() *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult {
+	return v.ClaimUntrackedTaskItems
+}
+
 // ClaimUntrackedTaskItemsForPartiesResponse is returned by ClaimUntrackedTaskItemsForParties on success.
 type ClaimUntrackedTaskItemsForPartiesResponse struct {
 	// #3125 S3 (hrn:node:hadronmemory.com:specs:cor:agt:120:03): claim up to limit (1 to 10, default 1) of the items
@@ -24412,11 +24804,405 @@ type ClaimUntrackedTaskItemsForPartiesResponse struct {
 	// behalf, and its events name the key as actorAppKeyId and the assignee as their subject. A claim is the only task
 	// write an App key makes. A key request carrying a session is APP_KEY_SESSION_BOUND. Other refusals as
 	// untrackedTaskItems.
+	// #3422: noTeam as on untrackedTaskItems, applied before the claim walks the list: true claims only items carrying
+	// none of the integration's team labels, false or omitted keeps the current behaviour, and with team it is refused
+	// with BAD_USER_INPUT before GitHub is read and before any task is created.
 	ClaimUntrackedTaskItems *ClaimUntrackedTaskItemsForPartiesClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult `json:"claimUntrackedTaskItems"`
 }
 
 // GetClaimUntrackedTaskItems returns ClaimUntrackedTaskItemsForPartiesResponse.ClaimUntrackedTaskItems, and is useful for accessing the field via an interface.
 func (v *ClaimUntrackedTaskItemsForPartiesResponse) GetClaimUntrackedTaskItems() *ClaimUntrackedTaskItemsForPartiesClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult {
+	return v.ClaimUntrackedTaskItems
+}
+
+// ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult includes the requested fields of the GraphQL type ClaimUntrackedTaskItemsResult.
+// The GraphQL type's documentation follows.
+//
+// #3125 S3: what claimUntrackedTaskItems created, in claim order.
+type ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult struct {
+	Tasks            []*ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask `json:"tasks"`
+	Complete         bool                                                                                               `json:"complete"`
+	IncompleteReason *string                                                                                            `json:"incompleteReason"`
+	// The stable code of the refusal that stopped the walk; null unless incompleteReason is claim_refused.
+	RefusalCode *string `json:"refusalCode"`
+}
+
+// GetTasks returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult.Tasks, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult) GetTasks() []*ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask {
+	return v.Tasks
+}
+
+// GetComplete returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult.Complete, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult) GetComplete() bool {
+	return v.Complete
+}
+
+// GetIncompleteReason returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult.IncompleteReason, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult) GetIncompleteReason() *string {
+	return v.IncompleteReason
+}
+
+// GetRefusalCode returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult.RefusalCode, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult) GetRefusalCode() *string {
+	return v.RefusalCode
+}
+
+// ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask struct {
+	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetPriority() int {
+	return v.AgentTaskFields.Priority
+}
+
+// GetBlocked returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetBlocked() bool {
+	return v.AgentTaskFields.Blocked
+}
+
+// GetBlockedBy returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
+}
+
+// GetId returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetId() string {
+	return v.AgentTaskFields.Id
+}
+
+// GetHandle returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetHandle() string {
+	return v.AgentTaskFields.Handle
+}
+
+// GetTaskNumber returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.TaskNumber, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetTaskNumber() string {
+	return v.AgentTaskFields.TaskNumber
+}
+
+// GetAppId returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.AppId, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetAppId() string {
+	return v.AgentTaskFields.AppId
+}
+
+// GetTitle returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Title, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetTitle() string {
+	return v.AgentTaskFields.Title
+}
+
+// GetDescription returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Description, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetDescription() *string {
+	return v.AgentTaskFields.Description
+}
+
+// GetStatus returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetStatus() AgentTaskStatus {
+	return v.AgentTaskFields.Status
+}
+
+// GetQueued returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Queued, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetQueued() bool {
+	return v.AgentTaskFields.Queued
+}
+
+// GetWaitingOnChildren returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.WaitingOnChildren, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetWaitingOnChildren() bool {
+	return v.AgentTaskFields.WaitingOnChildren
+}
+
+// GetOwner returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Owner, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetOwner() *AgentTaskFieldsOwnerAgentTaskParty {
+	return v.AgentTaskFields.Owner
+}
+
+// GetAssignee returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Assignee, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetAssignee() *AgentTaskFieldsAssigneeAgentTaskParty {
+	return v.AgentTaskFields.Assignee
+}
+
+// GetAssignedBy returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.AssignedBy, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetAssignedBy() *AgentTaskFieldsAssignedByAgentTaskParty {
+	return v.AgentTaskFields.AssignedBy
+}
+
+// GetCreatedBy returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.CreatedBy, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
+	return v.AgentTaskFields.CreatedBy
+}
+
+// GetParentTaskId returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetParentTaskId() *string {
+	return v.AgentTaskFields.ParentTaskId
+}
+
+// GetTags returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Tags, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetTags() []string {
+	return v.AgentTaskFields.Tags
+}
+
+// GetSource returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Source, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetSource() *string {
+	return v.AgentTaskFields.Source
+}
+
+// GetExternalId returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.ExternalId, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetExternalId() *string {
+	return v.AgentTaskFields.ExternalId
+}
+
+// GetReferences returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.References, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
+	return v.AgentTaskFields.References
+}
+
+// GetHandBack returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.HandBack, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetHandBack() *AgentTaskFieldsHandBackAgentTaskHandBack {
+	return v.AgentTaskFields.HandBack
+}
+
+// GetMatchFailure returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
+// GetStartBy returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.StartBy, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetStartBy() *string {
+	return v.AgentTaskFields.StartBy
+}
+
+// GetFinishBy returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.FinishBy, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetFinishBy() *string {
+	return v.AgentTaskFields.FinishBy
+}
+
+// GetCreatedAt returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetCreatedAt() string {
+	return v.AgentTaskFields.CreatedAt
+}
+
+// GetUpdatedAt returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetUpdatedAt() *string {
+	return v.AgentTaskFields.UpdatedAt
+}
+
+// GetStartedAt returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.StartedAt, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetStartedAt() *string {
+	return v.AgentTaskFields.StartedAt
+}
+
+// GetFinishedAt returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.FinishedAt, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetFinishedAt() *string {
+	return v.AgentTaskFields.FinishedAt
+}
+
+// GetCancelledAt returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.CancelledAt, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetCancelledAt() *string {
+	return v.AgentTaskFields.CancelledAt
+}
+
+// GetCloseSessionWhenDone returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.CloseSessionWhenDone, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetCloseSessionWhenDone() bool {
+	return v.AgentTaskFields.CloseSessionWhenDone
+}
+
+// GetRequirements returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Requirements, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
+	return v.AgentTaskFields.Requirements
+}
+
+// GetResult returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Result, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetResult() *AgentTaskFieldsResultAgentTaskResult {
+	return v.AgentTaskFields.Result
+}
+
+// GetProperties returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Properties, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetProperties() *json.RawMessage {
+	return v.AgentTaskFields.Properties
+}
+
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
+	Id string `json:"id"`
+
+	Handle string `json:"handle"`
+
+	TaskNumber string `json:"taskNumber"`
+
+	AppId string `json:"appId"`
+
+	Title string `json:"title"`
+
+	Description *string `json:"description"`
+
+	Status AgentTaskStatus `json:"status"`
+
+	Queued bool `json:"queued"`
+
+	WaitingOnChildren bool `json:"waitingOnChildren"`
+
+	Owner *AgentTaskFieldsOwnerAgentTaskParty `json:"owner"`
+
+	Assignee *AgentTaskFieldsAssigneeAgentTaskParty `json:"assignee"`
+
+	AssignedBy *AgentTaskFieldsAssignedByAgentTaskParty `json:"assignedBy"`
+
+	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
+
+	ParentTaskId *string `json:"parentTaskId"`
+
+	Tags []string `json:"tags"`
+
+	Source *string `json:"source"`
+
+	ExternalId *string `json:"externalId"`
+
+	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
+
+	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
+
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
+	StartBy *string `json:"startBy"`
+
+	FinishBy *string `json:"finishBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	StartedAt *string `json:"startedAt"`
+
+	FinishedAt *string `json:"finishedAt"`
+
+	CancelledAt *string `json:"cancelledAt"`
+
+	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
+
+	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
+
+	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+
+	Properties *json.RawMessage `json:"properties"`
+}
+
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) __premarshalJSON() (*__premarshalClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask, error) {
+	var retval __premarshalClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask
+
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
+	retval.Id = v.AgentTaskFields.Id
+	retval.Handle = v.AgentTaskFields.Handle
+	retval.TaskNumber = v.AgentTaskFields.TaskNumber
+	retval.AppId = v.AgentTaskFields.AppId
+	retval.Title = v.AgentTaskFields.Title
+	retval.Description = v.AgentTaskFields.Description
+	retval.Status = v.AgentTaskFields.Status
+	retval.Queued = v.AgentTaskFields.Queued
+	retval.WaitingOnChildren = v.AgentTaskFields.WaitingOnChildren
+	retval.Owner = v.AgentTaskFields.Owner
+	retval.Assignee = v.AgentTaskFields.Assignee
+	retval.AssignedBy = v.AgentTaskFields.AssignedBy
+	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
+	retval.Tags = v.AgentTaskFields.Tags
+	retval.Source = v.AgentTaskFields.Source
+	retval.ExternalId = v.AgentTaskFields.ExternalId
+	retval.References = v.AgentTaskFields.References
+	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
+	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.FinishBy = v.AgentTaskFields.FinishBy
+	retval.CreatedAt = v.AgentTaskFields.CreatedAt
+	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
+	retval.StartedAt = v.AgentTaskFields.StartedAt
+	retval.FinishedAt = v.AgentTaskFields.FinishedAt
+	retval.CancelledAt = v.AgentTaskFields.CancelledAt
+	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.Requirements = v.AgentTaskFields.Requirements
+	retval.Result = v.AgentTaskFields.Result
+	retval.Properties = v.AgentTaskFields.Properties
+	return &retval, nil
+}
+
+// ClaimUntrackedTaskItemsNoTeamResponse is returned by ClaimUntrackedTaskItemsNoTeam on success.
+type ClaimUntrackedTaskItemsNoTeamResponse struct {
+	// #3125 S3 (hrn:node:hadronmemory.com:specs:cor:agt:120:03): claim up to limit (1 to 10, default 1) of the items
+	// untrackedTaskItems would list with the same filters, in its order. Each claim is a root task owned by and assigned
+	// to the caller, created STARTED with startedAt set, externalId and source the item's URL, an ISSUE reference to it,
+	// and the item's title (control characters removed, clipped to the title cap); it records task.created,
+	// task.assigned and task.started. Each claim commits on its own. An item another caller claimed first is skipped,
+	// so concurrent callers get disjoint sets. A refusal mid-walk stops it and is returned with the claims already
+	// made: incompleteReason claim_refused with its code in refusalCode (claim_failed, refusalCode null, for an
+	// unexpected failure after a claim). A person or a worker claims for themselves and names no assignee or owner
+	// (BAD_USER_INPUT if it does). #3132: the App's own key names the assignee (TASK_ASSIGNEE_REQUIRED) and the owner
+	// (TASK_OWNER_REQUIRED), each a worker of the App or a person who participates in it (TASK_ASSIGNEE_INVALID /
+	// TASK_OWNER_INVALID, as createAgentTask), all judged before any GitHub call; the task is started on the assignee's
+	// behalf, and its events name the key as actorAppKeyId and the assignee as their subject. A claim is the only task
+	// write an App key makes. A key request carrying a session is APP_KEY_SESSION_BOUND. Other refusals as
+	// untrackedTaskItems.
+	// #3422: noTeam as on untrackedTaskItems, applied before the claim walks the list: true claims only items carrying
+	// none of the integration's team labels, false or omitted keeps the current behaviour, and with team it is refused
+	// with BAD_USER_INPUT before GitHub is read and before any task is created.
+	ClaimUntrackedTaskItems *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult `json:"claimUntrackedTaskItems"`
+}
+
+// GetClaimUntrackedTaskItems returns ClaimUntrackedTaskItemsNoTeamResponse.ClaimUntrackedTaskItems, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamResponse) GetClaimUntrackedTaskItems() *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult {
 	return v.ClaimUntrackedTaskItems
 }
 
@@ -24436,6 +25222,9 @@ type ClaimUntrackedTaskItemsResponse struct {
 	// behalf, and its events name the key as actorAppKeyId and the assignee as their subject. A claim is the only task
 	// write an App key makes. A key request carrying a session is APP_KEY_SESSION_BOUND. Other refusals as
 	// untrackedTaskItems.
+	// #3422: noTeam as on untrackedTaskItems, applied before the claim walks the list: true claims only items carrying
+	// none of the integration's team labels, false or omitted keeps the current behaviour, and with team it is refused
+	// with BAD_USER_INPUT before GitHub is read and before any task is created.
 	ClaimUntrackedTaskItems *ClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult `json:"claimUntrackedTaskItems"`
 }
 
@@ -25304,7 +26093,7 @@ func (v *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings) __premarsha
 
 // ClearWorkerIsolationResponse is returned by ClearWorkerIsolation on success.
 type ClearWorkerIsolationResponse struct {
-	// S7 — lift an isolation (same audience). Clearing when none is set changes nothing.
+	// S7 — lift an isolation (same audience). Clearing when none is set changes nothing. #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	ClearWorkerIsolation *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings `json:"clearWorkerIsolation"`
 }
 
@@ -39566,7 +40355,7 @@ func (v *DeleteTeamRoleResponse) GetDeleteTeamRole() *DeleteTeamRoleDeleteTeamRo
 
 // DeleteTickerResponse is returned by DeleteTicker on success.
 type DeleteTickerResponse struct {
-	// #1747 — delete a ticker. Its live subscriptions end with reason TICKER_DELETED; its name may be reused, its slug never.
+	// #1747 — delete a ticker. Its live subscriptions end with reason TICKER_DELETED; its name may be reused, its slug never. #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	DeleteTicker bool `json:"deleteTicker"`
 }
 
@@ -40586,6 +41375,7 @@ type DueTickWakesResponse struct {
 	// the unhosted lane) for STOP_CONSUMER_FRESH_SECONDS (default 600), but only when it read the lane from its start to its end in one call:
 	// no workerRefs, no after, and no next page (ask for first: 200; a lane larger than a page cannot declare). A worker whose host is lost has no serving lane until the host returns. Setting a stop signal is refused (STOP_SIGNAL_UNAVAILABLE)
 	// while any worker it would cover is on a lane with no fresh declaration.
+	// #3321: the manager's held worker reads the manager scope on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event per admitted call, ids only; it never reads its holder's personal scope, and never acknowledges.
 	DueWakes *DueTickWakesDueWakesDueWakePage `json:"dueWakes"`
 }
 
@@ -40955,6 +41745,7 @@ type DueWakesResponse struct {
 	// the unhosted lane) for STOP_CONSUMER_FRESH_SECONDS (default 600), but only when it read the lane from its start to its end in one call:
 	// no workerRefs, no after, and no next page (ask for first: 200; a lane larger than a page cannot declare). A worker whose host is lost has no serving lane until the host returns. Setting a stop signal is refused (STOP_SIGNAL_UNAVAILABLE)
 	// while any worker it would cover is on a lane with no fresh declaration.
+	// #3321: the manager's held worker reads the manager scope on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event per admitted call, ids only; it never reads its holder's personal scope, and never acknowledges.
 	DueWakes *DueWakesDueWakesDueWakePage `json:"dueWakes"`
 }
 
@@ -50279,9 +51070,10 @@ func (v *IsolateWorkerIsolateWorkerWorkerWakeSettings) __premarshalJSON() (*__pr
 // IsolateWorkerResponse is returned by IsolateWorker on success.
 type IsolateWorkerResponse struct {
 	// S7 (#2023, R85) — isolate a worker until a time (default 2 hours, at most 7 days; a later time extends, an earlier one shortens).
-	// Only a person managing the App or holding the worker, acting as themselves. Refusals, in the order they are checked:
-	// an unknown worker, or one the caller cannot read (a pure App key among them), is WORKER_NOT_FOUND; a worker session (even a
-	// manager's) is WORKER_ISOLATION_FORBIDDEN; while S7 activation is off, setting an isolation is WORKER_ISOLATION_UNAVAILABLE
+	// Only a person managing the App or holding the worker, as themselves or, on their instruction, through their held worker
+	// (hrn:node:hadronmemory.com:specs:cor:agt:080:29, ruling 0118), recorded as one app.manager-act event, ids only. Refusals, in the order they are checked:
+	// an unknown worker, or one the caller cannot read (a pure App key among them), is WORKER_NOT_FOUND; a worker session with no
+	// instruction (even a manager's) is WORKER_ISOLATION_FORBIDDEN; while S7 activation is off, setting an isolation is WORKER_ISOLATION_UNAVAILABLE
 	// (clearing is unaffected), so an ordinary person gets this before the manager/holder check; an impersonation that reaches the
 	// write is refused FORBIDDEN (read-only); a participant who neither manages the App nor holds the worker is
 	// WORKER_ISOLATION_FORBIDDEN. Never touches the worker's own pause.
@@ -50509,6 +51301,7 @@ type IssueHostOperationResponse struct {
 	// not issued yet, HOST_OPERATION_NOT_ISSUABLE until a host has a delivery path for it (hadron-cli#829).
 	// worker.reset-context is HOST_OPERATION_NOT_ISSUABLE here: the platform issues it when a task ends (#2162). An App key
 	// issues nothing (FORBIDDEN). An unregistered host is HOST_NOT_FOUND.
+	// #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	IssueHostOperation *IssueHostOperationIssueHostOperation `json:"issueHostOperation"`
 }
 
@@ -58006,7 +58799,7 @@ type NodeFilter struct {
 	Tags          []string `json:"tags,omitempty"`
 	UpdatedAfter  *string  `json:"updatedAfter,omitempty"`
 	UpdatedBefore *string  `json:"updatedBefore,omitempty"`
-	// Structured predicate over the node's properties/data JSONB (#719).
+	// Structured predicate over the node's properties/data JSONB (#719). Not supported by appNodes (refused with BAD_USER_INPUT); use findNodes (#3427).
 	Where *gqltypes.NodeWhereInput `json:"where,omitempty"`
 }
 
@@ -73994,7 +74787,7 @@ func (v *SetQuotaLimitSetQuotaLimitQuotaCounter) __premarshalJSON() (*__premarsh
 
 // SetTeamPauseResponse is returned by SetTeamPause on success.
 type SetTeamPauseResponse struct {
-	// #2138: pause or resume the whole team, as whoever manages the App. Separate from each worker's own pause: a worker cannot lift it, and ending it clears no self-pause. While paused, no worker is nudged and every worker's check status is PENDING (TEAM_PAUSED).
+	// #2138: pause or resume the whole team, as whoever manages the App. Separate from each worker's own pause: a worker cannot lift it, and ending it clears no self-pause. While paused, no worker is nudged and every worker's check status is PENDING (TEAM_PAUSED). #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	SetTeamPause *SetTeamPauseSetTeamPause `json:"setTeamPause"`
 }
 
@@ -74770,6 +75563,7 @@ func (v *SetWorkerReportsToSetWorkerReportsToWorker) __premarshalJSON() (*__prem
 type SetWorkerWakeSettingsResponse struct {
 	// #1747 — change a worker wake settings (hrn:node:hadronmemory.com:specs:cor:agt:080:03, :21): the worker itself, its holder, or whoever manages
 	// the App, in either direction. Never the may-subscribe-workers grant.
+	// #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	SetWorkerWakeSettings *SetWorkerWakeSettingsSetWorkerWakeSettings `json:"setWorkerWakeSettings"`
 }
 
@@ -77042,6 +77836,7 @@ type SubscribeTickerResponse struct {
 	// (SUBSCRIBE_CADENCE_NEEDS_HOLDER); a worker holding the may-subscribe-workers grant, with a person
 	// behind the call, for OTHER workers only. Idempotent for a live subscription. A grant use is announced
 	// to the team chat, best-effort: announcement says POSTED or FAILED, and the subscription stands either way.
+	// #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	SubscribeWorker *SubscribeTickerSubscribeWorkerSubscribeResult `json:"subscribeWorker"`
 }
 
@@ -79829,7 +80624,7 @@ func (v *TeamDeliverySettingsResponse) GetAppDeliverySettings() *TeamDeliverySet
 
 // TeamDeliverySettingsSetResponse is returned by TeamDeliverySettingsSet on success.
 type TeamDeliverySettingsSetResponse struct {
-	// App managers only; omitted preserves, null refuses. Standby activation is unavailable until S7 (hrn:node:hadronmemory.com:specs:cor:agt:080:19).
+	// App managers only; omitted preserves, null refuses. Standby activation is unavailable until S7 (hrn:node:hadronmemory.com:specs:cor:agt:080:19). #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	SetAppDeliverySettings *TeamDeliverySettingsSetSetAppDeliverySettings `json:"setAppDeliverySettings"`
 }
 
@@ -80334,6 +81129,7 @@ type TeamDueWakesResponse struct {
 	// the unhosted lane) for STOP_CONSUMER_FRESH_SECONDS (default 600), but only when it read the lane from its start to its end in one call:
 	// no workerRefs, no after, and no next page (ask for first: 200; a lane larger than a page cannot declare). A worker whose host is lost has no serving lane until the host returns. Setting a stop signal is refused (STOP_SIGNAL_UNAVAILABLE)
 	// while any worker it would cover is on a lane with no fresh declaration.
+	// #3321: the manager's held worker reads the manager scope on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event per admitted call, ids only; it never reads its holder's personal scope, and never acknowledges.
 	DueWakes *TeamDueWakesDueWakesDueWakePage `json:"dueWakes"`
 }
 
@@ -82593,6 +83389,7 @@ func (v *TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSigna
 type TeamStopSignalLiftResponse struct {
 	// #2022 (hrn:node:hadronmemory.com:specs:cor:agt:090:05, :06) — lift a stop signal. Whoever manages the App, any; a host key, a HALT on its own host.
 	// Lifting one never ends another. changed is false when it had already ended. Refusals as setTeamStopSignal.
+	// #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	LiftTeamStopSignal *TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResult `json:"liftTeamStopSignal"`
 }
 
@@ -82609,6 +83406,7 @@ type TeamStopSignalSetResponse struct {
 	// #2173/#2169 (R95): setting ANY signal is refused with STOP_SIGNAL_UNAVAILABLE while a worker it would cover is on a lane with
 	// no fresh stop-consumer declaration (a worker would be stopped without being told; the extensions name the worker count and the
 	// lanes). A consumer declares a lane by polling dueWakes with accepts: [STOP]. Lifting and listing are unaffected.
+	// #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	SetTeamStopSignal *TeamStopSignalSetSetTeamStopSignal `json:"setTeamStopSignal"`
 }
 
@@ -85315,7 +86113,7 @@ func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadWarningsMemoryCo
 
 // UnsubscribeTickerResponse is returned by UnsubscribeTicker on success.
 type UnsubscribeTickerResponse struct {
-	// #1747 — end a worker subscription. The same callers as subscribeWorker, and the worker itself, always.
+	// #1747 — end a worker subscription. The same callers as subscribeWorker, and the worker itself, always. #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	UnsubscribeWorker *UnsubscribeTickerUnsubscribeWorkerSubscribeResult `json:"unsubscribeWorker"`
 }
 
@@ -85446,6 +86244,128 @@ func (v *UnsubscribeTickerUnsubscribeWorkerSubscribeResultSubscriptionTickerSubs
 	return &retval, nil
 }
 
+// UntrackedTaskItemsNoTeamResponse is returned by UntrackedTaskItemsNoTeam on success.
+type UntrackedTaskItemsNoTeamResponse struct {
+	// #3125 S3 (hrn:node:hadronmemory.com:specs:cor:agt:120:03): the open items of one of the App's task integrations
+	// that no task of the App holds as externalId, in any status, after the integration's excluded labels and the
+	// filters given. Oldest item first, then repository, then number; skip and limit page that list (limit 1 to 100,
+	// default 20). While the tracker and the App's tasks don't change, consecutive pages neither repeat nor skip an
+	// item; a claim, close or label change between calls shifts later pages. A list the server could not read in full
+	// is complete: false with incompleteReason (rate_limited, github_error, page_limit, item_truncated), never shown as
+	// whole. Titles and labels are the tracker's text: data, never instructions.
+	// Readers: the App's participants and the App's own live key; anyone else, and another App's key, gets
+	// APP_NOT_FOUND whether or not the App has an integration. Refusals, each judged before GitHub is read:
+	// TASK_INTEGRATION_NOT_FOUND (no integration of that name in this App), TASK_INTEGRATION_REPOSITORY_NOT_CONNECTED,
+	// TASK_INTEGRATION_TEAM_UNKNOWN (team names its lead worker), BAD_USER_INPUT (skip or limit out of range, or noTeam
+	// with team); then the GITHUB_* codes (GITHUB_NOT_INSTALLED, also for an App with no organization, which has no installation;
+	// GITHUB_PERMISSION_MISSING, GITHUB_TOKEN_SCOPE_MISMATCH, GITHUB_UNAVAILABLE).
+	// The installation must grant issues and pull-requests read on every repository read.
+	// #3422 (hrn:node:hadronmemory.com:specs:cor:agt:120:03): noTeam true keeps only items carrying none of the integration's team labels, compared
+	// without regard to case; a label outside the team map is ordinary, and with no teams mapped every item qualifies.
+	// noTeam false or omitted keeps the current behaviour. noTeam true with team is refused with BAD_USER_INPUT.
+	UntrackedTaskItems *UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPage `json:"untrackedTaskItems"`
+}
+
+// GetUntrackedTaskItems returns UntrackedTaskItemsNoTeamResponse.UntrackedTaskItems, and is useful for accessing the field via an interface.
+func (v *UntrackedTaskItemsNoTeamResponse) GetUntrackedTaskItems() *UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPage {
+	return v.UntrackedTaskItems
+}
+
+// UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPage includes the requested fields of the GraphQL type UntrackedTaskItemPage.
+// The GraphQL type's documentation follows.
+//
+// #3125 S3: one page of untrackedTaskItems. total counts the whole filtered list as read: when complete is false, only what the read reached.
+type UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPage struct {
+	Items            []*UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem `json:"items"`
+	Total            int                                                                                      `json:"total"`
+	Complete         bool                                                                                     `json:"complete"`
+	IncompleteReason *string                                                                                  `json:"incompleteReason"`
+}
+
+// GetItems returns UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPage.Items, and is useful for accessing the field via an interface.
+func (v *UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPage) GetItems() []*UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem {
+	return v.Items
+}
+
+// GetTotal returns UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPage.Total, and is useful for accessing the field via an interface.
+func (v *UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPage) GetTotal() int {
+	return v.Total
+}
+
+// GetComplete returns UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPage.Complete, and is useful for accessing the field via an interface.
+func (v *UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPage) GetComplete() bool {
+	return v.Complete
+}
+
+// GetIncompleteReason returns UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPage.IncompleteReason, and is useful for accessing the field via an interface.
+func (v *UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPage) GetIncompleteReason() *string {
+	return v.IncompleteReason
+}
+
+// UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem includes the requested fields of the GraphQL type UntrackedTaskItem.
+// The GraphQL type's documentation follows.
+//
+// #3125 S3: one open, untracked item of a task integration. title and labels are the tracker's text.
+type UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem struct {
+	// The item's canonical URL: the externalId a claim records.
+	ExternalId string `json:"externalId"`
+	// The connected repository, lower-cased.
+	Repository string   `json:"repository"`
+	Number     int      `json:"number"`
+	Title      string   `json:"title"`
+	Url        string   `json:"url"`
+	Labels     []string `json:"labels"`
+	CreatedAt  string   `json:"createdAt"`
+	UpdatedAt  string   `json:"updatedAt"`
+	// True when a pull request that closes the item has merged: listed for a close check, not dropped.
+	LinkedPullRequestMerged bool `json:"linkedPullRequestMerged"`
+}
+
+// GetExternalId returns UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem.ExternalId, and is useful for accessing the field via an interface.
+func (v *UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem) GetExternalId() string {
+	return v.ExternalId
+}
+
+// GetRepository returns UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem.Repository, and is useful for accessing the field via an interface.
+func (v *UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem) GetRepository() string {
+	return v.Repository
+}
+
+// GetNumber returns UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem.Number, and is useful for accessing the field via an interface.
+func (v *UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem) GetNumber() int {
+	return v.Number
+}
+
+// GetTitle returns UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem.Title, and is useful for accessing the field via an interface.
+func (v *UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem) GetTitle() string {
+	return v.Title
+}
+
+// GetUrl returns UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem.Url, and is useful for accessing the field via an interface.
+func (v *UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem) GetUrl() string {
+	return v.Url
+}
+
+// GetLabels returns UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem.Labels, and is useful for accessing the field via an interface.
+func (v *UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem) GetLabels() []string {
+	return v.Labels
+}
+
+// GetCreatedAt returns UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem) GetCreatedAt() string {
+	return v.CreatedAt
+}
+
+// GetUpdatedAt returns UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem) GetUpdatedAt() string {
+	return v.UpdatedAt
+}
+
+// GetLinkedPullRequestMerged returns UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem.LinkedPullRequestMerged, and is useful for accessing the field via an interface.
+func (v *UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem) GetLinkedPullRequestMerged() bool {
+	return v.LinkedPullRequestMerged
+}
+
 // UntrackedTaskItemsResponse is returned by UntrackedTaskItems on success.
 type UntrackedTaskItemsResponse struct {
 	// #3125 S3 (hrn:node:hadronmemory.com:specs:cor:agt:120:03): the open items of one of the App's task integrations
@@ -85458,10 +86378,13 @@ type UntrackedTaskItemsResponse struct {
 	// Readers: the App's participants and the App's own live key; anyone else, and another App's key, gets
 	// APP_NOT_FOUND whether or not the App has an integration. Refusals, each judged before GitHub is read:
 	// TASK_INTEGRATION_NOT_FOUND (no integration of that name in this App), TASK_INTEGRATION_REPOSITORY_NOT_CONNECTED,
-	// TASK_INTEGRATION_TEAM_UNKNOWN (team names its lead worker), BAD_USER_INPUT (skip or limit out of range); then the
-	// GITHUB_* codes (GITHUB_NOT_INSTALLED, also for an App with no organization, which has no installation;
+	// TASK_INTEGRATION_TEAM_UNKNOWN (team names its lead worker), BAD_USER_INPUT (skip or limit out of range, or noTeam
+	// with team); then the GITHUB_* codes (GITHUB_NOT_INSTALLED, also for an App with no organization, which has no installation;
 	// GITHUB_PERMISSION_MISSING, GITHUB_TOKEN_SCOPE_MISMATCH, GITHUB_UNAVAILABLE).
 	// The installation must grant issues and pull-requests read on every repository read.
+	// #3422 (hrn:node:hadronmemory.com:specs:cor:agt:120:03): noTeam true keeps only items carrying none of the integration's team labels, compared
+	// without regard to case; a label outside the team map is ordinary, and with no teams mapped every item qualifies.
+	// noTeam false or omitted keeps the current behaviour. noTeam true with team is refused with BAD_USER_INPUT.
 	UntrackedTaskItems *UntrackedTaskItemsUntrackedTaskItemsUntrackedTaskItemPage `json:"untrackedTaskItems"`
 }
 
@@ -91987,7 +92910,7 @@ func (v *UpdateTeamSessionUpdateSession) __premarshalJSON() (*__premarshalUpdate
 
 // UpdateTickerResponse is returned by UpdateTicker on success.
 type UpdateTickerResponse struct {
-	// #1747 — change a ticker. Its owner, the holder of its owning worker, or whoever manages the App. The slug never changes.
+	// #1747 — change a ticker. Its owner, the holder of its owning worker, or whoever manages the App. The slug never changes. #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	UpdateTicker *UpdateTickerUpdateTicker `json:"updateTicker"`
 }
 
@@ -98406,6 +99329,48 @@ func (v *__ClaimUntrackedTaskItemsForPartiesInput) GetAssignee() *AgentTaskParty
 // GetOwner returns __ClaimUntrackedTaskItemsForPartiesInput.Owner, and is useful for accessing the field via an interface.
 func (v *__ClaimUntrackedTaskItemsForPartiesInput) GetOwner() *AgentTaskPartyInput { return v.Owner }
 
+// __ClaimUntrackedTaskItemsForPartiesNoTeamInput is used internally by genqlient
+type __ClaimUntrackedTaskItemsForPartiesNoTeamInput struct {
+	AppRef      string               `json:"appRef"`
+	Integration string               `json:"integration"`
+	NoTeam      bool                 `json:"noTeam"`
+	Repository  *string              `json:"repository,omitempty"`
+	Ready       *ReadyFilter         `json:"ready,omitempty"`
+	Limit       *int                 `json:"limit,omitempty"`
+	Assignee    *AgentTaskPartyInput `json:"assignee,omitempty"`
+	Owner       *AgentTaskPartyInput `json:"owner,omitempty"`
+}
+
+// GetAppRef returns __ClaimUntrackedTaskItemsForPartiesNoTeamInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__ClaimUntrackedTaskItemsForPartiesNoTeamInput) GetAppRef() string { return v.AppRef }
+
+// GetIntegration returns __ClaimUntrackedTaskItemsForPartiesNoTeamInput.Integration, and is useful for accessing the field via an interface.
+func (v *__ClaimUntrackedTaskItemsForPartiesNoTeamInput) GetIntegration() string {
+	return v.Integration
+}
+
+// GetNoTeam returns __ClaimUntrackedTaskItemsForPartiesNoTeamInput.NoTeam, and is useful for accessing the field via an interface.
+func (v *__ClaimUntrackedTaskItemsForPartiesNoTeamInput) GetNoTeam() bool { return v.NoTeam }
+
+// GetRepository returns __ClaimUntrackedTaskItemsForPartiesNoTeamInput.Repository, and is useful for accessing the field via an interface.
+func (v *__ClaimUntrackedTaskItemsForPartiesNoTeamInput) GetRepository() *string { return v.Repository }
+
+// GetReady returns __ClaimUntrackedTaskItemsForPartiesNoTeamInput.Ready, and is useful for accessing the field via an interface.
+func (v *__ClaimUntrackedTaskItemsForPartiesNoTeamInput) GetReady() *ReadyFilter { return v.Ready }
+
+// GetLimit returns __ClaimUntrackedTaskItemsForPartiesNoTeamInput.Limit, and is useful for accessing the field via an interface.
+func (v *__ClaimUntrackedTaskItemsForPartiesNoTeamInput) GetLimit() *int { return v.Limit }
+
+// GetAssignee returns __ClaimUntrackedTaskItemsForPartiesNoTeamInput.Assignee, and is useful for accessing the field via an interface.
+func (v *__ClaimUntrackedTaskItemsForPartiesNoTeamInput) GetAssignee() *AgentTaskPartyInput {
+	return v.Assignee
+}
+
+// GetOwner returns __ClaimUntrackedTaskItemsForPartiesNoTeamInput.Owner, and is useful for accessing the field via an interface.
+func (v *__ClaimUntrackedTaskItemsForPartiesNoTeamInput) GetOwner() *AgentTaskPartyInput {
+	return v.Owner
+}
+
 // __ClaimUntrackedTaskItemsInput is used internally by genqlient
 type __ClaimUntrackedTaskItemsInput struct {
 	AppRef      string       `json:"appRef"`
@@ -98433,6 +99398,34 @@ func (v *__ClaimUntrackedTaskItemsInput) GetReady() *ReadyFilter { return v.Read
 
 // GetLimit returns __ClaimUntrackedTaskItemsInput.Limit, and is useful for accessing the field via an interface.
 func (v *__ClaimUntrackedTaskItemsInput) GetLimit() *int { return v.Limit }
+
+// __ClaimUntrackedTaskItemsNoTeamInput is used internally by genqlient
+type __ClaimUntrackedTaskItemsNoTeamInput struct {
+	AppRef      string       `json:"appRef"`
+	Integration string       `json:"integration"`
+	NoTeam      bool         `json:"noTeam"`
+	Repository  *string      `json:"repository,omitempty"`
+	Ready       *ReadyFilter `json:"ready,omitempty"`
+	Limit       *int         `json:"limit,omitempty"`
+}
+
+// GetAppRef returns __ClaimUntrackedTaskItemsNoTeamInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__ClaimUntrackedTaskItemsNoTeamInput) GetAppRef() string { return v.AppRef }
+
+// GetIntegration returns __ClaimUntrackedTaskItemsNoTeamInput.Integration, and is useful for accessing the field via an interface.
+func (v *__ClaimUntrackedTaskItemsNoTeamInput) GetIntegration() string { return v.Integration }
+
+// GetNoTeam returns __ClaimUntrackedTaskItemsNoTeamInput.NoTeam, and is useful for accessing the field via an interface.
+func (v *__ClaimUntrackedTaskItemsNoTeamInput) GetNoTeam() bool { return v.NoTeam }
+
+// GetRepository returns __ClaimUntrackedTaskItemsNoTeamInput.Repository, and is useful for accessing the field via an interface.
+func (v *__ClaimUntrackedTaskItemsNoTeamInput) GetRepository() *string { return v.Repository }
+
+// GetReady returns __ClaimUntrackedTaskItemsNoTeamInput.Ready, and is useful for accessing the field via an interface.
+func (v *__ClaimUntrackedTaskItemsNoTeamInput) GetReady() *ReadyFilter { return v.Ready }
+
+// GetLimit returns __ClaimUntrackedTaskItemsNoTeamInput.Limit, and is useful for accessing the field via an interface.
+func (v *__ClaimUntrackedTaskItemsNoTeamInput) GetLimit() *int { return v.Limit }
 
 // __ClearAgentProcessesIndexInput is used internally by genqlient
 type __ClearAgentProcessesIndexInput struct {
@@ -104227,6 +105220,38 @@ func (v *__UntrackedTaskItemsInput) GetSkip() *int { return v.Skip }
 
 // GetLimit returns __UntrackedTaskItemsInput.Limit, and is useful for accessing the field via an interface.
 func (v *__UntrackedTaskItemsInput) GetLimit() *int { return v.Limit }
+
+// __UntrackedTaskItemsNoTeamInput is used internally by genqlient
+type __UntrackedTaskItemsNoTeamInput struct {
+	AppRef      string       `json:"appRef"`
+	Integration string       `json:"integration"`
+	NoTeam      bool         `json:"noTeam"`
+	Repository  *string      `json:"repository,omitempty"`
+	Ready       *ReadyFilter `json:"ready,omitempty"`
+	Skip        *int         `json:"skip,omitempty"`
+	Limit       *int         `json:"limit,omitempty"`
+}
+
+// GetAppRef returns __UntrackedTaskItemsNoTeamInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__UntrackedTaskItemsNoTeamInput) GetAppRef() string { return v.AppRef }
+
+// GetIntegration returns __UntrackedTaskItemsNoTeamInput.Integration, and is useful for accessing the field via an interface.
+func (v *__UntrackedTaskItemsNoTeamInput) GetIntegration() string { return v.Integration }
+
+// GetNoTeam returns __UntrackedTaskItemsNoTeamInput.NoTeam, and is useful for accessing the field via an interface.
+func (v *__UntrackedTaskItemsNoTeamInput) GetNoTeam() bool { return v.NoTeam }
+
+// GetRepository returns __UntrackedTaskItemsNoTeamInput.Repository, and is useful for accessing the field via an interface.
+func (v *__UntrackedTaskItemsNoTeamInput) GetRepository() *string { return v.Repository }
+
+// GetReady returns __UntrackedTaskItemsNoTeamInput.Ready, and is useful for accessing the field via an interface.
+func (v *__UntrackedTaskItemsNoTeamInput) GetReady() *ReadyFilter { return v.Ready }
+
+// GetSkip returns __UntrackedTaskItemsNoTeamInput.Skip, and is useful for accessing the field via an interface.
+func (v *__UntrackedTaskItemsNoTeamInput) GetSkip() *int { return v.Skip }
+
+// GetLimit returns __UntrackedTaskItemsNoTeamInput.Limit, and is useful for accessing the field via an interface.
+func (v *__UntrackedTaskItemsNoTeamInput) GetLimit() *int { return v.Limit }
 
 // __UpdateAgentInput is used internally by genqlient
 type __UpdateAgentInput struct {
@@ -114500,6 +115525,296 @@ func ClaimUntrackedTaskItemsForParties(
 	}
 
 	data_ = &ClaimUntrackedTaskItemsForPartiesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by ClaimUntrackedTaskItemsForPartiesNoTeam.
+const ClaimUntrackedTaskItemsForPartiesNoTeam_Operation = `
+mutation ClaimUntrackedTaskItemsForPartiesNoTeam ($appRef: ID!, $integration: String!, $noTeam: Boolean!, $repository: String, $ready: ReadyFilter, $limit: Int, $assignee: AgentTaskPartyInput, $owner: AgentTaskPartyInput) {
+	claimUntrackedTaskItems(appRef: $appRef, integration: $integration, noTeam: $noTeam, repository: $repository, ready: $ready, limit: $limit, assignee: $assignee, owner: $owner) {
+		tasks {
+			... AgentTaskFields
+		}
+		complete
+		incompleteReason
+		refusalCode
+	}
+}
+fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	id
+	handle
+	taskNumber
+	appId
+	title
+	description
+	status
+	queued
+	waitingOnChildren
+	owner {
+		... AgentTaskPartyFields
+	}
+	assignee {
+		... AgentTaskPartyFields
+	}
+	assignedBy {
+		... AgentTaskPartyFields
+	}
+	createdBy {
+		... AgentTaskPartyFields
+	}
+	parentTaskId
+	tags
+	source
+	externalId
+	references {
+		kind
+		target
+		label
+	}
+	handBack {
+		code
+		text
+		handedBackAt
+	}
+	matchFailure {
+		reason
+		failedAt
+	}
+	startBy
+	finishBy
+	createdAt
+	updatedAt
+	startedAt
+	finishedAt
+	cancelledAt
+	closeSessionWhenDone
+	requirements {
+		minTier
+		role
+		roles
+		teamWorkerId
+		familyIn
+		familyNotIn
+		modelGroupIn
+		modelGroupNotIn
+		excludeWorkerIds
+	}
+	result {
+		outcome
+		summary
+		evidence
+	}
+	properties
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
+}
+fragment AgentTaskPartyFields on AgentTaskParty {
+	id
+	kind
+	name
+	urn
+}
+`
+
+func ClaimUntrackedTaskItemsForPartiesNoTeam(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	integration string,
+	noTeam bool,
+	repository *string,
+	ready *ReadyFilter,
+	limit *int,
+	assignee *AgentTaskPartyInput,
+	owner *AgentTaskPartyInput,
+) (data_ *ClaimUntrackedTaskItemsForPartiesNoTeamResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ClaimUntrackedTaskItemsForPartiesNoTeam",
+		Query:  ClaimUntrackedTaskItemsForPartiesNoTeam_Operation,
+		Variables: &__ClaimUntrackedTaskItemsForPartiesNoTeamInput{
+			AppRef:      appRef,
+			Integration: integration,
+			NoTeam:      noTeam,
+			Repository:  repository,
+			Ready:       ready,
+			Limit:       limit,
+			Assignee:    assignee,
+			Owner:       owner,
+		},
+	}
+
+	data_ = &ClaimUntrackedTaskItemsForPartiesNoTeamResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by ClaimUntrackedTaskItemsNoTeam.
+const ClaimUntrackedTaskItemsNoTeam_Operation = `
+mutation ClaimUntrackedTaskItemsNoTeam ($appRef: ID!, $integration: String!, $noTeam: Boolean!, $repository: String, $ready: ReadyFilter, $limit: Int) {
+	claimUntrackedTaskItems(appRef: $appRef, integration: $integration, noTeam: $noTeam, repository: $repository, ready: $ready, limit: $limit) {
+		tasks {
+			... AgentTaskFields
+		}
+		complete
+		incompleteReason
+		refusalCode
+	}
+}
+fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	id
+	handle
+	taskNumber
+	appId
+	title
+	description
+	status
+	queued
+	waitingOnChildren
+	owner {
+		... AgentTaskPartyFields
+	}
+	assignee {
+		... AgentTaskPartyFields
+	}
+	assignedBy {
+		... AgentTaskPartyFields
+	}
+	createdBy {
+		... AgentTaskPartyFields
+	}
+	parentTaskId
+	tags
+	source
+	externalId
+	references {
+		kind
+		target
+		label
+	}
+	handBack {
+		code
+		text
+		handedBackAt
+	}
+	matchFailure {
+		reason
+		failedAt
+	}
+	startBy
+	finishBy
+	createdAt
+	updatedAt
+	startedAt
+	finishedAt
+	cancelledAt
+	closeSessionWhenDone
+	requirements {
+		minTier
+		role
+		roles
+		teamWorkerId
+		familyIn
+		familyNotIn
+		modelGroupIn
+		modelGroupNotIn
+		excludeWorkerIds
+	}
+	result {
+		outcome
+		summary
+		evidence
+	}
+	properties
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
+}
+fragment AgentTaskPartyFields on AgentTaskParty {
+	id
+	kind
+	name
+	urn
+}
+`
+
+func ClaimUntrackedTaskItemsNoTeam(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	integration string,
+	noTeam bool,
+	repository *string,
+	ready *ReadyFilter,
+	limit *int,
+) (data_ *ClaimUntrackedTaskItemsNoTeamResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ClaimUntrackedTaskItemsNoTeam",
+		Query:  ClaimUntrackedTaskItemsNoTeam_Operation,
+		Variables: &__ClaimUntrackedTaskItemsNoTeamInput{
+			AppRef:      appRef,
+			Integration: integration,
+			NoTeam:      noTeam,
+			Repository:  repository,
+			Ready:       ready,
+			Limit:       limit,
+		},
+	}
+
+	data_ = &ClaimUntrackedTaskItemsNoTeamResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -136637,6 +137952,72 @@ func UntrackedTaskItems(
 	}
 
 	data_ = &UntrackedTaskItemsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by UntrackedTaskItemsNoTeam.
+const UntrackedTaskItemsNoTeam_Operation = `
+query UntrackedTaskItemsNoTeam ($appRef: ID!, $integration: String!, $noTeam: Boolean!, $repository: String, $ready: ReadyFilter, $skip: Int, $limit: Int) {
+	untrackedTaskItems(appRef: $appRef, integration: $integration, noTeam: $noTeam, repository: $repository, ready: $ready, skip: $skip, limit: $limit) {
+		items {
+			externalId
+			repository
+			number
+			title
+			url
+			labels
+			createdAt
+			updatedAt
+			linkedPullRequestMerged
+		}
+		total
+		complete
+		incompleteReason
+	}
+}
+`
+
+// cli#1622 (hadron-server#3422, cor:agt:120:03): the three documents above
+// with the server's no-team filter. SEPARATE documents, as cli#1596 did, so the
+// three above stay byte for byte what they were (a server without noTeam keeps
+// validating them) and only --no-team needs a server that has the argument.
+// $noTeam is non-null: these documents exist only to send true, and never send
+// team (the server refuses the pair, BAD_USER_INPUT, and the CLI refuses it
+// first).
+func UntrackedTaskItemsNoTeam(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	integration string,
+	noTeam bool,
+	repository *string,
+	ready *ReadyFilter,
+	skip *int,
+	limit *int,
+) (data_ *UntrackedTaskItemsNoTeamResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UntrackedTaskItemsNoTeam",
+		Query:  UntrackedTaskItemsNoTeam_Operation,
+		Variables: &__UntrackedTaskItemsNoTeamInput{
+			AppRef:      appRef,
+			Integration: integration,
+			NoTeam:      noTeam,
+			Repository:  repository,
+			Ready:       ready,
+			Skip:        skip,
+			Limit:       limit,
+		},
+	}
+
+	data_ = &UntrackedTaskItemsNoTeamResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

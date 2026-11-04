@@ -829,6 +829,86 @@ mutation ClaimUntrackedTaskItemsForParties(
   }
 }
 
+# cli#1622 (hadron-server#3422, cor:agt:120:03): the three documents above
+# with the server's no-team filter. SEPARATE documents, as cli#1596 did, so the
+# three above stay byte for byte what they were (a server without noTeam keeps
+# validating them) and only --no-team needs a server that has the argument.
+# $noTeam is non-null: these documents exist only to send true, and never send
+# team (the server refuses the pair, BAD_USER_INPUT, and the CLI refuses it
+# first).
+query UntrackedTaskItemsNoTeam(
+  $appRef: ID!
+  $integration: String!
+  $noTeam: Boolean!
+  # @genqlient(omitempty: true)
+  $repository: String
+  # @genqlient(omitempty: true)
+  $ready: ReadyFilter
+  # @genqlient(omitempty: true)
+  $skip: Int
+  # @genqlient(omitempty: true)
+  $limit: Int
+) {
+  untrackedTaskItems(appRef: $appRef, integration: $integration, noTeam: $noTeam, repository: $repository, ready: $ready, skip: $skip, limit: $limit) {
+    items {
+      externalId
+      repository
+      number
+      title
+      url
+      labels
+      createdAt
+      updatedAt
+      linkedPullRequestMerged
+    }
+    total
+    complete
+    incompleteReason
+  }
+}
+
+mutation ClaimUntrackedTaskItemsNoTeam(
+  $appRef: ID!
+  $integration: String!
+  $noTeam: Boolean!
+  # @genqlient(omitempty: true)
+  $repository: String
+  # @genqlient(omitempty: true)
+  $ready: ReadyFilter
+  # @genqlient(omitempty: true)
+  $limit: Int
+) {
+  claimUntrackedTaskItems(appRef: $appRef, integration: $integration, noTeam: $noTeam, repository: $repository, ready: $ready, limit: $limit) {
+    tasks { ...AgentTaskFields }
+    complete
+    incompleteReason
+    refusalCode
+  }
+}
+
+mutation ClaimUntrackedTaskItemsForPartiesNoTeam(
+  $appRef: ID!
+  $integration: String!
+  $noTeam: Boolean!
+  # @genqlient(omitempty: true)
+  $repository: String
+  # @genqlient(omitempty: true)
+  $ready: ReadyFilter
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $assignee: AgentTaskPartyInput
+  # @genqlient(omitempty: true)
+  $owner: AgentTaskPartyInput
+) {
+  claimUntrackedTaskItems(appRef: $appRef, integration: $integration, noTeam: $noTeam, repository: $repository, ready: $ready, limit: $limit, assignee: $assignee, owner: $owner) {
+    tasks { ...AgentTaskFields }
+    complete
+    incompleteReason
+    refusalCode
+  }
+}
+
 # Separate document preserves existing plain and filtered list provider floors.
 query AgentTaskListUnresolved(
   $appRef: ID!
