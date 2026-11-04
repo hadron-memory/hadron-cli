@@ -30,7 +30,8 @@ const wantDisabledCount = 71
 // An exemption that no longer matches anything fails the test, so the entry is
 // removed in the same change that cleans the file.
 var exemptions = map[string]string{
-	"internal/cmd/spec/mcp-tools.txt": "the tools manifest embedded by checktools.go; slice S2 regenerates it at S1's deployed SHA (plan R5)",
+	"internal/cmd/spec/mcp-tools.txt":        "the tools manifest embedded by checktools.go; it keeps the runner tool hadron_task_create, which shares a disabled MCP name (hadron-server#3082 Q3)",
+	"internal/cmd/spec/mcp-tools-ignore.txt": "disabled by hadron-server#3082 (S1) and still cited by a not-planned spec (V4, R5): check-tools has no status filter, so the names are listed instead of flagged",
 }
 
 func repoRoot(t *testing.T) string {

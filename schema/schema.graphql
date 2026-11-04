@@ -3121,8 +3121,8 @@ A CHANNEL (spec 049, D-2026-09-13-006): a durable, ordered message stream
 hosted in ONE memory at ONE reserved address, server-ordered and
 server-attributed — a platform entity, created one-to-one with its chat root.
 Creating it RESERVES and PROTECTS the address: generic node writes under it
-are refused (LOC_PROTECTED); its own operations (createTeamChatMessage,
-hadron_team_chat_post) are the only writers. The audience is the host
+are refused (LOC_PROTECTED); its own operations (createTeamChatMessage, which
+the CLI reaches as hadron team chat post) are the only writers. The audience is the host
 memory's (cor:acl:030:01) — a Channel has no access layer of its own.
 `lastSeq` / `lastMessageAt` are the platform-maintained watermark.
 """
@@ -6949,8 +6949,9 @@ type Mutation {
   #2607 (experiment): an acknowledgement by a manager of the App who is no
   owner in the chain succeeds with the warning alarm.ack.outside-chain in
   `extensions.warnings` (see createAgentTask).
+  #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
-  acknowledgeAlarm(eventId: ID!): AgentTeamEvent!
+  acknowledgeAlarm(eventId: ID!, instruction: ActInstructionInput): AgentTeamEvent!
 
   """
   #2017 (S1) — record that delivery batches were typed (hrn:node:hadronmemory.com:specs:cor:agt:080:16, :17). Only the receiving host key or the worker's own receiving live session, within 15 minutes.
@@ -6972,9 +6973,9 @@ type Mutation {
   acquireEditorLock(agentId: ID!): EditorLockResult!
 
   """
-  #2644 (hrn:node:hadronmemory.com:specs:cor:agt:050:02) — add a same-App blocker to a backlog/pending task, refusing cycles serially. Assigner authority.
+  #2644 (hrn:node:hadronmemory.com:specs:cor:agt:050:02) — add a same-App blocker to a backlog/pending task, refusing cycles serially. Assigner authority. #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
-  addAgentTaskBlocker(blockerTaskRef: ID!, taskRef: ID!): AgentTask!
+  addAgentTaskBlocker(blockerTaskRef: ID!, instruction: ActInstructionInput, taskRef: ID!): AgentTask!
 
   """
   DEPRECATED: use installAgentIntoApp. Carried for source-compat with
@@ -7152,8 +7153,9 @@ type Mutation {
   pending (hrn:node:hadronmemory.com:specs:cor:agt:050:02, #1754). Refusals: TASK_NOT_FOUND, TASK_NOT_OWNER,
   TASK_ENDED, TASK_INVALID_TRANSITION (already assigned: use
   reassignAgentTask), TASK_ASSIGNEE_INVALID, SESSION_NOT_BOUND, APP_UNINSTALLED.
+  #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
-  assignAgentTask(assignee: AgentTaskPartyInput!, closeSessionWhenDone: Boolean, taskId: ID!): AgentTask!
+  assignAgentTask(assignee: AgentTaskPartyInput!, closeSessionWhenDone: Boolean, instruction: ActInstructionInput, taskId: ID!): AgentTask!
 
   """
   Attach an EXISTING free-standing memory to an App.
@@ -7229,8 +7231,9 @@ type Mutation {
   #2607 (experiment): a cancel that leaves pending or started children
   succeeds with the warning task.cancel.open-children in
   `extensions.warnings` (see createAgentTask); it does not end them.
+  #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
-  cancelAgentTask(taskId: ID!): AgentTask!
+  cancelAgentTask(instruction: ActInstructionInput, taskId: ID!): AgentTask!
 
   """
   The kill switch manual handle: PENDING/RUNNING to CANCELLED (cor:agt:010:02).
@@ -7611,8 +7614,9 @@ type Mutation {
   { state: mapped (taskLoc, taskUrn) | unmapped | unresolved }. A warning never
   blocks and never reveals another worker's state to a caller who could not
   already see it on the roster.
+  #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
-  createAgentTask(input: CreateAgentTaskInput!): AgentTask!
+  createAgentTask(input: CreateAgentTaskInput!, instruction: ActInstructionInput): AgentTask!
 
   """
   Default matching (distinctAssignees omitted, null or false): items with match:true each get one post-commit
@@ -8406,8 +8410,9 @@ type Mutation {
   #2831 S1 - remove the App's model group of this name: an override reverts to the Team Agent's group, an App-only group is
   gone. The Agent's group itself is never deleted from here. Whoever manages the App only. Refusals: APP_NOT_FOUND,
   APP_MANAGER_REQUIRED, BAD_USER_INPUT, MODEL_GROUP_NOT_FOUND, SESSION_NOT_BOUND, APP_UNINSTALLED.
+  #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
-  deleteAppModelGroup(appRef: ID!, name: String!): Boolean!
+  deleteAppModelGroup(appRef: ID!, instruction: ActInstructionInput, name: String!): Boolean!
 
   """
   Spec 049 Phase 4 — soft-delete a Channel AND its chat root together (the
@@ -8690,9 +8695,9 @@ type Mutation {
   deleteWorker(confirmNoExternalAttribution: Boolean, instruction: ActInstructionInput, workerRef: ID!): Boolean!
 
   """
-  #2663: finished tasks only, their assigners only; never an App key or impersonation. Records a new disposition value, never clears it; omitted/null reference means no reference on the new value. Unknown finding TASK_FINDING_NOT_FOUND; open task TASK_NOT_FINISHED; non-assigner TASK_NOT_OWNER; unreadable task TASK_NOT_FOUND; result unchanged (hrn:node:hadronmemory.com:specs:cor:agt:050:30).
+  #2663: finished tasks only, their assigners only; never an App key or impersonation. Records a new disposition value, never clears it; omitted/null reference means no reference on the new value. Unknown finding TASK_FINDING_NOT_FOUND; open task TASK_NOT_FINISHED; non-assigner TASK_NOT_OWNER; unreadable task TASK_NOT_FOUND; result unchanged (hrn:node:hadronmemory.com:specs:cor:agt:050:30). #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
-  disposeAgentTaskFinding(disposition: AgentTaskFindingDispositionCode!, findingId: String!, reference: AgentTaskReferenceInput, taskRef: ID!): AgentTask!
+  disposeAgentTaskFinding(disposition: AgentTaskFindingDispositionCode!, findingId: String!, instruction: ActInstructionInput, reference: AgentTaskReferenceInput, taskRef: ID!): AgentTask!
 
   """
   #1606 — the author edits a comment's body and/or quote. COMMENT_NOT_AUTHOR otherwise.
@@ -9105,8 +9110,9 @@ type Mutation {
   the owner reports to, directly or up the reportsTo chain, or whoever manages the App
   (hrn:node:hadronmemory.com:specs:cor:agt:050:09). Refusals: TASK_NOT_FOUND, TASK_NOT_OWNER,
   TASK_ENDED, TASK_INVALID_TRANSITION (not backlog), SESSION_NOT_BOUND, APP_UNINSTALLED.
+  #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
-  makeAgentTaskReady(taskId: ID!): AgentTask!
+  makeAgentTaskReady(instruction: ActInstructionInput, taskId: ID!): AgentTask!
 
   """
   #1353: explicitly advance the cursor owned by one exact,
@@ -9255,8 +9261,9 @@ type Mutation {
   (hrn:node:hadronmemory.com:specs:cor:agt:050:09). Refusals: TASK_NOT_FOUND, TASK_NOT_OWNER,
   TASK_ENDED, TASK_INVALID_TRANSITION (not pending, or an assignee),
   SESSION_NOT_BOUND, APP_UNINSTALLED.
+  #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
-  parkAgentTask(taskId: ID!): AgentTask!
+  parkAgentTask(instruction: ActInstructionInput, taskId: ID!): AgentTask!
 
   """
   Process the LLM's tool response (extract data, transition stage, save assistant message)
@@ -9307,8 +9314,9 @@ type Mutation {
   assignee can no longer move it. Refusals: TASK_NOT_FOUND, TASK_NOT_OWNER,
   TASK_ENDED, TASK_INVALID_TRANSITION (no assignee yet, or the same one),
   TASK_ASSIGNEE_INVALID, SESSION_NOT_BOUND, APP_UNINSTALLED.
+  #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
-  reassignAgentTask(assignee: AgentTaskPartyInput!, closeSessionWhenDone: Boolean, taskId: ID!): AgentTask!
+  reassignAgentTask(assignee: AgentTaskPartyInput!, closeSessionWhenDone: Boolean, instruction: ActInstructionInput, taskId: ID!): AgentTask!
 
   """
   #1705 — record progress on a started task: its assignee only
@@ -9494,9 +9502,9 @@ type Mutation {
   removeAgentImport(importedAgentRef: ID!, parentAgentRef: ID!): Boolean!
 
   """
-  #2644 (hrn:node:hadronmemory.com:specs:cor:agt:050:02) — remove a blocker from a backlog/pending task. Last-blocker release restarts stall clocks and preserves status/assignee. Assigner authority.
+  #2644 (hrn:node:hadronmemory.com:specs:cor:agt:050:02) — remove a blocker from a backlog/pending task. Last-blocker release restarts stall clocks and preserves status/assignee. Assigner authority. #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
-  removeAgentTaskBlocker(blockerTaskRef: ID!, taskRef: ID!): AgentTask!
+  removeAgentTaskBlocker(blockerTaskRef: ID!, instruction: ActInstructionInput, taskRef: ID!): AgentTask!
 
   """
   Delete an AppMember row. Idempotent (no-op when the row doesn't exist).
@@ -9942,16 +9950,17 @@ type Mutation {
   setAgentModelGroup(agentRef: ID!, name: String!, patterns: [String!]!): ModelGroup!
 
   """
-  #2644 (hrn:node:hadronmemory.com:specs:cor:agt:050:01) — assigner authority; priority1..5, default1.
+  #2644 (hrn:node:hadronmemory.com:specs:cor:agt:050:01) — assigner authority; priority1..5, default1. #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
-  setAgentTaskPriority(priority: Int!, taskRef: ID!): AgentTask!
+  setAgentTaskPriority(instruction: ActInstructionInput, priority: Int!, taskRef: ID!): AgentTask!
 
   """
   #1706 — set an App's stall windows, and (#1763) its host-registration lapse: whoever manages the App. Refusals:
   APP_NOT_FOUND, APP_MANAGER_REQUIRED, BAD_USER_INPUT, SESSION_NOT_BOUND,
   APP_UNINSTALLED.
+  #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
-  setAgentTaskStallSchedule(appRef: ID!, input: AgentTaskStallScheduleInput!): AgentTaskStallSchedule!
+  setAgentTaskStallSchedule(appRef: ID!, input: AgentTaskStallScheduleInput!, instruction: ActInstructionInput): AgentTaskStallSchedule!
 
   """
   Append an effective-dated provider rate row (spec 046). PLATFORM ADMIN - org admins must never set the prices they are billed at.
@@ -9980,13 +9989,14 @@ type Mutation {
   (replacing its whole list, no merge) or, when the Agent has none, is the App's own. An empty list matches no one.
   Whoever manages the App only. Refusals: APP_NOT_FOUND, APP_MANAGER_REQUIRED, BAD_USER_INPUT, MODEL_GROUP_LIMIT_REACHED,
   SESSION_NOT_BOUND, APP_UNINSTALLED.
+  #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
-  setAppModelGroup(appRef: ID!, name: String!, patterns: [String!]!): ModelGroup!
+  setAppModelGroup(appRef: ID!, instruction: ActInstructionInput, name: String!, patterns: [String!]!): ModelGroup!
 
   """
   #3125 S1 (hrn:node:hadronmemory.com:specs:cor:dmo:050:20) — replace the App's properties with this JSON object; null
-  or an empty object clears them. Whoever manages the App only, as a person acting as themselves (a worker session,
-  an App key and an impersonation are refused). Never put a secret here. When expectedRevision is sent it must equal
+  or an empty object clears them. Whoever manages the App only: as themselves, or through their held worker's
+  session on an instruction (a worker with none, an App key, a run and an impersonation are refused). Never put a secret here. When expectedRevision is sent it must equal
   App.propertiesRevision. A write that changes nothing changes no revision and records no event; a changing write
   records app.properties-changed naming the changed top-level keys, never values. Bounds: 16 KiB of JSON, 64 levels.
   The taskIntegrations key (hrn:node:hadronmemory.com:specs:cor:agt:120:01) is validated: a list of
@@ -9995,8 +10005,9 @@ type Mutation {
   PROPERTIES_TOO_LARGE, PROPERTIES_KEY_RESERVED (a key named __proto__ at any depth, which cannot be stored; names the
   path), TASK_INTEGRATION_INVALID (names the JSON path,
   never the value), APP_PROPERTIES_CONFLICT.
+  #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
-  setAppProperties(appRef: String!, expectedRevision: Int, properties: JSON): App!
+  setAppProperties(appRef: String!, expectedRevision: Int, instruction: ActInstructionInput, properties: JSON): App!
 
   """
   #1747 — change an App ticker settings (hrn:node:hadronmemory.com:specs:cor:agt:080:05, :19). Whoever manages the App only.
@@ -10069,8 +10080,9 @@ type Mutation {
   (hrn:node:hadronmemory.com:specs:cor:agt:060:09): whoever manages the App only. Writes availability.changed.
   Refusals: APP_NOT_FOUND, AVAILABILITY_NOT_PERMITTED, BAD_USER_INPUT,
   SESSION_NOT_BOUND, APP_UNINSTALLED.
+  #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
-  setModelFamilyAvailability(input: SetModelFamilyAvailabilityInput!): ModelFamilyAvailability!
+  setModelFamilyAvailability(input: SetModelFamilyAvailabilityInput!, instruction: ActInstructionInput): ModelFamilyAvailability!
 
   """
   Set the stored (enforced) quota limit for a scope x action (#510) - the operator dial that previously required psql. Org-ADMIN.
@@ -10113,8 +10125,9 @@ type Mutation {
   stall-rule unavailable mark (the stall rule must have set it), never set another worker unavailable. Writes availability.changed.
   Refusals: WORKER_NOT_FOUND, AVAILABILITY_NOT_PERMITTED, WORKER_RETIRED,
   BAD_USER_INPUT, SESSION_NOT_BOUND, APP_UNINSTALLED.
+  #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
-  setWorkerAvailability(input: SetWorkerAvailabilityInput!): WorkerAvailability!
+  setWorkerAvailability(input: SetWorkerAvailabilityInput!, instruction: ActInstructionInput): WorkerAvailability!
 
   """
   #2045 — set or clear a worker's boot-prompt pointer (for customised workers). The node must be compiled and
@@ -10385,8 +10398,9 @@ type Mutation {
   never an assignee alone or an App key. Ended tasks refuse TASK_ENDED. Omitted fields stay unchanged;
   empty optional fields clear, tags/requirements replace whole. An edit is not progress and clears no wake.
   Source is fixed. Event carries changed field names only (hrn:node:hadronmemory.com:specs:cor:agt:050:11).
+  #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
-  updateAgentTask(input: UpdateAgentTaskInput!, taskId: ID!): AgentTask!
+  updateAgentTask(input: UpdateAgentTaskInput!, instruction: ActInstructionInput, taskId: ID!): AgentTask!
 
   """
   #2024 — change a template; absent fields are unchanged. expectedRevision must be the revision you read, else
@@ -12921,9 +12935,9 @@ type Query {
   automationReadGrants(appRef: String, includeRevoked: Boolean = false, instruction: ActInstructionInput, memoryRef: String): [AutomationReadGrant!]!
 
   """
-  #3350: only this App's managers list its team snapshot grants; includeRevoked defaults false. A held worker on a validated instruction may list within its own App; one ids-only team event per admitted instructed call, including an empty page.
+  #3350: only this App's managers list its team snapshot grants; includeRevoked defaults false. Optional triggerKind (SCHEDULE or WEBHOOK) and triggerId narrow rows and total; triggerId requires triggerKind. Unknown or foreign triggers give an empty page. Authority is checked before filter validation. A held worker on a validated instruction may list within its own App; one ids-only team event per admitted instructed call, including an empty page.
   """
-  automationTeamSnapshotGrants(appRef: ID!, includeRevoked: Boolean, instruction: ActInstructionInput, limit: Int, offset: Int): AutomationTeamSnapshotGrantPage!
+  automationTeamSnapshotGrants(appRef: ID!, includeRevoked: Boolean, instruction: ActInstructionInput, limit: Int, offset: Int, triggerId: ID, triggerKind: String): AutomationTeamSnapshotGrantPage!
 
   """One event by id. Grant scope: calendar.read."""
   calendarEvent(calendarId: String, connectionRef: ID!, eventId: ID!): CalendarEvent!

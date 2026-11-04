@@ -1918,7 +1918,7 @@ func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) __premarshalJSON() (*_
 
 // AgentTaskAddBlockerResponse is returned by AgentTaskAddBlocker on success.
 type AgentTaskAddBlockerResponse struct {
-	// #2644 (hrn:node:hadronmemory.com:specs:cor:agt:050:02) — add a same-App blocker to a backlog/pending task, refusing cycles serially. Assigner authority.
+	// #2644 (hrn:node:hadronmemory.com:specs:cor:agt:050:02) — add a same-App blocker to a backlog/pending task, refusing cycles serially. Assigner authority. #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	AddAgentTaskBlocker *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask `json:"addAgentTaskBlocker"`
 }
 
@@ -2232,6 +2232,7 @@ type AgentTaskAssignResponse struct {
 	// pending (hrn:node:hadronmemory.com:specs:cor:agt:050:02, #1754). Refusals: TASK_NOT_FOUND, TASK_NOT_OWNER,
 	// TASK_ENDED, TASK_INVALID_TRANSITION (already assigned: use
 	// reassignAgentTask), TASK_ASSIGNEE_INVALID, SESSION_NOT_BOUND, APP_UNINSTALLED.
+	// #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	AssignAgentTask *AgentTaskAssignAssignAgentTask `json:"assignAgentTask"`
 }
 
@@ -2545,6 +2546,7 @@ type AgentTaskCancelResponse struct {
 	// #2607 (experiment): a cancel that leaves pending or started children
 	// succeeds with the warning task.cancel.open-children in
 	// `extensions.warnings` (see createAgentTask); it does not end them.
+	// #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	CancelAgentTask *AgentTaskCancelCancelAgentTask `json:"cancelAgentTask"`
 }
 
@@ -3558,6 +3560,7 @@ type AgentTaskCreateResponse struct {
 	// { state: mapped (taskLoc, taskUrn) | unmapped | unresolved }. A warning never
 	// blocks and never reveals another worker's state to a caller who could not
 	// already see it on the roster.
+	// #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	CreateAgentTask *AgentTaskCreateCreateAgentTask `json:"createAgentTask"`
 }
 
@@ -3971,7 +3974,7 @@ func (v *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTaskFindingDispositi
 
 // AgentTaskDisposeFindingResponse is returned by AgentTaskDisposeFinding on success.
 type AgentTaskDisposeFindingResponse struct {
-	// #2663: finished tasks only, their assigners only; never an App key or impersonation. Records a new disposition value, never clears it; omitted/null reference means no reference on the new value. Unknown finding TASK_FINDING_NOT_FOUND; open task TASK_NOT_FINISHED; non-assigner TASK_NOT_OWNER; unreadable task TASK_NOT_FOUND; result unchanged (hrn:node:hadronmemory.com:specs:cor:agt:050:30).
+	// #2663: finished tasks only, their assigners only; never an App key or impersonation. Records a new disposition value, never clears it; omitted/null reference means no reference on the new value. Unknown finding TASK_FINDING_NOT_FOUND; open task TASK_NOT_FINISHED; non-assigner TASK_NOT_OWNER; unreadable task TASK_NOT_FOUND; result unchanged (hrn:node:hadronmemory.com:specs:cor:agt:050:30). #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	DisposeAgentTaskFinding *AgentTaskDisposeFindingDisposeAgentTaskFindingAgentTask `json:"disposeAgentTaskFinding"`
 }
 
@@ -7947,6 +7950,7 @@ type AgentTaskParkResponse struct {
 	// (hrn:node:hadronmemory.com:specs:cor:agt:050:09). Refusals: TASK_NOT_FOUND, TASK_NOT_OWNER,
 	// TASK_ENDED, TASK_INVALID_TRANSITION (not pending, or an assignee),
 	// SESSION_NOT_BOUND, APP_UNINSTALLED.
+	// #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	ParkAgentTask *AgentTaskParkParkAgentTask `json:"parkAgentTask"`
 }
 
@@ -8679,6 +8683,7 @@ type AgentTaskReadyResponse struct {
 	// the owner reports to, directly or up the reportsTo chain, or whoever manages the App
 	// (hrn:node:hadronmemory.com:specs:cor:agt:050:09). Refusals: TASK_NOT_FOUND, TASK_NOT_OWNER,
 	// TASK_ENDED, TASK_INVALID_TRANSITION (not backlog), SESSION_NOT_BOUND, APP_UNINSTALLED.
+	// #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	MakeAgentTaskReady *AgentTaskReadyMakeAgentTaskReadyAgentTask `json:"makeAgentTaskReady"`
 }
 
@@ -9004,6 +9009,7 @@ type AgentTaskReassignResponse struct {
 	// assignee can no longer move it. Refusals: TASK_NOT_FOUND, TASK_NOT_OWNER,
 	// TASK_ENDED, TASK_INVALID_TRANSITION (no assignee yet, or the same one),
 	// TASK_ASSIGNEE_INVALID, SESSION_NOT_BOUND, APP_UNINSTALLED.
+	// #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	ReassignAgentTask *AgentTaskReassignReassignAgentTask `json:"reassignAgentTask"`
 }
 
@@ -9401,7 +9407,7 @@ func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) __premarshalJSON
 
 // AgentTaskRemoveBlockerResponse is returned by AgentTaskRemoveBlocker on success.
 type AgentTaskRemoveBlockerResponse struct {
-	// #2644 (hrn:node:hadronmemory.com:specs:cor:agt:050:02) — remove a blocker from a backlog/pending task. Last-blocker release restarts stall clocks and preserves status/assignee. Assigner authority.
+	// #2644 (hrn:node:hadronmemory.com:specs:cor:agt:050:02) — remove a blocker from a backlog/pending task. Last-blocker release restarts stall clocks and preserves status/assignee. Assigner authority. #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	RemoveAgentTaskBlocker *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask `json:"removeAgentTaskBlocker"`
 }
 
@@ -9479,7 +9485,7 @@ func (v *AgentTaskResultInput) GetSummary() *string { return v.Summary }
 
 // AgentTaskSetPriorityResponse is returned by AgentTaskSetPriority on success.
 type AgentTaskSetPriorityResponse struct {
-	// #2644 (hrn:node:hadronmemory.com:specs:cor:agt:050:01) — assigner authority; priority1..5, default1.
+	// #2644 (hrn:node:hadronmemory.com:specs:cor:agt:050:01) — assigner authority; priority1..5, default1. #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	SetAgentTaskPriority *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask `json:"setAgentTaskPriority"`
 }
 
@@ -10632,6 +10638,7 @@ type AgentTaskUpdateResponse struct {
 	// never an assignee alone or an App key. Ended tasks refuse TASK_ENDED. Omitted fields stay unchanged;
 	// empty optional fields clear, tags/requirements replace whole. An edit is not progress and clears no wake.
 	// Source is fixed. Event carries changed field names only (hrn:node:hadronmemory.com:specs:cor:agt:050:11).
+	// #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	UpdateAgentTask *AgentTaskUpdateUpdateAgentTask `json:"updateAgentTask"`
 }
 
@@ -13980,6 +13987,7 @@ type AlarmAcknowledgeResponse struct {
 	// #2607 (experiment): an acknowledgement by a manager of the App who is no
 	// owner in the chain succeeds with the warning alarm.ack.outside-chain in
 	// `extensions.warnings` (see createAgentTask).
+	// #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	AcknowledgeAlarm *AlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent `json:"acknowledgeAlarm"`
 }
 
@@ -18771,7 +18779,7 @@ func (v *AutomationTeamSnapshotGrantsInstructedAutomationTeamSnapshotGrantsAutom
 
 // AutomationTeamSnapshotGrantsInstructedResponse is returned by AutomationTeamSnapshotGrantsInstructed on success.
 type AutomationTeamSnapshotGrantsInstructedResponse struct {
-	// #3350: only this App's managers list its team snapshot grants; includeRevoked defaults false. A held worker on a validated instruction may list within its own App; one ids-only team event per admitted instructed call, including an empty page.
+	// #3350: only this App's managers list its team snapshot grants; includeRevoked defaults false. Optional triggerKind (SCHEDULE or WEBHOOK) and triggerId narrow rows and total; triggerId requires triggerKind. Unknown or foreign triggers give an empty page. Authority is checked before filter validation. A held worker on a validated instruction may list within its own App; one ids-only team event per admitted instructed call, including an empty page.
 	AutomationTeamSnapshotGrants *AutomationTeamSnapshotGrantsInstructedAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPage `json:"automationTeamSnapshotGrants"`
 }
 
@@ -18782,7 +18790,7 @@ func (v *AutomationTeamSnapshotGrantsInstructedResponse) GetAutomationTeamSnapsh
 
 // AutomationTeamSnapshotGrantsResponse is returned by AutomationTeamSnapshotGrants on success.
 type AutomationTeamSnapshotGrantsResponse struct {
-	// #3350: only this App's managers list its team snapshot grants; includeRevoked defaults false. A held worker on a validated instruction may list within its own App; one ids-only team event per admitted instructed call, including an empty page.
+	// #3350: only this App's managers list its team snapshot grants; includeRevoked defaults false. Optional triggerKind (SCHEDULE or WEBHOOK) and triggerId narrow rows and total; triggerId requires triggerKind. Unknown or foreign triggers give an empty page. Authority is checked before filter validation. A held worker on a validated instruction may list within its own App; one ids-only team event per admitted instructed call, including an empty page.
 	AutomationTeamSnapshotGrants *AutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantsAutomationTeamSnapshotGrantPage `json:"automationTeamSnapshotGrants"`
 }
 
@@ -21859,8 +21867,8 @@ func (v *ChannelCheckFields) GetLastCheckedAt() *string { return v.LastCheckedAt
 // hosted in ONE memory at ONE reserved address, server-ordered and
 // server-attributed — a platform entity, created one-to-one with its chat root.
 // Creating it RESERVES and PROTECTS the address: generic node writes under it
-// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage,
-// hadron_team_chat_post) are the only writers. The audience is the host
+// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage, which
+// the CLI reaches as hadron team chat post) are the only writers. The audience is the host
 // memory's (cor:acl:030:01) — a Channel has no access layer of its own.
 // `lastSeq` / `lastMessageAt` are the platform-maintained watermark.
 type ChannelFields struct {
@@ -22582,8 +22590,8 @@ func (v *ChannelsChannelsChannelsPage) GetItems() []*ChannelsChannelsChannelsPag
 // hosted in ONE memory at ONE reserved address, server-ordered and
 // server-attributed — a platform entity, created one-to-one with its chat root.
 // Creating it RESERVES and PROTECTS the address: generic node writes under it
-// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage,
-// hadron_team_chat_post) are the only writers. The audience is the host
+// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage, which
+// the CLI reaches as hadron team chat post) are the only writers. The audience is the host
 // memory's (cor:acl:030:01) — a Channel has no access layer of its own.
 // `lastSeq` / `lastMessageAt` are the platform-maintained watermark.
 type ChannelsChannelsChannelsPageItemsChannel struct {
@@ -30654,8 +30662,8 @@ func (v *CreateAssetReferenceNodeResponse) GetCreateAssetReferenceNode() *Create
 // hosted in ONE memory at ONE reserved address, server-ordered and
 // server-attributed — a platform entity, created one-to-one with its chat root.
 // Creating it RESERVES and PROTECTS the address: generic node writes under it
-// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage,
-// hadron_team_chat_post) are the only writers. The audience is the host
+// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage, which
+// the CLI reaches as hadron team chat post) are the only writers. The audience is the host
 // memory's (cor:acl:030:01) — a Channel has no access layer of its own.
 // `lastSeq` / `lastMessageAt` are the platform-maintained watermark.
 type CreateChannelCreateChannel struct {
@@ -38868,6 +38876,7 @@ type DeleteAppModelGroupResponse struct {
 	// #2831 S1 - remove the App's model group of this name: an override reverts to the Team Agent's group, an App-only group is
 	// gone. The Agent's group itself is never deleted from here. Whoever manages the App only. Refusals: APP_NOT_FOUND,
 	// APP_MANAGER_REQUIRED, BAD_USER_INPUT, MODEL_GROUP_NOT_FOUND, SESSION_NOT_BOUND, APP_UNINSTALLED.
+	// #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	DeleteAppModelGroup bool `json:"deleteAppModelGroup"`
 }
 
@@ -39683,8 +39692,8 @@ func (v *DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRang
 // hosted in ONE memory at ONE reserved address, server-ordered and
 // server-attributed — a platform entity, created one-to-one with its chat root.
 // Creating it RESERVES and PROTECTS the address: generic node writes under it
-// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage,
-// hadron_team_chat_post) are the only writers. The audience is the host
+// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage, which
+// the CLI reaches as hadron team chat post) are the only writers. The audience is the host
 // memory's (cor:acl:030:01) — a Channel has no access layer of its own.
 // `lastSeq` / `lastMessageAt` are the platform-maintained watermark.
 type DeliveryBatchesDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRangeChannel struct {
@@ -40589,8 +40598,8 @@ func (v *DueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannel) GetChannel()
 // hosted in ONE memory at ONE reserved address, server-ordered and
 // server-attributed — a platform entity, created one-to-one with its chat root.
 // Creating it RESERVES and PROTECTS the address: generic node writes under it
-// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage,
-// hadron_team_chat_post) are the only writers. The audience is the host
+// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage, which
+// the CLI reaches as hadron team chat post) are the only writers. The audience is the host
 // memory's (cor:acl:030:01) — a Channel has no access layer of its own.
 // `lastSeq` / `lastMessageAt` are the platform-maintained watermark.
 type DueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannelChannel struct {
@@ -43342,8 +43351,8 @@ func (v *GetBoundSessionLivenessSession) GetIsLive() bool { return v.IsLive }
 // hosted in ONE memory at ONE reserved address, server-ordered and
 // server-attributed — a platform entity, created one-to-one with its chat root.
 // Creating it RESERVES and PROTECTS the address: generic node writes under it
-// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage,
-// hadron_team_chat_post) are the only writers. The audience is the host
+// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage, which
+// the CLI reaches as hadron team chat post) are the only writers. The audience is the host
 // memory's (cor:acl:030:01) — a Channel has no access layer of its own.
 // `lastSeq` / `lastMessageAt` are the platform-maintained watermark.
 type GetChannelChannel struct {
@@ -54875,6 +54884,7 @@ type ModelFamilyAvailabilitySetResponse struct {
 	// (hrn:node:hadronmemory.com:specs:cor:agt:060:09): whoever manages the App only. Writes availability.changed.
 	// Refusals: APP_NOT_FOUND, AVAILABILITY_NOT_PERMITTED, BAD_USER_INPUT,
 	// SESSION_NOT_BOUND, APP_UNINSTALLED.
+	// #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	SetModelFamilyAvailability *ModelFamilyAvailabilitySetSetModelFamilyAvailability `json:"setModelFamilyAvailability"`
 }
 
@@ -67722,8 +67732,8 @@ func (v *RotateAgentWebhookRotateAgentWebhookAgentWebhookCredentials) __premarsh
 // hosted in ONE memory at ONE reserved address, server-ordered and
 // server-attributed — a platform entity, created one-to-one with its chat root.
 // Creating it RESERVES and PROTECTS the address: generic node writes under it
-// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage,
-// hadron_team_chat_post) are the only writers. The audience is the host
+// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage, which
+// the CLI reaches as hadron team chat post) are the only writers. The audience is the host
 // memory's (cor:acl:030:01) — a Channel has no access layer of its own.
 // `lastSeq` / `lastMessageAt` are the platform-maintained watermark.
 type RouterChannelHeadChannel struct {
@@ -70528,8 +70538,8 @@ func (v *SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesD
 // hosted in ONE memory at ONE reserved address, server-ordered and
 // server-attributed — a platform entity, created one-to-one with its chat root.
 // Creating it RESERVES and PROTECTS the address: generic node writes under it
-// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage,
-// hadron_team_chat_post) are the only writers. The audience is the host
+// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage, which
+// the CLI reaches as hadron team chat post) are the only writers. The audience is the host
 // memory's (cor:acl:030:01) — a Channel has no access layer of its own.
 // `lastSeq` / `lastMessageAt` are the platform-maintained watermark.
 type SessionInboxDeliveryBatchesDeliveryBatchPageBatchesDeliveryBatchRangesDeliveryBatchRangeChannel struct {
@@ -72210,6 +72220,7 @@ type SetAppModelGroupResponse struct {
 	// (replacing its whole list, no merge) or, when the Agent has none, is the App's own. An empty list matches no one.
 	// Whoever manages the App only. Refusals: APP_NOT_FOUND, APP_MANAGER_REQUIRED, BAD_USER_INPUT, MODEL_GROUP_LIMIT_REACHED,
 	// SESSION_NOT_BOUND, APP_UNINSTALLED.
+	// #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	SetAppModelGroup *SetAppModelGroupSetAppModelGroup `json:"setAppModelGroup"`
 }
 
@@ -72240,8 +72251,8 @@ func (v *SetAppModelGroupSetAppModelGroup) GetUpdatedAt() string { return v.Upda
 // SetAppPropertiesResponse is returned by SetAppProperties on success.
 type SetAppPropertiesResponse struct {
 	// #3125 S1 (hrn:node:hadronmemory.com:specs:cor:dmo:050:20) — replace the App's properties with this JSON object; null
-	// or an empty object clears them. Whoever manages the App only, as a person acting as themselves (a worker session,
-	// an App key and an impersonation are refused). Never put a secret here. When expectedRevision is sent it must equal
+	// or an empty object clears them. Whoever manages the App only: as themselves, or through their held worker's
+	// session on an instruction (a worker with none, an App key, a run and an impersonation are refused). Never put a secret here. When expectedRevision is sent it must equal
 	// App.propertiesRevision. A write that changes nothing changes no revision and records no event; a changing write
 	// records app.properties-changed naming the changed top-level keys, never values. Bounds: 16 KiB of JSON, 64 levels.
 	// The taskIntegrations key (hrn:node:hadronmemory.com:specs:cor:agt:120:01) is validated: a list of
@@ -72250,6 +72261,7 @@ type SetAppPropertiesResponse struct {
 	// PROPERTIES_TOO_LARGE, PROPERTIES_KEY_RESERVED (a key named __proto__ at any depth, which cannot be stored; names the
 	// path), TASK_INTEGRATION_INVALID (names the JSON path,
 	// never the value), APP_PROPERTIES_CONFLICT.
+	// #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	SetAppProperties *SetAppPropertiesSetAppPropertiesApp `json:"setAppProperties"`
 }
 
@@ -76932,8 +76944,8 @@ func (v *TeamChannelLocationApp) GetDefaultChannel() *TeamChannelLocationAppDefa
 // hosted in ONE memory at ONE reserved address, server-ordered and
 // server-attributed — a platform entity, created one-to-one with its chat root.
 // Creating it RESERVES and PROTECTS the address: generic node writes under it
-// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage,
-// hadron_team_chat_post) are the only writers. The audience is the host
+// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage, which
+// the CLI reaches as hadron team chat post) are the only writers. The audience is the host
 // memory's (cor:acl:030:01) — a Channel has no access layer of its own.
 // `lastSeq` / `lastMessageAt` are the platform-maintained watermark.
 type TeamChannelLocationAppDefaultChannel struct {
@@ -77602,8 +77614,8 @@ func (v *TeamChatReadMetadataApp) GetDefaultChannel() *TeamChatReadMetadataAppDe
 // hosted in ONE memory at ONE reserved address, server-ordered and
 // server-attributed — a platform entity, created one-to-one with its chat root.
 // Creating it RESERVES and PROTECTS the address: generic node writes under it
-// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage,
-// hadron_team_chat_post) are the only writers. The audience is the host
+// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage, which
+// the CLI reaches as hadron team chat post) are the only writers. The audience is the host
 // memory's (cor:acl:030:01) — a Channel has no access layer of its own.
 // `lastSeq` / `lastMessageAt` are the platform-maintained watermark.
 type TeamChatReadMetadataAppDefaultChannel struct {
@@ -78768,8 +78780,8 @@ func (v *TeamDefaultChannelApp) GetDefaultChannel() *TeamDefaultChannelAppDefaul
 // hosted in ONE memory at ONE reserved address, server-ordered and
 // server-attributed — a platform entity, created one-to-one with its chat root.
 // Creating it RESERVES and PROTECTS the address: generic node writes under it
-// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage,
-// hadron_team_chat_post) are the only writers. The audience is the host
+// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage, which
+// the CLI reaches as hadron team chat post) are the only writers. The audience is the host
 // memory's (cor:acl:030:01) — a Channel has no access layer of its own.
 // `lastSeq` / `lastMessageAt` are the platform-maintained watermark.
 type TeamDefaultChannelAppDefaultChannel struct {
@@ -79223,8 +79235,8 @@ func (v *TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannel) GetLates
 // hosted in ONE memory at ONE reserved address, server-ordered and
 // server-attributed — a platform entity, created one-to-one with its chat root.
 // Creating it RESERVES and PROTECTS the address: generic node writes under it
-// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage,
-// hadron_team_chat_post) are the only writers. The audience is the host
+// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage, which
+// the CLI reaches as hadron team chat post) are the only writers. The audience is the host
 // memory's (cor:acl:030:01) — a Channel has no access layer of its own.
 // `lastSeq` / `lastMessageAt` are the platform-maintained watermark.
 type TeamDueWakesDueWakesDueWakePageWakesDueWakeChannelsDueChannelChannel struct {
@@ -81369,6 +81381,7 @@ type TeamStallScheduleSetResponse struct {
 	// #1706 — set an App's stall windows, and (#1763) its host-registration lapse: whoever manages the App. Refusals:
 	// APP_NOT_FOUND, APP_MANAGER_REQUIRED, BAD_USER_INPUT, SESSION_NOT_BOUND,
 	// APP_UNINSTALLED.
+	// #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	SetAgentTaskStallSchedule *TeamStallScheduleSetSetAgentTaskStallSchedule `json:"setAgentTaskStallSchedule"`
 }
 
@@ -83061,8 +83074,8 @@ func (v *TickerFieldsApp) GetId() string { return v.Id }
 // hosted in ONE memory at ONE reserved address, server-ordered and
 // server-attributed — a platform entity, created one-to-one with its chat root.
 // Creating it RESERVES and PROTECTS the address: generic node writes under it
-// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage,
-// hadron_team_chat_post) are the only writers. The audience is the host
+// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage, which
+// the CLI reaches as hadron team chat post) are the only writers. The audience is the host
 // memory's (cor:acl:030:01) — a Channel has no access layer of its own.
 // `lastSeq` / `lastMessageAt` are the platform-maintained watermark.
 type TickerFieldsChannelsChannel struct {
@@ -86234,8 +86247,8 @@ func (v *UpdateChannelResponse) GetUpdateChannel() *UpdateChannelUpdateChannel {
 // hosted in ONE memory at ONE reserved address, server-ordered and
 // server-attributed — a platform entity, created one-to-one with its chat root.
 // Creating it RESERVES and PROTECTS the address: generic node writes under it
-// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage,
-// hadron_team_chat_post) are the only writers. The audience is the host
+// are refused (LOC_PROTECTED); its own operations (createTeamChatMessage, which
+// the CLI reaches as hadron team chat post) are the only writers. The audience is the host
 // memory's (cor:acl:030:01) — a Channel has no access layer of its own.
 // `lastSeq` / `lastMessageAt` are the platform-maintained watermark.
 type UpdateChannelUpdateChannel struct {
@@ -93030,6 +93043,7 @@ type WorkerAvailabilitySetResponse struct {
 	// stall-rule unavailable mark (the stall rule must have set it), never set another worker unavailable. Writes availability.changed.
 	// Refusals: WORKER_NOT_FOUND, AVAILABILITY_NOT_PERMITTED, WORKER_RETIRED,
 	// BAD_USER_INPUT, SESSION_NOT_BOUND, APP_UNINSTALLED.
+	// #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	SetWorkerAvailability *WorkerAvailabilitySetSetWorkerAvailability `json:"setWorkerAvailability"`
 }
 

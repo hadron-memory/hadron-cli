@@ -301,9 +301,11 @@ jobs:
             echo "A citation is permanent, so a node describing a REMOVED tool may want a"
             echo "supersede rather than an edit - see docs/how-to/maintain-product-specs.md."
             echo
-            echo "Do NOT add these to \`internal/cmd/spec/mcp-tools-ignore.txt\`: that file"
+            echo "Do NOT add live-tool rot to \`internal/cmd/spec/mcp-tools-ignore.txt\`: that file"
             echo "carries non-tool \`hadron_*\` identifiers that legitimately appear in prose,"
             echo "and using it to silence real rot hides exactly what this check surfaces."
+            echo "The one exception is its own commented section for tools hadron-server#3082"
+            echo "disables and a not-planned spec still names (R5)."
             echo
             echo "Failing run: $RUN_URL"
           } > issue-body.md

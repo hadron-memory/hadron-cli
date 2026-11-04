@@ -1,7 +1,10 @@
 # The 71 agent-team MCP tools hadron-server slice S1 disables.
 # Source: plan plans:mcp-team-cut rev 2, "The tool list" (hrn:node:hadronmemory.com:hadron-dev-team-shared:plans:mcp-team-cut), ruling M5-R1 (hadron-cli#1384).
 # Copied by hand; the guard test fails unless exactly 71 names are listed, so a hand edit cannot shrink it silently.
-# Switch to S1's exported list when S2 lands.
+# Stays hand-copied (cli#1511, Q3): a CLI unit test cannot read the server tree, and
+# the server's switch (offTeamTool) is a helper, not an exported list. The generator's
+# disabled set at the deployed SHA (GEN_TOOLS_PRINT_DISABLED=1) was cross-checked
+# against this file when S2 landed.
 hadron_resume_session
 hadron_create_resume_claim
 hadron_record_work

@@ -1,6 +1,7 @@
 package spec
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -76,6 +77,36 @@ func TestEmbeddedToolManifest(t *testing.T) {
 		if !ign[want] {
 			t.Errorf("ignore-list missing expected non-tool %q", want)
 		}
+	}
+}
+
+// hadron-cli#1511 (hadron-server#3082 S2): a tool the server disables never
+// reaches tools/list, so the manifest must not list it as live. The list is the
+// shipped-text guard's hand-copied 71; hadron_task_create stays because the
+// runner registers a tool of the same name.
+func TestEmbeddedToolManifestOmitsDisabledTeamTools(t *testing.T) {
+	reg := parseToolList(toolManifestRaw)
+	raw, err := os.ReadFile("../../shippedtext/testdata/disabled_mcp_tools.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	disabled := parseToolList(string(raw))
+	if len(disabled) != 71 {
+		t.Fatalf("disabled list = %d names, want 71", len(disabled))
+	}
+	for name := range disabled {
+		if name == "hadron_task_create" {
+			if !reg[name] {
+				t.Errorf("runner tool %q must stay in the manifest", name)
+			}
+			continue
+		}
+		if reg[name] {
+			t.Errorf("disabled tool %q is still listed as a real tool", name)
+		}
+	}
+	if reg["hadron_team_chat_post"] {
+		t.Error("hadron_team_chat_post is disabled and must not be in the manifest")
 	}
 }
 
