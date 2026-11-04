@@ -1,6 +1,7 @@
 package delivery
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"os"
@@ -112,5 +113,106 @@ func TestStopReporterDuplicateSeqNeverRepostsAfterMismatch_1662(t *testing.T) {
 	f.chat.hideFromRead = false
 	if out := onlyOutcome(t, f.run(f.reporter())); out.Result != "reconciled" || !f.reported() || f.chat.attempts != 2 {
 		t.Fatalf("recovery%+v attempts%d", out, f.chat.attempts)
+	}
+}
+
+func TestStopReporterAcceptedSeqDurableBeforeReadBack_1662(t *testing.T) {
+	f := newReporterFixture(t)
+	r := f.reporter()
+	r.afterPost = func() {
+		data, err := os.ReadFile(filepath.Join(f.box.Dir, ev1Base()+".sending"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var state map[string]any
+		if err := json.Unmarshal(data, &state); err != nil {
+			t.Fatal(err)
+		}
+		if state["acceptedSeq"] != float64(2) || state["acceptedAuthorWorkerId"] != "w-hugo" {
+			t.Fatalf("accepted answer not durable before read-back: %s", data)
+		}
+		panic("crash before read-back")
+	}
+	func() { defer func() { _ = recover() }(); f.run(r) }()
+	if f.reported() {
+		t.Fatal("crash wrote marker")
+	}
+	f.clock = f.clock.Add(time.Hour)
+	f.chat.hideFromRead = true
+	if out := onlyOutcome(t, f.run(f.reporter())); out.Result != "failed" || f.chat.attempts != 1 {
+		t.Fatalf("outcome%+v attempts%d", out, f.chat.attempts)
+	}
+	f.chat.hideFromRead = false
+	if out := onlyOutcome(t, f.run(f.reporter())); out.Result != "reconciled" || !f.reported() || f.chat.attempts != 1 {
+		t.Fatalf("outcome%+v attempts%d", out, f.chat.attempts)
+	}
+}
+
+func TestStopReporterInvalidAcceptedRecordRefusesWithoutPost_1662(t *testing.T) {
+	for _, state := range []string{`"acceptedSeq":-1,"acceptedAuthorWorkerId":"w-hugo"`, `"acceptedSeq":2`, `"acceptedSeq":2,"acceptedAuthorWorkerId":"unrecorded-worker"`} {
+		t.Run(state, func(t *testing.T) {
+			f := newReporterFixture(t)
+			raw := `{"eventId":"ev-1","body":"frozen","headSeq":1,"authorWorkerId":"w-hugo","firstAttemptAt":"2026-11-04T10:00:00Z",` + state + `}`
+			if _, err := f.box.writeFile(ev1Base()+".sending", []byte(raw), true); err != nil {
+				t.Fatal(err)
+			}
+			out := onlyOutcome(t, f.run(f.reporter()))
+			if out.Result != "failed" || !strings.Contains(out.Error, "invalid recorded accepted post") || f.chat.attempts != 0 || f.reported() {
+				t.Fatalf("outcome%+v attempts%d", out, f.chat.attempts)
+			}
+		})
+	}
+}
+
+type acceptedAnswerAPI1662 struct {
+	ReporterAPI
+	afterAnswer func()
+	reads       int
+	invalidSeq  bool
+}
+
+func (a *acceptedAnswerAPI1662) Post(ctx context.Context, body string) (int, error) {
+	seq, err := a.ReporterAPI.Post(ctx, body)
+	if a.afterAnswer != nil {
+		a.afterAnswer()
+	}
+	if a.invalidSeq {
+		seq = 0
+	}
+	return seq, err
+}
+func (a *acceptedAnswerAPI1662) MessagesAfter(ctx context.Context, after, limit int) ([]ChatMessage, error) {
+	a.reads++
+	return a.ReporterAPI.MessagesAfter(ctx, after, limit)
+}
+
+func TestStopReporterAcceptedPersistenceFailureStopsBeforeReadBack_1662(t *testing.T) {
+	f := newReporterFixture(t)
+	api := &acceptedAnswerAPI1662{ReporterAPI: f.chat}
+	api.afterAnswer = func() {
+		name := filepath.Join(f.box.Dir, ev1Base()+".sending")
+		if err := os.Remove(name); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Mkdir(name, 0o700); err != nil {
+			t.Fatal(err)
+		} // rename cannot replace a directory
+	}
+	r := f.reporter()
+	r.API = api
+	out := onlyOutcome(t, f.run(r))
+	if out.Result != "failed" || out.Seq != 2 || !strings.Contains(out.Error, "recording accepted post #2") || api.reads != 0 || f.reported() {
+		t.Fatalf("outcome%+v reads%d", out, api.reads)
+	}
+}
+
+func TestStopReporterInvalidAnswerStopsBeforeReadBack_1662(t *testing.T) {
+	f := newReporterFixture(t)
+	api := &acceptedAnswerAPI1662{ReporterAPI: f.chat, invalidSeq: true}
+	r := f.reporter()
+	r.API = api
+	out := onlyOutcome(t, f.run(r))
+	if out.Result != "failed" || !strings.Contains(out.Error, "valid sequence") || api.reads != 0 || f.reported() {
+		t.Fatalf("outcome%+v reads%d", out, api.reads)
 	}
 }
