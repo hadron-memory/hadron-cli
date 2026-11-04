@@ -16,7 +16,7 @@ hadron config set server https://hadron.example.com     # persistent
 
 ```sh
 hadron auth login
-# or choose Google instead of the default GitHub identity flow:
+# or go straight to Google instead of the server's sign-in page:
 hadron auth login --provider google
 ```
 
