@@ -365,3 +365,45 @@ func TestLedgerCleanAndDeterministic(t *testing.T) {
 		t.Errorf("not deterministic or empty")
 	}
 }
+
+// #1670 BLIND + LOCAL findings: malformed registry text is reported, never a
+// crash, never silently clean.
+func TestLedgerMalformedCitationRange(t *testing.T) {
+	_, _, specs := ledgerFixture(t)
+	probe := func(corpus string) []ledgerFinding {
+		r := "## D-2026-10-06-001: probe\n- **Status:** Decided\n- **Date:** 2026-10-06\n- **Corpus:** " + corpus + "\n"
+		return checkLedger(r, nil, specs)
+	}
+	// A bare `cor` with a range bound has no segment to expand: no panic.
+	eq(t, "bare anchor range", ledgerKeys(probe("Codified — `cor`–`:02`"), "citation-malformed"), []string{"D-2026-10-06-001->cor"})
+	// A descending citation range is reported, not reduced to its start.
+	eq(t, "descending", ledgerKeys(probe("Codified — `cor:spc:020:03`–`:01`"), "citation-malformed"), []string{"D-2026-10-06-001->cor:spc:020:03"})
+	// An ascending one stays clean of this rule.
+	eq(t, "ascending", ledgerKeys(probe("Codified — `cor:spc:020:01`–`:03`"), "citation-malformed"), nil)
+}
+
+func TestLedgerIDTokenBoundariesAndMalformedRangeTail(t *testing.T) {
+	reg, _, specs := ledgerFixture(t)
+	run := func(text string) []ledgerFinding {
+		var out []ledgerFinding
+		for _, f := range checkLedger(reg, []ledgerDoc{{Citation: "cor:x:010", Field: "content", Text: text}}, specs) {
+			if f.Category == 3 {
+				out = append(out, f)
+			}
+		}
+		return out
+	}
+	// A full ID is a whole token: four digits or two letters is no ID, and is reported.
+	eq(t, "four digits", ledgerKeys(run("D-2026-10-01-0010"), "unparsed-shorthand"), []string{""})
+	eq(t, "two letters", ledgerKeys(run("D-2026-10-01-AB"), "unparsed-shorthand"), []string{""})
+	if got := ledgerKeys(run("D-2026-10-01-0010"), "unregistered-id"); len(got) != 0 {
+		t.Errorf("truncated ID judged: %q", got)
+	}
+	// A range tail whose bound is not three digits is reported, not ignored.
+	eq(t, "short bound", ledgerKeys(run("D-2026-10-02-002…00"), "unparsed-shorthand"), []string{""})
+	eq(t, "long bound", ledgerKeys(run("D-2026-10-02-002–0040"), "unparsed-shorthand"), []string{""})
+	// Prose after a dash is still just prose.
+	if got := run("D-2026-10-02-002 – see above"); len(got) != 0 {
+		t.Errorf("prose after dash: %+v", got)
+	}
+}
