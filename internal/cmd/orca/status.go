@@ -115,9 +115,10 @@ the terminal's screen from Orca and the App's workers from the server. When a
 terminal looks idle it also reads the server's tickers and due wakes (the dark
 rule below). That due-wake read is the one a deliverer makes, so the server may
 reserve a due wake against the App's daily wake budget, and when the budget is
-spent the platform posts its daily notice to the team chat; a read made with an
-App key is also recorded (which key, how many workers, when). With --config,
-every server read below is made with the host key and recorded as a host-key use.
+spent the platform posts its daily notice to the team chat; an App-key due-wake
+read is also recorded (which key, how many workers, when). With --config, the
+ticker, subscription and due-wake reads below are made with the host key and
+each is recorded as a host-key use; the workers read is not.
 
 Classifies one worker's terminal (found by the worker's session binding in its
 worktree, or taken directly by terminal id) as the versioned terminal-status@1

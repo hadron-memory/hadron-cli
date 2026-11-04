@@ -3846,9 +3846,9 @@ resolve the anchored-thread conflict before merging, rather than retry blind.
 runs Orca and needs the `orca` CLI on PATH (or `delivery.orca_bin` with `--config`). Off that host it exits **10**
 (no output). It only lists and reads terminals: it never types and never acknowledges a wake. Its server reads are not free of effect: the `dueWakes` read is the ordinary one a deliverer makes, so the server may reserve a due
 wake against the App's daily wake budget (an already-outstanding wake is handed out again with no second slot),
-the platform may post its once-a-day budget notice to the team chat when the budget is spent, and every read made with
-an App key (with `--config`: the ticker reads and the `dueWakes` read, refusals included) is recorded as a host-key
-use. Reach check without guessing a name: `hadron orca terminal status no-such-worker` lists Orca first once the
+the platform may post its once-a-day budget notice to the team chat when the budget is spent. An ordinary App-key
+`dueWakes` read is recorded (which key, how many workers, when). With `--config`, the ticker and subscription reads and
+the `dueWakes` read, refusals included, are each recorded as a host-key use; the `workers` read is not. Reach check without guessing a name: `hadron orca terminal status no-such-worker` lists Orca first once the
 arguments are accepted, so exit 10 = Orca unreachable (`orca` not on PATH, app not running, no answer in 15s) and
 exit 4 = Orca answered; exit 2 or 3 is refused before Orca is listed and says nothing about Orca. `--all` is one JSON array only with `--json`; without it, one text line per worker.
 
