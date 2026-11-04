@@ -366,6 +366,12 @@ successful or not, before anything is retired or prescribed:
   `spec get <old>` shows that `superseded-by` edge.** A rerun that still
   can't see it takes the new-supersede path and mints a *second* replacement.
 
+`spec supersede` (both modes, `--dry-run` too) refuses a RESCINDED or WITHDRAWN
+source (lead or `rescinded`/`withdrawn` tag, cor:spc:010:01) with exit 5 and no
+write. If the source becomes one after the link or replacement landed, the
+retirement is refused (exit 5), that link stays and is reported, and no rerun is
+advised: a rerun gets the early refusal.
+
 `spec supersede <old> --by <existing-citation>` creates no node and does not
 rewrite the old body. It links and tags the old spec to an existing written,
 live spec in the SAME memory (cross-module and cross-product allowed). It

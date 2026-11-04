@@ -1,6 +1,7 @@
 package spec
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"regexp"
@@ -19,6 +20,37 @@ import (
 var supersededWord = regexp.MustCompile(`(?i)\bsuperseded\b`)
 
 var supersedeLead = regexp.MustCompile(`^SUPERSEDED \([0-9]{4}-[0-9]{2}-[0-9]{2}\) by ([^ ]+) \(`)
+
+// A RESCINDED or WITHDRAWN spec has no successor (cor:spc:010:01), so
+// supersede never rewrites it. The match is anchored at the start of the lead
+// (a SUPERSEDED lead whose history cites RESCINDED is not a tombstone) or is
+// the rescinded/withdrawn tag. Not isRescindedAbstract: spec rescind uses that.
+var tombstoneLead = regexp.MustCompile(`(?i)^(RESCINDED|WITHDRAWN)\b`)
+
+func isTombstoneSource(n *gen.GetNodeNode) bool {
+	return tombstoneLead.MatchString(strings.TrimSpace(derefStr(n.Abstract))) || hasTag(n.Tags, "rescinded") || hasTag(n.Tags, "withdrawn")
+}
+
+// sourceTombstoneError is the early refusal: no write has been made.
+func sourceTombstoneError(n *gen.GetNodeNode) error {
+	if !isTombstoneSource(n) {
+		return nil
+	}
+	return exitcode.Newf(exitcode.Conflict, "%s is a RESCINDED or WITHDRAWN spec, which has no successor (cor:spc:010:01); supersede does not rewrite it; nothing was written", n.Loc)
+}
+
+// tombstoneRaceError: the spec became a tombstone after the replacement or
+// edge landed, so retirement is refused but the earlier writes stand.
+type tombstoneRaceError struct{ loc string }
+
+func (e *tombstoneRaceError) Error() string {
+	return e.loc + " became a RESCINDED or WITHDRAWN tombstone"
+}
+
+func isTombstoneRace(err error) bool {
+	var e *tombstoneRaceError
+	return errors.As(err, &e)
+}
 
 // Only an anchored, machine-written lead is rerun evidence. A citation in the
 // historical summary does not make a conflicting retirement a no-op.
@@ -146,6 +178,9 @@ func supersedeByExisting(cmd *cobra.Command, f *cmdutil.Factory, client graphql.
 		return err
 	}
 	validate := func() (bool, error) {
+		if err := sourceTombstoneError(old); err != nil {
+			return false, err
+		}
 		if target.Loc != by {
 			return false, exitcode.Newf(exitcode.Conflict, "successor citation changed while reading; nothing was written")
 		}
