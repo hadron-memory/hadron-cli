@@ -54,7 +54,9 @@ disabled_in_file() {
   if [ -n "$aliases" ]; then
     re="${re}|(^|[^A-Za-z0-9_.])(${aliases})\\("
   fi
-  awk -v re="$re" '
+  # The regex travels in the environment: awk -v would process its backslash
+  # escapes (gawk turns \( into a bare paren and fails to compile it).
+  RE="$re" awk '
     function firstname(str,   m) {
       if (match(str, /["\047]hadron_[a-z0-9_]+["\047]/)) {
         m = substr(str, RSTART + 1, RLENGTH - 2); return m
@@ -67,7 +69,7 @@ disabled_in_file() {
         n = firstname(line); if (n != "") print n
         pending = 0
       }
-      if (match(line, re)) {
+      if (match(line, ENVIRON["RE"])) {
         rest = substr(line, RSTART + RLENGTH)
         n = firstname(rest)
         if (n != "") print n; else pending = 1
