@@ -59,5 +59,35 @@ the issue body plus Patrick's attach amendment 1 (the amendment wins).
 
 ## Out of scope (named follow-ups)
 
-Codex and GLM sources, a server-declared collection, the portal view, the
+A Z.ai usage source (glm is recorded as "no local source" until one exists),
+a server-declared collection, the portal view, the
 Lifecycle Agent procedure step, moving workers.
+
+## All providers (cli#1659)
+
+- `family` is `claude` (default), `codex` or `glm`. A codex `configDir` is the
+  Codex home and must be a clean absolute path.
+- **Codex** reads the newest `sessions/YYYY/MM/DD/rollout-*.jsonl` (lexical
+  order: the newest day directory that has one, then the newest name) and takes
+  the latest `token_count` event's `rate_limits` (`primary`, `secondary`). Only
+  `used_percent`, `window_minutes` and `resets_at` are decoded and stored;
+  `credits.balance`, `plan_type`, token counts and conversation text never are.
+  The Codex home must itself be a real directory and nothing under it is
+  followed through a link (components above the configured home are the
+  operator's own path and may be linked); the file opened must be the regular
+  file that was checked (opened without following a link and without blocking on a special file, then fstat-checked; on Windows and other targets without those flags the Lstat and fstat checks are the guarantee, best effort). A directory with more than 512 entries is an error, not an empty one. Directory listings, line length (1 MiB) and the bytes
+  actually read (256 MiB, enforced on the reader) are bounded, and a bad line
+  is skipped unread. A missing source is `no-reading-yet`; an unreadable
+  directory or a read failure is an error with no path or content in it, never
+  a partial reading. The newest file only: a fresh session that has not
+  yet taken a turn reads as `no-reading-yet` until its first `token_count`.
+- **Record**: Codex windows are `primary*` and `secondary*` with their own
+  minutes, not relabelled as the 5h/7d pair; `sourceState` is `ok`,
+  `no-reading-yet` (codex) or `no-local-source` (glm). A Claude record is
+  byte-identical to before (every new field is omitted).
+- **glm** is a finding: an accepted family whose record says `no-local-source`.
+- **show** ranks every window of every family on one axis (the earliest
+  `exhaustsAt` before its reset); minutes label a window and are part of its
+  identity for burn rate (a reading of another length, or none against one that
+  has it, never combines), never rank it. Extra `PRIMARY`/`SECONDARY`/`SOURCE` columns appear only
+  when an account has them.

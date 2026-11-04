@@ -44,10 +44,14 @@ var usageEnv = func(f *cmdutil.Factory) healthsched.Env {
 func newCmdTeamUsage(f *cmdutil.Factory) *cobra.Command {
 	group := &cobra.Command{
 		Use:   "usage <command>",
-		Short: "Record and show each model account's 5h/7d allowance use",
-		Long: `Track how much of each model subscription account's allowance is used. These
-are the rolling 5-hour and 7-day windows that every session on an account
-shares, read on the worker host: "collect" records one snapshot per account as a
+		Short: "Record and show every provider account's allowance use",
+		Long: `Track how much of each model subscription account's allowance is used, for every
+provider the team uses (family claude, codex or glm). Claude accounts report
+the rolling 5-hour and 7-day windows that every session on an account shares;
+Codex accounts report their primary and secondary windows, each with its own
+length; a provider with no readable source (glm today) is recorded as a
+finding, "no local source", and listed by "show", never silently dropped. All
+are read on the worker host: "collect" records one snapshot per account as a
 Hadron object (collection account-usage), "show" tells you which account runs
 out first, and "install" runs collect on a schedule.
 
@@ -69,13 +73,26 @@ Setup, per account, by the operator:
     entry per account: label (your own name, never an email; an @ is refused),
     configDir (absolute), family (claude), optional ccusageFile, optional
     workers (names that run on the account; absent means "not configured").
+ 4. Codex (family codex): configDir is the account's Codex home (a clean
+    absolute path). Nothing to set up: collect reads the newest
+    sessions/YYYY/MM/DD/rollout-*.jsonl under it and takes only the latest
+    token_count event's rate_limits (used_percent, window_minutes, resets_at
+    for primary and secondary). No network or API key. Everything else in a
+    rollout (conversation text, token counts, credits, plan) is never stored,
+    printed or logged; a malformed or oversized line is skipped, and a symlink
+    or non-regular file is never followed. A rollout with no token_count yet is
+    recorded as "no-reading-yet", not 0.
+ 5. glm (Z.ai): configDir is the account's config dir. No local usage source
+    exists yet, so the record says sourceState "no-local-source".
 
 Record shape (schemaVersion 1, collection account-usage; absent values are left
 out, never 0): label, family, host, observedAt (RFC 3339); fiveHourPct,
 fiveHourResetsAt, sevenDayPct, sevenDayResetsAt; tokensSinceLast,
 estCostUsdSinceLast (growth of the ccusage blocks since this account's previous
 record, absent when it cannot be measured); ccusageBlocks (the still-growing
-blocks, the next record's checkpoint); workers, workersConfigured, schemaVersion.`,
+blocks, the next record's checkpoint); workers, workersConfigured, schemaVersion. Codex records add primaryPct,
+primaryMinutes, primaryResetsAt and secondaryPct, secondaryMinutes,
+secondaryResetsAt, plus sourceState (ok, no-reading-yet; glm: no-local-source).`,
 		Example: "  hadron team usage collect --config ./usage.yaml\n  hadron team usage show --config ./usage.yaml --json\n  hadron team usage install --config ./usage.yaml --interval 15m",
 	}
 	group.AddCommand(newUsageCollect(f), newUsageShow(f), newUsageInstall(f), newUsageUninstall(f), newUsageStatus(f))
@@ -180,7 +197,7 @@ Exit 0 after recording, 2 for refused input, otherwise as any server write.`,
 					return api.MapError(err)
 				}
 				id := objectID(resp.CreateObject)
-				dto.Records = append(dto.Records, collectedDTO{Label: label, ObjectID: id, Record: rec, HasWindows: rec.FiveHourPct != nil || rec.SevenDayPct != nil})
+				dto.Records = append(dto.Records, collectedDTO{Label: label, ObjectID: id, Record: rec, HasWindows: rec.FiveHourPct != nil || rec.SevenDayPct != nil || rec.PrimaryPct != nil || rec.SecondaryPct != nil})
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				t := output.NewTable(w, "ACCOUNT", "5H", "7D", "OBSERVED")
@@ -247,7 +264,7 @@ func newUsageShow(f *cmdutil.Factory) *cobra.Command {
 	var limit int
 	c := &cobra.Command{
 		Use:   "show [--config <usage.yaml> | -m <memory>]",
-		Short: "Show each account's current 5h/7d use, resets and burn rate",
+		Short: "Show each account's current use, resets and burn rate",
 		Long: `Read the recorded account-usage objects and show, per account, the current 5-hour
 and 7-day use, when each resets, the recent burn rate (percent per hour across
 the points recorded in the current window) and, when the rate is positive, the
@@ -260,9 +277,13 @@ expired true: its percentage describes a window that is over. Reads at most
 that do not parse are skipped.
 
 --json: {memory, accounts:[{label, family, host, observedAt, fiveHour, sevenDay,
-workers, workersConfigured, points}]}, each window {usedPct, resetsAt, expired,
-burnPctPerHour, exhaustsAt, exhaustsBeforeReset}; accounts is [] when nothing
-is recorded.`,
+primary, secondary, sourceState, workers, workersConfigured, points}]}, each
+window {usedPct, resetsAt, expired, minutes, burnPctPerHour, exhaustsAt,
+exhaustsBeforeReset}; primary and secondary (with minutes) appear only for codex
+accounts and sourceState only for codex and glm accounts. "Runs out first"
+ranks every window of every family by the same rule: the earliest exhaustsAt
+that falls before its window's reset, whatever the window's length. accounts is
+[] when nothing is recorded.`,
 		Example: "  hadron team usage show --config ./usage.yaml\n  hadron team usage show -m hrn:mem:acme.com:team --json",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
@@ -296,9 +317,23 @@ is recorded.`,
 				dto.Accounts = []accountusage.AccountView{}
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				t := output.NewTable(w, "ACCOUNT", "5H", "5H RESETS", "5H %/H", "7D", "7D RESETS", "7D %/H", "RUNS OUT")
+				// Codex windows and a source state add columns only when an account
+				// has them, so a Claude-only listing is unchanged.
+				extra := false
 				for _, a := range dto.Accounts {
-					t.Row(output.SafeCell(a.Label), winPct(a.FiveHour), strDash(a.FiveHour.ResetsAt), rateCell(a.FiveHour), winPct(a.SevenDay), strDash(a.SevenDay.ResetsAt), rateCell(a.SevenDay), runsOut(a))
+					extra = extra || a.Primary != nil || a.SourceState != ""
+				}
+				hdr := []string{"ACCOUNT", "5H", "5H RESETS", "5H %/H", "7D", "7D RESETS", "7D %/H", "RUNS OUT"}
+				if extra {
+					hdr = append(hdr, "PRIMARY", "SECONDARY", "SOURCE")
+				}
+				t := output.NewTable(w, hdr...)
+				for _, a := range dto.Accounts {
+					row := []string{output.SafeCell(a.Label), winPct(a.FiveHour), strDash(a.FiveHour.ResetsAt), rateCell(a.FiveHour), winPct(a.SevenDay), strDash(a.SevenDay.ResetsAt), rateCell(a.SevenDay), runsOut(a)}
+					if extra {
+						row = append(row, ownWinCell(a.Primary), ownWinCell(a.Secondary), sourceCell(a.SourceState))
+					}
+					t.Row(row...)
 				}
 				return t.Flush()
 			})
@@ -323,6 +358,33 @@ func winPct(w accountusage.WindowView) string {
 	return s
 }
 
+// ownWinCell shows a window that carries its own length, such as "15% of 300m".
+func ownWinCell(w *accountusage.WindowView) string {
+	if w == nil || w.UsedPct == nil {
+		return "—"
+	}
+	s := fmt.Sprintf("%.0f%%", *w.UsedPct)
+	if w.Minutes != nil {
+		s += fmt.Sprintf(" of %dm", *w.Minutes)
+	}
+	if w.Expired {
+		s += " (expired)"
+	}
+	return s
+}
+
+func sourceCell(s string) string {
+	switch s {
+	case "":
+		return "—"
+	case "no-local-source":
+		return "no local source"
+	case "no-reading-yet":
+		return "no reading yet"
+	}
+	return output.SafeCell(s)
+}
+
 func rateCell(w accountusage.WindowView) string {
 	if w.BurnPctPerHour == nil {
 		return "—"
@@ -333,7 +395,14 @@ func rateCell(w accountusage.WindowView) string {
 // runsOut is the earliest exhaustion before reset across both windows.
 func runsOut(a accountusage.AccountView) string {
 	best, bestAt := "", time.Time{}
-	for _, w := range []accountusage.WindowView{a.FiveHour, a.SevenDay} {
+	wins := []accountusage.WindowView{a.FiveHour, a.SevenDay}
+	if a.Primary != nil {
+		wins = append(wins, *a.Primary)
+	}
+	if a.Secondary != nil {
+		wins = append(wins, *a.Secondary)
+	}
+	for _, w := range wins {
 		if w.ExhaustsAt == nil || w.ExhaustsBeforeReset == nil || !*w.ExhaustsBeforeReset {
 			continue
 		}
