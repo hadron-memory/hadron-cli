@@ -184,8 +184,8 @@ a missing or too-open key file is exit 3, before Orca is listed.
 With --config the dark rule needs two reads from the host key, and both reads
 must pass: the tickers and their subscriptions (the host:operate scope) and the
 due wakes (the attention:deliver scope). If either is refused, an idle worker
-fails closed (locked/unrecognized). Each read, and each refusal, is recorded as
-a host-key use; the due-wake read is not the only record. The key reads due
+fails closed (locked/unrecognized). Each of these two reads, and each refusal,
+is recorded as a host-key use; the due-wake read is not the only record. The key reads due
 wakes only for the workers its own host's registration lists, so a configured
 worker the registration does not list is not judged: it fails closed.
 attention:deliver grants nothing beyond due wakes and their acknowledgement,

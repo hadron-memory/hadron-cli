@@ -101,7 +101,7 @@ func TestAgenticUsageOrcaRecordingMatchesHelp(t *testing.T) {
 		t.Error("the section says the due-wake read is the only server effect, but host-key reads are all recorded")
 	}
 	// George's delta P2: no universal "every read ... host-key use" promise.
-	for _, bad := range []string{"every read made with an App key", "every server read below"} {
+	for _, bad := range []string{"every read made with an App key", "every server read below", "Each read, and each refusal"} {
 		if strings.Contains(sec, bad) {
 			t.Errorf("section promises an audit record for every read: %q", bad)
 		}
@@ -243,6 +243,7 @@ func TestStatusHelpWhatItWrites(t *testing.T) {
 	)
 	mustNotContain(t, "status", long,
 		"every server read below",
+		"Each read, and each refusal",
 		"records nothing",
 		"changes nothing",
 	)

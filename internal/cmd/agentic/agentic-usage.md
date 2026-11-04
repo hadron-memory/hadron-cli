@@ -3903,8 +3903,8 @@ listed. Without `--config` nothing changes. **What a host key reads:** the dark 
 their subscribers (`host:operate`), read-only, for the workers its own host's registration lists (a server
 before hadron-server#2931 refuses it, `APP_NOT_FOUND`). (2) `dueWakes` (`attention:deliver`, a refusal is
 `APP_KEY_SCOPE_REQUIRED`), again only for the workers its own host registers; a key bound to a session is
-refused. Each read, and each refusal, is recorded as a host-key use, so the due-wake read is not the only
-record. If either read is refused an otherwise-idle worker fails closed to `locked`/`unrecognized`, exit 0,
+refused. Each of these two reads, and each refusal, is recorded as a host-key use (the `workers` read is not), so
+the due-wake read is not the only record. If either read is refused an otherwise-idle worker fails closed to `locked`/`unrecognized`, exit 0,
 and so does a configured worker the registration does not list.
 
 The output carries codes only. The local `detail` (the ticker and due time behind a `dark`, or why a read
