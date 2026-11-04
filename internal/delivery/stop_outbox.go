@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -45,11 +46,19 @@ func stopDropName(eventID string) string {
 }
 
 func (o *StopOutbox) write(name string, rec StopDrop, replace bool) (bool, error) {
-	if err := os.MkdirAll(o.Dir, 0o700); err != nil {
-		return false, err
-	}
 	data, err := json.Marshal(rec)
 	if err != nil {
+		return false, err
+	}
+	return o.writeFile(name, data, replace)
+}
+
+// writeFile writes data under name durably: a synced 0600 temporary, then a
+// rename (replace) or a link that fails if the name exists (create once),
+// then a sync of the directory, so the name survives a crash once this
+// returns. created is false only when replace is false and the name existed.
+func (o *StopOutbox) writeFile(name string, data []byte, replace bool) (created bool, err error) {
+	if err := os.MkdirAll(o.Dir, 0o700); err != nil {
 		return false, err
 	}
 	tmp, err := os.CreateTemp(o.Dir, ".stop-*")
@@ -74,15 +83,30 @@ func (o *StopOutbox) write(name string, rec StopDrop, replace bool) (bool, error
 	}
 	dst := filepath.Join(o.Dir, name)
 	if replace {
-		return true, os.Rename(tmp.Name(), dst)
-	}
-	if err := os.Link(tmp.Name(), dst); err != nil {
+		if err := os.Rename(tmp.Name(), dst); err != nil {
+			return false, err
+		}
+	} else if err := os.Link(tmp.Name(), dst); err != nil {
 		if errors.Is(err, fs.ErrExist) {
 			return false, nil
 		}
 		return false, err
 	}
-	return true, nil
+	return true, syncDir(o.Dir)
+}
+
+// syncDir makes a new or renamed name in dir durable. Windows cannot open a
+// directory for sync; there it is a no-op.
+func syncDir(dir string) error {
+	if runtime.GOOS == "windows" {
+		return nil
+	}
+	d, err := os.Open(dir)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = d.Close() }()
+	return d.Sync()
 }
 
 // Drop records rec unless its notice is already recorded. created is true
@@ -117,17 +141,36 @@ func (o *StopOutbox) Typed(eventID string, at time.Time) error {
 	return err
 }
 
+// namedDrop is a record with its file's base name (the hashed notice id),
+// which its .sending and .reported siblings share.
+type namedDrop struct {
+	base string
+	rec  StopDrop
+}
+
 // List is every recorded notice, for the reporter and status. Markers and
 // temporaries are skipped; an unreadable record is an error, never skipped.
 func (o *StopOutbox) List() ([]StopDrop, error) {
+	named, err := o.listNamed()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]StopDrop, 0, len(named))
+	for _, n := range named {
+		out = append(out, n.rec)
+	}
+	return out, nil
+}
+
+func (o *StopOutbox) listNamed() ([]namedDrop, error) {
 	entries, err := os.ReadDir(o.Dir)
 	if errors.Is(err, fs.ErrNotExist) {
-		return []StopDrop{}, nil
+		return []namedDrop{}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	out := []StopDrop{}
+	out := []namedDrop{}
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".json") || strings.HasPrefix(e.Name(), ".") {
 			continue
@@ -140,7 +183,7 @@ func (o *StopOutbox) List() ([]StopDrop, error) {
 		if err := json.Unmarshal(data, &rec); err != nil {
 			return nil, err
 		}
-		out = append(out, rec)
+		out = append(out, namedDrop{base: strings.TrimSuffix(e.Name(), ".json"), rec: rec})
 	}
 	return out, nil
 }
