@@ -253,6 +253,7 @@ query GetNode($ref: ID!) {
       priority
       target {
         id
+        name
         loc
         memoryId
       }
@@ -329,6 +330,7 @@ query GetNodeRaw($ref: ID!) {
       priority
       target {
         id
+        name
         loc
         memoryId
       }

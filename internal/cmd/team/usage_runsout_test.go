@@ -28,3 +28,18 @@ func TestRunsOutIsTheEarliestExhaustionAcrossWindows(t *testing.T) {
 		}
 	}
 }
+
+func TestRunsOutRanksCodexAndClaudeWindowsOnOneAxis(t *testing.T) {
+	// A 90%-used window with no burn (no exhaustion) does not outrank a window that exhausts.
+	noBurn := accountusage.WindowView{}
+	a := accountusage.AccountView{FiveHour: noBurn, Primary: &accountusage.WindowView{ExhaustsAt: strp("2026-11-04T13:00:00Z"), ExhaustsBeforeReset: boolp(true)}, Secondary: &accountusage.WindowView{ExhaustsAt: strp("2026-11-04T12:30:00Z"), ExhaustsBeforeReset: boolp(true)}}
+	if got := runsOut(a); got != "2026-11-04T12:30:00Z" {
+		t.Fatalf("got %s", got)
+	}
+	if got := runsOut(accountusage.AccountView{SourceState: "no-local-source"}); got != "—" {
+		t.Fatalf("got %s", got)
+	}
+}
+
+func strp(s string) *string { return &s }
+func boolp(b bool) *bool    { return &b }
