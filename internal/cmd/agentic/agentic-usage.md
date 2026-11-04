@@ -1005,6 +1005,17 @@ Conventions:
   mid-move. The confirmation identifies the node by its destination URN (carried
   in `--json`
   as `urn`).
+- `node move … --dry-run` reads an advisory inventory without writing: source
+  subtree URNs/names and nodes already present at the requested destination.
+  It does not predict rebased locs, success, refusals, write/schema permission
+  or broken links; hadron-server#3424 tracks the server planner. Reads page to
+  exhaustion; any failed, truncated, omitted or unavailable read prints
+  `INCOMPLETE` and exits 1. A complete read exits 0 but is not a snapshot or a
+  guarantee about a later move. `--json`: `{advisory: true, complete, message,
+  status, source: {nodes: [{urn, name}]}, destination: {requested, present:
+  [{urn, name}]}, notPredicted: [...]}`. Incomplete lists are empty, never a
+  partial inventory labelled complete. The requested destination is preserved
+  as typed. Normal moves (without `--dry-run`) keep their existing behavior.
 - `node merge <source> --into <target>` folds the source node into the target
   (the survivor) and returns the target. Name each by URN or a bare `<loc>` with
   `-m` (which scopes both). By default every mergeable field folds in; restrict

@@ -86,7 +86,7 @@ func TestC3cDefaultSendsNoNewOperationOrJSONField(t *testing.T) {
 }
 
 func TestC3cBodyOnlyAndDryRunRefuseBeforeRequests(t *testing.T) {
-	for _, args := range [][]string{{"node", "get", "hrn:node:acme.com:kb:x", "--body-only", "--lint-warnings"}, {"node", "update", "hrn:node:acme.com:kb:x", "--name", "X", "--dry-run", "--lint-warnings"}} {
+	for _, args := range [][]string{{"node", "get", "hrn:node:acme.com:kb:x", "--body-only", "--lint-warnings"}, {"node", "move", "hrn:node:acme.com:kb:x", "--to-memory", "acme.com:archive", "--dry-run", "--lint-warnings"}, {"node", "update", "hrn:node:acme.com:kb:x", "--name", "X", "--dry-run", "--lint-warnings"}} {
 		calls, _, err := runTeamTask(t, nil, args...)
 		if exitCodeFor(err) != 2 || len(*calls) != 0 {
 			t.Fatalf("incompatible mode made requests: err=%v calls=%v", err, *calls)
@@ -378,7 +378,7 @@ func c3StubReadMetadata(t *testing.T, responses map[string]string) {
 func TestC3cOnlyActualDryRunAndBodyModesAreIncompatible(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	for _, name := range []string{"add", "move", "clone", "merge", "restore", "approve"} {
+	for _, name := range []string{"add", "clone", "merge", "restore", "approve"} {
 		command, _, err := root.Find([]string{"node", name})
 		if err != nil {
 			t.Fatal(err)

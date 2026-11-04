@@ -1,0 +1,22 @@
+# Advisory node move reads only identity/name. No mutation, validation or
+# computed destination addresses; the server planner is server#3424.
+query MovePreviewSource($ref: ID!) {
+  node(ref: $ref) { id urn memoryId loc }
+}
+query MovePreviewMemory($ref: ID!) {
+  memory(ref: $ref) { id }
+}
+# @genqlient(omitempty: true)
+query MovePreviewBatch($refs: [ID!]) {
+  nodeBatch(refs: $refs) {
+    truncated
+    omitted
+    unavailable
+    nodes { id urn memoryId loc name }
+  }
+}
+query MovePreviewList($memory: ID!, $prefix: String!, $limit: Int!, $offset: Int!) {
+  findNodes(filter: {memoryIds: [$memory], locPrefix: $prefix}, sort: loc, limit: $limit, offset: $offset) {
+    hits { node { id memoryId loc } }
+  }
+}

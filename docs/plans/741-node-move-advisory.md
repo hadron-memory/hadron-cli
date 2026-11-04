@@ -1,0 +1,15 @@
+# Node move advisory reads (#741)
+
+The selected contract is Patrick6627908793 / CHECKED6627934114: observable read facts only. The original issue's rebase/collision/refusal/link predictions are NOT implemented. Server#3424 is the authoritative-planner companion, not a prerequisite.
+
+`--dry-run` branches before MoveNode. It resolves the source using the existing ref helper, reads source identity, resolves the destination memory, then pages source and destination candidates using locPrefix. It keeps only the exact loc or colon-boundary descendants. Each nonempty candidate page is read through a shallow batch, because listing an id does not prove it is readable. URN/name come from the server; there is no rebasing or judgment about move success. The requested destination is preserved verbatim.
+
+Complete means all observable reads finished, not a snapshot or exhaustive knowledge of inaccessible rows. Page walks stop at an empty page, not a short page or nullable total; PageNodes refuses a repeated/non-advancing page. A null list/hit/batch, truncated/omitted/unavailable batch, missing/changed batch identity, missing source root, or query/transport error invalidates the inventory. Partial data is discarded; output has complete=false/INCOMPLETE, empty arrays, exit1. Argument/client setup errors before reads retain ordinary CLI behavior. Destination flag normalization is shared with the real move. `--lint-warnings` is incompatible with dry-run and refuses before network I/O.
+
+JSON is a command-local DTO: advisory, complete, message, status, source.nodes[{urn,name}], destination.{requested,present[{urn,name}]}, notPredicted[]. No generated DTOs escape. Normal move output and mutation remain unchanged. Text uses SafeCell for provider/user strings.
+
+Queries select only identities needed for membership checks and output. With S source candidates and D destination candidates, page cap200, request count is up to one resolveUrn + one source read + one destination memory read + ceil(S/200)+1 source list reads + ceil(D/200)+1 destination list reads + one batch per nonempty boundary-selected page. For201 source rows+1 destination row at cap200:11 reads, zero mutation. A raw source ID avoids resolveUrn. Each response contains only shallow id/memory/loc/URN/name strings, never content/edges/revisions. Byte count depends on names/URN lengths; QA measures requests/body bytes/wall time on its fixture.
+
+Validation: test-only red-first cd9f2327 on fresh main870d5d98 fails unknown --dry-run. Scoped transport pins cover201 nodes, multiple short pages, single node, colon neighbours, exact requested destination, occupied destination wording, zero unexpected/mutation operations, failed later page, repeated page, truncated/omitted/unavailable/null/missing/changed batch and null list, destination/source failures. Failed JSON keeps real empty arrays, not null. Existing lint-warning policy ratchet extended with a zero-request incompatible-mode case.
+
+No law change or client validation engine. No server change, production run or real-data probe. QA is a compiled-binary stub/private-stack seat per T1; no browser/§10 requirement.

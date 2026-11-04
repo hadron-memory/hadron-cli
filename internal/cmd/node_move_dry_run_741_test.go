@@ -17,11 +17,14 @@ func TestNodeMoveDryRun741(t *testing.T) {
 		fail     string
 		json     bool
 		toMemory bool
+		single   bool
+		long     bool
 	}{
-		{name: "paged JSON", json: true}, {name: "occupied text"}, {name: "memory target", toMemory: true},
+		{name: "single JSON", json: true, single: true}, {name: "paged JSON", json: true}, {name: "occupied text"}, {name: "memory target", toMemory: true}, {name: "long requested target", toMemory: true, long: true},
 		{name: "second page failure", fail: "page"}, {name: "truncated", fail: "truncated", json: true},
 		{name: "unavailable", fail: "unavailable"}, {name: "omitted", fail: "omitted", json: true},
 		{name: "source read failure", fail: "source"}, {name: "missing batch node", fail: "missing"},
+		{name: "repeated page", fail: "repeat"}, {name: "null listing", fail: "null-list"}, {name: "null batch", fail: "null-batch"}, {name: "destination read failure", fail: "destination"}, {name: "changed memory", fail: "changed", json: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			writes := 0
@@ -43,27 +46,29 @@ func TestNodeMoveDryRun741(t *testing.T) {
 				switch q.OperationName {
 				case "ResolveUrn":
 					reply(map[string]any{"resolveUrn": map[string]any{"id": "n1", "kind": "node", "memoryId": "m1"}})
-				case "GetNode":
+				case "MovePreviewSource":
 					if tc.fail == "source" {
 						fmt.Fprint(w, `{"errors":[{"message":"read failed"}]}`)
 						return
 					}
-					reply(map[string]any{"node": map[string]any{"id": "n1", "urn": "hrn:node:acme.com:kb:a:b", "memoryId": "m1", "loc": "a:b", "name": "Root"}})
-				case "GetMemory":
+					reply(map[string]any{"node": map[string]any{"id": "n1root", "urn": "hrn:node:acme.com:kb:a:b", "memoryId": "m1", "loc": "a:b", "name": "Root"}})
+				case "MovePreviewMemory":
 					reply(map[string]any{"memory": map[string]any{"id": "m2", "urn": "hrn:mem:acme.com:archive"}})
-				case "FindNodes":
-					f := q.Variables["filter"].(map[string]any)
-					mem := f["memoryIds"].([]any)[0].(string)
+				case "MovePreviewList":
+					mem := q.Variables["memory"].(string)
 					off := int(q.Variables["offset"].(float64))
 					hits := []any{}
 					if mem == "m1" {
 						sourcePages++
+						if tc.fail == "repeat" {
+							off = 0
+						}
 						if off > 0 && tc.fail == "page" {
 							fmt.Fprint(w, `{"errors":[{"message":"second page failed"}]}`)
 							return
 						}
 						// 201 source nodes, and a text-prefix neighbour that is NOT a descendant.
-						for i := off; i < off+100 && i < 202; i++ {
+						for i := off; i < off+100 && i < 202 && (!tc.single || i == 0); i++ {
 							id, loc := fmt.Sprintf("n%d", i), fmt.Sprintf("a:b:c%d", i)
 							if i == 0 {
 								id = "n1root"
@@ -75,24 +80,42 @@ func TestNodeMoveDryRun741(t *testing.T) {
 							hits = append(hits, map[string]any{"node": map[string]any{"id": id, "memoryId": "m1", "loc": loc, "name": id}})
 						}
 					} else if off == 0 {
-						hits = append(hits, map[string]any{"node": map[string]any{"id": "d1", "memoryId": "m2", "loc": "target", "name": "Occupied"}})
+						if tc.fail == "destination" {
+							fmt.Fprint(w, `{"errors":[{"message":"destination read failed"}]}`)
+							return
+						}
+						hits = append(hits, map[string]any{"node": map[string]any{"id": "d1", "memoryId": "m2", "loc": q.Variables["prefix"], "name": "Occupied"}})
+					}
+					if tc.fail == "null-list" {
+						reply(map[string]any{"findNodes": nil})
+						return
 					}
 					reply(map[string]any{"findNodes": map[string]any{"hits": hits}})
-				case "NodeBatch":
+				case "MovePreviewBatch":
 					nodes := []any{}
 					refs := q.Variables["refs"].([]any)
 					for _, ref := range refs {
 						id := ref.(string)
-						loc := "a:b:" + id
+						loc := "a:b:c" + strings.TrimPrefix(id, "n")
 						mem := "m1"
 						if id == "n1root" {
 							loc = "a:b"
 						}
 						if id == "d1" {
 							loc = "target"
+							if tc.toMemory {
+								loc = "a:b"
+							}
 							mem = "m2"
 						}
 						nodes = append(nodes, map[string]any{"id": id, "urn": "hrn:node:acme.com:kb:" + loc, "memoryId": mem, "loc": loc, "name": id})
+					}
+					if tc.fail == "null-batch" {
+						reply(map[string]any{"nodeBatch": nil})
+						return
+					}
+					if tc.fail == "changed" {
+						nodes[0].(map[string]any)["memoryId"] = "other"
 					}
 					b := map[string]any{"nodes": nodes, "truncated": false, "omitted": []any{}, "unavailable": []any{}}
 					switch tc.fail {
@@ -103,7 +126,9 @@ func TestNodeMoveDryRun741(t *testing.T) {
 					case "unavailable":
 						b["unavailable"] = []string{"hidden"}
 					case "missing":
-						b["nodes"] = []any{}
+						if refs[0] == "d1" {
+							b["nodes"] = []any{}
+						}
 					}
 					reply(map[string]any{"nodeBatch": b})
 				default:
@@ -119,6 +144,9 @@ func TestNodeMoveDryRun741(t *testing.T) {
 			requested := "hrn:node:acme.com:archive:target"
 			if tc.toMemory {
 				requested = "acme.com::archive"
+				if tc.long {
+					requested = strings.Repeat("long", 90) + "tail"
+				}
 				args = append(args, "--to-memory", requested)
 			} else {
 				args = append(args, "--to-urn", requested)
@@ -135,12 +163,26 @@ func TestNodeMoveDryRun741(t *testing.T) {
 				if exitCodeFor(err) != 1 || !strings.Contains(out.String(), "INCOMPLETE") {
 					t.Fatalf("incomplete must exit1 and be visible: err=%v output=%s", err, out.String())
 				}
+				if tc.json {
+					var partial struct {
+						Complete     bool
+						Source       struct{ Nodes []any }
+						Destination  struct{ Present []any }
+						NotPredicted []string
+					}
+					if e := json.Unmarshal([]byte(out.String()), &partial); e != nil {
+						t.Fatal(e)
+					}
+					if partial.Complete || partial.Source.Nodes == nil || partial.Destination.Present == nil || len(partial.Source.Nodes) > 0 || len(partial.Destination.Present) > 0 || partial.NotPredicted == nil {
+						t.Fatalf("partial JSON is not safely empty: %s", out.String())
+					}
+				}
 				return
 			}
 			if err != nil {
 				t.Fatal(err)
 			}
-			if sourcePages < 3 {
+			if !tc.single && sourcePages < 3 {
 				t.Fatalf("did not page source: %d", sourcePages)
 			}
 			if tc.json {
@@ -160,7 +202,11 @@ func TestNodeMoveDryRun741(t *testing.T) {
 				if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
 					t.Fatal(err)
 				}
-				if !dto.Advisory || !dto.Complete || len(dto.Source.Nodes) != 201 || dto.Destination.Requested != requested || len(dto.Destination.Present) != 1 {
+				expected := 201
+				if tc.single {
+					expected = 1
+				}
+				if !dto.Advisory || !dto.Complete || len(dto.Source.Nodes) != expected || dto.Destination.Requested != requested || len(dto.Destination.Present) != 1 {
 					t.Fatalf("bad preview: %s", out.String())
 				}
 				for _, n := range dto.Source.Nodes {
