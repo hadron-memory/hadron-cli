@@ -223,3 +223,18 @@ func TestReportStopsMismatchedSessionSendsZeroPosts_1629(t *testing.T) {
 		}
 	}
 }
+
+// Second review P3 (b38108c9): --dry-run only reads the outbox, so it needs
+// no --reporter-worker, and it finds the poller's outbox from the config.
+func TestReportStopsDryRunNeedsNoReporterAndUsesThePollersOutbox_1629(t *testing.T) {
+	cfg := hostConfig(t, "")
+	box := &delivery.StopOutbox{Dir: delivery.StopOutboxDir(filepath.Dir(cfg))}
+	if _, err := box.Drop(delivery.StopDrop{EventID: "ev-1", WorkerID: "w", Worker: "Gil", Level: "HALT",
+		HoldReason: "draft", HeldAt: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	out, err := reportStopsRun(t, "--config", cfg, "--dry-run")
+	if err != nil || out != "pending 1, of which held over 10m0s: 0\n" {
+		t.Fatalf("out %q err %v", out, err)
+	}
+}

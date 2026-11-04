@@ -123,7 +123,7 @@ type StopReporter struct {
 type ReportOutcome struct {
 	EventID string `json:"eventId"`
 	Worker  string `json:"worker"`
-	// Result: reported, reconciled, duplicate, already, waiting, failed.
+	// Result: reported, reconciled, duplicate, waiting, failed.
 	Result string `json:"result"`
 	Seq    int    `json:"seq,omitempty"`
 	Error  string `json:"error,omitempty"`
@@ -374,6 +374,8 @@ var holdGloss = map[string]string{
 	HoldBindingMismatch:   "its terminal is bound to another session",
 	HoldTimingUnavailable: "the delivery timing could not be read",
 	"no-terminal":         "it has no terminal on this host",
+	"malformed-wake":      "the server's wake for it could not be read",
+	"records-unreadable":  "this host could not read its delivery records",
 }
 
 func holdText(code string) string {

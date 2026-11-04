@@ -390,7 +390,11 @@ func (d *Deliverer) deliverWakeLocked(ctx context.Context, w Wake, r Recipient, 
 		return d.emitWake(w, r, Outcome{Kind: Failed, Reason: "foreign-worker"})
 	}
 	if err := CheckWake(w); err != nil {
-		return d.emitWake(w, r, Outcome{Kind: Failed, Reason: "malformed-wake"})
+		// Permanent for this wake: a well-formed HALT riding in it is never
+		// typed, so it is flagged (second review P2 at b38108c9).
+		o := d.emitWake(w, r, Outcome{Kind: Failed, Reason: "malformed-wake"})
+		d.flagDroppedHalts(r, w.Reasons, o)
+		return o
 	}
 	comps := w.components()
 	if len(comps) == 0 {
@@ -399,7 +403,11 @@ func (d *Deliverer) deliverWakeLocked(ctx context.Context, w Wake, r Recipient, 
 	}
 	recs, err := d.WakeRecords.List(r.WorkerID)
 	if err != nil {
-		return d.emitWake(w, r, Outcome{Kind: Failed, Reason: "records-unreadable"})
+		// Nothing can be proven typed, so nothing is typed; a HALT in it is
+		// flagged rather than left silent on a bad disk.
+		o := d.emitWake(w, r, Outcome{Kind: Failed, Reason: "records-unreadable"})
+		d.flagDroppedHalts(r, comps, o)
+		return o
 	}
 	untyped := []WakeReason{}
 	for _, c := range comps {
@@ -513,7 +521,7 @@ func (d *Deliverer) flagDroppedHalts(r Recipient, untyped []WakeReason, o Outcom
 		return
 	}
 	for _, c := range untyped {
-		if c.Kind != WakeStop || c.Stop == nil || c.Stop.Level != "HALT" || c.Stop.Notice == "RESUME" {
+		if c.Kind != WakeStop || c.Stop == nil || c.Stop.EventID == "" || c.Stop.Level != "HALT" || c.Stop.Notice == "RESUME" {
 			continue
 		}
 		reason := StopDropped

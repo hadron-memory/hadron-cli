@@ -163,7 +163,7 @@ func New(server Server, orca Terminals, stateDir string) *Deliverer {
 		Server: server, Orca: orca,
 		Records:     &Records{Dir: filepath.Join(stateDir, "delivery", "records")},
 		WakeRecords: &WakeRecords{Dir: filepath.Join(stateDir, "delivery", "wakes")},
-		StopDrops:   &StopOutbox{Dir: filepath.Join(stateDir, "delivery", "stop-dropped")},
+		StopDrops:   &StopOutbox{Dir: StopOutboxDir(stateDir)},
 		LockDir:     filepath.Join(stateDir, "delivery", "locks"),
 		Bound:       BoundWorker, Now: time.Now, Budget: DefaultBudget,
 		Caps: Proven(),

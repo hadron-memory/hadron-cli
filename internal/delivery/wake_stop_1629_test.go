@@ -317,3 +317,56 @@ func TestAnUnwritableOutboxIsLoggedEveryPoll(t *testing.T) {
 		t.Fatalf("unrecorded %d, dropped %d", n, h.stopDropped())
 	}
 }
+
+// Second review P2 (b38108c9): a wake refused as malformed is never typed,
+// so a well-formed HALT riding in it is flagged, not left silent.
+func TestAHaltInAMalformedWakeIsFlagged(t *testing.T) {
+	h := newHarness(t)
+	bad := WakeReason{Kind: WakeTick} // a tick without its ticker
+	o := h.deliverWake(h.wake(stopReason("ev30", "HALT", "STOP"), bad))
+	if o.Kind != Failed || o.Reason != "malformed-wake" {
+		t.Fatalf("outcome %+v", o)
+	}
+	h.wantNoSend()
+	if drops := h.stopDrops(); len(drops) != 1 || drops[0].EventID != "ev30" || drops[0].HoldReason != "malformed-wake" {
+		t.Fatalf("drops %+v", drops)
+	}
+}
+
+// Second review P2 (b38108c9): with the typed records unreadable nothing is
+// typed, and a HALT is flagged.
+func TestAHaltWithUnreadableRecordsIsFlagged(t *testing.T) {
+	h := newHarness(t)
+	blocker := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(blocker, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h.d.WakeRecords = &WakeRecords{Dir: filepath.Join(blocker, "under-a-file")}
+	o := h.deliverWake(h.wake(stopReason("ev31", "HALT", "STOP")))
+	if o.Kind != Failed || o.Reason != "records-unreadable" {
+		t.Fatalf("outcome %+v", o)
+	}
+	h.wantNoSend()
+	if drops := h.stopDrops(); len(drops) != 1 || drops[0].EventID != "ev31" || drops[0].HoldReason != "records-unreadable" {
+		t.Fatalf("drops %+v", drops)
+	}
+}
+
+// A stop with no event id cannot be named in the outbox; it is not recorded
+// under an empty key (the malformed-wake failure itself is still logged).
+func TestAStopWithoutAnEventIDIsNotRecorded(t *testing.T) {
+	h := newHarness(t)
+	h.deliverWake(h.wake(stopReason("", "HALT", "STOP")))
+	if drops := h.stopDrops(); len(drops) != 0 {
+		t.Fatalf("drops %+v", drops)
+	}
+}
+
+// Second review P3 (b38108c9): the poller and report-stops take the outbox
+// from one helper, so they cannot drift apart.
+func TestThePollersOutboxIsStopOutboxDir(t *testing.T) {
+	dir := t.TempDir()
+	if got := New(nil, nil, dir).StopDrops.Dir; got != StopOutboxDir(dir) {
+		t.Fatalf("poller outbox %q, helper %q", got, StopOutboxDir(dir))
+	}
+}

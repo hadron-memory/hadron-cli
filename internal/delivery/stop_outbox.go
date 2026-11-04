@@ -111,6 +111,12 @@ func syncDir(dir string) error {
 
 // Drop records rec unless its notice is already recorded. created is true
 // only for the first record of that notice.
+// StopOutboxDir is the outbox under a host's delivery state directory: the
+// one place the poller (New) and the reporter (report-stops) both take it.
+func StopOutboxDir(stateDir string) string {
+	return filepath.Join(stateDir, "delivery", "stop-dropped")
+}
+
 func (o *StopOutbox) Drop(rec StopDrop) (created bool, err error) {
 	if rec.EventID == "" {
 		return false, errors.New("a stop drop without its notice event")

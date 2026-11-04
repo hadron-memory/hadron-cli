@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -69,7 +68,7 @@ stay pending); 1 any other error.`,
 			if strings.TrimSpace(configPath) == "" {
 				return exitcode.Newf(exitcode.Usage, "--config is required: the host configuration file")
 			}
-			if strings.TrimSpace(reporterWorker) == "" {
+			if !dryRun && strings.TrimSpace(reporterWorker) == "" {
 				return exitcode.Newf(exitcode.Usage, "--reporter-worker is required: the worker whose bound session posts the reports")
 			}
 			cfg, err := hostpoller.LoadConfig(configPath)
@@ -77,7 +76,7 @@ stay pending); 1 any other error.`,
 				return exitcode.New(exitcode.Usage, err)
 			}
 			rep := &delivery.StopReporter{
-				Outbox:         &delivery.StopOutbox{Dir: filepath.Join(cfg.DeliveryStateDir(), "delivery", "stop-dropped")},
+				Outbox:         &delivery.StopOutbox{Dir: delivery.StopOutboxDir(cfg.DeliveryStateDir())},
 				ReporterWorker: reporterWorker,
 			}
 			out := f.IOStreams.Out
@@ -108,7 +107,7 @@ stay pending); 1 any other error.`,
 			}
 			if f.JSON {
 				if err := json.NewEncoder(out).Encode(run); err != nil {
-					return err
+					return exitcode.Newf(exitcode.Error, "report-stops: writing the result: %v", err)
 				}
 			} else if run.Busy {
 				fmt.Fprintln(out, "another report-stops run holds the outbox; nothing done")
