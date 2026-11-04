@@ -46,3 +46,20 @@ func TestResolveUnlockRefusalsNameTheirRule(t *testing.T) {
 		})
 	}
 }
+
+// PR #1616 §10 P3 (Rook): with no passphrase source and stdin not a terminal,
+// ResolveUnlock refuses BEFORE prompting. The prompt's own refusal is defence
+// in depth; this pins the first guard.
+func TestResolveUnlockRefusesWithoutATerminalBeforePrompting(t *testing.T) {
+	prompted := false
+	restore := SetUnlockPromptForTest(func(*output.IOStreams, string) (string, error) {
+		prompted = true
+		return "pw", nil
+	})
+	defer restore()
+	ios, _, _ := output.Test()
+	_, err := ResolveUnlock(ios, UnlockFlags{Memories: []string{"acme.com:kb"}})
+	if prompted || exitcode.FromError(err) != exitcode.Usage || !strings.Contains(err.Error(), "needs a passphrase") {
+		t.Fatalf("prompted=%v err=%v", prompted, err)
+	}
+}

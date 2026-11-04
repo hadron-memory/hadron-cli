@@ -77,3 +77,29 @@ func TestResolveUnlockRefusesAFIFOSwappedInAfterStat(t *testing.T) {
 		t.Fatal("blocked opening a FIFO swapped in after the Stat")
 	}
 }
+
+// PR #1616 §10 P3 (Rook): a different REGULAR file swapped in after the Stat
+// passes every check but identity; os.SameFile on the opened file refuses it.
+func TestResolveUnlockRefusesARegularFileSwappedInAfterStat(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "pass")
+	if err := os.WriteFile(path, []byte("pw\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	other := filepath.Join(dir, "other")
+	if err := os.WriteFile(other, []byte("swapped\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	orig := afterPassphraseStat
+	t.Cleanup(func() { afterPassphraseStat = orig })
+	afterPassphraseStat = func(p string) {
+		if err := os.Rename(other, p); err != nil {
+			t.Error(err)
+		}
+	}
+	ios, _, _ := output.Test()
+	_, err := ResolveUnlock(ios, UnlockFlags{Memories: []string{"acme.com:kb"}, Files: []string{path}, FilesSet: true})
+	if exitcode.FromError(err) != exitcode.Usage || !strings.Contains(err.Error(), "changed while it was opened") {
+		t.Fatalf("err=%v", err)
+	}
+}
