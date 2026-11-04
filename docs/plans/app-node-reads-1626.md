@@ -130,3 +130,12 @@ to `list`, with the complete suite rerun green. No unrelated failures waived.
 | bounded-list | TestAppLs1626AgentWalksEveryBoundedPage | KILLED |
 | equivalent | TestAppNodes1626DefaultAndCountOnlyAreOneRequest | SURVIVED |
 | AppFilter.agentId omitempty removed at GraphQL source and regenerated | TestAppLs1626UnsetAgentDoesNotReachTheWire | KILLED (owner-only sends agentId:null) |
+
+## Main merge before freeze
+
+After the first hosted CI passed 4/4, fresh main d217b257 introduced app-user
+creation (#1633). Main was merged without rebasing. Conflicts were the generated
+help inventory header (regenerated) and the shared app synopsis (retains both
+`list --agent` and incoming `user create`). The generated client was regenerated;
+coverage preserves both capabilities. app.go keeps both command registrations.
+No authored app-nodes/list implementation or test changed in this merge.

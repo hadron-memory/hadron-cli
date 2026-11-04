@@ -30680,6 +30680,48 @@ type CreateAppResponse struct {
 // GetCreateApp returns CreateAppResponse.CreateApp, and is useful for accessing the field via an interface.
 func (v *CreateAppResponse) GetCreateApp() *CreateAppCreateApp { return v.CreateApp }
 
+// CreateAppUserCreateAppUser includes the requested fields of the GraphQL type User.
+type CreateAppUserCreateAppUser struct {
+	Id     string  `json:"id"`
+	Handle *string `json:"handle"`
+	Name   *string `json:"name"`
+	// Canonical `hrn:user:<handle>` URN (spec cor:urn:010:01). Computed from the
+	// handle; null for a handle-less user and for a user whose handle is
+	// not-URN-legal (neither has a URN).
+	Urn        *string `json:"urn"`
+	ExternalId *string `json:"externalId"`
+}
+
+// GetId returns CreateAppUserCreateAppUser.Id, and is useful for accessing the field via an interface.
+func (v *CreateAppUserCreateAppUser) GetId() string { return v.Id }
+
+// GetHandle returns CreateAppUserCreateAppUser.Handle, and is useful for accessing the field via an interface.
+func (v *CreateAppUserCreateAppUser) GetHandle() *string { return v.Handle }
+
+// GetName returns CreateAppUserCreateAppUser.Name, and is useful for accessing the field via an interface.
+func (v *CreateAppUserCreateAppUser) GetName() *string { return v.Name }
+
+// GetUrn returns CreateAppUserCreateAppUser.Urn, and is useful for accessing the field via an interface.
+func (v *CreateAppUserCreateAppUser) GetUrn() *string { return v.Urn }
+
+// GetExternalId returns CreateAppUserCreateAppUser.ExternalId, and is useful for accessing the field via an interface.
+func (v *CreateAppUserCreateAppUser) GetExternalId() *string { return v.ExternalId }
+
+// CreateAppUserResponse is returned by CreateAppUser on success.
+type CreateAppUserResponse struct {
+	// App Key callers only: vouch for a user, creating (or returning) the User
+	// this App knows by `externalId`. Managing that user's SESSIONS is the
+	// startAgentSession / endAgentSession pair below, not this call.
+	// The legacy email argument accepts only empty values; identity addresses
+	// are established through verified sign-in.
+	CreateAppUser *CreateAppUserCreateAppUser `json:"createAppUser"`
+}
+
+// GetCreateAppUser returns CreateAppUserResponse.CreateAppUser, and is useful for accessing the field via an interface.
+func (v *CreateAppUserResponse) GetCreateAppUser() *CreateAppUserCreateAppUser {
+	return v.CreateAppUser
+}
+
 // CreateAssetReferenceNodeCreateAssetReferenceNode includes the requested fields of the GraphQL type Node.
 type CreateAssetReferenceNodeCreateAssetReferenceNode struct {
 	Id string `json:"id"`
@@ -98124,6 +98166,22 @@ func (v *__CreateAppMemoryInput) GetDescription() *string { return v.Description
 // GetTags returns __CreateAppMemoryInput.Tags, and is useful for accessing the field via an interface.
 func (v *__CreateAppMemoryInput) GetTags() *[]string { return v.Tags }
 
+// __CreateAppUserInput is used internally by genqlient
+type __CreateAppUserInput struct {
+	ExternalId string  `json:"externalId"`
+	Handle     *string `json:"handle,omitempty"`
+	Name       *string `json:"name,omitempty"`
+}
+
+// GetExternalId returns __CreateAppUserInput.ExternalId, and is useful for accessing the field via an interface.
+func (v *__CreateAppUserInput) GetExternalId() string { return v.ExternalId }
+
+// GetHandle returns __CreateAppUserInput.Handle, and is useful for accessing the field via an interface.
+func (v *__CreateAppUserInput) GetHandle() *string { return v.Handle }
+
+// GetName returns __CreateAppUserInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateAppUserInput) GetName() *string { return v.Name }
+
 // __CreateAssetReferenceNodeInput is used internally by genqlient
 type __CreateAssetReferenceNodeInput struct {
 	AssetRef    string  `json:"assetRef"`
@@ -115165,6 +115223,54 @@ func CreateAppMemory(
 	}
 
 	data_ = &CreateAppMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateAppUser.
+const CreateAppUser_Operation = `
+mutation CreateAppUser ($externalId: String!, $handle: String, $name: String) {
+	createAppUser(externalId: $externalId, handle: $handle, name: $name) {
+		id
+		handle
+		name
+		urn
+		externalId
+	}
+}
+`
+
+// cli#1627: createAppUser vouches for a user for an App-key caller — it creates
+// or returns the User the App knows by externalId (cor:dmo:040:01); the result
+// does not say which. The legacy `email` argument accepts only empty values and
+// is deliberately NOT a variable here (matrix: excluded not-a-capability).
+// Optional variables are omitempty: an omitted handle/name is "preserve", never
+// an explicit null.
+func CreateAppUser(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	externalId string,
+	handle *string,
+	name *string,
+) (data_ *CreateAppUserResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateAppUser",
+		Query:  CreateAppUser_Operation,
+		Variables: &__CreateAppUserInput{
+			ExternalId: externalId,
+			Handle:     handle,
+			Name:       name,
+		},
+	}
+
+	data_ = &CreateAppUserResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
