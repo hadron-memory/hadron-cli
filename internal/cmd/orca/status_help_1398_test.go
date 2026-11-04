@@ -284,3 +284,22 @@ func TestOrcaGroupHelp(t *testing.T) {
 	}
 	mustContain(t, "orca terminal", term, "status", "Orca is", "reads only")
 }
+
+// George's P2-2: every agentic-usage mention of the --all array must say it is
+// JSON only with --json (text mode is one line per worker).
+func TestAgenticUsageAllArrayNeedsJSON(t *testing.T) {
+	raw, err := os.ReadFile("../agentic/agentic-usage.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := strings.Join(strings.Fields(string(raw)), " ")
+	for _, bad := range []string{"--all = ONE JSON array", "or `--all` (one JSON array"} {
+		if strings.Contains(doc, bad) {
+			t.Errorf("agentic-usage states the --all array without --json: %q", bad)
+		}
+	}
+	mustContain(t, "agentic-usage --all", doc,
+		"--all --json = ONE JSON array",
+		"`--all` (with `--json` one JSON array",
+	)
+}
