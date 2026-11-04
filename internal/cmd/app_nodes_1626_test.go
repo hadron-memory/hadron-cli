@@ -199,6 +199,9 @@ func TestAppLs1626AgentComposesAndDoesNotResolveTheAgent(t *testing.T) {
 				t.Fatal("Apps not called")
 			}
 			filter, _ := vars["filter"].(map[string]any)
+			if vars["limit"] != float64(20) {
+				t.Fatalf("agent listing must not ask for more than default20: %v", vars)
+			}
 			if filter["agentId"] != "hrn:agent:acme.com:iris" {
 				t.Fatalf("agent selector lost: %v", filter)
 			}
@@ -229,5 +232,95 @@ func TestAppLs1626EmptyAgentIsLocalUsage(t *testing.T) {
 	err := root.Execute()
 	if exitCodeFor(err) != exitcode.Usage || len(captured) != 0 || !strings.Contains(err.Error(), "--agent") {
 		t.Fatalf("err=%v requests=%v", err, captured)
+	}
+}
+
+func TestAppNodes1626EmptyDisplayedPageAdvancesRawWindow(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{"AppNodesPage": `{"data":{"appNodesPage":{"items":[],"total":10,"hasMore":true}}}`})
+	f, _ := testFactory(t)
+	var stderr strings.Builder
+	f.IOStreams.ErrOut = &stderr
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"app", "nodes", appNodesRef1626, "--limit", "2", "--offset", "4", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stderr.String(), "--offset 6") {
+		t.Fatalf("must advance requested raw window, not displayed0: %s", stderr.String())
+	}
+}
+
+func TestAppLs1626StubFiltersInstalledAgentAndKeepsArray(t *testing.T) {
+	for _, agent := range []string{"hrn:agent:acme.com:iris", "hrn:agent:acme.com:missing"} {
+		t.Run(agent, func(t *testing.T) {
+			gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var q struct {
+					OperationName string
+					Variables     struct {
+						Filter struct {
+							AgentID string `json:"agentId"`
+						} `json:"filter"`
+					}
+				}
+				if err := json.NewDecoder(r.Body).Decode(&q); err != nil {
+					t.Error(err)
+					return
+				}
+				rows := []map[string]any{}
+				installed := map[string][]string{"with-iris": {"hrn:agent:acme.com:iris"}, "without-iris": {"hrn:agent:acme.com:other"}}
+				for _, id := range []string{"with-iris", "without-iris"} {
+					match := q.Variables.Filter.AgentID == ""
+					for _, ref := range installed[id] {
+						if ref == q.Variables.Filter.AgentID {
+							match = true
+						}
+					}
+					if match {
+						rows = append(rows, map[string]any{"id": id, "urn": "hrn:app:acme.com:" + id, "name": id, "appType": "STANDARD", "agentId": nil, "memberCount": 1, "createdAt": "2026-11-01T00:00:00Z"})
+					}
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"apps": map[string]any{"items": rows, "total": len(rows)}}})
+			}))
+			defer gql.Close()
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"app", "ls", "--agent", agent, "--json", "--server", gql.URL})
+			if err := root.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			var rows []struct {
+				ID string `json:"id"`
+			}
+			if err := json.Unmarshal([]byte(out.String()), &rows); err != nil {
+				t.Fatal(err)
+			}
+			if strings.HasSuffix(agent, ":missing") {
+				if len(rows) != 0 || strings.TrimSpace(out.String()) != "[]" {
+					t.Fatalf("missing/unreadable Agent should be empty array: %s", out.String())
+				}
+			} else if len(rows) != 1 || rows[0].ID != "with-iris" {
+				t.Fatalf("installed-Agent filtering lost: %s", out.String())
+			}
+		})
+	}
+}
+
+func TestAppNodes1626UnsupportedNarrowingRefusesBeforeAnyRequest(t *testing.T) {
+	for _, flags := range [][]string{{"--children-of", "tasks"}, {"--children-of="}, {"--where", `{"path":["kind"],"eq":"x"}`}, {"--where="}} {
+		t.Run(fmt.Sprint(flags), func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			args := []string{"app", "nodes", appNodesRef1626, "--server", gql.URL}
+			root.SetArgs(append(args, flags...))
+			err := root.Execute()
+			if exitCodeFor(err) != exitcode.Usage || len(captured) != 0 {
+				t.Fatalf("unsupported narrowing sent request: err=%v vars=%v", err, captured)
+			}
+			if !strings.Contains(err.Error(), "not supported") || !strings.Contains(err.Error(), "node list") {
+				t.Fatalf("missing actionable unsupported-filter explanation: %v", err)
+			}
+		})
 	}
 }
