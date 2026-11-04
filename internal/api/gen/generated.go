@@ -11567,6 +11567,194 @@ func (v *AgentTeamEventsAgentTeamEventsAgentTeamEvent) __premarshalJSON() (*__pr
 	return &retval, nil
 }
 
+// AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent includes the requested fields of the GraphQL type AgentTeamEvent.
+// The GraphQL type's documentation follows.
+//
+// One append-only record of something that happened in a team App's task work
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:11). Never changed or removed; an alarm's acknowledgement is the
+// one thing added later. payload carries ids, counts and outcome words only,
+// never message or description text.
+type AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent struct {
+	AgentTeamEventFields `json:"-"`
+}
+
+// GetId returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.Id, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetId() string {
+	return v.AgentTeamEventFields.Id
+}
+
+// GetAppId returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.AppId, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetAppId() string {
+	return v.AgentTeamEventFields.AppId
+}
+
+// GetTaskId returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.TaskId, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetTaskId() *string {
+	return v.AgentTeamEventFields.TaskId
+}
+
+// GetType returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.Type, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetType() string {
+	return v.AgentTeamEventFields.Type
+}
+
+// GetSeverity returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.Severity, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetSeverity() *AgentTeamEventSeverity {
+	return v.AgentTeamEventFields.Severity
+}
+
+// GetCreatedAt returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetCreatedAt() string {
+	return v.AgentTeamEventFields.CreatedAt
+}
+
+// GetActor returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.Actor, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetActor() *AgentTeamEventFieldsActorAgentTaskParty {
+	return v.AgentTeamEventFields.Actor
+}
+
+// GetActorRunId returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.ActorRunId, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetActorRunId() *string {
+	return v.AgentTeamEventFields.ActorRunId
+}
+
+// GetSubjectWorker returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.SubjectWorker, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetSubjectWorker() *AgentTeamEventFieldsSubjectWorkerAgentTaskParty {
+	return v.AgentTeamEventFields.SubjectWorker
+}
+
+// GetPayload returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.Payload, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetPayload() json.RawMessage {
+	return v.AgentTeamEventFields.Payload
+}
+
+// GetAcknowledgedAt returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.AcknowledgedAt, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetAcknowledgedAt() *string {
+	return v.AgentTeamEventFields.AcknowledgedAt
+}
+
+// GetAcknowledgedBy returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.AcknowledgedBy, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetAcknowledgedBy() *AgentTeamEventFieldsAcknowledgedByAgentTaskParty {
+	return v.AgentTeamEventFields.AcknowledgedBy
+}
+
+// GetEpisodeStart returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.EpisodeStart, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetEpisodeStart() *string {
+	return v.AgentTeamEventFields.EpisodeStart
+}
+
+// GetChain returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.Chain, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetChain() *json.RawMessage {
+	return v.AgentTeamEventFields.Chain
+}
+
+// GetWakes returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.Wakes, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetWakes() []*AgentTeamEventFieldsWakesAgentTeamAlarmSchedule {
+	return v.AgentTeamEventFields.Wakes
+}
+
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTeamEventFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent struct {
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	TaskId *string `json:"taskId"`
+
+	Type string `json:"type"`
+
+	Severity *AgentTeamEventSeverity `json:"severity"`
+
+	CreatedAt string `json:"createdAt"`
+
+	Actor *AgentTeamEventFieldsActorAgentTaskParty `json:"actor"`
+
+	ActorRunId *string `json:"actorRunId"`
+
+	SubjectWorker *AgentTeamEventFieldsSubjectWorkerAgentTaskParty `json:"subjectWorker"`
+
+	Payload json.RawMessage `json:"payload"`
+
+	AcknowledgedAt *string `json:"acknowledgedAt"`
+
+	AcknowledgedBy *AgentTeamEventFieldsAcknowledgedByAgentTaskParty `json:"acknowledgedBy"`
+
+	EpisodeStart *string `json:"episodeStart"`
+
+	Chain *json.RawMessage `json:"chain"`
+
+	Wakes []*AgentTeamEventFieldsWakesAgentTeamAlarmSchedule `json:"wakes"`
+}
+
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) __premarshalJSON() (*__premarshalAgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent, error) {
+	var retval __premarshalAgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent
+
+	retval.Id = v.AgentTeamEventFields.Id
+	retval.AppId = v.AgentTeamEventFields.AppId
+	retval.TaskId = v.AgentTeamEventFields.TaskId
+	retval.Type = v.AgentTeamEventFields.Type
+	retval.Severity = v.AgentTeamEventFields.Severity
+	retval.CreatedAt = v.AgentTeamEventFields.CreatedAt
+	retval.Actor = v.AgentTeamEventFields.Actor
+	retval.ActorRunId = v.AgentTeamEventFields.ActorRunId
+	retval.SubjectWorker = v.AgentTeamEventFields.SubjectWorker
+	retval.Payload = v.AgentTeamEventFields.Payload
+	retval.AcknowledgedAt = v.AgentTeamEventFields.AcknowledgedAt
+	retval.AcknowledgedBy = v.AgentTeamEventFields.AcknowledgedBy
+	retval.EpisodeStart = v.AgentTeamEventFields.EpisodeStart
+	retval.Chain = v.AgentTeamEventFields.Chain
+	retval.Wakes = v.AgentTeamEventFields.Wakes
+	return &retval, nil
+}
+
+// AgentTeamEventsByCodeResponse is returned by AgentTeamEventsByCode on success.
+type AgentTeamEventsByCodeResponse struct {
+	// #1705 — a team App's event stream (hrn:node:hadronmemory.com:specs:cor:agt:050:11), in (createdAt, id)
+	// order. To read the next page pass after: the id of the last event you
+	// read; the cursor is the (createdAt, id) pair, so events sharing a
+	// timestamp are never skipped. since is a coarse time filter (strictly
+	// after), not a continuation. limit defaults to 20 (cap 200).
+	// task.warning, task.edited and task.properties-changed are passive history (never wake, suppress a wake or count as activity); payload is {code}, changed field names only, or (task.properties-changed) the size and SHA-256 of the canonical JSON of the old and new properties, never their content.
+	AgentTeamEvents []*AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent `json:"agentTeamEvents"`
+}
+
+// GetAgentTeamEvents returns AgentTeamEventsByCodeResponse.AgentTeamEvents, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsByCodeResponse) GetAgentTeamEvents() []*AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent {
+	return v.AgentTeamEvents
+}
+
 // AgentTeamEventsResponse is returned by AgentTeamEvents on success.
 type AgentTeamEventsResponse struct {
 	// #1705 — a team App's event stream (hrn:node:hadronmemory.com:specs:cor:agt:050:11), in (createdAt, id)
@@ -41830,7 +42018,7 @@ func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetStop() *Du
 
 // DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonActionTickAction includes the requested fields of the GraphQL type TickAction.
 type DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonActionTickAction struct {
-	// Permanent tick code (hrn:node:hadronmemory.com:specs:cor:agt:110:01).
+	// Permanent action code (hrn:node:hadronmemory.com:specs:cor:agt:110:01).
 	Code  string          `json:"code"`
 	State TickActionState `json:"state"`
 	// The readable entry's loc, including when no usable task was found.
@@ -42626,6 +42814,12 @@ type EncryptMemoryResponse struct {
 	// matching verifier; impersonation and sibling Apps grant no authority. Live and
 	// historical node fields are converted in bounded locked passes. One-way
 	// without the key: the server cannot recover the content.
+	//
+	// The secret travels beside the operation, never in it (hrn:node:hadronmemory.com:specs:cor:sec:040:04, #1796).
+	// The strict owner sends exactly one of dataKey or passphrase in an x-hadron-memory-keys entry
+	// naming this memory; on a first encryption that entry establishes the verifier, and it counts only
+	// when encryptMemory is the operation's sole root field. The owning App sends its key in
+	// x-hadron-operation-key, for completion only.
 	//
 	// Accepts the entity's ID or URN.
 	EncryptMemory *EncryptMemoryEncryptMemory `json:"encryptMemory"`
@@ -63588,6 +63782,75 @@ var AllReadyFilter = []ReadyFilter{
 	ReadyFilterAny,
 	ReadyFilterExclude,
 	ReadyFilterOnly,
+}
+
+// RecordAppActionRecordAppActionRecordAppActionResult includes the requested fields of the GraphQL type RecordAppActionResult.
+// The GraphQL type's documentation follows.
+//
+// #3449: App action and caller-readable register answer (hrn:node:hadronmemory.com:specs:cor:agt:110:03).
+type RecordAppActionRecordAppActionRecordAppActionResult struct {
+	EventId string                                                               `json:"eventId"`
+	Action  *RecordAppActionRecordAppActionRecordAppActionResultActionTickAction `json:"action"`
+}
+
+// GetEventId returns RecordAppActionRecordAppActionRecordAppActionResult.EventId, and is useful for accessing the field via an interface.
+func (v *RecordAppActionRecordAppActionRecordAppActionResult) GetEventId() string { return v.EventId }
+
+// GetAction returns RecordAppActionRecordAppActionRecordAppActionResult.Action, and is useful for accessing the field via an interface.
+func (v *RecordAppActionRecordAppActionRecordAppActionResult) GetAction() *RecordAppActionRecordAppActionRecordAppActionResultActionTickAction {
+	return v.Action
+}
+
+// RecordAppActionRecordAppActionRecordAppActionResultActionTickAction includes the requested fields of the GraphQL type TickAction.
+type RecordAppActionRecordAppActionRecordAppActionResultActionTickAction struct {
+	// Permanent action code (hrn:node:hadronmemory.com:specs:cor:agt:110:01).
+	Code  string          `json:"code"`
+	State TickActionState `json:"state"`
+	// The readable entry's loc, including when no usable task was found.
+	TaskLoc *string `json:"taskLoc"`
+	// The readable runnable task nearest in the woken worker's Agent chain.
+	TaskUrn *string `json:"taskUrn"`
+}
+
+// GetCode returns RecordAppActionRecordAppActionRecordAppActionResultActionTickAction.Code, and is useful for accessing the field via an interface.
+func (v *RecordAppActionRecordAppActionRecordAppActionResultActionTickAction) GetCode() string {
+	return v.Code
+}
+
+// GetState returns RecordAppActionRecordAppActionRecordAppActionResultActionTickAction.State, and is useful for accessing the field via an interface.
+func (v *RecordAppActionRecordAppActionRecordAppActionResultActionTickAction) GetState() TickActionState {
+	return v.State
+}
+
+// GetTaskLoc returns RecordAppActionRecordAppActionRecordAppActionResultActionTickAction.TaskLoc, and is useful for accessing the field via an interface.
+func (v *RecordAppActionRecordAppActionRecordAppActionResultActionTickAction) GetTaskLoc() *string {
+	return v.TaskLoc
+}
+
+// GetTaskUrn returns RecordAppActionRecordAppActionRecordAppActionResultActionTickAction.TaskUrn, and is useful for accessing the field via an interface.
+func (v *RecordAppActionRecordAppActionRecordAppActionResultActionTickAction) GetTaskUrn() *string {
+	return v.TaskUrn
+}
+
+// RecordAppActionResponse is returned by RecordAppAction on success.
+type RecordAppActionResponse struct {
+	// #3449: App action app.<current-app-slug>.<name>, lower-case legal URN atom, at most 64 characters.
+	// Same creator authority as createAgentTask (hrn:node:hadronmemory.com:specs:cor:agt:050:06).
+	// taskRef must name a readable task in this App; unknown and foreign refs answer TASK_NOT_FOUND.
+	// An omitted payload becomes {}; explicit null, non-objects, NUL or an unpaired surrogate in a JSON key/value refuse BAD_USER_INPUT.
+	// payload is a JSON object of at most 4096 UTF-8 bytes, readable by EVERY App participant and the App's own key,
+	// with or without taskRef, and must contain nothing secret (hrn:node:hadronmemory.com:specs:cor:agt:050:23).
+	// Each successful call appends a new event (retries are not deduplicated), type = code, payload = {payload}.
+	// Task-bound actions are passive: they never
+	// acknowledge assignment/child-finished wakes. APP_ACTION_CODE_INVALID refuses invalid codes and foreign slugs.
+	// The register answer reads as the caller (hrn:node:hadronmemory.com:specs:cor:agt:110:03), never authorization.
+	// A caller without an Agent receives WITHHELD with code only, no task loc/URN and no register lookup.
+	RecordAppAction *RecordAppActionRecordAppActionRecordAppActionResult `json:"recordAppAction"`
+}
+
+// GetRecordAppAction returns RecordAppActionResponse.RecordAppAction, and is useful for accessing the field via an interface.
+func (v *RecordAppActionResponse) GetRecordAppAction() *RecordAppActionRecordAppActionRecordAppActionResult {
+	return v.RecordAppAction
 }
 
 // RecordSessionOutcomeRecordSessionOutcomeSession includes the requested fields of the GraphQL type Session.
@@ -85337,7 +85600,7 @@ const (
 	TickActionStateMapped TickActionState = "MAPPED"
 	// No mapping in the fully readable Team Agent chain, or no single Team Agent.
 	TickActionStateUnmapped TickActionState = "UNMAPPED"
-	// The readable entry's loc has no usable task in the worker's chain.
+	// The readable entry's loc has no usable task in the lookup chain.
 	TickActionStateUnresolved TickActionState = "UNRESOLVED"
 	// Code-only guidance: resolve the task yourself. Includes failed reads.
 	TickActionStateWithheld TickActionState = "WITHHELD"
@@ -98751,6 +99014,42 @@ func (v *__AgentTaskUpdateInput) GetTaskId() string { return v.TaskId }
 // GetInput returns __AgentTaskUpdateInput.Input, and is useful for accessing the field via an interface.
 func (v *__AgentTaskUpdateInput) GetInput() *UpdateAgentTaskInput { return v.Input }
 
+// __AgentTeamEventsByCodeInput is used internally by genqlient
+type __AgentTeamEventsByCodeInput struct {
+	AppRef     string   `json:"appRef"`
+	CodePrefix string   `json:"codePrefix"`
+	After      *string  `json:"after,omitempty"`
+	AlarmsOnly *bool    `json:"alarmsOnly,omitempty"`
+	Limit      *int     `json:"limit,omitempty"`
+	Since      *string  `json:"since,omitempty"`
+	TaskId     *string  `json:"taskId,omitempty"`
+	Types      []string `json:"types,omitempty"`
+}
+
+// GetAppRef returns __AgentTeamEventsByCodeInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AgentTeamEventsByCodeInput) GetAppRef() string { return v.AppRef }
+
+// GetCodePrefix returns __AgentTeamEventsByCodeInput.CodePrefix, and is useful for accessing the field via an interface.
+func (v *__AgentTeamEventsByCodeInput) GetCodePrefix() string { return v.CodePrefix }
+
+// GetAfter returns __AgentTeamEventsByCodeInput.After, and is useful for accessing the field via an interface.
+func (v *__AgentTeamEventsByCodeInput) GetAfter() *string { return v.After }
+
+// GetAlarmsOnly returns __AgentTeamEventsByCodeInput.AlarmsOnly, and is useful for accessing the field via an interface.
+func (v *__AgentTeamEventsByCodeInput) GetAlarmsOnly() *bool { return v.AlarmsOnly }
+
+// GetLimit returns __AgentTeamEventsByCodeInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AgentTeamEventsByCodeInput) GetLimit() *int { return v.Limit }
+
+// GetSince returns __AgentTeamEventsByCodeInput.Since, and is useful for accessing the field via an interface.
+func (v *__AgentTeamEventsByCodeInput) GetSince() *string { return v.Since }
+
+// GetTaskId returns __AgentTeamEventsByCodeInput.TaskId, and is useful for accessing the field via an interface.
+func (v *__AgentTeamEventsByCodeInput) GetTaskId() *string { return v.TaskId }
+
+// GetTypes returns __AgentTeamEventsByCodeInput.Types, and is useful for accessing the field via an interface.
+func (v *__AgentTeamEventsByCodeInput) GetTypes() []string { return v.Types }
+
 // __AgentTeamEventsInput is used internally by genqlient
 type __AgentTeamEventsInput struct {
 	AppRef     string   `json:"appRef"`
@@ -103862,6 +104161,26 @@ func (v *__ReAdoptAutomationInput) GetTriggerRef() string { return v.TriggerRef 
 
 // GetExpectedHash returns __ReAdoptAutomationInput.ExpectedHash, and is useful for accessing the field via an interface.
 func (v *__ReAdoptAutomationInput) GetExpectedHash() string { return v.ExpectedHash }
+
+// __RecordAppActionInput is used internally by genqlient
+type __RecordAppActionInput struct {
+	AppRef  string           `json:"appRef"`
+	Code    string           `json:"code"`
+	TaskRef *string          `json:"taskRef,omitempty"`
+	Payload *json.RawMessage `json:"payload,omitempty"`
+}
+
+// GetAppRef returns __RecordAppActionInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__RecordAppActionInput) GetAppRef() string { return v.AppRef }
+
+// GetCode returns __RecordAppActionInput.Code, and is useful for accessing the field via an interface.
+func (v *__RecordAppActionInput) GetCode() string { return v.Code }
+
+// GetTaskRef returns __RecordAppActionInput.TaskRef, and is useful for accessing the field via an interface.
+func (v *__RecordAppActionInput) GetTaskRef() *string { return v.TaskRef }
+
+// GetPayload returns __RecordAppActionInput.Payload, and is useful for accessing the field via an interface.
+func (v *__RecordAppActionInput) GetPayload() *json.RawMessage { return v.Payload }
 
 // __RecordSessionOutcomeInput is used internally by genqlient
 type __RecordSessionOutcomeInput struct {
@@ -111629,6 +111948,90 @@ func AgentTeamEvents(
 	}
 
 	data_ = &AgentTeamEventsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AgentTeamEventsByCode.
+const AgentTeamEventsByCode_Operation = `
+query AgentTeamEventsByCode ($appRef: ID!, $codePrefix: String!, $after: ID, $alarmsOnly: Boolean, $limit: Int, $since: DateTime, $taskId: ID, $types: [String!]) {
+	agentTeamEvents(appRef: $appRef, codePrefix: $codePrefix, after: $after, alarmsOnly: $alarmsOnly, limit: $limit, since: $since, taskId: $taskId, types: $types) {
+		... AgentTeamEventFields
+	}
+}
+fragment AgentTeamEventFields on AgentTeamEvent {
+	id
+	appId
+	taskId
+	type
+	severity
+	createdAt
+	actor {
+		... AgentTaskPartyFields
+	}
+	actorRunId
+	subjectWorker {
+		... AgentTaskPartyFields
+	}
+	payload
+	acknowledgedAt
+	acknowledgedBy {
+		... AgentTaskPartyFields
+	}
+	episodeStart
+	chain
+	wakes {
+		chainIndex
+		dueAt
+		owner {
+			... AgentTaskPartyFields
+		}
+		wokenAt
+	}
+}
+fragment AgentTaskPartyFields on AgentTaskParty {
+	id
+	kind
+	name
+	urn
+}
+`
+
+func AgentTeamEventsByCode(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	codePrefix string,
+	after *string,
+	alarmsOnly *bool,
+	limit *int,
+	since *string,
+	taskId *string,
+	types []string,
+) (data_ *AgentTeamEventsByCodeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentTeamEventsByCode",
+		Query:  AgentTeamEventsByCode_Operation,
+		Variables: &__AgentTeamEventsByCodeInput{
+			AppRef:     appRef,
+			CodePrefix: codePrefix,
+			After:      after,
+			AlarmsOnly: alarmsOnly,
+			Limit:      limit,
+			Since:      since,
+			TaskId:     taskId,
+			Types:      types,
+		},
+	}
+
+	data_ = &AgentTeamEventsByCodeResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -130723,6 +131126,52 @@ func ReAdoptAutomation(
 	}
 
 	data_ = &ReAdoptAutomationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RecordAppAction.
+const RecordAppAction_Operation = `
+mutation RecordAppAction ($appRef: ID!, $code: String!, $taskRef: ID, $payload: JSON) {
+	recordAppAction(appRef: $appRef, code: $code, taskRef: $taskRef, payload: $payload) {
+		eventId
+		action {
+			code
+			state
+			taskLoc
+			taskUrn
+		}
+	}
+}
+`
+
+func RecordAppAction(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	code string,
+	taskRef *string,
+	payload *json.RawMessage,
+) (data_ *RecordAppActionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RecordAppAction",
+		Query:  RecordAppAction_Operation,
+		Variables: &__RecordAppActionInput{
+			AppRef:  appRef,
+			Code:    code,
+			TaskRef: taskRef,
+			Payload: payload,
+		},
+	}
+
+	data_ = &RecordAppActionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

@@ -419,6 +419,36 @@ query AgentTeamEvents(
   }
 }
 
+query AgentTeamEventsByCode(
+  $appRef: ID!
+  $codePrefix: String!
+  # @genqlient(omitempty: true)
+  $after: ID
+  # @genqlient(omitempty: true)
+  $alarmsOnly: Boolean
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $since: DateTime
+  # @genqlient(omitempty: true)
+  $taskId: ID
+  # @genqlient(omitempty: true)
+  $types: [String!]
+) {
+  agentTeamEvents(
+    appRef: $appRef
+    codePrefix: $codePrefix
+    after: $after
+    alarmsOnly: $alarmsOnly
+    limit: $limit
+    since: $since
+    taskId: $taskId
+    types: $types
+  ) {
+    ...AgentTeamEventFields
+  }
+}
+
 mutation AlarmAcknowledge($eventId: ID!) {
   acknowledgeAlarm(eventId: $eventId) {
     ...AgentTeamEventFields

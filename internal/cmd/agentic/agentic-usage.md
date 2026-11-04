@@ -5511,3 +5511,8 @@ Set/revoke JSON: {id,appId,triggerKind,triggerId,grantedBy,createdAt,revokedAt,r
 revokedAt/revokedBy are explicit null when unrevoked. List JSON: {items,total,hasMore};
 items is [] when empty, total is the server count, hasMore is the last page value.
 Human output names the App/trigger/grant; server-derived cells are terminal-safe.
+
+# App-defined action receipt (cli#1669)
+hadron app action record <code> [--task <task>] [--payload <json> | --payload-file <path>] [--json]
+# Uses --app/active App; code is app.<current-slug>.<name> (regex + URN atom shape, <=64 bytes). Server checks slug/authority; after rename old codes refuse (interim reading). Payload must be a JSON object <=4KiB; every App participant and its key can read it, so never secrets. Omitted task/payload remain absent. One mutation/no retry; unknown outcome: inspect events before recording again. JSON {eventId,action:{code,state,taskLoc,taskUrn}}; register states MAPPED/UNMAPPED/UNRESOLVED/WITHHELD and nullable loc/URN are server answers, not authorization.
+# team events --code-prefix <prefix> combines with existing filters; app. includes platform app.properties-changed/app.credential-act/app.manager-act, only app.<slug>. is App-only. Omitting the flag keeps the original query/variables.
