@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/vektah/gqlparser/v2/gqlerror"
@@ -62,17 +63,68 @@ func WithMemoryKeys(ctx context.Context, keys []MemoryKey) (context.Context, err
 		return ctx, exitcode.Newf(exitcode.Usage, "the --unlock passphrases are too long together (the server takes at most %d bytes). Nothing was sent", MaxMemoryKeysBytes)
 	}
 	v := memoryKeysValue{header: string(encoded)}
-	v.secrets = append(v.secrets, v.header)
+	bases := []string{v.header}
 	for _, k := range keys {
-		v.secrets = append(v.secrets, k.Passphrase)
-		// The header is JSON, so an echo of it carries the ESCAPED spelling.
-		if b, err := json.Marshal(k.Passphrase); err == nil {
-			if esc := strings.TrimSuffix(strings.TrimPrefix(string(b), `"`), `"`); esc != k.Passphrase {
-				v.secrets = append(v.secrets, esc)
+		bases = append(bases, k.Passphrase)
+	}
+	v.secrets = escapedSpellings(bases)
+	return context.WithValue(ctx, memoryKeysCtx{}, v), nil
+}
+
+// escapedSpellingDepth is how many JSON string encodings an echo may wrap a
+// secret in. The header is JSON, so a plain echo of it carries each passphrase
+// escaped once. A server that writes "bad header: " + JSON.stringify(header)
+// into an error message escapes the header once and every passphrase twice,
+// and the response's own encoding is undone by decoding (PR #1616 §10 P2,
+// Rook). Two levels covers both.
+const escapedSpellingDepth = 2
+
+// escapedSpellings returns each base secret with its JSON-escaped spellings up
+// to escapedSpellingDepth levels, in Go's HTML-escaping form (\u003c) and in
+// the plain form JavaScript's JSON.stringify writes. They are ordered longest
+// first, so an echoed header is replaced whole before a passphrase inside it
+// is matched, and no shorter spelling can split a longer one.
+func escapedSpellings(bases []string) []string {
+	seen := map[string]bool{}
+	var out []string
+	add := func(s string) bool {
+		if s == "" || seen[s] {
+			return false
+		}
+		seen[s] = true
+		out = append(out, s)
+		return true
+	}
+	for _, base := range bases {
+		level := []string{base}
+		add(base)
+		for d := 0; d < escapedSpellingDepth; d++ {
+			var next []string
+			for _, s := range level {
+				for _, html := range []bool{true, false} {
+					if e := jsonEscape(s, html); add(e) {
+						next = append(next, e)
+					}
+				}
 			}
+			level = next
 		}
 	}
-	return context.WithValue(ctx, memoryKeysCtx{}, v), nil
+	sort.SliceStable(out, func(i, j int) bool { return len(out[i]) > len(out[j]) })
+	return out
+}
+
+// jsonEscape returns s as it appears inside a JSON string literal, without
+// the quotes.
+func jsonEscape(s string, html bool) string {
+	var b bytes.Buffer
+	enc := json.NewEncoder(&b)
+	enc.SetEscapeHTML(html)
+	if err := enc.Encode(s); err != nil {
+		return s
+	}
+	out := strings.TrimSuffix(b.String(), "\n")
+	return strings.TrimSuffix(strings.TrimPrefix(out, `"`), `"`)
 }
 
 func memoryKeysFrom(ctx context.Context) (memoryKeysValue, bool) {

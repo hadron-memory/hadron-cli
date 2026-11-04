@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -341,6 +342,127 @@ func TestUnlockEchoedCodeNeverRendered(t *testing.T) {
 		mapped := MapError(err)
 		if strings.Contains(err.Error(), pass) || strings.Contains(mapped.Error(), pass) || strings.Contains(ServerCodeOf(err), pass) {
 			t.Fatalf("%d: secret rendered: %v / %v / %q", status, err, mapped, ServerCodeOf(err))
+		}
+	}
+}
+
+// PR #1616 §10 P2 (Rook): a server that writes "bad header: " +
+// JSON.stringify(header) into an error message escapes every passphrase
+// twice. Neither path may print it, whichever stringify (JavaScript's plain
+// form or Go's HTML-escaping one) wrapped it.
+func TestUnlockStringifiedHeaderEchoNeverRendered(t *testing.T) {
+	stringify := map[string]func(string) string{
+		"js": func(s string) string { return `"` + jsonEscape(s, false) + `"` },
+		"go": func(s string) string { return `"` + jsonEscape(s, true) + `"` },
+		// A truncated echo: the whole-header spelling no longer matches, so
+		// only the twice-escaped passphrase spelling can catch it.
+		"js-partial": func(s string) string { return `"` + jsonEscape(s[1:], false) + `"` },
+		"go-partial": func(s string) string { return `"` + jsonEscape(s[1:], true) + `"` },
+		// A JavaScript server that parses the header and stringifies the
+		// parsed value: no HTML escaping, so & < > appear raw beside an
+		// escaped quote — a spelling only the plain escape produces.
+		"js-reparsed": func(s string) string {
+			var parsed any
+			_ = json.Unmarshal([]byte(s), &parsed)
+			var b strings.Builder
+			enc := json.NewEncoder(&b)
+			enc.SetEscapeHTML(false)
+			_ = enc.Encode(parsed)
+			return strings.TrimSuffix(b.String(), "\n")
+		},
+	}
+	for _, pass := range []string{`Zq9"ss`, `Zq9\ss`, "Zq9\tss", "Zq9<ss", "Zq9&s>s", `Zq9&"s`, "Zq9hunter2"} {
+		for name, wrap := range stringify {
+			for _, status := range []int{http.StatusOK, http.StatusInternalServerError} {
+				t.Run(name+"/"+http.StatusText(status)+"/"+pass, func(t *testing.T) {
+					reply := func(header string) []byte {
+						msg := "bad header: " + wrap(header)
+						b, _ := json.Marshal(map[string]any{"data": nil, "errors": []any{map[string]any{"message": msg, "path": []string{"node"}}}})
+						return b
+					}
+					var body []byte
+					srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						body = reply(r.Header.Get(MemoryKeysHeader))
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(status)
+						_, _ = w.Write(body)
+					}))
+					defer srv.Close()
+					cl, err := NewClient(srv.URL, "hdr_user_x", nil)
+					if err != nil {
+						t.Fatal(err)
+					}
+					ctx := keysCtx1234(t, pass)
+					var data map[string]any
+					err = cl.MakeRequest(ctx, &graphql.Request{Query: "query X { x }", OpName: "X"}, &graphql.Response{Data: &data})
+					if err == nil {
+						t.Fatal("no error")
+					}
+					keys, _ := memoryKeysFrom(ctx)
+					raw := string(redactUnlockSecrets(status, body, keys.secrets))
+					for _, rendered := range []string{err.Error(), MapError(err).Error(), raw} {
+						if strings.Contains(rendered, "Zq9") {
+							t.Fatalf("passphrase rendered: %s", rendered)
+						}
+					}
+				})
+			}
+		}
+	}
+}
+
+// Spellings are replaced longest first: when one passphrase is a prefix of
+// another, scrubbing the shorter first would leave the longer one's tail.
+func TestRedactUnlockSecretsLongestFirst(t *testing.T) {
+	ctx, err := WithMemoryKeys(context.Background(), []MemoryKey{
+		{Memory: "hrn:mem:acme.com:a", Passphrase: "Zq9abc"},
+		{Memory: "hrn:mem:acme.com:b", Passphrase: "Zq9abcTAIL7"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	keys, _ := memoryKeysFrom(ctx)
+	out := string(redactUnlockSecrets(500, []byte(`{"errors":[{"message":"echo Zq9abcTAIL7"}]}`), keys.secrets))
+	if strings.Contains(out, "TAIL7") || strings.Contains(out, "Zq9") {
+		t.Fatalf("a longer passphrase was split: %s", out)
+	}
+}
+
+// PR #1616 §10 P3 (Rook): the `hadron api` path scrubs on its own (raw.go);
+// pin it so dropping that scrub fails here, not only in the shared helper.
+func TestRawGraphQLNeverRendersAnUnlockEcho(t *testing.T) {
+	const pass = "Zq9raw-echo"
+	for _, c := range []struct {
+		status int
+		body   string
+	}{
+		{200, `{"data":null,"errors":[{"message":"echo Zq9raw-echo","path":["x"]}]}`},
+		{400, `{"errors":[{"message":"echo Zq9raw-echo"}]}`},
+		{500, `{"errors":[{"message":"echo Zq9raw-echo"}]}`},
+		{502, `<html>upstream saw Zq9raw-echo</html>`},
+	} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(c.status)
+			_, _ = w.Write([]byte(c.body))
+		}))
+		result, err := RawGraphQL(keysCtx1234(t, pass), srv.URL, "", "query Q { x }", nil, srv.Client())
+		srv.Close()
+		rendered := ""
+		if err != nil {
+			rendered += err.Error()
+		}
+		if result != nil {
+			b, _ := json.Marshal(result)
+			rendered += string(b)
+			if rerr := result.Err(); rerr != nil {
+				rendered += rerr.Error()
+			}
+		}
+		if rendered == "" {
+			t.Fatalf("%d: nothing rendered", c.status)
+		}
+		if strings.Contains(rendered, "Zq9") {
+			t.Fatalf("%d: passphrase rendered: %s", c.status, rendered)
 		}
 	}
 }

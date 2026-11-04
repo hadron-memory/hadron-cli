@@ -91,11 +91,15 @@ neither does the CLI.
 The CLI has no verbose, debug or request-dump output, so the header's only exit
 paths are error renderings. For a keyed request the doer scrubs the following
 secrets:
-- the encoded header;
-- each passphrase;
-- each passphrase's JSON-escaped spelling (the header is JSON, so an echo of it
-  carries that spelling);
+- the encoded header and each passphrase;
+- their JSON-escaped spellings to two levels, in Go's HTML-escaping form and in
+  the plain form JavaScript's `JSON.stringify` writes. The header is JSON, so a
+  plain echo carries each passphrase escaped once. An echo such as
+  `"bad header: " + JSON.stringify(header)` carries it twice (PR #1616 §10 P2);
 - the URL-escaped spellings of all of these.
+
+They are replaced longest first, so an echoed header goes whole, and a
+passphrase that is a prefix of another cannot leave the longer one's tail.
 
 It scrubs only what can be rendered as an error:
 - the whole of a non-200;
