@@ -394,3 +394,70 @@ func TestSpec579ConcurrentEditNotOverwritten(t *testing.T) {
 		t.Fatalf("err %v writes %d abstract %v %s", err, c.writes, c.nodes["old"]["abstract"], out)
 	}
 }
+
+func TestSpec579InconsistentLeadRefused(t *testing.T) {
+	for _, mode := range []string{"by", "create"} {
+		for _, missing := range []string{"edge", "tag"} {
+			if mode == "create" && missing == "edge" {
+				continue
+			}
+			t.Run(mode+"/"+missing, func(t *testing.T) {
+				srv, c := server579(t)
+				c.nodes["old"]["abstract"] = "SUPERSEDED (2026-01-01) by srv:sch:030 (N); do not apply. Historical: Old."
+				if missing != "edge" {
+					edge579(c, "old", "new")
+				}
+				if missing != "tag" {
+					c.nodes["old"]["tags"] = []any{"spec", "superseded"}
+				}
+				flags := []string{"--by", "srv:sch:030"}
+				if mode == "create" {
+					flags = []string{"--title", "N"}
+				}
+				out, err := run579(t, srv.URL, flags...)
+				if exitCodeFor(err) != 5 || c.writes != 0 || strings.Contains(out, `"unchanged": true`) || strings.Contains(out, `"status": "created"`) {
+					t.Fatalf("inconsistent state claimed success: err=%v writes=%d out=%s", err, c.writes, out)
+				}
+			})
+		}
+	}
+}
+
+func TestSpec579ByReasonRefusedBeforeRequest(t *testing.T) {
+	for _, reason := range []string{"Audit reason", ""} {
+		srv, c := server579(t)
+		_, err := run579(t, srv.URL, "--by", "srv:sch:030", "--reason", reason)
+		if exitCodeFor(err) != 2 || len(c.calls) != 0 {
+			t.Fatalf("reason silently discarded: err=%v calls=%v", err, c.calls)
+		}
+	}
+}
+
+func TestSpec579LegacyRepairAndDryRun(t *testing.T) {
+	for _, dry := range []bool{false, true} {
+		t.Run(fmt.Sprint(dry), func(t *testing.T) {
+			srv, c := server579(t)
+			edge579(c, "old", "new")
+			c.nodes["old"]["tags"] = []any{"spec", "superseded"}
+			before := c.nodes["old"]["content"]
+			flags := []string{"--by", "srv:sch:030"}
+			if dry {
+				flags = append(flags, "--dry-run")
+			}
+			out, err := run579(t, srv.URL, flags...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			want := 1
+			if dry {
+				want = 0
+			}
+			if c.writes != want || c.creates != 0 || c.nodes["old"]["content"] != before {
+				t.Fatalf("writes=%d creates=%d out=%s", c.writes, c.creates, out)
+			}
+			if !dry && (!strings.HasPrefix(c.nodes["old"]["abstract"].(string), "SUPERSEDED (") || c.lastUpdate["expectedRevision"] != float64(1)) {
+				t.Fatal("legacy repair not guarded", c.lastUpdate)
+			}
+		})
+	}
+}
