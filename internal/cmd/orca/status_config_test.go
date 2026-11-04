@@ -507,3 +507,29 @@ func TestStatusConfigWithEmptyAppFlagIsUsage(t *testing.T) {
 		t.Fatalf("exit %d commands %v keys %v", code, h.orca.commands, h.keys)
 	}
 }
+
+// hadron-cli#1624: the --config reads send the host key and record it as a
+// host key, never as the stored user login, so a refusal there cannot earn the
+// stored-login remedy at render time.
+func TestDefaultHostReadsRecordsTheHostKey1624(t *testing.T) {
+	var auths []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		auths = append(auths, r.Header.Get("Authorization"))
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer srv.Close()
+	f := &cmdutil.Factory{HTTPClient: srv.Client()}
+	reads, err := defaultHostReads(f, &hostpoller.Config{Server: srv.URL, App: "hrn:app:acme.com:eng-team"}, "hk_host_key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := reads.Workers(context.Background()); err == nil {
+		t.Fatal("want the refusal")
+	}
+	if len(auths) != 1 || auths[0] != "Bearer hk_host_key" {
+		t.Fatalf("sent %q, want only the host key", auths)
+	}
+	if !f.Credentials().Only(api.CredentialHostKey) || f.Credentials().Only(api.CredentialStoredUser) {
+		t.Error("the host-key request must be recorded as a host key, not the stored login")
+	}
+}

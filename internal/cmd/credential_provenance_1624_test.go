@@ -93,9 +93,11 @@ func outputs1624(out *strings.Builder, errText string) string { return out.Strin
 
 func TestCredentialProvenance1624HostKeyRefusalGetsNoStoredHint(t *testing.T) {
 	for _, asJSON := range []bool{false, true} {
+		// `orca terminal status --config` probes Orca before it reads, so its
+		// host-key client is pinned in its own package without Orca
+		// (TestDefaultHostReadsRecordsTheHostKey1624).
 		for _, args := range [][]string{
 			{"team", "host", "run", "--once"},
-			{"orca", "terminal", "status", "--all"},
 		} {
 			t.Run(strings.Join(args, "-")+map[bool]string{true: "-json"}[asJSON], func(t *testing.T) {
 				srv, bearers := refusingServer1624(t, nil)
