@@ -2,6 +2,7 @@ package orca
 
 import (
 	"encoding/json"
+	"os"
 	"sort"
 	"strings"
 	"testing"
@@ -52,7 +53,57 @@ func TestStatusHelpReachCheck(t *testing.T) {
 		"orca` is not on PATH",
 		"Orca app is not running",
 		"did not answer in time",
-		"exit 4",
+		"exit 4 (no such worker or terminal) means Orca answered",
+		"Exits 2 and 3",
+		"say nothing about Orca",
+	)
+	mustNotContain(t, "status", long, "any other exit means Orca answered")
+}
+
+// Exits 2 and 3 are refused before Orca is listed, so they say nothing about
+// Orca: the help says so, and Orca is never called on those paths.
+func TestStatusUsageErrorsNeverReachOrca(t *testing.T) {
+	r := newRig(t)
+	r.joshua(idleScreen)
+	if code, _ := r.run(t, false); code != exitcode.Usage {
+		t.Fatalf("no target: exit %d, want 2", code)
+	}
+	if code, _ := r.run(t, false, "--all", "Joshua"); code != exitcode.Usage {
+		t.Fatalf("--all with a name: exit %d, want 2", code)
+	}
+	if len(r.orca.commands) != 0 {
+		t.Fatalf("a usage error must not touch Orca, saw %v", r.orca.commands)
+	}
+	h := newHostRig(t)
+	if code, _ := h.run(t, true, "--all", "--config", "/nonexistent/host.yaml"); code != exitcode.Usage && code != exitcode.AuthRequired {
+		t.Fatalf("bad --config file: exit %d, want 2 or 3", code)
+	}
+	if len(h.bins) != 0 || len(h.orca.commands) != 0 {
+		t.Fatalf("a bad --config must be refused before Orca is listed, saw %v %v", h.bins, h.orca.commands)
+	}
+}
+
+// The agentic-usage page must not contradict the help about what the server
+// records (Gabriel's P2-1): one answer for an operator auditing a cron run.
+func TestAgenticUsageOrcaRecordingMatchesHelp(t *testing.T) {
+	raw, err := os.ReadFile("../agentic/agentic-usage.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := string(raw)
+	i := strings.Index(doc, "## Orca terminal status")
+	j := strings.Index(doc, "## Orca worker onboarding")
+	if i < 0 || j < i {
+		t.Fatal("Orca terminal status section not found")
+	}
+	sec := strings.Join(strings.Fields(doc[i:j]), " ")
+	if strings.Contains(sec, "only server effect") {
+		t.Error("the section says the due-wake read is the only server effect, but host-key reads are all recorded")
+	}
+	mustContain(t, "agentic-usage Orca section", sec,
+		"recorded as a host-key use",
+		"the due-wake read is not the only record",
+		"exit 2 or 3 is refused before Orca is listed",
 	)
 }
 
@@ -71,6 +122,9 @@ func TestStatusReachCheckRecipeIsTrue(t *testing.T) {
 	if code, _ := r.run(t, false, "no-such-worker"); code != exitcode.NotFound {
 		t.Fatalf("Orca up, unknown name: exit %d, want 4", code)
 	}
+	if r.reads.calls["workers"] != 1 {
+		t.Fatalf("an unknown name is looked up among the App's workers (the help says so), saw %v", r.reads.calls)
+	}
 	if r.reads.calls["due"] != 0 || r.reads.calls["subs"] != 0 {
 		t.Fatalf("the recipe must not read due wakes or tickers, saw %v", r.reads.calls)
 	}
@@ -86,6 +140,7 @@ func TestStatusHelpOutputShape(t *testing.T) {
 		"One worker with --json prints one object",
 		"--all with --json prints one array",
 		"--all without --json prints one text line per worker",
+		`" (<reason>)" is left out when reason is null`,
 	)
 }
 

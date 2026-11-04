@@ -3844,12 +3844,13 @@ resolve the anchored-thread conflict before merging, rather than retry blind.
 
 **An Orca integration command.** It reads terminals of the Orca app, so it works only on the host that
 runs Orca and needs the `orca` CLI on PATH (or `delivery.orca_bin` with `--config`). Off that host it exits **10**
-(no output). It only lists and reads terminals: it never types and never acknowledges a wake. The only server effect is its due-wake read: the `dueWakes` read is the ordinary one a deliverer makes, so the server may reserve a due
+(no output). It only lists and reads terminals: it never types and never acknowledges a wake. Its server reads are not free of effect: the `dueWakes` read is the ordinary one a deliverer makes, so the server may reserve a due
 wake against the App's daily wake budget (an already-outstanding wake is handed out again with no second slot),
-the platform may post its once-a-day budget notice to the team chat when the budget is spent, and a read made with
-an App key is recorded. Reach check without guessing a name: `hadron orca terminal status no-such-worker` lists
-Orca first, so exit 10 = Orca unreachable (`orca` not on PATH, app not running, no answer in 15s) and exit 4 = Orca
-answered. `--all` is one JSON array only with `--json`; without it, one text line per worker.
+the platform may post its once-a-day budget notice to the team chat when the budget is spent, and every read made with
+an App key (with `--config`: the ticker reads and the `dueWakes` read, refusals included) is recorded as a host-key
+use. Reach check without guessing a name: `hadron orca terminal status no-such-worker` lists Orca first once the
+arguments are accepted, so exit 10 = Orca unreachable (`orca` not on PATH, app not running, no answer in 15s) and
+exit 4 = Orca answered; exit 2 or 3 is refused before Orca is listed and says nothing about Orca. `--all` is one JSON array only with `--json`; without it, one text line per worker.
 
 `hadron orca terminal status <worker|terminal-id> [--config <host.yaml>] [--json]` or `--all` (one JSON array, one entry per
 active worker of the App, in the App's worker order). The terminal is the Orca terminal whose worktree's

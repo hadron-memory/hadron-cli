@@ -101,9 +101,11 @@ Checking that Orca is reachable: run it with a name no worker has, for example
 
   hadron orca terminal status no-such-worker
 
-Orca is listed before it looks anything else up. Exit 10 means Orca is not
-reachable; any other exit means Orca answered (here exit 4, no such worker or
-terminal). Exit 10 covers all of these: ` + "`orca`" + ` is not on PATH, the Orca app is
+Once the arguments are accepted, Orca is listed before it looks anything else
+up. Exit 10 means Orca is not reachable; exit 4 (no such worker or terminal)
+means Orca answered. Exits 2 and 3 (bad arguments, a bad --config file or key
+file) are refused before Orca is listed, so they say nothing about Orca. Exit 10
+covers all of these: ` + "`orca`" + ` is not on PATH, the Orca app is
 not running, or Orca did not answer in time (15 seconds). A name that matches
 no terminal id is then looked up among the App's workers, so this check also
 needs your usual sign-in and App.
@@ -114,7 +116,8 @@ terminal looks idle it also reads the server's tickers and due wakes (the dark
 rule below). That due-wake read is the one a deliverer makes, so the server may
 reserve a due wake against the App's daily wake budget, and when the budget is
 spent the platform posts its daily notice to the team chat; a read made with an
-App key is also recorded (which key, how many workers, when).
+App key is also recorded (which key, how many workers, when). With --config,
+every server read below is made with the host key and recorded as a host-key use.
 
 Classifies one worker's terminal (found by the worker's session binding in its
 worktree, or taken directly by terminal id) as the versioned terminal-status@1
@@ -146,7 +149,8 @@ for locked and dark). One worker with --json prints one object:
   [{"contract":"terminal-status@1","worker":"Ada","terminal":"term_7c1e","status":"locked","prompt":"menu","reason":"menu_or_question","lastTurnAt":null,"checkedAt":"2026-10-29T16:31:40Z"}]
 
 --all without --json prints one text line per worker: "<worker> <status>
-(<reason>): <detail>". The detail (the ticker and due time behind a dark, or why
+(<reason>): <detail>", where " (<reason>)" is left out when reason is null and
+": <detail>" when there is no detail. The detail (the ticker and due time behind a dark, or why
 a read was refused) is text mode only and never part of the JSON.
 
 Terms used above:

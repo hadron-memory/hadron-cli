@@ -22,9 +22,10 @@ never type into a terminal.
 
 To check that Orca is reachable from this host, run
   hadron orca terminal status no-such-worker
-Exit 10 means Orca is not reachable; exit 4 means Orca answered.
+Exit 10 means Orca is not reachable; exit 4 means Orca answered. A usage
+error (exit 2 or 3) says nothing about Orca.
 
-Start with ` + "`hadron orca terminal status --help`" + `: it is the only command in the group.`,
+Start with ` + "`hadron orca terminal status --help`" + `: the group has one command, status.`,
 	}
 	cmd.AddCommand(newCmdTerminal(f))
 	return cmd
