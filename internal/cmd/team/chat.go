@@ -156,11 +156,17 @@ func resolveTeamAppScope(ctx context.Context, f *cmdutil.Factory, b *binding) (a
 // envelope, plus ONE CLI-only field — `author`, an alias of the server's
 // `authorName` (see below). It is no longer verbatim, so do not treat every
 // field here as a server field when touching codegen or the schema.
+type teamTagDTO struct {
+	HeadID string `json:"headId"`
+	Label  string `json:"label"`
+}
+
 type teamChatMessageDTO struct {
-	NodeID string `json:"nodeId"`
-	Seq    int    `json:"seq"`
-	Body   string `json:"body"`
-	At     string `json:"at"`
+	TeamTags []teamTagDTO `json:"teamTags"`
+	NodeID   string       `json:"nodeId"`
+	Seq      int          `json:"seq"`
+	Body     string       `json:"body"`
+	At       string       `json:"at"`
 	// Author is an ALIAS of AuthorName, carried for the retired academy
 	// dialect (#406). `hadron chat read` names this field `author`, and reads
 	// "accept the retired dialect forever" per the #369 decision record — so a
@@ -197,8 +203,16 @@ func teamChatMessageDTOFromFields(m gen.TeamChatMessageFields) teamChatMessageDT
 	if mentions == nil {
 		mentions = []string{}
 	}
+	var tags []teamTagDTO
+	if m.TeamTags != nil {
+		tags = make([]teamTagDTO, 0, len(m.TeamTags))
+		for _, tag := range m.TeamTags {
+			tags = append(tags, teamTagDTO{HeadID: tag.HeadId, Label: tag.Label})
+		}
+	}
 	return teamChatMessageDTO{
-		NodeID: m.NodeId, Seq: m.Seq, Body: m.Body, At: m.At,
+		TeamTags: tags,
+		NodeID:   m.NodeId, Seq: m.Seq, Body: m.Body, At: m.At,
 		Author: m.AuthorName, AuthorName: m.AuthorName,
 		AuthorUserID: m.AuthorUserId, AuthorWorkerID: m.AuthorWorkerId,
 		SessionID: m.SessionId, ReplyToSeq: m.ReplyToSeq, Mentions: mentions,
@@ -490,6 +504,7 @@ const TeamChatPageSize = 200
 const teamChatDefaultLimit = 20
 
 func newCmdTeamChatRead(f *cmdutil.Factory) *cobra.Command {
+	var tagFlags cmdutil.ChatTagFlags
 	var since, before, limit, thread int
 	var all bool
 	var mentionsMe bool
@@ -665,6 +680,9 @@ them "(human)" / "(worker)".`,
 				return exitcode.Newf(exitcode.Usage,
 					"--before must be at least 1 — seq numbers start at 1, so a cursor below it can only return nothing")
 			}
+			if err := tagFlags.Validate(cmd); err != nil {
+				return err
+			}
 			ctx := cmd.Context()
 			b, err := readBindingOrNilWithApp(ctx, f)
 			if err != nil {
@@ -734,12 +752,17 @@ them "(human)" / "(worker)".`,
 				}
 				var resp *gen.TeamChatMessagesResponse
 				var err error
-				if threadGiven {
+				if tagFlags.Active() {
+					resp, err = attribution.tags(ctx, client, appRef, sinceArg, mentionsRef, &size, beforeArg, tagFlags.Head(), tagFlags.Untagged())
+				} else if threadGiven {
 					resp, err = attribution.thread(ctx, client, appRef, thread, sinceArg, mentionsRef, &size, beforeArg)
 				} else {
 					resp, err = attribution.page(ctx, client, appRef, sinceArg, mentionsRef, &size, beforeArg)
 				}
 				if err != nil {
+					if tagFlags.Active() {
+						return api.MapErrorKeepingCode(err)
+					}
 					return api.MapError(err)
 				}
 				if resp.TeamChatMessages == nil {
@@ -794,7 +817,7 @@ them "(human)" / "(worker)".`,
 			if state.Head != nil {
 				head := *state.Head
 				newest := tailRead || (beforeGiven && before > head && head > since)
-				state.SuspectedStale = chatPageBehindHead(head, highest, cursor, lastPageCount, pageSize, newest, sinceGiven || all, beforeGiven && !newest, mentionsRef != nil || threadGiven)
+				state.SuspectedStale = chatPageBehindHead(head, highest, cursor, lastPageCount, pageSize, newest, sinceGiven || all, beforeGiven && !newest, mentionsRef != nil || threadGiven || tagFlags.Active())
 			}
 			// The watermark the binding records is NOT `next`. `next` is a PAGING
 			// cursor: it answers "where do I resume", falls back to whatever the
@@ -850,7 +873,7 @@ them "(human)" / "(worker)".`,
 			//    holding an unrelated chat. `chat post` and the session mutations
 			//    already REFUSE on that mismatch; a read is legitimate, so only
 			//    the bookkeeping is skipped.
-			unfiltered := mentionsRef == nil && !threadGiven
+			unfiltered := mentionsRef == nil && !threadGiven && !tagFlags.Active()
 			// recordWatermark reports whether this read COUNTS as having read
 			// through `verified` — the same evidence decides the server-side
 			// mark below (#1353), so the two claims cannot disagree.
@@ -958,7 +981,7 @@ them "(human)" / "(worker)".`,
 					// successful render claims the reader SAW these messages, and a
 					// pipe that closes partway through means they saw only some
 					// (PR #493 review).
-					if _, err := fmt.Fprintf(w, "[%d] %s%s%s: %s\n", m.Seq, who, m.authorKind(), reply, m.Body); err != nil {
+					if _, err := fmt.Fprintf(w, "[%d] %s%s%s: %s\n", m.Seq, who, m.authorKind(), reply+teamTagText(m.TeamTags), m.Body); err != nil {
 						return err
 					}
 				}
@@ -1005,6 +1028,19 @@ them "(human)" / "(worker)".`,
 	cmd.Flags().IntVar(&thread, "thread", 0, "only the direct replies to this seq (the message itself is not included); an unknown seq is exit 4, a message with no replies is an empty page")
 	cmd.Flags().DurationVar(&wait, "wait", 0, "poll until a new message arrives or this long has passed (needs --since); exit 13 on timeout")
 	cmd.Flags().DurationVar(&pollInterval, "poll-interval", chatWaitDefaultInterval, "with --wait: time between polls (at least 2s)")
+	tagFlags.Bind(cmd)
 	cmd.RunE = chatWaitRunE(f, cmd.RunE, &wait, &pollInterval, &returned)
 	return cmd
+}
+
+// Metadata may be null or empty: neither makes a text claim about absence.
+func teamTagText(tags []teamTagDTO) string {
+	if len(tags) == 0 {
+		return ""
+	}
+	labels := make([]string, 0, len(tags))
+	for _, tag := range tags {
+		labels = append(labels, output.SafeCell(tag.Label))
+	}
+	return " (teams: " + strings.Join(labels, ", ") + ")"
 }

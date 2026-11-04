@@ -22051,6 +22051,8 @@ type ChannelMessageFields struct {
 	Mentions   []string `json:"mentions"`
 	// The message node's id.
 	NodeId string `json:"nodeId"`
+	// Immutable head identity/display pairs. Null means absent or withheld; [] means known empty.
+	TeamTags []*ChannelMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
 }
 
 // GetSeq returns ChannelMessageFields.Seq, and is useful for accessing the field via an interface.
@@ -22085,6 +22087,23 @@ func (v *ChannelMessageFields) GetMentions() []string { return v.Mentions }
 
 // GetNodeId returns ChannelMessageFields.NodeId, and is useful for accessing the field via an interface.
 func (v *ChannelMessageFields) GetNodeId() string { return v.NodeId }
+
+// GetTeamTags returns ChannelMessageFields.TeamTags, and is useful for accessing the field via an interface.
+func (v *ChannelMessageFields) GetTeamTags() []*ChannelMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.TeamTags
+}
+
+// ChannelMessageFieldsTeamTagsTeamTagSnapshot includes the requested fields of the GraphQL type TeamTagSnapshot.
+type ChannelMessageFieldsTeamTagsTeamTagSnapshot struct {
+	HeadId string `json:"headId"`
+	Label  string `json:"label"`
+}
+
+// GetHeadId returns ChannelMessageFieldsTeamTagsTeamTagSnapshot.HeadId, and is useful for accessing the field via an interface.
+func (v *ChannelMessageFieldsTeamTagsTeamTagSnapshot) GetHeadId() string { return v.HeadId }
+
+// GetLabel returns ChannelMessageFieldsTeamTagsTeamTagSnapshot.Label, and is useful for accessing the field via an interface.
+func (v *ChannelMessageFieldsTeamTagsTeamTagSnapshot) GetLabel() string { return v.Label }
 
 // ChannelMessageSearchChannelMessageSearchTeamChatSearchPage includes the requested fields of the GraphQL type TeamChatSearchPage.
 // The GraphQL type's documentation follows.
@@ -22277,6 +22296,11 @@ func (v *ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage)
 	return v.ChannelMessageFields.NodeId
 }
 
+// GetTeamTags returns ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.TeamTags, and is useful for accessing the field via an interface.
+func (v *ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetTeamTags() []*ChannelMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.ChannelMessageFields.TeamTags
+}
+
 func (v *ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -22324,6 +22348,8 @@ type __premarshalChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChat
 	Mentions []string `json:"mentions"`
 
 	NodeId string `json:"nodeId"`
+
+	TeamTags []*ChannelMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
 }
 
 func (v *ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) MarshalJSON() ([]byte, error) {
@@ -22348,6 +22374,7 @@ func (v *ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage)
 	retval.ReplyToSeq = v.ChannelMessageFields.ReplyToSeq
 	retval.Mentions = v.ChannelMessageFields.Mentions
 	retval.NodeId = v.ChannelMessageFields.NodeId
+	retval.TeamTags = v.ChannelMessageFields.TeamTags
 	return &retval, nil
 }
 
@@ -22406,6 +22433,192 @@ type ChannelReadStateResponse struct {
 // GetChannelReadState returns ChannelReadStateResponse.ChannelReadState, and is useful for accessing the field via an interface.
 func (v *ChannelReadStateResponse) GetChannelReadState() *ChannelReadStateChannelReadState {
 	return v.ChannelReadState
+}
+
+// ChannelTagsChannelMessagesTeamChatMessagesPage includes the requested fields of the GraphQL type TeamChatMessagesPage.
+type ChannelTagsChannelMessagesTeamChatMessagesPage struct {
+	// Number of canonical messages matching this read's sinceSeq/beforeSeq cursor
+	// range and mentionsRef filter, before limit/offset. It is not the total
+	// number of messages in the chat or Channel when a cursor/filter is present.
+	Total int                                                                   `json:"total"`
+	Items []*ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage `json:"items"`
+}
+
+// GetTotal returns ChannelTagsChannelMessagesTeamChatMessagesPage.Total, and is useful for accessing the field via an interface.
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPage) GetTotal() int { return v.Total }
+
+// GetItems returns ChannelTagsChannelMessagesTeamChatMessagesPage.Items, and is useful for accessing the field via an interface.
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPage) GetItems() []*ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage {
+	return v.Items
+}
+
+// ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage includes the requested fields of the GraphQL type TeamChatMessage.
+// The GraphQL type's documentation follows.
+//
+// One message in a team App's chat (#939, Worker envelope since #974). Exactly
+// one of authorUserId / authorWorkerId is set, or authorSystem is true (#1791, the
+// platform's own notice, which has neither): a human post carries the user, a
+// worker post carries the Worker (the named casting, cor:dmo:050:11) plus the
+// driving sessionId. mentions holds the lowercased tokens extracted
+// server-side at write time (the '@worker-name / @handle' format, stored
+// without the '@').
+type ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage struct {
+	ChannelMessageFields `json:"-"`
+}
+
+// GetSeq returns ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.Seq, and is useful for accessing the field via an interface.
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetSeq() int {
+	return v.ChannelMessageFields.Seq
+}
+
+// GetAt returns ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.At, and is useful for accessing the field via an interface.
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAt() string {
+	return v.ChannelMessageFields.At
+}
+
+// GetBody returns ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.Body, and is useful for accessing the field via an interface.
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetBody() string {
+	return v.ChannelMessageFields.Body
+}
+
+// GetAuthorName returns ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorName, and is useful for accessing the field via an interface.
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorName() *string {
+	return v.ChannelMessageFields.AuthorName
+}
+
+// GetAuthorWorkerId returns ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorWorkerId, and is useful for accessing the field via an interface.
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorWorkerId() *string {
+	return v.ChannelMessageFields.AuthorWorkerId
+}
+
+// GetAuthorUserId returns ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorUserId, and is useful for accessing the field via an interface.
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorUserId() *string {
+	return v.ChannelMessageFields.AuthorUserId
+}
+
+// GetAuthorAppId returns ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorAppId, and is useful for accessing the field via an interface.
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorAppId() *string {
+	return v.ChannelMessageFields.AuthorAppId
+}
+
+// GetSessionId returns ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.SessionId, and is useful for accessing the field via an interface.
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetSessionId() *string {
+	return v.ChannelMessageFields.SessionId
+}
+
+// GetReplyToSeq returns ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.ReplyToSeq, and is useful for accessing the field via an interface.
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetReplyToSeq() *int {
+	return v.ChannelMessageFields.ReplyToSeq
+}
+
+// GetMentions returns ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.Mentions, and is useful for accessing the field via an interface.
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetMentions() []string {
+	return v.ChannelMessageFields.Mentions
+}
+
+// GetNodeId returns ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.NodeId, and is useful for accessing the field via an interface.
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetNodeId() string {
+	return v.ChannelMessageFields.NodeId
+}
+
+// GetTeamTags returns ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.TeamTags, and is useful for accessing the field via an interface.
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetTeamTags() []*ChannelMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.ChannelMessageFields.TeamTags
+}
+
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ChannelMessageFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage struct {
+	Seq int `json:"seq"`
+
+	At string `json:"at"`
+
+	Body string `json:"body"`
+
+	AuthorName *string `json:"authorName"`
+
+	AuthorWorkerId *string `json:"authorWorkerId"`
+
+	AuthorUserId *string `json:"authorUserId"`
+
+	AuthorAppId *string `json:"authorAppId"`
+
+	SessionId *string `json:"sessionId"`
+
+	ReplyToSeq *int `json:"replyToSeq"`
+
+	Mentions []string `json:"mentions"`
+
+	NodeId string `json:"nodeId"`
+
+	TeamTags []*ChannelMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
+}
+
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) __premarshalJSON() (*__premarshalChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage, error) {
+	var retval __premarshalChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage
+
+	retval.Seq = v.ChannelMessageFields.Seq
+	retval.At = v.ChannelMessageFields.At
+	retval.Body = v.ChannelMessageFields.Body
+	retval.AuthorName = v.ChannelMessageFields.AuthorName
+	retval.AuthorWorkerId = v.ChannelMessageFields.AuthorWorkerId
+	retval.AuthorUserId = v.ChannelMessageFields.AuthorUserId
+	retval.AuthorAppId = v.ChannelMessageFields.AuthorAppId
+	retval.SessionId = v.ChannelMessageFields.SessionId
+	retval.ReplyToSeq = v.ChannelMessageFields.ReplyToSeq
+	retval.Mentions = v.ChannelMessageFields.Mentions
+	retval.NodeId = v.ChannelMessageFields.NodeId
+	retval.TeamTags = v.ChannelMessageFields.TeamTags
+	return &retval, nil
+}
+
+// ChannelTagsResponse is returned by ChannelTags on success.
+type ChannelTagsResponse struct {
+	// Spec 049 Phase 8 — read ANY Channel by ref (its id, or its address —
+	// `Channel.chatRootUrn`, #1171), with teamChatMessages'
+	// cursors, mentions filter and paging; teamChatMessages is the
+	// appRef → App.defaultChannel convenience over this. Authorization is the
+	// host App's team-chat read gate; a Channel you may not read — or one that
+	// does not exist — is CHANNEL_NOT_FOUND, identically.
+	// TeamChatMessagesPage.total has the same cursor- and mention-filtered
+	// meaning as for teamChatMessages, before paging.
+	ChannelMessages *ChannelTagsChannelMessagesTeamChatMessagesPage `json:"channelMessages"`
+}
+
+// GetChannelMessages returns ChannelTagsResponse.ChannelMessages, and is useful for accessing the field via an interface.
+func (v *ChannelTagsResponse) GetChannelMessages() *ChannelTagsChannelMessagesTeamChatMessagesPage {
+	return v.ChannelMessages
 }
 
 // ChannelThreadChannelMessagesTeamChatMessagesPage includes the requested fields of the GraphQL type TeamChatMessagesPage.
@@ -22494,6 +22707,11 @@ func (v *ChannelThreadChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) G
 	return v.ChannelMessageFields.NodeId
 }
 
+// GetTeamTags returns ChannelThreadChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.TeamTags, and is useful for accessing the field via an interface.
+func (v *ChannelThreadChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetTeamTags() []*ChannelMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.ChannelMessageFields.TeamTags
+}
+
 func (v *ChannelThreadChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -22541,6 +22759,8 @@ type __premarshalChannelThreadChannelMessagesTeamChatMessagesPageItemsTeamChatMe
 	Mentions []string `json:"mentions"`
 
 	NodeId string `json:"nodeId"`
+
+	TeamTags []*ChannelMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
 }
 
 func (v *ChannelThreadChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) MarshalJSON() ([]byte, error) {
@@ -22565,6 +22785,7 @@ func (v *ChannelThreadChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) _
 	retval.ReplyToSeq = v.ChannelMessageFields.ReplyToSeq
 	retval.Mentions = v.ChannelMessageFields.Mentions
 	retval.NodeId = v.ChannelMessageFields.NodeId
+	retval.TeamTags = v.ChannelMessageFields.TeamTags
 	return &retval, nil
 }
 
@@ -23338,6 +23559,11 @@ func (v *CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) G
 	return v.TeamChatMessageFields.Mentions
 }
 
+// GetTeamTags returns CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.TeamTags, and is useful for accessing the field via an interface.
+func (v *CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetTeamTags() []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.TeamChatMessageFields.TeamTags
+}
+
 func (v *CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -23383,6 +23609,8 @@ type __premarshalCheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMe
 	ReplyToSeq *int `json:"replyToSeq"`
 
 	Mentions []string `json:"mentions"`
+
+	TeamTags []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
 }
 
 func (v *CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) MarshalJSON() ([]byte, error) {
@@ -23406,6 +23634,7 @@ func (v *CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) _
 	retval.SessionId = v.TeamChatMessageFields.SessionId
 	retval.ReplyToSeq = v.TeamChatMessageFields.ReplyToSeq
 	retval.Mentions = v.TeamChatMessageFields.Mentions
+	retval.TeamTags = v.TeamChatMessageFields.TeamTags
 	return &retval, nil
 }
 
@@ -31826,6 +32055,11 @@ func (v *CreateChannelMessageCreateChannelMessageTeamChatMessage) GetNodeId() st
 	return v.ChannelMessageFields.NodeId
 }
 
+// GetTeamTags returns CreateChannelMessageCreateChannelMessageTeamChatMessage.TeamTags, and is useful for accessing the field via an interface.
+func (v *CreateChannelMessageCreateChannelMessageTeamChatMessage) GetTeamTags() []*ChannelMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.ChannelMessageFields.TeamTags
+}
+
 func (v *CreateChannelMessageCreateChannelMessageTeamChatMessage) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -31873,6 +32107,8 @@ type __premarshalCreateChannelMessageCreateChannelMessageTeamChatMessage struct 
 	Mentions []string `json:"mentions"`
 
 	NodeId string `json:"nodeId"`
+
+	TeamTags []*ChannelMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
 }
 
 func (v *CreateChannelMessageCreateChannelMessageTeamChatMessage) MarshalJSON() ([]byte, error) {
@@ -31897,6 +32133,7 @@ func (v *CreateChannelMessageCreateChannelMessageTeamChatMessage) __premarshalJS
 	retval.ReplyToSeq = v.ChannelMessageFields.ReplyToSeq
 	retval.Mentions = v.ChannelMessageFields.Mentions
 	retval.NodeId = v.ChannelMessageFields.NodeId
+	retval.TeamTags = v.ChannelMessageFields.TeamTags
 	return &retval, nil
 }
 
@@ -35513,6 +35750,11 @@ func (v *CreateTeamChatMessageCreateTeamChatMessage) GetMentions() []string {
 	return v.TeamChatMessageFields.Mentions
 }
 
+// GetTeamTags returns CreateTeamChatMessageCreateTeamChatMessage.TeamTags, and is useful for accessing the field via an interface.
+func (v *CreateTeamChatMessageCreateTeamChatMessage) GetTeamTags() []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.TeamChatMessageFields.TeamTags
+}
+
 func (v *CreateTeamChatMessageCreateTeamChatMessage) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -35558,6 +35800,8 @@ type __premarshalCreateTeamChatMessageCreateTeamChatMessage struct {
 	ReplyToSeq *int `json:"replyToSeq"`
 
 	Mentions []string `json:"mentions"`
+
+	TeamTags []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
 }
 
 func (v *CreateTeamChatMessageCreateTeamChatMessage) MarshalJSON() ([]byte, error) {
@@ -35581,6 +35825,7 @@ func (v *CreateTeamChatMessageCreateTeamChatMessage) __premarshalJSON() (*__prem
 	retval.SessionId = v.TeamChatMessageFields.SessionId
 	retval.ReplyToSeq = v.TeamChatMessageFields.ReplyToSeq
 	retval.Mentions = v.TeamChatMessageFields.Mentions
+	retval.TeamTags = v.TeamChatMessageFields.TeamTags
 	return &retval, nil
 }
 
@@ -78693,6 +78938,8 @@ type TeamChatMessageFields struct {
 	// The seq this message replies to, when it is a reply.
 	ReplyToSeq *int     `json:"replyToSeq"`
 	Mentions   []string `json:"mentions"`
+	// Immutable head identity/display pairs. Null means absent or withheld; [] means known empty.
+	TeamTags []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
 }
 
 // GetNodeId returns TeamChatMessageFields.NodeId, and is useful for accessing the field via an interface.
@@ -78724,6 +78971,23 @@ func (v *TeamChatMessageFields) GetReplyToSeq() *int { return v.ReplyToSeq }
 
 // GetMentions returns TeamChatMessageFields.Mentions, and is useful for accessing the field via an interface.
 func (v *TeamChatMessageFields) GetMentions() []string { return v.Mentions }
+
+// GetTeamTags returns TeamChatMessageFields.TeamTags, and is useful for accessing the field via an interface.
+func (v *TeamChatMessageFields) GetTeamTags() []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.TeamTags
+}
+
+// TeamChatMessageFieldsTeamTagsTeamTagSnapshot includes the requested fields of the GraphQL type TeamTagSnapshot.
+type TeamChatMessageFieldsTeamTagsTeamTagSnapshot struct {
+	HeadId string `json:"headId"`
+	Label  string `json:"label"`
+}
+
+// GetHeadId returns TeamChatMessageFieldsTeamTagsTeamTagSnapshot.HeadId, and is useful for accessing the field via an interface.
+func (v *TeamChatMessageFieldsTeamTagsTeamTagSnapshot) GetHeadId() string { return v.HeadId }
+
+// GetLabel returns TeamChatMessageFieldsTeamTagsTeamTagSnapshot.Label, and is useful for accessing the field via an interface.
+func (v *TeamChatMessageFieldsTeamTagsTeamTagSnapshot) GetLabel() string { return v.Label }
 
 // TeamChatMessagesAttributedResponse is returned by TeamChatMessagesAttributed on success.
 type TeamChatMessagesAttributedResponse struct {
@@ -78855,6 +79119,11 @@ func (v *TeamChatMessagesAttributedTeamChatMessagesTeamChatMessagesPageItemsTeam
 	return v.TeamChatMessageFields.Mentions
 }
 
+// GetTeamTags returns TeamChatMessagesAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.TeamTags, and is useful for accessing the field via an interface.
+func (v *TeamChatMessagesAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetTeamTags() []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.TeamChatMessageFields.TeamTags
+}
+
 func (v *TeamChatMessagesAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -78900,6 +79169,8 @@ type __premarshalTeamChatMessagesAttributedTeamChatMessagesTeamChatMessagesPageI
 	ReplyToSeq *int `json:"replyToSeq"`
 
 	Mentions []string `json:"mentions"`
+
+	TeamTags []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
 }
 
 func (v *TeamChatMessagesAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) MarshalJSON() ([]byte, error) {
@@ -78923,6 +79194,7 @@ func (v *TeamChatMessagesAttributedTeamChatMessagesTeamChatMessagesPageItemsTeam
 	retval.SessionId = v.TeamChatMessageFields.SessionId
 	retval.ReplyToSeq = v.TeamChatMessageFields.ReplyToSeq
 	retval.Mentions = v.TeamChatMessageFields.Mentions
+	retval.TeamTags = v.TeamChatMessageFields.TeamTags
 	return &retval, nil
 }
 
@@ -79054,6 +79326,11 @@ func (v *TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessag
 	return v.TeamChatMessageFields.Mentions
 }
 
+// GetTeamTags returns TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.TeamTags, and is useful for accessing the field via an interface.
+func (v *TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetTeamTags() []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.TeamChatMessageFields.TeamTags
+}
+
 func (v *TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -79099,6 +79376,8 @@ type __premarshalTeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamCh
 	ReplyToSeq *int `json:"replyToSeq"`
 
 	Mentions []string `json:"mentions"`
+
+	TeamTags []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
 }
 
 func (v *TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) MarshalJSON() ([]byte, error) {
@@ -79122,6 +79401,7 @@ func (v *TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessag
 	retval.SessionId = v.TeamChatMessageFields.SessionId
 	retval.ReplyToSeq = v.TeamChatMessageFields.ReplyToSeq
 	retval.Mentions = v.TeamChatMessageFields.Mentions
+	retval.TeamTags = v.TeamChatMessageFields.TeamTags
 	return &retval, nil
 }
 
@@ -79458,6 +79738,11 @@ func (v *TeamChatReadPageAttributedTeamChatMessagesTeamChatMessagesPageItemsTeam
 	return v.TeamChatMessageFields.Mentions
 }
 
+// GetTeamTags returns TeamChatReadPageAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.TeamTags, and is useful for accessing the field via an interface.
+func (v *TeamChatReadPageAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetTeamTags() []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.TeamChatMessageFields.TeamTags
+}
+
 func (v *TeamChatReadPageAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -79503,6 +79788,8 @@ type __premarshalTeamChatReadPageAttributedTeamChatMessagesTeamChatMessagesPageI
 	ReplyToSeq *int `json:"replyToSeq"`
 
 	Mentions []string `json:"mentions"`
+
+	TeamTags []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
 }
 
 func (v *TeamChatReadPageAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) MarshalJSON() ([]byte, error) {
@@ -79526,6 +79813,7 @@ func (v *TeamChatReadPageAttributedTeamChatMessagesTeamChatMessagesPageItemsTeam
 	retval.SessionId = v.TeamChatMessageFields.SessionId
 	retval.ReplyToSeq = v.TeamChatMessageFields.ReplyToSeq
 	retval.Mentions = v.TeamChatMessageFields.Mentions
+	retval.TeamTags = v.TeamChatMessageFields.TeamTags
 	return &retval, nil
 }
 
@@ -79652,6 +79940,11 @@ func (v *TeamChatReadPageTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessag
 	return v.TeamChatMessageFields.Mentions
 }
 
+// GetTeamTags returns TeamChatReadPageTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.TeamTags, and is useful for accessing the field via an interface.
+func (v *TeamChatReadPageTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetTeamTags() []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.TeamChatMessageFields.TeamTags
+}
+
 func (v *TeamChatReadPageTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -79697,6 +79990,8 @@ type __premarshalTeamChatReadPageTeamChatMessagesTeamChatMessagesPageItemsTeamCh
 	ReplyToSeq *int `json:"replyToSeq"`
 
 	Mentions []string `json:"mentions"`
+
+	TeamTags []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
 }
 
 func (v *TeamChatReadPageTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) MarshalJSON() ([]byte, error) {
@@ -79720,6 +80015,7 @@ func (v *TeamChatReadPageTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessag
 	retval.SessionId = v.TeamChatMessageFields.SessionId
 	retval.ReplyToSeq = v.TeamChatMessageFields.ReplyToSeq
 	retval.Mentions = v.TeamChatMessageFields.Mentions
+	retval.TeamTags = v.TeamChatMessageFields.TeamTags
 	return &retval, nil
 }
 
@@ -79832,6 +80128,406 @@ func (v *TeamChatSearchTeamChatSearchTeamChatSearchPage) __premarshalJSON() (*__
 	retval.Complete = v.ChatSearchPageFields.Complete
 	retval.Cursor = v.ChatSearchPageFields.Cursor
 	retval.Items = v.ChatSearchPageFields.Items
+	return &retval, nil
+}
+
+// TeamChatTagsAttributedResponse is returned by TeamChatTagsAttributed on success.
+type TeamChatTagsAttributedResponse struct {
+	// Read a team App's chat (#939), seq-ordered ascending, as a uniform
+	// { items, total } page. sinceSeq is a watermark cursor: only messages with
+	// seq STRICTLY GREATER than it are returned (pass the last seq you have
+	// seen). With neither cursor nor offset, the NEWEST page is returned, still
+	// ascending. Pass sinceSeq: 0 to start a forward walk at the oldest message.
+	// beforeSeq (#1116) is its BACKWARD mirror for scroll-up paging: only
+	// messages with seq STRICTLY LESS than it are considered, and the NEWEST
+	// limit of those come back -- the page immediately before the cursor, still
+	// ascending. The two compose, so passing both reads a bounded slice.
+	// TeamChatMessagesPage.total counts that cursor range and the mentionsRef
+	// filter before paging, not the whole team-chat history.
+	// An explicit offset retains oldest-first positional paging for existing
+	// clients; prefer cursors for new reads. offset is IGNORED when beforeSeq is
+	// given: a cursor exists precisely because a position is unstable while
+	// workers keep posting, and honouring both would put that race back.
+	// mentionsRef filters to messages whose stored envelope mentions the
+	// referenced worker (a Worker id or name of THIS App, retired included) or
+	// user (handle/id) — matching runs against the mention tokens extracted at
+	// write time, never by re-parsing bodies. For a worker it returns what
+	// reaches that worker (#2020): its name, replies to it, and an @all/@team
+	// broadcast the server stamped at post time because its author could wake
+	// everyone (hrn:node:hadronmemory.com:specs:cor:agt:080:14); never the
+	// worker's own posts. A user ref matches the handle alone. The ref must name this App's own
+	// staff or members (a Worker of the App, an AppMember, or the caller); an
+	// unresolvable or foreign mentionsRef yields the empty page identically (no
+	// existence oracle). limit defaults to 20 (cap 200); limit: 0 returns only
+	// total.
+	//
+	// Authorization: an AppMember of the App (any role), an org member with
+	// CONTRIBUTOR+ on the App's org, the owner of a user-owned App, or the
+	// App's own key (a pure App-key principal may READ its team chat).
+	// Error codes (extensions.code): FORBIDDEN (an authenticated caller who is
+	// not a participant), UNAUTHENTICATED (no principal at all; checked before
+	// the App is resolved, so it answers identically whether or not the App
+	// exists).
+	//
+	// appRef and mentionsRef accept the entity's ID or URN.
+	TeamChatMessages *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPage `json:"teamChatMessages"`
+}
+
+// GetTeamChatMessages returns TeamChatTagsAttributedResponse.TeamChatMessages, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsAttributedResponse) GetTeamChatMessages() *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPage {
+	return v.TeamChatMessages
+}
+
+// TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPage includes the requested fields of the GraphQL type TeamChatMessagesPage.
+type TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPage struct {
+	Items []*TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage `json:"items"`
+}
+
+// GetItems returns TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPage.Items, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPage) GetItems() []*TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage {
+	return v.Items
+}
+
+// TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage includes the requested fields of the GraphQL type TeamChatMessage.
+// The GraphQL type's documentation follows.
+//
+// One message in a team App's chat (#939, Worker envelope since #974). Exactly
+// one of authorUserId / authorWorkerId is set, or authorSystem is true (#1791, the
+// platform's own notice, which has neither): a human post carries the user, a
+// worker post carries the Worker (the named casting, cor:dmo:050:11) plus the
+// driving sessionId. mentions holds the lowercased tokens extracted
+// server-side at write time (the '@worker-name / @handle' format, stored
+// without the '@').
+type TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage struct {
+	TeamChatMessageFields `json:"-"`
+}
+
+// GetNodeId returns TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.NodeId, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetNodeId() string {
+	return v.TeamChatMessageFields.NodeId
+}
+
+// GetSeq returns TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.Seq, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetSeq() int {
+	return v.TeamChatMessageFields.Seq
+}
+
+// GetBody returns TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.Body, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetBody() string {
+	return v.TeamChatMessageFields.Body
+}
+
+// GetAt returns TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.At, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAt() string {
+	return v.TeamChatMessageFields.At
+}
+
+// GetAuthorUserId returns TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorUserId, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorUserId() *string {
+	return v.TeamChatMessageFields.AuthorUserId
+}
+
+// GetAuthorWorkerId returns TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorWorkerId, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorWorkerId() *string {
+	return v.TeamChatMessageFields.AuthorWorkerId
+}
+
+// GetAuthorName returns TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorName, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorName() *string {
+	return v.TeamChatMessageFields.AuthorName
+}
+
+// GetSessionId returns TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.SessionId, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetSessionId() *string {
+	return v.TeamChatMessageFields.SessionId
+}
+
+// GetReplyToSeq returns TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.ReplyToSeq, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetReplyToSeq() *int {
+	return v.TeamChatMessageFields.ReplyToSeq
+}
+
+// GetMentions returns TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.Mentions, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetMentions() []string {
+	return v.TeamChatMessageFields.Mentions
+}
+
+// GetTeamTags returns TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.TeamTags, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetTeamTags() []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.TeamChatMessageFields.TeamTags
+}
+
+func (v *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamChatMessageFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage struct {
+	NodeId string `json:"nodeId"`
+
+	Seq int `json:"seq"`
+
+	Body string `json:"body"`
+
+	At string `json:"at"`
+
+	AuthorUserId *string `json:"authorUserId"`
+
+	AuthorWorkerId *string `json:"authorWorkerId"`
+
+	AuthorName *string `json:"authorName"`
+
+	SessionId *string `json:"sessionId"`
+
+	ReplyToSeq *int `json:"replyToSeq"`
+
+	Mentions []string `json:"mentions"`
+
+	TeamTags []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
+}
+
+func (v *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) __premarshalJSON() (*__premarshalTeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage, error) {
+	var retval __premarshalTeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage
+
+	retval.NodeId = v.TeamChatMessageFields.NodeId
+	retval.Seq = v.TeamChatMessageFields.Seq
+	retval.Body = v.TeamChatMessageFields.Body
+	retval.At = v.TeamChatMessageFields.At
+	retval.AuthorUserId = v.TeamChatMessageFields.AuthorUserId
+	retval.AuthorWorkerId = v.TeamChatMessageFields.AuthorWorkerId
+	retval.AuthorName = v.TeamChatMessageFields.AuthorName
+	retval.SessionId = v.TeamChatMessageFields.SessionId
+	retval.ReplyToSeq = v.TeamChatMessageFields.ReplyToSeq
+	retval.Mentions = v.TeamChatMessageFields.Mentions
+	retval.TeamTags = v.TeamChatMessageFields.TeamTags
+	return &retval, nil
+}
+
+// TeamChatTagsResponse is returned by TeamChatTags on success.
+type TeamChatTagsResponse struct {
+	// Read a team App's chat (#939), seq-ordered ascending, as a uniform
+	// { items, total } page. sinceSeq is a watermark cursor: only messages with
+	// seq STRICTLY GREATER than it are returned (pass the last seq you have
+	// seen). With neither cursor nor offset, the NEWEST page is returned, still
+	// ascending. Pass sinceSeq: 0 to start a forward walk at the oldest message.
+	// beforeSeq (#1116) is its BACKWARD mirror for scroll-up paging: only
+	// messages with seq STRICTLY LESS than it are considered, and the NEWEST
+	// limit of those come back -- the page immediately before the cursor, still
+	// ascending. The two compose, so passing both reads a bounded slice.
+	// TeamChatMessagesPage.total counts that cursor range and the mentionsRef
+	// filter before paging, not the whole team-chat history.
+	// An explicit offset retains oldest-first positional paging for existing
+	// clients; prefer cursors for new reads. offset is IGNORED when beforeSeq is
+	// given: a cursor exists precisely because a position is unstable while
+	// workers keep posting, and honouring both would put that race back.
+	// mentionsRef filters to messages whose stored envelope mentions the
+	// referenced worker (a Worker id or name of THIS App, retired included) or
+	// user (handle/id) — matching runs against the mention tokens extracted at
+	// write time, never by re-parsing bodies. For a worker it returns what
+	// reaches that worker (#2020): its name, replies to it, and an @all/@team
+	// broadcast the server stamped at post time because its author could wake
+	// everyone (hrn:node:hadronmemory.com:specs:cor:agt:080:14); never the
+	// worker's own posts. A user ref matches the handle alone. The ref must name this App's own
+	// staff or members (a Worker of the App, an AppMember, or the caller); an
+	// unresolvable or foreign mentionsRef yields the empty page identically (no
+	// existence oracle). limit defaults to 20 (cap 200); limit: 0 returns only
+	// total.
+	//
+	// Authorization: an AppMember of the App (any role), an org member with
+	// CONTRIBUTOR+ on the App's org, the owner of a user-owned App, or the
+	// App's own key (a pure App-key principal may READ its team chat).
+	// Error codes (extensions.code): FORBIDDEN (an authenticated caller who is
+	// not a participant), UNAUTHENTICATED (no principal at all; checked before
+	// the App is resolved, so it answers identically whether or not the App
+	// exists).
+	//
+	// appRef and mentionsRef accept the entity's ID or URN.
+	TeamChatMessages *TeamChatTagsTeamChatMessagesTeamChatMessagesPage `json:"teamChatMessages"`
+}
+
+// GetTeamChatMessages returns TeamChatTagsResponse.TeamChatMessages, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsResponse) GetTeamChatMessages() *TeamChatTagsTeamChatMessagesTeamChatMessagesPage {
+	return v.TeamChatMessages
+}
+
+// TeamChatTagsTeamChatMessagesTeamChatMessagesPage includes the requested fields of the GraphQL type TeamChatMessagesPage.
+type TeamChatTagsTeamChatMessagesTeamChatMessagesPage struct {
+	Items []*TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage `json:"items"`
+}
+
+// GetItems returns TeamChatTagsTeamChatMessagesTeamChatMessagesPage.Items, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsTeamChatMessagesTeamChatMessagesPage) GetItems() []*TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage {
+	return v.Items
+}
+
+// TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage includes the requested fields of the GraphQL type TeamChatMessage.
+// The GraphQL type's documentation follows.
+//
+// One message in a team App's chat (#939, Worker envelope since #974). Exactly
+// one of authorUserId / authorWorkerId is set, or authorSystem is true (#1791, the
+// platform's own notice, which has neither): a human post carries the user, a
+// worker post carries the Worker (the named casting, cor:dmo:050:11) plus the
+// driving sessionId. mentions holds the lowercased tokens extracted
+// server-side at write time (the '@worker-name / @handle' format, stored
+// without the '@').
+type TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage struct {
+	TeamChatMessageFields `json:"-"`
+}
+
+// GetNodeId returns TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.NodeId, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetNodeId() string {
+	return v.TeamChatMessageFields.NodeId
+}
+
+// GetSeq returns TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.Seq, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetSeq() int {
+	return v.TeamChatMessageFields.Seq
+}
+
+// GetBody returns TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.Body, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetBody() string {
+	return v.TeamChatMessageFields.Body
+}
+
+// GetAt returns TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.At, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAt() string {
+	return v.TeamChatMessageFields.At
+}
+
+// GetAuthorUserId returns TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorUserId, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorUserId() *string {
+	return v.TeamChatMessageFields.AuthorUserId
+}
+
+// GetAuthorWorkerId returns TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorWorkerId, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorWorkerId() *string {
+	return v.TeamChatMessageFields.AuthorWorkerId
+}
+
+// GetAuthorName returns TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorName, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorName() *string {
+	return v.TeamChatMessageFields.AuthorName
+}
+
+// GetSessionId returns TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.SessionId, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetSessionId() *string {
+	return v.TeamChatMessageFields.SessionId
+}
+
+// GetReplyToSeq returns TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.ReplyToSeq, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetReplyToSeq() *int {
+	return v.TeamChatMessageFields.ReplyToSeq
+}
+
+// GetMentions returns TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.Mentions, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetMentions() []string {
+	return v.TeamChatMessageFields.Mentions
+}
+
+// GetTeamTags returns TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.TeamTags, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetTeamTags() []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.TeamChatMessageFields.TeamTags
+}
+
+func (v *TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamChatMessageFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage struct {
+	NodeId string `json:"nodeId"`
+
+	Seq int `json:"seq"`
+
+	Body string `json:"body"`
+
+	At string `json:"at"`
+
+	AuthorUserId *string `json:"authorUserId"`
+
+	AuthorWorkerId *string `json:"authorWorkerId"`
+
+	AuthorName *string `json:"authorName"`
+
+	SessionId *string `json:"sessionId"`
+
+	ReplyToSeq *int `json:"replyToSeq"`
+
+	Mentions []string `json:"mentions"`
+
+	TeamTags []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
+}
+
+func (v *TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) __premarshalJSON() (*__premarshalTeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage, error) {
+	var retval __premarshalTeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage
+
+	retval.NodeId = v.TeamChatMessageFields.NodeId
+	retval.Seq = v.TeamChatMessageFields.Seq
+	retval.Body = v.TeamChatMessageFields.Body
+	retval.At = v.TeamChatMessageFields.At
+	retval.AuthorUserId = v.TeamChatMessageFields.AuthorUserId
+	retval.AuthorWorkerId = v.TeamChatMessageFields.AuthorWorkerId
+	retval.AuthorName = v.TeamChatMessageFields.AuthorName
+	retval.SessionId = v.TeamChatMessageFields.SessionId
+	retval.ReplyToSeq = v.TeamChatMessageFields.ReplyToSeq
+	retval.Mentions = v.TeamChatMessageFields.Mentions
+	retval.TeamTags = v.TeamChatMessageFields.TeamTags
 	return &retval, nil
 }
 
@@ -79956,6 +80652,11 @@ func (v *TeamChatThreadAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamCh
 	return v.TeamChatMessageFields.Mentions
 }
 
+// GetTeamTags returns TeamChatThreadAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.TeamTags, and is useful for accessing the field via an interface.
+func (v *TeamChatThreadAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetTeamTags() []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.TeamChatMessageFields.TeamTags
+}
+
 func (v *TeamChatThreadAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -80001,6 +80702,8 @@ type __premarshalTeamChatThreadAttributedTeamChatMessagesTeamChatMessagesPageIte
 	ReplyToSeq *int `json:"replyToSeq"`
 
 	Mentions []string `json:"mentions"`
+
+	TeamTags []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
 }
 
 func (v *TeamChatThreadAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) MarshalJSON() ([]byte, error) {
@@ -80024,6 +80727,7 @@ func (v *TeamChatThreadAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamCh
 	retval.SessionId = v.TeamChatMessageFields.SessionId
 	retval.ReplyToSeq = v.TeamChatMessageFields.ReplyToSeq
 	retval.Mentions = v.TeamChatMessageFields.Mentions
+	retval.TeamTags = v.TeamChatMessageFields.TeamTags
 	return &retval, nil
 }
 
@@ -80148,6 +80852,11 @@ func (v *TeamChatThreadTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage)
 	return v.TeamChatMessageFields.Mentions
 }
 
+// GetTeamTags returns TeamChatThreadTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.TeamTags, and is useful for accessing the field via an interface.
+func (v *TeamChatThreadTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetTeamTags() []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.TeamChatMessageFields.TeamTags
+}
+
 func (v *TeamChatThreadTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -80193,6 +80902,8 @@ type __premarshalTeamChatThreadTeamChatMessagesTeamChatMessagesPageItemsTeamChat
 	ReplyToSeq *int `json:"replyToSeq"`
 
 	Mentions []string `json:"mentions"`
+
+	TeamTags []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
 }
 
 func (v *TeamChatThreadTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) MarshalJSON() ([]byte, error) {
@@ -80216,6 +80927,7 @@ func (v *TeamChatThreadTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage)
 	retval.SessionId = v.TeamChatMessageFields.SessionId
 	retval.ReplyToSeq = v.TeamChatMessageFields.ReplyToSeq
 	retval.Mentions = v.TeamChatMessageFields.Mentions
+	retval.TeamTags = v.TeamChatMessageFields.TeamTags
 	return &retval, nil
 }
 
@@ -99099,6 +99811,42 @@ func (v *__ChannelReadStateInput) GetAttendeeRef() string { return v.AttendeeRef
 // GetAppRef returns __ChannelReadStateInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__ChannelReadStateInput) GetAppRef() *string { return v.AppRef }
 
+// __ChannelTagsInput is used internally by genqlient
+type __ChannelTagsInput struct {
+	ChannelRef  string  `json:"channelRef"`
+	SinceSeq    *int    `json:"sinceSeq,omitempty"`
+	BeforeSeq   *int    `json:"beforeSeq,omitempty"`
+	Limit       *int    `json:"limit,omitempty"`
+	Offset      *int    `json:"offset,omitempty"`
+	MentionsRef *string `json:"mentionsRef,omitempty"`
+	TeamHeadRef *string `json:"teamHeadRef,omitempty"`
+	Untagged    *bool   `json:"untagged,omitempty"`
+}
+
+// GetChannelRef returns __ChannelTagsInput.ChannelRef, and is useful for accessing the field via an interface.
+func (v *__ChannelTagsInput) GetChannelRef() string { return v.ChannelRef }
+
+// GetSinceSeq returns __ChannelTagsInput.SinceSeq, and is useful for accessing the field via an interface.
+func (v *__ChannelTagsInput) GetSinceSeq() *int { return v.SinceSeq }
+
+// GetBeforeSeq returns __ChannelTagsInput.BeforeSeq, and is useful for accessing the field via an interface.
+func (v *__ChannelTagsInput) GetBeforeSeq() *int { return v.BeforeSeq }
+
+// GetLimit returns __ChannelTagsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__ChannelTagsInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __ChannelTagsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__ChannelTagsInput) GetOffset() *int { return v.Offset }
+
+// GetMentionsRef returns __ChannelTagsInput.MentionsRef, and is useful for accessing the field via an interface.
+func (v *__ChannelTagsInput) GetMentionsRef() *string { return v.MentionsRef }
+
+// GetTeamHeadRef returns __ChannelTagsInput.TeamHeadRef, and is useful for accessing the field via an interface.
+func (v *__ChannelTagsInput) GetTeamHeadRef() *string { return v.TeamHeadRef }
+
+// GetUntagged returns __ChannelTagsInput.Untagged, and is useful for accessing the field via an interface.
+func (v *__ChannelTagsInput) GetUntagged() *bool { return v.Untagged }
+
 // __ChannelThreadInput is used internally by genqlient
 type __ChannelThreadInput struct {
 	ChannelRef  string  `json:"channelRef"`
@@ -104700,6 +105448,70 @@ func (v *__TeamChatSearchInput) GetLimit() *int { return v.Limit }
 
 // GetCursor returns __TeamChatSearchInput.Cursor, and is useful for accessing the field via an interface.
 func (v *__TeamChatSearchInput) GetCursor() *string { return v.Cursor }
+
+// __TeamChatTagsAttributedInput is used internally by genqlient
+type __TeamChatTagsAttributedInput struct {
+	AppRef      string  `json:"appRef"`
+	SinceSeq    *int    `json:"sinceSeq,omitempty"`
+	MentionsRef *string `json:"mentionsRef,omitempty"`
+	Limit       *int    `json:"limit,omitempty"`
+	BeforeSeq   *int    `json:"beforeSeq,omitempty"`
+	TeamHeadRef *string `json:"teamHeadRef,omitempty"`
+	Untagged    *bool   `json:"untagged,omitempty"`
+}
+
+// GetAppRef returns __TeamChatTagsAttributedInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsAttributedInput) GetAppRef() string { return v.AppRef }
+
+// GetSinceSeq returns __TeamChatTagsAttributedInput.SinceSeq, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsAttributedInput) GetSinceSeq() *int { return v.SinceSeq }
+
+// GetMentionsRef returns __TeamChatTagsAttributedInput.MentionsRef, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsAttributedInput) GetMentionsRef() *string { return v.MentionsRef }
+
+// GetLimit returns __TeamChatTagsAttributedInput.Limit, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsAttributedInput) GetLimit() *int { return v.Limit }
+
+// GetBeforeSeq returns __TeamChatTagsAttributedInput.BeforeSeq, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsAttributedInput) GetBeforeSeq() *int { return v.BeforeSeq }
+
+// GetTeamHeadRef returns __TeamChatTagsAttributedInput.TeamHeadRef, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsAttributedInput) GetTeamHeadRef() *string { return v.TeamHeadRef }
+
+// GetUntagged returns __TeamChatTagsAttributedInput.Untagged, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsAttributedInput) GetUntagged() *bool { return v.Untagged }
+
+// __TeamChatTagsInput is used internally by genqlient
+type __TeamChatTagsInput struct {
+	AppRef      string  `json:"appRef"`
+	SinceSeq    *int    `json:"sinceSeq,omitempty"`
+	MentionsRef *string `json:"mentionsRef,omitempty"`
+	Limit       *int    `json:"limit,omitempty"`
+	BeforeSeq   *int    `json:"beforeSeq,omitempty"`
+	TeamHeadRef *string `json:"teamHeadRef,omitempty"`
+	Untagged    *bool   `json:"untagged,omitempty"`
+}
+
+// GetAppRef returns __TeamChatTagsInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsInput) GetAppRef() string { return v.AppRef }
+
+// GetSinceSeq returns __TeamChatTagsInput.SinceSeq, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsInput) GetSinceSeq() *int { return v.SinceSeq }
+
+// GetMentionsRef returns __TeamChatTagsInput.MentionsRef, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsInput) GetMentionsRef() *string { return v.MentionsRef }
+
+// GetLimit returns __TeamChatTagsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsInput) GetLimit() *int { return v.Limit }
+
+// GetBeforeSeq returns __TeamChatTagsInput.BeforeSeq, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsInput) GetBeforeSeq() *int { return v.BeforeSeq }
+
+// GetTeamHeadRef returns __TeamChatTagsInput.TeamHeadRef, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsInput) GetTeamHeadRef() *string { return v.TeamHeadRef }
+
+// GetUntagged returns __TeamChatTagsInput.Untagged, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsInput) GetUntagged() *bool { return v.Untagged }
 
 // __TeamChatThreadAttributedInput is used internally by genqlient
 type __TeamChatThreadAttributedInput struct {
@@ -114580,6 +115392,10 @@ fragment ChannelMessageFields on TeamChatMessage {
 	replyToSeq
 	mentions
 	nodeId
+	teamTags {
+		headId
+		label
+	}
 }
 `
 
@@ -114666,6 +115482,75 @@ func ChannelReadState(
 	return data_, err_
 }
 
+// The query executed by ChannelTags.
+const ChannelTags_Operation = `
+query ChannelTags ($channelRef: ID!, $sinceSeq: Int, $beforeSeq: Int, $limit: Int, $offset: Int, $mentionsRef: ID, $teamHeadRef: ID, $untagged: Boolean) {
+	channelMessages(channelRef: $channelRef, sinceSeq: $sinceSeq, beforeSeq: $beforeSeq, limit: $limit, offset: $offset, mentionsRef: $mentionsRef, teamHeadRef: $teamHeadRef, untagged: $untagged) {
+		total
+		items {
+			... ChannelMessageFields
+		}
+	}
+}
+fragment ChannelMessageFields on TeamChatMessage {
+	seq
+	at
+	body
+	authorName
+	authorWorkerId
+	authorUserId
+	authorAppId
+	sessionId
+	replyToSeq
+	mentions
+	nodeId
+	teamTags {
+		headId
+		label
+	}
+}
+`
+
+// cli936: do not add tag arguments to the legacy ChannelMessages document.
+func ChannelTags(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	channelRef string,
+	sinceSeq *int,
+	beforeSeq *int,
+	limit *int,
+	offset *int,
+	mentionsRef *string,
+	teamHeadRef *string,
+	untagged *bool,
+) (data_ *ChannelTagsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ChannelTags",
+		Query:  ChannelTags_Operation,
+		Variables: &__ChannelTagsInput{
+			ChannelRef:  channelRef,
+			SinceSeq:    sinceSeq,
+			BeforeSeq:   beforeSeq,
+			Limit:       limit,
+			Offset:      offset,
+			MentionsRef: mentionsRef,
+			TeamHeadRef: teamHeadRef,
+			Untagged:    untagged,
+		},
+	}
+
+	data_ = &ChannelTagsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by ChannelThread.
 const ChannelThread_Operation = `
 query ChannelThread ($channelRef: ID!, $replyToSeq: Int!, $sinceSeq: Int, $beforeSeq: Int, $limit: Int, $offset: Int, $mentionsRef: ID) {
@@ -114688,6 +115573,10 @@ fragment ChannelMessageFields on TeamChatMessage {
 	replyToSeq
 	mentions
 	nodeId
+	teamTags {
+		headId
+		label
+	}
 }
 `
 
@@ -115073,6 +115962,10 @@ fragment TeamChatMessageFields on TeamChatMessage {
 	sessionId
 	replyToSeq
 	mentions
+	teamTags {
+		headId
+		label
+	}
 }
 `
 
@@ -117798,6 +118691,10 @@ fragment ChannelMessageFields on TeamChatMessage {
 	replyToSeq
 	mentions
 	nodeId
+	teamTags {
+		headId
+		label
+	}
 }
 `
 
@@ -119445,6 +120342,10 @@ fragment TeamChatMessageFields on TeamChatMessage {
 	sessionId
 	replyToSeq
 	mentions
+	teamTags {
+		headId
+		label
+	}
 }
 `
 
@@ -135738,6 +136639,10 @@ fragment TeamChatMessageFields on TeamChatMessage {
 	sessionId
 	replyToSeq
 	mentions
+	teamTags {
+		headId
+		label
+	}
 }
 `
 
@@ -135797,6 +136702,10 @@ fragment TeamChatMessageFields on TeamChatMessage {
 	sessionId
 	replyToSeq
 	mentions
+	teamTags {
+		headId
+		label
+	}
 }
 `
 
@@ -135975,6 +136884,10 @@ fragment TeamChatMessageFields on TeamChatMessage {
 	sessionId
 	replyToSeq
 	mentions
+	teamTags {
+		headId
+		label
+	}
 }
 `
 
@@ -136040,6 +136953,10 @@ fragment TeamChatMessageFields on TeamChatMessage {
 	sessionId
 	replyToSeq
 	mentions
+	teamTags {
+		headId
+		label
+	}
 }
 `
 
@@ -136133,6 +137050,136 @@ func TeamChatSearch(
 	return data_, err_
 }
 
+// The query executed by TeamChatTags.
+const TeamChatTags_Operation = `
+query TeamChatTags ($appRef: ID!, $sinceSeq: Int, $mentionsRef: ID, $limit: Int, $beforeSeq: Int, $teamHeadRef: ID, $untagged: Boolean) {
+	teamChatMessages(appRef: $appRef, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, beforeSeq: $beforeSeq, teamHeadRef: $teamHeadRef, untagged: $untagged) {
+		items {
+			... TeamChatMessageFields
+		}
+	}
+}
+fragment TeamChatMessageFields on TeamChatMessage {
+	nodeId
+	seq
+	body
+	at
+	authorUserId
+	authorWorkerId
+	authorName
+	sessionId
+	replyToSeq
+	mentions
+	teamTags {
+		headId
+		label
+	}
+}
+`
+
+// cli936: tag-filtered reads have their own document; legacy arguments stay unchanged.
+func TeamChatTags(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	sinceSeq *int,
+	mentionsRef *string,
+	limit *int,
+	beforeSeq *int,
+	teamHeadRef *string,
+	untagged *bool,
+) (data_ *TeamChatTagsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamChatTags",
+		Query:  TeamChatTags_Operation,
+		Variables: &__TeamChatTagsInput{
+			AppRef:      appRef,
+			SinceSeq:    sinceSeq,
+			MentionsRef: mentionsRef,
+			Limit:       limit,
+			BeforeSeq:   beforeSeq,
+			TeamHeadRef: teamHeadRef,
+			Untagged:    untagged,
+		},
+	}
+
+	data_ = &TeamChatTagsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamChatTagsAttributed.
+const TeamChatTagsAttributed_Operation = `
+query TeamChatTagsAttributed ($appRef: ID!, $sinceSeq: Int, $mentionsRef: ID, $limit: Int, $beforeSeq: Int, $teamHeadRef: ID, $untagged: Boolean) {
+	teamChatMessages(appRef: $appRef, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, beforeSeq: $beforeSeq, teamHeadRef: $teamHeadRef, untagged: $untagged, advanceReadState: false) {
+		items {
+			... TeamChatMessageFields
+		}
+	}
+}
+fragment TeamChatMessageFields on TeamChatMessage {
+	nodeId
+	seq
+	body
+	at
+	authorUserId
+	authorWorkerId
+	authorName
+	sessionId
+	replyToSeq
+	mentions
+	teamTags {
+		headId
+		label
+	}
+}
+`
+
+// cli936: tag-filtered reads have their own document; legacy arguments stay unchanged.
+func TeamChatTagsAttributed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	sinceSeq *int,
+	mentionsRef *string,
+	limit *int,
+	beforeSeq *int,
+	teamHeadRef *string,
+	untagged *bool,
+) (data_ *TeamChatTagsAttributedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamChatTagsAttributed",
+		Query:  TeamChatTagsAttributed_Operation,
+		Variables: &__TeamChatTagsAttributedInput{
+			AppRef:      appRef,
+			SinceSeq:    sinceSeq,
+			MentionsRef: mentionsRef,
+			Limit:       limit,
+			BeforeSeq:   beforeSeq,
+			TeamHeadRef: teamHeadRef,
+			Untagged:    untagged,
+		},
+	}
+
+	data_ = &TeamChatTagsAttributedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by TeamChatThread.
 const TeamChatThread_Operation = `
 query TeamChatThread ($appRef: ID!, $replyToSeq: Int!, $sinceSeq: Int, $mentionsRef: ID, $limit: Int, $beforeSeq: Int) {
@@ -136153,6 +137200,10 @@ fragment TeamChatMessageFields on TeamChatMessage {
 	sessionId
 	replyToSeq
 	mentions
+	teamTags {
+		headId
+		label
+	}
 }
 `
 
@@ -136219,6 +137270,10 @@ fragment TeamChatMessageFields on TeamChatMessage {
 	sessionId
 	replyToSeq
 	mentions
+	teamTags {
+		headId
+		label
+	}
 }
 `
 

@@ -151,3 +151,40 @@ func (a *chatReadAttribution) thread(ctx context.Context, client graphql.Client,
 	}
 	return out, nil
 }
+
+// tags retains every filter through the only compatibility retry. A failure
+// of the tag document itself is returned, never widened to an ordinary read.
+func (a *chatReadAttribution) tags(ctx context.Context, client graphql.Client, appRef string, since *int, mentions *string, size *int, before *int, head *string, untagged *bool) (*gen.TeamChatMessagesResponse, error) {
+	out := &gen.TeamChatMessagesResponse{}
+	if a.enabled(ctx) {
+		r, err := gen.TeamChatTagsAttributed(api.WithSession(ctx, a.session), client, appRef, since, mentions, size, before, head, untagged)
+		if err != nil {
+			if !a.fallback(err) {
+				return nil, err
+			}
+		} else {
+			if r.TeamChatMessages != nil {
+				out.TeamChatMessages = &gen.TeamChatMessagesTeamChatMessagesTeamChatMessagesPage{}
+				for _, m := range r.TeamChatMessages.Items {
+					if m != nil {
+						out.TeamChatMessages.Items = append(out.TeamChatMessages.Items, &gen.TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage{TeamChatMessageFields: m.TeamChatMessageFields})
+					}
+				}
+			}
+			return out, nil
+		}
+	}
+	r, err := gen.TeamChatTags(ctx, client, appRef, since, mentions, size, before, head, untagged)
+	if err != nil {
+		return nil, err
+	}
+	if r.TeamChatMessages != nil {
+		out.TeamChatMessages = &gen.TeamChatMessagesTeamChatMessagesTeamChatMessagesPage{}
+		for _, m := range r.TeamChatMessages.Items {
+			if m != nil {
+				out.TeamChatMessages.Items = append(out.TeamChatMessages.Items, &gen.TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage{TeamChatMessageFields: m.TeamChatMessageFields})
+			}
+		}
+	}
+	return out, nil
+}

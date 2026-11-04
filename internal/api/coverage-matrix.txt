@@ -559,7 +559,7 @@ updateWorker  command team worker update
 withdrawDecision  command decision withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 86: 51 gap, 35 excluded
+[Arguments] 82: 47 gap, 35 excluded
 Mutation.acknowledgeAlarm(instruction)  gap #1617
 Mutation.addAgentTaskBlocker(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
@@ -640,12 +640,8 @@ Query.agentTasks(creator)  gap #1336
 Query.attendeeRegister(agentRef)  gap #1336
 Query.automationTeamSnapshotGrants(triggerId)  gap #1617
 Query.automationTeamSnapshotGrants(triggerKind)  gap #1617
-Query.channelMessages(teamHeadRef)  gap #936
-Query.channelMessages(untagged)  gap #936
 Query.dueWakes(instruction)  gap #1617
 Query.node(memoryRef)  excluded not-a-capability: the CLI composes -m and a bare loc into the full node URN, which the SDL documents as the equivalent address (the one case memoryRef adds, forcing loc reading of an unprefixed 3+-segment ref, the hrn:node: form already removes); proposed class, specs engineer to accept
-Query.teamChatMessages(teamHeadRef)  gap #936
-Query.teamChatMessages(untagged)  gap #936
 
 [Filters] 56: 54 flag, 2 gap
 Query.agentTasks(reference.kind)  flag team task list --ref-kind
