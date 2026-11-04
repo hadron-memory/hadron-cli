@@ -399,3 +399,59 @@ func TestUnlock1234HelpMentionsUnlock(t *testing.T) {
 		}
 	}
 }
+
+// hadron-cli#1620 (PR #1616 §10 M08): an --unlock refusal renders the fixed
+// sentence for its code and never the server's own message, at either call
+// site (Apollo's 500 and a path-less error in a 200 envelope), in either
+// rendering. The marker is deliberately not a secret, so the redactor leaves
+// it alone and only unlockRefusal's "never the server's text" keeps it out.
+func TestUnlock1234RefusalNeverRendersServerMessage(t *testing.T) {
+	sentences := map[string]string{
+		"WRONG_KEY": "a passphrase does not match its memory",
+		"NOT_FOUND": "an --unlock memory was not found",
+	}
+	const marker = "server-said-XYZ"
+	for code, sentence := range sentences {
+		for _, status := range []int{500, 200} {
+			for _, asJSON := range []bool{false, true} {
+				name := code + "-" + http.StatusText(status) + map[bool]string{true: "-json", false: ""}[asJSON]
+				t.Run(name, func(t *testing.T) {
+					srv, _ := unlockServer1234(t, func(string, string) (int, string) {
+						return status, `{"data":null,"errors":[{"message":"` + marker + ` ` + code + `","extensions":{"code":"` + code + `"}}]}`
+					})
+					f, out := testFactory(t)
+					args := []string{"memory", "ls", "--unlock", "acme.com:kb", "--unlock-passphrase-file", passFile1234(t, "pw", 0o600)}
+					if asJSON {
+						args = append(args, "--json")
+					}
+					err := run1234(t, f, srv, args...)
+					if err == nil {
+						t.Fatal("want a refusal")
+					}
+					renderError(f, err)
+					all := out.String() + f.IOStreams.ErrOut.(*strings.Builder).String() + err.Error()
+					if strings.Contains(all, marker) {
+						t.Fatalf("the server's message was rendered:\n%s", all)
+					}
+					if !strings.Contains(all, sentence) || !strings.Contains(all, "--unlock refused ("+code+")") {
+						t.Fatalf("want the fixed %s sentence, got:\n%s", code, all)
+					}
+					if asJSON {
+						var env struct {
+							Error struct {
+								Message    string `json:"message"`
+								ServerCode string `json:"serverCode"`
+							} `json:"error"`
+						}
+						if jerr := json.Unmarshal([]byte(out.String()), &env); jerr != nil {
+							t.Fatal(jerr, out.String())
+						}
+						if env.Error.ServerCode != code || !strings.Contains(env.Error.Message, sentence) || strings.Contains(env.Error.Message, marker) {
+							t.Fatalf("envelope %+v", env.Error)
+						}
+					}
+				})
+			}
+		}
+	}
+}
