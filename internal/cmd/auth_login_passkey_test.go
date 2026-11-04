@@ -28,10 +28,14 @@ var passkeyHelpPhrases = []string{
 	"the server has you add a first passkey (with its second link), that can take longer than 15 minutes; if it does, the CLI stops and stores nothing: finish adding the passkey in the browser, then rerun `hadron auth login`.",
 }
 
-// unconditionalEnrolment matches enrolment/registration promises. Each match
-// must sit inside the one conditional sentence, so a reworded unconditional
-// promise ("you can register one there") fails.
-var unconditionalEnrolment = regexp.MustCompile(`(?i)(you can register|register one|enrol)`)
+// enrolmentPromiseVocabulary is a deliberately restricted vocabulary check,
+// not a sentence parser (#941 BLIND P3, Jane): these promise phrasings may
+// not appear in the help or agentic-usage at all, conditional or not.
+// Registration is described only by the conditional sentence pinned in
+// passkeyHelpPhrases ("Where the server offers passkey registration...").
+// New conditional wording that needs one of these words narrows this list
+// and pins its sentence in passkeyHelpPhrases in the same change.
+var enrolmentPromiseVocabulary = regexp.MustCompile(`(?i)(you can register|register one|enrol)`)
 
 func TestAuthLoginHelpDescribesPasskeyStepConditionally(t *testing.T) {
 	f, out := testFactory(t)
@@ -58,7 +62,7 @@ func TestAuthLoginHelpDescribesPasskeyStepConditionally(t *testing.T) {
 	if strings.Contains(help, "using GitHub for identity") {
 		t.Error("help still says the browser flow is GitHub-only")
 	}
-	if m := unconditionalEnrolment.FindString(help); m != "" {
+	if m := enrolmentPromiseVocabulary.FindString(help); m != "" {
 		t.Errorf("help promises enrolment unconditionally (%q):\n%s", m, help)
 	}
 }
@@ -73,7 +77,7 @@ func TestAgenticUsageDescribesPasskeyStepConditionally(t *testing.T) {
 	if strings.Contains(doc, "--provider github|google") || !strings.Contains(doc, "`--provider github` sends no hint") {
 		t.Error("agentic-usage.md advises --provider github past the sign-in page")
 	}
-	if m := unconditionalEnrolment.FindString(doc); m != "" {
+	if m := enrolmentPromiseVocabulary.FindString(doc); m != "" {
 		t.Errorf("agentic-usage.md promises enrolment unconditionally (%q)", m)
 	}
 }

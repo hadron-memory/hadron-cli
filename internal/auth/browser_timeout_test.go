@@ -24,19 +24,29 @@ func TestLoginTimeoutIsFifteenMinuteUpperBound(t *testing.T) {
 // A browser step that never comes back (an abandoned passkey page, a server-
 // page failure that never redirects) ends Cancelled, and the message says
 // nothing was stored and how to retry. The deadline is the test's own context,
-// so this takes milliseconds, not the real bound.
+// so this takes about a second, not the real bound. The deadline is generous
+// against discovery and registration on a local fake (#941 BLIND P3, Jane), and
+// the test requires the browser step was reached, so a slow runner that expires
+// during setup fails with a plain message instead of a misleading one.
 func TestBrowserLoginTimeoutSaysNothingStored(t *testing.T) {
 	as := newFakeAS(t)
 	io, _, _ := output.Test()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
+	opened := false
 	tok, err := BrowserStrategy{}.Login(ctx, LoginOptions{
-		ServerURL:   as.server.URL,
-		IO:          io,
-		HTTPClient:  as.server.Client(),
-		OpenBrowser: func(string) error { return nil }, // the user never finishes
+		ServerURL:  as.server.URL,
+		IO:         io,
+		HTTPClient: as.server.Client(),
+		OpenBrowser: func(string) error { // the user never finishes
+			opened = true
+			return nil
+		},
 	})
+	if !opened {
+		t.Fatalf("the deadline fired before the browser step was reached (slow setup?): %v", err)
+	}
 	if tok != nil {
 		t.Fatalf("a timed-out login must return no token, got %+v", tok)
 	}
@@ -52,18 +62,23 @@ func TestBrowserLoginTimeoutSaysNothingStored(t *testing.T) {
 }
 
 // An interrupt (the caller's context cancelled, not timed out) must not be
-// reported as a timeout naming a limit that never fired.
+// reported as a timeout naming a limit that never fired. The interrupt comes
+// from the browser step itself, so it can never land during discovery
+// (#941 BLIND P3, Jane).
 func TestBrowserLoginInterruptIsNotReportedAsTimeout(t *testing.T) {
 	as := newFakeAS(t)
 	io, _, _ := output.Test()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	time.AfterFunc(200*time.Millisecond, cancel)
+	defer cancel()
 	_, err := BrowserStrategy{}.Login(ctx, LoginOptions{
-		ServerURL:   as.server.URL,
-		IO:          io,
-		HTTPClient:  as.server.Client(),
-		OpenBrowser: func(string) error { return nil },
+		ServerURL:  as.server.URL,
+		IO:         io,
+		HTTPClient: as.server.Client(),
+		OpenBrowser: func(string) error {
+			cancel() // the user interrupts while the browser page is open
+			return nil
+		},
 	})
 	if got := exitcode.FromError(err); got != exitcode.Cancelled {
 		t.Fatalf("exit = %d, want Cancelled %d (err: %v)", got, exitcode.Cancelled, err)
