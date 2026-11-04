@@ -158,8 +158,8 @@ func memoryKeySecrets(req *http.Request) []string {
 // keys or the refusal's extensions.code, and the classification that runs on
 // the scrubbed body (hasGraphQLErrorsEnvelope, unlockRefusal, codeFromEnvelope)
 // would lose the exit code and serverCode the contract promises. String values
-// are scrubbed; the GraphQL envelope's own keys and an identifier-shaped
-// extensions.code are protocol, not echo, and are kept. A body that is not
+// are scrubbed; the GraphQL envelope's own keys and an error's --unlock
+// refusal code (scrubErrors) are protocol, not echo, and are kept. A body that is not
 // JSON has no structure to keep and is scrubbed whole (fail closed).
 func redactUnlockSecrets(status int, body []byte, secrets []string) []byte {
 	if len(secrets) == 0 {
@@ -175,9 +175,19 @@ func redactUnlockSecrets(status int, body []byte, secrets []string) []byte {
 		if !ok {
 			return body
 		}
-		obj["errors"] = scrubJSON(errs, "", secrets, &changed)
+		obj["errors"] = scrubErrors(errs, secrets, &changed)
+	} else if obj, ok := doc.(map[string]any); ok {
+		out := make(map[string]any, len(obj))
+		for k, val := range obj {
+			if k == "errors" {
+				out[k] = scrubErrors(val, secrets, &changed)
+				continue
+			}
+			out[scrubKey(k, secrets, &changed)] = scrubJSON(val, secrets, &changed)
+		}
+		doc = out
 	} else {
-		doc = scrubJSON(doc, "", secrets, &changed)
+		doc = scrubJSON(doc, secrets, &changed)
 	}
 	if !changed {
 		return body
@@ -211,11 +221,21 @@ var envelopeKeys = map[string]bool{
 	"column": true, "path": true, "extensions": true, "code": true,
 }
 
+func scrubKey(k string, secrets []string, changed *bool) string {
+	if envelopeKeys[k] {
+		return k
+	}
+	nk := string(redactSecrets([]byte(k), secrets))
+	if nk != k {
+		*changed = true
+	}
+	return nk
+}
+
 // scrubJSON returns v with every secret spelling replaced in its string values
-// and in any object key that is not an envelope key. parent is the key v sat
-// under, so an error's extensions.code — a server enum the exit code and
-// serverCode are derived from — is kept when it is identifier-shaped.
-func scrubJSON(v any, parent string, secrets []string, changed *bool) any {
+// and in any object key that is not an envelope key. Nothing is exempt here:
+// the one kept value, a refusal code, is handled by scrubErrors.
+func scrubJSON(v any, secrets []string, changed *bool) any {
 	switch t := v.(type) {
 	case string:
 		out := string(redactSecrets([]byte(t), secrets))
@@ -225,24 +245,13 @@ func scrubJSON(v any, parent string, secrets []string, changed *bool) any {
 		return out
 	case []any:
 		for i := range t {
-			t[i] = scrubJSON(t[i], parent, secrets, changed)
+			t[i] = scrubJSON(t[i], secrets, changed)
 		}
 		return t
 	case map[string]any:
 		out := make(map[string]any, len(t))
 		for k, val := range t {
-			if code, ok := val.(string); ok && k == "code" && parent == "extensions" && isProtocolCode(code) {
-				out[k] = code
-				continue
-			}
-			nk := k
-			if !envelopeKeys[k] {
-				nk = string(redactSecrets([]byte(k), secrets))
-				if nk != k {
-					*changed = true
-				}
-			}
-			out[nk] = scrubJSON(val, k, secrets, changed)
+			out[scrubKey(k, secrets, changed)] = scrubJSON(val, secrets, changed)
 		}
 		return out
 	default:
@@ -250,16 +259,52 @@ func scrubJSON(v any, parent string, secrets []string, changed *bool) any {
 	}
 }
 
-// isProtocolCode reports whether code has the shape of a server error code
-// (WRONG_KEY, AiServiceConfigNotFoundError): letters, digits and underscores,
-// bounded. The encoded --unlock header is base64 JSON and never has this shape.
-func isProtocolCode(code string) bool {
-	if code == "" || len(code) > 64 {
+// scrubErrors scrubs a GraphQL errors list like scrubJSON, except that an
+// entry's own extensions.code is kept when it is one of the --unlock refusal
+// codes and is not itself a secret spelling (PR #1616 BLIND delta P2, Diego).
+// Those five are what the exit code and serverCode are classified from, and a
+// passphrase such as `KEY` must not turn WRONG_KEY into an unknown error. Any
+// other code is server text like the rest, so an echoed passphrase sent as
+// the code is redacted. The cost: a passphrase inside some other code on a
+// keyed request rewrites that code, and the error maps as unknown (exit 1).
+// A secret is never kept so that a code can be.
+func scrubErrors(v any, secrets []string, changed *bool) any {
+	list, ok := v.([]any)
+	if !ok {
+		return scrubJSON(v, secrets, changed)
+	}
+	for i, entry := range list {
+		e, ok := entry.(map[string]any)
+		if !ok {
+			list[i] = scrubJSON(entry, secrets, changed)
+			continue
+		}
+		ext, _ := e["extensions"].(map[string]any)
+		code, isString := ext["code"].(string)
+		keep := isString && keptRefusalCode(code, secrets)
+		scrubbed := scrubJSON(e, secrets, changed).(map[string]any)
+		if keep {
+			if sext, ok := scrubbed["extensions"].(map[string]any); ok {
+				sext["code"] = code
+			}
+		}
+		list[i] = scrubbed
+	}
+	return list
+}
+
+// keptRefusalCode reports whether code is an --unlock refusal code that no
+// secret spells exactly. Substring matches are fine (`KEY` in WRONG_KEY): the
+// code is the server's fixed vocabulary, not the echo.
+func keptRefusalCode(code string, secrets []string) bool {
+	if _, known := unlockCodeExit[code]; !known {
 		return false
 	}
-	for i := 0; i < len(code); i++ {
-		if !isNameByte(code[i]) {
-			return false
+	for _, s := range secrets {
+		for _, spelling := range secretSpellings(s) {
+			if code == spelling {
+				return false
+			}
 		}
 	}
 	return true

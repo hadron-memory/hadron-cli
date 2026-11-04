@@ -111,7 +111,12 @@ The refusal is classified from the scrubbed body, so a passphrase such as
 `errors` or `KEY` must not rewrite the envelope's keys or the `WRONG_KEY` code.
 String values are scrubbed, and so are object keys other than the GraphQL
 envelope's own (`data`, `errors`, `message`, `locations`, `path`, `extensions`,
-`code`, …). An identifier-shaped `extensions.code` is kept as protocol. A body
+`code`, …). One value is kept: an error's own `extensions.code`, when it is
+one of the five `--unlock` refusal codes and no secret spells it exactly (PR
+#1616 BLIND delta P2). Any other code, including an echoed passphrase sent as
+the code or a `code` nested elsewhere, is server text and is scrubbed. The cost
+is that a passphrase inside some other code on a keyed request rewrites that
+code, and the error maps as unknown (exit 1). A body
 that is not JSON (an HTML error page) has no structure to keep and is scrubbed
 as bytes.
 

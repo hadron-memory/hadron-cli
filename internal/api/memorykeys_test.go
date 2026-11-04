@@ -280,3 +280,67 @@ func TestRedactUnlockSecretsKeepsEnvelopeStructure(t *testing.T) {
 		}
 	}
 }
+
+// PR #1616 BLIND delta P2 (Diego): only an error's own --unlock refusal code
+// is kept, and never one a secret spells exactly. An identifier-shaped
+// passphrase echoed as an unknown code — or as a code nested anywhere else —
+// is redacted like any other server text.
+func TestRedactUnlockSecretsNeverKeepsAnEchoedCode(t *testing.T) {
+	const pass = "S3NT1NEL"
+	bodies := map[string]string{
+		"unknown code":       `{"errors":[{"message":"failed","extensions":{"code":"S3NT1NEL"}}]}`,
+		"code inside a code": `{"errors":[{"message":"failed","extensions":{"code":"X_S3NT1NEL_Y"}}]}`,
+		"nested extensions":  `{"errors":[{"message":"failed","extensions":{"code":"WRONG_KEY","detail":{"extensions":{"code":"S3NT1NEL"}}}}]}`,
+	}
+	for name, body := range bodies {
+		for _, status := range []int{http.StatusOK, http.StatusInternalServerError, http.StatusBadRequest} {
+			out := string(redactUnlockSecrets(status, []byte(body), []string{pass}))
+			if strings.Contains(out, pass) {
+				t.Fatalf("%s/%d: secret kept: %s", name, status, out)
+			}
+			if !hasGraphQLErrorsEnvelope([]byte(out)) {
+				t.Fatalf("%s/%d: envelope lost: %s", name, status, out)
+			}
+		}
+	}
+	// A non-200 is scrubbed whole, data included (a 200's data never is).
+	if out := string(redactUnlockSecrets(500, []byte(`{"errors":[{"message":"x"}],"data":{"extensions":{"code":"S3NT1NEL"}}}`), []string{pass})); strings.Contains(out, pass) {
+		t.Fatalf("non-200 data kept the secret: %s", out)
+	}
+	// The nested case still classifies by the error's own refusal code.
+	if code, ok := codeFromEnvelope(redactUnlockSecrets(500, []byte(bodies["nested extensions"]), []string{pass})); !ok || code != exitcode.Usage {
+		t.Fatalf("refusal code lost: %d %v", code, ok)
+	}
+	// A passphrase that IS a refusal code: the secret wins over the code.
+	out := string(redactUnlockSecrets(500, []byte(`{"errors":[{"message":"x","extensions":{"code":"WRONG_KEY"}}]}`), []string{"WRONG_KEY"}))
+	if strings.Contains(out, "WRONG_KEY") {
+		t.Fatalf("a code equal to the passphrase was kept: %s", out)
+	}
+}
+
+// The same echo through the curated client: neither the rendered error nor
+// its serverCode carries the passphrase.
+func TestUnlockEchoedCodeNeverRendered(t *testing.T) {
+	const pass = "S3NT1NEL"
+	for _, status := range []int{http.StatusOK, http.StatusInternalServerError} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(status)
+			_, _ = w.Write([]byte(`{"data":null,"errors":[{"message":"failed","extensions":{"code":"` + pass + `"}}]}`))
+		}))
+		cl, err := NewClient(srv.URL, "hdr_user_x", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var data map[string]any
+		err = cl.MakeRequest(keysCtx1234(t, pass), &graphql.Request{Query: "query X { x }", OpName: "X"}, &graphql.Response{Data: &data})
+		srv.Close()
+		if err == nil {
+			t.Fatalf("%d: no error", status)
+		}
+		mapped := MapError(err)
+		if strings.Contains(err.Error(), pass) || strings.Contains(mapped.Error(), pass) || strings.Contains(ServerCodeOf(err), pass) {
+			t.Fatalf("%d: secret rendered: %v / %v / %q", status, err, mapped, ServerCodeOf(err))
+		}
+	}
+}
