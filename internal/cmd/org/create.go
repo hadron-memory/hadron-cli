@@ -16,10 +16,22 @@ import (
 func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 	var name, urn string
 	cmd := &cobra.Command{
-		Use:     "create --name <name> --urn <urn>",
-		Short:   "Create an organization",
-		Example: `  hadron org create --name "Acme" --urn acme.com`,
-		Args:    cobra.NoArgs,
+		Use:   "create --name <name> --urn <urn>",
+		Short: "Create an organization",
+		Long: `Create an organization. Any signed-in user can; you become its OWNER.
+It does not become your active org (run hadron org use <urn> for that).
+
+--name is the display name. --urn is its root: a lowercase name, dotted or not
+(acme.com or acme), which forms its URN hrn:org:<root> and the URNs of
+everything in it. Roots share one pool with user handles, and a root once
+used stays reserved, even after the org is deleted: a taken root is refused
+with "The name "<root>" is already taken."
+
+Prints "✓ created org hrn:org:<root> (<id>)"; --json gives id, name, urn and
+the org's other fields.`,
+		Example: `  hadron org create --name "Acme" --urn acme.com
+  hadron org use acme.com`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := cmdutil.ValidateOrgSlug("--urn", urn); err != nil {
 				return err

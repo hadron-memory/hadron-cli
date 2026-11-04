@@ -157,7 +157,7 @@ func TestTeamHostOpsOmitsUnsetFilters(t *testing.T) {
 	if err := json.Unmarshal(c.RawVars, &vars); err != nil {
 		t.Fatal(err)
 	}
-	if len(vars) != 2 || string(vars["first"]) != "50" {
+	if len(vars) != 2 || string(vars["first"]) != "20" {
 		t.Fatalf("wire variables %s, want appRef and first only", c.RawVars)
 	}
 }

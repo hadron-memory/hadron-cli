@@ -28,6 +28,21 @@ type Factory struct {
 	// The root installs the worktree attribution policy; queries stay unchanged.
 	GraphQLRequestContext func(context.Context, *graphql.Request) context.Context
 
+	// InstructedContext is installed by the root. Explicit instruction commands
+	// ask it to verify the worktree binding; ordinary calls never use it.
+	InstructedContext func(context.Context) (context.Context, error)
+
+	// BeginInstructedWrite is installed by the root (cli#1594). A command that
+	// today writes as the person calls it before its first lookup, then calls
+	// the returned function at send time for an instructed write's context:
+	// the worker session when the binding is verified for the target App,
+	// else the person's, with a note on stderr.
+	BeginInstructedWrite func(context.Context) func(ctx context.Context, targetAppID, targetAppRef string) (context.Context, bool, error)
+
+	// BeginServerTargetInstructedWrite snapshots a person-write binding before
+	// confirmation. The server resolves the target App and owns its admission.
+	BeginServerTargetInstructedWrite func(context.Context) func(context.Context) (context.Context, bool, error)
+
 	// Persistent flag values, bound by the root command.
 	JSON       bool
 	ServerFlag string
@@ -36,6 +51,10 @@ type Factory struct {
 	// Overridable for tests.
 	ConfigFn     func() (*config.Config, error)
 	TokenStoreFn func() store.Store
+
+	// DeliveryPending collects the optional messages-waiting metadata of every
+	// successful typed response (cli#1084); the entry point renders it once.
+	DeliveryPending *api.DeliveryPendingRecorder
 
 	cfg        *config.Config
 	tokenStore store.Store
@@ -47,6 +66,8 @@ func NewFactory() *Factory {
 		HTTPClient:   &http.Client{Timeout: 30 * time.Second},
 		ConfigFn:     config.Load,
 		TokenStoreFn: store.Resolve,
+
+		DeliveryPending: &api.DeliveryPendingRecorder{},
 	}
 }
 
@@ -162,7 +183,7 @@ func (f *Factory) GraphQLClient() (graphql.Client, error) {
 	if source == auth.SourceNone {
 		return nil, exitcode.Newf(exitcode.AuthRequired, "not signed in to %s — run `hadron auth login` or set %s", server, store.EnvToken)
 	}
-	client, err := api.NewClient(server, token, f.HTTPClient)
+	client, err := api.NewClient(server, token, f.HTTPClient, api.WithDeliveryPending(f.DeliveryPending))
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +215,7 @@ func (f *Factory) PublicGraphQLClient() (client graphql.Client, authenticated bo
 		// permits plain http when there are no credentials to leak.
 		token = ""
 	}
-	c, err := api.NewClient(server, token, f.HTTPClient)
+	c, err := api.NewClient(server, token, f.HTTPClient, api.WithDeliveryPending(f.DeliveryPending))
 	if err != nil {
 		return nil, false, err
 	}

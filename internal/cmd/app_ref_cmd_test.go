@@ -43,6 +43,7 @@ func TestAppRefRefusedClientSideBeforeAnyRoundTrip(t *testing.T) {
 		{"app agent add", []string{"app", "agent", "add", bare, "hrn:agent:acme.com:iris"}, "<app>"},
 		{"app agent remove", []string{"app", "agent", "remove", bare, "hrn:agent:acme.com:iris", "--yes"}, "<app>"},
 		{"app uninstall", []string{"app", "uninstall", bare, "--yes"}, "<app-ref>"},
+		{"app update", []string{"app", "update", bare, "--name", "X", "--yes"}, "<app-ref>"},
 		{"app set-active", []string{"app", "set-active", bare}, "<app-ref>"},
 		{"config set app", []string{"config", "set", "app", bare}, "<value>"},
 		{"agent create --install-into", []string{"agent", "create", "--org", "acme.com", "--name", "Iris", "--install-into", bare}, "--install-into"},

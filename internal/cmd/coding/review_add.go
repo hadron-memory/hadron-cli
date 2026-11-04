@@ -92,6 +92,18 @@ Without --content/--content-file the body is scaffolded Scope-first: a
 ` + "`> **Scope.**`" + ` blockquote (from --scope, or the trigger) that lets a
 reviewer skip the check without reading it, then TODO sections to fill in.
 
+The review parent must already exist: --root (default "review") names its
+loc, and this command does not create it. When it is missing, nothing is
+written and the command exits 4 ("no "review" node in <memory> — create the
+parent first, or pass --root"). Create it once with
+` + "`hadron node create --loc review --name Review -m <memory>`" + `, or point --root at the parent your
+memory already has; ` + "`hadron coding review list`" + ` shows the tree.
+
+<check-name> is one kebab-case segment; the node's loc is <root>:<check-name>,
+where --root defaults to review. With the default root, thin-resolver-field
+becomes review:thin-resolver-field. With --root checks, the same name becomes
+checks:thin-resolver-field.
+
 A check created this way passes ` + "`coding review lint`" + ` as written.
 Creating a check that already exists fails rather than overwriting it — edit an
 existing one with ` + "`hadron node update`" + ` / ` + "`hadron edge update`" + `.
@@ -235,7 +247,7 @@ edit through the review door for you.`,
 			}
 			if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				t := output.NewTable(w)
-				t.Row("✓ created", dto.Loc, "("+label+")")
+				t.Row("✓ created", output.SafeCell(dto.Loc), output.SafeCell("("+label+")"))
 				return t.Flush()
 			}); err != nil {
 				return err
@@ -245,8 +257,8 @@ edit through the review door for you.`,
 				// under-linked, and a caller branching on the exit code must
 				// not read that as complete.
 				return exitcode.Newf(exitcode.Error,
-					"created %s but its edge to %q is missing — the check is invisible to tasks:review-changes; wire it with `hadron edge create -m %s --from %s --to %s --name %q`",
-					dto.Loc, root, mem.raw, dto.Loc, root, label)
+					"created %s but its edge to %q is missing — the check is invisible to tasks:review-changes; wire it with `hadron edge create -m %s --from %s --to %s --name %s`",
+					dto.Loc, root, cmdutil.ShellQuote(mem.raw), cmdutil.ShellQuote(dto.Loc), cmdutil.ShellQuote(root), cmdutil.ShellQuote(label))
 			}
 			return nil
 		},

@@ -3,6 +3,7 @@ package spec
 import (
 	"fmt"
 	"io"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -59,7 +60,7 @@ const abstractTightHeadroom = 150
 
 func newCmdLint(f *cmdutil.Factory) *cobra.Command {
 	var memory, product, module, prefixFlag string
-	var all, strict bool
+	var all, strict, unwired bool
 	cmd := &cobra.Command{
 		Use:     "lint [<citation>]",
 		Aliases: []string{"check", "validate"},
@@ -107,6 +108,15 @@ A spec at any loc owes no parent, contract or index: the legacy tier checks
 the old content rubric (#708): a missing abstract, a missing "what invalidates"
 statement, a missing data.version, an unreplaced scaffold body and the
 placeholder-contract exemption are no longer findings, at any loc.
+
+--unwired is the repair report for specs whose edges were never written (a
+create that failed half way, #687). It looks only at legacy-grammar citations
+and reports, as info, each edge legacy "spec new" (--product/--module/
+--feature) plans that the spec lacks: the table-of-contents edge to its parent
+and the inheritance edge to its contract, each when that target exists. Every
+finding prints the exact command that adds the edge ("spec link", or "edge
+create" when the target is not a spec); lint itself writes nothing. Info never fails --strict: a spec created at a loc on purpose, with no
+edges, is not an error.
 
 In a DRAFT corpus (one with no minted node yet — hadron-server#1591), a reserved
 placeholder is reported once as "placeholder" instead of being linted, and a
@@ -277,6 +287,13 @@ the gate that refuses them.`, abstractSoftMax, abstractHardMax, abstractTightHea
 				}
 				findings = append(findings, unresolved...)
 			}
+			if unwired {
+				fs, err := unwiredFindings(nodes, memURN, specLocExists(cmd, client, memURN, inScope, nodes))
+				if err != nil {
+					return err
+				}
+				findings = append(findings, fs...)
+			}
 			if strict {
 				for i := range findings {
 					if findings[i].Severity == sevWarning {
@@ -300,7 +317,7 @@ the gate that refuses them.`, abstractSoftMax, abstractHardMax, abstractTightHea
 				}
 				t := output.NewTable(w, "CITATION", "SEVERITY", "RULE", "MESSAGE")
 				for _, fnd := range findings {
-					t.Row(fnd.Citation, fnd.Severity, fnd.Rule, fnd.Message)
+					t.Row(output.SafeCell(fnd.Citation), fnd.Severity, fnd.Rule, output.SafeCell(fnd.Message))
 				}
 				return t.Flush()
 			}); err != nil {
@@ -318,6 +335,7 @@ the gate that refuses them.`, abstractSoftMax, abstractHardMax, abstractTightHea
 	cmd.Flags().StringVar(&module, "module", "", "lint every spec under this module (optionally within --product)")
 	cmd.Flags().BoolVar(&all, "all", false, "lint every spec in the memory")
 	cmd.Flags().BoolVar(&strict, "strict", false, "treat warnings as errors")
+	cmd.Flags().BoolVar(&unwired, "unwired", false, "also report (as info) each legacy-citation spec missing an edge legacy spec new plans, with the command that adds it")
 	return cmd
 }
 
@@ -534,6 +552,36 @@ func lintCorpus(nodes []specNode, memURN string) []lintFindingDTO {
 			dupReported[n.Loc] = true
 			fs = append(fs, lintFindingDTO{Citation: n.Loc, Rule: "duplicate-loc", Severity: sevError, Message: "duplicate citation — two nodes share this loc"})
 		}
+	}
+	fs = append(fs, productCodeFindings(nodes)...)
+	return fs
+}
+
+var reProductLike = regexp.MustCompile(`^[a-z]+$`)
+
+// productCodeFindings warns once per product code that the allocator cannot
+// serve (#1147). `spec new` without an explicit loc numbers from a 3-letter
+// product code, so a product-rooted corpus under any other code lints clean
+// today and fails only at allocation. A corpus counts as product-rooted only
+// when a loc reads <code>:<module>[:<feature>…] with a well-formed 3-letter
+// module tail; short freeform locs are not flagged. Advisory: explicit locs
+// still work, and the exit status is unchanged without --strict.
+func productCodeFindings(nodes []specNode) []lintFindingDTO {
+	var fs []lintFindingDTO
+	seen := map[string]bool{}
+	for _, n := range nodes {
+		head, tail, ok := strings.Cut(n.Loc, ":")
+		if !ok || !reProductLike.MatchString(head) || reModule.MatchString(head) || seen[head] {
+			continue
+		}
+		if c, err := ParseCitation(tail); err != nil || c.Product != "" {
+			continue
+		}
+		seen[head] = true
+		fs = append(fs, lintFindingDTO{
+			Citation: head, Rule: "product-code", Severity: sevWarning,
+			Message: fmt.Sprintf("product code %q is not 3 lowercase letters — automatic numbering (`spec new` without an explicit loc) cannot serve this corpus; explicit locs still work", head),
+		})
 	}
 	return fs
 }
@@ -780,7 +828,7 @@ func fetchDetailsWithUnavailable(cmd *cobra.Command, client graphql.Client, list
 
 func collectSpecDetails(cmd *cobra.Command, client graphql.Client, ids []string) ([]*gen.NodeBatchNodeBatchNodeBatchResultNodesNode, []string, error) {
 	return collectSpecDetailBatch(ids, func(chunk []string) (*gen.NodeBatchNodeBatchNodeBatchResult, error) {
-		resp, ferr := gen.NodeBatch(cmd.Context(), client, chunk, nil, nil)
+		resp, ferr := api.ReadNodeBatch(cmd.Context(), client, chunk, nil, nil)
 		if ferr != nil {
 			return nil, api.MapError(ferr)
 		}
@@ -1172,7 +1220,7 @@ func nearCapMessage(l int, title string, c Citation, legacy, draft bool) string 
 // using the compiled body, which is what they want: they read structure and
 // headings, and a reader of `spec lint` is asking about the spec as it renders.
 func rawSpecBody(cmd *cobra.Command, client graphql.Client, id string) (*string, error) {
-	resp, err := gen.NodeBatch(cmd.Context(), client, []string{id}, nil, nil)
+	resp, err := api.ReadNodeBatchContent(cmd.Context(), client, []string{id})
 	if err != nil {
 		return nil, err
 	}

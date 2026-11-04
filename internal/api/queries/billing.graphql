@@ -1,0 +1,115 @@
+# Spec 046 metering reads (cli#215). Money fields are base-10 integer strings
+# of micro-cents (1e-8 USD); the CLI never parses them. The writes
+# (setAiModelPrice, grantCredits) are at the end of the file (cli#215 write cut).
+
+fragment AiModelPriceFields on AiModelPrice {
+  id
+  provider
+  model
+  tier
+  inputMicroCentsPerMTok
+  outputMicroCentsPerMTok
+  markupBasisPoints
+  effectiveAt
+  createdAt
+  createdBy
+}
+
+fragment CreditLedgerEntryFields on CreditLedgerEntry {
+  id
+  organizationId
+  kind
+  amountMicroCents
+  expiresAt
+  sourceType
+  sourceId
+  note
+  createdAt
+  createdBy
+}
+
+# One rate row by id. Authenticated read; null means not found or not
+# visible (the server does not say which).
+query AiModelPrice($ref: ID!) {
+  aiModelPrice(ref: $ref) {
+    ...AiModelPriceFields
+  }
+}
+
+# Rate rows, provider/model/tier then newest effective first. Authenticated
+# read. An unset filter is omitted (the server treats "" as no filter, so the
+# command refuses an empty one rather than send it).
+query AiModelPrices(
+  # @genqlient(omitempty: true)
+  $provider: String
+  # @genqlient(omitempty: true)
+  $model: String
+  # @genqlient(omitempty: true)
+  $tier: Int
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  aiModelPrices(provider: $provider, model: $model, tier: $tier, limit: $limit, offset: $offset) {
+    total
+    items {
+      ...AiModelPriceFields
+    }
+  }
+}
+
+# One org's balance: the SUM over its append-only ledger. Org-ADMIN.
+query CreditBalance($orgRef: String!) {
+  creditBalance(orgRef: $orgRef) {
+    organizationId
+    balanceMicroCents
+  }
+}
+
+# One org's ledger page, newest first. Org-ADMIN.
+query CreditLedgerEntries(
+  $orgRef: String!
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  creditLedgerEntries(orgRef: $orgRef, limit: $limit, offset: $offset) {
+    total
+    items {
+      ...CreditLedgerEntryFields
+    }
+  }
+}
+
+# One-line-per-variable layout: genqlient applies a directive comment to every
+# node starting on the operation's line.
+# Platform-ADMIN. Appends one effective-dated rate row; never mutates an
+# existing one. An omitted optional is not sent, so the server defaults apply
+# (tier 1, env markup, now).
+# @genqlient(for: "SetAiModelPriceInput.effectiveAt", omitempty: true)
+# @genqlient(for: "SetAiModelPriceInput.markupBasisPoints", omitempty: true)
+# @genqlient(for: "SetAiModelPriceInput.tier", omitempty: true)
+mutation SetAiModelPrice(
+  $input: SetAiModelPriceInput!
+) {
+  setAiModelPrice(input: $input) {
+    ...AiModelPriceFields
+  }
+}
+
+# Platform-ADMIN. Appends a positive grant to an org's ledger. The response
+# has no created/reused flag, so a replay of (sourceType, sourceId) is
+# indistinguishable from a first grant. An omitted optional is not sent.
+# @genqlient(for: "GrantCreditsInput.expiresAt", omitempty: true)
+# @genqlient(for: "GrantCreditsInput.note", omitempty: true)
+# @genqlient(for: "GrantCreditsInput.sourceId", omitempty: true)
+# @genqlient(for: "GrantCreditsInput.sourceType", omitempty: true)
+mutation GrantCredits(
+  $input: GrantCreditsInput!
+) {
+  grantCredits(input: $input) {
+    ...CreditLedgerEntryFields
+  }
+}

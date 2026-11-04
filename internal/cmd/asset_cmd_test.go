@@ -236,17 +236,13 @@ func TestAssetURLPrintsHotlinkAndWarns(t *testing.T) {
 	}
 }
 
-// #731: a CLEAN asset with no hotlink. The server returns null for three
-// reasons it does not tell apart — hotlinks switched off (its default), no
-// valid public origin (missing OR malformed BASE_URL), an encrypted memory — so the reason must name all three and
-// assert none. It was naming only the last two, both false on a default
-// deployment.
+// #897: stored policy and deployment availability are now independently visible.
 func TestAssetURLCleanButAbsentNamesEveryPossibleCause(t *testing.T) {
 	for _, jsonMode := range []bool{false, true} {
 		gql := fakeGraphQL(t, map[string]string{
 			"GetMemory": assetMemoryResp,
 			"MemoryAssets": assetListResp(1, false,
-				assetJSON("a1", "one.png", "image/png", 10, "CLEAN", "null")),
+				strings.TrimSuffix(assetJSON("a1", "one.png", "image/png", 10, "CLEAN", "null"), "}")+`,"publicLinkEnabled":true,"publicLinkAvailable":true,"canManagePublicLink":false}`),
 		})
 		f, out := testFactory(t)
 		root := NewRootCmd(f)
@@ -275,10 +271,13 @@ func TestAssetURLCleanButAbsentNamesEveryPossibleCause(t *testing.T) {
 		} else if strings.TrimSpace(out.String()) != "" {
 			t.Errorf("stdout must stay empty with no hotlink; got %q", out.String())
 		}
-		for _, cause := range []string{"hotlinks switched off", "no valid public origin", "encrypted", "does not say which"} {
+		for _, cause := range []string{"public link: on", "no valid public origin", "encrypted", "does not say which"} {
 			if !strings.Contains(reason, cause) {
 				t.Errorf("json=%v: reason should name %q; got %q", jsonMode, cause, reason)
 			}
+		}
+		if strings.Contains(reason, "hotlinks switched off") {
+			t.Errorf("available deployment must not be named disabled: %s", reason)
 		}
 		if strings.Contains(reason, "scan") {
 			t.Errorf("json=%v: a CLEAN asset's reason must not blame the scan; got %q", jsonMode, reason)

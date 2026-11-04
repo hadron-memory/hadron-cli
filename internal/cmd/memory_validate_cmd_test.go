@@ -362,3 +362,80 @@ func TestMemoryValidateUnknownKindCountedInJSON(t *testing.T) {
 		t.Errorf("unknown kinds must not be dropped from the listing; matchedFindings = %v", got)
 	}
 }
+
+// cli#1501 — INDEX_TRUNCATED is an informational declaration, not a problem.
+const findIndexTruncated = `{"kind":"INDEX_TRUNCATED","nodeId":"n9","nodeLoc":"g:h","nodeUrn":null,"detail":"indexed content capped at 8 chunks"}`
+
+func validateRespInfo(total, info int, ok bool, findings, skipped string) string {
+	return `{"data":{"validateMemory":{
+		"memoryId":"mem1","nodesChecked":42,"ok":` + boolJSON(ok) + `,
+		"totalFindings":` + strconv.Itoa(total) + `,"totalInformational":` + strconv.Itoa(info) + `,"truncated":false,
+		"findings":[` + findings + `],"skippedChecks":[` + skipped + `]}}}`
+}
+
+func TestMemoryValidateFailOnFindingsIgnoresInformational1501(t *testing.T) {
+	skipped := `{"check":"STALE_ABSTRACT","reason":"encrypted"}`
+	cases := []struct {
+		name     string
+		resp     string
+		args     []string
+		wantCode int
+	}{
+		{"informational only", validateRespInfo(0, 1, true, findIndexTruncated, ""), []string{"--fail-on-findings"}, 0},
+		{"clean", validateRespInfo(0, 0, true, "", ""), []string{"--fail-on-findings"}, 0},
+		{"true problem", validateRespInfo(1, 0, false, findBroken, ""), []string{"--fail-on-findings"}, exitcode.Conflict},
+		{"mixed", validateRespInfo(1, 1, false, findBroken+","+findIndexTruncated, ""), []string{"--fail-on-findings"}, exitcode.Conflict},
+		{"mixed, problem filtered out", validateRespInfo(1, 1, false, findBroken+","+findIndexTruncated, ""), []string{"--fail-on-findings", "--check", "sparse"}, 0},
+		{"skipped check alone is not a finding", validateRespInfo(0, 0, false, "", skipped), []string{"--fail-on-findings"}, 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, _, err := runValidate(t, tc.resp, tc.args...)
+			code := 0
+			if err != nil {
+				code = exitCodeFor(err)
+			}
+			if code != tc.wantCode {
+				t.Errorf("exit = %d, want %d (err=%v)", code, tc.wantCode, err)
+			}
+		})
+	}
+}
+
+func TestMemoryValidateJSONCarriesInformationalTotal1501(t *testing.T) {
+	dto, _, err := runValidate(t, validateRespInfo(0, 3, true, findIndexTruncated, ""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dto["totalInformational"] != float64(3) || dto["matchedInformational"] != float64(1) {
+		t.Errorf("informational = %v/%v, want 3/1", dto["totalInformational"], dto["matchedInformational"])
+	}
+	if dto["totalFindings"] != float64(0) || dto["matchedFindings"] != float64(0) || dto["ok"] != true {
+		t.Errorf("problem counts leaked informational: %v", dto)
+	}
+	if got := len(dto["findings"].([]any)); got != 1 {
+		t.Errorf("findings listed = %d, want the declaration row kept", got)
+	}
+}
+
+func TestMemoryValidateTextShowsInformational1501(t *testing.T) {
+	gql := fakeGraphQL(t, map[string]string{
+		"GetMemory":      `{"data":{"memory":{"id":"mem1","urn":"hrn:mem:o:m","name":"M","shortDescription":null,"class":"shared","visibility":"private","organizationId":"org1","isEncrypted":false,"maxRevCount":null,"updatedAt":"2026-08-05T00:00:00Z"}}}`,
+		"ValidateMemory": validateRespInfo(0, 1, true, findIndexTruncated, ""),
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "validate", "o::m", "--server", gql.URL, "--fail-on-findings"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	got := out.String()
+	for _, want := range []string{"index-truncated", "1 informational declaration", "0 problem finding(s)", "g:h"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("text report missing %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "unknown to this CLI version") {
+		t.Errorf("INDEX_TRUNCATED rendered as an unknown check:\n%s", got)
+	}
+}

@@ -56,7 +56,7 @@ to grants on that one connection. Pages to exhaustion.`,
 			return output.Write(f.IOStreams, f.JSON, grants, func(w io.Writer) error {
 				table := output.NewTable(w, "ID", "CONNECTION", "GRANTEE", "SCOPES", "EXPIRY", "CREATED")
 				for _, g := range grants {
-					table.Row(g.ID, g.ConnectionID, g.grantee(), g.scopeList(), g.expiry(), g.CreatedAt)
+					table.Row(output.SafeCell(g.ID), output.SafeCell(g.ConnectionID), output.SafeCell(g.grantee()), output.SafeCell(g.scopeList()), output.SafeCell(g.expiry()), output.SafeCell(g.CreatedAt))
 				}
 				return table.Flush()
 			})

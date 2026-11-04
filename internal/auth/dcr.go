@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -37,6 +38,9 @@ func registerClient(ctx context.Context, httpClient *http.Client, registrationEn
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
+		if fault := api.PlainHTTPInternalFault(resp.Header, body); fault != nil {
+			return "", fault
+		}
 		return "", exitcode.Newf(exitcode.Error, "client registration returned HTTP %d: %s", resp.StatusCode, bytes.TrimSpace(body))
 	}
 	var out struct {

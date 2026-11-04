@@ -21,17 +21,24 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create -m <memory> --type <type> --fields '<json>'",
 		Short: "Create an object in a collection",
-		Long: `Create an object — a node in the memory's <type> collection whose typed
-properties are the given fields. Prints the flat record { id, type, ...fields }.
+		Long: `Add a record to a collection. --type names the collection (for example
+competitor) and --fields gives the record's fields as a JSON object. Prints the
+new record, including the id that get, update and delete take.
 
---fields takes the fields inline as a JSON object, or --fields-file from a file.
---key sets a human-meaningful natural id (a single loc segment, no ':'); omit it
-for a server-generated id. --name overrides the auto-derived node name.
+Wrap the JSON in single quotes, as in the example, so the shell passes it
+unchanged; or put it in a file and pass --fields-file <path>.
 
-id and type are reserved and cannot be field names. On a schema-governed memory
-the fields are validated against the collection.`,
+--key gives the record a readable id of your own (one word, no ':'), so it can
+also be named hrn:node:<org>:<memory>:<type>:<key>. Without --key the server
+generates one. --name sets the title shown in node listings (default: the
+record's "name" or "title" field, else the type).
+
+id and type cannot be field names. If the memory declares a schema for the
+collection, a missing required field or a value of the wrong type is refused
+(exit 2), naming the field; see hadron object --help.`,
 		Example: `  hadron object create -m hrn:mem:acme.com:market --type competitor \
-    --fields '{"name":"Letta","stage":"series-a","fundingUsd":12000000}' --key letta`,
+    --fields '{"name":"Letta","stage":"series-a","fundingUsd":12000000}' --key letta
+  hadron object create -m hrn:mem:acme.com:market --type competitor --fields-file zep.json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if objectType == "" {

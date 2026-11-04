@@ -1,0 +1,27 @@
+{
+ "id": "scratch",
+ "ok": true,
+ "result": {
+  "terminal": {
+   "handle": "term_00000000-0000-0000-0000-000000000000",
+   "status": "running",
+   "tail": [
+    "user@host:~/orca/workspaces/hadron-cli/joshua-907-scratch$ claude '--dangerously-skip-permissions'",
+    "Resume this session with:",
+    "claude --resume 00000000-0000-0000-0000-000000000000",
+    "user@host:~/orca/workspaces/hadron-cli/joshua-907-scratch$ codex",
+    "Session ID: 00000000-0000-0000-0000-000000000000",
+    "user@host:~/orca/workspaces/hadron-cli/joshua-907-scratch$ codex",
+    "Session ID: 00000000-0000-0000-0000-000000000000",
+    "user@host:~/orca/workspaces/hadron-cli/joshua-907-scratch$"
+   ],
+   "truncated": false,
+   "limited": false,
+   "oldestCursor": "0",
+   "nextCursor": "8",
+   "latestCursor": "8",
+   "returnedLineCount": 8,
+   "source": "screen"
+  }
+ }
+}

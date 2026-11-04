@@ -1,3 +1,8 @@
+> **Partly superseded by #1173:** literal Agent/App systemPrompt and Worker
+> promptOverride reads, writes and flags described below are retired. Use the
+> source → compile → node approval workflow; the other behavior below is historical
+> context or remains applicable as stated. See [1173-retired-prompts.md](1173-retired-prompts.md).
+
 # `--persona-prompt-file` / stdin for the CLI's longest text field (#541)
 
 > **Historical command names.** Server #1438 and CLI #771 retired

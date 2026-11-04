@@ -41,38 +41,50 @@ type assetUploadDTO struct {
 }
 
 func newCmdUpload(f *cmdutil.Factory) *cobra.Command {
-	var memory, description, mimeFlag, nameFlag string
+	var memory, description, mimeFlag, nameFlag, agentRequest string
 	cmd := &cobra.Command{
 		Use:   "upload <file> -m <memory>",
 		Short: "Upload a file as an asset",
-		Long: `Upload a local file into a memory as an asset.
+		Long: `Upload a local file into a memory. Prints the stored filename, size and type,
+then the asset's URN on its own line: the other asset commands take that URN.
+--json prints the whole record.
 
-The upload is three steps: the server reserves the asset and returns a
-presigned URL, the bytes go straight to object storage, and a final call marks
-the asset usable. The size and MIME type are declared up front, so the size cap
-and MIME allowlist are enforced BEFORE any bytes move — a rejected upload costs
-one round-trip, not a full transfer.
+Accepted: files up to 25 MB (26,214,400 bytes) of these types: PDF, PNG, JPEG,
+WebP, plain text, Markdown, CSV, JSON, and Word, Excel and PowerPoint (.docx,
+.xlsx, .pptx). A larger file or another type is refused before the file is
+sent (exit 1), with the reason.
 
-The MIME type is derived from the file extension, falling back to content
-sniffing. Pass --mime when the file's extension lies or is absent; the server
-rejects a type outside its allowlist and names the type it expected.
+The type comes from the file extension, or from the content when the
+extension is unknown. Pass --mime when the extension is wrong or missing.
 
-If the upload fails after the bytes are sent, the asset is usually left
-reserved but not completed — it does not appear in "asset list" and can be
-re-uploaded.
+Every upload is scanned for viruses. A file that fails the scan is refused, its
+contents are discarded, and only a record of it is kept (status BLOCKED, shown
+by asset list --include-deleted); uploading the same file again fails the same
+way. If the upload is refused up front (size or type) or the file transfer
+fails, nothing appears in asset list and you can run it again. If a network or
+proxy error comes after the file was sent, the upload may still have
+completed: check asset list before uploading again, or you may end up with two
+copies.
 
-The malware scan is the exception, because it runs on that final step. A file
-that fails it leaves a BLOCKED record behind on purpose: the bytes are
-discarded, the row is kept for audit ("asset list --include-deleted" shows it
-with the engine signature), and re-uploading the same file fails the same way
-every time.`,
-		Example: `  hadron asset upload ./logo.png -m hrn:mem:acme.com:kb
+--agent-request <id> marks the upload as one an agent asked for (upload
+intent AGENT_REQUEST) and sends the id of that request with it.`,
+		Example: `  hadron asset upload ./report.pdf -m hrn:mem:acme.com:kb
   hadron asset upload ./notes.md -m hrn:mem:acme.com:kb --description "meeting notes"
   hadron asset upload ./data -m hrn:mem:acme.com:kb --mime application/json --name data.json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if memory == "" {
 				return exitcode.Newf(exitcode.Usage, "-m/--memory is required — an asset is uploaded into a memory")
+			}
+			// An empty value is not an absent flag: --agent-request "" would
+			// otherwise upload as an ordinary user upload, silently.
+			intent, requestID := gen.UploadIntentUser, (*string)(nil)
+			if cmd.Flags().Changed("agent-request") {
+				if strings.TrimSpace(agentRequest) == "" {
+					return exitcode.Newf(exitcode.Usage, "--agent-request is empty: name the agent request this upload answers. Nothing was sent")
+				}
+				id := strings.TrimSpace(agentRequest)
+				intent, requestID = gen.UploadIntentAgentRequest, &id
 			}
 			src := args[0]
 			info, err := os.Stat(src)
@@ -112,7 +124,7 @@ every time.`,
 			// Step 1 — reserve. Typed rejections (size cap, MIME allowlist, a
 			// memory not accepting uploads) surface here, verbatim.
 			begun, err := gen.BeginAssetUpload(cmd.Context(), client, memID, filename, mimeType,
-				int(info.Size()), gen.UploadIntentUser, optString(description))
+				int(info.Size()), intent, optString(description), requestID)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -145,7 +157,7 @@ every time.`,
 				MemoryID: a.MemoryId, PublicURL: a.PublicUrl,
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				fmt.Fprintf(w, "uploaded %s (%s, %s)\n%s\n", dto.Filename, humanSize(dto.SizeBytes), dto.MimeType, dto.URN)
+				fmt.Fprintf(w, "uploaded %s (%s, %s)\n%s\n", output.SafeCell(dto.Filename), humanSize(dto.SizeBytes), output.SafeCell(dto.MimeType), output.SafeCell(dto.URN))
 				if dto.ScanStatus == "PENDING" {
 					fmt.Fprintf(f.IOStreams.ErrOut,
 						"note: virus scan is still pending — the asset is not downloadable until it is CLEAN\n")
@@ -158,6 +170,7 @@ every time.`,
 	cmd.Flags().StringVar(&description, "description", "", "a description stored with the asset")
 	cmd.Flags().StringVar(&mimeFlag, "mime", "", "MIME type (default: derived from the extension, else sniffed)")
 	cmd.Flags().StringVar(&nameFlag, "name", "", "store under this filename (default: the file's own name)")
+	cmd.Flags().StringVar(&agentRequest, "agent-request", "", "upload for this agent request id (upload intent AGENT_REQUEST)")
 	return cmd
 }
 
@@ -198,7 +211,10 @@ func putBytes(cmd *cobra.Command, f *cmdutil.Factory, src string, size int64, b 
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		body, fault := api.ReadPlainHTTPFault(resp.Header, resp.Body, 512)
+		if fault != nil {
+			return fault
+		}
 		hint := ""
 		if resp.StatusCode == http.StatusForbidden {
 			hint = fmt.Sprintf(" (the presigned upload expired at %s — re-run)", b.ExpiresAt)

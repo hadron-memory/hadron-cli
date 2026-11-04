@@ -74,9 +74,9 @@ func renderReferences(w io.Writer, refs []referenceDTO, withReason bool) error {
 	t := output.NewTable(w, cols...)
 	for _, r := range refs {
 		if withReason {
-			t.Row(r.SourceLoc, r.Kind, r.Field, r.TargetLoc, r.Reason, r.Text)
+			t.Row(output.SafeCell(r.SourceLoc), output.SafeCell(r.Kind), output.SafeCell(r.Field), output.SafeCell(r.TargetLoc), output.SafeCell(r.Reason), output.SafeCell(r.Text))
 		} else {
-			t.Row(r.SourceLoc, r.Kind, r.Field, r.TargetLoc, r.Text)
+			t.Row(output.SafeCell(r.SourceLoc), output.SafeCell(r.Kind), output.SafeCell(r.Field), output.SafeCell(r.TargetLoc), output.SafeCell(r.Text))
 		}
 	}
 	return t.Flush()
@@ -338,6 +338,12 @@ refused, or keeps conflicting with a concurrent edit, is reported FAILED
 without undoing the move, and the command exits 1 so a script doesn't read a
 clean success. --dry-run shows the plan and writes nothing.
 
+After exit 1 the spec is already at its new citation; running the command
+again does not undo it. Recover by hand: the report names each FAILED node, so
+open it (` + "`hadron spec get <citation>`" + `), fix the old citation in its text with
+` + "`hadron spec edit`" + `, and use ` + "`hadron spec unresolved`" + ` and ` + "`hadron spec backlinks <new-citation>`" + `
+to confirm nothing still points at the old one.
+
 If any node in the moved subtree is minted, the renumber refuses with
 NODE_MINTED (exit 5). Supersede that spec instead.`,
 		Example: `  hadron spec renumber pas:010:04 pas:010:02 -m hrn:mem:micromentor.org:specs-draft --dry-run
@@ -435,7 +441,7 @@ func renderRenumber(w io.Writer, d renumberDTO) error {
 		fmt.Fprintln(w, "reference rewrites:")
 		t := output.NewTable(w, "NODE", "STATUS", "COUNT", "FIELDS", "ERROR")
 		for _, rw := range d.Rewrites {
-			t.Row(rw.Loc, rw.Status, fmt.Sprint(rw.Count), strings.Join(rw.Fields, ","), rw.Error)
+			t.Row(output.SafeCell(rw.Loc), output.SafeCell(rw.Status), fmt.Sprint(rw.Count), output.SafeCell(strings.Join(rw.Fields, ",")), output.SafeCell(rw.Error))
 		}
 		if err := t.Flush(); err != nil {
 			return err
@@ -445,7 +451,7 @@ func renderRenumber(w io.Writer, d renumberDTO) error {
 		fmt.Fprintln(w, "text citations (reported, NOT rewritten — review these):")
 		t := output.NewTable(w, "NODE", "FIELD", "CITATION", "EXCERPT")
 		for _, tc := range d.TextCitations {
-			t.Row(tc.SourceLoc, tc.Field, tc.Citation, tc.Excerpt)
+			t.Row(output.SafeCell(tc.SourceLoc), output.SafeCell(tc.Field), output.SafeCell(tc.Citation), output.SafeCell(tc.Excerpt))
 		}
 		return t.Flush()
 	}
@@ -586,7 +592,14 @@ func newCmdMint(f *cmdutil.Factory) *cobra.Command {
 		Short: "Mint approved, unminted nodes in a spec corpus",
 		Long: `Mint the approved, unminted nodes in a spec corpus. The report lists
 the nodes this call would mint and any blockers. Minting records a per-node
-state; it does not currently enforce citation permanence.
+state; most citation-permanence checks are currently off, but a minted spec
+can no longer be renumbered by "spec renumber", so treat a mint as not
+freely reversible.
+
+Approval comes first: a node's CURRENT text must be approved (any later edit
+to its title, abstract or body needs a fresh approval). Approve with
+` + "`hadron node approve <node-urn>`" + `; check one with ` + "`hadron node verify <node-urn>`" + `
+and see what is unapproved with ` + "`hadron spec list --unapproved`" + `.
 
 The command always checks first and prints the mint report:
   blockers         a placeholder, unresolved reference, structural lint
@@ -729,12 +742,15 @@ func renderMint(w io.Writer, d mintDTO) error {
 	} else {
 		fmt.Fprintf(w, "  blockers: %d\n", len(d.Blockers))
 		t := output.NewTable(w, "LOC", "KIND", "RULE", "TARGET", "MESSAGE")
+		kinds := make([]string, 0, len(d.Blockers))
 		for _, b := range d.Blockers {
-			t.Row(b.Loc, b.Kind, b.Rule, b.TargetLoc, b.Message)
+			t.Row(output.SafeCell(b.Loc), output.SafeCell(b.Kind), output.SafeCell(b.Rule), output.SafeCell(b.TargetLoc), output.SafeCell(b.Message))
+			kinds = append(kinds, b.Kind)
 		}
 		if err := t.Flush(); err != nil {
 			return err
 		}
+		cmdutil.WriteMintApproveHint(w, d.Memory, kinds...)
 	}
 	block := "reported only"
 	if d.StaleAbstractsBlock {
@@ -831,7 +847,8 @@ func loadDraftInfo(ctx context.Context, client graphql.Client, memRef, prefix st
 	filter := newNodeFilter(&memRef, prefixArg, nil)
 	role := api.SpecNodeRole
 	filter.Role = &role
-	for offset := 0; ; offset += nodesPageSize {
+	seenLocs := map[string]bool{}
+	for offset := 0; ; {
 		resp, err := gen.SpecPlaceholderScan(ctx, client, filter, gen.NodeSortLoc, nodesPageSize, offset)
 		if err != nil {
 			// #1451 exposed corpusState before #1452 added isPlaceholder.
@@ -847,14 +864,27 @@ func loadDraftInfo(ctx context.Context, client graphql.Client, memRef, prefix st
 		if resp.FindNodes == nil {
 			return info, nil
 		}
+		fresh := 0
 		for _, h := range resp.FindNodes.Hits {
-			if h != nil && h.Node != nil && h.Node.IsPlaceholder {
+			if h == nil || h.Node == nil || seenLocs[h.Node.Loc] {
+				continue
+			}
+			seenLocs[h.Node.Loc] = true
+			fresh++
+			if h.Node.IsPlaceholder {
 				info.Placeholders[h.Node.Loc] = true
 			}
 		}
-		if len(resp.FindNodes.Hits) < nodesPageSize {
+		// Stop only on an EMPTY page (a short page may be a server clamp, so a
+		// placeholder past it would read as resolved, cli#967) ; a
+		// non-empty page with nothing new (a server ignoring the offset) is a failed read.
+		if len(resp.FindNodes.Hits) == 0 {
 			return info, nil
 		}
+		if fresh == 0 {
+			return info, api.ListNotAdvancing(offset)
+		}
+		offset += len(resp.FindNodes.Hits)
 	}
 }
 

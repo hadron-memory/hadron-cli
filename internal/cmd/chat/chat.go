@@ -18,6 +18,7 @@ import (
 	urnlib "github.com/hadron-memory/urn-lib-go"
 	"github.com/spf13/cobra"
 
+	"github.com/hadron-memory/hadron-cli/internal/cmd/servedprompt"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
@@ -27,24 +28,45 @@ func NewCmdChat(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "chat <command>",
 		Short: "Participate in a Hadron team chat (agent-friendly read/post)",
-		Long: `Read and post messages in a Hadron team-chat memory — a low-friction surface
-over the message-node protocol, built so an AI agent spends as few tokens and as
-little attention as possible on coordination.
+		Long: `Read and post messages in a chat named by a node URN — the older, node-addressed
+surface over the same Channels "hadron channel" manages.
+
+WHICH CHAT SURFACE? To read or post in your own team's chat as your bound
+worker, use "hadron team chat read --mentions-me", "team chat post --reply-to
+<seq>" and "team chat mark-read --through <seq>" instead: they need no node
+URN and attribute posts to your session. Use "chat" when a chat is configured
+by node URN (--node or .hadron/config.json), and "hadron channel" for any room
+you can name by id or address.
 
 A chat is named by the URN of the node whose direct children are its messages
 (--node, or "chat":{"node"} in config) — one copyable value that packs the
 memory and the message location. The two-field form (-m + --messages-loc, or
 "chat":{"memory","messagesLoc"} — what the push channel uses) is equivalent.
 
-Those coordinates and this agent's identity resolve from (highest first): a
-flag, the matching HADRON_CHAT_* env var, then the project-local
-.hadron/config.json (the same file the hadron-client push channel reads —
-top-level "handle" and "chat": { "node" | "memory"+"messagesLoc", "identity",
-"role" }). Configure once and a turn is just 'chat read --since <seq>' /
-'chat post --body …'.`,
+Those coordinates resolve from (highest first): a flag, the matching
+HADRON_CHAT_* env var, then the project-local .hadron/config.json (the same
+file the hadron-client push channel reads — "chat": { "node" |
+"memory"+"messagesLoc" }). Configure once and a turn is just 'chat read --since
+<seq>' / 'chat post --body …'. The legacy handle/identity/role settings do NOT
+decide who a post is by: authorship comes from --session (the bound worker) or,
+without it, from you.
+
+POLLING: there is no blocking wait. Read with --since <nextSince> at an
+interval that suits you rather than in a tight loop.
+
+EXCEPTION: ` + "`chat served-prompts <chat-id>`" + ` reads a chatbot chat's recorded
+prompt history, not this Channel surface. It takes an explicit chatbot chat id,
+uses no chat configuration, and returns no conversation text.
+
+'chat config show' prints what those resolve to from here and where each
+value came from; 'chat doctor' also checks the Channel is readable and says how
+to repair each failure. Both are read-only.`,
 	}
 	cmd.AddCommand(newCmdRead(f))
 	cmd.AddCommand(newCmdPost(f))
+	cmd.AddCommand(newCmdConfig(f))
+	cmd.AddCommand(newCmdDoctor(f))
+	cmd.AddCommand(servedprompt.NewChat(f))
 	return cmd
 }
 
@@ -64,24 +86,82 @@ type Coords struct {
 // the push channel uses) is the fallback. All resolve to the same (memory,
 // messagesLoc); messages are direct children of messagesLoc.
 func resolveCoords(pc projectChat, nodeFlag, memoryFlag, messagesLocFlag string) (Coords, error) {
-	if ref := firstNonEmpty(nodeFlag, os.Getenv("HADRON_CHAT_NODE"), pc.Node); ref != "" {
-		memory, loc, err := splitNodeURN(ref)
-		if err != nil {
-			return Coords{}, err
+	c, _, err := resolveCoordsTraced(pc, nodeFlag, memoryFlag, messagesLocFlag)
+	return c, err
+}
+
+// coordInput is one supplied coordinate value and whether resolution used it.
+// Only non-blank values are inputs: a blank one is skipped by the precedence
+// exactly as if it were absent.
+type coordInput struct {
+	Key    string // node | memory | messagesLoc
+	Source string // flag | env | config
+	Name   string // --node, HADRON_CHAT_NODE, chat.node, …
+	Value  string
+	Used   bool
+}
+
+// coordTrace says how resolveCoords reached its answer (#477): the form it
+// took and every input it saw, in precedence order. `chat config show` and
+// `chat doctor` print it; read and post discard it. Both go through
+// resolveCoordsTraced so the report cannot drift from what a post does.
+type coordTrace struct {
+	Form   string // "node" | "memory+messagesLoc" | "" when unresolved
+	Inputs []coordInput
+}
+
+func resolveCoordsTraced(pc projectChat, nodeFlag, memoryFlag, messagesLocFlag string) (Coords, coordTrace, error) {
+	var tr coordTrace
+	// add records the non-blank candidates for one key, in precedence order,
+	// and returns the index of the first (the winner) or -1.
+	add := func(key string, cands ...coordInput) int {
+		first := -1
+		for _, in := range cands {
+			v := strings.TrimSpace(in.Value)
+			if v == "" {
+				continue
+			}
+			in.Key, in.Value = key, v
+			if first < 0 {
+				first = len(tr.Inputs)
+			}
+			tr.Inputs = append(tr.Inputs, in)
 		}
-		return Coords{Memory: memory, MessagesLoc: loc}, nil
+		return first
 	}
-	memory := firstNonEmpty(memoryFlag, os.Getenv("HADRON_CHAT_MEMORY"), pc.Memory)
-	if memory == "" {
-		return Coords{}, exitcode.Newf(exitcode.Usage, "no chat — pass --node <message-parent-urn>, or -m/--memory + --messages-loc; or set them (chat.node, or chat.memory + chat.messagesLoc) in .hadron/config.json")
+	nodeAt := add("node",
+		coordInput{Source: "flag", Name: "--node", Value: nodeFlag},
+		coordInput{Source: "env", Name: "HADRON_CHAT_NODE", Value: os.Getenv("HADRON_CHAT_NODE")},
+		coordInput{Source: "config", Name: "chat.node", Value: pc.Node})
+	memoryAt := add("memory",
+		coordInput{Source: "flag", Name: "--memory", Value: memoryFlag},
+		coordInput{Source: "env", Name: "HADRON_CHAT_MEMORY", Value: os.Getenv("HADRON_CHAT_MEMORY")},
+		coordInput{Source: "config", Name: "chat.memory", Value: pc.Memory})
+	locAt := add("messagesLoc",
+		coordInput{Source: "flag", Name: "--messages-loc", Value: messagesLocFlag},
+		coordInput{Source: "env", Name: "HADRON_CHAT_MESSAGES_LOC", Value: os.Getenv("HADRON_CHAT_MESSAGES_LOC")},
+		coordInput{Source: "config", Name: "chat.messagesLoc", Value: pc.MessagesLoc})
+
+	if nodeAt >= 0 {
+		tr.Inputs[nodeAt].Used = true
+		memory, loc, err := splitNodeURN(tr.Inputs[nodeAt].Value)
+		if err != nil {
+			return Coords{}, tr, err
+		}
+		tr.Form = "node"
+		return Coords{Memory: memory, MessagesLoc: loc}, tr, nil
 	}
-	messagesLoc := firstNonEmpty(messagesLocFlag, os.Getenv("HADRON_CHAT_MESSAGES_LOC"), pc.MessagesLoc)
-	if messagesLoc == "" {
-		return Coords{}, exitcode.Newf(exitcode.Usage, "no message location — pass --messages-loc <prefix> (or use --node <urn>), set HADRON_CHAT_MESSAGES_LOC, or add chat.messagesLoc to .hadron/config.json")
+	if memoryAt < 0 {
+		return Coords{}, tr, exitcode.Newf(exitcode.Usage, "no chat — pass --node <message-parent-urn>, or -m/--memory + --messages-loc; or set them (chat.node, or chat.memory + chat.messagesLoc) in .hadron/config.json")
 	}
+	if locAt < 0 {
+		return Coords{}, tr, exitcode.Newf(exitcode.Usage, "no message location — pass --messages-loc <prefix> (or use --node <urn>), set HADRON_CHAT_MESSAGES_LOC, or add chat.messagesLoc to .hadron/config.json")
+	}
+	tr.Inputs[memoryAt].Used, tr.Inputs[locAt].Used = true, true
+	tr.Form = "memory+messagesLoc"
 	// A trailing colon would double against the ":<id>" join; normalize it off.
-	messagesLoc = strings.TrimSuffix(messagesLoc, ":")
-	return Coords{Memory: memory, MessagesLoc: messagesLoc}, nil
+	messagesLoc := strings.TrimSuffix(tr.Inputs[locAt].Value, ":")
+	return Coords{Memory: tr.Inputs[memoryAt].Value, MessagesLoc: messagesLoc}, tr, nil
 }
 
 // splitNodeURN splits a fully-qualified node URN into its memory (org::memory)

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/teamrouter"
@@ -12,7 +13,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestTeamWorkerOnboardHelp837(t *testing.T) {
@@ -20,12 +20,46 @@ func TestTeamWorkerOnboardHelp837(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"Orca-hosted workers only", "--apply", "--host", "orca1", "dry-run"} {
+	for _, want := range []string{"Orca-hosted workers only", "--apply", "--host", "orca1", "dry-run", "Routing is not verified", "mention the worker in team chat", "team chat Channel"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("onboard help missing %q:\n%s", want, out)
 		}
 	}
+	// cli#935: team router is retired, so onboard neither waits for nor
+	// claims a router reload, and its help does not send you to the loop.
+	for _, gone := range []string{"team router loop", "reload", "team router --help"} {
+		if strings.Contains(out, gone) {
+			t.Fatalf("onboard help still mentions %q:\n%s", gone, out)
+		}
+	}
 }
+
+// cli#935 (Vera's FIT P3): the agentic contract states routing is unverified
+// in the same words as the output, and no longer describes a reload receipt.
+func TestTeamWorkerOnboardAgenticUsageRoutingUnverified935(t *testing.T) {
+	data, err := os.ReadFile("agentic/agentic-usage.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := string(data)
+	start := strings.Index(doc, "## Orca worker onboarding")
+	end := strings.Index(doc, "## Worker reporting relationships")
+	if start < 0 || end < start {
+		t.Fatal("agentic-usage has no Orca worker onboarding section")
+	}
+	section := strings.Join(strings.Fields(doc[start:end]), " ")
+	if want := "Routing is unverified: team router is retired (hadron-server#2027), so nothing confirms this roster entry is read. This command starts no replacement router"; !strings.Contains(section, want) {
+		t.Errorf("onboarding section lacks %q:\n%s", want, section)
+	}
+	for _, gone := range []string{"reload", "config-loaded.json", "team router loop"} {
+		if strings.Contains(section, gone) {
+			t.Errorf("onboarding section still mentions %q", gone)
+		}
+	}
+}
+
+// cli#935: the line every onboard result ends its humanRemainder with.
+const onboardRoutingUnverified935 = "Routing is unverified: team router is retired (hadron-server#2027), so nothing confirms this roster entry is read. This command starts no replacement router."
 
 // A real fake queue at the HTTP boundary, with real executable Orca fixtures.
 // The fixture refuses every Orca verb except reads and the one display update.
@@ -86,40 +120,36 @@ func TestTeamWorkerOnboardApplyQueueOnlyAndRetry837(t *testing.T) {
 	defer srv.Close()
 	writeTeamBinding(t)
 	setTeamBindingServer(t, srv.URL)
-	done := make(chan struct{})
-	stopped := make(chan struct{})
-	go func() {
-		defer close(stopped)
-		for {
-			select {
-			case <-done:
-				return
-			case <-time.After(10 * time.Millisecond):
-				cfg, err := teamrouter.LoadConfig(configPath)
-				if err == nil {
-					_ = teamrouter.RecordReload(cfg)
-				}
-			}
-		}
-	}()
-	defer func() { close(done); <-stopped }()
+	// cli#935 P1: nothing writes a router reload receipt (the loop that did is
+	// retired), and --apply still succeeds well inside a 1s --timeout.
 	for attempt := 0; attempt < 2; attempt++ {
 		f, out := testFactory(t)
 		root := NewRootCmd(f)
-		root.SetArgs(append(append([]string{"--server", srv.URL}, args...), "--apply", "--timeout", "5s"))
+		root.SetArgs(append(append([]string{"--server", srv.URL}, args...), "--apply", "--timeout", "1s"))
 		if err := root.Execute(); err != nil {
 			t.Fatalf("attempt%d: %v\n%s", attempt, err, out.String())
 		}
 		var dto struct {
-			DryRun   bool     `json:"dryRun"`
-			Verified []string `json:"verified"`
+			DryRun         bool     `json:"dryRun"`
+			Verified       []string `json:"verified"`
+			HumanRemainder []string `json:"humanRemainder"`
 		}
 		if err := json.Unmarshal([]byte(out.String()), &dto); err != nil {
 			t.Fatal(err)
 		}
-		if dto.DryRun || len(dto.Verified) != 8 {
-			t.Fatalf("incomplete verification %s", out.String())
+		// cli#935 P2: exactly the provisioned checks; nothing claims routing.
+		want := []string{"Orca reachable", "host registration", "mention-only register row", "worktree.create succeeded", "worker.start succeeded", "roster entry", "Orca display name"}
+		if dto.DryRun || !reflect.DeepEqual(dto.Verified, want) {
+			t.Fatalf("verified = %q, want %q\n%s", dto.Verified, want, out.String())
 		}
+		// cli#935 P3: routing is stated unverified, last.
+		if n := len(dto.HumanRemainder); n != 3 || dto.HumanRemainder[n-1] != onboardRoutingUnverified935 {
+			t.Fatalf("humanRemainder = %q", dto.HumanRemainder)
+		}
+	}
+	// cli#935 P4: no reload receipt is read or created.
+	if _, err := os.Stat(filepath.Join(dir, "state", "config-loaded.json")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("config-loaded.json exists or is unreadable: %v", err)
 	}
 	if len(issued) != 2 {
 		t.Fatalf("retry enqueued duplicate operations: %v", issued)
@@ -189,9 +219,13 @@ func TestTeamWorkerOnboardDryRun837(t *testing.T) {
 			Type string            `json:"type"`
 			Args map[string]string `json:"args"`
 		} `json:"operations"`
+		HumanRemainder []string `json:"humanRemainder"`
 	}
 	if err := json.Unmarshal([]byte(out), &dto); err != nil {
 		t.Fatal(err)
+	}
+	if n := len(dto.HumanRemainder); n != 3 || dto.HumanRemainder[n-1] != onboardRoutingUnverified935 {
+		t.Fatalf("cli#935 P3: humanRemainder = %q", dto.HumanRemainder)
 	}
 	if !strings.Contains(out, `"queue": []`) {
 		t.Fatalf("queue must be an empty array: %s", out)
@@ -273,5 +307,67 @@ func TestTeamWorkerOnboardFailurePrintsPartialQueue837(t *testing.T) {
 	got, _ := os.ReadFile(log)
 	if string(got) != "status --json\n" {
 		t.Fatalf("queue failure made direct calls %s", got)
+	}
+}
+
+// cli#971 / hadron-server#2217: the registration the server returns carries
+// the CANONICAL family (anthropic->claude, openai->codex, trim/lowercase), so
+// `--family` is compared and queued as that identity too. A genuinely
+// different family is still refused with nothing queued.
+func TestTeamWorkerOnboardComparesAndQueuesTheCanonicalFamily971(t *testing.T) {
+	for _, c := range []struct {
+		flag, registered, queued string
+		ok                       bool
+	}{
+		{"openai", "codex", "codex", true},
+		{"anthropic", "claude", "claude", true},
+		{"codex", "openai", "codex", true}, // a legacy registration spelling
+		{"claude", "anthropic", "claude", true},
+		{"Codex", "codex", "codex", true},
+		{"glm", "glm", "glm", true},
+		{"private.model-7", "private.model-7", "private.model-7", true},
+		{"openai", "claude", "", false},
+		{"anthropic", "codex", "", false},
+		{"glm", "claude", "", false},
+		{"claude-opus", "claude", "", false},
+		{"private.a", "private.b", "", false},
+	} {
+		t.Run(c.flag+"/"+c.registered, func(t *testing.T) {
+			r, args, _, _ := onboardFixture837(t, true)
+			r["HostRegistrations"] = `{"data":{"hostRegistrations":[` +
+				strings.Replace(hostRegJSON, `"family":"claude"`, `"family":"`+c.registered+`"`, 1) + `]}}`
+			for i, a := range args {
+				if a == "--family" {
+					args[i+1] = c.flag
+				}
+			}
+			calls, out, err := runTeamTask(t, r, args...)
+			for _, call := range *calls {
+				if call.Op == "IssueHostOperation" {
+					t.Fatalf("dry-run or refusal queued %s", call.Op)
+				}
+			}
+			if !c.ok {
+				if err == nil || exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), "live host registration") {
+					t.Fatalf("flag %q vs registered %q must be refused: %v", c.flag, c.registered, err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("flag %q vs registered %q: %v", c.flag, c.registered, err)
+			}
+			var dto struct {
+				Operations []struct {
+					Type string            `json:"type"`
+					Args map[string]string `json:"args"`
+				} `json:"operations"`
+			}
+			if err := json.Unmarshal([]byte(out), &dto); err != nil {
+				t.Fatal(err)
+			}
+			if len(dto.Operations) != 2 || dto.Operations[1].Type != "worker.start" || dto.Operations[1].Args["family"] != c.queued {
+				t.Fatalf("worker.start must carry %q: %s", c.queued, out)
+			}
+		})
 	}
 }

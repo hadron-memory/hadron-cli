@@ -1,0 +1,55 @@
+fragment ResendSenderFields on ResendSender {
+  id
+  organizationId
+  from
+  enabled
+  hasApiKey
+  createdAt
+  updatedAt
+  createdBy
+  updatedBy
+}
+query GetResendSender($ref: ID!) {
+  resendSender(ref: $ref) { ...ResendSenderFields }
+}
+query ListResendSenders(
+  # @genqlient(omitempty: true)
+  $orgId: ID
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  resendSenders(orgId: $orgId, limit: $limit, offset: $offset) { items { ...ResendSenderFields } total }
+}
+mutation CreateResendSender($orgRef: ID!, $from: String!, $apiKey: String!,
+  # @genqlient(omitempty: true)
+  $enabled: Boolean
+) {
+  createResendSender(orgRef: $orgRef, from: $from, apiKey: $apiKey, enabled: $enabled) { ...ResendSenderFields }
+}
+mutation UpdateResendSender($ref: ID!,
+  # @genqlient(omitempty: true)
+  $from: String
+  # @genqlient(omitempty: true)
+  $apiKey: String
+  # @genqlient(omitempty: true)
+  $enabled: Boolean
+) {
+  updateResendSender(ref: $ref, from: $from, apiKey: $apiKey, enabled: $enabled) { ...ResendSenderFields }
+}
+mutation DeleteResendSender($ref: ID!) { deleteResendSender(ref: $ref) }
+mutation InviteUser(
+  # @genqlient(omitempty: true)
+  $email: String
+  # @genqlient(omitempty: true)
+  $githubUsername: String
+  # @genqlient(omitempty: true)
+  $name: String
+  # @genqlient(omitempty: true)
+  $expiresInDays: Int
+  # @genqlient(omitempty: true)
+  $maxActivations: Int
+) {
+  inviteUser(email: $email, githubUsername: $githubUsername, name: $name, expiresInDays: $expiresInDays, maxActivations: $maxActivations) { ...InvitationFields }
+}

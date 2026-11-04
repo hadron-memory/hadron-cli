@@ -54,6 +54,57 @@ func TestMapError(t *testing.T) {
 		want int
 	}{
 		{"nil", nil, exitcode.OK},
+		// cli#1335: the decision group's refusals (hadron-server #1641).
+		{"DECISION_FORBIDDEN", gqlErr("DECISION_FORBIDDEN"), exitcode.Forbidden},
+		{"DECISION_NOT_DECIDER", gqlErr("DECISION_NOT_DECIDER"), exitcode.Forbidden},
+		{"DECISION_NOT_ASKER", gqlErr("DECISION_NOT_ASKER"), exitcode.Forbidden},
+		{"DECISION_IMPERSONATION_REFUSED", gqlErr("DECISION_IMPERSONATION_REFUSED"), exitcode.Forbidden},
+		{"DECISION_INVALID", gqlErr("DECISION_INVALID"), exitcode.Usage},
+		{"DECISION_TIER_TOO_LOW", gqlErr("DECISION_TIER_TOO_LOW"), exitcode.Usage},
+		{"DECISION_DECIDER_NOT_ELIGIBLE", gqlErr("DECISION_DECIDER_NOT_ELIGIBLE"), exitcode.Usage},
+		{"DECISION_RECOMMENDATION_MISSING", gqlErr("DECISION_RECOMMENDATION_MISSING"), exitcode.Usage},
+		{"DECISION_PART_RENUMBER", gqlErr("DECISION_PART_RENUMBER"), exitcode.Usage},
+		{"DECISION_LOG_ENCRYPTED", gqlErr("DECISION_LOG_ENCRYPTED"), exitcode.Usage},
+		{"DECISION_LOG_MIRRORED", gqlErr("DECISION_LOG_MIRRORED"), exitcode.Usage},
+		{"DECISION_LOG_SYSTEM_MEMORY", gqlErr("DECISION_LOG_SYSTEM_MEMORY"), exitcode.Usage},
+		{"DECISION_LOG_ANONYMOUS_MEMORY", gqlErr("DECISION_LOG_ANONYMOUS_MEMORY"), exitcode.Usage},
+		{"DECISION_LOG_TOO_LARGE_FOR_FILTER", gqlErr("DECISION_LOG_TOO_LARGE_FOR_FILTER"), exitcode.Usage},
+		{"DECISION_LOG_EXISTS", gqlErr("DECISION_LOG_EXISTS"), exitcode.Conflict},
+		{"DECISION_ANSWER_IMMUTABLE", gqlErr("DECISION_ANSWER_IMMUTABLE"), exitcode.Conflict},
+		{"DECISION_WITHDRAWN", gqlErr("DECISION_WITHDRAWN"), exitcode.Conflict},
+		{"DECISION_SUPERSEDED", gqlErr("DECISION_SUPERSEDED"), exitcode.Conflict},
+		{"DECISION_ANSWERED_DECIDED", gqlErr("DECISION_ANSWERED_DECIDED"), exitcode.Conflict},
+		{"DECISION_ANSWERED", gqlErr("DECISION_ANSWERED"), exitcode.Conflict},
+		{"DECISION_NOT_FOUND", gqlErr("DECISION_NOT_FOUND"), exitcode.NotFound},
+		{"DECISION_LOG_NOT_FOUND", gqlErr("DECISION_LOG_NOT_FOUND"), exitcode.NotFound},
+		{"template limit", gqlErr("TICKER_TEMPLATE_LIMIT_REACHED"), exitcode.Conflict},
+		{"template revision", gqlErr("TICKER_TEMPLATE_REVISION_MISMATCH"), exitcode.Conflict},
+		{"install target changed", gqlErr("INSTALL_TARGET_CHANGED"), exitcode.Conflict},
+		{"cross-memory edges", gqlErr("CROSS_MEMORY_EDGES"), exitcode.Usage},
+		{"edge loc conflict", gqlErr("EDGE_LOC_CONFLICT"), exitcode.Conflict},
+		{"BOOT_PROMPT_COMPILE_NOT_PERMITTED", gqlErr("BOOT_PROMPT_COMPILE_NOT_PERMITTED"), exitcode.Forbidden},
+		{"BOOT_PROMPT_GRANT_REQUIRED", gqlErr("BOOT_PROMPT_GRANT_REQUIRED"), exitcode.Forbidden},
+		{"BOOT_PROMPT_TARGET_RETIRED", gqlErr("BOOT_PROMPT_TARGET_RETIRED"), exitcode.Conflict},
+		{"BOOT_PROMPT_NO_SOURCE", gqlErr("BOOT_PROMPT_NO_SOURCE"), exitcode.Conflict},
+		{"BOOT_PROMPT_SOURCE_INVALID", gqlErr("BOOT_PROMPT_SOURCE_INVALID"), exitcode.Conflict},
+		{"BOOT_PROMPT_INCLUDE_RETIRED", gqlErr("BOOT_PROMPT_INCLUDE_RETIRED"), exitcode.Conflict},
+		{"BOOT_PROMPT_INCLUDE_REVISION_UNAVAILABLE", gqlErr("BOOT_PROMPT_INCLUDE_REVISION_UNAVAILABLE"), exitcode.Conflict},
+		{"BOOT_PROMPT_INCLUDE_UNAVAILABLE", gqlErr("BOOT_PROMPT_INCLUDE_UNAVAILABLE"), exitcode.NotFound},
+		{"BOOT_PROMPT_INCLUDE_CYCLE", gqlErr("BOOT_PROMPT_INCLUDE_CYCLE"), exitcode.Usage},
+		{"BOOT_PROMPT_INCLUDE_TOO_DEEP", gqlErr("BOOT_PROMPT_INCLUDE_TOO_DEEP"), exitcode.Usage},
+		{"BOOT_PROMPT_INCLUDE_SOURCE_DISALLOWED", gqlErr("BOOT_PROMPT_INCLUDE_SOURCE_DISALLOWED"), exitcode.Usage},
+		{"BOOT_PROMPT_INCLUDE_MALFORMED", gqlErr("BOOT_PROMPT_INCLUDE_MALFORMED"), exitcode.Usage},
+		{"BOOT_PROMPT_COMPILE_LIMIT_EXCEEDED", gqlErr("BOOT_PROMPT_COMPILE_LIMIT_EXCEEDED"), exitcode.Usage},
+		// createAppMemory (cli#1176): each refusal's exit is decided, not left to
+		// the default. USER_OWNED_APP_UNSUPPORTED stays on Error (1): it is a
+		// platform limit pending a ruling, so no input or state change helps.
+		{"app memory forbidden", gqlErr("FORBIDDEN"), exitcode.Forbidden},
+		{"app memory bad input", gqlErr("BAD_USER_INPUT"), exitcode.Usage},
+		{"app memory agent not installed", gqlErr("AGENT_NOT_INSTALLED"), exitcode.Usage},
+		{"app memory user-owned app", gqlErr("USER_OWNED_APP_UNSUPPORTED"), exitcode.Error},
+		// Manual runs in an App with several installed Agents (cli#1268,
+		// hadron-server#2849): the caller fixes it by naming one with --agent.
+		{"run agent required", gqlErr("RUN_AGENT_REQUIRED"), exitcode.Usage},
 		{"delivery range", gqlErr("DELIVERY_SETTINGS_OUT_OF_RANGE"), exitcode.Usage},
 		{"delivery relation", gqlErr("DELIVERY_SETTINGS_CONFLICT"), exitcode.Usage},
 		{"ticker settings range", gqlErr("TICKER_SETTINGS_OUT_OF_RANGE"), exitcode.Usage},
@@ -66,6 +117,14 @@ func TestMapError(t *testing.T) {
 		{"ticker quiet hours", gqlErr("TICKER_QUIET_HOURS_INVALID"), exitcode.Usage},
 		{"ticker name", gqlErr("TICKER_NAME_TAKEN"), exitcode.Conflict},
 		{"ticker cap", gqlErr("TICKER_LIMIT_REACHED"), exitcode.Conflict},
+		{"app member invalid role", gqlErr("InvalidRoleError"), exitcode.Usage},
+		{"app member cap", gqlErr("MaxMembersExceededError"), exitcode.Conflict},
+		{"app member orphan", gqlErr("OrphanAppError"), exitcode.Conflict},
+		// Automation approval (cli#1071, hadron-server#2441): both need the adopter
+		// to look again, so a state conflict. The read refusals #2434 added ride
+		// FORBIDDEN, which was already mapped.
+		{"automation changed", gqlErr("AUTOMATION_CHANGED"), exitcode.Conflict},
+		{"automation unadopted", gqlErr("AUTOMATION_UNADOPTED"), exitcode.Conflict},
 		{"reports to self", gqlErr("WORKER_REPORTS_TO_SELF"), exitcode.Usage},
 		// Host poller and launch refusals (cli#831).
 		{"host key required", gqlErr("HOST_KEY_REQUIRED"), exitcode.Forbidden},
@@ -78,6 +137,16 @@ func TestMapError(t *testing.T) {
 		{"host op not done", gqlErr("HOST_OPERATION_NOT_DONE"), exitcode.Conflict},
 		{"launch refused", gqlErr("LAUNCH_REFUSED"), exitcode.Conflict},
 		{"nothing to resume", gqlErr("NOTHING_TO_RESUME"), exitcode.NotFound},
+		// Boot-prompt pointer refusals (cli#916 C2, hadron-server#2219 S8).
+		{"boot prompt pointer not found", gqlErr("BOOT_PROMPT_POINTER_NOT_FOUND"), exitcode.NotFound},
+		{"boot prompt pointer not compiled", gqlErr("BOOT_PROMPT_POINTER_NOT_COMPILED"), exitcode.Usage},
+		{"boot prompt pointer wrong role", gqlErr("BOOT_PROMPT_POINTER_WRONG_ROLE"), exitcode.Usage},
+		{"boot prompt pointer wrong memory", gqlErr("BOOT_PROMPT_POINTER_WRONG_MEMORY"), exitcode.Usage},
+		{"boot prompt pointer session refused", gqlErr("BOOT_PROMPT_POINTER_SESSION_REFUSED"), exitcode.Forbidden},
+		// Include write refusals (cli#916 C5a, hadron-server#2226 / #2165).
+		{"include target unavailable", gqlErr("INCLUDE_TARGET_UNAVAILABLE"), exitcode.NotFound},
+		{"include cycle", gqlErr("INCLUDE_CYCLE"), exitcode.Usage},
+		{"include edge derived", gqlErr("INCLUDE_EDGE_DERIVED"), exitcode.Usage},
 		{"resume refused", gqlErr("RESUME_REFUSED"), exitcode.Conflict},
 		{"resume ambiguous", gqlErr("RESUME_AMBIGUOUS"), exitcode.Usage},
 		{"session ended", gqlErr("SESSION_ENDED"), exitcode.Conflict},
@@ -99,6 +168,17 @@ func TestMapError(t *testing.T) {
 		// #864: only whoever manages the App sets its stall schedule — a
 		// permission refusal, which must not ride the _REQUIRED → Usage rule.
 		{"app manager required", gqlErr("APP_MANAGER_REQUIRED"), exitcode.Forbidden},
+		// #911 B1 stop signals (server #2022/#2173): setting is refused until
+		// the notice lane is on (state, 5); the two scope codes name an
+		// authority, so they must not ride the _REQUIRED → Usage rule.
+		{"stop signal unavailable", gqlErr("STOP_SIGNAL_UNAVAILABLE"), exitcode.Conflict},
+		{"stop host scope required", gqlErr("HOST_SCOPE_REQUIRED"), exitcode.Forbidden},
+		{"stop signal scope forbidden", gqlErr("STOP_SIGNAL_SCOPE_FORBIDDEN"), exitcode.Forbidden},
+		{"stop signal not found", gqlErr("STOP_SIGNAL_NOT_FOUND"), exitcode.NotFound},
+		// #911 B2 isolation (cor:agt:080:29): setting is refused until S7b is on
+		// (state, 5); the audience refusal names an authority, not an argument.
+		{"worker isolation unavailable", gqlErr("WORKER_ISOLATION_UNAVAILABLE"), exitcode.Conflict},
+		{"worker isolation forbidden", gqlErr("WORKER_ISOLATION_FORBIDDEN"), exitcode.Forbidden},
 		{"comment deleted", gqlErr("COMMENT_DELETED"), exitcode.Conflict},
 		{"comment merge folds threads", gqlErr("COMMENT_MERGE_FOLDS_THREADS"), exitcode.Usage},
 		{"unauthenticated", gqlErr("UNAUTHENTICATED"), exitcode.AuthRequired},
@@ -142,6 +222,7 @@ func TestMapError(t *testing.T) {
 		{"spec corpus encrypted", gqlErr("SPEC_CORPUS_ENCRYPTED_UNSUPPORTED"), exitcode.Conflict},
 		{"template not found", gqlErr("MEMORY_CONFIG_TEMPLATE_NOT_FOUND"), exitcode.NotFound},
 		{"no server row: an operator's fix, the generic 1", gqlErr("HADRON_SERVER_NOT_CONFIGURED"), exitcode.Error},
+		{"provider not configured on this server: an operator's fix, the generic 1 (cli#1352)", gqlErr("CONNECTION_PROVIDER_NOT_CONFIGURED"), exitcode.Error},
 		// #619 — the permission-denied class. Both reached scripts as the
 		// generic 1 before exitcode.Forbidden existed.
 		{"forbidden", gqlErr("FORBIDDEN"), exitcode.Forbidden},
@@ -195,6 +276,12 @@ func TestMapError(t *testing.T) {
 		// (hadron-server#1050) — pinning an exit code for a refusal the server
 		// cannot produce documents a contract nobody can exercise.
 		{"role exists", gqlErr("TEAM_ROLE_EXISTS"), exitcode.Conflict},
+		{"team chat duplicate", gqlErr("TEAM_CHAT_DUPLICATE"), exitcode.Conflict},
+		{"team chat post rate limited", gqlErr("TEAM_CHAT_POST_RATE_LIMITED"), exitcode.Conflict},
+		{"team chat body too large", gqlErr("TEAM_CHAT_BODY_TOO_LARGE"), exitcode.Usage},
+		{"team chat search query length", gqlErr("TEAM_CHAT_SEARCH_QUERY_LENGTH"), exitcode.Usage},
+		{"team chat search cursor invalid", gqlErr("TEAM_CHAT_SEARCH_CURSOR_INVALID"), exitcode.Usage},
+		{"team chat search encrypted", gqlErr("TEAM_CHAT_SEARCH_ENCRYPTED"), exitcode.Conflict},
 		{"worker external attribution needs an explicit input", gqlErr("WORKER_EXTERNAL_ATTRIBUTION_UNCONFIRMED"), exitcode.Usage},
 		// #608: a duplicate node loc. PascalCase, because the server stamps this
 		// extensions.code from an Error CLASS NAME rather than from the
@@ -220,11 +307,16 @@ func TestMapError(t *testing.T) {
 		// rules above match _TAKEN, and HELD is precisely the thing that is
 		// not taken.
 		{"held", gqlErr("WORKER_HELD"), exitcode.Conflict},
+		// hadron-cli#1087 (R222): a typed-in role beside an agent. The caller
+		// fixes it by dropping the role, so it is a usage error, not a conflict.
+		{"role override refused", gqlErr("WORKER_ROLE_OVERRIDE_REFUSED"), exitcode.Usage},
 		{"taken", gqlErr("WORKER_TAKEN"), exitcode.Conflict},
 		// The agent-task surface (hadron-cli#830): permission refusals are 8,
 		// state transitions the caller must wait out are 5, fixable inputs
 		// are 2, and the no-binding refusal names the caller's own fix.
 		{"task not owner", gqlErr("TASK_NOT_OWNER"), exitcode.Forbidden},
+		{"task not finished", gqlErr("TASK_NOT_FINISHED"), exitcode.Conflict},
+		{"task finding missing", gqlErr("TASK_FINDING_NOT_FOUND"), exitcode.NotFound},
 		{"task not assignee", gqlErr("TASK_NOT_ASSIGNEE"), exitcode.Forbidden},
 		{"alarm not in chain", gqlErr("ALARM_NOT_IN_CHAIN"), exitcode.Forbidden},
 		{"availability not permitted", gqlErr("AVAILABILITY_NOT_PERMITTED"), exitcode.Forbidden},
@@ -235,10 +327,16 @@ func TestMapError(t *testing.T) {
 		{"bad host op args", gqlErr("BAD_HOST_OPERATION_ARGS"), exitcode.Usage},
 		{"host not found", gqlErr("HOST_NOT_FOUND"), exitcode.NotFound},
 		{"key scope host conflict", gqlErr("APP_KEY_SCOPE_HOST_CONFLICT"), exitcode.Conflict},
+		{"task blocked", gqlErr("TASK_BLOCKED"), exitcode.Conflict},
+		{"task blocker cycle", gqlErr("TASK_BLOCKER_CYCLE"), exitcode.Conflict},
 		{"task invalid transition", gqlErr("TASK_INVALID_TRANSITION"), exitcode.Conflict},
 		{"task ended", gqlErr("TASK_ENDED"), exitcode.Conflict},
 		{"alarm already acknowledged", gqlErr("ALARM_ALREADY_ACKNOWLEDGED"), exitcode.Conflict},
 		{"app uninstalled", gqlErr("APP_UNINSTALLED"), exitcode.Conflict},
+		{"properties not an object", gqlErr("PROPERTIES_NOT_AN_OBJECT"), exitcode.Usage},
+		{"properties too large", gqlErr("PROPERTIES_TOO_LARGE"), exitcode.Usage},
+		{"properties schema violation", gqlErr("PROPERTIES_SCHEMA_VIOLATION"), exitcode.Usage},
+		{"properties schema unusable", gqlErr("PROPERTIES_SCHEMA_UNUSABLE"), exitcode.Conflict},
 		{"task owner invalid", gqlErr("TASK_OWNER_INVALID"), exitcode.Usage},
 		{"task assignee invalid", gqlErr("TASK_ASSIGNEE_INVALID"), exitcode.Usage},
 		{"task child owner mismatch", gqlErr("TASK_CHILD_OWNER_MISMATCH"), exitcode.Usage},
@@ -260,6 +358,9 @@ func TestMapError(t *testing.T) {
 		// its place as the general contract: exit codes are documented, and a
 		// future caller that does NOT intercept must still get 5 rather than 1.
 		{"hold stale", gqlErr("WORKER_HOLD_STALE"), exitcode.Conflict},
+		{"casting stale", gqlErr("WORKER_CASTING_STALE"), exitcode.Conflict},
+		{"agent unchanged", gqlErr("WORKER_AGENT_UNCHANGED"), exitcode.Conflict},
+		{"agent has no role", gqlErr("WORKER_AGENT_HAS_NO_ROLE"), exitcode.Conflict},
 		{"no extension", gqlerror.List{{Message: "boom"}}, exitcode.Error},
 		{"plain", errors.New("network down"), exitcode.Error},
 	}
@@ -826,7 +927,7 @@ func TestMapErrorMCPOnlyStripsTheApolloPrefixFromEveryMessage(t *testing.T) {
 // server#1220 types the shared memory-write gate. Its ordinary denial is the
 // wire shape pinned by server#1308, and it must never read as a credential
 // refusal, before the fix or after. The message is the LIVE one, not a
-// paraphrase. Only the code changes: INTERNAL_SERVER_ERROR today (exit 1),
+// paraphrase. Only the code changes: an untyped code today (exit 1),
 // FORBIDDEN with no reason once typed (exit 8, "ask for access"). A future
 // non-OAuth reason on the same denial also stays exit 8. Exit 3 is reserved
 // for OAUTH_SCOPE_INSUFFICIENT/UNSUPPORTED, which a different credential
@@ -838,7 +939,7 @@ func TestMemoryWriteDenialIsNotAScopeRefusal(t *testing.T) {
 		ext  map[string]any
 		want int
 	}{
-		{"before #1220: untyped", map[string]any{"code": "INTERNAL_SERVER_ERROR"}, exitcode.Error},
+		{"before #1220: untyped", map[string]any{"code": "UNTYPED_SERVER_ERROR"}, exitcode.Error},
 		{"after #1220: typed, no reason", map[string]any{"code": "FORBIDDEN"}, exitcode.Forbidden},
 		{"typed, a non-OAuth reason", map[string]any{"code": "FORBIDDEN", "reason": "MEMORY_WRITE_DENIED"}, exitcode.Forbidden},
 	} {
@@ -933,5 +1034,39 @@ func TestUnknownChatReadSuppressionArgumentRequiresExactEnvelope(t *testing.T) {
 	}
 	if IsUnknownGraphQLArgument(errors.New(message), "advanceReadState", "Query.teamChatMessages") {
 		t.Fatal("unparsed error retried")
+	}
+}
+
+func TestInboxTypedRefusalCodes(t *testing.T) {
+	for code, want := range map[string]int{"WAKE_PROOF_STALE": exitcode.Conflict, "WAKE_PROOF_INVALID": exitcode.Usage, "WAKE_PROOF_REQUESTER_MISMATCH": exitcode.Forbidden} {
+		if got := exitcode.FromError(MapError(gqlErr(code))); got != want {
+			t.Errorf("%s=%d want %d", code, got, want)
+		}
+	}
+}
+
+func TestIsGraphQLValidationOnlyFor(t *testing.T) {
+	unknown := func(f string) *gqlerror.Error {
+		return &gqlerror.Error{Message: `Cannot query field "` + f + `" on type "Worker".`, Extensions: map[string]any{"code": "GRAPHQL_VALIDATION_FAILED"}}
+	}
+	forbidden := &gqlerror.Error{Message: "not allowed", Extensions: map[string]any{"code": "FORBIDDEN"}}
+	for _, tc := range []struct {
+		name string
+		errs gqlerror.List
+		want bool
+	}{
+		{"one named field", gqlerror.List{unknown("a")}, true},
+		{"both named fields", gqlerror.List{unknown("a"), unknown("b")}, true},
+		{"named field plus FORBIDDEN", gqlerror.List{unknown("a"), forbidden}, false},
+		{"FORBIDDEN first", gqlerror.List{forbidden, unknown("b")}, false},
+		{"named plus another unknown field", gqlerror.List{unknown("a"), unknown("c")}, false},
+		{"no errors", gqlerror.List{}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := &graphql.HTTPError{StatusCode: 400, Response: graphql.Response{Errors: tc.errs}}
+			if got := IsGraphQLValidationOnlyFor(err, "a", "b"); got != tc.want {
+				t.Errorf("= %v, want %v", got, tc.want)
+			}
+		})
 	}
 }

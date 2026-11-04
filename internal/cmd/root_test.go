@@ -33,11 +33,18 @@ func fakeGraphQL(t *testing.T, responses map[string]string) *httptest.Server {
 			t.Errorf("missing Bearer auth header, got %q", got)
 		}
 		var body struct {
-			OperationName string `json:"operationName"`
+			OperationName string          `json:"operationName"`
+			Variables     json.RawMessage `json:"variables"`
 		}
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		body.OperationName = legacyChatReadOperation(body.OperationName)
 		resp, ok := responses[body.OperationName]
+		if !ok && body.OperationName == "NodeBatchContent" {
+			resp, ok = responses["NodeBatch"]
+		}
+		if !ok {
+			resp, ok = workerFromStaff(responses, body.OperationName, body.Variables)
+		}
 		if !ok {
 			if body.OperationName == "TeamChatReadHead" || body.OperationName == "TeamChatReadMetadata" {
 				resp, ok = teamReadHeadFixture(responses["TeamChatMessages"]), true
@@ -50,10 +57,77 @@ func fakeGraphQL(t *testing.T, responses map[string]string) *httptest.Server {
 			resp = `{"errors":[{"message":"unexpected operation"}]}`
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(translateFindNodes(body.OperationName, resp)))
+		_, _ = w.Write([]byte(translateFindNodes(body.OperationName, pageBeyondFirst(body.OperationName, body.Variables, resp))))
 	}))
 	t.Cleanup(server.Close)
 	return server
+}
+
+// workerFromStaff answers an UNSTUBBED single-worker read from the test's own
+// Workers fixture, the way a real server serves one worker the list shows:
+// GetWorker by id; GetWorkerInApp / GetWorkerIdInApp (worker(appRef:, ref:),
+// cli#1459) by id or by NAME, case-insensitively, refusing WORKER_NOT_FOUND
+// for a name the fixture does not list, as the server's name form does.
+//
+// Name resolution reads ONE worker this way instead of paging the staff. A
+// test that stubs only the staff list describes that worker already; without
+// this every such fixture would need a hand-kept copy of it. An explicit stub
+// of the read still wins, and GetWorker for an id the fixture does not list
+// stays unanswered (the caller's not-found path).
+func workerFromStaff(responses map[string]string, op string, vars json.RawMessage) (string, bool) {
+	staff, ok := responses["Workers"]
+	byName := op == "GetWorkerInApp" || op == "GetWorkerIdInApp"
+	if !ok || (op != "GetWorker" && !byName) {
+		return "", false
+	}
+	var v struct {
+		Ref string `json:"ref"`
+	}
+	var list struct {
+		Data struct {
+			Workers struct {
+				Items []json.RawMessage `json:"items"`
+			} `json:"workers"`
+		} `json:"data"`
+	}
+	if json.Unmarshal(vars, &v) != nil || json.Unmarshal([]byte(staff), &list) != nil {
+		return "", false
+	}
+	for _, item := range list.Data.Workers.Items {
+		var w struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		}
+		if json.Unmarshal(item, &w) != nil {
+			continue
+		}
+		if w.ID == v.Ref || (byName && strings.EqualFold(w.Name, strings.TrimSpace(v.Ref))) {
+			return `{"data":{"worker":` + string(item) + `}}`, true
+		}
+	}
+	if byName {
+		return `{"errors":[{"message":"Worker not found.","extensions":{"code":"WORKER_NOT_FOUND"}}]}`, true
+	}
+	return "", false
+}
+
+// pageBeyondFirst models a real server for a STATIC list fixture: the fixture is
+// the whole list, so any request past offset 0 is an empty page. Without it a
+// fixture returned for every offset looks like a server that ignores the offset,
+// which the drains (rightly) refuse as a non-advancing list (cli#967).
+func pageBeyondFirst(op string, vars json.RawMessage, resp string) string {
+	switch op {
+	case "FindNodes", "ChatMessages", "SpecPlaceholderScan":
+	default:
+		return resp
+	}
+	var v struct {
+		Offset *int `json:"offset"`
+	}
+	if json.Unmarshal(vars, &v) != nil || v.Offset == nil || *v.Offset <= 0 {
+		return resp
+	}
+	return `{"data":{"findNodes":{"total":null,"degraded":null,"reason":null,"hits":[]}}}`
 }
 
 // unstubbedDefault answers the few operations a command sends only as an
@@ -88,6 +162,24 @@ func unstubbedDefault(op string) (string, bool) {
 		// answered as a server that predates draft corpora — describe then
 		// omits the state. Tests of the state stub it.
 		return `{"errors":[{"message":"Cannot query field \"corpusState\" on type \"Memory\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
+	case "GetWorkerProfile":
+		// `team worker get`'s separate PROFILE-names read (#1355). An older
+		// server does not know Worker.appName; the ordinary lookup must work.
+		return `{"errors":[{"message":"Cannot query field \"appName\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
+	case "GetWorkerTerminal":
+		// `team worker get`'s separate terminal-report read (#1375). An older
+		// server does not know Worker.terminal; the ordinary lookup must work.
+		return `{"errors":[{"message":"Cannot query field \"terminal\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
+	case "GetWorkerRendered":
+		// `team worker get`'s separate rendered signature/trailer read
+		// (cli#1525). An older server does not know Worker.renderedSignature;
+		// the ordinary lookup must work and shows no rendered lines.
+		return `{"errors":[{"message":"Cannot query field \"renderedSignature\" on type \"Worker\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
+	case "GetWorkerModelGroups":
+		// `team worker get`'s separate model-group read (cli#1485 S3): answered
+		// as a real [] so existing worker-get tests see no group line. It has no
+		// old-server fallback, so a default error here would fail every one.
+		return `{"data":{"worker":{"modelGroups":[]}}}`, true
 	case "GetWorkerContinuity":
 		// `session start`'s separate handoff read (#790). An older server
 		// does not know Worker.continuity; ordinary binds must still work.
@@ -95,7 +187,7 @@ func unstubbedDefault(op string) (string, bool) {
 	case "GetBoundSessionLiveness":
 		// The optional #791 read against a server predating Session.isLive.
 		return `{"errors":[{"message":"Cannot query field \"isLive\" on type \"Session\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, true
-	case "NodeLiveRevisionsStamped", "NodeRevisionsStamped", "NodeRevisionStamped":
+	case "NodeLiveRevisionsStamped", "NodeRevisionsStamped", "NodeRevisionsStampedPage", "NodeRevisionStamped":
 		// cli#752's stamped reads, answered as a server that predates the
 		// stamps (hadron-server#1326): each falls back to its plain read, so
 		// every test that doesn't stub them exercises the fallback.
@@ -379,4 +471,24 @@ func TestAgenticUsagePrintsDoc(t *testing.T) {
 	if !strings.Contains(out.String(), "Exit codes") {
 		t.Error("agentic-usage doc missing exit codes section")
 	}
+}
+
+// translateFindNodesAt is translateFindNodes for a handler that decoded the
+// request's offset: a static list fixture is the whole list, so any page past
+// offset 0 is empty (cli#967 — see pageBeyondFirst).
+func translateFindNodesAt(offset *int, op, resp string) string {
+	if offset != nil && *offset > 0 {
+		return `{"data":{"findNodes":{"total":null,"degraded":null,"reason":null,"hits":[]}}}`
+	}
+	return translateFindNodes(op, resp)
+}
+
+// offsetOfVars reads the request's offset out of raw variables, for handlers
+// that kept them as json.RawMessage.
+func offsetOfVars(vars json.RawMessage) *int {
+	var v struct {
+		Offset *int `json:"offset"`
+	}
+	_ = json.Unmarshal(vars, &v)
+	return v.Offset
 }

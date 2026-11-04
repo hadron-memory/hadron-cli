@@ -70,6 +70,12 @@ func (c *capture) Delete(_ context.Context, r string, v int) (Comment, error) {
 	c.revision = v
 	return Comment{}, c.err
 }
+func (c *capture) DeleteThread(_ context.Context, r, reason string) (bool, error) {
+	c.calls++
+	c.verb = "delete-thread"
+	c.ref = r
+	return true, c.err
+}
 func (c *capture) Resolve(_ context.Context, r string, v int, reopen bool) (Comment, error) {
 	c.calls++
 	c.verb = "resolve"
@@ -208,5 +214,16 @@ func TestDeleteWithoutConfirmationNeverConnects(t *testing.T) {
 	_, connections, err := execute(t, c, "delete", "comments:one", "-m", "hrn:mem:acme.com:kb", "--expected-revision", "4")
 	if exitcode.FromError(err) != exitcode.Usage || connections != 0 || c.calls != 0 {
 		t.Fatalf("err=%v connects=%d calls=%d", err, connections, c.calls)
+	}
+}
+
+// cli#967: an unset --limit asks for 20 threads, not a larger hidden page.
+func TestListDefaultsTo20Threads(t *testing.T) {
+	c := &capture{}
+	if _, _, err := execute(t, c, "list", "target", "-m", "hrn:mem:acme.com:kb"); err != nil {
+		t.Fatal(err)
+	}
+	if c.limit != 20 {
+		t.Fatalf("default limit sent as %d, want 20", c.limit)
 	}
 }

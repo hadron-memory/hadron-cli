@@ -29,10 +29,15 @@ func newCmdFind(f *cmdutil.Factory) *cobra.Command {
 		Short: "Find specs by meaning (default) or literal keyword",
 		Long: `Find specs by meaning. By default the query is matched semantically
 (hybrid keyword + vector search); on a memory without a vector index this
-degrades to keyword search with a note. --match-exactly forces literal
-regex matching over name/loc/description/tags — use it for exact-fragment
-matches (e.g. a citation), since keyword search is now FTS-ranked/stemmed
-rather than substring.
+degrades to keyword search with a note. --match-exactly (alias
+--exact) matches your query as a REGULAR EXPRESSION against name, loc,
+description and tags — use it for exact fragments such as a citation, since
+keyword search is FTS-ranked and stemmed, not substring. Regex characters
+count: "msg:010" matches as written, but to find a literal "." or "(" escape
+it ("v1\.2").
+
+Without -m, the search covers the memory chosen by ` + "`hadron spec use`" + ` (noted
+on stderr) and, when none is chosen, every memory you can read.
 
 Results are filtered to spec nodes.`,
 		Example: `  hadron spec find "win back users who never engaged" -m hrn:mem:micromentor.org:platform-specs
@@ -106,8 +111,8 @@ Results are filtered to spec nodes.`,
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "scope to a memory (ID or fully-qualified URN)")
-	cmd.Flags().BoolVar(&matchExactly, "match-exactly", false, "literal keyword search instead of semantic (alias: --exact)")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory to search (ID or fully-qualified URN; default: the memory from spec use, else every memory you can read)")
+	cmd.Flags().BoolVar(&matchExactly, "match-exactly", false, "regular-expression match over name/loc/description/tags instead of semantic search (alias: --exact)")
 	cmd.Flags().IntVar(&limit, "limit", specFindDefaultLimit, "maximum number of spec results")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "additional tag filter (repeatable; --match-exactly only)")
 	withFlagAliases(cmd, map[string]string{"exact": "match-exactly"})
@@ -130,7 +135,8 @@ func collectSpecFindResults(
 	}
 	specs := make([]specDTO, 0, resultLimit)
 	var degraded, reason *string
-	for offset := 0; len(specs) < resultLimit; offset += pageSize {
+	seen := map[string]bool{}
+	for offset := 0; len(specs) < resultLimit; {
 		page, err := fetch(pageSize, offset)
 		if err != nil {
 			return nil, nil, nil, err
@@ -144,8 +150,14 @@ func collectSpecFindResults(
 		if reason == nil && page.Reason != nil {
 			reason = page.Reason
 		}
+		fresh := 0
 		for _, n := range page.Nodes {
-			if n == nil || !isSpec(n.Tags, n.Role) {
+			if n == nil || seen[n.Id+"|"+n.Loc] {
+				continue
+			}
+			seen[n.Id+"|"+n.Loc] = true
+			fresh++
+			if !isSpec(n.Tags, n.Role) {
 				continue
 			}
 			specs = append(specs, specDTO{Citation: n.Loc, MemoryID: n.MemoryId, Name: n.Name, NodeType: n.NodeType, Tags: tagsOrEmpty(n.Tags), UpdatedAt: n.UpdatedAt})
@@ -153,10 +165,17 @@ func collectSpecFindResults(
 				break
 			}
 		}
-		if len(page.Nodes) < pageSize {
+		// Stop on an EMPTY page or a reached total; a non-empty page with nothing new (a server
+		// ignoring the offset) is a failed read — never on a short page, which may
+		// be a server clamp (cli#967). Advance by the rows served.
+		if len(page.Nodes) == 0 {
 			break
 		}
-		if page.Total != nil && offset+pageSize >= *page.Total {
+		if fresh == 0 {
+			return nil, nil, nil, api.ListNotAdvancing(offset)
+		}
+		offset += len(page.Nodes)
+		if page.Total != nil && offset >= *page.Total {
 			break
 		}
 	}

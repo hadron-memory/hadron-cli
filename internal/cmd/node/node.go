@@ -17,8 +17,15 @@ import (
 // because only the surfaces that select `urn` populate it (move/clone, and
 // since #515 `node get`); others leave the key out rather than emit "".
 type nodeDTO struct {
-	ID  string `json:"id"`
-	URN string `json:"urn,omitempty"`
+	LintWarnings **lintWarningPageDTO `json:"lintWarnings,omitempty"`
+	ID           string               `json:"id"`
+	URN          string               `json:"urn,omitempty"`
+	// ActionURN is the register entry's second address,
+	// hrn:action:<root>:<agent-slug>:<code> (hadron-server#2610, #1138). Computed
+	// by the server and null on every node that is not a register entry, so it
+	// is omitted rather than emitted empty — as is every surface that does not
+	// select it. The node URN beside it keeps resolving.
+	ActionURN string `json:"actionUrn,omitempty"`
 	// PortalURL is the server-built link that opens this node
 	// (hadron-server#881, cor:api:230:01) — the one to COPY when citing a node
 	// to a human, rather than assembling <origin>/app/u/<urn> yourself, which
@@ -156,20 +163,66 @@ type nodeDetailDTO struct {
 	Properties         *json.RawMessage `json:"properties,omitempty"`
 	Seq                *int             `json:"seq"`
 	CreatedAt          string           `json:"createdAt"`
-	OutgoingEdges      []edgeRefDTO     `json:"outgoingEdges"`
-	IncomingEdges      []edgeRefDTO     `json:"incomingEdges"`
+	// CreatedByUser is the provider's {handle, urn} author projection or null,
+	// passed through verbatim (hadron-cli#1513). A POINTER with NO omitempty:
+	// null is the provider's answer (not shown to you, or not known), never
+	// "nobody", and the key is never omitted.
+	CreatedByUser *cmdutil.Attribution `json:"createdByUser"`
+	OutgoingEdges []edgeRefDTO         `json:"outgoingEdges"`
+	IncomingEdges []edgeRefDTO         `json:"incomingEdges"`
 }
 
 func NewCmdNode(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "node <command>",
 		Aliases: []string{"nodes"},
-		Short:   "Work with nodes in a memory",
+		Short:   "Create, read, change and delete the notes (nodes) in a memory",
+		Long: `A node is one note in a memory: a name, its content (usually Markdown), and
+optional fields. Each node has a loc, its path inside the memory such as
+findings:flaky-ci, and a URN, hrn:node:<root>:<memory>:<loc>, that names it
+anywhere. Nodes link to each other with edges (see hadron edge).
+
+Write
+  create      add a note
+  update      change its name, content or fields
+  set-properties  merge fields into its properties
+  move        give it a new loc, or move it to another memory
+  clone       copy it
+  merge       fold one note into another
+  import      bring in an export file, a web page or PDF, or a folder
+Read
+  get         show one or more notes, with content and edges
+  list        list the notes of a memory
+  next        step to the next note under a parent
+  open        open a note in the web portal
+  export      save a note to a file
+History
+  revision    see, label, restore or delete earlier versions
+Deletion and recovery
+  delete      delete a note (restorable, unless --hard)
+  recovery    see deleted notes and their links
+  restore     bring a deleted note back
+  edge-removals  see which links a permanent delete removed
+Approval and signing
+  approve     record that someone approved the current version
+  verify      check the content still matches its approval
+  mint        record approved notes as permanent citations
+  sign        ask a person for a passkey signature
+  signatures  show who signed
+  signing-request  see or withdraw a signature request
+Maintainers
+  provenance  see which sources a compiled boot prompt was built from`,
+		Example: `  hadron node create -m hrn:mem:acme.com:kb --loc findings:flaky-ci --name "Flaky CI" --content "CI fails on every third run."
+  hadron node get findings:flaky-ci -m hrn:mem:acme.com:kb
+  hadron node list -m hrn:mem:acme.com:kb --prefix findings:`,
 	}
 	cmd.AddCommand(newCmdLs(f))
 	cmd.AddCommand(newCmdGet(f))
+	cmd.AddCommand(newCmdOpen(f))
+	cmd.AddCommand(newCmdNext(f))
 	cmd.AddCommand(newCmdAdd(f))
 	cmd.AddCommand(newCmdUpdate(f))
+	cmd.AddCommand(newCmdSetProperties(f))
 	cmd.AddCommand(newCmdMove(f))
 	cmd.AddCommand(newCmdClone(f))
 	cmd.AddCommand(newCmdMerge(f))
@@ -177,12 +230,16 @@ func NewCmdNode(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdExport(f))
 	cmd.AddCommand(newCmdImport(f))
 	cmd.AddCommand(newCmdRevision(f))
+	cmd.AddCommand(newCmdProvenance(f))
+	cmd.AddCommand(newCmdRecovery(f))
+	cmd.AddCommand(newCmdRestore(f))
 	cmd.AddCommand(newCmdApprove(f))
 	cmd.AddCommand(newCmdVerify(f))
 	cmd.AddCommand(newCmdMint(f))
 	cmd.AddCommand(newCmdSign(f))
 	cmd.AddCommand(newCmdSignatures(f))
 	cmd.AddCommand(newCmdSigningRequest(f))
+	cmd.AddCommand(newCmdEdgeRemovals(f))
 	return cmd
 }
 
@@ -250,3 +307,9 @@ func strVal(s *string) string {
 	}
 	return *s
 }
+
+// seqRefusalHelp is the --seq tail on node create/update (cli#479): the CLI
+// holds no allowlist, so the help names only the refusals that are established:
+// other node kinds follow their own write rules (a kind door is exempt from
+// its own kind, so a runnable task takes a seq through UpdateTaskNode).
+const seqRefusalHelp = "orders ordinary nodes among siblings; the server refuses it on chat-message and record nodes (SEQ_PROTECTED) and under a Channel (LOC_PROTECTED), other node kinds follow their own write rules, and a refusal is printed as is"

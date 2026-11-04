@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -13,8 +14,10 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/cmd/servedprompt"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/instruction"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -39,13 +42,29 @@ App context, or the worktree binding), its URN, or its id. The URN
 (hrn:worker:<root>:<app-slug>:<slug>, #991) keys on a permanent DERIVED
 slug — never on the name, since two names may legally slugify to one token
 — and needs no App context, which makes it the portable way to name a
-worker in scripts.`,
+worker in scripts.
+
+LIFECYCLE: cast (create) → a person binds it with ` + "`team session start`" + ` →
+release (give up the name's hold) or retire (end the casting for good; the
+name stays reserved). rm deletes only a casting that never did anything.
+
+RELATED, NOT HERE:
+  who is free, working, OVERDUE   team roster (states and CHECK column)
+  take a worker off new work      team availability set --worker <w>
+                                  --state unavailable --reason <r>
+                                  (not retire, not release)
+  why a worker went dark          team events --alarms (alarm.dark-worker)
+  its open tasks                  team task list --assignee worker:<w>`,
 	}
 	cmd.AddCommand(newCmdWorkerCast(f))
 	cmd.AddCommand(newCmdWorkerList(f))
 	cmd.AddCommand(newCmdWorkerGet(f))
+	cmd.AddCommand(servedprompt.NewWorker(f))
 	cmd.AddCommand(newCmdWorkerUpdate(f))
+	cmd.AddCommand(newCmdWorkerChangeAgent(f))
 	cmd.AddCommand(newCmdWorkerSetReportsTo(f))
+	cmd.AddCommand(newCmdWorkerSetBootPrompt(f))
+	cmd.AddCommand(newCmdWorkerCompile(f))
 	cmd.AddCommand(newCmdWorkerRelease(f))
 	cmd.AddCommand(newCmdWorkerRetire(f))
 	cmd.AddCommand(newCmdWorkerRm(f))
@@ -66,8 +85,13 @@ type castPreviewDTO struct {
 	AgentID            string  `json:"agentId"`
 	AgentName          string  `json:"agentName"`
 	Prompt             *string `json:"prompt"`
-	HasNamePlaceholder *bool   `json:"hasNamePlaceholder"`
+	HasNamePlaceholder *bool   `json:"hasNamePlaceholder"` // Retired S12 probe; retained as null for JSON compatibility.
 	Reserved           bool    `json:"reserved"`
+	// TeamPlacement is the reporting choice the cast WOULD record, as the
+	// server returns it (cli#933): REPORTS_TO, NO_TEAM or UNSET. A preview is
+	// not an authorization; the cast decides.
+	TeamPlacement     string  `json:"teamPlacement"`
+	ReportsToWorkerID *string `json:"reportsToWorkerId"`
 }
 
 // The Long text names ALL THREE agent-resolution refusals with their exit
@@ -106,12 +130,22 @@ func roleDefinitionExists(ctx context.Context, client graphql.Client, appRef, ro
 }
 
 func newCmdWorkerCast(f *cmdutil.Factory) *cobra.Command {
-	var role, name, agentRef, promptOverride string
-	var dryRun bool
+	var role, name, agentRef, reportsTo, instructionRaw string
+	var dryRun, noTeam bool
 	cmd := &cobra.Command{
-		Use:   "cast --name <n> (--role <role> | --agent <ref>) [--prompt-override <text>] [--dry-run]",
+		Use:   "cast --name <n> (--role <role> | --agent <ref>) [--reports-to <worker> | --no-team] [--dry-run] [--instruction <kind>:<ref>]",
 		Short: "Cast an installed agent as a named worker",
-		Long: `Cast a worker: ONE platform call (castWorker, cor:agt:020:01). The server
+		Long: `WHO MAY CAST: an org member with CONTRIBUTOR or higher on the App's org,
+a member of the App whose role is not reader, or the owner of a user-owned
+App. A pure App key may not. A refusal here is that rule (exit 8, FORBIDDEN):
+ask an App manager to cast it, or to raise your access. The agent must already
+be INSTALLED in the App (` + "`hadron app agent list <app>`" + `).
+
+Try it first: --dry-run (below) runs the same checks and creates nothing. After
+the cast, bind the worker to start driving it:
+` + "`hadron team session start --as <name> --app <app> --tool <tool>`" + `.
+
+Cast a worker: ONE platform call (castWorker, cor:agt:020:01). The server
 resolves the agent — --agent names it directly and it must be installed
 in THIS App (WORKER_AGENT_NOT_INSTALLED, exit 2 and NOT 4: the ref
 resolves, it is the install that is missing, so the remedy is to pass an
@@ -133,8 +167,15 @@ taken names. That register is gone, so a bare --role no longer casts.
 
 --role is also no longer validated against defined roles (cor:agt:020:00
 §1 — cast lists are ergonomics, never a gate). An unrecognized role simply
-resolves no agent (WORKER_AGENT_NOT_FOUND); with an explicit --agent it is
-just the casting's label.
+resolves no agent (WORKER_AGENT_NOT_FOUND).
+
+--role and --agent cannot be combined (cor:dmo:050:11, R222): the role
+follows the agent and is never typed in beside it, so the casting's role is
+the agent's persona role and a cast cannot override it. Pass --agent to name
+the agent, or --role to let the server pick the one agent that carries it —
+never both. The CLI refuses the pair before any call (exit 2); a server that
+still sees both answers WORKER_ROLE_OVERRIDE_REFUSED (also exit 2), and its
+message names the agent's role.
 
 CASTING DOES NOT HOLD THE NAME (cor:agt:020:09). A name is held by whoever
 WORKS AS it — the person who binds it in ` + "`session start`" + ` — not by whoever
@@ -145,23 +186,54 @@ instead block each of your colleagues on a release they should never have
 needed. It also means casting a worker does not reserve it for you: if you
 intend to drive it, bind it.
 
---prompt-override layers per-worker individuality over the agent's prompt
-template; the resolved boot briefing (template with {{name}}/{{role}}
-bound, then the override) is printed on success.
+For per-worker boot customisation write boot:workers:<id>:source (role
+boot-prompt) in the App install memory, then compile and approve it with
+hadron team worker compile and hadron node approve.
+
+REPORTING CHOICE (cli#933). Choose deliberately: --reports-to <worker> names
+the worker this one reports to (a worker name, URN or id), and --no-team
+records that it has no reporting head. Give one or the other, never both. A
+cast without a choice will be refused once enforcement is on; until then
+leaving both out casts the worker with no choice recorded (UNSET), which is
+never read as no-team and never as a guessed coordinator. Naming a head needs
+the right to staff workers and to manage the App; --no-team needs only the
+staffing right. The server decides; the CLI infers nothing, sends the choice
+once, and never retries or substitutes another. --no-team=false is not a
+choice: it is refused locally as a usage error (exit 2, nothing sent). The
+result shows the recorded placement: REPORTS_TO, NO_TEAM or UNSET; "withheld"
+means this caller may not see it.
+
+Server compatibility: every worker command (cast, get, list, update, release,
+retire, set-reports-to, set-boot-prompt) selects teamPlacement, even when
+neither flag is named, so they require a server containing hadron-server#2468.
+An older server rejects those documents as schema skew, exit 2: upgrade that
+provider first, including self-hosted or staging servers.
 
 --dry-run (#404, castWorkerPreview) runs the cast's EXACT resolution —
 same arguments, same typed refusals — up to but not
 including the writes, and shows what would be created: the name, the
 agent, the composed prompt. A refusal on the dry run IS the answer that
 the real cast would refuse the same way. THE PREVIEW RESERVES NOTHING:
-no lease exists, so a previewed name may be gone at cast time.
+no lease exists, so a previewed name may be gone at cast time. With
+--instruction the preview is NOT write-free: an admitted instructed preview
+records one claim event, as a cast does.
 
 The team App comes from the persistent --app flag (or the configured App
-context).`,
-		Example: `  hadron team worker cast --app acme.com:eng-team --role backend-engineer --name Iris
-  hadron team worker cast --app acme.com:eng-team --agent hrn:agent:acme.com:qa --name Uma`,
+context).
+
+` + instruction.StaffingHelp("workers.staff"),
+		Example: `  hadron team worker cast --app acme.com:eng-team --role backend-engineer --name Iris --reports-to Ada --dry-run
+  hadron team worker cast --app acme.com:eng-team --role backend-engineer --name Iris --reports-to Ada
+  hadron team worker cast --app acme.com:eng-team --agent hrn:agent:acme.com:qa --name Uma --no-team
+  hadron team session start --as Iris --app acme.com:eng-team --tool claude-code`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// cli#1594: parsed first — exit 2 with nothing sent — and, with
+			// the flag, the binding is snapshotted before any lookup.
+			claim, instructed, err := staffingInstruction(cmd, f, instructionRaw)
+			if err != nil {
+				return err
+			}
 			appRef, err := f.App()
 			if err != nil {
 				return err
@@ -171,6 +243,12 @@ context).`,
 			}
 			if role == "" && agentRef == "" {
 				return exitcode.Newf(exitcode.Usage, "pass --role <role> or --agent <ref> — the server never guesses the agent to cast")
+			}
+			// R222 (cor:dmo:050:11): the role follows the agent. Refused here,
+			// before any call — the dry-run preview included — so the caller
+			// learns the rule from the flags, not from a server refusal.
+			if role != "" && agentRef != "" {
+				return exitcode.Newf(exitcode.Usage, "--role and --agent cannot be combined: the casting's role is the agent's persona role and a cast cannot override it — pass --agent <ref> to name the agent, or --role <role> to pick the installed agent that carries it")
 			}
 			// Refused HERE rather than relayed. The server's
 			// WORKER_NAME_REQUIRED carries the reason but not the remedy, and
@@ -200,6 +278,10 @@ context).`,
 				return exitcode.Newf(exitcode.Usage,
 					"--name is required: a worker name is permanent for this App, so it is chosen rather than derived — pass --name <n> (`hadron team worker list --include-retired` shows the names already taken; retired workers keep theirs)")
 			}
+			reportsToArg, noTeamArg, err := castChoiceFlags(cmd, reportsTo, noTeam)
+			if err != nil {
+				return err
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -209,33 +291,30 @@ context).`,
 				// needs no mutation permission and mints no fake Worker row.
 				// Same typed refusals as the cast — surfaced verbatim, because
 				// a refusal here IS the dry-run's answer.
-				preview, perr := gen.CastWorkerPreview(cmd.Context(), client, appRef,
-					optStr(agentRef), optStr(role), optStr(name), optStr(promptOverride))
+				p, claimed, perr := castPreview(cmd, client, appRef, agentRef, role, name, reportsToArg, noTeamArg, claim, instructed)
 				if perr != nil {
-					return api.MapError(perr)
+					return perr
 				}
-				if preview.CastWorkerPreview == nil {
-					return exitcode.Newf(exitcode.Error, "server returned no preview")
-				}
-				p := preview.CastWorkerPreview
 				dto := castPreviewDTO{
 					Name: p.Name, Role: p.Role, AgentID: p.AgentId, AgentName: p.AgentName,
-					Prompt: p.Prompt, HasNamePlaceholder: p.HasNamePlaceholder,
+					Prompt:            p.Prompt,
+					TeamPlacement:     string(p.TeamPlacement),
+					ReportsToWorkerID: p.ReportsToWorkerId,
 				}
 				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 					fmt.Fprintf(w, "would cast %s%s — agent %s (%s)\n", dto.Name, roleSuffix(dto.Role), dto.AgentName, dto.AgentID)
-					if dto.HasNamePlaceholder != nil && !*dto.HasNamePlaceholder {
-						fmt.Fprintf(w, "  ! the agent's prompt template never binds {{name}} — this worker would be nameless in its own briefing\n")
-					}
+					fmt.Fprintf(w, "%s\n", previewPlacementText(dto.TeamPlacement, dto.ReportsToWorkerID))
 					if dto.Prompt != nil && *dto.Prompt != "" {
 						fmt.Fprintf(w, "\n%s\n", *dto.Prompt)
 					}
 					fmt.Fprintf(w, "\nnothing was created, and %q is NOT reserved — it may be gone at cast time\n", dto.Name)
+					if claimed {
+						fmt.Fprintf(w, "the instruction went out through the worker session; the server records a claim it admits (never a host-launched session's)\n")
+					}
 					return nil
 				})
 			}
-			resp, err := gen.CastWorker(cmd.Context(), client, appRef,
-				optStr(agentRef), optStr(role), optStr(name), optStr(promptOverride))
+			cast, err := castWorker(cmd, client, appRef, agentRef, role, name, reportsToArg, noTeamArg, claim, instructed)
 			if err != nil {
 				// Thin by directive: the server's typed errors carry the
 				// guidance (WORKER_AGENT_AMBIGUOUS says to pass --agent) — map
@@ -243,9 +322,9 @@ context).`,
 				// exception is WORKER_NAME_REQUIRED, refused above, because it
 				// is the refusal a reader following last week's instructions
 				// will hit.
-				return api.MapError(err)
+				return castChoiceRemedy(err)
 			}
-			if resp.CastWorker == nil {
+			if cast == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no worker")
 			}
 			// #542: a --role cast resolves an AGENT by personaRole; it does not
@@ -254,15 +333,18 @@ context).`,
 			// definition succeeds silently, leaving a role nobody documented.
 			// Note it at the moment the divergence is created. Best-effort and
 			// on stderr: the cast already succeeded and must not fail here, and
-			// stderr keeps the --json receipt on stdout untouched (an --agent
-			// cast's --role is just a label, so this only fires for --role).
+			// stderr keeps the --json receipt on stdout untouched (--role and
+			// --agent are exclusive, so this fires exactly for a --role cast).
 			if role != "" && !roleDefinitionExists(cmd.Context(), client, appRef, role) {
 				fmt.Fprintf(f.IOStreams.ErrOut,
-					"note: no team role definition for %q — `hadron team role create %s` documents it (`team role list` shows the gap)\n", role, role)
+					"note: no team role definition for %q — %s (`team role list` shows the gap)\n", role, roleDefinitionHint(role, runtime.GOOS))
 			}
-			dto := workerDTOFromFields(resp.CastWorker.WorkerFields)
+			dto := workerDTOFromFields(*cast)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if _, err := fmt.Fprintf(w, "✓ cast %s%s — worker %s\n", dto.Name, roleSuffix(dto.Role), dto.ID); err != nil {
+					return err
+				}
+				if _, err := fmt.Fprintf(w, "%s\n", placementText(dto.TeamPlacement, workerRefName(dto.ReportsTo))); err != nil {
 					return err
 				}
 				if dto.Prompt != nil && *dto.Prompt != "" {
@@ -274,11 +356,15 @@ context).`,
 			})
 		},
 	}
-	cmd.Flags().StringVar(&role, "role", "", "cast by role: the single installed agent whose persona role matches")
-	cmd.Flags().StringVar(&agentRef, "agent", "", "cast this agent (ID or URN; must be installed in the App)")
+	cmd.Flags().StringVar(&role, "role", "", "cast by role: the single installed agent whose persona role matches (not with --agent)")
+	cmd.Flags().StringVar(&agentRef, "agent", "", "cast this agent (ID or URN; must be installed in the App); its persona role is the worker's role (not with --role)")
 	cmd.Flags().StringVar(&name, "name", "", "the worker's name — REQUIRED, and permanent for this App")
-	cmd.Flags().StringVar(&promptOverride, "prompt-override", "", "per-worker individuality appended to the agent's prompt template")
+	cmd.Flags().StringVar(&reportsTo, "reports-to", "", "the worker this one reports to (name, URN or id); choose this or --no-team, never both")
+	cmd.Flags().BoolVar(&noTeam, "no-team", false, "record that this worker has no reporting head; choose this or --reports-to, never both")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "preview the cast (name, agent, composed prompt) without creating anything; reserves nothing")
+	cmd.Flags().StringVar(&instructionRaw, "instruction", "", instruction.StaffingFlagUsage)
+	cmdutil.RetireFlags(cmd, "a worker's boot customisation is now a node: write boot:workers:<id>:source (role boot-prompt) in the App install memory (hadron node update), compile it with `hadron team worker compile <worker>`, then have the App's manager approve the compiled node with `hadron node approve <compiled-node-ref>`",
+		cmdutil.RetiredFlag{Name: "prompt-override"}, cmdutil.RetiredFlag{Name: "clear-prompt-override", Bool: true})
 	return cmd
 }
 
@@ -299,14 +385,15 @@ worktrees bound to different teams lists different staff, and without the
 scope line the two outputs look identical.
 
 REPORTS TO is the persisted worker relation, including on unbound workers.
-Rows group by the target worker id. An unset relation shows -, a retired target
+Rows group by the target worker id. "no team" is a RECORDED choice to have no
+reporting head (cast --no-team); an unset relation shows -, a retired target
 is marked (retired), and a masked relation shows ? (unavailable). Session ending
 or quiet time never clears it.
 
 Retired workers are hidden unless --include-retired — their names stay
 bound to them forever, so the retired list is also the reserved-name list.
 
-HELD BY and LAST DRIVEN answer two DIFFERENT questions (cor:agt:020:09),
+HELD BY and LAST RECORDED ACTIVITY answer two DIFFERENT questions (cor:agt:020:09),
 and reading one as the other is the mistake this table exists to stop.
 
   HELD BY      whose name it is. A name is held by a PERSON, and only an
@@ -316,17 +403,17 @@ and reading one as the other is the mistake this table exists to stop.
                take however idle it looks, and --force will not help.
                "nobody" means binding it holds it.
 
-  LAST DRIVEN  whether a session on this name was DRIVEN inside its idle
-               window ("live"), and otherwise how long since it was last
-               driven. Since hadron-server#1114 this is DERIVED at read
-               time — not ended AND driven recently — so it is no longer
-               the same question as "is a session row open": an abandoned
-               session stays open forever and stops reading as live.
-               "live" is still NOT a claim that anyone is at the keyboard:
-               the window is generous, and a worker session outlives the
-               chat session that started it. It is only ever a question
-               about a name that is already yours.
-               "never" means cast and never bound by anyone.
+  LAST RECORDED ACTIVITY
+               "live" when the server reports a live session; otherwise
+               the age of the server's last recorded activity, or "never"
+               for a name nobody has ever bound. A recent age does not
+               imply a live session. This is not a session-end timestamp:
+               normal ending may advance recorded activity to approximately
+               the end time. Liveness is derived at read time, not simply
+               whether a session row is open. "live" is NOT a claim that
+               anyone is at the keyboard: the window is generous, and a
+               worker session outlives the chat session that started it.
+               A live row shows no age.
 
 Both read "?" when this account may not see the App's working state — not
 "—", which this table uses for a definite no (RETIRED). "?" is "not
@@ -351,10 +438,10 @@ reads as MORE idle than it was, never less.`,
 			if err != nil {
 				return err
 			}
-			// The ROSTER projection, not the prompt-bearing one (#459): this
+			// The ROSTER projection, not the full WorkerFields (#459): this
 			// answers "who is on staff", and the resolved briefing is a detail
-			// of one worker. `scanWorkers` stays as it is because resolveWorker
-			// rides it — session start's boot briefing needs the prompt.
+			// of one worker. (Name resolution reads no list at all since
+			// cli#1459: one worker(appRef:, ref:) read.)
 			rows, err := scanWorkerRoster(ctx, client, scope.Ref)
 			if err != nil {
 				return err
@@ -391,7 +478,7 @@ reads as MORE idle than it was, never less.`,
 				// in it. AGENT ID was the weakest column, an opaque id nobody acts
 				// on; `worker get` still shows it.
 				//
-				// HELD BY and LAST DRIVEN sit immediately after ROLE (#487),
+				// HELD BY and LAST RECORDED ACTIVITY sit immediately after ROLE (#487),
 				// ahead of RETIRED/URN/ID: this table's reader is a coordinator
 				// asking "who is on this team, and is anyone actually driving
 				// them", and before now it answered neither. The two are
@@ -417,16 +504,17 @@ reads as MORE idle than it was, never less.`,
 					return describeHolder(ctx, client, id)
 				})
 				now := time.Now()
-				t := output.NewTable(w, "WORKER", "ROLE", "REPORTS TO", "HELD BY", "LAST DRIVEN", "RETIRED", "URN", "ID")
+				t := output.NewTable(w, "WORKER", "ROLE", "REPORTS TO", "HELD BY", "LAST RECORDED ACTIVITY", "FAMILY", "MODEL", "TIER", "RETIRED", "URN", "ID")
 				for _, wk := range workers {
 					retired := "—"
 					if wk.RetiredAt != nil {
 						retired = *wk.RetiredAt
 					}
-					t.Row(wk.Name, dash(wk.Role), reportsToLabel(wk.ReportsTo, wk.ReportsToRetired, wk.ReportsTo != nil || workingStateVisible(wk.HasLiveSession)),
-						renderHeldBy(wk.HeldByUserID, wk.HasLiveSession, selfID, label),
-						renderLastDriven(wk.HasLiveSession, wk.LastActiveAt, now),
-						retired, dash(wk.URN), wk.ID)
+					t.Row(output.SafeCell(wk.Name), output.SafeCell(dash(wk.Role)), output.SafeCell(reportsToCell(wk.ReportsTo, wk.ReportsToRetired, wk.ReportsTo != nil || workingStateVisible(wk.HasLiveSession), wk.TeamPlacement)),
+						output.SafeCell(renderHeldBy(wk.HeldByUserID, wk.HasLiveSession, selfID, label)),
+						output.SafeCell(renderLastDriven(wk.HasLiveSession, wk.LastActiveAt, now)),
+						output.SafeCell(dash(wk.Family)), output.SafeCell(dash(wk.Model)), output.SafeCell(dash(wk.Tier)),
+						output.SafeCell(retired), output.SafeCell(dash(wk.URN)), output.SafeCell(wk.ID))
 				}
 				return t.Flush()
 			})
@@ -457,27 +545,280 @@ func workerForArg(cmd *cobra.Command, f *cmdutil.Factory, arg string) (gen.Worke
 	return resolveWorker(ctx, client, appRef, arg)
 }
 
+// workerGetDTO is the stable --json shape of `worker get`: workerDTO plus the
+// two PROFILE names (cli#1355, hadron-server#1149). Only this command carries
+// them — cast, update and the roster keep their wire shape. Both are present
+// nullable keys and null means UNAVAILABLE (masked, an older server, or an App
+// URN that predates the grammar), never evidence that no App or owner exists.
+type workerGetDTO struct {
+	workerDTO
+	AppName   *string `json:"appName"`
+	OwnerName *string `json:"ownerName"`
+	// Terminal is the worker's latest terminal report (cli#1375), read in its
+	// own operation. Null when never reported, masked, or an older server.
+	Terminal *workerTerminalDTO `json:"terminal"`
+	// ModelGroups are the server's live matching model-group names (cli#1485
+	// S3; advisory, never authorization), read in their own operation. [] is a
+	// real answer; null means the working-state read is denied — shown as
+	// unavailable, never as "none".
+	ModelGroups []string `json:"modelGroups"`
+	// RenderedSignature / RenderedTrailer are the signature and trailer as the
+	// server fills them (cli#1525, hadron-server#2969, cor:agt:040:04), read in
+	// their own operation. NOT omitempty: null means the server withheld them
+	// (the caller is not one the served prompt reaches) or predates #2969;
+	// either way there is nothing to print, and the CLI never fills a template.
+	RenderedSignature *string `json:"renderedSignature"`
+	RenderedTrailer   *string `json:"renderedTrailer"`
+
+	// appURN is render-only (the `app:` line); the contract adds two keys.
+	appURN *string
+}
+
+// directWorkerRef reports a reference that is self-contained: a worker URN or a
+// worker id (32 hex). It needs no App, so reading it must not first resolve an
+// ambient App or scan a roster (cli#1355) — which a non-participant could not
+// do anyway.
+func directWorkerRef(arg string) bool {
+	arg = strings.TrimSpace(arg)
+	if strings.HasPrefix(strings.ToLower(arg), "hrn:worker:") {
+		return true
+	}
+	if len(arg) != 32 {
+		return false
+	}
+	for _, c := range arg {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+// readWorkerProfile reads the PROFILE names in their own operation, so a server
+// that predates #1149 (it rejects an unknown Worker.appName before execution)
+// still serves the ordinary lookup. Only that documented capability absence
+// falls back to "unavailable"; an auth, transport or server error is returned,
+// never turned into an old-server-looking success.
+func readWorkerProfile(ctx context.Context, client graphql.Client, id string) (name, owner, appURN *string, err error) {
+	resp, err := gen.GetWorkerProfile(ctx, client, id)
+	if err != nil {
+		if api.IsGraphQLValidationFor(err, "appName") || api.IsGraphQLValidationFor(err, "ownerName") || api.IsGraphQLValidationFor(err, "appUrn") {
+			return nil, nil, nil, nil
+		}
+		return nil, nil, nil, api.MapError(err)
+	}
+	if resp.Worker == nil {
+		return nil, nil, nil, nil
+	}
+	return resp.Worker.AppName, resp.Worker.OwnerName, resp.Worker.AppUrn, nil
+}
+
+// readWorkerModelGroups reads Worker.modelGroups in its own operation (cli#1485
+// S3), so the shared worker lookup keeps its wire shape. Unlike the profile and
+// terminal reads it has NO tolerated failure: any error — including a server
+// that predates the field — fails the command through MapError, so a lookup
+// failure can never render as "unavailable" or "no groups". Only the roster
+// tolerates a field error, and only its own (api.RosterGroupAdvisories).
+func readWorkerModelGroups(ctx context.Context, client graphql.Client, id string) ([]string, error) {
+	resp, err := gen.GetWorkerModelGroups(ctx, client, id)
+	if err != nil {
+		return nil, api.MapError(err)
+	}
+	if resp.Worker == nil {
+		return nil, nil
+	}
+	return resp.Worker.ModelGroups, nil
+}
+
+// readWorkerRendered reads the server-rendered signature and trailer in their
+// own operation (cli#1525). A server that predates hadron-server#2969 rejects
+// the selection before execution; that one documented absence comes back as
+// supported=false with nil values, so `worker get` still works there. It is
+// recognised only when EVERY error in the envelope is that rejection: any other
+// error, alone or mixed in, is returned, never turned into an
+// old-server-looking null (cli#1529 LOCAL P2).
+//
+// session, when non-empty, is sent as the worker session the read is for: the
+// server fills the lines from THAT session's recorded bind (its placement and
+// variables, hadron-server#2969) rather than today's values. It applies to
+// this one read only, never to the command's other calls.
+func readWorkerRendered(ctx context.Context, client graphql.Client, id, session string) (signature, trailer *string, supported bool, err error) {
+	resp, err := gen.GetWorkerRendered(api.WithSession(ctx, session), client, id)
+	if err != nil {
+		if api.IsGraphQLValidationOnlyFor(err, "renderedSignature", "renderedTrailer") {
+			return nil, nil, false, nil
+		}
+		return nil, nil, true, api.MapError(err)
+	}
+	if resp.Worker == nil {
+		return nil, nil, true, nil
+	}
+	return resp.Worker.RenderedSignature, resp.Worker.RenderedTrailer, true, nil
+}
+
+// ownBoundSession is the session `worker get` reads the rendered lines for
+// (cli#1529 LOCAL P2): this worktree's binding, but only when it binds THIS
+// worker on THIS server — so `worker get <me>` shows what `whoami --signature`
+// prints. Otherwise, or when the binding cannot be read, it is "" and the read
+// goes out with no session: worker get reads any worker, and an unreadable
+// binding is not this command's to refuse. The raw read runs no #914 notice.
+func ownBoundSession(ctx context.Context, f *cmdutil.Factory, workerID string) string {
+	b, _, err := readBindingFile(ctx)
+	if err != nil || b == nil || b.SessionID == "" || b.WorkerID != workerID || !bindingServerMatches(f, b) {
+		return ""
+	}
+	return b.SessionID
+}
+
+// appLine is the `app:` row. The server's scalars name the App without a second
+// lookup (and for a profile read, where the App object is never readable); when
+// they are unavailable a participant keeps today's lookup, and a profile reader
+// gets the bare id rather than a guess.
+func appLine(ctx context.Context, f *cmdutil.Factory, dto workerGetDTO) string {
+	if dto.AppName != nil && *dto.AppName != "" {
+		readable := dto.AppID
+		if dto.appURN != nil && *dto.appURN != "" {
+			readable = *dto.appURN
+		}
+		return readable + " — " + *dto.AppName
+	}
+	if workingStateVisible(dto.HasLiveSession) {
+		return describeApp(ctx, f, dto.AppID)
+	}
+	return dto.AppID
+}
+
 func newCmdWorkerGet(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <name-or-id>",
 		Short: "Show a worker (by name within the App, or by id)",
-		Example: `  hadron team worker get Iris
-  hadron team worker get wkr_123 --json`,
+		Long: `Show the worker and the server-derived team-channel check status.
+A known check result with no lastCheckedAt means never checked; an unavailable
+check result stays unavailable. No local clock or task-count inference is made.
+
+<name-or-id>: a NAME resolves within one App — --app, the App context, or this
+worktree's binding, in that order. An id or a worker URN
+(hrn:worker:<root>:<app-slug>:<slug>) needs no App.
+
+PROFILE READ: by id or worker URN any signed-in user can read a worker they do
+not participate in (cor:dmo:050:11). That read shows the name, role, App name
+and URN, owner, and active/retired, and says "working state: not visible to
+you": the prompt, session, holder, check, boot-pointer and reporting fields are
+masked, so none is printed as empty, free or never-checked. A name needs an
+App you participate in.
+
+--json adds appName and ownerName (nullable: null means unavailable — masked,
+an older server that predates them, or an App URN of the old shape — never
+"no such App" or "no owner"). The masked working-state keys stay null as ever.
+
+THE FIELDS:
+  held by        the person whose name it is ("nobody": binding it holds it)
+  driven         live (a session drove it recently), or when it last was
+  check status   whether it reads its team chat as expected:
+                   NO_SESSION  no live session
+                   PENDING     not expected to (paused, isolated, standby,
+                               or no open task), with the reason
+                   OK          has an open task and checked in time
+                   OVERDUE     has an open task and has not checked within
+                               the App's window (missed periods + 5 minutes)
+  last team-channel check   the last bound team chat read
+  terminal       the host's latest terminal report: status (busy, idle,
+                 locked, dark), reason, its age from checkedAt, the host and
+                 the prompt shape; "—" when never reported or not available to
+                 you. --json adds terminal (the whole object, or null). An older
+                 server without it reads as null.
+
+model groups   the model groups the worker's model is currently in, computed
+                 live by the server (cor:agt:060:12): live matching information,
+                 never authorization. Nothing is printed for a real empty
+                 answer (no reported model, or no group matches);
+                 "unavailable" means the server withheld it (the working
+                 state is not visible to you). --json carries modelGroups
+                 (a list, or null when withheld). A failed group lookup fails
+                 the command: it is never shown as "none" or "unavailable".
+
+OVERDUE CLEARS when the worker's own session reads its team chat
+(` + "`team chat read`" + ` or ` + "`team chat check`" + ` from its bound worktree): that read is
+the check. A worker that is OVERDUE, or has a wake due to it left
+unacknowledged past the App's dark alarm window, is DARK: the platform raises
+one alarm.dark-worker to its reporting line (` + "`team events --alarms`" + `; its
+reason says overdue or wake unacknowledged). The alarm ends when both causes
+clear. What clears a due wake depends on its cause:
+  chat         the worker's session reads past the message (` + "`team chat read`" + `)
+  task event   the worker acts on the task (` + "`team task start`" + `, ` + "`progress`" + `), the
+               task ends or moves on, or the deliverer acknowledges it
+  alarm        an owner acknowledges it (` + "`team alarm ack`" + `)
+  ticker tick  only the deliverer acknowledges it: the host poller
+               (` + "`team host run`" + `) after typing it in; ` + "`team host status`" + `
+               shows a held, UNREPORTED delivery
+` + "`team wakes due --worker <name>`" + ` lists what is due to a worker and why, and
+` + "`team wakes ack <proof>`" + ` records a delivery by hand, as the worker's holder or
+the App's manager.
+To stop expecting checks, give it no task, or mark it unavailable
+(` + "`team availability set`" + `). Availability itself shows in ` + "`team availability get`" + `,
+and every worker's state in ` + "`team roster`" + `.`,
+		Example: `  hadron team worker get Iris --app acme.com:eng-team
+  hadron team worker get hrn:worker:acme.com:eng-team:iris --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			w, err := workerForArg(cmd, f, args[0])
+			var w gen.WorkerFields
+			var err error
+			if directWorkerRef(args[0]) {
+				client, cerr := f.GraphQLClient()
+				if cerr != nil {
+					return cerr
+				}
+				w, err = resolveWorker(cmd.Context(), client, "", args[0])
+			} else {
+				w, err = workerForArg(cmd, f, args[0])
+			}
 			if err != nil {
 				return err
 			}
-			dto := workerDTOFromFields(w)
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			appName, ownerName, appURN, err := readWorkerProfile(cmd.Context(), client, w.Id)
+			if err != nil {
+				return err
+			}
+			terminal, err := readWorkerTerminal(cmd.Context(), client, w.Id)
+			if err != nil {
+				return err
+			}
+			modelGroups, err := readWorkerModelGroups(cmd.Context(), client, w.Id)
+			if err != nil {
+				return err
+			}
+			renderedSig, renderedTrailer, _, err := readWorkerRendered(cmd.Context(), client, w.Id, ownBoundSession(cmd.Context(), f, w.Id))
+			if err != nil {
+				return err
+			}
+			dto := workerGetDTO{workerDTO: workerDTOFromFields(w), AppName: appName, OwnerName: ownerName, Terminal: terminal, ModelGroups: modelGroups,
+				RenderedSignature: renderedSig, RenderedTrailer: renderedTrailer, appURN: appURN}
 			return output.Write(f.IOStreams, f.JSON, dto, func(out io.Writer) error {
 				// The App gets its own line, named rather than spelled as the
 				// UUID it was parenthesised as (#458). No source phrase here: this
 				// is the WORKER's own App off the row, not an ambient scope that
 				// might have been the wrong one.
 				fmt.Fprintf(out, "%s%s\n  worker: %s\n  app: %s\n  agent: %s\n",
-					dto.Name, roleSuffix(dto.Role), dto.ID, describeApp(cmd.Context(), f, dto.AppID), dto.AgentID)
-				fmt.Fprintf(out, "  reports to: %s\n", reportsToLabel(dto.ReportsTo, dto.ReportsToRetired, dto.ReportsTo != nil || workingStateVisible(dto.HasLiveSession)))
+					dto.Name, roleSuffix(dto.Role), dto.ID, appLine(cmd.Context(), f, dto), dto.AgentID)
+				// A PROFILE read (cor:dmo:050:11): the server withholds the working
+				// state, signalled by hasLiveSession null. Say so once and omit what
+				// it masks — a reporting line, check status or boot pointer printed
+				// from those nulls would claim facts the server refused to give.
+				profile := !workingStateVisible(dto.HasLiveSession)
+				if dto.OwnerName != nil && *dto.OwnerName != "" {
+					fmt.Fprintf(out, "  owner: %s\n", *dto.OwnerName)
+				}
+				if !profile || dto.ReportsTo != nil {
+					fmt.Fprintf(out, "  reports to: %s\n", reportsToLabel(dto.ReportsTo, dto.ReportsToRetired, dto.ReportsTo != nil || workingStateVisible(dto.HasLiveSession)))
+				}
+				// The recorded reporting CHOICE beside the relation (cli#933):
+				// without it a recorded no-team and a never-chosen worker both read
+				// "reports to: -". Null is withheld, never UNSET or no team.
+				fmt.Fprintf(out, "  team placement: %s\n", placementText(dto.TeamPlacement, workerRefName(dto.ReportsTo)))
 				if dto.URN != nil && *dto.URN != "" {
 					fmt.Fprintf(out, "  urn: %s\n", *dto.URN)
 				}
@@ -507,6 +848,11 @@ func newCmdWorkerGet(f *cmdutil.Factory) *cobra.Command {
 				}
 				if dto.MemoryID != nil {
 					fmt.Fprintf(out, "  memory: %s\n", *dto.MemoryID)
+				}
+				// As the server recorded it (cli#887): unknown prints nothing,
+				// and a host or tool name is never promoted to a family.
+				if dto.Family != nil && *dto.Family != "" {
+					fmt.Fprintf(out, "  family: %s\n", *dto.Family)
 				}
 				// The HOLD (cor:agt:020:09) — whose name this is, which is a
 				// different question from whether a session is live. Rendered
@@ -547,8 +893,40 @@ func newCmdWorkerGet(f *cmdutil.Factory) *cobra.Command {
 				if workingStateVisible(dto.HasLiveSession) {
 					fmt.Fprintf(out, "  driven: %s\n", renderLastDriven(dto.HasLiveSession, dto.LastActiveAt, time.Now()))
 				}
+				if profile {
+					fmt.Fprintln(out, "  working state: not visible to you (profile only)")
+				}
+				if !profile || dto.CheckStatus != nil {
+					fmt.Fprintf(out, "  check status: %s\n", channelCheckLabel(dto.CheckStatus))
+					if dto.CheckStatus != nil {
+						last := "never"
+						if dto.CheckStatus.LastCheckedAt != nil {
+							last = *dto.CheckStatus.LastCheckedAt
+						}
+						fmt.Fprintf(out, "  last team-channel check: %s\n", last)
+					}
+				}
+				// Always printed: a dash is the documented answer for never
+				// reported, masked or an older server (cli#1375).
+				fmt.Fprintf(out, "  terminal: %s\n", terminalDetail(dto.Terminal, time.Now()))
+				// Model groups (cli#1485 S3): names when there are any, nothing for a
+				// real [] (no model, or no group matches), "unavailable" for null.
+				// Live matching information, never authorization.
+				switch {
+				case dto.ModelGroups == nil:
+					fmt.Fprintln(out, "  model groups: unavailable")
+				case len(dto.ModelGroups) > 0:
+					names := make([]string, len(dto.ModelGroups))
+					for i, g := range dto.ModelGroups {
+						names[i] = output.SafeCell(g)
+					}
+					fmt.Fprintf(out, "  model groups: %s\n", strings.Join(names, ", "))
+				}
 				if dto.Retired {
 					fmt.Fprintf(out, "  retired: %s\n", *dto.RetiredAt)
+				}
+				if !profile || dto.BootPromptRef != nil {
+					fmt.Fprintf(out, "  boot prompt: %s\n", cmdutil.BootPromptLabel(dto.BootPromptRef, dto.BootPromptTargetDeleted))
 				}
 				fmt.Fprintf(out, "  created: %s\n", dto.CreatedAt)
 				// The RAW override, before the composed briefing and labelled
@@ -566,9 +944,8 @@ func newCmdWorkerGet(f *cmdutil.Factory) *cobra.Command {
 				// Printed only when set: an absent line reads as "no override",
 				// which is the truth, where "Prompt override: —" invites
 				// reading a dash as the value.
-				if dto.PromptOverride != nil && *dto.PromptOverride != "" {
-					fmt.Fprintf(out, "\nPrompt override (this worker's own, amend and pass back whole):\n%s\n", *dto.PromptOverride)
-				}
+				writeRenderedSigning(out, dto.RenderedSignature, dto.RenderedTrailer)
+				writeSigningTemplates(out, dto.Signature, dto.Trailer)
 				if dto.Prompt != nil && *dto.Prompt != "" {
 					fmt.Fprintf(out, "\n%s\n", *dto.Prompt)
 				}
@@ -577,6 +954,38 @@ func newCmdWorkerGet(f *cmdutil.Factory) *cobra.Command {
 		},
 	}
 	return cmd
+}
+
+// writeRenderedSigning prints the server-rendered signature and trailer
+// (cli#1525) — the lines to copy — ahead of the raw templates, under the same
+// rules: printed as the server sent it, never filled by the CLI.
+func writeRenderedSigning(out io.Writer, signature, trailer *string) {
+	writeSigningBlocks(out, "Signature", "Trailer", signature, trailer)
+}
+
+// writeSigningTemplates prints the raw signature and trailer templates (cli#916
+// C4).
+func writeSigningTemplates(out io.Writer, signature, trailer *string) {
+	writeSigningBlocks(out, "Signature template", "Trailer template", signature, trailer)
+}
+
+// writeSigningBlocks prints a labelled signature and trailer block. Null is
+// WITHHELD, so it prints nothing rather than a value; an empty value is a real
+// setting (D8: it delivers nothing) and prints as (empty).
+func writeSigningBlocks(out io.Writer, sigLabel, trailerLabel string, signature, trailer *string) {
+	for _, t := range []struct {
+		label string
+		value *string
+	}{{sigLabel, signature}, {trailerLabel, trailer}} {
+		if t.value == nil {
+			continue
+		}
+		v := *t.value
+		if v == "" {
+			v = "(empty)"
+		}
+		fmt.Fprintf(out, "\n%s:\n%s\n", t.label, v)
+	}
 }
 
 // retireResultDTO is the stable --json shape of `worker retire`.
@@ -589,8 +998,9 @@ type retireResultDTO struct {
 
 func newCmdWorkerRetire(f *cmdutil.Factory) *cobra.Command {
 	var yes bool
+	var instructionRaw string
 	cmd := &cobra.Command{
-		Use:   "retire <name-or-id>",
+		Use:   "retire <name-or-id> [--instruction <kind>:<ref>]",
 		Short: "Retire a worker — it stops working; its name stays reserved forever",
 		Long: `Retire a worker: it stops authoring and takes no new sessions, and its
 name stays bound to it forever — PR trailers and chat history reference the
@@ -598,11 +1008,27 @@ name, so it is never freed for a new casting (cor:agt:020:02). Retiring is
 idempotent; there is no un-retire.
 
 This is the normal end of a worker. The only removal is ` + "`worker rm`" + `, the
-hard-delete escape for a casting that NEVER did anything (a typo'd cast);
-anything with history refuses it and retires instead.`,
-		Example: `  hadron team worker retire Iris --yes`,
-		Args:    cobra.ExactArgs(1),
+hard-delete escape for a casting that NEVER did anything (a typo'd cast). On
+a worker with any history, rm is REFUSED (exit 5) and writes nothing — it does
+not retire it for you; run this command instead.
+
+Not the same as stepping away: to stop holding the name use ` + "`worker release`" + `,
+and to take a worker off new work for a while use ` + "`team availability set`" + `.
+
+Who may retire: the same people who may cast (` + "`worker cast --help`" + `). A NAME
+resolves within --app, the App context or the binding; an id or worker URN
+needs no App. On a terminal it asks first; without one, --yes is required
+(exit 2 otherwise). The App the change targets is the worker's own.
+
+` + instruction.StaffingHelp("workers.staff"),
+		Example: `  hadron team worker retire Iris --app acme.com:eng-team --yes
+  hadron team worker retire Iris --app acme.com:eng-team --yes --instruction task:hrn:agenttask:hrn:app:acme.com:eng-team:AT0.12`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			claim, instructed, err := staffingInstruction(cmd, f, instructionRaw)
+			if err != nil {
+				return err
+			}
 			w, err := workerForArg(cmd, f, args[0])
 			if err != nil {
 				return err
@@ -615,14 +1041,14 @@ anything with history refuses it and retires instead.`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.RetireWorker(cmd.Context(), client, w.Id)
+			retired, err := retireWorker(cmd, client, &w, claim, instructed)
 			if err != nil {
-				return api.MapError(err)
+				return api.MapErrorKeepingCode(err)
 			}
-			if resp.RetireWorker == nil {
+			if retired == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no worker")
 			}
-			dto := workerDTOFromFields(resp.RetireWorker.WorkerFields)
+			dto := workerDTOFromFields(*retired)
 			result := retireResultDTO{ID: dto.ID, Name: dto.Name, RetiredAt: dto.RetiredAt, Status: "retired"}
 			return output.Write(f.IOStreams, f.JSON, result, func(out io.Writer) error {
 				_, err := fmt.Fprintf(out, "✓ retired worker %s — the name stays bound to it and is never re-cast\n", dto.Name)
@@ -631,6 +1057,7 @@ anything with history refuses it and retires instead.`,
 		},
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
+	cmd.Flags().StringVar(&instructionRaw, "instruction", "", instruction.StaffingFlagUsage)
 	return cmd
 }
 
@@ -644,8 +1071,9 @@ type removeResultDTO struct {
 func newCmdWorkerRm(f *cmdutil.Factory) *cobra.Command {
 	var yes bool
 	var confirmNoExternalAttribution bool
+	var instructionRaw string
 	cmd := &cobra.Command{
-		Use:     "rm <name-or-id>",
+		Use:     "rm <name-or-id> [--instruction <kind>:<ref>]",
 		Aliases: []string{"delete"},
 		Short:   "Hard-delete a NEVER-USED casting (frees its name)",
 		Long: `Hard-delete a worker that never did anything — the one removal escape
@@ -662,10 +1090,17 @@ Known or uncertain external attribution means retire instead. --yes only
 skips the deletion prompt; it never supplies this separate attestation.
 Missing attestation is WORKER_EXTERNAL_ATTRIBUTION_UNCONFIRMED (exit 2);
 WORKER_IN_USE is exit 5. Older-server schema refusal is never retried without
-the attestation.`,
+the attestation. Who may delete: the same people who may cast. The App the
+change targets is the worker's own.
+
+` + instruction.StaffingHelp("workers.staff"),
 		Example: `  hadron team worker rm Irsi --yes --confirm-no-external-attribution`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			claim, instructed, err := staffingInstruction(cmd, f, instructionRaw)
+			if err != nil {
+				return err
+			}
 			w, err := workerForArg(cmd, f, args[0])
 			if err != nil {
 				return err
@@ -682,11 +1117,11 @@ the attestation.`,
 			if confirmNoExternalAttribution {
 				attestation = &confirmNoExternalAttribution
 			}
-			resp, err := gen.DeleteWorker(cmd.Context(), client, w.Id, attestation)
+			deleted, err := deleteWorker(cmd, client, &w, attestation, claim, instructed)
 			if err != nil {
-				return api.MapError(err)
+				return api.MapErrorKeepingCode(err)
 			}
-			if !resp.DeleteWorker {
+			if !deleted {
 				return exitcode.Newf(exitcode.Error, "worker %s was not deleted", w.Name)
 			}
 			result := removeResultDTO{ID: w.Id, Name: w.Name, Status: "deleted"}
@@ -698,6 +1133,7 @@ the attestation.`,
 	}
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
 	cmd.Flags().BoolVar(&confirmNoExternalAttribution, "confirm-no-external-attribution", false, "attest you verified no external artifact attributes work to this worker; known or uncertain history means retire")
+	cmd.Flags().StringVar(&instructionRaw, "instruction", "", instruction.StaffingFlagUsage)
 	return cmd
 }
 
@@ -1196,7 +1632,7 @@ then to their id.`,
 			// only moment the prior state is knowable.
 			priorHolder := w.HeldByUserId
 			// NO VISIBILITY PROBE. An earlier version inferred one from
-			// prompt/promptOverride/memoryId being readable, since heldByUserId
+			// prompt/memoryId being readable, since heldByUserId
 			// is masked alongside them. That is UNSOUND: all three are
 			// legitimately nullable — an agent with no template, no per-worker
 			// override, and a best-effort memory provision that failed — so a
@@ -1571,64 +2007,63 @@ func releasePromptTransferClause(retiredAt *string) string {
 }
 
 func newCmdWorkerUpdate(f *cmdutil.Factory) *cobra.Command {
-	var promptOverride string
-	var clearOverride bool
+	var signature, trailer, instruction string
 	cmd := &cobra.Command{
-		Use:   "update <name-or-id> (--prompt-override <text> | --clear-prompt-override)",
-		Short: "Amend a casting's prompt override",
-		Long: `Amend a worker's promptOverride — the individuality layered over the
-shared role template (updateWorker, hadron-server#1010).
+		Use:   "update <name-or-id> [--signature <text>] [--trailer <text>] [--instruction <kind>:<ref>]",
+		Short: "Amend a worker's signature or trailer template",
+		Long: `Set signature and trailer templates for the next briefing. Omitted fields
+keep their stored value; an explicit empty string stores an empty template.
+They are filled in when the worker's session is bound (the briefing prints the
+filled result), not when you run this.
 
-Until this verb the override could only be set at CASTING time, which fixed
-a casting's individuality at the one moment nobody yet knows what makes it
-individual. Neither escape hatch covered it: the role agent's systemPrompt
-is SHARED by every casting of that role, so editing it reaches everyone;
-and re-casting is barred by WORKER_IN_USE once a worker has done work —
-precisely the workers with an identity worth recording.
+TEMPLATE VARIABLES, written {{name}} — anything else stays literal text:
+  {{worker.name}}  {{worker.role}}  {{worker.url}}  {{agent.name}}
+  {{worker.reportsTo.name}}  {{session.llmModel}}
+At most 2000 characters each. The defaults are:
+  signature  — [{{worker.name}}, {{worker.role}}]({{worker.url}}) · {{session.llmModel}}
+  trailer    Worker: {{worker.name}} ({{worker.role}}) <{{worker.url}}>
+There is no reset to the default: to restore it, pass the default text.
 
-Scope is ONE field on purpose. A worker's name is permanent per App
-(cor:agt:020:02), and role/agent define the casting itself, so neither is
-amendable here or anywhere.
+Who may edit them: an App manager, as themselves, from a directory with no
+binding. From a worktree bound to a worker the edit goes through that
+worker's session, never as the person behind it: without --instruction it is
+refused (exit 8); with --instruction it is admitted when the worker's holder
+manages the App. A binding that is incomplete, for another server, or for an
+App other than the worker's refuses before any write (exit 2).
 
-The override REPLACES, it does not append. To extend an existing one, read
-it first (` + "`worker get <name>`" + ` prints it under "Prompt override") and pass
-the whole amended text. Do NOT paste the composed boot briefing back in:
-that would fold the shared template into the override and prepend it again
-on every render.
+` + instructionHelp + `
 
-The receipt prints the RE-RENDERED briefing, not just the override — the
-template with {{name}}/{{role}} bound and the override appended is what a
-session driver actually adopts, and it is what materially changed.
-
-A RETIRED worker refuses (WORKER_RETIRED, exit 5): an override is briefing
-text delivered at bind time, so the edit could never reach anyone.`,
-		Example: `  hadron team worker update Iris --prompt-override "You favour small, reviewable PRs."
-  hadron team worker update Iris --clear-prompt-override`,
+<name-or-id>: a NAME resolves within --app, the App context or the binding; an
+id or worker URN needs no App. Per-worker boot instructions are a different
+thing: see ` + "`team worker compile --help`" + `.`,
+		Example: `  hadron team worker update Iris --app acme.com:eng-team \
+      --signature '— [{{worker.name}}, {{worker.role}}]({{worker.url}})' \
+      --trailer 'Worker: {{worker.name}} <{{worker.url}}>'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			setOverride := cmd.Flags().Changed("prompt-override")
-			switch {
-			case setOverride && clearOverride:
-				return exitcode.Newf(exitcode.Usage,
-					"--prompt-override and --clear-prompt-override are mutually exclusive")
-			case !setOverride && !clearOverride:
-				// Omitting the field PRESERVES it server-side, so a bare
-				// `worker update Iris` would report success having written
-				// nothing. Refused, like `role update`'s empty case.
-				return exitcode.Newf(exitcode.Usage,
-					"nothing to update — pass --prompt-override <text> or --clear-prompt-override")
-			case setOverride && strings.TrimSpace(promptOverride) == "":
-				// The SERVER treats a blank string as a clear, matching
-				// castWorker's blank-is-absent normalization. The CLI refuses
-				// it anyway (the `role update` convention): an unset shell
-				// variable expands to "", and silently wiping a worker's
-				// individuality because `$PROMPT` was empty is not a mistake
-				// the server can tell from an intended clear. Saying it
-				// explicitly costs one flag.
-				return exitcode.Newf(exitcode.Usage,
-					"--prompt-override is empty — pass --clear-prompt-override to remove the override deliberately")
+			setSignature := cmd.Flags().Changed("signature")
+			setTrailer := cmd.Flags().Changed("trailer")
+			if !setSignature && !setTrailer {
+				return exitcode.Newf(exitcode.Usage, "nothing to update — pass --signature <text> or --trailer <text>")
 			}
-
+			edit := signingEdit{signature: optionalFlag(setSignature, signature), trailer: optionalFlag(setTrailer, trailer)}
+			if !cmd.Flags().Changed("instruction") {
+				w, err := workerForArg(cmd, f, args[0])
+				if err != nil {
+					return err
+				}
+				client, err := f.GraphQLClient()
+				if err != nil {
+					return err
+				}
+				return updateWorkerSigning(cmd, f, client, w.Id, edit)
+			}
+			instr, err := parseInstruction(instruction)
+			if err != nil {
+				return err
+			}
+			// Snapshot before the first lookup: a rebind during it is refused.
+			snap := snapshotForInstruction(cmd.Context())
 			w, err := workerForArg(cmd, f, args[0])
 			if err != nil {
 				return err
@@ -1637,43 +2072,107 @@ text delivered at bind time, so the edit could never reach anyone.`,
 			if err != nil {
 				return err
 			}
-			// nil on the CLEAR path is an explicit `null` on the wire, because
-			// the operation deliberately carries no omitempty: omitting the
-			// field means "preserve", so an omitted null would make the clear
-			// a silent no-op.
-			var override *string
-			if setOverride {
-				override = &promptOverride
-			}
-			resp, err := gen.UpdateWorker(cmd.Context(), client, w.Id, override)
-			if err != nil {
-				return api.MapError(err)
-			}
-			if resp.UpdateWorker == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no worker")
-			}
-			dto := workerDTOFromFields(resp.UpdateWorker.WorkerFields)
-			return output.Write(f.IOStreams, f.JSON, dto, func(out io.Writer) error {
-				verb := "updated"
-				if clearOverride {
-					verb = "cleared the prompt override for"
-				}
-				if _, werr := fmt.Fprintf(out, "✓ %s worker %s (%s)\n", verb, dto.Name, dto.ID); werr != nil {
-					return werr
-				}
-				// The BRIEFING, not the override: it is what a bind delivers,
-				// and printing only the override would show the smaller half
-				// of what changed.
-				if dto.Prompt != nil && *dto.Prompt != "" {
-					if _, werr := fmt.Fprintf(out, "\nBoot briefing now reads:\n\n%s\n", *dto.Prompt); werr != nil {
-						return werr
-					}
-				}
-				return nil
-			})
+			return updateWorkerSigningInstructed(cmd, f, client, snap, w, edit, instr)
 		},
 	}
-	cmd.Flags().StringVar(&promptOverride, "prompt-override", "", "replace the worker's prompt override with this text")
-	cmd.Flags().BoolVar(&clearOverride, "clear-prompt-override", false, "remove the worker's prompt override, leaving the shared role template")
+	cmd.Flags().StringVar(&signature, "signature", "", `replace the signature template ("" stores an empty one)`)
+	cmd.Flags().StringVar(&trailer, "trailer", "", `replace the commit-trailer template ("" stores an empty one)`)
+	cmd.Flags().StringVar(&instruction, "instruction", "", instructionFlagUsage)
+	cmdutil.RetireFlags(cmd, "a worker's boot customisation is now a node: write boot:workers:<id>:source (role boot-prompt) in the App install memory (hadron node update), compile it with `hadron team worker compile <worker>`, then have the App's manager approve the compiled node with `hadron node approve <compiled-node-ref>`",
+		cmdutil.RetiredFlag{Name: "prompt-override"}, cmdutil.RetiredFlag{Name: "clear-prompt-override", Bool: true})
 	return cmd
+}
+
+// castChoiceFlags turns --reports-to / --no-team into the two optional wire
+// arguments (cli#933). PRESENCE is what matters, so it reads cmd.Flags().Changed
+// rather than the values: the unused argument is left nil (omitted on the wire,
+// never null or false), a named reportsTo sends only reportsTo, and an explicit
+// --no-team sends only noTeam:true. Shape errors the CLI can see are refused
+// here as usage, before any call: both flags (even --no-team=false), a blank
+// --reports-to, and --no-team=false on its own, which is not a choice. Nothing
+// else is decided locally — authority, an unknown or foreign head, and the
+// missing-choice refusal stay the server's, surfaced verbatim.
+func castChoiceFlags(cmd *cobra.Command, reportsTo string, noTeam bool) (*string, *bool, error) {
+	rtSet, ntSet := cmd.Flags().Changed("reports-to"), cmd.Flags().Changed("no-team")
+	if rtSet && ntSet {
+		return nil, nil, exitcode.Newf(exitcode.Usage, "--reports-to and --no-team cannot be combined: supply one or the other, never both")
+	}
+	if rtSet {
+		ref := strings.TrimSpace(reportsTo)
+		if ref == "" {
+			return nil, nil, exitcode.Newf(exitcode.Usage, "--reports-to needs a worker reference (a name, URN or id) — or pass --no-team to record that the worker has no reporting head")
+		}
+		return &ref, nil, nil
+	}
+	if ntSet {
+		if !noTeam {
+			return nil, nil, exitcode.Newf(exitcode.Usage, "--no-team=false is not a choice: pass --no-team to record no team, or --reports-to <worker>; leaving both out records no choice")
+		}
+		t := true
+		return nil, &t, nil
+	}
+	return nil, nil, nil
+}
+
+// reportsToCell is the REPORTS TO table cell: the relation, except that a
+// recorded NO_TEAM choice reads "no team" rather than the "-" a never-chosen
+// worker shows (cli#933). Everything else is reportsToLabel unchanged.
+func reportsToCell(ref *workerRefDTO, retired, known bool, placement *string) string {
+	if known && ref == nil && placement != nil && *placement == "NO_TEAM" {
+		return "no team"
+	}
+	return reportsToLabel(ref, retired, known)
+}
+
+// castChoiceRemedy maps a cast refusal and, for the missing-choice refusal
+// only, appends the flags that fix it: the server's message names the wire
+// arguments (reportsTo / noTeam), and this CLI's spelling is --reports-to /
+// --no-team. The server's text stays verbatim and first; the code is kept for
+// the --json envelope.
+func castChoiceRemedy(raw error) error {
+	// cli#1594 acceptance 4: the server's code rides to --json as serverCode.
+	mapped := api.MapErrorKeepingCode(raw)
+	if api.HasErrorCode(raw, "WORKER_TEAM_CHOICE_REQUIRED") {
+		return api.WithServerCode(exitcode.Newf(exitcode.Usage, "%s\n  → pass --reports-to <worker> or --no-team", mapped.Error()), raw)
+	}
+	return mapped
+}
+
+// previewPlacementText is placementText for a dry run: nothing was recorded,
+// so it says what the cast WOULD record, and names the head by id (a preview
+// carries the id only).
+func previewPlacementText(placement string, reportsToID *string) string {
+	switch placement {
+	case "REPORTS_TO":
+		if reportsToID != nil && *reportsToID != "" {
+			return "would report to worker " + *reportsToID
+		}
+		return "would report to a named worker"
+	case "NO_TEAM":
+		return "would record no team"
+	case "UNSET":
+		return "would record no reporting choice (UNSET)"
+	}
+	return "would record: " + placement
+}
+
+// placementText says what a returned teamPlacement means. NULL is WITHHELD from
+// this caller (access-masked), never UNSET or NO_TEAM, and a null reportsTo
+// never implies either (cli#933).
+func placementText(placement *string, reportsToID *string) string {
+	if placement == nil {
+		return "reporting choice withheld from this caller"
+	}
+	switch *placement {
+	case "REPORTS_TO":
+		if reportsToID != nil && *reportsToID != "" {
+			return "reports to " + *reportsToID
+		}
+		return "reports to a worker (`hadron team worker get` shows which)"
+	case "NO_TEAM":
+		return "no team (recorded choice)"
+	case "UNSET":
+		return "no reporting choice recorded (UNSET)"
+	}
+	return "reporting choice: " + *placement
 }

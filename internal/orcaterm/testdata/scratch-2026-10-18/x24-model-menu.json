@@ -1,0 +1,40 @@
+{
+ "id": "scratch",
+ "ok": true,
+ "result": {
+  "terminal": {
+   "handle": "term_00000000-0000-0000-0000-000000000000",
+   "status": "running",
+   "tail": [
+    "  >_ OpenAI Codex (v0.163.0)",
+    "     ~/orca/workspaces/hadron-cli/joshua-907-scratch",
+    "› SCRATCH-907 test: reply with exactly the word ok, run no commands",
+    "• ok",
+    "  Worked for 1s • 11:18 PM",
+    "› SCRATCH-907 test: run the shell command: touch /tmp/claude-988/scratch907-probe && echo done. Ask for approval first",
+    "  if your policy requires it.",
+    "• I’ll run the requested command.",
+    "• Ran touch /tmp/claude-988/scratch907-probe && echo done",
+    "  └ done",
+    "• done",
+    "  Worked for 3s • 11:18 PM",
+    "  Select Model and Effort",
+    "› 1. GPT-6.1-Sol (current)  Latest workhorse model for coding and everyday work.",
+    "  2. GPT-6-Astra            Frontier intelligence for the most demanding work.",
+    "  3. GPT-6-Sol              Previous generation workhorse model.",
+    "  4. GPT-6-Luna             Fast and affordable model for easier tasks.",
+    "  5. GPT-5.6-Sol            Older generation workhorse model.",
+    "  6. GPT-5.6-Terra          Older balanced model for straightforward work.",
+    "  7. GPT-5.6-Luna           Older fast and efficient model.",
+    "  enter select · esc back"
+   ],
+   "truncated": false,
+   "limited": false,
+   "oldestCursor": "0",
+   "nextCursor": "9",
+   "latestCursor": "9",
+   "returnedLineCount": 21,
+   "source": "screen"
+  }
+ }
+}

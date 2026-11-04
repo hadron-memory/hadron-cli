@@ -81,6 +81,11 @@ func agentEnv(parent []string, hostKey string, add ...string) []string {
 	return append(out, add...)
 }
 
+// ScrubbedEnv is parent without the credential variables and any variable
+// whose value carries hostKey: the environment for a child that must not see
+// the host's credentials (the Orca CLI a status read runs).
+func ScrubbedEnv(parent []string, hostKey string) []string { return agentEnv(parent, hostKey) }
+
 func isScrubbed(name string) bool {
 	for _, s := range scrubbedEnv {
 		if name == s {

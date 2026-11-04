@@ -2,6 +2,7 @@ package memory
 
 import (
 	"io"
+	"strings"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
@@ -9,6 +10,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -20,45 +22,66 @@ type (
 
 func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 	var includeAgentSystem, sharedWithMe, ownedByMe bool
+	var org, visibility string
 	cmd := &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"ls"},
 		Short:   "List memories you can access",
 		Long: `List memories you can access.
 
-By default that is your own union: org-owned, org-subscribed, and your own
-personal/private memories.
+By default: the memories of your organizations, the ones your organizations
+subscribe to, and your own personal and private memories.
 
---owned-by-me NARROWS that union to the memories you own outright: the
-org-less ones (no organizationId) whose owner is you. It is the "my
-memories" slice, and it is answered by the server — the ownership columns
-are not something a client can reconstruct, which is why this is a flag and
-not a filter you apply to the default listing yourself.
+--owned-by-me narrows that to the memories that belong to you and to no
+organization, such as the ones made with memory set --owner-me. A
+knowledge-class memory under your own handle is included; a memory of an
+organization never is, even a personal one. Your active organization (org use)
+does not change it. Only a person gets an answer: with an App key, or while
+acting as another user, the list is empty.
 
-Ownership is per class, matching the read gates: a personal/private memory
-is yours when you are its strict owner, every other class when you are its
-user-tenant owner. So a knowledge-class memory under your own handle IS in
-this slice — filtering the default listing by class would miss exactly
-those rows. An org-owned memory is never in it, however personal, because
-it has an organization.
+--shared-with-me lists instead the memories other users have
+shared with you (with memory share), with the role you were given and who
+shared it. It does not overlap the default listing: your own memories are not
+in it, and shared ones are not in the default listing.
 
-Your active organization is not consulted: the slice is org-less by
-definition, so ` + "`org use`" + ` does not change it. An App-key caller or an
-impersonated session gets an empty list — this is a question about a user.
-(To CREATE a memory in this slice, see ` + "`memory set --owner-me`" + `.)
+--org <org> lists what that organization's members see: your own personal and
+private memories plus the memories the organization owns or subscribes to. If
+you are not a member the list is empty.
 
---shared-with-me SWITCHES the listing to the memories other users have
-shared with you (via ` + "`memory share`" + `). That is a separate slice rather
-than a subset, so the two listings never overlap — your own memories are
-absent from it, and shared ones are absent from the default listing. It
-also reports the role you were granted and who shared it.`,
+--visibility ORGANIZATION|GROUP narrows the list to that visibility.
+--visibility PUBLIC lists instead every public memory: the marketplace,
+including memories of organizations you do not belong to.`,
 		Example: `  hadron memory ls
   hadron memory ls --owned-by-me
   hadron memory ls --owned-by-me --json
   hadron memory ls --shared-with-me
-  hadron memory ls --shared-with-me --json`,
+  hadron memory ls --shared-with-me --json
+  hadron memory ls --org acme.com
+  hadron memory ls --visibility PUBLIC`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			// Gated on Changed (cli#1340): --org= is an empty value, refused,
+			// never read as "no organization" (the whole union).
+			var orgArg *string
+			if cmd.Flags().Changed("org") {
+				if strings.TrimSpace(org) == "" {
+					return exitcode.Newf(exitcode.Usage, "--org is empty: name an organization (ID or URN). Nothing was sent")
+				}
+				o := strings.TrimSpace(org)
+				orgArg = &o
+			}
+			var visArg *gen.MemoryVisibility
+			if cmd.Flags().Changed("visibility") {
+				for _, v := range gen.AllMemoryVisibility {
+					if strings.EqualFold(string(v), strings.TrimSpace(visibility)) {
+						vv := v
+						visArg = &vv
+					}
+				}
+				if visArg == nil {
+					return exitcode.Newf(exitcode.Usage, "invalid --visibility %q (want ORGANIZATION, GROUP or PUBLIC). Nothing was sent", visibility)
+				}
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -67,7 +90,7 @@ also reports the role you were granted and who shared it.`,
 			if sharedWithMe {
 				memories, err = listSharedWithMe(cmd, client)
 			} else {
-				memories, err = listOwnUnion(cmd, client, includeAgentSystem, ownedByMe)
+				memories, err = listOwnUnion(cmd, client, includeAgentSystem, ownedByMe, orgArg, visArg)
 			}
 			if err != nil {
 				return err
@@ -77,13 +100,13 @@ also reports the role you were granted and who shared it.`,
 				if sharedWithMe {
 					t := output.NewTable(w, "URN", "NAME", "ROLE", "SHARED BY")
 					for _, m := range memories {
-						t.Row(m.URN, m.Name, accessDash(m.ShareRole), grantorLabel(m.SharedBy))
+						t.Row(output.SafeCell(m.URN), output.SafeCell(m.Name), output.SafeCell(accessDash(m.ShareRole)), output.SafeCell(grantorLabel(m.SharedBy)))
 					}
 					return t.Flush()
 				}
 				t := output.NewTable(w, "URN", "NAME", "CLASS")
 				for _, m := range memories {
-					t.Row(m.URN, m.Name, m.Class)
+					t.Row(output.SafeCell(m.URN), output.SafeCell(m.Name), output.SafeCell(m.Class))
 				}
 				return t.Flush()
 			})
@@ -92,6 +115,11 @@ also reports the role you were granted and who shared it.`,
 	cmd.Flags().BoolVar(&includeAgentSystem, "include-agent-system", false, "include agent system memories")
 	cmd.Flags().BoolVar(&sharedWithMe, "shared-with-me", false, "list memories shared with you instead of your own")
 	cmd.Flags().BoolVar(&ownedByMe, "owned-by-me", false, "list only the org-less memories you own")
+	cmd.Flags().StringVar(&org, "org", "", "list what this organization's members see (ID or URN)")
+	cmd.Flags().StringVar(&visibility, "visibility", "", "only this visibility: ORGANIZATION, GROUP, or PUBLIC (the marketplace)")
+	// The shared slice is its own operation and takes neither.
+	cmd.MarkFlagsMutuallyExclusive("shared-with-me", "org")
+	cmd.MarkFlagsMutuallyExclusive("shared-with-me", "visibility")
 	// A slice selection can't be narrowed by the other slice's knob: shared
 	// memories are personal-class by definition, so combining the two would
 	// quietly mean nothing. Reject it rather than ignore it.
@@ -117,9 +145,9 @@ also reports the role you were granted and who shared it.`,
 // reads like an ownership test is only a proxy — which was the original
 // defect (#1176). A list whose name is a relationship and whose query is a
 // category is correct only while the two coincide.
-func listOwnUnion(cmd *cobra.Command, client graphql.Client, includeAgentSystem, ownedByMe bool) ([]memoryDTO, error) {
+func listOwnUnion(cmd *cobra.Command, client graphql.Client, includeAgentSystem, ownedByMe bool, orgID *string, visibility *gen.MemoryVisibility) ([]memoryDTO, error) {
 	var filter *gen.MemoryFilter
-	if includeAgentSystem || ownedByMe {
+	if includeAgentSystem || ownedByMe || visibility != nil {
 		filter = &gen.MemoryFilter{}
 		if includeAgentSystem {
 			filter.MemoryClasses = gen.AllMemoryClass
@@ -130,9 +158,10 @@ func listOwnUnion(cmd *cobra.Command, client graphql.Client, includeAgentSystem,
 		if ownedByMe {
 			filter.OwnedByMe = &ownedByMe
 		}
+		filter.Visibility = visibility
 	}
 	items, err := api.CollectAll(func(limit, offset int) ([]*listedMemory, int, error) {
-		resp, err := gen.Memories(cmd.Context(), client, filter, &limit, &offset)
+		resp, err := gen.Memories(cmd.Context(), client, filter, &limit, &offset, orgID)
 		if err != nil {
 			return nil, 0, api.MapError(err)
 		}

@@ -48,11 +48,20 @@ func newCmdApproveAll(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "approve-all -m <memoryRef>",
 		Short: "Approve current revisions throughout a memory",
-		Long: `Approve the current revision of every live, unminted node in a memory
-that is not already approved. The server performs this as one transaction, returning
-the nodes it approved and the reserved placeholders it skipped. An existing
-approval of the current revision is kept unchanged. This command asks for
-confirmation on a terminal and requires --yes in non-interactive use.`,
+		Long: `Approve the current revision of every node in a memory that is not yet
+approved, in one step instead of one node approve per node.
+
+An approval records that someone checked a node's current title, abstract and
+content (see node approve). Minting, which makes a node's citation permanent
+(node mint), needs it. Use approve-all when a reviewed memory is ready to mint.
+
+It covers only live nodes that have never been minted. It skips placeholders:
+citations reserved for a spec that is not written yet, which cannot be
+approved. An existing approval of the current revision is kept unchanged. The
+server does it in one transaction and reports the nodes it approved and the
+placeholders it skipped.
+
+It asks for confirmation on a terminal; without a terminal, pass --yes.`,
 		Example: `  hadron memory approve-all -m hrn:mem:micromentor.org:specs-draft --yes --json`,
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {

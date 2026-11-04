@@ -1,11 +1,9 @@
 package coding
 
 import (
-	"context"
 	"io"
 	"strings"
 
-	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -35,6 +33,8 @@ func newCmdPreflightRoute(f *cmdutil.Factory) *cobra.Command {
 		noBackEdge   bool
 		noBodyLine   bool
 		dryRun       bool
+		routeModelV  string
+		attachTo     string
 	)
 	cmd := &cobra.Command{
 		Use:   "route <node-ref>",
@@ -46,6 +46,14 @@ already there. It writes the same three things, because a node is reachable
 only when it has all of them: the router's outgoing edge, the mirrored
 back-edge, and the routing line in the router's BODY — which is what a human
 or an LLM reading the router actually scans.
+
+With ` + "`--route-model leaf`" + ` (or ` + "`preflightRouteModel`" + ` in .hadron/config.json)
+the existing node gets ONE edge of its own, to the router or the --attach-to
+area node, labelled ` + "`to <action>`" + `: nothing is written on the router's outgoing
+set, there is no back-edge, and the body line is off unless --section is given
+(it then lands in the attach target). The edge belongs to the node, so a target
+in another memory needs write access there; the server decides and a refusal
+exits as usual.
 
 <node-ref> is a bare loc in -m's memory, or a fully-qualified URN/id anywhere.
 Cross-memory routes are normal and supported: the thing worth routing to often
@@ -69,6 +77,15 @@ that already references the target is left alone.`,
 			if err != nil {
 				return err
 			}
+			model, err := resolveRouteModel(cmd, routeModelV)
+			if err != nil {
+				return err
+			}
+			leaf := model == modelLeaf
+			attachLoc, err := attachTarget(root, attachTo, leaf)
+			if err != nil {
+				return err
+			}
 			label, err := normalizeRoute(route)
 			if err != nil {
 				return err
@@ -83,7 +100,7 @@ that already references the target is left alone.`,
 			}
 			ctx := cmd.Context()
 
-			routerRef, err := mem.nodeRef(root)
+			routerRef, err := mem.nodeRef(attachLoc)
 			if err != nil {
 				return err
 			}
@@ -95,7 +112,7 @@ that already references the target is left alone.`,
 			}
 			if router.Node == nil {
 				return exitcode.Newf(exitcode.NotFound,
-					"no %q node in %s — create the router first, or pass --root", root, mem.raw)
+					"no %q node in %s — create the router first, or pass --root", attachLoc, mem.raw)
 			}
 
 			// A qualified ref resolves WITHOUT a memory: ResolveNodeRef reads
@@ -141,12 +158,13 @@ that already references the target is left alone.`,
 			// Cross-memory targets cannot use a bare wikilink (cor:urn:020:01).
 			link := wikiLink(target.Node.Loc)
 			if target.Node.MemoryId != router.Node.MemoryId {
-				link = crossMemoryLink(target.Node.Loc, memoryLabel(ctx, client, target.Node.MemoryId))
+				link = crossMemoryLink(target.Node.Loc, memoryLabel(target.Node.MemoryId, target.Node.Memory))
 			}
 			line := routingLineTo(routeSymptom(symptom, label), link, text)
 
+			wantLine := bodyLineWanted(leaf, noBodyLine, cmd.Flags().Changed("section"))
 			plan := routingPlan{Skipped: true}
-			if !noBodyLine {
+			if wantLine {
 				if plan, err = planRoutingLine(routerBody(router.Node.Content), section, line, link); err != nil {
 					return err
 				}
@@ -155,7 +173,7 @@ that already references the target is left alone.`,
 			dto := newRouteDTO{
 				Loc: target.Node.Loc, ID: target.Node.Id, Name: target.Node.Name,
 				Route: label, Tags: target.Node.Tags, Seq: target.Node.Seq,
-				Router: root, BackEdge: !noBackEdge, Links: []linkDTO{}, DryRun: dryRun,
+				Router: attachLoc, BackEdge: !leaf && !noBackEdge, Links: []linkDTO{}, DryRun: dryRun, Model: modelTag(leaf),
 			}
 			if dto.Tags == nil {
 				dto.Tags = []string{}
@@ -174,10 +192,19 @@ that already references the target is left alone.`,
 			// to the same node is a DIFFERENT route, and naming its id here
 			// would report the wrong edge while createEdge went on to add a
 			// second one.
-			for _, e := range router.Node.OutgoingEdges {
-				if e != nil && e.Target != nil && e.Target.Id == targetID &&
-					e.Name != nil && *e.Name == label {
-					dto.EdgeID = e.Id
+			// Leaf: the edge lives on the target, so that is the set to look in.
+			if leaf {
+				for _, e := range target.Node.OutgoingEdges {
+					if e != nil && e.Target != nil && e.Target.Id == router.Node.Id && e.Name != nil && *e.Name == label {
+						dto.EdgeID = e.Id
+					}
+				}
+			} else {
+				for _, e := range router.Node.OutgoingEdges {
+					if e != nil && e.Target != nil && e.Target.Id == targetID &&
+						e.Name != nil && *e.Name == label {
+						dto.EdgeID = e.Id
+					}
 				}
 			}
 
@@ -187,7 +214,11 @@ that already references the target is left alone.`,
 				})
 			}
 
-			fwd, err := gen.CreateEdge(ctx, client, router.Node.Id, targetID, label, nil, nil, nil, nil, nil, nil)
+			from, to := router.Node.Id, targetID
+			if leaf {
+				from, to = targetID, router.Node.Id
+			}
+			fwd, err := gen.CreateEdge(ctx, client, from, to, label, nil, nil, nil, nil, nil, nil)
 			if err != nil {
 				// Classify through api.MapError so auth, not-found and
 				// transport keep their own exit codes — a script must be able
@@ -197,28 +228,28 @@ that already references the target is left alone.`,
 				mapped := api.MapError(err)
 				return exitcode.Newf(exitcode.FromError(mapped),
 					"the route from %q to %s may not have been written — check with `hadron coding preflight list -m %s`: %v",
-					root, dto.Loc, mem.raw, mapped)
+					attachLoc, dto.Loc, mem.raw, mapped)
 			}
 			if fwd.CreateEdge != nil {
 				dto.EdgeID = fwd.CreateEdge.Id
 			}
 
-			if !noBackEdge {
+			if !leaf && !noBackEdge {
 				if _, err := gen.CreateEdge(ctx, client, targetID, router.Node.Id, label,
 					nil, nil, nil, nil, nil, nil); err != nil {
 					dto.BackEdge = false
 					return partialRoute(f, dto, false, err,
-						"routed %s, but its back-edge to %q did not land — the route only works from the index; add it with `hadron edge create --from %s --to %s --name %q`",
-						dto.Loc, root, dto.Loc, root, label)
+						"routed %s, but its back-edge to %q did not land — the route only works from the index; add it with `hadron edge create -m %s --from %s --to %s --name %s`",
+						dto.Loc, root, cmdutil.ShellQuote(mem.raw), cmdutil.ShellQuote(dto.Loc), cmdutil.ShellQuote(root), cmdutil.ShellQuote(label))
 				}
 			}
 
-			if !noBodyLine {
+			if wantLine {
 				written, err := appendRoutingLine(ctx, client, routerRef, section, line, link)
 				if err != nil {
 					return partialRoute(f, dto, false, err,
 						"routed %s, but the router's body was not updated — the route is invisible to anyone READING %q; add this line yourself:\n  %s",
-						dto.Loc, root, line)
+						dto.Loc, attachLoc, line)
 				}
 				if !written.Skipped {
 					dto.BodyLine, dto.Section = line, written.Section
@@ -239,6 +270,8 @@ that already references the target is left alone.`,
 	cmd.Flags().BoolVar(&noBackEdge, "no-back-edge", false, "skip the mirrored back-edge to the router")
 	cmd.Flags().BoolVar(&noBodyLine, "no-body-line", false, "wire the edges only; leave the router's body alone")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would be written, including where the routing line lands, without writing it")
+	addRouteModelFlag(cmd, &routeModelV)
+	cmd.Flags().StringVar(&attachTo, "attach-to", "", "leaf model: loc of the router or area node the node's edge points at (default: --root)")
 	_ = cmd.MarkFlagRequired("route")
 	// -m is OPTIONAL since #551, and the comment #533 left here is why this one
 	// replaces it rather than sitting beside it: it said "there is no fallback",
@@ -251,20 +284,21 @@ that already references the target is left alone.`,
 
 // memoryLabel is what the routing line calls a cross-memory target's memory.
 //
-// It is LOOKED UP, not parsed out of the ref the caller typed. An earlier
-// version split the ref itself and got two spellings wrong: a prefixed legacy
-// ref (`hrn:node:acme.com::specs::tasks:x`) split on single colons to an empty
-// atom and emitted `hrn:mem:acme.com:`, and the `urn:node:` scheme the CLI also
-// accepts fell through to the opaque id. Since input is Postel-liberal by
-// design, every accepted spelling would have to be handled — whereas the server
-// already knows the answer and emits it canonically.
+// It is READ from the server's answer, not parsed out of the ref the caller
+// typed. An earlier version split the ref itself and got two spellings wrong: a
+// prefixed legacy ref (`hrn:node:acme.com::specs::tasks:x`) split on single
+// colons to an empty atom and emitted `hrn:mem:acme.com:`, and the `urn:node:`
+// scheme the CLI also accepts fell through to the opaque id. The server already
+// knows the answer and emits it canonically, and GetNode now carries it as
+// `memory { urn }` (cli#463), so naming the memory costs no second query.
 //
-// Decoration, never a gate: a memory the caller cannot read falls back to the
-// id rather than failing the command, because the route itself is fine.
-func memoryLabel(ctx context.Context, client graphql.Client, memoryID string) string {
-	resp, err := gen.GetMemory(ctx, client, memoryID)
-	if err != nil || resp.Memory == nil || resp.Memory.Urn == "" {
+// Decoration, never a gate: `memory` is null when the caller may not read that
+// record (hadron-server#2193), and the label then falls back to the opaque id
+// rather than failing the command, because the route itself is fine. Never
+// sliced or composed locally from the node's own urn.
+func memoryLabel(memoryID string, m *gen.GetNodeNodeMemory) string {
+	if m == nil || m.Urn == "" {
 		return memoryID
 	}
-	return resp.Memory.Urn
+	return m.Urn
 }

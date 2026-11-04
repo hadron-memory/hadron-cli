@@ -3,6 +3,7 @@ package asset
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -37,12 +38,15 @@ type assetDTO struct {
 	// BLOCKED (#896) — the row is kept as an audit tombstone after its bytes
 	// are deleted. A pointer, and null on every non-BLOCKED row: "" would read
 	// as "scanned, matched nothing named", which is not what a CLEAN row means.
-	ScanSignature *string `json:"scanSignature"`
-	UploadedAt    string  `json:"uploadedAt"`
-	UploadedBy    *string `json:"uploadedBy"`
-	DeletedAt     *string `json:"deletedAt"`
-	MemoryID      string  `json:"memoryId"`
-	PublicURL     *string `json:"publicUrl"`
+	ScanSignature       *string `json:"scanSignature"`
+	UploadedAt          string  `json:"uploadedAt"`
+	UploadedBy          *string `json:"uploadedBy"`
+	DeletedAt           *string `json:"deletedAt"`
+	MemoryID            string  `json:"memoryId"`
+	PublicURL           *string `json:"publicUrl"`
+	PublicLinkEnabled   bool    `json:"publicLinkEnabled"`
+	CanManagePublicLink bool    `json:"canManagePublicLink"`
+	PublicLinkAvailable bool    `json:"publicLinkAvailable"`
 }
 
 // assetListDTO is the stable --json shape for a listing.
@@ -52,33 +56,68 @@ type assetListDTO struct {
 	Assets []assetDTO `json:"assets"`
 }
 
+// assetAllDTO is the stable --json shape for the cross-memory list (--all,
+// cli#1341): there is no single memory, and each asset carries its memoryId.
+type assetAllDTO struct {
+	Total  int        `json:"total"`
+	Assets []assetDTO `json:"assets"`
+}
+
+// assetScanStatuses are the AssetScanStatus values --scan-status takes.
+var assetScanStatuses = map[string]gen.AssetScanStatus{}
+
+func init() {
+	for _, s := range gen.AllAssetScanStatus {
+		assetScanStatuses[strings.ToUpper(string(s))] = s
+	}
+}
+
 func newCmdList(f *cmdutil.Factory) *cobra.Command {
-	var memory, mime string
-	var mine, includeDeleted bool
+	var memories []string
+	var mime, org, scanStatus string
+	var mine, includeDeleted, all bool
 	var limit, offset int
 	cmd := &cobra.Command{
-		Use:     "list -m <memory>",
+		Use:     "list -m <memory> | --all",
 		Aliases: []string{"ls"},
-		Short:   "List a memory's assets",
-		Long: `List the assets held by a memory.
+		Short:   "List a memory's assets, or every asset you can read",
+		Long: `List the files held by one memory: id, filename, type, size, virus-scan status,
+upload time and public-link state. CAN MANAGE says whether you may switch the
+public link; AVAILABLE says whether this server serves public links at all.
 
--m is required. Asset listing is memory-addressed server-side, so there is no
-"every asset I can read" query; the CLI does not fan out across memories to
-fake one, because that would be an N+1 whose cost and partial-failure modes are
-invisible from the output. Track: hadron-server#891.
+-m is required, unless --all lists every asset held by a memory you can read.
+With --all, -m is optional and repeatable and narrows to those memories, --org
+to one organization, and --scan-status to one virus-scan status (PENDING,
+CLEAN or BLOCKED); the table gains a MEMORY column. A -m memory you cannot
+read, or that does not exist, contributes no assets (the others still list),
+and such an --org gives an empty list; neither is "not found".
 
-Listing is gated on READ access to the memory, so it returns every uploader's
-assets, not only your own — pass --mine to narrow to yours.
+Everyone who can read the memory sees every uploader's files; --mine keeps only
+yours. --include-deleted adds files deleted in the last 24 hours (asset restore
+can still bring them back) and files the virus scan blocked.
 
-By default every asset is listed (the query pages to exhaustion). Pass --limit
-or --offset to fetch a single explicit page instead.`,
+Every asset is listed by default. --limit and --offset fetch one page instead.`,
 		Example: `  hadron asset list -m hrn:mem:acme.com:kb
   hadron asset list -m hrn:mem:acme.com:kb --mine --mime image/png
-  hadron asset list -m hrn:mem:acme.com:kb --include-deleted --json`,
+  hadron asset list -m hrn:mem:acme.com:kb --include-deleted --json
+  hadron asset list --all --mine
+  hadron asset list --all --org acme.com --scan-status BLOCKED`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if memory == "" {
-				return exitcode.Newf(exitcode.Usage, "-m/--memory is required — asset listing is memory-addressed")
+			changed := cmd.Flags().Changed
+			if !all {
+				for _, name := range []string{"org", "scan-status"} {
+					if changed(name) {
+						return exitcode.Newf(exitcode.Usage, "--%s applies only with --all (the cross-memory list). Nothing was sent", name)
+					}
+				}
+				if len(memories) != 1 || strings.TrimSpace(memories[0]) == "" {
+					return exitcode.Newf(exitcode.Usage, "-m/--memory is required, once — asset listing is memory-addressed (or pass --all to list every asset you can read)")
+				}
+			}
+			memory := ""
+			if len(memories) > 0 {
+				memory = memories[0]
 			}
 			if limit < 0 || offset < 0 {
 				return exitcode.Newf(exitcode.Usage, "--limit and --offset must not be negative")
@@ -87,6 +126,13 @@ or --offset to fetch a single explicit page instead.`,
 			// silently reads as "no assets" rather than as the mistake it is.
 			if cmd.Flags().Changed("limit") && limit == 0 {
 				return exitcode.Newf(exitcode.Usage, "--limit must be at least 1 (omit it to list every asset)")
+			}
+
+			if all {
+				return listAllAssets(cmd, f, allAssetsArgs{
+					memories: memories, org: org, mime: mime, scanStatus: scanStatus,
+					mine: mine, includeDeleted: includeDeleted, limit: limit, offset: offset,
+				})
 			}
 
 			client, err := f.GraphQLClient()
@@ -109,7 +155,8 @@ or --offset to fetch a single explicit page instead.`,
 			// quietly return far more than the caller asked to page through.
 			skip := offset
 			pageSize := assetPageSize
-			single := limit > 0 || offset > 0
+			// Flag presence, not value: an explicit --offset 0 is paging too.
+			single := cmd.Flags().Changed("limit") || cmd.Flags().Changed("offset")
 			if limit > 0 {
 				pageSize = limit
 			}
@@ -135,6 +182,7 @@ or --offset to fetch a single explicit page instead.`,
 						UploadedAt: a.UploadedAt,
 						UploadedBy: a.UploadedBy, DeletedAt: a.DeletedAt,
 						MemoryID: a.MemoryId, PublicURL: a.PublicUrl,
+						PublicLinkEnabled: a.PublicLinkEnabled, CanManagePublicLink: a.CanManagePublicLink, PublicLinkAvailable: a.PublicLinkAvailable,
 					})
 				}
 				if single || !page.HasMore || len(page.Assets) == 0 {
@@ -157,31 +205,147 @@ or --offset to fetch a single explicit page instead.`,
 					fmt.Fprintf(w, "no assets in %s\n", dto.Memory)
 					return nil
 				}
-				t := output.NewTable(w, "ID", "FILENAME", "TYPE", "SIZE", "SCAN", "UPLOADED")
-				for _, a := range dto.Assets {
-					scan := a.ScanStatus
-					// The signature is what makes a BLOCKED row actionable —
-					// which engine matched, on a row whose bytes are gone. It
-					// is only ever set there, so nothing else grows a column.
-					if a.ScanSignature != nil && *a.ScanSignature != "" {
-						scan += " (" + *a.ScanSignature + ")"
-					}
-					if a.DeletedAt != nil {
-						scan += " (deleted)"
-					}
-					t.Row(a.ID, a.Filename, a.MimeType, humanSize(a.SizeBytes), scan, a.UploadedAt)
-				}
-				return t.Flush()
+				return assetTable(w, dto.Assets, false)
 			})
 		},
 	}
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (required)")
+	cmd.Flags().StringArrayVarP(&memories, "memory", "m", nil, "memory ID or fully-qualified URN (required; with --all optional and repeatable)")
+	cmd.Flags().BoolVar(&all, "all", false, "list every asset held by a memory you can read")
+	cmd.Flags().StringVar(&org, "org", "", "with --all: only assets in this organization's memories")
+	cmd.Flags().StringVar(&scanStatus, "scan-status", "", "with --all: only assets with this virus-scan status (PENDING, CLEAN, BLOCKED)")
 	cmd.Flags().StringVar(&mime, "mime", "", "only assets with this MIME type")
 	cmd.Flags().BoolVar(&mine, "mine", false, "only assets you uploaded")
 	cmd.Flags().BoolVar(&includeDeleted, "include-deleted", false, "include soft-deleted assets (restorable within the retention window)")
 	cmd.Flags().IntVar(&limit, "limit", 0, "maximum assets to fetch in one page (default: all)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "pagination offset (implies a single page)")
 	return cmd
+}
+
+// assetTable renders assets; withMemory adds the MEMORY column the
+// cross-memory list needs.
+func assetTable(w io.Writer, assets []assetDTO, withMemory bool) error {
+	cols := []string{"ID", "FILENAME", "TYPE", "SIZE", "SCAN", "UPLOADED", "PUBLIC LINK", "CAN MANAGE", "AVAILABLE"}
+	if withMemory {
+		cols = append([]string{"MEMORY"}, cols...)
+	}
+	t := output.NewTable(w, cols...)
+	for _, a := range assets {
+		scan := a.ScanStatus
+		// The signature is what makes a BLOCKED row actionable — which engine
+		// matched, on a row whose bytes are gone. It is only ever set there, so
+		// nothing else grows a column.
+		if a.ScanSignature != nil && *a.ScanSignature != "" {
+			scan += " (" + *a.ScanSignature + ")"
+		}
+		if a.DeletedAt != nil {
+			scan += " (deleted)"
+		}
+		row := []string{output.SafeCell(a.ID), output.SafeCell(a.Filename), output.SafeCell(a.MimeType), humanSize(a.SizeBytes), output.SafeCell(scan), output.SafeCell(a.UploadedAt), output.SafeCell(publicLinkState(a.PublicLinkEnabled, a.PublicLinkAvailable, a.PublicURL)), fmt.Sprint(a.CanManagePublicLink), fmt.Sprint(a.PublicLinkAvailable)}
+		if withMemory {
+			row = append([]string{output.SafeCell(a.MemoryID)}, row...)
+		}
+		t.Row(row...)
+	}
+	return t.Flush()
+}
+
+type allAssetsArgs struct {
+	memories              []string
+	org, mime, scanStatus string
+	mine, includeDeleted  bool
+	limit, offset         int
+}
+
+// listAllAssets is asset list --all: the cross-memory assets() list (#891).
+// It pages to exhaustion like the per-memory list (#23) unless --limit or
+// --offset asks for one page.
+func listAllAssets(cmd *cobra.Command, f *cmdutil.Factory, a allAssetsArgs) error {
+	changed := cmd.Flags().Changed
+	filter := &gen.AssetFilter{}
+	if changed("memory") {
+		for _, m := range a.memories {
+			if strings.TrimSpace(m) == "" {
+				return exitcode.Newf(exitcode.Usage, "-m/--memory is empty: name a memory, or drop -m to list every memory. Nothing was sent")
+			}
+		}
+		for _, m := range a.memories {
+			filter.MemoryRefs = append(filter.MemoryRefs, cmdutil.CanonicalMemoryRef(m))
+		}
+	}
+	if changed("scan-status") {
+		s, ok := assetScanStatuses[strings.ToUpper(strings.TrimSpace(a.scanStatus))]
+		if !ok {
+			return exitcode.Newf(exitcode.Usage, "invalid --scan-status %q (want PENDING, CLEAN or BLOCKED). Nothing was sent", a.scanStatus)
+		}
+		filter.ScanStatus = &s
+	}
+	if changed("mime") {
+		if strings.TrimSpace(a.mime) == "" {
+			return exitcode.Newf(exitcode.Usage, "--mime is empty: name a MIME type, or drop the flag. Nothing was sent")
+		}
+		m := strings.TrimSpace(a.mime)
+		filter.MimeType = &m
+	}
+	filter.Mine = optBool(a.mine)
+	filter.IncludeDeleted = optBool(a.includeDeleted)
+	var orgArg *string
+	if changed("org") {
+		if strings.TrimSpace(a.org) == "" {
+			return exitcode.Newf(exitcode.Usage, "--org is empty: name an organization, or drop the flag. Nothing was sent")
+		}
+		o := strings.TrimSpace(a.org)
+		orgArg = &o
+	}
+	if a.limit < 0 || a.offset < 0 {
+		return exitcode.Newf(exitcode.Usage, "--limit and --offset must not be negative")
+	}
+	if changed("limit") && a.limit == 0 {
+		return exitcode.Newf(exitcode.Usage, "--limit must be at least 1 (omit it to list every asset)")
+	}
+
+	client, err := f.GraphQLClient()
+	if err != nil {
+		return err
+	}
+	dto := assetAllDTO{Assets: []assetDTO{}}
+	// Flag presence, not value: an explicit --offset 0 is paging too.
+	single := changed("limit") || changed("offset")
+	skip, size := a.offset, assetPageSize
+	if a.limit > 0 {
+		size = a.limit
+	}
+	for {
+		resp, err := gen.ListAssets(cmd.Context(), client, filter, &size, &skip, orgArg)
+		if err != nil {
+			return api.MapError(err)
+		}
+		page := resp.Assets
+		dto.Total = page.Total
+		for _, x := range page.Items {
+			if x == nil {
+				continue
+			}
+			dto.Assets = append(dto.Assets, assetDTO{
+				ID: x.Id, URN: x.Urn, Filename: x.Filename, MimeType: x.MimeType,
+				SizeBytes: x.SizeBytes, Description: x.Description,
+				ScanStatus: string(x.ScanStatus), ScanSignature: x.ScanSignature,
+				UploadedAt: x.UploadedAt, UploadedBy: x.UploadedBy, DeletedAt: x.DeletedAt,
+				MemoryID: x.MemoryId, PublicURL: x.PublicUrl,
+				PublicLinkEnabled: x.PublicLinkEnabled, CanManagePublicLink: x.CanManagePublicLink, PublicLinkAvailable: x.PublicLinkAvailable,
+			})
+		}
+		skip += len(page.Items)
+		if single || len(page.Items) == 0 || skip >= page.Total {
+			break
+		}
+	}
+	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+		if len(dto.Assets) == 0 {
+			fmt.Fprintln(w, "no assets")
+			return nil
+		}
+		return assetTable(w, dto.Assets, true)
+	})
 }
 
 // optString / optBool return nil for the zero value so genqlient omits the

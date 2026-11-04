@@ -18,8 +18,21 @@ fragment AgentTaskPartyFields on AgentTaskParty {
   urn
 }
 
-fragment AgentTaskFields on AgentTask {
+fragment AgentTaskDependencyFields on AgentTask {
   id
+  handle
+  title
+  status
+}
+
+fragment AgentTaskFields on AgentTask {
+  priority
+  blocked
+  blockedBy(limit: 20, offset: 0) { total hasMore items { ...AgentTaskDependencyFields } }
+  blocks(limit: 20, offset: 0) { total hasMore items { ...AgentTaskDependencyFields } }
+  id
+  handle
+  taskNumber
   appId
   title
   description
@@ -41,7 +54,13 @@ fragment AgentTaskFields on AgentTask {
   parentTaskId
   tags
   source
+  # cli#1524 C1 (hadron-server#3125 S2, cor:agt:120:02): the outside item the task claims.
+  externalId
+  references { kind target label }
+  handBack { code text handedBackAt }
+  matchFailure { reason failedAt }
   startBy
+  finishBy
   createdAt
   updatedAt
   startedAt
@@ -49,9 +68,14 @@ fragment AgentTaskFields on AgentTask {
   cancelledAt
   closeSessionWhenDone
   requirements {
+    minTier
     role
+    roles
+    teamWorkerId
     familyIn
     familyNotIn
+    modelGroupIn
+    modelGroupNotIn
     excludeWorkerIds
   }
   result {
@@ -59,12 +83,48 @@ fragment AgentTaskFields on AgentTask {
     summary
     evidence
   }
+  # #2420: the task's OWN optional JSON object (never inherited, so a child
+  # returns its own value, null when unset).
+  properties
 }
 
 # createAgentTask takes one input object; appRef is required for a root task
 # and inherited from the parent for a child. Optional party/requirements
 # inputs are omitempty so a nil pointer is OMITTED (preserve/default), never
 # sent as null — the wire-semantics rule from CLAUDE.md.
+# `project` is omitted unless --project is given: the server reads an absent
+# project as the reserved no-project AT0 (cor:agt:050:01), so a nil pointer
+# must not be sent as null. Per-field omitempty on this one input field.
+# Schema-only optional fields must stay absent for older providers.
+# @genqlient(for: "CreateAgentTaskInput.project", omitempty: true)
+# cli#1514: finishBy omitted unless --finish-by is given; never send null by default.
+# @genqlient(for: "CreateAgentTaskInput.finishBy", omitempty: true)
+# @genqlient(for: "CreateAgentTaskInput.priority", omitempty: true)
+# @genqlient(for: "CreateAgentTaskInput.blockedBy", omitempty: true)
+# #2420: the task's own properties object. A pointer field, omitted when nil.
+# @genqlient(for: "CreateAgentTaskInput.properties", omitempty: true)
+# cli#1524 C1 (hadron-server#3125 S2, cor:agt:120:02): the claimed outside item.
+# Absent unless --external-id is given, so an ordinary create is unchanged and
+# an older server never sees the field.
+# @genqlient(for: "CreateAgentTaskInput.externalId", omitempty: true)
+# @genqlient(for: "AgentTaskRequirementsInput.minTier", omitempty: true)
+# cli#1568 (Andi LOCAL P2): match, roles and team arrived with the d7ae518d schema
+# refresh (server#2829/#2830, tracked by #1549). Absent, not null, until a flag names
+# them: a provider that predates the fields rejects them, even as null.
+# @genqlient(for: "CreateAgentTaskInput.match", omitempty: true)
+# @genqlient(for: "AgentTaskRequirementsInput.roles", omitempty: true)
+# @genqlient(for: "AgentTaskRequirementsInput.team", omitempty: true)
+# cli#1485 S3 (Andi BLIND P2): the model-group requirement fields arrived with
+# the schema refresh (server #3029) and S2 exposes them as optional flags. Absent,
+# not null, so ordinary create/update bodies are unchanged and an older server
+# never sees an input field it does not know. This protects INPUTS only:
+# every AgentTaskFields document needs provider #3029 for its output selection.
+# @genqlient(for: "AgentTaskReferenceInput.label", omitempty: true)
+# @genqlient(for: "AgentTaskRequirementsInput.modelGroupIn", omitempty: true)
+# @genqlient(for: "AgentTaskRequirementsInput.modelGroupNotIn", omitempty: true)
+# Keep legacy role:null for ordinary requirements, but omit role entirely
+# when a role set is supplied: the two selector keys never coexist.
+# @genqlient(for: "AgentTaskRequirementsInput.role", omitempty: true, bind: "encoding/json.RawMessage")
 mutation AgentTaskCreate(
   $input: CreateAgentTaskInput!
 ) {
@@ -118,6 +178,16 @@ mutation AgentTaskFinish(
   }
 }
 
+# @genqlient(for: "AgentTaskHandBackInput.text", omitempty: true)
+mutation AgentTaskHandBack(
+  $taskRef: ID!
+  $reason: AgentTaskHandBackInput!
+) {
+  handBackAgentTask(taskRef: $taskRef, reason: $reason) {
+    ...AgentTaskFields
+  }
+}
+
 mutation AgentTaskCancel($taskId: ID!) {
   cancelAgentTask(taskId: $taskId) {
     ...AgentTaskFields
@@ -143,8 +213,60 @@ mutation AgentTaskReady($taskId: ID!) {
   }
 }
 
-query AgentTaskGet($id: ID!) {
+# cli#1565: `task get` also reads the clone links (server#2646, cor:agt:050:02):
+# clonedFrom and one page of clones (limit/offset). They sit in THIS document,
+# not the shared AgentTaskFields projection, so only `get` needs a provider that
+# has them.
+query AgentTaskGet($id: ID!, $clonesLimit: Int!, $clonesOffset: Int!) {
   agentTask(id: $id) {
+    ...AgentTaskFields
+    clonedFrom { ...AgentTaskDependencyFields }
+    clones(limit: $clonesLimit, offset: $clonesOffset) { total hasMore items { ...AgentTaskDependencyFields } }
+  }
+}
+
+# cli#1565 (server#2646, cor:agt:050:02): make a new task from an existing one.
+# Every override is optional and omitted unless a flag names it: an omitted
+# field keeps the source's value (or stays unset), so a nil pointer must not
+# be sent as null. parentTaskId is three-state — omitted keeps the source's
+# parent, a task id names another, an explicit null means none — so it is a
+# RawMessage (nil omitted, `null` sent as null, a JSON string for an id).
+# @genqlient(for: "CloneAgentTaskInput.assignee", omitempty: true)
+# @genqlient(for: "CloneAgentTaskInput.closeSessionWhenDone", omitempty: true)
+# @genqlient(for: "CloneAgentTaskInput.description", omitempty: true)
+# @genqlient(for: "CloneAgentTaskInput.finishBy", omitempty: true)
+# @genqlient(for: "CloneAgentTaskInput.owner", omitempty: true)
+# @genqlient(for: "CloneAgentTaskInput.parentTaskId", omitempty: true, bind: "encoding/json.RawMessage")
+# @genqlient(for: "CloneAgentTaskInput.priority", omitempty: true)
+# @genqlient(for: "CloneAgentTaskInput.project", omitempty: true)
+# @genqlient(for: "CloneAgentTaskInput.properties", omitempty: true)
+# @genqlient(for: "CloneAgentTaskInput.references", omitempty: true)
+# @genqlient(for: "CloneAgentTaskInput.requirements", omitempty: true)
+# @genqlient(for: "CloneAgentTaskInput.source", omitempty: true)
+# @genqlient(for: "CloneAgentTaskInput.startBy", omitempty: true)
+# @genqlient(for: "CloneAgentTaskInput.status", omitempty: true)
+# @genqlient(for: "CloneAgentTaskInput.tags", omitempty: true)
+# @genqlient(for: "CloneAgentTaskInput.title", omitempty: true)
+mutation AgentTaskClone(
+  $taskId: ID!
+  $input: CloneAgentTaskInput!
+) {
+  cloneAgentTask(taskId: $taskId, input: $input) {
+    ...AgentTaskFields
+  }
+}
+
+# cli#1565 (server#2653, cor:agt:050:06): create 1-25 tasks in one call, all or
+# none. Not idempotent: the command sends it exactly once and never retries.
+# cli#1567: $distinctAssignees is the call-level option (server#3243, merged
+# 74454999); omitempty so an unset flag sends no key at all (absent, not null).
+mutation AgentTaskCreateBatch(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $distinctAssignees: Boolean
+  $tasks: [CreateAgentTasksItemInput!]!
+) {
+  createAgentTasks(appRef: $appRef, distinctAssignees: $distinctAssignees, tasks: $tasks) {
     ...AgentTaskFields
   }
 }
@@ -183,6 +305,47 @@ query AgentTaskList(
     rootsOnly: $rootsOnly
     status: $status
     tag: $tag
+  ) {
+    ...AgentTaskFields
+  }
+}
+
+# Explicit text search only: keep the legacy document valid on older servers.
+query AgentTaskListText(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $assignee: AgentTaskPartyInput
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+  # @genqlient(omitempty: true)
+  $owner: AgentTaskPartyInput
+  # @genqlient(omitempty: true)
+  $parentTaskId: ID
+  # @genqlient(omitempty: true)
+  $queued: Boolean
+  # @genqlient(omitempty: true)
+  $rootsOnly: Boolean
+  # @genqlient(omitempty: true)
+  $status: [AgentTaskStatus!]
+  # @genqlient(omitempty: true)
+  $tag: String
+  # @genqlient(omitempty: true)
+  $text: String
+) {
+  agentTasks(
+    appRef: $appRef
+    assignee: $assignee
+    limit: $limit
+    offset: $offset
+    owner: $owner
+    parentTaskId: $parentTaskId
+    queued: $queued
+    rootsOnly: $rootsOnly
+    status: $status
+    tag: $tag
+    text: $text
   ) {
     ...AgentTaskFields
   }
@@ -278,6 +441,17 @@ query TeamRoster($appRef: ID!) {
       bound
       liveSession
       family
+      # Self-reported model and the server-derived coarse tier (hadron-server
+      # #2252 slice A/C). Advisory display only; never authorization.
+      model
+      modelReportedAt
+      tier
+      # cli#1485 S3 (hadron-server#3026, cor:agt:060:12): the live matching
+      # model-group names — advisory, never authorization. [] is a real answer
+      # (no model, or no group matches); null arrives ONLY with a field error at
+      # exactly teamRoster.workers[i].modelGroups, which the roster command
+      # tolerates and nothing else does (see api.RosterGroupAdvisories).
+      modelGroups
       freeForWork
       freeFamilies
       launchableFamilies
@@ -285,6 +459,11 @@ query TeamRoster($appRef: ID!) {
       unavailableReason
       unavailableUntil
       lastActiveAt
+      checkStatus { ...ChannelCheckFields }
+      # hadron-server#2771 / cli#1375: the worker's latest terminal report, null
+      # when never reported or masked on the working-state gate. An older server
+      # rejects it: the roster refuses as schema skew, like model/tier.
+      terminal { ...WorkerTerminalFields }
       lastAssignedAt
       pendingTasks
       startedTasks
@@ -296,6 +475,13 @@ query TeamRoster($appRef: ID!) {
         ...AgentTaskPartyFields
       }
       reportsToRetired
+      heldBy {
+        id
+        handle
+        urn
+        name
+      }
+      heldAt
     }
   }
 }
@@ -370,8 +556,10 @@ mutation ModelFamilyAvailabilitySet($input: SetModelFamilyAvailabilityInput!) {
 }
 
 # An App's stall schedule (#864 over server #1706/#1707, #1863): the four
-# stall windows (cor:agt:050:14–:17) and the host-registration lapse count
-# (cor:agt:070:01). `team stall-schedule get` and `set` render it.
+# stall windows (cor:agt:050:14–:17), the host-registration lapse count
+# (cor:agt:070:01), and (#983) the session-end grace (cor:agt:050:10) and
+# host report timeout (cor:agt:070:02). `team stall-schedule get` and `set`
+# render it.
 fragment AgentTaskStallScheduleFields on AgentTaskStallSchedule {
   appId
   assignmentMinutes
@@ -379,6 +567,8 @@ fragment AgentTaskStallScheduleFields on AgentTaskStallSchedule {
   noProgressMinutes
   ownerReactionMinutes
   hostLapseCheckIns
+  sessionEndGraceMinutes
+  hostReportTimeoutMinutes
   updatedAt
 }
 
@@ -393,5 +583,362 @@ query TeamStallSchedule($appRef: ID!) {
 mutation TeamStallScheduleSet($appRef: ID!, $input: AgentTaskStallScheduleInput!) {
   setAgentTaskStallSchedule(appRef: $appRef, input: $input) {
     ...AgentTaskStallScheduleFields
+  }
+}
+
+# The roster's reporting lines only: `task list --team` (#1044) joins on
+# these and nothing else, so it does not inherit the full roster's newer
+# fields (and their schema skew on an older server).
+query TeamReportingLines($appRef: ID!) {
+  teamRoster(appRef: $appRef) {
+    appId
+    workers {
+      worker {
+        ...AgentTaskPartyFields
+      }
+      reportsTo {
+        ...AgentTaskPartyFields
+      }
+    }
+  }
+}
+
+# #1135, merged server#2726 at cf9bcfece: all task refs are passed to the server.
+mutation AgentTaskSetPriority($taskRef: ID!, $priority: Int!) {
+  setAgentTaskPriority(taskRef: $taskRef, priority: $priority) { ...AgentTaskFields }
+}
+mutation AgentTaskAddBlocker($taskRef: ID!, $blockerTaskRef: ID!) {
+  addAgentTaskBlocker(taskRef: $taskRef, blockerTaskRef: $blockerTaskRef) { ...AgentTaskFields }
+}
+mutation AgentTaskRemoveBlocker($taskRef: ID!, $blockerTaskRef: ID!) {
+  removeAgentTaskBlocker(taskRef: $taskRef, blockerTaskRef: $blockerTaskRef) { ...AgentTaskFields }
+}
+query AgentTaskDependencies($taskRef: ID!, $limit: Int!, $offset: Int!) {
+  agentTask(id: $taskRef) {
+    id
+    blockedBy(limit: $limit, offset: $offset) { total hasMore items { ...AgentTaskDependencyFields } }
+    blocks(limit: $limit, offset: $offset) { total hasMore items { ...AgentTaskDependencyFields } }
+  }
+}
+
+# Server-side narrowing beyond `AgentTaskListText` (tag sets, source, overdue,
+# date ranges). A separate document so a list with none of these flags keeps
+# sending the legacy request byte for byte. $overdue is a pointer: an explicit
+# false is sent, only nil is omitted.
+# @genqlient(for: "AgentTaskReferenceFilter.kind", omitempty: true)
+query AgentTaskListFiltered(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $assignee: AgentTaskPartyInput
+  # @genqlient(omitempty: true)
+  $createdAfter: DateTime
+  # @genqlient(omitempty: true)
+  $createdBefore: DateTime
+  # @genqlient(omitempty: true)
+  $finishedAfter: DateTime
+  # @genqlient(omitempty: true)
+  $finishedBefore: DateTime
+  # @genqlient(omitempty: true)
+  $matchFailed: Boolean
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+  # @genqlient(omitempty: true)
+  $overdue: Boolean
+  # @genqlient(omitempty: true)
+  $owner: AgentTaskPartyInput
+  # @genqlient(omitempty: true)
+  $parentTaskId: ID
+  # @genqlient(omitempty: true)
+  $queued: Boolean
+  # @genqlient(omitempty: true)
+  $rootsOnly: Boolean
+  # @genqlient(omitempty: true)
+  $reference: AgentTaskReferenceFilter
+  # @genqlient(omitempty: true)
+  $source: String
+  # cli#1524 C1 (V46): the exact externalId, how a caller finds the holder after TASK_EXTERNAL_ID_TAKEN.
+  # @genqlient(omitempty: true)
+  $externalId: String
+  # @genqlient(omitempty: true)
+  $startedAfter: DateTime
+  # @genqlient(omitempty: true)
+  $startedBefore: DateTime
+  # @genqlient(omitempty: true)
+  $status: [AgentTaskStatus!]
+  # @genqlient(omitempty: true)
+  $tag: String
+  # @genqlient(omitempty: true)
+  $tagsAll: [String!]
+  # @genqlient(omitempty: true)
+  $tagsAny: [String!]
+  # @genqlient(omitempty: true)
+  $text: String
+) {
+  agentTasks(
+    appRef: $appRef
+    assignee: $assignee
+    createdAfter: $createdAfter
+    createdBefore: $createdBefore
+    finishedAfter: $finishedAfter
+    finishedBefore: $finishedBefore
+    matchFailed: $matchFailed
+    limit: $limit
+    offset: $offset
+    overdue: $overdue
+    owner: $owner
+    parentTaskId: $parentTaskId
+    queued: $queued
+    reference: $reference
+    rootsOnly: $rootsOnly
+    source: $source
+    externalId: $externalId
+    startedAfter: $startedAfter
+    startedBefore: $startedBefore
+    status: $status
+    tag: $tag
+    tagsAll: $tagsAll
+    tagsAny: $tagsAny
+    text: $text
+  ) {
+    ...AgentTaskFields
+  }
+}
+
+# cli#1137 (server#2645, cor:agt:050:09) — edit a task's descriptive fields.
+# The server reads `input` as a STRICT PATCH: a key that is present is applied
+# and a present null CLEARS, a key that is absent is left alone. A nil pointer
+# would therefore never express "clear", and a plain omitempty slice would drop
+# an empty list. Every field is omitempty, and the nullable patch fields are
+# json.RawMessage: nil is omitted, `null` is sent as null, anything else is the
+# value (the UpdateApp description idiom). title and closeSessionWhenDone have
+# no null-clear (an empty title is refused; null would mean false), so they stay
+# pointers, where a pointer to false is still sent.
+# @genqlient(for: "UpdateAgentTaskInput.title", omitempty: true)
+# @genqlient(for: "UpdateAgentTaskInput.closeSessionWhenDone", omitempty: true)
+# @genqlient(for: "UpdateAgentTaskInput.description", omitempty: true, bind: "encoding/json.RawMessage")
+# @genqlient(for: "UpdateAgentTaskInput.tags", omitempty: true, bind: "encoding/json.RawMessage")
+# @genqlient(for: "UpdateAgentTaskInput.requirements", omitempty: true, bind: "encoding/json.RawMessage")
+# @genqlient(for: "UpdateAgentTaskInput.startBy", omitempty: true, bind: "encoding/json.RawMessage")
+# cli#1514: nil is omitted, a timestamp sets, and RawMessage("null") clears.
+# @genqlient(for: "UpdateAgentTaskInput.finishBy", omitempty: true, bind: "encoding/json.RawMessage")
+# #2649 references: a replace list or an explicit clear (null/[]); a plain omitempty slice would drop the empty list, so the clear needs RawMessage like tags.
+# @genqlient(for: "UpdateAgentTaskInput.references", omitempty: true, bind: "encoding/json.RawMessage")
+# #2420: nil = key omitted (unchanged), RawMessage("null") = explicit clear. The
+# global JSON binding is a slice, so without omitempty a nil value would be sent
+# as null and clear the task's properties on every unrelated update (#1331).
+# @genqlient(for: "UpdateAgentTaskInput.properties", omitempty: true, bind: "encoding/json.RawMessage")
+mutation AgentTaskUpdate(
+  $taskId: ID!
+  $input: UpdateAgentTaskInput!
+) {
+  updateAgentTask(taskId: $taskId, input: $input) {
+    ...AgentTaskFields
+  }
+}
+
+# cli#1524 C3 (hadron-server#3125 S3, cor:agt:120:03): one page of the open
+# outside items of a task integration that no task of the App claims. Every
+# optional argument is omitted unless its flag is given, so the server's
+# defaults and bounds apply (list limit 1-100, default 20).
+query UntrackedTaskItems(
+  $appRef: ID!
+  $integration: String!
+  # @genqlient(omitempty: true)
+  $team: ID
+  # @genqlient(omitempty: true)
+  $repository: String
+  # @genqlient(omitempty: true)
+  $ready: ReadyFilter
+  # @genqlient(omitempty: true)
+  $skip: Int
+  # @genqlient(omitempty: true)
+  $limit: Int
+) {
+  untrackedTaskItems(appRef: $appRef, integration: $integration, team: $team, repository: $repository, ready: $ready, skip: $skip, limit: $limit) {
+    items {
+      externalId
+      repository
+      number
+      title
+      url
+      labels
+      createdAt
+      updatedAt
+      linkedPullRequestMerged
+    }
+    total
+    complete
+    incompleteReason
+  }
+}
+
+# cli#1524 C3: claim up to limit (1-10, server default 1) of those items as
+# STARTED root tasks assigned to the caller. No skip: a claim walks the list
+# from its start. A mid-walk refusal comes back beside the claims already made
+# (incompleteReason claim_refused, refusalCode), not thrown.
+mutation ClaimUntrackedTaskItems(
+  $appRef: ID!
+  $integration: String!
+  # @genqlient(omitempty: true)
+  $team: ID
+  # @genqlient(omitempty: true)
+  $repository: String
+  # @genqlient(omitempty: true)
+  $ready: ReadyFilter
+  # @genqlient(omitempty: true)
+  $limit: Int
+) {
+  claimUntrackedTaskItems(appRef: $appRef, integration: $integration, team: $team, repository: $repository, ready: $ready, limit: $limit) {
+    tasks { ...AgentTaskFields }
+    complete
+    incompleteReason
+    refusalCode
+  }
+}
+
+
+# cli#1596 (hadron-server#3132 S4, cor:agt:120:03): the same claim naming
+# its parties. A SEPARATE document so the no-flag claim above stays the old
+# document byte for byte and an older server keeps validating it; this one
+# needs a server with the assignee/owner arguments. Only an App's own key may
+# name parties (it must name both); a person or worker naming one gets the
+# server's BAD_USER_INPUT. Each party is sent as given, never resolved here.
+mutation ClaimUntrackedTaskItemsForParties(
+  $appRef: ID!
+  $integration: String!
+  # @genqlient(omitempty: true)
+  $team: ID
+  # @genqlient(omitempty: true)
+  $repository: String
+  # @genqlient(omitempty: true)
+  $ready: ReadyFilter
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $assignee: AgentTaskPartyInput
+  # @genqlient(omitempty: true)
+  $owner: AgentTaskPartyInput
+) {
+  claimUntrackedTaskItems(appRef: $appRef, integration: $integration, team: $team, repository: $repository, ready: $ready, limit: $limit, assignee: $assignee, owner: $owner) {
+    tasks { ...AgentTaskFields }
+    complete
+    incompleteReason
+    refusalCode
+  }
+}
+
+# Separate document preserves existing plain and filtered list provider floors.
+query AgentTaskListUnresolved(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $unresolvedFindings: Boolean
+  # @genqlient(omitempty: true)
+  $assignee: AgentTaskPartyInput
+  # @genqlient(omitempty: true)
+  $createdAfter: DateTime
+  # @genqlient(omitempty: true)
+  $createdBefore: DateTime
+  # @genqlient(omitempty: true)
+  $finishedAfter: DateTime
+  # @genqlient(omitempty: true)
+  $finishedBefore: DateTime
+  # @genqlient(omitempty: true)
+  $matchFailed: Boolean
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+  # @genqlient(omitempty: true)
+  $overdue: Boolean
+  # @genqlient(omitempty: true)
+  $owner: AgentTaskPartyInput
+  # @genqlient(omitempty: true)
+  $parentTaskId: ID
+  # @genqlient(omitempty: true)
+  $queued: Boolean
+  # @genqlient(omitempty: true)
+  $rootsOnly: Boolean
+  # @genqlient(omitempty: true)
+  $reference: AgentTaskReferenceFilter
+  # @genqlient(omitempty: true)
+  $source: String
+  # cli#1524 C1 (V46): the exact externalId, how a caller finds the holder after TASK_EXTERNAL_ID_TAKEN.
+  # @genqlient(omitempty: true)
+  $externalId: String
+  # @genqlient(omitempty: true)
+  $startedAfter: DateTime
+  # @genqlient(omitempty: true)
+  $startedBefore: DateTime
+  # @genqlient(omitempty: true)
+  $status: [AgentTaskStatus!]
+  # @genqlient(omitempty: true)
+  $tag: String
+  # @genqlient(omitempty: true)
+  $tagsAll: [String!]
+  # @genqlient(omitempty: true)
+  $tagsAny: [String!]
+  # @genqlient(omitempty: true)
+  $text: String
+) {
+  agentTasks(
+    appRef: $appRef
+    unresolvedFindings: $unresolvedFindings
+    assignee: $assignee
+    createdAfter: $createdAfter
+    createdBefore: $createdBefore
+    finishedAfter: $finishedAfter
+    finishedBefore: $finishedBefore
+    matchFailed: $matchFailed
+    limit: $limit
+    offset: $offset
+    overdue: $overdue
+    owner: $owner
+    parentTaskId: $parentTaskId
+    queued: $queued
+    reference: $reference
+    rootsOnly: $rootsOnly
+    source: $source
+    externalId: $externalId
+    startedAfter: $startedAfter
+    startedBefore: $startedBefore
+    status: $status
+    tag: $tag
+    tagsAll: $tagsAll
+    tagsAny: $tagsAny
+    text: $text
+  ) {
+    ...AgentTaskFields
+  }
+}
+
+fragment TaskFindingDispositionFields on AgentTaskFindingDisposition {
+  findingId
+  disposition
+  reference { kind target label }
+}
+query AgentTaskFindingDispositions($taskRef: ID!, $limit: Int!, $offset: Int!) {
+  agentTask(id: $taskRef) {
+    findingDispositions(limit: $limit, offset: $offset) {
+      items { ...TaskFindingDispositionFields }
+      total
+      hasMore
+    }
+  }
+}
+mutation AgentTaskDisposeFinding(
+  $taskRef: ID!
+  $findingId: String!
+  $disposition: AgentTaskFindingDispositionCode!
+  # @genqlient(omitempty: true)
+  $reference: AgentTaskReferenceInput
+) {
+  disposeAgentTaskFinding(taskRef: $taskRef, findingId: $findingId, disposition: $disposition, reference: $reference) {
+    id
+    # Findings are capped at 100 per task; this reads the full latest disposition set.
+    findingDispositions(limit: 200, offset: 0) {
+      items { ...TaskFindingDispositionFields }
+    }
   }
 }

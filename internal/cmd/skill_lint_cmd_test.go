@@ -45,14 +45,35 @@ func listOf(ids ...string) string {
 	return `{"data":{"nodes":[` + strings.Join(rows, ",") + `]}}`
 }
 
+const emptyIncludeLintPlan = `{"data":{"skillPlan":{"scanned":0,"judged":0,"entries":[],"orphans":[]}}}`
+
+// runSkillLint runs `skill lint` against a fake server answering responses.
+// It never writes into the caller's map (a fixture shared across calls must
+// stay as written): the lint-only default is applied to a copy.
 func runSkillLint(t *testing.T, responses map[string]string, args ...string) (string, error) {
 	t.Helper()
-	gql, _ := captureGraphQL(t, responses)
+	gql, _ := captureGraphQL(t, withEmptyIncludePlanIfOmitted(responses))
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs(append([]string{"skill", "lint", "--server", gql.URL}, args...))
 	err := root.Execute()
 	return out.String(), err
+}
+
+// withEmptyIncludePlanIfOmitted returns a copy of responses with an explicit
+// empty S11d include plan injected when the fixture names no SkillPlan. Existing
+// corpus-rule tests have no include findings; new C5 tests supply their own
+// plan. This is deliberately narrow: it is not a generic fake-server fallback,
+// and any other missing operation still fails.
+func withEmptyIncludePlanIfOmitted(responses map[string]string) map[string]string {
+	out := make(map[string]string, len(responses)+1)
+	for k, v := range responses {
+		out[k] = v
+	}
+	if _, ok := out["SkillPlan"]; !ok {
+		out["SkillPlan"] = emptyIncludeLintPlan
+	}
+	return out
 }
 
 func findingRules(t *testing.T, out string) map[string]string {
@@ -247,8 +268,10 @@ func TestSkillLintAllLintsAPublicOnlyMemory(t *testing.T) {
 		case "MemoriesSharedWithMe":
 			resp = `{"data":{"memories":{"total":0,"items":[]}}}`
 		case "FindNodes":
-			resp = translateFindNodes("FindNodes", `{"data":{"nodes":[{"id":"01a0a5ba59a377d2a01a8ea32ae98195","memoryId":"mempub","loc":"tasks:rotate","name":"rotate","nodeType":"task","tags":[],"isRunnable":true,"updatedAt":"2026-06-11T00:00:00Z"}]}}`)
-		case "NodeBatch":
+			resp = translateFindNodesAt(offsetOfVars(body.Variables), "FindNodes", `{"data":{"nodes":[{"id":"01a0a5ba59a377d2a01a8ea32ae98195","memoryId":"mempub","loc":"tasks:rotate","name":"rotate","nodeType":"task","tags":[],"isRunnable":true,"updatedAt":"2026-06-11T00:00:00Z"}]}}`)
+		case "SkillPlan":
+			resp = emptyIncludeLintPlan
+		case "NodeBatchContent":
 			resp = batchOf(node)
 		default:
 			t.Errorf("unexpected operation %q", body.OperationName)
@@ -339,7 +362,7 @@ func TestSkillLintOneNodeInTwoSpellingsLintsOnce(t *testing.T) {
 	// with itself.
 	good := skillNode(nodeID, "mem1", "hrn:node:hadronmemory.com:core:tasks:a", "tasks:a", true,
 		`{"exports":{"claudeSkill":{"name":"hadron-a","description":"Use when a.","enable":true}}}`, `"# A"`)
-	gql, _ := captureGraphQL(t, map[string]string{"GetMemory": skillMemOrg, "NodeBatch": batchOf(good, good)})
+	gql, _ := captureGraphQL(t, map[string]string{"SkillPlan": emptyIncludeLintPlan, "GetMemory": skillMemOrg, "NodeBatch": batchOf(good, good)})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"skill", "lint", "--node", nodeID, "--node", "hrn:node:hadronmemory.com:core:tasks:a", "--json", "--server", gql.URL})
@@ -356,15 +379,15 @@ func TestSkillLintRepeatedNodeRefLintsOnce(t *testing.T) {
 	// LintCollisions reports a node colliding with itself.
 	good := skillNode(nodeID, "mem1", "hrn:node:hadronmemory.com:core:tasks:a", "tasks:a", true,
 		`{"exports":{"claudeSkill":{"name":"hadron-a","description":"Use when a.","enable":true}}}`, `"# A"`)
-	gql, captured := captureGraphQL(t, map[string]string{"GetMemory": skillMemOrg, "NodeBatch": batchOf(good)})
+	gql, captured := captureGraphQL(t, map[string]string{"SkillPlan": emptyIncludeLintPlan, "GetMemory": skillMemOrg, "NodeBatch": batchOf(good)})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"skill", "lint", "--node", nodeID, "--node", nodeID, "--json", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("repeated ref: %v\n%s", err, out.String())
 	}
-	if strings.Count(string(captured["NodeBatch"]), `"`+nodeID+`"`) != 1 {
-		t.Errorf("repeated ref sent more than once: %s", captured["NodeBatch"])
+	if strings.Count(string(captured["NodeBatchContent"]), `"`+nodeID+`"`) != 1 {
+		t.Errorf("repeated ref sent more than once: %s", captured["NodeBatchContent"])
 	}
 	if strings.TrimSpace(out.String()) != "[]" {
 		t.Errorf("self-collision reported: %s", out.String())

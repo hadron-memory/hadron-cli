@@ -104,7 +104,7 @@ func TestTeamWorkerCast(t *testing.T) {
 	// Unset optionals are OMITTED, never null: no agent means the role picks
 	// it. teamAgentRef is not in the operation at all now (hadron-cli#496), so
 	// its presence would mean the removed argument came back.
-	for _, k := range []string{"agentRef", "teamAgentRef", "promptOverride"} {
+	for _, k := range []string{"agentRef", "teamAgentRef"} {
 		if _, present := vars[k]; present {
 			t.Errorf("unset %q must be omitted, got %v", k, vars[k])
 		}
@@ -129,14 +129,13 @@ func TestTeamWorkerCastExplicitNameAndBriefing(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "worker", "cast", "--app", "acme.com:eng-team",
 		"--agent", "hrn:agent:acme.com:backend", "--name", "Iris",
-		"--prompt-override", "You keep the release calm.", "--server", gql.URL})
+		"--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
 	_ = json.Unmarshal(captured["CastWorker"], &vars)
-	if vars["agentRef"] != "hrn:agent:acme.com:backend" || vars["name"] != "Iris" ||
-		vars["promptOverride"] != "You keep the release calm." {
+	if vars["agentRef"] != "hrn:agent:acme.com:backend" || vars["name"] != "Iris" {
 		t.Errorf("cast vars: %v", vars)
 	}
 	if !strings.Contains(out.String(), "You are Iris.") {
@@ -170,6 +169,9 @@ func TestTeamWorkerCastServerRefusals(t *testing.T) {
 		{"agent not installed",
 			`{"errors":[{"message":"agent is not installed in this App","extensions":{"code":"WORKER_AGENT_NOT_INSTALLED"}}]}`,
 			exitcode.Usage, "not installed"},
+		{"role override refused",
+			`{"errors":[{"message":"agent backend casts as \"backend-engineer\", not \"qa\" - the role follows the agent","extensions":{"code":"WORKER_ROLE_OVERRIDE_REFUSED"}}]}`,
+			exitcode.Usage, "backend-engineer"},
 		{"agent not found",
 			`{"errors":[{"message":"no installed agent carries persona role \"backend\"","extensions":{"code":"WORKER_AGENT_NOT_FOUND"}}]}`,
 			exitcode.NotFound, "backend"},
@@ -208,6 +210,81 @@ func TestTeamWorkerCastRequiresRoleOrAgent(t *testing.T) {
 	}
 	if _, called := captured["CastWorker"]; called {
 		t.Error("an unanswerable cast must not reach the mutation")
+	}
+}
+
+// R222 (cor:dmo:050:11, hadron-cli#1087): the role follows the agent and is
+// never typed in beside it, so --role and --agent are mutually exclusive. The
+// refusal is local and names the remedy; no request is sent, dry-run included.
+func TestTeamWorkerCastRoleAndAgentAreExclusive(t *testing.T) {
+	for _, extra := range [][]string{nil, {"--dry-run"}} {
+		gql, captured := captureGraphQL(t, map[string]string{})
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		args := append([]string{"team", "worker", "cast", "--app", "a:t", "--role", "backend",
+			"--agent", "hrn:agent:acme.com:backend", "--name", "Iris", "--server", gql.URL}, extra...)
+		root.SetArgs(args)
+		err := root.Execute()
+		if code := exitCodeFor(err); code != exitcode.Usage {
+			t.Errorf("%v: exit code = %d, want Usage; err: %v", extra, code, err)
+		}
+		if err == nil || !strings.Contains(err.Error(), "--role") || !strings.Contains(err.Error(), "--agent") {
+			t.Errorf("%v: the refusal must name both flags: %v", extra, err)
+		}
+		if len(captured) != 0 {
+			t.Errorf("%v: no request may be sent, got %v", extra, captured)
+		}
+	}
+}
+
+// --role alone and --agent alone keep working (acceptance, cli#1087).
+func TestTeamWorkerCastSingleSelectorsStillCast(t *testing.T) {
+	for _, sel := range [][]string{{"--role", "backend-engineer"}, {"--agent", "hrn:agent:acme.com:backend"}} {
+		gql, captured := captureGraphQL(t, map[string]string{
+			"CastWorker": `{"data":{"castWorker":` + irisWorkerJSON + `}}`,
+			"TeamRoles":  teamRolesJSON,
+		})
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append([]string{"team", "worker", "cast", "--app", "acme.com:eng-team", "--name", "Iris", "--server", gql.URL}, sel...))
+		if err := root.Execute(); err != nil {
+			t.Fatalf("%v: execute: %v", sel, err)
+		}
+		raw, ok := captured["CastWorker"]
+		if !ok {
+			t.Fatalf("%v: the cast must reach the server", sel)
+		}
+		// The supplied selector is what was sent, and the other is OMITTED
+		// (omitempty), not sent as null — null would mean "clear" on the wire.
+		var vars map[string]any
+		if err := json.Unmarshal(raw, &vars); err != nil {
+			t.Fatalf("%v: decode request: %v", sel, err)
+		}
+		sent, other := "role", "agentRef"
+		if sel[0] == "--agent" {
+			sent, other = other, sent
+		}
+		if vars[sent] != sel[1] {
+			t.Errorf("%v: %s = %v, want %q", sel, sent, vars[sent], sel[1])
+		}
+		if v, present := vars[other]; present {
+			t.Errorf("%v: %s must be omitted, got %v", sel, other, v)
+		}
+	}
+}
+
+// The help no longer teaches --role as a label beside --agent.
+func TestTeamWorkerCastHelpDropsRoleLabel(t *testing.T) {
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "worker", "cast", "--help"})
+	_ = root.Execute()
+	help := out.String()
+	if strings.Contains(help, "just the casting's label") || strings.Contains(help, "just a label") {
+		t.Errorf("--role is no longer a label beside --agent:\n%s", help)
+	}
+	if !strings.Contains(help, "cannot be combined") && !strings.Contains(help, "mutually exclusive") {
+		t.Errorf("the help must state that --role and --agent are exclusive:\n%s", help)
 	}
 }
 
@@ -431,7 +508,7 @@ func TestTeamWorkerListOmitsThePromptButGetKeepsIt(t *testing.T) {
 	// Everything else a roster reader needs survives, promptOverride included:
 	// it is the short per-worker individuality, not the composed briefing.
 	for _, k := range []string{"id", "urn", "slug", "appId", "agentId", "name", "role",
-		"promptOverride", "memoryId", "retiredAt", "retiredBy", "createdAt", "createdBy", "retired"} {
+		"memoryId", "retiredAt", "retiredBy", "createdAt", "createdBy", "retired"} {
 		if _, ok := rows[0][k]; !ok {
 			t.Errorf("roster key %q must survive the trim: %s", k, out.String())
 		}
@@ -603,7 +680,7 @@ func TestTeamWorkerGetTolueratesNullURN(t *testing.T) {
 func TestTeamWorkerGetNamesTheApp(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
-		"GetWorker":       `{"data":{"worker":` + irisWorkerJSON + `}}`,
+		"GetWorker":       `{"data":{"worker":` + withLiveness(irisWorkerJSON, "false") + `}}`,
 		"TeamAppIdentity": teamAppIdentityJSON,
 	})
 	f, out := testFactory(t)
@@ -861,14 +938,14 @@ func TestTeamRoleList(t *testing.T) {
 		}
 	}
 
-	// Human table, and the nameless-template warning that survived.
+	// Human table, without the retired S12 name-placeholder advice.
 	f2, out2 := testFactory(t)
 	root2 := NewRootCmd(f2)
 	root2.SetArgs([]string{"team", "role", "list", "--app", "acme.com:eng-team", "--server", gql.URL})
 	if err := root2.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	for _, want := range []string{"ROLE", "backend-engineer", "never binds {{name}}"} {
+	for _, want := range []string{"ROLE", "backend-engineer"} {
 		if !strings.Contains(out2.String(), want) {
 			t.Errorf("table must carry %q: %s", want, out2.String())
 		}
@@ -1199,7 +1276,7 @@ func TestTeamWorkerCastDryRun(t *testing.T) {
 		t.Errorf("preview vars: %v", vars)
 	}
 	// teamAgentRef is not in the operation at all now (hadron-cli#496).
-	for _, k := range []string{"agentRef", "teamAgentRef", "promptOverride"} {
+	for _, k := range []string{"agentRef", "teamAgentRef"} {
 		if _, present := vars[k]; present {
 			t.Errorf("unset %q must be omitted, got %v", k, vars[k])
 		}
@@ -1238,7 +1315,7 @@ func TestTeamWorkerCastDryRun(t *testing.T) {
 	if dto.Name != "Joe" || dto.AgentID != "agt1" ||
 		dto.Role == nil || *dto.Role != "backend-engineer" ||
 		dto.Prompt == nil || *dto.Prompt != "You are Joe." ||
-		dto.HasNamePlaceholder == nil || !*dto.HasNamePlaceholder {
+		dto.HasNamePlaceholder != nil {
 		t.Errorf("preview --json contract: %s", out2.String())
 	}
 	if dto.Reserved {
@@ -1474,7 +1551,7 @@ func TestTeamSessionStartWritesBinding(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"Workers":          freeStaffJSON,
 		"WorkersRoster":    freeStaffJSON,
-		"TeamSessions":     `{"data":{"sessions":[` + endedSessionJSON + `]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + endedSessionJSON + `]}}}`,
 		"TeamMemoryApp":    `{"data":{"memory":{"id":"m1","appId":"capp100000000000000000000"}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 	})
@@ -1521,7 +1598,7 @@ func TestTeamSessionStartWritesBinding(t *testing.T) {
 	}
 	// The taken-check narrows server-side (#974): sessions(workerRef:).
 	var sessVars map[string]any
-	_ = json.Unmarshal(captured["TeamSessions"], &sessVars)
+	_ = json.Unmarshal(captured["TeamSessionsPage"], &sessVars)
 	if sessVars["workerRef"] != "wkr1" {
 		t.Errorf("the activity check must filter by workerRef: %v", sessVars)
 	}
@@ -1555,7 +1632,7 @@ func TestTeamSessionStartPrintsBriefing(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
 		"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`,
-		"TeamSessions":     `{"data":{"sessions":[]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 	})
 	f, out := testFactory(t)
@@ -1571,17 +1648,19 @@ func TestTeamSessionStartPrintsBriefing(t *testing.T) {
 
 // The NAME path's briefing, pinned separately from the id path's (#459).
 //
-// `--as wkr1` resolves through GetWorker; `--as Iris` resolves through the
-// shared Workers scan, which is the projection `worker list` stopped using.
-// Trimming `prompt` from THAT scan — the obvious next "optimisation" — would
-// leave a bound session with no briefing and nothing failing, so the two paths
-// need separate assertions. Ada's issue named this as a done-criterion: the
-// session-start briefing path must be unaffected.
+// `--as wkr1` resolves through GetWorker; `--as Iris` resolves through ONE
+// worker(appRef:, ref:) read (GetWorkerInApp, cli#1459; answered here from
+// staffJSON by workerFromStaff). That read must carry the briefing: trimming
+// `prompt` from it would leave a bound session with no briefing and nothing
+// else failing, so the two paths need separate assertions. Ada's issue named
+// this as a done-criterion: the session-start briefing path must be
+// unaffected. TestSessionStartByNameKeepsBriefing1459 pins it with a fake that
+// serves a prompt only to a document that selects one.
 func TestTeamSessionStartByNameStillPrintsBriefing(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
 		"Workers":          staffJSON,
-		"TeamSessions":     `{"data":{"sessions":[]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 	})
 	f, out := testFactory(t)
@@ -1594,12 +1673,14 @@ func TestTeamSessionStartByNameStillPrintsBriefing(t *testing.T) {
 	if !strings.Contains(out.String(), "You are Iris.") {
 		t.Errorf("a name-resolved start must still print the briefing: %s", out.String())
 	}
-	// It came from the prompt-BEARING scan, not the roster one.
-	if _, roster := captured["WorkersRoster"]; roster {
-		t.Error("session start must not resolve through the roster projection — it needs the prompt")
+	// It came from the one prompt-BEARING name read, not from any list.
+	for _, list := range []string{"WorkersRoster", "Workers"} {
+		if _, sent := captured[list]; sent {
+			t.Errorf("session start must not page the staff (%s) to resolve one name", list)
+		}
 	}
-	if _, full := captured["Workers"]; !full {
-		t.Error("session start resolves through the prompt-bearing Workers scan")
+	if _, full := captured["GetWorkerInApp"]; !full {
+		t.Error("session start resolves the name through the prompt-bearing GetWorkerInApp read")
 	}
 }
 
@@ -1610,7 +1691,7 @@ func TestTeamSessionStartWithoutMemoryIsQuiet(t *testing.T) {
 	dir := teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
 		"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`,
-		"TeamSessions":     `{"data":{"sessions":[]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 	})
 	f, _ := testFactory(t)
@@ -1637,7 +1718,7 @@ func TestTeamSessionStartWithMemoryIsQuiet(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"Workers":          staffJSON,
 		"WorkersRoster":    staffJSON,
-		"TeamSessions":     `{"data":{"sessions":[]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 		"TeamMemoryApp":    `{"data":{"memory":{"id":"m1","appId":"app-1"}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 	})
@@ -1680,8 +1761,8 @@ func TestTeamSessionStartOccupiedNeedsForce(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		// LIVE, said explicitly: the refusal keys on derived liveness (#550),
 		// and the bare fixture would be a MASKED row, which now defers.
-		"GetWorker":    `{"data":{"worker":` + withLiveness(irisWorkerJSON, "true") + `}}`,
-		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
+		"GetWorker":        `{"data":{"worker":` + withLiveness(irisWorkerJSON, "true") + `}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -1707,7 +1788,7 @@ func TestTeamSessionStartForceTakesOver(t *testing.T) {
 		// below, and since #550 it claims it from liveness rather than from an
 		// open session row.
 		"GetWorker":        `{"data":{"worker":` + withLiveness(irisWorkerJSON, "true") + `}}`,
-		"TeamSessions":     `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 	})
 	f, out := testFactory(t)
@@ -1741,8 +1822,8 @@ func TestTeamSessionStartForceTakesOver(t *testing.T) {
 func TestTeamSessionStartRacedTakenSurfacesForce(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
-		"GetWorker":    `{"data":{"worker":` + irisWorkerJSON + `}}`,
-		"TeamSessions": `{"data":{"sessions":[]}}`,
+		"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 		"StartTeamSession": `{"errors":[{"message":"This worker is taken.",
 			"extensions":{"code":"WORKER_TAKEN","workerId":"wkr1","sessionId":"s-race",
 			"lastDriver":"u-rufus","lastSeenAt":"2026-08-15T09:00:00Z"}}]}`,
@@ -1763,8 +1844,8 @@ func TestTeamSessionStartRacedTakenSurfacesForce(t *testing.T) {
 	// A null lastDriver (unattributed session) must not render as an empty
 	// hole — the payload's absent fields degrade to honest placeholders.
 	gql2, _ := captureGraphQL(t, map[string]string{
-		"GetWorker":    `{"data":{"worker":` + irisWorkerJSON + `}}`,
-		"TeamSessions": `{"data":{"sessions":[]}}`,
+		"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 		"StartTeamSession": `{"errors":[{"message":"This worker is taken.",
 			"extensions":{"code":"WORKER_TAKEN","workerId":"wkr1","sessionId":"s-race",
 			"lastDriver":null,"lastSeenAt":"2026-08-15T09:00:00Z"}}]}`,
@@ -2145,8 +2226,8 @@ func TestTeamSessionWhoamiFallsBackToTheServer(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
 		"AuthContext": whoamiAuthJSON,
-		"TeamSessions": `{"data":{"sessions":[` +
-			whoamiSession("s-mine", "wkr1", "u-me", "Jonas", false) + `]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` +
+			whoamiSession("s-mine", "wkr1", "u-me", "Jonas", false) + `]}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -2192,8 +2273,8 @@ func TestTeamSessionWhoamiFallbackExcludesWhatIsNotYours(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			teamGitDir(t)
 			gql, _ := captureGraphQL(t, map[string]string{
-				"AuthContext":  whoamiAuthJSON,
-				"TeamSessions": `{"data":{"sessions":[` + c.row + `]}}`,
+				"AuthContext":      whoamiAuthJSON,
+				"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + c.row + `]}}}`,
 			})
 			f, _ := testFactory(t)
 			root := NewRootCmd(f)
@@ -2214,9 +2295,9 @@ func TestTeamSessionWhoamiFallbackDoesNotGuessBetweenSeveral(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
 		"AuthContext": whoamiAuthJSON,
-		"TeamSessions": `{"data":{"sessions":[` +
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":2,"hasMore":false,"items":[` +
 			whoamiSession("s-a", "wkr1", "u-me", "Jonas", false) + `,` +
-			whoamiSession("s-b", "wkr2", "u-me", "Vera", false) + `]}}`,
+			whoamiSession("s-b", "wkr2", "u-me", "Vera", false) + `]}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -2245,8 +2326,8 @@ func TestTeamSessionWhoamiFallbackDoesNotGuessBetweenSeveral(t *testing.T) {
 func TestTeamSessionWhoamiUnboundIsNotFound(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
-		"AuthContext":  whoamiAuthJSON,
-		"TeamSessions": `{"data":{"sessions":[]}}`,
+		"AuthContext":      whoamiAuthJSON,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -2275,8 +2356,8 @@ func TestTeamSessionWhoamiAnswersOutsideAnyWorktree(t *testing.T) {
 	t.Setenv("GIT_CEILING_DIRECTORIES", filepath.Dir(dir))
 	gql, _ := captureGraphQL(t, map[string]string{
 		"AuthContext": whoamiAuthJSON,
-		"TeamSessions": `{"data":{"sessions":[` +
-			whoamiSession("s-mine", "wkr1", "u-me", "Jonas", false) + `]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` +
+			whoamiSession("s-mine", "wkr1", "u-me", "Jonas", false) + `]}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -2429,8 +2510,8 @@ func TestTeamSessionWhoamiCheckIsHonouredOnTheServerFallback(t *testing.T) {
 	teamGitDir(t) // no binding written
 	gql, _ := captureGraphQL(t, map[string]string{
 		"AuthContext": whoamiAuthJSON,
-		"TeamSessions": `{"data":{"sessions":[` +
-			whoamiSession("s-mine", "wkr1", "u-me", "Jonas", false) + `]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` +
+			whoamiSession("s-mine", "wkr1", "u-me", "Jonas", false) + `]}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -2456,9 +2537,9 @@ func TestTeamSessionWhoamiCheckDoesNotAnswerForSeveral(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
 		"AuthContext": whoamiAuthJSON,
-		"TeamSessions": `{"data":{"sessions":[` +
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":2,"hasMore":false,"items":[` +
 			whoamiSession("s-a", "wkr1", "u-me", "Jonas", false) + `,` +
-			whoamiSession("s-b", "wkr2", "u-me", "Vera", false) + `]}}`,
+			whoamiSession("s-b", "wkr2", "u-me", "Vera", false) + `]}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -2539,7 +2620,7 @@ func TestTeamSessionWhoamiRejectedCredentialSaysSo(t *testing.T) {
 		"AuthContext": whoamiRejectedJSON,
 		// Deliberately answerable: if the code reached the list despite an
 		// unresolved credential it would report ANOTHER USER'S session.
-		"TeamSessions": `{"data":{"sessions":[` + whoamiSession("s-theirs", "wkr2", "u-other", "Dara", false) + `]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + whoamiSession("s-theirs", "wkr2", "u-other", "Dara", false) + `]}}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -2576,8 +2657,8 @@ func TestTeamSessionWhoamiArrayFieldsAreNeverNull(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			teamGitDir(t)
 			gql, _ := captureGraphQL(t, map[string]string{
-				"AuthContext":  whoamiAuthJSON,
-				"TeamSessions": `{"data":{"sessions":[` + c.rows + `]}}`,
+				"AuthContext":      whoamiAuthJSON,
+				"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + c.rows + `]}}}`,
 			})
 			f, out := testFactory(t)
 			root := NewRootCmd(f)
@@ -2610,8 +2691,8 @@ func TestTeamSessionWhoamiArrayFieldsAreNeverNull(t *testing.T) {
 func TestTeamSessionWhoamiNoUserIdentityRefusesWithoutSayingLogIn(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
-		"AuthContext":  whoamiAppKeyJSON,
-		"TeamSessions": `{"data":{"sessions":[` + whoamiSession("s-theirs", "wkr2", "u-other", "Dara", false) + `]}}`,
+		"AuthContext":      whoamiAppKeyJSON,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + whoamiSession("s-theirs", "wkr2", "u-other", "Dara", false) + `]}}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -3106,9 +3187,10 @@ func TestTeamSessionLogNotesUnreadTeamChat(t *testing.T) {
 			!strings.Contains(errOut.String(), "--since 0` starts at the oldest page") {
 			t.Errorf("want the no-prefix note and one-page remedy, got %q", errOut.String())
 		}
-		// Claims only what the CLI knows — an MCP-side read is invisible here,
-		// so asserting the worker never read would be a false nudge (seq 102).
-		if !strings.Contains(errOut.String(), "MCP tools is not visible here") {
+		// Claims only what the CLI knows — a portal or other-binding read is
+		// invisible here, so asserting the worker never read would be a false
+		// nudge (seq 102).
+		if !strings.Contains(errOut.String(), "portal or under another binding is not visible here") {
 			t.Errorf("the note must name its own blind spot: %q", errOut.String())
 		}
 		// And it costs nothing: no count query is worth issuing for that answer.
@@ -3754,6 +3836,7 @@ func TestTeamSessionStartFindsActiveSessionOnLaterPage(t *testing.T) {
 			"repo":null,"branch":null,"prNumber":null,"startedAt":"2026-08-11T0%d:00:00Z",
 			"endedAt":"2026-08-11T09:00:00Z","host":null,"tool":null,"transcriptPath":null,"llmModel":null}`, i, i%10))
 	}
+	requestedLaterPage := false
 	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			OperationName string `json:"operationName"`
@@ -3768,17 +3851,18 @@ func TestTeamSessionStartFindsActiveSessionOnLaterPage(t *testing.T) {
 		switch body.OperationName {
 		case "GetWorker":
 			_, _ = w.Write([]byte(`{"data":{"worker":` + withLiveness(irisWorkerJSON, "true") + `}}`))
-		case "TeamSessions":
+		case "TeamSessionsPage":
 			if body.Variables.WorkerRef == nil || *body.Variables.WorkerRef != "wkr1" {
 				t.Errorf("the activity check must filter by workerRef, got %v", body.Variables.WorkerRef)
 			}
 			if body.Variables.Offset == nil || *body.Variables.Offset == 0 {
-				_, _ = w.Write([]byte(`{"data":{"sessions":[` + strings.Join(filler, ",") + `]}}`))
+				_, _ = w.Write([]byte(`{"data":{"sessionsPage":{"total":201,"hasMore":true,"items":[` + strings.Join(filler, ",") + `]}}}`))
 			} else {
 				if *body.Variables.Offset != 200 {
 					t.Errorf("unexpected offset %d", *body.Variables.Offset)
 				}
-				_, _ = w.Write([]byte(`{"data":{"sessions":[` + activeSessionJSON + `]}}`))
+				requestedLaterPage = true
+				_, _ = w.Write([]byte(`{"data":{"sessionsPage":{"total":201,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`))
 			}
 		case "TeamAppIdentity":
 			_, _ = w.Write([]byte(teamAppIdentityJSON))
@@ -3795,6 +3879,9 @@ func TestTeamSessionStartFindsActiveSessionOnLaterPage(t *testing.T) {
 	err := root.Execute()
 	if code := exitCodeFor(err); code != exitcode.Conflict {
 		t.Errorf("exit code = %d, want %d (Conflict); err: %v", code, exitcode.Conflict, err)
+	}
+	if !requestedLaterPage {
+		t.Error("the scan never asked for the second page, so the active session was not found by paging")
 	}
 }
 
@@ -3823,7 +3910,7 @@ func TestTeamSessionStartForceEndsPreviouslyBoundSession(t *testing.T) {
 			"startedAt":"2026-08-11T08:00:00Z","endedAt":"2026-08-11T10:00:00Z","host":null,
 			"tool":null,"transcriptPath":null,"llmModel":null}}}`,
 		"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`,
-		"TeamSessions":     `{"data":{"sessions":[]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 	})
 	f2, _ := testFactory(t)
@@ -4665,7 +4752,7 @@ func TestTeamChatReadMentionsMe(t *testing.T) {
 func TestTeamSessionListActive(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
-		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `,` + endedSessionJSON + `]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":2,"hasMore":false,"items":[` + activeSessionJSON + `,` + endedSessionJSON + `]}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -4694,8 +4781,8 @@ func TestTeamSessionListActive(t *testing.T) {
 func TestTeamSessionListAsFiltersServerSide(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
-		"GetWorker":    `{"data":{"worker":` + irisWorkerJSON + `}}`,
-		"TeamSessions": `{"data":{"sessions":[` + endedSessionJSON + `]}}`,
+		"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + endedSessionJSON + `]}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -4704,7 +4791,7 @@ func TestTeamSessionListAsFiltersServerSide(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
-	_ = json.Unmarshal(captured["TeamSessions"], &vars)
+	_ = json.Unmarshal(captured["TeamSessionsPage"], &vars)
 	if vars["workerRef"] != "wkr1" {
 		t.Errorf("--as must ride as the workerRef filter: %v", vars)
 	}
@@ -4723,7 +4810,7 @@ func TestTeamSessionStartWithoutMemoryOmitsAppRef(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
 		"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`,
-		"TeamSessions":     `{"data":{"sessions":[` + endedSessionJSON + `]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + endedSessionJSON + `]}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 	})
 	f, _ := testFactory(t)

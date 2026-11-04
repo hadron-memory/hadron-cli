@@ -1,0 +1,16 @@
+# Explicit org-admin metadata read; never request credentials or lastError.
+query EmailConnections($orgId: ID!) {
+  exchangeConnections(orgId: $orgId) {
+    id
+    organizationId
+    userId
+    mailboxEmail
+    provider
+    displayName
+    syncEnabled
+    syncStatus
+    lastSyncAt
+    createdAt
+    updatedAt
+  }
+}

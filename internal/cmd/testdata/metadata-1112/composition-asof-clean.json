@@ -1,0 +1,127 @@
+{
+  "appId": "capp100000000000000000000",
+  "asOf": "fixture",
+  "lanes": [
+    {
+      "coordinator": {
+        "id": "w-eden",
+        "kind": "WORKER",
+        "name": "Eden",
+        "urn": "hrn:worker:acme.com:eng-team:eden"
+      },
+      "coordinatorRetired": false,
+      "countsByRole": [
+        {
+          "role": "engineer",
+          "count": 2
+        },
+        {
+          "role": null,
+          "count": 1
+        }
+      ],
+      "countsByRoleFamily": [
+        {
+          "role": "engineer",
+          "family": "claude",
+          "count": 1
+        },
+        {
+          "role": "engineer",
+          "family": null,
+          "count": 1
+        },
+        {
+          "role": null,
+          "family": null,
+          "count": 1
+        }
+      ],
+      "workers": [
+        {
+          "worker": {
+            "id": "w-jack",
+            "kind": "WORKER",
+            "name": "Jack",
+            "urn": "hrn:worker:acme.com:eng-team:jack"
+          },
+          "role": "engineer",
+          "family": "claude",
+          "bound": true,
+          "liveSession": true,
+          "state": "WORKING"
+        },
+        {
+          "worker": {
+            "id": "w-ann",
+            "kind": "WORKER",
+            "name": "Ann",
+            "urn": null
+          },
+          "role": "engineer",
+          "family": null,
+          "bound": false,
+          "liveSession": false,
+          "state": "NO_FAMILY"
+        },
+        {
+          "worker": {
+            "id": "w-nil",
+            "kind": "WORKER",
+            "name": null,
+            "urn": null
+          },
+          "role": null,
+          "family": null,
+          "bound": false,
+          "liveSession": false,
+          "state": "AVAILABLE"
+        }
+      ]
+    },
+    {
+      "coordinator": {
+        "id": "w-gone",
+        "kind": "WORKER",
+        "name": "Gone",
+        "urn": "hrn:worker:acme.com:eng-team:gone"
+      },
+      "coordinatorRetired": true,
+      "countsByRole": [],
+      "countsByRoleFamily": [],
+      "workers": []
+    },
+    {
+      "coordinator": null,
+      "coordinatorRetired": false,
+      "countsByRole": [
+        {
+          "role": "qa",
+          "count": 1
+        }
+      ],
+      "countsByRoleFamily": [
+        {
+          "role": "qa",
+          "family": "glm",
+          "count": 1
+        }
+      ],
+      "workers": [
+        {
+          "worker": {
+            "id": "w-cedric",
+            "kind": "WORKER",
+            "name": "Cedric",
+            "urn": "hrn:worker:acme.com:eng-team:cedric"
+          },
+          "role": "qa",
+          "family": "glm",
+          "bound": true,
+          "liveSession": false,
+          "state": "AVAILABLE"
+        }
+      ]
+    }
+  ]
+}

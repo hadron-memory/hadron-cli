@@ -3,8 +3,8 @@ package app
 // `app key scope grant|revoke` — what an App key may do (#871 over server
 // #1749 and #1876): grant or take back a scope (cor:aut:010:04), and grant
 // `host:operate` for ONE host (cor:agt:070:04). Only whoever manages the App,
-// as themselves: the server refuses a worker's session, an App key and an
-// impersonation, so these writes never carry a worktree's session. The
+// as themselves for grants; revokes also admit their held worker with an
+// explicit instruction. App keys and impersonation are refused. The
 // output is the key's id, label and live scopes — never its preview or any
 // key material.
 
@@ -53,6 +53,10 @@ func newCmdKey(f *cmdutil.Factory) *cobra.Command {
 		Short: "Work with an App's keys",
 	}
 	cmd.AddCommand(newCmdKeyScope(f))
+	cmd.AddCommand(newCmdKeyList(f))
+	cmd.AddCommand(newCmdKeyCreate(f))
+	cmd.AddCommand(newCmdKeyRevoke(f))
+	cmd.AddCommand(newCmdKeyRotate(f))
 	return cmd
 }
 
@@ -62,9 +66,9 @@ func newCmdKeyScope(f *cmdutil.Factory) *cobra.Command {
 		Short: "Grant or revoke what an App key may do",
 		Long: `An App key holds no scope until one is granted (cor:aut:010:03); a new or
 rotated key starts with none. The scopes are attention:deliver and
-host:operate. Only whoever manages the App may change them, as themselves —
-never through a worker's session, an App key or an impersonation (FORBIDDEN,
-exit 8).`,
+host:operate. Only whoever manages the App may change them. Granting stays
+person-only. Revoke also admits their held worker with
+--instruction. App keys and impersonation are refused (FORBIDDEN, exit 8).`,
 	}
 	cmd.AddCommand(newCmdKeyScopeGrant(f))
 	cmd.AddCommand(newCmdKeyScopeRevoke(f))
@@ -131,7 +135,7 @@ another key. --host-id is refused for every other scope (exit 2).`,
 }
 
 func newCmdKeyScopeRevoke(f *cmdutil.Factory) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "revoke <key-id> <scope>",
 		Short: "Take a scope back from an App key",
 		Long: `Take a scope back from an App key. The key's next call that needs it is
@@ -139,17 +143,24 @@ refused. Revoking a scope the key does not hold changes nothing. Revoking
 host:operate frees the key to be granted it for another host.`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			instr, err := credentialInstruction(cmd, f)
+			if err != nil {
+				return err
+			}
 			id, scope := strings.TrimSpace(args[0]), strings.TrimSpace(args[1])
 			if id == "" || scope == "" {
 				return exitcode.Newf(exitcode.Usage, "pass the key id and the scope, e.g. `revoke key_123 host:operate`")
 			}
-			client, err := f.GraphQLClient()
+			client, err := credentialClient(cmd, f, instr)
 			if err != nil {
 				return err
 			}
-			resp, err := gen.RevokeAppKeyScope(cmd.Context(), client, id, scope)
+			resp, err := revokeScope(cmd.Context(), client, id, scope, instr)
 			if err != nil {
-				return api.MapError(err)
+				if instr == nil {
+					return api.MapError(err)
+				}
+				return api.MapErrorKeepingCode(err)
 			}
 			dto := appKeyScopesDTOFrom(&resp.RevokeAppKeyScope.AppKeyScopesFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
@@ -160,6 +171,8 @@ host:operate frees the key to be granted it for another host.`,
 			})
 		},
 	}
+	addCredentialInstruction(cmd)
+	return cmd
 }
 
 func renderKeyScopes(w io.Writer, dto appKeyScopesDTO) error {
@@ -173,7 +186,7 @@ func renderKeyScopes(w io.Writer, dto appKeyScopesDTO) error {
 		if s.HostID != nil {
 			host = *s.HostID
 		}
-		t.Row(s.Scope, host, s.GrantedAt)
+		t.Row(output.SafeCell(s.Scope), output.SafeCell(host), output.SafeCell(s.GrantedAt))
 	}
 	return t.Flush()
 }

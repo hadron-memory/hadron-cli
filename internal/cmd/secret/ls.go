@@ -17,9 +17,17 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 		Use:     "list --scope <user|org> [--owner <ref>]",
 		Aliases: []string{"ls"},
 		Short:   "List inspectable secret metadata for one owner scope",
-		Long: `List secrets for one owner scope. Output includes only the inspectable
-half — name, kind, metadata, and audit fields. Secret values are never returned
-by the API and never printed by the CLI.`,
+		Long: `List the secrets of one owner: name, kind, metadata, id and audit fields.
+Values are never returned or printed.
+
+  --scope user                      your own secrets
+  --scope org --owner <org ref>     an org's secrets (any member of the org)
+
+You only ever see your own user secrets, and an org's only if you are a member:
+listing another user's, or an org you don't belong to, comes back empty.
+The ID column is what hadron secret rm takes. --json gives an array of id, ownerType, ownerId, name,
+kind, metadata, createdAt, createdBy, updatedAt and updatedBy; an empty list
+is [].`,
 		Example: `  hadron secret list --scope user
   hadron secret list --scope org --owner hrn:org:acme.com --json`,
 		Args: cobra.NoArgs,
@@ -59,7 +67,7 @@ by the API and never printed by the CLI.`,
 					if s.Metadata != nil {
 						meta = string(*s.Metadata)
 					}
-					t.Row(s.ID, s.Name, s.Kind, s.OwnerType+":"+s.OwnerID, meta, s.CreatedAt)
+					t.Row(output.SafeCell(s.ID), output.SafeCell(s.Name), output.SafeCell(s.Kind), output.SafeCell(s.OwnerType+":"+s.OwnerID), output.SafeCell(meta), output.SafeCell(s.CreatedAt))
 				}
 				return t.Flush()
 			})

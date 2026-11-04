@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 const channelJSON = `{
@@ -41,6 +43,7 @@ func TestChannelRefIsPassedThroughUnexamined(t *testing.T) {
 	for _, ref := range refs {
 		t.Run(ref, func(t *testing.T) {
 			gql, captured := captureGraphQL(t, map[string]string{
+				"NodePortal": `{"data":{"node":null}}`,
 				"GetChannel": `{"data":{"channel":` + channelJSON + `}}`,
 			})
 			f, _ := testFactory(t)
@@ -84,6 +87,7 @@ func TestChannelListPrintsWhatGetAccepts(t *testing.T) {
 	}
 
 	gql2, captured := captureGraphQL(t, map[string]string{
+		"NodePortal": `{"data":{"node":null}}`,
 		"GetChannel": `{"data":{"channel":` + channelJSON + `}}`,
 	})
 	f2, _ := testFactory(t)
@@ -108,6 +112,7 @@ func TestChannelListPrintsWhatGetAccepts(t *testing.T) {
 func TestChannelWithoutAnAddressStillWorks(t *testing.T) {
 	t.Run("json reports null, not a missing key", func(t *testing.T) {
 		gql, _ := captureGraphQL(t, map[string]string{
+			"NodePortal": `{"data":{"node":null}}`,
 			"GetChannel": `{"data":{"channel":` + channelNoAddressJSON + `}}`,
 		})
 		f, out := testFactory(t)
@@ -150,10 +155,12 @@ func TestChannelWithoutAnAddressStillWorks(t *testing.T) {
 }
 
 // TestChannelUnreadableSaysOnlyWhatIsKnown — the server answers "does not
-// exist", "names nothing" and "you may not read its host memory" with the SAME
-// null, so it is never an existence oracle. The message must not claim more.
+// exist", "names nothing" and "the Channel is unreadable" with the SAME
+// parent null. Nested memory null is distinct and preserves the parent.
+// The message must not claim more.
 func TestChannelUnreadableSaysOnlyWhatIsKnown(t *testing.T) {
-	gql, _ := captureGraphQL(t, map[string]string{"GetChannel": `{"data":{"channel":null}}`})
+	gql, _ := captureGraphQL(t, map[string]string{"NodePortal": `{"data":{"node":null}}`,
+		"GetChannel": `{"data":{"channel":null}}`})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"channel", "get", "whatever", "--server", gql.URL})
@@ -425,30 +432,78 @@ func TestChannelMarkReadReportsTheServerCursor(t *testing.T) {
 	}
 }
 
-// TestChannelReadStateAbsentIsNotAnError — "has read nothing" is a real answer;
-// reporting it as an error makes it indistinguishable from "unreadable".
-func TestChannelReadStateAbsentIsNotAnError(t *testing.T) {
+// TestChannelReadStateNeverReadIsNotAnError — "has read nothing" is a real
+// answer: the server returns a row with lastSeenSeq 0 for an attendee who never
+// checkpointed, and reporting that as an error would make it indistinguishable
+// from "no such attendee".
+func TestChannelReadStateNeverReadIsNotAnError(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
-		"ChannelReadState": `{"data":{"channelReadState":null}}`,
+		"ChannelReadState": `{"data":{"channelReadState":{"channelId":"c1",
+			"attendeeUrn":"hrn:worker:acme.com:team:jonas","lastSeenSeq":0,
+			"updatedAt":"1970-01-01T00:00:00.000Z"}}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"channel", "read-state", "r", "--attendee", "Jonas", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
-		t.Fatalf("an absent cursor is a real answer, not an error: %v", err)
+		t.Fatalf("a never-read cursor is a real answer, not an error: %v", err)
 	}
 	if !strings.Contains(out.String(), "seen nothing") {
 		t.Errorf("say so plainly, got:\n%s", out.String())
 	}
 }
 
-// TestChannelRmPromptSaysItIsRecoverable — @copilot on #598.
+// TestChannelReadStateNullIsNotFound — #1259.
 //
-// deleteChannel is a SOFT delete: the address stays reserved and a restore
-// brings the Channel back. ConfirmDeletion's prompt says "This cannot be
-// undone", which is false here — and telling an operator a recoverable action
-// is permanent makes them refuse a safe change.
-func TestChannelRmPromptSaysItIsRecoverable(t *testing.T) {
+// channelReadState answers null for an attendee ref that resolves to nothing,
+// one the caller cannot read, and one not registered on that Channel. None of
+// those is "has read nothing", so null is exit 4 (as advanceChannelReadState's
+// NOT_FOUND is) — and one generic wording for all three, so the CLI is no finer
+// an existence oracle than the server (cor:api:140:03).
+func TestChannelReadStateNullIsNotFound(t *testing.T) {
+	for _, jsonMode := range []bool{false, true} {
+		gql, _ := captureGraphQL(t, map[string]string{
+			"ChannelReadState": `{"data":{"channelReadState":null}}`,
+		})
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		args := []string{"channel", "read-state", "r", "--attendee", "Jnoas", "--server", gql.URL}
+		if jsonMode {
+			args = append(args, "--json")
+		}
+		root.SetArgs(args)
+		err := root.Execute()
+		if err == nil {
+			t.Fatalf("json=%v: a null read state must not exit 0; stdout:\n%s", jsonMode, out.String())
+		}
+		if got := exitCodeFor(err); got != exitcode.NotFound {
+			t.Errorf("json=%v: want exit %d, got %d", jsonMode, exitcode.NotFound, got)
+		}
+		if out.Len() != 0 {
+			t.Errorf("json=%v: nothing may reach stdout, got:\n%s", jsonMode, out.String())
+		}
+		msg := err.Error()
+		if !strings.Contains(msg, `"Jnoas"`) {
+			t.Errorf("name the ref that failed, got: %s", msg)
+		}
+		low := strings.ToLower(msg)
+		for _, oracle := range []string{"seen nothing", "does not exist", "not registered", "no such", "unknown"} {
+			if strings.Contains(low, oracle) {
+				t.Errorf("null covers three cases; the text must not single one out (%q): %s", oracle, msg)
+			}
+		}
+	}
+}
+
+// TestChannelRmWordingMatchesServer — #1049.
+//
+// There is no restore for a deleted Channel, and creating a Channel at the
+// same address adopts it and starts clean, so the old transcript does not come
+// back (hadron-server#2382, cor:dmo:090:03). The prompt and the help must say
+// that, and never promise a restore or a reserved address. It still must not
+// say "cannot be undone": the address is reusable, which ConfirmDeletion's
+// wording would deny (@copilot, #598).
+func TestChannelRmWordingMatchesServer(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{
 		"DeleteChannel": `{"data":{"deleteChannel":true}}`,
 	})
@@ -458,11 +513,29 @@ func TestChannelRmPromptSaysItIsRecoverable(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	prompt := errOut.String()
-	if strings.Contains(prompt, "cannot be undone") {
-		t.Errorf("a soft delete must not be described as permanent: %s", prompt)
+	help := channelRmHelp(t)
+	for name, text := range map[string]string{"prompt": errOut.String(), "help": help} {
+		low := strings.ToLower(text)
+		for _, bad := range []string{"cannot be undone", "can be restored", "restore brings", "stays reserved", "soft delete"} {
+			if strings.Contains(low, bad) {
+				t.Errorf("%s must not say %q:\n%s", name, bad, text)
+			}
+		}
+		for _, want := range []string{"no restore", "starts clean"} {
+			if !strings.Contains(low, want) {
+				t.Errorf("%s must say %q:\n%s", name, want, text)
+			}
+		}
 	}
-	if !strings.Contains(prompt, "restored") {
-		t.Errorf("the prompt should say it is recoverable: %s", prompt)
+}
+
+func channelRmHelp(t *testing.T) string {
+	t.Helper()
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"channel", "rm", "--help"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("help: %v", err)
 	}
+	return out.String()
 }

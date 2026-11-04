@@ -18,11 +18,20 @@ func newCmdSubscription(f *cmdutil.Factory) *cobra.Command {
 		Use:     "subscription <command>",
 		Aliases: []string{"subscriptions", "sub"},
 		Short:   "Manage organization subscriptions to a memory",
-		Long: `Manage organization subscriptions to a memory.
+		Long: `Give a whole other organization access to a public knowledge memory. Only a
+memory with visibility PUBLIC can be subscribed to. An admin of the
+subscribing organization subscribes it; changing its role takes an admin of
+the organization that owns the memory; an admin of either may remove it. The
+organization that owns the memory cannot subscribe: its members already have
+access.
 
-A subscription grants an entire organization a role on the memory — the
-org-level counterpart to ` + "`memory member`" + ` (team) and ` + "`memory share`" + ` (per
-user). The role is the full set: owner, admin, contributor, or reader.`,
+The role is the subscribing organization's level on the memory: reader (read
+every node) or contributor (also create, change and delete nodes). The server
+also accepts admin and owner.
+
+` + accessHelp,
+		Example: `  hadron memory subscription create hrn:mem:acme.com:style-guide --org partnerco.com --role reader
+  hadron memory subscription list hrn:mem:acme.com:style-guide`,
 	}
 	cmd.AddCommand(newCmdSubscriptionLs(f))
 	cmd.AddCommand(newCmdSubscriptionCreate(f))
@@ -36,7 +45,16 @@ func newCmdSubscriptionLs(f *cmdutil.Factory) *cobra.Command {
 		Use:     "list <memoryRef>",
 		Aliases: []string{"ls"},
 		Short:   "List a memory's organization subscriptions",
-		Args:    cobra.ExactArgs(1),
+		Long: `List the organizations subscribed to a memory: organization id, name and
+URN, the role it was given, and whether the subscription is activated.
+
+An organization you may not see is still listed, with (hidden) in place of
+its id and no name or URN (--json: empty organization fields and
+organizationHidden: true). Changing such a subscription's role succeeds the
+same way: the confirmation names the --org you gave.`,
+		Example: `  hadron memory subscription list hrn:mem:acme.com:style-guide
+  hadron memory subscription list hrn:mem:acme.com:style-guide --json`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -55,21 +73,27 @@ func newCmdSubscriptionLs(f *cmdutil.Factory) *cobra.Command {
 			}
 			subs := make([]subscriptionDTO, 0, len(resp.Memory.Subscriptions))
 			for _, s := range resp.Memory.Subscriptions {
-				if s == nil || s.Organization == nil {
+				if s == nil {
 					continue
 				}
-				subs = append(subs, subscriptionDTO{
-					Role:      string(s.Role),
-					Activated: s.Activated,
-					Organization: orgRef{
-						ID: s.Organization.Id, Name: s.Organization.Name, URN: s.Organization.Urn,
-					},
-				})
+				dto := subscriptionDTO{Role: string(s.Role), Activated: s.Activated}
+				if s.Organization == nil {
+					// Surfaced, not dropped: a subscription the caller cannot
+					// see the org of still exists (#1246).
+					dto.OrganizationHidden = true
+				} else {
+					dto.Organization = orgRef{ID: s.Organization.Id, Name: s.Organization.Name, URN: s.Organization.Urn}
+				}
+				subs = append(subs, dto)
 			}
 			return output.Write(f.IOStreams, f.JSON, subs, func(w io.Writer) error {
 				t := output.NewTable(w, "ORG ID", "NAME", "URN", "ROLE", "ACTIVE")
 				for _, s := range subs {
-					t.Row(s.Organization.ID, s.Organization.Name, s.Organization.URN, s.Role, activeMark(s.Activated))
+					id := output.SafeCell(s.Organization.ID)
+					if s.OrganizationHidden {
+						id = "(hidden)"
+					}
+					t.Row(id, output.SafeCell(s.Organization.Name), output.SafeCell(s.Organization.URN), output.SafeCell(s.Role), activeMark(s.Activated))
 				}
 				return t.Flush()
 			})
@@ -80,9 +104,14 @@ func newCmdSubscriptionLs(f *cmdutil.Factory) *cobra.Command {
 func newCmdSubscriptionCreate(f *cmdutil.Factory) *cobra.Command {
 	var org, role string
 	cmd := &cobra.Command{
-		Use:     "create <memoryRef> --org <org> --role <owner|admin|contributor|reader>",
-		Short:   "Subscribe an organization to a memory (or update its role)",
-		Example: `  hadron memory subscription create hrn:mem:acme.com:kb --org partnerco.com --role reader`,
+		Use:   "create <memoryRef> --org <org> --role <owner|admin|contributor|reader>",
+		Short: "Subscribe an organization to a memory",
+		Long: `Give another organization access to a public knowledge memory, with a role
+(see memory subscription). You must be an admin of that organization.
+
+To change the role of an organization already subscribed, use subscription
+set-role; create does not change an existing subscription and fails.`,
+		Example: `  hadron memory subscription create hrn:mem:acme.com:style-guide --org partnerco.com --role reader`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r, err := parseSubscriptionRole(role)
@@ -101,14 +130,15 @@ func newCmdSubscriptionCreate(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return api.MapError(err)
 			}
-			if resp.CreateMemorySubscription == nil || resp.CreateMemorySubscription.Organization == nil {
+			if resp.CreateMemorySubscription == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no subscription")
 			}
 			s := resp.CreateMemorySubscription
-			return emitSubscription(f, "✓ subscribed", subscriptionDTO{
-				Role: string(s.Role), Activated: s.Activated,
-				Organization: orgRef{ID: s.Organization.Id, Name: s.Organization.Name, URN: s.Organization.Urn},
-			})
+			var o *orgRef
+			if s.Organization != nil {
+				o = &orgRef{ID: s.Organization.Id, Name: s.Organization.Name, URN: s.Organization.Urn}
+			}
+			return emitSubscription(f, "✓ subscribed", mutatedSubscription(s.Role, s.Activated, o, org))
 		},
 	}
 	cmd.Flags().StringVar(&org, "org", "", "organization to subscribe (ID, slug, or hrn:org:<slug> URN) (required)")
@@ -123,7 +153,7 @@ func newCmdSubscriptionSetRole(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "set-role <memoryRef> --org <org> --role <owner|admin|contributor|reader>",
 		Short:   "Change an organization subscription's role",
-		Example: `  hadron memory subscription set-role hrn:mem:acme.com:kb --org partnerco.com --role contributor`,
+		Example: `  hadron memory subscription set-role hrn:mem:acme.com:style-guide --org partnerco.com --role contributor`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			r, err := parseSubscriptionRole(role)
@@ -142,14 +172,15 @@ func newCmdSubscriptionSetRole(f *cmdutil.Factory) *cobra.Command {
 			if err != nil {
 				return api.MapError(err)
 			}
-			if resp.UpdateMemorySubscription == nil || resp.UpdateMemorySubscription.Organization == nil {
+			if resp.UpdateMemorySubscription == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no subscription")
 			}
 			s := resp.UpdateMemorySubscription
-			return emitSubscription(f, "✓ set", subscriptionDTO{
-				Role: string(s.Role), Activated: s.Activated,
-				Organization: orgRef{ID: s.Organization.Id, Name: s.Organization.Name, URN: s.Organization.Urn},
-			})
+			var o *orgRef
+			if s.Organization != nil {
+				o = &orgRef{ID: s.Organization.Id, Name: s.Organization.Name, URN: s.Organization.Urn}
+			}
+			return emitSubscription(f, "✓ set", mutatedSubscription(s.Role, s.Activated, o, org))
 		},
 	}
 	cmd.Flags().StringVar(&org, "org", "", "subscribed organization (ID, slug, or hrn:org:<slug> URN) (required)")
@@ -166,7 +197,7 @@ func newCmdSubscriptionRm(f *cmdutil.Factory) *cobra.Command {
 		Use:     "rm <memoryRef> --org <org>",
 		Aliases: []string{"delete", "unsubscribe"},
 		Short:   "Remove an organization's subscription to a memory",
-		Example: `  hadron memory subscription rm hrn:mem:acme.com:kb --org partnerco.com --yes`,
+		Example: `  hadron memory subscription rm hrn:mem:acme.com:style-guide --org partnerco.com --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
@@ -196,11 +227,28 @@ func newCmdSubscriptionRm(f *cmdutil.Factory) *cobra.Command {
 	return cmd
 }
 
+// mutatedSubscription builds the create/set-role receipt. A nil organization
+// is the server withholding an org the caller may not read, after the write
+// committed (#1246): report success, labelled by the caller's own --org.
+func mutatedSubscription(role gen.Role, activated bool, o *orgRef, org string) subscriptionDTO {
+	dto := subscriptionDTO{Role: string(role), Activated: activated}
+	if o == nil {
+		dto.OrganizationHidden = true
+		dto.OrgRef = org
+		return dto
+	}
+	dto.Organization = *o
+	return dto
+}
+
 func emitSubscription(f *cmdutil.Factory, verb string, dto subscriptionDTO) error {
 	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 		label := dto.Organization.URN
 		if label == "" {
 			label = dto.Organization.ID
+		}
+		if label == "" {
+			label = dto.OrgRef
 		}
 		_, err := fmt.Fprintf(w, "%s %s as %s\n", verb, label, dto.Role)
 		return err

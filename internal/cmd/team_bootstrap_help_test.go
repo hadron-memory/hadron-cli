@@ -42,10 +42,9 @@ func TestTeamHelpCarriesTheBootstrapOrder(t *testing.T) {
 		}
 		prev = i
 	}
-	// The dressing step must show the template placeholders — a persona
-	// prompt without {{name}} addresses nobody.
-	if !strings.Contains(help, "{{name}}") {
-		t.Errorf("the dressing step must show the template placeholder:\n%s", help)
+	// New Agents need an explicit source, compile and approval workflow.
+	if !strings.Contains(help, "boot:source") || !strings.Contains(help, "hadron agent compile") || !strings.Contains(help, "hadron node approve") {
+		t.Errorf("the source step must show compile and approval:\n%s", help)
 	}
 	if !strings.Contains(help, "optional") {
 		t.Errorf("`team init` is not a precondition — help should say so: %s", help)

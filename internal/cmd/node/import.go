@@ -92,64 +92,60 @@ func newCmdImport(f *cmdutil.Factory) *cobra.Command {
 		taskRef  string
 		taskArgs string
 		app      string
+		agent    string
 		// Shared.
 		yes bool
 	)
 	cmd := &cobra.Command{
 		Use:   "import [<file>|<dir>|-]",
 		Short: "Import a node — reconstitute an export file, ingest external content, or map a directory tree",
-		Long: `Import into a node. Three modes:
+		Long: `Bring something into a memory as a node. Which mode runs depends on what you
+pass:
 
-RESTORE (default) — reconstitute a node-export file produced by ` + "`hadron node export`" + `
-(frontmatter-markdown, or ` + "`--format json`" + `). A node already at the target loc is
-updated, else created. Read "-" to import from stdin, so an export pipes straight
-into an import ("-" is for a pipe: it is refused when stdin is an interactive
-terminal, which can truncate large input — pass the file path instead).
-The target memory/loc come from the file's own keys; -m/--memory
-and --loc override them (re-homing a node into another memory). Outgoing edges
-are imported only with --with-edges (off by default).
+  You have                                  Mode      Pass
+  a file made by node export                restore   the file (the default)
+  a web page                                content   --url <address>
+  a PDF or an HTML file                     content   the file (automatic)
+  an ordinary Markdown file                 content   the file and --as-content
+  a folder of files                         folder    -r <folder>
 
-A file's role: and runnable: keys (isRunnable in JSON) are the node's kind: a
-task (runnable: true), a spec (spec or spec.*) or a review (review or review.*).
-The write goes through the door that
-kind requires, like node add and node update. memory export and the server's
-git sync write the keys, so their files re-import with the kind; node export
-does not write them yet, so its files carry no kind. A file without the keys
-has no opinion: on an existing node the stored kind is kept, and a new node is
-ordinary. A file that would make the node two governed kinds at once is refused
-before anything is written. The objectType: key is carried the same way (absent
-keeps the stored value); the server checks it against the memory's schema.
+Content mode is not picked automatically for a Markdown file: without
+--as-content it is read as an export file and refused ("not a node file:
+missing --- frontmatter", exit 2), and nothing is written.
 
-CONTENT — ingest RAW external source (a web page, a captured HTML DOM, a Markdown
-file, or a PDF) and let the server convert it to the node's Markdown body. This
-mode is selected by --url, by --as-content (force it for an otherwise-ambiguous
-.md/.json / stdin source), or automatically for a .pdf/.html file. A PDF's text
-layer is extracted to Markdown — the CLI base64-encodes the file for you
-(scanned/image-only PDFs error server-side). The content type is inferred from
-the file extension unless --content-type overrides it (required for a PDF over
-stdin). Target the node with -m/--memory + --loc or --node <urn>; a node already
-there is updated in place, else created (nodeType defaults to webpage, or info
-for a PDF).
+When the import lands on a node that already exists, it overwrites it (the
+old version is kept as a revision; see node revision). That asks first on a
+terminal and needs --yes otherwise. Creating a new node never asks.
 
-An import that lands on an EXISTING node overwrites it (a prior version is
-kept). Like the destructive commands, that prompts on a terminal and requires
---yes non-interactively; a create is never gated.
+RESTORE reads a file from node export (Markdown with a --- header, or
+--format json) and recreates the node: its memory and loc come from the file,
+or from -m and --loc, which override them (to copy a node into another
+memory). An existing node there is updated; --create-only refuses instead.
+Edges are imported only with --with-edges. "-" reads the file from a pipe
+(node export ... | node import -), and is refused when input is a terminal,
+which can cut long input short. The file's role:, runnable: and objectType:
+keys, when present, set the node's kind and collection as node create does
+(a file without them keeps the stored values); node export does not write
+these keys yet, memory export does.
 
---task <ref> (content mode) runs a task node against the freshly-stored node:
-the server mints a MANUAL run (the imported node's URN is passed to the task)
-and this prints the run id — follow it with 'hadron run get <id>'. --task-args
-adds template args and --app names the App to run under (default: your active
-App).
+CONTENT converts a web page, an HTML page, a Markdown file or a PDF into the
+node's Markdown content on the server. Name the target with -m and --loc, or
+--node <urn>. The type comes from the file extension; --content-type sets it
+(required for a PDF read from a pipe). Only a PDF with a text layer works: a
+scanned, image-only PDF is refused. The new node's type is webpage (info for a
+PDF). --task <ref> then runs a task on the new node and prints the run id
+(follow it with hadron run get <id>); --task-args passes arguments, --app
+names the App to run under (default: your active App), and --agent names the
+installed Agent the run is served as (needed when that App has several).
 
-RECURSIVE (-r) — map a local DIRECTORY tree into the memory graph: each
-directory becomes a branch node, each text file a leaf node (loc = slugified
-path without the extension; name = filename), and the directory hierarchy
-becomes parent→child 'contains' edges. A directory's README.md / index.md folds
-into that directory's node instead of a separate child. Binary files are skipped
-and reported. Import is create-only: an existing loc is an error unless
---on-conflict skip. --under <loc> roots the tree under a prefix; --include /
---exclude globs, --hidden, and --max-file-size filter the walk; --dry-run prints
-the plan without writing.`,
+FOLDER (-r) maps a local folder into the memory: each folder becomes a node,
+each text file a node under it (loc: the path without its extension, made
+safe; name: the file name), linked by 'contains' edges. A folder's README.md
+or index.md becomes that folder's own node. Binary files are skipped and
+listed. It only creates: an existing loc is an error unless --on-conflict
+skip. --under <loc> puts the tree under a prefix; --include / --exclude
+(globs), --hidden and --max-file-size choose files; --dry-run shows the plan
+and writes nothing.`,
 		Example: `  hadron node import flaky.md                        # restore a node-export file
   hadron node export hrn:node:acme.com:kb:x | hadron node import -m hrn:mem:acme.com:kb2 -
   hadron node import paper.pdf -m hrn:mem:acme.com:kb --loc papers:attention
@@ -171,7 +167,7 @@ the plan without writing.`,
 				if srcPath == "" || srcPath == "-" {
 					return exitcode.Newf(exitcode.Usage, "recursive import (-r) needs a directory path argument")
 				}
-				treeReject := []string{"format", "with-edges", "create-only", "url", "as-content", "content-type", "name", "node", "properties", "properties-file", "task", "task-args", "app", "loc"}
+				treeReject := []string{"format", "with-edges", "create-only", "url", "as-content", "content-type", "name", "node", "properties", "properties-file", "task", "task-args", "app", "agent", "loc"}
 				if err := rejectFlags(cmd, treeReject, "does not apply to recursive directory import (-r)"); err != nil {
 					return err
 				}
@@ -205,7 +201,7 @@ the plan without writing.`,
 			// Reject flags belonging to the other mode so a wrong combination
 			// fails loudly instead of being silently ignored.
 			restoreOnly := []string{"format", "with-edges", "create-only", "dry-run"}
-			contentOnly := []string{"url", "as-content", "content-type", "name", "type", "properties", "properties-file", "node", "task", "task-args", "app"}
+			contentOnly := []string{"url", "as-content", "content-type", "name", "type", "properties", "properties-file", "node", "task", "task-args", "app", "agent"}
 			if contentMode {
 				if err := rejectFlags(cmd, restoreOnly, "does not apply to content import (--url/--as-content/PDF)"); err != nil {
 					return err
@@ -214,7 +210,7 @@ the plan without writing.`,
 					srcPath: srcPath, url: url, memory: memory, loc: loc, nodeURN: nodeURN,
 					contentType: contentType, name: name, nodeType: nodeType,
 					properties: properties, propertiesFile: propertiesFile,
-					taskRef: taskRef, taskArgs: taskArgs, app: app, yes: yes,
+					taskRef: taskRef, taskArgs: taskArgs, app: app, agent: agent, yes: yes,
 				})
 			}
 			if err := rejectFlags(cmd, contentOnly, "applies only to content import — pass --as-content to ingest this file as raw content"); err != nil {
@@ -247,6 +243,7 @@ the plan without writing.`,
 	cmd.Flags().StringVar(&taskRef, "task", "", "content: after storing, run this task node (ID or URN) against the imported node; prints the run id")
 	cmd.Flags().StringVar(&taskArgs, "task-args", "", "content: JSON object of extra template args merged into the task run (requires --task)")
 	cmd.Flags().StringVar(&app, "app", "", "content: App (ID or URN) to run --task under (defaults to your active App)")
+	cmd.Flags().StringVar(&agent, "agent", "", "content: installed Agent (ID or URN) the --task run is served as; required when the App has several (requires --task)")
 	cmd.Flags().BoolVar(&yes, "yes", false, "overwrite an existing node without prompting (required non-interactively)")
 	return cmd
 }
@@ -323,7 +320,11 @@ func runImportRestore(cmd *cobra.Command, f *cmdutil.Factory, path, memory, loc,
 	// a live loc), so it skips the probe unless this is a dry run.
 	existingID, exists := "", false
 	if dryRun || !createOnly {
-		existingID, exists = lookupNode(cmd, client, memoryRef, targetLoc)
+		var lerr error
+		existingID, exists, lerr = lookupNode(cmd, client, memoryRef, targetLoc)
+		if lerr != nil {
+			return api.MapError(lerr)
+		}
 	}
 
 	input, err := buildCreateNodeInput(doc, memoryRef, targetLoc)
@@ -431,7 +432,7 @@ type contentImportOpts struct {
 	srcPath, url, memory, loc, nodeURN string
 	contentType, name, nodeType        string
 	properties, propertiesFile         string
-	taskRef, taskArgs, app             string
+	taskRef, taskArgs, app, agent      string
 	yes                                bool
 }
 
@@ -441,12 +442,19 @@ type contentImportOpts struct {
 // against the stored node (#528).
 func runImportContent(cmd *cobra.Command, f *cmdutil.Factory, o contentImportOpts) error {
 	srcPath, url, memory, loc, nodeURN := o.srcPath, o.url, o.memory, o.loc, o.nodeURN
-	// --task-args/--app only shape a post-import run, so they need --task.
+	// --task-args/--app/--agent only shape a post-import run, so they need --task.
 	if o.taskArgs != "" && o.taskRef == "" {
 		return exitcode.Newf(exitcode.Usage, "--task-args requires --task")
 	}
 	if o.app != "" && o.taskRef == "" {
 		return exitcode.Newf(exitcode.Usage, "--app requires --task (it names the App the task runs under)")
+	}
+	if cmd.Flags().Changed("agent") && o.taskRef == "" {
+		return exitcode.Newf(exitcode.Usage, "--agent requires --task (it names the Agent the task run is served as)")
+	}
+	agentRef, err := cmdutil.RunAgentFlag(cmd, o.agent)
+	if err != nil {
+		return err
 	}
 
 	// Source dispatch: exactly one of --url | inline (<file>|-).
@@ -495,6 +503,7 @@ func runImportContent(cmd *cobra.Command, f *cmdutil.Factory, o contentImportOpt
 			}
 			input.AppRef = &appRef
 		}
+		input.AgentRef = agentRef
 		if o.taskArgs != "" {
 			ta, err := cmdutil.ParseJSONArg(o.taskArgs, "task-args")
 			if err != nil {
@@ -545,7 +554,12 @@ func runImportContent(cmd *cobra.Command, f *cmdutil.Factory, o contentImportOpt
 	if nodeURN != "" {
 		overwrites, target = nodeExistsByURN(cmd, client, nodeURN), nodeURN
 	} else {
-		overwrites, target = nodeExists(cmd, client, memory, loc), overwriteTarget(memory, loc)
+		var nerr error
+		overwrites, nerr = nodeExists(cmd, client, memory, loc)
+		if nerr != nil {
+			return api.MapError(nerr)
+		}
+		target = overwriteTarget(memory, loc)
 	}
 	if overwrites {
 		if err := confirmOverwrite(f, o.yes, target); err != nil {
@@ -743,6 +757,7 @@ func updateNodeInputFrom(in *gen.CreateNodeInput) *gen.UpdateNodeInput {
 	name := in.Name
 	return &gen.UpdateNodeInput{
 		MemoryId:    &in.MemoryId,
+		Install:     in.Install, // schema refresh: retain every shared input field
 		Loc:         &in.Loc,
 		Name:        &name,
 		Content:     in.Content,
@@ -774,18 +789,18 @@ func updateNodeInputFrom(in *gen.CreateNodeInput) *gen.UpdateNodeInput {
 	}
 }
 
-// nodeExists best-effort probes whether a node already lives at (memory, loc),
-// to label the import created vs updated. Any lookup error yields false: the
-// upsert that follows is authoritative for real failures (auth/transport), and
-// a dry run degrades to "would create".
-func nodeExists(cmd *cobra.Command, client graphql.Client, memoryRef, loc string) bool {
-	_, ok := lookupNode(cmd, client, memoryRef, loc)
-	return ok
+// nodeExists probes whether a node already lives at (memory, loc), to label the
+// import created vs updated. A failed listing scan is an error, not "absent"
+// (cli#967): the import must not proceed, or report "created", over a node the
+// scan never reached.
+func nodeExists(cmd *cobra.Command, client graphql.Client, memoryRef, loc string) (bool, error) {
+	_, ok, err := lookupNode(cmd, client, memoryRef, loc)
+	return ok, err
 }
 
 // lookupNode is nodeExists that also returns the node's id, so a caller that
 // must read the node (its kind, for routing) needs no second resolve.
-func lookupNode(cmd *cobra.Command, client graphql.Client, memoryRef, loc string) (string, bool) {
+func lookupNode(cmd *cobra.Command, client graphql.Client, memoryRef, loc string) (string, bool, error) {
 	// An org::memory-shaped ref composes an exact node URN in one round-trip.
 	// (cmdutil.NodeURN normalizes the separators — building the URN by hand as
 	// memoryRef+":"+loc produced a single-colon `org::memory:loc` that never
@@ -793,29 +808,40 @@ func lookupNode(cmd *cobra.Command, client graphql.Client, memoryRef, loc string
 	if urn := cmdutil.NodeURN(memoryRef, loc); urn != "" {
 		resp, err := gen.ResolveUrn(cmd.Context(), client, urn)
 		if err != nil || resp.ResolveUrn == nil || resp.ResolveUrn.Kind != "node" {
-			return "", false
+			return "", false, nil
 		}
-		return resp.ResolveUrn.Id, true
+		return resp.ResolveUrn.Id, true, nil
 	}
 	// A raw memory id: list by loc prefix and match the exact loc.
-	limit := 200
 	filter := &gen.NodeFilter{MemoryIds: []string{memoryRef}, LocPrefix: &loc}
 	sort := gen.NodeSortLoc
-	for offset := 0; ; offset += limit {
-		off := offset
-		page, err := api.FindNodes(cmd.Context(), client, nil, nil, filter, &sort, nil, &limit, &off)
+	return findExactLoc(loc, func(limit, offset int) ([]*api.ListNode, error) {
+		page, err := api.FindNodes(cmd.Context(), client, nil, nil, filter, &sort, nil, &limit, &offset)
 		if err != nil {
-			return "", false
+			return nil, err
 		}
-		for _, nd := range page.Nodes {
-			if nd != nil && nd.Loc == loc {
-				return nd.Id, true
-			}
+		return page.Nodes, nil
+	})
+}
+
+// findExactLoc scans a loc-prefix listing for the node whose loc is exactly
+// loc. It stops only on a match or an EMPTY page (a short page may be a server
+// clamp, cli#967). A fetch error on any page is RETURNED, distinct from true
+// absence: reading it as "not found" would let a dry run report "created" (or an
+// overwrite proceed unprompted) over a node the scan never reached.
+func findExactLoc(loc string, fetch func(limit, offset int) ([]*api.ListNode, error)) (string, bool, error) {
+	id, found := "", false
+	err := api.PageNodes(200, fetch, func(nd *api.ListNode) bool {
+		if nd.Loc == loc {
+			id, found = nd.Id, true
+			return false
 		}
-		if len(page.Nodes) < limit {
-			return "", false
-		}
+		return true
+	})
+	if err != nil {
+		return "", false, err
 	}
+	return id, found, nil
 }
 
 // nodeExistsByURN best-effort probes whether a fully-qualified node URN already

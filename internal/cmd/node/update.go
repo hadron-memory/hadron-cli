@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/aymanbagabas/go-udiff"
@@ -19,98 +21,147 @@ import (
 
 func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 	var (
-		memory         string
-		name           string
-		content        string
-		contentFile    string
-		nodeType       string
-		objectType     string
-		role           string
-		description    string
-		abstract       string
-		abstractFile   string
-		data           string
-		dataFile       string
-		dataMerge      string
-		dataMergeFile  string
-		properties     string
-		propertiesFile string
-		runnable       bool
-		force          bool
-		dryRun         bool
-		reason         string
-		tags           []string
+		memory           string
+		install          string
+		name             string
+		content          string
+		contentFile      string
+		allowEmpty       bool
+		nodeType         string
+		objectType       string
+		role             string
+		description      string
+		abstract         string
+		abstractFile     string
+		data             string
+		dataFile         string
+		dataMerge        string
+		dataMergeFile    string
+		properties       string
+		propertiesFile   string
+		runnable         bool
+		force            bool
+		dryRun           bool
+		expectedRevision int
+		seq              int
+		reason           string
+		tags             []string
+		edges            []string
+		replaceEdges     bool
 	)
 	cmd := &cobra.Command{
-		Use:   "update <node-urn> | <loc> -m <memory>",
+		Use:   "update <node-urn> | <loc> (-m <memory> | --install <app>/<agent>)",
 		Short: "Update a node",
-		Long: `Update an existing node by its fully-qualified URN
-(hrn:node:<root>:<slug>:<loc>), or by a bare <loc> with -m/--memory. Only the
-fields you pass change; everything else is preserved (pass an explicit
-empty string, e.g. --description "", to clear a field).
+		Long: `Change an existing node. Only the fields you pass change; everything else is
+kept. Name the node by its URN (hrn:node:<root>:<memory>:<loc>), or by its loc
+with -m:
 
-The data bag can be written two ways:
+  hadron node update findings:flaky-ci -m hrn:mem:acme.com:kb --name "Flaky CI (fixed)"
 
-  --data / --data-file       REPLACE the whole data object (pass "null" to
-                             clear it).
-  --data-merge / --data-merge-file
-                             MERGE a JSON object into the existing data: its
-                             top-level keys overwrite, unmentioned keys are
-                             preserved (a shallow merge — nested object values
-                             are replaced wholesale, not deep-merged). The
-                             patch must be an object.
+On success it prints "✓ updated <loc> <name>"; --json prints the node. To
+clear a text field, pass it empty (--description ""). --reason records why in
+the node's version history (see node revision list).
 
-Replace and merge are different operations, so --data and --data-merge are
-mutually exclusive.
+To edit the content, read it with node get --body-only, edit the file, and
+write it back:
 
-EDITING EXISTING CONTENT: read it with ` + "`node get <ref> --body-only`" + `, which
-prints the stored body byte for byte (#873). A plain ` + "`node get`" + ` compiles the
-node's Mustache templates, so writing that text back deletes every {{…}}
-placeholder (#736); a text-mode ` + "`node get --raw`" + ` prints a metadata header above
-the body, which would be saved INTO it.
+  hadron node get findings:flaky-ci -m hrn:mem:acme.com:kb --body-only > body.md
+  hadron node update findings:flaky-ci -m hrn:mem:acme.com:kb --content-file body.md
 
-Two guards stand on a new body (--content / --content-file). One that starts
-with that header is REFUSED (exit 2, nothing written) unless --force. One that
-drops a {{…}} tag the stored body has — a placeholder or a {{=…=}} delimiter
-change — is written, with a warning on stderr: removing a placeholder can be
-the edit.
+Use --body-only for this. An ordinary node get fills in the content's {{…}}
+placeholders, so saving that text back would remove them; the text form of
+node get --raw prints a header above the content. A new content that starts
+with that header is refused (exit 2, nothing written) unless --force. A new
+content that drops a {{…}} placeholder the old one had is written, with a
+warning on stderr, since removing it may be the edit.
 
---dry-run writes nothing: it reads the node, runs every client-side check a
-write would (the header guard, the role and kind refusals, input parsing), and
-shows the fields that would change, with a diff of the stored body against the
-new one. The server's own validation (a schema-governed memory, the door's
-refusals) runs only on the write. It previews the field update only, so
---data-merge is refused with it. Empty or whitespace --role clears via literal
-null in the current kind's door; --data-merge cannot be combined with a role
-clear because it is a separate write (use --data for one atomic replacement).
+--dry-run shows what would change, with a diff of the content, and writes
+nothing. It runs the CLI's own checks only; the server's checks (a memory's
+schema, for example) run on the real write.
 
---content - (or --content-file -), --abstract - and --data-merge - read
-standard input, and are for
-a PIPE (cat file | hadron node update ...). Each is REFUSED when stdin is an
-interactive terminal, which can truncate large input before the CLI sees it;
-use --content-file, --abstract-file or --data-merge-file instead.
+--expected-revision <n> writes only if the node is still at revision n (see
+node get --json); if someone or something changed it since, the write is
+refused with exit 5 and your changes are not applied. Re-read and decide. The
+server may still record a new revision while refusing, when it reconciles
+drift it found in the stored node, so the revision number can move. Without the flag, the
+last write wins.
 
---object-type sets the node's structured-storage collection (#725); pass "" to
-clear it (→ ordinary node), omit to preserve. --properties / --properties-file
-REPLACE the typed properties bag the schema governs (pass "null" to clear) —
-distinct from --data. (There is no --properties-merge yet; a shallow merge needs
-the server-side updateNodeProperties mutation, tracked as hadron-server#742. On a
-schema-governed memory the server validates the result and rejects a violation.)`,
+The data object: --data / --data-file REPLACE it ("null" clears it).
+--data-merge / --data-merge-file MERGE a JSON object into it: the keys you give
+overwrite, other keys stay (one level deep: a nested object is replaced
+whole). Replace and merge exclude each other.
+
+--edge with --replace-edges REPLACES all of the node's outgoing edges with the
+ones given (same forms as node create --edge); links the list leaves out are
+removed. --edge alone is refused, because that would be easy to mistake for
+adding one: use edge create and edge rm to change a single link. --dry-run
+does not preview edges, so it is refused with --replace-edges.
+
+Content, --abstract and --data-merge take "-" to read piped input
+(cat new.md | hadron node update ... --content -). "-" is refused when input is
+a terminal rather than a pipe, because a terminal can cut long input short;
+use the matching -file flag instead.
+
+Records: --object-type sets the collection (pass "" to make it an ordinary
+node again). --properties / --properties-file REPLACE all of the record's
+fields ("null" clears them); object update merges fields instead. On a memory
+with a schema, the server refuses a record that does not fit. --role sets what
+the node is for in a governed workflow (see node create); pass "" to clear it.
+
+Details:
+
+--data-merge and --data-merge-file are a separate write, so they cannot be
+combined with --expected-revision, --dry-run, --install or a --role clear. Use
+--data instead: one complete replacement, which works with all of those. With
+--dry-run, --expected-revision is advisory only: the server does not check it.
+
+` + installDetails("") + ``,
 		Example: `  hadron node update hrn:node:acme.com:kb:findings:flaky-ci --name "Flaky CI (resolved)"
   cat updated.md | hadron node update findings:flaky-ci -m hrn:mem:acme.com:kb --content -
   hadron node update hrn:node:acme.com:kb:findings:flaky-ci --data-merge '{"status":"closed"}'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if dryRun && wantsLintWarnings(cmd) {
+				return exitcode.Newf(exitcode.Usage, "--lint-warnings cannot be combined with --dry-run")
+			}
+			target, err := installTarget(cmd, install, args)
+			if err != nil {
+				return err
+			}
 			changed := cmd.Flags().Changed
 			clearRole := changed("role") && strings.TrimSpace(role) == ""
 			replaceData := changed("data") || changed("data-file")
 			mergeData := changed("data-merge") || changed("data-merge-file")
+			// updateNodeData accepts only a node ref, so it cannot fence a write
+			// against a changed install pointer. Never resolve an id and silently
+			// lose that selector, nor perform a field write before refusing merge.
+			if target != nil && mergeData {
+				return exitcode.Newf(exitcode.Usage, "--install cannot be combined with --data-merge or --data-merge-file; use --data or --data-file to replace the bag through the install selector")
+			}
 			replaceProps := changed("properties") || changed("properties-file")
+			// cli#1341: updateNode(edges:) REPLACES the node's whole outgoing
+			// edge set, so --edge is refused unless --replace-edges says that is
+			// meant, and --replace-edges needs at least one --edge (edge add and
+			// edge rm change one edge without touching the others).
+			var edgesArg []*gen.NodeEdgeInput
+			if changed("edge") != replaceEdges {
+				return exitcode.Newf(exitcode.Usage, "--edge on node update replaces ALL of the node's outgoing edges, so it needs --replace-edges (and --replace-edges needs at least one --edge). To add or remove one edge, use edge create / edge rm. Nothing was sent")
+			}
+			if replaceEdges && dryRun {
+				return exitcode.Newf(exitcode.Usage, "--dry-run does not preview edges, so it cannot be combined with --replace-edges. Nothing was sent")
+			}
+			if replaceEdges {
+				in, err := parseEdgeFlags(edges)
+				if err != nil {
+					return err
+				}
+				edgesArg = in
+			}
 			anyField := changed("name") || changed("content") || changed("content-file") ||
 				changed("type") || changed("object-type") || changed("description") ||
 				changed("abstract") || changed("abstract-file") ||
 				replaceData || replaceProps || changed("runnable") || changed("tag") ||
-				changed("role")
+				changed("role") || changed("seq") || replaceEdges
 			if !anyField && !mergeData {
 				return exitcode.Newf(exitcode.Usage, "nothing to update — pass at least one field flag")
 			}
@@ -125,6 +176,14 @@ schema-governed memory the server validates the result and rejects a violation.)
 			// Replace and merge are different operations (distinct mutations).
 			if replaceData && mergeData {
 				return exitcode.Newf(exitcode.Usage, "--data (replace) and --data-merge (merge) are mutually exclusive")
+			}
+			if changed("expected-revision") {
+				if expectedRevision < 1 || expectedRevision > math.MaxInt32 {
+					return exitcode.Newf(exitcode.Usage, "--expected-revision must be between 1 and 2147483647")
+				}
+				if mergeData {
+					return exitcode.Newf(exitcode.Usage, "--expected-revision cannot guard --data-merge or --data-merge-file; use --data to replace the bag through the guarded update")
+				}
 			}
 			// The inline/-file pairs are mutually exclusive. Guard on Changed()
 			// (not the resolved value): an explicit --X "" would otherwise slip past
@@ -184,7 +243,7 @@ schema-governed memory the server validates the result and rejects a violation.)
 			// carrying the get header is refused without a round trip (#873).
 			var body string
 			if contentChanged {
-				b, err := resolveContent(content, contentFile, f.IOStreams.In, f.IOStreams.IsInputTerminal())
+				b, err := resolveContent(content, contentFile, f.IOStreams.In, f.IOStreams.IsInputTerminal(), allowEmpty)
 				if err != nil {
 					return err
 				}
@@ -215,6 +274,12 @@ schema-governed memory the server validates the result and rejects a violation.)
 			// updateNode targets `id` XOR (memoryId, loc) and preserves every
 			// omitted field — name included — so no full-node pre-fetch is
 			// needed anymore.
+			if target != nil {
+				memory, err = cmdutil.InstallMemoryRef(cmd.Context(), client, target)
+				if err != nil {
+					return err
+				}
+			}
 			nodeID, err := cmdutil.ResolveNodeRef(cmd, client, memory, args[0])
 			if err != nil {
 				return err
@@ -270,6 +335,14 @@ schema-governed memory the server validates the result and rejects a violation.)
 
 				input := gen.UpdateNodeInput{
 					Id: &nodeID,
+				}
+				if target != nil {
+					input.Id = nil
+					input.Install = target
+					input.Loc = &args[0]
+				}
+				if changed("expected-revision") {
+					input.ExpectedRevision = &expectedRevision
 				}
 				if changed("name") {
 					input.Name = &name
@@ -339,6 +412,15 @@ schema-governed memory the server validates the result and rejects a violation.)
 				if changed("tag") {
 					input.Tags = tags
 				}
+				// cli#479: sent only when given, so an explicit 0 is a position
+				// and absence preserves. No client check of the node's kind: the
+				// server refuses protected history (SEQ_PROTECTED and kin).
+				if changed("seq") {
+					input.Seq = &seq
+				}
+				if replaceEdges {
+					input.Edges = edgesArg
+				}
 				input.Reason = reasonPtr
 
 				if clearRole {
@@ -350,7 +432,7 @@ schema-governed memory the server validates the result and rejects a violation.)
 					}
 				}
 				if dryRun {
-					return writeUpdatePreview(f, stored, changed, body, contentChanged, warnings)
+					return writeUpdatePreview(f, stored, changed, body, contentChanged, warnings, input.ExpectedRevision)
 				}
 				for _, w := range warnings {
 					fmt.Fprintf(f.IOStreams.ErrOut, "warning: %s\n", w)
@@ -395,27 +477,30 @@ schema-governed memory the server validates the result and rejects a violation.)
 				dto = mergeDTO(resp.UpdateNodeData)
 			}
 
-			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+			dto.LintWarnings = loadLintWarnings(cmd, client, dto.ID)
+			return writeWithLint(f, dto, dto.LintWarnings, func(w io.Writer) error {
 				t := output.NewTable(w)
-				t.Row("✓ updated", dto.Loc, dto.Name)
+				t.Row("✓ updated", output.SafeCell(dto.Loc), output.SafeCell(dto.Name))
 				return t.Flush()
 			})
 		},
 	}
+	cmd.Flags().StringVar(&install, "install", "", installFlagHelp)
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve a bare <loc> against")
 	cmd.Flags().StringVar(&name, "name", "", "new node name")
 	cmd.Flags().StringVarP(&content, "content", "c", "", `new content ("-" reads stdin)`)
 	cmd.Flags().StringVar(&contentFile, "content-file", "", `read new content from a file ("-" reads piped stdin)`)
+	cmd.Flags().BoolVar(&allowEmpty, "allow-empty", false, "accept a zero-byte --content-file (or empty piped stdin) as a deliberately empty body; without it that is refused, since a failed upstream command leaves exactly that file")
 	cmd.Flags().BoolVar(&force, "force", false, "write a new body even though it starts with the metadata header a text-mode node get prints")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "show what would change, with a diff of the body, without writing")
 	cmd.Flags().StringVar(&nodeType, "type", "", "new node type (comments cannot be retyped; use hadron comment edit)")
-	cmd.Flags().StringVar(&objectType, "object-type", "", `new structured-storage collection (#725; "" clears → ordinary node; omit to preserve)`)
+	cmd.Flags().StringVar(&objectType, "object-type", "", `new collection for the record ("" makes it an ordinary node; omit to keep)`)
 	// NOT the same word as `memory member --role` / `memory share --role`, which
 	// are MEMBERSHIP roles on a person. This is Node.role — what the node is FOR
 	// — and the usage says what it is not, the condition @Holger attached to
 	// there being three kind-ish fields at all (nodeType / objectType / role).
 	cmd.Flags().StringVar(&role, "role", "",
-		`what this node is FOR (#1201) — "spec"/"spec.*" and "review"/"review.*" use their governed doors; omit to preserve; empty or whitespace clears through an explicit null. NOT --type (the platform kind) and NOT a membership role`)
+		`what this node is for in a governed workflow ("spec", "spec.*", "review", "review.*"); "" clears it; omit to keep. Not --type, and not a membership role`)
 	cmd.Flags().StringVar(&description, "description", "", "new one-line description")
 	cmd.Flags().StringVar(&abstract, "abstract", "", `new paragraph-length summary ("-" reads stdin)`)
 	cmd.Flags().StringVar(&abstractFile, "abstract-file", "", "read the new abstract from a file")
@@ -423,11 +508,16 @@ schema-governed memory the server validates the result and rejects a violation.)
 	cmd.Flags().StringVar(&dataFile, "data-file", "", "read the replacement JSON data object from a file")
 	cmd.Flags().StringVar(&dataMerge, "data-merge", "", `merge a JSON object into data, preserving unmentioned keys ("-" reads stdin)`)
 	cmd.Flags().StringVar(&dataMergeFile, "data-merge-file", "", "read the JSON object to merge into data from a file")
-	cmd.Flags().StringVar(&properties, "properties", "", `replace the structured-storage JSON properties (#725; "null" clears)`)
+	cmd.Flags().StringVar(&properties, "properties", "", `replace all of the record's fields with this JSON object ("null" clears)`)
 	cmd.Flags().StringVar(&propertiesFile, "properties-file", "", "read the replacement JSON properties object from a file")
 	cmd.Flags().BoolVar(&runnable, "runnable", false, "mark the node runnable by 'hadron task run' (--runnable=false clears it; omit to preserve)")
+	cmd.Flags().IntVar(&expectedRevision, "expected-revision", 0, "require the supplied live revision (1-2147483647); omit for last-write-wins; unavailable with data merge")
+	cmd.Flags().IntVar(&seq, "seq", 0, "position among sibling nodes, lower first (0 is a real position; omit to keep); "+seqRefusalHelp)
 	cmd.Flags().StringVar(&reason, "reason", "", "why this change was made (recorded in version history)")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "replace tags (repeatable)")
+	cmd.Flags().StringArrayVar(&edges, "edge", nil, edgeFlagUsage+"; needs --replace-edges")
+	cmd.Flags().BoolVar(&replaceEdges, "replace-edges", false, "replace ALL of the node's outgoing edges with the --edge list")
+	enableLintWarnings(cmd, "--dry-run")
 	return cmd
 }
 
@@ -480,18 +570,20 @@ var updateFields = []struct {
 	{"properties", []string{"properties", "properties-file"}},
 	{"runnable", []string{"runnable"}},
 	{"tags", []string{"tag"}},
+	{"seq", []string{"seq"}},
 }
 
 // updatePreviewDTO is `node update --dry-run --json` (#873). content is null
 // unless the body changes; warnings is always a list.
 type updatePreviewDTO struct {
-	DryRun   bool               `json:"dryRun"`
-	ID       string             `json:"id"`
-	URN      string             `json:"urn"`
-	Loc      string             `json:"loc"`
-	Fields   []string           `json:"fields"`
-	Content  *contentPreviewDTO `json:"content"`
-	Warnings []string           `json:"warnings"`
+	DryRun           bool               `json:"dryRun"`
+	ID               string             `json:"id"`
+	URN              string             `json:"urn"`
+	Loc              string             `json:"loc"`
+	Fields           []string           `json:"fields"`
+	Content          *contentPreviewDTO `json:"content"`
+	Warnings         []string           `json:"warnings"`
+	ExpectedRevision *int               `json:"expectedRevision"`
 }
 
 // contentPreviewDTO is the body change: stored (raw) → proposed, and their
@@ -502,8 +594,13 @@ type contentPreviewDTO struct {
 	Diff   string `json:"diff"`
 }
 
-func writeUpdatePreview(f *cmdutil.Factory, stored *gen.GetNodeNode, changed func(string) bool, body string, contentChanged bool, warnings []string) error {
-	dto := updatePreviewDTO{DryRun: true, ID: stored.Id, URN: stored.Urn, Loc: stored.Loc, Fields: []string{}, Warnings: warnings}
+func writeUpdatePreview(f *cmdutil.Factory, stored *gen.GetNodeNode, changed func(string) bool, body string, contentChanged bool, warnings []string, expectedRevision *int) error {
+	if expectedRevision != nil {
+		// Copy first: appending to the caller's slice could write into its
+		// spare capacity (#1075).
+		warnings = append(slices.Clone(warnings), fmt.Sprintf("expected revision %d is advisory and not validated by the server in a dry run", *expectedRevision))
+	}
+	dto := updatePreviewDTO{DryRun: true, ID: stored.Id, URN: stored.Urn, Loc: stored.Loc, Fields: []string{}, Warnings: warnings, ExpectedRevision: expectedRevision}
 	for _, uf := range updateFields {
 		for _, fl := range uf.flags {
 			if changed(fl) {

@@ -9,6 +9,17 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
+// showPrompt renders the question on stderr and fails closed when it could not
+// be written: a "y" given to a question nobody saw is not consent (#1077), so the
+// caller must not go on to read stdin. The "Aborted." write on a declined answer
+// stays unchecked on purpose: the action has already been refused by then.
+func showPrompt(io *output.IOStreams, format string, args ...any) error {
+	if _, err := fmt.Fprintf(io.ErrOut, format, args...); err != nil {
+		return exitcode.Newf(exitcode.Error, "could not show the confirmation prompt (%v); nothing was sent", err)
+	}
+	return nil
+}
+
 // ConfirmDeletion gates destructive commands. --yes skips the prompt;
 // otherwise an interactive terminal asks y/N, and a non-interactive
 // caller (scripts, agents) is refused with a Usage error so deletions
@@ -23,7 +34,9 @@ func ConfirmDeletion(io *output.IOStreams, yes bool, what string) error {
 	if !io.IsInputTerminal() {
 		return exitcode.Newf(exitcode.Usage, "refusing to delete %s without --yes in non-interactive mode", what)
 	}
-	fmt.Fprintf(io.ErrOut, "Delete %s? This cannot be undone. (y/N) ", what)
+	if err := showPrompt(io, "Delete %s? This cannot be undone. (y/N) ", what); err != nil {
+		return err
+	}
 	scanner := bufio.NewScanner(io.In)
 	if !scanner.Scan() {
 		if err := scanner.Err(); err != nil {
@@ -51,7 +64,9 @@ func Confirm(io *output.IOStreams, yes bool, prompt string) error {
 	if !io.IsInputTerminal() {
 		return exitcode.Newf(exitcode.Usage, "refusing to proceed without --yes in non-interactive mode")
 	}
-	fmt.Fprintf(io.ErrOut, "%s (y/N) ", prompt)
+	if err := showPrompt(io, "%s (y/N) ", prompt); err != nil {
+		return err
+	}
 	scanner := bufio.NewScanner(io.In)
 	if !scanner.Scan() {
 		if err := scanner.Err(); err != nil {

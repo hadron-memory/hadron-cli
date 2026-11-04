@@ -31,7 +31,11 @@ in --json), never dropped.
 
 The register node is treated as advisory and is never modified. With
 --check, the live nodes are diffed against the register node's
-hand-written ledger and any drift is reported (exit 5 if drift is found).`,
+hand-written ledger and any drift is reported (exit 5 if drift is found).
+The register node is the node at loc "register" in the memory (it holds the
+module codes and the number ledger; read it with ` + "`hadron spec get register`" + `). To
+fix drift, edit its ledger by hand with ` + "`hadron spec edit register`" + ` to match
+this command's live output, then re-run --check.`,
 		Example: `  hadron spec register -m hrn:mem:micromentor.org:platform-specs
   hadron spec register -m hrn:mem:micromentor.org:platform-specs --check`,
 		Args: cobra.NoArgs,
@@ -45,7 +49,11 @@ hand-written ledger and any drift is reported (exit 5 if drift is found).`,
 				return err
 			}
 
-			locs, outside, err := scanLedgerLocs(cmd, client, memURN)
+			locs, outside, cands, err := scanLedgerLocs(cmd, client, memURN)
+			if err != nil {
+				return err
+			}
+			repl, err := loadReplacements(cmd.Context(), client, cands)
 			if err != nil {
 				return err
 			}
@@ -56,7 +64,9 @@ hand-written ledger and any drift is reported (exit 5 if drift is found).`,
 			}
 
 			dto := buildLedgerDTO(memURN, locs, ledger)
+			applyReplacements(&dto, cands, repl)
 			dto.OutsideNumbering = outside
+			dto.ProductGeneral = productGeneralLocs(locs)
 			if check {
 				dto.Drift = computeDrift(locs, ledger)
 			}
@@ -66,12 +76,25 @@ hand-written ledger and any drift is reported (exit 5 if drift is found).`,
 				if n := len(dto.OutsideNumbering); n > 0 {
 					fmt.Fprintf(w, "(%d spec(s) outside the legacy numbering, not in this ledger: %s)\n", n, strings.Join(dto.OutsideNumbering, ", "))
 				}
+				for _, loc := range dto.ProductGeneral {
+					fmt.Fprintf(w, "%s  general provisions (product)\n", output.SafeCell(loc))
+				}
 				for _, m := range dto.Modules {
 					fmt.Fprintf(w, "\n%s  (next feature: %s)\n", m.Module, dashIfEmpty(m.NextFeature))
 					for _, fe := range m.Features {
-						rules := strings.Join(fe.Rules, ", ")
+						rules := strings.Join(ruleLabels(m.Module+":"+fe.Feature, fe), ", ")
 						if rules == "" {
 							rules = "—"
+						}
+						if fe.GeneralProvisions {
+							// The module's :000 contract, not an allocatable feature:
+							// no next-rule line (cli#1146).
+							if len(fe.Rules) == 0 {
+								fmt.Fprintf(w, "  %s:%s  general provisions\n", m.Module, fe.Feature)
+							} else {
+								fmt.Fprintf(w, "  %s:%s  general provisions  rules: %s\n", m.Module, fe.Feature, rules)
+							}
+							continue
 						}
 						fmt.Fprintf(w, "  %s:%s  rules: %s  (next rule: %s)\n", m.Module, fe.Feature, rules, dashIfEmpty(fe.NextRule))
 					}
@@ -110,10 +133,10 @@ hand-written ledger and any drift is reported (exit 5 if drift is found).`,
 // citation-shaped loc (tag-agnostic, as before, so an untagged legacy node
 // still shows) goes into the ledger, and every spec (isSpec) at any other loc
 // is returned as outside the numbering (#708) — reported, never dropped.
-func scanLedgerLocs(cmd *cobra.Command, client graphql.Client, memURN string) (locs, outside []string, err error) {
+func scanLedgerLocs(cmd *cobra.Command, client graphql.Client, memURN string) (locs, outside []string, cands []replacedCandidate, err error) {
 	all, err := scanAllNodes(cmd.Context(), client, &memURN, nil)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	locs, outside = []string{}, []string{}
 	for _, n := range all {
@@ -122,12 +145,13 @@ func scanLedgerLocs(cmd *cobra.Command, client graphql.Client, memURN string) (l
 		}
 		if _, perr := ParseCitation(n.Loc); perr == nil {
 			locs = append(locs, n.Loc)
+			cands = append(cands, replacedCandidate{ID: n.Id, Loc: n.Loc, MemoryID: n.MemoryId, Tags: n.Tags})
 		} else if isSpec(n.Tags, n.Role) {
 			outside = append(outside, n.Loc)
 		}
 	}
 	sort.Strings(outside)
-	return locs, outside, nil
+	return locs, outside, cands, nil
 }
 
 func buildLedgerDTO(memURN string, locs []string, ledger registerLedger) ledgerDTO {
@@ -191,7 +215,7 @@ func buildLedgerDTO(memURN string, locs []string, ledger registerLedger) ledgerD
 	}
 	sort.Strings(modKeys)
 
-	dto := ledgerDTO{Memory: memURN, Modules: []ledgerModuleDTO{}, OutsideNumbering: []string{}}
+	dto := ledgerDTO{Memory: memURN, Modules: []ledgerModuleDTO{}, OutsideNumbering: []string{}, ProductGeneral: []string{}}
 	for _, key := range modKeys {
 		ma := mods[key]
 		featNums := sortedKeys(ma.features)
@@ -207,7 +231,7 @@ func buildLedgerDTO(memURN string, locs []string, ledger registerLedger) ledgerD
 			featCit := ma.cit
 			featCit.Feature = feat
 			nextRule, _ := allocateChild(featCit, ruleNums, ledger.retired[key+":"+feat], 0)
-			md.Features = append(md.Features, ledgerFeatureDTO{Feature: feat, Rules: ruleStrs, NextRule: nextRule.Rule})
+			md.Features = append(md.Features, ledgerFeatureDTO{Feature: feat, Rules: ruleStrs, NextRule: nextRule.Rule, ReplacedRules: []ledgerReplacedRuleDTO{}, GeneralProvisions: feat == moduleContractFeature})
 		}
 		dto.Modules = append(dto.Modules, md)
 	}
@@ -270,4 +294,54 @@ func dashIfEmpty(s string) string {
 		return "—"
 	}
 	return s
+}
+
+// applyReplacements records, per feature, which rules `spec supersede` retired
+// (cli#1145). Rules stays the plain list of rule numbers it always was; the
+// additive replacedRules carries the state, [] when none.
+func applyReplacements(dto *ledgerDTO, cands []replacedCandidate, repl map[string]replacement) {
+	byLoc := map[string]replacement{}
+	for _, c := range cands {
+		if r, ok := repl[c.ID]; ok && r.Replaced {
+			byLoc[c.Loc] = r
+		}
+	}
+	for mi := range dto.Modules {
+		m := &dto.Modules[mi]
+		for fi := range m.Features {
+			fe := &m.Features[fi]
+			fe.ReplacedRules = []ledgerReplacedRuleDTO{}
+			for _, rule := range fe.Rules {
+				if r, ok := byLoc[m.Module+":"+fe.Feature+":"+rule]; ok {
+					fe.ReplacedRules = append(fe.ReplacedRules, ledgerReplacedRuleDTO{Rule: rule, Replaced: true, ReplacedBy: r.By})
+				}
+			}
+		}
+	}
+}
+
+// ruleLabels is the human `rules:` list, a replaced rule carrying its marker.
+// A replacement in the same feature shows as its bare rule number.
+func ruleLabels(featureLoc string, fe ledgerFeatureDTO) []string {
+	marked := map[string]replacement{}
+	for _, r := range fe.ReplacedRules {
+		marked[r.Rule] = replacement{Replaced: r.Replaced, By: r.ReplacedBy}
+	}
+	out := make([]string, 0, len(fe.Rules))
+	for _, rule := range fe.Rules {
+		out = append(out, rule+output.SafeCell(replacedMarker(marked[rule], featureLoc)))
+	}
+	return out
+}
+
+// productGeneralLocs returns the live <product>:gen contract locs, sorted.
+func productGeneralLocs(locs []string) []string {
+	out := []string{}
+	for _, loc := range locs {
+		if c, err := ParseCitation(loc); err == nil && c.Product != "" && c.Module == productContractCode && c.Feature == "" {
+			out = append(out, loc)
+		}
+	}
+	sort.Strings(out)
+	return out
 }

@@ -20,11 +20,20 @@ fragment AppRunFields on AppRun {
   attempts
   budgetActions
   budgetTokens
+  budgetActionsInitial
+  budgetTokensInitial
+  costMicroCents
   timeoutMs
   policy
   eventData
   data
   failure
+  failureReason {
+    kind
+    summary
+    whoCanFix
+    nextStep
+  }
   createdAt
   startedAt
   finishedAt
@@ -45,6 +54,8 @@ fragment AgentScheduleFields on AgentSchedule {
   createdBy
   eventData
   policy
+  budgetTokens
+  budgetActions
   lastRunAt
   nextRunAt
   createdAt
@@ -64,6 +75,8 @@ fragment AgentWebhookFields on AgentWebhook {
   argsSchema
   eventData
   policy
+  budgetTokens
+  budgetActions
   lastCalledAt
   createdAt
 }
@@ -101,6 +114,9 @@ fragment ActionTicketFields on ActionTicket {
 # @genqlient(for: "TriggerAppRunInput.aiConfigName", omitempty: true)
 # @genqlient(for: "TriggerAppRunInput.eventData", omitempty: true)
 # @genqlient(for: "TriggerAppRunInput.runAsSelf", omitempty: true)
+# @genqlient(for: "TriggerAppRunInput.budgetTokens", omitempty: true)
+# @genqlient(for: "TriggerAppRunInput.budgetActions", omitempty: true)
+# @genqlient(for: "TriggerAppRunInput.agentRef", omitempty: true)
 mutation TriggerAppRun(
   $input: TriggerAppRunInput!
 ) {
@@ -119,11 +135,19 @@ query AppRuns(
   # @genqlient(omitempty: true)
   $status: AppRunStatus
   # @genqlient(omitempty: true)
+  $statuses: [AppRunStatus!]
+  # @genqlient(omitempty: true)
+  $parentRunId: ID
+  # @genqlient(omitempty: true)
+  $sortBy: AppRunSortField
+  # @genqlient(omitempty: true)
+  $sortDir: SortDirection
+  # @genqlient(omitempty: true)
   $limit: Int
   # @genqlient(omitempty: true)
   $offset: Int
 ) {
-  appRuns(appRef: $appRef, orgRef: $orgRef, status: $status, limit: $limit, offset: $offset) {
+  appRuns(appRef: $appRef, orgRef: $orgRef, status: $status, statuses: $statuses, parentRunId: $parentRunId, sortBy: $sortBy, sortDir: $sortDir, limit: $limit, offset: $offset) {
     total
     items {
       ...AppRunFields
@@ -147,6 +171,7 @@ mutation CancelAppRun($id: ID!) {
 
 # --- Schedules (cor:agt:010, D-2026-07-04-E) ---
 
+# @genqlient(for: "CreateAgentScheduleInput.cron", omitempty: true)
 # @genqlient(for: "CreateAgentScheduleInput.agentRef", omitempty: true)
 # @genqlient(for: "CreateAgentScheduleInput.aiConfigName", omitempty: true)
 # @genqlient(for: "CreateAgentScheduleInput.enabled", omitempty: true)
@@ -156,6 +181,8 @@ mutation CancelAppRun($id: ID!) {
 # @genqlient(for: "CreateAgentScheduleInput.runAt", omitempty: true)
 # @genqlient(for: "CreateAgentScheduleInput.timezone", omitempty: true)
 # @genqlient(for: "CreateAgentScheduleInput.scopeRef", omitempty: true)
+# @genqlient(for: "CreateAgentScheduleInput.budgetTokens", omitempty: true)
+# @genqlient(for: "CreateAgentScheduleInput.budgetActions", omitempty: true)
 mutation CreateAgentSchedule(
   $input: CreateAgentScheduleInput!
 ) {
@@ -195,6 +222,11 @@ query AgentSchedules(
 # scopeRef arrived with spec-049 Phase 3b (hadron-server#1163); without this an
 # unrelated `schedule update --name …` sends scopeRef:null and CLEARS the scope.
 # @genqlient(for: "UpdateAgentScheduleInput.scopeRef", omitempty: true)
+# budgetTokens/budgetActions are the only fields where a limit must be CLEARED
+# (explicit null = back to the platform default) yet omitted must PRESERVE, which
+# a *int cannot say: bound to json.RawMessage like `policy`, nil omits, "null" clears.
+# @genqlient(for: "UpdateAgentScheduleInput.budgetTokens", omitempty: true, bind: "encoding/json.RawMessage")
+# @genqlient(for: "UpdateAgentScheduleInput.budgetActions", omitempty: true, bind: "encoding/json.RawMessage")
 mutation UpdateAgentSchedule(
   $id: ID!
   $input: UpdateAgentScheduleInput!
@@ -219,6 +251,8 @@ mutation DeleteAgentSchedule($id: ID!) {
 # @genqlient(for: "CreateAgentWebhookInput.policy", omitempty: true)
 # @genqlient(for: "CreateAgentWebhookInput.runAsSelf", omitempty: true)
 # @genqlient(for: "CreateAgentWebhookInput.scopeRef", omitempty: true)
+# @genqlient(for: "CreateAgentWebhookInput.budgetTokens", omitempty: true)
+# @genqlient(for: "CreateAgentWebhookInput.budgetActions", omitempty: true)
 mutation CreateAgentWebhook(
   $input: CreateAgentWebhookInput!
 ) {

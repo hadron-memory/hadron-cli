@@ -1,3 +1,8 @@
+> **Partly superseded by #1173:** literal Agent/App systemPrompt and Worker
+> promptOverride reads, writes and flags described below are retired. Use the
+> source → compile → node approval workflow; the other behavior below is historical
+> context or remains applicable as stated. See [1173-retired-prompts.md](1173-retired-prompts.md).
+
 # Implementation Plan: `hadron team` — personas and sessions (#369 slice 1)
 
 > **Status: historical (implemented at the time)** — design as built. First slice of

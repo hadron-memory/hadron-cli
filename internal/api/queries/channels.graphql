@@ -40,7 +40,8 @@ fragment ChannelFields on Channel {
 
 # The host memory, projected separately so a listing can name where a Channel
 # lives without a second read — two Channels named `team` at loc `chats:team`
-# are distinguishable only by this.
+# are distinguishable only by this when the memory metadata is readable.
+# #2509: null memory preserves the readable Channel; never infer its metadata.
 fragment ChannelMemory on Channel {
   memory {
     id
@@ -71,10 +72,9 @@ query Channels(
 
 # Single-Channel read. `ref` is the id OR the address; the server resolves both.
 #
-# Returns null when the Channel does not exist, when the ref names nothing, AND
-# when the caller may not read its host memory — identically and on purpose, so
-# it is "never an existence oracle" in the server's own words. Callers render
-# ONE message covering all three and must not infer not-found from the null.
+# A null Channel does not disclose whether it exists or is unreadable.
+# A readable Channel may separately have null memory metadata (#2509); that
+# preserves the parent and is not a whole-Channel refusal.
 query GetChannel($ref: ID!) {
   channel(ref: $ref) {
     ...ChannelFields
@@ -332,4 +332,37 @@ mutation UpdateRegisterEntry(
 # gone). Discarding it would report success on a failed delete.
 mutation DeleteRegisterEntry($ref: ID!) {
   deleteRegisterEntry(ref: $ref)
+}
+
+# cli#1262: the DIRECT replies to one seq of a Channel, filtered by the server
+# (hadron-server#2847). A separate document from ChannelMessages so an ordinary
+# read never carries the new argument to an older server.
+query ChannelThread(
+  $channelRef: ID!
+  $replyToSeq: Int!
+  # @genqlient(omitempty: true)
+  $sinceSeq: Int
+  # @genqlient(omitempty: true)
+  $beforeSeq: Int
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+  # @genqlient(omitempty: true)
+  $mentionsRef: ID
+) {
+  channelMessages(
+    channelRef: $channelRef
+    replyToSeq: $replyToSeq
+    sinceSeq: $sinceSeq
+    beforeSeq: $beforeSeq
+    limit: $limit
+    offset: $offset
+    mentionsRef: $mentionsRef
+  ) {
+    total
+    items {
+      ...ChannelMessageFields
+    }
+  }
 }

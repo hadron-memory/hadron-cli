@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/hadron-memory/hadron-cli/internal/delivery"
 )
 
 // The closed set of operation types a host carries out (cor:agt:070:03).
@@ -48,6 +50,7 @@ type Operation struct {
 
 // Registration is one registerHost call: the whole worker list.
 type Registration struct {
+	Capabilities        []string
 	Label               string
 	PollIntervalSeconds int
 	Workers             []RegisteredWorker
@@ -131,11 +134,41 @@ type Poller struct {
 	// workerRefs maps a resolved worker id to its configured reference, from
 	// the last registration's answer.
 	workerRefs map[string]string
+
+	// DeliveryStep, when set, is told how each delivery step's batch read
+	// went (delivery.StepRead, StepReadFailed, StepOffByScope).
+	DeliveryStep func(at time.Time, read string)
+	// WakeStep, when set, is told how each step's wake read went (cli#906
+	// row 1).
+	WakeStep func(delivery.WakeRead)
 	// agents are the agent processes this poller launched, by worker id.
 	agents map[string]Agent
 	// agentTrees is the worktree each launched agent runs in, by worker id.
 	agentTrees map[string]string
-	wg         sync.WaitGroup
+	// agentIDs is each launched agent's process identity, observed when it
+	// was tracked: a later pin must match it, so a reused pid is never
+	// taken for the agent (#1043). Absent when resets were not enabled at
+	// launch, or the observation failed; a reset then refuses.
+	agentIDs map[string]ProcessIdentity
+	wg       sync.WaitGroup
+
+	// Chat delivery (cli#907): off unless EnableDelivery, and switched off
+	// for the run by a missing attention:deliver scope.
+	batches     BatchSource
+	deliverer   Deliverer
+	deliveryOff bool
+	// Tick and task wakes (cli#906 row 1): off unless EnableWakes.
+	wakes         WakeSource
+	wakeDeliverer WakeDeliverer
+	// budgetLogged is the UTC day an exhausted wake budget was last logged.
+	budgetLogged string
+
+	// worker.reset-context (#1043): off unless EnableResets.
+	resets    ResetServer
+	resetDeps ResetDeps
+	// resetStopWait bounds how long the old agent has to exit after the
+	// one stop; zero means defaultResetStopWait.
+	resetStopWait time.Duration
 }
 
 // New builds a poller. key is the host key, kept only to scrub it from
@@ -151,6 +184,7 @@ func New(cfg *Config, server Server, host Host, state *State, key string, emit f
 		workerRefs: map[string]string{},
 		agents:     map[string]Agent{},
 		agentTrees: map[string]string{},
+		agentIDs:   map[string]ProcessIdentity{},
 	}
 }
 
@@ -219,15 +253,16 @@ func (p *Poller) Step(ctx context.Context) error {
 	for _, op := range ops {
 		p.dispatch(ctx, op)
 	}
+	p.deliverStep(ctx)
 	return nil
 }
 
 func (p *Poller) register(ctx context.Context) error {
-	r := Registration{Label: p.cfg.Label, PollIntervalSeconds: p.cfg.PollIntervalSeconds, Workers: []RegisteredWorker{}}
+	r := Registration{Capabilities: append([]string{}, p.cfg.Capabilities...), Label: p.cfg.Label, PollIntervalSeconds: p.cfg.PollIntervalSeconds, Workers: []RegisteredWorker{}}
 	for _, ref := range p.cfg.WorkerRefs() {
 		w := p.cfg.Workers[ref]
 		r.Workers = append(r.Workers, RegisteredWorker{
-			Worker: ref, Family: w.Family, Worktrees: p.state.worktreesFor(ref, w.Worktrees),
+			Worker: ref, Family: CanonicalFamily(w.Family), Worktrees: p.state.worktreesFor(ref, w.Worktrees),
 		})
 	}
 	ans, err := p.server.Register(ctx, r)
@@ -255,45 +290,57 @@ func (p *Poller) register(ctx context.Context) error {
 // guess.
 func refFor(w RegisteredHostWorker, sent []RegisteredWorker) string {
 	for _, s := range sent {
-		if s.Worker == w.WorkerID || (w.URN != "" && s.Worker == w.URN) || strings.EqualFold(s.Worker, w.Name) {
+		if refMatches(s.Worker, w.WorkerID, w.URN, w.Name) {
 			return s.Worker
 		}
 	}
 	return ""
 }
 
+func refMatches(ref, id, urn, name string) bool {
+	return ref == id || (urn != "" && ref == urn) || strings.EqualFold(ref, name)
+}
+
 // dispatch carries an operation out in the background, once.
 func (p *Poller) dispatch(ctx context.Context, op Operation) {
-	p.mu.Lock()
-	if p.inFlight[op.ID] {
-		p.mu.Unlock()
-		return
-	}
-	p.inFlight[op.ID] = true
-	// One worker's operations run one at a time, in collection order (the
-	// server collects oldest first). A worktree.remove queued behind a
-	// worker.start or worker.end therefore sees the agent it launched and
-	// any keep a failed end recorded; nothing checks a tree while another
-	// operation on it is between its check and its side effect. Different
-	// workers' operations still run concurrently: their trees are disjoint,
-	// since a worktree token belongs to one worker (config validation).
 	key := op.WorkerID
 	if key == "" {
 		key = argString(op, "workerId")
 	}
-	prev := p.tails[key]
+	if p.enqueue(key, op.ID, func() { p.carryOut(ctx, op) }) {
+		p.log("collected", op.ID, op.Type, "", "")
+	}
+}
+
+// enqueue runs job in the background once per id while it is in flight,
+// after the worker's previous job. One worker's operations and deliveries
+// run one at a time, in order (the server collects oldest first): a
+// worktree.remove queued behind a worker.start or worker.end sees the agent
+// it launched and any keep a failed end recorded, and a delivery never types
+// into a terminal a start or an end is changing. Nothing checks a tree while
+// another job on it is between its check and its side effect. Different
+// workers' jobs still run concurrently: their trees are disjoint, since a
+// worktree token belongs to one worker (config validation). It reports
+// whether the job was queued.
+func (p *Poller) enqueue(worker, id string, job func()) bool {
+	p.mu.Lock()
+	if p.inFlight[id] {
+		p.mu.Unlock()
+		return false
+	}
+	p.inFlight[id] = true
+	prev := p.tails[worker]
 	done := make(chan struct{})
-	p.tails[key] = done
+	p.tails[worker] = done
 	p.mu.Unlock()
-	p.log("collected", op.ID, op.Type, "", "")
 	p.wg.Add(1)
 	go func() {
 		defer p.wg.Done()
 		defer func() {
 			p.mu.Lock()
-			delete(p.inFlight, op.ID)
-			if p.tails[key] == done {
-				delete(p.tails, key)
+			delete(p.inFlight, id)
+			if p.tails[worker] == done {
+				delete(p.tails, worker)
 			}
 			p.mu.Unlock()
 			close(done)
@@ -301,8 +348,9 @@ func (p *Poller) dispatch(ctx context.Context, op Operation) {
 		if prev != nil {
 			<-prev
 		}
-		p.carryOut(ctx, op)
+		job()
 	}()
+	return true
 }
 
 func (p *Poller) carryOut(ctx context.Context, op Operation) {
@@ -319,8 +367,13 @@ func (p *Poller) carryOut(ctx context.Context, op Operation) {
 		p.workerStart(ctx, op)
 	case OpWorkerEnd:
 		p.workerEnd(ctx, op)
+	case OpWorkerResetContext:
+		p.workerResetContext(ctx, op)
 	case OpWorkerDeliver:
-		p.finish(ctx, op, Failed, "", "no delivery path on this host yet (hadron-cli#829)")
+		// A per-task-event operation (hostOperations/types.ts:45). Chat
+		// delivery reads S1's batches instead (cli#907), so this host has
+		// no delivery path for it.
+		p.finish(ctx, op, Failed, "", "no delivery path for worker.deliver: chat delivery reads batches, not this operation (hadron-cli#907)")
 	default:
 		// Reported, not left in flight: an unreported operation stays
 		// collected until the server's timeout (#1881), which isn't built.

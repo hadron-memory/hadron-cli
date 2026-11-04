@@ -51,6 +51,9 @@ query MemoryAssets(
       # the asset is not CLEAN, or when its memory is encrypted. Never build
       # this client-side — a guessed URL is worse than an absent one.
       publicUrl
+      publicLinkEnabled
+      canManagePublicLink
+      publicLinkAvailable
     }
   }
 }
@@ -65,5 +68,74 @@ query AssetDownloadUrl($assetId: ID!, $ttlSeconds: Int) {
     mimeType
     sizeBytes
     expiresAt
+  }
+}
+
+# Server-owned policy, capability and deployment availability are independent.
+mutation SetAssetPublicLink($assetRef: ID!, $enabled: Boolean!) {
+  setAssetPublicLink(assetRef: $assetRef, enabled: $enabled) {
+    id
+    publicLinkEnabled
+    canManagePublicLink
+    publicLinkAvailable
+    publicUrl
+  }
+}
+
+# cli#1341 — the cross-memory asset list (#891, cor:api:120): every asset held
+# by a memory the caller can read, narrowed by the filter (which never widens
+# the gate). orgId follows cor:api:100:01. memoryAssets above stays the
+# per-memory list. Unset fields and arguments are omitted.
+# @genqlient(for: "AssetFilter.includeDeleted", omitempty: true)
+# @genqlient(for: "AssetFilter.memoryRefs", omitempty: true)
+# @genqlient(for: "AssetFilter.mimeType", omitempty: true)
+# @genqlient(for: "AssetFilter.mine", omitempty: true)
+# @genqlient(for: "AssetFilter.scanStatus", omitempty: true)
+query ListAssets(
+  # @genqlient(omitempty: true)
+  $filter: AssetFilter
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+  # @genqlient(omitempty: true)
+  $orgId: ID
+) {
+  assets(filter: $filter, limit: $limit, offset: $offset, orgId: $orgId) {
+    total
+    items {
+      id
+      urn
+      filename
+      mimeType
+      sizeBytes
+      description
+      scanStatus
+      scanSignature
+      uploadedAt
+      uploadedBy
+      deletedAt
+      memoryId
+      publicUrl
+      publicLinkEnabled
+      canManagePublicLink
+      publicLinkAvailable
+    }
+  }
+}
+
+# cli#1610: keep the legacy operation above free of the newer argument so
+# calls without --instruction still validate against older servers.
+mutation SetAssetPublicLinkInstructed(
+  $assetRef: ID!
+  $enabled: Boolean!
+  $instruction: ActInstructionInput!
+) {
+  setAssetPublicLink(assetRef: $assetRef, enabled: $enabled, instruction: $instruction) {
+    id
+    publicLinkEnabled
+    canManagePublicLink
+    publicLinkAvailable
+    publicUrl
   }
 }

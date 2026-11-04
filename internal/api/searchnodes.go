@@ -30,14 +30,31 @@ type SearchHit struct {
 // either would be a second implementation of it.
 type SearchScope = gen.SearchNodesFindNodesFindNodesResultScopeSearchScopeInfo
 
+// SearchPassage is one chunk-granularity result (cor:api:090, spec 033):
+// where in which node the matching chunk sits.
+type SearchPassage = gen.SearchNodesFindNodesFindNodesResultPassagesPassage
+
 // SearchPage is the scored counterpart of FindNodesPage: it preserves
-// per-hit scores rather than flattening to bare nodes.
+// per-hit scores rather than flattening to bare nodes. Passages carries the
+// chunk results a granularity: chunk search returns; it is never nil.
 type SearchPage struct {
 	Hits     []*SearchHit
+	Passages []*SearchPassage
 	Total    *int
 	Degraded *string
 	Reason   *string
 	Scope    *SearchScope
+}
+
+// SearchRanking is findNodes' optional ranking arguments (cli#1341). The zero
+// value asks for none of them, and each nil/empty one is omitted from the
+// wire: graph neighbours appended after the hits, the lexical field
+// weight-mask, node vs chunk granularity, and an absolute score floor.
+type SearchRanking struct {
+	Expand      *int
+	Fields      []gen.NodeField
+	Granularity *gen.SearchGranularity
+	MinScore    *float64
 }
 
 // SearchNodes runs a ranked findNodes query (the `hadron search` backend),
@@ -64,7 +81,7 @@ func SearchNodes(
 	orgID *string,
 	appRef *string,
 ) (*SearchPage, error) {
-	return SearchNodesProjected(ctx, client, query, mode, filter, sortProperty, limit, offset, scope, orgID, appRef, false, false)
+	return SearchNodesProjected(ctx, client, query, mode, filter, sortProperty, limit, offset, scope, orgID, appRef, false, false, SearchRanking{})
 }
 
 // SearchNodesProjected is SearchNodes with the two JSONB columns opt-in (#602),
@@ -88,17 +105,24 @@ func SearchNodesProjected(
 	orgID *string,
 	appRef *string,
 	withProperties, withData bool,
+	ranking SearchRanking,
 ) (*SearchPage, error) {
 	// NOTE the argument ORDER: the generated signature follows the operation's
 	// variable order (scope, appRef, orgId), and both context arguments are
 	// *string — so transposing them COMPILES and silently sends each as the
 	// other. Caught by a test asserting the pair on the wire, not by the build.
-	resp, err := gen.SearchNodes(ctx, client, query, mode, filter, sortProperty, limit, offset, scope, appRef, orgID, withProperties, withData)
+	resp, err := gen.SearchNodes(ctx, client, query, mode, filter, sortProperty, limit, offset, scope, appRef, orgID, withProperties, withData,
+		ranking.Expand, ranking.Fields, ranking.Granularity, ranking.MinScore)
 	if err != nil {
 		return nil, err
 	}
-	page := &SearchPage{Hits: []*SearchHit{}}
+	page := &SearchPage{Hits: []*SearchHit{}, Passages: []*SearchPassage{}}
 	if r := resp.FindNodes; r != nil {
+		for _, p := range r.Passages {
+			if p != nil {
+				page.Passages = append(page.Passages, p)
+			}
+		}
 		page.Total = r.Total
 		page.Degraded = r.Degraded
 		page.Reason = r.Reason

@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -25,7 +26,7 @@ import (
 )
 
 const (
-	hostOpsDefaultLimit = 50
+	hostOpsDefaultLimit = 20
 	// hostOpsPageCap is the server's page ceiling; a larger --limit would be
 	// clamped silently, so the CLI refuses it instead (like `team events`).
 	hostOpsPageCap = 200
@@ -115,13 +116,14 @@ workers it can run, as which model family and in which worktrees
 (cor:agt:070:01); people and workers issue it typed operations
 (cor:agt:070:05), which it collects and reports (cor:agt:070:02).
 ` + "`list`" + ` and ` + "`ops`" + ` read them; ` + "`issue`" + ` issues one. ` + "`run`" + ` is the
-host's own poller, and ` + "`status`" + ` checks its configuration. A host's key is
+host's own poller; ` + "`availability`" + ` sets or clears its own worker mark. ` + "`status`" + ` checks its configuration. A host's key is
 granted with ` + "`hadron app key scope grant <key-id> host:operate --host-id <host>`" + `.`,
 	}
 	cmd.AddCommand(newCmdTeamHostLs(f))
 	cmd.AddCommand(newCmdTeamHostOps(f))
 	cmd.AddCommand(newCmdTeamHostIssue(f))
 	cmd.AddCommand(newCmdTeamHostRun(f))
+	cmd.AddCommand(newCmdTeamHostAvailability(f))
 	cmd.AddCommand(newCmdTeamHostStatus(f))
 	return cmd
 }
@@ -196,7 +198,7 @@ their family and worktrees. Whoever reads the App's tasks and events may.`,
 					if h.Live {
 						live = "yes"
 					}
-					t.Row(h.HostID, h.Label, live, strconv.Itoa(h.PollIntervalSeconds)+"s", h.RefreshedAt, hostWorkersCell(h.Workers))
+					t.Row(output.SafeCell(h.HostID), output.SafeCell(h.Label), output.SafeCell(live), output.SafeCell(strconv.Itoa(h.PollIntervalSeconds)+"s"), output.SafeCell(h.RefreshedAt), output.SafeCell(hostWorkersCell(h.Workers)))
 				}
 				return t.Flush()
 			})
@@ -239,7 +241,9 @@ failure reason. Whoever reads the App's tasks and events may.
 --host, --status (issued, collected, succeeded, failed) and --worker (id,
 URN or name) narrow it. --limit takes 1 to ` + strconv.Itoa(hostOpsPageCap) + `, the server's page cap.
 When more follow, the receipt names the --after that continues the list;
---json carries it as endCursor, with hasNextPage.`,
+--json carries it as endCursor, with hasNextPage. If display sanitizes or
+shortens the cursor, the text omits the reusable --after suggestion: obtain
+the original cursor from --json.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -295,13 +299,13 @@ When more follow, the receipt names the --after that continues the list;
 				}
 				t := output.NewTable(w, "ID", "ISSUED", "TYPE", "HOST", "WORKER", "STATUS", "BY", "OUTCOME")
 				for _, o := range page.Items {
-					t.Row(o.ID, o.IssuedAt, o.Type, o.HostID, hostOpWorkerCell(o), o.Status, o.IssuedBy, hostOpOutcomeCell(o))
+					t.Row(output.SafeCell(o.ID), output.SafeCell(o.IssuedAt), output.SafeCell(o.Type), output.SafeCell(o.HostID), output.SafeCell(hostOpWorkerCell(o)), output.SafeCell(o.Status), output.SafeCell(o.IssuedBy), output.SafeCell(hostOpOutcomeCell(o)))
 				}
 				if err := t.Flush(); err != nil {
 					return err
 				}
 				if page.HasNextPage && page.EndCursor != nil {
-					_, err := fmt.Fprintf(w, "more follow — continue with --after %s\n", *page.EndCursor)
+					err := writeHostCursorHint(w, *page.EndCursor, runtime.GOOS)
 					return err
 				}
 				return nil

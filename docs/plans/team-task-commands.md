@@ -59,8 +59,18 @@ plain: no header, no read-state effects.
 - **`closeSessionWhenDone` is tri-state.** `--close-session` /
   `--no-close-session` on assign/reassign send `true`/`false`; **neither
   flag sends nothing** — the task keeps its value (the mutation doc:
-  "when given, replaces"). On create, only `--no-close-session` exists
-  (the server default is true).
+  "when given, replaces"). On create both flags exist since #988 (the
+  server default flipped to NO in hadron-server#2249 / R182; before that only
+  `--no-close-session` existed because yes was the default), and passing both
+  is a usage error. The text receipts of create/assign/reassign
+  and `task get` print the **server-returned** value as `close session when
+  done: yes|no` (yes adds what finishing or cancelling will request; no is
+  the bare line) (#958) — never the flag
+  that was passed, so a default reads truthfully; `--json` already carried
+  the boolean. The help teaches the one supported path to end a session
+  with the task — `--close-session` at create (#959, #988; it taught
+  `--no-close-session` while yes was the default): the choice has no in-place
+  setter, and same-party reassignment is refused with the choice unchanged.
 - **`task list` is newest-first with `ls` aliased** (the house rule every
   `list` carries); filters map 1:1 onto the query arguments; `--status` is
   validated client-side so a typo is a usage error, not an empty result.
@@ -227,6 +237,10 @@ than re-widened.
 - Backlog/park verbs (`parkAgentTask`, `makeAgentTaskReady`) are still in
   review server-side (#1790); when they land they are a follow-up CLI slice
   alongside `--status BACKLOG`.
-- The stall-schedule tunables (`agentTaskStallSchedule`) have no command —
-  not in #830's scope; owner-facing surface can follow demand.
+- The stall-schedule tunables (`agentTaskStallSchedule`) were not in #830's
+  scope; they shipped later as `team stall-schedule get|set` (#864), which
+  #983 extended with the session-end grace (cor:agt:050:10, 1–1440) and the
+  host report timeout (cor:agt:070:02, 5–1440). Those two carry their range
+  client-side, so an out-of-range value sends nothing, while the windows'
+  and lapse count's ranges stay the server's rule.
 - `#839` (org names) waits on the urn-lib-go release per Eden (#8916).

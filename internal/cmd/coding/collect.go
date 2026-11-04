@@ -108,30 +108,45 @@ func collectReview(ctx context.Context, client graphql.Client, mem codingMemory,
 	return reviewInput{Members: members, Edges: edgeByLoc, Unavailable: unavailable}, nil
 }
 
-// collectPreflight gathers the router's outgoing routes and their targets.
-func collectPreflight(ctx context.Context, client graphql.Client, mem codingMemory, root string) (preflightInput, error) {
+// collectPreflight gathers the router's routes and their targets. Under the
+// mirrored model a route is an OUTGOING edge; under the leaf model (cli#1025)
+// the leaf owns an INCOMING edge, and the router's outgoing edges are the
+// legacy routes still to migrate, so both are read.
+func collectPreflight(ctx context.Context, client graphql.Client, mem codingMemory, root string, model routeModel) (preflightInput, error) {
 	// Outgoing, so the far endpoint is the edge's target — the opposite end
 	// from the review tree's inbound edges. The root's own memory id comes back
 	// too: it is the only value comparable against an endpoint's MemoryId.
-	routes, homeMemory, err := fetchRootEdges(ctx, client, mem, root, false)
+	g, err := fetchRootGraph(ctx, client, mem, root)
 	if err != nil {
 		return preflightInput{}, err
 	}
+	in := preflightInput{Routes: g.Outgoing, HomeMemory: g.MemoryID, Model: model}
 	// Read targets by id, so a route that legitimately crosses into another
 	// memory resolves there instead of being looked up in this one.
 	byID := map[string]string{}
-	for _, r := range routes {
+	for _, r := range g.Outgoing {
 		if r.OtherID != "" {
 			byID[r.OtherID] = r.Other
+		}
+	}
+	if model == modelLeaf {
+		in.RouterBody = g.Content
+		for _, l := range g.Incoming {
+			// A source the server redacted has no loc or id to read or name.
+			// It is counted by nobody: lint says how many edges it could see.
+			if l.OtherID == "" {
+				continue
+			}
+			in.Leaves = append(in.Leaves, l)
+			byID[l.OtherID] = l.Other
 		}
 	}
 	targets, unavailable, err := fetchNodes(ctx, client, byID, false)
 	if err != nil {
 		return preflightInput{}, err
 	}
-	return preflightInput{
-		Routes: routes, Targets: targets, Unavailable: unavailable, HomeMemory: homeMemory,
-	}, nil
+	in.Targets, in.Unavailable = targets, unavailable
+	return in, nil
 }
 
 // brokenNodes is the set of nodes carrying an error-severity finding — what the

@@ -179,6 +179,9 @@ func renderSpecApproval(w io.Writer, s *specApprovalDTO) {
 		return
 	}
 	switch s.State {
+	case string(gen.NodeApprovalStateNotApplicable):
+		fmt.Fprintln(w, "Approval: not applicable (encrypted memory)")
+		return
 	case string(gen.NodeApprovalStateApproved):
 		if s.Approval != nil {
 			fmt.Fprintf(w, "Approval: APPROVED (approval recorded at revision %d by %s at %s)\n", s.Approval.Revision, specApprover(*s.Approval), s.Approval.ApprovedAt)

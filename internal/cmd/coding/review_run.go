@@ -262,7 +262,7 @@ func renderRun(w io.Writer, r runResultDTO) error {
 		fmt.Fprintf(w, "%d excluded — named paths this diff does not touch\n", len(r.Excluded))
 	}
 	if len(r.Unavailable) > 0 {
-		fmt.Fprintf(w, "%d check(s) could not be read: %s\n", len(r.Unavailable), strings.Join(r.Unavailable, ", "))
+		fmt.Fprintf(w, "%d check(s) could not be read: %s\n", len(r.Unavailable), output.SafeCell(strings.Join(r.Unavailable, ", ")))
 	}
 	if len(r.Checks) == 0 {
 		fmt.Fprintln(w, "\nno checks to read for this diff")
@@ -275,7 +275,7 @@ func renderRun(w io.Writer, r runResultDTO) error {
 		if c.Verdict == string(verdictMatched) && len(c.MatchedOn) > 0 {
 			why = c.MatchedOn[0].File
 		}
-		t.Row(c.Loc, why, c.Trigger)
+		t.Row(output.SafeCell(c.Loc), output.SafeCell(why), output.SafeCell(c.Trigger))
 	}
 	return t.Flush()
 }

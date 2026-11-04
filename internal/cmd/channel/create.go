@@ -24,8 +24,19 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 into the chat root's node URN, which is what every other command accepts back.
 The output prints it — copy that rather than composing one yourself.
 
+Both --memory (-m) and --loc are required; without either the command exits 2
+and nothing is created. You need write access to the host memory (the Channel's
+chat root is created inside it), and anyone who can read that memory can read
+the Channel — a Channel adds no access of its own. The output prints the new
+Channel's id and address.
+
 A name is not unique: two Channels can share a name and a loc and differ only
-in their host memory.`,
+in their host memory.
+
+The Channel can be readable while its host memory metadata is not. In that
+case the memory cell says "not readable"; --json keeps memoryUrn and memoryName
+present as null, and memoryId remains the Channel's own scalar. This is a
+successful Channel result, with no extra memory lookup.`,
 		Example: `  hadron channel create standup -m hrn:mem:acme.com:team-shared --loc chats:standup`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -57,8 +68,8 @@ in their host memory.`,
 			return writeChannel(f, dtoFrom(resp.CreateChannel.ChannelFields, resp.CreateChannel.ChannelMemory))
 		},
 	}
-	cmd.Flags().StringVarP(&memoryRef, "memory", "m", "", "host memory (ID or URN)")
-	cmd.Flags().StringVar(&loc, "loc", "", "the Channel's address within the memory (e.g. chats:standup)")
+	cmd.Flags().StringVarP(&memoryRef, "memory", "m", "", "host memory (ID or URN), required")
+	cmd.Flags().StringVar(&loc, "loc", "", "the Channel's address within the memory (e.g. chats:standup), required")
 	cmd.Flags().StringVar(&description, "description", "", "what this Channel is for")
 	return cmd
 }

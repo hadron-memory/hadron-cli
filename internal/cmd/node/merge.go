@@ -3,7 +3,6 @@ package node
 import (
 	"fmt"
 	"io"
-	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -54,7 +53,7 @@ terminal and requires --yes non-interactively.`,
 			if strings.TrimSpace(into) == "" {
 				return exitcode.Newf(exitcode.Usage, "specify the surviving node with --into <urn> (or <loc> with -m)")
 			}
-			include, err := parseMergeFields(fields)
+			include, err := cmdutil.ParseMergeFields(fields)
 			if err != nil {
 				return err
 			}
@@ -106,9 +105,10 @@ terminal and requires --yes non-interactively.`,
 				return exitcode.Newf(exitcode.Error, "merge returned no node")
 			}
 			dto := mergeNodesDTO(resp.MergeNodes)
-			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+			dto.LintWarnings = loadLintWarnings(cmd, client, dto.ID)
+			return writeWithLint(f, dto, dto.LintWarnings, func(w io.Writer) error {
 				t := output.NewTable(w)
-				t.Row("✓ merged", dto.Loc, dto.Name)
+				t.Row("✓ merged", output.SafeCell(dto.Loc), output.SafeCell(dto.Name))
 				return t.Flush()
 			})
 		},
@@ -118,42 +118,8 @@ terminal and requires --yes non-interactively.`,
 	cmd.Flags().StringArrayVar(&fields, "field", nil, "field to fold in (repeatable): CONTENT|ABSTRACT|DESCRIPTION|TAGS|DATA|PROPERTIES|EDGES (default: all)")
 	cmd.Flags().BoolVar(&deleteSource, "delete-source", false, "hard-delete the source node after a successful merge")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
+	enableLintWarnings(cmd)
 	return cmd
-}
-
-// parseMergeFields maps repeated --field values (case-insensitive) to the
-// NodeMergeField enum. An empty selection returns nil so the server merges
-// every mergeable field. An unknown value is a usage error naming the valid set.
-func parseMergeFields(fields []string) ([]gen.NodeMergeField, error) {
-	if len(fields) == 0 {
-		return nil, nil
-	}
-	valid := map[string]gen.NodeMergeField{
-		"ABSTRACT":    gen.NodeMergeFieldAbstract,
-		"CONTENT":     gen.NodeMergeFieldContent,
-		"DATA":        gen.NodeMergeFieldData,
-		"DESCRIPTION": gen.NodeMergeFieldDescription,
-		"EDGES":       gen.NodeMergeFieldEdges,
-		"PROPERTIES":  gen.NodeMergeFieldProperties,
-		"TAGS":        gen.NodeMergeFieldTags,
-	}
-	seen := map[gen.NodeMergeField]bool{}
-	out := []gen.NodeMergeField{}
-	for _, f := range fields {
-		key := strings.ToUpper(strings.TrimSpace(f))
-		mf, ok := valid[key]
-		if !ok {
-			return nil, exitcode.Newf(exitcode.Usage,
-				"invalid --field %q (want ABSTRACT, CONTENT, DATA, DESCRIPTION, EDGES, PROPERTIES, or TAGS)", f)
-		}
-		if !seen[mf] {
-			seen[mf] = true
-			out = append(out, mf)
-		}
-	}
-	// Deterministic order regardless of flag order — the set is what matters.
-	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
-	return out, nil
 }
 
 func mergeNodesDTO(n *gen.MergeNodesMergeNodesNode) nodeDTO {

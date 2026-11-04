@@ -32,7 +32,21 @@ by its id, or by its ADDRESS — the chat root's node URN, which "channel list"
 prints and which is what "channel create" composes from --memory and --loc.
 
 Copy an address rather than composing one. Some Channels have no address the
-server can safely advertise; their id always works.`,
+server can safely advertise; their id always works.
+
+WHICH CHAT SURFACE?
+  - Your team's own chat (the room your worker and teammates talk in):
+    "hadron team chat read|post|mark-read" — it needs no address and posts as
+    your bound worker. Start there for catching up on messages that mention you.
+  - Any other room, named by id or address: this group. "channel list" finds
+    the rooms you can read.
+  - "hadron chat" is the older node-addressed chat; it reads and posts through
+    the same Channels but is configured by node URN.
+
+CATCHING UP: "channel read <room> --since <seq>" returns what came after seq and
+a "next watermark" to pass next time; "channel mark-read" records how far an
+attendee has seen. There is no blocking wait: poll with --since at an interval
+that suits you (not in a tight loop).`,
 	}
 	cmd.AddCommand(newCmdList(f))
 	cmd.AddCommand(newCmdGet(f))
@@ -43,6 +57,7 @@ server can safely advertise; their id always works.`,
 	cmd.AddCommand(newCmdPost(f))
 	cmd.AddCommand(newCmdMarkRead(f))
 	cmd.AddCommand(newCmdReadState(f))
+	cmd.AddCommand(newCmdSearch(f))
 	cmd.AddCommand(newCmdRegister(f))
 	return cmd
 }
@@ -53,6 +68,8 @@ server can safely advertise; their id always works.`,
 // host memory has no flat-v2 address the server will advertise (#1171), and an
 // agent has to be able to see that the field was answered with "none" rather
 // than merely absent from this projection. `id` always works there.
+// MemoryURN and MemoryName are explicit null when nested memory is not readable;
+// MemoryID remains the Channel's own scalar.
 type channelDTO struct {
 	ID             string  `json:"id"`
 	Name           string  `json:"name"`
@@ -62,8 +79,8 @@ type channelDTO struct {
 	ChatRootURN    *string `json:"chatRootUrn"`
 	ChatRootNodeID string  `json:"chatRootNodeId"`
 	MemoryID       string  `json:"memoryId"`
-	MemoryURN      string  `json:"memoryUrn"`
-	MemoryName     string  `json:"memoryName"`
+	MemoryURN      *string `json:"memoryUrn"`
+	MemoryName     *string `json:"memoryName"`
 	LastSeq        int     `json:"lastSeq"`
 	LastMessageAt  *string `json:"lastMessageAt"`
 	CreatedAt      string  `json:"createdAt"`
@@ -87,8 +104,8 @@ func dtoFrom(c gen.ChannelFields, m gen.ChannelMemory) channelDTO {
 		UpdatedAt:      c.UpdatedAt,
 	}
 	if m.Memory != nil {
-		d.MemoryURN = m.Memory.Urn
-		d.MemoryName = m.Memory.Name
+		d.MemoryURN = &m.Memory.Urn
+		d.MemoryName = &m.Memory.Name
 	}
 	return d
 }
@@ -133,20 +150,36 @@ func itoa(n int) string {
 // writeChannel renders one Channel in both branches.
 func writeChannel(f *cmdutil.Factory, d channelDTO) error {
 	return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
-		t := output.NewTable(w, "FIELD", "VALUE")
-		t.Row("name", d.Name)
-		t.Row("id", d.ID)
-		if d.ChatRootURN != nil && *d.ChatRootURN != "" {
-			t.Row("address", *d.ChatRootURN)
-		} else {
-			t.Row("address", "(none advertised — use the id)")
-		}
-		t.Row("memory", d.MemoryURN)
-		t.Row("loc", d.Loc)
-		if d.Description != nil && *d.Description != "" {
-			t.Row("description", *d.Description)
-		}
-		t.Row("last seq", itoa(d.LastSeq))
-		return t.Flush()
+		return writeChannelText(w, d, nil)
 	})
+}
+
+// Optional URL is get-only; other callers retain the original table.
+func writeChannelText(w io.Writer, d channelDTO, portalURL *string) error {
+	t := output.NewTable(w, "FIELD", "VALUE")
+	t.Row("name", output.SafeCell(d.Name))
+	t.Row("id", output.SafeCell(d.ID))
+	if d.ChatRootURN != nil && *d.ChatRootURN != "" {
+		t.Row("address", output.SafeCell(*d.ChatRootURN))
+	} else {
+		t.Row("address", "(none advertised — use the id)")
+	}
+	t.Row("memory", memoryCell(d.MemoryURN))
+	t.Row("loc", output.SafeCell(d.Loc))
+	if d.Description != nil && *d.Description != "" {
+		t.Row("description", output.SafeCell(*d.Description))
+	}
+	t.Row("last seq", itoa(d.LastSeq))
+	if portalURL != nil {
+		t.Row("URL:", output.SafeCell(*portalURL))
+	}
+	return t.Flush()
+}
+
+// memoryCell never infers withheld metadata from the parent or another row.
+func memoryCell(value *string) string {
+	if value == nil {
+		return "(not readable)"
+	}
+	return output.SafeCell(*value)
 }

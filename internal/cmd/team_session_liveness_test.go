@@ -94,8 +94,8 @@ func TestWithLivenessSetsOrPanics(t *testing.T) {
 func TestTeamSessionStartLiveRefusesAndNamesLiveness(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
-		"GetWorker":    `{"data":{"worker":` + withLiveness(irisWorkerJSON, "true") + `}}`,
-		"TeamSessions": `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
+		"GetWorker":        `{"data":{"worker":` + withLiveness(irisWorkerJSON, "true") + `}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -143,7 +143,7 @@ func TestTeamSessionStartNotLiveBindsOverAnOpenSession(t *testing.T) {
 	dir := teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
 		"GetWorker":        `{"data":{"worker":` + withLiveness(irisWorkerJSON, "false") + `}}`,
-		"TeamSessions":     `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 	})
 	f, out := testFactory(t)
@@ -186,7 +186,7 @@ func TestTeamSessionStartNotLiveBindsOverAnOpenSession(t *testing.T) {
 	// The open row is REPORTED — it is somebody's unfinished stint and this
 	// bind leaves it alone — but not as a takeover.
 	note := stderr()
-	for _, want := range []string{"not live", "still open", "does not end it", "s-old"} {
+	for _, want := range []string{"not live", "earlier session is open", "supersedes it if it is your own", "s-old"} {
 		if !strings.Contains(note, want) {
 			t.Errorf("stderr must account for the open session (%q): %s", want, note)
 		}
@@ -215,7 +215,7 @@ func TestTeamSessionStartMaskedLivenessDefersToTheServer(t *testing.T) {
 	// test this branch while believing they tested TAKEN.
 	gql, captured := captureGraphQL(t, map[string]string{
 		"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`,
-		"TeamSessions":     `{"data":{"sessions":[` + activeSessionJSON + `]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 	})
 	f, out := testFactory(t)
@@ -252,8 +252,8 @@ func TestTeamSessionStartMaskedLivenessDefersToTheServer(t *testing.T) {
 func TestTeamSessionStartMaskedLivenessRendersServerTakenRefusal(t *testing.T) {
 	teamGitDir(t)
 	gql, _ := captureGraphQL(t, map[string]string{
-		"GetWorker":    `{"data":{"worker":` + irisWorkerJSON + `}}`,
-		"TeamSessions": `{"data":{"sessions":[]}}`,
+		"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 		"StartTeamSession": `{"errors":[{"message":"That worker is taken.",
 			"extensions":{"code":"WORKER_TAKEN","workerId":"wkr1","sessionId":"s-old",
 			"lastDriver":"u-dara","lastSeenAt":"2026-09-03T08:00:00Z"}}]}`,
@@ -302,8 +302,8 @@ func TestTeamSessionStartMaskedLivenessRendersServerTakenRefusal(t *testing.T) {
 func TestTeamSessionStartLiveWithNoReadableSessionStillRefuses(t *testing.T) {
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
-		"GetWorker":    `{"data":{"worker":` + withLiveness(irisWorkerJSON, "true") + `}}`,
-		"TeamSessions": `{"data":{"sessions":[]}}`,
+		"GetWorker":        `{"data":{"worker":` + withLiveness(irisWorkerJSON, "true") + `}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)

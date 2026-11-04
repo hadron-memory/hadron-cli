@@ -19,6 +19,12 @@ func newCmdConfigRule(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "rule <command>",
 		Short: "Add, change or remove a memory's node-role rules",
+		Long: `Add, change or remove a memory's node-role rules, one role at a time. What a
+rule says, and who may change one, is on memory config; memory config get
+shows the rules there are.`,
+		Example: `  hadron memory config rule add hrn:mem:acme.com:kb spec --writers admin
+  hadron memory config rule update hrn:mem:acme.com:kb spec --writers owner
+  hadron memory config rule rm hrn:mem:acme.com:kb spec --yes`,
 	}
 	cmd.AddCommand(newCmdConfigRuleAdd(f))
 	cmd.AddCommand(newCmdConfigRuleUpdate(f))
@@ -191,8 +197,9 @@ change it with "rule update" instead.
 The role grammar is the server's: lower-case letter/digit/dash segments joined
 by dots, 1-64 characters. A bad role exits 2 and names the reason.
 
-Task references must be runnable task nodes you can read. A node you cannot
-read is refused exactly like a missing one (exit 4).`,
+--author-task and --validation-task name runnable task nodes: nodes whose
+steps an agent can run (hadron task run). They must be ones you can read; a node
+you cannot read is refused exactly like a missing one (exit 4).`,
 		Example: `  hadron memory config rule add hrn:mem:acme.com:kb spec \
     --author-task hrn:node:acme.com:kb:tasks:write-spec \
     --validation-task hrn:node:acme.com:kb:tasks:check-spec --validate-by agent
@@ -401,8 +408,8 @@ func newCmdConfigRuleUnlock(f *cmdutil.Factory) *cobra.Command {
 		Short: "Unlock a rule a required template locked, so it can be edited or removed",
 		Long: `Unlock the rule for one role. A rule written by a REQUIRED template
 (` + "`template apply`" + `) is locked: it refuses every ordinary ` + "`rule update`" + ` and
-` + "`rule rm`" + `, for every caller. Unlocking is the deliberate step before either
-(hadron-server#1334). It is visible: it bumps the rule's revision and records
+` + "`rule rm`" + `, for every caller. Unlocking is the deliberate step before either.
+It is visible: it bumps the rule's revision and records
 who did it. Prompts on a terminal; non-interactively --yes is required.
 
 Unlocking needs LOCK AUTHORITY: an org ADMIN/OWNER of the memory's

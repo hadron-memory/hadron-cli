@@ -1,0 +1,31 @@
+# The served record is scalar-only. Never read live source nodes/edges or text
+# to reconstruct it: its revision/hash/provenance/variables are the audit fact.
+fragment ServedPromptRecord on ServedPrompt {
+ id kind ordinal pointerLevel compiledNodeId compiledContentHash
+ servedRevSeq provenanceRevSeq servedAt variables pruned
+ provenance(limit: $limit, offset: $offset) {
+  total items { nodeId revSeq hash pruned }
+ }
+}
+query WorkerServedPrompt($ref: ID!, $limit: Int!, $offset: Int!) {
+ worker(ref: $ref) { servedPrompt { ...ServedPromptRecord } }
+}
+query RunServedPrompt($ref: ID!, $limit: Int!, $offset: Int!) {
+ appRun(ref: $ref) { servedPrompt { ...ServedPromptRecord } }
+}
+
+# History paging and each record's provenance paging are independent.
+query SessionServedPrompts($id: ID!, $historyLimit: Int!, $historyOffset: Int!, $limit: Int!, $offset: Int!) {
+ session(id: $id) {
+  servedPrompts(limit: $historyLimit, offset: $historyOffset) {
+   total items { ...ServedPromptRecord }
+  }
+ }
+}
+
+# Record-only chat history; never use myChats (a different audience) or fetch a Chat object.
+query ChatServedPrompts($chatId: ID!, $historyLimit: Int!, $historyOffset: Int!, $limit: Int!, $offset: Int!) {
+ chatServedPrompts(chatId: $chatId, limit: $historyLimit, offset: $historyOffset) {
+  total items { ...ServedPromptRecord }
+ }
+}

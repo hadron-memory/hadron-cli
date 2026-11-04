@@ -154,7 +154,10 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 		p.log("report-failed", op.ID, op.Type, Succeeded, err.Error()+"; not launching on an unclear answer")
 		return
 	}
-	if fam := argString(op, "family"); fam != w.Family {
+	// Compared as the server's canonical identity on BOTH sides (cli#971): a
+	// provider alias and its family are one family; a genuine mismatch, an
+	// empty family or a malformed one still launches nothing.
+	if fam := argString(op, "family"); !SameFamily(fam, w.Family) {
 		p.finish(ctx, op, Failed, "", fmt.Sprintf("this host runs the worker as %q, not %q", w.Family, fam))
 		return
 	}
@@ -307,12 +310,42 @@ func (p *Poller) workerEnd(ctx context.Context, op Operation) {
 // trackAgent remembers a launched agent and the worktree it runs in, in
 // memory and in the state file (it outlives a poller restart).
 func (p *Poller) trackAgent(workerID, token string, a Agent) {
+	id, hasID := p.launchIdentity(a)
 	p.mu.Lock()
 	p.agents[workerID] = a
 	p.agentTrees[workerID] = token
+	if hasID {
+		p.agentIDs[workerID] = id
+	} else {
+		delete(p.agentIDs, workerID)
+	}
 	p.mu.Unlock()
-	if err := p.state.recordAgent(workerID, token, a.PID()); err != nil {
+	start := ""
+	if hasID {
+		start = id.StartTime
+	}
+	if err := p.state.recordAgent(workerID, token, a.PID(), start); err != nil {
 		p.log("state-failed", "", "", "", err.Error())
+	}
+}
+
+// launchIdentity observes a just-launched agent's process identity, when
+// resets are enabled. An unreaped child keeps its pid, so an identity read
+// while Done is still open, checked after the read, is the agent's own.
+func (p *Poller) launchIdentity(a Agent) (ProcessIdentity, bool) {
+	if p.resetDeps.Proc == nil || a.PID() <= 0 {
+		return ProcessIdentity{}, false
+	}
+	h, err := p.resetDeps.Proc.Observe(a.PID())
+	if err != nil {
+		return ProcessIdentity{}, false
+	}
+	defer h.Close()
+	select {
+	case <-a.Done():
+		return ProcessIdentity{}, false
+	default:
+		return h.Identity(), true
 	}
 }
 

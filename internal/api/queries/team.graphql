@@ -1,8 +1,6 @@
 # `hadron team` — workers and sessions (Worker model, #428 / hadron-server#974).
 #
-# An Agent carries personaRole metadata and a shared {{name}}-templated
-# systemPrompt, edited via `agent update`. The named identity
-# ("Iris") is the WORKER: the casting of an installed Agent into an App
+# The named identity ("Iris") is the WORKER: the casting of an installed Agent into an App
 # (cor:dmo:050:11, cor:agt:020:01). A worker IS addressable — hrn:worker:<root>:<app-slug>:<slug>
 # (#991) — but the URN keys on a DERIVED, permanent slug, never on the name:
 # two names may legally slugify to one token ("Mary Jane"/"Mary-Jane"), so a
@@ -17,6 +15,13 @@
 # contract.
 
 fragment WorkerReportingRefFields on Worker { id name urn }
+
+# #2138 experiment: server-derived checking status, not local activity inference.
+fragment ChannelCheckFields on WorkerCheckStatus {
+  status
+  pendingReason
+  lastCheckedAt
+}
 
 fragment WorkerFields on Worker {
   id
@@ -41,12 +46,24 @@ fragment WorkerFields on Worker {
   name
   reportsTo { ...WorkerReportingRefFields }
   reportsToRetired
+  # cli#933: the recorded reporting CHOICE. REPORTS_TO / NO_TEAM / UNSET are
+  # three states, and NULL MEANS WITHHELD from this caller (access-masked):
+  # never UNSET, never NO_TEAM, and never derived from a null reportsTo.
+  teamPlacement
   role
-  # The resolved boot briefing: the agent's systemPrompt template with
-  # {{name}}/{{role}} bound, then promptOverride appended. Printed on cast and
-  # surfaced by `worker get` — it is what a session driver adopts.
+  # The served boot briefing, surfaced by `worker get` — it is what a session driver adopts.
   prompt
-  promptOverride
+  # cli#916 C4: the raw signature and trailer templates ({{worker.name}} and
+  # friends, unrendered). Working-state fields: NULL MEANS WITHHELD (masked for
+  # a reader who may not see this worker's internals), never empty — an empty
+  # template is "". Not on the roster projection below.
+  signature
+  trailer
+  # cli#916 C2 (#2045 S8): the boot-prompt pointer and whether its target is
+  # deleted. BOTH NULL MEANS UNSET OR WITHHELD (masked for a caller who may not
+  # see it) — never proof that no pointer exists.
+  bootPromptRef
+  bootPromptTargetDeleted
   # #1024 — the repo affinity of this worker's ROLE, resolved server-side so a
   # caller already holding the worker needs no second trip to teamRoles.
   #
@@ -58,12 +75,15 @@ fragment WorkerFields on Worker {
   # make an unconfigured team look misconfigured.
   repos
   memoryId
+  # hadron-cli#887: the bound session's model family, as the server records it
+  # (cor:agt:060:04). Null is unknown and stays null; a host such as
+  # `claude-code` is not a family and the CLI never fills one in.
+  family
   # The HOLD (hadron-server#1050, cor:agt:020:09): whose name this is, and
   # since when. A name is held by a PERSON and only an explicit release frees
   # one — no session end, idle window, expiry or reap does.
   #
-  # Both are MASKED TO NULL ON DENY, like prompt/promptOverride/memoryId. So a
-  # bare null means "unheld OR not visible to you" and must never be rendered
+  # Holder fields are masked to null on deny; a bare null means "unheld OR not visible to you" and must never be rendered
   # as "free" on its own. `hasLiveSession` below is what tells the two apart —
   # see the note there, and note that `worker release` still hedges, because
   # collapsing its classification is a separate change from rendering a column
@@ -109,13 +129,14 @@ fragment WorkerFields on Worker {
   # to null on deny and otherwise coalesces to `false` — a worker with no
   # sessions answers false, never null — so the ONLY null path is the read gate,
   # and it is the same `maySeeWorkerInternals(appId)` predicate that masks
-  # heldByUserId/heldAt/memoryId/promptOverride, memoized per request per App.
+  # heldByUserId/heldAt/memoryId, memoized per request per App.
   # Therefore, on a row where `hasLiveSession != null`, every other null here is
   # a genuine absence rather than a mask. Verified against
   # resolvers.worker.ts on hadron-server main @ e5c6ff2, and NOT yet stated as a
   # contract anywhere — asked of hadron-server rather than assumed permanent.
   hasLiveSession
   lastActiveAt
+  checkStatus { ...ChannelCheckFields }
   retiredAt
   retiredBy
   createdAt
@@ -144,14 +165,17 @@ mutation CastWorker(
   # @genqlient(omitempty: true)
   $name: String
   # @genqlient(omitempty: true)
-  $promptOverride: String
+  $reportsTo: ID
+  # @genqlient(omitempty: true)
+  $noTeam: Boolean
 ) {
   castWorker(
     appRef: $appRef
     agentRef: $agentRef
     role: $role
     name: $name
-    promptOverride: $promptOverride
+    reportsTo: $reportsTo
+    noTeam: $noTeam
   ) {
     ...WorkerFields
   }
@@ -271,6 +295,85 @@ query GetWorker($ref: ID!) {
   }
 }
 
+# cli#1459: ONE worker by NAME within an App, in one read. The name form of
+# worker(ref:) is activated by appRef (server #1015): unique per App, matched
+# with the database's lower(), retired workers included, and an id or URN in
+# `ref` wins over appRef. Denial and absence both refuse WORKER_NOT_FOUND (no
+# roster oracle). Name resolution used to page the App's whole staff for this.
+query GetWorkerInApp($appRef: ID!, $ref: ID!) {
+  worker(appRef: $appRef, ref: $ref) {
+    ...WorkerFields
+  }
+}
+
+# GetWorkerInApp for a caller that needs only the id (a filter): no briefing.
+query GetWorkerIdInApp($appRef: ID!, $ref: ID!) {
+  worker(appRef: $appRef, ref: $ref) {
+    id
+  }
+}
+
+# hadron-server#2771 / cli#1375: a worker's latest terminal report. A fragment so
+# the roster and GetWorkerTerminal select one shape; deliberately NOT part of
+# WorkerFields, which other operations share (their wire shape is unchanged).
+fragment WorkerTerminalFields on WorkerTerminal {
+  host { id label }
+  status
+  prompt
+  reason
+  lastTurnAt
+  checkedAt
+  reportedAt
+}
+
+# The terminal report is its own operation, for the reason GetWorkerProfile is:
+# a server that predates #2771 rejects a document selecting Worker.terminal
+# before execution, and the ordinary lookup must still bind there.
+query GetWorkerTerminal($ref: ID!) {
+  worker(ref: $ref) {
+    terminal { ...WorkerTerminalFields }
+  }
+}
+
+# cli#1525 / hadron-server#2969 (cor:agt:040:04): the signature and trailer as
+# the served boot prompt fills them. The SERVER substitutes the variables; the
+# CLI prints the values as given and never fills one itself. Null for a caller
+# the prompt does not reach, with no refusal. Its own operation, like the
+# profile and terminal reads, so a server that predates #2969 still serves
+# `worker get` (rendered keys null there).
+query GetWorkerRendered($ref: ID!) {
+  worker(ref: $ref) {
+    renderedSignature
+    renderedTrailer
+  }
+}
+
+# cli#1485 S3 (hadron-server#3026, cor:agt:060:12): a worker's current matching
+# model-group names. A separate operation, like GetWorkerProfile: it is NOT part
+# of WorkerFields (shared by many commands whose wire shape must not change).
+# [] is a real answer; null means the working-state read is denied (no error).
+# A field error here fails the command — only the roster tolerates one.
+query GetWorkerModelGroups($ref: ID!) {
+  worker(ref: $ref) {
+    modelGroups
+  }
+}
+
+# cli#1355 / server#1149 (cor:dmo:050:11): the PROFILE scalars that say whose
+# worker this is — the App's display name, the owner atom of its URN and the
+# App's URN. Deliberately a separate operation from GetWorker, for the same
+# reason as GetWorkerContinuity below: a server that predates #1149 rejects a
+# document selecting Worker.appName / ownerName / appUrn before execution, and
+# the ordinary lookup must still bind there. All three are nullable and null
+# means unavailable (masked, or a URN that predates the grammar), never "none".
+query GetWorkerProfile($ref: ID!) {
+  worker(ref: $ref) {
+    appName
+    ownerName
+    appUrn
+  }
+}
+
 # #790 / server#1029: the handoff is deliberately a separate operation from
 # GetWorker and Workers. Older servers do not know Worker.continuity and reject
 # a document that selects it before execution, even if a caller ignores the
@@ -304,10 +407,7 @@ query GetWorkerContinuity($ref: ID!) {
 # This mirrors TeamSessionFields, which already refuses ...WorkerFields for the
 # same reason and says so in its own comment. `worker get` remains the prompt
 # surface, which is what the shipped task nodes already tell readers.
-#
-# Deliberately KEEPS promptOverride: it is the short per-worker individuality
-# (#1010), not the composed briefing, and dropping it would widen the contract
-# break for no stated benefit.
+
 fragment WorkerRosterFields on Worker {
   id
   urn
@@ -323,8 +423,9 @@ fragment WorkerRosterFields on Worker {
   name
   reportsTo { ...WorkerReportingRefFields }
   reportsToRetired
+  # cli#933: same field and same null-means-withheld semantics as WorkerFields.
+  teamPlacement
   role
-  promptOverride
   # Carried on the roster too, so the mismatch warning can name the worker the
   # caller probably meant without a third query. Same [] semantics as above.
   repos
@@ -344,15 +445,23 @@ fragment WorkerRosterFields on Worker {
   hasLiveSession
   lastActiveAt
   retiredAt
+  # hadron-cli#993: self-reported model and the server-derived advisory tier,
+  # beside the other roster facts. Copied as the server sends them.
+  #
+  # hadron-cli#887: `family` is the same fold (the newest open session's), as the
+  # server records it. Null stays null: a host such as `claude-code` is never a
+  # family, and the CLI derives nothing.
+  family
+  model
+  modelReportedAt
+  tier
   retiredBy
   createdAt
   createdBy
 }
 
 # The roster read used by `worker list`. Same arguments and paging as Workers;
-# only the projection differs. Workers itself stays prompt-bearing because
-# resolveWorker rides it — `session start`'s boot briefing, `worker get <name>`,
-# retire and rm all resolve through that scan and legitimately need the prompt.
+# only the projection differs.
 query WorkersRoster(
   $appRef: ID!
   # @genqlient(omitempty: true)
@@ -370,9 +479,23 @@ query WorkersRoster(
   }
 }
 
+# The LOOKUP projection (cli#1459, hadron-server#2970): what naming orca's
+# targets needs, and nothing else.
+#
+# Never add `prompt`, `signature` or `trailer` here. Each is one worker's
+# multi-KB detail: on a 100-worker App the full WorkerFields list was 3.4 MB
+# and ~13 s of server time per call, and every other request on the server
+# slowed while it was built. To find ONE worker by name use GetWorkerInApp.
+fragment WorkerLookupFields on Worker {
+  id
+  urn
+  name
+  retiredAt
+}
+
 # The STAFF read (cor:agt:020:01 — Workers are the staff; the AppAgent join is
 # the install roster, `app agent list`). Retired castings are hidden unless
-# includeRetired.
+# includeRetired. Lookup projection only — see WorkerLookupFields.
 query Workers(
   $appRef: ID!
   # @genqlient(omitempty: true)
@@ -385,7 +508,7 @@ query Workers(
   workers(appRef: $appRef, includeRetired: $includeRetired, limit: $limit, offset: $offset) {
     total
     items {
-      ...WorkerFields
+      ...WorkerLookupFields
     }
   }
 }
@@ -502,6 +625,10 @@ fragment TeamSessionFields on Session {
   id
   agentId
   workerId
+  # The role the session was BOUND under (hadron-server#2458, cor:dmo:050:11):
+  # it does not follow a later change of the worker's agent, unlike worker.role
+  # below. Null without a worker.
+  role
   # The nested Worker (#980 / hadron-cli#432): the session-list name join
   # without a per-row worker(ref:) round trip — resolves for retired workers
   # too, and never widens what the session read admits. Deliberately NOT
@@ -579,6 +706,17 @@ mutation StartTeamSession(
 ) {
   startSession(input: $input) {
     ...TeamSessionFields
+    # cli#947: the briefing to print, read off the bind's own response. The
+    # pre-bind worker read was rendered while the PREVIOUS session was the
+    # newest open one, so {{session.llmModel}} named the old model. This is
+    # the server's Worker.prompt rendering as of the response (the session
+    # just bound is now the newest open one), not a record of what the
+    # session was served. Aliased so it can't collide with the fragment's
+    # worker { id name role }, and kept off TeamSessionFields, which session
+    # lists use and must not carry a multi-KB prompt.
+    boundWorker: worker {
+      prompt
+    }
   }
 }
 
@@ -593,8 +731,17 @@ mutation UpdateTeamSession(
   $prNumber: Int
   # @genqlient(omitempty: true)
   $branch: String
+  # #995 B1: the holder-reported model. Omitted, never null — null would CLEAR
+  # the stored model.
+  # @genqlient(omitempty: true)
+  $llmModel: String
+  # hadron-cli#887: an explicit family (server#1931: it wins over the derivation
+  # from the model; omitted preserves). Only `session set-model --family` ever
+  # supplies it — never the sync-model hook, never inferred from a tool name.
+  # @genqlient(omitempty: true)
+  $family: String
 ) {
-  updateSession(id: $id, prNumber: $prNumber, branch: $branch) {
+  updateSession(id: $id, prNumber: $prNumber, branch: $branch, llmModel: $llmModel, family: $family) {
     ...TeamSessionFields
   }
 }
@@ -683,6 +830,31 @@ mutation ResumeTeamSession(
   }
 }
 
+# cli#1351 over server #2896: record a session's outcome (0..1), with an
+# optional opaque reference and JSON metadata. The range check, the owner
+# gate and the MCP-only OAuth refusal are the server's. An omitted ref or
+# meta is not sent, so it is not cleared.
+mutation RecordSessionOutcome(
+  $sessionId: ID!
+  $outcome: Float!
+  # @genqlient(omitempty: true)
+  $outcomeRef: String
+  # @genqlient(omitempty: true)
+  $outcomeMeta: JSON
+) {
+  recordSessionOutcome(
+    sessionId: $sessionId
+    outcome: $outcome
+    outcomeRef: $outcomeRef
+    outcomeMeta: $outcomeMeta
+  ) {
+    id
+    outcome
+    outcomeRef
+    outcomeMeta
+  }
+}
+
 # One session by id — the provenance query resolves worklog sessionIds
 # through this (sessions have no URN; id-only is the cor:api:140 genuine-PK
 # case). Null when not found or not visible.
@@ -719,11 +891,12 @@ query GetBoundSessionEnd($id: ID!) {
   }
 }
 
+# cli#1339: sessionsPage is the same scope and filters as sessions, newest first,
+# with the real total. limit 0 is a count only; a limit over 200 is served as 200.
 # workerRef (#974) is the server-side narrowing the taken/last-driven-by check
-# reads: only sessions bound to that Worker (by id), newest first — so the
-# presence check no longer scans the whole list. The plain listing still pages
-# to exhaustion for --active (no active filter server-side).
-query TeamSessions(
+# reads: only sessions bound to that Worker (by id), newest first. The plain
+# listing still pages to exhaustion for --active (no active filter server-side).
+query TeamSessionsPage(
   # @genqlient(omitempty: true)
   $repo: String
   # @genqlient(omitempty: true)
@@ -733,8 +906,12 @@ query TeamSessions(
   # @genqlient(omitempty: true)
   $offset: Int
 ) {
-  sessions(repo: $repo, workerRef: $workerRef, limit: $limit, offset: $offset) {
-    ...TeamSessionFields
+  sessionsPage(repo: $repo, workerRef: $workerRef, limit: $limit, offset: $offset) {
+    total
+    hasMore
+    items {
+      ...TeamSessionFields
+    }
   }
 }
 
@@ -920,7 +1097,6 @@ fragment TeamRoleFields on TeamRole {
     name
     personaRole
   }
-  hasNamePlaceholder
 }
 
 query TeamRoles(
@@ -956,21 +1132,25 @@ query CastWorkerPreview(
   # @genqlient(omitempty: true)
   $name: String
   # @genqlient(omitempty: true)
-  $promptOverride: String
+  $reportsTo: ID
+  # @genqlient(omitempty: true)
+  $noTeam: Boolean
 ) {
   castWorkerPreview(
     appRef: $appRef
     agentRef: $agentRef
     role: $role
     name: $name
-    promptOverride: $promptOverride
+    reportsTo: $reportsTo
+    noTeam: $noTeam
   ) {
     name
     role
     agentId
     agentName
     prompt
-    hasNamePlaceholder
+    teamPlacement
+    reportsToWorkerId
   }
 }
 
@@ -1033,142 +1213,31 @@ mutation DeleteTeamRole(
   }
 }
 
-# Amend a casting's promptOverride after the fact (#452, server #1010/#1019).
-#
-# promptOverride could only be set at CASTING time, which fixed a casting's
-# individuality at the one moment nobody yet knows what makes it individual.
-# Neither escape hatch covered it: the role agent's systemPrompt is SHARED by
-# every casting of that role, and re-casting is barred by WORKER_IN_USE for any
-# worker that has done work — precisely the ones with an identity to record.
-#
-# NO omitempty on $promptOverride, deliberately, and unlike most optional
-# variables in this file. The clear path MUST put an explicit `null` on the
-# wire: omitting the field preserves the current override, so an omitempty here
-# would make `--clear-prompt-override` a silent no-op — the failure the
-# convention-field annotations on UpdateTeamRoleMeta exist to avoid, arriving on
-# a field whose whole point is that it can be removed.
-#
-# WorkerFields already selects both `prompt` and `promptOverride`, so the
-# receipt can show the RE-RENDERED briefing — what a session driver actually
-# adopts — without a second read.
-mutation UpdateWorker($workerRef: ID!, $promptOverride: String) {
-  updateWorker(workerRef: $workerRef, promptOverride: $promptOverride) {
+# Signature and trailer templates; omitted fields remain unchanged.
+mutation UpdateWorkerSigning(
+  $workerRef: ID!
+  # @genqlient(omitempty: true)
+  $signature: String
+  # @genqlient(omitempty: true)
+  $trailer: String
+) {
+  updateWorker(workerRef: $workerRef, signature: $signature, trailer: $trailer) {
     ...WorkerFields
   }
 }
 
-# ── #1384 bounded team attention ────────────────────────────────────────────
-# Drain every page before reporting a candidate since-token. Intermediate
-# pages carry no adoptable token, so a router cannot accidentally skip unread
-# work by accepting an incomplete scan. Bodies are never returned and the
-# query never changes read state. The CLI never stores the final token: the
-# router adopts it only after every listed nudge was accepted.
-query TeamAttentionPage(
-  $appRef: ID!
+# cli#1592: UpdateWorkerSigning carrying a holder's instruction claim (see
+# ChangeWorkerAgentInstructed). Needs server 17ef5905 or later.
+mutation UpdateWorkerSigningInstructed(
+  $workerRef: ID!
   # @genqlient(omitempty: true)
-  $since: String
+  $signature: String
   # @genqlient(omitempty: true)
-  $page: String
+  $trailer: String
+  $instruction: ActInstructionInput!
 ) {
-  teamAttentionPage(appRef: $appRef, since: $since, page: $page) {
-    scanComplete
-    nextPage
-    adoptableSince
-    items {
-      worker
-      workerName
-      workerUrn
-      channel
-      channelName
-      unread
-      unreadMentions
-      firstUnreadSeq
-      lastSeq
-    }
-  }
-}
-
-# Compatibility with a server that has not deployed #1384 yet. The paged
-# query is attempted first; this one is used only when its field is absent.
-query TeamAttention(
-  $appRef: ID!
-  # @genqlient(omitempty: true)
-  $since: String
-) {
-  teamAttention(appRef: $appRef, since: $since) {
-    token
-    workers {
-      worker
-      name
-      urn
-      live
-      channels {
-        channel
-        name
-        unread
-        unreadMentions
-        firstUnreadSeq
-        lastSeq
-      }
-    }
-  }
-}
-
-# The read-only half of the one-time switchover, also bounded. Only the last
-# page carries the short-lived proof; never expose a partial preview as
-# apply-ready.
-query TeamAttentionPreviewPage(
-  $appRef: ID!
-  # @genqlient(omitempty: true)
-  $page: String
-) {
-  teamAttentionPreviewPage(appRef: $appRef, page: $page) {
-    scanComplete
-    nextPage
-    proof
-    expiresAt
-    items {
-      worker
-      workerName
-      workerUrn
-      channel
-      channelName
-      unread
-      unreadMentions
-      firstUnreadSeq
-      lastSeq
-    }
-  }
-}
-
-# The old read-only preview remains usable before #1384 is deployed.
-query TeamAttentionSwitchoverPreview($appRef: ID!) {
-  teamAttentionSwitchoverPreview(appRef: $appRef) {
-    proof
-    expiresAt
-    workers {
-      worker
-      name
-      urn
-      channels {
-        channel
-        name
-        fromSeq
-        throughSeq
-        unread
-        unreadMentions
-      }
-    }
-  }
-}
-
-# The confirmed half: advances every previewed worker through the previewed
-# heads only, atomically, or refuses on any drift.
-mutation ConfirmTeamAttentionSwitchover($appRef: ID!, $proof: String!) {
-  confirmTeamAttentionSwitchover(appRef: $appRef, proof: $proof) {
-    applied
-    workersAdvanced
-    channelsAdvanced
+  updateWorker(workerRef: $workerRef, signature: $signature, trailer: $trailer, instruction: $instruction) {
+    ...WorkerFields
   }
 }
 
@@ -1243,6 +1312,56 @@ query TeamChatMessagesAttributed(
   }
 }
 
+# cli#1470 (hadron-server#2980): the `team chat read` page documents. They do
+# NOT select `total`: the read loop never uses it, and selecting it forces the
+# server to count every message in the range, so the standing
+# `--mentions-me --limit 1` tail read scanned the whole history. Separate from
+# TeamChatMessages(Attributed) because the session watermark summary
+# (session.go) still prints an exact `total` from its bounded range. Do not add
+# `total` back here; see the NOTE on TeamChatMessages for what it means.
+query TeamChatReadPage(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $sinceSeq: Int
+  # @genqlient(omitempty: true)
+  $mentionsRef: ID
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+  # @genqlient(omitempty: true)
+  $beforeSeq: Int
+) {
+  teamChatMessages(appRef: $appRef, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, offset: $offset, beforeSeq: $beforeSeq) {
+    items {
+      ...TeamChatMessageFields
+      seq
+    }
+  }
+}
+
+# The same read with the worker session carried and acknowledgement suppressed
+# (#817), mirroring TeamChatMessagesAttributed.
+query TeamChatReadPageAttributed(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $sinceSeq: Int
+  # @genqlient(omitempty: true)
+  $mentionsRef: ID
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+  # @genqlient(omitempty: true)
+  $beforeSeq: Int
+) {
+  teamChatMessages(appRef: $appRef, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, offset: $offset, beforeSeq: $beforeSeq, advanceReadState: false) {
+    items {
+      ...TeamChatMessageFields
+    }
+  }
+}
+
 query TeamChatReadHeadAttributed($appRef: ID!) {
   teamChatMessages(appRef: $appRef, beforeSeq: 2147483647, limit: 1, advanceReadState: false) {
     items { seq }
@@ -1253,6 +1372,11 @@ query TeamChatReadHeadAttributed($appRef: ID!) {
 mutation SetWorkerReportsTo($workerRef: ID!, $reportsTo: ID) {
  setWorkerReportsTo(workerRef: $workerRef, reportsTo: $reportsTo) { ...WorkerFields }
 }
+# cli#916 C2: a worker's boot-prompt pointer. nodeRef has no omitempty, as
+# SetAgentBootPrompt (agent.graphql) explains.
+mutation SetWorkerBootPrompt($workerRef: ID!, $nodeRef: String) {
+  setWorkerBootPrompt(workerRef: $workerRef, nodeRef: $nodeRef) { ...WorkerFields }
+}
 # Current worker relation, never cached in the worktree session binding.
 query WorkerReporting($ref: ID!) {
  worker(ref: $ref) { id hasLiveSession reportsTo { ...WorkerReportingRefFields } reportsToRetired }
@@ -1261,11 +1385,14 @@ query WorkerReporting($ref: ID!) {
 # C5 slice A (#911): one shared batching-window/ticker-floor dial. Settings
 # operations use the ordinary authenticated caller, not a worker attribution.
 fragment AppDeliverySettingsFields on AppDeliverySettings {
+  darkAlarmWindowSeconds
   batchWindowSeconds
   busyDelaySeconds
   stuckWindowSeconds
   standbyEnabled
   standbyEffective
+  checkPeriodSeconds
+  failedChecksToOverdue
 }
 query TeamDeliverySettings($appRef: String!) {
   appDeliverySettings(appRef: $appRef) { ...AppDeliverySettingsFields }
@@ -1274,9 +1401,351 @@ query TeamDeliverySettings($appRef: String!) {
 # @genqlient(for: "AppDeliverySettingsInput.busyDelaySeconds", omitempty: true)
 # @genqlient(for: "AppDeliverySettingsInput.stuckWindowSeconds", omitempty: true)
 # @genqlient(for: "AppDeliverySettingsInput.standbyEnabled", omitempty: true)
+# @genqlient(for: "AppDeliverySettingsInput.checkPeriodSeconds", omitempty: true)
+# @genqlient(for: "AppDeliverySettingsInput.darkAlarmWindowSeconds", omitempty: true)
+# @genqlient(for: "AppDeliverySettingsInput.failedChecksToOverdue", omitempty: true)
 mutation TeamDeliverySettingsSet(
   $appRef: String!
   $input: AppDeliverySettingsInput!
 ) {
   setAppDeliverySettings(appRef: $appRef, input: $input) { ...AppDeliverySettingsFields }
+}
+
+# C5 slice B1 (#911): stop signals (server #2022/#2166, cor:agt:090). Ids and
+# times only. The CLI computes no coverage: the server owns who a signal
+# covers, its expiry and every effect.
+fragment StopSignalFields on StopSignal {
+  id
+  level
+  scope
+  targetWorkerId
+  targetHostId
+  setAt
+  until
+  setByUserId
+  setByHostKey
+  live
+  endedAt
+  endKind
+  endedByUserId
+  endedByHostKey
+}
+query TeamStopSignals(
+  $appRef: String!
+  # @genqlient(omitempty: true)
+  $worker: String
+  # @genqlient(omitempty: true)
+  $includeEnded: Boolean
+  # @genqlient(omitempty: true)
+  $first: Int
+  # @genqlient(omitempty: true)
+  $after: String
+) {
+  teamStopSignals(appRef: $appRef, worker: $worker, includeEnded: $includeEnded, first: $first, after: $after) {
+    signals { ...StopSignalFields }
+    pageInfo { endCursor hasNextPage }
+  }
+}
+# @genqlient(for: "SetTeamStopSignalInput.worker", omitempty: true)
+# @genqlient(for: "SetTeamStopSignalInput.host", omitempty: true)
+# @genqlient(for: "SetTeamStopSignalInput.until", omitempty: true)
+mutation TeamStopSignalSet(
+  $input: SetTeamStopSignalInput!
+) {
+  setTeamStopSignal(input: $input) { ...StopSignalFields }
+}
+mutation TeamStopSignalLift($appRef: String!, $id: ID!) {
+  liftTeamStopSignal(appRef: $appRef, id: $id) {
+    changed
+    signal { ...StopSignalFields }
+  }
+}
+
+# Default-channel identity only, no transcript/cursor read or cursor mutation.
+query TeamChannelLocation($appRef: ID!) {
+  app(ref: $appRef) {
+    id
+    urn
+    defaultChannel {
+      id
+      chatRootNodeId
+    }
+  }
+}
+
+# #2061 / cli#1085: direct-report lanes, rendered as returned. A thin read —
+# the CLI joins nothing and judges nothing.
+query TeamComposition($appRef: ID!) {
+  teamComposition(appRef: $appRef) {
+    appId
+    asOf
+    lanes {
+      coordinator { id kind name urn }
+      coordinatorRetired
+      countsByRole { role count }
+      countsByRoleFamily { role family count }
+      workers {
+        worker { id kind name urn }
+        role
+        family
+        bound
+        liveSession
+        state
+      }
+    }
+  }
+}
+
+# cli#1470 (server#2980): the thread read never reads `total`, and selecting it
+# forces the server to count every message in the range. Left out on purpose.
+# cli#1262 thread read: the DIRECT replies to one seq, filtered by the server
+# (hadron-server#2847, spec cor:agt:020:04). SEPARATE documents from
+# TeamChatMessages/TeamChatMessagesAttributed on purpose: GraphQL validates the
+# static document, so an unset $replyToSeq would still put an unknown argument in
+# every ordinary read and break it on a server older than #2847. Only
+# `--thread` sends these. replyToSeq is required here, so it is never omitted.
+query TeamChatThread(
+  $appRef: ID!
+  $replyToSeq: Int!
+  # @genqlient(omitempty: true)
+  $sinceSeq: Int
+  # @genqlient(omitempty: true)
+  $mentionsRef: ID
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $beforeSeq: Int
+) {
+  teamChatMessages(appRef: $appRef, replyToSeq: $replyToSeq, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, beforeSeq: $beforeSeq) {
+    items {
+      ...TeamChatMessageFields
+    }
+  }
+}
+
+# The same read with the worker session carried and acknowledgement suppressed
+# (#817), mirroring TeamChatMessagesAttributed.
+query TeamChatThreadAttributed(
+  $appRef: ID!
+  $replyToSeq: Int!
+  # @genqlient(omitempty: true)
+  $sinceSeq: Int
+  # @genqlient(omitempty: true)
+  $mentionsRef: ID
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $beforeSeq: Int
+) {
+  teamChatMessages(appRef: $appRef, replyToSeq: $replyToSeq, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, beforeSeq: $beforeSeq, advanceReadState: false) {
+    items {
+      ...TeamChatMessageFields
+    }
+  }
+}
+
+# MCP cut C3: manager controls, deliberately not authored worker writes.
+mutation SetTeamPause($appRef: String!, $paused: Boolean!) {
+  setTeamPause(appRef: $appRef, paused: $paused) { teamPausedAt }
+}
+
+mutation ChangeWorkerAgent($workerRef: ID!, $agentRef: ID!) {
+  changeWorkerAgent(workerRef: $workerRef, agentRef: $agentRef) { ...WorkerFields }
+}
+
+# cli#1592 (hadron-server#3307, ruling 0096, cor:dmo:050:12): the same write
+# carrying a holder's instruction claim. A separate document, so the plain one
+# above keeps working against a server older than 17ef5905, which has no
+# `instruction` argument; this one is sent only with --instruction.
+mutation ChangeWorkerAgentInstructed($workerRef: ID!, $agentRef: ID!, $instruction: ActInstructionInput!) {
+  changeWorkerAgent(workerRef: $workerRef, agentRef: $agentRef, instruction: $instruction) { ...WorkerFields }
+}
+
+# cli#1337: explicit opt-in documents preserve ordinary older-server calls.
+mutation EndTeamSessionWithStats(
+  $id: ID!
+  # @genqlient(omitempty: true)
+  $inputTokens: Int
+  # @genqlient(omitempty: true)
+  $outputTokens: Int
+  # @genqlient(omitempty: true)
+  $turnCount: Int
+  # @genqlient(omitempty: true)
+  $errorCount: Int
+  # @genqlient(omitempty: true)
+  $summary: String
+  # @genqlient(omitempty: true)
+  $handoff: String
+) {
+  endSession(id: $id, summary: $summary, handoff: $handoff, inputTokens: $inputTokens, outputTokens: $outputTokens, turnCount: $turnCount, errorCount: $errorCount) {
+    ...TeamSessionFields
+  }
+}
+
+# The claim variant is explicit: old counter-capable servers need not know it.
+mutation EndTeamSessionWithStatsAndResumeClaim(
+  $id: ID!
+  # @genqlient(omitempty: true)
+  $inputTokens: Int
+  # @genqlient(omitempty: true)
+  $outputTokens: Int
+  # @genqlient(omitempty: true)
+  $turnCount: Int
+  # @genqlient(omitempty: true)
+  $errorCount: Int
+  # @genqlient(omitempty: true)
+  $summary: String
+  # @genqlient(omitempty: true)
+  $handoff: String
+) {
+  endSession(id: $id, summary: $summary, handoff: $handoff, inputTokens: $inputTokens, outputTokens: $outputTokens, turnCount: $turnCount, errorCount: $errorCount, resumeClaim: true) {
+    ...TeamSessionFields
+  }
+}
+
+query TeamSessionsPageFiltered(
+  # @genqlient(omitempty: true)
+  $repo: String
+  # @genqlient(omitempty: true)
+  $customerId: String
+  # @genqlient(omitempty: true)
+  $sessionType: String
+  # @genqlient(omitempty: true)
+  $workerRef: String
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  sessionsPage(customerId: $customerId, type: $sessionType, repo: $repo, workerRef: $workerRef, limit: $limit, offset: $offset) {
+    total
+    hasMore
+    items {
+      ...TeamSessionFields
+    }
+  }
+}
+
+query TeamWorkItemsByWorker(
+  $appRef: ID!
+  $workerRef: ID!
+  # @genqlient(omitempty: true)
+  $sessionRef: ID
+  # @genqlient(omitempty: true)
+  $ref: String
+  # @genqlient(omitempty: true)
+  $kind: String
+  # @genqlient(omitempty: true)
+  $tool: String
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  teamWorkItems(
+    workerRef: $workerRef
+    appRef: $appRef
+    sessionRef: $sessionRef
+    ref: $ref
+    kind: $kind
+    tool: $tool
+    limit: $limit
+    offset: $offset
+  ) {
+    total
+    items {
+      ...TeamWorkItemFields
+    }
+  }
+}
+
+# @genqlient(for: "SetHostWorkerAvailabilityInput.reason", omitempty: true)
+# @genqlient(for: "SetHostWorkerAvailabilityInput.until", omitempty: true)
+mutation SetHostWorkerAvailability(
+  $input: SetHostWorkerAvailabilityInput!
+) {
+  setHostWorkerAvailability(input: $input) {
+    worker { id kind name urn }
+    state reason until inEffect setAt setBy setByHostId
+    setByParty { id kind name urn }
+  }
+}
+
+# cli#1594 (hadron-server#3308, 517eb1db): the staffing doors carrying a
+# holder's instruction claim. Separate documents, so the no-flag documents
+# above stay byte-for-byte what an older server already accepts.
+mutation CastWorkerInstructed(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $agentRef: ID
+  # @genqlient(omitempty: true)
+  $role: String
+  # @genqlient(omitempty: true)
+  $name: String
+  # @genqlient(omitempty: true)
+  $reportsTo: ID
+  # @genqlient(omitempty: true)
+  $noTeam: Boolean
+  $instruction: ActInstructionInput!
+) {
+  castWorker(
+    appRef: $appRef
+    agentRef: $agentRef
+    role: $role
+    name: $name
+    reportsTo: $reportsTo
+    noTeam: $noTeam
+    instruction: $instruction
+  ) {
+    ...WorkerFields
+  }
+}
+
+# An instructed preview is NOT write-free: the server records one claim event.
+query CastWorkerPreviewInstructed(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $agentRef: ID
+  # @genqlient(omitempty: true)
+  $role: String
+  # @genqlient(omitempty: true)
+  $name: String
+  # @genqlient(omitempty: true)
+  $reportsTo: ID
+  # @genqlient(omitempty: true)
+  $noTeam: Boolean
+  $instruction: ActInstructionInput!
+) {
+  castWorkerPreview(
+    appRef: $appRef
+    agentRef: $agentRef
+    role: $role
+    name: $name
+    reportsTo: $reportsTo
+    noTeam: $noTeam
+    instruction: $instruction
+  ) {
+    name
+    role
+    agentId
+    agentName
+    prompt
+    teamPlacement
+    reportsToWorkerId
+  }
+}
+
+mutation RetireWorkerInstructed($workerRef: ID!, $instruction: ActInstructionInput!) {
+  retireWorker(workerRef: $workerRef, instruction: $instruction) {
+    ...WorkerFields
+  }
+}
+
+mutation DeleteWorkerInstructed(
+  $workerRef: ID!
+  # @genqlient(omitempty: true)
+  $confirmNoExternalAttribution: Boolean
+  $instruction: ActInstructionInput!
+) {
+  deleteWorker(workerRef: $workerRef, confirmNoExternalAttribution: $confirmNoExternalAttribution, instruction: $instruction)
 }

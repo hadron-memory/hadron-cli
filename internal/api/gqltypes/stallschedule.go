@@ -11,9 +11,11 @@ import "encoding/json"
 // `null` survives as null, and a number is sent as itself — the same
 // reasoning as NodeWhereInput's operands.
 type AgentTaskStallScheduleInput struct {
-	AssignmentMinutes    json.RawMessage `json:"assignmentMinutes,omitempty"`
-	HostLapseCheckIns    json.RawMessage `json:"hostLapseCheckIns,omitempty"`
-	NoProgressMinutes    json.RawMessage `json:"noProgressMinutes,omitempty"`
-	NotStartedMinutes    json.RawMessage `json:"notStartedMinutes,omitempty"`
-	OwnerReactionMinutes json.RawMessage `json:"ownerReactionMinutes,omitempty"`
+	AssignmentMinutes        json.RawMessage `json:"assignmentMinutes,omitempty"`
+	HostLapseCheckIns        json.RawMessage `json:"hostLapseCheckIns,omitempty"`
+	HostReportTimeoutMinutes json.RawMessage `json:"hostReportTimeoutMinutes,omitempty"`
+	NoProgressMinutes        json.RawMessage `json:"noProgressMinutes,omitempty"`
+	NotStartedMinutes        json.RawMessage `json:"notStartedMinutes,omitempty"`
+	OwnerReactionMinutes     json.RawMessage `json:"ownerReactionMinutes,omitempty"`
+	SessionEndGraceMinutes   json.RawMessage `json:"sessionEndGraceMinutes,omitempty"`
 }

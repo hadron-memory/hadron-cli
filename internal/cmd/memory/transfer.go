@@ -75,22 +75,26 @@ func newCmdTransfer(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "transfer <memoryRef> (--org <ref> | --user <ref>)",
 		Short: "Preview or apply a memory ownership transfer",
-		Long: `Preview a memory ownership transfer and its dependent handling.
+		Long: `Give a memory to another organization (--org) or user (--user). Its nodes
+stay as they are; its URN moves to the new owner's root.
 
-Exactly one destination owner is required. The default is a read-only preview.
-Pass --apply to request an interactive confirmation, or --yes to apply in a
-script. Apply repeats the server check under its lock and pins the previewed
-new URN with expectedNewUrn; a stale preview fails without transferring.
+By default it only previews: the new URN, what happens to grants on the
+memory (such as group memberships), and anything that blocks the transfer.
+--apply shows the preview and asks before transferring; --yes transfers
+without asking, for scripts. The server checks again when it applies, and if
+anything changed since the preview (the new URN, for example) it refuses and
+transfers nothing: preview again.
 
 Personal and private memories may transfer only to an organization you
 administer. Crossing a user/org boundary requires an explicit --class. Group
 members block transfer unless --reset-group-members is given; that flag
 revokes all old memberships, as shown in the preview's REMOVE rows.
 
-On apply, the preview is shown on stderr before confirmation and only the
-final result goes to stdout. --json emits one result document on stdout.
-Refusal codes are retained
-in blockers; a blocked preview exits with the corresponding typed exit code.`,
+On apply, the preview goes to stderr and only the result to stdout; --json
+prints one result document. A blocked preview lists the reasons under
+"blockers" and exits with the matching code (see hadron agentic-usage).
+
+` + copyHelp,
 		Example: `  hadron memory transfer hrn:mem:alice:notes --org acme.com --class knowledge
   hadron memory transfer hrn:mem:alice:notes --org acme.com --class knowledge --apply
   hadron memory transfer hrn:mem:alice:notes --org acme.com --class knowledge --yes --json`,
@@ -212,17 +216,17 @@ func transferBlockerError(p transferDTO) error {
 
 func writeTransferTable(w io.Writer, p transferDTO) error {
 	t := output.NewTable(w)
-	t.Row("Memory", p.MemoryID)
-	t.Row("URN", p.OldURN, "→", p.NewURN)
-	t.Row("Owner", p.FromOwner, "→", p.ToOwner)
-	t.Row("Class", p.CurrentClass, "→", p.TargetClass)
+	t.Row("Memory", output.SafeCell(p.MemoryID))
+	t.Row("URN", output.SafeCell(p.OldURN), "→", output.SafeCell(p.NewURN))
+	t.Row("Owner", output.SafeCell(p.FromOwner), "→", output.SafeCell(p.ToOwner))
+	t.Row("Class", output.SafeCell(p.CurrentClass), "→", output.SafeCell(p.TargetClass))
 	if err := t.Flush(); err != nil {
 		return err
 	}
 	if len(p.Dependents) > 0 {
 		t = output.NewTable(w, "DEPENDENT", "COUNT", "HANDLING")
 		for _, dep := range p.Dependents {
-			t.Row(dep.Kind, fmt.Sprint(dep.Count), dep.Handling)
+			t.Row(output.SafeCell(dep.Kind), fmt.Sprint(dep.Count), output.SafeCell(dep.Handling))
 		}
 		if err := t.Flush(); err != nil {
 			return err
@@ -231,7 +235,7 @@ func writeTransferTable(w io.Writer, p transferDTO) error {
 	if len(p.Blockers) > 0 {
 		t = output.NewTable(w, "REFUSAL", "REASON")
 		for _, blocker := range p.Blockers {
-			t.Row(blocker.Code, blocker.Message)
+			t.Row(output.SafeCell(blocker.Code), output.SafeCell(blocker.Message))
 		}
 		return t.Flush()
 	}

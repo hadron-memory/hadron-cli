@@ -3,6 +3,7 @@ package auth
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -24,6 +25,9 @@ type tokenDTO struct {
 	LastUsedAt *string `json:"lastUsedAt"`
 	RevokedAt  *string `json:"revokedAt"`
 	Revoked    bool    `json:"revoked"`
+	// HiddenAt is when the owner hid this REVOKED key from the default list;
+	// null while visible. Display state only (#1344).
+	HiddenAt *string `json:"hiddenAt"`
 }
 
 // tokenCreateDTO extends tokenDTO with the raw key, returned exactly once.
@@ -42,6 +46,7 @@ func toTokenDTO(k gen.UserApiKeyFields) tokenDTO {
 		LastUsedAt: k.LastUsedAt,
 		RevokedAt:  k.RevokedAt,
 		Revoked:    k.RevokedAt != nil,
+		HiddenAt:   k.HiddenAt,
 	}
 }
 
@@ -54,12 +59,20 @@ func newCmdToken(f *cmdutil.Factory) *cobra.Command {
 A token is minted for the signed-in user, so you sign in once interactively
 (hadron auth login) and then mint long-lived tokens to use via the
 HADRON_TOKEN env var or "hadron auth login --with-token". Token operations
-require a user login — an app or agent key cannot manage user tokens.`,
+require a user login — an app or agent key cannot manage user tokens.
+
+A token acts as you, with your access, until you revoke it; it has no expiry of
+its own. Only "create" ever shows the token itself; "list" shows metadata
+(id, label, a short preview, created and last-used times, status), and the id
+is what "revoke" takes.`,
 	}
 	cmd.AddCommand(newCmdTokenCreate(f))
 	cmd.AddCommand(newCmdTokenLs(f))
 	cmd.AddCommand(newCmdTokenValidate(f))
 	cmd.AddCommand(newCmdTokenRevoke(f))
+	cmd.AddCommand(newCmdTokenDelete(f))
+	cmd.AddCommand(newCmdTokenHide(f, true))
+	cmd.AddCommand(newCmdTokenHide(f, false))
 	return cmd
 }
 
@@ -92,9 +105,13 @@ func newCmdTokenValidate(f *cmdutil.Factory) *cobra.Command {
 
 The token is read from standard input, so it never lands in your shell history
 or the process table. A valid token prints the user it belongs to and exits 0;
-a rejected or revoked token exits 3.`,
-		Example: `  echo $TOKEN | hadron auth token validate
-  hadron auth token validate --json < token.txt`,
+a rejected or revoked token exits 3. A network or server failure is an error
+(not "invalid"), so a script can tell the two apart.
+
+--json gives valid, then for a valid token principalType, userId, name, email,
+handle, roles and key (its id, label, preview and times; never the token).`,
+		Example: `  hadron auth token validate < ci-token
+  printf '%s' "$HADRON_TOKEN" | hadron auth token validate --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			token, err := readToken(f.IOStreams.In, "token validate")
@@ -174,7 +191,7 @@ a rejected or revoked token exits 3.`,
 				}
 				// A non-user principal (App/Agent key) has no user subject or key.
 				if dto.UserID == "" {
-					_, err := fmt.Fprintf(w, "✓ Token is valid — %s\n", nonUserLabel(dto.AppID, dto.AgentID, dto.PrincipalType))
+					_, err := fmt.Fprintf(w, "✓ Token is valid — %s\n", output.SafeCell(nonUserLabel(dto.AppID, dto.AgentID, dto.PrincipalType)))
 					return err
 				}
 				label := dto.Name
@@ -185,14 +202,14 @@ a rejected or revoked token exits 3.`,
 					label = dto.UserID
 				}
 				if dto.Email != "" {
-					if _, err := fmt.Fprintf(w, "✓ Token is valid — %s (%s)\n", label, dto.Email); err != nil {
+					if _, err := fmt.Fprintf(w, "✓ Token is valid — %s (%s)\n", output.SafeCell(label), output.SafeCell(dto.Email)); err != nil {
 						return err
 					}
-				} else if _, err := fmt.Fprintf(w, "✓ Token is valid — %s\n", label); err != nil {
+				} else if _, err := fmt.Fprintf(w, "✓ Token is valid — %s\n", output.SafeCell(label)); err != nil {
 					return err
 				}
 				if dto.Key != nil {
-					_, err := fmt.Fprintf(w, "  key %s, last used %s\n", keyLabel(*dto.Key), orText(dto.Key.LastUsedAt, "never"))
+					_, err := fmt.Fprintf(w, "  key %s, last used %s\n", output.SafeCell(keyLabel(*dto.Key)), output.SafeCell(orText(dto.Key.LastUsedAt, "never")))
 					return err
 				}
 				return nil
@@ -214,12 +231,44 @@ func newCmdTokenCreate(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Mint a new personal API token (shown once)",
-		Long: `Mint a new personal access token for the signed-in user.
+		Long: `Mint a new personal access token for the signed-in user (requires a user
+login; see hadron auth token). It acts as you, with your access, until revoked.
 
 The raw token is printed ONCE and is never recoverable — store it now (e.g. in
-a CI secret). Only the token's hash is kept server-side.`,
+a CI secret). Only the token's hash is kept server-side. The printout also
+shows the token's id, which hadron auth token revoke takes. Give each use its
+own --label, so the list tells you what to revoke.
+
+Avoid leaving the token in terminal scrollback or logs: --json with jq, as
+below, writes it to a private temporary file, then links it to ci-token without
+overwriting an existing destination. The Bash example needs jq, mktemp and
+GNU ln (its -T option refuses a directory or symlink-to-directory destination
+even if it appears during minting). The example checks GNU ln -T before minting.
+It stops before minting if ci-token exists (including a dangling symlink).
+A mint or JSON failure exits non-zero and removes only this run's temporary
+file; it never removes ci-token. After any non-zero exit, run hadron auth token
+list, find any unexpected token by its label, and use hadron auth token revoke
+<id> to revoke it (add --yes when non-interactive). The new file has mode 600
+(umask 077).`,
 		Example: `  hadron auth token create --label ci-deploy
-  TOKEN=$(hadron auth token create --label ci --json | jq -r .rawKey)`,
+  bash -c '
+    set -euo pipefail
+    umask 077
+    [ ! -e ci-token ] && [ ! -L ci-token ] || exit 1
+    capture_file=$(mktemp ./ci-token.XXXXXX)
+    capture_probe_owned=0
+    capture_cleanup() {
+      rm -f "$capture_file"
+      if [ "$capture_probe_owned" = 1 ]; then rm -f "$capture_file.probe"; fi
+    }
+    trap capture_cleanup EXIT
+    ln -T "$capture_file" "$capture_file.probe"
+    capture_probe_owned=1
+    rm -f "$capture_file.probe"
+    capture_probe_owned=0
+    hadron auth token create --label ci --json | jq -er .rawKey > "$capture_file"
+    ln -T "$capture_file" ci-token
+  '`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
@@ -254,17 +303,36 @@ a CI secret). Only the token's hash is kept server-side.`,
 }
 
 func newCmdTokenLs(f *cmdutil.Factory) *cobra.Command {
-	return &cobra.Command{
+	var includeHidden bool
+	cmd := &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"ls"},
 		Short:   "List your personal API tokens",
-		Args:    cobra.NoArgs,
+		Long: `List the personal tokens you have minted, including revoked ones. Shows
+metadata only, never the token itself: ID (what revoke takes), LABEL, PREVIEW
+(the last characters, to recognise a token), CREATED, LAST USED and STATUS
+(active or revoked).
+
+Requires a user login. You see only your own tokens. --json gives the same
+fields as id, label, keyPreview, issuedVia, createdAt, lastUsedAt, revokedAt
+and revoked; an empty list is [].
+
+A revoked token you hid with "hide" is left out; --include-hidden brings it
+back (the JSON hiddenAt says when you hid it, null for a visible one).`,
+		Example: `  hadron auth token list
+  hadron auth token list --include-hidden
+  hadron auth token list --json | jq -r '.[] | select(.revoked | not) | .id'`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
-			resp, err := gen.MyUserApiKeys(cmd.Context(), client)
+			var hiddenArg *bool
+			if includeHidden {
+				hiddenArg = &includeHidden
+			}
+			resp, err := gen.MyUserApiKeys(cmd.Context(), client, hiddenArg)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -282,9 +350,66 @@ func newCmdTokenLs(f *cmdutil.Factory) *cobra.Command {
 					if k.Revoked {
 						status = "revoked"
 					}
-					t.Row(k.ID, orDash(k.Label), k.KeyPreview, k.CreatedAt, orText(k.LastUsedAt, "never"), status)
+					if k.HiddenAt != nil {
+						status += " (hidden)"
+					}
+					t.Row(output.SafeCell(k.ID), output.SafeCell(orDash(k.Label)), output.SafeCell(k.KeyPreview), output.SafeCell(k.CreatedAt), output.SafeCell(orText(k.LastUsedAt, "never")), status)
 				}
 				return t.Flush()
+			})
+		},
+	}
+	cmd.Flags().BoolVar(&includeHidden, "include-hidden", false, "also list revoked tokens you hid")
+	return cmd
+}
+
+// newCmdTokenHide builds `token hide` (hide=true) and `token unhide`: the one
+// setUserApiKeyHidden mutation, in both directions.
+func newCmdTokenHide(f *cmdutil.Factory, hide bool) *cobra.Command {
+	use, short, past := "hide <id>", "Hide a revoked personal API token from the default list", "Hid"
+	long := `Hide one of your REVOKED personal tokens from the default "auth token list", to
+tidy a long history. It is display state only: the token's validity, revocation
+time and lineage do not change, and "list --include-hidden" still shows it.
+
+<id> is the token's ID from hadron auth token list. Only a revoked token can
+be hidden: hiding an active one is refused (exit 2, nothing changes), so revoke
+it first. Hiding an already-hidden token succeeds and keeps the first hide time.
+You can change only your own tokens: an unknown id, or someone else's, exits 4.
+Requires a user login. Prints "✓ Hid API token <id>"; --json returns the token
+with its hiddenAt.`
+	example := "  hadron auth token hide 01a18cf6400b7fcc8d2f51e7401c55c1"
+	if !hide {
+		use, short, past = "unhide <id>", "Show a hidden personal API token in the default list again", "Unhid"
+		long = `Show one of your hidden tokens in the default "auth token list" again; it clears
+the display state "hide" set and changes nothing else. <id> is the token's ID
+from hadron auth token list --include-hidden. Unhiding a token that is already
+visible succeeds. You can change only your own tokens: an unknown id, or
+someone else's, exits 4. Requires a user login. Prints "✓ Unhid API token <id>";
+--json returns the token with hiddenAt null.`
+		example = "  hadron auth token unhide 01a18cf6400b7fcc8d2f51e7401c55c1"
+	}
+	return &cobra.Command{
+		Use:     use,
+		Short:   short,
+		Long:    long,
+		Example: example,
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			resp, err := gen.SetUserApiKeyHidden(cmd.Context(), client, args[0], hide)
+			if err != nil {
+				return api.MapErrorKeepingCode(err)
+			}
+			if resp == nil || resp.SetUserApiKeyHidden == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no token")
+			}
+			dto := toTokenDTO(resp.SetUserApiKeyHidden.UserApiKeyFields)
+			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				_, err := fmt.Fprintf(w, "✓ %s API token %s\n", past, output.SafeCell(dto.ID))
+				return err
 			})
 		},
 	}
@@ -293,10 +418,23 @@ func newCmdTokenLs(f *cmdutil.Factory) *cobra.Command {
 func newCmdTokenRevoke(f *cmdutil.Factory) *cobra.Command {
 	var yes bool
 	cmd := &cobra.Command{
-		Use:     "revoke <id>",
-		Short:   "Revoke a personal API token",
-		Example: `  hadron auth token revoke uak_123 --yes`,
-		Args:    cobra.ExactArgs(1),
+		Use:   "revoke <id>",
+		Short: "Revoke a personal API token",
+		Long: `Revoke one of your personal tokens, so anything using it stops working
+at once, together with every token minted from it. Revoking cannot be undone;
+mint a new token if you need one.
+
+<id> is the token's ID from hadron auth token list (not its label and not the
+token itself). You can revoke only your own tokens: an unknown id, or someone
+else's, exits 4. Revoking a token that is already revoked succeeds again.
+
+On a terminal it asks for confirmation; in a script or agent pass --yes, or it
+refuses with exit 2. Prints "✓ Revoked API token <id>". The token stays in the
+list with STATUS revoked.`,
+		Example: `  hadron auth token list
+  hadron auth token revoke 01a18cf6400b7fcc8d2f51e7401c55c1
+  hadron auth token revoke 01a18cf6400b7fcc8d2f51e7401c55c1 --yes   # non-interactive`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -316,6 +454,80 @@ func newCmdTokenRevoke(f *cmdutil.Factory) *cobra.Command {
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				_, err := fmt.Fprintf(w, "✓ Revoked API token %s\n", dto.ID)
 				return err
+			})
+		},
+	}
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
+	return cmd
+}
+
+// tokenDeletionDTO is the stable --json shape for `token delete`: the server's
+// append-only deletion record. Never key material.
+type tokenDeletionDTO struct {
+	ID            string   `json:"id"`
+	KeyID         string   `json:"keyId"`
+	KeyPreview    string   `json:"keyPreview"`
+	RevokedKeyIDs []string `json:"revokedKeyIds"`
+	MintedKeyIDs  []string `json:"mintedKeyIds"`
+	DeletedAt     string   `json:"deletedAt"`
+}
+
+func newCmdTokenDelete(f *cmdutil.Factory) *cobra.Command {
+	var yes bool
+	cmd := &cobra.Command{
+		Use:   "delete <id>",
+		Short: "Delete a personal API token for good",
+		Long: `Delete one of your personal tokens for good: the row is removed, so it no longer
+appears in "auth token list", even with --include-hidden. Deleting cannot be
+undone. Revoke keeps the row (STATUS revoked); delete removes it.
+
+<id> is the token's ID from hadron auth token list. You can delete only your own
+tokens, live or revoked, hidden or not: an unknown id, or someone else's, exits
+4. A live token is revoked first, together with every live token minted from it,
+so anything using them stops working at once. Tokens it minted directly are not
+deleted: they stay, revoked, with no parent (a token minted from one of those
+keeps its own parent).
+
+On a terminal it asks for confirmation; in a script or agent pass --yes, or it
+refuses with exit 2 and sends nothing. The request is sent once and never
+retried or replayed: a redirect from the server (307/308) is refused, not followed. Prints "✓ Deleted API token <keyId> (<preview>)", then one line for the
+tokens this delete revoked and one for the tokens it had minted, when there are
+any. --json prints the deletion record: id, keyId, keyPreview, revokedKeyIds,
+mintedKeyIds and deletedAt. Requires a user login.`,
+		Example: `  hadron auth token list
+  hadron auth token delete 01a18cf6400b7fcc8d2f51e7401c55c1
+  hadron auth token delete 01a18cf6400b7fcc8d2f51e7401c55c1 --yes   # non-interactive`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			if err := cmdutil.Confirm(f.IOStreams, yes, "Delete API token "+args[0]+" for good? If it is live it is revoked first, with every live token minted from it."); err != nil {
+				return err
+			}
+			resp, err := gen.DeleteUserApiKey(api.WithNoRedirect(cmd.Context()), client, args[0])
+			if err != nil {
+				return api.MapError(err)
+			}
+			if resp == nil || resp.DeleteUserApiKey == nil {
+				return exitcode.Newf(exitcode.Error, "server returned no deletion record")
+			}
+			d := resp.DeleteUserApiKey
+			dto := tokenDeletionDTO{
+				ID: d.Id, KeyID: d.KeyId, KeyPreview: d.KeyPreview, DeletedAt: d.DeletedAt,
+				RevokedKeyIDs: append([]string{}, d.RevokedKeyIds...),
+				MintedKeyIDs:  append([]string{}, d.MintedKeyIds...),
+			}
+			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				fmt.Fprintf(w, "✓ Deleted API token %s (%s)\n", output.SafeCell(dto.KeyID), output.SafeCell(dto.KeyPreview))
+				if len(dto.RevokedKeyIDs) > 0 {
+					fmt.Fprintf(w, "  Keys this delete revoked: %s\n", output.SafeCell(strings.Join(dto.RevokedKeyIDs, ", ")))
+				}
+				if len(dto.MintedKeyIDs) > 0 {
+					fmt.Fprintf(w, "  Keys it had minted, now revoked with no parent: %s\n", output.SafeCell(strings.Join(dto.MintedKeyIDs, ", ")))
+				}
+				return nil
 			})
 		},
 	}

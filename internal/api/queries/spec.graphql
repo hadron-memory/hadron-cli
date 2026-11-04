@@ -21,7 +21,8 @@ query GetSpecNodeRaw($ref: ID!) {
     name
     tags
     role
-    content
+    # Explicit, not the default (cli#916 C3a): the stored body is what spec edit and supersede write back.
+    content(raw: true)
     abstract
     # spec 032's fingerprint of the body the abstract was verified against.
     # With the raw body it tells whether saving leaves the abstract stale,

@@ -19,10 +19,19 @@ func NewCmdApp(f *cmdutil.Factory) *cobra.Command {
 	}
 	cmd.AddCommand(newCmdUse(f))
 	cmd.AddCommand(newCmdLs(f))
+	cmd.AddCommand(newCmdGet(f))
 	cmd.AddCommand(newCmdAgent(f))
+	cmd.AddCommand(newCmdMemories(f))
 	cmd.AddCommand(newCmdInstall(f))
+	cmd.AddCommand(newCmdUpdate(f))
 	cmd.AddCommand(newCmdUninstall(f))
 	cmd.AddCommand(newCmdKey(f))
+	cmd.AddCommand(newCmdMember(f))
+	cmd.AddCommand(newCmdMemoryGrant(f))
+	cmd.AddCommand(newCmdWhoami(f))
+	cmd.AddCommand(newCmdAssetUpload(f))
+	cmd.AddCommand(newCmdModelGroup(f))
+	cmd.AddCommand(newCmdProperties(f))
 	return cmd
 }
 

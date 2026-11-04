@@ -131,6 +131,14 @@ query AppAgentRoster($appRef: ID!) {
       personaRole
       createdAt
     }
+    # cli#916 C2: each install's boot-prompt pointer (AppAgent.bootPromptRef,
+    # #2045 S8), joined onto the Agents above by agent id. agent is null when
+    # the caller may not read the definition, and such a row joins nothing.
+    appAgents {
+      agent { id }
+      bootPromptRef
+      bootPromptTargetDeleted
+    }
   }
 }
 
@@ -149,4 +157,278 @@ query GetAppSharedMemory($appRef: ID!) {
       schema
     }
   }
+}
+
+# cli#916 C2: an installed Agent's boot-prompt pointer for one App. nodeRef has
+# no omitempty, as SetAgentBootPrompt (agent.graphql) explains.
+mutation SetAppAgentBootPrompt($appRef: String!, $agentRef: String!, $nodeRef: String) {
+  setAppAgentBootPrompt(appRef: $appRef, agentRef: $agentRef, nodeRef: $nodeRef) {
+    agent { id urn name }
+    app { id urn name }
+    bootPromptRef
+    bootPromptTargetDeleted
+  }
+}
+
+# cli#1057: minimal single-App identity, no settings or nested keys.
+query GetAppMetadata($ref: ID!) {
+  app(ref: $ref) {
+    id
+    urn
+    name
+    appType
+    description
+  }
+}
+
+# cli#1524 C2: `app properties get` — the object and the revision
+# `set/clear --expected-revision` checks against.
+query AppPropertiesGet($ref: ID!) {
+  app(ref: $ref) {
+    id
+    urn
+    propertiesRevision
+    properties
+  }
+}
+
+# cli#1524 C2 (cor:dmo:050:20): replace the App's properties whole; null
+# clears. `properties` is NOT omitempty: a nil RawMessage is sent as an
+# explicit null, which is how `clear` asks. expectedRevision is omitted unless
+# --expected-revision is given.
+mutation SetAppProperties(
+  $appRef: String!
+  $properties: JSON
+  # @genqlient(omitempty: true)
+  $expectedRevision: Int
+) {
+  setAppProperties(appRef: $appRef, properties: $properties, expectedRevision: $expectedRevision) {
+    id
+    urn
+    propertiesRevision
+    properties
+  }
+}
+
+# cli#1057: manager-authorized, active-only metadata inventory. No raw key,
+# nested App.keys, host usage, or scope mutations.
+query AppKeysMetadata($appRef: ID!) {
+ # @genqlient(typename: "AppKeysMetadataRows1595")
+  appKeys(appRef: $appRef) {
+    id
+    keyPreview
+    label
+    createdAt
+    lastUsedAt
+    revokedAt
+  }
+}
+
+# cli#1058 — bounded App update. Omitted = preserve, so every optional variable
+# carries omitempty and a nil never reaches the wire. description uses
+# json.RawMessage, where nil is omitted, `null` is sent as null and a quoted
+# string (including "") is sent as that string — a *string cannot express all
+# three. name and sessionTimeoutSeconds have no null-clear and stay pointers.
+mutation UpdateApp(
+  $ref: ID!
+  # @genqlient(omitempty: true)
+  $name: String
+  # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
+  $description: String
+  # @genqlient(omitempty: true)
+  $sessionTimeoutSeconds: Int
+) {
+  updateApp(
+    ref: $ref
+    name: $name
+    description: $description
+    sessionTimeoutSeconds: $sessionTimeoutSeconds
+  ) {
+    id
+    urn
+    name
+    sessionTimeoutSeconds
+  }
+}
+
+# cli#1209 (server#2190, cor:dmo:050:17): the memories appNodes reads for the
+# caller, one row per memory with every reason it is in scope. The CLI always
+# sends limit; offset is omitted at 0.
+query AppMemoryScope(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  appMemoryScope(appRef: $appRef, limit: $limit, offset: $offset) {
+    total
+    items {
+      memoryId
+      memoryUrn
+      name
+      class
+      sources {
+        kind
+        agentId
+      }
+      viewerCanWrite
+    }
+  }
+}
+
+# cli#1209: the display name of one source agent. Null when the caller may not
+# read it — the row then shows the source kind alone, as the SDL says.
+query AppScopeAgentName($ref: ID!) {
+  agent(ref: $ref) {
+    id
+    name
+  }
+}
+
+# cli#1223 — mint an App key. rawKey is returned exactly once; the command
+# writes it to a 0600 file and never prints it unless --print-key. An omitted
+# label is the server's default, so it carries omitempty.
+mutation CreateAppKey(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $label: String
+) {
+  createAppKey(appRef: $appRef, label: $label) {
+    rawKey
+    key {
+      id
+      keyPreview
+      label
+    }
+  }
+}
+
+# cli#1333 — `app key list --scopes`: the same active-key rows plus the scopes
+# each key holds. Separate operations from AppKeysMetadata so the default
+# listing keeps #1057's metadata-only selection (no scopes, no host uses).
+query AppKeysScopes($appRef: ID!) {
+ # @genqlient(typename: "AppKeysScopesRows1595")
+  appKeys(appRef: $appRef) {
+    id
+    keyPreview
+    label
+    createdAt
+    lastUsedAt
+    revokedAt
+    scopes {
+      scope
+      hostId
+      grantedAt
+      grantedBy
+    }
+  }
+}
+
+# cli#1333 — `app key list --scopes --host-uses N`: adds each key's newest N
+# host uses (cor:agt:070:07). N is always sent here, so no omitempty.
+query AppKeysScopesHostUses($appRef: ID!, $first: Int!) {
+ # @genqlient(typename: "AppKeysScopesHostUsesRows1595")
+  appKeys(appRef: $appRef) {
+    id
+    keyPreview
+    label
+    createdAt
+    lastUsedAt
+    revokedAt
+    scopes {
+      scope
+      hostId
+      grantedAt
+      grantedBy
+    }
+    hostUses(first: $first) {
+      hostId
+      action
+      count
+      operationId
+      refusedCode
+      usedAt
+    }
+  }
+}
+
+# cli#1333 — revoke one App key. Irreversible; the answer is a bare Boolean.
+mutation RevokeAppKey($id: ID!) {
+  revokeAppKey(id: $id)
+}
+
+# cli#1333 — rotate: revokes EVERY active key of the App and mints one
+# replacement that holds no scopes (cor:dmo:050:05). rawKey is returned once;
+# the command writes it to a 0600 file and never prints it unless --print-key.
+mutation RegenerateAppKey($appRef: ID!) {
+  regenerateAppKey(appRef: $appRef) {
+    rawKey
+    app {
+      id
+      urn
+      name
+    }
+  }
+}
+
+# cli#1595: explicitly instructed documents; legacy operations stay byte-identical.
+query AppKeysMetadataInstructed($appRef: ID!, $instruction: ActInstructionInput!) {
+ # @genqlient(typename: "AppKeysMetadataRows1595")
+  appKeys(appRef: $appRef, instruction: $instruction) {
+    id
+    keyPreview
+    label
+    createdAt
+    lastUsedAt
+    revokedAt
+  }
+}
+
+query AppKeysScopesInstructed($appRef: ID!, $instruction: ActInstructionInput!) {
+ # @genqlient(typename: "AppKeysScopesRows1595")
+  appKeys(appRef: $appRef, instruction: $instruction) {
+    id
+    keyPreview
+    label
+    createdAt
+    lastUsedAt
+    revokedAt
+    scopes {
+      scope
+      hostId
+      grantedAt
+      grantedBy
+    }
+  }
+}
+
+query AppKeysScopesHostUsesInstructed($appRef: ID!, $first: Int!, $instruction: ActInstructionInput!) {
+ # @genqlient(typename: "AppKeysScopesHostUsesRows1595")
+  appKeys(appRef: $appRef, instruction: $instruction) {
+    id
+    keyPreview
+    label
+    createdAt
+    lastUsedAt
+    revokedAt
+    scopes {
+      scope
+      hostId
+      grantedAt
+      grantedBy
+    }
+    hostUses(first: $first) {
+      hostId
+      action
+      count
+      operationId
+      refusedCode
+      usedAt
+    }
+  }
+}
+
+mutation RevokeAppKeyInstructed($id: ID!, $instruction: ActInstructionInput!) {
+  revokeAppKey(id: $id, instruction: $instruction)
 }

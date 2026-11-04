@@ -21,9 +21,9 @@ func newCmdRm(f *cmdutil.Factory) *cobra.Command {
 		Short:   "Delete a Channel",
 		Long: `Delete a Channel by its id or its address.
 
-This is a SOFT delete: the Channel and its chat root go together, the address
-stays reserved while either exists, and a restore brings both back. An App's
-default Channel is unlinked from the App.
+The Channel and its chat root go together. There is no restore: creating a
+Channel at the same address adopts it and starts clean, so the old transcript
+does not come back. An App's default Channel is unlinked from the App.
 
 Requires write access to the host memory.`,
 		Example: `  hadron channel rm hrn:node:acme.com:team-shared:chats:standup --yes`,
@@ -33,14 +33,14 @@ Requires write access to the host memory.`,
 			if err != nil {
 				return err
 			}
-			// NOT ConfirmDeletion: its prompt says "This cannot be undone",
-			// which is false here. deleteChannel is a SOFT delete of the
-			// Channel and its chat root together — the address stays reserved
-			// while either exists, and a restore brings both back. Telling an
-			// operator a recoverable action is permanent makes them refuse a
-			// safe change, which is its own harm (@copilot, #598).
+			// NOT ConfirmDeletion: its prompt says "This cannot be undone", which
+			// overstates it — the address stays usable, but there is no restore,
+			// and a Channel created there adopts it and starts clean, so the
+			// old transcript does not come back (hadron-server#2382,
+			// cor:dmo:090:03). Say exactly that; never promise a restore or a
+			// reserved address (#1049; @copilot, #598).
 			if err := cmdutil.Confirm(f.IOStreams, yes,
-				fmt.Sprintf("Delete channel %s? This is a soft delete — its address stays reserved and it can be restored.", args[0])); err != nil {
+				fmt.Sprintf("Delete channel %s? There is no restore: creating a Channel at the same address starts clean, so this transcript does not come back.", args[0])); err != nil {
 				return err
 			}
 			// The mutation returns a BOOLEAN, and false means nothing was

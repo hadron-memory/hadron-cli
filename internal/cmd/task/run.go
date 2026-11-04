@@ -25,9 +25,9 @@ type runTaskDTO struct {
 
 func newCmdRun(f *cmdutil.Factory) *cobra.Command {
 	var (
-		memory, app string
-		args        []string
-		asSelf      bool
+		memory, app, agent string
+		args               []string
+		asSelf             bool
 	)
 	cmd := &cobra.Command{
 		Use:   "run <task-urn> | <loc> -m <memory>",
@@ -43,16 +43,27 @@ By default this renders and prints the compiled prompt. With --app <ref> it
 instead EXECUTES the task server-side — minting a headless run under that App
 (a real LLM run, cor:agt:010:02) — and prints the run id; follow it with
 'hadron run get <id>'. --as-self runs on behalf of you (reaches your personal
-memories; authenticated user only).`,
+memories; authenticated user only). --agent names the installed Agent the run
+is served as (an ID or URN); omitted, the App's single installed Agent serves
+it, and an App with several refuses until you name one.`,
 		Example: `  hadron task run hrn:node:hadronmemory.com:experiments:email:send --arg to=user@example.com --arg subject="Hello"
   hadron task run send -m hrn:mem:hadronmemory.com:experiments --arg to=user@example.com
-  hadron task run hrn:node:acme.com:ops:tasks:brief --app acme.com:ops --arg topic=security --as-self`,
+  hadron task run hrn:node:acme.com:ops:tasks:brief --app acme.com:ops --arg topic=security --as-self
+  hadron task run hrn:node:acme.com:ops:tasks:brief --app acme.com:ops --agent hrn:agent:acme.com:coach`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, cmdArgs []string) error {
 			// runAsSelf only affects the identity of an executed run, so it's
 			// meaningless without --app — reject it rather than silently ignore.
 			if asSelf && app == "" {
 				return exitcode.Newf(exitcode.Usage, "--as-self requires --app (it only affects an executed run's identity)")
+			}
+			// Likewise --agent: only an executed run is served as an Agent.
+			if cmd.Flags().Changed("agent") && app == "" {
+				return exitcode.Newf(exitcode.Usage, "--agent requires --app (it names the Agent an executed run is served as)")
+			}
+			agentRef, err := cmdutil.RunAgentFlag(cmd, agent)
+			if err != nil {
+				return err
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -103,15 +114,27 @@ memories; authenticated user only).`,
 			}
 
 			// Run the task via the runTask mutation, passing the resolved node ID.
-			resp, err := gen.RunTask(cmd.Context(), client, nodeID, taskArgs, appRef, asSelfPtr)
-			if err != nil {
-				return api.MapError(err)
+			// --agent goes through its own document (RunTaskWithAgent), so a
+			// plain run still works on a server that predates agentRef.
+			var result string
+			if agentRef != nil {
+				resp, err := gen.RunTaskWithAgent(cmd.Context(), client, nodeID, taskArgs, *appRef, asSelfPtr, *agentRef)
+				if err != nil {
+					return api.MapError(err)
+				}
+				result = resp.RunTask
+			} else {
+				resp, err := gen.RunTask(cmd.Context(), client, nodeID, taskArgs, appRef, asSelfPtr)
+				if err != nil {
+					return api.MapError(err)
+				}
+				result = resp.RunTask
 			}
 
 			// In execute mode the returned string is the run id, not a prompt.
-			dto := runTaskDTO{Mode: "render", Result: resp.RunTask}
+			dto := runTaskDTO{Mode: "render", Result: result}
 			if appRef != nil {
-				dto.Mode, dto.RunID = "execute", resp.RunTask
+				dto.Mode, dto.RunID = "execute", result
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if dto.Mode == "execute" {
@@ -127,6 +150,7 @@ memories; authenticated user only).`,
 	cmd.Flags().StringArrayVar(&args, "arg", nil, "task argument in key=value format (repeatable)")
 	cmd.Flags().StringVar(&app, "app", "", "execute server-side under this App (ID or URN) and print the run id, instead of rendering the prompt")
 	cmd.Flags().BoolVar(&asSelf, "as-self", false, "with --app: run on behalf of you (reaches your personal memories; authenticated user only)")
+	cmd.Flags().StringVar(&agent, "agent", "", "with --app: installed Agent (ID or URN) the run is served as; required when the App has several")
 	return cmd
 }
 

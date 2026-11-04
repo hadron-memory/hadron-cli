@@ -3,6 +3,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -16,6 +17,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/auth"
 	"github.com/hadron-memory/hadron-cli/internal/build"
 	accesscmd "github.com/hadron-memory/hadron-cli/internal/cmd/access"
+	admincmd "github.com/hadron-memory/hadron-cli/internal/cmd/admin"
 	agentcmd "github.com/hadron-memory/hadron-cli/internal/cmd/agent"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/agentic"
 	aiconfigcmd "github.com/hadron-memory/hadron-cli/internal/cmd/aiconfig"
@@ -23,19 +25,30 @@ import (
 	appcmd "github.com/hadron-memory/hadron-cli/internal/cmd/app"
 	assetcmd "github.com/hadron-memory/hadron-cli/internal/cmd/asset"
 	authcmd "github.com/hadron-memory/hadron-cli/internal/cmd/auth"
+	automationcmd "github.com/hadron-memory/hadron-cli/internal/cmd/automation"
+	billingcmd "github.com/hadron-memory/hadron-cli/internal/cmd/billing"
+	calendarcmd "github.com/hadron-memory/hadron-cli/internal/cmd/calendar"
 	channelcmd "github.com/hadron-memory/hadron-cli/internal/cmd/channel"
 	chatcmd "github.com/hadron-memory/hadron-cli/internal/cmd/chat"
 	codingcmd "github.com/hadron-memory/hadron-cli/internal/cmd/coding"
 	commentcmd "github.com/hadron-memory/hadron-cli/internal/cmd/comment"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/configcmd"
 	connectioncmd "github.com/hadron-memory/hadron-cli/internal/cmd/connection"
+	decisioncmd "github.com/hadron-memory/hadron-cli/internal/cmd/decision"
+	discoverycmd "github.com/hadron-memory/hadron-cli/internal/cmd/discovery"
+	drivecmd "github.com/hadron-memory/hadron-cli/internal/cmd/drive"
 	edgecmd "github.com/hadron-memory/hadron-cli/internal/cmd/edge"
+	emailcmd "github.com/hadron-memory/hadron-cli/internal/cmd/email"
 	grantcmd "github.com/hadron-memory/hadron-cli/internal/cmd/grant"
+	hacmd "github.com/hadron-memory/hadron-cli/internal/cmd/ha"
 	mcpservercmd "github.com/hadron-memory/hadron-cli/internal/cmd/mcpserver"
 	memorycmd "github.com/hadron-memory/hadron-cli/internal/cmd/memory"
 	nodecmd "github.com/hadron-memory/hadron-cli/internal/cmd/node"
 	objectcmd "github.com/hadron-memory/hadron-cli/internal/cmd/object"
+	orcacmd "github.com/hadron-memory/hadron-cli/internal/cmd/orca"
 	orgcmd "github.com/hadron-memory/hadron-cli/internal/cmd/org"
+	policycmd "github.com/hadron-memory/hadron-cli/internal/cmd/policy"
+	quotacmd "github.com/hadron-memory/hadron-cli/internal/cmd/quota"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/replacecmd"
 	runcmd "github.com/hadron-memory/hadron-cli/internal/cmd/run"
 	schedulecmd "github.com/hadron-memory/hadron-cli/internal/cmd/schedule"
@@ -44,11 +57,13 @@ import (
 	secretcmd "github.com/hadron-memory/hadron-cli/internal/cmd/secret"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/serverinfo"
 	skillcmd "github.com/hadron-memory/hadron-cli/internal/cmd/skill"
+	slackcmd "github.com/hadron-memory/hadron-cli/internal/cmd/slack"
 	speccmd "github.com/hadron-memory/hadron-cli/internal/cmd/spec"
 	taskcmd "github.com/hadron-memory/hadron-cli/internal/cmd/task"
 	teamcmd "github.com/hadron-memory/hadron-cli/internal/cmd/team"
 	tickercmd "github.com/hadron-memory/hadron-cli/internal/cmd/ticker"
 	ticketcmd "github.com/hadron-memory/hadron-cli/internal/cmd/ticket"
+	usagecmd "github.com/hadron-memory/hadron-cli/internal/cmd/usage"
 	usercmd "github.com/hadron-memory/hadron-cli/internal/cmd/user"
 	versioncmd "github.com/hadron-memory/hadron-cli/internal/cmd/version"
 	webhookcmd "github.com/hadron-memory/hadron-cli/internal/cmd/webhook"
@@ -59,14 +74,41 @@ import (
 
 func NewRootCmd(f *cmdutil.Factory) *cobra.Command {
 	f.GraphQLRequestContext = teamcmd.AuthoredWriteContext(f)
+	f.InstructedContext = teamcmd.CredentialInstructionContext(f)
+	f.BeginServerTargetInstructedWrite = teamcmd.BeginServerTargetInstructedWrite(f)
+	begin := teamcmd.BeginInstructedWrite(f)
+	f.BeginInstructedWrite = func(ctx context.Context) func(context.Context, string, string) (context.Context, bool, error) {
+		return begin(ctx)
+	}
+	var unlock cmdutil.UnlockFlags
 	root := &cobra.Command{
 		Use:   "hadron <command> <subcommand>",
 		Short: "The Hadron platform CLI",
-		Long: `Work with Hadron memories, nodes, and Apps from the command line.
+		Long: `Read and write your Hadron memory from the command line. A memory is a
+collection of notes (nodes) joined by links (edges); an App bundles memories,
+agents and settings for a team or product.
 
-In a worker-bound worktree, authored node and edge writes inherit the worker's
-session attribution when the binding's App and deployment are verified.
-Supporting servers record the worker and agent alongside the authenticated user.`,
+Getting started:
+  hadron auth login          sign in (opens your browser)
+  hadron auth status         check you are signed in, and to which server
+  hadron server-info         check the server answers (works signed out)
+  hadron memory list         see the memories you can read
+  hadron search "<words>"    find notes across them
+
+Which server, App and memory a command uses: by default the hosted server
+(https://srv.hadronmemory.com) and no App. A setting saved with
+'hadron config set' (or 'app set-active', 'memory set-active') applies to
+every later command until you change it; 'hadron config list' shows them. The
+--server and --app flags override the saved setting for one command; the
+HADRON_SERVER environment variable overrides the saved server too.
+
+--json prints machine-readable JSON instead of text on commands that have a
+JSON form (most do); 'hadron agentic-usage' documents every shape. -v and
+--version print the same line as 'hadron version'.
+
+If you work as a team worker in a worktree bound with 'hadron team session',
+the node and edge writes you make are also recorded against that worker once
+the binding is verified. Otherwise this does not apply to you.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		// #914's ended-binding check is armed HERE, on the root that actually
@@ -76,7 +118,23 @@ Supporting servers record the worker and agent alongside the authenticated user.
 		// win, so a real run checked through a Factory that never saw
 		// --server. No subcommand defines its own PersistentPreRun, so this
 		// one always runs.
-		PersistentPreRunE: func(*cobra.Command, []string) error {
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+			// hadron-cli#1234: read every --unlock passphrase BEFORE anything
+			// can send a request, and put the keys on THIS invocation's
+			// context only (ruling 0129: per invocation, never cached).
+			unlock.FilesSet = cmd.Flags().Changed("unlock-passphrase-file")
+			unlock.StdinSet = cmd.Flags().Changed("unlock-passphrase-stdin")
+			keys, err := cmdutil.ResolveUnlock(f.IOStreams, unlock)
+			if err != nil {
+				return err
+			}
+			if len(keys) > 0 {
+				ctx, err := api.WithMemoryKeys(cmd.Context(), keys)
+				if err != nil {
+					return err
+				}
+				cmd.SetContext(ctx)
+			}
 			teamcmd.InstallEndedBindingCheck(f)
 			return nil
 		},
@@ -96,17 +154,25 @@ Supporting servers record the worker and agent alongside the authenticated user.
 	root.PersistentFlags().BoolVar(&f.JSON, "json", false, "output JSON instead of text")
 	root.PersistentFlags().StringVar(&f.ServerFlag, "server", "", "Hadron server base URL (overrides config)")
 	root.PersistentFlags().StringVar(&f.AppFlag, "app", "", "App context for this invocation: hrn:app:<root>:<slug>, <root>:<slug>, or an App id (overrides config)")
+	// hadron-cli#1234, ruling 0129: no flag takes the passphrase itself.
+	root.PersistentFlags().StringArrayVar(&unlock.Memories, "unlock", nil, "read an encrypted memory you own for this invocation (repeatable, up to 8); the passphrase is prompted, never an argument")
+	root.PersistentFlags().StringArrayVar(&unlock.Files, "unlock-passphrase-file", nil, "file holding the --unlock passphrase, one per --unlock in the same order; refused unless only you can read it (chmod 600)")
+	root.PersistentFlags().BoolVar(&unlock.Stdin, "unlock-passphrase-stdin", false, "read the passphrase for a single --unlock memory from stdin")
 
 	root.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
 		return exitcode.New(exitcode.Usage, err)
 	})
 
+	root.AddCommand(admincmd.NewCmdAdmin(f))
 	root.AddCommand(authcmd.NewCmdAuth(f))
 	root.AddCommand(memorycmd.NewCmdMemory(f))
+	root.AddCommand(usagecmd.NewCmdUsage(f))
 	root.AddCommand(nodecmd.NewCmdNode(f))
 	root.AddCommand(objectcmd.NewCmdObject(f))
 	root.AddCommand(assetcmd.NewCmdAsset(f))
 	root.AddCommand(searchcmd.NewCmdSearch(f))
+	root.AddCommand(discoverycmd.NewCmdFind(f))
+	root.AddCommand(discoverycmd.NewCmdMarketplace(f))
 	root.AddCommand(edgecmd.NewCmdEdge(f))
 	root.AddCommand(commentcmd.NewCmd(f, commentcmd.ConnectGraphQL(f)))
 	root.AddCommand(taskcmd.NewCmdTask(f))
@@ -114,24 +180,35 @@ Supporting servers record the worker and agent alongside the authenticated user.
 	root.AddCommand(channelcmd.NewCmdChannel(f))
 	root.AddCommand(replacecmd.NewCmdReplace(f))
 	root.AddCommand(speccmd.NewCmdSpec(f))
+	root.AddCommand(decisioncmd.NewCmdDecision(f))
 	root.AddCommand(skillcmd.NewCmdSkill(f))
 	root.AddCommand(codingcmd.NewCmdCoding(f))
 	root.AddCommand(appcmd.NewCmdApp(f))
+	root.AddCommand(automationcmd.NewCmdAutomation(f))
 	root.AddCommand(orgcmd.NewCmdOrg(f))
 	root.AddCommand(scopecmd.NewCmdScope(f))
 	root.AddCommand(agentcmd.NewCmdAgent(f))
+	root.AddCommand(orcacmd.NewCmdOrca(f))
 	root.AddCommand(teamcmd.NewCmdTeam(f))
 	root.AddCommand(tickercmd.NewCmdTicker(f))
 	root.AddCommand(usercmd.NewCmdUser(f))
 	root.AddCommand(usercmd.NewCmdProfile(f))
 	root.AddCommand(accesscmd.NewCmdAccess(f))
 	root.AddCommand(aiconfigcmd.NewCmdAiConfig(f))
+	root.AddCommand(billingcmd.NewCmdBilling(f))
 	root.AddCommand(runcmd.NewCmdRun(f))
 	root.AddCommand(schedulecmd.NewCmdSchedule(f))
 	root.AddCommand(webhookcmd.NewCmdWebhook(f))
 	root.AddCommand(ticketcmd.NewCmdTicket(f))
 	root.AddCommand(grantcmd.NewCmdGrant(f))
+	root.AddCommand(policycmd.NewCmdPolicy(f))
+	root.AddCommand(quotacmd.NewCmdQuota(f))
 	root.AddCommand(connectioncmd.NewCmdConnection(f))
+	root.AddCommand(hacmd.NewCmdHa(f))
+	root.AddCommand(emailcmd.NewCmdEmail(f))
+	root.AddCommand(slackcmd.NewCmdSlack(f))
+	root.AddCommand(drivecmd.NewCmdDrive(f))
+	root.AddCommand(calendarcmd.NewCmdCalendar(f))
 	root.AddCommand(mcpservercmd.NewCmdMcpServer(f))
 	root.AddCommand(secretcmd.NewCmdSecret(f))
 	root.AddCommand(configcmd.NewCmdConfig(f))
@@ -140,7 +217,37 @@ Supporting servers record the worker and agent alongside the authenticated user.
 	root.AddCommand(serverinfo.NewCmdServerInfo(f))
 	root.AddCommand(agentic.NewCmdAgenticUsage(f))
 
+	installNodeWriteWarnings(root, f)
+	describeGeneratedCommands(root)
 	return root
+}
+
+// describeGeneratedCommands replaces cobra's stock text on `help` and
+// `completion` with text a user can act on (#1056). Cobra adds both lazily at
+// execute time; initializing them here lets the text be set, and cobra then
+// reuses them rather than adding its own.
+func describeGeneratedCommands(root *cobra.Command) {
+	root.InitDefaultHelpCmd()
+	root.InitDefaultCompletionCmd()
+	for _, c := range root.Commands() {
+		switch c.Name() {
+		case "help":
+			c.Short = "Show help for any command"
+			c.Long = `Show the help page for a command. 'hadron help <command>' and
+'hadron <command> --help' print the same page; every command takes --help.
+
+For the full reference an AI assistant uses (every command, the --json shapes
+and exit codes), see 'hadron agentic-usage'.`
+			c.Example = `  hadron help node create
+  hadron node create --help`
+		case "completion":
+			c.Short = "Print a tab-completion script for your shell"
+			c.Long = `Print a script that lets your shell complete hadron commands and flags
+when you press Tab. It only prints the script; nothing changes until you load
+it. Run 'hadron completion <shell> --help' for how to install it in bash, zsh,
+fish or powershell. 'echo $SHELL' tells you which shell you use.`
+		}
+	}
 }
 
 // Execute runs the CLI and returns the process exit code.
@@ -158,10 +265,27 @@ func Execute() int {
 
 	err := root.Execute()
 	if err == nil {
+		writeDeliveryFooter(f)
 		return exitcode.OK
 	}
 
 	return renderFailure(f, os.Args[1:], err)
+}
+
+// writeDeliveryFooter prints the one messages-waiting line (cli#1084) on
+// stderr after a SUCCESSFUL command, for text and --json alike. It never
+// touches stdout, the result or the exit status; a failed command never gets
+// one, and only a positive exact count is shown.
+func writeDeliveryFooter(f *cmdutil.Factory) {
+	n, ok := f.DeliveryPending.Count()
+	if !ok || n <= 0 {
+		return
+	}
+	noun := "messages"
+	if n == 1 {
+		noun = "message"
+	}
+	_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "%d %s waiting; pull with hadron team chat inbox\n", n, noun)
 }
 
 // renderFailure is the post-Execute half of the failure path, extracted so a
@@ -280,15 +404,73 @@ func jsonRequested(args []string) bool {
 // produce the unparseable stdout this change exists to remove, arrived at from
 // the other end. Asked of the stream rather than assumed of the caller: see
 // output.Wrote for the two paths that legitimately print and then fail.
+// humanMessager is implemented by an error whose raw text is right for the
+// --json envelope but unsafe to print on a terminal (cli#1131); the human
+// branch asks it for the terminal-safe form.
+type humanMessager interface{ HumanMessage() string }
+
+func humanErrorText(err error) string {
+	var h humanMessager
+	if errors.As(err, &h) {
+		return h.HumanMessage()
+	}
+	return err.Error()
+}
+
 func renderError(f *cmdutil.Factory, err error) int {
 	code := exitCodeFor(err)
 	err = withStoredCredentialHint(f, code, err)
 
 	if !errors.Is(err, exitcode.ErrSilent) {
 		failure := map[string]any{"code": code, "message": err.Error()}
+		// cli#898: additive fields for an internal fault; `code` already means
+		// the exit code, so the server's code is a new key.
+		if fault, ok := api.InternalFaultOf(err); ok {
+			failure["serverCode"] = fault.ServerCode
+			if fault.RequestID != "" {
+				failure["requestId"] = fault.RequestID
+			}
+		}
+		// #1306: scripts need the deliberate team-chat refusal's server code
+		// alongside numeric exit 5. Keep this bounded to the two named codes;
+		// unrelated refusal envelopes retain their established shape.
+		if code == exitcode.Conflict {
+			for _, serverCode := range []string{"TEAM_CHAT_DUPLICATE", "TEAM_CHAT_POST_RATE_LIMITED"} {
+				if api.HasErrorCode(err, serverCode) {
+					failure["serverCode"] = serverCode
+					break
+				}
+			}
+		}
+		// #1327: the chat-search refusals span exits 2 and 5, so they are keyed
+		// on the code itself rather than the exit.
+		for _, serverCode := range []string{"TEAM_CHAT_SEARCH_QUERY_LENGTH", "TEAM_CHAT_SEARCH_CURSOR_INVALID", "TEAM_CHAT_SEARCH_ENCRYPTED"} {
+			if api.HasErrorCode(err, serverCode) {
+				failure["serverCode"] = serverCode
+				break
+			}
+		}
+		var coded interface{ ServerCode() string }
+		if errors.As(err, &coded) {
+			failure["serverCode"] = coded.ServerCode()
+		}
+		// cli#1565: a refused batch create names the failing task's 1-based
+		// position; absent for every other refusal.
+		var batch interface{ BatchPosition() int }
+		if errors.As(err, &batch) {
+			failure["position"] = batch.BatchPosition()
+		}
+		// cli#1567: a failed distinct-assignees match also names its reason.
+		var matched interface{ BatchReason() string }
+		if errors.As(err, &matched) && matched.BatchReason() != "" {
+			failure["reason"] = matched.BatchReason()
+		}
 		details := api.CommentRecoveryDetails(err)
 		if details == nil {
 			details = api.WorkerReportingDetails(err)
+		}
+		if cloneDetails := api.CloneAgentDetails(err); cloneDetails != nil {
+			details = cloneDetails
 		}
 		if details != nil {
 			failure["extensions"] = details
@@ -312,7 +494,7 @@ func renderError(f *cmdutil.Factory, err error) int {
 			// Payload already in flight; keep stdout a single valid document.
 			_ = output.WriteJSON(f.IOStreams.ErrOut, envelope)
 		default:
-			message := err.Error()
+			message := humanErrorText(err) + api.CloneAgentDetailText(err)
 			if reporting := api.WorkerReportingDetails(err); reporting != nil {
 				message += fmt.Sprintf(" (server code: %v)", reporting["code"])
 			}
@@ -322,6 +504,10 @@ func renderError(f *cmdutil.Factory, err error) int {
 				}
 			}
 			fmt.Fprintf(f.IOStreams.ErrOut, "hadron: %s\n", message)
+			// cli#1264: a clone refusal's blockers, one per line, after the answer.
+			for _, line := range api.CloneAgentBlockerLines(err) {
+				fmt.Fprintf(f.IOStreams.ErrOut, "  %s\n", line)
+			}
 		}
 	}
 	return code

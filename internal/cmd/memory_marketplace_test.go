@@ -114,7 +114,7 @@ func TestMemorySetListedOnMarketplaceServerRefusalIsMapped(t *testing.T) {
 func TestMemoryGetShowsListedOnMarketplace(t *testing.T) {
 	for _, listed := range []bool{true, false} {
 		gql, _ := captureGraphQL(t, map[string]string{
-			"GetMemory": `{"data":{"memory":` + memoryListedJSON(listed) + `}}`,
+			"GetMemoryDetail": `{"data":{"memory":` + memoryListedJSON(listed) + `}}`,
 		})
 		f, out := testFactory(t)
 		root := NewRootCmd(f)

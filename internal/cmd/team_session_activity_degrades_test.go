@@ -69,7 +69,7 @@ func abortSessionsGraphQL(t *testing.T, responses map[string]string) (*httptest.
 		mu.Lock()
 		reached[body.OperationName] = true
 		mu.Unlock()
-		if body.OperationName == "TeamSessions" {
+		if body.OperationName == "TeamSessionsPage" {
 			hj, ok := w.(http.Hijacker)
 			if !ok {
 				t.Errorf("test server cannot hijack, so the transport failure cannot be simulated")
@@ -208,7 +208,7 @@ func TestTeamSessionStartTakeoverNamesMaskingNotAnUnknownDriver(t *testing.T) {
 		"GetWorker": `{"data":{"worker":` + withLiveness(irisWorkerJSON, "true") + `}}`,
 		// The read ANSWERS. Empty is a perfectly good answer, and the expected
 		// one for a caller outside the session read scope.
-		"TeamSessions":     `{"data":{"sessions":[]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 	})
 	f, _ := testFactory(t)
@@ -367,7 +367,7 @@ func TestTeamSessionStartForceOverAProvenFreeNameDoesNotWaiveTheServerGate(t *te
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
 		"GetWorker":        `{"data":{"worker":` + withLiveness(irisWorkerJSON, "false") + `}}`,
-		"TeamSessions":     `{"data":{"sessions":[]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 	})
 	f, _ := testFactory(t)
@@ -403,7 +403,7 @@ func TestTeamSessionStartForceWithMaskedLivenessStillForwardsTheOverride(t *test
 	teamGitDir(t)
 	gql, captured := captureGraphQL(t, map[string]string{
 		"GetWorker":        `{"data":{"worker":` + irisWorkerJSON + `}}`,
-		"TeamSessions":     `{"data":{"sessions":[]}}`,
+		"TeamSessionsPage": `{"data":{"sessionsPage":{"total":0,"hasMore":false,"items":[]}}}`,
 		"StartTeamSession": `{"data":{"startSession":` + startedSessionJSON + `}}`,
 	})
 	f, _ := testFactory(t)

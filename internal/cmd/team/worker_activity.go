@@ -47,7 +47,7 @@ const unknownCell = "?"
 // otherwise coalesces to false (a worker with no sessions answers false, never
 // null), so the ONLY null path is the gate — and it is the same
 // maySeeWorkerInternals(appId) predicate that masks heldByUserId, heldAt,
-// memoryId and promptOverride, memoized per request per App. So on a row where
+// memoryId, memoized per request per App. So on a row where
 // this returns true, a null in any of those is a genuine absence rather than a
 // mask.
 //
@@ -130,7 +130,7 @@ func holderLabeller(resolve func(string) string) func(string) string {
 	}
 }
 
-// renderLastDriven is the LAST DRIVEN cell, and it carries liveness too.
+// renderLastDriven is the LAST RECORDED ACTIVITY cell, and it carries liveness too.
 //
 // ONE column rather than two, and no age beside a live session — both
 // deliberate, and both are the server engineer's call on #1086 rather than

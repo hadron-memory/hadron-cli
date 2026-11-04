@@ -59,8 +59,9 @@ repo, but on your disk and without a configured remote.
 Each node becomes <out>/<loc>.md (colons in the loc become path segments):
 YAML frontmatter (name, id, type, description, abstract, tags, edges, …)
 followed by the node content as the markdown body. The layout matches the
-server's git export, so the tree round-trips back through the importer — an
-export is a faithful, reviewable mirror of the memory.
+server's git export, so an export is a faithful, reviewable mirror of the
+memory. hadron node import <file> brings one exported file back as a node (a
+folder import, node import -r, would keep the header as text).
 
 Nodes are pulled in bulk (up to 200 per request). data-type nodes are
 skipped (they carry no markdown body), matching the server's git export.
@@ -70,7 +71,9 @@ left in place — export never deletes.
 With no --out this writes to the current directory, EXCEPT when that directory
 is inside a git repository and is not empty: exporting a whole memory there
 scatters hundreds of files among your own, and the overwrite is silent. Pass
---out <dir>, or --out . to say you meant the current directory.`,
+--out <dir>, or --out . to say you meant the current directory.
+
+` + copyHelp,
 		Example: `  hadron memory export acme.com:project-kb --out ./kb
   hadron memory export acme.com:project-kb -o ./kb --json
   hadron memory export acme.com:project-kb --out .      # explicit: the current directory`,
@@ -133,7 +136,7 @@ scatters hundreds of files among your own, and the overwrite is silent. Pass
 
 			// 2. Bulk-fetch the full nodes (content + edges) for those ids.
 			nodes, unavailable, err := api.CollectNodeBatch(ids, func(chunk []string) (*batchResult, error) {
-				resp, ferr := gen.NodeBatch(cmd.Context(), client, chunk, nil, nil)
+				resp, ferr := api.ReadNodeBatch(cmd.Context(), client, chunk, nil, nil)
 				if ferr != nil {
 					return nil, api.MapError(ferr)
 				}
@@ -198,24 +201,26 @@ scatters hundreds of files among your own, and the overwrite is silent. Pass
 }
 
 // listAllNodeRefs pages the shallow nodes listing to exhaustion, returning a
-// ref (id, loc, nodeType) for every node in the memory. A short final page
-// signals the tail; a full page means there may be more (the server truncates
-// an unbounded query to one default page).
+// ref (id, loc, nodeType) for every node in the memory. The scan stops only on an
+// empty page — a short page may be a server clamp, not the tail (cli#967).
 func listAllNodeRefs(ctx context.Context, client graphql.Client, memID string) ([]*api.ListNode, error) {
 	filter := &gen.NodeFilter{MemoryIds: []string{memID}}
 	sort := gen.NodeSortLoc
 	var all []*api.ListNode
-	for offset := 0; ; offset += nodesPageSize {
-		limit, off := nodesPageSize, offset
-		page, err := api.FindNodes(ctx, client, nil, nil, filter, &sort, nil, &limit, &off)
+	err := api.PageNodes(nodesPageSize, func(limit, offset int) ([]*api.ListNode, error) {
+		page, err := api.FindNodes(ctx, client, nil, nil, filter, &sort, nil, &limit, &offset)
 		if err != nil {
 			return nil, api.MapError(err)
 		}
-		all = append(all, page.Nodes...)
-		if len(page.Nodes) < nodesPageSize {
-			return all, nil
-		}
+		return page.Nodes, nil
+	}, func(n *api.ListNode) bool {
+		all = append(all, n)
+		return true
+	})
+	if err != nil {
+		return nil, err
 	}
+	return all, nil
 }
 
 // writeNodeMarkdown renders one node through the shared codec and writes it to

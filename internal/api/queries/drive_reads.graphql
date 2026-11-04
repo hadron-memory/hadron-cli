@@ -1,0 +1,41 @@
+fragment DriveReadFile on DriveFile {
+  id name kind mimeType parents size createdAt modifiedAt webLink
+}
+
+query DriveList(
+  $connectionRef: ID!
+  # @genqlient(omitempty: true)
+  $folderId: ID
+  # @genqlient(omitempty: true)
+  $query: String
+  # @genqlient(omitempty: true)
+  $nameContains: String
+  # @genqlient(omitempty: true)
+  $mimeType: String
+  # @genqlient(omitempty: true)
+  $modifiedAfter: String
+  $top: Int!
+  # @genqlient(omitempty: true)
+  $pageToken: String
+) {
+  driveFiles(connectionRef: $connectionRef, folderId: $folderId, query: $query, nameContains: $nameContains, mimeType: $mimeType, modifiedAfter: $modifiedAfter, top: $top, pageToken: $pageToken) {
+    files { ...DriveReadFile }
+    nextPageToken
+  }
+}
+
+query DriveGet($connectionRef: ID!, $fileId: ID!) {
+  driveFile(connectionRef: $connectionRef, fileId: $fileId) { ...DriveReadFile }
+}
+
+query DriveExport(
+  $connectionRef: ID!
+  $fileId: ID!
+  # @genqlient(omitempty: true)
+  $format: DriveExportFormat
+) {
+  driveFileExport(connectionRef: $connectionRef, fileId: $fileId, format: $format) {
+    file { ...DriveReadFile }
+    format mimeType content
+  }
+}

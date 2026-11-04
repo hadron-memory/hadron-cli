@@ -83,7 +83,7 @@ your own @handle namespace (spec 047). A personal App can install a PUBLIC
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				t := output.NewTable(w)
-				t.Row("✓ installed", dto.Name, dto.URN)
+				t.Row("✓ installed", output.SafeCell(dto.Name), output.SafeCell(dto.URN))
 				return t.Flush()
 			})
 		},

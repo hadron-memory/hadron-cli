@@ -207,6 +207,52 @@ func TestNodeExportPDFToStdoutRejected(t *testing.T) {
 	}
 }
 
+// HTML is a reserved presentation format (cor:int:020:02), not a typo: the
+// refusal must say so, make no request, and keep other unknown formats generic.
+func TestNodeExportHTMLIsReservedUsageError(t *testing.T) {
+	for _, format := range []string{"html", "HTML"} {
+		t.Run(format, func(t *testing.T) {
+			gql, calls := captureGraphQL(t, map[string]string{})
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"node", "export", nodeURN, "--format", format, "--server", gql.URL})
+			err := root.Execute()
+			if err == nil {
+				t.Fatal("expected a usage error for --format " + format)
+			}
+			if got := exitCodeFor(err); got != exitcode.Usage {
+				t.Errorf("exit code = %d, want usage (%d)", got, exitcode.Usage)
+			}
+			for _, want := range []string{"HTML export is reserved", "cor:int:020:02", "md, json, or pdf"} {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("error %q should mention %q", err, want)
+				}
+			}
+			if len(calls) != 0 || out.String() != "" {
+				t.Errorf("a refused format must make no request or output: %v %q", calls, out.String())
+			}
+		})
+	}
+}
+
+// Any other unknown format keeps the generic message and does not claim a reservation.
+func TestNodeExportUnknownFormatStaysGeneric(t *testing.T) {
+	gql, _ := captureGraphQL(t, map[string]string{})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "export", nodeURN, "--format", "docx", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil {
+		t.Fatal("expected a usage error")
+	}
+	if got := exitCodeFor(err); got != exitcode.Usage {
+		t.Errorf("exit code = %d, want usage", got)
+	}
+	if !strings.Contains(err.Error(), `unsupported --format "docx" (want md, json, or pdf)`) || strings.Contains(err.Error(), "reserved") {
+		t.Errorf("unexpected message: %v", err)
+	}
+}
+
 // `-o file.pdf` without --format infers PDF from the extension.
 func TestNodeExportPDFInferredFromExtension(t *testing.T) {
 	b64 := base64.StdEncoding.EncodeToString([]byte("%PDF-1.7\nx"))
@@ -476,6 +522,25 @@ func TestNodeImportMissingTargetIsUsageError(t *testing.T) {
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "no target memory") {
 		t.Fatalf("expected a no-target usage error, got %v", err)
+	}
+}
+
+// resolveDocFormat is shared with import, where "HTML export is reserved" would
+// be the wrong message: import keeps the generic unsupported-format refusal.
+func TestNodeImportHTMLFormatStaysGeneric(t *testing.T) {
+	f, _ := testFactory(t)
+	file := filepath.Join(t.TempDir(), "doc.md")
+	if err := os.WriteFile(file, []byte("---\nname: X\n---\n\nbody\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "import", file, "-m", "hrn:mem:acme.com:kb", "--format", "html", "--server", "http://127.0.0.1:1"})
+	err := root.Execute()
+	if err == nil || exitCodeFor(err) != exitcode.Usage {
+		t.Fatalf("expected a usage error, got %v", err)
+	}
+	if !strings.Contains(err.Error(), `unsupported --format "html"`) || strings.Contains(err.Error(), "reserved") {
+		t.Errorf("unexpected message: %v", err)
 	}
 }
 

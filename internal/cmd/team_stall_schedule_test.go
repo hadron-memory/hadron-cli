@@ -15,7 +15,8 @@ import (
 
 const stallScheduleJSON = `{"appId":"capp100000000000000000000",
 	"assignmentMinutes":30,"notStartedMinutes":60,"noProgressMinutes":120,
-	"ownerReactionMinutes":240,"hostLapseCheckIns":5,"updatedAt":"2026-10-13T20:00:00Z"}`
+	"ownerReactionMinutes":240,"hostLapseCheckIns":5,
+	"sessionEndGraceMinutes":10,"hostReportTimeoutMinutes":60,"updatedAt":"2026-10-13T20:00:00Z"}`
 
 func stallResponses() map[string]string {
 	r := taskResponses()
@@ -76,7 +77,8 @@ func TestTeamStallScheduleGetJSON(t *testing.T) {
 	}
 	want := map[string]any{"appId": "capp100000000000000000000", "assignmentMinutes": 30.0,
 		"notStartedMinutes": 60.0, "noProgressMinutes": 120.0, "ownerReactionMinutes": 240.0,
-		"hostLapseCheckIns": 5.0, "updatedAt": "2026-10-13T20:00:00Z"}
+		"hostLapseCheckIns": 5.0, "sessionEndGraceMinutes": 10.0, "hostReportTimeoutMinutes": 60.0,
+		"updatedAt": "2026-10-13T20:00:00Z"}
 	if len(got) != len(want) {
 		t.Fatalf("keys %v, want %v", got, want)
 	}
@@ -181,7 +183,8 @@ func TestTeamStallScheduleSetJSON(t *testing.T) {
 	}
 	want := map[string]any{"appId": "capp100000000000000000000", "assignmentMinutes": 30.0,
 		"notStartedMinutes": 60.0, "noProgressMinutes": 120.0, "ownerReactionMinutes": 240.0,
-		"hostLapseCheckIns": 5.0, "updatedAt": "2026-10-13T20:00:00Z"}
+		"hostLapseCheckIns": 5.0, "sessionEndGraceMinutes": 10.0, "hostReportTimeoutMinutes": 60.0,
+		"updatedAt": "2026-10-13T20:00:00Z"}
 	if len(got) != len(want) {
 		t.Fatalf("keys %v, want %v", got, want)
 	}

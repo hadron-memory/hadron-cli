@@ -12,7 +12,6 @@ fragment AgentFields on Agent {
   organizationId
   surfaces
   systemMemoryId
-  systemPrompt
   # #874 read-back: the two index refs, null when unset — agent get shows
   # what agent update set, so the write is verifiable through the CLI.
   tasksIndexRef
@@ -20,18 +19,35 @@ fragment AgentFields on Agent {
   # #881: the base this Agent extends (cor:dmo:050:14), null when it
   # extends nothing.
   extendsAgentId
+  # cli#916 C2 (#2045 S8): the boot-prompt pointer and whether its target is
+  # deleted. BOTH NULL MEANS UNSET OR WITHHELD (masked for a caller who may not
+  # see it) — never proof that no pointer exists.
+  bootPromptRef
+  bootPromptTargetDeleted
   aiProvider
   aiModel
   hasAiApiKey
-  # The persona role is metadata. systemPrompt is the shared template with
-  # {{name}}/{{role}} bound when a Worker is cast or its prompt is resolved.
   personaRole
+  usesTasks
+  # #1551 (cor:agt:050:27): recorded only; a host acts on it (#1043).
+  resetContextAfterTask
+  # cli#58 slice 2 read-back: the catalogue flag (cor:acl:080:04, NOT access)
+  # and the register defaults.
+  listedOnMarketplace
+  registerDefaults {
+    mentionOnly
+  }
+  # #1226 (R211, cor:dmo:050:04): the member roles this Agent offers.
+  installationPolicy {
+    memberRoles
+  }
   createdAt
 }
 
 query GetAgent($ref: ID!) {
   agent(ref: $ref) {
     ...AgentFields
+    clonedFromAgentRef
   }
 }
 
@@ -92,13 +108,19 @@ mutation CreateAgent(
   # @genqlient(omitempty: true)
   $visibility: AgentVisibility
   # @genqlient(omitempty: true)
-  $systemPrompt: String
-  # @genqlient(omitempty: true)
   $systemMemoryId: String
   # @genqlient(omitempty: true)
   $surfaces: [String!]
   # @genqlient(omitempty: true)
   $personaRole: String
+  # @genqlient(omitempty: true)
+  $memberRoles: [String!]
+  # cli#58 slice 2: omitted takes the server default (usesTasks true, reset
+  # false); an explicit false is a value, so both carry omitempty.
+  # @genqlient(omitempty: true)
+  $usesTasks: Boolean
+  # @genqlient(omitempty: true)
+  $resetContextAfterTask: Boolean
 ) {
   createAgent(
     name: $name
@@ -106,10 +128,12 @@ mutation CreateAgent(
     description: $description
     type: $agentType
     visibility: $visibility
-    systemPrompt: $systemPrompt
     systemMemoryId: $systemMemoryId
     surfaces: $surfaces
     personaRole: $personaRole
+    memberRoles: $memberRoles
+    usesTasks: $usesTasks
+    resetContextAfterTask: $resetContextAfterTask
   ) {
     ...AgentFields
   }
@@ -126,8 +150,6 @@ mutation UpdateAgent(
   # @genqlient(omitempty: true)
   $visibility: AgentVisibility
   # @genqlient(omitempty: true)
-  $systemPrompt: String
-  # @genqlient(omitempty: true)
   $systemMemoryId: String
   # omitempty: unset (nil) is omitted → preserved. The CLI's --surface
   # (StringArrayVar) only ever yields nil or a NON-empty slice, so the
@@ -138,9 +160,24 @@ mutation UpdateAgent(
   # @genqlient(omitempty: true)
   $urn: String
   # An unset role is omitted and preserved; the shared prompt follows the
-  # same rule via systemPrompt above.
   # @genqlient(omitempty: true)
   $personaRole: String
+  # @genqlient(omitempty: true)
+  $usesTasks: Boolean
+  # #1551: omitted preserves; an explicit false is sent.
+  # @genqlient(omitempty: true)
+  $resetContextAfterTask: Boolean
+  # @genqlient(omitempty: true)
+  $memberRoles: [String!]
+  # cli#58 slice 2: the server ignores null, so this never sends null; omitted
+  # preserves, an explicit false is sent.
+  # @genqlient(omitempty: true)
+  $listedOnMarketplace: Boolean
+  # THREE states (omit preserves / object sets / null clears): the variable is
+  # bound to gqltypes.RegisterDefaultsInput, whose MarshalJSON emits the null.
+  # omitempty drops only the nil pointer. Never default it.
+  # @genqlient(omitempty: true)
+  $registerDefaults: RegisterDefaultsInput
 ) {
   updateAgent(
     ref: $ref
@@ -148,11 +185,15 @@ mutation UpdateAgent(
     description: $description
     type: $agentType
     visibility: $visibility
-    systemPrompt: $systemPrompt
     systemMemoryId: $systemMemoryId
     surfaces: $surfaces
     urn: $urn
     personaRole: $personaRole
+    usesTasks: $usesTasks
+    resetContextAfterTask: $resetContextAfterTask
+    memberRoles: $memberRoles
+    listedOnMarketplace: $listedOnMarketplace
+    registerDefaults: $registerDefaults
   ) {
     ...AgentFields
   }
@@ -180,6 +221,33 @@ query AgentTaskIndexList($ref: ID!) {
       }
     }
     trigger
+  }
+}
+
+# #2421 experiment: the symptom search is its OWN document on the same server
+# field, so the plain list above stays valid against a server that predates
+# symptom/limit/matchedBy (the document, not just the variables, is unchanged).
+# limit is omitempty: nil is omitted so the server's default applies; the server
+# owns the limit rules (default 3, clamp, BAD_USER_INPUT) and the CLI sends it
+# as given.
+query AgentTaskSymptomSearch(
+  $ref: ID!
+  $symptom: String!
+  # @genqlient(pointer: true, omitempty: true)
+  $limit: Int
+) {
+  agentTaskList(ref: $ref, symptom: $symptom, limit: $limit) {
+    node {
+      id
+      urn
+      name
+      inheritedFrom {
+        agentId
+        agentUrn
+      }
+    }
+    trigger
+    matchedBy
   }
 }
 
@@ -243,6 +311,88 @@ mutation SetAgentBase(
   $baseRef: ID
 ) {
   setAgentBase(ref: $ref, baseRef: $baseRef) {
+    ...AgentFields
+  }
+}
+
+# #994: one mutation, no origin/readiness field or client prelookup.
+mutation CloneAgent(
+  $source: ID!
+  $target: ID!
+  # @genqlient(omitempty: true)
+  $name: String
+  # @genqlient(omitempty: true)
+  $slug: String
+) {
+  cloneAgent(source: $source, target: $target, name: $name, slug: $slug) {
+    ...AgentFields
+  }
+}
+
+# cli#916 C2 (#2045 S8, R23/R24): set or clear a boot-prompt pointer. nodeRef
+# deliberately has NO omitempty: the server reads an explicit null as the
+# clear and refuses an OMITTED one (BAD_USER_INPUT), so a nil pointer must go
+# out as null. GraphQL only; the manager acts as themselves, so these are not
+# on the session-attribution allowlist (team/write_attribution.go).
+mutation SetAgentBootPrompt($agentRef: String!, $nodeRef: String) {
+  setAgentBootPrompt(agentRef: $agentRef, nodeRef: $nodeRef) {
+    ...AgentFields
+  }
+}
+
+# cli#61 first cut: the Agent system-memory draft workflow's snapshot and editor
+# lock. agentId goes to the server verbatim (ID or URN; no pre-resolve).
+# description is omitempty: unset leaves the server default.
+mutation CreateRevision(
+  $agentId: ID!
+  # @genqlient(omitempty: true)
+  $description: String
+) {
+  createRevision(agentId: $agentId, description: $description) {
+    revisionLoc
+    label
+    published
+    createdAt
+  }
+}
+
+# Contention is a RESULT (locked:false, lockedBy, expiresAt), not a GraphQL
+# error; expiresAt and lockedBy are nullable and stay as returned.
+mutation AcquireEditorLock($agentId: ID!) {
+  acquireEditorLock(agentId: $agentId) {
+    locked
+    lockedBy
+    expiresAt
+  }
+}
+
+mutation ReleaseEditorLock($agentId: ID!) {
+  releaseEditorLock(agentId: $agentId)
+}
+
+# cli#58 slice 1: attach / re-role / detach a Memory on an Agent. Refs go to the
+# server verbatim (agentRef/memoryRef accept id, URN or handle; no client
+# pre-resolve). role is omitempty: an unset role on add is the server default;
+# updateAgentMemoryRole's role is required.
+mutation AddMemoryToAgent(
+  $agentRef: ID!
+  $memoryRef: ID!
+  # @genqlient(omitempty: true)
+  $role: String
+) {
+  addMemoryToAgent(agentRef: $agentRef, memoryRef: $memoryRef, role: $role) {
+    ...AgentFields
+  }
+}
+
+mutation UpdateAgentMemoryRole($agentRef: ID!, $memoryRef: ID!, $role: String!) {
+  updateAgentMemoryRole(agentRef: $agentRef, memoryRef: $memoryRef, role: $role) {
+    ...AgentFields
+  }
+}
+
+mutation RemoveMemoryFromAgent($agentRef: ID!, $memoryRef: ID!) {
+  removeMemoryFromAgent(agentRef: $agentRef, memoryRef: $memoryRef) {
     ...AgentFields
   }
 }

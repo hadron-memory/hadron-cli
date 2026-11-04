@@ -1,0 +1,43 @@
+# Read-only Slack connection metadata (cli#206). Never request lastError;
+# the server returns no token fields.
+query SlackConnections(
+  # @genqlient(omitempty: true)
+  $orgId: ID
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  slackConnections(orgId: $orgId, limit: $limit, offset: $offset) {
+    total
+    items {
+      id
+      organizationId
+      defaultAppId
+      provider
+      status
+      teamId
+      teamName
+      botId
+      botUserId
+      createdAt
+      updatedAt
+    }
+  }
+}
+
+query SlackConnection($ref: ID!) {
+  slackConnection(ref: $ref) {
+    id
+    organizationId
+    defaultAppId
+    provider
+    status
+    teamId
+    teamName
+    botId
+    botUserId
+    createdAt
+    updatedAt
+  }
+}

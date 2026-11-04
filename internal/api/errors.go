@@ -221,6 +221,13 @@ func MapError(err error) error {
 		return exitcode.Newf(exitcode.Usage, "%s", msg)
 	}
 
+	// cli#898: an internal fault is the server ANSWERING, with the one generic
+	// code and a request id. Keyed on the code alone and checked before the
+	// transport class, so a 500 carrying the envelope is exit 1, not 7.
+	if id, ok := classifyInternalFault(err); ok {
+		return NewInternalFaultError(id, err)
+	}
+
 	// #394: a request that never got an answer is not a refusal. Classified
 	// before the status switch, because it is the ONLY class that is safe to
 	// retry blind — and, after a write, the only one whose outcome is unknown.
@@ -258,6 +265,11 @@ func MapError(err error) error {
 	for _, e := range graphQLErrors(err) {
 		if extensionCode(e) == "ROLE_GOVERNED" && e.Extensions["kind"] == "comment" {
 			return exitcode.New(exitcode.Usage, &serverError{msg: strings.Join(ServerMessages(err), "; ") + " — use `hadron comment` for comment writes", err: err})
+		}
+		// cli#1268: the server's sentence names its wire arg (agentRef); every
+		// CLI caller of a manual run spells that --agent.
+		if extensionCode(e) == "RUN_AGENT_REQUIRED" {
+			return exitcode.New(exitcode.Usage, &serverError{msg: strings.Join(ServerMessages(err), "; ") + " — pass --agent <ID or URN> (list them with `hadron app agent list <app>`)", err: err})
 		}
 	}
 
@@ -416,6 +428,60 @@ func HasErrorCode(err error, code string) bool {
 	return false
 }
 
+// ServerCodeOf returns the first non-empty extensions.code of err's GraphQL
+// errors, or "" when it carries none. Call it on the RAW error.
+func ServerCodeOf(err error) string {
+	for _, e := range graphQLErrors(err) {
+		if code := extensionCode(e); code != "" {
+			return code
+		}
+	}
+	return ""
+}
+
+// serverCodeError carries the server's code to the --json error envelope (the
+// root handler reads it through ServerCode), so a script can tell FORBIDDEN
+// from UNAUTHENTICATED behind the same exit code. The message is the mapped
+// error's, untouched.
+type serverCodeError struct {
+	error
+	code string
+}
+
+func (e *serverCodeError) Unwrap() error      { return e.error }
+func (e *serverCodeError) ServerCode() string { return e.code }
+
+// WithServerCode keeps the server's extensions.code of raw on mapped, for the
+// --json envelope's serverCode. A nil mapped stays nil whatever raw carries;
+// without a code mapped is returned as it was. Only mapped is wrapped, so
+// neither Error() nor Unwrap() exposes raw.
+func WithServerCode(mapped, raw error) error {
+	if mapped == nil {
+		return nil
+	}
+	if code := ServerCodeOf(raw); code != "" {
+		return &serverCodeError{error: mapped, code: code}
+	}
+	return mapped
+}
+
+// WithCode carries a server code that arrived as DATA rather than as a GraphQL
+// error (a claim result's refusalCode, cli#1524) on mapped, for the --json
+// envelope's serverCode, exactly as WithServerCode does for a thrown one. A nil
+// mapped stays nil; an empty code returns mapped as it was.
+func WithCode(mapped error, code string) error {
+	if mapped == nil || code == "" {
+		return mapped
+	}
+	return &serverCodeError{error: mapped, code: code}
+}
+
+// MapErrorKeepingCode is MapError that also keeps the server's extensions.code
+// on the result, for the --json envelope's serverCode.
+func MapErrorKeepingCode(err error) error {
+	return WithServerCode(MapError(err), err)
+}
+
 // graphQLErrors extracts the GraphQL error list from any of the shapes an
 // operation can fail as: a bare list, a single error, or a non-200 HTTPError
 // whose parsed body carries them.
@@ -440,24 +506,61 @@ func graphQLErrors(err error) gqlerror.List {
 // inside an HTTPError, rather than matching HTTPError.Error's JSON-escaped
 // rendering. Callers use it only when retrying a compatible operation is safe.
 func IsGraphQLValidationFor(err error, name string) bool {
-	quotedName := `"` + name + `"`
 	for _, e := range graphQLErrors(err) {
-		if e == nil || !strings.Contains(e.Message, quotedName) {
-			continue
-		}
-		code := extensionCode(e)
-		if code != "" && code != "GRAPHQL_VALIDATION_FAILED" {
-			continue
-		}
-		if code == "GRAPHQL_VALIDATION_FAILED" ||
-			strings.Contains(e.Message, "Cannot query field") ||
-			strings.Contains(e.Message, "Unknown field") ||
-			strings.Contains(e.Message, "Unknown argument") {
+		if isValidationErrorFor(e, name) {
 			return true
 		}
 	}
 	return false
 }
+
+// IsGraphQLValidationOnlyFor reports whether err is a GraphQL error envelope
+// in which EVERY error is a validation rejection of one of names — an older
+// server that lacks exactly those fields and nothing else wrong. It is the
+// predicate for tolerating that absence: IsGraphQLValidationFor answers "is
+// one of the errors this?", so a mixed envelope (an unknown new field plus a
+// FORBIDDEN) would be swallowed with it (cli#1529 LOCAL P2). An envelope with
+// no parsed errors is not tolerated.
+func IsGraphQLValidationOnlyFor(err error, names ...string) bool {
+	list := graphQLErrors(err)
+	if len(list) == 0 {
+		return false
+	}
+	for _, e := range list {
+		matched := false
+		for _, name := range names {
+			if isValidationErrorFor(e, name) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+	return true
+}
+
+// isValidationErrorFor is one error's half of IsGraphQLValidationFor.
+func isValidationErrorFor(e *gqlerror.Error, name string) bool {
+	if e == nil || !strings.Contains(e.Message, `"`+name+`"`) {
+		return false
+	}
+	code := extensionCode(e)
+	if code != "" && code != "GRAPHQL_VALIDATION_FAILED" {
+		return false
+	}
+	return code == "GRAPHQL_VALIDATION_FAILED" ||
+		strings.Contains(e.Message, "Cannot query field") ||
+		strings.Contains(e.Message, "Unknown field") ||
+		strings.Contains(e.Message, "Unknown argument")
+}
+
+// IsSchemaSkew reports whether err is the server rejecting a query this build
+// sends (a GraphQL validation failure) — the server lacks an operation or
+// field. A command that needs a more specific sentence than MapError's generic
+// skew hint (and a different exit code) asks this before mapping.
+func IsSchemaSkew(err error) bool { return isSchemaSkew(err) }
 
 // isSchemaSkew reports whether err is a GraphQL validation failure — the server
 // rejecting a query that references a field/operation it doesn't have.
@@ -712,9 +815,14 @@ func (d HeldDetail) Holder() string {
 // to float64, but a few other numeric shapes are tolerated. A negative or
 // non-numeric value is treated as "no count" (-1) so callers never render a
 // nonsensical "-N descendant(s)". Call it BEFORE MapError wraps the error.
-func DescendantCount(err error) int {
+func DescendantCount(err error) int { return ExtensionCount(err, "NODE_HAS_DESCENDANTS") }
+
+// ExtensionCount is DescendantCount for any typed error that carries
+// extensions.count — CROSS_MEMORY_EDGES (deleteNode, cli#1341) counts the
+// edges linking the node to other memories. -1 when absent or not a count.
+func ExtensionCount(err error, code string) int {
 	for _, e := range graphQLErrors(err) {
-		if e == nil || extensionCode(e) != "NODE_HAS_DESCENDANTS" || e.Extensions == nil {
+		if e == nil || extensionCode(e) != code || e.Extensions == nil {
 			continue
 		}
 		n := -1
@@ -740,6 +848,108 @@ func DescendantCount(err error) int {
 
 func codeForExtension(code string) int {
 	switch {
+	// Install-memory target ownership changed while the native write acquired
+	// its locks: a state conflict, never a request to retry automatically.
+	case code == "INSTALL_TARGET_CHANGED":
+		return exitcode.Conflict
+	// Decision refusals (hadron-server #1641, src/lib/decisions/index.ts
+	// DecisionRefusalCode; `hadron decision`, cli#1335). DECISION_NOT_FOUND and
+	// DECISION_LOG_NOT_FOUND ride the _NOT_FOUND suffix rule (4).
+	// Who-may refusals are permissions, so 8:
+	case code == "DECISION_FORBIDDEN" || code == "DECISION_NOT_DECIDER" ||
+		code == "DECISION_NOT_ASKER" || code == "DECISION_IMPERSONATION_REFUSED":
+		return exitcode.Forbidden
+	// Inputs the caller fixes: the ask/amend payload (DECISION_INVALID names the
+	// bad field by JSON pointer), a decider outside the log's eligible set, a
+	// tier the request cannot use, a log placed in a Memory that cannot hold one
+	// (choose another), or a filter over a log too large to filter (drop it):
+	case code == "DECISION_INVALID" || code == "DECISION_TIER_TOO_LOW" ||
+		code == "DECISION_DECIDER_NOT_ELIGIBLE" || code == "DECISION_RECOMMENDATION_MISSING" ||
+		code == "DECISION_PART_RENUMBER" || code == "DECISION_LOG_ENCRYPTED" ||
+		code == "DECISION_LOG_MIRRORED" || code == "DECISION_LOG_SYSTEM_MEMORY" ||
+		code == "DECISION_LOG_ANONYMOUS_MEMORY" || code == "DECISION_LOG_TOO_LARGE_FOR_FILTER":
+		return exitcode.Usage
+	// The decision's or log's state forbids the change until something else
+	// changes (already answered, withdrawn, superseded, decided; a log already
+	// at that loc): retrying blind will not help, so 5. DECISION_CONTAINED and
+	// DECISION_[LOG_]NOT_APPROVABLE come from node delete/move/approve, not from
+	// the decision group, and stay on the default until measured there.
+	case code == "DECISION_LOG_EXISTS" || code == "DECISION_ANSWER_IMMUTABLE" ||
+		code == "DECISION_WITHDRAWN" || code == "DECISION_SUPERSEDED" ||
+		code == "DECISION_ANSWERED_DECIDED" || code == "DECISION_ANSWERED":
+		return exitcode.Conflict
+	// Task integrations (cli#1524, hadron-server#3125; plan
+	// plans:1524-find-untracked §4). Literal rows, ahead of the suffix rules:
+	// _NOT_INSTALLED and _REQUIRED would otherwise file the configuration-state
+	// codes under usage.
+	//   - The caller fixes the value or argument: 2.
+	//   - The installation is not granted the read (a permission, or this
+	//     repository); an org owner widens the grant: 8 (exitcode.Forbidden).
+	//     GITHUB_PERMISSION_MISSING → 8 is #1524's acceptance (V45 point 11).
+	//   - Org or App configuration state that retrying cannot change (no
+	//     installation, a token that does not match it, an App with no
+	//     organization), and a stale expectedRevision (re-read, then write): 5.
+	//   - A caller kind that may not claim yet (an App key or run; interim,
+	//     V45 point 13): 8.
+	//   - GitHub itself unreachable: 7, the retry-later class.
+	case code == "TASK_INTEGRATION_INVALID" || code == "TASK_INTEGRATION_REPOSITORY_NOT_CONNECTED" ||
+		code == "TASK_INTEGRATION_TEAM_UNKNOWN" || code == "GITHUB_INVALID_ARGUMENT" || code == "PROPERTIES_KEY_RESERVED":
+		return exitcode.Usage
+	case code == "GITHUB_PERMISSION_MISSING" || code == "GITHUB_REPOSITORY_NOT_ALLOWED" || code == "TASK_CLAIM_PRINCIPAL_UNSUPPORTED":
+		return exitcode.Forbidden
+	case code == "GITHUB_NOT_INSTALLED" || code == "GITHUB_TOKEN_SCOPE_MISMATCH" ||
+		code == "TASK_INTEGRATION_ORG_REQUIRED" || code == "APP_PROPERTIES_CONFLICT":
+		return exitcode.Conflict
+	case code == "GITHUB_UNAVAILABLE":
+		return exitcode.Unavailable
+	// Node writes (cli#1341): a hard delete of a node with edges to other
+	// memories needs --cascade-cross-memory-edges, an argument the caller
+	// fixes; an inline --edge whose loc another edge of the node already
+	// holds is a state conflict.
+	case code == "CROSS_MEMORY_EDGES":
+		return exitcode.Usage
+	case code == "EDGE_LOC_CONFLICT":
+		return exitcode.Conflict
+	// Boot compile: explicit classifications precede generic suffix handling
+	// (GRANT_REQUIRED is an authority refusal, not a missing argument).
+	case code == "BOOT_PROMPT_COMPILE_NOT_PERMITTED" || code == "BOOT_PROMPT_GRANT_REQUIRED":
+		return exitcode.Forbidden
+	case code == "BOOT_PROMPT_TARGET_RETIRED" || code == "BOOT_PROMPT_NO_SOURCE" || code == "BOOT_PROMPT_SOURCE_INVALID" || code == "BOOT_PROMPT_INCLUDE_RETIRED" || code == "BOOT_PROMPT_INCLUDE_REVISION_UNAVAILABLE":
+		return exitcode.Conflict
+	case code == "BOOT_PROMPT_INCLUDE_UNAVAILABLE":
+		return exitcode.NotFound
+	case code == "BOOT_PROMPT_INCLUDE_CYCLE" || code == "BOOT_PROMPT_INCLUDE_TOO_DEEP" || code == "BOOT_PROMPT_INCLUDE_SOURCE_DISALLOWED" || code == "BOOT_PROMPT_INCLUDE_MALFORMED" || code == "BOOT_PROMPT_COMPILE_LIMIT_EXCEEDED":
+		return exitcode.Usage
+
+	// S1/R57 self delivery: stale session/proof requires a fresh binding/read.
+	case code == "WAKE_PROOF_STALE":
+		return exitcode.Conflict
+	case code == "WAKE_PROOF_INVALID":
+		return exitcode.Usage
+	case code == "WAKE_PROOF_REQUESTER_MISMATCH":
+		return exitcode.Forbidden
+	// A worker's session may not acknowledge wakes (cor:agt:080:17); the
+	// person behind it does, as themselves (cli#1279).
+	case code == "WAKE_ACK_FORBIDDEN":
+		return exitcode.Forbidden
+	// Only the worker, its holder or the App manager may change a worker's
+	// wake settings (cor:agt:080:21; cli#1292).
+	case code == "WAKE_SETTINGS_FORBIDDEN":
+		return exitcode.Forbidden
+	// Only whoever manages the App or the worker's holder, as a person acting
+	// as themselves, may isolate a worker or clear it (cor:agt:080:29; cli#911
+	// B2): an authority, so it precedes the _REQUIRED rule. Setting is refused
+	// UNAVAILABLE until S7b is on (server#2130): the platform's state, which no
+	// input changes.
+	case code == "WORKER_ISOLATION_FORBIDDEN":
+		return exitcode.Forbidden
+	case code == "WORKER_ISOLATION_UNAVAILABLE":
+		return exitcode.Conflict
+	// The cast's reporting choice (cli#933, hadron-server#2468): all three are
+	// the caller's own arguments, so usage. Literal rows, because _CONFLICT
+	// would otherwise read as a state conflict (5) and the choice is not state.
+	case code == "WORKER_TEAM_CHOICE_CONFLICT" || code == "WORKER_TEAM_CHOICE_INVALID" || code == "WORKER_TEAM_CHOICE_REQUIRED":
+		return exitcode.Usage
 	// S9 settings (#911): invalid candidates are input errors; a live ticker
 	// conflict or unavailable standby behavior requires a state change.
 	case code == "DELIVERY_SETTINGS_OUT_OF_RANGE" || code == "DELIVERY_SETTINGS_CONFLICT" || code == "TICKER_SETTINGS_OUT_OF_RANGE":
@@ -759,11 +969,42 @@ func codeForExtension(code string) int {
 		return exitcode.Forbidden
 	case code == "TICKER_CADENCE_OUT_OF_RANGE" || code == "TICKER_QUIET_HOURS_INVALID":
 		return exitcode.Usage
-	case code == "TICKER_NAME_TAKEN" || code == "TICKER_LIMIT_REACHED":
+	case code == "TICKER_NAME_TAKEN" || code == "TICKER_LIMIT_REACHED" || code == "TICKER_TEMPLATE_LIMIT_REACHED":
+		return exitcode.Conflict
+	// App member writes (cli#956, cor:dmo:050:04): a role the primary Agent's
+	// policy does not list is an argument the caller fixes; the member cap and
+	// the last-owner guard hold until the App's membership changes.
+	case code == "InvalidRoleError":
+		return exitcode.Usage
+	case code == "MaxMembersExceededError" || code == "OrphanAppError":
+		return exitcode.Conflict
+	// Automation approval (cli#1071, hadron-server#2441): the automation changed
+	// since the adopter looked, or nothing is adopted. Neither is fixed by
+	// retrying the same call; the adopter has to run `automation approval`
+	// again. The read-access refusals (#2434) carry FORBIDDEN.
+	case code == "AUTOMATION_CHANGED" || code == "AUTOMATION_UNADOPTED":
 		return exitcode.Conflict
 	case code == "UNAUTHENTICATED":
 		return exitcode.AuthRequired
 	case code == "NOT_FOUND" || strings.HasSuffix(code, "_NOT_FOUND") || code == "AiServiceConfigNotFoundError":
+		return exitcode.NotFound
+	// Boot-prompt pointer writes (cli#916 C2, hadron-server#2219 S8). The
+	// node is not a compiled prompt, has the wrong role, or sits in the wrong
+	// memory: an argument the caller fixes, so 2. (BOOT_PROMPT_POINTER_NOT_FOUND
+	// rides the _NOT_FOUND suffix above.) A pointer write from a bound worker
+	// session is refused because the manager must act as themselves (R23):
+	// a credential that is not permitted for this write, so 8.
+	case code == "BOOT_PROMPT_POINTER_NOT_COMPILED" || code == "BOOT_PROMPT_POINTER_WRONG_ROLE" ||
+		code == "BOOT_PROMPT_POINTER_WRONG_MEMORY":
+		return exitcode.Usage
+	case code == "BOOT_PROMPT_POINTER_SESSION_REFUSED":
+		return exitcode.Forbidden
+	// An include tag the write adds or changes whose target is missing,
+	// deleted or unreadable by the writer (hadron-server#2226, cor:dmo:150:04).
+	// The server gives the three one answer naming only the authored tag, so
+	// this is 4's "not found (or not visible to this principal)"; the CLI
+	// looks nothing up and infers nothing about which case it was (cli#916).
+	case code == "INCLUDE_TARGET_UNAVAILABLE":
 		return exitcode.NotFound
 	// URN_NOT_QUALIFIED (spec 022) is the server refusing a ref that is not
 	// a PK and not a fully-qualified URN — an argument the caller can fix.
@@ -797,11 +1038,16 @@ func codeForExtension(code string) int {
 	// caller fixes the VALUE, the same shape as BAD_USER_INPUT — not a server
 	// fault (1). Neither message ever echoes the key. The CLI pre-validates
 	// the header shape (#846), so these arriving here means the server
-	// disagreed about something the client could not check. Sweep at the gate
-	// (#847 cycle 0): link-user is the only shipped surface that can draw
-	// these codes — UnlockMemory/passphrase live in generated code no CLI
-	// command calls.
+	// disagreed about something the client could not check. Two shipped
+	// surfaces draw these codes: link-user's operation key (#847), and the
+	// global --unlock header (#1234), whose path-less context-time refusal is
+	// typed earlier, in unlockRefusal; this table is the fallback (a resolver's
+	// code, or the raw `hadron api` path).
 	case code == "BAD_UNLOCK_INPUT" || code == "WRONG_KEY":
+		return exitcode.Usage
+	// hadron-cli#1234: --unlock named a memory that is not encrypted. The
+	// caller fixes the invocation (drop that --unlock), so 2 like its siblings.
+	case code == "NOT_ENCRYPTED":
 		return exitcode.Usage
 	// Approval/verification needs an active encryption session to read the
 	// plaintext that is hashed. Renewing that session is authentication work.
@@ -829,6 +1075,45 @@ func codeForExtension(code string) int {
 	// api`; the curated commands print the server's message, which says it.
 	case code == "LOC_PROTECTED":
 		return exitcode.Usage
+	// A seq written on a node kind whose position the server owns
+	// (SEQ_PROTECTED — chat-message/record, cor:dmo:090:02). Like LOC_PROTECTED
+	// it is a wrong-door refusal, not a permission (8) or a transient (7), so
+	// 2 (cli#1499).
+	case code == "SEQ_PROTECTED":
+		return exitcode.Usage
+	// Deleted-node recovery (hadron-server#2234, cli#985). A restore under a
+	// still-deleted ancestor needs a state change first (restore the ancestor,
+	// whose URN the server's message names), so 5. A compiled boot prompt is a
+	// wrong-door refusal like ROLE_GOVERNED, so 2. The role-writer refusals are
+	// permission, so 8 — and they must precede the _REQUIRED suffix rule below,
+	// which would otherwise file ROLE_WRITER_LEVEL_REQUIRED under usage.
+	case code == "NODE_PARENT_DELETED":
+		return exitcode.Conflict
+	case code == "BOOT_PROMPT_COMPILED_WRITE":
+		return exitcode.Usage
+	case code == "ROLE_WRITER_LEVEL_REQUIRED" || code == "ROLE_WRITERS_UNSUPPORTED":
+		return exitcode.Forbidden
+	// The other two include write refusals (hadron-server#2165, cli#916). A
+	// tag that would close a cycle is authored content that cannot be saved as
+	// given; a direct edit or delete of a derived INCLUDE edge is a wrong
+	// door (edit the tag in the content instead), like ROLE_GOVERNED, so not
+	// 8. Literal cases, not an INCLUDE_ family: each code is mapped where it
+	// has been read in the SDL. The server's message is kept whole.
+	case code == "INCLUDE_CYCLE" || code == "INCLUDE_EDGE_DERIVED":
+		return exitcode.Usage
+	// Team-chat duplicate and post-rate refusals are deliberate state
+	// conflicts (#1306): posting again cannot help until the duplicate window
+	// or rate window changes. Keep the server's message; never retry here.
+	case code == "TEAM_CHAT_DUPLICATE" || code == "TEAM_CHAT_POST_RATE_LIMITED":
+		return exitcode.Conflict
+	// Chat-history search refusals (#1327 over server#2882). A query outside
+	// the length bound and a cursor that is not this search's are inputs the
+	// caller fixes (2); a chat hosted in an encrypted memory is a state no
+	// argument changes, refused and never answered as an empty page (5).
+	case code == "TEAM_CHAT_SEARCH_QUERY_LENGTH" || code == "TEAM_CHAT_SEARCH_CURSOR_INVALID":
+		return exitcode.Usage
+	case code == "TEAM_CHAT_SEARCH_ENCRYPTED":
+		return exitcode.Conflict
 	// Transfer state refusals require a fresh preview or a change to the
 	// source/destination state; retrying the same apply cannot help.
 	case code == "CONFLICT" || strings.HasPrefix(code, "DUPLICATE_") ||
@@ -878,6 +1163,15 @@ func codeForExtension(code string) int {
 	// rule below, which would read it as a usage error.
 	case code == "APP_MANAGER_REQUIRED":
 		return exitcode.Forbidden
+	// Stop signals (#911 B1 over server #2022): HOST_SCOPE_REQUIRED (a host
+	// key acting beyond a HALT on its own host) and STOP_SIGNAL_SCOPE_FORBIDDEN
+	// name an authority, not a missing argument, so they also precede the
+	// _REQUIRED rule. STOP_SIGNAL_UNAVAILABLE (#2173) refuses every set until
+	// the notice lane is on: the platform's state, which no input changes.
+	case code == "HOST_SCOPE_REQUIRED" || code == "STOP_SIGNAL_SCOPE_FORBIDDEN":
+		return exitcode.Forbidden
+	case code == "STOP_SIGNAL_UNAVAILABLE":
+		return exitcode.Conflict
 	// The host poller's credential refusals (hadron-cli#831 over server #1876,
 	// cor:agt:070:04): a person calling a host-only surface, and a key without a
 	// live host:operate scope. Both name a CREDENTIAL that is not permitted, not
@@ -902,6 +1196,13 @@ func codeForExtension(code string) int {
 	// `session end --resume-claim`, before the end, instead.
 	case code == "SESSION_ENDED":
 		return exitcode.Conflict
+	// A role typed in beside an agent (cor:dmo:050:11, R222; hadron-cli#1087):
+	// the role follows the agent, and the message names the agent's role. The
+	// caller fixes it by dropping the flag, which is a usage error. `worker
+	// cast` refuses the pair locally, so this is for older callers and other
+	// paths that still send both.
+	case code == "WORKER_ROLE_OVERRIDE_REFUSED":
+		return exitcode.Usage
 	case strings.HasSuffix(code, "_AMBIGUOUS") || strings.HasSuffix(code, "_NOT_INSTALLED") ||
 		strings.HasSuffix(code, "_TOO_LARGE") || strings.HasSuffix(code, "_REQUIRED"):
 		return exitcode.Usage
@@ -938,8 +1239,19 @@ func codeForExtension(code string) int {
 		// The caller must explicitly attest verified external absence; --yes
 		// alone confirms deletion, not that separate input (server#1162).
 		return exitcode.Usage
+	// A stale casting changed concurrently; an unchanged agent has nothing to
+	// change; a role-less agent cannot supply a new role. The caller must
+	// choose another agent or change that state. All three are conflict (5),
+	// never idempotent success, under the cli#1336 gate.
 	case code == "WORKER_IN_USE" || code == "WORKER_RETIRED" || code == "WORKER_TAKEN" ||
-		code == "WORKER_HELD" || code == "WORKER_HOLD_STALE":
+		code == "WORKER_HELD" || code == "WORKER_HOLD_STALE" ||
+		code == "WORKER_CASTING_STALE" || code == "WORKER_AGENT_UNCHANGED" || code == "WORKER_AGENT_HAS_NO_ROLE":
+		return exitcode.Conflict
+	// Finding dispositions require an existing finding and a finished task.
+	// Missing is NotFound; unfinished is a state conflict, never a safe retry.
+	case code == "TASK_FINDING_NOT_FOUND":
+		return exitcode.NotFound
+	case code == "TASK_NOT_FINISHED":
 		return exitcode.Conflict
 	// The agent-task surface (hadron-cli#830 over server #1705/#1706). Who
 	// may move a task or set availability is the server's rule
@@ -975,11 +1287,17 @@ func codeForExtension(code string) int {
 		code == "HOST_OPERATION_NOT_DONE" || code == "LAUNCH_REFUSED" ||
 		code == "WORKER_NOT_HELD" || code == "WORKER_LIVE" || code == "WORKER_START_PENDING":
 		return exitcode.Conflict
+	// cli#1567: a distinct-assignees match that found nobody (reason NOBODY_FREE,
+	// …) is the team's availability, not the caller's input: the call is valid and
+	// succeeds once a worker is free, like the other state Conflicts here.
+	case code == "TASK_MATCH_FAILED":
+		return exitcode.Conflict
 	// A lifecycle move the task's current state forbids — assigning an
 	// already-assigned task, starting a finished one, acknowledging an alarm
 	// whose first acknowledgement already stands. The state must change
 	// before the same call can succeed, like every other Conflict here.
 	case code == "TASK_INVALID_TRANSITION" || code == "TASK_ENDED" ||
+		code == "TASK_BLOCKER_CYCLE" || code == "TASK_BLOCKED" ||
 		code == "ALARM_ALREADY_ACKNOWLEDGED":
 		return exitcode.Conflict
 	// A party ref that names nobody valid (TASK_OWNER_INVALID /
@@ -990,6 +1308,16 @@ func codeForExtension(code string) int {
 	case code == "TASK_OWNER_INVALID" || code == "TASK_ASSIGNEE_INVALID" ||
 		code == "TASK_CHILD_OWNER_MISMATCH" || code == "NOT_AN_ALARM":
 		return exitcode.Usage
+	// Task properties (hadron-cli#1118, server#2420): a value that is not an
+	// object, over the 16 KiB bound, or against the team's task-properties schema
+	// is an input the caller changes. A schema the server cannot use is the
+	// team's configuration, not the caller's argument: a state that must change
+	// first, like the other Conflict cases here.
+	case code == "PROPERTIES_NOT_AN_OBJECT" || code == "PROPERTIES_TOO_LARGE" ||
+		code == "PROPERTIES_SCHEMA_VIOLATION":
+		return exitcode.Usage
+	case code == "PROPERTIES_SCHEMA_UNUSABLE":
+		return exitcode.Conflict
 	// A write into an App that is uninstalled: the App's state, not the
 	// caller's argument — Conflict, like WORKER_RETIRED above.
 	case code == "APP_UNINSTALLED":
@@ -1021,6 +1349,8 @@ func codeForExtension(code string) int {
 	// so the same literal case. HADRON_SERVER_NOT_CONFIGURED is deliberately
 	// NOT mapped: it means the deployment has no hadron_server row — an
 	// operator's fix, not the caller's — so the generic 1 is the honest code.
+	// CONNECTION_PROVIDER_NOT_CONFIGURED (startConnection, cli#1352) is the same
+	// class: the server has no OAuth client for that provider, so it too stays 1.
 	case code == "MEMORY_CONFIG_TEMPLATE_EXISTS":
 		return exitcode.Conflict
 	// Draft spec corpora (hadron-server#1447; cli#777). These are the
@@ -1044,7 +1374,7 @@ func codeForExtension(code string) int {
 	// re-preview or choose another corpus rather than retrying blindly.
 	case code == "SEARCH_REPLACE_PLAN_STALE" || code == "SEARCH_REPLACE_NOT_DRAFT" || code == "SEARCH_REPLACE_MIXED_CORPUS" ||
 		code == "SPEC_CORPUS_NOT_DRAFT" || code == "SPEC_CORPUS_MINT_BLOCKED" || code == "SPEC_CORPUS_BUSY" ||
-		code == "SPEC_CORPUS_ENCRYPTED_UNSUPPORTED" || code == "REVISION_MISMATCH" ||
+		code == "SPEC_CORPUS_ENCRYPTED_UNSUPPORTED" || code == "REVISION_MISMATCH" || code == "TICKER_TEMPLATE_REVISION_MISMATCH" ||
 		code == "NODE_IS_PLACEHOLDER" || code == "NODE_MINTED":
 		return exitcode.Conflict
 	case code == "SEARCH_REPLACE_MAX_NODES_CHANGED":
@@ -1167,4 +1497,84 @@ func IsUnknownGraphQLArgument(err error, argument, field string) bool {
 		}
 	}
 	return true
+}
+
+// AppMemberWriteRefused reports whether err is a DEFINITE refusal of an
+// ensureAppMember / removeAppMember call: the server threw before the write,
+// inside the authorized transaction, so nothing changed. Anything else —
+// transport failures, a data+errors partial, a masked INTERNAL_SERVER_ERROR —
+// is outcome unknown, because ensureAppMember re-reads the row AFTER commit and
+// a failure there is reported although the upsert committed (#956).
+//
+// The typed refusals are InvalidRoleError, MaxMembersExceededError and
+// OrphanAppError; the server's `Forbidden: …` arrives as plain text under
+// INTERNAL_SERVER_ERROR, so it is recognised by its message prefix. EVERY error
+// in the list must qualify; one unrecognized entry keeps the answer ambiguous.
+//
+// An error is a root refusal only when its path names no field below the
+// mutation itself: a nested-field error (path ["ensureAppMember","user",…]) means
+// the resolver RAN and returned a row, so the write may have committed whatever
+// code the nested error carries. Callers must also treat a populated result next
+// to an error as unknown (see memberWriteError) — this function sees only errors.
+// Like EndRefusedBeforeCommit, call it BEFORE MapError wraps.
+func AppMemberWriteRefused(err error) bool {
+	list := graphQLErrors(err)
+	if len(list) == 0 {
+		return false
+	}
+	for _, e := range list {
+		if e == nil || len(e.Path) > 1 {
+			return false
+		}
+		switch extensionCode(e) {
+		case "InvalidRoleError", "MaxMembersExceededError", "OrphanAppError",
+			"NOT_FOUND", "UNAUTHENTICATED", "BAD_USER_INPUT", "FORBIDDEN":
+			continue
+		}
+		if !strings.HasPrefix(strings.TrimSpace(e.Message), "Forbidden:") {
+			return false
+		}
+	}
+	return true
+}
+
+// ExtensionString returns the first non-empty string extensions[key] of err's
+// GraphQL errors (TASK_MATCH_FAILED's extensions.reason, cli#1567). Call it on
+// the RAW error; the value is server text, so a caller echoing it bounds it.
+func ExtensionString(err error, key string) (string, bool) {
+	for _, e := range graphQLErrors(err) {
+		if e == nil {
+			continue
+		}
+		if v, ok := e.Extensions[key].(string); ok && v != "" {
+			return v, true
+		}
+	}
+	return "", false
+}
+
+// ExtensionInt returns the first integer extensions[key] of err's GraphQL
+// errors (a batch refusal's 1-based extensions.position, cli#1565). Call it on
+// the RAW error. ok is false when no error carries the key as a whole number.
+func ExtensionInt(err error, key string) (int, bool) {
+	for _, e := range graphQLErrors(err) {
+		if e == nil {
+			continue
+		}
+		switch v := e.Extensions[key].(type) {
+		case int:
+			return v, true
+		case int64:
+			return int(v), true
+		case float64:
+			if v == float64(int(v)) {
+				return int(v), true
+			}
+		case json.Number:
+			if n, perr := v.Int64(); perr == nil {
+				return int(n), true
+			}
+		}
+	}
+	return 0, false
 }

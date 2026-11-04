@@ -6,6 +6,7 @@ import (
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 // UpdateNodeClearingRoleByKind applies one role-null update, with all other
@@ -14,6 +15,13 @@ import (
 // resulting ungoverned state; it is never sent on the wire. Server refusal is
 // final: do not retry via an ordinary or generic writer.
 func UpdateNodeClearingRoleByKind(ctx context.Context, client graphql.Client, input *gen.UpdateNodeInput, cur NodeKindState) (*AuthoredNode, error) {
+	// The refreshed provider input adds an install alternative (#2044). The
+	// dedicated clear documents still take node refs, not that alternative.
+	// Refuse an unsupported supplied field rather than silently dropping it;
+	// existing CLI callers leave it nil and keep their exact operation shape.
+	if input.Install != nil {
+		return nil, exitcode.Newf(exitcode.Usage, "role clearing with an install target is not supported; use a node reference")
+	}
 	routing := *input
 	empty := ""
 	routing.Role = &empty

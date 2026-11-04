@@ -108,7 +108,7 @@ review rounds removing from this repo's prose. A test pins both retired
 spellings out.
 
 **The narration split three ways** to match the decision: a takeover when live,
-*"not live; an earlier session is still open and this bind does not end it"*
+*"not live; an earlier session is open … a successful bind supersedes it if it is your own"* (reworded in #894: the server ends the same person's other open sessions on bind, so the original "does not end it" was false for the caller's own)
 when provably not, and a statement that liveness was withheld when masked —
 which claims nothing, because "not live" there would be a fact the server
 declined to state.

@@ -52,6 +52,10 @@ func RawGraphQL(ctx context.Context, serverURL, token, query string, variables m
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
+	// hadron-cli#1234: --unlock is global, so `hadron api` carries it too.
+	if keys, ok := memoryKeysFrom(ctx); ok {
+		req.Header.Set(MemoryKeysHeader, keys.header)
+	}
 	if err := checkInitialSessionRequest(req); err != nil {
 		return nil, exitcode.New(exitcode.Error, err)
 	}
@@ -73,6 +77,8 @@ func RawGraphQL(ctx context.Context, serverURL, token, query string, variables m
 	// as retryable would contradict the 4xx rule this change exists to
 	// establish (PR #415 review).
 	body, readErr := io.ReadAll(resp.Body)
+	// The body is printed verbatim; an echoed --unlock secret never is.
+	body = redactUnlockSecrets(resp.StatusCode, body, memoryKeySecrets(req))
 	// A non-200 whose body carries a typed GraphQL envelope is classified by
 	// that extensions.code — parity with MapError's HTTPError branch
 	// (#563/#576), which the curated path takes. The status mapping below is

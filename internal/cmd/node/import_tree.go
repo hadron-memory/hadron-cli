@@ -183,6 +183,12 @@ func runImportTree(cmd *cobra.Command, f *cmdutil.Factory, o treeImportOpts) err
 		Created: ex.created, Existing: ex.existing, Unresolved: ex.unresolved, Skipped: res.skipped,
 		Collisions: res.collisions, EdgesWired: ex.edgesWired, NodesCreated: len(ex.created),
 	}
+	// A refusal with nothing created (e.g. the root already exists) leaves stdout
+	// empty: a success-shaped summary would read as a no-op success to a parser
+	// (#1231). The error alone carries the refusal.
+	if createErr != nil && len(ex.created) == 0 {
+		return createErr
+	}
 	// A mid-tree create failure is partial — emit what landed, then surface the
 	// error (non-zero exit) so a caller doesn't read partial as complete.
 	if emitErr := emitTreeSummary(f, dto, root); emitErr != nil && createErr == nil {
@@ -410,7 +416,10 @@ func (e *treeExecutor) create(n *planNode) (string, error) {
 // the parent's edge.
 func (e *treeExecutor) skipExisting(n *planNode, edges []*gen.NodeEdgeInput) (string, error) {
 	e.existing = append(e.existing, n.loc)
-	id, found := e.resolveExistingID(n.loc)
+	id, found, rerr := e.resolveExistingID(n.loc)
+	if rerr != nil {
+		return "", api.MapError(rerr)
+	}
 	if !found {
 		e.unresolved = append(e.unresolved, n.loc)
 		return "", nil
@@ -430,30 +439,21 @@ func (e *treeExecutor) skipExisting(n *planNode, edges []*gen.NodeEdgeInput) (st
 // can't form a URN, so it falls back to a loc-prefix listing and an exact-loc
 // match (mirroring import.go's nodeExists). A pre-existing node has no creation
 // lag, so no retry is needed.
-func (e *treeExecutor) resolveExistingID(loc string) (string, bool) {
+func (e *treeExecutor) resolveExistingID(loc string) (string, bool, error) {
 	if urn := cmdutil.NodeURN(e.memory, loc); urn != "" {
 		if resp, err := gen.ResolveUrn(e.ctx, e.client, urn); err == nil && resp.ResolveUrn != nil && resp.ResolveUrn.Kind == "node" {
-			return resp.ResolveUrn.Id, true
+			return resp.ResolveUrn.Id, true, nil
 		}
 	}
-	limit := 200
 	filter := &gen.NodeFilter{MemoryIds: []string{e.memory}, LocPrefix: &loc}
 	sortLoc := gen.NodeSortLoc
-	for offset := 0; ; offset += limit {
-		off := offset
-		page, err := api.FindNodes(e.ctx, e.client, nil, nil, filter, &sortLoc, nil, &limit, &off)
+	return findExactLoc(loc, func(limit, offset int) ([]*api.ListNode, error) {
+		page, err := api.FindNodes(e.ctx, e.client, nil, nil, filter, &sortLoc, nil, &limit, &offset)
 		if err != nil {
-			return "", false
+			return nil, err
 		}
-		for _, nd := range page.Nodes {
-			if nd != nil && nd.Loc == loc {
-				return nd.Id, true
-			}
-		}
-		if len(page.Nodes) < limit {
-			return "", false
-		}
-	}
+		return page.Nodes, nil
+	})
 }
 
 // collectDryRun mirrors create's post-order walk without mutating: it appends a

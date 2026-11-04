@@ -13,10 +13,13 @@ package team
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -30,6 +33,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/delivery"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
 	"github.com/hadron-memory/hadron-cli/internal/output"
@@ -39,11 +43,14 @@ import (
 type hostServer struct {
 	client graphql.Client
 	app    string
+	// now dates a batch read, for its proof's expiry; time.Now when nil.
+	now func() time.Time
 }
 
 func (s *hostServer) Register(ctx context.Context, r hostpoller.Registration) (hostpoller.RegisteredHost, error) {
 	in := &gen.RegisterHostInput{
-		AppRef: s.app, Label: r.Label, PollIntervalSeconds: r.PollIntervalSeconds,
+		Capabilities: append([]string{}, r.Capabilities...),
+		AppRef:       s.app, Label: r.Label, PollIntervalSeconds: r.PollIntervalSeconds,
 		Workers: []*gen.RegisterHostWorkerInput{},
 	}
 	for _, w := range r.Workers {
@@ -75,8 +82,18 @@ func (s *hostServer) Register(ctx context.Context, r hostpoller.Registration) (h
 	return out, nil
 }
 
+// hostCollectBatch is the page a host asks collectHostOperations for. It is
+// today's EFFECTIVE batch, made explicit (cli#968): hadron-server omits it as
+// 50 (cap 200, resolvers.hostOperation.ts), and a default change there must not
+// silently shrink a host's page. It is an internal compatibility value, not a
+// flag and not a "whole backlog" claim: a Step still collects once, oldest
+// first, and a full page is not proof of progress or exhaustion (in-flight
+// operations can refill it; that limitation is unchanged and unfixed here).
+const hostCollectBatch = 50
+
 func (s *hostServer) Collect(ctx context.Context) ([]hostpoller.Operation, error) {
-	resp, err := gen.CollectHostOperations(ctx, s.client, s.app, nil)
+	first := hostCollectBatch
+	resp, err := gen.CollectHostOperations(ctx, s.client, s.app, &first)
 	if err != nil {
 		return nil, api.MapError(err)
 	}
@@ -215,6 +232,13 @@ skipped as in flight. The server must not re-mint its grant meanwhile (a
 re-collect omits a start whose grant is still live): run this against a
 server with that fix.
 
+Capabilities are an explicit full declaration on every registration refresh:
+add capabilities: [worker.reset-context] only for a driver that actually
+implements that operation. Omitted or [] means none. THIS POLLER DOES NOT
+implement worker.reset-context: leave capabilities empty for this runner;
+unknown operations remain failed. Declaring a capability adds no handler; this runner warns on stderr for
+every unimplemented declaration before registering.
+
 The configuration (YAML):
 
   app: hrn:app:<root>:<slug>
@@ -233,6 +257,33 @@ The configuration (YAML):
       end_wait: 15m
       worktrees: [hadron-cli/jonas-2]
 
+Moving a host from the Orca attention router: see
+docs/how-to/move-from-the-attention-router-to-the-host-poller.md in the
+hadron-cli repository. Preparing a config authorizes no cutover.
+
+With delivery.enabled (and orca_bin), each poll also reads this host's
+ready chat batches (the key needs attention:deliver too) and types each
+into its worker's agent terminal, only into an empty composer, then
+acknowledges it. A key without attention:deliver turns delivery off for the
+run (a delivery-off event); operations carry on. It also reads this host's
+due tick and task wakes (dueWakes) and types each as one line through the
+same path, then hands its proof back (hadron-cli#1178). A wake that names
+channels or a mention is typed once and, by default, held from acknowledgment.
+Set delivery.ack_mixed: true only when the server carries A-prime (#2072,
+ad7f1c2): its mixed acknowledgment records ticks/tasks without moving chat
+marks. Mention text still arrives through its own batch. Status reports the
+configured ack-mixed on/off setting; it does not detect server capability.
+A held delivery is not reported to the
+server yet (hadron-cli#940): it raises no server alarm, and team host
+status shows it as UNREPORTED.
+
+A single message longer than 131,071 bytes of UTF-8 cannot be typed (orca
+terminal send carries text as one argument). It fails as too-long-to-type,
+is never truncated or acknowledged, and stays due. The server delivers the
+oldest message first, so it BLOCKS all later chat delivery to that worker
+until hadron-server#2121 lands. Delivery for real workers stays off until
+then.
+
 --once runs a single poll and waits for what it collected. Events print one
 per line; --json prints each as a JSON object.`,
 		Args: cobra.NoArgs,
@@ -241,12 +292,24 @@ per line; --json prints each as a JSON object.`,
 			if err != nil {
 				return err
 			}
+			// Declaring a capability does not acquire a new operation handler.
+			for _, capability := range cfg.Capabilities {
+				if _, err := fmt.Fprintf(f.IOStreams.ErrOut, "warning: declared capability %q has no handler in this poller; collected operations of this type will be reported FAILED. Remove it from capabilities when using this runner.\n", capability); err != nil {
+					return err
+				}
+			}
 			state, err := hostpoller.LoadState(cfg.StateFile)
 			if err != nil {
 				return exitcode.Newf(exitcode.Error, "reading host state %s: %v", cfg.StateFile, err)
 			}
+			if err := cfg.CheckWorktreeAliases(state); err != nil {
+				return exitcode.Newf(exitcode.Usage, "%s: %v", configPath, err)
+			}
 			emit := hostEventPrinter(f)
 			p := hostpoller.New(cfg, srv, hostpoller.ExecHost{}, state, key, emit)
+			if cfg.Delivery.Enabled {
+				wireDelivery(p, cfg, srv, emit)
+			}
 			// A refused or revoked key, or a registration the server calls
 			// malformed, does not heal by retrying: exit with its code.
 			p.Fatal = func(err error) bool {
@@ -345,6 +408,191 @@ type hostStatusDTO struct {
 	// when the read was refused or this host has not registered yet.
 	Registration *hostRegistrationDTO `json:"registration"`
 	ReadError    *string              `json:"readError"`
+	// Delivery is the poller's local delivery snapshot (cli#906): what this
+	// host's poller last saw, read from local state only. It is not
+	// authoritative delivery health (S5 is), and it carries codes only.
+	Delivery hostDeliveryDTO `json:"delivery"`
+}
+
+type hostDeliveryDTO struct {
+	Enabled  bool `json:"enabled"`
+	AckMixed bool `json:"ackMixed"`
+	// Mode is disabled, enabled, or off-by-scope (the host key lacked
+	// attention:deliver at the poller's last step).
+	Mode       string  `json:"mode"`
+	OrcaBin    string  `json:"orcaBin"`
+	LastStepAt *string `json:"lastStepAt"`
+	LastRead   *string `json:"lastRead"`
+	// Stale: delivery is on and the snapshot is missing, unreadable, or
+	// older than three poll intervals. Error then names which, as a code.
+	Stale bool    `json:"stale"`
+	Error *string `json:"error"`
+	// WakeRead is the newest tick/task wake read's code (read, read-failed,
+	// budget-exhausted), null before one. BudgetExhaustedAt is set only
+	// while that read says the App's daily wake budget is spent. Dormant
+	// and Withheld are dueWakes' counts.
+	WakeRead          *string                 `json:"wakeRead"`
+	BudgetExhaustedAt *string                 `json:"budgetExhaustedAt"`
+	Dormant           int                     `json:"dormant"`
+	Withheld          int                     `json:"withheld"`
+	Workers           []hostDeliveryWorkerDTO `json:"workers"`
+}
+
+type hostDeliveryWorkerDTO struct {
+	Worker     string  `json:"worker"`
+	WorkerID   string  `json:"workerId"`
+	LastKind   string  `json:"lastKind"`
+	LastReason string  `json:"lastReason"`
+	LastAt     *string `json:"lastAt"`
+	// ConfirmedUnacked counts this host's confirmed-delivery records whose
+	// ack has not landed: they reconcile without typing.
+	ConfirmedUnacked int    `json:"confirmedUnacked"`
+	ResolvedBy       string `json:"resolvedBy"`
+	// LastFor says whether the last event was a batch's or a wake's.
+	LastFor string `json:"lastFor"`
+	// TicksUnacked counts tick and task reasons typed and confirmed whose
+	// ack has not landed: never retyped, acked when the proof allows.
+	TicksUnacked int `json:"ticksUnacked"`
+	// Unreported: the last event was a hold the server was not told about
+	// (cli#940): no server hold, alarm or escalation exists for it.
+	Unreported bool `json:"unreported"`
+	// LastAgeSeconds is the last event's age at this read (cli#1178).
+	LastAgeSeconds int64 `json:"lastAgeSeconds"`
+	// HeldSince is when the worker's current run of holds began, null when
+	// none is outstanding; only a delivery or reconciliation ends one.
+	// HeldOver30m flags a run older than heldTooLong.
+	HeldSince   *string `json:"heldSince"`
+	HeldOver30m bool    `json:"heldOver30m"`
+	// NotRevisited: the worker is in a run of holds but its newest event is
+	// older than three poll intervals (cli#1322). A held worker is normally
+	// re-evaluated every cycle, so no newer local event means only that the
+	// hold shown may be stale. The record cannot say why: the server may list
+	// no wake for the worker, or the poller may have stopped or its reads
+	// failed (see the STALE and wakes lines).
+	NotRevisited bool `json:"notRevisited"`
+}
+
+// heldTooLong is when `team host status` flags a worker's run of holds
+// (cli#1178): the #2746 class held workers for two days with no readable
+// reason.
+const heldTooLong = 30 * time.Minute
+
+// hostDeliveryStatus builds the delivery block from local state only.
+func hostDeliveryStatus(cfg *hostpoller.Config, now time.Time) hostDeliveryDTO {
+	d := hostDeliveryDTO{Enabled: cfg.Delivery.Enabled, AckMixed: cfg.Delivery.AckMixed, Mode: "disabled", OrcaBin: cfg.Delivery.OrcaBin, Workers: []hostDeliveryWorkerDTO{}}
+	if !d.Enabled {
+		return d
+	}
+	d.Mode = "enabled"
+	stateDir := cfg.DeliveryStateDir()
+	st, err := delivery.ReadStatus(stateDir)
+	if err != nil {
+		code := "status-unreadable"
+		if errors.Is(err, fs.ErrNotExist) {
+			code = "status-missing"
+		}
+		d.Stale, d.Error = true, &code
+		return d
+	}
+	at, read := st.LastStepAt.UTC().Format(time.RFC3339), st.LastRead
+	d.LastStepAt, d.LastRead = &at, &read
+	if read == delivery.StepOffByScope {
+		d.Mode = "off-by-scope"
+	}
+	interval := time.Duration(cfg.PollIntervalSeconds) * time.Second
+	d.Stale = now.Sub(st.LastStepAt) > 3*interval
+	if st.WakeRead != "" {
+		wr := st.WakeRead
+		d.WakeRead = &wr
+	}
+	if st.BudgetExhaustedAt != nil {
+		b := st.BudgetExhaustedAt.UTC().Format(time.RFC3339)
+		d.BudgetExhaustedAt = &b
+	}
+	d.Dormant, d.Withheld = st.Dormant, st.Withheld
+	recs := &delivery.Records{Dir: filepath.Join(stateDir, "delivery", "records")}
+	wakes := &delivery.WakeRecords{Dir: filepath.Join(stateDir, "delivery", "wakes")}
+	for _, id := range sortedKeys(st.Workers) {
+		w := st.Workers[id]
+		last := w.At.UTC().Format(time.RFC3339)
+		row := hostDeliveryWorkerDTO{Worker: w.Name, WorkerID: id, LastKind: string(w.Kind), LastReason: w.Reason, LastAt: &last, ResolvedBy: w.ResolvedBy, Unreported: w.Unreported,
+			LastAgeSeconds: max(int64(now.Sub(w.At)/time.Second), 0)}
+		if w.HeldSince != nil {
+			since := w.HeldSince.UTC().Format(time.RFC3339)
+			row.HeldSince, row.HeldOver30m = &since, now.Sub(*w.HeldSince) > heldTooLong
+			row.NotRevisited = now.Sub(w.At) > 3*interval
+		}
+		if list, err := recs.List(id); err == nil {
+			row.ConfirmedUnacked = len(list)
+		}
+		row.LastFor = "batch"
+		if w.Wake {
+			row.LastFor = "wake"
+		}
+		if list, err := wakes.List(id); err == nil {
+			for _, r := range list {
+				if r.State == delivery.WakeTyped {
+					row.TicksUnacked++
+				}
+			}
+		}
+		d.Workers = append(d.Workers, row)
+	}
+	return d
+}
+
+func writeHostDelivery(w io.Writer, d hostDeliveryDTO) {
+	ack := "off"
+	if d.AckMixed {
+		ack = "on"
+	}
+	if !d.Enabled {
+		fmt.Fprintln(w, "delivery: disabled, ack-mixed "+ack)
+		return
+	}
+	line := "delivery: " + d.Mode + ", ack-mixed " + ack + ", orca " + d.OrcaBin
+	if d.LastStepAt != nil {
+		line += ", last step " + *d.LastStepAt + " (" + *d.LastRead + ")"
+	}
+	if d.Stale {
+		line += ", STALE"
+	}
+	if d.Error != nil {
+		line += " (" + *d.Error + ")"
+	}
+	fmt.Fprintln(w, line)
+	if d.WakeRead != nil {
+		wl := fmt.Sprintf("wakes: %s, dormant %d, withheld %d", *d.WakeRead, d.Dormant, d.Withheld)
+		if d.BudgetExhaustedAt != nil {
+			wl += ", budget exhausted at " + *d.BudgetExhaustedAt
+		}
+		fmt.Fprintln(w, wl)
+	}
+	for _, wk := range d.Workers {
+		unreported := ""
+		if wk.Unreported {
+			unreported = ", UNREPORTED: no server hold, alarm or escalation"
+		}
+		held := ""
+		switch {
+		case wk.HeldOver30m:
+			held = ", HELD OVER 30m: no delivery since " + *wk.HeldSince
+		case wk.HeldSince != nil:
+			held = ", held since " + *wk.HeldSince
+		}
+		if wk.NotRevisited {
+			held += ", NOT RE-EVALUATED recently: no newer local delivery event, so the hold shown may be stale (its cause is not known from this record)"
+		}
+		fmt.Fprintf(w, "  %s: %s %s (%s)%s at %s (%s ago)%s, confirmed-unacked %d, ticks typed-unacked %d, resolved by %s\n",
+			wk.Worker, wk.LastKind, wk.LastReason, wk.LastFor, unreported, *wk.LastAt, time.Duration(wk.LastAgeSeconds)*time.Second, held, wk.ConfirmedUnacked, wk.TicksUnacked, orDash(wk.ResolvedBy))
+	}
+}
+
+func orDash(s string) string {
+	if s == "" {
+		return "—"
+	}
+	return s
 }
 
 func newCmdTeamHostStatus(f *cmdutil.Factory) *cobra.Command {
@@ -357,7 +605,21 @@ register (each worker's family, launch and end argv, and worktrees, created
 ones included), the worktrees it keeps because a worker.end on them failed,
 and the host's registration as the server holds it, found by the host id
 saved at the poller's last registration (a label is not unique). It changes
-nothing.`,
+nothing.
+
+Displayed host/app labels, worker rows, registration metadata and read errors
+replace controls with spaces and cap each value at 256 runes. Use --json for
+original values. This does not describe kept-worktree diagnostics.
+
+With delivery enabled it also shows the poller's local delivery snapshot:
+each worker's newest event (outcome, reason code, time and age), when its
+current run of holds began, and HELD OVER 30m once that run is older than
+30 minutes without a delivery. A held worker is re-evaluated every cycle; a
+held record whose newest event is older than three poll intervals is marked
+NOT RE-EVALUATED (notRevisited in --json): no newer local event, so the
+hold shown may be stale; the cause is not recorded (the server may list no
+wake for that worker, or the poller stopped or its reads failed). Codes only: no text, draft or
+proof.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, _, srv, err := loadHostPoller(f, configPath)
@@ -411,11 +673,12 @@ nothing.`,
 					dto.Registration = &reg
 				}
 			}
+			dto.Delivery = hostDeliveryStatus(cfg, time.Now())
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				fmt.Fprintf(w, "host %s for %s, checking in every %ds\n", dto.Label, dto.App, dto.PollIntervalSeconds)
+				fmt.Fprintf(w, "host %s for %s, checking in every %ds\n", output.SafeCell(dto.Label), output.SafeCell(dto.App), dto.PollIntervalSeconds)
 				t := output.NewTable(w, "WORKER", "FAMILY", "LAUNCH", "WORKTREES")
 				for _, wk := range dto.Workers {
-					t.Row(wk.Worker, wk.Family, strings.Join(wk.Launch, " "), strings.Join(wk.Worktrees, ","))
+					t.Row(output.SafeCell(wk.Worker), output.SafeCell(wk.Family), output.SafeCell(strings.Join(wk.Launch, " ")), output.SafeCell(strings.Join(wk.Worktrees, ",")))
 				}
 				if err := t.Flush(); err != nil {
 					return err
@@ -425,7 +688,7 @@ nothing.`,
 				}
 				switch {
 				case dto.ReadError != nil:
-					fmt.Fprintf(w, "registration: not readable (%s)\n", *dto.ReadError)
+					fmt.Fprintf(w, "registration: not readable (%s)\n", output.SafeCell(*dto.ReadError))
 				case dto.Registration == nil:
 					fmt.Fprintln(w, "registration: none found for this poller's host id (it has not registered yet, or the registration is gone)")
 				default:
@@ -433,8 +696,9 @@ nothing.`,
 					if dto.Registration.Live {
 						live = "live"
 					}
-					fmt.Fprintf(w, "registration: host %s, %s, refreshed %s\n", dto.Registration.HostID, live, dto.Registration.RefreshedAt)
+					fmt.Fprintf(w, "registration: host %s, %s, refreshed %s\n", output.SafeCell(dto.Registration.HostID), live, output.SafeCell(dto.Registration.RefreshedAt))
 				}
+				writeHostDelivery(w, dto.Delivery)
 				return nil
 			})
 		},
@@ -453,7 +717,7 @@ func dedupe(s []string) []string {
 	return out
 }
 
-func sortedKeys(m map[string]string) []string {
+func sortedKeys[V any](m map[string]V) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)

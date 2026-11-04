@@ -43,6 +43,9 @@ func queueGraphQL(t *testing.T, responses map[string][]string) (*httptest.Server
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		captured[body.OperationName] = append(captured[body.OperationName], body.Variables)
 		queue, ok := responses[body.OperationName]
+		if !ok && body.OperationName == "NodeBatchContent" {
+			queue, ok = responses["NodeBatch"]
+		}
 		if !ok || len(queue) == 0 {
 			t.Errorf("unexpected operation %q", body.OperationName)
 			queue = []string{`{"errors":[{"message":"unexpected operation"}]}`}
@@ -317,7 +320,7 @@ func TestCodingPreflightReadsTargetsByID(t *testing.T) {
 	var got struct {
 		Refs []string `json:"refs"`
 	}
-	if err := json.Unmarshal(captured["NodeBatch"], &got); err != nil {
+	if err := json.Unmarshal(captured["NodeBatchContent"], &got); err != nil {
 		t.Fatalf("decoding NodeBatch vars: %v", err)
 	}
 	if len(got.Refs) != 1 || got.Refs[0] != "t_e1" {
@@ -1174,6 +1177,55 @@ func TestCodingPreflightRouteExistingNode(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), "findings:flaky-otp-timer") {
 		t.Errorf("expected the routed loc in the output, got %q", out.String())
+	}
+}
+
+// cli#463 — a cross-memory route names the target's memory from the GetNode it
+// already makes (`memory { urn }`), never a second GetMemory. A withheld
+// (null) or empty value keeps the opaque memoryId fallback, and a compound
+// app-mem URN is carried verbatim, not sliced or rebuilt.
+func TestCodingPreflightRouteCrossMemoryLabel(t *testing.T) {
+	for _, tc := range []struct {
+		name, memory, want string
+	}{
+		{"authorized", `{"urn":"hrn:mem:acme.com:specs"}`, "in `hrn:mem:acme.com:specs`"},
+		{"compound", `{"urn":"hrn:mem:acme.com:agent:app-mem:notes"}`, "in `hrn:mem:acme.com:agent:app-mem:notes`"},
+		{"withheld", `null`, "in `mem2`"},
+		{"empty", `{"urn":""}`, "in `mem2`"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			target := strings.Replace(codingNodeJSON("n_target", "tasks:mint", "", ""),
+				`"memoryId":"mem1"`, `"memoryId":"mem2","memory":`+tc.memory, 1)
+			gql, captured := queueGraphQL(t, map[string][]string{
+				"GetNodeRaw": {codingRouterWithBody(flatRouterBody), codingRouterWithBody(flatRouterBody)},
+				"GetNode":    {target},
+				"ResolveUrn": {`{"data":{"resolveUrn":{"id":"n_target","kind":"node","memoryId":"mem2"}}}`},
+				"CreateEdge": {`{"data":{"createEdge":` + newRouteEdgeJSON + `}}`},
+				"UpdateNode": {`{"data":{"updateNode":` + newRouteNodeJSON + `}}`},
+			})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"coding", "preflight", "route", "hrn:node:acme.com:specs:tasks:mint",
+				"-m", codingMem, "--route", "mint a spec", "--description", "How to mint", "--server", gql.URL})
+			if err := root.Execute(); err != nil {
+				t.Fatalf("route should succeed, got %v", err)
+			}
+			if n := len(captured["GetMemory"]); n != 0 {
+				t.Errorf("a cross-memory label must not cost a GetMemory round trip, got %d", n)
+			}
+			var upd struct {
+				Input struct {
+					Content string `json:"content"`
+				} `json:"input"`
+			}
+			if len(captured["UpdateNode"]) == 0 {
+				t.Fatal("expected the body line to be written")
+			}
+			_ = json.Unmarshal(captured["UpdateNode"][0], &upd)
+			if !strings.Contains(upd.Input.Content, tc.want) {
+				t.Errorf("routing line should contain %q, got:\n%s", tc.want, upd.Input.Content)
+			}
+		})
 	}
 }
 

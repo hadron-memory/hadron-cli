@@ -3,12 +3,24 @@ fragment TickerFields on Ticker {
  id urn name slug app { id } cadenceSeconds anchorAt quietHours
  channels { id name } relevance reasons enabled owner { id name urn }
  nextTickAt lastTickAt createdAt updatedAt
+ tickCode registerTaskLoc
 }
 fragment TickerSubscriptionFields on TickerSubscription {
  id worker { id name urn } createdBy { id name urn } viaGrant createdAt endedAt endedReason
 }
 query ListTickers($appRef: String!) {
  tickers(appRef: $appRef) { ...TickerFields }
+}
+# cli#1339: tickersPage is the same App gate, rows and order as tickers, with the
+# real total. limit 0 is a count only; a limit over 200 is served as 200.
+query ListTickersPage(
+ $appRef: String!
+ # @genqlient(omitempty: true)
+ $limit: Int
+ # @genqlient(omitempty: true)
+ $offset: Int
+) {
+ tickersPage(appRef: $appRef, limit: $limit, offset: $offset) { total hasMore items { ...TickerFields } }
 }
 query GetTicker($ref: String!) {
  ticker(ref: $ref) { ...TickerFields }
@@ -53,4 +65,15 @@ mutation SubscribeTicker($tickerRef: String!, $workerRef: String!) {
 }
 mutation UnsubscribeTicker($tickerRef: String!, $workerRef: String!) {
  unsubscribeWorker(tickerRef: $tickerRef, workerRef: $workerRef) { subscription { ...TickerSubscriptionFields } announcement }
+}
+# #2096 repair (cli#1291): create the Agent's template tickers one worker is missing.
+mutation ApplyAgentTickerTemplates($workerRef: String!) {
+ applyAgentTickerTemplates(workerRef: $workerRef) {
+  created { ticker { ...TickerFields } template { id name } effectiveCadenceSeconds }
+  alreadyPresent { id name }
+ }
+}
+# The App's cadence floor, read only to label a created ticker made at it.
+query TickerAppFloor($appRef: String!) {
+ appTickerSettings(appRef: $appRef) { minCadenceSeconds }
 }

@@ -14,10 +14,17 @@ func newCmdSetActive(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:     "set-active <memoryRef>",
 		Aliases: []string{"use"},
-		Short:   "Set the default memory context for future invocations",
-		Long: `Set the default memory URN or ID stored in ~/.config/hadron/config.toml.
-Pass an empty string ("") to clear it. A single invocation can
-override the default with the global -m/--memory flag.`,
+		Short:   "Set the default memory for spec and coding commands",
+		Long: `Save a default memory in ~/.config/hadron/config.toml. Pass "" to clear it.
+
+Only the spec and coding commands use it, and only when you leave out their
+-m/--memory and nothing closer is set: spec commands first take a memory set
+with hadron spec use, coding commands first take the repository's own coding
+config. Other commands, such as node, edge and search, ignore it: give them -m
+or a full URN.
+
+To create a memory and make it the default: memory set --org <org> --name
+<name> prints the new URN; pass that URN here.`,
 		Example: `  hadron memory set-active hrn:mem:hadronmemory.com:dev
   hadron memory set-active hrn:mem:acme.com:kb
   hadron memory set-active ""  # clear the default`,

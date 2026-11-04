@@ -16,66 +16,78 @@ import (
 )
 
 func newCmdGet(f *cmdutil.Factory) *cobra.Command {
-	var memory, locPrefix string
+	var memory, locPrefix, install string
 	var raw, bodyOnly bool
 	cmd := &cobra.Command{
-		Use:   "get <node-urn>... | <loc>... -m <memory> | --prefix <loc> -m <memory>",
+		Use:   "get <node-urn>... | <loc>... (-m <memory> | --install <app>/<agent>) | --prefix <loc>",
 		Short: "Show one or more nodes, including content and edges",
-		Long: `Show a node by its fully-qualified URN: hrn:node:<root>:<slug>:<loc>
-(e.g. hrn:node:hadronmemory.com:dev:start-here). The prefix is REQUIRED for
-this flat form — scheme-less <org>:<memory>:<loc> is ambiguous, since a loc
-carries its own single colons. The legacy scheme-less <org>::<memory>::<loc>
-(and urn:node:) remain accepted. Pass -m/--memory to name a
-node by a bare <loc> within that memory instead; without -m a bare loc
-is rejected, since the same loc can exist in several memories.
+		Long: `Show a node: its name, content, data and edges. Name it by its URN, or by its
+loc (its path inside a memory, such as findings:flaky-ci) together with -m:
 
-Pass SEVERAL refs to read them together. They are sent as one batched read —
-the server takes a URN as happily as an id, so nothing is resolved first — and a
-ref that is missing or unreadable is reported under "unavailable" rather than
-failing the whole read. Up to 200 nodes that is a single content request; beyond the
-server's cap the set is split into as few requests as the cap allows.
+  hadron node get findings:flaky-ci -m hrn:mem:acme.com:kb
 
---prefix <loc> -m <memory> reads a whole subtree — every node whose loc starts
-with the prefix — in a SINGLE call, without naming each node. That is the way
-to pull a branch you have not enumerated, and unlike ` + "`node list`" + ` it
-returns full content and edges. An empty --prefix means the whole memory. The
-server caps the node count and fails loudly rather than truncating silently.
+A register entry also has an action URN, hrn:action:<root>:<agent-slug>:<code>,
+which names the same node and is accepted anywhere a node URN is (it needs no -m):
 
-With one ref the output is the node object, unchanged. With several refs, or
-with --prefix, it is {nodes, unavailable}. "unavailable" names refs that are
-missing OR not readable by you — the server reports those identically — and any
-unavailable ref exits 4, so a partial read is never mistaken for a complete one.
+  hadron node get hrn:action:hadronmemory.com:team-agent:task.finish.open-children
 
-Feedback counts are read separately as an optional advisory snapshot. The JSON
-commentSummary is null (text: unavailable) on older servers or failed reads,
-never a guessed zero. Feedback can change without advancing the target revision.
+A node URN is hrn:node:<root>:<memory>:<loc>. The hrn:node: prefix is required
+because a loc has colons of its own. The legacy <org>::<memory>::<loc> form is
+still accepted. A bare loc without -m (or --install) is refused, since the
+same loc can exist in several memories.
 
-A malformed ref is a different thing and fails the whole call with exit 2, so a
-typo never hides among the denials.
+To edit a node's content, read it with --body-only, edit the file, and write
+it back with node update --content-file:
 
-A server or transport failure is neither: it exits 1 (or 7 when the request
-never got an answer). Named because it is the code a caller is least likely to
-guess, and the one that means "this says nothing about whether the node
-exists" — #334 was filed after an intermittent 502 was read as missing data.
-Under --json the envelope explaining it is on stdout with the rest.
+  hadron node get findings:flaky-ci -m hrn:mem:acme.com:kb --body-only > body.md
+  hadron node update findings:flaky-ci -m hrn:mem:acme.com:kb --content-file body.md
 
-RENDERED OR RAW (#736). A single-ref read COMPILES the node's Mustache
-templates by default: every {{…}} placeholder is replaced by its value against
-the node's data, or by nothing when there is none. --raw returns the STORED
-body instead, placeholders intact. Batch and --prefix reads are always raw —
-the batch is a bulk SOURCE read for lint/audit/migration, and compiling per
-node would reintroduce the N+1 it removes — so --raw changes nothing there.
---json says which you hold: "rendered" is true only for a compiled body.
+--body-only prints the content exactly as stored and nothing else, so the
+round trip changes only what you edited. Do not save an ordinary read back
+into a node: it has filled in the content's placeholders (see Details), and
+the text form of --raw prints a header above the content.
 
-TO EDIT A NODE'S CONTENT, READ IT WITH --body-only (#873). It prints the STORED
-body and nothing else, byte for byte — no header, no trailing newline added
-when piped — so ` + "`node get <ref> --body-only > body.md`" + `, an edit, and
-` + "`node update <ref> --content-file body.md`" + ` round-trip exactly. Two other reads
-corrupt a body written back from them: a rendered read (no --raw) has already
-compiled away every {{…}} placeholder and {{=…=}} delimiter change, and the
-text-mode --raw read prints a metadata header above the body, which would be
-saved INTO it. --body-only implies --raw and takes one ref; with --json it is
-{id, urn, loc, content, rendered: false}.`,
+To read several nodes at once, pass several refs, or --prefix <loc> -m
+<memory> for every node whose loc starts with <loc> (an empty --prefix is the
+whole memory). Unlike node list, this returns full content and edges. The
+output is then {nodes, unavailable}.
+
+--json carries createdAt and createdByUser: the server's {handle, urn} for the
+user who created the node, or null. A null author means "not shown to you or
+not known" (for example, the node was written before authors were recorded),
+never "nobody". The text form prints a "created by:" line only when there is a
+handle or URN to show. The user behind a node's last edit is not shown here.
+
+Exit codes: 4 when the node is missing or you cannot read it (the server does
+not say which), and also when any ref of several is "unavailable", so a partial
+read is never mistaken for a complete one; 2 for a malformed ref, which fails
+the whole call so a typo is not mistaken for a missing node; 1 for a server or
+transport failure, or 7 when no answer arrived. Exit 1 and 7 say nothing about
+whether the node exists. With --json the error envelope is on stdout.
+
+Details:
+
+Rendered or raw. A node's content can hold template placeholders, written
+{{name}}, that are filled in from the node's data when it is read. A
+one-node read fills them in by default (a placeholder with no value becomes
+empty); --raw shows the content as stored, placeholders intact. Reads of
+several nodes or of a --prefix are always raw. In --json, "rendered" is true
+only when placeholders were filled in. With --json, --body-only prints
+{id, urn, loc, content, rendered: false}.
+
+Several nodes go in one request up to 200; a larger set is split into as few
+requests as the server allows. --prefix fails, rather than truncating, past the
+server's cap on nodes.
+
+Feedback counts (commentSummary in --json) come from a separate read: they are
+null (text: unavailable) when that read fails or the server is older, never a
+guessed zero.
+
+A node in an encrypted memory prints its stored ciphertext (enc:v1:...) unless
+you add --unlock <memory-ref> (a global flag; see hadron memory encrypt), which
+asks for that memory's passphrase for this one invocation.
+
+` + installReadDetails() + ``,
 		Example: `  hadron node get hrn:node:hadronmemory.com:dev:start-here
   hadron node get start-here -m hrn:mem:hadronmemory.com:dev --json
   hadron node get start-here preflight instructions -m hrn:mem:hadronmemory.com:dev --json
@@ -83,6 +95,13 @@ saved INTO it. --body-only implies --raw and takes one ref; with --json it is
   hadron node get tasks:start-worker-session -m hrn:mem:hadronmemory.com:core --raw --json
   hadron node get tasks:start-worker-session -m hrn:mem:hadronmemory.com:core --body-only > body.md`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if bodyOnly && wantsLintWarnings(cmd) {
+				return exitcode.Newf(exitcode.Usage, "--lint-warnings cannot be combined with --body-only")
+			}
+			target, err := installTarget(cmd, install, args)
+			if err != nil {
+				return err
+			}
 			prefixMode := cmd.Flags().Changed("prefix")
 			// The two forms are mutually exclusive server-side, so reject the
 			// combination here with a message that names both rather than
@@ -91,7 +110,7 @@ saved INTO it. --body-only implies --raw and takes one ref; with --json it is
 				return exitcode.Newf(exitcode.Usage,
 					"--prefix reads a subtree and cannot be combined with explicit node refs — drop one")
 			}
-			if prefixMode && strings.TrimSpace(memory) == "" {
+			if prefixMode && strings.TrimSpace(memory) == "" && target == nil {
 				return exitcode.Newf(exitcode.Usage, "--prefix needs -m/--memory hrn:mem:<root>:<slug> to scope the subtree")
 			}
 			if !prefixMode && len(args) == 0 {
@@ -106,6 +125,13 @@ saved INTO it. --body-only implies --raw and takes one ref; with --json it is
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
+			}
+
+			if target != nil {
+				memory, err = cmdutil.InstallMemoryRef(cmd.Context(), client, target)
+				if err != nil {
+					return err
+				}
 			}
 
 			// One ref keeps the single-node shape: that output is a stable
@@ -139,11 +165,26 @@ saved INTO it. --body-only implies --raw and takes one ref; with --json it is
 				// resolved here, and the raw spelling is ambiguous across
 				// memories (Andi's cycle-1 P2).
 				loadSignatureSummary(cmd.Context(), f, client, id, &dto)
+				dto.LintWarnings = loadLintWarnings(cmd, client, id)
 				return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 					return renderNodeDetail(w, dto)
 				})
 			}
 
+			// nodeBatch(refs:) takes ids and node URNs and refuses any other URN
+			// kind, which would fail the whole batch. An action URN is therefore
+			// resolved to its register node's id first; one that names nothing
+			// is reported unavailable, as an absent node ref is (#1138).
+			var absentActions []string
+			if !prefixMode {
+				args, absentActions, err = resolveActionRefs(cmd, client, args)
+				if err != nil {
+					return err
+				}
+				if len(args) == 0 {
+					return emitNodeBatch(f, nodeBatchDTO{Nodes: []nodeDetailDTO{}, Unavailable: absentActions})
+				}
+			}
 			sel, err := batchRevisionSelector(memory, locPrefix, args, prefixMode)
 			if err != nil {
 				return err
@@ -162,6 +203,7 @@ saved INTO it. --body-only implies --raw and takes one ref; with --json it is
 					dto.Nodes = append(dto.Nodes, batchDetailDTO(n))
 				}
 				dto.Unavailable = append(dto.Unavailable, unavailable...)
+				dto.Unavailable = append(dto.Unavailable, absentActions...)
 				ptrs := make([]*nodeDetailDTO, len(dto.Nodes))
 				for i := range dto.Nodes {
 					ptrs[i] = &dto.Nodes[i]
@@ -176,15 +218,20 @@ saved INTO it. --body-only implies --raw and takes one ref; with --json it is
 				ptrs[i] = &dto.Nodes[i]
 			}
 			loadCommentSummaries(cmd.Context(), f, client, ptrs)
+			for _, n := range ptrs {
+				n.LintWarnings = loadLintWarnings(cmd, client, n.ID)
+			}
 			return emitNodeBatch(f, dto)
 		},
 	}
+	cmd.Flags().StringVar(&install, "install", "", installFlagHelp)
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve a bare <loc> against")
 	cmd.Flags().StringVar(&locPrefix, "prefix", "", "read every node under this loc prefix in one call (needs -m; empty means the whole memory)")
 	cmd.Flags().BoolVar(&raw, "raw", false, "return the stored body with {{…}} placeholders intact, not the rendered one (to edit content, use --body-only)")
 	cmd.Flags().BoolVar(&bodyOnly, "body-only", false, "print only the stored body of one node, byte for byte — the read to edit from (implies --raw; alias: --content-only)")
 	// The spelling `spec get` already accepts (#99 item 5).
 	cmdutil.WithFlagAliases(cmd, map[string]string{"content-only": "body-only"})
+	enableLintWarnings(cmd, "--body-only")
 	return cmd
 }
 
@@ -242,6 +289,9 @@ func renderNodeDetail(w io.Writer, dto nodeDetailDTO) error {
 	if dto.URN != "" {
 		fmt.Fprintf(w, "  urn: %s\n", dto.URN)
 	}
+	if dto.ActionURN != "" {
+		fmt.Fprintf(w, "  action urn: %s\n", dto.ActionURN)
+	}
 	if dto.PortalURL != "" {
 		fmt.Fprintf(w, "  URL: %s\n", dto.PortalURL)
 	}
@@ -271,6 +321,11 @@ func renderNodeDetail(w io.Writer, dto nodeDetailDTO) error {
 		fmt.Fprintf(w, "  tags: %v\n", dto.Tags)
 	}
 	fmt.Fprintf(w, "  updated: %s\n", dto.UpdatedAt)
+	// hadron-cli#1513: only a printable author prints; null and an empty object
+	// print nothing (never "nobody"/"unknown"), and --json carries the object.
+	if by := dto.CreatedByUser.Display(256); by != "" {
+		fmt.Fprintf(w, "  created by: %s\n", by)
+	}
 	if dto.Revision != nil {
 		fmt.Fprintf(w, "  revision: %d\n", *dto.Revision)
 	} else {
@@ -303,6 +358,9 @@ func renderNodeDetail(w io.Writer, dto nodeDetailDTO) error {
 		for _, e := range dto.IncomingEdges {
 			fmt.Fprintf(w, "    ← %s (%s)\n", e.Loc, edgeRel(e))
 		}
+	}
+	if err := renderLintWarnings(w, dto.LintWarnings); err != nil {
+		return err
 	}
 	if dto.Content != nil && *dto.Content != "" {
 		if !dto.Rendered {
@@ -359,6 +417,7 @@ func detailDTO(n *gen.GetNodeNode) nodeDetailDTO {
 			// keeps an absent one out of the --json shape (omitempty) rather
 			// than emitting "".
 			URN:        n.Urn,
+			ActionURN:  strVal(n.ActionUrn),
 			PortalURL:  strVal(n.PortalUrl),
 			MemoryID:   n.MemoryId,
 			Loc:        n.Loc,
@@ -399,6 +458,9 @@ func detailDTO(n *gen.GetNodeNode) nodeDetailDTO {
 		}
 		dto.IncomingEdges = append(dto.IncomingEdges,
 			edgeRefOf(e.Id, e.Name, e.Loc, e.IsRunnable, e.Priority, sid, sloc, smem))
+	}
+	if u := n.CreatedByUser; u != nil {
+		dto.CreatedByUser = cmdutil.NewAttribution(u.Handle, u.Urn)
 	}
 	return dto
 }
@@ -683,11 +745,28 @@ func liveRevisions(cmd *cobra.Command, client graphql.Client, sel revisionSelect
 		}
 		return resp.NodeBatch, nil
 	}
+	// byRefs reads the revisions of refs, following a truncated answer through
+	// its omitted refs until none remain (#1185): the server caps a nodeBatch
+	// response by content bytes whatever the query selects, so a revision-only
+	// read of several large nodes comes back truncated, and a node it left out
+	// is not a node that changed. A pass that omits as many refs as it was
+	// asked for read nothing, and repeating it would never end.
 	byRefs := func(refs []string) error {
 		for start := 0; start < len(refs); start += api.NodeBatchCap {
 			end := min(start+api.NodeBatchCap, len(refs))
-			if _, err := ask(refs[start:end], nil, nil); err != nil {
-				return err
+			pending := refs[start:end]
+			for len(pending) > 0 {
+				r, err := ask(pending, nil, nil)
+				if err != nil {
+					return err
+				}
+				if r == nil || !r.Truncated || len(r.Omitted) == 0 {
+					break
+				}
+				if len(r.Omitted) >= len(pending) {
+					return exitcode.Newf(exitcode.Error, "the server made no progress reading node revisions: it left out all %d requested nodes", len(pending))
+				}
+				pending = r.Omitted
 			}
 		}
 		return nil

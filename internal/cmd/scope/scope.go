@@ -318,11 +318,11 @@ func resolveScopeID(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clien
 func writeScope(f *cmdutil.Factory, d scopeDTO) error {
 	return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
 		t := output.NewTable(w, "FIELD", "VALUE")
-		t.Row("id", d.ID)
-		t.Row("name", d.Name)
-		t.Row("owner", d.OwnerType+" "+ownerLabel(d.OwnerURN, d.OwnerID))
+		t.Row("id", output.SafeCell(d.ID))
+		t.Row("name", output.SafeCell(d.Name))
+		t.Row("owner", output.SafeCell(d.OwnerType+" "+ownerLabel(d.OwnerURN, d.OwnerID)))
 		if d.Description != nil && *d.Description != "" {
-			t.Row("description", *d.Description)
+			t.Row("description", output.SafeCell(*d.Description))
 		}
 		t.Row("memories", itoa(d.MemoryCount))
 		if err := t.Flush(); err != nil {
@@ -331,7 +331,7 @@ func writeScope(f *cmdutil.Factory, d scopeDTO) error {
 		if len(d.Memories) > 0 {
 			mt := output.NewTable(w, "#", "URN", "NAME")
 			for _, m := range d.Memories {
-				mt.Row(itoa(m.Position), m.URN, m.Name)
+				mt.Row(itoa(m.Position), output.SafeCell(m.URN), output.SafeCell(m.Name))
 			}
 			if err := mt.Flush(); err != nil {
 				return err

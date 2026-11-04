@@ -133,14 +133,30 @@ func dtoFromWarning(w *gen.MemoryConfigWarningFields) configWarningDTO {
 func newCmdConfig(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config <command>",
-		Short: "Inspect and change a memory's config (its node-role rules)",
-		Long: `A memory's config holds its node-role rules: one per role or declared
-sub-role, each naming the tasks that author and validate nodes of that role,
-who may write them, and whether undeclared sub-roles are refused.
+		Short: "Set rules for how nodes of a role are written and checked in a memory",
+		Long: `Set rules for how nodes of one role are written and checked in a memory. A
+node's role (node create --role) says what the node is for in a governed
+workflow, such as spec or review; a sub-role adds a dot, as in spec.rule.
+Use a rule when one kind of node must be written and checked the same way
+every time, as product specs are.
+
+A rule for a role can name:
+  - the runnable task that writes such nodes (--author-task) and the one that
+    checks them (--validation-task); see hadron task run
+  - who may write them: all, admin or owner (--writers)
+  - whether a sub-role must have its own rule (--strict-sub-roles); otherwise
+    spec.rule falls back to the rule for spec
+
+config get shows a memory's rules; config rule adds, changes and removes them.
+A template is a named set of rules you copy into several memories with
+config template apply.
 
 Only the memory's managers can read or change it: the owner of a personal or
 private memory, otherwise its user owner or an org ADMIN/OWNER. Anyone else
 gets the same answer as for a memory that does not exist (exit 4).`,
+		Example: `  hadron memory config get hrn:mem:acme.com:kb
+  hadron memory config rule add hrn:mem:acme.com:kb spec --writers admin
+  hadron memory config template apply tmpl_123 hrn:mem:acme.com:kb --dry-run`,
 	}
 	cmd.AddCommand(newCmdConfigGet(f))
 	cmd.AddCommand(newCmdConfigRule(f))

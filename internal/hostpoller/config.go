@@ -27,6 +27,8 @@ import (
 // environment variable, which a same-user agent could read from the
 // poller's /proc entry.
 type Config struct {
+	// Capabilities is an explicit full declaration at every refresh, never inferred.
+	Capabilities []string `yaml:"capabilities"`
 	// Server is the Hadron server URL; empty means the CLI's usual resolution.
 	Server string `yaml:"server"`
 	// App is the team App the host serves (hrn:app:<root>:<slug>, or an id).
@@ -50,6 +52,21 @@ type Config struct {
 	// Workers maps a worker reference (its name in the App, URN or id) to
 	// how this host runs it.
 	Workers map[string]WorkerConfig `yaml:"workers"`
+	// Delivery turns on chat delivery into this host's Orca terminals
+	// (cli#907). Absent, the poller carries out host operations only.
+	Delivery DeliveryConfig `yaml:"delivery"`
+}
+
+// DeliveryConfig is chat delivery's part of a host configuration.
+type DeliveryConfig struct {
+	// Enabled turns delivery on. The host key then also needs
+	// attention:deliver; without it delivery switches off for the run.
+	Enabled bool `yaml:"enabled"`
+	// AckMixed asserts that the server carries A-prime (#2072): mixed wake
+	// acknowledgment records ticks/tasks without advancing any chat mark.
+	AckMixed bool `yaml:"ack_mixed"`
+	// OrcaBin is the absolute path of the orca CLI.
+	OrcaBin string `yaml:"orca_bin"`
 }
 
 // WorkerConfig is one worker this host can launch.
@@ -65,9 +82,56 @@ type WorkerConfig struct {
 	// EndWait bounds how long worker.end waits for the session to end
 	// (default 15m).
 	EndWait string `yaml:"end_wait"`
+	// Recover is an optional argv that hands a relaunched agent its recovery
+	// prompt after a worker.reset-context (#1043), the way End prompts an
+	// end. It gets HADRON_SESSION_ID, HADRON_WORKER_ID and
+	// HADRON_RECOVERY_NODE (the checkpoint node's reference): ids only. A
+	// worker without it is never reset on this host.
+	Recover []string `yaml:"recover"`
 	// Worktrees are this worker's existing worktree name tokens, relative to
 	// worktrees_root, beyond the ones this poller created.
 	Worktrees []string `yaml:"worktrees"`
+	// TUI is the agent interface its terminal shows, claude or codex, when
+	// the model family does not say (a glm worker runs in Claude Code).
+	// Delivery holds a terminal that shows anything else.
+	TUI string `yaml:"tui"`
+}
+
+// familyAliases are the provider names the server folds into the family a
+// host actually runs (hadron-server#2217): one identity per family, so a host
+// configured `openai` and an operation naming `codex` are the same family.
+var familyAliases = map[string]string{"anthropic": "claude", "openai": "codex"}
+
+// CanonicalFamily is the server's identity for an EXPLICIT family: trimmed,
+// lowercased, and a provider alias folded to its family. Every other token is
+// itself, so a custom family compares only to itself. It never infers a
+// family from a title or a model and does not validate: an empty or malformed
+// result is not a launch identity and callers must refuse it (familyRE).
+func CanonicalFamily(s string) string {
+	f := strings.ToLower(strings.TrimSpace(s))
+	if canon, ok := familyAliases[f]; ok {
+		return canon
+	}
+	return f
+}
+
+// SameFamily reports whether two explicit families are one launch identity.
+// An empty or malformed family is never one, even against itself.
+func SameFamily(a, b string) bool {
+	ca := CanonicalFamily(a)
+	return familyRE.MatchString(ca) && ca == CanonicalFamily(b)
+}
+
+// tui is the interface delivery expects: the configured one, else a family
+// that names its own interface, else "" (the screen and Orca must agree).
+func (w WorkerConfig) tui() string {
+	if w.TUI != "" {
+		return w.TUI
+	}
+	if f := CanonicalFamily(w.Family); f == "claude" || f == "codex" {
+		return f
+	}
+	return ""
 }
 
 const (
@@ -104,6 +168,26 @@ func LoadConfig(path string) (*Config, error) {
 	if err := dec.Decode(&c); err != nil {
 		return nil, fmt.Errorf("parsing host config %s: %w", path, err)
 	}
+	// Inspect the source node as well: yaml.v3 accepts legacy bool strings and
+	// treats null as an omitted bool. Neither is an operator's explicit assertion.
+	var document yaml.Node
+	if err := yaml.Unmarshal(raw, &document); err != nil {
+		return nil, err
+	}
+	if err := yamlField(&document, "delivery", map[*yaml.Node]bool{}, func(delivery *yaml.Node) error {
+		return yamlField(delivery, "ack_mixed", map[*yaml.Node]bool{}, func(value *yaml.Node) error {
+			for value.Kind == yaml.AliasNode {
+				value = value.Alias
+			}
+			if value.Tag != "!!bool" {
+				return fmt.Errorf("delivery.ack_mixed at line %d must be a boolean", value.Line)
+			}
+			return nil
+		})
+	}); err != nil {
+		return nil, fmt.Errorf("host config %s: %w", path, err)
+	}
+
 	dir := filepath.Dir(path)
 	if c.StateFile == "" {
 		c.StateFile = filepath.Join(dir, "hadron-host-state.json")
@@ -117,6 +201,40 @@ func LoadConfig(path string) (*Config, error) {
 		return nil, fmt.Errorf("host config %s: %w", path, err)
 	}
 	return &c, nil
+}
+
+// yamlField visits a field through ordinary YAML aliases and merge mappings,
+// without replacing the normal KnownFields decoder or duplicating struct tags.
+func yamlField(n *yaml.Node, field string, seen map[*yaml.Node]bool, visit func(*yaml.Node) error) error {
+	if n == nil || seen[n] {
+		return nil
+	}
+	seen[n] = true
+	switch n.Kind {
+	case yaml.AliasNode:
+		return yamlField(n.Alias, field, seen, visit)
+	case yaml.DocumentNode, yaml.SequenceNode:
+		for _, child := range n.Content {
+			if err := yamlField(child, field, seen, visit); err != nil {
+				return err
+			}
+		}
+	case yaml.MappingNode:
+		for i := 0; i+1 < len(n.Content); i += 2 {
+			key, value := n.Content[i], n.Content[i+1]
+			if key.Value == field {
+				if err := visit(value); err != nil {
+					return err
+				}
+			}
+			if key.Tag == "!!merge" {
+				if err := yamlField(value, field, seen, visit); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (c *Config) validate() error {
@@ -174,6 +292,9 @@ func (c *Config) validate() error {
 				errs = append(errs, fmt.Sprintf("worker %q: end_wait %q is not a positive duration", ref, w.EndWait))
 			}
 		}
+		if w.TUI != "" && w.TUI != "claude" && w.TUI != "codex" {
+			errs = append(errs, fmt.Sprintf("worker %q: tui %q must be claude or codex", ref, w.TUI))
+		}
 		if len(w.Worktrees) > 32 {
 			errs = append(errs, fmt.Sprintf("worker %q: at most 32 worktrees", ref))
 		}
@@ -183,11 +304,23 @@ func (c *Config) validate() error {
 			}
 		}
 	}
+	if c.Delivery.Enabled {
+		switch {
+		case c.Delivery.OrcaBin == "":
+			errs = append(errs, "delivery.orca_bin is required when delivery is enabled")
+		case !filepath.IsAbs(c.Delivery.OrcaBin):
+			errs = append(errs, "delivery.orca_bin must be an absolute path")
+		}
+	}
 	if len(errs) > 0 {
 		return errors.New(strings.Join(errs, "; "))
 	}
 	return nil
 }
+
+// DeliveryStateDir holds delivery's records and per-worker locks: beside the
+// state file, where C2's --orca-host-config finds the same locks.
+func (c *Config) DeliveryStateDir() string { return filepath.Dir(c.StateFile) }
 
 // WorkerRefs lists the configured worker references in a stable order.
 func (c *Config) WorkerRefs() []string {
@@ -242,4 +375,32 @@ func (c *Config) ReadHostKey() (string, error) {
 // WorktreePath is the absolute path of a worktree name token.
 func (c *Config) WorktreePath(token string) string {
 	return filepath.Join(c.WorktreesRoot, filepath.FromSlash(token))
+}
+
+// CheckWorktreeAliases refuses two workers whose worktrees, configured or
+// created by this poller, name one directory under different tokens
+// (cli#906). validate already refuses one token listed twice; a symlink
+// gives one directory a second token. A tree that does not exist yet is
+// compared by its cleaned path only. One worker's own aliases are allowed.
+func (c *Config) CheckWorktreeAliases(s *State) error {
+	type claim struct{ ref, token string }
+	owner := map[string]claim{}
+	var errs []string
+	for _, ref := range c.WorkerRefs() {
+		for _, token := range s.worktreesFor(ref, c.Workers[ref].Worktrees) {
+			dir := filepath.Clean(c.WorktreePath(token))
+			if real, err := filepath.EvalSymlinks(dir); err == nil {
+				dir = real
+			}
+			if o, taken := owner[dir]; taken && o.ref != ref {
+				errs = append(errs, fmt.Sprintf("worktrees %q (%s) and %q (%s) are one directory: a worktree belongs to one worker", o.token, o.ref, token, ref))
+				continue
+			}
+			owner[dir] = claim{ref, token}
+		}
+	}
+	if len(errs) > 0 {
+		return errors.New(strings.Join(errs, "; "))
+	}
+	return nil
 }

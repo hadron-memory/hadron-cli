@@ -20,6 +20,10 @@ type memoryDetailDTO struct {
 	Tags               []string         `json:"tags"`
 	Source             *string          `json:"source"`
 	SyncStatus         string           `json:"syncStatus"`
+	LastSyncedAt       *string          `json:"lastSyncedAt"`
+	SyncError          *string          `json:"syncError"`
+	SyncReport         *syncReportDTO   `json:"syncReport"`
+	SyncReportStatus   string           `json:"syncReportStatus"`
 	VectorIndexEnabled bool             `json:"vectorIndexEnabled"`
 	Schema             *json.RawMessage `json:"schema,omitempty"`
 	CreatedAt          string           `json:"createdAt"`
@@ -29,7 +33,16 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <memoryRef>",
 		Short: "Show a memory",
-		Args:  cobra.ExactArgs(1),
+		Long: `Show a memory's settings: name, URN, class, organization, description,
+tags, how many versions each node keeps, marketplace listing, schema and when
+it last changed.
+
+It does not list who has access. For that, use memory member list (group
+members), memory share list (people you shared it with) and memory
+subscription list (organizations). To see its nodes, use node list -m.`,
+		Example: `  hadron memory get hrn:mem:acme.com:project-kb
+  hadron memory get acme.com:project-kb --json`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := validateMemoryRef(args[0]); err != nil {
 				return err
@@ -41,7 +54,7 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 			// memory(ref:) dispatches PKs and URNs server-side
 			// (hadron-server#473); normalize a bare org::slug / org:slug into the
 			// canonical URN first so the short forms resolve consistently (#108).
-			resp, err := gen.GetMemory(cmd.Context(), client, cmdutil.CanonicalMemoryRef(args[0]))
+			resp, err := gen.GetMemoryDetail(cmd.Context(), client, cmdutil.CanonicalMemoryRef(args[0]))
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -66,6 +79,8 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 				Tags:               m.Tags,
 				Source:             m.Source,
 				SyncStatus:         string(m.SyncStatus),
+				LastSyncedAt:       m.LastSyncedAt,
+				SyncError:          maskSyncError(m.SyncError),
 				VectorIndexEnabled: m.VectorIndexEnabled,
 				Schema:             m.Schema,
 				CreatedAt:          m.CreatedAt,
@@ -74,6 +89,7 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 				v := string(*m.Visibility)
 				dto.Visibility = &v
 			}
+			dto.SyncReport, dto.SyncReportStatus = parseSyncReport(m.LastSyncReport)
 			listed := m.ListedOnMarketplace
 			dto.ListedOnMarketplace = &listed
 
@@ -95,6 +111,9 @@ func newCmdGet(f *cmdutil.Factory) *cobra.Command {
 					if schemaStr := string(*dto.Schema); schemaStr != "null" {
 						fmt.Fprintf(w, "  schema: %s\n", schemaStr)
 					}
+				}
+				if hasSyncHistory(dto, m.LastSyncReport) {
+					writeSyncBlock(w, dto)
 				}
 				fmt.Fprintf(w, "  updated: %s\n", dto.UpdatedAt)
 				return nil

@@ -17,7 +17,8 @@ query GetSpecNodeForEdit($ref: ID!) {
     description
     tags
     role
-    content
+    # Explicit, not the default (cli#916 C3a): the stored body is what spec edit writes back.
+    content(raw: true)
     abstract
     abstractOriginHash
     revision

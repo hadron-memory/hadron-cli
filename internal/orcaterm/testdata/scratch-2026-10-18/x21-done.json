@@ -1,0 +1,27 @@
+{
+ "id": "scratch",
+ "ok": true,
+ "result": {
+  "terminal": {
+   "handle": "term_00000000-0000-0000-0000-000000000000",
+   "status": "running",
+   "tail": [
+    "  >_ OpenAI Codex (v0.163.0)",
+    "     ~/orca/workspaces/hadron-cli/joshua-907-scratch",
+    "› SCRATCH-907 test: reply with exactly the word ok, run no commands",
+    "• ok",
+    "  Worked for 1s • 11:18 PM",
+    "› Ask Codex to do anything",
+    "  GPT-6.1-Sol default · ~/orca/workspaces/hadron-cli/joshua-907-scratch · Reply with exactly ok",
+    "  ? for shortcuts"
+   ],
+   "truncated": false,
+   "limited": false,
+   "oldestCursor": "0",
+   "nextCursor": "9",
+   "latestCursor": "9",
+   "returnedLineCount": 8,
+   "source": "screen"
+  }
+ }
+}

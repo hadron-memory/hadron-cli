@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"runtime"
 	"strings"
 
 	"github.com/Khan/genqlient/graphql"
@@ -78,13 +79,12 @@ type roleDTO struct {
 	RoleAgentID        *string `json:"roleAgentId"`
 	RoleAgentURN       *string `json:"roleAgentUrn"`
 	RoleAgentName      *string `json:"roleAgentName"`
-	HasNamePlaceholder *bool   `json:"hasNamePlaceholder"`
+	HasNamePlaceholder *bool   `json:"hasNamePlaceholder"` // Retired S12 probe; retained as null for JSON compatibility.
 }
 
 func roleDTOFromFields(r gen.TeamRoleFields) roleDTO {
 	dto := roleDTO{
 		Role: r.Role, Loc: r.Loc, NodeID: r.NodeId, Description: r.Description,
-		HasNamePlaceholder: r.HasNamePlaceholder,
 	}
 	if r.RoleAgent != nil {
 		dto.RoleAgentID, dto.RoleAgentURN, dto.RoleAgentName = &r.RoleAgent.Id, &r.RoleAgent.Urn, &r.RoleAgent.Name
@@ -143,6 +143,10 @@ func newCmdRoleList(f *cmdutil.Factory) *cobra.Command {
 		Long: `List the App's role definitions. --team-agent disambiguates when more than
 one installed agent carries a roles: branch.
 
+Role warning names use bounded, control-free display text. A role-create
+suggestion is omitted if display changes its argument; use app agent list
+<app> --json for the original installed persona role.
+
 This used to answer "which names are still free", the question to ask
 immediately before casting. There is no register to answer it from
 (hadron-server#1050) — a cast now takes an explicit --name, and the roster
@@ -178,15 +182,10 @@ names) is what says whether one is already taken.`,
 				}
 				t := output.NewTable(w, "ROLE", "DESCRIPTION", "AGENT")
 				for _, r := range roles {
-					t.Row(r.Role, dash(r.Description), dash(r.RoleAgentName))
+					t.Row(output.SafeCell(r.Role), output.SafeCell(dash(r.Description)), output.SafeCell(dash(r.RoleAgentName)))
 				}
 				if err := t.Flush(); err != nil {
 					return err
-				}
-				for _, r := range roles {
-					if r.HasNamePlaceholder != nil && !*r.HasNamePlaceholder {
-						fmt.Fprintf(w, "! role %s: the role-agent's prompt template never binds {{name}} — its workers would be nameless in their own briefing\n", r.Role)
-					}
 				}
 				// The silent-divergence warnings (#542). A role name is coupled
 				// to an agent's personaRole by string equality alone, and
@@ -241,7 +240,7 @@ func emitRoleConsistencyWarnings(w io.Writer, roles []roleDTO, members []approst
 	}
 	for _, r := range roles {
 		if count[strings.ToLower(r.Role)] == 0 {
-			fmt.Fprintf(w, "! role %s: no installed agent carries this persona role — the definition documents a role nobody holds\n", r.Role)
+			fmt.Fprintf(w, "! role %s: no installed agent carries this persona role — the definition documents a role nobody holds\n", output.SafeCell(r.Role))
 		}
 	}
 	if !reverseOK {
@@ -256,8 +255,8 @@ func emitRoleConsistencyWarnings(w io.Writer, roles []roleDTO, members []approst
 			continue
 		}
 		if !defined[strings.ToLower(*m.PersonaRole)] {
-			fmt.Fprintf(w, "! agent %s (persona role %q): no matching role definition — create one with `hadron team role create %s`\n",
-				m.AgentName, *m.PersonaRole, *m.PersonaRole)
+			fmt.Fprintf(w, "! agent %s (persona role %q): no matching role definition — %s\n",
+				output.SafeCell(m.AgentName), output.SafeCell(*m.PersonaRole), roleDefinitionHint(*m.PersonaRole, runtime.GOOS))
 		}
 	}
 }
@@ -301,9 +300,6 @@ func newCmdRoleGet(f *cmdutil.Factory) *cobra.Command {
 						fmt.Fprintf(w, "  role agent: %s (%s) — the prompt template lives there (`agent get`)\n", *dto.RoleAgentName, *dto.RoleAgentURN)
 					} else {
 						fmt.Fprintf(w, "  role agent: — (no single installed agent carries this persona role)\n")
-					}
-					if dto.HasNamePlaceholder != nil && !*dto.HasNamePlaceholder {
-						fmt.Fprintf(w, "  ! the role-agent's prompt template never binds {{name}} — its workers would be nameless in their own briefing\n")
 					}
 					return nil
 				})
@@ -356,8 +352,8 @@ existing role refuses (TEAM_ROLE_EXISTS); ` + "`role update`" + ` is the edit pa
 --names, --name-range, --name-convention and --allow-out-of-range are gone
 (hadron-server#1050): there is no name register for them to describe.
 
-The prompt TEMPLATE is not here either: it is the role AGENT's systemPrompt
-(` + "`agent create/update --system-prompt`" + `). Authorization is the
+The boot prompt is compiled from boot:source in the Agent system memory
+(use hadron agent compile and hadron node approve). Authorization is the
 Team Agent's definition-edit gate — whoever may write its system memory.`,
 		Example: `  hadron team role create backend-engineer --description "Go services" --app acme.com:eng-team`,
 		Args:    cobra.ExactArgs(1),

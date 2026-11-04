@@ -1,0 +1,63 @@
+# Standing action-policy chain (cor:acl:040:02, server #510; CLI #1343).
+
+# Explain the org / user / app chain for one action: which layer denies it.
+# Org ADMIN on the App's org.
+query EffectiveActionPolicy(
+  $action: String!
+  $appRef: String!
+  # @genqlient(omitempty: true)
+  $userRef: String
+) {
+  effectiveActionPolicy(action: $action, appRef: $appRef, userRef: $userRef) {
+    allowed
+    layers {
+      layer
+      present
+      allowed
+      allow
+    }
+  }
+}
+
+# Author the caller's own user-layer link. $policy is deliberately NOT
+# omitempty: it is the only argument, and nil sends null, which clears it.
+mutation UpdateMyPolicy($policy: JSON) {
+  updateMyPolicy(policy: $policy) {
+    id
+    handle
+    policy
+  }
+}
+
+fragment QuotaCounterFields on QuotaCounter {
+  id
+  scopeKind
+  scopeId
+  action
+  window
+  used
+  limit
+  resetAt
+}
+
+# Quota counters (server #510): usage vs limit for an org, plus one App's rows
+# when appRef is given. Org ADMIN. Rows materialize on first view.
+query QuotaCounters(
+  $orgRef: String!
+  # @genqlient(omitempty: true)
+  $appRef: String
+) {
+  quotaCounters(orgRef: $orgRef, appRef: $appRef) {
+    ...QuotaCounterFields
+  }
+}
+
+# Set the stored (enforced) limit for a scope x action. Org ADMIN.
+# @genqlient(for: "SetQuotaLimitInput.appRef", omitempty: true)
+mutation SetQuotaLimit(
+  $input: SetQuotaLimitInput!
+) {
+  setQuotaLimit(input: $input) {
+    ...QuotaCounterFields
+  }
+}

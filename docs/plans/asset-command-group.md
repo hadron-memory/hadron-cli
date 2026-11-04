@@ -117,7 +117,10 @@ warning on stderr (so it does not).
 A null `publicUrl` is an **error with a reason**, exit 5 — not an empty line a
 script would consume as a URL. The reason distinguishes the causes the caller
 can act on (scan PENDING → wait; BLOCKED → never) from the ones they cannot
-(encrypted memory, no configured origin).
+(encrypted memory, no configured origin). Since CLI #897, the listing and URL
+read-back also report stored public-link opt-in and deployment availability;
+null is never used to infer that the opt-in is off. `asset public-link --on|--off`
+changes only the server-owned policy, with confirmation for ON.
 
 The exit lives **outside** the human-render callback. Review caught that
 `output.Write` never invokes that callback in `--json` mode, so the first

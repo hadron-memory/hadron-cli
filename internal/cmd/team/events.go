@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	teamEventsDefaultLimit = 50
+	teamEventsDefaultLimit = 20
 	// teamEventPageCap is the server's clampListTake ceiling; a larger
 	// --limit would be silently clamped, so the CLI refuses it instead and
 	// names the boundary (cycle 1, Diego P2-2).
@@ -40,8 +40,11 @@ func newCmdTeamEvents(f *cmdutil.Factory) *cobra.Command {
 		Short: "The team App's task-work event stream",
 		Long: `Read the team App's append-only stream of task work — task.created,
 task.assigned, task.started, task.progress, task.finished, task.cancelled,
-the stall alarms, availability.changed and the assignment/host events. The
-payload carries ids, counts and outcome words only, never message text.
+task-stall alarms (stall.not-started, stall.no-progress, stall.owner-unreactive,
+assignment.unassignable and stall.finish-by), dark-worker and coordinator-cadence
+alarms, availability.changed, the
+assignment/host events and app.properties-changed (whose payload names the
+changed top-level keys, never values). The payload carries ids, counts and outcome words only, never message text.
 
 ORDER, so nobody is surprised by page one: the stream reads OLDEST-FIRST
 from the beginning of the App (the server's order, (createdAt, id)). Narrow
@@ -49,7 +52,9 @@ with --since (strictly after an RFC 3339 time) and page FORWARD with --after
 <the last event id you read>. When a page comes back full, the receipt names
 the exact --after that continues it.
 
---alarms keeps alarm events only; --task and --type filter further.
+--alarms keeps alarm events only; --task and --type filter further. Task-less
+coordinator-cadence alarms show coordinator <name> in the TASK cell; no payload
+reason or evidence is added. A missing subject stays —.
 --limit takes 1 to ` + strconv.Itoa(teamEventPageCap) + ` — the server's page cap; above it the request is clamped silently, so the CLI refuses it instead.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -100,11 +105,13 @@ the exact --after that continues it.
 							ack = "open"
 						}
 					}
-					task := "—"
+					var task string
 					if e.TaskID != nil {
 						task = *e.TaskID
+					} else {
+						task = tasklessAlarmCell(e)
 					}
-					t.Row(e.ID, e.CreatedAt, e.Type, eventActorCell(e), task, ack)
+					t.Row(output.SafeCell(e.ID), output.SafeCell(e.CreatedAt), output.SafeCell(e.Type), output.SafeCell(eventActorCell(e)), output.SafeCell(task), output.SafeCell(ack))
 				}
 				if err := t.Flush(); err != nil {
 					return err
@@ -160,14 +167,45 @@ func eventActorCell(e teamEventDTO) string {
 	return partyCell(e.Actor)
 }
 
+// Task-less alarm metadata is server-owned. Only known reason words reach
+// human output; evidence and arbitrary payload strings remain JSON-only.
+func tasklessAlarmCell(e teamEventDTO) string {
+	if e.SubjectWorker == nil {
+		return "—"
+	}
+	switch e.Type {
+	case "alarm.coordinator-cadence":
+		// The reason repeats the type, and hidden evidence may be absent.
+		// Render only the server's subject, never a payload-derived string.
+		return "coordinator " + partyCell(e.SubjectWorker)
+	case "alarm.dark-worker":
+		// Only this alarm uses the fixed reason vocabulary below.
+	default:
+		return "—"
+	}
+	cell := "worker " + partyCell(e.SubjectWorker)
+	var p struct {
+		Reason string `json:"reason"`
+	}
+	if json.Unmarshal(e.Payload, &p) == nil {
+		switch p.Reason {
+		case "overdue", "wake-unacked":
+			cell += " (" + p.Reason + ")"
+		}
+	}
+	return cell
+}
+
 // ---- alarm ack ------------------------------------------------------------
 
 func newCmdTeamAlarm(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "alarm <command>",
-		Short: "A team App's stall alarms",
-		Long: `Stall alarms — the events that wake a task's owner chain
-(cor:agt:050:19). See them with ` + "`team events --alarms`" + `.`,
+		Short: "A team App's task-stall, dark-worker and coordinator-cadence alarms",
+		Long: `Task-stall, dark-worker and coordinator-cadence alarms — events that wake an owner chain
+(cor:agt:050:19). Task stall kinds include stall.not-started, stall.no-progress,
+stall.owner-unreactive, assignment.unassignable and stall.finish-by. The finish-by alarm
+uses the task deadline instead of ordinary stall windows. See them with ` + "`team events --alarms`" + `.`,
 	}
 	cmd.AddCommand(newCmdTeamAlarmAck(f))
 	return cmd
@@ -178,7 +216,12 @@ func newCmdTeamAlarmAck(f *cmdutil.Factory) *cobra.Command {
 		Use:   "ack <eventId>",
 		Short: "Acknowledge an alarm",
 		Long: `Acknowledge an alarm (cor:agt:050:20): it stops waking higher
-owners — the stall episode itself goes on until the task moves. Any owner in
+owners; it does not end the alarm episode. A coordinator-cadence alarm names
+its coordinator, without printing payload reasons or evidence. A finish-by episode ends when the
+task finishes or is cancelled, or its finish-by value changes or is cleared;
+starting or assigning the task does not end that episode. A dark-worker
+episode ends when the worker is checking again and has no unacknowledged
+wake older than the alarm window. Any owner in
 the alarm's chain may; the time is the server's. The first acknowledgement
 stands (ALARM_ALREADY_ACKNOWLEDGED names the refusal).`,
 		Args: cobra.ExactArgs(1),
@@ -203,6 +246,11 @@ stands (ALARM_ALREADY_ACKNOWLEDGED names the refusal).`,
 				}
 				if event.TaskID != nil {
 					if _, err := fmt.Fprintf(w, " on task %s", *event.TaskID); err != nil {
+						return err
+					}
+				}
+				if event.TaskID == nil && (event.Type == "alarm.dark-worker" || event.Type == "alarm.coordinator-cadence") && event.SubjectWorker != nil {
+					if _, err := fmt.Fprintf(w, " on %s", output.SafeCell(tasklessAlarmCell(event))); err != nil {
 						return err
 					}
 				}

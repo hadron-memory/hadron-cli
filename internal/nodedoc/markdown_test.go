@@ -131,7 +131,7 @@ func TestBuildEdgeEntries(t *testing.T) {
 }
 
 // TestParseMarkdown is the inverse of render: header fields, the self-describing
-// keys, edges, and a trimmed body.
+// keys, edges, and a body with its framing removed.
 func TestParseMarkdown(t *testing.T) {
 	src := `---
 name: Flaky CI

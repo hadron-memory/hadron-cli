@@ -35,6 +35,14 @@ func newCmdRead(f *cmdutil.Factory) *cobra.Command {
 		Long: `Read chat messages in one call, newest-tracking by the server-assigned seq.
 Pass --since <seq> to get only messages after that seq; omit it (or --since 0)
 for the whole history. The response's nextSince is the seq to pass next turn.
+With no --node (or -m + --messages-loc) it reads the configured chat: flag,
+then HADRON_CHAT_*, then "chat" in .hadron/config.json, a node URN beating the
+two-field form; "chat config show" prints which one is in use and "chat doctor"
+checks it. This command does not change any stored read position; for recent-only or
+mentions-me reads, mark-read and waiting on your own team chat, use
+"hadron team chat read --mentions-me" / "team chat mark-read". For a room named
+by id or address use "hadron channel read" (--before, --mentions). There is no
+blocking wait: poll with --since <nextSince> at an interval.
 
 Output is a compact transcript ("[<seq>] <author> (<role>): <body>"); --json
 returns { messages:[{seq,loc,author,identity,role,timestamp,body,sessionId,
@@ -108,50 +116,38 @@ two agree on the VALUE as well as on that key.`,
 // dialect (see PostMessage).
 func CollectMessages(ctx context.Context, client graphql.Client, c Coords, since int) ([]Message, error) {
 	prefix := c.MessagesLoc + ":"
-	filter := &gen.NodeFilter{MemoryIds: []string{c.Memory}, LocPrefix: &prefix}
-
-	var msgs []Message
-	for offset := 0; ; offset += chatPageSize {
-		lim, off := chatPageSize, offset
-		resp, err := gen.ChatMessages(ctx, client, filter, &lim, &off)
+	// Keep the unqualified drain for legacy/academy messages. Providers that
+	// exclude chat-message by default need the explicit drain too. Each drain
+	// proves its own paging progress before the results are merged by loc.
+	platformType := "chat-message"
+	filters := []*gen.NodeFilter{
+		{MemoryIds: []string{c.Memory}, LocPrefix: &prefix},
+		{MemoryIds: []string{c.Memory}, LocPrefix: &prefix, NodeType: &platformType},
+	}
+	var nodes []*messageNode
+	for _, filter := range filters {
+		pageNodes, err := drainMessages(ctx, client, filter)
 		if err != nil {
-			return nil, api.MapError(err)
+			return nil, err
 		}
-		if resp == nil || resp.FindNodes == nil {
-			break
+		nodes = append(nodes, pageNodes...)
+	}
+	var msgs []Message
+	seenLoc := map[string]bool{}
+	for _, n := range nodes {
+		if seenLoc[n.Loc] {
+			continue
 		}
-		hits := resp.FindNodes.Hits
-		for _, h := range hits {
-			if h == nil || h.Node == nil {
-				continue
-			}
-			n := h.Node
-			// #412: the message-PARENT container comes back from the prefix
-			// filter alongside its children, and parsed as a message it reads
-			// as `seq: null, author: "unknown", body: ""` — indistinguishable
-			// in the JSON from a genuinely malformed post, and off-by-one on
-			// any count. Its nil seq excludes it from `--since <n>` reads,
-			// which is why it only surfaces on a full-history read: the one a
-			// new session does on its first turn.
-			//
-			// Excluded by exact loc, NOT by node type. Type-filtering looks
-			// like the more honest predicate, but this reader exists to serve
-			// the RETIRED academy dialect (kept unmigrated because its seq
-			// numbers are the citation mechanism), whose messages predate the
-			// chat-message nodeType — so filtering on type would drop the very
-			// messages the command is for. The container, by contrast, is
-			// exactly the loc we asked about.
-			if n.Loc == c.MessagesLoc {
-				continue
-			}
-			if since > 0 && (n.Seq == nil || *n.Seq <= since) {
-				continue
-			}
-			msgs = append(msgs, parseMessage(n.Loc, n.Seq, n.Content, n.Data))
+		seenLoc[n.Loc] = true
+		// The parent container is not a message. Exclude by exact loc, not
+		// nodeType: legacy/academy messages predate the chat-message type.
+		if n.Loc == c.MessagesLoc {
+			continue
 		}
-		if len(hits) < chatPageSize {
-			break
+		if since > 0 && (n.Seq == nil || *n.Seq <= since) {
+			continue
 		}
+		msgs = append(msgs, parseMessage(n.Loc, n.Seq, n.Content, n.Data))
 	}
 
 	// The server sorts by seq, but a nil-seq legacy row or paging edge could
@@ -166,6 +162,44 @@ func CollectMessages(ctx context.Context, client graphql.Client, c Coords, since
 		return *msgs[i].Seq < *msgs[j].Seq
 	})
 	return msgs, nil
+}
+
+type messageNode = gen.ChatMessagesFindNodesFindNodesResultHitsNodeHitNode
+
+// drainMessages has an independent seen-set for this filter. Cross-drain
+// deduplication must not make a provider returning the same rows in both reads
+// appear not to advance. A short page may be a server clamp; stop only on empty.
+func drainMessages(ctx context.Context, client graphql.Client, filter *gen.NodeFilter) ([]*messageNode, error) {
+	var nodes []*messageNode
+	seenLoc := map[string]bool{}
+	for offset := 0; ; {
+		lim, off := chatPageSize, offset
+		resp, err := gen.ChatMessages(ctx, client, filter, &lim, &off)
+		if err != nil {
+			return nil, api.MapError(err)
+		}
+		if resp == nil || resp.FindNodes == nil {
+			break
+		}
+		hits := resp.FindNodes.Hits
+		fresh := 0
+		for _, h := range hits {
+			if h == nil || h.Node == nil || seenLoc[h.Node.Loc] {
+				continue
+			}
+			seenLoc[h.Node.Loc] = true
+			fresh++
+			nodes = append(nodes, h.Node)
+		}
+		if len(hits) == 0 {
+			break
+		}
+		if fresh == 0 {
+			return nil, api.ListNotAdvancing(offset)
+		}
+		offset += len(hits)
+	}
+	return nodes, nil
 }
 
 func seqStr(seq *int) string {

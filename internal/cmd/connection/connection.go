@@ -22,6 +22,7 @@ func NewCmdConnection(f *cmdutil.Factory) *cobra.Command {
 		Aliases: []string{"connections", "conn"},
 		Short:   "Manage external connections and their grants",
 	}
+	cmd.AddCommand(newCmdConnect(f))
 	cmd.AddCommand(newCmdGrant(f))
 	return cmd
 }
@@ -41,6 +42,7 @@ mail.read, mail.send, calendar.freebusy, calendar.read. Grants may expire and
 are revocable; creating and revoking is owner-only, enforced server-side.`,
 	}
 	cmd.AddCommand(newCmdCreate(f))
+	cmd.AddCommand(newCmdGet(f))
 	cmd.AddCommand(newCmdLs(f))
 	cmd.AddCommand(newCmdRevoke(f))
 	return cmd

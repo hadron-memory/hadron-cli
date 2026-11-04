@@ -252,6 +252,7 @@ hadron spec find "backpressure" -m $M          # semantic search, filtered to sp
 hadron spec grep h-read-node -m $M             # body+abstract search, citation:line: text (exhaustive)
 hadron spec lint --product cli -m $M           # lint one product
 hadron spec lint --all -m $M --strict          # lint the whole corpus, warnings = errors
+hadron spec lint --all -m $M --unwired         # also list missing planned edges, with the command that adds each
 hadron spec register -m $M                      # derived number ledger (next-free at each tier)
 ```
 
@@ -354,11 +355,28 @@ hadron spec edit cli:cha:010:01 -m $M --content-file /tmp/rule.md --abstract-fil
 ```
 
 The interactive form opens both abstract and body in `$EDITOR`; non-interactive
-flags update only the fields you provide and preserve the rest. The abstract
+flags update only the fields you provide and preserve the rest. When a body
+edit would make the kept abstract stale, passing the same abstract again with
+`--abstract` or `--abstract-file` refuses before any mutation, including in a
+`--dry-run`. Re-read it against the new body: if it still describes the spec,
+drop the abstract flag and use `--abstract-still-accurate`; otherwise supply a
+changed abstract. An unchanged abstract alone remains a no-op. The abstract
 may have at most 2000 UTF-16 code units, including whitespace and newlines;
 `--dry-run` checks this before a save. To update the description shown by
 `spec list` and search, use `--description` or `--description-file` on the same
 guarded `spec edit` command. The description is not in the editor buffer.
+
+To correct a spec's title (the text after `<citation> — ` in its name), use
+`--title "<text>"` on the same guarded command: pass the text only, the citation
+prefix is kept for you. `--title` alone opens no editor, and a title equal to the
+stored one writes nothing. The title is one of the approval-hash fields, so a
+retitle supersedes an existing approval; after a save the command prints the
+approval status the server reports, and `--dry-run` shows the name change as a
+diff first.
+
+```sh
+hadron spec edit cor:dmo:110:03 -m $M --title "Writers may comment" --dry-run
+```
 
 Use `extract` when part of a fat rule deserves its own citation. Pipe or pass
 the moved chunk as the new body; `--strip-source` trims it from the old body only
@@ -378,7 +396,8 @@ right node.
 Use `link` for same-corpus spec-to-spec references. The command validates both
 endpoints are spec nodes and creates the edge from the more specific citation to
 the more general one; omit `--label` to let the CLI synthesize the conventional
-field-to-entity wording.
+field-to-entity wording. Rerunning it is safe: when the same edge (same target,
+same label) already exists it reports `already linked` and writes nothing.
 
 ```sh
 hadron spec link cli:cha:010:04 cli:cha:010:01 -m $M --dry-run
