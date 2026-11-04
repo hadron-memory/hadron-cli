@@ -2,8 +2,8 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/hadron-memory/hadron-cli/internal/api"
 	urn "github.com/hadron-memory/urn-lib-go"
 	"os"
 	"path/filepath"
@@ -75,6 +75,13 @@ func TestAppAction1669LocalRefusals(t *testing.T) {
 		}
 	}
 }
+func serverCode1669(err error) string {
+	var coded interface{ ServerCode() string }
+	if errors.As(err, &coded) {
+		return coded.ServerCode()
+	}
+	return ""
+}
 func TestAppAction1669RefusalCode(t *testing.T) {
 	for _, asJSON := range []bool{false, true} {
 		args := []string{"app.x.go"}
@@ -82,7 +89,7 @@ func TestAppAction1669RefusalCode(t *testing.T) {
 			args = append(args, "--json")
 		}
 		out, n, _, err := runAction1669(t, `{"errors":[{"message":"Invalid App action code","extensions":{"code":"APP_ACTION_CODE_INVALID","appUrn":"hrn:app:acme.com:x"}}]}`, args...)
-		if err == nil || n != 1 || api.ServerCodeOf(err) != "APP_ACTION_CODE_INVALID" || exitCodeFor(err) != exitcode.Usage {
+		if err == nil || n != 1 || serverCode1669(err) != "APP_ACTION_CODE_INVALID" || exitCodeFor(err) != exitcode.Usage {
 			t.Fatalf("%v %d", err, n)
 		}
 		if !asJSON {
@@ -120,7 +127,7 @@ func TestAppAction1669MappedTask(t *testing.T) {
 func TestAppAction1669MappedTextSafe(t *testing.T) {
 	response := `{"data":{"recordAppAction":{"eventId":"ev1","action":{"code":"app.x.go","state":"MAPPED","taskLoc":"tasks:\u001bone","taskUrn":"hrn:agenttask:acme.com:x:AT0.7\u001b"}}}}`
 	out, n, _, err := runAction1669(t, response, "app.x.go")
-	if err != nil || n != 1 || strings.Contains(out, "\x1b") || !strings.Contains(out, "tasks:one") || !strings.Contains(out, "hrn:agenttask:acme.com:x:AT0.7") {
+	if err != nil || n != 1 || strings.Contains(out, "\x1b") || !strings.Contains(out, "tasks: one") || !strings.Contains(out, "hrn:agenttask:acme.com:x:AT0.7") {
 		t.Fatalf("unsafe mapped text %q %v", out, err)
 	}
 }

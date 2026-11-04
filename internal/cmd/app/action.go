@@ -100,6 +100,13 @@ is returned by the server, never client-side authorization.`,
 			}
 			resp, err := gen.RecordAppAction(cmd.Context(), client, ref, code, taskArg, raw)
 			if err != nil {
+				if api.ServerCodeOf(err) == "APP_ACTION_CODE_INVALID" {
+					message := "APP_ACTION_CODE_INVALID: the action code must name this App and satisfy the App action grammar"
+					if appURN, ok := api.ExtensionString(err, "appUrn"); ok {
+						message += " (App " + output.SafeCell(appURN) + ")"
+					}
+					return api.WithServerCode(exitcode.Newf(exitcode.Usage, "%s", message), err)
+				}
 				return api.MapErrorKeepingCode(err)
 			}
 			if resp == nil || resp.RecordAppAction == nil || resp.RecordAppAction.Action == nil || resp.RecordAppAction.EventId == "" {
