@@ -499,39 +499,46 @@ func isIDWordByte(b byte) bool {
 
 // ledgerRangeTail reads "…008", "...008", "–004", "… 010" after an ID.
 //
-// After a letter ID a capital-letter bound is an attempted letter range, which
-// never expands: malformed. After a numeric ID that letter is just prose ("– A note").
+// An ellipsis promises a bound: with no usable one (and no second full ID, the
+// cross-date form) it is malformed. A dash is also ordinary prose, so only a
+// digit run, or, after a letter ID, a letter directly against the dash
+// ("A–C"), is read as a bound; "A – A note" stays prose.
 func ledgerRangeTail(s string, i int, letterBase bool) (hi, next, state int) {
 	q := skipSpaces(s, i)
+	ellipsis := false
 	switch {
 	case strings.HasPrefix(s[q:], "…"):
 		q += len("…")
+		ellipsis = true
 	case strings.HasPrefix(s[q:], "..."):
 		q += 3
+		ellipsis = true
 	case strings.HasPrefix(s[q:], "–"):
 		q += len("–")
 	default:
 		return 0, 0, rangeNone
 	}
+	afterMarker := q
 	q = skipSpaces(s, q)
 	if q < len(s) && s[q] == '-' {
 		q++
 	}
-	// Digits right after the marker are an attempted bound: anything but
-	// exactly three digits ending at a boundary is malformed. Other text is prose.
-	if letterBase && q < len(s) && s[q] >= 'A' && s[q] <= 'Z' {
-		end := q
-		for end < len(s) && isIDWordByte(s[end]) {
-			end++
-		}
-		return 0, end, rangeMalformed
-	}
-	if q >= len(s) || s[q] < '0' || s[q] > '9' {
-		return 0, 0, rangeNone
+	if loc := ledgerIDRe.FindStringIndex(s[q:]); ellipsis && loc != nil && loc[0] == 0 {
+		return 0, 0, rangeNone // "A … D-…": a cross-date bound is two IDs
 	}
 	end := q
 	for end < len(s) && isIDWordByte(s[end]) {
 		end++
+	}
+	digit := q < len(s) && s[q] >= '0' && s[q] <= '9'
+	letter := q < len(s) && s[q] >= 'A' && s[q] <= 'Z'
+	switch {
+	case letterBase && letter && (ellipsis || q == afterMarker):
+		return 0, end, rangeMalformed
+	case !digit && ellipsis:
+		return 0, max(end, afterMarker), rangeMalformed
+	case !digit:
+		return 0, 0, rangeNone
 	}
 	if end-q != 3 || !isDigits(s[q:end]) {
 		return 0, end, rangeMalformed
