@@ -20,7 +20,7 @@ realities the issue's "extraction is a one-liner" assumption missed:
    runner tools (`RunToolDef { name: 'hadron_*' }` in `src/lib/runner/tools/*.ts`,
    e.g. `hadron_read_secret`, `hadron_store_file`). A manifest of only the MCP
    registry would false-positive on the runner tools. The manifest is the **union**
-   (47 tools).
+   (47 tools when first written; the count moves with the server, 81 after cli#1511).
 2. **Genuine non-tools.** `hadron_token` (the web sign-in cookie) and `hadron_chatbot`
    (the `hadron_chatbot_*` tool-family prefix, written as a glob) are `hadron_*`
    identifiers that legitimately appear in prose but aren't tools.
@@ -59,7 +59,7 @@ hadron spec check-tools [-m <memory>] [--prefix <loc>] [--json]
 
 - `scripts/gen-tools-manifest.sh` — the union extractor (emits a fixed header so the
   committed file is byte-reproducible for the drift-check).
-- `internal/cmd/spec/mcp-tools.txt` — generated manifest (47 tools).
+- `internal/cmd/spec/mcp-tools.txt` — generated manifest (81 tools at server 99246d46).
 - `internal/cmd/spec/mcp-tools-ignore.txt` — hand-curated non-tools.
 - `internal/cmd/spec/checktools.go` — the command + `go:embed` + parser/extractor.
 - `Makefile` — `tools-manifest` (regenerate) and `tools-manifest-check` (drift).
@@ -80,6 +80,33 @@ hadron spec check-tools [-m <memory>] [--prefix <loc>] [--json]
 ## Verification
 
 Dogfooded end-to-end against the live `hadronmemory.com::specs` corpus: `spec
-check-tools` reports **clean** against the 47-tool manifest — the whole pipeline
+check-tools` reported **clean** against the 47-tool manifest (when first written) — the whole pipeline
 (bulk read → extract → manifest + ignore-list) validated on real data. `make
 tools-manifest-check` passes against a fresh server `main`.
+
+## The server's disabled-tool switch (cli#1511, hadron-server#3082 S1)
+
+hadron-server disables 71 agent-team MCP tools in code: it registers them through
+one helper, `offTeamTool` (`src/mcp/disabledTools.ts`), never `server.tool(`, so the
+SDK does not list them. The generator keys on that helper **by name** (a constant at
+the top of the script, not an environment variable, so the manifest stays
+reproducible). It reads two lexical shapes in every non-test `src/mcp` module —
+`(const|let) <alias> = offTeamTool(…)` followed by `<alias>(` calls, and the direct
+`offTeamTool(…)(` form — takes the first quoted `hadron_*` name at or after each
+opener, and subtracts that disabled set from the **MCP** registry before the runner
+union. The runner tool `hadron_task_create` therefore stays, through the runner
+registry. Subtraction also closes the one-line-after leak, where a disabled name on
+the line after a kept single-line `server.tool(` was read as registered.
+
+The generator refuses (exit 2) when the helper is not found or disables nothing, so a
+rename or reversal on the server fails the nightly drift check instead of silently
+re-listing disabled tools. `GEN_TOOLS_PRINT_DISABLED=1` prints the disabled set to
+stderr; at the deployed SHA it equals `internal/shippedtext/testdata/disabled_mcp_tools.txt`
+(the guard's hand-copied list, kept because a CLI test cannot read the server tree).
+
+**R5 and the ignore list.** `check-tools` has no spec-status filter, so a spec marked
+"not planned to build" (V4) that still names a disabled tool is flagged like any other.
+Such names go into their own commented section of `mcp-tools-ignore.txt`, one per tool,
+and the shipped-text guard exempts that file for the same reason. The list is global: a
+future spec citing one of those names as a live tool would not be flagged (a known
+residual). Live-tool rot still must not be silenced there.

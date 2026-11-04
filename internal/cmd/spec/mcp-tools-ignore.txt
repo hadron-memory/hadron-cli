@@ -4,7 +4,37 @@
 # is a false positive. Keep it minimal — a genuinely-unregistered tool reference
 # should be fixed in the spec, not silenced here.
 #
+# A second category below: tools hadron-server DISABLES (hadron-server#3082) that
+# a spec still names on purpose, because the spec is marked "not planned to build"
+# and keeps its text (Holger's V4, R5). check-tools has no status filter, so such a
+# name is listed here instead of being flagged. The list is global: a future spec
+# that cites one of these as a LIVE tool is not flagged either (known residual).
+#
 # Blank lines and #-comments are ignored; one identifier per line.
 
 hadron_token      # the web sign-in cookie (cor:aut) — a credential, not a tool
 hadron_chatbot    # the "hadron_chatbot_*" tool-family prefix, written as a glob
+
+# --- disabled by hadron-server#3082 (S1), cited by a not-planned spec (V4, R5) ---
+# One entry per disabled MCP tool a spec still names. Remove an entry when the spec
+# stops citing the name or the server re-enables the tool.
+hadron_cast_worker
+hadron_channel_read
+hadron_clear_worker_isolation
+hadron_delete_worker
+hadron_get_worker
+hadron_isolate_worker
+hadron_record_work
+hadron_set_team_pause
+hadron_task_blocker_add
+hadron_task_blocker_remove
+hadron_task_finish
+hadron_task_make_ready
+hadron_task_park
+hadron_task_priority_set
+hadron_task_update
+hadron_team_chat_post
+hadron_team_chat_read
+hadron_team_chat_search
+hadron_team_work_items
+hadron_update_worker
