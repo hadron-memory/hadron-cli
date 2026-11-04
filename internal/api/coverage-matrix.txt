@@ -558,17 +558,22 @@ updateWorker  command team worker update
 withdrawDecision  command decision withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 72: 44 gap, 28 excluded
+[Arguments] 92: 64 gap, 28 excluded
+Mutation.acknowledgeAlarm(instruction)  gap #1617
+Mutation.addAgentTaskBlocker(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.addOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
 Mutation.addOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
+Mutation.assignAgentTask(instruction)  gap #1617
+Mutation.cancelAgentTask(instruction)  gap #1617
 Mutation.cloneAgentTask(input.owner)  gap #1579: `task clone` does not expose this override yet
 Mutation.cloneAgentTask(input.project)  gap #1579: `task clone` does not expose this override yet
 Mutation.cloneAgentTask(input.properties)  gap #1579: `task clone` does not expose this override yet
 Mutation.cloneAgentTask(input.references)  gap #1579: `task clone` does not expose this override yet
 Mutation.cloneAgentTask(input.requirements)  gap #1579: `task clone` does not expose this override yet
 Mutation.cloneAgentTask(input.tags)  gap #1579: `task clone` does not expose this override yet
+Mutation.createAgentTask(instruction)  gap #1617
 Mutation.createApp(agentTools)  gap #63
 Mutation.createApp(aiApiKey)  gap #63
 Mutation.createApp(aiModel)  gap #63
@@ -586,20 +591,33 @@ Mutation.createApp(trainingMode)  gap #63
 Mutation.createMemoryShare(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.createMemorySubscription(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.createMemorySubscription(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
+Mutation.deleteAppModelGroup(instruction)  gap #1617
 Mutation.deleteMemoryShare(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.deleteMemorySubscription(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.deleteMemorySubscription(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
+Mutation.disposeAgentTaskFinding(instruction)  gap #1617
 Mutation.ensureAppMember(appId)  excluded deprecated: @deprecated: Use appRef (accepts id / URN).
 Mutation.ensureAppMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.finishAgentTask(result.findings)  gap #1556
+Mutation.makeAgentTaskReady(instruction)  gap #1617
 Mutation.mergeUsers(input.consentProof)  gap #1304
+Mutation.parkAgentTask(instruction)  gap #1617
+Mutation.reassignAgentTask(instruction)  gap #1617
 Mutation.registerContextResetRecovery(input.checkpointNode)  excluded not-a-capability: the host has the server write the checkpoint (input.checkpoint) and never names an existing node (ruling 0090 A, hadron-cli#1043); the written node comes back as ContextReset.checkpointNode
+Mutation.removeAgentTaskBlocker(instruction)  gap #1617
 Mutation.removeAppMember(appId)  excluded deprecated: @deprecated: Use appRef (accepts id / URN).
 Mutation.removeAppMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.removeMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.removeMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.removeOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
 Mutation.removeOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
+Mutation.setAgentTaskPriority(instruction)  gap #1617
+Mutation.setAgentTaskStallSchedule(instruction)  gap #1617
+Mutation.setAppModelGroup(instruction)  gap #1617
+Mutation.setAppProperties(instruction)  gap #1617
+Mutation.setModelFamilyAvailability(instruction)  gap #1617
+Mutation.setWorkerAvailability(instruction)  gap #1617
+Mutation.updateAgentTask(instruction)  gap #1617
 Mutation.updateApp(agentSessionsExpire)  gap #63
 Mutation.updateApp(agentTools)  gap #63
 Mutation.updateApp(aiApiKey)  gap #63
@@ -626,6 +644,8 @@ Mutation.updateOrgMember(userId)  excluded deprecated: @deprecated: Use userRef 
 Mutation.updateTeamRole(repos)  gap #1336
 Query.agentTasks(creator)  gap #1336
 Query.attendeeRegister(agentRef)  gap #1336
+Query.automationTeamSnapshotGrants(triggerId)  gap #1617
+Query.automationTeamSnapshotGrants(triggerKind)  gap #1617
 Query.channelMessages(teamHeadRef)  gap #936
 Query.channelMessages(untagged)  gap #936
 Query.node(memoryRef)  excluded not-a-capability: the CLI composes -m and a bare loc into the full node URN, which the SDL documents as the equivalent address (the one case memoryRef adds, forcing loc reading of an unprefixed 3+-segment ref, the hrn:node: form already removes); proposed class, specs engineer to accept
