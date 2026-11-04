@@ -35,7 +35,10 @@ registration, it emails a second link, which you open in the same browser.
 Otherwise use `--provider github|google`. The CLI runs no passkey step itself,
 so an agent cannot complete one: agents use `HADRON_TOKEN` or `--with-token`.
 The browser step must finish within 15 minutes, a limit the CLI sets for
-itself; on timeout it exits 6 and stores nothing.
+itself; on timeout it exits 6 and stores nothing. Where the server has you add a first
+passkey (with its second link), that can take longer than 15 minutes; if it
+does, the CLI stops and stores nothing: finish adding the passkey in the
+browser, then rerun `hadron auth login`.
 
 If the server later refuses a **stored** credential, commands exit 3 with
 "your stored credential was refused; run `hadron auth login`". The CLI does

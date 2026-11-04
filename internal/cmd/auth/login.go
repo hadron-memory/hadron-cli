@@ -38,6 +38,10 @@ cannot complete a browser passkey step; agents use HADRON_TOKEN or
 
 The browser step must finish within 15 minutes, a limit the CLI sets for
 itself. If it does not, nothing is stored; rerun ` + "`hadron auth login`" + `.
+Where the server has you add a first passkey (with its second link), that
+can take longer than 15 minutes; if it does, the CLI stops and stores
+nothing: finish adding the passkey in the browser, then rerun
+` + "`hadron auth login`" + `.
 
 The browser flow requests the "account" OAuth scope, because the CLI uses
 the server's data API and a key limited to "mcp" is refused there. If the

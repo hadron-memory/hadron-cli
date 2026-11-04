@@ -23,6 +23,9 @@ var passkeyHelpPhrases = []string{
 	"Where the server offers passkey registration, it emails a second link: open it in the same browser.",
 	"An agent cannot complete a browser passkey step",
 	"15 minutes",
+	// cli#875 gate (Xylon #73570): disclose that a first-passkey flow can
+	// outrun the whole-invocation cap, and how to recover.
+	"Where the server has you add a first passkey (with its second link), that can take longer than 15 minutes; if it does, the CLI stops and stores nothing: finish adding the passkey in the browser, then rerun `hadron auth login`.",
 }
 
 // unconditionalEnrolment matches enrolment/registration promises. Each match
