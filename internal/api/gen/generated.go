@@ -14511,7 +14511,7 @@ type AppFilter struct {
 	// or a fully-qualified URN. The Agent must be one the caller can read: an
 	// unreadable, deleted, unresolvable or nonexistent Agent yields an empty page,
 	// never a not-found or forbidden error. Combines with ownedByMe and orgId.
-	AgentId *string `json:"agentId"`
+	AgentId *string `json:"agentId,omitempty"`
 	// #782 — true restricts the list to the caller's OWN user-owned (org-less)
 	// apps: organizationId IS NULL AND ownerUserId = the caller. For ALL callers
 	// INCLUDING platform ADMIN/OWNER (owner scope is never an admin-bypass
@@ -15280,6 +15280,77 @@ func (v *AppMemoryWriteGrantsRows1595) __premarshalJSON() (*__premarshalAppMemor
 	retval.RevokedAt = v.AppMemoryGrantFields.RevokedAt
 	retval.RevokedBy = v.AppMemoryGrantFields.RevokedBy
 	return &retval, nil
+}
+
+// AppNodesPageAppNodesPageNodePage includes the requested fields of the GraphQL type NodePage.
+// The GraphQL type's documentation follows.
+//
+// #2212 A2 — one page of the nodes in an App's scope, counted over the same filter and scope.
+type AppNodesPageAppNodesPageNodePage struct {
+	Items   []*AppNodesPageAppNodesPageNodePageItemsNode `json:"items"`
+	Total   int                                          `json:"total"`
+	HasMore bool                                         `json:"hasMore"`
+}
+
+// GetItems returns AppNodesPageAppNodesPageNodePage.Items, and is useful for accessing the field via an interface.
+func (v *AppNodesPageAppNodesPageNodePage) GetItems() []*AppNodesPageAppNodesPageNodePageItemsNode {
+	return v.Items
+}
+
+// GetTotal returns AppNodesPageAppNodesPageNodePage.Total, and is useful for accessing the field via an interface.
+func (v *AppNodesPageAppNodesPageNodePage) GetTotal() int { return v.Total }
+
+// GetHasMore returns AppNodesPageAppNodesPageNodePage.HasMore, and is useful for accessing the field via an interface.
+func (v *AppNodesPageAppNodesPageNodePage) GetHasMore() bool { return v.HasMore }
+
+// AppNodesPageAppNodesPageNodePageItemsNode includes the requested fields of the GraphQL type Node.
+type AppNodesPageAppNodesPageNodePageItemsNode struct {
+	Id       string `json:"id"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+	Name     string `json:"name"`
+	// The PLATFORM-kind axis (info / task / prompt / record / …). Load-bearing for
+	// retrieval and rendering.
+	//
+	// NOT 'objectType', which says which domain COLLECTION a node belongs to, and
+	// NOT 'role', which says what the node is FOR. Three kind-ish fields is the
+	// accepted price of keeping retrieval stable while roles stay open, so each
+	// one says what it is not — mixing them up is the predictable failure.
+	NodeType string `json:"nodeType"`
+}
+
+// GetId returns AppNodesPageAppNodesPageNodePageItemsNode.Id, and is useful for accessing the field via an interface.
+func (v *AppNodesPageAppNodesPageNodePageItemsNode) GetId() string { return v.Id }
+
+// GetMemoryId returns AppNodesPageAppNodesPageNodePageItemsNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *AppNodesPageAppNodesPageNodePageItemsNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns AppNodesPageAppNodesPageNodePageItemsNode.Loc, and is useful for accessing the field via an interface.
+func (v *AppNodesPageAppNodesPageNodePageItemsNode) GetLoc() string { return v.Loc }
+
+// GetName returns AppNodesPageAppNodesPageNodePageItemsNode.Name, and is useful for accessing the field via an interface.
+func (v *AppNodesPageAppNodesPageNodePageItemsNode) GetName() string { return v.Name }
+
+// GetNodeType returns AppNodesPageAppNodesPageNodePageItemsNode.NodeType, and is useful for accessing the field via an interface.
+func (v *AppNodesPageAppNodesPageNodePageItemsNode) GetNodeType() string { return v.NodeType }
+
+// AppNodesPageResponse is returned by AppNodesPage on success.
+type AppNodesPageResponse struct {
+	// #2212 A2 (hrn:node:hadronmemory.com:specs:cor:api:120:04): appNodes as a page. Same admission,
+	// filter rules and refusals as appNodes (an unknown or malformed App and a caller who may not read it
+	// are refused exactly as there; a soft-deleted organization and an empty scope are the empty page),
+	// but total counts every node appNodes would return for the filter and hasMore says whether rows
+	// remain past this page. Ordered by loc, then id, so the order is stable across the App's memories.
+	// Default page 20, limit: 0 is count-only, a negative limit is 0, a limit over 200 is served as 200,
+	// a negative offset is 0. The filter's memoryIds and memoryClasses are refused, as on appNodes.
+	//
+	// Accepts the App's ID or URN.
+	AppNodesPage *AppNodesPageAppNodesPageNodePage `json:"appNodesPage"`
+}
+
+// GetAppNodesPage returns AppNodesPageResponse.AppNodesPage, and is useful for accessing the field via an interface.
+func (v *AppNodesPageResponse) GetAppNodesPage() *AppNodesPageAppNodesPageNodePage {
+	return v.AppNodesPage
 }
 
 // AppPropertiesGetApp includes the requested fields of the GraphQL type App.
@@ -96489,6 +96560,26 @@ func (v *__AppMemoryWriteGrantsInstructedInput) GetAppRef() string { return v.Ap
 // GetIncludeRevoked returns __AppMemoryWriteGrantsInstructedInput.IncludeRevoked, and is useful for accessing the field via an interface.
 func (v *__AppMemoryWriteGrantsInstructedInput) GetIncludeRevoked() *bool { return v.IncludeRevoked }
 
+// __AppNodesPageInput is used internally by genqlient
+type __AppNodesPageInput struct {
+	AppRef string      `json:"appRef"`
+	Filter *NodeFilter `json:"filter,omitempty"`
+	Limit  int         `json:"limit"`
+	Offset int         `json:"offset"`
+}
+
+// GetAppRef returns __AppNodesPageInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AppNodesPageInput) GetAppRef() string { return v.AppRef }
+
+// GetFilter returns __AppNodesPageInput.Filter, and is useful for accessing the field via an interface.
+func (v *__AppNodesPageInput) GetFilter() *NodeFilter { return v.Filter }
+
+// GetLimit returns __AppNodesPageInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AppNodesPageInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __AppNodesPageInput.Offset, and is useful for accessing the field via an interface.
+func (v *__AppNodesPageInput) GetOffset() int { return v.Offset }
+
 // __AppPropertiesGetInput is used internally by genqlient
 type __AppPropertiesGetInput struct {
 	Ref string `json:"ref"`
@@ -109879,6 +109970,56 @@ func AppMemoryWriteGrantsInstructed(
 	return data_, err_
 }
 
+// The query executed by AppNodesPage.
+const AppNodesPage_Operation = `
+query AppNodesPage ($appRef: ID!, $filter: NodeFilter, $limit: Int!, $offset: Int!) {
+	appNodesPage(appRef: $appRef, filter: $filter, limit: $limit, offset: $offset) {
+		items {
+			id
+			memoryId
+			loc
+			name
+			nodeType
+		}
+		total
+		hasMore
+	}
+}
+`
+
+// cli#1626: one deliberate page over the App's authoritative node scope.
+// NodeFilter's per-field omission contract is shared with FindNodes.
+func AppNodesPage(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	filter *NodeFilter,
+	limit int,
+	offset int,
+) (data_ *AppNodesPageResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AppNodesPage",
+		Query:  AppNodesPage_Operation,
+		Variables: &__AppNodesPageInput{
+			AppRef: appRef,
+			Filter: filter,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &AppNodesPageResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by AppPropertiesGet.
 const AppPropertiesGet_Operation = `
 query AppPropertiesGet ($ref: ID!) {
@@ -110458,7 +110599,7 @@ query Apps ($orgId: ID, $filter: AppFilter, $limit: Int, $offset: Int) {
 // limit capped at 200 server-side; `app ls` pages to exhaustion.
 // orgId is NULLABLE on the server (#473's uniform list) and the owner slice is
 // org-less by definition, so it must be omittable here — `app list` still
-// requires one of --org / --owned-by-me, but that is the command's rule, not
+// requires --org, --owned-by-me or --agent, but that is the command's rule, not
 // the operation's.
 func Apps(
 	ctx_ context.Context,

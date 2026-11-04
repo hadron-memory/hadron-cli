@@ -2,9 +2,10 @@
 # limit capped at 200 server-side; `app ls` pages to exhaustion.
 # orgId is NULLABLE on the server (#473's uniform list) and the owner slice is
 # org-less by definition, so it must be omittable here — `app list` still
-# requires one of --org / --owned-by-me, but that is the command's rule, not
+# requires --org, --owned-by-me or --agent, but that is the command's rule, not
 # the operation's.
 # @genqlient(for: "AppFilter.ownedByMe", omitempty: true)
+# @genqlient(for: "AppFilter.agentId", omitempty: true)
 query Apps(
   # @genqlient(omitempty: true)
   $orgId: ID
@@ -431,4 +432,26 @@ query AppKeysScopesHostUsesInstructed($appRef: ID!, $first: Int!, $instruction: 
 
 mutation RevokeAppKeyInstructed($id: ID!, $instruction: ActInstructionInput!) {
   revokeAppKey(id: $id, instruction: $instruction)
+}
+
+# cli#1626: one deliberate page over the App's authoritative node scope.
+# NodeFilter's per-field omission contract is shared with FindNodes.
+query AppNodesPage(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $filter: NodeFilter
+  $limit: Int!
+  $offset: Int!
+) {
+  appNodesPage(appRef: $appRef, filter: $filter, limit: $limit, offset: $offset) {
+    items {
+      id
+      memoryId
+      loc
+      name
+      nodeType
+    }
+    total
+    hasMore
+  }
 }

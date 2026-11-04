@@ -69,6 +69,7 @@ func TestAppNodes1626DefaultAndCountOnlyAreOneRequest(t *testing.T) {
 			gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				var q struct {
 					OperationName string
+					Query         string
 					Variables     map[string]any
 				}
 				if err := json.NewDecoder(r.Body).Decode(&q); err != nil {
@@ -76,6 +77,9 @@ func TestAppNodes1626DefaultAndCountOnlyAreOneRequest(t *testing.T) {
 					return
 				}
 				calls++
+				if !strings.Contains(q.Query, "appNodesPage(") || strings.Contains(q.Query, "appNodes(") {
+					t.Errorf("wrong root field on the wire: %s", q.Query)
+				}
 				if q.OperationName != "AppNodesPage" || q.Variables["limit"] != float64(tc.limit) || q.Variables["offset"] != float64(tc.offset) {
 					t.Errorf("request=%+v", q)
 				}
@@ -256,6 +260,7 @@ func TestAppLs1626StubFiltersInstalledAgentAndKeepsArray(t *testing.T) {
 			gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				var q struct {
 					OperationName string
+					Query         string
 					Variables     struct {
 						Filter struct {
 							AgentID string `json:"agentId"`
@@ -322,5 +327,62 @@ func TestAppNodes1626UnsupportedNarrowingRefusesBeforeAnyRequest(t *testing.T) {
 				t.Fatalf("missing actionable unsupported-filter explanation: %v", err)
 			}
 		})
+	}
+}
+
+func TestAppLs1626UnsetAgentDoesNotReachTheWire(t *testing.T) {
+	for _, flags := range [][]string{{"--org", "acme.com"}, {"--owned-by-me"}} {
+		t.Run(fmt.Sprint(flags), func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{"Apps": appsOwnedJSON})
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			args := []string{"app", "ls", "--json", "--server", gql.URL}
+			root.SetArgs(append(args, flags...))
+			if err := root.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			vars, _ := varsOf(t, captured, "Apps")
+			if filter, ok := vars["filter"].(map[string]any); ok {
+				if _, present := filter["agentId"]; present {
+					t.Fatalf("unset agent must be omitted, not null: %v", filter)
+				}
+			}
+		})
+	}
+}
+
+func TestAppLs1626AgentWalksEveryBoundedPage(t *testing.T) {
+	calls := 0
+	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var q struct{ Variables map[string]any }
+		if err := json.NewDecoder(r.Body).Decode(&q); err != nil {
+			t.Error(err)
+			return
+		}
+		offset := int(q.Variables["offset"].(float64))
+		if q.Variables["limit"] != float64(20) || offset != calls*20 {
+			t.Errorf("page %d: %v", calls, q.Variables)
+		}
+		calls++
+		rows := make([]map[string]any, 0)
+		for i := offset; i < offset+20 && i < 25; i++ {
+			rows = append(rows, map[string]any{"id": fmt.Sprintf("a%d", i), "name": fmt.Sprintf("App %d", i)})
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"data": map[string]any{"apps": map[string]any{"items": rows, "total": 25}}})
+	}))
+	defer gql.Close()
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"app", "list", "--agent", "hrn:agent:acme.com:iris", "--json", "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(out.String()), &rows); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 2 || len(rows) != 25 {
+		t.Fatalf("calls=%d rows=%d", calls, len(rows))
 	}
 }
