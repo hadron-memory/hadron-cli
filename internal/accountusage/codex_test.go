@@ -395,3 +395,53 @@ func TestBurnNeverCombinesAcrossAReset(t *testing.T) {
 		t.Fatalf("a reset starts a new window: %+v", v.BurnPctPerHour)
 	}
 }
+
+func TestCodexStatFailureOnTheOpenedFileIsAnError(t *testing.T) {
+	home, _ := oneRollout(t)
+	statOpened = func(*os.File) (os.FileInfo, error) { return nil, os.ErrPermission }
+	defer func() { statOpened = func(f *os.File) (os.FileInfo, error) { return f.Stat() } }()
+	s, err := ReadCodex(codexAcct(home))
+	if err == nil || s.Present {
+		t.Fatalf("a failed fstat is an operational failure: %v %+v", err, s)
+	}
+	if strings.Contains(err.Error(), home) {
+		t.Fatalf("the error must not echo a path: %v", err)
+	}
+}
+
+type validThenFail struct {
+	data []byte
+	done bool
+}
+
+func (r *validThenFail) Read(p []byte) (int, error) {
+	if r.done {
+		return 0, os.ErrPermission
+	}
+	r.done = true
+	return copy(p, r.data), nil
+}
+
+func TestCodexValidReadingFollowedByReadErrorIsNoReading(t *testing.T) {
+	home, _ := oneRollout(t)
+	line := tokenCount("2026-11-04T09:00:00.000Z", 55, 300, 1793810000, 40, 1794000000)
+	wrapRolloutReader = func(io.Reader) io.Reader { return &validThenFail{data: []byte(line)} }
+	defer func() { wrapRolloutReader = func(r io.Reader) io.Reader { return r } }()
+	s, err := ReadCodex(codexAcct(home))
+	if err == nil || s.Present {
+		t.Fatalf("a valid event then a read error must be an error and an empty snapshot: %v %+v", err, s)
+	}
+}
+
+func TestCodexOverfullDirectoryIsAnErrorNotNoReading(t *testing.T) {
+	home, _ := oneRollout(t)
+	for i := 0; i <= maxDirEntries; i++ {
+		if err := os.MkdirAll(filepath.Join(home, "sessions", "2026", "11", itoa(1000+i)), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	s, err := ReadCodex(codexAcct(home))
+	if err == nil || s.Present {
+		t.Fatalf("a directory over the entry bound must be reported, not read as empty: %v %+v", err, s)
+	}
+}

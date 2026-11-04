@@ -31,8 +31,9 @@ const (
 
 // Test seams: both are no-ops in production.
 var (
-	afterRolloutStat  = func() {}                                // runs between the Lstat and the Open
-	wrapRolloutReader = func(r io.Reader) io.Reader { return r } // wraps the opened file's reader
+	statOpened        = func(f *os.File) (os.FileInfo, error) { return f.Stat() } // fstat of the opened file
+	afterRolloutStat  = func() {}                                                 // runs between the Lstat and the Open
+	wrapRolloutReader = func(r io.Reader) io.Reader { return r }                  // wraps the opened file's reader
 )
 
 var (
@@ -220,7 +221,7 @@ func ReadCodex(a Account) (CodexSnapshot, error) {
 	defer func() { _ = f.Close() }()
 	// The file opened must be the regular file that was checked: a swap for a
 	// link or another file between the Lstat and the Open is refused.
-	if ofi, serr := f.Stat(); serr != nil || !ofi.Mode().IsRegular() || !os.SameFile(fi, ofi) {
+	if ofi, serr := statOpened(f); serr != nil || !ofi.Mode().IsRegular() || !os.SameFile(fi, ofi) {
 		return CodexSnapshot{}, nil
 	}
 	var snap CodexSnapshot
