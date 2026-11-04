@@ -40661,6 +40661,8 @@ type DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason struct {
 	Task *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason `json:"task"`
 	// The tick's role-task guidance, gated for the reader on every read; null for other reasons (hrn:node:hadronmemory.com:specs:cor:agt:080:23).
 	Action *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonActionTickAction `json:"action"`
+	// #2022 — set for kind STOP.
+	Stop *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason `json:"stop"`
 }
 
 // GetKind returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason.Kind, and is useful for accessing the field via an interface.
@@ -40679,6 +40681,11 @@ func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetTask() *Du
 // GetAction returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason.Action, and is useful for accessing the field via an interface.
 func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetAction() *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonActionTickAction {
 	return v.Action
+}
+
+// GetStop returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason.Stop, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetStop() *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason {
+	return v.Stop
 }
 
 // DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonActionTickAction includes the requested fields of the GraphQL type TickAction.
@@ -40710,6 +40717,45 @@ func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonActionTickActio
 // GetTaskUrn returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonActionTickAction.TaskUrn, and is useful for accessing the field via an interface.
 func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonActionTickAction) GetTaskUrn() *string {
 	return v.TaskUrn
+}
+
+// DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason includes the requested fields of the GraphQL type DueStopReason.
+// The GraphQL type's documentation follows.
+//
+// #2022 — the stop-signal notice a STOP reason delivers. Acknowledging the wake records its delivery; it moves no chat mark.
+type DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason struct {
+	// The notice; acknowledging the wake records delivery on it.
+	EventId  string          `json:"eventId"`
+	SignalId string          `json:"signalId"`
+	Level    StopSignalLevel `json:"level"`
+	Notice   StopNoticeKind  `json:"notice"`
+	// True only for a halt's stop notice: the one notice that interrupts the worker.
+	Interrupt bool `json:"interrupt"`
+}
+
+// GetEventId returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason.EventId, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason) GetEventId() string {
+	return v.EventId
+}
+
+// GetSignalId returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason.SignalId, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason) GetSignalId() string {
+	return v.SignalId
+}
+
+// GetLevel returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason.Level, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason) GetLevel() StopSignalLevel {
+	return v.Level
+}
+
+// GetNotice returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason.Notice, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason) GetNotice() StopNoticeKind {
+	return v.Notice
+}
+
+// GetInterrupt returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason.Interrupt, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason) GetInterrupt() bool {
+	return v.Interrupt
 }
 
 // DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason includes the requested fields of the GraphQL type DueTaskReason.
@@ -44656,12 +44702,16 @@ func (v *GetNodeNodeOutgoingEdgesEdge) GetTarget() *GetNodeNodeOutgoingEdgesEdge
 // GetNodeNodeOutgoingEdgesEdgeTargetNode includes the requested fields of the GraphQL type Node.
 type GetNodeNodeOutgoingEdgesEdgeTargetNode struct {
 	Id       string `json:"id"`
+	Name     string `json:"name"`
 	Loc      string `json:"loc"`
 	MemoryId string `json:"memoryId"`
 }
 
 // GetId returns GetNodeNodeOutgoingEdgesEdgeTargetNode.Id, and is useful for accessing the field via an interface.
 func (v *GetNodeNodeOutgoingEdgesEdgeTargetNode) GetId() string { return v.Id }
+
+// GetName returns GetNodeNodeOutgoingEdgesEdgeTargetNode.Name, and is useful for accessing the field via an interface.
+func (v *GetNodeNodeOutgoingEdgesEdgeTargetNode) GetName() string { return v.Name }
 
 // GetLoc returns GetNodeNodeOutgoingEdgesEdgeTargetNode.Loc, and is useful for accessing the field via an interface.
 func (v *GetNodeNodeOutgoingEdgesEdgeTargetNode) GetLoc() string { return v.Loc }
@@ -45593,6 +45643,124 @@ type GetSpecNodeRawResponse struct {
 
 // GetNode returns GetSpecNodeRawResponse.Node, and is useful for accessing the field via an interface.
 func (v *GetSpecNodeRawResponse) GetNode() *GetSpecNodeRawNode { return v.Node }
+
+// GetSpecSupersedeTargetNode includes the requested fields of the GraphQL type Node.
+type GetSpecSupersedeTargetNode struct {
+	Id       string `json:"id"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+	Name     string `json:"name"`
+	// #1201 — what this node is FOR, as an OPEN string. A closed governed
+	// subset has dedicated authoring doors; memory role rules can additionally
+	// constrain arbitrary roles.
+	//
+	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
+	// 'objectType' (the collection discriminator, schema-validated). This field
+	// does not change default retrieval or ranking; NodeFilter.role explicitly
+	// selects its exact dotted family (#1322).
+	//
+	// A GOVERNED family routes the write to that kind's own authoring door, and
+	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
+	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// gated on 'isRunnable'
+	// rather than on any label because a label can be omitted and a capability
+	// cannot. Other roles do not invoke a governed door, but can still be
+	// constrained by memory role rules and selected by explicit role filters.
+	Role *string  `json:"role"`
+	Tags []string `json:"tags"`
+	// #1450 — a server-recorded placeholder awaiting authored content, such as a
+	// RESERVED spec citation created by reserveSpecCitation. A placeholder may
+	// exist in any memory; it is never inferred from an empty body. Writing real
+	// nonblank content through the spec door or shared mirror write path clears
+	// it. Placeholders block minting.
+	IsPlaceholder bool `json:"isPlaceholder"`
+	// Deletion marker. Ordinary reads still omit tombstones; explicit recovery is writer-only.
+	DeletedAt     *string                                        `json:"deletedAt"`
+	OutgoingEdges []*GetSpecSupersedeTargetNodeOutgoingEdgesEdge `json:"outgoingEdges"`
+}
+
+// GetId returns GetSpecSupersedeTargetNode.Id, and is useful for accessing the field via an interface.
+func (v *GetSpecSupersedeTargetNode) GetId() string { return v.Id }
+
+// GetMemoryId returns GetSpecSupersedeTargetNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *GetSpecSupersedeTargetNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns GetSpecSupersedeTargetNode.Loc, and is useful for accessing the field via an interface.
+func (v *GetSpecSupersedeTargetNode) GetLoc() string { return v.Loc }
+
+// GetName returns GetSpecSupersedeTargetNode.Name, and is useful for accessing the field via an interface.
+func (v *GetSpecSupersedeTargetNode) GetName() string { return v.Name }
+
+// GetRole returns GetSpecSupersedeTargetNode.Role, and is useful for accessing the field via an interface.
+func (v *GetSpecSupersedeTargetNode) GetRole() *string { return v.Role }
+
+// GetTags returns GetSpecSupersedeTargetNode.Tags, and is useful for accessing the field via an interface.
+func (v *GetSpecSupersedeTargetNode) GetTags() []string { return v.Tags }
+
+// GetIsPlaceholder returns GetSpecSupersedeTargetNode.IsPlaceholder, and is useful for accessing the field via an interface.
+func (v *GetSpecSupersedeTargetNode) GetIsPlaceholder() bool { return v.IsPlaceholder }
+
+// GetDeletedAt returns GetSpecSupersedeTargetNode.DeletedAt, and is useful for accessing the field via an interface.
+func (v *GetSpecSupersedeTargetNode) GetDeletedAt() *string { return v.DeletedAt }
+
+// GetOutgoingEdges returns GetSpecSupersedeTargetNode.OutgoingEdges, and is useful for accessing the field via an interface.
+func (v *GetSpecSupersedeTargetNode) GetOutgoingEdges() []*GetSpecSupersedeTargetNodeOutgoingEdgesEdge {
+	return v.OutgoingEdges
+}
+
+// GetSpecSupersedeTargetNodeOutgoingEdgesEdge includes the requested fields of the GraphQL type Edge.
+type GetSpecSupersedeTargetNodeOutgoingEdgesEdge struct {
+	// Free-form relationship name (e.g. imports, depends_on). Optional since
+	// spec 037 — loc is the identity. (Was the required 'label'.)
+	Name *string `json:"name"`
+	// The live target node, or null when deleted or when its memory is unreadable. Deleted-node inspection uses the explicit recovery graph.
+	Target *GetSpecSupersedeTargetNodeOutgoingEdgesEdgeTargetNode `json:"target"`
+}
+
+// GetName returns GetSpecSupersedeTargetNodeOutgoingEdgesEdge.Name, and is useful for accessing the field via an interface.
+func (v *GetSpecSupersedeTargetNodeOutgoingEdgesEdge) GetName() *string { return v.Name }
+
+// GetTarget returns GetSpecSupersedeTargetNodeOutgoingEdgesEdge.Target, and is useful for accessing the field via an interface.
+func (v *GetSpecSupersedeTargetNodeOutgoingEdgesEdge) GetTarget() *GetSpecSupersedeTargetNodeOutgoingEdgesEdgeTargetNode {
+	return v.Target
+}
+
+// GetSpecSupersedeTargetNodeOutgoingEdgesEdgeTargetNode includes the requested fields of the GraphQL type Node.
+type GetSpecSupersedeTargetNodeOutgoingEdgesEdgeTargetNode struct {
+	Id string `json:"id"`
+}
+
+// GetId returns GetSpecSupersedeTargetNodeOutgoingEdgesEdgeTargetNode.Id, and is useful for accessing the field via an interface.
+func (v *GetSpecSupersedeTargetNodeOutgoingEdgesEdgeTargetNode) GetId() string { return v.Id }
+
+// GetSpecSupersedeTargetResponse is returned by GetSpecSupersedeTarget on success.
+type GetSpecSupersedeTargetResponse struct {
+	// The uniform single-node read (#473) — subsumes the former nodeById(id:)
+	// and node(loc:, memory:) split. 'ref' accepts, in dispatch order:
+	//
+	// 1. a primary key (the unambiguous read — the old nodeById),
+	// 2. a fully-qualified node URN (`hrn:node:<root>:<memory>:<loc>`,
+	// legacy `urn:` scheme accepted),
+	// 3. a bare loc — scoped by 'memoryRef' (an ID or URN) when given; unscoped,
+	// it resolves across every readable memory and a cross-memory loc
+	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
+	// (listing the candidate memoryIds) rather than silently returning
+	// one (#335). An unprefixed 3+-segment ref whose first two segments
+	// name a live memory is treated as form 2 (a full URN); pass
+	// 'memoryRef' to force loc interpretation.
+	//
+	// raw: true selects stored content without include or variable resolution.
+	// Soft-deleted nodes do not resolve. Access uses the caller's readable-memory
+	// set. A denied or missing node returns null; an explicit memoryRef that is
+	// missing or unreadable raises MEMORY_NOT_FOUND. When addressed in a system
+	// memory by memoryRef or a full node URN, a loc with no local node may read
+	// through to an eligible inherited node under its own address; overrides and
+	// boot prompts are excluded. An unscoped bare loc does not search inheritance.
+	Node *GetSpecSupersedeTargetNode `json:"node"`
+}
+
+// GetNode returns GetSpecSupersedeTargetResponse.Node, and is useful for accessing the field via an interface.
+func (v *GetSpecSupersedeTargetResponse) GetNode() *GetSpecSupersedeTargetNode { return v.Node }
 
 // GetTeamSessionResponse is returned by GetTeamSession on success.
 type GetTeamSessionResponse struct {
@@ -99753,9 +99921,10 @@ func (v *__DueTickWakesInput) GetAfter() *string { return v.After }
 
 // __DueWakesInput is used internally by genqlient
 type __DueWakesInput struct {
-	AppRef string  `json:"appRef"`
-	First  int     `json:"first"`
-	After  *string `json:"after,omitempty"`
+	AppRef  string     `json:"appRef"`
+	First   int        `json:"first"`
+	Accepts []WakeKind `json:"accepts"`
+	After   *string    `json:"after,omitempty"`
 }
 
 // GetAppRef returns __DueWakesInput.AppRef, and is useful for accessing the field via an interface.
@@ -99763,6 +99932,9 @@ func (v *__DueWakesInput) GetAppRef() string { return v.AppRef }
 
 // GetFirst returns __DueWakesInput.First, and is useful for accessing the field via an interface.
 func (v *__DueWakesInput) GetFirst() int { return v.First }
+
+// GetAccepts returns __DueWakesInput.Accepts, and is useful for accessing the field via an interface.
+func (v *__DueWakesInput) GetAccepts() []WakeKind { return v.Accepts }
 
 // GetAfter returns __DueWakesInput.After, and is useful for accessing the field via an interface.
 func (v *__DueWakesInput) GetAfter() *string { return v.After }
@@ -100248,6 +100420,14 @@ type __GetSpecNodeRawInput struct {
 
 // GetRef returns __GetSpecNodeRawInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetSpecNodeRawInput) GetRef() string { return v.Ref }
+
+// __GetSpecSupersedeTargetInput is used internally by genqlient
+type __GetSpecSupersedeTargetInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetSpecSupersedeTargetInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetSpecSupersedeTargetInput) GetRef() string { return v.Ref }
 
 // __GetTeamSessionInput is used internally by genqlient
 type __GetTeamSessionInput struct {
@@ -119652,8 +119832,8 @@ func DueTickWakes(
 
 // The query executed by DueWakes.
 const DueWakes_Operation = `
-query DueWakes ($appRef: String!, $first: Int!, $after: String) {
-	dueWakes(appRef: $appRef, first: $first, after: $after) {
+query DueWakes ($appRef: String!, $first: Int!, $accepts: [WakeKind!]!, $after: String) {
+	dueWakes(appRef: $appRef, first: $first, after: $after, accepts: $accepts) {
 		status
 		withheld
 		dormant {
@@ -119694,6 +119874,13 @@ query DueWakes ($appRef: String!, $first: Int!, $after: String) {
 					taskLoc
 					taskUrn
 				}
+				stop {
+					eventId
+					signalId
+					level
+					notice
+					interrupt
+				}
 			}
 		}
 		pageInfo {
@@ -119709,22 +119896,27 @@ query DueWakes ($appRef: String!, $first: Int!, $after: String) {
 // hadron-server#2733/7db74494, the same as #1281) are nullable values: null or
 // omitted keeps the composed fallback. A server without them refuses this
 // query at validation, which the poller fails closed on (no retry, nothing
-// typed). No accepts, so no STOP notice is offered (this
-// deliverer cannot type one); no workerRefs, so the key's host is the lane.
+// typed). accepts lists STOP (hadron-cli#1629, hadron-server#2169): the
+// poller types stop notices, and its whole-lane read (no workerRefs, no after
+// on the first page, one page of first: 200) declares the host's lane for
+// STOP_CONSUMER_FRESH_SECONDS (cor:agt:090:04). No workerRefs, so the key's
+// host is the lane.
 func DueWakes(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	appRef string,
 	first int,
+	accepts []WakeKind,
 	after *string,
 ) (data_ *DueWakesResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "DueWakes",
 		Query:  DueWakes_Operation,
 		Variables: &__DueWakesInput{
-			AppRef: appRef,
-			First:  first,
-			After:  after,
+			AppRef:  appRef,
+			First:   first,
+			Accepts: accepts,
+			After:   after,
 		},
 	}
 
@@ -121316,6 +121508,7 @@ query GetNode ($ref: ID!) {
 			priority
 			target {
 				id
+				name
 				loc
 				memoryId
 			}
@@ -121455,6 +121648,7 @@ query GetNodeRaw ($ref: ID!) {
 			priority
 			target {
 				id
+				name
 				loc
 				memoryId
 			}
@@ -121921,6 +122115,55 @@ func GetSpecNodeRaw(
 	}
 
 	data_ = &GetSpecNodeRawResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetSpecSupersedeTarget.
+const GetSpecSupersedeTarget_Operation = `
+query GetSpecSupersedeTarget ($ref: ID!) {
+	node(ref: $ref) {
+		id
+		memoryId
+		loc
+		name
+		role
+		tags
+		isPlaceholder
+		deletedAt
+		outgoingEdges {
+			name
+			target {
+				id
+			}
+		}
+	}
+}
+`
+
+// Existing-successor admission and superseded-by graph walk (#579). No body or
+// list scan: explicit provider facts, never placeholder inference from text.
+func GetSpecSupersedeTarget(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetSpecSupersedeTargetResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetSpecSupersedeTarget",
+		Query:  GetSpecSupersedeTarget_Operation,
+		Variables: &__GetSpecSupersedeTargetInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetSpecSupersedeTargetResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -125611,6 +125854,7 @@ query NextNode ($parentRef: ID!, $currentRef: ID, $raw: Boolean!) {
 			priority
 			target {
 				id
+				name
 				loc
 				memoryId
 			}
