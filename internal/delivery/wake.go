@@ -36,6 +36,10 @@ const (
 // a draft, never acknowledged).
 const StopDropped = "stop-dropped"
 
+// StopDropUnrecorded is StopDropped when the outbox record could not be
+// written: logged on every poll until it can be.
+const StopDropUnrecorded = "stop-drop-unrecorded"
+
 // OwnPrefixes are every prefix C1 types: a leftover opening with any of them
 // is ours (submitted or cleared), never a foreign draft.
 var OwnPrefixes = []string{Prefix, TickPrefix, TaskPrefix, StopPrefix}
@@ -489,36 +493,59 @@ func (d *Deliverer) ackWake(ctx context.Context, w Wake) bool {
 	// A failed archive write leaves the reasons typed: the next read acks
 	// them again, harmlessly (unchanged).
 	_ = d.WakeRecords.Acked(w.WorkerID, keys, d.Now())
+	d.stampTypedStops(w.components())
 	return true
 }
 
-// flagDroppedHalts logs a halt notice that could not be typed (hadron-cli#1629;
-// Holger's option A on hadron-server#2169): held on a draft, a question, an
-// unsubmitted line or an unknown screen, or failed for want of its terminal.
-// Nothing is typed over the composer and nothing is acknowledged, so the
-// notice stays due and is retried every poll; the drop is logged once per
-// notice as a StopDropped event whose span names the level and the notice's
-// event (ids only), for the host manager's tick to flag to the coordinator.
+// flagDroppedHalts records a halt notice that could not be typed
+// (hadron-cli#1629; Holger's option A on hadron-server#2169): held on a draft,
+// a question, an unsubmitted line or an unknown screen, failed, or skipped
+// because the worker has no terminal. Nothing is typed over the composer and nothing is
+// acknowledged, so the notice stays due and is retried every poll. The drop
+// goes once per notice into the StopDrops outbox, which survives restarts and
+// which the host's reporter turns into the coordinator's flag; the first
+// record also logs one StopDropped event (span stop:HALT:<eventId>, ids
+// only). A record that cannot be written is logged every time, as
+// stop-drop-unrecorded, so a failing disk never reads as a quiet drop.
 // A deferral (not yet due, waiting on a busy agent) is not a drop.
 func (d *Deliverer) flagDroppedHalts(r Recipient, untyped []WakeReason, o Outcome) {
-	if o.Kind != Held && o.Kind != Failed {
+	if o.Kind != Held && o.Kind != Failed && (o.Kind != Skipped || o.Reason != "no-terminal") {
 		return
 	}
 	for _, c := range untyped {
 		if c.Kind != WakeStop || c.Stop == nil || c.Stop.Level != "HALT" || c.Stop.Notice == "RESUME" {
 			continue
 		}
-		d.mu.Lock()
-		if d.stopFlagged == nil {
-			d.stopFlagged = map[string]bool{}
+		reason := StopDropped
+		if d.StopDrops == nil {
+			reason = StopDropUnrecorded
+		} else {
+			created, err := d.StopDrops.Drop(StopDrop{EventID: c.Stop.EventID, SignalID: c.Stop.SignalID, WorkerID: r.WorkerID,
+				Worker: r.Name, Level: c.Stop.Level, HoldReason: o.Reason, HeldAt: d.Now().UTC()})
+			switch {
+			case err != nil:
+				reason = StopDropUnrecorded
+			case !created:
+				continue
+			}
 		}
-		seen := d.stopFlagged[c.Stop.EventID]
-		d.stopFlagged[c.Stop.EventID] = true
-		d.mu.Unlock()
-		if seen || d.Emit == nil {
-			continue
+		if d.Emit != nil {
+			d.Emit(Event{Time: d.Now().UTC(), Worker: r.Name, WorkerID: r.WorkerID, Span: "stop:HALT:" + c.Stop.EventID,
+				Kind: Held, Reason: reason, Terminal: o.Terminal, ResolvedBy: r.resolvedBy, Wake: true})
 		}
-		d.Emit(Event{Time: d.Now().UTC(), Worker: r.Name, WorkerID: r.WorkerID, Span: "stop:HALT:" + c.Stop.EventID,
-			Kind: Held, Reason: StopDropped, Terminal: o.Terminal, ResolvedBy: r.resolvedBy, Wake: true})
+	}
+}
+
+// stampTypedStops marks recorded drops of the given reasons as since typed
+// and acknowledged (hadron-cli#1629). Best effort: the notice is delivered
+// either way, and a missed stamp only leaves a report saying it was not.
+func (d *Deliverer) stampTypedStops(reasons []WakeReason) {
+	if d.StopDrops == nil {
+		return
+	}
+	for _, c := range reasons {
+		if c.Kind == WakeStop && c.Stop != nil {
+			_ = d.StopDrops.Typed(c.Stop.EventID, d.Now())
+		}
 	}
 }

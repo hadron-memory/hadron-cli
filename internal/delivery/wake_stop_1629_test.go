@@ -1,6 +1,8 @@
 package delivery
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -187,4 +189,131 @@ func TestADroppedHaltEventNamesItsNoticeByIDOnly(t *testing.T) {
 		}
 	}
 	t.Fatal("no stop-dropped event")
+}
+
+func (h *harness) stopDrops() []StopDrop {
+	h.t.Helper()
+	recs, err := h.d.StopDrops.List()
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	return recs
+}
+
+func TestADroppedHaltIsRecordedOnceAcrossAPollerRestart(t *testing.T) {
+	h := newHarness(t)
+	h.orca.screens["term_j"] = []*orcaterm.Screen{{Source: "screen", Tail: claudeIdle, Draft: "SECRET draft"}}
+	w := h.wake(stopReason("ev20", "HALT", "STOP"))
+	h.deliverWake(w)
+	// A restarted poller: a new Deliverer over the same state directory.
+	events := h.events
+	h.d = New(h.server, h.orca, h.state)
+	h.d.Now = func() time.Time { return h.now }
+	h.d.Bound = func(w string) string { return h.bound[w] }
+	h.d.Emit = func(e Event) { h.events = append(h.events, e) }
+	h.deliverWake(w)
+	h.deliverWake(w)
+	if n := h.stopDropped(); n != 1 {
+		t.Fatalf("stop-dropped %d across a restart (before restart: %d events)", n, len(events))
+	}
+	recs := h.stopDrops()
+	if len(recs) != 1 {
+		t.Fatalf("records %+v", recs)
+	}
+	got := recs[0]
+	if got.EventID != "ev20" || got.SignalID != "sig-ev20" || got.WorkerID != workerID || got.Worker != "Joshua" ||
+		got.Level != "HALT" || got.HoldReason != HoldDraft || !got.HeldAt.Equal(h.now) || !got.TypedAt.IsZero() {
+		t.Fatalf("record %+v", got)
+	}
+	entries, err := os.ReadDir(h.d.StopDrops.Dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		data, _ := os.ReadFile(filepath.Join(h.d.StopDrops.Dir, e.Name()))
+		if strings.Contains(string(data), "SECRET") || strings.Contains(string(data), "wake-proof") {
+			t.Fatalf("record %s carries text: %s", e.Name(), data)
+		}
+		if info, _ := e.Info(); info.Mode().Perm() != 0o600 {
+			t.Fatalf("record mode %v", info.Mode().Perm())
+		}
+	}
+}
+
+func TestADroppedHaltTypedLaterIsStampedAndStaysOneRecord(t *testing.T) {
+	h := newHarness(t)
+	h.orca.screens["term_j"] = []*orcaterm.Screen{{Source: "screen", Tail: claudeIdle, Draft: "draft"}}
+	w := h.wake(stopReason("ev21", "HALT", "STOP"))
+	h.deliverWake(w)
+	h.orca.screens["term_j"] = []*orcaterm.Screen{screen(claudeIdle)}
+	h.orca.reads = map[string]int{}
+	h.now = h.now.Add(time.Minute)
+	if o := h.deliverWake(w); o.Kind != Delivered {
+		t.Fatalf("outcome %+v", o)
+	}
+	recs := h.stopDrops()
+	if len(recs) != 1 || !recs[0].TypedAt.Equal(h.now) {
+		t.Fatalf("records %+v", recs)
+	}
+}
+
+func TestEveryHoldOfAHaltIsADrop(t *testing.T) {
+	cases := map[string]struct {
+		screen []string
+		draft  string
+		reason string
+	}{
+		"draft":    {screen: claudeIdle, draft: "words", reason: HoldDraft},
+		"question": {screen: []string{"Do you want to proceed?", "❯ 1. Yes", "  2. No"}, reason: HoldQuestion},
+		"unknown":  {screen: []string{"nothing recognizable"}, reason: HoldScreenUnknown},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			h := newHarness(t)
+			h.orca.screens["term_j"] = []*orcaterm.Screen{{Source: "screen", Tail: c.screen, Draft: c.draft}}
+			h.deliverWake(h.wake(stopReason("ev-"+name, "HALT", "STOP")))
+			if recs := h.stopDrops(); len(recs) != 1 || recs[0].HoldReason != c.reason {
+				t.Fatalf("records %+v", recs)
+			}
+		})
+	}
+	t.Run("not submitted", func(t *testing.T) {
+		h := newHarness(t)
+		h.orca.receipts = []orcaterm.Receipt{{Accepted: true, TurnStarted: false, Stages: []string{"input_accepted"}}}
+		h.orca.screens["term_j"] = []*orcaterm.Screen{screen(claudeIdle), screen(claudeTyped(haltLine))}
+		h.deliverWake(h.wake(stopReason("ev-ns", "HALT", "STOP")))
+		if recs := h.stopDrops(); len(recs) != 1 || recs[0].HoldReason != HoldNotSubmitted {
+			t.Fatalf("records %+v events %+v", recs, h.events)
+		}
+	})
+	t.Run("no terminal", func(t *testing.T) {
+		h := newHarness(t)
+		h.orca.terms = nil
+		h.deliverWake(h.wake(stopReason("ev-nt", "HALT", "STOP")))
+		if recs := h.stopDrops(); len(recs) != 1 || recs[0].HoldReason != "no-terminal" {
+			t.Fatalf("records %+v", recs)
+		}
+	})
+}
+
+func TestAnUnwritableOutboxIsLoggedEveryPoll(t *testing.T) {
+	h := newHarness(t)
+	h.orca.screens["term_j"] = []*orcaterm.Screen{{Source: "screen", Tail: claudeIdle, Draft: "draft"}}
+	blocker := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(blocker, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h.d.StopDrops = &StopOutbox{Dir: filepath.Join(blocker, "under-a-file")}
+	w := h.wake(stopReason("ev22", "HALT", "STOP"))
+	h.deliverWake(w)
+	h.deliverWake(w)
+	n := 0
+	for _, e := range h.events {
+		if e.Reason == StopDropUnrecorded {
+			n++
+		}
+	}
+	if n != 2 || h.stopDropped() != 0 {
+		t.Fatalf("unrecorded %d, dropped %d", n, h.stopDropped())
+	}
 }

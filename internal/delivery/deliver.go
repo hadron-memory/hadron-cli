@@ -147,15 +147,14 @@ type Deliverer struct {
 	// acknowledged once all its TICK and TASK reasons are typed. Off, C1
 	// acknowledges only a proof with no MENTION reason and no channels.
 	AckMixed bool
+	// StopDrops is the dropped-halt outbox (hadron-cli#1629). nil records
+	// nothing, and a drop is then logged as unrecorded.
+	StopDrops *StopOutbox
 
 	mu sync.Mutex
 	// reported is the last hold reason reported per batch, so a hold is
 	// reported once per change, not every poll.
 	reported map[string]string
-	// stopFlagged is each halt notice already logged as stop-dropped
-	// (hadron-cli#1629), so a held halt is flagged once, not every poll. In
-	// memory: a restart may flag a still-held notice once more.
-	stopFlagged map[string]bool
 }
 
 // New builds a Deliverer with the production defaults.
@@ -164,6 +163,7 @@ func New(server Server, orca Terminals, stateDir string) *Deliverer {
 		Server: server, Orca: orca,
 		Records:     &Records{Dir: filepath.Join(stateDir, "delivery", "records")},
 		WakeRecords: &WakeRecords{Dir: filepath.Join(stateDir, "delivery", "wakes")},
+		StopDrops:   &StopOutbox{Dir: filepath.Join(stateDir, "delivery", "stop-dropped")},
 		LockDir:     filepath.Join(stateDir, "delivery", "locks"),
 		Bound:       BoundWorker, Now: time.Now, Budget: DefaultBudget,
 		Caps: Proven(),
