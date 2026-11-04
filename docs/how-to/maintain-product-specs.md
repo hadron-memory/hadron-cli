@@ -482,6 +482,12 @@ concurrent source edit. Target validation and the separate edge write are not
 atomic. After a lost retirement response, success requires read-back of both
 the tag and the requested abstract; a visible tag alone leaves an error.
 
+`spec supersede` refuses a RESCINDED or WITHDRAWN spec (an abstract lead, or the
+`rescinded`/`withdrawn` tag) with exit 5 and no write, `--dry-run` included: such a
+spec has no successor (cor:spc:010:01), so do not "repair" it with a supersession.
+If it becomes one after the edge or replacement landed, the retirement is refused,
+the link stays and is reported, and a rerun gets the early refusal.
+
 The replacement keeps the old `spec.*` subrole, if present. A legacy spec
 recognized by its tag alone gets the base `spec` role.
 
