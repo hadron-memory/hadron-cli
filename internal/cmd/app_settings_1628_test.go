@@ -233,7 +233,7 @@ func TestAppSettings1628PolicyAndRename(t *testing.T) {
 		t.Fatal(err)
 	}
 	v := appSettingsMutation(t, *calls).Vars
-	if string(v["policy"]) != `{"allow":["run.execute"]}` {
+	if string(v["policy"]) != `{"allow":["run.execute"]}` || keys1058(v) != "agentRef,name,orgRef,policy" {
 		t.Fatal(v)
 	}
 	var dto map[string]any
@@ -361,12 +361,12 @@ func TestAppSettings1628InstallDeclineAndPersonal(t *testing.T) {
 	srv, calls := appSettingsServer(t)
 	f, _, prompt := testFactoryTTY(t, "n\n")
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"app", "install", "--org", "acme.com", "--agent", "a1", "--name", "private-name", "--surface", "private-surface", "--training-mode=false", "--server", srv.URL})
+	root.SetArgs([]string{"app", "install", "--org", "acme.com", "--agent", "a1", "--name", "private-name", "--urn", "private-slug", "--type", "CHATBOT", "--description", "private-description", "--surface", "private-surface", "--training-mode=false", "--server", srv.URL})
 	err := root.Execute()
 	if exitCodeFor(err) != 6 || len(*calls) != 0 {
 		t.Fatalf("declined install err=%v calls=%+v", err, *calls)
 	}
-	expected := "Install App with settings: [agentRef name orgRef trainingMode surfaces]?"
+	expected := "Install App with settings: [agentRef name orgRef urn appType description trainingMode surfaces]?"
 	if !strings.Contains(prompt.String(), expected) || strings.Contains(prompt.String(), "private-") {
 		t.Fatalf("prompt=%q", prompt.String())
 	}
@@ -398,6 +398,9 @@ func TestAppSettings1628AdditionalLocalRefusals(t *testing.T) {
 			if exitCodeFor(err) != 2 || len(*calls) != 0 {
 				t.Fatalf("err=%v calls=%+v", err, *calls)
 			}
+			if tc.flags[0] == "--policy-file" && !strings.Contains(err.Error(), "cannot read --policy-file") {
+				t.Fatalf("read error replaced: %v", err)
+			}
 		})
 	}
 }
@@ -427,6 +430,7 @@ func TestAppSettings1628BadRenameReadNeverMutates(t *testing.T) {
 		code int
 	}{
 		{`{"data":{"app":null}}`, 4},
+		{`{"errors":[{"message":"denied","extensions":{"code":"FORBIDDEN"}}]}`, 8},
 		{`{"data":{"app":{"urn":"not-a-urn"}}}`, 1},
 		{`{"data":{"app":{"urn":"hrn:app:acme.com:bad\u001bname"}}}`, 1},
 	} {
@@ -467,5 +471,72 @@ func TestAppSettings1628BlankExpiryRefuses(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestAppSettings1628RenameReadConditions(t *testing.T) {
+	for _, tty := range []bool{false, true} {
+		for _, yes := range []bool{false, true} {
+			t.Run(mustJSON1628(t, []bool{tty, yes}), func(t *testing.T) {
+				srv, calls := appSettingsServer(t)
+				f, _ := testFactory(t)
+				if tty {
+					f, _, _ = testFactoryTTY(t, "y\n")
+				}
+				root := NewRootCmd(f)
+				args := []string{"app", "update", appRef1058, "--urn", "renamed", "--server", srv.URL}
+				if yes {
+					args = append(args, "--yes")
+				}
+				root.SetArgs(args)
+				err := root.Execute()
+				if !tty && !yes {
+					if exitCodeFor(err) != 2 || len(*calls) != 0 {
+						t.Fatalf("nonTTY err=%v calls=%+v", err, *calls)
+					}
+					return
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+				expected := 1
+				if tty && !yes {
+					expected = 2
+				}
+				if len(*calls) != expected {
+					t.Fatalf("calls=%+v expected%d", *calls, expected)
+				}
+				if yes && (*calls)[0].Operation != "UpdateAppSettings" {
+					t.Fatalf("yes pre-read: %+v", *calls)
+				}
+				if tty && !yes && (*calls)[0].Operation != "GetAppRenameURN" {
+					t.Fatalf("missing pre-read: %+v", *calls)
+				}
+			})
+		}
+	}
+}
+func TestAppSettings1628AllListCommas(t *testing.T) {
+	for _, tc := range []struct{ mode, flag, key string }{
+		{"install", "--surface", "surfaces"}, {"update", "--surface", "surfaces"}, {"install", "--install-optional", "installOptional"},
+	} {
+		t.Run(tc.mode+tc.flag, func(t *testing.T) {
+			srv, calls := appSettingsServer(t)
+			_, err := appSettingsRun(t, srv, tc.mode, tc.flag, "a,b", tc.flag, "c", "--yes")
+			if err != nil {
+				t.Fatal(err)
+			}
+			c := appSettingsMutation(t, *calls)
+			expectedKeys := "ref," + tc.key
+			if tc.mode == "install" {
+				expectedKeys = "agentRef," + tc.key + ",name,orgRef"
+				if tc.key == "surfaces" {
+					expectedKeys = "agentRef,name,orgRef,surfaces"
+				}
+			}
+			if string(c.Vars[tc.key]) != `["a,b","c"]` || keys1058(c.Vars) != expectedKeys {
+				t.Fatalf("vars=%+v keys=%s", c.Vars, keys1058(c.Vars))
+			}
+		})
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"slices"
+	"strings"
 
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -95,6 +96,9 @@ func (s *settingsFlags) prepare(cmd *cobra.Command) (preparedSettings, error) {
 		p.dormancy = &s.dormancy
 	}
 	if add("expires-at", "expiresAt") {
+		if strings.TrimSpace(s.expires) == "" {
+			return p, exitcode.Newf(exitcode.Usage, "--expires-at must not be blank; use --clear-expires-at to clear an expiry")
+		}
 		if s.clearExpires {
 			return p, exitcode.Newf(exitcode.Usage, "--expires-at and --clear-expires-at are mutually exclusive")
 		}
