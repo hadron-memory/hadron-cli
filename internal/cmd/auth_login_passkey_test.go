@@ -25,7 +25,7 @@ var passkeyHelpPhrases = []string{
 	"15 minutes",
 	// cli#875 gate (Xylon #73570): disclose that a first-passkey flow can
 	// outrun the whole-invocation cap, and how to recover.
-	"Where the server has you add a first passkey (with its second link), that can take longer than 15 minutes; if it does, the CLI stops and stores nothing: finish adding the passkey in the browser, then rerun `hadron auth login`.",
+	"the server has you add a first passkey (with its second link), that can take longer than 15 minutes; if it does, the CLI stops and stores nothing: finish adding the passkey in the browser, then rerun `hadron auth login`.",
 }
 
 // unconditionalEnrolment matches enrolment/registration promises. Each match
@@ -46,6 +46,15 @@ func TestAuthLoginHelpDescribesPasskeyStepConditionally(t *testing.T) {
 			t.Errorf("auth login help missing %q:\n%s", want, help)
 		}
 	}
+	// #941 UX P2 (Uma): --provider github sends no hint (loginProviderParam),
+	// so it must not be advised as a way past the sign-in page, and the flag
+	// must not claim a "github" default.
+	if strings.Contains(help, "--provider github or") || strings.Contains(help, `(default "github")`) {
+		t.Errorf("help advises --provider github or claims it is the default:\n%s", help)
+	}
+	if !strings.Contains(help, "--provider github opens the same sign-in page as the default") {
+		t.Errorf("help does not say --provider github opens the default page:\n%s", help)
+	}
 	if strings.Contains(help, "using GitHub for identity") {
 		t.Error("help still says the browser flow is GitHub-only")
 	}
@@ -60,6 +69,9 @@ func TestAgenticUsageDescribesPasskeyStepConditionally(t *testing.T) {
 		if !strings.Contains(doc, want) {
 			t.Errorf("agentic-usage.md missing %q", want)
 		}
+	}
+	if strings.Contains(doc, "--provider github|google") || !strings.Contains(doc, "`--provider github` sends no hint") {
+		t.Error("agentic-usage.md advises --provider github past the sign-in page")
 	}
 	if m := unconditionalEnrolment.FindString(doc); m != "" {
 		t.Errorf("agentic-usage.md promises enrolment unconditionally (%q)", m)

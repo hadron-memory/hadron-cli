@@ -29,7 +29,9 @@ methods that server supports (GitHub, Google or email). If the server
 requires a passkey for email sign-in, its page asks for one before the CLI
 receives anything. Where the server offers passkey
 registration, it emails a second link: open it in the same browser.
-Otherwise use `--provider github|google`. An agent cannot complete a browser
+Otherwise choose GitHub or Google on that page, or pass `--provider google` to
+go straight to Google (`--provider github` sends no hint and opens the same
+sign-in page as the default). An agent cannot complete a browser
 passkey step; agents use `HADRON_TOKEN` or `--with-token`. The browser step
 must finish within 15 minutes (a CLI-set limit, not a server rule); on
 timeout it exits 6 and stores nothing. Where the server has you add a first

@@ -118,7 +118,7 @@ func (ls *loopbackServer) Wait(ctx context.Context, bound time.Duration) (string
 		if errors.Is(ctx.Err(), context.Canceled) {
 			return "", exitcode.Newf(exitcode.Cancelled, "the browser sign-in was cancelled; nothing was stored")
 		}
-		return "", exitcode.Newf(exitcode.Cancelled, "the browser sign-in did not finish within %s; nothing was stored. Rerun `hadron auth login`", formatBound(bound))
+		return "", exitcode.Newf(exitcode.Cancelled, "the browser sign-in did not finish within %s; nothing was stored. If you were still adding a passkey, finish that in the browser first, then rerun `hadron auth login`", formatBound(bound))
 	}
 }
 

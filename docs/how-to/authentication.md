@@ -32,7 +32,9 @@ The server's sign-in page offers the methods that server supports (GitHub,
 Google or email). If the server requires a passkey for email sign-in, its page
 asks for one before the CLI receives anything; where it offers passkey
 registration, it emails a second link, which you open in the same browser.
-Otherwise use `--provider github|google`. The CLI runs no passkey step itself,
+Otherwise choose GitHub or Google on that page, or pass `--provider google` to
+go straight to Google (`--provider github` opens the same sign-in page as the
+default). The CLI runs no passkey step itself,
 so an agent cannot complete one: agents use `HADRON_TOKEN` or `--with-token`.
 The browser step must finish within 15 minutes, a limit the CLI sets for
 itself; on timeout it exits 6 and stores nothing. Where the server has you add a first
@@ -40,7 +42,7 @@ passkey (with its second link), that can take longer than 15 minutes; if it
 does, the CLI stops and stores nothing: finish adding the passkey in the
 browser, then rerun `hadron auth login`.
 
-If the server later refuses a **stored** credential, commands exit 3 with
+If a command is refused with a **stored** credential, it exits 3 with
 "your stored credential was refused; run `hadron auth login`". The CLI does
 not retry, does not delete the stored token, and does not guess why it was
 refused.

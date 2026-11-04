@@ -32,15 +32,17 @@ The resulting token is stored in the OS keychain (or
 If the server requires a passkey for email sign-in, its page asks for one
 before the CLI receives anything. Where the server offers passkey
 registration, it emails a second link: open it in the same browser.
-Otherwise sign in with --provider github or --provider google. An agent
-cannot complete a browser passkey step; agents use HADRON_TOKEN or
---with-token.
+Otherwise choose GitHub or Google on that page, or pass --provider google
+to go straight to Google (--provider github opens the same sign-in page as
+the default). An agent cannot complete a browser passkey step; agents use
+HADRON_TOKEN or --with-token.
 
 The browser step must finish within 15 minutes, a limit the CLI sets for
 itself. If it does not, nothing is stored; rerun ` + "`hadron auth login`" + `.
-Where the server has you add a first passkey (with its second link), that
-can take longer than 15 minutes; if it does, the CLI stops and stores
-nothing: finish adding the passkey in the browser, then rerun
+First-time passkey setup: where the server has you add a first passkey
+(with its second link), that can take longer than 15 minutes; if it
+does, the CLI stops and stores nothing: finish adding the passkey in the
+browser, then rerun
 ` + "`hadron auth login`" + `.
 
 The browser flow requests the "account" OAuth scope, because the CLI uses
@@ -113,7 +115,7 @@ hadron auth status (or whoami) then shows which account it is.`,
 		},
 	}
 	cmd.Flags().BoolVar(&withToken, "with-token", false, "read the token from standard input")
-	cmd.Flags().StringVar(&provider, "provider", "github", "browser identity provider: github or google")
+	cmd.Flags().StringVar(&provider, "provider", "", "browser identity provider: github or google; google goes straight to Google, github and the default open the server's sign-in page")
 	cmd.MarkFlagsMutuallyExclusive("with-token", "provider")
 	return cmd
 }

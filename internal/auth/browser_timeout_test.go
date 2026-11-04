@@ -44,7 +44,7 @@ func TestBrowserLoginTimeoutSaysNothingStored(t *testing.T) {
 		t.Fatalf("exit = %d, want Cancelled %d (err: %v)", got, exitcode.Cancelled, err)
 	}
 	msg := err.Error()
-	for _, want := range []string{"did not finish within", "nothing was stored", "hadron auth login"} {
+	for _, want := range []string{"did not finish within", "nothing was stored", "finish that in the browser first", "hadron auth login"} {
 		if !strings.Contains(msg, want) {
 			t.Errorf("timeout message missing %q: %q", want, msg)
 		}
