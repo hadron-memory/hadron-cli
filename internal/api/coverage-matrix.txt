@@ -225,7 +225,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 331: 270 command, 49 gap, 12 excluded
+[Mutation] 331: 271 command, 48 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -286,7 +286,7 @@ createAiServiceConfig  command ai-config create
 createApp  command app install
 createAppKey  command app key create
 createAppMemory  command memory set
-createAppUser  gap #63
+createAppUser  command app user create
 createAssetReferenceNode  command asset link
 createChannel  command channel create
 createChannelMessage  command channel post
@@ -558,7 +558,7 @@ updateWorker  command team worker update
 withdrawDecision  command decision withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 88: 60 gap, 28 excluded
+[Arguments] 89: 60 gap, 29 excluded
 Mutation.acknowledgeAlarm(instruction)  gap #1617
 Mutation.addAgentTaskBlocker(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
@@ -588,6 +588,7 @@ Mutation.createApp(role)  gap #63
 Mutation.createApp(sessionTimeoutSeconds)  gap #63
 Mutation.createApp(surfaces)  gap #63
 Mutation.createApp(trainingMode)  gap #63
+Mutation.createAppUser(email)  excluded not-a-capability: accepts only empty values (SDL); an address is established through verified sign-in; cor:api:240:02 (argument that changes nothing)
 Mutation.createMemoryShare(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.createMemorySubscription(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.createMemorySubscription(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).

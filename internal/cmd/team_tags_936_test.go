@@ -180,6 +180,11 @@ func TestTeamTags936WirePresenceAndNoMark(t *testing.T) {
 				if v, ok := pages[0].Vars[tc.key]; !ok || v != tc.value {
 					t.Fatalf("variables %+v", pages[0].Vars)
 				}
+				if tc.key == "teamHeadRef" {
+					if _, present := pages[0].Vars["untagged"]; present {
+						t.Fatalf("head-only sent untagged: %+v", pages[0].Vars)
+					}
+				}
 				if len(tc.args) > 2 && pages[0].Vars["mentionsRef"] != "Ada" {
 					t.Fatal("mention not composed")
 				}
@@ -283,6 +288,22 @@ func TestTeamTags936AttributedNoMark(t *testing.T) {
 				t.Fatal("mentions-me did not compose with the tag filter")
 			}
 			for _, c := range pages {
+				for i, flag := range filter {
+					if flag == "--team-head" && c.Vars["teamHeadRef"] != filter[i+1] {
+						t.Fatalf("attributed head dropped: %+v", c.Vars)
+					}
+					if flag == "--tagged" && c.Vars["untagged"] != false {
+						t.Fatalf("attributed tagged dropped: %+v", c.Vars)
+					}
+					if flag == "--untagged" && c.Vars["untagged"] != true {
+						t.Fatalf("attributed untagged dropped: %+v", c.Vars)
+					}
+				}
+				if strings.Contains(strings.Join(filter, " "), "--team-head") {
+					if _, present := c.Vars["untagged"]; present {
+						t.Fatalf("head-only sent untagged: %+v", c.Vars)
+					}
+				}
 				if c.Session != "s-new" || !strings.Contains(c.Query, "advanceReadState: false") {
 					t.Fatalf("attribution %+v", c)
 				}
@@ -391,7 +412,7 @@ func TestTeamTags936CompatibilityNeverWidens(t *testing.T) {
 }
 func TestTeamTags936PostKeepsStoredTagsAndRefusal(t *testing.T) {
 	for _, surface := range []string{"team", "channel"} {
-		for _, code := range []string{"", "TEAM_CHAT_TEAM_HEAD_INVALID"} {
+		for _, code := range []string{"", "TEAM_CHAT_TEAM_HEAD_INVALID", "TEAM_CHAT_TEAM_METADATA_FORBIDDEN"} {
 			t.Run(surface+code, func(t *testing.T) {
 				teamGitDir(t)
 				body := `{"data":{"createTeamChatMessage":{"nodeId":"n1","seq":1,"body":"x","at":"t","mentions":[],"teamTags":[{"headId":"h1","label":"@team.old"}]}}}`
@@ -411,7 +432,11 @@ func TestTeamTags936PostKeepsStoredTagsAndRefusal(t *testing.T) {
 				root.SetArgs(append(args, "--server", srv.URL, "--json"))
 				err := root.Execute()
 				if code != "" {
-					if renderError(f, err) != 4 || !strings.Contains(out.String(), `"serverCode": "TEAM_CHAT_TEAM_HEAD_INVALID"`) {
+					want := 4
+					if code == "TEAM_CHAT_TEAM_METADATA_FORBIDDEN" {
+						want = 8
+					}
+					if renderError(f, err) != want || !strings.Contains(out.String(), `"serverCode": "`+code+`"`) {
 						t.Fatalf("post %v %s", err, out.String())
 					}
 				} else if err != nil || !strings.Contains(out.String(), `"headId": "h1"`) {
@@ -421,6 +446,58 @@ func TestTeamTags936PostKeepsStoredTagsAndRefusal(t *testing.T) {
 					t.Fatal("post retried")
 				}
 			})
+		}
+	}
+}
+
+// Regression probes adapted from Ralion’s scoped security review.
+func TestTeamTags936AttributedRefusalNoRetry(t *testing.T) {
+	for _, code := range []string{"TEAM_CHAT_TEAM_HEAD_INVALID", "TEAM_CHAT_TEAM_METADATA_FORBIDDEN"} {
+		t.Run(code, func(t *testing.T) {
+			writeTeamBinding(t)
+			srv, calls := tag936Server(t, "[]", code)
+			setTeamBindingServer(t, srv.URL)
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(tag936Args("team", srv.URL, "--team-head", "h1"))
+			err := root.Execute()
+			pages := tag936Pages(*calls)
+			if err == nil || len(pages) != 1 || pages[0].Session == "" {
+				t.Fatalf("err=%v pages=%+v out=%s", err, pages, out.String())
+			}
+		})
+	}
+}
+
+func TestTeamTags936LabelControls(t *testing.T) {
+	for _, surface := range []string{"team", "channel"} {
+		t.Run(surface, func(t *testing.T) {
+			teamGitDir(t)
+			srv, _ := tag936Server(t, `[{"headId":"h","label":"a\u001b[31m\nb‮c"}]`, "")
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			args := []string{}
+			for _, a := range tag936Args(surface, srv.URL) {
+				if a != "--json" {
+					args = append(args, a)
+				}
+			}
+			root.SetArgs(args)
+			if err := root.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			s := out.String()
+			if strings.ContainsAny(s, "\x1b‮") || strings.Contains(s, "a\n") {
+				t.Fatalf("%q", s)
+			}
+		})
+	}
+}
+
+func TestTeamTags936ChannelDocumentRetainsFilter(t *testing.T) {
+	for _, arg := range []string{"teamHeadRef: $teamHeadRef", "untagged: $untagged"} {
+		if !strings.Contains(gen.ChannelTags_Operation, arg) {
+			t.Fatalf("channel document dropped %s", arg)
 		}
 	}
 }
