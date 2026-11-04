@@ -743,7 +743,10 @@ Conventions:
   encrypted-at-rest: you provide the data key (read from stdin via `--data-key -`
   so it stays out of shell history) and the server rewrites all node content as
   ciphertext in one transaction. It is ONE-WAY — there is no decrypt command —
-  so keep the key. Reads by authorized callers stay transparent afterward.
+  so keep the key. Afterwards a read prints the stored ciphertext (`enc:v1:…`)
+  unless the invocation supplies the passphrase with the global `--unlock`
+  (see "Reading an encrypted memory" below); v1 unlocks passphrase-encrypted
+  memories only, not `--data-key` ones.
 - `memory config get <memoryRef>` shows a memory's CONFIG: its node-role rules
   (hadron-server#1325), one per role or dotted sub-role, role-ascending.
   `memory config rule add|update|rm <memoryRef> <role>` changes them. **Only the
@@ -3378,6 +3381,55 @@ sends no App context, which the server treats as fine. Set a default
 with `hadron app set-active <ref>` or override per-invocation with
 `--app <ref>` (an App id, `hrn:app:<root>:<slug>`, or the `<root>:<slug>`
 short form).
+
+## Reading an encrypted memory (`--unlock`, cli#1234)
+
+`--unlock <memory-ref>` is a GLOBAL flag (any command, `hadron api` included),
+repeatable up to 8. It supplies an encrypted memory's passphrase for THIS
+invocation only: the CLI sends `{memory, passphrase}` entries in the
+`x-hadron-memory-keys` header of every GraphQL request the invocation makes
+(cor:sec:040:04; a key is never a GraphQL field). Ruling 0129: nothing is
+cached between invocations, and the passphrase is NEVER an argument or an
+environment variable; there is no flag that takes it. Sources, one per
+invocation:
+
+- a terminal on stdin and no source flag: a no-echo prompt per memory
+  (`Passphrase for <memory>:` on stderr);
+- `--unlock-passphrase-file <path>`, one per `--unlock`, paired in order. The
+  file must be a regular file only you can access (no group/other permission
+  bits: `chmod 600`, the rule ssh applies to a key); otherwise exit 2. Trailing
+  CR/LF is trimmed, exactly as `memory encrypt --passphrase-file` does. Not
+  available on Windows (permissions cannot be checked): use the prompt or stdin.
+- `--unlock-passphrase-stdin`: reads ALL of stdin as the passphrase for a
+  single `--unlock` (two or more is exit 2); the command then cannot also read
+  stdin.
+
+Every local refusal is exit 2 with NOTHING sent: a 9th `--unlock`, a duplicate
+memory, an empty ref or passphrase, a source flag without `--unlock`, stdin
+with a file, a file count that differs from the `--unlock` count, an
+accessible or unreadable file, no source on a non-terminal, or a header over
+the server's 16 KiB. Memory refs are canonicalized (`<root>:<slug>` →
+`hrn:mem:<root>:<slug>`); an id passes through. Only the memory's OWNER can
+unlock it.
+
+The server checks the header before running the operation. Its refusal is
+typed and never retried; the message is fixed per code, never the server's
+text, and `--json` carries `serverCode`:
+
+| serverCode | exit | meaning |
+|---|---|---|
+| `WRONG_KEY` | 2 | a passphrase does not match its memory |
+| `BAD_UNLOCK_INPUT` | 2 | an entry was unusable (e.g. a raw-data-key memory) |
+| `NOT_ENCRYPTED` | 2 | an `--unlock` memory is not encrypted |
+| `NOT_FOUND` | 4 | not found, or not yours (uniform) |
+| `UNAUTHENTICATED` | 3 | not signed in |
+
+The server does not say WHICH entry failed. The passphrase and the encoded
+header are scrubbed from every error-bearing answer before it can be printed
+(a non-200 body whole, a 200's `errors` list); successful data is never
+rewritten. A key-bearing request is never sent over cleartext http (loopback
+excepted) and never follows a redirect to another host or to http. The CLI has
+no verbose/debug request dump. Without `--unlock`, requests are unchanged.
 
 ## `coding review run` — the checklist against a diff (#551)
 

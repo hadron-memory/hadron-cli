@@ -83,6 +83,10 @@ Feedback counts (commentSummary in --json) come from a separate read: they are
 null (text: unavailable) when that read fails or the server is older, never a
 guessed zero.
 
+A node in an encrypted memory prints its stored ciphertext (enc:v1:...) unless
+you add --unlock <memory-ref> (a global flag; see hadron memory encrypt), which
+asks for that memory's passphrase for this one invocation.
+
 ` + installReadDetails() + ``,
 		Example: `  hadron node get hrn:node:hadronmemory.com:dev:start-here
   hadron node get start-here -m hrn:mem:hadronmemory.com:dev --json

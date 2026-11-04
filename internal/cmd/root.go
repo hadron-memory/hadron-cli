@@ -79,6 +79,7 @@ func NewRootCmd(f *cmdutil.Factory) *cobra.Command {
 	f.BeginInstructedWrite = func(ctx context.Context) func(context.Context, string, string) (context.Context, bool, error) {
 		return begin(ctx)
 	}
+	var unlock cmdutil.UnlockFlags
 	root := &cobra.Command{
 		Use:   "hadron <command> <subcommand>",
 		Short: "The Hadron platform CLI",
@@ -116,7 +117,23 @@ the binding is verified. Otherwise this does not apply to you.`,
 		// win, so a real run checked through a Factory that never saw
 		// --server. No subcommand defines its own PersistentPreRun, so this
 		// one always runs.
-		PersistentPreRunE: func(*cobra.Command, []string) error {
+		PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
+			// hadron-cli#1234: read every --unlock passphrase BEFORE anything
+			// can send a request, and put the keys on THIS invocation's
+			// context only (ruling 0129: per invocation, never cached).
+			unlock.FilesSet = cmd.Flags().Changed("unlock-passphrase-file")
+			unlock.StdinSet = cmd.Flags().Changed("unlock-passphrase-stdin")
+			keys, err := cmdutil.ResolveUnlock(f.IOStreams, unlock)
+			if err != nil {
+				return err
+			}
+			if len(keys) > 0 {
+				ctx, err := api.WithMemoryKeys(cmd.Context(), keys)
+				if err != nil {
+					return err
+				}
+				cmd.SetContext(ctx)
+			}
 			teamcmd.InstallEndedBindingCheck(f)
 			return nil
 		},
@@ -136,6 +153,10 @@ the binding is verified. Otherwise this does not apply to you.`,
 	root.PersistentFlags().BoolVar(&f.JSON, "json", false, "output JSON instead of text")
 	root.PersistentFlags().StringVar(&f.ServerFlag, "server", "", "Hadron server base URL (overrides config)")
 	root.PersistentFlags().StringVar(&f.AppFlag, "app", "", "App context for this invocation: hrn:app:<root>:<slug>, <root>:<slug>, or an App id (overrides config)")
+	// hadron-cli#1234, ruling 0129: no flag takes the passphrase itself.
+	root.PersistentFlags().StringArrayVar(&unlock.Memories, "unlock", nil, "read an encrypted memory you own for this invocation (repeatable, up to 8); the passphrase is prompted, never an argument")
+	root.PersistentFlags().StringArrayVar(&unlock.Files, "unlock-passphrase-file", nil, "file holding the --unlock passphrase, one per --unlock in the same order; refused unless only you can read it (chmod 600)")
+	root.PersistentFlags().BoolVar(&unlock.Stdin, "unlock-passphrase-stdin", false, "read the passphrase for a single --unlock memory from stdin")
 
 	root.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
 		return exitcode.New(exitcode.Usage, err)
