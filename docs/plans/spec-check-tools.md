@@ -20,7 +20,7 @@ realities the issue's "extraction is a one-liner" assumption missed:
    runner tools (`RunToolDef { name: 'hadron_*' }` in `src/lib/runner/tools/*.ts`,
    e.g. `hadron_read_secret`, `hadron_store_file`). A manifest of only the MCP
    registry would false-positive on the runner tools. The manifest is the **union**
-   (47 tools when first written; the count moves with the server, 81 after cli#1511).
+   (47 tools when first written; the count moves with the server, 90 after cli#1511).
 2. **Genuine non-tools.** `hadron_token` (the web sign-in cookie) and `hadron_chatbot`
    (the `hadron_chatbot_*` tool-family prefix, written as a glob) are `hadron_*`
    identifiers that legitimately appear in prose but aren't tools.
@@ -59,7 +59,7 @@ hadron spec check-tools [-m <memory>] [--prefix <loc>] [--json]
 
 - `scripts/gen-tools-manifest.sh` — the union extractor (emits a fixed header so the
   committed file is byte-reproducible for the drift-check).
-- `internal/cmd/spec/mcp-tools.txt` — generated manifest (81 tools at server 99246d46).
+- `internal/cmd/spec/mcp-tools.txt` — generated manifest (90 tools at server 99246d46; 160 before cli#1511).
 - `internal/cmd/spec/mcp-tools-ignore.txt` — hand-curated non-tools.
 - `internal/cmd/spec/checktools.go` — the command + `go:embed` + parser/extractor.
 - `Makefile` — `tools-manifest` (regenerate) and `tools-manifest-check` (drift).

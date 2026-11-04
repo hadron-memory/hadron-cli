@@ -72,6 +72,30 @@ func fixture(t *testing.T) string {
 	return root
 }
 
+// disabledSet returns the names the generator extracted as disabled, read from
+// its GEN_TOOLS_PRINT_DISABLED stderr dump: a disabled name that never entered
+// the MCP candidate set cannot prove, by absence from the manifest, that it was
+// recognised (cli#1511 BLIND P3).
+func disabledSet(t *testing.T, root string) map[string]bool {
+	t.Helper()
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("bash", filepath.Join(wd, "..", "gen-tools-manifest.sh"))
+	cmd.Env = append(os.Environ(), "HADRON_SERVER_DIR="+root, "GEN_TOOLS_PRINT_DISABLED=1")
+	var stderr strings.Builder
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("generator failed: %v\n%s", err, stderr.String())
+	}
+	set := map[string]bool{}
+	for _, n := range strings.Fields(stderr.String()) {
+		set[n] = true
+	}
+	return set
+}
+
 // names returns the set of printed tool names.
 func names(t *testing.T, root string) map[string]int {
 	t.Helper()
@@ -116,6 +140,9 @@ func TestDisabledToolMultiLineOpenerAndAliasName(t *testing.T) {
 	if set["hadron_kept_alias"] != 1 || set["hadron_gone_multiline"] != 0 {
 		t.Errorf("alias form: %v", set)
 	}
+	if d := disabledSet(t, root); !d["hadron_gone_multiline"] || d["hadron_kept_alias"] {
+		t.Errorf("multi-line disabled opener not extracted as disabled: %v", d)
+	}
 }
 
 // The direct form offTeamTool(server)('name', …) is the other shape.
@@ -148,6 +175,9 @@ func TestRunnerToolSurvivesDisabledMCPName(t *testing.T) {
 	set := names(t, root)
 	if set["hadron_task_create"] != 1 {
 		t.Errorf("runner tool must be listed exactly once, got %d: %v", set["hadron_task_create"], set)
+	}
+	if d := disabledSet(t, root); !d["hadron_task_create"] || d["hadron_keep_neighbour"] {
+		t.Errorf("the MCP twin must be extracted as disabled (so the subtraction is what the runner survives): %v", d)
 	}
 }
 

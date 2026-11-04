@@ -19,6 +19,12 @@
 # stays. Two shapes of the helper are read, lexically and exhaustively:
 #   (const|let) <alias> = <HELPER>(…)      then   <alias>(  'hadron_*', …
 #   <HELPER>(…)(  'hadron_*', …                    (the direct form)
+# Supported source layout (what the extractor can and cannot see): one opener per
+# line, with the quoted name on the opener line or the line right after it. A
+# second opener on the same line, a comment or blank line between the opener and
+# its name, or a name built by an expression is NOT read; scripts cannot detect
+# that, so the cross-check is the printed disabled set (GEN_TOOLS_PRINT_DISABLED=1)
+# against internal/shippedtext/testdata/disabled_mcp_tools.txt at the deployed SHA.
 # The generator refuses (exit 2) when the helper is not found or disables
 # nothing: a quiet empty disabled set would silently re-list every disabled tool.
 # Prints one tool name per line, sorted and de-duplicated, to stdout. The
