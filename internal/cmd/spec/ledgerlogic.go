@@ -414,7 +414,7 @@ func scanLedgerIDs(line string) (ids, bad []string) {
 			pos = next
 			continue
 		}
-		if hi, next, state := ledgerRangeTail(line, end); state == rangeMalformed {
+		if hi, next, state := ledgerRangeTail(line, end, base[len(base)-1] >= 'A' && base[len(base)-1] <= 'Z'); state == rangeMalformed {
 			bad = append(bad, strings.TrimSpace(line[loc[0]:next]))
 			pos = next
 		} else if state == rangeOK {
@@ -498,7 +498,10 @@ func isIDWordByte(b byte) bool {
 }
 
 // ledgerRangeTail reads "…008", "...008", "–004", "… 010" after an ID.
-func ledgerRangeTail(s string, i int) (hi, next, state int) {
+//
+// After a letter ID a capital-letter bound is an attempted letter range, which
+// never expands: malformed. After a numeric ID that letter is just prose ("– A note").
+func ledgerRangeTail(s string, i int, letterBase bool) (hi, next, state int) {
 	q := skipSpaces(s, i)
 	switch {
 	case strings.HasPrefix(s[q:], "…"):
@@ -516,6 +519,13 @@ func ledgerRangeTail(s string, i int) (hi, next, state int) {
 	}
 	// Digits right after the marker are an attempted bound: anything but
 	// exactly three digits ending at a boundary is malformed. Other text is prose.
+	if letterBase && q < len(s) && s[q] >= 'A' && s[q] <= 'Z' {
+		end := q
+		for end < len(s) && isIDWordByte(s[end]) {
+			end++
+		}
+		return 0, end, rangeMalformed
+	}
 	if q >= len(s) || s[q] < '0' || s[q] > '9' {
 		return 0, 0, rangeNone
 	}

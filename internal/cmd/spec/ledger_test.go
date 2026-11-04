@@ -402,6 +402,14 @@ func TestLedgerIDTokenBoundariesAndMalformedRangeTail(t *testing.T) {
 	// A range tail whose bound is not three digits is reported, not ignored.
 	eq(t, "short bound", ledgerKeys(run("D-2026-10-02-002…00"), "unparsed-shorthand"), []string{""})
 	eq(t, "long bound", ledgerKeys(run("D-2026-10-02-002–0040"), "unparsed-shorthand"), []string{""})
+	// A letter-to-letter range is shorthand we cannot expand: reported, not dropped.
+	for _, op := range []string{"…", "...", "–"} {
+		eq(t, "letter range "+op, ledgerKeys(run("D-2026-10-01-A"+op+"C"), "unparsed-shorthand"), []string{""})
+	}
+	// A numeric ID followed by a capitalised word after a dash is prose.
+	if got := run("D-2026-10-01-001 – A note"); len(got) != 0 {
+		t.Errorf("capitalised prose: %+v", got)
+	}
 	// An ID glued to a preceding word character is not that ID.
 	if got := run("xD-2026-10-09-099"); len(got) != 0 {
 		t.Errorf("glued ID judged: %+v", got)
