@@ -2316,7 +2316,8 @@ Conventions:
   (nonzero exit, the server's code; nothing is checked first). The response does
   not say created-vs-existing, so neither text nor `--json` claims it; `--json`
   is `{id, handle, name, urn, externalId}` (null = not returned). `--handle` and
-  `--name` are unsent when omitted; there is no `--email` (the server accepts
+  `--name` are unsent when omitted (an explicitly empty one, or an
+  `--external-id` with surrounding whitespace, is a usage error); there is no `--email` (the server accepts
   only empty values). The credential is never printed. Session start/end for the
   user is out of scope.
 - `app member add --user <ref> --role <role>` / `remove --user <ref>` (both take

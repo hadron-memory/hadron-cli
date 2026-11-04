@@ -62,24 +62,32 @@ func TestAppUserCreateHasNoEmailFlagAndRequiresExternalID(t *testing.T) {
 	}
 }
 
-func TestAppUserCreateTextAndJSONAndSameUserTwice(t *testing.T) {
+func TestAppUserCreateTextAndJSONShape(t *testing.T) {
 	stdout, _, _, err := runAppUserCreate(t, appUserResp, "--external-id", "ext-1")
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, w := range []string{"usr9", "ext-ada"} {
-		if !strings.Contains(stdout, w) {
-			t.Errorf("text output missing %q: %s", w, stdout)
-		}
+	// The whole line, so each value is pinned to its own column: the URN
+	// contains the handle as a substring, so per-value Contains checks could
+	// not tell a dropped or swapped handle from a correct one.
+	if want := "user usr9  handle ext-ada  name Ada  urn hrn:user:ext-ada  external id ext-1\n"; stdout != want {
+		t.Errorf("text output:\n got %q\nwant %q", stdout, want)
 	}
 	if strings.Contains(stdout, "created") || strings.Contains(stdout, "already existed") || strings.Contains(stdout, "existing") {
 		t.Errorf("the response does not say created-vs-found, so the output must not either: %s", stdout)
 	}
+	// The same-externalId-same-user guarantee is the server's (the identity
+	// key); against a fixed mock this loop pins only that the CLI sends the id
+	// unchanged and prints what comes back, twice.
 	var ids []string
 	for i := 0; i < 2; i++ {
-		out, _, _, err := runAppUserCreate(t, appUserResp, "--external-id", "ext-1", "--json")
+		out, _, vars, err := runAppUserCreate(t, appUserResp, "--external-id", "ext-1", "--json")
 		if err != nil {
 			t.Fatal(err)
+		}
+		var sent map[string]any
+		if e := json.Unmarshal(vars, &sent); e != nil || sent["externalId"] != "ext-1" {
+			t.Errorf("run %d must send the external id unchanged: %s", i, vars)
 		}
 		var got map[string]any
 		if e := json.Unmarshal([]byte(out), &got); e != nil {
@@ -170,10 +178,33 @@ func TestAppUserCreateNeverPrintsTheCredential(t *testing.T) {
 // An answer without a user is a failure, never a silent success with empty output.
 func TestAppUserCreateEmptyAnswerIsAnError(t *testing.T) {
 	stdout, _, _, err := runAppUserCreate(t, `{"data":{"createAppUser":null}}`, "--external-id", "e")
-	if err == nil || exitCodeFor(err) == 0 {
-		t.Errorf("a missing user must be a nonzero error: %v", err)
+	if err == nil || exitCodeFor(err) != exitcode.Unavailable {
+		t.Errorf("a missing user must exit Unavailable (%d): code=%d %v", exitcode.Unavailable, exitCodeFor(err), err)
 	}
 	if strings.TrimSpace(stdout) != "" {
 		t.Errorf("nothing on stdout: %s", stdout)
+	}
+}
+
+func TestAppUserCreateRefusesWhitespaceIdAndEmptyOptionals(t *testing.T) {
+	for _, args := range [][]string{
+		{"--external-id", " ext-1"}, {"--external-id", "ext-1 "},
+		{"--external-id", "e", "--handle", ""}, {"--external-id", "e", "--name", ""},
+	} {
+		_, calls, _, err := runAppUserCreate(t, appUserResp, args...)
+		if err == nil || exitCodeFor(err) != exitcode.Usage || calls != 0 {
+			t.Errorf("%v: want usage error and zero calls, got code=%d calls=%d err=%v", args, exitCodeFor(err), calls, err)
+		}
+	}
+}
+
+// Text mode shows a field the server does not return as "-", in its own column.
+func TestAppUserCreateTextShowsDashForAbsentFields(t *testing.T) {
+	out, _, _, err := runAppUserCreate(t, `{"data":{"createAppUser":{"id":"u1","handle":null,"name":null,"urn":null,"externalId":null}}}`, "--external-id", "e")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "user u1  handle -  name -  urn -  external id -\n"; out != want {
+		t.Errorf("text output:\n got %q\nwant %q", out, want)
 	}
 }

@@ -55,8 +55,8 @@ and that refusal is printed as it comes (typed error, nonzero exit) — the CLI
 does not check the credential first.
 
 The server's answer does not say whether the user was just created or already
-existed, so this prints only the user (id, handle, name, URN, external id),
-never a "created" or "existing" claim. --handle and --name are optional and left
+existed, so this prints only the user (id, handle, name, URN, external id — a field the
+server does not return shows as -), never a "created" or "existing" claim. --handle and --name are optional and left
 unsent when omitted. There is no --email: the server accepts only empty values
 for it, and an address is established through verified sign-in. Starting or
 ending a session for the user is not part of this command.
@@ -68,6 +68,17 @@ The credential is never printed.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if strings.TrimSpace(externalID) == "" {
 				return exitcode.Newf(exitcode.Usage, "--external-id is required (the id your App knows the user by)")
+			}
+			// The external id is the idempotency key: " ext-1" would mint a
+			// SECOND user beside "ext-1", so surrounding whitespace is refused,
+			// never silently trimmed or sent.
+			if externalID != strings.TrimSpace(externalID) {
+				return exitcode.Newf(exitcode.Usage, "--external-id has leading or trailing whitespace; it is the identity key, so pass it exactly as your App knows it")
+			}
+			for _, fl := range []struct{ name, val string }{{"handle", handle}, {"name", name}} {
+				if cmd.Flags().Changed(fl.name) && fl.val == "" {
+					return exitcode.Newf(exitcode.Usage, "--%s is empty; omit the flag to leave it unsent", fl.name)
+				}
 			}
 			var handleArg, nameArg *string
 			if cmd.Flags().Changed("handle") {
@@ -90,8 +101,8 @@ The credential is never printed.`,
 			u := resp.CreateAppUser
 			dto := appUserDTO{ID: u.Id, Handle: u.Handle, Name: u.Name, URN: u.Urn, ExternalID: u.ExternalId}
 			return output.Write(f.IOStreams, f.JSON, dto, func(out io.Writer) error {
-				_, err := fmt.Fprintf(out, "user %s  handle %s  external id %s\n",
-					output.SafeCell(dto.ID), userCell(dto.Handle), userCell(dto.ExternalID))
+				_, err := fmt.Fprintf(out, "user %s  handle %s  name %s  urn %s  external id %s\n",
+					output.SafeCell(dto.ID), userCell(dto.Handle), userCell(dto.Name), userCell(dto.URN), userCell(dto.ExternalID))
 				return err
 			})
 		},
