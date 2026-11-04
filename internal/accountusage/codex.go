@@ -106,7 +106,7 @@ func readDirNames(dir string, wantDir bool) ([]string, error) {
 		return nil, errCodexDir
 	}
 	if len(ents) > maxDirEntries {
-		return nil, nil
+		return nil, errCodexDirFull
 	}
 	var out []string
 	for _, e := range ents {
@@ -127,7 +127,10 @@ func readDirNames(dir string, wantDir bool) ([]string, error) {
 	return out, nil
 }
 
-var errCodexDir = bad("the Codex session directory cannot be read")
+var (
+	errCodexDir     = bad("the Codex session directory cannot be read")
+	errCodexDirFull = bad("a Codex session directory has more than %d entries", maxDirEntries)
+)
 
 func descending(names []string, ok func(string) bool) []string {
 	var keep []string
@@ -201,6 +204,9 @@ func ReadCodex(a Account) (CodexSnapshot, error) {
 	}
 	path, derr := newestRollout(a.ConfigDir)
 	if derr != nil {
+		if derr == errCodexDirFull {
+			return CodexSnapshot{}, bad("account %q: a Codex session directory has more than %d entries", a.Label, maxDirEntries)
+		}
 		return CodexSnapshot{}, bad("account %q: the Codex session directory cannot be read", a.Label)
 	}
 	if path == "" {
@@ -214,14 +220,18 @@ func ReadCodex(a Account) (CodexSnapshot, error) {
 		return CodexSnapshot{}, bad("account %q: the newest Codex session file is larger than %d bytes", a.Label, maxRolloutBytes)
 	}
 	afterRolloutStat()
-	f, err := os.Open(path)
+	f, err := openRollout(path)
 	if err != nil {
 		return CodexSnapshot{}, bad("account %q: the newest Codex session file cannot be read", a.Label)
 	}
 	defer func() { _ = f.Close() }()
 	// The file opened must be the regular file that was checked: a swap for a
 	// link or another file between the Lstat and the Open is refused.
-	if ofi, serr := statOpened(f); serr != nil || !ofi.Mode().IsRegular() || !os.SameFile(fi, ofi) {
+	ofi, serr := statOpened(f)
+	if serr != nil {
+		return CodexSnapshot{}, bad("account %q: the newest Codex session file cannot be read", a.Label)
+	}
+	if !ofi.Mode().IsRegular() || !os.SameFile(fi, ofi) {
 		return CodexSnapshot{}, nil
 	}
 	var snap CodexSnapshot
