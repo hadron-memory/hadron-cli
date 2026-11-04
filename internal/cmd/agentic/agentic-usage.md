@@ -651,7 +651,12 @@ Conventions:
   fail the scan fails on the LAST step, after the transfer, with a BLOCKED
   record left behind on purpose; re-uploading the same file always fails the
   same way. All three exit 1.
-  `asset public-link <ref> --on|--off` records the anonymous-download switch.
+  `asset public-link <ref> --on|--off [--instruction <kind>:<ref>]` records the anonymous-download switch.
+  The optional instruction uses the shared `team-chat-message:`, `task:` or
+  `live-chat:` syntax (the reference after the first colon is preserved). It
+  applies to a worker session on an App memory; the server decides admission.
+  Malformed instructions exit 2 before confirmation or any call. Without the
+  flag the person call and JSON are unchanged. Requires server 5fd87dcc or later.
   ON confirms “anyone with the link” (`--yes` for non-interactive callers);
   OFF needs no confirmation. The server decides management authority (today:
   admin on the asset's memory; a refusal exits 8); no local role calculation or

@@ -39,6 +39,10 @@ type Factory struct {
 	// else the person's, with a note on stderr.
 	BeginInstructedWrite func(context.Context) func(ctx context.Context, targetAppID, targetAppRef string) (context.Context, bool, error)
 
+	// BeginServerTargetInstructedWrite snapshots a person-write binding before
+	// confirmation. The server resolves the target App and owns its admission.
+	BeginServerTargetInstructedWrite func(context.Context) func(context.Context) (context.Context, bool, error)
+
 	// Persistent flag values, bound by the root command.
 	JSON       bool
 	ServerFlag string

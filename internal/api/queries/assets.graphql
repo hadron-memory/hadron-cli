@@ -123,3 +123,19 @@ query ListAssets(
     }
   }
 }
+
+# cli#1610: keep the legacy operation above free of the newer argument so
+# calls without --instruction still validate against older servers.
+mutation SetAssetPublicLinkInstructed(
+  $assetRef: ID!
+  $enabled: Boolean!
+  $instruction: ActInstructionInput!
+) {
+  setAssetPublicLink(assetRef: $assetRef, enabled: $enabled, instruction: $instruction) {
+    id
+    publicLinkEnabled
+    canManagePublicLink
+    publicLinkAvailable
+    publicUrl
+  }
+}

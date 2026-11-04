@@ -200,3 +200,23 @@ func instructedAsPerson(ctx context.Context, f *cmdutil.Factory, why string, err
 	}
 	return ctx, false, nil
 }
+
+// BeginServerTargetInstructedWrite is for person writes whose server resolves
+// the target App (cli#1610, Xanthos #72650). Verify the binding locally but do
+// not infer an App from an asset id. A server refusal never triggers fallback.
+func BeginServerTargetInstructedWrite(f *cmdutil.Factory) func(context.Context) func(context.Context) (context.Context, bool, error) {
+	return func(ctx context.Context) func(context.Context) (context.Context, bool, error) {
+		snap := snapshotForInstruction(ctx)
+		return func(ctx context.Context) (context.Context, bool, error) {
+			appID := ""
+			if snap.b != nil {
+				appID = snap.b.AppID
+			}
+			session, why, err := instructedSession(ctx, f, snap, appID)
+			if err != nil || why != "" || session == "" {
+				return instructedAsPerson(ctx, f, why, err)
+			}
+			return api.WithSession(ctx, session), true, nil
+		}
+	}
+}
