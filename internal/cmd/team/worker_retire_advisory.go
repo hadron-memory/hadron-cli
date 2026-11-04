@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/Khan/genqlient/graphql"
 
@@ -29,10 +30,18 @@ type retireAdvisory struct {
 
 // readRetireAdvisory makes the ONE advisory read. Any failure — a transport
 // error, an older server that rejects Worker.continuity, a masked worker, an
-// unrecognized status — degrades to the all-null advisory: the retirement
-// continues through its ordinary confirmation (never blocked, never retried).
+// unrecognized status, a slow server — leaves the continuity status and
+// handoff reference null (hasLiveSession is retained from the already-authorized
+// resolved worker): the retirement continues through its ordinary confirmation
+// (never blocked, never retried).
+// retireAdvisoryTimeout bounds the best-effort read so a hung server cannot
+// hang the prompt.
+const retireAdvisoryTimeout = 5 * time.Second
+
 func readRetireAdvisory(ctx context.Context, client graphql.Client, w *gen.WorkerFields) retireAdvisory {
 	adv := retireAdvisory{retireAdvisoryDTO: retireAdvisoryDTO{HasLiveSession: w.HasLiveSession}}
+	ctx, cancel := context.WithTimeout(ctx, retireAdvisoryTimeout)
+	defer cancel()
 	resp, err := gen.GetWorkerRetireAdvisory(ctx, client, w.Id)
 	if err != nil || resp == nil || resp.Worker == nil || resp.Worker.Continuity == nil {
 		return adv
@@ -79,9 +88,6 @@ func handoffRefAfter(a retireAdvisory, lead string) string {
 	if a.HandoffURN == nil {
 		return ""
 	}
-	s := lead + *a.HandoffURN
-	if a.handoffAt != nil {
-		s += " (written " + *a.handoffAt + ")"
-	}
-	return s
+	// handoffAt is set together with HandoffURN (same returned handoff row).
+	return lead + *a.HandoffURN + " (written " + *a.handoffAt + ")"
 }

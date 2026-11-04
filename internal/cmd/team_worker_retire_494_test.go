@@ -16,10 +16,14 @@ import (
 const (
 	advCurrent = `{"data":{"worker":{"continuity":{"status":"CURRENT","handoff":` +
 		`{"urn":"hrn:node:acme.com:iris:handoffs:h1","loc":"handoffs:h1","createdAt":"2026-10-01T01:15:00Z"}}}}}`
-	advFirst   = `{"data":{"worker":{"continuity":{"status":"FIRST_STINT","handoff":null}}}}`
-	advMissing = `{"data":{"worker":{"continuity":{"status":"MISSING","handoff":null}}}}`
-	advNull    = `{"data":{"worker":{"continuity":null}}}`
-	advFuture  = `{"data":{"worker":{"continuity":{"status":"SOMETHING_NEW","handoff":null}}}}`
+	advFirst            = `{"data":{"worker":{"continuity":{"status":"FIRST_STINT","handoff":null}}}}`
+	advMissing          = `{"data":{"worker":{"continuity":{"status":"MISSING","handoff":null}}}}`
+	advFirstWithHandoff = `{"data":{"worker":{"continuity":{"status":"FIRST_STINT","handoff":` +
+		`{"urn":"hrn:node:acme.com:iris:handoffs:unlinked","loc":"handoffs:unlinked","createdAt":"2026-09-01T00:00:00Z"}}}}}`
+	advMissingWithHandoff = `{"data":{"worker":{"continuity":{"status":"MISSING","handoff":` +
+		`{"urn":"hrn:node:acme.com:iris:handoffs:older","loc":"handoffs:older","createdAt":"2026-09-02T00:00:00Z"}}}}}`
+	advNull   = `{"data":{"worker":{"continuity":null}}}`
+	advFuture = `{"data":{"worker":{"continuity":{"status":"SOMETHING_NEW","handoff":null}}}}`
 )
 
 func retireAdvisoryRun(t *testing.T, advisory, live string, extra ...string) (stdout, stderr string, ops []string, captured map[string]json.RawMessage, err error) {
@@ -66,6 +70,10 @@ func TestRetireAdvisoryStatesText(t *testing.T) {
 			[]string{"first stint"}, []string{"unconsumed", "no session", "none was written"}},
 		{"missing", advMissing, "false",
 			[]string{"no handoff from the last stint that you can see", "not proof none was written"}, []string{"unconsumed", "lost"}},
+		{"missing with an older handoff", advMissingWithHandoff, "false",
+			[]string{"not proof none was written; an older handoff you can see: hrn:node:acme.com:iris:handoffs:older (written 2026-09-02T00:00:00Z)"}, []string{"unconsumed", "lost"}},
+		{"first stint with an unlinked handoff", advFirstWithHandoff, "false",
+			[]string{"first stint; no earlier ended stint is recorded; a handoff you can see: hrn:node:acme.com:iris:handoffs:unlinked (written 2026-09-01T00:00:00Z)"}, []string{"unconsumed", "lost"}},
 		{"null is unavailable not absence", advNull, "false",
 			[]string{"unavailable to you"}, []string{"no handoff from the last stint", "first stint", "none was written"}},
 		{"unknown future status is unavailable", advFuture, "false",
@@ -103,7 +111,8 @@ func TestRetireAdvisoryComesBeforeConfirmAndDeclineSendsNoRetire(t *testing.T) {
 		t.Fatal(err)
 	}
 	_ = stdout
-	if !strings.Contains(stderr, "Retire worker Iris") || strings.Index(stderr, "hrn:node:acme.com:iris:handoffs:h1") > strings.Index(stderr, "Retire worker Iris") {
+	adv, prompt := strings.Index(stderr, "hrn:node:acme.com:iris:handoffs:h1"), strings.Index(stderr, "Retire worker Iris")
+	if adv < 0 || prompt < 0 || adv > prompt {
 		t.Errorf("advisory must precede the confirmation prompt: %s", stderr)
 	}
 	if opIndex(ops, "GetWorkerRetireAdvisory") < 0 || opIndex(ops, "GetWorkerRetireAdvisory") > opIndex(ops, "RetireWorker") {
@@ -152,7 +161,7 @@ func TestRetireAdvisoryJSON(t *testing.T) {
 	for _, tc := range []struct {
 		name, advisory, live string
 		status               any
-		live2                any
+		liveWant             any
 		urn                  any
 	}{
 		{"current", advCurrent, "true", "CURRENT", true, "hrn:node:acme.com:iris:handoffs:h1"},
@@ -181,13 +190,13 @@ func TestRetireAdvisoryJSON(t *testing.T) {
 			if len(adv) != 3 {
 				t.Errorf("advisory carries exactly continuityStatus/hasLiveSession/handoffURN: %v", adv)
 			}
-			for k, want := range map[string]any{"continuityStatus": tc.status, "hasLiveSession": tc.live2, "handoffURN": tc.urn} {
+			for k, want := range map[string]any{"continuityStatus": tc.status, "hasLiveSession": tc.liveWant, "handoffURN": tc.urn} {
 				v, present := adv[k]
 				if !present || v != want {
 					t.Errorf("advisory.%s = %v (present=%v), want %v", k, v, present, want)
 				}
 			}
-			if strings.Contains(stdout, "2026-10-01T01:15:00Z") || strings.Contains(stdout, "handoffs:h1\"") && tc.urn == nil {
+			if strings.Contains(stdout, "2026-10-01T01:15:00Z") {
 				t.Errorf("stdout carries only the specified facts: %s", stdout)
 			}
 			if !strings.Contains(stderr, "retirement") {
@@ -286,12 +295,10 @@ func TestRetireAdvisoryReadSelectsNoHandoffBodyOrSessionInternals(t *testing.T) 
 	if e := json.Unmarshal(captured["GetWorkerRetireAdvisory"], &vars); e != nil || vars.Ref != "wkr1" {
 		t.Errorf("advisory is read for the resolved worker id: %s", captured["GetWorkerRetireAdvisory"])
 	}
-	doc := gen_GetWorkerRetireAdvisoryDoc()
+	doc := gen.GetWorkerRetireAdvisory_Operation
 	for _, banned := range []string{"content", "previousSession", "autoExpiredAt", "endedAt"} {
 		if strings.Contains(doc, banned) {
 			t.Errorf("advisory operation must not select %q: %s", banned, doc)
 		}
 	}
 }
-
-func gen_GetWorkerRetireAdvisoryDoc() string { return gen.GetWorkerRetireAdvisory_Operation }
