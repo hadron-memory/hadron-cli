@@ -599,3 +599,23 @@ not in a scanner.
 - `hadron spec import spec-kit|code` is reserved for future import workflows and
   currently exits with a not-implemented usage error; new, edit, extract,
   link, and supersede are the supported write paths today.
+
+### Existing retired specs and strict lint
+
+`spec lint --strict` now promotes `superseded-abstract` to an error (exit 5)
+when a spec carries the `superseded` tag but its abstract does not describe
+retirement. Existing RESCINDED and WITHDRAWN leads are accepted; do not rewrite
+those tombstones into supersessions.
+
+For a legacy supersession, inspect `hadron spec get <old> -m <memory>` and
+its sole readable successor first. Then run
+`hadron spec supersede <old> -m <memory> --by <successor>` to retain the raw
+body and add the current retirement lead with a revision-guarded update.
+It creates no replacement node. Use `--summary` for a shorter history if the
+lead exceeds the abstract cap; explicit `--summary ""` deliberately keeps an
+empty historical summary. A matching lead leaves the abstract unchanged,
+but missing edge/tag facts are completed before a full no-op is reported.
+Conflicting/unreadable successor facts still refuse; inspect them rather than
+rewriting history automatically. There is no automatic corpus backfill.
+Existing create-mode “already retired without a usable successor” refusals
+now use Conflict (exit 5) instead of Usage (exit 2).

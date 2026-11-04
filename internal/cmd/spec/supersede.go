@@ -70,7 +70,8 @@ With an existing successor use --by <citation>; that mode creates no node.
 It accepts cross-module and cross-product successors in the same memory,
 never another memory, a non-spec, placeholder, deleted or retired node,
 self-supersession or a cycle. --by cannot combine with --title, --to,
---feature, --rule-after or --copy-body.
+--feature, --rule-after, --copy-body or --reason (the reason belongs in the
+create mode’s body note; --by leaves the old body unchanged).
 
 Both paths lead the retired abstract with:
 SUPERSEDED (<UTC date>) by <citation> (<successor name>); do not apply. Historical: <summary>
@@ -80,7 +81,6 @@ is refused before writing. The abstract is re-fingerprinted in its update.
 This is a multi-request flow, not an atomic server transaction; a concurrent
 edit after the final validation can still race it. Partial failures report
 what was linked/retired so you can inspect before rerunning.
-
 
 The replacement starts unminted and unapproved: its body is the scaffold
 (or a copy of the old body with --copy-body). Edit it (` + "`hadron spec edit`" + `),
@@ -114,7 +114,7 @@ then; it never edits the register).`,
 				if strings.TrimSpace(by) == "" {
 					return exitcode.Newf(exitcode.Usage, "--by is blank; name an existing successor citation")
 				}
-				for _, flag := range []string{"title", "to", "feature", "rule-after", "copy-body"} {
+				for _, flag := range []string{"title", "to", "feature", "rule-after", "copy-body", "reason"} {
 					if cmd.Flags().Changed(flag) {
 						return exitcode.Newf(exitcode.Usage, "--by uses an existing successor; cannot combine it with --%s", flag)
 					}
@@ -213,7 +213,7 @@ then; it never edits the register).`,
 				}
 				if unchanged, err := supersedeLeadState(oldNode, successorLoc); err != nil {
 					return err
-				} else if unchanged {
+				} else if unchanged && hasTag(oldNode.Tags, supersededTag) {
 					result.Unchanged = true
 					result.Retired = boolRef(hasTag(oldNode.Tags, supersededTag))
 					return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error { return renderSupersede(w, result) })

@@ -23,6 +23,10 @@ type corpus579 struct {
 	placeholderOnReread bool
 	concurrentUpdate    bool
 	lastUpdate          map[string]any
+	edgeMode            string
+	updateMode          string
+	competingAfterEdge  bool
+	updateAttempted     bool
 }
 
 func node579(id, loc string) map[string]any {
@@ -77,6 +81,11 @@ func server579(t *testing.T) (*httptest.Server, *corpus579) {
 			}
 			data["node"] = n
 		case "CreateEdge":
+			if c.edgeMode == "lost-before" {
+				w.WriteHeader(http.StatusBadGateway)
+				_, _ = w.Write([]byte("lost answer"))
+				return
+			}
 			c.writes++
 			from, _ := q.Variables["sourceRef"].(string)
 			to, _ := q.Variables["targetRef"].(string)
@@ -88,7 +97,23 @@ func server579(t *testing.T) (*httptest.Server, *corpus579) {
 			e := map[string]any{"id": "e1", "name": name, "target": map[string]any{"id": to, "loc": c.nodes[to]["loc"], "memoryId": c.nodes[to]["memoryId"]}}
 			c.nodes[from]["outgoingEdges"] = append(c.nodes[from]["outgoingEdges"].([]any), e)
 			data["createEdge"] = e
+			if c.competingAfterEdge {
+				c.nodes["other"] = node579("other", "srv:sch:040")
+				other := map[string]any{"id": "e2", "name": "superseded-by", "target": map[string]any{"id": "other", "loc": "srv:sch:040", "memoryId": "mem1"}}
+				c.nodes[from]["outgoingEdges"] = append(c.nodes[from]["outgoingEdges"].([]any), other)
+			}
+			if c.edgeMode == "lost-after" {
+				w.WriteHeader(http.StatusBadGateway)
+				_, _ = w.Write([]byte("lost answer"))
+				return
+			}
 		case "UpdateSpecNode":
+			c.updateAttempted = true
+			if c.updateMode == "lost-before" {
+				w.WriteHeader(http.StatusBadGateway)
+				_, _ = w.Write([]byte("lost answer"))
+				return
+			}
 			in := q.Variables["input"].(map[string]any)
 			c.lastUpdate = in
 			var n map[string]any
@@ -113,7 +138,7 @@ func server579(t *testing.T) (*httptest.Server, *corpus579) {
 			}
 			c.writes++
 			for _, k := range []string{"abstract", "content", "tags"} {
-				if v, ok := in[k]; ok {
+				if v, ok := in[k]; ok && (k != "abstract" || c.updateMode != "tag-only") {
 					n[k] = v
 				}
 			}
@@ -121,6 +146,11 @@ func server579(t *testing.T) (*httptest.Server, *corpus579) {
 				n["abstractOriginHash"] = specOriginHash(n["content"].(string))
 			}
 			data["updateSpecNode"] = n
+			if c.updateMode == "lost-after" || c.updateMode == "tag-only" {
+				w.WriteHeader(http.StatusBadGateway)
+				_, _ = w.Write([]byte("lost answer"))
+				return
+			}
 		case "CreateSpecNode":
 			c.writes++
 			c.creates++
@@ -181,6 +211,9 @@ func TestSpec579ExistingSuccessorAndAbstract(t *testing.T) {
 				out, err := run579(t, srv.URL, extra...)
 				if err != nil {
 					t.Fatal(err)
+				}
+				if _, present := c.lastUpdate["content"]; present {
+					t.Fatal("--by rewrote content", c.lastUpdate)
 				}
 				if c.lastUpdate["id"] != "old" || c.lastUpdate["expectedRevision"] != float64(1) {
 					t.Fatalf("unguarded update %+v", c.lastUpdate)
@@ -395,28 +428,36 @@ func TestSpec579ConcurrentEditNotOverwritten(t *testing.T) {
 	}
 }
 
-func TestSpec579InconsistentLeadRefused(t *testing.T) {
+func TestSpec579InconsistentLeadCompleted(t *testing.T) {
 	for _, mode := range []string{"by", "create"} {
-		for _, missing := range []string{"edge", "tag"} {
-			if mode == "create" && missing == "edge" {
+		for _, missing := range []string{"edge", "tag", "edge-and-tag"} {
+			if mode == "create" && missing != "tag" {
 				continue
 			}
 			t.Run(mode+"/"+missing, func(t *testing.T) {
 				srv, c := server579(t)
 				c.nodes["old"]["abstract"] = "SUPERSEDED (2026-01-01) by srv:sch:030 (N); do not apply. Historical: Old."
-				if missing != "edge" {
+				if missing == "tag" {
 					edge579(c, "old", "new")
 				}
-				if missing != "tag" {
+				if missing == "edge" {
 					c.nodes["old"]["tags"] = []any{"spec", "superseded"}
 				}
 				flags := []string{"--by", "srv:sch:030"}
 				if mode == "create" {
 					flags = []string{"--title", "N"}
 				}
+				beforeAbstract := c.nodes["old"]["abstract"]
 				out, err := run579(t, srv.URL, flags...)
-				if exitCodeFor(err) != 5 || c.writes != 0 || strings.Contains(out, `"unchanged": true`) || strings.Contains(out, `"status": "created"`) {
-					t.Fatalf("inconsistent state claimed success: err=%v writes=%d out=%s", err, c.writes, out)
+				if c.nodes["old"]["abstract"] != beforeAbstract {
+					t.Fatal("matching abstract changed")
+				}
+				wantWrites := 1
+				if missing != "tag" {
+					wantWrites = 2
+				}
+				if err != nil || c.writes != wantWrites || strings.Contains(out, `"unchanged": true`) || len(c.nodes["old"]["outgoingEdges"].([]any)) != 1 || !strings.Contains(out, `"retired": true`) {
+					t.Fatalf("inconsistent state was not completed: err=%v writes=%d out=%s", err, c.writes, out)
 				}
 			})
 		}
@@ -457,6 +498,136 @@ func TestSpec579LegacyRepairAndDryRun(t *testing.T) {
 			}
 			if !dry && (!strings.HasPrefix(c.nodes["old"]["abstract"].(string), "SUPERSEDED (") || c.lastUpdate["expectedRevision"] != float64(1)) {
 				t.Fatal("legacy repair not guarded", c.lastUpdate)
+			}
+		})
+	}
+}
+
+func TestSpec579ByPartialWrites(t *testing.T) {
+	for _, tc := range []struct {
+		name, edgeMode, updateMode string
+		compete                    bool
+		wantErr                    bool
+		wantWrites                 int
+		retired                    any
+	}{
+		{"edge-missing-after-lost", "lost-before", "", false, true, 0, false},
+		{"edge-landed-after-lost", "lost-after", "", false, false, 2, true},
+		{"competing-edge", "", "", true, true, 1, false},
+		{"retirement-landed-after-lost", "", "lost-after", false, false, 2, true},
+		{"retirement-not-confirmed", "", "lost-before", false, true, 1, nil},
+		{"tag-only-not-success", "", "tag-only", false, true, 2, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv, c := server579(t)
+			c.edgeMode = tc.edgeMode
+			c.updateMode = tc.updateMode
+			c.competingAfterEdge = tc.compete
+			out, err := run579(t, srv.URL, "--by", "srv:sch:030")
+			if (err != nil) != tc.wantErr || c.writes != tc.wantWrites || c.creates != 0 {
+				t.Fatalf("err=%v writes=%d out=%s", err, c.writes, out)
+			}
+			var dto map[string]any
+			if e := json.Unmarshal([]byte(out), &dto); e != nil {
+				t.Fatal(e, out)
+			}
+			if dto["retired"] != tc.retired {
+				t.Fatalf("retired=%v want=%v err=%v", dto["retired"], tc.retired, err)
+			}
+			if tc.compete && (exitCodeFor(err) != 5 || c.updateAttempted) {
+				t.Fatalf("competing link retired: %v", err)
+			}
+			if tc.edgeMode == "lost-before" && (c.updateAttempted || !strings.Contains(out, `"status": "unknown"`)) {
+				t.Fatalf("unconfirmed edge was retired: %s", out)
+			}
+			updates, edges := 0, 0
+			for _, op := range c.calls {
+				if op == "UpdateSpecNode" {
+					updates++
+				}
+				if op == "CreateEdge" {
+					edges++
+				}
+			}
+			if updates > 1 || edges > 1 {
+				t.Fatalf("retry: %v", c.calls)
+			}
+		})
+	}
+}
+
+func TestSpec579ExistingOtherAndPartialRerun(t *testing.T) {
+	for _, other := range []bool{false, true} {
+		t.Run(fmt.Sprint(other), func(t *testing.T) {
+			srv, c := server579(t)
+			if other {
+				c.nodes["other"] = node579("other", "srv:sch:040")
+				edge579(c, "old", "other")
+			} else {
+				edge579(c, "old", "new")
+			}
+			_, err := run579(t, srv.URL, "--by", "srv:sch:030")
+			if other {
+				if exitCodeFor(err) != 5 || c.writes != 0 {
+					t.Fatalf("other accepted: %v", err)
+				}
+			} else {
+				if err != nil || c.writes != 1 {
+					t.Fatalf("partial not repaired: %v writes=%d", err, c.writes)
+				}
+				for _, op := range c.calls {
+					if op == "CreateEdge" {
+						t.Fatal("duplicated edge")
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestSpec579HumanAndFreshDryRun(t *testing.T) {
+	srv, c := server579(t)
+	c.nodes["new"]["name"] = "Target\x1b[31m\nlabel"
+	invoke := func(extra ...string) (string, error) {
+		f, out := testFactory(t)
+		r := NewRootCmd(f)
+		args := args579(srv.URL, append([]string{"--by", "srv:sch:030"}, extra...)...)
+		clean := []string{}
+		for _, a := range args {
+			if a != "--json" {
+				clean = append(clean, a)
+			}
+		}
+		r.SetArgs(clean)
+		err := r.Execute()
+		return out.String(), err
+	}
+	out, err := invoke("--dry-run")
+	if err != nil || c.writes != 0 {
+		t.Fatalf("dry run wrote: %v %s", err, out)
+	}
+	out, err = invoke()
+	if err != nil || strings.Contains(out, "\x1b") || strings.Contains(out, "Target\n") {
+		t.Fatalf("unsafe output: %v %q", err, out)
+	}
+	out, err = invoke()
+	if err != nil || !strings.Contains(out, "unchanged") || c.writes != 2 {
+		t.Fatalf("human rerun: %v %q writes=%d", err, out, c.writes)
+	}
+}
+
+func TestSpec579RescindedAndWithdrawnLint(t *testing.T) {
+	for _, lead := range []string{"RESCINDED (2026-01-01); do not apply. Historical: Old.", "WITHDRAWN (2026-01-01); do not apply. Historical: Old."} {
+		t.Run(lead[:9], func(t *testing.T) {
+			srv, c := server579(t)
+			c.nodes["old"]["tags"] = []any{"spec", "superseded"}
+			c.nodes["old"]["abstract"] = lead
+			f, out := testFactory(t)
+			r := NewRootCmd(f)
+			r.SetArgs([]string{"spec", "lint", "app:sch:020", "-m", specMem, "--json", "--strict", "--server", srv.URL})
+			err := r.Execute()
+			if err != nil || strings.Contains(out.String(), "superseded-abstract") {
+				t.Fatalf("valid retirement flagged: err=%v %s", err, out)
 			}
 		})
 	}

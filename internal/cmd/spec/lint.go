@@ -452,8 +452,9 @@ func lintNode(n specNode, memURN string) []lintFindingDTO {
 		}
 	}
 
-	if hasTag(n.Tags, supersededTag) && !supersededWord.MatchString(derefStr(n.Abstract)) {
-		add("superseded-abstract", sevWarning, "spec is tagged superseded but its abstract does not mention supersession; repair the retirement abstract")
+	retirementAbstract := strings.TrimSpace(derefStr(n.Abstract))
+	if hasTag(n.Tags, supersededTag) && !supersededWord.MatchString(retirementAbstract) && !strings.HasPrefix(retirementAbstract, "RESCINDED (") && !strings.HasPrefix(retirementAbstract, "WITHDRAWN (") {
+		add("superseded-abstract", sevWarning, "spec is tagged superseded but its abstract does not mention supersession or carry a RESCINDED/WITHDRAWN lead; repair the retirement abstract")
 	}
 
 	// ABSTRACT VERIFICATION (#335), above the tier early-return: a module or

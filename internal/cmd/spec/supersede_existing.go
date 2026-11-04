@@ -45,7 +45,7 @@ func supersededAbstract(old *gen.GetNodeNode, target, name string, summary *stri
 	}
 	a := fmt.Sprintf("SUPERSEDED (%s) by %s (%s); do not apply. Historical: %s", time.Now().UTC().Format("2006-01-02"), target, name, history)
 	if abstractLength(&a) > abstractHardMax {
-		return "", exitcode.Newf(exitcode.Usage, "retirement lead plus history exceeds the %d-character abstract limit; pass a shorter --summary", abstractHardMax)
+		return "", exitcode.Newf(exitcode.Usage, "retirement lead plus history exceeds the %d UTF-16-unit abstract limit; pass a shorter --summary", abstractHardMax)
 	}
 	return a, nil
 }
@@ -125,7 +125,16 @@ func existingTargetState(old *gen.GetNodeNode, target *gen.GetSpecSupersedeTarge
 			return false, exitcode.Newf(exitcode.Conflict, "%s already names another or unreadable successor; nothing was written", old.Loc)
 		}
 	}
-	return supersedeLeadState(old, target.Loc)
+	same, err := supersedeLeadState(old, target.Loc)
+	if err != nil || !same {
+		return same, err
+	}
+	// A matching lead makes only the abstract a no-op. Missing edge/tag
+	// facts still need the normal guarded completion path.
+	if !hasTag(old.Tags, supersededTag) || len(supersededBySuccessors(old)) == 0 {
+		return false, nil
+	}
+	return true, nil
 }
 func supersedeByExisting(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, mem string, old *gen.GetNodeNode, by, reason string, summary *string, yes, dry bool) error {
 	id, err := resolveSpecNode(cmd, client, mem, by)
@@ -197,7 +206,8 @@ func supersedeByExisting(cmd *cobra.Command, f *cmdutil.Factory, client graphql.
 	result.Tags = tagsOrEmpty(target.Tags)
 	if same {
 		result.Unchanged = true
-		result.Retired = boolRef(hasTag(old.Tags, supersededTag))
+		result.Retired = boolRef(true)
+		result.Edges[0].Status = edgeStatusCreated
 		return output.Write(f.IOStreams, f.JSON, result, render)
 	}
 	if _, err = supersededAbstract(old, target.Loc, target.Name, summary); err != nil {

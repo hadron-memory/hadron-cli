@@ -363,7 +363,7 @@ rewrite the old body. It links and tags the old spec to an existing written,
 live spec in the SAME memory (cross-module and cross-product allowed). It
 refuses a missing/unreadable, non-spec, placeholder, deleted, retired, self or
 cyclic target before writing. --by conflicts with --title, --to, --feature,
---rule-after and --copy-body; blank --by is usage, not omission. It rechecks
+--rule-after, --copy-body and --reason; blank --by is usage, not omission. It rechecks
 both source and target after confirmation. Its retirement update targets the
 source ID with expectedRevision; a concurrent source edit is refused, without
 an unguarded fallback. Target validation and edge creation are not atomic.
@@ -375,7 +375,9 @@ Both supersede paths rewrite the old abstract to
 The history defaults to its stored abstract verbatim; --summary replaces it.
 The abstract replacement re-fingerprints the body in that update. The existing
 create path retains its retirement body note and subrole behavior.
-A same-successor lead is unchanged on rerun (JSON adds `unchanged:true`);
+A same-successor lead leaves the abstract unchanged; missing edge/tag facts
+are completed. Only a matching lead plus tag and edge is a full no-op
+(JSON adds `unchanged:true`);
 a different-successor lead is refused. Existing-target results add
 `existingSuccessor:true`; existing keys/edge status and retired semantics stay.
 After a lost retirement response, success requires both the tag and exact
@@ -383,7 +385,13 @@ requested abstract on read-back; a visible tag alone returns an error.
 A lead/history exceeding 2000 UTF-16 units is refused; supply a shorter
 --summary instead of truncating history. `spec lint` warns with rule
 `superseded-abstract` if the tag says superseded but the abstract never mentions
-it. This is independent of existing length, body-fingerprint and other lint.
+it or carry a RESCINDED/WITHDRAWN lead. Strict lint promotes this warning to
+exit 5, including on legacy supersessions. Inspect the sole successor, then
+rerun --by to repair a legacy abstract under the source revision guard;
+never rewrite a rescinded/withdrawn tombstone as a supersession. Explicit
+--summary "" keeps empty history. Already-retired conflicting state is exit 5
+(previously 2 on the create path). No automatic backfill runs. This rule is
+independent of existing length, body-fingerprint and other lint.
 
 A `superseded-by` edge whose target you cannot read still counts as a
 successor, so it blocks retirement rather than vanishing from the count.

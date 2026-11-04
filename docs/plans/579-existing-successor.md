@@ -1,9 +1,6 @@
 # Superseding to an existing citation (#579, split A)
 
-The build follows CHECKED 6628378251 and Vera's binding shape 6628274599.
-The request originated with Jade. No new platform law or citation is minted by
-the implementation work. Rescind (#809 / PR #1637) is separate; main must be
-merged without rebase after that overlapping PR lands.
+Supersede records a successor; rescind without a successor is a separate flow.
 
 ## Modes and output
 
@@ -12,7 +9,8 @@ legacy number or use --to. --by instead names an already-written citation in
 the selected memory: cross-module/product is allowed, cross-memory is not.
 No node is created and the old body is preserved by this mode. It conflicts
 with every create-shaping flag, including explicitly supplied empty/false
-forms. Blank --by is usage, not omission. --summary replaces historical text;
+forms. --reason is also refused with --by because its create-mode body note
+is outside this mode. Blank --by is usage, not omission. --summary replaces historical text;
 absence preserves the stored old abstract verbatim, including whitespace.
 
 Both modes set the retirement abstract to:
@@ -31,8 +29,9 @@ There is no truncation: a lead/history over 2000 UTF-16 units is refused with
 
 The package-local result keeps every old key and edge-status/retired meaning.
 Existing-target mode adds existingSuccessor:true; a no-op adds unchanged:true.
-A same-successor anchored lead is a no-op even if the old display name/date has
-changed; a different/malformed lead conflicts rather than being nested or
+A same-successor anchored lead leaves the abstract untouched even if the old
+display name/date has changed; the full operation is a no-op only when its
+matching readable edge and retirement tag also exist. Missing facts are completed; a different/malformed lead conflicts rather than being nested or
 silently reported unchanged. Conflicting existing successor edges also refuse.
 
 ## Validation and partial writes
@@ -95,3 +94,12 @@ green. Independent cross-family LOCAL/BLIND and compiled CLI QA remain the
 stamped seats. No real corpus, production or permanent spec write was used by
 the author. Remaining races and other pre-existing lint findings are not
 claimed fixed by a clean abstract-stale pin.
+
+## Existing corpus migration
+
+Strict lint promotes the new retirement-abstract warning to exit 5. Canonical
+RESCINDED/WITHDRAWN leads remain valid, never converted into supersessions.
+Legacy supersessions can be inspected and repaired with the existing-target
+mode and its source CAS; no corpus backfill runs. Explicit empty --summary
+keeps empty history. The create-mode retirement update remains unguarded and
+is disclosed as a follow-up; it is not a new concurrency guarantee.
