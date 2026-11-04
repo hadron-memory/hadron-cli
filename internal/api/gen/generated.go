@@ -55590,6 +55590,250 @@ type MoveNodeResponse struct {
 // GetMoveNode returns MoveNodeResponse.MoveNode, and is useful for accessing the field via an interface.
 func (v *MoveNodeResponse) GetMoveNode() *MoveNodeMoveNode { return v.MoveNode }
 
+// MovePreviewBatchNodeBatchNodeBatchResult includes the requested fields of the GraphQL type NodeBatchResult.
+// The GraphQL type's documentation follows.
+//
+// Spec cor:api:040 — result envelope for the batch node read (nodeBatch).
+// 'nodes' is the authorized, existing subset (input order for a ref set, loc
+// order for a prefix). 'unavailable' and 'omitted' are both lists of REFS, not
+// node objects. 'unavailable' lists the requested refs that were denied OR not
+// found — indistinguishable, so the result never discloses whether an
+// unreadable node exists. 'truncated' is true when the response-size cap was
+// reached, and 'omitted' then carries the refs of the nodes dropped to stay
+// under it. (Over the node-count cap the query errors instead — never a silent
+// short read.) Both lists echo the caller's OWN ref strings for the 'refs'
+// form — pass a URN, get that URN back, not a primary key you never sent — and
+// node ids for the prefix form, which has no caller refs.
+type MovePreviewBatchNodeBatchNodeBatchResult struct {
+	Truncated   bool                                                 `json:"truncated"`
+	Omitted     []string                                             `json:"omitted"`
+	Unavailable []string                                             `json:"unavailable"`
+	Nodes       []*MovePreviewBatchNodeBatchNodeBatchResultNodesNode `json:"nodes"`
+}
+
+// GetTruncated returns MovePreviewBatchNodeBatchNodeBatchResult.Truncated, and is useful for accessing the field via an interface.
+func (v *MovePreviewBatchNodeBatchNodeBatchResult) GetTruncated() bool { return v.Truncated }
+
+// GetOmitted returns MovePreviewBatchNodeBatchNodeBatchResult.Omitted, and is useful for accessing the field via an interface.
+func (v *MovePreviewBatchNodeBatchNodeBatchResult) GetOmitted() []string { return v.Omitted }
+
+// GetUnavailable returns MovePreviewBatchNodeBatchNodeBatchResult.Unavailable, and is useful for accessing the field via an interface.
+func (v *MovePreviewBatchNodeBatchNodeBatchResult) GetUnavailable() []string { return v.Unavailable }
+
+// GetNodes returns MovePreviewBatchNodeBatchNodeBatchResult.Nodes, and is useful for accessing the field via an interface.
+func (v *MovePreviewBatchNodeBatchNodeBatchResult) GetNodes() []*MovePreviewBatchNodeBatchNodeBatchResultNodesNode {
+	return v.Nodes
+}
+
+// MovePreviewBatchNodeBatchNodeBatchResultNodesNode includes the requested fields of the GraphQL type Node.
+type MovePreviewBatchNodeBatchNodeBatchResultNodesNode struct {
+	Id string `json:"id"`
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn      string `json:"urn"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+	Name     string `json:"name"`
+}
+
+// GetId returns MovePreviewBatchNodeBatchNodeBatchResultNodesNode.Id, and is useful for accessing the field via an interface.
+func (v *MovePreviewBatchNodeBatchNodeBatchResultNodesNode) GetId() string { return v.Id }
+
+// GetUrn returns MovePreviewBatchNodeBatchNodeBatchResultNodesNode.Urn, and is useful for accessing the field via an interface.
+func (v *MovePreviewBatchNodeBatchNodeBatchResultNodesNode) GetUrn() string { return v.Urn }
+
+// GetMemoryId returns MovePreviewBatchNodeBatchNodeBatchResultNodesNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *MovePreviewBatchNodeBatchNodeBatchResultNodesNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns MovePreviewBatchNodeBatchNodeBatchResultNodesNode.Loc, and is useful for accessing the field via an interface.
+func (v *MovePreviewBatchNodeBatchNodeBatchResultNodesNode) GetLoc() string { return v.Loc }
+
+// GetName returns MovePreviewBatchNodeBatchNodeBatchResultNodesNode.Name, and is useful for accessing the field via an interface.
+func (v *MovePreviewBatchNodeBatchNodeBatchResultNodesNode) GetName() string { return v.Name }
+
+// MovePreviewBatchResponse is returned by MovePreviewBatch on success.
+type MovePreviewBatchResponse struct {
+	// Batch read (spec cor:api:040) — the full node projection (select any Node
+	// fields, including content + edges) for MANY nodes in one call, eliminating
+	// the N+1 of one node(ref:) per node (e.g. 'spec lint --all'). Provide EITHER
+	// 'refs' (explicit set, returned in input order) OR 'memory' + 'locPrefix'
+	// (subtree, loc order) — not both. Each entry of 'refs' is a primary key OR a
+	// fully-qualified node URN (cor:api:140), so a URN-holding caller batches in
+	// ONE call instead of resolving each ref first. The split on a bad ref is by
+	// KIND, not by luck: a ref whose SHAPE is wrong errors the call — unqualified
+	// / relative (UrnNotQualifiedError) or a URN of the wrong entity type, e.g.
+	// 'hrn:mem:...' (BAD_USER_INPUT) — while a well-formed ref that names nothing
+	// the caller may read comes back in 'unavailable'. A caller mistake stays
+	// loud instead of hiding among denials. Per-node access is applied
+	// independently AFTER resolution: denied or missing refs come back in
+	// 'unavailable' and never fail the call. Bounded by hard caps — over the
+	// node-count cap throws BAD_USER_INPUT; over the response-size cap returns a
+	// partial result with 'truncated: true' and the dropped refs in 'omitted'
+	// (never a silent short read). Node content is returned raw — Mustache
+	// templates are NOT compiled (unlike the single-node 'node' read), since this
+	// is a bulk source read for lint / audit / migration and compiling per node
+	// would re-introduce the N+1 it eliminates.
+	// Requested edge fields share a 2000-row budget for this batch result; exceeding
+	// it returns BAD_USER_INPUT. Read large edge sets through the paged edges query.
+	// Unselected edges and endpoint bodies are not prefetched by the batch read.
+	NodeBatch *MovePreviewBatchNodeBatchNodeBatchResult `json:"nodeBatch"`
+}
+
+// GetNodeBatch returns MovePreviewBatchResponse.NodeBatch, and is useful for accessing the field via an interface.
+func (v *MovePreviewBatchResponse) GetNodeBatch() *MovePreviewBatchNodeBatchNodeBatchResult {
+	return v.NodeBatch
+}
+
+// MovePreviewListFindNodesFindNodesResult includes the requested fields of the GraphQL type FindNodesResult.
+// The GraphQL type's documentation follows.
+//
+// Envelope for findNodes (cor:api:090) — the unified node list + search field
+// (it replaced the removed nodes + nodeSearch queries). hits carry per-hit score + vector metadata;
+// passages carry chunk-granularity results; reason/degraded surface no-index /
+// reduced-fidelity outcomes.
+type MovePreviewListFindNodesFindNodesResult struct {
+	Hits []*MovePreviewListFindNodesFindNodesResultHitsNodeHit `json:"hits"`
+}
+
+// GetHits returns MovePreviewListFindNodesFindNodesResult.Hits, and is useful for accessing the field via an interface.
+func (v *MovePreviewListFindNodesFindNodesResult) GetHits() []*MovePreviewListFindNodesFindNodesResultHitsNodeHit {
+	return v.Hits
+}
+
+// MovePreviewListFindNodesFindNodesResultHitsNodeHit includes the requested fields of the GraphQL type NodeHit.
+// The GraphQL type's documentation follows.
+//
+// A scored node hit (cor:api:090:04). score is null for an unscored filtered list (no query).
+type MovePreviewListFindNodesFindNodesResultHitsNodeHit struct {
+	Node *MovePreviewListFindNodesFindNodesResultHitsNodeHitNode `json:"node"`
+}
+
+// GetNode returns MovePreviewListFindNodesFindNodesResultHitsNodeHit.Node, and is useful for accessing the field via an interface.
+func (v *MovePreviewListFindNodesFindNodesResultHitsNodeHit) GetNode() *MovePreviewListFindNodesFindNodesResultHitsNodeHitNode {
+	return v.Node
+}
+
+// MovePreviewListFindNodesFindNodesResultHitsNodeHitNode includes the requested fields of the GraphQL type Node.
+type MovePreviewListFindNodesFindNodesResultHitsNodeHitNode struct {
+	Id       string `json:"id"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+}
+
+// GetId returns MovePreviewListFindNodesFindNodesResultHitsNodeHitNode.Id, and is useful for accessing the field via an interface.
+func (v *MovePreviewListFindNodesFindNodesResultHitsNodeHitNode) GetId() string { return v.Id }
+
+// GetMemoryId returns MovePreviewListFindNodesFindNodesResultHitsNodeHitNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *MovePreviewListFindNodesFindNodesResultHitsNodeHitNode) GetMemoryId() string {
+	return v.MemoryId
+}
+
+// GetLoc returns MovePreviewListFindNodesFindNodesResultHitsNodeHitNode.Loc, and is useful for accessing the field via an interface.
+func (v *MovePreviewListFindNodesFindNodesResultHitsNodeHitNode) GetLoc() string { return v.Loc }
+
+// MovePreviewListResponse is returned by MovePreviewList on success.
+type MovePreviewListResponse struct {
+	// Unified node search (cor:api:090) — the single node list + retrieval
+	// surface (it replaced the removed `nodes` filter/list and `nodeSearch`
+	// rank queries in PR3). Omit `query` for a filtered list in deterministic
+	// order (subsumes `nodes`); pass `query` to rank by `mode`
+	// (keyword | vector | hybrid | regex). Lexical modes honor boolean operators
+	// (`(a OR b) AND c`, quoted phrases, NOT/-) — operator words are
+	// UPPERCASE-ONLY, so natural phrases like 'not sure' search literally —
+	// and `fields` as a ranking weight-mask. Malformed boolean syntax
+	// (unmatched parenthesis, unterminated quote) DEGRADES to a literal phrase
+	// search flagged `degraded: 'literal_fallback'` instead of erroring; only
+	// mode: regex fails loudly on bad syntax. `filter` is the structured, AND-combined filter context
+	// (SYSTEM memory class excluded by default; explicit wins). Returns a
+	// scored-hit envelope. Access-scoped identically to the per-kind node queries.
+	//
+	// orgId (optional) narrows the accessible scope to a single organization the
+	// caller is a member of; a non-member orgId returns an empty envelope
+	// (total 0, no existence disclosure). Combined with filter.isRunnable: true
+	// this is the canonical "the caller's runnable task nodes in one org" query
+	// (there is no separate myTasks surface — a task is simply an isRunnable node).
+	FindNodes *MovePreviewListFindNodesFindNodesResult `json:"findNodes"`
+}
+
+// GetFindNodes returns MovePreviewListResponse.FindNodes, and is useful for accessing the field via an interface.
+func (v *MovePreviewListResponse) GetFindNodes() *MovePreviewListFindNodesFindNodesResult {
+	return v.FindNodes
+}
+
+// MovePreviewMemoryMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
+type MovePreviewMemoryMemory struct {
+	Id string `json:"id"`
+}
+
+// GetId returns MovePreviewMemoryMemory.Id, and is useful for accessing the field via an interface.
+func (v *MovePreviewMemoryMemory) GetId() string { return v.Id }
+
+// MovePreviewMemoryResponse is returned by MovePreviewMemory on success.
+type MovePreviewMemoryResponse struct {
+	// Fetch a single Memory (org member, shared-read gate, or platform ADMIN).
+	// Missing and unreadable refs both return null without an error, so a caller
+	// cannot use this field to test whether a private memory exists. Malformed
+	// refs still fail as caller errors, and operational faults still propagate.
+	//
+	// 'ref' accepts the entity's ID or URN.
+	Memory *MovePreviewMemoryMemory `json:"memory"`
+}
+
+// GetMemory returns MovePreviewMemoryResponse.Memory, and is useful for accessing the field via an interface.
+func (v *MovePreviewMemoryResponse) GetMemory() *MovePreviewMemoryMemory { return v.Memory }
+
+// MovePreviewSourceNode includes the requested fields of the GraphQL type Node.
+type MovePreviewSourceNode struct {
+	Id string `json:"id"`
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn      string `json:"urn"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+}
+
+// GetId returns MovePreviewSourceNode.Id, and is useful for accessing the field via an interface.
+func (v *MovePreviewSourceNode) GetId() string { return v.Id }
+
+// GetUrn returns MovePreviewSourceNode.Urn, and is useful for accessing the field via an interface.
+func (v *MovePreviewSourceNode) GetUrn() string { return v.Urn }
+
+// GetMemoryId returns MovePreviewSourceNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *MovePreviewSourceNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns MovePreviewSourceNode.Loc, and is useful for accessing the field via an interface.
+func (v *MovePreviewSourceNode) GetLoc() string { return v.Loc }
+
+// MovePreviewSourceResponse is returned by MovePreviewSource on success.
+type MovePreviewSourceResponse struct {
+	// The uniform single-node read (#473) — subsumes the former nodeById(id:)
+	// and node(loc:, memory:) split. 'ref' accepts, in dispatch order:
+	//
+	// 1. a primary key (the unambiguous read — the old nodeById),
+	// 2. a fully-qualified node URN (`hrn:node:<root>:<memory>:<loc>`,
+	// legacy `urn:` scheme accepted),
+	// 3. a bare loc — scoped by 'memoryRef' (an ID or URN) when given; unscoped,
+	// it resolves across every readable memory and a cross-memory loc
+	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
+	// (listing the candidate memoryIds) rather than silently returning
+	// one (#335). An unprefixed 3+-segment ref whose first two segments
+	// name a live memory is treated as form 2 (a full URN); pass
+	// 'memoryRef' to force loc interpretation.
+	//
+	// raw: true selects stored content without include or variable resolution.
+	// Soft-deleted nodes do not resolve. Access uses the caller's readable-memory
+	// set. A denied or missing node returns null; an explicit memoryRef that is
+	// missing or unreadable raises MEMORY_NOT_FOUND. When addressed in a system
+	// memory by memoryRef or a full node URN, a loc with no local node may read
+	// through to an eligible inherited node under its own address; overrides and
+	// boot prompts are excluded. An unscoped bare loc does not search inheritance.
+	Node *MovePreviewSourceNode `json:"node"`
+}
+
+// GetNode returns MovePreviewSourceResponse.Node, and is useful for accessing the field via an interface.
+func (v *MovePreviewSourceResponse) GetNode() *MovePreviewSourceNode { return v.Node }
+
 // MyAppMyApp includes the requested fields of the GraphQL type App.
 // The GraphQL type's documentation follows.
 //
@@ -101202,6 +101446,54 @@ func (v *__MoveNodeInput) GetTargetUrn() *string { return v.TargetUrn }
 // GetTargetMemoryRef returns __MoveNodeInput.TargetMemoryRef, and is useful for accessing the field via an interface.
 func (v *__MoveNodeInput) GetTargetMemoryRef() *string { return v.TargetMemoryRef }
 
+// __MovePreviewBatchInput is used internally by genqlient
+type __MovePreviewBatchInput struct {
+	Refs []string `json:"refs,omitempty"`
+}
+
+// GetRefs returns __MovePreviewBatchInput.Refs, and is useful for accessing the field via an interface.
+func (v *__MovePreviewBatchInput) GetRefs() []string { return v.Refs }
+
+// __MovePreviewListInput is used internally by genqlient
+type __MovePreviewListInput struct {
+	Memory   string  `json:"memory"`
+	Prefix   string  `json:"prefix"`
+	Limit    int     `json:"limit"`
+	Offset   int     `json:"offset"`
+	NodeType *string `json:"nodeType,omitempty"`
+}
+
+// GetMemory returns __MovePreviewListInput.Memory, and is useful for accessing the field via an interface.
+func (v *__MovePreviewListInput) GetMemory() string { return v.Memory }
+
+// GetPrefix returns __MovePreviewListInput.Prefix, and is useful for accessing the field via an interface.
+func (v *__MovePreviewListInput) GetPrefix() string { return v.Prefix }
+
+// GetLimit returns __MovePreviewListInput.Limit, and is useful for accessing the field via an interface.
+func (v *__MovePreviewListInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __MovePreviewListInput.Offset, and is useful for accessing the field via an interface.
+func (v *__MovePreviewListInput) GetOffset() int { return v.Offset }
+
+// GetNodeType returns __MovePreviewListInput.NodeType, and is useful for accessing the field via an interface.
+func (v *__MovePreviewListInput) GetNodeType() *string { return v.NodeType }
+
+// __MovePreviewMemoryInput is used internally by genqlient
+type __MovePreviewMemoryInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __MovePreviewMemoryInput.Ref, and is useful for accessing the field via an interface.
+func (v *__MovePreviewMemoryInput) GetRef() string { return v.Ref }
+
+// __MovePreviewSourceInput is used internally by genqlient
+type __MovePreviewSourceInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __MovePreviewSourceInput.Ref, and is useful for accessing the field via an interface.
+func (v *__MovePreviewSourceInput) GetRef() string { return v.Ref }
+
 // __MyUserApiKeysInput is used internally by genqlient
 type __MyUserApiKeysInput struct {
 	IncludeHidden *bool `json:"includeHidden,omitempty"`
@@ -125705,6 +125997,172 @@ func MoveNode(
 	}
 
 	data_ = &MoveNodeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by MovePreviewBatch.
+const MovePreviewBatch_Operation = `
+query MovePreviewBatch ($refs: [ID!]) {
+	nodeBatch(refs: $refs) {
+		truncated
+		omitted
+		unavailable
+		nodes {
+			id
+			urn
+			memoryId
+			loc
+			name
+		}
+	}
+}
+`
+
+func MovePreviewBatch(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	refs []string,
+) (data_ *MovePreviewBatchResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MovePreviewBatch",
+		Query:  MovePreviewBatch_Operation,
+		Variables: &__MovePreviewBatchInput{
+			Refs: refs,
+		},
+	}
+
+	data_ = &MovePreviewBatchResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by MovePreviewList.
+const MovePreviewList_Operation = `
+query MovePreviewList ($memory: ID!, $prefix: String!, $limit: Int!, $offset: Int!, $nodeType: String) {
+	findNodes(filter: {memoryIds:[$memory],locPrefix:$prefix,contentScope:ALL,nodeType:$nodeType}, sort: loc, limit: $limit, offset: $offset) {
+		hits {
+			node {
+				id
+				memoryId
+				loc
+			}
+		}
+	}
+}
+`
+
+// The default stream excludes system-type nodes; a second paged stream names
+// that type explicitly. ALL overrides the independent comment exclusion.
+func MovePreviewList(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memory string,
+	prefix string,
+	limit int,
+	offset int,
+	nodeType *string,
+) (data_ *MovePreviewListResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MovePreviewList",
+		Query:  MovePreviewList_Operation,
+		Variables: &__MovePreviewListInput{
+			Memory:   memory,
+			Prefix:   prefix,
+			Limit:    limit,
+			Offset:   offset,
+			NodeType: nodeType,
+		},
+	}
+
+	data_ = &MovePreviewListResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by MovePreviewMemory.
+const MovePreviewMemory_Operation = `
+query MovePreviewMemory ($ref: ID!) {
+	memory(ref: $ref) {
+		id
+	}
+}
+`
+
+func MovePreviewMemory(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *MovePreviewMemoryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MovePreviewMemory",
+		Query:  MovePreviewMemory_Operation,
+		Variables: &__MovePreviewMemoryInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &MovePreviewMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by MovePreviewSource.
+const MovePreviewSource_Operation = `
+query MovePreviewSource ($ref: ID!) {
+	node(ref: $ref) {
+		id
+		urn
+		memoryId
+		loc
+	}
+}
+`
+
+// Advisory node move reads only identity/name. No mutation, validation or
+// computed destination addresses; the server planner is server#3424.
+func MovePreviewSource(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *MovePreviewSourceResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MovePreviewSource",
+		Query:  MovePreviewSource_Operation,
+		Variables: &__MovePreviewSourceInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &MovePreviewSourceResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
