@@ -531,6 +531,7 @@ fragment TeamChatMessageFields on TeamChatMessage {
   sessionId
   replyToSeq
   mentions
+  teamTags { headId label }
 }
 
 mutation CreateTeamChatMessage(
@@ -1748,4 +1749,46 @@ mutation DeleteWorkerInstructed(
   $instruction: ActInstructionInput!
 ) {
   deleteWorker(workerRef: $workerRef, confirmNoExternalAttribution: $confirmNoExternalAttribution, instruction: $instruction)
+}
+
+# cli936: tag-filtered reads have their own document; legacy arguments stay unchanged.
+query TeamChatTags(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $sinceSeq: Int
+  # @genqlient(omitempty: true)
+  $mentionsRef: ID
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $beforeSeq: Int
+  # @genqlient(omitempty: true)
+  $teamHeadRef: ID
+  # @genqlient(omitempty: true, pointer: true)
+  $untagged: Boolean
+) {
+  teamChatMessages(appRef: $appRef, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, beforeSeq: $beforeSeq, teamHeadRef: $teamHeadRef, untagged: $untagged) {
+    items { ...TeamChatMessageFields }
+  }
+}
+
+# cli936: tag-filtered reads have their own document; legacy arguments stay unchanged.
+query TeamChatTagsAttributed(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $sinceSeq: Int
+  # @genqlient(omitempty: true)
+  $mentionsRef: ID
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $beforeSeq: Int
+  # @genqlient(omitempty: true)
+  $teamHeadRef: ID
+  # @genqlient(omitempty: true, pointer: true)
+  $untagged: Boolean
+) {
+  teamChatMessages(appRef: $appRef, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, beforeSeq: $beforeSeq, teamHeadRef: $teamHeadRef, untagged: $untagged, advanceReadState: false) {
+    items { ...TeamChatMessageFields }
+  }
 }

@@ -143,6 +143,7 @@ fragment ChannelMessageFields on TeamChatMessage {
   replyToSeq
   mentions
   nodeId
+  teamTags { headId label }
 }
 
 # Read a Channel's messages. channelRef is the id or the address.
@@ -364,5 +365,29 @@ query ChannelThread(
     items {
       ...ChannelMessageFields
     }
+  }
+}
+
+# cli936: do not add tag arguments to the legacy ChannelMessages document.
+query ChannelTags(
+  $channelRef: ID!
+  # @genqlient(omitempty: true)
+  $sinceSeq: Int
+  # @genqlient(omitempty: true)
+  $beforeSeq: Int
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+  # @genqlient(omitempty: true)
+  $mentionsRef: ID
+  # @genqlient(omitempty: true)
+  $teamHeadRef: ID
+  # @genqlient(omitempty: true, pointer: true)
+  $untagged: Boolean
+) {
+  channelMessages(channelRef: $channelRef, sinceSeq: $sinceSeq, beforeSeq: $beforeSeq, limit: $limit, offset: $offset, mentionsRef: $mentionsRef, teamHeadRef: $teamHeadRef, untagged: $untagged) {
+    total
+    items { ...ChannelMessageFields }
   }
 }

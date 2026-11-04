@@ -15,7 +15,7 @@ import (
 )
 
 // The fake checks the actual document and variables, and never resolves a head.
-func tag936Server(t *testing.T, tags string, refuse string) (*httptest.Server, *[]attnCall) {
+func tag936Server(t *testing.T, tags string, refuse string, override ...func(attnCall, int) string) (*httptest.Server, *[]attnCall) {
 	t.Helper()
 	calls := &[]attnCall{}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -30,7 +30,7 @@ func tag936Server(t *testing.T, tags string, refuse string) (*httptest.Server, *
 		*calls = append(*calls, attnCall{RawOp: req.OperationName, Op: req.OperationName, Vars: req.Variables, Query: req.Query, Session: r.Header.Get("X-Hadron-Session")})
 		w.Header().Set("Content-Type", "application/json")
 		if strings.Contains(req.OperationName, "ReadHead") || strings.Contains(req.OperationName, "ReadMetadata") {
-			fmt.Fprint(w, teamThreadHead)
+			fmt.Fprint(w, strings.ReplaceAll(teamThreadHead, "9", "8"))
 			return
 		}
 		if req.OperationName == "GetBoundSessionEnd" {
@@ -41,6 +41,14 @@ func tag936Server(t *testing.T, tags string, refuse string) (*httptest.Server, *
 			fmt.Fprint(w, teamAppIdentityJSON)
 			return
 		}
+		if req.OperationName == "TeamDefaultChannel" {
+			fmt.Fprint(w, `{"data":{"app":{"id":"capp100000000000000000000","defaultChannel":{"id":"ch1"}}}}`)
+			return
+		}
+		if req.OperationName == "MarkOwnTeamChatRead" {
+			fmt.Fprint(w, `{"data":{"markOwnTeamChatRead":{"workerId":"wkr1","channelId":"ch1","lastSeenSeq":8}}}`)
+			return
+		}
 		if req.OperationName == "ChannelReadState" {
 			fmt.Fprint(w, `{"data":{"channelReadState":null}}`)
 			return
@@ -48,6 +56,12 @@ func tag936Server(t *testing.T, tags string, refuse string) (*httptest.Server, *
 		key := "teamChatMessages"
 		if strings.HasPrefix(req.OperationName, "Channel") {
 			key = "channelMessages"
+		}
+		if len(override) > 0 {
+			if body := override[0]((*calls)[len(*calls)-1], len(tag936Pages(*calls))); body != "" {
+				fmt.Fprint(w, body)
+				return
+			}
 		}
 		if refuse != "" {
 			fmt.Fprintf(w, `{"errors":[{"message":"uniform refusal","extensions":{"code":%q}}]}`, refuse)
@@ -221,7 +235,7 @@ func TestTeamTags936RefusalsAreTyped(t *testing.T) {
 				if got := renderError(f, err); got != want {
 					t.Fatalf("exit%d err%v", got, err)
 				}
-				if !strings.Contains(out.String(), `"serverCode": "`+code+`"`) || strings.Contains(out.String(), `"messages"`) {
+				if !strings.Contains(out.String(), `"serverCode": "`+code+`"`) || !strings.Contains(out.String(), "uniform refusal") || strings.Contains(out.String(), `"messages"`) {
 					t.Fatal(out.String())
 				}
 				if len(tag936Pages(*calls)) != 1 {
@@ -241,24 +255,172 @@ func TestTeamTags936UnfilteredDocumentsHaveNoFilterArguments(t *testing.T) {
 
 // Real bound same-server reads exercise attribution and the persisted watermark guard.
 func TestTeamTags936AttributedNoMark(t *testing.T) {
-	writeTeamBinding(t)
-	srv, calls := tag936Server(t, "[]", "")
-	setTeamBindingServer(t, srv.URL)
-	path := filepath.Join(os.Getenv(team.GitDirEnv), "hadron-team-session.json")
-	before, _ := os.ReadFile(path)
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs(tag936Args("team", srv.URL, "--tagged", "--mentions-me"))
-	if err := root.Execute(); err != nil {
-		t.Fatal(err)
+	for _, filter := range [][]string{{"--tagged"}, {"--untagged"}, {"--team-head", "stable"}, {"--team-head", "stable", "--mentions-me"}, {"--tagged", "--mentions-me"}, nil} {
+		t.Run(strings.Join(filter, " "), func(t *testing.T) {
+			writeTeamBinding(t)
+			srv, calls := tag936Server(t, "[]", "")
+			setTeamBindingServer(t, srv.URL)
+			path := filepath.Join(os.Getenv(team.GitDirEnv), "hadron-team-session.json")
+			before, _ := os.ReadFile(path)
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(tag936Args("team", srv.URL, filter...))
+			if err := root.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			after, _ := os.ReadFile(path)
+			if len(filter) > 0 && string(before) != string(after) {
+				t.Fatal("tag read recorded watermark")
+			}
+			if len(filter) == 0 && string(before) == string(after) {
+				t.Fatal("positive unfiltered twin did not record watermark")
+			}
+			pages := tag936Pages(*calls)
+			if len(pages) != 1 {
+				t.Fatal("missing page")
+			}
+			if strings.Contains(strings.Join(filter, " "), "--mentions-me") && pages[0].Vars["mentionsRef"] == nil {
+				t.Fatal("mentions-me did not compose with the tag filter")
+			}
+			for _, c := range pages {
+				if c.Session != "s-new" || !strings.Contains(c.Query, "advanceReadState: false") {
+					t.Fatalf("attribution %+v", c)
+				}
+			}
+			for _, c := range *calls {
+				if strings.Contains(c.RawOp, "Mark") && len(filter) > 0 {
+					t.Fatal("tag read acknowledged")
+				}
+			}
+		})
 	}
-	after, _ := os.ReadFile(path)
-	if string(before) != string(after) {
-		t.Fatal("tag read recorded watermark")
+}
+
+func TestTeamTags936AllAndWaitKeepFilterAndNeverMark(t *testing.T) {
+	for _, mode := range []string{"--all", "--wait"} {
+		for _, filter := range []string{"--tagged", "--untagged"} {
+			t.Run(mode+filter, func(t *testing.T) {
+				writeTeamBinding(t)
+				srv, calls := tag936Server(t, "[]", "", func(c attnCall, n int) string {
+					if (mode == "--all" && n > 1) || (mode == "--wait" && n == 1) {
+						return `{"data":{"teamChatMessages":{"items":[]}}}`
+					}
+					return ""
+				})
+				setTeamBindingServer(t, srv.URL)
+				path := filepath.Join(os.Getenv(team.GitDirEnv), "hadron-team-session.json")
+				before, _ := os.ReadFile(path)
+				f, out := testFactory(t)
+				args := tag936Args("team", srv.URL, filter, mode)
+				if mode == "--wait" {
+					args = append(args, "5s", "--poll-interval", "2s")
+				}
+				root := NewRootCmd(f)
+				root.SetArgs(args)
+				if err := root.Execute(); err != nil {
+					t.Fatal(err)
+				}
+				for _, c := range tag936Pages(*calls) {
+					if _, ok := c.Vars["untagged"]; !ok || c.Vars["untagged"] != (filter == "--untagged") {
+						t.Fatalf("filter dropped %+v", c)
+					}
+				}
+				var b map[string]any
+				data, _ := os.ReadFile(path)
+				_ = json.Unmarshal(data, &b)
+				if b["chatSeenSeq"] != nil || string(data) != string(before) {
+					t.Fatal("filtered poll/walk wrote watermark")
+				}
+				if !strings.Contains(out.String(), `"nextSince": 8`) {
+					t.Fatal(out.String())
+				}
+			})
+		}
 	}
-	for _, c := range tag936Pages(*calls) {
-		if c.Session != "s-new" || !strings.Contains(c.Query, "advanceReadState: false") || c.Vars["mentionsRef"] == nil {
-			t.Fatalf("attribution/filter %+v", c)
+}
+func TestTeamTags936CompatibilityNeverWidens(t *testing.T) {
+	for _, surface := range []string{"team", "channel"} {
+		for _, message := range []string{`Unknown argument "teamHeadRef" on field "Query.teamChatMessages".`, `Cannot query field "teamTags" on type "TeamChatMessage".`} {
+			t.Run(surface+message, func(t *testing.T) {
+				teamGitDir(t)
+				srv, calls := tag936Server(t, "[]", "", func(c attnCall, n int) string {
+					response, _ := json.Marshal(map[string]any{"errors": []any{map[string]any{"message": message, "extensions": map[string]any{"code": "GRAPHQL_VALIDATION_FAILED"}}}})
+					return string(response)
+				})
+				f, out := testFactory(t)
+				root := NewRootCmd(f)
+				root.SetArgs(tag936Args(surface, srv.URL, "--team-head", "raw"))
+				err := root.Execute()
+				if exitCodeFor(err) != 2 || !strings.Contains(err.Error(), "schema versions are out of sync") {
+					t.Fatalf("schema refusal %v", err)
+				}
+				if len(tag936Pages(*calls)) != 1 || strings.Contains(out.String(), `"messages"`) {
+					t.Fatal("schema-skew widened/retried")
+				}
+			})
+		}
+	}
+	t.Run("suppression retry retains false", func(t *testing.T) {
+		writeTeamBinding(t)
+		srv, calls := tag936Server(t, "[]", "", func(c attnCall, n int) string {
+			if c.RawOp == "TeamChatTagsAttributed" {
+				return missingReadSuppression
+			}
+			return ""
+		})
+		setTeamBindingServer(t, srv.URL)
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(tag936Args("team", srv.URL, "--tagged"))
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		pages := tag936Pages(*calls)
+		if len(pages) != 2 {
+			t.Fatalf("pages %+v", *calls)
+		}
+		for _, c := range pages {
+			if v, ok := c.Vars["untagged"]; !ok || v != false {
+				t.Fatal("retry lost explicit false")
+			}
+		}
+		if pages[0].Session != "s-new" || pages[1].Session != "" {
+			t.Fatalf("retry attribution %+v", pages)
+		}
+	})
+}
+func TestTeamTags936PostKeepsStoredTagsAndRefusal(t *testing.T) {
+	for _, surface := range []string{"team", "channel"} {
+		for _, code := range []string{"", "TEAM_CHAT_TEAM_HEAD_INVALID"} {
+			t.Run(surface+code, func(t *testing.T) {
+				teamGitDir(t)
+				body := `{"data":{"createTeamChatMessage":{"nodeId":"n1","seq":1,"body":"x","at":"t","mentions":[],"teamTags":[{"headId":"h1","label":"@team.old"}]}}}`
+				if code != "" {
+					body = gqlErrorJSON(code)
+				}
+				op := "CreateTeamChatMessage"
+				args := []string{"team", "chat", "post", "x", "--as-me", "--app", "acme.com:eng-team"}
+				if surface == "channel" {
+					op = "CreateChannelMessage"
+					body = strings.ReplaceAll(body, "createTeamChatMessage", "createChannelMessage")
+					args = []string{"channel", "post", "channel1", "x", "--as-me"}
+				}
+				srv, calls := attnServer(t, map[string]string{op: body})
+				f, out := testFactory(t)
+				root := NewRootCmd(f)
+				root.SetArgs(append(args, "--server", srv.URL, "--json"))
+				err := root.Execute()
+				if code != "" {
+					if renderError(f, err) != 4 || !strings.Contains(out.String(), `"serverCode": "TEAM_CHAT_TEAM_HEAD_INVALID"`) {
+						t.Fatalf("post %v %s", err, out.String())
+					}
+				} else if err != nil || !strings.Contains(out.String(), `"headId": "h1"`) {
+					t.Fatalf("post %v %s", err, out.String())
+				}
+				if len(stopCalls(calls, op)) != 1 {
+					t.Fatal("post retried")
+				}
+			})
 		}
 	}
 }
