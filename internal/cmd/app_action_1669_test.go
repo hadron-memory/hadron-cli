@@ -76,18 +76,55 @@ func TestAppAction1669LocalRefusals(t *testing.T) {
 	}
 }
 func TestAppAction1669RefusalCode(t *testing.T) {
-	out, n, _, err := runAction1669(t, `{"errors":[{"message":"code must name hrn:app:acme.com:x","extensions":{"code":"APP_ACTION_CODE_INVALID"}}]}`, "app.x.go", "--json")
-	if err == nil || n != 1 || api.ServerCodeOf(err) != "APP_ACTION_CODE_INVALID" || exitCodeFor(err) != exitcode.Usage {
-		t.Fatalf("%v %d", err, n)
-	}
-	// Render through the production root sink, as well as retaining the chain.
-	if !strings.Contains(out, `"serverCode": "APP_ACTION_CODE_INVALID"`) {
-		t.Fatalf("code dropped at root sink: %s", out)
-	}
-	if !strings.Contains(fmt.Sprintf("%+v", err), "hrn:app:acme.com:x") {
-		t.Fatalf("%s %v", out, err)
+	for _, asJSON := range []bool{false, true} {
+		args := []string{"app.x.go"}
+		if asJSON {
+			args = append(args, "--json")
+		}
+		out, n, _, err := runAction1669(t, `{"errors":[{"message":"Invalid App action code","extensions":{"code":"APP_ACTION_CODE_INVALID","appUrn":"hrn:app:acme.com:x"}}]}`, args...)
+		if err == nil || n != 1 || api.ServerCodeOf(err) != "APP_ACTION_CODE_INVALID" || exitCodeFor(err) != exitcode.Usage {
+			t.Fatalf("%v %d", err, n)
+		}
+		if !asJSON {
+			out = err.Error()
+		}
+		if !strings.Contains(out, "hrn:app:acme.com:x") || !strings.Contains(out, "APP_ACTION_CODE_INVALID") {
+			t.Fatalf("refusal lost code or App: %s", out)
+		}
 	}
 }
+func TestAppAction1669MappedTask(t *testing.T) {
+	response := `{"data":{"recordAppAction":{"eventId":"ev1","action":{"code":"app.x.go","state":"MAPPED","taskLoc":"tasks:one","taskUrn":"hrn:agenttask:acme.com:x:AT0.7"}}}}`
+	for _, asJSON := range []bool{false, true} {
+		args := []string{"app.x.go"}
+		if asJSON {
+			args = append(args, "--json")
+		}
+		out, n, _, err := runAction1669(t, response, args...)
+		if err != nil || n != 1 {
+			t.Fatalf("%v calls=%d", err, n)
+		}
+		if !strings.Contains(out, "tasks:one") || !strings.Contains(out, "hrn:agenttask:acme.com:x:AT0.7") || !strings.Contains(out, "MAPPED") {
+			t.Fatalf("mapped fields lost: %s", out)
+		}
+		if asJSON {
+			var dto struct {
+				Action struct{ TaskLoc, TaskURN *string }
+			}
+			if json.Unmarshal([]byte(out), &dto) != nil || dto.Action.TaskLoc == nil || *dto.Action.TaskLoc != "tasks:one" || dto.Action.TaskURN == nil || *dto.Action.TaskURN != "hrn:agenttask:acme.com:x:AT0.7" {
+				t.Fatal(out)
+			}
+		}
+	}
+}
+func TestAppAction1669MappedTextSafe(t *testing.T) {
+	response := `{"data":{"recordAppAction":{"eventId":"ev1","action":{"code":"app.x.go","state":"MAPPED","taskLoc":"tasks:\u001bone","taskUrn":"hrn:agenttask:acme.com:x:AT0.7\u001b"}}}}`
+	out, n, _, err := runAction1669(t, response, "app.x.go")
+	if err != nil || n != 1 || strings.Contains(out, "\x1b") || !strings.Contains(out, "tasks:one") || !strings.Contains(out, "hrn:agenttask:acme.com:x:AT0.7") {
+		t.Fatalf("unsafe mapped text %q %v", out, err)
+	}
+}
+
 func TestEvents1669CodePrefix(t *testing.T) {
 	for _, filtered := range []bool{false, true} {
 		srv, count, vars := countingGraphQL(t, map[string]string{"AgentTeamEvents": `{"data":{"agentTeamEvents":[]}}`, "AgentTeamEventsByCode": `{"data":{"agentTeamEvents":[]}}`})
