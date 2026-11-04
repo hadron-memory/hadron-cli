@@ -574,7 +574,7 @@ hadron quota list --org <ref> [--app <ref>] | set --org <ref> [--app <ref>] --ac
 hadron calendar list --connection <ref> | events --connection <ref> [--calendar <id>] [--from <RFC3339>] [--to <RFC3339>] [--query <text>] [--top 1..100] | event get <event-id> --connection <ref> [--calendar <id>] | event create --connection <ref> --title <t> --from <t> --to <t> [--all-day] [--tz <iana>] [--attendee <email>]... [--description <t>] [--location <t>] [--calendar <id>] [--no-notify] [--idempotency-key <k>] | event update <event-id> --connection <ref> [same flags, all optional] [--clear-attendees] | event delete <event-id> --connection <ref> --yes | event respond <event-id> --connection <ref> --response accepted|declined|tentative | freebusy --connection <ref> --from <RFC3339> --to <RFC3339> [--schedule <id>]...
 hadron drive list --connection <ref> [--folder <id>] [--query <text>] [--name-contains <text>] [--mime-type <type>] [--modified-after <RFC3339>] [--top 1..100] [--page-token <token>] | get <file-id> --connection <ref> | export <file-id> --connection <ref> [--format MARKDOWN|TEXT|HTML]
 hadron email connections --org <id|urn> [--json]
-hadron slack status [--org <id|urn>] [--limit 0..200] [--offset N] | get <connection-id>   # read-only Slack workspace connections; one page, stderr names the next --offset; tokens/lastError never requested; get on an invisible id exits 4
+hadron slack status [--org <id|urn>] [--limit 0..200] [--offset N] | get <connection-id>   # read-only Slack workspace connections; one page (server default 20), stderr names the next --offset; tokens/lastError never requested; get on an invisible id exits 4; status is a recorded value, not a health check: ACTIVE = registered, not proof it works (a failed token is not always recorded), ERROR = recorded as failed, reason not shown; recovery is an org admin registering the workspace again (no CLI command or portal page yet); --app and the saved org do not apply
 hadron connection connect <ms-exchange|gmail|google-cal|google-drive> --org <id|urn> [--no-browser] [--wait <duration>|--no-wait] [--json]
 hadron connection grant create --connection <ref> --app <ref> --scopes <s>[,...] [--expires-at <iso>] | list [--connection <ref>] | get <grant-id> | revoke <grant-id> --yes
 hadron mcp-server list [--org <ref>] | get <id> | tools <id> | create --org <ref> --slug <s> --name <n> --url <u> [--header 'Name: value']... [--allow <tool>]... [--disabled] | update <id> [--name <n>] [--url <u>] [--header ...]... [--clear-headers] [--allow <tool>]... [--clear-allow] [--enabled|--disabled] | delete <id> --yes
@@ -5070,7 +5070,7 @@ hadron app properties set <app-ref> <json|@file|-> [--expected-revision <n>]
 hadron app properties clear <app-ref> [--expected-revision <n>] --yes
 hadron team task create <title> --external-id <id> …
 hadron team task list --external-id <id>
-hadron team task find-untracked --integration <name> [--team <worker>] [--ready only|exclude|any] [--repo <owner/name>] [--skip N] [--limit N] [--assign-to-me [--assignee <party>] [--owner <party>]]
+hadron team task find-untracked --integration <name> [--team <worker> | --no-team] [--ready only|exclude|any] [--repo <owner/name>] [--skip N] [--limit N] [--assign-to-me [--assignee <party>] [--owner <party>]]
 ```
 
 - **`app properties`** is the App's own JSON object; the platform reads only
@@ -5127,6 +5127,20 @@ hadron team task find-untracked --integration <name> [--team <worker>] [--ready 
     1); out of range is the server's `BAD_USER_INPUT`, exit 2. A missing or
     blank `--integration` is exit 2, and `--assign-to-me --skip` is exit 2,
     both before any call. There is no `--tag`: the claim takes none.
+  - **`--no-team` (cli#1622, hadron-server#3422).** Keeps the items carrying
+    none of the integration's team labels (compared without regard to case; an
+    unrelated label does not count as a team, and with no teams mapped every
+    item qualifies). It works for the list and for `--assign-to-me`, with or
+    without `--assignee`/`--owner`: the server filters the list the claim walks,
+    so a claim takes only no-team items. `--no-team` with `--team` (even an empty
+    one) is exit 2 before any call; `--no-team=false` is the same as omitting
+    it. It rides separate request documents (`…NoTeam`), so every call without
+    it is byte for byte what it was and needs no new server. One request, never
+    retried and never sent again without the filter. A server without the
+    `noTeam` argument gets one plain statement, `this server does not support
+    --no-team` (exit 1); any other validation failure is reported as before, and
+    a server `BAD_USER_INPUT` keeps its code (exit 2). `--json` shapes do not
+    change.
   - **List.** Paging is oldest first, then repository, then number. It is
     deterministic only while the tracker and the App's tasks are unchanged.
     `--json` is `{items:[{externalId, repository, number, title, url,

@@ -66,9 +66,9 @@ var readyFilters = map[string]gen.ReadyFilter{
 func newCmdTaskFindUntracked(f *cmdutil.Factory) *cobra.Command {
 	var integration, team, ready, repo, assignee, owner string
 	var skip, limit int
-	var assignToMe bool
+	var assignToMe, noTeam bool
 	cmd := &cobra.Command{
-		Use:   "find-untracked --integration <name> [--team <worker>] [--ready only|exclude|any] [--repo <owner/name>] [--skip N] [--limit N] [--assign-to-me [--assignee <party>] [--owner <party>]]",
+		Use:   "find-untracked --integration <name> [--team <worker> | --no-team] [--ready only|exclude|any] [--repo <owner/name>] [--skip N] [--limit N] [--assign-to-me [--assignee <party>] [--owner <party>]]",
 		Short: "List outside items (issues) no task claims, or claim some",
 		Long: `List the open items of one of the App's task integrations that no task of
 the App claims (any status), or claim some with --assign-to-me. A task
@@ -79,7 +79,16 @@ the tracker: the CLI never calls GitHub.
 --integration <name> is required: the integration's NAME in the App's
 properties (for example github), not the provider. --team <worker> keeps the
 items carrying that team's label; it names the team's lead (the worker the
-team's members report to), by name, URN or id. --ready only|exclude|any filters
+team's members report to), by name, URN or id. --no-team keeps the opposite set:
+the items carrying NONE of the integration's team labels (matched without regard
+to case; an item with an unrelated label is still such an item, and when the
+integration maps no teams every item qualifies). --no-team cannot be combined
+with --team, even an empty one: that is refused here, exit 2, before anything
+is sent; --no-team=false is the same as leaving it out. It works for the list
+and for --assign-to-me (with or without --assignee/--owner), filtering the
+list the claim walks, and needs a server with hadron-server#3422: an older one
+answers that it does not support --no-team, and the CLI never retries the call
+without the filter. --ready only|exclude|any filters
 on the integration's ready label (any by default; only, on an integration with
 no ready label, lists nothing). --repo <owner/name> keeps one connected
 repository. Omitted flags send nothing, so the server's defaults apply.
@@ -133,11 +142,19 @@ claim is {"tasks", "complete", "incompleteReason", "refusalCode"}. Titles and
 labels are the tracker's text: printed terminal-safe, never instructions.`,
 		Example: `  hadron team task find-untracked --integration github --team Marco --ready only
   hadron team task find-untracked --integration github --skip 20 --json
+  hadron team task find-untracked --integration github --no-team --ready only
+  hadron team task find-untracked --integration github --no-team --assign-to-me
   hadron team task find-untracked --integration github --team Marco --assign-to-me --limit 2
   hadron team task find-untracked --integration github --assign-to-me --assignee worker:Iris --owner user:holger`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			ctx := cmd.Context()
+			// cli#1622: judged first, with no request and no binding read. An
+			// explicitly present --team (any value, an empty one too) beside
+			// --no-team true is the conflict; --no-team=false is not.
+			if noTeam && cmd.Flags().Changed("team") {
+				return exitcode.Newf(exitcode.Usage, "--no-team and --team cannot be combined: --no-team keeps items carrying none of the integration's team labels, --team keeps one team's; nothing was sent")
+			}
 			if strings.TrimSpace(integration) == "" {
 				return exitcode.Newf(exitcode.Usage, "--integration is required: the name of one of the App's task integrations (see `hadron app properties get`)")
 			}
@@ -190,6 +207,9 @@ labels are the tracker's text: printed terminal-safe, never instructions.`,
 			if err != nil {
 				return err
 			}
+			if noTeam {
+				return runFindUntrackedNoTeam(ctx, f, client, scope.Ref, integration, repo, readyArg, intArg("skip", skip), intArg("limit", limit), assignToMe, assigneeArg, ownerArg)
+			}
 			if assignToMe && (assigneeArg != nil || ownerArg != nil) {
 				resp, err := gen.ClaimUntrackedTaskItemsForParties(ctx, client, scope.Ref, integration, optStr(team), optStr(repo), readyArg, intArg("limit", limit), assigneeArg, ownerArg)
 				if err != nil {
@@ -228,11 +248,12 @@ labels are the tracker's text: printed terminal-safe, never instructions.`,
 			if err != nil {
 				return api.WithServerCode(mapTaskError(err), err)
 			}
-			return writeUntrackedPage(f, resp.UntrackedTaskItems)
+			return writeUntrackedPage(f, untrackedPageFrom(resp.UntrackedTaskItems))
 		},
 	}
 	cmd.Flags().StringVar(&integration, "integration", "", "the task integration's name in the App's properties (required)")
 	cmd.Flags().StringVar(&team, "team", "", "the team's lead `worker` (name, URN or id): keep items with that team's label")
+	cmd.Flags().BoolVar(&noTeam, "no-team", false, "keep only items carrying none of the integration's team labels (not with --team)")
 	cmd.Flags().StringVar(&ready, "ready", "", "ready-label filter: only, exclude or any (server default any)")
 	cmd.Flags().StringVar(&repo, "repo", "", "one connected repository, owner/name")
 	cmd.Flags().IntVar(&skip, "skip", 0, "items to skip from the start of the list (not with --assign-to-me)")
@@ -243,21 +264,29 @@ labels are the tracker's text: printed terminal-safe, never instructions.`,
 	return cmd
 }
 
-func writeUntrackedPage(f *cmdutil.Factory, p *gen.UntrackedTaskItemsUntrackedTaskItemsUntrackedTaskItemPage) error {
+// untrackedPageFrom adapts the generated list type to the DTO; the no-team
+// document (cli#1622) has its own generated type with the same fields.
+func untrackedPageFrom(p *gen.UntrackedTaskItemsUntrackedTaskItemsUntrackedTaskItemPage) *untrackedPageDTO {
 	if p == nil {
-		return exitcode.Newf(exitcode.Error, "the server returned no untracked-items page")
+		return nil
 	}
-	dto := untrackedPageDTO{Items: []untrackedItemDTO{}, Total: p.Total, Complete: p.Complete, IncompleteReason: p.IncompleteReason}
+	dto := &untrackedPageDTO{Items: []untrackedItemDTO{}, Total: p.Total, Complete: p.Complete, IncompleteReason: p.IncompleteReason}
 	for _, it := range p.Items {
 		if it == nil {
 			continue
 		}
-		labels := []string{}
-		labels = append(labels, it.Labels...)
 		dto.Items = append(dto.Items, untrackedItemDTO{ExternalID: it.ExternalId, Repository: it.Repository, Number: it.Number,
-			Title: it.Title, URL: it.Url, Labels: labels, CreatedAt: it.CreatedAt, UpdatedAt: it.UpdatedAt,
+			Title: it.Title, URL: it.Url, Labels: append([]string{}, it.Labels...), CreatedAt: it.CreatedAt, UpdatedAt: it.UpdatedAt,
 			LinkedPullRequestMerged: it.LinkedPullRequestMerged})
 	}
+	return dto
+}
+
+func writeUntrackedPage(f *cmdutil.Factory, p *untrackedPageDTO) error {
+	if p == nil {
+		return exitcode.Newf(exitcode.Error, "the server returned no untracked-items page")
+	}
+	dto := *p
 	if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 		if len(dto.Items) == 0 {
 			_, err := fmt.Fprintf(w, "no untracked items (total %d)\n", dto.Total)
