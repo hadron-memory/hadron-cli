@@ -277,6 +277,8 @@ func TestMapError(t *testing.T) {
 		// (hadron-server#1050) — pinning an exit code for a refusal the server
 		// cannot produce documents a contract nobody can exercise.
 		{"role exists", gqlErr("TEAM_ROLE_EXISTS"), exitcode.Conflict},
+		{"team chat invalid head is uniformly concealed", gqlErr("TEAM_CHAT_TEAM_HEAD_INVALID"), exitcode.NotFound},
+		{"team chat metadata is forbidden", gqlErr("TEAM_CHAT_TEAM_METADATA_FORBIDDEN"), exitcode.Forbidden},
 		{"team chat duplicate", gqlErr("TEAM_CHAT_DUPLICATE"), exitcode.Conflict},
 		{"team chat post rate limited", gqlErr("TEAM_CHAT_POST_RATE_LIMITED"), exitcode.Conflict},
 		{"team chat body too large", gqlErr("TEAM_CHAT_BODY_TOO_LARGE"), exitcode.Usage},

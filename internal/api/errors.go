@@ -1104,6 +1104,12 @@ func codeForExtension(code string) int {
 	// has been read in the SDL. The server's message is kept whole.
 	case code == "INCLUDE_CYCLE" || code == "INCLUDE_EDGE_DERIVED":
 		return exitcode.Usage
+	// Unknown, foreign and former heads share the same concealing refusal;
+	// metadata admission remains a separate forbidden answer (#936).
+	case code == "TEAM_CHAT_TEAM_HEAD_INVALID":
+		return exitcode.NotFound
+	case code == "TEAM_CHAT_TEAM_METADATA_FORBIDDEN":
+		return exitcode.Forbidden
 	// Team-chat duplicate and post-rate refusals are deliberate state
 	// conflicts (#1306): posting again cannot help until the duplicate window
 	// or rate window changes. Keep the server's message; never retry here.
