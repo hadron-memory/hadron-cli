@@ -152,6 +152,10 @@ type Deliverer struct {
 	// reported is the last hold reason reported per batch, so a hold is
 	// reported once per change, not every poll.
 	reported map[string]string
+	// stopFlagged is each halt notice already logged as stop-dropped
+	// (hadron-cli#1629), so a held halt is flagged once, not every poll. In
+	// memory: a restart may flag a still-held notice once more.
+	stopFlagged map[string]bool
 }
 
 // New builds a Deliverer with the production defaults.

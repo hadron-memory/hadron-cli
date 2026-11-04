@@ -38,7 +38,7 @@ const StopDropped = "stop-dropped"
 
 // OwnPrefixes are every prefix C1 types: a leftover opening with any of them
 // is ours (submitted or cleared), never a foreign draft.
-var OwnPrefixes = []string{Prefix, TickPrefix, TaskPrefix}
+var OwnPrefixes = []string{Prefix, TickPrefix, TaskPrefix, StopPrefix}
 
 // MaxWakeRunes bounds a wake line. A longer one is cut at a reason
 // boundary and says how many reasons it left out.
@@ -108,14 +108,17 @@ type TickAction struct {
 	TaskURN string
 }
 
-// Key is the reason's stable submitted identity: tick:<tickerId>:<lastTickAt>
-// or task:<eventId>:<chainIndex>. "" for a MENTION, which C1 never records.
+// Key is the reason's stable submitted identity: tick:<tickerId>:<lastTickAt>,
+// task:<eventId>:<chainIndex> or stop:<eventId> (the notice's event,
+// hadron-cli#1629). "" for a MENTION, which C1 never records.
 func (r WakeReason) Key() string {
 	switch {
 	case r.Kind == WakeTick:
 		return "tick:" + r.TickerID + ":" + r.LastTickAt.UTC().Format(time.RFC3339Nano)
 	case r.Kind == WakeTask && r.Task != nil:
 		return fmt.Sprintf("task:%s:%d", r.Task.EventID, r.Task.ChainIndex)
+	case r.Kind == WakeStop && r.Stop != nil:
+		return "stop:" + r.Stop.EventID
 	}
 	return ""
 }
@@ -150,14 +153,18 @@ func (w Wake) Span() string {
 	for _, r := range w.Reasons {
 		n[r.Kind]++
 	}
-	return fmt.Sprintf("wake:tick=%d,task=%d,mention=%d", n[WakeTick], n[WakeTask], n[WakeMention])
+	span := fmt.Sprintf("wake:tick=%d,task=%d,mention=%d", n[WakeTick], n[WakeTask], n[WakeMention])
+	if n[WakeStop] > 0 {
+		span += fmt.Sprintf(",stop=%d", n[WakeStop])
+	}
+	return span
 }
 
-// components are w's TICK and TASK reasons: what C1 types.
+// components are w's TICK, TASK and STOP reasons: what C1 types.
 func (w Wake) components() []WakeReason {
 	out := []WakeReason{}
 	for _, r := range w.Reasons {
-		if r.Kind == WakeTick || r.Kind == WakeTask {
+		if r.Kind == WakeTick || r.Kind == WakeTask || r.Kind == WakeStop {
 			out = append(out, r)
 		}
 	}
@@ -197,6 +204,10 @@ func CheckWake(w Wake) error {
 			if r.Task.ID == "" && r.Task.Event != "alarm" {
 				return fmt.Errorf("%w: only an alarm may come without its task", ErrMalformedWake)
 			}
+		case WakeStop:
+			if r.Stop == nil || r.Stop.EventID == "" || r.Stop.SignalID == "" || r.Stop.Level == "" || r.Stop.Notice == "" {
+				return fmt.Errorf("%w: a stop without its notice", ErrMalformedWake)
+			}
 		default:
 			return fmt.Errorf("%w: an unknown reason kind", ErrMalformedWake)
 		}
@@ -209,7 +220,7 @@ func CheckWake(w Wake) error {
 // for every-tick: reasons joined by "; ", cut at a reason boundary to
 // MaxWakeRunes with the count of reasons left out.
 func RenderWake(reasons []WakeReason) string {
-	parts := make([]string, 0, len(reasons))
+	parts := stopParts(reasons)
 	for _, r := range reasons {
 		switch r.Kind {
 		case WakeTick:
@@ -253,12 +264,48 @@ func RenderWakeWith(reasons []WakeReason, tickText string) string {
 	if tickText == "" || !hasTick || strings.ContainsFunc(tickText, unicode.IsControl) {
 		return RenderWake(reasons)
 	}
-	head := TickPrefix + " " + tickText
+	head := strings.Join(append(stopParts(reasons), TickPrefix+" "+tickText), "; ")
 	text := strings.Join(append([]string{head}, tasks...), "; ")
 	for kept := len(tasks) - 1; utf8.RuneCountInString(text) > MaxWakeRunes && kept >= 0; kept-- {
 		text = strings.Join(append([]string{head}, tasks[:kept]...), "; ") + fmt.Sprintf("; (+%d more reasons)", len(tasks)-kept)
 	}
 	return text
+}
+
+// stopLineWhat is what each level's notice asks of the worker, in the
+// server's wording (hadron-server src/mcp/tickerTools.ts stopLine, Uma's
+// P3-5 on #2166). The wording is not part of cor:agt:090:04.
+var stopLineWhat = map[string]string{
+	"PAUSE_DISPATCH": "no new work is assigned to the workers it covers",
+	"PAUSE":          "finish or stop at your next sub-task",
+	"HALT":           "save your work and write a hand-off now",
+}
+
+// renderStop is one STOP reason's line (hadron-cli#1629): the server's
+// stopLine after StopPrefix. Level and notice are closed enums; anything
+// else is folded to one line, never trusted as text.
+func renderStop(st *StopReason) string {
+	level := oneLine(st.Level)
+	if st.Notice == "RESUME" {
+		return fmt.Sprintf("%s resume: %s lifted", StopPrefix, level)
+	}
+	what, ok := stopLineWhat[st.Level]
+	if !ok {
+		what = "see the stop signal"
+	}
+	return fmt.Sprintf("%s stop: %s (%s)", StopPrefix, level, what)
+}
+
+// stopParts are reasons' STOP lines, in order: typed first, ahead of every
+// tick and task (cor:agt:090:04, "ahead of anything else"), and never cut.
+func stopParts(reasons []WakeReason) []string {
+	out := []string{}
+	for _, r := range reasons {
+		if r.Kind == WakeStop && r.Stop != nil {
+			out = append(out, renderStop(r.Stop))
+		}
+	}
+	return out
 }
 
 // renderTask is one TASK reason. A task-less alarm says its alarm type, or
@@ -388,6 +435,7 @@ func (d *Deliverer) deliverWakeLocked(ctx context.Context, w Wake, r Recipient, 
 	}
 	handle, o, ok := d.typeLine(ctx, l, &r, stillOwner)
 	if !ok {
+		d.flagDroppedHalts(r, untyped, o)
 		return o
 	}
 	fin := context.WithoutCancel(ctx)
@@ -442,4 +490,35 @@ func (d *Deliverer) ackWake(ctx context.Context, w Wake) bool {
 	// them again, harmlessly (unchanged).
 	_ = d.WakeRecords.Acked(w.WorkerID, keys, d.Now())
 	return true
+}
+
+// flagDroppedHalts logs a halt notice that could not be typed (hadron-cli#1629;
+// Holger's option A on hadron-server#2169): held on a draft, a question, an
+// unsubmitted line or an unknown screen, or failed for want of its terminal.
+// Nothing is typed over the composer and nothing is acknowledged, so the
+// notice stays due and is retried every poll; the drop is logged once per
+// notice as a StopDropped event whose span names the level and the notice's
+// event (ids only), for the host manager's tick to flag to the coordinator.
+// A deferral (not yet due, waiting on a busy agent) is not a drop.
+func (d *Deliverer) flagDroppedHalts(r Recipient, untyped []WakeReason, o Outcome) {
+	if o.Kind != Held && o.Kind != Failed {
+		return
+	}
+	for _, c := range untyped {
+		if c.Kind != WakeStop || c.Stop == nil || c.Stop.Level != "HALT" || c.Stop.Notice == "RESUME" {
+			continue
+		}
+		d.mu.Lock()
+		if d.stopFlagged == nil {
+			d.stopFlagged = map[string]bool{}
+		}
+		seen := d.stopFlagged[c.Stop.EventID]
+		d.stopFlagged[c.Stop.EventID] = true
+		d.mu.Unlock()
+		if seen || d.Emit == nil {
+			continue
+		}
+		d.Emit(Event{Time: d.Now().UTC(), Worker: r.Name, WorkerID: r.WorkerID, Span: "stop:HALT:" + c.Stop.EventID,
+			Kind: Held, Reason: StopDropped, Terminal: o.Terminal, ResolvedBy: r.resolvedBy, Wake: true})
+	}
 }

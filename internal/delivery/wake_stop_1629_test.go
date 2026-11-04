@@ -3,6 +3,7 @@ package delivery
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hadron-memory/hadron-cli/internal/orcaterm"
 )
@@ -139,4 +140,51 @@ func TestAStopOnlyWakeSpanCountsTheStop(t *testing.T) {
 	if got := h.wake(stopReason("ev8", "HALT", "STOP")).Span(); !strings.Contains(got, "stop=1") {
 		t.Fatalf("span %q", got)
 	}
+}
+
+func TestOnlyAHaltIsFlaggedAsDropped(t *testing.T) {
+	h := newHarness(t)
+	h.orca.screens["term_j"] = []*orcaterm.Screen{{Source: "screen", Tail: claudeIdle, Draft: "draft"}}
+	h.deliverWake(h.wake(stopReason("ev10", "PAUSE", "STOP")))
+	h.deliverWake(h.wake(stopReason("ev11", "HALT", "RESUME")))
+	if n := h.stopDropped(); n != 0 {
+		t.Fatalf("stop-dropped %d: only a halt's stop notice is an interrupt", n)
+	}
+}
+
+func TestADeferredHaltIsNotADrop(t *testing.T) {
+	h := newHarness(t)
+	w := h.wake(stopReason("ev12", "HALT", "STOP"))
+	w.DeliverAfter = h.now.Add(time.Minute)
+	if o := h.deliverWake(w); o.Kind != Deferred {
+		t.Fatalf("outcome %+v", o)
+	}
+	if n := h.stopDropped(); n != 0 {
+		t.Fatalf("stop-dropped %d for a wake not yet due", n)
+	}
+	// A busy agent before the busy deadline: the terminal path defers it,
+	// and that is a wait, not a drop.
+	h.orca.screens["term_j"] = []*orcaterm.Screen{screen(claudeBusy)}
+	w.DeliverAfter = h.now.Add(-time.Minute)
+	if o := h.deliverWake(w); o.Kind != Deferred || o.Reason != "busy" {
+		t.Fatalf("busy outcome %+v", o)
+	}
+	if n := h.stopDropped(); n != 0 {
+		t.Fatalf("stop-dropped %d for a busy agent", n)
+	}
+}
+
+func TestADroppedHaltEventNamesItsNoticeByIDOnly(t *testing.T) {
+	h := newHarness(t)
+	h.orca.screens["term_j"] = []*orcaterm.Screen{{Source: "screen", Tail: claudeIdle, Draft: "SECRET draft"}}
+	h.deliverWake(h.wake(stopReason("ev13", "HALT", "STOP")))
+	for _, e := range h.events {
+		if e.Reason == StopDropped {
+			if e.Span != "stop:HALT:ev13" || e.Kind != Held || !e.Wake || e.Worker != "Joshua" || strings.Contains(e.Span+e.Terminal, "SECRET") {
+				t.Fatalf("event %+v", e)
+			}
+			return
+		}
+	}
+	t.Fatal("no stop-dropped event")
 }
