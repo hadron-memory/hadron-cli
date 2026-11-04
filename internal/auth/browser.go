@@ -18,8 +18,14 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
-// loginTimeout bounds the whole browser dance.
-const loginTimeout = 5 * time.Minute
+// loginTimeout bounds the whole browser dance. 15 minutes is a CLI engineering
+// choice, not a contract value: first passkey enrolment on a #1897 server takes
+// two inbox round trips plus a registration ceremony inside one login, which 5
+// minutes did not reliably hold (cli#875). It is an upper bound only. If the
+// server's pending-flow lifetime is shorter, this drops to match, because
+// waiting past the point the server can still issue a code only delays the
+// Cancelled message.
+const loginTimeout = 15 * time.Minute
 
 // accountScope is the OAuth scope the CLI requests (cor:aut:010:02). The CLI
 // drives the GraphQL data API, which refuses a key carrying `mcp` alone, so
@@ -55,6 +61,12 @@ func (BrowserStrategy) Login(ctx context.Context, opts LoginOptions) (*Token, er
 		openBrowser = OpenInBrowser
 	}
 
+	// The limit named on timeout is the one that will actually fire: ours, or
+	// a caller's earlier deadline.
+	bound := loginTimeout
+	if deadline, ok := ctx.Deadline(); ok && time.Until(deadline) < bound {
+		bound = time.Until(deadline)
+	}
 	ctx, cancel := context.WithTimeout(ctx, loginTimeout)
 	defer cancel()
 
@@ -111,7 +123,7 @@ func (BrowserStrategy) Login(ctx context.Context, opts LoginOptions) (*Token, er
 		fmt.Fprintf(opts.IO.ErrOut, "(could not open browser automatically: %v)\n", err)
 	}
 
-	code, err := loopback.Wait(ctx)
+	code, err := loopback.Wait(ctx, bound)
 	if errors.Is(err, errInvalidScope) {
 		return nil, exitcode.Newf(exitcode.Error,
 			"%s refused the %q OAuth scope (%v); the CLI needs a server that issues %q keys (hadron-server#1261) — %s",
