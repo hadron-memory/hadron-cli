@@ -50062,6 +50062,134 @@ func (v *IssueHostOperationResponse) GetIssueHostOperation() *IssueHostOperation
 	return v.IssueHostOperation
 }
 
+// JoinAppJoinAppJoinAppPayload includes the requested fields of the GraphQL type JoinAppPayload.
+// The GraphQL type's documentation follows.
+//
+// Return shape for the joinApp mutation (023-app-shape US2). The
+// AppMember row is included so callers can read its derived
+// isOrgExternal flag without a re-query.
+type JoinAppJoinAppJoinAppPayload struct {
+	AppMember *JoinAppJoinAppJoinAppPayloadAppMember `json:"appMember"`
+}
+
+// GetAppMember returns JoinAppJoinAppJoinAppPayload.AppMember, and is useful for accessing the field via an interface.
+func (v *JoinAppJoinAppJoinAppPayload) GetAppMember() *JoinAppJoinAppJoinAppPayloadAppMember {
+	return v.AppMember
+}
+
+// JoinAppJoinAppJoinAppPayloadAppMember includes the requested fields of the GraphQL type AppMember.
+type JoinAppJoinAppJoinAppPayloadAppMember struct {
+	AppId     string `json:"appId"`
+	Role      string `json:"role"`
+	CreatedAt string `json:"createdAt"`
+	// 023-app-shape US2: true when this User is an AppMember of the App
+	// but NOT an OrgMember of the App's owning Organization. Derived at
+	// query time from the absence of an OrgMember row (per spec 023
+	// FR-011 — no appOnly column is added to the AppMember table).
+	// Unlocks the B2C / therapy / consumer use cases where end-users
+	// use an App without joining the operator's org.
+	IsOrgExternal bool                                       `json:"isOrgExternal"`
+	User          *JoinAppJoinAppJoinAppPayloadAppMemberUser `json:"user"`
+	// The App when the caller may read it; an external App member can still see their membership row.
+	App *JoinAppJoinAppJoinAppPayloadAppMemberApp `json:"app"`
+}
+
+// GetAppId returns JoinAppJoinAppJoinAppPayloadAppMember.AppId, and is useful for accessing the field via an interface.
+func (v *JoinAppJoinAppJoinAppPayloadAppMember) GetAppId() string { return v.AppId }
+
+// GetRole returns JoinAppJoinAppJoinAppPayloadAppMember.Role, and is useful for accessing the field via an interface.
+func (v *JoinAppJoinAppJoinAppPayloadAppMember) GetRole() string { return v.Role }
+
+// GetCreatedAt returns JoinAppJoinAppJoinAppPayloadAppMember.CreatedAt, and is useful for accessing the field via an interface.
+func (v *JoinAppJoinAppJoinAppPayloadAppMember) GetCreatedAt() string { return v.CreatedAt }
+
+// GetIsOrgExternal returns JoinAppJoinAppJoinAppPayloadAppMember.IsOrgExternal, and is useful for accessing the field via an interface.
+func (v *JoinAppJoinAppJoinAppPayloadAppMember) GetIsOrgExternal() bool { return v.IsOrgExternal }
+
+// GetUser returns JoinAppJoinAppJoinAppPayloadAppMember.User, and is useful for accessing the field via an interface.
+func (v *JoinAppJoinAppJoinAppPayloadAppMember) GetUser() *JoinAppJoinAppJoinAppPayloadAppMemberUser {
+	return v.User
+}
+
+// GetApp returns JoinAppJoinAppJoinAppPayloadAppMember.App, and is useful for accessing the field via an interface.
+func (v *JoinAppJoinAppJoinAppPayloadAppMember) GetApp() *JoinAppJoinAppJoinAppPayloadAppMemberApp {
+	return v.App
+}
+
+// JoinAppJoinAppJoinAppPayloadAppMemberApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type JoinAppJoinAppJoinAppPayloadAppMemberApp struct {
+	Urn  string `json:"urn"`
+	Name string `json:"name"`
+}
+
+// GetUrn returns JoinAppJoinAppJoinAppPayloadAppMemberApp.Urn, and is useful for accessing the field via an interface.
+func (v *JoinAppJoinAppJoinAppPayloadAppMemberApp) GetUrn() string { return v.Urn }
+
+// GetName returns JoinAppJoinAppJoinAppPayloadAppMemberApp.Name, and is useful for accessing the field via an interface.
+func (v *JoinAppJoinAppJoinAppPayloadAppMemberApp) GetName() string { return v.Name }
+
+// JoinAppJoinAppJoinAppPayloadAppMemberUser includes the requested fields of the GraphQL type User.
+type JoinAppJoinAppJoinAppPayloadAppMemberUser struct {
+	Id     string  `json:"id"`
+	Handle *string `json:"handle"`
+	// Canonical `hrn:user:<handle>` URN (spec cor:urn:010:01). Computed from the
+	// handle; null for a handle-less user and for a user whose handle is
+	// not-URN-legal (neither has a URN).
+	Urn *string `json:"urn"`
+}
+
+// GetId returns JoinAppJoinAppJoinAppPayloadAppMemberUser.Id, and is useful for accessing the field via an interface.
+func (v *JoinAppJoinAppJoinAppPayloadAppMemberUser) GetId() string { return v.Id }
+
+// GetHandle returns JoinAppJoinAppJoinAppPayloadAppMemberUser.Handle, and is useful for accessing the field via an interface.
+func (v *JoinAppJoinAppJoinAppPayloadAppMemberUser) GetHandle() *string { return v.Handle }
+
+// GetUrn returns JoinAppJoinAppJoinAppPayloadAppMemberUser.Urn, and is useful for accessing the field via an interface.
+func (v *JoinAppJoinAppJoinAppPayloadAppMemberUser) GetUrn() *string { return v.Urn }
+
+// JoinAppResponse is returned by JoinApp on success.
+type JoinAppResponse struct {
+	// 023-app-shape US2 — user-level install. The currently-logged-in user
+	// joins the App as an AppMember without requiring an OrgMember row.
+	// App lifecycle checks run before the existing-member return and self-join
+	// policy check.
+	//
+	// #1714: self-join is closed by default. It is open only when the App's
+	// primary Agent declares installation_policy.selfJoinRole, which must be
+	// one of its memberRoles and is never "owner"; the joiner gets that role.
+	// Self-join never assigns owner. Explicit role changes use ensureAppMember,
+	// by an App member manager. Idempotent — if the user is already an AppMember
+	// of the App, the existing row is returned, before the gate is consulted.
+	//
+	// Error codes (GraphQLError extensions.code, Error.name style):
+	// - UNAUTHENTICATED — no logged-in user in context.
+	// - AppNotFoundError — the App does not exist or is soft-deleted.
+	// - AppUninstalledError — the App is in the spec-021 soft-uninstall
+	// lifecycle phase.
+	// - SelfJoinNotAllowedError — the App's Agent has not opted into
+	// self-service joining (including an App with no installed Agent).
+	// Checked before capacity, so it reveals nothing about maxMembers.
+	// - OrphanAppError — the App lost its installed Agents while the
+	// join was in flight.
+	// - MaxMembersExceededError — the Agent's maxMembers limit is hit.
+	// - InvalidRoleError — the picked default role isn't accepted by
+	// the Agent's policy (rare; would indicate a policy update
+	// race).
+	//
+	// Accepts the entity's ID or URN.
+	JoinApp *JoinAppJoinAppJoinAppPayload `json:"joinApp"`
+}
+
+// GetJoinApp returns JoinAppResponse.JoinApp, and is useful for accessing the field via an interface.
+func (v *JoinAppResponse) GetJoinApp() *JoinAppJoinAppJoinAppPayload { return v.JoinApp }
+
 // LatestAppRunLatestAppRun includes the requested fields of the GraphQL type AppRun.
 // The GraphQL type's documentation follows.
 //
@@ -50291,6 +50419,78 @@ type LatestAppRunResponse struct {
 
 // GetLatestAppRun returns LatestAppRunResponse.LatestAppRun, and is useful for accessing the field via an interface.
 func (v *LatestAppRunResponse) GetLatestAppRun() *LatestAppRunLatestAppRun { return v.LatestAppRun }
+
+// LeaveAppInstructedLeaveAppLeaveAppPayload includes the requested fields of the GraphQL type LeaveAppPayload.
+// The GraphQL type's documentation follows.
+//
+// Return shape for the leaveApp mutation (023-app-shape US2). The
+// user's personal-class Memory at (appId, userId) is NOT
+// cascade-deleted (spec 008 FR-015 orphan retention); it re-attaches
+// if the user later re-joins the same App.
+type LeaveAppInstructedLeaveAppLeaveAppPayload struct {
+	AppId  string `json:"appId"`
+	UserId string `json:"userId"`
+}
+
+// GetAppId returns LeaveAppInstructedLeaveAppLeaveAppPayload.AppId, and is useful for accessing the field via an interface.
+func (v *LeaveAppInstructedLeaveAppLeaveAppPayload) GetAppId() string { return v.AppId }
+
+// GetUserId returns LeaveAppInstructedLeaveAppLeaveAppPayload.UserId, and is useful for accessing the field via an interface.
+func (v *LeaveAppInstructedLeaveAppLeaveAppPayload) GetUserId() string { return v.UserId }
+
+// LeaveAppInstructedResponse is returned by LeaveAppInstructed on success.
+type LeaveAppInstructedResponse struct {
+	// 023-app-shape US2 — user-level uninstall. The currently-logged-in user
+	// leaves an App. Idempotent (no-op when not a member). The user's
+	// personal-class Memory at (appId, userId) is NOT cascade-deleted
+	// per spec 008 FR-015 — it re-attaches if the user later re-joins.
+	// Bound workers require an instruction or their own live app.members grant
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12); successful instructed removals/no-ops record the claim.
+	// Direct-person cleanup keeps the existing App reference-resolution behavior.
+	//
+	// Accepts the entity's ID or URN.
+	LeaveApp *LeaveAppInstructedLeaveAppLeaveAppPayload `json:"leaveApp"`
+}
+
+// GetLeaveApp returns LeaveAppInstructedResponse.LeaveApp, and is useful for accessing the field via an interface.
+func (v *LeaveAppInstructedResponse) GetLeaveApp() *LeaveAppInstructedLeaveAppLeaveAppPayload {
+	return v.LeaveApp
+}
+
+// LeaveAppLeaveAppLeaveAppPayload includes the requested fields of the GraphQL type LeaveAppPayload.
+// The GraphQL type's documentation follows.
+//
+// Return shape for the leaveApp mutation (023-app-shape US2). The
+// user's personal-class Memory at (appId, userId) is NOT
+// cascade-deleted (spec 008 FR-015 orphan retention); it re-attaches
+// if the user later re-joins the same App.
+type LeaveAppLeaveAppLeaveAppPayload struct {
+	AppId  string `json:"appId"`
+	UserId string `json:"userId"`
+}
+
+// GetAppId returns LeaveAppLeaveAppLeaveAppPayload.AppId, and is useful for accessing the field via an interface.
+func (v *LeaveAppLeaveAppLeaveAppPayload) GetAppId() string { return v.AppId }
+
+// GetUserId returns LeaveAppLeaveAppLeaveAppPayload.UserId, and is useful for accessing the field via an interface.
+func (v *LeaveAppLeaveAppLeaveAppPayload) GetUserId() string { return v.UserId }
+
+// LeaveAppResponse is returned by LeaveApp on success.
+type LeaveAppResponse struct {
+	// 023-app-shape US2 — user-level uninstall. The currently-logged-in user
+	// leaves an App. Idempotent (no-op when not a member). The user's
+	// personal-class Memory at (appId, userId) is NOT cascade-deleted
+	// per spec 008 FR-015 — it re-attaches if the user later re-joins.
+	// Bound workers require an instruction or their own live app.members grant
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12); successful instructed removals/no-ops record the claim.
+	// Direct-person cleanup keeps the existing App reference-resolution behavior.
+	//
+	// Accepts the entity's ID or URN.
+	LeaveApp *LeaveAppLeaveAppLeaveAppPayload `json:"leaveApp"`
+}
+
+// GetLeaveApp returns LeaveAppResponse.LeaveApp, and is useful for accessing the field via an interface.
+func (v *LeaveAppResponse) GetLeaveApp() *LeaveAppLeaveAppLeaveAppPayload { return v.LeaveApp }
 
 // LinkMemoryToUserLinkMemoryToUserMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
@@ -100187,6 +100387,14 @@ type __IssueHostOperationInput struct {
 // GetInput returns __IssueHostOperationInput.Input, and is useful for accessing the field via an interface.
 func (v *__IssueHostOperationInput) GetInput() *IssueHostOperationInput { return v.Input }
 
+// __JoinAppInput is used internally by genqlient
+type __JoinAppInput struct {
+	AppId string `json:"appId"`
+}
+
+// GetAppId returns __JoinAppInput.AppId, and is useful for accessing the field via an interface.
+func (v *__JoinAppInput) GetAppId() string { return v.AppId }
+
 // __LatestAppRunInput is used internally by genqlient
 type __LatestAppRunInput struct {
 	AppRef   string `json:"appRef"`
@@ -100198,6 +100406,26 @@ func (v *__LatestAppRunInput) GetAppRef() string { return v.AppRef }
 
 // GetPrevious returns __LatestAppRunInput.Previous, and is useful for accessing the field via an interface.
 func (v *__LatestAppRunInput) GetPrevious() *bool { return v.Previous }
+
+// __LeaveAppInput is used internally by genqlient
+type __LeaveAppInput struct {
+	AppId string `json:"appId"`
+}
+
+// GetAppId returns __LeaveAppInput.AppId, and is useful for accessing the field via an interface.
+func (v *__LeaveAppInput) GetAppId() string { return v.AppId }
+
+// __LeaveAppInstructedInput is used internally by genqlient
+type __LeaveAppInstructedInput struct {
+	AppId       string               `json:"appId"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetAppId returns __LeaveAppInstructedInput.AppId, and is useful for accessing the field via an interface.
+func (v *__LeaveAppInstructedInput) GetAppId() string { return v.AppId }
+
+// GetInstruction returns __LeaveAppInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__LeaveAppInstructedInput) GetInstruction() *ActInstructionInput { return v.Instruction }
 
 // __LinkMemoryToUserInput is used internally by genqlient
 type __LinkMemoryToUserInput struct {
@@ -122962,6 +123190,57 @@ func IssueHostOperation(
 	return data_, err_
 }
 
+// The mutation executed by JoinApp.
+const JoinApp_Operation = `
+mutation JoinApp ($appId: ID!) {
+	joinApp(appId: $appId) {
+		appMember {
+			appId
+			role
+			createdAt
+			isOrgExternal
+			user {
+				id
+				handle
+				urn
+			}
+			app {
+				urn
+				name
+			}
+		}
+	}
+}
+`
+
+// JoinAppPayload says nothing about whether this call created the row (the
+// server returns the existing row for an existing member), so the selection is
+// the row alone and nothing here lets the CLI claim "already a member".
+func JoinApp(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appId string,
+) (data_ *JoinAppResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "JoinApp",
+		Query:  JoinApp_Operation,
+		Variables: &__JoinAppInput{
+			AppId: appId,
+		},
+	}
+
+	data_ = &JoinAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by LatestAppRun.
 const LatestAppRun_Operation = `
 query LatestAppRun ($appRef: String!, $previous: Boolean) {
@@ -123021,6 +123300,82 @@ func LatestAppRun(
 	}
 
 	data_ = &LatestAppRunResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by LeaveApp.
+const LeaveApp_Operation = `
+mutation LeaveApp ($appId: ID!) {
+	leaveApp(appId: $appId) {
+		appId
+		userId
+	}
+}
+`
+
+// Idempotent server-side (a no-op for a non-member). The user's personal memory
+// in the App is retained and re-attaches on a later join (cor:dmo:030:01).
+func LeaveApp(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appId string,
+) (data_ *LeaveAppResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "LeaveApp",
+		Query:  LeaveApp_Operation,
+		Variables: &__LeaveAppInput{
+			AppId: appId,
+		},
+	}
+
+	data_ = &LeaveAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by LeaveAppInstructed.
+const LeaveAppInstructed_Operation = `
+mutation LeaveAppInstructed ($appId: ID!, $instruction: ActInstructionInput!) {
+	leaveApp(appId: $appId, instruction: $instruction) {
+		appId
+		userId
+	}
+}
+`
+
+// The holder's instruction claim (cor:dmo:050:12); a separate document so the
+// plain one above stays byte-for-byte unchanged.
+func LeaveAppInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appId string,
+	instruction *ActInstructionInput,
+) (data_ *LeaveAppInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "LeaveAppInstructed",
+		Query:  LeaveAppInstructed_Operation,
+		Variables: &__LeaveAppInstructedInput{
+			AppId:       appId,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &LeaveAppInstructedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
