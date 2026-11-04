@@ -75,6 +75,8 @@ func TestAppAction1669LocalRefusals(t *testing.T) {
 		}
 	}
 }
+
+// Mapped errors expose ServerCode() to the root sink; api.ServerCodeOf reads RAW GraphQL errors.
 func serverCode1669(err error) string {
 	var coded interface{ ServerCode() string }
 	if errors.As(err, &coded) {
@@ -92,7 +94,17 @@ func TestAppAction1669RefusalCode(t *testing.T) {
 		if err == nil || n != 1 || serverCode1669(err) != "APP_ACTION_CODE_INVALID" || exitCodeFor(err) != exitcode.Usage {
 			t.Fatalf("%v %d", err, n)
 		}
-		if !asJSON {
+		if asJSON {
+			var envelope struct {
+				Error struct {
+					Code       int    `json:"code"`
+					ServerCode string `json:"serverCode"`
+				} `json:"error"`
+			}
+			if decodeErr := json.Unmarshal([]byte(out), &envelope); decodeErr != nil || envelope.Error.Code != exitcode.Usage || envelope.Error.ServerCode != "APP_ACTION_CODE_INVALID" {
+				t.Fatalf("root envelope lost structured code: %s (decode %v)", out, decodeErr)
+			}
+		} else {
 			out = err.Error()
 		}
 		if !strings.Contains(out, "hrn:app:acme.com:x") || !strings.Contains(out, "APP_ACTION_CODE_INVALID") {
