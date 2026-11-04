@@ -3,6 +3,10 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/hadron-memory/hadron-cli/internal/api"
+	urn "github.com/hadron-memory/urn-lib-go"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -16,6 +20,9 @@ func runAction1669(t *testing.T, response string, args ...string) (string, int, 
 	root := NewRootCmd(f)
 	root.SetArgs(append([]string{"app", "action", "record", "--app", "hrn:app:acme.com:x", "--server", srv.URL}, args...))
 	err := root.Execute()
+	if err != nil {
+		renderError(f, err)
+	}
 	return out.String(), count("RecordAppAction"), vars("RecordAppAction"), err
 }
 func response1669(state string) string {
@@ -70,10 +77,13 @@ func TestAppAction1669LocalRefusals(t *testing.T) {
 }
 func TestAppAction1669RefusalCode(t *testing.T) {
 	out, n, _, err := runAction1669(t, `{"errors":[{"message":"code must name hrn:app:acme.com:x","extensions":{"code":"APP_ACTION_CODE_INVALID"}}]}`, "app.x.go", "--json")
-	if err == nil || n != 1 {
+	if err == nil || n != 1 || api.ServerCodeOf(err) != "APP_ACTION_CODE_INVALID" || exitCodeFor(err) != exitcode.Usage {
 		t.Fatalf("%v %d", err, n)
 	}
-	// The root Execute caller writes errors; the chain must retain the wire code.
+	// Render through the production root sink, as well as retaining the chain.
+	if !strings.Contains(out, `"serverCode": "APP_ACTION_CODE_INVALID"`) {
+		t.Fatalf("code dropped at root sink: %s", out)
+	}
 	if !strings.Contains(fmt.Sprintf("%+v", err), "hrn:app:acme.com:x") {
 		t.Fatalf("%s %v", out, err)
 	}
@@ -102,5 +112,26 @@ func TestEvents1669CodePrefix(t *testing.T) {
 		if ok != filtered || (filtered && m["codePrefix"] != "app.x.") {
 			t.Fatalf("%s", vars(op))
 		}
+	}
+}
+
+func TestAppAction1669BoundariesAndFile(t *testing.T) {
+	if urn.MaxAtomLen != 64 {
+		t.Fatalf("provider d8ec074f urn-lib-js0.0.18 MAX_ATOM_LEN64 no longer matches Go%d", urn.MaxAtomLen)
+	}
+	code := "app.x." + strings.Repeat("a", urn.MaxAtomLen-len("app.x."))
+	payload := `{"x":"` + strings.Repeat("x", 4088) + `"}`
+	path := filepath.Join(t.TempDir(), "payload.json")
+	if err := os.WriteFile(path, []byte(payload), 0600); err != nil {
+		t.Fatal(err)
+	}
+	_, n, v, err := runAction1669(t, response1669("MAPPED"), code, "--payload-file", path)
+	if err != nil || n != 1 {
+		t.Fatalf("boundary n=%d %v", n, err)
+	}
+	var m map[string]any
+	_ = json.Unmarshal(v, &m)
+	if m["code"] != code || len(m["payload"].(map[string]any)["x"].(string)) != 4088 {
+		t.Fatal(string(v))
 	}
 }

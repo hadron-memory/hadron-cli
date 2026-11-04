@@ -189,6 +189,7 @@ func TestMapError(t *testing.T) {
 		{"renumber minted node", gqlErr("NODE_MINTED"), exitcode.Conflict},
 		{"encryption session expired", gqlErr("SESSION_EXPIRED"), exitcode.AuthRequired},
 		{"bad input", gqlErr("BAD_USER_INPUT"), exitcode.Usage},
+		{"invalid app action code", gqlErr("APP_ACTION_CODE_INVALID"), exitcode.Usage},
 		// #846/hadron-server#1817: the operation-key refusals a pre-validated
 		// client should never meet, but must not misclassify when it does.
 		{"malformed operation key", gqlErr("BAD_UNLOCK_INPUT"), exitcode.Usage},

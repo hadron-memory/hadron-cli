@@ -8747,9 +8747,15 @@ type Mutation {
   historical node fields are converted in bounded locked passes. One-way
   without the key: the server cannot recover the content.
   
+  The secret travels beside the operation, never in it (hrn:node:hadronmemory.com:specs:cor:sec:040:04, #1796).
+  The strict owner sends exactly one of dataKey or passphrase in an x-hadron-memory-keys entry
+  naming this memory; on a first encryption that entry establishes the verifier, and it counts only
+  when encryptMemory is the operation's sole root field. The owning App sends its key in
+  x-hadron-operation-key, for completion only.
+  
   Accepts the entity's ID or URN.
   """
-  encryptMemory(dataKey: String, memoryId: ID!, passphrase: String): Memory!
+  encryptMemory(dataKey: String @deprecated(reason: "Send the key in x-hadron-memory-keys, or x-hadron-operation-key for an owning App's completion."), memoryId: ID!, passphrase: String @deprecated(reason: "Send the passphrase in x-hadron-memory-keys.")): Memory!
   endAgentSession(sessionId: ID!): Boolean!
 
   """
@@ -9333,6 +9339,21 @@ type Mutation {
   warning, as startAgentTask does. Refusals as startAgentTask.
   """
   recordAgentTaskProgress(taskId: ID!): AgentTask!
+
+  """
+  #3449: App action app.<current-app-slug>.<name>, lower-case legal URN atom, at most 64 characters.
+  Same creator authority as createAgentTask (hrn:node:hadronmemory.com:specs:cor:agt:050:06).
+  taskRef must name a readable task in this App; unknown and foreign refs answer TASK_NOT_FOUND.
+  An omitted payload becomes {}; explicit null, non-objects, NUL or an unpaired surrogate in a JSON key/value refuse BAD_USER_INPUT.
+  payload is a JSON object of at most 4096 UTF-8 bytes, readable by EVERY App participant and the App's own key,
+  with or without taskRef, and must contain nothing secret (hrn:node:hadronmemory.com:specs:cor:agt:050:23).
+  Each successful call appends a new event (retries are not deduplicated), type = code, payload = {payload}.
+  Task-bound actions are passive: they never
+  acknowledge assignment/child-finished wakes. APP_ACTION_CODE_INVALID refuses invalid codes and foreign slugs.
+  The register answer reads as the caller (hrn:node:hadronmemory.com:specs:cor:agt:110:03), never authorization.
+  A caller without an Agent receives WITHHELD with code only, no task loc/URN and no register lookup.
+  """
+  recordAppAction(appRef: ID!, code: String!, payload: JSON, taskRef: ID): RecordAppActionResult!
 
   """
   #2896 — report a session's outcome: outcome is a number from 0 to 1, outcomeRef an opaque reference of the
@@ -12691,6 +12712,11 @@ type Query {
     after: ID
     alarmsOnly: Boolean
     appRef: ID!
+
+    """
+    #3449: literal prefix, intersects nonempty types; app. includes legacy platform events. An empty prefix matches all types; omitted or empty types adds no type filter.
+    """
+    codePrefix: String
     limit: Int
     since: DateTime
     taskId: ID
@@ -14903,6 +14929,14 @@ enum ReadyFilter {
   ANY
   EXCLUDE
   ONLY
+}
+
+"""
+#3449: App action and caller-readable register answer (hrn:node:hadronmemory.com:specs:cor:agt:110:03).
+"""
+type RecordAppActionResult {
+  action: TickAction!
+  eventId: ID!
 }
 
 type RecoveryEdgesPage {
@@ -17926,7 +17960,9 @@ type TeamWorkItemsPage {
 }
 
 type TickAction {
-  """Permanent tick code (hrn:node:hadronmemory.com:specs:cor:agt:110:01)."""
+  """
+  Permanent action code (hrn:node:hadronmemory.com:specs:cor:agt:110:01).
+  """
   code: String!
   state: TickActionState!
 
@@ -17949,7 +17985,7 @@ enum TickActionState {
   """
   UNMAPPED
 
-  """The readable entry's loc has no usable task in the worker's chain."""
+  """The readable entry's loc has no usable task in the lookup chain."""
   UNRESOLVED
 
   """Code-only guidance: resolve the task yourself. Includes failed reads."""

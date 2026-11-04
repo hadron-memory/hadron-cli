@@ -1013,6 +1013,9 @@ func codeForExtension(code string) int {
 	// Transfer argument refusals can be fixed by choosing a supported class,
 	// source/destination owner, or reset option. CLASS_REQUIRED rides the
 	// _REQUIRED rule below and exits the same way.
+	// #1669: invalid App action code/current slug is caller-correctable input.
+	case code == "APP_ACTION_CODE_INVALID":
+		return exitcode.Usage
 	case code == "BAD_USER_INPUT" || code == "GRAPHQL_VALIDATION_FAILED" || code == "URN_NOT_QUALIFIED" ||
 		code == "AiConfigValidationError" || code == "UnknownAiProviderError" ||
 		code == "UNSUPPORTED_MEMORY_CLASS" || code == "MEMORY_TRANSFER_MEMBER_RESET_INVALID" ||
