@@ -23,6 +23,7 @@ const (
 	ledgerRuleSuperseded         = "superseded"          // category 2
 	ledgerRuleRetiredLive        = "retired-live"        // category 2
 	ledgerRuleCitationUnbound    = "citation-unbound"    // category 2
+	ledgerRuleCitationMalformed  = "citation-malformed"  // category 2
 	ledgerRuleUnregisteredID     = "unregistered-id"     // category 3
 	ledgerRuleUnparsedShorthand  = "unparsed-shorthand"  // category 3
 	ledgerRulePending            = "pending"             // category 4
@@ -135,6 +136,11 @@ func checkLedger(registry string, docs []ledgerDoc, specs map[string]bool) []led
 		default: // Codified*, Retired
 			var live, retired []string // Retired only: resolved targets by state
 			for _, c := range expandLedgerCitations(rest) {
+				if c.malformed {
+					add(ledgerFinding{Category: 2, Rule: ledgerRuleCitationMalformed, Severity: ledgerError, ID: id, Citation: c.text,
+						Message: "a citation range that cannot be expanded (no numeric last segment, or descending); not guessed"})
+					continue
+				}
 				if c.unbound {
 					add(ledgerFinding{Category: 2, Rule: ledgerRuleCitationUnbound, Severity: ledgerError, ID: id, Citation: c.text,
 						Message: "a relative citation with no full citation before it; not guessed"})
@@ -322,8 +328,9 @@ func splitLedgerDisposition(v string) (string, string) {
 }
 
 type ledgerCite struct {
-	text    string
-	unbound bool
+	text      string
+	unbound   bool
+	malformed bool // a range that cannot expand: no numeric last segment, or descending
 }
 
 // expandLedgerCitations resolves the backticked citations of a Corpus line
@@ -354,11 +361,15 @@ func expandLedgerCitations(rest string) []ledgerCite {
 			continue
 		}
 		i := strings.LastIndex(tok, ":")
+		if i < 0 {
+			out = append(out, ledgerCite{text: tok, malformed: true})
+			continue
+		}
 		parent, lo := tok[:i], tok[i+1:]
 		a, errA := strconv.Atoi(lo)
 		b, errB := strconv.Atoi(hi[1:])
 		if errA != nil || errB != nil || b < a {
-			out = append(out, ledgerCite{text: tok})
+			out = append(out, ledgerCite{text: tok, malformed: true})
 			continue
 		}
 		for n := a; n <= b; n++ {
@@ -377,6 +388,20 @@ func scanLedgerIDs(line string) (ids, bad []string) {
 		if loc[0] < pos {
 			continue // swallowed by the previous ID's tail
 		}
+		// An ID is a whole token: a longer run of digits or letters around the
+		// match is not that ID (D-…-0010, D-…-AB), and is reported, not trimmed.
+		if loc[0] > 0 && isIDWordByte(line[loc[0]-1]) {
+			continue
+		}
+		if loc[1] < len(line) && isIDWordByte(line[loc[1]]) {
+			end := loc[1]
+			for end < len(line) && isIDWordByte(line[end]) {
+				end++
+			}
+			bad = append(bad, line[loc[0]:end])
+			pos = end
+			continue
+		}
 		base := line[loc[0]:loc[1]]
 		ids = append(ids, base)
 		prefix := base[:strings.LastIndex(base, "-")+1]
@@ -389,7 +414,10 @@ func scanLedgerIDs(line string) (ids, bad []string) {
 			pos = next
 			continue
 		}
-		if hi, next, ok := ledgerRangeTail(line, end); ok {
+		if hi, next, state := ledgerRangeTail(line, end); state == rangeMalformed {
+			bad = append(bad, strings.TrimSpace(line[loc[0]:next]))
+			pos = next
+		} else if state == rangeOK {
 			text := strings.TrimSpace(line[loc[0]:next])
 			lo, err := strconv.Atoi(base[len(base)-3:])
 			switch {
@@ -459,8 +487,18 @@ func ledgerSlashTail(s string, i int) (items []string, next int) {
 	}
 }
 
+const (
+	rangeNone = iota
+	rangeOK
+	rangeMalformed // a range marker followed by digits that are not a three-digit bound
+)
+
+func isIDWordByte(b byte) bool {
+	return b == '_' || b >= '0' && b <= '9' || b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z'
+}
+
 // ledgerRangeTail reads "…008", "...008", "–004", "… 010" after an ID.
-func ledgerRangeTail(s string, i int) (hi, next int, ok bool) {
+func ledgerRangeTail(s string, i int) (hi, next, state int) {
 	q := skipSpaces(s, i)
 	switch {
 	case strings.HasPrefix(s[q:], "…"):
@@ -470,18 +508,24 @@ func ledgerRangeTail(s string, i int) (hi, next int, ok bool) {
 	case strings.HasPrefix(s[q:], "–"):
 		q += len("–")
 	default:
-		return 0, 0, false
+		return 0, 0, rangeNone
 	}
 	q = skipSpaces(s, q)
 	if q < len(s) && s[q] == '-' {
 		q++
 	}
-	if q+3 > len(s) || !isDigits(s[q:q+3]) {
-		return 0, 0, false
+	// Digits right after the marker are an attempted bound: anything but
+	// exactly three digits ending at a boundary is malformed. Other text is prose.
+	if q >= len(s) || s[q] < '0' || s[q] > '9' {
+		return 0, 0, rangeNone
 	}
-	if q+3 < len(s) && (s[q+3] == '_' || s[q+3] >= '0' && s[q+3] <= '9' || s[q+3] >= 'a' && s[q+3] <= 'z' || s[q+3] >= 'A' && s[q+3] <= 'Z') {
-		return 0, 0, false
+	end := q
+	for end < len(s) && isIDWordByte(s[end]) {
+		end++
 	}
-	n, _ := strconv.Atoi(s[q : q+3])
-	return n, q + 3, true
+	if end-q != 3 || !isDigits(s[q:end]) {
+		return 0, end, rangeMalformed
+	}
+	n, _ := strconv.Atoi(s[q:end])
+	return n, end, rangeOK
 }

@@ -24,7 +24,7 @@ It is tooling, not platform law.
 | Category | Rules | Fails the run |
 |---|---|---|
 | 1 | `missing-disposition` | yes |
-| 2 | `unresolved`, `superseded`, `retired-live`, `citation-unbound` | yes |
+| 2 | `unresolved`, `superseded`, `retired-live`, `citation-unbound`, `citation-malformed` | yes |
 | 3 | `unregistered-id`, `unparsed-shorthand` | yes |
 | 4 | `pending` (the work queue) | no |
 | 0 | `status-unknown`, `disposition-unknown`, `registry-malformed`, `duplicate-id`, `unreadable-spec` | yes |

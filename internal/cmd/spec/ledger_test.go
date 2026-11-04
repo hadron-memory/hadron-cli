@@ -402,6 +402,10 @@ func TestLedgerIDTokenBoundariesAndMalformedRangeTail(t *testing.T) {
 	// A range tail whose bound is not three digits is reported, not ignored.
 	eq(t, "short bound", ledgerKeys(run("D-2026-10-02-002…00"), "unparsed-shorthand"), []string{""})
 	eq(t, "long bound", ledgerKeys(run("D-2026-10-02-002–0040"), "unparsed-shorthand"), []string{""})
+	// An ID glued to a preceding word character is not that ID.
+	if got := run("xD-2026-10-09-099"); len(got) != 0 {
+		t.Errorf("glued ID judged: %+v", got)
+	}
 	// Prose after a dash is still just prose.
 	if got := run("D-2026-10-02-002 – see above"); len(got) != 0 {
 		t.Errorf("prose after dash: %+v", got)
