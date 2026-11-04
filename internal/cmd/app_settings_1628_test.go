@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"reflect"
 	"sort"
 	"strings"
@@ -212,42 +210,14 @@ func TestAppSettings1628LocalRefusals(t *testing.T) {
 			t.Fatalf("flags=%v err=%v calls=%+v", flags, err, *calls)
 		}
 	}
-	srv, calls := appSettingsServer(t)
-	path := filepath.Join(t.TempDir(), "policy.json")
-	if err := os.WriteFile(path, []byte(`{not JSON}`), 0600); err != nil {
-		t.Fatal(err)
-	}
-	_, err := appSettingsRun(t, srv, "install", "--policy-file", path, "--yes")
-	if exitCodeFor(err) != 2 || len(*calls) != 0 {
-		t.Fatalf("bad policy sent: %v %+v", err, *calls)
-	}
 }
-func TestAppSettings1628PolicyAndRename(t *testing.T) {
+
+func TestAppSettings1628Rename(t *testing.T) {
 	srv, calls := appSettingsServer(t)
-	path := filepath.Join(t.TempDir(), "policy.json")
-	if err := os.WriteFile(path, []byte(`{"allow":["run.execute"]}`), 0600); err != nil {
-		t.Fatal(err)
-	}
-	out, err := appSettingsRun(t, srv, "install", "--policy-file", path, "--yes")
-	if err != nil {
-		t.Fatal(err)
-	}
-	v := appSettingsMutation(t, *calls).Vars
-	if string(v["policy"]) != `{"allow":["run.execute"]}` || keys1058(v) != "agentRef,name,orgRef,policy" {
-		t.Fatal(v)
-	}
-	var dto map[string]any
-	if err = json.Unmarshal([]byte(out), &dto); err != nil {
-		t.Fatal(err)
-	}
-	if len(dto) != 7 || dto["id"] != "capp1" {
-		t.Fatal(out)
-	}
-	srv, calls = appSettingsServer(t)
 	f, _, errOut := testFactoryTTY(t, "n\n")
 	r := NewRootCmd(f)
 	r.SetArgs([]string{"app", "update", appRef1058, "--urn", "renamed", "--surface", "chat", "--server", srv.URL})
-	err = r.Execute()
+	err := r.Execute()
 	if exitCodeFor(err) != 6 {
 		t.Fatalf("declined rename: %v", err)
 	}
@@ -390,16 +360,12 @@ func TestAppSettings1628AdditionalLocalRefusals(t *testing.T) {
 		{"install", []string{"--type="}},
 		{"update", []string{"--urn", "bad:slug"}},
 		{"update", []string{"--urn="}},
-		{"install", []string{"--policy-file", filepath.Join(t.TempDir(), "missing.json")}},
 	} {
 		t.Run(tc.mode+strings.Join(tc.flags, " "), func(t *testing.T) {
 			srv, calls := appSettingsServer(t)
 			_, err := appSettingsRun(t, srv, tc.mode, append(tc.flags, "--yes")...)
 			if exitCodeFor(err) != 2 || len(*calls) != 0 {
 				t.Fatalf("err=%v calls=%+v", err, *calls)
-			}
-			if tc.flags[0] == "--policy-file" && !strings.Contains(err.Error(), "cannot read --policy-file") {
-				t.Fatalf("read error replaced: %v", err)
 			}
 		})
 	}
@@ -538,5 +504,34 @@ func TestAppSettings1628AllListCommas(t *testing.T) {
 				t.Fatalf("vars=%+v keys=%s", c.Vars, keys1058(c.Vars))
 			}
 		})
+	}
+}
+
+func TestAppSettings1628DeferredInputAbsent(t *testing.T) {
+	srv, calls := appSettingsServer(t)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"app", "install", "--help"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out.String(), "--policy-file") {
+		t.Fatal("deferred flag offered")
+	}
+	root = NewRootCmd(f)
+	root.SetArgs([]string{"app", "install", "--org", "acme.com", "--agent", "a1", "--name", "Support", "--policy-file", "ignored", "--yes", "--server", srv.URL})
+	if err := root.Execute(); exitCodeFor(err) != 2 || len(*calls) != 0 {
+		t.Fatalf("deferred input err=%v calls=%+v", err, *calls)
+	}
+	for _, mode := range []string{"install", "update"} {
+		_, err := appSettingsRun(t, srv, mode, "--role", "READER", "--yes")
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, call := range *calls {
+		if _, present := call.Vars["policy"]; present || strings.Contains(call.Query, "$policy") || strings.Contains(call.Query, "policy:") {
+			t.Fatalf("deferred input on wire: %+v", call)
+		}
 	}
 }

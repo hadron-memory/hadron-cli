@@ -30,10 +30,8 @@ mutation CreateAppSettings(
   $surfaces: [String!]
   # @genqlient(omitempty: true, bind: "encoding/json.RawMessage")
   $installOptional: [ID!]
-  # @genqlient(omitempty: true)
-  $policy: JSON
 ) {
-  createApp(orgRef: $orgRef, agentRef: $agentRef, name: $name, urn: $urn, appType: $appType, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, expiresAt: $expiresAt, role: $role, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces, installOptional: $installOptional, policy: $policy) {
+  createApp(orgRef: $orgRef, agentRef: $agentRef, name: $name, urn: $urn, appType: $appType, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, expiresAt: $expiresAt, role: $role, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces, installOptional: $installOptional) {
     id urn name appType agentId memberCount createdAt
   }
 }

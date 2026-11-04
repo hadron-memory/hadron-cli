@@ -558,7 +558,7 @@ updateWorker  command team worker update
 withdrawDecision  command decision withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 70: 35 gap, 35 excluded
+[Arguments] 71: 36 gap, 35 excluded
 Mutation.acknowledgeAlarm(instruction)  gap #1617
 Mutation.addAgentTaskBlocker(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
@@ -577,6 +577,7 @@ Mutation.createAgentTask(instruction)  gap #1617
 Mutation.createApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
 Mutation.createApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
 Mutation.createApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
+Mutation.createApp(policy)  gap #1628
 Mutation.createAppUser(email)  excluded not-a-capability: accepts only empty values (SDL); an address is established through verified sign-in; cor:api:240:02 (argument that changes nothing)
 Mutation.createMemoryShare(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.createMemorySubscription(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).

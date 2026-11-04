@@ -38,7 +38,7 @@ Only passed settings are sent. Omitted surfaces use the provider default ['chat'
 --surface and --agent-tool are repeatable whole-list inputs. Surfaces describe
 UI availability (the portal shows chat iff chat is present), not authorization.
 --type does not alter surfaces. Numeric values and policy shape are server
-validated; --policy-file must contain valid JSON. AI configuration uses ai-config.
+validated. AI configuration uses ai-config.
 New settings require confirmation, or --yes without a terminal; legacy-only
 installs retain their existing request document and no-prompt path. On every
 path, --type is validated against this CLI's schema enum; an explicit empty or
@@ -109,7 +109,7 @@ Success prints the installed App; --json retains its seven-field App receipt.`,
 			// rejected), so nil-omitted is exactly right.
 			var dto appDTO
 			if len(prepared.changed) > 0 {
-				resp, err := gen.CreateAppSettings(cmd.Context(), client, optional(org), agent, name, optional(urn), typeArg, optional(description), prepared.timeout, prepared.expires, prepared.role, prepared.permission, prepared.identify, prepared.ttl, prepared.training, prepared.tools, prepared.surfaces, prepared.optional, prepared.policy)
+				resp, err := gen.CreateAppSettings(cmd.Context(), client, optional(org), agent, name, optional(urn), typeArg, optional(description), prepared.timeout, prepared.expires, prepared.role, prepared.permission, prepared.identify, prepared.ttl, prepared.training, prepared.tools, prepared.surfaces, prepared.optional)
 				if err != nil {
 					return api.MapError(err)
 				}

@@ -98376,7 +98376,6 @@ type __CreateAppSettingsInput struct {
 	AgentTools            json.RawMessage       `json:"agentTools,omitempty"`
 	Surfaces              json.RawMessage       `json:"surfaces,omitempty"`
 	InstallOptional       json.RawMessage       `json:"installOptional,omitempty"`
-	Policy                *json.RawMessage      `json:"policy,omitempty"`
 }
 
 // GetOrgRef returns __CreateAppSettingsInput.OrgRef, and is useful for accessing the field via an interface.
@@ -98430,9 +98429,6 @@ func (v *__CreateAppSettingsInput) GetSurfaces() json.RawMessage { return v.Surf
 
 // GetInstallOptional returns __CreateAppSettingsInput.InstallOptional, and is useful for accessing the field via an interface.
 func (v *__CreateAppSettingsInput) GetInstallOptional() json.RawMessage { return v.InstallOptional }
-
-// GetPolicy returns __CreateAppSettingsInput.Policy, and is useful for accessing the field via an interface.
-func (v *__CreateAppSettingsInput) GetPolicy() *json.RawMessage { return v.Policy }
 
 // __CreateAppUserInput is used internally by genqlient
 type __CreateAppUserInput struct {
@@ -115542,8 +115538,8 @@ func CreateAppMemory(
 
 // The mutation executed by CreateAppSettings.
 const CreateAppSettings_Operation = `
-mutation CreateAppSettings ($orgRef: ID, $agentRef: ID!, $name: String!, $urn: String, $appType: AppType, $description: String, $sessionTimeoutSeconds: Int, $expiresAt: String, $role: AppMembershipRole, $createUserPermission: CreateUserPermission, $identifyUserMethod: IdentifyUserMethod, $anonymousTtlDays: Int, $trainingMode: Boolean, $agentTools: [String!], $surfaces: [String!], $installOptional: [ID!], $policy: JSON) {
-	createApp(orgRef: $orgRef, agentRef: $agentRef, name: $name, urn: $urn, appType: $appType, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, expiresAt: $expiresAt, role: $role, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces, installOptional: $installOptional, policy: $policy) {
+mutation CreateAppSettings ($orgRef: ID, $agentRef: ID!, $name: String!, $urn: String, $appType: AppType, $description: String, $sessionTimeoutSeconds: Int, $expiresAt: String, $role: AppMembershipRole, $createUserPermission: CreateUserPermission, $identifyUserMethod: IdentifyUserMethod, $anonymousTtlDays: Int, $trainingMode: Boolean, $agentTools: [String!], $surfaces: [String!], $installOptional: [ID!]) {
+	createApp(orgRef: $orgRef, agentRef: $agentRef, name: $name, urn: $urn, appType: $appType, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, expiresAt: $expiresAt, role: $role, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces, installOptional: $installOptional) {
 		id
 		urn
 		name
@@ -115575,7 +115571,6 @@ func CreateAppSettings(
 	agentTools json.RawMessage,
 	surfaces json.RawMessage,
 	installOptional json.RawMessage,
-	policy *json.RawMessage,
 ) (data_ *CreateAppSettingsResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreateAppSettings",
@@ -115597,7 +115592,6 @@ func CreateAppSettings(
 			AgentTools:            agentTools,
 			Surfaces:              surfaces,
 			InstallOptional:       installOptional,
-			Policy:                policy,
 		},
 	}
 

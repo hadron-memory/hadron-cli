@@ -2,7 +2,6 @@ package app
 
 import (
 	"encoding/json"
-	"os"
 	"slices"
 	"strings"
 
@@ -13,7 +12,7 @@ import (
 
 // settingsFlags keeps flag presence separate from false, zero and empty lists.
 type settingsFlags struct {
-	role, permission, identify, expires, policyFile           string
+	role, permission, identify, expires                       string
 	timeout, dormancy, ttl                                    int
 	training, expire, clearExpires, clearTools, clearSurfaces bool
 	tools, surfaces, optional                                 []string
@@ -26,7 +25,6 @@ type preparedSettings struct {
 	training, expire                       *bool
 	expires                                *string
 	expiresJSON, tools, surfaces, optional json.RawMessage
-	policy                                 *json.RawMessage
 	changed                                []string
 }
 
@@ -43,7 +41,6 @@ func (s *settingsFlags) flags(cmd *cobra.Command, install bool) {
 	if install {
 		f.IntVar(&s.timeout, "session-timeout-seconds", 0, "session timeout in seconds (server validated)")
 		f.StringArrayVar(&s.optional, "install-optional", nil, "optional Agent ref to install; repeatable")
-		f.StringVar(&s.policyFile, "policy-file", "", "JSON admission policy file (shape validated by server)")
 	} else {
 		f.IntVar(&s.dormancy, "session-dormancy-days", 0, "session dormancy in days (server validated)")
 		f.BoolVar(&s.expire, "agent-sessions-expire", false, "set whether Agent sessions expire (explicit false is sent)")
@@ -129,16 +126,6 @@ func (s *settingsFlags) prepare(cmd *cobra.Command) (preparedSettings, error) {
 	if f.Lookup("install-optional") != nil && add("install-optional", "installOptional") {
 		p.optional, _ = json.Marshal(s.optional)
 	}
-	if f.Lookup("policy-file") != nil && add("policy-file", "policy") {
-		b, err := os.ReadFile(s.policyFile)
-		if err != nil {
-			return p, exitcode.Newf(exitcode.Usage, "cannot read --policy-file")
-		}
-		if !json.Valid(b) {
-			return p, exitcode.Newf(exitcode.Usage, "--policy-file must contain valid JSON")
-		}
-		v := json.RawMessage(b)
-		p.policy = &v
-	}
+
 	return p, nil
 }
