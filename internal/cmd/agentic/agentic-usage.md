@@ -382,13 +382,13 @@ exists): the `superseded` tag, a `Rescinded ... no successor` banner at the top 
 Historical: <summary>` abstract, in **one** guarded `updateNode` (node id + the revision read), with
 no edge, allocation or mint. It refuses before any write a non-spec node, a spec that already has a
 `superseded-by` edge (exit 2, naming the successor and `spec supersede`), a spec tagged `superseded`
-whose abstract carries no RESCINDED/WITHDRAWN prefix (exit 5), an abstract past 2000 characters, and a
+whose abstract carries no RESCINDED/WITHDRAWN prefix (exit 5), an abstract past 2000 characters (counted as the server counts them, in UTF-16 code units), and a
 missing `--reason` or empty `--summary` (exit 2, before any request). A stale revision exits **5**
 (`NODE_WRITE_CONFLICT`) with nothing written; rerun to start from a fresh read. Rerunning on an
 already-rescinded spec writes nothing and reports `alreadyRescinded: true`. A write that gets no answer
 is re-read: the tag **and** the prefix prove it (`retired: true`), anything less exits 1 with `retired:
 null` ("unknown"). `--json`: `loc`, `memoryId`, `nodeId`, `revision` (the revision the write is guarded
-on), `retired`, `wording`, `withdrawn`, `dryRun`, `alreadyRescinded`, `tags`. Rescinding ends the node's
+on), `retired`, `wording`, `abstract` (the one written, or planned with `--dry-run`; the STORED one for an already-rescinded spec, whose `wording` and `withdrawn` are the stored ones too), `withdrawn`, `dryRun`, `alreadyRescinded`, `tags`. A result that cannot be written to stdout exits non-zero (when the write landed, the error says so and names the `spec get` check). Rescinding ends the node's
 approval (the abstract is hashed content); re-approval or re-mint is a separate step.
 
 `spec new`, `spec extract` and `spec supersede` cannot leave a spec without its

@@ -5,7 +5,6 @@ import (
 	"io"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
@@ -29,8 +28,6 @@ import (
 const (
 	rescindedWord = "RESCINDED"
 	withdrawnWord = "WITHDRAWN"
-	// maxAbstractChars is the server's abstract cap (Node.abstract, spec 031).
-	maxAbstractChars = 2000
 )
 
 // rescindResultDTO is the stable --json shape.
@@ -43,8 +40,11 @@ type rescindResultDTO struct {
 	// Retired is true once the spec verifiably carries the superseded tag and the
 	// RESCINDED/WITHDRAWN prefix; false when it verifiably does not (a dry run, a refused
 	// write); null when a write got no answer and a re-read could not settle it.
-	Retired          *bool    `json:"retired"`
-	Wording          string   `json:"wording"`
+	Retired *bool  `json:"retired"`
+	Wording string `json:"wording"`
+	// Abstract is the abstract this command writes (or, with --dry-run, would write); for an
+	// already-rescinded spec it is the STORED abstract.
+	Abstract         string   `json:"abstract"`
 	Withdrawn        bool     `json:"withdrawn"`
 	DryRun           bool     `json:"dryRun"`
 	AlreadyRescinded bool     `json:"alreadyRescinded"`
@@ -107,8 +107,10 @@ and revision.`,
 			now := time.Now().UTC().Format("2006-01-02")
 			plan := rescindPlan(now, reason, body, withdrawn)
 			// Checked before any request: the server rejects a longer abstract after the read.
-			if n := utf8.RuneCountInString(plan.abstractPrefixAndText); n > maxAbstractChars {
-				return exitcode.Newf(exitcode.Usage, "the abstract would be %d characters; the cap is %d — shorten --reason or --summary", n, maxAbstractChars)
+			// The server counts the abstract in UTF-16 code units (`.length`), so a rune count would admit an
+			// emoji-heavy abstract it rejects: the lint's own count is used, and the refusal is before any request.
+			if n := abstractLength(&plan.abstractPrefixAndText); n > abstractHardMax {
+				return exitcode.Newf(exitcode.Usage, "the abstract would be %d characters (counted as the server counts them); the cap is %d — shorten --reason or --summary", n, abstractHardMax)
 			}
 
 			client, err := f.GraphQLClient()
@@ -142,13 +144,18 @@ and revision.`,
 			}
 			result := rescindResultDTO{
 				Loc: node.Loc, MemoryID: node.MemoryId, NodeID: node.Id, Revision: node.Revision,
-				Retired: boolRef(false), Wording: plan.banner, Withdrawn: withdrawn, DryRun: dryRun,
+				Retired: boolRef(false), Wording: plan.banner, Abstract: plan.abstractPrefixAndText, Withdrawn: withdrawn, DryRun: dryRun,
 				Tags: specTags(rescindTags(node.Tags)),
 			}
 			// Already rescinded: the tag AND the RESCINDED/WITHDRAWN prefix. A rerun writes nothing.
 			if hasTag(node.Tags, supersededTag) {
 				if isRescindedAbstract(node.Abstract) {
+					// Report what is STORED, never the flags of this run: a rerun with different
+					// wording or --withdrawn must not read as if it had applied them.
 					result.AlreadyRescinded, result.Retired, result.Tags = true, boolRef(true), specTags(tagsOrEmpty(node.Tags))
+					result.Abstract = derefStr(node.Abstract)
+					result.Wording = storedWording(result.Abstract)
+					result.Withdrawn = strings.HasPrefix(strings.TrimSpace(result.Abstract), withdrawnWord+" (")
 					return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error { return renderRescind(w, result, plan) })
 				}
 				return exitcode.Newf(exitcode.Conflict,
@@ -199,7 +206,12 @@ and revision.`,
 					node.Loc, node.Loc, cmdutil.CanonicalMemoryRef(memURN))
 			}
 			result.Retired = boolRef(true)
-			return output.Write(f.IOStreams, f.JSON, result, render)
+			if werr := output.Write(f.IOStreams, f.JSON, result, render); werr != nil {
+				// The write LANDED: do not let a failed stdout read as a failed rescind (or a clean one).
+				return exitcode.Newf(exitcode.Error, "%s was rescinded (one guarded update, revision %d), but its result could not be written to the output: %v; check `hadron spec get %s -m %s`",
+					node.Loc, node.Revision, werr, node.Loc, cmdutil.CanonicalMemoryRef(memURN))
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to the memory set by hadron spec use, then the active memory)")
@@ -230,6 +242,16 @@ func rescindPlan(date, reason, summary string, withdrawn bool) rescindText {
 
 // oneLine collapses internal whitespace/newlines so the abstract stays one paragraph.
 func oneLine(s string) string { return strings.Join(strings.Fields(s), " ") }
+
+// storedWording is the stored abstract's own statement ("RESCINDED (<date>); do not apply."),
+// the part of it that states the retirement, for an already-rescinded spec.
+func storedWording(abstract string) string {
+	a := strings.TrimSpace(abstract)
+	if i := strings.Index(a, "do not apply."); i >= 0 {
+		return a[:i+len("do not apply.")]
+	}
+	return a
+}
 
 // isRescindedAbstract reports whether an abstract already carries the rescind prefix.
 func isRescindedAbstract(a *string) bool {
@@ -276,16 +298,22 @@ func rescindLanded(cmd *cobra.Command, client graphql.Client, nodeID string) *bo
 }
 
 func renderRescind(w io.Writer, r rescindResultDTO, p rescindText) error {
+	var err error
+	say := func(format string, a ...any) {
+		if err == nil {
+			_, err = fmt.Fprintf(w, format, a...)
+		}
+	}
 	switch {
 	case r.AlreadyRescinded:
-		fmt.Fprintf(w, "already rescinded: %s (nothing written)\n", r.Loc)
+		say("already rescinded: %s (nothing written)\n", r.Loc)
 	case r.DryRun:
-		fmt.Fprintf(w, "would rescind %s (no successor)\n  guarded on node %s at revision %d\n  tag: %s\n  banner: %s\n  abstract: %s\n", r.Loc, r.NodeID, r.Revision, supersededTag, p.banner, p.abstractPrefixAndText)
-		fmt.Fprintln(w, "dry run: nothing was written. Applying rescinds the spec and ends its approval; re-approval or re-mint is a separate step.")
+		say("would rescind %s (no successor)\n  guarded on node %s at revision %d\n  tag: %s\n  banner: %s\n  abstract: %s\n", r.Loc, r.NodeID, r.Revision, supersededTag, p.banner, p.abstractPrefixAndText)
+		say("dry run: nothing was written. Applying rescinds the spec and ends its approval; re-approval or re-mint is a separate step.\n")
 	case r.Retired != nil && *r.Retired:
-		fmt.Fprintf(w, "✓ rescinded %s (no successor)\n  tagged %q; banner and abstract set in one guarded update (revision %d)\n  its approval has ended; re-approval or re-mint is a separate step\n", r.Loc, supersededTag, r.Revision)
+		say("✓ rescinded %s (no successor)\n  tagged %q; banner and abstract set in one guarded update (revision %d)\n  its approval has ended; re-approval or re-mint is a separate step\n", r.Loc, supersededTag, r.Revision)
 	default:
-		fmt.Fprintf(w, "✗ not confirmed: %s\n", r.Loc)
+		say("✗ not confirmed: %s\n", r.Loc)
 	}
-	return nil
+	return err
 }

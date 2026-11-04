@@ -27,6 +27,7 @@ type rescindServer struct {
 	abstr          string // JSON value of the abstract
 	edges          string // outgoing edges (JSON, no brackets)
 	revDiff        bool   // the raw read reports a different node id than GetNode
+	rawTags        string // tags the raw read reports, "" = same as tags
 	update         func(call int) (int, string)
 	reread         string // tags JSON for the re-read after a failed write, "" = same as tags
 	rereadAbstract string // abstract JSON for that re-read, "" = same as abstr
@@ -60,6 +61,9 @@ func (s *rescindServer) serve() *httptest.Server {
 				`"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z","outgoingEdges":[` + s.edges + `],"incomingEdges":[]}}}`))
 		case "GetSpecNodeForEdit":
 			tags, abstr := s.tags, s.abstr
+			if s.rawTags != "" {
+				tags = s.rawTags
+			}
 			if s.calls["UpdateSpecNode"] > 0 && s.reread != "" {
 				tags = s.reread
 			}
@@ -266,6 +270,18 @@ func TestSpecRescindIsANoOpOnAnAlreadyRescindedSpec(t *testing.T) {
 	if dto["alreadyRescinded"] != true || dto["retired"] != true {
 		t.Errorf("dto = %v, want alreadyRescinded and retired true", dto)
 	}
+	// What is STORED is reported, not this run's flags: this run asked for a Rescinded banner
+	// with a different reason, and the stored abstract says RESCINDED (2026-10-03).
+	if dto["wording"] != "RESCINDED (2026-10-03); do not apply." || dto["withdrawn"] != false ||
+		dto["abstract"] != "RESCINDED (2026-10-03); do not apply. An older reason. Historical: before." {
+		t.Errorf("an already-rescinded rerun must report the stored wording, abstract and withdrawn state, got %v", dto)
+	}
+	// And a stored WITHDRAWN is reported as withdrawn even when this run did not pass --withdrawn.
+	wout, _, werr := runRescind(t, &rescindServer{tags: `["spec","superseded"]`, abstr: `"WITHDRAWN (2026-10-03); do not apply. r Historical: h."`}, "", append(rescindArgs, "--json")...)
+	var wdto map[string]any
+	if werr != nil || json.Unmarshal([]byte(wout), &wdto) != nil || wdto["withdrawn"] != true || wdto["wording"] != "WITHDRAWN (2026-10-03); do not apply." {
+		t.Errorf("a stored WITHDRAWN must report withdrawn true with its own wording, got %v (%v)", wdto, werr)
+	}
 	text, _, _ := runRescind(t, &rescindServer{tags: `["spec","superseded"]`, abstr: `"WITHDRAWN (2026-10-03); do not apply. r Historical: h."`}, "", rescindArgs...)
 	if !strings.Contains(text, "already rescinded") {
 		t.Errorf("text output should say already rescinded, got %q", text)
@@ -286,6 +302,7 @@ func TestSpecRescindDryRunWritesNothingAndNamesTheGuard(t *testing.T) {
 		NodeID   string `json:"nodeId"`
 		Revision int    `json:"revision"`
 		Wording  string `json:"wording"`
+		Abstract string `json:"abstract"`
 		DryRun   bool   `json:"dryRun"`
 		Retired  *bool  `json:"retired"`
 	}
@@ -297,6 +314,9 @@ func TestSpecRescindDryRunWritesNothingAndNamesTheGuard(t *testing.T) {
 	}
 	if !strings.Contains(dto.Wording, "Rescinded") {
 		t.Errorf("wording = %q, want the planned banner wording", dto.Wording)
+	}
+	if !rescindDateRe.MatchString(dto.Abstract) {
+		t.Errorf("a --dry-run --json must carry the planned abstract help promises, got %q", dto.Abstract)
 	}
 }
 
@@ -380,7 +400,7 @@ func TestSpecRescindJSONContract(t *testing.T) {
 	if jerr := json.Unmarshal([]byte(out), &dto); jerr != nil {
 		t.Fatalf("%v\n%s", jerr, out)
 	}
-	for _, k := range []string{"loc", "memoryId", "nodeId", "revision", "retired", "wording", "withdrawn", "dryRun", "alreadyRescinded", "tags"} {
+	for _, k := range []string{"loc", "memoryId", "nodeId", "revision", "retired", "wording", "abstract", "withdrawn", "dryRun", "alreadyRescinded", "tags"} {
 		if _, ok := dto[k]; !ok {
 			t.Errorf("--json is missing %q: %v", k, dto)
 		}
@@ -390,5 +410,90 @@ func TestSpecRescindJSONContract(t *testing.T) {
 	}
 	if tags, ok := dto["tags"].([]any); !ok || len(tags) == 0 {
 		t.Errorf("tags must be a non-empty array, got %v", dto["tags"])
+	}
+}
+
+// Eligibility is rechecked on the read the write is bound to: a spec tag removed between the two
+// reads refuses (the raw read re-validates), so a node that stopped being a spec is never rescinded.
+func TestSpecRescindRechecksSpecEligibilityOnTheGuardedRead(t *testing.T) {
+	s := &rescindServer{rawTags: `["info"]`}
+	_, s, err := runRescind(t, s, "", rescindArgs...)
+	if got := exitCodeFor(err); got != exitcode.Usage || err == nil || !strings.Contains(err.Error(), "not a spec") {
+		t.Fatalf("exit = %d, want 2 'not a spec' (%v)", got, err)
+	}
+	if s.calls["UpdateSpecNode"] != 0 {
+		t.Error("a node that is no longer a spec must not be written")
+	}
+}
+
+// The abstract cap is the SERVER's, counted in UTF-16 code units: 1100 emoji are 1100 runes but
+// 2200 units, which a rune count would admit and the server would reject (Andi's local P2).
+func TestSpecRescindAbstractCapCountsAsTheServerDoes(t *testing.T) {
+	summary := strings.Repeat("😀", 1100)
+	_, s, err := runRescind(t, &rescindServer{}, "", "--reason", "r", "--summary", summary, "--yes")
+	if got := exitCodeFor(err); got != exitcode.Usage || err == nil || !strings.Contains(err.Error(), "2000") {
+		t.Fatalf("exit = %d, want 2 naming the 2000 cap (%v)", got, err)
+	}
+	if len(s.calls) != 0 {
+		t.Errorf("an over-long abstract must be refused before any request, got %v", s.calls)
+	}
+	// A summary that really is within the cap (1000 emoji = 2000 units alone, so 900) still goes through.
+	_, s, err = runRescind(t, &rescindServer{}, "", "--reason", "r", "--summary", strings.Repeat("😀", 900), "--yes")
+	if err != nil || s.calls["UpdateSpecNode"] != 1 {
+		t.Errorf("a within-cap abstract must be written once, got err=%v calls=%v", err, s.calls)
+	}
+}
+
+type rescindFailingWriter struct{}
+
+func (rescindFailingWriter) Write([]byte) (int, error) { return 0, io.ErrShortWrite }
+
+func runRescindFailingOut(t *testing.T, s *rescindServer, args ...string) (*rescindServer, error) {
+	t.Helper()
+	if s.tags == "" {
+		s.tags = `["spec"]`
+	}
+	if s.abstr == "" {
+		s.abstr = "null"
+	}
+	s.t = t
+	srv := s.serve()
+	f, _ := testFactory(t)
+	f.IOStreams.Out = rescindFailingWriter{}
+	root := NewRootCmd(f)
+	root.SetArgs(append([]string{"spec", "rescind", "msg:010:02", "-m", specMem, "--server", srv.URL}, args...))
+	return s, root.Execute()
+}
+
+// A result that cannot be printed is never a clean exit, and when the write landed the error says so
+// rather than reading as a failed rescind (Andi's local P2: renderRescind dropped writer errors).
+func TestSpecRescindUnwritableOutputIsNeverACleanExit(t *testing.T) {
+	for name, extra := range map[string][]string{"text": nil, "json": {"--json"}} {
+		t.Run("applied/"+name, func(t *testing.T) {
+			s, err := runRescindFailingOut(t, &rescindServer{}, append(extra, rescindArgs...)...)
+			if err == nil {
+				t.Fatal("a failed stdout after the write must not exit 0")
+			}
+			if s.calls["UpdateSpecNode"] != 1 {
+				t.Errorf("want the one guarded write, got %d", s.calls["UpdateSpecNode"])
+			}
+			if !strings.Contains(err.Error(), "was rescinded") || !strings.Contains(err.Error(), "hadron spec get") {
+				t.Errorf("the error must say the write landed and name the check, got %v", err)
+			}
+		})
+		t.Run("dry-run/"+name, func(t *testing.T) {
+			s, err := runRescindFailingOut(t, &rescindServer{}, append(append([]string{"--dry-run"}, extra...), rescindArgs...)...)
+			if err == nil {
+				t.Fatal("a failed stdout on a dry run must not exit 0")
+			}
+			if s.calls["UpdateSpecNode"] != 0 {
+				t.Error("a dry run never writes")
+			}
+		})
+	}
+	// An already-rescinded no-op: nothing was written, and an unprintable answer is still an error.
+	_, err := runRescindFailingOut(t, &rescindServer{tags: `["spec","superseded"]`, abstr: `"RESCINDED (2026-10-03); do not apply. r Historical: h."`}, rescindArgs...)
+	if err == nil {
+		t.Error("an unprintable no-op answer must not exit 0")
 	}
 }
