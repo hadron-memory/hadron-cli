@@ -101,13 +101,14 @@ func TestAgenticUsageOrcaRecordingMatchesHelp(t *testing.T) {
 		t.Error("the section says the due-wake read is the only server effect, but host-key reads are all recorded")
 	}
 	// George's delta P2: no universal "every read ... host-key use" promise.
-	for _, bad := range []string{"every read made with an App key", "every server read below", "Each read, and each refusal"} {
+	for _, bad := range []string{"every read made with an App key", "every server read below", "Each read, and each refusal", "Each of these two reads", "`dueWakes` read, refusals included"} {
 		if strings.Contains(sec, bad) {
 			t.Errorf("section promises an audit record for every read: %q", bad)
 		}
 	}
 	mustContain(t, "agentic-usage Orca section", sec,
-		"are each recorded as a host-key use; the `workers` read is not",
+		"a refused one is not recorded",
+		"the `workers` read is not recorded",
 		"the due-wake read is not the only record",
 		"exit 2 or 3 is refused before Orca is listed",
 	)
@@ -239,7 +240,8 @@ func TestStatusHelpWhatItWrites(t *testing.T) {
 		"the server may reserve a due wake against the App's daily wake budget",
 		"the platform posts its daily notice to the team chat",
 		"an App-key due-wake read is also recorded",
-		"each is recorded as a host-key use; the workers read is not",
+		"a refused one is not recorded",
+		"the workers read is not recorded",
 	)
 	mustNotContain(t, "status", long,
 		"every server read below",

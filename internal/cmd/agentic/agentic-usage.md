@@ -3846,9 +3846,10 @@ resolve the anchored-thread conflict before merging, rather than retry blind.
 runs Orca and needs the `orca` CLI on PATH (or `delivery.orca_bin` with `--config`). Off that host it exits **10**
 (no output). It only lists and reads terminals: it never types and never acknowledges a wake. Its server reads are not free of effect: the `dueWakes` read is the ordinary one a deliverer makes, so the server may reserve a due
 wake against the App's daily wake budget (an already-outstanding wake is handed out again with no second slot),
-the platform may post its once-a-day budget notice to the team chat when the budget is spent. An ordinary App-key
-`dueWakes` read is recorded (which key, how many workers, when). With `--config`, the ticker and subscription reads and
-the `dueWakes` read, refusals included, are each recorded as a host-key use; the `workers` read is not. Reach check without guessing a name: `hadron orca terminal status no-such-worker` lists Orca first once the
+the platform may post its once-a-day budget notice to the team chat when the budget is spent. An App-key
+`dueWakes` read is recorded when the server answers it (which key, how many workers, when); a refused one is not recorded
+nothing. With `--config`, the ticker and subscription reads are each recorded as a host-key use, refusals included; the
+`workers` read is not recorded. Reach check without guessing a name: `hadron orca terminal status no-such-worker` lists Orca first once the
 arguments are accepted, so exit 10 = Orca unreachable (`orca` not on PATH, app not running, no answer in 15s) and
 exit 4 = Orca answered; exit 2 or 3 is refused before Orca is listed and says nothing about Orca. `--all` is one JSON array only with `--json`; without it, one text line per worker.
 
@@ -3903,8 +3904,9 @@ listed. Without `--config` nothing changes. **What a host key reads:** the dark 
 their subscribers (`host:operate`), read-only, for the workers its own host's registration lists (a server
 before hadron-server#2931 refuses it, `APP_NOT_FOUND`). (2) `dueWakes` (`attention:deliver`, a refusal is
 `APP_KEY_SCOPE_REQUIRED`), again only for the workers its own host registers; a key bound to a session is
-refused. Each of these two reads, and each refusal, is recorded as a host-key use (the `workers` read is not), so
-the due-wake read is not the only record. If either read is refused an otherwise-idle worker fails closed to `locked`/`unrecognized`, exit 0,
+refused. The ticker and subscription reads are each recorded as a host-key use, refusals included; an answered
+`dueWakes` read is recorded in the wake-read record, and a refused one is not recorded; the `workers` read is not
+recorded. So the due-wake read is not the only record. If either read is refused an otherwise-idle worker fails closed to `locked`/`unrecognized`, exit 0,
 and so does a configured worker the registration does not list.
 
 The output carries codes only. The local `detail` (the ticker and due time behind a `dark`, or why a read

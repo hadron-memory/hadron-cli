@@ -116,9 +116,10 @@ terminal looks idle it also reads the server's tickers and due wakes (the dark
 rule below). That due-wake read is the one a deliverer makes, so the server may
 reserve a due wake against the App's daily wake budget, and when the budget is
 spent the platform posts its daily notice to the team chat; an App-key due-wake
-read is also recorded (which key, how many workers, when). With --config, the
-ticker, subscription and due-wake reads below are made with the host key and
-each is recorded as a host-key use; the workers read is not.
+read is also recorded once the server answers it (which key, how many workers,
+when); a refused one is not recorded. With --config, the ticker and
+subscription reads are made with the host key and each is recorded as a
+host-key use, refusals included; the workers read is not recorded.
 
 Classifies one worker's terminal (found by the worker's session binding in its
 worktree, or taken directly by terminal id) as the versioned terminal-status@1
@@ -184,8 +185,10 @@ a missing or too-open key file is exit 3, before Orca is listed.
 With --config the dark rule needs two reads from the host key, and both reads
 must pass: the tickers and their subscriptions (the host:operate scope) and the
 due wakes (the attention:deliver scope). If either is refused, an idle worker
-fails closed (locked/unrecognized). Each of these two reads, and each refusal,
-is recorded as a host-key use; the due-wake read is not the only record. The key reads due
+fails closed (locked/unrecognized). The ticker and subscription reads are each
+recorded as a host-key use, refusals included; an answered due-wake read is
+recorded in the wake-read record, a refused one is not recorded; the due-wake
+read is not the only record. The key reads due
 wakes only for the workers its own host's registration lists, so a configured
 worker the registration does not list is not judged: it fails closed.
 attention:deliver grants nothing beyond due wakes and their acknowledgement,
