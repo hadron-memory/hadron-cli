@@ -410,6 +410,14 @@ func TestLedgerIDTokenBoundariesAndMalformedRangeTail(t *testing.T) {
 	if got := run("D-2026-10-01-001 – A note"); len(got) != 0 {
 		t.Errorf("capitalised prose: %+v", got)
 	}
+	// An ellipsis with no (or a non-numeric) bound is an incomplete range: reported.
+	for _, in := range []string{"D-2026-10-02-002…", "D-2026-10-02-002...", "D-2026-10-02-002 … and more", "D-2026-10-02-002…x"} {
+		eq(t, "incomplete ellipsis "+in, ledgerKeys(run(in), "unparsed-shorthand"), []string{""})
+	}
+	// A spaced dash after a letter ID is prose, even before a capitalised word.
+	if got := run("D-2026-10-01-A – A note"); len(got) != 0 {
+		t.Errorf("letter ID then prose: %+v", got)
+	}
 	// An ID glued to a preceding word character is not that ID.
 	if got := run("xD-2026-10-09-099"); len(got) != 0 {
 		t.Errorf("glued ID judged: %+v", got)
