@@ -40766,6 +40766,8 @@ type DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason struct {
 	Task *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason `json:"task"`
 	// The tick's role-task guidance, gated for the reader on every read; null for other reasons (hrn:node:hadronmemory.com:specs:cor:agt:080:23).
 	Action *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonActionTickAction `json:"action"`
+	// #2022 — set for kind STOP.
+	Stop *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason `json:"stop"`
 }
 
 // GetKind returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason.Kind, and is useful for accessing the field via an interface.
@@ -40784,6 +40786,11 @@ func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetTask() *Du
 // GetAction returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason.Action, and is useful for accessing the field via an interface.
 func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetAction() *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonActionTickAction {
 	return v.Action
+}
+
+// GetStop returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason.Stop, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetStop() *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason {
+	return v.Stop
 }
 
 // DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonActionTickAction includes the requested fields of the GraphQL type TickAction.
@@ -40815,6 +40822,45 @@ func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonActionTickActio
 // GetTaskUrn returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonActionTickAction.TaskUrn, and is useful for accessing the field via an interface.
 func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonActionTickAction) GetTaskUrn() *string {
 	return v.TaskUrn
+}
+
+// DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason includes the requested fields of the GraphQL type DueStopReason.
+// The GraphQL type's documentation follows.
+//
+// #2022 — the stop-signal notice a STOP reason delivers. Acknowledging the wake records its delivery; it moves no chat mark.
+type DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason struct {
+	// The notice; acknowledging the wake records delivery on it.
+	EventId  string          `json:"eventId"`
+	SignalId string          `json:"signalId"`
+	Level    StopSignalLevel `json:"level"`
+	Notice   StopNoticeKind  `json:"notice"`
+	// True only for a halt's stop notice: the one notice that interrupts the worker.
+	Interrupt bool `json:"interrupt"`
+}
+
+// GetEventId returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason.EventId, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason) GetEventId() string {
+	return v.EventId
+}
+
+// GetSignalId returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason.SignalId, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason) GetSignalId() string {
+	return v.SignalId
+}
+
+// GetLevel returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason.Level, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason) GetLevel() StopSignalLevel {
+	return v.Level
+}
+
+// GetNotice returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason.Notice, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason) GetNotice() StopNoticeKind {
+	return v.Notice
+}
+
+// GetInterrupt returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason.Interrupt, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason) GetInterrupt() bool {
+	return v.Interrupt
 }
 
 // DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason includes the requested fields of the GraphQL type DueTaskReason.
@@ -99764,9 +99810,10 @@ func (v *__DueTickWakesInput) GetAfter() *string { return v.After }
 
 // __DueWakesInput is used internally by genqlient
 type __DueWakesInput struct {
-	AppRef string  `json:"appRef"`
-	First  int     `json:"first"`
-	After  *string `json:"after,omitempty"`
+	AppRef  string     `json:"appRef"`
+	First   int        `json:"first"`
+	Accepts []WakeKind `json:"accepts"`
+	After   *string    `json:"after,omitempty"`
 }
 
 // GetAppRef returns __DueWakesInput.AppRef, and is useful for accessing the field via an interface.
@@ -99774,6 +99821,9 @@ func (v *__DueWakesInput) GetAppRef() string { return v.AppRef }
 
 // GetFirst returns __DueWakesInput.First, and is useful for accessing the field via an interface.
 func (v *__DueWakesInput) GetFirst() int { return v.First }
+
+// GetAccepts returns __DueWakesInput.Accepts, and is useful for accessing the field via an interface.
+func (v *__DueWakesInput) GetAccepts() []WakeKind { return v.Accepts }
 
 // GetAfter returns __DueWakesInput.After, and is useful for accessing the field via an interface.
 func (v *__DueWakesInput) GetAfter() *string { return v.After }
@@ -119766,8 +119816,8 @@ func DueTickWakes(
 
 // The query executed by DueWakes.
 const DueWakes_Operation = `
-query DueWakes ($appRef: String!, $first: Int!, $after: String) {
-	dueWakes(appRef: $appRef, first: $first, after: $after) {
+query DueWakes ($appRef: String!, $first: Int!, $accepts: [WakeKind!]!, $after: String) {
+	dueWakes(appRef: $appRef, first: $first, after: $after, accepts: $accepts) {
 		status
 		withheld
 		dormant {
@@ -119808,6 +119858,13 @@ query DueWakes ($appRef: String!, $first: Int!, $after: String) {
 					taskLoc
 					taskUrn
 				}
+				stop {
+					eventId
+					signalId
+					level
+					notice
+					interrupt
+				}
 			}
 		}
 		pageInfo {
@@ -119823,22 +119880,27 @@ query DueWakes ($appRef: String!, $first: Int!, $after: String) {
 // hadron-server#2733/7db74494, the same as #1281) are nullable values: null or
 // omitted keeps the composed fallback. A server without them refuses this
 // query at validation, which the poller fails closed on (no retry, nothing
-// typed). No accepts, so no STOP notice is offered (this
-// deliverer cannot type one); no workerRefs, so the key's host is the lane.
+// typed). accepts lists STOP (hadron-cli#1629, hadron-server#2169): the
+// poller types stop notices, and its whole-lane read (no workerRefs, no after
+// on the first page, one page of first: 200) declares the host's lane for
+// STOP_CONSUMER_FRESH_SECONDS (cor:agt:090:04). No workerRefs, so the key's
+// host is the lane.
 func DueWakes(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	appRef string,
 	first int,
+	accepts []WakeKind,
 	after *string,
 ) (data_ *DueWakesResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "DueWakes",
 		Query:  DueWakes_Operation,
 		Variables: &__DueWakesInput{
-			AppRef: appRef,
-			First:  first,
-			After:  after,
+			AppRef:  appRef,
+			First:   first,
+			Accepts: accepts,
+			After:   after,
 		},
 	}
 
