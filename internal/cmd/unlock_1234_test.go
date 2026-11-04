@@ -287,18 +287,27 @@ func TestUnlock1234FiveCodesAreTyped(t *testing.T) {
 // A hostile or echoing server puts the header and the passphrase into its
 // error; neither reaches stdout or stderr, in any rendering.
 func TestUnlock1234SentinelNeverPrinted(t *testing.T) {
-	for _, mode := range []string{"wrong-key", "echo-200", "echo-500-html", "success"} {
+	for _, mode := range []string{"wrong-key", "echo-200", "echo-200-plain", "echo-500-html", "success"} {
 		for _, json := range []bool{false, true} {
 			t.Run(mode+map[bool]string{true: "-json", false: ""}[json], func(t *testing.T) {
+				// The header is base64, so echoing it alone never puts the raw
+				// passphrase in a reply: echo both, and require neither printed
+				// (PR #1616 LOCAL P3-1: without that, a no-redactor mutant survived).
+				var seenHeader string
 				srv, _ := unlockServer1234(t, func(op, header string) (int, string) {
+					seenHeader = header
 					esc, _ := jsonString1234(header)
+					pass, _ := jsonString1234(sentinel1234)
 					switch mode {
 					case "wrong-key":
-						return 500, `{"errors":[{"message":"bad ` + esc + `","extensions":{"code":"WRONG_KEY","header":` + mustJSON1234(header) + `}}]}`
+						return 500, `{"errors":[{"message":"bad ` + esc + ` ` + pass + `","extensions":{"code":"WRONG_KEY","header":` + mustJSON1234(header) + `}}]}`
 					case "echo-200":
-						return 200, `{"data":null,"errors":[{"message":"echo ` + esc + `","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`
+						return 200, `{"data":null,"errors":[{"message":"echo ` + esc + ` ` + pass + `","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`
+					case "echo-200-plain":
+						// A code-less resolver error is rendered with its message.
+						return 200, `{"data":null,"errors":[{"message":"echo ` + esc + ` ` + pass + `","path":["memories"]}]}`
 					case "echo-500-html":
-						return 502, `<html>upstream saw ` + header + `</html>`
+						return 502, `<html>upstream saw ` + header + ` ` + sentinel1234 + `</html>`
 					}
 					return 200, memoriesBody1234()
 				})
@@ -316,7 +325,14 @@ func TestUnlock1234SentinelNeverPrinted(t *testing.T) {
 					all += err.Error()
 				}
 				esc, _ := jsonString1234(sentinel1234)
-				for _, s := range []string{sentinel1234, esc, "S3NT1NEL"} {
+				if mode != "success" && seenHeader == "" {
+					t.Fatal("the server saw no --unlock header")
+				}
+				leaks := []string{sentinel1234, esc, "S3NT1NEL"}
+				if seenHeader != "" {
+					leaks = append(leaks, seenHeader)
+				}
+				for _, s := range leaks {
 					if strings.Contains(all, s) {
 						t.Fatalf("leaked %q in:\n%s", s, all)
 					}
