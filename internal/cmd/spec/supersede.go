@@ -73,6 +73,11 @@ self-supersession or a cycle. --by cannot combine with --title, --to,
 --feature, --rule-after, --copy-body or --reason (the reason belongs in the
 create mode’s body note; --by leaves the old body unchanged).
 
+A RESCINDED or WITHDRAWN spec (lead, or the rescinded/withdrawn tag) has no
+successor (cor:spc:010:01): both modes, --dry-run included, refuse it with
+exit 5 before any write. If it becomes one after the link or replacement has
+landed, the retirement is refused (exit 5) and that link stays, reported.
+
 Both paths lead the retired abstract with:
 SUPERSEDED (<UTC date>) by <citation> (<successor name>); do not apply. Historical: <summary>
 The summary defaults to the stored old abstract verbatim; --summary replaces
@@ -166,6 +171,9 @@ then; it never edits the register).`,
 
 			oldNode, err := fetchSpecTaggedNode(cmd, client, memURN, args[0])
 			if err != nil {
+				return err
+			}
+			if err := sourceTombstoneError(oldNode); err != nil {
 				return err
 			}
 			if by != "" {
@@ -710,6 +718,11 @@ func retire(cmd *cobra.Command, client graphql.Client, oldNode *gen.GetNodeNode,
 		}
 		expectedRevision = &revision
 	}
+	// The reads above refresh abstract and tags: a tombstone seen only now
+	// arrived after the link or replacement landed. Refuse the retirement.
+	if isTombstoneSource(oldNode) {
+		return boolRef(false), &tombstoneRaceError{loc: oldNode.Loc}
+	}
 	abstract, err := supersededAbstract(oldNode, successorLoc, successorName, summary)
 	if err != nil {
 		return boolRef(false), err
@@ -736,6 +749,11 @@ func retire(cmd *cobra.Command, client graphql.Client, oldNode *gen.GetNodeNode,
 
 // retireError is the error for a retirement that did not verifiably happen.
 func retireError(retired *bool, err error, oldLoc, successorLoc, memURN string) error {
+	if isTombstoneRace(err) {
+		// Exit 5. The link/replacement to successorLoc DID land and stays; a rerun
+		// can only reach the early refusal, so none is advised.
+		return exitcode.Newf(exitcode.Conflict, "%s became a RESCINDED or WITHDRAWN spec after its link to %s landed, so it was not retired; that link/replacement remains and is reported above; review it with `hadron spec get %s -m %s` (this command now refuses %s)", oldLoc, successorLoc, oldLoc, memURN, oldLoc)
+	}
 	if retired != nil && *retired {
 		return exitcode.Newf(exitcode.Error, "%s is tagged retired, but its requested retirement abstract is not confirmed (%v); inspect `hadron spec get %s -m %s` before retrying", oldLoc, api.MapError(err), oldLoc, memURN)
 	}
