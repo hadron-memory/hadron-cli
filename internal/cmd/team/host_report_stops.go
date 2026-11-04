@@ -43,6 +43,9 @@ Delivery: at most one post per notice, never silently none. An intent file
 is written before the first post; a retry first reads the chat for that
 exact post and records it instead of posting again; an identical re-post
 inside ten minutes is refused by the server and its earlier seq recorded.
+An accepted seq is saved before read-back; later runs only re-read that seq,
+never post it again. A read-back mismatch stays failed and pending and says
+"needs a person". A later matching read-back can still finish the record.
 One run at a time per outbox (a run that finds another running does
 nothing). A post the server commits more than three minutes late, after the
 next run's check, can still appear twice. This is not exactly-once.
