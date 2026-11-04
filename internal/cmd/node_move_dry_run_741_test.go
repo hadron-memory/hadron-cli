@@ -19,12 +19,15 @@ func TestNodeMoveDryRun741(t *testing.T) {
 		toMemory bool
 		single   bool
 		long     bool
+		overlap  bool
+		types    bool
 	}{
-		{name: "single JSON", json: true, single: true}, {name: "paged JSON", json: true}, {name: "occupied text"}, {name: "memory target", toMemory: true}, {name: "long requested target", toMemory: true, long: true},
+		{name: "overlapping page", json: true, overlap: true}, {name: "all readable node kinds", json: true, types: true}, {name: "single JSON", json: true, single: true}, {name: "paged JSON", json: true}, {name: "occupied text"}, {name: "memory target", toMemory: true}, {name: "long requested target", toMemory: true, long: true},
 		{name: "second page failure", fail: "page"}, {name: "truncated", fail: "truncated", json: true},
 		{name: "unavailable", fail: "unavailable"}, {name: "omitted", fail: "omitted", json: true},
 		{name: "source read failure", fail: "source"}, {name: "missing batch node", fail: "missing"},
 		{name: "repeated page", fail: "repeat"}, {name: "null listing", fail: "null-list"}, {name: "null batch", fail: "null-batch"}, {name: "destination read failure", fail: "destination"}, {name: "changed memory", fail: "changed", json: true},
+		{name: "changed loc", fail: "loc", json: true}, {name: "empty URN", fail: "urn"}, {name: "root absent", fail: "root"}, {name: "duplicate batch id", fail: "duplicate"}, {name: "null hit", fail: "hit"}, {name: "null hits", fail: "hits"}, {name: "empty list id", fail: "list-id"}, {name: "wrong list memory", fail: "list-memory"}, {name: "null source", fail: "null-source"}, {name: "null memory", fail: "null-memory"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			writes := 0
@@ -36,6 +39,7 @@ func TestNodeMoveDryRun741(t *testing.T) {
 				}
 				var q struct {
 					OperationName string         `json:"operationName"`
+					Query         string         `json:"query"`
 					Variables     map[string]any `json:"variables"`
 				}
 				if err := json.NewDecoder(r.Body).Decode(&q); err != nil {
@@ -47,18 +51,48 @@ func TestNodeMoveDryRun741(t *testing.T) {
 				case "ResolveUrn":
 					reply(map[string]any{"resolveUrn": map[string]any{"id": "n1", "kind": "node", "memoryId": "m1"}})
 				case "MovePreviewSource":
+					if tc.fail == "null-source" {
+						reply(map[string]any{"node": nil})
+						return
+					}
 					if tc.fail == "source" {
 						fmt.Fprint(w, `{"errors":[{"message":"read failed"}]}`)
 						return
 					}
 					reply(map[string]any{"node": map[string]any{"id": "n1root", "urn": "hrn:node:acme.com:kb:a:b", "memoryId": "m1", "loc": "a:b", "name": "Root"}})
 				case "MovePreviewMemory":
+					if tc.fail == "null-memory" {
+						reply(map[string]any{"memory": nil})
+						return
+					}
 					reply(map[string]any{"memory": map[string]any{"id": "m2", "urn": "hrn:mem:acme.com:archive"}})
 				case "MovePreviewList":
 					mem := q.Variables["memory"].(string)
 					off := int(q.Variables["offset"].(float64))
 					hits := []any{}
-					if mem == "m1" {
+					if tc.types {
+						visible := []map[string]any{}
+						if q.Variables["nodeType"] == "system" {
+							if mem == "m1" {
+								visible = append(visible, map[string]any{"id": "system", "memoryId": mem, "loc": "a:b:system"})
+							}
+						} else if mem == "m1" {
+							visible = append(visible, map[string]any{"id": "n1root", "memoryId": mem, "loc": "a:b"})
+							if strings.Contains(strings.ReplaceAll(q.Query, " ", ""), "contentScope:ALL") {
+								visible = append(visible, map[string]any{"id": "comment", "memoryId": mem, "loc": "a:b:comment"})
+							}
+						} else {
+							visible = append(visible, map[string]any{"id": "d1", "memoryId": mem, "loc": "target"})
+						}
+						if off == 0 {
+							for _, n := range visible {
+								hits = append(hits, map[string]any{"node": n})
+							}
+						}
+						if mem == "m1" {
+							sourcePages++
+						}
+					} else if mem == "m1" {
 						sourcePages++
 						if tc.fail == "repeat" {
 							off = 0
@@ -68,7 +102,14 @@ func TestNodeMoveDryRun741(t *testing.T) {
 							return
 						}
 						// 201 source nodes, and a text-prefix neighbour that is NOT a descendant.
-						for i := off; i < off+100 && i < 202 && (!tc.single || i == 0); i++ {
+						start, end := off, off+100
+						if tc.overlap && off == 100 {
+							start, end = 99, 201
+						}
+						for i := start; i < end && i < 202 && (!tc.single || i == 0); i++ {
+							if tc.fail == "root" && i == 0 {
+								continue
+							}
 							id, loc := fmt.Sprintf("n%d", i), fmt.Sprintf("a:b:c%d", i)
 							if i == 0 {
 								id = "n1root"
@@ -86,6 +127,20 @@ func TestNodeMoveDryRun741(t *testing.T) {
 						}
 						hits = append(hits, map[string]any{"node": map[string]any{"id": "d1", "memoryId": "m2", "loc": q.Variables["prefix"], "name": "Occupied"}})
 					}
+					if len(hits) > 0 {
+						switch tc.fail {
+						case "hit":
+							hits[0] = map[string]any{"node": nil}
+						case "list-id":
+							hits[0].(map[string]any)["node"].(map[string]any)["id"] = ""
+						case "list-memory":
+							hits[0].(map[string]any)["node"].(map[string]any)["memoryId"] = "other"
+						}
+					}
+					if tc.fail == "hits" && mem == "m2" {
+						reply(map[string]any{"findNodes": map[string]any{"hits": nil}})
+						return
+					}
 					if tc.fail == "null-list" {
 						reply(map[string]any{"findNodes": nil})
 						return
@@ -100,6 +155,9 @@ func TestNodeMoveDryRun741(t *testing.T) {
 						mem := "m1"
 						if id == "n1root" {
 							loc = "a:b"
+						}
+						if id == "comment" || id == "system" {
+							loc = "a:b:" + id
 						}
 						if id == "d1" {
 							loc = "target"
@@ -116,6 +174,18 @@ func TestNodeMoveDryRun741(t *testing.T) {
 					}
 					if tc.fail == "changed" {
 						nodes[0].(map[string]any)["memoryId"] = "other"
+					}
+					if len(nodes) > 0 {
+						switch tc.fail {
+						case "loc":
+							nodes[0].(map[string]any)["loc"] = "a:b:changed"
+						case "urn":
+							if refs[0] == "d1" {
+								nodes[0].(map[string]any)["urn"] = ""
+							}
+						case "duplicate":
+							nodes = append(nodes, nodes[0])
+						}
 					}
 					b := map[string]any{"nodes": nodes, "truncated": false, "omitted": []any{}, "unavailable": []any{}}
 					switch tc.fail {
@@ -182,7 +252,7 @@ func TestNodeMoveDryRun741(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !tc.single && sourcePages < 3 {
+			if !tc.single && !tc.types && sourcePages < 3 {
 				t.Fatalf("did not page source: %d", sourcePages)
 			}
 			if tc.json {
@@ -205,6 +275,9 @@ func TestNodeMoveDryRun741(t *testing.T) {
 				expected := 201
 				if tc.single {
 					expected = 1
+				}
+				if tc.types {
+					expected = 3
 				}
 				if !dto.Advisory || !dto.Complete || len(dto.Source.Nodes) != expected || dto.Destination.Requested != requested || len(dto.Destination.Present) != 1 {
 					t.Fatalf("bad preview: %s", out.String())
