@@ -15,19 +15,16 @@ import (
 
 const (
 	connectURL   = "https://hadron.example/connect/done?nonce=SECRETNONCE123456&x=1"
-	connectStart = `{"data":{"startConnection":{"provider":"GMAIL","orgId":"org_1","authorizeUrl":"` + connectURL + `","expiresAt":"2099-01-01T00:00:00Z"}}}`
+	connectStart = `{"data":{"startConnection":{"provider":"GMAIL","orgId":"org_1","authorizeUrl":"` + connectURL + `","expiresAt":"2099-01-01T00:00:00Z","flowId":"flow_1"}}}`
 )
 
 func connRows(rows ...string) string {
 	return `{"data":{"exchangeConnections":[` + strings.Join(rows, ",") + `]}}`
 }
 
-const connectMe = `{"data":{"authContext":{"principalType":"USER","appId":null,"agentId":null,"user":{"id":"u1","name":"A","email":"a@acme.com","handle":"a","githubUsername":null,"roles":[]},"apiKey":null,"impersonation":null}}}`
-
-func connRow(id, provider string) string { return connRowOwned(id, provider, "u1") }
-
-func connRowOwned(id, provider, user string) string {
-	return `{"id":"` + id + `","organizationId":"org_1","userId":"` + user + `","mailboxEmail":"` + id + `@acme.com","provider":"` + provider +
+func connRow(id string) string {
+	const provider = "gmail"
+	return `{"id":"` + id + `","organizationId":"org_1","userId":"u1","mailboxEmail":"` + id + `@acme.com","provider":"` + provider +
 		`","displayName":null,"syncEnabled":true,"syncStatus":"IDLE","lastSyncAt":null,"createdAt":"2026-10-30T00:00:00Z","updatedAt":"2026-10-30T00:00:00Z"}`
 }
 
@@ -41,10 +38,16 @@ type connectRun struct {
 	slept       time.Duration
 }
 
-// runConnect drives `connection connect` against a scripted server. emailPolls
-// answers each EmailConnections call in order (the first is the baseline); the
-// last answer repeats. The clock only moves when the command sleeps.
-func runConnect(t *testing.T, start string, emailPolls []string, openErr error, args ...string) *connectRun {
+var (
+	pend = flowResp("PENDING", "", "")
+	done = flowResp("CONNECTED", "c9", "")
+)
+
+// runConnect drives `connection connect` against a scripted server. flows
+// answers each ConnectionFlow call in order (the last answer repeats); the one
+// EmailConnections read after CONNECTED lists c9. The clock only moves when
+// the command sleeps.
+func runConnect(t *testing.T, start string, flows []string, openErr error, args ...string) *connectRun {
 	t.Helper()
 	r := &connectRun{}
 	clock := time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC)
@@ -54,21 +57,18 @@ func runConnect(t *testing.T, start string, emailPolls []string, openErr error, 
 	connection.Hooks.Sleep = func(_ context.Context, d time.Duration) error { clock = clock.Add(d); r.slept += d; return nil }
 	connection.Hooks.Open = func(u string) error { r.opened = append(r.opened, u); return openErr }
 
-	emailCalls := 0
+	flowCalls := 0
 	srv, vars := captureGraphQLFunc(t, func(op string) string {
 		r.ops = append(r.ops, op)
 		switch op {
 		case "StartConnection":
 			return start
-		case "AuthContext":
-			return connectMe
+		case "ConnectionFlow":
+			i := min(flowCalls, len(flows)-1)
+			flowCalls++
+			return flows[i]
 		case "EmailConnections":
-			i := emailCalls
-			emailCalls++
-			if i >= len(emailPolls) {
-				i = len(emailPolls) - 1
-			}
-			return emailPolls[i]
+			return connRows(connRow("c9"))
 		}
 		return ""
 	})
@@ -89,7 +89,7 @@ func countOf(s, sub string) int { return strings.Count(s, sub) }
 
 // Acceptance 1: exactly one start operation, with its provider and org.
 func TestConnectionConnectCallsOneStartWithProviderAndOrg(t *testing.T) {
-	r := runConnect(t, connectStart, []string{connRows(), connRows(connRow("c9", "gmail"))}, nil, "gmail", "--org", "hrn:org:acme.com")
+	r := runConnect(t, connectStart, []string{pend, done}, nil, "gmail", "--org", "hrn:org:acme.com")
 	if r.err != nil {
 		t.Fatal(r.err)
 	}
@@ -111,22 +111,22 @@ func TestConnectionConnectCallsOneStartWithProviderAndOrg(t *testing.T) {
 
 // Acceptance 3a: a connection appearing inside the wait prints and exits 0.
 func TestConnectionConnectWaitSuccess(t *testing.T) {
-	r := runConnect(t, connectStart, []string{connRows(), connRows(), connRows(connRow("c9", "gmail"))}, nil, "gmail", "--org", "org_1")
+	r := runConnect(t, connectStart, []string{pend, pend, done}, nil, "gmail", "--org", "org_1")
 	if r.err != nil {
 		t.Fatal(r.err)
 	}
 	if !strings.Contains(r.out, "✓ connected") || !strings.Contains(r.out, "c9@acme.com") {
 		t.Fatalf("out %q", r.out)
 	}
-	// Baseline read happens before the browser is opened.
-	if r.ops[0] != "StartConnection" || r.ops[2] != "EmailConnections" {
+	// No baseline or identity read: the first read after the start is the flow.
+	if r.ops[0] != "StartConnection" || r.ops[1] != "ConnectionFlow" {
 		t.Fatalf("ops %v", r.ops)
 	}
 }
 
 // Acceptance 3a: nothing new inside the timeout exits 13, "not found yet".
 func TestConnectionConnectWaitTimeoutExits13(t *testing.T) {
-	r := runConnect(t, connectStart, []string{connRows()}, nil, "gmail", "--org", "org_1", "--wait", "10s")
+	r := runConnect(t, connectStart, []string{pend}, nil, "gmail", "--org", "org_1", "--wait", "10s")
 	if r.code != exitcode.WaitTimeout {
 		t.Fatalf("exit %d (%v), want %d", r.code, r.err, exitcode.WaitTimeout)
 	}
@@ -138,24 +138,14 @@ func TestConnectionConnectWaitTimeoutExits13(t *testing.T) {
 	}
 }
 
-// Acceptance 3a: a connection that existed before the start does not count, and
-// neither does a new one for another provider.
-func TestConnectionConnectPreexistingAndOtherProviderDoNotCount(t *testing.T) {
-	old := connRow("old", "gmail")
-	r := runConnect(t, connectStart, []string{connRows(old), connRows(old, connRow("cal", "google-cal"))}, nil, "gmail", "--org", "org_1", "--wait", "9s")
-	if r.code != exitcode.WaitTimeout {
-		t.Fatalf("exit %d (%v), want %d", r.code, r.err, exitcode.WaitTimeout)
-	}
-}
-
 // Acceptance 3a: --no-wait sends no poll at all.
 func TestConnectionConnectNoWaitSendsNoPoll(t *testing.T) {
-	r := runConnect(t, connectStart, []string{connRows()}, nil, "gmail", "--org", "org_1", "--no-wait", "--no-browser")
+	r := runConnect(t, connectStart, []string{pend}, nil, "gmail", "--org", "org_1", "--no-wait", "--no-browser")
 	if r.err != nil {
 		t.Fatal(r.err)
 	}
 	for _, op := range r.ops {
-		if op == "EmailConnections" {
+		if op == "ConnectionFlow" || op == "EmailConnections" {
 			t.Fatalf("--no-wait polled: %v", r.ops)
 		}
 	}
@@ -164,7 +154,7 @@ func TestConnectionConnectNoWaitSendsNoPoll(t *testing.T) {
 // Acceptance 3a: the wait never outlasts the link's expiry.
 func TestConnectionConnectWaitCappedAtExpiry(t *testing.T) {
 	soon := strings.Replace(connectStart, "2099-01-01T00:00:00Z", "2026-10-30T12:00:06Z", 1)
-	r := runConnect(t, soon, []string{connRows()}, nil, "gmail", "--org", "org_1", "--wait", "1h")
+	r := runConnect(t, soon, []string{pend}, nil, "gmail", "--org", "org_1", "--wait", "1h")
 	if r.code != exitcode.WaitTimeout {
 		t.Fatalf("exit %d (%v)", r.code, r.err)
 	}
@@ -198,7 +188,7 @@ func TestConnectionConnectPollRequestsOnlyMetadata(t *testing.T) {
 // text output. --no-browser prints it exactly once; a failed open prints it
 // exactly once; --json carries it once.
 func TestConnectionConnectPrintsURLOnceInEveryMode(t *testing.T) {
-	polls := []string{connRows(), connRows(connRow("c9", "gmail"))}
+	polls := []string{pend, done}
 	cases := []struct {
 		name       string
 		args       []string
@@ -248,7 +238,7 @@ func TestConnectionConnectPrintsURLOnceInEveryMode(t *testing.T) {
 
 // A failed browser launch whose error text names the URL is redacted.
 func TestConnectionConnectRedactsOpenFailure(t *testing.T) {
-	r := runConnect(t, connectStart, []string{connRows(), connRows(connRow("c9", "gmail"))},
+	r := runConnect(t, connectStart, []string{pend, done},
 		errors.New("launcher rejected "+connectURL+" nonce SECRETNONCE123456"), "gmail", "--org", "org_1", "--no-wait")
 	if r.err != nil {
 		t.Fatal(r.err)
@@ -261,11 +251,11 @@ func TestConnectionConnectRedactsOpenFailure(t *testing.T) {
 // --json --no-browser while waiting would hide the URL until the wait ends, so
 // it is refused up front, before any single-use link is minted.
 func TestConnectionConnectJSONNoBrowserNeedsNoWait(t *testing.T) {
-	r := runConnect(t, connectStart, []string{connRows()}, nil, "gmail", "--org", "org_1", "--json", "--no-browser")
+	r := runConnect(t, connectStart, []string{pend}, nil, "gmail", "--org", "org_1", "--json", "--no-browser")
 	if r.code != exitcode.Usage || len(r.ops) != 0 {
 		t.Fatalf("exit %d ops %v err %v", r.code, r.ops, r.err)
 	}
-	r = runConnect(t, connectStart, []string{connRows()}, nil, "gmail", "--org", "org_1", "--json", "--no-browser", "--no-wait")
+	r = runConnect(t, connectStart, []string{pend}, nil, "gmail", "--org", "org_1", "--json", "--no-browser", "--no-wait")
 	if r.err != nil || countOf(r.out, connectURL) != 1 {
 		t.Fatalf("err %v out %q", r.err, r.out)
 	}
@@ -278,7 +268,7 @@ func TestConnectionConnectUsageErrors(t *testing.T) {
 		{"gmail", "--org", "o", "--no-wait", "--wait", "1m"},
 		{"gmail", "--org", "o", "--wait", "0s"},
 	} {
-		r := runConnect(t, connectStart, []string{connRows()}, nil, args...)
+		r := runConnect(t, connectStart, []string{pend}, nil, args...)
 		if r.code != exitcode.Usage || len(r.ops) != 0 {
 			t.Errorf("%v: exit %d ops %v", args, r.code, r.ops)
 		}
@@ -299,7 +289,7 @@ func TestConnectionConnectRefusalsKeepServerCode(t *testing.T) {
 	}
 	for _, tc := range cases {
 		resp := `{"errors":[{"message":"refused","extensions":{` + tc.ext + `}}],"data":null}`
-		r := runConnect(t, resp, []string{connRows()}, nil, "gmail", "--org", "org_1", "--json")
+		r := runConnect(t, resp, []string{pend}, nil, "gmail", "--org", "org_1", "--json")
 		if r.err == nil || r.code == 0 {
 			t.Fatalf("%s: want a refusal, got ok", tc.code)
 		}
@@ -311,7 +301,7 @@ func TestConnectionConnectRefusalsKeepServerCode(t *testing.T) {
 			t.Errorf("%s: serverCode missing from %q", tc.code, combined)
 		}
 		for _, op := range r.ops {
-			if op == "EmailConnections" {
+			if op == "ConnectionFlow" {
 				t.Errorf("%s: polled after a refusal", tc.code)
 			}
 		}
@@ -332,14 +322,12 @@ func TestConnectionConnectSlowPollDoesNotOutlastWait(t *testing.T) {
 		switch op {
 		case "StartConnection":
 			return connectStart
-		case "AuthContext":
-			return connectMe
-		case "EmailConnections":
+		case "ConnectionFlow":
 			calls++
-			if calls > 2 { // baseline + the first poll are prompt; the one after the sleep hangs
+			if calls > 1 { // the first poll is prompt; the one after the sleep hangs
 				time.Sleep(3 * time.Second)
 			}
-			return connRows()
+			return pend
 		}
 		return ""
 	})
@@ -356,18 +344,10 @@ func TestConnectionConnectSlowPollDoesNotOutlastWait(t *testing.T) {
 	}
 }
 
-// Another admin's connection for the same provider is not this flow's result.
-func TestConnectionConnectOtherUsersConnectionDoesNotCount(t *testing.T) {
-	r := runConnect(t, connectStart, []string{connRows(), connRows(connRowOwned("theirs", "gmail", "u2"))}, nil, "gmail", "--org", "org_1", "--wait", "9s")
-	if r.code != exitcode.WaitTimeout {
-		t.Fatalf("exit %d (%v), want %d", r.code, r.err, exitcode.WaitTimeout)
-	}
-}
-
 // With --json a failed browser launch hands the URL over at once and does not
 // wait (the document is only written at the end, so a wait would hide it).
 func TestConnectionConnectJSONOpenFailureReturnsStarted(t *testing.T) {
-	r := runConnect(t, connectStart, []string{connRows()}, errors.New("no display"), "gmail", "--org", "org_1", "--json")
+	r := runConnect(t, connectStart, []string{pend}, errors.New("no display"), "gmail", "--org", "org_1", "--json")
 	if r.err != nil {
 		t.Fatal(r.err)
 	}
@@ -379,13 +359,7 @@ func TestConnectionConnectJSONOpenFailureReturnsStarted(t *testing.T) {
 	if err := json.Unmarshal([]byte(r.out), &dto); err != nil || dto.AuthorizeURL != connectURL || dto.Status != "started" || dto.BrowserOpened {
 		t.Fatalf("dto %+v err %v out %q", dto, err, r.out)
 	}
-	polls := 0
-	for _, op := range r.ops {
-		if op == "EmailConnections" {
-			polls++
-		}
-	}
-	if polls > 1 || r.slept != 0 {
+	if count(r.ops, "ConnectionFlow") > 1 || r.slept != 0 {
 		t.Fatalf("waited after a failed launch: ops %v slept %s", r.ops, r.slept)
 	}
 }
@@ -395,7 +369,7 @@ func TestConnectionConnectMalformedExpiryRefused(t *testing.T) {
 	// The malformed value even carries the link and its nonce: the refusal
 	// must not echo the server's value.
 	bad := strings.Replace(connectStart, "2099-01-01T00:00:00Z", connectURL+" SECRETNONCE123456", 1)
-	r := runConnect(t, bad, []string{connRows()}, nil, "gmail", "--org", "org_1")
+	r := runConnect(t, bad, []string{pend}, nil, "gmail", "--org", "org_1")
 	if r.code != exitcode.Unavailable || len(r.opened) != 0 || strings.Contains(r.out+r.errOut, "SECRETNONCE") || strings.Contains(r.err.Error(), "hadron.example") {
 		t.Fatalf("exit %d opened %v out %q err %q", r.code, r.opened, r.out, r.errOut)
 	}
@@ -417,60 +391,22 @@ func TestConnectionConnectScrubsErrorsAfterTheLink(t *testing.T) {
 	}
 }
 
-// Every read after the link is scrubbed, not just the baseline: the caller's
-// identity read and a later poll each get a server message carrying the link,
-// and the poll's server code survives the scrub.
-func TestConnectionConnectScrubsAuthContextAndPollErrors(t *testing.T) {
+// Every read after the link is scrubbed, not just the first: a flow read that
+// fails at the first poll or a later one gets a server message carrying the
+// link, and the server code survives the scrub.
+func TestConnectionConnectScrubsFlowReadErrors(t *testing.T) {
 	leakMsg := `upstream said ` + connectURL + ` nonce SECRETNONCE123456`
-	leak := func(code string) string {
-		return `{"errors":[{"message":"` + leakMsg + `","extensions":{"code":"` + code + `"}}],"data":null}`
-	}
-	prev := connection.Hooks
-	t.Cleanup(func() { connection.Hooks = prev })
-	connection.Hooks.Sleep = func(context.Context, time.Duration) error { return nil }
-	connection.Hooks.Open = func(string) error { return nil }
-
-	run := func(authCtx string, polls []string) (string, error) {
-		calls := 0
-		srv, _ := captureGraphQLFunc(t, func(op string) string {
-			switch op {
-			case "StartConnection":
-				return connectStart
-			case "AuthContext":
-				return authCtx
-			case "EmailConnections":
-				i := min(calls, len(polls)-1)
-				calls++
-				return polls[i]
-			}
-			return ""
-		})
-		f, out := testFactory(t)
-		root := NewRootCmd(f)
-		root.SetArgs([]string{"--server", srv.URL, "connection", "connect", "gmail", "--org", "org_1", "--json"})
-		err := root.Execute()
-		if err != nil {
-			renderError(f, err)
-		}
-		return out.String() + f.IOStreams.ErrOut.(*strings.Builder).String(), err
-	}
-
-	for name, tc := range map[string]struct {
-		authCtx string
-		polls   []string
-		code    string
-	}{
-		"authContext": {leak("FORBIDDEN"), []string{connRows()}, "FORBIDDEN"},
-		"poll":        {connectMe, []string{connRows(), leak("FORBIDDEN")}, "FORBIDDEN"},
-	} {
-		got, err := run(tc.authCtx, tc.polls)
-		if err == nil {
+	leak := `{"errors":[{"message":"` + leakMsg + `","extensions":{"code":"INTERNAL_SERVER_ERROR"}}],"data":null}`
+	for name, polls := range map[string][]string{"first": {leak}, "later": {pend, leak}} {
+		r := runConnect(t, connectStart, polls, nil, "gmail", "--org", "org_1", "--json")
+		got := r.out + r.errOut
+		if r.err == nil {
 			t.Fatalf("%s: want a failure", name)
 		}
 		if strings.Contains(got, "SECRETNONCE") || strings.Contains(got, "hadron.example") {
 			t.Errorf("%s: leaked: %q", name, got)
 		}
-		if !strings.Contains(got, `"serverCode": "`+tc.code+`"`) {
+		if !strings.Contains(got, `"serverCode": "INTERNAL_SERVER_ERROR"`) {
 			t.Errorf("%s: serverCode lost: %q", name, got)
 		}
 	}

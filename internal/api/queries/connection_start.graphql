@@ -7,5 +7,6 @@ mutation StartConnection($provider: ConnectionProvider!, $orgRef: ID!) {
     orgId
     authorizeUrl
     expiresAt
+    flowId
   }
 }

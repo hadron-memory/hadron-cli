@@ -23,7 +23,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 207: 163 command, 20 gap, 24 excluded
+[Query] 207: 164 command, 19 gap, 24 excluded
 actionRegisterIndex  command team register
 actionTickets  command ticket list
 agent  command agent get
@@ -85,7 +85,7 @@ chatServedPrompts  command chat served-prompts
 comment  command comment get
 commentThreads  command comment list
 compiledPromptProvenance  command node provenance
-connectionFlow  gap #1569
+connectionFlow  command connection flow
 connectionGrant  command connection grant get
 connectionGrants  command connection grant list
 contextReset  command team host run

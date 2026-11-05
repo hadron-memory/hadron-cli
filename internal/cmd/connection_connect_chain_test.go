@@ -223,8 +223,7 @@ var leakMsg = `upstream said ` + connectURL + ` nonce SECRETNONCE123456`
 // public message and cancellation classification are exactly what they were.
 func TestConnectionConnectReturnedErrorHoldsNoSecretGraph(t *testing.T) {
 	start := []chainStep{{body: connectStart}}
-	me := []chainStep{{body: connectMe}}
-	rows := []chainStep{{body: connRows()}}
+	pending := []chainStep{{body: pend}}
 	type want struct {
 		code       int
 		serverCode string
@@ -236,56 +235,56 @@ func TestConnectionConnectReturnedErrorHoldsNoSecretGraph(t *testing.T) {
 		script map[string][]chainStep
 		want   want
 	}{
-		{"authContext: secret in the message", map[string][]chainStep{
+		{"flow (first read): secret in the message", map[string][]chainStep{
 			"StartConnection": start,
-			"AuthContext":     {{body: gqlErr(leakMsg, `"code":"FORBIDDEN"`)}}}, want{exitcode.Forbidden, "FORBIDDEN", "upstream said <redacted>", ""}},
+			"ConnectionFlow":  {{body: gqlErr(leakMsg, `"code":"FORBIDDEN"`)}}}, want{exitcode.Forbidden, "FORBIDDEN", "no such connection flow", ""}},
 		// The outer message is safe; the secret is only in what the error carries.
-		{"authContext: safe message, secret in extensions", map[string][]chainStep{
+		{"flow (first read): safe message, secret in extensions", map[string][]chainStep{
 			"StartConnection": start,
-			"AuthContext":     {{body: gqlErr("refused", `"code":"FORBIDDEN","detail":"`+connectURL+`"`)}}}, want{exitcode.Forbidden, "FORBIDDEN", "refused", ""}},
-		{"authContext: secret in the serverCode", map[string][]chainStep{
+			"ConnectionFlow":  {{body: gqlErr("refused", `"code":"FORBIDDEN","detail":"`+connectURL+`"`)}}}, want{exitcode.Forbidden, "FORBIDDEN", "no such connection flow", ""}},
+		{"flow (first read): secret in the serverCode", map[string][]chainStep{
 			"StartConnection": start,
-			"AuthContext":     {{body: gqlErr("refused", `"code":"SECRETNONCE123456"`)}}}, want{exitcode.Error, "<redacted>", "refused", ""}},
-		{"authContext: internal fault with a secret requestId", map[string][]chainStep{
+			"ConnectionFlow":  {{body: gqlErr("refused", `"code":"SECRETNONCE123456"`)}}}, want{exitcode.Error, "<redacted>", "refused", ""}},
+		{"flow (first read): internal fault with a secret requestId", map[string][]chainStep{
 			"StartConnection": start,
-			"AuthContext":     {{body: gqlErr("boom", `"code":"INTERNAL_SERVER_ERROR","requestId":"SECRETNONCE123456"`)}}}, want{exitcode.Error, "INTERNAL_SERVER_ERROR", "", "<redacted>"}},
-		{"authContext: internal fault: ordinary requestId kept, link in detail dropped", map[string][]chainStep{
+			"ConnectionFlow":  {{body: gqlErr("boom", `"code":"INTERNAL_SERVER_ERROR","requestId":"SECRETNONCE123456"`)}}}, want{exitcode.Error, "INTERNAL_SERVER_ERROR", "", "<redacted>"}},
+		{"flow (first read): internal fault: ordinary requestId kept, link in detail dropped", map[string][]chainStep{
 			"StartConnection": start,
-			"AuthContext":     {{body: gqlErr("boom", `"code":"INTERNAL_SERVER_ERROR","requestId":"req-abc123","detail":"`+connectURL+`"`)}}}, want{exitcode.Error, "INTERNAL_SERVER_ERROR", "req-abc123", "req-abc123"}},
+			"ConnectionFlow":  {{body: gqlErr("boom", `"code":"INTERNAL_SERVER_ERROR","requestId":"req-abc123","detail":"`+connectURL+`"`)}}}, want{exitcode.Error, "INTERNAL_SERVER_ERROR", "req-abc123", "req-abc123"}},
 		// Escaped bytes, exactly as a non-Go encoder or a gateway puts them on
 		// the wire. Three layers: a non-JSON body holding the bytes, a JSON
 		// source whose decoded message still holds them (backslash doubled),
 		// and ordinary text beside them as a control.
-		{"poll: gateway page holding the escaped link bytes", map[string][]chainStep{
-			"StartConnection": start, "AuthContext": me,
-			"EmailConnections": {{body: connRows()}, {status: 502, body: "<html>" + connectURLBothEscaped + " | " + connectURLAmpEscaped + " | " + connectURLSlashEscaped + "</html>"}}}, want{exitcode.Unavailable, "", "", ""}},
-		{"authContext: decoded message still holds the escaped link bytes", map[string][]chainStep{
+		{"flow (later read): gateway page holding the escaped link bytes", map[string][]chainStep{
 			"StartConnection": start,
-			"AuthContext":     {{body: gqlErr("upstream said "+strings.ReplaceAll(connectURLBothEscaped, `\`, `\\`), `"code":"FORBIDDEN"`)}}}, want{exitcode.Forbidden, "FORBIDDEN", "upstream said", ""}},
-		{"authContext: decoded message holds the link with only the ampersand escaped", map[string][]chainStep{
+			"ConnectionFlow":  {{body: pend}, {status: 502, body: "<html>" + connectURLBothEscaped + " | " + connectURLAmpEscaped + " | " + connectURLSlashEscaped + "</html>"}}}, want{exitcode.Unavailable, "", "", ""}},
+		{"flow (first read): decoded message still holds the escaped link bytes", map[string][]chainStep{
 			"StartConnection": start,
-			"AuthContext":     {{body: gqlErr("upstream said "+strings.ReplaceAll(connectURLAmpEscaped, `\`, `\\`), `"code":"FORBIDDEN"`)}}}, want{exitcode.Forbidden, "FORBIDDEN", "upstream said", ""}},
-		{"authContext: JSON source escapes decode to the raw link", map[string][]chainStep{
+			"ConnectionFlow":  {{body: gqlErr("upstream said "+strings.ReplaceAll(connectURLBothEscaped, `\`, `\\`), `"code":"FORBIDDEN"`)}}}, want{exitcode.Forbidden, "FORBIDDEN", "no such connection flow", ""}},
+		{"flow (first read): decoded message holds the link with only the ampersand escaped", map[string][]chainStep{
 			"StartConnection": start,
-			"AuthContext":     {{body: gqlErr("upstream said "+connectURLBothEscaped, `"code":"FORBIDDEN"`)}}}, want{exitcode.Forbidden, "FORBIDDEN", "upstream said <redacted>", ""}},
-		{"baseline list: safe message, secret in extensions, no code", map[string][]chainStep{
-			"StartConnection": start, "AuthContext": me,
-			"EmailConnections": {{body: gqlErr("refused", `"detail":"`+connectURL+`"`)}}}, want{exitcode.Error, "", "refused", ""}},
-		{"poll: mapped refusal with a serverCode", map[string][]chainStep{
-			"StartConnection": start, "AuthContext": me,
-			"EmailConnections": {{body: connRows()}, {body: gqlErr("refused", `"code":"UNAUTHENTICATED","detail":"`+connectURL+`"`)}}}, want{exitcode.AuthRequired, "UNAUTHENTICATED", "refused", ""}},
-		{"poll: secret in a non-200 body", map[string][]chainStep{
-			"StartConnection": start, "AuthContext": me,
-			"EmailConnections": {{body: connRows()}, {status: 400, body: gqlErr("bad", `"code":"BAD_USER_INPUT","detail":"`+connectURL+`"`)}}}, want{exitcode.Usage, "BAD_USER_INPUT", "", ""}},
-		{"poll: gateway page naming the link", map[string][]chainStep{
-			"StartConnection": start, "AuthContext": me,
-			"EmailConnections": {{body: connRows()}, {status: 502, body: "<html>bad gateway for " + connectURL + "</html>"}}}, want{exitcode.Unavailable, "", "", ""}},
-		{"poll: connection dropped (non-secret control)", map[string][]chainStep{
-			"StartConnection": start, "AuthContext": me,
-			"EmailConnections": {{body: connRows()}, {drop: true}}}, want{exitcode.Unavailable, "", "the connection dropped", ""}},
-		{"poll: timeout (non-secret control)", map[string][]chainStep{
-			"StartConnection": start, "AuthContext": me,
-			"EmailConnections": rows}, want{exitcode.WaitTimeout, "", "not found yet", ""}},
+			"ConnectionFlow":  {{body: gqlErr("upstream said "+strings.ReplaceAll(connectURLAmpEscaped, `\`, `\\`), `"code":"FORBIDDEN"`)}}}, want{exitcode.Forbidden, "FORBIDDEN", "no such connection flow", ""}},
+		{"flow (first read): JSON source escapes decode to the raw link", map[string][]chainStep{
+			"StartConnection": start,
+			"ConnectionFlow":  {{body: gqlErr("upstream said "+connectURLBothEscaped, `"code":"FORBIDDEN"`)}}}, want{exitcode.Forbidden, "FORBIDDEN", "no such connection flow", ""}},
+		{"flow (first read, no code): safe message, secret in extensions, no code", map[string][]chainStep{
+			"StartConnection": start,
+			"ConnectionFlow":  {{body: gqlErr("refused", `"detail":"`+connectURL+`"`)}}}, want{exitcode.Error, "", "refused", ""}},
+		{"flow (later read): mapped refusal with a serverCode", map[string][]chainStep{
+			"StartConnection": start,
+			"ConnectionFlow":  {{body: pend}, {body: gqlErr("refused", `"code":"UNAUTHENTICATED","detail":"`+connectURL+`"`)}}}, want{exitcode.AuthRequired, "UNAUTHENTICATED", "refused", ""}},
+		{"flow (later read): secret in a non-200 body", map[string][]chainStep{
+			"StartConnection": start,
+			"ConnectionFlow":  {{body: pend}, {status: 400, body: gqlErr("bad", `"code":"BAD_USER_INPUT","detail":"`+connectURL+`"`)}}}, want{exitcode.Usage, "BAD_USER_INPUT", "", ""}},
+		{"flow (later read): gateway page naming the link", map[string][]chainStep{
+			"StartConnection": start,
+			"ConnectionFlow":  {{body: pend}, {status: 502, body: "<html>bad gateway for " + connectURL + "</html>"}}}, want{exitcode.Unavailable, "", "", ""}},
+		{"flow (later read): connection dropped (non-secret control)", map[string][]chainStep{
+			"StartConnection": start,
+			"ConnectionFlow":  {{body: pend}, {drop: true}}}, want{exitcode.Unavailable, "", "the connection dropped", ""}},
+		{"flow (later read): timeout (non-secret control)", map[string][]chainStep{
+			"StartConnection": start,
+			"ConnectionFlow":  pending}, want{exitcode.WaitTimeout, "", "not found yet", ""}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -320,9 +319,12 @@ func TestConnectionConnectReturnedErrorHoldsNoSecretGraph(t *testing.T) {
 					t.Errorf("%T formats the nonce", e)
 				}
 			})
+			// The one place the link may appear is the result document's
+			// authorizeUrl field, which a timeout still prints (cli#1569).
+			rendered := strings.ReplaceAll(r.out+r.errOut, `"authorizeUrl": "`+connectURL+`",`, "")
 			for _, n := range needles {
-				if strings.Contains(r.out+r.errOut, n) {
-					t.Errorf("rendered output holds %q: %q", n, r.out+r.errOut)
+				if strings.Contains(rendered, n) {
+					t.Errorf("rendered output holds %q: %q", n, rendered)
 				}
 			}
 		})
@@ -349,9 +351,8 @@ func TestConnectionConnectDetachedErrorDropsJoinedBranches(t *testing.T) {
 // is reachable from it.
 func TestConnectionConnectCancelledPollKeepsItsClassAndHoldsNoRawError(t *testing.T) {
 	r, err := runConnectChain(t, map[string][]chainStep{
-		"StartConnection":  {{body: connectStart}},
-		"AuthContext":      {{body: connectMe}},
-		"EmailConnections": {{body: connRows()}, {cancel: true, body: connRows()}},
+		"StartConnection": {{body: connectStart}},
+		"ConnectionFlow":  {{body: pend}, {cancel: true, body: pend}},
 	})
 	if err == nil || r.code != exitcode.Unavailable {
 		t.Fatalf("exit %d err %v, want 7", r.code, err)
@@ -370,7 +371,7 @@ func TestDetachedKeepsOnlyTheClassificationsTheRawChainHad(t *testing.T) {
 		raw                       error
 		canceled, deadline, quiet bool
 	}{
-		"canceled":      {fmt.Errorf("poll: %w", context.Canceled), true, false, false},
+		"canceled":      {fmt.Errorf("flow (later read): %w", context.Canceled), true, false, false},
 		"deadline":      {exitcode.New(exitcode.Unavailable, fmt.Errorf("x: %w", context.DeadlineExceeded)), false, true, false},
 		"silent":        {exitcode.Silent(exitcode.Conflict), false, false, true},
 		"joined cancel": {errors.Join(errors.New("a"), context.Canceled), true, false, false},
@@ -435,7 +436,6 @@ func TestCompiledConnectErrorSinksStayRedactedAndPublic(t *testing.T) {
 	testFactory(t) // isolated config/token environment for the subprocess
 
 	start := []chainStep{{body: connectStart}}
-	me := []chainStep{{body: connectMe}}
 	for name, tc := range map[string]struct {
 		script map[string][]chainStep
 		code   int
@@ -443,11 +443,11 @@ func TestCompiledConnectErrorSinksStayRedactedAndPublic(t *testing.T) {
 		sc     string
 	}{
 		"safe message over a secret extension": {map[string][]chainStep{"StartConnection": start,
-			"AuthContext": {{body: gqlErr("refused", `"code":"FORBIDDEN","detail":"`+connectURL+`"`)}}}, exitcode.Forbidden, "refused", "FORBIDDEN"},
+			"ConnectionFlow": {{body: gqlErr("refused", `"code":"FORBIDDEN","detail":"`+connectURL+`"`)}}}, exitcode.Forbidden, "no such connection flow", "FORBIDDEN"},
 		"secret in the message": {map[string][]chainStep{"StartConnection": start,
-			"AuthContext": me, "EmailConnections": {{body: connRows()}, {body: gqlErr(leakMsg, `"code":"UNAUTHENTICATED"`)}}}, exitcode.AuthRequired, "upstream said <redacted>", "UNAUTHENTICATED"},
+			"ConnectionFlow": {{body: pend}, {body: gqlErr(leakMsg, `"code":"UNAUTHENTICATED"`)}}}, exitcode.AuthRequired, "upstream said <redacted>", "UNAUTHENTICATED"},
 		"gateway page naming the link": {map[string][]chainStep{"StartConnection": start,
-			"AuthContext": me, "EmailConnections": {{body: connRows()}, {status: 502, body: "<html>" + connectURL + "</html>"}}}, exitcode.Unavailable, "HTTP 502", ""},
+			"ConnectionFlow": {{body: pend}, {status: 502, body: "<html>" + connectURL + "</html>"}}}, exitcode.Unavailable, "HTTP 502", ""},
 	} {
 		srv := newChainServer(t, tc.script, func() {})
 		for _, mode := range []string{"text", "json"} {

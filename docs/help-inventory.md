@@ -344,6 +344,7 @@ section between the markers.
 | `app whoami` |  |  | y | #1053 |  | unread |  |
 | `connection` | connections, conn |  | n | #1053 |  | unread |  |
 | `connection connect` |  |  | y | #1053 |  | unread |  |
+| `connection flow` |  |  | y | #1053 |  | unread |  |
 | `connection grant` | grants |  | n | #1053 |  | unread |  |
 | `connection grant create` |  |  | y | #1053 |  | unread |  |
 | `connection grant get` |  |  | y | #1053 |  | unread |  |
