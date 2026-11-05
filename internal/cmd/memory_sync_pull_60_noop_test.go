@@ -285,7 +285,11 @@ func TestMemorySyncPull60NullPreflightDelegates(t *testing.T) {
 			root := NewRootCmd(f)
 			root.SetArgs([]string{"memory", "sync", "pull", "acme.com:kb", "--yes", "--json", "--server", gql.URL})
 			err := root.Execute()
-			if got := renderError(f, err); got != tc.want || len(calls) != 2 || calls["SyncMemory"] == nil {
+			got := 0
+			if err != nil {
+				got = renderError(f, err)
+			}
+			if got != tc.want || len(calls) != 2 || calls["SyncMemory"] == nil {
 				t.Fatalf("exit=%d want=%d err=%v calls=%v", got, tc.want, err, calls)
 			}
 			var vars map[string]any

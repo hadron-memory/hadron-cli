@@ -70,13 +70,11 @@ syncReportStatus,syncReport}. URL credentials in sync errors are masked.`,
 			if err != nil {
 				return syncPullError(err, ref, false)
 			}
-			if preflight == nil || preflight.Memory == nil {
-				return notFoundMemory(ref)
-			}
+			// A null read cannot establish absence or authority: delegate to sync.
 			// Presence only: never render, persist or echo the stored URL.
 			// Encrypted rows always reach the server's writer/encryption gates,
 			// even without source. Do not reproduce that refusal client-side.
-			if !preflight.Memory.IsEncrypted && (preflight.Memory.Source == nil || *preflight.Memory.Source == "") {
+			if preflight != nil && preflight.Memory != nil && !preflight.Memory.IsEncrypted && (preflight.Memory.Source == nil || *preflight.Memory.Source == "") {
 				return exitcode.Newf(exitcode.Usage, "this memory has no configured repository; no sync mutation was sent")
 			}
 			resp, err := gen.SyncMemory(cmd.Context(), client, ref)
