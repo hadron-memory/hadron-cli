@@ -53,6 +53,20 @@ func writeReadGrant(f *cmdutil.Factory, d readGrantDTO) error {
 	})
 }
 
+// sameReadGrantScope reports whether the returned grant is for the memory and
+// prefix that were asked for. The memory is compared only when the asked-for
+// reference is a memory URN (an opaque id cannot be compared with the URN the
+// server returns, and no resolution rule is invented for it).
+func sameReadGrantScope(d readGrantDTO, mem string, pfx *string) bool {
+	if (pfx == nil) != (d.Prefix == nil) || (pfx != nil && *pfx != *d.Prefix) {
+		return false
+	}
+	if strings.HasPrefix(mem, "hrn:mem:") {
+		return d.MemoryURN != nil && cmdutil.CanonicalMemoryRef(*d.MemoryURN) == mem
+	}
+	return true
+}
+
 func newCmdGrant(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{Use: "grant <command>", Short: "Give an automation read-only access to one memory or loc prefix", Long: `Manage per-automation READ grants (cor:agt:010:01, rulings 0079/0081). A live
 schedule or webhook of an App may read one memory, or one loc prefix of it,
@@ -135,8 +149,8 @@ lost, list grants to check before trying again.`,
 			if err != nil {
 				return err
 			}
-			if d.TriggerKind != kind || d.TriggerID != id || d.RevokedAt != nil || d.RevokedBy != nil {
-				return exitcode.Newf(exitcode.Error, "the server did not confirm a live grant for the selected trigger; list grants before retrying")
+			if d.TriggerKind != kind || d.TriggerID != id || d.RevokedAt != nil || d.RevokedBy != nil || !sameReadGrantScope(d, mem, pfx) {
+				return exitcode.Newf(exitcode.Error, "the server did not confirm a live grant for the selected trigger, memory and prefix; list grants before retrying")
 			}
 			return writeReadGrant(f, d)
 		}}
@@ -191,15 +205,18 @@ excluded unless --include-revoked. JSON is an array; empty is [].`,
 			if err != nil {
 				return api.MapError(err)
 			}
+			if r == nil || r.AutomationReadGrants == nil {
+				// The field is non-null in the schema: a missing list is a malformed
+				// answer, never an empty inventory.
+				return exitcode.Newf(exitcode.Error, "the server returned no read grant list")
+			}
 			rows := []readGrantDTO{}
-			if r != nil {
-				for _, g := range r.AutomationReadGrants {
-					d, err := readGrantFrom(g.AutomationReadGrantFields)
-					if err != nil {
-						return err
-					}
-					rows = append(rows, d)
+			for _, g := range r.AutomationReadGrants {
+				d, err := readGrantFrom(g.AutomationReadGrantFields)
+				if err != nil {
+					return err
 				}
+				rows = append(rows, d)
 			}
 			return output.Write(f.IOStreams, f.JSON, rows, func(w io.Writer) error {
 				t := output.NewTable(w, "ID", "APP", "MEMORY", "PREFIX", "TRIGGER", "REVOKED")
