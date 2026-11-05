@@ -172,8 +172,8 @@ func newCmdGrantList(f *cmdutil.Factory) *cobra.Command {
 		Short: "List the read grants you may see",
 		Long: `List automation read grants. The server shows an App's managers that App's
 grants, and a target's manager the grants on what they manage; nobody sees
-more. --app and --memory filter; with neither, every grant you may see is
-listed. This does not fall back to the active App. Revoked grants are
+more. Pass --app, --memory or both: the server refuses a list with neither
+(exit 2). This does not fall back to the active App. Revoked grants are
 excluded unless --include-revoked. JSON is an array; empty is [].`,
 		Example: `  hadron automation grant list --app acme.com:ops --json
   hadron automation grant list --memory acme.com:notes --include-revoked`,

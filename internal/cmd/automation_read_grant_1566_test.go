@@ -119,12 +119,12 @@ func TestReadGrant1566SetRefusesAnUnconfirmedGrant(t *testing.T) {
 func TestReadGrant1566ListFiltersAndEmpty(t *testing.T) {
 	r := taskResponses()
 	r["AutomationReadGrants"] = `{"data":{"automationReadGrants":[]}}`
-	calls, out, err := runTeamTask(t, r, readGrantArgs1566("list", "--json")...)
+	calls, out, err := runTeamTask(t, r, readGrantArgs1566("list", "--memory", "acme.com:notes", "--json")...)
 	if err != nil {
 		t.Fatal(err)
 	}
 	c := findCall(t, calls, "AutomationReadGrants")
-	for _, k := range []string{"appRef", "memoryRef", "includeRevoked"} {
+	for _, k := range []string{"appRef", "includeRevoked"} {
 		if _, present := c.Vars[k]; present {
 			t.Fatalf("%s must be omitted when not asked for: %+v", k, c.Vars)
 		}
@@ -209,7 +209,7 @@ func TestReadGrant1566RevokeRefusalMapped(t *testing.T) {
 }
 
 // A supplied-but-blank filter is a mistake, not "no filter": sending nothing
-// would silently widen the listing to every grant the caller may see.
+// would silently drop the filter the caller thought they set.
 func TestReadGrant1566ListBlankFilterIsUsageAndSendsNothing(t *testing.T) {
 	for _, args := range [][]string{{"--memory", "  "}, {"--app", "  "}} {
 		r := taskResponses()
@@ -273,6 +273,37 @@ func TestReadGrant1566ListNullOrMissingIsNotEmpty(t *testing.T) {
 			_, out, err := runTeamTask(t, r, readGrantArgs1566("list", "--json")...)
 			if exitCodeFor(err) != exitcode.Error || strings.TrimSpace(out) == "[]" {
 				t.Fatalf("err=%v out=%q", err, out)
+			}
+		})
+	}
+}
+
+// The server refuses a list with no filter; the CLI passes that refusal through
+// as a usage error after one send (the help says so, so no local rule is invented).
+func TestReadGrant1566BareListIsTheServersUsageRefusal(t *testing.T) {
+	r := taskResponses()
+	r["AutomationReadGrants"] = memberGQLError("pass appRef or memoryRef", "BAD_USER_INPUT")
+	calls, _, err := runTeamTask(t, r, readGrantArgs1566("list")...)
+	if exitCodeFor(err) != exitcode.Usage || len(callsFor(calls, "AutomationReadGrants")) != 1 {
+		t.Fatalf("err=%v calls=%+v", err, *calls)
+	}
+}
+
+// Ralion P3-3: an answer lost after the send is an unknown outcome, said so and
+// never retried.
+func TestReadGrant1566WriteOutcomeUnknownIsSaidAndNotRetried(t *testing.T) {
+	for _, verb := range []string{"set", "revoke"} {
+		t.Run(verb, func(t *testing.T) {
+			r := taskResponses()
+			op := "SetAutomationReadGrant"
+			args := []string{autoApp, "--memory", "acme.com:notes", "--trigger-kind", "SCHEDULE", "--trigger-id", "schedule1", "--yes"}
+			if verb == "revoke" {
+				op, args = "RevokeAutomationReadGrant", []string{"rg1", "--yes"}
+			}
+			r[op] = memberGQLError("boom", "INTERNAL_SERVER_ERROR")
+			calls, _, err := runTeamTask(t, r, readGrantArgs1566(verb, args...)...)
+			if err == nil || !strings.Contains(err.Error(), "outcome unknown") || len(callsFor(calls, op)) != 1 {
+				t.Fatalf("err=%v calls=%+v", err, *calls)
 			}
 		})
 	}
