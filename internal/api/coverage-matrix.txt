@@ -23,7 +23,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 207: 162 command, 25 gap, 20 excluded
+[Query] 207: 163 command, 24 gap, 20 excluded
 actionRegisterIndex  command team register
 actionTickets  command ticket list
 agent  command agent get
@@ -162,7 +162,7 @@ nodeUsage  excluded deprecated: @deprecated: Use usageEvents(loc: <loc>) — ide
 object  command object get
 organization  command org get
 organizations  command org list
-previewAgentSchedule  gap #1678
+previewAgentSchedule  command schedule preview
 previewAutomation  command automation preview
 principalGrant  command grant get
 principalGrants  command grant list

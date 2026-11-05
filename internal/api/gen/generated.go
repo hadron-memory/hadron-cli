@@ -1361,6 +1361,34 @@ func (v *AgentScheduleFields) GetNextRunAt() *string { return v.NextRunAt }
 // GetCreatedAt returns AgentScheduleFields.CreatedAt, and is useful for accessing the field via an interface.
 func (v *AgentScheduleFields) GetCreatedAt() string { return v.CreatedAt }
 
+type AgentSchedulePreviewOutcome string
+
+const (
+	// The automation can be adopted: summary and hash are set, reason is null.
+	AgentSchedulePreviewOutcomeAdoptable AgentSchedulePreviewOutcome = "ADOPTABLE"
+	// Create would store this schedule UNADOPTED: summary and hash are null and reason says which kind.
+	AgentSchedulePreviewOutcomeCannotBeAdopted AgentSchedulePreviewOutcome = "CANNOT_BE_ADOPTED"
+)
+
+var AllAgentSchedulePreviewOutcome = []AgentSchedulePreviewOutcome{
+	AgentSchedulePreviewOutcomeAdoptable,
+	AgentSchedulePreviewOutcomeCannotBeAdopted,
+}
+
+type AgentSchedulePreviewReason string
+
+const (
+	// The entry or something it routes to is missing or not readable by you or by the run. A missing entry and an unreadable one answer identically.
+	AgentSchedulePreviewReasonMemoryUnreadable AgentSchedulePreviewReason = "MEMORY_UNREADABLE"
+	// Readable, but the graph is encrypted, outside the organization or over the consent bounds.
+	AgentSchedulePreviewReasonOther AgentSchedulePreviewReason = "OTHER"
+)
+
+var AllAgentSchedulePreviewReason = []AgentSchedulePreviewReason{
+	AgentSchedulePreviewReasonMemoryUnreadable,
+	AgentSchedulePreviewReasonOther,
+}
+
 // AgentSchedulesAgentSchedulesAgentSchedulesPage includes the requested fields of the GraphQL type AgentSchedulesPage.
 type AgentSchedulesAgentSchedulesAgentSchedulesPage struct {
 	Total int                                                                 `json:"total"`
@@ -63611,6 +63639,193 @@ func (v *PRVerdictResponse) GetRecordReviewVerdict() *PRVerdictRecordReviewVerdi
 	return v.RecordReviewVerdict
 }
 
+// #3457: what a schedule would do, asked before it exists. The inputs create takes that the pin or the timing sentence depend on; the schedule's own name, policy and scope never do. Resolved exactly as createAgentSchedule resolves them.
+type PreviewAgentScheduleInput struct {
+	// Agent - ref: PK or URN; must be installed in the App.
+	AgentRef     *string `json:"agentRef,omitempty"`
+	AiConfigName *string `json:"aiConfigName,omitempty"`
+	// App the run would execute as - ref: PK or fully-qualified URN.
+	AppRef        string `json:"appRef"`
+	BudgetActions *int   `json:"budgetActions,omitempty"`
+	BudgetTokens  *int   `json:"budgetTokens,omitempty"`
+	// Recurring: 5-field cron, evaluated in timezone (default UTC). Provide exactly one of cron / runAt.
+	Cron    *string `json:"cron,omitempty"`
+	Enabled *bool   `json:"enabled,omitempty"`
+	// Fully-qualified URN of the prompt node to run.
+	EntryNodeUrn string `json:"entryNodeUrn"`
+	// Static payload; only its __aiConfigName entry can change what is previewed.
+	EventData *json.RawMessage `json:"eventData,omitempty"`
+	RunAsSelf *bool            `json:"runAsSelf,omitempty"`
+	// One-shot: ISO-8601 instant. Provide exactly one of cron / runAt.
+	RunAt    *string `json:"runAt,omitempty"`
+	Timezone *string `json:"timezone,omitempty"`
+}
+
+// GetAgentRef returns PreviewAgentScheduleInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *PreviewAgentScheduleInput) GetAgentRef() *string { return v.AgentRef }
+
+// GetAiConfigName returns PreviewAgentScheduleInput.AiConfigName, and is useful for accessing the field via an interface.
+func (v *PreviewAgentScheduleInput) GetAiConfigName() *string { return v.AiConfigName }
+
+// GetAppRef returns PreviewAgentScheduleInput.AppRef, and is useful for accessing the field via an interface.
+func (v *PreviewAgentScheduleInput) GetAppRef() string { return v.AppRef }
+
+// GetBudgetActions returns PreviewAgentScheduleInput.BudgetActions, and is useful for accessing the field via an interface.
+func (v *PreviewAgentScheduleInput) GetBudgetActions() *int { return v.BudgetActions }
+
+// GetBudgetTokens returns PreviewAgentScheduleInput.BudgetTokens, and is useful for accessing the field via an interface.
+func (v *PreviewAgentScheduleInput) GetBudgetTokens() *int { return v.BudgetTokens }
+
+// GetCron returns PreviewAgentScheduleInput.Cron, and is useful for accessing the field via an interface.
+func (v *PreviewAgentScheduleInput) GetCron() *string { return v.Cron }
+
+// GetEnabled returns PreviewAgentScheduleInput.Enabled, and is useful for accessing the field via an interface.
+func (v *PreviewAgentScheduleInput) GetEnabled() *bool { return v.Enabled }
+
+// GetEntryNodeUrn returns PreviewAgentScheduleInput.EntryNodeUrn, and is useful for accessing the field via an interface.
+func (v *PreviewAgentScheduleInput) GetEntryNodeUrn() string { return v.EntryNodeUrn }
+
+// GetEventData returns PreviewAgentScheduleInput.EventData, and is useful for accessing the field via an interface.
+func (v *PreviewAgentScheduleInput) GetEventData() *json.RawMessage { return v.EventData }
+
+// GetRunAsSelf returns PreviewAgentScheduleInput.RunAsSelf, and is useful for accessing the field via an interface.
+func (v *PreviewAgentScheduleInput) GetRunAsSelf() *bool { return v.RunAsSelf }
+
+// GetRunAt returns PreviewAgentScheduleInput.RunAt, and is useful for accessing the field via an interface.
+func (v *PreviewAgentScheduleInput) GetRunAt() *string { return v.RunAt }
+
+// GetTimezone returns PreviewAgentScheduleInput.Timezone, and is useful for accessing the field via an interface.
+func (v *PreviewAgentScheduleInput) GetTimezone() *string { return v.Timezone }
+
+// PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreview includes the requested fields of the GraphQL type AgentSchedulePreview.
+// The GraphQL type's documentation follows.
+//
+// #3457: the preview of a schedule that does not exist yet. A snapshot, not a promise: if the graph changes before Create, the hash differs. summary.schedule carries the raw cron, so a plain-language UI renders its own timing.
+type PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreview struct {
+	Outcome AgentSchedulePreviewOutcome `json:"outcome"`
+	// The pin hash the created schedule's automationApproval.hash shows while the graph is unchanged. Null when CANNOT_BE_ADOPTED.
+	Hash    *string                                                                               `json:"hash"`
+	Reason  *AgentSchedulePreviewReason                                                           `json:"reason"`
+	Summary *PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreviewSummaryAutomationSummary `json:"summary"`
+}
+
+// GetOutcome returns PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreview.Outcome, and is useful for accessing the field via an interface.
+func (v *PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreview) GetOutcome() AgentSchedulePreviewOutcome {
+	return v.Outcome
+}
+
+// GetHash returns PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreview.Hash, and is useful for accessing the field via an interface.
+func (v *PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreview) GetHash() *string {
+	return v.Hash
+}
+
+// GetReason returns PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreview.Reason, and is useful for accessing the field via an interface.
+func (v *PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreview) GetReason() *AgentSchedulePreviewReason {
+	return v.Reason
+}
+
+// GetSummary returns PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreview.Summary, and is useful for accessing the field via an interface.
+func (v *PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreview) GetSummary() *PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreviewSummaryAutomationSummary {
+	return v.Summary
+}
+
+// PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreviewSummaryAutomationSummary includes the requested fields of the GraphQL type AutomationSummary.
+// The GraphQL type's documentation follows.
+//
+// #2441: plain-language facts derived from the previewed automation. A fact the pin cannot show says not stated; nothing here is a maximum the approval enforces.
+type PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreviewSummaryAutomationSummary struct {
+	Name     string                                                                                                            `json:"name"`
+	Schedule *string                                                                                                           `json:"schedule"`
+	Reads    []string                                                                                                          `json:"reads"`
+	Writes   []string                                                                                                          `json:"writes"`
+	CannotDo []string                                                                                                          `json:"cannotDo"`
+	Tools    []string                                                                                                          `json:"tools"`
+	Limits   []string                                                                                                          `json:"limits"`
+	Flows    []*PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreviewSummaryAutomationSummaryFlowsAutomationFlowSummary `json:"flows"`
+}
+
+// GetName returns PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreviewSummaryAutomationSummary.Name, and is useful for accessing the field via an interface.
+func (v *PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreviewSummaryAutomationSummary) GetName() string {
+	return v.Name
+}
+
+// GetSchedule returns PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreviewSummaryAutomationSummary.Schedule, and is useful for accessing the field via an interface.
+func (v *PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreviewSummaryAutomationSummary) GetSchedule() *string {
+	return v.Schedule
+}
+
+// GetReads returns PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreviewSummaryAutomationSummary.Reads, and is useful for accessing the field via an interface.
+func (v *PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreviewSummaryAutomationSummary) GetReads() []string {
+	return v.Reads
+}
+
+// GetWrites returns PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreviewSummaryAutomationSummary.Writes, and is useful for accessing the field via an interface.
+func (v *PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreviewSummaryAutomationSummary) GetWrites() []string {
+	return v.Writes
+}
+
+// GetCannotDo returns PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreviewSummaryAutomationSummary.CannotDo, and is useful for accessing the field via an interface.
+func (v *PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreviewSummaryAutomationSummary) GetCannotDo() []string {
+	return v.CannotDo
+}
+
+// GetTools returns PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreviewSummaryAutomationSummary.Tools, and is useful for accessing the field via an interface.
+func (v *PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreviewSummaryAutomationSummary) GetTools() []string {
+	return v.Tools
+}
+
+// GetLimits returns PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreviewSummaryAutomationSummary.Limits, and is useful for accessing the field via an interface.
+func (v *PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreviewSummaryAutomationSummary) GetLimits() []string {
+	return v.Limits
+}
+
+// GetFlows returns PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreviewSummaryAutomationSummary.Flows, and is useful for accessing the field via an interface.
+func (v *PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreviewSummaryAutomationSummary) GetFlows() []*PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreviewSummaryAutomationSummaryFlowsAutomationFlowSummary {
+	return v.Flows
+}
+
+// PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreviewSummaryAutomationSummaryFlowsAutomationFlowSummary includes the requested fields of the GraphQL type AutomationFlowSummary.
+// The GraphQL type's documentation follows.
+//
+// #2441: one flow of an automation (the entry flow or a flow it routes to).
+type PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreviewSummaryAutomationSummaryFlowsAutomationFlowSummary struct {
+	Name   string   `json:"name"`
+	Urn    string   `json:"urn"`
+	Tools  []string `json:"tools"`
+	Writes []string `json:"writes"`
+}
+
+// GetName returns PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreviewSummaryAutomationSummaryFlowsAutomationFlowSummary.Name, and is useful for accessing the field via an interface.
+func (v *PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreviewSummaryAutomationSummaryFlowsAutomationFlowSummary) GetName() string {
+	return v.Name
+}
+
+// GetUrn returns PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreviewSummaryAutomationSummaryFlowsAutomationFlowSummary.Urn, and is useful for accessing the field via an interface.
+func (v *PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreviewSummaryAutomationSummaryFlowsAutomationFlowSummary) GetUrn() string {
+	return v.Urn
+}
+
+// GetTools returns PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreviewSummaryAutomationSummaryFlowsAutomationFlowSummary.Tools, and is useful for accessing the field via an interface.
+func (v *PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreviewSummaryAutomationSummaryFlowsAutomationFlowSummary) GetTools() []string {
+	return v.Tools
+}
+
+// GetWrites returns PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreviewSummaryAutomationSummaryFlowsAutomationFlowSummary.Writes, and is useful for accessing the field via an interface.
+func (v *PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreviewSummaryAutomationSummaryFlowsAutomationFlowSummary) GetWrites() []string {
+	return v.Writes
+}
+
+// PreviewAgentScheduleResponse is returned by PreviewAgentSchedule on success.
+type PreviewAgentScheduleResponse struct {
+	// #3457: what a schedule would do before it exists (org ADMIN of the App, checked first; writes nothing). Admin, App, Agent and timing refusals are createAgentSchedule's errors; an entry create would store UNADOPTED is the typed outcome CANNOT_BE_ADOPTED.
+	PreviewAgentSchedule *PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreview `json:"previewAgentSchedule"`
+}
+
+// GetPreviewAgentSchedule returns PreviewAgentScheduleResponse.PreviewAgentSchedule, and is useful for accessing the field via an interface.
+func (v *PreviewAgentScheduleResponse) GetPreviewAgentSchedule() *PreviewAgentSchedulePreviewAgentScheduleAgentSchedulePreview {
+	return v.PreviewAgentSchedule
+}
+
 // PreviewAutomationResponse is returned by PreviewAutomation on success.
 type PreviewAutomationResponse struct {
 	// #1719: review exact automation graph bytes and digest. triggerRef is the trigger row ID; MANUAL uses the origin AppRun ID. Only its run-as user or the manager of an App-only trigger may preview.
@@ -105121,6 +105336,14 @@ func (v *__PRVerdictInput) GetNode() *string { return v.Node }
 // GetReceipt returns __PRVerdictInput.Receipt, and is useful for accessing the field via an interface.
 func (v *__PRVerdictInput) GetReceipt() *string { return v.Receipt }
 
+// __PreviewAgentScheduleInput is used internally by genqlient
+type __PreviewAgentScheduleInput struct {
+	Input *PreviewAgentScheduleInput `json:"input,omitempty"`
+}
+
+// GetInput returns __PreviewAgentScheduleInput.Input, and is useful for accessing the field via an interface.
+func (v *__PreviewAgentScheduleInput) GetInput() *PreviewAgentScheduleInput { return v.Input }
+
 // __PreviewAutomationInput is used internally by genqlient
 type __PreviewAutomationInput struct {
 	TriggerKind AutomationTriggerKind `json:"triggerKind"`
@@ -132225,6 +132448,58 @@ func PRVerdict(
 	}
 
 	data_ = &PRVerdictResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by PreviewAgentSchedule.
+const PreviewAgentSchedule_Operation = `
+query PreviewAgentSchedule ($input: PreviewAgentScheduleInput!) {
+	previewAgentSchedule(input: $input) {
+		outcome
+		hash
+		reason
+		summary {
+			name
+			schedule
+			reads
+			writes
+			cannotDo
+			tools
+			limits
+			flows {
+				name
+				urn
+				tools
+				writes
+			}
+		}
+	}
+}
+`
+
+// #1678/#3457: read only; no trigger, adoption or write fallback.
+func PreviewAgentSchedule(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *PreviewAgentScheduleInput,
+) (data_ *PreviewAgentScheduleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "PreviewAgentSchedule",
+		Query:  PreviewAgentSchedule_Operation,
+		Variables: &__PreviewAgentScheduleInput{
+			Input: input,
+		},
+	}
+
+	data_ = &PreviewAgentScheduleResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

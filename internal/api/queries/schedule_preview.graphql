@@ -1,0 +1,24 @@
+# #1678/#3457: read only; no trigger, adoption or write fallback.
+# @genqlient(for: "PreviewAgentScheduleInput.agentRef", omitempty: true)
+# @genqlient(for: "PreviewAgentScheduleInput.aiConfigName", omitempty: true)
+# @genqlient(for: "PreviewAgentScheduleInput.budgetActions", omitempty: true)
+# @genqlient(for: "PreviewAgentScheduleInput.budgetTokens", omitempty: true)
+# @genqlient(for: "PreviewAgentScheduleInput.cron", omitempty: true)
+# @genqlient(for: "PreviewAgentScheduleInput.enabled", omitempty: true)
+# @genqlient(for: "PreviewAgentScheduleInput.eventData", omitempty: true)
+# @genqlient(for: "PreviewAgentScheduleInput.runAsSelf", omitempty: true)
+# @genqlient(for: "PreviewAgentScheduleInput.runAt", omitempty: true)
+# @genqlient(for: "PreviewAgentScheduleInput.timezone", omitempty: true)
+query PreviewAgentSchedule(
+  $input: PreviewAgentScheduleInput!
+) {
+  previewAgentSchedule(input: $input) {
+    outcome
+    hash
+    reason
+    summary {
+      name schedule reads writes cannotDo tools limits
+      flows { name urn tools writes }
+    }
+  }
+}
