@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -78,7 +79,12 @@ func TestPR1664SixContracts(t *testing.T) {
 				t.Fatal(out)
 			}
 			if tt.cmd == "readiness" {
-				if dto["ready"] != false || len(dto["slots"].([]any)) != 3 {
+				want := map[string]any{"ready": false, "head": prHead1664, "slots": []any{
+					map[string]any{"slot": "local", "currentTaskId": "s1", "state": "FINISHED", "verdict": "APPROVE", "head": prHead1664, "counts": true},
+					map[string]any{"slot": "blind", "currentTaskId": "s2", "state": "FINISHED", "verdict": "PASS", "head": prHead1664, "counts": true},
+					map[string]any{"slot": "qa:portal", "currentTaskId": nil, "state": "MISSING", "verdict": nil, "head": nil, "counts": false},
+				}}
+				if !reflect.DeepEqual(dto, want) {
 					t.Fatal(out)
 				}
 			} else {
@@ -286,5 +292,38 @@ func TestPR1664Binding(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestPR1664TaskRefusalSafety(t *testing.T) {
+	for _, door := range []string{"freeze", "readiness"} {
+		for _, code := range []string{"TASK_NOT_ASSIGNEE", "TASK_NOT_OWNER", "TASK_ENDED", "TASK_INVALID_TRANSITION", "TASK_NOT_FOUND", "TASK_HANDLE_QUALIFY", "BAD_USER_INPUT", "PROPERTIES_SCHEMA_VIOLATION"} {
+			op := "PRFreeze"
+			args := []string{door, "task1", prHead1664}
+			if door == "readiness" {
+				op = "PRReadiness"
+				args = []string{door, "task1", "--head", prHead1664}
+			}
+			reply := `{"errors":[{"message":"refused \u001b[31mred\u001b[0m text","extensions":{"code":"` + code + `"}}]}`
+			text, n, _, err := runPR1664(t, op, reply, args...)
+			if err == nil || n != 1 || strings.Contains(text, "\x1b") || !strings.Contains(text, code) {
+				t.Fatalf("%s %s: calls=%d err=%v text=%q", door, code, n, err, text)
+			}
+			out, _, _, _ := runPR1664(t, op, reply, append(args, "--json")...)
+			var dto map[string]any
+			if json.Unmarshal([]byte(out), &dto) != nil || dto["error"].(map[string]any)["serverCode"] != code {
+				t.Fatal(out)
+			}
+		}
+	}
+}
+func TestPR1664FailingSlotContract(t *testing.T) {
+	slots := []any{map[string]any{"slot": "qa:cli", "currentTaskId": nil, "state": "MISSING", "verdict": nil, "head": nil, "counts": false}, map[string]any{"slot": "local", "currentTaskId": "s1", "state": "STARTED", "verdict": "FAIL", "head": prHead1664, "counts": false}}
+	raw, _ := json.Marshal(slots)
+	reply := `{"errors":[{"message":"refused","extensions":{"code":"PR_NOT_READY","slots":` + string(raw) + `}}]}`
+	out, _, _, _ := runPR1664(t, "PRReady", reply, "ready", "task1", "--head", prHead1664, "--json")
+	var dto map[string]any
+	if json.Unmarshal([]byte(out), &dto) != nil || !reflect.DeepEqual(dto["error"].(map[string]any)["slots"], slots) {
+		t.Fatal(out)
 	}
 }
