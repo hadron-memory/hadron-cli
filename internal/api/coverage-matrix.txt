@@ -677,7 +677,7 @@ Query.automationTeamSnapshotGrants(triggerKind)  gap #1617
 Query.dueWakes(instruction)  gap #1617
 Query.node(memoryRef)  excluded not-a-capability: the CLI composes -m and a bare loc into the full node URN, which the SDL documents as the equivalent address (the one case memoryRef adds, forcing loc reading of an unprefixed 3+-segment ref, the hrn:node: form already removes); proposed class, specs engineer to accept
 
-[Filters] 74: 65 flag, 5 gap, 4 excluded
+[Filters] 74: 66 flag, 4 gap, 4 excluded
 Query.agentTasks(reference.kind)  flag team task list --ref-kind
 Query.agentTasks(reference.target)  flag team task list --ref
 Query.agents(filter.ownedByMe)  flag agent list --owned-by-me
@@ -728,7 +728,7 @@ Query.findNodes(filter.memoryClasses)  flag node list --memory-class
 Query.findNodes(filter.memoryIds)  flag node list --memory
 Query.findNodes(filter.minted)  flag spec list --minted --unminted
 Query.findNodes(filter.nodeType)  flag node list --type
-Query.findNodes(filter.nodeTypes)  gap #1528
+Query.findNodes(filter.nodeTypes)  flag node list --types
 Query.findNodes(filter.objectType)  flag node list --object-type
 Query.findNodes(filter.role)  flag node list --role
 Query.findNodes(filter.tags)  flag node list --tag
