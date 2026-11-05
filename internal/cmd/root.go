@@ -470,12 +470,26 @@ func renderError(f *cmdutil.Factory, err error) int {
 		if errors.As(err, &matched) && matched.BatchReason() != "" {
 			failure["reason"] = matched.BatchReason()
 		}
+		hasThreadWrapper := false
 		details := api.CommentRecoveryDetails(err)
 		if details == nil {
 			details = api.WorkerReportingDetails(err)
 		}
 		if cloneDetails := api.CloneAgentDetails(err); cloneDetails != nil {
 			details = cloneDetails
+		}
+		// cli#1690: a `comment add` reply that failed after the conflict names
+		// the thread it was aimed at, whatever the reply's own refusal carried.
+		var threaded interface{ ThreadID() string }
+		if errors.As(err, &threaded) {
+			hasThreadWrapper = true
+			if details == nil {
+				details = map[string]any{}
+				if serverCode := api.ServerCodeOf(err); serverCode != "" {
+					details["code"] = serverCode
+				}
+			}
+			details["threadId"] = threaded.ThreadID()
 		}
 		if details != nil {
 			failure["extensions"] = details
@@ -504,8 +518,10 @@ func renderError(f *cmdutil.Factory, err error) int {
 				message += fmt.Sprintf(" (server code: %v)", reporting["code"])
 			}
 			for _, key := range []string{"currentRevision", "threadId", "class"} {
-				if value, ok := details[key]; ok {
-					message += fmt.Sprintf(" (%s: %v)", key, value)
+				if value, ok := details[key]; ok && (key != "threadId" || !hasThreadWrapper || !strings.Contains(message, fmt.Sprint(value))) {
+					// The detail comes from the server: control, format and
+					// separator characters cannot reach the terminal or forge a line.
+					message += fmt.Sprintf(" (%s: %s)", key, output.SafeLine(fmt.Sprint(value), 256))
 				}
 			}
 			fmt.Fprintf(f.IOStreams.ErrOut, "hadron: %s\n", message)

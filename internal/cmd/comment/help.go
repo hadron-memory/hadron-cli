@@ -30,6 +30,7 @@ only these commands can write them: node update and node rm refuse (exit 2).
 ` + counterHelp
 
 const groupExample = `  hadron comment create onboarding -m hrn:mem:acme.com:kb --body "Should this mention make lint?"
+  hadron comment add onboarding -m hrn:mem:acme.com:kb --body "Step 3 is out of date"
   hadron comment list onboarding -m hrn:mem:acme.com:kb
   hadron comment reply hrn:node:acme.com:kb:comments:01a18996fd187b77859b2190c6c51cc6 --body "Yes, added."
   hadron comment resolve hrn:node:acme.com:kb:comments:01a18996fd187b77859b2190c6c51cc6 --expected-revision 1`
@@ -49,6 +50,7 @@ is the "revision:" line of hadron node get <node>).
 
 You can have one open thread per node. If you already have one, the command
 exits 5 and names it (threadId): reply to it, or resolve or delete it first.
+To start a thread or append to your open one in a single call, use comment add.
 A comment cannot be the target of another comment; use comment reply. Needs
 write access to the memory.
 

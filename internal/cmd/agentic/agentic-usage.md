@@ -3851,7 +3851,8 @@ hadron ticket mint --org acme.com --action comm.outbound --count 100 --note 'dig
 ## Governed comments (`hadron comment`)
 
 ```
-hadron comment create|add <target-ref> --body <text|->|--body-file <path> [-m <memory>] [--quote <text>] [--anchor-revision N]
+hadron comment create <target-ref> --body <text|->|--body-file <path> [-m <memory>] [--quote <text>] [--anchor-revision N]
+hadron comment add <target-ref> --body <text|->|--body-file <path> [-m <memory>] [--quote <text>] [--anchor-revision N]
 hadron comment reply <comment-ref> --body <text|->|--body-file <path> [-m <memory>]
 hadron comment edit <comment-ref> --expected-revision N [-m <memory>] [--body <text|->|--body-file <path>] [--quote <text>]
 hadron comment delete <comment-ref> --expected-revision N [-m <memory>] [--yes]
@@ -3860,6 +3861,31 @@ hadron comment resolve <root-ref> --expected-revision N [-m <memory>] [--reopen]
 hadron comment get <comment-ref> [-m <memory>]
 hadron comment list <target-ref> [-m <memory>] [--state OPEN,RESOLVED] [--limit N] [--offset N]
 ```
+
+**Leaving feedback at the end of a task: use `comment add`, not `create`.** `add` is
+one call that works whether or not you already hold an open thread on the node
+(`create` is refused with `COMMENT_OPEN_THREAD_EXISTS`, exit 5, when you do).
+It sends one `createComment`; if the server answers with that typed conflict and
+the thread's `threadId`, it sends exactly one `replyToComment` to that thread.
+Any other failure is returned unchanged (same exit code) with no reply and no
+retry. Exit 0 on both outcomes. `--json`:
+`{"outcome":"started"|"replied","threadId":"<id>","composedQuote":<bool>,"comment":{…}}`
+(`threadId` is the new comment's id when started, your existing thread's id when
+replied). A reply has no quote or anchor field, so on the reply path `--quote`
+and `--anchor-revision` are written as a Markdown blockquote above the text
+(`composedQuote: true`). If the reply itself is refused (thread deleted, access
+lost) the exit code and server code are the reply's, the message names the
+thread, and the JSON error carries `extensions.threadId`. If your thread was
+resolved in the instant between the two calls the reply is recorded and the
+thread stays resolved: `add` guarantees the feedback is on the node, not that it
+is listed as unresolved. A conflict whose `threadId` contains control, format or
+separator characters (or is over 256 runes) is not a usable thread: the original
+refusal is returned and no reply is sent; the human refusal line renders any
+`currentRevision`/`threadId`/`class` detail with such characters replaced by spaces
+(`--json` keeps the original value, JSON-escaped). A success body with no usable id (for
+example `{}`) is not a recorded outcome: `add` exits 7 (outcome unknown, read
+before retrying) and prints nothing; after a conflict the message names the
+thread. `comment create` is unchanged and no longer has an `add` alias.
 
 Refs are node IDs, qualified node URNs, or bare locs with `-m`. Create anchors
 to the current target revision unless `--anchor-revision` chooses a retained

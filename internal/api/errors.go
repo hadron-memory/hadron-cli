@@ -3,12 +3,14 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/vektah/gqlparser/v2/gqlerror"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 // serverError renders a GraphQL failure as the server's own message and
@@ -102,6 +104,56 @@ func CommentRecoveryDetails(err error) map[string]any {
 		}
 	}
 	return nil
+}
+
+// OpenThreadConflictID reads a createComment refusal for `comment add`
+// (cli#1690): it returns the existing thread's id only when the FIRST GraphQL
+// error carries the typed code COMMENT_OPEN_THREAD_EXISTS and a non-empty
+// string extensions.threadId. Anything else — another code, the conflict code
+// without a usable threadId, the conflict as a later error, message text that
+// merely mentions it — is not a recoverable conflict. A 5xx envelope is
+// excluded too: it is not proof the write was refused (FromNon200Envelope).
+// Call it on the error MapError returned or on the raw one; both keep the chain.
+func OpenThreadConflictID(err error) (string, bool) {
+	if err == nil || FromNon200Envelope(err) {
+		return "", false
+	}
+	list := graphQLErrors(err)
+	if len(list) == 0 || extensionCode(list[0]) != "COMMENT_OPEN_THREAD_EXISTS" {
+		return "", false
+	}
+	id, ok := list[0].Extensions["threadId"].(string)
+	// The id is printed in add's headline and in its reply-failure text, and it
+	// is the reference the reply is sent to, so it cannot be cleaned: one with
+	// control, format or separator characters (or past the one-line bound) is
+	// not a usable thread, and the original refusal stands.
+	if !ok || id == "" || output.SafeLine(id, 256) != id {
+		return "", false
+	}
+	return id, true
+}
+
+// threadError names the thread a failed follow-up call was aimed at, so the
+// message and the --json error envelope can say which thread the caller's
+// feedback did not reach (cli#1690). Unwrap keeps the exit code, the server
+// code and the GraphQL chain exactly as the refusal had them.
+type threadError struct {
+	error
+	thread string
+}
+
+func (e *threadError) Error() string {
+	return fmt.Sprintf("reply to your open thread %s failed: %s", e.thread, e.error.Error())
+}
+func (e *threadError) Unwrap() error    { return e.error }
+func (e *threadError) ThreadID() string { return e.thread }
+
+// WithThreadID wraps err so it names thread. A nil err stays nil.
+func WithThreadID(err error, thread string) error {
+	if err == nil {
+		return nil
+	}
+	return &threadError{error: err, thread: thread}
 }
 
 // reportingError scopes preservation of any server refusal code to this operation.
