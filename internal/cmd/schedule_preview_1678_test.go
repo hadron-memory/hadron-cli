@@ -240,3 +240,62 @@ func TestSchedulePreview1678WithheldNeverPrintsIdentity(t *testing.T) {
 		}
 	}
 }
+
+// A typed exit-5 refusal is also an error, so err != nil cannot pin rejection
+// of an unknown reason. Neither output mode may echo a provider-made identity.
+func TestSchedulePreview1678UnknownReasonIsMalformed(t *testing.T) {
+	const secret = "acme-secret-memory"
+	reply := `{"data":{"previewAgentSchedule":{"outcome":"CANNOT_BE_ADOPTED","reason":"` + secret + `","hash":null,"summary":null}}}`
+	for _, asJSON := range []bool{false, true} {
+		args := previewArgs1678()
+		if asJSON {
+			args = append(args, "--json")
+		}
+		out, stderr, calls, err := runPreview1678(t, reply, args...)
+		if exitCodeFor(err) != 7 || len(calls) != 1 || strings.Contains(out+stderr, secret) || strings.Contains(out+stderr, "ADOPTABLE") {
+			t.Fatalf("json=%v exit=%d calls=%d out=%q stderr=%q", asJSON, exitCodeFor(err), len(calls), out, stderr)
+		}
+	}
+}
+
+func TestSchedulePreview1678EveryHumanCellIsSafe(t *testing.T) {
+	// Distinct markers pin each field's presence and keep newline flattening
+	// observable without forbidding the renderer's own layout newlines.
+	cell := func(label string) string { return label + "\x1b\nTAIL" }
+	labels := []string{"name", "schedule", "reads", "writes", "cannotDo", "tools", "limits", "flow-name", "flow-urn", "flow-tools", "flow-writes"}
+	summary := map[string]any{"name": cell("name"), "schedule": cell("schedule")}
+	for _, field := range []string{"reads", "writes", "cannotDo", "tools", "limits"} {
+		summary[field] = []string{cell(field)}
+	}
+	summary["flows"] = []any{map[string]any{"name": cell("flow-name"), "urn": cell("flow-urn"), "tools": []string{cell("flow-tools")}, "writes": []string{cell("flow-writes")}}}
+	reply, err := json.Marshal(map[string]any{"data": map[string]any{"previewAgentSchedule": map[string]any{"outcome": "ADOPTABLE", "hash": headHash1678, "reason": nil, "summary": summary}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, _, _, err := runPreview1678(t, string(reply), previewArgs1678()...)
+	if err != nil || strings.ContainsRune(out, '\x1b') {
+		t.Fatal(err, out)
+	}
+	for _, label := range labels {
+		if !strings.Contains(out, label+"  TAIL") {
+			t.Fatalf("cell %s missing or newline not flattened: %q", label, out)
+		}
+	}
+	out, _, _, err = runPreview1678(t, string(reply), append(previewArgs1678(), "--json")...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var dto map[string]any
+	if err := json.Unmarshal([]byte(out), &dto); err != nil {
+		t.Fatal(err)
+	}
+	// JSON is a separate contract: retain every original server value.
+	var wire map[string]any
+	if err := json.Unmarshal(reply, &wire); err != nil {
+		t.Fatal(err)
+	}
+	want := wire["data"].(map[string]any)["previewAgentSchedule"].(map[string]any)["summary"]
+	if !reflect.DeepEqual(dto["summary"], want) {
+		t.Fatal(out)
+	}
+}
