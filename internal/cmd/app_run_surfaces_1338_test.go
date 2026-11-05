@@ -118,9 +118,6 @@ func TestAppRunSurfaces1338NullAndRefusal(t *testing.T) {
 				calls, out, err := runTeamTask(t, map[string]string{tc.op: `{"errors":[{"message":"refused","extensions":{"code":"` + refusal.code + `"}}]}`}, append(tc.args, "--json")...)
 				var coded interface{ ServerCode() string }
 				wantExit := refusal.exit
-				if refusal.code == "PERMISSION_DENIED" {
-					wantExit = 1 // generic mapping; asset domain codes are currently concealed by the server formatter
-				}
 				if exitCodeFor(err) != wantExit || !errors.As(err, &coded) || coded.ServerCode() != refusal.code || out != "" || len(*calls) != 1 || (*calls)[0].Op != tc.op {
 					t.Fatalf("code=%s err=%v out=%s calls=%v", refusal.code, err, out, *calls)
 				}
@@ -261,9 +258,8 @@ func TestAppRunSurfaces1338ConcealedMemoryText(t *testing.T) {
 	}
 }
 
-// The real server formatter conceals the asset operation's unmapped domain
-// refusals as INTERNAL_SERVER_ERROR. Typed-code cases above are mapper controls,
-// not evidence that this operation currently emits those domain codes.
+// Lookup outages still arrive as INTERNAL_SERVER_ERROR after server#2979
+// made permission/not-found refusals typed. Keep requestId and exit1.
 func TestAppRunSurfaces1338AssetFaultEnvelope(t *testing.T) {
 	const fault = `{"errors":[{"message":"Internal server error.","extensions":{"code":"INTERNAL_SERVER_ERROR","requestId":"req-1338"}}]}`
 	for _, verb := range []string{"enable", "disable"} {

@@ -103,8 +103,8 @@ the existing person call is unchanged. Requires server 5fd87dcc or later.`,
 				}
 			}
 			if err != nil {
-				// Only this new command promises exit 8 for the asset manager
-				// refusal. Preserve the shared mapping used by legacy asset writes.
+				// The legacy wrapper is redundant with cli#1530 shared exit 8,
+				// but preserves this command's established refusal shape.
 				mapped := api.MapError(err)
 				if api.HasErrorCode(err, "PERMISSION_DENIED") {
 					return exitcode.New(exitcode.Forbidden, mapped)

@@ -4879,15 +4879,11 @@ credential or file content is requested. No client authorization is added.
 
 For these new commands, auth/transport refusals retain exits 3/7; FORBIDDEN and
 AVAILABILITY_NOT_PERMITTED exit 8, NOT_FOUND exits 4, BAD_USER_INPUT exits 2.
-Current server limitation: the asset-upload setting's SetAssetEnabledError
-refusals (non-admin, unknown/unreadable Agent) are not registered in its GraphQL
-formatter. They arrive as INTERNAL_SERVER_ERROR, exit 1 with requestId, not typed
-permission/not-found codes. The CLI preserves the actual wire code and never
-infers access or existence from the message. PERMISSION_DENIED has the existing
-generic exit 1; no operation-specific override or future-server exit is promised.
-
-This server formatter defect is tracked in hadron-server#2979; this CLI change
-does not fix it or classify its hidden domain code by message.
+Asset-upload setting providers containing server#2979 (dadc314a) send
+PERMISSION_DENIED (shared exit 8) and concealing NOT_FOUND (exit 4 for missing or
+unreadable Agent alike). Lookup INTERNAL_SERVER_ERROR stays exit 1 with requestId.
+Older providers may still conceal domain errors as internal faults. Classify
+only extensions.code, never prose; no scoped override or retry.
 
 ## Resend senders and platform invitations
 
