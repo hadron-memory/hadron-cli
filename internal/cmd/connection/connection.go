@@ -23,6 +23,7 @@ func NewCmdConnection(f *cmdutil.Factory) *cobra.Command {
 		Short:   "Manage external connections and their grants",
 	}
 	cmd.AddCommand(newCmdConnect(f))
+	cmd.AddCommand(newCmdFlow(f))
 	cmd.AddCommand(newCmdGrant(f))
 	return cmd
 }

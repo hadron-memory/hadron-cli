@@ -29835,6 +29835,61 @@ func (v *CompleteAssetUploadResponse) GetCompleteAssetUpload() *CompleteAssetUpl
 	return v.CompleteAssetUpload
 }
 
+// ConnectionFlowConnectionFlow includes the requested fields of the GraphQL type ConnectionFlow.
+// The GraphQL type's documentation follows.
+//
+// Where one connect flow is (#2913, hrn:node:hadronmemory.com:specs:cor:dmo:080:04).
+// Scalars only: it never hands out the connection's own fields.
+type ConnectionFlowConnectionFlow struct {
+	Status ConnectionFlowStatus `json:"status"`
+	// The connection the flow created, or on a reconnect the existing one for the same organization, provider and account. Null unless CONNECTED.
+	ConnectionId *string `json:"connectionId"`
+	// The stable code the done page shows (for example access_denied). Null unless FAILED.
+	FailureCode *string `json:"failureCode"`
+}
+
+// GetStatus returns ConnectionFlowConnectionFlow.Status, and is useful for accessing the field via an interface.
+func (v *ConnectionFlowConnectionFlow) GetStatus() ConnectionFlowStatus { return v.Status }
+
+// GetConnectionId returns ConnectionFlowConnectionFlow.ConnectionId, and is useful for accessing the field via an interface.
+func (v *ConnectionFlowConnectionFlow) GetConnectionId() *string { return v.ConnectionId }
+
+// GetFailureCode returns ConnectionFlowConnectionFlow.FailureCode, and is useful for accessing the field via an interface.
+func (v *ConnectionFlowConnectionFlow) GetFailureCode() *string { return v.FailureCode }
+
+// ConnectionFlowResponse is returned by ConnectionFlow on success.
+type ConnectionFlowResponse struct {
+	// Where the connect flow started by startConnection is (#2913,
+	// hrn:node:hadronmemory.com:specs:cor:dmo:080:04). Readable only by the user
+	// who started it, for one hour from the start; an unknown, expired or
+	// another user's flowId gets one refusal (FORBIDDEN), the same for all
+	// three. Reading writes nothing.
+	ConnectionFlow *ConnectionFlowConnectionFlow `json:"connectionFlow"`
+}
+
+// GetConnectionFlow returns ConnectionFlowResponse.ConnectionFlow, and is useful for accessing the field via an interface.
+func (v *ConnectionFlowResponse) GetConnectionFlow() *ConnectionFlowConnectionFlow {
+	return v.ConnectionFlow
+}
+
+// Where a connect flow is (#2913).
+type ConnectionFlowStatus string
+
+const (
+	// The flow made, or reconnected, the connection in connectionId.
+	ConnectionFlowStatusConnected ConnectionFlowStatus = "CONNECTED"
+	// The flow ended without a connection; failureCode says why.
+	ConnectionFlowStatusFailed ConnectionFlowStatus = "FAILED"
+	// The flow has not completed. An answer, never an error.
+	ConnectionFlowStatusPending ConnectionFlowStatus = "PENDING"
+)
+
+var AllConnectionFlowStatus = []ConnectionFlowStatus{
+	ConnectionFlowStatusConnected,
+	ConnectionFlowStatusFailed,
+	ConnectionFlowStatusPending,
+}
+
 // ConnectionGrantConnectionGrant includes the requested fields of the GraphQL type ConnectionGrant.
 // The GraphQL type's documentation follows.
 //
@@ -79449,6 +79504,10 @@ type StartConnectionStartConnectionConnectionStart struct {
 	AuthorizeUrl string `json:"authorizeUrl"`
 	// When authorizeUrl stops working. Start again after this.
 	ExpiresAt string `json:"expiresAt"`
+	// The id of this flow. connectionFlow(flowId:) says where it is: pending, the
+	// connection it made, or the failure code it ended with. Only the user who
+	// started the flow may read it, for one hour from the start.
+	FlowId string `json:"flowId"`
 }
 
 // GetProvider returns StartConnectionStartConnectionConnectionStart.Provider, and is useful for accessing the field via an interface.
@@ -79466,6 +79525,9 @@ func (v *StartConnectionStartConnectionConnectionStart) GetAuthorizeUrl() string
 
 // GetExpiresAt returns StartConnectionStartConnectionConnectionStart.ExpiresAt, and is useful for accessing the field via an interface.
 func (v *StartConnectionStartConnectionConnectionStart) GetExpiresAt() string { return v.ExpiresAt }
+
+// GetFlowId returns StartConnectionStartConnectionConnectionStart.FlowId, and is useful for accessing the field via an interface.
+func (v *StartConnectionStartConnectionConnectionStart) GetFlowId() string { return v.FlowId }
 
 // StartImpersonationResponse is returned by StartImpersonation on success.
 type StartImpersonationResponse struct {
@@ -102458,6 +102520,14 @@ type __CompleteAssetUploadInput struct {
 // GetUploadId returns __CompleteAssetUploadInput.UploadId, and is useful for accessing the field via an interface.
 func (v *__CompleteAssetUploadInput) GetUploadId() string { return v.UploadId }
 
+// __ConnectionFlowInput is used internally by genqlient
+type __ConnectionFlowInput struct {
+	FlowId string `json:"flowId"`
+}
+
+// GetFlowId returns __ConnectionFlowInput.FlowId, and is useful for accessing the field via an interface.
+func (v *__ConnectionFlowInput) GetFlowId() string { return v.FlowId }
+
 // __ConnectionGrantInput is used internally by genqlient
 type __ConnectionGrantInput struct {
 	Ref string `json:"ref"`
@@ -120228,6 +120298,46 @@ func CompleteAssetUpload(
 	}
 
 	data_ = &CompleteAssetUploadResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by ConnectionFlow.
+const ConnectionFlow_Operation = `
+query ConnectionFlow ($flowId: ID!) {
+	connectionFlow(flowId: $flowId) {
+		status
+		connectionId
+		failureCode
+	}
+}
+`
+
+// Where a connect flow is (hadron-server#2913, cor:dmo:080:04). Read-only; only
+// the user who started the flow may read it, for one hour; an unknown, expired
+// or foreign flowId is one FORBIDDEN. Scalars only: the connection it made is
+// read separately by id.
+func ConnectionFlow(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	flowId string,
+) (data_ *ConnectionFlowResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ConnectionFlow",
+		Query:  ConnectionFlow_Operation,
+		Variables: &__ConnectionFlowInput{
+			FlowId: flowId,
+		},
+	}
+
+	data_ = &ConnectionFlowResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -139102,6 +139212,7 @@ mutation StartConnection ($provider: ConnectionProvider!, $orgRef: ID!) {
 		orgId
 		authorizeUrl
 		expiresAt
+		flowId
 	}
 }
 `
