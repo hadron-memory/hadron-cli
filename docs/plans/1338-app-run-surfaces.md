@@ -68,14 +68,10 @@ exits 4 without claiming that no hidden run exists. Null myApp is successful.
 All server failures use MapErrorKeepingCode. Grant FORBIDDEN and general
 AVAILABILITY_NOT_PERMITTED map to8, typed NOT_FOUND to4, BAD_USER_INPUT to2,
 UNAUTHENTICATED to3. These are mapper controls, not a claim that every operation
-emits every code. The asset-setting operation currently throws SetAssetEnabledError
-but the server GraphQL formatter does not register that class: its non-admin,
-unknown/unreadable Agent and missing backing-App refusals become
-INTERNAL_SERVER_ERROR (exit1 with requestId). The CLI preserves the actual wire
-answer; it does not infer access or existence from prose. No scoped
-PERMISSION_DENIED override remains. [hadron-server#2979](https://github.com/hadron-memory/hadron-server/issues/2979)
-owns registration of the class and its same-answer concealment rule; this PR
-does not fix the server.
+emits every code. The original formatter limitation was fixed by server#2979 at dadc314a.
+cli#1530 now maps shared PERMISSION_DENIED to8 and concealing NOT_FOUND to4;
+lookup INTERNAL_SERVER_ERROR remains1/requestId. Older providers can still
+send the generic fault. No scoped permission override or prose classification.
 HTTP503 maps to availability7 with unknown-write-outcome guidance. No local role
 checks reproduce policy.
 
