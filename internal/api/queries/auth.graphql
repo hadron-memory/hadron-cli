@@ -16,11 +16,16 @@ fragment UserApiKeyFields on UserApiKey {
 # includeHidden carries omitempty: false is the server default, so it is left
 # out rather than sent, and a hidden key stays hidden unless asked for (#1344).
 query MyUserApiKeys(
+  $limit: Int!
+  $offset: Int!
   # @genqlient(omitempty: true)
   $includeHidden: Boolean
 ) {
-  myUserApiKeys(includeHidden: $includeHidden) {
-    ...UserApiKeyFields
+  myUserApiKeysPage(includeHidden: $includeHidden, limit: $limit, offset: $offset) {
+    hasMore
+    items {
+      ...UserApiKeyFields
+    }
   }
 }
 

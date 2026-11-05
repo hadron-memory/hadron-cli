@@ -1,5 +1,7 @@
 package api
 
+import "fmt"
+
 // PageLimit is the server's hard cap on a single page of the uniform
 // paginated list queries (hadron-server#473: cap 200; the server's own default is not relied on, cli#967).
 const PageLimit = 200
@@ -56,5 +58,30 @@ func CollectPages[T any](pageSize int, fetch func(limit, offset int) ([]T, *int,
 		if len(page) == 0 || (total != nil && len(items) >= *total) {
 			return items, nil
 		}
+	}
+}
+
+// InventoryPageSize follows the platform's default list limit; inventory
+// commands have no user-requested larger page size.
+const InventoryPageSize = 20
+
+// CollectHasMore reads a complete offset inventory. Only hasMore ends traversal;
+// neither total nor a short page proves that the inventory is complete. Do not
+// return partial rows on failure, since callers must not print a partial list.
+func CollectHasMore[T any](fetch func(offset int) ([]T, bool, error)) ([]T, error) {
+	rows := []T{}
+	for offset := 0; ; {
+		items, more, err := fetch(offset)
+		if err != nil {
+			return nil, err
+		}
+		rows = append(rows, items...)
+		if !more {
+			return rows, nil
+		}
+		if len(items) == 0 {
+			return nil, fmt.Errorf("the server returned an empty inventory page with hasMore=true")
+		}
+		offset += len(items)
 	}
 }

@@ -480,7 +480,7 @@ hadron app member roles [--app <ref>] (cli#1226, R211 cor:dmo:050:04: App.availa
     an explicit empty or whitespace-only `--label` is exit 2 before the file is opened or anything is sent (omit --label for the server's default); the lost-answer message says "no file was kept" only when the cleanup removed it; --json {id,keyPreview,label,out}; a refused mint removes the file it created;
     createAppKey is sent once and never retried: a lost answer (exit 7/1) names the label and says to run `app key list <app-ref>` and revoke any unexpected key; write-after-mint failure names the key id and `app key revoke <key-id>` (exit 1); a new key holds no scope, so follow with `app key scope grant`;
     a person who manages the App mints, as themselves (App key / impersonation / worker session refused, exit 8)
-  App key list: `key list --scopes` (cli#1333) is still ONE `appKeys` read, adding each key's `scopes` ([] when none) and, with `--host-uses <n>` (needs --scopes, n>=1, else exit 2), its newest n `hostUses` (absent from --json otherwise); the default list stays metadata-only (#1057)
+  App key list: `key list --scopes` (cli#1333) pages through `appKeysPage` to the end, adding each key's `scopes` ([] when none) and, with `--host-uses <n>` (needs --scopes, n>=1, else exit 2), its newest n `hostUses` (absent from --json otherwise); the default list stays metadata-only (#1057)
   App key revoke and rotate: `key revoke <key-id>` (revokeAppKey, irreversible) and `key rotate` (regenerateAppKey: revokes EVERY active key of the App, the new key holds NO scopes so scope grants are redone) both confirm on a TTY and exit 2 with nothing sent when non-interactive without --yes;
     revoke --json {id,revoked}; revoke is never retried: a transport-class lost answer (exit 7), or an answer that is not a definite refusal (an internal server error, an unreadable reply or an unrecognised error: exit 1, serverCode and requestId kept, cli#1441), says the key may already be revoked and names `app key list <app-ref>`; server refusals keep their mapped exit and serverCode;
     rotate keeps `create`'s secret-file contract (--out 0600 opened first, raw key never in stdout/--json unless --print-key, never retried: a lost answer (exit 7/1) says every key may be revoked and to run `app key list <app-ref>`), --json {appId,appUrn,out,allOtherKeysRevoked};
@@ -700,7 +700,7 @@ Conventions:
 - `hadron app get <app-ref>` reads only id, urn, name, appType and nullable
   description. No settings, nested keys or AI configuration is requested
   (the App's properties are `hadron app properties get`).
-  `hadron app key list <app-ref>` uses top-level appKeys and
+  `hadron app key list <app-ref>` uses top-level appKeysPage and
   prints only id, keyPreview, label, createdAt, lastUsedAt and revokedAt.
   It lists active keys, not revoked-key history; the server enforces its
   App-manager gate. No raw key or host-use records are requested. JSON is an
@@ -5453,7 +5453,7 @@ server gate decides the target App and whether the holder manages it; ambient
 --app cannot lend authority. Without the flag the legacy document/variables
 and headerless attribution are unchanged: the call acts as you, including from
 a bound worktree (Xanthos acceptance-2 ruling #71555). Separate instructed
-GraphQL documents keep older servers working without the flag; a refusal is
+GraphQL documents omit instruction entirely without the flag; a refusal is
 never retried/downgraded and preserves mapped exit and --json serverCode.
 
 An admitted instructed list is not record-free: one app.credential-act event
@@ -5461,7 +5461,7 @@ per call/page, no dedupe. A changing instructed revoke records one; a no-op
 revoke records none. Events name worker, holder, App, act kind and instruction,
 never a key/scope/grant id. Minting, rotating and granting remain person-only:
 app key create/rotate, app key scope grant and memory-grant add get no flag.
-All three key list queries use TOP-LEVEL appKeys, never nested App.keys (which
+All three key list queries use TOP-LEVEL appKeysPage, never nested App.keys (which
 still refuses a worker). Scopes and hostUses use holder management at server
 c3ca05b5; they are selected unchanged and a nested refusal fails the command,
 never rendered as empty. No raw key is selected. Output DTOs stay unchanged.
@@ -5582,3 +5582,17 @@ readiness is exit4 (not found or not readable). Missing write receipts are exit7
 with an inspect-before-repeating hint. The event codes are review.scheduled,
 pr.frozen, review.seat.assigned, review.verdict and pr.ready; read with team events
 --type. No team-process rewiring, model-family enforcement or automatic merge.
+
+## Complete key inventories (cli#1547)
+
+`auth token list` (including --include-hidden) uses myUserApiKeysPage;
+`app key list` (including --scopes/--host-uses and --instruction) uses
+appKeysPage. Each reads pages of 20, advances by rows served, and follows
+hasMore to false, never total or short-page length. Existing --json arrays
+and row fields stay unchanged; no page envelope is printed. A later-page
+error fails without printing a partial inventory. Requires server 27671b4b
+(hadron-server#3189) or later; no retry with an unpaged field. Instructed App
+key listing keeps its session and instruction on every page and records one
+app.credential-act event per admitted page. Offset paging is not a snapshot
+under concurrent changes. Subscription-list commands remain unimplemented
+(cli#890); this migration adds none.

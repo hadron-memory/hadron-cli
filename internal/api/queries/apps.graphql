@@ -227,15 +227,18 @@ mutation SetAppProperties(
 
 # cli#1057: manager-authorized, active-only metadata inventory. No raw key,
 # nested App.keys, host usage, or scope mutations.
-query AppKeysMetadata($appRef: ID!) {
- # @genqlient(typename: "AppKeysMetadataRows1595")
-  appKeys(appRef: $appRef) {
-    id
-    keyPreview
-    label
-    createdAt
-    lastUsedAt
-    revokedAt
+query AppKeysMetadata($appRef: ID!, $limit: Int!, $offset: Int!) {
+  appKeysPage(appRef: $appRef, limit: $limit, offset: $offset) {
+    hasMore
+    # @genqlient(typename: "AppKeysMetadataRows1595")
+    items {
+      id
+      keyPreview
+      label
+      createdAt
+      lastUsedAt
+      revokedAt
+    }
   }
 }
 
@@ -322,48 +325,54 @@ mutation CreateAppKey(
 # cli#1333 — `app key list --scopes`: the same active-key rows plus the scopes
 # each key holds. Separate operations from AppKeysMetadata so the default
 # listing keeps #1057's metadata-only selection (no scopes, no host uses).
-query AppKeysScopes($appRef: ID!) {
- # @genqlient(typename: "AppKeysScopesRows1595")
-  appKeys(appRef: $appRef) {
-    id
-    keyPreview
-    label
-    createdAt
-    lastUsedAt
-    revokedAt
-    scopes {
-      scope
-      hostId
-      grantedAt
-      grantedBy
+query AppKeysScopes($appRef: ID!, $limit: Int!, $offset: Int!) {
+  appKeysPage(appRef: $appRef, limit: $limit, offset: $offset) {
+    hasMore
+    # @genqlient(typename: "AppKeysScopesRows1595")
+    items {
+      id
+      keyPreview
+      label
+      createdAt
+      lastUsedAt
+      revokedAt
+      scopes {
+        scope
+        hostId
+        grantedAt
+        grantedBy
+      }
     }
   }
 }
 
 # cli#1333 — `app key list --scopes --host-uses N`: adds each key's newest N
 # host uses (cor:agt:070:07). N is always sent here, so no omitempty.
-query AppKeysScopesHostUses($appRef: ID!, $first: Int!) {
- # @genqlient(typename: "AppKeysScopesHostUsesRows1595")
-  appKeys(appRef: $appRef) {
-    id
-    keyPreview
-    label
-    createdAt
-    lastUsedAt
-    revokedAt
-    scopes {
-      scope
-      hostId
-      grantedAt
-      grantedBy
-    }
-    hostUses(first: $first) {
-      hostId
-      action
-      count
-      operationId
-      refusedCode
-      usedAt
+query AppKeysScopesHostUses($appRef: ID!, $first: Int!, $limit: Int!, $offset: Int!) {
+  appKeysPage(appRef: $appRef, limit: $limit, offset: $offset) {
+    hasMore
+    # @genqlient(typename: "AppKeysScopesHostUsesRows1595")
+    items {
+      id
+      keyPreview
+      label
+      createdAt
+      lastUsedAt
+      revokedAt
+      scopes {
+        scope
+        hostId
+        grantedAt
+        grantedBy
+      }
+      hostUses(first: $first) {
+        hostId
+        action
+        count
+        operationId
+        refusedCode
+        usedAt
+      }
     }
   }
 }
@@ -387,59 +396,68 @@ mutation RegenerateAppKey($appRef: ID!) {
   }
 }
 
-# cli#1595: explicitly instructed documents; legacy operations stay byte-identical.
-query AppKeysMetadataInstructed($appRef: ID!, $instruction: ActInstructionInput!) {
- # @genqlient(typename: "AppKeysMetadataRows1595")
-  appKeys(appRef: $appRef, instruction: $instruction) {
-    id
-    keyPreview
-    label
-    createdAt
-    lastUsedAt
-    revokedAt
-  }
-}
-
-query AppKeysScopesInstructed($appRef: ID!, $instruction: ActInstructionInput!) {
- # @genqlient(typename: "AppKeysScopesRows1595")
-  appKeys(appRef: $appRef, instruction: $instruction) {
-    id
-    keyPreview
-    label
-    createdAt
-    lastUsedAt
-    revokedAt
-    scopes {
-      scope
-      hostId
-      grantedAt
-      grantedBy
+# cli#1595: explicitly instructed documents; ordinary and instructed documents remain separate.
+query AppKeysMetadataInstructed($appRef: ID!, $instruction: ActInstructionInput!, $limit: Int!, $offset: Int!) {
+  appKeysPage(appRef: $appRef, instruction: $instruction, limit: $limit, offset: $offset) {
+    hasMore
+    # @genqlient(typename: "AppKeysMetadataRows1595")
+    items {
+      id
+      keyPreview
+      label
+      createdAt
+      lastUsedAt
+      revokedAt
     }
   }
 }
 
-query AppKeysScopesHostUsesInstructed($appRef: ID!, $first: Int!, $instruction: ActInstructionInput!) {
- # @genqlient(typename: "AppKeysScopesHostUsesRows1595")
-  appKeys(appRef: $appRef, instruction: $instruction) {
-    id
-    keyPreview
-    label
-    createdAt
-    lastUsedAt
-    revokedAt
-    scopes {
-      scope
-      hostId
-      grantedAt
-      grantedBy
+query AppKeysScopesInstructed($appRef: ID!, $instruction: ActInstructionInput!, $limit: Int!, $offset: Int!) {
+  appKeysPage(appRef: $appRef, instruction: $instruction, limit: $limit, offset: $offset) {
+    hasMore
+    # @genqlient(typename: "AppKeysScopesRows1595")
+    items {
+      id
+      keyPreview
+      label
+      createdAt
+      lastUsedAt
+      revokedAt
+      scopes {
+        scope
+        hostId
+        grantedAt
+        grantedBy
+      }
     }
-    hostUses(first: $first) {
-      hostId
-      action
-      count
-      operationId
-      refusedCode
-      usedAt
+  }
+}
+
+query AppKeysScopesHostUsesInstructed($appRef: ID!, $first: Int!, $instruction: ActInstructionInput!, $limit: Int!, $offset: Int!) {
+  appKeysPage(appRef: $appRef, instruction: $instruction, limit: $limit, offset: $offset) {
+    hasMore
+    # @genqlient(typename: "AppKeysScopesHostUsesRows1595")
+    items {
+      id
+      keyPreview
+      label
+      createdAt
+      lastUsedAt
+      revokedAt
+      scopes {
+        scope
+        hostId
+        grantedAt
+        grantedBy
+      }
+      hostUses(first: $first) {
+        hostId
+        action
+        count
+        operationId
+        refusedCode
+        usedAt
+      }
     }
   }
 }

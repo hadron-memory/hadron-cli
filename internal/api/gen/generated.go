@@ -15062,35 +15062,77 @@ func (v *AppKeyScopesFieldsScopesAppKeyScope) GetGrantedAt() string { return v.G
 // GetGrantedBy returns AppKeyScopesFieldsScopesAppKeyScope.GrantedBy, and is useful for accessing the field via an interface.
 func (v *AppKeyScopesFieldsScopesAppKeyScope) GetGrantedBy() string { return v.GrantedBy }
 
-// AppKeysMetadataInstructedResponse is returned by AppKeysMetadataInstructed on success.
-type AppKeysMetadataInstructedResponse struct {
-	// List keys for an App, only for whoever manages the App
-	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12; hrn:node:hadronmemory.com:specs:cor:acl:010:01),
-	// as themselves, or through their held worker on a validated `instruction` (S6, ruling 0098). An admitted
-	// instructed call records one team event (ruling 0111): the worker, the holder, the App and the instruction,
-	// never a key. Never an App key, a host-launched or uninstructed worker session, a run or an impersonated request.
-	//
-	// Accepts the entity's ID or URN.
-	AppKeys []*AppKeysMetadataRows1595 `json:"appKeys"`
+// AppKeysMetadataAppKeysPageAppKeyPage includes the requested fields of the GraphQL type AppKeyPage.
+// The GraphQL type's documentation follows.
+//
+// #2213 — one page of an App's live keys.
+type AppKeysMetadataAppKeysPageAppKeyPage struct {
+	HasMore bool                       `json:"hasMore"`
+	Items   []*AppKeysMetadataRows1595 `json:"items"`
 }
 
-// GetAppKeys returns AppKeysMetadataInstructedResponse.AppKeys, and is useful for accessing the field via an interface.
-func (v *AppKeysMetadataInstructedResponse) GetAppKeys() []*AppKeysMetadataRows1595 { return v.AppKeys }
+// GetHasMore returns AppKeysMetadataAppKeysPageAppKeyPage.HasMore, and is useful for accessing the field via an interface.
+func (v *AppKeysMetadataAppKeysPageAppKeyPage) GetHasMore() bool { return v.HasMore }
+
+// GetItems returns AppKeysMetadataAppKeysPageAppKeyPage.Items, and is useful for accessing the field via an interface.
+func (v *AppKeysMetadataAppKeysPageAppKeyPage) GetItems() []*AppKeysMetadataRows1595 { return v.Items }
+
+// AppKeysMetadataInstructedAppKeysPageAppKeyPage includes the requested fields of the GraphQL type AppKeyPage.
+// The GraphQL type's documentation follows.
+//
+// #2213 — one page of an App's live keys.
+type AppKeysMetadataInstructedAppKeysPageAppKeyPage struct {
+	HasMore bool                       `json:"hasMore"`
+	Items   []*AppKeysMetadataRows1595 `json:"items"`
+}
+
+// GetHasMore returns AppKeysMetadataInstructedAppKeysPageAppKeyPage.HasMore, and is useful for accessing the field via an interface.
+func (v *AppKeysMetadataInstructedAppKeysPageAppKeyPage) GetHasMore() bool { return v.HasMore }
+
+// GetItems returns AppKeysMetadataInstructedAppKeysPageAppKeyPage.Items, and is useful for accessing the field via an interface.
+func (v *AppKeysMetadataInstructedAppKeysPageAppKeyPage) GetItems() []*AppKeysMetadataRows1595 {
+	return v.Items
+}
+
+// AppKeysMetadataInstructedResponse is returned by AppKeysMetadataInstructed on success.
+type AppKeysMetadataInstructedResponse struct {
+	// #2213 — `appKeys` as a page: the same manager-only gate and refusals
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), the same live keys, newest first with
+	// id descending on a tie, and the real total (hrn:node:hadronmemory.com:specs:cor:api:120:04).
+	// An instructed call (`instruction`, as on `appKeys`) records one team event per call, so
+	// each page records one. A refused caller gets the old field's error, never a total. `limit` defaults to 20, 0
+	// returns the count only, a negative limit is 0 and a limit over 200 is served as 200
+	// (never refused). `offset` below 0 is 0. A consumer that decides on this list (the
+	// admin key inventory) must follow the pages to the end; `appKeys` stays the complete set.
+	//
+	// Accepts the entity's ID or URN.
+	AppKeysPage *AppKeysMetadataInstructedAppKeysPageAppKeyPage `json:"appKeysPage"`
+}
+
+// GetAppKeysPage returns AppKeysMetadataInstructedResponse.AppKeysPage, and is useful for accessing the field via an interface.
+func (v *AppKeysMetadataInstructedResponse) GetAppKeysPage() *AppKeysMetadataInstructedAppKeysPageAppKeyPage {
+	return v.AppKeysPage
+}
 
 // AppKeysMetadataResponse is returned by AppKeysMetadata on success.
 type AppKeysMetadataResponse struct {
-	// List keys for an App, only for whoever manages the App
-	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12; hrn:node:hadronmemory.com:specs:cor:acl:010:01),
-	// as themselves, or through their held worker on a validated `instruction` (S6, ruling 0098). An admitted
-	// instructed call records one team event (ruling 0111): the worker, the holder, the App and the instruction,
-	// never a key. Never an App key, a host-launched or uninstructed worker session, a run or an impersonated request.
+	// #2213 — `appKeys` as a page: the same manager-only gate and refusals
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), the same live keys, newest first with
+	// id descending on a tie, and the real total (hrn:node:hadronmemory.com:specs:cor:api:120:04).
+	// An instructed call (`instruction`, as on `appKeys`) records one team event per call, so
+	// each page records one. A refused caller gets the old field's error, never a total. `limit` defaults to 20, 0
+	// returns the count only, a negative limit is 0 and a limit over 200 is served as 200
+	// (never refused). `offset` below 0 is 0. A consumer that decides on this list (the
+	// admin key inventory) must follow the pages to the end; `appKeys` stays the complete set.
 	//
 	// Accepts the entity's ID or URN.
-	AppKeys []*AppKeysMetadataRows1595 `json:"appKeys"`
+	AppKeysPage *AppKeysMetadataAppKeysPageAppKeyPage `json:"appKeysPage"`
 }
 
-// GetAppKeys returns AppKeysMetadataResponse.AppKeys, and is useful for accessing the field via an interface.
-func (v *AppKeysMetadataResponse) GetAppKeys() []*AppKeysMetadataRows1595 { return v.AppKeys }
+// GetAppKeysPage returns AppKeysMetadataResponse.AppKeysPage, and is useful for accessing the field via an interface.
+func (v *AppKeysMetadataResponse) GetAppKeysPage() *AppKeysMetadataAppKeysPageAppKeyPage {
+	return v.AppKeysPage
+}
 
 // AppKeysMetadataRows1595 includes the requested fields of the GraphQL type AppKey.
 type AppKeysMetadataRows1595 struct {
@@ -15120,38 +15162,93 @@ func (v *AppKeysMetadataRows1595) GetLastUsedAt() *string { return v.LastUsedAt 
 // GetRevokedAt returns AppKeysMetadataRows1595.RevokedAt, and is useful for accessing the field via an interface.
 func (v *AppKeysMetadataRows1595) GetRevokedAt() *string { return v.RevokedAt }
 
-// AppKeysScopesHostUsesInstructedResponse is returned by AppKeysScopesHostUsesInstructed on success.
-type AppKeysScopesHostUsesInstructedResponse struct {
-	// List keys for an App, only for whoever manages the App
-	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12; hrn:node:hadronmemory.com:specs:cor:acl:010:01),
-	// as themselves, or through their held worker on a validated `instruction` (S6, ruling 0098). An admitted
-	// instructed call records one team event (ruling 0111): the worker, the holder, the App and the instruction,
-	// never a key. Never an App key, a host-launched or uninstructed worker session, a run or an impersonated request.
-	//
-	// Accepts the entity's ID or URN.
-	AppKeys []*AppKeysScopesHostUsesRows1595 `json:"appKeys"`
+// AppKeysScopesAppKeysPageAppKeyPage includes the requested fields of the GraphQL type AppKeyPage.
+// The GraphQL type's documentation follows.
+//
+// #2213 — one page of an App's live keys.
+type AppKeysScopesAppKeysPageAppKeyPage struct {
+	HasMore bool                     `json:"hasMore"`
+	Items   []*AppKeysScopesRows1595 `json:"items"`
 }
 
-// GetAppKeys returns AppKeysScopesHostUsesInstructedResponse.AppKeys, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesInstructedResponse) GetAppKeys() []*AppKeysScopesHostUsesRows1595 {
-	return v.AppKeys
+// GetHasMore returns AppKeysScopesAppKeysPageAppKeyPage.HasMore, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesAppKeysPageAppKeyPage) GetHasMore() bool { return v.HasMore }
+
+// GetItems returns AppKeysScopesAppKeysPageAppKeyPage.Items, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesAppKeysPageAppKeyPage) GetItems() []*AppKeysScopesRows1595 { return v.Items }
+
+// AppKeysScopesHostUsesAppKeysPageAppKeyPage includes the requested fields of the GraphQL type AppKeyPage.
+// The GraphQL type's documentation follows.
+//
+// #2213 — one page of an App's live keys.
+type AppKeysScopesHostUsesAppKeysPageAppKeyPage struct {
+	HasMore bool                             `json:"hasMore"`
+	Items   []*AppKeysScopesHostUsesRows1595 `json:"items"`
+}
+
+// GetHasMore returns AppKeysScopesHostUsesAppKeysPageAppKeyPage.HasMore, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesAppKeysPageAppKeyPage) GetHasMore() bool { return v.HasMore }
+
+// GetItems returns AppKeysScopesHostUsesAppKeysPageAppKeyPage.Items, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesAppKeysPageAppKeyPage) GetItems() []*AppKeysScopesHostUsesRows1595 {
+	return v.Items
+}
+
+// AppKeysScopesHostUsesInstructedAppKeysPageAppKeyPage includes the requested fields of the GraphQL type AppKeyPage.
+// The GraphQL type's documentation follows.
+//
+// #2213 — one page of an App's live keys.
+type AppKeysScopesHostUsesInstructedAppKeysPageAppKeyPage struct {
+	HasMore bool                             `json:"hasMore"`
+	Items   []*AppKeysScopesHostUsesRows1595 `json:"items"`
+}
+
+// GetHasMore returns AppKeysScopesHostUsesInstructedAppKeysPageAppKeyPage.HasMore, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesInstructedAppKeysPageAppKeyPage) GetHasMore() bool { return v.HasMore }
+
+// GetItems returns AppKeysScopesHostUsesInstructedAppKeysPageAppKeyPage.Items, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesInstructedAppKeysPageAppKeyPage) GetItems() []*AppKeysScopesHostUsesRows1595 {
+	return v.Items
+}
+
+// AppKeysScopesHostUsesInstructedResponse is returned by AppKeysScopesHostUsesInstructed on success.
+type AppKeysScopesHostUsesInstructedResponse struct {
+	// #2213 — `appKeys` as a page: the same manager-only gate and refusals
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), the same live keys, newest first with
+	// id descending on a tie, and the real total (hrn:node:hadronmemory.com:specs:cor:api:120:04).
+	// An instructed call (`instruction`, as on `appKeys`) records one team event per call, so
+	// each page records one. A refused caller gets the old field's error, never a total. `limit` defaults to 20, 0
+	// returns the count only, a negative limit is 0 and a limit over 200 is served as 200
+	// (never refused). `offset` below 0 is 0. A consumer that decides on this list (the
+	// admin key inventory) must follow the pages to the end; `appKeys` stays the complete set.
+	//
+	// Accepts the entity's ID or URN.
+	AppKeysPage *AppKeysScopesHostUsesInstructedAppKeysPageAppKeyPage `json:"appKeysPage"`
+}
+
+// GetAppKeysPage returns AppKeysScopesHostUsesInstructedResponse.AppKeysPage, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesInstructedResponse) GetAppKeysPage() *AppKeysScopesHostUsesInstructedAppKeysPageAppKeyPage {
+	return v.AppKeysPage
 }
 
 // AppKeysScopesHostUsesResponse is returned by AppKeysScopesHostUses on success.
 type AppKeysScopesHostUsesResponse struct {
-	// List keys for an App, only for whoever manages the App
-	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12; hrn:node:hadronmemory.com:specs:cor:acl:010:01),
-	// as themselves, or through their held worker on a validated `instruction` (S6, ruling 0098). An admitted
-	// instructed call records one team event (ruling 0111): the worker, the holder, the App and the instruction,
-	// never a key. Never an App key, a host-launched or uninstructed worker session, a run or an impersonated request.
+	// #2213 — `appKeys` as a page: the same manager-only gate and refusals
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), the same live keys, newest first with
+	// id descending on a tie, and the real total (hrn:node:hadronmemory.com:specs:cor:api:120:04).
+	// An instructed call (`instruction`, as on `appKeys`) records one team event per call, so
+	// each page records one. A refused caller gets the old field's error, never a total. `limit` defaults to 20, 0
+	// returns the count only, a negative limit is 0 and a limit over 200 is served as 200
+	// (never refused). `offset` below 0 is 0. A consumer that decides on this list (the
+	// admin key inventory) must follow the pages to the end; `appKeys` stays the complete set.
 	//
 	// Accepts the entity's ID or URN.
-	AppKeys []*AppKeysScopesHostUsesRows1595 `json:"appKeys"`
+	AppKeysPage *AppKeysScopesHostUsesAppKeysPageAppKeyPage `json:"appKeysPage"`
 }
 
-// GetAppKeys returns AppKeysScopesHostUsesResponse.AppKeys, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesResponse) GetAppKeys() []*AppKeysScopesHostUsesRows1595 {
-	return v.AppKeys
+// GetAppKeysPage returns AppKeysScopesHostUsesResponse.AppKeysPage, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesResponse) GetAppKeysPage() *AppKeysScopesHostUsesAppKeysPageAppKeyPage {
+	return v.AppKeysPage
 }
 
 // AppKeysScopesHostUsesRows1595 includes the requested fields of the GraphQL type AppKey.
@@ -15259,35 +15356,62 @@ func (v *AppKeysScopesHostUsesRows1595ScopesAppKeyScope) GetGrantedAt() string {
 // GetGrantedBy returns AppKeysScopesHostUsesRows1595ScopesAppKeyScope.GrantedBy, and is useful for accessing the field via an interface.
 func (v *AppKeysScopesHostUsesRows1595ScopesAppKeyScope) GetGrantedBy() string { return v.GrantedBy }
 
-// AppKeysScopesInstructedResponse is returned by AppKeysScopesInstructed on success.
-type AppKeysScopesInstructedResponse struct {
-	// List keys for an App, only for whoever manages the App
-	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12; hrn:node:hadronmemory.com:specs:cor:acl:010:01),
-	// as themselves, or through their held worker on a validated `instruction` (S6, ruling 0098). An admitted
-	// instructed call records one team event (ruling 0111): the worker, the holder, the App and the instruction,
-	// never a key. Never an App key, a host-launched or uninstructed worker session, a run or an impersonated request.
-	//
-	// Accepts the entity's ID or URN.
-	AppKeys []*AppKeysScopesRows1595 `json:"appKeys"`
+// AppKeysScopesInstructedAppKeysPageAppKeyPage includes the requested fields of the GraphQL type AppKeyPage.
+// The GraphQL type's documentation follows.
+//
+// #2213 — one page of an App's live keys.
+type AppKeysScopesInstructedAppKeysPageAppKeyPage struct {
+	HasMore bool                     `json:"hasMore"`
+	Items   []*AppKeysScopesRows1595 `json:"items"`
 }
 
-// GetAppKeys returns AppKeysScopesInstructedResponse.AppKeys, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesInstructedResponse) GetAppKeys() []*AppKeysScopesRows1595 { return v.AppKeys }
+// GetHasMore returns AppKeysScopesInstructedAppKeysPageAppKeyPage.HasMore, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesInstructedAppKeysPageAppKeyPage) GetHasMore() bool { return v.HasMore }
+
+// GetItems returns AppKeysScopesInstructedAppKeysPageAppKeyPage.Items, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesInstructedAppKeysPageAppKeyPage) GetItems() []*AppKeysScopesRows1595 {
+	return v.Items
+}
+
+// AppKeysScopesInstructedResponse is returned by AppKeysScopesInstructed on success.
+type AppKeysScopesInstructedResponse struct {
+	// #2213 — `appKeys` as a page: the same manager-only gate and refusals
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), the same live keys, newest first with
+	// id descending on a tie, and the real total (hrn:node:hadronmemory.com:specs:cor:api:120:04).
+	// An instructed call (`instruction`, as on `appKeys`) records one team event per call, so
+	// each page records one. A refused caller gets the old field's error, never a total. `limit` defaults to 20, 0
+	// returns the count only, a negative limit is 0 and a limit over 200 is served as 200
+	// (never refused). `offset` below 0 is 0. A consumer that decides on this list (the
+	// admin key inventory) must follow the pages to the end; `appKeys` stays the complete set.
+	//
+	// Accepts the entity's ID or URN.
+	AppKeysPage *AppKeysScopesInstructedAppKeysPageAppKeyPage `json:"appKeysPage"`
+}
+
+// GetAppKeysPage returns AppKeysScopesInstructedResponse.AppKeysPage, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesInstructedResponse) GetAppKeysPage() *AppKeysScopesInstructedAppKeysPageAppKeyPage {
+	return v.AppKeysPage
+}
 
 // AppKeysScopesResponse is returned by AppKeysScopes on success.
 type AppKeysScopesResponse struct {
-	// List keys for an App, only for whoever manages the App
-	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12; hrn:node:hadronmemory.com:specs:cor:acl:010:01),
-	// as themselves, or through their held worker on a validated `instruction` (S6, ruling 0098). An admitted
-	// instructed call records one team event (ruling 0111): the worker, the holder, the App and the instruction,
-	// never a key. Never an App key, a host-launched or uninstructed worker session, a run or an impersonated request.
+	// #2213 — `appKeys` as a page: the same manager-only gate and refusals
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), the same live keys, newest first with
+	// id descending on a tie, and the real total (hrn:node:hadronmemory.com:specs:cor:api:120:04).
+	// An instructed call (`instruction`, as on `appKeys`) records one team event per call, so
+	// each page records one. A refused caller gets the old field's error, never a total. `limit` defaults to 20, 0
+	// returns the count only, a negative limit is 0 and a limit over 200 is served as 200
+	// (never refused). `offset` below 0 is 0. A consumer that decides on this list (the
+	// admin key inventory) must follow the pages to the end; `appKeys` stays the complete set.
 	//
 	// Accepts the entity's ID or URN.
-	AppKeys []*AppKeysScopesRows1595 `json:"appKeys"`
+	AppKeysPage *AppKeysScopesAppKeysPageAppKeyPage `json:"appKeysPage"`
 }
 
-// GetAppKeys returns AppKeysScopesResponse.AppKeys, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesResponse) GetAppKeys() []*AppKeysScopesRows1595 { return v.AppKeys }
+// GetAppKeysPage returns AppKeysScopesResponse.AppKeysPage, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesResponse) GetAppKeysPage() *AppKeysScopesAppKeysPageAppKeyPage {
+	return v.AppKeysPage
+}
 
 // AppKeysScopesRows1595 includes the requested fields of the GraphQL type AppKey.
 type AppKeysScopesRows1595 struct {
@@ -57728,7 +57852,24 @@ type MyAppResponse struct {
 // GetMyApp returns MyAppResponse.MyApp, and is useful for accessing the field via an interface.
 func (v *MyAppResponse) GetMyApp() *MyAppMyApp { return v.MyApp }
 
-// MyUserApiKeysMyUserApiKeysUserApiKey includes the requested fields of the GraphQL type UserApiKey.
+// MyUserApiKeysMyUserApiKeysPageUserApiKeyPage includes the requested fields of the GraphQL type UserApiKeyPage.
+// The GraphQL type's documentation follows.
+//
+// #2213 — one page of the caller's own user API keys.
+type MyUserApiKeysMyUserApiKeysPageUserApiKeyPage struct {
+	HasMore bool                                                           `json:"hasMore"`
+	Items   []*MyUserApiKeysMyUserApiKeysPageUserApiKeyPageItemsUserApiKey `json:"items"`
+}
+
+// GetHasMore returns MyUserApiKeysMyUserApiKeysPageUserApiKeyPage.HasMore, and is useful for accessing the field via an interface.
+func (v *MyUserApiKeysMyUserApiKeysPageUserApiKeyPage) GetHasMore() bool { return v.HasMore }
+
+// GetItems returns MyUserApiKeysMyUserApiKeysPageUserApiKeyPage.Items, and is useful for accessing the field via an interface.
+func (v *MyUserApiKeysMyUserApiKeysPageUserApiKeyPage) GetItems() []*MyUserApiKeysMyUserApiKeysPageUserApiKeyPageItemsUserApiKey {
+	return v.Items
+}
+
+// MyUserApiKeysMyUserApiKeysPageUserApiKeyPageItemsUserApiKey includes the requested fields of the GraphQL type UserApiKey.
 // The GraphQL type's documentation follows.
 //
 // 025-oauth-for-mcp: user-scoped bearer-token credential. Mirrors the
@@ -57737,57 +57878,61 @@ func (v *MyAppResponse) GetMyApp() *MyAppMyApp { return v.MyApp }
 // their own keys. userId is intentionally absent — for self-service
 // v1 the caller is always the owner; admin-tooling auditability is
 // out of scope (see contracts/graphql-mutations.md, PR-137 delta D1).
-type MyUserApiKeysMyUserApiKeysUserApiKey struct {
+type MyUserApiKeysMyUserApiKeysPageUserApiKeyPageItemsUserApiKey struct {
 	UserApiKeyFields `json:"-"`
 }
 
-// GetId returns MyUserApiKeysMyUserApiKeysUserApiKey.Id, and is useful for accessing the field via an interface.
-func (v *MyUserApiKeysMyUserApiKeysUserApiKey) GetId() string { return v.UserApiKeyFields.Id }
+// GetId returns MyUserApiKeysMyUserApiKeysPageUserApiKeyPageItemsUserApiKey.Id, and is useful for accessing the field via an interface.
+func (v *MyUserApiKeysMyUserApiKeysPageUserApiKeyPageItemsUserApiKey) GetId() string {
+	return v.UserApiKeyFields.Id
+}
 
-// GetLabel returns MyUserApiKeysMyUserApiKeysUserApiKey.Label, and is useful for accessing the field via an interface.
-func (v *MyUserApiKeysMyUserApiKeysUserApiKey) GetLabel() *string { return v.UserApiKeyFields.Label }
+// GetLabel returns MyUserApiKeysMyUserApiKeysPageUserApiKeyPageItemsUserApiKey.Label, and is useful for accessing the field via an interface.
+func (v *MyUserApiKeysMyUserApiKeysPageUserApiKeyPageItemsUserApiKey) GetLabel() *string {
+	return v.UserApiKeyFields.Label
+}
 
-// GetKeyPreview returns MyUserApiKeysMyUserApiKeysUserApiKey.KeyPreview, and is useful for accessing the field via an interface.
-func (v *MyUserApiKeysMyUserApiKeysUserApiKey) GetKeyPreview() string {
+// GetKeyPreview returns MyUserApiKeysMyUserApiKeysPageUserApiKeyPageItemsUserApiKey.KeyPreview, and is useful for accessing the field via an interface.
+func (v *MyUserApiKeysMyUserApiKeysPageUserApiKeyPageItemsUserApiKey) GetKeyPreview() string {
 	return v.UserApiKeyFields.KeyPreview
 }
 
-// GetIssuedVia returns MyUserApiKeysMyUserApiKeysUserApiKey.IssuedVia, and is useful for accessing the field via an interface.
-func (v *MyUserApiKeysMyUserApiKeysUserApiKey) GetIssuedVia() *string {
+// GetIssuedVia returns MyUserApiKeysMyUserApiKeysPageUserApiKeyPageItemsUserApiKey.IssuedVia, and is useful for accessing the field via an interface.
+func (v *MyUserApiKeysMyUserApiKeysPageUserApiKeyPageItemsUserApiKey) GetIssuedVia() *string {
 	return v.UserApiKeyFields.IssuedVia
 }
 
-// GetCreatedAt returns MyUserApiKeysMyUserApiKeysUserApiKey.CreatedAt, and is useful for accessing the field via an interface.
-func (v *MyUserApiKeysMyUserApiKeysUserApiKey) GetCreatedAt() string {
+// GetCreatedAt returns MyUserApiKeysMyUserApiKeysPageUserApiKeyPageItemsUserApiKey.CreatedAt, and is useful for accessing the field via an interface.
+func (v *MyUserApiKeysMyUserApiKeysPageUserApiKeyPageItemsUserApiKey) GetCreatedAt() string {
 	return v.UserApiKeyFields.CreatedAt
 }
 
-// GetLastUsedAt returns MyUserApiKeysMyUserApiKeysUserApiKey.LastUsedAt, and is useful for accessing the field via an interface.
-func (v *MyUserApiKeysMyUserApiKeysUserApiKey) GetLastUsedAt() *string {
+// GetLastUsedAt returns MyUserApiKeysMyUserApiKeysPageUserApiKeyPageItemsUserApiKey.LastUsedAt, and is useful for accessing the field via an interface.
+func (v *MyUserApiKeysMyUserApiKeysPageUserApiKeyPageItemsUserApiKey) GetLastUsedAt() *string {
 	return v.UserApiKeyFields.LastUsedAt
 }
 
-// GetRevokedAt returns MyUserApiKeysMyUserApiKeysUserApiKey.RevokedAt, and is useful for accessing the field via an interface.
-func (v *MyUserApiKeysMyUserApiKeysUserApiKey) GetRevokedAt() *string {
+// GetRevokedAt returns MyUserApiKeysMyUserApiKeysPageUserApiKeyPageItemsUserApiKey.RevokedAt, and is useful for accessing the field via an interface.
+func (v *MyUserApiKeysMyUserApiKeysPageUserApiKeyPageItemsUserApiKey) GetRevokedAt() *string {
 	return v.UserApiKeyFields.RevokedAt
 }
 
-// GetHiddenAt returns MyUserApiKeysMyUserApiKeysUserApiKey.HiddenAt, and is useful for accessing the field via an interface.
-func (v *MyUserApiKeysMyUserApiKeysUserApiKey) GetHiddenAt() *string {
+// GetHiddenAt returns MyUserApiKeysMyUserApiKeysPageUserApiKeyPageItemsUserApiKey.HiddenAt, and is useful for accessing the field via an interface.
+func (v *MyUserApiKeysMyUserApiKeysPageUserApiKeyPageItemsUserApiKey) GetHiddenAt() *string {
 	return v.UserApiKeyFields.HiddenAt
 }
 
-func (v *MyUserApiKeysMyUserApiKeysUserApiKey) UnmarshalJSON(b []byte) error {
+func (v *MyUserApiKeysMyUserApiKeysPageUserApiKeyPageItemsUserApiKey) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
 		return nil
 	}
 
 	var firstPass struct {
-		*MyUserApiKeysMyUserApiKeysUserApiKey
+		*MyUserApiKeysMyUserApiKeysPageUserApiKeyPageItemsUserApiKey
 		graphql.NoUnmarshalJSON
 	}
-	firstPass.MyUserApiKeysMyUserApiKeysUserApiKey = v
+	firstPass.MyUserApiKeysMyUserApiKeysPageUserApiKeyPageItemsUserApiKey = v
 
 	err := json.Unmarshal(b, &firstPass)
 	if err != nil {
@@ -57802,7 +57947,7 @@ func (v *MyUserApiKeysMyUserApiKeysUserApiKey) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-type __premarshalMyUserApiKeysMyUserApiKeysUserApiKey struct {
+type __premarshalMyUserApiKeysMyUserApiKeysPageUserApiKeyPageItemsUserApiKey struct {
 	Id string `json:"id"`
 
 	Label *string `json:"label"`
@@ -57820,7 +57965,7 @@ type __premarshalMyUserApiKeysMyUserApiKeysUserApiKey struct {
 	HiddenAt *string `json:"hiddenAt"`
 }
 
-func (v *MyUserApiKeysMyUserApiKeysUserApiKey) MarshalJSON() ([]byte, error) {
+func (v *MyUserApiKeysMyUserApiKeysPageUserApiKeyPageItemsUserApiKey) MarshalJSON() ([]byte, error) {
 	premarshaled, err := v.__premarshalJSON()
 	if err != nil {
 		return nil, err
@@ -57828,8 +57973,8 @@ func (v *MyUserApiKeysMyUserApiKeysUserApiKey) MarshalJSON() ([]byte, error) {
 	return json.Marshal(premarshaled)
 }
 
-func (v *MyUserApiKeysMyUserApiKeysUserApiKey) __premarshalJSON() (*__premarshalMyUserApiKeysMyUserApiKeysUserApiKey, error) {
-	var retval __premarshalMyUserApiKeysMyUserApiKeysUserApiKey
+func (v *MyUserApiKeysMyUserApiKeysPageUserApiKeyPageItemsUserApiKey) __premarshalJSON() (*__premarshalMyUserApiKeysMyUserApiKeysPageUserApiKeyPageItemsUserApiKey, error) {
+	var retval __premarshalMyUserApiKeysMyUserApiKeysPageUserApiKeyPageItemsUserApiKey
 
 	retval.Id = v.UserApiKeyFields.Id
 	retval.Label = v.UserApiKeyFields.Label
@@ -57844,16 +57989,19 @@ func (v *MyUserApiKeysMyUserApiKeysUserApiKey) __premarshalJSON() (*__premarshal
 
 // MyUserApiKeysResponse is returned by MyUserApiKeys on success.
 type MyUserApiKeysResponse struct {
-	// 025-oauth-for-mcp FR-004: list the calling User's API keys (active
-	// + revoked, createdAt DESC). Powers Phase 3's portal revocation UI
-	// (SC-006). Rejected with UNAUTHENTICATED for AppKey-resolved
-	// callers (no user in context). Impersonation is refused with Forbidden.
-	MyUserApiKeys []*MyUserApiKeysMyUserApiKeysUserApiKey `json:"myUserApiKeys"`
+	// #2213 — `myUserApiKeys` as a page: the same refusals (UNAUTHENTICATED with no user in
+	// context, Forbidden under impersonation), the same rows (active and revoked; hidden keys
+	// only with includeHidden), newest first with id descending on a tie, and the real total
+	// (hrn:node:hadronmemory.com:specs:cor:api:120:04). `limit` defaults to 20, 0 returns the
+	// count only, a negative limit is 0 and a limit over 200 is served as 200 (never refused).
+	// `offset` below 0 is 0. A consumer that decides on this list must follow the pages to the
+	// end; `myUserApiKeys` stays the complete set.
+	MyUserApiKeysPage *MyUserApiKeysMyUserApiKeysPageUserApiKeyPage `json:"myUserApiKeysPage"`
 }
 
-// GetMyUserApiKeys returns MyUserApiKeysResponse.MyUserApiKeys, and is useful for accessing the field via an interface.
-func (v *MyUserApiKeysResponse) GetMyUserApiKeys() []*MyUserApiKeysMyUserApiKeysUserApiKey {
-	return v.MyUserApiKeys
+// GetMyUserApiKeysPage returns MyUserApiKeysResponse.MyUserApiKeysPage, and is useful for accessing the field via an interface.
+func (v *MyUserApiKeysResponse) GetMyUserApiKeysPage() *MyUserApiKeysMyUserApiKeysPageUserApiKeyPage {
+	return v.MyUserApiKeysPage
 }
 
 // NextNodeResponse is returned by NextNode on success.
@@ -100395,15 +100543,25 @@ func (v *__AppAgentRosterInput) GetAppRef() string { return v.AppRef }
 // __AppKeysMetadataInput is used internally by genqlient
 type __AppKeysMetadataInput struct {
 	AppRef string `json:"appRef"`
+	Limit  int    `json:"limit"`
+	Offset int    `json:"offset"`
 }
 
 // GetAppRef returns __AppKeysMetadataInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__AppKeysMetadataInput) GetAppRef() string { return v.AppRef }
 
+// GetLimit returns __AppKeysMetadataInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AppKeysMetadataInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __AppKeysMetadataInput.Offset, and is useful for accessing the field via an interface.
+func (v *__AppKeysMetadataInput) GetOffset() int { return v.Offset }
+
 // __AppKeysMetadataInstructedInput is used internally by genqlient
 type __AppKeysMetadataInstructedInput struct {
 	AppRef      string               `json:"appRef"`
 	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+	Limit       int                  `json:"limit"`
+	Offset      int                  `json:"offset"`
 }
 
 // GetAppRef returns __AppKeysMetadataInstructedInput.AppRef, and is useful for accessing the field via an interface.
@@ -100414,10 +100572,18 @@ func (v *__AppKeysMetadataInstructedInput) GetInstruction() *ActInstructionInput
 	return v.Instruction
 }
 
+// GetLimit returns __AppKeysMetadataInstructedInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AppKeysMetadataInstructedInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __AppKeysMetadataInstructedInput.Offset, and is useful for accessing the field via an interface.
+func (v *__AppKeysMetadataInstructedInput) GetOffset() int { return v.Offset }
+
 // __AppKeysScopesHostUsesInput is used internally by genqlient
 type __AppKeysScopesHostUsesInput struct {
 	AppRef string `json:"appRef"`
 	First  int    `json:"first"`
+	Limit  int    `json:"limit"`
+	Offset int    `json:"offset"`
 }
 
 // GetAppRef returns __AppKeysScopesHostUsesInput.AppRef, and is useful for accessing the field via an interface.
@@ -100426,11 +100592,19 @@ func (v *__AppKeysScopesHostUsesInput) GetAppRef() string { return v.AppRef }
 // GetFirst returns __AppKeysScopesHostUsesInput.First, and is useful for accessing the field via an interface.
 func (v *__AppKeysScopesHostUsesInput) GetFirst() int { return v.First }
 
+// GetLimit returns __AppKeysScopesHostUsesInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AppKeysScopesHostUsesInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __AppKeysScopesHostUsesInput.Offset, and is useful for accessing the field via an interface.
+func (v *__AppKeysScopesHostUsesInput) GetOffset() int { return v.Offset }
+
 // __AppKeysScopesHostUsesInstructedInput is used internally by genqlient
 type __AppKeysScopesHostUsesInstructedInput struct {
 	AppRef      string               `json:"appRef"`
 	First       int                  `json:"first"`
 	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+	Limit       int                  `json:"limit"`
+	Offset      int                  `json:"offset"`
 }
 
 // GetAppRef returns __AppKeysScopesHostUsesInstructedInput.AppRef, and is useful for accessing the field via an interface.
@@ -100444,18 +100618,34 @@ func (v *__AppKeysScopesHostUsesInstructedInput) GetInstruction() *ActInstructio
 	return v.Instruction
 }
 
+// GetLimit returns __AppKeysScopesHostUsesInstructedInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AppKeysScopesHostUsesInstructedInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __AppKeysScopesHostUsesInstructedInput.Offset, and is useful for accessing the field via an interface.
+func (v *__AppKeysScopesHostUsesInstructedInput) GetOffset() int { return v.Offset }
+
 // __AppKeysScopesInput is used internally by genqlient
 type __AppKeysScopesInput struct {
 	AppRef string `json:"appRef"`
+	Limit  int    `json:"limit"`
+	Offset int    `json:"offset"`
 }
 
 // GetAppRef returns __AppKeysScopesInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__AppKeysScopesInput) GetAppRef() string { return v.AppRef }
 
+// GetLimit returns __AppKeysScopesInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AppKeysScopesInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __AppKeysScopesInput.Offset, and is useful for accessing the field via an interface.
+func (v *__AppKeysScopesInput) GetOffset() int { return v.Offset }
+
 // __AppKeysScopesInstructedInput is used internally by genqlient
 type __AppKeysScopesInstructedInput struct {
 	AppRef      string               `json:"appRef"`
 	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+	Limit       int                  `json:"limit"`
+	Offset      int                  `json:"offset"`
 }
 
 // GetAppRef returns __AppKeysScopesInstructedInput.AppRef, and is useful for accessing the field via an interface.
@@ -100463,6 +100653,12 @@ func (v *__AppKeysScopesInstructedInput) GetAppRef() string { return v.AppRef }
 
 // GetInstruction returns __AppKeysScopesInstructedInput.Instruction, and is useful for accessing the field via an interface.
 func (v *__AppKeysScopesInstructedInput) GetInstruction() *ActInstructionInput { return v.Instruction }
+
+// GetLimit returns __AppKeysScopesInstructedInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AppKeysScopesInstructedInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __AppKeysScopesInstructedInput.Offset, and is useful for accessing the field via an interface.
+func (v *__AppKeysScopesInstructedInput) GetOffset() int { return v.Offset }
 
 // __AppMemberRolesInput is used internally by genqlient
 type __AppMemberRolesInput struct {
@@ -104950,8 +105146,16 @@ func (v *__MovePreviewSourceInput) GetRef() string { return v.Ref }
 
 // __MyUserApiKeysInput is used internally by genqlient
 type __MyUserApiKeysInput struct {
+	Limit         int   `json:"limit"`
+	Offset        int   `json:"offset"`
 	IncludeHidden *bool `json:"includeHidden,omitempty"`
 }
+
+// GetLimit returns __MyUserApiKeysInput.Limit, and is useful for accessing the field via an interface.
+func (v *__MyUserApiKeysInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __MyUserApiKeysInput.Offset, and is useful for accessing the field via an interface.
+func (v *__MyUserApiKeysInput) GetOffset() int { return v.Offset }
 
 // GetIncludeHidden returns __MyUserApiKeysInput.IncludeHidden, and is useful for accessing the field via an interface.
 func (v *__MyUserApiKeysInput) GetIncludeHidden() *bool { return v.IncludeHidden }
@@ -114152,14 +114356,17 @@ func AppAgentRoster(
 
 // The query executed by AppKeysMetadata.
 const AppKeysMetadata_Operation = `
-query AppKeysMetadata ($appRef: ID!) {
-	appKeys(appRef: $appRef) {
-		id
-		keyPreview
-		label
-		createdAt
-		lastUsedAt
-		revokedAt
+query AppKeysMetadata ($appRef: ID!, $limit: Int!, $offset: Int!) {
+	appKeysPage(appRef: $appRef, limit: $limit, offset: $offset) {
+		hasMore
+		items {
+			id
+			keyPreview
+			label
+			createdAt
+			lastUsedAt
+			revokedAt
+		}
 	}
 }
 `
@@ -114170,12 +114377,16 @@ func AppKeysMetadata(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	appRef string,
+	limit int,
+	offset int,
 ) (data_ *AppKeysMetadataResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "AppKeysMetadata",
 		Query:  AppKeysMetadata_Operation,
 		Variables: &__AppKeysMetadataInput{
 			AppRef: appRef,
+			Limit:  limit,
+			Offset: offset,
 		},
 	}
 
@@ -114193,24 +114404,29 @@ func AppKeysMetadata(
 
 // The query executed by AppKeysMetadataInstructed.
 const AppKeysMetadataInstructed_Operation = `
-query AppKeysMetadataInstructed ($appRef: ID!, $instruction: ActInstructionInput!) {
-	appKeys(appRef: $appRef, instruction: $instruction) {
-		id
-		keyPreview
-		label
-		createdAt
-		lastUsedAt
-		revokedAt
+query AppKeysMetadataInstructed ($appRef: ID!, $instruction: ActInstructionInput!, $limit: Int!, $offset: Int!) {
+	appKeysPage(appRef: $appRef, instruction: $instruction, limit: $limit, offset: $offset) {
+		hasMore
+		items {
+			id
+			keyPreview
+			label
+			createdAt
+			lastUsedAt
+			revokedAt
+		}
 	}
 }
 `
 
-// cli#1595: explicitly instructed documents; legacy operations stay byte-identical.
+// cli#1595: explicitly instructed documents; ordinary and instructed documents remain separate.
 func AppKeysMetadataInstructed(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	appRef string,
 	instruction *ActInstructionInput,
+	limit int,
+	offset int,
 ) (data_ *AppKeysMetadataInstructedResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "AppKeysMetadataInstructed",
@@ -114218,6 +114434,8 @@ func AppKeysMetadataInstructed(
 		Variables: &__AppKeysMetadataInstructedInput{
 			AppRef:      appRef,
 			Instruction: instruction,
+			Limit:       limit,
+			Offset:      offset,
 		},
 	}
 
@@ -114235,19 +114453,22 @@ func AppKeysMetadataInstructed(
 
 // The query executed by AppKeysScopes.
 const AppKeysScopes_Operation = `
-query AppKeysScopes ($appRef: ID!) {
-	appKeys(appRef: $appRef) {
-		id
-		keyPreview
-		label
-		createdAt
-		lastUsedAt
-		revokedAt
-		scopes {
-			scope
-			hostId
-			grantedAt
-			grantedBy
+query AppKeysScopes ($appRef: ID!, $limit: Int!, $offset: Int!) {
+	appKeysPage(appRef: $appRef, limit: $limit, offset: $offset) {
+		hasMore
+		items {
+			id
+			keyPreview
+			label
+			createdAt
+			lastUsedAt
+			revokedAt
+			scopes {
+				scope
+				hostId
+				grantedAt
+				grantedBy
+			}
 		}
 	}
 }
@@ -114260,12 +114481,16 @@ func AppKeysScopes(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	appRef string,
+	limit int,
+	offset int,
 ) (data_ *AppKeysScopesResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "AppKeysScopes",
 		Query:  AppKeysScopes_Operation,
 		Variables: &__AppKeysScopesInput{
 			AppRef: appRef,
+			Limit:  limit,
+			Offset: offset,
 		},
 	}
 
@@ -114283,27 +114508,30 @@ func AppKeysScopes(
 
 // The query executed by AppKeysScopesHostUses.
 const AppKeysScopesHostUses_Operation = `
-query AppKeysScopesHostUses ($appRef: ID!, $first: Int!) {
-	appKeys(appRef: $appRef) {
-		id
-		keyPreview
-		label
-		createdAt
-		lastUsedAt
-		revokedAt
-		scopes {
-			scope
-			hostId
-			grantedAt
-			grantedBy
-		}
-		hostUses(first: $first) {
-			hostId
-			action
-			count
-			operationId
-			refusedCode
-			usedAt
+query AppKeysScopesHostUses ($appRef: ID!, $first: Int!, $limit: Int!, $offset: Int!) {
+	appKeysPage(appRef: $appRef, limit: $limit, offset: $offset) {
+		hasMore
+		items {
+			id
+			keyPreview
+			label
+			createdAt
+			lastUsedAt
+			revokedAt
+			scopes {
+				scope
+				hostId
+				grantedAt
+				grantedBy
+			}
+			hostUses(first: $first) {
+				hostId
+				action
+				count
+				operationId
+				refusedCode
+				usedAt
+			}
 		}
 	}
 }
@@ -114316,6 +114544,8 @@ func AppKeysScopesHostUses(
 	client_ graphql.Client,
 	appRef string,
 	first int,
+	limit int,
+	offset int,
 ) (data_ *AppKeysScopesHostUsesResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "AppKeysScopesHostUses",
@@ -114323,6 +114553,8 @@ func AppKeysScopesHostUses(
 		Variables: &__AppKeysScopesHostUsesInput{
 			AppRef: appRef,
 			First:  first,
+			Limit:  limit,
+			Offset: offset,
 		},
 	}
 
@@ -114340,27 +114572,30 @@ func AppKeysScopesHostUses(
 
 // The query executed by AppKeysScopesHostUsesInstructed.
 const AppKeysScopesHostUsesInstructed_Operation = `
-query AppKeysScopesHostUsesInstructed ($appRef: ID!, $first: Int!, $instruction: ActInstructionInput!) {
-	appKeys(appRef: $appRef, instruction: $instruction) {
-		id
-		keyPreview
-		label
-		createdAt
-		lastUsedAt
-		revokedAt
-		scopes {
-			scope
-			hostId
-			grantedAt
-			grantedBy
-		}
-		hostUses(first: $first) {
-			hostId
-			action
-			count
-			operationId
-			refusedCode
-			usedAt
+query AppKeysScopesHostUsesInstructed ($appRef: ID!, $first: Int!, $instruction: ActInstructionInput!, $limit: Int!, $offset: Int!) {
+	appKeysPage(appRef: $appRef, instruction: $instruction, limit: $limit, offset: $offset) {
+		hasMore
+		items {
+			id
+			keyPreview
+			label
+			createdAt
+			lastUsedAt
+			revokedAt
+			scopes {
+				scope
+				hostId
+				grantedAt
+				grantedBy
+			}
+			hostUses(first: $first) {
+				hostId
+				action
+				count
+				operationId
+				refusedCode
+				usedAt
+			}
 		}
 	}
 }
@@ -114372,6 +114607,8 @@ func AppKeysScopesHostUsesInstructed(
 	appRef string,
 	first int,
 	instruction *ActInstructionInput,
+	limit int,
+	offset int,
 ) (data_ *AppKeysScopesHostUsesInstructedResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "AppKeysScopesHostUsesInstructed",
@@ -114380,6 +114617,8 @@ func AppKeysScopesHostUsesInstructed(
 			AppRef:      appRef,
 			First:       first,
 			Instruction: instruction,
+			Limit:       limit,
+			Offset:      offset,
 		},
 	}
 
@@ -114397,19 +114636,22 @@ func AppKeysScopesHostUsesInstructed(
 
 // The query executed by AppKeysScopesInstructed.
 const AppKeysScopesInstructed_Operation = `
-query AppKeysScopesInstructed ($appRef: ID!, $instruction: ActInstructionInput!) {
-	appKeys(appRef: $appRef, instruction: $instruction) {
-		id
-		keyPreview
-		label
-		createdAt
-		lastUsedAt
-		revokedAt
-		scopes {
-			scope
-			hostId
-			grantedAt
-			grantedBy
+query AppKeysScopesInstructed ($appRef: ID!, $instruction: ActInstructionInput!, $limit: Int!, $offset: Int!) {
+	appKeysPage(appRef: $appRef, instruction: $instruction, limit: $limit, offset: $offset) {
+		hasMore
+		items {
+			id
+			keyPreview
+			label
+			createdAt
+			lastUsedAt
+			revokedAt
+			scopes {
+				scope
+				hostId
+				grantedAt
+				grantedBy
+			}
 		}
 	}
 }
@@ -114420,6 +114662,8 @@ func AppKeysScopesInstructed(
 	client_ graphql.Client,
 	appRef string,
 	instruction *ActInstructionInput,
+	limit int,
+	offset int,
 ) (data_ *AppKeysScopesInstructedResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "AppKeysScopesInstructed",
@@ -114427,6 +114671,8 @@ func AppKeysScopesInstructed(
 		Variables: &__AppKeysScopesInstructedInput{
 			AppRef:      appRef,
 			Instruction: instruction,
+			Limit:       limit,
+			Offset:      offset,
 		},
 	}
 
@@ -130592,9 +130838,12 @@ func MyApp(
 
 // The query executed by MyUserApiKeys.
 const MyUserApiKeys_Operation = `
-query MyUserApiKeys ($includeHidden: Boolean) {
-	myUserApiKeys(includeHidden: $includeHidden) {
-		... UserApiKeyFields
+query MyUserApiKeys ($limit: Int!, $offset: Int!, $includeHidden: Boolean) {
+	myUserApiKeysPage(includeHidden: $includeHidden, limit: $limit, offset: $offset) {
+		hasMore
+		items {
+			... UserApiKeyFields
+		}
 	}
 }
 fragment UserApiKeyFields on UserApiKey {
@@ -130614,12 +130863,16 @@ fragment UserApiKeyFields on UserApiKey {
 func MyUserApiKeys(
 	ctx_ context.Context,
 	client_ graphql.Client,
+	limit int,
+	offset int,
 	includeHidden *bool,
 ) (data_ *MyUserApiKeysResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "MyUserApiKeys",
 		Query:  MyUserApiKeys_Operation,
 		Variables: &__MyUserApiKeysInput{
+			Limit:         limit,
+			Offset:        offset,
 			IncludeHidden: includeHidden,
 		},
 	}
