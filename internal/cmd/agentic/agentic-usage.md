@@ -563,6 +563,7 @@ hadron profile set [--name <n>] [--handle <h>] [--email <e>]   # --email is acce
 hadron server-info
 hadron run trigger --app <ref> --entry <node-urn> [--as-self] [--agent <ref>] [--arg k=v]... [--ai-config <n>] [--budget-tokens N] [--budget-actions N] [--wait] | list [--statuses <csv>] [--parent <id>] [--sort createdAt|startedAt|finishedAt|status] [--dir asc|desc] [--app <ref> | --org <ref>] [--status <s>] | get <id> | cancel <id> --yes
 hadron ticker list | get <id-or-URN> | create --name <n> --cadence-seconds <n> [--reasons read-team-channel,every-tick,live-check] | update <id-or-URN> [--reasons <list>] | delete <id-or-URN> --yes | subscribe <id-or-URN> --worker <id-or-URN> | unsubscribe <id-or-URN> --worker <id-or-URN> | apply-templates --worker <id-or-URN>
+hadron schedule preview --app <ref> --entry <node-urn> (--cron '<expr>' | --run-at <RFC3339>) [--tz <zone>] [--agent <ref>] [--as-self] [--ai-config <n>] [--arg k=v]... [--disabled] [--budget-tokens N] [--budget-actions N] [--json]
 hadron schedule create [--scope <id|name>] --app <ref> --name <n> (--cron '<expr>' | --run-at <RFC3339>) [--tz <zone>] --entry <node-urn> [--as-self] [--policy <json>] [--ai-config <n>] [--arg k=v]... [--budget-tokens N] [--budget-actions N] | list --app <ref> | update <id> [--run-at <RFC3339>] [--scope <id|name|"">] [--agent <ref>] ... [--budget-tokens N|--clear-budget-tokens] [--budget-actions N|--clear-budget-actions] | rm <id> --yes
 hadron automation preview <kind> <ref> | re-adopt <kind> <ref> --expected-hash <digest> [--yes] | list | approval (<name> | --run <run-id>) [--depth] | approve (<name> | --run <run-id>) [--yes] | decline (<name> | --run <run-id>) [--yes]   # cli#1071: an App owner reviews and approves schedules/webhooks without a row id or hash; name is schedule/<name>, webhook/<name> or a bare <name> that exactly one trigger has; --app on every subcommand
 hadron automation team-snapshot-grant set <app-ref> --trigger-kind SCHEDULE|WEBHOOK --trigger-id <id> [--yes] | revoke <grant-id> [--yes] [--instruction <kind>:<ref>] | list <app-ref> [--include-revoked] [--limit n] [--offset n] [--instruction <kind>:<ref>]
@@ -5007,6 +5008,27 @@ sanitized/bounded; use `--json` for the full graph.
 `automation approval <name> --limit N` sets the name-resolution page size;
 all cursor pages are still read, preserving ambiguity checks. Positive N;
 omitted uses the server default. The existing `--run` path needs no list.
+
+`schedule preview` (cli#1678, server#3463) makes one preview query and no write:
+no create, update, adoption, run or automatic follow-up. It accepts create's
+App/entry/Agent/run-as/config/budget/args/timing flags, but not name, scope or
+policy. Exactly one of --cron or --run-at; empty timing is usage 2 before traffic.
+Unset optional fields are omitted (default enabled=true, timezone server UTC).
+`preview does not validate policy or scope; create may refuse them even after an ADOPTABLE preview.`
+This is a snapshot: no reservation and no authority to create; changed automation
+may change the hash. Worker scheduling needs human authorization or the
+applicable grant; the server decides admission. This does not settle worker
+approval/manual-run policy or change schedule create.
+JSON is `{outcome,hash,reason,summary}`. ADOPTABLE exits 0, with a 64-hex hash,
+reason:null and summary `{name,schedule,reads,writes,cannotDo,tools,limits,flows}`;
+each flow is `{name,urn,tools,writes}`. Lists remain arrays, including empty [].
+CANNOT_BE_ADOPTED exits 5 with only reason MEMORY_UNREADABLE or OTHER in text,
+null hash/summary in JSON, and no memory identity. Text shows every summary
+section (cells sanitized/bounded); JSON preserves the values. The schedule line
+is the server's string with raw cron/instant/timezone, no local timing rewrite.
+Malformed/nil/unsupported-provider replies fail nonzero, never become empty
+success and never fall back to a write. Refusals retain schedule create's
+mapping (2 usage, 3 auth, 4 not found, 8 forbidden), transport 7; no retry.
 
 `schedule create` requires exactly one of `--cron` or `--run-at <RFC3339>`;
 `schedule update` accepts at most one. A run-at switches to one-shot and clears

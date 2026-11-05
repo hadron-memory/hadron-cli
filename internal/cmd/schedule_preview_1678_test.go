@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -22,12 +23,29 @@ func reply1678() string {
 func runPreview1678(t *testing.T, reply string, args ...string) (string, string, []map[string]any, error) {
 	t.Helper()
 	calls := []map[string]any{}
+	var mu sync.Mutex
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req map[string]any
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			t.Error(err)
 		}
+		mu.Lock()
 		calls = append(calls, req)
+		mu.Unlock()
+		if reply == "HTTP502" {
+			w.WriteHeader(502)
+			fmt.Fprint(w, "bad gateway")
+			return
+		}
+		if reply == "DROP" {
+			conn, _, err := w.(http.Hijacker).Hijack()
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			_ = conn.Close()
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		fmt.Fprint(w, reply)
 	}))
@@ -39,7 +57,10 @@ func runPreview1678(t *testing.T, reply string, args ...string) (string, string,
 	if err != nil {
 		renderError(f, err)
 	}
-	return out.String(), f.IOStreams.ErrOut.(*strings.Builder).String(), calls, err
+	mu.Lock()
+	captured := append([]map[string]any{}, calls...)
+	mu.Unlock()
+	return out.String(), f.IOStreams.ErrOut.(*strings.Builder).String(), captured, err
 }
 func previewArgs1678() []string {
 	return []string{"--app", "acme.com:ops", "--entry", "acme.com::ops::entry", "--cron", "0 6 * * *"}
@@ -58,7 +79,9 @@ func TestSchedulePreview1678DefaultsAndJSON(t *testing.T) {
 	}
 	var got map[string]any
 	var summary map[string]any
-	json.Unmarshal([]byte(summary1678), &summary)
+	if err := json.Unmarshal([]byte(summary1678), &summary); err != nil {
+		t.Fatal(err)
+	}
 	want := map[string]any{"outcome": "ADOPTABLE", "hash": headHash1678, "reason": nil, "summary": summary}
 	if json.Unmarshal([]byte(out), &got) != nil || !reflect.DeepEqual(got, want) {
 		t.Fatalf("%s", out)
@@ -89,7 +112,9 @@ func TestSchedulePreview1678Outcomes(t *testing.T) {
 			}
 			if asJSON {
 				var got map[string]any
-				json.Unmarshal([]byte(out), &got)
+				if err := json.Unmarshal([]byte(out), &got); err != nil {
+					t.Fatal(err)
+				}
 				want := map[string]any{"outcome": "CANNOT_BE_ADOPTED", "reason": reason, "hash": nil, "summary": nil}
 				if !reflect.DeepEqual(got, want) {
 					t.Fatal(out)
@@ -162,6 +187,56 @@ func TestSchedulePreview1678Help(t *testing.T) {
 	for _, s := range []string{"snapshot", "no reservation", "no authority to create", "preview does not validate policy or scope; create may refuse them even after an ADOPTABLE preview", "human authorization", "server decides"} {
 		if !strings.Contains(out.String(), s) {
 			t.Fatalf("missing %q: %s", s, out.String())
+		}
+	}
+}
+
+func TestSchedulePreview1678TransportAndEmptyLists(t *testing.T) {
+	for _, reply := range []string{"HTTP502", "DROP"} {
+		for _, asJSON := range []bool{false, true} {
+			args := previewArgs1678()
+			if asJSON {
+				args = append(args, "--json")
+			}
+			_, _, calls, err := runPreview1678(t, reply, args...)
+			if exitCodeFor(err) != 7 || len(calls) != 1 {
+				t.Fatalf("%s %v %v", reply, err, calls)
+			}
+		}
+	}
+	reply := reply1678()
+	for _, field := range []string{"reads", "writes", "cannotDo", "tools", "limits", "flows"} {
+		var data map[string]any
+		if err := json.Unmarshal([]byte(reply), &data); err != nil {
+			t.Fatal(err)
+		}
+		v := data["data"].(map[string]any)["previewAgentSchedule"].(map[string]any)
+		v["summary"].(map[string]any)[field] = []any{}
+		b, _ := json.Marshal(data)
+		out, _, _, err := runPreview1678(t, string(b), append(previewArgs1678(), "--json")...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var got map[string]any
+		if err := json.Unmarshal([]byte(out), &got); err != nil {
+			t.Fatal(err)
+		}
+		list := got["summary"].(map[string]any)[field]
+		if !reflect.DeepEqual(list, []any{}) {
+			t.Fatal(out)
+		}
+	}
+}
+func TestSchedulePreview1678WithheldNeverPrintsIdentity(t *testing.T) {
+	reply := `{"data":{"previewAgentSchedule":{"outcome":"CANNOT_BE_ADOPTED","reason":"MEMORY_UNREADABLE","hash":"SECRET","summary":{"name":"SECRET"}}}}`
+	for _, asJSON := range []bool{false, true} {
+		args := previewArgs1678()
+		if asJSON {
+			args = append(args, "--json")
+		}
+		out, stderr, _, err := runPreview1678(t, reply, args...)
+		if exitCodeFor(err) != 7 || strings.Contains(out+stderr, "SECRET") {
+			t.Fatal(err, out, stderr)
 		}
 	}
 }
