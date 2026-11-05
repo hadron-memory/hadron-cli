@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -47,6 +48,7 @@ func bulk1701Server(t *testing.T, answer func(bulk1701Call) string) (*httptest.S
 func bulk1701Payload(c bulk1701Call, revisions []int, failed bool, replaced bool) string {
 	results := []any{}
 	okCount := 0
+	seen := map[string]bool{}
 	for i, ref := range c.Refs {
 		entry := map[string]any{"index": i, "memoryRef": ref, "ok": true, "error": nil}
 		rev := 7
@@ -57,7 +59,12 @@ func bulk1701Payload(c bulk1701Call, revisions []int, failed bool, replaced bool
 			entry["ok"] = false
 			entry["result"] = nil
 			entry["error"] = map[string]any{"code": "MEMORY_NOT_FOUND", "message": "memory not found"}
+		} else if seen[ref] {
+			entry["ok"] = false
+			entry["result"] = nil
+			entry["error"] = map[string]any{"code": "DUPLICATE_TARGET", "message": "already named earlier"}
 		} else {
+			seen[ref] = true
 			okCount++
 			outcome := "APPLIED"
 			if replaced {
@@ -72,8 +79,8 @@ func bulk1701Payload(c bulk1701Call, revisions []int, failed bool, replaced bool
 }
 func TestBulkTemplate1701Wire(t *testing.T) {
 	s, calls := bulk1701Server(t, func(c bulk1701Call) string { return bulk1701Payload(c, nil, false, false) })
-	out, code := runBulk1701(t, s.URL, "memory", "config", "template", "apply", "t1", "acme.com::kb", "m2", "acme.com::kb", "--json", "--expected-revision", "7")
-	if code != 0 {
+	out, code := runBulk1701(t, s.URL, "memory", "config", "template", "apply", "t1", "acme.com::kb", "m2", "acme.com::kb", "--json", "--expected-revision", "7", "--yes")
+	if code != 1 {
 		t.Fatalf("exit=%d: %s", code, out)
 	}
 	got := calls()
@@ -92,7 +99,7 @@ func TestBulkTemplate1701Wire(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &report); err != nil {
 		t.Fatal(err)
 	}
-	if report.Succeeded != 3 || report.Results[0].MemoryRef != "hrn:mem:acme.com:kb" {
+	if !strings.Contains(out, "DUPLICATE_TARGET") || report.Succeeded != 2 || report.Results[0].MemoryRef != "hrn:mem:acme.com:kb" {
 		t.Fatal(out)
 	}
 }
@@ -220,7 +227,7 @@ func TestBulkTemplate1701MixedReport(t *testing.T) {
 				b, _ := json.Marshal(p)
 				return string(b)
 			})
-			args := []string{"memory", "config", "template", "apply", "t1", "acme.com::kb", "m2", "m3", "m4", "m5", "m6"}
+			args := []string{"memory", "config", "template", "apply", "t1", "acme.com::kb", "m2", "m3", "m4", "m5", "m6", "--yes"}
 			if jsonMode {
 				args = append(args, "--json")
 			}
@@ -265,38 +272,52 @@ func runBulk1701(t *testing.T, server string, args ...string) (string, int) {
 }
 
 func TestBulkTemplate1701MalformedPreview(t *testing.T) {
-	for _, mutation := range []string{"missing result", "wrong index", "wrong echo", "wrong count", "missing entry", "wrong dry run"} {
-		t.Run(mutation, func(t *testing.T) {
-			s, calls := bulk1701Server(t, func(c bulk1701Call) string {
-				var p map[string]any
-				_ = json.Unmarshal([]byte(bulk1701Payload(c, nil, false, false)), &p)
-				r := p["data"].(map[string]any)["applyMemoryConfigTemplateToMemories"].(map[string]any)
-				es := r["results"].([]any)
-				e := es[0].(map[string]any)
-				switch mutation {
-				case "missing result":
-					e["result"] = nil
-				case "wrong index":
-					e["index"] = 1
-				case "wrong echo":
-					e["memoryRef"] = "other"
-				case "wrong count":
-					r["succeeded"] = 0
-				case "missing entry":
-					r["results"] = es[:1]
-				case "wrong dry run":
-					r["dryRun"] = false
+	for _, realPhase := range []bool{false, true} {
+		for _, mutation := range []string{"missing result", "wrong index", "wrong echo", "wrong count", "missing entry", "wrong dry run", "wrong entry dry run", "both result and error"} {
+			t.Run(fmt.Sprintf("real-%v/%s", realPhase, mutation), func(t *testing.T) {
+				s, calls := bulk1701Server(t, func(c bulk1701Call) string {
+					if c.DryRun == realPhase {
+						return bulk1701Payload(c, nil, false, false)
+					}
+					var p map[string]any
+					_ = json.Unmarshal([]byte(bulk1701Payload(c, nil, false, false)), &p)
+					r := p["data"].(map[string]any)["applyMemoryConfigTemplateToMemories"].(map[string]any)
+					es := r["results"].([]any)
+					e := es[0].(map[string]any)
+					switch mutation {
+					case "missing result":
+						e["result"] = nil
+					case "wrong index":
+						e["index"] = 1
+					case "wrong echo":
+						e["memoryRef"] = "other"
+					case "wrong count":
+						r["succeeded"] = 0
+					case "missing entry":
+						r["results"] = es[:1]
+					case "wrong dry run":
+						r["dryRun"] = !c.DryRun
+					case "wrong entry dry run":
+						e["result"].(map[string]any)["dryRun"] = !c.DryRun
+					case "both result and error":
+						e["error"] = map[string]any{"code": "INTERNAL_SERVER_ERROR", "message": "bad"}
+					}
+					b, _ := json.Marshal(p)
+					return string(b)
+				})
+				out, code := runBulk1701(t, s.URL, "memory", "config", "template", "apply", "t1", "m1", "m2", "--json")
+				wantCalls := 1
+				if realPhase {
+					wantCalls = 2
 				}
-				b, _ := json.Marshal(p)
-				return string(b)
+				if code != 1 || len(calls()) != wantCalls || !strings.Contains(out, "verify memory configs before retrying") {
+					t.Fatalf("exit=%d calls=%v out=%s", code, calls(), out)
+				}
 			})
-			out, code := runBulk1701(t, s.URL, "memory", "config", "template", "apply", "t1", "m1", "m2", "--json")
-			if code != 1 || len(calls()) != 1 || !strings.Contains(out, "verify memory configs before retrying") {
-				t.Fatalf("exit=%d calls=%v out=%s", code, calls(), out)
-			}
-		})
+		}
 	}
 }
+
 func TestBulkTemplate1701NoInput(t *testing.T) {
 	for _, args := range [][]string{{"t1"}, {"t1", "m1", "--memories-file", ""}} {
 		t.Run(strings.Join(args, "_"), func(t *testing.T) {
@@ -329,9 +350,9 @@ func TestBulkTemplate1701ApplyConflict(t *testing.T) {
 }
 
 func TestBulkTemplate1701OmittedRevision(t *testing.T) {
-	calls := 0
+	var calls atomic.Int64
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		calls++
+		calls.Add(1)
 		var body struct{ Variables map[string]json.RawMessage }
 		_ = json.NewDecoder(r.Body).Decode(&body)
 		if _, ok := body.Variables["expectedTemplateRevision"]; ok {
@@ -341,8 +362,8 @@ func TestBulkTemplate1701OmittedRevision(t *testing.T) {
 	}))
 	defer s.Close()
 	_, code := runBulk1701(t, s.URL, "memory", "config", "template", "apply", "t1", "m1", "m2", "--dry-run")
-	if code != 0 || calls != 1 {
-		t.Fatalf("exit=%d calls=%d", code, calls)
+	if code != 0 || calls.Load() != 1 {
+		t.Fatalf("exit=%d calls=%d", code, calls.Load())
 	}
 }
 
@@ -355,12 +376,14 @@ func TestBulkTemplate1701RealFailureRecovery(t *testing.T) {
 		{"gateway", "gateway down", 502, 7, true},
 		{"malformed JSON", "{", 200, 7, true},
 		{"null result", `{"data":{"applyMemoryConfigTemplateToMemories":null}}`, 200, 1, true},
+		{"nested forbidden", `{"errors":[{"message":"refused","path":["applyMemoryConfigTemplateToMemories","results"],"extensions":{"code":"FORBIDDEN"}}]}`, 200, 8, true},
+		{"mixed faults", `{"errors":[{"message":"refused","extensions":{"code":"FORBIDDEN"}},{"message":"fault","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`, 200, 1, true},
 		{"whole conflict", `{"errors":[{"message":"template changed","extensions":{"code":"CONFLICT"}}]}`, 200, 5, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			calls := 0
+			var calls atomic.Int64
 			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				calls++
+				calls.Add(1)
 				var b struct{ Variables bulk1701Call }
 				_ = json.NewDecoder(r.Body).Decode(&b)
 				if b.Variables.DryRun {
@@ -372,8 +395,8 @@ func TestBulkTemplate1701RealFailureRecovery(t *testing.T) {
 			}))
 			defer s.Close()
 			out, code := runBulk1701(t, s.URL, "memory", "config", "template", "apply", "t1", "m1", "m2", "--json")
-			if code != tc.want || calls != 2 {
-				t.Fatalf("exit=%d calls=%d %s", code, calls, out)
+			if code != tc.want || calls.Load() != 2 {
+				t.Fatalf("exit=%d calls=%d %s", code, calls.Load(), out)
 			}
 			if strings.Contains(out, "some memories may already have changed") != tc.warn {
 				t.Fatalf("warning=%v want%v: %s", !tc.warn, tc.warn, out)
@@ -391,7 +414,7 @@ func TestBulkTemplate1701DuplicateRetryHelp(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "Do not retry DUPLICATE_TARGET") {
+	if !strings.Contains(strings.Join(strings.Fields(out.String()), " "), "Do not retry DUPLICATE_TARGET") {
 		t.Fatal(out.String())
 	}
 }
@@ -512,5 +535,27 @@ func TestBulkTemplate1701PartialPreviewConsent(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestBulkTemplate1701StdinCannotAlsoConfirm(t *testing.T) {
+	s, calls := bulk1701Server(t, func(c bulk1701Call) string { return bulk1701Payload(c, nil, false, true) })
+	f, _, stderr := testFactoryTTY(t, "m1\nm2\n")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "config", "template", "apply", "t1", "--memories-file", "-", "--server", s.URL})
+	err := root.Execute()
+	if exitCodeFor(err) != 2 || !strings.Contains(err.Error(), "stdin was consumed") || len(calls()) != 1 || strings.Contains(stderr.String(), "(y/N)") {
+		t.Fatalf("err=%v calls=%v stderr=%s", err, calls(), stderr)
+	}
+}
+func TestBulkTemplate1701UsageBeforeAuth(t *testing.T) {
+	for _, args := range [][]string{{"t1"}, {"t1", "--memories-file", ""}} {
+		f, _ := testFactory(t)
+		t.Setenv("HADRON_TOKEN", "")
+		root := NewRootCmd(f)
+		root.SetArgs(append([]string{"memory", "config", "template", "apply"}, args...))
+		if code := exitCodeFor(root.Execute()); code != 2 {
+			t.Fatalf("args=%v exit=%d", args, code)
+		}
 	}
 }

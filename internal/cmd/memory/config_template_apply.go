@@ -82,11 +82,22 @@ comments are skipped. Argument refs come first, duplicates are kept. The
 server owns the target cap: this command never caps, chunks or retries.
 Each input position gets a report; any failed entry gives exit 1 after the
 full report. Missing and unmanaged memories both report MEMORY_NOT_FOUND.
-Retry FAILED memories only: rerunning the whole --memories-file can replace
-rules again in memories that already succeeded. A bulk preview whose
-successful entries show different revisions refuses with exit 5; if none
-succeed, no real call is sent. A conflict during apply stays in that entry's
-report, without retry.
+Retry failed targets only after checking their errors. Do not retry
+DUPLICATE_TARGET positions: they name a memory already attempted earlier in
+the same call. Rerunning the whole --memories-file can replace rules again in
+memories that already succeeded.
+
+Any failed preview entry requires one explicit confirmation before applying
+the whole list: those targets may now succeed and replace rules that were
+not previewed. The prompt names them and any known replacements together.
+With --memories-file -, stdin cannot also answer: use --yes when confirmation
+is needed. Different successful preview revisions refuse with exit 5. If no
+preview entry succeeds, no real call is sent.
+
+A revision change before apply starts refuses the whole call (exit 5); a
+conflict after it starts stays in that entry's report (exit 1), without retry.
+A lost or malformed real-apply answer can follow partial writes: some memories
+may already have changed; verify memory configs before retrying.
 
 On the single-memory path, a rule referencing a task that was since deleted
 refuses the whole apply (exit 5; fix it with template update); bulk reports
@@ -109,13 +120,22 @@ are part of the report, not failures: the exit code is 0.`,
 				}
 				pinned = &expected
 			}
+			isBulk := len(args) != 2 || cmd.Flags().Changed("memories-file")
+			var inputRefs []string
+			if isBulk {
+				var err error
+				inputRefs, err = readBulkMemoryRefs(f, args[1:], memoriesFile, cmd.Flags().Changed("memories-file"))
+				if err != nil {
+					return err
+				}
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
 
-			if len(args) != 2 || cmd.Flags().Changed("memories-file") {
-				return runBulkTemplateApply(cmd, f, client, templateRef, args[1:], memoriesFile, cmd.Flags().Changed("memories-file"), pinned, dryRun, yes)
+			if isBulk {
+				return runBulkTemplateApply(cmd, f, client, bulkApplyOptions{templateRef: templateRef, inputRefs: inputRefs, expected: pinned, dryRun: dryRun, yes: yes, stdinUsed: cmd.Flags().Changed("memories-file") && memoriesFile == "-"})
 			}
 			memoryRef := cmdutil.CanonicalMemoryRef(args[1])
 			preview, err := applyTemplate(cmd, client, templateRef, memoryRef, pinned, true)
@@ -144,8 +164,8 @@ are part of the report, not failures: the exit code is 0.`,
 	}
 	cmd.Flags().StringVar(&memoriesFile, "memories-file", "", "append memory refs from a file, one per line (- reads stdin once)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "print what applying would do, writing nothing")
-	cmd.Flags().BoolVar(&yes, "yes", false, "apply without asking when the preview replaces a rule (required non-interactively)")
-	cmd.Flags().IntVar(&expected, "expected-revision", 0, "apply only this template revision (exit 5 if the template has changed)")
+	cmd.Flags().BoolVar(&yes, "yes", false, "apply without asking when preview replaces rules or any target preview fails (required non-interactively)")
+	cmd.Flags().IntVar(&expected, "expected-revision", 0, "apply only this template revision (whole-call conflict exits 5; bulk entry failures exit 1)")
 	return cmd
 }
 

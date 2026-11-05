@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -36,35 +37,55 @@ type bulkApplyDTO struct {
 	Results   []bulkApplyEntryDTO `json:"results"`
 }
 
-func runBulkTemplateApply(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, template string, typed []string, file string, hasFile bool, pinned *int, dryRun, yes bool) error {
-	typed = append([]string{}, typed...)
+type bulkApplyOptions struct {
+	templateRef string
+	inputRefs   []string
+	expected    *int
+	dryRun      bool
+	yes         bool
+	stdinUsed   bool
+}
+
+func readBulkMemoryRefs(f *cmdutil.Factory, args []string, file string, hasFile bool) ([]string, error) {
+	inputRefs := append([]string{}, args...)
 	if hasFile {
 		in := f.IOStreams.In
 		if file != "-" {
-			h, err := os.Open(file)
+			handle, err := os.Open(file)
 			if err != nil {
-				return exitcode.Newf(exitcode.Usage, "read --memories-file: %v", err)
+				return nil, exitcode.Newf(exitcode.Usage, "read --memories-file: %v", err)
 			}
-			defer func() { _ = h.Close() }()
-			in = h
+			defer func() { _ = handle.Close() }()
+			in = handle
 		}
 		scanner := bufio.NewScanner(in)
 		scanner.Buffer(make([]byte, 4096), 1024*1024)
+		firstLine := true
 		for scanner.Scan() {
-			line := strings.TrimSpace(scanner.Text())
+			line := scanner.Text()
+			if firstLine {
+				line = strings.TrimPrefix(line, "\ufeff")
+				firstLine = false
+			}
+			line = strings.TrimSpace(line)
 			if line != "" && !strings.HasPrefix(line, "#") {
-				typed = append(typed, line)
+				inputRefs = append(inputRefs, line)
 			}
 		}
 		if err := scanner.Err(); err != nil {
-			return exitcode.Newf(exitcode.Usage, "read --memories-file: %v", err)
+			return nil, exitcode.Newf(exitcode.Usage, "read --memories-file: %v", err)
 		}
 	}
-	if len(typed) == 0 {
-		return exitcode.Newf(exitcode.Usage, "at least one memory ref is required (arguments or --memories-file)")
+	if len(inputRefs) == 0 {
+		return nil, exitcode.Newf(exitcode.Usage, "at least one memory ref is required (arguments or --memories-file)")
 	}
-	refs := make([]string, len(typed))
-	for i, r := range typed {
+	return inputRefs, nil
+}
+
+func runBulkTemplateApply(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, opts bulkApplyOptions) error {
+	inputRefs, template, pinned, dryRun, yes := opts.inputRefs, opts.templateRef, opts.expected, opts.dryRun, opts.yes
+	refs := make([]string, len(inputRefs))
+	for i, r := range inputRefs {
 		refs[i] = cmdutil.CanonicalMemoryRef(r)
 	}
 	preview, err := applyBulkTemplate(cmd, client, template, refs, pinned, true)
@@ -72,12 +93,14 @@ func runBulkTemplateApply(cmd *cobra.Command, f *cmdutil.Factory, client graphql
 		return err
 	}
 	if dryRun {
-		return writeBulkApplyResult(f, preview, typed)
+		return writeBulkApplyResult(f, preview, inputRefs)
 	}
 	var rev *int
 	replacements := []string{}
+	failedRefs := []string{}
 	for _, entry := range preview.Results {
 		if !entry.OK {
+			failedRefs = append(failedRefs, fmt.Sprintf("[%d] %s", entry.Index, safeBulkLine(inputRefs[entry.Index])))
 			continue
 		}
 		r := entry.Result
@@ -87,43 +110,61 @@ func runBulkTemplateApply(cmd *cobra.Command, f *cmdutil.Factory, client graphql
 		n := r.TemplateRevision
 		rev = &n
 		if roles := rolesWith(*r, "REPLACED"); len(roles) > 0 {
-			replacements = append(replacements, fmt.Sprintf("%s: %s", typed[entry.Index], output.SafeCell(strings.Join(roles, ", "))))
+			replacements = append(replacements, fmt.Sprintf("%s: %s", safeBulkLine(inputRefs[entry.Index]), safeBulkLine(strings.Join(roles, ", "))))
 		}
 	}
 	if rev == nil {
-		return writeBulkApplyResult(f, preview, typed)
+		return writeBulkApplyResult(f, preview, inputRefs)
 	}
-	if len(replacements) > 0 {
-		if err := cmdutil.Confirm(f.IOStreams, yes, "Apply required template? It REPLACES and locks rules in "+strings.Join(replacements, "; ")+"."); err != nil {
+	if len(replacements) > 0 || len(failedRefs) > 0 {
+		if opts.stdinUsed && !yes {
+			return exitcode.Newf(exitcode.Usage, "stdin was consumed by --memories-file -; use --yes to explicitly confirm this apply")
+		}
+		parts := []string{}
+		if len(replacements) > 0 {
+			parts = append(parts, "It REPLACES and locks rules in "+strings.Join(replacements, "; ")+".")
+		}
+		if len(failedRefs) > 0 {
+			parts = append(parts, "Preview failed for "+strings.Join(failedRefs, "; ")+". These targets may now succeed and replace rules that were not previewed.")
+		}
+		if err := cmdutil.Confirm(f.IOStreams, yes, "Apply template to the whole list? "+strings.Join(parts, " ")); err != nil {
 			return err
 		}
 	}
+
 	result, err := applyBulkTemplate(cmd, client, template, refs, rev, false)
 	if err != nil {
 		return err
 	}
-	return writeBulkApplyResult(f, result, typed)
+	return writeBulkApplyResult(f, result, inputRefs)
 }
 func applyBulkTemplate(cmd *cobra.Command, client graphql.Client, template string, refs []string, expected *int, dry bool) (bulkApplyDTO, error) {
 	resp, err := gen.ApplyMemoryConfigTemplateToMemories(cmd.Context(), client, template, refs, expected, dry)
 	if err != nil {
-		return bulkApplyDTO{}, api.MapError(err)
+		mapped := api.MapError(err)
+		if !dry && !api.BulkTemplateApplyRefusedBeforeWrite(err) {
+			mapped = fmt.Errorf("%w; some memories may already have changed; verify memory configs before retrying", mapped)
+		}
+		return bulkApplyDTO{}, mapped
 	}
 	r := resp.ApplyMemoryConfigTemplateToMemories
 	if r == nil {
-		return bulkApplyDTO{}, exitcode.Newf(exitcode.Error, "the server returned no bulk apply result")
+		return bulkApplyDTO{}, bulkReportError(dry, "the server returned no bulk apply result")
 	}
 	dto := bulkApplyDTO{DryRun: r.DryRun, Succeeded: r.Succeeded, Failed: r.Failed, Results: []bulkApplyEntryDTO{}}
 	if r.DryRun != dry || len(r.Results) != len(refs) {
-		return dto, exitcode.Newf(exitcode.Error, "the server returned an incomplete bulk apply report; verify memory configs before retrying")
+		return bulkApplyDTO{}, bulkReportError(dry, "the server returned an incomplete bulk apply report")
 	}
 	succeeded := 0
 	for i, e := range r.Results {
 		if e == nil || e.Index != i || e.MemoryRef != refs[i] || (e.Ok && (e.Result == nil || e.Error != nil)) || (!e.Ok && (e.Error == nil || e.Result != nil)) {
-			return dto, exitcode.Newf(exitcode.Error, "the server returned an invalid bulk apply entry; verify memory configs before retrying")
+			return bulkApplyDTO{}, bulkReportError(dry, "the server returned an invalid bulk apply entry")
 		}
 		entry := bulkApplyEntryDTO{Index: e.Index, MemoryRef: e.MemoryRef, OK: e.Ok}
 		if e.Ok {
+			if e.Result.DryRun != dry {
+				return bulkApplyDTO{}, bulkReportError(dry, "the server returned an apply entry with the wrong dry-run mode")
+			}
 			v := applyDTO(&e.Result.MemoryConfigApplyFields)
 			entry.Result = &v
 			succeeded++
@@ -133,20 +174,25 @@ func applyBulkTemplate(cmd *cobra.Command, client graphql.Client, template strin
 		dto.Results = append(dto.Results, entry)
 	}
 	if dto.Succeeded != succeeded || dto.Failed != len(refs)-succeeded {
-		return dto, exitcode.Newf(exitcode.Error, "the server returned inconsistent bulk apply counts; verify memory configs before retrying")
+		return bulkApplyDTO{}, bulkReportError(dry, "the server returned inconsistent bulk apply counts")
 	}
 	return dto, nil
 }
-func writeBulkApplyResult(f *cmdutil.Factory, r bulkApplyDTO, typed []string) error {
+func writeBulkApplyResult(f *cmdutil.Factory, r bulkApplyDTO, inputRefs []string) error {
 	err := output.Write(f.IOStreams, f.JSON, r, func(w io.Writer) error {
 		for _, e := range r.Results {
-			if _, err := fmt.Fprintf(w, "[%d] %s\n", e.Index, typed[e.Index]); err != nil {
+			if _, err := fmt.Fprintf(w, "[%d] %s\n", e.Index, safeBulkLine(inputRefs[e.Index])); err != nil {
 				return err
 			}
 			if e.OK {
 				v := e.Result
 				if _, err := fmt.Fprintf(w, "Template revision %d\n", v.TemplateRevision); err != nil {
 					return err
+				}
+				if len(v.Entries) == 0 {
+					if _, err := fmt.Fprintln(w, "The template has no rules; nothing to apply."); err != nil {
+						return err
+					}
 				}
 				t := output.NewTable(w, "ROLE", "OUTCOME", "LOCKED")
 				for _, rule := range v.Entries {
@@ -160,7 +206,7 @@ func writeBulkApplyResult(f *cmdutil.Factory, r bulkApplyDTO, typed []string) er
 					if warning.Field != nil {
 						field = " (" + output.SafeCell(*warning.Field) + ")"
 					}
-					if _, err := fmt.Fprintf(f.IOStreams.ErrOut, "warning: %s on role %s%s\n", output.SafeCell(warning.Code), output.SafeCell(warning.Role), field); err != nil {
+					if _, err := fmt.Fprintf(f.IOStreams.ErrOut, "warning: [%d] %s: %s on role %s%s\n", e.Index, safeBulkLine(inputRefs[e.Index]), output.SafeCell(warning.Code), output.SafeCell(warning.Role), field); err != nil {
 						return err
 					}
 				}
@@ -198,4 +244,15 @@ func writeBulkApplyResult(f *cmdutil.Factory, r bulkApplyDTO, typed []string) er
 		return exitcode.Silent(exitcode.Error)
 	}
 	return nil
+}
+
+// Caller refs must remain complete in text (unlike capped server cells), but
+// file/stdin input can carry terminal controls too.
+func safeBulkLine(ref string) string { return output.SafeLine(ref, utf8.RuneCountInString(ref)+1) }
+
+func bulkReportError(dry bool, what string) error {
+	if dry {
+		return exitcode.Newf(exitcode.Error, "%s; verify memory configs before retrying (no apply call was sent)", what)
+	}
+	return exitcode.Newf(exitcode.Error, "%s; some memories may already have changed; verify memory configs before retrying", what)
 }

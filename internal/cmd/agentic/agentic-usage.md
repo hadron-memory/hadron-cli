@@ -922,16 +922,23 @@ Conventions:
     owns the cap, with no client cap/chunking/retry. One ref without a file
     retains the single-memory operation and output. Different successful
     preview revisions refuse with exit 5; no successful preview means no real
-    call. Replacement asks once, naming each memory and its replaced roles
-    (--yes non-interactively). --dry-run stops after preview.
+    call. Replacement or ANY failed preview entry asks once, naming each memory and
+    its replaced roles plus the failed refs that may now succeed/replace rules
+    not previewed (--yes non-interactively). With --memories-file -, stdin
+    cannot also confirm: use --yes when asking would be needed. --dry-run stops
+    after preview.
     Bulk JSON is {dryRun,succeeded,failed,results:[{index,memoryRef,ok,result|error}]};
     result is the single-apply report, error is {code,message,currentRevision?,requestId?}.
     JSON echoes the sent canonical ref; text shows the typed ref by index.
     Any failed entry prints the full report then exits 1, even CONFLICT;
-    all ok (including skips) exits 0. Whole-call refusals: UNAUTHENTICATED3,
-    FORBIDDEN8, BAD_USER_INPUT/BULK_TARGETS_TOO_MANY2 (server names cap/count),
-    MEMORY_CONFIG_TEMPLATE_NOT_FOUND4, CONFLICT5. Missing and unmanaged targets
-    both report MEMORY_NOT_FOUND. Retry FAILED memories only: resending the
+    all ok (including skips) exits 0. Whole-call refusals: UNAUTHENTICATED (3),
+    FORBIDDEN (8), BAD_USER_INPUT/BULK_TARGETS_TOO_MANY (2) (server names cap/count),
+    MEMORY_CONFIG_TEMPLATE_NOT_FOUND (4), CONFLICT (5). A lost or malformed real
+    apply answer can follow partial writes: some memories may already have
+    changed; verify memory configs before retrying. Missing and unmanaged targets
+    both report MEMORY_NOT_FOUND. Retry failed targets only after checking
+    errors; do not retry DUPLICATE_TARGET
+    positions (the memory was already attempted earlier). Resending the
     whole --memories-file is not idempotent and may replace successful rules
     again. Requires server#3504 (573f3cf4); no fallback to repeated single calls.
   - **`--file` is `get --json`'s shape**, so a template round-trips: read it,
