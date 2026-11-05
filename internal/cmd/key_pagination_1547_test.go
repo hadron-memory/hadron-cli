@@ -118,8 +118,11 @@ func TestKeyPagination1547FailsWithoutPartialOutput(t *testing.T) {
 		{"app", "key", "list", appRead1057},
 		{"app", "key", "list", appRead1057, "--scopes"},
 		{"app", "key", "list", appRead1057, "--scopes", "--host-uses", "2"},
+		{"app", "key", "list", appRead1057, "--instruction", "task:" + taskRef1592},
+		{"app", "key", "list", appRead1057, "--scopes", "--instruction", "task:" + taskRef1592},
+		{"app", "key", "list", appRead1057, "--scopes", "--host-uses", "2", "--instruction", "task:" + taskRef1592},
 	} {
-		for _, failure := range []string{"error", "missing page", "no progress"} {
+		for _, failure := range []string{"error", "missing page", "no progress", "insertion", "revocation", "equal-count duplicate"} {
 			t.Run(strings.Join(args, "/")+"/"+failure, func(t *testing.T) {
 				var mu sync.Mutex
 				calls := 0
@@ -139,12 +142,27 @@ func TestKeyPagination1547FailsWithoutPartialOutput(t *testing.T) {
 						return
 					}
 					if n == 1 {
-						fmt.Fprintf(w, `{"data":{"%s":{"items":[{"id":"first","createdAt":"2026-01-01T00:00:00Z"}],"total":0,"hasMore":true}}}`, field)
+						total := 0
+						if failure == "insertion" || failure == "revocation" || failure == "equal-count duplicate" {
+							total = 3
+						}
+						fmt.Fprintf(w, `{"data":{"%s":{"items":[{"id":"first","createdAt":"2026-01-01T00:00:00Z"}],"total":%d,"hasMore":true}}}`, field, total)
 						return
 					}
 					switch failure {
 					case "error":
 						fmt.Fprint(w, `{"errors":[{"message":"later page refused","extensions":{"code":"FORBIDDEN"}}]}`)
+					case "insertion", "revocation", "equal-count duplicate":
+						// Starting [first, middle, last], inserting a newer key shifts
+						// first onto page two; revoking first shifts middle before offset.
+						total, id := 3, "first"
+						if failure == "insertion" {
+							total = 4
+						}
+						if failure == "revocation" {
+							total, id = 2, "last"
+						}
+						fmt.Fprintf(w, `{"data":{"%s":{"items":[{"id":%q,"createdAt":"2026-01-01T00:00:00Z"}],"total":%d,"hasMore":false}}}`, field, id, total)
 					case "missing page":
 						fmt.Fprintf(w, `{"data":{"%s":null}}`, field)
 					default:
@@ -152,6 +170,16 @@ func TestKeyPagination1547FailsWithoutPartialOutput(t *testing.T) {
 					}
 				}))
 				defer srv.Close()
+				instructed := false
+				for _, arg := range args {
+					if arg == "--instruction" {
+						instructed = true
+					}
+				}
+				if instructed {
+					teamGitDir(t)
+					writeTeamBindingIn(t, os.Getenv(team.GitDirEnv), srv.URL)
+				}
 				f, out := testFactory(t)
 				root := NewRootCmd(f)
 				root.SetArgs(append(append([]string{}, args...), "--json", "--server", srv.URL))
@@ -159,12 +187,50 @@ func TestKeyPagination1547FailsWithoutPartialOutput(t *testing.T) {
 				if err == nil || out.Len() != 0 {
 					t.Fatalf("error=%v partial output=%s", err, out.String())
 				}
+				wantCode := 1
+				if failure == "error" {
+					wantCode = 8
+				}
+				if code := renderFailure(f, append(args, "--json"), err); code != wantCode {
+					t.Errorf("exit=%d want%d", code, wantCode)
+				}
+				var envelope struct {
+					Error struct {
+						Code       int    `json:"code"`
+						ServerCode string `json:"serverCode"`
+					} `json:"error"`
+				}
+				if e := json.Unmarshal([]byte(out.String()), &envelope); e != nil {
+					t.Fatal(e)
+				}
+				if envelope.Error.Code != wantCode {
+					t.Errorf("error envelope=%s", out.String())
+				}
+				if instructed && failure == "error" && envelope.Error.ServerCode != "FORBIDDEN" {
+					t.Errorf("lost serverCode: %s", out.String())
+				}
 				mu.Lock()
 				defer mu.Unlock()
 				if calls != 2 {
 					t.Errorf("requests=%d want2", calls)
 				}
 			})
+		}
+	}
+}
+
+func TestKeyPagination1547HelpWarnsAboutConcurrentChanges(t *testing.T) {
+	for _, args := range [][]string{{"auth", "token", "list", "--help"}, {"app", "key", "list", "--help"}} {
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(args)
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		for _, want := range []string{"not a snapshot", "equal-count", "partial inventory"} {
+			if !strings.Contains(out.String(), want) {
+				t.Errorf("%v help lacks %q", args, want)
+			}
 		}
 	}
 }
