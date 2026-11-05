@@ -345,3 +345,53 @@ func TestBulkTemplate1701OmittedRevision(t *testing.T) {
 		t.Fatalf("exit=%d calls=%d", code, calls)
 	}
 }
+
+func TestBulkTemplate1701RealFailureRecovery(t *testing.T) {
+	for _, tc := range []struct {
+		name, body   string
+		status, want int
+		warn         bool
+	}{
+		{"gateway", "gateway down", 502, 7, true},
+		{"malformed JSON", "{", 200, 1, true},
+		{"null result", `{"data":{"applyMemoryConfigTemplateToMemories":null}}`, 200, 1, true},
+		{"whole conflict", `{"errors":[{"message":"template changed","extensions":{"code":"CONFLICT"}}]}`, 200, 5, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			calls := 0
+			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				calls++
+				var b struct{ Variables bulk1701Call }
+				_ = json.NewDecoder(r.Body).Decode(&b)
+				if b.Variables.DryRun {
+					fmt.Fprint(w, bulk1701Payload(b.Variables, nil, false, false))
+					return
+				}
+				w.WriteHeader(tc.status)
+				fmt.Fprint(w, tc.body)
+			}))
+			defer s.Close()
+			out, code := runBulk1701(t, s.URL, "memory", "config", "template", "apply", "t1", "m1", "m2", "--json")
+			if code != tc.want || calls != 2 {
+				t.Fatalf("exit=%d calls=%d %s", code, calls, out)
+			}
+			if strings.Contains(out, "some memories may already have changed") != tc.warn {
+				t.Fatalf("warning=%v want%v: %s", !tc.warn, tc.warn, out)
+			}
+			if tc.warn && !strings.Contains(out, "verify memory configs before retrying") {
+				t.Fatal(out)
+			}
+		})
+	}
+}
+func TestBulkTemplate1701DuplicateRetryHelp(t *testing.T) {
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "config", "template", "apply", "--help"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "Do not retry DUPLICATE_TARGET") {
+		t.Fatal(out.String())
+	}
+}
