@@ -3585,7 +3585,13 @@ type AgentTaskCreateResponse struct {
 	// cancelAgentTask, alarm.ack.outside-chain on acknowledgeAlarm, and #2733 ticker.code.unmapped on createTicker);
 	// a client must tolerate unknown codes. `text` is
 	// fixed per code. `register` appears only for a caller that has an Agent:
-	// { state: mapped (taskLoc, taskUrn) | unmapped | unresolved }. A warning never
+	// { state: mapped (taskLoc, taskUrn) | unmapped | unresolved | withheld }.
+	// #3491 (ruling 0176): the first three are given only when the caller may read every
+	// system memory on the chains looked up (the Team Agent's and the caller's own Agent's),
+	// as for every action answer (hrn:node:hadronmemory.com:specs:cor:agt:110:03);
+	// otherwise, or when the lookup fails or runs out of time, it is { state: withheld },
+	// which says nothing about what the chains hold. A warning filed after the request has
+	// spent its whole read budget carries no register at all (nothing was looked up). A warning never
 	// blocks and never reveals another worker's state to a caller who could not
 	// already see it on the roster.
 	// #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
@@ -60122,6 +60128,16 @@ type NodeFilter struct {
 	// COMMENTS search finds every matching comment the caller may read.
 	ContentScope *NodeContentScope `json:"contentScope,omitempty"`
 	CreatedBy    *string           `json:"createdBy,omitempty"`
+	// #3494 — true selects nodes with a live OPEN top-level comment; false selects nodes with none.
+	// Deleted roots and deleted-with-replies stubs never count (hrn:node:hadronmemory.com:specs:cor:dmo:110:05 / hrn:node:hadronmemory.com:specs:cor:dmo:110:10).
+	// Null or omitted leaves results unchanged. AND-combined before ranking, counts and paging in every
+	// findNodes mode; it grants no access. Inherited projections have a zero summary: true
+	// excludes them, false includes them. Concealed install-write responses are not search projections.
+	// Unscored expansion context adds only this thread check to its existing memory/deletion/content-scope
+	// checks; other filters keep their candidate-only behavior there. Counts exclude appended context.
+	// appNodes/appNodesPage refuse either boolean with BAD_USER_INPUT.
+	// Proposed addition built on the #3494 gate to hrn:node:hadronmemory.com:specs:cor:api:090:02; comment result scope stays hrn:node:hadronmemory.com:specs:cor:dmo:110:08.
+	HasOpenThreads *bool `json:"hasOpenThreads"`
 	// Include soft-deleted nodes (default false).
 	IncludeDeleted *bool `json:"includeDeleted,omitempty"`
 	// #2999 — runnability is tri-state. true returns only runnable rows; false returns only rows explicitly marked not runnable. A row never marked (NULL) matches neither, and only an omitted filter returns it. (hrn:node:hadronmemory.com:specs:cor:api:060:04)
@@ -60167,6 +60183,9 @@ func (v *NodeFilter) GetContentScope() *NodeContentScope { return v.ContentScope
 
 // GetCreatedBy returns NodeFilter.CreatedBy, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetCreatedBy() *string { return v.CreatedBy }
+
+// GetHasOpenThreads returns NodeFilter.HasOpenThreads, and is useful for accessing the field via an interface.
+func (v *NodeFilter) GetHasOpenThreads() *bool { return v.HasOpenThreads }
 
 // GetIncludeDeleted returns NodeFilter.IncludeDeleted, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetIncludeDeleted() *bool { return v.IncludeDeleted }

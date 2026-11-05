@@ -61,6 +61,9 @@ type nodeListDTO struct {
 // sort client-side — must page explicitly to exhaustion (#319).
 const lsPageSize = 500
 
+// CommentListNow is the age clock; sampled once for an opted-in listing.
+var CommentListNow = time.Now
+
 // paginateAllNodes runs a browse fetch to exhaustion, returning every node in
 // scope. The fetch is injected so the loop is unit-testable without a server.
 // It stops only on an empty page or a reached total, advancing by the rows
