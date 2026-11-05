@@ -51,8 +51,10 @@ import (
 // present here, never the returned value. See fill below.
 type nodeListDTO struct {
 	nodeDTO
-	Properties json.RawMessage `json:"properties,omitempty"`
-	Data       json.RawMessage `json:"data,omitempty"`
+	Properties     json.RawMessage        `json:"properties,omitempty"`
+	Data           json.RawMessage        `json:"data,omitempty"`
+	CommentSummary *listCommentSummaryDTO `json:"commentSummary,omitempty"`
+	oldestAge      string
 }
 
 // lsPageSize bounds one page of the exhaustive browse scan. The server caps an
@@ -75,25 +77,26 @@ func paginateAllNodes(fetch func(limit, offset int) ([]*api.ListNode, *int, erro
 
 func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 	var (
-		memory         string
-		install        string
-		prefix         string
-		childrenOf     string
-		nodeType       string
-		nodeTypes      []string
-		objectType     string
-		runnable       bool
-		tags           []string
-		search         string
-		where          string
-		sortProp       string
-		limit          int
-		offset         int
-		sortSeq        string
-		seqGt          int
-		withProperties bool
-		withData       bool
-		lf             nodeListFilters
+		memory                string
+		install               string
+		prefix                string
+		childrenOf            string
+		nodeType              string
+		nodeTypes             []string
+		objectType            string
+		runnable              bool
+		hasUnresolvedComments bool
+		tags                  []string
+		search                string
+		where                 string
+		sortProp              string
+		limit                 int
+		offset                int
+		sortSeq               string
+		seqGt                 int
+		withProperties        bool
+		withData              bool
+		lf                    nodeListFilters
 	)
 	cmd := &cobra.Command{
 		Use:     "list",
@@ -140,6 +143,27 @@ adds soft-deleted nodes; --memory-class (repeatable: app, group, knowledge,
 personal, private, system) keeps those classes of memory. System memories are
 left out unless you name one with -m or pass --memory-class system.
 
+Unresolved feedback: --has-unresolved-comments keeps nodes with a live open
+thread; =false keeps nodes with none. Omit it for the existing listing. The
+filter runs on the server before each page, including search, install and seq
+modes; the CLI does not scan threads. With either boolean, OPEN THREADS and
+OLDEST follow the normal columns (or the metadata in projected blocks, before
+data/properties). OLDEST is the oldest open root's age, floored to minutes,
+hours or days; under one minute or a future timestamp is <1m, and no open
+thread is -. --json adds commentSummary {openThreads, oldestOpenThreadAt},
+keeping the server's timestamp string, not the displayed age. Without the
+flag neither the query nor the output gains that summary. A malformed summary
+fails the whole command (exit 1, no partial rows); an older provider refusing
+the field is schema skew (exit 2), with no unfiltered retry. Needs the provider
+from hadron-server#3494 / #3520.
+
+Groom boot prompts with --has-unresolved-comments --memory-class system
+--role boot-prompt; role tasks with --has-unresolved-comments --memory-class
+system --runnable; processes with --has-unresolved-comments -m <team system
+memory> --prefix processes:. System memories are excluded by default unless
+-m names one or --memory-class system is given. Resolve a thread after applying
+or rejecting the feedback, rather than deleting it, so grooming history stays.
+
 Details:
 
 ` + installReadDetails() + ``,
@@ -150,6 +174,9 @@ Details:
   hadron node list -m hrn:mem:hadronmemory.com:dev --seq-gt 42 --sort-seq asc
   hadron node list -m hrn:mem:acme.com:kb --object-type insight --where '{"path":["source"],"eq":"substack"}'
   hadron node list -m hrn:mem:acme.com:team --where '{"field":"data","path":["authorName"],"exists":true}' --with-data
+  # groom unresolved feedback on system boot prompts
+  hadron node list --has-unresolved-comments --memory-class system --role boot-prompt
+
   hadron node list -m hrn:mem:acme.com:kb --sort-property '{"path":["rank"],"as":"number","direction":"desc"}'`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -191,6 +218,11 @@ Details:
 			var filterSet bool
 			if cmd.Flags().Changed("runnable") {
 				filter.IsRunnable = &runnable
+				filterSet = true
+			}
+			withCommentSummary := cmd.Flags().Changed("has-unresolved-comments")
+			if withCommentSummary {
+				filter.HasOpenThreads = &hasUnresolvedComments
 				filterSet = true
 			}
 			if memory != "" {
@@ -271,11 +303,15 @@ Details:
 			// explicit --limit/--offset stays one deliberate page.
 			drain := seqMode || (!cmd.Flags().Changed("limit") && !cmd.Flags().Changed("offset"))
 
+			fetchPage := api.FindNodesProjected
+			if withCommentSummary {
+				fetchPage = api.FindNodesCommentSummaryProjected
+			}
 			var rawNodes []*api.ListNode
 			if drain {
 				rawNodes, err = paginateAllNodes(func(lim, off int) ([]*api.ListNode, *int, error) {
 					l, o := lim, off
-					page, err := api.FindNodesProjected(cmd.Context(), client, searchArg, mode, filterArg, sortArg, sortPropArg, &l, &o, withProperties, withData)
+					page, err := fetchPage(cmd.Context(), client, searchArg, mode, filterArg, sortArg, sortPropArg, &l, &o, withProperties, withData)
 					if err != nil {
 						return nil, nil, err
 					}
@@ -283,7 +319,7 @@ Details:
 				})
 			} else {
 				var page *api.FindNodesPage
-				page, err = api.FindNodesProjected(cmd.Context(), client, searchArg, mode, filterArg, sortArg, sortPropArg, limitArg, offsetArg, withProperties, withData)
+				page, err = fetchPage(cmd.Context(), client, searchArg, mode, filterArg, sortArg, sortPropArg, limitArg, offsetArg, withProperties, withData)
 				if err == nil {
 					rawNodes = page.Nodes
 				}
@@ -318,6 +354,10 @@ Details:
 				matched = &n
 			}
 
+			var now time.Time
+			if withCommentSummary {
+				now = CommentListNow()
+			}
 			nodes := make([]nodeListDTO, 0, len(rawNodes))
 			for _, n := range rawNodes {
 				row := nodeListDTO{nodeDTO: nodeDTO{
@@ -341,6 +381,14 @@ Details:
 				}
 				if withData {
 					row.Data = cmdutil.ProjectedColumn(n.Data)
+				}
+				if withCommentSummary {
+					summary, age, err := listCommentSummary(n, now)
+					if err != nil {
+						return err
+					}
+					row.CommentSummary = summary
+					row.oldestAge = age
 				}
 				nodes = append(nodes, row)
 			}
@@ -425,7 +473,11 @@ Details:
 				if withProperties || withData {
 					return writeProjected(w, nodes)
 				}
-				t := output.NewTable(w, "LOC", "NAME", "TYPE", "SEQ", "RUN")
+				headers := []string{"LOC", "NAME", "TYPE", "SEQ", "RUN"}
+				if withCommentSummary && len(nodes) > 0 {
+					headers = append(headers, "OPEN THREADS", "OLDEST")
+				}
+				t := output.NewTable(w, headers...)
 				for _, n := range nodes {
 					seqStr := ""
 					if n.Seq != nil {
@@ -435,7 +487,11 @@ Details:
 					if n.IsRunnable {
 						runStr = "✓"
 					}
-					t.Row(output.SafeCell(n.Loc), output.SafeCell(n.Name), output.SafeCell(n.NodeType), seqStr, runStr)
+					cells := []string{output.SafeCell(n.Loc), output.SafeCell(n.Name), output.SafeCell(n.NodeType), seqStr, runStr}
+					if n.CommentSummary != nil {
+						cells = append(cells, fmt.Sprint(n.CommentSummary.OpenThreads), n.oldestAge)
+					}
+					t.Row(cells...)
 				}
 				return t.Flush()
 			})
@@ -450,6 +506,7 @@ Details:
 	cmd.Flags().StringVar(&objectType, "object-type", "", "filter by objectType collection facet (e.g. competitor)")
 	cmd.Flags().BoolVar(&runnable, "runnable", false, "filter by runnable status (--runnable / --runnable=false); omit for all")
 	cmd.Flags().Lookup("runnable").NoOptDefVal = "true"
+	cmd.Flags().BoolVar(&hasUnresolvedComments, "has-unresolved-comments", false, "filter nodes with live unresolved threads (false: none); omit for unchanged listing")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "filter by tag (repeatable)")
 	cmd.Flags().StringVar(&search, "search", "", "keyword filter on name/description")
 	cmd.Flags().StringVar(&where, "where", "", cmdutil.WhereFlagUsage)
@@ -487,6 +544,11 @@ func writeProjected(w io.Writer, nodes []nodeListDTO) error {
 		}
 		if _, err := fmt.Fprintf(w, "%s  %s  (%s)%s\n", n.Loc, n.Name, n.NodeType, seqStr); err != nil {
 			return err
+		}
+		if n.CommentSummary != nil {
+			if _, err := fmt.Fprintf(w, "  OPEN THREADS: %d  OLDEST: %s\n", n.CommentSummary.OpenThreads, n.oldestAge); err != nil {
+				return err
+			}
 		}
 		for _, col := range []struct {
 			label string

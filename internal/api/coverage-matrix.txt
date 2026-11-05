@@ -672,7 +672,7 @@ Query.automationTeamSnapshotGrants(triggerKind)  gap #1617
 Query.dueWakes(instruction)  gap #1617
 Query.node(memoryRef)  excluded not-a-capability: the CLI composes -m and a bare loc into the full node URN, which the SDL documents as the equivalent address (the one case memoryRef adds, forcing loc reading of an unprefixed 3+-segment ref, the hrn:node: form already removes); proposed class, specs engineer to accept
 
-[Filters] 74: 67 flag, 3 gap, 4 excluded
+[Filters] 76: 68 flag, 3 gap, 5 excluded
 Query.agentTasks(reference.kind)  flag team task list --ref-kind
 Query.agentTasks(reference.target)  flag team task list --ref
 Query.agents(filter.ownedByMe)  flag agent list --owned-by-me
@@ -684,6 +684,7 @@ Query.appNodesPage(filter.approvalState)  gap #1697: remaining App node filter s
 Query.appNodesPage(filter.childrenOf)  excluded not-a-capability: appNodesPage refuses this selector (SDL/source); use node list; proposed class unruled under #1334
 Query.appNodesPage(filter.contentScope)  gap #1697: remaining App node filter surface
 Query.appNodesPage(filter.createdBy)  flag app nodes --created-by
+Query.appNodesPage(filter.hasOpenThreads)  excluded not-a-capability: appNodesPage refuses this selector (server#3520 source); use node list; proposed class unruled under #1334
 Query.appNodesPage(filter.includeDeleted)  flag app nodes --include-deleted
 Query.appNodesPage(filter.isRunnable)  flag app nodes --runnable
 Query.appNodesPage(filter.locPrefix)  flag app nodes --prefix
@@ -716,6 +717,7 @@ Query.findNodes(filter.approvalState)  flag spec list --approved --unapproved
 Query.findNodes(filter.childrenOf)  flag node list --children-of
 Query.findNodes(filter.contentScope)  flag search --comments-only
 Query.findNodes(filter.createdBy)  flag node list --created-by
+Query.findNodes(filter.hasOpenThreads)  flag node list --has-unresolved-comments
 Query.findNodes(filter.includeDeleted)  flag node list --include-deleted
 Query.findNodes(filter.isRunnable)  flag node list --runnable
 Query.findNodes(filter.locPrefix)  flag node list --prefix

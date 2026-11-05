@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmd/node"
 )
 
@@ -60,13 +61,33 @@ func runOpen1699(t *testing.T, summary string, args ...string) openRun1699 {
 			fmt.Fprint(w, `{"errors":[{"message":"Cannot query field commentSummary","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`)
 			return
 		}
+
+		if summary == "no-list" {
+			fmt.Fprint(w, `{"data":{}}`)
+			return
+		}
+		if summary == "null-hit" {
+			fmt.Fprint(w, `{"data":{"findNodes":{"hits":[null]}}}`)
+			return
+		}
+		if summary == "null-node" {
+			fmt.Fprint(w, `{"data":{"findNodes":{"hits":[{"node":null}]}}}`)
+			return
+		}
 		var off int
 		_ = json.Unmarshal(q.Vars["offset"], &off)
 		hits := []string{}
-		if off < 3 {
+		if off < 3 && summary != "empty" {
 			extra := ""
 			if summary != "" {
-				extra = `,"commentSummary":` + summary
+				current := summary
+				if summary == "later-bad" {
+					current = `{"openThreads":1,"oldestOpenThreadAt":"2026-11-05T11:00:00Z"}`
+					if off > 0 {
+						current = "null"
+					}
+				}
+				extra = `,"commentSummary":` + current
 			}
 			hits = append(hits, fmt.Sprintf(`{"score":null,"node":{"id":"n%d","memoryId":"mem1","loc":"item:%d","name":"Node","nodeType":"info","tags":[],"seq":%d,"isRunnable":true,"role":null,"updatedAt":"2026-11-05T00:00:00Z","properties":{"p":1},"data":{"d":2}%s}}`, off, off, off+1, extra))
 		}
@@ -112,7 +133,7 @@ func TestNodeOpenComments1699WireAndModes(t *testing.T) {
 					if string(f["hasOpenThreads"]) != fmt.Sprint(want) {
 						t.Fatalf("filter on page%d: %s", finds, c.Vars["filter"])
 					}
-					if string(f["role"]) != `"boot-prompt"` || string(f["locPrefix"]) != `"item:"` || string(f["memoryClasses"]) != `["SYSTEM"]` {
+					if string(f["role"]) != `"boot-prompt"` || string(f["locPrefix"]) != `"item:"` || string(f["memoryClasses"]) != `["system"]` {
 						t.Fatalf("AND filter: %s", c.Vars["filter"])
 					}
 					if !strings.Contains(c.Query, "commentSummary") || !strings.Contains(c.Query, "oldestOpenThreadAt") {
@@ -192,18 +213,18 @@ func TestNodeOpenComments1699AgeAndText(t *testing.T) {
 	for _, tc := range []struct {
 		ago  time.Duration
 		want string
-	}{{0, "<1m"}, {59 * time.Second, "<1m"}, {time.Minute, "1m"}, {59 * time.Minute, "59m"}, {time.Hour, "1h"}, {23*time.Hour + 59*time.Minute, "23h"}, {24 * time.Hour, "1d"}, {400 * 24 * time.Hour, "400d"}, {-5 * time.Minute, "<1m"}} {
+	}{{0, "<1m"}, {59 * time.Second, "<1m"}, {time.Minute - time.Nanosecond, "<1m"}, {time.Minute, "1m"}, {59 * time.Minute, "59m"}, {time.Hour - time.Nanosecond, "59m"}, {time.Hour, "1h"}, {23*time.Hour + 59*time.Minute, "23h"}, {24*time.Hour - time.Nanosecond, "23h"}, {24 * time.Hour, "1d"}, {400 * 24 * time.Hour, "400d"}, {-5 * time.Minute, "<1m"}} {
 		stamp := now.Add(-tc.ago).Format(time.RFC3339Nano)
 		summary := fmt.Sprintf(`{"openThreads":1,"oldestOpenThreadAt":%q}`, stamp)
 		r := runOpen1699(t, summary, "--has-unresolved-comments", "--limit", "1")
-		if r.Code != 0 || !strings.Contains(r.Out, "OPEN THREADS") || !strings.Contains(r.Out, "OLDEST") || !strings.Contains(r.Out, tc.want) {
+		if r.Code != 0 || !strings.Contains(r.Out, "OPEN THREADS") || !strings.Contains(r.Out, "OLDEST") || func() bool { cells := strings.Fields(r.Out); return len(cells) == 0 || cells[len(cells)-1] != tc.want }() {
 			t.Fatalf("%s: exit%d %q", tc.want, r.Code, r.Out)
 		}
 	}
 }
 
 func TestNodeOpenComments1699MalformedAndOldProvider(t *testing.T) {
-	for _, summary := range []string{"", `null`, `{"openThreads":1,"oldestOpenThreadAt":null}`, `{"openThreads":0,"oldestOpenThreadAt":"2026-01-01T00:00:00Z"}`, `{"openThreads":1,"oldestOpenThreadAt":"bad"}`} {
+	for _, summary := range []string{"", `null`, `{"openThreads":null,"oldestOpenThreadAt":null}`, `{"oldestOpenThreadAt":null}`, `{"openThreads":-1,"oldestOpenThreadAt":null}`, `{"openThreads":-1,"oldestOpenThreadAt":"2026-11-05T11:00:00Z"}`, "later-bad", "no-list", "null-hit", "null-node", `{"openThreads":1,"oldestOpenThreadAt":null}`, `{"openThreads":0,"oldestOpenThreadAt":"2026-01-01T00:00:00Z"}`, `{"openThreads":1,"oldestOpenThreadAt":"bad"}`, `{"openThreads":1,"oldestOpenThreadAt":"2026-11-05T11:00:00+24:00"}`, `{"openThreads":1,"oldestOpenThreadAt":"2026-11-05T11:00:00,5Z"}`} {
 		r := runOpen1699(t, summary, "--has-unresolved-comments", "--json")
 		if r.Code != 1 || r.Out != "" {
 			t.Fatalf("%s: exit%d output%q", summary, r.Code, r.Out)
@@ -212,5 +233,90 @@ func TestNodeOpenComments1699MalformedAndOldProvider(t *testing.T) {
 	r := runOpen1699(t, "old-provider", "--has-unresolved-comments", "--limit", "1")
 	if r.Code != 2 || len(r.Calls) != 1 || r.Out != "" {
 		t.Fatalf("old provider: %+v", r)
+	}
+}
+
+func TestNodeOpenComments1699ProjectedPlacementAndEmpty(t *testing.T) {
+	for _, flag := range []string{"--has-unresolved-comments", "--has-unresolved-comments=false"} {
+		summary := `{"openThreads":1,"oldestOpenThreadAt":"2026-11-02T12:00:00Z"}`
+		if strings.HasSuffix(flag, "=false") {
+			summary = `{"openThreads":0,"oldestOpenThreadAt":null}`
+		}
+		for _, projection := range [][]string{{"--with-data"}, {"--with-properties"}, {"--with-data", "--with-properties"}} {
+			args := append(append([]string{}, projection...), flag, "--limit", "1")
+			r := runOpen1699(t, summary, args...)
+			if r.Code != 0 {
+				t.Fatalf("exit%d", r.Code)
+			}
+			marker := strings.Index(r.Out, "OPEN THREADS")
+			oldest := strings.Index(r.Out, "OLDEST")
+			if marker < 0 || oldest < marker {
+				t.Fatal(r.Out)
+			}
+			for _, column := range []string{"data:", "properties:"} {
+				if idx := strings.Index(r.Out, column); idx >= 0 && idx < oldest {
+					t.Fatalf("summary after projection: %s", r.Out)
+				}
+			}
+			if strings.HasSuffix(flag, "=false") && !strings.Contains(r.Out, "OPEN THREADS: 0  OLDEST: -") {
+				t.Fatal(r.Out)
+			}
+			bad := runOpen1699(t, "later-bad", append(append([]string{}, projection...), flag)...)
+			if bad.Code != 1 || bad.Out != "" {
+				t.Fatalf("partial malformed projected output: %+v", bad)
+			}
+		}
+		for _, args := range [][]string{nil, {"--json"}, {"--with-data"}} {
+			baseline := runOpen1699(t, "empty", args...)
+			selected := runOpen1699(t, "empty", append(append([]string{}, args...), flag)...)
+			if selected.Code != 0 || selected.Out != baseline.Out {
+				t.Fatalf("empty output changed: %q vs%q", selected.Out, baseline.Out)
+			}
+		}
+	}
+}
+
+func TestNodeOpenComments1699CombinesAllFilters(t *testing.T) {
+	r := runOpen1699(t, `{"openThreads":1,"oldestOpenThreadAt":"2026-11-05T11:00:00Z"}`, "--has-unresolved-comments", "-m", "m1", "--children-of", "item", "--type", "info", "--runnable=false", "--tag", "a", "--limit", "1", "--json")
+	if r.Code != 0 {
+		t.Fatalf("exit%d", r.Code)
+	}
+	var filter map[string]json.RawMessage
+	_ = json.Unmarshal(r.Calls[0].Vars["filter"], &filter)
+	for key, want := range map[string]string{"hasOpenThreads": "true", "memoryIds": `["m1"]`, "childrenOf": `"item"`, "nodeType": `"info"`, "isRunnable": "false", "tags": `["a"]`} {
+		if string(filter[key]) != want {
+			t.Errorf("%s=%s want%s", key, filter[key], want)
+		}
+	}
+}
+
+func TestNodeOpenComments1699Documents(t *testing.T) {
+	has := func(document, field string) bool {
+		for _, line := range strings.Split(document, "\n") {
+			if strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(line), "{")) == field {
+				return true
+			}
+		}
+		return false
+	}
+	for _, field := range []string{"commentSummary", "openThreads", "oldestOpenThreadAt"} {
+		if has(gen.FindNodes_Operation, field) {
+			t.Errorf("ordinary document names %s", field)
+		}
+		if !has(gen.FindNodesWithCommentSummary_Operation, field) {
+			t.Errorf("opt-in document omits %s", field)
+		}
+	}
+}
+
+func TestNodeOpenComments1699TimestampVerbatim(t *testing.T) {
+	summary := `{"openThreads":1,"oldestOpenThreadAt":"2026-11-05T12:30:00.123456789+01:00"}`
+	r := runOpen1699(t, summary, "--has-unresolved-comments", "--limit", "1", "--json")
+	if r.Code != 0 {
+		t.Fatalf("exit%d", r.Code)
+	}
+	rows := decodeRows(t, r.Out)
+	if len(rows) != 1 || compact(t, rows[0]["commentSummary"]) != summary {
+		t.Fatalf("timestamp changed: %s", r.Out)
 	}
 }
