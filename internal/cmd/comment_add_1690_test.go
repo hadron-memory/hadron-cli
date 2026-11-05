@@ -490,3 +490,78 @@ func TestCommentCreateIsUnchangedAndNoLongerAliasedByAdd(t *testing.T) {
 		t.Fatalf("create help must drop the alias and point at add:\n%s", out.String())
 	}
 }
+
+// Local review P2-1 (Jane, 6661481570): a threadId is printed in the headline
+// and the reply-failure text, so one carrying control or format bytes must not
+// be usable: the original refusal is returned and no reply is sent.
+func TestCommentAddRefusesAThreadIdThatCannotBePrintedSafely(t *testing.T) {
+	for name, id := range map[string]string{
+		"escape and newline": "T\x1b[31m\nFORGED",
+		"bidi override":      "T‮evil",
+		"zero width":         "T​1",
+		"over the bound":     strings.Repeat("a", 300),
+	} {
+		t.Run(name, func(t *testing.T) {
+			s := newAddServer()
+			s.createOverride = func(int) (int, string) {
+				return 200, addRefusal("COMMENT_OPEN_THREAD_EXISTS", map[string]any{"threadId": id})
+			}
+			got := runAdd(t, s, "", "comment", "add", addTarget, "--body", "x")
+			if got.code != 5 || got.stdout != "" || strings.Join(s.ops(), ",") != "CreateComment" {
+				t.Fatalf("exit=%d stdout=%q ops=%v", got.code, got.stdout, s.ops())
+			}
+			if strings.Contains(got.stdout, "\x1b") || strings.Contains(got.stderr, "replied") {
+				t.Fatalf("unsafe thread rendered: %q / %q", got.stdout, got.stderr)
+			}
+		})
+	}
+}
+
+// Local review P2-2: a non-null success object with no usable id is not a
+// recorded outcome. Unknown-outcome error (exit 7), nothing printed, no loop.
+func TestCommentAddRefusesAMalformedSuccessBody(t *testing.T) {
+	t.Run("create returns {}", func(t *testing.T) {
+		s := newAddServer()
+		s.createOverride = func(int) (int, string) { return 200, `{"data":{"createComment":{}}}` }
+		got := runAdd(t, s, "", "comment", "add", addTarget, "--body", "x")
+		if got.code != 7 || got.stdout != "" || strings.Join(s.ops(), ",") != "CreateComment" {
+			t.Fatalf("exit=%d stdout=%q ops=%v", got.code, got.stdout, s.ops())
+		}
+	})
+	t.Run("create returns an unprintable id", func(t *testing.T) {
+		s := newAddServer()
+		s.createOverride = func(int) (int, string) {
+			return 200, `{"data":{"createComment":` + addComment("x\\u001b[31mid", "b", true) + `}}`
+		}
+		got := runAdd(t, s, "", "comment", "add", addTarget, "--body", "x")
+		if got.code != 7 || got.stdout != "" {
+			t.Fatalf("exit=%d stdout=%q", got.code, got.stdout)
+		}
+	})
+	t.Run("reply returns {}", func(t *testing.T) {
+		s := newAddServer()
+		s.seed("T1", false)
+		s.replyOverride = func(int) (int, string) { return 200, `{"data":{"replyToComment":{}}}` }
+		got := runAdd(t, s, "", "comment", "add", addTarget, "--body", "x", "--json")
+		if got.code != 7 || strings.Join(s.ops(), ",") != "CreateComment,ReplyToComment" || strings.Contains(got.stdout, `"outcome"`) {
+			t.Fatalf("exit=%d ops=%v stdout=%q", got.code, s.ops(), got.stdout)
+		}
+		if !strings.Contains(got.stdout, "T1") {
+			t.Fatalf("the unknown outcome must name the thread: %q", got.stdout)
+		}
+	})
+}
+
+// Local review P3-1: the duplicate-detail suppression belongs to add's own
+// wrapper. comment create's refusal keeps its appended (threadId: …) even when
+// the server message already contains the id.
+func TestCommentCreateKeepsItsThreadIdSuffixWhenTheMessageMentionsIt(t *testing.T) {
+	s := newAddServer()
+	s.createOverride = func(int) (int, string) {
+		return 200, `{"errors":[{"message":"you already have thread T9 here","extensions":{"code":"COMMENT_OPEN_THREAD_EXISTS","threadId":"T9"}}]}`
+	}
+	got := runAdd(t, s, "", "comment", "create", addTarget, "--body", "x")
+	if got.code != 5 || !strings.Contains(got.stderr, "(threadId: T9)") {
+		t.Fatalf("create output changed: exit=%d stderr=%q", got.code, got.stderr)
+	}
+}
