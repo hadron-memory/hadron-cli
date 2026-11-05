@@ -261,7 +261,7 @@ func TestSchedulePreview1678UnknownReasonIsMalformed(t *testing.T) {
 func TestSchedulePreview1678EveryHumanCellIsSafe(t *testing.T) {
 	// Distinct markers pin each field's presence and keep newline flattening
 	// observable without forbidding the renderer's own layout newlines.
-	cell := func(label string) string { return label + "\x1b\nTAIL" }
+	cell := func(label string) string { return "<" + label + ">\x1b\nTAIL" }
 	labels := []string{"name", "schedule", "reads", "writes", "cannotDo", "tools", "limits", "flow-name", "flow-urn", "flow-tools", "flow-writes"}
 	summary := map[string]any{"name": cell("name"), "schedule": cell("schedule")}
 	for _, field := range []string{"reads", "writes", "cannotDo", "tools", "limits"} {
@@ -277,7 +277,7 @@ func TestSchedulePreview1678EveryHumanCellIsSafe(t *testing.T) {
 		t.Fatal(err, out)
 	}
 	for _, label := range labels {
-		if !strings.Contains(out, label+"  TAIL") {
+		if !strings.Contains(out, "<"+label+">  TAIL") {
 			t.Fatalf("cell %s missing or newline not flattened: %q", label, out)
 		}
 	}
