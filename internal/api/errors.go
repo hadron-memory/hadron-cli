@@ -1657,6 +1657,9 @@ func ExtensionInt(err error, key string) (int, bool) {
 // BulkTemplateApplyRefusedBeforeWrite recognizes only documented root-call
 // refusals. A nested projection error can happen after per-target commits.
 func BulkTemplateApplyRefusedBeforeWrite(err error) bool {
+	if FromNon200Envelope(err) {
+		return false
+	}
 	if IsSchemaSkew(err) {
 		return true
 	}
