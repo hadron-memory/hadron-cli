@@ -56743,6 +56743,35 @@ type MemorySubscriptionsResponse struct {
 // GetMemory returns MemorySubscriptionsResponse.Memory, and is useful for accessing the field via an interface.
 func (v *MemorySubscriptionsResponse) GetMemory() *MemorySubscriptionsMemory { return v.Memory }
 
+// MemorySyncPrerequisitesMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
+type MemorySyncPrerequisitesMemory struct {
+	Source      *string `json:"source"`
+	IsEncrypted bool    `json:"isEncrypted"`
+}
+
+// GetSource returns MemorySyncPrerequisitesMemory.Source, and is useful for accessing the field via an interface.
+func (v *MemorySyncPrerequisitesMemory) GetSource() *string { return v.Source }
+
+// GetIsEncrypted returns MemorySyncPrerequisitesMemory.IsEncrypted, and is useful for accessing the field via an interface.
+func (v *MemorySyncPrerequisitesMemory) GetIsEncrypted() bool { return v.IsEncrypted }
+
+// MemorySyncPrerequisitesResponse is returned by MemorySyncPrerequisites on success.
+type MemorySyncPrerequisitesResponse struct {
+	// Fetch a single Memory (org member, shared-read gate, or platform ADMIN).
+	// Missing and unreadable refs both return null without an error, so a caller
+	// cannot use this field to test whether a private memory exists. Malformed
+	// refs still fail as caller errors, and operational faults still propagate.
+	//
+	// 'ref' accepts the entity's ID or URN.
+	Memory *MemorySyncPrerequisitesMemory `json:"memory"`
+}
+
+// GetMemory returns MemorySyncPrerequisitesResponse.Memory, and is useful for accessing the field via an interface.
+func (v *MemorySyncPrerequisitesResponse) GetMemory() *MemorySyncPrerequisitesMemory { return v.Memory }
+
 type MemoryTransferHandling string
 
 const (
@@ -105403,6 +105432,14 @@ type __MemorySubscriptionsInput struct {
 // GetRef returns __MemorySubscriptionsInput.Ref, and is useful for accessing the field via an interface.
 func (v *__MemorySubscriptionsInput) GetRef() string { return v.Ref }
 
+// __MemorySyncPrerequisitesInput is used internally by genqlient
+type __MemorySyncPrerequisitesInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __MemorySyncPrerequisitesInput.Ref, and is useful for accessing the field via an interface.
+func (v *__MemorySyncPrerequisitesInput) GetRef() string { return v.Ref }
+
 // __MemoryUsageSummaryInput is used internally by genqlient
 type __MemoryUsageSummaryInput struct {
 	MemoryRef string `json:"memoryRef"`
@@ -130707,6 +130744,42 @@ func MemorySubscriptions(
 	}
 
 	data_ = &MemorySubscriptionsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by MemorySyncPrerequisites.
+const MemorySyncPrerequisites_Operation = `
+query MemorySyncPrerequisites ($ref: ID!) {
+	memory(ref: $ref) {
+		source
+		isEncrypted
+	}
+}
+`
+
+// cli#60 P2: internal prerequisites only, read after confirmation.
+func MemorySyncPrerequisites(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *MemorySyncPrerequisitesResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MemorySyncPrerequisites",
+		Query:  MemorySyncPrerequisites_Operation,
+		Variables: &__MemorySyncPrerequisitesInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &MemorySyncPrerequisitesResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

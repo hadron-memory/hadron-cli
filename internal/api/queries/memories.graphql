@@ -746,3 +746,11 @@ mutation SyncMemory($id: ID!) {
     lastSyncReport
   }
 }
+
+# cli#60 P2: internal prerequisites only, read after confirmation.
+query MemorySyncPrerequisites($ref: ID!) {
+  memory(ref: $ref) {
+    source
+    isEncrypted
+  }
+}

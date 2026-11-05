@@ -37,8 +37,15 @@ the result lists them. Encrypted memories cannot be synced. There is no revision
 check: a pull overwrites edits made in Hadron since the last sync.
 
 Requires confirmation; --yes skips it and is required without a terminal.
+After confirmation, one read checks the repository configuration. A memory
+without a repository exits 2 without a sync mutation. Encrypted memories still
+reach the server's typed refusal. Otherwise one sync mutation follows the read;
+no request is retried. The read's repository URL and encryption flag are never
+printed. The configuration can change between the read and mutation; the
+server remains authoritative.
 Partial, unknown and unavailable reports exit 0 with a warning and clean:false
-in --json. A failed report exits 1. A missing report without a sync timestamp
+in --json. Non-OK status exits 1 as not completed; historical reports are not
+this invocation's outcome. A failed report exits 1. A missing report without a sync timestamp
 is never clean. No request is retried; exit 7 means the sync may have happened.
 Use memory get to check the recorded state before retrying.
 
@@ -59,16 +66,49 @@ syncReportStatus,syncReport}. URL credentials in sync errors are masked.`,
 			if err != nil {
 				return err
 			}
+			preflight, err := gen.MemorySyncPrerequisites(cmd.Context(), client, ref)
+			if err != nil {
+				return syncPullError(err, ref, false)
+			}
+			if preflight == nil || preflight.Memory == nil {
+				return notFoundMemory(ref)
+			}
+			// Presence only: never render, persist or echo the stored URL.
+			// Encrypted rows always reach the server's writer/encryption gates,
+			// even without source. Do not reproduce that refusal client-side.
+			if !preflight.Memory.IsEncrypted && (preflight.Memory.Source == nil || *preflight.Memory.Source == "") {
+				return exitcode.Newf(exitcode.Usage, "this memory has no configured repository; no sync mutation was sent")
+			}
 			resp, err := gen.SyncMemory(cmd.Context(), client, ref)
 			if err != nil {
-				return syncPullError(err, ref)
+				return syncPullError(err, ref, true)
 			}
 			if resp == nil || resp.SyncMemory == nil || resp.SyncMemory.SyncStatus == "" {
 				return exitcode.Newf(exitcode.Unavailable, "no usable answer; the sync may have happened; check `hadron memory get %s`", ref)
 			}
 			m := resp.SyncMemory
+			// A successful GraphQL response can contain an untouched historical
+			// row. Do not interpret its report as this invocation's outcome.
+			if m.SyncStatus != "OK" {
+				dto := syncPullDTO{Memory: ref, Operation: "pull", Clean: false, SyncStatus: string(m.SyncStatus), SyncError: maskSyncError(m.SyncError), LastSyncedAt: m.LastSyncedAt, SyncReportStatus: syncReportUnavailable}
+				summary := "pull not completed (status " + output.SafeLine(string(m.SyncStatus), 100) + "); check memory get for the recorded state"
+				fmt.Fprintln(f.IOStreams.ErrOut, "Warning: "+summary)
+				if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+					if _, err := fmt.Fprintln(w, summary); err != nil {
+						return err
+					}
+					if dto.SyncError != nil {
+						_, err := fmt.Fprintln(w, "stored sync error: "+quoteCapped(*dto.SyncError, 500))
+						return err
+					}
+					return nil
+				}); err != nil {
+					return err
+				}
+				return exitcode.Silent(exitcode.Error)
+			}
 			report, status := parseSyncReport(m.LastSyncReport)
-			failed := string(m.SyncStatus) == "ERROR" || (report != nil && report.Outcome == "failed")
+			failed := report != nil && report.Outcome == "failed"
 			// Unknown v1 entry vocabulary is not certified by this client. Keep the
 			// shared parser as the sole decoder, and fail closed at this new door.
 			if report != nil {
@@ -88,7 +128,7 @@ syncReportStatus,syncReport}. URL credentials in sync errors are masked.`,
 				report = nil
 			}
 			dto := syncPullDTO{Memory: ref, Operation: "pull", SyncStatus: string(m.SyncStatus), SyncError: maskSyncError(m.SyncError), LastSyncedAt: m.LastSyncedAt, SyncReportStatus: status, SyncReport: report}
-			dto.Clean = status == syncReportNone && m.LastSyncedAt != nil && *m.LastSyncedAt != "" && string(m.SyncStatus) == "OK" && m.SyncError == nil
+			dto.Clean = status == syncReportNone && m.LastSyncedAt != nil && *m.LastSyncedAt != "" && m.SyncError == nil
 			summary := "synced; report unavailable"
 			switch {
 			case failed:
@@ -130,13 +170,18 @@ type syncPullFailure struct {
 func (e *syncPullFailure) Error() string { return e.message }
 func (e *syncPullFailure) Unwrap() error { return e.cause }
 
-func syncPullError(err error, ref string) error {
+func syncPullError(err error, ref string, attempted bool) error {
 	mapped := api.MapError(err)
 	code := exitcode.FromError(mapped)
 	message := mapped.Error()
 	if api.HasErrorCode(err, "ENCRYPTED_GIT_SYNC_UNAVAILABLE") {
 		code = exitcode.Usage
 		message = "this memory is encrypted and cannot be synced with git"
+	} else if !attempted {
+		if code == exitcode.Unavailable {
+			message = "could not check the memory sync configuration"
+		}
+		message += "; no sync mutation was sent"
 	} else if code == exitcode.Unavailable {
 		message = "no answer; the sync may have happened; check `hadron memory get " + ref + "` before retrying"
 	} else if api.ServerCodeOf(err) == "" || api.HasErrorCode(err, "INTERNAL_SERVER_ERROR") {

@@ -2,8 +2,13 @@ package cmd
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 )
 
 // LOCAL P2: these are successful GraphQL responses, not completed syncs.
@@ -189,5 +194,76 @@ func TestMemorySyncPull60PrerequisiteShapes(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+func TestMemorySyncPull60PreflightFailures(t *testing.T) {
+	for _, tc := range []struct {
+		name, body string
+		want       int
+	}{
+		{"missing", `{"data":{"memory":null}}`, 4},
+		{"denied", `{"errors":[{"message":"not allowed https://user:PRECHECK_SECRET@host/repo","extensions":{"code":"FORBIDDEN"}}]}`, 8},
+		{"internal", `{"errors":[{"message":"hidden","extensions":{"code":"INTERNAL_SERVER_ERROR","requestId":"req-preflight-60"}}]}`, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			gql, calls := captureSyncPull60(t, map[string]string{"MemorySyncPrerequisites": tc.body})
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs([]string{"memory", "sync", "pull", "acme.com:kb", "--yes", "--json", "--server", gql.URL})
+			err := root.Execute()
+			if renderError(f, err) != tc.want || len(calls) != 1 || calls["SyncMemory"] != nil {
+				t.Fatalf("err=%v calls=%v", err, calls)
+			}
+			if strings.Contains(out.String(), "PRECHECK_SECRET") || strings.Contains(out.String(), "may have happened") {
+				t.Fatal(out)
+			}
+			if tc.name == "internal" && !strings.Contains(out.String(), `"requestId": "req-preflight-60"`) {
+				t.Fatal(out)
+			}
+		})
+	}
+}
+
+func TestMemorySyncPull60PreflightSelection(t *testing.T) {
+	fields := map[string]bool{}
+	for _, line := range strings.Split(gen.MemorySyncPrerequisites_Operation, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || line == "}" || strings.HasPrefix(line, "query ") || strings.HasPrefix(line, "memory(") {
+			continue
+		}
+		fields[line] = true
+	}
+	if len(fields) != 2 || !fields["source"] || !fields["isEncrypted"] {
+		t.Fatal(fields)
+	}
+}
+
+func TestMemorySyncPull60PreflightUnavailable(t *testing.T) {
+	var requests atomic.Int32
+	gql := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/graphql" {
+			http.NotFound(w, r)
+			return
+		}
+		requests.Add(1)
+		var request struct {
+			OperationName string `json:"operationName"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			t.Error(err)
+		}
+		if request.OperationName != "MemorySyncPrerequisites" {
+			t.Errorf("mutation sent after failed read: %s", request.OperationName)
+		}
+		http.Error(w, "unavailable", http.StatusServiceUnavailable)
+	}))
+	defer gql.Close()
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "sync", "pull", "acme.com:kb", "--yes", "--server", gql.URL})
+	err := root.Execute()
+	if exitCodeFor(err) != 7 || requests.Load() != 1 || !strings.Contains(err.Error(), "no sync mutation was sent") || strings.Contains(err.Error(), "may have happened") {
+		t.Fatalf("err=%v requests=%d", err, requests.Load())
 	}
 }

@@ -7,11 +7,19 @@ and C are not part of this change.
 
 `memory sync pull <memoryRef>` canonicalizes the explicit ref locally and asks
 cmdutil.Confirm BEFORE making any request, including a lookup. syncMemory
-accepts an ID or URN, so one mutation suffices for all accepted memory spellings.
+accepts an ID or URN. Per corrective rulings6670029964/6670195918, confirmation
+is followed by one narrow memory read (source + isEncrypted, internal only),
+then at most one mutation. No source on an unencrypted row exits2 with no
+mutation. Encrypted rows always reach the server, irrespective of source, so
+the writer gate and R206 typed refusal are not replicated client-side. Both
+fields are discarded without output/logging/persistence. No pre-confirm read.
 The prompt names this canonical reference (not a fetched display name). --yes
 bypasses the prompt; no automatic retry or fallback is offered.
 
-The operation selects only syncStatus/syncError/lastSyncedAt/lastSyncReport.
+The mutation selects only syncStatus/syncError/lastSyncedAt/lastSyncReport.
+The separate preflight selects only source/isEncrypted. A returned non-OK
+status exits1/not-completed/clean:false before historical-report interpretation;
+the report is unavailable at that door, not evidence this invocation synced.
 The explicit command DTO reuses parseSyncReport and writeSyncBlock; it adds no
 second JSON report decoder. Unknown v1 entry vocabulary is unavailable at this
 door rather than a certified result. A clean result requires no report, a
@@ -39,3 +47,26 @@ Tests cover clean/partial/unknown/unavailable/never-run reports, confirmation,
 refusals, URL masking, variables, and counted one-request transport/no-answer
 paths. Independent seats: LOCAL, isolated FULL BLIND, scoped §10 every head,
 and compiled-binary fake-transport QA. UX waived by gate.
+
+## LOCAL P2 fix cycle
+
+The original attach assumed no source throws BAD_USER_INPUT. Provider source
+shows no-source returns{} with no update, and missing installation returns{}
+after stamping SYNCING. The preflight source gate plus post-mutation OK gate
+close those no-op/stale-report shapes under the bounded gate ruling. A source
+change between the read and mutation is outside this receipt; typed server
+not-attempted/completion semantics are separate work routed by Ada81259. No
+server change is part of this CLI PR.
+
+Red eaa150f4: eight incomplete-status assertion failures. Red8f301bff: all six
+source/encryption prerequisite shapes fail before the read exists. Fix folds
+stored-response error masking, hostile-terminal stderr, clean-with-error,
+stored-failed and unknown report-code pins. The previous clean predicate's
+status check is now enforced before decoding reports; removing that earlier
+guard is the meaningful mutant (a duplicate status term in clean would be
+redundant). Source and encryption fields never join the eight-key public DTO.
+
+The shared 30s per-request timeout remains; slow synchronous syncs can return
+exit7 with may-have-happened. Real duration evidence and timeout policy are
+outside this fix. Owner Jane revisits on a sync timeout contract change or
+observed real-provider duration evidence; no standalone optional head move.

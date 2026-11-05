@@ -5664,13 +5664,22 @@ App node type unions: `app nodes --types` matches `node list --types`: repeatabl
 `hadron memory sync pull <memory> --yes [--json]` mirrors the configured
 repository into the memory. The repository wins over Hadron edits; nodes the
 repository dropped are deleted. There is no revision check. Encrypted memories
-are refused. Without `--yes`, a terminal asks for confirmation and a script
-exits 2 before any request. Only pull is offered.
+are refused by the server. Without `--yes`, a terminal asks for confirmation
+and a script exits 2 before any request. Only pull is offered.
+
+After confirmation, one narrow read checks source presence and encryption;
+neither value is printed or persisted. Non-encrypted with no source exits 2
+without a mutation. Encrypted always reaches SyncMemory, even with no source,
+so the server's writer gate and typed refusal remain authoritative. Otherwise
+one SyncMemory follows. Configuration can change between read and mutation;
+this is not a concurrency-proof execution receipt. Requests are never retried.
 
 JSON is `{memory,operation:"pull",clean,syncStatus,syncError,lastSyncedAt,
-syncReportStatus,syncReport}`. A partial, unknown or unavailable report exits 0
-with `clean:false` and a stderr warning; inspect the report, not the exit code,
-to decide whether the apply was clean. A stored failed outcome exits 1. URL
-credentials in sync errors are masked. Exit 7 means no usable answer: the sync
-may have happened. Check `hadron memory get <memory>` before retrying; this
-command never retries automatically.
+syncReportStatus,syncReport}`. A non-OK status exits 1 with not-completed wording
+and clean:false, and does not interpret historical reports as this invocation's
+outcome. For OK status, a partial, unknown or unavailable report exits 0 with
+clean:false and a stderr warning; inspect the report, not the exit code, to
+decide whether the apply was clean. A stored failed outcome exits 1. URL
+credentials in sync errors are masked. Exit 7 after sending the mutation means
+no usable answer: the sync may have happened. Check `hadron memory get <memory>`
+before retrying. A failed preflight instead says no sync mutation was sent.
