@@ -4880,8 +4880,8 @@ credential or file content is requested. No client authorization is added.
 For these new commands, auth/transport refusals retain exits 3/7; FORBIDDEN and
 AVAILABILITY_NOT_PERMITTED exit 8, NOT_FOUND exits 4, BAD_USER_INPUT exits 2.
 Asset-upload setting providers containing server#2979 (dadc314a) send
-PERMISSION_DENIED (shared exit8) and concealing NOT_FOUND (exit4 for missing or
-unreadable Agent alike). Lookup INTERNAL_SERVER_ERROR stays exit1/requestId.
+PERMISSION_DENIED (shared exit 8) and concealing NOT_FOUND (exit 4 for missing or
+unreadable Agent alike). Lookup INTERNAL_SERVER_ERROR stays exit 1 with requestId.
 Older providers may still conceal domain errors as internal faults. Classify
 only extensions.code, never prose; no scoped override or retry.
 
@@ -5578,5 +5578,3 @@ readiness is exit4 (not found or not readable). Missing write receipts are exit7
 with an inspect-before-repeating hint. The event codes are review.scheduled,
 pr.frozen, review.seat.assigned, review.verdict and pr.ready; read with team events
 --type. No team-process rewiring, model-family enforcement or automatic merge.
-
-Asset upload toggles (cli#1530, typed provider server dadc314a): shared PERMISSION_DENIED maps to exit8; concealing NOT_FOUND remains exit4 with the same response as missing. INTERNAL_SERVER_ERROR stays exit1 with requestId. Classification uses extensions.code, never message text; no retry or scoped override.
