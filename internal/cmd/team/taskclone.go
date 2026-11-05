@@ -190,7 +190,8 @@ schema skew (exit 2). Success prints the new task's handle, id and status;
 	cmd.Flags().StringVar(&title, "title", "", "replace the copied title")
 	cmd.Flags().StringVar(&description, "description", "", "replace the copied description")
 	cmd.Flags().StringVar(&source, "source", "", "replace the copied source reference")
-	cmd.Flags().IntVar(&priority, "priority", 1, "matching priority: 1-5, 1 = highest (replaces the copied one)")
+	// Zero suppresses a fixed help default; only a Changed flag is sent.
+	cmd.Flags().IntVar(&priority, "priority", 0, "matching priority: 1-5, 1 = highest (omitted: inherit the source priority)")
 	cmd.Flags().StringVar(&status, "status", "", "the clone's create-time status: backlog or pending (the default)")
 	cmd.Flags().StringVar(&assignee, "assignee", "", "party to assign the clone to (worker:<…> / user:<…>)")
 	cmd.Flags().StringVar(&startBy, "start-by", "", "RFC 3339 deadline to start by")
