@@ -19,7 +19,10 @@ func newCmdRotate(f *cmdutil.Factory) *cobra.Command {
 		Short: "Rotate a webhook's secret (prints the shown-once replacement)",
 		Long: `Rotate a webhook's secret. The old URL path and token stop working immediately;
 the new ones are printed ONCE — store them now. Prompts on a TTY; a
-non-interactive caller must pass --yes.`,
+non-interactive caller must pass --yes.
+
+Rotation is person-only: worker sessions are refused (FORBIDDEN, exit 8),
+with or without an instruction; no flag authorizes it.`,
 		Example: `  hadron webhook rotate wh_123 --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
