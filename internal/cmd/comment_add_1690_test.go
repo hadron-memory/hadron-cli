@@ -497,8 +497,8 @@ func TestCommentCreateIsUnchangedAndNoLongerAliasedByAdd(t *testing.T) {
 func TestCommentAddRefusesAThreadIdThatCannotBePrintedSafely(t *testing.T) {
 	for name, id := range map[string]string{
 		"escape and newline": "T\x1b[31m\nFORGED",
-		"bidi override":      "T‮evil",
-		"zero width":         "T​1",
+		"bidi override":      "T\u202eevil",
+		"zero width":         "T\u200b1",
 		"over the bound":     strings.Repeat("a", 300),
 	} {
 		t.Run(name, func(t *testing.T) {

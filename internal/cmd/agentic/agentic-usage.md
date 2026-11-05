@@ -3852,8 +3852,12 @@ lost) the exit code and server code are the reply's, the message names the
 thread, and the JSON error carries `extensions.threadId`. If your thread was
 resolved in the instant between the two calls the reply is recorded and the
 thread stays resolved: `add` guarantees the feedback is on the node, not that it
-is listed as unresolved. `comment create` is unchanged and no longer has an `add`
-alias.
+is listed as unresolved. A conflict whose `threadId` contains control, format or
+separator characters (or is over 256 runes) is not a usable thread: the original
+refusal is returned and no reply is sent. A success body with no usable id (for
+example `{}`) is not a recorded outcome: `add` exits 7 (outcome unknown, read
+before retrying) and prints nothing; after a conflict the message names the
+thread. `comment create` is unchanged and no longer has an `add` alias.
 
 Refs are node IDs, qualified node URNs, or bare locs with `-m`. Create anchors
 to the current target revision unless `--anchor-revision` chooses a retained

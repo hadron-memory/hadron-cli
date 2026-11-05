@@ -88,6 +88,9 @@ func addCmd(f *cmdutil.Factory, connect Connect) *cobra.Command {
 		}
 		created, err := svc.Create(cmd.Context(), ref, *bp, qp, ap)
 		if err == nil {
+			if !usableID(created.ID) {
+				return missingResult()
+			}
 			return printAdd(f, addDTO{Outcome: "started", ThreadID: created.ID, Comment: created})
 		}
 		thread, conflict := api.OpenThreadConflictID(err)
@@ -96,12 +99,22 @@ func addCmd(f *cmdutil.Factory, connect Connect) *cobra.Command {
 		}
 		text, composed := composeReplyBody(*bp, qp, ap)
 		replied, rerr := svc.Reply(cmd.Context(), thread, text)
+		if rerr == nil && !usableID(replied.ID) {
+			rerr = missingResult()
+		}
 		if rerr != nil {
 			return api.WithThreadID(rerr, thread)
 		}
 		return printAdd(f, addDTO{Outcome: "replied", ThreadID: thread, ComposedQuote: composed, Comment: replied})
 	}
 	return cmd
+}
+
+// usableID is the minimum a success object must carry before add prints an
+// outcome: a non-empty id that is safe to print. A non-null `{}` decodes to a
+// zero Comment, which is not recorded feedback (cli#1700 local review).
+func usableID(id string) bool {
+	return id != "" && output.SafeLine(id, 256) == id
 }
 
 func printAdd(f *cmdutil.Factory, dto addDTO) error {

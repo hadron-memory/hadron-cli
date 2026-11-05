@@ -10,6 +10,7 @@ import (
 	"github.com/vektah/gqlparser/v2/gqlerror"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 // serverError renders a GraphQL failure as the server's own message and
@@ -122,7 +123,11 @@ func OpenThreadConflictID(err error) (string, bool) {
 		return "", false
 	}
 	id, ok := list[0].Extensions["threadId"].(string)
-	if !ok || id == "" {
+	// The id is printed in add's headline and in its reply-failure text, and it
+	// is the reference the reply is sent to, so it cannot be cleaned: one with
+	// control, format or separator characters (or past the one-line bound) is
+	// not a usable thread, and the original refusal stands.
+	if !ok || id == "" || output.SafeLine(id, 256) != id {
 		return "", false
 	}
 	return id, true

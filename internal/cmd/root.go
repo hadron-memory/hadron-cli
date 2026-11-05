@@ -470,6 +470,7 @@ func renderError(f *cmdutil.Factory, err error) int {
 		if errors.As(err, &matched) && matched.BatchReason() != "" {
 			failure["reason"] = matched.BatchReason()
 		}
+		hasThreadWrapper := false
 		details := api.CommentRecoveryDetails(err)
 		if details == nil {
 			details = api.WorkerReportingDetails(err)
@@ -481,6 +482,7 @@ func renderError(f *cmdutil.Factory, err error) int {
 		// the thread it was aimed at, whatever the reply's own refusal carried.
 		var threaded interface{ ThreadID() string }
 		if errors.As(err, &threaded) {
+			hasThreadWrapper = true
 			if details == nil {
 				details = map[string]any{}
 				if serverCode := api.ServerCodeOf(err); serverCode != "" {
@@ -516,7 +518,7 @@ func renderError(f *cmdutil.Factory, err error) int {
 				message += fmt.Sprintf(" (server code: %v)", reporting["code"])
 			}
 			for _, key := range []string{"currentRevision", "threadId", "class"} {
-				if value, ok := details[key]; ok && (key != "threadId" || !strings.Contains(message, fmt.Sprint(value))) {
+				if value, ok := details[key]; ok && (key != "threadId" || !hasThreadWrapper || !strings.Contains(message, fmt.Sprint(value))) {
 					message += fmt.Sprintf(" (%s: %v)", key, value)
 				}
 			}
