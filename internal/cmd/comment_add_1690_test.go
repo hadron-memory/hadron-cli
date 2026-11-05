@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 // cli#1690 (S1 of hadron-server#3493): `comment add` starts the caller's
@@ -510,8 +511,13 @@ func TestCommentAddRefusesAThreadIdThatCannotBePrintedSafely(t *testing.T) {
 			if got.code != 5 || got.stdout != "" || strings.Join(s.ops(), ",") != "CreateComment" {
 				t.Fatalf("exit=%d stdout=%q ops=%v", got.code, got.stdout, s.ops())
 			}
-			if strings.Contains(got.stdout, "\x1b") || strings.Contains(got.stderr, "replied") {
-				t.Fatalf("unsafe thread rendered: %q / %q", got.stdout, got.stderr)
+			// The refusal the caller sees (stderr) must be safe too: the detail
+			// line appends the threadId, so it cannot carry raw control, format
+			// or separator characters or a forged second line (local delta
+			// review of #1700, Jane 6661879118).
+			errLine := strings.TrimSuffix(got.stderr, "\n")
+			if output.SafeLine(errLine, 100000) != errLine || strings.Contains(got.stderr, "replied") {
+				t.Fatalf("unsafe thread rendered: stdout=%q stderr=%q", got.stdout, got.stderr)
 			}
 		})
 	}
