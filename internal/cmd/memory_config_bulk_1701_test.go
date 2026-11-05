@@ -72,7 +72,7 @@ func bulk1701Payload(c bulk1701Call, revisions []int, failed bool, replaced bool
 }
 func TestBulkTemplate1701Wire(t *testing.T) {
 	s, calls := bulk1701Server(t, func(c bulk1701Call) string { return bulk1701Payload(c, nil, false, false) })
-	out, code := runConfig(t, s.URL, "memory", "config", "template", "apply", "t1", "acme.com::kb", "m2", "acme.com::kb", "--json", "--expected-revision", "7")
+	out, code := runBulk1701(t, s.URL, "memory", "config", "template", "apply", "t1", "acme.com::kb", "m2", "acme.com::kb", "--json", "--expected-revision", "7")
 	if code != 0 {
 		t.Fatalf("exit=%d: %s", code, out)
 	}
@@ -114,7 +114,7 @@ func TestBulkTemplate1701Guards(t *testing.T) {
 			if tc.yes {
 				args = append(args, "--yes")
 			}
-			out, code := runConfig(t, s.URL, args...)
+			out, code := runBulk1701(t, s.URL, args...)
 			if code != tc.code || len(calls()) != tc.n {
 				t.Fatalf("exit=%d calls=%v out=%s", code, calls(), out)
 			}
@@ -127,7 +127,7 @@ func TestBulkTemplate1701File(t *testing.T) {
 		t.Fatal(err)
 	}
 	s, calls := bulk1701Server(t, func(c bulk1701Call) string { return bulk1701Payload(c, nil, false, false) })
-	out, code := runConfig(t, s.URL, "memory", "config", "template", "apply", "t1", "m1", "--memories-file", p, "--dry-run", "--json")
+	out, code := runBulk1701(t, s.URL, "memory", "config", "template", "apply", "t1", "m1", "--memories-file", p, "--dry-run", "--json")
 	if code != exitcode.OK || len(calls()) != 1 || strings.Join(calls()[0].Refs, ",") != "m1,m2,m3" {
 		t.Fatalf("exit=%d calls=%v %s", code, calls(), out)
 	}
@@ -147,7 +147,7 @@ func TestBulkTemplate1701Refusals(t *testing.T) {
 				args = append(args, fmt.Sprintf("m%d", i))
 			}
 			args = append(args, "--json")
-			out, code := runConfig(t, s.URL, args...)
+			out, code := runBulk1701(t, s.URL, args...)
 			if code != tc.want || len(calls()) != 1 || len(calls()[0].Refs) != 51 {
 				t.Fatalf("exit=%d calls=%v out=%s", code, calls(), out)
 			}
@@ -224,7 +224,7 @@ func TestBulkTemplate1701MixedReport(t *testing.T) {
 			if jsonMode {
 				args = append(args, "--json")
 			}
-			out, code := runConfig(t, s.URL, args...)
+			out, code := runBulk1701(t, s.URL, args...)
 			if code != 1 || len(calls()) != 2 {
 				t.Fatalf("exit=%d calls=%v out=%s", code, calls(), out)
 			}
@@ -233,7 +233,7 @@ func TestBulkTemplate1701MixedReport(t *testing.T) {
 				if err := json.Unmarshal([]byte(out), &r); err != nil {
 					t.Fatalf("report plus extra error? %v %s", err, out)
 				}
-				if !strings.Contains(out, `"memoryRef":"hrn:mem:acme.com:kb"`) {
+				if r["results"].([]any)[0].(map[string]any)["memoryRef"] != "hrn:mem:acme.com:kb" {
 					t.Fatal(out)
 				}
 			} else {
@@ -247,5 +247,101 @@ func TestBulkTemplate1701MixedReport(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func runBulk1701(t *testing.T, server string, args ...string) (string, int) {
+	t.Helper()
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	args = append(args, "--server", server)
+	root.SetArgs(args)
+	err := root.Execute()
+	if err == nil {
+		return out.String(), 0
+	}
+	code := renderFailure(f, args, err)
+	return out.String(), code
+}
+
+func TestBulkTemplate1701MalformedPreview(t *testing.T) {
+	for _, mutation := range []string{"missing result", "wrong index", "wrong echo", "wrong count", "missing entry", "wrong dry run"} {
+		t.Run(mutation, func(t *testing.T) {
+			s, calls := bulk1701Server(t, func(c bulk1701Call) string {
+				var p map[string]any
+				_ = json.Unmarshal([]byte(bulk1701Payload(c, nil, false, false)), &p)
+				r := p["data"].(map[string]any)["applyMemoryConfigTemplateToMemories"].(map[string]any)
+				es := r["results"].([]any)
+				e := es[0].(map[string]any)
+				switch mutation {
+				case "missing result":
+					e["result"] = nil
+				case "wrong index":
+					e["index"] = 1
+				case "wrong echo":
+					e["memoryRef"] = "other"
+				case "wrong count":
+					r["succeeded"] = 0
+				case "missing entry":
+					r["results"] = es[:1]
+				case "wrong dry run":
+					r["dryRun"] = false
+				}
+				b, _ := json.Marshal(p)
+				return string(b)
+			})
+			out, code := runBulk1701(t, s.URL, "memory", "config", "template", "apply", "t1", "m1", "m2", "--json")
+			if code != 1 || len(calls()) != 1 || !strings.Contains(out, "verify memory configs before retrying") {
+				t.Fatalf("exit=%d calls=%v out=%s", code, calls(), out)
+			}
+		})
+	}
+}
+func TestBulkTemplate1701NoInput(t *testing.T) {
+	for _, args := range [][]string{{"t1"}, {"t1", "m1", "--memories-file", ""}} {
+		t.Run(strings.Join(args, "_"), func(t *testing.T) {
+			s, calls := bulk1701Server(t, func(c bulk1701Call) string { return bulk1701Payload(c, nil, false, false) })
+			out, code := runBulk1701(t, s.URL, append([]string{"memory", "config", "template", "apply"}, args...)...)
+			if code != 2 || len(calls()) != 0 {
+				t.Fatalf("exit=%d calls=%v %s", code, calls(), out)
+			}
+		})
+	}
+}
+func TestBulkTemplate1701ApplyConflict(t *testing.T) {
+	s, calls := bulk1701Server(t, func(c bulk1701Call) string {
+		if c.DryRun {
+			return bulk1701Payload(c, nil, false, false)
+		}
+		var p map[string]any
+		_ = json.Unmarshal([]byte(bulk1701Payload(c, nil, true, false)), &p)
+		r := p["data"].(map[string]any)["applyMemoryConfigTemplateToMemories"].(map[string]any)
+		for _, e := range r["results"].([]any) {
+			e.(map[string]any)["error"] = map[string]any{"code": "CONFLICT", "message": "template changed", "currentRevision": 8}
+		}
+		b, _ := json.Marshal(p)
+		return string(b)
+	})
+	out, code := runBulk1701(t, s.URL, "memory", "config", "template", "apply", "t1", "m1", "m2", "--json")
+	if code != 1 || len(calls()) != 2 || !strings.Contains(out, `"currentRevision": 8`) {
+		t.Fatalf("exit=%d calls=%v %s", code, calls(), out)
+	}
+}
+
+func TestBulkTemplate1701OmittedRevision(t *testing.T) {
+	calls := 0
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		var body struct{ Variables map[string]json.RawMessage }
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		if _, ok := body.Variables["expectedTemplateRevision"]; ok {
+			t.Error("unset revision serialized")
+		}
+		fmt.Fprint(w, bulk1701Payload(bulk1701Call{DryRun: true, Refs: []string{"m1", "m2"}}, nil, false, false))
+	}))
+	defer s.Close()
+	_, code := runBulk1701(t, s.URL, "memory", "config", "template", "apply", "t1", "m1", "m2", "--dry-run")
+	if code != 0 || calls != 1 {
+		t.Fatalf("exit=%d calls=%d", code, calls)
 	}
 }

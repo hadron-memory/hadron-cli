@@ -47,6 +47,12 @@ func TestIsGraphQLValidationForReadsHTTPErrorEnvelope(t *testing.T) {
 	}
 }
 
+func TestMapBulkTemplateCap1701(t *testing.T) {
+	if got := exitcode.FromError(MapError(gqlErr("BULK_TARGETS_TOO_MANY"))); got != exitcode.Usage {
+		t.Fatalf("exit=%d", got)
+	}
+}
+
 func TestMapError(t *testing.T) {
 	tests := []struct {
 		name string

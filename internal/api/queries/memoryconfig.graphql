@@ -194,6 +194,31 @@ mutation ApplyMemoryConfigTemplate(
     expectedTemplateRevision: $expectedTemplateRevision
     dryRun: $dryRun
   ) {
+    ...MemoryConfigApplyFields
+  }
+}
+
+# hadron-server#1334 — the deliberate step before a LOCKED rule (written by a
+# required template) can be edited or removed: a locked rule refuses every
+# ordinary update and delete, for every caller (Holger, 2026-09-27). Needs lock
+# authority; anyone else who manages the memory gets RULE_LOCKED. Unlocking an
+# unlocked rule changes nothing.
+mutation UnlockNodeRoleRule(
+  $ref: ID!
+  $expectedRevision: Int!
+) {
+  unlockNodeRoleRule(ref: $ref, expectedRevision: $expectedRevision) {
+    rule {
+      ...NodeRoleRuleFields
+    }
+    warnings {
+      ...MemoryConfigWarningFields
+    }
+  }
+}
+
+
+fragment MemoryConfigApplyFields on MemoryConfigApplyResult {
     memoryId
     template {
       id
@@ -213,24 +238,25 @@ mutation ApplyMemoryConfigTemplate(
     warnings {
       ...MemoryConfigWarningFields
     }
-  }
 }
 
-# hadron-server#1334 — the deliberate step before a LOCKED rule (written by a
-# required template) can be edited or removed: a locked rule refuses every
-# ordinary update and delete, for every caller (Holger, 2026-09-27). Needs lock
-# authority; anyone else who manages the memory gets RULE_LOCKED. Unlocking an
-# unlocked rule changes nothing.
-mutation UnlockNodeRoleRule(
-  $ref: ID!
-  $expectedRevision: Int!
+mutation ApplyMemoryConfigTemplateToMemories(
+  $templateRef: ID!
+  $memoryRefs: [ID!]!
+  # @genqlient(omitempty: true)
+  $expectedTemplateRevision: Int
+  $dryRun: Boolean!
 ) {
-  unlockNodeRoleRule(ref: $ref, expectedRevision: $expectedRevision) {
-    rule {
-      ...NodeRoleRuleFields
-    }
-    warnings {
-      ...MemoryConfigWarningFields
+  applyMemoryConfigTemplateToMemories(templateRef: $templateRef, memoryRefs: $memoryRefs, expectedTemplateRevision: $expectedTemplateRevision, dryRun: $dryRun) {
+    dryRun
+    succeeded
+    failed
+    results {
+      index
+      memoryRef
+      ok
+      result { ...MemoryConfigApplyFields }
+      error { code message currentRevision requestId }
     }
   }
 }
