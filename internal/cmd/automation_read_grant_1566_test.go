@@ -49,7 +49,9 @@ func TestReadGrant1566SetWholeMemoryOmitsPrefix(t *testing.T) {
 }
 
 func TestReadGrant1566SetSendsPrefix(t *testing.T) {
-	calls, _, err := setReadGrant1566(t, "--prefix", "docs", "--yes", "--json")
+	r := taskResponses()
+	r["SetAutomationReadGrant"] = `{"data":{"setAutomationReadGrant":` + strings.Replace(readGrant1566, `"prefix":null`, `"prefix":"docs"`, 1) + `}}`
+	calls, _, err := runTeamTask(t, r, readGrantArgs1566("set", autoApp, "--memory", "acme.com:notes", "--prefix", "docs", "--trigger-kind", "SCHEDULE", "--trigger-id", "schedule1", "--yes", "--json")...)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,11 +76,11 @@ func TestReadGrant1566SetGuardsSendNothing(t *testing.T) {
 			args := []string{autoApp, "--memory", "acme.com:notes", "--trigger-kind", "SCHEDULE", "--trigger-id", "schedule1"}
 			switch name {
 			case "bad kind":
-				args[3] = "MANUAL"
+				args[4] = "MANUAL"
 			case "blank memory":
 				args[2] = "  "
 			case "blank trigger":
-				args[5] = " "
+				args[6] = " "
 			}
 			calls, _, err := runTeamTask(t, r, readGrantArgs1566("set", append(args, extra...)...)...)
 			if exitCodeFor(err) != exitcode.Usage || len(callsFor(calls, "SetAutomationReadGrant")) != 0 {
@@ -216,5 +218,62 @@ func TestReadGrant1566ListBlankFilterIsUsageAndSendsNothing(t *testing.T) {
 		if exitCodeFor(err) != exitcode.Usage || len(callsFor(calls, "AutomationReadGrants")) != 0 {
 			t.Fatalf("%v: err=%v calls=%+v", args, err, *calls)
 		}
+	}
+}
+
+// Jane P2-1: a reply for a different scope than the one asked for is not a
+// confirmation of the requested grant.
+func TestReadGrant1566SetRefusesAGrantForAnotherScope(t *testing.T) {
+	withPrefix := func(p string) string {
+		return strings.Replace(readGrant1566, `"prefix":null`, `"prefix":`+p, 1)
+	}
+	cases := map[string]struct {
+		extra []string
+		body  string
+	}{
+		"asked prefix, got whole memory": {[]string{"--prefix", "docs"}, readGrant1566},
+		"asked prefix, got another":      {[]string{"--prefix", "docs"}, withPrefix(`"other"`)},
+		"asked whole memory, got prefix": {nil, withPrefix(`"docs"`)},
+		"other memory":                   {nil, strings.Replace(readGrant1566, "hrn:mem:acme.com:notes", "hrn:mem:acme.com:other", 1)},
+		"no memory in reply":             {nil, strings.Replace(readGrant1566, `"memoryUrn":"hrn:mem:acme.com:notes"`, `"memoryUrn":null`, 1)},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			r := taskResponses()
+			r["SetAutomationReadGrant"] = `{"data":{"setAutomationReadGrant":` + c.body + `}}`
+			args := append([]string{autoApp, "--memory", "acme.com:notes", "--trigger-kind", "SCHEDULE", "--trigger-id", "schedule1", "--yes"}, c.extra...)
+			calls, _, err := runTeamTask(t, r, readGrantArgs1566("set", args...)...)
+			if exitCodeFor(err) != exitcode.Error || len(callsFor(calls, "SetAutomationReadGrant")) != 1 {
+				t.Fatalf("a mismatched scope must exit Error after one send: err=%v calls=%+v", err, *calls)
+			}
+		})
+	}
+}
+
+// An opaque memory id cannot be compared with the URN the server returns, so
+// it is not invented into a mismatch.
+func TestReadGrant1566SetAcceptsAnOpaqueMemoryId(t *testing.T) {
+	r := taskResponses()
+	r["SetAutomationReadGrant"] = `{"data":{"setAutomationReadGrant":` + readGrant1566 + `}}`
+	_, _, err := runTeamTask(t, r, readGrantArgs1566("set", autoApp, "--memory", "cmem100000000000000000000", "--trigger-kind", "SCHEDULE", "--trigger-id", "schedule1", "--yes")...)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Jane P2-2: a null or missing list is malformed, never an empty inventory.
+func TestReadGrant1566ListNullOrMissingIsNotEmpty(t *testing.T) {
+	for name, body := range map[string]string{
+		"null":    `{"data":{"automationReadGrants":null}}`,
+		"missing": `{"data":{}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := taskResponses()
+			r["AutomationReadGrants"] = body
+			_, out, err := runTeamTask(t, r, readGrantArgs1566("list", "--json")...)
+			if exitCodeFor(err) != exitcode.Error || strings.TrimSpace(out) == "[]" {
+				t.Fatalf("err=%v out=%q", err, out)
+			}
+		})
 	}
 }
