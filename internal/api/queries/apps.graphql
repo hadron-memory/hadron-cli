@@ -117,28 +117,42 @@ mutation UninstallAgentFromApp($appRef: ID!, $agentRef: ID!) {
 # 023-app-shape convenience over App.appAgents, so this needs no paging: an
 # App's installed set is small and bounded, unlike agents().
 query AppAgentRoster($appRef: ID!) {
+  app(ref: $appRef) { ...AppAgentRosterData }
+}
+
+# cli#1646: richer listing only; team role warnings keep the older operation.
+query AppAgentInstallationRoster($appRef: ID!) {
   app(ref: $appRef) {
+    ...AppAgentRosterData
+    appAgents {
+      agent { id }
+      installMethod
+      importer { id urn name }
+    }
+  }
+}
+
+fragment AppAgentRosterData on App {
+  id
+  urn
+  name
+  agents {
     id
     urn
     name
-    agents {
-      id
-      urn
-      name
-      description
-      visibility
-      organizationId
-      personaRole
-      createdAt
-    }
-    # cli#916 C2: each install's boot-prompt pointer (AppAgent.bootPromptRef,
-    # #2045 S8), joined onto the Agents above by agent id. agent is null when
-    # the caller may not read the definition, and such a row joins nothing.
-    appAgents {
-      agent { id }
-      bootPromptRef
-      bootPromptTargetDeleted
-    }
+    description
+    visibility
+    organizationId
+    personaRole
+    createdAt
+  }
+  # cli#916 C2: each install's boot-prompt pointer (AppAgent.bootPromptRef,
+  # #2045 S8), joined onto the Agents above by agent id. agent is null when
+  # the caller may not read the definition, and such a row joins nothing.
+  appAgents {
+    agent { id }
+    bootPromptRef
+    bootPromptTargetDeleted
   }
 }
 

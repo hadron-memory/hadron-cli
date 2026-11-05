@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"reflect"
 	"strings"
 	"testing"
@@ -75,12 +76,42 @@ func TestAppAgentInstallMethod1646(t *testing.T) {
 				t.Fatal(err)
 			}
 			if withheld {
-				if strings.Contains(human, "derived") || strings.Contains(human, "installed") {
+				if strings.Count(human, "?") != 4 || strings.Contains(human, "  derived ") || strings.Contains(human, "  installed ") {
 					t.Fatalf("withheld marks guessed: %s", human)
 				}
 			} else if !strings.Contains(human, "installed") || !strings.Contains(human, "derived") || strings.Count(human, "Support Bot") != 2 {
 				t.Fatalf("missing method/importer: %s", human)
+			} else {
+				for _, line := range strings.Split(human, "\n") {
+					if strings.HasPrefix(line, "Support Bot") && !strings.Contains(line, "  installed ") {
+						t.Errorf("ROW label: %s", line)
+					}
+					if strings.HasPrefix(line, "Derived Bot") && !strings.Contains(line, "  derived ") {
+						t.Errorf("DERIVED label: %s", line)
+					}
+				}
 			}
 		})
+	}
+}
+
+func TestAppAgentInstallationOperation1646(t *testing.T) {
+	hasField := func(doc, field string) bool {
+		for _, line := range strings.Split(doc, "\n") {
+			if strings.TrimSuffix(strings.TrimSpace(line), " {") == field {
+				return true
+			}
+		}
+		return false
+	}
+	for _, field := range []string{"installMethod", "importer", "bootPromptRef", "bootPromptTargetDeleted"} {
+		if !hasField(gen.AppAgentInstallationRoster_Operation, field) {
+			t.Errorf("listing omits %s", field)
+		}
+	}
+	for _, field := range []string{"installMethod", "importer"} {
+		if hasField(gen.AppAgentRoster_Operation, field) {
+			t.Errorf("role-warning operation gained %s", field)
+		}
 	}
 }

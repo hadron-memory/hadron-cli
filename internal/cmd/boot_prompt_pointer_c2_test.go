@@ -288,7 +288,7 @@ func TestC2AppAgentListCarriesTheInstallPointer(t *testing.T) {
 	          {"id":"agt2","urn":"hrn:agent:acme.com:other","name":"Other","description":null,"visibility":"ORGANIZATION","organizationId":"o1","personaRole":null,"createdAt":"2026-08-11T00:00:00Z"}],
 	"appAgents":[{"agent":{"id":"agt1"},"bootPromptRef":"` + c2NodeURN + `","bootPromptTargetDeleted":true},
 	             {"agent":null,"bootPromptRef":"hrn:node:acme.com:x:y","bootPromptTargetDeleted":false}]}}}`
-	_, out, err := runTeamTask(t, map[string]string{"AppAgentRoster": resp}, "app", "agent", "list", "hrn:app:acme.com:eng-team", "--json")
+	_, out, err := runTeamTask(t, map[string]string{"AppAgentInstallationRoster": resp}, "app", "agent", "list", "hrn:app:acme.com:eng-team", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -307,7 +307,7 @@ func TestC2AppAgentListCarriesTheInstallPointer(t *testing.T) {
 			t.Errorf("agt2 has no readable join row, so %s must be null, got %v (present %t)", key, v, present)
 		}
 	}
-	_, out, err = runTeamTask(t, map[string]string{"AppAgentRoster": resp}, "app", "agent", "list", "hrn:app:acme.com:eng-team")
+	_, out, err = runTeamTask(t, map[string]string{"AppAgentInstallationRoster": resp}, "app", "agent", "list", "hrn:app:acme.com:eng-team")
 	if err != nil {
 		t.Fatal(err)
 	}

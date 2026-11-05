@@ -43,6 +43,16 @@ type MemberDTO struct {
 	// no readable join row for this Agent.
 	BootPromptRef           *string `json:"bootPromptRef"`
 	BootPromptTargetDeleted *bool   `json:"bootPromptTargetDeleted"`
+	// Explicit nulls preserve the server's whole-App visibility decision.
+	InstallMethod *string      `json:"installMethod"`
+	Importer      *ImporterDTO `json:"importer"`
+}
+
+// ImporterDTO identifies the installed Agent supplying a derived installation.
+type ImporterDTO struct {
+	ID   string `json:"id"`
+	URN  string `json:"urn"`
+	Name string `json:"name"`
 }
 
 // Result is one App plus its installed agents.
@@ -63,19 +73,60 @@ func Fetch(ctx context.Context, client graphql.Client, appRef string) (*Result, 
 	if resp.App == nil {
 		return nil, exitcode.Newf(exitcode.NotFound, "App %q not found", appRef)
 	}
+	return rosterDTO(&resp.App.AppAgentRosterData), nil
+}
+
+// FetchInstallations adds provenance only for the App listing. The role-warning
+// consumer of Fetch keeps its original operation and provider requirements.
+func FetchInstallations(ctx context.Context, client graphql.Client, appRef string) (*Result, error) {
+	resp, err := gen.AppAgentInstallationRoster(ctx, client, appRef)
+	if err != nil {
+		return nil, api.MapError(err)
+	}
+	if resp.App == nil {
+		return nil, exitcode.Newf(exitcode.NotFound, "App %q not found", appRef)
+	}
+	result := rosterDTO(&resp.App.AppAgentRosterData)
+	type provenance struct {
+		method   *string
+		importer *ImporterDTO
+	}
+	byID := map[string]provenance{}
+	for _, row := range resp.App.AppAgents {
+		if row == nil || row.Agent == nil {
+			continue
+		}
+		var p provenance
+		if row.InstallMethod != nil {
+			method := string(*row.InstallMethod)
+			p.method = &method
+		}
+		if row.Importer != nil {
+			p.importer = &ImporterDTO{ID: row.Importer.Id, URN: row.Importer.Urn, Name: row.Importer.Name}
+		}
+		byID[row.Agent.Id] = p
+	}
+	for i := range result.Members {
+		p := byID[result.Members[i].ID]
+		result.Members[i].InstallMethod, result.Members[i].Importer = p.method, p.importer
+	}
+	return result, nil
+}
+
+func rosterDTO(app *gen.AppAgentRosterData) *Result {
 	type pointer struct {
 		ref     *string
 		deleted *bool
 	}
 	pointers := map[string]pointer{}
-	for _, aa := range resp.App.AppAgents {
+	for _, aa := range app.AppAgents {
 		if aa == nil || aa.Agent == nil {
 			continue
 		}
 		pointers[aa.Agent.Id] = pointer{aa.BootPromptRef, aa.BootPromptTargetDeleted}
 	}
 	members := []MemberDTO{}
-	for _, a := range resp.App.Agents {
+	for _, a := range app.Agents {
 		if a == nil {
 			continue
 		}
@@ -88,19 +139,19 @@ func Fetch(ctx context.Context, client graphql.Client, appRef string) (*Result, 
 			BootPromptTargetDeleted: pointers[a.Id].deleted,
 		})
 	}
-	return &Result{AppName: resp.App.Name, AppURN: resp.App.Urn, Members: members}, nil
+	return &Result{AppName: app.Name, AppURN: app.Urn, Members: members}
 }
 
 // Render writes the human table. The ROLE column stays even for an App with
 // no dressed agents: a blank column is the honest answer for a plain
 // single-agent App.
 func Render(w io.Writer, r *Result) error {
-	if _, err := fmt.Fprintf(w, "%s (%s) — %d installed\n", output.SafeCell(r.AppName), output.SafeCell(r.AppURN), len(r.Members)); err != nil {
+	if _, err := fmt.Fprintf(w, "%s (%s) — %d readable agents\n", output.SafeCell(r.AppName), output.SafeCell(r.AppURN), len(r.Members)); err != nil {
 		return err
 	}
-	t := output.NewTable(w, "AGENT", "ROLE", "AGENT URN", "ID", "BOOT PROMPT")
+	t := output.NewTable(w, "AGENT", "ROLE", "AGENT URN", "ID", "BOOT PROMPT", "INSTALL", "IMPORTER")
 	for _, m := range r.Members {
-		t.Row(output.SafeCell(m.AgentName), output.SafeCell(dash(m.PersonaRole)), output.SafeCell(m.URN), output.SafeCell(m.ID), output.SafeCell(cmdutil.BootPromptLabel(m.BootPromptRef, m.BootPromptTargetDeleted)))
+		t.Row(output.SafeCell(m.AgentName), output.SafeCell(dash(m.PersonaRole)), output.SafeCell(m.URN), output.SafeCell(m.ID), output.SafeCell(cmdutil.BootPromptLabel(m.BootPromptRef, m.BootPromptTargetDeleted)), output.SafeCell(installLabel(m.InstallMethod)), output.SafeCell(importerLabel(m.Importer, m.InstallMethod)))
 	}
 	return t.Flush()
 }
@@ -110,4 +161,28 @@ func dash(s *string) string {
 		return "—"
 	}
 	return *s
+}
+
+func installLabel(method *string) string {
+	if method == nil {
+		return "?"
+	}
+	switch *method {
+	case "ROW":
+		return "installed"
+	case "DERIVED":
+		return "derived"
+	default:
+		return *method
+	}
+}
+
+func importerLabel(importer *ImporterDTO, method *string) string {
+	if method == nil {
+		return "?"
+	}
+	if importer == nil {
+		return "—"
+	}
+	return importer.Name + " (" + importer.URN + ")"
 }

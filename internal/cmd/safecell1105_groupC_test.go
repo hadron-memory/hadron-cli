@@ -188,9 +188,9 @@ func TestSafeCell1105CAppAgentList(t *testing.T) {
 					`"visibility":"ORGANIZATION","organizationId":"o1","personaRole":` + q1105(cell) + `,"createdAt":"2026-08-11T00:00:00Z"}`
 			}
 			install := func(i string) string {
-				return `{"agent":{"id":` + q1105("agt"+i+cell) + `},"bootPromptRef":` + q1105(cell) + `,"bootPromptTargetDeleted":true}`
+				return `{"agent":{"id":` + q1105("agt"+i+cell) + `},"bootPromptRef":` + q1105(cell) + `,"bootPromptTargetDeleted":true,"installMethod":"DERIVED","importer":{"id":"importer","urn":` + q1105(cell) + `,"name":` + q1105(cell) + `}}`
 			}
-			return map[string]string{"AppAgentRoster": `{"data":{"app":{"id":"capp100000000000000000000","urn":` + q1105(cell) +
+			return map[string]string{"AppAgentInstallationRoster": `{"data":{"app":{"id":"capp100000000000000000000","urn":` + q1105(cell) +
 				`,"name":` + q1105(cell) + `,"agents":[` + two1105(agent) + `],"appAgents":[` + two1105(install) + `]}}}`}
 		},
 		lines: 4,

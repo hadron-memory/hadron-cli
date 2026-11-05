@@ -2429,6 +2429,14 @@ Conventions:
   automation's entry node no longer resolves; set the trigger to the entry node's
   current URN, then run `hadron automation approval <ref>` again". `decline` is
   unchanged. Any other empty-hash answer stays exit 7.
+- `app agent list [<app-ref>]` lists readable installed Agents (including
+  direct-import derived installs). JSON adds nullable `installMethod` (`ROW` or
+  `DERIVED`) and nullable `importer` (`{id,urn,name}`) to each existing row.
+  Human INSTALL shows `installed` or `derived`, with IMPORTER name and URN for
+  the latter. When any installed Agent is unreadable, the server withholds
+  both fields on every entry: explicit JSON nulls, no human install mark (? = not available).
+  Never infer a row install from null. Requires server #3446's fields; older
+  providers refuse the operation. Casting and install mutations are unchanged.
 - `app agent add <app> <agent>` / `remove <app> <agent>` wrap
   `installAgentIntoApp` / `uninstallAgentFromApp` — the AppAgent join
   (`cor:dmo:050:03`), and the only way to attach an Agent to an App you
