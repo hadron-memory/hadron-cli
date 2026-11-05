@@ -3888,7 +3888,12 @@ refusal is returned and no reply is sent; the human refusal line renders any
 (`--json` keeps the original value, JSON-escaped). A success body with no usable id (for
 example `{}`) is not a recorded outcome: `add` exits 7 (outcome unknown, read
 before retrying) and prints nothing; after a conflict the message names the
-thread. `comment create` is unchanged and no longer has an `add` alias.
+thread. A lost reply answer, timeout, 5xx, missing result or ambiguous
+post-write refusal says the outcome is unknown: read the thread before
+retrying, since the reply may already be recorded. Only established pre-write
+refusals say "failed". Exit codes, server codes and JSON fields are unchanged;
+there is no automatic retry. `comment create` is unchanged and no longer has an
+`add` alias.
 
 Refs are node IDs, qualified node URNs, or bare locs with `-m`. Create anchors
 to the current target revision unless `--anchor-revision` chooses a retained

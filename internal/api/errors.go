@@ -133,17 +133,41 @@ func OpenThreadConflictID(err error) (string, bool) {
 	return id, true
 }
 
-// threadError names the thread a failed follow-up call was aimed at, so the
-// message and the --json error envelope can say which thread the caller's
-// feedback did not reach (cli#1690). Unwrap keeps the exit code, the server
-// code and the GraphQL chain exactly as the refusal had them.
+// threadError names the intended thread without claiming that an uncertain
+// reply was not recorded. Unwrap preserves exit and server-code metadata.
 type threadError struct {
 	error
 	thread string
 }
 
 func (e *threadError) Error() string {
-	return fmt.Sprintf("reply to your open thread %s failed: %s", e.thread, e.error.Error())
+	if replyRefusedBeforeWrite(e.error) {
+		return fmt.Sprintf("reply to your open thread %s failed: %s", e.thread, e.error.Error())
+	}
+	return fmt.Sprintf("reply to your open thread %s: outcome is unknown; read the thread before retrying: %s", e.thread, e.error.Error())
+}
+
+// Only established pre-write reply refusals prove that the reply did not land.
+// COMMENT_NOT_FOUND is deliberately absent: post-commit projection can raise it.
+func replyRefusedBeforeWrite(err error) bool {
+	if FromNon200Envelope(err) {
+		return false
+	}
+	list := graphQLErrors(err)
+	if len(list) == 0 {
+		return false
+	}
+	for _, item := range list {
+		if item == nil || len(item.Path) > 1 {
+			return false
+		}
+		switch extensionCode(item) {
+		case "COMMENT_FORBIDDEN", "COMMENT_IMPERSONATION_REFUSED", "COMMENT_BODY_INVALID", "COMMENT_DELETED":
+		default:
+			return false
+		}
+	}
+	return true
 }
 func (e *threadError) Unwrap() error    { return e.error }
 func (e *threadError) ThreadID() string { return e.thread }
