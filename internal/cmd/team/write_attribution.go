@@ -187,6 +187,9 @@ func authoredWriteField(field string) bool {
 		"cancelAgentTask", "parkAgentTask", "makeAgentTaskReady",
 		"setAgentTaskPriority", "addAgentTaskBlocker", "removeAgentTaskBlocker",
 		"acknowledgeAlarm",
+		// #1664: owner-chain and assignee gates admit bound workers.
+		"setReviewSchedule", "freezePullRequestHead", "assignReviewSeat",
+		"recordReviewVerdict", "recordReadyCall",
 		// #1524 C3: --assign-to-me claims as the bound worker (the claim's
 		// tasks are owned by and assigned to the actor), the person otherwise.
 		"claimUntrackedTaskItems",

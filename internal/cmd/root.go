@@ -454,6 +454,11 @@ func renderError(f *cmdutil.Factory, err error) int {
 		if errors.As(err, &coded) {
 			failure["serverCode"] = coded.ServerCode()
 		}
+		// #1664: only PR_NOT_READY carries typed failing slots.
+		var readiness interface{ PRReadinessSlots() []api.PRSlotFailure }
+		if errors.As(err, &readiness) && readiness.PRReadinessSlots() != nil {
+			failure["slots"] = readiness.PRReadinessSlots()
+		}
 		// cli#1565: a refused batch create names the failing task's 1-based
 		// position; absent for every other refusal.
 		var batch interface{ BatchPosition() int }

@@ -548,6 +548,43 @@ type AgentSchedule {
   userId: ID
 }
 
+"""
+#3457: the preview of a schedule that does not exist yet. A snapshot, not a promise: if the graph changes before Create, the hash differs. summary.schedule carries the raw cron, so a plain-language UI renders its own timing.
+"""
+type AgentSchedulePreview {
+  """
+  The pin hash the created schedule's automationApproval.hash shows while the graph is unchanged. Null when CANNOT_BE_ADOPTED.
+  """
+  hash: String
+  outcome: AgentSchedulePreviewOutcome!
+  reason: AgentSchedulePreviewReason
+  summary: AutomationSummary
+}
+
+enum AgentSchedulePreviewOutcome {
+  """
+  The automation can be adopted: summary and hash are set, reason is null.
+  """
+  ADOPTABLE
+
+  """
+  Create would store this schedule UNADOPTED: summary and hash are null and reason says which kind.
+  """
+  CANNOT_BE_ADOPTED
+}
+
+enum AgentSchedulePreviewReason {
+  """
+  The entry or something it routes to is missing or not readable by you or by the run. A missing entry and an unreadable one answer identically.
+  """
+  MEMORY_UNREADABLE
+
+  """
+  Readable, but the graph is encrypted, outside the organization or over the consent bounds.
+  """
+  OTHER
+}
+
 type AgentSchedulesPage {
   items: [AgentSchedule!]!
   total: Int!
@@ -2686,6 +2723,24 @@ type AuthContext {
   user: User
 }
 
+"""
+#1328 — an authoring attestation. The writer states which task it worked from
+and that task's current revision (Node.revSeq). The server compares both with
+the rule and refuses a mismatch: AUTHORING_ATTESTATION_MISSING,
+AUTHORING_ATTESTATION_WRONG_TASK, AUTHORING_ATTESTATION_STALE, or
+AUTHOR_TASK_BROKEN when the rule's task is gone. A match records a TASK stamp.
+This does not prove the task was read or followed. With no applicable rule
+the claim is ignored. People in the portal are exempt, derived from their
+sign-in; no client field selects that.
+"""
+input AuthoredWithInput {
+  """The task's current revision."""
+  revision: Int!
+
+  """The task's id or canonical URN."""
+  task: ID!
+}
+
 input AuthorizeContextResetStopInput {
   appRef: String!
   epoch: Int!
@@ -4125,6 +4180,12 @@ input CreateNodeInput {
   abstract: String
   aiAgent: String
   alias: String
+
+  """
+  #1328 — the author task this write worked from, required when the node's
+  role rule names one (before and after the write). See AuthoredWithInput.
+  """
+  authoredWith: AuthoredWithInput
   content: String
 
   """
@@ -5755,6 +5816,12 @@ input ImportNodeInput {
   appRef: ID
 
   """
+  #1328 — the author task this write worked from, required when the node's
+  role rule names one (before and after the write). See AuthoredWithInput.
+  """
+  authoredWith: AuthoredWithInput
+
+  """
   Inline source content (e.g. the Web Clipper's authenticated-DOM capture). XOR with 'url'.
   """
   content: String
@@ -6843,6 +6910,12 @@ input MergeMemoriesInput {
 }
 
 input MergeNodesInput {
+  """
+  #1328 — the author task this write worked from, required when the node's
+  role rule names one (before and after the write). See AuthoredWithInput.
+  """
+  authoredWith: AuthoredWithInput
+
   """Hard-delete the source node after a successful merge."""
   deleteSource: Boolean = false
 
@@ -7159,6 +7232,11 @@ type Mutation {
   #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
   assignAgentTask(assignee: AgentTaskPartyInput!, closeSessionWhenDone: Boolean, instruction: ActInstructionInput, taskId: ID!): AgentTask!
+
+  """
+  #3448 — seat owner-chain binds a direct child to a scheduled slot at the frozen head. A current seat's CHANGES_REQUESTED, FAIL or REFUSED at this head prevents replacement, with or without supersedes, and a negative seat cannot move slots (REVIEW_SEAT_NOT_SUPERSEDABLE). A seat task is assigned once (REVIEW_SEAT_ALREADY_ASSIGNED); a replacement must name the current sibling in supersedes (REVIEW_SEAT_SUPERSEDES_REQUIRED). Checks and write hold the build row FOR UPDATE.
+  """
+  assignReviewSeat(head: String!, slot: String!, supersedes: ID, taskRef: ID!): PrProtocolResult!
 
   """
   Attach an EXISTING free-standing memory to an App.
@@ -8930,6 +9008,11 @@ type Mutation {
   finishAgentTask(result: AgentTaskResultInput!, taskId: ID!): AgentTask!
 
   """
+  #3448 — the assignee freezes a full 40-hex head on a task with a pull_request reference (hrn:node:hadronmemory.com:specs:cor:agt:050:08). Any child seat's newest negative verdict at that SHA, including a superseded seat or dropped slot, refuses REVIEW_SEAT_NOT_SUPERSEDABLE: returning to an old head cannot erase a finding.
+  """
+  freezePullRequestHead(head: String!, taskRef: ID!): PrProtocolResult!
+
+  """
   #1747 — give a worker a named App grant (hrn:node:hadronmemory.com:specs:cor:agt:080:24). Whoever manages the App only. Idempotent. Person-only (hrn:node:hadronmemory.com:specs:cor:dmo:050:12, #3277): never a worker session (a worker never gives a grant to itself) in any shape, a run principal, an impersonation or an App key, even when the worker's holder manages the App.
   """
   grantApp(appRef: String!, name: AppGrantName!, workerRef: String!): AppGrant!
@@ -9354,6 +9437,16 @@ type Mutation {
   A caller without an Agent receives WITHHELD with code only, no task loc/URN and no register lookup.
   """
   recordAppAction(appRef: ID!, code: String!, payload: JSON, taskRef: ID): RecordAppActionResult!
+
+  """
+  #3448 — build assignee records pr.ready only when every current scheduled seat is finished with APPROVE, PASS or CARRY at the frozen head. Its verdict actor must differ from both the build's current assignee and the newest pr.frozen actor; Worker/person identity stays distinct from holder credentials. PR_NOT_READY carries failing slots; event facts only, never opaque properties (hrn:node:hadronmemory.com:specs:cor:agt:050:28).
+  """
+  recordReadyCall(head: String!, taskRef: ID!): PrProtocolResult!
+
+  """
+  #3448 — STARTED seat's assignee records a verdict at its assigned head, without finishing it (hrn:node:hadronmemory.com:specs:cor:agt:050:08). REVIEW_SEAT_UNASSIGNED or REVIEW_HEAD_MISMATCH writes nothing. A different actor cannot overwrite a same-head negative verdict (REVIEW_SEAT_NOT_SUPERSEDABLE); its original actor may re-rate.
+  """
+  recordReviewVerdict(head: String!, node: String, receipt: String, taskRef: ID!, verdict: ReviewVerdict!): PrProtocolResult!
 
   """
   #2896 — report a session's outcome: outcome is a number from 0 to 1, outcomeRef an opaque reference of the
@@ -10126,6 +10219,11 @@ type Mutation {
   setRateLimitPolicy(input: SetRateLimitPolicyInput!): RateLimitPolicy!
 
   """
+  #3448 — owner-chain only, never the assignee (hrn:node:hadronmemory.com:specs:cor:agt:050:09). Non-empty unique colon-separated atom slots, at most 64 characters each; latest event replaces the schedule. Dropping a current negative slot at the frozen head refuses REVIEW_SEAT_NOT_SUPERSEDABLE. All five protocol commands refuse finished/cancelled written tasks with TASK_ENDED after checking authority.
+  """
+  setReviewSchedule(slots: [String!]!, taskRef: ID!): PrProtocolResult!
+
+  """
   #2138: pause or resume the whole team, as whoever manages the App. Separate from each worker's own pause: a worker cannot lift it, and ending it clears no self-pause. While paused, no worker is nudged and every worker's check status is PENDING (TEAM_PAUSED). #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
   setTeamPause(appRef: String!, instruction: ActInstructionInput, paused: Boolean!): TeamPause!
@@ -10685,7 +10783,7 @@ type Mutation {
   invariants as updateNode (per-memory write auth, encryption, revision
   history, git mirror). Returns the updated node.
   """
-  updateNodeData(data: JSON!, nodeRef: ID!, reason: String): Node!
+  updateNodeData(authoredWith: AuthoredWithInput, data: JSON!, nodeRef: ID!, reason: String): Node!
 
   """
   #742 - Shallow-merge a JSON patch into a node's structured 'properties'
@@ -10714,7 +10812,7 @@ type Mutation {
   (per-memory write auth, an active session on an encrypted memory, revision
   history, git mirror). Returns the updated node.
   """
-  updateNodeProperties(nodeRef: ID!, properties: JSON!, reason: String): Node!
+  updateNodeProperties(authoredWith: AuthoredWithInput, nodeRef: ID!, properties: JSON!, reason: String): Node!
 
   """
   Set or clear the user-facing label on a revision snapshot (#620,
@@ -12361,6 +12459,57 @@ type PolicyLayerVerdict {
 }
 
 """
+#3448 — register guidance for the committed event code (hrn:node:hadronmemory.com:specs:cor:agt:110:03). A caller without an Agent gets WITHHELD and the code only, with no register lookup.
+"""
+type PrProtocolAction {
+  code: String!
+  state: TickActionState!
+  taskLoc: String
+  taskUrn: String
+}
+
+"""
+#3448 — a command committed, with optional register guidance (hrn:node:hadronmemory.com:specs:cor:agt:110:03).
+"""
+type PrProtocolResult {
+  action: PrProtocolAction!
+  task: AgentTask!
+}
+
+"""
+#3457: what a schedule would do, asked before it exists. The inputs create takes that the pin or the timing sentence depend on; the schedule's own name, policy and scope never do. Resolved exactly as createAgentSchedule resolves them.
+"""
+input PreviewAgentScheduleInput {
+  """Agent - ref: PK or URN; must be installed in the App."""
+  agentRef: String
+  aiConfigName: String
+
+  """App the run would execute as - ref: PK or fully-qualified URN."""
+  appRef: String!
+  budgetActions: Int
+  budgetTokens: Int
+
+  """
+  Recurring: 5-field cron, evaluated in timezone (default UTC). Provide exactly one of cron / runAt.
+  """
+  cron: String
+  enabled: Boolean
+
+  """Fully-qualified URN of the prompt node to run."""
+  entryNodeUrn: String!
+
+  """
+  Static payload; only its __aiConfigName entry can change what is previewed.
+  """
+  eventData: JSON
+  runAsSelf: Boolean
+
+  """One-shot: ISO-8601 instant. Provide exactly one of cron / runAt."""
+  runAt: String
+  timezone: String
+}
+
+"""
 An individual action grant (design:grant-model): extra management actions for one member of one org, on top of their role bundle. Grantee and org are projected as scalars, never nested objects.
 """
 type PrincipalGrant {
@@ -12466,6 +12615,15 @@ A paginated page of sanitized public resource refs (marketplace catalogue).
 type PublicResourceRefPage {
   items: [PublicResourceRef!]!
   total: Int!
+}
+
+"""
+#3448 — readiness ignores opaque properties (hrn:node:hadronmemory.com:specs:cor:agt:050:28).
+"""
+type PullRequestReadiness {
+  head: String!
+  ready: Boolean!
+  slots: [ReviewSlotReadiness!]!
 }
 
 type Query {
@@ -14050,6 +14208,11 @@ type Query {
   organizations(filter: OrganizationFilter, limit: Int, offset: Int): OrganizationsPage!
 
   """
+  #3457: what a schedule would do before it exists (org ADMIN of the App, checked first; writes nothing). Admin, App, Agent and timing refusals are createAgentSchedule's errors; an entry create would store UNADOPTED is the typed outcome CANNOT_BE_ADOPTED.
+  """
+  previewAgentSchedule(input: PreviewAgentScheduleInput!): AgentSchedulePreview!
+
+  """
   #1719: review exact automation graph bytes and digest. triggerRef is the trigger row ID; MANUAL uses the origin AppRun ID. Only its run-as user or the manager of an App-only trigger may preview.
   """
   previewAutomation(triggerKind: AutomationTriggerKind!, triggerRef: String!): JSON!
@@ -14095,6 +14258,11 @@ type Query {
   org ID or URN.
   """
   publicOrganization(ref: ID!): PublicOrganization
+
+  """
+  #3448 — task readers, including the App's own live key (hrn:node:hadronmemory.com:specs:cor:agt:050:21 / hrn:node:hadronmemory.com:specs:cor:agt:050:23). Null for an unreadable task. PR_HEAD_NOT_FROZEN or REVIEW_SCHEDULE_MISSING for absent event facts.
+  """
+  pullRequestReadiness(head: String!, taskRef: ID!): PullRequestReadiness
 
   """
   Usage-vs-limit counters for an org (+ one app when appRef given). Org-ADMIN. Rows materialize on first view, seeded with platform defaults (#510).
@@ -15530,6 +15698,30 @@ enum ResumeSource {
 }
 
 """
+#3448 — a required slot's current unsuperseded seat, from typed events only.
+"""
+type ReviewSlotReadiness {
+  counts: Boolean!
+  currentTaskId: ID
+  head: String
+  slot: String!
+  state: String!
+  verdict: ReviewVerdict
+}
+
+"""
+#3448 — a typed review outcome; the command records it without finishing the task (hrn:node:hadronmemory.com:specs:cor:agt:050:08).
+"""
+enum ReviewVerdict {
+  APPROVE
+  CARRY
+  CHANGES_REQUESTED
+  FAIL
+  PASS
+  REFUSED
+}
+
+"""
 #1838 — whether one revision was approved, and by which recorded approval.
 """
 type RevisionApproval {
@@ -15734,6 +15926,11 @@ always global.
 Set 'dryRun: true' to get per-node/per-field match counts WITHOUT writing.
 """
 input SearchReplaceInNodesInput {
+  """
+  #1328 — the author task this write worked from, required when the node's
+  role rule names one (before and after the write). See AuthoredWithInput.
+  """
+  authoredWith: AuthoredWithInput
   caseInsensitive: Boolean = false
 
   """When true, report matches without writing anything."""
@@ -17127,6 +17324,8 @@ protected addresses are skipped; ordinary nodes need not carry the spec role.
 Generic replacement keeps its governed-node protections.
 """
 input SpecSearchReplaceInput {
+  """#1328 — one claim for every changed spec. See AuthoredWithInput."""
+  authoredWith: AuthoredWithInput
   caseInsensitive: Boolean = false
   dryRun: Boolean = false
 
@@ -18342,6 +18541,12 @@ input UpdateNodeInput {
   abstract: String
   aiAgent: String
   alias: String
+
+  """
+  #1328 — the author task this write worked from, required when the node's
+  role rule names one (before and after the write). See AuthoredWithInput.
+  """
+  authoredWith: AuthoredWithInput
   content: String
 
   """

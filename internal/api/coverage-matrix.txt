@@ -19,7 +19,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 205: 160 command, 26 gap, 19 excluded
+[Query] 207: 161 command, 27 gap, 19 excluded
 actionRegisterIndex  command team register
 actionTickets  command ticket list
 agent  command agent get
@@ -158,11 +158,13 @@ nodeUsage  excluded deprecated: @deprecated: Use usageEvents(loc: <loc>) — ide
 object  command object get
 organization  command org get
 organizations  command org list
+previewAgentSchedule  gap #1678
 previewAutomation  command automation preview
 principalGrant  command grant get
 principalGrants  command grant list
 publicAgents  command agent list
 publicOrganization  command org public
+pullRequestReadiness  command team pr readiness
 quotaCounters  command quota list
 rateLimitPolicies  gap #1482: platform-admin rate-limit policy read (server #1793)
 recoveryEdges  command node recovery graph
@@ -226,7 +228,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 332: 274 command, 46 gap, 12 excluded
+[Mutation] 337: 279 command, 46 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -248,6 +250,7 @@ approveMergeUsersConsent  gap #1304
 approveNode  command node approve
 askDecision  command decision ask
 assignAgentTask  command team task assign
+assignReviewSeat  command team pr seat
 attachMemoryToApp  command memory attach
 authorizeContextResetStop  command team host run
 beginAssetUpload  excluded not-a-capability: the v1 twin of beginAssetUploadV2, which `asset upload` reaches; it adds no capability
@@ -378,6 +381,7 @@ exchangeReply  gap #198
 exportNodeToGoogleDoc  gap #275
 extractParentNodeToMemory  command memory extract
 finishAgentTask  command team task finish
+freezePullRequestHead  command team pr freeze
 grantApp  gap #1336
 grantAppKeyScope  command app key scope grant
 grantCredits  command billing grant
@@ -412,6 +416,8 @@ reAdoptAutomation  command automation re-adopt
 reassignAgentTask  command team task reassign
 recordAgentTaskProgress  command team task progress
 recordAppAction  command app action record
+recordReadyCall  command team pr ready
+recordReviewVerdict  command team pr verdict
 recordSessionOutcome  command team session outcome
 recordTeamWork  command team session log
 recordUsage  command usage record
@@ -489,6 +495,7 @@ setMemorySourceToken  gap #60
 setModelFamilyAvailability  command team availability set
 setQuotaLimit  command quota set
 setRateLimitPolicy  gap #1482: platform-admin rate-limit policy edit (server #1793)
+setReviewSchedule  command team pr schedule
 setTeamPause  command team pause
 setTeamStopSignal  command team stop set
 setUserApiKeyHidden  command auth token hide
@@ -560,7 +567,7 @@ updateWorker  command team worker update
 withdrawDecision  command decision withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 82: 47 gap, 35 excluded
+[Arguments] 104: 69 gap, 35 excluded
 Mutation.acknowledgeAlarm(instruction)  gap #1617
 Mutation.addAgentTaskBlocker(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
@@ -586,6 +593,14 @@ Mutation.createAppUser(email)  excluded not-a-capability: accepts only empty val
 Mutation.createMemoryShare(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.createMemorySubscription(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.createMemorySubscription(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
+Mutation.createNode(input.authoredWith.revision)  gap #684
+Mutation.createNode(input.authoredWith.task)  gap #684
+Mutation.createReviewNode(input.authoredWith.revision)  gap #684
+Mutation.createReviewNode(input.authoredWith.task)  gap #684
+Mutation.createSpecNode(input.authoredWith.revision)  gap #684
+Mutation.createSpecNode(input.authoredWith.task)  gap #684
+Mutation.createTaskNode(input.authoredWith.revision)  gap #684
+Mutation.createTaskNode(input.authoredWith.task)  gap #684
 Mutation.deleteAppModelGroup(instruction)  gap #1617
 Mutation.deleteMemoryShare(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.deleteMemorySubscription(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
@@ -595,10 +610,12 @@ Mutation.disposeAgentTaskFinding(instruction)  gap #1617
 Mutation.ensureAppMember(appId)  excluded deprecated: @deprecated: Use appRef (accepts id / URN).
 Mutation.ensureAppMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.finishAgentTask(result.findings)  gap #1556
+Mutation.importNode(input.authoredWith)  gap #684
 Mutation.isolateWorker(instruction)  gap #1617
 Mutation.issueHostOperation(instruction)  gap #1617
 Mutation.liftTeamStopSignal(instruction)  gap #1617
 Mutation.makeAgentTaskReady(instruction)  gap #1617
+Mutation.mergeNodes(input.authoredWith)  gap #684
 Mutation.mergeUsers(input.consentProof)  gap #1304
 Mutation.parkAgentTask(instruction)  gap #1617
 Mutation.reassignAgentTask(instruction)  gap #1617
@@ -610,6 +627,8 @@ Mutation.removeMemoryMember(memoryId)  excluded deprecated: @deprecated: Use mem
 Mutation.removeMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.removeOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
 Mutation.removeOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
+Mutation.searchReplaceInNodes(input.authoredWith)  gap #684
+Mutation.searchReplaceInSpecNodes(input.authoredWith)  gap #684
 Mutation.setAgentTaskPriority(instruction)  gap #1617
 Mutation.setAgentTaskStallSchedule(instruction)  gap #1617
 Mutation.setAppDeliverySettings(instruction)  gap #1617
@@ -633,8 +652,18 @@ Mutation.updateMemoryMemberRole(userId)  excluded deprecated: @deprecated: Use u
 Mutation.updateMemoryShareRole(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.updateMemorySubscription(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.updateMemorySubscription(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
+Mutation.updateNode(input.authoredWith.revision)  gap #684
+Mutation.updateNode(input.authoredWith.task)  gap #684
+Mutation.updateNodeData(authoredWith)  gap #684
+Mutation.updateNodeProperties(authoredWith)  gap #684
 Mutation.updateOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
 Mutation.updateOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
+Mutation.updateReviewNode(input.authoredWith.revision)  gap #684
+Mutation.updateReviewNode(input.authoredWith.task)  gap #684
+Mutation.updateSpecNode(input.authoredWith.revision)  gap #684
+Mutation.updateSpecNode(input.authoredWith.task)  gap #684
+Mutation.updateTaskNode(input.authoredWith.revision)  gap #684
+Mutation.updateTaskNode(input.authoredWith.task)  gap #684
 Mutation.updateTeamRole(repos)  gap #1336
 Mutation.updateTicker(instruction)  gap #1617
 Query.agentTasks(creator)  gap #1336

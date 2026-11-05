@@ -18201,6 +18201,27 @@ type AuthContextResponse struct {
 // GetAuthContext returns AuthContextResponse.AuthContext, and is useful for accessing the field via an interface.
 func (v *AuthContextResponse) GetAuthContext() *AuthContextAuthContext { return v.AuthContext }
 
+// #1328 — an authoring attestation. The writer states which task it worked from
+// and that task's current revision (Node.revSeq). The server compares both with
+// the rule and refuses a mismatch: AUTHORING_ATTESTATION_MISSING,
+// AUTHORING_ATTESTATION_WRONG_TASK, AUTHORING_ATTESTATION_STALE, or
+// AUTHOR_TASK_BROKEN when the rule's task is gone. A match records a TASK stamp.
+// This does not prove the task was read or followed. With no applicable rule
+// the claim is ignored. People in the portal are exempt, derived from their
+// sign-in; no client field selects that.
+type AuthoredWithInput struct {
+	// The task's current revision.
+	Revision int `json:"revision"`
+	// The task's id or canonical URN.
+	Task string `json:"task"`
+}
+
+// GetRevision returns AuthoredWithInput.Revision, and is useful for accessing the field via an interface.
+func (v *AuthoredWithInput) GetRevision() int { return v.Revision }
+
+// GetTask returns AuthoredWithInput.Task, and is useful for accessing the field via an interface.
+func (v *AuthoredWithInput) GetTask() string { return v.Task }
+
 // AuthorizeContextResetStopAuthorizeContextResetStopContextResetStep includes the requested fields of the GraphQL type ContextResetStep.
 // The GraphQL type's documentation follows.
 //
@@ -34109,7 +34130,10 @@ type CreateNodeInput struct {
 	Abstract *string `json:"abstract,omitempty"`
 	AiAgent  *string `json:"aiAgent,omitempty"`
 	Alias    *string `json:"alias,omitempty"`
-	Content  *string `json:"content,omitempty"`
+	// #1328 — the author task this write worked from, required when the node's
+	// role rule names one (before and after the write). See AuthoredWithInput.
+	AuthoredWith *AuthoredWithInput `json:"authoredWith,omitempty"`
+	Content      *string            `json:"content,omitempty"`
 	// MIME type of content (#476/#488, spec cor:cnv:010:01): 'text/markdown' (default) stores as-is; 'text/html' converts captured DOM to Markdown; 'application/pdf' extracts a PDF's text layer to Markdown (send 'content' as raw base64 — a PDF is binary; scanned/image-only PDFs error). The conversion runs before storage and fills properties.title from the extracted title when not supplied. Consumed at write time — never persisted. Any other value is rejected.
 	ContentType *string          `json:"contentType,omitempty"`
 	Data        *json.RawMessage `json:"data,omitempty"`
@@ -34154,6 +34178,9 @@ func (v *CreateNodeInput) GetAiAgent() *string { return v.AiAgent }
 
 // GetAlias returns CreateNodeInput.Alias, and is useful for accessing the field via an interface.
 func (v *CreateNodeInput) GetAlias() *string { return v.Alias }
+
+// GetAuthoredWith returns CreateNodeInput.AuthoredWith, and is useful for accessing the field via an interface.
+func (v *CreateNodeInput) GetAuthoredWith() *AuthoredWithInput { return v.AuthoredWith }
 
 // GetContent returns CreateNodeInput.Content, and is useful for accessing the field via an interface.
 func (v *CreateNodeInput) GetContent() *string { return v.Content }
@@ -50860,6 +50887,9 @@ type ImportNodeInput struct {
 	AgentRef *string `json:"agentRef,omitempty"`
 	// App to run the task under — PK or URN. Falls back to the caller's active App. Only meaningful with taskRef.
 	AppRef *string `json:"appRef,omitempty"`
+	// #1328 — the author task this write worked from, required when the node's
+	// role rule names one (before and after the write). See AuthoredWithInput.
+	AuthoredWith *AuthoredWithInput `json:"authoredWith,omitempty"`
 	// Inline source content (e.g. the Web Clipper's authenticated-DOM capture). XOR with 'url'.
 	Content *string `json:"content,omitempty"`
 	// MIME type of 'content': text/html (DEFAULT here — unlike createNode) converts to Markdown at the write seam; text/markdown stores as-is; application/pdf extracts a PDF's text layer to Markdown ('content' must be raw base64 — a PDF is binary; scanned/image-only PDFs error). Ignored on the url path (always HTML).
@@ -50889,6 +50919,9 @@ func (v *ImportNodeInput) GetAgentRef() *string { return v.AgentRef }
 
 // GetAppRef returns ImportNodeInput.AppRef, and is useful for accessing the field via an interface.
 func (v *ImportNodeInput) GetAppRef() *string { return v.AppRef }
+
+// GetAuthoredWith returns ImportNodeInput.AuthoredWith, and is useful for accessing the field via an interface.
+func (v *ImportNodeInput) GetAuthoredWith() *AuthoredWithInput { return v.AuthoredWith }
 
 // GetContent returns ImportNodeInput.Content, and is useful for accessing the field via an interface.
 func (v *ImportNodeInput) GetContent() *string { return v.Content }
@@ -56095,6 +56128,9 @@ func (v *MergeMemoriesResponse) GetMergeMemories() *MergeMemoriesMergeMemoriesMe
 }
 
 type MergeNodesInput struct {
+	// #1328 — the author task this write worked from, required when the node's
+	// role rule names one (before and after the write). See AuthoredWithInput.
+	AuthoredWith *AuthoredWithInput `json:"authoredWith,omitempty"`
 	// Hard-delete the source node after a successful merge.
 	DeleteSource *bool `json:"deleteSource,omitempty"`
 	// Fields to merge. Omit (or null) to merge every mergeable field.
@@ -56104,6 +56140,9 @@ type MergeNodesInput struct {
 	// Target node — ID or fully-qualified URN. The surviving node.
 	Target string `json:"target"`
 }
+
+// GetAuthoredWith returns MergeNodesInput.AuthoredWith, and is useful for accessing the field via an interface.
+func (v *MergeNodesInput) GetAuthoredWith() *AuthoredWithInput { return v.AuthoredWith }
 
 // GetDeleteSource returns MergeNodesInput.DeleteSource, and is useful for accessing the field via an interface.
 func (v *MergeNodesInput) GetDeleteSource() *bool { return v.DeleteSource }
@@ -62706,6 +62745,517 @@ func (v *OrganizationsResponse) GetOrganizations() *OrganizationsOrganizationsOr
 	return v.Organizations
 }
 
+// PRFreezeFreezePullRequestHeadPrProtocolResult includes the requested fields of the GraphQL type PrProtocolResult.
+// The GraphQL type's documentation follows.
+//
+// #3448 — a command committed, with optional register guidance (hrn:node:hadronmemory.com:specs:cor:agt:110:03).
+type PRFreezeFreezePullRequestHeadPrProtocolResult struct {
+	PRProtocolReceipt `json:"-"`
+}
+
+// GetTask returns PRFreezeFreezePullRequestHeadPrProtocolResult.Task, and is useful for accessing the field via an interface.
+func (v *PRFreezeFreezePullRequestHeadPrProtocolResult) GetTask() *PRProtocolReceiptTaskAgentTask {
+	return v.PRProtocolReceipt.Task
+}
+
+// GetAction returns PRFreezeFreezePullRequestHeadPrProtocolResult.Action, and is useful for accessing the field via an interface.
+func (v *PRFreezeFreezePullRequestHeadPrProtocolResult) GetAction() *PRProtocolReceiptActionPrProtocolAction {
+	return v.PRProtocolReceipt.Action
+}
+
+func (v *PRFreezeFreezePullRequestHeadPrProtocolResult) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*PRFreezeFreezePullRequestHeadPrProtocolResult
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.PRFreezeFreezePullRequestHeadPrProtocolResult = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.PRProtocolReceipt)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalPRFreezeFreezePullRequestHeadPrProtocolResult struct {
+	Task *PRProtocolReceiptTaskAgentTask `json:"task"`
+
+	Action *PRProtocolReceiptActionPrProtocolAction `json:"action"`
+}
+
+func (v *PRFreezeFreezePullRequestHeadPrProtocolResult) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *PRFreezeFreezePullRequestHeadPrProtocolResult) __premarshalJSON() (*__premarshalPRFreezeFreezePullRequestHeadPrProtocolResult, error) {
+	var retval __premarshalPRFreezeFreezePullRequestHeadPrProtocolResult
+
+	retval.Task = v.PRProtocolReceipt.Task
+	retval.Action = v.PRProtocolReceipt.Action
+	return &retval, nil
+}
+
+// PRFreezeResponse is returned by PRFreeze on success.
+type PRFreezeResponse struct {
+	// #3448 — the assignee freezes a full 40-hex head on a task with a pull_request reference (hrn:node:hadronmemory.com:specs:cor:agt:050:08). Any child seat's newest negative verdict at that SHA, including a superseded seat or dropped slot, refuses REVIEW_SEAT_NOT_SUPERSEDABLE: returning to an old head cannot erase a finding.
+	FreezePullRequestHead *PRFreezeFreezePullRequestHeadPrProtocolResult `json:"freezePullRequestHead"`
+}
+
+// GetFreezePullRequestHead returns PRFreezeResponse.FreezePullRequestHead, and is useful for accessing the field via an interface.
+func (v *PRFreezeResponse) GetFreezePullRequestHead() *PRFreezeFreezePullRequestHeadPrProtocolResult {
+	return v.FreezePullRequestHead
+}
+
+// PR protocol commands (#1664 over server #3448). Minimal committed receipt;
+// no task-property mirror is read or interpreted by the CLI.
+type PRProtocolReceipt struct {
+	Task   *PRProtocolReceiptTaskAgentTask          `json:"task"`
+	Action *PRProtocolReceiptActionPrProtocolAction `json:"action"`
+}
+
+// GetTask returns PRProtocolReceipt.Task, and is useful for accessing the field via an interface.
+func (v *PRProtocolReceipt) GetTask() *PRProtocolReceiptTaskAgentTask { return v.Task }
+
+// GetAction returns PRProtocolReceipt.Action, and is useful for accessing the field via an interface.
+func (v *PRProtocolReceipt) GetAction() *PRProtocolReceiptActionPrProtocolAction { return v.Action }
+
+// PRProtocolReceiptActionPrProtocolAction includes the requested fields of the GraphQL type PrProtocolAction.
+// The GraphQL type's documentation follows.
+//
+// #3448 — register guidance for the committed event code (hrn:node:hadronmemory.com:specs:cor:agt:110:03). A caller without an Agent gets WITHHELD and the code only, with no register lookup.
+type PRProtocolReceiptActionPrProtocolAction struct {
+	Code    string          `json:"code"`
+	State   TickActionState `json:"state"`
+	TaskLoc *string         `json:"taskLoc"`
+	TaskUrn *string         `json:"taskUrn"`
+}
+
+// GetCode returns PRProtocolReceiptActionPrProtocolAction.Code, and is useful for accessing the field via an interface.
+func (v *PRProtocolReceiptActionPrProtocolAction) GetCode() string { return v.Code }
+
+// GetState returns PRProtocolReceiptActionPrProtocolAction.State, and is useful for accessing the field via an interface.
+func (v *PRProtocolReceiptActionPrProtocolAction) GetState() TickActionState { return v.State }
+
+// GetTaskLoc returns PRProtocolReceiptActionPrProtocolAction.TaskLoc, and is useful for accessing the field via an interface.
+func (v *PRProtocolReceiptActionPrProtocolAction) GetTaskLoc() *string { return v.TaskLoc }
+
+// GetTaskUrn returns PRProtocolReceiptActionPrProtocolAction.TaskUrn, and is useful for accessing the field via an interface.
+func (v *PRProtocolReceiptActionPrProtocolAction) GetTaskUrn() *string { return v.TaskUrn }
+
+// PRProtocolReceiptTaskAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type PRProtocolReceiptTaskAgentTask struct {
+	Id string `json:"id"`
+	// The short handle of this task, for example "AT3.405": its project (AT3, a top-level task counted per App) and its
+	// number within each parent down to it (hrn:node:hadronmemory.com:specs:cor:agt:050:01). "AT0" is the reserved
+	// project "No project": a task made with no project is AT0.<n>. An alias for the id, which stays canonical; every
+	// task operation that takes a task id also takes the handle. Immutable: parentage is fixed at creation. A person who
+	// belongs to several Apps qualifies it as hrn:agenttask:<app-urn>:AT3.405, where the App URN is the App's urn.
+	// The handle is not the number of any GitHub issue the task's source names.
+	Handle string          `json:"handle"`
+	Status AgentTaskStatus `json:"status"`
+}
+
+// GetId returns PRProtocolReceiptTaskAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *PRProtocolReceiptTaskAgentTask) GetId() string { return v.Id }
+
+// GetHandle returns PRProtocolReceiptTaskAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *PRProtocolReceiptTaskAgentTask) GetHandle() string { return v.Handle }
+
+// GetStatus returns PRProtocolReceiptTaskAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *PRProtocolReceiptTaskAgentTask) GetStatus() AgentTaskStatus { return v.Status }
+
+// PRReadinessPullRequestReadiness includes the requested fields of the GraphQL type PullRequestReadiness.
+// The GraphQL type's documentation follows.
+//
+// #3448 — readiness ignores opaque properties (hrn:node:hadronmemory.com:specs:cor:agt:050:28).
+type PRReadinessPullRequestReadiness struct {
+	Ready bool                                                       `json:"ready"`
+	Head  string                                                     `json:"head"`
+	Slots []*PRReadinessPullRequestReadinessSlotsReviewSlotReadiness `json:"slots"`
+}
+
+// GetReady returns PRReadinessPullRequestReadiness.Ready, and is useful for accessing the field via an interface.
+func (v *PRReadinessPullRequestReadiness) GetReady() bool { return v.Ready }
+
+// GetHead returns PRReadinessPullRequestReadiness.Head, and is useful for accessing the field via an interface.
+func (v *PRReadinessPullRequestReadiness) GetHead() string { return v.Head }
+
+// GetSlots returns PRReadinessPullRequestReadiness.Slots, and is useful for accessing the field via an interface.
+func (v *PRReadinessPullRequestReadiness) GetSlots() []*PRReadinessPullRequestReadinessSlotsReviewSlotReadiness {
+	return v.Slots
+}
+
+// PRReadinessPullRequestReadinessSlotsReviewSlotReadiness includes the requested fields of the GraphQL type ReviewSlotReadiness.
+// The GraphQL type's documentation follows.
+//
+// #3448 — a required slot's current unsuperseded seat, from typed events only.
+type PRReadinessPullRequestReadinessSlotsReviewSlotReadiness struct {
+	Slot          string         `json:"slot"`
+	CurrentTaskId *string        `json:"currentTaskId"`
+	State         string         `json:"state"`
+	Verdict       *ReviewVerdict `json:"verdict"`
+	Head          *string        `json:"head"`
+	Counts        bool           `json:"counts"`
+}
+
+// GetSlot returns PRReadinessPullRequestReadinessSlotsReviewSlotReadiness.Slot, and is useful for accessing the field via an interface.
+func (v *PRReadinessPullRequestReadinessSlotsReviewSlotReadiness) GetSlot() string { return v.Slot }
+
+// GetCurrentTaskId returns PRReadinessPullRequestReadinessSlotsReviewSlotReadiness.CurrentTaskId, and is useful for accessing the field via an interface.
+func (v *PRReadinessPullRequestReadinessSlotsReviewSlotReadiness) GetCurrentTaskId() *string {
+	return v.CurrentTaskId
+}
+
+// GetState returns PRReadinessPullRequestReadinessSlotsReviewSlotReadiness.State, and is useful for accessing the field via an interface.
+func (v *PRReadinessPullRequestReadinessSlotsReviewSlotReadiness) GetState() string { return v.State }
+
+// GetVerdict returns PRReadinessPullRequestReadinessSlotsReviewSlotReadiness.Verdict, and is useful for accessing the field via an interface.
+func (v *PRReadinessPullRequestReadinessSlotsReviewSlotReadiness) GetVerdict() *ReviewVerdict {
+	return v.Verdict
+}
+
+// GetHead returns PRReadinessPullRequestReadinessSlotsReviewSlotReadiness.Head, and is useful for accessing the field via an interface.
+func (v *PRReadinessPullRequestReadinessSlotsReviewSlotReadiness) GetHead() *string { return v.Head }
+
+// GetCounts returns PRReadinessPullRequestReadinessSlotsReviewSlotReadiness.Counts, and is useful for accessing the field via an interface.
+func (v *PRReadinessPullRequestReadinessSlotsReviewSlotReadiness) GetCounts() bool { return v.Counts }
+
+// PRReadinessResponse is returned by PRReadiness on success.
+type PRReadinessResponse struct {
+	// #3448 — task readers, including the App's own live key (hrn:node:hadronmemory.com:specs:cor:agt:050:21 / hrn:node:hadronmemory.com:specs:cor:agt:050:23). Null for an unreadable task. PR_HEAD_NOT_FROZEN or REVIEW_SCHEDULE_MISSING for absent event facts.
+	PullRequestReadiness *PRReadinessPullRequestReadiness `json:"pullRequestReadiness"`
+}
+
+// GetPullRequestReadiness returns PRReadinessResponse.PullRequestReadiness, and is useful for accessing the field via an interface.
+func (v *PRReadinessResponse) GetPullRequestReadiness() *PRReadinessPullRequestReadiness {
+	return v.PullRequestReadiness
+}
+
+// PRReadyRecordReadyCallPrProtocolResult includes the requested fields of the GraphQL type PrProtocolResult.
+// The GraphQL type's documentation follows.
+//
+// #3448 — a command committed, with optional register guidance (hrn:node:hadronmemory.com:specs:cor:agt:110:03).
+type PRReadyRecordReadyCallPrProtocolResult struct {
+	PRProtocolReceipt `json:"-"`
+}
+
+// GetTask returns PRReadyRecordReadyCallPrProtocolResult.Task, and is useful for accessing the field via an interface.
+func (v *PRReadyRecordReadyCallPrProtocolResult) GetTask() *PRProtocolReceiptTaskAgentTask {
+	return v.PRProtocolReceipt.Task
+}
+
+// GetAction returns PRReadyRecordReadyCallPrProtocolResult.Action, and is useful for accessing the field via an interface.
+func (v *PRReadyRecordReadyCallPrProtocolResult) GetAction() *PRProtocolReceiptActionPrProtocolAction {
+	return v.PRProtocolReceipt.Action
+}
+
+func (v *PRReadyRecordReadyCallPrProtocolResult) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*PRReadyRecordReadyCallPrProtocolResult
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.PRReadyRecordReadyCallPrProtocolResult = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.PRProtocolReceipt)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalPRReadyRecordReadyCallPrProtocolResult struct {
+	Task *PRProtocolReceiptTaskAgentTask `json:"task"`
+
+	Action *PRProtocolReceiptActionPrProtocolAction `json:"action"`
+}
+
+func (v *PRReadyRecordReadyCallPrProtocolResult) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *PRReadyRecordReadyCallPrProtocolResult) __premarshalJSON() (*__premarshalPRReadyRecordReadyCallPrProtocolResult, error) {
+	var retval __premarshalPRReadyRecordReadyCallPrProtocolResult
+
+	retval.Task = v.PRProtocolReceipt.Task
+	retval.Action = v.PRProtocolReceipt.Action
+	return &retval, nil
+}
+
+// PRReadyResponse is returned by PRReady on success.
+type PRReadyResponse struct {
+	// #3448 — build assignee records pr.ready only when every current scheduled seat is finished with APPROVE, PASS or CARRY at the frozen head. Its verdict actor must differ from both the build's current assignee and the newest pr.frozen actor; Worker/person identity stays distinct from holder credentials. PR_NOT_READY carries failing slots; event facts only, never opaque properties (hrn:node:hadronmemory.com:specs:cor:agt:050:28).
+	RecordReadyCall *PRReadyRecordReadyCallPrProtocolResult `json:"recordReadyCall"`
+}
+
+// GetRecordReadyCall returns PRReadyResponse.RecordReadyCall, and is useful for accessing the field via an interface.
+func (v *PRReadyResponse) GetRecordReadyCall() *PRReadyRecordReadyCallPrProtocolResult {
+	return v.RecordReadyCall
+}
+
+// PRScheduleResponse is returned by PRSchedule on success.
+type PRScheduleResponse struct {
+	// #3448 — owner-chain only, never the assignee (hrn:node:hadronmemory.com:specs:cor:agt:050:09). Non-empty unique colon-separated atom slots, at most 64 characters each; latest event replaces the schedule. Dropping a current negative slot at the frozen head refuses REVIEW_SEAT_NOT_SUPERSEDABLE. All five protocol commands refuse finished/cancelled written tasks with TASK_ENDED after checking authority.
+	SetReviewSchedule *PRScheduleSetReviewSchedulePrProtocolResult `json:"setReviewSchedule"`
+}
+
+// GetSetReviewSchedule returns PRScheduleResponse.SetReviewSchedule, and is useful for accessing the field via an interface.
+func (v *PRScheduleResponse) GetSetReviewSchedule() *PRScheduleSetReviewSchedulePrProtocolResult {
+	return v.SetReviewSchedule
+}
+
+// PRScheduleSetReviewSchedulePrProtocolResult includes the requested fields of the GraphQL type PrProtocolResult.
+// The GraphQL type's documentation follows.
+//
+// #3448 — a command committed, with optional register guidance (hrn:node:hadronmemory.com:specs:cor:agt:110:03).
+type PRScheduleSetReviewSchedulePrProtocolResult struct {
+	PRProtocolReceipt `json:"-"`
+}
+
+// GetTask returns PRScheduleSetReviewSchedulePrProtocolResult.Task, and is useful for accessing the field via an interface.
+func (v *PRScheduleSetReviewSchedulePrProtocolResult) GetTask() *PRProtocolReceiptTaskAgentTask {
+	return v.PRProtocolReceipt.Task
+}
+
+// GetAction returns PRScheduleSetReviewSchedulePrProtocolResult.Action, and is useful for accessing the field via an interface.
+func (v *PRScheduleSetReviewSchedulePrProtocolResult) GetAction() *PRProtocolReceiptActionPrProtocolAction {
+	return v.PRProtocolReceipt.Action
+}
+
+func (v *PRScheduleSetReviewSchedulePrProtocolResult) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*PRScheduleSetReviewSchedulePrProtocolResult
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.PRScheduleSetReviewSchedulePrProtocolResult = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.PRProtocolReceipt)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalPRScheduleSetReviewSchedulePrProtocolResult struct {
+	Task *PRProtocolReceiptTaskAgentTask `json:"task"`
+
+	Action *PRProtocolReceiptActionPrProtocolAction `json:"action"`
+}
+
+func (v *PRScheduleSetReviewSchedulePrProtocolResult) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *PRScheduleSetReviewSchedulePrProtocolResult) __premarshalJSON() (*__premarshalPRScheduleSetReviewSchedulePrProtocolResult, error) {
+	var retval __premarshalPRScheduleSetReviewSchedulePrProtocolResult
+
+	retval.Task = v.PRProtocolReceipt.Task
+	retval.Action = v.PRProtocolReceipt.Action
+	return &retval, nil
+}
+
+// PRSeatAssignReviewSeatPrProtocolResult includes the requested fields of the GraphQL type PrProtocolResult.
+// The GraphQL type's documentation follows.
+//
+// #3448 — a command committed, with optional register guidance (hrn:node:hadronmemory.com:specs:cor:agt:110:03).
+type PRSeatAssignReviewSeatPrProtocolResult struct {
+	PRProtocolReceipt `json:"-"`
+}
+
+// GetTask returns PRSeatAssignReviewSeatPrProtocolResult.Task, and is useful for accessing the field via an interface.
+func (v *PRSeatAssignReviewSeatPrProtocolResult) GetTask() *PRProtocolReceiptTaskAgentTask {
+	return v.PRProtocolReceipt.Task
+}
+
+// GetAction returns PRSeatAssignReviewSeatPrProtocolResult.Action, and is useful for accessing the field via an interface.
+func (v *PRSeatAssignReviewSeatPrProtocolResult) GetAction() *PRProtocolReceiptActionPrProtocolAction {
+	return v.PRProtocolReceipt.Action
+}
+
+func (v *PRSeatAssignReviewSeatPrProtocolResult) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*PRSeatAssignReviewSeatPrProtocolResult
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.PRSeatAssignReviewSeatPrProtocolResult = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.PRProtocolReceipt)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalPRSeatAssignReviewSeatPrProtocolResult struct {
+	Task *PRProtocolReceiptTaskAgentTask `json:"task"`
+
+	Action *PRProtocolReceiptActionPrProtocolAction `json:"action"`
+}
+
+func (v *PRSeatAssignReviewSeatPrProtocolResult) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *PRSeatAssignReviewSeatPrProtocolResult) __premarshalJSON() (*__premarshalPRSeatAssignReviewSeatPrProtocolResult, error) {
+	var retval __premarshalPRSeatAssignReviewSeatPrProtocolResult
+
+	retval.Task = v.PRProtocolReceipt.Task
+	retval.Action = v.PRProtocolReceipt.Action
+	return &retval, nil
+}
+
+// PRSeatResponse is returned by PRSeat on success.
+type PRSeatResponse struct {
+	// #3448 — seat owner-chain binds a direct child to a scheduled slot at the frozen head. A current seat's CHANGES_REQUESTED, FAIL or REFUSED at this head prevents replacement, with or without supersedes, and a negative seat cannot move slots (REVIEW_SEAT_NOT_SUPERSEDABLE). A seat task is assigned once (REVIEW_SEAT_ALREADY_ASSIGNED); a replacement must name the current sibling in supersedes (REVIEW_SEAT_SUPERSEDES_REQUIRED). Checks and write hold the build row FOR UPDATE.
+	AssignReviewSeat *PRSeatAssignReviewSeatPrProtocolResult `json:"assignReviewSeat"`
+}
+
+// GetAssignReviewSeat returns PRSeatResponse.AssignReviewSeat, and is useful for accessing the field via an interface.
+func (v *PRSeatResponse) GetAssignReviewSeat() *PRSeatAssignReviewSeatPrProtocolResult {
+	return v.AssignReviewSeat
+}
+
+// PRVerdictRecordReviewVerdictPrProtocolResult includes the requested fields of the GraphQL type PrProtocolResult.
+// The GraphQL type's documentation follows.
+//
+// #3448 — a command committed, with optional register guidance (hrn:node:hadronmemory.com:specs:cor:agt:110:03).
+type PRVerdictRecordReviewVerdictPrProtocolResult struct {
+	PRProtocolReceipt `json:"-"`
+}
+
+// GetTask returns PRVerdictRecordReviewVerdictPrProtocolResult.Task, and is useful for accessing the field via an interface.
+func (v *PRVerdictRecordReviewVerdictPrProtocolResult) GetTask() *PRProtocolReceiptTaskAgentTask {
+	return v.PRProtocolReceipt.Task
+}
+
+// GetAction returns PRVerdictRecordReviewVerdictPrProtocolResult.Action, and is useful for accessing the field via an interface.
+func (v *PRVerdictRecordReviewVerdictPrProtocolResult) GetAction() *PRProtocolReceiptActionPrProtocolAction {
+	return v.PRProtocolReceipt.Action
+}
+
+func (v *PRVerdictRecordReviewVerdictPrProtocolResult) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*PRVerdictRecordReviewVerdictPrProtocolResult
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.PRVerdictRecordReviewVerdictPrProtocolResult = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.PRProtocolReceipt)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalPRVerdictRecordReviewVerdictPrProtocolResult struct {
+	Task *PRProtocolReceiptTaskAgentTask `json:"task"`
+
+	Action *PRProtocolReceiptActionPrProtocolAction `json:"action"`
+}
+
+func (v *PRVerdictRecordReviewVerdictPrProtocolResult) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *PRVerdictRecordReviewVerdictPrProtocolResult) __premarshalJSON() (*__premarshalPRVerdictRecordReviewVerdictPrProtocolResult, error) {
+	var retval __premarshalPRVerdictRecordReviewVerdictPrProtocolResult
+
+	retval.Task = v.PRProtocolReceipt.Task
+	retval.Action = v.PRProtocolReceipt.Action
+	return &retval, nil
+}
+
+// PRVerdictResponse is returned by PRVerdict on success.
+type PRVerdictResponse struct {
+	// #3448 — STARTED seat's assignee records a verdict at its assigned head, without finishing it (hrn:node:hadronmemory.com:specs:cor:agt:050:08). REVIEW_SEAT_UNASSIGNED or REVIEW_HEAD_MISMATCH writes nothing. A different actor cannot overwrite a same-head negative verdict (REVIEW_SEAT_NOT_SUPERSEDABLE); its original actor may re-rate.
+	RecordReviewVerdict *PRVerdictRecordReviewVerdictPrProtocolResult `json:"recordReviewVerdict"`
+}
+
+// GetRecordReviewVerdict returns PRVerdictResponse.RecordReviewVerdict, and is useful for accessing the field via an interface.
+func (v *PRVerdictResponse) GetRecordReviewVerdict() *PRVerdictRecordReviewVerdictPrProtocolResult {
+	return v.RecordReviewVerdict
+}
+
 // PreviewAutomationResponse is returned by PreviewAutomation on success.
 type PreviewAutomationResponse struct {
 	// #1719: review exact automation graph bytes and digest. triggerRef is the trigger row ID; MANUAL uses the origin AppRun ID. Only its run-as user or the manager of an App-only trigger may preview.
@@ -69079,6 +69629,27 @@ func (v *RetryFailedEmbeddingsResponse) GetRetryFailedEmbeddings() *int {
 	return v.RetryFailedEmbeddings
 }
 
+// #3448 — a typed review outcome; the command records it without finishing the task (hrn:node:hadronmemory.com:specs:cor:agt:050:08).
+type ReviewVerdict string
+
+const (
+	ReviewVerdictApprove          ReviewVerdict = "APPROVE"
+	ReviewVerdictCarry            ReviewVerdict = "CARRY"
+	ReviewVerdictChangesRequested ReviewVerdict = "CHANGES_REQUESTED"
+	ReviewVerdictFail             ReviewVerdict = "FAIL"
+	ReviewVerdictPass             ReviewVerdict = "PASS"
+	ReviewVerdictRefused          ReviewVerdict = "REFUSED"
+)
+
+var AllReviewVerdict = []ReviewVerdict{
+	ReviewVerdictApprove,
+	ReviewVerdictCarry,
+	ReviewVerdictChangesRequested,
+	ReviewVerdictFail,
+	ReviewVerdictPass,
+	ReviewVerdictRefused,
+}
+
 // Shared projection for list / single-snapshot / label reads.
 type RevisionFields struct {
 	Id          string   `json:"id"`
@@ -71300,7 +71871,10 @@ func (v *SearchNodesResponse) GetFindNodes() *SearchNodesFindNodesFindNodesResul
 //
 // Set 'dryRun: true' to get per-node/per-field match counts WITHOUT writing.
 type SearchReplaceInNodesInput struct {
-	CaseInsensitive *bool `json:"caseInsensitive"`
+	// #1328 — the author task this write worked from, required when the node's
+	// role rule names one (before and after the write). See AuthoredWithInput.
+	AuthoredWith    *AuthoredWithInput `json:"authoredWith,omitempty"`
+	CaseInsensitive *bool              `json:"caseInsensitive"`
 	// When true, report matches without writing anything.
 	DryRun *bool `json:"dryRun"`
 	// Which text fields to search. At least one required.
@@ -71322,6 +71896,9 @@ type SearchReplaceInNodesInput struct {
 	// Treat oldText as a RegExp source and newText as a replacement pattern.
 	Regex *bool `json:"regex"`
 }
+
+// GetAuthoredWith returns SearchReplaceInNodesInput.AuthoredWith, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInNodesInput) GetAuthoredWith() *AuthoredWithInput { return v.AuthoredWith }
 
 // GetCaseInsensitive returns SearchReplaceInNodesInput.CaseInsensitive, and is useful for accessing the field via an interface.
 func (v *SearchReplaceInNodesInput) GetCaseInsensitive() *bool { return v.CaseInsensitive }
@@ -77630,8 +78207,10 @@ var AllSpecRewriteStatus = []SpecRewriteStatus{
 // protected addresses are skipped; ordinary nodes need not carry the spec role.
 // Generic replacement keeps its governed-node protections.
 type SpecSearchReplaceInput struct {
-	CaseInsensitive *bool `json:"caseInsensitive"`
-	DryRun          *bool `json:"dryRun"`
+	// #1328 — one claim for every changed spec. See AuthoredWithInput.
+	AuthoredWith    *AuthoredWithInput `json:"authoredWith,omitempty"`
+	CaseInsensitive *bool              `json:"caseInsensitive"`
+	DryRun          *bool              `json:"dryRun"`
 	// Required for apply; copied from the exact dry-run response.
 	ExpectedPlan *string         `json:"expectedPlan,omitempty"`
 	Fields       []SpecTextField `json:"fields"`
@@ -77646,6 +78225,9 @@ type SpecSearchReplaceInput struct {
 	// Literal mode only; matches the CLI's default ASCII word-boundary behavior.
 	WordBoundary *bool `json:"wordBoundary"`
 }
+
+// GetAuthoredWith returns SpecSearchReplaceInput.AuthoredWith, and is useful for accessing the field via an interface.
+func (v *SpecSearchReplaceInput) GetAuthoredWith() *AuthoredWithInput { return v.AuthoredWith }
 
 // GetCaseInsensitive returns SpecSearchReplaceInput.CaseInsensitive, and is useful for accessing the field via an interface.
 func (v *SpecSearchReplaceInput) GetCaseInsensitive() *bool { return v.CaseInsensitive }
@@ -90911,7 +91493,10 @@ type UpdateNodeInput struct {
 	Abstract *string `json:"abstract,omitempty"`
 	AiAgent  *string `json:"aiAgent,omitempty"`
 	Alias    *string `json:"alias,omitempty"`
-	Content  *string `json:"content,omitempty"`
+	// #1328 — the author task this write worked from, required when the node's
+	// role rule names one (before and after the write). See AuthoredWithInput.
+	AuthoredWith *AuthoredWithInput `json:"authoredWith,omitempty"`
+	Content      *string            `json:"content,omitempty"`
 	// MIME type of content (#476/#488, spec cor:cnv:010:01): 'text/markdown' (default) stores as-is; 'text/html' converts captured DOM to Markdown; 'application/pdf' extracts a PDF's text layer to Markdown (send 'content' as raw base64 — a PDF is binary; scanned/image-only PDFs error). The conversion runs before storage and fills properties.title from the extracted title when not supplied. Consumed at write time — never persisted. Any other value is rejected.
 	ContentType *string          `json:"contentType,omitempty"`
 	Data        *json.RawMessage `json:"data,omitempty"`
@@ -90966,6 +91551,9 @@ func (v *UpdateNodeInput) GetAiAgent() *string { return v.AiAgent }
 
 // GetAlias returns UpdateNodeInput.Alias, and is useful for accessing the field via an interface.
 func (v *UpdateNodeInput) GetAlias() *string { return v.Alias }
+
+// GetAuthoredWith returns UpdateNodeInput.AuthoredWith, and is useful for accessing the field via an interface.
+func (v *UpdateNodeInput) GetAuthoredWith() *AuthoredWithInput { return v.AuthoredWith }
 
 // GetContent returns UpdateNodeInput.Content, and is useful for accessing the field via an interface.
 func (v *UpdateNodeInput) GetContent() *string { return v.Content }
@@ -104057,6 +104645,98 @@ func (v *__OrganizationsInput) GetLimit() *int { return v.Limit }
 
 // GetOffset returns __OrganizationsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__OrganizationsInput) GetOffset() *int { return v.Offset }
+
+// __PRFreezeInput is used internally by genqlient
+type __PRFreezeInput struct {
+	TaskRef string `json:"taskRef"`
+	Head    string `json:"head"`
+}
+
+// GetTaskRef returns __PRFreezeInput.TaskRef, and is useful for accessing the field via an interface.
+func (v *__PRFreezeInput) GetTaskRef() string { return v.TaskRef }
+
+// GetHead returns __PRFreezeInput.Head, and is useful for accessing the field via an interface.
+func (v *__PRFreezeInput) GetHead() string { return v.Head }
+
+// __PRReadinessInput is used internally by genqlient
+type __PRReadinessInput struct {
+	TaskRef string `json:"taskRef"`
+	Head    string `json:"head"`
+}
+
+// GetTaskRef returns __PRReadinessInput.TaskRef, and is useful for accessing the field via an interface.
+func (v *__PRReadinessInput) GetTaskRef() string { return v.TaskRef }
+
+// GetHead returns __PRReadinessInput.Head, and is useful for accessing the field via an interface.
+func (v *__PRReadinessInput) GetHead() string { return v.Head }
+
+// __PRReadyInput is used internally by genqlient
+type __PRReadyInput struct {
+	TaskRef string `json:"taskRef"`
+	Head    string `json:"head"`
+}
+
+// GetTaskRef returns __PRReadyInput.TaskRef, and is useful for accessing the field via an interface.
+func (v *__PRReadyInput) GetTaskRef() string { return v.TaskRef }
+
+// GetHead returns __PRReadyInput.Head, and is useful for accessing the field via an interface.
+func (v *__PRReadyInput) GetHead() string { return v.Head }
+
+// __PRScheduleInput is used internally by genqlient
+type __PRScheduleInput struct {
+	TaskRef string   `json:"taskRef"`
+	Slots   []string `json:"slots"`
+}
+
+// GetTaskRef returns __PRScheduleInput.TaskRef, and is useful for accessing the field via an interface.
+func (v *__PRScheduleInput) GetTaskRef() string { return v.TaskRef }
+
+// GetSlots returns __PRScheduleInput.Slots, and is useful for accessing the field via an interface.
+func (v *__PRScheduleInput) GetSlots() []string { return v.Slots }
+
+// __PRSeatInput is used internally by genqlient
+type __PRSeatInput struct {
+	TaskRef    string  `json:"taskRef"`
+	Slot       string  `json:"slot"`
+	Head       string  `json:"head"`
+	Supersedes *string `json:"supersedes,omitempty"`
+}
+
+// GetTaskRef returns __PRSeatInput.TaskRef, and is useful for accessing the field via an interface.
+func (v *__PRSeatInput) GetTaskRef() string { return v.TaskRef }
+
+// GetSlot returns __PRSeatInput.Slot, and is useful for accessing the field via an interface.
+func (v *__PRSeatInput) GetSlot() string { return v.Slot }
+
+// GetHead returns __PRSeatInput.Head, and is useful for accessing the field via an interface.
+func (v *__PRSeatInput) GetHead() string { return v.Head }
+
+// GetSupersedes returns __PRSeatInput.Supersedes, and is useful for accessing the field via an interface.
+func (v *__PRSeatInput) GetSupersedes() *string { return v.Supersedes }
+
+// __PRVerdictInput is used internally by genqlient
+type __PRVerdictInput struct {
+	TaskRef string        `json:"taskRef"`
+	Head    string        `json:"head"`
+	Verdict ReviewVerdict `json:"verdict"`
+	Node    *string       `json:"node,omitempty"`
+	Receipt *string       `json:"receipt,omitempty"`
+}
+
+// GetTaskRef returns __PRVerdictInput.TaskRef, and is useful for accessing the field via an interface.
+func (v *__PRVerdictInput) GetTaskRef() string { return v.TaskRef }
+
+// GetHead returns __PRVerdictInput.Head, and is useful for accessing the field via an interface.
+func (v *__PRVerdictInput) GetHead() string { return v.Head }
+
+// GetVerdict returns __PRVerdictInput.Verdict, and is useful for accessing the field via an interface.
+func (v *__PRVerdictInput) GetVerdict() ReviewVerdict { return v.Verdict }
+
+// GetNode returns __PRVerdictInput.Node, and is useful for accessing the field via an interface.
+func (v *__PRVerdictInput) GetNode() *string { return v.Node }
+
+// GetReceipt returns __PRVerdictInput.Receipt, and is useful for accessing the field via an interface.
+func (v *__PRVerdictInput) GetReceipt() *string { return v.Receipt }
 
 // __PreviewAutomationInput is used internally by genqlient
 type __PreviewAutomationInput struct {
@@ -130740,6 +131420,306 @@ func Organizations(
 	}
 
 	data_ = &OrganizationsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by PRFreeze.
+const PRFreeze_Operation = `
+mutation PRFreeze ($taskRef: ID!, $head: String!) {
+	freezePullRequestHead(taskRef: $taskRef, head: $head) {
+		... PRProtocolReceipt
+	}
+}
+fragment PRProtocolReceipt on PrProtocolResult {
+	task {
+		id
+		handle
+		status
+	}
+	action {
+		code
+		state
+		taskLoc
+		taskUrn
+	}
+}
+`
+
+func PRFreeze(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	taskRef string,
+	head string,
+) (data_ *PRFreezeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "PRFreeze",
+		Query:  PRFreeze_Operation,
+		Variables: &__PRFreezeInput{
+			TaskRef: taskRef,
+			Head:    head,
+		},
+	}
+
+	data_ = &PRFreezeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by PRReadiness.
+const PRReadiness_Operation = `
+query PRReadiness ($taskRef: ID!, $head: String!) {
+	pullRequestReadiness(taskRef: $taskRef, head: $head) {
+		ready
+		head
+		slots {
+			slot
+			currentTaskId
+			state
+			verdict
+			head
+			counts
+		}
+	}
+}
+`
+
+func PRReadiness(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	taskRef string,
+	head string,
+) (data_ *PRReadinessResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "PRReadiness",
+		Query:  PRReadiness_Operation,
+		Variables: &__PRReadinessInput{
+			TaskRef: taskRef,
+			Head:    head,
+		},
+	}
+
+	data_ = &PRReadinessResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by PRReady.
+const PRReady_Operation = `
+mutation PRReady ($taskRef: ID!, $head: String!) {
+	recordReadyCall(taskRef: $taskRef, head: $head) {
+		... PRProtocolReceipt
+	}
+}
+fragment PRProtocolReceipt on PrProtocolResult {
+	task {
+		id
+		handle
+		status
+	}
+	action {
+		code
+		state
+		taskLoc
+		taskUrn
+	}
+}
+`
+
+func PRReady(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	taskRef string,
+	head string,
+) (data_ *PRReadyResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "PRReady",
+		Query:  PRReady_Operation,
+		Variables: &__PRReadyInput{
+			TaskRef: taskRef,
+			Head:    head,
+		},
+	}
+
+	data_ = &PRReadyResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by PRSchedule.
+const PRSchedule_Operation = `
+mutation PRSchedule ($taskRef: ID!, $slots: [String!]!) {
+	setReviewSchedule(taskRef: $taskRef, slots: $slots) {
+		... PRProtocolReceipt
+	}
+}
+fragment PRProtocolReceipt on PrProtocolResult {
+	task {
+		id
+		handle
+		status
+	}
+	action {
+		code
+		state
+		taskLoc
+		taskUrn
+	}
+}
+`
+
+func PRSchedule(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	taskRef string,
+	slots []string,
+) (data_ *PRScheduleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "PRSchedule",
+		Query:  PRSchedule_Operation,
+		Variables: &__PRScheduleInput{
+			TaskRef: taskRef,
+			Slots:   slots,
+		},
+	}
+
+	data_ = &PRScheduleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by PRSeat.
+const PRSeat_Operation = `
+mutation PRSeat ($taskRef: ID!, $slot: String!, $head: String!, $supersedes: ID) {
+	assignReviewSeat(taskRef: $taskRef, slot: $slot, head: $head, supersedes: $supersedes) {
+		... PRProtocolReceipt
+	}
+}
+fragment PRProtocolReceipt on PrProtocolResult {
+	task {
+		id
+		handle
+		status
+	}
+	action {
+		code
+		state
+		taskLoc
+		taskUrn
+	}
+}
+`
+
+func PRSeat(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	taskRef string,
+	slot string,
+	head string,
+	supersedes *string,
+) (data_ *PRSeatResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "PRSeat",
+		Query:  PRSeat_Operation,
+		Variables: &__PRSeatInput{
+			TaskRef:    taskRef,
+			Slot:       slot,
+			Head:       head,
+			Supersedes: supersedes,
+		},
+	}
+
+	data_ = &PRSeatResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by PRVerdict.
+const PRVerdict_Operation = `
+mutation PRVerdict ($taskRef: ID!, $head: String!, $verdict: ReviewVerdict!, $node: String, $receipt: String) {
+	recordReviewVerdict(taskRef: $taskRef, head: $head, verdict: $verdict, node: $node, receipt: $receipt) {
+		... PRProtocolReceipt
+	}
+}
+fragment PRProtocolReceipt on PrProtocolResult {
+	task {
+		id
+		handle
+		status
+	}
+	action {
+		code
+		state
+		taskLoc
+		taskUrn
+	}
+}
+`
+
+func PRVerdict(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	taskRef string,
+	head string,
+	verdict ReviewVerdict,
+	node *string,
+	receipt *string,
+) (data_ *PRVerdictResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "PRVerdict",
+		Query:  PRVerdict_Operation,
+		Variables: &__PRVerdictInput{
+			TaskRef: taskRef,
+			Head:    head,
+			Verdict: verdict,
+			Node:    node,
+			Receipt: receipt,
+		},
+	}
+
+	data_ = &PRVerdictResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
