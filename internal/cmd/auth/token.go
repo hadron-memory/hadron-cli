@@ -318,7 +318,15 @@ fields as id, label, keyPreview, issuedVia, createdAt, lastUsedAt, revokedAt
 and revoked; an empty list is [].
 
 A revoked token you hid with "hide" is left out; --include-hidden brings it
-back (the JSON hiddenAt says when you hid it, null for a visible one).`,
+back (the JSON hiddenAt says when you hid it, null for a visible one).
+
+Automatically reads every page. A later-page error fails
+without a partial inventory. Requires server 27671b4b (hadron-server#3189)
+or later; there is no unpaged fallback.
+
+This is not a snapshot: concurrent key changes can shift pages. A changed
+count or repeated ID fails without a partial inventory; equal-count changes
+can still escape detection. List again after changes settle.`,
 		Example: `  hadron auth token list
   hadron auth token list --include-hidden
   hadron auth token list --json | jq -r '.[] | select(.revoked | not) | .id'`,
@@ -332,12 +340,27 @@ back (the JSON hiddenAt says when you hid it, null for a visible one).`,
 			if includeHidden {
 				hiddenArg = &includeHidden
 			}
-			resp, err := gen.MyUserApiKeys(cmd.Context(), client, hiddenArg)
+			type tokenPageRow = gen.MyUserApiKeysMyUserApiKeysPageUserApiKeyPageItemsUserApiKey
+			rows, err := api.CollectHasMore(func(offset int) ([]*tokenPageRow, int, bool, error) {
+				resp, err := gen.MyUserApiKeys(cmd.Context(), client, api.InventoryPageSize, offset, hiddenArg)
+				if err != nil {
+					return nil, 0, false, err
+				}
+				if resp == nil || resp.MyUserApiKeysPage == nil {
+					return nil, 0, false, fmt.Errorf("the server returned no personal-token inventory page")
+				}
+				return resp.MyUserApiKeysPage.Items, resp.MyUserApiKeysPage.Total, resp.MyUserApiKeysPage.HasMore, nil
+			}, func(row *tokenPageRow) *string {
+				if row == nil {
+					return nil
+				}
+				return &row.Id
+			})
 			if err != nil {
 				return api.MapError(err)
 			}
-			tokens := make([]tokenDTO, 0, len(resp.MyUserApiKeys))
-			for _, k := range resp.MyUserApiKeys {
+			tokens := make([]tokenDTO, 0, len(rows))
+			for _, k := range rows {
 				if k == nil {
 					continue
 				}

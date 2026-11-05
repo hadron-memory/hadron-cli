@@ -23,7 +23,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 207: 163 command, 24 gap, 20 excluded
+[Query] 207: 163 command, 20 gap, 24 excluded
 actionRegisterIndex  command team register
 actionTickets  command ticket list
 agent  command agent get
@@ -32,8 +32,8 @@ agentAssets  excluded deprecated: its description says "Deprecated; use memoryAs
 agentModelGroups  command agent model-group list
 agentProcessList  command agent processes list
 agentSchedules  command schedule list
-agentSubscriptions  gap #890
-agentSubscriptionsPage  gap #1547
+agentSubscriptions  excluded not-a-capability: legacy unpaged spelling; agentSubscriptionsPage gap #890 tracks the same capability (server retirement #2213)
+agentSubscriptionsPage  gap #890: subscription list command not yet implemented
 agentTask  command team task finding-dispositions
 agentTaskList  command agent tasks list
 agentTaskStallSchedule  command team stall-schedule get
@@ -51,8 +51,8 @@ aiServiceConfigs  command ai-config list
 app  command app get
 appAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime that makes LLM calls; a person reads the masked config with `ai-config get`
 appDeliverySettings  command team delivery-settings set
-appKeys  command app key list
-appKeysPage  gap #1547
+appKeys  excluded not-a-capability: legacy unpaged spelling; appKeysPage carries the same inventory capability (server retirement #2213)
+appKeysPage  command app key list
 appMemoryScope  command app memories
 appMemoryWriteGrants  command app memory-grant list
 appNodes  excluded not-a-capability: appNodesPage returns the same rows under the same admission, filters and refusals, paged (SDL); cor:api:120:04; equivalent-form precedent cor:api:240:02, class unruled under #1334 (ruling0061)
@@ -142,14 +142,14 @@ memoryConfigTemplates  command memory config template list
 memoryEdges  excluded graphical: slim id/loc lists sized for drawing a memory's node-link graph view; `node list` and `edge list` read the same nodes and edges
 memoryNodes  excluded graphical: slim id/loc lists sized for drawing a memory's node-link graph view; `node list` and `edge list` read the same nodes and edges
 memoryUsageSummary  command memory usage
-myAgentSubscriptions  gap #890
-myAgentSubscriptionsPage  gap #1547
+myAgentSubscriptions  excluded not-a-capability: legacy unpaged spelling; myAgentSubscriptionsPage gap #890 tracks the same capability (server retirement #2213)
+myAgentSubscriptionsPage  gap #890: subscription list command not yet implemented
 myApp  command app whoami
 myChats  gap #64
 myChatsPage  gap #64
 myPasskeys  gap #878
-myUserApiKeys  command auth token list
-myUserApiKeysPage  gap #1547
+myUserApiKeys  excluded not-a-capability: legacy unpaged spelling; myUserApiKeysPage carries the same inventory capability (server retirement #2213)
+myUserApiKeysPage  command auth token list
 nextNode  command node next
 node  command node get
 nodeBatch  command node get
