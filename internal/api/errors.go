@@ -428,6 +428,17 @@ func HasErrorCode(err error, code string) bool {
 	return false
 }
 
+// FromNon200Envelope reports whether err is a GraphQL error envelope that
+// arrived inside a non-200 HTTP response of status 5xx. graphQLErrors reads
+// that envelope exactly as it reads a 200 one, but a 5xx is not proof the
+// operation was refused: a gateway can answer 502/504 with a JSON body that
+// carries an `errors` list, after the server committed the write (cli#1495).
+// A caller deciding "was this refused, definitely?" must exclude it.
+func FromNon200Envelope(err error) bool {
+	var httpErr *graphql.HTTPError
+	return errors.As(err, &httpErr) && httpErr.StatusCode >= 500
+}
+
 // ServerCodeOf returns the first non-empty extensions.code of err's GraphQL
 // errors, or "" when it carries none. Call it on the RAW error.
 func ServerCodeOf(err error) string {

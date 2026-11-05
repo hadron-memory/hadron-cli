@@ -3250,10 +3250,18 @@ server error fails the command).
   (exit code unchanged, e.g. 4) leaves the pointer untouched, and if the pointer
   update is refused after a recorded row, stderr says the row WAS recorded and
   the pointer was NOT updated, but only when the server answered with a definite
-  refusal (a GraphQL error that is not an internal fault). For a lost or
-  undecodable answer (exit 7, or exit 1 for an unreadable body) or an internal
-  fault, stderr says the pointer update could NOT be confirmed and may have been
-  applied: do not re-run the log, it would duplicate the row.
+  refusal (a GraphQL error that is not an internal fault, maps to exit 2, 3 or 4,
+  and did not arrive inside a 5xx response: a gateway 502/504 carrying a JSON
+  `errors` list is not proof of a refusal). For a lost or
+  undecodable answer (exit 7, or exit 1 for an unreadable body), an internal
+  fault, or such a 5xx-wrapped envelope, stderr says the pointer update could NOT
+  be confirmed and may have been applied: do not re-run the log, it would
+  duplicate the row. The same holds when the answer to the worklog RECORD call
+  itself is lost or is not a definite refusal: stderr says the row may or may
+  not have been recorded (the pointer was not touched), names the
+  `session list --<kind> <ref>` check, and warns that a re-run may duplicate it;
+  a definite refusal of the record writes nothing and carries no such note. Exit
+  codes are unchanged.
   `session log --model <m>` explicitly
   reports the LLM that produced THIS milestone, for model switches or late
   records; omission leaves fallback to the server's session model. The CLI
