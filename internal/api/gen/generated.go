@@ -27209,16 +27209,16 @@ type CloneAgentTaskInput struct {
 	// Another parent in the same App, or null for none (a root under AT0, or a project with project: true).
 	ParentTaskId json.RawMessage `json:"parentTaskId,omitempty"`
 	// A priority you name and may not set is refused, as on a create; a copied one you may not set is left out.
-	Priority     *int                        `json:"priority,omitempty"`
-	Project      *bool                       `json:"project,omitempty"`
-	Properties   *json.RawMessage            `json:"properties,omitempty"`
-	References   []*AgentTaskReferenceInput  `json:"references,omitempty"`
-	Requirements *AgentTaskRequirementsInput `json:"requirements,omitempty"`
-	Source       *string                     `json:"source,omitempty"`
-	StartBy      *string                     `json:"startBy,omitempty"`
-	Status       *AgentTaskCreateStatus      `json:"status,omitempty"`
-	Tags         []string                    `json:"tags,omitempty"`
-	Title        *string                     `json:"title,omitempty"`
+	Priority     *int                   `json:"priority,omitempty"`
+	Project      *bool                  `json:"project,omitempty"`
+	Properties   json.RawMessage        `json:"properties,omitempty"`
+	References   json.RawMessage        `json:"references,omitempty"`
+	Requirements json.RawMessage        `json:"requirements,omitempty"`
+	Source       *string                `json:"source,omitempty"`
+	StartBy      *string                `json:"startBy,omitempty"`
+	Status       *AgentTaskCreateStatus `json:"status,omitempty"`
+	Tags         json.RawMessage        `json:"tags,omitempty"`
+	Title        *string                `json:"title,omitempty"`
 }
 
 // GetAssignee returns CloneAgentTaskInput.Assignee, and is useful for accessing the field via an interface.
@@ -27246,13 +27246,13 @@ func (v *CloneAgentTaskInput) GetPriority() *int { return v.Priority }
 func (v *CloneAgentTaskInput) GetProject() *bool { return v.Project }
 
 // GetProperties returns CloneAgentTaskInput.Properties, and is useful for accessing the field via an interface.
-func (v *CloneAgentTaskInput) GetProperties() *json.RawMessage { return v.Properties }
+func (v *CloneAgentTaskInput) GetProperties() json.RawMessage { return v.Properties }
 
 // GetReferences returns CloneAgentTaskInput.References, and is useful for accessing the field via an interface.
-func (v *CloneAgentTaskInput) GetReferences() []*AgentTaskReferenceInput { return v.References }
+func (v *CloneAgentTaskInput) GetReferences() json.RawMessage { return v.References }
 
 // GetRequirements returns CloneAgentTaskInput.Requirements, and is useful for accessing the field via an interface.
-func (v *CloneAgentTaskInput) GetRequirements() *AgentTaskRequirementsInput { return v.Requirements }
+func (v *CloneAgentTaskInput) GetRequirements() json.RawMessage { return v.Requirements }
 
 // GetSource returns CloneAgentTaskInput.Source, and is useful for accessing the field via an interface.
 func (v *CloneAgentTaskInput) GetSource() *string { return v.Source }
@@ -27264,7 +27264,7 @@ func (v *CloneAgentTaskInput) GetStartBy() *string { return v.StartBy }
 func (v *CloneAgentTaskInput) GetStatus() *AgentTaskCreateStatus { return v.Status }
 
 // GetTags returns CloneAgentTaskInput.Tags, and is useful for accessing the field via an interface.
-func (v *CloneAgentTaskInput) GetTags() []string { return v.Tags }
+func (v *CloneAgentTaskInput) GetTags() json.RawMessage { return v.Tags }
 
 // GetTitle returns CloneAgentTaskInput.Title, and is useful for accessing the field via an interface.
 func (v *CloneAgentTaskInput) GetTitle() *string { return v.Title }
@@ -110985,6 +110985,9 @@ fragment AgentTaskPartyFields on AgentTaskParty {
 // be sent as null. parentTaskId is three-state — omitted keeps the source's
 // parent, a task id names another, an explicit null means none — so it is a
 // RawMessage (nil omitted, `null` sent as null, a JSON string for an id).
+// cli#1579: tags, references, properties and requirements are RawMessage too:
+// a clear is an explicit empty list ([]) or null, which a typed omitempty field
+// would drop; nil still omits the key.
 func AgentTaskClone(
 	ctx_ context.Context,
 	client_ graphql.Client,

@@ -572,7 +572,7 @@ updateWorker  command team worker update
 withdrawDecision  command decision withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 104: 69 gap, 35 excluded
+[Arguments] 98: 63 gap, 35 excluded
 Mutation.acknowledgeAlarm(instruction)  gap #1617
 Mutation.addAgentTaskBlocker(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
@@ -583,12 +583,6 @@ Mutation.applyAgentTickerTemplates(instruction)  gap #1617
 Mutation.assignAgentTask(instruction)  gap #1617
 Mutation.cancelAgentTask(instruction)  gap #1617
 Mutation.clearWorkerIsolation(instruction)  gap #1617
-Mutation.cloneAgentTask(input.owner)  gap #1579: `task clone` does not expose this override yet
-Mutation.cloneAgentTask(input.project)  gap #1579: `task clone` does not expose this override yet
-Mutation.cloneAgentTask(input.properties)  gap #1579: `task clone` does not expose this override yet
-Mutation.cloneAgentTask(input.references)  gap #1579: `task clone` does not expose this override yet
-Mutation.cloneAgentTask(input.requirements)  gap #1579: `task clone` does not expose this override yet
-Mutation.cloneAgentTask(input.tags)  gap #1579: `task clone` does not expose this override yet
 Mutation.createAgentTask(instruction)  gap #1617
 Mutation.createApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
 Mutation.createApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
