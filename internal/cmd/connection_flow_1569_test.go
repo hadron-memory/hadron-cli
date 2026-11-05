@@ -290,3 +290,44 @@ func TestConnectTimeoutPrintsTheRecordWithTheFlowIDBeforeTheError(t *testing.T) 
 		t.Fatalf("start notice lacks the flow id: %q", h.errOut)
 	}
 }
+
+// A flow answer the server left null (HTTP 200, data.connectionFlow null) is a
+// malformed reply, not a success and not a crash: both commands end with a typed
+// Unavailable error, and the wait does not keep polling it (LOCAL P2-1).
+func TestNullFlowAnswerIsUnavailableNotAPanic(t *testing.T) {
+	null := `{"data":{"connectionFlow":null}}`
+	for name, args := range map[string][]string{
+		"flow":    {"connection", "flow", "flow_1", "--json"},
+		"connect": {"connection", "connect", "gmail", "--org", "org_1", "--no-browser", "--wait", "5s"},
+	} {
+		func() {
+			defer func() {
+				if p := recover(); p != nil {
+					t.Errorf("%s: panicked on a null flow: %v", name, p)
+				}
+			}()
+			r := runFlowConnect(t, []string{null}, connRows(), args...)
+			if r.code != exitcode.Unavailable {
+				t.Errorf("%s: exit %d (%v), want %d", name, r.code, r.err, exitcode.Unavailable)
+			}
+			if n := count(r.ops, "ConnectionFlow"); n != 1 {
+				t.Errorf("%s: %d flow reads, want 1 (not retried): %v", name, n, r.ops)
+			}
+		}()
+	}
+}
+
+// A status outside PENDING/CONNECTED/FAILED is not reported as a successful read
+// (LOCAL P3-1), and a CONNECTED answer with no id is not a connection.
+func TestUnknownFlowStatusIsNotASuccessfulRead(t *testing.T) {
+	for name, resp := range map[string]string{
+		"unknown":              flowResp("FUTURE_STATUS", "", ""),
+		"empty":                flowResp("", "", ""),
+		"connected without id": flowResp("CONNECTED", "", ""),
+	} {
+		r := runFlowConnect(t, []string{resp}, connRows(), "connection", "flow", "flow_1", "--json")
+		if r.code != exitcode.Unavailable {
+			t.Errorf("%s: exit %d (%v), want %d; out %q", name, r.code, r.err, exitcode.Unavailable, r.out)
+		}
+	}
+}
