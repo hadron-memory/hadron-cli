@@ -589,9 +589,12 @@ func newCmdMint(f *cmdutil.Factory) *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "mint",
-		Short: "Mint approved, unminted nodes in a spec corpus",
-		Long: `Mint the approved, unminted nodes in a spec corpus. The report lists
-the nodes this call would mint and any blockers. Minting records a per-node
+		Short: "Mint every approved, unminted node of a memory (not only specs)",
+		Long: `Mint the approved, unminted nodes of the whole memory. One call covers
+every eligible node of the memory, not only specs (cor:dmo:120:06): a fact
+node, an object node or a spec alike; only comments are outside it. The
+report's "eligible nodes" line lists what this call would mint, with any
+blockers. Minting records a per-node
 state; most citation-permanence checks are currently off, but a minted spec
 can no longer be renumbered by "spec renumber", so treat a mint as not
 freely reversible.
@@ -615,7 +618,7 @@ With blockers, nothing is minted and the command exits 5. Without them it
 asks for confirmation on a terminal (non-interactively --yes is required),
 then mints. --dry-run prints the report and stops, exiting 5 if blocked.
 
-A write in flight to the corpus makes the server refuse the mint for the
+A write in flight to the memory makes the server refuse the mint for the
 moment (exit 5); retry. A writer of the memory can mint. Encrypted memories
 are refused until the server supports their mint scan.`,
 		Example: `  hadron spec mint -m hrn:mem:micromentor.org:specs-draft --dry-run

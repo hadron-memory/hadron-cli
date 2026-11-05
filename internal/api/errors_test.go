@@ -189,6 +189,7 @@ func TestMapError(t *testing.T) {
 		{"renumber minted node", gqlErr("NODE_MINTED"), exitcode.Conflict},
 		{"encryption session expired", gqlErr("SESSION_EXPIRED"), exitcode.AuthRequired},
 		{"bad input", gqlErr("BAD_USER_INPUT"), exitcode.Usage},
+		{"invalid app action code", gqlErr("APP_ACTION_CODE_INVALID"), exitcode.Usage},
 		// #846/hadron-server#1817: the operation-key refusals a pre-validated
 		// client should never meet, but must not misclassify when it does.
 		{"malformed operation key", gqlErr("BAD_UNLOCK_INPUT"), exitcode.Usage},
@@ -276,6 +277,8 @@ func TestMapError(t *testing.T) {
 		// (hadron-server#1050) — pinning an exit code for a refusal the server
 		// cannot produce documents a contract nobody can exercise.
 		{"role exists", gqlErr("TEAM_ROLE_EXISTS"), exitcode.Conflict},
+		{"team chat invalid head is uniformly concealed", gqlErr("TEAM_CHAT_TEAM_HEAD_INVALID"), exitcode.NotFound},
+		{"team chat metadata is forbidden", gqlErr("TEAM_CHAT_TEAM_METADATA_FORBIDDEN"), exitcode.Forbidden},
 		{"team chat duplicate", gqlErr("TEAM_CHAT_DUPLICATE"), exitcode.Conflict},
 		{"team chat post rate limited", gqlErr("TEAM_CHAT_POST_RATE_LIMITED"), exitcode.Conflict},
 		{"team chat body too large", gqlErr("TEAM_CHAT_BODY_TOO_LARGE"), exitcode.Usage},

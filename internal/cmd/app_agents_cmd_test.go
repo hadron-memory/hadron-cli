@@ -18,7 +18,7 @@ const appRosterResp = `{"data":{"app":{"id":"capp100000000000000000000","urn":"h
 // are `team worker list`. A plain single-agent App with no persona dressing
 // is the case that proves it isn't team-specific.
 func TestAppAgentListReadsTheAppAgentJoin(t *testing.T) {
-	gql, captured := captureGraphQL(t, map[string]string{"AppAgentRoster": appRosterResp})
+	gql, captured := captureGraphQL(t, map[string]string{"AppAgentInstallationRoster": appRosterResp})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"app", "agent", "list", "hrn:app:acme.com:support", "--json", "--server", gql.URL})
@@ -26,7 +26,7 @@ func TestAppAgentListReadsTheAppAgentJoin(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
-	if err := json.Unmarshal(captured["AppAgentRoster"], &vars); err != nil {
+	if err := json.Unmarshal(captured["AppAgentInstallationRoster"], &vars); err != nil {
 		t.Fatalf("captured vars: %v", err)
 	}
 	if vars["appRef"] != "hrn:app:acme.com:support" {
@@ -49,7 +49,7 @@ func TestAppAgentListReadsTheAppAgentJoin(t *testing.T) {
 
 // The App may come from --app / the configured context instead of the argument.
 func TestAppAgentListUsesAppContext(t *testing.T) {
-	gql, captured := captureGraphQL(t, map[string]string{"AppAgentRoster": appRosterResp})
+	gql, captured := captureGraphQL(t, map[string]string{"AppAgentInstallationRoster": appRosterResp})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"app", "agent", "list", "--app", "acme.com::support", "--json", "--server", gql.URL})
@@ -57,7 +57,7 @@ func TestAppAgentListUsesAppContext(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	var vars map[string]any
-	_ = json.Unmarshal(captured["AppAgentRoster"], &vars)
+	_ = json.Unmarshal(captured["AppAgentInstallationRoster"], &vars)
 	if vars["appRef"] != "hrn:app:acme.com:support" {
 		t.Errorf("--app should scope this one (it IS the subject here): %v", vars)
 	}

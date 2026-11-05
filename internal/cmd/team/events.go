@@ -32,7 +32,7 @@ const (
 
 func newCmdTeamEvents(f *cmdutil.Factory) *cobra.Command {
 	var alarms bool
-	var since, after, task string
+	var since, after, task, codePrefix string
 	var types []string
 	var limit int
 	cmd := &cobra.Command{
@@ -44,13 +44,20 @@ task-stall alarms (stall.not-started, stall.no-progress, stall.owner-unreactive,
 assignment.unassignable and stall.finish-by), dark-worker and coordinator-cadence
 alarms, availability.changed, the
 assignment/host events and app.properties-changed (whose payload names the
-changed top-level keys, never values). The payload carries ids, counts and outcome words only, never message text.
+changed top-level keys, never values). Platform payloads carry ids, counts and outcome words; App-defined action payloads
+are participant-readable objects and may carry their own values.
 
 ORDER, so nobody is surprised by page one: the stream reads OLDEST-FIRST
 from the beginning of the App (the server's order, (createdAt, id)). Narrow
 with --since (strictly after an RFC 3339 time) and page FORWARD with --after
 <the last event id you read>. When a page comes back full, the receipt names
 the exact --after that continues it.
+
+--code-prefix filters the server event code and combines with the other flags.
+app. also matches platform types app.properties-changed, app.credential-act
+and app.manager-act; only app.<slug>. is App-only. No prefix is added when
+omitted. App-defined action payloads may contain participant-readable values;
+keep secrets out of them.
 
 --alarms keeps alarm events only; --task and --type filter further. Task-less
 coordinator-cadence alarms show coordinator <name> in the TASK cell; no payload
@@ -79,12 +86,29 @@ reason or evidence is added. A missing subject stays —.
 			if err != nil {
 				return err
 			}
-			resp, err := gen.AgentTeamEvents(ctx, client, scope.Ref, optStr(after), optBool(alarms), &limit, optStr(since), optStr(task), types)
+			var rows []*gen.AgentTeamEventsAgentTeamEventsAgentTeamEvent
+			if cmd.Flags().Changed("code-prefix") {
+				resp, callErr := gen.AgentTeamEventsByCode(ctx, client, scope.Ref, codePrefix, optStr(after), optBool(alarms), &limit, optStr(since), optStr(task), types)
+				err = callErr
+				if resp != nil {
+					for _, e := range resp.AgentTeamEvents {
+						if e != nil {
+							rows = append(rows, &gen.AgentTeamEventsAgentTeamEventsAgentTeamEvent{AgentTeamEventFields: e.AgentTeamEventFields})
+						}
+					}
+				}
+			} else {
+				resp, callErr := gen.AgentTeamEvents(ctx, client, scope.Ref, optStr(after), optBool(alarms), &limit, optStr(since), optStr(task), types)
+				err = callErr
+				if resp != nil {
+					rows = resp.AgentTeamEvents
+				}
+			}
 			if err != nil {
 				return api.MapError(err)
 			}
 			events := []teamEventDTO{}
-			for _, e := range resp.AgentTeamEvents {
+			for _, e := range rows {
 				if e != nil {
 					events = append(events, teamEventDTOFrom(&e.AgentTeamEventFields))
 				}
@@ -131,6 +155,7 @@ reason or evidence is added. A missing subject stays —.
 			})
 		},
 	}
+	cmd.Flags().StringVar(&codePrefix, "code-prefix", "", "server-side event code prefix (app.<slug>. for App-only)")
 	cmd.Flags().BoolVar(&alarms, "alarms", false, "alarm events only")
 	cmd.Flags().StringVar(&since, "since", "", "RFC 3339 time; events strictly after it")
 	cmd.Flags().StringVar(&after, "after", "", "event id; the page continues strictly after it")

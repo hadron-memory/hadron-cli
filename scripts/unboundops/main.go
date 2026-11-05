@@ -175,7 +175,11 @@ func summary(c map[coveragematrix.Kind]int) string {
 
 func oneLine(s string) string { return strings.Join(strings.Fields(s), " ") }
 
-const header = `# CLI coverage matrix (hadron-cli#1334, #66; cor:api:240:02): every field hadron-server
+const header = `# Output-field companion coverage (cli#1646; selection pinned by TestAppAgentInstallationOperation1646):
+# AppAgent.installMethod  command app agent list
+# AppAgent.importer       command app agent list
+# These output fields are documented here because the sections below enumerate roots and inputs only.
+# CLI coverage matrix (hadron-cli#1334, #66; cor:api:240:02): every field hadron-server
 # exposes, and how the CLI reaches it. Regenerate with ` + "`make coverage-matrix`" + `; ` + "`make coverage-matrix-check`" + ` fails when
 # the file is stale, a line is UNCLASSIFIED, or a disposition contradicts the code.
 #

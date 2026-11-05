@@ -101,7 +101,8 @@ seq or reset time before trying again. The CLI never retries these refusals.`,
 			}
 			m := resp.CreateChannelMessage
 			dto := messageDTO{
-				Seq: m.Seq, At: m.At, Body: m.Body,
+				TeamTags: teamTagsFromFields(resp.CreateChannelMessage.ChannelMessageFields),
+				Seq:      m.Seq, At: m.At, Body: m.Body,
 				AuthorName: m.AuthorName, AuthorWorkerID: m.AuthorWorkerId, AuthorUserID: m.AuthorUserId,
 				AuthorAppID: m.AuthorAppId, SessionID: m.SessionId,
 				ReplyToSeq: m.ReplyToSeq, Mentions: m.Mentions, NodeID: m.NodeId,

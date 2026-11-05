@@ -75,7 +75,9 @@ Every subcommand takes -m/--memory.`,
 	cmd.AddCommand(newCmdLint(f))
 	cmd.AddCommand(newCmdCheckTools(f))
 	cmd.AddCommand(newCmdCitations(f))
+	cmd.AddCommand(newCmdLedger(f))
 	cmd.AddCommand(newCmdSupersede(f))
+	cmd.AddCommand(newCmdRescind(f))
 	cmd.AddCommand(newCmdImport(f))
 	cmd.AddCommand(newCmdUse(f))
 	// hadron-server#1447 — draft corpora and minting (cli#777).

@@ -118,28 +118,42 @@ mutation UninstallAgentFromApp($appRef: ID!, $agentRef: ID!) {
 # 023-app-shape convenience over App.appAgents, so this needs no paging: an
 # App's installed set is small and bounded, unlike agents().
 query AppAgentRoster($appRef: ID!) {
+  app(ref: $appRef) { ...AppAgentRosterData }
+}
+
+# cli#1646: richer listing only; team role warnings keep the older operation.
+query AppAgentInstallationRoster($appRef: ID!) {
   app(ref: $appRef) {
+    ...AppAgentRosterData
+    appAgents {
+      agent { id }
+      installMethod
+      importer { id urn name }
+    }
+  }
+}
+
+fragment AppAgentRosterData on App {
+  id
+  urn
+  name
+  agents {
     id
     urn
     name
-    agents {
-      id
-      urn
-      name
-      description
-      visibility
-      organizationId
-      personaRole
-      createdAt
-    }
-    # cli#916 C2: each install's boot-prompt pointer (AppAgent.bootPromptRef,
-    # #2045 S8), joined onto the Agents above by agent id. agent is null when
-    # the caller may not read the definition, and such a row joins nothing.
-    appAgents {
-      agent { id }
-      bootPromptRef
-      bootPromptTargetDeleted
-    }
+    description
+    visibility
+    organizationId
+    personaRole
+    createdAt
+  }
+  # cli#916 C2: each install's boot-prompt pointer (AppAgent.bootPromptRef,
+  # #2045 S8), joined onto the Agents above by agent id. agent is null when
+  # the caller may not read the definition, and such a row joins nothing.
+  appAgents {
+    agent { id }
+    bootPromptRef
+    bootPromptTargetDeleted
   }
 }
 
@@ -435,7 +449,26 @@ mutation RevokeAppKeyInstructed($id: ID!, $instruction: ActInstructionInput!) {
 }
 
 # cli#1626: one deliberate page over the App's authoritative node scope.
-# NodeFilter's per-field omission contract is shared with FindNodes.
+# Repeat FindNodes' per-field omission directives on every shared-input operation;
+# otherwise code generation can serialize unset selectors as null.
+# @genqlient(for: "NodeFilter.memoryIds", omitempty: true)
+# @genqlient(for: "NodeFilter.approvalState", omitempty: true)
+# @genqlient(for: "NodeFilter.minted", omitempty: true)
+# @genqlient(for: "NodeFilter.memoryClasses", omitempty: true)
+# @genqlient(for: "NodeFilter.nodeType", omitempty: true)
+# @genqlient(for: "NodeFilter.nodeTypes", omitempty: true)
+# @genqlient(for: "NodeFilter.objectType", omitempty: true)
+# @genqlient(for: "NodeFilter.tags", omitempty: true)
+# @genqlient(for: "NodeFilter.isRunnable", omitempty: true)
+# @genqlient(for: "NodeFilter.locPrefix", omitempty: true)
+# @genqlient(for: "NodeFilter.childrenOf", omitempty: true)
+# @genqlient(for: "NodeFilter.createdBy", omitempty: true)
+# @genqlient(for: "NodeFilter.updatedAfter", omitempty: true)
+# @genqlient(for: "NodeFilter.updatedBefore", omitempty: true)
+# @genqlient(for: "NodeFilter.includeDeleted", omitempty: true)
+# @genqlient(for: "NodeFilter.where", omitempty: true)
+# @genqlient(for: "NodeFilter.role", omitempty: true)
+# @genqlient(for: "NodeFilter.contentScope", omitempty: true)
 query AppNodesPage(
   $appRef: ID!
   # @genqlient(omitempty: true)

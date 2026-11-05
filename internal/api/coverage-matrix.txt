@@ -1,3 +1,7 @@
+# Output-field companion coverage (cli#1646; selection pinned by TestAppAgentInstallationOperation1646):
+# AppAgent.installMethod  command app agent list
+# AppAgent.importer       command app agent list
+# These output fields are documented here because the sections below enumerate roots and inputs only.
 # CLI coverage matrix (hadron-cli#1334, #66; cor:api:240:02): every field hadron-server
 # exposes, and how the CLI reaches it. Regenerate with `make coverage-matrix`; `make coverage-matrix-check` fails when
 # the file is stale, a line is UNCLASSIFIED, or a disposition contradicts the code.
@@ -19,7 +23,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 204: 161 command, 23 gap, 20 excluded
+[Query] 207: 162 command, 25 gap, 20 excluded
 actionRegisterIndex  command team register
 actionTickets  command ticket list
 agent  command agent get
@@ -64,6 +68,7 @@ authContext  command auth whoami
 automationApproval  command automation approval
 automationApprovals  command automation approval
 automationReadGrants  gap #1566
+automationTeamSnapshotGrant  gap #1619
 automationTeamSnapshotGrants  command automation team-snapshot-grant list
 calendarEvent  command calendar event get
 calendarEvents  command calendar events
@@ -157,11 +162,13 @@ nodeUsage  excluded deprecated: @deprecated: Use usageEvents(loc: <loc>) — ide
 object  command object get
 organization  command org get
 organizations  command org list
+previewAgentSchedule  gap #1678
 previewAutomation  command automation preview
 principalGrant  command grant get
 principalGrants  command grant list
 publicAgents  command agent list
 publicOrganization  command org public
+pullRequestReadiness  command team pr readiness
 quotaCounters  command quota list
 rateLimitPolicies  gap #1482: platform-admin rate-limit policy read (server #1793)
 recoveryEdges  command node recovery graph
@@ -225,7 +232,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 331: 271 command, 48 gap, 12 excluded
+[Mutation] 337: 279 command, 46 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -247,6 +254,7 @@ approveMergeUsersConsent  gap #1304
 approveNode  command node approve
 askDecision  command decision ask
 assignAgentTask  command team task assign
+assignReviewSeat  command team pr seat
 attachMemoryToApp  command memory attach
 authorizeContextResetStop  command team host run
 beginAssetUpload  excluded not-a-capability: the v1 twin of beginAssetUploadV2, which `asset upload` reaches; it adds no capability
@@ -377,6 +385,7 @@ exchangeReply  gap #198
 exportNodeToGoogleDoc  gap #275
 extractParentNodeToMemory  command memory extract
 finishAgentTask  command team task finish
+freezePullRequestHead  command team pr freeze
 grantApp  gap #1336
 grantAppKeyScope  command app key scope grant
 grantCredits  command billing grant
@@ -386,9 +395,9 @@ installAgentIntoApp  command app agent add
 inviteUser  command user invite
 isolateWorker  command team isolation set
 issueHostOperation  command team host issue
-joinApp  gap #63
+joinApp  command app join
 joinWaitingList  excluded not-a-capability: a public website form (waiting list, contact), not a platform capability
-leaveApp  gap #63
+leaveApp  command app leave
 liftTeamStopSignal  command team stop lift
 linkGithubApp  gap #60
 linkMemoryToUser  command memory link-user
@@ -410,6 +419,9 @@ pushMemoryToGit  gap #60
 reAdoptAutomation  command automation re-adopt
 reassignAgentTask  command team task reassign
 recordAgentTaskProgress  command team task progress
+recordAppAction  command app action record
+recordReadyCall  command team pr ready
+recordReviewVerdict  command team pr verdict
 recordSessionOutcome  command team session outcome
 recordTeamWork  command team session log
 recordUsage  command usage record
@@ -487,6 +499,7 @@ setMemorySourceToken  gap #60
 setModelFamilyAvailability  command team availability set
 setQuotaLimit  command quota set
 setRateLimitPolicy  gap #1482: platform-admin rate-limit policy edit (server #1793)
+setReviewSchedule  command team pr schedule
 setTeamPause  command team pause
 setTeamStopSignal  command team stop set
 setUserApiKeyHidden  command auth token hide
@@ -558,15 +571,17 @@ updateWorker  command team worker update
 withdrawDecision  command decision withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 93: 64 gap, 29 excluded
+[Arguments] 104: 69 gap, 35 excluded
 Mutation.acknowledgeAlarm(instruction)  gap #1617
 Mutation.addAgentTaskBlocker(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.addMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.addOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
 Mutation.addOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
+Mutation.applyAgentTickerTemplates(instruction)  gap #1617
 Mutation.assignAgentTask(instruction)  gap #1617
 Mutation.cancelAgentTask(instruction)  gap #1617
+Mutation.clearWorkerIsolation(instruction)  gap #1617
 Mutation.cloneAgentTask(input.owner)  gap #1579: `task clone` does not expose this override yet
 Mutation.cloneAgentTask(input.project)  gap #1579: `task clone` does not expose this override yet
 Mutation.cloneAgentTask(input.properties)  gap #1579: `task clone` does not expose this override yet
@@ -574,33 +589,37 @@ Mutation.cloneAgentTask(input.references)  gap #1579: `task clone` does not expo
 Mutation.cloneAgentTask(input.requirements)  gap #1579: `task clone` does not expose this override yet
 Mutation.cloneAgentTask(input.tags)  gap #1579: `task clone` does not expose this override yet
 Mutation.createAgentTask(instruction)  gap #1617
-Mutation.createApp(agentTools)  gap #63
-Mutation.createApp(aiApiKey)  gap #63
-Mutation.createApp(aiModel)  gap #63
-Mutation.createApp(aiProvider)  gap #63
-Mutation.createApp(anonymousTtlDays)  gap #63
-Mutation.createApp(createUserPermission)  gap #63
-Mutation.createApp(expiresAt)  gap #63
-Mutation.createApp(identifyUserMethod)  gap #63
-Mutation.createApp(installOptional)  gap #63
-Mutation.createApp(policy)  gap #63
-Mutation.createApp(role)  gap #63
-Mutation.createApp(sessionTimeoutSeconds)  gap #63
-Mutation.createApp(surfaces)  gap #63
-Mutation.createApp(trainingMode)  gap #63
+Mutation.createApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
+Mutation.createApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
+Mutation.createApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
+Mutation.createApp(policy)  gap #1628
 Mutation.createAppUser(email)  excluded not-a-capability: accepts only empty values (SDL); an address is established through verified sign-in; cor:api:240:02 (argument that changes nothing)
 Mutation.createMemoryShare(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.createMemorySubscription(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.createMemorySubscription(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
+Mutation.createNode(input.authoredWith.revision)  gap #684
+Mutation.createNode(input.authoredWith.task)  gap #684
+Mutation.createReviewNode(input.authoredWith.revision)  gap #684
+Mutation.createReviewNode(input.authoredWith.task)  gap #684
+Mutation.createSpecNode(input.authoredWith.revision)  gap #684
+Mutation.createSpecNode(input.authoredWith.task)  gap #684
+Mutation.createTaskNode(input.authoredWith.revision)  gap #684
+Mutation.createTaskNode(input.authoredWith.task)  gap #684
 Mutation.deleteAppModelGroup(instruction)  gap #1617
 Mutation.deleteMemoryShare(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.deleteMemorySubscription(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.deleteMemorySubscription(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
+Mutation.deleteTicker(instruction)  gap #1617
 Mutation.disposeAgentTaskFinding(instruction)  gap #1617
 Mutation.ensureAppMember(appId)  excluded deprecated: @deprecated: Use appRef (accepts id / URN).
 Mutation.ensureAppMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.finishAgentTask(result.findings)  gap #1556
+Mutation.importNode(input.authoredWith)  gap #684
+Mutation.isolateWorker(instruction)  gap #1617
+Mutation.issueHostOperation(instruction)  gap #1617
+Mutation.liftTeamStopSignal(instruction)  gap #1617
 Mutation.makeAgentTaskReady(instruction)  gap #1617
+Mutation.mergeNodes(input.authoredWith)  gap #684
 Mutation.mergeUsers(input.consentProof)  gap #1304
 Mutation.parkAgentTask(instruction)  gap #1617
 Mutation.reassignAgentTask(instruction)  gap #1617
@@ -612,48 +631,53 @@ Mutation.removeMemoryMember(memoryId)  excluded deprecated: @deprecated: Use mem
 Mutation.removeMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.removeOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
 Mutation.removeOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
+Mutation.searchReplaceInNodes(input.authoredWith)  gap #684
+Mutation.searchReplaceInSpecNodes(input.authoredWith)  gap #684
 Mutation.setAgentTaskPriority(instruction)  gap #1617
 Mutation.setAgentTaskStallSchedule(instruction)  gap #1617
+Mutation.setAppDeliverySettings(instruction)  gap #1617
 Mutation.setAppModelGroup(instruction)  gap #1617
 Mutation.setAppProperties(instruction)  gap #1617
 Mutation.setModelFamilyAvailability(instruction)  gap #1617
+Mutation.setTeamPause(instruction)  gap #1617
+Mutation.setTeamStopSignal(instruction)  gap #1617
 Mutation.setWorkerAvailability(instruction)  gap #1617
+Mutation.setWorkerWakeSettings(instruction)  gap #1617
+Mutation.subscribeWorker(instruction)  gap #1617
+Mutation.unsubscribeWorker(instruction)  gap #1617
 Mutation.updateAgentTask(instruction)  gap #1617
-Mutation.updateApp(agentSessionsExpire)  gap #63
-Mutation.updateApp(agentTools)  gap #63
-Mutation.updateApp(aiApiKey)  gap #63
-Mutation.updateApp(aiModel)  gap #63
-Mutation.updateApp(aiProvider)  gap #63
-Mutation.updateApp(anonymousTtlDays)  gap #63
-Mutation.updateApp(appType)  gap #63
-Mutation.updateApp(createUserPermission)  gap #63
-Mutation.updateApp(expiresAt)  gap #63
-Mutation.updateApp(identifyUserMethod)  gap #63
-Mutation.updateApp(role)  gap #63
-Mutation.updateApp(sessionDormancyDays)  gap #63
-Mutation.updateApp(surfaces)  gap #63
-Mutation.updateApp(trainingMode)  gap #63
-Mutation.updateApp(urn)  gap #63
+Mutation.updateApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
+Mutation.updateApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
+Mutation.updateApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config
+Mutation.updateApp(policy)  gap #1640
 Mutation.updateMemory(organizationId)  excluded not-a-capability: updateMemory accepts only the memory's current organization and refuses any other with USE_TRANSFER_MEMORY_OWNERSHIP; moving a memory is `memory transfer` (transferMemoryOwnership)
 Mutation.updateMemoryMemberRole(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.updateMemoryMemberRole(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.updateMemoryShareRole(granteeId)  excluded deprecated: @deprecated: Use granteeRef (accepts id / email / handle / hrn:user URN).
 Mutation.updateMemorySubscription(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
 Mutation.updateMemorySubscription(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
+Mutation.updateNode(input.authoredWith.revision)  gap #684
+Mutation.updateNode(input.authoredWith.task)  gap #684
+Mutation.updateNodeData(authoredWith)  gap #684
+Mutation.updateNodeProperties(authoredWith)  gap #684
 Mutation.updateOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
 Mutation.updateOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
+Mutation.updateReviewNode(input.authoredWith.revision)  gap #684
+Mutation.updateReviewNode(input.authoredWith.task)  gap #684
+Mutation.updateSpecNode(input.authoredWith.revision)  gap #684
+Mutation.updateSpecNode(input.authoredWith.task)  gap #684
+Mutation.updateTaskNode(input.authoredWith.revision)  gap #684
+Mutation.updateTaskNode(input.authoredWith.task)  gap #684
 Mutation.updateTeamRole(repos)  gap #1336
+Mutation.updateTicker(instruction)  gap #1617
 Query.agentTasks(creator)  gap #1336
 Query.attendeeRegister(agentRef)  gap #1336
 Query.automationTeamSnapshotGrants(triggerId)  gap #1617
 Query.automationTeamSnapshotGrants(triggerKind)  gap #1617
-Query.channelMessages(teamHeadRef)  gap #936
-Query.channelMessages(untagged)  gap #936
+Query.dueWakes(instruction)  gap #1617
 Query.node(memoryRef)  excluded not-a-capability: the CLI composes -m and a bare loc into the full node URN, which the SDL documents as the equivalent address (the one case memoryRef adds, forcing loc reading of an unprefixed 3+-segment ref, the hrn:node: form already removes); proposed class, specs engineer to accept
-Query.teamChatMessages(teamHeadRef)  gap #936
-Query.teamChatMessages(untagged)  gap #936
 
-[Filters] 74: 65 flag, 6 gap, 3 excluded
+[Filters] 74: 65 flag, 5 gap, 4 excluded
 Query.agentTasks(reference.kind)  flag team task list --ref-kind
 Query.agentTasks(reference.target)  flag team task list --ref
 Query.agents(filter.ownedByMe)  flag agent list --owned-by-me
@@ -678,7 +702,7 @@ Query.appNodesPage(filter.role)  flag app nodes --role
 Query.appNodesPage(filter.tags)  flag app nodes --tag
 Query.appNodesPage(filter.updatedAfter)  flag app nodes --updated-after
 Query.appNodesPage(filter.updatedBefore)  flag app nodes --updated-before
-Query.appNodesPage(filter.where)  gap #3427: server accepts but ignores this selector; app nodes refuses --where locally
+Query.appNodesPage(filter.where)  excluded not-a-capability: appNodesPage refuses this selector (SDL/source; server#3427 closed by #3430); use node list; proposed class unruled under #1334 (ruling0061)
 Query.apps(filter.agentId)  flag app list --agent
 Query.apps(filter.ownedByMe)  flag app list --owned-by-me
 Query.assets(filter.includeDeleted)  flag asset list --include-deleted

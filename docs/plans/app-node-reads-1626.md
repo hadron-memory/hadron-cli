@@ -23,8 +23,9 @@ or incomplete row identities fail without partial success output.
 Ten structured node-list flags are forwarded, preserving explicit false booleans.
 The App owns memory scope: memory/memory-class are local usage errors. children-of
 and where are also local errors, including explicitly empty arguments, with a
-node-list remedy and no request. `where` is silently ignored server-side today;
-QA Charles independently reproduced it and filed hadron-server#3427. This CLI
+node-list remedy and no request. At the first reviewed head, `where` was silently ignored server-side;
+QA Charles independently reproduced it and filed hadron-server#3427 (since fixed
+by server#3430 with a typed refusal). This CLI
 change does not implement or repair that server filter. Four remaining filter
 capabilities stay gap #63; proposed exclusions retain the #1334/ruling0061 caveat.
 
@@ -139,3 +140,24 @@ help inventory header (regenerated) and the shared app synopsis (retains both
 `list --agent` and incoming `user create`). The generated client was regenerated;
 coverage preserves both capabilities. app.go keeps both command registrations.
 No authored app-nodes/list implementation or test changed in this merge.
+
+## 2026-11-05 main carry
+
+Merged main 3b0fa499 without rebasing after 167 incoming commits. The shared
+app synopsis retains main's join/leave commands and this PR's Agent-list selector;
+client, matrix and inventory are regenerated. Own nodes.go, ls.go and the 1626
+test file stay byte-identical to b801bc07, as do Apps/AppNodesPage query documents.
+
+Fresh generation exposed the operation's reliance on another shared NodeFilter
+user's omission directives: unset selectors appeared as null and existing root
+wire tests plus the generic omission guard failed. AppNodesPage now repeats all
+18 established FindNodes field directives. Focused guards, complete suite, lint
+and race pass; three consecutive regenerations are byte-identical. This is an
+explicit integration fix requiring same-holder delta review, not an automatic
+carry of the old approval.
+
+Server#3427 is closed by #3430; current main SDL refuses where on App lists.
+Xabat approved the rationale-only accounting correction in chat78733: where now
+uses the childrenOf-shaped refused-selector exclusion, with #3427 closure evidence
+and the #1334/ruling0061 caveat. The CLI's local refusal is unchanged. Optional
+P3 work stays in cli#1642; no polish behavior is folded into this carry.

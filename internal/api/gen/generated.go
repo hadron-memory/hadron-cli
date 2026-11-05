@@ -11567,6 +11567,194 @@ func (v *AgentTeamEventsAgentTeamEventsAgentTeamEvent) __premarshalJSON() (*__pr
 	return &retval, nil
 }
 
+// AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent includes the requested fields of the GraphQL type AgentTeamEvent.
+// The GraphQL type's documentation follows.
+//
+// One append-only record of something that happened in a team App's task work
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:11). Never changed or removed; an alarm's acknowledgement is the
+// one thing added later. payload carries ids, counts and outcome words only,
+// never message or description text.
+type AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent struct {
+	AgentTeamEventFields `json:"-"`
+}
+
+// GetId returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.Id, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetId() string {
+	return v.AgentTeamEventFields.Id
+}
+
+// GetAppId returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.AppId, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetAppId() string {
+	return v.AgentTeamEventFields.AppId
+}
+
+// GetTaskId returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.TaskId, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetTaskId() *string {
+	return v.AgentTeamEventFields.TaskId
+}
+
+// GetType returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.Type, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetType() string {
+	return v.AgentTeamEventFields.Type
+}
+
+// GetSeverity returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.Severity, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetSeverity() *AgentTeamEventSeverity {
+	return v.AgentTeamEventFields.Severity
+}
+
+// GetCreatedAt returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetCreatedAt() string {
+	return v.AgentTeamEventFields.CreatedAt
+}
+
+// GetActor returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.Actor, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetActor() *AgentTeamEventFieldsActorAgentTaskParty {
+	return v.AgentTeamEventFields.Actor
+}
+
+// GetActorRunId returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.ActorRunId, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetActorRunId() *string {
+	return v.AgentTeamEventFields.ActorRunId
+}
+
+// GetSubjectWorker returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.SubjectWorker, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetSubjectWorker() *AgentTeamEventFieldsSubjectWorkerAgentTaskParty {
+	return v.AgentTeamEventFields.SubjectWorker
+}
+
+// GetPayload returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.Payload, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetPayload() json.RawMessage {
+	return v.AgentTeamEventFields.Payload
+}
+
+// GetAcknowledgedAt returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.AcknowledgedAt, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetAcknowledgedAt() *string {
+	return v.AgentTeamEventFields.AcknowledgedAt
+}
+
+// GetAcknowledgedBy returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.AcknowledgedBy, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetAcknowledgedBy() *AgentTeamEventFieldsAcknowledgedByAgentTaskParty {
+	return v.AgentTeamEventFields.AcknowledgedBy
+}
+
+// GetEpisodeStart returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.EpisodeStart, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetEpisodeStart() *string {
+	return v.AgentTeamEventFields.EpisodeStart
+}
+
+// GetChain returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.Chain, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetChain() *json.RawMessage {
+	return v.AgentTeamEventFields.Chain
+}
+
+// GetWakes returns AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent.Wakes, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) GetWakes() []*AgentTeamEventFieldsWakesAgentTeamAlarmSchedule {
+	return v.AgentTeamEventFields.Wakes
+}
+
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTeamEventFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent struct {
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	TaskId *string `json:"taskId"`
+
+	Type string `json:"type"`
+
+	Severity *AgentTeamEventSeverity `json:"severity"`
+
+	CreatedAt string `json:"createdAt"`
+
+	Actor *AgentTeamEventFieldsActorAgentTaskParty `json:"actor"`
+
+	ActorRunId *string `json:"actorRunId"`
+
+	SubjectWorker *AgentTeamEventFieldsSubjectWorkerAgentTaskParty `json:"subjectWorker"`
+
+	Payload json.RawMessage `json:"payload"`
+
+	AcknowledgedAt *string `json:"acknowledgedAt"`
+
+	AcknowledgedBy *AgentTeamEventFieldsAcknowledgedByAgentTaskParty `json:"acknowledgedBy"`
+
+	EpisodeStart *string `json:"episodeStart"`
+
+	Chain *json.RawMessage `json:"chain"`
+
+	Wakes []*AgentTeamEventFieldsWakesAgentTeamAlarmSchedule `json:"wakes"`
+}
+
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent) __premarshalJSON() (*__premarshalAgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent, error) {
+	var retval __premarshalAgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent
+
+	retval.Id = v.AgentTeamEventFields.Id
+	retval.AppId = v.AgentTeamEventFields.AppId
+	retval.TaskId = v.AgentTeamEventFields.TaskId
+	retval.Type = v.AgentTeamEventFields.Type
+	retval.Severity = v.AgentTeamEventFields.Severity
+	retval.CreatedAt = v.AgentTeamEventFields.CreatedAt
+	retval.Actor = v.AgentTeamEventFields.Actor
+	retval.ActorRunId = v.AgentTeamEventFields.ActorRunId
+	retval.SubjectWorker = v.AgentTeamEventFields.SubjectWorker
+	retval.Payload = v.AgentTeamEventFields.Payload
+	retval.AcknowledgedAt = v.AgentTeamEventFields.AcknowledgedAt
+	retval.AcknowledgedBy = v.AgentTeamEventFields.AcknowledgedBy
+	retval.EpisodeStart = v.AgentTeamEventFields.EpisodeStart
+	retval.Chain = v.AgentTeamEventFields.Chain
+	retval.Wakes = v.AgentTeamEventFields.Wakes
+	return &retval, nil
+}
+
+// AgentTeamEventsByCodeResponse is returned by AgentTeamEventsByCode on success.
+type AgentTeamEventsByCodeResponse struct {
+	// #1705 — a team App's event stream (hrn:node:hadronmemory.com:specs:cor:agt:050:11), in (createdAt, id)
+	// order. To read the next page pass after: the id of the last event you
+	// read; the cursor is the (createdAt, id) pair, so events sharing a
+	// timestamp are never skipped. since is a coarse time filter (strictly
+	// after), not a continuation. limit defaults to 20 (cap 200).
+	// task.warning, task.edited and task.properties-changed are passive history (never wake, suppress a wake or count as activity); payload is {code}, changed field names only, or (task.properties-changed) the size and SHA-256 of the canonical JSON of the old and new properties, never their content.
+	AgentTeamEvents []*AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent `json:"agentTeamEvents"`
+}
+
+// GetAgentTeamEvents returns AgentTeamEventsByCodeResponse.AgentTeamEvents, and is useful for accessing the field via an interface.
+func (v *AgentTeamEventsByCodeResponse) GetAgentTeamEvents() []*AgentTeamEventsByCodeAgentTeamEventsAgentTeamEvent {
+	return v.AgentTeamEvents
+}
+
 // AgentTeamEventsResponse is returned by AgentTeamEvents on success.
 type AgentTeamEventsResponse struct {
 	// #1705 — a team App's event stream (hrn:node:hadronmemory.com:specs:cor:agt:050:11), in (createdAt, id)
@@ -14281,6 +14469,184 @@ func (v *AmendDecisionResponse) GetAmendDecision() *AmendDecisionAmendDecision {
 	return v.AmendDecision
 }
 
+// AppAgentInstallationRosterApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type AppAgentInstallationRosterApp struct {
+	AppAgentRosterData `json:"-"`
+	// Agents installed in this App, by a physical row or derived from a direct
+	// import of a physically installed Agent (#2168). Derived installations do not
+	// write an AppAgent row. One App credential
+	// routes to all of them via the URN supplied in the request.
+	AppAgents []*AppAgentInstallationRosterAppAppAgentsAppAgent `json:"appAgents"`
+}
+
+// GetAppAgents returns AppAgentInstallationRosterApp.AppAgents, and is useful for accessing the field via an interface.
+func (v *AppAgentInstallationRosterApp) GetAppAgents() []*AppAgentInstallationRosterAppAppAgentsAppAgent {
+	return v.AppAgents
+}
+
+// GetId returns AppAgentInstallationRosterApp.Id, and is useful for accessing the field via an interface.
+func (v *AppAgentInstallationRosterApp) GetId() string { return v.AppAgentRosterData.Id }
+
+// GetUrn returns AppAgentInstallationRosterApp.Urn, and is useful for accessing the field via an interface.
+func (v *AppAgentInstallationRosterApp) GetUrn() string { return v.AppAgentRosterData.Urn }
+
+// GetName returns AppAgentInstallationRosterApp.Name, and is useful for accessing the field via an interface.
+func (v *AppAgentInstallationRosterApp) GetName() string { return v.AppAgentRosterData.Name }
+
+// GetAgents returns AppAgentInstallationRosterApp.Agents, and is useful for accessing the field via an interface.
+func (v *AppAgentInstallationRosterApp) GetAgents() []*AppAgentRosterDataAgentsAgent {
+	return v.AppAgentRosterData.Agents
+}
+
+func (v *AppAgentInstallationRosterApp) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AppAgentInstallationRosterApp
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AppAgentInstallationRosterApp = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AppAgentRosterData)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAppAgentInstallationRosterApp struct {
+	AppAgents []*AppAgentInstallationRosterAppAppAgentsAppAgent `json:"appAgents"`
+
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Agents []*AppAgentRosterDataAgentsAgent `json:"agents"`
+}
+
+func (v *AppAgentInstallationRosterApp) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AppAgentInstallationRosterApp) __premarshalJSON() (*__premarshalAppAgentInstallationRosterApp, error) {
+	var retval __premarshalAppAgentInstallationRosterApp
+
+	retval.AppAgents = v.AppAgents
+	retval.Id = v.AppAgentRosterData.Id
+	retval.Urn = v.AppAgentRosterData.Urn
+	retval.Name = v.AppAgentRosterData.Name
+	retval.Agents = v.AppAgentRosterData.Agents
+	return &retval, nil
+}
+
+// AppAgentInstallationRosterAppAppAgentsAppAgent includes the requested fields of the GraphQL type AppAgent.
+// The GraphQL type's documentation follows.
+//
+// 023-app-shape US1: the App↔Agent N:M join. Reintroduced after spec 008
+// collapsed it; per FR-003 it carries NO role column (system memory is
+// read-only to every App) and per FR-001 it carries NO trainingMode
+// column (training mode is per-App, on App.trainingMode).
+type AppAgentInstallationRosterAppAppAgentsAppAgent struct {
+	// The installed Agent when this caller may read its definition; an installation license alone does not grant that read.
+	Agent *AppAgentInstallationRosterAppAppAgentsAppAgentAgent `json:"agent"`
+	// #3435 (hrn:node:hadronmemory.com:specs:cor:dmo:050:03, :050:06, :050:11) — how this App installs the Agent: ROW (an
+	// AppAgent row) or DERIVED (a direct import of an Agent installed here, no row). Answered only on App.appAgents, and
+	// only when the caller may read EVERY Agent installed in the App, row installs and derived ones alike. Otherwise it is
+	// null on EVERY entry, ROW ones included: a per-entry answer would show, by elimination, which installs derive from an
+	// Agent the caller cannot read (that the App runs one, and never which). Null is therefore not proof of anything, and
+	// also what an AppAgent reached through another field returns. createdAt (below) follows the same gate.
+	InstallMethod *InstallMethod `json:"installMethod"`
+	// #3435 — the installed Agent this DERIVED install derives from: the importer that gives its createdAt. Null for a ROW
+	// entry and whenever installMethod is null (same whole-App read gate), so a DERIVED entry always has a readable importer.
+	Importer *AppAgentInstallationRosterAppAppAgentsAppAgentImporterAgent `json:"importer"`
+}
+
+// GetAgent returns AppAgentInstallationRosterAppAppAgentsAppAgent.Agent, and is useful for accessing the field via an interface.
+func (v *AppAgentInstallationRosterAppAppAgentsAppAgent) GetAgent() *AppAgentInstallationRosterAppAppAgentsAppAgentAgent {
+	return v.Agent
+}
+
+// GetInstallMethod returns AppAgentInstallationRosterAppAppAgentsAppAgent.InstallMethod, and is useful for accessing the field via an interface.
+func (v *AppAgentInstallationRosterAppAppAgentsAppAgent) GetInstallMethod() *InstallMethod {
+	return v.InstallMethod
+}
+
+// GetImporter returns AppAgentInstallationRosterAppAppAgentsAppAgent.Importer, and is useful for accessing the field via an interface.
+func (v *AppAgentInstallationRosterAppAppAgentsAppAgent) GetImporter() *AppAgentInstallationRosterAppAppAgentsAppAgentImporterAgent {
+	return v.Importer
+}
+
+// AppAgentInstallationRosterAppAppAgentsAppAgentAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type AppAgentInstallationRosterAppAppAgentsAppAgentAgent struct {
+	Id string `json:"id"`
+}
+
+// GetId returns AppAgentInstallationRosterAppAppAgentsAppAgentAgent.Id, and is useful for accessing the field via an interface.
+func (v *AppAgentInstallationRosterAppAppAgentsAppAgentAgent) GetId() string { return v.Id }
+
+// AppAgentInstallationRosterAppAppAgentsAppAgentImporterAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type AppAgentInstallationRosterAppAppAgentsAppAgentImporterAgent struct {
+	Id   string `json:"id"`
+	Urn  string `json:"urn"`
+	Name string `json:"name"`
+}
+
+// GetId returns AppAgentInstallationRosterAppAppAgentsAppAgentImporterAgent.Id, and is useful for accessing the field via an interface.
+func (v *AppAgentInstallationRosterAppAppAgentsAppAgentImporterAgent) GetId() string { return v.Id }
+
+// GetUrn returns AppAgentInstallationRosterAppAppAgentsAppAgentImporterAgent.Urn, and is useful for accessing the field via an interface.
+func (v *AppAgentInstallationRosterAppAppAgentsAppAgentImporterAgent) GetUrn() string { return v.Urn }
+
+// GetName returns AppAgentInstallationRosterAppAppAgentsAppAgentImporterAgent.Name, and is useful for accessing the field via an interface.
+func (v *AppAgentInstallationRosterAppAppAgentsAppAgentImporterAgent) GetName() string { return v.Name }
+
+// AppAgentInstallationRosterResponse is returned by AppAgentInstallationRoster on success.
+type AppAgentInstallationRosterResponse struct {
+	// Fetch an App (member of the App's org, or platform ADMIN — the myApps
+	// exposure bar; #473 relaxed this from org ADMIN for read parity with the
+	// list).
+	//
+	// 'ref' accepts the entity's ID or URN.
+	App *AppAgentInstallationRosterApp `json:"app"`
+}
+
+// GetApp returns AppAgentInstallationRosterResponse.App, and is useful for accessing the field via an interface.
+func (v *AppAgentInstallationRosterResponse) GetApp() *AppAgentInstallationRosterApp { return v.App }
+
 // AppAgentRosterApp includes the requested fields of the GraphQL type App.
 // The GraphQL type's documentation follows.
 //
@@ -14290,6 +14656,93 @@ func (v *AmendDecisionResponse) GetAmendDecision() *AmendDecisionAmendDecision {
 // The singular agentId / agent fields below are soft-deprecated convenience
 // reads of the first install, not a direct foreign key.
 type AppAgentRosterApp struct {
+	AppAgentRosterData `json:"-"`
+}
+
+// GetId returns AppAgentRosterApp.Id, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterApp) GetId() string { return v.AppAgentRosterData.Id }
+
+// GetUrn returns AppAgentRosterApp.Urn, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterApp) GetUrn() string { return v.AppAgentRosterData.Urn }
+
+// GetName returns AppAgentRosterApp.Name, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterApp) GetName() string { return v.AppAgentRosterData.Name }
+
+// GetAgents returns AppAgentRosterApp.Agents, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterApp) GetAgents() []*AppAgentRosterDataAgentsAgent {
+	return v.AppAgentRosterData.Agents
+}
+
+// GetAppAgents returns AppAgentRosterApp.AppAgents, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterApp) GetAppAgents() []*AppAgentRosterDataAppAgentsAppAgent {
+	return v.AppAgentRosterData.AppAgents
+}
+
+func (v *AppAgentRosterApp) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AppAgentRosterApp
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AppAgentRosterApp = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AppAgentRosterData)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAppAgentRosterApp struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Agents []*AppAgentRosterDataAgentsAgent `json:"agents"`
+
+	AppAgents []*AppAgentRosterDataAppAgentsAppAgent `json:"appAgents"`
+}
+
+func (v *AppAgentRosterApp) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AppAgentRosterApp) __premarshalJSON() (*__premarshalAppAgentRosterApp, error) {
+	var retval __premarshalAppAgentRosterApp
+
+	retval.Id = v.AppAgentRosterData.Id
+	retval.Urn = v.AppAgentRosterData.Urn
+	retval.Name = v.AppAgentRosterData.Name
+	retval.Agents = v.AppAgentRosterData.Agents
+	retval.AppAgents = v.AppAgentRosterData.AppAgents
+	return &retval, nil
+}
+
+// AppAgentRosterData includes the GraphQL fields of App requested by the fragment AppAgentRosterData.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type AppAgentRosterData struct {
 	Id   string `json:"id"`
 	Urn  string `json:"urn"`
 	Name string `json:"name"`
@@ -14298,37 +14751,42 @@ type AppAgentRosterApp struct {
 	// omitted here and appears in `appAgents` with `agent: null`. Only the
 	// installed Agents this caller may read: the list may be PARTIAL, an unreadable
 	// Agent is left out, and its length is not the install count (use `appAgents`,
-	// one entry per install).
-	Agents []*AppAgentRosterAppAgentsAgent `json:"agents"`
-	// 023-app-shape US1: Agents installed in this App, via the AppAgent
-	// N:M join. Multiple Agents can be installed; one App credential
+	// one entry per install). Order matches the readable non-null entries of
+	// `appAgents`: served installation creation time, then Agent id. When any
+	// installed Agent is withheld, every entry shares the App date, so order is by id.
+	Agents []*AppAgentRosterDataAgentsAgent `json:"agents"`
+	// Agents installed in this App, by a physical row or derived from a direct
+	// import of a physically installed Agent (#2168). Derived installations do not
+	// write an AppAgent row. One App credential
 	// routes to all of them via the URN supplied in the request.
-	AppAgents []*AppAgentRosterAppAppAgentsAppAgent `json:"appAgents"`
+	AppAgents []*AppAgentRosterDataAppAgentsAppAgent `json:"appAgents"`
 }
 
-// GetId returns AppAgentRosterApp.Id, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterApp) GetId() string { return v.Id }
+// GetId returns AppAgentRosterData.Id, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterData) GetId() string { return v.Id }
 
-// GetUrn returns AppAgentRosterApp.Urn, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterApp) GetUrn() string { return v.Urn }
+// GetUrn returns AppAgentRosterData.Urn, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterData) GetUrn() string { return v.Urn }
 
-// GetName returns AppAgentRosterApp.Name, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterApp) GetName() string { return v.Name }
+// GetName returns AppAgentRosterData.Name, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterData) GetName() string { return v.Name }
 
-// GetAgents returns AppAgentRosterApp.Agents, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterApp) GetAgents() []*AppAgentRosterAppAgentsAgent { return v.Agents }
+// GetAgents returns AppAgentRosterData.Agents, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterData) GetAgents() []*AppAgentRosterDataAgentsAgent { return v.Agents }
 
-// GetAppAgents returns AppAgentRosterApp.AppAgents, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterApp) GetAppAgents() []*AppAgentRosterAppAppAgentsAppAgent { return v.AppAgents }
+// GetAppAgents returns AppAgentRosterData.AppAgents, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterData) GetAppAgents() []*AppAgentRosterDataAppAgentsAppAgent {
+	return v.AppAgents
+}
 
-// AppAgentRosterAppAgentsAgent includes the requested fields of the GraphQL type Agent.
+// AppAgentRosterDataAgentsAgent includes the requested fields of the GraphQL type Agent.
 // The GraphQL type's documentation follows.
 //
 // The reusable definition a Builder creates and the marketplace can list.
 // Agents are installed into runtime Apps through the AppAgent N:M join: an App
 // may install many Agents, and an Agent may be installed in many Apps. The App,
 // not the Agent, is the org- or user-owned caller identity and deployment.
-type AppAgentRosterAppAgentsAgent struct {
+type AppAgentRosterDataAgentsAgent struct {
 	Id             string          `json:"id"`
 	Urn            string          `json:"urn"`
 	Name           string          `json:"name"`
@@ -14340,40 +14798,40 @@ type AppAgentRosterAppAgentsAgent struct {
 	CreatedAt   string  `json:"createdAt"`
 }
 
-// GetId returns AppAgentRosterAppAgentsAgent.Id, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterAppAgentsAgent) GetId() string { return v.Id }
+// GetId returns AppAgentRosterDataAgentsAgent.Id, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterDataAgentsAgent) GetId() string { return v.Id }
 
-// GetUrn returns AppAgentRosterAppAgentsAgent.Urn, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterAppAgentsAgent) GetUrn() string { return v.Urn }
+// GetUrn returns AppAgentRosterDataAgentsAgent.Urn, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterDataAgentsAgent) GetUrn() string { return v.Urn }
 
-// GetName returns AppAgentRosterAppAgentsAgent.Name, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterAppAgentsAgent) GetName() string { return v.Name }
+// GetName returns AppAgentRosterDataAgentsAgent.Name, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterDataAgentsAgent) GetName() string { return v.Name }
 
-// GetDescription returns AppAgentRosterAppAgentsAgent.Description, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterAppAgentsAgent) GetDescription() *string { return v.Description }
+// GetDescription returns AppAgentRosterDataAgentsAgent.Description, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterDataAgentsAgent) GetDescription() *string { return v.Description }
 
-// GetVisibility returns AppAgentRosterAppAgentsAgent.Visibility, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterAppAgentsAgent) GetVisibility() AgentVisibility { return v.Visibility }
+// GetVisibility returns AppAgentRosterDataAgentsAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterDataAgentsAgent) GetVisibility() AgentVisibility { return v.Visibility }
 
-// GetOrganizationId returns AppAgentRosterAppAgentsAgent.OrganizationId, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterAppAgentsAgent) GetOrganizationId() *string { return v.OrganizationId }
+// GetOrganizationId returns AppAgentRosterDataAgentsAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterDataAgentsAgent) GetOrganizationId() *string { return v.OrganizationId }
 
-// GetPersonaRole returns AppAgentRosterAppAgentsAgent.PersonaRole, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterAppAgentsAgent) GetPersonaRole() *string { return v.PersonaRole }
+// GetPersonaRole returns AppAgentRosterDataAgentsAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterDataAgentsAgent) GetPersonaRole() *string { return v.PersonaRole }
 
-// GetCreatedAt returns AppAgentRosterAppAgentsAgent.CreatedAt, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterAppAgentsAgent) GetCreatedAt() string { return v.CreatedAt }
+// GetCreatedAt returns AppAgentRosterDataAgentsAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterDataAgentsAgent) GetCreatedAt() string { return v.CreatedAt }
 
-// AppAgentRosterAppAppAgentsAppAgent includes the requested fields of the GraphQL type AppAgent.
+// AppAgentRosterDataAppAgentsAppAgent includes the requested fields of the GraphQL type AppAgent.
 // The GraphQL type's documentation follows.
 //
 // 023-app-shape US1: the App↔Agent N:M join. Reintroduced after spec 008
 // collapsed it; per FR-003 it carries NO role column (system memory is
 // read-only to every App) and per FR-001 it carries NO trainingMode
 // column (training mode is per-App, on App.trainingMode).
-type AppAgentRosterAppAppAgentsAppAgent struct {
+type AppAgentRosterDataAppAgentsAppAgent struct {
 	// The installed Agent when this caller may read its definition; an installation license alone does not grant that read.
-	Agent *AppAgentRosterAppAppAgentsAppAgentAgent `json:"agent"`
+	Agent *AppAgentRosterDataAppAgentsAppAgentAgent `json:"agent"`
 	// #2045 — the canonical URN of the compiled boot prompt the install's pointer names now
 	// (a moved node shows its new URN; a hard-deleted one its URN at write time). Null when no pointer is set
 	// OR when the caller may not see it (the App's participants only): null is not proof that no pointer exists.
@@ -14383,32 +14841,32 @@ type AppAgentRosterAppAppAgentsAppAgent struct {
 	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
 }
 
-// GetAgent returns AppAgentRosterAppAppAgentsAppAgent.Agent, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterAppAppAgentsAppAgent) GetAgent() *AppAgentRosterAppAppAgentsAppAgentAgent {
+// GetAgent returns AppAgentRosterDataAppAgentsAppAgent.Agent, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterDataAppAgentsAppAgent) GetAgent() *AppAgentRosterDataAppAgentsAppAgentAgent {
 	return v.Agent
 }
 
-// GetBootPromptRef returns AppAgentRosterAppAppAgentsAppAgent.BootPromptRef, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterAppAppAgentsAppAgent) GetBootPromptRef() *string { return v.BootPromptRef }
+// GetBootPromptRef returns AppAgentRosterDataAppAgentsAppAgent.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterDataAppAgentsAppAgent) GetBootPromptRef() *string { return v.BootPromptRef }
 
-// GetBootPromptTargetDeleted returns AppAgentRosterAppAppAgentsAppAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterAppAppAgentsAppAgent) GetBootPromptTargetDeleted() *bool {
+// GetBootPromptTargetDeleted returns AppAgentRosterDataAppAgentsAppAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterDataAppAgentsAppAgent) GetBootPromptTargetDeleted() *bool {
 	return v.BootPromptTargetDeleted
 }
 
-// AppAgentRosterAppAppAgentsAppAgentAgent includes the requested fields of the GraphQL type Agent.
+// AppAgentRosterDataAppAgentsAppAgentAgent includes the requested fields of the GraphQL type Agent.
 // The GraphQL type's documentation follows.
 //
 // The reusable definition a Builder creates and the marketplace can list.
 // Agents are installed into runtime Apps through the AppAgent N:M join: an App
 // may install many Agents, and an Agent may be installed in many Apps. The App,
 // not the Agent, is the org- or user-owned caller identity and deployment.
-type AppAgentRosterAppAppAgentsAppAgentAgent struct {
+type AppAgentRosterDataAppAgentsAppAgentAgent struct {
 	Id string `json:"id"`
 }
 
-// GetId returns AppAgentRosterAppAppAgentsAppAgentAgent.Id, and is useful for accessing the field via an interface.
-func (v *AppAgentRosterAppAppAgentsAppAgentAgent) GetId() string { return v.Id }
+// GetId returns AppAgentRosterDataAppAgentsAppAgentAgent.Id, and is useful for accessing the field via an interface.
+func (v *AppAgentRosterDataAppAgentsAppAgentAgent) GetId() string { return v.Id }
 
 // AppAgentRosterResponse is returned by AppAgentRoster on success.
 type AppAgentRosterResponse struct {
@@ -14970,6 +15428,22 @@ type AppMembersResponse struct {
 // GetApp returns AppMembersResponse.App, and is useful for accessing the field via an interface.
 func (v *AppMembersResponse) GetApp() *AppMembersApp { return v.App }
 
+type AppMembershipRole string
+
+const (
+	AppMembershipRoleAdmin       AppMembershipRole = "ADMIN"
+	AppMembershipRoleContributor AppMembershipRole = "CONTRIBUTOR"
+	AppMembershipRoleOwner       AppMembershipRole = "OWNER"
+	AppMembershipRoleReader      AppMembershipRole = "READER"
+)
+
+var AllAppMembershipRole = []AppMembershipRole{
+	AppMembershipRoleAdmin,
+	AppMembershipRoleContributor,
+	AppMembershipRoleOwner,
+	AppMembershipRoleReader,
+}
+
 // AppMemoryGrantFields includes the GraphQL fields of AppMemoryWriteGrant requested by the fragment AppMemoryGrantFields.
 // The GraphQL type's documentation follows.
 //
@@ -15342,7 +15816,7 @@ type AppNodesPageResponse struct {
 	// but total counts every node appNodes would return for the filter and hasMore says whether rows
 	// remain past this page. Ordered by loc, then id, so the order is stable across the App's memories.
 	// Default page 20, limit: 0 is count-only, a negative limit is 0, a limit over 200 is served as 200,
-	// a negative offset is 0. The filter's memoryIds and memoryClasses are refused, as on appNodes.
+	// a negative offset is 0. The filter's memoryIds, memoryClasses, where and childrenOf are refused, as on appNodes.
 	//
 	// Accepts the App's ID or URN.
 	AppNodesPage *AppNodesPageAppNodesPageNodePage `json:"appNodesPage"`
@@ -16484,12 +16958,13 @@ func (v *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTempl
 // ApplyAgentTickerTemplatesResponse is returned by ApplyAgentTickerTemplates on success.
 type ApplyAgentTickerTemplatesResponse struct {
 	// #2096 — apply the Agent's current ticker templates to ONE existing worker (the repair for workers cast before the
-	// templates existed; hrn:node:hadronmemory.com:specs:cor:agt:080:33, :20). Whoever manages the App, acting as themselves:
-	// not the worker, not its holder as such, not a reportsTo chain. Creates only the template tickers the worker is missing,
+	// templates existed; hrn:node:hadronmemory.com:specs:cor:agt:080:33, :20). Whoever manages the App:
+	// not the worker on its own, not its holder as such, not a reportsTo chain. Creates only the template tickers the worker is missing,
 	// each owned by and subscribed to it, and never edits or deletes any existing ticker or subscription; a template the
 	// worker already has a live ticker for is reported under alreadyPresent and left as it is. A template below the App's
 	// cadence floor is created at the floor; if the App's live-ticker cap cannot take every missing ticker, or a generated
 	// name is already a live ticker's, the whole call is refused and nothing is created. Never automatic, never across workers.
+	// #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	ApplyAgentTickerTemplates *ApplyAgentTickerTemplatesApplyAgentTickerTemplatesApplyAgentTickerTemplatesResult `json:"applyAgentTickerTemplates"`
 }
 
@@ -18066,6 +18541,27 @@ type AuthContextResponse struct {
 
 // GetAuthContext returns AuthContextResponse.AuthContext, and is useful for accessing the field via an interface.
 func (v *AuthContextResponse) GetAuthContext() *AuthContextAuthContext { return v.AuthContext }
+
+// #1328 — an authoring attestation. The writer states which task it worked from
+// and that task's current revision (Node.revSeq). The server compares both with
+// the rule and refuses a mismatch: AUTHORING_ATTESTATION_MISSING,
+// AUTHORING_ATTESTATION_WRONG_TASK, AUTHORING_ATTESTATION_STALE, or
+// AUTHOR_TASK_BROKEN when the rule's task is gone. A match records a TASK stamp.
+// This does not prove the task was read or followed. With no applicable rule
+// the claim is ignored. People in the portal are exempt, derived from their
+// sign-in; no client field selects that.
+type AuthoredWithInput struct {
+	// The task's current revision.
+	Revision int `json:"revision"`
+	// The task's id or canonical URN.
+	Task string `json:"task"`
+}
+
+// GetRevision returns AuthoredWithInput.Revision, and is useful for accessing the field via an interface.
+func (v *AuthoredWithInput) GetRevision() int { return v.Revision }
+
+// GetTask returns AuthoredWithInput.Task, and is useful for accessing the field via an interface.
+func (v *AuthoredWithInput) GetTask() string { return v.Task }
 
 // AuthorizeContextResetStopAuthorizeContextResetStopContextResetStep includes the requested fields of the GraphQL type ContextResetStep.
 // The GraphQL type's documentation follows.
@@ -22105,6 +22601,8 @@ type ChannelMessageFields struct {
 	Mentions   []string `json:"mentions"`
 	// The message node's id.
 	NodeId string `json:"nodeId"`
+	// Immutable head identity/display pairs. Null means absent or withheld; [] means known empty.
+	TeamTags []*ChannelMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
 }
 
 // GetSeq returns ChannelMessageFields.Seq, and is useful for accessing the field via an interface.
@@ -22139,6 +22637,23 @@ func (v *ChannelMessageFields) GetMentions() []string { return v.Mentions }
 
 // GetNodeId returns ChannelMessageFields.NodeId, and is useful for accessing the field via an interface.
 func (v *ChannelMessageFields) GetNodeId() string { return v.NodeId }
+
+// GetTeamTags returns ChannelMessageFields.TeamTags, and is useful for accessing the field via an interface.
+func (v *ChannelMessageFields) GetTeamTags() []*ChannelMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.TeamTags
+}
+
+// ChannelMessageFieldsTeamTagsTeamTagSnapshot includes the requested fields of the GraphQL type TeamTagSnapshot.
+type ChannelMessageFieldsTeamTagsTeamTagSnapshot struct {
+	HeadId string `json:"headId"`
+	Label  string `json:"label"`
+}
+
+// GetHeadId returns ChannelMessageFieldsTeamTagsTeamTagSnapshot.HeadId, and is useful for accessing the field via an interface.
+func (v *ChannelMessageFieldsTeamTagsTeamTagSnapshot) GetHeadId() string { return v.HeadId }
+
+// GetLabel returns ChannelMessageFieldsTeamTagsTeamTagSnapshot.Label, and is useful for accessing the field via an interface.
+func (v *ChannelMessageFieldsTeamTagsTeamTagSnapshot) GetLabel() string { return v.Label }
 
 // ChannelMessageSearchChannelMessageSearchTeamChatSearchPage includes the requested fields of the GraphQL type TeamChatSearchPage.
 // The GraphQL type's documentation follows.
@@ -22331,6 +22846,11 @@ func (v *ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage)
 	return v.ChannelMessageFields.NodeId
 }
 
+// GetTeamTags returns ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.TeamTags, and is useful for accessing the field via an interface.
+func (v *ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetTeamTags() []*ChannelMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.ChannelMessageFields.TeamTags
+}
+
 func (v *ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -22378,6 +22898,8 @@ type __premarshalChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChat
 	Mentions []string `json:"mentions"`
 
 	NodeId string `json:"nodeId"`
+
+	TeamTags []*ChannelMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
 }
 
 func (v *ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) MarshalJSON() ([]byte, error) {
@@ -22402,6 +22924,7 @@ func (v *ChannelMessagesChannelMessagesTeamChatMessagesPageItemsTeamChatMessage)
 	retval.ReplyToSeq = v.ChannelMessageFields.ReplyToSeq
 	retval.Mentions = v.ChannelMessageFields.Mentions
 	retval.NodeId = v.ChannelMessageFields.NodeId
+	retval.TeamTags = v.ChannelMessageFields.TeamTags
 	return &retval, nil
 }
 
@@ -22460,6 +22983,192 @@ type ChannelReadStateResponse struct {
 // GetChannelReadState returns ChannelReadStateResponse.ChannelReadState, and is useful for accessing the field via an interface.
 func (v *ChannelReadStateResponse) GetChannelReadState() *ChannelReadStateChannelReadState {
 	return v.ChannelReadState
+}
+
+// ChannelTagsChannelMessagesTeamChatMessagesPage includes the requested fields of the GraphQL type TeamChatMessagesPage.
+type ChannelTagsChannelMessagesTeamChatMessagesPage struct {
+	// Number of canonical messages matching this read's sinceSeq/beforeSeq cursor
+	// range and mentionsRef filter, before limit/offset. It is not the total
+	// number of messages in the chat or Channel when a cursor/filter is present.
+	Total int                                                                   `json:"total"`
+	Items []*ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage `json:"items"`
+}
+
+// GetTotal returns ChannelTagsChannelMessagesTeamChatMessagesPage.Total, and is useful for accessing the field via an interface.
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPage) GetTotal() int { return v.Total }
+
+// GetItems returns ChannelTagsChannelMessagesTeamChatMessagesPage.Items, and is useful for accessing the field via an interface.
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPage) GetItems() []*ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage {
+	return v.Items
+}
+
+// ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage includes the requested fields of the GraphQL type TeamChatMessage.
+// The GraphQL type's documentation follows.
+//
+// One message in a team App's chat (#939, Worker envelope since #974). Exactly
+// one of authorUserId / authorWorkerId is set, or authorSystem is true (#1791, the
+// platform's own notice, which has neither): a human post carries the user, a
+// worker post carries the Worker (the named casting, cor:dmo:050:11) plus the
+// driving sessionId. mentions holds the lowercased tokens extracted
+// server-side at write time (the '@worker-name / @handle' format, stored
+// without the '@').
+type ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage struct {
+	ChannelMessageFields `json:"-"`
+}
+
+// GetSeq returns ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.Seq, and is useful for accessing the field via an interface.
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetSeq() int {
+	return v.ChannelMessageFields.Seq
+}
+
+// GetAt returns ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.At, and is useful for accessing the field via an interface.
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAt() string {
+	return v.ChannelMessageFields.At
+}
+
+// GetBody returns ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.Body, and is useful for accessing the field via an interface.
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetBody() string {
+	return v.ChannelMessageFields.Body
+}
+
+// GetAuthorName returns ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorName, and is useful for accessing the field via an interface.
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorName() *string {
+	return v.ChannelMessageFields.AuthorName
+}
+
+// GetAuthorWorkerId returns ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorWorkerId, and is useful for accessing the field via an interface.
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorWorkerId() *string {
+	return v.ChannelMessageFields.AuthorWorkerId
+}
+
+// GetAuthorUserId returns ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorUserId, and is useful for accessing the field via an interface.
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorUserId() *string {
+	return v.ChannelMessageFields.AuthorUserId
+}
+
+// GetAuthorAppId returns ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorAppId, and is useful for accessing the field via an interface.
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorAppId() *string {
+	return v.ChannelMessageFields.AuthorAppId
+}
+
+// GetSessionId returns ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.SessionId, and is useful for accessing the field via an interface.
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetSessionId() *string {
+	return v.ChannelMessageFields.SessionId
+}
+
+// GetReplyToSeq returns ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.ReplyToSeq, and is useful for accessing the field via an interface.
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetReplyToSeq() *int {
+	return v.ChannelMessageFields.ReplyToSeq
+}
+
+// GetMentions returns ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.Mentions, and is useful for accessing the field via an interface.
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetMentions() []string {
+	return v.ChannelMessageFields.Mentions
+}
+
+// GetNodeId returns ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.NodeId, and is useful for accessing the field via an interface.
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetNodeId() string {
+	return v.ChannelMessageFields.NodeId
+}
+
+// GetTeamTags returns ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.TeamTags, and is useful for accessing the field via an interface.
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetTeamTags() []*ChannelMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.ChannelMessageFields.TeamTags
+}
+
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.ChannelMessageFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage struct {
+	Seq int `json:"seq"`
+
+	At string `json:"at"`
+
+	Body string `json:"body"`
+
+	AuthorName *string `json:"authorName"`
+
+	AuthorWorkerId *string `json:"authorWorkerId"`
+
+	AuthorUserId *string `json:"authorUserId"`
+
+	AuthorAppId *string `json:"authorAppId"`
+
+	SessionId *string `json:"sessionId"`
+
+	ReplyToSeq *int `json:"replyToSeq"`
+
+	Mentions []string `json:"mentions"`
+
+	NodeId string `json:"nodeId"`
+
+	TeamTags []*ChannelMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
+}
+
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) __premarshalJSON() (*__premarshalChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage, error) {
+	var retval __premarshalChannelTagsChannelMessagesTeamChatMessagesPageItemsTeamChatMessage
+
+	retval.Seq = v.ChannelMessageFields.Seq
+	retval.At = v.ChannelMessageFields.At
+	retval.Body = v.ChannelMessageFields.Body
+	retval.AuthorName = v.ChannelMessageFields.AuthorName
+	retval.AuthorWorkerId = v.ChannelMessageFields.AuthorWorkerId
+	retval.AuthorUserId = v.ChannelMessageFields.AuthorUserId
+	retval.AuthorAppId = v.ChannelMessageFields.AuthorAppId
+	retval.SessionId = v.ChannelMessageFields.SessionId
+	retval.ReplyToSeq = v.ChannelMessageFields.ReplyToSeq
+	retval.Mentions = v.ChannelMessageFields.Mentions
+	retval.NodeId = v.ChannelMessageFields.NodeId
+	retval.TeamTags = v.ChannelMessageFields.TeamTags
+	return &retval, nil
+}
+
+// ChannelTagsResponse is returned by ChannelTags on success.
+type ChannelTagsResponse struct {
+	// Spec 049 Phase 8 — read ANY Channel by ref (its id, or its address —
+	// `Channel.chatRootUrn`, #1171), with teamChatMessages'
+	// cursors, mentions filter and paging; teamChatMessages is the
+	// appRef → App.defaultChannel convenience over this. Authorization is the
+	// host App's team-chat read gate; a Channel you may not read — or one that
+	// does not exist — is CHANNEL_NOT_FOUND, identically.
+	// TeamChatMessagesPage.total has the same cursor- and mention-filtered
+	// meaning as for teamChatMessages, before paging.
+	ChannelMessages *ChannelTagsChannelMessagesTeamChatMessagesPage `json:"channelMessages"`
+}
+
+// GetChannelMessages returns ChannelTagsResponse.ChannelMessages, and is useful for accessing the field via an interface.
+func (v *ChannelTagsResponse) GetChannelMessages() *ChannelTagsChannelMessagesTeamChatMessagesPage {
+	return v.ChannelMessages
 }
 
 // ChannelThreadChannelMessagesTeamChatMessagesPage includes the requested fields of the GraphQL type TeamChatMessagesPage.
@@ -22548,6 +23257,11 @@ func (v *ChannelThreadChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) G
 	return v.ChannelMessageFields.NodeId
 }
 
+// GetTeamTags returns ChannelThreadChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.TeamTags, and is useful for accessing the field via an interface.
+func (v *ChannelThreadChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetTeamTags() []*ChannelMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.ChannelMessageFields.TeamTags
+}
+
 func (v *ChannelThreadChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -22595,6 +23309,8 @@ type __premarshalChannelThreadChannelMessagesTeamChatMessagesPageItemsTeamChatMe
 	Mentions []string `json:"mentions"`
 
 	NodeId string `json:"nodeId"`
+
+	TeamTags []*ChannelMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
 }
 
 func (v *ChannelThreadChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) MarshalJSON() ([]byte, error) {
@@ -22619,6 +23335,7 @@ func (v *ChannelThreadChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) _
 	retval.ReplyToSeq = v.ChannelMessageFields.ReplyToSeq
 	retval.Mentions = v.ChannelMessageFields.Mentions
 	retval.NodeId = v.ChannelMessageFields.NodeId
+	retval.TeamTags = v.ChannelMessageFields.TeamTags
 	return &retval, nil
 }
 
@@ -23392,6 +24109,11 @@ func (v *CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) G
 	return v.TeamChatMessageFields.Mentions
 }
 
+// GetTeamTags returns CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage.TeamTags, and is useful for accessing the field via an interface.
+func (v *CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) GetTeamTags() []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.TeamChatMessageFields.TeamTags
+}
+
 func (v *CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -23437,6 +24159,8 @@ type __premarshalCheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMe
 	ReplyToSeq *int `json:"replyToSeq"`
 
 	Mentions []string `json:"mentions"`
+
+	TeamTags []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
 }
 
 func (v *CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) MarshalJSON() ([]byte, error) {
@@ -23460,6 +24184,7 @@ func (v *CheckChatPageChannelMessagesTeamChatMessagesPageItemsTeamChatMessage) _
 	retval.SessionId = v.TeamChatMessageFields.SessionId
 	retval.ReplyToSeq = v.TeamChatMessageFields.ReplyToSeq
 	retval.Mentions = v.TeamChatMessageFields.Mentions
+	retval.TeamTags = v.TeamChatMessageFields.TeamTags
 	return &retval, nil
 }
 
@@ -24451,6 +25176,397 @@ func (v *ClaimUntrackedTaskItemsForPartiesClaimUntrackedTaskItemsClaimUntrackedT
 	return &retval, nil
 }
 
+// ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult includes the requested fields of the GraphQL type ClaimUntrackedTaskItemsResult.
+// The GraphQL type's documentation follows.
+//
+// #3125 S3: what claimUntrackedTaskItems created, in claim order.
+type ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult struct {
+	Tasks            []*ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask `json:"tasks"`
+	Complete         bool                                                                                                         `json:"complete"`
+	IncompleteReason *string                                                                                                      `json:"incompleteReason"`
+	// The stable code of the refusal that stopped the walk; null unless incompleteReason is claim_refused.
+	RefusalCode *string `json:"refusalCode"`
+}
+
+// GetTasks returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult.Tasks, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult) GetTasks() []*ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask {
+	return v.Tasks
+}
+
+// GetComplete returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult.Complete, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult) GetComplete() bool {
+	return v.Complete
+}
+
+// GetIncompleteReason returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult.IncompleteReason, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult) GetIncompleteReason() *string {
+	return v.IncompleteReason
+}
+
+// GetRefusalCode returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult.RefusalCode, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult) GetRefusalCode() *string {
+	return v.RefusalCode
+}
+
+// ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask struct {
+	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetPriority() int {
+	return v.AgentTaskFields.Priority
+}
+
+// GetBlocked returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetBlocked() bool {
+	return v.AgentTaskFields.Blocked
+}
+
+// GetBlockedBy returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
+}
+
+// GetId returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetId() string {
+	return v.AgentTaskFields.Id
+}
+
+// GetHandle returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetHandle() string {
+	return v.AgentTaskFields.Handle
+}
+
+// GetTaskNumber returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.TaskNumber, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetTaskNumber() string {
+	return v.AgentTaskFields.TaskNumber
+}
+
+// GetAppId returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.AppId, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetAppId() string {
+	return v.AgentTaskFields.AppId
+}
+
+// GetTitle returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Title, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetTitle() string {
+	return v.AgentTaskFields.Title
+}
+
+// GetDescription returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Description, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetDescription() *string {
+	return v.AgentTaskFields.Description
+}
+
+// GetStatus returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetStatus() AgentTaskStatus {
+	return v.AgentTaskFields.Status
+}
+
+// GetQueued returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Queued, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetQueued() bool {
+	return v.AgentTaskFields.Queued
+}
+
+// GetWaitingOnChildren returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.WaitingOnChildren, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetWaitingOnChildren() bool {
+	return v.AgentTaskFields.WaitingOnChildren
+}
+
+// GetOwner returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Owner, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetOwner() *AgentTaskFieldsOwnerAgentTaskParty {
+	return v.AgentTaskFields.Owner
+}
+
+// GetAssignee returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Assignee, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetAssignee() *AgentTaskFieldsAssigneeAgentTaskParty {
+	return v.AgentTaskFields.Assignee
+}
+
+// GetAssignedBy returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.AssignedBy, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetAssignedBy() *AgentTaskFieldsAssignedByAgentTaskParty {
+	return v.AgentTaskFields.AssignedBy
+}
+
+// GetCreatedBy returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.CreatedBy, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
+	return v.AgentTaskFields.CreatedBy
+}
+
+// GetParentTaskId returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetParentTaskId() *string {
+	return v.AgentTaskFields.ParentTaskId
+}
+
+// GetTags returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Tags, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetTags() []string {
+	return v.AgentTaskFields.Tags
+}
+
+// GetSource returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Source, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetSource() *string {
+	return v.AgentTaskFields.Source
+}
+
+// GetExternalId returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.ExternalId, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetExternalId() *string {
+	return v.AgentTaskFields.ExternalId
+}
+
+// GetReferences returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.References, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
+	return v.AgentTaskFields.References
+}
+
+// GetHandBack returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.HandBack, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetHandBack() *AgentTaskFieldsHandBackAgentTaskHandBack {
+	return v.AgentTaskFields.HandBack
+}
+
+// GetMatchFailure returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
+// GetStartBy returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.StartBy, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetStartBy() *string {
+	return v.AgentTaskFields.StartBy
+}
+
+// GetFinishBy returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.FinishBy, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetFinishBy() *string {
+	return v.AgentTaskFields.FinishBy
+}
+
+// GetCreatedAt returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetCreatedAt() string {
+	return v.AgentTaskFields.CreatedAt
+}
+
+// GetUpdatedAt returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetUpdatedAt() *string {
+	return v.AgentTaskFields.UpdatedAt
+}
+
+// GetStartedAt returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.StartedAt, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetStartedAt() *string {
+	return v.AgentTaskFields.StartedAt
+}
+
+// GetFinishedAt returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.FinishedAt, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetFinishedAt() *string {
+	return v.AgentTaskFields.FinishedAt
+}
+
+// GetCancelledAt returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.CancelledAt, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetCancelledAt() *string {
+	return v.AgentTaskFields.CancelledAt
+}
+
+// GetCloseSessionWhenDone returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.CloseSessionWhenDone, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetCloseSessionWhenDone() bool {
+	return v.AgentTaskFields.CloseSessionWhenDone
+}
+
+// GetRequirements returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Requirements, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
+	return v.AgentTaskFields.Requirements
+}
+
+// GetResult returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Result, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetResult() *AgentTaskFieldsResultAgentTaskResult {
+	return v.AgentTaskFields.Result
+}
+
+// GetProperties returns ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Properties, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetProperties() *json.RawMessage {
+	return v.AgentTaskFields.Properties
+}
+
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
+	Id string `json:"id"`
+
+	Handle string `json:"handle"`
+
+	TaskNumber string `json:"taskNumber"`
+
+	AppId string `json:"appId"`
+
+	Title string `json:"title"`
+
+	Description *string `json:"description"`
+
+	Status AgentTaskStatus `json:"status"`
+
+	Queued bool `json:"queued"`
+
+	WaitingOnChildren bool `json:"waitingOnChildren"`
+
+	Owner *AgentTaskFieldsOwnerAgentTaskParty `json:"owner"`
+
+	Assignee *AgentTaskFieldsAssigneeAgentTaskParty `json:"assignee"`
+
+	AssignedBy *AgentTaskFieldsAssignedByAgentTaskParty `json:"assignedBy"`
+
+	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
+
+	ParentTaskId *string `json:"parentTaskId"`
+
+	Tags []string `json:"tags"`
+
+	Source *string `json:"source"`
+
+	ExternalId *string `json:"externalId"`
+
+	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
+
+	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
+
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
+	StartBy *string `json:"startBy"`
+
+	FinishBy *string `json:"finishBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	StartedAt *string `json:"startedAt"`
+
+	FinishedAt *string `json:"finishedAt"`
+
+	CancelledAt *string `json:"cancelledAt"`
+
+	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
+
+	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
+
+	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+
+	Properties *json.RawMessage `json:"properties"`
+}
+
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) __premarshalJSON() (*__premarshalClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask, error) {
+	var retval __premarshalClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask
+
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
+	retval.Id = v.AgentTaskFields.Id
+	retval.Handle = v.AgentTaskFields.Handle
+	retval.TaskNumber = v.AgentTaskFields.TaskNumber
+	retval.AppId = v.AgentTaskFields.AppId
+	retval.Title = v.AgentTaskFields.Title
+	retval.Description = v.AgentTaskFields.Description
+	retval.Status = v.AgentTaskFields.Status
+	retval.Queued = v.AgentTaskFields.Queued
+	retval.WaitingOnChildren = v.AgentTaskFields.WaitingOnChildren
+	retval.Owner = v.AgentTaskFields.Owner
+	retval.Assignee = v.AgentTaskFields.Assignee
+	retval.AssignedBy = v.AgentTaskFields.AssignedBy
+	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
+	retval.Tags = v.AgentTaskFields.Tags
+	retval.Source = v.AgentTaskFields.Source
+	retval.ExternalId = v.AgentTaskFields.ExternalId
+	retval.References = v.AgentTaskFields.References
+	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
+	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.FinishBy = v.AgentTaskFields.FinishBy
+	retval.CreatedAt = v.AgentTaskFields.CreatedAt
+	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
+	retval.StartedAt = v.AgentTaskFields.StartedAt
+	retval.FinishedAt = v.AgentTaskFields.FinishedAt
+	retval.CancelledAt = v.AgentTaskFields.CancelledAt
+	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.Requirements = v.AgentTaskFields.Requirements
+	retval.Result = v.AgentTaskFields.Result
+	retval.Properties = v.AgentTaskFields.Properties
+	return &retval, nil
+}
+
+// ClaimUntrackedTaskItemsForPartiesNoTeamResponse is returned by ClaimUntrackedTaskItemsForPartiesNoTeam on success.
+type ClaimUntrackedTaskItemsForPartiesNoTeamResponse struct {
+	// #3125 S3 (hrn:node:hadronmemory.com:specs:cor:agt:120:03): claim up to limit (1 to 10, default 1) of the items
+	// untrackedTaskItems would list with the same filters, in its order. Each claim is a root task owned by and assigned
+	// to the caller, created STARTED with startedAt set, externalId and source the item's URL, an ISSUE reference to it,
+	// and the item's title (control characters removed, clipped to the title cap); it records task.created,
+	// task.assigned and task.started. Each claim commits on its own. An item another caller claimed first is skipped,
+	// so concurrent callers get disjoint sets. A refusal mid-walk stops it and is returned with the claims already
+	// made: incompleteReason claim_refused with its code in refusalCode (claim_failed, refusalCode null, for an
+	// unexpected failure after a claim). A person or a worker claims for themselves and names no assignee or owner
+	// (BAD_USER_INPUT if it does). #3132: the App's own key names the assignee (TASK_ASSIGNEE_REQUIRED) and the owner
+	// (TASK_OWNER_REQUIRED), each a worker of the App or a person who participates in it (TASK_ASSIGNEE_INVALID /
+	// TASK_OWNER_INVALID, as createAgentTask), all judged before any GitHub call; the task is started on the assignee's
+	// behalf, and its events name the key as actorAppKeyId and the assignee as their subject. A claim is the only task
+	// write an App key makes. A key request carrying a session is APP_KEY_SESSION_BOUND. Other refusals as
+	// untrackedTaskItems.
+	// #3422: noTeam as on untrackedTaskItems, applied before the claim walks the list: true claims only items carrying
+	// none of the integration's team labels, false or omitted keeps the current behaviour, and with team it is refused
+	// with BAD_USER_INPUT before GitHub is read and before any task is created.
+	ClaimUntrackedTaskItems *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult `json:"claimUntrackedTaskItems"`
+}
+
+// GetClaimUntrackedTaskItems returns ClaimUntrackedTaskItemsForPartiesNoTeamResponse.ClaimUntrackedTaskItems, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsForPartiesNoTeamResponse) GetClaimUntrackedTaskItems() *ClaimUntrackedTaskItemsForPartiesNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult {
+	return v.ClaimUntrackedTaskItems
+}
+
 // ClaimUntrackedTaskItemsForPartiesResponse is returned by ClaimUntrackedTaskItemsForParties on success.
 type ClaimUntrackedTaskItemsForPartiesResponse struct {
 	// #3125 S3 (hrn:node:hadronmemory.com:specs:cor:agt:120:03): claim up to limit (1 to 10, default 1) of the items
@@ -24467,11 +25583,405 @@ type ClaimUntrackedTaskItemsForPartiesResponse struct {
 	// behalf, and its events name the key as actorAppKeyId and the assignee as their subject. A claim is the only task
 	// write an App key makes. A key request carrying a session is APP_KEY_SESSION_BOUND. Other refusals as
 	// untrackedTaskItems.
+	// #3422: noTeam as on untrackedTaskItems, applied before the claim walks the list: true claims only items carrying
+	// none of the integration's team labels, false or omitted keeps the current behaviour, and with team it is refused
+	// with BAD_USER_INPUT before GitHub is read and before any task is created.
 	ClaimUntrackedTaskItems *ClaimUntrackedTaskItemsForPartiesClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult `json:"claimUntrackedTaskItems"`
 }
 
 // GetClaimUntrackedTaskItems returns ClaimUntrackedTaskItemsForPartiesResponse.ClaimUntrackedTaskItems, and is useful for accessing the field via an interface.
 func (v *ClaimUntrackedTaskItemsForPartiesResponse) GetClaimUntrackedTaskItems() *ClaimUntrackedTaskItemsForPartiesClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult {
+	return v.ClaimUntrackedTaskItems
+}
+
+// ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult includes the requested fields of the GraphQL type ClaimUntrackedTaskItemsResult.
+// The GraphQL type's documentation follows.
+//
+// #3125 S3: what claimUntrackedTaskItems created, in claim order.
+type ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult struct {
+	Tasks            []*ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask `json:"tasks"`
+	Complete         bool                                                                                               `json:"complete"`
+	IncompleteReason *string                                                                                            `json:"incompleteReason"`
+	// The stable code of the refusal that stopped the walk; null unless incompleteReason is claim_refused.
+	RefusalCode *string `json:"refusalCode"`
+}
+
+// GetTasks returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult.Tasks, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult) GetTasks() []*ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask {
+	return v.Tasks
+}
+
+// GetComplete returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult.Complete, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult) GetComplete() bool {
+	return v.Complete
+}
+
+// GetIncompleteReason returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult.IncompleteReason, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult) GetIncompleteReason() *string {
+	return v.IncompleteReason
+}
+
+// GetRefusalCode returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult.RefusalCode, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult) GetRefusalCode() *string {
+	return v.RefusalCode
+}
+
+// ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask struct {
+	AgentTaskFields `json:"-"`
+}
+
+// GetPriority returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Priority, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetPriority() int {
+	return v.AgentTaskFields.Priority
+}
+
+// GetBlocked returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Blocked, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetBlocked() bool {
+	return v.AgentTaskFields.Blocked
+}
+
+// GetBlockedBy returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.BlockedBy, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetBlockedBy() *AgentTaskFieldsBlockedByAgentTaskDependencyPage {
+	return v.AgentTaskFields.BlockedBy
+}
+
+// GetBlocks returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Blocks, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetBlocks() *AgentTaskFieldsBlocksAgentTaskDependencyPage {
+	return v.AgentTaskFields.Blocks
+}
+
+// GetId returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetId() string {
+	return v.AgentTaskFields.Id
+}
+
+// GetHandle returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetHandle() string {
+	return v.AgentTaskFields.Handle
+}
+
+// GetTaskNumber returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.TaskNumber, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetTaskNumber() string {
+	return v.AgentTaskFields.TaskNumber
+}
+
+// GetAppId returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.AppId, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetAppId() string {
+	return v.AgentTaskFields.AppId
+}
+
+// GetTitle returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Title, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetTitle() string {
+	return v.AgentTaskFields.Title
+}
+
+// GetDescription returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Description, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetDescription() *string {
+	return v.AgentTaskFields.Description
+}
+
+// GetStatus returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetStatus() AgentTaskStatus {
+	return v.AgentTaskFields.Status
+}
+
+// GetQueued returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Queued, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetQueued() bool {
+	return v.AgentTaskFields.Queued
+}
+
+// GetWaitingOnChildren returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.WaitingOnChildren, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetWaitingOnChildren() bool {
+	return v.AgentTaskFields.WaitingOnChildren
+}
+
+// GetOwner returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Owner, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetOwner() *AgentTaskFieldsOwnerAgentTaskParty {
+	return v.AgentTaskFields.Owner
+}
+
+// GetAssignee returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Assignee, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetAssignee() *AgentTaskFieldsAssigneeAgentTaskParty {
+	return v.AgentTaskFields.Assignee
+}
+
+// GetAssignedBy returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.AssignedBy, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetAssignedBy() *AgentTaskFieldsAssignedByAgentTaskParty {
+	return v.AgentTaskFields.AssignedBy
+}
+
+// GetCreatedBy returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.CreatedBy, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
+	return v.AgentTaskFields.CreatedBy
+}
+
+// GetParentTaskId returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetParentTaskId() *string {
+	return v.AgentTaskFields.ParentTaskId
+}
+
+// GetTags returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Tags, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetTags() []string {
+	return v.AgentTaskFields.Tags
+}
+
+// GetSource returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Source, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetSource() *string {
+	return v.AgentTaskFields.Source
+}
+
+// GetExternalId returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.ExternalId, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetExternalId() *string {
+	return v.AgentTaskFields.ExternalId
+}
+
+// GetReferences returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.References, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetReferences() []*AgentTaskFieldsReferencesAgentTaskReference {
+	return v.AgentTaskFields.References
+}
+
+// GetHandBack returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.HandBack, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetHandBack() *AgentTaskFieldsHandBackAgentTaskHandBack {
+	return v.AgentTaskFields.HandBack
+}
+
+// GetMatchFailure returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.MatchFailure, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetMatchFailure() *AgentTaskFieldsMatchFailureAgentTaskMatchFailure {
+	return v.AgentTaskFields.MatchFailure
+}
+
+// GetStartBy returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.StartBy, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetStartBy() *string {
+	return v.AgentTaskFields.StartBy
+}
+
+// GetFinishBy returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.FinishBy, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetFinishBy() *string {
+	return v.AgentTaskFields.FinishBy
+}
+
+// GetCreatedAt returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.CreatedAt, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetCreatedAt() string {
+	return v.AgentTaskFields.CreatedAt
+}
+
+// GetUpdatedAt returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetUpdatedAt() *string {
+	return v.AgentTaskFields.UpdatedAt
+}
+
+// GetStartedAt returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.StartedAt, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetStartedAt() *string {
+	return v.AgentTaskFields.StartedAt
+}
+
+// GetFinishedAt returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.FinishedAt, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetFinishedAt() *string {
+	return v.AgentTaskFields.FinishedAt
+}
+
+// GetCancelledAt returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.CancelledAt, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetCancelledAt() *string {
+	return v.AgentTaskFields.CancelledAt
+}
+
+// GetCloseSessionWhenDone returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.CloseSessionWhenDone, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetCloseSessionWhenDone() bool {
+	return v.AgentTaskFields.CloseSessionWhenDone
+}
+
+// GetRequirements returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Requirements, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetRequirements() *AgentTaskFieldsRequirementsAgentTaskRequirements {
+	return v.AgentTaskFields.Requirements
+}
+
+// GetResult returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Result, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetResult() *AgentTaskFieldsResultAgentTaskResult {
+	return v.AgentTaskFields.Result
+}
+
+// GetProperties returns ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask.Properties, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) GetProperties() *json.RawMessage {
+	return v.AgentTaskFields.Properties
+}
+
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTaskFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask struct {
+	Priority int `json:"priority"`
+
+	Blocked bool `json:"blocked"`
+
+	BlockedBy *AgentTaskFieldsBlockedByAgentTaskDependencyPage `json:"blockedBy"`
+
+	Blocks *AgentTaskFieldsBlocksAgentTaskDependencyPage `json:"blocks"`
+
+	Id string `json:"id"`
+
+	Handle string `json:"handle"`
+
+	TaskNumber string `json:"taskNumber"`
+
+	AppId string `json:"appId"`
+
+	Title string `json:"title"`
+
+	Description *string `json:"description"`
+
+	Status AgentTaskStatus `json:"status"`
+
+	Queued bool `json:"queued"`
+
+	WaitingOnChildren bool `json:"waitingOnChildren"`
+
+	Owner *AgentTaskFieldsOwnerAgentTaskParty `json:"owner"`
+
+	Assignee *AgentTaskFieldsAssigneeAgentTaskParty `json:"assignee"`
+
+	AssignedBy *AgentTaskFieldsAssignedByAgentTaskParty `json:"assignedBy"`
+
+	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
+
+	ParentTaskId *string `json:"parentTaskId"`
+
+	Tags []string `json:"tags"`
+
+	Source *string `json:"source"`
+
+	ExternalId *string `json:"externalId"`
+
+	References []*AgentTaskFieldsReferencesAgentTaskReference `json:"references"`
+
+	HandBack *AgentTaskFieldsHandBackAgentTaskHandBack `json:"handBack"`
+
+	MatchFailure *AgentTaskFieldsMatchFailureAgentTaskMatchFailure `json:"matchFailure"`
+
+	StartBy *string `json:"startBy"`
+
+	FinishBy *string `json:"finishBy"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt *string `json:"updatedAt"`
+
+	StartedAt *string `json:"startedAt"`
+
+	FinishedAt *string `json:"finishedAt"`
+
+	CancelledAt *string `json:"cancelledAt"`
+
+	CloseSessionWhenDone bool `json:"closeSessionWhenDone"`
+
+	Requirements *AgentTaskFieldsRequirementsAgentTaskRequirements `json:"requirements"`
+
+	Result *AgentTaskFieldsResultAgentTaskResult `json:"result"`
+
+	Properties *json.RawMessage `json:"properties"`
+}
+
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask) __premarshalJSON() (*__premarshalClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask, error) {
+	var retval __premarshalClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResultTasksAgentTask
+
+	retval.Priority = v.AgentTaskFields.Priority
+	retval.Blocked = v.AgentTaskFields.Blocked
+	retval.BlockedBy = v.AgentTaskFields.BlockedBy
+	retval.Blocks = v.AgentTaskFields.Blocks
+	retval.Id = v.AgentTaskFields.Id
+	retval.Handle = v.AgentTaskFields.Handle
+	retval.TaskNumber = v.AgentTaskFields.TaskNumber
+	retval.AppId = v.AgentTaskFields.AppId
+	retval.Title = v.AgentTaskFields.Title
+	retval.Description = v.AgentTaskFields.Description
+	retval.Status = v.AgentTaskFields.Status
+	retval.Queued = v.AgentTaskFields.Queued
+	retval.WaitingOnChildren = v.AgentTaskFields.WaitingOnChildren
+	retval.Owner = v.AgentTaskFields.Owner
+	retval.Assignee = v.AgentTaskFields.Assignee
+	retval.AssignedBy = v.AgentTaskFields.AssignedBy
+	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
+	retval.Tags = v.AgentTaskFields.Tags
+	retval.Source = v.AgentTaskFields.Source
+	retval.ExternalId = v.AgentTaskFields.ExternalId
+	retval.References = v.AgentTaskFields.References
+	retval.HandBack = v.AgentTaskFields.HandBack
+	retval.MatchFailure = v.AgentTaskFields.MatchFailure
+	retval.StartBy = v.AgentTaskFields.StartBy
+	retval.FinishBy = v.AgentTaskFields.FinishBy
+	retval.CreatedAt = v.AgentTaskFields.CreatedAt
+	retval.UpdatedAt = v.AgentTaskFields.UpdatedAt
+	retval.StartedAt = v.AgentTaskFields.StartedAt
+	retval.FinishedAt = v.AgentTaskFields.FinishedAt
+	retval.CancelledAt = v.AgentTaskFields.CancelledAt
+	retval.CloseSessionWhenDone = v.AgentTaskFields.CloseSessionWhenDone
+	retval.Requirements = v.AgentTaskFields.Requirements
+	retval.Result = v.AgentTaskFields.Result
+	retval.Properties = v.AgentTaskFields.Properties
+	return &retval, nil
+}
+
+// ClaimUntrackedTaskItemsNoTeamResponse is returned by ClaimUntrackedTaskItemsNoTeam on success.
+type ClaimUntrackedTaskItemsNoTeamResponse struct {
+	// #3125 S3 (hrn:node:hadronmemory.com:specs:cor:agt:120:03): claim up to limit (1 to 10, default 1) of the items
+	// untrackedTaskItems would list with the same filters, in its order. Each claim is a root task owned by and assigned
+	// to the caller, created STARTED with startedAt set, externalId and source the item's URL, an ISSUE reference to it,
+	// and the item's title (control characters removed, clipped to the title cap); it records task.created,
+	// task.assigned and task.started. Each claim commits on its own. An item another caller claimed first is skipped,
+	// so concurrent callers get disjoint sets. A refusal mid-walk stops it and is returned with the claims already
+	// made: incompleteReason claim_refused with its code in refusalCode (claim_failed, refusalCode null, for an
+	// unexpected failure after a claim). A person or a worker claims for themselves and names no assignee or owner
+	// (BAD_USER_INPUT if it does). #3132: the App's own key names the assignee (TASK_ASSIGNEE_REQUIRED) and the owner
+	// (TASK_OWNER_REQUIRED), each a worker of the App or a person who participates in it (TASK_ASSIGNEE_INVALID /
+	// TASK_OWNER_INVALID, as createAgentTask), all judged before any GitHub call; the task is started on the assignee's
+	// behalf, and its events name the key as actorAppKeyId and the assignee as their subject. A claim is the only task
+	// write an App key makes. A key request carrying a session is APP_KEY_SESSION_BOUND. Other refusals as
+	// untrackedTaskItems.
+	// #3422: noTeam as on untrackedTaskItems, applied before the claim walks the list: true claims only items carrying
+	// none of the integration's team labels, false or omitted keeps the current behaviour, and with team it is refused
+	// with BAD_USER_INPUT before GitHub is read and before any task is created.
+	ClaimUntrackedTaskItems *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult `json:"claimUntrackedTaskItems"`
+}
+
+// GetClaimUntrackedTaskItems returns ClaimUntrackedTaskItemsNoTeamResponse.ClaimUntrackedTaskItems, and is useful for accessing the field via an interface.
+func (v *ClaimUntrackedTaskItemsNoTeamResponse) GetClaimUntrackedTaskItems() *ClaimUntrackedTaskItemsNoTeamClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult {
 	return v.ClaimUntrackedTaskItems
 }
 
@@ -24491,6 +26001,9 @@ type ClaimUntrackedTaskItemsResponse struct {
 	// behalf, and its events name the key as actorAppKeyId and the assignee as their subject. A claim is the only task
 	// write an App key makes. A key request carrying a session is APP_KEY_SESSION_BOUND. Other refusals as
 	// untrackedTaskItems.
+	// #3422: noTeam as on untrackedTaskItems, applied before the claim walks the list: true claims only items carrying
+	// none of the integration's team labels, false or omitted keeps the current behaviour, and with team it is refused
+	// with BAD_USER_INPUT before GitHub is read and before any task is created.
 	ClaimUntrackedTaskItems *ClaimUntrackedTaskItemsClaimUntrackedTaskItemsClaimUntrackedTaskItemsResult `json:"claimUntrackedTaskItems"`
 }
 
@@ -25359,7 +26872,7 @@ func (v *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings) __premarsha
 
 // ClearWorkerIsolationResponse is returned by ClearWorkerIsolation on success.
 type ClearWorkerIsolationResponse struct {
-	// S7 — lift an isolation (same audience). Clearing when none is set changes nothing.
+	// S7 — lift an isolation (same audience). Clearing when none is set changes nothing. #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	ClearWorkerIsolation *ClearWorkerIsolationClearWorkerIsolationWorkerWakeSettings `json:"clearWorkerIsolation"`
 }
 
@@ -30680,6 +32193,81 @@ type CreateAppResponse struct {
 // GetCreateApp returns CreateAppResponse.CreateApp, and is useful for accessing the field via an interface.
 func (v *CreateAppResponse) GetCreateApp() *CreateAppCreateApp { return v.CreateApp }
 
+// CreateAppSettingsCreateApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type CreateAppSettingsCreateApp struct {
+	Id      string  `json:"id"`
+	Urn     string  `json:"urn"`
+	Name    string  `json:"name"`
+	AppType AppType `json:"appType"`
+	// SOFT-DEPRECATED convenience read: the FIRST installed Agent. An App
+	// installs MANY Agents through the `AppAgent` join (023-app-shape Phase 2b,
+	// which DROPPED the direct FK that 008-agent-installation had introduced) —
+	// see `appAgents` below for the real cardinality. Kept so single-Agent
+	// clients keep working; do not build new multi-Agent logic on it.
+	//
+	// `agentId` and `agent` name the PRIMARY install's Agent and answer as that
+	// Agent's own read does: both are null when the caller may not read it, even
+	// when a later install is readable. Null is not proof that nothing is
+	// installed; `appAgents` lists every install, an entry whose `agent` is null
+	// being an installed Agent withheld from this caller.
+	AgentId     *string `json:"agentId"`
+	MemberCount int     `json:"memberCount"`
+	CreatedAt   string  `json:"createdAt"`
+}
+
+// GetId returns CreateAppSettingsCreateApp.Id, and is useful for accessing the field via an interface.
+func (v *CreateAppSettingsCreateApp) GetId() string { return v.Id }
+
+// GetUrn returns CreateAppSettingsCreateApp.Urn, and is useful for accessing the field via an interface.
+func (v *CreateAppSettingsCreateApp) GetUrn() string { return v.Urn }
+
+// GetName returns CreateAppSettingsCreateApp.Name, and is useful for accessing the field via an interface.
+func (v *CreateAppSettingsCreateApp) GetName() string { return v.Name }
+
+// GetAppType returns CreateAppSettingsCreateApp.AppType, and is useful for accessing the field via an interface.
+func (v *CreateAppSettingsCreateApp) GetAppType() AppType { return v.AppType }
+
+// GetAgentId returns CreateAppSettingsCreateApp.AgentId, and is useful for accessing the field via an interface.
+func (v *CreateAppSettingsCreateApp) GetAgentId() *string { return v.AgentId }
+
+// GetMemberCount returns CreateAppSettingsCreateApp.MemberCount, and is useful for accessing the field via an interface.
+func (v *CreateAppSettingsCreateApp) GetMemberCount() int { return v.MemberCount }
+
+// GetCreatedAt returns CreateAppSettingsCreateApp.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateAppSettingsCreateApp) GetCreatedAt() string { return v.CreatedAt }
+
+// CreateAppSettingsResponse is returned by CreateAppSettings on success.
+type CreateAppSettingsResponse struct {
+	// Create an App and install its initial Agent. With orgRef, the App is owned
+	// by that Organization and requires org ADMIN; without orgRef, it is owned by
+	// the authenticated User and remains owner-only.
+	//
+	// An org-owned install auto-provisions an AgentOrgGrant only for its own
+	// Agent. A cross-org install requires an existing active grant; subscribe to
+	// a PUBLIC Agent through createAgentOrgGrant before creating the App.
+	// It adds the caller as an AppMember with role 'owner' only when that role is
+	// present in the Agent's installationPolicy and the caller is a User.
+	// Required AgentImports cascade automatically for org-owned Apps; optional
+	// imports cascade only when their id appears in installOptional. Personal
+	// Apps reject dependency cascades in v1.
+	//
+	// Selected dependencies must also be licensed before any App is created.
+	// The server enforces this even when a caller bypasses the portal.
+	//
+	// Accepts the entity's ID or URN.
+	CreateApp *CreateAppSettingsCreateApp `json:"createApp"`
+}
+
+// GetCreateApp returns CreateAppSettingsResponse.CreateApp, and is useful for accessing the field via an interface.
+func (v *CreateAppSettingsResponse) GetCreateApp() *CreateAppSettingsCreateApp { return v.CreateApp }
+
 // CreateAppUserCreateAppUser includes the requested fields of the GraphQL type User.
 type CreateAppUserCreateAppUser struct {
 	Id     string  `json:"id"`
@@ -31017,6 +32605,11 @@ func (v *CreateChannelMessageCreateChannelMessageTeamChatMessage) GetNodeId() st
 	return v.ChannelMessageFields.NodeId
 }
 
+// GetTeamTags returns CreateChannelMessageCreateChannelMessageTeamChatMessage.TeamTags, and is useful for accessing the field via an interface.
+func (v *CreateChannelMessageCreateChannelMessageTeamChatMessage) GetTeamTags() []*ChannelMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.ChannelMessageFields.TeamTags
+}
+
 func (v *CreateChannelMessageCreateChannelMessageTeamChatMessage) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -31064,6 +32657,8 @@ type __premarshalCreateChannelMessageCreateChannelMessageTeamChatMessage struct 
 	Mentions []string `json:"mentions"`
 
 	NodeId string `json:"nodeId"`
+
+	TeamTags []*ChannelMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
 }
 
 func (v *CreateChannelMessageCreateChannelMessageTeamChatMessage) MarshalJSON() ([]byte, error) {
@@ -31088,6 +32683,7 @@ func (v *CreateChannelMessageCreateChannelMessageTeamChatMessage) __premarshalJS
 	retval.ReplyToSeq = v.ChannelMessageFields.ReplyToSeq
 	retval.Mentions = v.ChannelMessageFields.Mentions
 	retval.NodeId = v.ChannelMessageFields.NodeId
+	retval.TeamTags = v.ChannelMessageFields.TeamTags
 	return &retval, nil
 }
 
@@ -32875,7 +34471,10 @@ type CreateNodeInput struct {
 	Abstract *string `json:"abstract,omitempty"`
 	AiAgent  *string `json:"aiAgent,omitempty"`
 	Alias    *string `json:"alias,omitempty"`
-	Content  *string `json:"content,omitempty"`
+	// #1328 — the author task this write worked from, required when the node's
+	// role rule names one (before and after the write). See AuthoredWithInput.
+	AuthoredWith *AuthoredWithInput `json:"authoredWith,omitempty"`
+	Content      *string            `json:"content,omitempty"`
 	// MIME type of content (#476/#488, spec cor:cnv:010:01): 'text/markdown' (default) stores as-is; 'text/html' converts captured DOM to Markdown; 'application/pdf' extracts a PDF's text layer to Markdown (send 'content' as raw base64 — a PDF is binary; scanned/image-only PDFs error). The conversion runs before storage and fills properties.title from the extracted title when not supplied. Consumed at write time — never persisted. Any other value is rejected.
 	ContentType *string          `json:"contentType,omitempty"`
 	Data        *json.RawMessage `json:"data,omitempty"`
@@ -32920,6 +34519,9 @@ func (v *CreateNodeInput) GetAiAgent() *string { return v.AiAgent }
 
 // GetAlias returns CreateNodeInput.Alias, and is useful for accessing the field via an interface.
 func (v *CreateNodeInput) GetAlias() *string { return v.Alias }
+
+// GetAuthoredWith returns CreateNodeInput.AuthoredWith, and is useful for accessing the field via an interface.
+func (v *CreateNodeInput) GetAuthoredWith() *AuthoredWithInput { return v.AuthoredWith }
 
 // GetContent returns CreateNodeInput.Content, and is useful for accessing the field via an interface.
 func (v *CreateNodeInput) GetContent() *string { return v.Content }
@@ -34704,6 +36306,11 @@ func (v *CreateTeamChatMessageCreateTeamChatMessage) GetMentions() []string {
 	return v.TeamChatMessageFields.Mentions
 }
 
+// GetTeamTags returns CreateTeamChatMessageCreateTeamChatMessage.TeamTags, and is useful for accessing the field via an interface.
+func (v *CreateTeamChatMessageCreateTeamChatMessage) GetTeamTags() []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.TeamChatMessageFields.TeamTags
+}
+
 func (v *CreateTeamChatMessageCreateTeamChatMessage) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -34749,6 +36356,8 @@ type __premarshalCreateTeamChatMessageCreateTeamChatMessage struct {
 	ReplyToSeq *int `json:"replyToSeq"`
 
 	Mentions []string `json:"mentions"`
+
+	TeamTags []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
 }
 
 func (v *CreateTeamChatMessageCreateTeamChatMessage) MarshalJSON() ([]byte, error) {
@@ -34772,6 +36381,7 @@ func (v *CreateTeamChatMessageCreateTeamChatMessage) __premarshalJSON() (*__prem
 	retval.SessionId = v.TeamChatMessageFields.SessionId
 	retval.ReplyToSeq = v.TeamChatMessageFields.ReplyToSeq
 	retval.Mentions = v.TeamChatMessageFields.Mentions
+	retval.TeamTags = v.TeamChatMessageFields.TeamTags
 	return &retval, nil
 }
 
@@ -35439,6 +37049,20 @@ type CreateUserInvitationResponse struct {
 // GetCreateUserInvitation returns CreateUserInvitationResponse.CreateUserInvitation, and is useful for accessing the field via an interface.
 func (v *CreateUserInvitationResponse) GetCreateUserInvitation() *CreateUserInvitationCreateUserInvitation {
 	return v.CreateUserInvitation
+}
+
+type CreateUserPermission string
+
+const (
+	CreateUserPermissionDeny     CreateUserPermission = "DENY"
+	CreateUserPermissionExplicit CreateUserPermission = "EXPLICIT"
+	CreateUserPermissionImplicit CreateUserPermission = "IMPLICIT"
+)
+
+var AllCreateUserPermission = []CreateUserPermission{
+	CreateUserPermissionDeny,
+	CreateUserPermissionExplicit,
+	CreateUserPermissionImplicit,
 }
 
 // CreditBalanceCreditBalance includes the requested fields of the GraphQL type CreditBalance.
@@ -39532,7 +41156,7 @@ func (v *DeleteTeamRoleResponse) GetDeleteTeamRole() *DeleteTeamRoleDeleteTeamRo
 
 // DeleteTickerResponse is returned by DeleteTicker on success.
 type DeleteTickerResponse struct {
-	// #1747 — delete a ticker. Its live subscriptions end with reason TICKER_DELETED; its name may be reused, its slug never.
+	// #1747 — delete a ticker. Its live subscriptions end with reason TICKER_DELETED; its name may be reused, its slug never. #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	DeleteTicker bool `json:"deleteTicker"`
 }
 
@@ -40552,6 +42176,7 @@ type DueTickWakesResponse struct {
 	// the unhosted lane) for STOP_CONSUMER_FRESH_SECONDS (default 600), but only when it read the lane from its start to its end in one call:
 	// no workerRefs, no after, and no next page (ask for first: 200; a lane larger than a page cannot declare). A worker whose host is lost has no serving lane until the host returns. Setting a stop signal is refused (STOP_SIGNAL_UNAVAILABLE)
 	// while any worker it would cover is on a lane with no fresh declaration.
+	// #3321: the manager's held worker reads the manager scope on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event per admitted call, ids only; it never reads its holder's personal scope, and never acknowledges.
 	DueWakes *DueTickWakesDueWakesDueWakePage `json:"dueWakes"`
 }
 
@@ -40732,6 +42357,8 @@ type DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason struct {
 	Task *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason `json:"task"`
 	// The tick's role-task guidance, gated for the reader on every read; null for other reasons (hrn:node:hadronmemory.com:specs:cor:agt:080:23).
 	Action *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonActionTickAction `json:"action"`
+	// #2022 — set for kind STOP.
+	Stop *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason `json:"stop"`
 }
 
 // GetKind returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason.Kind, and is useful for accessing the field via an interface.
@@ -40752,9 +42379,14 @@ func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetAction() *
 	return v.Action
 }
 
+// GetStop returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason.Stop, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReason) GetStop() *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason {
+	return v.Stop
+}
+
 // DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonActionTickAction includes the requested fields of the GraphQL type TickAction.
 type DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonActionTickAction struct {
-	// Permanent tick code (hrn:node:hadronmemory.com:specs:cor:agt:110:01).
+	// Permanent action code (hrn:node:hadronmemory.com:specs:cor:agt:110:01).
 	Code  string          `json:"code"`
 	State TickActionState `json:"state"`
 	// The readable entry's loc, including when no usable task was found.
@@ -40781,6 +42413,45 @@ func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonActionTickActio
 // GetTaskUrn returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonActionTickAction.TaskUrn, and is useful for accessing the field via an interface.
 func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonActionTickAction) GetTaskUrn() *string {
 	return v.TaskUrn
+}
+
+// DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason includes the requested fields of the GraphQL type DueStopReason.
+// The GraphQL type's documentation follows.
+//
+// #2022 — the stop-signal notice a STOP reason delivers. Acknowledging the wake records its delivery; it moves no chat mark.
+type DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason struct {
+	// The notice; acknowledging the wake records delivery on it.
+	EventId  string          `json:"eventId"`
+	SignalId string          `json:"signalId"`
+	Level    StopSignalLevel `json:"level"`
+	Notice   StopNoticeKind  `json:"notice"`
+	// True only for a halt's stop notice: the one notice that interrupts the worker.
+	Interrupt bool `json:"interrupt"`
+}
+
+// GetEventId returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason.EventId, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason) GetEventId() string {
+	return v.EventId
+}
+
+// GetSignalId returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason.SignalId, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason) GetSignalId() string {
+	return v.SignalId
+}
+
+// GetLevel returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason.Level, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason) GetLevel() StopSignalLevel {
+	return v.Level
+}
+
+// GetNotice returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason.Notice, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason) GetNotice() StopNoticeKind {
+	return v.Notice
+}
+
+// GetInterrupt returns DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason.Interrupt, and is useful for accessing the field via an interface.
+func (v *DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonStopDueStopReason) GetInterrupt() bool {
+	return v.Interrupt
 }
 
 // DueWakesDueWakesDueWakePageWakesDueWakeReasonsWakeReasonTaskDueTaskReason includes the requested fields of the GraphQL type DueTaskReason.
@@ -40875,6 +42546,7 @@ type DueWakesResponse struct {
 	// the unhosted lane) for STOP_CONSUMER_FRESH_SECONDS (default 600), but only when it read the lane from its start to its end in one call:
 	// no workerRefs, no after, and no next page (ask for first: 200; a lane larger than a page cannot declare). A worker whose host is lost has no serving lane until the host returns. Setting a stop signal is refused (STOP_SIGNAL_UNAVAILABLE)
 	// while any worker it would cover is on a lane with no fresh declaration.
+	// #3321: the manager's held worker reads the manager scope on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event per admitted call, ids only; it never reads its holder's personal scope, and never acknowledges.
 	DueWakes *DueWakesDueWakesDueWakePage `json:"dueWakes"`
 }
 
@@ -41510,6 +43182,12 @@ type EncryptMemoryResponse struct {
 	// matching verifier; impersonation and sibling Apps grant no authority. Live and
 	// historical node fields are converted in bounded locked passes. One-way
 	// without the key: the server cannot recover the content.
+	//
+	// The secret travels beside the operation, never in it (hrn:node:hadronmemory.com:specs:cor:sec:040:04, #1796).
+	// The strict owner sends exactly one of dataKey or passphrase in an x-hadron-memory-keys entry
+	// naming this memory; on a first encryption that entry establishes the verifier, and it counts only
+	// when encryptMemory is the operation's sole root field. The owning App sends its key in
+	// x-hadron-operation-key, for completion only.
 	//
 	// Accepts the entity's ID or URN.
 	EncryptMemory *EncryptMemoryEncryptMemory `json:"encryptMemory"`
@@ -43262,6 +44940,34 @@ type GetAppMetadataResponse struct {
 // GetApp returns GetAppMetadataResponse.App, and is useful for accessing the field via an interface.
 func (v *GetAppMetadataResponse) GetApp() *GetAppMetadataApp { return v.App }
 
+// GetAppRenameURNApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type GetAppRenameURNApp struct {
+	Urn string `json:"urn"`
+}
+
+// GetUrn returns GetAppRenameURNApp.Urn, and is useful for accessing the field via an interface.
+func (v *GetAppRenameURNApp) GetUrn() string { return v.Urn }
+
+// GetAppRenameURNResponse is returned by GetAppRenameURN on success.
+type GetAppRenameURNResponse struct {
+	// Fetch an App (member of the App's org, or platform ADMIN — the myApps
+	// exposure bar; #473 relaxed this from org ADMIN for read parity with the
+	// list).
+	//
+	// 'ref' accepts the entity's ID or URN.
+	App *GetAppRenameURNApp `json:"app"`
+}
+
+// GetApp returns GetAppRenameURNResponse.App, and is useful for accessing the field via an interface.
+func (v *GetAppRenameURNResponse) GetApp() *GetAppRenameURNApp { return v.App }
+
 // GetAppSharedMemoryApp includes the requested fields of the GraphQL type App.
 // The GraphQL type's documentation follows.
 //
@@ -44727,12 +46433,16 @@ func (v *GetNodeNodeOutgoingEdgesEdge) GetTarget() *GetNodeNodeOutgoingEdgesEdge
 // GetNodeNodeOutgoingEdgesEdgeTargetNode includes the requested fields of the GraphQL type Node.
 type GetNodeNodeOutgoingEdgesEdgeTargetNode struct {
 	Id       string `json:"id"`
+	Name     string `json:"name"`
 	Loc      string `json:"loc"`
 	MemoryId string `json:"memoryId"`
 }
 
 // GetId returns GetNodeNodeOutgoingEdgesEdgeTargetNode.Id, and is useful for accessing the field via an interface.
 func (v *GetNodeNodeOutgoingEdgesEdgeTargetNode) GetId() string { return v.Id }
+
+// GetName returns GetNodeNodeOutgoingEdgesEdgeTargetNode.Name, and is useful for accessing the field via an interface.
+func (v *GetNodeNodeOutgoingEdgesEdgeTargetNode) GetName() string { return v.Name }
 
 // GetLoc returns GetNodeNodeOutgoingEdgesEdgeTargetNode.Loc, and is useful for accessing the field via an interface.
 func (v *GetNodeNodeOutgoingEdgesEdgeTargetNode) GetLoc() string { return v.Loc }
@@ -45664,6 +47374,124 @@ type GetSpecNodeRawResponse struct {
 
 // GetNode returns GetSpecNodeRawResponse.Node, and is useful for accessing the field via an interface.
 func (v *GetSpecNodeRawResponse) GetNode() *GetSpecNodeRawNode { return v.Node }
+
+// GetSpecSupersedeTargetNode includes the requested fields of the GraphQL type Node.
+type GetSpecSupersedeTargetNode struct {
+	Id       string `json:"id"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+	Name     string `json:"name"`
+	// #1201 — what this node is FOR, as an OPEN string. A closed governed
+	// subset has dedicated authoring doors; memory role rules can additionally
+	// constrain arbitrary roles.
+	//
+	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
+	// 'objectType' (the collection discriminator, schema-validated). This field
+	// does not change default retrieval or ranking; NodeFilter.role explicitly
+	// selects its exact dotted family (#1322).
+	//
+	// A GOVERNED family routes the write to that kind's own authoring door, and
+	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
+	// 'spec.*' and 'decision' / 'decision.*', alongside the task kind, which is
+	// gated on 'isRunnable'
+	// rather than on any label because a label can be omitted and a capability
+	// cannot. Other roles do not invoke a governed door, but can still be
+	// constrained by memory role rules and selected by explicit role filters.
+	Role *string  `json:"role"`
+	Tags []string `json:"tags"`
+	// #1450 — a server-recorded placeholder awaiting authored content, such as a
+	// RESERVED spec citation created by reserveSpecCitation. A placeholder may
+	// exist in any memory; it is never inferred from an empty body. Writing real
+	// nonblank content through the spec door or shared mirror write path clears
+	// it. Placeholders block minting.
+	IsPlaceholder bool `json:"isPlaceholder"`
+	// Deletion marker. Ordinary reads still omit tombstones; explicit recovery is writer-only.
+	DeletedAt     *string                                        `json:"deletedAt"`
+	OutgoingEdges []*GetSpecSupersedeTargetNodeOutgoingEdgesEdge `json:"outgoingEdges"`
+}
+
+// GetId returns GetSpecSupersedeTargetNode.Id, and is useful for accessing the field via an interface.
+func (v *GetSpecSupersedeTargetNode) GetId() string { return v.Id }
+
+// GetMemoryId returns GetSpecSupersedeTargetNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *GetSpecSupersedeTargetNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns GetSpecSupersedeTargetNode.Loc, and is useful for accessing the field via an interface.
+func (v *GetSpecSupersedeTargetNode) GetLoc() string { return v.Loc }
+
+// GetName returns GetSpecSupersedeTargetNode.Name, and is useful for accessing the field via an interface.
+func (v *GetSpecSupersedeTargetNode) GetName() string { return v.Name }
+
+// GetRole returns GetSpecSupersedeTargetNode.Role, and is useful for accessing the field via an interface.
+func (v *GetSpecSupersedeTargetNode) GetRole() *string { return v.Role }
+
+// GetTags returns GetSpecSupersedeTargetNode.Tags, and is useful for accessing the field via an interface.
+func (v *GetSpecSupersedeTargetNode) GetTags() []string { return v.Tags }
+
+// GetIsPlaceholder returns GetSpecSupersedeTargetNode.IsPlaceholder, and is useful for accessing the field via an interface.
+func (v *GetSpecSupersedeTargetNode) GetIsPlaceholder() bool { return v.IsPlaceholder }
+
+// GetDeletedAt returns GetSpecSupersedeTargetNode.DeletedAt, and is useful for accessing the field via an interface.
+func (v *GetSpecSupersedeTargetNode) GetDeletedAt() *string { return v.DeletedAt }
+
+// GetOutgoingEdges returns GetSpecSupersedeTargetNode.OutgoingEdges, and is useful for accessing the field via an interface.
+func (v *GetSpecSupersedeTargetNode) GetOutgoingEdges() []*GetSpecSupersedeTargetNodeOutgoingEdgesEdge {
+	return v.OutgoingEdges
+}
+
+// GetSpecSupersedeTargetNodeOutgoingEdgesEdge includes the requested fields of the GraphQL type Edge.
+type GetSpecSupersedeTargetNodeOutgoingEdgesEdge struct {
+	// Free-form relationship name (e.g. imports, depends_on). Optional since
+	// spec 037 — loc is the identity. (Was the required 'label'.)
+	Name *string `json:"name"`
+	// The live target node, or null when deleted or when its memory is unreadable. Deleted-node inspection uses the explicit recovery graph.
+	Target *GetSpecSupersedeTargetNodeOutgoingEdgesEdgeTargetNode `json:"target"`
+}
+
+// GetName returns GetSpecSupersedeTargetNodeOutgoingEdgesEdge.Name, and is useful for accessing the field via an interface.
+func (v *GetSpecSupersedeTargetNodeOutgoingEdgesEdge) GetName() *string { return v.Name }
+
+// GetTarget returns GetSpecSupersedeTargetNodeOutgoingEdgesEdge.Target, and is useful for accessing the field via an interface.
+func (v *GetSpecSupersedeTargetNodeOutgoingEdgesEdge) GetTarget() *GetSpecSupersedeTargetNodeOutgoingEdgesEdgeTargetNode {
+	return v.Target
+}
+
+// GetSpecSupersedeTargetNodeOutgoingEdgesEdgeTargetNode includes the requested fields of the GraphQL type Node.
+type GetSpecSupersedeTargetNodeOutgoingEdgesEdgeTargetNode struct {
+	Id string `json:"id"`
+}
+
+// GetId returns GetSpecSupersedeTargetNodeOutgoingEdgesEdgeTargetNode.Id, and is useful for accessing the field via an interface.
+func (v *GetSpecSupersedeTargetNodeOutgoingEdgesEdgeTargetNode) GetId() string { return v.Id }
+
+// GetSpecSupersedeTargetResponse is returned by GetSpecSupersedeTarget on success.
+type GetSpecSupersedeTargetResponse struct {
+	// The uniform single-node read (#473) — subsumes the former nodeById(id:)
+	// and node(loc:, memory:) split. 'ref' accepts, in dispatch order:
+	//
+	// 1. a primary key (the unambiguous read — the old nodeById),
+	// 2. a fully-qualified node URN (`hrn:node:<root>:<memory>:<loc>`,
+	// legacy `urn:` scheme accepted),
+	// 3. a bare loc — scoped by 'memoryRef' (an ID or URN) when given; unscoped,
+	// it resolves across every readable memory and a cross-memory loc
+	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
+	// (listing the candidate memoryIds) rather than silently returning
+	// one (#335). An unprefixed 3+-segment ref whose first two segments
+	// name a live memory is treated as form 2 (a full URN); pass
+	// 'memoryRef' to force loc interpretation.
+	//
+	// raw: true selects stored content without include or variable resolution.
+	// Soft-deleted nodes do not resolve. Access uses the caller's readable-memory
+	// set. A denied or missing node returns null; an explicit memoryRef that is
+	// missing or unreadable raises MEMORY_NOT_FOUND. When addressed in a system
+	// memory by memoryRef or a full node URN, a loc with no local node may read
+	// through to an eligible inherited node under its own address; overrides and
+	// boot prompts are excluded. An unscoped bare loc does not search inheritance.
+	Node *GetSpecSupersedeTargetNode `json:"node"`
+}
+
+// GetNode returns GetSpecSupersedeTargetResponse.Node, and is useful for accessing the field via an interface.
+func (v *GetSpecSupersedeTargetResponse) GetNode() *GetSpecSupersedeTargetNode { return v.Node }
 
 // GetTeamSessionResponse is returned by GetTeamSession on success.
 type GetTeamSessionResponse struct {
@@ -46814,6 +48642,106 @@ type GetWorkerResponse struct {
 
 // GetWorker returns GetWorkerResponse.Worker, and is useful for accessing the field via an interface.
 func (v *GetWorkerResponse) GetWorker() *GetWorkerWorker { return v.Worker }
+
+// GetWorkerRetireAdvisoryResponse is returned by GetWorkerRetireAdvisory on success.
+type GetWorkerRetireAdvisoryResponse struct {
+	// One Worker by ref (#974) — its id, its URN (#991), or (with appRef) its
+	// NAME (#1015), the ergonomic handle a human already knows. The name form is
+	// ADDITIVE: it is activated by appRef, since a name is unique only within an
+	// App. Without appRef the ref must be an id or URN, and anything else refuses
+	// WORKER_NOT_FOUND as before. An id or URN wins over appRef rather than being
+	// checked against it, so a typo'd URN never degrades into a roster search.
+	//
+	// Selecting `prompt` re-renders the worker's boot briefing live from the
+	// role agent's template — the read that lets an agent recover a briefing it
+	// lost to a context compaction, instead of opening a second session or
+	// forcing a takeover of itself.
+	//
+	// Authorization (#1149, hrn:node:hadronmemory.com:specs:cor:dmo:050:11): by id or URN,
+	// any signed-in user reads the worker's PROFILE (identity scalars, appName,
+	// ownerName, appUrn), and `agent` when the Agent's own visibility admits
+	// them; the working-state fields stay masked unless the caller participates
+	// in the App (an AppMember at any role, org CONTRIBUTOR+, the owner of a
+	// user-owned App, or the App's own key). An anonymous caller, another App's
+	// key or run, a support session outside the App's org and a deleted App are
+	// refused WORKER_NOT_FOUND exactly as an absent worker. The NAME form stays
+	// participant-only: its gate runs BEFORE the lookup and a denial is reported
+	// as WORKER_NOT_FOUND, so the roster is not an existence oracle.
+	Worker *GetWorkerRetireAdvisoryWorker `json:"worker"`
+}
+
+// GetWorker returns GetWorkerRetireAdvisoryResponse.Worker, and is useful for accessing the field via an interface.
+func (v *GetWorkerRetireAdvisoryResponse) GetWorker() *GetWorkerRetireAdvisoryWorker { return v.Worker }
+
+// GetWorkerRetireAdvisoryWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type GetWorkerRetireAdvisoryWorker struct {
+	// #1029 — what a fresh binding of this worker inherits from the last one.
+	//
+	// Returned by startSession alongside the boot briefing (binding is briefing,
+	// so binding is handoff) and by the worker read, which is the recovery path
+	// after a context compaction — the reader who has most lost the handoff and
+	// least knows one exists. Working-state field: behind the worker read gate,
+	// masked to null on deny, like prompt/memoryId.
+	Continuity *GetWorkerRetireAdvisoryWorkerContinuity `json:"continuity"`
+}
+
+// GetContinuity returns GetWorkerRetireAdvisoryWorker.Continuity, and is useful for accessing the field via an interface.
+func (v *GetWorkerRetireAdvisoryWorker) GetContinuity() *GetWorkerRetireAdvisoryWorkerContinuity {
+	return v.Continuity
+}
+
+// GetWorkerRetireAdvisoryWorkerContinuity includes the requested fields of the GraphQL type WorkerContinuity.
+// The GraphQL type's documentation follows.
+//
+// #1029 — the continuity a worker carries between stints.
+//
+// Handoffs are ordinary nodes in the worker's working memory, so a client walks
+// the whole sequence through the node surface. This type exists for the ONE
+// handoff that cannot be discovered: the newest, which a fresh session does not
+// know to look for.
+type GetWorkerRetireAdvisoryWorkerContinuity struct {
+	Status WorkerContinuityStatus `json:"status"`
+	// The newest handoff node, or null when the worker has none. Present even
+	// when status is MISSING — a stale handoff is still the best available
+	// account of where this worker got to, and withholding it helps nobody.
+	Handoff *GetWorkerRetireAdvisoryWorkerContinuityHandoffNode `json:"handoff"`
+}
+
+// GetStatus returns GetWorkerRetireAdvisoryWorkerContinuity.Status, and is useful for accessing the field via an interface.
+func (v *GetWorkerRetireAdvisoryWorkerContinuity) GetStatus() WorkerContinuityStatus { return v.Status }
+
+// GetHandoff returns GetWorkerRetireAdvisoryWorkerContinuity.Handoff, and is useful for accessing the field via an interface.
+func (v *GetWorkerRetireAdvisoryWorkerContinuity) GetHandoff() *GetWorkerRetireAdvisoryWorkerContinuityHandoffNode {
+	return v.Handoff
+}
+
+// GetWorkerRetireAdvisoryWorkerContinuityHandoffNode includes the requested fields of the GraphQL type Node.
+type GetWorkerRetireAdvisoryWorkerContinuityHandoffNode struct {
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn       string `json:"urn"`
+	Loc       string `json:"loc"`
+	CreatedAt string `json:"createdAt"`
+}
+
+// GetUrn returns GetWorkerRetireAdvisoryWorkerContinuityHandoffNode.Urn, and is useful for accessing the field via an interface.
+func (v *GetWorkerRetireAdvisoryWorkerContinuityHandoffNode) GetUrn() string { return v.Urn }
+
+// GetLoc returns GetWorkerRetireAdvisoryWorkerContinuityHandoffNode.Loc, and is useful for accessing the field via an interface.
+func (v *GetWorkerRetireAdvisoryWorkerContinuityHandoffNode) GetLoc() string { return v.Loc }
+
+// GetCreatedAt returns GetWorkerRetireAdvisoryWorkerContinuityHandoffNode.CreatedAt, and is useful for accessing the field via an interface.
+func (v *GetWorkerRetireAdvisoryWorkerContinuityHandoffNode) GetCreatedAt() string {
+	return v.CreatedAt
+}
 
 // GetWorkerTerminalResponse is returned by GetWorkerTerminal on success.
 type GetWorkerTerminalResponse struct {
@@ -48807,6 +50735,18 @@ func (v *HostRegistrationsResponse) GetHostRegistrations() []*HostRegistrationsH
 	return v.HostRegistrations
 }
 
+type IdentifyUserMethod string
+
+const (
+	IdentifyUserMethodSecret IdentifyUserMethod = "SECRET"
+	IdentifyUserMethodUserId IdentifyUserMethod = "USER_ID"
+)
+
+var AllIdentifyUserMethod = []IdentifyUserMethod{
+	IdentifyUserMethodSecret,
+	IdentifyUserMethodUserId,
+}
+
 // Admin-impersonation audit reads (#1344). Denied and missing are the same null.
 type ImpersonationSessionFields struct {
 	Id        string `json:"id"`
@@ -49288,6 +51228,9 @@ type ImportNodeInput struct {
 	AgentRef *string `json:"agentRef,omitempty"`
 	// App to run the task under — PK or URN. Falls back to the caller's active App. Only meaningful with taskRef.
 	AppRef *string `json:"appRef,omitempty"`
+	// #1328 — the author task this write worked from, required when the node's
+	// role rule names one (before and after the write). See AuthoredWithInput.
+	AuthoredWith *AuthoredWithInput `json:"authoredWith,omitempty"`
 	// Inline source content (e.g. the Web Clipper's authenticated-DOM capture). XOR with 'url'.
 	Content *string `json:"content,omitempty"`
 	// MIME type of 'content': text/html (DEFAULT here — unlike createNode) converts to Markdown at the write seam; text/markdown stores as-is; application/pdf extracts a PDF's text layer to Markdown ('content' must be raw base64 — a PDF is binary; scanned/image-only PDFs error). Ignored on the url path (always HTML).
@@ -49317,6 +51260,9 @@ func (v *ImportNodeInput) GetAgentRef() *string { return v.AgentRef }
 
 // GetAppRef returns ImportNodeInput.AppRef, and is useful for accessing the field via an interface.
 func (v *ImportNodeInput) GetAppRef() *string { return v.AppRef }
+
+// GetAuthoredWith returns ImportNodeInput.AuthoredWith, and is useful for accessing the field via an interface.
+func (v *ImportNodeInput) GetAuthoredWith() *AuthoredWithInput { return v.AuthoredWith }
 
 // GetContent returns ImportNodeInput.Content, and is useful for accessing the field via an interface.
 func (v *ImportNodeInput) GetContent() *string { return v.Content }
@@ -49406,6 +51352,7 @@ func (v *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayload) GetAp
 // read-only to every App) and per FR-001 it carries NO trainingMode
 // column (training mode is per-App, on App.trainingMode).
 type InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgent struct {
+	// When every installed Agent is readable: physical row creation time, or the computed earliest install/import witness time for a derived entry. Otherwise every entry shares the App creation time. The newly created install mutation payload retains its real row time. App.appAgents sorts by the served time, then Agent id.
 	CreatedAt string `json:"createdAt"`
 	// The installed Agent when this caller may read its definition; an installation license alone does not grant that read.
 	Agent *InstallAgentIntoAppInstallAgentIntoAppInstallAgentIntoAppPayloadAppAgentAgent `json:"agent"`
@@ -49571,6 +51518,19 @@ type InstallMemoryResponse struct {
 // GetInstallMemory returns InstallMemoryResponse.InstallMemory, and is useful for accessing the field via an interface.
 func (v *InstallMemoryResponse) GetInstallMemory() *InstallMemoryInstallMemory {
 	return v.InstallMemory
+}
+
+// #3435 — how an App installs an Agent: by an AppAgent row, or derived from a direct import of an installed Agent.
+type InstallMethod string
+
+const (
+	InstallMethodDerived InstallMethod = "DERIVED"
+	InstallMethodRow     InstallMethod = "ROW"
+)
+
+var AllInstallMethod = []InstallMethod{
+	InstallMethodDerived,
+	InstallMethodRow,
 }
 
 // #2044 (hrn:node:hadronmemory.com:specs:cor:agt:040:06) — names an App's INSTALL MEMORY by the pair that
@@ -49937,9 +51897,10 @@ func (v *IsolateWorkerIsolateWorkerWorkerWakeSettings) __premarshalJSON() (*__pr
 // IsolateWorkerResponse is returned by IsolateWorker on success.
 type IsolateWorkerResponse struct {
 	// S7 (#2023, R85) — isolate a worker until a time (default 2 hours, at most 7 days; a later time extends, an earlier one shortens).
-	// Only a person managing the App or holding the worker, acting as themselves. Refusals, in the order they are checked:
-	// an unknown worker, or one the caller cannot read (a pure App key among them), is WORKER_NOT_FOUND; a worker session (even a
-	// manager's) is WORKER_ISOLATION_FORBIDDEN; while S7 activation is off, setting an isolation is WORKER_ISOLATION_UNAVAILABLE
+	// Only a person managing the App or holding the worker, as themselves or, on their instruction, through their held worker
+	// (hrn:node:hadronmemory.com:specs:cor:agt:080:29, ruling 0118), recorded as one app.manager-act event, ids only. Refusals, in the order they are checked:
+	// an unknown worker, or one the caller cannot read (a pure App key among them), is WORKER_NOT_FOUND; a worker session with no
+	// instruction (even a manager's) is WORKER_ISOLATION_FORBIDDEN; while S7 activation is off, setting an isolation is WORKER_ISOLATION_UNAVAILABLE
 	// (clearing is unaffected), so an ordinary person gets this before the manager/holder check; an impersonation that reaches the
 	// write is refused FORBIDDEN (read-only); a participant who neither manages the App nor holds the worker is
 	// WORKER_ISOLATION_FORBIDDEN. Never touches the worker's own pause.
@@ -50167,6 +52128,7 @@ type IssueHostOperationResponse struct {
 	// not issued yet, HOST_OPERATION_NOT_ISSUABLE until a host has a delivery path for it (hadron-cli#829).
 	// worker.reset-context is HOST_OPERATION_NOT_ISSUABLE here: the platform issues it when a task ends (#2162). An App key
 	// issues nothing (FORBIDDEN). An unregistered host is HOST_NOT_FOUND.
+	// #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	IssueHostOperation *IssueHostOperationIssueHostOperation `json:"issueHostOperation"`
 }
 
@@ -50174,6 +52136,134 @@ type IssueHostOperationResponse struct {
 func (v *IssueHostOperationResponse) GetIssueHostOperation() *IssueHostOperationIssueHostOperation {
 	return v.IssueHostOperation
 }
+
+// JoinAppJoinAppJoinAppPayload includes the requested fields of the GraphQL type JoinAppPayload.
+// The GraphQL type's documentation follows.
+//
+// Return shape for the joinApp mutation (023-app-shape US2). The
+// AppMember row is included so callers can read its derived
+// isOrgExternal flag without a re-query.
+type JoinAppJoinAppJoinAppPayload struct {
+	AppMember *JoinAppJoinAppJoinAppPayloadAppMember `json:"appMember"`
+}
+
+// GetAppMember returns JoinAppJoinAppJoinAppPayload.AppMember, and is useful for accessing the field via an interface.
+func (v *JoinAppJoinAppJoinAppPayload) GetAppMember() *JoinAppJoinAppJoinAppPayloadAppMember {
+	return v.AppMember
+}
+
+// JoinAppJoinAppJoinAppPayloadAppMember includes the requested fields of the GraphQL type AppMember.
+type JoinAppJoinAppJoinAppPayloadAppMember struct {
+	AppId     string `json:"appId"`
+	Role      string `json:"role"`
+	CreatedAt string `json:"createdAt"`
+	// 023-app-shape US2: true when this User is an AppMember of the App
+	// but NOT an OrgMember of the App's owning Organization. Derived at
+	// query time from the absence of an OrgMember row (per spec 023
+	// FR-011 — no appOnly column is added to the AppMember table).
+	// Unlocks the B2C / therapy / consumer use cases where end-users
+	// use an App without joining the operator's org.
+	IsOrgExternal bool                                       `json:"isOrgExternal"`
+	User          *JoinAppJoinAppJoinAppPayloadAppMemberUser `json:"user"`
+	// The App when the caller may read it; an external App member can still see their membership row.
+	App *JoinAppJoinAppJoinAppPayloadAppMemberApp `json:"app"`
+}
+
+// GetAppId returns JoinAppJoinAppJoinAppPayloadAppMember.AppId, and is useful for accessing the field via an interface.
+func (v *JoinAppJoinAppJoinAppPayloadAppMember) GetAppId() string { return v.AppId }
+
+// GetRole returns JoinAppJoinAppJoinAppPayloadAppMember.Role, and is useful for accessing the field via an interface.
+func (v *JoinAppJoinAppJoinAppPayloadAppMember) GetRole() string { return v.Role }
+
+// GetCreatedAt returns JoinAppJoinAppJoinAppPayloadAppMember.CreatedAt, and is useful for accessing the field via an interface.
+func (v *JoinAppJoinAppJoinAppPayloadAppMember) GetCreatedAt() string { return v.CreatedAt }
+
+// GetIsOrgExternal returns JoinAppJoinAppJoinAppPayloadAppMember.IsOrgExternal, and is useful for accessing the field via an interface.
+func (v *JoinAppJoinAppJoinAppPayloadAppMember) GetIsOrgExternal() bool { return v.IsOrgExternal }
+
+// GetUser returns JoinAppJoinAppJoinAppPayloadAppMember.User, and is useful for accessing the field via an interface.
+func (v *JoinAppJoinAppJoinAppPayloadAppMember) GetUser() *JoinAppJoinAppJoinAppPayloadAppMemberUser {
+	return v.User
+}
+
+// GetApp returns JoinAppJoinAppJoinAppPayloadAppMember.App, and is useful for accessing the field via an interface.
+func (v *JoinAppJoinAppJoinAppPayloadAppMember) GetApp() *JoinAppJoinAppJoinAppPayloadAppMemberApp {
+	return v.App
+}
+
+// JoinAppJoinAppJoinAppPayloadAppMemberApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type JoinAppJoinAppJoinAppPayloadAppMemberApp struct {
+	Urn  string `json:"urn"`
+	Name string `json:"name"`
+}
+
+// GetUrn returns JoinAppJoinAppJoinAppPayloadAppMemberApp.Urn, and is useful for accessing the field via an interface.
+func (v *JoinAppJoinAppJoinAppPayloadAppMemberApp) GetUrn() string { return v.Urn }
+
+// GetName returns JoinAppJoinAppJoinAppPayloadAppMemberApp.Name, and is useful for accessing the field via an interface.
+func (v *JoinAppJoinAppJoinAppPayloadAppMemberApp) GetName() string { return v.Name }
+
+// JoinAppJoinAppJoinAppPayloadAppMemberUser includes the requested fields of the GraphQL type User.
+type JoinAppJoinAppJoinAppPayloadAppMemberUser struct {
+	Id     string  `json:"id"`
+	Handle *string `json:"handle"`
+	// Canonical `hrn:user:<handle>` URN (spec cor:urn:010:01). Computed from the
+	// handle; null for a handle-less user and for a user whose handle is
+	// not-URN-legal (neither has a URN).
+	Urn *string `json:"urn"`
+}
+
+// GetId returns JoinAppJoinAppJoinAppPayloadAppMemberUser.Id, and is useful for accessing the field via an interface.
+func (v *JoinAppJoinAppJoinAppPayloadAppMemberUser) GetId() string { return v.Id }
+
+// GetHandle returns JoinAppJoinAppJoinAppPayloadAppMemberUser.Handle, and is useful for accessing the field via an interface.
+func (v *JoinAppJoinAppJoinAppPayloadAppMemberUser) GetHandle() *string { return v.Handle }
+
+// GetUrn returns JoinAppJoinAppJoinAppPayloadAppMemberUser.Urn, and is useful for accessing the field via an interface.
+func (v *JoinAppJoinAppJoinAppPayloadAppMemberUser) GetUrn() *string { return v.Urn }
+
+// JoinAppResponse is returned by JoinApp on success.
+type JoinAppResponse struct {
+	// 023-app-shape US2 — user-level install. The currently-logged-in user
+	// joins the App as an AppMember without requiring an OrgMember row.
+	// App lifecycle checks run before the existing-member return and self-join
+	// policy check.
+	//
+	// #1714: self-join is closed by default. It is open only when the App's
+	// primary Agent declares installation_policy.selfJoinRole, which must be
+	// one of its memberRoles and is never "owner"; the joiner gets that role.
+	// Self-join never assigns owner. Explicit role changes use ensureAppMember,
+	// by an App member manager. Idempotent — if the user is already an AppMember
+	// of the App, the existing row is returned, before the gate is consulted.
+	//
+	// Error codes (GraphQLError extensions.code, Error.name style):
+	// - UNAUTHENTICATED — no logged-in user in context.
+	// - AppNotFoundError — the App does not exist or is soft-deleted.
+	// - AppUninstalledError — the App is in the spec-021 soft-uninstall
+	// lifecycle phase.
+	// - SelfJoinNotAllowedError — the App's Agent has not opted into
+	// self-service joining (including an App with no installed Agent).
+	// Checked before capacity, so it reveals nothing about maxMembers.
+	// - OrphanAppError — the App lost its installed Agents while the
+	// join was in flight.
+	// - MaxMembersExceededError — the Agent's maxMembers limit is hit.
+	// - InvalidRoleError — the picked default role isn't accepted by
+	// the Agent's policy (rare; would indicate a policy update
+	// race).
+	//
+	// Accepts the entity's ID or URN.
+	JoinApp *JoinAppJoinAppJoinAppPayload `json:"joinApp"`
+}
+
+// GetJoinApp returns JoinAppResponse.JoinApp, and is useful for accessing the field via an interface.
+func (v *JoinAppResponse) GetJoinApp() *JoinAppJoinAppJoinAppPayload { return v.JoinApp }
 
 // LatestAppRunLatestAppRun includes the requested fields of the GraphQL type AppRun.
 // The GraphQL type's documentation follows.
@@ -50404,6 +52494,78 @@ type LatestAppRunResponse struct {
 
 // GetLatestAppRun returns LatestAppRunResponse.LatestAppRun, and is useful for accessing the field via an interface.
 func (v *LatestAppRunResponse) GetLatestAppRun() *LatestAppRunLatestAppRun { return v.LatestAppRun }
+
+// LeaveAppInstructedLeaveAppLeaveAppPayload includes the requested fields of the GraphQL type LeaveAppPayload.
+// The GraphQL type's documentation follows.
+//
+// Return shape for the leaveApp mutation (023-app-shape US2). The
+// user's personal-class Memory at (appId, userId) is NOT
+// cascade-deleted (spec 008 FR-015 orphan retention); it re-attaches
+// if the user later re-joins the same App.
+type LeaveAppInstructedLeaveAppLeaveAppPayload struct {
+	AppId  string `json:"appId"`
+	UserId string `json:"userId"`
+}
+
+// GetAppId returns LeaveAppInstructedLeaveAppLeaveAppPayload.AppId, and is useful for accessing the field via an interface.
+func (v *LeaveAppInstructedLeaveAppLeaveAppPayload) GetAppId() string { return v.AppId }
+
+// GetUserId returns LeaveAppInstructedLeaveAppLeaveAppPayload.UserId, and is useful for accessing the field via an interface.
+func (v *LeaveAppInstructedLeaveAppLeaveAppPayload) GetUserId() string { return v.UserId }
+
+// LeaveAppInstructedResponse is returned by LeaveAppInstructed on success.
+type LeaveAppInstructedResponse struct {
+	// 023-app-shape US2 — user-level uninstall. The currently-logged-in user
+	// leaves an App. Idempotent (no-op when not a member). The user's
+	// personal-class Memory at (appId, userId) is NOT cascade-deleted
+	// per spec 008 FR-015 — it re-attaches if the user later re-joins.
+	// Bound workers require an instruction or their own live app.members grant
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12); successful instructed removals/no-ops record the claim.
+	// Direct-person cleanup keeps the existing App reference-resolution behavior.
+	//
+	// Accepts the entity's ID or URN.
+	LeaveApp *LeaveAppInstructedLeaveAppLeaveAppPayload `json:"leaveApp"`
+}
+
+// GetLeaveApp returns LeaveAppInstructedResponse.LeaveApp, and is useful for accessing the field via an interface.
+func (v *LeaveAppInstructedResponse) GetLeaveApp() *LeaveAppInstructedLeaveAppLeaveAppPayload {
+	return v.LeaveApp
+}
+
+// LeaveAppLeaveAppLeaveAppPayload includes the requested fields of the GraphQL type LeaveAppPayload.
+// The GraphQL type's documentation follows.
+//
+// Return shape for the leaveApp mutation (023-app-shape US2). The
+// user's personal-class Memory at (appId, userId) is NOT
+// cascade-deleted (spec 008 FR-015 orphan retention); it re-attaches
+// if the user later re-joins the same App.
+type LeaveAppLeaveAppLeaveAppPayload struct {
+	AppId  string `json:"appId"`
+	UserId string `json:"userId"`
+}
+
+// GetAppId returns LeaveAppLeaveAppLeaveAppPayload.AppId, and is useful for accessing the field via an interface.
+func (v *LeaveAppLeaveAppLeaveAppPayload) GetAppId() string { return v.AppId }
+
+// GetUserId returns LeaveAppLeaveAppLeaveAppPayload.UserId, and is useful for accessing the field via an interface.
+func (v *LeaveAppLeaveAppLeaveAppPayload) GetUserId() string { return v.UserId }
+
+// LeaveAppResponse is returned by LeaveApp on success.
+type LeaveAppResponse struct {
+	// 023-app-shape US2 — user-level uninstall. The currently-logged-in user
+	// leaves an App. Idempotent (no-op when not a member). The user's
+	// personal-class Memory at (appId, userId) is NOT cascade-deleted
+	// per spec 008 FR-015 — it re-attaches if the user later re-joins.
+	// Bound workers require an instruction or their own live app.members grant
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12); successful instructed removals/no-ops record the claim.
+	// Direct-person cleanup keeps the existing App reference-resolution behavior.
+	//
+	// Accepts the entity's ID or URN.
+	LeaveApp *LeaveAppLeaveAppLeaveAppPayload `json:"leaveApp"`
+}
+
+// GetLeaveApp returns LeaveAppResponse.LeaveApp, and is useful for accessing the field via an interface.
+func (v *LeaveAppResponse) GetLeaveApp() *LeaveAppLeaveAppLeaveAppPayload { return v.LeaveApp }
 
 // LinkMemoryToUserLinkMemoryToUserMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
@@ -54321,6 +56483,9 @@ func (v *MergeMemoriesResponse) GetMergeMemories() *MergeMemoriesMergeMemoriesMe
 }
 
 type MergeNodesInput struct {
+	// #1328 — the author task this write worked from, required when the node's
+	// role rule names one (before and after the write). See AuthoredWithInput.
+	AuthoredWith *AuthoredWithInput `json:"authoredWith,omitempty"`
 	// Hard-delete the source node after a successful merge.
 	DeleteSource *bool `json:"deleteSource,omitempty"`
 	// Fields to merge. Omit (or null) to merge every mergeable field.
@@ -54330,6 +56495,9 @@ type MergeNodesInput struct {
 	// Target node — ID or fully-qualified URN. The surviving node.
 	Target string `json:"target"`
 }
+
+// GetAuthoredWith returns MergeNodesInput.AuthoredWith, and is useful for accessing the field via an interface.
+func (v *MergeNodesInput) GetAuthoredWith() *AuthoredWithInput { return v.AuthoredWith }
 
 // GetDeleteSource returns MergeNodesInput.DeleteSource, and is useful for accessing the field via an interface.
 func (v *MergeNodesInput) GetDeleteSource() *bool { return v.DeleteSource }
@@ -55247,6 +57415,250 @@ type MoveNodeResponse struct {
 
 // GetMoveNode returns MoveNodeResponse.MoveNode, and is useful for accessing the field via an interface.
 func (v *MoveNodeResponse) GetMoveNode() *MoveNodeMoveNode { return v.MoveNode }
+
+// MovePreviewBatchNodeBatchNodeBatchResult includes the requested fields of the GraphQL type NodeBatchResult.
+// The GraphQL type's documentation follows.
+//
+// Spec cor:api:040 — result envelope for the batch node read (nodeBatch).
+// 'nodes' is the authorized, existing subset (input order for a ref set, loc
+// order for a prefix). 'unavailable' and 'omitted' are both lists of REFS, not
+// node objects. 'unavailable' lists the requested refs that were denied OR not
+// found — indistinguishable, so the result never discloses whether an
+// unreadable node exists. 'truncated' is true when the response-size cap was
+// reached, and 'omitted' then carries the refs of the nodes dropped to stay
+// under it. (Over the node-count cap the query errors instead — never a silent
+// short read.) Both lists echo the caller's OWN ref strings for the 'refs'
+// form — pass a URN, get that URN back, not a primary key you never sent — and
+// node ids for the prefix form, which has no caller refs.
+type MovePreviewBatchNodeBatchNodeBatchResult struct {
+	Truncated   bool                                                 `json:"truncated"`
+	Omitted     []string                                             `json:"omitted"`
+	Unavailable []string                                             `json:"unavailable"`
+	Nodes       []*MovePreviewBatchNodeBatchNodeBatchResultNodesNode `json:"nodes"`
+}
+
+// GetTruncated returns MovePreviewBatchNodeBatchNodeBatchResult.Truncated, and is useful for accessing the field via an interface.
+func (v *MovePreviewBatchNodeBatchNodeBatchResult) GetTruncated() bool { return v.Truncated }
+
+// GetOmitted returns MovePreviewBatchNodeBatchNodeBatchResult.Omitted, and is useful for accessing the field via an interface.
+func (v *MovePreviewBatchNodeBatchNodeBatchResult) GetOmitted() []string { return v.Omitted }
+
+// GetUnavailable returns MovePreviewBatchNodeBatchNodeBatchResult.Unavailable, and is useful for accessing the field via an interface.
+func (v *MovePreviewBatchNodeBatchNodeBatchResult) GetUnavailable() []string { return v.Unavailable }
+
+// GetNodes returns MovePreviewBatchNodeBatchNodeBatchResult.Nodes, and is useful for accessing the field via an interface.
+func (v *MovePreviewBatchNodeBatchNodeBatchResult) GetNodes() []*MovePreviewBatchNodeBatchNodeBatchResultNodesNode {
+	return v.Nodes
+}
+
+// MovePreviewBatchNodeBatchNodeBatchResultNodesNode includes the requested fields of the GraphQL type Node.
+type MovePreviewBatchNodeBatchNodeBatchResultNodesNode struct {
+	Id string `json:"id"`
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn      string `json:"urn"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+	Name     string `json:"name"`
+}
+
+// GetId returns MovePreviewBatchNodeBatchNodeBatchResultNodesNode.Id, and is useful for accessing the field via an interface.
+func (v *MovePreviewBatchNodeBatchNodeBatchResultNodesNode) GetId() string { return v.Id }
+
+// GetUrn returns MovePreviewBatchNodeBatchNodeBatchResultNodesNode.Urn, and is useful for accessing the field via an interface.
+func (v *MovePreviewBatchNodeBatchNodeBatchResultNodesNode) GetUrn() string { return v.Urn }
+
+// GetMemoryId returns MovePreviewBatchNodeBatchNodeBatchResultNodesNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *MovePreviewBatchNodeBatchNodeBatchResultNodesNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns MovePreviewBatchNodeBatchNodeBatchResultNodesNode.Loc, and is useful for accessing the field via an interface.
+func (v *MovePreviewBatchNodeBatchNodeBatchResultNodesNode) GetLoc() string { return v.Loc }
+
+// GetName returns MovePreviewBatchNodeBatchNodeBatchResultNodesNode.Name, and is useful for accessing the field via an interface.
+func (v *MovePreviewBatchNodeBatchNodeBatchResultNodesNode) GetName() string { return v.Name }
+
+// MovePreviewBatchResponse is returned by MovePreviewBatch on success.
+type MovePreviewBatchResponse struct {
+	// Batch read (spec cor:api:040) — the full node projection (select any Node
+	// fields, including content + edges) for MANY nodes in one call, eliminating
+	// the N+1 of one node(ref:) per node (e.g. 'spec lint --all'). Provide EITHER
+	// 'refs' (explicit set, returned in input order) OR 'memory' + 'locPrefix'
+	// (subtree, loc order) — not both. Each entry of 'refs' is a primary key OR a
+	// fully-qualified node URN (cor:api:140), so a URN-holding caller batches in
+	// ONE call instead of resolving each ref first. The split on a bad ref is by
+	// KIND, not by luck: a ref whose SHAPE is wrong errors the call — unqualified
+	// / relative (UrnNotQualifiedError) or a URN of the wrong entity type, e.g.
+	// 'hrn:mem:...' (BAD_USER_INPUT) — while a well-formed ref that names nothing
+	// the caller may read comes back in 'unavailable'. A caller mistake stays
+	// loud instead of hiding among denials. Per-node access is applied
+	// independently AFTER resolution: denied or missing refs come back in
+	// 'unavailable' and never fail the call. Bounded by hard caps — over the
+	// node-count cap throws BAD_USER_INPUT; over the response-size cap returns a
+	// partial result with 'truncated: true' and the dropped refs in 'omitted'
+	// (never a silent short read). Node content is returned raw — Mustache
+	// templates are NOT compiled (unlike the single-node 'node' read), since this
+	// is a bulk source read for lint / audit / migration and compiling per node
+	// would re-introduce the N+1 it eliminates.
+	// Requested edge fields share a 2000-row budget for this batch result; exceeding
+	// it returns BAD_USER_INPUT. Read large edge sets through the paged edges query.
+	// Unselected edges and endpoint bodies are not prefetched by the batch read.
+	NodeBatch *MovePreviewBatchNodeBatchNodeBatchResult `json:"nodeBatch"`
+}
+
+// GetNodeBatch returns MovePreviewBatchResponse.NodeBatch, and is useful for accessing the field via an interface.
+func (v *MovePreviewBatchResponse) GetNodeBatch() *MovePreviewBatchNodeBatchNodeBatchResult {
+	return v.NodeBatch
+}
+
+// MovePreviewListFindNodesFindNodesResult includes the requested fields of the GraphQL type FindNodesResult.
+// The GraphQL type's documentation follows.
+//
+// Envelope for findNodes (cor:api:090) — the unified node list + search field
+// (it replaced the removed nodes + nodeSearch queries). hits carry per-hit score + vector metadata;
+// passages carry chunk-granularity results; reason/degraded surface no-index /
+// reduced-fidelity outcomes.
+type MovePreviewListFindNodesFindNodesResult struct {
+	Hits []*MovePreviewListFindNodesFindNodesResultHitsNodeHit `json:"hits"`
+}
+
+// GetHits returns MovePreviewListFindNodesFindNodesResult.Hits, and is useful for accessing the field via an interface.
+func (v *MovePreviewListFindNodesFindNodesResult) GetHits() []*MovePreviewListFindNodesFindNodesResultHitsNodeHit {
+	return v.Hits
+}
+
+// MovePreviewListFindNodesFindNodesResultHitsNodeHit includes the requested fields of the GraphQL type NodeHit.
+// The GraphQL type's documentation follows.
+//
+// A scored node hit (cor:api:090:04). score is null for an unscored filtered list (no query).
+type MovePreviewListFindNodesFindNodesResultHitsNodeHit struct {
+	Node *MovePreviewListFindNodesFindNodesResultHitsNodeHitNode `json:"node"`
+}
+
+// GetNode returns MovePreviewListFindNodesFindNodesResultHitsNodeHit.Node, and is useful for accessing the field via an interface.
+func (v *MovePreviewListFindNodesFindNodesResultHitsNodeHit) GetNode() *MovePreviewListFindNodesFindNodesResultHitsNodeHitNode {
+	return v.Node
+}
+
+// MovePreviewListFindNodesFindNodesResultHitsNodeHitNode includes the requested fields of the GraphQL type Node.
+type MovePreviewListFindNodesFindNodesResultHitsNodeHitNode struct {
+	Id       string `json:"id"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+}
+
+// GetId returns MovePreviewListFindNodesFindNodesResultHitsNodeHitNode.Id, and is useful for accessing the field via an interface.
+func (v *MovePreviewListFindNodesFindNodesResultHitsNodeHitNode) GetId() string { return v.Id }
+
+// GetMemoryId returns MovePreviewListFindNodesFindNodesResultHitsNodeHitNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *MovePreviewListFindNodesFindNodesResultHitsNodeHitNode) GetMemoryId() string {
+	return v.MemoryId
+}
+
+// GetLoc returns MovePreviewListFindNodesFindNodesResultHitsNodeHitNode.Loc, and is useful for accessing the field via an interface.
+func (v *MovePreviewListFindNodesFindNodesResultHitsNodeHitNode) GetLoc() string { return v.Loc }
+
+// MovePreviewListResponse is returned by MovePreviewList on success.
+type MovePreviewListResponse struct {
+	// Unified node search (cor:api:090) — the single node list + retrieval
+	// surface (it replaced the removed `nodes` filter/list and `nodeSearch`
+	// rank queries in PR3). Omit `query` for a filtered list in deterministic
+	// order (subsumes `nodes`); pass `query` to rank by `mode`
+	// (keyword | vector | hybrid | regex). Lexical modes honor boolean operators
+	// (`(a OR b) AND c`, quoted phrases, NOT/-) — operator words are
+	// UPPERCASE-ONLY, so natural phrases like 'not sure' search literally —
+	// and `fields` as a ranking weight-mask. Malformed boolean syntax
+	// (unmatched parenthesis, unterminated quote) DEGRADES to a literal phrase
+	// search flagged `degraded: 'literal_fallback'` instead of erroring; only
+	// mode: regex fails loudly on bad syntax. `filter` is the structured, AND-combined filter context
+	// (SYSTEM memory class excluded by default; explicit wins). Returns a
+	// scored-hit envelope. Access-scoped identically to the per-kind node queries.
+	//
+	// orgId (optional) narrows the accessible scope to a single organization the
+	// caller is a member of; a non-member orgId returns an empty envelope
+	// (total 0, no existence disclosure). Combined with filter.isRunnable: true
+	// this is the canonical "the caller's runnable task nodes in one org" query
+	// (there is no separate myTasks surface — a task is simply an isRunnable node).
+	FindNodes *MovePreviewListFindNodesFindNodesResult `json:"findNodes"`
+}
+
+// GetFindNodes returns MovePreviewListResponse.FindNodes, and is useful for accessing the field via an interface.
+func (v *MovePreviewListResponse) GetFindNodes() *MovePreviewListFindNodesFindNodesResult {
+	return v.FindNodes
+}
+
+// MovePreviewMemoryMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
+type MovePreviewMemoryMemory struct {
+	Id string `json:"id"`
+}
+
+// GetId returns MovePreviewMemoryMemory.Id, and is useful for accessing the field via an interface.
+func (v *MovePreviewMemoryMemory) GetId() string { return v.Id }
+
+// MovePreviewMemoryResponse is returned by MovePreviewMemory on success.
+type MovePreviewMemoryResponse struct {
+	// Fetch a single Memory (org member, shared-read gate, or platform ADMIN).
+	// Missing and unreadable refs both return null without an error, so a caller
+	// cannot use this field to test whether a private memory exists. Malformed
+	// refs still fail as caller errors, and operational faults still propagate.
+	//
+	// 'ref' accepts the entity's ID or URN.
+	Memory *MovePreviewMemoryMemory `json:"memory"`
+}
+
+// GetMemory returns MovePreviewMemoryResponse.Memory, and is useful for accessing the field via an interface.
+func (v *MovePreviewMemoryResponse) GetMemory() *MovePreviewMemoryMemory { return v.Memory }
+
+// MovePreviewSourceNode includes the requested fields of the GraphQL type Node.
+type MovePreviewSourceNode struct {
+	Id string `json:"id"`
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn      string `json:"urn"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+}
+
+// GetId returns MovePreviewSourceNode.Id, and is useful for accessing the field via an interface.
+func (v *MovePreviewSourceNode) GetId() string { return v.Id }
+
+// GetUrn returns MovePreviewSourceNode.Urn, and is useful for accessing the field via an interface.
+func (v *MovePreviewSourceNode) GetUrn() string { return v.Urn }
+
+// GetMemoryId returns MovePreviewSourceNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *MovePreviewSourceNode) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns MovePreviewSourceNode.Loc, and is useful for accessing the field via an interface.
+func (v *MovePreviewSourceNode) GetLoc() string { return v.Loc }
+
+// MovePreviewSourceResponse is returned by MovePreviewSource on success.
+type MovePreviewSourceResponse struct {
+	// The uniform single-node read (#473) — subsumes the former nodeById(id:)
+	// and node(loc:, memory:) split. 'ref' accepts, in dispatch order:
+	//
+	// 1. a primary key (the unambiguous read — the old nodeById),
+	// 2. a fully-qualified node URN (`hrn:node:<root>:<memory>:<loc>`,
+	// legacy `urn:` scheme accepted),
+	// 3. a bare loc — scoped by 'memoryRef' (an ID or URN) when given; unscoped,
+	// it resolves across every readable memory and a cross-memory loc
+	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
+	// (listing the candidate memoryIds) rather than silently returning
+	// one (#335). An unprefixed 3+-segment ref whose first two segments
+	// name a live memory is treated as form 2 (a full URN); pass
+	// 'memoryRef' to force loc interpretation.
+	//
+	// raw: true selects stored content without include or variable resolution.
+	// Soft-deleted nodes do not resolve. Access uses the caller's readable-memory
+	// set. A denied or missing node returns null; an explicit memoryRef that is
+	// missing or unreadable raises MEMORY_NOT_FOUND. When addressed in a system
+	// memory by memoryRef or a full node URN, a loc with no local node may read
+	// through to an eligible inherited node under its own address; overrides and
+	// boot prompts are excluded. An unscoped bare loc does not search inheritance.
+	Node *MovePreviewSourceNode `json:"node"`
+}
+
+// GetNode returns MovePreviewSourceResponse.Node, and is useful for accessing the field via an interface.
+func (v *MovePreviewSourceResponse) GetNode() *MovePreviewSourceNode { return v.Node }
 
 // MyAppMyApp includes the requested fields of the GraphQL type App.
 // The GraphQL type's documentation follows.
@@ -57220,7 +59632,7 @@ type NodeFilter struct {
 	Tags          []string `json:"tags,omitempty"`
 	UpdatedAfter  *string  `json:"updatedAfter,omitempty"`
 	UpdatedBefore *string  `json:"updatedBefore,omitempty"`
-	// Structured predicate over the node's properties/data JSONB (#719).
+	// Structured predicate over the node's properties/data JSONB (#719). Not supported by appNodes (refused with BAD_USER_INPUT); use findNodes (#3427).
 	Where *gqltypes.NodeWhereInput `json:"where,omitempty"`
 }
 
@@ -60688,6 +63100,517 @@ func (v *OrganizationsResponse) GetOrganizations() *OrganizationsOrganizationsOr
 	return v.Organizations
 }
 
+// PRFreezeFreezePullRequestHeadPrProtocolResult includes the requested fields of the GraphQL type PrProtocolResult.
+// The GraphQL type's documentation follows.
+//
+// #3448 — a command committed, with optional register guidance (hrn:node:hadronmemory.com:specs:cor:agt:110:03).
+type PRFreezeFreezePullRequestHeadPrProtocolResult struct {
+	PRProtocolReceipt `json:"-"`
+}
+
+// GetTask returns PRFreezeFreezePullRequestHeadPrProtocolResult.Task, and is useful for accessing the field via an interface.
+func (v *PRFreezeFreezePullRequestHeadPrProtocolResult) GetTask() *PRProtocolReceiptTaskAgentTask {
+	return v.PRProtocolReceipt.Task
+}
+
+// GetAction returns PRFreezeFreezePullRequestHeadPrProtocolResult.Action, and is useful for accessing the field via an interface.
+func (v *PRFreezeFreezePullRequestHeadPrProtocolResult) GetAction() *PRProtocolReceiptActionPrProtocolAction {
+	return v.PRProtocolReceipt.Action
+}
+
+func (v *PRFreezeFreezePullRequestHeadPrProtocolResult) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*PRFreezeFreezePullRequestHeadPrProtocolResult
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.PRFreezeFreezePullRequestHeadPrProtocolResult = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.PRProtocolReceipt)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalPRFreezeFreezePullRequestHeadPrProtocolResult struct {
+	Task *PRProtocolReceiptTaskAgentTask `json:"task"`
+
+	Action *PRProtocolReceiptActionPrProtocolAction `json:"action"`
+}
+
+func (v *PRFreezeFreezePullRequestHeadPrProtocolResult) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *PRFreezeFreezePullRequestHeadPrProtocolResult) __premarshalJSON() (*__premarshalPRFreezeFreezePullRequestHeadPrProtocolResult, error) {
+	var retval __premarshalPRFreezeFreezePullRequestHeadPrProtocolResult
+
+	retval.Task = v.PRProtocolReceipt.Task
+	retval.Action = v.PRProtocolReceipt.Action
+	return &retval, nil
+}
+
+// PRFreezeResponse is returned by PRFreeze on success.
+type PRFreezeResponse struct {
+	// #3448 — the assignee freezes a full 40-hex head on a task with a pull_request reference (hrn:node:hadronmemory.com:specs:cor:agt:050:08). Any child seat's newest negative verdict at that SHA, including a superseded seat or dropped slot, refuses REVIEW_SEAT_NOT_SUPERSEDABLE: returning to an old head cannot erase a finding.
+	FreezePullRequestHead *PRFreezeFreezePullRequestHeadPrProtocolResult `json:"freezePullRequestHead"`
+}
+
+// GetFreezePullRequestHead returns PRFreezeResponse.FreezePullRequestHead, and is useful for accessing the field via an interface.
+func (v *PRFreezeResponse) GetFreezePullRequestHead() *PRFreezeFreezePullRequestHeadPrProtocolResult {
+	return v.FreezePullRequestHead
+}
+
+// PR protocol commands (#1664 over server #3448). Minimal committed receipt;
+// no task-property mirror is read or interpreted by the CLI.
+type PRProtocolReceipt struct {
+	Task   *PRProtocolReceiptTaskAgentTask          `json:"task"`
+	Action *PRProtocolReceiptActionPrProtocolAction `json:"action"`
+}
+
+// GetTask returns PRProtocolReceipt.Task, and is useful for accessing the field via an interface.
+func (v *PRProtocolReceipt) GetTask() *PRProtocolReceiptTaskAgentTask { return v.Task }
+
+// GetAction returns PRProtocolReceipt.Action, and is useful for accessing the field via an interface.
+func (v *PRProtocolReceipt) GetAction() *PRProtocolReceiptActionPrProtocolAction { return v.Action }
+
+// PRProtocolReceiptActionPrProtocolAction includes the requested fields of the GraphQL type PrProtocolAction.
+// The GraphQL type's documentation follows.
+//
+// #3448 — register guidance for the committed event code (hrn:node:hadronmemory.com:specs:cor:agt:110:03). A caller without an Agent gets WITHHELD and the code only, with no register lookup.
+type PRProtocolReceiptActionPrProtocolAction struct {
+	Code    string          `json:"code"`
+	State   TickActionState `json:"state"`
+	TaskLoc *string         `json:"taskLoc"`
+	TaskUrn *string         `json:"taskUrn"`
+}
+
+// GetCode returns PRProtocolReceiptActionPrProtocolAction.Code, and is useful for accessing the field via an interface.
+func (v *PRProtocolReceiptActionPrProtocolAction) GetCode() string { return v.Code }
+
+// GetState returns PRProtocolReceiptActionPrProtocolAction.State, and is useful for accessing the field via an interface.
+func (v *PRProtocolReceiptActionPrProtocolAction) GetState() TickActionState { return v.State }
+
+// GetTaskLoc returns PRProtocolReceiptActionPrProtocolAction.TaskLoc, and is useful for accessing the field via an interface.
+func (v *PRProtocolReceiptActionPrProtocolAction) GetTaskLoc() *string { return v.TaskLoc }
+
+// GetTaskUrn returns PRProtocolReceiptActionPrProtocolAction.TaskUrn, and is useful for accessing the field via an interface.
+func (v *PRProtocolReceiptActionPrProtocolAction) GetTaskUrn() *string { return v.TaskUrn }
+
+// PRProtocolReceiptTaskAgentTask includes the requested fields of the GraphQL type AgentTask.
+// The GraphQL type's documentation follows.
+//
+// One piece of work a team App has assigned, or wants assigned
+// (hrn:node:hadronmemory.com:specs:cor:agt:050:01). The platform records who holds it, since when and how it
+// ended; it never reads what the work is. Readable by the App's participants,
+// workers acting through their sessions included (hrn:node:hadronmemory.com:specs:cor:agt:050:21).
+type PRProtocolReceiptTaskAgentTask struct {
+	Id string `json:"id"`
+	// The short handle of this task, for example "AT3.405": its project (AT3, a top-level task counted per App) and its
+	// number within each parent down to it (hrn:node:hadronmemory.com:specs:cor:agt:050:01). "AT0" is the reserved
+	// project "No project": a task made with no project is AT0.<n>. An alias for the id, which stays canonical; every
+	// task operation that takes a task id also takes the handle. Immutable: parentage is fixed at creation. A person who
+	// belongs to several Apps qualifies it as hrn:agenttask:<app-urn>:AT3.405, where the App URN is the App's urn.
+	// The handle is not the number of any GitHub issue the task's source names.
+	Handle string          `json:"handle"`
+	Status AgentTaskStatus `json:"status"`
+}
+
+// GetId returns PRProtocolReceiptTaskAgentTask.Id, and is useful for accessing the field via an interface.
+func (v *PRProtocolReceiptTaskAgentTask) GetId() string { return v.Id }
+
+// GetHandle returns PRProtocolReceiptTaskAgentTask.Handle, and is useful for accessing the field via an interface.
+func (v *PRProtocolReceiptTaskAgentTask) GetHandle() string { return v.Handle }
+
+// GetStatus returns PRProtocolReceiptTaskAgentTask.Status, and is useful for accessing the field via an interface.
+func (v *PRProtocolReceiptTaskAgentTask) GetStatus() AgentTaskStatus { return v.Status }
+
+// PRReadinessPullRequestReadiness includes the requested fields of the GraphQL type PullRequestReadiness.
+// The GraphQL type's documentation follows.
+//
+// #3448 — readiness ignores opaque properties (hrn:node:hadronmemory.com:specs:cor:agt:050:28).
+type PRReadinessPullRequestReadiness struct {
+	Ready bool                                                       `json:"ready"`
+	Head  string                                                     `json:"head"`
+	Slots []*PRReadinessPullRequestReadinessSlotsReviewSlotReadiness `json:"slots"`
+}
+
+// GetReady returns PRReadinessPullRequestReadiness.Ready, and is useful for accessing the field via an interface.
+func (v *PRReadinessPullRequestReadiness) GetReady() bool { return v.Ready }
+
+// GetHead returns PRReadinessPullRequestReadiness.Head, and is useful for accessing the field via an interface.
+func (v *PRReadinessPullRequestReadiness) GetHead() string { return v.Head }
+
+// GetSlots returns PRReadinessPullRequestReadiness.Slots, and is useful for accessing the field via an interface.
+func (v *PRReadinessPullRequestReadiness) GetSlots() []*PRReadinessPullRequestReadinessSlotsReviewSlotReadiness {
+	return v.Slots
+}
+
+// PRReadinessPullRequestReadinessSlotsReviewSlotReadiness includes the requested fields of the GraphQL type ReviewSlotReadiness.
+// The GraphQL type's documentation follows.
+//
+// #3448 — a required slot's current unsuperseded seat, from typed events only.
+type PRReadinessPullRequestReadinessSlotsReviewSlotReadiness struct {
+	Slot          string         `json:"slot"`
+	CurrentTaskId *string        `json:"currentTaskId"`
+	State         string         `json:"state"`
+	Verdict       *ReviewVerdict `json:"verdict"`
+	Head          *string        `json:"head"`
+	Counts        bool           `json:"counts"`
+}
+
+// GetSlot returns PRReadinessPullRequestReadinessSlotsReviewSlotReadiness.Slot, and is useful for accessing the field via an interface.
+func (v *PRReadinessPullRequestReadinessSlotsReviewSlotReadiness) GetSlot() string { return v.Slot }
+
+// GetCurrentTaskId returns PRReadinessPullRequestReadinessSlotsReviewSlotReadiness.CurrentTaskId, and is useful for accessing the field via an interface.
+func (v *PRReadinessPullRequestReadinessSlotsReviewSlotReadiness) GetCurrentTaskId() *string {
+	return v.CurrentTaskId
+}
+
+// GetState returns PRReadinessPullRequestReadinessSlotsReviewSlotReadiness.State, and is useful for accessing the field via an interface.
+func (v *PRReadinessPullRequestReadinessSlotsReviewSlotReadiness) GetState() string { return v.State }
+
+// GetVerdict returns PRReadinessPullRequestReadinessSlotsReviewSlotReadiness.Verdict, and is useful for accessing the field via an interface.
+func (v *PRReadinessPullRequestReadinessSlotsReviewSlotReadiness) GetVerdict() *ReviewVerdict {
+	return v.Verdict
+}
+
+// GetHead returns PRReadinessPullRequestReadinessSlotsReviewSlotReadiness.Head, and is useful for accessing the field via an interface.
+func (v *PRReadinessPullRequestReadinessSlotsReviewSlotReadiness) GetHead() *string { return v.Head }
+
+// GetCounts returns PRReadinessPullRequestReadinessSlotsReviewSlotReadiness.Counts, and is useful for accessing the field via an interface.
+func (v *PRReadinessPullRequestReadinessSlotsReviewSlotReadiness) GetCounts() bool { return v.Counts }
+
+// PRReadinessResponse is returned by PRReadiness on success.
+type PRReadinessResponse struct {
+	// #3448 — task readers, including the App's own live key (hrn:node:hadronmemory.com:specs:cor:agt:050:21 / hrn:node:hadronmemory.com:specs:cor:agt:050:23). Null for an unreadable task. PR_HEAD_NOT_FROZEN or REVIEW_SCHEDULE_MISSING for absent event facts.
+	PullRequestReadiness *PRReadinessPullRequestReadiness `json:"pullRequestReadiness"`
+}
+
+// GetPullRequestReadiness returns PRReadinessResponse.PullRequestReadiness, and is useful for accessing the field via an interface.
+func (v *PRReadinessResponse) GetPullRequestReadiness() *PRReadinessPullRequestReadiness {
+	return v.PullRequestReadiness
+}
+
+// PRReadyRecordReadyCallPrProtocolResult includes the requested fields of the GraphQL type PrProtocolResult.
+// The GraphQL type's documentation follows.
+//
+// #3448 — a command committed, with optional register guidance (hrn:node:hadronmemory.com:specs:cor:agt:110:03).
+type PRReadyRecordReadyCallPrProtocolResult struct {
+	PRProtocolReceipt `json:"-"`
+}
+
+// GetTask returns PRReadyRecordReadyCallPrProtocolResult.Task, and is useful for accessing the field via an interface.
+func (v *PRReadyRecordReadyCallPrProtocolResult) GetTask() *PRProtocolReceiptTaskAgentTask {
+	return v.PRProtocolReceipt.Task
+}
+
+// GetAction returns PRReadyRecordReadyCallPrProtocolResult.Action, and is useful for accessing the field via an interface.
+func (v *PRReadyRecordReadyCallPrProtocolResult) GetAction() *PRProtocolReceiptActionPrProtocolAction {
+	return v.PRProtocolReceipt.Action
+}
+
+func (v *PRReadyRecordReadyCallPrProtocolResult) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*PRReadyRecordReadyCallPrProtocolResult
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.PRReadyRecordReadyCallPrProtocolResult = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.PRProtocolReceipt)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalPRReadyRecordReadyCallPrProtocolResult struct {
+	Task *PRProtocolReceiptTaskAgentTask `json:"task"`
+
+	Action *PRProtocolReceiptActionPrProtocolAction `json:"action"`
+}
+
+func (v *PRReadyRecordReadyCallPrProtocolResult) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *PRReadyRecordReadyCallPrProtocolResult) __premarshalJSON() (*__premarshalPRReadyRecordReadyCallPrProtocolResult, error) {
+	var retval __premarshalPRReadyRecordReadyCallPrProtocolResult
+
+	retval.Task = v.PRProtocolReceipt.Task
+	retval.Action = v.PRProtocolReceipt.Action
+	return &retval, nil
+}
+
+// PRReadyResponse is returned by PRReady on success.
+type PRReadyResponse struct {
+	// #3448 — build assignee records pr.ready only when every current scheduled seat is finished with APPROVE, PASS or CARRY at the frozen head. Its verdict actor must differ from both the build's current assignee and the newest pr.frozen actor; Worker/person identity stays distinct from holder credentials. PR_NOT_READY carries failing slots; event facts only, never opaque properties (hrn:node:hadronmemory.com:specs:cor:agt:050:28).
+	RecordReadyCall *PRReadyRecordReadyCallPrProtocolResult `json:"recordReadyCall"`
+}
+
+// GetRecordReadyCall returns PRReadyResponse.RecordReadyCall, and is useful for accessing the field via an interface.
+func (v *PRReadyResponse) GetRecordReadyCall() *PRReadyRecordReadyCallPrProtocolResult {
+	return v.RecordReadyCall
+}
+
+// PRScheduleResponse is returned by PRSchedule on success.
+type PRScheduleResponse struct {
+	// #3448 — owner-chain only, never the assignee (hrn:node:hadronmemory.com:specs:cor:agt:050:09). Non-empty unique colon-separated atom slots, at most 64 characters each; latest event replaces the schedule. Dropping a current negative slot at the frozen head refuses REVIEW_SEAT_NOT_SUPERSEDABLE. All five protocol commands refuse finished/cancelled written tasks with TASK_ENDED after checking authority.
+	SetReviewSchedule *PRScheduleSetReviewSchedulePrProtocolResult `json:"setReviewSchedule"`
+}
+
+// GetSetReviewSchedule returns PRScheduleResponse.SetReviewSchedule, and is useful for accessing the field via an interface.
+func (v *PRScheduleResponse) GetSetReviewSchedule() *PRScheduleSetReviewSchedulePrProtocolResult {
+	return v.SetReviewSchedule
+}
+
+// PRScheduleSetReviewSchedulePrProtocolResult includes the requested fields of the GraphQL type PrProtocolResult.
+// The GraphQL type's documentation follows.
+//
+// #3448 — a command committed, with optional register guidance (hrn:node:hadronmemory.com:specs:cor:agt:110:03).
+type PRScheduleSetReviewSchedulePrProtocolResult struct {
+	PRProtocolReceipt `json:"-"`
+}
+
+// GetTask returns PRScheduleSetReviewSchedulePrProtocolResult.Task, and is useful for accessing the field via an interface.
+func (v *PRScheduleSetReviewSchedulePrProtocolResult) GetTask() *PRProtocolReceiptTaskAgentTask {
+	return v.PRProtocolReceipt.Task
+}
+
+// GetAction returns PRScheduleSetReviewSchedulePrProtocolResult.Action, and is useful for accessing the field via an interface.
+func (v *PRScheduleSetReviewSchedulePrProtocolResult) GetAction() *PRProtocolReceiptActionPrProtocolAction {
+	return v.PRProtocolReceipt.Action
+}
+
+func (v *PRScheduleSetReviewSchedulePrProtocolResult) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*PRScheduleSetReviewSchedulePrProtocolResult
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.PRScheduleSetReviewSchedulePrProtocolResult = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.PRProtocolReceipt)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalPRScheduleSetReviewSchedulePrProtocolResult struct {
+	Task *PRProtocolReceiptTaskAgentTask `json:"task"`
+
+	Action *PRProtocolReceiptActionPrProtocolAction `json:"action"`
+}
+
+func (v *PRScheduleSetReviewSchedulePrProtocolResult) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *PRScheduleSetReviewSchedulePrProtocolResult) __premarshalJSON() (*__premarshalPRScheduleSetReviewSchedulePrProtocolResult, error) {
+	var retval __premarshalPRScheduleSetReviewSchedulePrProtocolResult
+
+	retval.Task = v.PRProtocolReceipt.Task
+	retval.Action = v.PRProtocolReceipt.Action
+	return &retval, nil
+}
+
+// PRSeatAssignReviewSeatPrProtocolResult includes the requested fields of the GraphQL type PrProtocolResult.
+// The GraphQL type's documentation follows.
+//
+// #3448 — a command committed, with optional register guidance (hrn:node:hadronmemory.com:specs:cor:agt:110:03).
+type PRSeatAssignReviewSeatPrProtocolResult struct {
+	PRProtocolReceipt `json:"-"`
+}
+
+// GetTask returns PRSeatAssignReviewSeatPrProtocolResult.Task, and is useful for accessing the field via an interface.
+func (v *PRSeatAssignReviewSeatPrProtocolResult) GetTask() *PRProtocolReceiptTaskAgentTask {
+	return v.PRProtocolReceipt.Task
+}
+
+// GetAction returns PRSeatAssignReviewSeatPrProtocolResult.Action, and is useful for accessing the field via an interface.
+func (v *PRSeatAssignReviewSeatPrProtocolResult) GetAction() *PRProtocolReceiptActionPrProtocolAction {
+	return v.PRProtocolReceipt.Action
+}
+
+func (v *PRSeatAssignReviewSeatPrProtocolResult) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*PRSeatAssignReviewSeatPrProtocolResult
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.PRSeatAssignReviewSeatPrProtocolResult = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.PRProtocolReceipt)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalPRSeatAssignReviewSeatPrProtocolResult struct {
+	Task *PRProtocolReceiptTaskAgentTask `json:"task"`
+
+	Action *PRProtocolReceiptActionPrProtocolAction `json:"action"`
+}
+
+func (v *PRSeatAssignReviewSeatPrProtocolResult) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *PRSeatAssignReviewSeatPrProtocolResult) __premarshalJSON() (*__premarshalPRSeatAssignReviewSeatPrProtocolResult, error) {
+	var retval __premarshalPRSeatAssignReviewSeatPrProtocolResult
+
+	retval.Task = v.PRProtocolReceipt.Task
+	retval.Action = v.PRProtocolReceipt.Action
+	return &retval, nil
+}
+
+// PRSeatResponse is returned by PRSeat on success.
+type PRSeatResponse struct {
+	// #3448 — seat owner-chain binds a direct child to a scheduled slot at the frozen head. A current seat's CHANGES_REQUESTED, FAIL or REFUSED at this head prevents replacement, with or without supersedes, and a negative seat cannot move slots (REVIEW_SEAT_NOT_SUPERSEDABLE). A seat task is assigned once (REVIEW_SEAT_ALREADY_ASSIGNED); a replacement must name the current sibling in supersedes (REVIEW_SEAT_SUPERSEDES_REQUIRED). Checks and write hold the build row FOR UPDATE.
+	AssignReviewSeat *PRSeatAssignReviewSeatPrProtocolResult `json:"assignReviewSeat"`
+}
+
+// GetAssignReviewSeat returns PRSeatResponse.AssignReviewSeat, and is useful for accessing the field via an interface.
+func (v *PRSeatResponse) GetAssignReviewSeat() *PRSeatAssignReviewSeatPrProtocolResult {
+	return v.AssignReviewSeat
+}
+
+// PRVerdictRecordReviewVerdictPrProtocolResult includes the requested fields of the GraphQL type PrProtocolResult.
+// The GraphQL type's documentation follows.
+//
+// #3448 — a command committed, with optional register guidance (hrn:node:hadronmemory.com:specs:cor:agt:110:03).
+type PRVerdictRecordReviewVerdictPrProtocolResult struct {
+	PRProtocolReceipt `json:"-"`
+}
+
+// GetTask returns PRVerdictRecordReviewVerdictPrProtocolResult.Task, and is useful for accessing the field via an interface.
+func (v *PRVerdictRecordReviewVerdictPrProtocolResult) GetTask() *PRProtocolReceiptTaskAgentTask {
+	return v.PRProtocolReceipt.Task
+}
+
+// GetAction returns PRVerdictRecordReviewVerdictPrProtocolResult.Action, and is useful for accessing the field via an interface.
+func (v *PRVerdictRecordReviewVerdictPrProtocolResult) GetAction() *PRProtocolReceiptActionPrProtocolAction {
+	return v.PRProtocolReceipt.Action
+}
+
+func (v *PRVerdictRecordReviewVerdictPrProtocolResult) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*PRVerdictRecordReviewVerdictPrProtocolResult
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.PRVerdictRecordReviewVerdictPrProtocolResult = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.PRProtocolReceipt)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalPRVerdictRecordReviewVerdictPrProtocolResult struct {
+	Task *PRProtocolReceiptTaskAgentTask `json:"task"`
+
+	Action *PRProtocolReceiptActionPrProtocolAction `json:"action"`
+}
+
+func (v *PRVerdictRecordReviewVerdictPrProtocolResult) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *PRVerdictRecordReviewVerdictPrProtocolResult) __premarshalJSON() (*__premarshalPRVerdictRecordReviewVerdictPrProtocolResult, error) {
+	var retval __premarshalPRVerdictRecordReviewVerdictPrProtocolResult
+
+	retval.Task = v.PRProtocolReceipt.Task
+	retval.Action = v.PRProtocolReceipt.Action
+	return &retval, nil
+}
+
+// PRVerdictResponse is returned by PRVerdict on success.
+type PRVerdictResponse struct {
+	// #3448 — STARTED seat's assignee records a verdict at its assigned head, without finishing it (hrn:node:hadronmemory.com:specs:cor:agt:050:08). REVIEW_SEAT_UNASSIGNED or REVIEW_HEAD_MISMATCH writes nothing. A different actor cannot overwrite a same-head negative verdict (REVIEW_SEAT_NOT_SUPERSEDABLE); its original actor may re-rate.
+	RecordReviewVerdict *PRVerdictRecordReviewVerdictPrProtocolResult `json:"recordReviewVerdict"`
+}
+
+// GetRecordReviewVerdict returns PRVerdictResponse.RecordReviewVerdict, and is useful for accessing the field via an interface.
+func (v *PRVerdictResponse) GetRecordReviewVerdict() *PRVerdictRecordReviewVerdictPrProtocolResult {
+	return v.RecordReviewVerdict
+}
+
 // PreviewAutomationResponse is returned by PreviewAutomation on success.
 type PreviewAutomationResponse struct {
 	// #1719: review exact automation graph bytes and digest. triggerRef is the trigger row ID; MANUAL uses the origin AppRun ID. Only its run-as user or the manager of an App-only trigger may preview.
@@ -61764,6 +64687,75 @@ var AllReadyFilter = []ReadyFilter{
 	ReadyFilterAny,
 	ReadyFilterExclude,
 	ReadyFilterOnly,
+}
+
+// RecordAppActionRecordAppActionRecordAppActionResult includes the requested fields of the GraphQL type RecordAppActionResult.
+// The GraphQL type's documentation follows.
+//
+// #3449: App action and caller-readable register answer (hrn:node:hadronmemory.com:specs:cor:agt:110:03).
+type RecordAppActionRecordAppActionRecordAppActionResult struct {
+	EventId string                                                               `json:"eventId"`
+	Action  *RecordAppActionRecordAppActionRecordAppActionResultActionTickAction `json:"action"`
+}
+
+// GetEventId returns RecordAppActionRecordAppActionRecordAppActionResult.EventId, and is useful for accessing the field via an interface.
+func (v *RecordAppActionRecordAppActionRecordAppActionResult) GetEventId() string { return v.EventId }
+
+// GetAction returns RecordAppActionRecordAppActionRecordAppActionResult.Action, and is useful for accessing the field via an interface.
+func (v *RecordAppActionRecordAppActionRecordAppActionResult) GetAction() *RecordAppActionRecordAppActionRecordAppActionResultActionTickAction {
+	return v.Action
+}
+
+// RecordAppActionRecordAppActionRecordAppActionResultActionTickAction includes the requested fields of the GraphQL type TickAction.
+type RecordAppActionRecordAppActionRecordAppActionResultActionTickAction struct {
+	// Permanent action code (hrn:node:hadronmemory.com:specs:cor:agt:110:01).
+	Code  string          `json:"code"`
+	State TickActionState `json:"state"`
+	// The readable entry's loc, including when no usable task was found.
+	TaskLoc *string `json:"taskLoc"`
+	// The readable runnable task nearest in the woken worker's Agent chain.
+	TaskUrn *string `json:"taskUrn"`
+}
+
+// GetCode returns RecordAppActionRecordAppActionRecordAppActionResultActionTickAction.Code, and is useful for accessing the field via an interface.
+func (v *RecordAppActionRecordAppActionRecordAppActionResultActionTickAction) GetCode() string {
+	return v.Code
+}
+
+// GetState returns RecordAppActionRecordAppActionRecordAppActionResultActionTickAction.State, and is useful for accessing the field via an interface.
+func (v *RecordAppActionRecordAppActionRecordAppActionResultActionTickAction) GetState() TickActionState {
+	return v.State
+}
+
+// GetTaskLoc returns RecordAppActionRecordAppActionRecordAppActionResultActionTickAction.TaskLoc, and is useful for accessing the field via an interface.
+func (v *RecordAppActionRecordAppActionRecordAppActionResultActionTickAction) GetTaskLoc() *string {
+	return v.TaskLoc
+}
+
+// GetTaskUrn returns RecordAppActionRecordAppActionRecordAppActionResultActionTickAction.TaskUrn, and is useful for accessing the field via an interface.
+func (v *RecordAppActionRecordAppActionRecordAppActionResultActionTickAction) GetTaskUrn() *string {
+	return v.TaskUrn
+}
+
+// RecordAppActionResponse is returned by RecordAppAction on success.
+type RecordAppActionResponse struct {
+	// #3449: App action app.<current-app-slug>.<name>, lower-case legal URN atom, at most 64 characters.
+	// Same creator authority as createAgentTask (hrn:node:hadronmemory.com:specs:cor:agt:050:06).
+	// taskRef must name a readable task in this App; unknown and foreign refs answer TASK_NOT_FOUND.
+	// An omitted payload becomes {}; explicit null, non-objects, NUL or an unpaired surrogate in a JSON key/value refuse BAD_USER_INPUT.
+	// payload is a JSON object of at most 4096 UTF-8 bytes, readable by EVERY App participant and the App's own key,
+	// with or without taskRef, and must contain nothing secret (hrn:node:hadronmemory.com:specs:cor:agt:050:23).
+	// Each successful call appends a new event (retries are not deduplicated), type = code, payload = {payload}.
+	// Task-bound actions are passive: they never
+	// acknowledge assignment/child-finished wakes. APP_ACTION_CODE_INVALID refuses invalid codes and foreign slugs.
+	// The register answer reads as the caller (hrn:node:hadronmemory.com:specs:cor:agt:110:03), never authorization.
+	// A caller without an Agent receives WITHHELD with code only, no task loc/URN and no register lookup.
+	RecordAppAction *RecordAppActionRecordAppActionRecordAppActionResult `json:"recordAppAction"`
+}
+
+// GetRecordAppAction returns RecordAppActionResponse.RecordAppAction, and is useful for accessing the field via an interface.
+func (v *RecordAppActionResponse) GetRecordAppAction() *RecordAppActionRecordAppActionRecordAppActionResult {
+	return v.RecordAppAction
 }
 
 // RecordSessionOutcomeRecordSessionOutcomeSession includes the requested fields of the GraphQL type Session.
@@ -66992,6 +69984,27 @@ func (v *RetryFailedEmbeddingsResponse) GetRetryFailedEmbeddings() *int {
 	return v.RetryFailedEmbeddings
 }
 
+// #3448 — a typed review outcome; the command records it without finishing the task (hrn:node:hadronmemory.com:specs:cor:agt:050:08).
+type ReviewVerdict string
+
+const (
+	ReviewVerdictApprove          ReviewVerdict = "APPROVE"
+	ReviewVerdictCarry            ReviewVerdict = "CARRY"
+	ReviewVerdictChangesRequested ReviewVerdict = "CHANGES_REQUESTED"
+	ReviewVerdictFail             ReviewVerdict = "FAIL"
+	ReviewVerdictPass             ReviewVerdict = "PASS"
+	ReviewVerdictRefused          ReviewVerdict = "REFUSED"
+)
+
+var AllReviewVerdict = []ReviewVerdict{
+	ReviewVerdictApprove,
+	ReviewVerdictCarry,
+	ReviewVerdictChangesRequested,
+	ReviewVerdictFail,
+	ReviewVerdictPass,
+	ReviewVerdictRefused,
+}
+
 // Shared projection for list / single-snapshot / label reads.
 type RevisionFields struct {
 	Id          string   `json:"id"`
@@ -69213,7 +72226,10 @@ func (v *SearchNodesResponse) GetFindNodes() *SearchNodesFindNodesFindNodesResul
 //
 // Set 'dryRun: true' to get per-node/per-field match counts WITHOUT writing.
 type SearchReplaceInNodesInput struct {
-	CaseInsensitive *bool `json:"caseInsensitive"`
+	// #1328 — the author task this write worked from, required when the node's
+	// role rule names one (before and after the write). See AuthoredWithInput.
+	AuthoredWith    *AuthoredWithInput `json:"authoredWith,omitempty"`
+	CaseInsensitive *bool              `json:"caseInsensitive"`
 	// When true, report matches without writing anything.
 	DryRun *bool `json:"dryRun"`
 	// Which text fields to search. At least one required.
@@ -69235,6 +72251,9 @@ type SearchReplaceInNodesInput struct {
 	// Treat oldText as a RegExp source and newText as a replacement pattern.
 	Regex *bool `json:"regex"`
 }
+
+// GetAuthoredWith returns SearchReplaceInNodesInput.AuthoredWith, and is useful for accessing the field via an interface.
+func (v *SearchReplaceInNodesInput) GetAuthoredWith() *AuthoredWithInput { return v.AuthoredWith }
 
 // GetCaseInsensitive returns SearchReplaceInNodesInput.CaseInsensitive, and is useful for accessing the field via an interface.
 func (v *SearchReplaceInNodesInput) GetCaseInsensitive() *bool { return v.CaseInsensitive }
@@ -73208,7 +76227,7 @@ func (v *SetQuotaLimitSetQuotaLimitQuotaCounter) __premarshalJSON() (*__premarsh
 
 // SetTeamPauseResponse is returned by SetTeamPause on success.
 type SetTeamPauseResponse struct {
-	// #2138: pause or resume the whole team, as whoever manages the App. Separate from each worker's own pause: a worker cannot lift it, and ending it clears no self-pause. While paused, no worker is nudged and every worker's check status is PENDING (TEAM_PAUSED).
+	// #2138: pause or resume the whole team, as whoever manages the App. Separate from each worker's own pause: a worker cannot lift it, and ending it clears no self-pause. While paused, no worker is nudged and every worker's check status is PENDING (TEAM_PAUSED). #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	SetTeamPause *SetTeamPauseSetTeamPause `json:"setTeamPause"`
 }
 
@@ -73984,6 +77003,7 @@ func (v *SetWorkerReportsToSetWorkerReportsToWorker) __premarshalJSON() (*__prem
 type SetWorkerWakeSettingsResponse struct {
 	// #1747 — change a worker wake settings (hrn:node:hadronmemory.com:specs:cor:agt:080:03, :21): the worker itself, its holder, or whoever manages
 	// the App, in either direction. Never the may-subscribe-workers grant.
+	// #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	SetWorkerWakeSettings *SetWorkerWakeSettingsSetWorkerWakeSettings `json:"setWorkerWakeSettings"`
 }
 
@@ -75542,8 +78562,10 @@ var AllSpecRewriteStatus = []SpecRewriteStatus{
 // protected addresses are skipped; ordinary nodes need not carry the spec role.
 // Generic replacement keeps its governed-node protections.
 type SpecSearchReplaceInput struct {
-	CaseInsensitive *bool `json:"caseInsensitive"`
-	DryRun          *bool `json:"dryRun"`
+	// #1328 — one claim for every changed spec. See AuthoredWithInput.
+	AuthoredWith    *AuthoredWithInput `json:"authoredWith,omitempty"`
+	CaseInsensitive *bool              `json:"caseInsensitive"`
+	DryRun          *bool              `json:"dryRun"`
 	// Required for apply; copied from the exact dry-run response.
 	ExpectedPlan *string         `json:"expectedPlan,omitempty"`
 	Fields       []SpecTextField `json:"fields"`
@@ -75558,6 +78580,9 @@ type SpecSearchReplaceInput struct {
 	// Literal mode only; matches the CLI's default ASCII word-boundary behavior.
 	WordBoundary *bool `json:"wordBoundary"`
 }
+
+// GetAuthoredWith returns SpecSearchReplaceInput.AuthoredWith, and is useful for accessing the field via an interface.
+func (v *SpecSearchReplaceInput) GetAuthoredWith() *AuthoredWithInput { return v.AuthoredWith }
 
 // GetCaseInsensitive returns SpecSearchReplaceInput.CaseInsensitive, and is useful for accessing the field via an interface.
 func (v *SpecSearchReplaceInput) GetCaseInsensitive() *bool { return v.CaseInsensitive }
@@ -76256,6 +79281,7 @@ type SubscribeTickerResponse struct {
 	// (SUBSCRIBE_CADENCE_NEEDS_HOLDER); a worker holding the may-subscribe-workers grant, with a person
 	// behind the call, for OTHER workers only. Idempotent for a live subscription. A grant use is announced
 	// to the team chat, best-effort: announcement says POSTED or FAILED, and the subscription stands either way.
+	// #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	SubscribeWorker *SubscribeTickerSubscribeWorkerSubscribeResult `json:"subscribeWorker"`
 }
 
@@ -77112,6 +80138,8 @@ type TeamChatMessageFields struct {
 	// The seq this message replies to, when it is a reply.
 	ReplyToSeq *int     `json:"replyToSeq"`
 	Mentions   []string `json:"mentions"`
+	// Immutable head identity/display pairs. Null means absent or withheld; [] means known empty.
+	TeamTags []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
 }
 
 // GetNodeId returns TeamChatMessageFields.NodeId, and is useful for accessing the field via an interface.
@@ -77143,6 +80171,23 @@ func (v *TeamChatMessageFields) GetReplyToSeq() *int { return v.ReplyToSeq }
 
 // GetMentions returns TeamChatMessageFields.Mentions, and is useful for accessing the field via an interface.
 func (v *TeamChatMessageFields) GetMentions() []string { return v.Mentions }
+
+// GetTeamTags returns TeamChatMessageFields.TeamTags, and is useful for accessing the field via an interface.
+func (v *TeamChatMessageFields) GetTeamTags() []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.TeamTags
+}
+
+// TeamChatMessageFieldsTeamTagsTeamTagSnapshot includes the requested fields of the GraphQL type TeamTagSnapshot.
+type TeamChatMessageFieldsTeamTagsTeamTagSnapshot struct {
+	HeadId string `json:"headId"`
+	Label  string `json:"label"`
+}
+
+// GetHeadId returns TeamChatMessageFieldsTeamTagsTeamTagSnapshot.HeadId, and is useful for accessing the field via an interface.
+func (v *TeamChatMessageFieldsTeamTagsTeamTagSnapshot) GetHeadId() string { return v.HeadId }
+
+// GetLabel returns TeamChatMessageFieldsTeamTagsTeamTagSnapshot.Label, and is useful for accessing the field via an interface.
+func (v *TeamChatMessageFieldsTeamTagsTeamTagSnapshot) GetLabel() string { return v.Label }
 
 // TeamChatMessagesAttributedResponse is returned by TeamChatMessagesAttributed on success.
 type TeamChatMessagesAttributedResponse struct {
@@ -77274,6 +80319,11 @@ func (v *TeamChatMessagesAttributedTeamChatMessagesTeamChatMessagesPageItemsTeam
 	return v.TeamChatMessageFields.Mentions
 }
 
+// GetTeamTags returns TeamChatMessagesAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.TeamTags, and is useful for accessing the field via an interface.
+func (v *TeamChatMessagesAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetTeamTags() []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.TeamChatMessageFields.TeamTags
+}
+
 func (v *TeamChatMessagesAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -77319,6 +80369,8 @@ type __premarshalTeamChatMessagesAttributedTeamChatMessagesTeamChatMessagesPageI
 	ReplyToSeq *int `json:"replyToSeq"`
 
 	Mentions []string `json:"mentions"`
+
+	TeamTags []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
 }
 
 func (v *TeamChatMessagesAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) MarshalJSON() ([]byte, error) {
@@ -77342,6 +80394,7 @@ func (v *TeamChatMessagesAttributedTeamChatMessagesTeamChatMessagesPageItemsTeam
 	retval.SessionId = v.TeamChatMessageFields.SessionId
 	retval.ReplyToSeq = v.TeamChatMessageFields.ReplyToSeq
 	retval.Mentions = v.TeamChatMessageFields.Mentions
+	retval.TeamTags = v.TeamChatMessageFields.TeamTags
 	return &retval, nil
 }
 
@@ -77473,6 +80526,11 @@ func (v *TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessag
 	return v.TeamChatMessageFields.Mentions
 }
 
+// GetTeamTags returns TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.TeamTags, and is useful for accessing the field via an interface.
+func (v *TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetTeamTags() []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.TeamChatMessageFields.TeamTags
+}
+
 func (v *TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -77518,6 +80576,8 @@ type __premarshalTeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamCh
 	ReplyToSeq *int `json:"replyToSeq"`
 
 	Mentions []string `json:"mentions"`
+
+	TeamTags []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
 }
 
 func (v *TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) MarshalJSON() ([]byte, error) {
@@ -77541,6 +80601,7 @@ func (v *TeamChatMessagesTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessag
 	retval.SessionId = v.TeamChatMessageFields.SessionId
 	retval.ReplyToSeq = v.TeamChatMessageFields.ReplyToSeq
 	retval.Mentions = v.TeamChatMessageFields.Mentions
+	retval.TeamTags = v.TeamChatMessageFields.TeamTags
 	return &retval, nil
 }
 
@@ -77877,6 +80938,11 @@ func (v *TeamChatReadPageAttributedTeamChatMessagesTeamChatMessagesPageItemsTeam
 	return v.TeamChatMessageFields.Mentions
 }
 
+// GetTeamTags returns TeamChatReadPageAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.TeamTags, and is useful for accessing the field via an interface.
+func (v *TeamChatReadPageAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetTeamTags() []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.TeamChatMessageFields.TeamTags
+}
+
 func (v *TeamChatReadPageAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -77922,6 +80988,8 @@ type __premarshalTeamChatReadPageAttributedTeamChatMessagesTeamChatMessagesPageI
 	ReplyToSeq *int `json:"replyToSeq"`
 
 	Mentions []string `json:"mentions"`
+
+	TeamTags []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
 }
 
 func (v *TeamChatReadPageAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) MarshalJSON() ([]byte, error) {
@@ -77945,6 +81013,7 @@ func (v *TeamChatReadPageAttributedTeamChatMessagesTeamChatMessagesPageItemsTeam
 	retval.SessionId = v.TeamChatMessageFields.SessionId
 	retval.ReplyToSeq = v.TeamChatMessageFields.ReplyToSeq
 	retval.Mentions = v.TeamChatMessageFields.Mentions
+	retval.TeamTags = v.TeamChatMessageFields.TeamTags
 	return &retval, nil
 }
 
@@ -78071,6 +81140,11 @@ func (v *TeamChatReadPageTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessag
 	return v.TeamChatMessageFields.Mentions
 }
 
+// GetTeamTags returns TeamChatReadPageTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.TeamTags, and is useful for accessing the field via an interface.
+func (v *TeamChatReadPageTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetTeamTags() []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.TeamChatMessageFields.TeamTags
+}
+
 func (v *TeamChatReadPageTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -78116,6 +81190,8 @@ type __premarshalTeamChatReadPageTeamChatMessagesTeamChatMessagesPageItemsTeamCh
 	ReplyToSeq *int `json:"replyToSeq"`
 
 	Mentions []string `json:"mentions"`
+
+	TeamTags []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
 }
 
 func (v *TeamChatReadPageTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) MarshalJSON() ([]byte, error) {
@@ -78139,6 +81215,7 @@ func (v *TeamChatReadPageTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessag
 	retval.SessionId = v.TeamChatMessageFields.SessionId
 	retval.ReplyToSeq = v.TeamChatMessageFields.ReplyToSeq
 	retval.Mentions = v.TeamChatMessageFields.Mentions
+	retval.TeamTags = v.TeamChatMessageFields.TeamTags
 	return &retval, nil
 }
 
@@ -78251,6 +81328,406 @@ func (v *TeamChatSearchTeamChatSearchTeamChatSearchPage) __premarshalJSON() (*__
 	retval.Complete = v.ChatSearchPageFields.Complete
 	retval.Cursor = v.ChatSearchPageFields.Cursor
 	retval.Items = v.ChatSearchPageFields.Items
+	return &retval, nil
+}
+
+// TeamChatTagsAttributedResponse is returned by TeamChatTagsAttributed on success.
+type TeamChatTagsAttributedResponse struct {
+	// Read a team App's chat (#939), seq-ordered ascending, as a uniform
+	// { items, total } page. sinceSeq is a watermark cursor: only messages with
+	// seq STRICTLY GREATER than it are returned (pass the last seq you have
+	// seen). With neither cursor nor offset, the NEWEST page is returned, still
+	// ascending. Pass sinceSeq: 0 to start a forward walk at the oldest message.
+	// beforeSeq (#1116) is its BACKWARD mirror for scroll-up paging: only
+	// messages with seq STRICTLY LESS than it are considered, and the NEWEST
+	// limit of those come back -- the page immediately before the cursor, still
+	// ascending. The two compose, so passing both reads a bounded slice.
+	// TeamChatMessagesPage.total counts that cursor range and the mentionsRef
+	// filter before paging, not the whole team-chat history.
+	// An explicit offset retains oldest-first positional paging for existing
+	// clients; prefer cursors for new reads. offset is IGNORED when beforeSeq is
+	// given: a cursor exists precisely because a position is unstable while
+	// workers keep posting, and honouring both would put that race back.
+	// mentionsRef filters to messages whose stored envelope mentions the
+	// referenced worker (a Worker id or name of THIS App, retired included) or
+	// user (handle/id) — matching runs against the mention tokens extracted at
+	// write time, never by re-parsing bodies. For a worker it returns what
+	// reaches that worker (#2020): its name, replies to it, and an @all/@team
+	// broadcast the server stamped at post time because its author could wake
+	// everyone (hrn:node:hadronmemory.com:specs:cor:agt:080:14); never the
+	// worker's own posts. A user ref matches the handle alone. The ref must name this App's own
+	// staff or members (a Worker of the App, an AppMember, or the caller); an
+	// unresolvable or foreign mentionsRef yields the empty page identically (no
+	// existence oracle). limit defaults to 20 (cap 200); limit: 0 returns only
+	// total.
+	//
+	// Authorization: an AppMember of the App (any role), an org member with
+	// CONTRIBUTOR+ on the App's org, the owner of a user-owned App, or the
+	// App's own key (a pure App-key principal may READ its team chat).
+	// Error codes (extensions.code): FORBIDDEN (an authenticated caller who is
+	// not a participant), UNAUTHENTICATED (no principal at all; checked before
+	// the App is resolved, so it answers identically whether or not the App
+	// exists).
+	//
+	// appRef and mentionsRef accept the entity's ID or URN.
+	TeamChatMessages *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPage `json:"teamChatMessages"`
+}
+
+// GetTeamChatMessages returns TeamChatTagsAttributedResponse.TeamChatMessages, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsAttributedResponse) GetTeamChatMessages() *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPage {
+	return v.TeamChatMessages
+}
+
+// TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPage includes the requested fields of the GraphQL type TeamChatMessagesPage.
+type TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPage struct {
+	Items []*TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage `json:"items"`
+}
+
+// GetItems returns TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPage.Items, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPage) GetItems() []*TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage {
+	return v.Items
+}
+
+// TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage includes the requested fields of the GraphQL type TeamChatMessage.
+// The GraphQL type's documentation follows.
+//
+// One message in a team App's chat (#939, Worker envelope since #974). Exactly
+// one of authorUserId / authorWorkerId is set, or authorSystem is true (#1791, the
+// platform's own notice, which has neither): a human post carries the user, a
+// worker post carries the Worker (the named casting, cor:dmo:050:11) plus the
+// driving sessionId. mentions holds the lowercased tokens extracted
+// server-side at write time (the '@worker-name / @handle' format, stored
+// without the '@').
+type TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage struct {
+	TeamChatMessageFields `json:"-"`
+}
+
+// GetNodeId returns TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.NodeId, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetNodeId() string {
+	return v.TeamChatMessageFields.NodeId
+}
+
+// GetSeq returns TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.Seq, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetSeq() int {
+	return v.TeamChatMessageFields.Seq
+}
+
+// GetBody returns TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.Body, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetBody() string {
+	return v.TeamChatMessageFields.Body
+}
+
+// GetAt returns TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.At, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAt() string {
+	return v.TeamChatMessageFields.At
+}
+
+// GetAuthorUserId returns TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorUserId, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorUserId() *string {
+	return v.TeamChatMessageFields.AuthorUserId
+}
+
+// GetAuthorWorkerId returns TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorWorkerId, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorWorkerId() *string {
+	return v.TeamChatMessageFields.AuthorWorkerId
+}
+
+// GetAuthorName returns TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorName, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorName() *string {
+	return v.TeamChatMessageFields.AuthorName
+}
+
+// GetSessionId returns TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.SessionId, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetSessionId() *string {
+	return v.TeamChatMessageFields.SessionId
+}
+
+// GetReplyToSeq returns TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.ReplyToSeq, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetReplyToSeq() *int {
+	return v.TeamChatMessageFields.ReplyToSeq
+}
+
+// GetMentions returns TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.Mentions, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetMentions() []string {
+	return v.TeamChatMessageFields.Mentions
+}
+
+// GetTeamTags returns TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.TeamTags, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetTeamTags() []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.TeamChatMessageFields.TeamTags
+}
+
+func (v *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamChatMessageFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage struct {
+	NodeId string `json:"nodeId"`
+
+	Seq int `json:"seq"`
+
+	Body string `json:"body"`
+
+	At string `json:"at"`
+
+	AuthorUserId *string `json:"authorUserId"`
+
+	AuthorWorkerId *string `json:"authorWorkerId"`
+
+	AuthorName *string `json:"authorName"`
+
+	SessionId *string `json:"sessionId"`
+
+	ReplyToSeq *int `json:"replyToSeq"`
+
+	Mentions []string `json:"mentions"`
+
+	TeamTags []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
+}
+
+func (v *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) __premarshalJSON() (*__premarshalTeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage, error) {
+	var retval __premarshalTeamChatTagsAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage
+
+	retval.NodeId = v.TeamChatMessageFields.NodeId
+	retval.Seq = v.TeamChatMessageFields.Seq
+	retval.Body = v.TeamChatMessageFields.Body
+	retval.At = v.TeamChatMessageFields.At
+	retval.AuthorUserId = v.TeamChatMessageFields.AuthorUserId
+	retval.AuthorWorkerId = v.TeamChatMessageFields.AuthorWorkerId
+	retval.AuthorName = v.TeamChatMessageFields.AuthorName
+	retval.SessionId = v.TeamChatMessageFields.SessionId
+	retval.ReplyToSeq = v.TeamChatMessageFields.ReplyToSeq
+	retval.Mentions = v.TeamChatMessageFields.Mentions
+	retval.TeamTags = v.TeamChatMessageFields.TeamTags
+	return &retval, nil
+}
+
+// TeamChatTagsResponse is returned by TeamChatTags on success.
+type TeamChatTagsResponse struct {
+	// Read a team App's chat (#939), seq-ordered ascending, as a uniform
+	// { items, total } page. sinceSeq is a watermark cursor: only messages with
+	// seq STRICTLY GREATER than it are returned (pass the last seq you have
+	// seen). With neither cursor nor offset, the NEWEST page is returned, still
+	// ascending. Pass sinceSeq: 0 to start a forward walk at the oldest message.
+	// beforeSeq (#1116) is its BACKWARD mirror for scroll-up paging: only
+	// messages with seq STRICTLY LESS than it are considered, and the NEWEST
+	// limit of those come back -- the page immediately before the cursor, still
+	// ascending. The two compose, so passing both reads a bounded slice.
+	// TeamChatMessagesPage.total counts that cursor range and the mentionsRef
+	// filter before paging, not the whole team-chat history.
+	// An explicit offset retains oldest-first positional paging for existing
+	// clients; prefer cursors for new reads. offset is IGNORED when beforeSeq is
+	// given: a cursor exists precisely because a position is unstable while
+	// workers keep posting, and honouring both would put that race back.
+	// mentionsRef filters to messages whose stored envelope mentions the
+	// referenced worker (a Worker id or name of THIS App, retired included) or
+	// user (handle/id) — matching runs against the mention tokens extracted at
+	// write time, never by re-parsing bodies. For a worker it returns what
+	// reaches that worker (#2020): its name, replies to it, and an @all/@team
+	// broadcast the server stamped at post time because its author could wake
+	// everyone (hrn:node:hadronmemory.com:specs:cor:agt:080:14); never the
+	// worker's own posts. A user ref matches the handle alone. The ref must name this App's own
+	// staff or members (a Worker of the App, an AppMember, or the caller); an
+	// unresolvable or foreign mentionsRef yields the empty page identically (no
+	// existence oracle). limit defaults to 20 (cap 200); limit: 0 returns only
+	// total.
+	//
+	// Authorization: an AppMember of the App (any role), an org member with
+	// CONTRIBUTOR+ on the App's org, the owner of a user-owned App, or the
+	// App's own key (a pure App-key principal may READ its team chat).
+	// Error codes (extensions.code): FORBIDDEN (an authenticated caller who is
+	// not a participant), UNAUTHENTICATED (no principal at all; checked before
+	// the App is resolved, so it answers identically whether or not the App
+	// exists).
+	//
+	// appRef and mentionsRef accept the entity's ID or URN.
+	TeamChatMessages *TeamChatTagsTeamChatMessagesTeamChatMessagesPage `json:"teamChatMessages"`
+}
+
+// GetTeamChatMessages returns TeamChatTagsResponse.TeamChatMessages, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsResponse) GetTeamChatMessages() *TeamChatTagsTeamChatMessagesTeamChatMessagesPage {
+	return v.TeamChatMessages
+}
+
+// TeamChatTagsTeamChatMessagesTeamChatMessagesPage includes the requested fields of the GraphQL type TeamChatMessagesPage.
+type TeamChatTagsTeamChatMessagesTeamChatMessagesPage struct {
+	Items []*TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage `json:"items"`
+}
+
+// GetItems returns TeamChatTagsTeamChatMessagesTeamChatMessagesPage.Items, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsTeamChatMessagesTeamChatMessagesPage) GetItems() []*TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage {
+	return v.Items
+}
+
+// TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage includes the requested fields of the GraphQL type TeamChatMessage.
+// The GraphQL type's documentation follows.
+//
+// One message in a team App's chat (#939, Worker envelope since #974). Exactly
+// one of authorUserId / authorWorkerId is set, or authorSystem is true (#1791, the
+// platform's own notice, which has neither): a human post carries the user, a
+// worker post carries the Worker (the named casting, cor:dmo:050:11) plus the
+// driving sessionId. mentions holds the lowercased tokens extracted
+// server-side at write time (the '@worker-name / @handle' format, stored
+// without the '@').
+type TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage struct {
+	TeamChatMessageFields `json:"-"`
+}
+
+// GetNodeId returns TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.NodeId, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetNodeId() string {
+	return v.TeamChatMessageFields.NodeId
+}
+
+// GetSeq returns TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.Seq, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetSeq() int {
+	return v.TeamChatMessageFields.Seq
+}
+
+// GetBody returns TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.Body, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetBody() string {
+	return v.TeamChatMessageFields.Body
+}
+
+// GetAt returns TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.At, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAt() string {
+	return v.TeamChatMessageFields.At
+}
+
+// GetAuthorUserId returns TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorUserId, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorUserId() *string {
+	return v.TeamChatMessageFields.AuthorUserId
+}
+
+// GetAuthorWorkerId returns TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorWorkerId, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorWorkerId() *string {
+	return v.TeamChatMessageFields.AuthorWorkerId
+}
+
+// GetAuthorName returns TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.AuthorName, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetAuthorName() *string {
+	return v.TeamChatMessageFields.AuthorName
+}
+
+// GetSessionId returns TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.SessionId, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetSessionId() *string {
+	return v.TeamChatMessageFields.SessionId
+}
+
+// GetReplyToSeq returns TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.ReplyToSeq, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetReplyToSeq() *int {
+	return v.TeamChatMessageFields.ReplyToSeq
+}
+
+// GetMentions returns TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.Mentions, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetMentions() []string {
+	return v.TeamChatMessageFields.Mentions
+}
+
+// GetTeamTags returns TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.TeamTags, and is useful for accessing the field via an interface.
+func (v *TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetTeamTags() []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.TeamChatMessageFields.TeamTags
+}
+
+func (v *TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.TeamChatMessageFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage struct {
+	NodeId string `json:"nodeId"`
+
+	Seq int `json:"seq"`
+
+	Body string `json:"body"`
+
+	At string `json:"at"`
+
+	AuthorUserId *string `json:"authorUserId"`
+
+	AuthorWorkerId *string `json:"authorWorkerId"`
+
+	AuthorName *string `json:"authorName"`
+
+	SessionId *string `json:"sessionId"`
+
+	ReplyToSeq *int `json:"replyToSeq"`
+
+	Mentions []string `json:"mentions"`
+
+	TeamTags []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
+}
+
+func (v *TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) __premarshalJSON() (*__premarshalTeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage, error) {
+	var retval __premarshalTeamChatTagsTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage
+
+	retval.NodeId = v.TeamChatMessageFields.NodeId
+	retval.Seq = v.TeamChatMessageFields.Seq
+	retval.Body = v.TeamChatMessageFields.Body
+	retval.At = v.TeamChatMessageFields.At
+	retval.AuthorUserId = v.TeamChatMessageFields.AuthorUserId
+	retval.AuthorWorkerId = v.TeamChatMessageFields.AuthorWorkerId
+	retval.AuthorName = v.TeamChatMessageFields.AuthorName
+	retval.SessionId = v.TeamChatMessageFields.SessionId
+	retval.ReplyToSeq = v.TeamChatMessageFields.ReplyToSeq
+	retval.Mentions = v.TeamChatMessageFields.Mentions
+	retval.TeamTags = v.TeamChatMessageFields.TeamTags
 	return &retval, nil
 }
 
@@ -78375,6 +81852,11 @@ func (v *TeamChatThreadAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamCh
 	return v.TeamChatMessageFields.Mentions
 }
 
+// GetTeamTags returns TeamChatThreadAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.TeamTags, and is useful for accessing the field via an interface.
+func (v *TeamChatThreadAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetTeamTags() []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.TeamChatMessageFields.TeamTags
+}
+
 func (v *TeamChatThreadAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -78420,6 +81902,8 @@ type __premarshalTeamChatThreadAttributedTeamChatMessagesTeamChatMessagesPageIte
 	ReplyToSeq *int `json:"replyToSeq"`
 
 	Mentions []string `json:"mentions"`
+
+	TeamTags []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
 }
 
 func (v *TeamChatThreadAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) MarshalJSON() ([]byte, error) {
@@ -78443,6 +81927,7 @@ func (v *TeamChatThreadAttributedTeamChatMessagesTeamChatMessagesPageItemsTeamCh
 	retval.SessionId = v.TeamChatMessageFields.SessionId
 	retval.ReplyToSeq = v.TeamChatMessageFields.ReplyToSeq
 	retval.Mentions = v.TeamChatMessageFields.Mentions
+	retval.TeamTags = v.TeamChatMessageFields.TeamTags
 	return &retval, nil
 }
 
@@ -78567,6 +82052,11 @@ func (v *TeamChatThreadTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage)
 	return v.TeamChatMessageFields.Mentions
 }
 
+// GetTeamTags returns TeamChatThreadTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage.TeamTags, and is useful for accessing the field via an interface.
+func (v *TeamChatThreadTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) GetTeamTags() []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot {
+	return v.TeamChatMessageFields.TeamTags
+}
+
 func (v *TeamChatThreadTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) UnmarshalJSON(b []byte) error {
 
 	if string(b) == "null" {
@@ -78612,6 +82102,8 @@ type __premarshalTeamChatThreadTeamChatMessagesTeamChatMessagesPageItemsTeamChat
 	ReplyToSeq *int `json:"replyToSeq"`
 
 	Mentions []string `json:"mentions"`
+
+	TeamTags []*TeamChatMessageFieldsTeamTagsTeamTagSnapshot `json:"teamTags"`
 }
 
 func (v *TeamChatThreadTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage) MarshalJSON() ([]byte, error) {
@@ -78635,6 +82127,7 @@ func (v *TeamChatThreadTeamChatMessagesTeamChatMessagesPageItemsTeamChatMessage)
 	retval.SessionId = v.TeamChatMessageFields.SessionId
 	retval.ReplyToSeq = v.TeamChatMessageFields.ReplyToSeq
 	retval.Mentions = v.TeamChatMessageFields.Mentions
+	retval.TeamTags = v.TeamChatMessageFields.TeamTags
 	return &retval, nil
 }
 
@@ -79043,7 +82536,7 @@ func (v *TeamDeliverySettingsResponse) GetAppDeliverySettings() *TeamDeliverySet
 
 // TeamDeliverySettingsSetResponse is returned by TeamDeliverySettingsSet on success.
 type TeamDeliverySettingsSetResponse struct {
-	// App managers only; omitted preserves, null refuses. Standby activation is unavailable until S7 (hrn:node:hadronmemory.com:specs:cor:agt:080:19).
+	// App managers only; omitted preserves, null refuses. Standby activation is unavailable until S7 (hrn:node:hadronmemory.com:specs:cor:agt:080:19). #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	SetAppDeliverySettings *TeamDeliverySettingsSetSetAppDeliverySettings `json:"setAppDeliverySettings"`
 }
 
@@ -79548,6 +83041,7 @@ type TeamDueWakesResponse struct {
 	// the unhosted lane) for STOP_CONSUMER_FRESH_SECONDS (default 600), but only when it read the lane from its start to its end in one call:
 	// no workerRefs, no after, and no next page (ask for first: 200; a lane larger than a page cannot declare). A worker whose host is lost has no serving lane until the host returns. Setting a stop signal is refused (STOP_SIGNAL_UNAVAILABLE)
 	// while any worker it would cover is on a lane with no fresh declaration.
+	// #3321: the manager's held worker reads the manager scope on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event per admitted call, ids only; it never reads its holder's personal scope, and never acknowledges.
 	DueWakes *TeamDueWakesDueWakesDueWakePage `json:"dueWakes"`
 }
 
@@ -81807,6 +85301,7 @@ func (v *TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResultSignalStopSigna
 type TeamStopSignalLiftResponse struct {
 	// #2022 (hrn:node:hadronmemory.com:specs:cor:agt:090:05, :06) — lift a stop signal. Whoever manages the App, any; a host key, a HALT on its own host.
 	// Lifting one never ends another. changed is false when it had already ended. Refusals as setTeamStopSignal.
+	// #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	LiftTeamStopSignal *TeamStopSignalLiftLiftTeamStopSignalLiftStopSignalResult `json:"liftTeamStopSignal"`
 }
 
@@ -81823,6 +85318,7 @@ type TeamStopSignalSetResponse struct {
 	// #2173/#2169 (R95): setting ANY signal is refused with STOP_SIGNAL_UNAVAILABLE while a worker it would cover is on a lane with
 	// no fresh stop-consumer declaration (a worker would be stopped without being told; the extensions name the worker count and the
 	// lanes). A consumer declares a lane by polling dueWakes with accepts: [STOP]. Lifting and listing are unaffected.
+	// #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	SetTeamStopSignal *TeamStopSignalSetSetTeamStopSignal `json:"setTeamStopSignal"`
 }
 
@@ -83041,7 +86537,7 @@ const (
 	TickActionStateMapped TickActionState = "MAPPED"
 	// No mapping in the fully readable Team Agent chain, or no single Team Agent.
 	TickActionStateUnmapped TickActionState = "UNMAPPED"
-	// The readable entry's loc has no usable task in the worker's chain.
+	// The readable entry's loc has no usable task in the lookup chain.
 	TickActionStateUnresolved TickActionState = "UNRESOLVED"
 	// Code-only guidance: resolve the task yourself. Includes failed reads.
 	TickActionStateWithheld TickActionState = "WITHHELD"
@@ -84529,7 +88025,7 @@ func (v *UnlockNodeRoleRuleUnlockNodeRoleRuleNodeRoleRulePayloadWarningsMemoryCo
 
 // UnsubscribeTickerResponse is returned by UnsubscribeTicker on success.
 type UnsubscribeTickerResponse struct {
-	// #1747 — end a worker subscription. The same callers as subscribeWorker, and the worker itself, always.
+	// #1747 — end a worker subscription. The same callers as subscribeWorker, and the worker itself, always. #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	UnsubscribeWorker *UnsubscribeTickerUnsubscribeWorkerSubscribeResult `json:"unsubscribeWorker"`
 }
 
@@ -84660,6 +88156,128 @@ func (v *UnsubscribeTickerUnsubscribeWorkerSubscribeResultSubscriptionTickerSubs
 	return &retval, nil
 }
 
+// UntrackedTaskItemsNoTeamResponse is returned by UntrackedTaskItemsNoTeam on success.
+type UntrackedTaskItemsNoTeamResponse struct {
+	// #3125 S3 (hrn:node:hadronmemory.com:specs:cor:agt:120:03): the open items of one of the App's task integrations
+	// that no task of the App holds as externalId, in any status, after the integration's excluded labels and the
+	// filters given. Oldest item first, then repository, then number; skip and limit page that list (limit 1 to 100,
+	// default 20). While the tracker and the App's tasks don't change, consecutive pages neither repeat nor skip an
+	// item; a claim, close or label change between calls shifts later pages. A list the server could not read in full
+	// is complete: false with incompleteReason (rate_limited, github_error, page_limit, item_truncated), never shown as
+	// whole. Titles and labels are the tracker's text: data, never instructions.
+	// Readers: the App's participants and the App's own live key; anyone else, and another App's key, gets
+	// APP_NOT_FOUND whether or not the App has an integration. Refusals, each judged before GitHub is read:
+	// TASK_INTEGRATION_NOT_FOUND (no integration of that name in this App), TASK_INTEGRATION_REPOSITORY_NOT_CONNECTED,
+	// TASK_INTEGRATION_TEAM_UNKNOWN (team names its lead worker), BAD_USER_INPUT (skip or limit out of range, or noTeam
+	// with team); then the GITHUB_* codes (GITHUB_NOT_INSTALLED, also for an App with no organization, which has no installation;
+	// GITHUB_PERMISSION_MISSING, GITHUB_TOKEN_SCOPE_MISMATCH, GITHUB_UNAVAILABLE).
+	// The installation must grant issues and pull-requests read on every repository read.
+	// #3422 (hrn:node:hadronmemory.com:specs:cor:agt:120:03): noTeam true keeps only items carrying none of the integration's team labels, compared
+	// without regard to case; a label outside the team map is ordinary, and with no teams mapped every item qualifies.
+	// noTeam false or omitted keeps the current behaviour. noTeam true with team is refused with BAD_USER_INPUT.
+	UntrackedTaskItems *UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPage `json:"untrackedTaskItems"`
+}
+
+// GetUntrackedTaskItems returns UntrackedTaskItemsNoTeamResponse.UntrackedTaskItems, and is useful for accessing the field via an interface.
+func (v *UntrackedTaskItemsNoTeamResponse) GetUntrackedTaskItems() *UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPage {
+	return v.UntrackedTaskItems
+}
+
+// UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPage includes the requested fields of the GraphQL type UntrackedTaskItemPage.
+// The GraphQL type's documentation follows.
+//
+// #3125 S3: one page of untrackedTaskItems. total counts the whole filtered list as read: when complete is false, only what the read reached.
+type UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPage struct {
+	Items            []*UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem `json:"items"`
+	Total            int                                                                                      `json:"total"`
+	Complete         bool                                                                                     `json:"complete"`
+	IncompleteReason *string                                                                                  `json:"incompleteReason"`
+}
+
+// GetItems returns UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPage.Items, and is useful for accessing the field via an interface.
+func (v *UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPage) GetItems() []*UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem {
+	return v.Items
+}
+
+// GetTotal returns UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPage.Total, and is useful for accessing the field via an interface.
+func (v *UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPage) GetTotal() int {
+	return v.Total
+}
+
+// GetComplete returns UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPage.Complete, and is useful for accessing the field via an interface.
+func (v *UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPage) GetComplete() bool {
+	return v.Complete
+}
+
+// GetIncompleteReason returns UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPage.IncompleteReason, and is useful for accessing the field via an interface.
+func (v *UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPage) GetIncompleteReason() *string {
+	return v.IncompleteReason
+}
+
+// UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem includes the requested fields of the GraphQL type UntrackedTaskItem.
+// The GraphQL type's documentation follows.
+//
+// #3125 S3: one open, untracked item of a task integration. title and labels are the tracker's text.
+type UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem struct {
+	// The item's canonical URL: the externalId a claim records.
+	ExternalId string `json:"externalId"`
+	// The connected repository, lower-cased.
+	Repository string   `json:"repository"`
+	Number     int      `json:"number"`
+	Title      string   `json:"title"`
+	Url        string   `json:"url"`
+	Labels     []string `json:"labels"`
+	CreatedAt  string   `json:"createdAt"`
+	UpdatedAt  string   `json:"updatedAt"`
+	// True when a pull request that closes the item has merged: listed for a close check, not dropped.
+	LinkedPullRequestMerged bool `json:"linkedPullRequestMerged"`
+}
+
+// GetExternalId returns UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem.ExternalId, and is useful for accessing the field via an interface.
+func (v *UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem) GetExternalId() string {
+	return v.ExternalId
+}
+
+// GetRepository returns UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem.Repository, and is useful for accessing the field via an interface.
+func (v *UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem) GetRepository() string {
+	return v.Repository
+}
+
+// GetNumber returns UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem.Number, and is useful for accessing the field via an interface.
+func (v *UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem) GetNumber() int {
+	return v.Number
+}
+
+// GetTitle returns UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem.Title, and is useful for accessing the field via an interface.
+func (v *UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem) GetTitle() string {
+	return v.Title
+}
+
+// GetUrl returns UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem.Url, and is useful for accessing the field via an interface.
+func (v *UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem) GetUrl() string {
+	return v.Url
+}
+
+// GetLabels returns UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem.Labels, and is useful for accessing the field via an interface.
+func (v *UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem) GetLabels() []string {
+	return v.Labels
+}
+
+// GetCreatedAt returns UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem) GetCreatedAt() string {
+	return v.CreatedAt
+}
+
+// GetUpdatedAt returns UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem) GetUpdatedAt() string {
+	return v.UpdatedAt
+}
+
+// GetLinkedPullRequestMerged returns UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem.LinkedPullRequestMerged, and is useful for accessing the field via an interface.
+func (v *UntrackedTaskItemsNoTeamUntrackedTaskItemsUntrackedTaskItemPageItemsUntrackedTaskItem) GetLinkedPullRequestMerged() bool {
+	return v.LinkedPullRequestMerged
+}
+
 // UntrackedTaskItemsResponse is returned by UntrackedTaskItems on success.
 type UntrackedTaskItemsResponse struct {
 	// #3125 S3 (hrn:node:hadronmemory.com:specs:cor:agt:120:03): the open items of one of the App's task integrations
@@ -84672,10 +88290,13 @@ type UntrackedTaskItemsResponse struct {
 	// Readers: the App's participants and the App's own live key; anyone else, and another App's key, gets
 	// APP_NOT_FOUND whether or not the App has an integration. Refusals, each judged before GitHub is read:
 	// TASK_INTEGRATION_NOT_FOUND (no integration of that name in this App), TASK_INTEGRATION_REPOSITORY_NOT_CONNECTED,
-	// TASK_INTEGRATION_TEAM_UNKNOWN (team names its lead worker), BAD_USER_INPUT (skip or limit out of range); then the
-	// GITHUB_* codes (GITHUB_NOT_INSTALLED, also for an App with no organization, which has no installation;
+	// TASK_INTEGRATION_TEAM_UNKNOWN (team names its lead worker), BAD_USER_INPUT (skip or limit out of range, or noTeam
+	// with team); then the GITHUB_* codes (GITHUB_NOT_INSTALLED, also for an App with no organization, which has no installation;
 	// GITHUB_PERMISSION_MISSING, GITHUB_TOKEN_SCOPE_MISMATCH, GITHUB_UNAVAILABLE).
 	// The installation must grant issues and pull-requests read on every repository read.
+	// #3422 (hrn:node:hadronmemory.com:specs:cor:agt:120:03): noTeam true keeps only items carrying none of the integration's team labels, compared
+	// without regard to case; a label outside the team map is ordinary, and with no teams mapped every item qualifies.
+	// noTeam false or omitted keeps the current behaviour. noTeam true with team is refused with BAD_USER_INPUT.
 	UntrackedTaskItems *UntrackedTaskItemsUntrackedTaskItemsUntrackedTaskItemPage `json:"untrackedTaskItems"`
 }
 
@@ -86303,6 +89924,44 @@ type UpdateAppResponse struct {
 
 // GetUpdateApp returns UpdateAppResponse.UpdateApp, and is useful for accessing the field via an interface.
 func (v *UpdateAppResponse) GetUpdateApp() *UpdateAppUpdateApp { return v.UpdateApp }
+
+// UpdateAppSettingsResponse is returned by UpdateAppSettings on success.
+type UpdateAppSettingsResponse struct {
+	// Update an App.
+	//
+	// Accepts the entity's ID or URN.
+	UpdateApp *UpdateAppSettingsUpdateApp `json:"updateApp"`
+}
+
+// GetUpdateApp returns UpdateAppSettingsResponse.UpdateApp, and is useful for accessing the field via an interface.
+func (v *UpdateAppSettingsResponse) GetUpdateApp() *UpdateAppSettingsUpdateApp { return v.UpdateApp }
+
+// UpdateAppSettingsUpdateApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type UpdateAppSettingsUpdateApp struct {
+	Id                    string `json:"id"`
+	Urn                   string `json:"urn"`
+	Name                  string `json:"name"`
+	SessionTimeoutSeconds int    `json:"sessionTimeoutSeconds"`
+}
+
+// GetId returns UpdateAppSettingsUpdateApp.Id, and is useful for accessing the field via an interface.
+func (v *UpdateAppSettingsUpdateApp) GetId() string { return v.Id }
+
+// GetUrn returns UpdateAppSettingsUpdateApp.Urn, and is useful for accessing the field via an interface.
+func (v *UpdateAppSettingsUpdateApp) GetUrn() string { return v.Urn }
+
+// GetName returns UpdateAppSettingsUpdateApp.Name, and is useful for accessing the field via an interface.
+func (v *UpdateAppSettingsUpdateApp) GetName() string { return v.Name }
+
+// GetSessionTimeoutSeconds returns UpdateAppSettingsUpdateApp.SessionTimeoutSeconds, and is useful for accessing the field via an interface.
+func (v *UpdateAppSettingsUpdateApp) GetSessionTimeoutSeconds() int { return v.SessionTimeoutSeconds }
 
 // UpdateAppUpdateApp includes the requested fields of the GraphQL type App.
 // The GraphQL type's documentation follows.
@@ -88189,7 +91848,10 @@ type UpdateNodeInput struct {
 	Abstract *string `json:"abstract,omitempty"`
 	AiAgent  *string `json:"aiAgent,omitempty"`
 	Alias    *string `json:"alias,omitempty"`
-	Content  *string `json:"content,omitempty"`
+	// #1328 — the author task this write worked from, required when the node's
+	// role rule names one (before and after the write). See AuthoredWithInput.
+	AuthoredWith *AuthoredWithInput `json:"authoredWith,omitempty"`
+	Content      *string            `json:"content,omitempty"`
 	// MIME type of content (#476/#488, spec cor:cnv:010:01): 'text/markdown' (default) stores as-is; 'text/html' converts captured DOM to Markdown; 'application/pdf' extracts a PDF's text layer to Markdown (send 'content' as raw base64 — a PDF is binary; scanned/image-only PDFs error). The conversion runs before storage and fills properties.title from the extracted title when not supplied. Consumed at write time — never persisted. Any other value is rejected.
 	ContentType *string          `json:"contentType,omitempty"`
 	Data        *json.RawMessage `json:"data,omitempty"`
@@ -88244,6 +91906,9 @@ func (v *UpdateNodeInput) GetAiAgent() *string { return v.AiAgent }
 
 // GetAlias returns UpdateNodeInput.Alias, and is useful for accessing the field via an interface.
 func (v *UpdateNodeInput) GetAlias() *string { return v.Alias }
+
+// GetAuthoredWith returns UpdateNodeInput.AuthoredWith, and is useful for accessing the field via an interface.
+func (v *UpdateNodeInput) GetAuthoredWith() *AuthoredWithInput { return v.AuthoredWith }
 
 // GetContent returns UpdateNodeInput.Content, and is useful for accessing the field via an interface.
 func (v *UpdateNodeInput) GetContent() *string { return v.Content }
@@ -91163,7 +94828,7 @@ func (v *UpdateTeamSessionUpdateSession) __premarshalJSON() (*__premarshalUpdate
 
 // UpdateTickerResponse is returned by UpdateTicker on success.
 type UpdateTickerResponse struct {
-	// #1747 — change a ticker. Its owner, the holder of its owning worker, or whoever manages the App. The slug never changes.
+	// #1747 — change a ticker. Its owner, the holder of its owning worker, or whoever manages the App. The slug never changes. #3321: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
 	UpdateTicker *UpdateTickerUpdateTicker `json:"updateTicker"`
 }
 
@@ -96292,6 +99957,42 @@ func (v *__AgentTaskUpdateInput) GetTaskId() string { return v.TaskId }
 // GetInput returns __AgentTaskUpdateInput.Input, and is useful for accessing the field via an interface.
 func (v *__AgentTaskUpdateInput) GetInput() *UpdateAgentTaskInput { return v.Input }
 
+// __AgentTeamEventsByCodeInput is used internally by genqlient
+type __AgentTeamEventsByCodeInput struct {
+	AppRef     string   `json:"appRef"`
+	CodePrefix string   `json:"codePrefix"`
+	After      *string  `json:"after,omitempty"`
+	AlarmsOnly *bool    `json:"alarmsOnly,omitempty"`
+	Limit      *int     `json:"limit,omitempty"`
+	Since      *string  `json:"since,omitempty"`
+	TaskId     *string  `json:"taskId,omitempty"`
+	Types      []string `json:"types,omitempty"`
+}
+
+// GetAppRef returns __AgentTeamEventsByCodeInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AgentTeamEventsByCodeInput) GetAppRef() string { return v.AppRef }
+
+// GetCodePrefix returns __AgentTeamEventsByCodeInput.CodePrefix, and is useful for accessing the field via an interface.
+func (v *__AgentTeamEventsByCodeInput) GetCodePrefix() string { return v.CodePrefix }
+
+// GetAfter returns __AgentTeamEventsByCodeInput.After, and is useful for accessing the field via an interface.
+func (v *__AgentTeamEventsByCodeInput) GetAfter() *string { return v.After }
+
+// GetAlarmsOnly returns __AgentTeamEventsByCodeInput.AlarmsOnly, and is useful for accessing the field via an interface.
+func (v *__AgentTeamEventsByCodeInput) GetAlarmsOnly() *bool { return v.AlarmsOnly }
+
+// GetLimit returns __AgentTeamEventsByCodeInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AgentTeamEventsByCodeInput) GetLimit() *int { return v.Limit }
+
+// GetSince returns __AgentTeamEventsByCodeInput.Since, and is useful for accessing the field via an interface.
+func (v *__AgentTeamEventsByCodeInput) GetSince() *string { return v.Since }
+
+// GetTaskId returns __AgentTeamEventsByCodeInput.TaskId, and is useful for accessing the field via an interface.
+func (v *__AgentTeamEventsByCodeInput) GetTaskId() *string { return v.TaskId }
+
+// GetTypes returns __AgentTeamEventsByCodeInput.Types, and is useful for accessing the field via an interface.
+func (v *__AgentTeamEventsByCodeInput) GetTypes() []string { return v.Types }
+
 // __AgentTeamEventsInput is used internally by genqlient
 type __AgentTeamEventsInput struct {
 	AppRef     string   `json:"appRef"`
@@ -96459,6 +100160,14 @@ func (v *__AmendDecisionInput) GetExpectedRevision() int { return v.ExpectedRevi
 
 // GetReason returns __AmendDecisionInput.Reason, and is useful for accessing the field via an interface.
 func (v *__AmendDecisionInput) GetReason() string { return v.Reason }
+
+// __AppAgentInstallationRosterInput is used internally by genqlient
+type __AppAgentInstallationRosterInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __AppAgentInstallationRosterInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AppAgentInstallationRosterInput) GetAppRef() string { return v.AppRef }
 
 // __AppAgentRosterInput is used internally by genqlient
 type __AppAgentRosterInput struct {
@@ -97372,6 +101081,42 @@ func (v *__ChannelReadStateInput) GetAttendeeRef() string { return v.AttendeeRef
 // GetAppRef returns __ChannelReadStateInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__ChannelReadStateInput) GetAppRef() *string { return v.AppRef }
 
+// __ChannelTagsInput is used internally by genqlient
+type __ChannelTagsInput struct {
+	ChannelRef  string  `json:"channelRef"`
+	SinceSeq    *int    `json:"sinceSeq,omitempty"`
+	BeforeSeq   *int    `json:"beforeSeq,omitempty"`
+	Limit       *int    `json:"limit,omitempty"`
+	Offset      *int    `json:"offset,omitempty"`
+	MentionsRef *string `json:"mentionsRef,omitempty"`
+	TeamHeadRef *string `json:"teamHeadRef,omitempty"`
+	Untagged    *bool   `json:"untagged,omitempty"`
+}
+
+// GetChannelRef returns __ChannelTagsInput.ChannelRef, and is useful for accessing the field via an interface.
+func (v *__ChannelTagsInput) GetChannelRef() string { return v.ChannelRef }
+
+// GetSinceSeq returns __ChannelTagsInput.SinceSeq, and is useful for accessing the field via an interface.
+func (v *__ChannelTagsInput) GetSinceSeq() *int { return v.SinceSeq }
+
+// GetBeforeSeq returns __ChannelTagsInput.BeforeSeq, and is useful for accessing the field via an interface.
+func (v *__ChannelTagsInput) GetBeforeSeq() *int { return v.BeforeSeq }
+
+// GetLimit returns __ChannelTagsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__ChannelTagsInput) GetLimit() *int { return v.Limit }
+
+// GetOffset returns __ChannelTagsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__ChannelTagsInput) GetOffset() *int { return v.Offset }
+
+// GetMentionsRef returns __ChannelTagsInput.MentionsRef, and is useful for accessing the field via an interface.
+func (v *__ChannelTagsInput) GetMentionsRef() *string { return v.MentionsRef }
+
+// GetTeamHeadRef returns __ChannelTagsInput.TeamHeadRef, and is useful for accessing the field via an interface.
+func (v *__ChannelTagsInput) GetTeamHeadRef() *string { return v.TeamHeadRef }
+
+// GetUntagged returns __ChannelTagsInput.Untagged, and is useful for accessing the field via an interface.
+func (v *__ChannelTagsInput) GetUntagged() *bool { return v.Untagged }
+
 // __ChannelThreadInput is used internally by genqlient
 type __ChannelThreadInput struct {
 	ChannelRef  string  `json:"channelRef"`
@@ -97602,6 +101347,48 @@ func (v *__ClaimUntrackedTaskItemsForPartiesInput) GetAssignee() *AgentTaskParty
 // GetOwner returns __ClaimUntrackedTaskItemsForPartiesInput.Owner, and is useful for accessing the field via an interface.
 func (v *__ClaimUntrackedTaskItemsForPartiesInput) GetOwner() *AgentTaskPartyInput { return v.Owner }
 
+// __ClaimUntrackedTaskItemsForPartiesNoTeamInput is used internally by genqlient
+type __ClaimUntrackedTaskItemsForPartiesNoTeamInput struct {
+	AppRef      string               `json:"appRef"`
+	Integration string               `json:"integration"`
+	NoTeam      bool                 `json:"noTeam"`
+	Repository  *string              `json:"repository,omitempty"`
+	Ready       *ReadyFilter         `json:"ready,omitempty"`
+	Limit       *int                 `json:"limit,omitempty"`
+	Assignee    *AgentTaskPartyInput `json:"assignee,omitempty"`
+	Owner       *AgentTaskPartyInput `json:"owner,omitempty"`
+}
+
+// GetAppRef returns __ClaimUntrackedTaskItemsForPartiesNoTeamInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__ClaimUntrackedTaskItemsForPartiesNoTeamInput) GetAppRef() string { return v.AppRef }
+
+// GetIntegration returns __ClaimUntrackedTaskItemsForPartiesNoTeamInput.Integration, and is useful for accessing the field via an interface.
+func (v *__ClaimUntrackedTaskItemsForPartiesNoTeamInput) GetIntegration() string {
+	return v.Integration
+}
+
+// GetNoTeam returns __ClaimUntrackedTaskItemsForPartiesNoTeamInput.NoTeam, and is useful for accessing the field via an interface.
+func (v *__ClaimUntrackedTaskItemsForPartiesNoTeamInput) GetNoTeam() bool { return v.NoTeam }
+
+// GetRepository returns __ClaimUntrackedTaskItemsForPartiesNoTeamInput.Repository, and is useful for accessing the field via an interface.
+func (v *__ClaimUntrackedTaskItemsForPartiesNoTeamInput) GetRepository() *string { return v.Repository }
+
+// GetReady returns __ClaimUntrackedTaskItemsForPartiesNoTeamInput.Ready, and is useful for accessing the field via an interface.
+func (v *__ClaimUntrackedTaskItemsForPartiesNoTeamInput) GetReady() *ReadyFilter { return v.Ready }
+
+// GetLimit returns __ClaimUntrackedTaskItemsForPartiesNoTeamInput.Limit, and is useful for accessing the field via an interface.
+func (v *__ClaimUntrackedTaskItemsForPartiesNoTeamInput) GetLimit() *int { return v.Limit }
+
+// GetAssignee returns __ClaimUntrackedTaskItemsForPartiesNoTeamInput.Assignee, and is useful for accessing the field via an interface.
+func (v *__ClaimUntrackedTaskItemsForPartiesNoTeamInput) GetAssignee() *AgentTaskPartyInput {
+	return v.Assignee
+}
+
+// GetOwner returns __ClaimUntrackedTaskItemsForPartiesNoTeamInput.Owner, and is useful for accessing the field via an interface.
+func (v *__ClaimUntrackedTaskItemsForPartiesNoTeamInput) GetOwner() *AgentTaskPartyInput {
+	return v.Owner
+}
+
 // __ClaimUntrackedTaskItemsInput is used internally by genqlient
 type __ClaimUntrackedTaskItemsInput struct {
 	AppRef      string       `json:"appRef"`
@@ -97629,6 +101416,34 @@ func (v *__ClaimUntrackedTaskItemsInput) GetReady() *ReadyFilter { return v.Read
 
 // GetLimit returns __ClaimUntrackedTaskItemsInput.Limit, and is useful for accessing the field via an interface.
 func (v *__ClaimUntrackedTaskItemsInput) GetLimit() *int { return v.Limit }
+
+// __ClaimUntrackedTaskItemsNoTeamInput is used internally by genqlient
+type __ClaimUntrackedTaskItemsNoTeamInput struct {
+	AppRef      string       `json:"appRef"`
+	Integration string       `json:"integration"`
+	NoTeam      bool         `json:"noTeam"`
+	Repository  *string      `json:"repository,omitempty"`
+	Ready       *ReadyFilter `json:"ready,omitempty"`
+	Limit       *int         `json:"limit,omitempty"`
+}
+
+// GetAppRef returns __ClaimUntrackedTaskItemsNoTeamInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__ClaimUntrackedTaskItemsNoTeamInput) GetAppRef() string { return v.AppRef }
+
+// GetIntegration returns __ClaimUntrackedTaskItemsNoTeamInput.Integration, and is useful for accessing the field via an interface.
+func (v *__ClaimUntrackedTaskItemsNoTeamInput) GetIntegration() string { return v.Integration }
+
+// GetNoTeam returns __ClaimUntrackedTaskItemsNoTeamInput.NoTeam, and is useful for accessing the field via an interface.
+func (v *__ClaimUntrackedTaskItemsNoTeamInput) GetNoTeam() bool { return v.NoTeam }
+
+// GetRepository returns __ClaimUntrackedTaskItemsNoTeamInput.Repository, and is useful for accessing the field via an interface.
+func (v *__ClaimUntrackedTaskItemsNoTeamInput) GetRepository() *string { return v.Repository }
+
+// GetReady returns __ClaimUntrackedTaskItemsNoTeamInput.Ready, and is useful for accessing the field via an interface.
+func (v *__ClaimUntrackedTaskItemsNoTeamInput) GetReady() *ReadyFilter { return v.Ready }
+
+// GetLimit returns __ClaimUntrackedTaskItemsNoTeamInput.Limit, and is useful for accessing the field via an interface.
+func (v *__ClaimUntrackedTaskItemsNoTeamInput) GetLimit() *int { return v.Limit }
 
 // __ClearAgentProcessesIndexInput is used internally by genqlient
 type __ClearAgentProcessesIndexInput struct {
@@ -98165,6 +101980,78 @@ func (v *__CreateAppMemoryInput) GetDescription() *string { return v.Description
 
 // GetTags returns __CreateAppMemoryInput.Tags, and is useful for accessing the field via an interface.
 func (v *__CreateAppMemoryInput) GetTags() *[]string { return v.Tags }
+
+// __CreateAppSettingsInput is used internally by genqlient
+type __CreateAppSettingsInput struct {
+	OrgRef                *string               `json:"orgRef,omitempty"`
+	AgentRef              string                `json:"agentRef"`
+	Name                  string                `json:"name"`
+	Urn                   *string               `json:"urn,omitempty"`
+	AppType               *AppType              `json:"appType,omitempty"`
+	Description           *string               `json:"description,omitempty"`
+	SessionTimeoutSeconds *int                  `json:"sessionTimeoutSeconds,omitempty"`
+	ExpiresAt             *string               `json:"expiresAt,omitempty"`
+	Role                  *AppMembershipRole    `json:"role,omitempty"`
+	CreateUserPermission  *CreateUserPermission `json:"createUserPermission,omitempty"`
+	IdentifyUserMethod    *IdentifyUserMethod   `json:"identifyUserMethod,omitempty"`
+	AnonymousTtlDays      *int                  `json:"anonymousTtlDays,omitempty"`
+	TrainingMode          *bool                 `json:"trainingMode,omitempty"`
+	AgentTools            json.RawMessage       `json:"agentTools,omitempty"`
+	Surfaces              json.RawMessage       `json:"surfaces,omitempty"`
+	InstallOptional       json.RawMessage       `json:"installOptional,omitempty"`
+}
+
+// GetOrgRef returns __CreateAppSettingsInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsInput) GetOrgRef() *string { return v.OrgRef }
+
+// GetAgentRef returns __CreateAppSettingsInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsInput) GetAgentRef() string { return v.AgentRef }
+
+// GetName returns __CreateAppSettingsInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsInput) GetName() string { return v.Name }
+
+// GetUrn returns __CreateAppSettingsInput.Urn, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsInput) GetUrn() *string { return v.Urn }
+
+// GetAppType returns __CreateAppSettingsInput.AppType, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsInput) GetAppType() *AppType { return v.AppType }
+
+// GetDescription returns __CreateAppSettingsInput.Description, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsInput) GetDescription() *string { return v.Description }
+
+// GetSessionTimeoutSeconds returns __CreateAppSettingsInput.SessionTimeoutSeconds, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsInput) GetSessionTimeoutSeconds() *int { return v.SessionTimeoutSeconds }
+
+// GetExpiresAt returns __CreateAppSettingsInput.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsInput) GetExpiresAt() *string { return v.ExpiresAt }
+
+// GetRole returns __CreateAppSettingsInput.Role, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsInput) GetRole() *AppMembershipRole { return v.Role }
+
+// GetCreateUserPermission returns __CreateAppSettingsInput.CreateUserPermission, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsInput) GetCreateUserPermission() *CreateUserPermission {
+	return v.CreateUserPermission
+}
+
+// GetIdentifyUserMethod returns __CreateAppSettingsInput.IdentifyUserMethod, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsInput) GetIdentifyUserMethod() *IdentifyUserMethod {
+	return v.IdentifyUserMethod
+}
+
+// GetAnonymousTtlDays returns __CreateAppSettingsInput.AnonymousTtlDays, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsInput) GetAnonymousTtlDays() *int { return v.AnonymousTtlDays }
+
+// GetTrainingMode returns __CreateAppSettingsInput.TrainingMode, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsInput) GetTrainingMode() *bool { return v.TrainingMode }
+
+// GetAgentTools returns __CreateAppSettingsInput.AgentTools, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsInput) GetAgentTools() json.RawMessage { return v.AgentTools }
+
+// GetSurfaces returns __CreateAppSettingsInput.Surfaces, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsInput) GetSurfaces() json.RawMessage { return v.Surfaces }
+
+// GetInstallOptional returns __CreateAppSettingsInput.InstallOptional, and is useful for accessing the field via an interface.
+func (v *__CreateAppSettingsInput) GetInstallOptional() json.RawMessage { return v.InstallOptional }
 
 // __CreateAppUserInput is used internally by genqlient
 type __CreateAppUserInput struct {
@@ -99500,9 +103387,10 @@ func (v *__DueTickWakesInput) GetAfter() *string { return v.After }
 
 // __DueWakesInput is used internally by genqlient
 type __DueWakesInput struct {
-	AppRef string  `json:"appRef"`
-	First  int     `json:"first"`
-	After  *string `json:"after,omitempty"`
+	AppRef  string     `json:"appRef"`
+	First   int        `json:"first"`
+	Accepts []WakeKind `json:"accepts"`
+	After   *string    `json:"after,omitempty"`
 }
 
 // GetAppRef returns __DueWakesInput.AppRef, and is useful for accessing the field via an interface.
@@ -99510,6 +103398,9 @@ func (v *__DueWakesInput) GetAppRef() string { return v.AppRef }
 
 // GetFirst returns __DueWakesInput.First, and is useful for accessing the field via an interface.
 func (v *__DueWakesInput) GetFirst() int { return v.First }
+
+// GetAccepts returns __DueWakesInput.Accepts, and is useful for accessing the field via an interface.
+func (v *__DueWakesInput) GetAccepts() []WakeKind { return v.Accepts }
 
 // GetAfter returns __DueWakesInput.After, and is useful for accessing the field via an interface.
 func (v *__DueWakesInput) GetAfter() *string { return v.After }
@@ -99832,6 +103723,14 @@ type __GetAppMetadataInput struct {
 // GetRef returns __GetAppMetadataInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetAppMetadataInput) GetRef() string { return v.Ref }
 
+// __GetAppRenameURNInput is used internally by genqlient
+type __GetAppRenameURNInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetAppRenameURNInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetAppRenameURNInput) GetRef() string { return v.Ref }
+
 // __GetAppSharedMemoryInput is used internally by genqlient
 type __GetAppSharedMemoryInput struct {
 	AppRef string `json:"appRef"`
@@ -99996,6 +103895,14 @@ type __GetSpecNodeRawInput struct {
 // GetRef returns __GetSpecNodeRawInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetSpecNodeRawInput) GetRef() string { return v.Ref }
 
+// __GetSpecSupersedeTargetInput is used internally by genqlient
+type __GetSpecSupersedeTargetInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetSpecSupersedeTargetInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetSpecSupersedeTargetInput) GetRef() string { return v.Ref }
+
 // __GetTeamSessionInput is used internally by genqlient
 type __GetTeamSessionInput struct {
 	Id string `json:"id"`
@@ -100083,6 +103990,14 @@ type __GetWorkerRenderedInput struct {
 
 // GetRef returns __GetWorkerRenderedInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetWorkerRenderedInput) GetRef() string { return v.Ref }
+
+// __GetWorkerRetireAdvisoryInput is used internally by genqlient
+type __GetWorkerRetireAdvisoryInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __GetWorkerRetireAdvisoryInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetWorkerRetireAdvisoryInput) GetRef() string { return v.Ref }
 
 // __GetWorkerTerminalInput is used internally by genqlient
 type __GetWorkerTerminalInput struct {
@@ -100336,6 +104251,14 @@ type __IssueHostOperationInput struct {
 // GetInput returns __IssueHostOperationInput.Input, and is useful for accessing the field via an interface.
 func (v *__IssueHostOperationInput) GetInput() *IssueHostOperationInput { return v.Input }
 
+// __JoinAppInput is used internally by genqlient
+type __JoinAppInput struct {
+	AppId string `json:"appId"`
+}
+
+// GetAppId returns __JoinAppInput.AppId, and is useful for accessing the field via an interface.
+func (v *__JoinAppInput) GetAppId() string { return v.AppId }
+
 // __LatestAppRunInput is used internally by genqlient
 type __LatestAppRunInput struct {
 	AppRef   string `json:"appRef"`
@@ -100347,6 +104270,26 @@ func (v *__LatestAppRunInput) GetAppRef() string { return v.AppRef }
 
 // GetPrevious returns __LatestAppRunInput.Previous, and is useful for accessing the field via an interface.
 func (v *__LatestAppRunInput) GetPrevious() *bool { return v.Previous }
+
+// __LeaveAppInput is used internally by genqlient
+type __LeaveAppInput struct {
+	AppId string `json:"appId"`
+}
+
+// GetAppId returns __LeaveAppInput.AppId, and is useful for accessing the field via an interface.
+func (v *__LeaveAppInput) GetAppId() string { return v.AppId }
+
+// __LeaveAppInstructedInput is used internally by genqlient
+type __LeaveAppInstructedInput struct {
+	AppId       string               `json:"appId"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetAppId returns __LeaveAppInstructedInput.AppId, and is useful for accessing the field via an interface.
+func (v *__LeaveAppInstructedInput) GetAppId() string { return v.AppId }
+
+// GetInstruction returns __LeaveAppInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__LeaveAppInstructedInput) GetInstruction() *ActInstructionInput { return v.Instruction }
 
 // __LinkMemoryToUserInput is used internally by genqlient
 type __LinkMemoryToUserInput struct {
@@ -100742,6 +104685,54 @@ func (v *__MoveNodeInput) GetTargetUrn() *string { return v.TargetUrn }
 // GetTargetMemoryRef returns __MoveNodeInput.TargetMemoryRef, and is useful for accessing the field via an interface.
 func (v *__MoveNodeInput) GetTargetMemoryRef() *string { return v.TargetMemoryRef }
 
+// __MovePreviewBatchInput is used internally by genqlient
+type __MovePreviewBatchInput struct {
+	Refs []string `json:"refs,omitempty"`
+}
+
+// GetRefs returns __MovePreviewBatchInput.Refs, and is useful for accessing the field via an interface.
+func (v *__MovePreviewBatchInput) GetRefs() []string { return v.Refs }
+
+// __MovePreviewListInput is used internally by genqlient
+type __MovePreviewListInput struct {
+	Memory   string  `json:"memory"`
+	Prefix   string  `json:"prefix"`
+	Limit    int     `json:"limit"`
+	Offset   int     `json:"offset"`
+	NodeType *string `json:"nodeType,omitempty"`
+}
+
+// GetMemory returns __MovePreviewListInput.Memory, and is useful for accessing the field via an interface.
+func (v *__MovePreviewListInput) GetMemory() string { return v.Memory }
+
+// GetPrefix returns __MovePreviewListInput.Prefix, and is useful for accessing the field via an interface.
+func (v *__MovePreviewListInput) GetPrefix() string { return v.Prefix }
+
+// GetLimit returns __MovePreviewListInput.Limit, and is useful for accessing the field via an interface.
+func (v *__MovePreviewListInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __MovePreviewListInput.Offset, and is useful for accessing the field via an interface.
+func (v *__MovePreviewListInput) GetOffset() int { return v.Offset }
+
+// GetNodeType returns __MovePreviewListInput.NodeType, and is useful for accessing the field via an interface.
+func (v *__MovePreviewListInput) GetNodeType() *string { return v.NodeType }
+
+// __MovePreviewMemoryInput is used internally by genqlient
+type __MovePreviewMemoryInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __MovePreviewMemoryInput.Ref, and is useful for accessing the field via an interface.
+func (v *__MovePreviewMemoryInput) GetRef() string { return v.Ref }
+
+// __MovePreviewSourceInput is used internally by genqlient
+type __MovePreviewSourceInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __MovePreviewSourceInput.Ref, and is useful for accessing the field via an interface.
+func (v *__MovePreviewSourceInput) GetRef() string { return v.Ref }
+
 // __MyUserApiKeysInput is used internally by genqlient
 type __MyUserApiKeysInput struct {
 	IncludeHidden *bool `json:"includeHidden,omitempty"`
@@ -101038,6 +105029,98 @@ func (v *__OrganizationsInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __OrganizationsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__OrganizationsInput) GetOffset() *int { return v.Offset }
 
+// __PRFreezeInput is used internally by genqlient
+type __PRFreezeInput struct {
+	TaskRef string `json:"taskRef"`
+	Head    string `json:"head"`
+}
+
+// GetTaskRef returns __PRFreezeInput.TaskRef, and is useful for accessing the field via an interface.
+func (v *__PRFreezeInput) GetTaskRef() string { return v.TaskRef }
+
+// GetHead returns __PRFreezeInput.Head, and is useful for accessing the field via an interface.
+func (v *__PRFreezeInput) GetHead() string { return v.Head }
+
+// __PRReadinessInput is used internally by genqlient
+type __PRReadinessInput struct {
+	TaskRef string `json:"taskRef"`
+	Head    string `json:"head"`
+}
+
+// GetTaskRef returns __PRReadinessInput.TaskRef, and is useful for accessing the field via an interface.
+func (v *__PRReadinessInput) GetTaskRef() string { return v.TaskRef }
+
+// GetHead returns __PRReadinessInput.Head, and is useful for accessing the field via an interface.
+func (v *__PRReadinessInput) GetHead() string { return v.Head }
+
+// __PRReadyInput is used internally by genqlient
+type __PRReadyInput struct {
+	TaskRef string `json:"taskRef"`
+	Head    string `json:"head"`
+}
+
+// GetTaskRef returns __PRReadyInput.TaskRef, and is useful for accessing the field via an interface.
+func (v *__PRReadyInput) GetTaskRef() string { return v.TaskRef }
+
+// GetHead returns __PRReadyInput.Head, and is useful for accessing the field via an interface.
+func (v *__PRReadyInput) GetHead() string { return v.Head }
+
+// __PRScheduleInput is used internally by genqlient
+type __PRScheduleInput struct {
+	TaskRef string   `json:"taskRef"`
+	Slots   []string `json:"slots"`
+}
+
+// GetTaskRef returns __PRScheduleInput.TaskRef, and is useful for accessing the field via an interface.
+func (v *__PRScheduleInput) GetTaskRef() string { return v.TaskRef }
+
+// GetSlots returns __PRScheduleInput.Slots, and is useful for accessing the field via an interface.
+func (v *__PRScheduleInput) GetSlots() []string { return v.Slots }
+
+// __PRSeatInput is used internally by genqlient
+type __PRSeatInput struct {
+	TaskRef    string  `json:"taskRef"`
+	Slot       string  `json:"slot"`
+	Head       string  `json:"head"`
+	Supersedes *string `json:"supersedes,omitempty"`
+}
+
+// GetTaskRef returns __PRSeatInput.TaskRef, and is useful for accessing the field via an interface.
+func (v *__PRSeatInput) GetTaskRef() string { return v.TaskRef }
+
+// GetSlot returns __PRSeatInput.Slot, and is useful for accessing the field via an interface.
+func (v *__PRSeatInput) GetSlot() string { return v.Slot }
+
+// GetHead returns __PRSeatInput.Head, and is useful for accessing the field via an interface.
+func (v *__PRSeatInput) GetHead() string { return v.Head }
+
+// GetSupersedes returns __PRSeatInput.Supersedes, and is useful for accessing the field via an interface.
+func (v *__PRSeatInput) GetSupersedes() *string { return v.Supersedes }
+
+// __PRVerdictInput is used internally by genqlient
+type __PRVerdictInput struct {
+	TaskRef string        `json:"taskRef"`
+	Head    string        `json:"head"`
+	Verdict ReviewVerdict `json:"verdict"`
+	Node    *string       `json:"node,omitempty"`
+	Receipt *string       `json:"receipt,omitempty"`
+}
+
+// GetTaskRef returns __PRVerdictInput.TaskRef, and is useful for accessing the field via an interface.
+func (v *__PRVerdictInput) GetTaskRef() string { return v.TaskRef }
+
+// GetHead returns __PRVerdictInput.Head, and is useful for accessing the field via an interface.
+func (v *__PRVerdictInput) GetHead() string { return v.Head }
+
+// GetVerdict returns __PRVerdictInput.Verdict, and is useful for accessing the field via an interface.
+func (v *__PRVerdictInput) GetVerdict() ReviewVerdict { return v.Verdict }
+
+// GetNode returns __PRVerdictInput.Node, and is useful for accessing the field via an interface.
+func (v *__PRVerdictInput) GetNode() *string { return v.Node }
+
+// GetReceipt returns __PRVerdictInput.Receipt, and is useful for accessing the field via an interface.
+func (v *__PRVerdictInput) GetReceipt() *string { return v.Receipt }
+
 // __PreviewAutomationInput is used internally by genqlient
 type __PreviewAutomationInput struct {
 	TriggerKind AutomationTriggerKind `json:"triggerKind"`
@@ -101141,6 +105224,26 @@ func (v *__ReAdoptAutomationInput) GetTriggerRef() string { return v.TriggerRef 
 
 // GetExpectedHash returns __ReAdoptAutomationInput.ExpectedHash, and is useful for accessing the field via an interface.
 func (v *__ReAdoptAutomationInput) GetExpectedHash() string { return v.ExpectedHash }
+
+// __RecordAppActionInput is used internally by genqlient
+type __RecordAppActionInput struct {
+	AppRef  string           `json:"appRef"`
+	Code    string           `json:"code"`
+	TaskRef *string          `json:"taskRef,omitempty"`
+	Payload *json.RawMessage `json:"payload,omitempty"`
+}
+
+// GetAppRef returns __RecordAppActionInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__RecordAppActionInput) GetAppRef() string { return v.AppRef }
+
+// GetCode returns __RecordAppActionInput.Code, and is useful for accessing the field via an interface.
+func (v *__RecordAppActionInput) GetCode() string { return v.Code }
+
+// GetTaskRef returns __RecordAppActionInput.TaskRef, and is useful for accessing the field via an interface.
+func (v *__RecordAppActionInput) GetTaskRef() *string { return v.TaskRef }
+
+// GetPayload returns __RecordAppActionInput.Payload, and is useful for accessing the field via an interface.
+func (v *__RecordAppActionInput) GetPayload() *json.RawMessage { return v.Payload }
 
 // __RecordSessionOutcomeInput is used internally by genqlient
 type __RecordSessionOutcomeInput struct {
@@ -102728,6 +106831,70 @@ func (v *__TeamChatSearchInput) GetLimit() *int { return v.Limit }
 // GetCursor returns __TeamChatSearchInput.Cursor, and is useful for accessing the field via an interface.
 func (v *__TeamChatSearchInput) GetCursor() *string { return v.Cursor }
 
+// __TeamChatTagsAttributedInput is used internally by genqlient
+type __TeamChatTagsAttributedInput struct {
+	AppRef      string  `json:"appRef"`
+	SinceSeq    *int    `json:"sinceSeq,omitempty"`
+	MentionsRef *string `json:"mentionsRef,omitempty"`
+	Limit       *int    `json:"limit,omitempty"`
+	BeforeSeq   *int    `json:"beforeSeq,omitempty"`
+	TeamHeadRef *string `json:"teamHeadRef,omitempty"`
+	Untagged    *bool   `json:"untagged,omitempty"`
+}
+
+// GetAppRef returns __TeamChatTagsAttributedInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsAttributedInput) GetAppRef() string { return v.AppRef }
+
+// GetSinceSeq returns __TeamChatTagsAttributedInput.SinceSeq, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsAttributedInput) GetSinceSeq() *int { return v.SinceSeq }
+
+// GetMentionsRef returns __TeamChatTagsAttributedInput.MentionsRef, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsAttributedInput) GetMentionsRef() *string { return v.MentionsRef }
+
+// GetLimit returns __TeamChatTagsAttributedInput.Limit, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsAttributedInput) GetLimit() *int { return v.Limit }
+
+// GetBeforeSeq returns __TeamChatTagsAttributedInput.BeforeSeq, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsAttributedInput) GetBeforeSeq() *int { return v.BeforeSeq }
+
+// GetTeamHeadRef returns __TeamChatTagsAttributedInput.TeamHeadRef, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsAttributedInput) GetTeamHeadRef() *string { return v.TeamHeadRef }
+
+// GetUntagged returns __TeamChatTagsAttributedInput.Untagged, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsAttributedInput) GetUntagged() *bool { return v.Untagged }
+
+// __TeamChatTagsInput is used internally by genqlient
+type __TeamChatTagsInput struct {
+	AppRef      string  `json:"appRef"`
+	SinceSeq    *int    `json:"sinceSeq,omitempty"`
+	MentionsRef *string `json:"mentionsRef,omitempty"`
+	Limit       *int    `json:"limit,omitempty"`
+	BeforeSeq   *int    `json:"beforeSeq,omitempty"`
+	TeamHeadRef *string `json:"teamHeadRef,omitempty"`
+	Untagged    *bool   `json:"untagged,omitempty"`
+}
+
+// GetAppRef returns __TeamChatTagsInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsInput) GetAppRef() string { return v.AppRef }
+
+// GetSinceSeq returns __TeamChatTagsInput.SinceSeq, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsInput) GetSinceSeq() *int { return v.SinceSeq }
+
+// GetMentionsRef returns __TeamChatTagsInput.MentionsRef, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsInput) GetMentionsRef() *string { return v.MentionsRef }
+
+// GetLimit returns __TeamChatTagsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsInput) GetLimit() *int { return v.Limit }
+
+// GetBeforeSeq returns __TeamChatTagsInput.BeforeSeq, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsInput) GetBeforeSeq() *int { return v.BeforeSeq }
+
+// GetTeamHeadRef returns __TeamChatTagsInput.TeamHeadRef, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsInput) GetTeamHeadRef() *string { return v.TeamHeadRef }
+
+// GetUntagged returns __TeamChatTagsInput.Untagged, and is useful for accessing the field via an interface.
+func (v *__TeamChatTagsInput) GetUntagged() *bool { return v.Untagged }
+
 // __TeamChatThreadAttributedInput is used internally by genqlient
 type __TeamChatThreadAttributedInput struct {
 	AppRef      string  `json:"appRef"`
@@ -103248,6 +107415,38 @@ func (v *__UntrackedTaskItemsInput) GetSkip() *int { return v.Skip }
 // GetLimit returns __UntrackedTaskItemsInput.Limit, and is useful for accessing the field via an interface.
 func (v *__UntrackedTaskItemsInput) GetLimit() *int { return v.Limit }
 
+// __UntrackedTaskItemsNoTeamInput is used internally by genqlient
+type __UntrackedTaskItemsNoTeamInput struct {
+	AppRef      string       `json:"appRef"`
+	Integration string       `json:"integration"`
+	NoTeam      bool         `json:"noTeam"`
+	Repository  *string      `json:"repository,omitempty"`
+	Ready       *ReadyFilter `json:"ready,omitempty"`
+	Skip        *int         `json:"skip,omitempty"`
+	Limit       *int         `json:"limit,omitempty"`
+}
+
+// GetAppRef returns __UntrackedTaskItemsNoTeamInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__UntrackedTaskItemsNoTeamInput) GetAppRef() string { return v.AppRef }
+
+// GetIntegration returns __UntrackedTaskItemsNoTeamInput.Integration, and is useful for accessing the field via an interface.
+func (v *__UntrackedTaskItemsNoTeamInput) GetIntegration() string { return v.Integration }
+
+// GetNoTeam returns __UntrackedTaskItemsNoTeamInput.NoTeam, and is useful for accessing the field via an interface.
+func (v *__UntrackedTaskItemsNoTeamInput) GetNoTeam() bool { return v.NoTeam }
+
+// GetRepository returns __UntrackedTaskItemsNoTeamInput.Repository, and is useful for accessing the field via an interface.
+func (v *__UntrackedTaskItemsNoTeamInput) GetRepository() *string { return v.Repository }
+
+// GetReady returns __UntrackedTaskItemsNoTeamInput.Ready, and is useful for accessing the field via an interface.
+func (v *__UntrackedTaskItemsNoTeamInput) GetReady() *ReadyFilter { return v.Ready }
+
+// GetSkip returns __UntrackedTaskItemsNoTeamInput.Skip, and is useful for accessing the field via an interface.
+func (v *__UntrackedTaskItemsNoTeamInput) GetSkip() *int { return v.Skip }
+
+// GetLimit returns __UntrackedTaskItemsNoTeamInput.Limit, and is useful for accessing the field via an interface.
+func (v *__UntrackedTaskItemsNoTeamInput) GetLimit() *int { return v.Limit }
+
 // __UpdateAgentInput is used internally by genqlient
 type __UpdateAgentInput struct {
 	Ref                   string                          `json:"ref"`
@@ -103481,6 +107680,78 @@ func (v *__UpdateAppInput) GetDescription() json.RawMessage { return v.Descripti
 
 // GetSessionTimeoutSeconds returns __UpdateAppInput.SessionTimeoutSeconds, and is useful for accessing the field via an interface.
 func (v *__UpdateAppInput) GetSessionTimeoutSeconds() *int { return v.SessionTimeoutSeconds }
+
+// __UpdateAppSettingsInput is used internally by genqlient
+type __UpdateAppSettingsInput struct {
+	Ref                   string                `json:"ref"`
+	Name                  *string               `json:"name,omitempty"`
+	Description           json.RawMessage       `json:"description,omitempty"`
+	SessionTimeoutSeconds *int                  `json:"sessionTimeoutSeconds,omitempty"`
+	Urn                   *string               `json:"urn,omitempty"`
+	AppType               *AppType              `json:"appType,omitempty"`
+	ExpiresAt             json.RawMessage       `json:"expiresAt,omitempty"`
+	SessionDormancyDays   *int                  `json:"sessionDormancyDays,omitempty"`
+	AgentSessionsExpire   *bool                 `json:"agentSessionsExpire,omitempty"`
+	Role                  *AppMembershipRole    `json:"role,omitempty"`
+	CreateUserPermission  *CreateUserPermission `json:"createUserPermission,omitempty"`
+	IdentifyUserMethod    *IdentifyUserMethod   `json:"identifyUserMethod,omitempty"`
+	AnonymousTtlDays      *int                  `json:"anonymousTtlDays,omitempty"`
+	TrainingMode          *bool                 `json:"trainingMode,omitempty"`
+	AgentTools            json.RawMessage       `json:"agentTools,omitempty"`
+	Surfaces              json.RawMessage       `json:"surfaces,omitempty"`
+}
+
+// GetRef returns __UpdateAppSettingsInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsInput) GetRef() string { return v.Ref }
+
+// GetName returns __UpdateAppSettingsInput.Name, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsInput) GetName() *string { return v.Name }
+
+// GetDescription returns __UpdateAppSettingsInput.Description, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsInput) GetDescription() json.RawMessage { return v.Description }
+
+// GetSessionTimeoutSeconds returns __UpdateAppSettingsInput.SessionTimeoutSeconds, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsInput) GetSessionTimeoutSeconds() *int { return v.SessionTimeoutSeconds }
+
+// GetUrn returns __UpdateAppSettingsInput.Urn, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsInput) GetUrn() *string { return v.Urn }
+
+// GetAppType returns __UpdateAppSettingsInput.AppType, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsInput) GetAppType() *AppType { return v.AppType }
+
+// GetExpiresAt returns __UpdateAppSettingsInput.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsInput) GetExpiresAt() json.RawMessage { return v.ExpiresAt }
+
+// GetSessionDormancyDays returns __UpdateAppSettingsInput.SessionDormancyDays, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsInput) GetSessionDormancyDays() *int { return v.SessionDormancyDays }
+
+// GetAgentSessionsExpire returns __UpdateAppSettingsInput.AgentSessionsExpire, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsInput) GetAgentSessionsExpire() *bool { return v.AgentSessionsExpire }
+
+// GetRole returns __UpdateAppSettingsInput.Role, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsInput) GetRole() *AppMembershipRole { return v.Role }
+
+// GetCreateUserPermission returns __UpdateAppSettingsInput.CreateUserPermission, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsInput) GetCreateUserPermission() *CreateUserPermission {
+	return v.CreateUserPermission
+}
+
+// GetIdentifyUserMethod returns __UpdateAppSettingsInput.IdentifyUserMethod, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsInput) GetIdentifyUserMethod() *IdentifyUserMethod {
+	return v.IdentifyUserMethod
+}
+
+// GetAnonymousTtlDays returns __UpdateAppSettingsInput.AnonymousTtlDays, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsInput) GetAnonymousTtlDays() *int { return v.AnonymousTtlDays }
+
+// GetTrainingMode returns __UpdateAppSettingsInput.TrainingMode, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsInput) GetTrainingMode() *bool { return v.TrainingMode }
+
+// GetAgentTools returns __UpdateAppSettingsInput.AgentTools, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsInput) GetAgentTools() json.RawMessage { return v.AgentTools }
+
+// GetSurfaces returns __UpdateAppSettingsInput.Surfaces, and is useful for accessing the field via an interface.
+func (v *__UpdateAppSettingsInput) GetSurfaces() json.RawMessage { return v.Surfaces }
 
 // __UpdateChannelInput is used internally by genqlient
 type __UpdateChannelInput struct {
@@ -108751,6 +113022,90 @@ func AgentTeamEvents(
 	return data_, err_
 }
 
+// The query executed by AgentTeamEventsByCode.
+const AgentTeamEventsByCode_Operation = `
+query AgentTeamEventsByCode ($appRef: ID!, $codePrefix: String!, $after: ID, $alarmsOnly: Boolean, $limit: Int, $since: DateTime, $taskId: ID, $types: [String!]) {
+	agentTeamEvents(appRef: $appRef, codePrefix: $codePrefix, after: $after, alarmsOnly: $alarmsOnly, limit: $limit, since: $since, taskId: $taskId, types: $types) {
+		... AgentTeamEventFields
+	}
+}
+fragment AgentTeamEventFields on AgentTeamEvent {
+	id
+	appId
+	taskId
+	type
+	severity
+	createdAt
+	actor {
+		... AgentTaskPartyFields
+	}
+	actorRunId
+	subjectWorker {
+		... AgentTaskPartyFields
+	}
+	payload
+	acknowledgedAt
+	acknowledgedBy {
+		... AgentTaskPartyFields
+	}
+	episodeStart
+	chain
+	wakes {
+		chainIndex
+		dueAt
+		owner {
+			... AgentTaskPartyFields
+		}
+		wokenAt
+	}
+}
+fragment AgentTaskPartyFields on AgentTaskParty {
+	id
+	kind
+	name
+	urn
+}
+`
+
+func AgentTeamEventsByCode(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	codePrefix string,
+	after *string,
+	alarmsOnly *bool,
+	limit *int,
+	since *string,
+	taskId *string,
+	types []string,
+) (data_ *AgentTeamEventsByCodeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentTeamEventsByCode",
+		Query:  AgentTeamEventsByCode_Operation,
+		Variables: &__AgentTeamEventsByCodeInput{
+			AppRef:     appRef,
+			CodePrefix: codePrefix,
+			After:      after,
+			AlarmsOnly: alarmsOnly,
+			Limit:      limit,
+			Since:      since,
+			TaskId:     taskId,
+			Types:      types,
+		},
+	}
+
+	data_ = &AgentTeamEventsByCodeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by AgentTickerTemplates.
 const AgentTickerTemplates_Operation = `
 query AgentTickerTemplates ($agentRef: String!) {
@@ -109442,30 +113797,101 @@ func AmendDecision(
 	return data_, err_
 }
 
-// The query executed by AppAgentRoster.
-const AppAgentRoster_Operation = `
-query AppAgentRoster ($appRef: ID!) {
+// The query executed by AppAgentInstallationRoster.
+const AppAgentInstallationRoster_Operation = `
+query AppAgentInstallationRoster ($appRef: ID!) {
 	app(ref: $appRef) {
-		id
-		urn
-		name
-		agents {
-			id
-			urn
-			name
-			description
-			visibility
-			organizationId
-			personaRole
-			createdAt
-		}
+		... AppAgentRosterData
 		appAgents {
 			agent {
 				id
 			}
-			bootPromptRef
-			bootPromptTargetDeleted
+			installMethod
+			importer {
+				id
+				urn
+				name
+			}
 		}
+	}
+}
+fragment AppAgentRosterData on App {
+	id
+	urn
+	name
+	agents {
+		id
+		urn
+		name
+		description
+		visibility
+		organizationId
+		personaRole
+		createdAt
+	}
+	appAgents {
+		agent {
+			id
+		}
+		bootPromptRef
+		bootPromptTargetDeleted
+	}
+}
+`
+
+// cli#1646: richer listing only; team role warnings keep the older operation.
+func AppAgentInstallationRoster(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *AppAgentInstallationRosterResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AppAgentInstallationRoster",
+		Query:  AppAgentInstallationRoster_Operation,
+		Variables: &__AppAgentInstallationRosterInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &AppAgentInstallationRosterResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AppAgentRoster.
+const AppAgentRoster_Operation = `
+query AppAgentRoster ($appRef: ID!) {
+	app(ref: $appRef) {
+		... AppAgentRosterData
+	}
+}
+fragment AppAgentRosterData on App {
+	id
+	urn
+	name
+	agents {
+		id
+		urn
+		name
+		description
+		visibility
+		organizationId
+		personaRole
+		createdAt
+	}
+	appAgents {
+		agent {
+			id
+		}
+		bootPromptRef
+		bootPromptTargetDeleted
 	}
 }
 `
@@ -110046,7 +114472,8 @@ query AppNodesPage ($appRef: ID!, $filter: NodeFilter, $limit: Int!, $offset: In
 `
 
 // cli#1626: one deliberate page over the App's authoritative node scope.
-// NodeFilter's per-field omission contract is shared with FindNodes.
+// Repeat FindNodes' per-field omission directives on every shared-input operation;
+// otherwise code generation can serialize unset selectors as null.
 func AppNodesPage(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -112553,6 +116980,10 @@ fragment ChannelMessageFields on TeamChatMessage {
 	replyToSeq
 	mentions
 	nodeId
+	teamTags {
+		headId
+		label
+	}
 }
 `
 
@@ -112639,6 +117070,75 @@ func ChannelReadState(
 	return data_, err_
 }
 
+// The query executed by ChannelTags.
+const ChannelTags_Operation = `
+query ChannelTags ($channelRef: ID!, $sinceSeq: Int, $beforeSeq: Int, $limit: Int, $offset: Int, $mentionsRef: ID, $teamHeadRef: ID, $untagged: Boolean) {
+	channelMessages(channelRef: $channelRef, sinceSeq: $sinceSeq, beforeSeq: $beforeSeq, limit: $limit, offset: $offset, mentionsRef: $mentionsRef, teamHeadRef: $teamHeadRef, untagged: $untagged) {
+		total
+		items {
+			... ChannelMessageFields
+		}
+	}
+}
+fragment ChannelMessageFields on TeamChatMessage {
+	seq
+	at
+	body
+	authorName
+	authorWorkerId
+	authorUserId
+	authorAppId
+	sessionId
+	replyToSeq
+	mentions
+	nodeId
+	teamTags {
+		headId
+		label
+	}
+}
+`
+
+// cli936: do not add tag arguments to the legacy ChannelMessages document.
+func ChannelTags(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	channelRef string,
+	sinceSeq *int,
+	beforeSeq *int,
+	limit *int,
+	offset *int,
+	mentionsRef *string,
+	teamHeadRef *string,
+	untagged *bool,
+) (data_ *ChannelTagsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ChannelTags",
+		Query:  ChannelTags_Operation,
+		Variables: &__ChannelTagsInput{
+			ChannelRef:  channelRef,
+			SinceSeq:    sinceSeq,
+			BeforeSeq:   beforeSeq,
+			Limit:       limit,
+			Offset:      offset,
+			MentionsRef: mentionsRef,
+			TeamHeadRef: teamHeadRef,
+			Untagged:    untagged,
+		},
+	}
+
+	data_ = &ChannelTagsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by ChannelThread.
 const ChannelThread_Operation = `
 query ChannelThread ($channelRef: ID!, $replyToSeq: Int!, $sinceSeq: Int, $beforeSeq: Int, $limit: Int, $offset: Int, $mentionsRef: ID) {
@@ -112661,6 +117161,10 @@ fragment ChannelMessageFields on TeamChatMessage {
 	replyToSeq
 	mentions
 	nodeId
+	teamTags {
+		headId
+		label
+	}
 }
 `
 
@@ -113046,6 +117550,10 @@ fragment TeamChatMessageFields on TeamChatMessage {
 	sessionId
 	replyToSeq
 	mentions
+	teamTags {
+		headId
+		label
+	}
 }
 `
 
@@ -113498,6 +118006,296 @@ func ClaimUntrackedTaskItemsForParties(
 	}
 
 	data_ = &ClaimUntrackedTaskItemsForPartiesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by ClaimUntrackedTaskItemsForPartiesNoTeam.
+const ClaimUntrackedTaskItemsForPartiesNoTeam_Operation = `
+mutation ClaimUntrackedTaskItemsForPartiesNoTeam ($appRef: ID!, $integration: String!, $noTeam: Boolean!, $repository: String, $ready: ReadyFilter, $limit: Int, $assignee: AgentTaskPartyInput, $owner: AgentTaskPartyInput) {
+	claimUntrackedTaskItems(appRef: $appRef, integration: $integration, noTeam: $noTeam, repository: $repository, ready: $ready, limit: $limit, assignee: $assignee, owner: $owner) {
+		tasks {
+			... AgentTaskFields
+		}
+		complete
+		incompleteReason
+		refusalCode
+	}
+}
+fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	id
+	handle
+	taskNumber
+	appId
+	title
+	description
+	status
+	queued
+	waitingOnChildren
+	owner {
+		... AgentTaskPartyFields
+	}
+	assignee {
+		... AgentTaskPartyFields
+	}
+	assignedBy {
+		... AgentTaskPartyFields
+	}
+	createdBy {
+		... AgentTaskPartyFields
+	}
+	parentTaskId
+	tags
+	source
+	externalId
+	references {
+		kind
+		target
+		label
+	}
+	handBack {
+		code
+		text
+		handedBackAt
+	}
+	matchFailure {
+		reason
+		failedAt
+	}
+	startBy
+	finishBy
+	createdAt
+	updatedAt
+	startedAt
+	finishedAt
+	cancelledAt
+	closeSessionWhenDone
+	requirements {
+		minTier
+		role
+		roles
+		teamWorkerId
+		familyIn
+		familyNotIn
+		modelGroupIn
+		modelGroupNotIn
+		excludeWorkerIds
+	}
+	result {
+		outcome
+		summary
+		evidence
+	}
+	properties
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
+}
+fragment AgentTaskPartyFields on AgentTaskParty {
+	id
+	kind
+	name
+	urn
+}
+`
+
+func ClaimUntrackedTaskItemsForPartiesNoTeam(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	integration string,
+	noTeam bool,
+	repository *string,
+	ready *ReadyFilter,
+	limit *int,
+	assignee *AgentTaskPartyInput,
+	owner *AgentTaskPartyInput,
+) (data_ *ClaimUntrackedTaskItemsForPartiesNoTeamResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ClaimUntrackedTaskItemsForPartiesNoTeam",
+		Query:  ClaimUntrackedTaskItemsForPartiesNoTeam_Operation,
+		Variables: &__ClaimUntrackedTaskItemsForPartiesNoTeamInput{
+			AppRef:      appRef,
+			Integration: integration,
+			NoTeam:      noTeam,
+			Repository:  repository,
+			Ready:       ready,
+			Limit:       limit,
+			Assignee:    assignee,
+			Owner:       owner,
+		},
+	}
+
+	data_ = &ClaimUntrackedTaskItemsForPartiesNoTeamResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by ClaimUntrackedTaskItemsNoTeam.
+const ClaimUntrackedTaskItemsNoTeam_Operation = `
+mutation ClaimUntrackedTaskItemsNoTeam ($appRef: ID!, $integration: String!, $noTeam: Boolean!, $repository: String, $ready: ReadyFilter, $limit: Int) {
+	claimUntrackedTaskItems(appRef: $appRef, integration: $integration, noTeam: $noTeam, repository: $repository, ready: $ready, limit: $limit) {
+		tasks {
+			... AgentTaskFields
+		}
+		complete
+		incompleteReason
+		refusalCode
+	}
+}
+fragment AgentTaskFields on AgentTask {
+	priority
+	blocked
+	blockedBy(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	blocks(limit: 20, offset: 0) {
+		total
+		hasMore
+		items {
+			... AgentTaskDependencyFields
+		}
+	}
+	id
+	handle
+	taskNumber
+	appId
+	title
+	description
+	status
+	queued
+	waitingOnChildren
+	owner {
+		... AgentTaskPartyFields
+	}
+	assignee {
+		... AgentTaskPartyFields
+	}
+	assignedBy {
+		... AgentTaskPartyFields
+	}
+	createdBy {
+		... AgentTaskPartyFields
+	}
+	parentTaskId
+	tags
+	source
+	externalId
+	references {
+		kind
+		target
+		label
+	}
+	handBack {
+		code
+		text
+		handedBackAt
+	}
+	matchFailure {
+		reason
+		failedAt
+	}
+	startBy
+	finishBy
+	createdAt
+	updatedAt
+	startedAt
+	finishedAt
+	cancelledAt
+	closeSessionWhenDone
+	requirements {
+		minTier
+		role
+		roles
+		teamWorkerId
+		familyIn
+		familyNotIn
+		modelGroupIn
+		modelGroupNotIn
+		excludeWorkerIds
+	}
+	result {
+		outcome
+		summary
+		evidence
+	}
+	properties
+}
+fragment AgentTaskDependencyFields on AgentTask {
+	id
+	handle
+	title
+	status
+}
+fragment AgentTaskPartyFields on AgentTaskParty {
+	id
+	kind
+	name
+	urn
+}
+`
+
+func ClaimUntrackedTaskItemsNoTeam(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	integration string,
+	noTeam bool,
+	repository *string,
+	ready *ReadyFilter,
+	limit *int,
+) (data_ *ClaimUntrackedTaskItemsNoTeamResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ClaimUntrackedTaskItemsNoTeam",
+		Query:  ClaimUntrackedTaskItemsNoTeam_Operation,
+		Variables: &__ClaimUntrackedTaskItemsNoTeamInput{
+			AppRef:      appRef,
+			Integration: integration,
+			NoTeam:      noTeam,
+			Repository:  repository,
+			Ready:       ready,
+			Limit:       limit,
+		},
+	}
+
+	data_ = &ClaimUntrackedTaskItemsNoTeamResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -115234,6 +120032,77 @@ func CreateAppMemory(
 	return data_, err_
 }
 
+// The mutation executed by CreateAppSettings.
+const CreateAppSettings_Operation = `
+mutation CreateAppSettings ($orgRef: ID, $agentRef: ID!, $name: String!, $urn: String, $appType: AppType, $description: String, $sessionTimeoutSeconds: Int, $expiresAt: String, $role: AppMembershipRole, $createUserPermission: CreateUserPermission, $identifyUserMethod: IdentifyUserMethod, $anonymousTtlDays: Int, $trainingMode: Boolean, $agentTools: [String!], $surfaces: [String!], $installOptional: [ID!]) {
+	createApp(orgRef: $orgRef, agentRef: $agentRef, name: $name, urn: $urn, appType: $appType, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, expiresAt: $expiresAt, role: $role, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces, installOptional: $installOptional) {
+		id
+		urn
+		name
+		appType
+		agentId
+		memberCount
+		createdAt
+	}
+}
+`
+
+// cli1628: explicit settings documents. Legacy command paths keep their old documents.
+func CreateAppSettings(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgRef *string,
+	agentRef string,
+	name string,
+	urn *string,
+	appType *AppType,
+	description *string,
+	sessionTimeoutSeconds *int,
+	expiresAt *string,
+	role *AppMembershipRole,
+	createUserPermission *CreateUserPermission,
+	identifyUserMethod *IdentifyUserMethod,
+	anonymousTtlDays *int,
+	trainingMode *bool,
+	agentTools json.RawMessage,
+	surfaces json.RawMessage,
+	installOptional json.RawMessage,
+) (data_ *CreateAppSettingsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateAppSettings",
+		Query:  CreateAppSettings_Operation,
+		Variables: &__CreateAppSettingsInput{
+			OrgRef:                orgRef,
+			AgentRef:              agentRef,
+			Name:                  name,
+			Urn:                   urn,
+			AppType:               appType,
+			Description:           description,
+			SessionTimeoutSeconds: sessionTimeoutSeconds,
+			ExpiresAt:             expiresAt,
+			Role:                  role,
+			CreateUserPermission:  createUserPermission,
+			IdentifyUserMethod:    identifyUserMethod,
+			AnonymousTtlDays:      anonymousTtlDays,
+			TrainingMode:          trainingMode,
+			AgentTools:            agentTools,
+			Surfaces:              surfaces,
+			InstallOptional:       installOptional,
+		},
+	}
+
+	data_ = &CreateAppSettingsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateAppUser.
 const CreateAppUser_Operation = `
 mutation CreateAppUser ($externalId: String!, $handle: String, $name: String) {
@@ -115410,6 +120279,10 @@ fragment ChannelMessageFields on TeamChatMessage {
 	replyToSeq
 	mentions
 	nodeId
+	teamTags {
+		headId
+		label
+	}
 }
 `
 
@@ -117057,6 +121930,10 @@ fragment TeamChatMessageFields on TeamChatMessage {
 	sessionId
 	replyToSeq
 	mentions
+	teamTags {
+		headId
+		label
+	}
 }
 `
 
@@ -119393,8 +124270,8 @@ func DueTickWakes(
 
 // The query executed by DueWakes.
 const DueWakes_Operation = `
-query DueWakes ($appRef: String!, $first: Int!, $after: String) {
-	dueWakes(appRef: $appRef, first: $first, after: $after) {
+query DueWakes ($appRef: String!, $first: Int!, $accepts: [WakeKind!]!, $after: String) {
+	dueWakes(appRef: $appRef, first: $first, after: $after, accepts: $accepts) {
 		status
 		withheld
 		dormant {
@@ -119435,6 +124312,13 @@ query DueWakes ($appRef: String!, $first: Int!, $after: String) {
 					taskLoc
 					taskUrn
 				}
+				stop {
+					eventId
+					signalId
+					level
+					notice
+					interrupt
+				}
 			}
 		}
 		pageInfo {
@@ -119450,22 +124334,27 @@ query DueWakes ($appRef: String!, $first: Int!, $after: String) {
 // hadron-server#2733/7db74494, the same as #1281) are nullable values: null or
 // omitted keeps the composed fallback. A server without them refuses this
 // query at validation, which the poller fails closed on (no retry, nothing
-// typed). No accepts, so no STOP notice is offered (this
-// deliverer cannot type one); no workerRefs, so the key's host is the lane.
+// typed). accepts lists STOP (hadron-cli#1629, hadron-server#2169): the
+// poller types stop notices, and its whole-lane read (no workerRefs, no after
+// on the first page, one page of first: 200) declares the host's lane for
+// STOP_CONSUMER_FRESH_SECONDS (cor:agt:090:04). No workerRefs, so the key's
+// host is the lane.
 func DueWakes(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	appRef string,
 	first int,
+	accepts []WakeKind,
 	after *string,
 ) (data_ *DueWakesResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "DueWakes",
 		Query:  DueWakes_Operation,
 		Variables: &__DueWakesInput{
-			AppRef: appRef,
-			First:  first,
-			After:  after,
+			AppRef:  appRef,
+			First:   first,
+			Accepts: accepts,
+			After:   after,
 		},
 	}
 
@@ -120514,6 +125403,40 @@ func GetAppMetadata(
 	return data_, err_
 }
 
+// The query executed by GetAppRenameURN.
+const GetAppRenameURN_Operation = `
+query GetAppRenameURN ($ref: ID!) {
+	app(ref: $ref) {
+		urn
+	}
+}
+`
+
+func GetAppRenameURN(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetAppRenameURNResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetAppRenameURN",
+		Query:  GetAppRenameURN_Operation,
+		Variables: &__GetAppRenameURNInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetAppRenameURNResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by GetAppSharedMemory.
 const GetAppSharedMemory_Operation = `
 query GetAppSharedMemory ($appRef: ID!) {
@@ -121057,6 +125980,7 @@ query GetNode ($ref: ID!) {
 			priority
 			target {
 				id
+				name
 				loc
 				memoryId
 			}
@@ -121196,6 +126120,7 @@ query GetNodeRaw ($ref: ID!) {
 			priority
 			target {
 				id
+				name
 				loc
 				memoryId
 			}
@@ -121662,6 +126587,55 @@ func GetSpecNodeRaw(
 	}
 
 	data_ = &GetSpecNodeRawResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetSpecSupersedeTarget.
+const GetSpecSupersedeTarget_Operation = `
+query GetSpecSupersedeTarget ($ref: ID!) {
+	node(ref: $ref) {
+		id
+		memoryId
+		loc
+		name
+		role
+		tags
+		isPlaceholder
+		deletedAt
+		outgoingEdges {
+			name
+			target {
+				id
+			}
+		}
+	}
+}
+`
+
+// Existing-successor admission and superseded-by graph walk (#579). No body or
+// list scan: explicit provider facts, never placeholder inference from text.
+func GetSpecSupersedeTarget(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetSpecSupersedeTargetResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetSpecSupersedeTarget",
+		Query:  GetSpecSupersedeTarget_Operation,
+		Variables: &__GetSpecSupersedeTargetInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetSpecSupersedeTargetResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -122224,6 +127198,53 @@ func GetWorkerRendered(
 	}
 
 	data_ = &GetWorkerRenderedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by GetWorkerRetireAdvisory.
+const GetWorkerRetireAdvisory_Operation = `
+query GetWorkerRetireAdvisory ($ref: ID!) {
+	worker(ref: $ref) {
+		continuity {
+			status
+			handoff {
+				urn
+				loc
+				createdAt
+			}
+		}
+	}
+}
+`
+
+// cli#494: the retirement advisory reads the SAME server-owned continuity
+// facts as GetWorkerContinuity, but only the metadata `worker retire` may show
+// before its confirmation: status and the handoff's reference (urn/loc/time) —
+// never the handoff body, never previousSession internals. Deliberately its own
+// operation (not WorkerFields): the roster projection stays unwidened, and an
+// older server that rejects Worker.continuity fails only this read.
+func GetWorkerRetireAdvisory(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *GetWorkerRetireAdvisoryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "GetWorkerRetireAdvisory",
+		Query:  GetWorkerRetireAdvisory_Operation,
+		Variables: &__GetWorkerRetireAdvisoryInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &GetWorkerRetireAdvisoryResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -123209,6 +128230,57 @@ func IssueHostOperation(
 	return data_, err_
 }
 
+// The mutation executed by JoinApp.
+const JoinApp_Operation = `
+mutation JoinApp ($appId: ID!) {
+	joinApp(appId: $appId) {
+		appMember {
+			appId
+			role
+			createdAt
+			isOrgExternal
+			user {
+				id
+				handle
+				urn
+			}
+			app {
+				urn
+				name
+			}
+		}
+	}
+}
+`
+
+// JoinAppPayload says nothing about whether this call created the row (the
+// server returns the existing row for an existing member), so the selection is
+// the row alone and nothing here lets the CLI claim "already a member".
+func JoinApp(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appId string,
+) (data_ *JoinAppResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "JoinApp",
+		Query:  JoinApp_Operation,
+		Variables: &__JoinAppInput{
+			AppId: appId,
+		},
+	}
+
+	data_ = &JoinAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by LatestAppRun.
 const LatestAppRun_Operation = `
 query LatestAppRun ($appRef: String!, $previous: Boolean) {
@@ -123268,6 +128340,82 @@ func LatestAppRun(
 	}
 
 	data_ = &LatestAppRunResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by LeaveApp.
+const LeaveApp_Operation = `
+mutation LeaveApp ($appId: ID!) {
+	leaveApp(appId: $appId) {
+		appId
+		userId
+	}
+}
+`
+
+// Idempotent server-side (a no-op for a non-member). The user's personal memory
+// in the App is retained and re-attaches on a later join (cor:dmo:030:01).
+func LeaveApp(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appId string,
+) (data_ *LeaveAppResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "LeaveApp",
+		Query:  LeaveApp_Operation,
+		Variables: &__LeaveAppInput{
+			AppId: appId,
+		},
+	}
+
+	data_ = &LeaveAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by LeaveAppInstructed.
+const LeaveAppInstructed_Operation = `
+mutation LeaveAppInstructed ($appId: ID!, $instruction: ActInstructionInput!) {
+	leaveApp(appId: $appId, instruction: $instruction) {
+		appId
+		userId
+	}
+}
+`
+
+// The holder's instruction claim (cor:dmo:050:12); a separate document so the
+// plain one above stays byte-for-byte unchanged.
+func LeaveAppInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appId string,
+	instruction *ActInstructionInput,
+) (data_ *LeaveAppInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "LeaveAppInstructed",
+		Query:  LeaveAppInstructed_Operation,
+		Variables: &__LeaveAppInstructedInput{
+			AppId:       appId,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &LeaveAppInstructedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -125019,6 +130167,172 @@ func MoveNode(
 	return data_, err_
 }
 
+// The query executed by MovePreviewBatch.
+const MovePreviewBatch_Operation = `
+query MovePreviewBatch ($refs: [ID!]) {
+	nodeBatch(refs: $refs) {
+		truncated
+		omitted
+		unavailable
+		nodes {
+			id
+			urn
+			memoryId
+			loc
+			name
+		}
+	}
+}
+`
+
+func MovePreviewBatch(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	refs []string,
+) (data_ *MovePreviewBatchResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MovePreviewBatch",
+		Query:  MovePreviewBatch_Operation,
+		Variables: &__MovePreviewBatchInput{
+			Refs: refs,
+		},
+	}
+
+	data_ = &MovePreviewBatchResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by MovePreviewList.
+const MovePreviewList_Operation = `
+query MovePreviewList ($memory: ID!, $prefix: String!, $limit: Int!, $offset: Int!, $nodeType: String) {
+	findNodes(filter: {memoryIds:[$memory],locPrefix:$prefix,contentScope:ALL,nodeType:$nodeType}, sort: loc, limit: $limit, offset: $offset) {
+		hits {
+			node {
+				id
+				memoryId
+				loc
+			}
+		}
+	}
+}
+`
+
+// The default stream excludes system-type nodes; a second paged stream names
+// that type explicitly. ALL overrides the independent comment exclusion.
+func MovePreviewList(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memory string,
+	prefix string,
+	limit int,
+	offset int,
+	nodeType *string,
+) (data_ *MovePreviewListResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MovePreviewList",
+		Query:  MovePreviewList_Operation,
+		Variables: &__MovePreviewListInput{
+			Memory:   memory,
+			Prefix:   prefix,
+			Limit:    limit,
+			Offset:   offset,
+			NodeType: nodeType,
+		},
+	}
+
+	data_ = &MovePreviewListResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by MovePreviewMemory.
+const MovePreviewMemory_Operation = `
+query MovePreviewMemory ($ref: ID!) {
+	memory(ref: $ref) {
+		id
+	}
+}
+`
+
+func MovePreviewMemory(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *MovePreviewMemoryResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MovePreviewMemory",
+		Query:  MovePreviewMemory_Operation,
+		Variables: &__MovePreviewMemoryInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &MovePreviewMemoryResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by MovePreviewSource.
+const MovePreviewSource_Operation = `
+query MovePreviewSource ($ref: ID!) {
+	node(ref: $ref) {
+		id
+		urn
+		memoryId
+		loc
+	}
+}
+`
+
+// Advisory node move reads only identity/name. No mutation, validation or
+// computed destination addresses; the server planner is server#3424.
+func MovePreviewSource(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *MovePreviewSourceResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "MovePreviewSource",
+		Query:  MovePreviewSource_Operation,
+		Variables: &__MovePreviewSourceInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &MovePreviewSourceResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by MyApp.
 const MyApp_Operation = `
 query MyApp {
@@ -125139,6 +130453,7 @@ query NextNode ($parentRef: ID!, $currentRef: ID, $raw: Boolean!) {
 			priority
 			target {
 				id
+				name
 				loc
 				memoryId
 			}
@@ -126621,6 +131936,306 @@ func Organizations(
 	return data_, err_
 }
 
+// The mutation executed by PRFreeze.
+const PRFreeze_Operation = `
+mutation PRFreeze ($taskRef: ID!, $head: String!) {
+	freezePullRequestHead(taskRef: $taskRef, head: $head) {
+		... PRProtocolReceipt
+	}
+}
+fragment PRProtocolReceipt on PrProtocolResult {
+	task {
+		id
+		handle
+		status
+	}
+	action {
+		code
+		state
+		taskLoc
+		taskUrn
+	}
+}
+`
+
+func PRFreeze(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	taskRef string,
+	head string,
+) (data_ *PRFreezeResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "PRFreeze",
+		Query:  PRFreeze_Operation,
+		Variables: &__PRFreezeInput{
+			TaskRef: taskRef,
+			Head:    head,
+		},
+	}
+
+	data_ = &PRFreezeResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by PRReadiness.
+const PRReadiness_Operation = `
+query PRReadiness ($taskRef: ID!, $head: String!) {
+	pullRequestReadiness(taskRef: $taskRef, head: $head) {
+		ready
+		head
+		slots {
+			slot
+			currentTaskId
+			state
+			verdict
+			head
+			counts
+		}
+	}
+}
+`
+
+func PRReadiness(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	taskRef string,
+	head string,
+) (data_ *PRReadinessResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "PRReadiness",
+		Query:  PRReadiness_Operation,
+		Variables: &__PRReadinessInput{
+			TaskRef: taskRef,
+			Head:    head,
+		},
+	}
+
+	data_ = &PRReadinessResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by PRReady.
+const PRReady_Operation = `
+mutation PRReady ($taskRef: ID!, $head: String!) {
+	recordReadyCall(taskRef: $taskRef, head: $head) {
+		... PRProtocolReceipt
+	}
+}
+fragment PRProtocolReceipt on PrProtocolResult {
+	task {
+		id
+		handle
+		status
+	}
+	action {
+		code
+		state
+		taskLoc
+		taskUrn
+	}
+}
+`
+
+func PRReady(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	taskRef string,
+	head string,
+) (data_ *PRReadyResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "PRReady",
+		Query:  PRReady_Operation,
+		Variables: &__PRReadyInput{
+			TaskRef: taskRef,
+			Head:    head,
+		},
+	}
+
+	data_ = &PRReadyResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by PRSchedule.
+const PRSchedule_Operation = `
+mutation PRSchedule ($taskRef: ID!, $slots: [String!]!) {
+	setReviewSchedule(taskRef: $taskRef, slots: $slots) {
+		... PRProtocolReceipt
+	}
+}
+fragment PRProtocolReceipt on PrProtocolResult {
+	task {
+		id
+		handle
+		status
+	}
+	action {
+		code
+		state
+		taskLoc
+		taskUrn
+	}
+}
+`
+
+func PRSchedule(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	taskRef string,
+	slots []string,
+) (data_ *PRScheduleResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "PRSchedule",
+		Query:  PRSchedule_Operation,
+		Variables: &__PRScheduleInput{
+			TaskRef: taskRef,
+			Slots:   slots,
+		},
+	}
+
+	data_ = &PRScheduleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by PRSeat.
+const PRSeat_Operation = `
+mutation PRSeat ($taskRef: ID!, $slot: String!, $head: String!, $supersedes: ID) {
+	assignReviewSeat(taskRef: $taskRef, slot: $slot, head: $head, supersedes: $supersedes) {
+		... PRProtocolReceipt
+	}
+}
+fragment PRProtocolReceipt on PrProtocolResult {
+	task {
+		id
+		handle
+		status
+	}
+	action {
+		code
+		state
+		taskLoc
+		taskUrn
+	}
+}
+`
+
+func PRSeat(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	taskRef string,
+	slot string,
+	head string,
+	supersedes *string,
+) (data_ *PRSeatResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "PRSeat",
+		Query:  PRSeat_Operation,
+		Variables: &__PRSeatInput{
+			TaskRef:    taskRef,
+			Slot:       slot,
+			Head:       head,
+			Supersedes: supersedes,
+		},
+	}
+
+	data_ = &PRSeatResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by PRVerdict.
+const PRVerdict_Operation = `
+mutation PRVerdict ($taskRef: ID!, $head: String!, $verdict: ReviewVerdict!, $node: String, $receipt: String) {
+	recordReviewVerdict(taskRef: $taskRef, head: $head, verdict: $verdict, node: $node, receipt: $receipt) {
+		... PRProtocolReceipt
+	}
+}
+fragment PRProtocolReceipt on PrProtocolResult {
+	task {
+		id
+		handle
+		status
+	}
+	action {
+		code
+		state
+		taskLoc
+		taskUrn
+	}
+}
+`
+
+func PRVerdict(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	taskRef string,
+	head string,
+	verdict ReviewVerdict,
+	node *string,
+	receipt *string,
+) (data_ *PRVerdictResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "PRVerdict",
+		Query:  PRVerdict_Operation,
+		Variables: &__PRVerdictInput{
+			TaskRef: taskRef,
+			Head:    head,
+			Verdict: verdict,
+			Node:    node,
+			Receipt: receipt,
+		},
+	}
+
+	data_ = &PRVerdictResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by PreviewAutomation.
 const PreviewAutomation_Operation = `
 query PreviewAutomation ($triggerKind: AutomationTriggerKind!, $triggerRef: String!) {
@@ -126996,6 +132611,52 @@ func ReAdoptAutomation(
 	}
 
 	data_ = &ReAdoptAutomationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RecordAppAction.
+const RecordAppAction_Operation = `
+mutation RecordAppAction ($appRef: ID!, $code: String!, $taskRef: ID, $payload: JSON) {
+	recordAppAction(appRef: $appRef, code: $code, taskRef: $taskRef, payload: $payload) {
+		eventId
+		action {
+			code
+			state
+			taskLoc
+			taskUrn
+		}
+	}
+}
+`
+
+func RecordAppAction(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	code string,
+	taskRef *string,
+	payload *json.RawMessage,
+) (data_ *RecordAppActionResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RecordAppAction",
+		Query:  RecordAppAction_Operation,
+		Variables: &__RecordAppActionInput{
+			AppRef:  appRef,
+			Code:    code,
+			TaskRef: taskRef,
+			Payload: payload,
+		},
+	}
+
+	data_ = &RecordAppActionResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -132912,6 +138573,10 @@ fragment TeamChatMessageFields on TeamChatMessage {
 	sessionId
 	replyToSeq
 	mentions
+	teamTags {
+		headId
+		label
+	}
 }
 `
 
@@ -132971,6 +138636,10 @@ fragment TeamChatMessageFields on TeamChatMessage {
 	sessionId
 	replyToSeq
 	mentions
+	teamTags {
+		headId
+		label
+	}
 }
 `
 
@@ -133149,6 +138818,10 @@ fragment TeamChatMessageFields on TeamChatMessage {
 	sessionId
 	replyToSeq
 	mentions
+	teamTags {
+		headId
+		label
+	}
 }
 `
 
@@ -133214,6 +138887,10 @@ fragment TeamChatMessageFields on TeamChatMessage {
 	sessionId
 	replyToSeq
 	mentions
+	teamTags {
+		headId
+		label
+	}
 }
 `
 
@@ -133307,6 +138984,136 @@ func TeamChatSearch(
 	return data_, err_
 }
 
+// The query executed by TeamChatTags.
+const TeamChatTags_Operation = `
+query TeamChatTags ($appRef: ID!, $sinceSeq: Int, $mentionsRef: ID, $limit: Int, $beforeSeq: Int, $teamHeadRef: ID, $untagged: Boolean) {
+	teamChatMessages(appRef: $appRef, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, beforeSeq: $beforeSeq, teamHeadRef: $teamHeadRef, untagged: $untagged) {
+		items {
+			... TeamChatMessageFields
+		}
+	}
+}
+fragment TeamChatMessageFields on TeamChatMessage {
+	nodeId
+	seq
+	body
+	at
+	authorUserId
+	authorWorkerId
+	authorName
+	sessionId
+	replyToSeq
+	mentions
+	teamTags {
+		headId
+		label
+	}
+}
+`
+
+// cli936: tag-filtered reads have their own document; legacy arguments stay unchanged.
+func TeamChatTags(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	sinceSeq *int,
+	mentionsRef *string,
+	limit *int,
+	beforeSeq *int,
+	teamHeadRef *string,
+	untagged *bool,
+) (data_ *TeamChatTagsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamChatTags",
+		Query:  TeamChatTags_Operation,
+		Variables: &__TeamChatTagsInput{
+			AppRef:      appRef,
+			SinceSeq:    sinceSeq,
+			MentionsRef: mentionsRef,
+			Limit:       limit,
+			BeforeSeq:   beforeSeq,
+			TeamHeadRef: teamHeadRef,
+			Untagged:    untagged,
+		},
+	}
+
+	data_ = &TeamChatTagsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by TeamChatTagsAttributed.
+const TeamChatTagsAttributed_Operation = `
+query TeamChatTagsAttributed ($appRef: ID!, $sinceSeq: Int, $mentionsRef: ID, $limit: Int, $beforeSeq: Int, $teamHeadRef: ID, $untagged: Boolean) {
+	teamChatMessages(appRef: $appRef, sinceSeq: $sinceSeq, mentionsRef: $mentionsRef, limit: $limit, beforeSeq: $beforeSeq, teamHeadRef: $teamHeadRef, untagged: $untagged, advanceReadState: false) {
+		items {
+			... TeamChatMessageFields
+		}
+	}
+}
+fragment TeamChatMessageFields on TeamChatMessage {
+	nodeId
+	seq
+	body
+	at
+	authorUserId
+	authorWorkerId
+	authorName
+	sessionId
+	replyToSeq
+	mentions
+	teamTags {
+		headId
+		label
+	}
+}
+`
+
+// cli936: tag-filtered reads have their own document; legacy arguments stay unchanged.
+func TeamChatTagsAttributed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	sinceSeq *int,
+	mentionsRef *string,
+	limit *int,
+	beforeSeq *int,
+	teamHeadRef *string,
+	untagged *bool,
+) (data_ *TeamChatTagsAttributedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamChatTagsAttributed",
+		Query:  TeamChatTagsAttributed_Operation,
+		Variables: &__TeamChatTagsAttributedInput{
+			AppRef:      appRef,
+			SinceSeq:    sinceSeq,
+			MentionsRef: mentionsRef,
+			Limit:       limit,
+			BeforeSeq:   beforeSeq,
+			TeamHeadRef: teamHeadRef,
+			Untagged:    untagged,
+		},
+	}
+
+	data_ = &TeamChatTagsAttributedResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by TeamChatThread.
 const TeamChatThread_Operation = `
 query TeamChatThread ($appRef: ID!, $replyToSeq: Int!, $sinceSeq: Int, $mentionsRef: ID, $limit: Int, $beforeSeq: Int) {
@@ -133327,6 +139134,10 @@ fragment TeamChatMessageFields on TeamChatMessage {
 	sessionId
 	replyToSeq
 	mentions
+	teamTags {
+		headId
+		label
+	}
 }
 `
 
@@ -133393,6 +139204,10 @@ fragment TeamChatMessageFields on TeamChatMessage {
 	sessionId
 	replyToSeq
 	mentions
+	teamTags {
+		headId
+		label
+	}
 }
 `
 
@@ -135137,6 +140952,72 @@ func UntrackedTaskItems(
 	return data_, err_
 }
 
+// The query executed by UntrackedTaskItemsNoTeam.
+const UntrackedTaskItemsNoTeam_Operation = `
+query UntrackedTaskItemsNoTeam ($appRef: ID!, $integration: String!, $noTeam: Boolean!, $repository: String, $ready: ReadyFilter, $skip: Int, $limit: Int) {
+	untrackedTaskItems(appRef: $appRef, integration: $integration, noTeam: $noTeam, repository: $repository, ready: $ready, skip: $skip, limit: $limit) {
+		items {
+			externalId
+			repository
+			number
+			title
+			url
+			labels
+			createdAt
+			updatedAt
+			linkedPullRequestMerged
+		}
+		total
+		complete
+		incompleteReason
+	}
+}
+`
+
+// cli#1622 (hadron-server#3422, cor:agt:120:03): the three documents above
+// with the server's no-team filter. SEPARATE documents, as cli#1596 did, so the
+// three above stay byte for byte what they were (a server without noTeam keeps
+// validating them) and only --no-team needs a server that has the argument.
+// $noTeam is non-null: these documents exist only to send true, and never send
+// team (the server refuses the pair, BAD_USER_INPUT, and the CLI refuses it
+// first).
+func UntrackedTaskItemsNoTeam(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	integration string,
+	noTeam bool,
+	repository *string,
+	ready *ReadyFilter,
+	skip *int,
+	limit *int,
+) (data_ *UntrackedTaskItemsNoTeamResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UntrackedTaskItemsNoTeam",
+		Query:  UntrackedTaskItemsNoTeam_Operation,
+		Variables: &__UntrackedTaskItemsNoTeamInput{
+			AppRef:      appRef,
+			Integration: integration,
+			NoTeam:      noTeam,
+			Repository:  repository,
+			Ready:       ready,
+			Skip:        skip,
+			Limit:       limit,
+		},
+	}
+
+	data_ = &UntrackedTaskItemsNoTeamResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by UpdateAgent.
 const UpdateAgent_Operation = `
 mutation UpdateAgent ($ref: ID!, $name: String, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryId: String, $surfaces: [String!], $urn: String, $personaRole: String, $usesTasks: Boolean, $resetContextAfterTask: Boolean, $memberRoles: [String!], $listedOnMarketplace: Boolean, $registerDefaults: RegisterDefaultsInput) {
@@ -135653,6 +141534,73 @@ func UpdateApp(
 	}
 
 	data_ = &UpdateAppResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateAppSettings.
+const UpdateAppSettings_Operation = `
+mutation UpdateAppSettings ($ref: ID!, $name: String, $description: String, $sessionTimeoutSeconds: Int, $urn: String, $appType: AppType, $expiresAt: String, $sessionDormancyDays: Int, $agentSessionsExpire: Boolean, $role: AppMembershipRole, $createUserPermission: CreateUserPermission, $identifyUserMethod: IdentifyUserMethod, $anonymousTtlDays: Int, $trainingMode: Boolean, $agentTools: [String!], $surfaces: [String!]) {
+	updateApp(ref: $ref, name: $name, description: $description, sessionTimeoutSeconds: $sessionTimeoutSeconds, urn: $urn, appType: $appType, expiresAt: $expiresAt, sessionDormancyDays: $sessionDormancyDays, agentSessionsExpire: $agentSessionsExpire, role: $role, createUserPermission: $createUserPermission, identifyUserMethod: $identifyUserMethod, anonymousTtlDays: $anonymousTtlDays, trainingMode: $trainingMode, agentTools: $agentTools, surfaces: $surfaces) {
+		id
+		urn
+		name
+		sessionTimeoutSeconds
+	}
+}
+`
+
+func UpdateAppSettings(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	name *string,
+	description json.RawMessage,
+	sessionTimeoutSeconds *int,
+	urn *string,
+	appType *AppType,
+	expiresAt json.RawMessage,
+	sessionDormancyDays *int,
+	agentSessionsExpire *bool,
+	role *AppMembershipRole,
+	createUserPermission *CreateUserPermission,
+	identifyUserMethod *IdentifyUserMethod,
+	anonymousTtlDays *int,
+	trainingMode *bool,
+	agentTools json.RawMessage,
+	surfaces json.RawMessage,
+) (data_ *UpdateAppSettingsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateAppSettings",
+		Query:  UpdateAppSettings_Operation,
+		Variables: &__UpdateAppSettingsInput{
+			Ref:                   ref,
+			Name:                  name,
+			Description:           description,
+			SessionTimeoutSeconds: sessionTimeoutSeconds,
+			Urn:                   urn,
+			AppType:               appType,
+			ExpiresAt:             expiresAt,
+			SessionDormancyDays:   sessionDormancyDays,
+			AgentSessionsExpire:   agentSessionsExpire,
+			Role:                  role,
+			CreateUserPermission:  createUserPermission,
+			IdentifyUserMethod:    identifyUserMethod,
+			AnonymousTtlDays:      anonymousTtlDays,
+			TrainingMode:          trainingMode,
+			AgentTools:            agentTools,
+			Surfaces:              surfaces,
+		},
+	}
+
+	data_ = &UpdateAppSettingsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

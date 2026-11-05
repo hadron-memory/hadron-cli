@@ -80,12 +80,14 @@ func TestWakesPageToExhaustionWithTheHostKeyAndMapReasons(t *testing.T) {
 		if string(c.vars["appRef"]) != `"hrn:app:hadronmemory.com:team"` || string(c.vars["first"]) != "200" {
 			t.Fatalf("call %d vars %s", i, c.vars)
 		}
-		// No accepts: a STOP notice is never offered to a deliverer that
-		// cannot type it. No workerRefs: the host key names the host.
-		for _, absent := range []string{"accepts", "workerRefs"} {
-			if v, ok := c.vars[absent]; ok && string(v) != "null" {
-				t.Fatalf("call %d sends %s=%s", i, absent, v)
-			}
+		// hadron-cli#1629 reverses #1178's "no accepts": the poller now
+		// types stop notices, so every page lists STOP (pinned in full in
+		// host_wakes_1629_test.go). No workerRefs: the host key names the host.
+		if a := string(c.vars["accepts"]); a != `["MENTION","TICK","TASK","STOP"]` {
+			t.Fatalf("call %d accepts=%s", i, a)
+		}
+		if v, ok := c.vars["workerRefs"]; ok && string(v) != "null" {
+			t.Fatalf("call %d sends workerRefs=%s", i, v)
 		}
 	}
 	if _, ok := cs[0].vars["after"]; ok {

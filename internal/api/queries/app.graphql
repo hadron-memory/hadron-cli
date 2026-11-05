@@ -1,0 +1,11 @@
+
+mutation RecordAppAction($appRef: ID!, $code: String!,
+ # @genqlient(omitempty: true)
+ $taskRef: ID,
+ # @genqlient(omitempty: true)
+ $payload: JSON) {
+ recordAppAction(appRef: $appRef, code: $code, taskRef: $taskRef, payload: $payload) {
+  eventId
+  action { code state taskLoc taskUrn }
+ }
+}

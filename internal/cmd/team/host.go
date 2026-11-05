@@ -125,6 +125,7 @@ granted with ` + "`hadron app key scope grant <key-id> host:operate --host-id <h
 	cmd.AddCommand(newCmdTeamHostRun(f))
 	cmd.AddCommand(newCmdTeamHostAvailability(f))
 	cmd.AddCommand(newCmdTeamHostStatus(f))
+	cmd.AddCommand(newCmdTeamHostReportStops(f))
 	return cmd
 }
 

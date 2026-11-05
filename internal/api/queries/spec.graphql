@@ -31,3 +31,22 @@ query GetSpecNodeRaw($ref: ID!) {
     abstractOriginHash
   }
 }
+
+# Existing-successor admission and superseded-by graph walk (#579). No body or
+# list scan: explicit provider facts, never placeholder inference from text.
+query GetSpecSupersedeTarget($ref: ID!) {
+  node(ref: $ref) {
+    id
+    memoryId
+    loc
+    name
+    role
+    tags
+    isPlaceholder
+    deletedAt
+    outgoingEdges {
+      name
+      target { id }
+    }
+  }
+}

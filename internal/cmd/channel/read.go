@@ -3,6 +3,7 @@ package channel
 import (
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -18,18 +19,24 @@ import (
 // AuthorAppID is projected and never omitted: spec 049 item J MARKS a post that
 // crossed Apps, and a transcript that drops the mark misrepresents who was
 // speaking where.
+type teamTagDTO struct {
+	HeadID string `json:"headId"`
+	Label  string `json:"label"`
+}
+
 type messageDTO struct {
-	Seq            int      `json:"seq"`
-	At             string   `json:"at"`
-	Body           string   `json:"body"`
-	AuthorName     *string  `json:"authorName"`
-	AuthorWorkerID *string  `json:"authorWorkerId"`
-	AuthorUserID   *string  `json:"authorUserId"`
-	AuthorAppID    *string  `json:"authorAppId"`
-	SessionID      *string  `json:"sessionId"`
-	ReplyToSeq     *int     `json:"replyToSeq"`
-	Mentions       []string `json:"mentions"`
-	NodeID         string   `json:"nodeId"`
+	TeamTags       []teamTagDTO `json:"teamTags"`
+	Seq            int          `json:"seq"`
+	At             string       `json:"at"`
+	Body           string       `json:"body"`
+	AuthorName     *string      `json:"authorName"`
+	AuthorWorkerID *string      `json:"authorWorkerId"`
+	AuthorUserID   *string      `json:"authorUserId"`
+	AuthorAppID    *string      `json:"authorAppId"`
+	SessionID      *string      `json:"sessionId"`
+	ReplyToSeq     *int         `json:"replyToSeq"`
+	Mentions       []string     `json:"mentions"`
+	NodeID         string       `json:"nodeId"`
 }
 
 // readResultDTO carries the watermark alongside the messages.
@@ -51,6 +58,7 @@ type channelPage struct {
 }
 
 func newCmdRead(f *cmdutil.Factory) *cobra.Command {
+	var tagFlags cmdutil.ChatTagFlags
 	var (
 		since    int
 		before   int
@@ -105,6 +113,9 @@ For your own team chat use "hadron team chat read --mentions-me".`,
   hadron channel read <id> --thread 42    # the direct replies to message #42`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := tagFlags.Validate(cmd); err != nil {
+				return err
+			}
 			if cmd.Flags().Changed("before") && cmd.Flags().Changed("offset") {
 				// Refuse rather than let the server silently drop one: a
 				// caller who passed both believes both applied.
@@ -136,7 +147,20 @@ For your own team chat use "hadron team chat read --mentions-me".`,
 				mentionsPtr = &mentions
 			}
 			var page *channelPage
-			if cmd.Flags().Changed("thread") {
+			if tagFlags.Active() {
+				resp, err := gen.ChannelTags(cmd.Context(), client, args[0], sincePtr, beforePtr, limitPtr, offsetPtr, mentionsPtr, tagFlags.Head(), tagFlags.Untagged())
+				if err != nil {
+					return api.MapErrorKeepingCode(err)
+				}
+				if resp != nil && resp.ChannelMessages != nil {
+					page = &channelPage{Total: resp.ChannelMessages.Total}
+					for _, m := range resp.ChannelMessages.Items {
+						if m != nil {
+							page.Items = append(page.Items, m.ChannelMessageFields)
+						}
+					}
+				}
+			} else if cmd.Flags().Changed("thread") {
 				// A separate operation (cli#1262): an ordinary read must never
 				// carry the replyToSeq argument to a server that predates it.
 				resp, err := gen.ChannelThread(cmd.Context(), client, args[0], thread, sincePtr, beforePtr, limitPtr, offsetPtr, mentionsPtr)
@@ -171,7 +195,8 @@ For your own team chat use "hadron team chat read --mentions-me".`,
 			result := readResultDTO{Messages: []messageDTO{}, Total: page.Total}
 			for _, m := range page.Items {
 				d := messageDTO{
-					Seq: m.Seq, At: m.At, Body: m.Body,
+					TeamTags: teamTagsFromFields(m),
+					Seq:      m.Seq, At: m.At, Body: m.Body,
 					AuthorName: m.AuthorName, AuthorWorkerID: m.AuthorWorkerId, AuthorUserID: m.AuthorUserId,
 					AuthorAppID: m.AuthorAppId, SessionID: m.SessionId,
 					ReplyToSeq: m.ReplyToSeq, Mentions: m.Mentions, NodeID: m.NodeId,
@@ -203,7 +228,7 @@ For your own team chat use "hadron team chat read --mentions-me".`,
 					if m.ReplyToSeq != nil {
 						reply = fmt.Sprintf(" ↩%d", *m.ReplyToSeq)
 					}
-					if _, err := fmt.Fprintf(w, "#%d [%s]%s %s%s\n%s\n\n", m.Seq, author, crossApp, m.At, reply, m.Body); err != nil {
+					if _, err := fmt.Fprintf(w, "#%d [%s]%s %s%s\n%s\n\n", m.Seq, author, crossApp, m.At, reply+teamTagText(m.TeamTags), m.Body); err != nil {
 						return err
 					}
 				}
@@ -222,5 +247,27 @@ For your own team chat use "hadron team chat read --mentions-me".`,
 	cmd.Flags().IntVar(&offset, "offset", 0, "pagination offset (ignored by the server when --before is given)")
 	cmd.Flags().StringVar(&mentions, "mentions", "", "only messages mentioning this worker or user (name, handle or id)")
 	cmd.Flags().IntVar(&thread, "thread", 0, "only the direct replies to this seq (the message itself is not included); an unknown seq is exit 4, a message with no replies is an empty page")
+	tagFlags.Bind(cmd)
 	return cmd
+}
+
+func teamTagsFromFields(m gen.ChannelMessageFields) []teamTagDTO {
+	if m.TeamTags == nil {
+		return nil
+	}
+	tags := make([]teamTagDTO, 0, len(m.TeamTags))
+	for _, tag := range m.TeamTags {
+		tags = append(tags, teamTagDTO{HeadID: tag.HeadId, Label: tag.Label})
+	}
+	return tags
+}
+func teamTagText(tags []teamTagDTO) string {
+	if len(tags) == 0 {
+		return ""
+	}
+	labels := make([]string, 0, len(tags))
+	for _, tag := range tags {
+		labels = append(labels, output.SafeCell(tag.Label))
+	}
+	return " (teams: " + strings.Join(labels, ", ") + ")"
 }
