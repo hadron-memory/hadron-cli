@@ -3497,7 +3497,9 @@ server error fails the command).
   - `webhook create --app <ref> --name <n> --entry <node-urn>` mints an inbound
     trigger and prints the URL path + platform token **once** — they are never
     queryable again, so capture them (in `--json` they are `path`/`token`).
-    `webhook rotate <id>` reissues the secret (old URL dies immediately; `--yes`);
+    `webhook rotate <id>` reissues the secret (old URL dies immediately; `--yes`).
+    Rotation is person-only: worker sessions are refused (FORBIDDEN, exit 8),
+    with or without an instruction; no flag authorizes it.
     `webhook list` never shows the secret; `webhook rm <id>` (`--yes`).
   - `task run <task>` renders a task node's prompt by default; `--app <ref>`
     instead EXECUTES it server-side — minting a MANUAL run under that App (a real
