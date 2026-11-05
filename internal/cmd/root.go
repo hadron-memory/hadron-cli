@@ -478,8 +478,8 @@ func renderError(f *cmdutil.Factory, err error) int {
 		if cloneDetails := api.CloneAgentDetails(err); cloneDetails != nil {
 			details = cloneDetails
 		}
-		// cli#1690: a `comment add` reply that failed after the conflict names
-		// the thread it was aimed at, whatever the reply's own refusal carried.
+		// A comment-add reply error names its intended thread, including when
+		// the outcome is unknown, without changing the reply's own metadata.
 		var threaded interface{ ThreadID() string }
 		if errors.As(err, &threaded) {
 			hasThreadWrapper = true

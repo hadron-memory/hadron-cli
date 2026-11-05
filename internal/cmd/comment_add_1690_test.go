@@ -149,6 +149,15 @@ func (s *addServer) handler(t *testing.T) http.HandlerFunc {
 		case "ReplyToComment":
 			if s.replyOverride != nil {
 				st, b := s.replyOverride(n)
+				if st == -1 {
+					conn, _, err := w.(http.Hijacker).Hijack()
+					if err != nil {
+						t.Error(err)
+						return
+					}
+					_ = conn.Close()
+					return
+				}
 				respond(st, b)
 				return
 			}
@@ -552,8 +561,8 @@ func TestCommentAddRefusesAMalformedSuccessBody(t *testing.T) {
 		if got.code != 7 || strings.Join(s.ops(), ",") != "CreateComment,ReplyToComment" || strings.Contains(got.stdout, `"outcome"`) {
 			t.Fatalf("exit=%d ops=%v stdout=%q", got.code, s.ops(), got.stdout)
 		}
-		if !strings.Contains(got.stdout, "T1") {
-			t.Fatalf("the unknown outcome must name the thread: %q", got.stdout)
+		if !strings.Contains(got.stdout, "T1") || !strings.Contains(got.stdout, "outcome is unknown") || strings.Contains(got.stdout, "thread T1 failed:") {
+			t.Fatalf("the unknown outcome must name the thread without claiming failure: %q", got.stdout)
 		}
 	})
 }
