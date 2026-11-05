@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -75,22 +76,36 @@ func TestAppAgentInstallMethod1646(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if withheld {
-				if strings.Count(human, "?") != 4 || strings.Contains(human, "  derived ") || strings.Contains(human, "  installed ") {
-					t.Fatalf("withheld marks guessed: %s", human)
-				}
-			} else if !strings.Contains(human, "installed") || !strings.Contains(human, "derived") || strings.Count(human, "Support Bot") != 2 {
-				t.Fatalf("missing method/importer: %s", human)
-			} else {
-				for _, line := range strings.Split(human, "\n") {
-					if strings.HasPrefix(line, "Support Bot") && !strings.Contains(line, "  installed ") {
-						t.Errorf("ROW label: %s", line)
-					}
-					if strings.HasPrefix(line, "Derived Bot") && !strings.Contains(line, "  derived ") {
-						t.Errorf("DERIVED label: %s", line)
-					}
-				}
+			expectedCells := map[string][]string{
+				"Support Bot": {"installed", "—"},
+				"Derived Bot": {"derived", "Support Bot (hrn:agent:acme.com:support-bot)"},
 			}
+			if withheld {
+				expectedCells["Support Bot"] = []string{"?", "?"}
+				expectedCells["Derived Bot"] = []string{"?", "?"}
+			}
+			separator := regexp.MustCompile(`\s{2,}`)
+			for _, line := range strings.Split(human, "\n") {
+				cells := separator.Split(strings.TrimSpace(line), -1)
+				if len(cells) == 0 {
+					continue
+				}
+				expected, ok := expectedCells[cells[0]]
+				if !ok {
+					continue
+				}
+				if len(cells) != 7 {
+					t.Fatalf("roster columns = %d, want 7: %q", len(cells), line)
+				}
+				if !reflect.DeepEqual(cells[5:], expected) {
+					t.Errorf("%s provenance cells = %q, want %q", cells[0], cells[5:], expected)
+				}
+				delete(expectedCells, cells[0])
+			}
+			if len(expectedCells) != 0 {
+				t.Fatalf("missing roster rows: %v; output: %s", expectedCells, human)
+			}
+
 		})
 	}
 }
