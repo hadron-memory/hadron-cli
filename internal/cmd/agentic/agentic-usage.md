@@ -4385,10 +4385,11 @@ exit 1 (Error) with the flow's stable failureCode (e.g. access_denied) as the
 result, not a transport error. A refused flow read (unknown, expired or another
 user's flow id) is one message and exit 8 (Forbidden) in every case, ends the wait
 and is not retried. With --json a browser that cannot be opened ends the
-command at once with status "started" (no wait). Done: exit 0,
+command at once with status "started" (no wait). Connected: exit 0,
 {provider,orgId,authorizeUrl,expiresAt,flowId,browserOpened,
-status:"connected"|"failed",failureCode,connection:{id,provider,mailboxEmail,
-displayName}}. --no-wait: status "started", flowId set, connection null. Not
+status:"connected",failureCode:null,connection:{id,provider,mailboxEmail,
+displayName}}. Failed: the same document with status "failed", failureCode set
+and connection null, then exit 1. --no-wait: status "started", flowId set, connection null. Not
 finished in time: exit 13 (WaitTimeout), "not found yet", after the record is
 printed with status "pending" and the flowId - the consent may still
 be completing, so check `hadron connection flow FLOW_ID` or

@@ -389,10 +389,22 @@ func readFlow(ctx context.Context, client graphql.Client, flowID string) (*gen.C
 		}
 		return nil, err
 	}
-	if r == nil {
+	if r == nil || r.ConnectionFlow == nil {
 		return nil, exitcode.Newf(exitcode.Unavailable, "server returned no connection flow")
 	}
-	return r.ConnectionFlow, nil
+	fl := r.ConnectionFlow
+	// Only the documented answers are answers: an unknown status or a CONNECTED
+	// with no connection id is a malformed reply, not a successful read.
+	switch fl.Status {
+	case gen.ConnectionFlowStatusPending, gen.ConnectionFlowStatusFailed:
+	case gen.ConnectionFlowStatusConnected:
+		if fl.ConnectionId == nil || *fl.ConnectionId == "" {
+			return nil, exitcode.Newf(exitcode.Unavailable, "server reported the flow connected without a connection id")
+		}
+	default:
+		return nil, exitcode.Newf(exitcode.Unavailable, "server returned an unrecognized connection flow status")
+	}
+	return fl, nil
 }
 
 func flowRefusal() error {
