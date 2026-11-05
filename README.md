@@ -9,7 +9,7 @@ shelling out to it.
 Implemented v1 command surface: `auth login|logout|whoami|status`,
 `memory list|get|set|rm|clone|export`, `node list|get|add|update|rm`,
 `spec list|get|describe|register|find|new|edit|extract|link|lint|supersede|use`,
-`app list|install|uninstall|use`, `config get|set|list`, `api` (raw
+`app list|nodes|install|uninstall|use`, `config get|set|list`, `api` (raw
 GraphQL escape hatch), `replace`, `version`, `completion`, `agentic-usage`.
 `spec import spec-kit|code` is reserved as a stable command stub but is not yet
 implemented.

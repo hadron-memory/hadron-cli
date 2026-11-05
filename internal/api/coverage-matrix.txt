@@ -677,7 +677,7 @@ Query.automationTeamSnapshotGrants(triggerKind)  gap #1617
 Query.dueWakes(instruction)  gap #1617
 Query.node(memoryRef)  excluded not-a-capability: the CLI composes -m and a bare loc into the full node URN, which the SDL documents as the equivalent address (the one case memoryRef adds, forcing loc reading of an unprefixed 3+-segment ref, the hrn:node: form already removes); proposed class, specs engineer to accept
 
-[Filters] 56: 54 flag, 2 gap
+[Filters] 74: 54 flag, 2 gap, 18 UNCLASSIFIED
 Query.agentTasks(reference.kind)  flag team task list --ref-kind
 Query.agentTasks(reference.target)  flag team task list --ref
 Query.agents(filter.ownedByMe)  flag agent list --owned-by-me
@@ -685,6 +685,24 @@ Query.agents(filter.type)  flag agent list --type
 Query.agents(filter.visibility)  flag agent list --visibility
 Query.aiServiceConfigs(filter.ownerId)  flag ai-config list --owner-id
 Query.aiServiceConfigs(filter.ownerType)  flag ai-config list --owner-type
+Query.appNodesPage(filter.approvalState)  UNCLASSIFIED
+Query.appNodesPage(filter.childrenOf)  UNCLASSIFIED
+Query.appNodesPage(filter.contentScope)  UNCLASSIFIED
+Query.appNodesPage(filter.createdBy)  UNCLASSIFIED
+Query.appNodesPage(filter.includeDeleted)  UNCLASSIFIED
+Query.appNodesPage(filter.isRunnable)  UNCLASSIFIED
+Query.appNodesPage(filter.locPrefix)  UNCLASSIFIED
+Query.appNodesPage(filter.memoryClasses)  UNCLASSIFIED
+Query.appNodesPage(filter.memoryIds)  UNCLASSIFIED
+Query.appNodesPage(filter.minted)  UNCLASSIFIED
+Query.appNodesPage(filter.nodeType)  UNCLASSIFIED
+Query.appNodesPage(filter.nodeTypes)  UNCLASSIFIED
+Query.appNodesPage(filter.objectType)  UNCLASSIFIED
+Query.appNodesPage(filter.role)  UNCLASSIFIED
+Query.appNodesPage(filter.tags)  UNCLASSIFIED
+Query.appNodesPage(filter.updatedAfter)  UNCLASSIFIED
+Query.appNodesPage(filter.updatedBefore)  UNCLASSIFIED
+Query.appNodesPage(filter.where)  UNCLASSIFIED
 Query.apps(filter.agentId)  gap #63
 Query.apps(filter.ownedByMe)  flag app list --owned-by-me
 Query.assets(filter.includeDeleted)  flag asset list --include-deleted
