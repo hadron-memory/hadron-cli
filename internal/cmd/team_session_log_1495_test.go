@@ -184,3 +184,39 @@ func TestSessionLogLostLegacyRecordAnswer1495(t *testing.T) {
 		})
 	}
 }
+
+// BLIND P2 on #1686: the SESSION_NOT_IN_APP diagnosis is a definite refusal,
+// so it may only answer a 200 envelope. The same code inside a gateway 5xx
+// proves nothing about the write and must still carry the do-not-rerun note.
+func TestSessionLogAppMismatchNeedsADefiniteAnswer1495(t *testing.T) {
+	const body = `{"data":null,"errors":[{"message":"not in app","extensions":{"code":"SESSION_NOT_IN_APP"}}]}`
+	const diagnosis = "is not a session of"
+	const note = "may or may not have been recorded"
+	for _, tc := range []struct {
+		name          string
+		status        int
+		wantDiagnosis bool
+	}{
+		{"definite 200 refusal", 200, true},
+		{"gateway 502 carrying the same code", 502, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			called, errOut, err := runLog1495(t, map[string]resp1495{
+				"UpdateTeamSession": {200, modelLogSessionJSON},
+				"RecordTeamWork":    {tc.status, body},
+			})
+			if err == nil {
+				t.Fatal("want an error")
+			}
+			if got := strings.Contains(err.Error(), diagnosis); got != tc.wantDiagnosis {
+				t.Errorf("diagnosis present = %v, want %v: %v", got, tc.wantDiagnosis, err)
+			}
+			if got := strings.Contains(errOut, note); got == tc.wantDiagnosis {
+				t.Errorf("do-not-rerun note present = %v, want %v: %q", got, !tc.wantDiagnosis, errOut)
+			}
+			if called["UpdateTeamSession"] {
+				t.Errorf("the pointer moved although the record was not confirmed")
+			}
+		})
+	}
+}

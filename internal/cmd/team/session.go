@@ -2360,7 +2360,9 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 					recordedModel = logged.RecordTeamWork.Model
 				}
 				if rerr != nil {
-					if api.HasErrorCode(rerr, "SESSION_NOT_IN_APP") {
+					// A 5xx envelope is no proof of a refusal (cli#1495): it falls
+					// through to the lost-answer note below, not this diagnosis.
+					if api.HasErrorCode(rerr, "SESSION_NOT_IN_APP") && !api.FromNon200Envelope(rerr) {
 						// A WORKER session binds to the worker's App, so for one
 						// this means -m named a different App's memory — a
 						// mismatch, not a rescue candidate. A binding written by
