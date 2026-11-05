@@ -153,3 +153,34 @@ func TestSessionLogLostRecordAnswer1495(t *testing.T) {
 		}
 	})
 }
+
+// The legacy (old-server) record call is a second RECORD path: a lost answer
+// there needs the same do-not-rerun note, and a refusal there still does not.
+func TestSessionLogLostLegacyRecordAnswer1495(t *testing.T) {
+	skew := resp1495{200, `{"errors":[{"message":"Cannot query field \"model\" on type \"TeamWorkItem\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`}
+	for _, tc := range []struct {
+		name string
+		resp resp1495
+		note bool
+	}{
+		{"truncated legacy answer", resp1495{200, `{"data":`}, true},
+		{"refused legacy record", resp1495{200, `{"data":null,"errors":[{"message":"nope","extensions":{"code":"NOT_FOUND"}}]}`}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			called, errOut, err := runLog1495(t, map[string]resp1495{
+				"UpdateTeamSession":    {200, modelLogSessionJSON},
+				"RecordTeamWork":       skew,
+				"RecordTeamWorkLegacy": tc.resp,
+			})
+			if err == nil || !called["RecordTeamWorkLegacy"] {
+				t.Fatalf("legacy path not reached: err=%v called=%v", err, called)
+			}
+			if called["UpdateTeamSession"] {
+				t.Errorf("the pointer moved although the record was not confirmed")
+			}
+			if got := strings.Contains(errOut, "may or may not have been recorded"); got != tc.note {
+				t.Errorf("note present = %v, want %v: %q", got, tc.note, errOut)
+			}
+		})
+	}
+}

@@ -2326,6 +2326,18 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 				if cmd.Flags().Changed("model") {
 					modelArg = &model
 				}
+				// cli#1495: the answer to a RECORD call that is lost,
+				// undecodable, or an internal fault leaves the row possibly
+				// written. Without a note a re-run — the natural reflex after
+				// a failed command — would duplicate it. The pointer was not
+				// touched: it moves only after a recorded row (#1278). Used by
+				// the current AND the legacy (old-server) record call.
+				noteLostRecordAnswer := func(e error) {
+					if isDefinitiveRefusal(e) {
+						return
+					}
+					fmt.Fprintf(f.IOStreams.ErrOut, "note: the answer to the worklog record could NOT be confirmed, so the row may or may not have been recorded (the session pointer was not touched): %v — check `hadron team session list --%s %s` for it before re-running; a re-run may duplicate the row\n", e, kind, canonical)
+				}
 				logged, rerr := gen.RecordTeamWork(
 					ctx, client, appRef, b.SessionID, b.Tool, kind, canonical, action, detailArg, modelArg,
 				)
@@ -2335,6 +2347,7 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 					}
 					legacy, lerr := gen.RecordTeamWorkLegacy(ctx, client, appRef, b.SessionID, b.Tool, kind, canonical, action, detailArg)
 					if lerr != nil {
+						noteLostRecordAnswer(lerr)
 						return api.MapError(lerr)
 					}
 					if legacy.RecordTeamWork.Ref != "" {
@@ -2364,15 +2377,7 @@ still record ordinary milestones, but cannot accept an explicit --model.`,
 							"session %s is not a session of %s's App — the -m memory names a different App than the bound worker's; drop -m (the binding's App is the worklog home) or pass the worker's own team memory",
 							b.SessionID, b.WorkerName)
 					}
-					if !isDefinitiveRefusal(rerr) {
-						// cli#1495: the answer to the RECORD call was lost,
-						// undecodable, or an internal fault, so the row may
-						// exist. Without this note a re-run — the natural
-						// reflex after a failed command — would duplicate it.
-						// The pointer was not touched: it moves only after a
-						// recorded row (#1278).
-						fmt.Fprintf(f.IOStreams.ErrOut, "note: the answer to the worklog record could NOT be confirmed, so the row may or may not have been recorded (the session pointer was not touched): %v — check `hadron team session list --%s %s` for it before re-running; a re-run may duplicate the row\n", rerr, kind, canonical)
-					}
+					noteLostRecordAnswer(rerr)
 					return api.MapError(rerr)
 				}
 				// Prefer the server's canonical spelling for display and local state:
