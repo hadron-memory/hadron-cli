@@ -23,7 +23,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 207: 163 command, 20 gap, 24 excluded
+[Query] 207: 164 command, 19 gap, 24 excluded
 actionRegisterIndex  command team register
 actionTickets  command ticket list
 agent  command agent get
@@ -67,7 +67,7 @@ attendeeRegister  command team worker onboard
 authContext  command auth whoami
 automationApproval  command automation approval
 automationApprovals  command automation approval
-automationReadGrants  gap #1566
+automationReadGrants  command automation grant list
 automationTeamSnapshotGrant  gap #1619
 automationTeamSnapshotGrants  command automation team-snapshot-grant list
 calendarEvent  command calendar event get
@@ -232,7 +232,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 338: 280 command, 46 gap, 12 excluded
+[Mutation] 338: 282 command, 44 gap, 12 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -463,7 +463,7 @@ revokeAppGrant  gap #1336
 revokeAppKey  command app key revoke
 revokeAppKeyScope  command app key scope revoke
 revokeAppMemoryWriteGrant  command app memory-grant rm
-revokeAutomationReadGrant  gap #1566
+revokeAutomationReadGrant  command automation grant revoke
 revokeAutomationTeamSnapshotGrant  command automation team-snapshot-grant revoke
 revokeConnectionGrant  command connection grant revoke
 revokePrincipalGrant  command grant revoke
@@ -490,7 +490,7 @@ setAppModelGroup  command app model-group set
 setAppProperties  command app properties set
 setAppTickerSettings  gap #1336
 setAssetPublicLink  command asset public-link
-setAutomationReadGrant  gap #1566
+setAutomationReadGrant  command automation grant set
 setAutomationTeamSnapshotGrant  command automation team-snapshot-grant set
 setDashboardWidgets  excluded graphical: places portal dashboard widgets on a 12-column grid (position, span, rowSpan)
 setDecisionLogDeciders  command decision log set-deciders
@@ -572,7 +572,7 @@ updateWorker  command team worker update
 withdrawDecision  command decision withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 104: 69 gap, 35 excluded
+[Arguments] 106: 71 gap, 35 excluded
 Mutation.acknowledgeAlarm(instruction)  gap #1617
 Mutation.addAgentTaskBlocker(instruction)  gap #1617
 Mutation.addMemoryMember(memoryId)  excluded deprecated: @deprecated: Use memoryRef (accepts id / URN).
@@ -632,6 +632,7 @@ Mutation.removeMemoryMember(memoryId)  excluded deprecated: @deprecated: Use mem
 Mutation.removeMemoryMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
 Mutation.removeOrgMember(orgId)  excluded deprecated: @deprecated: Use orgRef (accepts id / slug / URN).
 Mutation.removeOrgMember(userId)  excluded deprecated: @deprecated: Use userRef (accepts id / email / handle / URN).
+Mutation.revokeAutomationReadGrant(instruction)  gap #1617
 Mutation.searchReplaceInNodes(input.authoredWith)  gap #684
 Mutation.searchReplaceInSpecNodes(input.authoredWith)  gap #684
 Mutation.setAgentTaskPriority(instruction)  gap #1617
@@ -673,6 +674,7 @@ Mutation.updateTeamRole(repos)  gap #1336
 Mutation.updateTicker(instruction)  gap #1617
 Query.agentTasks(creator)  gap #1336
 Query.attendeeRegister(agentRef)  gap #1336
+Query.automationReadGrants(instruction)  gap #1617
 Query.automationTeamSnapshotGrants(triggerId)  gap #1617
 Query.automationTeamSnapshotGrants(triggerKind)  gap #1617
 Query.dueWakes(instruction)  gap #1617

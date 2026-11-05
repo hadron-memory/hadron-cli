@@ -205,3 +205,16 @@ func TestReadGrant1566RevokeRefusalMapped(t *testing.T) {
 		t.Fatalf("err=%v calls=%+v", err, *calls)
 	}
 }
+
+// A supplied-but-blank filter is a mistake, not "no filter": sending nothing
+// would silently widen the listing to every grant the caller may see.
+func TestReadGrant1566ListBlankFilterIsUsageAndSendsNothing(t *testing.T) {
+	for _, args := range [][]string{{"--memory", "  "}, {"--app", "  "}} {
+		r := taskResponses()
+		r["AutomationReadGrants"] = `{"data":{"automationReadGrants":[]}}`
+		calls, _, err := runTeamTask(t, r, readGrantArgs1566("list", args...)...)
+		if exitCodeFor(err) != exitcode.Usage || len(callsFor(calls, "AutomationReadGrants")) != 0 {
+			t.Fatalf("%v: err=%v calls=%+v", args, err, *calls)
+		}
+	}
+}
