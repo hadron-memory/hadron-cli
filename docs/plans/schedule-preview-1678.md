@@ -23,7 +23,7 @@ This change implements none of the evolving worker-permission work in #3483.
 The provider floor used as evidence is server#3463's merge
 b7cf14b0ccbe242128219d6d7193fd08861e2e5e, not an asserted earliest or deployed
 version. The schema was deliberately re-exported from merged server
- d0b374cd8accbc9c47cb0dbd3f6162fabc7a71c2 (including #3446). That export is
+d0b374cd8accbc9c47cb0dbd3f6162fabc7a71c2 (including #3446). That export is
 byte-identical to the existing snapshot; the new query adds generated types.
 An initial export from the older provider merge would have removed unrelated
 newer contracts and was discarded before implementation.
@@ -41,12 +41,29 @@ schema contracts match; selected-type SHA256 is
 3b70d31d37595deda3fde39092724fc1bbe6d4505df994f58762652935ad5923.
 
 At schema source d0b374cd, preview/create/authority sections and pins/summary/test
-blobs remain identical, but installed-Agent resolution now uses #3446's shared
-derived-install helper. The old runtime receipts do not establish execution of
-that new helper. Schema compatibility is distinct from runtime proof. No new
-worker-rule, HTTP-provider, production, concurrency or deployed-floor claim is
-made. Independent CLI seats must assess this map and any uncovered bounded leg;
-no duplicate stack is requested solely for the CLI.
+blobs remain identical, but #3443 introduced two relevant transitive changes:
+
+- Explicit Agent selection uses `isAgentInstalledForAppOperation`. The other
+  changed resolver site is manual-run Agent selection, outside preview/create;
+  omitted Agent input for preview/create stays null.
+- `canReadMemory` / `buildAppMemoryMap` in `src/mcp/access-control.ts` now use
+  `loadAppInstallationPage`. This is also used by captureSetupOutcome for caller
+  and run-principal reads, so the original map's single-seam claim was incomplete.
+
+The old runtime receipts do not establish execution of either new seam. The
+helpers came from #3443; #3446 is the schema-source merge, not their origin.
+[Cooper's bounded real-resolver/private-Postgres completion](https://github.com/hadron-memory/hadron-cli/pull/1683#issuecomment-6652313090)
+covers explicit ROW/DERIVED, omitted Agent, preview/create hash equality, no
+preview writes, and collapsed unlicensed/uninstalled/unknown refusal at d0b.
+It is not an HTTP/CLI run. Independent memory-read coverage is tracked separately
+under AT0.4734.7: a positive control must actually reach the changed read fold;
+Riana's all-unreadable probes do not prove that. The final PR receipt must name
+that completion or the remaining limit before ready. Exact map/correction:
+[saved and read back](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-jane:work:cli1678:provider-seam-correction).
+
+Schema compatibility is distinct from runtime proof. No new worker-rule,
+production, concurrency or deployed-floor claim is made. Only uncovered bounded
+legs are repeated, per [Xylon's provider ruling](https://github.com/hadron-memory/hadron-cli/issues/1678#issuecomment-6651740508).
 
 ## Verification
 
@@ -64,3 +81,10 @@ Real-provider evidence above belongs to the named server seats. Author loopback
 checks and the compiled CLI QA leg cannot prove live authorization or no-write
 behavior on an untested provider. docs#653 follows the merged command. Refs #1678
 and #2435; both remain open for reconciliation.
+
+The LOCAL fix adds single-violation malformed-result cases, unknown-reason exit7
+and identity suppression, every summary/flow text cell, raw JSON preservation,
+and refusal message/serverCode pins. The original reason/list mutants survived;
+the added pins kill those and the related guard/sanitizer mutants on assertions.
+Production code is unchanged. Original independent verdicts remain tied to their
+heads and require same-holder delta/applicability decisions at the fix head.

@@ -299,3 +299,82 @@ func TestSchedulePreview1678EveryHumanCellIsSafe(t *testing.T) {
 		t.Fatal(out)
 	}
 }
+
+// Every row changes just one field in an otherwise valid typed result, so
+// neighbouring guards cannot mask a missing check.
+func TestSchedulePreview1678SingleMalformedField(t *testing.T) {
+	cases := []struct {
+		name   string
+		change func(map[string]any)
+	}{
+		{"withheld-hash", func(v map[string]any) { v["outcome"], v["reason"], v["summary"] = "CANNOT_BE_ADOPTED", "OTHER", nil }},
+		{"withheld-summary", func(v map[string]any) { v["outcome"], v["reason"], v["hash"] = "CANNOT_BE_ADOPTED", "OTHER", nil }},
+		{"hash-shape", func(v map[string]any) { v["hash"] = "x" }},
+		{"adoptable-reason", func(v map[string]any) { v["reason"] = "OTHER" }},
+		{"summary-null", func(v map[string]any) { v["summary"] = nil }},
+		{"schedule-null", func(v map[string]any) { v["summary"].(map[string]any)["schedule"] = nil }},
+		{"schedule-empty", func(v map[string]any) { v["summary"].(map[string]any)["schedule"] = "" }},
+		{"flow-name-empty", func(v map[string]any) {
+			v["summary"].(map[string]any)["flows"].([]any)[0].(map[string]any)["name"] = ""
+		}},
+		{"flow-urn-empty", func(v map[string]any) { v["summary"].(map[string]any)["flows"].([]any)[0].(map[string]any)["urn"] = "" }},
+		{"flow-tools-null", func(v map[string]any) {
+			v["summary"].(map[string]any)["flows"].([]any)[0].(map[string]any)["tools"] = nil
+		}},
+		{"flow-writes-null", func(v map[string]any) {
+			v["summary"].(map[string]any)["flows"].([]any)[0].(map[string]any)["writes"] = nil
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var wire map[string]any
+			if err := json.Unmarshal([]byte(reply1678()), &wire); err != nil {
+				t.Fatal(err)
+			}
+			tc.change(wire["data"].(map[string]any)["previewAgentSchedule"].(map[string]any))
+			reply, err := json.Marshal(wire)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, asJSON := range []bool{false, true} {
+				args := previewArgs1678()
+				if asJSON {
+					args = append(args, "--json")
+				}
+				out, stderr, calls, err := runPreview1678(t, string(reply), args...)
+				if exitCodeFor(err) != 7 || len(calls) != 1 || !strings.Contains(out+stderr, "malformed") {
+					t.Fatalf("json=%v exit=%d calls=%d out=%q stderr=%q", asJSON, exitCodeFor(err), len(calls), out, stderr)
+				}
+			}
+		})
+	}
+}
+
+func TestSchedulePreview1678RefusalTextAndServerCode(t *testing.T) {
+	const message = "refusal\x1b\nTAIL"
+	reply, err := json.Marshal(map[string]any{"errors": []any{map[string]any{"message": message, "extensions": map[string]any{"code": "FORBIDDEN"}}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, stderr, _, err := runPreview1678(t, string(reply), previewArgs1678()...)
+	if exitCodeFor(err) != 8 || strings.ContainsRune(stderr, '\x1b') || !strings.Contains(stderr, "refusal  TAIL") {
+		t.Fatal(err, stderr)
+	}
+	out, _, _, err := runPreview1678(t, string(reply), append(previewArgs1678(), "--json")...)
+	if exitCodeFor(err) != 8 {
+		t.Fatal(err)
+	}
+	var envelope struct {
+		Error struct {
+			Code       int    `json:"code"`
+			ServerCode string `json:"serverCode"`
+			Message    string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(out), &envelope); err != nil {
+		t.Fatal(err)
+	}
+	if envelope.Error.Code != 8 || envelope.Error.ServerCode != "FORBIDDEN" || !strings.Contains(envelope.Error.Message, message) {
+		t.Fatal(out)
+	}
+}
