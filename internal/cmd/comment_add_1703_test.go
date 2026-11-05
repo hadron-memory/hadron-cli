@@ -21,6 +21,7 @@ func TestCommentAdd1703ReplyOutcome(t *testing.T) {
 		{"gateway typed envelope", 502, addRefusal("COMMENT_FORBIDDEN", nil), 8, true},
 		{"dropped connection", -1, "", 7, true},
 		{"internal", 200, addRefusal("INTERNAL_SERVER_ERROR", nil), 1, true},
+		{"post-commit not found", 200, addRefusal("COMMENT_NOT_FOUND", nil), 4, true},
 		{"forbidden", 200, addRefusal("COMMENT_FORBIDDEN", nil), 8, false},
 		{"deleted", 200, addRefusal("COMMENT_DELETED", nil), 5, false},
 	} {

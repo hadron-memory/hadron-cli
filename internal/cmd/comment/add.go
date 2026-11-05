@@ -157,7 +157,11 @@ open-thread conflict and the thread's id, exactly one reply. Any other
 refusal or failure is returned unchanged (same exit code), with no reply and
 no retry. If your thread is deleted or you lose access between the two calls,
 the reply's refusal is returned: its exit code, with the thread named in the
-message and in the --json error (extensions.threadId). If your thread is
+message and in the --json error (extensions.threadId). A lost answer, timeout,
+5xx or missing result leaves the reply outcome unknown: read that thread
+before retrying, since the reply may already be recorded. Only established
+pre-write refusals are called "failed"; exits and JSON fields stay unchanged.
+If your thread is
 resolved in that same window, the reply is recorded and the thread stays
 resolved: add guarantees the feedback is recorded on the node, not that it is
 listed as unresolved.

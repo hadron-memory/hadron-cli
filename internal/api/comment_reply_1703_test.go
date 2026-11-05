@@ -20,6 +20,8 @@ func TestCommentReply1703CertaintyAndChain(t *testing.T) {
 	}{
 		{"forbidden", gqlErr("COMMENT_FORBIDDEN"), true},
 		{"deleted", gqlErr("COMMENT_DELETED"), true},
+		{"body invalid", gqlErr("COMMENT_BODY_INVALID"), true},
+		{"impersonation", gqlErr("COMMENT_IMPERSONATION_REFUSED"), true},
 		{"ambiguous not found", gqlErr("COMMENT_NOT_FOUND"), false},
 		{"internal", gqlErr("INTERNAL_SERVER_ERROR"), false},
 		{"future code", gqlErr("COMMENT_FUTURE_ERROR"), false},
