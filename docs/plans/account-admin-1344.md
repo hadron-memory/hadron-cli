@@ -1,5 +1,11 @@
 # Account deletion, hidden API keys, impersonation audit reads (#1344)
 
+> Key-list transport update (cli#1547): the existing token/App-key list consumers
+> now read `myUserApiKeysPage` / `appKeysPage` through `hasMore=false`, in pages
+> of 20. Output DTOs and instruction attribution are unchanged; the unpaged
+> operation names below describe the original implementation. See
+> [paged-key-inventories-1547.md](paged-key-inventories-1547.md).
+
 Design as built. Gate: CHECKED T2 + §10 every head (issue comment 6540754687).
 Server: every operation is on hadron-server main; no server change.
 

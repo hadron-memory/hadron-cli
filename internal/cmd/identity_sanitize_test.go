@@ -214,8 +214,8 @@ func tokenSanitizeRow(id, label string) string {
 
 func TestAuthTokenLsSanitizesCellsInText(t *testing.T) {
 	gql := fakeGraphQL(t, map[string]string{
-		"MyUserApiKeys": `{"data":{"myUserApiKeys":[` +
-			tokenSanitizeRow("uak_1", hostileCellLabel) + `,` + tokenSanitizeRow("uak_2", longCellText) + `]}}`,
+		"MyUserApiKeys": `{"data":{"myUserApiKeysPage":{"items":[` +
+			tokenSanitizeRow("uak_1", hostileCellLabel) + `,` + tokenSanitizeRow("uak_2", longCellText) + `],"total":0,"hasMore":false}}}`,
 	})
 	defer gql.Close()
 	f, out := testFactory(t)
@@ -229,7 +229,7 @@ func TestAuthTokenLsSanitizesCellsInText(t *testing.T) {
 
 func TestAuthTokenLsJSONKeepsTheOriginals(t *testing.T) {
 	gql := fakeGraphQL(t, map[string]string{
-		"MyUserApiKeys": `{"data":{"myUserApiKeys":[` + tokenSanitizeRow("uak_1", hostileCellLabel) + `]}}`,
+		"MyUserApiKeys": `{"data":{"myUserApiKeysPage":{"items":[` + tokenSanitizeRow("uak_1", hostileCellLabel) + `],"total":0,"hasMore":false}}}`,
 	})
 	defer gql.Close()
 	f, out := testFactory(t)
