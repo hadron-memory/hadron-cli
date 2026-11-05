@@ -174,7 +174,7 @@ type addRun struct {
 	code           int
 }
 
-func runAdd(t *testing.T, s *addServer, stdin string, args ...string) (addRun, *httptest.Server) {
+func runAdd(t *testing.T, s *addServer, stdin string, args ...string) addRun {
 	t.Helper()
 	bin := footerBinary(t)
 	teamGitDir(t)
@@ -194,7 +194,7 @@ func runAdd(t *testing.T, s *addServer, stdin string, args ...string) (addRun, *
 	} else if err != nil {
 		t.Fatal(err)
 	}
-	return addRun{so.String(), se.String(), code}, srv
+	return addRun{so.String(), se.String(), code}
 }
 
 const addTarget = "hrn:node:acme.com:kb:target"
@@ -219,7 +219,7 @@ func rawStr(t *testing.T, raw json.RawMessage) string {
 
 func TestCommentAddStartsWhenThereIsNoOpenThread(t *testing.T) {
 	s := newAddServer()
-	got, _ := runAdd(t, s, "", "comment", "add", addTarget, "--body", "hello")
+	got := runAdd(t, s, "", "comment", "add", addTarget, "--body", "hello")
 	if got.code != 0 || strings.Join(s.ops(), ",") != "CreateComment" {
 		t.Fatalf("code=%d ops=%v err=%s", got.code, s.ops(), got.stderr)
 	}
@@ -227,7 +227,7 @@ func TestCommentAddStartsWhenThereIsNoOpenThread(t *testing.T) {
 		t.Fatalf("first line %q", first)
 	}
 	s = newAddServer()
-	got, _ = runAdd(t, s, "", "comment", "add", addTarget, "--body", "hello", "--json")
+	got = runAdd(t, s, "", "comment", "add", addTarget, "--body", "hello", "--json")
 	dto := addJSON(t, got.stdout)
 	if dto["outcome"] != "started" || dto["threadId"] != "new1" || dto["composedQuote"] != false {
 		t.Fatal(got.stdout)
@@ -242,7 +242,7 @@ func TestCommentAddStartsWhenThereIsNoOpenThread(t *testing.T) {
 func TestCommentAddRepliesToTheOpenThread(t *testing.T) {
 	s := newAddServer()
 	s.seed("T1", false)
-	got, _ := runAdd(t, s, "", "comment", "add", addTarget, "--body", "second note")
+	got := runAdd(t, s, "", "comment", "add", addTarget, "--body", "second note")
 	if got.code != 0 || strings.Join(s.ops(), ",") != "CreateComment,ReplyToComment" {
 		t.Fatalf("code=%d ops=%v err=%s", got.code, s.ops(), got.stderr)
 	}
@@ -258,7 +258,7 @@ func TestCommentAddRepliesToTheOpenThread(t *testing.T) {
 	}
 	s = newAddServer()
 	s.seed("T1", false)
-	got, _ = runAdd(t, s, "", "comment", "add", addTarget, "--body", "second note", "--json")
+	got = runAdd(t, s, "", "comment", "add", addTarget, "--body", "second note", "--json")
 	dto := addJSON(t, got.stdout)
 	if dto["outcome"] != "replied" || dto["threadId"] != "T1" || dto["composedQuote"] != false {
 		t.Fatal(got.stdout)
@@ -271,7 +271,7 @@ func TestCommentAddRepliesToTheOpenThread(t *testing.T) {
 func TestCommentAddStartsWhenTheEarlierThreadWasResolved(t *testing.T) {
 	s := newAddServer()
 	s.seed("T0", true)
-	got, _ := runAdd(t, s, "", "comment", "add", addTarget, "--body", "again", "--json")
+	got := runAdd(t, s, "", "comment", "add", addTarget, "--body", "again", "--json")
 	if got.code != 0 || strings.Join(s.ops(), ",") != "CreateComment" || addJSON(t, got.stdout)["outcome"] != "started" {
 		t.Fatalf("ops=%v out=%s", s.ops(), got.stdout)
 	}
@@ -313,7 +313,7 @@ func TestCommentAddPassesEverythingElseThroughUnchanged(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			s := newAddServer()
 			s.createOverride = func(int) (int, string) { return tc.status, tc.body }
-			got, _ := runAdd(t, s, "", "comment", "add", addTarget, "--body", "x")
+			got := runAdd(t, s, "", "comment", "add", addTarget, "--body", "x")
 			if strings.Join(s.ops(), ",") != "CreateComment" || got.stdout != "" {
 				t.Fatalf("ops=%v stdout=%q", s.ops(), got.stdout)
 			}
@@ -330,7 +330,7 @@ func TestCommentAddReplyRefusedKeepsTheReplysCodeAndNamesTheThread(t *testing.T)
 			s := newAddServer()
 			s.seed("T1", false)
 			s.replyOverride = func(int) (int, string) { return 200, addRefusal(code, nil) }
-			got, _ := runAdd(t, s, "", "comment", "add", addTarget, "--body", "x")
+			got := runAdd(t, s, "", "comment", "add", addTarget, "--body", "x")
 			if got.code != want || got.stdout != "" || !strings.Contains(got.stderr, "T1") || !strings.Contains(got.stderr, code) {
 				t.Fatalf("exit=%d stdout=%q stderr=%s", got.code, got.stdout, got.stderr)
 			}
@@ -340,7 +340,7 @@ func TestCommentAddReplyRefusedKeepsTheReplysCodeAndNamesTheThread(t *testing.T)
 			s = newAddServer()
 			s.seed("T1", false)
 			s.replyOverride = func(int) (int, string) { return 200, addRefusal(code, nil) }
-			got, _ = runAdd(t, s, "", "comment", "add", addTarget, "--body", "x", "--json")
+			got = runAdd(t, s, "", "comment", "add", addTarget, "--body", "x", "--json")
 			var env struct {
 				Error struct {
 					Code       int            `json:"code"`
@@ -362,7 +362,7 @@ func TestCommentAddRaceNeverReopensRecreatesOrLoops(t *testing.T) {
 		s := newAddServer()
 		s.seed("T1", false)
 		s.between = func(s *addServer) { s.threads["T1"].resolved = true }
-		got, _ := runAdd(t, s, "", "comment", "add", addTarget, "--body", "x", "--json")
+		got := runAdd(t, s, "", "comment", "add", addTarget, "--body", "x", "--json")
 		if got.code != 0 || addJSON(t, got.stdout)["outcome"] != "replied" || strings.Join(s.ops(), ",") != "CreateComment,ReplyToComment" || !s.threads["T1"].resolved {
 			t.Fatalf("code=%d ops=%v out=%s", got.code, s.ops(), got.stdout)
 		}
@@ -371,7 +371,7 @@ func TestCommentAddRaceNeverReopensRecreatesOrLoops(t *testing.T) {
 		s := newAddServer()
 		s.seed("T1", false)
 		s.between = func(s *addServer) { s.threads["T1"].deleted = true }
-		got, _ := runAdd(t, s, "", "comment", "add", addTarget, "--body", "x")
+		got := runAdd(t, s, "", "comment", "add", addTarget, "--body", "x")
 		if got.code != 5 || strings.Join(s.ops(), ",") != "CreateComment,ReplyToComment" || !strings.Contains(got.stderr, "COMMENT_DELETED") {
 			t.Fatalf("code=%d ops=%v err=%s", got.code, s.ops(), got.stderr)
 		}
@@ -398,7 +398,7 @@ func TestCommentAddBodySourcesSendIdenticalBytesOnBothPaths(t *testing.T) {
 				if seeded {
 					s.seed("T1", false)
 				}
-				got, _ := runAdd(t, s, tc.stdin, append([]string{"comment", "add", addTarget}, tc.args...)...)
+				got := runAdd(t, s, tc.stdin, append([]string{"comment", "add", addTarget}, tc.args...)...)
 				if got.code != 0 {
 					t.Fatalf("exit=%d %s", got.code, got.stderr)
 				}
@@ -418,7 +418,7 @@ func TestCommentAddBodySourcesSendIdenticalBytesOnBothPaths(t *testing.T) {
 func TestCommentAddQuoteAndAnchor(t *testing.T) {
 	t.Run("start path sends them as create does", func(t *testing.T) {
 		s := newAddServer()
-		got, _ := runAdd(t, s, "", "comment", "add", addTarget, "--body", "b", "--quote", "q1\nq2", "--anchor-revision", "2", "--json")
+		got := runAdd(t, s, "", "comment", "add", addTarget, "--body", "b", "--quote", "q1\nq2", "--anchor-revision", "2", "--json")
 		v := s.calls[0].vars
 		if got.code != 0 || rawStr(t, v["quote"]) != "q1\nq2" || string(v["anchor"]) != "2" || addJSON(t, got.stdout)["composedQuote"] != false {
 			t.Fatalf("vars=%v out=%s", v, got.stdout)
@@ -427,7 +427,7 @@ func TestCommentAddQuoteAndAnchor(t *testing.T) {
 	t.Run("reply path folds both into the reply body, losslessly", func(t *testing.T) {
 		s := newAddServer()
 		s.seed("T1", false)
-		got, _ := runAdd(t, s, "", "comment", "add", addTarget, "--body", "the text", "--quote", "q1\nq2", "--anchor-revision", "2", "--json")
+		got := runAdd(t, s, "", "comment", "add", addTarget, "--body", "the text", "--quote", "q1\nq2", "--anchor-revision", "2", "--json")
 		want := "> On revision 2:\n> q1\n> q2\n\nthe text"
 		if got.code != 0 || rawStr(t, s.calls[1].vars["body"]) != want || addJSON(t, got.stdout)["composedQuote"] != true {
 			t.Fatalf("body=%s out=%s", s.calls[1].vars["body"], got.stdout)
@@ -450,7 +450,7 @@ func TestCommentAddQuoteAndAnchor(t *testing.T) {
 	t.Run("the text output says the quote was folded", func(t *testing.T) {
 		s := newAddServer()
 		s.seed("T1", false)
-		got, _ := runAdd(t, s, "", "comment", "add", addTarget, "--body", "b", "--quote", "q")
+		got := runAdd(t, s, "", "comment", "add", addTarget, "--body", "b", "--quote", "q")
 		if !strings.Contains(got.stdout, "quote") || !strings.Contains(strings.SplitN(got.stdout, "\n", 3)[1], "folded") {
 			t.Fatalf("no fold note: %s", got.stdout)
 		}
@@ -466,7 +466,7 @@ func TestCommentAddKeepsCreateFlagValidation(t *testing.T) {
 		{"add", "bare-loc", "--body", "x"},
 	} {
 		s := newAddServer()
-		got, _ := runAdd(t, s, "", append([]string{"comment"}, args...)...)
+		got := runAdd(t, s, "", append([]string{"comment"}, args...)...)
 		if got.code != 2 || len(s.calls) != 0 {
 			t.Fatalf("%v: exit=%d calls=%d", args, got.code, len(s.calls))
 		}
@@ -476,7 +476,7 @@ func TestCommentAddKeepsCreateFlagValidation(t *testing.T) {
 func TestCommentCreateIsUnchangedAndNoLongerAliasedByAdd(t *testing.T) {
 	s := newAddServer()
 	s.seed("T1", false)
-	got, _ := runAdd(t, s, "", "comment", "create", addTarget, "--body", "x")
+	got := runAdd(t, s, "", "comment", "create", addTarget, "--body", "x")
 	if got.code != 5 || strings.Join(s.ops(), ",") != "CreateComment" || got.stdout != "" || !strings.Contains(got.stderr, "threadId: T1") {
 		t.Fatalf("create must still refuse: exit=%d ops=%v err=%s", got.code, s.ops(), got.stderr)
 	}

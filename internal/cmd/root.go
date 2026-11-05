@@ -477,6 +477,18 @@ func renderError(f *cmdutil.Factory, err error) int {
 		if cloneDetails := api.CloneAgentDetails(err); cloneDetails != nil {
 			details = cloneDetails
 		}
+		// cli#1690: a `comment add` reply that failed after the conflict names
+		// the thread it was aimed at, whatever the reply's own refusal carried.
+		var threaded interface{ ThreadID() string }
+		if errors.As(err, &threaded) {
+			if details == nil {
+				details = map[string]any{}
+				if serverCode := api.ServerCodeOf(err); serverCode != "" {
+					details["code"] = serverCode
+				}
+			}
+			details["threadId"] = threaded.ThreadID()
+		}
 		if details != nil {
 			failure["extensions"] = details
 		}
@@ -504,7 +516,7 @@ func renderError(f *cmdutil.Factory, err error) int {
 				message += fmt.Sprintf(" (server code: %v)", reporting["code"])
 			}
 			for _, key := range []string{"currentRevision", "threadId", "class"} {
-				if value, ok := details[key]; ok {
+				if value, ok := details[key]; ok && (key != "threadId" || !strings.Contains(message, fmt.Sprint(value))) {
 					message += fmt.Sprintf(" (%s: %v)", key, value)
 				}
 			}

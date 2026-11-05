@@ -11,8 +11,12 @@ implement the server contract at
 - `comment list <target> [-m memory] [--state OPEN,RESOLVED] [--limit N] [--offset N]`
   reads one page of threads (default 20, range 1–200), preserving total and reply counts.
 - `comment get <comment> [-m memory]` reads one comment or visible stub.
-- `comment create|add <target> --body text|--body-file path [--quote text]
+- `comment create <target> --body text|--body-file path [--quote text]
   [--anchor-revision N]` starts a thread; omitted anchor uses current target revision.
+- `comment add <target>` takes the same flags and starts the caller's thread or, when
+  they already hold an open one, replies to it (cli#1690: one `createComment`, then
+  at most one `replyToComment` on a typed `COMMENT_OPEN_THREAD_EXISTS` with a
+  `threadId`; any other failure is returned unchanged). It was an alias of `create`.
 - `comment reply <comment> --body text|--body-file path` replies in its thread,
   including a resolved thread, without a client-side state refusal or reopen.
 - `comment edit <comment> --expected-revision N [--body text|--body-file path]
