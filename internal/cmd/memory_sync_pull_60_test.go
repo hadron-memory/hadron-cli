@@ -31,7 +31,7 @@ func TestMemorySyncPull60(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			for _, asJSON := range []bool{false, true} {
-				gql, calls := captureGraphQL(t, map[string]string{"SyncMemory": `{"data":{"syncMemory":` + syncMemoryJSON(t, nil, tc.at, nil, tc.report, "OK") + `}}`})
+				gql, calls := captureSyncPull60(t, map[string]string{"SyncMemory": `{"data":{"syncMemory":` + syncMemoryJSON(t, nil, tc.at, nil, tc.report, "OK") + `}}`})
 				f, out := testFactory(t)
 				warnings := &strings.Builder{}
 				f.IOStreams.ErrOut = warnings
@@ -87,7 +87,7 @@ func TestMemorySyncPull60(t *testing.T) {
 
 func TestMemorySyncPull60Confirm(t *testing.T) {
 	for _, tty := range []bool{false, true} {
-		gql, calls := captureGraphQL(t, nil)
+		gql, calls := captureSyncPull60(t, nil)
 		f, out := testFactory(t)
 		if tty {
 			f, out, _ = testFactoryTTY(t, "n\n")
@@ -112,12 +112,12 @@ func TestMemorySyncPull60Refusals(t *testing.T) {
 	}{{"ENCRYPTED_GIT_SYNC_UNAVAILABLE", 2}, {"SYNC_FAILED", 1}, {"BAD_USER_INPUT", 2}, {"FORBIDDEN", 8}, {"NOT_FOUND", 4}, {"", 1}} {
 		t.Run(tc.code, func(t *testing.T) {
 			response := `{"errors":[{"message":"failed https://user:tok@host/repo","extensions":{"code":"` + tc.code + `"}}]}`
-			gql, calls := captureGraphQL(t, map[string]string{"SyncMemory": response})
+			gql, calls := captureSyncPull60(t, map[string]string{"SyncMemory": response})
 			f, out := testFactory(t)
 			root := NewRootCmd(f)
 			root.SetArgs([]string{"memory", "sync", "pull", "acme.com:kb", "--yes", "--server", gql.URL})
 			err := root.Execute()
-			if exitCodeFor(err) != tc.exit || len(calls) != 1 {
+			if exitCodeFor(err) != tc.exit || len(calls) != 2 || calls["MemorySyncPrerequisites"] == nil || calls["SyncMemory"] == nil {
 				t.Fatalf("err %v calls %v", err, calls)
 			}
 			if strings.Contains(err.Error(), "user:tok") || strings.Contains(out.String(), "user:tok") {
@@ -137,7 +137,7 @@ func TestMemorySyncPull60Refusals(t *testing.T) {
 	}
 }
 
-func TestMemorySyncPull60OneRequest(t *testing.T) {
+func TestMemorySyncPull60OneMutation(t *testing.T) {
 	for _, tc := range []struct {
 		name, body   string
 		status, want int
@@ -155,7 +155,24 @@ func TestMemorySyncPull60OneRequest(t *testing.T) {
 					http.NotFound(w, r)
 					return
 				}
-				count.Add(1)
+				n := count.Add(1)
+				var request struct {
+					OperationName string `json:"operationName"`
+				}
+				if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+					t.Error(err)
+				}
+				if request.OperationName == "MemorySyncPrerequisites" {
+					if n != 1 {
+						t.Errorf("preflight out of order: %d", n)
+					}
+					w.Header().Set("Content-Type", "application/json")
+					fmt.Fprint(w, `{"data":{"memory":{"source":"https://github.com/acme/kb","isEncrypted":false}}}`)
+					return
+				}
+				if n != 2 || request.OperationName != "SyncMemory" {
+					t.Errorf("mutation order: %d %s", n, request.OperationName)
+				}
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(tc.status)
 				fmt.Fprint(w, tc.body)
@@ -165,7 +182,7 @@ func TestMemorySyncPull60OneRequest(t *testing.T) {
 			root := NewRootCmd(f)
 			root.SetArgs([]string{"memory", "sync", "pull", "acme.com:kb", "--yes", "--server", srv.URL})
 			err := root.Execute()
-			if exitCodeFor(err) != tc.want || count.Load() != 1 {
+			if exitCodeFor(err) != tc.want || count.Load() != 2 {
 				t.Fatalf("err %v calls %d out %s", err, count.Load(), out)
 			}
 			if tc.want == 7 && !strings.Contains(err.Error(), "may have happened") {
@@ -198,7 +215,7 @@ func TestMemorySyncPull60JSONError(t *testing.T) {
 		want int
 	}{{"SYNC_FAILED", 1}, {"ENCRYPTED_GIT_SYNC_UNAVAILABLE", 2}, {"INTERNAL_SERVER_ERROR", 1}} {
 		t.Run(tc.code, func(t *testing.T) {
-			gql, _ := captureGraphQL(t, map[string]string{"SyncMemory": `{"errors":[{"message":"failed https://user:tok@host/repo","extensions":{"code":"` + tc.code + `","requestId":"req-sync-60"}}]}`})
+			gql, _ := captureSyncPull60(t, map[string]string{"SyncMemory": `{"errors":[{"message":"failed https://user:tok@host/repo","extensions":{"code":"` + tc.code + `","requestId":"req-sync-60"}}]}`})
 			f, out := testFactory(t)
 			root := NewRootCmd(f)
 			root.SetArgs([]string{"memory", "sync", "pull", "acme.com:kb", "--yes", "--json", "--server", gql.URL})
@@ -222,4 +239,16 @@ func TestMemorySyncPull60JSONError(t *testing.T) {
 			}
 		})
 	}
+}
+
+// A configured, unencrypted memory unless a test explicitly supplies another
+// preflight. This is separate from the mutation response: old stored metadata
+// can never substitute for a source prerequisite read.
+func captureSyncPull60(t *testing.T, responses map[string]string) (*httptest.Server, map[string]json.RawMessage) {
+	t.Helper()
+	all := map[string]string{"MemorySyncPrerequisites": `{"data":{"memory":{"source":"https://github.com/acme/kb","isEncrypted":false}}}`}
+	for k, v := range responses {
+		all[k] = v
+	}
+	return captureGraphQL(t, all)
 }
