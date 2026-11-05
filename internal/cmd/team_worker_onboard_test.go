@@ -371,3 +371,81 @@ func TestTeamWorkerOnboardComparesAndQueuesTheCanonicalFamily971(t *testing.T) {
 		})
 	}
 }
+
+// cli#1546: the three preflight refusals in runWorkerOnboard each get a test
+// that goes red when its guard is deleted. Every case asserts exit 2, the
+// exact message, no IssueHostOperation call and an untouched config, in both
+// dry-run and --apply.
+func TestTeamWorkerOnboardPreflightRefusals1546(t *testing.T) {
+	const (
+		heldRetired = "onboard requires an existing, held, non-retired worker; nothing queued"
+		otherApp    = "router config belongs to a different App; nothing queued"
+	)
+	cases := []struct {
+		name   string
+		mutate func(t *testing.T, r map[string]string, configPath string)
+		want   string
+	}{
+		{"not held", func(t *testing.T, r map[string]string, _ string) {
+			r["GetWorker"] = strings.Replace(r["GetWorker"], `"heldByUserId":"u-holger"`, `"heldByUserId":null`, 1)
+		}, heldRetired},
+		{"retired", func(t *testing.T, r map[string]string, _ string) {
+			r["GetWorker"] = strings.Replace(r["GetWorker"], `"retiredAt":null`, `"retiredAt":"2026-01-01T00:00:00Z"`, 1)
+		}, heldRetired},
+		{"different App", func(t *testing.T, r map[string]string, _ string) {
+			r["TeamAppIdentity"] = strings.ReplaceAll(teamAppIdentityJSON, "capp100000000000000000000", "capp200000000000000000000")
+		}, otherApp},
+		{"worker on another worktree", func(t *testing.T, _ map[string]string, configPath string) {
+			setOnboardRoster1546(t, configPath, "wkr1", filepath.Join(filepath.Dir(configPath), "elsewhere", "iris"))
+		}, "roster ownership conflict: worker already has a different roster worktree; nothing queued"},
+		{"worktree held by another worker", func(t *testing.T, _ map[string]string, configPath string) {
+			setOnboardRoster1546(t, configPath, "wkr-other", filepath.Join(filepath.Dir(configPath), "hadron-cli", "iris"))
+		}, "roster ownership conflict: worktree belongs to another roster worker; nothing queued"},
+	}
+	for _, tc := range cases {
+		for _, apply := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/apply=%v", tc.name, apply), func(t *testing.T) {
+				r, args, log, configPath := onboardFixture837(t, true)
+				tc.mutate(t, r, configPath)
+				before, _ := os.ReadFile(configPath)
+				if apply {
+					args = append(args, "--apply")
+				}
+				calls, _, err := runTeamTask(t, r, args...)
+				if err == nil || exitCodeFor(err) != exitcode.Usage || err.Error() != tc.want {
+					t.Fatalf("want exit 2 %q, got %v", tc.want, err)
+				}
+				for _, c := range *calls {
+					if c.Op == "IssueHostOperation" {
+						t.Fatal("queued despite the refusal")
+					}
+				}
+				after, _ := os.ReadFile(configPath)
+				if string(after) != string(before) {
+					t.Fatal("refusal changed the config file")
+				}
+				if got, _ := os.ReadFile(log); string(got) != "status --json\n" {
+					t.Fatalf("unexpected Orca calls %q", got)
+				}
+			})
+		}
+	}
+}
+
+// setOnboardRoster1546 writes one roster row into the router config.
+func setOnboardRoster1546(t *testing.T, path, worker, worktree string) {
+	t.Helper()
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var c map[string]any
+	if err := json.Unmarshal(raw, &c); err != nil {
+		t.Fatal(err)
+	}
+	c["roster"] = []any{map[string]any{"worker": worker, "name": "Someone", "worktree": worktree}}
+	out, _ := json.Marshal(c)
+	if err := os.WriteFile(path, out, 0o600); err != nil {
+		t.Fatal(err)
+	}
+}

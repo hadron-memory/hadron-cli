@@ -82,11 +82,11 @@ No local App context selects the target. Both states are sent explicitly,
 including enabled:false when disabling. The returned App's allowlist confirms
 the result; JSON is {appId,appUrn,agentRef,enabled}. No credential is requested.
 A lost reply is an unknown outcome; this command never retries the mutation.
-Current server limitation: its unmapped asset-setting refusals (non-admin or
-unknown/unreadable Agent) arrive as INTERNAL_SERVER_ERROR, exit 1 with a request
-ID, rather than typed permission/not-found codes. The CLI preserves that answer
-and does not infer permission or existence from the message. This server defect
-is tracked as hadron-server#2979.`, Example: "  hadron app asset-upload " + name + " hrn:agent:acme.com:bot --yes --json", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+Providers containing server#2979 (dadc314a) send typed permission/not-found
+refusals: PERMISSION_DENIED exits 8; missing or unreadable Agent is the same
+concealing NOT_FOUND, exit 4. Lookup outages stay INTERNAL_SERVER_ERROR,
+exit 1 with requestId. Older providers may conceal all three as internal errors;
+the CLI maps only the actual wire code, never message prose.`, Example: "  hadron app asset-upload " + name + " hrn:agent:acme.com:bot --yes --json", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 			ref := strings.TrimSpace(args[0])
 			if ref == "" {
 				return exitcode.Newf(exitcode.Usage, "pass an Agent ID or fully qualified URN")
@@ -100,8 +100,7 @@ is tracked as hadron-server#2979.`, Example: "  hadron app asset-upload " + name
 			}
 			r, err := gen.SetAgentAssetUploadEnabled(cmd.Context(), client, &gen.SetAgentAssetUploadEnabledInput{AgentUrn: ref, Enabled: enabled})
 			if err != nil {
-				// Preserve the actual wire code. The server currently conceals this
-				// operation's unmapped domain refusals as INTERNAL_SERVER_ERROR.
+				// Shared classification preserves the typed wire code; no scoped override.
 				return api.MapErrorKeepingCode(err)
 			}
 			if r == nil || r.SetAgentAssetUploadEnabled == nil {
