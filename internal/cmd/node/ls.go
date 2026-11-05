@@ -77,6 +77,7 @@ func newCmdLs(f *cmdutil.Factory) *cobra.Command {
 		prefix         string
 		childrenOf     string
 		nodeType       string
+		nodeTypes      []string
 		objectType     string
 		runnable       bool
 		tags           []string
@@ -205,6 +206,10 @@ Details:
 			}
 			if nodeType != "" {
 				filter.NodeType = &nodeType
+				filterSet = true
+			}
+			if cmd.Flags().Changed("types") {
+				filter.NodeTypes = &nodeTypes
 				filterSet = true
 			}
 			if objectType != "" {
@@ -438,6 +443,7 @@ Details:
 	cmd.Flags().StringVar(&prefix, "prefix", "", "filter by node loc prefix")
 	cmd.Flags().StringVar(&childrenOf, "children-of", "", "list only the direct children of this loc (grandchildren excluded); \"\" is the top level")
 	cmd.Flags().StringVar(&nodeType, "type", "", "filter by node type")
+	cmd.Flags().StringSliceVar(&nodeTypes, "types", nil, "filter by a union of node types (repeatable or comma-separated; exact values; server validates empty lists, --type conflicts, comment and the 20-entry cap)")
 	cmd.Flags().StringVar(&objectType, "object-type", "", "filter by objectType collection facet (e.g. competitor)")
 	cmd.Flags().BoolVar(&runnable, "runnable", false, "filter by runnable status (--runnable / --runnable=false); omit for all")
 	cmd.Flags().Lookup("runnable").NoOptDefVal = "true"

@@ -59828,7 +59828,7 @@ type NodeFilter struct {
 	// before duplicates are dropped), and a list containing "comment" (search comments with nodeType
 	// or contentScope). Exact total where the mode already has one; vector and hybrid keep total
 	// null and their bounded, widening candidate window. Applies to findNodes and appNodes.
-	NodeTypes []string `json:"nodeTypes,omitempty"`
+	NodeTypes gqltypes.NodeTypeList `json:"nodeTypes,omitempty"`
 	// #725 — collection facet: only nodes whose objectType equals this (e.g. "competitor").
 	ObjectType *string `json:"objectType,omitempty"`
 	// #1322 — role-family filter. 'spec' matches 'spec' and 'spec.*' on a dot boundary, never 'special' / 'specification'.
@@ -59874,7 +59874,7 @@ func (v *NodeFilter) GetMinted() *bool { return v.Minted }
 func (v *NodeFilter) GetNodeType() *string { return v.NodeType }
 
 // GetNodeTypes returns NodeFilter.NodeTypes, and is useful for accessing the field via an interface.
-func (v *NodeFilter) GetNodeTypes() []string { return v.NodeTypes }
+func (v *NodeFilter) GetNodeTypes() gqltypes.NodeTypeList { return v.NodeTypes }
 
 // GetObjectType returns NodeFilter.ObjectType, and is useful for accessing the field via an interface.
 func (v *NodeFilter) GetObjectType() *string { return v.ObjectType }
