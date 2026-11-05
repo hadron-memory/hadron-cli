@@ -2,6 +2,7 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 )
 
@@ -196,5 +197,28 @@ func TestCollectPagesPropagatesLaterPageError(t *testing.T) {
 	})
 	if !errors.Is(err, boom) || items != nil {
 		t.Fatalf("want nil items + boom, got %v %v", items, err)
+	}
+}
+
+func TestCollectHasMoreFullPage1547(t *testing.T) {
+	type row struct{ ID string }
+	items := make([]*row, 21)
+	for i := range items {
+		items[i] = &row{ID: fmt.Sprint(i)}
+	}
+	offsets := []int{}
+	got, err := CollectHasMore(func(offset int) ([]*row, int, bool, error) {
+		offsets = append(offsets, offset)
+		switch offset {
+		case 0:
+			return items[:20], 21, true, nil
+		case 20:
+			return items[20:], 21, false, nil
+		default:
+			return nil, 0, false, fmt.Errorf("unexpected offset%d", offset)
+		}
+	}, func(v *row) *string { return &v.ID })
+	if err != nil || len(got) != 21 || len(offsets) != 2 || offsets[0] != 0 || offsets[1] != 20 {
+		t.Fatalf("rows=%d offsets=%v error=%v", len(got), offsets, err)
 	}
 }

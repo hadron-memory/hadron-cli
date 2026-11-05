@@ -38,9 +38,13 @@ func TestAppReads1057(t *testing.T) {
 						mu.Unlock()
 						op, field, arg := "GetAppMetadata", "app", "ref"
 						if keys {
-							op, field, arg = "AppKeysMetadata", "appKeys", "appRef"
+							op, field, arg = "AppKeysMetadata", "appKeysPage", "appRef"
 						}
-						if req.OperationName != op || len(req.Variables) != 1 || req.Variables[arg] != appRead1057 {
+						wantVars := 1
+						if keys {
+							wantVars = 3
+						}
+						if req.OperationName != op || len(req.Variables) != wantVars || req.Variables[arg] != appRead1057 {
 							t.Errorf("unexpected lookup/write %+v", req)
 						}
 						assertApp1057Document(t, req.Query, keys)
@@ -53,6 +57,9 @@ func TestAppReads1057(t *testing.T) {
 							payload = fmt.Sprintf(`[{"id":"key-id","keyPreview":"hdr_...abcd","label":%s,"createdAt":"2026-01-01T00:00:00Z","lastUsedAt":%s,"revokedAt":%s,"rawKey":"raw-secret-sentinel","hostUses":["private-host-sentinel"]}]`, label, lastUsed, revoked)
 						}
 						w.Header().Set("Content-Type", "application/json")
+						if keys {
+							payload = `{"items":` + payload + `,"total":1,"hasMore":false}`
+						}
 						fmt.Fprintf(w, `{"data":{"%s":%s}}`, field, payload)
 					}))
 					defer srv.Close()
@@ -173,7 +180,7 @@ func TestAppReads1057(t *testing.T) {
 func TestAppReads1057EmptyAndMissing(t *testing.T) {
 	for _, jsonMode := range []bool{false, true} {
 		t.Run(fmt.Sprint(jsonMode), func(t *testing.T) {
-			gql := fakeGraphQL(t, map[string]string{"AppKeysMetadata": `{"data":{"appKeys":[]}}`, "GetAppMetadata": `{"data":{"app":null}}`})
+			gql := fakeGraphQL(t, map[string]string{"AppKeysMetadata": `{"data":{"appKeysPage":{"items":[],"total":0,"hasMore":false}}}`, "GetAppMetadata": `{"data":{"app":null}}`})
 			defer gql.Close()
 			f, out := testFactory(t)
 			root := NewRootCmd(f)
@@ -286,12 +293,16 @@ func TestAppReads1057CanonicalRefs(t *testing.T) {
 					if keys {
 						arg = "appRef"
 					}
-					if len(q.Variables) != 1 || q.Variables[arg] != want {
+					wantVars := 1
+					if keys {
+						wantVars = 3
+					}
+					if len(q.Variables) != wantVars || q.Variables[arg] != want {
 						t.Errorf("ref changed: %+v", q)
 					}
 					w.Header().Set("Content-Type", "application/json")
 					if keys {
-						fmt.Fprint(w, `{"data":{"appKeys":[]}}`)
+						fmt.Fprint(w, `{"data":{"appKeysPage":{"items":[],"total":0,"hasMore":false}}}`)
 					} else {
 						fmt.Fprintf(w, `{"data":{"app":{"id":"app-id","urn":%q,"name":"Support","appType":"CHATBOT","description":null}}}`, appRead1057)
 					}
@@ -312,7 +323,7 @@ func TestAppReads1057CanonicalRefs(t *testing.T) {
 	}
 }
 func TestAppReads1057InvalidRowNoPartialOutput(t *testing.T) {
-	gql := fakeGraphQL(t, map[string]string{"AppKeysMetadata": `{"data":{"appKeys":[{"id":"key-id","keyPreview":"hdr_...abcd","label":null,"createdAt":"2026-01-01T00:00:00Z","lastUsedAt":null,"revokedAt":null},null]}}`})
+	gql := fakeGraphQL(t, map[string]string{"AppKeysMetadata": `{"data":{"appKeysPage":{"items":[{"id":"key-id","keyPreview":"hdr_...abcd","label":null,"createdAt":"2026-01-01T00:00:00Z","lastUsedAt":null,"revokedAt":null},null],"total":0,"hasMore":false}}}`})
 	defer gql.Close()
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -335,16 +346,20 @@ func assertApp1057Document(t *testing.T, query string, keys bool) {
 	opName, field, arg := "GetAppMetadata", "app", "ref"
 	want := []string{"id", "urn", "name", "appType", "description"}
 	if keys {
-		opName, field, arg = "AppKeysMetadata", "appKeys", "appRef"
+		opName, field, arg = "AppKeysMetadata", "appKeysPage", "appRef"
 		want = []string{"id", "keyPreview", "label", "createdAt", "lastUsedAt", "revokedAt"}
 	}
+	count := 1
+	if keys {
+		count = 3
+	}
 	op := doc.Operations.ForName(opName)
-	if op == nil || op.Operation != ast.Query || len(doc.Operations) != 1 || len(op.SelectionSet) != 1 || len(op.VariableDefinitions) != 1 {
+	if op == nil || op.Operation != ast.Query || len(doc.Operations) != 1 || len(op.SelectionSet) != 1 || len(op.VariableDefinitions) != count {
 		t.Error("not one bounded query")
 		return
 	}
 	root, ok := op.SelectionSet[0].(*ast.Field)
-	if !ok || root.Name != field || (root.Alias != "" && root.Alias != field) || len(root.Arguments) != 1 {
+	if !ok || root.Name != field || (root.Alias != "" && root.Alias != field) || len(root.Arguments) != count {
 		t.Error("wrong root")
 		return
 	}
@@ -353,11 +368,28 @@ func assertApp1057Document(t *testing.T, query string, keys bool) {
 		t.Error("wrong argument")
 		return
 	}
-	if len(root.SelectionSet) != len(want) {
+	selections := root.SelectionSet
+	if keys {
+		if len(selections) != 3 {
+			t.Fatal("page projection changed")
+		}
+		for i, name := range []string{"hasMore", "total"} {
+			f, ok := selections[i].(*ast.Field)
+			if !ok || f.Name != name || len(f.SelectionSet) != 0 || len(f.Arguments) != 0 {
+				t.Fatal("wrong page envelope projection")
+			}
+		}
+		items, ok := selections[2].(*ast.Field)
+		if !ok || items.Name != "items" {
+			t.Fatal("no items projection")
+		}
+		selections = items.SelectionSet
+	}
+	if len(selections) != len(want) {
 		t.Errorf("expanded projection: %s", query)
 		return
 	}
-	for i, selection := range root.SelectionSet {
+	for i, selection := range selections {
 		f, ok := selection.(*ast.Field)
 		if !ok || f.Name != want[i] || (f.Alias != "" && f.Alias != want[i]) || len(f.SelectionSet) != 0 || len(f.Arguments) != 0 || len(f.Directives) != 0 {
 			t.Errorf("unexpected metadata projection %s", query)

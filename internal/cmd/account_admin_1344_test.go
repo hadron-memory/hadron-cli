@@ -190,7 +190,7 @@ func TestAuthTokenHide1344(t *testing.T) {
 }
 
 func TestAuthTokenListIncludeHidden1344(t *testing.T) {
-	resp := map[string]string{"MyUserApiKeys": `{"data":{"myUserApiKeys":[` + keyJSON1344(`"2026-03-01T00:00:00Z"`) + `]}}`}
+	resp := map[string]string{"MyUserApiKeys": `{"data":{"myUserApiKeysPage":{"items":[` + keyJSON1344(`"2026-03-01T00:00:00Z"`) + `],"total":0,"hasMore":false}}}`}
 
 	t.Run("default omits includeHidden", func(t *testing.T) {
 		r := exec1344(t, resp, "MyUserApiKeys", "auth", "token", "list", "--json")
